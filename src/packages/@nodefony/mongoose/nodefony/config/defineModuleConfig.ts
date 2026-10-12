@@ -1,6 +1,6 @@
-import { z } from "zod";
 import { resolveInfra, parseModuleConfig } from "nodefony";
 import { mongooseConfigSchema } from "./config";
+import { configJsonSchema } from "./configSchema";
 import type {
   IMongooseConfig,
   IMongooseConfigInput,
@@ -17,7 +17,9 @@ import type {
  *   elle appartient à `@nodefony/drizzle`) → `uri` du connecteur primaire
  *   (`nodefony`, sinon le premier). ⚠️ La place pour le secret de connexion
  *   (user:pass) — JAMAIS dans le dépôt.
- * - `NF_MONGODB_DEBUG` (1/true) → `debug`.
+ *
+ * `NF_MONGODB_DEBUG` ne se lit PAS ici : déclarée sur le champ `debug` dans
+ * `config.ts` (`.meta({ env })`), le Kernel la pose avant la validation.
  */
 function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
   const env = process.env;
@@ -34,9 +36,6 @@ function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
     if (connector !== undefined) {
       connector.uri = uri;
     }
-  }
-  if (env.NF_MONGODB_DEBUG === "1" || env.NF_MONGODB_DEBUG === "true") {
-    config.debug = true;
   }
   return config;
 }
@@ -89,5 +88,5 @@ export function buildMongooseConfig(config: unknown = {}): IMongooseConfig {
  * d'édition Studio (futur) et à la documentation générée.
  */
 export function mongooseConfigJsonSchema(): unknown {
-  return z.toJSONSchema(mongooseConfigSchema);
+  return configJsonSchema();
 }

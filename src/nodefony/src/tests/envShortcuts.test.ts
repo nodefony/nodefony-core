@@ -3,9 +3,15 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { BootConfigurationError } from "../kernel/BootConfigurationError";
+import Kernel from "../kernel/Kernel";
+import type Module from "../kernel/Module";
 import { assert } from "vitest";
 import { z } from "zod";
-import { applyEnvShortcuts, collectEnvShortcuts } from "../config/envShortcuts";
+import {
+  applyEnvShortcuts,
+  collectEnvShortcuts,
+  envShortcutsBehind,
+} from "../config/envShortcuts";
 
 /**
  * Les raccourcis d'environnement déclarés DANS le schéma d'un module
@@ -145,6 +151,55 @@ describe("raccourcis d'environnement déclarés dans le schéma", () => {
     assert.notProperty(byEnv, "NF_Y_SECTION");
   });
 
+  it("`.meta({ placement })` dit où poser la variable ; une valeur inconnue est ignorée", () => {
+    const real = z.toJSONSchema(
+      z.strictObject({
+        debug: z
+          .boolean()
+          .default(false)
+          .meta({ env: "NF_Y_DEBUG", placement: "workstation" }),
+        host: z
+          .string()
+          .optional()
+          .meta({ env: "NF_Y_HOST2", placement: "nulle-part" }),
+      }),
+    );
+    const found = collectEnvShortcuts(real);
+    assert.equal(
+      found.find((x) => x.env === "NF_Y_DEBUG")!.placement,
+      "workstation",
+    );
+    assert.notProperty(
+      found.find((x) => x.env === "NF_Y_HOST2")!,
+      "placement",
+    );
+  });
+
+  it("nomme la variable qui a posé un champ REFUSÉ — forme fichier comprise", () => {
+    // L'exploitant a écrit `NF_X_PORT`, jamais `globalOptions.socket.port` :
+    // le refus doit le ramener à ce qu'il a posé.
+    assert.deepEqual(
+      envShortcutsBehind(
+        schema,
+        [
+          ["globalOptions", "socket", "port"],
+          ["globalOptions", "password"],
+          ["mode"],
+        ],
+        { NF_X_PORT: "abc", NF_X_PASS_FILE: "/run/secrets/x" },
+      ),
+      ["NF_X_PORT", "NF_X_PASS_FILE"],
+    );
+    // Champ refusé mais réglé par le fichier de l'app : aucune variable à nommer.
+    assert.deepEqual(envShortcutsBehind(schema, [["mode"]], {}), []);
+    // Un chemin PARENT n'est pas le champ : `globalOptions` refusé en bloc ne
+    // désigne aucune variable en particulier.
+    assert.deepEqual(
+      envShortcutsBehind(schema, [["globalOptions"]], { NF_X_PORT: "1" }),
+      [],
+    );
+  });
+
   describe("secret monté en FICHIER (`<NOM>_FILE`)", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "nf-envshortcut-"));
     afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -187,5 +242,63 @@ describe("raccourcis d'environnement déclarés dans le schéma", () => {
         /NF_X_PASS_FILE/u,
       );
     });
+  });
+});
+
+describe("un refus de configuration NOMME la variable qui l'a provoqué", () => {
+  it("le Kernel complète le message de l'erreur avec le nom court posé", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "nf-envbehind-"));
+    const saved = process.env.NF_REDIS_PORT;
+    process.env.NF_REDIS_PORT = "abc";
+    try {
+      const kernel = new Kernel("development", null, {
+        log: { active: false },
+      });
+      kernel.path = tmp;
+      // Un module de forme minimale : seul son schéma compte ici.
+      // Un vrai nom court du framework sur le champ : la variable posée ici est
+      // celle qu'un exploitant pose, pas un nom inventé pour le banc.
+      const portSchema = {
+        type: "object",
+        properties: {
+          globalOptions: {
+            type: "object",
+            properties: {
+              socket: {
+                type: "object",
+                properties: {
+                  port: { type: "integer", env: "NF_REDIS_PORT" },
+                },
+              },
+            },
+          },
+        },
+      };
+      kernel.modules.fake = {
+        configSchema: () => portSchema,
+      } as unknown as Module;
+      // L'erreur telle que `parseModuleConfig` la lève : la cause zod porte les
+      // chemins refusés.
+      const error = new BootConfigurationError(
+        "[@x/fake] configuration invalide — globalOptions.socket.port : nombre attendu",
+        { cause: { issues: [{ path: ["globalOptions", "socket", "port"] }] } },
+      );
+      (
+        kernel as unknown as {
+          isBootErrorFatal(
+            e: unknown,
+            o: string | undefined,
+            c: boolean | undefined,
+            t: boolean,
+            p: "lifecycle" | "init",
+          ): boolean;
+        }
+      ).isBootErrorFatal(error, "fake", undefined, false, "lifecycle");
+      assert.match(error.message, /— valeur posée par NF_REDIS_PORT$/u);
+    } finally {
+      if (saved === undefined) delete process.env.NF_REDIS_PORT;
+      else process.env.NF_REDIS_PORT = saved;
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

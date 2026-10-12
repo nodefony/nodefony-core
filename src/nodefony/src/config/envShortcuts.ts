@@ -1,5 +1,9 @@
 import { BootConfigurationError } from "../kernel/BootConfigurationError";
-import { isSensitiveEnvVar, resolveFileEnv } from "./defineEnv";
+import {
+  isSensitiveEnvVar,
+  resolveFileEnv,
+  type EnvVarPlacement,
+} from "./defineEnv";
 import { flattenConfigSchema } from "./schemaCatalog";
 import { applyResolvedPath, coerceEnvValue } from "./envOverride";
 
@@ -38,6 +42,8 @@ export interface IEnvShortcut {
   values?: readonly string[];
   /** La valeur ne doit jamais être rendue en clair. */
   secret: boolean;
+  /** Où la poser en production, si le schéma le déclare (`.meta({ placement })`). */
+  placement?: EnvVarPlacement;
 }
 
 /**
@@ -67,7 +73,44 @@ export function collectEnvShortcuts(schema: unknown): IEnvShortcut[] {
       ...(leaf.default !== undefined ? { default: leaf.default } : {}),
       ...(leaf.values ? { values: leaf.values } : {}),
       secret: isSensitiveEnvVar({ name: leaf.env, sensitive: leaf.secret }),
+      ...(leaf.placement ? { placement: leaf.placement } : {}),
     });
+  }
+  return out;
+}
+
+/**
+ * Les variables d'environnement qui ont posé les champs qu'une validation
+ * vient de REFUSER — de quoi nommer la variable dans le message d'erreur.
+ *
+ * Sans elle, le refus nomme le champ (`backplane.secret`) que l'exploitant n'a
+ * jamais écrit : il a posé `NF_REALTIME_BACKPLANE_SECRET` dans son
+ * orchestrateur, et cherche le fichier fautif. Ne sert que sur le chemin
+ * d'ÉCHEC : rien n'est retenu au démarrage pour l'alimenter, la correspondance
+ * se refait depuis le schéma, qui déclare les noms courts.
+ *
+ * @param schema - le JSON Schema du module.
+ * @param paths - les chemins refusés (`issues[].path` de zod).
+ * @param env - l'environnement à lire (injecté).
+ * @returns les variables posées sur ces chemins (`<NOM>_FILE` si c'est la
+ *   forme montée en fichier qui a servi), dans l'ordre du schéma.
+ */
+export function envShortcutsBehind(
+  schema: unknown,
+  paths: readonly (readonly (string | number)[])[],
+  env: Record<string, string | undefined>,
+): string[] {
+  const out: string[] = [];
+  for (const s of collectEnvShortcuts(schema)) {
+    const refused = paths.some(
+      (p) =>
+        p.length === s.path.length &&
+        p.every((seg, i) => String(seg) === s.path[i]),
+    );
+    if (!refused) continue;
+    const file = `${s.env}_FILE`;
+    if (env[s.env]) out.push(s.env);
+    else if (env[file]) out.push(file);
   }
   return out;
 }

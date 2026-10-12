@@ -10,6 +10,7 @@ import {
   type NamedEnvVarMeta,
 } from "../config/defineEnv";
 import type { IEnvShortcut } from "../config/envShortcuts";
+import type { ModuleCondition } from "../kernel/checks/readiness";
 import {
   isReservedEnv,
   RESERVED_ENV,
@@ -97,6 +98,12 @@ export interface IEnvOverrideReport {
 export interface IModuleShortcut extends IEnvShortcut {
   /** Le module qui le déclare (`@nodefony/redis`). */
   module: string;
+  /**
+   * Ce qui borne le chargement du module dans le manifeste : `when` (une
+   * condition évaluée au démarrage), `dev` (`policy: "dev"`). Absent : chargé
+   * sans condition.
+   */
+  condition?: ModuleCondition;
 }
 
 /** Un réglage de module, tel que le rapport le restitue. */
@@ -108,6 +115,11 @@ export interface IModuleSettingReport {
   description?: string;
   default?: unknown;
   secret: boolean;
+  /**
+   * Module chargé SOUS CONDITION (cf {@link IModuleShortcut.condition}) : la
+   * variable n'a d'effet que si la condition est vraie au démarrage.
+   */
+  condition?: ModuleCondition;
   /** Valeur effective, masquée si `secret`. `null` = absente. */
   value: string | null;
   origin: string | null;
@@ -442,6 +454,7 @@ export function buildEnvReport(input: {
         // Le défaut d'un SECRET ne sort jamais en clair, pas même dans `--json`.
         ...(m.default !== undefined && !m.secret ? { default: m.default } : {}),
         secret: m.secret,
+        ...(m.condition ? { condition: m.condition } : {}),
         value: `fichier ${file}`,
         origin: originOf(`${m.env}_FILE`),
       };
@@ -454,6 +467,7 @@ export function buildEnvReport(input: {
       // Le défaut d'un SECRET ne sort jamais en clair, pas même dans `--json`.
       ...(m.default !== undefined && !m.secret ? { default: m.default } : {}),
       secret: m.secret,
+      ...(m.condition ? { condition: m.condition } : {}),
       value: present ? (m.secret ? mask(raw) : raw) : null,
       origin: present ? originOf(m.env) : null,
     };

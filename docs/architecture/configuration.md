@@ -78,6 +78,7 @@ service, jamais validé, absent en production.
 | **Provenance**       | L'origine d'une valeur résolue : défaut, projet, ou environnement. Affichée par Studio.                      |
 | **`runtimeMutable`** | Métadonnée de champ : sa valeur est relue à l'usage, donc modifiable sans redémarrer.                        |
 | **`env`**            | Métadonnée de champ : le NOM COURT qui le règle (`.meta({ env: "NF_REDIS_HOST" })`) — posé par le Kernel.    |
+| **`placement`**      | Métadonnée de champ, avec `env` : où poser la variable en production (`platform`, `secrets`, `workstation`). |
 | **12-factor**        | La discipline « la config vit dans l'environnement, le code est identique partout ».                         |
 
 ## Qu'est-ce qu'on appelle « la configuration »
@@ -570,7 +571,7 @@ Les points de passage, dans l'ordre du code :
    lisent l'environnement au boot, il doit donc déjà être là.
 2. **`Kernel.buildConfigContext()`** (`Kernel.ts:2209`) fabrique `ctx`. Le catalogue `env` exporté par
    l'app y est branché (`Kernel.ts:1219`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
-3. **`descriptor.resolve(ctx)`** (`Kernel.ts:4584`) enchaîne merge, overrides `NF__APP__*` et
+3. **`descriptor.resolve(ctx)`** (`Kernel.ts:4622`) enchaîne merge, overrides `NF__APP__*` et
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:106`)

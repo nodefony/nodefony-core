@@ -450,8 +450,9 @@ unique des défauts.
 | `repo.editPathPrefix` | `edit` \| `blob` \| `tree` | `"edit"` | segment GitHub : éditeur web, lecture, ou dossier |
 | `cache.ttlMs` | entier ≥ 0 | `30000` | fraîcheur de l'index ; `0` = rescan à chaque requête (`config.ts:120`) |
 
-Deux variables d'environnement écrasent la config, appliquées **après** le parse pour que le
-schéma reste pur et sérialisable (`defineDocumentationConfig()`, `defineModuleConfig.ts:33`) :
+Deux variables d'environnement écrasent la config. Chacune est déclarée sur son champ dans le
+schéma (`.meta({ env })`, `config.ts:97` et `:109`) ; le Kernel la pose **avant** la validation,
+qui la juge comme une valeur du fichier — le builder, lui, ne lit aucune variable :
 
 | Variable              | Écrase        | Quand c'est utile                                        |
 | --------------------- | ------------- | -------------------------------------------------------- |
@@ -604,16 +605,16 @@ Huit fichiers, tous **unitaires** : les briques pures se testent sans serveur, s
 sans conteneur — c'est précisément la raison de les avoir isolées. Les compteurs exacts vivent
 dans la carte de l'aperçu, régénérés depuis les résultats réels.
 
-| Banc                    | Ce qui est réellement exercé                                                                                     |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `frontmatter.test.ts`   | scalaires, guillemets, listes inline et en bloc, clé vide, commentaires, BOM, CRLF, ligne mal formée             |
-| `slug.test.ts`          | forme des slugs racine et module, et surtout les **refus** : vide, > 512, octet nul, `/`, `\`, `..`, `%`         |
-| `docScanner.test.ts`    | dossier absent → `[]`, filtre `.md`, segments exclus, tri, groupe, titre humanisé, tag de source                 |
-| `linkResolver.test.ts`  | lien plat, remontée profonde, module voisin, ancre préservée, cible non indexée, fences typées                   |
-| `search-parity.test.ts` | la recherche sérialisée pour le site public ne référence rien hors de son corps : même classement qu'au portail  |
-| `search-redos.test.ts`  | aucune expression de la recherche ne devient quadratique sur un corpus hostile                                   |
-| `corpusLinks.test.ts`   | le **corpus réel** du dépôt : liens morts, unicité des slugs, hubs atteignables                                  |
-| `configEnv.test.ts`     | surcharge de `repo.url` / `repo.branch` par `NF_DOCS_REPO_URL` / `NF_DOCS_REPO_BRANCH`, appliquée après le parse |
+| Banc                    | Ce qui est réellement exercé                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `frontmatter.test.ts`   | scalaires, guillemets, listes inline et en bloc, clé vide, commentaires, BOM, CRLF, ligne mal formée                  |
+| `slug.test.ts`          | forme des slugs racine et module, et surtout les **refus** : vide, > 512, octet nul, `/`, `\`, `..`, `%`              |
+| `docScanner.test.ts`    | dossier absent → `[]`, filtre `.md`, segments exclus, tri, groupe, titre humanisé, tag de source                      |
+| `linkResolver.test.ts`  | lien plat, remontée profonde, module voisin, ancre préservée, cible non indexée, fences typées                        |
+| `search-parity.test.ts` | la recherche sérialisée pour le site public ne référence rien hors de son corps : même classement qu'au portail       |
+| `search-redos.test.ts`  | aucune expression de la recherche ne devient quadratique sur un corpus hostile                                        |
+| `corpusLinks.test.ts`   | le **corpus réel** du dépôt : liens morts, unicité des slugs, hubs atteignables                                       |
+| `configEnv.test.ts`     | `NF_DOCS_REPO_URL` / `NF_DOCS_REPO_BRANCH` déclarées sur leur champ, posées puis validées, jamais lues par le builder |
 
 Le dernier mérite qu'on s'y arrête. Les autres travaillent sur un index fabriqué ; celui-là
 parcourt les vraies pages et attrape ce qu'aucun double ne peut voir : un `../` mal compté,

@@ -300,8 +300,9 @@ au démarrage contre le schéma du module (`documentationConfigSchema`,
 | `repo`    | le dépôt visé par le lien « Modifier » d'une page, et la forme du lien                | dépôt Nodefony · segment `edit` |
 | `cache`   | la durée de vie du catalogue ; `0` = rescan à chaque appel                            | `30000` ms                      |
 
-Deux réglages se surchargent par l'environnement, appliqués **après** la validation
-(`defineDocumentationConfig()`, `defineModuleConfig.ts:33`) : `NF_DOCS_REPO_URL` et `NF_DOCS_REPO_BRANCH`.
+Deux réglages se surchargent par l'environnement, `NF_DOCS_REPO_URL` et `NF_DOCS_REPO_BRANCH`,
+déclarés sur leur champ dans le schéma (`config.ts:97` et `:109`) et posés par le Kernel **avant**
+la validation.
 Le second sert en conteneur, où le dépôt git n'est pas embarqué — sans lui, la branche est lue au
 runtime dans le dépôt réel, et retombe sur `main` s'il n'y en a pas.
 

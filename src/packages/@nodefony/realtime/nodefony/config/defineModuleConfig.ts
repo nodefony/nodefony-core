@@ -1,5 +1,6 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { realtimeConfigSchema, type IRealtimeSchemaConfig } from "./config";
+import { configJsonSchema } from "./configSchema";
 import type { IBackplane } from "../interfaces/IBackplane";
 import { parseModuleConfig } from "nodefony";
 
@@ -21,11 +22,13 @@ import { parseModuleConfig } from "nodefony";
  *   faire dans un JSON Schema Studio). L'instance, si fournie, prend précédence
  *   sur `driver` côté service ; ce dernier reste source d'introspection/UI.
  *
- * **Layering d'environnement** (convention-frère avec `REDIS_*` de
- * `@nodefony/redis`) : `NF_REALTIME_DRIVER` surcharge le driver backplane
- * APRÈS le parse (schéma pur, déterministe). Indispensable en déploiement
- * (k8s/Docker : `NF_REALTIME_DRIVER=redis`) et fiable quel que soit le
- * timing du merge `module-realtime` côté app (cf chantier ordering config).
+ * **Variables d'environnement** : `NF_REALTIME_DRIVER`,
+ * `NF_REALTIME_BACKPLANE_SECRET` et `NF_REALTIME_BACKPLANE_NAMESPACE` ne se
+ * lisent PAS ici. Chacune est déclarée sur son champ dans `config.ts`
+ * (`.meta({ env })`) et posée par le Kernel AVANT la validation : le schéma
+ * les valide comme une valeur de l'application (un secret de moins de 32
+ * caractères arrête le démarrage). Un appel direct de ce builder, hors Kernel,
+ * ne les voit donc pas.
  *
  * @param config - configuration brute (sections omises = défauts sûrs).
  * @param options.backplane - instance `IBackplane` custom (override le driver à
@@ -59,25 +62,10 @@ export function buildRealtimeConfig(
     config,
     "@nodefony/realtime",
   );
-  // Env layering (après parse → schéma reste pur). Précédence max.
-  const driver = process.env.NF_REALTIME_DRIVER || parsed.backplane.driver;
-  // Secret de scellement : l'env est la voie NORMALE en déploiement (un secret
-  // n'a rien à faire dans un fichier de config versionné — k8s Secret / Docker).
-  const secret =
-    process.env.NF_REALTIME_BACKPLANE_SECRET || parsed.backplane.secret;
-  // Namespace : propriété de DÉPLOIEMENT au même titre que le driver — c'est
-  // lui qui sépare deux déploiements de la MÊME application (préproduction et
-  // production portent le même nom d'app, donc le même canal dérivé). Le figer
-  // dans un fichier versionné obligerait à livrer un code par environnement.
-  const namespace =
-    process.env.NF_REALTIME_BACKPLANE_NAMESPACE || parsed.backplane.namespace;
   const out: IRealtimeConfig = {
     ...parsed,
     backplane: {
       ...parsed.backplane,
-      driver,
-      secret,
-      namespace,
       instance: options.backplane,
     },
   };
@@ -109,7 +97,7 @@ export function isRealtimeConfig(value: unknown): value is IRealtimeConfig {
  * d'édition Studio (futur). N'inclut PAS `backplane.instance` (non sérialisable).
  */
 export function realtimeConfigJsonSchema(): unknown {
-  return z.toJSONSchema(realtimeConfigSchema);
+  return configJsonSchema();
 }
 
 /** Entrée du builder (champs avec défaut optionnels). */

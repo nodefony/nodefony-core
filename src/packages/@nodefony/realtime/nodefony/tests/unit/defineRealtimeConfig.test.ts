@@ -1,9 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import { applyEnvShortcuts, collectEnvShortcuts } from "nodefony";
 import {
   defineRealtimeConfig,
   realtimeConfigJsonSchema,
   type IRealtimeConfig,
 } from "../../config/defineModuleConfig.js";
+import { configJsonSchema } from "../../config/configSchema.js";
 import type {
   IBackplane,
   IBackplaneInfo,
@@ -94,44 +96,99 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       ).to.equal(ok);
     });
 
-    it("backplane.secret : `NF_REALTIME_BACKPLANE_SECRET` a la précédence (déploiement)", () => {
-      // Un secret n'a rien à faire dans un fichier de config versionné : l'env
-      // (k8s Secret / Docker) est la voie normale, comme NF_REALTIME_DRIVER.
-      const previous = process.env.NF_REALTIME_BACKPLANE_SECRET;
-      process.env.NF_REALTIME_BACKPLANE_SECRET = "env-" + "y".repeat(32);
-      try {
-        const cfg = defineRealtimeConfig({
-          backplane: { secret: "config-" + "z".repeat(32) },
-        });
-        expect(cfg.backplane.secret).to.equal("env-" + "y".repeat(32));
-      } finally {
-        if (previous === undefined)
-          delete process.env.NF_REALTIME_BACKPLANE_SECRET;
-        else process.env.NF_REALTIME_BACKPLANE_SECRET = previous;
-      }
-    });
-
-    it("backplane.namespace : `NF_REALTIME_BACKPLANE_NAMESPACE` a la précédence", () => {
-      // Le namespace sépare deux déploiements de la MÊME app (préprod/prod) :
-      // c'est un réglage d'environnement, pas une valeur à figer dans le code.
-      const previous = process.env.NF_REALTIME_BACKPLANE_NAMESPACE;
-      process.env.NF_REALTIME_BACKPLANE_NAMESPACE = "prod-eu";
-      try {
-        const cfg = defineRealtimeConfig({
-          backplane: { namespace: "depuis-le-fichier" },
-        });
-        expect(cfg.backplane.namespace).to.equal("prod-eu");
-      } finally {
-        if (previous === undefined)
-          delete process.env.NF_REALTIME_BACKPLANE_NAMESPACE;
-        else process.env.NF_REALTIME_BACKPLANE_NAMESPACE = previous;
-      }
-    });
-
     it("rejette un slowConsumer.bytes ≤ 0", () => {
       expect(() =>
         defineRealtimeConfig({ slowConsumer: { bytes: 0 } }),
       ).to.throw();
+    });
+  });
+
+  describe("noms courts d'environnement (ADR-0016)", () => {
+    const saved = { ...process.env };
+    afterEach(() => {
+      process.env = { ...saved };
+    });
+
+    /** Pose les variables comme le Kernel les pose, sur la config de l'app. */
+    function posees(
+      app: Record<string, unknown>,
+      env: Record<string, string>,
+    ): IRealtimeConfig {
+      applyEnvShortcuts(app, configJsonSchema(), env);
+      return defineRealtimeConfig(app);
+    }
+
+    it("sont DÉCLARÉS dans le schéma, sur le champ qu'ils règlent", () => {
+      const found = collectEnvShortcuts(configJsonSchema());
+      expect(
+        Object.fromEntries(found.map((s) => [s.env, s.path.join(".")])),
+      ).toEqual({
+        NF_REALTIME_DRIVER: "backplane.driver",
+        NF_REALTIME_BACKPLANE_NAMESPACE: "backplane.namespace",
+        NF_REALTIME_BACKPLANE_SECRET: "backplane.secret",
+      });
+      const secret = Object.fromEntries(found.map((s) => [s.env, s.secret]));
+      expect(secret.NF_REALTIME_BACKPLANE_SECRET).toBe(true);
+      expect(secret.NF_REALTIME_DRIVER).toBe(false);
+      expect(secret.NF_REALTIME_BACKPLANE_NAMESPACE).toBe(false);
+    });
+
+    it("l'emportent sur la config de l'application (déploiement)", () => {
+      // Un secret n'a rien à faire dans un fichier versionné, et le namespace
+      // sépare deux déploiements de la MÊME app : l'environnement gagne.
+      const cfg = posees(
+        {
+          backplane: {
+            driver: "loopback",
+            namespace: "depuis-le-fichier",
+            secret: "config-" + "z".repeat(32),
+          },
+        },
+        {
+          NF_REALTIME_DRIVER: "redis",
+          NF_REALTIME_BACKPLANE_NAMESPACE: "prod-eu",
+          NF_REALTIME_BACKPLANE_SECRET: "env-" + "y".repeat(32),
+        },
+      );
+      expect(cfg.backplane.driver).toBe("redis");
+      expect(cfg.backplane.namespace).toBe("prod-eu");
+      expect(cfg.backplane.secret).toBe("env-" + "y".repeat(32));
+    });
+
+    it("le builder ne les lit PLUS lui-même — le Kernel les pose", () => {
+      // Une seule lecture : la rétablir ici ferait échapper la valeur à la
+      // validation, comme avant.
+      process.env.NF_REALTIME_DRIVER = "redis";
+      process.env.NF_REALTIME_BACKPLANE_NAMESPACE = "prod-eu";
+      process.env.NF_REALTIME_BACKPLANE_SECRET = "env-" + "y".repeat(32);
+      const cfg = defineRealtimeConfig({});
+      expect(cfg.backplane.driver).toBe("loopback");
+      expect(cfg.backplane.namespace).toBeUndefined();
+      expect(cfg.backplane.secret).toBeUndefined();
+    });
+
+    it("un secret trop court arrête le démarrage — il passait par l'environnement", () => {
+      // Lu à la main après la validation, il échappait au minimum de 32
+      // caractères : le bus se scellait avec une clé que le schéma refuse.
+      expect(() =>
+        posees({}, { NF_REALTIME_BACKPLANE_SECRET: "court" }),
+      ).toThrow(expect.objectContaining({ name: "BootConfigurationError" }));
+    });
+
+    it("un namespace hors grammaire arrête le démarrage — il passait aussi", () => {
+      // Le `:` structure le nom du canal pub/sub (`nodefony:realtime:<ns>`).
+      expect(() =>
+        posees({}, { NF_REALTIME_BACKPLANE_NAMESPACE: "prod:eu" }),
+      ).toThrow(expect.objectContaining({ name: "BootConfigurationError" }));
+    });
+
+    it("le pilote reste LIBRE : un nom inconnu du registre passe la validation", () => {
+      // Registre ouvert aux pilotes tiers (`registerBackplaneDriver`) : le
+      // schéma ne connaît pas la liste. Un nom inconnu est signalé au
+      // branchement du backplane, pas ici.
+      expect(posees({}, { NF_REALTIME_DRIVER: "nats" }).backplane.driver).toBe(
+        "nats",
+      );
     });
   });
 

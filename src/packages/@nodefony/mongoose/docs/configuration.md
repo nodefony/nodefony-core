@@ -44,9 +44,9 @@ Une valeur de configuration traverse **six étapes** avant d'ouvrir une connexio
 flowchart TD
   D["1 · Défauts d'usine<br/>schéma Zod du module"] --> U["2 · Ta config d'app<br/>use('@nodefony/mongoose', …)"]
   U --> O["3 · Override d'un autre module<br/>clé module-mongoose"]
-  O --> E["4 · Env générique<br/>NF__MONGOOSE__…"]
+  O --> E["4 · Env<br/>NF_MONGODB_DEBUG · NF__MONGOOSE__…"]
   E --> Z["5 · Validation Zod<br/>types, bornes, défauts manquants"]
-  Z --> V["6 · Env du driver<br/>MONGODB_URI · NF_DATABASE_URL · NF_MONGODB_DEBUG"]
+  Z --> V["6 · Adresse de la base<br/>MONGODB_URI · NF_DATABASE_URL"]
   V --> F["Object.freeze<br/>config immuable"]
   F --> S["MongooseService<br/>1 connexion par connecteur"]
   S --> DB[("MongoDB")]
@@ -135,9 +135,10 @@ qui collisionnerait à l'import). Trois écarts réels, tous **assumés et véri
    **global au processus**, donc deux drivers avec le même nom de connecteur feraient collision sur
    leurs entités `session` homonymes. Un nom distinct règle le problème par construction
    (`FRAMEWORK_CONNECTOR` (`registerStores.ts:77`)).
-2. **Mongoose expose deux variables dédiées** (`MONGODB_URI`, `NF_MONGODB_DEBUG`) là où Drizzle ne lit
-   que l'infra déclarée. C'est un héritage de convention du driver Mongo, conservé parce qu'il est
-   universellement connu — mais l'infra déclarée reste le chemin recommandé.
+2. **Mongoose lit `MONGODB_URI`** là où Drizzle ne lit que l'infra déclarée. C'est un héritage de
+   convention du driver Mongo, conservé parce qu'il est universellement connu — mais l'infra
+   déclarée reste le chemin recommandé. `NF_MONGODB_DEBUG`, lui, est un nom court déclaré sur le
+   champ `debug` (`config.ts:110`), validé comme une valeur de l'application.
 3. **`options` n'est pas re-modélisé** (`options` (`config.ts:86`)) : c'est un dictionnaire libre
    passé tel quel à Mongoose. Re-décrire les dizaines de `ConnectOptions` en Zod produirait une
    deuxième vérité, condamnée à diverger de la bibliothèque à chaque version. Le prix à payer est
@@ -188,7 +189,7 @@ export default defineConfig((ctx) => ({
   modules: [
     use("@nodefony/mongoose", {
       // En développement seulement : trace chaque opération Mongoose.
-      // (`NF_MONGODB_DEBUG=1` fait la même chose sans toucher au fichier.)
+      // (`NF_MONGODB_DEBUG=true` fait la même chose sans toucher au fichier.)
       debug: ctx.isDev,
     }),
     "@nodefony/http",
@@ -373,14 +374,21 @@ Deux familles de variables agissent sur ce module, et elles n'ont **pas la même
 ### Celles que le driver lit lui-même
 
 Appliquées après la validation, dans une seule fonction
-(`applyEnvOverrides()` (`defineModuleConfig.ts:22`)). Elles gagnent donc sur tout le reste.
+(`applyEnvOverrides()` (`defineModuleConfig.ts:24`)). Elles gagnent donc sur tout le reste.
 
-| Variable           | Effet                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------- |
-| `MONGODB_URI`      | Remplace l'`uri` du connecteur primaire. **La place du secret de connexion.**                           |
-| `NF_DATABASE_URL`  | L'infra déclarée du framework. Même effet, **si et seulement si** le schéma est `mongodb`/`mongodb+srv` |
-| `DATABASE_URL`     | Alias de la précédente, pour les plateformes qui l'imposent (`resolveInfra()` (`infra.ts:134`))         |
-| `NF_MONGODB_DEBUG` | `1` ou `true` → `debug = true`. Toute autre valeur est sans effet                                       |
+| Variable          | Effet                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`     | Remplace l'`uri` du connecteur primaire. **La place du secret de connexion.**                           |
+| `NF_DATABASE_URL` | L'infra déclarée du framework. Même effet, **si et seulement si** le schéma est `mongodb`/`mongodb+srv` |
+| `DATABASE_URL`    | Alias de la précédente, pour les plateformes qui l'imposent (`resolveInfra()` (`infra.ts:134`))         |
+
+### Celle que le schéma déclare
+
+`NF_MONGODB_DEBUG` est déclarée sur le champ `debug` (`.meta({ env })`, `config.ts:110`) : le Kernel
+la pose **avant** la validation, qui la juge comme une valeur écrite dans le fichier.
+`true`/`1`/`yes`/`on` l'activent, `false`/`0`/`no`/`off` la coupent — y compris quand l'application
+l'a mise à `true`. Toute autre valeur **arrête le démarrage** en nommant la variable. C'est un réglage
+de diagnostic : il se pose sur le poste, jamais en production.
 
 Trois précisions qui évitent les mauvaises surprises :
 
@@ -440,9 +448,10 @@ De la plus faible à la plus forte priorité :
 2. **Ta config d'app** — `use("@nodefony/mongoose", { … })`, fusionnée en profondeur sous les défauts
    (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1794`)).
 3. **Un override venu d'un autre module** — la clé `module-mongoose` dans la config d'un module tiers.
-4. **`NF__MONGOOSE__…`** — l'override générique d'environnement.
+4. **`NF_MONGODB_DEBUG`, puis `NF__MONGOOSE__…`** — posées avant la validation ; viser le même
+   champ par les deux est refusé en production (en développement, `NF__…` l'emporte et le dit).
 5. **La validation Zod** — types, bornes, défauts des champs restés absents.
-6. **`MONGODB_URI` / infra / `NF_MONGODB_DEBUG`** — la couche du driver, appliquée après validation.
+6. **`MONGODB_URI` / infra** — l'adresse de la base, appliquée après validation.
 7. **Le gel** — la configuration devient immuable pour la durée de vie du processus.
 
 > [!NOTE]
@@ -667,7 +676,7 @@ coûteux à diagnostiquer qu'un serveur qui refuse de démarrer.
 
 Le cas courant : la config est parfaite, mais Mongo n'est pas joignable — conteneur pas encore prêt,
 réseau coupé, identifiants périmés. Le comportement **dépend de l'environnement**, arbitré par la
-politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3415`)) :
+politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3450`)) :
 
 | Environnement                         | Ce qui se passe                                                                                                    |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -732,7 +741,8 @@ jamais figés ici.
 
 - **Unitaires, sans aucune base** (`tests/unit/config.test.ts`) : les défauts du connecteur `nodefony`,
   la fusion d'un connecteur personnalisé avec les défauts manquants, le rejet d'un port hors bornes,
-  les deux variables du driver (`MONGODB_URI`, `NF_MONGODB_DEBUG`), le gel de la configuration retournée,
+  `MONGODB_URI` et l'infra, le nom court `NF_MONGODB_DEBUG` (déclaré, posé puis validé, valeur fausse
+  refusée), le gel de la configuration retournée,
   et la production du JSON Schema. C'est **la seule famille qui tourne sans serveur Mongo**.
 - **Intégration, sur un vrai `mongod`** (`tests/integration/MongooseService.test.ts` et les dix autres
   bancs) : l'assemblage d'URI, l'ouverture et la fermeture des connexions, puis tout le reste du

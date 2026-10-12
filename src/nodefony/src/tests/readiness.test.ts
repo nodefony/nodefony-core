@@ -16,7 +16,11 @@ import { assert } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { checkReadiness, declaredModules } from "../kernel/checks/readiness";
+import {
+  checkReadiness,
+  declaredModuleEntries,
+  declaredModules,
+} from "../kernel/checks/readiness";
 
 const kinds = (f: { kind: string }[]): string[] => f.map((x) => x.kind);
 
@@ -42,6 +46,59 @@ describe("manifeste — lecture textuelle des briques déclarées", () => {
   it("ignore un nom NON littéral au lieu de le deviner", () => {
     assert.deepEqual(declaredModules(`use(nomVariable), use("@a/b")`), [
       "@a/b",
+    ]);
+  });
+
+  it("relève aussi la chaîne NUE de la liste `modules`, à sa place", () => {
+    // `"@nodefony/documentation"` posé tel quel déclare la brique autant
+    // qu'un `use(…)` : ne lire que le second la rendait invisible — ses
+    // variables d'environnement passaient pour « lues par personne ».
+    const noms = declaredModules(`
+      import { use } from "nodefony";
+      const x = "@pas/un-module";
+      export default defineConfig({
+        modules: [
+          use("@nodefony/http", {}),
+          "@nodefony/documentation",
+          use("@nodefony/studio", f(ctx, ["@pas/non"])),
+        ],
+      });
+    `);
+    assert.deepEqual(noms, [
+      "@nodefony/http",
+      "@nodefony/documentation",
+      "@nodefony/studio",
+    ]);
+  });
+
+  it('dit ce qui BORNE le chargement : `when`, `policy: "dev"`, ou rien', () => {
+    const entries = declaredModuleEntries(`
+      modules: [
+        use("@nodefony/http", httpConfig(ctx), { policy: "mandatory" }),
+        use("@nodefony/redis", undefined, {
+          when: () => !!ctx.infra.cache,
+        }),
+        use("@nodefony/devkit", devkitConfig(ctx), { policy: "dev" }),
+        "@nodefony/documentation",
+      ],
+    `);
+    assert.deepEqual(entries, [
+      { name: "@nodefony/http", condition: null },
+      { name: "@nodefony/redis", condition: "when" },
+      { name: "@nodefony/devkit", condition: "dev" },
+      { name: "@nodefony/documentation", condition: null },
+    ]);
+  });
+
+  it("une brique déclarée deux fois n'est conditionnelle que si TOUTES ses déclarations le sont", () => {
+    const entries = declaredModuleEntries(`
+      use("@a/b", {}, { when: () => false }),
+      use("@a/b", {}),
+      use("@c/d", {}, { when: () => true }),
+    `);
+    assert.deepEqual(entries, [
+      { name: "@a/b", condition: null },
+      { name: "@c/d", condition: "when" },
     ]);
   });
 });

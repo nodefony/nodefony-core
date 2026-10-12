@@ -55,20 +55,7 @@ export function withoutComments(source: string): string {
     const c = source[i];
     const d = source[i + 1];
     if (c === '"' || c === "'" || c === "`") {
-      let j = i + 1;
-      while (j < n) {
-        const e = source[j];
-        if (e === "\\") {
-          j += 2;
-          continue;
-        }
-        if (e === c) {
-          j += 1;
-          break;
-        }
-        if (e === "\n" && c !== "`") break;
-        j += 1;
-      }
+      const j = stringLiteralEnd(source, i);
       out += source.slice(i, j);
       i = j;
       continue;
@@ -87,6 +74,82 @@ export function withoutComments(source: string): string {
     i += 1;
   }
   return out;
+}
+
+/**
+ * L'index qui SUIT une chaîne littérale ouverte à `start` (`"…"`, `'…'`,
+ * `` `…` ``), échappements compris.
+ *
+ * Une seule définition de « où finit une chaîne » pour tous les lecteurs
+ * textuels : le retrait des commentaires, et le comptage des crochets d'un
+ * bloc. Une chaîne non refermée s'arrête à la fin de la ligne (guillemets) ou
+ * du texte (gabarit) — un texte en cours d'écriture ne fait pas lire tout le
+ * reste du fichier comme une chaîne.
+ *
+ * @param source - le texte lu.
+ * @param start - l'index du guillemet ouvrant.
+ * @returns l'index du premier caractère après la chaîne.
+ */
+export function stringLiteralEnd(source: string, start: number): number {
+  const quote = source[start];
+  const n = source.length;
+  let j = start + 1;
+  while (j < n) {
+    const e = source[j];
+    if (e === "\\") {
+      j += 2;
+      continue;
+    }
+    if (e === quote) return j + 1;
+    if (e === "\n" && quote !== "`") return j;
+    j += 1;
+  }
+  return n;
+}
+
+/** Le crochet qui referme chacun de ceux qu'un bloc peut ouvrir. */
+const CLOSING_BRACKET: Readonly<Record<string, string>> = {
+  "{": "}",
+  "(": ")",
+  "[": "]",
+};
+
+/**
+ * Le contenu d'un bloc ÉQUILIBRÉ — accolades, parenthèses ou crochets — à
+ * partir de son ouvrant.
+ *
+ * Une expression régulière ne sait pas compter : un bloc `areas` contenant une
+ * zone qui contient ses authentificateurs se ferait couper au premier `}` venu,
+ * et la moitié des zones deviendrait invisible — un contrôle de surface qui ne
+ * voit qu'une partie de la surface est pire qu'aucun. Les CHAÎNES sont sautées
+ * ({@link stringLiteralEnd}) : un motif de route `"/x/{id}"` ou `"^/api(/|$)"`
+ * n'ouvre ni ne ferme rien.
+ *
+ * @param source - le texte à lire, commentaires déjà retirés.
+ * @param open - l'index du crochet ouvrant (`{`, `(` ou `[`).
+ * @returns le contenu entre les crochets, vide s'ils ne se referment pas ou si
+ *   `open` ne désigne pas un ouvrant.
+ */
+export function balancedBlock(source: string, open: number): string {
+  const opener = source[open];
+  const closer = opener === undefined ? undefined : CLOSING_BRACKET[opener];
+  if (closer === undefined) return "";
+  let depth = 0;
+  let i = open;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === '"' || c === "'" || c === "`") {
+      i = stringLiteralEnd(source, i);
+      continue;
+    }
+    if (c === opener) depth++;
+    else if (c === closer) {
+      depth--;
+      if (depth === 0) return source.slice(open + 1, i);
+    }
+    i++;
+  }
+  return "";
 }
 
 /**

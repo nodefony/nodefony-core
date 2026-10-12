@@ -27,10 +27,13 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { collectSources } from "./walk";
 import {
+  balancedBlock,
   readManifestSources,
   withoutComments,
   diskManifestReader,
 } from "./sourceText";
+
+export { balancedBlock };
 
 /** Ce qui rend une route ou une zone atteignable sans authentification. */
 export type OpeningKind =
@@ -215,31 +218,6 @@ export function coversEverything(pattern: string): boolean {
     return false;
   }
   return PROBE_PATHS.every((rawPath) => re.test(rawPath));
-}
-
-/**
- * Le contenu d'un bloc d'accolades ÉQUILIBRÉES à partir d'une position.
- *
- * Une expression régulière ne sait pas compter les accolades : un bloc `areas`
- * contenant une zone qui contient ses authentificateurs se ferait couper au
- * premier `}` venu, et la moitié des zones deviendrait invisible — un contrôle
- * de surface qui ne voit qu'une partie de la surface est pire qu'aucun.
- *
- * @param source - le texte à lire.
- * @param open - l'index de l'accolade ouvrante.
- * @returns le contenu entre les accolades, vide si elles ne se referment pas.
- */
-export function balancedBlock(source: string, open: number): string {
-  let depth = 0;
-  for (let i = open; i < source.length; i++) {
-    const c = source[i];
-    if (c === "{") depth++;
-    else if (c === "}") {
-      depth--;
-      if (depth === 0) return source.slice(open + 1, i);
-    }
-  }
-  return "";
 }
 
 /**

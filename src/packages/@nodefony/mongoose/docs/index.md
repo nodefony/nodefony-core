@@ -669,7 +669,7 @@ la connexion ne s'ouvre.
 | Audit        | `IAuditStore` (security)      | `audit: { store: "mongoose" }`                   | `audit_event`                                      |
 | Idempotence  | `IIdempotencyStore` (cœur)    | `idempotency: { store: "mongoose" }` (framework) | `idempotency_key`                                  |
 
-L'auto-enregistrement peut être coupé (`frameworkEntities: false` (`config.ts:102`)) : le module
+L'auto-enregistrement peut être coupé (`frameworkEntities: false` (`config.ts:120`)) : le module
 devient alors un pur driver de données, sans schéma framework.
 
 ### Sessions

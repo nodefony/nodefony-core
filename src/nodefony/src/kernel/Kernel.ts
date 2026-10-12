@@ -71,7 +71,7 @@ import {
 } from "../config/defineConfig";
 import { defaultAppConfig } from "../config/defaults";
 import { setRunServesTraffic } from "../config/defineEnv";
-import { applyEnvShortcuts } from "../config/envShortcuts";
+import { applyEnvShortcuts, envShortcutsBehind } from "../config/envShortcuts";
 import {
   parseNfEnvOverrides,
   applyResolvedPath,
@@ -3415,6 +3415,47 @@ class Kernel extends Service implements IKernel {
    * @param timedOut - `true` si l'échec est un dépassement de timeout.
    * @returns `true` si l'échec doit interrompre le boot.
    */
+  /**
+   * Ajoute au message d'une erreur de configuration la variable
+   * d'environnement qui a posé le champ refusé (`NF_REALTIME_BACKPLANE_SECRET`
+   * plutôt que le seul `backplane.secret`, que l'exploitant n'a jamais écrit).
+   *
+   * Chemin d'ÉCHEC seulement : les anomalies viennent de la cause zod que
+   * `parseModuleConfig` attache, le nom court du schéma du module.
+   *
+   * @param error - l'erreur de configuration, dont le message est complété.
+   * @param owner - le module qui l'a levée.
+   */
+  #nameEnvBehind(error: Error, owner: string): void {
+    const mod = this.modules[owner];
+    if (mod === undefined) return;
+    // Lecture STRUCTURELLE : la cause vient de la copie de zod du module.
+    const field = (o: unknown, key: string): unknown =>
+      typeof o === "object" && o !== null ? Reflect.get(o, key) : undefined;
+    const issues = field(error.cause, "issues");
+    if (!Array.isArray(issues)) return;
+    const paths: (string | number)[][] = [];
+    for (const issue of issues) {
+      const p = field(issue, "path");
+      if (Array.isArray(p)) {
+        paths.push(
+          p.filter(
+            (seg): seg is string | number =>
+              typeof seg === "string" || typeof seg === "number",
+          ),
+        );
+      }
+    }
+    const names = envShortcutsBehind(
+      this.bootSchemaOf(mod),
+      paths,
+      process.env,
+    );
+    if (names.length > 0) {
+      error.message += ` — valeur posée par ${names.join(", ")}`;
+    }
+  }
+
   private isBootErrorFatal(
     error: unknown,
     owner: string | undefined,
@@ -3459,6 +3500,9 @@ class Kernel extends Service implements IKernel {
     // développement. Vérifié au moment de la décision : dans les cinq modules
     // `critical = false` du dépôt, la seule source de `BootConfigurationError`
     // est la validation de config (`parseModuleConfig`).
+    if (configError && owner !== undefined && error instanceof Error) {
+      this.#nameEnvBehind(error, owner);
+    }
     const heldBy = this.#readinessHold();
     const fatal =
       configError ||

@@ -482,7 +482,11 @@ boutons, de l'extérieur :
 
 **Le nom court** (`NF_REDIS_HOST`) n'existe que si l'auteur du module l'a prévu. C'est un nom
 **stable et documenté** : l'auteur s'engage à ne pas le casser. C'est celui qu'on pose dans un
-`.env`, un Secret Kubernetes, les valeurs Helm, l'`environment:` d'un `compose.yaml`.
+`.env`, un Secret Kubernetes, les valeurs Helm, l'`environment:` d'un `compose.yaml`. Sa valeur est
+validée comme celle du fichier : fausse, elle **arrête le démarrage** en nommant la variable
+(`… — valeur posée par NF_REDIS_PORT`). `npx nodefony env` liste ceux des modules de l'application,
+et signale ceux d'un module chargé seulement sous condition (`when`) ou en développement : posée,
+la variable ne règle rien tant que le module n'est pas chargé.
 
 **La forme `NF__`** marche pour **n'importe quelle** clé de **n'importe quel** module, sans que
 personne ne la déclare : chaque `__` descend d'un niveau dans la configuration. C'est sa force, et
@@ -541,7 +545,7 @@ host: z.string().min(1).default("localhost")
 ```
 
 Rien d'autre à écrire : le démarrage applique la variable (`applyEnvShortcuts()`,
-`src/nodefony/src/config/envShortcuts.ts:103`), `nodefony env` la reconnaît et `.env.example` la
+`src/nodefony/src/config/envShortcuts.ts:146`), `nodefony env` la reconnaît et `.env.example` la
 décrit, avec la description et le défaut du schéma. `.meta()` se place **en dernier** dans la
 chaîne. Le nom suit la forme `NF_<MODULE>_<RÉGLAGE>`.
 

@@ -42,6 +42,8 @@ import {
   type PortPolicy,
 } from "../../service/dev/devProcess";
 import {
+  balancedBlock,
+  stringLiteralEnd,
   withoutComments,
   readManifestCode,
   diskManifestReader,
@@ -174,7 +176,62 @@ export interface ITrackedEnvProbe {
 }
 
 /**
- * Noms des briques déclarées dans le manifeste `modules` de `nodefony.config.ts`.
+ * Ce qui borne le chargement d'une brique déclarée : `when` (une condition
+ * évaluée au démarrage), `dev` (`policy: "dev"`, jamais en production).
+ */
+export type ModuleCondition = "when" | "dev";
+
+/** Une brique déclarée dans le manifeste, et ce qui borne son chargement. */
+export interface IDeclaredModule {
+  /** Nom du paquet (`@nodefony/redis`). */
+  name: string;
+  /** `null` : chargée sans condition. */
+  condition: ModuleCondition | null;
+}
+
+/**
+ * La condition que porte un appel `use(…)`, lue sur son texte.
+ *
+ * `when` l'emporte sur `policy: "dev"` : une condition qui peut être fausse
+ * en développement dit davantage qu'une restriction à ce mode.
+ */
+function callCondition(call: string): ModuleCondition | null {
+  if (/\bwhen\s*:/u.test(call)) return "when";
+  if (/\bpolicy\s*:\s*["'`]dev["'`]/u.test(call)) return "dev";
+  return null;
+}
+
+/**
+ * Les éléments de premier niveau d'une liste (contenu d'un `[…]`), avec leur
+ * position — les virgules imbriquées dans un appel ou un objet ne séparent
+ * rien, celles d'une chaîne non plus.
+ */
+function topLevelElements(body: string): { text: string; at: number }[] {
+  const out: { text: string; at: number }[] = [];
+  let depth = 0;
+  let from = 0;
+  let i = 0;
+  while (i < body.length) {
+    const c = body[i];
+    if (c === '"' || c === "'" || c === "`") {
+      i = stringLiteralEnd(body, i);
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "," && depth === 0) {
+      out.push({ text: body.slice(from, i), at: from });
+      from = i + 1;
+    }
+    i++;
+  }
+  out.push({ text: body.slice(from), at: from });
+  return out;
+}
+
+/**
+ * Les briques déclarées dans le manifeste `modules` de `nodefony.config.ts`,
+ * avec ce qui borne leur chargement.
  *
  * Lecture TEXTUELLE, et c'est un choix : le manifeste est du TypeScript, il ne
  * s'évalue pas sans construire l'application — or c'est précisément une
@@ -182,17 +239,63 @@ export interface ITrackedEnvProbe {
  * construits dynamiquement ; on y gagne de répondre quand rien d'autre ne
  * répond. Un nom non littéral est simplement ignoré, jamais deviné.
  *
+ * Deux formes déclarent une brique, et les deux sont lues : `use("…", …)`
+ * partout dans le fichier, et la chaîne NUE (`"@nodefony/documentation"`)
+ * posée telle quelle dans la liste `modules: [ … ]`. Ne lire que la première
+ * rendait invisible toute brique déclarée par son seul nom. Une condition
+ * (`when`, `policy: "dev"`) ne se lit que sur un `use(…)` — une chaîne nue
+ * n'en porte pas. La condition n'est jamais ÉVALUÉE : seul le démarrage le
+ * peut.
+ *
  * @param source - contenu de `nodefony.config.ts`.
- * @returns les noms passés à `use("…")`, dédoublonnés, dans l'ordre de lecture.
+ * @returns les briques dédoublonnées, dans l'ordre de lecture ; une brique
+ *   déclarée deux fois est conditionnelle seulement si TOUTES ses déclarations
+ *   le sont.
+ */
+export function declaredModuleEntries(source: string): IDeclaredModule[] {
+  const clean = withoutComments(source);
+  const found: { at: number; entry: IDeclaredModule }[] = [];
+  for (const m of clean.matchAll(/\buse\(\s*["'`]([^"'`]+)["'`]/gu)) {
+    const name = m[1];
+    if (name === undefined) continue;
+    const call = balancedBlock(clean, m.index + m[0].indexOf("("));
+    found.push({
+      at: m.index,
+      entry: { name, condition: callCondition(call) },
+    });
+  }
+  const list = /\bmodules\s*:\s*\[/u.exec(clean);
+  if (list !== null) {
+    const open = list.index + list[0].length - 1;
+    for (const el of topLevelElements(balancedBlock(clean, open))) {
+      const bare = /^\s*["'`]([^"'`]+)["'`]\s*$/u.exec(el.text)?.[1];
+      if (bare !== undefined) {
+        found.push({
+          at: open + 1 + el.at,
+          entry: { name: bare, condition: null },
+        });
+      }
+    }
+  }
+  found.sort((a, b) => a.at - b.at);
+  const byName = new Map<string, IDeclaredModule>();
+  for (const { entry } of found) {
+    const seen = byName.get(entry.name);
+    if (seen === undefined) byName.set(entry.name, { ...entry });
+    else if (entry.condition === null) seen.condition = null;
+  }
+  return [...byName.values()];
+}
+
+/**
+ * Noms des briques déclarées dans le manifeste `modules` de `nodefony.config.ts`
+ * — cf {@link declaredModuleEntries}, dont c'est la projection.
+ *
+ * @param source - contenu de `nodefony.config.ts`.
+ * @returns les noms déclarés, dédoublonnés, dans l'ordre de lecture.
  */
 export function declaredModules(source: string): string[] {
-  const names = new Set<string>();
-  for (const [, name] of withoutComments(source).matchAll(
-    /\buse\(\s*["'`]([^"'`]+)["'`]/gu,
-  )) {
-    if (name !== undefined) names.add(name);
-  }
-  return [...names];
+  return declaredModuleEntries(source).map((e) => e.name);
 }
 
 /**

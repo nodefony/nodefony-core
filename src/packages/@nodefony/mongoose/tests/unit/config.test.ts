@@ -4,6 +4,8 @@ import {
   mongooseConfigJsonSchema,
 } from "../../nodefony/config/defineModuleConfig";
 import MongooseService from "../../nodefony/service/MongooseService";
+import { configJsonSchema } from "../../nodefony/config/configSchema";
+import { applyEnvShortcuts, collectEnvShortcuts } from "nodefony";
 
 describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
   describe("défauts", () => {
@@ -131,11 +133,51 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
       }
     });
 
-    it("NF_MONGODB_DEBUG=1 → debug true", () => {
+    /** Pose les variables comme le Kernel les pose (ADR-0016), puis valide. */
+    const posees = (
+      app: Record<string, unknown>,
+      env: Record<string, string>,
+    ): ReturnType<typeof defineMongooseConfig> => {
+      applyEnvShortcuts(app, configJsonSchema(), env);
+      return defineMongooseConfig(app);
+    };
+
+    it("NF_MONGODB_DEBUG est DÉCLARÉ sur le champ `debug`", () => {
+      const found = collectEnvShortcuts(configJsonSchema());
+      assert.deepEqual(
+        found.map((s) => [s.env, s.path.join("."), s.secret, s.placement]),
+        // Un réglage de DIAGNOSTIC : il se pose sur le poste, pas en production.
+        [["NF_MONGODB_DEBUG", "debug", false, "workstation"]],
+      );
+    });
+
+    it("NF_MONGODB_DEBUG : 1/true/yes/on → true, 0/false/no/off → false, sur la config de l'app", () => {
+      for (const v of ["1", "true", "yes", "on"]) {
+        assert.equal(posees({}, { NF_MONGODB_DEBUG: v }).debug, true, v);
+      }
+      // `false` explicite l'emporte aussi sur l'application : avant, seule la
+      // valeur vraie était lue, et `0` ne coupait rien.
+      for (const v of ["0", "false", "no", "off"]) {
+        assert.equal(
+          posees({ debug: true }, { NF_MONGODB_DEBUG: v }).debug,
+          false,
+          v,
+        );
+      }
+    });
+
+    it("NF_MONGODB_DEBUG hors booléen arrête le démarrage — il était ignoré", () => {
+      assert.throws(
+        () => posees({}, { NF_MONGODB_DEBUG: "peut-être" }),
+        (e: unknown) => (e as Error).name === "BootConfigurationError",
+      );
+    });
+
+    it("le builder ne lit PLUS NF_MONGODB_DEBUG lui-même — le Kernel la pose", () => {
       const prev = process.env.NF_MONGODB_DEBUG;
       process.env.NF_MONGODB_DEBUG = "1";
       try {
-        assert.equal(defineMongooseConfig().debug, true);
+        assert.equal(defineMongooseConfig().debug, false);
       } finally {
         if (prev === undefined) delete process.env.NF_MONGODB_DEBUG;
         else process.env.NF_MONGODB_DEBUG = prev;

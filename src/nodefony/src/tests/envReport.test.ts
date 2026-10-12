@@ -279,6 +279,64 @@ describe("rapport d'environnement (nodefony env)", () => {
     assert.equal(report.settings[0]!.value, "fichier /run/secrets/redis");
   });
 
+  it("un module déclaré SOUS CONDITION ne présente pas ses réglages comme actifs", () => {
+    // `use("@nodefony/redis", …, { when })` : posée, la variable ne règle rien
+    // si la condition est fausse au démarrage — le rapport doit le dire.
+    const report = buildEnvReport({
+      runtimeEnv: "development",
+      processEnv: { NF_REDIS_HOST: "redis.internal", NF_REDIS_PORT: "6380" },
+      files: [],
+      catalog: [],
+      moduleSettings: [
+        {
+          env: "NF_REDIS_HOST",
+          path: ["globalOptions", "socket", "host"],
+          kind: "string",
+          secret: false,
+          module: "@nodefony/redis",
+          condition: "when",
+        },
+        {
+          env: "NF_REDIS_PORT",
+          path: ["globalOptions", "socket", "port"],
+          kind: "integer",
+          secret: false,
+          module: "@nodefony/redis",
+          condition: "when",
+        },
+        {
+          env: "NF_DEVKIT_X",
+          path: ["x"],
+          kind: "string",
+          secret: false,
+          module: "@nodefony/devkit",
+          condition: "dev",
+        },
+        {
+          env: "NF_DOCS_REPO_URL",
+          path: ["repo", "url"],
+          kind: "string",
+          secret: false,
+          module: "@nodefony/documentation",
+        },
+      ],
+    });
+    const by = (n: string) => report.settings.find((s) => s.name === n)!;
+    // Deux variables posées du même module conditionnel : la note n'est dite
+    // qu'une fois.
+    assert.equal(by("NF_REDIS_HOST").condition, "when");
+    assert.equal(by("NF_DEVKIT_X").condition, "dev");
+    assert.notProperty(by("NF_DOCS_REPO_URL"), "condition");
+    const text = renderEnvReport(report, { projectRoot: null, width: 160 });
+    assert.include(text, "@nodefony/redis · chargé sous condition");
+    assert.equal(
+      text.split("condition `when` du manifeste est fausse").length - 1,
+      1,
+    );
+    assert.include(text, "@nodefony/devkit · développement seulement");
+    assert.notInclude(text, "@nodefony/documentation · ");
+  });
+
   it("le rendu aligne ses colonnes et coupe une valeur trop longue", () => {
     const longUrl = `https://${"x".repeat(80)}.example/realms/app`;
     const report = buildEnvReport({

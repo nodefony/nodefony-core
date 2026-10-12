@@ -6,10 +6,21 @@ import { pathToFileURL } from "node:url";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { configInconsistencies } from "../kernel/checks/projectScope";
-import { declaredModules } from "../kernel/checks/readiness";
+import {
+  declaredModuleEntries,
+  type IDeclaredModule,
+} from "../kernel/checks/readiness";
+import {
+  diskManifestReader,
+  readManifestCode,
+} from "../kernel/checks/sourceText";
 import { envFileOrder } from "../runtime/loadEnv";
 import { renderEnvExample } from "../config/envExample";
-import { getEnvCatalog, type NamedEnvVarMeta } from "../config/defineEnv";
+import {
+  envVarPlacement,
+  getEnvCatalog,
+  type NamedEnvVarMeta,
+} from "../config/defineEnv";
 import { frameworkEnvCatalog } from "../config/reservedEnv";
 import { stripGlobalCliFlags } from "./globalFlags";
 import { collectEnvShortcuts } from "../config/envShortcuts";
@@ -275,7 +286,7 @@ export async function readModuleShortcuts(
 ): Promise<{ shortcuts: IModuleShortcut[]; unreadable: IUnreadableModule[] }> {
   const shortcuts: IModuleShortcut[] = [];
   const unreadable: IUnreadableModule[] = [];
-  for (const name of readManifestModules(projectRoot) ?? []) {
+  for (const { name, condition } of readManifestEntries(projectRoot) ?? []) {
     const dir = path.join(projectRoot, "node_modules", ...name.split("/"));
     const declared = declaredPackageEntry(dir, CONFIG_SCHEMA_FIELD);
     if (declared === null) continue;
@@ -311,7 +322,11 @@ export async function readModuleShortcuts(
       }
       const schema: unknown = Reflect.apply(producer, undefined, []);
       for (const s of collectEnvShortcuts(schema)) {
-        shortcuts.push({ ...s, module: name });
+        shortcuts.push(
+          condition === null
+            ? { ...s, module: name }
+            : { ...s, module: name, condition },
+        );
       }
     } catch (e) {
       unreadable.push({
@@ -497,7 +512,13 @@ export function composeEnvExample(
             : typeof m.default === "string"
               ? m.default
               : JSON.stringify(m.default),
-      placement: m.secret ? "secrets" : "platform",
+      // La règle de l'application (`envVarPlacement`) : le schéma décide,
+      // sinon un secret va au gestionnaire de secrets, le reste à la plateforme.
+      placement: envVarPlacement({
+        name: m.env,
+        sensitive: m.secret,
+        ...(m.placement ? { placement: m.placement } : {}),
+      }),
       sensitive: m.secret,
     }));
   return renderEnvExample([...catalog, ...framework, ...fromModules], {
@@ -506,22 +527,30 @@ export function composeEnvExample(
 }
 
 /**
- * Les modules que déclare le manifeste de l'application (`use("…")` de
- * `nodefony.config.ts`), lus sans l'évaluer — ou `null` s'il est illisible,
- * auquel cas la notice nomme les réglages de tous les modules plutôt que
- * d'en taire un.
+ * Les briques que déclare le manifeste de l'application — racine et
+ * fragments, `use("…")` et chaîne nue —, avec ce qui borne leur chargement,
+ * lues sans l'évaluer (cf {@link declaredModuleEntries}). `null` si le
+ * manifeste est illisible : la notice nomme alors les réglages de tous les
+ * modules plutôt que d'en taire un.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns les briques déclarées, ou `null`.
+ */
+export function readManifestEntries(
+  projectRoot: string,
+): IDeclaredModule[] | null {
+  const code = readManifestCode(projectRoot, diskManifestReader);
+  return code === "" ? null : declaredModuleEntries(code);
+}
+
+/**
+ * Les NOMS des briques déclarées — projection de {@link readManifestEntries}.
  *
  * @param projectRoot - racine de l'application.
  * @returns les noms déclarés, ou `null`.
  */
 export function readManifestModules(projectRoot: string): string[] | null {
-  try {
-    return declaredModules(
-      readFileSync(path.join(projectRoot, "nodefony.config.ts"), "utf8"),
-    );
-  } catch {
-    return null;
-  }
+  return readManifestEntries(projectRoot)?.map((e) => e.name) ?? null;
 }
 
 /**

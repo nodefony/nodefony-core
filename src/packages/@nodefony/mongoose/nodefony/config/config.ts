@@ -28,8 +28,9 @@ import { z } from "zod";
  *
  * SURCHARGE (précédence croissante — cf ADR-0006) :
  *   • App (typé)         : `use("@nodefony/mongoose", { debug: true, connectors: { … } })` ;
- *   • Par environnement  : `MONGODB_URI` · `NF_MONGODB_DEBUG` (appliqués dans
- *     `defineMongooseConfig`).
+ *   • Par environnement  : `MONGODB_URI` (appliquée dans `defineMongooseConfig`)
+ *     · `NF_MONGODB_DEBUG` (déclarée sur le champ, posée par le Kernel avant
+ *     la validation).
  *
  * ⚠️ NE PAS éditer les défauts matérialisés en bas de fichier : modifier les
  * `.default(...)` du schéma. La validation + le merge env finaux sont faits dans
@@ -103,8 +104,10 @@ export const mongooseConfigSchema = z
       .describe(
         "Active la trace Mongoose des requêtes (`mongoose.set('debug')`). " +
           "Défaut false. Mettre true en dev pour voir chaque opération. " +
-          "Surchargé par l'env `NF_MONGODB_DEBUG` (1/true). Reco prod : false.",
-      ),
+          "Surchargé par l'env `NF_MONGODB_DEBUG` (true/false, 1/0, yes/no, " +
+          "on/off). Reco prod : false.",
+      )
+      .meta({ env: "NF_MONGODB_DEBUG", placement: "workstation" }),
     connectors: z
       .record(z.string(), connectorSchema)
       .default(() => ({ nodefony: connectorSchema.parse({}) }))

@@ -255,36 +255,6 @@ export const RESERVED_ENV = Object.freeze({
       modules: ["@nodefony/drizzle", "@nodefony/mongoose"],
     },
   },
-  NF_REALTIME_DRIVER: {
-    name: "NF_REALTIME_DRIVER",
-    role: "pilote du backplane temps réel (mémoire, Redis…)",
-    tunable: {
-      title: "Pilote du backplane temps réel",
-      defaultNote: "backplane.driver de la configuration",
-      placement: "platform",
-      modules: ["@nodefony/realtime"],
-    },
-  },
-  NF_REALTIME_BACKPLANE_SECRET: {
-    name: "NF_REALTIME_BACKPLANE_SECRET",
-    role: "secret qui scelle les enveloppes du backplane temps réel",
-    tunable: {
-      title: "Secret du backplane temps réel",
-      defaultNote: "backplane.secret de la configuration",
-      placement: "secrets",
-      modules: ["@nodefony/realtime"],
-    },
-  },
-  NF_REALTIME_BACKPLANE_NAMESPACE: {
-    name: "NF_REALTIME_BACKPLANE_NAMESPACE",
-    role: "espace de noms du backplane — ce qui cloisonne deux applications sur un même bus",
-    tunable: {
-      title: "Espace de noms du backplane",
-      defaultNote: "backplane.namespace de la configuration",
-      placement: "platform",
-      modules: ["@nodefony/realtime"],
-    },
-  },
   NF_MIGRATE_DATABASE_URL: {
     name: "NF_MIGRATE_DATABASE_URL",
     role: "base visée par `orm:migrate`, quand le compte qui migre n'est pas celui qui sert",
@@ -294,36 +264,6 @@ export const RESERVED_ENV = Object.freeze({
       placement: "secrets",
       sensitive: true,
       modules: ["@nodefony/drizzle"],
-    },
-  },
-  NF_MONGODB_DEBUG: {
-    name: "NF_MONGODB_DEBUG",
-    role: "journalise chaque requête Mongoose (`1` ou `true`)",
-    tunable: {
-      title: "Journal des requêtes MongoDB",
-      defaultNote: "debug de la configuration",
-      placement: "workstation",
-      modules: ["@nodefony/mongoose"],
-    },
-  },
-  NF_DOCS_REPO_URL: {
-    name: "NF_DOCS_REPO_URL",
-    role: "dépôt vers lequel pointent les liens « voir la source » de la documentation",
-    tunable: {
-      title: "Dépôt de la documentation",
-      defaultNote: "repo.url de la configuration",
-      placement: "platform",
-      modules: ["@nodefony/documentation"],
-    },
-  },
-  NF_DOCS_REPO_BRANCH: {
-    name: "NF_DOCS_REPO_BRANCH",
-    role: "branche des liens « voir la source » de la documentation",
-    tunable: {
-      title: "Branche de la documentation",
-      defaultNote: "repo.branch de la configuration, sinon la branche courante",
-      placement: "platform",
-      modules: ["@nodefony/documentation"],
     },
   },
   NF_OUTPUT: {

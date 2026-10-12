@@ -56,8 +56,7 @@
 #   9. Framework : déploiement
 #        NF_ENV, NF_CLUSTER_PROBE, NF_POD_NAME, NF_INSTANCE_ID,
 #        NF_BOOT_TIMEOUT_MS, NF_BOOT_WARN_MS, NF_ORM_HEARTBEAT_MS,
-#        NF_REALTIME_DRIVER, NF_REALTIME_BACKPLANE_SECRET,
-#        NF_REALTIME_BACKPLANE_NAMESPACE, NF_MIGRATE_DATABASE_URL
+#        NF_MIGRATE_DATABASE_URL
 #   10. Framework : poste et diagnostic
 #        NF_CLI_DEBUG, NF_NO_UPDATE_CHECK, NF_DEV_UI, NF_DEV_MOUSE,
 #        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE,
@@ -568,38 +567,6 @@
 # @placement=platform
 # @default="30000 (0 le désactive)"
 # NF_ORM_HEARTBEAT_MS=
-
-
-# ─── Pilote du backplane temps réel ─────────────────────────────────────────
-#
-# Pilote du backplane temps réel (mémoire, Redis…).
-#
-# @optional
-# @placement=platform
-# @default="backplane.driver de la configuration"
-# NF_REALTIME_DRIVER=
-
-
-# ─── Secret du backplane temps réel ─────────────────────────────────────────
-#
-# Secret qui scelle les enveloppes du backplane temps réel.
-#
-# @optional
-# @sensitive
-# @placement=secrets
-# @default="backplane.secret de la configuration"
-# NF_REALTIME_BACKPLANE_SECRET=
-
-
-# ─── Espace de noms du backplane ────────────────────────────────────────────
-#
-# Espace de noms du backplane — ce qui cloisonne deux applications sur un même
-# bus.
-#
-# @optional
-# @placement=platform
-# @default="backplane.namespace de la configuration"
-# NF_REALTIME_BACKPLANE_NAMESPACE=
 
 
 # ─── Base des migrations ────────────────────────────────────────────────────

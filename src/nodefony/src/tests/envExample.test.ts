@@ -507,15 +507,55 @@ describe("#542 — où la poser, exigence sous condition, réglages du framework
 
   it("🔴 un réglage lu par un module ABSENT du manifeste n'est pas nommé", () => {
     const sans = composeEnvExample([], null, ["@nodefony/http"]);
-    assert.doesNotMatch(sans, /^# NF_REALTIME_DRIVER=/mu);
+    assert.doesNotMatch(sans, /^# NF_POD_NAME=/mu);
     assert.doesNotMatch(sans, /^# NF_ORM_HEARTBEAT_MS=/mu);
     assert.match(sans, /^# NF_BOOT_TIMEOUT_MS=/mu, "un réglage du cœur reste");
     const avec = composeEnvExample([], null, [
       "@nodefony/realtime",
       "@nodefony/mongoose",
     ]);
-    assert.match(avec, /^# NF_REALTIME_DRIVER=/mu);
+    assert.match(avec, /^# NF_POD_NAME=/mu);
     assert.match(avec, /^# NF_ORM_HEARTBEAT_MS=/mu);
+  });
+
+  it("🔴 un réglage de module va là où son schéma le PLACE, sinon par la règle commune", () => {
+    const bloc = (out: string, name: string): string =>
+      out.slice(
+        out.lastIndexOf("# ───", out.indexOf(`# ${name}=`)),
+        out.indexOf(`# ${name}=`),
+      );
+    const out = composeEnvExample(
+      [],
+      null,
+      ["@m/x"],
+      [
+        {
+          env: "NF_X_DEBUG",
+          path: ["debug"],
+          kind: "boolean",
+          secret: false,
+          placement: "workstation",
+          module: "@m/x",
+        },
+        {
+          env: "NF_X_SECRET",
+          path: ["secret"],
+          kind: "string",
+          secret: true,
+          module: "@m/x",
+        },
+        {
+          env: "NF_X_HOST",
+          path: ["host"],
+          kind: "string",
+          secret: false,
+          module: "@m/x",
+        },
+      ],
+    );
+    assert.match(bloc(out, "NF_X_DEBUG"), /^# @placement=workstation$/mu);
+    assert.match(bloc(out, "NF_X_SECRET"), /^# @placement=secrets$/mu);
+    assert.match(bloc(out, "NF_X_HOST"), /^# @placement=platform$/mu);
   });
 
   it("🔴 une variable que l'application déclare garde SA déclaration (pas de doublon)", () => {

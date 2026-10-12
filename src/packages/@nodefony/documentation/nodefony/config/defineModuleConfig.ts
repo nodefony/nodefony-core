@@ -6,57 +6,41 @@
  * la config (schéma + défauts), `define<X>Config()` la VALIDE au boot (parse +
  * env + freeze) et publie le JSON Schema Studio.
  *
- * Sépare la VALIDATION (schéma pur de `config.ts`) de l'APPLICATION des variables
- * d'environnement : le schéma reste déterministe (sérialisable en JSON Schema
- * pour Studio), et l'env est appliqué APRÈS le parse, ici.
+ * Ce builder ne lit AUCUNE variable d'environnement : `NF_DOCS_REPO_URL` et
+ * `NF_DOCS_REPO_BRANCH` sont déclarées sur leur champ dans `config.ts`
+ * (`.meta({ env })`) et posées par le Kernel AVANT la validation — le schéma
+ * les valide comme une valeur de l'application.
  *
  * @see ./config.ts — source de vérité (types dérivés via z.infer)
  */
-import { z } from "zod";
 import { documentationConfigSchema, type IDocumentationConfig } from "./config";
+import { configJsonSchema } from "./configSchema";
 import { parseModuleConfig } from "nodefony";
 
-/** Lit une variable d'env non vide, ou `undefined` si absente/vide. */
-function env(name: string): string | undefined {
-  const v = process.env[name];
-  return v && v.trim() !== "" ? v.trim() : undefined;
-}
-
 /**
- * Valide une config partielle (défauts du schéma) PUIS applique la surcharge par
- * variables d'environnement (précédence max).
+ * Valide une config partielle et applique les défauts du schéma.
  *
- * @param input - config partielle (depuis `module.options.documentation`)
- * @returns config validée, défauts appliqués, env mergé
- * @throws ZodError si l'input viole le schéma
+ * @param input - config partielle (depuis `module.options.documentation`),
+ *   noms courts d'environnement déjà posés par le Kernel
+ * @returns config validée, défauts appliqués
+ * @throws BootConfigurationError si l'input viole le schéma
  */
 export function defineDocumentationConfig(
   input: unknown = {},
 ): IDocumentationConfig {
-  const parsed = parseModuleConfig(
+  return parseModuleConfig(
     documentationConfigSchema,
     input ?? {},
     "@nodefony/documentation",
   );
-
-  // Surcharge ENV (précédence max) — appliquée APRÈS le parse pour garder le
-  // schéma pur et déterministe. Utile en CI/prod détaché de git.
-  const repoUrlEnv = env("NF_DOCS_REPO_URL");
-  if (repoUrlEnv) parsed.repo.url = repoUrlEnv;
-
-  const branchEnv = env("NF_DOCS_REPO_BRANCH");
-  if (branchEnv) parsed.repo.branch = branchEnv;
-
-  return parsed;
 }
 
 /**
  * JSON Schema introspectable de la config documentation — destiné au panneau de
- * config Studio (`/nodefony/config`). N'inclut PAS la surcharge ENV (appliquée
- * hors schéma, dans le builder).
+ * config Studio (`/nodefony/config`), noms courts d'environnement compris.
  */
 export function documentationConfigJsonSchema(): unknown {
-  return z.toJSONSchema(documentationConfigSchema);
+  return configJsonSchema();
 }
 
 export { documentationConfigSchema } from "./config";

@@ -13,7 +13,8 @@
       "audit",
       "webhooks",
       "idempotency"
-    ]
+    ],
+    "configSchema": "./dist/nodefony/config/configSchema.js"
   },
   "contributors": [],
   "main": "./dist/index.js",

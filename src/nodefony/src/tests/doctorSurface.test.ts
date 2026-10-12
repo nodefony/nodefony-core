@@ -61,6 +61,28 @@ describe("balancedBlock — compter les accolades, pas les deviner", () => {
   it("des accolades qui ne se referment pas ne lèvent pas", () => {
     assert.equal(balancedBlock("{ a: 1", 0), "");
   });
+
+  it("une CHAÎNE n'ouvre ni ne ferme rien — un motif de route `{id}` compris", () => {
+    // Sans saut des chaînes, le `}` du motif refermait la zone : sa fin
+    // (`security: false`) devenait invisible au contrôle de surface.
+    const source = `{ pattern: "^/api/x/{id}}", security: false }`;
+    assert.include(balancedBlock(source, 0), "security: false");
+  });
+
+  it("compte aussi les parenthèses et les crochets", () => {
+    const appel = `use("@a/b", cfg(ctx), { when: () => !!ctx.x }) + 1`;
+    assert.equal(
+      balancedBlock(appel, appel.indexOf("(")),
+      `"@a/b", cfg(ctx), { when: () => !!ctx.x }`,
+    );
+    const liste = `[use("a"), "b", [1, 2]] , "c"`;
+    assert.equal(balancedBlock(liste, 0), `use("a"), "b", [1, 2]`);
+  });
+
+  it("un index qui ne désigne pas un ouvrant rend vide", () => {
+    assert.equal(balancedBlock("abc", 1), "");
+    assert.equal(balancedBlock("abc", -1), "");
+  });
 });
 
 describe("publicAreas — les zones ouvertes du manifeste", () => {

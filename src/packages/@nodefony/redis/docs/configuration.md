@@ -400,7 +400,7 @@ Deux mécanismes, et un seul endroit chacun :
   (`defineModuleConfig.ts:23`), après la validation.
 - Les **quatre noms courts** sont DÉCLARÉS sur leur champ dans le schéma — `.meta({ env: "NF_REDIS_HOST" })`
   (`config.ts:90`). Le Kernel les pose avant la validation, par `applyEnvShortcuts()`
-  (`envShortcuts.ts:103`) ; le schéma les valide donc comme une valeur de l'application.
+  (`envShortcuts.ts:146`) ; le schéma les valide donc comme une valeur de l'application.
 
 | Variable                        | Ce qu'elle vise             | Comportement                                                                                          |
 | ------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- |

@@ -1,3 +1,5 @@
+import type { EnvVarPlacement } from "./defineEnv";
+
 /**
  * Aplatissement d'un JSON Schema de configuration en CATALOGUE de réglages.
  *
@@ -31,6 +33,11 @@
  * Les noms de champs sont ceux d'une surface d'API : ils sortent en JSON et
  * servent d'en-têtes de colonnes.
  */
+/** Vrai pour une des trois places qu'une variable peut occuper en production. */
+function isPlacement(value: unknown): value is EnvVarPlacement {
+  return value === "platform" || value === "secrets" || value === "workstation";
+}
+
 export interface ISchemaLeaf {
   /** Chemin pointé de la clé, tel qu'on l'écrit dans `use()`. */
   key: string;
@@ -48,6 +55,12 @@ export interface ISchemaLeaf {
    * absent quand le schéma ne dit rien (c'est alors le NOM qui décide).
    */
   secret?: boolean;
+  /**
+   * Où poser la variable en production (`.meta({ placement })`), quand le
+   * schéma le dit — sinon la règle de `envVarPlacement` décide (secret
+   * → `secrets`, sinon `platform`). Une valeur hors des trois est ignorée.
+   */
+  placement?: EnvVarPlacement;
   /**
    * Type déclaré. Une énumération est rendue par ses valeurs (`sha256|sha384`)
    * plutôt que par `string` : c'est la contrainte qui informe, pas le type.
@@ -176,6 +189,7 @@ function walk(
     ...(values && values.length > 0 ? { values } : {}),
     ...(typeof node.env === "string" ? { env: node.env } : {}),
     ...(typeof node.secret === "boolean" ? { secret: node.secret } : {}),
+    ...(isPlacement(node.placement) ? { placement: node.placement } : {}),
     type: typeOf(node),
     ...("default" in node ? { default: node.default } : {}),
     description: typeof description === "string" ? description : "",

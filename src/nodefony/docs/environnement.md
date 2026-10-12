@@ -307,7 +307,9 @@ liste des variables réservées du CŒUR (`config/reservedEnv.ts`) ; seuls ceux 
 manifeste apparaissent, et une variable que `env.ts` déclare garde sa propre déclaration.
 
 Suivent les **réglages des modules** : les noms courts que chaque module déclare sur un champ de
-son schéma (`.meta({ env: "NF_REDIS_HOST" })`), une section par module. Ils ne sont recopiés nulle
+son schéma (`.meta({ env: "NF_REDIS_HOST" })`), une section par module. Le schéma peut aussi dire
+où la variable se pose (`.meta({ env: "NF_MONGODB_DEBUG", placement: "workstation" })`) ; sinon
+la même règle que pour l'application s'applique. Ils ne sont recopiés nulle
 part : la notice les lit dans le schéma, que le module désigne dans son `package.json`
 (`"nodefony": { "configSchema": "./dist/…" }`). Une application neuve les reçoit après
 l'installation des paquets, `create app` relançant `nodefony env --example` à ce moment-là.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T09:40:43.548Z",
+  "generatedAt": "2026-10-12T10:00:40.172Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 112,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 38,
+      "open": 39,
       "title": "10.0.0-beta"
     },
     {
@@ -2644,6 +2644,22 @@
       "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.96,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 586,
+      "title": "feat(config): déclarer les noms courts d'environnement de tous les modules",
+      "url": "https://github.com/nodefony/nodefony-core/issues/586",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 3.96,
       "debut": null,

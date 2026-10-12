@@ -6,7 +6,11 @@ import {
   type IPalette,
   type SectionState,
 } from "../kernel/checks/report";
-import type { IEnvReport, IEnvVarReport } from "./envReport";
+import type {
+  IEnvReport,
+  IEnvVarReport,
+  IModuleSettingReport,
+} from "./envReport";
 
 /**
  * Rendu humain de `nodefony env` — la grammaire visuelle de `nodefony doctor` :
@@ -41,6 +45,26 @@ interface ILine {
   /** Ce qu'il faut savoir en plus, sous la ligne. */
   note?: string;
 }
+
+/**
+ * Le module d'un réglage, et ce qui borne son chargement : un module déclaré
+ * sous condition n'est peut-être PAS chargé, et ses réglages ne se présentent
+ * pas comme actifs.
+ */
+const moduleLabel = (s: IModuleSettingReport): string =>
+  s.condition === "when"
+    ? `${s.module} · chargé sous condition`
+    : s.condition === "dev"
+      ? `${s.module} · développement seulement`
+      : s.module;
+
+/** Ce qu'une variable POSÉE vaut quand son module est conditionnel. */
+const conditionNote = (s: IModuleSettingReport): string | undefined =>
+  s.condition === "when"
+    ? "sans effet si la condition `when` du manifeste est fausse au démarrage"
+    : s.condition === "dev"
+      ? 'sans effet en production : le module y est retiré (`policy: "dev"`)'
+      : undefined;
 
 /** Le nom lisible d'un niveau de la cascade. */
 const sourceLabel = (source: string | null): string =>
@@ -331,6 +355,7 @@ export function renderEnvReport(
 
   // ── Modules : ce que leurs schémas déclarent (`.meta({ env })`) ──────────
   if (report.settings.length > 0) {
+    const noted = new Set<string>();
     section(
       "MODULES",
       `réglages de leur schéma · ${settingsSet.length} posés sur ${report.settings.length}`,
@@ -338,18 +363,28 @@ export function renderEnvReport(
     out.push(
       ...renderLines(
         [
-          ...settingsSet.map((s): ILine => ({
-            state: "ok",
-            name: s.name,
-            value: s.value ?? "",
-            origin: `${sourceLabel(s.origin)} · ${s.module}`,
-          })),
+          ...settingsSet.map((s): ILine => {
+            // Une fois par module : la répéter sous chacune de ses variables
+            // noierait la liste sans rien dire de plus.
+            const note = noted.has(s.module) ? undefined : conditionNote(s);
+            const line: ILine = {
+              state: "ok",
+              name: s.name,
+              value: s.value ?? "",
+              origin: `${sourceLabel(s.origin)} · ${moduleLabel(s)}`,
+            };
+            if (note !== undefined) {
+              noted.add(s.module);
+              line.note = note;
+            }
+            return line;
+          }),
           ...settingsUnset.map((s): ILine => ({
             state: "non-controle",
             name: s.name,
             value:
               s.default !== undefined ? defaultText(s.default, s.secret) : "",
-            origin: s.module,
+            origin: moduleLabel(s),
             quiet: true,
           })),
         ],

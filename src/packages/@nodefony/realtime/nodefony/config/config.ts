@@ -55,7 +55,8 @@ const backplaneSchema = z
           "`loopback` (mono, hub local sans IPC), `cluster` (IPC workers " +
           "`nodefony cluster`, actif si NF_CLUSTER=1), `redis` (multi-host " +
           "pub/sub). Driver inconnu au boot → warn fail-soft, le hub reste local.",
-      ),
+      )
+      .meta({ env: "NF_REALTIME_DRIVER" }),
     namespace: z
       .string()
       .min(1)
@@ -71,7 +72,8 @@ const backplaneSchema = z
           "Redis. Caractères : alphanumériques, `_`, `.`, `-`. Env : " +
           "`NF_REALTIME_BACKPLANE_NAMESPACE` (prioritaire — le namespace " +
           "distingue des DÉPLOIEMENTS, il n'a pas à être figé dans le code).",
-      ),
+      )
+      .meta({ env: "NF_REALTIME_BACKPLANE_NAMESPACE" }),
     secret: z
       .string()
       .min(32)
@@ -88,7 +90,7 @@ const backplaneSchema = z
           "master↔workers : aucun tiers ne peut y écrire). Env : " +
           "`NF_REALTIME_BACKPLANE_SECRET`. Minimum 32 caractères.",
       )
-      .meta({ secret: true }),
+      .meta({ env: "NF_REALTIME_BACKPLANE_SECRET", secret: true }),
     maxQueueBytes: z
       .number()
       .int()

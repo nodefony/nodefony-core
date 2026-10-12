@@ -57,8 +57,8 @@ est validé puis **gelé** avant que le moindre canal existe.
 flowchart TD
   SCHEMA["Schéma Zod du module<br/>realtimeConfigSchema — les valeurs d'usine"]
   APP["Ton application<br/>use('@nodefony/realtime', { … }) dans nodefony.config.ts"]
-  ENVGEN["Déploiement<br/>NF__REALTIME__&lt;CHEMIN&gt;=valeur"]
-  BUILD["Builder<br/>defineRealtimeConfig() : parse Zod → NF_REALTIME_DRIVER → freeze"]
+  ENVGEN["Déploiement<br/>NF_REALTIME_DRIVER · NF__REALTIME__&lt;CHEMIN&gt;=valeur"]
+  BUILD["Builder<br/>defineRealtimeConfig() : parse Zod → freeze"]
   HUB["RealtimeHub<br/>garde d'origine · plafond de canaux · seuil de sonde"]
   BP["Driver de backplane<br/>résolu par nom dans le registre"]
   SCHEMA --> APP --> ENVGEN --> BUILD
@@ -131,10 +131,11 @@ explication en `.describe()`. Les défauts effectifs sont **dérivés** du sché
 d'usine serait écrite, donc pas de dérive silencieuse possible entre la doc du champ et son
 comportement.
 
-Le builder `defineRealtimeConfig()` (`defineModuleConfig.ts:35`) reste **pur** : il analyse l'entrée,
-applique les variables d'environnement dédiées (`NF_REALTIME_DRIVER`,
-`NF_REALTIME_BACKPLANE_NAMESPACE`, `NF_REALTIME_BACKPLANE_SECRET` — toutes prioritaires sur le
-fichier), et gèle le résultat. Il ne décide rien.
+Le builder `defineRealtimeConfig()` (`defineModuleConfig.ts:39`) reste **pur** : il analyse l'entrée
+et gèle le résultat. Il ne lit aucune variable d'environnement. Les trois variables du module
+(`NF_REALTIME_DRIVER`, `NF_REALTIME_BACKPLANE_NAMESPACE`, `NF_REALTIME_BACKPLANE_SECRET`) sont
+déclarées sur leur champ dans le schéma (`.meta({ env })`, `config.ts:59`, `:76`, `:93`) et posées
+par le Kernel **avant** l'analyse : le schéma les valide comme une valeur écrite dans le fichier.
 
 Le module **augmente le registre de types** (`index.ts:167`) : `use("@nodefony/realtime", { … })`
 propose ses clés en autocomplétion et **refuse** une clé inconnue à la compilation.
@@ -650,7 +651,7 @@ présente court-circuite la sélection par nom.
 > Le builder accepte aussi une instance en second argument (`defineRealtimeConfig(config, {
 backplane })`), et la documentation d'architecture présente cette voie. En pratique elle n'est pas
 > atteignable depuis `nodefony.config.ts` : le module appelle le builder avec la seule configuration
-> fusionnée (`src/packages/@nodefony/realtime/index.ts:216`), et le schéma Zod est strict : une clé
+> fusionnée (`src/packages/@nodefony/realtime/index.ts:223`), et le schéma Zod est strict : une clé
 > inconnue, dont une instance de classe posée dans `backplane`, fait échouer le boot. Pour brancher un objet déjà construit, utilise
 > le service `realtimeBackplane`.
 
@@ -665,7 +666,7 @@ processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fich
 
 | Variable                          | Portée                 | Effet                                                                      |
 | --------------------------------- | ---------------------- | -------------------------------------------------------------------------- |
-| `NF_REALTIME_DRIVER`              | ce module              | remplace `backplane.driver`. **Précédence maximale**                       |
+| `NF_REALTIME_DRIVER`              | ce module              | remplace `backplane.driver` — nom libre, un pilote inconnu est signalé     |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | ce module              | remplace `backplane.namespace` — sépare deux déploiements de la même app   |
 | `NF_REALTIME_BACKPLANE_SECRET`    | ce module              | remplace `backplane.secret` — scelle le transport partagé (≥ 32 car.)      |
 | `NF__REALTIME__<CHEMIN>`          | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
@@ -677,13 +678,15 @@ L'ordre de recouvrement, du plus faible au plus fort :
 
 1. **Les valeurs d'usine du schéma** — ce que tu obtiens sans rien écrire.
 2. **La configuration de l'application** — ton `use("@nodefony/realtime", { … })`.
-3. **`NF__REALTIME__<CHEMIN>`** — appliqué après la fusion et **avant** la validation Zod, donc la
-   valeur venue de l'environnement est validée comme les autres. Un chemin introuvable produit un
-   avertissement avec une suggestion, jamais une clé fantôme.
-4. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`** et
-   **`NF_REALTIME_BACKPLANE_SECRET`** — appliqués **après** l'analyse, dans le builder
-   (`defineModuleConfig.ts:67`). Ils gagnent sur tout le reste, y compris sur le mécanisme
-   générique `NF__REALTIME__BACKPLANE__…`.
+3. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`** et
+   **`NF_REALTIME_BACKPLANE_SECRET`** — posées par le Kernel après la fusion et **avant** la
+   validation Zod (`applyEnvShortcuts`, `Kernel.ts:1989`) : une valeur fausse **arrête le démarrage** en nommant la
+   variable (un secret de moins de 32 caractères, un espace de noms qui contient `:`). Chacune
+   accepte aussi sa forme `<NOM>_FILE` (secret monté par Docker ou Kubernetes).
+4. **`NF__REALTIME__<CHEMIN>`** — même moment, même validation. Un chemin introuvable produit un
+   avertissement avec une suggestion, jamais une clé fantôme. Viser le **même** champ qu'une des
+   trois variables ci-dessus est une ambiguïté : refusée en production, et en développement
+   `NF__…` l'emporte avec un avertissement qui nomme les deux.
 
 Le mécanisme générique mérite d'être connu : le double tiret bas sépare les niveaux, les segments
 sont insensibles à la casse, et les valeurs sont converties (booléens, nombres, listes séparées par
@@ -700,17 +703,19 @@ NF_CLUSTER_PROBE=0        # couper la sonde de pod sur une réplique en incident
 
 > [!TIP]
 > `NF_REALTIME_DRIVER` existe **en plus** du mécanisme générique parce qu'il est la variable qu'on
-> pose en premier sur un déploiement, et qu'elle doit rester fiable quel que soit le moment où la
-> configuration de l'application fusionne. C'est le levier d'urgence : ramener un cluster à
-> `loopback` pour isoler une panne de bus se fait par une variable, sans redéployer de code.
+> pose en premier sur un déploiement : son nom ne dépend pas de la structure interne de la
+> configuration. C'est le levier d'urgence : ramener un cluster à `loopback` pour isoler une panne
+> de bus se fait par une variable, sans redéployer de code. `npx nodefony env` la liste avec sa
+> valeur et sa provenance.
 
 ## 🧰 Le builder et le schéma exportable
 
 Deux fonctions publiques, utiles surtout aux tests et aux outils.
 
-`defineRealtimeConfig(config?, options?)` (`defineModuleConfig.ts:35`) analyse, applique la variable
-de driver et **gèle**. Le module l'appelle lui-même à l'enregistrement
-(`Realtime.onKernelRegister()`, `src/packages/@nodefony/realtime/index.ts:213`) : tu n'as pas à
+`defineRealtimeConfig(config?, options?)` (`defineModuleConfig.ts:39`) analyse et **gèle**. Appelé
+hors Kernel (un test, un outil), il ne voit pas les variables d'environnement : c'est le Kernel
+qui les pose. Le module l'appelle lui-même à l'enregistrement
+(`Realtime.onKernelRegister()`, `src/packages/@nodefony/realtime/index.ts:214`) : tu n'as pas à
 l'invoquer dans une application. En revanche, c'est l'outil qui permet de vérifier une configuration
 sans démarrer un serveur.
 
@@ -722,7 +727,7 @@ const cfg = defineRealtimeConfig({ backplane: { driver: "redis" } });
 // Une valeur invalide ou une clé inconnue lève une BootConfigurationError, avec le chemin exact du champ fautif.
 ```
 
-`realtimeConfigJsonSchema()` (`defineModuleConfig.ts:111`) produit le schéma JSON du module, chaque
+`realtimeConfigJsonSchema()` (`defineModuleConfig.ts:99`) produit le schéma JSON du module, chaque
 champ portant sa description. C'est ce que consomme la page module de Studio pour afficher la
 configuration attendue. L'instance de backplane éventuelle en est absente : une classe n'a rien à
 faire dans un schéma sérialisable.

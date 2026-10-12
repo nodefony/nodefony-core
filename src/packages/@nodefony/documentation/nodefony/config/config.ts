@@ -93,7 +93,8 @@ const repoSchema = z
         "URL de base du dépôt (sans slash final), pour construire le lien " +
           "« Modifier sur GitHub » d'une page. Surchargeable par l'env " +
           "`NF_DOCS_REPO_URL`. Aucun secret — URL publique uniquement.",
-      ),
+      )
+      .meta({ env: "NF_DOCS_REPO_URL" }),
     branch: z
       .string()
       .min(1)
@@ -104,7 +105,8 @@ const repoSchema = z
           "core (lecture `.git/HEAD`, 0 spawn) → le lien suit toujours la " +
           "branche courante. Surchargeable par l'env `NF_DOCS_REPO_BRANCH` " +
           "(utile en CI/prod détaché de git, ex. conteneur sans `.git`).",
-      ),
+      )
+      .meta({ env: "NF_DOCS_REPO_BRANCH" }),
     editPathPrefix: z
       .enum(["edit", "blob", "tree"])
       .default("edit")
