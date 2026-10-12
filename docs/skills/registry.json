@@ -3081,6 +3081,10 @@
                 "help": ""
               },
               {
+                "name": "NF_DEVKIT_BENCH_AGENT_ENV",
+                "help": ""
+              },
+              {
                 "name": "NF_DEVKIT_BENCH_MCP",
                 "help": ""
               },
@@ -3367,6 +3371,10 @@
                 "help": ""
               },
               {
+                "name": "NF_DEVKIT_BENCH_AGENT_ENV",
+                "help": ""
+              },
+              {
                 "name": "NF_DEVKIT_BENCH_MODEL",
                 "help": ""
               }
@@ -3499,6 +3507,10 @@
               },
               {
                 "name": "NF_DEVKIT_BENCH_AGENT_ARGS",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT_ENV",
                 "help": ""
               },
               {

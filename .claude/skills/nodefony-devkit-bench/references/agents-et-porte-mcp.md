@@ -83,6 +83,16 @@ donner la ligne entière pour un autre agent.
 | `gemini` | `--skip-trust -y -o stream-json --model gemini-3.1-flash-lite -p` (`-p` en DERNIER, modèle DANS les args) | vide — **surtout pas** `NF_DEVKIT_BENCH_MODEL` | portée PROJET (`.gemini/`) : rien à déporter |
 | ~~`agy` (Antigravity)~~ | **CLOS — pas une cible** (jeton en clair exigé, cf ci-dessous) | — | — |
 
+**Ce que l'agent reçoit de l'environnement du poste.** Le décor (`scripts/lib/env-decor.mjs`) écarte trois
+familles, et le banc les NOMME au montage (les noms, jamais les valeurs) : les `NF_*`, les noms à
+forme de secret (`*_API_KEY`, `*_TOKEN`, `*SECRET*`, `*PASSWORD*`…), et les marqueurs de la session
+qui LANCE le banc (`CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`, `AI_AGENT`… — sans ce retrait, un banc
+lancé depuis un agent faisait tourner l'agent mesuré en « session enfant », avec l'effort du
+lanceur). L'agent mesuré ne récupère que **ses** identifiants, d'après la table
+`IDENTIFIANTS_D_AGENT` (`gemini` → `GEMINI_API_KEY`, `GOOGLE_API_KEY`…) ; un agent hors table, ou
+une clé de plus, se déclare par `NF_DEVKIT_BENCH_AGENT_ENV="NOM1,NOM2"`. Un agent qui « ne répond
+pas » après ce filtre : regarder la ligne `identifiant(s) rendu(s)` avant de soupçonner un quota.
+
 ### 🛑 Antigravity CLI (`agy`) — CLOS : il ne sera pas une cible du banc
 
 **Décision prise, ne pas rouvrir le chantier.** L'authentifier exigerait d'écrire la **valeur** du

@@ -43,7 +43,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { garderDrapeaux } from "./lib/argv.mjs";
-import { envDecor } from "./lib/env-decor.mjs";
+import { envAgent, envDecor } from "./lib/env-decor.mjs";
 import {
   juger,
   mordSurLeDecor,
@@ -66,6 +66,7 @@ const USAGE = `Banc de première impression — ce qu'un agent conclut du dépô
 
   Décor :
   NF_DEVKIT_BENCH_AGENT   binaire de l'agent (défaut : claude)
+  NF_DEVKIT_BENCH_AGENT_ENV  clés rendues à l'agent en plus de sa table (« NOM1,NOM2 »)
   NF_DEVKIT_BENCH_MODEL   modèle (défaut : haiku — le banc mesure l'ACCUEIL,
                           pas l'intelligence de l'agent : un modèle fort devine
                           ce que l'accueil ne dit pas)
@@ -177,7 +178,11 @@ function interroger(decor) {
     {
       cwd: decor,
       encoding: "utf8",
-      env: envDecor(process.env),
+      // Le décor d'un utilisateur, plus la clé de CET agent — jamais tout le
+      // poste : donner `process.env` en couche à `envDecor` y remettait le shell
+      // entier, et annulait le filtre qu'il venait d'appliquer.
+      env: envAgent(envDecor(), AGENT, process.env.NF_DEVKIT_BENCH_AGENT_ENV)
+        .env,
       maxBuffer: 64 * 1024 * 1024,
     },
   );

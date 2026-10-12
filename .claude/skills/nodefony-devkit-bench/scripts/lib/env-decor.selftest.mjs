@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 const MODULE = !process.argv.includes("--module")
   ? "./env-decor.mjs"
   : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
-const { envDecor, nfEcartees } = await import(MODULE);
+const { autresEcartees, envAgent, envDecor, nfEcartees } = await import(MODULE);
 
 // Un poste RÉALISTE : les variables du harnais, un jeton MCP émis pour le
 // serveur du DÉPÔT, une variable Nodefony de l'utilisateur — et du bruit qui
@@ -43,6 +43,17 @@ const POSTE = {
   NF_DEVKIT_BENCH_MODEL: "",
   NF_DATABASE_URL: "postgres://poste-du-developpeur/db",
   NF_DEV_PORTS: "5151,5152",
+  // Les secrets du poste — deux fournisseurs, pour prouver que l'agent ne
+  // reçoit QUE le sien — et un réglage dont le nom ressemble sans en être un.
+  GEMINI_API_KEY: "cle-gemini-du-poste",
+  OPENAI_API_KEY: "cle-openai-du-poste",
+  PGPASSWORD: "mot-de-passe-du-poste",
+  CLAUDE_CODE_MAX_OUTPUT_TOKENS: "32000",
+  // Les marqueurs de la session d'agent qui LANCE le banc.
+  CLAUDECODE: "1",
+  CLAUDE_CODE_SESSION_ID: "session-du-lanceur",
+  CLAUDE_EFFORT: "low",
+  AI_AGENT: "claude-code",
 };
 
 const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
@@ -96,6 +107,82 @@ verifier(
   "les variables non-Nodefony sont INTACTES",
   `PATH=${env.PATH} HOME=${env.HOME}`,
 );
+verifier(
+  env.GEMINI_API_KEY === undefined &&
+    env.OPENAI_API_KEY === undefined &&
+    env.PGPASSWORD === undefined,
+  "aucun SECRET du poste n'entre dans le décor (clés d'API, mot de passe)",
+  ["GEMINI_API_KEY", "OPENAI_API_KEY", "PGPASSWORD"]
+    .filter((c) => env[c] !== undefined)
+    .join(","),
+);
+verifier(
+  env.CLAUDE_CODE_MAX_OUTPUT_TOKENS === "32000",
+  "un réglage en `_TOKENS` n'est pas pris pour un jeton (segment borné)",
+  `lu : ${env.CLAUDE_CODE_MAX_OUTPUT_TOKENS}`,
+);
+verifier(
+  ["CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_EFFORT", "AI_AGENT"].every(
+    (c) => env[c] === undefined,
+  ),
+  "les marqueurs de la session qui LANCE le banc n'entrent pas",
+  ["CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_EFFORT", "AI_AGENT"]
+    .filter((c) => env[c] !== undefined)
+    .join(","),
+);
+{
+  const g = envAgent(env, "/opt/bin/gemini");
+  verifier(
+    g.env.GEMINI_API_KEY === "cle-gemini-du-poste" &&
+      g.env.OPENAI_API_KEY === undefined &&
+      g.transmises.join(",") === "GEMINI_API_KEY",
+    "l'agent reçoit SA clé, et pas celle d'un autre fournisseur",
+    `transmises : ${g.transmises.join(",")} · OPENAI=${g.env.OPENAI_API_KEY}`,
+  );
+  verifier(
+    env.GEMINI_API_KEY === undefined,
+    "rendre sa clé à l'agent ne la remet pas dans le décor partagé",
+    `décor : ${env.GEMINI_API_KEY}`,
+  );
+  const x = envAgent(env, "mon-cli");
+  const d = envAgent(env, "mon-cli", " OPENAI_API_KEY , ABSENTE");
+  verifier(
+    x.transmises.length === 0 && d.transmises.join(",") === "OPENAI_API_KEY",
+    "agent hors table : rien d'office, ce que `NF_DEVKIT_BENCH_AGENT_ENV` nomme",
+    `d'office : ${x.transmises.join(",")} · déclaré : ${d.transmises.join(",")}`,
+  );
+}
+verifier(
+  autresEcartees().secret.join(",") ===
+    "GEMINI_API_KEY,OPENAI_API_KEY,PGPASSWORD" &&
+    autresEcartees().session.join(",") ===
+      "AI_AGENT,CLAUDECODE,CLAUDE_CODE_SESSION_ID,CLAUDE_EFFORT",
+  "secrets et marqueurs écartés sont NOMMÉS — les noms, jamais les valeurs",
+  JSON.stringify(autresEcartees()),
+);
+// Le défaut qu'on a trouvé en posant ces règles : un banc appelait
+// `envDecor(process.env)`, qui repasse le poste ENTIER en couche postérieure —
+// le filtre s'appliquait, puis s'annulait. Aucune règle sur le helper ne le
+// voit : c'est l'APPEL qui est faux. On le garde donc sur les sources.
+{
+  const ici = path.dirname(fileURLToPath(import.meta.url));
+  const fautifs = [
+    "bench-discoverability.mjs",
+    "bench-first-impression.mjs",
+    "bench-schema.mjs",
+    "verify-generated.mjs",
+    "verify-runtime.mjs",
+  ].filter((f) =>
+    /envDecor\(\s*process\.env\b/u.test(
+      readFileSync(path.join(ici, "..", f), "utf8"),
+    ),
+  );
+  verifier(
+    fautifs.length === 0,
+    "aucun banc ne repasse `process.env` en couche (le filtre s'annulerait)",
+    fautifs.join(","),
+  );
+}
 // Une couche postérieure GAGNE sur l'héritage. Deux cas, et le second seul est
 // discriminant : reposer une `NF_*` réussirait même avec les couches appliquées
 // en premier (le filtre a déjà vidé la place), alors qu'écraser une variable
@@ -151,14 +238,14 @@ if (process.argv.includes("--prove")) {
   const mutations = [
     {
       regle: "le filtre `NF_` retiré (l'ancien `{...process.env}`)",
-      de: '.filter(([cle]) => !cle.startsWith("NF_")),',
+      de: ".filter(([cle]) => raisonDEcart(cle) === null),",
       vers: ",",
     },
     {
       regle:
         "les couches appliquées AVANT l'héritage (le poste regagne son `HOME`)",
-      de: "return Object.assign(heriteSansNf, ...couches);",
-      vers: "return Object.assign({}, ...couches, heriteSansNf);",
+      de: "return Object.assign(herite, ...couches);",
+      vers: "return Object.assign({}, ...couches, herite);",
     },
     {
       // Le correctif PARTIEL qu'on aurait pu écrire à la place : ne chasser que
@@ -166,8 +253,30 @@ if (process.argv.includes("--prove")) {
       // laissé passer le `NF_MCP_TOKEN` et le `NF_DATABASE_URL` du poste —
       // c'est-à-dire gardé le banc dépendant du shell qui le lance.
       regle: "filtre trop ÉTROIT (`NF_DEVKIT_BENCH` seul, pas tout `NF_`)",
-      de: '!cle.startsWith("NF_")',
-      vers: '!cle.startsWith("NF_DEVKIT_BENCH")',
+      de: 'if (cle.startsWith("NF_")) return "nodefony";',
+      vers: 'if (cle.startsWith("NF_DEVKIT_BENCH")) return "nodefony";',
+    },
+    {
+      regle: "le filtre des SECRETS retiré (la clé d'API repart vers le décor)",
+      de: 'if (NOM_DE_SECRET.test(cle)) return "secret";',
+      vers: "",
+    },
+    {
+      regle: "les marqueurs de SESSION du lanceur laissés passer",
+      de: 'if (MARQUEURS_DE_SESSION.has(cle)) return "session";',
+      vers: "",
+    },
+    {
+      // Le motif non borné prend `MAX_OUTPUT_TOKENS` pour un jeton : un réglage
+      // de l'agent disparaîtrait du décor sans que rien ne le dise.
+      regle: "le segment `TOKEN` non borné (un réglage `_TOKENS` écarté)",
+      de: "(?:AUTH_?)?TOKEN|ACCESS_KEY|PRIVATE_KEY)(?:_|$)",
+      vers: "(?:AUTH_?)?TOKEN|ACCESS_KEY|PRIVATE_KEY)",
+    },
+    {
+      regle: "l'agent reçoit TOUS les secrets du poste, pas le sien seul",
+      de: "for (const cle of transmises) env[cle] = process.env[cle];",
+      vers: "Object.assign(env, process.env);",
     },
   ];
   let muets = 0;

@@ -160,7 +160,12 @@ import {
 } from "./lib/imputation.mjs";
 import { appPortUnderTest } from "./lib/http-probe.mjs";
 import { constaterPremisseIdentite } from "./lib/premisse-identite.mjs";
-import { envDecor, nfEcartees } from "./lib/env-decor.mjs";
+import {
+  autresEcartees,
+  envAgent,
+  envDecor,
+  nfEcartees,
+} from "./lib/env-decor.mjs";
 import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   cheminReference,
@@ -5867,6 +5872,31 @@ function finaliserDecor(app, runDir) {
         ecartees.join(", "),
     );
   }
+  // Les NOMS seulement — une sortie de banc se colle dans un ticket.
+  const autres = autresEcartees();
+  if (autres.secret.length > 0) {
+    console.log(
+      `  ✅ ${autres.secret.length} secret(s) du poste écarté(s) du décor : ` +
+        autres.secret.join(", "),
+    );
+  }
+  if (autres.session.length > 0) {
+    console.log(
+      `  ✅ ${autres.session.length} marqueur(s) de la session qui lance le banc ` +
+        `écarté(s) : ${autres.session.join(", ")}`,
+    );
+  }
+  const { transmises } = envAgent(
+    {},
+    AGENT,
+    process.env.NF_DEVKIT_BENCH_AGENT_ENV,
+  );
+  console.log(
+    transmises.length > 0
+      ? `  · identifiant(s) rendu(s) à l'agent « ${AGENT} » : ${transmises.join(", ")}`
+      : `  · aucun identifiant transmis à l'agent « ${AGENT} » (le sien vit hors de ` +
+          `l'environnement, ou NF_DEVKIT_BENCH_AGENT_ENV le nomme)`,
+  );
   if (!LINKED && !isolation.ok) {
     throw new Error(
       "décor NON isolé — le banc mesurerait un agent mieux servi que l'utilisateur réel",
@@ -6475,7 +6505,9 @@ function runTask(app, runDir, task) {
       // Les ports dédiés sont hérités par TOUT ce que l'agent lance — serveur
       // compris : c'est ce qui rend la tâche 5 mesurable sans dépendre de ce
       // qui tourne par ailleurs sur la machine.
-      env: envTache,
+      // Le décor, plus les identifiants de CET agent et rien d'autre : la clé
+      // d'un autre fournisseur n'a rien à faire dans son environnement.
+      env: envAgent(envTache, AGENT, process.env.NF_DEVKIT_BENCH_AGENT_ENV).env,
     },
   );
   const journal = lireJournalDeLAgent(AGENT, res, debutRunMs);
@@ -7854,7 +7886,7 @@ function main() {
     "  --link     décor lié au dépôt : boucle courte, verdict AMPUTÉ",
     "  --repack   refabrique les tarballs même s'ils paraissent à jour",
     "",
-    "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP\n                    NF_DEVKIT_BENCH_SOURCE  depot (défaut) | registre\n                    NF_DEVKIT_BENCH_CANAL   alpha | beta | latest | local | <version>\n                      (le canal ne vaut QUE pour la source registre)",
+    "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP\n                    NF_DEVKIT_BENCH_AGENT_ENV  clés rendues à l'agent en plus de sa table (« NOM1,NOM2 »)\n                    NF_DEVKIT_BENCH_SOURCE  depot (défaut) | registre\n                    NF_DEVKIT_BENCH_CANAL   alpha | beta | latest | local | <version>\n                      (le canal ne vaut QUE pour la source registre)",
     "Sorties : 0 rien à signaler · 1 des tâches ont échoué · 3 des tâches attendent 3 runs",
     "          64 usage · 78 refus (décor différent de la référence, ou dépistage sans run)",
   ].join("\n");

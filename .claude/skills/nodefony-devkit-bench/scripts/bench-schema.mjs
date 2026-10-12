@@ -101,7 +101,8 @@
  *
  * Variables : `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_MODEL` (défaut `haiku` — le
  * cas le plus défavorable est le seul qui prouve : un modèle fort compense les
- * trous de la grammaire en devinant juste).
+ * trous de la grammaire en devinant juste) · `NF_DEVKIT_BENCH_AGENT_ENV` (clés
+ * rendues à l'agent en plus de sa table, « NOM1,NOM2 »).
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { garderDrapeaux } from "./lib/argv.mjs";
@@ -126,7 +127,7 @@ import {
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
-import { envDecor } from "./lib/env-decor.mjs";
+import { envAgent, envDecor } from "./lib/env-decor.mjs";
 import { DatabaseSync } from "node:sqlite";
 
 /** Racine du dépôt, trouvée en REMONTANT — un skill se déplace, un `..` non. */
@@ -1146,7 +1147,12 @@ function runAgent(app, runDir, prompt) {
     const child = spawn(
       AGENT,
       [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), prompt],
-      { cwd: app, env: APP_ENV, stdio: ["ignore", "pipe", "pipe"] },
+      {
+        cwd: app,
+        env: envAgent(APP_ENV, AGENT, process.env.NF_DEVKIT_BENCH_AGENT_ENV)
+          .env,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
     );
     const kill = setTimeout(() => child.kill("SIGKILL"), 60 * 60 * 1000);
     let transcript = "";
