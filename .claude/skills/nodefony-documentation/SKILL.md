@@ -335,7 +335,13 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 > `export class X` ; `anchor-fix` lit donc d'abord le symbole **cité juste avant l'ancre** dans la
 > page. (2) Une définition « faible » (`  nom: Type,`) attrape un **paramètre**, pas une méthode →
 > les motifs forts (class/interface/function/const/type + méthode) l'emportent, le faible ne sert
-> qu'en dernier recours. Ce qui reste SUSPECT après la passe est en général un **littéral** cité
+> qu'en dernier recours. (3) **Plusieurs ancres sur une ligne** : chacune n'a pour contexte que
+> le texte qui la sépare de sa voisine, plus le `(Symbole)` qui la suit immédiatement. La forme
+> courte `` `:N` `` est une ancre à part entière : elle hérite du fichier de l'ancre longue qui la
+> précède sur la ligne, se contrôle et se recale comme elle. Sans parent sur la ligne, elle n'est
+> pas contrôlée, et le bilan le dit. Une nouvelle puce, un titre ou une rangée n'héritent jamais du
+> symbole de la ligne du dessus. Ces règles vivent une seule fois, dans `scripts/anchor-context.mjs`,
+> que lisent le juge ET le réparateur. Ce qui reste SUSPECT après la passe est en général un **littéral** cité
 > entre backticks (`unauthorized`, `limit`) : le gate ne peut pas le résoudre, ce n'est pas une
 > ancre fausse. **Relire le diff** — une passe automatisée sur du markdown déplace parfois plus que
 > prévu.

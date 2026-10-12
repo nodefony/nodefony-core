@@ -49,7 +49,7 @@ Les faits qui contraignent la solution, au code :
   superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts:2374`) peut lire le clavier.
 - `src/nodefony/src/service/dev/DevSupervisor.ts:1134` — `stdio: ["inherit", "inherit", "inherit",
 "ipc"]` : le serveur écrit directement dans le terminal.
-- `src/nodefony/src/service/dev/DevSupervisor.ts:971` (`#log`) et `:980` (`#startSpin`) — le
+- `src/nodefony/src/service/dev/DevSupervisor.ts:1095` (`#log`) et `:1104` (`#startSpin`) — le
   superviseur écrit lui aussi en direct, et anime son spinner de build par `\r`.
 - Un terminal ne fige rien dans son propre historique. Une zone de défilement (`DECSTBM`) a été
   essayée en #533 : historique vidé, Windows Terminal ne garde pas ce qui en sort, terminal cassé

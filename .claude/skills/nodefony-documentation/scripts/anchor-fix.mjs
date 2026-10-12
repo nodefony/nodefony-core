@@ -4,6 +4,12 @@
 // est trouvée pour les symboles cités — sinon on laisse et on le signale.
 import fs from "node:fs";
 import path from "node:path";
+import {
+  FOLLOWING_SYMBOL_RE,
+  SHORT_ANCHOR_RE,
+  anchorEnd,
+  continuesPreviousLine,
+} from "./anchor-context.mjs";
 
 const REPO = process.argv[2] ?? process.cwd();
 const APPLY = process.argv.includes("--apply");
@@ -92,8 +98,35 @@ function mdLinesOf(md) {
   return mdCache.get(md);
 }
 
-/** Une rangée de tableau Markdown. */
-const isTableRow = (line) => /^\s*\|/.test(line);
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * L'ancre `ref:N` exactement — ni `ref:N0`, ni `autre/ref:N`. Sans ces bornes,
+ * `progress.ts:14` mordait dans `progress.ts:140` voisine, au repérage comme
+ * au remplacement.
+ */
+const anchorRe = (anchor, flags = "") =>
+  new RegExp(`(?<![A-Za-z0-9_./@-])${escapeRe(anchor)}(?![0-9])`, flags);
+
+/**
+ * Où l'ancre `ref:N` s'écrit sur la ligne : en entier, ou sous sa forme
+ * COURTE `` `:N` `` (même fichier que l'ancre longue d'avant — anchor-check la
+ * rapporte résolue). Rend le texte exact à remplacer et sa forme recalée.
+ */
+function locate(line, ref, oldLine, newLine = oldLine) {
+  const full = `${ref}:${oldLine}`;
+  const hitFull = anchorRe(full).exec(line);
+  if (hitFull) {
+    return { index: hitFull.index, text: full, to: `${ref}:${newLine}` };
+  }
+  const short = `\`:${oldLine}\``;
+  const at = line.indexOf(short);
+  return at >= 0 ? { index: at, text: short, to: `\`:${newLine}\`` } : null;
+}
+
+/** Toutes les ancres d'une ligne, longues et courtes. */
+const ANY_ANCHOR_RE =
+  /[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx):\d+(?:-\d+)?/g;
 
 /** Nom nu d'un identifiant cité : `Hub.publish()` → `publish`. */
 function bareName(text) {
@@ -122,23 +155,37 @@ function bareName(text) {
 function citedSymbol(md, mdLine, ref, oldLine) {
   const lines = mdLinesOf(md);
   const cur = lines[mdLine - 1] ?? "";
-  const anchor = `${ref}:${oldLine}`;
-  const at = cur.indexOf(anchor);
+  const found = locate(cur, ref, oldLine);
+  const at = found ? found.index : -1;
   if (at >= 0) {
-    const following = /^`?\s*\(\s*`([^`]+)`\s*\)/.exec(
-      cur.slice(at + anchor.length),
+    const following = FOLLOWING_SYMBOL_RE.exec(
+      cur.slice(at + found.text.length),
     );
     const name = following ? bareName(following[1]) : null;
     if (name && name.length > 1) return name;
   }
-  const before = (at > 0 ? cur.slice(0, at) : "") || "";
-  const previous = lines[mdLine - 2] ?? "";
+  // Ce qui précède une ancre VOISINE (et son `(Symbole)`) est le contexte de
+  // celle-ci, pas du nôtre : on ne remonte que jusqu'à elle.
+  let start = 0;
+  if (at > 0) {
+    for (const m of [
+      ...cur.matchAll(ANY_ANCHOR_RE),
+      ...cur.matchAll(SHORT_ANCHOR_RE),
+    ]) {
+      const end = anchorEnd(cur, m.index + m[0].length);
+      if (end <= at) start = Math.max(start, end);
+    }
+  }
+  const before = at > 0 ? cur.slice(start, at) : "";
+  const previous = lines[mdLine - 2];
   const scope =
-    isTableRow(cur) || isTableRow(previous) ? before : `${previous} ${before}`;
+    start === 0 && continuesPreviousLine(previous, cur)
+      ? `${previous} ${before}`
+      : before;
   const ticks = [...scope.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
   for (let i = ticks.length - 1; i >= 0; i--) {
     const t = ticks[i];
-    if (t.includes(".ts:") || t.includes("/")) continue; // c'est une autre ancre
+    if (t.includes(".ts:") || t.includes("/") || /^:\d/.test(t)) continue; // une autre ancre
     const name = bareName(t);
     if (name && name.length > 1) return name;
   }
@@ -280,24 +327,46 @@ for (const j of jobs) {
   }
   if (best === j.oldLine) continue;
   if (!edits.has(j.md)) edits.set(j.md, []);
-  edits.get(j.md).push({
-    mdLine: j.mdLine,
-    from: `${j.ref}:${j.oldLine}`,
-    to: `${j.ref}:${best}`,
-  });
+  const where = locate(
+    mdLinesOf(j.md)[j.mdLine - 1] ?? "",
+    j.ref,
+    j.oldLine,
+    best,
+  );
+  if (where === null) {
+    skipped.push(
+      `${j.md}:${j.mdLine} — ancre "${j.ref}:${j.oldLine}" absente de la ligne`,
+    );
+    continue;
+  }
+  edits.get(j.md).push({ mdLine: j.mdLine, from: where.text, to: where.to });
 }
 
 let n = 0;
 for (const [md, list] of edits) {
   const lines = fs.readFileSync(md, "utf8").split("\n");
+  // Toutes les ancres d'une ligne se remplacent en UNE passe, sur la ligne
+  // d'origine : appliquées l'une après l'autre, 10 → 60 puis 60 → 100
+  // emportait aussi l'ancre que la première venait de poser.
+  const byLine = new Map();
   for (const e of list) {
-    const idx = e.mdLine - 1;
-    if (!lines[idx]?.includes(e.from)) {
-      skipped.push(`${md}:${e.mdLine} — motif "${e.from}" absent de la ligne`);
-      continue;
-    }
-    lines[idx] = lines[idx].split(e.from).join(e.to);
-    n++;
+    if (!byLine.has(e.mdLine)) byLine.set(e.mdLine, new Map());
+    byLine.get(e.mdLine).set(e.from, e.to);
+  }
+  for (const [mdLine, renames] of byLine) {
+    const idx = mdLine - 1;
+    const original = lines[idx] ?? "";
+    const alternation = [...renames.keys()]
+      .sort((a, b) => b.length - a.length)
+      .map((from) =>
+        from.startsWith("`") ? escapeRe(from) : anchorRe(from).source,
+      )
+      .join("|");
+    lines[idx] = original.replace(
+      new RegExp(alternation, "g"),
+      (hit) => renames.get(hit) ?? hit,
+    );
+    n += renames.size;
   }
   if (APPLY) fs.writeFileSync(md, lines.join("\n"));
 }

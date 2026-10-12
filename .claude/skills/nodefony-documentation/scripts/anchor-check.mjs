@@ -22,6 +22,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { resoudreCorpus } from "./corpus.mjs";
+import {
+  SHORT_ANCHOR_RE,
+  anchorEnd,
+  continuesPreviousLine,
+} from "./anchor-context.mjs";
 import { execSync } from "node:child_process";
 
 const REPO = execSync("git rev-parse --show-toplevel", {
@@ -156,6 +161,46 @@ const ANCHOR_RE =
   /`?([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx)):(\d+)(?:-(\d+))?`?/g;
 
 /**
+ * Les ancres d'une ligne, longues ET courtes, dans l'ordre.
+ *
+ * Une ancre courte `` `:N` `` reprend le fichier de l'ancre longue qui la
+ * précède (sur la ligne, ou sur celle du dessus qu'elle continue). Sans parent,
+ * elle ne désigne rien qu'on sache ouvrir : elle est laissée de côté. Son
+ * `label` est l'ancre RÉSOLUE (`f.ts:N`), que lit anchor-fix.
+ */
+function anchorsOfLine(line, mdLine, decalage) {
+  const full = [...mdLine.matchAll(ANCHOR_RE)];
+  const out = [];
+  for (const m of line.matchAll(ANCHOR_RE)) {
+    out.push({
+      raw: m[0],
+      ref: m[1],
+      startS: m[2],
+      endS: m[3],
+      index: m.index,
+      label: m[0].replaceAll("`", ""),
+    });
+  }
+  for (const m of line.matchAll(SHORT_ANCHOR_RE)) {
+    const parent = full.findLast((f) => f.index < decalage + m.index);
+    if (!parent) {
+      orphans++;
+      continue;
+    }
+    const [, startS, endS] = /:(\d+)(?:-(\d+))?/.exec(m[0]);
+    out.push({
+      raw: m[0],
+      ref: parent[1],
+      startS,
+      endS,
+      index: m.index,
+      label: `${parent[1]}:${startS}${endS ? `-${endS}` : ""}`,
+    });
+  }
+  return out.sort((x, y) => x.index - y.index);
+}
+
+/**
  * Noms des AUTRES fichiers cités par des ancres de la même ligne (sans
  * extension). Ils ne sont pas du contexte pour l'ancre courante : ils sont le
  * contexte de leur propre ancre.
@@ -218,15 +263,26 @@ function symboleProuve(segment, anchorRaw) {
 function segmentDeLAncre(mdLine, offset, longueur) {
   let debut = 0;
   let suivante = false;
-  for (const m of mdLine.matchAll(ANCHOR_RE)) {
-    const b = m.index + m[0].length;
+  // La forme COURTE `:N` (même fichier que l'ancre d'avant) est une ancre à
+  // part entière : l'ignorer ici donnait son symbole à l'ancre longue qui la
+  // précède — SUSPECT à tort, puis recalée dessus par anchor-fix.
+  for (const m of [
+    ...mdLine.matchAll(ANCHOR_RE),
+    ...mdLine.matchAll(SHORT_ANCHOR_RE),
+  ]) {
+    // Le `(Symbole)` qui suit une ancre est À ELLE : il ferme son segment, et
+    // n'ouvre pas celui de la suivante.
+    const b = anchorEnd(mdLine, m.index + m[0].length);
     if (b <= offset) debut = Math.max(debut, b);
     else if (m.index >= offset + longueur) suivante = true;
   }
   // Ce qui SUIT l'ancre n'est son contexte que si aucune autre ne vient après :
   // « la décision du firewall (`Context.ts:198`), le `requestId`
   // (`Context.ts:244`) » — `requestId` appartient à la seconde.
-  return mdLine.slice(debut, suivante ? offset + longueur : mdLine.length);
+  return mdLine.slice(
+    debut,
+    suivante ? anchorEnd(mdLine, offset + longueur) : mdLine.length,
+  );
 }
 
 /**
@@ -306,6 +362,9 @@ function lignesDeDeclaration(code, sym, { sansSignatures = false } = {}) {
 }
 
 let total = 0;
+// Ancres courtes `:N` sans ancre longue avant elles : le fichier n'est pas
+// résolu, donc rien n'est contrôlé — le DIRE, un saut muet se lit comme un vert.
+let orphans = 0;
 const problems = { FILE_NOT_FOUND: [], LINE_OUT: [], SUSPECT: [], INDECIS: [] };
 const fileCache = new Map();
 function linesOf(rel) {
@@ -350,12 +409,14 @@ for (const md of args) {
   mdLines.forEach((line, i) => {
     // Contexte = la ligne + la précédente : prettier wrappe les phrases, l'ancre
     // peut être séparée du symbole qu'elle prouve par un retour à la ligne.
-    // SAUF dans un tableau : chaque rangée est autonome — hériter de la rangée
-    // du dessus fabriquerait de faux symboles de contexte.
-    const isTableRow = line.trimStart().startsWith("|");
-    const mdLine = !isTableRow && i > 0 ? mdLines[i - 1] + " " + line : line;
-    for (const m of line.matchAll(ANCHOR_RE)) {
-      const [raw, ref, startS, endS] = m;
+    // SAUF quand la ligne ouvre un énoncé neuf (rangée, puce, titre) : hériter
+    // de celle du dessus fabriquerait de faux symboles de contexte.
+    const mdLine = continuesPreviousLine(mdLines[i - 1], line)
+      ? mdLines[i - 1] + " " + line
+      : line;
+    const decalage = mdLine.length - line.length;
+    for (const a of anchorsOfLine(line, mdLine, decalage)) {
+      const { raw, ref, startS, endS } = a;
       total++;
       const start = Number(startS);
       const end = endS ? Number(endS) : start;
@@ -363,13 +424,12 @@ for (const md of args) {
       if (!cands.length) {
         pageProblems.push({
           kind: "FILE_NOT_FOUND",
-          ref: raw.replaceAll("`", ""),
+          ref: a.label,
           line: i + 1,
         });
         continue;
       }
-      const decalage = mdLine.length - line.length;
-      const segment = segmentDeLAncre(mdLine, decalage + m.index, raw.length);
+      const segment = segmentDeLAncre(mdLine, decalage + a.index, raw.length);
       const tokens = contextTokens(
         segment,
         raw.replaceAll("`", ""),
@@ -463,7 +523,7 @@ for (const md of args) {
       if (best.kind !== "OK") {
         pageProblems.push({
           kind: best.kind,
-          ref: raw.replaceAll("`", ""),
+          ref: a.label,
           line: i + 1,
           detail:
             best.kind === "LINE_OUT"
@@ -506,6 +566,12 @@ if (ind) {
   console.log(
     `   (INDÉCIS = le gate ne sait pas quoi chercher — littéral, ou symbole que prouve l'ancre voisine.\n` +
       `    Ce n'est pas un défaut de la doc : ne pas « corriger » ces ancres sans les avoir lues.)`,
+  );
+}
+if (orphans) {
+  console.log(
+    `   (${orphans} ancre(s) courte(s) \`:N\` NON contrôlée(s) : aucune ancre longue avant elle sur la ligne,\n` +
+      `    donc aucun fichier à ouvrir. Écrire le chemin en entier pour qu'elle soit vérifiée.)`,
   );
 }
 if (su) {

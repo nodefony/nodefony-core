@@ -68,10 +68,35 @@ try {
   const md = path.join(root, "docs", "page.md");
   fs.writeFileSync(md, page.join("\n"));
 
-  const report = spawnSync(process.execPath, [CHECK, "docs/page.md"], {
-    cwd: root,
-    encoding: "utf8",
-  }).stdout;
+  // PLUSIEURS ancres sur une ligne — vécu sur le corps d'un ticket (232 → 744,
+  // une ancre juste recalée sur sa voisine). Trois façons de se tromper :
+  // remplacer en CHAÎNE (10 → 60 puis 60 → 100 emporte les deux), mordre dans
+  // une ancre qui commence pareil (`:14` dans `:140`), et prêter à une ancre le
+  // symbole de la PUCE du dessus.
+  const lignes = [
+    "# Plusieurs ancres par ligne",
+    "",
+    "Le socle `src/progress.ts:10` (`LiveLine`), le tourniquet `src/progress.ts:60` (`Spinner`).",
+    "",
+    "La barre `src/progress.ts:140` (`ProgressBar`) hérite du socle `src/progress.ts:14` (`LiveLine`).",
+    "",
+    "Le socle `src/progress.ts:60` (`LiveLine`), le tourniquet `:50` (`Spinner`).",
+    "",
+    "- `Spinner` est ailleurs.",
+    "- Le dessin `src/progress.ts:45` puis `renderBar` plus loin.",
+    "",
+  ];
+  const mdLignes = path.join(root, "docs", "lignes.md");
+  fs.writeFileSync(mdLignes, lignes.join("\n"));
+
+  const report = spawnSync(
+    process.execPath,
+    [CHECK, "docs/page.md", "docs/lignes.md"],
+    {
+      cwd: root,
+      encoding: "utf8",
+    },
+  ).stdout;
   const fix = spawnSync(process.execPath, [FIX, ".", "--apply"], {
     cwd: root,
     input: report,
@@ -109,6 +134,24 @@ try {
     "prose : symbole cité AVANT l'ancre, sur la ligne précédente",
     prose ? Number(prose[1]) : null,
     180,
+  );
+
+  const afterLignes = fs.readFileSync(mdLignes, "utf8").split("\n");
+  const anchorsOf = (row) =>
+    [...(afterLignes[row] ?? "").matchAll(/progress\.ts:(\d+)/g)]
+      .map((m) => m[1])
+      .join(",");
+  expect("deux recalages sur une ligne, sans chaîne", anchorsOf(2), "60,100");
+  expect("`:14` recalé sans mordre dans `:140`", anchorsOf(4), "140,60");
+  const shortOf = (row) =>
+    [...(afterLignes[row] ?? "").matchAll(/(?:progress\.ts|`):(\d+)/g)]
+      .map((m) => m[1])
+      .join(",");
+  expect("une ancre COURTE `:N` se recale aussi", shortOf(6), "60,100");
+  expect(
+    "le symbole de la puce du DESSUS ne recale pas l'ancre",
+    anchorsOf(9),
+    "20",
   );
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

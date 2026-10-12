@@ -93,6 +93,46 @@ try {
       [],
       "le symbole qui SUIT une ancre appartient à la suivante",
     ],
+    // Vécu (corps d'un ticket) : la FORME COURTE `:N` reprend le fichier de
+    // l'ancre précédente. Invisible au découpage, elle laissait le symbole
+    // qu'elle prouve juger l'ancre longue d'avant — SUSPECT, puis recalée
+    // dessus par anchor-fix (232 → 744, une ancre juste rendue fausse).
+    [
+      "la phrase citée (`deco.ts:9`) puis `applyX` (`:76`)",
+      [],
+      "le symbole d'une ancre COURTE `:N` ne juge pas l'ancre longue d'avant",
+    ],
+    // Le symbole entre parenthèses JUSTE APRÈS l'ancre est le sien, même quand
+    // une autre ancre suit : le couper la jugeait sans symbole, donc OK.
+    [
+      "le socle `deco.ts:9` (`applyX`), puis `deco.ts:30` (`Beta`)",
+      ["SUSPECT deco.ts:9"],
+      "le symbole `(…)` qui suit une ancre la juge, même suivie d'une autre",
+    ],
+    // L'ancre COURTE est une ancre : elle hérite du fichier de l'ancre longue
+    // qui la précède, et dérive comme elle. Jamais contrôlée, 67 l'étaient.
+    [
+      "`Alpha()` (`deco.ts:9`) et `applyX` (`:30`)",
+      ["SUSPECT deco.ts:30"],
+      "une ancre COURTE `:N` qui a dérivé se voit",
+    ],
+    [
+      "`Alpha()` (`deco.ts:9`) et `applyX` (`:76`)",
+      [],
+      "une ancre COURTE `:N` juste se tait",
+    ],
+    [
+      "> Le hub diffuse par `applyX()`\n> (`deco.ts:9`) sur chaque canal.",
+      ["SUSPECT deco.ts:9"],
+      "une citation coupée par prettier reste UNE phrase : sa dérive se voit",
+    ],
+    // Même famille : un NOUVEL item de liste n'est pas la suite de la ligne du
+    // dessus — prettier ne coupe pas entre deux puces.
+    [
+      "- `applyX` vit ailleurs.\n- La commande nue : `deco.ts:9`",
+      [],
+      "le symbole de la puce du DESSUS ne juge pas l'ancre de la suivante",
+    ],
     [
       "`Alpha()` (`deco.ts:9`) ; getter `K.nc` (`deco.ts:42`), `K.gc()` (`deco.ts:43`)",
       [],

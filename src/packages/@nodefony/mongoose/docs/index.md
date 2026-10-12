@@ -844,7 +844,7 @@ Schema). Le module fournit les sondes correspondantes :
 > [!IMPORTANT]
 > **Aucun identifiant ne sort jamais.** La cible affichée est nettoyée de tout `utilisateur:mot de
 passe@` avant d'atteindre le plan d'administration ou les journaux
-> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:688`)), y compris pour les URI multi-hôtes que
+> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:711`)), y compris pour les URI multi-hôtes que
 > l'analyseur d'URL standard ne sait pas découper.
 
 ## ⚡ Performance et mémoire
