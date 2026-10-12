@@ -76,9 +76,16 @@ bloqué en fin de vie.
 
 ## Logs
 
-Vers **stdout/stderr** (collectés par Docker → driver de logs / collecteur centralisé). Ne pas
-écrire dans des fichiers depuis le container (éphémère). Le Log Backplane (drivers `loki`/
-`opensearch`) pousse vers un backend externe en prod.
+Vers **stdout/stderr**, collectés par Docker puis par un collecteur centralisé (Grafana Alloy,
+Fluent Bit, Vector, l'agent Datadog…). C'est la voie **recommandée** : le collecteur a déjà pris une
+ligne écrite quand le process meurt, il ne coûte rien aux requêtes, et changer d'outil ne touche pas
+au code. Ne pas écrire dans des fichiers depuis le container (éphémère).
+
+Les drivers `loki` et `opensearch` du Log Backplane savent aussi **envoyer** les journaux
+directement depuis l'application : c'est une option, pour une démo ou un serveur sans collecteur.
+Ce qu'ils apportent surtout, c'est la **relecture** par la console d'administration — mais
+aujourd'hui une destination déclarée fait les deux à la fois (détail :
+[`syslog.md`](../../src/nodefony/docs/syslog.md)).
 
 ## Le Dockerfile — il est GÉNÉRÉ, on ne le recopie pas
 

@@ -449,8 +449,26 @@ requête.
 | `file`       | un fichier JSONL ou texte | Persistance locale, ingérable par Promtail/Filebeat. |
 | `http`       | un endpoint HTTP(S)       | Webhook maison, collecteur non standard.             |
 | `syslog`     | un autre `Syslog`         | Agrégation parent/enfant dans le même process.       |
-| `loki`       | Grafana Loki (`/push`)    | Production : envoi **groupé**, une requête par lot.  |
-| `opensearch` | OpenSearch (`_bulk`)      | Production : NDJSON groupé.                          |
+| `loki`       | Grafana Loki (`/push`)    | Option : envoi **groupé**, une requête par lot.      |
+| `opensearch` | OpenSearch (`_bulk`)      | Option : NDJSON groupé.                              |
+
+> [!IMPORTANT]
+> **En production, la voie recommandée est `stdout` plus un collecteur**, pas l'envoi direct. Un
+> collecteur de l'hébergeur (Grafana Alloy, Fluent Bit, Vector, l'agent Datadog…) lit la sortie
+> standard et transporte les journaux. Trois raisons :
+>
+> - **rien ne se perd au crash** : ce que l'application a écrit sur `stdout`, le collecteur l'a
+>   déjà pris, alors qu'un lot en attente dans le process meurt avec lui ;
+> - **aucun coût dans le chemin des requêtes** : ni appel réseau, ni tampon, ni réessai dans le
+>   process qui sert ;
+> - **aucun couplage** : changer d'outil, ou d'identifiants, ne touche pas au code.
+>
+> Les transports `loki` et `opensearch` restent une **option** : démo, poste de développement,
+> serveur sans collecteur. Aujourd'hui, une destination déclarée (`log.loki.url`,
+> `log.opensearch.url`) fait les deux à la fois : l'application y **envoie** ses journaux, et la
+> console d'administration les y **relit** (`capabilities: { write: true, query: true }`,
+> `LokiLogDriver.ts:124`). Il n'existe pas encore de mode « relecture seule » d'une destination
+> qu'un collecteur alimente.
 
 Les quatre premiers sont directs : `ConsoleTransport` (`ConsoleTransport.ts:5`) délègue l'impression
 à `Syslog.normalizeLog()` (`Syslog.ts:1621`) ; `FileTransport` écrit **un

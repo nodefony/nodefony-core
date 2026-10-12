@@ -138,9 +138,16 @@ NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 # Laisse `auto` : poser une adresse ci-dessous suffit à choisir.
 # NF_LOG_QUERY_DRIVER=auto
 #
-# Loki du compose : `docker compose --profile loki up -d` (+ Grafana). Posée,
-# l'application y envoie ses journaux et la console les y relit. Loki éteint :
-# rien ne plante, la relecture repasse en mémoire.
+# 🧭 Recommandé en PRODUCTION : l'application écrit sur stdout, et un
+# COLLECTEUR de l'hébergeur (Alloy, Fluent Bit, Vector, agent Datadog…)
+# transporte les journaux. Il les a déjà pris si le process meurt, ne coûte
+# rien aux requêtes, et changer d'outil ne touche pas au code. L'envoi DIRECT
+# ci-dessous est une OPTION — démo, poste de dev, serveur sans collecteur.
+# Aujourd'hui, une adresse posée fait les deux : l'application y ENVOIE ses
+# journaux, et la console les y relit.
+#
+# Loki du compose : `docker compose --profile loki up -d` (+ Grafana). Loki
+# éteint : rien ne plante, la relecture repasse en mémoire.
 # NF_LOKI_URL=http://localhost:3100
 # OpenSearch (pas dans le compose : un serveur à toi). Ne pose pas Loki ET
 # OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.
