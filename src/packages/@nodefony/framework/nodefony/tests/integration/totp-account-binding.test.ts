@@ -137,7 +137,7 @@ function runCli(
       child.kill("SIGKILL");
       reject(new Error(`runCli timeout : ${args.join(" ")}`));
     }, CLI_TIMEOUT_MS);
-    child.on("error", (e) => {
+    child.on("error", (e: Error) => {
       clearTimeout(timer);
       reject(e);
     });
@@ -158,12 +158,17 @@ const PROBES = {
   status: "totp-binding-status",
   recreate: "totp-binding-recreate",
   cli: "totp-binding-cli",
+  handle: "totp-binding-handle@example.com",
 } as const;
 const PASSWORD = "totp-binding-secret-1";
 
 /** Id d'un compte sonde, ou `null` s'il n'existe pas. */
 async function probeId(probe: string): Promise<string | null> {
-  const list = await req("GET", `${USERS}?q=${probe}`, auth());
+  const list = await req(
+    "GET",
+    `${USERS}?q=${encodeURIComponent(probe)}`,
+    auth(),
+  );
   const items =
     (list.body as { items?: Array<{ id: string; identifier: string }> })
       .items ?? [];
@@ -216,7 +221,11 @@ async function enrollProbe(probe: string): Promise<void> {
 
 /** Un compte sonde figure-t-il parmi les enrôlements 2FA ? */
 async function enrolled(probe: string): Promise<boolean> {
-  const list = await req("GET", `${SECURITY}/totp/list?q=${probe}`, auth());
+  const list = await req(
+    "GET",
+    `${SECURITY}/totp/list?q=${encodeURIComponent(probe)}`,
+    auth(),
+  );
   expect(list.status).to.equal(200);
   const items = (list.body as { items: Array<{ userId: string }> }).items;
   return items.some((i) => i.userId === probe);
@@ -308,4 +317,24 @@ describe("TOTP — le second facteur suit le compte (#589)", () => {
       expect(res.status, "nouveau compte : aucun défi hérité").to.equal(200);
     },
   );
+
+  it("🔴 passkey : le userHandle est l'UUID du compte, jamais l'identifiant (WebAuthn L3 §4)", async () => {
+    // Le handle est stocké DANS l'authenticator ; la spec le veut opaque et
+    // « MUST NOT contain personally identifying information ». L'identifiant
+    // de cette sonde est un email, exprès.
+    const probe = PROBES.handle;
+    const id = await freshProbe(probe);
+    const res = await login(probe, PASSWORD);
+    expect(res.status).to.equal(200);
+    const options = await req("POST", `${SECURITY}/webauthn/register/options`, {
+      cookie: sessionCookie(res),
+    });
+    expect(options.status).to.equal(200);
+    const handle = Buffer.from(
+      (options.body as { user: { id: string } }).user.id,
+      "base64url",
+    ).toString("utf8");
+    expect(handle, "le handle est l'UUID du compte").to.equal(id);
+    expect(handle).not.to.include(probe);
+  });
 });

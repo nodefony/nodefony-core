@@ -7,8 +7,10 @@ import {
   BcryptEncoder,
   MigratingEncoder,
   UserService,
+  USER_CREATED_EVENT,
   WeakPasswordError,
   type IPasswordAuthenticatedUser,
+  type IUserCreatedEvent,
   type IUserRepository,
   type IUserListQuery,
 } from "../../index";
@@ -581,5 +583,48 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
         null,
       );
     });
+  });
+});
+
+describe("UserService — USER_CREATED_EVENT, attendu à la création (#589)", () => {
+  // Security s'y abonne pour retirer les facteurs d'un ancien titulaire du même
+  // identifiant. S'il n'était pas ATTENDU, une connexion immédiate les trouverait
+  // encore là.
+  it("🔴 `create` ne rend la main qu'après l'abonné, qui reçoit id + identifier", async () => {
+    const { service } = makeService();
+    const order: string[] = [];
+    let payload: IUserCreatedEvent | null = null;
+    service.on(USER_CREATED_EVENT, async (event: IUserCreatedEvent) => {
+      await new Promise((r) => setTimeout(r, 20));
+      payload = event;
+      order.push("abonné terminé");
+    });
+    const user = await service.createUser({
+      identifier: "carol",
+      plainPassword: "Xk9!vaLid-Probe7",
+    });
+    order.push("create rendu");
+    assert.deepEqual(order, ["abonné terminé", "create rendu"]);
+    assert.deepEqual(payload, { id: user.id, identifier: "carol" });
+  });
+
+  it("couvre AUSSI le provisionnement OAuth (toutes les créations passent par `create`)", async () => {
+    const { service } = makeService();
+    const seen: string[] = [];
+    service.on(USER_CREATED_EVENT, (event: IUserCreatedEvent) => {
+      seen.push(event.identifier);
+    });
+    await service.provisionOAuthUser(
+      {
+        provider: "github",
+        providerId: "gh-42",
+        email: "dora@example.com",
+        emailVerified: true,
+        name: "Dora",
+        raw: {},
+      },
+      { defaultRoles: ["ROLE_USER"], allowSignup: true },
+    );
+    assert.equal(seen.length, 1);
   });
 });

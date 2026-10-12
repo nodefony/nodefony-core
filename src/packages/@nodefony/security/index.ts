@@ -25,7 +25,10 @@ import SecurityKeycloakRealm from "./nodefony/keycloak/security-keycloak-realm";
 import SecurityOAuthDoctor from "./nodefony/command/security-oauth-doctor";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
-import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
+import {
+  bindUserCreatedPurge,
+  registerUserRevocationCascade,
+} from "./nodefony/src/admin/userRevocationCascade";
 import type { ISecurityConfigInput } from "./nodefony/config/defineModuleConfig";
 import { securityConfigJsonSchema } from "./nodefony/config/defineModuleConfig";
 
@@ -115,6 +118,13 @@ class Security extends Module {
     // (utile sans Studio : tout émetteur de USER_REVOKED_EVENT la déclenche).
     if (this.kernel && container) {
       registerUserRevocationCascade(this.kernel, container as Container);
+      // Purge des facteurs hérités à la création d'un compte : le service
+      // `users` est posé par l'APPLICATION dans son `onKernelReady`, dont
+      // l'ordre face au nôtre n'est pas garanti — `onPostReady` le trouve
+      // toujours (abonnement idempotent, cf `bindUserCreatedPurge`).
+      this.kernel.once("onPostReady", () => {
+        bindUserCreatedPurge(container);
+      });
     }
     return this;
   }
@@ -127,6 +137,8 @@ class Security extends Module {
    * vide. `onReady` précède l'écriture du bilan (`var/last-boot.json`).
    */
   override async onKernelReady(): Promise<this> {
+    const container = this.kernel?.container;
+    if (container) bindUserCreatedPurge(container);
     const firewall = this.kernel?.container?.get("firewall") as
       Firewall | undefined;
     if (!firewall) return this;

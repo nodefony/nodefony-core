@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { cascadeUserRevocation } from "../../nodefony/src/admin/userRevocationCascade";
+import {
+  bindUserCreatedPurge,
+  cascadeUserRevocation,
+} from "../../nodefony/src/admin/userRevocationCascade";
+import { EventEmitter } from "node:events";
+import { USER_CREATED_EVENT } from "@nodefony/user";
 import type { IUserRevokedEvent } from "@nodefony/user";
 import type { Container } from "nodefony";
 
@@ -145,5 +150,44 @@ describe("cascadeUserRevocation — facteurs du compte (#589)", () => {
     } as unknown as Container;
     await cascadeUserRevocation(broken, evt("deleted"), 1000);
     assert.deepEqual([...passkeys.keys()], ["c3"]);
+  });
+});
+
+describe("bindUserCreatedPurge — un compte NEUF n'hérite d'aucun facteur (#589)", () => {
+  // Un compte qui vient de naître n'a rien enrôlé : tout facteur rangé sous son
+  // identifiant appartient à un ancien titulaire — orphelins d'avant le
+  // correctif compris.
+  function withUsers() {
+    const factors = factorsCtn();
+    const users = new EventEmitter();
+    const container = {
+      get: (n: string) => (n === "users" ? users : factors.container.get(n)),
+    } as unknown as Container;
+    return { ...factors, container, users };
+  }
+
+  it("🔴 création sous un identifiant déjà porteur de facteurs → retirés", async () => {
+    const { container, users, totpDisabled, passkeys } = withUsers();
+    assert.equal(bindUserCreatedPurge(container), true);
+    const [purge] = users.listeners(USER_CREATED_EVENT);
+    await purge!({ id: "u2", identifier: "bob@x" });
+    assert.deepEqual(totpDisabled, ["bob@x"]);
+    assert.deepEqual(
+      [...passkeys.keys()],
+      ["c3"],
+      "les passkeys d'alice restent",
+    );
+  });
+
+  it("idempotent : deux abonnements = UN écouteur (sinon double purge par création)", () => {
+    const { container, users } = withUsers();
+    bindUserCreatedPurge(container);
+    bindUserCreatedPurge(container);
+    assert.equal(users.listenerCount(USER_CREATED_EVENT), 1);
+  });
+
+  it("sans service `users` (pas encore posé) → rien, et le dit", () => {
+    const { container } = factorsCtn();
+    assert.equal(bindUserCreatedPurge(container), false);
   });
 });

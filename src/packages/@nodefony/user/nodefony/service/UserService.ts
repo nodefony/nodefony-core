@@ -1,7 +1,7 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
 import type { ServiceWiring } from "@nodefony/orm-core";
 import { countFacets } from "nodefony";
-import type { IPage } from "nodefony";
+import type { IPage, PartialInput } from "nodefony";
 import { USER_FACETS, type IUserCounts } from "../src/userFilters";
 import type {
   IUser,
@@ -68,11 +68,34 @@ const DUMMY_PLAINTEXT = "nodefony.dummy.timing.guard";
  * (le credential est lu depuis le repository, le hash leurre est un cache immuable).
  *
  * Events propres (en plus des events CRUD hérités) : `onPasswordChanged`,
- * `onAuthenticated`, `onAuthenticationFailure` (avec {@link AuthFailureReason}).
+ * `onAuthenticated`, `onAuthenticationFailure` (avec {@link AuthFailureReason}),
+ * et {@link USER_CREATED_EVENT}, ATTENDU par `create`.
  *
  * @typeParam — fixé : `T = IPasswordAuthenticatedUser` (le repository est la
  *   frontière credential), `R = IUserRepository` (conserve les finders métier).
  */
+/**
+ * Événement du service `users` — un compte vient d'être créé. Émis par
+ * `fireAsync` et **attendu** : `create` ne rend la main qu'une fois ses
+ * abonnés terminés (charge utile {@link IUserCreatedEvent}).
+ *
+ * Il passe par le bus du SERVICE, pas par celui du kernel : une application
+ * construit souvent `new UserService(repo, encoder)` sans container, et ce
+ * service-là n'atteint pas le kernel. `@nodefony/security` s'y abonne pour
+ * retirer les facteurs (TOTP, passkeys) laissés sous le même identifiant par un
+ * ancien titulaire — d'où l'attente : une connexion immédiate ne doit pas les
+ * trouver encore là.
+ */
+export const USER_CREATED_EVENT = "onUserCreated";
+
+/** Charge utile de {@link USER_CREATED_EVENT}. */
+export interface IUserCreatedEvent {
+  /** `IUser.id` du compte créé. */
+  readonly id: string;
+  /** `IUser.identifier` — clé sous laquelle ses facteurs seront rangés. */
+  readonly identifier: string;
+}
+
 export class UserService
   extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>
   implements IUserProvider, IPasswordVerifier, IOAuthUserProvisioner
@@ -107,6 +130,26 @@ export class UserService
   ) {
     super("users", repository, ...wiring);
     this.encoder = encoder;
+  }
+
+  /**
+   * Crée un compte (CRUD hérité), puis émet {@link USER_CREATED_EVENT} et en
+   * ATTEND les abonnés. Toutes les créations y passent — `createUser`,
+   * `provisionOAuthUser` comme un `create` direct.
+   *
+   * @param data - champs du compte à créer.
+   * @returns le compte persisté.
+   */
+  override async create(
+    data: PartialInput<IPasswordAuthenticatedUser>,
+  ): Promise<IPasswordAuthenticatedUser> {
+    const user = await super.create(data);
+    const event: IUserCreatedEvent = {
+      id: user.id,
+      identifier: user.identifier,
+    };
+    await this.fireAsync(USER_CREATED_EVENT, event);
+    return user;
   }
 
   /**

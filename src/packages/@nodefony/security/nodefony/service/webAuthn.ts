@@ -12,6 +12,7 @@ import {
   readStoreConnector,
 } from "nodefony";
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import type {
   AuthenticationResponseJSON,
   PublicKeyCredentialCreationOptionsJSON,
@@ -54,12 +55,44 @@ function isFlushable(s: unknown): s is IFlushableStore {
 
 /** Sujet d'une cérémonie d'enregistrement — l'utilisateur qui crée un passkey. */
 export interface IWebAuthnUser {
-  /** Identifiant applicatif stable (sub / username) — devient le `userHandle`. */
+  /**
+   * Clé de propriétaire = `IUser.identifier` — range les credentials
+   * (`findByUser`), cf `IWebAuthnCredentialStore`. N'est PAS le `userHandle`.
+   */
   readonly id: string;
+  /**
+   * Source du `userHandle` WebAuthn : l'`IUser.id` (UUID) du compte. WebAuthn
+   * L3 (§4, « User Handle ») l'exige opaque, d'au plus 64 octets, et « MUST NOT
+   * contain personally identifying information » — l'identifiant de connexion,
+   * souvent un email, est donc exclu. Omis (ou trop long), le handle est le
+   * condensat SHA-256 de {@link IWebAuthnUser.id} : 32 octets, jamais l'identifiant
+   * en clair. Le handle n'est jamais relu par le serveur — l'authentification
+   * retrouve le compte par l'id du credential stocké.
+   */
+  readonly handle?: string;
   /** Nom de compte affiché par l'OS (email, identifiant…). */
   readonly name: string;
   /** Nom complet optionnel (UX de l'invite système). */
   readonly displayName?: string;
+}
+
+/** Taille maximale d'un `userHandle` (WebAuthn L3 §4, « User Handle »). */
+const USER_HANDLE_MAX_BYTES = 64;
+
+/**
+ * Octets du `userHandle` d'une cérémonie d'enregistrement — opaques, bornés, sans
+ * donnée personnelle (cf {@link IWebAuthnUser.handle}).
+ *
+ * @param user - sujet de la cérémonie.
+ * @returns `handle` encodé s'il est fourni et tient en 64 octets, sinon le
+ *   condensat SHA-256 de l'`id`.
+ */
+export function userHandleBytes(user: IWebAuthnUser): Uint8Array<ArrayBuffer> {
+  if (user.handle !== undefined && user.handle.length > 0) {
+    const bytes = Buffer.from(user.handle, "utf8");
+    if (bytes.length <= USER_HANDLE_MAX_BYTES) return new Uint8Array(bytes);
+  }
+  return new Uint8Array(createHash("sha256").update(user.id, "utf8").digest());
 }
 
 /** Résultat d'une authentification WebAuthn vérifiée. */
@@ -289,7 +322,7 @@ class WebAuthnService extends Service {
       rpName: this.#rpName,
       rpID: this.#rpID,
       userName: user.name,
-      userID: new Uint8Array(Buffer.from(user.id, "utf8")),
+      userID: userHandleBytes(user),
       userDisplayName: user.displayName ?? user.name,
       attestationType: pk.attestation,
       timeout: pk.timeoutMs,

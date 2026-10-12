@@ -21,6 +21,7 @@ export interface IWebAuthnService {
     id: string;
     name: string;
     displayName?: string;
+    handle?: string;
   }): Promise<CeremonyOptions>;
   verifyRegistration(
     response: unknown,
@@ -55,7 +56,7 @@ export interface IWebAuthnSession {
 
 /** Vue minimale du flux de session BFF (`authFlow`) consommée ici. */
 export interface IWebAuthnBffFlow {
-  me(context: ContextType): Promise<{ identifier: string } | null>;
+  me(context: ContextType): Promise<{ id: string; identifier: string } | null>;
   /**
    * @param reason - facteur d'authentification journalisé par l'audit
    *   (`"webauthn"` ici). Omis, il retombe sur `"federated"`, qui ne distingue
@@ -127,9 +128,12 @@ class WebAuthnController extends SecurityApiController {
     }
     const me = await flow.me(this.context as ContextType);
     if (!me) return this.renderJson({ error: "Unauthorized" }, 401);
+    // `id` range la passkey sous l'identifiant ; `handle` = l'UUID du compte,
+    // seul candidat sans donnée personnelle pour le userHandle (WebAuthn L3).
     const options = await svc.generateRegistrationOptions({
       id: me.identifier,
       name: me.identifier,
+      handle: me.id,
     });
     const session = await flow.ensureSession(this.context as ContextType);
     session?.set(REG_CHALLENGE, options.challenge);

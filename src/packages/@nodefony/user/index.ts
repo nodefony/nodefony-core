@@ -85,10 +85,14 @@ export {
 } from "./nodefony/src/userStoreRegistry";
 
 // ─── Service (P5.6) ──────────────────────────────────────────────────────────
-export { UserService } from "./nodefony/service/UserService";
+export {
+  UserService,
+  USER_CREATED_EVENT,
+} from "./nodefony/service/UserService";
 export type {
   ICreateUserInput,
   AuthFailureReason,
+  IUserCreatedEvent,
 } from "./nodefony/service/UserService";
 
 // ─── Politique de mot de passe ───────────────────────────────────────────────
