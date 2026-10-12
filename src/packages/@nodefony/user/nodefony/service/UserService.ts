@@ -22,6 +22,7 @@ import type {
 } from "../contracts/IOAuthUserProvisioner";
 import { UserNotFoundError } from "../errors/UserNotFoundError";
 import { IdentifierTakenError } from "../errors/IdentifierTakenError";
+import { IdentifierImmutableError } from "../errors/IdentifierImmutableError";
 import { WeakPasswordError } from "../errors/WeakPasswordError";
 import { profileFromClaims } from "../src/userProfile";
 import {
@@ -223,6 +224,26 @@ export class UserService
     const reason = revocationReason(data);
     if (reason !== null) await this.#revoke(updated, reason);
     return updated;
+  }
+
+  /**
+   * Refuse de RENOMMER un compte : sessions, jetons et facteurs sont rangés
+   * sous `identifier`, le changer les orphelinerait. Réécrire la même valeur
+   * (un formulaire qui renvoie tout) passe. Une lecture de plus, seulement
+   * quand la mise à jour porte `identifier`.
+   *
+   * @throws {IdentifierImmutableError} si l'identifiant visé diffère.
+   */
+  protected override async beforeUpdate(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    data: PartialInput<IPasswordAuthenticatedUser>,
+  ): Promise<PartialInput<IPasswordAuthenticatedUser>> {
+    if (data.identifier === undefined) return data;
+    const current = await this.findOne(criteria);
+    if (current !== null && current.identifier !== data.identifier) {
+      throw new IdentifierImmutableError(current.identifier);
+    }
+    return data;
   }
 
   /**

@@ -6,6 +6,7 @@ import {
   Argon2idEncoder,
   BaseUser,
   BcryptEncoder,
+  IdentifierImmutableError,
   MigratingEncoder,
   UserService,
   USER_CREATED_EVENT,
@@ -700,5 +701,29 @@ describe("UserService — seul émetteur de onUserRevoked, émission GARDÉE (#5
     );
     assert.notEqual(await service.findById(alice.id), null);
     assert.equal(await service.findById(bob.id), null);
+  });
+});
+
+describe("UserService — l'identifiant est IMMUABLE (#589)", () => {
+  // Sessions, jetons, TOTP et passkeys sont rangés sous `identifier` : le
+  // renommer orphelinerait tout ce qui y est rattaché, sans un mot.
+  it("🔴 `updateOne({ identifier })` est refusé, et rien n'est écrit", async () => {
+    const { service } = makeService();
+    const bob = await service.createUser({ identifier: "bob" });
+    await assert.rejects(
+      service.updateOne({ id: bob.id }, { identifier: "robert" }),
+      IdentifierImmutableError,
+    );
+    assert.equal((await service.findById(bob.id))?.identifier, "bob");
+  });
+
+  it("réécrire la MÊME valeur n'est pas un renommage : accepté", async () => {
+    const { service } = makeService();
+    const bob = await service.createUser({ identifier: "bob" });
+    const same = await service.updateOne(
+      { id: bob.id },
+      { identifier: "bob", roles: ["ROLE_EDITOR"] },
+    );
+    assert.deepEqual(same?.roles, ["ROLE_EDITOR"]);
   });
 });
