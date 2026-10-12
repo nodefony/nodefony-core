@@ -28,7 +28,10 @@
  *  7. temps réel (#525) : une socket ouverte par un jeton Keycloak se ferme
  *     (4001) une fois `exp` passé, une socket ouverte par une session BFF
  *     Keycloak se ferme à la déconnexion — et dans les deux cas, une socket
- *     TÉMOIN encore valable survit au même tick.
+ *     TÉMOIN encore valable survit au même tick ;
+ *  8. rotation des clés (#525) : une clé neuve ajoutée au realm pendant que
+ *     l'application tourne — son jeton est accepté sans redémarrage, celui de
+ *     l'ancienne clé aussi tant qu'elle reste publiée.
  */
 import { describe, expect, it } from "vitest";
 import https from "node:https";
@@ -556,6 +559,24 @@ async function setLocalRoles(userId: string, roles: string[]): Promise<void> {
     body: JSON.stringify({ roles }),
   });
   expect(patched.status, `rôles locaux posés (${patched.text})`).toBe(200);
+}
+
+/** Jeton d'accès frais de la personne par défaut du realm, connexion jouée. */
+async function userAccessToken(provider: IOAuthProvider): Promise<string> {
+  const verifier = generateCodeVerifier();
+  const tokens = await provider.validateAuthorizationCode({
+    code: await codeFor(provider, verifier),
+    codeVerifier: verifier,
+  });
+  return tokens.accessToken();
+}
+
+/** Le `kid` de l'en-tête d'un JWS — la clé qui l'a signé. */
+function kidOf(jws: string): string {
+  const header = JSON.parse(
+    Buffer.from(jws.split(".")[0] ?? "", "base64url").toString(),
+  ) as { kid?: unknown };
+  return typeof header.kid === "string" ? header.kid : "";
 }
 
 /** Socket du banc, une fois le `realtime:welcome` reçu. */
@@ -1160,15 +1181,7 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         // `test-keycloak` exige un compte local (`require`) : le login BFF le pose.
         await browserLogin(username);
         const provider = await frameworkClient();
-        const accessToken = async (): Promise<string> => {
-          const verifier = generateCodeVerifier();
-          const tokens = await provider.validateAuthorizationCode({
-            code: await codeFor(provider, verifier),
-            codeVerifier: verifier,
-          });
-          return tokens.accessToken();
-        };
-        const long = await accessToken();
+        const long = await userAccessToken(provider);
         const restore = await setAccessTokenLifespan(
           await adminToken(),
           CLIENT_ID,
@@ -1176,7 +1189,7 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         );
         let short: string;
         try {
-          short = await accessToken();
+          short = await userAccessToken(provider);
         } finally {
           await restore();
         }
@@ -1251,6 +1264,92 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         } finally {
           witness.close();
           doomed.close();
+        }
+      }, 90_000);
+    });
+
+    describe("rotation des clés du realm (#525)", () => {
+      /**
+       * `cooldownMs` du vérificateur (30 s) : un `kid` inconnu ne relit le jeu
+       * de clés que hors de cette fenêtre, comptée depuis la dernière lecture.
+       * Plus une marge.
+       */
+      const ROTATION_WINDOW_MS = 40_000;
+
+      it("clé neuve ajoutée au realm → son jeton est accepté sans redémarrage, l'ancien aussi", async () => {
+        const { username } = realmUser();
+        // `test-keycloak` exige un compte local (`require`) : le login BFF le pose.
+        await browserLogin(username);
+        const provider = await frameworkClient();
+        const before = await userAccessToken(provider);
+        const first = await app(API, { authorization: `Bearer ${before}` });
+        expect(first.status, `jeton de la clé en place (${first.text})`).toBe(
+          200,
+        );
+
+        // La rotation telle qu'un administrateur la fait : une clé neuve, de
+        // priorité plus haute, signe désormais ; l'ancienne reste publiée.
+        let admin = await adminToken();
+        const realm = await kcAdmin(admin, "GET", "");
+        const realmId = (JSON.parse(realm.text) as { id?: string }).id;
+        expect(realmId, "identifiant interne du realm").toBeTypeOf("string");
+        const created = await kcAdmin(admin, "POST", "/components", {
+          name: `nf-rotation-${Date.now()}`,
+          providerId: "rsa-generated",
+          providerType: "org.keycloak.keys.KeyProvider",
+          parentId: realmId,
+          config: {
+            priority: ["1000"],
+            enabled: ["true"],
+            active: ["true"],
+            algorithm: ["RS256"],
+            keySize: ["2048"],
+          },
+        });
+        expect(created.status, `clé neuve (${created.text})`).toBe(201);
+        const location = created.headers.location;
+        const componentId =
+          (typeof location === "string" ? location : "").split("/").pop() ?? "";
+        expect(componentId, "fournisseur de clé créé").not.toBe("");
+        try {
+          const after = await userAccessToken(provider);
+          expect(kidOf(after), "décor : signé par la clé NEUVE").not.toBe(
+            kidOf(before),
+          );
+
+          // Accepté dès que le vérificateur relit le jeu de clés — au plus une
+          // fenêtre de `cooldownMs`. Jamais une panne : une rotation n'en est
+          // pas une, et un 503 enverrait l'exploitant chercher un incident.
+          const deadline = Date.now() + ROTATION_WINDOW_MS;
+          let res = await app(API, { authorization: `Bearer ${after}` });
+          while (res.status !== 200 && Date.now() < deadline) {
+            expect(res.status, `refus, jamais panne (${res.text})`).toBe(401);
+            await pause(2_000);
+            res = await app(API, { authorization: `Bearer ${after}` });
+          }
+          expect(
+            res.status,
+            `jeton de la clé neuve accepté sans redémarrage (${res.text})`,
+          ).toBe(200);
+          expect(
+            (JSON.parse(res.text) as { id?: unknown }).id,
+            "même compte local",
+          ).toBe((JSON.parse(first.text) as { id?: unknown }).id);
+
+          const old = await app(API, { authorization: `Bearer ${before}` });
+          expect(
+            old.status,
+            `l'ancienne clé, toujours publiée, vaut encore (${old.text})`,
+          ).toBe(200);
+        } finally {
+          // Le jeton d'administration (60 s) a pu expirer pendant l'attente.
+          admin = await adminToken();
+          const removed = await kcAdmin(
+            admin,
+            "DELETE",
+            `/components/${componentId}`,
+          );
+          expect(removed.status, "realm rendu à sa clé d'origine").toBe(204);
         }
       }, 90_000);
     });
