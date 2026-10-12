@@ -1968,6 +1968,70 @@ const SAMPLES = {
     },
   },
 
+  // ── T43 — relis la sécurité avant que je pousse ───────────────────────────
+  "43 :: a chargé le skill de relecture": {
+    pass: { transcript: `{"skill":"nodefony-security-review"}` },
+    fail: { transcript: `{"skill":"nodefony-protect-route"}` },
+    extra: [
+      {
+        label: "reconnaît le skill ouvert par son chemin",
+        matter: {
+          transcript: `{"file_path":"/app/.agents/skills/nodefony-security-review/SKILL.md"}`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "43 :: a lancé le script de relecture": {
+    pass: {
+      transcript: `{"command":"node node_modules/@nodefony/devkit/skills/nodefony-security-review/scripts/review-diff.mjs"}`,
+    },
+    fail: { transcript: `{"command":"git show HEAD"}` },
+  },
+  "43 :: la relecture nomme la route ouverte": {
+    pass: {
+      content:
+        "- FAUTE nodefony/controllers/InsightController.ts:42 — GET /api/insights ouverte à l'anonyme",
+    },
+    fail: { content: "- Rien à signaler, le commit est sain." },
+    extra: [
+      {
+        label: "reconnaît la classe nommée sans l'URL",
+        matter: { content: "InsightController n'a aucune garde @IsGranted" },
+        expect: true,
+      },
+      {
+        // La route citée AILLEURS que dans la relecture ne compte pas : c'est
+        // la relecture écrite qui doit la nommer, pas le code corrigé.
+        label: "ignore la route citée hors de RELECTURE.md",
+        matter: {
+          contentByFile: {
+            "nodefony/controllers/InsightController.ts":
+              '@controller("/api/insights")',
+          },
+        },
+        expect: false,
+      },
+    ],
+  },
+  "43 :: la relecture nomme le secret écrit en dur": {
+    pass: {
+      content:
+        "- FAUTE InsightController.ts:12 — EXPORT_TOKEN écrit dans le source",
+    },
+    fail: { content: "- La route est ouverte à l'anonyme." },
+  },
+  "43 :: aucune brique de sécurité éteinte en configuration": {
+    // Lu dans le CODE seul : la relecture PARLE des briques à ne pas éteindre.
+    pass: {
+      added: "- vérifié : aucun `csrf: { enabled: false }` dans le diff",
+      addedCode: '  @IsGranted("ROLE_ADMIN")',
+    },
+    fail: {
+      addedCode: `    use("@nodefony/security", { csrf: { enabled: false } }),`,
+    },
+  },
+
   "34 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
       added: `    use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),`,

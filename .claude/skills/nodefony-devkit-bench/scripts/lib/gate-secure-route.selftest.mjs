@@ -108,7 +108,7 @@ const repondre = (res, status, objet) => {
  *   simule une session posée mais jamais rejouée.
  */
 const app =
-  ({ cible, loginRefuse = [], meMuet = false }) =>
+  ({ cible, loginRefuse = [], meMuet = false, chemin = CIBLE }) =>
   async (req, res) => {
     const url = (req.url ?? "").split("?")[0];
 
@@ -132,7 +132,7 @@ const app =
       return repondre(res, 200, { user: { username } });
     }
 
-    if (url === CIBLE) {
+    if (url === chemin) {
       const { status, body } = cible(quiEst(req));
       res.writeHead(status, { "content-type": "application/json" });
       return res.end(typeof body === "string" ? body : JSON.stringify(body));
@@ -224,10 +224,33 @@ const dire = (ok, nom, attendu, obtenu, cause = "") => {
   );
 };
 
-for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
+// ── les PARAMÈTRES : une autre tâche frappe une autre route ───────────────
+// Le troisième cas est celui qui prouve que l'argument est LU : sans lui, le
+// juge frappe la route d'origine, absente ici, et le dit (route-absente).
+const AUTRE = "/api/insights";
+const ARGS_AUTRE = ["--cible", AUTRE, "--corps", '"hello"\\s*:\\s*"Insight"'];
+const cibleAutre = (corps) => (qui) =>
+  qui === "admin" ? { status: 200, body: corps } : cibleConforme(qui);
+ROLES.parametreConforme = [
+  0,
+  app({ chemin: AUTRE, cible: cibleAutre({ hello: "Insight" }) }),
+  ARGS_AUTRE,
+];
+ROLES.parametreCorpsFaux = [
+  8,
+  app({ chemin: AUTRE, cible: cibleAutre({ hello: "Autre" }) }),
+  ARGS_AUTRE,
+];
+ROLES.parametreIgnore = [
+  6,
+  app({ chemin: AUTRE, cible: cibleAutre({ hello: "Insight" }) }),
+  [],
+];
+
+for (const [nom, [attendu, handler, args = []]] of Object.entries(ROLES)) {
   const srv = http.createServer(detach(handler));
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
-  const res = await run([JUGE]);
+  const res = await run([JUGE, ...args]);
   await new Promise((r) => srv.close(r));
   const cause = (res.stderr || res.stdout).trim().split("\n")[0] ?? "";
   dire(res.status === attendu, nom, attendu, res.status, cause);

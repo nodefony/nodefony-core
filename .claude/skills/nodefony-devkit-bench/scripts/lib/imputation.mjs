@@ -427,6 +427,14 @@ export const IMPUTATIONS = Object.freeze({
   // 200, mais pas le controller d'origine : l'URL a été refaite ailleurs au
   // lieu de remonter la classe que rien ne déclarait — un contournement.
   "route-remplacee": AGENT,
+
+  // ─── Relis la sécurité avant que je pousse (tâche 43) ────────────────────
+  // La valeur est encore écrite dans un fichier que git suit : déplacée,
+  // recopiée dans la notice ou citée dans la relecture, elle reste publiée.
+  "secret-toujours-dans-le-source": AGENT,
+  // git ne répond pas dans le dossier de l'application : le constat n'a pas
+  // pu être fait, et rien n'en est imputable à l'agent.
+  "depot-illisible": DECOR,
 });
 
 /**

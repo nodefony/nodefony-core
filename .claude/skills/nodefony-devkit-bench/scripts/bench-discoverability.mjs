@@ -109,7 +109,10 @@ import {
   MARQUE_CONNEXION,
   ORIGINE_PARTENAIRE,
   PAGE_COMPTE,
+  CONSTANTE_JETON,
   CONTROLLER_EN_PANNE,
+  CONTROLLER_RELU,
+  FICHIER_RELECTURE,
   PAGE_ESPACE,
   PAGE_WIDGET,
   REPERE_PREFIXE_COMPTE,
@@ -123,6 +126,7 @@ import {
   ROUTE_EN_PANNE,
   ROUTE_MACHINE,
   ROUTE_RAPPORT_MACHINE,
+  ROUTE_RELUE,
   ROUTE_SYNTHESE,
   ROUTE_VIREMENT,
   SCRIPT_RAPPORT,
@@ -817,6 +821,20 @@ const JUGE_SCRIPT_API = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-script-api.mjs",
+);
+
+/** Décor « relis la sécurité avant que je pousse » : les fautes posées sur le controller généré. */
+const PREPARE_RELECTURE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "prepare-relecture.mjs",
+);
+
+/** Juge « le jeton écrit en dur a quitté tout ce que git suit ». */
+const JUGE_SECRET_RETIRE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-secret-retire.mjs",
 );
 
 /** Juge « la route en panne répond de nouveau, servie par son controller ». */
@@ -5052,6 +5070,89 @@ export const TASKS = [
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
   },
+  {
+    id: 43,
+    // Son verdict passe par une session « admin » (`gate-secure-route`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
+    name: "relis la sécurité avant que je pousse",
+    // La RELECTURE, pas l'écriture : le commit est déjà fait, et ses fautes ne
+    // se voient pas à l'œil. Le générateur écrit un controller sous `/api`, où
+    // la zone du gabarit laisse passer l'anonyme — sans garde, il répond à
+    // tout le monde ; le décor y ajoute un jeton d'export écrit dans le
+    // source. L'énoncé dit que ces chiffres sont réservés aux administrateurs :
+    // le code ne le dit nulle part.
+    //
+    // Les contournements naturels sont de déplacer l'URL sous une zone déjà
+    // protégée, ou de « retirer » le jeton de la réponse en le laissant écrit.
+    // Le premier est refusé par le juge (l'administrateur doit être servi À LA
+    // MÊME ADRESSE), le second par le constat sur le dépôt. Et la faute doit
+    // être NOMMÉE : la relecture écrite cite la route et la constante.
+    prepare:
+      `npx --no-install nodefony create controller ${CONTROLLER_RELU} ` +
+      `--route ${ROUTE_RELUE} >/dev/null && node ${PREPARE_RELECTURE} && ` +
+      `grep -q ${CONTROLLER_RELU}Controller index.ts`,
+    prompt:
+      `Je viens de commiter ${CONTROLLER_RELU}Controller (GET ${ROUTE_RELUE}) : des chiffres ` +
+      "internes, réservés aux administrateurs. Relis la sécurité de ce commit avant que je " +
+      `le pousse. Écris ta relecture dans ${FICHIER_RELECTURE} — chaque point avec son ` +
+      "fichier et sa ligne —, corrige ce qui doit l'être sans changer l'URL, et termine en " +
+      "prouvant que les tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a chargé le skill de relecture",
+        /"skill"\s*:\s*"nodefony-security-review"|skills\/nodefony-security-review\/SKILL\.md/u,
+      ),
+      sondeLecture("a lancé le script de relecture", /review-diff\.mjs/u),
+      {
+        // JUGÉ. La route ouverte est NOMMÉE dans la relecture écrite.
+        kind: "code",
+        name: "la relecture nomme la route ouverte",
+        pattern: new RegExp(
+          `${ROUTE_RELUE.replaceAll("/", "\\/")}|${CONTROLLER_RELU}Controller`,
+          "u",
+        ),
+        file: FICHIER_RELECTURE,
+      },
+      {
+        // JUGÉ. Le secret est NOMMÉ — par sa constante, jamais par sa valeur
+        // (la recopier serait le publier une seconde fois : le juge du dépôt
+        // la cherche aussi dans la relecture).
+        kind: "code",
+        name: "la relecture nomme le secret écrit en dur",
+        pattern: new RegExp(CONSTANTE_JETON, "u"),
+        file: FICHIER_RELECTURE,
+      },
+      // L'interrupteur lit le CODE seul ici : une relecture de sécurité PARLE
+      // des briques qu'on ne doit pas éteindre, et sa prose n'éteint rien.
+      { ...INTERRUPTEUR_DE_SECURITE, where: "addedCode" },
+      {
+        // Le contraste à trois identités, à la MÊME adresse : une URL déplacée
+        // sous une zone déjà protégée rend 404 et sort en `route-absente`.
+        kind: "gate",
+        name: "anonyme refusé, authentifié sans le rôle refusé, administrateur servi",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_SECURE} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_SECURE} --temoin-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_SECURE} --cible ${ROUTE_RELUE} ` +
+            `--corps '"hello"\\s*:\\s*"${CONTROLLER_RELU}"'; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      {
+        kind: "gate",
+        name: "le jeton écrit en dur a quitté le source",
+        cmd: ["node", JUGE_SECRET_RETIRE],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
 ];
 
 /**
@@ -8218,6 +8319,15 @@ function depistageOuRefus(reference, report) {
 
 // Lancé directement → le banc tourne. IMPORTÉ (par l'auto-contrôle) → on
 // n'expose que `TASKS` et `evaluateProbe`, sans monter le moindre décor.
-if (process.argv[1] && import.meta.filename === path.resolve(process.argv[1])) {
+// Sous `node -e` / `-p`, `argv[1]` n'est PAS le script lancé : c'est le premier
+// argument passé au code évalué. Un import du banc depuis une ligne de commande
+// (`node -e 'await import(p)' <chemin du banc>`) passait donc cette garde, et
+// lançait un VRAI passage d'agent — payé — au lieu de rendre la liste des tâches.
+const EVALUE =
+  process.execArgv.some((a) =>
+    ["-e", "--eval", "-p", "--print"].includes(a.split("=")[0] ?? a),
+  ) || process.argv[1] === undefined;
+
+if (!EVALUE && import.meta.filename === path.resolve(process.argv[1])) {
   main();
 }

@@ -54,6 +54,13 @@
  * précisément ce que la cause `3` nomme, au lieu de laisser croire à un rôle
  * mal orthographié.
  *
+ * **Paramètres** — la route et le corps attendus, pour qu'une AUTRE tâche
+ * réutilise ce contraste au lieu de le recopier (« 1 règle = 1 implémentation ») :
+ *
+ * - `--cible <chemin>` : la route frappée (défaut `/api/reports`, la tâche d'origine) ;
+ * - `--corps <regex>` : ce que le corps servi à l'administrateur doit porter
+ *   (défaut : un rapport `ok`). Insensible à la casse.
+ *
  * @module
  */
 import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
@@ -66,8 +73,17 @@ import {
   repondreArgsTemoin,
 } from "./identites.mjs";
 
+/** La valeur qui suit un drapeau, ou `undefined`. */
+const valeurDe = (drapeau) => {
+  const i = process.argv.indexOf(drapeau);
+  return i === -1 ? undefined : process.argv[i + 1];
+};
+
 /** Route figée par l'énoncé de la tâche : le juge ne présume d'aucun chemin. */
-const CIBLE = "/api/reports";
+const CIBLE = valeurDe("--cible") ?? "/api/reports";
+
+/** Ce que le corps servi doit porter — `null` : la forme de la tâche d'origine. */
+const CORPS = valeurDe("--corps") ?? null;
 
 repondreArgsTemoin();
 await ensurePortFree();
@@ -146,7 +162,11 @@ if (!estSucces(vuAdmin.status)) {
 // ─── 4. …et sert bien ce que l'énoncé demandait ─────────────────────────────
 // Sans ce dernier pas, une route qui rend 200 sur un corps vide passerait :
 // « protégée » et « fonctionnelle » sont deux affirmations distinctes.
-if (!/report/i.test(vuAdmin.body) || !/\bok\b/i.test(vuAdmin.body)) {
+const corpsAttendu =
+  CORPS === null
+    ? /report/i.test(vuAdmin.body) && /\bok\b/i.test(vuAdmin.body)
+    : new RegExp(CORPS, "iu").test(vuAdmin.body);
+if (!corpsAttendu) {
   exit(
     8,
     `CAUSE=corps-inattendu — l'administrateur obtient bien ${vuAdmin.status}, mais le corps ne ` +
