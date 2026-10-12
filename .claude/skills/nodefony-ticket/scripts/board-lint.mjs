@@ -539,6 +539,47 @@ export function lintBoard({
     );
   }
 
+  // E6 — un parent resté dans un lot `beta-N` dont aucun enfant OUVERT ne fait
+  // plus partie. Le lot est soldé POUR LUI : son travail restant vit dans un
+  // autre lot ou un autre jalon. Laissé là, il garde le lot ouvert — et la règle
+  // de départ d'une beta est « `--label beta-N --state open` vide ». Vécu :
+  // #268, seize enfants beta-3 fermés, trois restants en 10.1.0, le parent
+  // toujours `beta-3` dans le jalon de la beta.
+  const parIssue = new Map(issues.map((i) => [i.n, i]));
+  for (const [parent, fratrie] of enfants) {
+    const p = parIssue.get(parent);
+    const lot = p ? lotDe(p) : null;
+    if (lot === null) continue;
+    const ailleurs = fratrie.map((e) => parIssue.get(e.n) ?? e);
+    if (ailleurs.some((e) => lotOf(e.labels) === lot)) continue;
+    const destinations = [
+      ...new Set(
+        ailleurs.map(
+          (e) =>
+            `${e.milestone ?? "sans jalon"}${lotOf(e.labels) === null ? "" : ` / beta-${lotOf(e.labels)}`}`,
+        ),
+      ),
+    ];
+    const jalons = [...new Set(ailleurs.map((e) => e.milestone))];
+    const lots = [...new Set(ailleurs.map((e) => lotOf(e.labels)))];
+    const geste =
+      jalons.length === 1 && lots.length === 1
+        ? `gh issue edit ${parent} --remove-label beta-${lot}` +
+          (jalons[0] && jalons[0] !== p.milestone
+            ? ` --milestone "${jalons[0]}"`
+            : "") +
+          (lots[0] === null ? "" : ` --add-label beta-${lots[0]}`) +
+          " — puis reposer son Ordre dans l'échelle de ce jalon"
+        : `ses enfants ouverts sont répartis (${destinations.join(" · ")}) : choisir le jalon du parent, retirer beta-${lot}`;
+    add(
+      "erreur",
+      "PARENT-LOT-SOLDE",
+      parent,
+      `label « beta-${lot} » mais aucun de ses ${fratrie.length} enfant(s) ouvert(s) n'est dans ce lot (${destinations.join(" · ")}) — il retient la beta.${lot} sans rien lui livrer`,
+      geste,
+    );
+  }
+
   // A5 — un parent se déclare `Epic`. Le type est ce que GitHub AFFICHE partout
   // (liste, tableau, recherche `type:Epic`) : un parent sans lui ressemble à un
   // ticket de travail, et on le prend — alors qu'il n'en porte aucun. `type`

@@ -383,6 +383,66 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(f.message).toContain("totalisent 3");
   });
 
+  it("PARENT-LOT-SOLDE : parent beta-3 dont les enfants ouverts vivent tous dans un autre jalon", () => {
+    const findings = lintBoard({
+      items: [
+        sain(268, { milestone: "10.0.0-beta", ordre: 3.9, jours: 3 }),
+        sain(522, { parent: 268, milestone: "10.1.0", ordre: 1 }),
+        sain(523, { parent: 268, milestone: "10.1.0", ordre: 2 }),
+        sain(524, { parent: 268, milestone: "10.1.0", ordre: 3 }),
+      ],
+      issues: [
+        issueSaine(268, { milestone: "10.0.0-beta", labels: ["beta-3"] }),
+        issueSaine(522, { milestone: "10.1.0" }),
+        issueSaine(523, { milestone: "10.1.0" }),
+        issueSaine(524, { milestone: "10.1.0" }),
+      ],
+      now: MAINTENANT,
+    });
+    const f = findings.find((x) => x.code === "PARENT-LOT-SOLDE");
+    expect(f?.n).toBe(268);
+    expect(f?.severity).toBe("erreur");
+    expect(f?.unlock).toContain(
+      'gh issue edit 268 --remove-label beta-3 --milestone "10.1.0"',
+    );
+  });
+
+  it("PARENT-LOT-SOLDE : se tait tant qu'un enfant ouvert reste dans le lot", () => {
+    const findings = lintBoard({
+      items: [
+        sain(268, { milestone: "10.0.0-beta", ordre: 3.9, jours: 2 }),
+        sain(525, { parent: 268, milestone: "10.0.0-beta", ordre: 3.5 }),
+        sain(522, { parent: 268, milestone: "10.1.0", ordre: 1 }),
+      ],
+      issues: [
+        issueSaine(268, { milestone: "10.0.0-beta", labels: ["beta-3"] }),
+        issueSaine(525, { milestone: "10.0.0-beta", labels: ["beta-3"] }),
+        issueSaine(522, { milestone: "10.1.0" }),
+      ],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("PARENT-LOT-SOLDE");
+  });
+
+  it("PARENT-LOT-SOLDE : enfants passés au lot suivant du MÊME jalon → changer de label, pas de jalon", () => {
+    const findings = lintBoard({
+      items: [
+        sain(30, { milestone: "10.0.0-beta", ordre: 3.9, jours: 1 }),
+        sain(31, { parent: 30, milestone: "10.0.0-beta", ordre: 4.1 }),
+      ],
+      issues: [
+        issueSaine(30, { milestone: "10.0.0-beta", labels: ["beta-3"] }),
+        issueSaine(31, { milestone: "10.0.0-beta", labels: ["beta-4"] }),
+      ],
+      now: MAINTENANT,
+    });
+    const f = findings.find((x) => x.code === "PARENT-LOT-SOLDE");
+    expect(f?.unlock).toContain(
+      "gh issue edit 30 --remove-label beta-3 --add-label beta-4",
+    );
+    expect(f?.unlock).not.toContain("--milestone");
+  });
+
   it("PARENT-SANS-EPIC : un parent au type vide ou autre qu'Epic", () => {
     const findings = lintBoard({
       items: [

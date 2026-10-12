@@ -9782,7 +9782,15 @@
             "usage": [],
             "options": [
               {
+                "flag": "--add-label",
+                "help": ""
+              },
+              {
                 "flag": "--grep",
+                "help": ""
+              },
+              {
+                "flag": "--milestone",
                 "help": ""
               },
               {
