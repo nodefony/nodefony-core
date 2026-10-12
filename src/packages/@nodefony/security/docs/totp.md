@@ -575,7 +575,8 @@ qui adresse les comptes par leur `id`, traduit donc d'abord l'`id` en `identifie
 (`resolveSubject`, `SecurityAdminApi.ts:270`).
 
 **Le secret disparaît avec le compte.** Supprimer un compte (plan d'administration ou
-`security:user:delete`) émet `onUserRevoked` (`reason: "deleted"`), dont la cascade retire le secret
+`security:user:delete`) passe par `UserService.delete`, qui émet `onUserRevoked`
+(`reason: "deleted"`) ; la cascade retire le secret
 TOTP et les passkeys (`cascadeUserRevocation`, `userRevocationCascade.ts:51`). Sans elle, un compte
 recréé sous le même identifiant hériterait du second facteur de l'ancien titulaire. Un compte
 seulement désactivé ou verrouillé garde ses facteurs.

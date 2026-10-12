@@ -326,7 +326,11 @@ export async function provisionUsers(module: Module): Promise<void> {
   }
 
   // Le service exposé sous le nom "users" EST la source d'identité du firewall.
-  const users = new UserService(new InMemoryUserRepository([]), encoder);
+  const users = new UserService(
+    new InMemoryUserRepository([]),
+    encoder,
+    container, // sans lui, aucun événement de compte n'atteint le kernel
+  );
   container.set("users", users);
 
   // Seed idempotent : createUser hache le clair, jamais stocké tel quel.
@@ -479,7 +483,7 @@ l'audit serveur, jamais dans la réponse.
 | `onAuthenticated`         | authentification réussie                      | l'utilisateur            |
 | `onAuthenticationFailure` | tout échec                                    | identifiant + raison     |
 
-`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:280`) : un changement de
+`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:386`) : un changement de
 credential n'est pas une modification banale, et un abonné (audit, notification, invalidation de
 sessions) doit pouvoir le traiter à part.
 
@@ -528,16 +532,16 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 
 | Appel                                | Ce qu'il fait                                                 | Ancre                |
 | ------------------------------------ | ------------------------------------------------------------- | -------------------- |
-| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:143` |
-| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:185` |
-| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:223` |
-| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:267` |
-| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:300` |
-| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:358` |
-| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:374` |
-| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:388` |
-| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:409` |
-| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:119` |
+| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:194` |
+| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:287` |
+| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:325` |
+| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:372` |
+| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:448` |
+| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:506` |
+| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:522` |
+| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:536` |
+| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:557` |
+| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:170` |
 
 **La distinction à retenir** : `loadUserByOAuth()` **lit** (et lève si le lien est inconnu) ;
 `provisionOAuthUser()` **écrit** (et crée le compte). Deux contrats, deux responsabilités — c'est ce
@@ -692,7 +696,7 @@ d'identifiant entre fournisseurs).
 
 ### L'identifiant du Shadow User
 
-`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts:410`). Un
+`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts:558`). Un
 fournisseur qui n'expose pas d'email ne bloque donc pas la connexion, et deux fournisseurs ne peuvent
 pas produire le même identifiant fonctionnel.
 
@@ -1009,19 +1013,33 @@ Une erreur d'administration ne doit pas fermer la porte définitivement. Cinq ga
 | supprimer ou désactiver le dernier admin actif | 409                                         |
 
 Le comptage passe par `countActiveAdmins()`, un `COUNT` natif au store — jamais un chargement complet
-en mémoire (`UserService.ts:223`).
+en mémoire (`UserService.ts:325`).
 
 ### Cascade de révocation
 
-Supprimer, désactiver ou verrouiller un compte émet l'événement kernel `onUserRevoked`
-(`UserAdminApi.ts:219`). `@nodefony/security` s'y abonne pour éjecter **immédiatement** sessions et
-jetons.
+`UserService` est le **seul émetteur** du cycle de vie d'un compte, sur le bus du kernel, et il
+attend ses abonnés avant de rendre la main : `create` émet `onUserCreated`, et `onUserRevoked`
+part de `delete` (un événement par compte effectivement supprimé), de `updateOne` qui désactive
+(`enabled: false`), verrouille (`locked: true`) ou écrit un hash de mot de passe, et de
+`changePassword` (`USER_REVOKED_EVENT`, `UserService.ts:112`). Aucun transport — plan
+d'administration, ligne de commande, contrôleur — n'émet : un geste qui passe par le service
+déclenche la cascade, quel que soit le chemin qui l'a porté. `@nodefony/security` s'y abonne une
+fois, au démarrage, pour éjecter sessions et jetons, et retirer les facteurs (TOTP, passkeys) d'un
+compte supprimé.
 
-Ce n'est **pas** ce qui neutralise l'accès — c'était déjà fait, puisque les authenticators
-rechargent l'utilisateur à chaque requête et rejettent un compte disparu, inactif ou verrouillé.
-C'est de la défense en profondeur et de la propreté : on ne laisse pas traîner des sessions
-orphelines en attendant leur expiration. C'est aussi un **point d'extension** : un module qui possède
-des artefacts liés à un utilisateur s'abonne et nettoie les siens, sans modifier une ligne ici.
+Pour une suppression, une désactivation ou un verrouillage, c'est de la défense en profondeur : les
+authenticators rechargent l'utilisateur à chaque requête et rejettent déjà un compte disparu,
+inactif ou verrouillé. Pour un **changement de mot de passe**, c'est la SEULE barrière — le compte
+reste actif, et sans la cascade la session volée survivrait au reset. Changer son propre mot de
+passe ferme donc aussi la session qui l'a fait : le service ne connaît pas le transport.
+
+L'émission est **gardée** : un abonné qui lève est journalisé, les suivants sont appelés quand même,
+et le geste — déjà écrit en base — n'échoue pas. C'est un **point d'extension** : un module qui
+possède des artefacts liés à un utilisateur s'abonne et nettoie les siens.
+
+⚠️ Construit sans container (`new UserService(repo, encoder)`), le service n'atteint pas le kernel :
+personne n'entend ses événements. Passez le container du module en troisième argument ;
+`@nodefony/security` le signale sinon au bilan de démarrage (`USERS_SERVICE_WITHOUT_KERNEL`).
 
 ### Self-service : anti-IDOR par construction
 
@@ -1030,7 +1048,7 @@ paramètre. La cible est lue dans le contexte de requête serveur, posé au logi
 (`UserAdminApi.ts:197`). Viser le compte d'autrui est donc impossible — pas « interdit par un
 contrôle », mais inexprimable.
 
-`me/password` exige en plus le mot de passe **actuel** (`UserAdminApi.ts:702`) : une session volée ne
+`me/password` exige en plus le mot de passe **actuel** (`UserAdminApi.ts:767`) : une session volée ne
 suffit pas à verrouiller un compte. Et comme cette re-vérification passe par `authenticate()`, qui ne
 déclenche aucun verrouillage dur, un attaquant ne peut pas non plus s'en servir pour enfermer le
 propriétaire légitime dehors.
@@ -1059,7 +1077,7 @@ l'authentification, pas à chaque requête. Les points qui comptent :
 | Utilisateur anonyme | singleton gelé + rôles partagés gelés → 0 allocation/requête                                                    | `AnonymousUser.ts:44`     |
 | Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés                                                    | `BcryptEncoder.ts:10`     |
 | Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache                                                      | `UserService.ts:374`      |
-| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:119`      |
+| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:170`      |
 | Listing             | pagination **native au store**, jamais de `find()` complet                                                      | `IUserRepository.ts:121`  |
 | Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes                                                            | `IUserRepository.ts:131`  |
 | Registre de stores  | `Set` allouée au premier enregistrement                                                                         | `userStoreRegistry.ts:16` |

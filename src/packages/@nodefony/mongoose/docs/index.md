@@ -450,7 +450,7 @@ export async function provisionUsers(module: Module): Promise<void> {
   const orm = ormRegistry.get("nodefony") as MongooseOrm;
   container.set(
     "users",
-    new UserService(MongooseUserRepository.from(orm), encoder),
+    new UserService(MongooseUserRepository.from(orm), encoder, container),
   );
 }
 ```

@@ -68,7 +68,9 @@ coûte aucune allocation par requête.
 import { BcryptEncoder, UserService } from "@nodefony/user";
 
 const encoder = new BcryptEncoder(12); // coût bcrypt (défaut 12)
-const users = new UserService(userRepository, encoder); // dépôt injecté
+// dépôt injecté ; le container du module relie le service au kernel — sans lui,
+// supprimer un compte ou changer son mot de passe ne révoque pas ses sessions.
+const users = new UserService(userRepository, encoder, module.container);
 
 const u = await users.createUser({
   identifier: "jane@x.io",

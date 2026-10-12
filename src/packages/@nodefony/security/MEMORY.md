@@ -488,7 +488,7 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   `UserService.changePassword(user.id, clair)` — vise l'id INTERNE (deux comptes peuvent
   partager un identifiant), hash Argon2id, liste d'interdits appliquée (`WeakPasswordError`
   → message, jamais de pile). Prompt MASQUÉ + confirmation en TTY ; hors TTY, `--password`
-  exigé. **Émet `USER_REVOKED_EVENT` avec `reason: "password_changed"`** → la cascade
+  exigé. `changePassword` émet `USER_REVOKED_EVENT` (`reason: "password_changed"`) → la cascade
   (`userRevocationCascade.ts`) éjecte sessions et jetons : ce n'est PAS une option, un mot
   de passe change parce qu'il est perdu ou compromis. L'union `reason` du contrat
   `IUserRevokedEvent` porte donc quatre valeurs (`deleted`/`disabled`/`locked`/
@@ -624,17 +624,23 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   d'abord par `resolveSubject` (`SecurityAdminApi.ts`, 503 sans service `users`). Les deux sont des
   `string` : passer l'`id` vise une clé vide et rend un SUCCÈS sans rien
   toucher. Un faux `users.findById` de test rend `identifier ≠ id`, sinon complaisant.
-- **Suppression d'un compte = émettre `USER_REVOKED_EVENT` (`reason: "deleted"`) par `fireAsync`** :
-  `users.delete` n'émet rien. La cascade (`userRevocationCascade.ts`) éjecte sessions + jetons et,
-  pour `deleted` SEULEMENT, retire TOTP + passkeys (sinon un compte recréé sous le même identifier
-  en hérite). `fire` n'attend pas un abonné async : la réponse HTTP / la fin de la commande
-  partirait avant le nettoyage.
-- **Création d'un compte = purge des facteurs HÉRITÉS** : `UserService.create` émet
-  `USER_CREATED_EVENT` sur SON bus (attendu) ; `bindUserCreatedPurge` y abonne
-  `removeAccountFactors` (seule implémentation, partagée avec la suppression). Règle exacte : un
-  compte neuf n'a rien enrôlé. Abonnement idempotent appelé à `onKernelReady`, `onPostReady` et par
-  `security:user:add` — les comptes SEMÉS au boot par l'app passent avant (non purgés). Jamais de
-  tri par `createdAt` (un import qui le remet à zéro retirerait des facteurs légitimes).
+- **`UserService` = SEUL émetteur du cycle de vie d'un compte**, sur le bus du KERNEL, par
+  `emitAsyncGuarded` (attendu ; un abonné qui lève est journalisé, les suivants passent, le geste
+  écrit ne rejette pas). `create` → `USER_CREATED_EVENT` ; `USER_REVOKED_EVENT` ← `delete` (par
+  `id`, un événement par compte effectivement supprimé), `updateOne` (`enabled:false` → `disabled`,
+  `locked:true` → `locked`, `password` → `password_changed`), `changePassword`. Aucun transport
+  (plan d'admin, CLI, contrôleur) n'émet : en ajouter un = double cascade. Security s'abonne UNE
+  fois au kernel à `onKernelBoot` (`registerUserRevocationCascade`), avant tout compte — semés au
+  boot (`onKernelReady` de l'app) compris. La cascade éjecte sessions + jetons et, pour `deleted`
+  SEULEMENT, retire TOTP + passkeys (`removeAccountFactors`, seule implémentation, partagée avec la
+  purge à la création : un compte neuf n'a rien enrôlé, tout facteur sous son identifier est
+  hérité). Jamais de tri par `createdAt` (un import le remet à zéro).
+- **`users` construit SANS container n'atteint pas le kernel** : ses événements partent sur son
+  propre bus, personne n'écoute → avis de boot `USERS_SERVICE_WITHOUT_KERNEL`
+  (`usersEventBusNotice`, à `onPostReady`). `provisionUsers` (app + gabarit) passe le container.
+- **Changer son PROPRE mot de passe ferme aussi la session courante** : le service ne connaît pas
+  le transport (`IAdminRequest` ne porte ni contexte ni session). ASVS 5.0 §7.4.3 exige au moins
+  les autres. Banc live : `framework/…/integration/account-lifecycle-revocation.test.ts`.
 - **userHandle WebAuthn = `IUser.id` (UUID)**, champ `IWebAuthnUser.handle`, repli SHA-256 de l'id
   (`userHandleBytes`) — WebAuthn L3 §4 : opaque, ≤ 64 octets, sans donnée personnelle. Jamais relu :
   l'authentification résout par l'id du credential stocké.
