@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T18:41:07.391Z",
+  "generatedAt": "2026-10-12T20:44:24.853Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 116,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -2772,6 +2772,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.99,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 590,
+      "title": "feat(devkit): livrer une relecture de sécurité pour le code d'une application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/590",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.992,
       "debut": null,
       "cible": null,
       "labels": [
