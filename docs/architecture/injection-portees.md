@@ -396,7 +396,7 @@ Tu n'ouvres jamais un scope toi-même dans une application : le pipeline le fait
   lève (`failTeardownHttp()`, `http-kernel.ts:1466`).
 - **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:1955`),
   refermé à la fermeture de la socket.
-- Le pipeline y pose `context` (`set("context")`, `Context.ts:311`) puis `controller` (`Resolver.ts:396`). Le
+- Le pipeline y pose `context` (`set("context")`, `Context.ts:311`) puis `controller` (`Resolver.ts:400`). Le
   `resolver` n'y est **pas** : c'est un champ du contexte (`context.resolver`).
 
 ### Le contrôleur singleton — le défaut, sous contrat strict

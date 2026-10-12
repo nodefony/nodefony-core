@@ -299,14 +299,14 @@ MATCHER la route — `prepareFrontController()` (`http-kernel.ts:864`) pose `ses
 `bypassFirewall`, que le point session et le firewall lisent juste après, et rien de plus. La
 construction de l'instance et l'appel d'`initialize()` exécutent du code utilisateur et résolvent
 des dépendances : ils vivent dans `Resolver.executeAction()`, **après** la garde `@IsGranted`
-(`Resolver.ts:372`), donc après CSRF, session et firewall. Un 403 court-circuite l'instanciation —
+(`Resolver.ts:376`), donc après CSRF, session et firewall. Un 403 court-circuite l'instanciation —
 c'est ce qui rend la garde réellement Zero Trust, et non un contrôle posé sur un objet déjà
 construit.
 
 ### Du retour d'action à l'octet
 
 La valeur que retourne ton action n'est pas envoyée telle quelle :
-`Resolver.returnController()` (`Resolver.ts:1034`) la normalise.
+`Resolver.returnController()` (`Resolver.ts:1039`) la normalise.
 
 | Ce que l'action retourne      | Ce qui part sur le fil                              |
 | ----------------------------- | --------------------------------------------------- |
@@ -542,8 +542,8 @@ où ; les pages dédiées disent comment.
 | CSRF                  | après le routage, avant la session (`firewall.ts:742`) | rejet précoce d'une mutation cross-site, avant tout coût d'auth        |
 | Session               | avant le firewall (`http-kernel.ts:1307`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:562`)               | la zone dépend de la route, donc du routage                            |
-| Idempotence           | dans l'appel d'action (`Resolver.ts:628`)              | seules les actions `@Idempotent` dévient — coût nul ailleurs           |
-| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:471-489`)    | un 403 ne doit pas exécuter une ligne de ton action                    |
+| Idempotence           | dans l'appel d'action (`Resolver.ts:633`)              | seules les actions `@Idempotent` dévient — coût nul ailleurs           |
+| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:475-493`)    | un 403 ne doit pas exécuter une ligne de ton action                    |
 | Origin WebSocket      | au handshake (`http-kernel.ts:509`)                    | l'anti-CSWSH remplace le CORS, absent des WebSockets                   |
 
 Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·

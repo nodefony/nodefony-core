@@ -46,6 +46,10 @@ import {
   computeFingerprint,
   isMutationMethod,
 } from "./idempotency.js";
+import {
+  authenticationShortfall,
+  stepUpChallenge,
+} from "./requireAuthentication.js";
 
 /**
  * Surface MINIMALE du service `authorization` (@nodefony/security) consommée par
@@ -496,6 +500,7 @@ class Resolver implements IResolver {
   private _enforceActionSecurity(
     meta: RouteActionMeta,
   ): Promise<void> | undefined {
+    if (meta.authentication !== null) return this._enforceStepUp(meta);
     if (meta.security === null) {
       return this._enforceAreaSecurity();
     }
@@ -1177,6 +1182,42 @@ class Resolver implements IResolver {
     return (
       (this.context.response as HttpResponse | Http2Response | null)
         ?.statusCode ?? 0
+    );
+  }
+
+  /**
+   * `@RequireAuthentication` — les gardes d'autorisation d'abord (un rôle
+   * absent reste un 403 définitif : inutile de faire redemander une connexion à
+   * qui n'aura pas le droit), PUIS l'âge et les moyens de la connexion.
+   *
+   * Le refus est un 401 « step-up » (RFC 9470) : le `WWW-Authenticate` porte
+   * `error="insufficient_user_authentication"` et, quand la route fixe un âge,
+   * `max_age` — le client redemande une connexion au lieu de conclure à un
+   * accès fermé. Cold path : seules les routes décorées y passent.
+   *
+   * @throws nodefonyError 401 si la connexion est trop ancienne ou trop faible.
+   */
+  private async _enforceStepUp(meta: RouteActionMeta): Promise<void> {
+    const requirement = meta.authentication;
+    if (requirement === null) return;
+    await this._enforceActionSecurity({ ...meta, authentication: null });
+    const cause = authenticationShortfall(
+      this.context.session ?? null,
+      requirement,
+      Date.now(),
+    );
+    if (cause === null) return;
+    // Capacité constatée : une réponse WebSocket n'a pas d'en-têtes.
+    const response = this.context.response;
+    if (response !== null && "setHeader" in response) {
+      response.setHeader("WWW-Authenticate", stepUpChallenge(requirement));
+    }
+    throw new nodefonyError(
+      identityHint(this.context.kernel) === null
+        ? "Authentication required"
+        : `Authentication required — ${cause}. Reconnectez-vous ` +
+            "(`@RequireAuthentication` de la route).",
+      401,
     );
   }
 }

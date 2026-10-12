@@ -327,7 +327,7 @@ async page(slug: string) {
 Les captures sont passées **positionnellement**, dans l'ordre des variables du chemin — c'est pourquoi
 la signature `async method6(metier: string, format: string)` suit l'ordre de `/{metier}/{format}`. Un
 wildcard est exposé sous les clés `wildcard` et `*`. Le `Resolver` en fabrique aussi un instantané
-nom → valeur par requête (`Resolver.getMatchedParams()`, `Resolver.ts:220`), lu par le contexte pour
+nom → valeur par requête (`Resolver.getMatchedParams()`, `Resolver.ts:224`), lu par le contexte pour
 les métadonnées et par les décorateurs `@Param`.
 
 > [!IMPORTANT]
@@ -445,7 +445,7 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
   (`routing-nonregression.test.ts:164`).
 - **Une invocation WS d'une mutation doit dire quelle méthode logique elle vise.** Sur une socket,
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même
-  chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:152`) que la
+  chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:156`) que la
   route doit déclarer **en plus** du transport — une route `POST` qui n'annonce pas `WEBSOCKET` reste
   **injoignable** par socket (zéro contournement, `Route.ts:852`).
 
@@ -522,7 +522,7 @@ chemin ; pour un appel interne, utilise `forward()`.
 
 **`forward()` n'est pas une redirection** : il résout `module:Controller:action` et exécute l'action
 dans le **même** contexte de requête, sans repasser par le réseau (`Resolver.parsePathernController()`,
-`Resolver.ts:247`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
+`Resolver.ts:251`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
 
 ## 🧰 API publique
 
@@ -538,7 +538,7 @@ modules qui montent des routes dynamiquement). Signatures complètes : `.ai/symb
 | `Route#path` · `#variables` · `#pattern`   | Ce que la route déclare, après compilation.                             |
 | `Route#toObject()` · `#toLogLine()`        | Sérialisation pour l'API admin · ligne de log lisible (`Route.ts:664`). |
 | `Resolver#route` · `#variables`            | Ce que la requête courante a matché.                                    |
-| `Resolver#getMatchedParams()`              | Les variables en `nom → valeur` (`Resolver.ts:200`).                    |
+| `Resolver#getMatchedParams()`              | Les variables en `nom → valeur` (`Resolver.ts:204`).                    |
 
 > [!CAUTION]
 > **La table de routes est un état de processus, pas d'instance** : `Router.routes` est une liste
@@ -566,7 +566,7 @@ alloué par requête.
   n'est même construite (`routeNoticePromoted`, `router.ts:395`).
 - **Métadonnées d'action mémoïsées par route** au premier passage (`@HttpCode`, `@Header`, `@Redirect`,
   paramètres, intention de session) : plus aucune lecture `Reflect` par requête
-  (`resolveActionMeta`, `Resolver.ts:458`).
+  (`resolveActionMeta`, `Resolver.ts:462`).
 
 ## 📜 Normes appliquées
 

@@ -498,8 +498,24 @@ Le second facteur validé au login ne dit rien de **qui est devant l'écran dix 
 (poste laissé ouvert, session volée). Pour une suppression de compte ou une rotation de clés, on
 redemande le code : c'est le _sudo mode_.
 
-Nodefony fournit le step-up **de login** ; la re-vérification en cours de session, elle, se compose
-dans ton controller à partir du service public `TotpService.verifyLogin()` (`totp.ts:300`) :
+**La voie déclarative** — une étiquette sur la route, qui lit ce que la session a retenu à son
+ouverture (quand, et avec quels moyens) :
+
+```typescript
+import { Post, RequireAuthentication } from "@nodefony/framework";
+
+@Post("/delete")
+@RequireAuthentication({ maxAge: 300, amr: ["otp"] }) // connexion < 5 min, avec le code
+async remove() { … }
+```
+
+Une connexion trop ancienne ou sans le code reçoit un **401** dont le `WWW-Authenticate` porte
+`error="insufficient_user_authentication"` (RFC 9470) : le client redemande une connexion — mot de
+passe puis code — et rejoue l'action. Évaluée APRÈS `@IsGranted` : un rôle absent reste un 403.
+Une session qui ne dit pas comment elle a été ouverte est refusée.
+
+**La voie composée** — quand le code doit être saisi DANS l'action, sans repasser par la page de
+connexion, à partir du service public `TotpService.verifyLogin()` (`totp.ts:300`) :
 
 ```typescript
 import { controller, Controller, Post } from "@nodefony/framework";

@@ -133,7 +133,7 @@ du firewall :
 **2. Les deux traversent le même résolveur.** `HttpContext.handle()` appelle `router.resolve(this)`
 puis `resolver.callController()` (`HttpContext.ts:287`) ; `WebsocketContext.handle()` fait exactement
 la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts:297`). Un seul
-`Router` (`router.ts:164`), un seul `Resolver` (`Resolver.ts:86`).
+`Router` (`router.ts:164`), un seul `Resolver` (`Resolver.ts:90`).
 
 **3. Une route déclare ses transports, elle ne choisit pas son monde.** Le transport est une
 **exigence de route** parmi d'autres : `Route.match()` compare `context.method` — qui vaut
@@ -305,7 +305,7 @@ en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
 
-`Router` (`router.ts:164`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:86`) et les
+`Router` (`router.ts:164`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:90`) et les
 décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts:189`), `route()`
 (`routerDecorators.ts:287`), `Get` (`routerDecorators.ts:540`), `IsGranted()`
 (`routerDecorators.ts:903`), `CurrentUser` (`routerDecorators.ts:1308`). C'est la surface que tu
@@ -459,8 +459,8 @@ alors plus une propriété fragile de ton fichier d'entrée.
 **Ce qui se ressemble.** Beaucoup : les contrôleurs à décorateurs (`@controller`, `@Get`, `@Param`,
 `@Body`, `@Query`), l'injection de dépendances, les gardes d'autorisation, l'idée de modules. Une
 garde `@IsGranted` s'applique **avant** l'instanciation du contrôleur, au niveau du résolveur — même
-contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:660`) enveloppe
-l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:866`) tranche, fail-closed en 403.
+contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:665`) enveloppe
+l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:871`) tranche, fail-closed en 403.
 
 **Ce qui change.** Deux choses. D'abord, **pas de gateway WebSocket séparée** : là où Nest te
 demande un `@WebSocketGateway()` distinct de tes contrôleurs, Nodefony te fait déclarer le transport

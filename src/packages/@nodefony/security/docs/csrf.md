@@ -148,7 +148,7 @@ export default ProfileController;
 
 (Wiring : `@controllers([ProfileController])` dans le module de l'app — `nodefony create controller`
 le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les actions : les marqueurs
-`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1747-1751`.)
+`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1750-1755`.)
 
 ### Comment le front obtient — puis rejoue — le token
 
@@ -296,7 +296,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 1. `@CsrfProtect`/`@CsrfExempt` posent un **marqueur** de metadata — zéro import de
    `@nodefony/security` côté framework, zéro cycle (`routerDecorators.ts:886`).
 2. Au match de la route, `Resolver.match()` recopie les marqueurs sur le contexte
-   (`Resolver.ts:156-186`) — champs portés par le `Context` de base, HTTP comme WS
+   (`Resolver.ts:160-190`) — champs portés par le `Context` de base, HTTP comme WS
    (`Context.ts:241-243`).
 3. `Firewall.enforceCsrf()` (`firewall.ts:1042`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
@@ -341,7 +341,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 - **Lazy** : `#csrf`/`#csrfTokens` restent `null` si la défense est désactivée — aucune structure
   allouée « au cas où » (`firewall.ts:165`).
 - Le coût HMAC (1 à l'émission, 1 à la vérif) n'est payé **que** sur les routes `@CsrfProtect` ; les
-  marqueurs sont lus depuis le memo de route — 0 `Reflect` par requête (`Resolver.ts:205`).
+  marqueurs sont lus depuis le memo de route — 0 `Reflect` par requête (`Resolver.ts:209`).
 
 ## 📡 Observabilité — Studio
 

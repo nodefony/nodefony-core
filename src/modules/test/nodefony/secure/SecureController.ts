@@ -5,6 +5,7 @@ import {
   controller,
   Get,
   IsGranted,
+  RequireAuthentication,
   CurrentUser,
   Scope,
 } from "@nodefony/framework";
@@ -67,6 +68,28 @@ class SecureController extends Controller {
   @IsGranted("ROLE_ADMIN")
   adminOnly(@CurrentUser() user: IUser) {
     return this.renderJson({ granted: true, identifier: user.identifier });
+  }
+
+  /**
+   * Preuve `@RequireAuthentication` — l'ÂGE de la connexion : servie à une
+   * session ouverte au mot de passe il y a moins de 2 s, refusée en 401
+   * « step-up » (RFC 9470, `max_age="2"`) ensuite. Le seuil est court pour que
+   * le banc n'attende que 2 s.
+   */
+  @Get("/step-up/recent")
+  @RequireAuthentication({ maxAge: 2, amr: ["pwd"] })
+  stepUpRecent() {
+    return this.renderJson({ fresh: true });
+  }
+
+  /**
+   * Preuve `@RequireAuthentication` — le MOYEN : exige un code à usage unique
+   * (`otp`). Une session ouverte au seul mot de passe est refusée en 401.
+   */
+  @Get("/step-up/otp")
+  @RequireAuthentication({ amr: ["otp"] })
+  stepUpOtp() {
+    return this.renderJson({ otp: true });
   }
 
   /** Identité propagée par le firewall dans l'ALS (`RequestContext`). */

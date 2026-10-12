@@ -142,17 +142,22 @@ exactement le contournement qu'elle laisse passer.
 
 ## 7. Exiger une connexion RÉCENTE, ou deux facteurs, avant une action sensible
 
-La session retient quand et comment elle a été ouverte (méthodes RFC 8176) :
+Une étiquette sur la route — n'écris PAS la vérification :
 
 ```ts
-import { readSessionAuthentication } from "nodefony";
+import { Post, RequireAuthentication } from "@nodefony/framework";
 
-const auth = readSessionAuthentication(this.session); // { at, amr } ou null
-const recent = auth !== null && Date.now() - auth.at < 5 * 60_000;
-const twoFactors = auth?.amr.includes("otp") ?? false;
-if (!recent || !twoFactors)
-  return this.renderJson({ error: "reauth_required" }, 403);
+@Post("/transfers")
+@RequireAuthentication({ maxAge: 300, amr: ["otp"] }) // < 5 min, avec le code TOTP
+transfer() { … }
 ```
+
+- `maxAge` en secondes, `amr` = moyens exigés (tous présents) ; l'un ou l'autre suffit.
+- Refus = **401** dont le `WWW-Authenticate` porte `error="insufficient_user_authentication"`
+  (RFC 9470) : « reconnecte-toi », pas « interdit ». Évalué APRÈS `@IsGranted` : un rôle absent
+  reste un 403.
+- Pour LIRE l'information (l'afficher, la journaliser) : `readSessionAuthentication(this.session)`
+  (`nodefony`) → `{ at, amr }` ou `null`. Jamais pour décider à la place de l'étiquette.
 
 | Connexion par       | `amr`            |
 | ------------------- | ---------------- |
@@ -161,11 +166,11 @@ if (!recent || !twoFactors)
 | passkey             | `["pop"]`        |
 | fournisseur         | `[]`             |
 
-- `null` = session sans ces métadonnées (ouverte avant, ou altérée) : **refuse**, ne devine pas.
-- ❌ `session.getMetaBag("amr")` : tu relis à la main un contrat que `readSessionAuthentication`
-  valide (types, valeurs finies).
-- `this.session` n'est peuplée que si la route reprend une session (cookie présent dans une zone
-  `session`, ou `@UseSession`) — hors zone, elle vaut `null`, donc le refus ci-dessus s'applique.
+- Session sans ces métadonnées (ouverte avant, ou altérée) : l'étiquette **refuse**, elle ne devine pas.
+- ❌ `session.getMetaBag("amr")`, ❌ un `if (Date.now() - auth.at > …)` écrit dans l'action : tu
+  recopies une garde que le framework porte, avec ses refus normés.
+- La route doit être sous une zone `session` : hors zone, aucune session n'est reprise et
+  l'étiquette refuse tout le monde.
 
 ## 8. Les routes de connexion restent sous le contrôle anti-falsification
 

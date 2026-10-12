@@ -294,7 +294,7 @@ arbitraire. Chaque couche y dépose ce qui la concerne, parmi les clés ci-desso
 | `queries`        | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:98`)                 |
 | `invocation`     | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
 | `body`           | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
-| `idempotencyKey` | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:712`)                                |
+| `idempotencyKey` | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:717`)                                |
 | `renderSink`     | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
 
 > [!NOTE]
@@ -309,7 +309,7 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
 | l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1308` |
 | le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:238`        |
-| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:471`          |
+| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:475`          |
 
 ## 🔌 Où la bulle est ouverte
 
@@ -478,7 +478,7 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:633`). Quatre 
    authentifié porte un utilisateur sans `id`, `identifier` ou `roles` (authentificateur qui viole
    le contrat) au lieu de le faire passer, sans un mot, pour un anonyme. `this.user` d'un contrôleur,
    `@nodefony/user` (`authenticatedUser`, `requestUser`), le realtime et l'idempotence l'appellent. L'autorisation passe par le firewall et ses décorateurs, qui lisent le **jeton**
-   (`Resolver.ts:849`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
+   (`Resolver.ts:854`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
    révoquée entre-temps. C'est pourquoi le pont WS-RPC **revalide** l'identité à chaque invocation

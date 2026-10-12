@@ -328,7 +328,7 @@ async init?(kernel?: IKernel): Promise<this> { ... }
 ```
 
 ⚠️ `init`, PAS `initialize`. `initialize()` est le hook du **Controller** (appelé
-sans argument à CHAQUE requête, `Resolver.ts:78`) ; `init(owner)` est celui du
+sans argument à CHAQUE requête, `Resolver.ts:82`) ; `init(owner)` est celui du
 Module et du Service (une fois au démarrage, sous garde de boot). Deux cycles de
 vie, deux noms.
 

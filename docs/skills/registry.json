@@ -4530,7 +4530,7 @@
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
         "bodyLines": 410,
-        "approxTokens": 9695
+        "approxTokens": 9752
       },
       "requires": [],
       "resources": {
@@ -10597,8 +10597,8 @@
       ],
       "description": "Établit QUI est l'utilisateur d'une application Nodefony par ce que le framework sert déjà — page /login et son habillage, client NodefonyLogin, route me, second facteur, connexion récente, retour sûr après connexion, fournisseurs (Keycloak, GitHub), jeton d'un programme — au lieu de le réécrire. À charger AVANT d'écrire un formulaire de connexion, une redirection après login, une lecture de session ou un appel d'API depuis un script. Ce qu'un utilisateur connecté a le DROIT de faire → nodefony-protect-route. Déclencheurs : \"ajoute une page de connexion\", \"formulaire de login\", \"se connecter\", \"second facteur\", \"TOTP\", \"MFA\", \"exiger une connexion récente\", \"ramener l'utilisateur après la connexion\", \"?from=\", \"qui est connecté\", \"déconnexion\", \"Keycloak\", \"se connecter avec GitHub\", \"mon script doit appeler l'API sans formulaire\", \"jeton d'accès\", \"202 au login\".",
       "cost": {
-        "bodyLines": 215,
-        "approxTokens": 3350
+        "bodyLines": 220,
+        "approxTokens": 3421
       },
       "requires": [],
       "resources": {
@@ -10669,7 +10669,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "215",
+            "detail": "220",
             "advisory": true
           }
         ]

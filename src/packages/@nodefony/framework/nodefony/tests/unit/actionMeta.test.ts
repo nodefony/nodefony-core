@@ -109,6 +109,7 @@ describe("routerDecorators — computeActionMeta()", () => {
       headerEntries: null,
       sessionIntent: null,
       security: null,
+      authentication: null,
       cspDirectives: null,
       csrfProtect: false,
       csrfExempt: false,

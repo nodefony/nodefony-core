@@ -216,7 +216,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 233 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
-| [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 215 | 0 | 0 | ✅ |
+| [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
 | [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 500 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 349 | 0 | 0 | ✅ |
 

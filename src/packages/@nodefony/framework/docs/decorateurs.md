@@ -52,7 +52,7 @@ flowchart TD
 2. **Au montage**, `controller()` (`routerDecorators.ts:189`) relit ces métadonnées et fabrique les
    objets `Route` ; `controllers()` (`routerDecorators.ts:111`) accroche le contrôleur au module sur
    le hook `onBoot` du kernel.
-3. **À la première requête** de chaque route, `resolveActionMeta()` (`routerDecorators.ts:1768`)
+3. **À la première requête** de chaque route, `resolveActionMeta()` (`routerDecorators.ts:1772`)
    consolide toutes les étiquettes de l'action en **un objet figé** posé sur la route. Les requêtes
    suivantes ne lisent plus aucune métadonnée.
 
@@ -126,13 +126,13 @@ jamais surprendre.
 **1 — Un décorateur n'écrit QUE des métadonnées.** Aucun décorateur du framework ne contient de
 logique de sécurité, de session ou d'idempotence. `IsGranted()` (`routerDecorators.ts:903`) pose une
 clause ; c'est le `Resolver` qui appellera le moteur d'autorisation, **résolu par son nom** dans le
-conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:866`). Pourquoi ce détour : `@nodefony/framework`
+conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:871`). Pourquoi ce détour : `@nodefony/framework`
 ne dépend **pas** de `@nodefony/security` — sans ça, les deux modules formeraient un cycle. Le prix à
 payer est visible : une route gardée alors que le module `security` est absent renvoie **403**, pas
-une erreur de démarrage (fail-closed, `Resolver.ts:860`).
+une erreur de démarrage (fail-closed, `Resolver.ts:865`).
 
 **2 — Tout est figé une fois, puis relu en O(1).** Les métadonnées de l'action sont consolidées au
-premier passage dans `computeActionMeta()` (`routerDecorators.ts:1726`) puis gelées sur la route.
+premier passage dans `computeActionMeta()` (`routerDecorators.ts:1729`) puis gelées sur la route.
 L'objet `RouteActionMeta` (`routerDecorators.ts:1537`) est **partagé par toutes les requêtes** — le
 framework ne le mute jamais, et ton code non plus. Une action non décorée obtient des champs à `null`,
 ce qui vaut **zéro branche** dans le chemin chaud.
@@ -274,7 +274,7 @@ Six familles, **36 décorateurs**, un seul fichier source. Le tableau de synthè
 | **Méthodes HTTP** | Quand l'action répond | `@Get` `@Post` `@Put` `@Patch` `@Delete` `@Options` `@Head` `@All` |
 | **Paramètres** | Ce que l'action reçoit en arguments | `@Param` `@Query` `@Body` `@Headers` `@Cookie` `@Session` `@CurrentUser` `@Req` `@Res` `@UploadedFile` `@UploadedFiles` |
 | **Réponse** | Statut, en-têtes, redirection | `@HttpCode` `@Header` `@Redirect` |
-| **Sécurité** | Qui passe, qui décide, quelles défenses | `@IsGranted` `@RequireScope` `@Anonymous` `@BypassFirewall` `@Csp` `@CsrfProtect` `@CsrfExempt` |
+| **Sécurité** | Qui passe, qui décide, quelles défenses | `@IsGranted` `@RequireScope` `@RequireAuthentication` `@Anonymous` `@BypassFirewall` `@Csp` `@CsrfProtect` `@CsrfExempt` |
 | **Cycle de la requête** | Session, anti-rejeu | `@UseSession` `@Idempotent` |
 
 > Tous s'importent depuis `"@nodefony/framework"` — jamais par un chemin relatif interne.
@@ -457,12 +457,12 @@ ne s'auto-promeut pas.
 | `@Header("X-Foo", "bar")` | méthode | Ajoute un en-tête ; **s'empile** (plusieurs `@Header` cumulent, `routerDecorators.ts:603`) | `@Header("Cache-Control","no-store")` |
 | `@Redirect("/url", 302)`  | méthode | Redirige **si** l'action ne renvoie rien (`Redirect()`, `routerDecorators.ts:649`)         | `@Redirect("/login", 302)`            |
 
-Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:972`) **avant**
+Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:977`) **avant**
 l'appel de l'action : ton code peut donc les écraser ensuite (`this.renderJson(data, 202)` gagne).
 
 `@Redirect` a une subtilité utile : si l'action **retourne un objet** portant `url` (et
 éventuellement `statusCode`), cet objet **prend le dessus** sur les valeurs du décorateur
-(`Resolver._handleRedirect()`, `Resolver.ts:997`) — la cible peut donc être calculée à l'exécution :
+(`Resolver._handleRedirect()`, `Resolver.ts:1002`) — la cible peut donc être calculée à l'exécution :
 
 ```typescript
 @Get("/go")
@@ -483,20 +483,21 @@ async go(@Query("to") to?: string) {
 Sept décorateurs, **tous duals** (classe ou méthode) et **tous sans logique** : ils posent une
 étiquette que le `Resolver` ou le firewall consommera.
 
-| Décorateur                               | Effet                                                                                                    | Ancre                                         |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `@IsGranted(attr \| attrs, { subject })` | Exige un attribut (rôle `ROLE_*` ou règle métier). Tableau = **OU** ; empilés = **ET** ; refus → **403** | `IsGranted()` (`routerDecorators.ts:903`)     |
-| `@RequireScope(scope \| scopes)`         | Exige un scope `api:action` d'un **jeton machine** ; no-op pour une session humaine                      | `RequireScope()` (`routerDecorators.ts:1002`) |
-| `@Anonymous()`                           | Rend l'action publique : annule l'autorisation **et** l'authentification (le « permitAll »)              | `Anonymous()` (`routerDecorators.ts:969`)     |
-| `@BypassFirewall`                        | Court-circuite le firewall (sonde de liveness, webhook signé, endpoint de login). **Sans parenthèses**   | `BypassFirewall` (`routerDecorators.ts:725`)  |
-| `@Csp({ "frame-src": [...] })`           | Ajoute des directives CSP **à cette réponse** ; classe + méthode fusionnent additivement                 | `Csp()` (`routerDecorators.ts:1092`)          |
-| `@CsrfProtect()`                         | Opt-**in** au jeton anti-CSRF (double-submit signé) en plus de la défense globale                        | `CsrfProtect` (`routerDecorators.ts:1156`)    |
-| `@CsrfExempt()`                          | Opt-**out** de la défense CSRF **en gardant** l'authentification (webhook, POST cross-origin légitime)   | `CsrfExempt` (`routerDecorators.ts:1165`)     |
+| Décorateur                                | Effet                                                                                                                                                             | Ancre                                                  |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `@IsGranted(attr \| attrs, { subject })`  | Exige un attribut (rôle `ROLE_*` ou règle métier). Tableau = **OU** ; empilés = **ET** ; refus → **403**                                                          | `IsGranted()` (`routerDecorators.ts:903`)              |
+| `@RequireScope(scope \| scopes)`          | Exige un scope `api:action` d'un **jeton machine** ; no-op pour une session humaine                                                                               | `RequireScope()` (`routerDecorators.ts:1002`)          |
+| `@RequireAuthentication({ maxAge, amr })` | Exige une connexion **récente** (`maxAge`, s) et/ou faite avec certains moyens (`amr` RFC 8176, ex. `otp`) ; évalué après `@IsGranted` ; refus → **401** RFC 9470 | `RequireAuthentication()` (`routerDecorators.ts:1883`) |
+| `@Anonymous()`                            | Rend l'action publique : annule l'autorisation **et** l'authentification (le « permitAll »)                                                                       | `Anonymous()` (`routerDecorators.ts:969`)              |
+| `@BypassFirewall`                         | Court-circuite le firewall (sonde de liveness, webhook signé, endpoint de login). **Sans parenthèses**                                                            | `BypassFirewall` (`routerDecorators.ts:725`)           |
+| `@Csp({ "frame-src": [...] })`            | Ajoute des directives CSP **à cette réponse** ; classe + méthode fusionnent additivement                                                                          | `Csp()` (`routerDecorators.ts:1092`)                   |
+| `@CsrfProtect()`                          | Opt-**in** au jeton anti-CSRF (double-submit signé) en plus de la défense globale                                                                                 | `CsrfProtect` (`routerDecorators.ts:1156`)             |
+| `@CsrfExempt()`                           | Opt-**out** de la défense CSRF **en gardant** l'authentification (webhook, POST cross-origin légitime)                                                            | `CsrfExempt` (`routerDecorators.ts:1165`)              |
 
 #### Rôles et scopes — deux axes, un seul verdict
 
 `@IsGranted` et `@RequireScope` écrivent dans **deux jeux de métadonnées distincts**, puis
-`computeSecurityRequirement()` (`routerDecorators.ts:1645`) les fusionne en une exigence unique dont
+`computeSecurityRequirement()` (`routerDecorators.ts:1648`) les fusionne en une exigence unique dont
 toutes les clauses sont en **ET**. Une seule chaîne d'application côté `Resolver`, deux jurés
 différents côté `security` (le voteur de rôles, le voteur de scopes).
 
@@ -625,7 +626,7 @@ Trois faits à retenir :
 - **Les décorateurs de paramètre fonctionnent pareil.** Pour une invocation par socket, le corps de
   la mutation voyage dans l'ALS et **prime** sur le corps HTTP (vide dans ce cas) — c'est traité dans
   `resolveParamArg()` (`routerDecorators.ts:1358`), et `@Query` lit la query du chemin **invoqué**,
-  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:942`).
+  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:947`).
 - **Les gardes s'appliquent identiquement.** `@IsGranted` protège une action joignable par socket
   exactement comme une action HTTP : la décision est prise avant l'instanciation, quel que soit le
   transport.
@@ -644,11 +645,11 @@ pas toutes identiques — c'est la source d'erreur n°1.
 | `@Domain` | option `host` de la route > méthode > classe | `controller()` (`routerDecorators.ts:189`) |
 | `@BypassFirewall` | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:750` |
 | `@UseSession` | méthode > classe (fusion des champs) | `resolveSessionIntent()` (`routerDecorators.ts:858`) |
-| `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1707`) |
-| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode | `computeSecurityRequirement()` (`routerDecorators.ts:1645`) |
+| `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1710`) |
+| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode | `computeSecurityRequirement()` (`routerDecorators.ts:1648`) |
 | `@Anonymous` | méthode → annule tout ce que la classe a posé | `routerDecorators.ts:969` |
 | `@Csp` | fusion **additive** classe + méthode (sources concaténées) | `mergeCspDirectives()` (`routerDecorators.ts:1066`) |
-| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit | `computeActionMeta()` (`routerDecorators.ts:1726`) |
+| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit | `computeActionMeta()` (`routerDecorators.ts:1729`) |
 | `@Header` | s'empile (plusieurs en-têtes) ; même clé → dernier écrit gagne | `Header()` (`routerDecorators.ts:603`) |
 | `@HttpCode` | un seul par action (le dernier posé écrase) | `HttpCode()` (`routerDecorators.ts:582`) |
 
@@ -711,12 +712,12 @@ ont dit de l'action :
 
 Le `Resolver` consomme ce snapshot dans un ordre qui a du sens sécurité :
 **garde d'abord, instanciation ensuite**. `security !== null` déclenche
-`_enforceSecurity()` (`Resolver.ts:866`) **avant** `newController()` — un `403` n'instancie pas le
+`_enforceSecurity()` (`Resolver.ts:871`) **avant** `newController()` — un `403` n'instancie pas le
 contrôleur et n'exécute pas son `initialize()`. Puis viennent les arguments
-(`_buildParamArgs()`, `Resolver.ts:942`), les métadonnées de réponse
-(`_applyResponseMeta()`, `Resolver.ts:972`), l'action, et enfin la redirection éventuelle.
+(`_buildParamArgs()`, `Resolver.ts:947`), les métadonnées de réponse
+(`_applyResponseMeta()`, `Resolver.ts:977`), l'action, et enfin la redirection éventuelle.
 
-Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1621`) parcourt
+Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1624`) parcourt
 les routes au démarrage pour bâtir le **catalogue des scopes déclarés** — le formulaire de création
 de clés API dans Studio propose les scopes réellement utilisés par le code, jamais une liste
 maintenue à part.
@@ -725,15 +726,15 @@ maintenue à part.
 
 Un décorateur non employé doit coûter **zéro**. C'est tenu par trois mécanismes vérifiables :
 
-- **Lecture unique.** `resolveActionMeta()` (`routerDecorators.ts:1768`) mémorise le snapshot sur la
+- **Lecture unique.** `resolveActionMeta()` (`routerDecorators.ts:1772`) mémorise le snapshot sur la
   route au premier passage — ensuite, plus aucun appel `Reflect.getMetadata` ni `Object.entries` par
   requête. Le même schéma vaut pour la détection du flux brut
   (`routeExpectsBodyStream()`, `routerDecorators.ts:1509`).
 - **`null` plutôt que structure vide.** Une action sans garde a `security: null` : le `Resolver` teste
-  un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:486`). Idem
+  un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:490`). Idem
   pour `idempotent`, `cspDirectives`, `paramsMeta`.
 - **Objets gelés et partagés.** Les exigences de sécurité et d'idempotence sont créées **une fois** et
-  `Object.freeze`-ées (`routerDecorators.ts:1647`, `:1696`) : une seule instance pour la durée de vie
+  `Object.freeze`-ées (`routerDecorators.ts:1650`, `:1696`) : une seule instance pour la durée de vie
   du processus, quelle que soit la charge. Corollaire : ne les mute jamais.
 
 Coût résiduel côté montage seulement : la reconstruction de la pile d'appels dans `route()`

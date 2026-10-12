@@ -1554,6 +1554,8 @@ export interface RouteActionMeta {
    * path (ni résolution de service, ni `decide`, ni await). Frozen, partagé.
    */
   security: SecurityRequirement | null;
+  /** `@RequireAuthentication` (fusion au plus strict) — `null` = 0 coût, frozen. */
+  authentication: IAuthenticationRequirement | null;
   /**
    * Directives CSP additionnelles (`@Csp`, fusion classe+méthode) — `null` si
    * l'action n'en déclare pas (cas courant → 0 composition CSP). Frozen, partagé.
@@ -1578,6 +1580,7 @@ const EMPTY_ACTION_META: RouteActionMeta = {
   headerEntries: null,
   sessionIntent: null,
   security: null,
+  authentication: null,
   cspDirectives: null,
   csrfProtect: false,
   csrfExempt: false,
@@ -1747,6 +1750,7 @@ function computeActionMeta(
     headerEntries: headers ? Object.entries(headers) : null,
     sessionIntent: resolveSessionIntent(ctor as ControllerConstructor, method),
     security: computeSecurityRequirement(ctor, method),
+    authentication: computeAuthenticationRequirement(ctor, method),
     cspDirectives: computeCspDirectives(ctor, method),
     // CSRF : marqueur méthode OU classe (true dès qu'un des deux le pose).
     csrfProtect:
@@ -1796,6 +1800,7 @@ export {
   BypassFirewall,
   IsGranted,
   RequireScope,
+  RequireAuthentication,
   Anonymous,
   Csp,
   CsrfProtect,
@@ -1825,3 +1830,144 @@ export {
   resolveActionMeta,
   extractActionScopes,
 };
+
+// ── @RequireAuthentication — connexion récente et moyens exigés ─────────────
+
+// Authentification exigée par action (@RequireAuthentication) — âge maximal de
+// la connexion et moyens employés (RFC 8176). Axe DISTINCT de l'autorisation :
+// il ne dit pas QUI a le droit, mais COMMENT et QUAND la session a été ouverte.
+const AUTHENTICATION_REQUIREMENT_METADATA = "nodefony:security:authentication";
+
+/** Options de {@link RequireAuthentication}. */
+export interface IRequireAuthenticationOptions {
+  /** Âge maximal de la connexion, en secondes. Omis = aucune limite d'âge. */
+  readonly maxAge?: number;
+  /**
+   * Moyens d'authentification EXIGÉS, tous présents (RFC 8176) : `"pwd"` mot
+   * de passe, `"otp"` code à usage unique, `"pop"` clé d'accès. Omis = aucun.
+   */
+  readonly amr?: readonly string[];
+}
+
+/**
+ * Exigence d'authentification **figée** d'une action — fusion classe + méthode
+ * au plus strict (âge le plus court, moyens réunis), calculée UNE fois par
+ * route. Objet partagé entre requêtes : ne jamais muter.
+ */
+export interface IAuthenticationRequirement {
+  /** Âge maximal en secondes, `null` = sans limite. */
+  readonly maxAge: number | null;
+  /** Moyens exigés, tous présents. */
+  readonly amr: readonly string[];
+}
+
+/**
+ * Exige une connexion RÉCENTE et/ou faite avec certains moyens pour l'action
+ * (décorateur de méthode) ou tout le contrôleur (décorateur de classe).
+ *
+ * - `@RequireAuthentication({ maxAge: 300 })` — connexion de moins de 5 minutes.
+ * - `@RequireAuthentication({ amr: ["otp"] })` — second facteur exigé.
+ * - les deux se combinent ; classe + méthode fusionnent au plus strict.
+ *
+ * Lit ce que la session a retenu à son ouverture (`readSessionAuthentication`,
+ * ADR-0015) et s'évalue dans le `Resolver` APRÈS `@IsGranted` : un rôle absent
+ * reste un 403 définitif, une connexion trop ancienne ou trop faible devient un
+ * **401** dont le `WWW-Authenticate` porte
+ * `error="insufficient_user_authentication"` (RFC 9470) — le client sait qu'il
+ * doit redemander une connexion, pas que l'accès lui est fermé. Une session qui
+ * ne porte pas ces métadonnées est refusée, jamais acceptée.
+ *
+ * @param options - âge maximal et moyens exigés.
+ * @throws TypeError si `maxAge` n'est pas un entier positif ou si un moyen est vide.
+ */
+function RequireAuthentication(options: IRequireAuthenticationOptions = {}) {
+  const { maxAge, amr = [] } = options;
+  if (maxAge !== undefined && (!Number.isInteger(maxAge) || maxAge <= 0)) {
+    throw new TypeError(
+      `@RequireAuthentication : maxAge doit être un entier de secondes > 0, reçu ${String(maxAge)}`,
+    );
+  }
+  if (amr.some((m) => typeof m !== "string" || m.length === 0)) {
+    throw new TypeError(
+      "@RequireAuthentication : chaque moyen de `amr` est une chaîne non vide (RFC 8176 : pwd, otp, pop)",
+    );
+  }
+  const requirement: IAuthenticationRequirement = Object.freeze({
+    maxAge: maxAge ?? null,
+    amr: Object.freeze([...amr]),
+  });
+  // Dual classe+méthode (idiome `any` du module, cf @IsGranted).
+  return function (
+    target: object,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      Reflect.defineMetadata(
+        AUTHENTICATION_REQUIREMENT_METADATA,
+        requirement,
+        target,
+      );
+      return target;
+    }
+    Reflect.defineMetadata(
+      AUTHENTICATION_REQUIREMENT_METADATA,
+      requirement,
+      target,
+      propertyKey,
+    );
+    return descriptor;
+  };
+}
+
+/** Une métadonnée lue par `Reflect` qui a bien la forme d'une exigence, sinon `undefined`. */
+function asAuthenticationRequirement(
+  value: unknown,
+): IAuthenticationRequirement | undefined {
+  return typeof value === "object" &&
+    value !== null &&
+    "maxAge" in value &&
+    "amr" in value &&
+    (value.maxAge === null || typeof value.maxAge === "number") &&
+    Array.isArray(value.amr)
+    ? {
+        maxAge: value.maxAge,
+        amr: value.amr.filter((m) => typeof m === "string"),
+      }
+    : undefined;
+}
+
+/**
+ * Fusionne les `@RequireAuthentication` de classe et de méthode au plus strict,
+ * ou `null` si aucune — `@Anonymous` (méthode) rend l'action publique.
+ */
+function computeAuthenticationRequirement(
+  ctor: { prototype: object },
+  method: string,
+): IAuthenticationRequirement | null {
+  if (Reflect.getMetadata(SECURITY_ANONYMOUS_METADATA, ctor, method) === true) {
+    return null;
+  }
+  const onMethod = asAuthenticationRequirement(
+    Reflect.getMetadata(
+      AUTHENTICATION_REQUIREMENT_METADATA,
+      ctor.prototype,
+      method,
+    ),
+  );
+  const onClass =
+    Reflect.getMetadata(SECURITY_ANONYMOUS_METADATA, ctor) === true
+      ? undefined
+      : asAuthenticationRequirement(
+          Reflect.getMetadata(AUTHENTICATION_REQUIREMENT_METADATA, ctor),
+        );
+  if (onMethod === undefined) return onClass ?? null;
+  if (onClass === undefined) return onMethod;
+  const ages = [onClass.maxAge, onMethod.maxAge].filter(
+    (age): age is number => age !== null,
+  );
+  return Object.freeze({
+    maxAge: ages.length > 0 ? Math.min(...ages) : null,
+    amr: Object.freeze([...new Set([...onClass.amr, ...onMethod.amr])]),
+  });
+}
