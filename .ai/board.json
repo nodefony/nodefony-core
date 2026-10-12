@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T11:35:57.414Z",
+  "generatedAt": "2026-10-12T13:22:45.731Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 114,
+      "closed": 115,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -2640,8 +2640,8 @@
       "number": 525,
       "title": "test(security): compléter les bancs Keycloak réels",
       "url": "https://github.com/nodefony/nodefony-core/issues/525",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
