@@ -26,10 +26,8 @@
 > compile pas), à recopier dans tout `<script>` en ligne. Ne touche JAMAIS
 > `this.response` à la main : poser `Content-Type` toi-même court-circuite la
 > négociation, et un `this.response as any` est le signal que tu as raté la façade.
-> Un flux d'événements (progression, réponse qui s'écrit mot à mot) se rend aussi par une
-> façade : `const sse = await this.renderSse()`, puis `sse.send(data, { event })` et
-> `sse.close()` ; côté navigateur, `NodefonySse` (`nodefony/client`). Jamais
-> `text/event-stream` écrit à la main.
+> Un flux d'événements aussi : `this.renderSse()` (skill `nodefony-add-realtime-channel`),
+> jamais `text/event-stream` écrit à la main.
 >
 > **Tu LIS une liste ?** Elle se BORNE, toujours. Le service d'une entité hérite
 > `findPage({ limit: 25 })` — il ne charge que `limit + 1` lignes et rend
@@ -236,23 +234,11 @@ LANCE les gardes : sans eux, ces lignes sortent en « non demandé », pas en «
 
 ## Voir un écran toi-même — un navigateur, pas un `curl`
 
-Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. Le
-devkit porte des sondes prêtes à l'emploi :
-
-```bash
-npm run see -- /                # mesure l'écran ; dit ce qui manque, s'il manque
-npm run see -- / --install      # installe l'outillage puis mesure (centaines de Mo)
-npm run see -- / --watch        # surveille en continu, signale ce qui change
-npm run see -- / --audit        # accessibilité, performance, bonnes pratiques
-```
-
-Tu obtiens un JSON : les **scripts réellement servis**, les erreurs de console, une
-capture — et des **mesures** (contraste calculé, taille des éléments sondés) : la
-différence entre « ça me paraît lisible » et « 7,39:1, donc AAA ».
-
-🔴 **Le mode d'emploi est le skill `nodefony-browser`** — charge-le AVANT de conclure
-quoi que ce soit d'un écran : il porte les autres sondes (temps réel, socket,
-Lighthouse authentifié) et les pièges qui font conclure FAUX.
+Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**.
+`npm run see -- /` mesure l'écran (console, scripts servis, contraste calculé), `--watch`
+le surveille. 🔴 **Charge le skill `nodefony-browser` AVANT de conclure** quoi que ce soit
+d'un écran : il porte `--install`, `--audit`, les autres sondes et les pièges qui font
+conclure FAUX.
 
 ## Méthode de travail
 
@@ -309,30 +295,17 @@ cookie de session ; `202` = second facteur requis, PAS encore connecté),
 `GET /nodefony/security/api/auth/me` et `POST /nodefony/security/api/auth/logout` (idempotent).
 Mesuré sur un agent tiers : faute de trouver `me`, il a généré un controller `Account` entier
 pour refaire une route qui existait, et lui a fallu cinq recherches pour trouver `logout`. Le
-rechargement d'une page (F5) se restaure avec `me`, jamais avec un état gardé côté navigateur.
-⚠️ `me` répond **TOUJOURS `200`** : `{ user: null }` sans session, sinon
-`{ user: { id, identifier, roles } }`. Teste `user`, jamais le code HTTP — et le champ
-s'appelle `identifier`, pas `username`.
+rechargement d'une page (F5) se restaure avec `me` (toujours `200` — teste `user`).
 
-🔴 **La PAGE de connexion est servie aussi — `/login`**, avec mot de passe, second facteur et
-boutons des fournisseurs (Keycloak, GitHub…). Ne l'écris pas : elle s'habille par
-`security.loginPage` (habillage, textes, ta feuille de style). Pour qu'une zone de PAGES y
-conduise le visiteur anonyme, déclare `entryPoint: "/login"` sur la zone : une navigation
-reçoit alors `302 /login?from=<page>`, un appel d'API garde son `401`. Après la connexion, ne
-redirige JAMAIS vers un `from` sans le passer à `safeRedirectPath` (redirection ouverte).
-⚠️ **En production, un mot de passe reçu en HTTP clair est refusé (`403`)** avant toute
-vérification. Derrière un proxy qui termine TLS, déclare-le dans `trustProxy` (config de
-`@nodefony/http`), sinon TOUTES les connexions échouent.
+🔴 **La PAGE `/login` est servie aussi** (mot de passe, second facteur, fournisseurs) : ne
+l'écris pas, habille-la (`security.loginPage`). Y conduire l'anonyme, ramener après connexion,
+mot de passe en clair refusé en production → skill `nodefony-protect-route`.
 
-🔴 **La PROVENANCE d'une requête n'est pas une PREUVE D'INTENTION — une mutation exige
-`@CsrfProtect`.** Le raisonnement qui vient, et qui est faux : « le firewall vérifie déjà
-`Sec-Fetch-Site`, donc une écriture est protégée ». Ces en-têtes sont posés par un
-NAVIGATEUR ; un programme qui parle en HTTP n'en envoie aucun, et la défense de provenance
-le laisse alors passer — elle distingue les sites, pas les intentions. Mesuré : un
-`POST /api/cart/items` sans jeton rend `201`, et l'app croit avoir une défense. Le jeton ne
-se demande à AUCUN endpoint : un `GET` vers la route protégée sème le cookie `csrf-token`,
-la mutation le rejoue dans `x-csrf-token` — sinon `403`. Une origine tierce refusée se
-DÉCLARE (`csrf.trustedOrigins`) : `@CsrfExempt` ferait passer **n'importe quel** site.
+🔴 **La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`.**
+« Le firewall vérifie déjà `Sec-Fetch-Site` » est faux pour un programme : il n'envoie pas ces
+en-têtes. Mesuré : un `POST` sans jeton rend `201`. Le jeton : un `GET` sur la route sème le
+cookie `csrf-token`, la mutation le rejoue dans `x-csrf-token`, sinon `403`. Une origine tierce
+se DÉCLARE (`csrf.trustedOrigins`) ; `@CsrfExempt` ouvrirait à **n'importe quel** site.
 🔴 **Et une URL DÉJÀ PUBLIÉE ne se déplace pas — c'est un contrat.** Quand on te demande
 de protéger une adresse existante, la déménager sous la zone déjà réglée la fait répondre
 `404` à celui-là même qu'on voulait servir : personne n'a prévenu le partenaire, et rien
@@ -388,9 +361,8 @@ Celles qu'on n'invente pas, faute de savoir qu'elles existent :
 - **Statiques vers un CDN** — `npx nodefony assets:publish [--clean]`
 - **Certificat TLS de développement** — `npx nodefony http:certificates`
 <% if (it.front) { %>- **Construire le front pour la production** — `npx nodefony frontend:build [-f]`
-<% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]` ; pour la
-  production, `--env` rend les secrets en lignes `CLÉ=valeur` et `--jwt-keyset` la valeur de
-  `NF_JWT_KEYSET` — sans clé de signature partagée, un serveur de production refuse de démarrer
+<% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]` (production :
+  `--env`, `--jwt-keyset` → skill `nodefony-devops`)
 - Créer un **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
 <% } %><% if (it.hasOrm && !it.hasMigrations) { %>- **Cette application persiste sur MongoDB** — aucune migration : une collection
   naît à la première écriture, et `npx nodefony create entity` y écrit une entité
@@ -463,11 +435,8 @@ Ce sont des **pointeurs** vers `node_modules`, donc ils suivent la version du
 framework de ce projet (`npx nodefony ai:sync` après un `npm update`). Rien n'est
 copié ici : une page copiée se figerait au jour de sa création.
 
-⚠️ **Les fichiers que les paquets POSENT dans l'app** (le décor Keycloak de développement
-sous `nodefony/keycloak/`, par exemple) sont, eux, des copies : après un `npm update`,
-`npx nodefony scaffold:sync --update` rafraîchit celles que tu n'as pas modifiées
-(`--dry-run` d'abord), et `npx nodefony doctor` signale celles qui sont en retard.
-`ai:sync` ne les touche pas.
+⚠️ Les fichiers que les paquets POSENT dans l'app (décor Keycloak…) sont des copies :
+`npx nodefony scaffold:sync --update` les rafraîchit, pas `ai:sync`.
 
 <!-- nodefony:end -->
 
