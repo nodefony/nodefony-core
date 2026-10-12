@@ -350,13 +350,13 @@ compte externe : le _Shadow User_. C'est cette ligne qui porte l'identifiant, le
 actif/verrouillé — donc **tout** ce dont l'autorisation a besoin.
 
 Le contrat s'appelle `IOAuthUserProvisioner` (`IOAuthUserProvisioner.ts:61`) ; l'implémentation par
-défaut est `UserService.provisionOAuthUser()` (`UserService.ts:363`), en **find-or-create** :
+défaut est `UserService.provisionOAuthUser()` (`UserService.ts:409`), en **find-or-create** :
 
 | Situation au retour du fournisseur       | Comportement                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------------ |
 | Lien social déjà connu                   | Le compte existant est rendu tel quel — rien n'est créé, rien n'est réécrit.   |
 | Lien inconnu, `allowSignup: true`        | Création JIT : `password: null`, rôles = `defaultRoles`, lien social persisté. |
-| Lien inconnu, `allowSignup: false`       | **Échec fail-closed** (`UserService.ts:374`) — un compte lié est exigé.        |
+| Lien inconnu, `allowSignup: false`       | **Échec fail-closed** (`UserService.ts:426`) — un compte lié est exigé.        |
 | E-mail identique à un compte local       | **Aucune liaison automatique** — un compte SÉPARÉ est créé.                    |
 | Même `providerId` chez deux fournisseurs | Comptes séparés (le couple `provider` + `providerId` fait la clé).             |
 
@@ -386,7 +386,7 @@ préfixée `provider:providerId` — jamais de collision entre fournisseurs (`Us
 
 ### Les rôles sont posés à la création, et plus jamais
 
-`defaultRoles` s'applique **au moment du `create`** (`UserService.ts:405`). Un second login
+`defaultRoles` s'applique **au moment du `create`** (`UserService.ts:143`). Un second login
 n'écrase rien : promouvoir quelqu'un dans ta base reste effectif, et modifier `defaultRoles` en
 config ne repeint pas les comptes existants. C'est la traduction de la règle « OAuth =
 authentification, pas autorisation » (`oauth2.ts:414-418`, `config.ts:1065-1070`).
@@ -740,9 +740,9 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | `OAuth issuer mismatch`                              | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:402-408`)                                                    | Corriger `issuer` (Keycloak : URL exacte du realm)                              |
 | Boot refusé : `….providers.<nom>.issuer`             | Émetteur absent (fabrique `requiresIssuer`) ou mal formé (`checkProviderIssuer()`)                       | Renseigner l'URL https du realm / de l'émetteur                                 |
 | « provisioning indisponible »                        | `users` n'implémente pas la capability (`oauth2.ts:863-871`)                                             | Implémenter `provisionOAuthUser()` sur le service `users`                       |
-| Profil connu refusé                                  | `allowSignup: false` sans lien préexistant (`UserService.ts:374`)                                        | Activer `allowSignup` ou lier le compte au préalable                            |
+| Profil connu refusé                                  | `allowSignup: false` sans lien préexistant (`UserService.ts:426`)                                        | Activer `allowSignup` ou lier le compte au préalable                            |
 | Doublon de compte pour un utilisateur existant       | Aucune liaison auto par e-mail (choix de sécurité)                                                       | Rattacher explicitement, utilisateur connecté                                   |
-| Rôle attendu absent après re-login                   | Rôles posés à la **création** seulement (`provisionOAuthUser`, `UserService.ts:366`), sauf `roleMapping` | Modifier les rôles en base, ou déclarer `roleMapping` ([Keycloak](keycloak.md)) |
+| Rôle attendu absent après re-login                   | Rôles posés à la **création** seulement (`provisionOAuthUser`, `UserService.ts:409`), sauf `roleMapping` | Modifier les rôles en base, ou déclarer `roleMapping` ([Keycloak](keycloak.md)) |
 | Jeton du fournisseur introuvable côté application    | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`)                            | Le capturer dans son propre `fetchProfile()` et le stocker soi-même             |
 | Keycloak : « Some clients have not been logged out » | Canal arrière injoignable, ou client en _Front channel logout_ ON                                        | Adresse joignable par Keycloak ; _Front channel logout_ OFF                     |
 | Canal arrière : `0 session(s) fermée(s)` au journal  | Session ouverte avant la mise en place de l'index fédéré, ou `sid` différent                             | Se reconnecter ; vérifier _Backchannel logout session required_                 |

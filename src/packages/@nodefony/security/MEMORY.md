@@ -628,8 +628,16 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   `users.delete` n'émet rien. La cascade (`userRevocationCascade.ts`) éjecte sessions + jetons et,
   pour `deleted` SEULEMENT, retire TOTP + passkeys (sinon un compte recréé sous le même identifier
   en hérite). `fire` n'attend pas un abonné async : la réponse HTTP / la fin de la commande
-  partirait avant le nettoyage. Orphelins d'avant le correctif : non purgés (un `createdAt` remis
-  à zéro par un import retirerait des facteurs légitimes) — échec fermé, reset admin.
+  partirait avant le nettoyage.
+- **Création d'un compte = purge des facteurs HÉRITÉS** : `UserService.create` émet
+  `USER_CREATED_EVENT` sur SON bus (attendu) ; `bindUserCreatedPurge` y abonne
+  `removeAccountFactors` (seule implémentation, partagée avec la suppression). Règle exacte : un
+  compte neuf n'a rien enrôlé. Abonnement idempotent appelé à `onKernelReady`, `onPostReady` et par
+  `security:user:add` — les comptes SEMÉS au boot par l'app passent avant (non purgés). Jamais de
+  tri par `createdAt` (un import qui le remet à zéro retirerait des facteurs légitimes).
+- **userHandle WebAuthn = `IUser.id` (UUID)**, champ `IWebAuthnUser.handle`, repli SHA-256 de l'id
+  (`userHandleBytes`) — WebAuthn L3 §4 : opaque, ≤ 64 octets, sans donnée personnelle. Jamais relu :
+  l'authentification résout par l'id du credential stocké.
 - **Résurrection de session** : `session.destroy()` pose `mutated=false` (sinon le saveSession de
   fin de requête RE-CRÉE le blob détruit — vu au banc logout J3). `AuthFlow.logout` pose aussi
   `context.session = null`.

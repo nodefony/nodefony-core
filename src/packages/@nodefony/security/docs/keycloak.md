@@ -108,7 +108,7 @@ disparaît de l'écran de connexion et revient tout seul quand le realm répond 
 (`#isReachable()`, `oauth2.ts:830`).
 
 **L'identité est la paire `(keycloak, sub)`, jamais l'email.** Au premier login, l'application crée
-un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:361`). Un
+un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:409`). Un
 compte local qui porte déjà le même identifiant sans ce lien n'est **jamais** rattaché en silence :
 la connexion est refusée (`UserService.ts:389`).
 
@@ -555,7 +555,7 @@ keycloak: {
 **Les règles, à connaître avant de l'activer :**
 
 - **Recalcul à chaque connexion ET à chaque jeton d'API.** Un rôle retiré dans Keycloak disparaît
-  au login suivant, et dès le jeton suivant sur l'API (`syncOAuthRoles()`, `UserService.ts:453`).
+  au login suivant, et dès le jeton suivant sur l'API (`syncOAuthRoles()`, `UserService.ts:496`).
   Une session déjà ouverte garde ses droits jusqu'à la reconnexion.
 - **Un rôle Keycloak absent de la table est ignoré**, jamais recopié tel quel : l'annuaire ne
   fabrique pas de droit que l'application n'a pas déclaré.

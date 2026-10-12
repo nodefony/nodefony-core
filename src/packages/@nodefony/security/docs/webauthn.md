@@ -32,7 +32,7 @@ source: "src/packages/@nodefony/security/docs/webauthn.md"
 > l'authenticator (Touch ID, Windows Hello, clé FIDO). Le serveur ne détient que des **clés
 > publiques** et ne fait que **vérifier des signatures** : rien à hameçonner, rien à rejouer, rien à
 > voler dans la base. Nodefony orchestre les deux cérémonies FIDO2 dans `WebAuthnService`
-> (`webAuthn.ts:99`) et fournit les endpoints BFF prêts à l'emploi — tu n'écris que l'appel
+> (`webAuthn.ts:131`) et fournit les endpoints BFF prêts à l'emploi — tu n'écris que l'appel
 > navigateur.
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **WebAuthn / Passkeys**
@@ -54,7 +54,7 @@ flowchart LR
 Le défi vit **hors du service**, en session BFF, posé par le controller
 (`WebAuthnController.registerOptions()`, `WebAuthnController.ts:122`). Chaque `verify*` reçoit
 l'`expectedChallenge` qu'il a émis, et le controller **l'invalide dès sa lecture**
-(`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:290`) : un défi ne sert qu'une fois.
+(`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:294`) : un défi ne sert qu'une fois.
 
 ## 📖 Lexique
 
@@ -90,7 +90,7 @@ Quatre failles fermées **par construction** :
 2. **Fuite de base** — le serveur ne stocke que des clés **publiques** (`IWebAuthnCredential.publicKey`,
    `IWebAuthnCredential.ts:16`). Une base volée ne donne aucun accès.
 3. **Rejeu** — le défi est à usage unique, invalidé en session dès sa lecture
-   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:290`).
+   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:294`).
 4. **Clonage d'authenticator** — le `signCount` doit croître ; une régression signale une copie
    (`IWebAuthnCredential.signCount`, `IWebAuthnCredential.ts:22`).
 
@@ -99,17 +99,17 @@ matérielle attestée).
 
 ## La vision Nodefony — le serveur ne détient aucun secret
 
-`WebAuthnService` (`webAuthn.ts:99`) **orchestre**, il ne fait pas de cryptographie : le parsing
+`WebAuthnService` (`webAuthn.ts:131`) **orchestre**, il ne fait pas de cryptographie : le parsing
 CBOR/COSE et la vérification des signatures (ES256/RS256/EdDSA) sont délégués à
 `@simplewebauthn/server`, une bibliothèque auditée de l'écosystème, **importée paresseusement** au
-premier usage (`WebAuthnService.#ensureLib()`, `webAuthn.ts:545`) — l'enrôlement et le login sont des
+premier usage (`WebAuthnService.#ensureLib()`, `webAuthn.ts:578`) — l'enrôlement et le login sont des
 chemins froids, ils ne doivent rien coûter aux requêtes ordinaires.
 
 Trois partis pris assumés :
 
 - **Le service est sans état de session.** Le défi est porté par le controller BFF ; le service reçoit
   toujours l'`expectedChallenge` en paramètre (`WebAuthnService.verifyRegistration()`,
-  `webAuthn.ts:323`). Conséquence pratique : le service se teste sans transport, et un défi n'est
+  `webAuthn.ts:355`). Conséquence pratique : le service se teste sans transport, et un défi n'est
   jamais « oublié » quelque part côté serveur.
 - **Le stockage est pluggable** (`IWebAuthnCredentialStore`, `IWebAuthnCredentialStore.ts:75`) :
   mémoire par défaut, ORM ou Redis en production, avec le **même banc de contrat** pour tous.
@@ -283,23 +283,23 @@ sequenceDiagram
 
 ### Enrôler une passkey sur un compte existant
 
-`WebAuthnService.generateRegistrationOptions()` (`webAuthn.ts:282`) construit le défi et les
-contraintes. **`excludeCredentials`** y liste les passkeys déjà enrôlées (`webAuthn.ts:297`) : le même
-authenticator ne peut pas s'inscrire deux fois. Dans `authenticatorSelection` (`webAuthn.ts:301`),
+`WebAuthnService.generateRegistrationOptions()` (`webAuthn.ts:314`) construit le défi et les
+contraintes. **`excludeCredentials`** y liste les passkeys déjà enrôlées (`webAuthn.ts:329`) : le même
+authenticator ne peut pas s'inscrire deux fois. Dans `authenticatorSelection` (`webAuthn.ts:333`),
 `authenticatorAttachment` n'est transmis **que** s'il vaut autre chose que `"any"` — `"any"` rend la
 main au navigateur, téléphone par QR compris.
 
-`WebAuthnService.verifyRegistration()` (`webAuthn.ts:323`) enchaîne dans cet ordre :
+`WebAuthnService.verifyRegistration()` (`webAuthn.ts:355`) enchaîne dans cet ordre :
 
 1. **Vérification déléguée** à `verifyRegistrationResponse` — défi, origine, rpIdHash, flags,
-   attestation (`webAuthn.ts:330`). Tout échec devient un message uniforme
+   attestation (`webAuthn.ts:368`). Tout échec devient un message uniforme
    `WebAuthn registration failed` (`webAuthn.ts:345`).
 2. **Plafond d'enrôlement** — `countByUser`, refus `409` si `maxPerUser` est atteint
    (`webAuthn.ts:355`). Volontairement **après** la cryptographie et **avant** le `save` : un client
    peut poster `register/verify` sans jamais appeler `register/options` — c'est l'écriture qu'il faut
    garder, pas la génération du défi.
-3. **Persistance** de la clé publique + l'état initial (`webAuthn.ts:365`) — `backupEligible` dérive
-   de `credentialDeviceType === "multiDevice"` (`webAuthn.ts:365`).
+3. **Persistance** de la clé publique + l'état initial (`webAuthn.ts:397`) — `backupEligible` dérive
+   de `credentialDeviceType === "multiDevice"` (`webAuthn.ts:397`).
 
 ### Se connecter sans mot de passe
 
@@ -323,9 +323,9 @@ est ignoré.
 > produit des credentials non découvrables — leurs porteurs ne pourront plus se connecter, et le
 > service l'avertit au boot.
 
-`WebAuthnService.verifyAuthentication()` (`webAuthn.ts:420`) résout le credential par son id
+`WebAuthnService.verifyAuthentication()` (`webAuthn.ts:452`) résout le credential par son id
 (`webAuthn.ts:420`), vérifie la signature contre la clé publique stockée, puis **applique l'état** :
-`signCount`, `backupState`, `uvInitialized` (jamais rétrogradé), `lastUsedAt` (`webAuthn.ts:460`). Le
+`signCount`, `backupState`, `uvInitialized` (jamais rétrogradé), `lastUsedAt` (`webAuthn.ts:492`). Le
 controller ouvre alors la session BFF avec `authFlow.establishSessionFor()`
 (`WebAuthnController.ts:64`).
 
@@ -340,7 +340,7 @@ controller ouvre alors la session BFF avec `authFlow.establishSessionFor()`
 Deux chemins, deux portées :
 
 - **Self-service** : `DELETE …/webauthn/credentials/{id}` → `WebAuthnService.removeUserCredential()`
-  (`webAuthn.ts:502`). La suppression n'aboutit que si le credential **appartient** au demandeur
+  (`webAuthn.ts:535`). La suppression n'aboutit que si le credential **appartient** au demandeur
   (`webAuthn.ts:513`) ; sinon **404 indiscernable** (`WebAuthnController.ts:207`) — on ne révèle
   jamais l'existence de la passkey d'autrui.
 - **Reset administrateur** : `DELETE /nodefony/security/api/users/{id}/passkeys/{credentialId}`
@@ -423,15 +423,15 @@ jamais du corps de la requête, seulement de la session (`WebAuthnController.log
 Le `rpId` est ce à quoi la passkey est **soudée**. Le navigateur refuse de signer pour un autre
 domaine : c'est ce lien, et pas une vérification côté serveur, qui rend l'hameçonnage impossible.
 
-Résolution au boot (`WebAuthnService.#build()`, `webAuthn.ts:120`) : `passkeys.rpId` sinon le domaine
+Résolution au boot (`WebAuthnService.#build()`, `webAuthn.ts:152`) : `passkeys.rpId` sinon le domaine
 de l'app ; une **adresse IP ou une adresse IPv6 bascule sur `localhost`** (`webAuthn.ts:134`), seul
 host non-domaine que la spécification autorise. En développement, accède donc au serveur par
 `https://localhost:5152`, jamais par `127.0.0.1`.
 
-L'origine attendue est calculée par `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:528`) en trois
-temps : la **liste blanche `passkeys.origins`** si elle est non vide (`webAuthn.ts:529`, la voie de
+L'origine attendue est calculée par `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:559`) en trois
+temps : la **liste blanche `passkeys.origins`** si elle est non vide (`webAuthn.ts:560`, la voie de
 production) ; sinon **l'origine de la requête, mais seulement si son hostname est exactement le
-`rpId`** (`webAuthn.ts:535` — en dev, `localhost:5173` et `localhost:5152` passent tous deux, le port
+`rpId`** (`webAuthn.ts:568` — en dev, `localhost:5173` et `localhost:5152` passent tous deux, le port
 est ignoré, sans jamais ouvrir à un domaine tiers) ; en dernier recours `https://{rpId}`
 (`webAuthn.ts:542`).
 
@@ -452,7 +452,7 @@ regarder en face.
 ### Amplification : bornée par le plafond, pas par une pagination
 
 Pour une session authentifiée, le serveur charge **toutes** les passkeys du porteur pour construire
-`allowCredentials` (`WebAuthnService.generateAuthenticationOptions()`, `webAuthn.ts:389`). Cet appel `findByUser` est **volontairement non paginé** —
+`allowCredentials` (`WebAuthnService.generateAuthenticationOptions()`, `webAuthn.ts:422`). Cet appel `findByUser` est **volontairement non paginé** —
 `allowCredentials` doit être complet ou il est faux : un authenticator absent de la liste ne peut pas
 répondre, et le protocole n'offre aucune « page suivante » (`IWebAuthnCredentialStore.ts:88`).
 
@@ -484,7 +484,7 @@ Les autres gardes de cette surface, toutes couvertes par des tests d'attaque :
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Rejeu d'un défi                           | Invalidé à la lecture, avant la crypto (`WebAuthnController.ts:277`) — E1/E1bis                    |
 | Défi d'enrôlement réutilisé pour un login | Clés de session **disjointes** (`WebAuthnController.ts:74-75`) — E2                                |
-| Lecture de la cause d'échec               | Message uniforme `WebAuthn verification failed` (`WebAuthnController.ts:292`) — E4                 |
+| Lecture de la cause d'échec               | Message uniforme `WebAuthn verification failed` (`WebAuthnController.ts:309`) — E4                 |
 | Suppression de la passkey d'autrui        | Ownership vérifié → 404 indiscernable (`webAuthn.ts:513`)                                          |
 | Réassignation du porteur via `update`     | Le patch ne porte que l'état mutable (`WebAuthnAuthUpdate`, `IWebAuthnCredentialStore.ts:58`) — A1 |
 
@@ -535,7 +535,7 @@ Le contrat `IWebAuthnCredentialStore` (`IWebAuthnCredentialStore.ts:75`) est ré
 | Flotte de pods, Redis déjà présent          | `redis`            | O(1) par credential ; listing **par curseur**, sans total (capacité réduite) |
 
 **`store: "auto"` (défaut)** suit l'infra déclarée, borné aux backends réellement enregistrés
-(`webAuthn.ts:155`) — la décision (configuré → résolu, raison) est publiée au kernel et visible dans
+(`webAuthn.ts:134`) — la décision (configuré → résolu, raison) est publiée au kernel et visible dans
 Studio (`webAuthn.ts:195`). Deux garde-fous de production :
 
 - un store **explicitement** configuré mais inconnu **avorte le boot en production**
@@ -604,16 +604,16 @@ symbolique (`.ai/symbols.json`).
 
 | Méthode                           | Quand tu l'appelles                                                      |
 | --------------------------------- | ------------------------------------------------------------------------ |
-| `isEnabled()`                     | Savoir si les cérémonies sont opérationnelles (`webAuthn.ts:268`)        |
-| `generateRegistrationOptions()`   | Défi d'enrôlement pour un porteur (`webAuthn.ts:282`)                    |
-| `verifyRegistration()`            | Vérifier + stocker, plafond appliqué (`webAuthn.ts:323`)                 |
-| `generateAuthenticationOptions()` | Défi de login, ciblé ou découvrable (`webAuthn.ts:390`)                  |
-| `verifyAuthentication()`          | Vérifier l'assertion + appliquer l'état (`webAuthn.ts:420`)              |
-| `listUserCredentials()`           | « Mes appareils » — chemin chaud, non paginé (`webAuthn.ts:466`)         |
-| `listCredentialsPage()`           | Vue **transverse** admin, paginée, sans clé publique (`webAuthn.ts:479`) |
-| `countCredentials()`              | Total filtré, ou `-1` si le backend ne compte pas (`webAuthn.ts:490`)    |
-| `removeUserCredential()`          | Révocation self-service, owner-scopée (`webAuthn.ts:502`)                |
-| `removeCredential()`              | Révocation inconditionnelle, usage admin (`webAuthn.ts:492`)             |
+| `isEnabled()`                     | Savoir si les cérémonies sont opérationnelles (`webAuthn.ts:300`)        |
+| `generateRegistrationOptions()`   | Défi d'enrôlement pour un porteur (`webAuthn.ts:314`)                    |
+| `verifyRegistration()`            | Vérifier + stocker, plafond appliqué (`webAuthn.ts:355`)                 |
+| `generateAuthenticationOptions()` | Défi de login, ciblé ou découvrable (`webAuthn.ts:422`)                  |
+| `verifyAuthentication()`          | Vérifier l'assertion + appliquer l'état (`webAuthn.ts:452`)              |
+| `listUserCredentials()`           | « Mes appareils » — chemin chaud, non paginé (`webAuthn.ts:498`)         |
+| `listCredentialsPage()`           | Vue **transverse** admin, paginée, sans clé publique (`webAuthn.ts:510`) |
+| `countCredentials()`              | Total filtré, ou `-1` si le backend ne compte pas (`webAuthn.ts:520`)    |
+| `removeUserCredential()`          | Révocation self-service, owner-scopée (`webAuthn.ts:535`)                |
+| `removeCredential()`              | Révocation inconditionnelle, usage admin (`webAuthn.ts:525`)             |
 
 Types publics ré-exportés par `@nodefony/security` : `IWebAuthnCredential`,
 `IWebAuthnCredentialStore`, `IWebAuthnCredentialSummary`, `IWebAuthnListQuery`,
@@ -651,15 +651,15 @@ passkey (`AuthStore.loginWithPasskey()`, `AuthStore.ts:316`, qui délègue au d�
 
 | Domaine                             | Norme                              | Ancrage                                                            |
 | ----------------------------------- | ---------------------------------- | ------------------------------------------------------------------ |
-| Cérémonie d'enregistrement          | W3C WebAuthn L3 §7.1               | `WebAuthnService.verifyRegistration()` (`webAuthn.ts:323`)         |
-| Cérémonie d'authentification        | W3C WebAuthn L3 §7.2               | `WebAuthnService.verifyAuthentication()` (`webAuthn.ts:420`)       |
+| Cérémonie d'enregistrement          | W3C WebAuthn L3 §7.1               | `WebAuthnService.verifyRegistration()` (`webAuthn.ts:355`)         |
+| Cérémonie d'authentification        | W3C WebAuthn L3 §7.2               | `WebAuthnService.verifyAuthentication()` (`webAuthn.ts:452`)       |
 | Compteur anti-clone                 | W3C WebAuthn §6.1.1                | `IWebAuthnCredential.signCount` (`IWebAuthnCredential.ts:22`)      |
 | Flags de sauvegarde (BE/BS)         | W3C WebAuthn §6.1.3                | `IWebAuthnCredential.backupEligible` (`IWebAuthnCredential.ts:29`) |
-| Liaison à l'origine (anti-phishing) | W3C WebAuthn §13.4.8               | `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:528`)            |
+| Liaison à l'origine (anti-phishing) | W3C WebAuthn §13.4.8               | `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:559`)            |
 | Clé publique COSE                   | RFC 8152 / RFC 9052                | `IWebAuthnCredential.publicKey` (`IWebAuthnCredential.ts:16`)      |
 | FIDO2 / CTAP2                       | plafond `maxCredentialCountInList` | `passkeys.maxPerUser` (`config.ts:582`)                            |
 | Assurance d'authentification        | NIST SP 800-63B (AAL2)             | `passkeys.userVerification` (`config.ts:550`)                      |
-| Contrôle d'accès (IDOR)             | OWASP A01                          | `WebAuthnService.removeUserCredential()` (`webAuthn.ts:502`)       |
+| Contrôle d'accès (IDOR)             | OWASP A01                          | `WebAuthnService.removeUserCredential()` (`webAuthn.ts:535`)       |
 
 La conformité cryptographique fine (parsing CBOR, formats d'attestation, vérification des signatures
 ES256/RS256/EdDSA) est portée par `@simplewebauthn/server` — Nodefony fournit et prouve les
@@ -671,10 +671,10 @@ Les cérémonies sont un **chemin froid** : quelques appels par utilisateur et p
 requête. Le code en tire trois conséquences.
 
 - **Import paresseux de la bibliothèque** : `@simplewebauthn/server` n'est chargé qu'au premier usage
-  réel (`WebAuthnService.#ensureLib()`, `webAuthn.ts:545`) — une app qui n'enrôle personne ne paie
+  réel (`WebAuthnService.#ensureLib()`, `webAuthn.ts:578`) — une app qui n'enrôle personne ne paie
   jamais son coût de parse.
 - **Rien d'alloué quand c'est désactivé** : `passkeys.enabled: false` sort de `#build()` immédiatement
-  (`webAuthn.ts:119-130`) — pas de store, pas de `Map`.
+  (`webAuthn.ts:152-164`) — pas de store, pas de `Map`.
 - **Le listing admin ne matérialise jamais plus d'une page** : `listPage` applique les filtres au
   store (`IWebAuthnCredentialStore.ts:114`). Le seul appel non paginé, `findByUser`, est borné par
   `maxPerUser` — par conception (`IWebAuthnCredentialStore.ts:88`).

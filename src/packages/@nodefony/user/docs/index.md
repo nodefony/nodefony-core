@@ -479,7 +479,7 @@ l'audit serveur, jamais dans la réponse.
 | `onAuthenticated`         | authentification réussie                      | l'utilisateur            |
 | `onAuthenticationFailure` | tout échec                                    | identifiant + raison     |
 
-`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:223`) : un changement de
+`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:280`) : un changement de
 credential n'est pas une modification banale, et un abonné (audit, notification, invalidation de
 sessions) doit pouvoir le traiter à part.
 
@@ -528,16 +528,16 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 
 | Appel                                | Ce qu'il fait                                                 | Ancre                |
 | ------------------------------------ | ------------------------------------------------------------- | -------------------- |
-| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:106` |
-| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:137` |
-| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:174` |
-| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:213` |
-| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:243` |
-| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:301` |
-| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:317` |
-| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:342` |
-| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:363` |
-| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:96`  |
+| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:143` |
+| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:185` |
+| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:223` |
+| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:267` |
+| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:300` |
+| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:358` |
+| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:374` |
+| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:388` |
+| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:409` |
+| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:119` |
 
 **La distinction à retenir** : `loadUserByOAuth()` **lit** (et lève si le lien est inconnu) ;
 `provisionOAuthUser()` **écrit** (et crée le compte). Deux contrats, deux responsabilités — c'est ce
@@ -692,7 +692,7 @@ d'identifiant entre fournisseurs).
 
 ### L'identifiant du Shadow User
 
-`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts:325`). Un
+`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts:410`). Un
 fournisseur qui n'expose pas d'email ne bloque donc pas la connexion, et deux fournisseurs ne peuvent
 pas produire le même identifiant fonctionnel.
 
@@ -1009,7 +1009,7 @@ Une erreur d'administration ne doit pas fermer la porte définitivement. Cinq ga
 | supprimer ou désactiver le dernier admin actif | 409                                         |
 
 Le comptage passe par `countActiveAdmins()`, un `COUNT` natif au store — jamais un chargement complet
-en mémoire (`UserService.ts:174`).
+en mémoire (`UserService.ts:223`).
 
 ### Cascade de révocation
 
@@ -1059,7 +1059,7 @@ l'authentification, pas à chaque requête. Les points qui comptent :
 | Utilisateur anonyme | singleton gelé + rôles partagés gelés → 0 allocation/requête                                                    | `AnonymousUser.ts:44`     |
 | Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés                                                    | `BcryptEncoder.ts:10`     |
 | Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache                                                      | `UserService.ts:374`      |
-| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:90`       |
+| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:119`      |
 | Listing             | pagination **native au store**, jamais de `find()` complet                                                      | `IUserRepository.ts:121`  |
 | Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes                                                            | `IUserRepository.ts:131`  |
 | Registre de stores  | `Set` allouée au premier enregistrement                                                                         | `userStoreRegistry.ts:16` |
