@@ -247,8 +247,10 @@ lui, en a un de test — Mailpit (`--profile keycloak`, interface `http://localh
    Sous Linux natif, poser d'abord `export KEYCLOAK_UID=$(id -u)` : sinon la clé privée montée
    est illisible par le conteneur.
 
-3. **Brancher l'application** : décommenter les trois lignes `NF_KEYCLOAK_*` de `.env`. Les trois
-   valeurs y sont déjà, alignées sur le realm généré.
+3. **Brancher l'application** : rien à faire. Le `.env` généré porte déjà les lignes
+   `NF_KEYCLOAK_*`, actives et alignées sur le realm généré. Keycloak éteint, l'application démarre
+   quand même : un avertissement, pas de bouton, et le bouton revient tout seul dès que Keycloak
+   répond. Pour t'en passer, commente ces lignes.
 
 4. **Démarrer l'application**, puis ouvrir `https://localhost:5152/nodefony/login` et se
    connecter avec `alice` / `alice-dev` :
@@ -447,6 +449,7 @@ par une autorité qu'elle connaît. Trois cas :
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | une autorité publique (Let's Encrypt…)                             | rien                                                                                               |
 | l'autorité de **développement** de Nodefony (le Keycloak du décor) | rien : reconnue d'office en développement                                                          |
+| la même, mais l'application tourne en **production** sur le poste  | la déclarer : `NF_TLS_CA_FILE=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem`            |
 | l'autorité de **ton entreprise** (Keycloak interne)                | la déclarer : `NF_TLS_CA_FILE=certs/autorite-entreprise.pem` dans `.env`, ou dans le Secret du pod |
 
 `NF_TLS_CA_FILE` alimente la clé `certificates.extraCaFiles` du module `@nodefony/http` : un ou
@@ -457,6 +460,14 @@ processus au démarrage, avant tout service (`trustCaFile()`, `certificates.ts:1
 sans certificat, **interrompt le démarrage** en nommant le chemin (code 78) — plutôt qu'un
 `fetch failed` au premier clic d'un utilisateur. C'est l'équivalent, porté par la configuration, de
 `NODE_EXTRA_CA_CERTS` : même effet, sans syntaxe de shell à traduire sous Windows.
+
+Pourquoi la deuxième ligne du tableau : l'autorité de développement n'est reconnue d'office qu'en
+mode `development` (`Certificate.trustDevelopmentAuthority()`, `certificates.ts:555`). Lancée
+en production — pour essayer le build sur le poste, par exemple —, l'application ne lui fait plus
+confiance sans qu'on le lui dise, et c'est voulu : une application de production qui adopterait en
+silence une autorité de développement ouvrirait une porte qu'aucune configuration ne montre. Le
+refus nomme la variable à poser (`certificat refusé (SELF_SIGNED_CERT_IN_CHAIN)` →
+`NF_TLS_CA_FILE=…`), et le `.env` généré porte déjà la ligne exacte, en commentaire.
 
 ### 5. Le premier login — ce qu'on observe
 

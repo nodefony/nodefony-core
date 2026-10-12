@@ -278,7 +278,7 @@ export const env = defineEnv({
    * les TROIS sont posées (`nodefony/config/security.ts`) : absentes, l'app
    * démarre sans bouton ni avertissement. Le décor de développement — profil
    * `keycloak` du `compose.yaml`, realm `docker/keycloak/import/` — en donne les
-   * valeurs, commentées dans `.env`.
+   * valeurs, actives dans le `.env` généré.
    *
    * Préfixées `NF_` : Keycloak est AUTO-HÉBERGÉ, ces valeurs sont émises par TON
    * serveur et aucun écosystème n'en fixe le nom.

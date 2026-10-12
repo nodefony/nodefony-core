@@ -99,9 +99,9 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     /**
      * Connexion par un fournisseur d'identité (OpenID Connect) — ici Keycloak.
      * Le fournisseur n'est monté que si ses TROIS variables sont posées : sans
-     * elles, aucun bouton et aucun avertissement. Essai local en deux gestes :
-     * `docker compose --profile keycloak up -d keycloak`, puis décommenter les
-     * lignes `NF_KEYCLOAK_*` de `.env`.
+     * elles, aucun bouton et aucun avertissement. Le `.env` généré les porte,
+     * actives : l'essai local tient en `docker compose --profile keycloak up -d
+     * keycloak`. Keycloak éteint, le bouton est retiré et revient tout seul.
      *
      * L'émetteur (URL du realm) sert à DÉCOUVRIR les points d'entrée ET à
      * valider l'`iss` reçu : il est en https, même en développement.

@@ -218,7 +218,7 @@ class PartnerCallCommand extends Command {
       ];
       throw new CallFailure(
         `variable(s) absente(s) : ${missing.join(", ")}.`,
-        "décommente les lignes NF_KEYCLOAK_* de .env",
+        "pose-les dans .env (une app générée les y écrit, actives)",
       );
     }
     try {

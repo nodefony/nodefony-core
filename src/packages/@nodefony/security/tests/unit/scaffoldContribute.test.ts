@@ -194,11 +194,11 @@ describe("contribution Keycloak de @nodefony/security", () => {
     // compare donc les deux sorties.
     assert.include(
       lire(dossierKeycloak(), ".env"),
-      `# NF_KEYCLOAK_CLIENT_SECRET=${devClientSecret("kcapp")}\n`,
+      `\nNF_KEYCLOAK_CLIENT_SECRET=${devClientSecret("kcapp")}\n`,
     );
     assert.include(
       lire(dossierKeycloak(), ".env"),
-      `# NF_KEYCLOAK_MACHINE_SECRET=${devMachineSecret("kcapp")}\n`,
+      `\nNF_KEYCLOAK_MACHINE_SECRET=${devMachineSecret("kcapp")}\n`,
     );
   });
 
@@ -239,7 +239,7 @@ describe("contribution Keycloak de @nodefony/security", () => {
     // Le même secret aux deux bouts, sinon le premier login échoue.
     assert.include(
       lire(dest, ".env"),
-      `# NF_KEYCLOAK_CLIENT_SECRET=${client.secret}\n`,
+      `\nNF_KEYCLOAK_CLIENT_SECRET=${client.secret}\n`,
     );
     // L'`id` est FIXÉ dans le fichier : laissé à Keycloak, il change au
     // réimport, et la connexion suivante est refusée.
@@ -248,9 +248,9 @@ describe("contribution Keycloak de @nodefony/security", () => {
     const env = lire(dest, ".env");
     assert.include(
       env,
-      "# NF_KEYCLOAK_ISSUER=https://localhost:8444/realms/kcapp\n",
+      "\nNF_KEYCLOAK_ISSUER=https://localhost:8444/realms/kcapp\n",
     );
-    assert.include(env, "# NF_KEYCLOAK_CLIENT_ID=kcapp\n");
+    assert.include(env, "\nNF_KEYCLOAK_CLIENT_ID=kcapp\n");
   });
 
   it("le realm généré a la MÊME forme que celui que le dépôt éprouve", () => {

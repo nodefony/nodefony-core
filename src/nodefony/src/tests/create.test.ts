@@ -1782,13 +1782,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(bloc, `image: ${String(image)}`);
     });
 
-    it("inerte par défaut : aucune variable ACTIVE, fournisseur conditionné aux trois", () => {
+    it("branché par défaut sur le décor : .env ACTIF, notice inerte, fournisseur conditionné aux trois", () => {
       const dest = dossierKeycloak();
-      // Une ligne active dans `.env` monterait le fournisseur au premier
-      // démarrage — et, Keycloak éteint, afficherait un avertissement.
-      for (const fichier of [".env", ".env.example"]) {
-        assert.notMatch(lire(dest, fichier), /^NF_KEYCLOAK_/mu, fichier);
+      // `.env` porte les valeurs du décor ACTIVES : le Keycloak du compose
+      // répond sans autre geste, et éteint il ne coûte qu'un avertissement
+      // (bouton retiré, rendu dès qu'il répond). La notice, elle, n'est jamais
+      // chargée : une ligne active y mentirait.
+      const local = lire(dest, ".env");
+      for (const [nom, valeur] of [
+        ["NF_KEYCLOAK_ISSUER", "https://localhost:8444/realms/kcapp"],
+        ["NF_KEYCLOAK_CLIENT_ID", "kcapp"],
+        ["NF_KEYCLOAK_CLIENT_SECRET", "kcapp-dev-keycloak-secret"],
+        ["NF_KEYCLOAK_MACHINE_SECRET", "kcapp-machine-dev-secret"],
+      ] as const) {
+        assert.match(local, new RegExp(`^${nom}=${valeur}$`, "mu"), nom);
       }
+      assert.notMatch(lire(dest, ".env.example"), /^NF_KEYCLOAK_/mu);
       const envTs = lire(dest, "env.ts");
       for (const nom of [
         "NF_KEYCLOAK_ISSUER",
