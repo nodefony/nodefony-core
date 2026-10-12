@@ -246,7 +246,7 @@ Choisir en cinq secondes :
 Appelé par `Kernel.addModule()` (`Kernel.ts:1911`), juste après le `new`. C'est le seul endroit qui
 tourne **avant** toute phase, au moment même du chargement du module.
 
-Il est exécuté **sous garde** (`Kernel.guardInitialize()`, `Kernel.ts:4289`) : borné par un timeout et
+Il est exécuté **sous garde** (`Kernel.guardInitialize()`, `Kernel.ts:4336`) : borné par un timeout et
 soumis à la criticité du module. Un `init` qui pend ne gèle plus rien.
 
 ### `onKernelRegister()` — « je valide ma config et je me déclare »
@@ -360,7 +360,7 @@ repli — sans quoi le journal écrivait « (anonyme) » et ne désignait person
 l'information compte le plus (en production, au moment où le boot s'arrête). `critical: false` reste
 silencieux : c'est une décision assumée, et un avertissement qu'on apprend à ignorer ne protège plus.
 
-L'arbitrage est fait par `Kernel.isBootErrorFatal()` (`Kernel.ts:3450`). Une exception : une erreur de
+L'arbitrage est fait par `Kernel.isBootErrorFatal()` (`Kernel.ts:3459`). Une exception : une erreur de
 **configuration** (`BootConfigurationError`) est fatale **même en développement** — un serveur vivant
 avec une config non honorée est un piège, pas un confort.
 
@@ -476,7 +476,7 @@ l'app (mode lien symbolique, monorepo, pnpm).
 
 **Un module qui échoue ne masque pas les suivants.** `Kernel.loadModulesFromManifest()`
 (`Kernel.ts:1794`) capture l'échec par entrée, le consigne via `Kernel.recordBootFailure()`
-(`Kernel.ts:3593`) et continue. Sans ça, un `dist/` périmé sur le premier module ferait disparaître
+(`Kernel.ts:3602`) et continue. Sans ça, un `dist/` périmé sur le premier module ferait disparaître
 les dix autres en silence.
 
 ### Quand ma configuration est-elle résolue et validée ?
@@ -537,7 +537,7 @@ de l'orchestrateur. Nodefony borne ça sur trois axes.
   lenteur normale.
 - **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:3388`), un
   `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:4251`).
-- **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:3450`) : fatal si le
+- **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:3459`) : fatal si le
   module est critique **et** (on est en production **ou** c'est une erreur de configuration) ; sinon
   `WARNING` et le boot continue.
 
@@ -561,7 +561,7 @@ les deux faisait crier « dégradé » à tort pendant toute la montée des serv
 « pas encore mesuré » n'est pas « mesuré, vraiment zéro » :
 
 - `healthy = false` **uniquement** si un profil serveur était attendu, que la mesure a été faite
-  (`Kernel.captureBootServers()`, `Kernel.ts:3604`) et qu'**aucun** serveur n'écoute (`Kernel.ts:3604`) ;
+  (`Kernel.captureBootServers()`, `Kernel.ts:3613`) et qu'**aucun** serveur n'écoute (`Kernel.ts:3613`) ;
 - des modules ignorés **seuls** laissent le boot `healthy` : dégradé, mais vivant.
 
 Le verdict est **toujours** logué, production comprise, en trois formes :

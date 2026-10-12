@@ -336,7 +336,7 @@ existent — pas de listener orphelin.
 > [!TIP]
 > Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:4180`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3593`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3602`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 
