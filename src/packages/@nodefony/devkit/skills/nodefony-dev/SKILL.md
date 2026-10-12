@@ -14,7 +14,7 @@ description: >
   est-il fini", "je ne trouve rien sur ce sujet", "ce n'est pas documenté", "je touche au
   frontend", "mon composant charge des données", "mon écran n'affiche rien".
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # nodefony-dev — développer dans cette application sans rien inventer
@@ -50,6 +50,7 @@ de son geste, et ceux-là ne se devinent pas — ils se paient.
 | Réserver une route ou une page à des rôles, ouvrir à un partenaire   | `nodefony-protect-route`        |
 | Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
 | Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
+| Quelque chose qui marchait ne marche plus : démarrage, 404, journal  | `nodefony-troubleshoot`         |
 
 Aucune ligne ne correspond ? Alors seulement, continue ici. Et si ta tâche est EXACTEMENT celle
 d'un spécialiste, va droit à lui : il n'y a pas à passer par cette page d'abord.
@@ -308,50 +309,18 @@ ici — ils changent tous les trimestres ; raisonne en poids.
 
 ## 7. Les pièges du serveur
 
-Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers sont les plus fréquents.
+Ceux qu'on pose en ÉCRIVANT. Ceux qu'on rencontre quand quelque chose qui marchait ne marche plus
+— démarrage qui échoue, route en 404, refus inattendu, journal en erreur, tests rouges d'un coup —
+ont leur skill, qui part du symptôme : **`nodefony-troubleshoot`**.
 
-- **Ta route répond 404 alors qu'elle existe dans les sources.** Le runtime charge `dist/`, pas
-  le source : `npm run build`. C'est la cause n°1.
-- **Une classe que rien ne déclare compile, passe ses tests, et casse au démarrage suivant** —
-  entité hors `@entities([…])`, controller hors `@controllers([…])`. Table jamais créée, route
-  en 404. C'est le mode d'échec de la COPIE : on recopie le voisin au lieu d'appeler le
-  générateur, qui, lui, déclare. `npx nodefony doctor` la NOMME.
 - **Une clé de configuration mal orthographiée ARRÊTE le démarrage** (code 78), en la nommant.
   `satisfies` sur un fragment extrait n'est pas décoratif pour autant : il te la signale à la
-  compilation, au lieu du prochain démarrage. Une clé retirée par une version du framework
-  produit le même arrêt après un `npm update` : lis le message, il nomme la clé.
+  compilation, au lieu du prochain démarrage.
 - **La config d'un module est FIGÉE après le démarrage** : l'écrire lève `TypeError`. Une variante
   par requête = `overlayConfig()` (clés de la liste blanche du module), lue par `useConfig()`.
 - **Tu lis une liste sans la BORNER.** Un `find` sans limite matérialise la table entière —
   indolore sur les quelques lignes du poste de développement, fatal sur les dizaines de milliers
   de la production. Le service d'une entité hérite `findPage({ limit: 25 })`.
-
-- **Des dizaines de tests d'intégration rouges d'un coup** (`ECONNREFUSED`) : ils FRAPPENT un
-  serveur, ils ne le lancent pas — il est éteint. `npx nodefony status` d'abord ; en e2e, laisse
-  la commande gérer le cycle.
-- **Ta route NEUVE répond 404 et le `dist/` est à jour** : elle n'est pas montée où tu crois. Le
-  chemin réel est le PRÉFIXE de son controller suivi du `path` de la route — une action
-  `path: "/widget"` dans un controller `@controller("/api")` répond sur `/api/widget`.
-  `npx nodefony inspect routes --json` donne le chemin MONTÉ.
-- **TOUT répond 404, même les routes du gabarit** : un AUTRE serveur tient les ports — ou LE TIEN
-  a glissé, le port voulu étant pris. `npx nodefony status` montre les ports RÉELS, pas ceux que
-  tu as configurés, et NOMME le projet voisin.
-- 🔴 **`nodefony <commande>` échoue là où `npm run dev` réussit, sur la MÊME application** : DEUX
-  paquets `nodefony` tournent dans le processus — un binaire lié ailleurs (installation globale,
-  `npm link`) exécute un noyau pendant que l'application importe le sien. Chaque copie a ses
-  propres classes, son contexte de requête et ses registres d'injection : un module construit à la
-  frontière perd son container SANS la moindre erreur — il figure dans la liste des modules et ne
-  fait rien. ⚠️ Les deux copies peuvent être la MÊME version ; deux fichiers distincts suffisent,
-  il n'y a aucune incohérence à repérer. `npm ls nodefony` liste les copies (« deduped » partout =
-  une seule) ; `NF_CLI_DEBUG=1 nodefony --version` dit quel CLI s'exécute.
-- **`localhost` et `127.0.0.1` te jouent des tours** : ce sont deux ORIGINES distinctes — cookies,
-  cache et passkeys ne les partagent pas. Une seule origine en développement, partout, URL ouverte
-  comme callbacks.
-
-- **Les routes authentifiées plafonnent quand le reste tient la charge** : le stockage de session
-  par défaut est SYNCHRONE — chaque reprise bloque la boucle d'événements. Compare une route
-  anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur
-  redis pour la charge.
 
 ### Ce qui tue le processus, pas la requête
 
@@ -365,24 +334,6 @@ Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers son
   bloque **tous** les clients, pas seulement celui qui l'a déclenché.
 - **Un `PATCH` au corps vide se refuse en `400`.** Le laisser passer produit un `updateOne({})`,
   qui finit en `500 « No values to set »` — une erreur serveur pour une faute de client.
-
-### Quand ça ne va pas, et que le message ne suffit pas
-
-- **Un test vert seul et rouge en suite accuse une RESSOURCE PARTAGÉE**, pas ton code : base ou
-  index réutilisé, port, store jamais purgé, assertion `count === N` qui suppose une table
-  vierge. Lance deux fichiers ENSEMBLE pour isoler la paire, puis cloisonne. **Ne sérialise
-  jamais la suite** pour faire passer le rouge : tu masques la cause et tu paies la lenteur à
-  chaque exécution.
-- **Une suite lancée contre un serveur en `production` reçoit `404` partout** : les modules
-  `policy:"dev"` n'y sont pas. `NF_WITH_DEV_MODULES=1` déroge pour 30 minutes
-  (`NF_WITH_DEV_MODULES_TTL_MIN`, 4 h au plus), et le `CRITIC « arrêt automatique … dérogation »`
-  du journal est cette garde qui se referme — pas une panne.
-- **Ton application a démarré AMPUTÉE et tout a l'air sain** — base injoignable, module écarté
-  par sa politique. Seul `npx nodefony doctor` le dit, en relisant `var/last-boot.json`.
-  ⚠️ Ce bilan a un ÂGE : il décrit le **dernier démarrage**, et une commande console (`inspect`,
-  une commande de module) ne l'écrase pas. C'est voulu — lis la date avant d'en conclure.
-- **L'application ne démarre plus et le superviseur avale la sortie** :
-  `NF_DEV_CHILD=1 npx nodefony development` lance l'enfant seul et montre le crash brut.
 
 ## 8. Données et fichiers — les façades qu'on ne recompose pas
 

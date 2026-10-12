@@ -20,7 +20,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**34 skills** · **34/34 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**35 skills** · **35/35 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -174,10 +174,13 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0" },
   { "icon": "🔧", "title": "dev", "href": "nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
-    "meta": "🟢 conforme v1.2.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "protect-route", "href": "nodefony-protect-route.md",
     "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion,…",
-    "meta": "🟢 conforme" }
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "troubleshoot", "href": "nodefony-troubleshoot.md",
+    "desc": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" }
 ]
 ```
 
@@ -217,8 +220,9 @@ source: "docs/skills/index.md"
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 500 | 0 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 451 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 349 | 0 | 0 | ✅ |
+| [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.0.0 | 135 | 0 | 1 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

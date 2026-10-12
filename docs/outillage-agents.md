@@ -214,13 +214,16 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · ⚙️ 4 scripts · 📎 2 réf" },
   { "icon": "🔧", "title": "dev", "href": "skills/nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
-    "meta": "🟢 conforme v1.2.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "devops", "href": "skills/nodefony-devops.md",
     "desc": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : quelles sondes elle expose, combien de temps elle draine, quel code de sortie elle rend, sous quel…",
     "meta": "🟢 conforme v1.0.0 · 📎 7 réf" },
   { "icon": "🔧", "title": "protect-route", "href": "skills/nodefony-protect-route.md",
     "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion,…",
-    "meta": "🟢 conforme" }
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "troubleshoot", "href": "skills/nodefony-troubleshoot.md",
+    "desc": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" }
 ]
 ```
 <!-- skills-cards:end -->

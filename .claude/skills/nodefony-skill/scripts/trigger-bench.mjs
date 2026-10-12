@@ -173,6 +173,18 @@ const CASES = [
     "je dois déployer un changement de schéma en production",
     "nodefony-migrate-schema",
   ],
+  // La porte du dépannage : un SYMPTÔME constaté, jamais un geste. C'est ainsi
+  // qu'un agent arrive sur une panne — il ne sait pas encore ce qu'il fera.
+  ["l'application ne démarre plus", "nodefony-troubleshoot", "package"],
+  ["ma route répond 404", "nodefony-troubleshoot", "package"],
+  [
+    "j'ai une erreur dans le journal du serveur",
+    "nodefony-troubleshoot",
+    "package",
+  ],
+  ["le serveur plante au démarrage", "nodefony-troubleshoot", "package"],
+  // Un refus 401/403 nommé tel quel reste à `nodefony-protect-route`, qui
+  // porte la réponse : le dépannage y aiguille, il ne lui dispute pas le mot.
   ["crée un service métier partagé", "nodefony-add-service"],
   ["mon service est undefined dans le conteneur", "nodefony-add-service"],
   ["protège cette route", "nodefony-protect-route"],
@@ -239,6 +251,11 @@ const NEGATIVE_CASES = [
   ["ajoute une entité avec un CRUD", "nodefony-dev"],
   ["protège cette route aux administrateurs", "nodefony-dev"],
   ["la colonne n'existe pas en base", "nodefony-dev"],
+  // Le dépannage part d'un symptôme : un GESTE nommé appartient à son skill, et
+  // une colonne absente a le sien (la migration), même si c'est une panne.
+  ["protège cette route aux administrateurs", "nodefony-troubleshoot"],
+  ["la colonne n'existe pas en base", "nodefony-troubleshoot"],
+  ["ajoute une page de connexion", "nodefony-troubleshoot"],
 ];
 
 /**

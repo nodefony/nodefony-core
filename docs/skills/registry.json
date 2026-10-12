@@ -3,7 +3,7 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-10-12",
-  "count": 37,
+  "count": 38,
   "repoScripts": [
     {
       "path": "scripts/lib/repo-root.mjs",
@@ -1894,7 +1894,7 @@
       "testedBy": []
     }
   ],
-  "conformant": 37,
+  "conformant": 38,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -11034,7 +11034,7 @@
       "name": "nodefony-dev",
       "summary": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche.",
       "family": "Autres",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "keywords": [],
       "triggers": [
         "je veux ajouter une fonctionnalité",
@@ -11054,8 +11054,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 500,
-        "approxTokens": 8756
+        "bodyLines": 451,
+        "approxTokens": 7822
       },
       "requires": [],
       "resources": {
@@ -11170,8 +11170,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "500",
+            "ok": true,
+            "detail": "451",
             "advisory": true
           }
         ]
@@ -11513,6 +11513,160 @@
       "links": {
         "source": "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md",
         "doc": "docs/skills/nodefony-protect-route.md"
+      }
+    },
+    {
+      "name": "nodefony-troubleshoot",
+      "summary": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [
+        "nodefony-dev"
+      ],
+      "triggers": [
+        "l'application ne démarre plus",
+        "le serveur plante au démarrage",
+        "ma route répond 404",
+        "ça marchait hier",
+        "j'ai une erreur dans le journal",
+        "erreur dans les logs",
+        "plus rien ne répond",
+        "tous mes tests sont rouges",
+        "pourquoi ça plante",
+        "dépanner",
+        "diagnostiquer une panne",
+        "stack trace",
+        "EADDRINUSE",
+        "ECONNREFUSED"
+      ],
+      "description": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail. Extrait les erreurs du journal par un script (regroupées, datées, avec leur piste) au lieu de le lire en entier. À charger DÈS qu'une chose qui marchait ne marche plus, AVANT de lire les sources ou de contourner la panne. Coder une fonctionnalité → `nodefony-dev`. Déclencheurs : \"l'application ne démarre plus\", \"le serveur plante au démarrage\", \"ma route répond 404\", \"ça marchait hier\", \"j'ai une erreur dans le journal\", \"erreur dans les logs\", \"plus rien ne répond\", \"tous mes tests sont rouges\", \"pourquoi ça plante\", \"dépanner\", \"diagnostiquer une panne\", \"stack trace\", \"EADDRINUSE\", \"ECONNREFUSED\".",
+      "cost": {
+        "bodyLines": 135,
+        "approxTokens": 3145
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "scripts/log-errors.mjs",
+            "purpose": "Extrait les erreurs du journal d'une application Nodefony — regroupées, datées, avec le geste qui suit.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--last",
+                "help": ""
+              },
+              {
+                "flag": "--live",
+                "help": ""
+              },
+              {
+                "flag": "--root",
+                "help": ""
+              },
+              {
+                "flag": "--warnings",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "USAGE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [
+        "nodefony-browser",
+        "nodefony-devops",
+        "nodefony-migrate-schema"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "899",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "135",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": "src/packages/@nodefony/devkit/skills/nodefony-troubleshoot/SKILL.md",
+        "doc": "docs/skills/nodefony-troubleshoot.md"
       }
     }
   ]

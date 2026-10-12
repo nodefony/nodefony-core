@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T15:29:01.347Z",
+  "generatedAt": "2026-10-12T18:41:07.391Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 115,
+      "closed": 116,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -2731,6 +2731,22 @@
       ]
     },
     {
+      "number": 588,
+      "title": "feat(security): exiger une connexion récente et deux facteurs sur une route",
+      "url": "https://github.com/nodefony/nodefony-core/issues/588",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.98,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 579,
       "title": "feat(devkit): enseigner la connexion aux agents, prouvé par un banc",
       "url": "https://github.com/nodefony/nodefony-core/issues/579",
@@ -2751,11 +2767,27 @@
       "title": "feat(devkit): livrer un skill de dépannage d'application, du symptôme au geste",
       "url": "https://github.com/nodefony/nodefony-core/issues/587",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.99,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 589,
+      "title": "fix(security): rattacher le second facteur au compte, pas à son identifiant",
+      "url": "https://github.com/nodefony/nodefony-core/issues/589",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.995,
       "debut": null,
       "cible": null,
       "labels": [

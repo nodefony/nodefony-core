@@ -232,6 +232,11 @@ tests passent, et la panne n'arrive qu'au démarrage suivant — et relit le bil
 app a démarré **amputée**. `--live` ajoute ce qui exige une app qui tourne, `--deep`
 LANCE les gardes : sans eux, ces lignes sortent en « non demandé », pas en « bon ».
 
+Quelque chose qui marchait ne marche plus et `doctor` ne suffit pas — route en `404`,
+refus inattendu, erreur au journal, tests rouges d'un coup : 🔴 **charge le skill
+`nodefony-troubleshoot`** AVANT de lire les sources. Il part du symptôme, donne le geste
+qui le constate, et extrait les erreurs du journal par un script.
+
 ## Voir un écran toi-même — un navigateur, pas un `curl`
 
 Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**.
