@@ -58,8 +58,9 @@ use("@nodefony/documentation", {
 | `repo.editPathPrefix` | `"edit"` | Segment GitHub : `edit` / `blob` / `tree` |
 | `cache.ttlMs` | `30000` | TTL (ms) du cache de l'**index** ; `0` = pas de cache |
 
-**Variables d'environnement** (précédence maximale, utiles en CI/conteneur sans `.git`) :
-`NF_DOCS_REPO_URL`, `NF_DOCS_REPO_BRANCH`.
+**Variables d'environnement** (utiles en CI/conteneur sans `.git`) : `NF_DOCS_REPO_URL`,
+`NF_DOCS_REPO_BRANCH` — déclarées sur leur champ, validées comme la config ; `npx nodefony env`
+les liste avec leur valeur et leur provenance.
 
 ## API HTTP
 

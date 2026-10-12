@@ -42,8 +42,10 @@ Grâce à l'augmentation du registre `NodefonyModuleConfig`, `use("@nodefony/mon
 **Connecteur** : `uri?` (prioritaire) **ou** `host`/`port`/`dbname`, + `options?` (`ConnectOptions`
 Mongoose : `user`/`pass`/`maxPoolSize`/timeouts).
 
-**Surcharge par environnement** (précédence max) : `MONGODB_URI` (uri du connecteur primaire) ·
-`NF_MONGODB_DEBUG` (1/true). ⚠️ Les secrets (`user:pass`) passent par l'env, **jamais** par le dépôt.
+**Surcharge par environnement** : `MONGODB_URI` (uri du connecteur primaire, précédence max) ·
+`NF_MONGODB_DEBUG` (`true`/`false`, déclarée sur le champ `debug` et validée comme la config — une
+valeur non booléenne arrête le démarrage). ⚠️ Les secrets (`user:pass`) passent par l'env,
+**jamais** par le dépôt.
 
 La config est validée par **Zod** au boot (`config.ts` = source de vérité). Une config invalide
 plante proprement avec un message clair.
