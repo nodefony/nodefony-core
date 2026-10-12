@@ -11574,7 +11574,7 @@
     },
     {
       "name": "nodefony-security-review",
-      "summary": "Relit la sécurité du code d'une application Nodefony avant le commit : un script lit le diff et nomme, fichier et ligne, ce qu'un motif suffit à voir — route ouverte à l'anonyme ou hors de toute zone du pare-feu, mutation sans jeton anti-falsification, SQL interpolé, secret écrit ou journalisé, identité brute qui inclut l'anonyme, garde éteinte, redirection ouverte — avec le geste qui corrige et le skill qui le porte ; puis une grille pour ce que seul un jugement tranche (droit sur l'objet, champs renvoyés, entrées non bornées).",
+      "summary": "Relit la sécurité du code d'une application Nodefony avant le commit : un script sur le diff, puis une grille de jugement.",
       "family": "Inspecter et auditer",
       "version": "1.0.0",
       "keywords": [
@@ -11593,10 +11593,10 @@
         "secret dans le code",
         "avant de commiter"
       ],
-      "description": "Relit la sécurité du code d'une application Nodefony avant le commit : un script lit le diff et nomme, fichier et ligne, ce qu'un motif suffit à voir — route ouverte à l'anonyme ou hors de toute zone du pare-feu, mutation sans jeton anti-falsification, SQL interpolé, secret écrit ou journalisé, identité brute qui inclut l'anonyme, garde éteinte, redirection ouverte — avec le geste qui corrige et le skill qui le porte ; puis une grille pour ce que seul un jugement tranche (droit sur l'objet, champs renvoyés, entrées non bornées). À charger AVANT de commiter une route, une requête, un service qui touche des données ou de la configuration de sécurité. Écrire la garde elle-même → `nodefony-protect-route`. Déclencheurs : \"c'est sûr ?\", \"est-ce sécurisé ?\", \"relis la sécurité avant que je commite\", \"ma route est-elle protégée ?\", \"revue de sécurité\", \"relecture de sécurité\", \"audit de sécurité de mon code\", \"y a-t-il une faille\", \"injection SQL\", \"secret dans le code\", \"avant de commiter\".",
+      "description": "Relit la sécurité du code d'une application Nodefony avant le commit : un script sur le diff, puis une grille de jugement. Le script nomme, fichier et ligne, ce qu'un motif suffit à voir — route ouverte à l'anonyme ou hors de toute zone du pare-feu, mutation sans jeton anti-falsification, SQL interpolé, secret écrit ou journalisé, identité brute qui inclut l'anonyme, garde éteinte, redirection ouverte — avec le geste qui corrige et le skill qui le porte ; la grille couvre le droit sur l'objet, les champs renvoyés, les entrées non bornées. À charger AVANT de commiter une route, une requête, un service qui touche des données ou de la configuration de sécurité. Écrire la garde elle-même → `nodefony-protect-route`. Déclencheurs : \"c'est sûr ?\", \"est-ce sécurisé ?\", \"relis la sécurité avant que je commite\", \"ma route est-elle protégée ?\", \"revue de sécurité\", \"relecture de sécurité\", \"audit de sécurité de mon code\", \"y a-t-il une faille\", \"injection SQL\", \"secret dans le code\", \"avant de commiter\".",
       "cost": {
         "bodyLines": 110,
-        "approxTokens": 2804
+        "approxTokens": 2807
       },
       "requires": [],
       "resources": {
@@ -11713,7 +11713,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "998",
+            "detail": "1008",
             "advisory": false
           },
           {

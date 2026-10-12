@@ -1,12 +1,13 @@
 ---
 name: nodefony-security-review
 description: >
-  Relit la sécurité du code d'une application Nodefony avant le commit : un script lit le diff et
-  nomme, fichier et ligne, ce qu'un motif suffit à voir — route ouverte à l'anonyme ou hors de toute
+  Relit la sécurité du code d'une application Nodefony avant le commit : un script sur le diff,
+  puis une grille de jugement. Le script nomme, fichier et ligne, ce
+  qu'un motif suffit à voir — route ouverte à l'anonyme ou hors de toute
   zone du pare-feu, mutation sans jeton anti-falsification, SQL interpolé, secret écrit ou
   journalisé, identité brute qui inclut l'anonyme, garde éteinte, redirection ouverte — avec le
-  geste qui corrige et le skill qui le porte ; puis une grille pour ce que seul un jugement tranche
-  (droit sur l'objet, champs renvoyés, entrées non bornées). À charger AVANT de commiter une route,
+  geste qui corrige et le skill qui le porte ; la grille couvre le droit sur l'objet, les champs
+  renvoyés, les entrées non bornées. À charger AVANT de commiter une route,
   une requête, un service qui touche des données ou de la configuration de sécurité. Écrire la
   garde elle-même → `nodefony-protect-route`.
   Déclencheurs : "c'est sûr ?", "est-ce sécurisé ?", "relis la sécurité avant que je commite", "ma route est-elle
