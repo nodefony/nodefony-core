@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-12 14:22** (UTC).
+> Empreinte prise le **2026-10-12 15:29** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 77% | 115 | 35 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 76% | 115 | 36 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -36,7 +36,7 @@
 
 Ordre 3.985 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 35 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 36 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,28 +105,30 @@ Ordre 3.985 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 | 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
 
-## Jalon 10.0.0-beta — 35 ouverts
+## Jalon 10.0.0-beta — 36 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 3.985 | P1 — figé à la création | 2 | — | #579 | feat(devkit): enseigner la connexion aux agents, prouvé par un banc |
-| 4.001 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
-| 4.002 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
-| 4.0025 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
-| 4.003 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
-| 4.004 | P1 — figé à la création | 0.5 | — | #566 | fix(orm): écrire la première migration d'une application neuve |
-| 4.005 | P2 — décision | 2 | — | #570 | feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent |
-| 4.01 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
-| 4.02 | P1 — figé à la création | 0.5 | 2026-10-12 → 10-12 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
-| 4.03 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
-| 4.05 | P2 — décision | 1 | 2026-10-15 → 10-15 | #352 | test(release): éprouver un flux SSE à travers le frontal généré |
-| 4.06 | P2 — décision | 1 | 2026-10-16 → 10-16 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
-| 4.07 | P2 — décision | 1 | 2026-10-19 → 10-19 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
-| 4.075 | P2 — décision | 1 | 2026-10-20 → 10-20 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
-| 4.08 | P2 — décision | 0.5 | 2026-10-21 → 10-21 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows |
-| 4.09 | P1 — figé à la création | 1 | 2026-10-22 → 10-22 | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
-| 4.1 | P2 — décision | 1 | 2026-10-23 → 10-23 | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
-| 4.11 | P1 — figé à la création | 1 | — | #572 | refactor(types): remplacer les conversions de type qui resserrent un type |
+| 3.99 | P2 — décision | 1 | — | #587 | feat(devkit): livrer un skill de dépannage d'application, du symptôme au geste |
+| 4.001 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
+| 4.002 | P1 — figé à la création | 0.5 | — | #566 | fix(orm): écrire la première migration d'une application neuve |
+| 4.003 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
+| 4.004 | P1 — figé à la création | 0.5 | 2026-10-12 → 10-12 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
+| 4.005 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
+| 4.006 | P2 — décision | 1 | 2026-10-16 → 10-16 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
+| 4.007 | P2 — décision | 1 | 2026-10-19 → 10-19 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
+| 4.008 | P2 — décision | 0.5 | 2026-10-21 → 10-21 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows |
+| 4.009 | P1 — figé à la création | 1 | 2026-10-22 → 10-22 | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
+| 4.01 | P1 — figé à la création | 2 | 2026-11-17 → 11-18 | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
+| 4.011 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
+| 4.012 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
+| 4.013 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
+| 4.014 | P2 — décision | 2 | — | #570 | feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent |
+| 4.015 | P2 — décision | 1 | 2026-10-15 → 10-15 | #352 | test(release): éprouver un flux SSE à travers le frontal généré |
+| 4.016 | P2 — décision | 1 | 2026-10-20 → 10-20 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
+| 4.017 | P2 — décision | 1 | 2026-10-23 → 10-23 | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
+| 4.018 | P1 — figé à la création | 1 | — | #572 | refactor(types): remplacer les conversions de type qui resserrent un type |
 | 5.01 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 5.03 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
 | 5.04 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
@@ -142,7 +144,6 @@ Ordre 3.985 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise
 | 6.04 | P1 — figé à la création | 1 | 2026-11-11 → 11-11 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
 | 6.05 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
 | 6.06 | P1 — figé à la création | 3 | 2026-11-13 → 11-17 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
-| 6.08 | P1 — figé à la création | 2 | 2026-11-17 → 11-18 | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
 | 6.09 | P2 — décision | 1 | — | #585 | feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire |
 
 ## Jalon 10.2.0 — 28 ouverts

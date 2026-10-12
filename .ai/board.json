@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T14:22:26.158Z",
+  "generatedAt": "2026-10-12T15:29:01.347Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 115,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -2747,6 +2747,22 @@
       ]
     },
     {
+      "number": 587,
+      "title": "feat(devkit): livrer un skill de dépannage d'application, du symptôme au geste",
+      "url": "https://github.com/nodefony/nodefony-core/issues/587",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.99,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 155,
       "title": "docs(agents): rendre le dépôt lisible par un agent web",
       "url": "https://github.com/nodefony/nodefony-core/issues/155",
@@ -2789,38 +2805,6 @@
       "labels": []
     },
     {
-      "number": 555,
-      "title": "feat(studio): montrer en direct la contre-pression du temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/555",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.001,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 556,
-      "title": "feat(studio): suivre en direct le transcript d'un agent de code",
-      "url": "https://github.com/nodefony/nodefony-core/issues/556",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.002,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
       "number": 565,
       "title": "refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique",
       "url": "https://github.com/nodefony/nodefony-core/issues/565",
@@ -2829,23 +2813,7 @@
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
-      "ordre": 4.0025,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 557,
-      "title": "feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc",
-      "url": "https://github.com/nodefony/nodefony-core/issues/557",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.003,
+      "ordre": 4.001,
       "debut": null,
       "cible": null,
       "labels": [
@@ -2861,7 +2829,7 @@
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
-      "ordre": 4.004,
+      "ordre": 4.002,
       "debut": null,
       "cible": null,
       "labels": [
@@ -2869,17 +2837,114 @@
       ]
     },
     {
-      "number": 570,
-      "title": "feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/570",
+      "number": 541,
+      "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/541",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.003,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 401,
+      "title": "fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/401",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.004,
+      "debut": "2026-10-12",
+      "cible": "2026-10-12",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 313,
+      "title": "fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative",
+      "url": "https://github.com/nodefony/nodefony-core/issues/313",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.005,
+      "debut": "2026-10-13",
+      "cible": "2026-10-13",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 139,
+      "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/139",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.006,
+      "debut": "2026-10-16",
+      "cible": "2026-10-16",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 62,
+      "title": "fix(cli): sonder les ports réellement utilisés par l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/62",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.007,
+      "debut": "2026-10-19",
+      "cible": "2026-10-19",
+      "labels": [
+        "rattrapable",
+        "beta-4"
+      ]
+    },
+    {
+      "number": 427,
+      "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/427",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.008,
+      "debut": "2026-10-21",
+      "cible": "2026-10-21",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 451,
+      "title": "fix(client): cesser d'ignorer en silence les trames binaires reçues",
+      "url": "https://github.com/nodefony/nodefony-core/issues/451",
       "state": "OPEN",
       "status": "In Progress",
       "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 4.005,
-      "debut": null,
-      "cible": null,
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.009,
+      "debut": "2026-10-22",
+      "cible": "2026-10-22",
       "labels": [
         "beta-4"
       ]
@@ -2901,51 +2966,155 @@
       ]
     },
     {
-      "number": 541,
-      "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
-      "url": "https://github.com/nodefony/nodefony-core/issues/541",
+      "number": 500,
+      "title": "refactor(core): préparer la sortie des décorateurs historiques de TypeScript",
+      "url": "https://github.com/nodefony/nodefony-core/issues/500",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 4.01,
+      "debut": "2026-11-17",
+      "cible": "2026-11-18",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 555,
+      "title": "feat(studio): montrer en direct la contre-pression du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/555",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 4.01,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.011,
       "debut": null,
       "cible": null,
       "labels": [
-        "beta-4"
+        "beta-4",
+        "reportable"
       ]
     },
     {
-      "number": 401,
-      "title": "fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows",
-      "url": "https://github.com/nodefony/nodefony-core/issues/401",
+      "number": 556,
+      "title": "feat(studio): suivre en direct le transcript d'un agent de code",
+      "url": "https://github.com/nodefony/nodefony-core/issues/556",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 4.02,
-      "debut": "2026-10-12",
-      "cible": "2026-10-12",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.012,
+      "debut": null,
+      "cible": null,
       "labels": [
-        "beta-4"
+        "beta-4",
+        "reportable"
       ]
     },
     {
-      "number": 313,
-      "title": "fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative",
-      "url": "https://github.com/nodefony/nodefony-core/issues/313",
+      "number": 557,
+      "title": "feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/557",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.013,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4",
+        "reportable"
+      ]
+    },
+    {
+      "number": 570,
+      "title": "feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/570",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 4.014,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4",
+        "reportable"
+      ]
+    },
+    {
+      "number": 352,
+      "title": "test(release): éprouver un flux SSE à travers le frontal généré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/352",
       "state": "OPEN",
       "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.015,
+      "debut": "2026-10-15",
+      "cible": "2026-10-15",
+      "labels": [
+        "beta-4",
+        "reportable"
+      ]
+    },
+    {
+      "number": 480,
+      "title": "feat(cli): afficher la doc de la commande sous toute erreur d'usage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/480",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.016,
+      "debut": "2026-10-20",
+      "cible": "2026-10-20",
+      "labels": [
+        "beta-4",
+        "reportable"
+      ]
+    },
+    {
+      "number": 472,
+      "title": "test(ci): stabiliser trois suites qui rougissent en passe complète",
+      "url": "https://github.com/nodefony/nodefony-core/issues/472",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.017,
+      "debut": "2026-10-23",
+      "cible": "2026-10-23",
+      "labels": [
+        "beta-4",
+        "reportable"
+      ]
+    },
+    {
+      "number": 572,
+      "title": "refactor(types): remplacer les conversions de type qui resserrent un type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/572",
+      "state": "OPEN",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
-      "ordre": 4.03,
-      "debut": "2026-10-13",
-      "cible": "2026-10-13",
+      "ordre": 4.018,
+      "debut": null,
+      "cible": null,
       "labels": [
-        "beta-4"
+        "beta-4",
+        "reportable"
       ]
     },
     {
@@ -2960,103 +3129,6 @@
       "ordre": 4.04,
       "debut": "2026-10-14",
       "cible": "2026-10-14",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 352,
-      "title": "test(release): éprouver un flux SSE à travers le frontal généré",
-      "url": "https://github.com/nodefony/nodefony-core/issues/352",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.05,
-      "debut": "2026-10-15",
-      "cible": "2026-10-15",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 139,
-      "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
-      "url": "https://github.com/nodefony/nodefony-core/issues/139",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.06,
-      "debut": "2026-10-16",
-      "cible": "2026-10-16",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 62,
-      "title": "fix(cli): sonder les ports réellement utilisés par l'application",
-      "url": "https://github.com/nodefony/nodefony-core/issues/62",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.07,
-      "debut": "2026-10-19",
-      "cible": "2026-10-19",
-      "labels": [
-        "rattrapable",
-        "beta-4"
-      ]
-    },
-    {
-      "number": 480,
-      "title": "feat(cli): afficher la doc de la commande sous toute erreur d'usage",
-      "url": "https://github.com/nodefony/nodefony-core/issues/480",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.075,
-      "debut": "2026-10-20",
-      "cible": "2026-10-20",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 427,
-      "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows",
-      "url": "https://github.com/nodefony/nodefony-core/issues/427",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 4.08,
-      "debut": "2026-10-21",
-      "cible": "2026-10-21",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 451,
-      "title": "fix(client): cesser d'ignorer en silence les trames binaires reçues",
-      "url": "https://github.com/nodefony/nodefony-core/issues/451",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 4.09,
-      "debut": "2026-10-22",
-      "cible": "2026-10-22",
       "labels": [
         "beta-4"
       ]
@@ -3108,22 +3180,6 @@
       ]
     },
     {
-      "number": 472,
-      "title": "test(ci): stabiliser trois suites qui rougissent en passe complète",
-      "url": "https://github.com/nodefony/nodefony-core/issues/472",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.1,
-      "debut": "2026-10-23",
-      "cible": "2026-10-23",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
       "number": 463,
       "title": "refactor(scaffold): écrire une seule fois la liste des bases proposées",
       "url": "https://github.com/nodefony/nodefony-core/issues/463",
@@ -3166,22 +3222,6 @@
       "debut": null,
       "cible": null,
       "labels": []
-    },
-    {
-      "number": 572,
-      "title": "refactor(types): remplacer les conversions de type qui resserrent un type",
-      "url": "https://github.com/nodefony/nodefony-core/issues/572",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 4.11,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-4"
-      ]
     },
     {
       "number": 465,
@@ -3810,7 +3850,8 @@
       "debut": "2026-10-26",
       "cible": "2026-10-26",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -3842,7 +3883,8 @@
       "debut": "2026-10-28",
       "cible": "2026-10-28",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -3858,7 +3900,8 @@
       "debut": "2026-10-29",
       "cible": "2026-10-29",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -3890,7 +3933,8 @@
       "debut": "2026-10-30",
       "cible": "2026-10-30",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -3906,7 +3950,8 @@
       "debut": "2026-11-02",
       "cible": "2026-11-02",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -3922,7 +3967,8 @@
       "debut": "2026-11-03",
       "cible": "2026-11-03",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -3938,7 +3984,8 @@
       "debut": "2026-11-04",
       "cible": "2026-11-04",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -3998,7 +4045,8 @@
       "debut": "2026-11-05",
       "cible": "2026-11-05",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -4014,7 +4062,8 @@
       "debut": "2026-11-06",
       "cible": "2026-11-06",
       "labels": [
-        "beta-5"
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -4338,7 +4387,8 @@
       "debut": "2026-11-09",
       "cible": "2026-11-17",
       "labels": [
-        "beta-6"
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -4354,7 +4404,8 @@
       "debut": "2026-11-09",
       "cible": "2026-11-09",
       "labels": [
-        "beta-6"
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -4370,7 +4421,8 @@
       "debut": "2026-11-10",
       "cible": "2026-11-10",
       "labels": [
-        "beta-6"
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -4386,7 +4438,8 @@
       "debut": "2026-11-11",
       "cible": "2026-11-11",
       "labels": [
-        "beta-6"
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -4402,7 +4455,8 @@
       "debut": "2026-11-12",
       "cible": "2026-11-12",
       "labels": [
-        "beta-6"
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -4418,7 +4472,8 @@
       "debut": "2026-11-13",
       "cible": "2026-11-17",
       "labels": [
-        "beta-6"
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -4438,22 +4493,6 @@
       ]
     },
     {
-      "number": 500,
-      "title": "refactor(core): préparer la sortie des décorateurs historiques de TypeScript",
-      "url": "https://github.com/nodefony/nodefony-core/issues/500",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 2,
-      "ordre": 6.08,
-      "debut": "2026-11-17",
-      "cible": "2026-11-18",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
       "number": 585,
       "title": "feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire",
       "url": "https://github.com/nodefony/nodefony-core/issues/585",
@@ -4466,7 +4505,8 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "beta-6"
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -6102,7 +6142,7 @@
       "title": "feat(core): rendre traduisibles les textes du framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/378",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
