@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-12 20:44** (UTC).
+> Empreinte prise le **2026-10-12 22:14** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -112,7 +112,7 @@ Ordre 3.985 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise
 | 3.985 | P1 — figé à la création | 2 | — | #579 | feat(devkit): enseigner la connexion aux agents, prouvé par un banc |
 | 3.99 | P2 — décision | 1 | — | #587 | feat(devkit): livrer un skill de dépannage d'application, du symptôme au geste |
 | 3.992 | P2 — décision | 1 | — | #590 | feat(devkit): livrer une relecture de sécurité pour le code d'une application |
-| 3.995 | P1 — figé à la création | 1 | — | #589 | fix(security): rattacher le second facteur au compte, pas à son identifiant |
+| 3.995 | P1 — figé à la création | 1 | — | #589 | fix(security): rattacher le second facteur au compte par une seule clé, l'identifiant de connexion |
 | 4.001 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
 | 4.002 | P1 — figé à la création | 0.5 | — | #566 | fix(orm): écrire la première migration d'une application neuve |
 | 4.003 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |

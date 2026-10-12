@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T20:44:24.853Z",
+  "generatedAt": "2026-10-12T22:14:52.471Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2796,10 +2796,10 @@
     },
     {
       "number": 589,
-      "title": "fix(security): rattacher le second facteur au compte, pas à son identifiant",
+      "title": "fix(security): rattacher le second facteur au compte par une seule clé, l'identifiant de connexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/589",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
