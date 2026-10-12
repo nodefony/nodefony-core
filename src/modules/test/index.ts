@@ -79,6 +79,8 @@ import {
 } from "./nodefony/secure/SelfExternalController";
 // #269 — porte d'API ouverte par un jeton d'un VRAI Keycloak (profil `keycloak`).
 import KeycloakApiController from "./nodefony/secure/KeycloakApiController";
+// #525 — socket ouverte par ce même jeton : elle doit mourir avec lui.
+import KeycloakRealtimeController from "./nodefony/secure/KeycloakRealtimeController";
 // P6.8 — banc DÉMO idempotence userland (@Idempotent, /nodefony/test/secure/idempotent).
 import IdempotentDemoController from "./nodefony/secure/IdempotentDemoController";
 // P6 J9 — enregistre le provider OAuth de TEST (side-effect), AVANT le onBoot du
@@ -168,6 +170,8 @@ function overlayProbe(context: unknown): void {
   ForeignAudienceController,
   // #269 — jeton d'un vrai Keycloak : même compte qu'au login BFF (/nodefony/test/keycloak/*)
   KeycloakApiController,
+  // #525 — socket Keycloak fermée à l'expiration du jeton (/nodefony/test/keycloak/realtime)
+  KeycloakRealtimeController,
   // P6.8 — banc démo idempotence userland (@Idempotent, /nodefony/test/secure/idempotent/*)
   IdempotentDemoController,
   // Le canal temps réel COMMUN des quatre vitrines de front (React, Vue,

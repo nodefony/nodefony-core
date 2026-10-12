@@ -24,7 +24,11 @@
  *     login suivant ; un rôle donné à la main dans l'application survit ;
  *  6. appelant machine (#544) : un jeton `client_credentials` ouvre la zone
  *     `partner` (`ephemeral`) et est refusé par `test-keycloak` (`require`) ;
- *     un jeton signé par l'application ouvre la même zone.
+ *     un jeton signé par l'application ouvre la même zone ;
+ *  7. temps réel (#525) : une socket ouverte par un jeton Keycloak se ferme
+ *     (4001) une fois `exp` passé, une socket ouverte par une session BFF
+ *     Keycloak se ferme à la déconnexion — et dans les deux cas, une socket
+ *     TÉMOIN encore valable survit au même tick.
  */
 import { describe, expect, it } from "vitest";
 import https from "node:https";
@@ -43,6 +47,7 @@ import {
   requestClientCredentialsToken,
 } from "@nodefony/security";
 import type { IOAuthProvider } from "@nodefony/security";
+import WebSocket from "ws";
 
 const ISSUER = process.env.NF_KEYCLOAK_ISSUER ?? "";
 const CLIENT_ID = process.env.NF_KEYCLOAK_CLIENT_ID ?? "";
@@ -553,6 +558,108 @@ async function setLocalRoles(userId: string, roles: string[]): Promise<void> {
   expect(patched.status, `rôles locaux posés (${patched.text})`).toBe(200);
 }
 
+/** Socket du banc, une fois le `realtime:welcome` reçu. */
+interface ISocketProbe {
+  /** Résolu à la fermeture : code de fermeture et instant (epoch ms). */
+  closed: Promise<{ code: number; at: number }>;
+  isOpen(): boolean;
+  close(): void;
+}
+
+/**
+ * Ouvre une socket temps réel de l'application et attend son accueil — une
+ * socket refusée au handshake rejette, elle ne passe pas pour ouverte.
+ */
+function openSocket(
+  pathname: string,
+  headers: Record<string, string>,
+): Promise<ISocketProbe> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`wss://${APP.hostname}:${APP.port}${pathname}`, {
+      rejectUnauthorized: false,
+      headers,
+    });
+    let welcomed = false;
+    const closed = new Promise<{ code: number; at: number }>((done) => {
+      ws.once("close", (code: number) => done({ code, at: Date.now() }));
+    });
+    const timer = setTimeout(() => {
+      ws.terminate();
+      reject(new Error(`welcome timeout ${pathname}`));
+    }, TIMEOUT);
+    ws.on("error", (e) => {
+      clearTimeout(timer);
+      if (!welcomed) reject(e);
+    });
+    void closed.then(({ code }) => {
+      clearTimeout(timer);
+      if (!welcomed) reject(new Error(`fermée avant welcome (code=${code})`));
+    });
+    ws.on("message", (data: Buffer) => {
+      if (welcomed) return;
+      const frame = JSON.parse(String(data)) as { method?: unknown };
+      if (frame.method !== "realtime:welcome") return;
+      welcomed = true;
+      clearTimeout(timer);
+      resolve({
+        closed,
+        isOpen: () => ws.readyState === WebSocket.OPEN,
+        close: () => ws.close(),
+      });
+    });
+  });
+}
+
+/** `p`, ou un rejet qui nomme ce qui n'est pas arrivé dans les `ms` impartis. */
+function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, fail) => {
+    timer = setTimeout(
+      () => fail(new Error(`${what} : rien après ${ms} ms`)),
+      ms,
+    );
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Raccourcit la durée de vie des jetons d'accès d'un client du realm, et rend
+ * la fonction qui la remet en l'état. Un attribut vide le retire : Keycloak
+ * revient alors à la durée du realm.
+ */
+async function setAccessTokenLifespan(
+  admin: string,
+  clientId: string,
+  seconds: number,
+): Promise<() => Promise<void>> {
+  const found = await kcAdmin(
+    admin,
+    "GET",
+    `/clients?clientId=${encodeURIComponent(clientId)}`,
+  );
+  expect(found.status, `client ${clientId} (${found.text})`).toBe(200);
+  const rep = (
+    JSON.parse(found.text) as Array<{
+      id: string;
+      attributes?: Record<string, string>;
+    }>
+  )[0];
+  if (!rep) throw new Error(`client ${clientId} absent du realm`);
+  const key = "access.token.lifespan";
+  const before = rep.attributes?.[key] ?? "";
+  const put = async (value: string): Promise<void> => {
+    const res = await kcAdmin(admin, "PUT", `/clients/${rep.id}`, {
+      ...rep,
+      attributes: { ...rep.attributes, [key]: value },
+    });
+    expect(res.status, `durée de vie des jetons (${res.text})`).toBe(204);
+  };
+  await put(String(seconds));
+  return () => put(before);
+}
+
 describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
   "OAuth2 — Keycloak réel (#269)",
   () => {
@@ -1031,6 +1138,121 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
           }),
         ).rejects.toThrow(/égalité/);
       });
+    });
+
+    describe("temps réel (#525) — une socket meurt avec l'identité qui l'a ouverte", () => {
+      /** Socket de la zone `test-keycloak` (jeton Keycloak, `external-jwt`). */
+      const BEARER_SOCKET = "/nodefony/test/keycloak/realtime";
+      /** Socket de la zone `test-live` (session BFF). */
+      const SESSION_SOCKET = "/api/live/realtime";
+      /** Tick du hub (`REVOCATION_REVALIDATE_MS`, 30 s) + marge. */
+      const REVOCATION_WINDOW_MS = 40_000;
+      const SHORT_LIFESPAN_S = 5;
+
+      // Le TÉMOIN est ce qui rend ces cas discriminants : sans lui, une
+      // socket fermée « faute de pouvoir vérifier » (fail-closed) passerait
+      // pour une socket fermée parce que son identité est morte. Les deux
+      // sockets sont re-validées par le MÊME tick ; seule celle dont
+      // l'identité est morte doit tomber.
+
+      it("jeton Keycloak expiré → la socket se ferme (4001) après `exp`, celle d'un jeton vivant survit", async () => {
+        const { username } = realmUser();
+        // `test-keycloak` exige un compte local (`require`) : le login BFF le pose.
+        await browserLogin(username);
+        const provider = await frameworkClient();
+        const accessToken = async (): Promise<string> => {
+          const verifier = generateCodeVerifier();
+          const tokens = await provider.validateAuthorizationCode({
+            code: await codeFor(provider, verifier),
+            codeVerifier: verifier,
+          });
+          return tokens.accessToken();
+        };
+        const long = await accessToken();
+        const restore = await setAccessTokenLifespan(
+          await adminToken(),
+          CLIENT_ID,
+          SHORT_LIFESPAN_S,
+        );
+        let short: string;
+        try {
+          short = await accessToken();
+        } finally {
+          await restore();
+        }
+        const shortExp = Number(claimsOf(short).exp) * 1000;
+        const longExp = Number(claimsOf(long).exp) * 1000;
+        expect(
+          shortExp - Date.now(),
+          "décor : jeton court",
+        ).toBeLessThanOrEqual(SHORT_LIFESPAN_S * 1000);
+        expect(
+          longExp - shortExp,
+          "décor : le témoin reste valable au-delà du tick",
+        ).toBeGreaterThan(REVOCATION_WINDOW_MS);
+
+        const witness = await openSocket(BEARER_SOCKET, {
+          authorization: `Bearer ${long}`,
+        });
+        const doomed = await openSocket(BEARER_SOCKET, {
+          authorization: `Bearer ${short}`,
+        });
+        try {
+          const { code, at } = await within(
+            doomed.closed,
+            shortExp - Date.now() + REVOCATION_WINDOW_MS,
+            "fermeture de la socket au jeton expiré",
+          );
+          expect(code, "fermée par la révocation").toBe(4001);
+          expect(at, "fermée APRÈS l'expiration").toBeGreaterThanOrEqual(
+            shortExp,
+          );
+          await pause(500);
+          expect(witness.isOpen(), "la socket au jeton vivant survit").toBe(
+            true,
+          );
+        } finally {
+          witness.close();
+          doomed.close();
+        }
+      }, 90_000);
+
+      it("session BFF Keycloak déconnectée → sa socket se ferme (4001), celle d'une autre session survit", async () => {
+        const { username } = realmUser();
+        const doomedJar = await browserLogin(username);
+        const witnessJar = await browserLogin(username);
+        const witness = await openSocket(SESSION_SOCKET, {
+          cookie: cookieHeader(witnessJar),
+        });
+        const doomed = await openSocket(SESSION_SOCKET, {
+          cookie: cookieHeader(doomedJar),
+        });
+        try {
+          const out = await send({
+            url: new URL(`https://localhost:${APP.port}${LOGOUT}`),
+            method: "POST",
+            headers: { cookie: cookieHeader(doomedJar) },
+          });
+          expect(out.status, "logout").toBe(200);
+          const { code } = await within(
+            doomed.closed,
+            REVOCATION_WINDOW_MS,
+            "fermeture de la socket de la session déconnectée",
+          );
+          expect(code, "fermée par la révocation").toBe(4001);
+          await pause(500);
+          expect(witness.isOpen(), "la socket de l'autre session survit").toBe(
+            true,
+          );
+          expect(
+            await anonymousMe(cookieHeader(witnessJar)),
+            "l'autre session vit",
+          ).toBe(false);
+        } finally {
+          witness.close();
+          doomed.close();
+        }
+      }, 90_000);
     });
   },
 );

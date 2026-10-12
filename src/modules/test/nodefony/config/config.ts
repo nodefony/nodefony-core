@@ -124,11 +124,12 @@ export default {
       // clients (`docker/keycloak/import/realm-nodefony.json`). Le banc y vérifie
       // que la personne connectée par le navigateur retrouve SON compte en
       // présentant son jeton à l'API — pas un second.
+      // `realtime` reste armé (défaut) : le banc #525 y ouvre une socket avec
+      // ce même jeton, et prouve qu'elle se ferme quand il expire.
       "test-keycloak": {
         pattern: "^/nodefony/test/keycloak",
         authenticators: ["external-jwt"],
         stateless: true,
-        realtime: false,
         resource: "https://localhost:5152/nodefony/test/keycloak",
       },
     },
