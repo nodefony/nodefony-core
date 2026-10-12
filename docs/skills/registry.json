@@ -2949,6 +2949,10 @@
                 "help": ""
               },
               {
+                "name": "JUGE_LOGIN_FRONT",
+                "help": ""
+              },
+              {
                 "name": "JUGE_LOGIN_RETURN",
                 "help": ""
               },
@@ -3069,6 +3073,10 @@
                 "help": ""
               },
               {
+                "name": "PAGE_ESPACE",
+                "help": ""
+              },
+              {
                 "name": "PAGE_WIDGET",
                 "help": ""
               },
@@ -3150,6 +3158,10 @@
               },
               {
                 "name": "SCRIPT_RAPPORT",
+                "help": ""
+              },
+              {
+                "name": "TEXTE_SESSION_OUVERTE",
                 "help": ""
               },
               {

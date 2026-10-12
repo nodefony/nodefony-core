@@ -13,6 +13,7 @@
  * @module
  */
 import { createHmac } from "node:crypto";
+import { request } from "./http-probe.mjs";
 
 /** Période d'un code, en secondes (défaut du framework). */
 export const PERIODE_S = 30;
@@ -78,3 +79,50 @@ export function codeHotp(cle, pas, chiffres = 6) {
  */
 export const codeTotp = (secretBase32, pas) =>
   codeHotp(base32Decode(secretBase32), pas);
+
+/** Routes libre-service du second facteur — celles du framework. */
+export const ROUTES_TOTP = "/nodefony/security/api/totp";
+
+/**
+ * Enrôle un TOTP sur le compte de la session fournie, par les routes du
+ * framework (`enroll` puis `confirm` avec le code du pas courant).
+ *
+ * Trois juges en ont besoin ; recopié, le geste divergerait au premier
+ * changement de forme, et le juge en retard accuserait l'agent.
+ *
+ * @param {import("./http-probe.mjs").CookieJar} jar - une session ouverte au mot de passe.
+ * @returns {Promise<{secret: string, pas: number}|{injoignable: string}|{indisponible: number}|{inoperant: string}>}
+ *   le secret et le pas consommé par la confirmation — ou pourquoi rien n'est enrôlé :
+ *   `indisponible` porte le statut (404/503) d'un TOTP absent ou coupé.
+ */
+export async function enrolerTotp(jar) {
+  const json = { accept: "application/json" };
+  const r = await request("POST", `${ROUTES_TOTP}/enroll`, jar, {
+    headers: json,
+  });
+  if (r.error) return { injoignable: r.error };
+  if (r.status === 404 || r.status === 503) return { indisponible: r.status };
+  let secret = null;
+  try {
+    secret = JSON.parse(r.body).secretBase32 ?? null;
+  } catch {
+    secret = null;
+  }
+  if (r.status !== 200 || typeof secret !== "string") {
+    return {
+      inoperant: `POST ${ROUTES_TOTP}/enroll rend ${r.status} — ${String(r.body).slice(0, 160)}`,
+    };
+  }
+  const pas = pasCourant();
+  const c = await request("POST", `${ROUTES_TOTP}/confirm`, jar, {
+    body: { code: codeTotp(secret, pas) },
+    headers: json,
+  });
+  if (c.error) return { injoignable: c.error };
+  if (c.status !== 200) {
+    return {
+      inoperant: `POST ${ROUTES_TOTP}/confirm rend ${c.status} — ${String(c.body).slice(0, 160)}`,
+    };
+  }
+  return { secret, pas };
+}

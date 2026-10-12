@@ -64,14 +64,12 @@ import {
   CORPS_VIREMENT,
   ROUTE_VIREMENT,
 } from "./enonces.mjs";
-import { codeTotp, pasCourant } from "./totp.mjs";
+import { ROUTES_TOTP, codeTotp, enrolerTotp } from "./totp.mjs";
 
 repondreArgsTemoin();
 repondreArgsTemoinMfa();
 await ensurePortFree();
 
-/** Routes libre-service du second facteur — celles du framework. */
-const TOTP = "/nodefony/security/api/totp";
 /** Second temps d'une connexion à deux facteurs, après le `202`. */
 const LOGIN_TOTP = `${LOGIN}/totp`;
 /** Combien attendre pour que la connexion soit plus vieille que l'énoncé. */
@@ -93,14 +91,6 @@ const virer = async (jar, corps = CORPS_VIREMENT) => {
     csrfToken: jar.csrfToken(),
     headers: API,
   });
-};
-
-const lireJson = (texte) => {
-  try {
-    return JSON.parse(texte);
-  } catch {
-    return null;
-  }
 };
 
 // ─── 1. L'anonyme ───────────────────────────────────────────────────────────
@@ -166,38 +156,21 @@ if (!mfa.jar) {
       `été enrôlé (juge rejoué sur la même application). Verdict non rendu.`,
   );
 }
-const enrolement = await request("POST", `${TOTP}/enroll`, mfa.jar, {
-  headers: API,
-});
-if (enrolement.error) exit(4, `CAUSE=aucune-reponse-mfa — ${enrolement.error}`);
-if (enrolement.status === 404 || enrolement.status === 503) {
+const enrolement = await enrolerTotp(mfa.jar);
+if (enrolement.injoignable)
+  exit(4, `CAUSE=aucune-reponse-mfa — ${enrolement.injoignable}`);
+if (enrolement.indisponible) {
   exit(
     8,
-    `CAUSE=deux-facteurs-indisponibles — POST ${TOTP}/enroll rend ${enrolement.status} : ` +
-      `le TOTP du framework, actif par défaut, ne répond plus — personne ne peut ` +
-      `satisfaire une exigence de second facteur.`,
+    `CAUSE=deux-facteurs-indisponibles — POST ${ROUTES_TOTP}/enroll rend ` +
+      `${enrolement.indisponible} : le TOTP du framework, actif par défaut, ne répond ` +
+      `plus — personne ne peut satisfaire une exigence de second facteur.`,
   );
 }
-const secret = lireJson(enrolement.body)?.secretBase32;
-if (enrolement.status !== 200 || typeof secret !== "string") {
-  exit(
-    11,
-    `CAUSE=second-facteur-inoperant — POST ${TOTP}/enroll rend ${extrait(enrolement)}`,
-  );
+if (enrolement.inoperant) {
+  exit(11, `CAUSE=second-facteur-inoperant — ${enrolement.inoperant}`);
 }
-const pas = pasCourant();
-const confirmation = await request("POST", `${TOTP}/confirm`, mfa.jar, {
-  body: { code: codeTotp(secret, pas) },
-  headers: API,
-});
-if (confirmation.error)
-  exit(4, `CAUSE=aucune-reponse-mfa — ${confirmation.error}`);
-if (confirmation.status !== 200) {
-  exit(
-    11,
-    `CAUSE=second-facteur-inoperant — POST ${TOTP}/confirm rend ${extrait(confirmation)}`,
-  );
-}
+const { secret, pas } = enrolement;
 
 // Nouvelle connexion : le compte est désormais enrôlé, le mot de passe seul
 // doit s'arrêter au défi (202).

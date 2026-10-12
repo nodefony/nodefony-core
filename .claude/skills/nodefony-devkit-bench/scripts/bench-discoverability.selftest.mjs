@@ -352,6 +352,56 @@ const EMPTY = {
 };
 
 /**
+ * Les échantillons des tâches « connexion dans un front » — les MÊMES sondes
+ * pour React (36) et Vue (37), fabriquées par `tacheConnexionFront`.
+ *
+ * @param {number} id - l'identifiant de la tâche.
+ * @returns {object} les entrées de {@link SAMPLES} pour cette tâche.
+ */
+const echantillonsConnexionFront = (id) => ({
+  [`${id} :: a lu la doc de la connexion côté client`]: {
+    pass: {
+      transcript: `{"command":"cat node_modules/nodefony/docs/client.md"}`,
+    },
+    fail: { transcript: `{"command":"npm run build"}` },
+  },
+  [`${id} :: le code passe par le déroulé du framework (submitMfaCode)`]: {
+    pass: { added: "      void flow.submitMfaCode(code);" },
+    fail: {
+      added:
+        '      await fetch("/nodefony/security/api/auth/login/totp", { method: "POST" });',
+    },
+  },
+  [`${id} :: aucun appel écrit à la main vers l'API de session`]: {
+    // Sonde INVERSÉE : le `pass` passe par la liaison, le `fail` poste lui-même.
+    pass: { added: "      void flow.login(username, password);" },
+    fail: {
+      added:
+        '    const r = await fetch("/nodefony/security/api/auth/login", { method: "POST" });',
+    },
+    extra: [
+      {
+        label: "refuse la constante de route employée à la main",
+        matter: { added: "    await axios.post(AUTH_LOGIN_PATH, body);" },
+        expect: false,
+      },
+    ],
+  },
+  [`${id} :: aucun « /login » écrit en dur`]: {
+    pass: {
+      added: "  <a href={loginPagePath(location.pathname)}>Se connecter</a>",
+    },
+    fail: { added: '  location.assign("/login?from=/espace");' },
+  },
+  [`${id} :: aucune brique de sécurité éteinte en configuration`]: {
+    pass: { added: "      void flow.submitMfaCode(code);" },
+    fail: {
+      added: `    use("@nodefony/security", { totp: { enabled: false } }),`,
+    },
+  },
+});
+
+/**
  * Deux échantillons par sonde, indexés `"<id> :: <nom exact>"`.
  *
  * `pass` doit rendre `pass: true`, `fail` doit rendre `pass: false` — y compris
@@ -362,6 +412,8 @@ const EMPTY = {
  * `unless`, où le motif interdit est présent ET la voie correcte aussi.
  */
 const SAMPLES = {
+  ...echantillonsConnexionFront(36),
+  ...echantillonsConnexionFront(37),
   // ── T0 — l'agent crée l'application, dans un dossier vide ─────────────────
   "0 :: a trouvé la porte MACHINE du CLI (--yes / --answers-json / --describe-json)":
     {

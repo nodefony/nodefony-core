@@ -313,3 +313,16 @@ export const VAR_URL_RAPPORT = "NF_REPORT_URL";
 
 /** Même tâche — où le script trouve la clé d'API qui l'authentifie. */
 export const VAR_CLE_RAPPORT = "NF_REPORT_API_KEY";
+
+/**
+ * Tâches « connexion dans un front généré » (React, puis Vue) — la page du
+ * front que le `prepare` ajoute par `nodefony create front`.
+ */
+export const PAGE_ESPACE = "/espace";
+
+/**
+ * Mêmes tâches — ce que la page affiche une fois la session ouverte, suivi de
+ * l'identifiant. Le juge l'attend dans le navigateur : sans ce texte imposé, il
+ * devrait deviner à quoi ressemble « connecté » dans le rendu de l'agent.
+ */
+export const TEXTE_SESSION_OUVERTE = "Session ouverte : ";

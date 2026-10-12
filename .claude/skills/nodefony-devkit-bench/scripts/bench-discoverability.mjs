@@ -109,6 +109,7 @@ import {
   MARQUE_CONNEXION,
   ORIGINE_PARTENAIRE,
   PAGE_COMPTE,
+  PAGE_ESPACE,
   PAGE_WIDGET,
   REPERE_PREFIXE_COMPTE,
   ROLE_FACTURATION,
@@ -123,6 +124,7 @@ import {
   ROUTE_SYNTHESE,
   ROUTE_VIREMENT,
   SCRIPT_RAPPORT,
+  TEXTE_SESSION_OUVERTE,
   VAR_CLE_RAPPORT,
   VAR_URL_RAPPORT,
 } from "./lib/enonces.mjs";
@@ -801,6 +803,13 @@ const JUGE_LOGIN_RETURN = path.join(
   "gate-login-return.mjs",
 );
 
+/** Juge « la connexion aboutit dans le front, au vrai navigateur ». */
+const JUGE_LOGIN_FRONT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-login-front.mjs",
+);
+
 /** Juge « un script s'authentifie par une clé, jamais par le formulaire ». */
 const JUGE_SCRIPT_API = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -1291,6 +1300,96 @@ const sondeLecture = (name, pattern) => ({
   pattern,
   observe: true,
 });
+
+/**
+ * Les tâches « connexion dans un front généré » — UNE fabrique, un moteur par
+ * tâche (React, puis Vue). Le décor, l'énoncé, les sondes et le juge sont les
+ * mêmes : seul le moteur change, et c'est lui qu'on mesure — la liaison
+ * `useNodefonyLogin` se trouve-t-elle dans les deux ?
+ *
+ * Le framework porte tout le déroulé (`NodefonyLogin` : mot de passe, défi
+ * `202`, code, erreurs classées) ; le contournement naturel est de poster soi-
+ * même sur l'API de session et de gérer le `202` à la main — ou de renvoyer
+ * vers `/login` écrit en dur, ce que l'énoncé exclut (le formulaire est DANS
+ * la page). Les noms de champ sont imposés : sans eux, le juge devrait deviner
+ * quel champ de l'agent est l'identifiant.
+ *
+ * @param {{id: number, moteur: "react"|"vue", libelle: string}} o
+ * @returns {object} l'entrée de `TASKS`.
+ */
+function tacheConnexionFront({ id, moteur, libelle }) {
+  return {
+    id,
+    name: `connexion dans un front ${libelle}`,
+    // Le front est ajouté AVANT l'agent par le générateur du framework, puis
+    // ses dépendances tierces installées (react/vue, vite) : celles du
+    // framework sont déjà là, depuis les tarballs du décor.
+    prepare:
+      `npx --no-install nodefony create front espace --frontend ${moteur} ` +
+      `--route ${PAGE_ESPACE} --yes >/dev/null && npm install --no-audit --no-fund >/dev/null`,
+    prompt:
+      `Cette application a un front ${libelle} servi sur ${PAGE_ESPACE} (dossier frontend/). ` +
+      "Ajoute-y un formulaire de connexion DANS la page, sans renvoyer vers une autre " +
+      'page : un champ name="username", un champ name="password", puis, quand le ' +
+      'compte a un second facteur, un champ name="code" pour le code à 6 chiffres de ' +
+      "son application d'authentification. Une fois la personne connectée, la page " +
+      `affiche « ${TEXTE_SESSION_OUVERTE}<identifiant> ». Termine en prouvant que les ` +
+      "tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a lu la doc de la connexion côté client",
+        /client\.md|NodefonyLogin|useNodefonyLogin/u,
+      ),
+      {
+        // JUGÉ. Le second facteur passe par le déroulé du framework. Le front
+        // généré appelle DÉJÀ `useNodefonyLogin()` : c'est l'ÉTAPE du code
+        // qui trahit qu'il a été employé, pas l'appel de la liaison.
+        kind: "code",
+        name: "le code passe par le déroulé du framework (submitMfaCode)",
+        pattern: /submitMfaCode\s*\(/u,
+        where: "added",
+      },
+      {
+        // JUGÉ. Poster soi-même sur l'API de session : le défi `202`, le
+        // classement des erreurs et le blocage sont alors à réécrire.
+        kind: "code",
+        name: "aucun appel écrit à la main vers l'API de session",
+        pattern:
+          /\/nodefony\/security\/api\/auth|AUTH_LOGIN(?:_TOTP)?_PATH|AUTH_API_BASE/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // JUGÉ. La page de connexion écrite en dur : elle suit
+        // `security.loginPage.path`, que seul `loginPagePath` connaît.
+        kind: "code",
+        name: "aucun « /login » écrit en dur",
+        pattern: /["'`]\/login(?:[?"'`])/u,
+        where: "added",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // Le témoin à deux facteurs est créé AVANT le boot ; le juge lui
+        // enrôle un TOTP, puis joue la connexion dans un vrai navigateur.
+        kind: "gate",
+        name: "mot de passe puis code aboutissent dans le navigateur ; code et mot de passe faux refusés",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_LOGIN_FRONT} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_LOGIN_FRONT} --temoin-mfa-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_LOGIN_FRONT}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  };
+}
 
 /**
  * Les sondes de QUALITÉ — jouées sur **toute** tâche, sans qu'aucune ne les
@@ -4567,6 +4666,8 @@ export const TASKS = [
     ],
   },
 
+  tacheConnexionFront({ id: 36, moteur: "react", libelle: "React" }),
+  tacheConnexionFront({ id: 37, moteur: "vue", libelle: "Vue" }),
   {
     id: 38,
     name: "habiller la page de connexion sans la réécrire",

@@ -410,6 +410,17 @@ export const IMPUTATIONS = Object.freeze({
   // Refusé, il sort en succès : l'ordonnanceur croit le relevé fait.
   "script-ne-verifie-rien": AGENT,
   "script-sans-fin": AGENT,
+
+  // ─── Connexion dans un front généré (tâches 36 et 37) ────────────────────
+  "formulaire-absent": AGENT,
+  "second-facteur-absent": AGENT,
+  "connexion-non-aboutie": AGENT,
+  // La page annonce une session que le serveur n'a pas ouverte.
+  "connexion-simulee": AGENT,
+  // La sonde n'a pas pu piloter le navigateur : pilote absent, moteur
+  // introuvable — ou une page qui fait planter le navigateur. Rien ne dit
+  // lequel des deux.
+  "navigateur-indisponible": INDETERMINE,
   // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
   // du logiciel produit, il dit que l'instrument est parti sans son jeton.
   // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —
