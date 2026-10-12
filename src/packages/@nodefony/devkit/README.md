@@ -228,13 +228,14 @@ npx nodefony ai:sync            # --dry-run pour voir sans écrire, --json pour 
   = nodefony-add-crud              @nodefony/devkit
   = nodefony-add-realtime-channel  @nodefony/devkit
   = nodefony-add-service           @nodefony/devkit
+  = nodefony-authentication        @nodefony/devkit
   = nodefony-browser               @nodefony/devkit
   = nodefony-dev                   @nodefony/devkit
   = nodefony-devops                @nodefony/devkit
   = nodefony-migrate-schema        @nodefony/devkit
   = nodefony-protect-route         @nodefony/devkit
 
-  0 posé(s) · 0 mis à jour · 8 inchangé(s)
+  0 posé(s) · 0 mis à jour · 9 inchangé(s)
 ```
 
 **Le préfixe `nodefony-` vous laisse la place.** Ces pointeurs arrivent dans

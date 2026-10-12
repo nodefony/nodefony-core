@@ -20,7 +20,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**33 skills** · **33/33 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**34 skills** · **34/34 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -169,11 +169,14 @@ source: "docs/skills/index.md"
   { "icon": "🔧", "title": "add-service", "href": "nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au…",
     "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "authentication", "href": "nodefony-authentication.md",
+    "desc": "Établit QUI est l'utilisateur d'une application Nodefony par ce que le framework sert déjà — page /login et son habillage, client NodefonyLogin, route me, second facteur, connexion récente, retour sûr après connexion, fournisseurs (Keycloak, GitHub), jeton d'un programme — au lieu de le réécrire.",
+    "meta": "🟢 conforme v1.0.0" },
   { "icon": "🔧", "title": "dev", "href": "nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "protect-route", "href": "nodefony-protect-route.md",
-    "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, la page de connexion déjà servie et le renvoi de…",
+    "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion,…",
     "meta": "🟢 conforme" }
 ]
 ```
@@ -213,8 +216,9 @@ source: "docs/skills/index.md"
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 233 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 499 | 0 | 1 | ✅ |
-| [`nodefony-protect-route`](nodefony-protect-route.md) | — | 388 | 0 | 0 | ✅ |
+| [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 215 | 0 | 0 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 500 | 0 | 1 | ✅ |
+| [`nodefony-protect-route`](nodefony-protect-route.md) | — | 349 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

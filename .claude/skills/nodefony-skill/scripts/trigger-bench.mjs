@@ -178,6 +178,18 @@ const CASES = [
   ["protège cette route", "nodefony-protect-route"],
   ["un partenaire doit pouvoir poster chez moi", "nodefony-protect-route"],
   ["réserver cette page aux administrateurs", "nodefony-protect-route"],
+  // La CONNEXION (qui es-tu) est un autre geste que la PROTECTION (qu'as-tu
+  // le droit de faire) : ces phrases doivent élire l'authentification.
+  ["ajoute une page de connexion", "nodefony-authentication"],
+  ["exige un second facteur avant cette action", "nodefony-authentication"],
+  [
+    "ramène l'utilisateur sur sa page après la connexion",
+    "nodefony-authentication",
+  ],
+  [
+    "mon script doit appeler l'API sans formulaire de login",
+    "nodefony-authentication",
+  ],
   ["ajoute un flux temps réel", "nodefony-add-realtime-channel"],
   ["mon canal websocket est public", "nodefony-add-realtime-channel"],
   // — observer un écran RÉEL (le décor navigateur, pas le dev front)
@@ -213,6 +225,8 @@ const NEGATIVE_CASES = [
   ["lance un test de charge", "nodefony-check-memory-health"], // charge ≠ gate mémoire
   ["écris une page de doc de référence", "nodefony-studio-dev"], // doc ≠ écran générique
   ["démarre le serveur de dev", "nodefony-debug"], // démarrer ≠ diagnostiquer
+  ["réserver cette page aux administrateurs", "nodefony-authentication"], // autoriser ≠ connecter
+  ["ajoute une page de connexion", "nodefony-protect-route"], // connecter ≠ autoriser
   // Observer un écran ≠ coder le front. `nodefony-browser` porte des mots très
   // attractifs (« affichage », « page », « accessibilité ») : ces deux cas
   // gardent la frontière, faute de quoi il capterait les demandes de dev front.

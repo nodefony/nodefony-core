@@ -46,7 +46,8 @@ de son geste, et ceux-là ne se devinent pas — ils se paient.
 | Une ressource : table, validation, service, REST et WebSocket        | `nodefony-add-crud`             |
 | Une logique métier réutilisable, hors de tout controller             | `nodefony-add-service`          |
 | Un flux temps réel (WebSocket ou SSE), un canal, un abonnement       | `nodefony-add-realtime-channel` |
-| Réserver une route ou une page, la connexion (/login, Keycloak)      | `nodefony-protect-route`        |
+| Se connecter : /login, second facteur, retour après connexion, jeton | `nodefony-authentication`       |
+| Réserver une route ou une page à des rôles, ouvrir à un partenaire   | `nodefony-protect-route`        |
 | Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
 | Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
 
@@ -467,7 +468,7 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
   401 : il répond toujours 200, `{ user: null }` sans session.
 - **La connexion ne s'écrit pas en `fetch`** : `/login` est servie ; la liaison du front
   (`useNodefonyLogin`…) porte `me()` et `logout()` — suis l'adresse que rend `logout()`, sinon
-  la session Keycloak reste ouverte. Détail : skill `nodefony-protect-route`.
+  la session Keycloak reste ouverte. Détail : skill `nodefony-authentication`.
 - **Ta page répond 200 et son script ne s'exécute pas** : la politique de contenu exige un `nonce`
   sur les scripts, et le navigateur refuse un `<script>` en ligne qui n'en porte pas (« Refused to
   execute inline script »). Un `curl` ne le voit JAMAIS, il ne lit que le corps. Signe le script

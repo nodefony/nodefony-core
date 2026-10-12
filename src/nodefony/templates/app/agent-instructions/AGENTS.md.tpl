@@ -287,19 +287,14 @@ un module qui implémente `getMcpTools()` expose son métier, pas la plomberie (
 scopes : `node_modules/@nodefony/devkit/docs/index.md`). C'est une ROUTE : démarre l'app
 D'ABORD, ta session ENSUITE.
 
-<% if (it.hasSecurity) { %>🔴 **La session est DÉJÀ servie — n'écris pas un controller de compte.** Trois
-routes existent, et elles sont montées par `@nodefony/framework`, PAS par `@nodefony/security`
-(le chemin porte le nom du module qui décrit la sécurité, pas de celui qui sert les routes —
-c'est le piège) : `POST /nodefony/security/api/auth/login` (`{username, password}` → pose le
-cookie de session ; `202` = second facteur requis, PAS encore connecté),
-`GET /nodefony/security/api/auth/me` et `POST /nodefony/security/api/auth/logout` (idempotent).
-Mesuré sur un agent tiers : faute de trouver `me`, il a généré un controller `Account` entier
-pour refaire une route qui existait, et lui a fallu cinq recherches pour trouver `logout`. Le
-rechargement d'une page (F5) se restaure avec `me` (toujours `200` — teste `user`).
-
-🔴 **La PAGE `/login` est servie aussi** (mot de passe, second facteur, fournisseurs) : ne
-l'écris pas, habille-la (`security.loginPage`). Y conduire l'anonyme, ramener après connexion,
-mot de passe en clair refusé en production → skill `nodefony-protect-route`.
+<% if (it.hasSecurity) { %>🔴 **La connexion est DÉJÀ servie — n'écris ni page de login, ni controller de compte.**
+`/login` (mot de passe, second facteur, fournisseurs), `POST /nodefony/security/api/auth/login`
+(`202` = second facteur requis, PAS encore connecté), `GET /nodefony/security/api/auth/me`
+(toujours `200` — teste `user`) et `POST /nodefony/security/api/auth/logout` sont montées par
+`@nodefony/framework`, sous un chemin qui porte le nom de `security` — c'est le piège. Côté
+serveur, qui est connecté = `this.user`. Mesuré : faute de trouver `me`, un agent tiers a refait
+un controller `Account` entier. Habillage, front, retour après connexion, second facteur, jeton
+d'un script → skill `nodefony-authentication`.
 
 🔴 **La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`.**
 « Le firewall vérifie déjà `Sec-Fetch-Site` » est faux pour un programme : il n'envoie pas ces

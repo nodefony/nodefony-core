@@ -30,7 +30,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
 | `devkitConfigSchema` | `nodefony/config/config.ts` | `{ enabled, mcp }` — source unique des défauts |
 | `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot |
 | `DevkitError` | `nodefony/src/errors/DevkitError.ts` | erreurs typées du module |
-| 7 skills | `skills/<nom>/SKILL.md` | `nodefony-dev` (GÉNÉRALISTE — la conduite d'une tâche, et il dit lequel des six autres prendre), puis `nodefony-add-crud`, `nodefony-add-service`, `nodefony-protect-route`, `nodefony-add-realtime-channel`, `nodefony-migrate-schema`, `nodefony-browser` — publiés (`files`) |
+| 9 skills | `skills/<nom>/SKILL.md` | `nodefony-dev` (GÉNÉRALISTE — la conduite d'une tâche, et il dit lequel des autres prendre), puis `nodefony-add-crud`, `nodefony-add-service`, `nodefony-authentication` (se CONNECTER), `nodefony-protect-route` (AUTORISER), `nodefony-devops`, `nodefony-add-realtime-channel`, `nodefony-migrate-schema`, `nodefony-browser` — publiés (`files`) |
 | Recherche dans la doc installée | `skills/nodefony-dev/scripts/docs.mjs` | Indexe `node_modules/{nodefony,@nodefony/*}/docs/**.md` (70 pages, 38 000 lignes) et rend chemin + LIGNE + extrait. Répond au trou que rien d'autre ne couvre : `rg` suit le `.gitignore` et ne descend pas dans `node_modules`, donc le sujet paraît ABSENT. Codes : 0 trouvé · 1 rien · 64 usage · **78 rien d'installé** — qui DIT « lance `npm install` », jamais « ce n'est pas documenté » |
 | Sondes `nodefony-browser` | `skills/nodefony-browser/scripts/` | `inspect.mjs` (socle + 6 familles par `NF_BROWSER_FAMILIES` — a11y, rendu, reseau, perf, stockage, responsive ; verdict par famille, nom inconnu REFUSÉ en 64) · `watch.mjs` (frames WS, réponses ≥ 400) · `socket.mjs` (socket A→Z : accueil, abonnement, action, latence médiane, `api.request`, reconnexion — joué DANS la page, donc cookies et Origin réels) · `lib/{browser,wcag,probes}.mjs`. Exécutées SUR LE POSTE par défaut (le pilote conduit un navigateur déjà présent — rien à démarrer) ; dans le conteneur `<app>-browser` en DERNIER RECOURS seulement — mesure comparable, intégration continue, identifiants sensibles |
 | Doc des sondes | `skills/nodefony-browser/references/` | `sondes.md` (chaque champ, lecture des verdicts, QUAND chaque famille se trompe) · `socket.md` (grammaire des frames, verdicts dont `SILENCIEUX` ≠ cassé). Chargées à la demande — le `SKILL.md` reste un index |
@@ -240,7 +240,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   JAMAIS l'application : ce qui décide de l'invocation là-bas, c'est cette phrase
   et elle seule. Elle doit donc dire QUOI et QUAND, et **nommer Nodefony** — un
   agent qui ne voit qu'elle doit comprendre de quel framework on parle.
-  `src/nodefony/src/tests/aiSync.test.ts` le contrôle sur les sept skills livrés ;
+  `src/nodefony/src/tests/aiSync.test.ts` le contrôle sur chaque skill livré ;
   il a mordu dès le premier run.
 - **🔴 Ce qui atteint un agent s'EXÉCUTE — la prose, non.** Mesuré sur les 1020
   transcripts du banc, à fenêtre d'existence égale : un SCRIPT cité comme commande

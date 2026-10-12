@@ -206,6 +206,9 @@ serait sans effet à la régénération suivante.
   { "icon": "🔧", "title": "add-service", "href": "skills/nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au…",
     "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "authentication", "href": "skills/nodefony-authentication.md",
+    "desc": "Établit QUI est l'utilisateur d'une application Nodefony par ce que le framework sert déjà — page /login et son habillage, client NodefonyLogin, route me, second facteur, connexion récente, retour sûr après connexion, fournisseurs (Keycloak, GitHub), jeton d'un programme — au lieu de le réécrire.",
+    "meta": "🟢 conforme v1.0.0" },
   { "icon": "🔧", "title": "browser", "href": "skills/nodefony-browser.md",
     "desc": "Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un conteneur…",
     "meta": "🟢 conforme · ⚙️ 4 scripts · 📎 2 réf" },
@@ -216,7 +219,7 @@ serait sans effet à la régénération suivante.
     "desc": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : quelles sondes elle expose, combien de temps elle draine, quel code de sortie elle rend, sous quel…",
     "meta": "🟢 conforme v1.0.0 · 📎 7 réf" },
   { "icon": "🔧", "title": "protect-route", "href": "skills/nodefony-protect-route.md",
-    "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, la page de connexion déjà servie et le renvoi de…",
+    "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion,…",
     "meta": "🟢 conforme" }
 ]
 ```

@@ -3,7 +3,7 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-10-12",
-  "count": 36,
+  "count": 37,
   "repoScripts": [
     {
       "path": "scripts/lib/repo-root.mjs",
@@ -1894,7 +1894,7 @@
       "testedBy": []
     }
   ],
-  "conformant": 36,
+  "conformant": 37,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -10536,6 +10536,114 @@
       }
     },
     {
+      "name": "nodefony-authentication",
+      "summary": "Établit QUI est l'utilisateur d'une application Nodefony par ce que le framework sert déjà — page /login et son habillage, client NodefonyLogin, route me, second facteur, connexion récente, retour sûr après connexion, fournisseurs (Keycloak, GitHub), jeton d'un programme — au lieu de le réécrire.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "ajoute une page de connexion",
+        "formulaire de login",
+        "se connecter",
+        "second facteur",
+        "TOTP",
+        "MFA",
+        "exiger une connexion récente",
+        "ramener l'utilisateur après la connexion",
+        "?from=",
+        "qui est connecté",
+        "déconnexion",
+        "Keycloak",
+        "se connecter avec GitHub",
+        "mon script doit appeler l'API sans formulaire",
+        "jeton d'accès",
+        "202 au login"
+      ],
+      "description": "Établit QUI est l'utilisateur d'une application Nodefony par ce que le framework sert déjà — page /login et son habillage, client NodefonyLogin, route me, second facteur, connexion récente, retour sûr après connexion, fournisseurs (Keycloak, GitHub), jeton d'un programme — au lieu de le réécrire. À charger AVANT d'écrire un formulaire de connexion, une redirection après login, une lecture de session ou un appel d'API depuis un script. Ce qu'un utilisateur connecté a le DROIT de faire → nodefony-protect-route. Déclencheurs : \"ajoute une page de connexion\", \"formulaire de login\", \"se connecter\", \"second facteur\", \"TOTP\", \"MFA\", \"exiger une connexion récente\", \"ramener l'utilisateur après la connexion\", \"?from=\", \"qui est connecté\", \"déconnexion\", \"Keycloak\", \"se connecter avec GitHub\", \"mon script doit appeler l'API sans formulaire\", \"jeton d'accès\", \"202 au login\".",
+      "cost": {
+        "bodyLines": 215,
+        "approxTokens": 3350
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-browser"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "876",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "215",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": "src/packages/@nodefony/devkit/skills/nodefony-authentication/SKILL.md",
+        "doc": "docs/skills/nodefony-authentication.md"
+      }
+    },
+    {
       "name": "nodefony-browser",
       "summary": "Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un conteneur jetable.",
       "family": "Autres",
@@ -10862,8 +10970,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 499,
-        "approxTokens": 8729
+        "bodyLines": 500,
+        "approxTokens": 8756
       },
       "requires": [],
       "resources": {
@@ -10978,8 +11086,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "499",
+            "ok": false,
+            "detail": "500",
             "advisory": true
           }
         ]
@@ -11232,10 +11340,6 @@
         "403",
         "401",
         "roleHierarchy",
-        "page de connexion",
-        "/login",
-        "qui est connecté",
-        "Keycloak",
         "un partenaire doit pouvoir poster",
         "erreur CSRF",
         "@CsrfExempt",
@@ -11245,10 +11349,10 @@
         "client_credentials",
         "désactiver la sécurité pour tester"
       ],
-      "description": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, la page de connexion déjà servie et le renvoi de l'anonyme vers elle, l'ouverture à un partenaire sans démonter la défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la sécurité. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"403\", \"401\", \"roleHierarchy\", \"page de connexion\", \"/login\", \"qui est connecté\", \"Keycloak\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"@CsrfExempt\", \"mon POST passe sans jeton\", \"API pour un programme\", \"clé d'API\", \"client_credentials\", \"désactiver la sécurité pour tester\".",
+      "description": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion, l'ouverture à un partenaire sans démonter la défense anti-falsification, les zones des programmes (clé d'API, jeton), et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la sécurité. Se CONNECTER (page, second facteur, retour après connexion) → nodefony-authentication. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"403\", \"401\", \"roleHierarchy\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"@CsrfExempt\", \"mon POST passe sans jeton\", \"API pour un programme\", \"clé d'API\", \"client_credentials\", \"désactiver la sécurité pour tester\".",
       "cost": {
-        "bodyLines": 388,
-        "approxTokens": 5581
+        "bodyLines": 349,
+        "approxTokens": 4813
       },
       "requires": [],
       "resources": {
@@ -11275,7 +11379,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "925",
+            "detail": "974",
             "advisory": false
           },
           {
@@ -11317,7 +11421,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "388",
+            "detail": "349",
             "advisory": true
           }
         ]

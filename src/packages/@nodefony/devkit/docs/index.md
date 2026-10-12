@@ -328,7 +328,7 @@ agent invente : faute d'une marche à suivre, il écrit un CRUD à la main, un
 service à méthodes `static` que le conteneur ne voit pas, un contrôle de droits
 dans le corps de l'action.
 
-Le paquet livre donc huit **skills** au format [Agent Skills](https://agentskills.io) :
+Le paquet livre donc neuf **skills** au format [Agent Skills](https://agentskills.io) :
 un qui porte la conduite commune de toute tâche, et un par geste où l'invention
 coûte cher :
 
@@ -337,6 +337,7 @@ coûte cher :
 | `nodefony-dev`                  | conduire une tâche de bout en bout, avant toute modification    |
 | `nodefony-add-crud`             | exposer une ressource REST complète, entité comprise            |
 | `nodefony-add-service`          | ajouter de la logique métier réutilisable, vue du conteneur     |
+| `nodefony-authentication`       | connecter un utilisateur ou un programme, sans rien réécrire    |
 | `nodefony-protect-route`        | réserver une route à qui est habilité                           |
 | `nodefony-add-realtime-channel` | ouvrir un canal temps réel où le serveur pousse                 |
 | `nodefony-browser`              | voir **et mesurer** un écran, sans navigateur sur le poste      |
