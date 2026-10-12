@@ -283,3 +283,13 @@ export const ROUTE_VIREMENT = "/api/transfers";
  * l'énoncé est une seconde d'attente par passage.
  */
 export const AGE_MAX_CONNEXION_S = 60;
+
+/**
+ * Même tâche — le corps du virement, tel que l'énoncé le donne et que le juge
+ * l'envoie. Écrit une fois : un juge qui enverrait un autre corps se ferait
+ * refuser par la validation de l'agent, et accuserait la sécurité.
+ */
+export const CORPS_VIREMENT = Object.freeze({
+  amount: 100,
+  to: "FR7630006000011234567890189",
+});

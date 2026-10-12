@@ -1753,6 +1753,39 @@ const SAMPLES = {
     },
   },
 
+  // ── T40 — exiger deux facteurs et une connexion récente ───────────────────
+  "40 :: a lu la doc du TOTP ou des décorateurs": {
+    pass: {
+      transcript: `{"command":"cat node_modules/@nodefony/security/docs/totp.md"}`,
+    },
+    fail: { transcript: `{"command":"npm run build"}` },
+  },
+  "40 :: exigence déclarée par @RequireAuthentication": {
+    pass: {
+      addedTs: `  @RequireAuthentication({ maxAge: 60, amr: ["otp"] })`,
+    },
+    fail: {
+      addedTs: `    if (Date.now() - auth.at > 60_000) throw new nodefonyError("Unauthorized", 401);`,
+    },
+  },
+  "40 :: aucune lecture des métadonnées de session à la main": {
+    // Sonde INVERSÉE : le `pass` lit par l'étiquette, le `fail` par le sac.
+    pass: {
+      addedTs: `  @RequireAuthentication({ maxAge: 60, amr: ["otp"] })`,
+    },
+    fail: {
+      addedTs: `    const amr = this.context.session?.getMetaBag("amr");`,
+    },
+  },
+  "40 :: aucune brique de sécurité éteinte en configuration": {
+    pass: {
+      addedTs: `  @RequireAuthentication({ maxAge: 60, amr: ["otp"] })`,
+    },
+    fail: {
+      added: `    use("@nodefony/security", { totp: { enabled: false } }),`,
+    },
+  },
+
   "34 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
       added: `    use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),`,

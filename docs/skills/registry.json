@@ -2879,6 +2879,10 @@
                 "help": ""
               },
               {
+                "flag": "--temoin-mfa-args",
+                "help": ""
+              },
+              {
                 "flag": "--ttl",
                 "help": ""
               },
@@ -2902,6 +2906,10 @@
             "env": [
               {
                 "name": "AGENT",
+                "help": ""
+              },
+              {
+                "name": "AGE_MAX_CONNEXION_S",
                 "help": ""
               },
               {
@@ -2982,6 +2990,10 @@
               },
               {
                 "name": "JUGE_SESSION",
+                "help": ""
+              },
+              {
+                "name": "JUGE_STEP_UP",
                 "help": ""
               },
               {
@@ -3118,6 +3130,10 @@
               },
               {
                 "name": "ROUTE_SYNTHESE",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_VIREMENT",
                 "help": ""
               },
               {

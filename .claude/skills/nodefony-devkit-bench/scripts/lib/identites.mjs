@@ -160,6 +160,18 @@ export const TEMOIN = {
   password: "TemoinPassw0rd42x",
 };
 
+/**
+ * Le témoin À DEUX FACTEURS : sans rôle, comme le témoin, mais c'est le juge
+ * qui lui enrôle un TOTP — un compte à part, pour que le témoin reste un compte
+ * « mot de passe seul » et que les deux profils soient mesurés.
+ *
+ * Créé par le gate (`security:user:add`) depuis `--temoin-mfa-args`.
+ */
+export const TEMOIN_MFA = {
+  username: "bench-temoin-mfa",
+  password: "TemoinMfaPassw0rd42x",
+};
+
 /** Un refus du framework : 401 (identité exigée) ou 403 (rôle refusé). */
 export const estRefus = (status) => status === 401 || status === 403;
 
@@ -182,6 +194,17 @@ export const estSucces = (status) => status >= 200 && status < 300;
 export const repondreArgsTemoin = () => {
   if (!process.argv.includes("--temoin-args")) return;
   console.log(`${TEMOIN.username} --password ${TEMOIN.password}`);
+  process.exit(0);
+};
+
+/**
+ * `--temoin-mfa-args` : même geste que `--temoin-args`, pour {@link TEMOIN_MFA}.
+ *
+ * @returns {void} sort du processus si le drapeau est présent.
+ */
+export const repondreArgsTemoinMfa = () => {
+  if (!process.argv.includes("--temoin-mfa-args")) return;
+  console.log(`${TEMOIN_MFA.username} --password ${TEMOIN_MFA.password}`);
   process.exit(0);
 };
 

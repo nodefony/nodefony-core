@@ -386,6 +386,21 @@ export const IMPUTATIONS = Object.freeze({
   "redirection-ouverte": AGENT,
   "aucune-reponse-connexion": INDETERMINE,
   "aucune-reponse-api": INDETERMINE,
+
+  // ─── Exiger deux facteurs et une connexion récente (tâche 40) ───────────
+  "ouvert-a-tous": AGENT,
+  "mot-de-passe-suffit": AGENT,
+  "connexion-ancienne-acceptee": AGENT,
+  // L'exigence mal nommée refuse aussi la personne qui a tout fait juste.
+  "deux-facteurs-refuses": AGENT,
+  // Le TOTP du framework est actif par défaut : s'il ne répond plus, c'est
+  // que la configuration de l'application l'a coupé.
+  "deux-facteurs-indisponibles": AGENT,
+  "second-facteur-non-exige": AGENT,
+  // Enrôlement ou code refusé par le framework lui-même : rien ne dit que
+  // l'agent y soit pour quelque chose.
+  "second-facteur-inoperant": INDETERMINE,
+  "aucune-reponse-mfa": INDETERMINE,
   // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
   // du logiciel produit, il dit que l'instrument est parti sans son jeton.
   // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —

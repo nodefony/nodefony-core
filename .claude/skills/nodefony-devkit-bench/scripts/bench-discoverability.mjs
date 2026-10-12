@@ -99,8 +99,10 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  AGE_MAX_CONNEXION_S,
   CANAL_OPS_ALERTES,
   CHEMIN_REALTIME_OPS,
+  CORPS_VIREMENT,
   COULEUR_CONNEXION,
   FICHIER_REPERE_PREFIXE,
   LOGO_CONNEXION,
@@ -118,6 +120,7 @@ import {
   ROUTE_IMPORT,
   ROUTE_MACHINE,
   ROUTE_SYNTHESE,
+  ROUTE_VIREMENT,
 } from "./lib/enonces.mjs";
 import {
   ENTITE as ENTITE_MIGREE,
@@ -792,6 +795,13 @@ const JUGE_LOGIN_RETURN = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-login-return.mjs",
+);
+
+/** Juge « deux facteurs et une connexion récente pour l'action sensible ». */
+const JUGE_STEP_UP = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-step-up.mjs",
 );
 
 /** Juge « la page de connexion porte la marque, et reste celle du framework ». */
@@ -4705,6 +4715,75 @@ export const TASKS = [
             `$(node ${JUGE_LOGIN_RETURN} --temoin-args) >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_LOGIN_RETURN}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+  {
+    id: 40,
+    name: "exiger deux facteurs et une connexion récente",
+    // Le framework porte la règle en une étiquette : `@RequireAuthentication`
+    // ({ maxAge, amr }) lit `authAt`/`amr` que chaque connexion pose dans la
+    // session, et refuse en 401 avec le défi RFC 9470. Le contournement
+    // naturel est de relire la session à la main (`getMetaBag("amr")`, une
+    // date comparée à `Date.now()`) — ou pire, d'écrire son propre second
+    // facteur. Le juge enrôle lui-même un TOTP sur un compte à part et ATTEND
+    // que la connexion vieillisse : seul un âge réellement dépassé prouve
+    // qu'il est lu.
+    //
+    // Aucun `prepare` : la route est à créer.
+    prompt:
+      `Ajoute une route POST ${ROUTE_VIREMENT} qui simule un virement : elle reçoit un corps ` +
+      `JSON comme ${JSON.stringify(CORPS_VIREMENT)} et répond 201 avec ce virement (aucune ` +
+      "persistance n'est demandée). C'est une opération sensible : elle n'est permise qu'à " +
+      "une personne connectée avec son second facteur (le code TOTP de son application " +
+      `d'authentification), et dont la connexion date de moins de ${AGE_MAX_CONNEXION_S} ` +
+      "secondes ; dans tous les autres cas elle est refusée. Termine en prouvant que les " +
+      "tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a lu la doc du TOTP ou des décorateurs",
+        /totp\.md|decorateurs\.md|RequireAuthentication/u,
+      ),
+      {
+        // JUGÉ. L'exigence déclarée sur la route : c'est la voie du framework,
+        // et la seule qui rende au client le défi qui lui dit de se reconnecter.
+        kind: "code",
+        name: "exigence déclarée par @RequireAuthentication",
+        pattern: /@RequireAuthentication\s*\(/u,
+        where: "addedTs",
+      },
+      {
+        // JUGÉ. Relire la session à la main, c'est recopier la règle — et
+        // rater la session qui ne dit pas comment elle a été ouverte.
+        kind: "code",
+        name: "aucune lecture des métadonnées de session à la main",
+        pattern: /getMetaBag\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // Deux comptes créés AVANT le boot par la commande du framework, avec
+        // les arguments que le juge dicte : le témoin au mot de passe seul, et
+        // celui à qui le juge enrôle un TOTP. Les routes sûres sont relevées
+        // pour que le juge sème le jeton anti-rejeu comme un vrai client.
+        kind: "gate",
+        name: "anonyme et mot de passe seul refusés, deux facteurs acceptés, connexion ancienne refusée",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_STEP_UP} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_STEP_UP} --temoin-args) >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_STEP_UP} --temoin-mfa-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
+            `node ${JUGE_STEP_UP}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

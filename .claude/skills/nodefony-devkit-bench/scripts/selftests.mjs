@@ -105,6 +105,7 @@ const LOT_ATTENDU = new Set([
   "lib/gate-routes-count.selftest.mjs",
   "lib/gate-secure-route.selftest.mjs",
   "lib/gate-session-csrf.selftest.mjs",
+  "lib/gate-step-up.selftest.mjs",
   "lib/gate-tache-zero.selftest.mjs",
   "lib/gate-upload.selftest.mjs",
   "lib/gate-user-field.selftest.mjs",
