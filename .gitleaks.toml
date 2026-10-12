@@ -73,7 +73,7 @@ regexes = [
   '''^dGhlIHNhbXBsZSBub25jZQ==$''',
   # Mots de passe des DÉCORS jetables (banc devkit, banc multipod) : ils
   # désignent des conteneurs liés à 127.0.0.1, détruits à la fin du run.
-  '''^(TemoinPassw0rd42x|SondePassw0rd42x|AncienPassw0rd42x)$''',
+  '''^(TemoinPassw0rd42x|TemoinMfaPassw0rd42x|SondePassw0rd42x|AncienPassw0rd42x)$''',
   '''^bench-secret-0123456789abcdefghij$''',
   # ⚠️ ANCRÉS. Sans `^…$`, « app-dev » ignorerait tout secret qui CONTIENT cette
   # sous-chaîne — un mot de passe de décor ne doit acquitter que lui-même.
