@@ -91,6 +91,7 @@ const LOT_ATTENDU = new Set([
   "lib/gate-entity-delete.selftest.mjs",
   "lib/gate-liste-bornee.selftest.mjs",
   "lib/gate-login-branding.selftest.mjs",
+  "lib/gate-login-return.selftest.mjs",
   "lib/gate-login-throttle.selftest.mjs",
   "lib/gate-m2m-stateless.selftest.mjs",
   "lib/gate-media-range.selftest.mjs",

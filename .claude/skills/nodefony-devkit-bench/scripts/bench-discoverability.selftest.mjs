@@ -1705,6 +1705,54 @@ const SAMPLES = {
     },
   },
 
+  // ── T39 — protéger une page et y ramener après connexion ──────────────────
+  "39 :: a lu la doc du firewall ou de la page de connexion": {
+    pass: {
+      transcript: `{"command":"cat node_modules/@nodefony/security/docs/firewall.md"}`,
+    },
+    fail: { transcript: `{"command":"npm run build"}` },
+  },
+  "39 :: conduite déclarée par la zone (entryPoint) — observation": {
+    pass: { added: `        entryPoint: "/login",` },
+    fail: { added: `        pattern: "^/account",` },
+  },
+  "39 :: aucune garde de redirection écrite à la main": {
+    // Sonde INVERSÉE : le `pass` délègue l'assainissement au framework.
+    pass: { addedTs: `    const back = safeRedirectPath(from);` },
+    fail: { addedTs: `    if (!from.startsWith("/")) from = "/";` },
+    extra: [
+      {
+        label: "refuse l'expression d'URL maison",
+        matter: { addedTs: `    const ok = /^\\/(?!\\/)/.test(from);` },
+        expect: false,
+      },
+      {
+        // Employé, `safeRedirectPath` est ce qui protège : un `startsWith`
+        // voisin fait autre chose, le sanctionner mesurerait un style.
+        label: "cède devant safeRedirectPath employé",
+        matter: {
+          addedTs: `    if (path.startsWith("/")) log(path);`,
+          content: `import { safeRedirectPath } from "nodefony";`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "39 :: aucune redirection vers la connexion écrite dans le code": {
+    pass: {
+      addedTs: `    return this.render("account", { user: this.user });`,
+    },
+    fail: {
+      addedTs: `    return this.redirect("/login?from=" + encodeURIComponent(url));`,
+    },
+  },
+  "39 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { added: `        entryPoint: "/login",` },
+    fail: {
+      added: `    use("@nodefony/security", { csrf: { enabled: false } }),`,
+    },
+  },
+
   "34 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
       added: `    use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),`,

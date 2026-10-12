@@ -2941,6 +2941,10 @@
                 "help": ""
               },
               {
+                "name": "JUGE_LOGIN_RETURN",
+                "help": ""
+              },
+              {
                 "name": "JUGE_M2M",
                 "help": ""
               },
@@ -3042,6 +3046,10 @@
               },
               {
                 "name": "ORIGINE_PARTENAIRE",
+                "help": ""
+              },
+              {
+                "name": "PAGE_COMPTE",
                 "help": ""
               },
               {

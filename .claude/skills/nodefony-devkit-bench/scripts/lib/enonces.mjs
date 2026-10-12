@@ -270,3 +270,16 @@ export const PAGE_COMPTE = "/account";
  * lecture d'une consigne.
  */
 export const ORIGINE_PIEGE = "evil.example";
+
+/**
+ * Tâche « exiger deux facteurs et une connexion récente » — l'action sensible.
+ * Un POST : c'est une écriture, elle porte donc aussi le contrôle de provenance.
+ */
+export const ROUTE_VIREMENT = "/api/transfers";
+
+/**
+ * Même tâche — l'âge maximal de la connexion, en secondes. Une minute et non
+ * cinq : le juge doit ATTENDRE que la session vieillisse, et chaque seconde de
+ * l'énoncé est une seconde d'attente par passage.
+ */
+export const AGE_MAX_CONNEXION_S = 60;

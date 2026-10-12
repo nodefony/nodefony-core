@@ -106,6 +106,7 @@ import {
   LOGO_CONNEXION,
   MARQUE_CONNEXION,
   ORIGINE_PARTENAIRE,
+  PAGE_COMPTE,
   PAGE_WIDGET,
   REPERE_PREFIXE_COMPTE,
   ROLE_FACTURATION,
@@ -784,6 +785,13 @@ const PREPARE_UTILISATEUR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "prepare-utilisateur-en-service.mjs",
+);
+
+/** Juge « la page protégée conduit à la connexion, et y ramène sans redirection ouverte ». */
+const JUGE_LOGIN_RETURN = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-login-return.mjs",
 );
 
 /** Juge « la page de connexion porte la marque, et reste celle du framework ». */
@@ -4622,6 +4630,81 @@ export const TASKS = [
             `npm run build >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_LOGIN_BRANDING}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    id: 39,
+    name: "protéger une page et y ramener après connexion",
+    // Le framework porte chaque morceau : la zone `entryPoint` conduit un
+    // visiteur qui NAVIGUE à la page de connexion avec `?from=` (un appel d'API
+    // garde son 401), la page de connexion assainit `from` par
+    // `safeRedirectPath`, et `this.user` nomme la personne connectée. Le
+    // contournement naturel est d'écrire tout cela à la main dans le
+    // contrôleur : un `redirect("/login?from=…")` qui redirige aussi les
+    // clients d'API, et une garde maison (`startsWith("/")`) qui laisse passer
+    // `//hôte` — la redirection ouverte classique.
+    //
+    // Aucun `prepare` : la page est à créer.
+    prompt:
+      `Ajoute une page ${PAGE_COMPTE} (une page HTML) réservée aux personnes connectées : ` +
+      "elle affiche l'identifiant de la personne connectée. Un visiteur non connecté qui " +
+      "ouvre cette page doit arriver sur la page de connexion, puis être ramené sur " +
+      `${PAGE_COMPTE} une fois connecté. Termine en prouvant que les tests de l'app passent.`,
+    probes: [
+      sondeLecture(
+        "a lu la doc du firewall ou de la page de connexion",
+        /firewall\.md|login-page\.md|entryPoint/u,
+      ),
+      {
+        // OBSERVÉE : `entryPoint` est la voie du framework, mais une zone
+        // existante qui la porte déjà rendrait le geste invisible au diff.
+        kind: "code",
+        name: "conduite déclarée par la zone (entryPoint) — observation",
+        pattern: /entryPoint\s*:/u,
+        where: "added",
+        observe: true,
+      },
+      {
+        // JUGÉ. La garde de redirection écrite à la main : `startsWith("/")`
+        // laisse passer `//hôte`, et une expression d'URL maison rate `/\hôte`.
+        // Elle cède devant `safeRedirectPath` : employée, la garde maison n'est
+        // plus ce qui protège.
+        kind: "code",
+        name: "aucune garde de redirection écrite à la main",
+        pattern: /\.startsWith\(\s*["'`]\/{1,2}["'`]\s*\)|\^\\\/\(\?!/u,
+        where: "addedTs",
+        unless: /safeRedirectPath/u,
+        invert: true,
+      },
+      {
+        // JUGÉ. La conduite écrite dans le contrôleur : elle redirige AUSSI les
+        // appels d'API, et fige l'adresse de la page de connexion.
+        kind: "code",
+        name: "aucune redirection vers la connexion écrite dans le code",
+        pattern: /redirect\w*\(\s*[`"'][^`"']*\/login/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // Le témoin est créé AVANT le boot par la commande du framework, avec
+        // les arguments que le juge dicte (`--temoin-args`) : une seule source.
+        kind: "gate",
+        name: "anonyme conduit à la connexion, retour assaini, API refusée, connecté servi",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_LOGIN_RETURN} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_LOGIN_RETURN} --temoin-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_LOGIN_RETURN}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

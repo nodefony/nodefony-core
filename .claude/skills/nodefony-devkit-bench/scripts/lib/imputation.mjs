@@ -372,6 +372,20 @@ export const IMPUTATIONS = Object.freeze({
   // « aucune réponse », un code cassé par l'agent s'y confond avec un décor éteint.
   "aucune-reponse-logo": INDETERMINE,
   "aucune-reponse-feuille": INDETERMINE,
+
+  // ─── Protéger une page et y ramener (tâche 39) ───────────────────────────
+  "page-ouverte": AGENT,
+  // Protégée, mais le visiteur reste devant un refus sec.
+  "pas-de-retour": AGENT,
+  "redirection-externe": AGENT,
+  "retour-perdu": AGENT,
+  "page-de-connexion-absente": AGENT,
+  // La conduite à la connexion vise aussi les appels d'API, qui attendent 401.
+  "api-redirigee": AGENT,
+  // La plus grave de la famille : un `from` hostile ressort tel quel.
+  "redirection-ouverte": AGENT,
+  "aucune-reponse-connexion": INDETERMINE,
+  "aucune-reponse-api": INDETERMINE,
   // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
   // du logiciel produit, il dit que l'instrument est parti sans son jeton.
   // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —
