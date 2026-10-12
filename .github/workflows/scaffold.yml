@@ -224,8 +224,15 @@ jobs:
       # banc. GitHub lance `shell: bash` avec `-eo pipefail`, ce qui suffit ;
       # on le repose ici pour que la ligne dise sa propre garantie, plutôt que
       # de la faire dépendre d'un défaut d'implémentation du lanceur.
+      # La connexion Keycloak de l'app générée (#525) exige des conteneurs
+      # Linux : Ubuntu les a, et l'étape y est donc EXIGÉE — un saut y serait
+      # un trou. Les runners macOS n'ont pas docker, ceux de Windows n'exécutent
+      # que des conteneurs Windows : le banc y écrit « NON ÉPROUVÉ » et la raison
+      # constatée, il ne la tait pas.
       - name: Banc de vérité — le code généré tient-il debout ?
         shell: bash
+        env:
+          NF_DEVKIT_REQUIRE_DOCKER: ${{ matrix.os == 'ubuntu-latest' && '1' || '' }}
         run: |
           set -eo pipefail
           node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep 2>&1 \

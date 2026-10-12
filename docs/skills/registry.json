@@ -3473,6 +3473,34 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/keycloak-login-probe.mjs",
+            "purpose": "Sonde — la connexion par Keycloak ouvre-t-elle une session dans CETTE application ?",
+            "usage": [
+              "node keycloak-login-probe.mjs --app <origine https> --username <u> --password <p> [--ca <PEM>]"
+            ],
+            "options": [
+              {
+                "flag": "--app",
+                "help": "origine https de l'application (ex. https://localhost:5362)"
+              },
+              {
+                "flag": "--username",
+                "help": "compte du realm"
+              },
+              {
+                "flag": "--password",
+                "help": "son mot de passe"
+              },
+              {
+                "flag": "--ca",
+                "help": "autorité qui signe les deux certificats (sinon : magasin"
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
             "path": "scripts/memoires-agent.selftest.mjs",
             "purpose": "Auto-contrôle de la purge du cahier de mémoire que l'agent tient HORS du décor.",
             "usage": [
@@ -3565,7 +3593,15 @@
             ],
             "options": [
               {
+                "flag": "--app",
+                "help": ""
+              },
+              {
                 "flag": "--auth",
+                "help": ""
+              },
+              {
+                "flag": "--ca",
                 "help": ""
               },
               {
@@ -3602,6 +3638,10 @@
               },
               {
                 "flag": "--force",
+                "help": ""
+              },
+              {
+                "flag": "--format",
                 "help": ""
               },
               {
@@ -3689,7 +3729,15 @@
                 "help": ""
               },
               {
+                "flag": "--password",
+                "help": ""
+              },
+              {
                 "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--profile",
                 "help": ""
               },
               {
@@ -3717,6 +3765,14 @@
                 "help": ""
               },
               {
+                "flag": "--use-system-ca",
+                "help": ""
+              },
+              {
+                "flag": "--username",
+                "help": ""
+              },
+              {
                 "flag": "--wait",
                 "help": ""
               },
@@ -3726,6 +3782,10 @@
               },
               {
                 "flag": "--workspaces",
+                "help": ""
+              },
+              {
+                "flag": "--write",
                 "help": ""
               },
               {
@@ -3759,11 +3819,19 @@
                 "help": ""
               },
               {
+                "name": "KEYCLOAK_PORT",
+                "help": ""
+              },
+              {
                 "name": "MODULE",
                 "help": ""
               },
               {
                 "name": "MODULE_PKG",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_REQUIRE_DOCKER",
                 "help": ""
               },
               {

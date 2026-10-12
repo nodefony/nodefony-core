@@ -446,6 +446,49 @@ function sqlOnly(label, why, run) {
   steps.push({ label, ok: true, ms: 0, skipped: "MongoDB", commands: [] });
 }
 
+/**
+ * Le moteur de conteneurs Linux est-il là ? `null` s'il l'est, sinon la
+ * raison — CONSTATÉE en le questionnant, jamais déduite du système : les
+ * runners macOS n'ont pas docker, ceux de Windows n'exécutent que des
+ * conteneurs Windows, et un poste Linux peut très bien ne pas l'avoir.
+ */
+function linuxContainersMissing() {
+  const info = spawnSync("docker", ["info", "--format", "{{.OSType}}"], {
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  if (info.status !== 0) return "docker absent ou arrêté";
+  if (info.stdout.trim() !== "linux") {
+    return `docker n'exécute pas de conteneurs Linux (${info.stdout.trim()})`;
+  }
+  const compose = spawnSync("docker", ["compose", "version"], {
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  return compose.status === 0 ? null : "docker compose absent";
+}
+
+/**
+ * Une étape qui exige des conteneurs Linux. Sans eux, elle est DITE sautée,
+ * avec sa raison, jamais tue — et refusée si `NF_DEVKIT_REQUIRE_DOCKER=1` :
+ * là où la capacité est promise (job Linux de l'intégration continue), un
+ * saut serait un trou.
+ */
+function containersOnly(label, why, run) {
+  if (failed) return;
+  const missing = linuxContainersMissing();
+  if (missing === null) return step(label, why, run);
+  if (process.env.NF_DEVKIT_REQUIRE_DOCKER === "1") {
+    return step(label, why, () => {
+      throw new Error(
+        `${missing} — or NF_DEVKIT_REQUIRE_DOCKER=1 exige cette étape ici`,
+      );
+    });
+  }
+  process.stdout.write(`\n━━ ${label}\n   ⏭ NON ÉPROUVÉ : ${missing}\n`);
+  steps.push({ label, ok: true, ms: 0, skipped: missing, commands: [] });
+}
+
 function step(label, why, run) {
   if (failed) return;
   process.stdout.write(`\n━━ ${label}\n   ${why}\n`);
@@ -707,6 +750,12 @@ step(
         APP,
         packTarballs(REPO, process.argv.includes("--repack")),
       );
+      // Le geste que `create app --no-install` NOMME : « installe, puis
+      // scaffold:sync ». Il pose ce que livrent les paquets installés
+      // (`nodefony.contribute`) — le realm et les thèmes Keycloak que le
+      // compose monte. Sans lui, le témoin n'est PAS l'application que
+      // l'utilisateur reçoit : elle les a dès sa création.
+      run(process.execPath, [BIN, "scaffold:sync"]);
     }
 
     // L'isolation se CONSTATE avant la première mesure : mieux vaut aucun
@@ -1925,6 +1974,132 @@ step(
         cwd: APP,
         encoding: "utf8",
         env: envDecor(PORTS),
+      });
+    }
+  },
+);
+
+/**
+ * Port publié par le Keycloak du témoin. Pas celui du gabarit (8444) : c'est
+ * celui du Keycloak du DÉPÔT, souvent en marche sur un poste de développement.
+ */
+const KEYCLOAK_PORT = "8464";
+
+containersOnly(
+  "la connexion KEYCLOAK ouvre une session dans l'app générée (#525)",
+  "Le realm, le compose, le thème et les variables viennent des tarballs : " +
+    "c'est le seul endroit où leur accord se constate de bout en bout.",
+  () => {
+    // Projet compose NOMMÉ : le démontage final ne vise que ce décor.
+    const compose = [
+      "compose",
+      "-p",
+      "nf-devkit-verify-keycloak",
+      "--profile",
+      "keycloak",
+    ];
+    const kcEnv = {
+      KEYCLOAK_PORT,
+      // Sous Linux natif, la clé privée montée (600) n'est lisible que par
+      // son propriétaire — le conteneur doit tourner sous le même uid.
+      ...(typeof process.getuid === "function"
+        ? { KEYCLOAK_UID: String(process.getuid()) }
+        : {}),
+    };
+    const realmFile = path.join(
+      APP,
+      "docker",
+      "keycloak",
+      "import",
+      "realm.json",
+    );
+    const realmName = JSON.parse(readFileSync(realmFile, "utf8")).realm;
+    const issuer = `https://localhost:${KEYCLOAK_PORT}/realms/${realmName}`;
+    const appEnv = { NODE_ENV: "development", NF_KEYCLOAK_ISSUER: issuer };
+
+    // 1. Le certificat que Keycloak va servir — il naît d'ordinaire au premier
+    //    démarrage ; la commande le pose sans ouvrir de port.
+    //    Le JSON commence à la première ligne `{` : le boot console peut
+    //    journaliser avant.
+    const certOut = run(
+      process.execPath,
+      [BIN, "http:certificates", "--json"],
+      APP,
+      appEnv,
+    ).split("\n");
+    const certificates = JSON.parse(
+      certOut.slice(certOut.findIndex((l) => l.startsWith("{"))).join("\n"),
+    );
+    // 2. Le realm réaligné sur les ports RÉELS du témoin, par la commande que
+    //    la documentation prescrit quand l'application change de port.
+    run(
+      process.execPath,
+      [BIN, "security:keycloak:realm", "--write"],
+      APP,
+      appEnv,
+    );
+    const realm = JSON.parse(readFileSync(realmFile, "utf8"));
+    const callbacks = realm.clients.flatMap((c) => c.redirectUris ?? []);
+    if (!callbacks.some((u) => u.includes(`:${PORTS.NF_PORT_HTTPS}/`))) {
+      throw new Error(
+        `realm non réaligné sur le port ${PORTS.NF_PORT_HTTPS} : ${callbacks.join(", ")}`,
+      );
+    }
+    const user = realm.users?.[0];
+    const password = user?.credentials?.find(
+      (c) => c.type === "password",
+    )?.value;
+    if (!user?.username || !password) {
+      throw new Error("realm généré sans compte à mot de passe");
+    }
+
+    run("docker", [...compose, "down", "-v"], APP, kcEnv);
+    try {
+      run("docker", [...compose, "up", "-d", "--wait", "keycloak"], APP, kcEnv);
+      run(process.execPath, [BIN, "development", "--detach"], APP, appEnv);
+      try {
+        const probe = spawnSync(
+          process.execPath,
+          [
+            ...(certificates.caPath ? [] : ["--use-system-ca"]),
+            path.join(
+              path.dirname(fileURLToPath(import.meta.url)),
+              "keycloak-login-probe.mjs",
+            ),
+            "--app",
+            `https://localhost:${PORTS.NF_PORT_HTTPS}`,
+            "--username",
+            user.username,
+            "--password",
+            password,
+            ...(certificates.caPath ? ["--ca", certificates.caPath] : []),
+          ],
+          { encoding: "utf8", timeout: 120_000 },
+        );
+        const answer = probe.stdout.trim().split("\n").at(-1) ?? "";
+        if (probe.status !== 0 || !answer.startsWith("{")) {
+          throw new Error(
+            `connexion Keycloak échouée (code ${probe.status}) : ${probe.stderr}${probe.stdout}`,
+          );
+        }
+        const session = JSON.parse(answer);
+        process.stdout.write(
+          `   · session ouverte : ${session.identifier} (${session.roles.join(", ")})\n`,
+        );
+      } finally {
+        spawnSync(process.execPath, [BIN, "stop"], {
+          cwd: APP,
+          encoding: "utf8",
+          env: envDecor(PORTS),
+        });
+      }
+    } finally {
+      // Volume compris : Keycloak n'importe un realm qu'à sa CRÉATION, un
+      // volume survivant ferait jouer au run suivant le realm d'aujourd'hui.
+      spawnSync("docker", [...compose, "down", "-v"], {
+        cwd: APP,
+        encoding: "utf8",
+        env: envDecor(PORTS, kcEnv),
       });
     }
   },

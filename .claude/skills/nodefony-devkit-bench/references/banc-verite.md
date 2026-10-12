@@ -159,7 +159,15 @@ Les étapes, dans l'ordre, et ce que chacune protège :
     production), `app:partner:call --json` doit rendre 200 pour `admin`, émis
     par l'application elle-même ; puis `--issuer keycloak`, sans Keycloak
     configuré, doit sortir NON NUL en nommant la variable manquante ;
-17. **inspection** — l'application se laisse lire sans ouvrir de port.
+17. **connexion Keycloak** — sur le décor des tarballs : `http:certificates`
+    pose le certificat, `security:keycloak:realm --write` réaligne le realm sur
+    les ports du témoin, le Keycloak du compose généré démarre (projet
+    `nf-devkit-verify-keycloak`, port 8464 pour ne pas heurter celui du dépôt),
+    et `scripts/keycloak-login-probe.mjs` joue le parcours d'un navigateur —
+    certificats VÉRIFIÉS — jusqu'à une session vue par `/me`. Sans conteneurs
+    Linux (macOS, Windows), l'étape est écrite « NON ÉPROUVÉ » avec sa raison
+    constatée ; `NF_DEVKIT_REQUIRE_DOCKER=1` (job Ubuntu) refuse ce saut ;
+18. **inspection** — l'application se laisse lire sans ouvrir de port.
 
 > **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
 > de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;

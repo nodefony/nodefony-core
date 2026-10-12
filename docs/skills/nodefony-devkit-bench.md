@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-11
+updated: 2026-10-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | Description | 1014 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 9 page(s) |
-| Scripts | 14 |
+| Scripts | 15 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -74,7 +74,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/banc-decouvrabilite.md` | Banc de découvrabilité — l'agent trouve-t-il ? | 223 |
 | `references/banc-premiere-impression.md` | Banc de première impression — ce qu'un agent conclut du dépôt sans y entrer | 100 |
 | `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 48 |
-| `references/banc-verite.md` | Banc de vérité — le code généré tient-il debout ? | 216 |
+| `references/banc-verite.md` | Banc de vérité — le code généré tient-il debout ? | 224 |
 | `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
 | `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 226 |
 
@@ -94,11 +94,12 @@ script, donc toujours à jour après régénération.
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
 | `scripts/build-devkit-report.mjs` | Construit la page « Un agent sait-il développer avec Nodefony ? ». | `--analyze-only` `--data` `--out` `--runs` | `DATA` `OUT` |
 | `scripts/jeton-mcp.selftest.mjs` | Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run, et la ceinture voit-elle une porte sur le point de se fermer ? | — | — |
+| `scripts/keycloak-login-probe.mjs` | Sonde — la connexion par Keycloak ouvre-t-elle une session dans CETTE application ? | `--app` `--username` `--password` `--ca` | — |
 | `scripts/memoires-agent.selftest.mjs` | Auto-contrôle de la purge du cahier de mémoire que l'agent tient HORS du décor. | `--prove` | — |
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir. | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
 | `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` `RACINE_RUNS` |
-| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--auth` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--exact` `--force` `--from-database` `--frontend` `--index` `--inject` `--issuer` `--json` `--jwt-keyset` `--keep` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--preset` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--wait` `--workspace` `--workspaces` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
+| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--app` `--auth` `--ca` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--exact` `--force` `--format` `--from-database` `--frontend` `--index` `--inject` `--issuer` `--json` `--jwt-keyset` `--keep` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--password` `--preset` `--profile` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--use-system-ca` `--username` `--wait` `--workspace` `--workspaces` `--write` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `KEYCLOAK_PORT` `MODULE` `MODULE_PKG` `NF_DEVKIT_REQUIRE_DOCKER` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
 | `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il les promesses du framework ? » | `--config` `--etage` `--keep` `--link` `--reporter` | `APP` |
 
 **Invocation telle que documentée dans chaque script :**
@@ -109,6 +110,7 @@ node bench-discoverability.selftest.mjs
 node bench-first-impression.mjs                 # un run, décor sain
 node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
 node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
+node keycloak-login-probe.mjs --app <origine https> --username <u> --password <p> [--ca <PEM>]
 node memoires-agent.selftest.mjs
 node reinit-decor.selftest.mjs <runDir d'un run précédent>
 node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs
@@ -116,7 +118,23 @@ node suivre-run.mjs                 # le run le plus récent
 node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes
 ```
 
-**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `CANAL_OPS_ALERTES` · `CHAMP_DEMANDE` · `COMMAND_ACTION` · `COMMAND_CLASS` · `CONTROLLER_GARDE_CLASS` · `DATA` · `DATABASE` · `DIALECT` · `ENTITE_MIGREE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_M2M` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_TACHE_ZERO` · `JUGE_THROTTLE` · `JUGE_UPLOAD` · `JUGE_USER_FIELD` · `JUGE_ZONE` · `LINKED` · `MCP_REGIME` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ORIGINE_PARTENAIRE` · `OUT` · `PAGE_WIDGET` · `PASCAL_MODULE` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_ROLE_HIERARCHY` · `PREPARE_UTILISATEUR` · `RACINE_RUNS` · `REPERE_PREFIXE_COMPTE` · `ROLE_FACTURATION` · `ROLE_GARDE` · `ROUTE_ARTICLES` · `ROUTE_CATALOGUE` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_DEPOT` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_SYNTHESE` · `RUN_ROOT` · `SERVICE` · `SERVICE_METHOD` · `TITRE_SEME` · `USAGE`
+**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `CANAL_OPS_ALERTES` · `CHAMP_DEMANDE` · `COMMAND_ACTION` · `COMMAND_CLASS` · `CONTROLLER_GARDE_CLASS` · `DATA` · `DATABASE` · `DIALECT` · `ENTITE_MIGREE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_M2M` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_TACHE_ZERO` · `JUGE_THROTTLE` · `JUGE_UPLOAD` · `JUGE_USER_FIELD` · `JUGE_ZONE` · `KEYCLOAK_PORT` · `LINKED` · `MCP_REGIME` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_DEVKIT_REQUIRE_DOCKER` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ORIGINE_PARTENAIRE` · `OUT` · `PAGE_WIDGET` · `PASCAL_MODULE` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_ROLE_HIERARCHY` · `PREPARE_UTILISATEUR` · `RACINE_RUNS` · `REPERE_PREFIXE_COMPTE` · `ROLE_FACTURATION` · `ROLE_GARDE` · `ROUTE_ARTICLES` · `ROUTE_CATALOGUE` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_DEPOT` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_SYNTHESE` · `RUN_ROOT` · `SERVICE` · `SERVICE_METHOD` · `TITRE_SEME` · `USAGE`
+
+### Détail des scripts auto-documentés
+
+#### `scripts/keycloak-login-probe.mjs`
+
+
+```bash
+node keycloak-login-probe.mjs --app <origine https> --username <u> --password <p> [--ca <PEM>]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--app` | origine https de l'application (ex. https://localhost:5362) |
+| `--username` | compte du realm |
+| `--password` | son mot de passe |
+| `--ca` | autorité qui signe les deux certificats (sinon : magasin |
 
 ## Conformité au standard Agent Skills
 
