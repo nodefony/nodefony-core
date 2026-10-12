@@ -246,12 +246,45 @@ interface ITotpAdmin {
 }
 
 /**
- * Résolution d'un utilisateur par id — sert UNIQUEMENT à distinguer « utilisateur
- * inconnu » (404) de « utilisateur sans passkey / sans 2FA » (liste vide / état
- * désactivé). Vue minimale (présence de l'id), jamais l'entité complète.
+ * Résolution d'un utilisateur par id — traduit l'`id` d'une route admin en sa
+ * clé de sujet (`identifier`), et distingue « utilisateur inconnu » (404) de
+ * « utilisateur sans passkey / sans 2FA ». Vue minimale, jamais l'entité complète.
  */
 interface IUserLookup {
-  findById(id: string): Promise<{ id: string } | null>;
+  findById(id: string): Promise<{ id: string; identifier: string } | null>;
+}
+
+/**
+ * Traduit l'`id` d'un compte (paramètre `{id}` d'une route admin) en sa **clé de
+ * sujet** `IUser.identifier` — la clé sous laquelle vivent ses facteurs (TOTP,
+ * passkeys), sa session et ses jetons.
+ *
+ * Viser un store avec l'`id` brut agit sur une clé qui n'existe pas et rend un
+ * succès : l'administrateur croit avoir débloqué un compte resté bloqué. D'où
+ * le 503 quand le service `users` manque — sans lui, l'`id` ne se traduit pas.
+ *
+ * @param container - container du kernel (service `users`).
+ * @param id - paramètre `{id}` de la route.
+ * @returns le compte (`id` + `identifier`), ou la réponse d'erreur à rendre (404/503).
+ */
+async function resolveSubject(
+  container: Container,
+  id: unknown,
+): Promise<
+  { id: string; identifier: string } | IAdminResponse<{ error: string }>
+> {
+  if (typeof id !== "string" || id.length === 0) {
+    return { status: 404, body: { error: "not found" } };
+  }
+  const users = container.get("users") as IUserLookup | undefined;
+  if (!users) {
+    return { status: 503, body: { error: "users unavailable" } };
+  }
+  const user = await users.findById(id);
+  if (!user || typeof user.identifier !== "string") {
+    return { status: 404, body: { error: "not found" } };
+  }
+  return { id, identifier: user.identifier };
 }
 
 /**
@@ -605,18 +638,10 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         if (!svc) {
           return { status: 503, body: { error: "webauthn unavailable" } };
         }
-        const id = request.params.id;
-        if (typeof id !== "string" || id.length === 0) {
-          return { status: 404, body: { error: "not found" } };
-        }
-        // Distingue « utilisateur inconnu » (404) de « pas de passkey » (liste
-        // vide). Lookup best-effort : si le service `users` est absent, on rend
-        // quand même la liste (le firewall a déjà authentifié l'admin).
-        const users = container.get("users") as IUserLookup | undefined;
-        if (users && !(await users.findById(id))) {
-          return { status: 404, body: { error: "not found" } };
-        }
-        const creds = await svc.listUserCredentials(id);
+        // « Utilisateur inconnu » (404) ≠ « pas de passkey » (liste vide).
+        const account = await resolveSubject(container, request.params.id);
+        if (!("identifier" in account)) return account;
+        const creds = await svc.listUserCredentials(account.identifier);
         return { credentials: creds.map(toCredentialView) };
       },
     },
@@ -634,19 +659,18 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         if (!svc) {
           return { status: 503, body: { error: "webauthn unavailable" } };
         }
-        const id = request.params.id;
         const credentialId = request.params.credentialId;
-        if (
-          typeof id !== "string" ||
-          id.length === 0 ||
-          typeof credentialId !== "string" ||
-          credentialId.length === 0
-        ) {
+        if (typeof credentialId !== "string" || credentialId.length === 0) {
           return { status: 404, body: { error: "not found" } };
         }
+        const account = await resolveSubject(container, request.params.id);
+        if (!("identifier" in account)) return account;
         // `removeUserCredential` est owner-scopé : `false` = passkey inconnue OU
         // pas le propriétaire → 404 indiscernable (anti-énumération, même admin).
-        const removed = await svc.removeUserCredential(id, credentialId);
+        const removed = await svc.removeUserCredential(
+          account.identifier,
+          credentialId,
+        );
         if (!removed) {
           return { status: 404, body: { error: "not found" } };
         }
@@ -655,7 +679,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           action: "user.passkey_revoked",
           outcome: "success",
           actor: adminActor(request.user),
-          resource: id,
+          resource: account.id,
           metadata: { credentialId, viaAdmin: true },
         });
         return { ok: true };
@@ -687,6 +711,10 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         const pageQuery = parsePageQuery(request.query, {
           defaultLimit: KEYS_DEFAULT_LIMIT,
           maxLimit: KEYS_MAX_LIMIT,
+          // Le store filtre sur `q` (préfixe d'`userId`) : la capacité se
+          // déclare, sinon `parsePageQuery` refuse `q` en 400 — et `q` se lit
+          // UNE fois, ici (même patron que `webauthn/list`).
+          searchable: true,
         });
         const limit = pageQuery.limit;
         const offset = pageQuery.offset ?? 0;
@@ -696,7 +724,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           return { enabled: false, items: [], total: 0, limit, offset };
         }
         const confirmed = one(request.query, "confirmed");
-        const q = one(request.query, "q");
+        const q = pageQuery.q;
         const page = await svc.listPage({
           limit,
           offset,
@@ -730,15 +758,9 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         if (!svc) {
           return { status: 503, body: { error: "totp unavailable" } };
         }
-        const id = request.params.id;
-        if (typeof id !== "string" || id.length === 0) {
-          return { status: 404, body: { error: "not found" } };
-        }
-        const users = container.get("users") as IUserLookup | undefined;
-        if (users && !(await users.findById(id))) {
-          return { status: 404, body: { error: "not found" } };
-        }
-        return svc.status(id);
+        const account = await resolveSubject(container, request.params.id);
+        if (!("identifier" in account)) return account;
+        return svc.status(account.identifier);
       },
     },
     {
@@ -755,21 +777,15 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         if (!svc) {
           return { status: 503, body: { error: "totp unavailable" } };
         }
-        const id = request.params.id;
-        if (typeof id !== "string" || id.length === 0) {
-          return { status: 404, body: { error: "not found" } };
-        }
-        const users = container.get("users") as IUserLookup | undefined;
-        if (users && !(await users.findById(id))) {
-          return { status: 404, body: { error: "not found" } };
-        }
-        await svc.disable(id);
+        const account = await resolveSubject(container, request.params.id);
+        if (!("identifier" in account)) return account;
+        await svc.disable(account.identifier);
         auditAdmin(container, {
           category: "auth",
           action: "user.totp_disabled",
           outcome: "success",
           actor: adminActor(request.user),
-          resource: id,
+          resource: account.id,
           metadata: { viaAdmin: true },
         });
         return { ok: true };

@@ -344,8 +344,11 @@ Deux chemins, deux portées :
   (`webAuthn.ts:513`) ; sinon **404 indiscernable** (`WebAuthnController.ts:207`) — on ne révèle
   jamais l'existence de la passkey d'autrui.
 - **Reset administrateur** : `DELETE /nodefony/security/api/users/{id}/passkeys/{credentialId}`
-  (`SecurityAdminApi.ts:590`) — audité, et **404 identique** si la passkey n'appartient pas à
-  l'utilisateur visé, même pour un admin.
+  (`SecurityAdminApi.ts:649`) — audité, et **404 identique** si la passkey n'appartient pas à
+  l'utilisateur visé, même pour un admin. L'`id` de la route est d'abord traduit en
+  `identifier` : c'est sous lui que les passkeys sont rangées (`IWebAuthnCredentialStore.ts:81`).
+- **Suppression du compte** : la cascade `onUserRevoked` (`reason: "deleted"`) retire toutes ses
+  passkeys (`userRevocationCascade.ts:51`) — un compte recréé sous le même identifiant n'en hérite pas.
 
 Une passkey **non sauvegardée** (`backupState: false`) meurt avec son appareil — d'où le filtre
 `backedUp` du listing admin (`IWebAuthnListQuery`, `IWebAuthnCredentialStore.ts:47`), qui liste
@@ -493,7 +496,7 @@ clé privée n'existe que dans l'authenticator.
 | Champ            | Sens                                                 | SQL (`colKit`)      | Mongoose         | Redis (HASH)            |
 | ---------------- | ---------------------------------------------------- | ------------------- | ---------------- | ----------------------- |
 | `id`             | Identifiant du credential, base64url — clé naturelle | `text` PK           | `_id: String`    | clé `nf:wac:cred:<id>`  |
-| `userId`         | Porteur (= identifiant applicatif / `userHandle`)    | `text` notNull, idx | `String` indexé  | champ + SET `user:<id>` |
+| `userId`         | Porteur = `IUser.identifier` (jamais `IUser.id`)     | `text` notNull, idx | `String` indexé  | champ + SET `user:<id>` |
 | `publicKey`      | Clé publique **COSE**, base64url                     | `text` notNull      | `String` requis  | champ                   |
 | `signCount`      | Compteur anti-clone (§6.1.1)                         | `int64` notNull     | `Number` requis  | champ                   |
 | `transports`     | `usb`\|`nfc`\|`ble`\|`internal`\|`hybrid`            | `json` notNull      | `[String]`       | champ JSON              |
@@ -635,7 +638,7 @@ Le data plane admin du module expose trois routes (`SecurityAdminApi.ts:308`), t
 | `DELETE /nodefony/security/api/users/{id}/passkeys/{credentialId}` | Reset administrateur, audité (`SecurityAdminApi.ts:590`) |
 
 Deux comportements à connaître : la **redaction est par construction** — la vue admin omet la clé
-publique et le `userId` déjà présent dans le chemin (`toCredentialView()`, `SecurityAdminApi.ts:275`),
+publique et le `userId` déjà présent dans le chemin (`toCredentialView()`, `SecurityAdminApi.ts:308`),
 et ce n'est pas un masquage tardif, le contrat de store ne la produit jamais ; la **lecture est
 défensive** — passkeys désactivées → `{ enabled: false, items: [] }` et non une erreur, la console
 doit afficher « passkeys désactivées », pas un 503 (`SecurityAdminApi.ts:532`). `total: -1` signale un

@@ -565,8 +565,20 @@ throttle bornent déjà les tentatives bien avant l'espace des codes.
 ## L'entité de persistance — un secret par utilisateur
 
 Le modèle est volontairement minimal : **clé naturelle = `userId`**, `save` est un upsert
-(`ITotpSecretStore`, `ITotpSecretStore.ts:69`). Pas d'identifiant de ligne, pas d'index secondaire —
+(`ITotpSecretStore`, `ITotpSecretStore.ts:75`). Pas d'identifiant de ligne, pas d'index secondaire —
 tout accès passe par la clé primaire.
+
+**`userId` vaut `IUser.identifier`, jamais `IUser.id`** — la même clé que la session et les jetons,
+et elle est immuable. Les deux sont des chaînes : un appelant qui passe l'`id` ne se fait pas
+refuser, il vise une clé vide et reçoit un succès qui n'a rien touché. Le plan d'administration,
+qui adresse les comptes par leur `id`, traduit donc d'abord l'`id` en `identifier`
+(`resolveSubject`, `SecurityAdminApi.ts:270`).
+
+**Le secret disparaît avec le compte.** Supprimer un compte (plan d'administration ou
+`security:user:delete`) émet `onUserRevoked` (`reason: "deleted"`), dont la cascade retire le secret
+TOTP et les passkeys (`cascadeUserRevocation`, `userRevocationCascade.ts:51`). Sans elle, un compte
+recréé sous le même identifiant hériterait du second facteur de l'ancien titulaire. Un compte
+seulement désactivé ou verrouillé garde ses facteurs.
 
 Spécification logique de la table (`TOTP_SECRET_TABLE_SPEC`, `totpSecretEntity.ts:36`), déclinée par
 dialecte via le colKit :
@@ -654,7 +666,7 @@ Ce dernier point est une garantie **de contrat**, pas une redaction faite à l'a
 soit le backend, ces champs ne peuvent pas remonter par ce chemin, même si un appelant les demandait
 (`toTotpEnrollment()`, `MemoryTotpSecretStore.ts:19`). C'est ce qu'exerce le banc de contrat partagé.
 
-`countEnrollments()` (`ITotpSecretStore.ts:90`) donne le KPI de couverture sans énumérer une seule
+`countEnrollments()` (`ITotpSecretStore.ts:96`) donne le KPI de couverture sans énumérer une seule
 ligne.
 
 ## 🧰 API publique
@@ -757,12 +769,16 @@ Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas
 
 Le data plane admin correspondant, gardé par `ROLE_NODEFONY_ADMIN` :
 
-- `GET /nodefony/security/api/totp/list` — couverture 2FA paginée (`SecurityAdminApi.ts:636`).
+- `GET /nodefony/security/api/totp/list` — couverture 2FA paginée, `?q=` = préfixe d'`userId`
+  (`SecurityAdminApi.ts:601`).
   Réponse **honnête** si le 2FA est désactivé : `{ enabled: false, items: [] }`, jamais une erreur —
   la console doit pouvoir afficher « 2FA désactivé ».
-- `GET /nodefony/security/api/users/{id}/totp` — statut d'un utilisateur (`SecurityAdminApi.ts:686`).
+- `GET /nodefony/security/api/users/{id}/totp` — statut d'un utilisateur (`SecurityAdminApi.ts:748`).
 - `POST /nodefony/security/api/users/{id}/totp/disable` — reset admin, **audité**
-  (`SecurityAdminApi.ts:711`).
+  (`SecurityAdminApi.ts:767`).
+
+Ces deux routes répondent `503` si le service `users` manque : sans lui, l'`id` ne se traduit pas en
+clé de sujet, et agir quand même rendrait un faux succès.
 
 L'admin peut **désactiver**, jamais **activer** pour autrui : le secret se scanne sur l'appareil de
 l'utilisateur, lui seul peut l'armer.
@@ -771,7 +787,7 @@ Côté journal d'audit, cinq actions tracent le cycle : `login.mfa_required` (`a
 `login.success` avec `reason: "totp"` ou `"recovery"` (`authFlow.ts:232`), `login.failure` avec
 `reason: "mfa_invalid"` (`authFlow.ts:291`), `user.totp_enabled` quand le titulaire active son
 facteur (`totp.ts:290`), et `user.totp_disabled` — par le titulaire (`totp.ts:321`,
-`viaAdmin: false`) ou par un administrateur (`SecurityAdminApi.ts:769`, `viaAdmin: true`). Les
+`viaAdmin: false`) ou par un administrateur (`SecurityAdminApi.ts:789`, `viaAdmin: true`). Les
 deux gestes du titulaire portent l'IP, le navigateur et l'identifiant de la requête.
 
 ## ⚠️ Pièges (symptôme → cause → correction)

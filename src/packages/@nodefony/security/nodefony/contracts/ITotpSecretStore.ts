@@ -64,7 +64,13 @@ export interface TotpSecretUpdate {
  * d'`IWebAuthnCredentialStore` / `ITokenStore` : le builtin `memory` est sans
  * dépendance, les adapters lourds s'enregistrent depuis leur propre module.
  *
- * Modèle **1 secret / utilisateur** (clé = `userId`) — `save` est un **upsert**.
+ * Modèle **1 secret / utilisateur** — `save` est un **upsert**.
+ *
+ * **Clé = `userId` = `IUser.identifier` — immuable, la même clé que la session et les jetons —,
+ * jamais `IUser.id`. Un appelant qui ne connaît que l'`id` (route admin
+ * `users/{id}/…`) résout d'abord le compte (`users.findById`), puis passe son
+ * `identifier`. Les deux sont des `string` : le compilateur ne voit pas l'erreur,
+ * et une clé fausse rend un succès qui n'a rien touché.
  */
 export interface ITotpSecretStore {
   /** Secret TOTP de l'utilisateur, ou `null` si non enrôlé. */

@@ -260,6 +260,7 @@ function bootFactors(opts: {
     recoveryCodesRemaining: number;
   };
   userExists?: boolean;
+  withUsers?: boolean;
   withWebauthn?: boolean;
   withTotp?: boolean;
 }) {
@@ -268,9 +269,14 @@ function bootFactors(opts: {
   const disabledFor: string[] = [];
   const removedArgs: Array<[string, string]> = [];
   const listQueries: Record<string, unknown>[] = [];
+  const listedFor: string[] = [];
+  const statusFor: string[] = [];
   if (opts.withWebauthn !== false) {
     container.set("webauthn", {
-      listUserCredentials: async (_userId: string) => opts.credentials ?? [],
+      listUserCredentials: async (userId: string) => {
+        listedFor.push(userId);
+        return opts.credentials ?? [];
+      },
       removeUserCredential: async (userId: string, credentialId: string) => {
         removedArgs.push([userId, credentialId]);
         return opts.removeResult ?? true;
@@ -305,24 +311,41 @@ function bootFactors(opts: {
   }
   if (opts.withTotp !== false) {
     container.set("totp", {
-      status: async (_userId: string) =>
-        opts.totpStatus ?? {
-          enabled: true,
-          pending: false,
-          recoveryCodesRemaining: 8,
-        },
+      status: async (userId: string) => {
+        statusFor.push(userId);
+        return (
+          opts.totpStatus ?? {
+            enabled: true,
+            pending: false,
+            recoveryCodesRemaining: 8,
+          }
+        );
+      },
       disable: async (userId: string) => {
         disabledFor.push(userId);
       },
     });
   }
-  container.set("users", {
-    findById: async (id: string) => ((opts.userExists ?? true) ? { id } : null),
-  });
+  // `identifier` ≠ `id`, comme dans une vraie base : un double qui les
+  // confondait laissait passer l'admin qui visait les facteurs par l'`id`.
+  if (opts.withUsers !== false) {
+    container.set("users", {
+      findById: async (id: string) =>
+        (opts.userExists ?? true) ? { id, identifier: `login-${id}` } : null,
+    });
+  }
   container.set("auditService", {
     record: (e: IAuditEventDraft) => recorded.push(e),
   });
-  return { container, recorded, disabledFor, removedArgs, listQueries };
+  return {
+    container,
+    recorded,
+    disabledFor,
+    removedArgs,
+    listQueries,
+    listedFor,
+    statusFor,
+  };
 }
 
 function endpoint(container: Container, path: string) {
@@ -438,13 +461,18 @@ describe("SecurityAdminApi — facteurs forts (déclaration)", () => {
 
 describe("SecurityAdminApi — GET users/{id}/passkeys", () => {
   it("liste redactée : clé publique COSE et userId ABSENTS de la vue", async () => {
-    const { container } = bootFactors({
-      credentials: [fakeCredential("c1", "u1")],
+    const { container, listedFor } = bootFactors({
+      credentials: [fakeCredential("c1", "login-u1")],
     });
     const ep = endpoint(container, "users/{id}/passkeys");
     const res = (await ep.handler(reqP({ id: "u1" }))) as {
       credentials: Record<string, unknown>[];
     };
+    assert.deepEqual(
+      listedFor,
+      ["login-u1"],
+      "passkeys lues sous l'identifier",
+    );
     assert.equal(res.credentials.length, 1);
     const view = res.credentials[0];
     assert.equal(view!.id, "c1");
@@ -479,7 +507,7 @@ describe("SecurityAdminApi — DELETE users/{id}/passkeys/{credentialId}", () =>
       ok: boolean;
     };
     assert.deepEqual(res, { ok: true });
-    assert.deepEqual(removedArgs, [["u1", "c1"]]);
+    assert.deepEqual(removedArgs, [["login-u1", "c1"]]);
     assert.equal(recorded.length, 1);
     assert.equal(recorded[0]!.category, "webauthn");
     assert.equal(recorded[0]!.action, "user.passkey_revoked");
@@ -511,7 +539,7 @@ describe("SecurityAdminApi — DELETE users/{id}/passkeys/{credentialId}", () =>
 
 describe("SecurityAdminApi — GET users/{id}/totp", () => {
   it("renvoie l'état 2FA d'un utilisateur connu", async () => {
-    const { container } = bootFactors({
+    const { container, statusFor } = bootFactors({
       totpStatus: { enabled: true, pending: false, recoveryCodesRemaining: 3 },
     });
     const ep = endpoint(container, "users/{id}/totp");
@@ -519,6 +547,7 @@ describe("SecurityAdminApi — GET users/{id}/totp", () => {
       enabled: boolean;
       recoveryCodesRemaining: number;
     };
+    assert.deepEqual(statusFor, ["login-u1"], "état lu sous l'identifier");
     assert.equal(res.enabled, true);
     assert.equal(res.recoveryCodesRemaining, 3);
   });
@@ -544,7 +573,7 @@ describe("SecurityAdminApi — POST users/{id}/totp/disable", () => {
     const ep = endpoint(container, "users/{id}/totp/disable");
     const res = (await ep.handler(reqP({ id: "u1" }))) as { ok: boolean };
     assert.deepEqual(res, { ok: true });
-    assert.deepEqual(disabledFor, ["u1"]);
+    assert.deepEqual(disabledFor, ["login-u1"], "secret visé par l'identifier");
     assert.equal(recorded.length, 1);
     assert.equal(recorded[0]!.category, "auth");
     assert.equal(recorded[0]!.action, "user.totp_disabled");
@@ -565,5 +594,57 @@ describe("SecurityAdminApi — POST users/{id}/totp/disable", () => {
     const ep = endpoint(container, "users/{id}/totp/disable");
     const res = (await ep.handler(reqP({ id: "u1" }))) as { status: number };
     assert.equal(res.status, 503);
+  });
+});
+
+describe("SecurityAdminApi — facteurs forts sans service users", () => {
+  // Sans `users`, l'`id` de la route ne se traduit pas en identifier : agir
+  // quand même viserait une clé qui n'existe pas et rendrait un faux succès.
+  for (const [path, params, method] of [
+    ["users/{id}/passkeys", { id: "u1" }, "GET"],
+    [
+      "users/{id}/passkeys/{credentialId}",
+      { id: "u1", credentialId: "c1" },
+      "DELETE",
+    ],
+    ["users/{id}/totp", { id: "u1" }, "GET"],
+    ["users/{id}/totp/disable", { id: "u1" }, "POST"],
+  ] as const) {
+    it(`${method} ${path} → 503, sans toucher au store`, async () => {
+      const { container, disabledFor, removedArgs, listedFor, statusFor } =
+        bootFactors({ withUsers: false });
+      const ep = endpoint(container, path);
+      const res = (await ep.handler(reqP({ ...params }))) as { status: number };
+      assert.equal(res.status, 503);
+      assert.equal(
+        disabledFor.length +
+          removedArgs.length +
+          listedFor.length +
+          statusFor.length,
+        0,
+      );
+    });
+  }
+});
+
+describe("SecurityAdminApi — GET totp/list", () => {
+  it("accepte `q` (préfixe d'userId) et le passe au store — la capacité est déclarée", async () => {
+    const container = new Container();
+    const queries: Record<string, unknown>[] = [];
+    container.set("totp", {
+      listPage: async (query: Record<string, unknown>) => {
+        queries.push(query);
+        return { items: [], limit: 50, offset: 0, total: 0, hasNext: false };
+      },
+    });
+    const ep = endpoint(container, "totp/list");
+    const res = (await ep.handler(reqQ({ q: "bob", confirmed: "true" }))) as {
+      enabled: boolean;
+      status?: number;
+    };
+    assert.equal(res.status, undefined, "pas de refus 400 sur `q`");
+    assert.equal(res.enabled, true);
+    assert.equal(queries[0]?.q, "bob");
+    assert.equal(queries[0]?.confirmed, true);
   });
 });

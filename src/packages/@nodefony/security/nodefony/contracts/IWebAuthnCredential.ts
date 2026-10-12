@@ -10,7 +10,10 @@
 export interface IWebAuthnCredential {
   /** Identifiant du credential (base64url) — unique, fourni par l'authenticator. */
   readonly id: string;
-  /** Identifiant de l'utilisateur propriétaire (sub / userHandle applicatif). */
+  /**
+   * Propriétaire = `IUser.identifier` (sub / userHandle applicatif), jamais
+   * `IUser.id` — cf `IWebAuthnCredentialStore`.
+   */
   readonly userId: string;
   /** Clé publique **COSE** encodée base64url — vérifie la signature des assertions. */
   readonly publicKey: string;

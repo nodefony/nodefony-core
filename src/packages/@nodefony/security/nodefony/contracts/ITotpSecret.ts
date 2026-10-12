@@ -9,7 +9,10 @@ import type { TotpAlgorithm } from "../src/totp/totpCrypto";
  * API). Les codes de récupération, eux, sont **hachés** (verify-only).
  */
 export interface ITotpSecret {
-  /** Identifiant de l'utilisateur propriétaire (clé naturelle). */
+  /**
+   * Propriétaire = `IUser.identifier` (clé naturelle), jamais `IUser.id` —
+   * cf `ITotpSecretStore`.
+   */
   readonly userId: string;
   /**
    * Secret partagé `K` **chiffré** (blob opaque : `iv.tag.ciphertext` base64url).

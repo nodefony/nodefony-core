@@ -77,3 +77,73 @@ describe("cascadeUserRevocation (user révoqué → sessions + tokens)", () => {
     assert.deepEqual(revoked, ["bob@x"]);
   });
 });
+
+/** Container portant les facteurs d'un compte (TOTP + passkeys) sous son identifier. */
+function factorsCtn() {
+  const totpDisabled: string[] = [];
+  const passkeys = new Map<string, string>([
+    ["c1", "bob@x"],
+    ["c2", "bob@x"],
+    ["c3", "alice@x"],
+  ]);
+  const container = {
+    get: (n: string) => {
+      if (n === "totp") {
+        return {
+          isEnabled: () => true,
+          disable: async (id: string) => {
+            totpDisabled.push(id);
+          },
+        };
+      }
+      if (n === "webauthn") {
+        return {
+          isEnabled: () => true,
+          listUserCredentials: async (id: string) =>
+            [...passkeys].filter(([, u]) => u === id).map(([c]) => ({ id: c })),
+          removeUserCredential: async (id: string, c: string) =>
+            passkeys.get(c) === id && passkeys.delete(c),
+        };
+      }
+      return undefined;
+    },
+  } as unknown as Container;
+  return { container, totpDisabled, passkeys };
+}
+
+describe("cascadeUserRevocation — facteurs du compte (#589)", () => {
+  it("compte SUPPRIMÉ → retire son secret TOTP et ses passkeys, pas celles d'autrui", async () => {
+    // Un compte recréé sous le même identifier hériterait sinon du second
+    // facteur de l'ancien titulaire.
+    const { container, totpDisabled, passkeys } = factorsCtn();
+    await cascadeUserRevocation(container, evt("deleted"), 1000);
+    assert.deepEqual(totpDisabled, ["bob@x"]);
+    assert.deepEqual([...passkeys.keys()], ["c3"]);
+  });
+
+  for (const reason of ["disabled", "locked", "password_changed"] as const) {
+    it(`compte ${reason} → GARDE ses facteurs (il les retrouve à la réactivation)`, async () => {
+      const { container, totpDisabled, passkeys } = factorsCtn();
+      await cascadeUserRevocation(container, evt(reason), 1000);
+      assert.deepEqual(totpDisabled, []);
+      assert.equal(passkeys.size, 3);
+    });
+  }
+
+  it("best-effort : un TOTP qui throw n'empêche pas le retrait des passkeys", async () => {
+    const { container, passkeys } = factorsCtn();
+    const get = container.get.bind(container);
+    const broken = {
+      get: (n: string) =>
+        n === "totp"
+          ? {
+              disable: async () => {
+                throw new Error("store down");
+              },
+            }
+          : get(n),
+    } as unknown as Container;
+    await cascadeUserRevocation(broken, evt("deleted"), 1000);
+    assert.deepEqual([...passkeys.keys()], ["c3"]);
+  });
+});

@@ -71,6 +71,12 @@ export interface WebAuthnAuthUpdate {
  * persistance (mémoire / ORM / Redis). Convention-frère d'`ITokenStore` :
  * le builtin `memory` est sans dépendance, les adapters lourds s'enregistrent
  * depuis leur propre module (inversion de dépendance).
+ *
+ * **Clé de propriétaire = `userId` = `IUser.identifier` — immuable, la même clé que la session et les jetons —,
+ * jamais `IUser.id`. Un appelant qui ne connaît que l'`id` (route admin
+ * `users/{id}/…`) résout d'abord le compte (`users.findById`), puis passe son
+ * `identifier`. Les deux sont des `string` : le compilateur ne voit pas l'erreur,
+ * et une clé fausse rend un succès qui n'a rien touché.
  */
 export interface IWebAuthnCredentialStore {
   /** Credential par son id (base64url), ou `null` — résolution à l'authentification. */

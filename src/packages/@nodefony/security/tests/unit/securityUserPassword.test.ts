@@ -51,7 +51,8 @@ const makeCommand = (
   Object.defineProperty(command, "kernel", {
     value: {
       container: { get: (name: string) => (name === "users" ? users : null) },
-      fire: (name: string, payload: unknown): void => {
+      // `fireAsync` : la commande ATTEND la cascade avant de rendre la main.
+      fireAsync: async (name: string, payload: unknown): Promise<void> => {
         fired.push({ name, payload });
       },
     },

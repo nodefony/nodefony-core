@@ -198,7 +198,8 @@ function container(
 ): Parameters<typeof createUserAdminApi>[0] {
   const kernel = fired
     ? {
-        fire: (name: string, payload: unknown) => fired.push({ name, payload }),
+        fireAsync: async (name: string, payload: unknown) =>
+          fired.push({ name, payload }),
       }
     : undefined;
   return {

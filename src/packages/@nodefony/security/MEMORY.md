@@ -619,6 +619,17 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   `assertCredentialTransport` (fourni par `AdminApiController`) AVANT RBAC/handler — `UserAdminApi`
   marque `POST users`, `users/{id}/password`, `me/password`. Banc live prod :
   `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1`). Hors périmètre : refresh token, Bearer, clé API.
+- **Clé de sujet = `IUser.identifier`, JAMAIS `IUser.id`** : session, jetons/PAT/clés d'API
+  (`subjectId`), secret TOTP, passkeys. Immuable. Le plan d'admin adresse par `{id}` → traduire
+  d'abord par `resolveSubject` (`SecurityAdminApi.ts`, 503 sans service `users`). Les deux sont des
+  `string` : passer l'`id` vise une clé vide et rend un SUCCÈS sans rien
+  toucher. Un faux `users.findById` de test rend `identifier ≠ id`, sinon complaisant.
+- **Suppression d'un compte = émettre `USER_REVOKED_EVENT` (`reason: "deleted"`) par `fireAsync`** :
+  `users.delete` n'émet rien. La cascade (`userRevocationCascade.ts`) éjecte sessions + jetons et,
+  pour `deleted` SEULEMENT, retire TOTP + passkeys (sinon un compte recréé sous le même identifier
+  en hérite). `fire` n'attend pas un abonné async : la réponse HTTP / la fin de la commande
+  partirait avant le nettoyage. Orphelins d'avant le correctif : non purgés (un `createdAt` remis
+  à zéro par un import retirerait des facteurs légitimes) — échec fermé, reset admin.
 - **Résurrection de session** : `session.destroy()` pose `mutated=false` (sinon le saveSession de
   fin de requête RE-CRÉE le blob détruit — vu au banc logout J3). `AuthFlow.logout` pose aussi
   `context.session = null`.

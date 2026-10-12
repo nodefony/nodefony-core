@@ -252,7 +252,7 @@ export interface IUserRevokedEvent {
 }
 
 interface KernelEmitterLike {
-  fire(event: string, ...args: unknown[]): unknown;
+  fireAsync(event: string, ...args: unknown[]): Promise<unknown>;
 }
 
 /**
@@ -260,12 +260,17 @@ interface KernelEmitterLike {
  * Déclenche la cascade de révocation chez tous les abonnés (sessions, tokens,
  * webhooks futurs). L'accès était DÉJÀ neutralisé par le re-fetch des
  * authenticators ; ceci force le nettoyage immédiat (défense en profondeur).
+ *
+ * ATTENDU (`fireAsync`) : à la suppression, la cascade retire aussi les facteurs
+ * du compte (TOTP, passkeys), rangés sous son `identifier`. Répondre avant la fin
+ * laisserait un compte recréé aussitôt sous le même identifiant hériter du
+ * second facteur de l'ancien.
  */
-function emitUserRevoked(
+async function emitUserRevoked(
   container: Container,
   user: { id: string; identifier: string },
   reason: IUserRevokedEvent["reason"],
-): void {
+): Promise<void> {
   const kernel = container.get("kernel") as KernelEmitterLike | undefined;
   const event: IUserRevokedEvent = {
     id: user.id,
@@ -273,7 +278,7 @@ function emitUserRevoked(
     tenantId: null,
     reason,
   };
-  kernel?.fire(USER_REVOKED_EVENT, event);
+  await kernel?.fireAsync(USER_REVOKED_EVENT, event);
 }
 
 /** Tableau de strings non vides depuis une valeur inconnue, ou `undefined`. */
@@ -687,9 +692,9 @@ export function createUserAdminApi(container: Container): IAdminApi {
         // Désactivation/verrouillage = révocation d'accès → cascade immédiate
         // (le re-fetch suffisait déjà ; ceci éjecte sessions/tokens sans attendre).
         if (patch.enabled === false) {
-          emitUserRevoked(container, target, "disabled");
+          await emitUserRevoked(container, target, "disabled");
         } else if (patch.locked === true) {
-          emitUserRevoked(container, target, "locked");
+          await emitUserRevoked(container, target, "locked");
         }
         return toUserSummary(updated);
       },
@@ -942,9 +947,9 @@ export function createUserAdminApi(container: Container): IAdminApi {
         audit(container, "user.deleted", actor.label, target.id, {
           identifier: target.identifier,
         });
-        // Cascade : éjecte sessions + tokens (PAT) orphelins (le GC les aurait
-        // ramassés à expiration ; ici on nettoie tout de suite).
-        emitUserRevoked(container, target, "deleted");
+        // Cascade : éjecte sessions + tokens (PAT) et retire les facteurs
+        // (TOTP, passkeys) — attendue avant de répondre.
+        await emitUserRevoked(container, target, "deleted");
         return { ok: true };
       },
     },

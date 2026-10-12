@@ -161,7 +161,7 @@ class SecurityUserPassword extends Command {
     // Sessions et jetons : on réutilise la cascade de la suppression plutôt que
     // d'éjecter à la main. Émettre ne peut pas échouer bruyamment (les abonnés
     // sont best-effort), mais l'absence de kernel doit rester silencieuse.
-    this.kernel?.fire(USER_REVOKED_EVENT, {
+    await this.kernel?.fireAsync(USER_REVOKED_EVENT, {
       id: user.id,
       identifier: user.identifier,
       tenantId: null,

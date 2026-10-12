@@ -4,7 +4,7 @@ import {
   CliKernel,
   Command,
 } from "nodefony";
-import type { UserService } from "@nodefony/user";
+import { USER_REVOKED_EVENT, type UserService } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
   // Cette commande LIT ou ÉCRIT des comptes : il lui faut la base.
@@ -40,9 +40,10 @@ const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
  * seul recours est une écriture directe en base. Le même garde-fou existe côté
  * data plane (`UserAdminApi`) — ici il est constaté, pas supposé.
  *
- * La révocation des sessions et jetons du compte suit d'elle-même : la
- * suppression émet `onUserRevoked`, auquel `@nodefony/security` réagit en
- * éjectant sessions et jetons. Rien à faire de plus ici.
+ * Après la suppression, la commande émet `onUserRevoked` (`reason: "deleted"`)
+ * et ATTEND la cascade de `@nodefony/security` : sessions et jetons éjectés,
+ * secret TOTP et passkeys retirés. `users.delete` n'émet rien de lui-même —
+ * c'est à l'appelant de le faire, comme le plan d'administration.
  */
 class SecurityUserDelete extends Command {
   constructor(cli: CliKernel) {
@@ -158,9 +159,19 @@ class SecurityUserDelete extends Command {
       process.exitCode = 1;
       return this;
     }
+    // Sessions, jetons ET facteurs (TOTP, passkeys) : la cascade de la
+    // suppression, la même que celle du plan d'administration. ATTENDUE — la
+    // commande rend la main juste après, et un compte recréé sous le même
+    // identifiant hériterait d'un second facteur resté en place.
+    await this.kernel?.fireAsync(USER_REVOKED_EVENT, {
+      id: user.id,
+      identifier: user.identifier,
+      tenantId: null,
+      reason: "deleted",
+    });
     w(
       `${GREEN}✓ compte supprimé${RESET} — ${BOLD}${identifier}${RESET}\n` +
-        `${DIM}  ses sessions et ses jetons sont révoqués (event onUserRevoked).${RESET}\n\n`,
+        `${DIM}  ses sessions, ses jetons et ses facteurs (2FA, passkeys) sont retirés.${RESET}\n\n`,
     );
     return this;
   }
