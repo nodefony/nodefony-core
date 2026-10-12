@@ -101,7 +101,10 @@ import { fileURLToPath } from "node:url";
 import {
   CANAL_OPS_ALERTES,
   CHEMIN_REALTIME_OPS,
+  COULEUR_CONNEXION,
   FICHIER_REPERE_PREFIXE,
+  LOGO_CONNEXION,
+  MARQUE_CONNEXION,
   ORIGINE_PARTENAIRE,
   PAGE_WIDGET,
   REPERE_PREFIXE_COMPTE,
@@ -781,6 +784,13 @@ const PREPARE_UTILISATEUR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "prepare-utilisateur-en-service.mjs",
+);
+
+/** Juge « la page de connexion porte la marque, et reste celle du framework ». */
+const JUGE_LOGIN_BRANDING = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-login-branding.mjs",
 );
 
 /** Juge « le fichier reçu est rangé, et le client ne décide pas où ». */
@@ -4521,6 +4531,97 @@ export const TASKS = [
             `npm run build >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_UPLOAD}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    id: 38,
+    name: "habiller la page de connexion sans la réécrire",
+    // La page de connexion est SERVIE par le framework (ADR-0015) et s'habille
+    // par configuration : `security.loginPage` (`title`, `logo`, `stylesheet`
+    // qui redéfinit les variables `--nf-login-*`, `skin`, `layout`). Le
+    // contournement naturel est de la RÉÉCRIRE — un gabarit `.eta` copié
+    // (`loginPage.template`, que le schéma qualifie lui-même de dernier
+    // recours) ou la feuille du framework recopiée pour en changer trois
+    // couleurs. Les deux figent la page sur le balisage du jour : la prochaine
+    // version du framework la change, la copie ne suit pas.
+    //
+    // Le logo est déposé HORS de tout dossier servi : le servir fait partie du
+    // travail, et c'est le point qu'une relecture de configuration ne voit
+    // pas (une image citée mais jamais servie s'affiche cassée).
+    prepare:
+      `mkdir -p ${path.posix.dirname(LOGO_CONNEXION)} && ` +
+      `printf '%s' '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">` +
+      `<rect width="32" height="32" fill="${COULEUR_CONNEXION}"/></svg>' > ${LOGO_CONNEXION}`,
+    prompt:
+      "Habille la page de connexion de cette application à nos couleurs : " +
+      `l'application s'appelle « ${MARQUE_CONNEXION} », son logo est le fichier ` +
+      `\`${LOGO_CONNEXION}\`, et sa couleur principale est ${COULEUR_CONNEXION}. ` +
+      "La page reste à son adresse actuelle et garde son formulaire de connexion. " +
+      "Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a lu la doc de la page de connexion",
+        /login-page\.md|loginPage/u,
+      ),
+      {
+        // OBSERVÉE : les variables `--nf-login-*` sont la voie documentée,
+        // mais une règle ciblée qui pose la couleur reste un habillage.
+        kind: "code",
+        name: "couleur posée par les variables de la page (--nf-login-*) — observation",
+        pattern: /--nf-login-[\w-]+\s*:/u,
+        where: "added",
+        observe: true,
+      },
+      {
+        // JUGÉ. Le gabarit de l'application témoin ne porte AUCUN `.eta` :
+        // tout fichier de ce type touché par l'agent est un gabarit neuf, donc
+        // une page réécrite.
+        kind: "code",
+        name: "aucun gabarit .eta écrit pour la page",
+        pattern: /\.eta$/mu,
+        where: "files",
+        invert: true,
+      },
+      {
+        // JUGÉ. La feuille du framework recopiée : six règles ou plus sur les
+        // classes de la page (`.nf-…`). Trois retouches ciblées restent un
+        // habillage ; une copie se reconnaît à son volume.
+        kind: "code",
+        name: "la feuille de la page n'est pas recopiée",
+        pattern: /(?:\.nf-[\w-]+[^{}]*\{[^{}]*\}[^.]*){6}/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // JUGÉ. Desserrer la politique de contenu pour que l'habillage
+        // « passe » : le geste qui répare sans comprendre. ⚠️ PAS `unsafe-inline`
+        // seul — la CSP PAR DÉFAUT porte déjà `style-src 'self' 'unsafe-inline'`,
+        // et un agent qui recopie la chaîne pour l'étendre serait recalé à tort.
+        // Ce qui desserre vraiment : l'inline admis en SCRIPT, les nonces
+        // éteints, ou une politique vidée.
+        kind: "code",
+        name: "politique de contenu non desserrée",
+        pattern:
+          /script-src[^;"`]*unsafe-inline|cspNonces\s*:\s*false|\bcsp\s*:\s*(?:""|''|``|null|false)/u,
+        where: "added",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        kind: "gate",
+        name: "la page affiche la marque, le logo servi et la couleur, formulaire intact",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_LOGIN_BRANDING} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_LOGIN_BRANDING}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

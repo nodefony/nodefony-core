@@ -2775,6 +2775,10 @@
                 "help": ""
               },
               {
+                "flag": "--nf-login-",
+                "help": ""
+              },
+              {
                 "flag": "--no-audit",
                 "help": ""
               },
@@ -2909,6 +2913,10 @@
                 "help": ""
               },
               {
+                "name": "COULEUR_CONNEXION",
+                "help": ""
+              },
+              {
                 "name": "ENTITE_MIGREE",
                 "help": ""
               },
@@ -2926,6 +2934,10 @@
               },
               {
                 "name": "JUGE_LISTE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_LOGIN_BRANDING",
                 "help": ""
               },
               {
@@ -2990,6 +3002,14 @@
               },
               {
                 "name": "LINKED",
+                "help": ""
+              },
+              {
+                "name": "LOGO_CONNEXION",
+                "help": ""
+              },
+              {
+                "name": "MARQUE_CONNEXION",
                 "help": ""
               },
               {
@@ -3153,6 +3173,14 @@
               },
               {
                 "flag": "--name",
+                "help": ""
+              },
+              {
+                "flag": "--nf-login-",
+                "help": ""
+              },
+              {
+                "flag": "--nf-login-brand",
                 "help": ""
               },
               {

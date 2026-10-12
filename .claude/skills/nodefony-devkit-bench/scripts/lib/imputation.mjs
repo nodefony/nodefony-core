@@ -356,6 +356,22 @@ export const IMPUTATIONS = Object.freeze({
   // Rangé, mais la réponse ne dit ni sous quel nom ni quelle taille : l'appelant
   // ne peut pas retrouver son fichier.
   "reponse-muette": AGENT,
+
+  // ─── Habiller la page de connexion (tâche 38) ───────────────────────────
+  // La page répond, mais ne porte pas ce que l'énoncé demandait.
+  "marque-absente": AGENT,
+  "logo-absent": AGENT,
+  // Cité, mais d'une autre origine ou jamais servi : une image cassée.
+  "logo-non-servi": AGENT,
+  // L'habillage a retiré le champ mot de passe qu'il devait seulement habiller.
+  "formulaire-perdu": AGENT,
+  // Feuille d'une autre origine : la CSP du framework la refuse.
+  "feuille-hors-origine": AGENT,
+  "couleur-absente": AGENT,
+  // Pas de réponse sur un fichier que la page cite : même famille que
+  // « aucune réponse », un code cassé par l'agent s'y confond avec un décor éteint.
+  "aucune-reponse-logo": INDETERMINE,
+  "aucune-reponse-feuille": INDETERMINE,
   // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
   // du logiciel produit, il dit que l'instrument est parti sans son jeton.
   // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —

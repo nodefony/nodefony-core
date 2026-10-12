@@ -236,3 +236,37 @@ export const CHEMIN_REALTIME_LIVE = "/api/live/realtime";
  * firewall) a été recalé deux fois.
  */
 export const CANAL_TEMOIN_PUBLIC = "live:events";
+
+/**
+ * Tâche « habiller la page de connexion » — l'adresse de la page servie par le
+ * framework. C'est son défaut (`LOGIN_PAGE_PATH`) : l'énoncé interdit de la
+ * déplacer, et le juge la frappe telle quelle.
+ */
+export const PAGE_CONNEXION = "/login";
+
+/** Même tâche — le nom de l'application, tel que la page doit l'afficher. */
+export const MARQUE_CONNEXION = "Acme Portail";
+
+/**
+ * Même tâche — le logo que le décor dépose HORS de tout dossier servi : le
+ * servir fait partie du travail. Chemin relatif à l'application, en `/`
+ * (il voyage dans l'énoncé).
+ */
+export const LOGO_CONNEXION = "branding/acme-logo.svg";
+
+/** Même tâche — la couleur principale demandée, en minuscules. */
+export const COULEUR_CONNEXION = "#0b5fff";
+
+/**
+ * Tâche « protéger une page et y ramener après connexion » — la PAGE (une
+ * navigation, pas une API) à protéger. Hors de `/api` à dessein : c'est une
+ * page qu'un visiteur ouvre dans son navigateur.
+ */
+export const PAGE_COMPTE = "/account";
+
+/**
+ * Même tâche — l'origine hostile qu'un lien piégé passe en `?from=`. `.example`
+ * est réservé (RFC 2606). Absente de l'énoncé : on mesure un réflexe, pas la
+ * lecture d'une consigne.
+ */
+export const ORIGINE_PIEGE = "evil.example";
