@@ -1,4 +1,4 @@
-import type { Container } from "nodefony";
+import type { Container, IBootNotice } from "nodefony";
 import {
   USER_CREATED_EVENT,
   USER_REVOKED_EVENT,
@@ -31,11 +31,6 @@ interface WebAuthnLike {
 /** Résolution d'un service par nom — tout ce que la purge demande au container. */
 interface ServiceLookupLike {
   get(name: string): unknown;
-}
-
-/** Vue minimale du service `users` — son bus porte {@link USER_CREATED_EVENT}. */
-interface UsersEventSourceLike {
-  on(event: string, handler: (...args: unknown[]) => unknown): unknown;
 }
 
 /** Bus d'événements minimal (kernel) capable d'abonner un handler. */
@@ -123,51 +118,6 @@ export async function removeAccountFactors(
   }
 }
 
-/** Services `users` déjà abonnés — l'abonnement est idempotent. */
-const boundUserServices = new WeakSet<object>();
-
-/**
- * Abonne la purge des facteurs HÉRITÉS à {@link USER_CREATED_EVENT} du service
- * `users` : un compte qui vient de naître n'a encore rien enrôlé, donc tout
- * facteur déjà rangé sous son identifiant appartient à un ancien titulaire.
- * C'est la règle exacte — aucune date à comparer — et elle solde aussi les
- * orphelins laissés avant que la suppression ne retire les facteurs.
- *
- * Idempotente, et sans effet tant que `users` n'est pas posé : l'application le
- * pose dans son propre `onKernelReady`, dont l'ordre face à celui de security
- * n'est pas garanti. D'où plusieurs appelants (`onKernelReady`, `onPostReady`,
- * la commande `security:user:add`) — le premier qui trouve le service abonne.
- *
- * ⚠️ Un import qui chargerait les facteurs AVANT les comptes les verrait
- * retirés à la création : importer les comptes d'abord.
- *
- * @param container - container du kernel.
- * @returns `true` si le service `users` est (désormais) abonné.
- */
-export function bindUserCreatedPurge(container: ServiceLookupLike): boolean {
-  const users = container.get("users");
-  if (!isUsersEventSource(users)) return false;
-  if (boundUserServices.has(users)) return true;
-  boundUserServices.add(users);
-  // Rend la promesse : `UserService.create` l'attend (`fireAsync`).
-  users.on(USER_CREATED_EVENT, (event: unknown) =>
-    isUserCreatedEvent(event)
-      ? removeAccountFactors(container, event.identifier)
-      : undefined,
-  );
-  return true;
-}
-
-/** Garde : un service qui expose un bus (`on`) — le service `users`. */
-function isUsersEventSource(value: unknown): value is UsersEventSourceLike {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "on" in value &&
-    typeof value.on === "function"
-  );
-}
-
 /** Garde : charge utile de {@link USER_CREATED_EVENT} (identifiant non vide). */
 function isUserCreatedEvent(value: unknown): value is IUserCreatedEvent {
   return (
@@ -180,21 +130,61 @@ function isUserCreatedEvent(value: unknown): value is IUserCreatedEvent {
 }
 
 /**
- * Abonne la cascade au bus kernel. À appeler au `onKernelBoot` d'un module
- * bootable (ici `@nodefony/security`). **Extensible** : tout autre module
- * (webhooks…) peut s'abonner au MÊME `USER_REVOKED_EVENT` pour ses propres
- * artefacts, sans toucher à ce fichier.
+ * Abonne la cascade au bus kernel, UNE fois, au `onKernelBoot` de
+ * `@nodefony/security` — avant qu'aucun compte ne puisse être créé ou révoqué
+ * (les comptes semés au démarrage compris). Deux abonnements :
+ *  - {@link USER_REVOKED_EVENT} → {@link cascadeUserRevocation} ;
+ *  - {@link USER_CREATED_EVENT} → purge des facteurs HÉRITÉS : un compte qui
+ *    vient de naître n'a encore rien enrôlé, donc tout facteur déjà rangé sous
+ *    son identifiant appartient à un ancien titulaire. Règle exacte, aucune
+ *    date à comparer. ⚠️ Un import qui chargerait les facteurs AVANT les
+ *    comptes les verrait retirés : importer les comptes d'abord.
+ *
+ * Les deux sont émis par `UserService` seul, et attendus : chaque handler rend
+ * sa promesse. **Extensible** : tout autre module (webhooks…) s'abonne aux
+ * MÊMES événements pour ses propres artefacts, sans toucher à ce fichier.
  *
  * @param kernel - bus d'événements (kernel) exposant `on`.
- * @param container - container capturé par le handler.
+ * @param container - container capturé par les handlers.
  */
 export function registerUserRevocationCascade(
   kernel: KernelListenerLike,
   container: Container,
 ): void {
-  // Rend la promesse : un émetteur qui doit attendre la fin (une commande qui
-  // termine son process juste après) passe par `fireAsync`.
   kernel.on(USER_REVOKED_EVENT, (event: unknown) =>
     cascadeUserRevocation(container, event as IUserRevokedEvent),
   );
+  kernel.on(USER_CREATED_EVENT, (event: unknown) =>
+    isUserCreatedEvent(event)
+      ? removeAccountFactors(container, event.identifier)
+      : undefined,
+  );
+}
+
+/**
+ * Avis de démarrage quand le service `users` n'émet pas sur le bus du kernel —
+ * construit sans container (`new UserService(repo, encoder)`). Ses événements
+ * partent alors sur son propre bus, où personne n'écoute : supprimer un compte
+ * laisserait ses sessions, ses jetons et ses facteurs en place, SANS UN MOT.
+ *
+ * @param container - container du kernel.
+ * @param kernel - le kernel attendu comme bus des événements.
+ * @returns l'avis à déclarer, ou `null` si `users` est absent ou bien câblé.
+ */
+export function usersEventBusNotice(
+  container: ServiceLookupLike,
+  kernel: object,
+): IBootNotice | null {
+  const users = container.get("users");
+  if (typeof users !== "object" || users === null) return null;
+  if (!("kernel" in users) || users.kernel === kernel) return null;
+  return {
+    code: "USERS_SERVICE_WITHOUT_KERNEL",
+    level: "warning",
+    message:
+      "le service « users » n'atteint pas le kernel : supprimer, désactiver un " +
+      "compte ou changer son mot de passe ne révoquera ni ses sessions, ni ses " +
+      "jetons, ni ses facteurs.",
+    fix: "new UserService(repository, encoder, module.container)",
+  };
 }

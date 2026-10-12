@@ -116,13 +116,21 @@ export async function provisionUsers(module: Module): Promise<void> {
       "WARNING",
       LOG_CTX,
     );
-    const users = new UserService(new InMemoryUserRepository([]), encoder);
+    const users = new UserService(
+      new InMemoryUserRepository([]),
+      encoder,
+      container,
+    );
     container.set("users", users);
     await seedAdmin(users, module);
     return;
   }
 
-  const users = new UserService(<%= it.mongo ? "MongooseUserRepository" : "DrizzleUserRepository" %>.from(orm), encoder);
+  const users = new UserService(
+    <%= it.mongo ? "MongooseUserRepository" : "DrizzleUserRepository" %>.from(orm),
+    encoder,
+    container,
+  );
   container.set("users", users);
   await seedAdmin(users, module);
 }

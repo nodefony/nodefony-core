@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
-import { RequestContext } from "nodefony";
+import { Container, RequestContext } from "nodefony";
 import {
   createUserAdminApi,
   toUserSummary,
   type IUserSummary,
-  type IUserRevokedEvent,
 } from "../../nodefony/src/admin/UserAdminApi";
-import { BaseUser } from "../../nodefony/src/BaseUser";
+import {
+  UserService,
+  USER_REVOKED_EVENT,
+  type IUserRevokedEvent,
+} from "../../nodefony/service/UserService";
+import { InMemoryUserRepository } from "../../nodefony/src/InMemoryUserRepository";
+import type { IPasswordEncoder } from "../../nodefony/contracts/IPasswordEncoder";
+import { BaseUser, type IBaseUserOptions } from "../../nodefony/src/BaseUser";
 import { USER_SORTABLE_FIELDS_IN_MEMORY } from "../../nodefony/src/userSort";
 import { attachExtraColumns } from "../../nodefony/src/userContract";
 import { USER_FACETS } from "../../nodefony/src/userFilters";
@@ -590,80 +596,111 @@ describe("UserAdminApi — CRUD + audit", () => {
   });
 });
 
-// ── Cascade : émission de onUserRevoked (extensible webhooks, tenant-ready) ────
-describe("UserAdminApi — émission onUserRevoked", () => {
-  it("DELETE émet onUserRevoked { reason: deleted, tenantId: null }", async () => {
+// ── Cascade : le plan d'admin n'émet RIEN, le service émet tout (#589) ─────────
+// Un VRAI `UserService`, branché sur un faux kernel : le geste du transport doit
+// atteindre le bus du kernel par le seul service — c'est ce qui manquait aux
+// portes HTTP de changement de mot de passe.
+describe("UserAdminApi → UserService → kernel : onUserRevoked", () => {
+  function realStack(seed: IBaseUserOptions[]) {
     const fired: FiredEvent[] = [];
-    const api = createUserAdminApi(
-      container(
-        makeUsers([admin("a1", "admin@x"), member("u2", "bob@x")]),
-        undefined,
-        fired,
-      ),
-    );
+    const ctn = new Container();
+    ctn.set("kernel", {
+      fireAsync: async (name: string, payload: unknown) =>
+        fired.push({ name, payload }),
+    });
+    const encoder: IPasswordEncoder = {
+      hash: async (plain: string) => `hash:${plain}`,
+      verify: async (plain: string, hash: string) => hash === `hash:${plain}`,
+      needsRehash: () => false,
+    };
+    const repo = new InMemoryUserRepository(seed);
+    const users = new UserService(repo, encoder, ctn);
+    const api = createUserAdminApi({
+      get: (n: string) => (n === "users" ? users : undefined),
+    } as unknown as Parameters<typeof createUserAdminApi>[0]);
+    const revoked = () =>
+      fired
+        .filter((f) => f.name === USER_REVOKED_EVENT)
+        .map((f) => f.payload as IUserRevokedEvent);
+    return { api, revoked };
+  }
+  const people = (): IBaseUserOptions[] => [
+    { id: "a1", identifier: "admin@x", roles: ["ROLE_NODEFONY_ADMIN"] },
+    {
+      id: "u2",
+      identifier: "bob@x",
+      roles: ["ROLE_USER"],
+      password: "hash:Ancien-Secret-42",
+    },
+  ];
+
+  it("DELETE → { reason: deleted, tenantId: null }, sous l'identifiant", async () => {
+    const { api, revoked } = realStack(people());
     await call(api, "DELETE", "users/{id}", {
       params: { id: "u2" },
       user: { id: "a1" },
     });
-    assert.equal(fired.length, 1);
-    assert.equal(fired[0]!.name, "onUserRevoked");
-    assert.deepEqual(fired[0]!.payload, {
-      id: "u2",
-      identifier: "bob@x",
-      tenantId: null,
-      reason: "deleted",
-    } satisfies IUserRevokedEvent);
+    assert.deepEqual(revoked(), [
+      { id: "u2", identifier: "bob@x", tenantId: null, reason: "deleted" },
+    ] satisfies IUserRevokedEvent[]);
   });
 
-  it("PATCH enabled:false émet onUserRevoked { reason: disabled }", async () => {
-    const fired: FiredEvent[] = [];
-    const api = createUserAdminApi(
-      container(
-        makeUsers([admin("a1", "admin@x"), member("u2", "bob@x")]),
-        undefined,
-        fired,
-      ),
-    );
+  it("PATCH enabled:false → disabled ; locked:true → locked", async () => {
+    const { api, revoked } = realStack(people());
     await call(api, "PATCH", "users/{id}", {
       params: { id: "u2" },
       user: { id: "a1" },
       body: { enabled: false },
     });
-    assert.equal((fired[0]?.payload as IUserRevokedEvent)?.reason, "disabled");
-  });
-
-  it("PATCH locked:true émet onUserRevoked { reason: locked }", async () => {
-    const fired: FiredEvent[] = [];
-    const api = createUserAdminApi(
-      container(
-        makeUsers([admin("a1", "admin@x"), member("u2", "bob@x")]),
-        undefined,
-        fired,
-      ),
-    );
     await call(api, "PATCH", "users/{id}", {
       params: { id: "u2" },
       user: { id: "a1" },
       body: { locked: true },
     });
-    assert.equal((fired[0]?.payload as IUserRevokedEvent)?.reason, "locked");
+    assert.deepEqual(
+      revoked().map((e) => e.reason),
+      ["disabled", "locked"],
+    );
   });
 
-  it("PATCH roles seul N'émet PAS onUserRevoked (pas une révocation d'accès)", async () => {
-    const fired: FiredEvent[] = [];
-    const api = createUserAdminApi(
-      container(
-        makeUsers([admin("a1", "admin@x"), member("u2", "bob@x")]),
-        undefined,
-        fired,
-      ),
-    );
+  it("PATCH roles seul → RIEN (pas une révocation d'accès)", async () => {
+    const { api, revoked } = realStack(people());
     await call(api, "PATCH", "users/{id}", {
       params: { id: "u2" },
       user: { id: "a1" },
       body: { roles: ["ROLE_USER", "ROLE_EDITOR"] },
     });
-    assert.equal(fired.length, 0);
+    assert.equal(revoked().length, 0);
+  });
+
+  it("🔴 reset admin du mot de passe → password_changed (P0 : la session volée tombe)", async () => {
+    const { api, revoked } = realStack(people());
+    const { status } = await call(api, "POST", "users/{id}/password", {
+      params: { id: "u2" },
+      user: { id: "a1" },
+      body: { plainPassword: "Nouveau-Secret-43" },
+    });
+    assert.equal(status, 200);
+    assert.deepEqual(
+      revoked().map((e) => [e.identifier, e.reason]),
+      [["bob@x", "password_changed"]],
+    );
+  });
+
+  it("🔴 me/password → password_changed (P0 : les autres sessions tombent)", async () => {
+    const { api, revoked } = realStack(people());
+    const { status } = await call(api, "POST", "me/password", {
+      user: { id: "u2", identifier: "bob@x", roles: ["ROLE_USER"] },
+      body: {
+        currentPassword: "Ancien-Secret-42",
+        newPassword: "Nouveau-Secret-43",
+      },
+    });
+    assert.equal(status, 200);
+    assert.deepEqual(
+      revoked().map((e) => [e.identifier, e.reason]),
+      [["bob@x", "password_changed"]],
+    );
   });
 });
 

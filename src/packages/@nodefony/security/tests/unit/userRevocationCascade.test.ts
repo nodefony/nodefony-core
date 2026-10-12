@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import {
-  bindUserCreatedPurge,
   cascadeUserRevocation,
+  registerUserRevocationCascade,
+  usersEventBusNotice,
 } from "../../nodefony/src/admin/userRevocationCascade";
 import { EventEmitter } from "node:events";
-import { USER_CREATED_EVENT } from "@nodefony/user";
+import { USER_CREATED_EVENT, USER_REVOKED_EVENT } from "@nodefony/user";
 import type { IUserRevokedEvent } from "@nodefony/user";
 import type { Container } from "nodefony";
 
@@ -153,24 +154,21 @@ describe("cascadeUserRevocation — facteurs du compte (#589)", () => {
   });
 });
 
-describe("bindUserCreatedPurge — un compte NEUF n'hérite d'aucun facteur (#589)", () => {
-  // Un compte qui vient de naître n'a rien enrôlé : tout facteur rangé sous son
-  // identifiant appartient à un ancien titulaire — orphelins d'avant le
-  // correctif compris.
-  function withUsers() {
+describe("registerUserRevocationCascade — abonné UNE fois au bus du kernel (#589)", () => {
+  // Le service `users` émet sur le kernel ; security s'y abonne au boot, avant
+  // tout compte créé (ceux semés au démarrage compris).
+  function onKernel() {
     const factors = factorsCtn();
-    const users = new EventEmitter();
-    const container = {
-      get: (n: string) => (n === "users" ? users : factors.container.get(n)),
-    } as unknown as Container;
-    return { ...factors, container, users };
+    const kernel = new EventEmitter();
+    registerUserRevocationCascade(kernel, factors.container);
+    return { ...factors, kernel };
   }
 
   it("🔴 création sous un identifiant déjà porteur de facteurs → retirés", async () => {
-    const { container, users, totpDisabled, passkeys } = withUsers();
-    assert.equal(bindUserCreatedPurge(container), true);
-    const [purge] = users.listeners(USER_CREATED_EVENT);
-    await purge!({ id: "u2", identifier: "bob@x" });
+    const { kernel, totpDisabled, passkeys } = onKernel();
+    const [purge] = kernel.listeners(USER_CREATED_EVENT);
+    // `listeners()` rend des `Function` : la promesse se reprend par `Promise.resolve`.
+    await Promise.resolve(purge!({ id: "u2", identifier: "bob@x" }));
     assert.deepEqual(totpDisabled, ["bob@x"]);
     assert.deepEqual(
       [...passkeys.keys()],
@@ -179,15 +177,32 @@ describe("bindUserCreatedPurge — un compte NEUF n'hérite d'aucun facteur (#58
     );
   });
 
-  it("idempotent : deux abonnements = UN écouteur (sinon double purge par création)", () => {
-    const { container, users } = withUsers();
-    bindUserCreatedPurge(container);
-    bindUserCreatedPurge(container);
-    assert.equal(users.listenerCount(USER_CREATED_EVENT), 1);
+  it("un écouteur par événement, et chacun rend sa promesse (émetteur qui attend)", async () => {
+    const { kernel } = onKernel();
+    assert.equal(kernel.listenerCount(USER_CREATED_EVENT), 1);
+    assert.equal(kernel.listenerCount(USER_REVOKED_EVENT), 1);
+    const [revoke] = kernel.listeners(USER_REVOKED_EVENT);
+    assert.ok(revoke!(evt("deleted")) instanceof Promise);
+  });
+});
+
+describe("usersEventBusNotice — un service `users` qui n'atteint pas le kernel se SIGNALE", () => {
+  const kernel = {};
+  const lookup = (users: unknown) => ({
+    get: (n: string) => (n === "users" ? users : undefined),
   });
 
-  it("sans service `users` (pas encore posé) → rien, et le dit", () => {
-    const { container } = factorsCtn();
-    assert.equal(bindUserCreatedPurge(container), false);
+  it("🔴 service construit sans container (kernel nul) → avis", () => {
+    const notice = usersEventBusNotice(lookup({ kernel: null }), kernel);
+    assert.equal(notice?.code, "USERS_SERVICE_WITHOUT_KERNEL");
+    assert.equal(notice?.level, "warning");
+  });
+
+  it("service câblé sur CE kernel → rien", () => {
+    assert.equal(usersEventBusNotice(lookup({ kernel }), kernel), null);
+  });
+
+  it("pas de service `users` → rien (une application peut s'en passer)", () => {
+    assert.equal(usersEventBusNotice(lookup(undefined), kernel), null);
   });
 });

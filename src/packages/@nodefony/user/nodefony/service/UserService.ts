@@ -1,5 +1,5 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
-import type { ServiceWiring } from "@nodefony/orm-core";
+import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
 import { countFacets } from "nodefony";
 import type { IPage, PartialInput } from "nodefony";
 import { USER_FACETS, type IUserCounts } from "../src/userFilters";
@@ -68,23 +68,29 @@ const DUMMY_PLAINTEXT = "nodefony.dummy.timing.guard";
  * (le credential est lu depuis le repository, le hash leurre est un cache immuable).
  *
  * Events propres (en plus des events CRUD hérités) : `onPasswordChanged`,
- * `onAuthenticated`, `onAuthenticationFailure` (avec {@link AuthFailureReason}),
- * et {@link USER_CREATED_EVENT}, ATTENDU par `create`.
+ * `onAuthenticated`, `onAuthenticationFailure` (avec {@link AuthFailureReason}).
+ *
+ * **Seul émetteur du cycle de vie d'un compte** : {@link USER_CREATED_EVENT} et
+ * {@link USER_REVOKED_EVENT} partent d'ICI, sur le bus du KERNEL, et sont
+ * attendus. Aucun transport (plan d'administration, CLI, contrôleur) ne les
+ * émet : un geste qui passe par le service déclenche la cascade, quel que soit
+ * le chemin qui l'a porté — c'est ce qui manquait aux deux portes HTTP de
+ * changement de mot de passe.
+ *
+ * Construit sans container (`new UserService(repo, encoder)`), il n'atteint pas
+ * le kernel et émet sur son propre bus : personne n'y écoute. Une application
+ * passe donc son container en troisième argument ; `@nodefony/security` le
+ * signale au bilan de démarrage sinon.
  *
  * @typeParam — fixé : `T = IPasswordAuthenticatedUser` (le repository est la
  *   frontière credential), `R = IUserRepository` (conserve les finders métier).
  */
 /**
- * Événement du service `users` — un compte vient d'être créé. Émis par
- * `fireAsync` et **attendu** : `create` ne rend la main qu'une fois ses
- * abonnés terminés (charge utile {@link IUserCreatedEvent}).
- *
- * Il passe par le bus du SERVICE, pas par celui du kernel : une application
- * construit souvent `new UserService(repo, encoder)` sans container, et ce
- * service-là n'atteint pas le kernel. `@nodefony/security` s'y abonne pour
- * retirer les facteurs (TOTP, passkeys) laissés sous le même identifiant par un
- * ancien titulaire — d'où l'attente : une connexion immédiate ne doit pas les
- * trouver encore là.
+ * Événement kernel — un compte vient d'être créé (charge utile
+ * {@link IUserCreatedEvent}). Émis par {@link UserService.create} et
+ * **attendu** : `@nodefony/security` y retire les facteurs (TOTP, passkeys)
+ * laissés sous le même identifiant par un ancien titulaire, et une connexion
+ * immédiate ne doit pas les trouver encore là.
  */
 export const USER_CREATED_EVENT = "onUserCreated";
 
@@ -94,6 +100,37 @@ export interface IUserCreatedEvent {
   readonly id: string;
   /** `IUser.identifier` — clé sous laquelle ses facteurs seront rangés. */
   readonly identifier: string;
+}
+
+/**
+ * Événement kernel — l'accès d'un compte doit être révoqué partout
+ * (suppression, désactivation, verrouillage, changement de mot de passe).
+ * **Point d'extension** : un module qui possède des artefacts liés à un compte
+ * (sessions, jetons, webhooks…) s'y abonne et nettoie LES SIENS — zéro couplage
+ * avec `@nodefony/user`. Émis par {@link UserService} seul, et attendu.
+ */
+export const USER_REVOKED_EVENT = "onUserRevoked";
+
+/**
+ * Charge utile de {@link USER_REVOKED_EVENT}. `identifier` = clé de jointure des
+ * artefacts (session `user`, PAT `subjectId`). `tenantId` = slot multi-tenant
+ * (toujours `null` en mono-tenant — réserve coût-0 pour une cascade scopée).
+ */
+export interface IUserRevokedEvent {
+  id: string;
+  identifier: string;
+  tenantId: string | null;
+  /**
+   * Ce qui a coupé l'accès du porteur.
+   *
+   * `password_changed` n'est pas une révocation de COMPTE — le compte reste
+   * actif — mais c'en est une de ses ACCÈS EN COURS : on change un mot de passe
+   * parce qu'il est perdu ou compromis, et laisser vivre les sessions ouvertes
+   * laisserait l'accès à qui l'a volé. La cascade est la même, et c'est le
+   * but : un seul canal, les abonnés futurs (webhooks) n'ont rien à savoir de
+   * la cause.
+   */
+  reason: "deleted" | "disabled" | "locked" | "password_changed";
 }
 
 export class UserService
@@ -148,8 +185,55 @@ export class UserService
       id: user.id,
       identifier: user.identifier,
     };
-    await this.fireAsync(USER_CREATED_EVENT, event);
+    await this.#emit(USER_CREATED_EVENT, event);
     return user;
+  }
+
+  /**
+   * Met à jour un compte (CRUD hérité). Une désactivation (`enabled: false`) ou
+   * un verrouillage (`locked: true`) émet {@link USER_REVOKED_EVENT} et en
+   * attend la cascade : ses sessions et ses jetons tombent avant le retour.
+   *
+   * @param criteria - cible de la mise à jour.
+   * @param data - champs à modifier.
+   * @returns le compte mis à jour, ou `null` si aucun ne correspond.
+   */
+  override async updateOne(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    data: PartialInput<IPasswordAuthenticatedUser>,
+  ): Promise<IPasswordAuthenticatedUser | null> {
+    const updated = await super.updateOne(criteria, data);
+    if (updated === null) return null;
+    // `enabled`/`locked` sont des champs de PERSISTANCE, absents du contrat
+    // `IUser` (qui n'expose que `isActive()`/`isLocked()`) : lus par `in`.
+    if ("enabled" in data && data.enabled === false) {
+      await this.#revoke(updated, "disabled");
+    } else if ("locked" in data && data.locked === true) {
+      await this.#revoke(updated, "locked");
+    }
+    return updated;
+  }
+
+  /**
+   * Supprime des comptes (CRUD hérité), puis émet {@link USER_REVOKED_EVENT}
+   * (`deleted`) pour CHACUN et en attend la cascade : sessions, jetons et
+   * facteurs (TOTP, passkeys) sont retirés avant le retour.
+   *
+   * Les comptes visés sont lus AVANT la suppression : après, il ne reste rien
+   * pour dire qui révoquer. Une lecture de plus sur une opération rare.
+   *
+   * @param criteria - filtre de sélection.
+   * @returns le nombre de comptes supprimés.
+   */
+  override async delete(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+  ): Promise<number> {
+    const targets = await this.find(criteria);
+    const removed = await super.delete(criteria);
+    if (removed > 0) {
+      for (const target of targets) await this.#revoke(target, "deleted");
+    }
+    return removed;
   }
 
   /**
@@ -258,7 +342,10 @@ export class UserService
    * Change le mot de passe d'un utilisateur — hache le clair avant persistance.
    *
    * Distinct du `update` générique : émet l'event credential `onPasswordChanged`,
-   * pas `onUpdated`.
+   * pas `onUpdated` — puis {@link USER_REVOKED_EVENT} (`password_changed`),
+   * attendu : toutes les sessions et tous les jetons du compte tombent, y
+   * compris la session de qui a fait le changement (le service ne connaît pas
+   * le transport ; ASVS 5.0 §7.4.3 en exige au moins les autres).
    *
    * @param id - identifiant interne ciblé.
    * @param plainPassword - nouveau mot de passe en clair.
@@ -277,8 +364,34 @@ export class UserService
     await this.#assertNotBlocked(plainPassword, target.identifier);
     const password = await this.encoder.hash(plainPassword);
     const updated = await this.repository.updateOne({ id }, { password });
-    if (updated !== null) this.fire("onPasswordChanged", updated);
+    if (updated !== null) {
+      this.fire("onPasswordChanged", updated);
+      await this.#revoke(updated, "password_changed");
+    }
     return updated;
+  }
+
+  /** Émet {@link USER_REVOKED_EVENT} pour un compte et en attend la cascade. */
+  #revoke(
+    user: { id: string; identifier: string },
+    reason: IUserRevokedEvent["reason"],
+  ): Promise<void> {
+    const event: IUserRevokedEvent = {
+      id: user.id,
+      identifier: user.identifier,
+      tenantId: null,
+      reason,
+    };
+    return this.#emit(USER_REVOKED_EVENT, event);
+  }
+
+  /**
+   * Émet un événement de cycle de vie sur le bus du KERNEL — celui où les
+   * modules s'abonnent — et en attend les abonnés. Sans kernel (service
+   * construit sans container), sur son propre bus.
+   */
+  async #emit(event: string, payload: object): Promise<void> {
+    await (this.kernel ?? this).fireAsync(event, payload);
   }
 
   /**

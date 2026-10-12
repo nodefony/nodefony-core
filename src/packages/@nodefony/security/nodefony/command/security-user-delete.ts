@@ -4,7 +4,7 @@ import {
   CliKernel,
   Command,
 } from "nodefony";
-import { USER_REVOKED_EVENT, type UserService } from "@nodefony/user";
+import type { UserService } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
   // Cette commande LIT ou ÉCRIT des comptes : il lui faut la base.
@@ -40,10 +40,10 @@ const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
  * seul recours est une écriture directe en base. Le même garde-fou existe côté
  * data plane (`UserAdminApi`) — ici il est constaté, pas supposé.
  *
- * Après la suppression, la commande émet `onUserRevoked` (`reason: "deleted"`)
- * et ATTEND la cascade de `@nodefony/security` : sessions et jetons éjectés,
- * secret TOTP et passkeys retirés. `users.delete` n'émet rien de lui-même —
- * c'est à l'appelant de le faire, comme le plan d'administration.
+ * La suppression passe par `users.delete`, qui émet `onUserRevoked`
+ * (`reason: "deleted"`) et ATTEND la cascade de `@nodefony/security` : sessions
+ * et jetons éjectés, secret TOTP et passkeys retirés. La commande n'émet rien
+ * elle-même — le service est le seul émetteur du cycle de vie d'un compte.
  */
 class SecurityUserDelete extends Command {
   constructor(cli: CliKernel) {
@@ -159,16 +159,9 @@ class SecurityUserDelete extends Command {
       process.exitCode = 1;
       return this;
     }
-    // Sessions, jetons ET facteurs (TOTP, passkeys) : la cascade de la
-    // suppression, la même que celle du plan d'administration. ATTENDUE — la
-    // commande rend la main juste après, et un compte recréé sous le même
-    // identifiant hériterait d'un second facteur resté en place.
-    await this.kernel?.fireAsync(USER_REVOKED_EVENT, {
-      id: user.id,
-      identifier: user.identifier,
-      tenantId: null,
-      reason: "deleted",
-    });
+    // Sessions, jetons ET facteurs (TOTP, passkeys) : `users.delete` a émis la
+    // révocation et attendu sa cascade, la même que pour le plan
+    // d'administration — la commande peut rendre la main.
     w(
       `${GREEN}✓ compte supprimé${RESET} — ${BOLD}${identifier}${RESET}\n` +
         `${DIM}  ses sessions, ses jetons et ses facteurs (2FA, passkeys) sont retirés.${RESET}\n\n`,

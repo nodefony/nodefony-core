@@ -88,11 +88,13 @@ export {
 export {
   UserService,
   USER_CREATED_EVENT,
+  USER_REVOKED_EVENT,
 } from "./nodefony/service/UserService";
 export type {
   ICreateUserInput,
   AuthFailureReason,
   IUserCreatedEvent,
+  IUserRevokedEvent,
 } from "./nodefony/service/UserService";
 
 // ─── Politique de mot de passe ───────────────────────────────────────────────
@@ -122,12 +124,8 @@ export {
   createUserAdminApi,
   registerUserAdminApi,
   toUserSummary,
-  USER_REVOKED_EVENT,
 } from "./nodefony/src/admin/UserAdminApi";
-export type {
-  IUserSummary,
-  IUserRevokedEvent,
-} from "./nodefony/src/admin/UserAdminApi";
+export type { IUserSummary } from "./nodefony/src/admin/UserAdminApi";
 export type { IUserProfile } from "./nodefony/contracts/IUserProfile";
 export {
   validateProfilePatch,

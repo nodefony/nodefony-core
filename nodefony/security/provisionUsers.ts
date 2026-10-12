@@ -138,7 +138,11 @@ export async function provisionUsers(module: Module): Promise<void> {
     // Annuaire volatil : seedé par construction (hashs pré-calculés) → 0 coût au boot.
     container.set(
       "users",
-      new UserService(new InMemoryUserRepository(DEV_USERS_INMEMORY), encoder),
+      new UserService(
+        new InMemoryUserRepository(DEV_USERS_INMEMORY),
+        encoder,
+        container,
+      ),
     );
     module.log(
       `Service "users" = InMemoryUserRepository (NF_USER_STORE=memory) — ` +
@@ -169,6 +173,7 @@ export async function provisionUsers(module: Module): Promise<void> {
         orm as Parameters<typeof MongooseUserRepository.from>[0],
       ),
       encoder,
+      container,
     );
     container.set("users", users);
     // Backend RÉSEAU (MongoDB) → emplacement = l'infra déclarée, surfacée à part.
@@ -192,7 +197,11 @@ export async function provisionUsers(module: Module): Promise<void> {
   // dessous est franc, ce qui est le comportement voulu (une demande non
   // honorable ne se remplace pas en silence).
   const orm = ormRegistry.get("default") as DrizzleOrm;
-  const users = new UserService(DrizzleUserRepository.from(orm), encoder);
+  const users = new UserService(
+    DrizzleUserRepository.from(orm),
+    encoder,
+    container,
+  );
   container.set("users", users);
   // Emplacement physique = base SQLite du connecteur "default" (var/databases/…).
   registerUserResolution(

@@ -86,7 +86,10 @@ describe("security:user:password — changer le mot de passe coupe les accès", 
     ]);
   });
 
-  it("émet la révocation — sessions et jetons tombent", async () => {
+  it("n'émet RIEN elle-même : la révocation appartient à `changePassword` (#589)", async () => {
+    // Le service est le seul émetteur du cycle de vie d'un compte — une
+    // seconde émission ici doublerait la cascade. Que `changePassword` émette
+    // est éprouvé côté `@nodefony/user` et par le banc live.
     const fired: IFiredEvent[] = [];
     const spy: IUsersSpy = {
       changePassword: [],
@@ -95,13 +98,8 @@ describe("security:user:password — changer le mot de passe coupe les accès", 
     await makeCommand(spy, fired, []).generate("bob", {
       password: "s3cr3t-long",
     });
-    expect(fired).toHaveLength(1);
-    expect(fired[0]!.name).toBe("onUserRevoked");
-    expect(fired[0]!.payload).toMatchObject({
-      id: "u-42",
-      identifier: "bob",
-      reason: "password_changed",
-    });
+    expect(spy.changePassword).toHaveLength(1);
+    expect(fired).toHaveLength(0);
   });
 
   it("compte inconnu : rien n'est changé, rien n'est révoqué", async () => {

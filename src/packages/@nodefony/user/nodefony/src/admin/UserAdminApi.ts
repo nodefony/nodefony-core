@@ -221,66 +221,6 @@ function auditSelf(
   });
 }
 
-/**
- * Nom de l'événement kernel émis quand l'accès d'un utilisateur doit être révoqué
- * partout (suppression / désactivation / verrouillage). **Point d'extension** : un
- * module qui possède des artefacts liés à un user (sessions, tokens, webhooks…)
- * s'y abonne et nettoie LES SIENS — zéro couplage avec `@nodefony/user`.
- */
-export const USER_REVOKED_EVENT = "onUserRevoked";
-
-/**
- * Charge utile de {@link USER_REVOKED_EVENT}. `identifier` = clé de jointure des
- * artefacts (session `user`, PAT `subjectId`). `tenantId` = slot multi-tenant
- * (toujours `null` en mono-tenant — réserve coût-0 pour une cascade scopée).
- */
-export interface IUserRevokedEvent {
-  id: string;
-  identifier: string;
-  tenantId: string | null;
-  /**
-   * Ce qui a coupé l'accès du porteur.
-   *
-   * `password_changed` n'est pas une révocation de COMPTE — le compte reste
-   * actif — mais c'en est une de ses ACCÈS EN COURS : on change un mot de passe
-   * parce qu'il est perdu ou compromis, et laisser vivre les sessions ouvertes
-   * laisserait l'accès à qui l'a volé. La cascade est la même, et c'est le
-   * but : un seul canal, les abonnés futurs (webhooks) n'ont rien à savoir de
-   * la cause.
-   */
-  reason: "deleted" | "disabled" | "locked" | "password_changed";
-}
-
-interface KernelEmitterLike {
-  fireAsync(event: string, ...args: unknown[]): Promise<unknown>;
-}
-
-/**
- * Émet {@link USER_REVOKED_EVENT} sur le bus kernel (no-op si pas de kernel).
- * Déclenche la cascade de révocation chez tous les abonnés (sessions, tokens,
- * webhooks futurs). L'accès était DÉJÀ neutralisé par le re-fetch des
- * authenticators ; ceci force le nettoyage immédiat (défense en profondeur).
- *
- * ATTENDU (`fireAsync`) : à la suppression, la cascade retire aussi les facteurs
- * du compte (TOTP, passkeys), rangés sous son `identifier`. Répondre avant la fin
- * laisserait un compte recréé aussitôt sous le même identifiant hériter du
- * second facteur de l'ancien.
- */
-async function emitUserRevoked(
-  container: Container,
-  user: { id: string; identifier: string },
-  reason: IUserRevokedEvent["reason"],
-): Promise<void> {
-  const kernel = container.get("kernel") as KernelEmitterLike | undefined;
-  const event: IUserRevokedEvent = {
-    id: user.id,
-    identifier: user.identifier,
-    tenantId: null,
-    reason,
-  };
-  await kernel?.fireAsync(USER_REVOKED_EVENT, event);
-}
-
 /** Tableau de strings non vides depuis une valeur inconnue, ou `undefined`. */
 function readRoles(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
@@ -689,13 +629,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
         audit(container, "user.updated", actor.label, target.id, {
           fields: Object.keys(patch),
         });
-        // Désactivation/verrouillage = révocation d'accès → cascade immédiate
-        // (le re-fetch suffisait déjà ; ceci éjecte sessions/tokens sans attendre).
-        if (patch.enabled === false) {
-          await emitUserRevoked(container, target, "disabled");
-        } else if (patch.locked === true) {
-          await emitUserRevoked(container, target, "locked");
-        }
+        // Désactivation/verrouillage : `UserService.updateOne` émet la
+        // révocation et en attend la cascade (sessions, jetons).
         return toUserSummary(updated);
       },
     },
@@ -947,9 +882,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
         audit(container, "user.deleted", actor.label, target.id, {
           identifier: target.identifier,
         });
-        // Cascade : éjecte sessions + tokens (PAT) et retire les facteurs
-        // (TOTP, passkeys) — attendue avant de répondre.
-        await emitUserRevoked(container, target, "deleted");
+        // Cascade (sessions, jetons, facteurs) : émise par `UserService.delete`,
+        // attendue avant de répondre.
         return { ok: true };
       },
     },

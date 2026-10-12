@@ -7,7 +7,6 @@ import {
   AUTH_LOGIN_PATH,
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
-import { USER_REVOKED_EVENT } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
   // Cette commande LIT ou ÉCRIT des comptes : il lui faut la base.
@@ -47,10 +46,10 @@ const RESET = "\x1b[0m";
  *
  * 🔒 **Les sessions et les jetons du compte sont RÉVOQUÉS**, et ce n'est pas une
  * option : on change un mot de passe parce qu'il est compromis ou perdu, et
- * laisser vivre les sessions ouvertes laisserait l'accès à qui l'a volé. La
- * révocation passe par l'événement que la suppression emploie déjà — une
- * cascade, un seul canal, et les abonnés futurs (webhooks) en profitent sans
- * rien changer ici.
+ * laisser vivre les sessions ouvertes laisserait l'accès à qui l'a volé.
+ * `UserService.changePassword` émet la révocation lui-même — la même que pour
+ * le plan d'administration et la page « mon mot de passe » : un seul émetteur,
+ * aucun transport ne peut l'oublier.
  */
 class SecurityUserPassword extends Command {
   constructor(cli: CliKernel) {
@@ -158,15 +157,8 @@ class SecurityUserPassword extends Command {
       return this;
     }
 
-    // Sessions et jetons : on réutilise la cascade de la suppression plutôt que
-    // d'éjecter à la main. Émettre ne peut pas échouer bruyamment (les abonnés
-    // sont best-effort), mais l'absence de kernel doit rester silencieuse.
-    await this.kernel?.fireAsync(USER_REVOKED_EVENT, {
-      id: user.id,
-      identifier: user.identifier,
-      tenantId: null,
-      reason: "password_changed",
-    });
+    // Sessions et jetons : `changePassword` a émis la révocation
+    // (`password_changed`) et attendu sa cascade — rien à émettre ici.
 
     process.stdout.write(
       `\n${GREEN}✓ mot de passe changé${RESET} — ${BOLD}${user.identifier}${RESET}\n` +

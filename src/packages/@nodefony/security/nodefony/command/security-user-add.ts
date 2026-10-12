@@ -8,7 +8,6 @@ import {
 } from "nodefony";
 import { WeakPasswordError } from "@nodefony/user";
 import type { UserService } from "@nodefony/user";
-import { bindUserCreatedPurge } from "../src/admin/userRevocationCascade";
 
 const options: OptionsCommandInterface = {
   // Cette commande LIT ou ÉCRIT des comptes : il lui faut la base.
@@ -210,11 +209,6 @@ class SecurityUserAdd extends Command {
     } else {
       roles = [ROLE_BASE];
     }
-    // Une commande intégrée s'exécute AVANT les écouteurs `onPostReady` des
-    // modules : on abonne ici la purge des facteurs hérités d'un ancien
-    // titulaire de cet identifiant (idempotent).
-    const container = this.kernel?.container;
-    if (container) bindUserCreatedPurge(container);
     let user;
     try {
       user = await users.createUser({
