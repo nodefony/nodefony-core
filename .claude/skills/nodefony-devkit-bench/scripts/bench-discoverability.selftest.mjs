@@ -1923,6 +1923,51 @@ const SAMPLES = {
     },
   },
 
+  // ── T42 — une route qui répond 404 ────────────────────────────────────────
+  "42 :: a chargé le skill de dépannage": {
+    pass: { transcript: `{"skill":"nodefony-troubleshoot"}` },
+    fail: { transcript: `{"skill":"nodefony-dev"}` },
+    extra: [
+      {
+        label: "reconnaît le skill ouvert par son chemin",
+        matter: {
+          transcript: `{"file_path":"/app/.agents/skills/nodefony-troubleshoot/SKILL.md"}`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "42 :: a constaté par doctor ou inspect routes": {
+    pass: { transcript: `{"command":"npx nodefony inspect routes --json"}` },
+    fail: {
+      transcript: `{"command":"cat nodefony/controllers/StockController.ts"}`,
+    },
+    extra: [
+      {
+        label: "reconnaît doctor",
+        matter: { transcript: `{"command":"npx nodefony doctor"}` },
+        expect: true,
+      },
+    ],
+  },
+  "42 :: la classe orpheline est déclarée": {
+    pass: {
+      addedTs: `import StockController from "./nodefony/controllers/StockController";`,
+    },
+    fail: { addedTs: `@controller("/api/stock")` },
+  },
+  "42 :: aucune route refaite à côté": {
+    // Sonde INVERSÉE : le `pass` déclare la classe, le `fail` refait la route.
+    pass: { addedTs: "  StockController," },
+    fail: { addedTs: `@controller("/api/stock")` },
+  },
+  "42 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { addedTs: "  StockController," },
+    fail: {
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
+
   "34 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
       added: `    use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),`,

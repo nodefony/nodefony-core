@@ -109,6 +109,7 @@ import {
   MARQUE_CONNEXION,
   ORIGINE_PARTENAIRE,
   PAGE_COMPTE,
+  CONTROLLER_EN_PANNE,
   PAGE_ESPACE,
   PAGE_WIDGET,
   REPERE_PREFIXE_COMPTE,
@@ -119,6 +120,7 @@ import {
   ROUTE_COMPTE_PROFIL,
   ROUTE_FACTURATION,
   ROUTE_IMPORT,
+  ROUTE_EN_PANNE,
   ROUTE_MACHINE,
   ROUTE_RAPPORT_MACHINE,
   ROUTE_SYNTHESE,
@@ -815,6 +817,13 @@ const JUGE_SCRIPT_API = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-script-api.mjs",
+);
+
+/** Juge « la route en panne répond de nouveau, servie par son controller ». */
+const JUGE_ROUTE_RETABLIE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-route-retablie.mjs",
 );
 
 /** Juge « deux facteurs et une connexion récente pour l'action sensible ». */
@@ -4970,6 +4979,73 @@ export const TASKS = [
             `npm run build >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_SCRIPT_API}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+  {
+    id: 42,
+    name: "une route qui répond 404",
+    // La PANNE la plus fréquente d'une application : une classe que rien ne
+    // déclare. Le générateur écrit le controller ET sa déclaration ; le décor
+    // remet `index.ts` dans son état d'avant. Le fichier existe, compile,
+    // passe le typage — et la route répond 404. `doctor` la nomme, `inspect
+    // routes` montre qu'elle n'est pas montée ; une lecture des sources, elle,
+    // voit un controller parfaitement écrit. C'est la tâche qui mesure le skill
+    // de dépannage : combien de tours entre le symptôme et le bon geste.
+    //
+    // Le contournement naturel est de refaire la route ailleurs (un autre
+    // controller, une route ajoutée au voisin) : l'URL répond, la classe reste
+    // orpheline. Le juge exige la réponse du controller D'ORIGINE.
+    prepare:
+      `npx --no-install nodefony create controller ${CONTROLLER_EN_PANNE} ` +
+      `--route ${ROUTE_EN_PANNE} >/dev/null && git checkout -- index.ts && ` +
+      `test -f nodefony/controllers/${CONTROLLER_EN_PANNE}Controller.ts && ` +
+      `! grep -q ${CONTROLLER_EN_PANNE}Controller index.ts`,
+    prompt:
+      `Ma route GET ${ROUTE_EN_PANNE} répond 404. Son code est pourtant toujours là. ` +
+      "Trouve pourquoi et répare-la, sans la réécrire. Termine en prouvant que les " +
+      "tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a chargé le skill de dépannage",
+        /"skill"\s*:\s*"nodefony-troubleshoot"|skills\/nodefony-troubleshoot\/SKILL\.md/u,
+      ),
+      sondeLecture(
+        "a constaté par doctor ou inspect routes",
+        /nodefony\s+(?:doctor|check|inspect\s+routes)/u,
+      ),
+      {
+        // JUGÉ. La réparation est la déclaration de la classe orpheline.
+        kind: "code",
+        name: "la classe orpheline est déclarée",
+        pattern: new RegExp(`${CONTROLLER_EN_PANNE}Controller`, "u"),
+        where: "addedTs",
+      },
+      {
+        // JUGÉ. Une seconde classe sur la même route : l'URL refaite à côté.
+        kind: "code",
+        name: "aucune route refaite à côté",
+        pattern: new RegExp(
+          `@controller\\(\\s*["'\`]${ROUTE_EN_PANNE}["'\`]`,
+          "u",
+        ),
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        kind: "gate",
+        name: "la route répond, servie par son controller d'origine",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_ROUTE_RETABLIE} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_ROUTE_RETABLIE}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

@@ -421,11 +421,12 @@ export const IMPUTATIONS = Object.freeze({
   // introuvable — ou une page qui fait planter le navigateur. Rien ne dit
   // lequel des deux.
   "navigateur-indisponible": INDETERMINE,
-  // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
-  // du logiciel produit, il dit que l'instrument est parti sans son jeton.
-  // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —
-  // c'est exactement ce qui est arrivé, pendant que le banc validait la seule
-  // route qui ne résistait pas : celle qui n'était pas protégée.
+
+  // ─── Une route qui répond 404 (tâche 42) ─────────────────────────────────
+  "route-toujours-absente": AGENT,
+  // 200, mais pas le controller d'origine : l'URL a été refaite ailleurs au
+  // lieu de remonter la classe que rien ne déclarait — un contournement.
+  "route-remplacee": AGENT,
 });
 
 /**

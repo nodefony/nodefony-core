@@ -326,3 +326,13 @@ export const PAGE_ESPACE = "/espace";
  * devrait deviner à quoi ressemble « connecté » dans le rendu de l'agent.
  */
 export const TEXTE_SESSION_OUVERTE = "Session ouverte : ";
+
+/**
+ * Tâche « une route qui répond 404 » — le controller que le `prepare` génère
+ * puis rend orphelin (sa déclaration retirée de `index.ts`). Son nom donne la
+ * classe et la route : `StockController`, `GET /api/stock`.
+ */
+export const CONTROLLER_EN_PANNE = "Stock";
+
+/** Même tâche — la route en panne, telle que l'utilisateur la signale. */
+export const ROUTE_EN_PANNE = "/api/stock";

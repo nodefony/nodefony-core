@@ -2921,6 +2921,10 @@
                 "help": ""
               },
               {
+                "name": "CONTROLLER_EN_PANNE",
+                "help": ""
+              },
+              {
                 "name": "COULEUR_CONNEXION",
                 "help": ""
               },
@@ -2986,6 +2990,10 @@
               },
               {
                 "name": "JUGE_ROLE_HIERARCHY",
+                "help": ""
+              },
+              {
+                "name": "JUGE_ROUTE_RETABLIE",
                 "help": ""
               },
               {
@@ -3126,6 +3134,10 @@
               },
               {
                 "name": "ROUTE_DEPOT",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_EN_PANNE",
                 "help": ""
               },
               {
