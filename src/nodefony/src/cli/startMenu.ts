@@ -291,9 +291,9 @@ export const NPM_SCRIPT_CATALOG: readonly {
 }[] = [
   {
     script: "verify",
-    summary: "typecheck + lint + tests + check",
+    summary: "typecheck + lint + format + env + tests + build + doctor",
     group: "Qualité — la passe (npm run)",
-    when: "LA passe avant de dire « fait » : typecheck + lint + tests + check, dans cet ordre. Les tests seuls ne typecheckent rien.",
+    when: "LA passe avant de dire « fait » : typecheck, lint, format:check, env:check, test, build, doctor, dans cet ordre. Les tests seuls ne typecheckent rien.",
   },
   {
     script: "test",

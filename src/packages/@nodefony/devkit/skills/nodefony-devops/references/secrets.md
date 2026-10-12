@@ -47,15 +47,29 @@ qu'aucun certificat auto-signé de ta machine ne descende en production.
 | `NF_CSRF_SECRET`    | Les jetons anti-CSRF                                           | **oui** — sinon un jeton émis par un exemplaire est refusé par l'autre |
 | `NF_TOTP_KEY`       | Le chiffrement au repos des secrets de double authentification | **oui** — sinon les seconds facteurs deviennent illisibles             |
 | `NF_WEBHOOK_KEY`    | Le chiffrement des signatures de webhooks                      | **oui**                                                                |
+| `NF_JWT_KEYSET`     | La clé qui signe les jetons (privée)                           | **oui** — sinon chaque exemplaire refuse les jetons des autres         |
 | `NF_ADMIN_PASSWORD` | Le compte d'administration                                     | —                                                                      |
 
 > 🔴 **Le partage entre exemplaires n'est pas un détail de confort.** Un secret différent par
 > exemplaire produit des échecs **intermittents** — une requête sur deux, selon le répartiteur.
 > C'est le symptôme le plus coûteux à diagnostiquer, parce qu'il ressemble à un problème réseau.
 
-`NF_ADMIN_PASSWORD` a un défaut en développement. **En production il est obligatoire** : sans lui,
-aucun compte d'administration n'est créé et le démarrage échoue — volontairement, plutôt que de
-créer un compte avec un mot de passe connu de tout le monde.
+**Lesquels arrêtent le démarrage en production** : `NF_CSRF_SECRET` toujours, `NF_JWT_KEYSET`
+dès que l'application émet des jetons. Sans `NF_TOTP_KEY` ou `NF_WEBHOOK_KEY`, l'application
+démarre mais la brique se désactive (double authentification, webhooks), avec un journal CRITIC.
+
+```bash
+npx nodefony security:secrets --env          # les secrets, en lignes CLÉ=valeur (--env-file, gestionnaire)
+npx nodefony security:secrets --jwt-keyset   # la valeur de NF_JWT_KEYSET — une ligne JSON, clé PRIVÉE
+```
+
+Une valeur par ENVIRONNEMENT (staging ≠ production), générée une fois, rangée dans le
+gestionnaire de secrets ; ne laisse traîner aucun fichier qui la contient.
+
+`NF_ADMIN_PASSWORD` a un défaut en développement, aucun en production : sans lui, le premier
+démarrage ne crée **aucun** compte d'administration — plutôt qu'un compte au mot de passe connu de
+tout le monde. Il ne sert qu'à ce premier démarrage ; `npx nodefony security:user:add <id> --admin`
+fait le même geste à la main.
 
 ## 5. Les monter, pas les poser en clair
 

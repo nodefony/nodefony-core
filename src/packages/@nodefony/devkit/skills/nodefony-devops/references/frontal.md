@@ -34,7 +34,11 @@ Conséquence si tu ne le poses pas : le schéma constaté est `http`, donc :
   sécurisée. Les sessions ne tiennent pas, **sans aucun message** ;
 - l'adresse cliente enregistrée est celle du frontal, donc l'audit et toute limitation par adresse
   portent sur une seule IP ;
-- les redirections peuvent pointer sur `http://`.
+- les redirections peuvent pointer sur `http://` ;
+- **toute connexion par mot de passe répond `403`** (« doit passer par HTTPS ») : en production,
+  un secret reçu sur une requête que l'application croit en clair est refusé avant toute
+  vérification. `security.allowInsecureCredentials` n'est PAS la correction — elle accepterait
+  vraiment le clair ; la correction est cette variable.
 
 ```yaml
 NF__HTTP__TRUSTPROXY: uniquelocal # le frontal est sur un réseau privé

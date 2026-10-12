@@ -605,7 +605,7 @@ Au boot, avec le debug actif, chaque route est aussi journalisée en une ligne
 | --- | --- | --- |
 | 404 sur toutes les routes d'un contrôleur | `@controller` évalué avant les `@route`/`@Get` de la classe | Placer `@controller` **au-dessus** de la classe, décorateurs de méthode dans la classe |
 | 404 sur une route pourtant écrite | Le fichier du contrôleur n'est jamais importé — les routes naissent à l'import | Le déclarer dans `@controllers([…])` du module |
-| `405` alors que la méthode « est déclarée » | `method: "GET"` dans `@route` n'est **pas** filtrant | Utiliser `requirements: { methods: ["GET"] }` ou `@Get` |
+| `405` sur un `POST` qui marchait | `method: "GET"` dans `@route` est **filtrant** : il est versé dans `requirements.methods` (`Route.ts`), `HEAD` reste servi avec `GET` | Déclarer toutes les méthodes servies : `method: ["GET", "POST"]` |
 | Une route paramétrée avale un chemin littéral | Premier match dans l'ordre de déclaration, aucune spécificité | Déclarer le littéral **avant** le paramétré |
 | `/files/*` ne répond pas sur `/files` | Le slash final est retiré avant le matching ; le motif exige `/files/` | Déclarer une seconde route pour le chemin nu |
 | `{id}` ne capture pas `a/b` | Une variable vaut `[^/]+` — un seul segment, par construction | Utiliser un wildcard `*` si le `/` doit être capturé |

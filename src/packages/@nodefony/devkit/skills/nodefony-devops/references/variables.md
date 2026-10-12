@@ -19,8 +19,11 @@ npx nodefony inspect schema <module>        # les clés qui EXISTENT, leur type,
 npx nodefony doctor --env production        # ce qui manquerait là-bas, depuis ici
 ```
 
-> 🔴 **`inspect schema` avant d'écrire une clé.** Une clé inconnue n'est pas refusée : elle est
-> **retirée en silence** à la validation. Tu poses le réglage, rien ne change, rien ne le dit.
+> 🔴 **`inspect schema` avant d'écrire une clé.** Une clé inconnue **arrête le démarrage**
+> (code 78) en la nommant — y compris une clé qu'une version du framework a retirée, que tu
+> découvres alors au premier déploiement après un `npm update`. Ce qui reste muet, c'est une
+> **variable** mal orthographiée (`NF_PROT` au lieu de `NF_PORT`) : inconnue, donc ignorée, et
+> seul `npx nodefony env` la montre.
 
 ## 2. Deux grammaires, et elles ne font pas la même chose
 
@@ -53,6 +56,27 @@ NF__SECURITY__CORS__ORIGINS=https://a.com,https://b.com     # la virgule fait un
 booléen, un nombre devient un nombre, `[…]` et `{…}` sont lus en JSON, une chaîne à virgules
 devient un tableau, le reste reste une chaîne. C'est ce qui évite le piège classique où la chaîne
 `"false"` est convertie en booléen **vrai**.
+
+### `NF_<MODULE>_<RÉGLAGE>` — les noms courts des modules
+
+Un module déclare sur un champ de son schéma le nom court qui le règle (`NF_REDIS_HOST`,
+`NF_REALTIME_DRIVER`…). `npx nodefony env --example` les écrit dans `.env.example`, une section
+par module. Trois règles, toutes au démarrage :
+
+- La valeur est **validée par le schéma** : `NF_REDIS_PORT=abc` arrête le démarrage (78) en
+  nommant la VARIABLE, pas le seul champ.
+- **Nom court ET `NF__…` sur le même champ** : refus du démarrage en production (78) ; en
+  développement, `NF__…` l'emporte avec un avertissement qui nomme les deux.
+- Chaque nom court accepte `<NOM>_FILE` ; une variable vide vaut absente.
+
+### Lire la notice `.env.example`
+
+Chaque variable y porte ses métadonnées : `@required` / `@optional`, `@required=forEnv(production)`,
+`@requiredWhen="…"` (exigée sous condition — `NF_JWT_KEYSET` : « en production, si l'application
+émet des jetons »), `@sensitive`, `@default`, et **`@placement`**, qui dit où la poser en
+production : `platform` (variables du déploiement), `secrets` (gestionnaire de secrets, ou
+`<NOM>_FILE`), `workstation` (le poste seulement — ne la pose pas en production).
+`npm run env:check` échoue (78) quand la notice a dérivé d'`env.ts`.
 
 ## 3. Le suffixe `_FILE` — les secrets montés
 
@@ -102,23 +126,32 @@ Les seules qui te concernent au déploiement. Le catalogue complet, c'est `npx n
 
 ### Données
 
-| Variable          | Rôle                   | Absente ⇒                                            |
-| ----------------- | ---------------------- | ---------------------------------------------------- |
-| `NF_DATABASE_URL` | L'URL de la base       | **Repli sur SQLite local**, dans `var/` — silencieux |
-| `NF_REDIS_URL`    | L'URL du cache partagé | Le cache n'est pas chargé                            |
+| Variable          | Rôle                   | Absente ⇒                                         |
+| ----------------- | ---------------------- | ------------------------------------------------- |
+| `NF_DATABASE_URL` | L'URL de la base       | **Repli sur SQLite local**, dans `var/` — annoncé |
+| `NF_REDIS_URL`    | L'URL du cache partagé | Le cache n'est pas chargé                         |
 
 > Le repli SQLite est le piège d'exploitation classique : l'application **démarre**, sert des
-> requêtes, écrit dans un fichier — et chaque exemplaire a sa propre base. Rien n'est en erreur.
-> `npx nodefony env` le montre en une ligne.
+> requêtes, écrit dans un fichier — et chaque exemplaire a sa propre base. Il est ANNONCÉ
+> (avertissement au démarrage, point `DB_SQLITE_FALLBACK` dans `npx nodefony status --json`),
+> mais rien n'échoue : lis le bilan du démarrage. Seule exception : si une entité est écrite pour
+> un autre moteur (PostgreSQL, MySQL), le repli est **refusé** et le démarrage s'arrête.
 
-### Secrets — obligatoires en production
+### Secrets — ce qui se passe en production sans eux
 
-| Variable            | Ce qu'il protège                                 |
-| ------------------- | ------------------------------------------------ |
-| `NF_CSRF_SECRET`    | Les jetons anti-CSRF, partagés entre exemplaires |
-| `NF_TOTP_KEY`       | Les secrets de double authentification au repos  |
-| `NF_WEBHOOK_KEY`    | Les signatures de webhooks                       |
-| `NF_ADMIN_PASSWORD` | Le compte d'administration                       |
+| Variable            | Ce qu'il protège                                 | Absente en production ⇒                             |
+| ------------------- | ------------------------------------------------ | --------------------------------------------------- |
+| `NF_CSRF_SECRET`    | Les jetons anti-CSRF, partagés entre exemplaires | **Refus de démarrer** (78)                          |
+| `NF_JWT_KEYSET`     | La clé de signature des jetons, commune à tous   | **Refus de démarrer** si l'app émet des jetons      |
+| `NF_TOTP_KEY`       | Les secrets de double authentification au repos  | Double authentification désactivée (journal CRITIC) |
+| `NF_WEBHOOK_KEY`    | Les signatures de webhooks                       | Webhooks désactivés (journal CRITIC)                |
+| `NF_ADMIN_PASSWORD` | Le compte d'administration, au PREMIER démarrage | Aucun compte créé ; inutile une fois le compte créé |
+
+`NF_JWT_KEYSET` manque presque toujours au premier déploiement : sans elle, un exemplaire qui
+émet des jetons **refuse de démarrer** en production (78) — et deux exemplaires à clés
+différentes refuseraient chacun les jetons de l'autre. `npx nodefony security:secrets --jwt-keyset`
+la produit (une ligne JSON) ; `--env` rend les autres secrets en lignes `CLÉ=valeur`, prêtes pour
+`docker run --env-file` ou un gestionnaire de secrets.
 
 Tous en `_FILE` en production. Détail et rotation → [`secrets.md`](secrets.md).
 
@@ -129,7 +162,7 @@ Tous en `_FILE` en production. Détail et rotation → [`secrets.md`](secrets.md
 | `NF_POD_NAME`                     | Identité de l'exemplaire — **dérive l'identité d'origine du bus temps réel** |
 | `NF_INSTANCE_ID`                  | Identifiant d'exemplaire                                                     |
 | `NF_REALTIME_DRIVER`              | Le transport du bus entre exemplaires                                        |
-| `NF_REALTIME_BACKPLANE_SECRET`    | Scelle les enveloppes échangées sur le bus                                   |
+| `NF_REALTIME_BACKPLANE_SECRET`    | Scelle les enveloppes du bus — moins de 32 caractères arrête le démarrage    |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | Cloisonne deux applications qui partagent le même bus                        |
 
 > 🔴 **Deux applications sur un même cache, sans espace de noms distinct, se parlent.** Le symptôme

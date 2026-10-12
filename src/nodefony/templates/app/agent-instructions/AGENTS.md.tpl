@@ -5,7 +5,7 @@
 > **N'invente jamais du code Nodefony : génère-le, imite-le, vérifie-le.**
 > Trois actes pour toute tâche : **LIRE** (ce fichier, puis la doc pointée) →
 > **GÉNÉRER** (`npx nodefony create …` produit du vrai code, à imiter) →
-> **VÉRIFIER** (`npm run verify` — UNE commande : types + lint + tests + câblage).
+> **VÉRIFIER** (`npm run verify` — UNE commande : types, style, tests, build, câblage).
 >
 > **Le réflexe, avant d'écrire le MOINDRE fichier** : un générateur le
 > produit-il ? Écrire à la main un CRUD, un controller, une entité ou un
@@ -26,6 +26,10 @@
 > compile pas), à recopier dans tout `<script>` en ligne. Ne touche JAMAIS
 > `this.response` à la main : poser `Content-Type` toi-même court-circuite la
 > négociation, et un `this.response as any` est le signal que tu as raté la façade.
+> Un flux d'événements (progression, réponse qui s'écrit mot à mot) se rend aussi par une
+> façade : `const sse = await this.renderSse()`, puis `sse.send(data, { event })` et
+> `sse.close()` ; côté navigateur, `NodefonySse` (`nodefony/client`). Jamais
+> `text/event-stream` écrit à la main.
 >
 > **Tu LIS une liste ?** Elle se BORNE, toujours. Le service d'une entité hérite
 > `findPage({ limit: 25 })` — il ne charge que `limit + 1` lignes et rend
@@ -54,7 +58,7 @@
 | Controller **réservé à une habilitation** — garde de classe + rôle déclaré dans la hiérarchie           | `npx nodefony create controller <nom> --role ROLE_X`                                             |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string:unique price:float"`                      |
 | Service métier seul — la logique réutilisable, hors de tout controller                                  | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]`                     |
-| Frontend Vite — page, formulaire de connexion et temps réel LIVRÉS                                      | `npx nodefony create front <nom> --frontend <<%= it.frontendEngines %>> [--module <m>]`        |
+| Frontend Vite — page, bouton de connexion (vers `/login`) et temps réel LIVRÉS                          | `npx nodefony create front <nom> --frontend <<%= it.frontendEngines %>> [--module <m>]`        |
 | Commande CLI `nodefony <module>:<action>`                                                               | `npx nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
 
 **Ces dossiers ne s'écrivent JAMAIS à la main** — y déposer un fichier signifie
@@ -196,7 +200,7 @@ s'enrichit, ta mémoire non.
 ## Gates — vérifier avant de dire « fait »
 
 ```bash
-npm run verify        # ⬅ LA commande. typecheck + lint + tests + doctor, dans cet ordre
+npm run verify        # ⬅ LA commande. typecheck, lint, format:check, env:check, test, build, doctor
 ```
 
 **Une seule à retenir, et c'est délibéré.** Les gates ci-dessous existent séparément
@@ -208,6 +212,8 @@ au premier rouge, et ce rouge est ta tâche suivante.
 ```bash
 npm run typecheck     # types — le seul gate que le build ne fait PAS à ta place
 npm run lint          # style et pièges
+npm run format:check  # mise en forme — `npm run format` la corrige
+npm run env:check     # `.env.example` à jour avec `env.ts` — `npx nodefony env --example` le réécrit
 npm test              # unitaires, rapides, zéro serveur
 npm run doctor        # diagnostic : câblage, install, + BILAN du dernier démarrage
 npm run test:e2e      # boot RÉEL + HTTP/WS (build inclus) — HORS `verify` : c'est le gate LENT
@@ -299,11 +305,24 @@ D'ABORD, ta session ENSUITE.
 routes existent, et elles sont montées par `@nodefony/framework`, PAS par `@nodefony/security`
 (le chemin porte le nom du module qui décrit la sécurité, pas de celui qui sert les routes —
 c'est le piège) : `POST /nodefony/security/api/auth/login` (`{username, password}` → pose le
-cookie de session), `GET /nodefony/security/api/auth/me` (**qui est connecté**, avec ses rôles)
-et `POST /nodefony/security/api/auth/logout` (idempotent). Mesuré sur un agent tiers : faute de
-trouver `me`, il a généré un controller `Account` entier pour refaire une route qui existait, et
-lui a fallu cinq recherches pour trouver `logout`. Le rechargement d'une page (F5) se restaure
-avec `me`, jamais avec un état gardé côté navigateur.
+cookie de session ; `202` = second facteur requis, PAS encore connecté),
+`GET /nodefony/security/api/auth/me` et `POST /nodefony/security/api/auth/logout` (idempotent).
+Mesuré sur un agent tiers : faute de trouver `me`, il a généré un controller `Account` entier
+pour refaire une route qui existait, et lui a fallu cinq recherches pour trouver `logout`. Le
+rechargement d'une page (F5) se restaure avec `me`, jamais avec un état gardé côté navigateur.
+⚠️ `me` répond **TOUJOURS `200`** : `{ user: null }` sans session, sinon
+`{ user: { id, identifier, roles } }`. Teste `user`, jamais le code HTTP — et le champ
+s'appelle `identifier`, pas `username`.
+
+🔴 **La PAGE de connexion est servie aussi — `/login`**, avec mot de passe, second facteur et
+boutons des fournisseurs (Keycloak, GitHub…). Ne l'écris pas : elle s'habille par
+`security.loginPage` (habillage, textes, ta feuille de style). Pour qu'une zone de PAGES y
+conduise le visiteur anonyme, déclare `entryPoint: "/login"` sur la zone : une navigation
+reçoit alors `302 /login?from=<page>`, un appel d'API garde son `401`. Après la connexion, ne
+redirige JAMAIS vers un `from` sans le passer à `safeRedirectPath` (redirection ouverte).
+⚠️ **En production, un mot de passe reçu en HTTP clair est refusé (`403`)** avant toute
+vérification. Derrière un proxy qui termine TLS, déclare-le dans `trustProxy` (config de
+`@nodefony/http`), sinon TOUTES les connexions échouent.
 
 🔴 **La PROVENANCE d'une requête n'est pas une PREUVE D'INTENTION — une mutation exige
 `@CsrfProtect`.** Le raisonnement qui vient, et qui est faux : « le firewall vérifie déjà
@@ -329,8 +348,8 @@ en **422** : le rendu d'erreur lit le code du pilote (`23505`, `ER_DUP_ENTRY`,
 identifiant déjà pris — le vérifier d'abord est plus lent ET **faux sous concurrence**.
 
 Les CLÉS qu'un module accepte sont lisibles à la source :
-`node_modules/@nodefony/<module>/dist/nodefony/config/config.js` porte son schéma Zod —
-une clé inconnue est retirée EN SILENCE, ne l'invente pas.
+`node_modules/@nodefony/<module>/dist/nodefony/config/config.js` porte son schéma Zod. Une
+clé inconnue **arrête le démarrage** en la nommant (code 78) : ne l'invente pas, lis le schéma.
 
 **La référence de CHAQUE brique installée ici est dans `node_modules`** — que `rg`
 lancé à la racine ne voit pas (git l'ignore, `rg` le suit) : le sujet paraît absent
@@ -369,7 +388,9 @@ Celles qu'on n'invente pas, faute de savoir qu'elles existent :
 - **Statiques vers un CDN** — `npx nodefony assets:publish [--clean]`
 - **Certificat TLS de développement** — `npx nodefony http:certificates`
 <% if (it.front) { %>- **Construire le front pour la production** — `npx nodefony frontend:build [-f]`
-<% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]`
+<% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]` ; pour la
+  production, `--env` rend les secrets en lignes `CLÉ=valeur` et `--jwt-keyset` la valeur de
+  `NF_JWT_KEYSET` — sans clé de signature partagée, un serveur de production refuse de démarrer
 - Créer un **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
 <% } %><% if (it.hasOrm && !it.hasMigrations) { %>- **Cette application persiste sur MongoDB** — aucune migration : une collection
   naît à la première écriture, et `npx nodefony create entity` y écrit une entité
@@ -441,6 +462,12 @@ un schéma, regarder un écran — vit dans les **skills** livrés par les paque
 Ce sont des **pointeurs** vers `node_modules`, donc ils suivent la version du
 framework de ce projet (`npx nodefony ai:sync` après un `npm update`). Rien n'est
 copié ici : une page copiée se figerait au jour de sa création.
+
+⚠️ **Les fichiers que les paquets POSENT dans l'app** (le décor Keycloak de développement
+sous `nodefony/keycloak/`, par exemple) sont, eux, des copies : après un `npm update`,
+`npx nodefony scaffold:sync --update` rafraîchit celles que tu n'as pas modifiées
+(`--dry-run` d'abord), et `npx nodefony doctor` signale celles qui sont en retard.
+`ai:sync` ne les touche pas.
 
 <!-- nodefony:end -->
 

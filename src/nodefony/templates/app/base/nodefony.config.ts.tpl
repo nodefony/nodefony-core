@@ -7,8 +7,8 @@ import type { env } from "./env";
 // racine, il serait invisible tant que personne ne l'importe.
 //
 // La forme est imposée : `(ctx) => ({ … }) satisfies I<Module>ConfigInput`. Le
-// `satisfies` n'est pas décoratif — sans lui une clé inconnue compile, puis Zod
-// la retire EN SILENCE au boot ; `npx nodefony doctor` refuse un fragment qui
+// `satisfies` n'est pas décoratif — sans lui une clé inconnue compile, et seul le
+// démarrage la refuse (code 78) ; `npx nodefony doctor` refuse un fragment qui
 // s'en passe. Ce fichier-ci reste l'INDEX : quels modules, dans quel ordre.
 import { devkitConfig } from "./nodefony/config/devkit";
 <% if (it.complete) { %>import { securityConfig } from "./nodefony/config/security";
@@ -19,9 +19,9 @@ import { devkitConfig } from "./nodefony/config/devkit";
 // Ces ré-exports n'existent QUE pour faire entrer dans le programme TypeScript
 // l'augmentation `declare module "nodefony"` que chaque module publie dans ses
 // types. Sans elles, `use("@nodefony/x", { … })` retombe sur
-// `Record<string, unknown>` : une clé mal orthographiée COMPILE, puis Zod la
-// retire EN SILENCE au boot et le module démarre sur son défaut — on croit avoir
-// réglé quelque chose sans l'avoir réglé, et rien ne le dit.
+// `Record<string, unknown>` : une clé mal orthographiée COMPILE, et la faute ne
+// se découvre qu'au démarrage suivant, qui la refuse (code 78) — au lieu de
+// l'éditeur, au moment où on l'écrit.
 //
 // Un ré-export plutôt qu'un `import type { … }` : il compte comme une
 // UTILISATION du type, donc il traverse `noUnusedLocals` (TS6133) si l'app

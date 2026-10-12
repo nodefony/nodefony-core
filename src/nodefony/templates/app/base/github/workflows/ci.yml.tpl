@@ -137,7 +137,7 @@ jobs:
           FLUSH PRIVILEGES;
           SQL
 <% } %><% } %>
-      # typecheck + lint + tests + build + `nodefony doctor` — l'ordre du script.
+      # typecheck, lint, format:check, env:check, test, build, `nodefony doctor` — l'ordre du script.
       - run: <%= it.pmRun %> verify
 
       # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.

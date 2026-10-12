@@ -675,9 +675,9 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       });
     }
     // Un bloc EXTRAIT perd l'excess property check que le manifeste lui
-    // donnait : sans `satisfies`, une clé inconnue compile puis Zod la retire
-    // en silence au boot. L'extraction ne retire cette garde qu'ici — donc
-    // c'est ici qu'on la redemande.
+    // donnait : sans `satisfies`, une clé inconnue compile et ne se découvre
+    // qu'au boot, qui la refuse. L'extraction ne retire cette garde qu'ici —
+    // donc c'est ici qu'on la redemande.
     for (const file of fragmentsWithoutSatisfies(
       projectRoot,
       diskManifestReader,
@@ -688,8 +688,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
         message:
           `\`${path.basename(file)}\` rend une configuration sans \`satisfies\` : ` +
           `dans le manifeste, TypeScript refusait une clé inconnue au point d'appel ; ` +
-          `extraite, elle compile et Zod la retire EN SILENCE au boot — le module ` +
-          `démarre alors sur son défaut. Écrire ` +
+          `extraite, elle compile et seul le démarrage la refuse (code 78). Écrire ` +
           `\`(ctx) => ({ … }) satisfies I<Module>ConfigInput\``,
       });
     }

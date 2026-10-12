@@ -119,8 +119,8 @@ if (USER && !LOGIN) {
 }
 
 /**
- * Le point qui PROUVE qu'une session reprise est vivante : 2xx authentifié,
- * 401/403 sinon. Défaut : celui de `@nodefony/security`, présent dans toute
+ * Le point qui PROUVE qu'une session reprise est vivante : 2xx avec un `user`,
+ * `{ user: null }` (ou 401/403) sinon. Défaut : celui de `@nodefony/security`, présent dans toute
  * application qui l'installe. Chaîne VIDE = rien pour prouver, donc aucune
  * session n'est reprise — la sonde se connecte à chaque lancement.
  */

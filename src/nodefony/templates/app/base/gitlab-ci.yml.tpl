@@ -79,7 +79,7 @@ verify:
       console.error("MongoDB : aucun primaire élu en 60 s");
       process.exit(1);
       JS
-<% } %>    # typecheck + lint + tests + `nodefony doctor` — l'ordre du script.
+<% } %>    # typecheck, lint, format:check, env:check, test, build, `nodefony doctor` — l'ordre du script.
     - <%= it.pmRun %> verify
     # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
     - <%= it.pmRun %> test:e2e

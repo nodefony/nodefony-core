@@ -88,6 +88,17 @@ dépend est refusé au démarrage. Pour **lire** une donnée de la requête depu
 besoin de portée : `RequestContext.getScope()` ou `RequestContext.get()` au moment de l'appel.
 Détail : `node_modules/nodefony/docs/service.md`.
 
+**Qui est connecté, depuis un service** : `RequestContext.getAuthenticatedUser()` (l'utilisateur
+connecté, ou `null`) et `RequestContext.getUserId()` (`string | null`). Jamais
+`RequestContext.getUser()` pour décider : il rend l'utilisateur BRUT, anonyme compris.
+
+**Le payload de la requête est une forme FERMÉE** (`RequestContextPayload`) :
+`RequestContext.set("maCle", …)` sur une clé qu'il ne déclare pas ne compile pas. Ta clé s'ajoute
+par augmentation — `declare module "nodefony" { interface RequestContextPayload { tenant?: string } }`
+— mais `RequestContext.release()`, qui vide le payload à la fin de l'unité de travail, ne la
+vide PAS d'office.
+Détail : `node_modules/nodefony/docs/request-context.md`.
+
 ## Obtenir un service depuis un autre — deux voies, un choix
 
 | Voie                           | Quand                                                                         |

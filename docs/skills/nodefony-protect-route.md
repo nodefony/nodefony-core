@@ -5,14 +5,14 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-11
+updated: 2026-10-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md"
 ---
 
 # `nodefony-protect-route`
 
-> Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action.
+> Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-protect-route**
 
@@ -28,27 +28,28 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Autres |
-| Corps | 310 lignes |
-| Coût d'activation | ~4 295 tokens (le corps est chargé à l'invocation) |
-| Description | 1007 / 1024 caractères |
-| Déclencheurs | 21 |
+| Corps | 388 lignes |
+| Coût d'activation | ~5 581 tokens (le corps est chargé à l'invocation) |
+| Description | 925 / 1024 caractères |
+| Déclencheurs | 19 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon d'ouvrir une route à un partenaire sans démonter la défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la configuration de sécurité.
+Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, la page de connexion déjà servie et le renvoi de l'anonyme vers elle, l'ouverture à un partenaire sans démonter la défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la sécurité.
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`protège cette route` · `réserver aux administrateurs` · `@IsGranted` · `firewall` · `zone protégée` · `403` · `401` · `un rôle qui en implique un autre` · `roleHierarchy` · `un partenaire doit pouvoir poster` · `erreur CSRF` · `origine refusée` · `@CsrfExempt` · `@CsrfProtect` · `mon POST passe sans jeton` · `faut-il protéger une écriture` · `API pour un programme` · `clé d'API` · `jeton d'un partenaire` · `client_credentials` · `désactiver la sécurité pour tester`
+`protège cette route` · `réserver aux administrateurs` · `@IsGranted` · `firewall` · `403` · `401` · `roleHierarchy` · `page de connexion` · `/login` · `qui est connecté` · `Keycloak` · `un partenaire doit pouvoir poster` · `erreur CSRF` · `@CsrfExempt` · `mon POST passe sans jeton` · `API pour un programme` · `clé d'API` · `client_credentials` · `désactiver la sécurité pour tester`
 
 ## Ce que contient le corps
 
 - Deux étages, et ils ne font pas la même chose
+- Protéger des PAGES — la connexion est déjà servie
 - 🔴 La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`
 - 🔴 Ce qu'il ne faut jamais écrire
 - Un rôle qui en implique un autre
@@ -74,14 +75,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1007 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 925 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 310 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 388 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -2425,7 +2425,7 @@ export function wireModuleManifest(
  * fichier qui la porte entre dans le programme — et l'`index.ts` d'un module
  * local n'y entre pas : le `tsconfig.json` de l'app ne balaye pas `modules/`.
  * Sans elle, `use("@app/blog", { … })` retombe sur `Record<string, unknown>` :
- * une clé mal orthographiée COMPILE, puis Zod la retire en silence au boot.
+ * une clé mal orthographiée COMPILE, et seul le démarrage la refuse.
  *
  * Un ré-export plutôt qu'un `import type` : il compte comme une utilisation du
  * type, donc il traverse `noUnusedLocals` (TS6133) si l'app l'active.

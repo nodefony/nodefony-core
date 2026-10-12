@@ -194,8 +194,9 @@ NF_BROWSER_ACTIONS="Nouvelle commande|voir:Moyen de paiement" node node_modules/
 
 Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultatif (`clic` par défaut),
 cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
-· `droit` (clic droit) · `survol` · `saisir:Nom=valeur` · `touche:Enter` · `voir` · `defiler:600`
-· `attendre`.
+· `droit` (clic droit) · `survol` · `saisir:Nom=valeur` · `choisir:Liste=valeur` (une option d'un
+`<select>`, par sa valeur ou son libellé ; la cible peut être le libellé qui l'enveloppe) ·
+`touche:Enter` · `voir` · `defiler:600` · `attendre`.
 
 - 🔴 **`voir` plutôt qu'un clic pour amener dans la vue** : sur un formulaire, le texte d'une
   question est un `label` — cliquer dessus coche la case qu'il décrit, et tu observes alors un écran
@@ -207,9 +208,12 @@ cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbe
   faite sur un écran qu'on n'a pas ouvert est pire qu'aucune mesure.
 
 **`NF_BROWSER_LOGIN` n'a pas de défaut** : c'est le chemin du formulaire de connexion de **ton**
-application. Il n'en existe pas d'universel, et deviner enverrait la sonde sur une page inexistante,
-où elle mesurerait un écran d'erreur en croyant s'être authentifiée. Sans lui, un identifiant posé
-fait s'arrêter la sonde avec un message — jamais une mesure fausse.
+application. Une application qui charge `@nodefony/security` sert le sien à **`/login`** (sauf
+`security.loginPage.path` ou `enabled: false`) : pose donc `NF_BROWSER_LOGIN=/login`. La sonde ne
+le devine pas pour autant — deviner l'enverrait, ailleurs, sur une page inexistante, où elle
+mesurerait un écran d'erreur en croyant s'être authentifiée. Sans lui, un identifiant posé fait
+s'arrêter la sonde avec un message — jamais une mesure fausse. Une session reprise se prouve par
+`/nodefony/security/api/auth/me` (`NF_BROWSER_WHOAMI`) : un `{ user: null }` la déclare périmée.
 
 Les sondes de couleur cherchent tes sélecteurs, pas ceux d'une bibliothèque : le thème est lu sur le
 `color-scheme` **calculé** (ce que le moteur applique) et sur `data-theme`. Si ton application marque

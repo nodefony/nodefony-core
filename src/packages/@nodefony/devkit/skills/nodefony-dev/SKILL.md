@@ -285,8 +285,9 @@ routes auth` ne rend que les routes dont le chemin, le nom, le contrôleur, l'ac
 4. **Édite le moins possible**, et regroupe : toutes les modifications serveur d'une même
    fonctionnalité, PUIS un seul cycle de reconstruction. Le frontend passe en HMR, zéro
    redémarrage.
-5. **Prouve.** `npm run verify` — une seule commande : types, style, tests, câblage, dans cet
-   ordre. Elle s'arrête au premier rouge, et **ce rouge est ta tâche suivante**.
+5. **Prouve.** `npm run verify` — une seule commande : types, style, mise en forme,
+   `.env.example`, tests, build, câblage, dans cet ordre. Elle s'arrête au premier rouge, et
+   **ce rouge est ta tâche suivante**.
 
 **Le point d'arrêt qu'on rate** : `npm test` seul ne prouve pas que ça compile — vitest
 n'inspecte aucun type. Une application peut être verte et ne pas compiler.
@@ -314,9 +315,10 @@ Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers son
   entité hors `@entities([…])`, controller hors `@controllers([…])`. Table jamais créée, route
   en 404. C'est le mode d'échec de la COPIE : on recopie le voisin au lieu d'appeler le
   générateur, qui, lui, déclare. `npx nodefony doctor` la NOMME.
-- **Une clé de configuration mal orthographiée est retirée en silence.** `satisfies` sur le
-  fragment n'est pas décoratif : sans lui, la faute compile, puis la validation écarte la clé et
-  le module démarre sur son défaut. Personne ne le voit.
+- **Une clé de configuration mal orthographiée ARRÊTE le démarrage** (code 78), en la nommant.
+  `satisfies` sur un fragment extrait n'est pas décoratif pour autant : il te la signale à la
+  compilation, au lieu du prochain démarrage. Une clé retirée par une version du framework
+  produit le même arrêt après un `npm update` : lis le message, il nomme la clé.
 - **La config d'un module est FIGÉE après le démarrage** : l'écrire lève `TypeError`. Une variante
   par requête = `overlayConfig()` (clés de la liste blanche du module), lue par `useConfig()`.
 - **Tu lis une liste sans la BORNER.** Un `find` sans limite matérialise la table entière —
@@ -456,11 +458,16 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
   **couleur seule**, `rel="noopener noreferrer"` sur les liens externes.
 
 - **Une route d'API répond du HTML** : un repli SPA générique avale les routes voisines — le
-  premier motif qui correspond gagne. Repli en préfixe LITTÉRAL ; `npx nodefony inspect routes
---json` montre l'ordre réel.
+  premier motif qui correspond gagne. Déclare la route de la page monopage avec
+  `fallback: true` : elle ne sert alors que ce qu'aucune autre route ne sert, quel que soit
+  l'ordre. `npx nodefony inspect routes --json` montre l'ordre réel.
 - **Des utilisateurs « déconnectés au hasard »** : le traitement global « 401 = session expirée »
-  frappe aussi les sondes d'authentification, où 401 est NORMAL — et détruit une session valide.
-  Exempte les sondes du traitement global.
+  frappe aussi la connexion refusée (un mauvais mot de passe rend 401) — et détruit une session
+  valide. Exempte les routes d'authentification du traitement global. `me` ne renvoie jamais
+  401 : il répond toujours 200, `{ user: null }` sans session.
+- **La connexion ne s'écrit pas en `fetch`** : `/login` est servie ; la liaison du front
+  (`useNodefonyLogin`…) porte `me()` et `logout()` — suis l'adresse que rend `logout()`, sinon
+  la session Keycloak reste ouverte. Détail : skill `nodefony-protect-route`.
 - **Ta page répond 200 et son script ne s'exécute pas** : la politique de contenu exige un `nonce`
   sur les scripts, et le navigateur refuse un `<script>` en ligne qui n'en porte pas (« Refused to
   execute inline script »). Un `curl` ne le voit JAMAIS, il ne lit que le corps. Signe le script
@@ -479,7 +486,7 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
 ## 10. Avant de dire « fait »
 
 ```bash
-npm run verify        # types + style + tests + câblage
+npm run verify        # types, style, mise en forme, .env.example, tests, build, câblage
 npm run test:e2e      # boot réel + HTTP/WS — le gate LENT, hors `verify`
 ```
 

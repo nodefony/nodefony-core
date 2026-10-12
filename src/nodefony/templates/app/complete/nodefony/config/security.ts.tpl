@@ -7,8 +7,8 @@
  *
  * 🔴 `satisfies` n'est PAS décoratif. Écrit dans le manifeste, ce littéral était
  * vérifié au point d'appel : une clé inconnue y était refusée. Rendu par une
- * fonction, il ne l'est plus — la clé compile, puis Zod la retire EN SILENCE au
- * boot, et le module démarre sur son défaut. `satisfies` rétablit ce contrôle,
+ * fonction, il ne l'est plus — la clé compile, et seul le démarrage la refuse
+ * (code 78). `satisfies` rétablit ce contrôle dans l'éditeur,
  * et `npx nodefony doctor` refuse un fragment qui s'en passe.
  *
  * C'est ici que se pose la configuration d'un module quand elle porte plus

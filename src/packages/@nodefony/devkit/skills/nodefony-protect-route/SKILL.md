@@ -1,17 +1,16 @@
 ---
 name: nodefony-protect-route
 description: >
-  Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du
-  framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages
-  (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de
-  plus, la façon d'ouvrir une route à un partenaire sans démonter la défense anti-falsification,
-  et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde,
-  d'ouvrir une route à un tiers, ou de toucher à la configuration de sécurité.
-  Déclencheurs : "protège cette route", "réserver aux administrateurs", "@IsGranted", "firewall",
-  "zone protégée", "403", "401", "un rôle qui en implique un autre", "roleHierarchy",
-  "un partenaire doit pouvoir poster", "erreur CSRF", "origine refusée", "@CsrfExempt",
-  "@CsrfProtect", "mon POST passe sans jeton", "faut-il protéger une écriture",
-  "API pour un programme", "clé d'API", "jeton d'un partenaire", "client_credentials",
+  Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les
+  briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages
+  (zone du pare-feu et garde par route), la hiérarchie de rôles, la page de connexion déjà
+  servie et le renvoi de l'anonyme vers elle, l'ouverture à un partenaire sans démonter la
+  défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À
+  charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la sécurité.
+  Déclencheurs : "protège cette route", "réserver aux administrateurs", "@IsGranted",
+  "firewall", "403", "401", "roleHierarchy", "page de connexion", "/login", "qui est
+  connecté", "Keycloak", "un partenaire doit pouvoir poster", "erreur CSRF", "@CsrfExempt",
+  "mon POST passe sans jeton", "API pour un programme", "clé d'API", "client_credentials",
   "désactiver la sécurité pour tester".
 ---
 
@@ -85,6 +84,77 @@ pattern: "^/api/account/(profile|invoices)"; // ❌ les routes d'aujourd'hui
 `/api/account/payment-methods` — et elle **naît publique**. Rien ne le signale : la zone existe,
 elle a l'air de couvrir l'espace, et l'introspection montre bien une route protégée à côté. Quand
 des routes partagent un préfixe, ne les protège pas une par une.
+
+## Protéger des PAGES — la connexion est déjà servie
+
+🔴 **N'écris ni page de connexion, ni controller de compte.** Une application qui charge
+`@nodefony/security` sert déjà tout :
+
+| Ce qui existe                             | Ce que ça fait                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /login`                              | la page : identifiant, mot de passe, second facteur, passkey, boutons des fournisseurs           |
+| `POST /nodefony/security/api/auth/login`  | `{username, password}` → `200` + cookie ; **`202` = second facteur requis, pas encore connecté** |
+| `GET /nodefony/security/api/auth/me`      | **TOUJOURS `200`** : `{ user: null }` sans session, sinon `{ user: { id, identifier, roles } }`  |
+| `POST /nodefony/security/api/auth/logout` | idempotent ; rend l'adresse de déconnexion du fournisseur quand la session venait de lui         |
+
+`me` ne sert jamais à tester une session par son code HTTP : il n'y a plus de `401` à attendre.
+Le champ est `identifier`, pas `username`.
+
+**Conduire l'anonyme à la page** se déclare sur la ZONE, jamais dans l'action :
+
+```ts
+areas: {
+  pages: {
+    pattern: "^/compte(/|$)",
+    authenticators: ["session"],
+    entryPoint: "/login",   // la page du framework (security.loginPage.path)
+  },
+}
+```
+
+| La requête refusée                                                         | Réponse                         |
+| -------------------------------------------------------------------------- | ------------------------------- |
+| navigation (`GET`/`HEAD`, `Accept: text/html`, `Sec-Fetch-Mode: navigate`) | `302` → `/login?from=%2Fcompte` |
+| appel d'API (`Accept: application/json`, `fetch()`)                        | `401`, inchangé                 |
+
+- **L'apparence se règle, le balisage ne se copie pas** : `security.loginPage` (`skin`, parmi
+  neuf habillages ; `layout` ; `title`, `heading`, `logo` ; `stylesheet` pour ta feuille, qui
+  redéfinit les variables `--nf-login-*`). La section est stricte : une clé mal orthographiée
+  arrête le démarrage. `template` (un gabarit `.eta` à toi) est le dernier recours. Détail :
+  `node_modules/@nodefony/security/docs/login-page.md`.
+- **Une page à toi qui renvoie vers la connexion** : `loginPagePath(from)` (`nodefony/client`)
+  compose `/login?from=…` ; la liaison du front (`useNodefonyLogin`, `injectNodefonyLogin`,
+  `nodefonyLogin`) dit l'état de la session et porte `me()`, `logout()`. Un formulaire à toi se
+  bâtit sur `NodefonyLogin`, qui conduit mot de passe, second facteur et blocage — pas sur des
+  `fetch` écrits à la main.
+- 🔴 **Après la connexion, un `from` reçu passe par `safeRedirectPath`** (`nodefony` et
+  `nodefony/client`) avant toute redirection. C'est la seule garde contre la redirection ouverte :
+  `?from=https://site-piege.example` enverrait sinon ton utilisateur ailleurs, connecté.
+- 🔴 **En production, un mot de passe reçu en HTTP clair est refusé (`403`)** avant toute
+  vérification, et la page affiche « doit passer par HTTPS ». Derrière un proxy qui termine TLS,
+  déclare-le dans `trustProxy` (config de `@nodefony/http`), sinon **toutes** les connexions
+  échouent. `security.allowInsecureCredentials` n'est pas la correction : elle accepte le clair.
+- **Une zone `session` sans `roles`, avec un fournisseur qui crée les comptes à la première
+  connexion** (`allowSignup`), est ouverte à quiconque possède un compte chez ce fournisseur.
+  `npx nodefony doctor --live` la signale ; pose un rôle sur la zone.
+
+### Se connecter par un fournisseur (Keycloak, GitHub…)
+
+Le fournisseur se déclare dans `security.oauth2.providers` ; ses identifiants viennent de
+l'environnement (`NF_KEYCLOAK_*`, `GITHUB_CLIENT_ID`…). Deux commandes à connaître, faute de quoi
+on diagnostique un `401` à l'aveugle :
+
+```bash
+npx nodefony security:oauth:doctor [-p keycloak]   # découverte, URL de retour, secret — sans se connecter
+npx nodefony security:keycloak:realm [--write|--check|--apply]   # realm dérivé de TA config
+```
+
+`--write` écrit le realm (rôles, audiences de tes zones `external-jwt`) dans
+`docker/keycloak/import/`, `--check` sort en 1 s'il ne suit plus la configuration (pour la CI),
+`--apply` pose le thème de connexion sur le Keycloak de développement. Un `401` avec un jeton
+Keycloak valide sur une API, c'est presque toujours l'audience absente : `--write`, puis
+réimport. Les rôles Keycloak se traduisent par `roleMapping` ; détail et pièges :
+`node_modules/@nodefony/security/docs/keycloak.md`.
 
 ## 🔴 La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`
 
@@ -172,9 +242,16 @@ connecter — ou pire, un mot de passe stocké en clair.
 
 ## Lire l'utilisateur courant
 
-Le paramètre décoré `@CurrentUser()` (typé `IUser` de `@nodefony/user`). L'identité est
-**ré-résolue à chaque requête** : les rôles sont frais, et une révocation prend effet tout de
-suite. N'écris pas ton propre lecteur de session — le tien lira un instantané.
+Dans un controller, **`this.user`** : l'utilisateur CONNECTÉ, ou `null` (anonyme, ou route hors
+de toute zone). Le paramètre décoré `@CurrentUser()` rend le même, `undefined` pour l'anonyme.
+Hors controller (un service), `RequestContext.getAuthenticatedUser()` — `null` hors requête ou
+pour l'anonyme — et `RequestContext.getUserId()` (`string | null`). `RequestContext.getUser()`
+rend l'utilisateur BRUT, anonyme compris : ne t'en sers pas pour décider « qui est connecté ».
+
+L'identité est **ré-résolue à chaque requête** : les rôles sont frais, et une révocation prend
+effet tout de suite. N'écris pas ton propre lecteur de session — le tien lira un instantané. Une
+page PUBLIQUE qui veut savoir qui la visite se place sous une zone
+`authenticators: ["session", "anonymous"]` : hors zone, `this.user` vaut toujours `null`.
 
 ## Un droit métier qui ne se réduit pas à un rôle
 
@@ -295,7 +372,7 @@ Le refus d'un anonyme est gratuit : n'importe quelle zone le donne. Ce qui prouv
 
 ```bash
 npx nodefony security:user:add            # un témoin SANS le rôle
-# 1. anonyme            → refusé (401 ou 403 : les deux sont justes)
+# 1. anonyme            → refusé (401 ou 403 ; 302 vers /login si la zone a un entryPoint)
 # 2. connecté SANS rôle → refusé      ← celui-ci porte l'information
 # 3. administrateur     → servi
 npx nodefony inspect routes --json        # la garde est-elle sur la route qu'on croit ?

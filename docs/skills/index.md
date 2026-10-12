@@ -173,7 +173,7 @@ source: "docs/skills/index.md"
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "protect-route", "href": "nodefony-protect-route.md",
-    "desc": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon…",
+    "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, la page de connexion déjà servie et le renvoi de…",
     "meta": "🟢 conforme" }
 ]
 ```
@@ -211,10 +211,10 @@ source: "docs/skills/index.md"
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 207 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.9.0 | 474 | 7 | 17 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 233 | 0 | 0 | ✅ |
-| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 96 | 0 | 0 | ✅ |
-| [`nodefony-add-service`](nodefony-add-service.md) | — | 104 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 492 | 0 | 1 | ✅ |
-| [`nodefony-protect-route`](nodefony-protect-route.md) | — | 310 | 0 | 0 | ✅ |
+| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
+| [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 499 | 0 | 1 | ✅ |
+| [`nodefony-protect-route`](nodefony-protect-route.md) | — | 388 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

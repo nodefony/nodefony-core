@@ -19,7 +19,7 @@
  *  6. Configurer un module      → un fichier `nodefony/config/<module>.ts` exportant
  *                                 `(ctx) => ({ … }) satisfies I<Module>ConfigInput`, importé ici.
  *                                 Le `satisfies` n'est PAS décoratif : sans lui, une clé inconnue
- *                                 compile puis est retirée EN SILENCE au boot — `nodefony doctor`
+ *                                 compile, et seul le démarrage la refuse — `nodefony doctor`
  *                                 refuse un fragment qui s'en passe. Ce fichier-ci reste l'INDEX :
  *                                 quels modules, dans quel ordre, sous quelle politique.
  *

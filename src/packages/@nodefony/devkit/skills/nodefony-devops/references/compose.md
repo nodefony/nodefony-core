@@ -16,6 +16,7 @@ docker compose --profile edge up -d         # la TOPOLOGIE DE PRODUCTION : front
 docker compose --profile tools up -d        # les explorateurs de données
 docker compose --profile loki up -d         # journalisation centralisée + tableaux de bord
 docker compose --profile browser up -d      # un navigateur piloté
+docker compose --profile keycloak up -d keycloak   # un fournisseur d'identité OpenID Connect, de DÉVELOPPEMENT
 ```
 
 > Le profil `app` et le profil `edge` sont **exclusifs par nature** : le premier publie un port sur
@@ -35,6 +36,13 @@ docker compose --profile browser up -d      # un navigateur piloté
 | `redisinsight`             | `tools`       | explorateur du cache                                 | `5540`                                     |
 | `loki` / `grafana`         | `loki`        | journaux et tableaux de bord                         | `3100`, `3000`                             |
 | `browser`                  | `browser`     | navigateur piloté (image **épinglée par empreinte**) | `3001`                                     |
+| `keycloak`                 | `keycloak`    | `quay.io/keycloak/keycloak` (préréglage `complete`)  | `8444` (8443 est au frontal)               |
+
+Le profil `keycloak` est un décor de **développement** (base embarquée, secrets publics) : realm
+et thème viennent de `docker/keycloak/`, posés par le paquet `@nodefony/security` et tenus à jour
+par `npx nodefony scaffold:sync --update`. Il exige `npx nodefony http:certificates` une fois
+(Keycloak sert en https), et sous Linux natif `export KEYCLOAK_UID=$(id -u)` avant le `up`. Le
+mode d'emploi est en commentaire au-dessus du service, dans `compose.yaml`.
 
 **Les ports sont publiés sur la boucle locale**, pas sur `0.0.0.0`. Une base de développement
 accessible depuis le réseau est une base de développement qui finit indexée.

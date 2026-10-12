@@ -6,9 +6,11 @@ description: >
   Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui
   du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger
   AVANT d'écrire du code WebSocket, un canal, ou un abonnement client.
+  Dit aussi quand un flux SSE suffit, et sa façade.
   Déclencheurs : "flux temps réel", "websocket", "canal", "push", "notifications en direct",
   "abonnement", "RealtimeController", "@RealtimeChannel", "socket client", "temps réel privé",
-  "réserver un canal à un rôle", "mon canal est public", "diffuser à plusieurs onglets".
+  "réserver un canal à un rôle", "mon canal est public", "diffuser à plusieurs onglets",
+  "SSE", "server-sent events", "EventSource", "barre de progression", "réponse en streaming".
 ---
 
 # add-realtime-channel — le temps réel par sa couche
@@ -37,6 +39,33 @@ câblage. **N'écris pas de `new WebSocket(...)` ni de `ws.on(...)` côté serve
 existe, il est employé par le framework, et le reprendre à la main te prive du routage par canal,
 de l'authentification partagée avec HTTP, et de la contre-pression.
 
+## WebSocket, ou un simple flux SSE ?
+
+| Besoin                                                         | Choisir                                     |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| Le serveur pousse, le client écoute (progression, journal)     | **SSE** — une réponse HTTP qui ne finit pas |
+| La réponse d'UNE requête arrive par morceaux (modèle, export)  | **SSE** sur cette requête                   |
+| Échange dans les deux sens, canaux, état partagé entre onglets | **WebSocket** — le reste de cette page      |
+
+SSE n'est pas une route d'un genre particulier : l'action d'une route ordinaire choisit de
+répondre en flux.
+
+```ts
+@route("progress-run", { path: "/run" })
+async run() {
+  const sse = await this.renderSse();          // en-têtes, battement, contre-pression
+  await sse.send({ step: "calcul" }, { event: "step" });
+  return sse.close();
+}
+```
+
+`this.acceptsSse()` dit si le client a demandé `text/event-stream` (une même route peut répondre
+en JSON ou en flux). Côté navigateur, `new NodefonySse(url)` (`nodefony/client`), qui se lit comme
+`EventSource` ; les liaisons de front existent comme pour la socket. **N'écris jamais
+`Content-Type: text/event-stream` à la main** : tu perdrais le battement qui empêche un proxy de
+couper la connexion, et la contre-pression (`await sse.send()` freine si le client lit lentement).
+Détail : `node_modules/@nodefony/http/docs/sse.md`.
+
 ## Fermer un canal
 
 ```ts
@@ -53,17 +82,42 @@ aucun rôle particulier n'est requis.
 
 ## 🔴 Le piège du canal dont le nom est calculé
 
-Une politique est indexée par le nom **EXACT** du canal. Un canal dont le nom se construit à
-l'exécution (`` `room:${id}` ``) **n'est couvert par aucune politique déclarée** — il naît public,
-et rien ne le signale.
+La politique d'un `@RealtimeChannel` est indexée par le nom **EXACT** du canal. Un canal dont le
+nom se construit à l'exécution (`` `room:${id}` ``) **n'est couvert par aucun décorateur** — il
+naît public, et rien ne le signale.
 
 ```ts
 @RealtimeChannel("room:lobby", { authenticated: true })   // ✅ couvert
-// `room:42` construit à la volée                          // 🔴 PAS couvert
+// `room:42` construit à la volée                          // 🔴 PAS couvert par le décorateur
 ```
 
-Tant qu'un canal à membres n'existe pas dans le framework, le geste montrable est le canal
-**gardé** par rôle ou authentification, pas le canal dynamique.
+La parade est une règle **par préfixe** dans la configuration de sécurité, qui garde à la fois
+les canaux ET les actions dont le nom commence ainsi :
+
+```ts
+use("@nodefony/security", {
+  realtimeChannels: [
+    { pattern: "room:", authenticated: true, roles: ["ROLE_USER"] },
+  ],
+});
+```
+
+Elle exprime une classe d'identité (connecté, rôles), jamais une liste de membres : « seuls les
+participants de la salle 42 » ne s'écrit pas encore dans le framework. Ne le simule pas avec un
+nom de canal difficile à deviner.
+
+## Savoir QUI appelle une action
+
+Les paramètres décorés d'une route valent aussi dans une `@RealtimeAction` : `@Body("clé")` lit la
+charge de l'appel, `@CurrentUser()` l'utilisateur de la connexion (`undefined` pour un anonyme).
+L'auteur d'un message se prend là, côté SERVEUR — jamais dans la charge, où le client peut mentir.
+
+```ts
+@RealtimeAction("chat:send")
+send(@Body("text") text: string, @CurrentUser() user: IUser) {
+  return { author: user.identifier, text };
+}
+```
 
 ## Côté client — la façade, pas le socket
 
