@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-11",
+  "generatedAt": "2026-10-12",
   "count": 36,
   "repoScripts": [
     {
@@ -518,7 +518,40 @@
         "npm run test:all -- --infra",
         "npm run test:all -- --load --dialects --mongo"
       ],
-      "options": [],
+      "options": [
+        {
+          "flag": "--load",
+          "help": "ajoute la charge, le gate mémoire et le cluster e2e"
+        },
+        {
+          "flag": "--dialects",
+          "help": "rejoue les suites ORM sur MySQL Community"
+        },
+        {
+          "flag": "--mongo",
+          "help": "rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration"
+        },
+        {
+          "flag": "--unit",
+          "help": "la suite unitaire SEULE (avec --integration : les deux)"
+        },
+        {
+          "flag": "--integration",
+          "help": "la suite d'intégration SEULE (avec --unit : les deux)"
+        },
+        {
+          "flag": "--no-infra",
+          "help": "n'utilise que l'infra qui tourne déjà, n'en démarre aucune"
+        },
+        {
+          "flag": "--infra",
+          "help": "rend l'état de l'infra, ne lance AUCUN test"
+        },
+        {
+          "flag": "--json",
+          "help": "sortie machine (CI)"
+        }
+      ],
       "env": [
         {
           "name": "NF_DATABASE_URL",
@@ -3890,7 +3923,7 @@
       "description": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit. Déclencheurs : \"gabarit de déploiement\", \"Dockerfile généré\", \"manifeste Kubernetes du scaffold\", \"politique Restricted\", \"readOnlyRootFilesystem\", \"sondes liveness et readiness\", \"arrêt gracieux d'un pod\", \"Podman\", \"corpus docker\", \"corpus kubernetes\", \"la CI de l'application générée\", \"GitLab CI\", \"scanner l'image\".",
       "cost": {
         "bodyLines": 131,
-        "approxTokens": 2439
+        "approxTokens": 2443
       },
       "requires": [],
       "resources": {
@@ -8681,6 +8714,22 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/cli-guard.mjs",
+            "purpose": "Garde de ligne de commande des scripts de pilotage — lit l'en-tête du script appelant et applique {@link cliGate} : aide sur `--help`, refus (code 64) d'une option que l'en-tête ne déclare pas.",
+            "usage": [
+              "import { guardCli } from \"./cli-guard.mjs\"; guardCli(import.meta.url);"
+            ],
+            "options": [
+              {
+                "flag": "--help",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
             "path": "scripts/session-cost.mjs",
             "purpose": "Agrège la consommation réelle de tous les transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes).",
             "usage": [],
@@ -8725,7 +8774,15 @@
             "usage": [],
             "options": [
               {
+                "flag": "--chek",
+                "help": ""
+              },
+              {
                 "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--help",
                 "help": ""
               },
               {
@@ -8747,7 +8804,23 @@
             "usage": [],
             "options": [
               {
+                "flag": "--check",
+                "help": ""
+              },
+              {
+                "flag": "--chek",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
                 "flag": "--since",
+                "help": ""
+              },
+              {
+                "flag": "--verify",
                 "help": ""
               }
             ],
@@ -9594,68 +9667,16 @@
             "path": "scripts/board-lint.mjs",
             "purpose": "Confronte le TABLEAU DE BORD à ses propres règles de pilotage.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/board-lint.mjs"
+              "node .claude/skills/nodefony-ticket/scripts/board-lint.mjs [--json] [--milestone <jalon>]"
             ],
             "options": [
               {
-                "flag": "--add-label",
-                "help": ""
-              },
-              {
-                "flag": "--format",
-                "help": ""
-              },
-              {
-                "flag": "--grep",
-                "help": ""
-              },
-              {
                 "flag": "--json",
-                "help": ""
-              },
-              {
-                "flag": "--limit",
-                "help": ""
-              },
-              {
-                "flag": "--method",
-                "help": ""
+                "help": "sortie machine"
               },
               {
                 "flag": "--milestone",
-                "help": ""
-              },
-              {
-                "flag": "--owner",
-                "help": ""
-              },
-              {
-                "flag": "--paginate",
-                "help": ""
-              },
-              {
-                "flag": "--remove-label",
-                "help": ""
-              },
-              {
-                "flag": "--repo",
-                "help": ""
-              },
-              {
-                "flag": "--slurp",
-                "help": ""
-              },
-              {
-                "flag": "--state",
-                "help": ""
-              },
-              {
-                "flag": "--type",
-                "help": ""
-              },
-              {
-                "flag": "--url",
-                "help": ""
+                "help": "ne contrôle que ce jalon (ex. 10.0.0)"
               }
             ],
             "env": [
@@ -9685,7 +9706,7 @@
               }
             ],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/board-lint.test.mjs",
@@ -9754,33 +9775,17 @@
             "path": "scripts/francise.mjs",
             "purpose": "Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français.",
             "usage": [
-              "node scripts/francise.mjs            # diff seul, n'écrit rien"
+              "node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]"
             ],
             "options": [
               {
-                "flag": "--body-file",
-                "help": ""
-              },
-              {
-                "flag": "--json",
-                "help": ""
-              },
-              {
-                "flag": "--limit",
-                "help": ""
-              },
-              {
-                "flag": "--state",
-                "help": ""
-              },
-              {
                 "flag": "--write",
-                "help": ""
+                "help": "applique via `gh issue edit` (sans lui : simulation)"
               }
             ],
             "env": [],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/github-templates.test.mjs",
@@ -9795,69 +9800,33 @@
             "path": "scripts/pose-lexique.mjs",
             "purpose": "Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts.",
             "usage": [
-              "node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien"
+              "node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]"
             ],
             "options": [
               {
-                "flag": "--body-file",
-                "help": ""
-              },
-              {
-                "flag": "--json",
-                "help": ""
-              },
-              {
-                "flag": "--limit",
-                "help": ""
-              },
-              {
-                "flag": "--state",
-                "help": ""
-              },
-              {
                 "flag": "--write",
-                "help": ""
+                "help": "applique via `gh issue edit` (sans lui : simulation)"
               }
             ],
             "env": [],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/ticket-close.mjs",
             "purpose": "Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]"
             ],
             "options": [
               {
-                "flag": "--comment",
-                "help": ""
-              },
-              {
-                "flag": "--format",
-                "help": ""
-              },
-              {
-                "flag": "--grep",
-                "help": ""
-              },
-              {
-                "flag": "--name-only",
-                "help": ""
-              },
-              {
-                "flag": "--reverse",
-                "help": ""
-              },
-              {
                 "flag": "--since",
-                "help": ""
+                "help": "début de la plage de commits du ticket"
               }
             ],
             "env": [],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/ticket-close.test.mjs",
@@ -9889,7 +9858,7 @@
             "path": "scripts/ticket-effort.mjs",
             "purpose": "ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]"
             ],
             "options": [
               {
@@ -9936,114 +9905,54 @@
               }
             ],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/ticket-open.mjs",
             "purpose": "Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title \"fix(x): …\" --body-file corps.md \\"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title \"fix(x): …\" --body-file corps.md [options]"
             ],
             "options": [
               {
-                "flag": "--add-label",
-                "help": ""
-              },
-              {
-                "flag": "--assignee",
-                "help": ""
-              },
-              {
-                "flag": "--backlog",
-                "help": ""
+                "flag": "--title",
+                "help": "titre Conventional Commits (requis)"
               },
               {
                 "flag": "--body-file",
-                "help": ""
-              },
-              {
-                "flag": "--cl",
-                "help": ""
-              },
-              {
-                "flag": "--field-id",
-                "help": ""
-              },
-              {
-                "flag": "--format",
-                "help": ""
-              },
-              {
-                "flag": "--id",
-                "help": ""
-              },
-              {
-                "flag": "--jours",
-                "help": ""
-              },
-              {
-                "flag": "--json",
-                "help": ""
-              },
-              {
-                "flag": "--label",
-                "help": ""
-              },
-              {
-                "flag": "--limit",
-                "help": ""
+                "help": "fichier du corps (requis)"
               },
               {
                 "flag": "--milestone",
-                "help": ""
+                "help": "jalon (ex. 10.0.0)"
               },
               {
-                "flag": "--number",
-                "help": ""
+                "flag": "--label",
+                "help": "label, répétable"
               },
               {
-                "flag": "--ordre",
-                "help": ""
-              },
-              {
-                "flag": "--owner",
-                "help": ""
-              },
-              {
-                "flag": "--parent",
-                "help": ""
+                "flag": "--jours",
+                "help": "estimation en jours"
               },
               {
                 "flag": "--priorite",
-                "help": ""
+                "help": "P0|P1|P2|P3"
               },
               {
-                "flag": "--project-id",
-                "help": ""
+                "flag": "--parent",
+                "help": "numéro du ticket parent"
               },
               {
-                "flag": "--repo",
-                "help": ""
+                "flag": "--ordre",
+                "help": "ordre au tableau (dérivé du parent si absent)"
               },
               {
-                "flag": "--single-select-option-id",
-                "help": ""
-              },
-              {
-                "flag": "--state",
-                "help": ""
-              },
-              {
-                "flag": "--title",
-                "help": ""
+                "flag": "--backlog",
+                "help": "sans jalon, label `backlog`"
               },
               {
                 "flag": "--type",
-                "help": ""
-              },
-              {
-                "flag": "--url",
-                "help": ""
+                "help": "Task|Bug|Feature|POC|Epic"
               }
             ],
             "env": [
@@ -10057,7 +9966,7 @@
               }
             ],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/ticket-open.test.mjs",
@@ -10072,7 +9981,7 @@
             "path": "scripts/ticket-progress.mjs",
             "purpose": "Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer.",
             "usage": [
-              "Usage : node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)"
             ],
             "options": [
               {
@@ -10107,7 +10016,7 @@
               }
             ],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/ticket-progress.test.mjs",
@@ -10122,45 +10031,23 @@
             "path": "scripts/ticket-verify.mjs",
             "purpose": "ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies.",
             "usage": [
-              "node ticket-verify.mjs                       # ancres de tous les tickets ouverts"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]",
+              "node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by <rév>",
+              "node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <numéro>"
             ],
             "options": [
               {
-                "flag": "--dependents",
-                "help": ""
-              },
-              {
-                "flag": "--json",
-                "help": ""
-              },
-              {
-                "flag": "--limit",
-                "help": ""
-              },
-              {
-                "flag": "--name-only",
-                "help": ""
-              },
-              {
-                "flag": "--no-commit-id",
-                "help": ""
-              },
-              {
-                "flag": "--show-toplevel",
-                "help": ""
-              },
-              {
-                "flag": "--state",
-                "help": ""
-              },
-              {
                 "flag": "--touched-by",
-                "help": ""
+                "help": "tickets ouverts citant les fichiers d'un commit ou d'une plage"
+              },
+              {
+                "flag": "--dependents",
+                "help": "tickets ouverts qui dépendent de ce numéro"
               }
             ],
             "env": [],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           }
         ]
       },

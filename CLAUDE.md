@@ -526,13 +526,13 @@ Les **invariants** qui doivent rester présents en permanence :
   Render, Upstash) ⇒ alias. `REDIS_HOST`, `POD_NAME` non — personne ne les pose, c'est
   l'application qui se les donne ⇒ collision pure, donc préfixe obligatoire.
   (3) Les **identifiants ÉMIS par un service tiers, dont l'écosystème fixe déjà le nom** :
-  `GOOGLE_CLIENT_ID`/`_SECRET`, `GITHUB_CLIENT_ID`/`_SECRET` (`env.ts:204-219`). Cette valeur
+  `GOOGLE_CLIENT_ID`/`_SECRET`, `GITHUB_CLIENT_ID`/`_SECRET` (`env.ts:445-469`). Cette valeur
   n'est pas à nous — elle est délivrée par Google ou GitHub, et leur documentation, Auth.js et
   Passport emploient tous ce nom. Préfixer reviendrait à revendiquer le bien d'autrui et à forcer
   l'utilisateur à dédoubler une variable qu'il possède déjà ; pire, deux valeurs finiraient par
   diverger en silence. ⚠️ L'exception porte sur l'identifiant REÇU, jamais sur le réglage qu'on
   bâtit autour : la base des callbacks n'est émise par personne, c'est l'application qui se la
-  donne, donc `NF_OAUTH_REDIRECT_BASE` (`env.ts:238`).
+  donne, donc `NF_OAUTH_REDIRECT_BASE` (`env.ts:569`).
   ✅ **La dette est SOLDÉE** : `NODEFONY_*` (18), génériques (12) et interrupteurs de coût (6)
   renommés d'un bloc avant la release, **sans alias de compatibilité**. Ne pas en réintroduire.
   ⚠️ Une garde d'isolation de test qui purge `REDIS_URL` sans purger `NF_REDIS_URL` est
@@ -558,7 +558,7 @@ Les **invariants** qui doivent rester présents en permanence :
   divergent en silence : chacune passe ses propres tests (vécu : deux seuils de contre-pression
   WS, `resolve.dedupe` présent en dev et absent du build → crash en production).
 - **Une brique requise en PROD n'est jamais fournie par un seul module `policy:"dev"`**, ni par
-  un défaut Zod vide (`.default({})`) : le gating (`Kernel.ts:1600`) la fait disparaître en
+  un défaut Zod vide (`.default({})`) : le gating `policy:"dev"` (`Kernel.ts:1687`) la fait disparaître en
   production sans un mot. Défaut framework sain + un test « boot SANS la config dev » qui
   vérifie que le service requis est toujours posé.
 

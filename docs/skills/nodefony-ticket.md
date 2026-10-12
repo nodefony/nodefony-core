@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-11
+updated: 2026-10-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -93,38 +93,133 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--add-label` `--format` `--grep` `--json` `--limit` `--method` `--milestone` `--owner` `--paginate` `--remove-label` `--repo` `--slurp` `--state` `--type` `--url` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
+| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--json` `--milestone` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
 | `scripts/board-lint.test.mjs` | — | `--grep` `--remove-label` `--type` | — |
 | `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un script, ni dans un bloc de commande qu'un skill donne à exécuter. | `--limit` | — |
 | `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |
 | `scripts/dependents.mjs` | Les tickets OUVERTS qui dépendent d'un ticket — la règle, pure et éprouvable. | — | — |
 | `scripts/dependents.test.mjs` | `dependentsOf` — qui relire avant de fermer un ticket. / | — | — |
-| `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--body-file` `--json` `--limit` `--state` `--write` | — |
+| `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--write` | — |
 | `scripts/github-templates.test.mjs` | Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est désormais rendu DEUX fois : dans cette page, et dans les formulaires que GitHub sert à qui ouvre une issue depuis l'interface. | — | — |
-| `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
-| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--comment` `--format` `--grep` `--name-only` `--reverse` `--since` | — |
+| `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--write` | — |
+| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | `--format` `--grep` `--no-verify` `--reverse` | — |
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | `OWNER` `REPO` |
-| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--add-label` `--assignee` `--backlog` `--body-file` `--cl` `--field-id` `--format` `--id` `--jours` `--json` `--label` `--limit` `--milestone` `--number` `--ordre` `--owner` `--parent` `--priorite` `--project-id` `--repo` `--single-select-option-id` `--state` `--title` `--type` `--url` | `OWNER` `REPO` |
+| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` | `OWNER` `REPO` |
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
 | `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | `OWNER` |
 | `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |
-| `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--dependents` `--json` `--limit` `--name-only` `--no-commit-id` `--show-toplevel` `--state` `--touched-by` | — |
+| `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--touched-by` `--dependents` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
-node .claude/skills/nodefony-ticket/scripts/board-lint.mjs
-node scripts/francise.mjs            # diff seul, n'écrit rien
-node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95
-node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt
-node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
-Usage : node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
-node ticket-verify.mjs                       # ancres de tous les tickets ouverts
+node .claude/skills/nodefony-ticket/scripts/board-lint.mjs [--json] [--milestone <jalon>]
+node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]
+node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]
+node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
+node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
+node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
+node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
 ```
 
 **Toutes les variables lues par ce skill** : `JOURS_EN_COURS` · `OWNER` · `PROJECT` · `QUERY_ITEMS` · `REPO` · `VITRINE_REPO`
+
+### Détail des scripts auto-documentés
+
+#### `scripts/board-lint.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/board-lint.mjs [--json] [--milestone <jalon>]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--json` | sortie machine |
+| `--milestone` | ne contrôle que ce jalon (ex. 10.0.0) |
+
+#### `scripts/francise.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--write` | applique via `gh issue edit` (sans lui : simulation) |
+
+#### `scripts/pose-lexique.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--write` | applique via `gh issue edit` (sans lui : simulation) |
+
+#### `scripts/ticket-close.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--since` | début de la plage de commits du ticket |
+
+#### `scripts/ticket-effort.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
+```
+
+#### `scripts/ticket-open.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--title` | titre Conventional Commits (requis) |
+| `--body-file` | fichier du corps (requis) |
+| `--milestone` | jalon (ex. 10.0.0) |
+| `--label` | label, répétable |
+| `--jours` | estimation en jours |
+| `--priorite` | P0\|P1\|P2\|P3 |
+| `--parent` | numéro du ticket parent |
+| `--ordre` | ordre au tableau (dérivé du parent si absent) |
+| `--backlog` | sans jalon, label `backlog` |
+| `--type` | Task\|Bug\|Feature\|POC\|Epic |
+
+#### `scripts/ticket-progress.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
+```
+
+#### `scripts/ticket-verify.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
+node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by <rév>
+node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <numéro>
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--touched-by` | tickets ouverts citant les fichiers d'un commit ou d'une plage |
+| `--dependents` | tickets ouverts qui dépendent de ce numéro |
 
 ## Conformité au standard Agent Skills
 

@@ -43,6 +43,14 @@ Carte de couverture du temps réel — quel étage de test EXERCE quel fichier s
 - **Usage** : `npm run test:all`
 - **Usage** : `npm run test:all -- --infra`
 - **Usage** : `npm run test:all -- --load --dialects --mongo`
+- **Option** `--load` — ajoute la charge, le gate mémoire et le cluster e2e
+- **Option** `--dialects` — rejoue les suites ORM sur MySQL Community
+- **Option** `--mongo` — rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration
+- **Option** `--unit` — la suite unitaire SEULE (avec --integration : les deux)
+- **Option** `--integration` — la suite d'intégration SEULE (avec --unit : les deux)
+- **Option** `--no-infra` — n'utilise que l'infra qui tourne déjà, n'en démarre aucune
+- **Option** `--infra` — rend l'état de l'infra, ne lance AUCUN test
+- **Option** `--json` — sortie machine (CI)
 - **Variable** `NF_DATABASE_URL`
 - **Variable** `NF_MYSQL_URL`
 - **Variable** `NF_RUN_CLUSTER_E2E`

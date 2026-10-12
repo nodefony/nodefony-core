@@ -88,7 +88,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   dit.
 - **La route de la CARTE est derrière le pare-feu** dans toute app portant
   `@nodefony/security` → 401 sans session. Le pattern de la zone admin est
-  `^/nodefony/[^/]+/api(/|$)` (`framework/config.ts:143`) : c'est le segment
+  `^/nodefony/[^/]+/api(/|$)` (`src/packages/@nodefony/framework/nodefony/config/config.ts:143`) : c'est le segment
   `api` qui déclenche la protection. C'est voulu ; la porte utilisable par un
   agent est la CLI (`nodefony card`).
 - 🔴 **`/nodefony/mcp` n'a PAS de segment `api` → il échappe à cette zone.** Ce

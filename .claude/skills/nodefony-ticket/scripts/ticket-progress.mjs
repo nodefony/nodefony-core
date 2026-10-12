@@ -20,10 +20,13 @@
  * développement.
  *
  * Usage : node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
  */
 import { execFileSync } from "node:child_process";
 
 import { isPilotageCommit, mentionedTickets } from "./commit-kind.mjs";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 
 const OWNER = "nodefony";
 const PROJECT = 2;
@@ -131,6 +134,7 @@ async function main() {
 }
 
 if (process.argv[1]?.endsWith("ticket-progress.mjs")) {
+  guardCli(import.meta.url);
   try {
     await main();
   } catch {

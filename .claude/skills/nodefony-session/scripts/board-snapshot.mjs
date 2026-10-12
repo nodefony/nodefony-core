@@ -46,6 +46,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chooseNextTicket } from "./board-next.mjs";
+import { guardCli } from "./cli-guard.mjs";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -688,6 +689,7 @@ function memeContenu(a, b) {
 if (!process.argv[1]?.endsWith("board-snapshot.mjs")) {
   // Importé (test) : on n'exécute rien.
 } else {
+  guardCli(import.meta.url);
   main();
 }
 

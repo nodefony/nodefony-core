@@ -10,12 +10,18 @@
  *   node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
  *   node scripts/pose-lexique.mjs --write    # applique via `gh issue edit`
  *   node scripts/pose-lexique.mjs 564 565    # ces tickets seulement (avec ou sans --write)
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]
+ * @option --write  applique via `gh issue edit` (sans lui : simulation)
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
+
+guardCli(import.meta.url);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MAX = 6; // au-delà, c'est le corps qu'il faut réécrire — cf SKILL.md §1

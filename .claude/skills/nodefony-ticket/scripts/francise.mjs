@@ -9,12 +9,18 @@
  *
  *   node scripts/francise.mjs            # diff seul, n'écrit rien
  *   node scripts/francise.mjs --write    # applique via `gh issue edit`
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]
+ * @option --write  applique via `gh issue edit` (sans lui : simulation)
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
+
+guardCli(import.meta.url);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 

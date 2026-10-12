@@ -33,11 +33,20 @@
  * glissé de quelques lignes est le régime normal d'un dépôt vivant. Le mode
  * `--touched-by` ne sort jamais 1 : il n'accuse pas, il donne à relire.
  * `--dependents` non plus : il dit quels voisins relire AVANT de fermer.
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by <rév>
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <numéro>
+ * @option --touched-by  tickets ouverts citant les fichiers d'un commit ou d'une plage
+ * @option --dependents  tickets ouverts qui dépendent de ce numéro
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { dependentsOf } from "./dependents.mjs";
 import fs from "node:fs";
 import path from "node:path";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
+
+guardCli(import.meta.url);
 
 const REPO = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",

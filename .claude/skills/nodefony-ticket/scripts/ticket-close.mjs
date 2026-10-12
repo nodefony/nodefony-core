@@ -28,8 +28,12 @@
  * Usage :
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --since <sha>
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]
+ * @option --since  début de la plage de commits du ticket
  */
 import { execFileSync } from "node:child_process";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 
 const sh = (cmd, args) => {
   try {
@@ -188,4 +192,7 @@ function main() {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  guardCli(import.meta.url);
+  main();
+}

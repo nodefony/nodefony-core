@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-11
+updated: 2026-10-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Description | 581 / 1024 caractères |
 | Déclencheurs | 9 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 9 |
+| Scripts | 10 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -92,16 +92,18 @@ script, donc toujours à jour après régénération.
 | `scripts/board-next.test.mjs` | Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le faux verdict : la reprise a annoncé #175 (jalon `beta`) comme « la prochaine chose » alors que neuf tickets `alpha` restaient ouverts. #175 portait l'ordre 2, #274 l'ordre 1.4 : le tri global les départageait BIEN, et c'est par cette chance que l'empreinte nommait le bon. Le décor ci-dessous retire la chance en donnant au ticket `beta` le rang le plus petit du tableau. / | — | — |
 | `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` `--readme` `--issue` `--dry-run` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` `REPO_NAME` `REPO_OWNER` |
 | `scripts/board-snapshot.test.mjs` | Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS ERREUR : la projection des nœuds GraphQL en items d'empreinte. | — | — |
+| `scripts/cli-guard.mjs` | Garde de ligne de commande des scripts de pilotage — lit l'en-tête du script appelant et applique {@link cliGate} : aide sur `--help`, refus (code 64) d'une option que l'en-tête ne déclare pas. | `--help` | — |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes). | — | — |
 | `scripts/session-end.mjs` | session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, jugement de l'autre. | `--since` `--no-publish` | `MEM` `PUBLISH` |
-| `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans disque : `session-resume.mjs` et `session-end.mjs` les appellent, leurs tests les éprouvent. | `--format` `--json` `--since` | — |
-| `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. / | `--since` | — |
+| `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans disque : `session-resume.mjs` et `session-end.mjs` les appellent, leurs tests les éprouvent. | `--chek` `--format` `--help` `--json` `--since` | — |
+| `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. / | `--check` `--chek` `--help` `--since` `--verify` | — |
 | `scripts/session-resume.mjs` | session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l). | `--offline` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
 npm run board:snapshot
+import { guardCli } from "./cli-guard.mjs"; guardCli(import.meta.url);
 npm run session:end                 # préparation
 npm run session:resume
 ```
@@ -129,6 +131,13 @@ npm run board:issue    (= --issue)
 | `--readme` | republie la zone générée du README du PROJET GitHub |
 | `--issue` | republie l'issue-tableau publique (label `tableau-de-bord`) |
 | `--dry-run` | montre ce qui partirait, sans rien écrire |
+
+#### `scripts/cli-guard.mjs`
+
+
+```bash
+import { guardCli } from "./cli-guard.mjs"; guardCli(import.meta.url);
+```
 
 #### `scripts/session-end.mjs`
 

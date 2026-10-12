@@ -223,3 +223,66 @@ export function nextStateName(states, today) {
         : String.fromCharCode(highest.charCodeAt(0) + 1);
   return `project_session_${today}${suffix}_state.md`;
 }
+
+/**
+ * Le verdict d'une ligne de commande face à l'EN-TÊTE du script qui la reçoit.
+ *
+ * L'en-tête (`@usage`, `@option`) est la seule source : l'aide se rend depuis
+ * lui, et une option qu'il ne nomme pas est refusée. Sans ce garde, un script
+ * ignorait tout argument inconnu — `board-snapshot.mjs --help` RÉÉCRIVAIT
+ * l'empreinte, `test:all --help` lançait la passe complète, et une faute de
+ * frappe (`--chek`) exécutait le geste qu'on croyait seulement contrôler.
+ *
+ * @param {string} source - le texte du script ; son premier bloc `/** … *\/` fait foi.
+ * @param {string[]} argv - les arguments reçus (`process.argv.slice(2)`).
+ * @returns {{action: "run"} | {action: "help" | "refuse", text: string}}
+ */
+export function cliGate(source, argv) {
+  const header = /\/\*\*[\s\S]*?\*\//u.exec(source)?.[0] ?? "";
+  const raw = header
+    .split("\n")
+    .map((l) => l.replace(/^\s*\/?\*+\/?\s?/u, "").trimEnd());
+  const lines = raw.filter((l) => l.trim() !== "");
+  // Le PREMIER PARAGRAPHE, pas la première ligne : une phrase repliée sur deux
+  // lignes s'arrêterait sinon au milieu.
+  const start = raw.findIndex((l) => l.trim() !== "");
+  const end = raw.findIndex((l, i) => i > start && l.trim() === "");
+  const lead = raw
+    .slice(start, end === -1 ? undefined : end)
+    .join(" ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  const tagged = (tag) =>
+    lines
+      .filter((l) => l.startsWith(`@${tag}`))
+      .map((l) => l.slice(tag.length + 1).trim());
+  const usage = tagged("usage");
+  const options = tagged("option");
+  const known = new Set(["--help"]);
+  for (const l of [...usage, ...options]) {
+    for (const m of l.matchAll(/--[a-z][a-z0-9-]*/gu)) known.add(m[0]);
+  }
+  const text = [
+    lead,
+    "",
+    "Usage :",
+    ...usage.map((u) => `  ${u}`),
+    ...(options.length > 0
+      ? ["", "Options :", ...options.map((o) => `  ${o}`)]
+      : []),
+    "  --help  cette aide — ne lance rien",
+  ].join("\n");
+  if (argv.includes("--help") || argv.includes("-h")) {
+    return { action: "help", text };
+  }
+  const unknown = argv.filter(
+    (a) => a.startsWith("--") && !known.has(a.split("=")[0]),
+  );
+  if (unknown.length > 0) {
+    return {
+      action: "refuse",
+      text: `option(s) inconnue(s) : ${unknown.join(" ")} — rien n'est lancé.\n\n${text}`,
+    };
+  }
+  return { action: "run" };
+}

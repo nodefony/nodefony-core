@@ -27,10 +27,15 @@
  *   node .claude/skills/nodefony-ticket/scripts/board-lint.mjs --milestone 10.0.0
  *
  * Code de sortie : 1 s'il reste une ERREUR, 0 sinon (un avertissement ne bloque pas).
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/board-lint.mjs [--json] [--milestone <jalon>]
+ * @option --json        sortie machine
+ * @option --milestone   ne contrôle que ce jalon (ex. 10.0.0)
  */
 import { execFileSync } from "node:child_process";
 
 import { isPilotageCommit } from "./commit-kind.mjs";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
@@ -897,6 +902,7 @@ function render(findings, total, incidents = null) {
 
 const estAppelDirect = process.argv[1]?.endsWith("board-lint.mjs");
 if (estAppelDirect) {
+  guardCli(import.meta.url);
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const msIdx = args.indexOf("--milestone");

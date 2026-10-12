@@ -40,9 +40,22 @@
  * d'issue. Constaté sur la grappe #54 : sept sous-tickets rangés à `numéro − 4`,
  * ce qui plaçait le socle après ce qui en dépend et un ticket d'un autre jalon en
  * tête. Un remplissage mécanique ressemble à un arbitrage et n'en est pas un.
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
+ * @option --title      titre Conventional Commits (requis)
+ * @option --body-file  fichier du corps (requis)
+ * @option --milestone  jalon (ex. 10.0.0)
+ * @option --label      label, répétable
+ * @option --jours      estimation en jours
+ * @option --priorite   P0|P1|P2|P3
+ * @option --parent     numéro du ticket parent
+ * @option --ordre      ordre au tableau (dérivé du parent si absent)
+ * @option --backlog    sans jalon, label `backlog`
+ * @option --type       Task|Bug|Feature|POC|Epic
  */
 import { execFileSync } from "node:child_process";
 import { lotAction, lotOf } from "./board-lint.mjs";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
@@ -248,6 +261,7 @@ export function jalonEnLots(milestone) {
 }
 
 if (process.argv[1]?.endsWith("ticket-open.mjs")) {
+  guardCli(import.meta.url);
   const args = parseArgs(process.argv.slice(2));
   if (!args.title || !args.bodyFile) {
     console.error("usage : --title <titre> --body-file <fichier> [options]");

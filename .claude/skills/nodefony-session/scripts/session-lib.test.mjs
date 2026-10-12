@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ciVerdict,
+  cliGate,
   citedHashes,
   datesIn,
   firstPriority,
@@ -202,5 +203,46 @@ describe("nextStateName — le _state du jour se range APRÈS ceux qui existent"
   });
   it("après le _state sans lettre, vient b", () => {
     expect(nextStateName([s("")], "2026-09-26")).toBe(s("b"));
+  });
+});
+
+describe("cliGate — l'en-tête du script décide de l'aide et des options", () => {
+  const source = [
+    "/**",
+    " * Instantané du pilotage — une phrase repliée",
+    " * sur deux lignes.",
+    " *",
+    " * @usage    node x.mjs",
+    " * @usage    npm run x -- --verify",
+    " * @option   --check  ne rien écrire",
+    " * @option   --since <rév>  début",
+    " */",
+    "const x = 1;",
+  ].join("\n");
+
+  it("--help rend l'aide depuis l'en-tête, et ne lance RIEN", () => {
+    // Vécu : `board-snapshot.mjs --help` réécrivait l'empreinte.
+    const gate = cliGate(source, ["--help"]);
+    expect(gate.action).toBe("help");
+    expect(gate.text).toContain(
+      "Instantané du pilotage — une phrase repliée sur deux lignes.",
+    );
+    expect(gate.text).toContain("--check  ne rien écrire");
+    expect(cliGate(source, ["-h"]).action).toBe("help");
+  });
+
+  it("une option que l'en-tête ne déclare pas est REFUSÉE, jamais ignorée", () => {
+    const gate = cliGate(source, ["--chek"]);
+    expect(gate.action).toBe("refuse");
+    expect(gate.text).toContain("--chek");
+  });
+
+  it("les options de @usage comme de @option sont reconnues, valeurs comprises", () => {
+    expect(cliGate(source, ["--verify"]).action).toBe("run");
+    expect(cliGate(source, ["--check", "--since", "abc123"]).action).toBe(
+      "run",
+    );
+    expect(cliGate(source, ["--since=abc123"]).action).toBe("run");
+    expect(cliGate(source, []).action).toBe("run");
   });
 });

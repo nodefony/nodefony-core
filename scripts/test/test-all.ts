@@ -36,7 +36,11 @@
  * npm run test:all -- --infra      # état de l'infra seul, ne lance aucun test
  * npm run test:all -- --dialects   # + rejoue les suites ORM sur MySQL Community
  * npm run test:all -- --mongo      # + rejoue le DÉMARRAGE de l'app sur MongoDB
+ * npm run test:all -- --help       # l'aide, rendue depuis les @option ci-dessous
  * ```
+ *
+ * Une option inconnue est REFUSÉE (code 64), jamais ignorée — même garde que
+ * les scripts de pilotage (`cliGate`), lu sur CET en-tête.
  *
  * Aucune donnée n'est détruite : les conteneurs déjà lancés sont réutilisés tels
  * quels, et le script ne les arrête jamais — c'est un banc de développement, pas
@@ -45,6 +49,14 @@
  * @usage npm run test:all
  * @usage npm run test:all -- --infra
  * @usage npm run test:all -- --load --dialects --mongo
+ * @option --load         ajoute la charge, le gate mémoire et le cluster e2e
+ * @option --dialects     rejoue les suites ORM sur MySQL Community
+ * @option --mongo        rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration
+ * @option --unit         la suite unitaire SEULE (avec --integration : les deux)
+ * @option --integration  la suite d'intégration SEULE (avec --unit : les deux)
+ * @option --no-infra     n'utilise que l'infra qui tourne déjà, n'en démarre aucune
+ * @option --infra        rend l'état de l'infra, ne lance AUCUN test
+ * @option --json         sortie machine (CI)
  */
 import { spawn, spawnSync } from "node:child_process";
 import { needsShell } from "nodefony";
@@ -53,6 +65,7 @@ import { join } from "node:path";
 import { containerHealthy } from "./lib/docker.ts";
 import { resetMongoDatabase } from "./lib/mongoReset.ts";
 import { acquire, holder, refusal, release } from "../repo/long-run-lock.mjs";
+import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
 import {
   PG_GATE,
   MYSQL_GATE,
@@ -500,6 +513,9 @@ function report(
 // ── Programme ───────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  // Aide et refus d'une option inconnue : la règle des scripts de pilotage,
+  // lue sur l'en-tête de ce fichier — une seule implémentation.
+  guardCli(import.meta.url);
   const options = parseArgs(process.argv.slice(2));
   const phases: PhaseResult[] = [];
 

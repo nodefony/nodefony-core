@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T10:00:40.172Z",
+  "generatedAt": "2026-10-12T11:20:04.529Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 112,
+      "closed": 113,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 39,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -2566,8 +2566,8 @@
       "number": 521,
       "title": "feat(security): joindre Keycloak par un certificat ou une adresse interne",
       "url": "https://github.com/nodefony/nodefony-core/issues/521",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,

@@ -24,8 +24,11 @@
  * Usage :
  *   node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt
  *   node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs 41 56 55     # ceux-là seulement
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
  */
 import { execFileSync } from "node:child_process";
+import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
@@ -147,6 +150,7 @@ export function parTranche(mesures) {
 // de ses fonctions pures pour l'éprouver relance tout : les appels réseau, la
 // lecture de git, l'affichage. Réutiliser du code d'un script, c'est le relancer.
 if (process.argv[1]?.endsWith("ticket-effort.mjs")) {
+  guardCli(import.meta.url);
   const estim = estimations();
   const tickets = wanted.length
     ? wanted.map((n) =>

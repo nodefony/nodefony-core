@@ -31,6 +31,9 @@ import {
   newlyDone,
   uncitedWork,
 } from "./session-lib.mjs";
+import { guardCli } from "./cli-guard.mjs";
+
+guardCli(import.meta.url);
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",

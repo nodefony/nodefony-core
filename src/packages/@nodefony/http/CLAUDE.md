@@ -84,7 +84,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
 ```
 
 ⚠️ **`Firewall.check()` n'existe pas** — le point d'entrée du firewall est
-`handleSecurity()` (`firewall.ts:754`), et il est précédé de trois autres appels
+`handleSecurity()` (`firewall.ts:825`), et il est précédé de trois autres appels
 (`handleCors`, `applySecurityHeaders`, `enforceCsrf`) qui, eux, tournent sur
 **toutes** les requêtes, zone ou pas.
 
@@ -236,7 +236,7 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
   Il est **paresseux** : sans intent de route ni cookie entrant, il ne crée rien (`:1365-1368`).
   L'appeler à la main dans un controller rétablit l'ancien « démarre sur toutes les routes » — donc
   une session persistée par connexion WS, y compris sur `echo`/`broadcast` qui n'en ont aucun besoin
-  (le module `test` documente la tempête d'INSERT que ça avait causée, `WebSocketController.ts:19-26`).
+  (le contrôleur WS du module `test` n'en appelle donc aucun : `initialize()` absent, `WebSocketController.ts:18`).
 - `httpError.ts` ne peut pas importer `@nodefony/framework` (dépendance circulaire) → il lit `context.resolver`, typé par le contrat `IRouteResolver` de http
 - Tout nouveau fichier test `.ts` doit avoir `/// <reference types="node" />` en première ligne
 
