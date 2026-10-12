@@ -9,7 +9,11 @@ import {
   resolveEnvStages,
   type NamedEnvVarMeta,
 } from "../config/defineEnv";
-import { isReservedEnv, reservedEnvRole } from "../config/reservedEnv";
+import {
+  isReservedEnv,
+  RESERVED_ENV,
+  type IReservedEnvVar,
+} from "../config/reservedEnv";
 
 /**
  * Calcul PUR du rapport d'environnement — aucune I/O, aucun `process.env` lu ici.
@@ -88,6 +92,22 @@ export interface IEnvOverrideReport {
   origin: string | null;
 }
 
+/** Une variable du framework présente dans l'environnement (cf `RESERVED_ENV`). */
+export interface IReservedVarReport {
+  name: string;
+  origin: string | null;
+  /** Ce qu'elle règle ou signale. */
+  role: string;
+  /** Valeur effective, masquée si `secret`. */
+  value: string;
+  secret: boolean;
+  /**
+   * `true` : un RÉGLAGE qu'on pose soi-même (`NF_REDIS_HOST`) ;
+   * `false` : le framework la pose dans le dos de l'utilisateur (`NF_DEV_CHILD`).
+   */
+  tunable: boolean;
+}
+
 /** Rapport complet — la forme rendue par `--json`. */
 export interface IEnvReport {
   /** Mode runtime (`NODE_ENV`). */
@@ -120,7 +140,7 @@ export interface IEnvReport {
    * l'application : les compter parmi les inconnues accusait l'utilisateur
    * d'une faute de frappe qu'il n'avait pas commise.
    */
-  reserved: { name: string; origin: string | null; role: string }[];
+  reserved: IReservedVarReport[];
   /**
    * Valeurs EFFECTIVES que l'état du projet contredit.
    *
@@ -167,7 +187,9 @@ function collectUnknown(
   declared: Set<string>,
   originOf: (name: string) => string | null,
 ): IEnvReport["unknown"] {
-  const known = [...declared];
+  // Les réglages du framework comptent parmi les noms qu'on a pu vouloir
+  // écrire : `NF_REDSI_HOST` vise `NF_REDIS_HOST`, pas une variable de l'app.
+  const known = [...declared, ...Object.keys(RESERVED_ENV)];
   const out: IEnvReport["unknown"] = [];
   for (const name of Object.keys(processEnv)) {
     if (!name.startsWith("NF_") || name.startsWith("NF__")) continue;
@@ -196,13 +218,33 @@ function collectUnknown(
  */
 function collectReserved(
   processEnv: Record<string, string | undefined>,
+  declared: Set<string>,
   originOf: (name: string) => string | null,
 ): IEnvReport["reserved"] {
   const out: IEnvReport["reserved"] = [];
-  for (const name of Object.keys(processEnv)) {
-    const role = reservedEnvRole(name);
-    if (role === null) continue;
-    out.push({ name, origin: originOf(name), role });
+  for (const [name, raw] of Object.entries(processEnv)) {
+    // `hasOwn` d'abord : un accès indexé seul trouverait `constructor` par le
+    // prototype de l'objet.
+    if (raw === undefined || !isReservedEnv(name)) continue;
+    const entry = (RESERVED_ENV as Record<string, IReservedEnvVar | undefined>)[
+      name
+    ];
+    if (entry === undefined) continue;
+    // Redéclarée par l'application : sa ligne est déjà dans `vars`, avec SA
+    // déclaration — la rendre deux fois ferait croire à deux variables.
+    if (declared.has(name)) continue;
+    const secret = isSensitiveEnvVar({
+      name,
+      sensitive: entry.tunable?.sensitive,
+    });
+    out.push({
+      name,
+      origin: originOf(name),
+      role: entry.role,
+      value: secret ? mask(raw) : raw,
+      secret,
+      tunable: entry.tunable !== undefined,
+    });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -359,7 +401,7 @@ export function buildEnvReport(input: {
     vars,
     overrides,
     unknown: collectUnknown(processEnv, declared, originOf),
-    reserved: collectReserved(processEnv, originOf),
+    reserved: collectReserved(processEnv, declared, originOf),
     inconsistencies: [...(input.inconsistencies ?? [])],
     catalogAvailable: catalog !== null,
     notes,

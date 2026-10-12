@@ -242,5 +242,5 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:649` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
-| `NF_X` | `scripts/generate/env-snapshot.ts:125` |
+| `NF_X` | `src/nodefony/src/tests/reservedEnv.test.ts:103` |
 

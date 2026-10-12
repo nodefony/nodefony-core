@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 import { assert } from "vitest";
 import { buildEnvReport } from "../cli/envReport";
+import { renderEnvReport } from "../cli/env";
 import { envFileOrder } from "../runtime/loadEnv";
 import type { NamedEnvVarMeta } from "../config/defineEnv";
 
@@ -211,5 +212,51 @@ describe("rapport d'environnement (nodefony env)", () => {
     assert.isTrue(report.levels[1]!.exists);
     // Un rapport partiel qui ne dit pas qu'il est partiel se lit comme complet.
     assert.match(report.notes.join(" "), /catalogue des variables illisible/u);
+  });
+
+  it("un réglage lu par un MODULE n'est pas accusé de faute de frappe", () => {
+    // Vécu : `NF_REDIS_HOST` (lue par le module redis) était rendue « sans
+    // effet — vouliez-vous dire NF_REDIS_URL ? », et `NF_REDIS_PASSWORD`
+    // « vouliez-vous dire NF_ADMIN_PASSWORD ? ». Le rapport mentait.
+    const report = buildEnvReport({
+      runtimeEnv: "development",
+      processEnv: {
+        NF_REDIS_HOST: "localhost",
+        NF_REDIS_PASSWORD: "secret-redis",
+        NF_REDSI_PORT: "6379",
+      },
+      files: [],
+      catalog: [meta("NF_REDIS_URL", { optional: true })],
+    });
+    assert.deepEqual(
+      report.unknown.map((u) => u.name),
+      ["NF_REDSI_PORT"],
+    );
+    // La faute de frappe vise le réglage du framework, pas une variable d'app.
+    assert.equal(report.unknown[0]!.suggestion, "NF_REDIS_PORT");
+    const password = report.reserved.find(
+      (r) => r.name === "NF_REDIS_PASSWORD",
+    );
+    assert.isTrue(password?.tunable);
+    assert.notInclude(password!.value, "secret-redis");
+  });
+
+  it("le rendu aligne ses colonnes et coupe une valeur trop longue", () => {
+    const longUrl = `https://${"x".repeat(80)}.example/realms/app`;
+    const report = buildEnvReport({
+      runtimeEnv: "development",
+      processEnv: { NF_ISSUER: longUrl, NF_A: "court" },
+      files: [{ source: ".env", vars: { NF_ISSUER: longUrl, NF_A: "court" } }],
+      catalog: [meta("NF_ISSUER"), meta("NF_A")],
+    });
+    const text = renderEnvReport(report, null);
+    // La valeur entière n'est jamais rendue : elle repousserait la provenance.
+    assert.notInclude(text, longUrl);
+    assert.include(text, "…");
+    // La provenance commence à la MÊME colonne sur les deux lignes.
+    const rows = text.split("\n").filter((l) => /^ {2}NF_(ISSUER|A) /u.test(l));
+    assert.lengthOf(rows, 2);
+    const cols = rows.map((l) => l.lastIndexOf(".env"));
+    assert.equal(cols[0], cols[1]);
   });
 });

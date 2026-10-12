@@ -49,6 +49,12 @@ export interface IReservedEnvVar {
     /** Où la poser en production. */
     placement: EnvVarPlacement;
     /**
+     * La valeur est un secret : masquée par `nodefony env`, marquée
+     * `@sensitive` dans la notice. Absent : déduit du NOM (`pathLooksSecret`) —
+     * à poser quand le nom ne le dit pas (une URL qui porte un mot de passe).
+     */
+    sensitive?: boolean;
+    /**
      * Les modules qui la LISENT — la notice ne la nomme que si l'application
      * en déclare un. Absent : lue par le cœur, toujours nommée.
      */
@@ -278,6 +284,154 @@ export const RESERVED_ENV = Object.freeze({
       placement: "platform",
       modules: ["@nodefony/realtime"],
     },
+  },
+  NF_REDIS_HOST: {
+    name: "NF_REDIS_HOST",
+    role: "hôte du serveur Redis (NF_REDIS_URL l'emporte)",
+    tunable: {
+      title: "Hôte Redis",
+      defaultNote: "globalOptions.socket.host de la configuration",
+      placement: "platform",
+      modules: ["@nodefony/redis"],
+    },
+  },
+  NF_REDIS_PORT: {
+    name: "NF_REDIS_PORT",
+    role: "port du serveur Redis (ignoré hors 1-65535)",
+    tunable: {
+      title: "Port Redis",
+      defaultNote: "6379",
+      placement: "platform",
+      modules: ["@nodefony/redis"],
+    },
+  },
+  NF_REDIS_PASSWORD: {
+    name: "NF_REDIS_PASSWORD",
+    role: "mot de passe du serveur Redis",
+    tunable: {
+      title: "Mot de passe Redis",
+      defaultNote: "aucun",
+      placement: "secrets",
+      sensitive: true,
+      modules: ["@nodefony/redis"],
+    },
+  },
+  NF_REDIS_KEY_NAMESPACE: {
+    name: "NF_REDIS_KEY_NAMESPACE",
+    role: "cloison des clés Redis — distingue deux déploiements d'une même application",
+    tunable: {
+      title: "Cloison des clés Redis",
+      defaultNote: "keyNamespace de la configuration, sinon le nom du projet",
+      placement: "platform",
+      modules: ["@nodefony/redis"],
+    },
+  },
+  NF_MIGRATE_DATABASE_URL: {
+    name: "NF_MIGRATE_DATABASE_URL",
+    role: "base visée par `orm:migrate`, quand le compte qui migre n'est pas celui qui sert",
+    tunable: {
+      title: "Base des migrations",
+      defaultNote: "l'URL du connecteur",
+      placement: "secrets",
+      sensitive: true,
+      modules: ["@nodefony/drizzle"],
+    },
+  },
+  NF_MONGODB_DEBUG: {
+    name: "NF_MONGODB_DEBUG",
+    role: "journalise chaque requête Mongoose (`1` ou `true`)",
+    tunable: {
+      title: "Journal des requêtes MongoDB",
+      defaultNote: "debug de la configuration",
+      placement: "workstation",
+      modules: ["@nodefony/mongoose"],
+    },
+  },
+  NF_DOCS_REPO_URL: {
+    name: "NF_DOCS_REPO_URL",
+    role: "dépôt vers lequel pointent les liens « voir la source » de la documentation",
+    tunable: {
+      title: "Dépôt de la documentation",
+      defaultNote: "repo.url de la configuration",
+      placement: "platform",
+      modules: ["@nodefony/documentation"],
+    },
+  },
+  NF_DOCS_REPO_BRANCH: {
+    name: "NF_DOCS_REPO_BRANCH",
+    role: "branche des liens « voir la source » de la documentation",
+    tunable: {
+      title: "Branche de la documentation",
+      defaultNote: "repo.branch de la configuration, sinon la branche courante",
+      placement: "platform",
+      modules: ["@nodefony/documentation"],
+    },
+  },
+  NF_OUTPUT: {
+    name: "NF_OUTPUT",
+    role: "rendu du démarrage : human, plain ou json (`--output` l'emporte)",
+    tunable: {
+      title: "Rendu du démarrage",
+      defaultNote: "human dans un terminal, plain sinon",
+      placement: "workstation",
+    },
+  },
+  NF_NO_PROGRESS: {
+    name: "NF_NO_PROGRESS",
+    role: "coupe les barres de progression du CLI",
+    tunable: {
+      title: "Barres de progression du CLI",
+      defaultNote: "affichées dans un terminal (jamais en CI)",
+      placement: "workstation",
+    },
+  },
+  NF_BANNER_ASCII: {
+    name: "NF_BANNER_ASCII",
+    role: "bannière du CLI en ASCII pur (`1`), pour une police sans caractères de dessin",
+    tunable: {
+      title: "Bannière ASCII",
+      defaultNote: "déduite du terminal",
+      placement: "workstation",
+    },
+  },
+  NF_NODE_DIST_URL: {
+    name: "NF_NODE_DIST_URL",
+    role: "liste des versions de Node lue par `nodefony doctor` (URL d'un miroir ou chemin)",
+    tunable: {
+      title: "Index des versions de Node",
+      defaultNote: "https://nodejs.org/dist/index.json",
+      placement: "workstation",
+    },
+  },
+  NF_WITH_DEV_MODULES: {
+    name: "NF_WITH_DEV_MODULES",
+    role: "dérogation : charge les modules de développement hors développement (`1`), pour une mesure",
+    tunable: {
+      title: "Modules de développement hors développement",
+      defaultNote: "non chargés",
+      placement: "workstation",
+    },
+  },
+  NF_WITH_DEV_MODULES_TTL_MIN: {
+    name: "NF_WITH_DEV_MODULES_TTL_MIN",
+    role: "durée de vie, en minutes, d'un runtime en dérogation NF_WITH_DEV_MODULES",
+    tunable: {
+      title: "Durée de la dérogation (min)",
+      defaultNote: "30 (plafond 240)",
+      placement: "workstation",
+    },
+  },
+  NF_DETACH_CHILD: {
+    name: "NF_DETACH_CHILD",
+    role: "posée par `--detach` dans le serveur qu'il lance en arrière-plan (garde anti-boucle)",
+  },
+  NF_DEV_RELOAD: {
+    name: "NF_DEV_RELOAD",
+    role: "posée par le superviseur de développement quand il relance après une modification",
+  },
+  NF_DEV_BUILD_ISSUE: {
+    name: "NF_DEV_BUILD_ISSUE",
+    role: "verdict de construction que le superviseur de développement transmet au serveur relancé",
   },
 }) satisfies Readonly<Record<string, IReservedEnvVar>>;
 

@@ -241,33 +241,105 @@ async function readCatalog(
 const pad = (s: string, n: number): string =>
   s.length >= n ? s : s + " ".repeat(n - s.length);
 
-/** Rend une variable : valeur, provenance, et ce qui la rend suspecte. */
-function renderVar(v: IEnvVarReport): string {
-  const value = v.value ?? "(absente)";
-  const origin = v.origin === null ? "" : `← ${v.origin}`;
-  const flags: string[] = [];
-  if (v.missing) flags.push("REQUISE ET ABSENTE");
+/**
+ * Largeur maximale de la colonne des valeurs : au-delà, la valeur est coupée
+ * (`…`) — une URL de 80 caractères repoussait sinon toute la ligne, et la
+ * colonne suivante ne s'alignait plus sur rien. La valeur entière reste dans
+ * `--json`.
+ */
+const VALUE_WIDTH = 40;
+
+/** Coupe une valeur trop longue pour sa colonne. */
+const clip = (s: string, n: number): string =>
+  s.length <= n ? s : `${s.slice(0, n - 1)}…`;
+
+/** Le nom lisible d'un niveau de la cascade. */
+const sourceLabel = (source: string): string =>
+  source === "process.env" ? "terminal / orchestrateur" : source;
+
+/** Une ligne du tableau : nom, valeur, provenance, puis remarques. */
+interface IRow {
+  name: string;
+  value: string;
+  origin: string;
+  notes: string[];
+}
+
+/** Rend des lignes alignées sur des colonnes COMMUNES à toute la page. */
+function renderRows(rows: IRow[], nameWidth: number): string[] {
+  const valueWidth = Math.min(
+    VALUE_WIDTH,
+    Math.max(0, ...rows.map((r) => r.value.length)),
+  );
+  const originWidth = Math.max(0, ...rows.map((r) => r.origin.length));
+  return rows.map((r) =>
+    (
+      `  ${pad(r.name, nameWidth)}  ${pad(clip(r.value, valueWidth), valueWidth)}` +
+      `  ${pad(r.origin, originWidth)}` +
+      (r.notes.length ? `  ${r.notes.join(" · ")}` : "")
+    ).trimEnd(),
+  );
+}
+
+/** Coupe une liste de noms en lignes de largeur bornée. */
+function wrapNames(names: string[], width = 76): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const n of names) {
+    const next = line ? `${line}, ${n}` : n;
+    if (next.length > width && line) {
+      lines.push(`  ${line},`);
+      line = n;
+    } else line = next;
+  }
+  if (line) lines.push(`  ${line}`);
+  return lines;
+}
+
+/**
+ * Ce qu'il faut savoir d'une variable déclarée, hors valeur et provenance :
+ * l'exigence (et OÙ elle s'applique), les valeurs admises, les niveaux masqués.
+ */
+function varNotes(v: IEnvVarReport): string[] {
+  const notes: string[] = [];
+  if (v.missing) notes.push("REQUISE ET ABSENTE");
   // Dire OÙ elle est exigée, et pas seulement qu'elle l'est : sans ce mot, une
   // variable absente sur un poste de développement se lit comme une panne
   // locale, alors que c'est le déploiement visé qui la réclame.
-  if (v.requiredIn?.length) flags.push(`requise en ${v.requiredIn.join("/")}`);
-  if (v.value === null && v.default !== undefined) {
-    flags.push(`défaut ${JSON.stringify(v.default)}`);
+  else if (v.requiredIn?.length) {
+    notes.push(`requise en ${v.requiredIn.join("/")}`);
   }
-  if (v.secret) flags.push("secret");
-  if (v.values) flags.push(v.values.join("|"));
-  for (const s of v.shadowed) flags.push(`ignoré dans ${s.source}`);
-  return (
-    `  ${pad(v.name, 24)} ${pad(v.kind, 8)} ${pad(value, 24)} ${pad(origin, 22)}` +
-    (flags.length ? `  ${flags.join(" · ")}` : "")
-  ).trimEnd();
+  if (v.values) notes.push(v.values.join(" | "));
+  for (const s of v.shadowed) {
+    notes.push(`${sourceLabel(s.source)} l'écrit aussi : ignoré`);
+  }
+  return notes;
 }
 
-/** Rendu humain — l'ordre des sections suit l'ordre des questions qu'on se pose. */
-function render(report: IEnvReport, projectRoot: string | null): string {
+/** Une valeur par défaut telle qu'elle s'écrirait dans `.env`. */
+const defaultText = (v: IEnvVarReport): string =>
+  v.secret
+    ? "•••••••• (défaut)"
+    : typeof v.default === "string"
+      ? v.default
+      : JSON.stringify(v.default);
+
+/**
+ * Rendu humain du rapport — l'ordre des sections suit l'ordre des questions
+ * qu'on se pose : d'où ça vient, ce qui est posé, ce qui s'applique sans
+ * l'être, ce qui manque, puis ce qui est SUSPECT.
+ *
+ * @param report - le rapport calculé par `buildEnvReport`.
+ * @param projectRoot - racine de l'application, `null` hors projet.
+ * @returns le texte à écrire sur la sortie standard.
+ */
+export function renderEnvReport(
+  report: IEnvReport,
+  projectRoot: string | null,
+): string {
   const out: string[] = [];
   out.push(
-    `\nEnvironnement — mode ${report.runtimeEnv}` +
+    `\nEnvironnement · mode ${report.runtimeEnv}` +
       (report.appEnv ? ` · déploiement ${report.appEnv}` : "") +
       // L'environnement ÉVALUÉ s'annonce en tête : un rapport qui exige des
       // variables de production sans dire qu'il regarde la production ferait
@@ -277,69 +349,164 @@ function render(report: IEnvReport, projectRoot: string | null): string {
         : "") +
       (projectRoot ? `\n${projectRoot}` : ""),
   );
-  out.push(`\nCascade — du plus FORT au plus faible (le premier posé gagne)`);
+
+  const posed = report.vars.filter((v) => v.value !== null);
+  const defaulted = report.vars.filter(
+    (v) => v.value === null && v.default !== undefined,
+  );
+  const unset = report.vars.filter(
+    (v) => v.value === null && v.default === undefined,
+  );
+  const tunables = report.reserved.filter((r) => r.tunable);
+  const internals = report.reserved.filter((r) => !r.tunable);
+
+  // UNE largeur de nom pour toute la page : des colonnes qui changent de
+  // place d'une section à l'autre se lisent comme des tableaux différents.
+  const nameWidth = Math.max(
+    0,
+    ...[...posed, ...defaulted, ...tunables, ...report.unknown].map(
+      (v) => v.name.length,
+    ),
+  );
+
+  // La cascade compte ce que chaque niveau apporte À L'APPLICATION : le
+  // terminal porte des dizaines de variables (PATH, HOME…) dont aucune ne la
+  // concerne, et ce total ne répondait à aucune question.
+  const fromShell = [
+    ...report.vars,
+    ...report.reserved,
+    ...report.unknown,
+    ...report.overrides,
+  ].filter((v) => v.origin === "process.env").length;
+  out.push(`\nSources — la première qui pose une variable gagne`);
   for (const l of report.levels) {
+    const count = l.rank === 1 ? fromShell : l.count;
     const state = !l.exists
       ? "absent"
-      : `${l.count} variable${l.count > 1 ? "s" : ""}`;
+      : `${count} variable${count > 1 ? "s" : ""}`;
     out.push(
       (
-        `  ${l.rank}. ${pad(l.source, 28)} ${pad(state, 16)}` +
-        (l.rank === 1 ? "  ← shell / orchestrateur : gagne TOUJOURS" : "") +
+        `  ${l.rank}. ${pad(sourceLabel(l.source), 26)} ${pad(state, 14)}` +
+        (l.rank === 1 ? "  gagne toujours" : "") +
         (l.skipped ? `  (${l.skipped})` : "")
       ).trimEnd(),
     );
   }
+
   if (report.vars.length > 0) {
-    out.push(`\nVariables déclarées par l'application (env.ts)`);
-    for (const v of report.vars) out.push(renderVar(v));
+    out.push(
+      `\nPosées — ${posed.length} sur ${report.vars.length} variables de l'application (env.ts)`,
+    );
+    out.push(
+      ...renderRows(
+        posed.map((v) => ({
+          name: v.name,
+          value: v.value ?? "",
+          origin: sourceLabel(v.origin ?? ""),
+          notes: varNotes(v),
+        })),
+        nameWidth,
+      ),
+    );
+  }
+  if (defaulted.length > 0) {
+    out.push(`\nNon posées — leur défaut s'applique (${defaulted.length})`);
+    out.push(
+      ...renderRows(
+        defaulted.map((v) => ({
+          name: v.name,
+          value: defaultText(v),
+          origin: "",
+          notes: varNotes(v),
+        })),
+        nameWidth,
+      ),
+    );
+  }
+  if (unset.length > 0) {
+    out.push(`\nNon posées, sans défaut déclaré (${unset.length})`);
+    // Sur une ligne de noms : chacune n'a rien d'autre à dire que son absence,
+    // sauf une exigence — qui, elle, se lit à part.
+    const quiet = unset.filter((v) => varNotes(v).length === 0);
+    out.push(...wrapNames(quiet.map((v) => v.name)));
+    const loud = unset.filter((v) => varNotes(v).length > 0);
+    out.push(
+      ...renderRows(
+        loud.map((v) => ({
+          name: v.name,
+          value: "",
+          origin: "",
+          notes: varNotes(v),
+        })),
+        nameWidth,
+      ),
+    );
+  }
+
+  if (tunables.length > 0) {
+    out.push(
+      `\nRéglages du framework — lus par ses modules, sans passer par env.ts (${tunables.length})`,
+    );
+    out.push(
+      ...renderRows(
+        tunables.map((r) => ({
+          name: r.name,
+          value: r.value,
+          origin: sourceLabel(r.origin ?? ""),
+          notes: [r.role],
+        })),
+        nameWidth,
+      ),
+    );
   }
   if (report.overrides.length > 0) {
     out.push(
-      `\nSurcharges de configuration (NF__<MODULE>__<CHEMIN>) — visent une clé de module,` +
-        `\nsans passer par env.ts`,
+      `\nSurcharges de configuration — NF__<MODULE>__<CHEMIN> vise une clé de module`,
     );
     for (const o of report.overrides) {
       out.push(
-        `  ${pad(o.envKey, 34)} → ${o.module}.${o.path.join(".")} = ${o.value}` +
-          (o.origin ? `  ← ${o.origin}` : ""),
+        `  ${o.envKey}  →  ${o.module}.${o.path.join(".")} = ${o.value}` +
+          (o.origin ? `  (${sourceLabel(o.origin)})` : ""),
       );
     }
   }
+
   if (report.unknown.length > 0) {
     out.push(
-      `\nVariables NF_ présentes mais NON déclarées — sans effet (une faute de frappe` +
-        `\nsur une variable ne se voit jamais : le défaut s'applique en silence)`,
+      `\n⚠ Lues par PERSONNE — sans effet, faute de frappe probable (${report.unknown.length})`,
     );
-    for (const u of report.unknown) {
-      out.push(
-        `  ${pad(u.name, 34)}${u.origin ? `← ${pad(u.origin, 20)}` : ""}` +
-          (u.suggestion ? `  vouliez-vous dire ${u.suggestion} ?` : ""),
-      );
-    }
+    out.push(
+      ...renderRows(
+        report.unknown.map((u) => ({
+          name: u.name,
+          value: "",
+          origin: sourceLabel(u.origin ?? ""),
+          notes: u.suggestion ? [`vouliez-vous dire ${u.suggestion} ?`] : [],
+        })),
+        nameWidth,
+      ),
+    );
   }
   if (report.inconsistencies.length > 0) {
     out.push(
-      `\n⚠ Valeur EFFECTIVE que l'état du projet contredit — la configuration est` +
-        `\nprise en compte, et l'application ne fonctionnera pas pour autant`,
+      `\n⚠ Valeur prise en compte, mais que l'état du projet contredit — l'application` +
+        `\nne fonctionnera pas pour autant`,
     );
     for (const i of report.inconsistencies) {
-      out.push(`  ${pad(i.name, 34)}${i.message}`);
+      out.push(`  ${pad(i.name, nameWidth)}  ${i.message}`);
     }
   }
-  if (report.reserved.length > 0) {
-    out.push(
-      `\nVariables posées par le FRAMEWORK — ni à déclarer, ni à écrire soi-même`,
-    );
-    for (const r of report.reserved) {
-      out.push(`  ${pad(r.name, 34)}${r.role}`);
+  if (internals.length > 0) {
+    out.push(`\nPosées par le framework lui-même — à ne pas écrire`);
+    for (const r of internals) {
+      out.push(`  ${pad(r.name, nameWidth)}  ${r.role}`);
     }
   }
   const missing = report.vars.filter((v) => v.missing);
   if (missing.length > 0) {
     out.push(
-      `\n⚠ ${missing.length} variable(s) REQUISE(S) manquante(s) — l'application ne démarrera pas :` +
-        `\n  ${missing.map((v) => v.name).join(", ")}`,
+      `\n⚠ ${missing.length} variable(s) REQUISE(S) manquante(s) — l'application ne démarrera pas :`,
+      ...wrapNames(missing.map((v) => v.name)),
     );
   }
   for (const note of report.notes) out.push(`\n⚠ ${note}`);
@@ -604,7 +771,7 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
   process.stdout.write(
     parsed.json
       ? `${JSON.stringify(report, null, 2)}\n`
-      : render(report, projectRoot),
+      : renderEnvReport(report, projectRoot),
   );
   // Une variable requise absente n'est pas un avis : l'application ne démarrera
   // pas. Le code de sortie le dit, pour qu'un script s'arrête là.

@@ -83,8 +83,13 @@ describe("registre des variables réservées au framework", () => {
       ),
       "utf8",
     );
+    // Plus le catalogue de l'application de DÉVELOPPEMENT (le dépôt en est
+    // une) : une variable qu'elle déclare, un module la lit par `ctx.env.X`.
+    const racine = readFileSync(path.join(REPO, "env.ts"), "utf8");
     const duCatalogue = new Set(
-      [...gabarit.matchAll(/^\s{2}(NF_[A-Z0-9_]+):/gmu)].map((m) => m[1]),
+      [gabarit, racine].flatMap((src) =>
+        [...src.matchAll(/^\s{2}(NF_[A-Z0-9_]+):/gmu)].map((m) => m[1]),
+      ),
     );
     assert.isAbove(
       duCatalogue.size,
@@ -95,7 +100,15 @@ describe("registre des variables réservées au framework", () => {
     const orphelines = new Set<string>();
     for (const fichier of sourcesDuRuntime()) {
       const src = readFileSync(fichier, "utf8");
-      for (const m of src.matchAll(/process\.env\.(NF_[A-Z0-9_]+)/gu)) {
+      // TOUTES les formes de lecture, pas seulement `process.env.NF_X` : le
+      // contrôle n'en connaissait qu'une et restait vert pendant que `nodefony
+      // env` déclarait « sans effet » `NF_REDIS_HOST` — lue par `env.NF_REDIS_HOST`
+      // après un `const env = process.env`. Formes couvertes : `<x>env.NF_X`,
+      // `<x>env["NF_X"]`, `env("NF_X")`, et la constante `<NOM>_ENV = "NF_X"`
+      // passée ensuite à `process.env[…]`.
+      for (const m of src.matchAll(
+        /(?:[A-Za-z_]*[eE]nv(?:\??\.|\[\s*["'`]|\(\s*["'`])|_ENV\s*=\s*["'`])(NF_[A-Z0-9_]+)/gu,
+      )) {
         const nom = m[1];
         // `NF__MODULE__CHEMIN` est une surcharge de config, jamais une variable.
         if (nom!.startsWith("NF__")) continue;

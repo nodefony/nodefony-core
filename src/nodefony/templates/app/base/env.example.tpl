@@ -44,7 +44,9 @@
 #        NF_BOOT_WARN_MS
 #   4. Framework : poste et diagnostic
 #        NF_CLI_DEBUG, NF_NO_UPDATE_CHECK, NF_DEV_UI, NF_DEV_MOUSE,
-#        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE
+#        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE,
+#        NF_OUTPUT, NF_NO_PROGRESS, NF_BANNER_ASCII, NF_NODE_DIST_URL,
+#        NF_WITH_DEV_MODULES, NF_WITH_DEV_MODULES_TTL_MIN
 
 
 # ============================================================================
@@ -352,3 +354,66 @@
 # @placement=workstation
 # @default="désactivée (1 l'arme)"
 # NF_PERF_PROBE=
+
+
+# ─── Rendu du démarrage ─────────────────────────────────────────────────────
+#
+# Rendu du démarrage : human, plain ou json (`--output` l'emporte).
+#
+# @optional
+# @placement=workstation
+# @default="human dans un terminal, plain sinon"
+# NF_OUTPUT=
+
+
+# ─── Barres de progression du CLI ───────────────────────────────────────────
+#
+# Coupe les barres de progression du CLI.
+#
+# @optional
+# @placement=workstation
+# @default="affichées dans un terminal (jamais en CI)"
+# NF_NO_PROGRESS=
+
+
+# ─── Bannière ASCII ─────────────────────────────────────────────────────────
+#
+# Bannière du CLI en ASCII pur (`1`), pour une police sans caractères de
+# dessin.
+#
+# @optional
+# @placement=workstation
+# @default="déduite du terminal"
+# NF_BANNER_ASCII=
+
+
+# ─── Index des versions de Node ─────────────────────────────────────────────
+#
+# Liste des versions de Node lue par `nodefony doctor` (URL d'un miroir ou
+# chemin).
+#
+# @optional
+# @placement=workstation
+# @default=https://nodejs.org/dist/index.json
+# NF_NODE_DIST_URL=
+
+
+# ─── Modules de développement hors développement ────────────────────────────
+#
+# Dérogation : charge les modules de développement hors développement (`1`),
+# pour une mesure.
+#
+# @optional
+# @placement=workstation
+# @default="non chargés"
+# NF_WITH_DEV_MODULES=
+
+
+# ─── Durée de la dérogation (min) ───────────────────────────────────────────
+#
+# Durée de vie, en minutes, d'un runtime en dérogation NF_WITH_DEV_MODULES.
+#
+# @optional
+# @placement=workstation
+# @default="30 (plafond 240)"
+# NF_WITH_DEV_MODULES_TTL_MIN=
