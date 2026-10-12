@@ -27,3 +27,11 @@
 # que l'arbre n'en porte plus. Même motif que les témoins ci-dessus :
 # l'historique d'une branche publiée ne se réécrit pas pour une valeur inventée.
 895e6757cfaf806b4c3ad8b592ab77c5e3d566ea:scripts/release/smoke-docker.sh:generic-api-key:31
+
+# Fixture de test unitaire (#589) : mot de passe en clair d'un compte d'un dépôt
+# EN MÉMOIRE (`UserAdminApi.test.ts`, détruit à la fin du cas) — il n'ouvre
+# rien. Remplacé par une fixture déjà acquittée (`nouveau-mot-valise-42`) au
+# commit suivant ; l'historique d'une branche publiée ne se réécrit pas pour
+# une valeur inventée.
+3b97fed95b815a607d5fd8193adc087d9dd15d7c:src/packages/@nodefony/user/tests/unit/UserAdminApi.test.ts:generic-api-key:681
+3b97fed95b815a607d5fd8193adc087d9dd15d7c:src/packages/@nodefony/user/tests/unit/UserAdminApi.test.ts:generic-api-key:696

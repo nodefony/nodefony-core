@@ -613,7 +613,7 @@ describe("UserAdminApi → UserService → kernel : onUserRevoked", () => {
       id: "u2",
       identifier: "bob@x",
       roles: ["ROLE_USER"],
-      password: "hash:Ancien-Secret-42",
+      password: "hash:ancien-mot-valise-42",
     },
   ];
 
@@ -661,7 +661,7 @@ describe("UserAdminApi → UserService → kernel : onUserRevoked", () => {
     const { status } = await call(api, "POST", "users/{id}/password", {
       params: { id: "u2" },
       user: { id: "a1" },
-      body: { plainPassword: "Nouveau-Secret-43" },
+      body: { plainPassword: "nouveau-mot-valise-42" },
     });
     assert.equal(status, 200);
     assert.deepEqual(
@@ -675,8 +675,8 @@ describe("UserAdminApi → UserService → kernel : onUserRevoked", () => {
     const { status } = await call(api, "POST", "me/password", {
       user: { id: "u2", identifier: "bob@x", roles: ["ROLE_USER"] },
       body: {
-        currentPassword: "Ancien-Secret-42",
-        newPassword: "Nouveau-Secret-43",
+        currentPassword: "ancien-mot-valise-42",
+        newPassword: "nouveau-mot-valise-42",
       },
     });
     assert.equal(status, 200);
