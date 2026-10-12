@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-12 13:30** (UTC).
+> Empreinte prise le **2026-10-12 14:22** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -119,7 +119,7 @@ Ordre 3.985 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise
 | 4.01 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 4.02 | P1 — figé à la création | 0.5 | 2026-10-12 → 10-12 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
 | 4.03 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
-| 4.05 | P2 — décision | 1 | 2026-10-15 → 10-15 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
+| 4.05 | P2 — décision | 1 | 2026-10-15 → 10-15 | #352 | test(release): éprouver un flux SSE à travers le frontal généré |
 | 4.06 | P2 — décision | 1 | 2026-10-16 → 10-16 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 | 4.07 | P2 — décision | 1 | 2026-10-19 → 10-19 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 4.075 | P2 — décision | 1 | 2026-10-20 → 10-20 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
