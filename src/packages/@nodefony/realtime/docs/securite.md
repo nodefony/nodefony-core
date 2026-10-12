@@ -263,7 +263,7 @@ Nodefony pose **deux barrières successives**, à deux étages différents.
 **Barrière 1 — transport, active sans rien faire.** `HttpKernel.checkWebsocketOrigin()`
 (`http-kernel.ts:712`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance
 loopback en développement et une allowlist optionnelle (`allowedOrigins`,
-`http/nodefony/config/config.ts:552`) acceptant le hostname exact ou un wildcard à un label. Une
+`http/nodefony/config/config.ts:570`) acceptant le hostname exact ou un wildcard à un label. Une
 requête **sans** `Origin` est acceptée : un attaquant non-navigateur n'a pas besoin de CSWSH.
 
 **Barrière 2 — module realtime, opt-in et plus stricte.** `RealtimeHub.checkOrigin()`
@@ -468,7 +468,7 @@ Trois durcissements méritent d'être connus :
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
 - **La config passe avant les défauts** — les règles de `realtimeChannels`
-  (`security/nodefony/config/config.ts:1426`) sont placées en tête, premier match gagnant. On peut
+  (`security/nodefony/config/config.ts:1447`) sont placées en tête, premier match gagnant. On peut
   donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
 Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub
@@ -680,7 +680,7 @@ canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:82`) applique
 
 | `bufferedAmount`                                                                                 | Action                                                                                                                      |
 | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:1210`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
+| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:1226`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
 | `websocket.backpressureCloseAfterDrops` drops CONSÉCUTIFS — 1000 par défaut                      | `close(1013)` « Try Again Later » ; le client se reconnecte et resynchronise                                                |
 
 ### Taille des messages entrants
