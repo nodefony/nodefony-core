@@ -13,6 +13,13 @@
  * l'attaquant restait connecté. Le TOTP et les passkeys retirés à la
  * suppression sont éprouvés par `totp-account-binding.test.ts`.
  *
+ * Une socket ouverte avant le geste n'est pas rejouée ici : la cascade détruit
+ * les sessions (constaté ci-dessous), et une socket dont la session meurt se
+ * ferme en 4001 au tick suivant (`REVOCATION_REVALIDATE_MS`, 30 s), constaté
+ * par `http/…/oauth2-keycloak.test.ts` ; `invalidBefore` des jetons porteurs
+ * par `security/…/realtimeIdentityRevalidation.test.ts`. Le rejouer coûterait
+ * 30 s par cas sans rien prouver de neuf.
+ *
  * Requires: server on 5152 (HTTPS) + users `admin/secret-de-dev-42` (module test).
  */
 import { expect } from "vitest";
@@ -131,6 +138,7 @@ const PROBES = {
   selfPassword: "lifecycle-self-password",
   cliPassword: "lifecycle-cli-password",
   disabled: "lifecycle-disabled",
+  locked: "lifecycle-locked",
   deleted: "lifecycle-deleted",
 } as const;
 const PASSWORD = "lifecycle-secret-ancien-1";
@@ -279,6 +287,15 @@ describe("Cycle de vie du compte — les accès en cours suivent le geste (#589)
     });
     expect(patched.status).to.equal(200);
     await expectAccessCut(access, "désactivation");
+  });
+
+  it("verrouillage admin : la session et la clé du compte sont coupées", async () => {
+    const access = await openAccess(PROBES.locked);
+    const patched = await req("PATCH", `${USERS}/${access.id}`, auth(), {
+      locked: true,
+    });
+    expect(patched.status).to.equal(200);
+    await expectAccessCut(access, "verrouillage");
   });
 
   it("🔴 suppression admin : la session et la clé du compte sont coupées", async () => {
