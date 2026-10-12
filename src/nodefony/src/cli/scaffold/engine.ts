@@ -1953,6 +1953,10 @@ function dispatchScaffold(
       NF_WEBHOOK_KEY: randomBytes(32).toString("base64"),
       NF_CSRF_SECRET: randomBytes(32).toString("base64"),
     },
+    // Secret de scellement du backplane temps réel (≥ 32 caractères), écrit
+    // PRÊT mais en commentaire dans `.env` : il ne sert qu'avec le pilote
+    // `redis` (plusieurs exemplaires), inutile au poste mono-process.
+    realtime: { backplaneSecret: randomBytes(32).toString("base64") },
     // Décor Keycloak du profil `keycloak` — lu par `.env` et `.env.example`.
     // Le realm d'import qui porte le même secret est écrit par la contribution
     // de `@nodefony/security` (`devClientSecret`, même règle, gardée par un

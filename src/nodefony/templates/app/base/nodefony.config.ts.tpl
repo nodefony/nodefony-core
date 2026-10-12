@@ -107,6 +107,15 @@ export default defineConfig<typeof env>((ctx) => ({
     debug: ctx.isProd ? [] : "*",
     /** stdout = contrat cloud-native (collecteur de logs de l'orchestrateur). */
     driver: ctx.env.NF_LOG_DRIVER,
+    // Relecture du backplane (console d'administration) : `auto` suit l'URL
+    // déclarée ci-dessous, sinon la mémoire. Loki ou OpenSearch ne sont montés
+    // que si leur adresse est fournie ; injoignables, la relecture repasse en
+    // mémoire, jamais de crash.
+    queryDriver: ctx.env.NF_LOG_QUERY_DRIVER,
+    ...(ctx.env.NF_LOKI_URL ? { loki: { url: ctx.env.NF_LOKI_URL } } : {}),
+    ...(ctx.env.NF_OPENSEARCH_URL
+      ? { opensearch: { url: ctx.env.NF_OPENSEARCH_URL } }
+      : {}),
   },
 
   /**

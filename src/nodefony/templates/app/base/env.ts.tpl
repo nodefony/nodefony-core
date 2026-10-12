@@ -93,6 +93,49 @@ export const env = defineEnv({
   }),
 
   /**
+   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut) :
+   * une URL de destination déclarée (NF_LOKI_URL/NF_OPENSEARCH_URL) impose son
+   * driver — l'URL ⇒ le driver, un seul knob (les DEUX URLs sans choix explicite =
+   * échec au boot) ; sinon s'adapte au mode (mono → `memory`, cluster →
+   * `cluster-file`). Valeurs explicites : `memory` | `file` | `cluster-file` |
+   * `loki` | `opensearch` (surcharge d'expert, jamais réécrite).
+   */
+  NF_LOG_QUERY_DRIVER: envString({
+    default: "auto",
+    section: "Journaux",
+    title: "Relecture des journaux (console d'administration)",
+    description:
+      "D'où la console d'administration relit les journaux. auto choisit seul : Loki ou OpenSearch si leur adresse est posée, sinon la mémoire (un process) ou des fichiers (cluster). Valeurs possibles : auto, memory, file, cluster-file, loki, opensearch. À ne changer qu'en connaissance de cause.",
+  }),
+
+  /**
+   * Infra `logs`, destination Loki. Sa présence dérive le driver de relecture
+   * (`NF_LOG_QUERY_DRIVER=auto` → `loki`). Optionnelle (destination KO au
+   * runtime → repli `memory`, jamais de crash).
+   */
+  NF_LOKI_URL: envString({
+    optional: true,
+    section: "Journaux",
+    title: "Loki (journaux centralisés)",
+    description:
+      "L'adresse d'un serveur Grafana Loki. Posée, l'application y envoie ses journaux et la console d'administration les y relit. Si Loki ne répond pas, rien ne plante : la relecture repasse en mémoire.\nNe pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
+    example: "http://localhost:3100",
+  }),
+
+  /**
+   * Infra `logs`, destination OpenSearch. Sa présence dérive le driver de
+   * relecture (`NF_LOG_QUERY_DRIVER=auto` → `opensearch`). Optionnelle.
+   */
+  NF_OPENSEARCH_URL: envString({
+    optional: true,
+    section: "Journaux",
+    title: "OpenSearch (journaux centralisés)",
+    description:
+      "L'adresse d'un serveur OpenSearch. Posée, l'application y envoie ses journaux et la console d'administration les y relit.\nNe pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
+    example: "http://localhost:9200",
+  }),
+
+  /**
    * Nombre de processus Node lancés par `nodefony production` / `cluster`.
    * Trois formes : `1` — le défaut, un process par pod, la mise à l'échelle
    * est le travail de l'orchestrateur ; `"auto"` — un worker par cœur ALLOUÉ

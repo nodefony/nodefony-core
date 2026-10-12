@@ -38,7 +38,7 @@
 #   1. Réseau et processus
 #        NF_PORT, PORT, NF_PORT_HTTPS, NF_BIND_ALL, NF_TLS_CA_FILE, NF_WORKERS
 #   2. Journaux
-#        NF_LOG_DRIVER
+#        NF_LOG_DRIVER, NF_LOG_QUERY_DRIVER, NF_LOKI_URL, NF_OPENSEARCH_URL
 #   3. Framework : déploiement
 #        NF_ENV, NF_CLUSTER_PROBE, NF_INSTANCE_ID, NF_BOOT_TIMEOUT_MS,
 #        NF_BOOT_WARN_MS
@@ -160,6 +160,50 @@
 # @type=enum(stdout, file, null)
 # @default=stdout
 # NF_LOG_DRIVER=stdout
+
+
+# ─── Relecture des journaux (console d'administration) ──────────────────────
+#
+# D'où la console d'administration relit les journaux. auto choisit seul :
+# Loki ou OpenSearch si leur adresse est posée, sinon la mémoire (un process)
+# ou des fichiers (cluster). Valeurs possibles : auto, memory, file,
+# cluster-file, loki, opensearch. À ne changer qu'en connaissance de cause.
+#
+# @optional
+# @placement=platform
+# @default=auto
+# NF_LOG_QUERY_DRIVER=auto
+
+
+# ─── Loki (journaux centralisés) ────────────────────────────────────────────
+#
+# L'adresse d'un serveur Grafana Loki. Posée, l'application y envoie ses
+# journaux et la console d'administration les y relit. Si Loki ne répond pas,
+# rien ne plante : la relecture repasse en mémoire.
+#
+# Ne pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le
+# démarrage refuserait.
+#
+# @optional
+# @placement=platform
+# @default=aucun
+# @example=http://localhost:3100
+# NF_LOKI_URL=
+
+
+# ─── OpenSearch (journaux centralisés) ──────────────────────────────────────
+#
+# L'adresse d'un serveur OpenSearch. Posée, l'application y envoie ses
+# journaux et la console d'administration les y relit.
+#
+# Ne pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le
+# démarrage refuserait.
+#
+# @optional
+# @placement=platform
+# @default=aucun
+# @example=http://localhost:9200
+# NF_OPENSEARCH_URL=
 
 
 
