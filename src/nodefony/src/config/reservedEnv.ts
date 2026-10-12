@@ -285,47 +285,6 @@ export const RESERVED_ENV = Object.freeze({
       modules: ["@nodefony/realtime"],
     },
   },
-  NF_REDIS_HOST: {
-    name: "NF_REDIS_HOST",
-    role: "hôte du serveur Redis (NF_REDIS_URL l'emporte)",
-    tunable: {
-      title: "Hôte Redis",
-      defaultNote: "globalOptions.socket.host de la configuration",
-      placement: "platform",
-      modules: ["@nodefony/redis"],
-    },
-  },
-  NF_REDIS_PORT: {
-    name: "NF_REDIS_PORT",
-    role: "port du serveur Redis (ignoré hors 1-65535)",
-    tunable: {
-      title: "Port Redis",
-      defaultNote: "6379",
-      placement: "platform",
-      modules: ["@nodefony/redis"],
-    },
-  },
-  NF_REDIS_PASSWORD: {
-    name: "NF_REDIS_PASSWORD",
-    role: "mot de passe du serveur Redis",
-    tunable: {
-      title: "Mot de passe Redis",
-      defaultNote: "aucun",
-      placement: "secrets",
-      sensitive: true,
-      modules: ["@nodefony/redis"],
-    },
-  },
-  NF_REDIS_KEY_NAMESPACE: {
-    name: "NF_REDIS_KEY_NAMESPACE",
-    role: "cloison des clés Redis — distingue deux déploiements d'une même application",
-    tunable: {
-      title: "Cloison des clés Redis",
-      defaultNote: "keyNamespace de la configuration, sinon le nom du projet",
-      placement: "platform",
-      modules: ["@nodefony/redis"],
-    },
-  },
   NF_MIGRATE_DATABASE_URL: {
     name: "NF_MIGRATE_DATABASE_URL",
     role: "base visée par `orm:migrate`, quand le compte qui migre n'est pas celui qui sert",

@@ -199,7 +199,7 @@ export function envVarPlacement(
  * @param source - source d'environnement.
  * @returns la valeur (directe ou lue du fichier), ou `undefined` si absente.
  */
-function resolveFileEnv(
+export function resolveFileEnv(
   key: string,
   source: Record<string, string | undefined>,
 ): string | undefined {

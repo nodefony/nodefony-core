@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { redisConfigSchema } from "../../config/config";
 import { defineRedisConfig } from "../../config/defineModuleConfig";
+import { configJsonSchema } from "../../config/configSchema";
+import { applyEnvShortcuts, collectEnvShortcuts } from "nodefony";
 import { buildClientOptions } from "../../src/buildClientOptions";
 
 // Isolation : ces tests unitaires doivent être déterministes quelle que soit la
@@ -62,14 +64,43 @@ describe("@nodefony/redis — defineRedisConfig (env layering)", () => {
     assert.ok(Object.isFrozen(c));
   });
 
-  it("NF_REDIS_HOST / NF_REDIS_PORT / NF_REDIS_PASSWORD surchargent", () => {
-    process.env.NF_REDIS_HOST = "redis.internal";
-    process.env.NF_REDIS_PORT = "6380";
-    process.env.NF_REDIS_PASSWORD = "s3cret";
-    const c = defineRedisConfig({});
+  it("les noms courts sont DÉCLARÉS dans le schéma, sur le champ qu'ils règlent", () => {
+    const found = collectEnvShortcuts(configJsonSchema());
+    assert.deepEqual(
+      Object.fromEntries(found.map((s) => [s.env, s.path.join(".")])),
+      {
+        NF_REDIS_HOST: "globalOptions.socket.host",
+        NF_REDIS_PORT: "globalOptions.socket.port",
+        NF_REDIS_PASSWORD: "globalOptions.password",
+        NF_REDIS_KEY_NAMESPACE: "keyNamespace",
+      },
+    );
+    const secret = Object.fromEntries(found.map((s) => [s.env, s.secret]));
+    assert.equal(secret.NF_REDIS_PASSWORD, true);
+    // Le nom contient « KEY » : sans `secret: false` déclaré, la cloison serait
+    // masquée partout (journal, rapport, notice) alors qu'elle n'a rien de secret.
+    assert.equal(secret.NF_REDIS_KEY_NAMESPACE, false);
+  });
+
+  it("posés comme le Kernel les pose, puis validés par le builder", () => {
+    const options: Record<string, unknown> = {};
+    applyEnvShortcuts(options, configJsonSchema(), {
+      NF_REDIS_HOST: "redis.internal",
+      NF_REDIS_PORT: "6380",
+      NF_REDIS_PASSWORD: "s3cret",
+    });
+    const c = defineRedisConfig(options);
     assert.equal(c.globalOptions.socket.host, "redis.internal");
     assert.equal(c.globalOptions.socket.port, 6380);
     assert.equal(c.globalOptions.password, "s3cret");
+  });
+
+  it("le builder ne lit PLUS ces variables lui-même — le Kernel les pose", () => {
+    // Une seule lecture : la lire aussi ici rétablirait la double écriture,
+    // et une valeur fausse y échapperait à la validation.
+    process.env.NF_REDIS_HOST = "redis.internal";
+    const c = defineRedisConfig({});
+    assert.equal(c.globalOptions.socket.host, "localhost");
   });
 
   it("REDIS_URL surcharge l'url", () => {
@@ -78,10 +109,17 @@ describe("@nodefony/redis — defineRedisConfig (env layering)", () => {
     assert.equal(c.url, "redis://u:p@h:6390/2");
   });
 
-  it("ignore un NF_REDIS_PORT invalide", () => {
-    process.env.NF_REDIS_PORT = "not-a-port";
-    const c = defineRedisConfig({});
-    assert.equal(c.globalOptions.socket.port, 6379);
+  it("un NF_REDIS_PORT invalide arrête le démarrage, il n'est plus ignoré", () => {
+    // Ignoré, il laissait le port par défaut s'appliquer en silence :
+    // l'exploitant croyait avoir réglé ce qu'il n'avait pas réglé.
+    const options: Record<string, unknown> = {};
+    applyEnvShortcuts(options, configJsonSchema(), {
+      NF_REDIS_PORT: "not-a-port",
+    });
+    assert.throws(
+      () => defineRedisConfig(options),
+      (e: unknown) => (e as Error).name === "BootConfigurationError",
+    );
   });
 });
 

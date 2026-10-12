@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
@@ -12,11 +12,21 @@ import { renderEnvExample } from "../config/envExample";
 import { getEnvCatalog, type NamedEnvVarMeta } from "../config/defineEnv";
 import { frameworkEnvCatalog } from "../config/reservedEnv";
 import { stripGlobalCliFlags } from "./globalFlags";
+import { collectEnvShortcuts } from "../config/envShortcuts";
+import {
+  CONFIG_SCHEMA_EXPORT,
+  CONFIG_SCHEMA_FIELD,
+  declaredPackageEntry,
+  resolveInside,
+} from "./packageManifest";
+import { renderEnvReport } from "./envRender";
+import { isTerminal } from "../runtime/isTerminal";
+import { shouldColorize, usableWidth } from "../kernel/checks/report";
 import {
   buildEnvReport,
   type IEnvFileInput,
   type IEnvReport,
-  type IEnvVarReport,
+  type IModuleShortcut,
 } from "./envReport";
 
 /**
@@ -237,281 +247,98 @@ async function readCatalog(
   return null;
 }
 
-/** Colonne alignée, sans dépendance de mise en forme. */
-const pad = (s: string, n: number): string =>
-  s.length >= n ? s : s + " ".repeat(n - s.length);
-
-/**
- * Largeur maximale de la colonne des valeurs : au-delà, la valeur est coupée
- * (`…`) — une URL de 80 caractères repoussait sinon toute la ligne, et la
- * colonne suivante ne s'alignait plus sur rien. La valeur entière reste dans
- * `--json`.
- */
-const VALUE_WIDTH = 40;
-
-/** Coupe une valeur trop longue pour sa colonne. */
-const clip = (s: string, n: number): string =>
-  s.length <= n ? s : `${s.slice(0, n - 1)}…`;
-
-/** Le nom lisible d'un niveau de la cascade. */
-const sourceLabel = (source: string): string =>
-  source === "process.env" ? "terminal / orchestrateur" : source;
-
-/** Une ligne du tableau : nom, valeur, provenance, puis remarques. */
-interface IRow {
-  name: string;
-  value: string;
-  origin: string;
-  notes: string[];
-}
-
-/** Rend des lignes alignées sur des colonnes COMMUNES à toute la page. */
-function renderRows(rows: IRow[], nameWidth: number): string[] {
-  const valueWidth = Math.min(
-    VALUE_WIDTH,
-    Math.max(0, ...rows.map((r) => r.value.length)),
-  );
-  const originWidth = Math.max(0, ...rows.map((r) => r.origin.length));
-  return rows.map((r) =>
-    (
-      `  ${pad(r.name, nameWidth)}  ${pad(clip(r.value, valueWidth), valueWidth)}` +
-      `  ${pad(r.origin, originWidth)}` +
-      (r.notes.length ? `  ${r.notes.join(" · ")}` : "")
-    ).trimEnd(),
-  );
-}
-
-/** Coupe une liste de noms en lignes de largeur bornée. */
-function wrapNames(names: string[], width = 76): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const n of names) {
-    const next = line ? `${line}, ${n}` : n;
-    if (next.length > width && line) {
-      lines.push(`  ${line},`);
-      line = n;
-    } else line = next;
-  }
-  if (line) lines.push(`  ${line}`);
-  return lines;
+/** Un module dont on n'a pas pu lire les réglages, et pourquoi. */
+export interface IUnreadableModule {
+  module: string;
+  reason: string;
 }
 
 /**
- * Ce qu'il faut savoir d'une variable déclarée, hors valeur et provenance :
- * l'exigence (et OÙ elle s'applique), les valeurs admises, les niveaux masqués.
- */
-function varNotes(v: IEnvVarReport): string[] {
-  const notes: string[] = [];
-  if (v.missing) notes.push("REQUISE ET ABSENTE");
-  // Dire OÙ elle est exigée, et pas seulement qu'elle l'est : sans ce mot, une
-  // variable absente sur un poste de développement se lit comme une panne
-  // locale, alors que c'est le déploiement visé qui la réclame.
-  else if (v.requiredIn?.length) {
-    notes.push(`requise en ${v.requiredIn.join("/")}`);
-  }
-  if (v.values) notes.push(v.values.join(" | "));
-  for (const s of v.shadowed) {
-    notes.push(`${sourceLabel(s.source)} l'écrit aussi : ignoré`);
-  }
-  return notes;
-}
-
-/** Une valeur par défaut telle qu'elle s'écrirait dans `.env`. */
-const defaultText = (v: IEnvVarReport): string =>
-  v.secret
-    ? "•••••••• (défaut)"
-    : typeof v.default === "string"
-      ? v.default
-      : JSON.stringify(v.default);
-
-/**
- * Rendu humain du rapport — l'ordre des sections suit l'ordre des questions
- * qu'on se pose : d'où ça vient, ce qui est posé, ce qui s'applique sans
- * l'être, ce qui manque, puis ce qui est SUSPECT.
+ * Les raccourcis d'environnement que déclarent les schémas des modules de
+ * l'application (`.meta({ env })`), lus SANS démarrer l'application.
  *
- * @param report - le rapport calculé par `buildEnvReport`.
- * @param projectRoot - racine de l'application, `null` hors projet.
- * @returns le texte à écrire sur la sortie standard.
+ * Le module DÉCLARE où vit son schéma — `package.json` →
+ * `"nodefony": { "configSchema": "./dist/…" }`, un fichier qui exporte
+ * `configJsonSchema()` et n'importe que le schéma. Rien n'est deviné : un
+ * paquet tiers range ses fichiers comme il veut, et seul ce qu'il déclare
+ * l'engage. Un module qui ne déclare rien ne propose pas de nom court — c'est
+ * normal, pas une erreur.
+ *
+ * Tout ce qui empêche de lire un schéma DÉCLARÉ est nommé, jamais tu : sans
+ * schéma, les variables du module ressortiraient « lues par personne ».
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns les raccourcis trouvés, et les modules illisibles avec leur raison.
  */
-export function renderEnvReport(
-  report: IEnvReport,
-  projectRoot: string | null,
-): string {
-  const out: string[] = [];
-  out.push(
-    `\nEnvironnement · mode ${report.runtimeEnv}` +
-      (report.appEnv ? ` · déploiement ${report.appEnv}` : "") +
-      // L'environnement ÉVALUÉ s'annonce en tête : un rapport qui exige des
-      // variables de production sans dire qu'il regarde la production ferait
-      // croire à une panne du poste.
-      (report.targetEnv
-        ? ` · exigences évaluées pour ${report.targetEnv}`
-        : "") +
-      (projectRoot ? `\n${projectRoot}` : ""),
-  );
-
-  const posed = report.vars.filter((v) => v.value !== null);
-  const defaulted = report.vars.filter(
-    (v) => v.value === null && v.default !== undefined,
-  );
-  const unset = report.vars.filter(
-    (v) => v.value === null && v.default === undefined,
-  );
-  const tunables = report.reserved.filter((r) => r.tunable);
-  const internals = report.reserved.filter((r) => !r.tunable);
-
-  // UNE largeur de nom pour toute la page : des colonnes qui changent de
-  // place d'une section à l'autre se lisent comme des tableaux différents.
-  const nameWidth = Math.max(
-    0,
-    ...[...posed, ...defaulted, ...tunables, ...report.unknown].map(
-      (v) => v.name.length,
-    ),
-  );
-
-  // La cascade compte ce que chaque niveau apporte À L'APPLICATION : le
-  // terminal porte des dizaines de variables (PATH, HOME…) dont aucune ne la
-  // concerne, et ce total ne répondait à aucune question.
-  const fromShell = [
-    ...report.vars,
-    ...report.reserved,
-    ...report.unknown,
-    ...report.overrides,
-  ].filter((v) => v.origin === "process.env").length;
-  out.push(`\nSources — la première qui pose une variable gagne`);
-  for (const l of report.levels) {
-    const count = l.rank === 1 ? fromShell : l.count;
-    const state = !l.exists
-      ? "absent"
-      : `${count} variable${count > 1 ? "s" : ""}`;
-    out.push(
-      (
-        `  ${l.rank}. ${pad(sourceLabel(l.source), 26)} ${pad(state, 14)}` +
-        (l.rank === 1 ? "  gagne toujours" : "") +
-        (l.skipped ? `  (${l.skipped})` : "")
-      ).trimEnd(),
-    );
-  }
-
-  if (report.vars.length > 0) {
-    out.push(
-      `\nPosées — ${posed.length} sur ${report.vars.length} variables de l'application (env.ts)`,
-    );
-    out.push(
-      ...renderRows(
-        posed.map((v) => ({
-          name: v.name,
-          value: v.value ?? "",
-          origin: sourceLabel(v.origin ?? ""),
-          notes: varNotes(v),
-        })),
-        nameWidth,
-      ),
-    );
-  }
-  if (defaulted.length > 0) {
-    out.push(`\nNon posées — leur défaut s'applique (${defaulted.length})`);
-    out.push(
-      ...renderRows(
-        defaulted.map((v) => ({
-          name: v.name,
-          value: defaultText(v),
-          origin: "",
-          notes: varNotes(v),
-        })),
-        nameWidth,
-      ),
-    );
-  }
-  if (unset.length > 0) {
-    out.push(`\nNon posées, sans défaut déclaré (${unset.length})`);
-    // Sur une ligne de noms : chacune n'a rien d'autre à dire que son absence,
-    // sauf une exigence — qui, elle, se lit à part.
-    const quiet = unset.filter((v) => varNotes(v).length === 0);
-    out.push(...wrapNames(quiet.map((v) => v.name)));
-    const loud = unset.filter((v) => varNotes(v).length > 0);
-    out.push(
-      ...renderRows(
-        loud.map((v) => ({
-          name: v.name,
-          value: "",
-          origin: "",
-          notes: varNotes(v),
-        })),
-        nameWidth,
-      ),
-    );
-  }
-
-  if (tunables.length > 0) {
-    out.push(
-      `\nRéglages du framework — lus par ses modules, sans passer par env.ts (${tunables.length})`,
-    );
-    out.push(
-      ...renderRows(
-        tunables.map((r) => ({
-          name: r.name,
-          value: r.value,
-          origin: sourceLabel(r.origin ?? ""),
-          notes: [r.role],
-        })),
-        nameWidth,
-      ),
-    );
-  }
-  if (report.overrides.length > 0) {
-    out.push(
-      `\nSurcharges de configuration — NF__<MODULE>__<CHEMIN> vise une clé de module`,
-    );
-    for (const o of report.overrides) {
-      out.push(
-        `  ${o.envKey}  →  ${o.module}.${o.path.join(".")} = ${o.value}` +
-          (o.origin ? `  (${sourceLabel(o.origin)})` : ""),
-      );
+export async function readModuleShortcuts(
+  projectRoot: string,
+): Promise<{ shortcuts: IModuleShortcut[]; unreadable: IUnreadableModule[] }> {
+  const shortcuts: IModuleShortcut[] = [];
+  const unreadable: IUnreadableModule[] = [];
+  for (const name of readManifestModules(projectRoot) ?? []) {
+    const dir = path.join(projectRoot, "node_modules", ...name.split("/"));
+    const declared = declaredPackageEntry(dir, CONFIG_SCHEMA_FIELD);
+    if (declared === null) continue;
+    let file: string;
+    try {
+      file = resolveInside(dir, declared.replace(/^\.\//u, ""));
+    } catch (e) {
+      unreadable.push({
+        module: name,
+        reason: e instanceof Error ? e.message : String(e),
+      });
+      continue;
+    }
+    if (!existsSync(file)) {
+      unreadable.push({
+        module: name,
+        reason: `non construit — ${declared} absent (npm run build)`,
+      });
+      continue;
+    }
+    try {
+      const mod: unknown = await import(pathToFileURL(file).href);
+      const producer: unknown =
+        typeof mod === "object" && mod !== null
+          ? Reflect.get(mod, CONFIG_SCHEMA_EXPORT)
+          : undefined;
+      if (typeof producer !== "function") {
+        unreadable.push({
+          module: name,
+          reason: `${declared} n'exporte pas ${CONFIG_SCHEMA_EXPORT}()`,
+        });
+        continue;
+      }
+      const schema: unknown = Reflect.apply(producer, undefined, []);
+      for (const s of collectEnvShortcuts(schema)) {
+        shortcuts.push({ ...s, module: name });
+      }
+    } catch (e) {
+      unreadable.push({
+        module: name,
+        reason: `lecture de ${declared} impossible (${e instanceof Error ? e.message : String(e)})`,
+      });
     }
   }
+  return { shortcuts, unreadable };
+}
 
-  if (report.unknown.length > 0) {
-    out.push(
-      `\n⚠ Lues par PERSONNE — sans effet, faute de frappe probable (${report.unknown.length})`,
+/** Nom et version de l'application, pour l'en-tête — `null` si illisible. */
+function readAppIdentity(
+  projectRoot: string,
+): { name: string; version?: string } | null {
+  try {
+    const pkg: unknown = JSON.parse(
+      readFileSync(path.join(projectRoot, "package.json"), "utf8"),
     );
-    out.push(
-      ...renderRows(
-        report.unknown.map((u) => ({
-          name: u.name,
-          value: "",
-          origin: sourceLabel(u.origin ?? ""),
-          notes: u.suggestion ? [`vouliez-vous dire ${u.suggestion} ?`] : [],
-        })),
-        nameWidth,
-      ),
-    );
+    if (typeof pkg !== "object" || pkg === null) return null;
+    const name: unknown = Reflect.get(pkg, "name");
+    const version: unknown = Reflect.get(pkg, "version");
+    if (typeof name !== "string") return null;
+    return typeof version === "string" ? { name, version } : { name };
+  } catch {
+    return null;
   }
-  if (report.inconsistencies.length > 0) {
-    out.push(
-      `\n⚠ Valeur prise en compte, mais que l'état du projet contredit — l'application` +
-        `\nne fonctionnera pas pour autant`,
-    );
-    for (const i of report.inconsistencies) {
-      out.push(`  ${pad(i.name, nameWidth)}  ${i.message}`);
-    }
-  }
-  if (internals.length > 0) {
-    out.push(`\nPosées par le framework lui-même — à ne pas écrire`);
-    for (const r of internals) {
-      out.push(`  ${pad(r.name, nameWidth)}  ${r.role}`);
-    }
-  }
-  const missing = report.vars.filter((v) => v.missing);
-  if (missing.length > 0) {
-    out.push(
-      `\n⚠ ${missing.length} variable(s) REQUISE(S) manquante(s) — l'application ne démarrera pas :`,
-      ...wrapNames(missing.map((v) => v.name)),
-    );
-  }
-  for (const note of report.notes) out.push(`\n⚠ ${note}`);
-  out.push("");
-  return out.join("\n");
 }
 
 /**
@@ -553,8 +380,12 @@ export async function buildProjectEnvReport(
     cwd: root,
     ...(projectRoot ? { projectRoot } : {}),
   });
-  return buildEnvReport({
+  const modules = projectRoot
+    ? await readModuleShortcuts(projectRoot)
+    : { shortcuts: [], unreadable: [] };
+  const report = buildEnvReport({
     inconsistencies,
+    moduleSettings: modules.shortcuts,
     runtimeEnv,
     appEnv,
     targetEnv,
@@ -565,6 +396,12 @@ export async function buildProjectEnvReport(
     files: readLevels(root, runtimeEnv, appEnv),
     catalog: projectRoot ? await readCatalog(projectRoot) : null,
   });
+  for (const u of modules.unreadable) {
+    report.notes.push(
+      `réglages de ${u.module} illisibles : ${u.reason} — ses noms courts ressortent « lus par personne » tant que ce n'est pas réglé`,
+    );
+  }
+  return report;
 }
 
 /**
@@ -625,12 +462,45 @@ export function composeEnvExample(
   catalog: readonly NamedEnvVarMeta[],
   customHeader: string | null = null,
   modules: readonly string[] | null = null,
+  moduleSettings: readonly IModuleShortcut[] = [],
 ): string {
   const names = new Set(catalog.map((v) => v.name));
   const framework = frameworkEnvCatalog(modules).filter(
     (v) => !names.has(v.name),
   );
-  return renderEnvExample([...catalog, ...framework], {
+  // Les réglages que les schémas des modules déclarent (`.meta({ env })`) :
+  // leur titre, leur défaut et leur description viennent du schéma, aucune
+  // copie n'est tenue ici.
+  const fromModules = moduleSettings
+    .filter((m) => !names.has(m.env))
+    // oxlint-disable-next-line no-map-spread -- objet CONSTRUIT champ par champ ; le seul spread est un littéral conditionnel, forme imposée par `exactOptionalPropertyTypes`
+    .map((m): NamedEnvVarMeta => ({
+      name: m.env,
+      kind:
+        m.kind === "enum"
+          ? "enum"
+          : m.kind === "integer" || m.kind === "number"
+            ? "number"
+            : m.kind === "boolean"
+              ? "boolean"
+              : "string",
+      ...(m.values ? { values: m.values } : {}),
+      optional: true,
+      section: `Module ${m.module}`,
+      title: `${m.module} — ${m.path.join(".")}`,
+      ...(m.description ? { description: m.description } : {}),
+      defaultNote:
+        m.default === undefined
+          ? "aucun"
+          : m.secret
+            ? "défini par le module"
+            : typeof m.default === "string"
+              ? m.default
+              : JSON.stringify(m.default),
+      placement: m.secret ? "secrets" : "platform",
+      sensitive: m.secret,
+    }));
+  return renderEnvExample([...catalog, ...framework, ...fromModules], {
     header: customHeader ?? EXAMPLE_HEADER,
   });
 }
@@ -742,6 +612,7 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
         catalog,
         readExampleHeader(projectRoot),
         readManifestModules(projectRoot),
+        (await readModuleShortcuts(projectRoot)).shortcuts,
       ),
       parsed.check,
     );
@@ -771,7 +642,12 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
   process.stdout.write(
     parsed.json
       ? `${JSON.stringify(report, null, 2)}\n`
-      : renderEnvReport(report, projectRoot),
+      : renderEnvReport(report, {
+          projectRoot,
+          app: projectRoot ? readAppIdentity(projectRoot) : null,
+          width: usableWidth(process.stdout.columns),
+          color: shouldColorize(process.env, isTerminal(process.stdout)),
+        }),
   );
   // Une variable requise absente n'est pas un avis : l'application ne démarrera
   // pas. Le code de sortie le dit, pour qu'un script s'arrête là.

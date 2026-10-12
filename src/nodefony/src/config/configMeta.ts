@@ -42,6 +42,15 @@ export interface IConfigFieldMeta {
   kernelDerived?: boolean;
   /** Donnée sensible : à masquer dans Studio et à rédiger dans les logs. */
   secret?: boolean;
+  /**
+   * Variable d'environnement qui règle CE champ (`NF_REDIS_HOST`) — un nom court
+   * pour la surcharge `NF__<MODULE>__<CHEMIN>`. Posée par le KERNEL avant la
+   * validation du module (`applyEnvShortcuts`), découverte par `nodefony env`
+   * et par la notice `.env.example` (`package.json` → `nodefony.configSchema`) :
+   * déclarer ici est le SEUL geste, aucune table à tenir ailleurs. Forme
+   * `NF_<MODULE>_<RÉGLAGE>`. Posée sur une FEUILLE, jamais sur une section.
+   */
+  env?: string;
 }
 
 declare module "zod" {

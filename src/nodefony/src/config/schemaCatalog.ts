@@ -34,6 +34,20 @@
 export interface ISchemaLeaf {
   /** Chemin pointé de la clé, tel qu'on l'écrit dans `use()`. */
   key: string;
+  /** Les mêmes segments, non joints — une clé peut contenir un point. */
+  path: string[];
+  /** Valeurs admises, quand le schéma déclare une énumération. */
+  values?: string[];
+  /**
+   * Variable d'environnement qui règle cette clé (`.meta({ env })`), si le
+   * module lui a donné un nom court.
+   */
+  env?: string;
+  /**
+   * Le drapeau `secret` TEL QUE le schéma le pose — `true` ou `false` ;
+   * absent quand le schéma ne dit rien (c'est alors le NOM qui décide).
+   */
+  secret?: boolean;
   /**
    * Type déclaré. Une énumération est rendue par ses valeurs (`sha256|sha384`)
    * plutôt que par `string` : c'est la contrainte qui informe, pas le type.
@@ -155,8 +169,13 @@ function walk(
     return;
   }
   const description = node.description;
+  const values = Array.isArray(node.enum) ? node.enum.map(String) : undefined;
   out.push({
     key: path.join("."),
+    path,
+    ...(values && values.length > 0 ? { values } : {}),
+    ...(typeof node.env === "string" ? { env: node.env } : {}),
+    ...(typeof node.secret === "boolean" ? { secret: node.secret } : {}),
     type: typeOf(node),
     ...("default" in node ? { default: node.default } : {}),
     description: typeof description === "string" ? description : "",

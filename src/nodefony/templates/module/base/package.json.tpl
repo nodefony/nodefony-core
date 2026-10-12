@@ -31,7 +31,10 @@
     "typecheck": "tsgo --noEmit",
     "test": "vitest run"
   },
-<% } %>  "peerDependencies": {
+<% } %>  "nodefony": {
+    "configSchema": "./dist/nodefony/config/configSchema.js"
+  },
+  "peerDependencies": {
     "nodefony": "<%= it.peerRange %>",
     "@nodefony/framework": "<%= it.peerRange %>",
 <% if (it.needsRealtime) { %>    "@nodefony/realtime": "<%= it.peerRange %>",

@@ -471,6 +471,8 @@ export {
 } from "./config/envOverride";
 export type { NfEnvOverride } from "./config/envOverride";
 export { flattenConfigSchema } from "./config/schemaCatalog";
+export { applyEnvShortcuts, collectEnvShortcuts } from "./config/envShortcuts";
+export type { IAppliedEnvShortcut, IEnvShortcut } from "./config/envShortcuts";
 export type { ISchemaLeaf } from "./config/schemaCatalog";
 export {
   computeConfigProvenance,

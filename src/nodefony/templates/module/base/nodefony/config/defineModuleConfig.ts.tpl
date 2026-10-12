@@ -1,6 +1,6 @@
-import { z } from "zod";
 import { parseModuleConfig } from "nodefony";
 import { <%= it.camel %>ConfigSchema } from "./config";
+import { configJsonSchema } from "./configSchema";
 import type { I<%= it.pascal %>Config, I<%= it.pascal %>ConfigInput } from "./config";
 
 /**
@@ -14,9 +14,10 @@ import type { I<%= it.pascal %>Config, I<%= it.pascal %>ConfigInput } from "./co
  * (`defineModuleConfig.ts`) ; la FONCTION, elle, est préfixée par le module —
  * deux modules importés côte à côte ne se marchent pas dessus.
  *
- * L'override env générique (`NF__<%= it.upper %>__<CHEMIN>`) est appliqué par le core,
- * pas ici. Si le module a besoin d'une variable d'env DÉDIÉE, elle s'applique
- * APRÈS le parse, dans cette fonction, pour que le schéma reste pur.
+ * L'environnement ne se lit JAMAIS ici. La surcharge générique
+ * (`NF__<%= it.upper %>__<CHEMIN>`) comme un nom court (`NF_<%= it.upper %>_<RÉGLAGE>`) sont
+ * posés par le Kernel avant cette validation. Un nom court se DÉCLARE sur son
+ * champ, dans `./config.ts` : `.meta({ env: "NF_<%= it.upper %>_<RÉGLAGE>" })`.
  *
  * 🔴 **La validation passe par `parseModuleConfig`, du cœur** — un seul endroit
  * pour une seule règle. Il lève une `BootConfigurationError`, et pas une `Error`
@@ -51,5 +52,5 @@ export function define<%= it.pascal %>Config(
  * (libellés, types, défauts, descriptions), sans une ligne d'UI écrite à la main.
  */
 export function <%= it.camel %>ConfigJsonSchema(): unknown {
-  return z.toJSONSchema(<%= it.camel %>ConfigSchema);
+  return configJsonSchema();
 }

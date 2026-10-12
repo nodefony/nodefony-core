@@ -283,3 +283,43 @@ describe("config/schema — le catalogue des clés qu'on a le droit d'écrire", 
     expect(rows.every((r) => r.module === "@nodefony/http")).to.equal(true);
   });
 });
+
+describe("config/schema — provenance d'un NOM COURT (`.meta({ env })`)", () => {
+  it("une valeur posée par un nom court se dit `env`, pas `app`", () => {
+    // Le Kernel pose le nom court dans `options` avant la validation : sans
+    // cette lecture, la console voyait une valeur ≠ défaut et concluait « app »
+    // — elle envoyait chercher dans `nodefony.config.ts` un réglage qui n'y est pas.
+    const schema = {
+      type: "object",
+      properties: {
+        headerServer: {
+          type: "string",
+          default: "nodefony",
+          env: "NF_DEMO_HEADER_SERVER",
+        },
+      },
+    };
+    const kernel = makeKernel({
+      http: {
+        getModuleName: () => "@nodefony/http",
+        isApp: false,
+        options: { headerServer: "posé-par-env" },
+        configSchema: () => schema,
+      },
+    });
+    // Variable FICTIVE, propre au test : posée par une clé, elle n'est pas
+    // prise pour une variable de décor de banc par le catalogue du dépôt.
+    const name = schema.properties.headerServer.env;
+    const prev = process.env[name];
+    process.env[name] = "posé-par-env";
+    try {
+      const rows = ask(kernel) as Row[];
+      expect(rows.find((r) => r.key === "headerServer")?.source).to.equal(
+        "env",
+      );
+    } finally {
+      if (prev === undefined) delete process.env[name];
+      else process.env[name] = prev;
+    }
+  });
+});

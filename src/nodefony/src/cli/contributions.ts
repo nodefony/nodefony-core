@@ -14,6 +14,13 @@ import { findProjectRoot } from "./projectRoot";
 import { installedPackageRoots } from "./installedPackages";
 import { stripGlobalCliFlags } from "./globalFlags";
 import { isPlainObject } from "../Tools";
+import {
+  CONTRIBUTE_FIELD,
+  declaredPackageEntry,
+  resolveInside,
+} from "./packageManifest";
+
+export { CONTRIBUTE_FIELD };
 
 /**
  * Ce qu'une contribution reçoit : la racine de l'application et des gestes
@@ -150,22 +157,6 @@ const SCAFFOLD_LOCK_DESCRIPTION =
   "À versionner, à ne pas éditer : un fichier dont l'empreinte correspond est " +
   "intact, et `scaffold:sync --update` le rafraîchit.";
 
-/**
- * Le champ du `package.json` d'un paquet qui déclare sa contribution :
- * `{ "nodefony": { "contribute": "./dist/…/contribute.js" } }`.
- */
-export const CONTRIBUTE_FIELD = "contribute";
-
-/** Traduit un chemin relatif en `/` vers un chemin natif SOUS `root`, ou lève. */
-function resolveInside(root: string, relative: string): string {
-  const absolute = path.resolve(root, ...relative.split("/"));
-  const rel = path.relative(root, absolute);
-  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
-    throw new Error(`chemin hors de la racine refusé : ${relative}`);
-  }
-  return absolute;
-}
-
 /** Le nom de l'application, lu dans son `package.json` ; repli : son dossier. */
 function readAppName(appRoot: string): string {
   try {
@@ -179,19 +170,6 @@ function readAppName(appRoot: string): string {
     // Pas de manifeste lisible : le nom du dossier fait foi.
   }
   return path.basename(appRoot);
-}
-
-/** Le chemin de contribution déclaré par un paquet, ou `null`. */
-function declaredContributor(packageDir: string): string | null {
-  try {
-    const manifest = JSON.parse(
-      readFileSync(path.join(packageDir, "package.json"), "utf8"),
-    ) as { nodefony?: Record<string, unknown> };
-    const entry = manifest.nodefony?.[CONTRIBUTE_FIELD];
-    return typeof entry === "string" ? entry : null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -428,7 +406,7 @@ export async function runAppContributions(
   const lock = readScaffoldLock(appRoot);
   const next: Record<string, IScaffoldLockPackage> = { ...lock };
   for (const pkg of installedPackageRoots(appRoot)) {
-    const declared = declaredContributor(pkg.dir);
+    const declared = declaredPackageEntry(pkg.dir, CONTRIBUTE_FIELD);
     if (declared === null) continue;
     const run = createAppContributionContext(appRoot, {
       appName,

@@ -977,6 +977,61 @@ async function poseContributions(
 }
 
 /**
+ * Complète la notice `.env.example` de l'app neuve avec les noms courts que
+ * déclarent ses MODULES installés (`.meta({ env })` de leur schéma).
+ *
+ * Le gabarit ne peut pas les connaître : ils vivent dans les paquets, absents
+ * au moment du rendu. On fait donc régénérer la notice par l'application
+ * ELLE-MÊME — son `nodefony` installé, ses modules — une fois `node_modules`
+ * peuplé : le fichier est alors identique, octet pour octet, à ce que son
+ * contrôle `nodefony env --example --check` attendra (pre-commit, CI).
+ *
+ * Lancé par `process.execPath` sur le binaire que le `package.json` de
+ * `nodefony` DÉCLARE (`bin`) : aucun shell, donc rien de propre à Windows.
+ *
+ * @param dest - racine de l'app générée.
+ * @param installed - l'installation a-t-elle réussi ?
+ * @param cmd - lignes de commande du gestionnaire de l'app, pour les gestes nommés.
+ * @returns la note à afficher. Ne lève JAMAIS : une notice incomplète ne
+ *   justifie pas d'annuler une application entièrement générée.
+ */
+function poseEnvNotice(
+  dest: string,
+  installed: boolean,
+  cmd: TCommandLines,
+): string {
+  const again = `${cmd.exec("nodefony")} env --example`;
+  if (!installed)
+    return `réglages des modules non décrits (rien d'installé) → ${again}`;
+  try {
+    const pkgDir = path.join(dest, "node_modules", "nodefony");
+    const manifest: unknown = JSON.parse(
+      readFileSync(path.join(pkgDir, "package.json"), "utf8"),
+    );
+    const bins: unknown =
+      typeof manifest === "object" && manifest !== null
+        ? Reflect.get(manifest, "bin")
+        : undefined;
+    const bin: unknown =
+      typeof bins === "object" && bins !== null
+        ? Reflect.get(bins, "nodefony")
+        : undefined;
+    if (typeof bin !== "string")
+      return `binaire nodefony introuvable → ${again}`;
+    const r = spawnSync(
+      process.execPath,
+      [path.join(pkgDir, ...bin.split("/")), "env", "--example"],
+      { cwd: dest, stdio: "pipe", encoding: "utf8" },
+    );
+    return r.status === 0
+      ? "régénérée avec les réglages des modules installés"
+      : `régénération en échec (code ${r.status}) → ${again}`;
+  } catch (e) {
+    return `régénération impossible (${e instanceof Error ? e.message : String(e)}) → ${again}`;
+  }
+}
+
+/**
  * Pose les pointeurs vers les skills d'agent livrés par les paquets installés.
  *
  * **Pourquoi ici, et pas par un `postinstall`** : `--ignore-scripts` est courant
@@ -1589,6 +1644,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // lesquels : chaque paquet déclare sa contribution.
   process.stdout.write(
     `\n🧩 fichiers livrés par les paquets : ${await poseContributions(result.dest, installed, cmd)}\n`,
+  );
+  // Même moment : la notice `.env.example` entre dans le premier commit, et ses
+  // réglages de modules n'existent qu'une fois `node_modules` peuplé.
+  process.stdout.write(
+    `\n📄 .env.example : ${poseEnvNotice(result.dest, installed, cmd)}\n`,
   );
   // Le câblage MCP AUSSI avant git : le `.mcp.json` est un fichier de PROJET —
   // versionné, lu tel quel par les agents qui suivent le dépôt — il a donc sa

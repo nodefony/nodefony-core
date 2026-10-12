@@ -1,49 +1,29 @@
-import { z } from "zod";
 import { resolveInfra, parseModuleConfig } from "nodefony";
 import { redisConfigSchema } from "./config";
+import { configJsonSchema } from "./configSchema";
 import type {
   IRedisConfig,
   IRedisConfigInput,
 } from "../interfaces/IRedisConfig";
 
 /**
- * Applique la surcharge par variables d'environnement APRÈS le parse Zod.
+ * Applique l'URL d'infrastructure de cache APRÈS le parse Zod.
  *
- * Le schéma reste pur (déterministe, sérialisable en JSON Schema) ; l'env est
- * une couche explicite par-dessus. Précédence : env > config app > défauts.
+ * `NF_REDIS_URL` (alias plateforme `REDIS_URL`) → `config.url`, qui gagne sur
+ * host/port/auth pour toutes les connexions. La résolution est déléguée à
+ * `resolveInfra` (cœur) — source UNIQUE des alias, partagée avec
+ * drizzle/mongoose.
  *
- * - Infra cache `NF_REDIS_URL` (alias plateforme `REDIS_URL`) → `config.url`
- *   (gagne sur host/port/auth pour toutes les connexions). La résolution de
- *   l'URL de cache est déléguée à `resolveInfra` (core) — source UNIQUE des
- *   alias, partagée avec drizzle/mongoose ; pas de réimplémentation locale.
- * - `NF_REDIS_HOST`  → `globalOptions.socket.host`
- * - `NF_REDIS_PORT`  → `globalOptions.socket.port`
- * - `NF_REDIS_PASSWORD` → `globalOptions.password` (secret JAMAIS dans la config)
- * - `NF_REDIS_KEY_NAMESPACE` → `keyNamespace` (cloison de DÉPLOIEMENT, pas de code)
+ * Les autres variables (`NF_REDIS_HOST`, `NF_REDIS_PORT`, `NF_REDIS_PASSWORD`,
+ * `NF_REDIS_KEY_NAMESPACE`) ne s'écrivent PAS ici : chacune est déclarée sur
+ * son champ dans `config.ts` (`.meta({ env })`), et le Kernel l'applique avant
+ * la validation — la même déclaration nourrit `nodefony env` et la notice
+ * `.env.example`.
  */
 function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
-  const env = process.env;
-  const cacheUrl = resolveInfra(env).cache?.url;
+  const cacheUrl = resolveInfra(process.env).cache?.url;
   if (cacheUrl) {
     config.url = cacheUrl;
-  }
-  if (env.NF_REDIS_HOST) {
-    config.globalOptions.socket.host = env.NF_REDIS_HOST;
-  }
-  if (env.NF_REDIS_PORT) {
-    const port = Number.parseInt(env.NF_REDIS_PORT, 10);
-    if (Number.isInteger(port) && port > 0 && port <= 65_535) {
-      config.globalOptions.socket.port = port;
-    }
-  }
-  if (env.NF_REDIS_PASSWORD) {
-    config.globalOptions.password = env.NF_REDIS_PASSWORD;
-  }
-  // La cloison sépare des DÉPLOIEMENTS (préproduction et production portent le
-  // même nom d'app, donc la même cloison dérivée). La figer dans un fichier
-  // versionné obligerait à livrer un code par environnement.
-  if (env.NF_REDIS_KEY_NAMESPACE) {
-    config.keyNamespace = env.NF_REDIS_KEY_NAMESPACE;
   }
   return config;
 }
@@ -119,5 +99,5 @@ export function defineRedisConfig(
  * d'édition Studio (futur) et à la documentation générée.
  */
 export function redisConfigJsonSchema(): unknown {
-  return z.toJSONSchema(redisConfigSchema);
+  return configJsonSchema();
 }

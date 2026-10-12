@@ -66,6 +66,75 @@ const FAMILLES_DU_DEPOT = [
   /^NF_CLI_(TIMEOUT_MS|READY_TIMEOUT_MS)$/u,
 ];
 
+/** Retire les commentaires d'un source (`//` hors URL, et blocs). */
+function sansCommentaires(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/(^|[^:"'`])\/\/.*$/gmu, "$1");
+}
+
+/** Les raccourcis déclarés dans les schémas des modules : `.meta({ env: "NF_X" })`. */
+function raccourcisDesSchemas(): { nom: string; fichier: string }[] {
+  const out: { nom: string; fichier: string }[] = [];
+  for (const fichier of sourcesDuRuntime()) {
+    if (!fichier.endsWith(path.join("config", "config.ts"))) continue;
+    const src = sansCommentaires(readFileSync(fichier, "utf8"));
+    for (const m of src.matchAll(/\benv:\s*"([A-Za-z0-9_]+)"/gu)) {
+      out.push({ nom: m[1]!, fichier: path.relative(REPO, fichier) });
+    }
+  }
+  return out;
+}
+
+describe("raccourcis déclarés dans les schémas (`.meta({ env })`)", () => {
+  it("chaque nom court suit la forme NF_<MODULE>_<RÉGLAGE>", () => {
+    // Le préfixe dit À QUI appartient la variable (règle NF_ du dépôt) ; une
+    // minuscule ou un `NF__` serait lu comme autre chose par le chargeur.
+    const fautifs = raccourcisDesSchemas().filter(
+      (v) => !/^NF_[A-Z0-9]+(_[A-Z0-9]+)+$/u.test(v.nom),
+    );
+    assert.deepEqual(fautifs, []);
+  });
+
+  it("un module qui déclare un nom court DÉCLARE aussi son schéma (package.json)", () => {
+    // Sans `nodefony.configSchema`, `nodefony env` ne trouve pas le schéma :
+    // le nom court serait appliqué au boot mais rendu « lu par personne ».
+    const sansDeclaration = [
+      ...new Set(
+        raccourcisDesSchemas().map(
+          (v) => v.fichier.split(/[\\/]nodefony[\\/]config[\\/]/u)[0]!,
+        ),
+      ),
+    ].filter((racine) => {
+      const pkg = JSON.parse(
+        readFileSync(path.join(REPO, racine, "package.json"), "utf8"),
+      ) as { nodefony?: { configSchema?: unknown } };
+      return typeof pkg.nodefony?.configSchema !== "string";
+    });
+    assert.deepEqual(sansDeclaration, []);
+  });
+
+  it("chaque nom n'est déclaré qu'UNE fois, et jamais aussi au cœur", () => {
+    const vus = raccourcisDesSchemas();
+    assert.isAbove(
+      vus.length,
+      0,
+      "aucun raccourci lu — l'extraction est à revoir",
+    );
+    const doublons = vus
+      .map((v) => v.nom)
+      .filter((n, i, all) => all.indexOf(n) !== i);
+    assert.deepEqual(doublons, [], "un même nom réglerait deux champs");
+    // Déclaré ET recopié dans la table : c'est la double écriture que le
+    // raccourci existe pour supprimer — la table ne garde que le cœur.
+    assert.deepEqual(
+      vus.filter((v) => Object.hasOwn(RESERVED_ENV, v.nom)),
+      [],
+      "à retirer de RESERVED_ENV : le schéma du module le déclare déjà",
+    );
+  });
+});
+
 describe("registre des variables réservées au framework", () => {
   it("explique CHAQUE NF_ que le runtime lit — sinon `nodefony env` l'accuse", () => {
     // Le catalogue qu'une application déclare : ce que le gabarit `env.ts`
@@ -99,7 +168,9 @@ describe("registre des variables réservées au framework", () => {
 
     const orphelines = new Set<string>();
     for (const fichier of sourcesDuRuntime()) {
-      const src = readFileSync(fichier, "utf8");
+      // Les COMMENTAIRES ne lisent rien : un TSDoc qui cite `env.NF_X` en
+      // exemple passait pour une lecture (vécu sur `envShortcuts.ts`).
+      const src = sansCommentaires(readFileSync(fichier, "utf8"));
       // TOUTES les formes de lecture, pas seulement `process.env.NF_X` : le
       // contrôle n'en connaissait qu'une et restait vert pendant que `nodefony
       // env` déclarait « sans effet » `NF_REDIS_HOST` — lue par `env.NF_REDIS_HOST`

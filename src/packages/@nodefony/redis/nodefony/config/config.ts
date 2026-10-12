@@ -86,14 +86,16 @@ const socketSchema = z
         "Hôte du serveur Redis. Défaut `localhost` (jamais d'hôte d'infra " +
           "hardcodé). Surchargeable par l'env `NF_REDIS_HOST`. Aligné sur l'infra " +
           "`docker/docker-compose.yml` (Redis bindé `127.0.0.1:6379`).",
-      ),
+      )
+      .meta({ env: "NF_REDIS_HOST" }),
     port: z
       .number()
       .int()
       .min(1)
       .max(65_535)
       .default(6379)
-      .describe("Port TCP du serveur Redis. Défaut 6379. Env `NF_REDIS_PORT`."),
+      .describe("Port TCP du serveur Redis. Défaut 6379. Env `NF_REDIS_PORT`.")
+      .meta({ env: "NF_REDIS_PORT" }),
     family: z
       .union([z.literal(0), z.literal(4), z.literal(6)])
       .default(0)
@@ -186,6 +188,7 @@ const globalOptionsSchema = z
       .optional()
       .meta({
         secret: true,
+        env: "NF_REDIS_PASSWORD",
         description:
           "Mot de passe Redis (`requirepass` ou ACL). Optionnel en dev sans " +
           "auth. ⚠️ Zero Trust : Redis DOIT avoir une auth même en dev (cf " +
@@ -239,7 +242,10 @@ export const redisConfigSchema = z
           "Caractères : alphanumériques, `_`, `.`, `-`. Env : " +
           "`NF_REDIS_KEY_NAMESPACE` (prioritaire — une cloison distingue des " +
           "DÉPLOIEMENTS, elle n'a pas à être figée dans le code).",
-      ),
+      )
+      // `secret: false` EXPLICITE : le nom contient « KEY », la règle par nom le
+      // masquerait — or une cloison n'est pas un secret, on doit pouvoir la lire.
+      .meta({ env: "NF_REDIS_KEY_NAMESPACE", secret: false }),
     connections: z
       .record(z.string(), connectionSchema)
       .default(() => ({

@@ -9,6 +9,7 @@ import {
   resolveEnvStages,
   type NamedEnvVarMeta,
 } from "../config/defineEnv";
+import type { IEnvShortcut } from "../config/envShortcuts";
 import {
   isReservedEnv,
   RESERVED_ENV,
@@ -92,6 +93,26 @@ export interface IEnvOverrideReport {
   origin: string | null;
 }
 
+/** Un raccourci d'environnement déclaré par le schéma d'un module (`.meta({ env })`). */
+export interface IModuleShortcut extends IEnvShortcut {
+  /** Le module qui le déclare (`@nodefony/redis`). */
+  module: string;
+}
+
+/** Un réglage de module, tel que le rapport le restitue. */
+export interface IModuleSettingReport {
+  name: string;
+  module: string;
+  /** Le champ de configuration qu'il règle. */
+  path: string[];
+  description?: string;
+  default?: unknown;
+  secret: boolean;
+  /** Valeur effective, masquée si `secret`. `null` = absente. */
+  value: string | null;
+  origin: string | null;
+}
+
 /** Une variable du framework présente dans l'environnement (cf `RESERVED_ENV`). */
 export interface IReservedVarReport {
   name: string;
@@ -142,6 +163,11 @@ export interface IEnvReport {
    */
   reserved: IReservedVarReport[];
   /**
+   * Réglages que les MODULES déclarent dans leur schéma (`.meta({ env })`),
+   * posés ou non — la vérité vient du schéma, aucune liste n'est tenue ici.
+   */
+  settings: IModuleSettingReport[];
+  /**
    * Valeurs EFFECTIVES que l'état du projet contredit.
    *
    * Une variable peut être posée au bon endroit, avec la bonne provenance, et
@@ -186,19 +212,25 @@ function collectUnknown(
   processEnv: Record<string, string | undefined>,
   declared: Set<string>,
   originOf: (name: string) => string | null,
+  moduleNames: ReadonlySet<string>,
 ): IEnvReport["unknown"] {
   // Les réglages du framework comptent parmi les noms qu'on a pu vouloir
   // écrire : `NF_REDSI_HOST` vise `NF_REDIS_HOST`, pas une variable de l'app.
-  const known = [...declared, ...Object.keys(RESERVED_ENV)];
+  const known = [...declared, ...Object.keys(RESERVED_ENV), ...moduleNames];
   const out: IEnvReport["unknown"] = [];
   for (const name of Object.keys(processEnv)) {
     if (!name.startsWith("NF_") || name.startsWith("NF__")) continue;
     if (declared.has(name)) continue;
-    // Posée par le framework, pas par l'utilisateur : elle a sa propre section.
-    if (isReservedEnv(name)) continue;
+    // Posée par le framework, ou réglage d'un module : chacune a sa section.
+    if (isReservedEnv(name) || moduleNames.has(name)) continue;
     // `<KEY>_FILE` est une convention du framework (secret monté par Docker ou
     // Kubernetes) : c'est la variable de BASE qui doit être déclarée, pas elle.
-    if (name.endsWith("_FILE") && declared.has(name.slice(0, -5))) continue;
+    if (
+      name.endsWith("_FILE") &&
+      (declared.has(name.slice(0, -5)) || moduleNames.has(name.slice(0, -5)))
+    ) {
+      continue;
+    }
     const suggestion = closestMatch(name, known);
     out.push({
       name,
@@ -279,6 +311,11 @@ export function buildEnvReport(input: {
    * éprouvable sans monter un projet.
    */
   inconsistencies?: readonly { name: string; message: string }[];
+  /**
+   * Raccourcis déclarés par les schémas des modules de l'application — lus
+   * par l'appelant (import des modules), cette fonction restant pure.
+   */
+  moduleSettings?: readonly IModuleShortcut[];
 }): IEnvReport {
   const { runtimeEnv, processEnv, files, catalog } = input;
   const appEnv = input.appEnv ?? null;
@@ -384,6 +421,44 @@ export function buildEnvReport(input: {
     origin: originOf(o.envKey),
   }));
 
+  // Une variable que l'application déclare elle-même garde SA ligne.
+  const moduleSettings = (input.moduleSettings ?? []).filter(
+    (m) => !declared.has(m.env),
+  );
+  const moduleNames = new Set(moduleSettings.map((m) => m.env));
+  // oxlint-disable-next-line no-map-spread -- objet CONSTRUIT champ par champ ; les seuls spreads sont des littéraux conditionnels, forme imposée par `exactOptionalPropertyTypes`
+  const settings: IModuleSettingReport[] = moduleSettings.map((m) => {
+    const raw = processEnv[m.env];
+    const present = raw !== undefined && raw !== "";
+    // Monté en fichier : la valeur n'est pas lue ici (la commande ne touche pas
+    // au secret), on dit OÙ elle est — le chemin, lui, n'est pas un secret.
+    const file = processEnv[`${m.env}_FILE`];
+    if (!present && file !== undefined && file !== "") {
+      return {
+        name: m.env,
+        module: m.module,
+        path: m.path,
+        ...(m.description ? { description: m.description } : {}),
+        // Le défaut d'un SECRET ne sort jamais en clair, pas même dans `--json`.
+        ...(m.default !== undefined && !m.secret ? { default: m.default } : {}),
+        secret: m.secret,
+        value: `fichier ${file}`,
+        origin: originOf(`${m.env}_FILE`),
+      };
+    }
+    return {
+      name: m.env,
+      module: m.module,
+      path: m.path,
+      ...(m.description ? { description: m.description } : {}),
+      // Le défaut d'un SECRET ne sort jamais en clair, pas même dans `--json`.
+      ...(m.default !== undefined && !m.secret ? { default: m.default } : {}),
+      secret: m.secret,
+      value: present ? (m.secret ? mask(raw) : raw) : null,
+      origin: present ? originOf(m.env) : null,
+    };
+  });
+
   const notes: string[] = [];
   if (catalog === null) {
     notes.push(
@@ -400,7 +475,8 @@ export function buildEnvReport(input: {
     levels,
     vars,
     overrides,
-    unknown: collectUnknown(processEnv, declared, originOf),
+    unknown: collectUnknown(processEnv, declared, originOf, moduleNames),
+    settings,
     reserved: collectReserved(processEnv, declared, originOf),
     inconsistencies: [...(input.inconsistencies ?? [])],
     catalogAvailable: catalog !== null,

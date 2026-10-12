@@ -15,7 +15,10 @@ import { z } from "zod";
  * SURCHARGE (précédence croissante) :
  *   • défauts du schéma (ce fichier) ;
  *   • app : `use("<%= it.pkgName %>", { … })` dans `nodefony.config.ts` ;
- *   • déploiement : `NF__<%= it.upper %>__<CHEMIN>=valeur` (override env générique, `__` = niveau).
+ *   • déploiement : un NOM COURT, si le champ en déclare un — `.meta({ env: "NF_<%= it.upper %>_HOTE" })`
+ *     sur le champ suffit : le Kernel l'applique, `nodefony env` et `.env.example`
+ *     le montrent. C'est le contrat de PRODUCTION (nom stable, documenté) ;
+ *   • banc, dépannage : `NF__<%= it.upper %>__<CHEMIN>=valeur` (override générique, `__` = niveau).
  *
  * Le schéma reste **PUR** : aucune lecture de `process.env`, aucun accès au kernel
  * (il est évalué à l'import — le kernel n'existe pas encore).

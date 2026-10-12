@@ -57,8 +57,7 @@
 #        NF_ENV, NF_CLUSTER_PROBE, NF_POD_NAME, NF_INSTANCE_ID,
 #        NF_BOOT_TIMEOUT_MS, NF_BOOT_WARN_MS, NF_ORM_HEARTBEAT_MS,
 #        NF_REALTIME_DRIVER, NF_REALTIME_BACKPLANE_SECRET,
-#        NF_REALTIME_BACKPLANE_NAMESPACE, NF_REDIS_HOST, NF_REDIS_PORT,
-#        NF_REDIS_PASSWORD, NF_REDIS_KEY_NAMESPACE, NF_MIGRATE_DATABASE_URL
+#        NF_REALTIME_BACKPLANE_NAMESPACE, NF_MIGRATE_DATABASE_URL
 #   10. Framework : poste et diagnostic
 #        NF_CLI_DEBUG, NF_NO_UPDATE_CHECK, NF_DEV_UI, NF_DEV_MOUSE,
 #        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE,
@@ -601,48 +600,6 @@
 # @placement=platform
 # @default="backplane.namespace de la configuration"
 # NF_REALTIME_BACKPLANE_NAMESPACE=
-
-
-# ─── Hôte Redis ─────────────────────────────────────────────────────────────
-#
-# Hôte du serveur Redis (NF_REDIS_URL l'emporte).
-#
-# @optional
-# @placement=platform
-# @default="globalOptions.socket.host de la configuration"
-# NF_REDIS_HOST=
-
-
-# ─── Port Redis ─────────────────────────────────────────────────────────────
-#
-# Port du serveur Redis (ignoré hors 1-65535).
-#
-# @optional
-# @placement=platform
-# @default=6379
-# NF_REDIS_PORT=
-
-
-# ─── Mot de passe Redis ─────────────────────────────────────────────────────
-#
-# Mot de passe du serveur Redis.
-#
-# @optional
-# @sensitive
-# @placement=secrets
-# @default=aucun
-# NF_REDIS_PASSWORD=
-
-
-# ─── Cloison des clés Redis ─────────────────────────────────────────────────
-#
-# Cloison des clés Redis — distingue deux déploiements d'une même application.
-#
-# @optional
-# @sensitive
-# @placement=platform
-# @default="keyNamespace de la configuration, sinon le nom du projet"
-# NF_REDIS_KEY_NAMESPACE=
 
 
 # ─── Base des migrations ────────────────────────────────────────────────────

@@ -71,6 +71,7 @@ import {
 } from "../config/defineConfig";
 import { defaultAppConfig } from "../config/defaults";
 import { setRunServesTraffic } from "../config/defineEnv";
+import { applyEnvShortcuts } from "../config/envShortcuts";
 import {
   parseNfEnvOverrides,
   applyResolvedPath,
@@ -1978,22 +1979,33 @@ class Kernel extends Service implements IKernel {
    * fantôme silencieuse. Les valeurs de chemins « secrets » sont rédigées au log.
    */
   private applyEnvConfigOverrides(): void {
+    const schemaDe = (m: Module): unknown => this.bootSchemaOf(m);
+    // Raccourcis déclarés DANS le schéma (`.meta({ env: "NF_REDIS_HOST" })`)
+    // d'abord, `NF__…` ensuite. Même pose (conversion guidée par le schéma),
+    // même validation Zod du module : une valeur fausse arrête le démarrage.
+    // Les deux visant le MÊME champ, c'est une ambiguïté (cf plus bas).
+    const shortcutTargets = new Map<string, string>();
+    for (const mod of Object.values(this.modules)) {
+      const applied = applyEnvShortcuts(
+        mod.options,
+        schemaDe(mod),
+        process.env,
+      );
+      for (const s of applied) {
+        shortcutTargets.set(
+          `${mod.name}\u0000${s.path.join(".").toLowerCase()}`,
+          s.env,
+        );
+        this.log(
+          `Env ${s.env} → ${mod.name}.${s.path.join(".")} = ` +
+            (s.secret
+              ? "«***»"
+              : JSON.stringify(readResolvedPath(mod.options, s.path))),
+          "INFO",
+        );
+      }
+    }
     const overrides = parseNfEnvOverrides(process.env);
-    if (!overrides.length) return;
-    /**
-     * Le schéma d'un module, quand il en publie un — jamais une hypothèse.
-     *
-     * `configSchema()` est une méthode de `Module`, mais rien ne garantit qu'un
-     * module l'ait : un paquet tiers, un module ancien ou un objet de banc
-     * peuvent n'être que compatibles de forme. Appeler à l'aveugle ferait tomber
-     * le BOOT sur une amélioration de confort — le pire échange possible.
-     */
-    const schemaDe = (m: Module): unknown => {
-      const f = (m as unknown as { configSchema?: unknown }).configSchema;
-      return typeof f === "function"
-        ? ((f as () => unknown).call(m) ?? undefined)
-        : undefined;
-    };
     for (const ov of overrides) {
       const mod = this.findModuleBySegment(ov.moduleSeg);
       if (!mod) {
@@ -2004,6 +2016,27 @@ class Kernel extends Service implements IKernel {
           "WARNING",
         );
         continue;
+      }
+      // Le même champ réglé par un nom court ET par `NF__…` : deux valeurs
+      // pour un réglage. En production, on ne devine pas laquelle l'exploitant
+      // voulait — refus. En développement, c'est le geste d'un banc (le `.env`
+      // pose le nom court, la mesure fait varier le réglage en `NF__…`) :
+      // `NF__…` gagne, et on le DIT fort.
+      const shortcut = shortcutTargets.get(
+        `${mod.name}\u0000${ov.path.join(".").toLowerCase()}`,
+      );
+      if (shortcut !== undefined) {
+        const both = `${shortcut} et ${ov.envKey} règlent tous deux ${mod.name}.${ov.path.join(".")}`;
+        if (this.environment === "production") {
+          throw new BootConfigurationError(
+            `${both} — n'en poser qu'une (le nom court est le contrat de production).`,
+          );
+        }
+        this.log(
+          `⚠ ${both} — ${ov.envKey} l'emporte en développement ; en production, le démarrage serait REFUSÉ.`,
+          "WARNING",
+          "CONFIG",
+        );
       }
       // La chaîne BRUTE voyage jusqu'ici : c'est au moment de poser la valeur
       // qu'on découvre le type attendu (le défaut du schéma, déjà en place), et
@@ -2044,6 +2077,41 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
+   * Schémas de configuration des modules, calculés UNE fois pour tout le
+   * démarrage — `null` hors de cette fenêtre (lazy, libéré après
+   * {@link warnReservedConfigKeys}).
+   *
+   * `configSchema()` rend `z.toJSONSchema(…)` : zod ne garde rien entre deux
+   * appels, et le démarrage le demandait déjà plusieurs fois par module
+   * (raccourcis, chaque `NF__…`, clés réservées) — ~10 ms et ~140 Ko jetés
+   * par passe sur les modules du framework.
+   */
+  private bootSchemas: Map<Module, unknown> | null = null;
+
+  /**
+   * Le schéma d'un module, quand il en publie un — jamais une hypothèse.
+   *
+   * `configSchema()` est une méthode de `Module`, mais rien ne garantit qu'un
+   * module l'ait : un paquet tiers, un module ancien ou un objet de banc
+   * peuvent n'être que compatibles de forme. Appeler à l'aveugle ferait tomber
+   * le BOOT sur une amélioration de confort — le pire échange possible.
+   *
+   * @param m - le module.
+   * @returns son JSON Schema, ou `undefined`.
+   */
+  private bootSchemaOf(m: Module): unknown {
+    this.bootSchemas ??= new Map();
+    if (this.bootSchemas.has(m)) return this.bootSchemas.get(m);
+    const f = (m as unknown as { configSchema?: unknown }).configSchema;
+    const schema =
+      typeof f === "function"
+        ? ((f as () => unknown).call(m) ?? undefined)
+        : undefined;
+    this.bootSchemas.set(m, schema);
+    return schema;
+  }
+
+  /**
    * Filet « clé réservée » : avertit au BOOT quand une application a posé une clé de
    * config marquée `reserved` (inerte — son levier vit ailleurs) à une valeur
    * non-défaut. C'est le pendant runtime du drapeau que Studio se contente de griser :
@@ -2058,7 +2126,7 @@ class Kernel extends Service implements IKernel {
    */
   private warnReservedConfigKeys(): void {
     for (const mod of Object.values(this.modules)) {
-      const schema = mod.configSchema();
+      const schema = this.bootSchemaOf(mod);
       if (!schema) continue;
       const hits = findSetReservedKeys(schema, mod.options);
       for (const hit of hits) {
@@ -2070,6 +2138,8 @@ class Kernel extends Service implements IKernel {
         );
       }
     }
+    // Fin de la fenêtre de démarrage : les schémas ne servent plus, on les rend.
+    this.bootSchemas = null;
   }
 
   /**

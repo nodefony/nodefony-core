@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
 import { assert } from "vitest";
 import { buildEnvReport } from "../cli/envReport";
-import { renderEnvReport } from "../cli/env";
+import { renderEnvReport } from "../cli/envRender";
 import { envFileOrder } from "../runtime/loadEnv";
 import type { NamedEnvVarMeta } from "../config/defineEnv";
 
@@ -217,7 +217,15 @@ describe("rapport d'environnement (nodefony env)", () => {
   it("un réglage lu par un MODULE n'est pas accusé de faute de frappe", () => {
     // Vécu : `NF_REDIS_HOST` (lue par le module redis) était rendue « sans
     // effet — vouliez-vous dire NF_REDIS_URL ? », et `NF_REDIS_PASSWORD`
-    // « vouliez-vous dire NF_ADMIN_PASSWORD ? ». Le rapport mentait.
+    // « vouliez-vous dire NF_ADMIN_PASSWORD ? ». Le rapport mentait. Elles
+    // arrivent désormais du SCHÉMA du module (`.meta({ env })`).
+    const shortcut = (env: string, field: string, secret = false) => ({
+      env,
+      path: ["globalOptions", field],
+      kind: "string",
+      secret,
+      module: "@nodefony/redis",
+    });
     const report = buildEnvReport({
       runtimeEnv: "development",
       processEnv: {
@@ -227,18 +235,48 @@ describe("rapport d'environnement (nodefony env)", () => {
       },
       files: [],
       catalog: [meta("NF_REDIS_URL", { optional: true })],
+      moduleSettings: [
+        shortcut("NF_REDIS_HOST", "host"),
+        shortcut("NF_REDIS_PORT", "port"),
+        shortcut("NF_REDIS_PASSWORD", "password", true),
+      ],
     });
     assert.deepEqual(
       report.unknown.map((u) => u.name),
       ["NF_REDSI_PORT"],
     );
-    // La faute de frappe vise le réglage du framework, pas une variable d'app.
+    // La faute de frappe vise le réglage du MODULE, pas une variable d'app.
     assert.equal(report.unknown[0]!.suggestion, "NF_REDIS_PORT");
-    const password = report.reserved.find(
-      (r) => r.name === "NF_REDIS_PASSWORD",
+    const password = report.settings.find(
+      (s) => s.name === "NF_REDIS_PASSWORD",
     );
-    assert.isTrue(password?.tunable);
-    assert.notInclude(password!.value, "secret-redis");
+    assert.equal(password?.module, "@nodefony/redis");
+    assert.notInclude(password!.value!, "secret-redis");
+    // Un réglage non posé est RENDU (null), pas tu : on voit ce qu'on peut poser.
+    assert.isNull(
+      report.settings.find((s) => s.name === "NF_REDIS_PORT")!.value,
+    );
+  });
+
+  it("un réglage de module monté en FICHIER n'est ni inconnu ni absent", () => {
+    const report = buildEnvReport({
+      runtimeEnv: "production",
+      processEnv: { NF_REDIS_PASSWORD_FILE: "/run/secrets/redis" },
+      files: [],
+      catalog: [],
+      moduleSettings: [
+        {
+          env: "NF_REDIS_PASSWORD",
+          path: ["globalOptions", "password"],
+          kind: "string",
+          secret: true,
+          module: "@nodefony/redis",
+        },
+      ],
+    });
+    assert.deepEqual(report.unknown, []);
+    // On dit OÙ est le secret, jamais ce qu'il contient.
+    assert.equal(report.settings[0]!.value, "fichier /run/secrets/redis");
   });
 
   it("le rendu aligne ses colonnes et coupe une valeur trop longue", () => {
@@ -249,12 +287,14 @@ describe("rapport d'environnement (nodefony env)", () => {
       files: [{ source: ".env", vars: { NF_ISSUER: longUrl, NF_A: "court" } }],
       catalog: [meta("NF_ISSUER"), meta("NF_A")],
     });
-    const text = renderEnvReport(report, null);
+    const text = renderEnvReport(report, { projectRoot: null, width: 100 });
     // La valeur entière n'est jamais rendue : elle repousserait la provenance.
     assert.notInclude(text, longUrl);
     assert.include(text, "…");
     // La provenance commence à la MÊME colonne sur les deux lignes.
-    const rows = text.split("\n").filter((l) => /^ {2}NF_(ISSUER|A) /u.test(l));
+    const rows = text
+      .split("\n")
+      .filter((l) => /^ {4}\S {2}NF_(ISSUER|A) /u.test(l));
     assert.lengthOf(rows, 2);
     const cols = rows.map((l) => l.lastIndexOf(".env"));
     assert.equal(cols[0], cols[1]);

@@ -845,3 +845,89 @@ describe("withResolvedPath", () => {
     assert.strictEqual(withResolvedPath({ a: 1 }, ["zz"], 2), null);
   });
 });
+
+/**
+ * Les noms courts déclarés DANS le schéma (`.meta({ env })`), sur un Kernel
+ * RÉEL : c'est lui qui les pose au boot, et c'est lui qui tranche quand un nom
+ * court et une `NF__…` visent le même champ.
+ */
+describe("raccourcis d'environnement — intégration Kernel", () => {
+  let prev: Kernel | null;
+  beforeAll(() => {
+    prev = Nodefony.getKernel();
+  });
+  afterAll(() => {
+    Nodefony.setKernel(prev as Kernel);
+  });
+
+  // Un module qui publie son schéma comme `Module.configSchema()` le rend.
+  const fakeModule = () => ({
+    name: "@nodefony/demo",
+    options: { socket: { host: "localhost" } } as Record<string, unknown>,
+    configSchema: () => ({
+      type: "object",
+      properties: {
+        socket: {
+          type: "object",
+          properties: {
+            host: { type: "string", default: "localhost", env: "NF_DEMO_HOST" },
+          },
+        },
+      },
+    }),
+  });
+
+  const boot = (
+    environment: "development" | "production",
+    over: Record<string, string>,
+  ): ReturnType<typeof fakeModule> => {
+    const kernel = new Kernel(environment, null, { log: { active: false } });
+    const mod = fakeModule();
+    (kernel as unknown as { modules: Record<string, unknown> }).modules = {
+      "@nodefony/demo": mod,
+    };
+    const saved: Record<string, string | undefined> = {};
+    for (const k of Object.keys(over)) saved[k] = process.env[k];
+    Object.assign(process.env, over);
+    try {
+      (
+        kernel as unknown as { applyEnvConfigOverrides(): void }
+      ).applyEnvConfigOverrides();
+    } finally {
+      for (const k of Object.keys(over)) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    }
+    return mod;
+  };
+
+  const hostOf = (mod: ReturnType<typeof fakeModule>): unknown =>
+    (mod.options.socket as Record<string, unknown>).host;
+
+  it("pose le nom court sur le champ que le schéma désigne", () => {
+    const mod = boot("development", { NF_DEMO_HOST: "redis.interne" });
+    assert.strictEqual(hostOf(mod), "redis.interne");
+  });
+
+  it("🔴 production : nom court ET `NF__…` sur le même champ → démarrage refusé", () => {
+    assert.throws(
+      () =>
+        boot("production", {
+          NF_DEMO_HOST: "a",
+          NF__DEMO__SOCKET__HOST: "b",
+        }),
+      (e: unknown) =>
+        (e as Error).name === "BootConfigurationError" &&
+        (e as Error).message.includes("NF_DEMO_HOST et NF__DEMO__SOCKET__HOST"),
+    );
+  });
+
+  it("développement : `NF__…` l'emporte — le geste d'un banc", () => {
+    const mod = boot("development", {
+      NF_DEMO_HOST: "a",
+      NF__DEMO__SOCKET__HOST: "b",
+    });
+    assert.strictEqual(hostOf(mod), "b");
+  });
+});

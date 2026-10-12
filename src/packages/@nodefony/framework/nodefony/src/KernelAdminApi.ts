@@ -9,6 +9,7 @@ import {
   Syslog,
   collectDevStatus,
   parseNfEnvOverrides,
+  collectEnvShortcuts,
   computeConfigProvenance,
   aggregateProvenance,
   extractJsonSchemaDefaults,
@@ -387,6 +388,22 @@ function computeConfigEntry(
   // « Qui surcharge, où » : la VRAIE variable d'env posée pour ce module/app,
   // indexée par chemin pointé (casse réelle de la valeur résolue côté provenance).
   const envKeys: Record<string, string> = {};
+  // Les noms courts déclarés par le schéma (`.meta({ env })`) d'abord, `NF__…`
+  // ensuite : même ordre que le Kernel, qui les pose ainsi — la console dit donc
+  // la variable qui a VRAIMENT gagné. Même fonction que le Kernel, aucune règle
+  // recopiée ; sans elle, une valeur venue de `NF_REDIS_HOST` s'affichait « app ».
+  const shortcutPaths: string[] = [];
+  if (!isApp) {
+    for (const s of collectEnvShortcuts(schema)) {
+      const raw = process.env[s.env];
+      const file = process.env[`${s.env}_FILE`];
+      const fromFile = file !== undefined && file !== "";
+      if ((raw === undefined || raw === "") && !fromFile) continue;
+      const dotted = s.path.join(".").toLowerCase();
+      envKeys[dotted] = fromFile ? `${s.env}_FILE` : s.env;
+      shortcutPaths.push(dotted);
+    }
+  }
   for (const o of parseNfEnvOverrides(process.env)) {
     if (o.moduleSeg === seg) envKeys[o.path.join(".")] = o.envKey;
   }
@@ -403,11 +420,12 @@ function computeConfigEntry(
       envPaths,
     );
   } else if (schema) {
-    const envPaths = new Set(
-      parseNfEnvOverrides(process.env)
+    const envPaths = new Set([
+      ...shortcutPaths,
+      ...parseNfEnvOverrides(process.env)
         .filter((o) => o.moduleSeg === seg)
         .map((o) => o.path.join(".")),
-    );
+    ]);
     provenance = computeConfigProvenance(
       opts,
       extractJsonSchemaDefaults(schema),
