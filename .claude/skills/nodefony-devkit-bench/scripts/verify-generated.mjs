@@ -1894,8 +1894,12 @@ step(
           `identité inattendue — attendu admin émis par ${attendu}, reçu ${JSON.stringify(answer.body)}`,
         );
       }
-      // L'échec DIT : Keycloak non configuré dans ce décor, la commande doit
-      // sortir non nul en NOMMANT les variables — jamais une pile, jamais 0.
+      // L'échec DIT : Keycloak non configuré, la commande doit sortir non
+      // nul en NOMMANT les variables — jamais une pile, jamais 0. Le `.env`
+      // généré les pose ACTIVES : on les vide dans l'environnement du
+      // processus, qui gagne sur le fichier (`resolveEnvCascade`). Sans ce
+      // vidage, l'étape mesurait un Keycloak injoignable, pas l'absence de
+      // configuration.
       const kc = spawnSync(
         process.execPath,
         [BIN, "app:partner:call", "--issuer", "keycloak"],
@@ -1903,7 +1907,11 @@ step(
           cwd: APP,
           encoding: "utf8",
           timeout: 600_000,
-          env: envDecor(PORTS, { NODE_ENV: "development" }),
+          env: envDecor(PORTS, {
+            NODE_ENV: "development",
+            NF_KEYCLOAK_ISSUER: "",
+            NF_KEYCLOAK_MACHINE_SECRET: "",
+          }),
         },
       );
       const dit = `${kc.stdout ?? ""}${kc.stderr ?? ""}`;
