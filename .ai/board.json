@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T22:08:31.065Z",
+  "generatedAt": "2026-10-12T08:11:57.753Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 112,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -2567,7 +2567,7 @@
       "title": "feat(security): joindre Keycloak par un certificat ou une adresse interne",
       "url": "https://github.com/nodefony/nodefony-core/issues/521",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -4435,6 +4435,22 @@
       "ordre": 6.08,
       "debut": "2026-11-17",
       "cible": "2026-11-18",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 585,
+      "title": "feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/585",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.09,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-6"
       ]
