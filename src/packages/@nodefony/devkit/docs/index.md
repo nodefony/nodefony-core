@@ -328,7 +328,7 @@ agent invente : faute d'une marche à suivre, il écrit un CRUD à la main, un
 service à méthodes `static` que le conteneur ne voit pas, un contrôle de droits
 dans le corps de l'action.
 
-Le paquet livre donc dix **skills** au format [Agent Skills](https://agentskills.io) :
+Le paquet livre donc onze **skills** au format [Agent Skills](https://agentskills.io) :
 un qui porte la conduite commune de toute tâche, un qui part du symptôme d'une panne,
 et un par geste où l'invention coûte cher :
 
@@ -344,6 +344,7 @@ et un par geste où l'invention coûte cher :
 | `nodefony-migrate-schema`       | faire évoluer le schéma d'une base et le porter en production    |
 | `nodefony-devops`               | exploiter l'application en conteneur, sans réécrire son contrat  |
 | `nodefony-troubleshoot`         | partir d'un symptôme de panne pour trouver le geste qui la règle |
+| `nodefony-security-review`      | relire la sécurité d'un diff avant de le commiter                |
 
 Tous portent le préfixe `nodefony-` : leurs pointeurs arrivent dans le dossier où
 vous écrivez aussi les vôtres, et sans namespace un skill maison du même nom

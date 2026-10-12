@@ -183,6 +183,22 @@ const CASES = [
     "package",
   ],
   ["le serveur plante au démarrage", "nodefony-troubleshoot", "package"],
+  // La relecture LIVRÉE : la question qu'un développeur pose avant de commiter,
+  // jamais le nom d'une faille. Son homonyme du dépôt relit le FRAMEWORK.
+  // « c'est sûr ? » ne se teste pas ici : après les mots vides il ne reste
+  // rien, et un banc LEXICAL n'a rien à apparier. La même question, avec son mot.
+  ["mon code est-il sécurisé ?", "nodefony-security-review", "package"],
+  [
+    "relis la sécurité avant que je commite",
+    "nodefony-security-review",
+    "package",
+  ],
+  ["ma route est-elle protégée ?", "nodefony-security-review", "package"],
+  [
+    "y a-t-il une injection SQL dans mon code",
+    "nodefony-security-review",
+    "package",
+  ],
   // Un refus 401/403 nommé tel quel reste à `nodefony-protect-route`, qui
   // porte la réponse : le dépannage y aiguille, il ne lui dispute pas le mot.
   ["crée un service métier partagé", "nodefony-add-service"],
@@ -256,6 +272,15 @@ const NEGATIVE_CASES = [
   ["protège cette route aux administrateurs", "nodefony-troubleshoot"],
   ["la colonne n'existe pas en base", "nodefony-troubleshoot"],
   ["ajoute une page de connexion", "nodefony-troubleshoot"],
+  // La relecture livrée RELIT : poser la garde ou réparer une panne appartient
+  // au skill du geste, même quand le mot « route » ou « sécurité » y est.
+  [
+    "protège cette route aux administrateurs",
+    "nodefony-security-review",
+    "package",
+  ],
+  ["ma route répond 404", "nodefony-security-review", "package"],
+  ["ajoute une page de connexion", "nodefony-security-review", "package"],
 ];
 
 /**
@@ -490,8 +515,10 @@ for (const [phrase, expected, portee] of CASES) {
 
 // ————————————————————————————————————————————————————————— cas négatifs (ne DOIT pas élire)
 const negFail = [];
-for (const [phrase, mustNot] of NEGATIVE_CASES) {
-  const top = rank(phrase, scopeOf(mustNot))[0];
+// Même portée imposable que les cas positifs : sans elle, un cas négatif écrit
+// pour un skill livré jugerait son homonyme du dépôt, sans rien dire.
+for (const [phrase, mustNot, portee] of NEGATIVE_CASES) {
+  const top = rank(phrase, scopeOf(mustNot, portee))[0];
   if (top.sc > 0 && top.name === mustNot) negFail.push({ phrase, mustNot });
 }
 

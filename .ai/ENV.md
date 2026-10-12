@@ -165,7 +165,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:86` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:806` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:109` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:111` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3379` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3391` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |

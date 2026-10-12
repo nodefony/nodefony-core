@@ -51,6 +51,7 @@ de son geste, et ceux-là ne se devinent pas — ils se paient.
 | Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
 | Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
 | Quelque chose qui marchait ne marche plus : démarrage, 404, journal  | `nodefony-troubleshoot`         |
+| Relire la sécurité de ton diff AVANT de commiter                     | `nodefony-security-review`      |
 
 Aucune ligne ne correspond ? Alors seulement, continue ici. Et si ta tâche est EXACTEMENT celle
 d'un spécialiste, va droit à lui : il n'y a pas à passer par cette page d'abord.
@@ -441,6 +442,9 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
 npm run verify        # types, style, mise en forme, .env.example, tests, build, câblage
 npm run test:e2e      # boot réel + HTTP/WS — le gate LENT, hors `verify`
 ```
+
+Ton diff ajoute une route, une requête ou touche la sécurité ? Relis-le AVANT de commiter :
+skill `nodefony-security-review` — un script y nomme, ligne par ligne, ce qu'un œil laisse passer.
 
 Puis, en une phrase : **nomme ce que tu n'as PAS lancé.** Un vert ne couvre que le diff qui l'a
 produit, et un banc sauté faute de son décor compte comme vert. Dire « e2e non lancé » coûte

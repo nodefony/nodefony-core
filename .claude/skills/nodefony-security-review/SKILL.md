@@ -44,6 +44,27 @@ git diff HEAD -- 'src/**/*.ts'
 Classer chaque fichier touché par **surface** (ORM / auth / protocole / logs / crypto / input) →
 n'appliquer que les checks pertinents.
 
+**Le premier passage est MÉCANIQUE — le script livré aux applications le fait, ici aussi :**
+
+```bash
+node src/packages/@nodefony/devkit/skills/nodefony-security-review/scripts/review-diff.mjs
+node src/packages/@nodefony/devkit/skills/nodefony-security-review/scripts/review-diff.mjs --base origin/dev
+```
+
+Il lit les lignes AJOUTÉES (commentaires, tests, `*.selftest.*` et dossiers cachés écartés) et nomme,
+`fichier:ligne`, ce qu'un motif tranche : SQL interpolé hors du tag `sql`, `sql.raw` sur une donnée,
+exécution de code, secret écrit ou journalisé, `getUser()` brut, ouverture du pare-feu, CSRF coupé,
+garde éteinte, redirection ouverte, chemin composé avec une entrée, outil MCP publié, porte MCP
+ouverte, `.env` versionné. **Un seul exemplaire** : celui du paquet, que les applications reçoivent
+— un faux positif ou un trou se corrige LÀ, test compris (`devkit/tests/security-review-diff.test.ts`),
+et sert les deux publics le jour même.
+
+Deux de ses règles sont des règles d'APPLICATION, à lire comme telles sur le framework :
+`env-outside-envts` (une application lit son environnement dans `env.ts` seul ; le cœur, sa CLI et
+ses bancs lisent `process.env` légitimement) et `route-open` (jugée contre les zones de l'application
+de dev racine, `nodefony/config/`). Ce que le script ne voit pas — RFC, typage, crypto, profiler,
+Zero Trust de la couche — reste la checklist ci-dessous.
+
 ## 2. Checklist (grep ciblé sur le diff, pas tout le repo)
 
 ### A. Injection — requêtes TOUJOURS paramétrées ⛔
@@ -52,18 +73,9 @@ n'appliquer que les checks pertinents.
 - `db.all(sql\`... ${x}\`)`(drizzle, **tag`sql`**) = bindé ✅. Risque = un template
   **brut\*\* (sans tag) ou une concat passé à un appel db.
 
-```bash
-# 1) Template brut interpolé directement dans un appel db (paren collé au backtick) = ⛔
-git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
-  | grep -E '\.(all|get|run|query|execute|exec|raw|prepare)\(\s*`[^`]*\$\{'
-# 2) Concat de string dans une requête = ⛔
-git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
-  | grep -E '(query|execute|exec|raw)\(' | grep -E '\+ *['"'"'"`]'
-```
-
-> Le tag ``sql`…${x}` `` (drizzle) bind les `${}` → **sûr** : il a `sql` AVANT le
-> backtick, donc il ne matche PAS le motif ``\(\s*` `` du check 1. Si un appel db a un
-> backtick **directement** après la parenthèse → template brut → vérifier à la main.
+Contrôle porté par le script du §1 (règle `sql-interpolated`) : template brut interpolé, chaîne
+assemblée par `+`, `sql.raw` sur autre chose qu'un littéral — y compris une requête ouverte quelques
+lignes plus haut. Le tag ``sql`…${x}` `` (drizzle) bind les `${}` → **sûr**, et le script le sait.
 
 - Critère portable orm-core : passer par `Criteria`/`FieldOperators` (déjà bindés), pas du SQL maison.
 
@@ -71,9 +83,8 @@ git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
 
 - Pas de `password`/`token`/`secret`/`apiKey`/clé privée dans un `log()/console`/exception/réponse.
 
-```bash
-git diff HEAD -- 'src/**/*.ts' | grep -niE '(log|console\.|throw|message:).*(password|secret|token|apikey|private[_-]?key)'
-```
+Le journal et le secret écrit en dur : script du §1 (règles `secret-logged`, `secret-hardcoded`).
+Une exception ou une RÉPONSE qui embarque un secret reste à relire à la main.
 
 - ⚠️ **Dette connue** : le **profiler** (`@nodefony/http`) capture le SQL → un INSERT/UPDATE User
   contient le hash. Si la modif alimente `profiler.queries` ou un logger ORM → **redacter** les
@@ -105,9 +116,16 @@ git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
 
 ### D. Auth / AuthZ — Zero Trust par défaut ⛔
 
-- HTTP **stateless** : JWT cookie `HttpOnly; Secure; SameSite=Strict` (+ refresh rotation OWASP),
-  pas de session RAM serveur (cf `project_security_stateless_http_decision`).
-- Route sans décorateur de sécurité → **403 systématique** (jamais d'accès par défaut).
+- **Session côté SERVEUR** : le cookie ne porte qu'un identifiant opaque (32 octets CSPRNG), l'état
+  vit dans le store (`session.store`, défaut `auto` : redis > base > sqlite local > repli mémoire —
+  `http/nodefony/config/config.ts`). ⛔ toute modif qui met de l'état d'authentification DANS le
+  cookie, ou rend l'identifiant prévisible. Les JWT sont la voie des PROGRAMMES (zones `jwt`,
+  `external-jwt`), pas celle du navigateur.
+- **Zero Trust par ZONE, pas par route** : une route HORS de toute zone n'a aucune identité et
+  répond à tous (avis de démarrage `FIREWALL_PUBLIC_ROUTES`, `security/…/boot/publicRoutesNotice.ts`) ;
+  une garde (`@IsGranted`) posée hors zone refuse au contraire tout le monde (aucun jeton = refus).
+  Une zone qui liste `anonymous` laisse passer l'anonyme jusqu'à la garde. Où tombe une route
+  neuve → script du §1 (`route-open`).
 - **CORS** : jamais `Access-Control-Allow-Origin: *` **avec** `credentials` (whitelist stricte).
 - CSRF : `SameSite` + Origin check par défaut ; `@CsrfProtect` (HMAC double-submit) pour routes critiques.
 - En-têtes sécurité : CSP stricte (`default-src 'self'` + nonces), HSTS, X-Content-Type-Options,

@@ -142,7 +142,10 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.0.0" },
   { "icon": "🛡️", "title": "security-review", "href": "skills/nodefony-security-review.md",
     "desc": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any).",
-    "meta": "🟢 conforme" }
+    "meta": "🟢 conforme" },
+  { "icon": "🛡️", "title": "security-review", "href": "skills/nodefony-security-review.md",
+    "desc": "Relit la sécurité du code d'une application Nodefony avant le commit : un script lit le diff et nomme, fichier et ligne, ce qu'un motif suffit à voir — route ouverte à l'anonyme ou hors de toute zone du pare-feu, mutation sans jeton anti-falsification, SQL interpolé, secret écrit ou journalisé,…",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" }
 ]
 ```
 

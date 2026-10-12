@@ -208,7 +208,7 @@ source: "docs/skills/index.md"
 | [`nodefony-release`](nodefony-release.md) | 2.1.0 | 384 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.8.0 | 311 | 0 | 3 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
-| [`nodefony-security-review`](nodefony-security-review.md) | — | 379 | 0 | 0 | ✅ |
+| [`nodefony-security-review`](nodefony-security-review.md) | — | 397 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 10 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
@@ -220,7 +220,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 451 | 0 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 455 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 349 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.0.0 | 135 | 0 | 1 | ✅ |
 

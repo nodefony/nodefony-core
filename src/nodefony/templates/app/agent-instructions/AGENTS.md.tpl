@@ -312,7 +312,8 @@ de protéger une adresse existante, la déménager sous la zone déjà réglée 
 dans l'app ne signale la rupture. **On adapte la ZONE à l'URL, jamais l'URL à la zone** —
 étends son `pattern` : `^/api/(machine|partenaire)`.
 
-Gestes complets (zones, rôles, voters, comptes) → skill `nodefony-protect-route`.
+Gestes complets (zones, rôles, voters, comptes) → skill `nodefony-protect-route`. Relire la
+sécurité d'un diff AVANT de le commiter → skill `nodefony-security-review`.
 
 <% } %>🔴 **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.**
 Un doublon sur une colonne unique ressort en **409**, une donnée qui viole le schéma Zod

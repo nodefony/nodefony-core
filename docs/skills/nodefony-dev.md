@@ -28,8 +28,8 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 | --- | --- |
 | Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 451 lignes |
-| Coût d'activation | ~7 822 tokens (le corps est chargé à l'invocation) |
+| Corps | 455 lignes |
+| Coût d'activation | ~7 896 tokens (le corps est chargé à l'invocation) |
 | Description | 1018 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 0 page(s) |
@@ -44,7 +44,7 @@ Conduit une tâche de développement de bout en bout dans une application Nodefo
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`browser`](nodefony-browser.md) · [`migrate-schema`](nodefony-migrate-schema.md)
+[`browser`](nodefony-browser.md) · [`migrate-schema`](nodefony-migrate-schema.md) · [`security-review`](nodefony-security-review.md)
 
 ## Quand il se déclenche
 
@@ -96,7 +96,7 @@ script, donc toujours à jour après régénération.
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 451 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 455 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
