@@ -460,7 +460,7 @@ sequenceDiagram
 ```
 
 Deux invariants s'y cachent. **Tous** les chemins d'échec consomment exactement une vérification de
-hash, y compris ceux qui n'ont aucun hash réel à vérifier (`UserService.ts:198`) — c'est ce qui
+hash, y compris ceux qui n'ont aucun hash réel à vérifier (`UserService.ts:207`) — c'est ce qui
 interdit de deviner l'existence d'un compte au chronomètre
 ([détail](#-sécurité--ce-que-le-module-défend-vraiment)). Et le **re-hash est transparent** : il a
 lieu au seul moment où le mot de passe en clair existe côté serveur, un login réussi.
@@ -468,7 +468,7 @@ lieu au seul moment où le mot de passe en clair existe côté serveur, un login
 ### L'ordre des vérifications
 
 `locked` → `disabled` → `no_password` → `bad_credentials`. Cet ordre est fixé
-(`UserService.ts:483`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
+(`UserService.ts:508`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
 dans tous les cas, et la raison précise part dans l'événement `onAuthenticationFailure` — donc dans
 l'audit serveur, jamais dans la réponse.
 
@@ -483,7 +483,7 @@ l'audit serveur, jamais dans la réponse.
 | `onAuthenticated`         | authentification réussie                      | l'utilisateur            |
 | `onAuthenticationFailure` | tout échec                                    | identifiant + raison     |
 
-`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:386`) : un changement de
+`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:411`) : un changement de
 credential n'est pas une modification banale, et un abonné (audit, notification, invalidation de
 sessions) doit pouvoir le traiter à part.
 
@@ -532,16 +532,16 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 
 | Appel                                | Ce qu'il fait                                                 | Ancre                |
 | ------------------------------------ | ------------------------------------------------------------- | -------------------- |
-| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:194` |
-| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:308` |
-| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:346` |
-| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:372` |
-| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:469` |
-| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:506` |
-| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:522` |
-| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:557` |
-| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:578` |
-| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:170` |
+| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:203` |
+| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:333` |
+| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:371` |
+| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:397` |
+| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:494` |
+| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:531` |
+| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:547` |
+| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:582` |
+| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:603` |
+| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:179` |
 
 **La distinction à retenir** : `loadUserByOAuth()` **lit** (et lève si le lien est inconnu) ;
 `provisionOAuthUser()` **écrit** (et crée le compte). Deux contrats, deux responsabilités — c'est ce
@@ -674,7 +674,7 @@ flowchart TD
 
 Le compte local est le **Shadow User** : ton application garde sa propre ligne, avec ses propres
 rôles, son propre état actif/verrouillé. Le fournisseur n'est qu'une façon de prouver qu'on est bien
-la personne rattachée à cette ligne (`UserService.ts:363`).
+la personne rattachée à cette ligne (`UserService.ts:388`).
 
 ### Trois invariants, et pourquoi ils existent
 
@@ -696,7 +696,7 @@ d'identifiant entre fournisseurs).
 
 ### L'identifiant du Shadow User
 
-`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts:558`). Un
+`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts:583`). Un
 fournisseur qui n'expose pas d'email ne bloque donc pas la connexion, et deux fournisseurs ne peuvent
 pas produire le même identifiant fonctionnel.
 
@@ -971,11 +971,11 @@ En quelques milliers de requêtes, l'attaquant reconstitue la liste des comptes.
 
 **La défense.** Tous les chemins d'échec consomment exactement une vérification de hash — y compris
 « identifiant inconnu », « compte verrouillé », « compte désactivé » et « compte sans mot de passe »
-(`UserService.ts:198`). Les trois derniers sont particulièrement traîtres : ils sont détectables
+(`UserService.ts:207`). Les trois derniers sont particulièrement traîtres : ils sont détectables
 **avant** toute vérification, donc les traiter naïvement crée un oracle plus rapide encore que
 l'identifiant inconnu.
 
-Le leurre vérifie le mot de passe **réellement saisi** contre un hash factice (`UserService.ts:374`),
+Le leurre vérifie le mot de passe **réellement saisi** contre un hash factice (`UserService.ts:399`),
 et non une constante : le temps de calcul suit ainsi la taille de l'entrée, comme dans le cas réel.
 
 **La preuve.** Le banc `userServiceTiming.attack.test.ts:131` compte les appels à `verify` sur chaque
@@ -1013,7 +1013,7 @@ Une erreur d'administration ne doit pas fermer la porte définitivement. Cinq ga
 | supprimer ou désactiver le dernier admin actif | 409                                         |
 
 Le comptage passe par `countActiveAdmins()`, un `COUNT` natif au store — jamais un chargement complet
-en mémoire (`UserService.ts:346`).
+en mémoire (`UserService.ts:371`).
 
 ### Cascade de révocation
 
@@ -1076,8 +1076,8 @@ l'authentification, pas à chaque requête. Les points qui comptent :
 | ------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------- |
 | Utilisateur anonyme | singleton gelé + rôles partagés gelés → 0 allocation/requête                                                    | `AnonymousUser.ts:44`     |
 | Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés                                                    | `BcryptEncoder.ts:10`     |
-| Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache                                                      | `UserService.ts:374`      |
-| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:170`      |
+| Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache                                                      | `UserService.ts:399`      |
+| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:179`      |
 | Listing             | pagination **native au store**, jamais de `find()` complet                                                      | `IUserRepository.ts:121`  |
 | Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes                                                            | `IUserRepository.ts:131`  |
 | Registre de stores  | `Set` allouée au premier enregistrement                                                                         | `userStoreRegistry.ts:16` |

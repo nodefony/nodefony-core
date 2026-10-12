@@ -145,7 +145,7 @@ multi-clients. Pour un appel serveur→client ciblé, on passe par la connexion 
 
 **Un provider par canal, pas un par client.** Si mille onglets s'abonnent au même canal de
 santé, le calcul ne doit tourner qu'une fois. Le hub crée le producteur au **premier**
-abonné et le détruit au **dernier** (`RealtimeHub.subscribe()`, `RealtimeHub.ts:458`) : le
+abonné et le détruit au **dernier** (`RealtimeHub.subscribe()`, `RealtimeHub.ts:464`) : le
 coût suit le nombre de canaux, pas le nombre de clients.
 
 **Le cluster est un détail de configuration.** Ni ton contrôleur ni ton client ne savent
@@ -154,7 +154,7 @@ chaîne de caractères. Passer de mono-process à multi-pods ne touche aucune li
 
 **Le compromis, dit franchement** : un canal **ne franchit PAS** la frontière du process
 tant que tu ne l'as pas déclaré. Le défaut est l'isolement (`RealtimeHub.publish()`,
-`RealtimeHub.ts:604`) — un choix de sûreté détaillé plus bas.
+`RealtimeHub.ts:610`) — un choix de sûreté détaillé plus bas.
 
 ## 🚀 Démarrage rapide
 
@@ -291,7 +291,7 @@ export async function start(): Promise<void> {
 ### Ce qu'on observe
 
 Au démarrage du serveur, le module annonce son fond de panier — une ligne, toujours la
-même forme, quel que soit le driver (`src/packages/@nodefony/realtime/index.ts:303`) :
+même forme, quel que soit le driver (`src/packages/@nodefony/realtime/index.ts:316`) :
 
 ```
 realtime backplane  driver=loopback kind=local cross-pod=no (hub local)
@@ -324,7 +324,7 @@ La pile se lit de haut en bas ; chaque étage ne connaît que son voisin du dess
 | Applicatif | ton contrôleur, tes services                            | le métier : quoi publier, quoi accepter | tout le reste                 |
 | Protocole  | `JsonRpcPeer` (`JsonRpcPeer.ts:311`)                    | étiqueter, corréler, refuser une frame  | par où passent les octets     |
 | Transport  | `WsConnectionTransport` (`WsConnectionTransport.ts:46`) | déplacer des octets, mesurer la file    | ce que veut dire un message   |
-| Hub        | `RealtimeHub` (`RealtimeHub.ts:213`)                    | table des abonnés locaux + fan-out      | qu'il existe d'autres process |
+| Hub        | `RealtimeHub` (`RealtimeHub.ts:214`)                    | table des abonnés locaux + fan-out      | qu'il existe d'autres process |
 | Backplane  | `IBackplane` (`IBackplane.ts:107`)                      | porter un message aux autres process    | ce qu'est un abonné           |
 
 > [!NOTE]
@@ -378,7 +378,7 @@ un canal d'état, où le prochain instantané remplace celui qu'on a sauté ; ma
 rien, et une réponse RPC ou un événement jetés sont perdus. Détail et courbes :
 [Cadence et contre-pression](./cadence-et-contre-pression.md).
 
-À ne pas confondre avec `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:63`, 1 MiB) : ce seuil-là
+À ne pas confondre avec `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:64`, 1 MiB) : ce seuil-là
 ne jette rien, il **compte** — c'est celui à partir duquel la sonde marque une connexion
 `slowConsumer`.
 
@@ -421,15 +421,15 @@ sequenceDiagram
 
 Les étapes, dans l'ordre exact du code :
 
-1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:948`). Refus →
+1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:967`). Refus →
    fermeture `4003`. La politique vient de la configuration ; sans politique, tout passe.
 2. **Résolution de l'identité** — `RealtimeHub.resolveAuthenticator()`
-   (`RealtimeHub.ts:924`) parcourt les authentificateurs enregistrés : **le premier motif
+   (`RealtimeHub.ts:943`) parcourt les authentificateurs enregistrés : **le premier motif
    qui correspond capture**. Aucun ne correspond ? Le jeton anonyme gelé est posé
    (`ANONYMOUS_REALTIME_TOKEN`) — la lecture d'identité ne rend donc jamais `null`. Un
    échec d'authentification ferme en `4001`.
 3. **Création du peer et du transport**, puis association `peer → jeton`
-   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:980`), stockée dans une `WeakMap` : le
+   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:999`), stockée dans une `WeakMap` : le
    jeton disparaît avec le peer, sans fuite.
 4. **Enregistrement des actions** — celles des décorateurs `@RealtimeAction`, puis celles
    de la surcharge `realtimeActions()`, qui gagne en cas de conflit. Le pont API
@@ -456,34 +456,34 @@ déconnexion.
 | Garde                 | Déclencheur                                                            | Effet                                               | Ancrage                     |
 | --------------------- | ---------------------------------------------------------------------- | --------------------------------------------------- | --------------------------- |
 | Plafond de canaux     | une connexion dépasse son quota d'abonnements (256 par défaut)         | abonnement refusé + `realtime:denied` motif `limit` | `RealtimeController.ts:852` |
-| Révocation d'identité | tick périodique ; `token.isValid()` rend `false` ou lève une exception | fermeture `4001` « session revoked »                | `RealtimeHub.ts:48`         |
+| Révocation d'identité | tick périodique ; `token.isValid()` rend `false` ou lève une exception | fermeture `4001` « session revoked »                | `RealtimeHub.ts:49`         |
 
 La seconde mérite une explication. Le verrou de frame est synchrone et lit une identité
 figée au handshake : il ne peut donc pas voir une session qui meurt en cours de route (une
 déconnexion HTTP, par exemple). Un minuteur — démarré au premier inscrit, arrêté dès que le
-registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:790`) — relit
+registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:796`) — relit
 périodiquement ces identités et coupe les sockets orphelines. Seules les identités
 **révocables** y entrent : un visiteur anonyme ne coûte rien.
 
 ## Le hub — canaux partagés et fan-out
 
-Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1413`). Il ne
+Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1432`). Il ne
 dépend de rien : ce sont les fabriques fournies par les contrôleurs qui portent les
 dépendances.
 
 ### Le provider partagé — un ticker, pas mille
 
-`RealtimeHub.subscribe()` (`RealtimeHub.ts:458`) applique une mécanique en trois temps :
+`RealtimeHub.subscribe()` (`RealtimeHub.ts:464`) applique une mécanique en trois temps :
 
 1. Le canal existe déjà ? On ajoute simplement le sink de cette connexion. Fin.
 2. Sinon, on inscrit le sink **avant** d'appeler la fabrique — de sorte que le tout premier
    paquet du producteur atteigne bien ce premier abonné.
 3. La fabrique du contrôleur rend `null` (canal inconnu de lui) ? Dernier recours : le
    registre des **canaux système** (`RealtimeHub.registerSystemChannel()`,
-   `RealtimeHub.ts:1259`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
+   `RealtimeHub.ts:1278`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
    l'abonnement est refusé et rien n'est alloué.
 
-Au dernier désabonnement, `RealtimeHub.unsubscribe()` (`RealtimeHub.ts:572`) appelle le
+Au dernier désabonnement, `RealtimeHub.unsubscribe()` (`RealtimeHub.ts:578`) appelle le
 `dispose` du producteur et retire le canal. Un producteur fautif qui lève une exception ne
 bloque pas le nettoyage.
 
@@ -498,22 +498,22 @@ Deux méthodes qui se ressemblent et ne font pas du tout la même chose :
 
 | Méthode                                 | Fan-out local |   Propagation aux autres process   | Qui l'appelle                       |
 | --------------------------------------- | :-----------: | :--------------------------------: | ----------------------------------- |
-| `publish()` (`RealtimeHub.ts:604`)      |      oui      | oui, **si** le canal est broadcast | producteurs, contrôleurs, services  |
-| `publishLocal()` (`RealtimeHub.ts:623`) |      oui      |             **jamais**             | l'arrivée d'un message du backplane |
+| `publish()` (`RealtimeHub.ts:610`)      |      oui      | oui, **si** le canal est broadcast | producteurs, contrôleurs, services  |
+| `publishLocal()` (`RealtimeHub.ts:629`) |      oui      |             **jamais**             | l'arrivée d'un message du backplane |
 
 C'est **la** règle qui empêche la tempête : un message reçu d'un pair est réinjecté
 localement et **ne repart pas**. Le câblage se fait une fois pour toutes dans
-`RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`), qui branche l'arrivée du backplane
+`RealtimeHub.setBackplane()` (`RealtimeHub.ts:720`), qui branche l'arrivée du backplane
 directement sur `publishLocal`.
 
-Le fan-out lui-même (`RealtimeHub.ts:340`) est **isolé** : chaque livraison est protégée,
+Le fan-out lui-même (`RealtimeHub.ts:346`) est **isolé** : chaque livraison est protégée,
 une connexion fautive n'interrompt pas la diffusion aux autres.
 
 ### Le forward est OPT-IN — le défaut est l'isolement
 
 Par défaut, **aucun canal ne traverse le backplane**. Il faut déclarer un préfixe, via
 `@RealtimeBroadcast` sur ton contrôleur (`realtimeDecorators.ts:420`) ou
-directement `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`).
+directement `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:674`).
 
 Trois raisons à ce choix, qui prend à contre-pied la plupart des bibliothèques temps réel :
 
@@ -590,7 +590,7 @@ rien.
 **`cluster`** relie les workers d'un même hôte. Un worker Node ne peut parler qu'au maître :
 il émet vers lui (`ClusterBackplane.publish()`, `ClusterBackplane.ts:117`), le maître
 rediffuse aux autres. Le driver ne s'active qu'en rôle worker avec la variable
-`NF_CLUSTER=1` (`src/packages/@nodefony/realtime/index.ts:99`) ; ailleurs il rend
+`NF_CLUSTER=1` (`src/packages/@nodefony/realtime/index.ts:106`) ; ailleurs il rend
 `null`. Aucune infrastructure requise — c'est le banc d'essai qui stabilise l'architecture
 multi-process avant d'ajouter du réseau.
 
@@ -599,7 +599,7 @@ consomme deux connexions du module `@nodefony/redis` via un adaptateur purement 
 `createRedisServiceTransport()` (`RedisBackplane.ts:137`). Deux connexions et non une, parce
 qu'un client Redis abonné ne peut plus émettre de commandes ordinaires. Module absent ou
 connexions indisponibles → avertissement, `null`, hub local, démarrage poursuivi
-(`src/packages/@nodefony/realtime/index.ts:108`).
+(`src/packages/@nodefony/realtime/index.ts:115`).
 
 ### Le registre de drivers — zéro nom en dur
 
@@ -608,7 +608,7 @@ brancherie. La sélection passe donc par un registre — `registerBackplaneDrive
 (`backplaneRegistry.ts:55`) et `getBackplaneDriver()` (`backplaneRegistry.ts:63`) : chaque
 driver porte son nom en membre statique, les natifs s'inscrivent au chargement du module, et
 le câblage résout une chaîne vers une fabrique sans connaître aucun littéral
-(`src/packages/@nodefony/realtime/index.ts:253`).
+(`src/packages/@nodefony/realtime/index.ts:260`).
 
 Une fabrique reçoit module, `originId`, rôle dans la topologie et configuration validée
 (`IBackplaneFactoryContext`, `backplaneRegistry.ts:27`), puis rend une instance ou `null`
@@ -650,7 +650,7 @@ applications sur un Redis mutualisé se parleraient.
 D'où le suffixe de cloison, calculé par `resolveRedisChannel()` (`RedisBackplane.ts:31`) :
 le canal effectif devient `nodefony:realtime:<namespace>`. Le namespace vient de la
 configuration ; à défaut, il est dérivé du nom de l'application
-(`src/packages/@nodefony/realtime/index.ts:132`).
+(`src/packages/@nodefony/realtime/index.ts:139`).
 
 > [!TIP]
 > Deux déploiements de la **même** application sur un Redis partagé (préproduction et
@@ -663,14 +663,14 @@ est ignoré, pas propagé (`RedisBackplane.ts:212`).
 ### Le démarrage, et ce qui se passe quand ça rate
 
 Le module valide sa configuration par Zod à l'enregistrement
-(`src/packages/@nodefony/realtime/index.ts:219`), puis câble tout au démarrage du noyau
-(`src/packages/@nodefony/realtime/index.ts:213`) — après l'initialisation des services (le
+(`src/packages/@nodefony/realtime/index.ts:226`), puis câble tout au démarrage du noyau
+(`src/packages/@nodefony/realtime/index.ts:220`) — après l'initialisation des services (le
 service Redis a donc ouvert ses connexions) et avant le trafic.
 
 Le `start()` du backplane est **attendu explicitement avant** d'être branché : un driver
 asynchrone brancherait sinon un abonnement incomplet et perdrait ses premiers messages. Et
 il est **borné par un délai** de cinq secondes
-(`src/packages/@nodefony/realtime/index.ts:83`), pour une raison très concrète : un
+(`src/packages/@nodefony/realtime/index.ts:90`), pour une raison très concrète : un
 transport réseau qui reste pendu gèlerait la phase de démarrage, et donc la montée des
 serveurs HTTP eux-mêmes.
 
@@ -682,7 +682,7 @@ Trois issues, toutes annoncées, jamais silencieuses :
 | driver inactif ici (loopback, mauvais rôle)  | hub local                            | `INFO`    |
 | driver inconnu, ou démarrage en échec/expiré | hub local, **le démarrage continue** | `WARNING` |
 
-Le module se déclare non critique (`src/packages/@nodefony/realtime/index.ts:144`) : son
+Le module se déclare non critique (`src/packages/@nodefony/realtime/index.ts:151`) : son
 échec ne tue jamais le process. C'est de la résilience **sans dégradation silencieuse** —
 tout repli est annoncé. Enfin, `enabled: false` rend le module totalement inerte : ni API
 d'administration, ni backplane, ni sonde.
@@ -735,29 +735,29 @@ refonte. Ici, seulement **où** ils sont ; le **quoi** et le **comment** sont da
 
 | Point de greffe              | Étage     | Moment         | Ancrage                     |
 | ---------------------------- | --------- | -------------- | --------------------------- |
-| Contrôle d'origine           | hub       | à l'upgrade    | `RealtimeHub.ts:614`        |
-| Authentificateur réseau      | hub       | au handshake   | `RealtimeHub.ts:579`        |
-| Verrou de frame              | protocole | à chaque frame | `RealtimeHub.ts:675`        |
-| Politique déclarée par canal | hub       | au handshake   | `RealtimeHub.ts:713`        |
+| Contrôle d'origine           | hub       | à l'upgrade    | `RealtimeHub.ts:620`        |
+| Authentificateur réseau      | hub       | au handshake   | `RealtimeHub.ts:585`        |
+| Verrou de frame              | protocole | à chaque frame | `RealtimeHub.ts:681`        |
+| Politique déclarée par canal | hub       | au handshake   | `RealtimeHub.ts:719`        |
 | Audit de frame               | protocole | sur refus      | `RealtimeController.ts:522` |
 
 Deux propriétés architecturales méritent d'être notées ici, parce qu'elles expliquent des
 choix de conception visibles partout dans le module :
 
 **Coût nul quand la sécurité est absente.** Le verrou de frame n'est branché sur le peer que
-si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:1020`, testé une
+si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:1039`, testé une
 fois au handshake). Sans module de sécurité, `beforeDispatch` reste indéfini et le chemin
 chaud ne paie **rien** du tout.
 
 **Échec bruyant plutôt que faux sentiment de sécurité.** Si des canaux déclarent une
 politique sans qu'aucun décideur ne soit câblé, `hasUnenforcedChannelPolicies()`
-(`RealtimeHub.ts:1079`) le détecte et un avertissement est émis une fois par process
+(`RealtimeHub.ts:1098`) le détecte et un avertissement est émis une fois par process
 (`RealtimeController.ts:639`). Un canal qui **se croit** gardé alors qu'il est ouvert est
 bien plus dangereux qu'un canal ouvertement public.
 
 ## 📡 Observabilité — la sonde et Studio
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:828`) rend un instantané en **lecture pure** : aucune
+`RealtimeHub.probe()` (`RealtimeHub.ts:847`) rend un instantané en **lecture pure** : aucune
 allocation sur le chemin chaud, jamais d'exception. Les compteurs sont des primitives
 incrémentées en O(1) ; ils sont **monotones**, ce qui laisse au lecteur le soin de dériver
 un débit.
@@ -796,7 +796,7 @@ sinon.
 
 Sonde désactivée ? Elle n'est pas muette : **elle n'existe pas**. Aucun client, donc aucun
 minuteur, aucun écouteur, aucun message IPC
-(`src/packages/@nodefony/realtime/index.ts:351`) — coupable par la configuration ou par une
+(`src/packages/@nodefony/realtime/index.ts:364`) — coupable par la configuration ou par une
 variable d'environnement. Enfin, le maître peut demander à un worker précis d'enrichir sa
 remontée (`requestEnrich()`, `ClusterProbeClient.ts:259`) : la sonde riche n'est allouée que
 pendant l'inspection, puis libérée — on paie ce qu'on regarde.
@@ -807,10 +807,10 @@ Le module suit une discipline stricte, lisible dans presque chaque champ privé 
 
 **Allocation paresseuse partout.** Table des canaux, registre des connexions, registre des
 révocables, authentificateurs, politiques de canal, association peer→jeton : tout démarre à
-`null`. Un process sans abonné n'alloue **rien** (`RealtimeHub.ts:141` et suivants).
+`null`. Un process sans abonné n'alloue **rien** (`RealtimeHub.ts:142` et suivants).
 
 **Aucun minuteur au repos.** Le tick de révocation démarre au premier inscrit et s'arrête
-dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:798`).
+dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:804`).
 Les minuteurs sont détachés de la boucle d'événements : ils ne retiennent jamais l'arrêt du
 process.
 

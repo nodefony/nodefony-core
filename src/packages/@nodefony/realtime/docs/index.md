@@ -144,7 +144,7 @@ la même socket. Trois formes de trafic coexistent : le serveur diffuse (`@Realt
 `realtimeDecorators.ts:278`). Rien n'est ouvert qui n'ait été déclaré.
 
 **Le travail est fait une fois par processus, pas une fois par client.** Le `RealtimeHub`
-(`RealtimeHub.ts:213`) tient **un seul producteur par canal** : le premier abonné le démarre, le
+(`RealtimeHub.ts:214`) tient **un seul producteur par canal** : le premier abonné le démarre, le
 dernier départ l'arrête. Chaque connexion supplémentaire n'ajoute qu'une destination de diffusion.
 Un salon suivi par mille personnes coûte un producteur, pas mille.
 
@@ -340,7 +340,7 @@ vue de tous les workers d'un pod.
 
 Le data plane admin expose `/nodefony/realtime/api/health` — canaux et abonnés, compteurs de
 diffusion, connexions, octets et frames, pression d'écriture. C'est la même donnée que celle rendue à
-l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:828`).
+l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:847`).
 
 ## 🧪 Tests & couverture
 

@@ -108,9 +108,9 @@ disparaît de l'écran de connexion et revient tout seul quand le realm répond 
 (`#isReachable()`, `oauth2.ts:830`).
 
 **L'identité est la paire `(keycloak, sub)`, jamais l'email.** Au premier login, l'application crée
-un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:578`). Un
+un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:603`). Un
 compte local qui porte déjà le même identifiant sans ce lien n'est **jamais** rattaché en silence :
-la connexion est refusée (`UserService.ts:389`).
+la connexion est refusée (`UserService.ts:414`).
 
 **Keycloak authentifie, l'application autorise.** Les rôles du realm ne sont pas lus : le compte
 reçoit `defaultRoles` à sa création, puis la base locale fait foi. Une élévation se fait dans
@@ -555,7 +555,7 @@ keycloak: {
 **Les règles, à connaître avant de l'activer :**
 
 - **Recalcul à chaque connexion ET à chaque jeton d'API.** Un rôle retiré dans Keycloak disparaît
-  au login suivant, et dès le jeton suivant sur l'API (`syncOAuthRoles()`, `UserService.ts:665`).
+  au login suivant, et dès le jeton suivant sur l'API (`syncOAuthRoles()`, `UserService.ts:690`).
   Une session déjà ouverte garde ses droits jusqu'à la reconnexion.
 - **Un rôle Keycloak absent de la table est ignoré**, jamais recopié tel quel : l'annuaire ne
   fabrique pas de droit que l'application n'a pas déclaré.
@@ -772,7 +772,7 @@ vide, qui expire seule.
 | `Invalid parameter: redirect_uri` sur la page Keycloak                                                                             | `redirectUri` ≠ les **Valid redirect URIs** du client                                                                   | Aligner schéma, hôte (`localhost` ≠ `127.0.0.1`), port et chemin                                                                  |
 | Retour sur `failureRedirect` + WARNING `unauthorized_client` (secret faux) ou `invalid_client` (client inconnu)                    | Mauvais secret, client absent du realm, ou client public (_Client authentication OFF_)                                  | Recopier le secret de l'onglet _Credentials_ ; passer le client en ON                                                             |
 | Retour sur `failureRedirect` + WARNING `OAuth issuer mismatch`                                                                     | Keycloak joint par deux adresses différentes : l'émetteur varie                                                         | Fixer `KC_HOSTNAME` à l'URL publique complète                                                                                     |
-| Retour sur `failureRedirect` + WARNING `local account exists without a keycloak link`                                              | Un compte local porte déjà cet identifiant (`UserService.ts:389`) — typiquement un `sub` changé après réimport du realm | Rattacher le compte explicitement, ou fixer l'`id` des utilisateurs dans l'export du realm                                        |
+| Retour sur `failureRedirect` + WARNING `local account exists without a keycloak link`                                              | Un compte local porte déjà cet identifiant (`UserService.ts:414`) — typiquement un `sub` changé après réimport du realm | Rattacher le compte explicitement, ou fixer l'`id` des utilisateurs dans l'export du realm                                        |
 | API : `401` avec un jeton Keycloak valide                                                                                          | Audience absente du jeton : pas de mapper _Audience_                                                                    | `security:keycloak:realm --write` puis import partiel ; `aud` doit contenir la `resource` de la zone                              |
 | Session de l'application vivante après une déconnexion chez Keycloak ; Keycloak journalise `Some clients have not been logged out` | _Front channel logout_ ON, ou **Backchannel logout URL** absente ou injoignable depuis Keycloak                         | _Front channel logout_ OFF ; une URL que Keycloak joint (en développement Linux : serveur à l'écoute au-delà de la boucle locale) |
 

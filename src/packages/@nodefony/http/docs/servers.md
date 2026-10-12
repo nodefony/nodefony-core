@@ -128,7 +128,7 @@ Nodefony crée un serveur HTTP/2 sécurisé avec `allowHTTP1: true` (`ServerHttp
 
 **Le WebSocket n'est jamais un citoyen de seconde zone.** Il est adossé au serveur HTTP porteur
 (`server-websocket.ts:80`), passe par le **même** rate-limit d'IP que les requêtes HTTP — un upgrade
-_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1952`) —, hérite de la même
+_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1964`) —, hérite de la même
 session et du même firewall, et se ferme avec le même soin qu'une réponse HTTP.
 
 > [!NOTE]
@@ -336,8 +336,8 @@ Choisir en cinq secondes :
 | `server-websocket-secure` | `wss://` — 5152     | `server-https` actif      | WebSocket adossé au serveur TLS.                   |
 | `server-static`           | (aucun port propre) | toujours enregistré       | Fichiers statiques, en **repli** après le routing. |
 
-L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1211`) : chaque serveur est
-consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1211`).
+L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1223`) : chaque serveur est
+consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1223`).
 Les serveurs WebSocket ne sont montés que si leur porteur l'a été.
 
 ### `server-http` — HTTP/1.1 en clair
@@ -535,7 +535,7 @@ laisser un processus se croire démarré.
 
 Si le port peut glisser, alors « le serveur écoute sur 5151 » n'est plus une vérité mais une
 convention — et `nodefony status`, `nodefony stop` ou l'attente de disponibilité sonderaient un port
-que personne n'écoute. `HttpKernel.publishRuntimePorts()` (`http-kernel.ts:1267`) écrit donc la
+que personne n'écoute. `HttpKernel.publishRuntimePorts()` (`http-kernel.ts:1279`) écrit donc la
 topologie réelle (pid, ports obtenus, ports désirés) dans un fichier d'état, **dans tous les
 environnements** : une application qui déclare son port (`NF_PORT`, `NF_PORT_HTTPS` ou `servers.http.port`) sort
 aussi de la convention,
@@ -655,7 +655,7 @@ sont ignorés** (`config.ts:965`), et l'IP retenue est celle de la socket réell
 | `"loopback"`, `"linklocal"`, `"uniquelocal"` | Préréglages de plages privées.                                     |
 
 La politique est compilée **une seule fois** au premier usage (`HttpKernel.getTrustProxyChecker()`,
-`http-kernel.ts:615`, via `buildTrustProxy()`, `trustProxy.ts:103`) : aucune structure allouée par
+`http-kernel.ts:627`, via `buildTrustProxy()`, `trustProxy.ts:103`) : aucune structure allouée par
 requête. La résolution de l'IP cliente remonte la chaîne **de droite à gauche** depuis la socket réelle
 (`resolveForwarded()`, `forwarded.ts:253`) — conforme RFC 7239 et à la recommandation OWASP.
 
@@ -663,7 +663,7 @@ requête. La résolution de l'IP cliente remonte la chaîne **de droite à gauch
 
 Barrière testée **avant le routage**, contre l'injection d'en-tête `Host`. Le domaine canonique du
 kernel est toujours accepté, plus le loopback en développement (`HttpKernel.compileAlias()`,
-`http-kernel.ts:1070`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
+`http-kernel.ts:1082`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
 d'un seul niveau, `*.cdn.example.com`) ; `true` désactive la barrière — à réserver au cas où le proxy
 filtre déjà le `Host` (`config.ts:974`).
 
@@ -672,13 +672,13 @@ filtre déjà le `Host` (`config.ts:974`).
 Les navigateurs **n'appliquent pas CORS aux WebSockets**. Sans contrôle, une page tierce peut ouvrir un
 WS authentifié par le cookie de session de la victime (CSWSH, OWASP WSTG-CLNT-10). Nodefony exige donc
 par défaut que l'`Origin` du handshake corresponde au `Host` servi
-(`HttpKernel.checkWebsocketOrigin()`, `http-kernel.ts:712`), avec tolérance loopback en développement
+(`HttpKernel.checkWebsocketOrigin()`, `http-kernel.ts:724`), avec tolérance loopback en développement
 et allowlist explicite pour les SPA cross-origine. Un refus se solde par une fermeture **1008 (Policy
 Violation)**, jamais par un code HTTP.
 
 > [!NOTE]
 > Une requête **sans** `Origin` (client non navigateur : script, agent, test) est acceptée
-> (`http-kernel.ts:630`). Ce n'est pas un trou : un attaquant non navigateur n'a aucun besoin de CSWSH,
+> (`http-kernel.ts:642`). Ce n'est pas un trou : un attaquant non navigateur n'a aucun besoin de CSWSH,
 > il se connecte directement. Le contrôle protège les **utilisateurs**, pas le port.
 
 ## Probes de santé — `/livez` et `/readyz`
@@ -695,8 +695,8 @@ redémarrer le pod **en plein drain** par le kubelet, et casserait précisément
 protéger.
 
 Implémentation : court-circuit **total** du pipeline dans `HttpKernel.onHttpRequest()`
-(`http-kernel.ts:1081`) — pas de contexte, pas de portée DI, pas de session, pas de journal par sonde,
-réponses pré-allouées (`HttpKernel.#respondHealth()`, `http-kernel.ts:549`). Et surtout : **avant le
+(`http-kernel.ts:1093`) — pas de contexte, pas de portée DI, pas de session, pas de journal par sonde,
+réponses pré-allouées (`HttpKernel.#respondHealth()`, `http-kernel.ts:561`). Et surtout : **avant le
 rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de redémarrages.
 
 | Option          | Type   | Défaut    | Effet                                                                  |
@@ -765,7 +765,7 @@ sequenceDiagram
 ```
 
 **Étape 1 — la disponibilité bascule en premier.** L'écouteur est posé à `onPostReady` pour être
-inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts:575`). `readyz` répond `503`, le
+inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts:587`). `readyz` répond `503`, le
 load balancer cesse d'envoyer du trafic, et `shutdownDelay` laisse à cette information le temps de se
 propager.
 
@@ -821,9 +821,9 @@ processus à l'arrêt.
 
 L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** compteur de rate-limit par
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
-(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1952`). Le `101` étant déjà émis par `ws`, un `429`
+(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1964`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
-(`websocketQuotaRefusal()`, `http-kernel.ts:2218`), sans
+(`websocketQuotaRefusal()`, `http-kernel.ts:2230`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
@@ -846,11 +846,11 @@ par seconde. Les choix visibles dans le code :
 - **Aucun timer par connexion** — un `setInterval` par serveur WebSocket, `unref`, et deux `number` par
   socket (`wsHeartbeat.ts:137`).
 - **Rien de compilé par requête** — la politique de trust-proxy, celle des `Origin` WS et les motifs de
-  `trustedHosts` sont compilés une fois et mémoïsés (`getTrustProxyChecker()`, `http-kernel.ts:615` ; `getWsOriginPolicy()`, `http-kernel.ts:622` ; `compileAlias()`, `http-kernel.ts:1070`).
+  `trustedHosts` sont compilés une fois et mémoïsés (`getTrustProxyChecker()`, `http-kernel.ts:627` ; `getWsOriginPolicy()`, `http-kernel.ts:634` ; `compileAlias()`, `http-kernel.ts:1082`).
 - **Rejets avant allocation** — rate-limit HTTP et bornes WS sont vérifiés avant le contexte, la portée
   DI et l'ALS : un flood coûte une recherche dans une table de hachage.
 - **Probes hors pipeline** — réponses pré-allouées, aucun objet créé, aucun journal
-  (`http-kernel.ts:383`). Un kubelet qui sonde toutes les 2 secondes ne pèse rien.
+  (`http-kernel.ts:388`). Un kubelet qui sonde toutes les 2 secondes ne pèse rien.
 - **Fichiers statiques en repli** — depuis la bascule « router d'abord », une requête qui matche une
   route ne paie plus l'appel disque de `serve-static` (**+28 % de requêtes par seconde** mesurés en
   production mono-processus).
@@ -871,7 +871,7 @@ demande le backplane realtime.
 
 | Domaine                               | Norme              | Ancrage                                                                     |
 | ------------------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| HTTP/1.1 (sémantique, message)        | RFC 9110, 9112     | `node:http` + pipeline `HttpKernel.onHttpRequest()` (`http-kernel.ts:1081`) |
+| HTTP/1.1 (sémantique, message)        | RFC 9110, 9112     | `node:http` + pipeline `HttpKernel.onHttpRequest()` (`http-kernel.ts:1093`) |
 | HTTP/2                                | RFC 9113           | `ServerHttps.createServerH2()` (`server-https.ts:187`)                      |
 | HTTP/2 Rapid Reset                    | CVE-2023-44487     | `maxConcurrentStreams` (`config.ts:355`)                                    |
 | En-têtes trop volumineux → 431        | RFC 6585 §5        | `handleClientError()` (`clientError.ts:15`)                                 |
@@ -880,7 +880,7 @@ demande le backplane realtime.
 | WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:561`)                                              |
 | WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:641`)                                      |
 | WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:585`)                                       |
-| CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)                  |
+| CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:724`)                  |
 | En-têtes forwarded                    | RFC 7239           | `resolveForwarded()` (`forwarded.ts:253`)                                   |
 | Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:443`)                   |
 | Certificat — identité par le SAN      | RFC 9525           | `sanSchema` (`config.ts:446`)                                               |
@@ -891,13 +891,13 @@ demande le backplane realtime.
 | --------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | L'app écoute sur 5153 au lieu de 5151                           | `portPolicy: "auto"` (défaut dev) : le port était pris — c'est **annoncé** | Libérer le port, ou `servers.portPolicy: "strict"` pour échouer franchement        |
 | En production, le pod est « sain » mais injoignable             | Un port glissé en silence                                                  | Rien à faire : `strict` est le défaut hors dev — vérifier qu'on ne l'a pas forcé   |
-| `nodefony status` ne voit pas le serveur                        | Ports sondés par convention alors qu'ils ont glissé                        | Déjà géré : les ports effectifs sont publiés (`http-kernel.ts:215`)                |
+| `nodefony status` ne voit pas le serveur                        | Ports sondés par convention alors qu'ils ont glissé                        | Déjà géré : les ports effectifs sont publiés (`http-kernel.ts:220`)                |
 | Le WSS ignore `websocket.maxPayload`                            | Le serveur secure lit `websocketSecure`, section distincte                 | Régler **les deux** sections (`server-websocket-secure.ts:50`)                     |
 | Plus de WebSocket après avoir mis `servers.https: false`        | Le WSS est adossé au serveur HTTPS et tombe avec lui                       | Attendu — utiliser `ws://` sur le port clair, ou réactiver HTTPS                   |
 | Le client WebSocket voit `1006` à chaque redéploiement          | Frame Close jamais reçue (socket coupée avant)                             | Déjà géré : close `1001` avant le drain (`server-websocket.ts:134`)                |
 | Requêtes coupées à chaque mise à jour progressive               | Destruction des connexions au lieu d'un drain                              | Déjà géré (`createDrainTerminator()`) — vérifier `shutdownTimeout` < grâce k8s     |
 | Le pod redémarre en boucle pendant l'arrêt                      | `livez` répondrait `503` pendant le drain                                  | Déjà géré : `livez` reste `200`, seul `readyz` bascule                             |
-| Cascade de redémarrages sous charge                             | Sonde de santé soumise au rate-limit                                       | Déjà géré : les probes court-circuitent avant le rate-limit (`http-kernel.ts:848`) |
+| Cascade de redémarrages sous charge                             | Sonde de santé soumise au rate-limit                                       | Déjà géré : les probes court-circuitent avant le rate-limit (`http-kernel.ts:860`) |
 | `curl --http2` renvoie du HTTP/1.1                              | `servers.https.protocol: "1.1"`, ou client sans ALPN                       | Passer `protocol: "2.0"` (défaut) et vérifier le client                            |
 | Avertissement navigateur en HTTPS de développement              | Certificat auto-signé (mkcert absent)                                      | `brew install mkcert nss && mkcert -install`, puis redémarrer                      |
 | Le certificat n'est pas régénéré après un changement de domaine | On croit qu'un fichier présent suffit                                      | Déjà géré : le SAN est vérifié (`certificates.ts:543`)                             |

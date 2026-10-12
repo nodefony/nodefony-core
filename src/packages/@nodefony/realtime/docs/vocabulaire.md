@@ -229,7 +229,7 @@ Un **tuyau bidirectionnel nommé**, multiplexé sur la connexion : `"chat:room-4
 `"nodefony:orm:health"`, `"nodefony:socket"`. Convention de nommage par `:` (espace de noms, puis
 précision). Ce n'est pas une classe — c'est une **chaîne de caractères indexée par le hub**.
 
-`RealtimeHub.subscribe()` (`RealtimeHub.ts:458`) l'indexe ; `IRealtimeSocket.subscribe()`
+`RealtimeHub.subscribe()` (`RealtimeHub.ts:464`) l'indexe ; `IRealtimeSocket.subscribe()`
 (`IRealtimeSocket.ts:132`) le demande. Plusieurs canaux cohabitent sur **une** connexion : c'est le
 multiplexage.
 
@@ -255,7 +255,7 @@ que personne ne lit ; écouter sans s'abonner n'en reçoit aucune.
 client, la charge part vers le serveur (un seul pair) ; depuis le serveur, elle part en
 [fan-out](#fan-out--une-publication-n-livraisons) vers tous les abonnés.
 
-`IRealtimeSocket.publish()` (`IRealtimeSocket.ts:160`), `RealtimeHub.publish()` (`RealtimeHub.ts:604`).
+`IRealtimeSocket.publish()` (`IRealtimeSocket.ts:160`), `RealtimeHub.publish()` (`RealtimeHub.ts:610`).
 
 ### `action RPC` (request) — l'appel corrélé
 
@@ -335,10 +335,10 @@ handshake, jamais renégociée par frame.
 ### `hub` — le broker du process
 
 Le **standard téléphonique** du pod : il tient la table « canal → abonnés locaux » et diffuse. Un
-process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1413`). Il ne connaît **ni** les
+process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1432`). Il ne connaît **ni** les
 contrôleurs, **ni** le métier : ce sont les providers qui portent les dépendances.
 
-`RealtimeHub` (`RealtimeHub.ts:213`). ⚠️ « hub » désigne **toujours** le serveur ; ce que tient le
+`RealtimeHub` (`RealtimeHub.ts:214`). ⚠️ « hub » désigne **toujours** le serveur ; ce que tient le
 code applicatif s'appelle une [socket](#socket--la-prise-que-tient-ton-code).
 
 ### `fan-out` — une publication, N livraisons
@@ -346,15 +346,15 @@ code applicatif s'appelle une [socket](#socket--la-prise-que-tient-ton-code).
 L'action de diffuser : une charge publiée sur un canal part vers **tous** les sinks abonnés
 localement. Une connexion fautive ne casse pas la diffusion aux autres — chaque livraison est isolée.
 
-`RealtimeHub.publish()` (`RealtimeHub.ts:604`) pour le chemin complet, `publishLocal()`
-(`RealtimeHub.ts:623`) pour la diffusion **strictement locale** (voie d'entrée du backplane).
+`RealtimeHub.publish()` (`RealtimeHub.ts:610`) pour le chemin complet, `publishLocal()`
+(`RealtimeHub.ts:629`) pour la diffusion **strictement locale** (voie d'entrée du backplane).
 
 ### `sink` — le point de livraison d'une connexion
 
 Un `sink` = **une** connexion sur **un** canal : la fonction qui pousse la charge vers son pair. Le
 mot vient du couple source/puits : le provider est la source, le sink le puits.
 
-`ChannelSink` (`RealtimeHub.ts:155`). Le nombre de sinks d'un canal est son nombre d'abonnés locaux.
+`ChannelSink` (`RealtimeHub.ts:156`). Le nombre de sinks d'un canal est son nombre d'abonnés locaux.
 
 ### `provider` — ce qui produit un canal
 
@@ -362,7 +362,7 @@ La fabrique appelée **au premier abonné** d'un canal, qui démarre ce qui prod
 ticker, un écouteur) et rend son `dispose`, appelé **au dernier désabonné**. Zéro abonné = zéro
 timer.
 
-`ChannelFactory` (`RealtimeHub.ts:170`). ⚠️ Un provider est **partagé** : il survit à la connexion qui
+`ChannelFactory` (`RealtimeHub.ts:171`). ⚠️ Un provider est **partagé** : il survit à la connexion qui
 l'a créé — n'y capturer que des dépendances à longue vie, jamais le contexte d'une connexion.
 
 ### `canal partagé` — un provider par canal et par pod
@@ -371,7 +371,7 @@ Le modèle de coût du module : là où une implémentation naïve crée un tick
 Nodefony en crée **un par canal et par pod** et se contente d'ajouter un sink par abonné. Mille
 spectateurs d'un tableau de bord coûtent un timer, pas mille.
 
-`RealtimeHub.subscribe()` (`RealtimeHub.ts:458`).
+`RealtimeHub.subscribe()` (`RealtimeHub.ts:464`).
 
 ### `canal passif` — écouter n'est pas posséder
 
@@ -385,8 +385,8 @@ reçoit du vrai producteur ; sinon l'abonnement est refusé, et l'écoute en pla
 Sans cette distinction, le premier service qui prononce un nom de canal l'ouvrirait pour tout le
 monde — et les clients suivants s'abonneraient à un flux que rien ne produit, sans jamais l'apprendre.
 
-`RealtimeHub.listen()` (`RealtimeHub.ts:525`) pour l'écoute, `isChannelOwned()`
-(`RealtimeHub.ts:546`) pour lire l'état. ⚠️ Un canal passif **n'est pas** un canal fermé : il n'a
+`RealtimeHub.listen()` (`RealtimeHub.ts:531`) pour l'écoute, `isChannelOwned()`
+(`RealtimeHub.ts:552`) pour lire l'état. ⚠️ Un canal passif **n'est pas** un canal fermé : il n'a
 simplement pas encore de propriétaire.
 
 ### `canal système` — servi par la plateforme
@@ -395,7 +395,7 @@ Un canal dont la fabrique est déclarée par un module bas niveau (le journal d'
 qui devient servable par **n'importe quel** endpoint, présent ou futur, sans qu'aucun contrôleur ne
 le connaisse. Consulté seulement quand la fabrique du contrôleur a dit « inconnu ».
 
-`RealtimeHub.registerSystemChannel()` (`RealtimeHub.ts:1259`).
+`RealtimeHub.registerSystemChannel()` (`RealtimeHub.ts:1278`).
 
 ### `canal broadcast` — celui qui traverse le backplane
 
@@ -403,7 +403,7 @@ Un canal **déclaré** comme franchissant la frontière du process : chat, prés
 déclaration se fait par **préfixe**, ce qui couvre les variantes de cadence (`chat:` couvre
 `chat:room-42:1000`).
 
-`RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`), déclaré côté contrôleur par
+`RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:674`), déclaré côté contrôleur par
 `@RealtimeBroadcast` (`realtimeDecorators.ts:420`).
 
 ### `canal instance-local` — le défaut
@@ -412,7 +412,7 @@ Tout canal **non déclaré** broadcast reste dans son process. C'est voulu : les
 d'observabilité (journaux, sondes, état interne) décrivent **ce pod**, et les agréger silencieusement
 serait à la fois faux et une fuite. Traverser le process est une capacité qu'un canal **demande**.
 
-Politique de forward du hub — `#broadcastPrefixes` (`RealtimeHub.ts:389`).
+Politique de forward du hub — `#broadcastPrefixes` (`RealtimeHub.ts:395`).
 
 ### `contrôleur temps réel` — l'endpoint WebSocket
 
@@ -536,7 +536,7 @@ publications d'un process aux autres. Un contrat volontairement minuscule — `p
 `start`, `stop`, `describe` — parce que tout ce qui est riche appartient au hub.
 
 `IBackplane` (`IBackplane.ts:107`), message `IBackplaneMessage` (`IBackplane.ts:51`), branchement
-`RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`).
+`RealtimeHub.setBackplane()` (`RealtimeHub.ts:720`).
 
 > [!TIP]
 > C'est la pièce qui tient la promesse « une ligne de configuration change tout » : le hub **ne sait
@@ -588,7 +588,7 @@ La règle qui empêche les tempêtes : un message **reçu** du backplane est ré
 **locale seulement**, jamais renvoyé sur le bus ; et un message qui porte sa propre origine est
 ignoré à l'arrivée. Sans l'origine, l'anti-écho ferait taire le voisin au lieu de soi-même.
 
-`RealtimeHub.publishLocal()` (`RealtimeHub.ts:623`).
+`RealtimeHub.publishLocal()` (`RealtimeHub.ts:629`).
 
 ### `cloison` (namespace) — deux applications, un même bus
 
@@ -640,7 +640,7 @@ La stratégie qui transforme une poignée de main en identité : `supports` (est
 HTTP — un seul modèle mental pour les deux transports.
 
 `IRealtimeAuthenticator` (`IRealtimeAuthenticator.ts:24`), enregistrement
-`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:906`).
+`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:925`).
 
 ### `matcher` — qui capture quoi
 
@@ -648,7 +648,7 @@ Le sélecteur (motif d'URL, hôte optionnel) qui décide **quel** authenticator 
 **premier** qui capture gagne : on enregistre donc du plus spécifique au plus général.
 
 `IRealtimeAuthenticatorMatcher` (`IRealtimeAuthenticatorMatcher.ts:25`), résolution
-`resolveAuthenticator()` (`RealtimeHub.ts:924`).
+`resolveAuthenticator()` (`RealtimeHub.ts:943`).
 
 ### `jeton` (token) — l'identité figée
 
@@ -665,7 +665,7 @@ Les exigences déclarées d'un canal : authentifié, rôles, scopes. Elles s'att
 canal, pas à la méthode qui l'implémente — parce que c'est le nom que le pare-feu résout.
 
 `IChannelPolicy` (`IChannelPolicy.ts:20`), déclaration par `@RealtimeChannel`
-(`realtimeDecorators.ts:240`), résolution `resolveChannelPolicy()` (`RealtimeHub.ts:1190`).
+(`realtimeDecorators.ts:240`), résolution `resolveChannelPolicy()` (`RealtimeHub.ts:1209`).
 
 ### `verrou de frame` — la décision par frame
 
@@ -673,8 +673,8 @@ La fonction qui répond « cette frame passe-t-elle ? » à partir du jeton **d�
 **Synchrone par doctrine** : attendre une réponse distante à chaque frame sérialiserait le flux d'une
 connexion. Un contrôle qui doit interroger le réseau se fait au handshake, pas ici.
 
-`FrameAuthorizer` (`RealtimeHub.ts:39`), pose `setFrameAuthorizer()` (`RealtimeHub.ts:1001`), appel
-`runAuthorizer()` (`RealtimeHub.ts:1290`).
+`FrameAuthorizer` (`RealtimeHub.ts:40`), pose `setFrameAuthorizer()` (`RealtimeHub.ts:1020`), appel
+`runAuthorizer()` (`RealtimeHub.ts:1309`).
 
 ### `contrôle d'origine` — la défense d'ouverture
 
@@ -682,7 +682,7 @@ Le contrôle de l'en-tête `Origin` à l'ouverture (RFC 6455 §10.2) : un site t
 ouvrir une connexion authentifiée dans le dos de l'utilisateur. Correspondance **exacte**, aucun
 caractère générique.
 
-`OriginGuard` (`RealtimeHub.ts:33`), configuration `csrf.checkOrigin` (`config.ts:255`).
+`OriginGuard` (`RealtimeHub.ts:34`), configuration `csrf.checkOrigin` (`config.ts:255`).
 
 ### `révocation` — la connexion qui survit à sa session
 
@@ -690,8 +690,8 @@ Le problème que ce mot nomme : une connexion ouverte pourrait survivre à la se
 autorisée, puisque le verrou de frame ne relit rien. Un contrôle périodique referme l'écart en
 re-validant les identités révocables et en fermant celles qui ne valent plus.
 
-`registerRevocable()` (`RealtimeHub.ts:790`), `revalidateRevocable()` (`RealtimeHub.ts:809`), période
-`REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:111`). Une re-validation en erreur **ferme** — jamais
+`registerRevocable()` (`RealtimeHub.ts:796`), `revalidateRevocable()` (`RealtimeHub.ts:815`), période
+`REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:112`). Une re-validation en erreur **ferme** — jamais
 l'inverse.
 
 ### `refus` (denied) — rendre le « non » visible
@@ -701,7 +701,7 @@ donc `realtime:denied`. Le motif est **générique** : jamais le rôle ou le sco
 transformerait le refus en oracle d'autorisation.
 
 `IRealtimeDenied` (`RealtimeEventMap.ts:269`), conversion en message d'interface `deniedToNotice()`
-(`notice.ts:45`).
+(`notice.ts:46`).
 
 ### `audit de frame` — tracer le notable
 
@@ -729,7 +729,7 @@ ressources ; sans borne, une seule connexion peut les épuiser. Au-delà, l'abon
 client en est informé.
 
 `limits.maxChannelsPerConnection` (`config.ts:142`), pose `setMaxChannelsPerConnection()`
-(`RealtimeHub.ts:957`).
+(`RealtimeHub.ts:976`).
 
 ## 📡 L'observabilité — ce que la socket dit d'elle-même
 
@@ -748,7 +748,7 @@ L'oscilloscope du module : « voici mon état, maintenant ». Canaux et abonnés
 livraisons, connexions, octets, back-pressure, carte d'identité du backplane. Lecture **pure**, sans
 allocation sur le chemin chaud.
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:828`) rend un `IRealtimeProbe` (`IRealtimeProbe.ts:61`).
+`RealtimeHub.probe()` (`RealtimeHub.ts:847`) rend un `IRealtimeProbe` (`IRealtimeProbe.ts:61`).
 
 > [!WARNING]
 > `IRealtimeProbe` est la **forme des données**, pas une interface à implémenter avec une méthode
@@ -760,7 +760,7 @@ La quantité d'octets déjà remise au transport mais pas encore partie. C'est l
 n° 1 : il monte quand le client n'absorbe plus. Deux seuils distincts existent — un pour **compter**
 (la sonde), un pour **agir** (abandonner des frames, puis fermer).
 
-Seuil de comptage `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:63`) — une constante, car il ne
+Seuil de comptage `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:64`) — une constante, car il ne
 décide de rien. Les seuils d'ACTION, eux, sont des réglages : `websocket.maxBackpressure`,
 `websocket.backpressurePolicy` et `websocket.backpressureCloseAfterDrops` (`http`,
 `http/nodefony/config/config.ts:1226`).
@@ -808,9 +808,9 @@ elle-même par le même chemin que les autres modules.
 | Deux déploiements se mélangent sur un même serveur Redis           | pas de **cloison** — le numéro de base ne cloisonne pas le pub/sub                                                    | Poser `backplane.namespace` (`config.ts:59`)                                            |
 | Le fan-out disparaît entre conteneurs identiques                   | **origine** dérivée du seul identifiant de processus : deux conteneurs sont tous deux le n° 1, l'anti-écho avale tout | `resolveBackplaneOriginId()` (`originId.ts:24`) dérive du pod ou de l'hôte              |
 | Deux tickers pour le même tableau de bord                          | **cadence** différente = **canal** différent, jamais réconcilié                                                       | Fabriquer le nom via `rateChannel()` (`channelRate.ts:44`) des deux côtés               |
-| Un canal se croit protégé mais laisse tout passer                  | **politique** déclarée sans **verrou de frame** posé pour la faire respecter                                          | Le hub le détecte et avertit : `hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1079`) |
-| Une connexion garde ses flux après une déconnexion applicative     | le **verrou de frame** ne relit rien : par construction, il ne voit pas la session mourir                             | Inscrire l'identité au registre de **révocation** (`RealtimeHub.ts:433`)                |
-| « Le provider a planté après la fermeture d'un onglet »            | **provider** confondu avec **sink** : le provider est partagé, il survit à la connexion créatrice                     | N'y capturer que des dépendances à longue vie (`ChannelFactory`, `RealtimeHub.ts:170`)  |
+| Un canal se croit protégé mais laisse tout passer                  | **politique** déclarée sans **verrou de frame** posé pour la faire respecter                                          | Le hub le détecte et avertit : `hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1098`) |
+| Une connexion garde ses flux après une déconnexion applicative     | le **verrou de frame** ne relit rien : par construction, il ne voit pas la session mourir                             | Inscrire l'identité au registre de **révocation** (`RealtimeHub.ts:439`)                |
+| « Le provider a planté après la fermeture d'un onglet »            | **provider** confondu avec **sink** : le provider est partagé, il survit à la connexion créatrice                     | N'y capturer que des dépendances à longue vie (`ChannelFactory`, `RealtimeHub.ts:171`)  |
 | « Notre store realtime est indisponible »                          | **store** employé pour **driver** : le backplane ne conserve rien, il fait passer                                     | Dire « le driver de backplane » — les données ont des stores, les flux ont des drivers  |
 
 > [!CAUTION]

@@ -300,7 +300,7 @@ Commence par sa page si tu veux comprendre « pourquoi tout hérite de la même 
 
 Serveurs HTTP/1.1, HTTP/2, HTTPS et WebSocket, contextes de requête, sessions, certificats TLS. C'est
 ici que naît le `Context` que ton contrôleur reçoit, et ici que vit le pipeline unique
-(`HttpKernel`, `http-kernel.ts:270`). À lire quand tu touches au transport, aux sessions ou aux
+(`HttpKernel`, `http-kernel.ts:275`). À lire quand tu touches au transport, aux sessions ou aux
 en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
@@ -441,7 +441,7 @@ Trois profils, trois façons d'atterrir. Ce qui se ressemble, ce qui change, ce 
 
 **Ce qui se ressemble.** Le routage reste « un chemin, une méthode, une fonction ». La stratégie de
 résolution t'est même familière : Nodefony est **router-first** — si aucune route ne matche, on
-retombe sur le service de fichiers statiques (`http-kernel.ts:1212` et suivantes), exactement comme
+retombe sur le service de fichiers statiques (`http-kernel.ts:1224` et suivantes), exactement comme
 un `express.static()` placé en fin de chaîne.
 
 **Ce qui change.** Il n'y a pas de `app.use(middleware)` empilable à volonté. Le pipeline est **fixe
@@ -515,11 +515,11 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:393`)                          |
 | Challenge d'authentification | RFC 9110 §11                   | `Firewall.handleSecurity()` (`firewall.ts:825`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:79`)              |
-| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1665`)           |
-| Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1838`)          |
+| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1677`)           |
+| Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1850`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
 | Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:170`) · `Service.log()` (`Service.ts:364`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1541`)         |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1553`)         |
 
 ## ⚡ Performance & mémoire
 
@@ -528,12 +528,12 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:62`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1587`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1599`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.
 - **Un seul écouteur de fin de requête.** `createHttpContext()` pose un unique
-  `response.on("close")` (`http-kernel.ts:1441`) qui déclenche le teardown : pas de paire
+  `response.on("close")` (`http-kernel.ts:1453`) qui déclenche le teardown : pas de paire
   `finish`/`close` à démonter à la main.
 
 Ces choix sont **mesurés**, pas postulés. La suite `memory.test.ts` mesure les octets retenus par

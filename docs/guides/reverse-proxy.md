@@ -114,7 +114,7 @@ trois réglages décident s'il le relaie bien. `proxy:generate` les pose tous.
 | ------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | navigateur ↔ proxy | HTTP/2 servi par le proxy (`http2 on`, `generateProxyConfig.ts:270`) | le plafond d'environ six connexions par origine est celui du navigateur envers le **proxy** : c'est là que le multiplexage compte |
 | proxy ↔ Nodefony   | HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts:351`)    | une connexion par flux vers le backend ; activer HTTP/2 sur Nodefony n'y change rien                                              |
-| mise en tampon     | Nodefony envoie `X-Accel-Buffering: no` (`SseStream.ts:495`)         | nginx relaie chaque événement au lieu d'attendre de remplir son tampon                                                            |
+| mise en tampon     | Nodefony envoie `X-Accel-Buffering: no` (`SseStream.ts:512`)         | nginx relaie chaque événement au lieu d'attendre de remplir son tampon                                                            |
 | inactivité         | délai d'au moins 300 s, soit vingt battements SSE de 15 s            | un flux muet n'est tenu que par son battement ; un test lie les deux valeurs, il tombe si le battement est relevé au-delà         |
 
 Sous Kubernetes, l'**ingress-nginx** a ses propres réglages, que ce générateur n'écrit pas — à poser

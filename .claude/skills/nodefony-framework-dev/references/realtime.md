@@ -385,7 +385,7 @@ Tout est exporté depuis `@nodefony/realtime` (`rt/index.ts`), sauf les briques 
 
 ### 2.2 `RealtimeHub` — broker singleton
 
-`rt/nodefony/src/server/RealtimeHub.ts:1413`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:1413`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
+`rt/nodefony/src/server/RealtimeHub.ts:1432`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:1432`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
 
 **Cœur fan-out / pub-sub** :
 
@@ -582,16 +582,16 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 ## 3. Internals (mécanique)
 
-**Pub/sub par canal (canaux PARTAGÉS, ref-compté)** — `RealtimeHub` tient `Map<channel, ChannelState>` (lazy `null`, `RealtimeHub.ts:119`). `ChannelState = { dispose, sinks: Set<ChannelSink>, messages, forward }` (`:173`). Au **1ᵉʳ** abonné : sink ajouté → `factory(channel, publishFn)` crée **UN** provider (ticker/listener) → son `dispose` mémorisé. Abonnés suivants = juste un sink de plus (`subscribe:199`). Au **dernier** `unsubscribe` : `dispose()` + suppression du canal (`:480-485`). **Dédup par nom de canal** : 1 provider par nom par pod — `subscribe` sur un canal existant n'appelle JAMAIS `factory` (il ajoute un sink). Conséquence : 1 effet de bord (enrich/ticker/drill) par canal, pas par abonné. `#fanout` (`:626`) incrémente la sonde puis appelle chaque sink dans un `try/catch` isolé (une conn fautive ne casse pas la diffusion).
+**Pub/sub par canal (canaux PARTAGÉS, ref-compté)** — `RealtimeHub` tient `Map<channel, ChannelState>` (lazy `null`, `RealtimeHub.ts:120`). `ChannelState = { dispose, sinks: Set<ChannelSink>, messages, forward }` (`:173`). Au **1ᵉʳ** abonné : sink ajouté → `factory(channel, publishFn)` crée **UN** provider (ticker/listener) → son `dispose` mémorisé. Abonnés suivants = juste un sink de plus (`subscribe:199`). Au **dernier** `unsubscribe` : `dispose()` + suppression du canal (`:480-485`). **Dédup par nom de canal** : 1 provider par nom par pod — `subscribe` sur un canal existant n'appelle JAMAIS `factory` (il ajoute un sink). Conséquence : 1 effet de bord (enrich/ticker/drill) par canal, pas par abonné. `#fanout` (`:632`) incrémente la sonde puis appelle chaque sink dans un `try/catch` isolé (une conn fautive ne casse pas la diffusion).
 
-**Anti-boucle backplane = 2 barrières + `originId`** (`IBackplane.ts:17`, `RealtimeHub.ts:266`) :
+**Anti-boucle backplane = 2 barrières + `originId`** (`IBackplane.ts:17`, `RealtimeHub.ts:267`) :
 
 1. **Barrière hub** — `publish` propage au backplane ; l'ingress backplane (`setBackplane` câble `onMessage → publishLocal`, `:350`) réinjecte en **fan-out local SEUL** (`publishLocal` `:287`), jamais re-`publish` → pas de re-forward.
 2. **Barrière driver** — chaque message porte l'`originId` de l'émetteur ; le driver **filtre son propre `originId`** à la réception (Redis renvoie au pod émetteur ; cluster master peut renvoyer à la source). Cf `RedisBackplane.#ingress:220`, `ClusterBackplane.#ingress:134`.
 
 `originId` doit être **unique cross-pod** : `String(process.pid)` seul confond 2 pods k8s (tous PID 1) → fan-out légitime avalé. D'où `resolveBackplaneOriginId()` = `host:pid`.
 
-**`#backplane = null` lazy** (`RealtimeHub.ts:764`) — mono-process : `publish` ne paie qu'un test `=== null` (`:273`), la politique de forward n'est JAMAIS évaluée. `LoopbackBackplane` n'est pas branché par défaut (le hub reste `null`) — il sert de cible de test / câblage explicite. Le wiring réel (`rt/index.ts:237 #wireBackplane`, phase `onKernelBoot`) résout `config.backplane.driver` via le registre, `await start()` AVANT `setBackplane` (un driver async perdrait sinon les 1ᵉʳˢ messages), borné par `withTimeout` (`#startWithTimeout:311`, 5 s) → fail-soft hub local si le transport pend.
+**`#backplane = null` lazy** (`RealtimeHub.ts:770`) — mono-process : `publish` ne paie qu'un test `=== null` (`:273`), la politique de forward n'est JAMAIS évaluée. `LoopbackBackplane` n'est pas branché par défaut (le hub reste `null`) — il sert de cible de test / câblage explicite. Le wiring réel (`rt/index.ts:237 #wireBackplane`, phase `onKernelBoot`) résout `config.backplane.driver` via le registre, `await start()` AVANT `setBackplane` (un driver async perdrait sinon les 1ᵉʳˢ messages), borné par `withTimeout` (`#startWithTimeout:311`, 5 s) → fail-soft hub local si le transport pend.
 
 **Forward opt-in par canal** — `forward` mis en cache dans `ChannelState` au 1ᵉʳ abonné (`#isBroadcast` `:330`) → hot path lit un booléen. Défaut : tout **instance-local** (observabilité/état pod ne fuit pas cross-pod sans `markBroadcastChannel`). Un `publish` serveur sans abonné local évalue la politique à la volée (`:276`).
 

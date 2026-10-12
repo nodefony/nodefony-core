@@ -122,8 +122,8 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   statique) et la **gèle** avec `Object.freeze` (`securityHeaders.ts:77`). Par requête, le firewall
   se contente de la parcourir et de la poser : zéro concaténation, zéro objet créé.
 - Côté transport, même principe : `HttpKernel.computeSecurityHeaderCaches()`
-  (`http-kernel.ts:399`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
-  boot ; `onHttpRequest` (`http-kernel.ts:1081`) ne fait plus que trois `setHeader`.
+  (`http-kernel.ts:411`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
+  boot ; `onHttpRequest` (`http-kernel.ts:1093`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
   (`Context.ts:253`) ne tire ses 128 bits (16 octets CSPRNG, en base64) d'un pool amorti (`randomFillSync`, 4 Ko pour 256 nonces) qu'à la première lecture,
   puis mémoïse. Une réponse qui n'a aucun script inline à signer ne paie aucun appel crypto.
@@ -275,7 +275,7 @@ privilégient `frame-ancestors`, `X-Frame-Options` reste le filet pour les ancie
 victime est capté par ton interface.
 
 Posé par le **transport** depuis un cache calculé au boot — `secFrameOptions`
-(`http-kernel.ts:1132`) — et configuré côté `@nodefony/http` avec `frameOptions`
+(`http-kernel.ts:1144`) — et configuré côté `@nodefony/http` avec `frameOptions`
 (`http/nodefony/config/config.ts:136`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
 s'auto-encadre. C'est un des trois en-têtes que security **ne ré-émet pas** : il doit valoir aussi
 pour un HTML statique servi directement depuis `public/`.
@@ -287,7 +287,7 @@ pour un HTML statique servi directement depuis `public/`.
 avec tes cookies.
 
 Valeur unique reconnue : `nosniff`, posée depuis le cache `secContentTypeOptions`
-(`http-kernel.ts:1129`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
+(`http-kernel.ts:1141`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
 vient précisément des fichiers servis hors pipeline applicatif — un banc live le prouve sur une 404
 (`security-headers.test.ts:38`).
 
@@ -297,10 +297,10 @@ vient précisément des fichiers servis hors pipeline applicatif — un banc liv
 installer un intercepteur.
 
 La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
-(`http-kernel.ts:399`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
+(`http-kernel.ts:411`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:1135`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts:1147`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 
@@ -397,7 +397,7 @@ Dérivé du schéma Zod `headersSchema` (`config.ts:256`).
 ### Socle transport — `use("@nodefony/http", { securityHeaders })`
 
 Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts:123`). Ces trois réglages sont
-**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:449`)
+**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:461`)
 recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 | Option                                      | Type              | Défaut     | Effet                                                              |
@@ -452,7 +452,7 @@ rester imprévisible, jamais pilotable par le client — contrairement au `reque
 une corrélation entrante.
 
 **Placement dans le pipeline** : `applySecurityHeaders` est appelé **après le resolve** et **avant**
-le repli statique et le `writeHead` (`http-kernel.ts:1654`). Cet ordre n'est pas cosmétique : il
+le repli statique et le `writeHead` (`http-kernel.ts:1666`). Cet ordre n'est pas cosmétique : il
 faut que le routeur ait posé les directives `@Csp` de la route pour pouvoir les fusionner, et il faut
 être avant l'écriture des en-têtes pour pouvoir en poser.
 
@@ -519,12 +519,12 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | ------------------------------------ | -------------------------------- | ------------------------------------------------------------ |
 | Politique de sécurité du contenu     | W3C CSP Level 3                  | `mergeCspFragments()` (`csp.ts:56`), directive non dupliquée |
 | Nonce CSP (unicité, imprévisibilité) | W3C CSP Level 3 §6.7.4           | `Context.cspNonce` — 128 bits CSPRNG (`Context.ts:253`)      |
-| HSTS                                 | RFC 6797                         | posé sur TLS uniquement (`http-kernel.ts:969`)               |
+| HSTS                                 | RFC 6797                         | posé sur TLS uniquement (`http-kernel.ts:981`)               |
 | Champ structuré booléen              | RFC 9651                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:273`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
-| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1129`)              |
-| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:399`)       |
+| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1141`)              |
+| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:411`)       |
 
 ## ⚡ Performance & mémoire
 
@@ -539,7 +539,7 @@ Le coût est concentré au boot, par construction :
   protège en plus les chemins internes qui n'atteignent jamais le firewall.
 - **Merge CSP** : jamais dans le chemin chaud. Le fragment d'un module est fusionné à
   l'enregistrement (`firewall.ts:1142`) ; celui d'une route ne coûte que sur les routes `@Csp`.
-- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1119-1125`), avec
+- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1131-1137`), avec
   un test `!== null` qui annule le coût des en-têtes désactivés.
 
 Le module n'attache aucun écouteur d'événement et ne conserve aucun état par requête : il n'entre pas
@@ -570,7 +570,7 @@ porte sa description, ce qui en fait la référence toujours à jour des défaut
 | CSP contenant `'nonce-{{nonce}}'` littéral               | `cspNonces` désactivé, placeholder laissé                                   | Nodefony purge le résiduel (`securityHeaders.ts:63`) ; retirer le placeholder   |
 | Une extension `script-src` de module sans effet          | Second en-tête / directive dupliquée (ignorée, W3C CSP3 §3)                 | Déclarer un fragment via `registerCspOrigins()`, jamais un `setHeader`          |
 | Assets tiers cassés après activation de l'isolation      | `coep: "require-corp"` exige CORP/CORS sur **chaque** ressource             | Retirer `coep` ou faire annoncer les ressources                                 |
-| HSTS absent en développement                             | Posé sur TLS uniquement (`http-kernel.ts:969`)                              | Comportement conforme RFC 6797 — vérifier sur le port HTTPS                     |
+| HSTS absent en développement                             | Posé sur TLS uniquement (`http-kernel.ts:981`)                              | Comportement conforme RFC 6797 — vérifier sur le port HTTPS                     |
 | Le CSP est plus large en dev qu'en prod                  | `@nodefony/frontend` déclare les origines Vite (`FrontendService.ts:695`)   | Attendu : le fragment n'existe pas en production                                |
 | Aucun en-tête applicatif                                 | Module security absent ou `headers.enabled: false`                          | Le socle transport reste actif ; réactiver security pour CSP/Referrer/isolation |
 | Domaine injoignable après activation de `preload`        | Inscription à la liste pré-chargée, sortie très lente                       | Ne jamais activer sans plan HTTPS sur **tous** les sous-domaines                |

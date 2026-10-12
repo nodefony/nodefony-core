@@ -75,7 +75,7 @@ ce que fait une porte MCP.
 > n'y change rien. Sans proxy, c'est Nodefony qui sert HTTP/2.
 >
 > De chaque côté du proxy, un flux est une connexion qui se tait entre deux événements. Le
-> battement (`SSE_HEARTBEAT_MS`, 15 s, `SseStream.ts:76`) la garde vivante ; le délai
+> battement (`SSE_HEARTBEAT_MS`, 15 s, `SseStream.ts:77`) la garde vivante ; le délai
 > d'inactivité généré (300 s au moins) en tient vingt. Le seul piège réel : une action qui éteint
 > le battement (`heartbeat: false`) et se tait plus longtemps que ce délai se fait couper par le
 > proxy. Le guide [reverse-proxy](../../../../../docs/guides/reverse-proxy.md) détaille le reste.
@@ -142,7 +142,7 @@ data: {"step":"écriture"}
 
 - Les en-têtes partent dès `renderSse()` : `Content-Type: text/event-stream; charset=utf-8`,
   `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no` (`openSseStream()`,
-  `SseStream.ts:415`).
+  `SseStream.ts:427`).
 - `await sse.send()` freine l'action si le client lit lentement — c'est la contre-pression.
 
 ## ⚙️ Les deux bouts de l'API
@@ -153,11 +153,11 @@ data: {"step":"écriture"}
 | ------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `this.renderSse(options?)`      | ouvre le flux (`Controller.renderSse()`, `Controller.ts:665`) ; lève sur WebSocket                 |
 | `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts:649`)    |
-| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts:248`)              |
+| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts:260`)              |
 | `sse.comment(text)`             | un commentaire, ignoré par le client                                                               |
 | `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                           |
-| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts:294`) |
-| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts:309`)                           |
+| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts:306`) |
+| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts:321`)                           |
 | `sse.closed`                    | le flux est-il fermé — à tester dans une boucle longue                                             |
 
 Options de `renderSse()` :
@@ -185,7 +185,7 @@ async runTask() {
 }
 ```
 
-`acceptsEventStream()` (`SseStream.ts:383`) ne retient `text/event-stream` que **nommé** avec un
+`acceptsEventStream()` (`SseStream.ts:395`) ne retient `text/event-stream` que **nommé** avec un
 poids non nul : `*/*` ne suffit pas — un client qui ne nomme pas le flux ne sait pas le lire —, et
 `q=0` est un refus (RFC 9110 §12.4.2).
 
@@ -213,20 +213,20 @@ le même qui relit le flux dans les tests du serveur.
 1. **La réponse est prise** (`context.sended`) : plus rien ne peut répondre à la place du flux.
 2. **La session est sauvée** s'il y en a une — ses cookies partent avec les en-têtes.
 3. **Le transport se constate** : flux HTTP/2, ou réponse HTTP/1.1 ; ni l'un ni l'autre → 500,
-   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts:468`).
+   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts:485`).
 4. **Les en-têtes partent** — `respond()` en HTTP/2, `flushHeaders()` en HTTP/1.1 — et le délai
    d'inactivité de la requête est **désarmé** : sans cela, le flux vivant prendrait un 408 au bout
    de 30 s.
 5. **Le battement démarre** sur un minuteur `unref()`.
 
-La fin, quel que soit le bout qui ferme, passe par **un seul** nettoyage (`SseStream.ts:242`) :
+La fin, quel que soit le bout qui ferme, passe par **un seul** nettoyage (`SseStream.ts:254`) :
 minuteur arrêté, écouteurs `close` et `drain` retirés, attente de `drain` libérée, puis les
 écouteurs `onClose`.
 
 ## 🔐 Sécurité
 
 - **Injection de flux** : `event` et `id` sont refusés s'ils contiennent CR, LF ou NUL
-  (`singleLine()`, `SseStream.ts:104`) — une valeur venue d'un utilisateur ne peut pas clore
+  (`singleLine()`, `SseStream.ts:105`) — une valeur venue d'un utilisateur ne peut pas clore
   l'événement pour en forger un autre. Les `data` sur plusieurs lignes sont découpés en autant de
   champs, jamais recopiés tels quels.
 - **Client** : un serveur qui n'envoie jamais de fin de ligne ferait grossir la mémoire du client

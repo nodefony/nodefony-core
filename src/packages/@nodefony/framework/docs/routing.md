@@ -52,7 +52,7 @@ Trois faits à retenir avant tout le reste :
    (`routing-nonregression.test.ts:83`).
 2. **Le routeur ne lève jamais de 404.** Aucun match = `resolver.resolve === false`, sans exception ;
    le 404 est décidé plus loin, après le repli sur les fichiers statiques
-   (`HttpError("Not Found", 404)`, `http-kernel.ts:895`).
+   (`HttpError("Not Found", 404)`, `http-kernel.ts:907`).
 3. **Le chemin est vérifié avant la méthode, et le domaine entre les deux** — c'est ce qui produit un
    `403` plutôt qu'un `405` bavard quand la route appartient à un autre vhost (`Route.match()`,
    `Route.ts:393`).
@@ -114,7 +114,7 @@ mêmes décorateurs.
 
 **Le routeur passe avant les fichiers statiques.** Une requête qui correspond à une route ne paie
 jamais le `stat` du serveur de fichiers : le repli statique n'est tenté que si la résolution a échoué
-(`serverStatic.handle()`, `http-kernel.ts:827`).
+(`serverStatic.handle()`, `http-kernel.ts:839`).
 
 > [!NOTE]
 > **Le routage n'a aucune option de configuration.** Le schéma Zod du module n'expose qu'un sac
@@ -420,7 +420,7 @@ async chat(room: string, message: string | Buffer | null) { /* … */ }
 Ce qui change par rapport au HTTP :
 
 - **La route est résolue AVANT l'acceptation du handshake.** Le contexte WS passe par le même
-  `handleFrontController()`, puis seulement `context.connect()` (`http-kernel.ts:1556`). Un chemin
+  `handleFrontController()`, puis seulement `context.connect()` (`http-kernel.ts:1568`). Un chemin
   inconnu ou un sous-protocole non conforme ferme la connexion **sans jamais l'ouvrir**.
 - **Le sous-protocole est un requirement de route.** Un `protocol` déclaré et non satisfait lève une
   erreur de code **1002** (Protocol Error, RFC 6455 §7.4) au lieu d'un statut HTTP
@@ -477,7 +477,7 @@ vhosts, et ne coûte rien au matching (`hostRegexp` absent → aucun test, `Rout
 > [!WARNING]
 > `@Domain` déclare quels vhosts une route **sert** ; il ne remplace pas la barrière d'entrée. Un
 > `Host` inconnu du serveur est rejeté en amont (421 Misdirected Request, `checkValidDomain()`,
-> `http-kernel.ts:2128`) via la liste `trustedHosts` de `@nodefony/http`.
+> `http-kernel.ts:2140`) via la liste `trustedHosts` de `@nodefony/http`.
 
 ## Préfixes — contrôleur, module, data plane
 
@@ -576,8 +576,8 @@ alloué par requête.
 | `HEAD` servi par toute route `GET`       | RFC 9110 §9.1     | `Route.compileRequirements` (`Route.ts:568`)                    |
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:393`) |
 | 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:754`)                        |
-| 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
-| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:2128`)                    |
+| 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:700`)                     |
+| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:2140`)                    |
 | Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:816`)                    |
 | Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 

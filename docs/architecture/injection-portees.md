@@ -390,11 +390,11 @@ tout de suite, le refuse.
 
 Tu n'ouvres jamais un scope toi-même dans une application : le pipeline le fait.
 
-- **HTTP** : ouvert à l'entrée de chaque requête par `HttpKernel.handle()` (`enterScope`, `http-kernel.ts:827`),
+- **HTTP** : ouvert à l'entrée de chaque requête par `HttpKernel.handle()` (`enterScope`, `http-kernel.ts:839`),
   refermé au démontage **après** les hooks `onAfterResponse` et `onFinish`
-  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts:1444`) — y compris quand un hook
-  lève (`failTeardownHttp()`, `http-kernel.ts:1466`).
-- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:1955`),
+  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts:1456`) — y compris quand un hook
+  lève (`failTeardownHttp()`, `http-kernel.ts:1478`).
+- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:1967`),
   refermé à la fermeture de la socket.
 - Le pipeline y pose `context` (`set("context")`, `Context.ts:311`) puis `controller` (`Resolver.ts:400`). Le
   `resolver` n'y est **pas** : c'est un champ du contexte (`context.resolver`).

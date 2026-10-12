@@ -96,7 +96,7 @@ temps de réponse — elle mesure **ce qui n'est pas encore parti**.
 Trois partis pris, tous lisibles dans le code.
 
 **1. La sonde est une lecture pure, jamais un collecteur.** `RealtimeHub.probe()`
-(`RealtimeHub.ts:828`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
+(`RealtimeHub.ts:847`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
 Aucune entrée-sortie, aucune exception possible, aucun état de lecture conservé. Appeler la sonde
 mille fois par seconde ne changerait rien à ce que le hub fait par ailleurs.
 
@@ -265,7 +265,7 @@ Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts:61`). Quatre familles, un di
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `publishTotal`         | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                         |
 | `fanoutTotal`          | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                     |
-| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:817`). |
+| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:836`). |
 | `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                        |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille
@@ -506,7 +506,7 @@ l'orchestrateur finit par le tuer de force à l'expiration du délai de grâce.
 
 La règle est tenue partout dans le code, y compris là où on ne l'attendrait pas — le tick de
 revalidation d'identité du hub, qui ne démarre qu'au premier inscrit, est lui aussi détaché
-(`RealtimeHub.ts:437`), tout comme le report de la sonde cluster (`ClusterProbeClient.ts:170`) et le
+(`RealtimeHub.ts:443`), tout comme le report de la sonde cluster (`ClusterProbeClient.ts:170`) et le
 minuteur générique des canaux (`providers.ts:465`).
 
 ```ts ignore

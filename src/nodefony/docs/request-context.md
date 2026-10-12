@@ -247,7 +247,7 @@ INFO    http        : GET /api/invoices/INV-42 200 — 12 ms
 
 Les trois lignes portent **le même** `requestId`, bien qu'aucune ne se le soit transmis : le
 journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:207`), branché sur
-`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:343`). C'est ce qui
+`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:344`). C'est ce qui
 rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md).
 
 ## 🧰 API publique
@@ -321,8 +321,8 @@ qui ouvre quoi.
 <!-- prettier-ignore -->
 | Transport | Ouverte par | Ce que la bulle couvre |
 | --- | --- | --- |
-| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1541`) | CORS, routage, firewall, ton action, rendu |
-| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1972`) | poignée de main, firewall, **et toutes les trames** |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1553`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1984`) | poignée de main, firewall, **et toutes les trames** |
 | WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1070`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:545`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
@@ -347,7 +347,7 @@ problème par construction.
 C'est l'usage le plus subtil du payload, et le patron à copier pour tout observateur.
 
 Le serveur alloue `queries` (`RequestContext.ts:98`) **uniquement quand le profiler est actif**,
-c'est-à-dire en développement (`http-kernel.ts:1385`). En production, la clé est simplement absente.
+c'est-à-dire en développement (`http-kernel.ts:1397`). En production, la clé est simplement absente.
 Cette absence **est** le signal : les adapters ORM n'ont aucun réglage à lire.
 
 ```mermaid
