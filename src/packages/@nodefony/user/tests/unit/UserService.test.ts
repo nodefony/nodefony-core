@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { Criteria, ITransaction } from "@nodefony/orm-core";
+import { Container, Event } from "nodefony";
 import {
   Argon2idEncoder,
   BaseUser,
@@ -8,9 +9,11 @@ import {
   MigratingEncoder,
   UserService,
   USER_CREATED_EVENT,
+  USER_REVOKED_EVENT,
   WeakPasswordError,
   type IPasswordAuthenticatedUser,
   type IUserCreatedEvent,
+  type IUserRevokedEvent,
   type IUserRepository,
   type IUserListQuery,
 } from "../../index";
@@ -626,5 +629,76 @@ describe("UserService — USER_CREATED_EVENT, attendu à la création (#589)", (
       { defaultRoles: ["ROLE_USER"], allowSignup: true },
     );
     assert.equal(seen.length, 1);
+  });
+});
+
+describe("UserService — seul émetteur de onUserRevoked, émission GARDÉE (#589, audit)", () => {
+  /** Service branché sur un VRAI bus de kernel (Event), comme en application. */
+  function onKernel(repo = new MemoryUserRepo()) {
+    const kernel = new Event();
+    const ctn = new Container();
+    ctn.set("kernel", kernel);
+    const service = new UserService(repo, new BcryptEncoder(FAST), ctn);
+    const revoked: IUserRevokedEvent[] = [];
+    return { kernel, service, repo, revoked };
+  }
+
+  it("🔴 un abonné qui LÈVE ne saute pas les suivants, et le geste accompli ne rejette pas", async () => {
+    const { kernel, service, revoked } = onKernel();
+    const bob = await service.createUser({
+      identifier: "bob",
+      plainPassword: "Xk9!vaLid-Probe7",
+    });
+    // Un tiers abonné AVANT security, qui lève : la cascade doit passer quand même.
+    kernel.on(USER_REVOKED_EVENT, () => {
+      throw new Error("abonné tiers en panne");
+    });
+    kernel.on(USER_REVOKED_EVENT, (e: IUserRevokedEvent) => {
+      revoked.push(e);
+    });
+    const updated = await service.changePassword(bob.id, "Autre-Secret-89!");
+    assert.notEqual(updated, null, "le mot de passe changé n'est pas un échec");
+    assert.deepEqual(
+      revoked.map((e) => e.reason),
+      ["password_changed"],
+    );
+  });
+
+  it("🔴 `updateOne({ password })` direct révoque aussi (password_changed)", async () => {
+    const { kernel, service, revoked } = onKernel();
+    const bob = await service.createUser({ identifier: "bob" });
+    kernel.on(USER_REVOKED_EVENT, (e: IUserRevokedEvent) => revoked.push(e));
+    await service.updateOne(
+      { id: bob.id },
+      { password: "hash-écrit-à-la-main" },
+    );
+    assert.deepEqual(
+      revoked.map((e) => [e.identifier, e.reason]),
+      [["bob", "password_changed"]],
+    );
+  });
+
+  it("🔴 `delete` ne révoque QUE les comptes effectivement supprimés (course lecture/suppression)", async () => {
+    const repo = new MemoryUserRepo();
+    const { kernel, service, revoked } = onKernel(repo);
+    const alice = await service.createUser({ identifier: "alice" });
+    const bob = await service.createUser({ identifier: "bob" });
+    kernel.on(USER_REVOKED_EVENT, (e: IUserRevokedEvent) => revoked.push(e));
+    // Alice cesse de correspondre entre la lecture et la suppression : la
+    // ligne n'est pas supprimée — elle ne doit pas être révoquée (on lui
+    // retirerait ses facteurs alors qu'elle vit).
+    const realDelete = repo.delete.bind(repo);
+    repo.delete = (criteria) =>
+      (criteria as { id?: string }).id === alice.id
+        ? Promise.resolve(0)
+        : realDelete(criteria);
+    const removed = await service.delete({});
+    assert.equal(removed, 1);
+    assert.deepEqual(
+      revoked.map((e) => e.identifier),
+      ["bob"],
+    );
+    assert.notEqual(await service.findById(alice.id), null);
+    assert.equal(await service.findById(bob.id), null);
   });
 });

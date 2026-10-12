@@ -182,7 +182,8 @@ describe("registerUserRevocationCascade — abonné UNE fois au bus du kernel (#
     assert.equal(kernel.listenerCount(USER_CREATED_EVENT), 1);
     assert.equal(kernel.listenerCount(USER_REVOKED_EVENT), 1);
     const [revoke] = kernel.listeners(USER_REVOKED_EVENT);
-    assert.ok(revoke!(evt("deleted")) instanceof Promise);
+    const returned: unknown = revoke!(evt("deleted"));
+    assert.ok(returned instanceof Promise);
   });
 });
 

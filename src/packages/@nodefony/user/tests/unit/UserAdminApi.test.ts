@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Container, RequestContext } from "nodefony";
+import { Container, Event, RequestContext } from "nodefony";
 import {
   createUserAdminApi,
   toUserSummary,
@@ -195,28 +195,13 @@ type AuditEvent = {
   reason?: string;
 };
 
-type FiredEvent = { name: string; payload: unknown };
-
 function container(
   users: ReturnType<typeof makeUsers>,
   sink?: { record: (e: AuditEvent) => void },
-  fired?: FiredEvent[],
 ): Parameters<typeof createUserAdminApi>[0] {
-  const kernel = fired
-    ? {
-        fireAsync: async (name: string, payload: unknown) =>
-          fired.push({ name, payload }),
-      }
-    : undefined;
   return {
     get: (n: string) =>
-      n === "users"
-        ? users
-        : n === "auditService"
-          ? sink
-          : n === "kernel"
-            ? kernel
-            : undefined,
+      n === "users" ? users : n === "auditService" ? sink : undefined,
   } as unknown as Parameters<typeof createUserAdminApi>[0];
 }
 
@@ -602,26 +587,24 @@ describe("UserAdminApi — CRUD + audit", () => {
 // portes HTTP de changement de mot de passe.
 describe("UserAdminApi → UserService → kernel : onUserRevoked", () => {
   function realStack(seed: IBaseUserOptions[]) {
-    const fired: FiredEvent[] = [];
+    // Un VRAI bus de kernel : le service y émet par `emitAsyncGuarded`.
+    const kernel = new Event();
+    const fired: IUserRevokedEvent[] = [];
+    kernel.on(USER_REVOKED_EVENT, (e: IUserRevokedEvent) => fired.push(e));
     const ctn = new Container();
-    ctn.set("kernel", {
-      fireAsync: async (name: string, payload: unknown) =>
-        fired.push({ name, payload }),
-    });
+    ctn.set("kernel", kernel);
     const encoder: IPasswordEncoder = {
       hash: async (plain: string) => `hash:${plain}`,
       verify: async (plain: string, hash: string) => hash === `hash:${plain}`,
       needsRehash: () => false,
+      supports: (hash: string) => hash.startsWith("hash:"),
     };
     const repo = new InMemoryUserRepository(seed);
     const users = new UserService(repo, encoder, ctn);
     const api = createUserAdminApi({
       get: (n: string) => (n === "users" ? users : undefined),
     } as unknown as Parameters<typeof createUserAdminApi>[0]);
-    const revoked = () =>
-      fired
-        .filter((f) => f.name === USER_REVOKED_EVENT)
-        .map((f) => f.payload as IUserRevokedEvent);
+    const revoked = () => fired;
     return { api, revoked };
   }
   const people = (): IBaseUserOptions[] => [

@@ -1,6 +1,10 @@
 import type { IContainer } from "./IContainer";
 import type Event from "../Event";
-import type { EventDefaultInterface } from "../Event";
+import type {
+  EventDefaultInterface,
+  IGuardedEmitOptions,
+  IGuardedEmitResult,
+} from "../Event";
 import type Pdu from "../syslog/Pdu";
 import type { Severity, Msgid, Message, Pci } from "../syslog/Pdu";
 import type Syslog from "../syslog/Syslog";
@@ -74,6 +78,16 @@ export interface IService {
   fire(eventName: string | symbol, ...args: unknown[]): boolean;
   emitAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown>;
   fireAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown>;
+  /**
+   * Émet en série en ISOLANT chaque listener (try/catch, timeout optionnel) :
+   * un rejet n'empêche pas les suivants. Réservé aux gestes rares (boot, cycle
+   * de vie, jobs) — jamais le chemin d'une requête.
+   */
+  emitAsyncGuarded(
+    eventName: string | symbol,
+    options?: IGuardedEmitOptions,
+    ...args: unknown[]
+  ): Promise<IGuardedEmitResult>;
   addListener(eventName: string | symbol, listener: EventListener): this;
   removeListener(eventName: string | symbol, listener: EventListener): this;
   removeAllListeners(eventName?: string | symbol): this;

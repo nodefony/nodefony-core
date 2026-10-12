@@ -133,6 +133,20 @@ export interface IUserRevokedEvent {
   reason: "deleted" | "disabled" | "locked" | "password_changed";
 }
 
+/**
+ * Ce qui, dans une mise à jour, coupe les accès en cours du compte — ou `null`.
+ * `enabled`/`locked` sont des champs de PERSISTANCE, absents du contrat `IUser`
+ * (qui n'expose que `isActive()`/`isLocked()`) : lus par `in`.
+ */
+function revocationReason(
+  data: PartialInput<IPasswordAuthenticatedUser>,
+): IUserRevokedEvent["reason"] | null {
+  if ("enabled" in data && data.enabled === false) return "disabled";
+  if ("locked" in data && data.locked === true) return "locked";
+  if (data.password !== undefined) return "password_changed";
+  return null;
+}
+
 export class UserService
   extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>
   implements IUserProvider, IPasswordVerifier, IOAuthUserProvisioner
@@ -190,9 +204,11 @@ export class UserService
   }
 
   /**
-   * Met à jour un compte (CRUD hérité). Une désactivation (`enabled: false`) ou
-   * un verrouillage (`locked: true`) émet {@link USER_REVOKED_EVENT} et en
-   * attend la cascade : ses sessions et ses jetons tombent avant le retour.
+   * Met à jour un compte (CRUD hérité). Un geste qui coupe ses accès émet
+   * {@link USER_REVOKED_EVENT} et en attend la cascade — ses sessions et ses
+   * jetons tombent avant le retour : désactivation (`enabled: false`),
+   * verrouillage (`locked: true`), ou hash de mot de passe écrit directement
+   * (`password`, que `changePassword` préfère : lui applique la politique).
    *
    * @param criteria - cible de la mise à jour.
    * @param data - champs à modifier.
@@ -204,23 +220,23 @@ export class UserService
   ): Promise<IPasswordAuthenticatedUser | null> {
     const updated = await super.updateOne(criteria, data);
     if (updated === null) return null;
-    // `enabled`/`locked` sont des champs de PERSISTANCE, absents du contrat
-    // `IUser` (qui n'expose que `isActive()`/`isLocked()`) : lus par `in`.
-    if ("enabled" in data && data.enabled === false) {
-      await this.#revoke(updated, "disabled");
-    } else if ("locked" in data && data.locked === true) {
-      await this.#revoke(updated, "locked");
-    }
+    const reason = revocationReason(data);
+    if (reason !== null) await this.#revoke(updated, reason);
     return updated;
   }
 
   /**
-   * Supprime des comptes (CRUD hérité), puis émet {@link USER_REVOKED_EVENT}
-   * (`deleted`) pour CHACUN et en attend la cascade : sessions, jetons et
-   * facteurs (TOTP, passkeys) sont retirés avant le retour.
+   * Supprime des comptes (CRUD hérité), un par un, et émet
+   * {@link USER_REVOKED_EVENT} (`deleted`) pour CHAQUE compte effectivement
+   * supprimé, en attendant la cascade : sessions, jetons et facteurs (TOTP,
+   * passkeys) sont retirés avant le retour.
    *
-   * Les comptes visés sont lus AVANT la suppression : après, il ne reste rien
-   * pour dire qui révoquer. Une lecture de plus sur une opération rare.
+   * Les comptes visés sont lus AVANT (après, rien ne dit qui révoquer), puis
+   * supprimés PAR `id` : un compte qui cesse de correspondre entre la lecture
+   * et la suppression n'est ni supprimé ni révoqué — révoquer un compte vivant
+   * lui retirerait ses facteurs —, et un compte qui se met à correspondre
+   * n'est pas supprimé sans révocation. Opération rare : le surcoût d'une
+   * lecture et de N écritures est assumé.
    *
    * @param criteria - filtre de sélection.
    * @returns le nombre de comptes supprimés.
@@ -229,9 +245,11 @@ export class UserService
     criteria: Criteria<IPasswordAuthenticatedUser>,
   ): Promise<number> {
     const targets = await this.find(criteria);
-    const removed = await super.delete(criteria);
-    if (removed > 0) {
-      for (const target of targets) await this.#revoke(target, "deleted");
+    let removed = 0;
+    for (const target of targets) {
+      if ((await super.delete({ id: target.id })) === 0) continue;
+      removed += 1;
+      await this.#revoke(target, "deleted");
     }
     return removed;
   }
@@ -389,9 +407,26 @@ export class UserService
    * Émet un événement de cycle de vie sur le bus du KERNEL — celui où les
    * modules s'abonnent — et en attend les abonnés. Sans kernel (service
    * construit sans container), sur son propre bus.
+   *
+   * Émission GARDÉE : l'écriture en base a déjà eu lieu, un abonné qui lève ne
+   * doit ni sauter les suivants (un tiers enregistré avant `@nodefony/security`
+   * laisserait sinon vivre les sessions), ni faire échouer un geste accompli.
+   * L'échec est journalisé, la chaîne continue.
    */
   async #emit(event: string, payload: object): Promise<void> {
-    await (this.kernel ?? this).fireAsync(event, payload);
+    await (this.kernel ?? this).emitAsyncGuarded(
+      event,
+      {
+        onListenerError: (error) => {
+          this.log(
+            `un abonné de ${event} a échoué — les suivants ont été appelés : ` +
+              (error instanceof Error ? error.message : String(error)),
+            "ERROR",
+          );
+        },
+      },
+      payload,
+    );
   }
 
   /**
