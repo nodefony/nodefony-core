@@ -45,8 +45,8 @@ de son geste, et ceux-là ne se devinent pas — ils se paient.
 | -------------------------------------------------------------------- | ------------------------------- |
 | Une ressource : table, validation, service, REST et WebSocket        | `nodefony-add-crud`             |
 | Une logique métier réutilisable, hors de tout controller             | `nodefony-add-service`          |
-| Un flux temps réel, un canal, un abonnement client                   | `nodefony-add-realtime-channel` |
-| Réserver une route, un rôle, une zone, ouvrir à un partenaire        | `nodefony-protect-route`        |
+| Un flux temps réel (WebSocket ou SSE), un canal, un abonnement       | `nodefony-add-realtime-channel` |
+| Réserver une route ou une page, la connexion (/login, Keycloak)      | `nodefony-protect-route`        |
 | Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
 | Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
 
