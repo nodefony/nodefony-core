@@ -5297,6 +5297,86 @@ const sh = (cmd, args, opts = {}) =>
 
 const git = (dir, ...args) => sh("git", ["-C", dir, ...args]).trim();
 
+/**
+ * Rejoue la fin de `create app` que `--no-install` a sautée, puis CONSTATE que
+ * le décor est celui qu'un utilisateur reçoit.
+ *
+ * Installée, `create app` enchaîne format → build → migration initiale →
+ * licences → pointeurs de skills → fichiers livrés par les paquets → notice
+ * `.env.example` (`create.ts`, séquence après `runInstall`). Le décor installe
+ * lui-même depuis les tarballs : chaque geste de cette suite est donc à
+ * rejouer ici. Le format, le build et `ai:sync` le sont à leur place, plus haut.
+ *
+ * 🔴 Une liste recopiée DÉRIVE — elle l'a fait trois fois : `dist/` absent,
+ * `.agents/skills/` absent, puis la migration initiale et la notice. Mesuré
+ * (tâches 36 et 37) : une app témoin dont `nodefony env --example --check`
+ * sortait en 78 et dont `npm run test:e2e` tombait sur « table absente :
+ * User » — deux états qu'aucun utilisateur ne reçoit, et où l'agent dépensait
+ * ses tours. Le CONSTAT final ne relit donc pas cette liste : il interroge les
+ * contrôles du PRODUIT, qui disent ce qu'une app neuve doit vérifier.
+ *
+ * @param {string} app - racine de l'application témoin, installée et bâtie.
+ * @throws {Error} quand un contrôle du produit refuse le décor — il nomme le
+ *   contrôle ; un banc qui joue sur un décor faux mesure son montage.
+ */
+function rejouerFinDeCreation(app) {
+  // Même décor que `runInitialMigration` : `production` donne le mode `none`
+  // (le démarrage ne fabrique aucune table), `NF_STORE=memory` évite de lire
+  // une base qui n'a pas encore sa table — c'est la MIGRATION qui la crée.
+  const envMigration = {
+    ...APP_ENV,
+    NODE_ENV: "production",
+    NF_STORE: "memory",
+  };
+  console.log("• migration initiale (orm:generate --name init + orm:migrate)…");
+  sh("npx", ["--no-install", "nodefony", "orm:generate", "--name", "init"], {
+    cwd: app,
+    env: envMigration,
+  });
+  sh("npx", ["--no-install", "nodefony", "orm:migrate"], {
+    cwd: app,
+    env: envMigration,
+  });
+  console.log(
+    "• licences tierces, fichiers livrés par les paquets, notice .env.example…",
+  );
+  sh("npm", ["run", "licenses:write"], { cwd: app });
+  sh("npx", ["--no-install", "nodefony", "scaffold:sync"], { cwd: app });
+  sh("npx", ["--no-install", "nodefony", "env", "--example"], { cwd: app });
+
+  /** @type {{ libelle: string, args: string[], env: NodeJS.ProcessEnv }[]} */
+  const controles = [
+    {
+      libelle: "notice .env.example synchronisée",
+      args: ["env", "--example", "--check"],
+      env: APP_ENV,
+    },
+    {
+      libelle: "base à jour de ses migrations",
+      args: ["orm:migrate:status"],
+      env: envMigration,
+    },
+  ];
+  for (const { libelle, args, env } of controles) {
+    const commande = `nodefony ${args.join(" ")}`;
+    try {
+      sh("npx", ["--no-install", "nodefony", ...args], { cwd: app, env });
+    } catch (e) {
+      const sortie = `${e.stdout ?? ""}${e.stderr ?? ""}`
+        .trim()
+        .split("\n")
+        .slice(-6)
+        .join("\n");
+      throw new Error(
+        `décor ≠ application reçue par l'utilisateur — « ${libelle} » ` +
+          `refusé (${commande}, code ${e.status}) :\n${sortie}`,
+        { cause: e },
+      );
+    }
+    console.log(`  ✅ ${libelle} (${commande})`);
+  }
+}
+
 /** Au-delà, un fichier n'est plus du code : c'est une pièce jointe. */
 const DIFF_LIGNES_MAX = 5000;
 
@@ -5595,6 +5675,10 @@ function monterDecor(runDir, app) {
   //
   // Ce build est donc une PIÈCE DU DÉCOR, pas une commodité : sans lui, le
   // décor n'est pas celui de l'utilisateur.
+  // `create app` formate AVANT de bâtir (`runFormat`, puis `runBuild`) : une
+  // erreur de compilation se lit alors sur des sources dans leur forme finale.
+  console.log("• npm run format (comme create app, avant le build)…");
+  sh("npm", ["run", "format"], { cwd: app });
   console.log("• npm run build (l'app témoin naît construite)…");
   sh("npm", ["run", "build"], { cwd: app });
   // 🔴 **Le commit MESURÉ est celui du PACK, jamais celui de la fin du run.**
@@ -5616,6 +5700,8 @@ function monterDecor(runDir, app) {
   // banc mesurait donc un agent moins bien servi que l'utilisateur réel, et
   // l'envoyait sur un dossier vide.
   sh("npx", ["--no-install", "nodefony", "ai:sync"], { cwd: app });
+
+  rejouerFinDeCreation(app);
 
   // Le serveur MCP de l'app fait partie du décor de l'utilisateur : `ai:mcp`
   // écrit `.mcp.json` — la porte est une ROUTE, joignable dès que l'agent

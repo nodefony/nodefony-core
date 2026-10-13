@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-12",
+  "generatedAt": "2026-10-13",
   "count": 39,
   "repoScripts": [
     {
@@ -2667,6 +2667,10 @@
                 "help": ""
               },
               {
+                "flag": "--check",
+                "help": ""
+              },
+              {
                 "flag": "--check-port-free",
                 "help": ""
               },
@@ -2724,6 +2728,10 @@
               },
               {
                 "flag": "--eval",
+                "help": ""
+              },
+              {
+                "flag": "--example",
                 "help": ""
               },
               {
