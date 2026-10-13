@@ -311,7 +311,7 @@ seule l'adresse doit être connue au moment de `connect()`.
 
 | Option              | Défaut  | Effet                                                                                                                                                                                                                      |
 | ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`NodefonySocket.ts:600`). |
+| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`NodefonySocket.ts:609`). |
 | `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`NodefonySocket.ts:1432`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.        |
 | `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`NodefonySocket.ts:1507`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
 | `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec, avec une gigue, sans jamais descendre sous 100 ms (`NodefonySocket.ts:198`).                                                                          |
@@ -346,7 +346,7 @@ indéfiniment un point d'entrée protégé — et une session révoquée rejouer
 tentative.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/NodefonySocket.ts:1531`) — plafonné à 30 secondes par défaut. Trois garde-fous
+(`client/realtime/NodefonySocket.ts:1539`) — plafonné à 30 secondes par défaut. Trois garde-fous
 le tiennent face à un serveur qui coupe tout le monde au même instant :
 
 - une **gigue** : le délai tombe entre la moitié et la totalité du doublement, pour que mille
@@ -371,7 +371,7 @@ composants écoutent le même canal, l'un se démonte, et **coupe le flux de l'a
 
 `NodefonySocket.subscribe()` (`client/realtime/NodefonySocket.ts:739`) compte les consommateurs et
 n'envoie la demande au serveur qu'au **premier**. `NodefonySocket.unsubscribe()`
-(`client/realtime/NodefonySocket.ts:752`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
+(`client/realtime/NodefonySocket.ts:761`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
 est nul.
 
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
@@ -388,7 +388,7 @@ Le serveur repart d'un état vide après une coupure ; c'est le client qui se so
 
 | Appel                                 | Ancre                                    | Ce que ça fait                                                   |
 | ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
-| `NodefonySocket.emit()` / `publish()` | `client/realtime/NodefonySocket.ts:721`  | Notification sans réponse — la forme du pub/sub                  |
+| `NodefonySocket.emit()` / `publish()` | `client/realtime/NodefonySocket.ts:730`  | Notification sans réponse — la forme du pub/sub                  |
 | `NodefonySocket.request()`            | `client/realtime/NodefonySocket.ts:936`  | Requête/réponse ; un argument commençant par `/` cible une route |
 | `NodefonySocket.mutate()`             | `client/realtime/NodefonySocket.ts:1009` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
 
@@ -396,7 +396,7 @@ Deux compléments moins courants. `NodefonySocket.call()`
 (`client/realtime/NodefonySocket.ts:1051`) rend l'**enveloppe complète** — la valeur **et**
 l'identifiant du profil serveur de cette trame, ce qui permet en développement d'aller lire la
 radiographie de l'appel. Et `NodefonySocket.register()`
-(`client/realtime/NodefonySocket.ts:1123`) fait du navigateur un **appelé** : le serveur peut lui
+(`client/realtime/NodefonySocket.ts:1132`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
 ### Ce que la socket dit d'elle-même — instantané et description
@@ -862,7 +862,7 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                         | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                  |
 | La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/NodefonySocket.ts:566`) |
 | Deux connexions WebSocket pour la même page                     | Deux `new NodefonySocket(…)` au lieu de l'instance partagée                                                  | `NodefonySocket.shared()` (`client/realtime/NodefonySocket.ts:500`)                          |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts:882`) | Émettre après la résolution de `connect()`                                                   |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts:891`) | Émettre après la résolution de `connect()`                                                   |
 | La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                     | La réserver aux canaux d'état, ou passer `enabled: false`                                    |
 | `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts:34`)                                         | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                           |
 | `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts:27`)                                            | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                       |

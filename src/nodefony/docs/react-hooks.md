@@ -109,7 +109,7 @@ Le binding existe pour que ces trois cas soient traités **une fois**, au bon en
 Le parti pris est de mettre l'intelligence **sous** React, pas dedans. Le comptage de références et
 le ré-abonnement après coupure vivent dans `NodefonySocket.subscribe()`
 (`client/realtime/NodefonySocket.ts:739`) et `NodefonySocket.unsubscribe()`
-(`client/realtime/NodefonySocket.ts:752`), au-dessus d'une carte `_subscriptions`
+(`client/realtime/NodefonySocket.ts:761`), au-dessus d'une carte `_subscriptions`
 (`client/realtime/NodefonySocket.ts:429`).
 
 Conséquence directe : cette autorité est **partagée**. Les hooks et un store applicatif (MobX, Zustand,
@@ -366,7 +366,7 @@ Rend `"disconnected" | "connecting" | "connected" | "reconnecting" | "error"`. L
 `useSyncExternalStore`, donc **sans tearing** en rendu concurrent : le snapshot est une chaîne, la
 comparaison est exacte.
 
-Le re-rendu suit `NodefonySocket.setState()` (`client/realtime/NodefonySocket.ts:1706`), qui
+Le re-rendu suit `NodefonySocket.setState()` (`client/realtime/NodefonySocket.ts:1714`), qui
 court-circuite si l'état est inchangé — un état stable ne coûte rien, même sous un flux dense.
 
 C'est le hook des badges de connexion et des écrans dégradés (« temps réel indisponible »).
@@ -378,7 +378,7 @@ Rend l'identité **annoncée par le serveur** dans la trame d'accueil : `authent
 reçu ; une fois reçu, un visiteur anonyme vaut `authenticated: false` — jamais `null`.
 
 Elle est rafraîchie à chaque (re)connexion par `ingestWelcome()`
-(`client/realtime/NodefonySocket.ts:1242`) et remise à `null` au `disconnect()` volontaire.
+(`client/realtime/NodefonySocket.ts:1251`) et remise à `null` au `disconnect()` volontaire.
 
 L'intérêt pratique : basculer anonyme ↔ authentifié **sans appeler la moindre route** `/auth/me`. La
 socket porte déjà l'information.
@@ -493,13 +493,13 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
 ### `useNodefonyChannelStats()` — débit et série d'un canal
 
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
-trames reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts:1195`). La série glisse sur 32
+trames reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts:1204`). La série glisse sur 32
 points — `STATS_SERIES_POINTS` (`client/realtime/NodefonySocket.ts:137`) —, échantillonnés une fois par seconde par
-`startStatsSampler()` (`client/realtime/NodefonySocket.ts:1373`).
+`startStatsSampler()` (`client/realtime/NodefonySocket.ts:1381`).
 
 > [!WARNING]
 > Ce hook ne se rafraîchit **pas** tout seul après sa première valeur. Le client réutilise le même
-> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/NodefonySocket.ts:1202`) :
+> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/NodefonySocket.ts:1211`) :
 > l'état React reçoit une référence identique, et React court-circuite le rendu. La valeur affichée
 > n'est correcte que si le composant se re-rend pour une autre raison. Pour un VU-mètre fiable,
 > compte toi-même sur `useNodefonyChannel()`.
@@ -771,7 +771,7 @@ Studio.
 | Rien n'arrive et l'état reste `disconnected`                   | Les hooks s'abonnent mais ne connectent pas                                                                  | Appeler `socket.connect()` une fois (`client/realtime/NodefonySocket.ts:592`)                            |
 | Après la connexion, l'état reste `error` jusqu'au rechargement | La socket refusée en 1008 ne retente pas seule ; l'identité est figée au handshake                           | `retryNow()` (`client/realtime/NodefonySocket.ts:566`) si `error`, sinon `disconnect()` puis `connect()` |
 | Un `subscribe`/`unsubscribe`/`subscribe` par montage           | StrictMode double le montage ; le comptage est symétrique                                                    | Comportement attendu en développement ; absent en production                                             |
-| Le débit de `useNodefonyChannelStats()` reste figé             | `trackFrame()` mute le même objet de stats (`client/realtime/NodefonySocket.ts:1202`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                                              |
+| Le débit de `useNodefonyChannelStats()` reste figé             | `trackFrame()` mute le même objet de stats (`client/realtime/NodefonySocket.ts:1211`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                                              |
 | `useNodefonySyslog({ severities })` ne rend rien               | Le filtre compare un champ numérique à des noms (`client/react/index.ts:485`)                                | Filtrer au rendu sur `severityName` (`Pdu.ts:180`)                                                       |
 | L'abonnement se refait à chaque frappe                         | Le nom du canal est recalculé et passé dans `deps`                                                           | Ne mettre dans `deps` que ce qui doit vraiment ré-abonner                                                |
 | Changer un réglage AIMD ne change rien                         | Les options sont capturées par référence (`client/react/index.ts:355`)                                       | Passer par `desiredMs`/`enabled`, ou ajouter la valeur aux `deps`                                        |

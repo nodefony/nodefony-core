@@ -37,7 +37,7 @@ NodefonySocket            ← la « socket » (orchestration : reconnect, heartb
                                   BrowserWsTransport (wrap WebSocket). IRealtimeTransport.ts:34
 ```
 
-- `NodefonySocket` **compose** un `JsonRpcPeer` (`NodefonySocket.ts:681`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
+- `NodefonySocket` **compose** un `JsonRpcPeer` (`NodefonySocket.ts:891`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
 - Le transport est **injectable** (constructeur, 2ᵉ arg `RealtimeTransportFactory`, `NodefonySocket.ts:38`) → tests sans vrai socket ; défaut = `BrowserWsTransport`.
 - `NodefonySocket` implémente `IRealtimeSocket` (`IRealtimeSocket.ts:122`) ET `IRealtimePeer` (`JsonRpcPeer.ts:261`) — le MÊME contrat qu'exposera une façade serveur. Du code écrit contre ces interfaces tourne des deux côtés.
 

@@ -512,7 +512,7 @@ sources, les tests, les configurations — **reste dans le dépôt**.
 
 L'entrée **`docs` n'est pas décorative** : c'est ce qui rend la documentation d'un module lisible
 depuis une application qui l'a simplement installé. `listModuleDocs()` (`docsReader.ts:227`) lit le
-dossier `docs/` **du module tel qu'installé**, et `readDependencies()` (`docsReader.ts:819`) résout
+dossier `docs/` **du module tel qu'installé**, et `readDependencies()` (`docsReader.ts:841`) résout
 les versions réellement présentes dans `node_modules`. Un module publié sans son `docs/` devient muet
 dans la console d'administration.
 

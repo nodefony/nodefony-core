@@ -137,7 +137,7 @@ connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:12`) — et se lit côté client par
-`NodefonySocket.serverMethods` (`NodefonySocket.ts:800`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`NodefonySocket.serverMethods` (`NodefonySocket.ts:809`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
