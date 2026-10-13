@@ -21,7 +21,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { version } from "../../package.json";
-import { refreshAgentsGuide } from "../cli/scaffold/engine";
+import { refreshAgentsGuide, runScaffold } from "../cli/scaffold/engine";
 import {
   isUpgradePending,
   parseUpgradeArgv,
@@ -63,6 +63,36 @@ const lire = (racine: string): string =>
   readFileSync(path.join(racine, "AGENTS.md"), "utf8");
 
 describe("refreshAgentsGuide — le bloc framework d'AGENTS.md", () => {
+  /*
+   *   Une application NEUVE est à jour, par définition. Le preset `complete`
+   *   dépend de `@nodefony/frontend` pour Studio sans avoir d'interface à lui :
+   *   la régénération concluait « a un front » de cette seule dépendance, et
+   *   `doctor` déclarait périmé l'`AGENTS.md` de toute application à peine
+   *   créée (vu sur 10.0.0-beta.3, app fraîche, aucun geste entre les deux).
+   */
+  it.each(["none", "react"] as const)(
+    "app complete tout juste créée (front %s) → bloc inchangé",
+    (frontend) => {
+      const racine = mkdtempSync(path.join(tmpdir(), "nf-upgrade-new-"));
+      aSupprimer.push(racine);
+      const dest = path.join(racine, "app");
+      runScaffold(
+        {
+          type: "app",
+          answers: { name: "fresh", preset: "complete", frontend },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assert.strictEqual(
+        refreshAgentsGuide(dest, version, true).status,
+        "unchanged",
+      );
+      assert.deepStrictEqual(checkAgentsGuide(dest, version), []);
+    },
+  );
+
   it("réécrit le bloc périmé, et lui seul", () => {
     const racine = appPerimee();
     assert.strictEqual(refreshAgentsGuide(racine, version).status, "updated");

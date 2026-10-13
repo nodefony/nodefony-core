@@ -2674,6 +2674,11 @@ function refreshProjectAgents(
   writer: ScaffoldWriter,
 ): void {
   const appDeps = readAppDependencyNames(projectRoot, writer);
+  // « A un front » = un MOTEUR front est installé — la règle de `create app`
+  // (`front !== null`), jamais la seule présence de `@nodefony/frontend` : le
+  // preset `complete` en dépend pour Studio sans avoir d'interface à lui, et
+  // `doctor` déclarait alors périmé l'`AGENTS.md` de toute application neuve.
+  const clientEngine = detectFrontendEngine(appDeps);
   renderProjectAgents(
     eta,
     packageRoot,
@@ -2686,8 +2691,8 @@ function refreshProjectAgents(
       hasMigrations: appDeps.has("@nodefony/drizzle"),
       hasRealtime: appDeps.has("@nodefony/realtime"),
       hasStudio: appDeps.has("@nodefony/studio"),
-      front: appDeps.has("@nodefony/frontend"),
-      clientEngine: detectFrontendEngine(appDeps),
+      front: clientEngine !== null,
+      clientEngine,
       hasMigrateRecipe: writer.exists(
         path.join(projectRoot, "deploy", "migrate-job.yaml"),
       ),
