@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T14:30:42.529Z",
+  "generatedAt": "2026-10-13T16:27:19.577Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 123,
+      "closed": 124,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 35,
       "title": "10.0.0-beta"
     },
     {
@@ -2846,8 +2846,8 @@
       "number": 594,
       "title": "feat(studio): réserver feuille de route et pages internes au dépôt",
       "url": "https://github.com/nodefony/nodefony-core/issues/594",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
