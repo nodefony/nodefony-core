@@ -1606,6 +1606,22 @@ describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
     expect(v.juges.map((r) => r.id)).toEqual(["2", "3"]);
   });
 
+  it("un `cancelled` dont le jumeau TOURNE encore fait attendre, pas refuser", () => {
+    // Vécu à la 10.0.0-beta.3 : le même commit poussé sur `dev` puis sur
+    // `main`, le run de `dev` annulé pour libérer les machines macOS. La garde
+    // jugeait pendant que celui de `main` tournait encore, et refusait sur le
+    // `cancelled` — alors que le jumeau allait conclure vert.
+    const v = verdictCiDuCommit({
+      runs: [
+        run("nodefony-core", "completed", "cancelled", "1"),
+        run("nodefony-core", "in_progress", null, "2"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("attendre");
+    expect(v.enCours.map((r) => r.id)).toEqual(["2"]);
+  });
+
   it("un `cancelled` SEUL de son workflow reste rouge, même si d'autres workflows sont verts", () => {
     const v = verdictCiDuCommit({
       runs: [

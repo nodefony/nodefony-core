@@ -1376,8 +1376,19 @@ export function verdictCiDuCommit({
       .filter((r) => r.statut === "completed" && r.conclusion !== "cancelled")
       .map((r) => r.nom),
   );
+  // Et tant que ce jumeau TOURNE, le `cancelled` ne tranche rien non plus : il
+  // faut attendre que l'autre parle. Vécu à la 10.0.0-beta.3 — le run de `dev`
+  // annulé pendant que celui de `main`, même commit, finissait : la garde
+  // refusait sur un rouge qui n'en était pas un.
+  const enVol = new Set(
+    candidats.filter((r) => r.statut !== "completed").map((r) => r.nom),
+  );
   const juges = candidats.filter(
-    (r) => !(r.conclusion === "cancelled" && ontConclu.has(r.nom)),
+    (r) =>
+      !(
+        r.conclusion === "cancelled" &&
+        (ontConclu.has(r.nom) || enVol.has(r.nom))
+      ),
   );
 
   // Aucun run : la garde ne se DÉSARME pas quand elle ne sait rien — c'est
