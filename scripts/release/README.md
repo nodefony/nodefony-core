@@ -81,6 +81,21 @@ Attend le verdict de la CI du commit qu'on s'apprête à publier — et REFUSE s
 - **Appelé par** : `release.yml` · `release/release.mjs`
 - **Utilise** : `release/release-core.mjs`
 
+## [`doc-pages.mjs`](doc-pages.mjs)
+
+Pages de documentation qu'une APPLICATION ne sert pas — donc qui ne partent pas sur npm.
+
+- **Usage** : `import { pagesNonServies, regleDApplication } from "./doc-pages.mjs"`
+- **Appelé par** : `release/pack-all.mjs`
+- **Testé par** : `release/doc-pages.test.mjs`
+
+## [`doc-pages.test.mjs`](doc-pages.test.mjs)
+
+Les pages `publish: core|none` restent-elles hors du tarball ?
+
+- **Lancé par** : `npm run test:release`
+- **Utilise** : `release/doc-pages.mjs`
+
 ## [`env-docs.test.mjs`](env-docs.test.mjs)
 
 Les pages qui disent à un DÉPLOYEUR quelles variables poser — la page de l'image sur Docker Hub, le guide Docker, le guide Kubernetes — confrontées aux catalogues qui font foi.
@@ -164,7 +179,7 @@ Pack release des workspaces publiables (modèle B — N-packages lockstep).
 - **Variable** `NF_RELEASE_REPO`
 - **Variable** `OUT`
 - **Appelé par** : `npm run release:pack` · `release-smoke.yml` · `scaffold.yml` · `release/release.mjs` · `release/smoke-docker.sh` · `.claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs`
-- **Utilise** : `lib/symbols-publish.mjs` · `lib/workspaces.mjs` · `release/fix-dts-extensions.mjs` · `release/release-core.mjs`
+- **Utilise** : `lib/symbols-publish.mjs` · `lib/workspaces.mjs` · `release/doc-pages.mjs` · `release/fix-dts-extensions.mjs` · `release/release-core.mjs`
 
 ## [`readme-gate.mjs`](readme-gate.mjs)
 

@@ -1497,6 +1497,36 @@
       "testedBy": []
     },
     {
+      "path": "scripts/release/doc-pages.mjs",
+      "test": false,
+      "purpose": "Pages de documentation qu'une APPLICATION ne sert pas — donc qui ne partent pas sur npm.",
+      "usage": [
+        "import { pagesNonServies, regleDApplication } from \"./doc-pages.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/release/pack-all.mjs"
+      ],
+      "testedBy": [
+        "scripts/release/doc-pages.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/doc-pages.test.mjs",
+      "test": true,
+      "purpose": "Les pages `publish: core|none` restent-elles hors du tarball ?",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:release"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/release/env-docs.test.mjs",
       "test": true,
       "purpose": "Les pages qui disent à un DÉPLOYEUR quelles variables poser — la page de l'image sur Docker Hub, le guide Docker, le guide Kubernetes — confrontées aux catalogues qui font foi.",
@@ -8354,8 +8384,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 384,
-        "approxTokens": 7818
+        "bodyLines": 387,
+        "approxTokens": 7887
       },
       "requires": [],
       "resources": {
@@ -8440,7 +8470,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "384",
+            "detail": "387",
             "advisory": true
           }
         ]

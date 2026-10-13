@@ -36,12 +36,16 @@ import {
 } from "./release-core.mjs";
 import { foreignModules, publishedModules } from "../lib/symbols-publish.mjs";
 import { publishableWorkspaces } from "../lib/workspaces.mjs";
+import { DOCS_DIR, pagesNonServies, regleDApplication } from "./doc-pages.mjs";
 
 // `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
 // la chaîne de publication ne peut pas dépendre de l'outillage d'agent, qui se
 // réorganise pour d'autres raisons qu'elle.
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const OUT = path.join(ROOT, "release", "tarballs");
+// Une page que Studio ne sert pas dans une application (`publish: core|none`)
+// ne part pas sur npm — jugée par la règle du cœur, celle de Studio et du site.
+const servie = await regleDApplication();
 
 // Le changelog est UN pour tout le lot et vit à la racine du dépôt, hors de
 // portée de `files` (qui ne désigne rien au-dessus du paquet). Un paquet qui le
@@ -205,6 +209,17 @@ for (const w of workspaces) {
     }
   }
 
+  // Pages internes : retirées par NÉGATION de `files` (manifeste restauré à
+  // l'octet près après le pack), jamais déplacées sur le disque — un pack
+  // interrompu ne doit rien laisser derrière lui.
+  const internes =
+    Array.isArray(pkg.files) && pkg.files.includes(DOCS_DIR)
+      ? pagesNonServies(dir, servie)
+      : [];
+  if (internes.length) {
+    pkg.files = [...pkg.files, ...internes.map((p) => `!${p}`)];
+  }
+
   const changelogDest = path.join(dir, CHANGELOG);
   const copiesChangelog =
     Array.isArray(pkg.files) &&
@@ -215,7 +230,7 @@ for (const w of workspaces) {
     continue;
   }
 
-  const mutated = needsPeerMeta;
+  const mutated = needsPeerMeta || internes.length > 0;
   try {
     if (mutated) {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
@@ -255,9 +270,12 @@ for (const w of workspaces) {
       continue;
     }
     manifest[pkg.name] = tgz;
-    const notes = [needsPeerMeta ? "peers optional injectés" : null].filter(
-      Boolean,
-    );
+    const notes = [
+      needsPeerMeta ? "peers optional injectés" : null,
+      internes.length
+        ? `${internes.length} page(s) interne(s) retirée(s)`
+        : null,
+    ].filter(Boolean);
     console.log(
       `✓ ${pkg.name} → ${tgz}${notes.length ? `  (${notes.join(" + ")})` : ""}`,
     );
@@ -328,6 +346,12 @@ for (const [nom, tgz] of Object.entries(manifest)) {
         `${nom} : ${CHANGELOG} déclaré dans files, absent du tarball`,
       );
     }
+    // Constaté sur l'artefact REÇU, par le même parcours que la négation :
+    // une page interne restée dans le tarball est livrée à chaque installeur.
+    for (const p of pagesNonServies(path.join(dossier, "package"), servie))
+      alertes.push(
+        `${nom} : ${p} — page interne (publish: core|none) emportée`,
+      );
     for (const e of readdirSync(dossier, {
       recursive: true,
       withFileTypes: true,

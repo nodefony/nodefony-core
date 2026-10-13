@@ -267,6 +267,9 @@ npm run release:pack                           # les tarballs seuls
 `types` déclaré absent du disque, et `auditerMetadonnees` refuse en amont un `types` que `files`
 n'emporte pas. Ne JAMAIS réintroduire de bascule au pack : le dépôt ne verrait plus l'état publié. `fix-dts-extensions.mjs` extensionne les specifiers relatifs des déclarations
 (`node16`/`nodenext` l'exige) — appelé **depuis** le pack, pas à la main.
+Les pages de `docs/` qu'une application ne sert pas (`publish: core|none`) sont retirées par
+**négation de `files`** (manifeste restauré à l'octet près), puis cherchées dans le tarball
+dépaqueté : une page restée = pack refusé (`doc-pages.mjs`, règle du cœur `readDocScope`).
 
 **La PORTE D'ENTRÉE est éprouvée en premier.** `create-nodefony` est installé depuis SON tarball et
 doit produire une application conforme : c'est le premier paquet qu'un inconnu exécute

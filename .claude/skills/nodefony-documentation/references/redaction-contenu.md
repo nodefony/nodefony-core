@@ -65,8 +65,9 @@ général au plus précis — **et le dernier gagne toujours** :
 
    `true`/`false` restent compris (`user`/`core`). La clé est lue par UNE règle du cœur
    (`readDocScope`/`isDocVisible`, `nodefony` → `runtime/docScope.ts`) que suivent le site, le
-   portail de Studio et l'onglet Docs d'un module. Une page de module `core` part quand même dans
-   le paquet npm : c'est Studio qui ne la sert pas hors du dépôt du framework.
+   portail de Studio et l'onglet Docs d'un module. Une page de module `core` ou `none` ne part
+   PAS sur npm : `release:pack` la retire du tarball par la même règle
+   (`scripts/release/doc-pages.mjs`), puis refuse un tarball dépaqueté qui en porterait une.
 
 Le générateur AFFICHE ce qu'il écarte et pourquoi, page par page — publier à l'aveugle est le seul
 vrai risque de cet outil. Vérifier avant de pousser :
