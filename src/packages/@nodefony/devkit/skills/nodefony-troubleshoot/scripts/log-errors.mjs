@@ -31,6 +31,7 @@ import {
   readdirSync,
   statSync,
   openSync,
+  fstatSync,
   readSync,
   closeSync,
   realpathSync,
@@ -321,10 +322,12 @@ export function summarize(events, { warnings = false } = {}) {
  * @returns le texte relu.
  */
 function readTail(file) {
-  const size = statSync(file).size;
-  if (size <= MAX_SCAN_BYTES) return readFileSync(file, "utf8");
+  // Une seule ouverture : taille et lecture sur le MÊME descripteur — le chemin
+  // peut changer entre un `stat` et un `read` (js/file-system-race).
   const fd = openSync(file, "r");
   try {
+    const size = fstatSync(fd).size;
+    if (size <= MAX_SCAN_BYTES) return readFileSync(fd, "utf8");
     const buf = Buffer.alloc(MAX_SCAN_BYTES);
     readSync(fd, buf, 0, MAX_SCAN_BYTES, size - MAX_SCAN_BYTES);
     // La première ligne est coupée en plein milieu : on la jette.

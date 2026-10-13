@@ -205,9 +205,15 @@ for (const d of diagnostics) {
   const key = packageOf(d.filename);
   current[key] = (current[key] ?? 0) + 1;
 }
-const ceilings = fs.existsSync(CEILINGS)
-  ? JSON.parse(fs.readFileSync(CEILINGS, "utf8")).ceilings
-  : {};
+// Lu une fois : l'absence se constate par l'échec de la lecture, jamais par un
+// `existsSync` que le fichier peut démentir avant l'écriture (js/file-system-race).
+let ceilingsText = null;
+try {
+  ceilingsText = fs.readFileSync(CEILINGS, "utf8");
+} catch {
+  // première pose : aucun plafond encore écrit
+}
+const ceilings = ceilingsText === null ? {} : JSON.parse(ceilingsText).ceilings;
 const keys = [
   ...new Set([...Object.keys(ceilings), ...Object.keys(current)]),
 ].sort();
@@ -223,7 +229,7 @@ for (const key of keys) {
 
 if (UPDATE) {
   // Première pose seulement : sans fichier, les plafonds se relèvent tels quels.
-  if (over.length > 0 && fs.existsSync(CEILINGS)) {
+  if (over.length > 0 && ceilingsText !== null) {
     console.error("❌ refus : un plafond ne MONTE jamais.");
     for (const l of over) console.error(`   ${l}`);
     process.exit(1);

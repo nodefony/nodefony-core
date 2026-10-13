@@ -19,7 +19,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import ts from "typescript";
 import picomatch from "picomatch";
 import config from "./generate-symbols.config.ts";
@@ -135,9 +135,12 @@ function touchesParsedZone(files: string[]): boolean {
 }
 
 /** Lance `git` et rend ses lignes non vides — `null` si git refuse. */
-function gitLines(args: string): string[] | null {
+function gitLines(args: readonly string[]): string[] | null {
   try {
-    return execSync(`git ${args}`, { cwd: repoRoot, encoding: "utf8" })
+    // Sans shell : les bornes de `--check-range` viennent de la ligne de
+    // commande, et une chaîne passée au shell les exécuterait
+    // (js/indirect-command-line-injection).
+    return execFileSync("git", args, { cwd: repoRoot, encoding: "utf8" })
       .split("\n")
       .filter(Boolean);
   } catch {
@@ -146,7 +149,12 @@ function gitLines(args: string): string[] | null {
 }
 
 function checkStaged(): never {
-  const staged = gitLines("diff --cached --name-only --diff-filter=ACMR");
+  const staged = gitLines([
+    "diff",
+    "--cached",
+    "--name-only",
+    "--diff-filter=ACMR",
+  ]);
   process.exit(staged && touchesParsedZone(staged) ? 1 : 0);
 }
 
@@ -166,7 +174,7 @@ function checkRange(from: string | undefined, to: string | undefined): never {
   )
     process.exit(1);
   if (!from || !to) process.exit(1);
-  const changed = gitLines(`diff --name-only ${from} ${to}`);
+  const changed = gitLines(["diff", "--name-only", from, to]);
   // Révision illisible (premier commit, ORIG_HEAD absent) : dans le doute, on
   // régénère — dix secondes en arrière-plan coûtent moins qu'un graphe faux.
   process.exit(changed === null || touchesParsedZone(changed) ? 1 : 0);

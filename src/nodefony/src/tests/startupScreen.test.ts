@@ -565,6 +565,20 @@ describe("mise en forme", () => {
     expect(relativizeLine("C:/app/var/x.db", "C:\\app")).to.equal("var/x.db");
   });
 
+  it("ignore les séparateurs finaux de la racine, en temps linéaire", () => {
+    expect(relativizeLine("a /app/var/x.db b", "/app///")).to.equal(
+      "a var/x.db b",
+    );
+    expect(relativizeLine("C:\\app\\var\\x.db", "C:\\app\\/")).to.equal(
+      "var\\x.db",
+    );
+    // Une racine faite d'une longue suite de `/` : une expression `/\/+$/`
+    // s'y rejouait à chaque position (js/polynomial-redos).
+    const t0 = performance.now();
+    relativizeLine("x", `/a${"/".repeat(200_000)}b`);
+    expect(performance.now() - t0).to.be.below(1000);
+  });
+
   it("coupe au milieu", () => {
     expect(truncateMiddle("var/databases/nodefony-drizzle.db", 15)).to.equal(
       "var/dat…zzle.db",

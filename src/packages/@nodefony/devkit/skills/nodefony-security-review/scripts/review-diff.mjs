@@ -33,7 +33,9 @@ import {
   existsSync,
   readFileSync,
   readdirSync,
-  statSync,
+  openSync,
+  fstatSync,
+  closeSync,
   realpathSync,
 } from "node:fs";
 import path from "node:path";
@@ -65,9 +67,14 @@ const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 /** Extensions relues : le code, pas la documentation. */
 const CODE_FILE = /\.(?:[cm]?[jt]sx?|vue|svelte)$/u;
 
-/** Un test, un décor de test : ses identifiants en dur sont des fixtures. */
-const TEST_FILE =
-  /(?:^|\/)(?:tests?|__tests__|e2e|fixtures?)\/|\.(?:test|spec|selftest)\.[cm]?[jt]sx?$/u;
+/**
+ * Un test, un décor de test : ses identifiants en dur sont des fixtures. Deux
+ * motifs DISTINCTS — un dossier de tests n'importe où dans le chemin, un
+ * suffixe en fin de nom : réunis par `|` dans une seule expression, l'ancre
+ * `$` semblait couvrir les deux (js/regex/missing-regexp-anchor).
+ */
+const TEST_DIR = /(?:^|\/)(?:tests?|__tests__|e2e|fixtures?)\//u;
+const TEST_SUFFIX = /\.(?:test|spec|selftest)\.[cm]?[jt]sx?$/u;
 
 /**
  * Ce qui n'est pas le code de l'application : dépendances, produits de build,
@@ -750,7 +757,7 @@ export function review(files, opts = {}) {
       if (r.test(posix)) push(r, posix, added[0]?.line ?? 1, posix);
     }
     if (!CODE_FILE.test(posix)) continue;
-    if (TEST_FILE.test(posix)) {
+    if (TEST_DIR.test(posix) || TEST_SUFFIX.test(posix)) {
       skippedTests.push(posix);
       continue;
     }
@@ -949,8 +956,15 @@ export function collect(opts) {
     const full = path.join(top, f);
     let text = "";
     try {
-      if (statSync(full).size > 1024 * 1024) continue;
-      text = readFileSync(full, "utf8");
+      // Une seule ouverture : la taille se lit sur le descripteur, pas sur le
+      // chemin, qui peut changer entre les deux (js/file-system-race).
+      const fd = openSync(full, "r");
+      try {
+        if (fstatSync(fd).size > 1024 * 1024) continue;
+        text = readFileSync(fd, "utf8");
+      } finally {
+        closeSync(fd);
+      }
     } catch {
       continue;
     }

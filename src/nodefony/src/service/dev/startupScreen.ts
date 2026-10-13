@@ -241,6 +241,23 @@ export interface IStartupExtras {
 }
 
 /**
+ * Retire les séparateurs finaux d'un chemin, en un seul passage linéaire.
+ *
+ * Une expression `/[\\/]+$/` sur un chemin venu de l'extérieur se rejoue à
+ * chaque position d'une longue suite de `/` — coût quadratique
+ * (js/polynomial-redos).
+ *
+ * @param value - le chemin.
+ * @param separators - les caractères à retirer en fin de chaîne.
+ * @returns le chemin sans séparateur final.
+ */
+function trimTrailing(value: string, separators: string): string {
+  let end = value.length;
+  while (end > 0 && separators.includes(value.charAt(end - 1))) end--;
+  return value.slice(0, end);
+}
+
+/**
  * Rend un chemin absolu RELATIF au projet, dans une ligne de texte.
  *
  * Les deux séparateurs sont essayés : la racine est native, mais une ligne
@@ -253,8 +270,8 @@ export interface IStartupExtras {
  */
 export function relativizeLine(line: string, root: string): string {
   if (!root) return line;
-  const forward = root.replace(/\\/g, "/").replace(/\/+$/, "");
-  const native = root.replace(/[\\/]+$/, "");
+  const forward = trimTrailing(root.replaceAll("\\", "/"), "/");
+  const native = trimTrailing(root, "\\/");
   return line
     .split(`${native}\\`)
     .join("")

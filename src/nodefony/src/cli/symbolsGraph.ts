@@ -229,17 +229,30 @@ export function readSourceInputs(
   const skipped: { file: string; bytes: number }[] = [];
   for (const file of posix) {
     const abs = path.join(root, file);
-    const stat = fs.statSync(abs);
-    if (!stat.isFile()) continue;
-    if (stat.size > SYMBOLS_MAX_FILE_BYTES) {
-      skipped.push({ file, bytes: stat.size });
+    // Une seule ouverture : type, taille et contenu se lisent sur le MÊME
+    // descripteur — le chemin peut changer entre un `stat` et un `read`
+    // (js/file-system-race).
+    let fd: number;
+    try {
+      fd = fs.openSync(abs, "r");
+    } catch {
       continue;
     }
-    inputs.push({
-      file,
-      module: moduleOf(file),
-      text: fs.readFileSync(abs, "utf8"),
-    });
+    try {
+      const stat = fs.fstatSync(fd);
+      if (!stat.isFile()) continue;
+      if (stat.size > SYMBOLS_MAX_FILE_BYTES) {
+        skipped.push({ file, bytes: stat.size });
+        continue;
+      }
+      inputs.push({
+        file,
+        module: moduleOf(file),
+        text: fs.readFileSync(fd, "utf8"),
+      });
+    } finally {
+      fs.closeSync(fd);
+    }
   }
   return { inputs, skipped };
 }

@@ -314,7 +314,10 @@ export function createAppContributionContext(
   ): boolean => {
     const target = resolveInside(appRoot, relative);
     const tracked = writeOptions.tracked === true;
-    if (!existsSync(target)) {
+    // Lu UNE fois, l'absence constatée par l'échec : un `existsSync` suivi
+    // d'une lecture laisse le fichier changer entre les deux (js/file-system-race).
+    const existing = readIfPresent(target);
+    if (existing === null) {
       put(target, content);
       written.push(relative);
       if (tracked) files[relative] = contributionFingerprint(content);
@@ -325,7 +328,7 @@ export function createAppContributionContext(
       return false;
     }
     const delivered = contributionFingerprint(content);
-    const current = contributionFingerprint(readFileSync(target));
+    const current = contributionFingerprint(existing);
     const previous = recorded[relative];
     if (current === delivered) {
       // Identique à la livraison : intact par constat, inscrit même s'il
@@ -371,10 +374,8 @@ export function createAppContributionContext(
     dryRun,
     update,
     exists: (relative) => existsSync(resolveInside(appRoot, relative)),
-    read: (relative) => {
-      const target = resolveInside(appRoot, relative);
-      return existsSync(target) ? readFileSync(target, "utf8") : null;
-    },
+    read: (relative) =>
+      readIfPresent(resolveInside(appRoot, relative))?.toString("utf8") ?? null,
     write,
     copyTree,
   };
@@ -450,6 +451,24 @@ export async function runAppContributions(
 }
 
 /**
+ * Le contenu d'un fichier, ou `null` s'il ne peut pas être lu (absent, dossier).
+ *
+ * Une seule opération disque : l'existence se CONSTATE par l'échec de la
+ * lecture, jamais par un contrôle préalable que le fichier peut démentir entre
+ * les deux (js/file-system-race).
+ *
+ * @param file - chemin absolu.
+ * @returns les octets, ou `null`.
+ */
+function readIfPresent(file: string): Buffer | null {
+  try {
+    return readFileSync(file);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Écrit le registre — seulement s'il change : une synchronisation sans effet
  * ne salit pas l'arbre. Aucun fichier suivi, aucun registre préexistant ⇒ rien.
  */
@@ -458,10 +477,10 @@ function writeScaffoldLock(
   packages: Readonly<Record<string, IScaffoldLockPackage>>,
 ): void {
   const target = path.join(appRoot, SCAFFOLD_LOCK_FILE);
-  const exists = existsSync(target);
-  if (!exists && Object.keys(packages).length === 0) return;
+  const previous = readIfPresent(target)?.toString("utf8") ?? null;
+  if (previous === null && Object.keys(packages).length === 0) return;
   const content = renderScaffoldLock(packages);
-  if (exists && readFileSync(target, "utf8") === content) return;
+  if (previous === content) return;
   writeFileSync(target, content);
 }
 
