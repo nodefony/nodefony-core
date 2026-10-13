@@ -98,6 +98,14 @@ export class AdminStore {
     makeAutoObservable(this, {}, { autoBind: true });
   }
 
+  /**
+   * Ce serveur est-il le DÉPÔT du framework ? Lu sur `/studio/api/info`, qui ne
+   * porte le drapeau que là. `null` tant que l'info n'est pas chargée ; un échec
+   * vaut `false` : une page réservée au dépôt reste cachée plutôt que montrée à
+   * une application. Du confort d'affichage, jamais une garde.
+   */
+  frameworkRepository: boolean | null = null;
+
   /** Le serveur tourne-t-il en production ? (inconnu → on suppose que NON). */
   get isProd(): boolean {
     return this.env === "production";
@@ -111,12 +119,20 @@ export class AdminStore {
    */
   async loadInfo(): Promise<void> {
     try {
-      const info = await this.api.get<{ env?: string }>("/info");
+      const info = await this.api.get<{
+        env?: string;
+        frameworkRepository?: boolean;
+      }>("/info");
       runInAction(() => {
         this.env = typeof info.env === "string" ? info.env : null;
+        this.frameworkRepository = info.frameworkRepository === true;
       });
     } catch {
-      /* identité inconnue → aucun filtrage par environnement */
+      /* identité inconnue → aucun filtrage par environnement ; le dépôt, lui,
+         n'est pas supposé */
+      runInAction(() => {
+        this.frameworkRepository = false;
+      });
     }
   }
 

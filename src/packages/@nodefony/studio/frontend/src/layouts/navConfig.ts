@@ -88,6 +88,12 @@ export interface NavItem {
    * sur ce flag pour « protéger » quoi que ce soit.
    */
   devOnly?: boolean;
+  /**
+   * Page qui ne parle que du FRAMEWORK (sa feuille de route) → proposée dans le
+   * dépôt du framework seulement, jamais dans une application générée, où ce
+   * serait la feuille de route d'un autre présentée comme la sienne.
+   */
+  repoOnly?: boolean;
 }
 
 /** Un groupe de navigation repliable. */
@@ -423,6 +429,7 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/roadmap",
         label: "Feuille de route",
         icon: IconMap,
+        repoOnly: true,
       },
     ],
   },

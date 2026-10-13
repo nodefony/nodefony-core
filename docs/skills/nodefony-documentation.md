@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-12
+updated: 2026-10-13
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -73,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/briques-front.md` | Briques front de la doc — API exacte | 128 |
-| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 623 |
+| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 629 |
 
 
 ## Scripts embarqués

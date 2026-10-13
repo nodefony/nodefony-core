@@ -23,6 +23,7 @@ import {
   runAppContributions,
   suspendSupervisor,
   resumeSupervisor,
+  isFrameworkRepository,
 } from "nodefony";
 import type {
   IKernel,
@@ -699,6 +700,12 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
    * @param key - clé courte (`http`) ou nom de paquet (`@nodefony/redis`).
    * @returns le dossier à lire, ou `null`.
    */
+  // Les pages `publish: core` ne se servent que dans le dépôt du framework.
+  // Constaté une fois, au premier besoin : le décor ne change pas en cours de vie.
+  let frameworkRepository: boolean | null = null;
+  const inFrameworkRepository = (): boolean =>
+    (frameworkRepository ??= isFrameworkRepository(kernel.path));
+
   const resolveDocDir = (key: string): string | null =>
     resolveTarget(key)?.path ?? resolvePackageDir(key);
 
@@ -1724,7 +1731,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             body: { error: "Module not found", key, available: docKeys() },
           };
         }
-        return { key, docs: await listModuleDocs(dir) };
+        return {
+          key,
+          docs: await listModuleDocs(dir, false, inFrameworkRepository()),
+        };
       },
     },
     {
@@ -1740,7 +1750,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             body: { error: "Module not found", key, available: docKeys() },
           };
         }
-        const doc = await readModuleDoc(dir, request.params.slug ?? "");
+        const doc = await readModuleDoc(
+          dir,
+          request.params.slug ?? "",
+          inFrameworkRepository(),
+        );
         if (!doc) {
           // Le SOMMAIRE accompagne le refus : une page demandée sous un slug
           // approchant (« firewal » pour « firewall ») est le cas courant, et
@@ -1752,7 +1766,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
               error: "Doc not found",
               key,
               slug: request.params.slug,
-              available: (await listModuleDocs(dir)).map((d) => d.slug),
+              available: (
+                await listModuleDocs(dir, false, inFrameworkRepository())
+              ).map((d) => d.slug),
             },
           };
         }
@@ -1808,7 +1824,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       handler: async () => {
         const modules: { key: string; docs: DocSummary[] }[] = [];
         for (const target of docTargets()) {
-          const docs = await listModuleDocs(target.path);
+          const docs = await listModuleDocs(
+            target.path,
+            false,
+            inFrameworkRepository(),
+          );
           if (docs.length > 0) modules.push({ key: target.key, docs });
         }
         return {
@@ -1839,6 +1859,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const limit = Number.parseInt(String(request.query.limit ?? ""), 10);
         return searchModuleDocs(docTargets(), q, {
           limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+          frameworkRepository: inFrameworkRepository(),
         });
       },
     },

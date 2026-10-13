@@ -24,7 +24,12 @@ import {
   DocNotFoundError,
   DocUnsafeSlugError,
 } from "../src/errors/DocumentationError";
-import { stripTrailingSlashes } from "nodefony";
+import {
+  stripTrailingSlashes,
+  readDocScope,
+  isDocVisible,
+  isFrameworkRepository,
+} from "nodefony";
 import type { IDocumentationConfig } from "../config/config";
 import type {
   DocAudience,
@@ -161,6 +166,13 @@ class DocumentationService extends Service {
   /** Racine du projet (où vit `docs/` transverse). */
   #projectRoot(): string {
     return this.kernel?.path ?? process.cwd();
+  }
+
+  /** Décor du dépôt du framework ? Constaté une fois : il ne change pas en cours de vie. */
+  #frameworkRepository: boolean | null = null;
+  #inFrameworkRepository(): boolean {
+    this.#frameworkRepository ??= isFrameworkRepository(this.#projectRoot());
+    return this.#frameworkRepository;
   }
 
   // ───────────────────────── API publique ─────────────────────────
@@ -364,7 +376,11 @@ class DocumentationService extends Service {
         );
       }
     }
-    return out;
+    // La portée de chaque page (`publish: user | core | none`) : une page interne
+    // au dépôt du framework n'est servie que là. Hors de l'index, elle n'a ni
+    // slug ni lien résolu — `getPage` ne peut donc pas l'atteindre non plus.
+    const repo = this.#inFrameworkRepository();
+    return out.filter((d) => isDocVisible(readDocScope(d.meta.publish), repo));
   }
 
   /**

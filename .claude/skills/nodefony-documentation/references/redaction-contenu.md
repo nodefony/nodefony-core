@@ -55,12 +55,18 @@ général au plus précis — **et le dernier gagne toujours** :
    et un lecteur ne distingue pas un brouillon d'une promesse. Une page **sans** `status` reste
    publiée — retirer un guide utile pour un frontmatter incomplet serait une punition, pas une
    règle — mais elle est signalée au rendu ;
-3. **la PAGE elle-même**, par cette clé :
+3. **la PAGE elle-même**, par cette clé — qui dit à QUI la page s'adresse :
 
    ```yaml
-   publish: false # retire du site une page qui y serait allée
-   publish: true # publie une page que son dossier ou son statut excluait
+   publish: user # pour qui se sert de Nodefony : site, Studio du dépôt ET des applications
+   publish: core # pour qui développe le framework : Studio du dépôt seulement
+   publish: none # pour personne : reste dans git, ni site ni Studio
    ```
+
+   `true`/`false` restent compris (`user`/`core`). La clé est lue par UNE règle du cœur
+   (`readDocScope`/`isDocVisible`, `nodefony` → `runtime/docScope.ts`) que suivent le site, le
+   portail de Studio et l'onglet Docs d'un module. Une page de module `core` part quand même dans
+   le paquet npm : c'est Studio qui ne la sert pas hors du dépôt du framework.
 
 Le générateur AFFICHE ce qu'il écarte et pourquoi, page par page — publier à l'aveugle est le seul
 vrai risque de cet outil. Vérifier avant de pousser :

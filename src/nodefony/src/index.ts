@@ -389,6 +389,12 @@ export type {
 } from "./runtime/authRoutes";
 export { safeRedirectPath } from "./runtime/safeRedirect";
 export {
+  readDocScope,
+  isDocVisible,
+  isFrameworkRepository,
+} from "./runtime/docScope";
+export type { DocScope } from "./runtime/docScope";
+export {
   SESSION_AUTH_AT_KEY,
   SESSION_AMR_KEY,
   readSessionAuthentication,

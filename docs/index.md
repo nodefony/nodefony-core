@@ -46,9 +46,7 @@ Comment l'ensemble tient. Ces pages ne relèvent d'aucun module en particulier.
   { "icon": "⚙️", "title": "Configuration", "href": "architecture/configuration.md",
     "desc": "`defineConfig`, `use()`, l'environnement — et la validation au boot." },
   { "icon": "🔀", "title": "Pipeline de requête", "href": "architecture/pipeline-requete.md",
-    "desc": "Le trajet d'une requête, de l'octet reçu à l'octet renvoyé. HTTP et WebSocket." },
-  { "icon": "📦", "title": "Build & bundling", "href": "architecture/build-bundling.md",
-    "desc": "Comment le TypeScript devient un paquet publiable : rolldown, types, distribution." }
+    "desc": "Le trajet d'une requête, de l'octet reçu à l'octet renvoyé. HTTP et WebSocket." }
 ]
 ```
 

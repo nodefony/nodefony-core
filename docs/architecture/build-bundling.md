@@ -26,6 +26,7 @@ version: "doc"
 status: stable
 updated: 2026-07-19
 source: "docs/architecture/build-bundling.md"
+publish: core
 ---
 
 # Build & bundling — de la source au paquet publiable

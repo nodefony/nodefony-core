@@ -51,9 +51,6 @@ Ces trois pages se lisent dans l'ordre : ce qui démarre, ce qui se branche, ce 
   { "icon": "⚙️", "title": "Configuration", "href": "configuration.md",
     "desc": "Le modèle de résolution : d'où vient chaque valeur, qui gagne sur qui, et ce qui est figé au démarrage.",
     "meta": "le concept ; la recette est dans les guides" },
-  { "icon": "📦", "title": "Build & bundling", "href": "build-bundling.md",
-    "desc": "Comment le TypeScript devient un paquet qu'on installe : rolldown, types générés, ce qui reste hors du bundle.",
-    "meta": "ce que reçoit celui qui installe" },
   { "icon": "🔌", "title": "La socket Nodefony", "href": "realtime-socket-nodefony.md",
     "desc": "La trajectoire du temps réel : ce qui existe, ce qui est visé, et pourquoi HTTP et WebSocket partagent le même contexte de contrôleur.",
     "meta": "le différenciateur, expliqué" }

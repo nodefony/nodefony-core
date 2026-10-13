@@ -80,25 +80,7 @@ Le passage du poste au conteneur, et ce qu'on promet à ceux qui installent.
     "meta": "avant de monter de version" },
   { "icon": "⬆️", "title": "Monter de version", "href": "montee-de-version.md",
     "desc": "Monter les paquets ensemble, puis remettre l'application au niveau : AGENTS.md, skills d'agent et fichiers livrés, qu'un npm install ne refait pas.",
-    "meta": "après avoir lu Compatibilité" },
-  { "icon": "📦", "title": "Publier une release", "href": "publier-une-release.md",
-    "desc": "La chaîne des quinze paquets, ce que chaque garde refuse, et pourquoi une version publiée ne se rattrape pas.",
-    "meta": "côté mainteneur" }
-]
-```
-
-## 🔬 Éprouver
-
-Comment ce projet se contrôle lui-même — transposable à vos propres bancs.
-
-```nodefony-cards
-[
-  { "icon": "🏭", "title": "Intégration continue", "href": "integration-continue.md",
-    "desc": "Ce que la forge lance, avec quel décor, et comment le rejouer chez vous. La règle qui gouverne tout : un test non exécuté n'est pas un test réussi.",
-    "meta": "un saut compte comme un vert" },
-  { "icon": "🤖", "title": "Éprouver avec un agent", "href": "eprouver-loutillage-agent.md",
-    "desc": "Confier une tâche réelle au modèle le plus faible, dans une application neuve, et compter ce qu'il a dû écrire HORS de l'outil. Le décor décide du résultat.",
-    "meta": "la méthode, et ce qu'elle a trouvé" }
+    "meta": "après avoir lu Compatibilité" }
 ]
 ```
 

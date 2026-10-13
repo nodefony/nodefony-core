@@ -11,6 +11,7 @@ status: stable
 updated: 2026-09-01
 source: "docs/guides/eprouver-loutillage-agent.md"
 related: docs/guides/generer-du-code.md, .claude/skills/nodefony-devkit-bench/, src/nodefony/src/cli/scaffold/engine.ts
+publish: core
 ---
 
 # Éprouver un framework avec un agent

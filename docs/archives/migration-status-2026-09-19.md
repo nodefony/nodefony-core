@@ -3,7 +3,7 @@ title: Tableau de bord de la migration 7 → 10 — archive intégrale
 lang: fr
 status: ARCHIVE (photo du 2026-09-19 — ne plus éditer)
 audience: Lead Architect / mainteneur
-publish: false
+publish: none
 ---
 
 # Tableau de bord de la migration 7 → 10 — archive intégrale

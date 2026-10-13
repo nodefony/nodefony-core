@@ -290,11 +290,16 @@ export const AdminLayout = observer(() => {
    *  - l'ENVIRONNEMENT : une page `devOnly` n'a pas de back en production, la
    *    proposer mènerait à un écran mort. Tant que l'environnement est inconnu
    *    (`env === null`, info pas encore chargée), on montre — mieux vaut une
-   *    entrée de trop qu'une entrée disparue sur un aléa réseau.
+   *    entrée de trop qu'une entrée disparue sur un aléa réseau ;
+   *  - le DÉCOR : une page `repoOnly` ne parle que du framework, proposée dans
+   *    son dépôt seulement. Ici l'inconnu CACHE : montrer à une application la
+   *    feuille de route d'un autre est le défaut même qu'on évite.
    */
   const availableHere = useCallback(
-    (item: NavItem): boolean => !(item.devOnly && admin.isProd),
-    [admin.isProd],
+    (item: NavItem): boolean =>
+      !(item.devOnly && admin.isProd) &&
+      !(item.repoOnly && admin.frameworkRepository !== true),
+    [admin.isProd, admin.frameworkRepository],
   );
 
   /** Toutes les entrées visibles pour CET utilisateur, dans CET environnement. */

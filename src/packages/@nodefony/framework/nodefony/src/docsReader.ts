@@ -11,6 +11,8 @@ import {
   portableSpawn,
   resolvePackageManager,
   readSymbolsGraph,
+  readDocScope,
+  isDocVisible,
 } from "nodefony";
 import type { IPackageManagerResolution } from "nodefony";
 
@@ -176,16 +178,26 @@ async function gitLastUpdated(file: string): Promise<string | null> {
   }
 }
 
-/** Construit un `DocSummary` à partir du contenu brut d'un `.md`. */
+/**
+ * La page se sert-elle dans ce décor ? Portée lue dans `publish` par la règle
+ * du cœur (`readDocScope`/`isDocVisible`) — la même que le portail et le site.
+ */
+function servable(data: DocFrontmatter, frameworkRepository: boolean): boolean {
+  return isDocVisible(readDocScope(data.publish), frameworkRepository);
+}
+
+/** Construit un `DocSummary` à partir du contenu brut d'un `.md` — `null` si la page n'est pas servie ici. */
 async function summarize(
   docsDir: string,
   fileName: string,
   withGit: boolean,
-): Promise<DocSummary> {
+  frameworkRepository: boolean,
+): Promise<DocSummary | null> {
   const slug = basename(fileName, extname(fileName));
   const full = join(docsDir, fileName);
   const raw = await readFile(full, "utf8");
   const { data, body } = parseFrontmatter(raw);
+  if (!servable(data, frameworkRepository)) return null;
   const title = docTitle(data, body, slug);
   return {
     slug,
@@ -215,6 +227,7 @@ async function summarize(
 export async function listModuleDocs(
   modulePath: string,
   withGit = false,
+  frameworkRepository = false,
 ): Promise<DocSummary[]> {
   const docsDir = join(modulePath, "docs");
   let entries: string[];
@@ -224,9 +237,11 @@ export async function listModuleDocs(
     return [];
   }
   const mdFiles = entries.filter((f) => f.toLowerCase().endsWith(".md"));
-  const summaries = await Promise.all(
-    mdFiles.map((f) => summarize(docsDir, f, withGit)),
-  );
+  const summaries = (
+    await Promise.all(
+      mdFiles.map((f) => summarize(docsDir, f, withGit, frameworkRepository)),
+    )
+  ).filter((d): d is DocSummary => d !== null);
   return summaries.sort(
     (a, b) => a.order - b.order || a.slug.localeCompare(b.slug),
   );
@@ -259,6 +274,7 @@ export async function countModuleDocs(modulePath: string): Promise<number> {
 export async function readModuleDoc(
   modulePath: string,
   slug: string,
+  frameworkRepository = false,
 ): Promise<DocContent | null> {
   if (!SLUG_RE.test(slug)) return null;
   const full = join(modulePath, "docs", `${slug}.md`);
@@ -269,6 +285,7 @@ export async function readModuleDoc(
     return null;
   }
   const { data, body } = parseFrontmatter(raw);
+  if (!servable(data, frameworkRepository)) return null;
   return {
     slug,
     frontmatter: data,
@@ -427,7 +444,11 @@ function snippet(line: string, folded: string, term: string): string {
 export async function searchModuleDocs(
   targets: readonly DocSearchTarget[],
   query: string,
-  options: { limit?: number | undefined; perDoc?: number } = {},
+  options: {
+    limit?: number | undefined;
+    perDoc?: number;
+    frameworkRepository?: boolean;
+  } = {},
 ): Promise<DocSearchResult> {
   const terms = fold(query)
     .split(/\s+/)
@@ -457,9 +478,10 @@ export async function searchModuleDocs(
       } catch {
         continue;
       }
-      scanned += 1;
       const slug = basename(fileName, extname(fileName));
       const { data, body } = parseFrontmatter(raw);
+      if (!servable(data, options.frameworkRepository ?? false)) continue;
+      scanned += 1;
       const title = docTitle(data, body, slug);
       // Le libellé de menu entre dans l'index : c'est le mot que le lecteur VOIT,
       // donc celui qu'il tape. Sans lui, chercher « Tests » ne trouve pas la page

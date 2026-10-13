@@ -11,6 +11,7 @@ updated: 2026-09-01
 source: "docs/guides/publier-une-release.md"
 navTitle: Publier une release
 related: scripts/release/, .github/workflows/release.yml, docs/release/nodefony-10.md
+publish: core
 ---
 
 # Publier une release

@@ -6,7 +6,7 @@ topic: login-page-design
 audience: [developer]
 tags: [design, login, maquettes, theme]
 status: draft
-publish: false
+publish: core
 updated: 2026-10-11
 ---
 

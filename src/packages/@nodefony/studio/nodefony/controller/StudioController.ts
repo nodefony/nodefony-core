@@ -13,6 +13,17 @@ import {
   readGitBranch,
   type AppMeta,
 } from "../realtime/providers";
+import { isFrameworkRepository } from "nodefony";
+
+/** Décor « dépôt du framework », constaté une fois par racine : il ne change pas en cours de vie. */
+let frameworkRepository: { root: string; value: boolean } | null = null;
+function inFrameworkRepository(root: string | undefined): boolean {
+  if (!root) return false;
+  if (frameworkRepository?.root !== root) {
+    frameworkRepository = { root, value: isFrameworkRepository(root) };
+  }
+  return frameworkRepository.value;
+}
 
 /**
  * Controller Studio admin.
@@ -183,10 +194,17 @@ class StudioController extends Controller {
     // anonyme une empreinte exploitable : version Node EXACTE (corrélation CVE),
     // mémoire/pid live du pod, flag debug. Les infos runtime riches vivent sur
     // /studio/api/stats (gardé ROLE_SUPERVISOR).
+    // `frameworkRepository` n'apparaît QUE dans le dépôt du framework : une
+    // application garde la réponse d'avant, octet pour octet — aucun champ de
+    // plus pour l'empreinter. Il sert à réserver au dépôt ce qui ne parle que
+    // du framework (la feuille de route de Studio).
     return this.renderJson({
       name: "Nodefony Studio",
       version: "10.0.0-poc.1",
       env: this.kernel?.environment,
+      ...(inFrameworkRepository(this.kernel?.path)
+        ? { frameworkRepository: true }
+        : {}),
     });
   }
 

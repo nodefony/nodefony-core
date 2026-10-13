@@ -10,7 +10,7 @@ audience: [developer]
 tags: [realtime, tests, couverture, bancs, trous, e2e, charge]
 version: "doc"
 status: stable
-publish: false
+publish: core
 source: "src/packages/@nodefony/realtime/docs/couverture-bancs.md"
 ---
 

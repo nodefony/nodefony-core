@@ -11,6 +11,7 @@ status: stable
 updated: 2026-09-01
 source: "docs/guides/integration-continue.md"
 related: scripts/test/vitest/gates.ts, docs/guides/persistence.md, .github/workflows/
+publish: core
 ---
 
 # Intégration continue

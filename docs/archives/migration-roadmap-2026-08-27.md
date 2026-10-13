@@ -3,7 +3,7 @@ title: Feuille de route de la migration — archive intégrale
 lang: fr
 status: ARCHIVE (photo du 2026-08-27 — ne plus éditer)
 audience: Lead Architect / mainteneur
-publish: false
+publish: none
 ---
 
 # Feuille de route de la migration — archive intégrale

@@ -7,7 +7,9 @@ import {
   Text,
   ThemeIcon,
 } from "@mantine/core";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
+import { observer } from "mobx-react-lite";
+import { useAdmin } from "../stores";
 import { PageHeader } from "../components/ui";
 import { NAV_GROUPS } from "../layouts/navConfig";
 import { DocHint } from "../components/ui";
@@ -27,7 +29,14 @@ import { DocHint } from "../components/ui";
  * apparaître dans le menu et disparaître d'ici, du même geste : les deux ne
  * peuvent pas se contredire.
  */
-export function Roadmap() {
+export const Roadmap = observer(function Roadmap() {
+  // La feuille de route ne parle que du FRAMEWORK : servie dans son dépôt
+  // seulement. Atteinte par l'URL dans une application, elle renvoie à
+  // l'accueil — le menu, lui, ne la propose déjà pas (`repoOnly`).
+  const admin = useAdmin();
+  if (admin.frameworkRepository === null) return null;
+  if (!admin.frameworkRepository) return <Navigate to="/nodefony" replace />;
+
   const groups = NAV_GROUPS.map((g) => ({
     id: g.id,
     label: g.label,
@@ -123,6 +132,6 @@ export function Roadmap() {
       })}
     </Stack>
   );
-}
+});
 
 export default Roadmap;

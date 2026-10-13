@@ -18,8 +18,9 @@
  *      gros du tri, et il ne se périme pas : une page neuve dans `docs/guides/`
  *      est publique d'office, sans toucher à ce fichier ;
  *   2. une PAGE peut trancher pour elle-même, via son frontmatter `publish` —
- *      `publish: false` retire une page publiable, `publish: true` publie une
- *      page qui ne le serait pas. Le contrôle reste là où vit l'auteur.
+ *      `core` (interne au dépôt) ou `none` (nulle part) la retire, `user` publie
+ *      une page qui ne le serait pas ; `false`/`true` restent compris. Le
+ *      contrôle reste là où vit l'auteur.
  *
  * Le compte rendu final NOMME ce qui a été écarté et pourquoi. Publier à
  * l'aveugle serait le seul vrai risque de cet outil.
@@ -51,6 +52,7 @@ import {
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import MarkdownIt from "markdown-it";
+import { readDocScope } from "nodefony";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { pathToFileURL } from "node:url";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
@@ -247,11 +249,12 @@ const PRIVATE = [
 const PUBLIC_STATUS = new Set(["stable", "accepted"]);
 
 function decide(d) {
-  // Le frontmatter a le dernier mot, dans les deux sens.
-  const explicit = d.meta?.publish;
-  if (explicit === false || explicit === "false")
-    return { ok: false, why: "publish: false (décision de la page)" };
-  const forced = explicit === true || explicit === "true";
+  // Le frontmatter a le dernier mot, dans les deux sens — lu par la règle du
+  // cœur, la MÊME que le portail de Studio et l'onglet Docs d'un module.
+  const scope = readDocScope(d.meta?.publish);
+  if (scope === "core" || scope === "none")
+    return { ok: false, why: `publish: ${scope} (décision de la page)` };
+  const forced = scope === "user";
 
   const status = metaString(d.meta, "status");
   if (!forced && status && !PUBLIC_STATUS.has(status))
