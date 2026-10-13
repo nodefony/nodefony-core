@@ -248,19 +248,41 @@ export async function listModuleDocs(
 }
 
 /**
- * Comptage rapide des docs (`*.md`) d'un module — readdir seul, sans lire/parser
- * ni `git`. Pour les KPI/overview (`docsCount`) où seul le nombre importe.
+ * Comptage des docs SERVIES d'un module, sans `git` — pour les KPI/overview
+ * (`docsCount`) où seul le nombre importe. Le frontmatter est lu : le compte
+ * suit la même portée (`publish`) que la liste, sinon le KPI annonce des pages
+ * que l'onglet Docs refuse d'ouvrir.
  *
  * @param modulePath - chemin disque du module (`Module.path`).
- * @returns nombre de fichiers `.md` dans `<modulePath>/docs/` (0 si absent).
+ * @param frameworkRepository - vrai dans le dépôt du framework (pages `core` servies).
+ * @returns nombre de pages servies dans `<modulePath>/docs/` (0 si absent).
  */
-export async function countModuleDocs(modulePath: string): Promise<number> {
+export async function countModuleDocs(
+  modulePath: string,
+  frameworkRepository = false,
+): Promise<number> {
+  const docsDir = join(modulePath, "docs");
+  let entries: string[];
   try {
-    const entries = await readdir(join(modulePath, "docs"));
-    return entries.filter((f) => f.toLowerCase().endsWith(".md")).length;
+    entries = await readdir(docsDir);
   } catch {
     return 0;
   }
+  const served = await Promise.all(
+    entries
+      .filter((f) => f.toLowerCase().endsWith(".md"))
+      .map(async (f) => {
+        try {
+          const { data } = parseFrontmatter(
+            await readFile(join(docsDir, f), "utf8"),
+          );
+          return servable(data, frameworkRepository);
+        } catch {
+          return false;
+        }
+      }),
+  );
+  return served.filter(Boolean).length;
 }
 
 /**

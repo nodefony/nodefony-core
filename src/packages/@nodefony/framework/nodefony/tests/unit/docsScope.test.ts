@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
+  countModuleDocs,
   listModuleDocs,
   readModuleDoc,
   searchModuleDocs,
@@ -67,6 +68,11 @@ describe("docsReader — portée des pages (publish)", () => {
       null,
     );
     expect(await readModuleDoc(mod(), "brouillon", true)).to.equal(null);
+  });
+
+  it("🔴 le compte du module (KPI) suit la même portée que la liste", async () => {
+    expect(await countModuleDocs(mod(), false)).to.equal(1);
+    expect(await countModuleDocs(mod(), true)).to.equal(2);
   });
 
   it("🔴 la recherche ne trouve pas une page core hors du dépôt", async () => {

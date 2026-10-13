@@ -1615,7 +1615,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             services: [],
             config: {},
             configSchema: null,
-            docsCount: await countModuleDocs(core.path),
+            docsCount: await countModuleDocs(
+              core.path,
+              inFrameworkRepository(),
+            ),
             symbolsCount: (await listModuleSymbols(CORE_PACKAGE)).length,
             coverageLines: (await readCoverage(core.path)).total?.lines ?? null,
           };
@@ -1665,7 +1668,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           // posée par champ (« qui surcharge, où ») — page config + onglet module.
           seg: cfg.seg,
           envKeys: cfg.envKeys,
-          docsCount: await countModuleDocs(mod.path),
+          docsCount: await countModuleDocs(mod.path, inFrameworkRepository()),
           symbolsCount: (await listModuleSymbols(cfg.name)).length,
           coverageLines: (await readCoverage(mod.path)).total?.lines ?? null,
         };
