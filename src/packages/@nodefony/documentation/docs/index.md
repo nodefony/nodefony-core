@@ -104,24 +104,24 @@ Quatre propriétés, toutes vérifiables dans le code — c'est ce qui distingue
 `readFile` sur un dossier.
 
 **La doc voyage avec le code qu'elle décrit.** Le service scanne le `docs/` racine du projet **et**
-le `docs/` de chaque module chargé (`DocumentationService.#scanAll()`, `DocumentationService.ts:320`).
+le `docs/` de chaque module chargé (`DocumentationService.#scanAll()`, `DocumentationService.ts:332`).
 Pour ton module, la seule condition est d'avoir déclaré `docs` dans le champ `files` de son
 `package.json` — sans quoi npm ne publie pas le dossier, et la doc disparaît à l'installation.
 Le regroupement en sections ne se déclare nulle part : il est **calculé depuis le dossier parent**
 du fichier (`group`, `docScanner.ts:87`), et l'`index.md` d'un dossier est présenté en premier
-(`DocumentationService.#orderPages()`, `DocumentationService.ts:482`) — un point d'entrée trié
+(`DocumentationService.#orderPages()`, `DocumentationService.ts:498`) — un point d'entrée trié
 alphabétiquement se retrouverait au milieu de ses propres pages.
 
 **La doc d'un module non activé est lisible quand même.** Les paquets présents dans
 `node_modules/@nodefony/*` sont scannés même s'ils ne figurent pas dans le manifeste de
-l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts:382`). C'est
+l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts:398`). C'est
 précisément le moment où on lit la doc d'un module : pour décider de l'activer. Les chemins sont
 résolus en lien réel, donc un dépôt en espace de travail indexe la source, jamais le lien
 symbolique — sinon le même fichier existerait sous deux chemins, et ses liens ne résoudraient plus.
 
 **Un identifiant de page est une clé, jamais un chemin.** Servir une page consiste à retrouver son
 entrée par **égalité d'identifiant** dans le catalogue scanné, puis à ouvrir le chemin absolu déjà
-connu (`DocumentationService.getPage()`, `DocumentationService.ts:240`). Le `mod~http~index` reçu du
+connu (`DocumentationService.getPage()`, `DocumentationService.ts:252`). Le `mod~http~index` reçu du
 client n'est jamais concaténé à un chemin de système de fichiers. Une garde en défense de profondeur
 (`isSafeSlug()`, `slug.ts:39`) rejette en plus tout identifiant suspect — segment `..`, séparateur,
 octet nul, hors jeu de caractères — **avant** même la recherche.
@@ -261,14 +261,14 @@ consommateur parmi d'autres.
 ## 🧰 Surface publique
 
 Côté serveur, le module expose `DocumentationService` — sa méthode `getTree()`
-(`DocumentationService.ts:177`) construit le catalogue, `getPage()`
-(`DocumentationService.ts:240`) sert une page, `invalidate()` (`DocumentationService.ts:173`) force
-un rescan immédiat, et `registerVar()` (`DocumentationService.ts:168`) branche une variable
+(`DocumentationService.ts:189`) construit le catalogue, `getPage()`
+(`DocumentationService.ts:252`) sert une page, `invalidate()` (`DocumentationService.ts:185`) force
+un rescan immédiat, et `registerVar()` (`DocumentationService.ts:180`) branche une variable
 dynamique.
 
 Les variables sont la seule extension du module. Une page écrit `{{ nom }}` ; le serveur substitue
 la valeur au moment de servir (`DocumentationService.#resolveVars()`,
-`DocumentationService.ts:541`). Trois variables sont fournies d'office — version du noyau, branche
+`DocumentationService.ts:555`). Trois variables sont fournies d'office — version du noyau, branche
 et empreinte git — enregistrées quand tous les modules sont montés
 (`Documentation.onKernelReady()`, `index.ts:78`). Ton module peut ajouter les siennes :
 
@@ -308,7 +308,7 @@ runtime dans le dépôt réel, et retombe sur `main` s'il n'y en a pas.
 
 > [!TIP]
 > **Le cache ne porte que le catalogue, jamais le contenu.** Une page est relue à chaque demande
-> (`DocumentationService.#ensureCache()`, `DocumentationService.ts:294`) : corriger une phrase se
+> (`DocumentationService.#ensureCache()`, `DocumentationService.ts:306`) : corriger une phrase se
 > voit au rafraîchissement. C'est **ajouter ou supprimer un fichier** qui attend l'expiration — d'où
 > `ttlMs: 0` en développement, et le défaut en production.
 
@@ -330,7 +330,7 @@ publique :
 | `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:82`)        |
 
 Le lien « Modifier » est assemblé côté serveur à partir d'un chemin **relatif** au dépôt
-(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:560`) : aucun chemin absolu de
+(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:574`) : aucun chemin absolu de
 système de fichiers ne sort jamais du serveur.
 
 ## 🧪 Tests & couverture

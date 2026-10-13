@@ -182,12 +182,12 @@ Ce qu'on observe ensuite :
    (`Studio.onKernelBoot()`, `index.ts:99`) — c'est le premier endroit à regarder si la page reste
    blanche.
 2. `https://127.0.0.1:5152/nodefony` sert la page ; toute URL à un segment sous `/nodefony` renvoie
-   la même page React (`StudioController.renderStudio()`, `StudioController.ts:53`), pour que le
+   la même page React (`StudioController.renderStudio()`, `StudioController.ts:64`), pour que le
    rechargement d'un lien profond ne tombe pas sur une erreur.
 3. `curl https://127.0.0.1:5152/nodefony/studio/api/health` répond sans authentification :
    c'est la sonde de vie, volontairement placée hors du pare-feu et réduite à l'état, la durée de
    fonctionnement et l'identifiant de processus (`StudioController.apiHealth()`,
-   `StudioController.ts:159`).
+   `StudioController.ts:177`).
 
 ## 🔐 Accéder à Studio
 
