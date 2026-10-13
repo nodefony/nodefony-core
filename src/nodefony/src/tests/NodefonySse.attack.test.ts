@@ -53,6 +53,13 @@ const stream = (res: http.ServerResponse): void => {
   res.writeHead(200, { "Content-Type": "text/event-stream" });
 };
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Attend une condition plutôt qu'une durée : une reconnexion part après
+// `retry` + gigue, et une machine lente (Windows en CI) y ajoute son propre
+// retard — une attente fixe calée sur le délai nominal y devient un aléa.
+const until = async (ok: () => boolean, deadlineMs = 3000): Promise<void> => {
+  const end = Date.now() + deadlineMs;
+  while (!ok() && Date.now() < end) await wait(20);
+};
 const track = (sse: NodefonySse): NodefonySse => (open.push(sse), sse);
 
 afterEach(async () => {
@@ -154,10 +161,17 @@ describe("RED-TEAM NodefonySse — serveur hostile", () => {
       if (n === 1) res.end("retry: 20\nid: é€😀\ndata: a\n\n");
       else res.write("data: b\n\n");
     });
+    // Gigue au maximum : `retry: 20` est relevé au plancher de 250 ms, puis
+    // porté à 375 ms — le pire cas, rendu déterministe.
+    const random = vi.spyOn(Math, "random").mockReturnValue(1);
     const sse = track(new NodefonySse(decor.url));
     const got: string[] = [];
     sse.onmessage = (e) => got.push(e.data);
-    await wait(400);
+    try {
+      await until(() => got.length >= 2);
+    } finally {
+      random.mockRestore();
+    }
     expect(got).to.deep.equal(["a", "b"]);
     expect(decor.hits.length).to.equal(2);
     // L'en-tête porte les OCTETS UTF-8 de l'id (Fetch : isomorphic encode).
