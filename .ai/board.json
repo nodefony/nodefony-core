@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T16:27:19.577Z",
+  "generatedAt": "2026-10-13T18:41:46.166Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 124,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -3619,6 +3619,22 @@
       "cible": null,
       "labels": [
         "alpha-9"
+      ]
+    },
+    {
+      "number": 595,
+      "title": "feat(scaffold): générer les secrets de production dans la CI de l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/595",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.5,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
       ]
     },
     {
