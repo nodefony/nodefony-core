@@ -581,10 +581,18 @@ export class NodefonySocket<
    * Ouvre la connexion WS. Idempotent — si déjà ouverte, no-op.
    *
    * Se règle sur CETTE tentative : résout à l'ouverture, rejette si la socket se
-   * ferme avant de s'ouvrir (refus, délai `connectTimeout` dépassé, réseau,
+   * ferme avant de s'ouvrir (délai `connectTimeout` dépassé, réseau,
    * `disconnect()`). Avec `autoReconnect`, la reconnexion continue en fond après
    * un rejet — l'état se suit par {@link onState}. Un appel non attendu s'écrit
    * donc `socket.connect().catch(() => {})`, jamais `void socket.connect()`.
+   *
+   * ⚠️ **Résolu ne veut pas dire autorisé.** Le pare-feu du serveur juge la
+   * connexion APRÈS l'ouverture : un anonyme sur une zone protégée voit
+   * `connect()` résoudre, puis la socket se fermer en `1008` sans jamais
+   * recevoir de `realtime:welcome`. Ce refus se lit par {@link onState}
+   * (`"error"`, définitif — pas de reconnexion) et par {@link onNotice} ; une
+   * connexion ACCEPTÉE se constate au welcome ({@link identity} non nul), jamais
+   * à la résolution de cette promesse.
    *
    * @param url - adresse à utiliser à la place de celle des options.
    * @throws Error si l'adresse manque, est illisible, d'un autre schéma que
