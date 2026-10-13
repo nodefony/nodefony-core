@@ -385,6 +385,15 @@ const echantillonsConnexionFront = (id) => ({
         matter: { added: "    await axios.post(AUTH_LOGIN_PATH, body);" },
         expect: false,
       },
+      {
+        // Même famille que « /login » : dire qu'on ne poste pas soi-même
+        // n'est pas poster soi-même.
+        label: "un commentaire qui nomme l'API de session",
+        matter: {
+          added: "  // sans poster à la main sur /nodefony/security/api/auth",
+        },
+        expect: true,
+      },
     ],
   },
   [`${id} :: aucun « /login » écrit en dur`]: {
@@ -392,6 +401,36 @@ const echantillonsConnexionFront = (id) => ({
       added: "  <a href={loginPagePath(location.pathname)}>Se connecter</a>",
     },
     fail: { added: '  location.assign("/login?from=/espace");' },
+    extra: [
+      {
+        // 🔴 Le cas vécu (tâche 36, 1ʳᵉ passe) : tous les juges d'état verts,
+        // et l'unique rouge venait du commentaire où l'agent écrivait QU'IL
+        // respectait la règle. Le backtick du markdown valait guillemet.
+        label: "un commentaire JSDoc qui cite `/login` entre backticks",
+        matter: {
+          added:
+            " * Formulaire de connexion DANS la page — aucun renvoi vers `/login`.",
+        },
+        expect: true,
+      },
+      {
+        label: "un commentaire JSX qui cite « /login »",
+        matter: { added: '        {/* jamais de renvoi vers "/login" ici */}' },
+        expect: true,
+      },
+      {
+        label: "un commentaire de gabarit Vue qui cite « /login »",
+        matter: { added: '  <!-- pas de renvoi vers "/login" -->' },
+        expect: true,
+      },
+      {
+        // La contrepartie : un commentaire en FIN de ligne ne blanchit pas
+        // le code qui le précède.
+        label: "le code en dur suivi d'un commentaire reste puni",
+        matter: { added: '  const cible = "/login"; // provisoire' },
+        expect: false,
+      },
+    ],
   },
   [`${id} :: aucune brique de sécurité éteinte en configuration`]: {
     pass: { added: "      void flow.submitMfaCode(code);" },

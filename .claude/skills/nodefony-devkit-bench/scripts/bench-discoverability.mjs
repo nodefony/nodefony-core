@@ -1386,8 +1386,9 @@ function tacheConnexionFront({ id, moteur, libelle }) {
         // classement des erreurs et le blocage sont alors à réécrire.
         kind: "code",
         name: "aucun appel écrit à la main vers l'API de session",
-        pattern:
+        pattern: surLigneDeCode(
           /\/nodefony\/security\/api\/auth|AUTH_LOGIN(?:_TOTP)?_PATH|AUTH_API_BASE/u,
+        ),
         where: "added",
         invert: true,
       },
@@ -1396,7 +1397,7 @@ function tacheConnexionFront({ id, moteur, libelle }) {
         // `security.loginPage.path`, que seul `loginPagePath` connaît.
         kind: "code",
         name: "aucun « /login » écrit en dur",
-        pattern: /["'`]\/login(?:[?"'`])/u,
+        pattern: surLigneDeCode(/["'`]\/login(?:[?"'`])/u),
         where: "added",
         invert: true,
       },
@@ -1981,8 +1982,9 @@ export const TASKS = [
         // se voyait reprocher du code écrit par NOTRE générateur, et commenté
         // par-dessus le marché. Mesuré au run large du 08-21 : tâche 4 en FAIL
         // sur 15 tours, tous ses gates d'état verts.
-        pattern:
-          /^(?!\s*(?:\/\/|\*|\/\*)).*(?:process\.argv|from\s+["']commander["']|from\s+["']yargs["'])/mu,
+        pattern: surLigneDeCode(
+          /process\.argv|from\s+["']commander["']|from\s+["']yargs["']/u,
+        ),
         where: "added",
         invert: true,
       },
@@ -2256,8 +2258,11 @@ export const TASKS = [
         // inapplicable écrite par l'agent, pas une métadonnée transportée.
         // Mesuré au run large du 08-21 : tâche 7 en FAIL sur 17 tours, tous
         // ses gates d'état verts.
-        pattern:
-          /^(?!\s*(?:\/\/|\*|\/\*|source\s*:|path\s*:)).*src\/packages\/@nodefony/mu,
+        pattern: surLigneDeCode(
+          /src\/packages\/@nodefony/u,
+          String.raw`source\s*:`,
+          String.raw`path\s*:`,
+        ),
         where: "added",
         invert: true,
       },
@@ -5335,6 +5340,44 @@ const DIFF_LIGNES_MAX = 5000;
  * @param {"+"|"-"} marqueur - le côté du diff qu'on retient.
  * @returns {string} les lignes retenues, sans leur premier caractère.
  */
+/**
+ * Restreint le motif d'une sonde `code` aux lignes de CODE : une ligne qui
+ * s'ouvre sur un commentaire ne mord pas.
+ *
+ * Ouvertures écartées : `//`, `*` (corps de JSDoc), `/*`, `{/*` (JSX) et
+ * `<!--` (gabarit Vue/HTML). Un commentaire en FIN de ligne ne blanchit pas le
+ * code qui le précède : seul le début de la ligne compte.
+ *
+ * 🔴 Une sonde INVERSÉE sans cette garde punit l'agent qui ÉCRIT qu'il respecte
+ * la règle. Vécu deux fois : le gabarit de `create command` cite
+ * `process.argv` dans un commentaire (tâche 4, 0/3 sur trois passes), et un
+ * agent a commenté « aucun renvoi vers `/login` » au-dessus d'un formulaire
+ * juste (tâche 36, seul rouge d'une passe aux juges d'état tous verts).
+ *
+ * La matière doit être du code DÉPOUILLÉ de son marqueur de diff
+ * ({@link lignesDuDiff}) — sur un diff brut, `^` tomberait sur le `+`.
+ *
+ * @param {RegExp} motif - ce que la sonde cherche dans une ligne de code.
+ * @param {...string} autresOuvertures - sources regex d'ouvertures de ligne à
+ *   écarter en plus (ex. `source\\s*:` pour une clé de configuration).
+ * @returns {RegExp} le motif ancré en début de ligne, drapeaux `m` et `u` posés.
+ */
+export function surLigneDeCode(motif, ...autresOuvertures) {
+  const ouvertures = [
+    String.raw`\/\/`,
+    String.raw`\*`,
+    String.raw`\/\*`,
+    String.raw`\{\s*\/\*`,
+    "<!--",
+    ...autresOuvertures,
+  ].join("|");
+  const drapeaux = [...new Set(`${motif.flags}mu`)].join("");
+  return new RegExp(
+    String.raw`^(?!\s*(?:${ouvertures})).*` + `(?:${motif.source})`,
+    drapeaux,
+  );
+}
+
 export const lignesDuDiff = (sortie, marqueur) =>
   sortie
     .split("\n")
