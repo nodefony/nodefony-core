@@ -52,12 +52,15 @@ export const readSources = (paths) =>
     }),
   );
 
-/** Le source sans ses commentaires : un exemple n'invoque rien. */
+/**
+ * Le source sans ses commentaires : un exemple n'invoque rien. Une SEULE passe, où le
+ * commentaire qui s'ouvre le premier l'emporte — en passes successives, un `/*` cité dans
+ * un `//` (`docs/*.md`) ouvrait un bloc et avalait le code jusqu'au prochain `*\/`.
+ */
 export const sansCommentaires = (src) =>
-  src
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/(^|\s)\/\/[^\n]*/g, "$1")
-    .replace(/(^|\s)#[^\n]*/g, "$1");
+  src.replace(/\/\*[\s\S]*?\*\/|(^|\s)(?:\/\/|#)[^\n]*/g, (_m, pre) =>
+    pre === undefined ? " " : pre,
+  );
 
 /**
  * Radiographie d'un script : sa raison d'être, sa ligne d'usage, ses options et les variables

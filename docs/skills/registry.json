@@ -937,6 +937,7 @@
         "pages.yml",
         ".githooks/pre-push",
         ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs",
+        ".claude/skills/nodefony-documentation/scripts/doc-lint.mjs",
         ".claude/skills/nodefony-documentation/scripts/render-figures.mjs"
       ],
       "testedBy": []
