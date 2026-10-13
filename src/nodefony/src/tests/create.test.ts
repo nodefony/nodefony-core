@@ -4711,6 +4711,23 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /NF_PORT:\s*"0"/u,
         "le serveur de test doit prendre un port libre du noyau, jamais 5151",
       );
+      // Le teardown n'arrête que ce que le setup a LANCÉ. Vitest l'appelle même
+      // après un setup en échec — or le lanceur refuse de démarrer quand
+      // `npm run dev` tourne, et un `stop` aveugle tuait alors ce serveur de
+      // développement (vu sur un agent réel : 3 process abattus).
+      assert.match(
+        e2eSetup,
+        /if \(EXTERNAL_BASE_URL \|\| !started\) return;/u,
+        "le teardown ne doit rien arrêter quand le setup n'a rien démarré",
+      );
+      const spawnAt = e2eSetup.indexOf('"production", "--detach", "--wait"');
+      const startedAt = e2eSetup.indexOf("started = true;");
+      assert.isAbove(spawnAt, -1);
+      assert.isAbove(
+        startedAt,
+        spawnAt,
+        "`started` ne se pose qu'APRÈS un lancement réussi",
+      );
       // Et le descripteur doit le LAISSER PASSER : `0` est falsy, un test de
       // vérité le jetterait et retomberait sur 5151 — le port qu'on fuyait.
       const configPorts = readFileSync(

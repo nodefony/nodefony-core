@@ -183,6 +183,16 @@ export const isExternalTarget = Boolean(EXTERNAL_BASE_URL);
 export const isTlsTarget =
   isExternalTarget && appBaseUrl().startsWith("https:");
 
+/**
+ * Vrai seulement quand CETTE suite a lancé son exemplaire de production.
+ *
+ * Vitest appelle `teardown` même quand `setup` a échoué. Or le lanceur refuse de
+ * démarrer quand un runtime de ce projet tourne déjà — typiquement
+ * `npm run dev` — et un `stop` aveugle tuerait alors ce serveur de
+ * développement, que la suite n'a pas lancé.
+ */
+let started = false;
+
 export async function setup(): Promise<void> {
   if (EXTERNAL_BASE_URL) {
     process.stdout.write(
@@ -285,12 +295,13 @@ export async function setup(): Promise<void> {
       NF__SECURITY__ALLOWINSECURECREDENTIALS: "true",
 <% } %>    },
   });
+  started = true;
 }
 
 export async function teardown(): Promise<void> {
   // Rien à arrêter : cette suite n'a rien démarré (cf `EXTERNAL_BASE_URL`), et
   // un `stop` ici tuerait un runtime local sans rapport avec ce qu'on mesure.
-  if (EXTERNAL_BASE_URL) return;
+  if (EXTERNAL_BASE_URL || !started) return;
   // Jamais de serveur laissé derrière : un runtime orphelin tient les ports et
   // fait échouer le run suivant sur une erreur qui ne parle pas de lui.
   execFileSync(process.execPath, [bin, "stop"], {
