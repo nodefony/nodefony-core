@@ -345,6 +345,7 @@ et un par geste où l'invention coûte cher :
 | `nodefony-devops`               | exploiter l'application en conteneur, sans réécrire son contrat  |
 | `nodefony-troubleshoot`         | partir d'un symptôme de panne pour trouver le geste qui la règle |
 | `nodefony-security-review`      | relire la sécurité d'un diff avant de le commiter                |
+| `nodefony-upgrade`              | monter le framework de version sans rien laisser derrière        |
 
 Tous portent le préfixe `nodefony-` : leurs pointeurs arrivent dans le dossier où
 vous écrivez aussi les vôtres, et sans namespace un skill maison du même nom

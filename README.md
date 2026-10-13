@@ -41,6 +41,8 @@ l'infrastructure répond (`npm run test:all`).
 
 ---
 
+## Nodefony en bref
+
 Nodefony est un framework serveur fullstack pour Node.js, écrit en TypeScript strict et bâti
 directement sur les modules natifs de la plateforme — `node:http`, `node:http2`, WebSocket. Il
 apporte un noyau à injection de dépendances qui donne à chaque requête son propre conteneur, un
@@ -50,6 +52,14 @@ persistance portable, une console d'administration et la construction des fronte
 Sa particularité tient en une propriété : **le WebSocket n'y est pas un ajout.** C'est un transport
 de première classe, servi par le même pipeline, la même table de routes et la même sécurité que le
 HTTP. Une application temps réel s'y écrit comme une application web ordinaire.
+
+<div align="center">
+
+```bash
+npm create nodefony@beta mon-app
+```
+
+</div>
 
 ### Chaque requête a son propre conteneur
 

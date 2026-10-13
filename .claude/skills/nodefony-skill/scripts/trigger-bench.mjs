@@ -183,6 +183,15 @@ const CASES = [
     "package",
   ],
   ["le serveur plante au démarrage", "nodefony-troubleshoot", "package"],
+  // La montée de version : le MOMENT (une version est sortie), jamais la
+  // commande — qui la connaît n'a pas besoin du skill pour la taper.
+  ["mettre à jour nodefony", "nodefony-upgrade", "package"],
+  ["passer à la nouvelle beta de nodefony", "nodefony-upgrade", "package"],
+  [
+    "une nouvelle version de nodefony est sortie",
+    "nodefony-upgrade",
+    "package",
+  ],
   // La relecture LIVRÉE : la question qu'un développeur pose avant de commiter,
   // jamais le nom d'une faille. Son homonyme du dépôt relit le FRAMEWORK.
   // « c'est sûr ? » ne se teste pas ici : après les mots vides il ne reste

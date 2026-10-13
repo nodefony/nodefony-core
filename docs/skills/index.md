@@ -20,7 +20,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**35 skills** · **35/35 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**36 skills** · **36/36 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -180,7 +180,10 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "troubleshoot", "href": "nodefony-troubleshoot.md",
     "desc": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
+  { "icon": "🔧", "title": "upgrade", "href": "nodefony-upgrade.md",
+    "desc": "Monte une application Nodefony vers une nouvelle version du framework sans rien laisser derrière : tous les paquets ensemble et sous le bon canal, puis `nodefony upgrade` pour la documentation des agents, les skills et les fichiers livrés qu'un `npm install` ne refait pas, puis les ruptures…",
+    "meta": "🟢 conforme v1.0.0" }
 ]
 ```
 
@@ -220,9 +223,10 @@ source: "docs/skills/index.md"
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 455 | 0 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 456 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 360 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.0.0 | 135 | 0 | 1 | ✅ |
+| [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 114 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

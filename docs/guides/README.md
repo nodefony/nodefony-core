@@ -78,6 +78,9 @@ Le passage du poste au conteneur, et ce qu'on promet à ceux qui installent.
   { "icon": "🤝", "title": "Compatibilité", "href": "compatibilite.md",
     "desc": "Ce qui casse en montant de version, ce que la garantie couvre vraiment, et comment une dépréciation se signale dans votre éditeur.",
     "meta": "avant de monter de version" },
+  { "icon": "⬆️", "title": "Monter de version", "href": "montee-de-version.md",
+    "desc": "Monter les paquets ensemble, puis remettre l'application au niveau : AGENTS.md, skills d'agent et fichiers livrés, qu'un npm install ne refait pas.",
+    "meta": "après avoir lu Compatibilité" },
   { "icon": "📦", "title": "Publier une release", "href": "publier-une-release.md",
     "desc": "La chaîne des quinze paquets, ce que chaque garde refuse, et pourquoi une version publiée ne se rattrape pas.",
     "meta": "côté mainteneur" }

@@ -226,7 +226,10 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "troubleshoot", "href": "skills/nodefony-troubleshoot.md",
     "desc": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
+  { "icon": "🔧", "title": "upgrade", "href": "skills/nodefony-upgrade.md",
+    "desc": "Monte une application Nodefony vers une nouvelle version du framework sans rien laisser derrière : tous les paquets ensemble et sous le bon canal, puis `nodefony upgrade` pour la documentation des agents, les skills et les fichiers livrés qu'un `npm install` ne refait pas, puis les ruptures…",
+    "meta": "🟢 conforme v1.0.0" }
 ]
 ```
 <!-- skills-cards:end -->

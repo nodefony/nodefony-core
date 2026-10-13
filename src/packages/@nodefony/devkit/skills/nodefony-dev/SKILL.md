@@ -52,11 +52,12 @@ de son geste, et ceux-là ne se devinent pas — ils se paient.
 | Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
 | Quelque chose qui marchait ne marche plus : démarrage, 404, journal  | `nodefony-troubleshoot`         |
 | Relire la sécurité de ton diff AVANT de commiter                     | `nodefony-security-review`      |
+| Monter Nodefony de version, ou une montée qui a laissé des rouges    | `nodefony-upgrade`              |
 
 Aucune ligne ne correspond ? Alors seulement, continue ici. Et si ta tâche est EXACTEMENT celle
 d'un spécialiste, va droit à lui : il n'y a pas à passer par cette page d'abord.
 
-`ls .agents/skills/` liste ceux que TON projet a reçus ; `npx nodefony ai:sync` les remet à jour
+`ls .agents/skills/` liste ceux que TON projet a reçus ; `npx nodefony upgrade` les remet à jour
 après une montée de version. Ce sont des **pointeurs** : le contenu vit dans `node_modules` et
 suit la version installée — les éditer ne servirait à rien.
 

@@ -3,7 +3,7 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-10-13",
-  "count": 39,
+  "count": 40,
   "repoScripts": [
     {
       "path": "scripts/lib/repo-root.mjs",
@@ -1894,7 +1894,7 @@
       "testedBy": []
     }
   ],
-  "conformant": 39,
+  "conformant": 40,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -11118,8 +11118,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 455,
-        "approxTokens": 7896
+        "bodyLines": 456,
+        "approxTokens": 7923
       },
       "requires": [],
       "resources": {
@@ -11236,7 +11236,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "455",
+            "detail": "456",
             "advisory": true
           }
         ]
@@ -11925,6 +11925,110 @@
       "links": {
         "source": "src/packages/@nodefony/devkit/skills/nodefony-troubleshoot/SKILL.md",
         "doc": "docs/skills/nodefony-troubleshoot.md"
+      }
+    },
+    {
+      "name": "nodefony-upgrade",
+      "summary": "Monte une application Nodefony vers une nouvelle version du framework sans rien laisser derrière : tous les paquets ensemble et sous le bon canal, puis `nodefony upgrade` pour la documentation des agents, les skills et les fichiers livrés qu'un `npm install` ne refait pas, puis les ruptures annoncées corrigées dans le code, le schéma migré et la preuve que tout tient.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [
+        "nodefony-troubleshoot"
+      ],
+      "triggers": [
+        "monter nodefony de version",
+        "mettre à jour nodefony",
+        "passer à la nouvelle beta",
+        "upgrade nodefony",
+        "npm update nodefony",
+        "une nouvelle version est sortie",
+        "mes paquets nodefony sont en retard",
+        "après la mise à jour plus rien ne compile",
+        "AGENTS.md est périmé"
+      ],
+      "description": "Monte une application Nodefony vers une nouvelle version du framework sans rien laisser derrière : tous les paquets ensemble et sous le bon canal, puis `nodefony upgrade` pour la documentation des agents, les skills et les fichiers livrés qu'un `npm install` ne refait pas, puis les ruptures annoncées corrigées dans le code, le schéma migré et la preuve que tout tient. À charger AVANT de lancer la montée de version, pas après un premier rouge. Une panne sans rapport avec une montée → `nodefony-troubleshoot`. Déclencheurs : \"monter nodefony de version\", \"mettre à jour nodefony\", \"passer à la nouvelle beta\", \"upgrade nodefony\", \"npm update nodefony\", \"une nouvelle version est sortie\", \"mes paquets nodefony sont en retard\", \"après la mise à jour plus rien ne compile\", \"AGENTS.md est périmé\".",
+      "cost": {
+        "bodyLines": 114,
+        "approxTokens": 1562
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-devops",
+        "nodefony-migrate-schema"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "798",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "114",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": "src/packages/@nodefony/devkit/skills/nodefony-upgrade/SKILL.md",
+        "doc": "docs/skills/nodefony-upgrade.md"
       }
     }
   ]

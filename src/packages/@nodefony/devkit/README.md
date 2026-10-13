@@ -236,8 +236,9 @@ npx nodefony ai:sync            # --dry-run pour voir sans écrire, --json pour 
   = nodefony-protect-route         @nodefony/devkit
   = nodefony-security-review       @nodefony/devkit
   = nodefony-troubleshoot          @nodefony/devkit
+  = nodefony-upgrade               @nodefony/devkit
 
-  0 posé(s) · 0 mis à jour · 11 inchangé(s)
+  0 posé(s) · 0 mis à jour · 12 inchangé(s)
 ```
 
 **Le préfixe `nodefony-` vous laisse la place.** Ces pointeurs arrivent dans
