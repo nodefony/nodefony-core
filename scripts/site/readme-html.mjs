@@ -290,6 +290,7 @@ const README_DOUBLONS = new Set([
   "Où aller ensuite",
 ]);
 const README_GARDES = new Set([
+  "Nodefony en bref",
   "Démarrage",
   "Ce qu'il y a dans la boîte",
   "État du projet",
