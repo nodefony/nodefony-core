@@ -383,7 +383,10 @@ describe("urlFastPath — isCanonicalAuthority, équivalence avec la version à 
     five("", 0);
     expect(diverging.slice(0, 20)).to.deep.equal([]);
     expect(checked).to.be.greaterThan(100_000);
-  });
+    // Un verdict d'ÉQUIVALENCE, pas une mesure : ~0,2 s sur un poste, 5,4 s
+    // constatées sur un runner macOS chargé — le délai par défaut (5 s) ne
+    // jugeait que la charge de la machine.
+  }, 30_000);
 
   it("fuzz déterministe : 50 000 autorités tirées dans « 0-9 . a x : - »", () => {
     let seed = 0x508b5;

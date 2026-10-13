@@ -756,6 +756,11 @@ step(
       // compose monte. Sans lui, le témoin n'est PAS l'application que
       // l'utilisateur reçoit : elle les a dès sa création.
       run(process.execPath, [BIN, "scaffold:sync"]);
+      // L'autre geste nommé : `ai:sync`, qui pose les pointeurs de skills que
+      // `create app` pose de lui-même après SON installation. Sans eux, `doctor`
+      // refuse le témoin (« skills sans pointeur → nodefony upgrade ») — à
+      // raison : l'application reçue par l'utilisateur les porte.
+      run(process.execPath, [BIN, "ai:sync"]);
     }
 
     // L'isolation se CONSTATE avant la première mesure : mieux vaut aucun
