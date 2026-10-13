@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 <% if (!it.db) { %>import { rmSync } from "node:fs";
 import path from "node:path";
 <% } %>import {
@@ -40,6 +41,21 @@ import path from "node:path";
  * Le résultat se donne à `node`, jamais au système : c'est un script.
  */
 const bin = nodefonyBin();
+
+/**
+ * Les secrets qu'un exemplaire de PRODUCTION du décor exige pour servir.
+ *
+ * `env.ts` déclare `NF_CSRF_SECRET` requis en production : sans lui, le
+ * démarrage refuse (sortie 78). Le `.env` du poste le porte, un CLONE non — et
+ * la CI de cette application en est un. Un secret posé par l'environnement est
+ * gardé ; sinon la suite tire le sien, comme `create app` le tire à la
+ * naissance. Tout exemplaire de production que la suite démarre les reçoit
+ * d'ici : une seconde liste, recopiée ailleurs, oublierait le prochain.
+ */
+export const PRODUCTION_SECRETS: Readonly<Record<string, string>> = {
+  NF_CSRF_SECRET:
+    process.env.NF_CSRF_SECRET ?? randomBytes(32).toString("base64"),
+};
 
 /**
  * Base de données de la suite E2E — jetable, et surtout SÉPARÉE de celle du
@@ -252,6 +268,7 @@ export async function setup(): Promise<void> {
       // ne dispose, l'application le publie, et `runningAppPort()` le lit. Aucun
       // port n'est écrit nulle part — il n'y a rien à tenir à jour.
       NF_PORT: "0",
+      ...PRODUCTION_SECRETS,
 <% if (it.hasSecurity) { %>      // Sans cette variable, la production ne sème AUCUN compte : les tests des
       // routes protégées n'auraient aucune identité à présenter, et échoueraient
       // en accusant la garde plutôt que le décor.

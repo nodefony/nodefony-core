@@ -18,7 +18,7 @@ import { nodefonyBin, runningAppPort, startSpareApp } from "nodefony/testing";
 // framework. Un fichier écrit avec la convention du dépôt échoue ici sur un
 // `beforeAll is not defined` — mesuré, pas déduit.
 import { afterAll, beforeAll, describe, it } from "vitest";
-import { E2E_BASE_URL } from "./e2e.setup";
+import { E2E_BASE_URL, PRODUCTION_SECRETS } from "./e2e.setup";
 
 /**
  * Ces épreuves interrogent la base LOCALE par la ligne de commande, et lancent
@@ -489,6 +489,7 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
       httpsPort: await freePort(),
       env: {
         NODE_ENV: "production",
+        ...PRODUCTION_SECRETS,
 <% if (it.hasSecurity) { %>        // Il SERT en production : sans clé de signature partagée, il refuserait
         // de démarrer (jwt.keystore). Seul sur ce poste — la source « dossier ».
         NF__SECURITY__JWT__KEYSTORE__DIR: "var/keys",

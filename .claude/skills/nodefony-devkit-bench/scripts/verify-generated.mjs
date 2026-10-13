@@ -42,6 +42,7 @@ import {
   readdirSync,
   writeFileSync,
   copyFileSync,
+  renameSync,
   statSync,
   utimesSync,
 } from "node:fs";
@@ -1766,7 +1767,24 @@ if (withE2e) {
     "la ressource RÉPOND vraiment (HTTP, serveur réel)",
     "201+Location, 422, 409 sur doublon, page hasNext, PATCH, 204 puis 404 — " +
       "et la suppression EXIGE une identité : refusée sans elle, la donnée survit.",
-    () => run("npm", ["run", "test:e2e"]),
+    () => {
+      // L'e2e se joue COMME DANS UN CLONE : sans le `.env` du poste, jamais
+      // versionné. La CI de l'application générée n'en a pas, et un secret que
+      // seul le `.env` fournit y manque — la production refuse alors de
+      // démarrer. Vécu à la 10.0.0-beta.3 : ce banc passait avec le `.env`, la
+      // vitrine (un clone) rougissait, APRÈS la publication. Écarté hors de
+      // l'application : un `.env.<suffixe>` laissé à côté serait refusé au
+      // démarrage comme fichier de l'ancienne convention.
+      const envFile = path.join(APP, ".env");
+      const aside = path.join(ROOT, "env-hors-application");
+      const present = existsSync(envFile);
+      if (present) renameSync(envFile, aside);
+      try {
+        run("npm", ["run", "test:e2e"]);
+      } finally {
+        if (present) renameSync(aside, envFile);
+      }
+    },
   );
 }
 
