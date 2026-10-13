@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T02:16:44.714Z",
+  "generatedAt": "2026-10-13T11:16:31.506Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,14 +49,14 @@
       "closed": 121,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 34,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
       "closed": 135,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 3,
+      "open": 2,
       "title": "10.0.0"
     },
     {
@@ -2853,6 +2853,38 @@
       "labels": []
     },
     {
+      "number": 592,
+      "title": "chore(deps): relever les dépendances en retard avant la beta.4",
+      "url": "https://github.com/nodefony/nodefony-core/issues/592",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.0005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 513,
+      "title": "feat(scaffold): mettre les apps générées en quarantaine de 3 jours",
+      "url": "https://github.com/nodefony/nodefony-core/issues/513",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.0007,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
       "number": 565,
       "title": "refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique",
       "url": "https://github.com/nodefony/nodefony-core/issues/565",
@@ -3174,6 +3206,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
+      "ordre": 4.019,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 593,
+      "title": "feat(cli): rafraîchir la doc des agents après une montée de version",
+      "url": "https://github.com/nodefony/nodefony-core/issues/593",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
       "ordre": 4.019,
       "debut": null,
       "cible": null,
@@ -6924,20 +6972,6 @@
       "labels": [
         "alpha-9"
       ]
-    },
-    {
-      "number": 513,
-      "title": "feat(scaffold): mettre les apps générées en quarantaine de 3 jours",
-      "url": "https://github.com/nodefony/nodefony-core/issues/513",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 58,
-      "debut": null,
-      "cible": null,
-      "labels": []
     },
     {
       "number": 47,
