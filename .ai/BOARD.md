@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-13 20:03** (UTC).
+> Empreinte prise le **2026-10-13 20:35** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 77% | 124 | 37 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 76% | 124 | 39 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -36,7 +36,7 @@
 
 Ordre 4.0007 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 37 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 39 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,13 +105,15 @@ Ordre 4.0007 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · fris
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 | 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
 
-## Jalon 10.0.0-beta — 37 ouverts
+## Jalon 10.0.0-beta — 39 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 4.0007 | P1 — figé à la création | 1 | — | #513 | feat(scaffold): mettre les apps générées en quarantaine de 3 jours |
 | 4.0008 | P1 — figé à la création | 2 | — | #596 | fix(http): refuser le handshake WebSocket non autorisé avant de l'accepter |
+| 4.0009 | P1 — figé à la création | 1 | — | #597 | fix(scaffold): faire défendre ses gardes par les tests e2e générés |
 | 4.001 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
+| 4.001 | P2 — décision | 1 | — | #598 | fix(cli): arrêter le serveur de dev au Ctrl-C de npm run dev |
 | 4.002 | P1 — figé à la création | 0.5 | — | #566 | fix(orm): écrire la première migration d'une application neuve |
 | 4.003 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 4.004 | P1 — figé à la création | 0.5 | 2026-10-12 → 10-12 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |

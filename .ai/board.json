@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T20:03:15.894Z",
+  "generatedAt": "2026-10-13T20:35:32.028Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 124,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 39,
       "title": "10.0.0-beta"
     },
     {
@@ -2933,6 +2933,22 @@
       ]
     },
     {
+      "number": 597,
+      "title": "fix(scaffold): faire défendre ses gardes par les tests e2e générés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/597",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.0009,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
       "number": 565,
       "title": "refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique",
       "url": "https://github.com/nodefony/nodefony-core/issues/565",
@@ -2941,6 +2957,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
+      "ordre": 4.001,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 598,
+      "title": "fix(cli): arrêter le serveur de dev au Ctrl-C de npm run dev",
+      "url": "https://github.com/nodefony/nodefony-core/issues/598",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
       "ordre": 4.001,
       "debut": null,
       "cible": null,
