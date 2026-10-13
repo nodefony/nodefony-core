@@ -558,10 +558,10 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 
 | Membre                  | Ancre               | Rôle                                                                                          |
 | ----------------------- | ------------------- | --------------------------------------------------------------------------------------------- |
-| `runProfile`            | `CliKernel.ts:122`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.                               |
-| `setRunProfile(profil)` | `CliKernel.ts:1052` | Déclaré par une commande ; recopié dans le kernel à `onStart`.                                |
-| `packageManager`        | `CliKernel.ts:127`  | `npm` par défaut (config, puis fichier de verrou, puis user-agent) ; `pnpm` / `yarn` / `bun`. |
-| `addCommand(Ctor)`      | `CliKernel.ts:1095` | Enregistre une commande intégrée (les modules passent par `Module`).                          |
+| `runProfile`            | `CliKernel.ts:128`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.                               |
+| `setRunProfile(profil)` | `CliKernel.ts:1072` | Déclaré par une commande ; recopié dans le kernel à `onStart`.                                |
+| `packageManager`        | `CliKernel.ts:133`  | `npm` par défaut (config, puis fichier de verrou, puis user-agent) ; `pnpm` / `yarn` / `bun`. |
+| `addCommand(Ctor)`      | `CliKernel.ts:1115` | Enregistre une commande intégrée (les modules passent par `Module`).                          |
 | `quietBoot`             | `CliKernel.ts:137`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre.                         |
 | `parseCommand(argv?)`   | `CliKernel.ts:199`  | Analyse Commander synchrone.                                                                  |
 

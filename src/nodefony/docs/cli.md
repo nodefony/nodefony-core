@@ -68,7 +68,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:589`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:607`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -203,7 +203,7 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Vingt-quatre commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:589`),
+Vingt-sept commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:607`),
 plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
@@ -217,6 +217,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `build` | `compile` | Construit tous les paquets (délègue à `turbo run build`) — `-f/--force` | `onRegister` | `BuildCommand.ts:16` |
 | `install` | — | `install` sur tous les modules — `-f/--force` | `onRegister` | `InstallCommand.ts:9` |
 | `outdated` | — | `outdated` sur tous les modules | `onRegister` | `OutdatedCommand.ts:9` |
+| `upgrade` | — | Après une montée de version : remet le bloc framework d'`AGENTS.md`, les pointeurs de skills et les copies livrées au niveau des paquets — `--check` (sort en 1 si en retard), `--dry-run`, `--json` (**0 boot**) | `0 boot` | `UpgradeCommand.ts:34` |
 | `start` | — | **Alias de `prod`** (il n'y a plus de commande propre) | `onStart` | `ProdCommand.ts:52` |
 | `doctor` | — | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot` | `DoctorCommand.ts:37` |
 | `env` | — | Le `.env` lu, valeurs effectives et **provenance** de chacune (**0 boot**) | `0 boot` | `EnvCommand.ts:36` |
@@ -226,6 +227,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `create` | — | Échafaude projet / module / entité (**0 boot**) | `0 boot` | `CreateCommand.ts:19` |
 | `card` | `devkit:card` | **Carte de visite** de l'app : identité, modules installés, où aller, quoi lancer — `--json`, `--cwd` (**0 boot**) | `0 boot` | `CardCommand.ts` |
 | `symbols` | — | Signature et TSDoc d'un symbole du framework, depuis le graphe publié — `--module`, `--json` (**0 boot**) | `0 boot` | `SymbolsCommand.ts` |
+| `man` | — | Ouvre la page de manuel du paquet du projet (`man nodefony` ne la trouve qu'en installation globale) — `--path` (**0 boot**) | `0 boot` | `ManCommand.ts:32` |
 | `ai:sync` | — | Pose dans `.agents/skills/` les **pointeurs** vers les skills livrés par les paquets installés — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/aiSync.ts` |
 | `scaffold:sync` | — | Pose les **fichiers** que livrent les paquets installés (`nodefony.contribute`) ; `--update` rafraîchit les copies restées intactes — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/contributions.ts` |
 | `ai:mcp` | — | Déclare le serveur MCP de l'app à ton agent (**0 boot**) | `0 boot` | `AiMcpCommand.ts` |
@@ -318,7 +320,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 | `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
 
 > Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le
-> serveur (`CliKernel.ts:807`).
+> serveur (`CliKernel.ts:827`).
 
 ## 🏗️ Échafauder — `create`
 
@@ -399,7 +401,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:628`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:648`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie
