@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T11:16:31.506Z",
+  "generatedAt": "2026-10-13T12:17:23.781Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 121,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -2811,6 +2811,54 @@
       ]
     },
     {
+      "number": 592,
+      "title": "chore(deps): relever les dépendances en retard avant la beta.3",
+      "url": "https://github.com/nodefony/nodefony-core/issues/592",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.996,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 593,
+      "title": "feat(cli): rafraîchir la doc des agents après une montée de version",
+      "url": "https://github.com/nodefony/nodefony-core/issues/593",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.997,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 594,
+      "title": "feat(studio): réserver feuille de route et pages internes au dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/594",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.998,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 155,
       "title": "docs(agents): rendre le dépôt lisible par un agent web",
       "url": "https://github.com/nodefony/nodefony-core/issues/155",
@@ -2853,27 +2901,11 @@
       "labels": []
     },
     {
-      "number": 592,
-      "title": "chore(deps): relever les dépendances en retard avant la beta.4",
-      "url": "https://github.com/nodefony/nodefony-core/issues/592",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 4.0005,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
       "number": 513,
       "title": "feat(scaffold): mettre les apps générées en quarantaine de 3 jours",
       "url": "https://github.com/nodefony/nodefony-core/issues/513",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3206,22 +3238,6 @@
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
-      "ordre": 4.019,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 593,
-      "title": "feat(cli): rafraîchir la doc des agents après une montée de version",
-      "url": "https://github.com/nodefony/nodefony-core/issues/593",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
       "ordre": 4.019,
       "debut": null,
       "cible": null,
