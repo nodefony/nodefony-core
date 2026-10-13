@@ -213,6 +213,8 @@ Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les bo
 | `ai:sync`       | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)                               |
 | `scaffold:sync` | —             | `cli/contributions.ts` | **standalone** — fichiers livrés par les paquets (cf § scaffold:sync)             |
 | `git:hooks`     | —             | `cli/gitHooks.ts`      | **standalone** — hooks git natifs (cf § git:hooks)                                |
+| `upgrade`       | —             | `cli/upgrade.ts`       | **standalone** — remet l'app au niveau après une montée de version (cf § upgrade) |
+| `man`           | —             | `cli/man.ts`           | **standalone** — ouvre la page de manuel du paquet du projet                      |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -529,6 +531,22 @@ GABARITS du preset `complete` (compose, `.env`), contenu de l'application géné
 - `createAppContributionContext` est PUBLIC : un paquet éprouve sa contribution sur sa SOURCE
   (`security/tests/unit/scaffoldContribute.test.ts`), sans paquet bâti ni installé.
 - Limite : yarn PnP n'a pas de `node_modules` → rien de découvert ; la commande le DIT.
+
+## `nodefony upgrade` — remettre l'app au niveau de ses paquets (standalone 0-boot)
+
+`nodefony upgrade [--check] [--dry-run] [--json] [--cwd <path>]` — rejoue, après une montée de
+version, les trois gestes que `npm install` ne fait pas, chacun par SON implémentation :
+`refreshAgentsGuide` (bloc framework d'`AGENTS.md`, `scaffold/engine.ts` — même garde monorepo
+que `create module`, et un `AGENTS.md` ABSENT n'est pas recréé), `syncSkillPointers` (`ai:sync`),
+`runAppContributions(root, dry, true)` (`scaffold:sync --update`). `--check` = simulation, sort
+en 1 si `isUpgradePending` (copie retouchée, absence, orphelin n'y comptent pas : rien ne se
+tranche sans humain). `doctor` réutilise le même jugement (`checkAgentsGuide`, famille
+« Fraîcheur du build ») — une règle, une implémentation. Le bloc se juge sur son RENDU, jamais sur
+une version inscrite : il n'en porte pas.
+
+`nodefony man [--path]` : `man nodefony` ne trouve la page qu'en installation GLOBALE ; cette
+commande ouvre celle du paquet du projet. La présence de `man` se CONSTATE (échec du lancement →
+69 + chemin), jamais par `process.platform`.
 
 ## `nodefony ai:mcp --agent` — déclarer la porte CHEZ l'agent, par SA CLI
 

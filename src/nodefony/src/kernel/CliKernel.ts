@@ -28,6 +28,8 @@ import Inspect from "./commands/InspectCommand";
 import Stop from "./commands/StopCommand";
 import AiSync from "./commands/AiSyncCommand";
 import ScaffoldSync from "./commands/ScaffoldSyncCommand";
+import Upgrade from "./commands/UpgradeCommand";
+import Man from "./commands/ManCommand";
 import AiMcp from "./commands/AiMcpCommand";
 import GitHooks from "./commands/GitHooksCommand";
 import {
@@ -74,6 +76,8 @@ import Image from "./commands/ImageCommand";
 import { runImageCheckCommand } from "../cli/image";
 import { runAiSyncCommand } from "../cli/aiSync";
 import { runScaffoldSyncCommand } from "../cli/contributions";
+import { runUpgradeCommand } from "../cli/upgrade";
+import { runManCommand } from "../cli/man";
 import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
@@ -342,6 +346,12 @@ class CliKernel extends Cli {
       return process.exit(await runSymbolsCli(process.argv));
     }
 
+    // ─── `man` : la page de manuel du paquet du projet — même famille ─────────
+    // Ouvrir un fichier livré n'a rien à demander à l'application.
+    if (requested === "man") {
+      return process.exit(runManCommand(process.argv));
+    }
+
     // ─── `image:check` : juger une IMAGE, jamais l'application ────────────────
     // Elle ne regarde qu'un artefact — l'archive d'un `docker save` — et n'a
     // donc rien à faire d'un kernel. La faire booter la rendrait muette là où
@@ -368,6 +378,14 @@ class CliKernel extends Cli {
     // un `dist/` qui n'existe pas.
     if (requested === "scaffold:sync") {
       return process.exit(await runScaffoldSyncCommand(process.argv));
+    }
+
+    // ─── `upgrade` : remettre l'app au niveau de ses paquets — même famille ───
+    // Elle ne lit et n'écrit que des fichiers, et sert juste après une montée
+    // de version : le `dist/` de l'app n'est pas encore reconstruit sur les
+    // nouveaux paquets, un boot y chargerait l'ancien code — ou échouerait.
+    if (requested === "upgrade") {
+      return process.exit(await runUpgradeCommand(process.argv));
     }
 
     // ─── `ai:mcp` : le CÂBLAGE du serveur MCP, même famille ───────────────────
@@ -597,6 +615,7 @@ class CliKernel extends Cli {
     this.addCommand(Build);
     this.addCommand(Install);
     this.addCommand(Outdated);
+    this.addCommand(Upgrade);
     this.addCommand(Licenses);
     this.addCommand(Menu);
     this.addCommand(Status);
@@ -607,6 +626,7 @@ class CliKernel extends Cli {
     this.addCommand(Env);
     this.addCommand(Card);
     this.addCommand(Symbols);
+    this.addCommand(Man);
     this.addCommand(Scripts);
     this.addCommand(Inspect);
     // Standalone servis par le fast-path : ces classes n'existent que pour le

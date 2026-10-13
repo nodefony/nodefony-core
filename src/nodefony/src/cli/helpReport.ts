@@ -535,10 +535,11 @@ export function renderHelp(
 
   // Le pied nomme les DEUX portes de documentation, et la page de manuel
   // d'abord : elle est hors ligne, déjà installée avec le paquet, et personne
-  // ne devine qu'elle existe.
+  // ne devine qu'elle existe. `nodefony man`, pas `man nodefony` : ce dernier
+  // ne la trouve qu'après une installation GLOBALE, jamais dans une app.
   lines.push("");
   for (const [terme, value] of [
-    ["Manuel :", "man nodefony"],
+    ["Manuel :", "nodefony man"],
     ["Docs :", "nodefony.github.io/nodefony-core"],
   ] as const) {
     lines.push(`  ${p.dim(terme)} ${value}`);

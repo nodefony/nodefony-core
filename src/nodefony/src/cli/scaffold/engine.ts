@@ -1439,6 +1439,38 @@ export function hydrateQuestion(
   };
 }
 
+/**
+ * Le nom et les workspaces du `package.json` racine, LUS par une garde —
+ * jamais supposés par un cast : un manifeste illisible ou mal formé rend `{}`,
+ * qui vaut le layout d'une application.
+ *
+ * @param projectRoot - racine du projet.
+ * @param writer - transaction du scaffold (elle voit les écritures en attente).
+ * @returns les deux champs que le moteur consulte, ceux qui sont bien formés.
+ */
+function readRootManifest(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): IRootManifest {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(writer.read(path.join(projectRoot, "package.json")));
+  } catch {
+    return {};
+  }
+  if (typeof parsed !== "object" || parsed === null) return {};
+  const manifest: IRootManifest = {};
+  if ("name" in parsed && typeof parsed.name === "string") {
+    manifest.name = parsed.name;
+  }
+  if ("workspaces" in parsed && Array.isArray(parsed.workspaces)) {
+    manifest.workspaces = parsed.workspaces.filter(
+      (w): w is string => typeof w === "string",
+    );
+  }
+  return manifest;
+}
+
 export function listTargets(
   projectRoot: string,
   writer: ScaffoldWriter = new ScaffoldWriter(),
@@ -1453,15 +1485,9 @@ export function listTargets(
       return null;
     }
   };
-  let rootManifest: IRootManifest = {};
-  try {
-    rootManifest = JSON.parse(
-      writer.read(path.join(projectRoot, "package.json")),
-    ) as IRootManifest;
-  } catch {
-    // Racine sans manifeste lisible : le layout par défaut (`modules/`) reste
-    // la bonne réponse — c'est celui d'une app.
-  }
+  // Racine sans manifeste lisible : le layout par défaut (`modules/`) reste la
+  // bonne réponse — c'est celui d'une app.
+  const rootManifest = readRootManifest(projectRoot, writer);
   const targets: [IScaffoldTarget, ...IScaffoldTarget[]] = [
     {
       kind: "app",
@@ -2682,6 +2708,73 @@ function refreshProjectAgents(
     written,
     writer,
   );
+}
+
+/** Ce que la régénération du bloc framework d'`AGENTS.md` a fait (ou ferait). */
+export interface IAgentsGuideRefresh {
+  /**
+   * `unchanged` : le bloc décrit déjà la version installée ; `updated` : il a
+   * été (ou serait) réécrit ; `absent` : l'app n'a pas d'`AGENTS.md` — il
+   * n'est PAS recréé, son absence peut être un choix ; `skipped` : monorepo
+   * de paquets, dont l'`AGENTS.md` s'écrit à la main.
+   */
+  status: "unchanged" | "updated" | "absent" | "skipped";
+  /** Le fichier visé, relatif à la racine. */
+  file: string;
+}
+
+/**
+ * Régénère le bloc framework de l'`AGENTS.md` d'une application, tel que la
+ * version INSTALLÉE de `nodefony` le rend — et lui seul : le texte de
+ * l'utilisateur hors des marqueurs ne bouge pas.
+ *
+ * C'est le geste qu'un scaffold de module ou de front fait déjà en passant ;
+ * exposé ici pour `nodefony upgrade` et `nodefony doctor`, qui le rejouent
+ * après une montée de version. Juger le bloc sur son RENDU, et non sur une
+ * version inscrite dedans, attrape aussi l'inventaire périmé (un module
+ * ajouté à la main, une dépendance retirée) — et vaut pour les applications
+ * nées avant que le bloc ne porte quoi que ce soit.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param version - version du paquet `nodefony` qui rend le bloc.
+ * @param dryRun - `true` : juger sans rien écrire.
+ * @returns l'état du bloc, avant ou après écriture.
+ */
+export function refreshAgentsGuide(
+  projectRoot: string,
+  version: string,
+  dryRun = false,
+): IAgentsGuideRefresh {
+  const file = "AGENTS.md";
+  const writer = new ScaffoldWriter();
+  const manifest = readRootManifest(projectRoot, writer);
+  // Même garde que le scaffold de module : dans un monorepo de paquets, la
+  // racine décrit le dépôt, écrite à la main — le gabarit d'app la détruirait.
+  if (
+    resolveModuleLayout(manifest, path.basename(projectRoot)).kind ===
+    "packages"
+  ) {
+    return { status: "skipped", file };
+  }
+  const agentsPath = path.join(projectRoot, file);
+  if (!writer.exists(agentsPath)) {
+    return { status: "absent", file };
+  }
+  const before = writer.read(agentsPath);
+  refreshProjectAgents(
+    new Eta(ETA_OPTIONS),
+    findPackageRoot(),
+    projectRoot,
+    manifest.name ?? path.basename(projectRoot),
+    version,
+    [],
+    writer,
+  );
+  if (writer.read(agentsPath) === before) {
+    return { status: "unchanged", file };
+  }
+  if (!dryRun) writer.commit();
+  return { status: "updated", file };
 }
 
 function runModuleScaffold(

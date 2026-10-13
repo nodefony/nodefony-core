@@ -15,6 +15,8 @@ import { runCompletionCommand } from "../cli/completion";
 import { runStandaloneDevCommand } from "../service/dev/devStatusReport";
 import { runDoctorCommand } from "../kernel/checks/runDoctor";
 import { runSeeCommand } from "../cli/see";
+import { runUpgradeCommand } from "../cli/upgrade";
+import { runManCommand } from "../cli/man";
 
 /**
  * 🔴 Le pied de l'aide promet `nodefony <commande> --help`. Dix commandes le
@@ -50,6 +52,8 @@ const STANDALONE: ReadonlyArray<
   ["image:check", runImageCheckCommand],
   ["ai:sync", runAiSyncCommand],
   ["scaffold:sync", runScaffoldSyncCommand],
+  ["upgrade", runUpgradeCommand],
+  ["man", runManCommand],
   ["ai:mcp", runAiMcpCommand],
   ["git:hooks", runGitHooksCommand],
   ["create", runCreateCommand],

@@ -280,6 +280,13 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
       "Diagnostique le projet, même s'il ne démarre plus.",
     ),
   );
+  out.push(
+    tagged(
+      "nodefony upgrade",
+      "Après une montée de version des paquets : remet AGENTS.md, les " +
+        "skills d'agent et les fichiers livrés au niveau.",
+    ),
+  );
 
   out.push(".SH SEE ALSO");
   out.push(

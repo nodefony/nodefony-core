@@ -63,6 +63,9 @@ les variables d'environnement et leur provenance
 .B symbols
 où un symbole est défini, et de qui il hérite
 .TP
+.B man
+la page de manuel de la version du projet
+.TP
 .B menu
 menu interactif : les commandes utiles ici
 .TP
@@ -90,6 +93,9 @@ refuse une image de conteneur qui embarque un secret
 .TP
 .B licenses
 les licences des dépendances redistribuées
+.TP
+.B upgrade
+aligne l'app sur la version de Nodefony installée
 .SS AGENTS ET OUTILLAGE
 .TP
 .B ai:mcp
@@ -162,6 +168,10 @@ Affiche les routes RÉELLEMENT montées, sans ouvrir de port.
 .TP
 .B nodefony doctor
 Diagnostique le projet, même s'il ne démarre plus.
+.TP
+.B nodefony upgrade
+Après une montée de version des paquets : remet AGENTS.md, les skills
+d'agent et les fichiers livrés au niveau.
 .SH SEE ALSO
 La documentation complète vit dans le projet (\fBdocs/\fR) et dans la console
 d'administration. \fBnodefony card\fR rend la carte de visite de l'application

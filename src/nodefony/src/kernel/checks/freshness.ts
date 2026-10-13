@@ -33,6 +33,9 @@ import {
 import { formatDuration } from "./report";
 import { isSkippedDir, isTestFile } from "./walk";
 import { withoutComments } from "./sourceText";
+import { version as frameworkVersion } from "../../../package.json";
+import { refreshAgentsGuide } from "../../cli/scaffold/engine";
+import { syncSkillPointers } from "../../cli/aiSync";
 
 /** Un écart entre ce qui est écrit et ce qui s'exécutera. */
 export interface IFreshnessFinding {
@@ -43,7 +46,9 @@ export interface IFreshnessFinding {
     | "framework-stale"
     | "framework-missing"
     | "frontend-stale"
-    | "frontend-missing";
+    | "frontend-missing"
+    | "agents-guide-stale"
+    | "skill-pointers-stale";
   /** Phrase actionnable : le constat, et le geste qui le répare. */
   message: string;
   /** Fichier qui porte le constat, relatif à la racine (si pertinent). */
@@ -372,7 +377,70 @@ export function checkFreshness(
   // alignés » de ne parler que de la moitié de l'application.
   findings.push(...checkFrontendBuild(projectRoot));
 
+  // La documentation des agents est une TROISIÈME sortie qui suit les paquets :
+  // après une montée de version, un agent lit sinon la porte de l'ancienne.
+  findings.push(...checkAgentsGuide(projectRoot));
+
   return { findings, notComparable: plusRecente === 0 && !distStat };
+}
+
+/**
+ * La documentation des AGENTS suit-elle les paquets installés ?
+ *
+ * Après `npm install nodefony@<neuve>`, deux choses restent figées sur
+ * l'ancienne version sans que rien ne casse : le bloc framework d'`AGENTS.md`
+ * (rendu à la création) et les pointeurs de skills (un skill apparu depuis n'en
+ * a pas). Un agent lâché dans l'application lit alors une porte périmée, et
+ * aucun test ne le voit. Le jugement est celui de `nodefony upgrade`, appelé en
+ * simulation — une règle, une implémentation.
+ *
+ * Le bloc se juge sur son RENDU, pas sur un numéro de version : une
+ * application née avant qu'il en porte un est jugée comme les autres.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param version - version de `nodefony` installée (injectée pour le test).
+ * @returns les écarts, chacun avec `nodefony upgrade` pour geste — vide quand
+ *   tout est aligné, ou que la comparaison n'a pas pu avoir lieu.
+ */
+export function checkAgentsGuide(
+  projectRoot: string,
+  version: string = frameworkVersion,
+): IFreshnessFinding[] {
+  const findings: IFreshnessFinding[] = [];
+  try {
+    if (refreshAgentsGuide(projectRoot, version, true).status === "updated") {
+      findings.push({
+        kind: "agents-guide-stale",
+        message:
+          "le bloc framework d'`AGENTS.md` ne décrit pas la version de " +
+          `Nodefony installée (${version}) : un agent y lit des commandes et ` +
+          "des règles d'une autre version. → `nodefony upgrade`",
+        file: "AGENTS.md",
+      });
+    }
+  } catch {
+    // Manifeste illisible ou gabarit absent : d'autres familles le disent, et
+    // ce contrôle n'a rien constaté — il ne lève pas, le rapport doit sortir.
+  }
+  try {
+    const missing = syncSkillPointers(projectRoot, true).skills.filter(
+      (s) => s.action !== "inchange",
+    );
+    if (missing.length > 0) {
+      findings.push({
+        kind: "skill-pointers-stale",
+        message:
+          `${missing.length} skill(s) d'agent livré(s) par les paquets ` +
+          "installés sans pointeur à jour dans `.agents/skills/` " +
+          `(${missing.map((s) => s.name).join(", ")}) : un agent ne les ` +
+          "découvre pas. → `nodefony upgrade`",
+        file: ".agents/skills",
+      });
+    }
+  } catch {
+    // Même règle : rien constaté, rien affirmé.
+  }
+  return findings;
 }
 
 /**

@@ -27,6 +27,11 @@ import {
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
+
+// Aide et refus d'une option inconnue AVANT tout geste : sans ce garde,
+// `--help` était ignoré et la page réécrite à la place de l'aide.
+guardCli(import.meta.url);
 
 const CORE = path.join(ROOT, "src", "nodefony");
 const DIST = path.join(CORE, "dist", "node", "index.js");

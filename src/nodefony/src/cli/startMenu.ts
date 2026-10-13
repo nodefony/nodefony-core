@@ -219,6 +219,12 @@ export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
     group: { project: menuGroup("GÉNÉRER ET CONSTRUIRE"), outside: null },
     when: "Les dépendances en retard, agrégées par paquet — distingue une plage épinglée d'un simple npm update.",
   },
+  {
+    value: "upgrade",
+    contexts: ["project"],
+    group: { project: menuGroup("GÉNÉRER ET CONSTRUIRE"), outside: null },
+    when: "Après une montée de version : remet AGENTS.md, les skills d'agent et les fichiers livrés au niveau des paquets installés.",
+  },
   // ── Outillage ────────────────────────────────────────────────────────────
   {
     value: "git:hooks",
@@ -230,13 +236,13 @@ export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
     value: "ai:sync",
     contexts: ["project"],
     group: { project: menuGroup("AGENTS ET OUTILLAGE"), outside: null },
-    when: "Pose les pointeurs vers les skills d'agent livrés par les paquets installés — à rejouer après un npm update.",
+    when: "Pose les pointeurs vers les skills d'agent livrés par les paquets installés — `upgrade` le rejoue avec le reste après une montée de version.",
   },
   {
     value: "scaffold:sync",
     contexts: ["project"],
     group: { project: menuGroup("AGENTS ET OUTILLAGE"), outside: null },
-    when: "Pose les fichiers que livrent les paquets installés (décor Keycloak…) sans remplacer les tiens — après un --no-install ou un npm update.",
+    when: "Pose les fichiers que livrent les paquets installés (décor Keycloak…) sans remplacer les tiens — après un --no-install ; après une montée de version, passe par `upgrade`.",
   },
   {
     // 🔴 Elle manquait, et c'est la porte d'entrée du MCP : sans elle au menu,

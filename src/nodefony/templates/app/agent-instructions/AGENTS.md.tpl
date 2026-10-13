@@ -433,11 +433,11 @@ un schéma, regarder un écran — vit dans les **skills** livrés par les paque
 `ls .agents/skills/` les liste, et leur description dit quand chacun s'applique.
 
 Ce sont des **pointeurs** vers `node_modules`, donc ils suivent la version du
-framework de ce projet (`npx nodefony ai:sync` après un `npm update`). Rien n'est
+framework de ce projet (`npx nodefony upgrade` après une montée de version). Rien n'est
 copié ici : une page copiée se figerait au jour de sa création.
 
 ⚠️ Les fichiers que les paquets POSENT dans l'app (décor Keycloak…) sont des copies :
-`npx nodefony scaffold:sync --update` les rafraîchit, pas `ai:sync`.
+`npx nodefony upgrade` les rafraîchit avec le reste (seules : `scaffold:sync --update`).
 
 <!-- nodefony:end -->
 
