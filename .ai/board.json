@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T22:14:52.471Z",
+  "generatedAt": "2026-10-12T23:58:31.108Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 116,
+      "closed": 118,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 38,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -2798,8 +2798,8 @@
       "number": 589,
       "title": "fix(security): rattacher le second facteur au compte par une seule clé, l'identifiant de connexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/589",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3163,6 +3163,22 @@
       "labels": [
         "beta-4",
         "reportable"
+      ]
+    },
+    {
+      "number": 591,
+      "title": "fix(security): fermer la socket d'un compte dont les rôles baissent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/591",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.019,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
       ]
     },
     {
