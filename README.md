@@ -24,10 +24,11 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > human readers may not, and translating the framework's texts is planned
 > ([#378](https://github.com/nodefony/nodefony-core/issues/378)).
 
-> **Pourquoi pas NestJS ?** Même modèle — injection, décorateurs, modules — avec une différence de
-> structure : le WebSocket est un transport de la même route, de la même session et du même
-> pare-feu, pas une passerelle à côté. Et l'application se décrit à un agent — générateurs
-> pilotables, catalogue, `AGENTS.md` dérivé du projet — au lieu d'être devinée.
+> **Et NestJS ?** Nodefony en partage le modèle — injection, décorateurs, modules — et s'en inspire
+> volontiers. Ses priorités portent ailleurs : une même route sert HTTP et WebSocket, avec la même
+> session et le même pare-feu ; et l'application est pensée pour être lue par un agent de code —
+> générateurs pilotables, catalogue, `AGENTS.md` dérivé du projet. Deux frameworks, deux accents :
+> le bon choix dépend de ce que votre projet met en avant.
 
 **État** — version `10.0.0` · **préversion `10.0.0-beta.2` en ligne**, sous le canal `beta`
 uniquement : `npm install nodefony` sert toujours la `7.0.2` (JavaScript), et le fera jusqu'à la
