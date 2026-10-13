@@ -26,6 +26,10 @@ on:
     branches: ["main", "dev"]
     paths:
       - "src/**"
+      # `scripts/` est ANALYSÉ (rien ne l'exclut de la config) : sans lui ici,
+      # une alerte qu'il introduit n'apparaissait qu'au prochain envoi touchant
+      # `src/` — et l'auteur du geste ne la voyait jamais.
+      - "scripts/**"
       - ".github/workflows/codeql.yml"
       - ".github/codeql-config.yml"
   pull_request:
@@ -93,3 +97,17 @@ jobs:
         uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           category: "/language:${{matrix.language}}"
+
+      # 🔴 Sans cette étape, le job finit VERT quel que soit le nombre d'alertes
+      # ouvertes : l'analyse téléversée suffit à le faire passer. Tout ce qui lit
+      # « CI verte » — garde de publication, reprise de session, la forge — passait
+      # donc sur des alertes `high` ouvertes depuis des jours (vécu : treize,
+      # découvertes en taguant la 10.0.0-beta.3). `analyze` attend le traitement
+      # de ses résultats (`wait-for-processing`, défaut vrai) : la liste lue ici
+      # est donc celle de CE commit. Un faux positif se ferme sur la forge, avec
+      # son motif ; on ne relâche pas ce gate.
+      - name: Refuser — alertes ouvertes sur cette branche
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/code-scanning-gate.mjs --ref "${{ github.ref }}"

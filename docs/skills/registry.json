@@ -1285,6 +1285,58 @@
       "testedBy": []
     },
     {
+      "path": "scripts/ci/code-scanning-gate.mjs",
+      "test": false,
+      "purpose": "Fait ROUGIR l'analyse de code tant qu'une alerte reste ouverte sur la branche analysée.",
+      "usage": [
+        "node scripts/ci/code-scanning-gate.mjs --ref refs/heads/dev"
+      ],
+      "options": [
+        {
+          "flag": "--ref",
+          "help": "- la branche dont on juge les alertes (défaut : `GITHUB_REF`)"
+        },
+        {
+          "flag": "--repo",
+          "help": "- `org/dépôt` (défaut : `GITHUB_REPOSITORY`)"
+        }
+      ],
+      "env": [
+        {
+          "name": "GITHUB_REF",
+          "help": "- posé par la forge"
+        },
+        {
+          "name": "GITHUB_REPOSITORY",
+          "help": "- posé par la forge"
+        },
+        {
+          "name": "GH_TOKEN",
+          "help": "- jeton avec `security-events: read`"
+        }
+      ],
+      "output": "la liste NOMMÉE des alertes ouvertes ; sortie 1 s'il y en a, 2 s'il n'a pas pu regarder",
+      "calledBy": [
+        "codeql.yml"
+      ],
+      "testedBy": [
+        "scripts/ci/code-scanning-gate.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/ci/code-scanning-gate.test.mjs",
+      "test": true,
+      "purpose": "Gate — l'analyse de code rougit tant qu'une alerte reste ouverte.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/ci/no-cancel.test.mjs",
       "test": true,
       "purpose": "Gate — aucun workflow du dépôt n'arrête de lui-même une exécution en cours.",

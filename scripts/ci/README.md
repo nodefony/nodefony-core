@@ -20,6 +20,27 @@ Gate — toute action GitHub tierce est épinglée par SHA de commit.
 
 - **Lancé par** : `node.js.yml` · `npm run test:tooling`
 
+## [`code-scanning-gate.mjs`](code-scanning-gate.mjs)
+
+Fait ROUGIR l'analyse de code tant qu'une alerte reste ouverte sur la branche analysée.
+
+- **Usage** : `node scripts/ci/code-scanning-gate.mjs --ref refs/heads/dev`
+- **Option** `--ref` — - la branche dont on juge les alertes (défaut : `GITHUB_REF`)
+- **Option** `--repo` — - `org/dépôt` (défaut : `GITHUB_REPOSITORY`)
+- **Variable** `GITHUB_REF` — - posé par la forge
+- **Variable** `GITHUB_REPOSITORY` — - posé par la forge
+- **Variable** `GH_TOKEN` — - jeton avec `security-events: read`
+- **Produit** : la liste NOMMÉE des alertes ouvertes ; sortie 1 s'il y en a, 2 s'il n'a pas pu regarder
+- **Appelé par** : `codeql.yml`
+- **Testé par** : `ci/code-scanning-gate.test.mjs`
+
+## [`code-scanning-gate.test.mjs`](code-scanning-gate.test.mjs)
+
+Gate — l'analyse de code rougit tant qu'une alerte reste ouverte.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `ci/code-scanning-gate.mjs`
+
 ## [`no-cancel.test.mjs`](no-cancel.test.mjs)
 
 Gate — aucun workflow du dépôt n'arrête de lui-même une exécution en cours.
