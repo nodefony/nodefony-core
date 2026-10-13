@@ -1688,6 +1688,10 @@
       "options": [],
       "env": [
         {
+          "name": "CHANGELOG",
+          "help": ""
+        },
+        {
           "name": "NF_RELEASE_REPO",
           "help": ""
         },
@@ -11948,8 +11952,8 @@
       ],
       "description": "Monte une application Nodefony vers une nouvelle version du framework sans rien laisser derrière : tous les paquets ensemble et sous le bon canal, puis `nodefony upgrade` pour la documentation des agents, les skills et les fichiers livrés qu'un `npm install` ne refait pas, puis les ruptures annoncées corrigées dans le code, le schéma migré et la preuve que tout tient. À charger AVANT de lancer la montée de version, pas après un premier rouge. Une panne sans rapport avec une montée → `nodefony-troubleshoot`. Déclencheurs : \"monter nodefony de version\", \"mettre à jour nodefony\", \"passer à la nouvelle beta\", \"upgrade nodefony\", \"npm update nodefony\", \"une nouvelle version est sortie\", \"mes paquets nodefony sont en retard\", \"après la mise à jour plus rien ne compile\", \"AGENTS.md est périmé\".",
       "cost": {
-        "bodyLines": 114,
-        "approxTokens": 1562
+        "bodyLines": 116,
+        "approxTokens": 1604
       },
       "requires": [],
       "resources": {
@@ -12021,7 +12025,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "114",
+            "detail": "116",
             "advisory": true
           }
         ]

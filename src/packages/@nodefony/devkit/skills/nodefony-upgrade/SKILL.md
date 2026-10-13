@@ -79,8 +79,10 @@ copies livrées restées intactes. Ce qu'elle ne tranche pas est listé sous « 
 une copie que l'application a retouchée, un `SKILL.md` écrit à la main, un skill que plus aucun
 paquet ne livre. **Lis cette liste** : chaque ligne est une décision qui t'appartient.
 
-**Lire les ruptures annoncées.** Le changelog n'est pas livré dans le paquet : il se lit sur le
-dépôt du framework, `https://github.com/nodefony/nodefony-core/blob/main/CHANGELOG.md`. Dans la
+**Lire les ruptures annoncées.** Le changelog est livré dans le paquet `nodefony` :
+`node_modules/nodefony/CHANGELOG.md`, celui de la version INSTALLÉE — lu après la montée, il
+couvre donc toutes les versions franchies, sans réseau. Absent (une version qui ne le livrait pas
+encore) : `https://github.com/nodefony/nodefony-core/blob/main/CHANGELOG.md`. Dans la
 section de chaque version franchie, les entrées marquées **`(breaking)`** sont celles qui
 demandent une retouche de ton code — un nom renvoyé qui change, une option retirée, un défaut
 inversé. Une rupture de comportement ne se voit pas au compilateur : seul le changelog la dit.

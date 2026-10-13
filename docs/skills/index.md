@@ -226,7 +226,7 @@ source: "docs/skills/index.md"
 | [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 456 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 360 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.0.0 | 135 | 0 | 1 | ✅ |
-| [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 114 | 0 | 0 | ✅ |
+| [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 116 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

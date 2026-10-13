@@ -263,6 +263,11 @@ demande d'écarter ce qui ne change rien pour celui qui met à jour. Le script l
 annonce**, séparément des messages hors convention — confondre les deux enverrait chercher des
 commits mal écrits qui n'existent pas.
 
+**Il voyage dans le paquet `nodefony`**, pour qu'un agent lise les ruptures de la version installée
+sans réseau (`node_modules/nodefony/CHANGELOG.md`). `files` le déclare, mais le fichier vit à la
+racine du dépôt, hors de portée de `files` : `release:pack` le copie dans le paquet le temps du
+`npm pack`, puis refuse un tarball dépaqueté qui ne le porte pas — npm, lui, publierait sans un mot.
+
 ### Ce que l'automate ne fait pas
 
 Il rassemble la **matière** ; il n'écrit pas le texte. Le fichier généré porte le mot `BROUILLON`

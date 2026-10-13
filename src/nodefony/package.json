@@ -192,7 +192,8 @@
     "assets",
     "!assets/brand-assets.json",
     ".ai",
-    "man"
+    "man",
+    "CHANGELOG.md"
   ],
   "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {

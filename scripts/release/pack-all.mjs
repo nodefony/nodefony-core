@@ -17,6 +17,7 @@
 // @usage npm run release:pack
 import { execSync, spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   readFileSync,
   writeFileSync,
   existsSync,
@@ -41,6 +42,13 @@ import { publishableWorkspaces } from "../lib/workspaces.mjs";
 // réorganise pour d'autres raisons qu'elle.
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const OUT = path.join(ROOT, "release", "tarballs");
+
+// Le changelog est UN pour tout le lot et vit à la racine du dépôt, hors de
+// portée de `files` (qui ne désigne rien au-dessus du paquet). Un paquet qui le
+// déclare dans `files` le reçoit COPIÉ le temps du pack. npm ne l'emporte pas
+// de lui-même (constaté, npm 12), et un `files` qui nomme un fichier absent
+// publie sans lui, sans un mot — d'où le contrôle sur le tarball dépaqueté.
+const CHANGELOG = "CHANGELOG.md";
 
 // Contrainte release §6bis (2) : peers OPTIONNELS injectés au pack — npm ≥7
 // auto-installe les peerDependencies : sans ce flag, toute app backend pure
@@ -105,6 +113,8 @@ mkdirSync(OUT, { recursive: true });
 
 const manifest = {};
 const failures = [];
+// Paquets dont `files` déclare le changelog : le tarball dépaqueté doit le porter.
+const declarentChangelog = new Set();
 
 for (const w of workspaces) {
   const dir = path.join(ROOT, w.location);
@@ -195,11 +205,23 @@ for (const w of workspaces) {
     }
   }
 
+  const changelogDest = path.join(dir, CHANGELOG);
+  const copiesChangelog =
+    Array.isArray(pkg.files) &&
+    pkg.files.includes(CHANGELOG) &&
+    !existsSync(changelogDest);
+  if (copiesChangelog && !existsSync(path.join(ROOT, CHANGELOG))) {
+    failures.push(`${pkg.name}: déclare ${CHANGELOG}, absent de la racine`);
+    continue;
+  }
+
   const mutated = needsPeerMeta;
   try {
     if (mutated) {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
     }
+    if (copiesChangelog)
+      copyFileSync(path.join(ROOT, CHANGELOG), changelogDest);
     // `--ignore-scripts` : le tarball se prépare ICI — peers optionnels et
     // extension des specifiers `.d.ts` juste au-dessus. Un `prepack` qui
     // reconstruit (rolldown vide `dist`, puis `tsgo`) EFFACE cette préparation, et le
@@ -245,7 +267,10 @@ for (const w of workspaces) {
     if (mutated) {
       writeFileSync(pkgPath, original); // restauration à l'octet près
     }
+    if (copiesChangelog) rmSync(changelogDest, { force: true });
   }
+  if (Array.isArray(pkg.files) && pkg.files.includes(CHANGELOG))
+    declarentChangelog.add(pkg.name);
 }
 
 writeFileSync(
@@ -294,6 +319,14 @@ for (const [nom, tgz] of Object.entries(manifest)) {
         `${nom} : extraction impossible (${cause}) — contenu NON inspecté`,
       );
       continue;
+    }
+    if (
+      declarentChangelog.has(nom) &&
+      !existsSync(path.join(dossier, "package", CHANGELOG))
+    ) {
+      alertes.push(
+        `${nom} : ${CHANGELOG} déclaré dans files, absent du tarball`,
+      );
     }
     for (const e of readdirSync(dossier, {
       recursive: true,

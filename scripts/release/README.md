@@ -160,6 +160,7 @@ Le contrôle des étiquettes OCI, éprouvé SANS docker.
 Pack release des workspaces publiables (modèle B — N-packages lockstep).
 
 - **Usage** : `npm run release:pack`
+- **Variable** `CHANGELOG`
 - **Variable** `NF_RELEASE_REPO`
 - **Variable** `OUT`
 - **Appelé par** : `npm run release:pack` · `release-smoke.yml` · `scaffold.yml` · `release/release.mjs` · `release/smoke-docker.sh` · `.claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs`
