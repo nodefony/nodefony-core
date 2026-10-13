@@ -99,7 +99,7 @@ Elle ne démarre pas l'application et n'installe rien : elle sert précisément 
 
 `npm run build` recompile l'application contre les nouveaux paquets. `nodefony doctor` le confirme :
 sa famille « Fraîcheur du build » signale désormais un bloc d'`AGENTS.md` ou des pointeurs de
-skills en retard — `checkAgentsGuide()` (`freshness.ts:405`), qui appelle le même jugement que
+skills en retard — `checkAgentsGuide()` (`freshness.ts:409`), qui appelle le même jugement que
 `upgrade` en simulation — en nommant `nodefony upgrade` comme geste. Si le changelog annonce un
 changement de schéma, appliquez ensuite les migrations (`nodefony orm:migrate`).
 
