@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T23:58:31.108Z",
+  "generatedAt": "2026-10-13T02:16:44.714Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 118,
+      "closed": 121,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 34,
       "title": "10.0.0-beta"
     },
     {
@@ -2750,8 +2750,8 @@
       "number": 579,
       "title": "feat(devkit): enseigner la connexion aux agents, prouvé par un banc",
       "url": "https://github.com/nodefony/nodefony-core/issues/579",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -2766,8 +2766,8 @@
       "number": 587,
       "title": "feat(devkit): livrer un skill de dépannage d'application, du symptôme au geste",
       "url": "https://github.com/nodefony/nodefony-core/issues/587",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2782,8 +2782,8 @@
       "number": 590,
       "title": "feat(devkit): livrer une relecture de sécurité pour le code d'une application",
       "url": "https://github.com/nodefony/nodefony-core/issues/590",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
