@@ -109,6 +109,17 @@ areas: {
 | navigation (`GET`/`HEAD`, `Accept: text/html`, `Sec-Fetch-Mode: navigate`) | `302` → `/login?from=%2Fcompte` |
 | appel d'API (`Accept: application/json`, `fetch()`)                        | `401`, inchangé                 |
 
+**L'éprouver** : la navigation se joue avec `navigate()` de `nodefony/testing`, JAMAIS avec
+`fetch()` — Node y réécrit `Sec-Fetch-Mode` en `cors`, le pare-feu voit un appel d'API et répond
+`401` sur un code juste. `fetch()` reste l'outil du côté API.
+
+```ts
+import { navigate } from "nodefony/testing";
+import { appBaseUrl } from "./e2e.setup"; // tests/e2e.setup.ts, généré
+
+const res = await navigate(`${appBaseUrl()}/compte`); // 302 → /login?from=%2Fcompte
+```
+
 Le `from` qui revient après la connexion ne se suit JAMAIS sans `safeRedirectPath` — skill
 `nodefony-authentication`.
 

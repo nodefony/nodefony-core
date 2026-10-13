@@ -79,10 +79,11 @@ console.log(res.status);
 <!-- prettier-ignore -->
 | Export | Ce qu'il fait | Quand s'en servir |
 | --- | --- | --- |
-| `createTestModule()` (`testing/index.ts:211`) | Rend un `Module` jetable portant un conteneur et un bus d'événements | Test unitaire d'un service |
-| `runningAppPort()` (`testing/index.ts:147`) | Lit le port de l'application démarrée par le décor | Tout test de bout en bout |
-| `startSpareApp()` (`testing/index.ts:302`) | Démarre un exemplaire jetable dans un état choisi, puis restaure l'état d'exécution | Éprouver un démarrage, pas un fonctionnement |
-| `nodefonyBin()` (`testing/index.ts:64`) | Résout le lanceur du framework, où qu'il soit installé | Appeler une commande depuis un script |
+| `createTestModule()` (`testing/index.ts:287`) | Rend un `Module` jetable portant un conteneur et un bus d'événements | Test unitaire d'un service |
+| `runningAppPort()` (`testing/index.ts:149`) | Lit le port de l'application démarrée par le décor | Tout test de bout en bout |
+| `navigate()` (`testing/index.ts:207`) | Joue une navigation de navigateur (`Sec-Fetch-Mode: navigate`), sans suivre la redirection | Éprouver qu'une page conduit l'anonyme à la connexion |
+| `startSpareApp()` (`testing/index.ts:378`) | Démarre un exemplaire jetable dans un état choisi, puis restaure l'état d'exécution | Éprouver un démarrage, pas un fonctionnement |
+| `nodefonyBin()` (`testing/index.ts:66`) | Résout le lanceur du framework, où qu'il soit installé | Appeler une commande depuis un script |
 
 ### `createTestModule()` — et ce qu'il ne fait pas
 
@@ -104,6 +105,24 @@ précisément l'intérêt de l'injection par constructeur — et ce qui permet d
 Il lit l'état d'exécution publié par l'application démarrée, et **échoue franchement** s'il ne
 trouve pas de port. Un port de repli ferait interroger un serveur étranger sur la même machine, et
 le verdict porterait sur lui : un test vert qui n'a rien mesuré de votre code.
+
+### `navigate()` — parce que `fetch()` ne sait pas jouer une navigation
+
+Le `fetch()` de Node réécrit `Sec-Fetch-Mode` en `cors` sur le fil, quelle que soit la valeur
+passée. Le pare-feu lit donc toute requête `fetch()` comme un appel d'API : une zone à
+`entryPoint` lui répond `401`, jamais le `302` vers la connexion. Un test qui vérifie « l'anonyme
+est conduit à `/login` » avec `fetch()` échoue sur un code juste.
+
+```ts ignore
+import { navigate, runningAppPort } from "nodefony/testing";
+
+const base = `http://127.0.0.1:${runningAppPort()}`;
+const res = await navigate(`${base}/account`); // GET, Accept: text/html, Sec-Fetch-Mode: navigate
+expect(res.status).toBe(302);
+expect(res.location).toMatch(/\/login\?from=%2Faccount$/u);
+```
+
+Le côté API, lui, s'éprouve avec `fetch()` : c'est exactement ce qu'il simule.
 
 ## Le harnais généré — `tests/e2e.setup.ts`
 

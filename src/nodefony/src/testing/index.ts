@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import http from "node:http";
+import https from "node:https";
 import path from "node:path";
 import Container from "../Container";
 import Module from "../kernel/Module";
@@ -158,6 +160,80 @@ export function runningAppPort(root: string = process.cwd()): number {
     );
   }
   return port;
+}
+
+/** Réponse d'une {@link navigate} : ce qu'un navigateur aurait vu AVANT de suivre. */
+export interface INavigationResponse {
+  /** Statut HTTP (`302` quand la zone conduit à la connexion). */
+  status: number;
+  /** En-tête `Location`, s'il y en a un — la redirection n'est jamais suivie. */
+  location: string | undefined;
+  /** Tous les en-têtes de la réponse, tels que reçus. */
+  headers: Record<string, string | string[] | undefined>;
+}
+
+/**
+ * Joue une NAVIGATION de navigateur vers une page : `GET` avec
+ * `Accept: text/html` et `Sec-Fetch-Mode: navigate`, sans suivre la redirection.
+ *
+ * ## Pourquoi pas `fetch()`
+ *
+ * Le `fetch()` de Node RÉÉCRIT `Sec-Fetch-Mode` en `cors` sur le fil, quelle
+ * que soit la valeur passée — c'est ce que la norme Fetch impose à un client
+ * programmatique. Le pare-feu lit donc toute requête `fetch()` comme un appel
+ * d'API, et une zone à `entryPoint` lui répond `401` : le BON comportement pour
+ * un script, mais pas le cas qu'on veut éprouver. Un test écrit avec `fetch()`
+ * pour vérifier « l'anonyme est conduit à la connexion » échoue donc sur un
+ * code juste. Constaté au banc de découvrabilité : un agent y a dépensé quinze
+ * tours, jusqu'à monter un serveur d'écho pour voir l'en-tête réécrit.
+ *
+ * Cette fonction passe par `node:http`, qui envoie les en-têtes tels quels.
+ *
+ * @example
+ * ```ts
+ * import { navigate, runningAppPort } from "nodefony/testing";
+ *
+ * const base = `http://127.0.0.1:${runningAppPort()}`;
+ * const res = await navigate(`${base}/account`);
+ * expect(res.status).toBe(302);
+ * expect(res.location).toMatch(/\/login\?from=%2Faccount$/u);
+ * ```
+ *
+ * @param url - adresse complète de la page (`http://127.0.0.1:5151/account`).
+ * @param headers - en-têtes en plus ou à la place des défauts (`cookie`…).
+ * @returns le statut, l'en-tête `Location` et les en-têtes reçus.
+ * @throws Quand la connexion échoue (serveur absent, certificat refusé).
+ */
+export function navigate(
+  url: string,
+  headers: Record<string, string> = {},
+): Promise<INavigationResponse> {
+  const target = new URL(url);
+  const transport = target.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    const req = transport.request(
+      target,
+      {
+        method: "GET",
+        headers: {
+          accept: "text/html",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-dest": "document",
+          ...headers,
+        },
+      },
+      (res) => {
+        res.resume();
+        resolve({
+          status: res.statusCode ?? 0,
+          location: res.headers.location,
+          headers: res.headers,
+        });
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 /** Réglages d'un module de test — tous facultatifs. */

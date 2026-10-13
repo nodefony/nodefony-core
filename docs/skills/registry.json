@@ -11393,8 +11393,8 @@
       ],
       "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` du framework — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"modifier une table existante\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\".",
       "cost": {
-        "bodyLines": 375,
-        "approxTokens": 6245
+        "bodyLines": 377,
+        "approxTokens": 6295
       },
       "requires": [],
       "resources": {
@@ -11465,7 +11465,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "375",
+            "detail": "377",
             "advisory": true
           }
         ]
@@ -11500,8 +11500,8 @@
       ],
       "description": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion, l'ouverture à un partenaire sans démonter la défense anti-falsification, les zones des programmes (clé d'API, jeton), et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la sécurité. Se CONNECTER (page, second facteur, retour après connexion) → nodefony-authentication. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"403\", \"401\", \"roleHierarchy\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"@CsrfExempt\", \"mon POST passe sans jeton\", \"API pour un programme\", \"clé d'API\", \"client_credentials\", \"désactiver la sécurité pour tester\".",
       "cost": {
-        "bodyLines": 349,
-        "approxTokens": 4813
+        "bodyLines": 360,
+        "approxTokens": 4929
       },
       "requires": [],
       "resources": {
@@ -11570,7 +11570,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "349",
+            "detail": "360",
             "advisory": true
           }
         ]
