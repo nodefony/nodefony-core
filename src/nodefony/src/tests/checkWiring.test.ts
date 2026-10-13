@@ -833,6 +833,42 @@ ${areas}
     assert.match(f[0]!.message, /\^\/api\/account"/u);
   });
 
+  /*
+   *   `(/|$)` en fin de motif est une FRONTIÈRE DE SEGMENT : le chemin et tout
+   *   ce qu'il y a dessous. Vu sur un agent réel : recalé à tort, il a reçu le
+   *   conseil « écris `^/api` » — qui fermait tout l'espace, routes publiques
+   *   livrées comprises.
+   */
+  it.each([
+    "^/api/messages(/|$)",
+    "^/api/messages(?:/|$)",
+    "^/api/messages($|/)",
+    "^/api/messages(/.*)?$",
+  ])("frontière de segment finale %s → épargnée", (pattern) => {
+    const dir = make(
+      manifeste(`      messages: {
+        pattern: "${pattern}",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
+    assert.strictEqual(f.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("énumère PUIS borne le segment → toujours signalé", () => {
+    const dir = make(
+      manifeste(`      compte: {
+        pattern: "^/api/account/(profile|invoices)(/|$)",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
+    assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
+    assert.match(f[0]!.message, /\^\/api\/account"/u);
+  });
+
   it("ancre de fin → signalé : la zone ne couvre aucune route sœur", () => {
     const dir = make(
       manifeste(`      compte: {

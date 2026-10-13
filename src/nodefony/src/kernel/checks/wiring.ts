@@ -430,6 +430,35 @@ function prefixeLitteral(pattern: string): string {
 }
 
 /**
+ * Frontières de segment écrites EN FIN de motif : `(/|$)`, `(?:/|$)`, `($|/)`,
+ * `(/.*)?$`. Elles disent « ce chemin ET tout ce qu'il y a dessous » — la
+ * forme qui COUVRE un espace sans mordre sur un voisin (`/api/messages` sans
+ * `/api/messagesX`). Leur `$` et leur `|` ne terminent ni n'énumèrent rien.
+ */
+const SEGMENT_BOUNDARY_SUFFIXES = [
+  /\((?:\?:)?(?:\/\|\$|\$\|\/)\)$/u,
+  /\((?:\?:)?\/\.\*\)\?\$?$/u,
+];
+
+/**
+ * Retire la frontière de segment finale d'un motif, s'il en porte une.
+ *
+ * Sans elle, `^/api/messages(/|$)` était lu comme une ancre de fin ET une
+ * alternance — et le contrôle conseillait `^/api`, qui ferme tout l'espace,
+ * routes publiques de démonstration comprises. Vu sur un agent réel, qui a
+ * suivi le conseil à moitié.
+ *
+ * @param pattern - la valeur écrite dans le manifeste.
+ * @returns le motif sans sa frontière finale, ou inchangé.
+ */
+function stripSegmentBoundary(pattern: string): string {
+  for (const suffix of SEGMENT_BOUNDARY_SUFFIXES) {
+    if (suffix.test(pattern)) return pattern.replace(suffix, "");
+  }
+  return pattern;
+}
+
+/**
  * Une zone qui ÉNUMÈRE des routes au lieu de couvrir un espace.
  *
  * Le mode d'échec est mesuré, pas supposé : sommés de protéger deux routes d'un
@@ -462,8 +491,9 @@ function prefixeLitteral(pattern: string): string {
  * @returns le préfixe à employer, ou `null` si la zone est saine.
  */
 function zoneEnumere(pattern: string): string | null {
-  const body = pattern.replace(/^\^/u, "");
-  const prefix = prefixeLitteral(pattern);
+  const trimmed = stripSegmentBoundary(pattern);
+  const body = trimmed.replace(/^\^/u, "");
+  const prefix = prefixeLitteral(trimmed);
   const segments = prefix.split("/").filter(Boolean).length;
   if (/\$/u.test(body)) return prefix;
   if (/\([^)]*\|/u.test(body) && segments >= 2) return prefix;
