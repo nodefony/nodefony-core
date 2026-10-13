@@ -81,3 +81,27 @@ describe("scripts de skills — la racine est celle de l'APPLICATION", () => {
     ).toBe("/output");
   });
 });
+
+describe("l'aide partagée app-root.mjs — une COPIE confrontée au cœur", () => {
+  it("rend la même racine que findProjectRoot, cas pièges compris", async () => {
+    const { findProjectRoot } = await import("nodefony");
+    const { findAppRoot } = (await import(
+      pathToFileURL(
+        path.join(SKILLS, "nodefony-dev", "scripts", "lib", "app-root.mjs"),
+      ).href
+    )) as { findAppRoot(from: string): string | null };
+    // Un dossier qui porte la config SANS package.json n'est pas une racine :
+    // la remontée doit le traverser jusqu'à l'application.
+    const leurre = path.join(app, "modules", "leurre");
+    mkdirSync(leurre, { recursive: true });
+    writeFileSync(
+      path.join(leurre, "nodefony.config.ts"),
+      "export default {};\n",
+    );
+    const cas = [app, subdir, leurre, realpathSync(os.tmpdir())];
+    for (const from of cas) {
+      expect(findAppRoot(from), from).toBe(findProjectRoot(from));
+    }
+    expect(findAppRoot(leurre)).toBe(app);
+  });
+});
