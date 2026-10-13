@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T18:44:32.655Z",
+  "generatedAt": "2026-10-13T20:03:15.894Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 124,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -2910,6 +2910,22 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.0007,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 596,
+      "title": "fix(http): refuser le handshake WebSocket non autorisé avant de l'accepter",
+      "url": "https://github.com/nodefony/nodefony-core/issues/596",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 4.0008,
       "debut": null,
       "cible": null,
       "labels": [
