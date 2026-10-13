@@ -72,17 +72,17 @@
     "@types/websocket": "1.0.10",
     "@types/ws": "8.18.2",
     "@types/xml2js": "0.4.14",
-    "@vitest/coverage-v8": "5.0.3",
+    "@vitest/coverage-v8": "5.0.4",
     "nodefony": "^10.0.0-beta.2",
     "tsx": "4.23.15",
-    "vitest": "5.0.3"
+    "vitest": "5.0.4"
   },
   "license": "Apache-2.0",
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {
     "nodefony": "^10.0.0-beta.2",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "files": [
     "dist",

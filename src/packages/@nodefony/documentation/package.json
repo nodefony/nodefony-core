@@ -42,15 +42,15 @@
     "@nodefony/framework": "^10.0.0-beta.2",
     "@nodefony/http": "^10.0.0-beta.2",
     "@types/node": "26.6.5",
-    "@vitest/coverage-v8": "5.0.3",
+    "@vitest/coverage-v8": "5.0.4",
     "nodefony": "^10.0.0-beta.2",
-    "vitest": "5.0.3"
+    "vitest": "5.0.4"
   },
   "peerDependencies": {
     "@nodefony/framework": "^10.0.0-beta.2",
     "@nodefony/http": "^10.0.0-beta.2",
     "nodefony": "^10.0.0-beta.2",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "repository": {
     "type": "git",

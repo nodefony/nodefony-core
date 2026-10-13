@@ -11,7 +11,7 @@
  */
 export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // ── Backend / outillage (template package.json de l'app) ──
-  zod: "^4.6.5",
+  zod: "^4.6.7",
   // Runtime des helpers TypeScript (`importHelpers`) — dépendance d'un paquet
   // PUBLIABLE : un module local d'application ne l'émet pas, son bundler inline.
   tslib: "2.8.1",
@@ -75,19 +75,19 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@node-rs/argon2": "^2.2.2",
   "@types/node": "^26.6.5",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-  oxlint: "^1.87.0",
+  oxlint: "^1.88.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2004",
   prettier: "^3.9.10",
   rolldown: "^1.2.13",
   typescript: "^6.0.3",
-  vitest: "^5.0.3",
+  vitest: "^5.0.4",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
   // `coverage:setup` : elle pèse 60 Ko, quand playwright et lighthouse — eux
   // restés à la demande — pèsent 5 et 21 Mo. Un installateur pour 60 Ko est une
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
-  "@vitest/coverage-v8": "5.0.3",
+  "@vitest/coverage-v8": "^5.0.4",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.3.4",
   react: "^19.3.0",
@@ -95,7 +95,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@vitejs/plugin-react": "^6.1.2",
   "@types/react": "^19.3.0",
   "@types/react-dom": "^19.3.0",
-  vue: "^3.5.43",
+  vue: "^3.5.44",
   "@vitejs/plugin-vue": "^6.0.10",
   svelte: "^5.57.2",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
