@@ -21,11 +21,23 @@
  * `@output` les pages classées, avec chemin, ligne et extrait — ou un refus qui DIT pourquoi
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, realpathSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
-import { appRoot } from "./lib/app-root.mjs";
+import { fileURLToPath } from "node:url";
+import { findProjectRoot } from "nodefony/project-root";
+
+/**
+ * Racine de l'APPLICATION vue depuis `cwd` — le dossier qui porte
+ * `nodefony.config.ts` —, ou `cwd` lui-même hors application. Un script lancé
+ * depuis `frontend/` ou `modules/blog/` travaille ainsi sur l'app entière.
+ * `nodefony/project-root` est le sous-chemin LÉGER du cœur (`node:` seul) :
+ * importer `nodefony` entier coûtait jusqu'à plusieurs secondes à froid.
+ *
+ * @param {string} cwd - le dossier de lancement.
+ * @returns {string} la racine retenue.
+ */
+const appRoot = (cwd) => findProjectRoot(cwd) ?? cwd;
 
 /** Nombre de pages rendues par défaut — au-delà, personne ne lit. */
 const DEFAULT_LIMIT = 6;
@@ -539,7 +551,10 @@ export function main() {
 // confondrait deux scripts homonymes de deux skills.
 if (
   process.argv[1] !== undefined &&
-  pathToFileURL(process.argv[1]).href === import.meta.url
+  // Chemins RÉELS des deux côtés : Node résout `import.meta.url` en suivant
+  // les liens, pas `argv[1]` — lancé par `/var/…` (macOS) ou un dossier lié,
+  // la comparaison brute échouait et le script ne faisait RIEN.
+  realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   process.exitCode = main();
 }

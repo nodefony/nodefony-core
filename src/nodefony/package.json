@@ -27,6 +27,11 @@
       "import": "./dist/node/testing/index.js",
       "default": "./dist/node/testing/index.js"
     },
+    "./project-root": {
+      "types": "./dist/types/cli/projectRoot.d.ts",
+      "import": "./dist/node/cli/projectRoot.js",
+      "default": "./dist/node/cli/projectRoot.js"
+    },
     "./client": {
       "types": "./dist/client/types/src/client/index.d.ts",
       "default": "./dist/client/client/index.js"

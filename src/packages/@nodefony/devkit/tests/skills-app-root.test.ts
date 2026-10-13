@@ -82,26 +82,45 @@ describe("scripts de skills — la racine est celle de l'APPLICATION", () => {
   });
 });
 
-describe("l'aide partagée app-root.mjs — une COPIE confrontée au cœur", () => {
-  it("rend la même racine que findProjectRoot, cas pièges compris", async () => {
-    const { findProjectRoot } = await import("nodefony");
-    const { findAppRoot } = (await import(
-      pathToFileURL(
-        path.join(SKILLS, "nodefony-dev", "scripts", "lib", "app-root.mjs"),
-      ).href
-    )) as { findAppRoot(from: string): string | null };
-    // Un dossier qui porte la config SANS package.json n'est pas une racine :
-    // la remontée doit le traverser jusqu'à l'application.
-    const leurre = path.join(app, "modules", "leurre");
-    mkdirSync(leurre, { recursive: true });
-    writeFileSync(
-      path.join(leurre, "nodefony.config.ts"),
-      "export default {};\n",
-    );
-    const cas = [app, subdir, leurre, realpathSync(os.tmpdir())];
-    for (const from of cas) {
-      expect(findAppRoot(from), from).toBe(findProjectRoot(from));
+describe("les scripts des skills lisent la racine par le sous-chemin LÉGER", () => {
+  it("aucun script de skill n'importe `nodefony` en entier pour la racine", async () => {
+    // Importer `nodefony` coûte jusqu'à plusieurs secondes à froid, payées à
+    // chaque appel d'un agent — vécu en CI : un test dépassait ses 5 s.
+    const { readFileSync } = await import("node:fs");
+    for (const [skill, file] of SCRIPTS) {
+      const source = readFileSync(
+        path.join(SKILLS, skill, "scripts", file),
+        "utf8",
+      );
+      expect(source, `${skill}/${file}`).toMatch(
+        /from "nodefony\/project-root"/u,
+      );
+      expect(source, `${skill}/${file}`).not.toMatch(/from "nodefony";/u);
     }
-    expect(findAppRoot(leurre)).toBe(app);
   });
+});
+
+describe("les scripts des skills répondent lancés par un lien symbolique", () => {
+  // Vécu : sous macOS, `/var` est un lien vers `/private/var`. Un script lancé
+  // par `/var/…/docs.mjs` comparait ce chemin à `import.meta.url`, que Node
+  // résout en chemin RÉEL : la garde « lancé directement » échouait, et le
+  // script ne faisait RIEN, sans un mot. Un dépôt rangé derrière un lien
+  // (`~/dev` → ailleurs) déclenche la même chose.
+  for (const [skill, file] of SCRIPTS) {
+    it(`${skill}/${file} --help parle, lancé par un lien`, async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { symlinkSync } = await import("node:fs");
+      const link = path.join(app, `lien-${skill}`);
+      symlinkSync(path.join(SKILLS, skill), link, "junction");
+      const r = spawnSync(
+        process.execPath,
+        [path.join(link, "scripts", file), "--help"],
+        { cwd: app, encoding: "utf8" },
+      );
+      expect(
+        `${r.stdout}${r.stderr}`.trim().length,
+        `${skill}/${file}`,
+      ).toBeGreaterThan(0);
+    });
+  }
 });

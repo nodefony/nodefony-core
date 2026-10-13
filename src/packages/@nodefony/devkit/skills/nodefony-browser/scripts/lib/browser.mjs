@@ -65,15 +65,16 @@ try {
  */
 const IN_CONTAINER = existsSync("/.dockerenv");
 /**
- * La racine de l'application, pour ancrer `tmp/browser/` — par l'aide
- * partagée des skills livrés, et SEULEMENT hors conteneur : là-bas les sondes
- * sont copiées seules (l'aide n'y est pas) et la sortie est le volume
- * `/output`. Aide introuvable → `null`, sortie relative au dossier courant.
+ * La racine de l'application, pour ancrer `tmp/browser/` — par le sous-chemin
+ * léger du cœur (`nodefony/project-root`), et SEULEMENT hors conteneur :
+ * là-bas les sondes sont copiées seules, sans `nodefony`, et la sortie est le
+ * volume `/output`. Paquet introuvable → `null`, sortie relative au dossier
+ * courant.
  */
 const APP_ROOT = IN_CONTAINER
   ? null
-  : await import("../../../nodefony-dev/scripts/lib/app-root.mjs").then(
-      (m) => m.findAppRoot(process.cwd()),
+  : await import("nodefony/project-root").then(
+      (m) => m.findProjectRoot(process.cwd()),
       () => null,
     );
 const { base: baseUrl, out: OUT } = environmentDefaults({
