@@ -381,6 +381,10 @@ export function checkFreshness(
   // après une montée de version, un agent lit sinon la porte de l'ancienne.
   findings.push(...checkAgentsGuide(projectRoot));
 
+  // Les paquets `@nodefony/*` LIÉS ont leur propre build : une application
+  // liée à un checkout du framework exécute leur `dist/`, pas leurs sources.
+  findings.push(...checkFrameworkBuild(projectRoot));
+
   return { findings, notComparable: plusRecente === 0 && !distStat };
 }
 
@@ -475,6 +479,26 @@ function estLie(filePath: string): boolean {
   }
 }
 
+/** Le manifeste du paquet déclare-t-il un script `build` ? Illisible → oui (on juge). */
+function hasBuildScript(dir: string): boolean {
+  try {
+    const pkg: unknown = JSON.parse(
+      readFileSync(path.join(dir, "package.json"), "utf8"),
+    );
+    if (typeof pkg !== "object" || pkg === null || !("scripts" in pkg))
+      return false;
+    const { scripts } = pkg;
+    return (
+      typeof scripts === "object" &&
+      scripts !== null &&
+      "build" in scripts &&
+      typeof scripts.build === "string"
+    );
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Les paquets `@nodefony/*` LIÉS dont le build manque ou date d'avant les sources.
  *
@@ -523,6 +547,10 @@ export function checkFrameworkBuild(projectRoot: string): IFreshnessFinding[] {
     } catch {
       continue;
     }
+    // Un paquet sans script `build` n'est bâti par personne (paquet en
+    // chantier du dépôt) : le geste « npm run build » ne le réparerait pas,
+    // l'accuser serait un constat faux.
+    if (!hasBuildScript(actual)) continue;
     const dist = statSync(path.join(actual, "dist", "index.js"), {
       throwIfNoEntry: false,
     });

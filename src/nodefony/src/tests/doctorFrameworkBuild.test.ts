@@ -58,10 +58,16 @@ function poser(fichier: string, contenu = "x"): void {
 function paquetLie(
   racine: string,
   nom: string,
-  opts: { dist?: boolean; sourcePlusRecente?: boolean },
+  opts: { dist?: boolean; sourcePlusRecente?: boolean; build?: boolean },
 ): void {
   const dehors = path.join(racine, "checkout", nom.replace("/", "-"));
-  poser(path.join(dehors, "package.json"), JSON.stringify({ name: nom }));
+  // Un paquet du framework se bâtit par son script `build` ; sans lui, personne
+  // ne le construit (paquet en chantier) — cf le cas dédié.
+  const scripts = opts.build === false ? {} : { build: "rolldown -c" };
+  poser(
+    path.join(dehors, "package.json"),
+    JSON.stringify({ name: nom, scripts }),
+  );
   poser(path.join(dehors, "nodefony", "src", "a.ts"), "export const a = 1;");
   if (opts.dist) {
     poser(path.join(dehors, "dist", "index.js"), "export const a = 1;");
@@ -147,6 +153,24 @@ describe("doctor — la fraîcheur du FRAMEWORK, pas seulement de l'application"
 
   it("aucun `node_modules` : rien à dire, et surtout pas une accusation", () => {
     assert.deepEqual(checkFrameworkBuild(decor()), []);
+  });
+
+  it("🔴 un paquet LIÉ SANS script `build` n'est pas accusé — personne ne le bâtit", () => {
+    // Paquets en chantier du dépôt (agent, rag…) : liés par les workspaces, sans
+    // build. Le geste « npm run build » ne les réparerait pas : constat faux.
+    const racine = decor();
+    paquetLie(racine, "@nodefony/rag", { dist: false, build: false });
+    assert.deepEqual(checkFrameworkBuild(racine), []);
+  });
+
+  // Le contrôle a vécu un mois juste et jamais appelé : son commit d'origine le
+  // disait « branché dans checkFreshness », le diff ne l'a jamais été. Seul
+  // `checkFreshness` alimente le rapport de `doctor`.
+  it("🔴 le constat REMONTE dans le rapport de fraîcheur", () => {
+    const racine = decor();
+    paquetLie(racine, "@nodefony/http", { dist: false });
+    const kinds = checkFreshness(racine).findings.map((f) => f.kind);
+    assert.ok(kinds.includes("framework-missing"), JSON.stringify(kinds));
   });
 });
 
