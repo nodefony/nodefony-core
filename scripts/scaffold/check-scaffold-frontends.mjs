@@ -14,6 +14,14 @@
  * `check-scaffold-format.mjs` : sur un commit d'estampille, la version épinglée
  * par le gabarit n'existe pas encore sur le registre.
  *
+ * 🔴 Et un décor lié installe les dépendances de PAIR des DEUX côtés du lien.
+ * Vécu : Vue 3.5.44 publiée un matin, l'app l'installe, `nodefony` (lié) lit
+ * les types de la 3.5.43 du dépôt — deux exemplaires que TypeScript refuse
+ * d'unifier, et le gate accusait le gabarit Vue. Chez un utilisateur, la pair
+ * fait hisser UN exemplaire (constaté depuis les tarballs : typecheck vert).
+ * Les pairs sont donc épinglées sur l'exemplaire du dépôt, puis l'unicité est
+ * CONSTATÉE — par la même implémentation que le banc de vérité.
+ *
  *   node scripts/scaffold/check-scaffold-frontends.mjs              # les quatre fronts
  *   node scripts/scaffold/check-scaffold-frontends.mjs react vue    # une sélection
  *   node scripts/scaffold/check-scaffold-frontends.mjs --keep       # garde les décors
@@ -21,10 +29,15 @@
  * @usage node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--keep]
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import {
+  assertPeerUnique,
+  epinglerPairs,
+  peerOverrides,
+} from "../../.claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs";
 
 const FRONTENDS = ["react", "vue", "angular", "svelte"];
 // Les contrôles STATIQUES de `npm run verify` : ce que le gabarit décide seul.
@@ -44,6 +57,16 @@ if (unknown.length > 0) {
   process.exit(2);
 }
 const selected = asked.length > 0 ? asked : FRONTENDS;
+
+// Les pairs du framework, lues dans ses manifestes — jamais énumérées.
+const PACKAGES = path.join(ROOT, "src", "packages", "@nodefony");
+const FRAMEWORK_MANIFESTS = [
+  path.join(ROOT, "src", "nodefony", "package.json"),
+  ...(existsSync(PACKAGES)
+    ? readdirSync(PACKAGES).map((n) => path.join(PACKAGES, n, "package.json"))
+    : []),
+].filter((p) => existsSync(p));
+const PEER_VERSIONS = peerOverrides(ROOT, FRAMEWORK_MANIFESTS);
 
 let failed = 0;
 for (const fw of selected) {
@@ -71,6 +94,27 @@ for (const fw of selected) {
     console.error(`✗ ${fw} — la génération a échoué (code ${gen.status})`);
     console.error(
       (gen.stderr || gen.stdout || "").split("\n").slice(-12).join("\n"),
+    );
+    failed++;
+    if (!keep) rmSync(dir, { recursive: true, force: true });
+    continue;
+  }
+
+  epinglerPairs(dest, PEER_VERSIONS);
+  const reinstall = spawnSync(NPM, ["install", "--no-audit", "--no-fund"], {
+    cwd: dest,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+  const peers = reinstall.status === 0 ? assertPeerUnique(ROOT, dest) : null;
+  if (peers === null || !peers.ok) {
+    // Un DÉCOR défaillant ne rend aucun verdict sur le gabarit : le dire tel
+    // quel, plutôt que de laisser la compilation l'imputer au code généré.
+    console.error(
+      `✗ ${fw} — décor lié défaillant : ` +
+        (peers === null
+          ? `réinstallation après épinglage en échec (code ${reinstall.status})`
+          : `pair(s) en deux exemplaires : ${peers.doublons.map((d) => `${d.nom} (app ${d.app}, dépôt ${d.repo})`).join(", ")}`),
     );
     failed++;
     if (!keep) rmSync(dir, { recursive: true, force: true });
