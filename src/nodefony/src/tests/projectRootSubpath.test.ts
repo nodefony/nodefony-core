@@ -35,7 +35,7 @@ describe("nodefony/project-root — publié, et léger", () => {
       ...source.matchAll(
         /^\s*(?:import|export)\b[^;]*?from\s+["']([^"']+)["']/gmu,
       ),
-    ].map((m) => m[1]);
+    ].map((m) => m[1] ?? "");
     assert.isAbove(
       specifiers.length,
       0,
