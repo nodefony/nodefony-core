@@ -259,10 +259,12 @@ neuve ne prouve RIEN de tout ça — elle est vide.
 ```bash
 # sqlite : une copie du fichier. Le chemin par défaut du connecteur `default` est
 # `var/databases/nodefony-drizzle.db` — `orm:migrate:status --json` le confirme.
-cp var/databases/nodefony-drizzle.db /tmp/essai.sqlite
+# La copie va sous `tmp/scratch/` de l'application, pas dans le /tmp du système :
+# c'est un résultat qu'on relit, et il doit disparaître avec le reste de `tmp/`.
+mkdir -p tmp/scratch && cp var/databases/nodefony-drizzle.db tmp/scratch/essai.sqlite
 # PostgreSQL : CREATE DATABASE app_essai TEMPLATE app;  (ou une restauration de sauvegarde)
 
-export NF_MIGRATE_DATABASE_URL="sqlite:/tmp/essai.sqlite"
+export NF_MIGRATE_DATABASE_URL="sqlite:tmp/scratch/essai.sqlite"
 npx nodefony orm:migrate --json
 ```
 

@@ -8,6 +8,7 @@
  * FAUSSE en silence — exactement la classe de bug qu'une sonde ne peut pas se
  * permettre.
  */
+import path from "node:path";
 import { createHash } from "node:crypto";
 
 /**
@@ -303,18 +304,28 @@ export function parseStorage(raw) {
  * évite de faire dire à `process.platform` une chose qu'il ne sait pas. Une
  * capacité se constate ; c'est l'appelant qui constate, cette fonction décide.
  *
- * @param {{inContainer: boolean, base?: string, out?: string}} stage -
+ * Le dossier de sortie local s'ancre à la RACINE de l'application (`root`,
+ * constatée par l'appelant) : relatif au dossier courant, il semait un
+ * `tmp/browser/` dans chaque sous-dossier d'où l'on lançait la sonde.
+ *
+ * @param {{inContainer: boolean, base?: string, out?: string, root?: string | null}} stage -
  *   le constat, et les valeurs explicites qui l'emportent toujours.
  * @returns {{ base: string, out: string }} origine à joindre, dossier de sortie.
  */
-export function environmentDefaults({ inContainer, base, out } = {}) {
+export function environmentDefaults({ inContainer, base, out, root } = {}) {
   return {
     base:
       base ||
       (inContainer
         ? "https://host.docker.internal:5152"
         : "https://127.0.0.1:5152"),
-    out: out || (inContainer ? "/output" : "tmp/browser"),
+    out:
+      out ||
+      (inContainer
+        ? "/output"
+        : root
+          ? path.join(root, "tmp", "browser")
+          : "tmp/browser"),
   };
 }
 

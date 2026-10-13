@@ -37,6 +37,18 @@ import {
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { findProjectRoot } from "nodefony";
+
+/**
+ * Racine de l'APPLICATION vue depuis `cwd` — le dossier qui porte
+ * `nodefony.config.ts` —, ou `cwd` lui-même hors application. Un script lancé
+ * depuis `frontend/` ou `modules/blog/` travaille ainsi sur l'app entière.
+ * Une seule définition de « où commence l'app » : `findProjectRoot` du cœur.
+ *
+ * @param {string} cwd - le dossier de lancement.
+ * @returns {string} la racine retenue.
+ */
+const appRoot = (cwd) => findProjectRoot(cwd) ?? cwd;
 
 /** Erreurs distinctes rendues par défaut — au-delà, personne ne lit. */
 const DEFAULT_LAST = 15;
@@ -126,13 +138,13 @@ const FLAGS = new Set([
  * @returns les options lues.
  * @throws Error quand un drapeau est inconnu ou qu'une valeur manque.
  */
-export function parseArgs(argv) {
+export function parseArgs(argv, cwd = process.cwd()) {
   const opts = {
     files: [],
     warnings: false,
     last: DEFAULT_LAST,
     json: false,
-    root: process.cwd(),
+    root: appRoot(cwd),
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
