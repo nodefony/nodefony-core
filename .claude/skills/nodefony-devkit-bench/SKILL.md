@@ -68,6 +68,13 @@ node scripts/suivre-run.mjs --tout     # sans filtre
 > Le geste juste : `--task <n>` sur le banc, et le live à côté. Sur une campagne,
 > on lit le RAPPORT, et on n'ouvre le live que si une tâche précise pose question.
 >
+> ⚠️ **Il se branche APRÈS la ligne `━━ tâche <n>` du banc, pas au lancement.**
+> Avant, l'agent n'a pas encore ouvert son journal : `suivre-run.mjs` répond
+> « Pas de journal en direct » et SORT — le live est mort sans le dire. Pendant
+> le montage (2 à 3 min), boucler : relancer tant que la sortie dit « Pas de
+> journal ». Et sans `timeout(1)` sur macOS : une boucle qui s'en sert s'arrête
+> au premier tour (commande introuvable ≠ « Pas de journal »).
+>
 > ⚠️ **Et il ne s'étrangle pas.** `suivre-run.mjs | head -N`, ou un `kill` au bout
 > de quelques secondes, ne rendent RIEN — il suit un fichier, la sortie arrive par
 > à-coups. Conclure de ce silence que « cet agent n'écrit pas de journal » est un

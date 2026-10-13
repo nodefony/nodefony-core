@@ -185,6 +185,18 @@ verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la cl�
 qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
 AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
 
+### Le décor est l'application REÇUE — et le montage le constate
+
+L'app témoin naît en `create app --no-install`, puis s'installe depuis les tarballs : toute la
+fin de `create app` (format, build, migration initiale, licences, pointeurs de skills, fichiers
+livrés par les paquets, notice `.env.example`) est donc REJOUÉE par le décor
+(`rejouerFinDeCreation`). Une liste recopiée dérive — elle a manqué tour à tour `dist/`,
+`.agents/skills/`, la migration initiale et la notice, et l'agent dépensait ses tours sur des
+états qu'aucun utilisateur ne reçoit. Le montage finit donc par un **constat** qui interroge les
+contrôles du PRODUIT (`env --example --check`, `orm:migrate:status`) et refuse le décor en
+nommant celui qui a parlé : `décor ≠ application reçue par l'utilisateur — « … » refusé`.
+Un rouge là se corrige dans le montage, jamais en desserrant le contrôle.
+
 ### La PRÉMISSE d'identité — ne pas payer un agent pour un verdict impossible
 
 Neuf tâches font mesurer une protection depuis une session `admin`. Sans ce
