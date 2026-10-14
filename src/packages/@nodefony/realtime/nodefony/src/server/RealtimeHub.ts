@@ -1249,17 +1249,21 @@ export class RealtimeHub {
    * @param channel - le canal servi dynamiquement, cité en exemple dans l'alerte.
    */
   noticeUnguardedDynamicChannel(channel: string): void {
+    // Un canal de plateforme (`nodefony:`) n'est jamais « sans règle » : il a
+    // un plancher irréductible — fermé aux clients sans module de sécurité,
+    // réservé à `ROLE_NODEFONY_ADMIN` avec lui. Alerter dessus accusait le
+    // framework d'un trou qu'il n'a pas (vécu : `nodefony:socket` sous Studio).
+    if (isReservedSystemChannel(channel)) return;
     if (!this.hasChannelPolicies()) return;
     if (this.resolveChannelPolicy(channel) !== null) return;
     this.#notifyOnce(
       "unguarded-dynamic-channel",
-      `le canal "${channel}" est servi par une fabrique DYNAMIQUE et n'est ` +
-        `couvert par AUCUNE politique déclarée, alors que ce module en déclare ` +
-        `pour d'autres canaux. Un canal dérivé (suffixe de cadence, forage, ` +
-        `identifiant) n'hérite pas de la politique de son parent : un nom ` +
-        `exact ne garde que lui-même. Déclarer un MOTIF pour garder la famille ` +
-        `— @RealtimeChannel("${channelFamily(channel)}", { … }) — ou ` +
-        `porter la vérification dans la fabrique elle-même.`,
+      `le canal "${channel}" n'a aucune règle d'accès : tout client connecté ` +
+        `peut s'y abonner. Il est produit par createRealtimeChannel(), et une ` +
+        `règle déclarée sur un nom exact ne couvre pas ses variantes (suffixe ` +
+        `de cadence, identifiant). Pour le protéger : ` +
+        `@RealtimeChannel("${channelFamily(channel)}", { roles: [ … ] }), ou ` +
+        `vérifier les droits dans createRealtimeChannel().`,
     );
   }
 

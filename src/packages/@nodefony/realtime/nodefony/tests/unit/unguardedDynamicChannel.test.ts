@@ -38,6 +38,16 @@ describe("RealtimeHub — canal dynamique non couvert par une politique", () => 
     expect(hub.hasChannelPolicies()).to.equal(false);
   });
 
+  it("se tait sur un canal de PLATEFORME (nodefony:) — son plancher le garde déjà", () => {
+    const hub = new RealtimeHub();
+    const alertes: string[] = [];
+    hub.onPlatformNotice((m) => alertes.push(m));
+    hub.registerChannelPolicy("chat:room", { roles: ["ROLE_USER"] });
+    hub.noticeUnguardedDynamicChannel("nodefony:socket");
+    hub.noticeUnguardedDynamicChannel("NODEFONY:socket:2000");
+    expect(alertes).to.have.lengthOf(0);
+  });
+
   it("n'avertit qu'UNE fois — un signal de configuration, pas un flux", () => {
     const hub = new RealtimeHub();
     const alertes: string[] = [];

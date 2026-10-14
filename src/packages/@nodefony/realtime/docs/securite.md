@@ -507,12 +507,14 @@ C'est le piège le plus facile à ne pas voir, parce que tout a l'air correct : 
 là, le canal fonctionne, et le refus attendu n'arrive jamais.
 
 Le serveur le **dit** désormais. Au premier canal servi dynamiquement sans politique, alors que le
-module en déclare pour d'autres canaux, un avertissement est journalisé une fois
+module en déclare pour d'autres canaux (hors canaux de plateforme `nodefony:`, que leur plancher
+garde déjà), un avertissement est journalisé une fois
 (`RealtimeHub.noticeUnguardedDynamicChannel()`, `RealtimeHub.ts:1251`) :
 
 ```
-le canal "chat:room:1000" est servi par une fabrique DYNAMIQUE et n'est couvert par AUCUNE
-politique déclarée, alors que ce module en déclare pour d'autres canaux. […]
+le canal "chat:room:1000" n'a aucune règle d'accès : tout client connecté peut s'y abonner.
+Il est produit par createRealtimeChannel(), et une règle déclarée sur un nom exact ne couvre pas
+ses variantes (suffixe de cadence, identifiant). […]
 ```
 
 Deux façons de fermer, selon l'intention :

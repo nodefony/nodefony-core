@@ -335,7 +335,7 @@ handshake, jamais renégociée par frame.
 ### `hub` — le broker du process
 
 Le **standard téléphonique** du pod : il tient la table « canal → abonnés locaux » et diffuse. Un
-process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1432`). Il ne connaît **ni** les
+process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1436`). Il ne connaît **ni** les
 contrôleurs, **ni** le métier : ce sont les providers qui portent les dépendances.
 
 `RealtimeHub` (`RealtimeHub.ts:214`). ⚠️ « hub » désigne **toujours** le serveur ; ce que tient le
@@ -395,7 +395,7 @@ Un canal dont la fabrique est déclarée par un module bas niveau (le journal d'
 qui devient servable par **n'importe quel** endpoint, présent ou futur, sans qu'aucun contrôleur ne
 le connaisse. Consulté seulement quand la fabrique du contrôleur a dit « inconnu ».
 
-`RealtimeHub.registerSystemChannel()` (`RealtimeHub.ts:1278`).
+`RealtimeHub.registerSystemChannel()` (`RealtimeHub.ts:1282`).
 
 ### `canal broadcast` — celui qui traverse le backplane
 
@@ -674,7 +674,7 @@ La fonction qui répond « cette frame passe-t-elle ? » à partir du jeton **d�
 connexion. Un contrôle qui doit interroger le réseau se fait au handshake, pas ici.
 
 `FrameAuthorizer` (`RealtimeHub.ts:40`), pose `setFrameAuthorizer()` (`RealtimeHub.ts:1020`), appel
-`runAuthorizer()` (`RealtimeHub.ts:1309`).
+`runAuthorizer()` (`RealtimeHub.ts:1313`).
 
 ### `contrôle d'origine` — la défense d'ouverture
 

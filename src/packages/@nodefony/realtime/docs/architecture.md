@@ -467,7 +467,7 @@ périodiquement ces identités et coupe les sockets orphelines. Seules les ident
 
 ## Le hub — canaux partagés et fan-out
 
-Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1432`). Il ne
+Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1436`). Il ne
 dépend de rien : ce sont les fabriques fournies par les contrôleurs qui portent les
 dépendances.
 
@@ -480,7 +480,7 @@ dépendances.
    paquet du producteur atteigne bien ce premier abonné.
 3. La fabrique du contrôleur rend `null` (canal inconnu de lui) ? Dernier recours : le
    registre des **canaux système** (`RealtimeHub.registerSystemChannel()`,
-   `RealtimeHub.ts:1278`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
+   `RealtimeHub.ts:1282`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
    l'abonnement est refusé et rien n'est alloué.
 
 Au dernier désabonnement, `RealtimeHub.unsubscribe()` (`RealtimeHub.ts:578`) appelle le
