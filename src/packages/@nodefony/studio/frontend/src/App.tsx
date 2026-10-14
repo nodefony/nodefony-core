@@ -1,4 +1,4 @@
-import { lazy, useEffect } from "react";
+import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
@@ -15,147 +15,148 @@ import { RoleGuardOutlet } from "./components/RoleGuard";
 import { VIEW_ROLES } from "./auth/roles";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";
+import { lazyRoute } from "./utils/staleChunk";
 
 // Lazy-load des pages (code-splitting) : le bundle initial ne charge que le
 // shell + Login ; chaque page arrive à la demande. Exports nommés → on remappe
 // vers `default` (contrat React.lazy). Le fallback Suspense vit dans AdminLayout.
-const DashboardSupervision = lazy(() =>
+const DashboardSupervision = lazyRoute(() =>
   import("./routes/DashboardSupervision").then((m) => ({
     default: m.DashboardSupervision,
   })),
 );
-const RealtimeConsole = lazy(() =>
+const RealtimeConsole = lazyRoute(() =>
   import("./routes/RealtimeConsole").then((m) => ({
     default: m.RealtimeConsole,
   })),
 );
-const Cluster = lazy(() =>
+const Cluster = lazyRoute(() =>
   import("./routes/Cluster").then((m) => ({ default: m.Cluster })),
 );
-const Runtime = lazy(() =>
+const Runtime = lazyRoute(() =>
   import("./routes/Runtime").then((m) => ({ default: m.Runtime })),
 );
-const Chat = lazy(() =>
+const Chat = lazyRoute(() =>
   import("./routes/Chat").then((m) => ({ default: m.Chat })),
 );
-const Logs = lazy(() =>
+const Logs = lazyRoute(() =>
   import("./routes/Logs").then((m) => ({ default: m.Logs })),
 );
-const TraceView = lazy(() =>
+const TraceView = lazyRoute(() =>
   import("./routes/TraceView").then((m) => ({ default: m.TraceView })),
 );
-const System = lazy(() =>
+const System = lazyRoute(() =>
   import("./routes/System").then((m) => ({ default: m.System })),
 );
-const Modules = lazy(() =>
+const Modules = lazyRoute(() =>
   import("./routes/Modules").then((m) => ({ default: m.Modules })),
 );
-const ModuleDetail = lazy(() =>
+const ModuleDetail = lazyRoute(() =>
   import("./routes/ModuleDetail").then((m) => ({ default: m.ModuleDetail })),
 );
-const ConfigPage = lazy(() =>
+const ConfigPage = lazyRoute(() =>
   import("./routes/config/ConfigPage").then((m) => ({ default: m.ConfigPage })),
 );
-const Stores = lazy(() =>
+const Stores = lazyRoute(() =>
   import("./routes/stores/StoresView").then((m) => ({ default: m.StoresView })),
 );
-const RoutesView = lazy(() =>
+const RoutesView = lazyRoute(() =>
   import("./routes/RoutesView").then((m) => ({ default: m.RoutesView })),
 );
-const Playground = lazy(() =>
+const Playground = lazyRoute(() =>
   import("./routes/playground/Playground").then((m) => ({
     default: m.Playground,
   })),
 );
-const Create = lazy(() =>
+const Create = lazyRoute(() =>
   import("./routes/create/Create").then((m) => ({ default: m.Create })),
 );
-const Database = lazy(() =>
+const Database = lazyRoute(() =>
   import("./routes/Database").then((m) => ({ default: m.Database })),
 );
-const OrmEntity = lazy(() =>
+const OrmEntity = lazyRoute(() =>
   import("./routes/OrmEntity").then((m) => ({ default: m.OrmEntity })),
 );
-const Migrations = lazy(() =>
+const Migrations = lazyRoute(() =>
   import("./routes/Migrations").then((m) => ({ default: m.Migrations })),
 );
-const OrmOverview = lazy(() =>
+const OrmOverview = lazyRoute(() =>
   import("./routes/OrmOverview").then((m) => ({ default: m.OrmOverview })),
 );
-const OrmConnector = lazy(() =>
+const OrmConnector = lazyRoute(() =>
   import("./routes/OrmConnector").then((m) => ({ default: m.OrmConnector })),
 );
-const OrmWorker = lazy(() =>
+const OrmWorker = lazyRoute(() =>
   import("./routes/OrmWorker").then((m) => ({ default: m.OrmWorker })),
 );
-const Documentation = lazy(() =>
+const Documentation = lazyRoute(() =>
   import("./routes/Documentation").then((m) => ({ default: m.Documentation })),
 );
-const Roadmap = lazy(() =>
+const Roadmap = lazyRoute(() =>
   import("./routes/Roadmap").then((m) => ({ default: m.Roadmap })),
 );
-const Workspace = lazy(() =>
+const Workspace = lazyRoute(() =>
   import("./routes/Workspace").then((m) => ({ default: m.Workspace })),
 );
-const Twin = lazy(() =>
+const Twin = lazyRoute(() =>
   import("./routes/Twin").then((m) => ({ default: m.Twin })),
 );
-const Audit = lazy(() =>
+const Audit = lazyRoute(() =>
   import("./routes/Audit").then((m) => ({ default: m.Audit })),
 );
-const Firewall = lazy(() =>
+const Firewall = lazyRoute(() =>
   import("./routes/Firewall").then((m) => ({ default: m.Firewall })),
 );
-const Roles = lazy(() =>
+const Roles = lazyRoute(() =>
   import("./routes/Roles").then((m) => ({ default: m.Roles })),
 );
-const ApiKeys = lazy(() =>
+const ApiKeys = lazyRoute(() =>
   import("./routes/ApiKeys").then((m) => ({ default: m.ApiKeys })),
 );
-const Sessions = lazy(() =>
+const Sessions = lazyRoute(() =>
   import("./routes/Sessions").then((m) => ({ default: m.Sessions })),
 );
-const Users = lazy(() =>
+const Users = lazyRoute(() =>
   import("./routes/Users").then((m) => ({ default: m.Users })),
 );
-const Profile = lazy(() =>
+const Profile = lazyRoute(() =>
   import("./routes/Profile").then((m) => ({ default: m.Profile })),
 );
-const UserProfile = lazy(() =>
+const UserProfile = lazyRoute(() =>
   import("./routes/users/UserProfile").then((m) => ({
     default: m.UserProfile,
   })),
 );
-const Webhooks = lazy(() =>
+const Webhooks = lazyRoute(() =>
   import("./routes/Webhooks").then((m) => ({ default: m.Webhooks })),
 );
 // IA — Atelier : écrans SIMULÉS de la couche IA (aperçu, données inventées).
-const LlmProvidersPreview = lazy(() =>
+const LlmProvidersPreview = lazyRoute(() =>
   import("./routes/ai/LlmProvidersPreview").then((m) => ({
     default: m.LlmProvidersPreview,
   })),
 );
-const KnowledgePreview = lazy(() =>
+const KnowledgePreview = lazyRoute(() =>
   import("./routes/ai/KnowledgePreview").then((m) => ({
     default: m.KnowledgePreview,
   })),
 );
-const MemoryPreview = lazy(() =>
+const MemoryPreview = lazyRoute(() =>
   import("./routes/ai/MemoryPreview").then((m) => ({
     default: m.MemoryPreview,
   })),
 );
-const AgentsPreview = lazy(() =>
+const AgentsPreview = lazyRoute(() =>
   import("./routes/ai/AgentsPreview").then((m) => ({
     default: m.AgentsPreview,
   })),
 );
-const McpPreview = lazy(() =>
+const McpPreview = lazyRoute(() =>
   import("./routes/ai/McpPreview").then((m) => ({
     default: m.McpPreview,
   })),
 );
-const VectorStoresPreview = lazy(() =>
+const VectorStoresPreview = lazyRoute(() =>
   import("./routes/ai/VectorStoresPreview").then((m) => ({
     default: m.VectorStoresPreview,
   })),

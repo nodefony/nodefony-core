@@ -407,7 +407,7 @@ Détails d'implémentation utiles :
 - `useNodefonyChannel` : le `handler` est capturé via `useRef` → il peut changer à chaque render **sans** re-déclencher l'abonnement ; seuls `client`, `channel` et `deps` re-bindent.
 - `useNodefonyAdaptiveChannel` re-bind seulement si `base`, `desiredMs`, `enabled` ou `deps` changent (handler + opts capturés par ref). `AdaptiveChannelHookOptions = Omit<BindAdaptiveOptions, "intervalMs" | "onRate">` (`:158`).
 
-Exemple consommateur réel (Studio) : `App.tsx:12` importe `NodefonyProvider` depuis `nodefony/react`, monté `App.tsx:278` au-dessus du shell avec `client={rootStore.realtime}` (client `NodefonySocket.shared`).
+Exemple consommateur réel (Studio) : `App.tsx:12` importe `NodefonyProvider` depuis `nodefony/react`, monté `App.tsx:279` au-dessus du shell avec `client={rootStore.realtime}` (client `NodefonySocket.shared`).
 
 ### 11.3 Les composables Vue `nodefony/vue`
 

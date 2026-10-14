@@ -1,4 +1,5 @@
-import { lazy, type ComponentType, type LazyExoticComponent } from "react";
+import type { ComponentType, LazyExoticComponent } from "react";
+import { lazyRoute } from "../../utils/staleChunk";
 
 /* ════════════════════════════════════════════════════════════════════════
  * liveGraphs.ts — REGISTRE des graphes live de la socket. Source UNIQUE.
@@ -45,7 +46,7 @@ export const LIVE_GRAPH_CATALOG: readonly LiveGraphEntry[] = [
   {
     name: "architecture",
     label: "Architecture",
-    component: lazy(() =>
+    component: lazyRoute(() =>
       import("./ArchitectureLiveGraph").then((m) => ({
         default: m.ArchitectureLiveGraph,
       })),
@@ -54,7 +55,7 @@ export const LIVE_GRAPH_CATALOG: readonly LiveGraphEntry[] = [
   {
     name: "protocole",
     label: "Protocole",
-    component: lazy(() =>
+    component: lazyRoute(() =>
       import("./ProtocoleLiveGraph").then((m) => ({
         default: m.ProtocoleLiveGraph,
       })),
@@ -63,14 +64,14 @@ export const LIVE_GRAPH_CATALOG: readonly LiveGraphEntry[] = [
   {
     name: "fan-out",
     label: "Fan-out",
-    component: lazy(() =>
+    component: lazyRoute(() =>
       import("./FanOutLiveGraph").then((m) => ({ default: m.FanOutLiveGraph })),
     ),
   },
   {
     name: "actions",
     label: "Actions",
-    component: lazy(() =>
+    component: lazyRoute(() =>
       import("./ActionsLiveGraph").then((m) => ({
         default: m.ActionsLiveGraph,
       })),
@@ -79,7 +80,7 @@ export const LIVE_GRAPH_CATALOG: readonly LiveGraphEntry[] = [
   {
     name: "backplane",
     label: "Backplane",
-    component: lazy(() =>
+    component: lazyRoute(() =>
       import("./BackplaneLiveGraph").then((m) => ({
         default: m.BackplaneLiveGraph,
       })),
@@ -88,7 +89,7 @@ export const LIVE_GRAPH_CATALOG: readonly LiveGraphEntry[] = [
   {
     name: "sondes",
     label: "Sondes",
-    component: lazy(() =>
+    component: lazyRoute(() =>
       import("./ProbesLiveGraph").then((m) => ({ default: m.ProbesLiveGraph })),
     ),
   },
