@@ -31,10 +31,13 @@
  *  6. reconnexion réelle → abonnements REJOUÉS sans une ligne applicative ;
  *  7. le pont `request(path)` rend la MÊME valeur que le GET REST ;
  *  8. route inconnue par le pont → REJET nommé (404), jamais une attente muette ;
- *  9. handshake ANONYME → jamais d'identité, et l'état le dit.
+ *  9. handshake ANONYME → refus constaté par la sonde : `connect()` rejette,
+ *     état `error`, aucune retentative, jamais d'identité (#596) ;
+ * 10. serveur ABSENT → même échec d'ouverture, mais la reconnexion continue.
  */
-import { describe, it, expect, beforeAll, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import https from "node:https";
+import net from "node:net";
 import WS from "ws";
 import {
   connectShared,
@@ -140,9 +143,40 @@ function installWebSocket(cookie: string | null): void {
         rejectUnauthorized: false,
         headers: cookie ? { cookie } : {},
       });
+      socketsCreated++;
     }
   }
   (globalThis as { WebSocket?: unknown }).WebSocket = TestWebSocket;
+}
+
+/** Sockets ouvertes par le transport — une retentative en crée une de plus. */
+let socketsCreated = 0;
+
+/**
+ * La sonde (#596) est un `fetch` : même différence de décor que la socket. Le
+ * navigateur fait confiance à l'autorité de développement, le `fetch` de Node
+ * non (`SELF_SIGNED_CERT_IN_CHAIN` → sonde muette → « panne », et le refus ne
+ * se verrait jamais). La variable est lue à chaque connexion TLS : posée le
+ * temps de ce fichier, rendue ensuite. La sonde elle-même reste celle du
+ * client, à la lettre.
+ */
+let tlsBefore: string | undefined;
+function trustDevAuthority(): void {
+  tlsBefore = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
+function restoreTlsTrust(): void {
+  if (tlsBefore === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  else process.env.NODE_TLS_REJECT_UNAUTHORIZED = tlsBefore;
+}
+
+/** Un port où personne n'écoute : celui qu'on vient de rendre. */
+async function deadPort(): Promise<number> {
+  const server = net.createServer();
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const { port } = server.address() as net.AddressInfo;
+  await new Promise<void>((r) => server.close(() => r()));
+  return port;
 }
 
 /** Purge le registre de `shared()` — sans quoi un cas hérite de la socket du précédent. */
@@ -173,7 +207,12 @@ let cookie: string;
 
 beforeAll(async () => {
   cookie = await loginCookie();
+  trustDevAuthority();
 }, TIMEOUT);
+
+afterAll(() => {
+  restoreTlsTrust();
+});
 
 afterEach(() => {
   resetShared();
@@ -222,25 +261,69 @@ describe("E2E isomorphe — le handshake et l'identité, vus par le CLIENT", () 
   );
 
   it(
-    "handshake ANONYME : aucune identité inventée, et l'état le DIT",
+    "handshake ANONYME : connect() rejette, état `error`, aucune retentative (#596)",
     async () => {
+      // Le pare-feu refuse AVANT le 101 : le transport ne voit qu'un 1006 (le
+      // statut est caché, comme dans un navigateur), la sonde lit le 401 et le
+      // client s'arrête. Sur l'ancien contrat, la socket s'ouvrait puis
+      // tombait en 1008 : `connected` puis `reconnecting`, sans fin.
       installWebSocket(null);
-      const live = connectShared({ url: HUB });
+      socketsCreated = 0;
+      const socket = new NodefonySocket({ url: HUB, reconnectDelay: 100 });
+      const etats: RealtimeState[] = [];
+      const noticeCodes: unknown[] = [];
+      socket.onState((s) => etats.push(s));
+      socket.onNotice((n) => noticeCodes.push(n.code));
       const identites: (RealtimeIdentity | null)[] = [];
-      observeIdentity(live.socket, (i) => identites.push(i));
-      live.start();
-      // Le firewall refuse le handshake : la socket se ferme sans welcome.
-      await until(
-        "socket refusée",
-        () =>
-          live.socket.state !== "connected" &&
-          live.socket.state !== "connecting",
-      );
-      expect(
-        identites.every((i) => i === null),
-        "une identité a été rendue sans welcome",
-      ).toBe(true);
-      expect(live.socket.identity).toBeNull();
+      observeIdentity(socket, (i) => identites.push(i));
+      try {
+        await expect(socket.connect()).rejects.toThrow();
+        await until("verdict de la sonde", () => socket.state === "error");
+        // Au-delà du plancher de reconnexion (100 ms) : une retentative
+        // interdite aurait eu le temps de partir.
+        await new Promise((r) => setTimeout(r, 500));
+        expect(etats, "la socket refusée a paru connectée").not.toContain(
+          "connected",
+        );
+        expect(etats, "un refus a été retenté comme une panne").not.toContain(
+          "reconnecting",
+        );
+        expect(socket.state).toBe("error");
+        expect(socketsCreated, "une seconde socket est partie").toBe(1);
+        expect(noticeCodes, "la notice dit le statut du refus").toContain(401);
+        expect(
+          identites.every((i) => i === null),
+          "une identité a été rendue sans welcome",
+        ).toBe(true);
+        expect(socket.identity).toBeNull();
+      } finally {
+        socket.disconnect();
+      }
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "serveur ABSENT : connect() rejette, mais la reconnexion continue (#596)",
+    async () => {
+      // Le pendant du refus : même 1006 vu du transport, sonde sans réponse.
+      // Sans ce cas, un client qui conclurait « refusé » à tout échec passerait
+      // le précédent.
+      installWebSocket(null);
+      const port = await deadPort();
+      const socket = new NodefonySocket({
+        url: `wss://127.0.0.1:${port}/nodefony/studio/api/realtime`,
+        reconnectDelay: 100,
+      });
+      const etats: RealtimeState[] = [];
+      socket.onState((s) => etats.push(s));
+      try {
+        await expect(socket.connect()).rejects.toThrow();
+        await until("reconnexion armée", () => etats.includes("reconnecting"));
+        expect(etats).not.toContain("error");
+      } finally {
+        socket.disconnect();
+      }
     },
     TIMEOUT,
   );
