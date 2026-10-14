@@ -18,12 +18,16 @@ import DrizzleService from "../../nodefony/service/DrizzleService";
 describe("sonde de schéma — un état sain ne se répète pas", () => {
   let root: string;
   let service: DrizzleService | null = null;
+  let terminate: (() => Promise<void>) | null = null;
 
   beforeAll(() => {
     root = mkdtempSync(path.join(os.tmpdir(), "nf-readiness-announce-"));
   });
   afterAll(async () => {
     vi.useRealTimers();
+    // L'arrêt du service (minuteurs, puis connexions) AVANT d'effacer : sous
+    // Windows, un fichier sqlite encore ouvert ne se supprime pas (EPERM).
+    await terminate?.();
     await service?.disconnectAll();
     ormRegistry.unregister("default");
     rmSync(root, { recursive: true, force: true });
@@ -31,14 +35,21 @@ describe("sonde de schéma — un état sain ne se répète pas", () => {
 
   it("« schéma à jour » une fois au démarrage, pas à chaque passage de la surveillance", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    // Chaque passage de la sonde se termine par une publication : on attend
+    // celle-ci, sinon un passage encore en vol tient la base ouverte.
+    let published = 0;
     const container = new Container();
     const kernel = {
       path: root,
       runProfile: { ...CONSOLE_DATA_RUN_PROFILE },
-      once: (): void => {},
+      once: (event: string, cb: () => Promise<void>): void => {
+        if (event === "onTerminate") terminate = cb;
+      },
       resolveRuntimeEnv: (): string => "production",
       reportBootNotice: (): void => {},
-      setReadiness: (): void => {},
+      setReadiness: (): void => {
+        published++;
+      },
       clearReadiness: (): void => {},
     };
     container.set("kernel", kernel);
@@ -78,8 +89,13 @@ describe("sonde de schéma — un état sain ne se répète pas", () => {
       `annonce au démarrage : ${JSON.stringify(journal)}`,
     );
 
-    // Trois passages de la surveillance (15 s chacun) sur un schéma inchangé.
-    await vi.advanceTimersByTimeAsync(3 * 15_000 + 100);
+    // Trois passages de la surveillance (15 s chacun) sur un schéma inchangé,
+    // chacun attendu jusqu'à sa publication.
+    const atBoot = published;
+    for (let round = 1; round <= 3; round++) {
+      await vi.advanceTimersByTimeAsync(15_000);
+      await vi.waitFor(() => assert.equal(published, atBoot + round));
+    }
     assert.equal(
       aJour(),
       1,
