@@ -38,7 +38,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // absence et l'application meurt au premier accès.
   "better-sqlite3": "13.0.3",
   pg: "8.23.1",
-  mysql2: "3.24.5",
+  mysql2: "3.24.6",
   // Pilote MongoDB, en dépendance de DÉVELOPPEMENT d'une application MongoDB :
   // seul le décor e2e l'importe, pour vider sa base avant la suite — Mongoose
   // n'a pas de `orm:reset`. Même version que celle de `@nodefony/mongoose`,
@@ -80,7 +80,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2004",
   prettier: "^3.9.10",
-  rolldown: "^1.2.13",
+  rolldown: "^1.2.14",
   typescript: "^6.0.3",
   vitest: "^5.0.4",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
@@ -90,8 +90,8 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@vitest/coverage-v8": "^5.0.4",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.3.4",
-  react: "^19.3.0",
-  "react-dom": "^19.3.0",
+  react: "^19.3.1",
+  "react-dom": "^19.3.1",
   "@vitejs/plugin-react": "^6.1.2",
   "@types/react": "^19.3.0",
   "@types/react-dom": "^19.3.0",
@@ -110,7 +110,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.2.2",
   "@angular/common": "~22.2.2",
   "@angular/platform-browser": "~22.2.2",
-  "@analogjs/vite-plugin-angular": "^2.8.0",
+  "@analogjs/vite-plugin-angular": "^2.8.1",
   "@angular/build": "~22.2.2",
   "@angular/compiler-cli": "~22.2.2",
 };

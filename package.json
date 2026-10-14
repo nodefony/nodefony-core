@@ -110,13 +110,13 @@
     "oxlint": "1.88.0",
     "oxlint-tsgolint": "7.0.2004",
     "picomatch": "4.0.7",
-    "playwright": "1.64.0",
+    "playwright": "1.64.1",
     "prettier": "3.9.10",
-    "rolldown": "1.2.13",
+    "rolldown": "1.2.14",
     "shiki": "4.5.0",
     "tslib": "2.8.1",
     "tsx": "4.23.15",
-    "turbo": "2.11.7",
+    "turbo": "2.11.8",
     "typescript": "6.0.3",
     "vitest": "5.0.4",
     "yaml": "2.9.1"
@@ -216,7 +216,7 @@
     }
   },
   "dependencies": {
-    "@analogjs/vite-plugin-angular": "2.8.0",
+    "@analogjs/vite-plugin-angular": "2.8.1",
     "@angular/build": "22.2.2",
     "@angular/compiler-cli": "22.2.2",
     "@vitejs/plugin-react": "6.1.2",
