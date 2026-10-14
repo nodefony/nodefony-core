@@ -22,6 +22,7 @@ import {
   packageManagerReferences,
   PIN as EPINGLE,
   references,
+  usesOf,
   yamlUnder as yamlSous,
 } from "./action-pins.mjs";
 
@@ -47,6 +48,15 @@ describe("actions GitHub épinglées par SHA", () => {
       .flatMap(references)
       .map((r) => r.ref);
     expect(rendues.some((r) => r.startsWith("actions/setup-node@"))).toBe(true);
+  });
+
+  it("la lecture d'une ligne reste linéaire face à des balises répétées (ReDoS)", () => {
+    // `<%%><%%><%…` sans `uses:` : l'ancienne forme doublait ses chemins à
+    // chaque `%><%` (~250 ms à 24 répétitions, ~16 s à 30).
+    const t = performance.now();
+    expect(usesOf(`<%${"%><%".repeat(24)}x`)).toBeNull();
+    expect(performance.now() - t).toBeLessThan(50);
+    expect(usesOf("<% a %><% b %>  - uses: x/y@z # v1")).toBe("x/y@z # v1");
   });
 
   it("aucune action tierce n'est référencée par un tag mobile", () => {

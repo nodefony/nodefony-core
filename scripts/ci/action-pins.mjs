@@ -51,15 +51,26 @@ export function references(file) {
   readFileSync(file, "utf8")
     .split("\n")
     .forEach((line, i) => {
-      const m = /^(?:\s*<%.*?%>)*\s*-?\s*uses:\s*(.+?)\s*$/.exec(line);
-      if (m)
+      const ref = usesOf(line);
+      if (ref !== null)
         out.push({
           file,
           at: `${path.relative(ROOT, file).split(path.sep).join("/")}:${i + 1}`,
-          ref: m[1],
+          ref,
         });
     });
   return out;
+}
+
+/**
+ * La référence portée par une ligne `uses:`, ou `null`.
+ * Le corps d'une balise `<% … %>` ne peut pas contenir `%>` : chaque caractère
+ * n'a qu'une lecture possible, là où `.*?` laissait la boucle externe et la
+ * balise se disputer chaque `%><%` (retour arrière exponentiel, CodeQL js/redos).
+ */
+export function usesOf(line) {
+  const m = /^(?:\s*<%(?:[^%]|%(?!>))*%>)*\s*-?\s*uses:\s*(.+?)\s*$/.exec(line);
+  return m ? m[1] : null;
 }
 
 /** Les références `uses: "…"` que `packageManager.ts` rend dans l'application. */
