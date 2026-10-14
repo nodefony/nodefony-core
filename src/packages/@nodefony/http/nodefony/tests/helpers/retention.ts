@@ -120,6 +120,12 @@ export const THRESHOLDS = {
   sseServerClose: 1024,
   /** flux SSE tenu (battement de cœur), abandonné par le client */
   sseClientLeave: 1024,
+  // Refus d'un handshake AVANT le 101 (#596) — seuil commun appliqué, pas
+  // encore re-mesuré sur 10 passages.
+  /** handshake anonyme refusé en 401 sur la zone protégée, aucune socket ouverte */
+  wsRefused: 1024,
+  /** sonde HTTP d'un handshake refusé (GET anonyme → 401 avant le 426 différé) */
+  wsProbe: 1024,
   /**
    * COÛT d'une connexion WS TENUE ouverte (`ws-connections-load`) — pas une
    * rétention : ce que le serveur paye tant que la connexion vit. Mesuré

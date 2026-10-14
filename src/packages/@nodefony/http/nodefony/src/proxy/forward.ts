@@ -562,18 +562,46 @@ export function rawHead(
   return `${head}\r\n`;
 }
 
-/** Réponse brute minimale sur un socket d'upgrade, puis fermeture. */
+/**
+ * Réponse brute minimale sur un socket d'upgrade, puis fermeture.
+ *
+ * Les en-têtes passent par la validation de `node:http` : un nom ou une valeur
+ * invalide — un saut de ligne surtout, qui forgerait un en-tête de plus — est
+ * OMIS, jamais écrit. `Connection` et `Content-Length` sont posés ici et ne se
+ * remplacent pas.
+ *
+ * @param socket - socket du client, encore en attente de sa réponse
+ * @param status - statut HTTP du refus
+ * @param reason - phrase de raison
+ * @param headers - en-têtes du refus (`WWW-Authenticate`, `Retry-After`…)
+ */
 export function refuseUpgrade(
   socket: Duplex,
   status: number,
   reason: string,
+  headers?: Readonly<Record<string, string | number>> | null,
 ): void {
   if (!socket.writable) {
     socket.destroy();
     return;
   }
+  let extra = "";
+  if (headers) {
+    for (const name of Object.keys(headers)) {
+      const lower = name.toLowerCase();
+      if (lower === "connection" || lower === "content-length") continue;
+      const value = String(headers[name]);
+      try {
+        http.validateHeaderName(name);
+        http.validateHeaderValue(name, value);
+      } catch {
+        continue;
+      }
+      extra += `${name}: ${value}\r\n`;
+    }
+  }
   socket.end(
-    `HTTP/1.1 ${status} ${reason}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
+    `HTTP/1.1 ${status} ${reason}\r\n${extra}Connection: close\r\nContent-Length: 0\r\n\r\n`,
   );
 }
 

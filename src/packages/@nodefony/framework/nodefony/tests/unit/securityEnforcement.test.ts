@@ -279,3 +279,66 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
     expect(err?.code).to.equal(403); // garde appliquée même sans route mémoïsée
   });
 });
+
+/**
+ * #596 — le pipeline WebSocket juge les gardes AVANT d'accepter le handshake
+ * (`authorizeAction`), pour qu'un refus parte en statut HTTP. Le verdict
+ * favorable vaut pour UNE exécution (l'action de handshake) : les messages
+ * suivants sont jugés chacun, et un refus ne laisse rien passer ensuite.
+ */
+describe("Resolver.authorizeAction — gardes jugées avant le handshake (#596)", () => {
+  it("route non gardée → undefined : aucune promesse, aucun lookup", () => {
+    const r = makeResolver({ security: null });
+    expect(r.authorizeAction()).to.equal(undefined);
+  });
+
+  it("DENY → la promesse rompt en 403", async () => {
+    const r = makeResolver({
+      security: ROLE_CLAUSE,
+      decide: async () => false,
+    });
+    const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
+      caught(() => r.authorizeAction()),
+    );
+    expect(err?.code).to.equal(403);
+  });
+
+  it("GRANT → l'exécution qui suit ne rejuge pas ; la suivante, si", async () => {
+    let decisions = 0;
+    const r = makeResolver({
+      security: ROLE_CLAUSE,
+      decide: async () => {
+        decisions++;
+        return true;
+      },
+    });
+    await RequestContext.run({ requestId: "t", token: {} }, async () => {
+      await r.authorizeAction();
+      expect(decisions).to.equal(1);
+      expect((await r.executeAction()).result).to.equal("pong");
+      expect(decisions, "l'action de handshake reprend le verdict").to.equal(1);
+      await r.executeAction();
+      expect(decisions, "un message suivant est jugé pour son compte").to.equal(
+        2,
+      );
+    });
+  });
+
+  it("un refus ne pré-autorise rien : l'exécution rejuge et refuse", async () => {
+    let allow = false;
+    let decisions = 0;
+    const r = makeResolver({
+      security: ROLE_CLAUSE,
+      decide: async () => {
+        decisions++;
+        return allow;
+      },
+    });
+    await RequestContext.run({ requestId: "t", token: {} }, async () => {
+      expect((await caught(() => r.authorizeAction()))?.code).to.equal(403);
+      allow = false;
+      expect((await caught(() => r.executeAction()))?.code).to.equal(403);
+      expect(decisions).to.equal(2);
+    });
+  });
+});

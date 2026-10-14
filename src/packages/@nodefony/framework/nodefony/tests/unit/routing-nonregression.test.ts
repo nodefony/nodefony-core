@@ -191,12 +191,11 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
       requirements: { methods: ["WEBSOCKET"] },
     });
     const ctx = makeCtx("/ws-only", "GET");
-    let err: HttpError | undefined;
-    try {
-      makeRouter().resolve(ctx);
-    } catch (e) {
-      err = e as HttpError;
-    }
+    // POSÉ sur le résolveur, pas levé (#596) : le pipeline le lève après le
+    // pare-feu quand le chemin est en zone protégée (sonde d'un handshake).
+    const resolver = makeRouter().resolve(ctx);
+    expect(resolver.resolve).to.equal(false);
+    const err = resolver.exception as HttpError | null | undefined;
     expect(err?.code).to.equal(426);
     expect(String(ctx.response.headers["Upgrade"])).to.equal("websocket");
     expect(String(ctx.response.headers["Connection"])).to.equal("Upgrade");

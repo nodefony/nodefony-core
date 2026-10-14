@@ -1,11 +1,12 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import WebSocket from "ws";
-import { asError } from "../helpers/wsText";
+import { expectHandshakeRefused } from "../helpers/wsHandshake";
 
 // B4 — validation d'Origin au handshake WS (anti-CSWSH, OWASP WSTG-CLNT-10).
 // Défaut : same-origin (Origin host == Host), loopback toléré en development,
-// Origin absent (client non-navigateur) autorisé. Refus → close WS 1008.
+// Origin absent (client non-navigateur) autorisé. Refus → 403 AU HANDSHAKE,
+// avant le 101 (#596) — jamais une ouverture suivie d'un close 1008.
 // Requiert le serveur dev (port 5152, wss).
 
 const WSS = "wss://localhost:5152";
@@ -22,56 +23,24 @@ describe("WEBSOCKET ORIGIN — anti-CSWSH (B4, requires server)", () => {
     ws = null;
   });
 
-  it(
-    "Origin étrangère → close 1008 (CSWSH bloqué)",
-    () =>
-      new Promise<void>((resolve, reject) => {
-        ws = new WebSocket(ROUTE, {
-          ...wsOpts,
-          origin: "https://evil.example.com",
-        });
-        ws.on("close", (code) => {
-          try {
-            expect(code).to.equal(1008);
-            resolve();
-          } catch (e) {
-            reject(asError(e));
-          }
-        });
-        // Un close abrupt peut précéder d'un 'error' selon Node — non fatal : le
-        // code de fermeture (1008) reste l'assertion qui tranche.
-        ws.on("error", () => undefined);
-      }),
-    8000,
-  );
+  it("Origin étrangère → 403 au handshake (CSWSH bloqué, jamais d'ouverture)", async () => {
+    const refused = await expectHandshakeRefused(ROUTE, {
+      origin: "https://evil.example.com",
+    });
+    expect(refused.status).to.equal(403);
+  });
 
   // `domainCheck: true` (nodefony.config.ts) — le handshake passe par le même
-  // contrôle de domaine que le HTTP : Host hors `trustedHosts` → 421, rendu
-  // 1008 au client. Sans ce contrôle, le WebSocket était la porte dérobée de
-  // la barrière Host (le HTTP rendait 421, le socket s'ouvrait).
-  it(
-    "Host hors trustedHosts → close 1008 (contrôle de domaine au handshake)",
-    () =>
-      new Promise<void>((resolve, reject) => {
-        ws = new WebSocket(ROUTE, {
-          ...wsOpts,
-          headers: { Host: "evil.example:5152" },
-        });
-        // Comme le refus d'Origin : `ws` rend le 101 avant `handleWebsocket`,
-        // le refus arrive en close 1008 sans que le controller ait tourné.
-        ws.on("close", (code, reason) => {
-          try {
-            expect(code).to.equal(1008);
-            expect(String(reason)).to.match(/Misdirected/);
-            resolve();
-          } catch (e) {
-            reject(asError(e));
-          }
-        });
-        ws.on("error", () => undefined);
-      }),
-    8000,
-  );
+  // contrôle de domaine que le HTTP : Host hors `trustedHosts` → 421 (RFC 9110
+  // §15.5.20), désormais rendu tel quel AU HANDSHAKE. Sans ce contrôle, le
+  // WebSocket était la porte dérobée de la barrière Host.
+  it("Host hors trustedHosts → 421 au handshake (contrôle de domaine)", async () => {
+    const refused = await expectHandshakeRefused(ROUTE, {
+      headers: { Host: "evil.example:5152" },
+    });
+    expect(refused.status).to.equal(421);
+    expect(refused.statusMessage).to.match(/Misdirected/);
+  });
 
   it(
     "Same-origin (Origin == Host) → connexion acceptée",

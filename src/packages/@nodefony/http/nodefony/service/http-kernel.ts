@@ -56,7 +56,11 @@ import websocketServer from "../service/servers/server-websocket";
 import websocketSecureServer from "../service/servers/server-websocket-secure";
 import Statics from "./servers/server-static";
 import type ReverseProxy from "./reverse-proxy";
-import WebsocketContext from "../src/context/websocket/WebsocketContext";
+import WebsocketContext, {
+  toHandshakeStatus,
+} from "../src/context/websocket/WebsocketContext";
+import type { IUpgradeAdmission } from "../src/servers/upgradeDispatch";
+import { trackPong } from "./servers/wsHeartbeat";
 import { parseWebsocketUrl } from "../src/context/websocket/websocketUrl";
 import HttpContext from "../src/context/http/HttpContext";
 import Context, { HTTPMethod, WebSocketState } from "../src/context/Context";
@@ -914,6 +918,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       return resolver;
     }
     if (resolver.exception) {
+      // #596 — SONDE d'un handshake. Une route qui n'existe qu'en WebSocket
+      // (426) sous une zone protégée se juge d'abord par le pare-feu, comme
+      // son handshake : un client dont l'ouverture a échoué SANS statut (le
+      // navigateur cache celui d'un handshake refusé) demande ici POURQUOI —
+      // 401/403 = refusé, 426 = admis, aucune réponse = serveur absent. Hors
+      // zone, le 426 part tout de suite, sans session : chemin inchangé.
+      const exception = resolver.exception;
+      if (context.secure && "code" in exception && exception.code === 426) {
+        context.resolver = resolver;
+        return resolver;
+      }
       throw resolver.exception;
     }
     throw new HttpError("Not Found", 404, context);
@@ -1063,6 +1078,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       return context;
     }
     if (context instanceof WebsocketContext) {
+      // Avant l'acceptation : le refus est un STATUT HTTP (RFC 6455 §4.2.2),
+      // porteur des en-têtes posés pendant la décision (`WWW-Authenticate`).
+      if (context.admission !== null) {
+        const status = toHandshakeStatus(
+          "code" in error && typeof error.code === "number"
+            ? error.code
+            : undefined,
+        );
+        context.refuseHandshake(status);
+        if (this.kernel?.debug) {
+          this.log(`${status} ${error.message}`, "DEBUG", "WEBSOCKET REFUSED");
+        }
+        return context;
+      }
       try {
         const wsResult = this.errorRenderer.renderWebsocket(error, context);
         if (context.response?.connection) {
@@ -1892,12 +1921,22 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         if (this.listenerCount("afterAuth"))
           await this.fireAsync("afterAuth", context);
       } catch (authError) {
+        // Sonde d'un handshake (#596) : le refus ne porte pas les en-têtes du
+        // 426 que le routeur a posés (`Upgrade`, `Connection`).
+        if (context.resolver?.exception) {
+          context.response.response?.removeHeader("Upgrade");
+          context.response.response?.removeHeader("Connection");
+        }
         // SECURITY HOOK — onAuthFailure (P1.7)
         await this.fireAsync("onAuthFailure", context, authError).catch(
           (e: unknown) => this.log(e, "ERROR", "onAuthFailure"),
         );
         throw authError;
       }
+      // #596 — la sonde a passé le pare-feu : le 426 différé part maintenant.
+      // Une lecture de champ sur le chemin des requêtes en zone, rien d'autre.
+      const pending = context.resolver?.exception;
+      if (pending) throw pending;
     } finally {
       context.phaseEnd("firewall");
     }
@@ -1908,7 +1947,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   createWebsocketContext(
     scope: Scope,
     req: IncomingMessage,
-    ws: Ws,
+    ws: Ws | null,
     type: ServerType,
   ): WebsocketContext {
     const context = new WebsocketContext(scope, req, ws, type);
@@ -1961,37 +2000,58 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
   }
 
-  // WEBSOCKET ENTRY POINT
-  async onWebsocketRequest(
-    ws: Ws,
+  /**
+   * Point d'entrée d'un upgrade vers une route WebSocket de Nodefony, appelé
+   * par le répartiteur d'upgrade AVANT le `101` (#596) : rien ne s'ouvre tant
+   * que le pipeline n'a pas dit oui.
+   *
+   * Les bornes par IP passent en premier, avant tout scope, ALS ou pipeline
+   * (symétrie avec le 429 HTTP et avec le proxy inverse) : le vrai vecteur DoS
+   * est d'accumuler des sockets ouvertes. La place est rendue à la fermeture du
+   * socket du client — même règle que pour un tunnel relayé.
+   *
+   * @param req - requête d'upgrade
+   * @param admission - le verdict à rendre : accepter (`101`) ou refuser (HTTP)
+   * @param type - serveur qui a reçu l'upgrade
+   * @returns la promesse du traitement de la connexion
+   */
+  async onWebsocketUpgrade(
     req: IncomingMessage,
+    admission: IUpgradeAdmission,
     type: ServerType,
   ): Promise<unknown> {
-    // Bornes par IP à l'upgrade WS — rejetées ICI, AVANT `enterScope`/l'ALS/le
-    // pipeline (symétrie avec le 429 HTTP), car le vrai vecteur DoS = accumuler des
-    // sockets ouvertes (→ flood de frames → famine event-loop). Le handshake ne peut
-    // pas répondre un 429 (le 101 est déjà émis par `ws`) → close RFC 6455 1013
-    // « Try Again Later ». Règle unique, partagée avec le proxy inverse.
-    const refusal = this.websocketQuotaRefusal(req, ws);
-    if (refusal !== null) {
-      if (ws.readyState === Ws.OPEN) ws.close(1013, refusal);
+    if (this.websocketQuotaRefusal(req, req.socket) !== null) {
+      admission.refuse(429);
       return;
     }
     await this.fireAsync("onServerRequest", req, null, type);
     const scope = this.container?.enterScope("request");
-    return this.handleWebsocket(scope as Scope, ws, req, type);
+    return this.handleWebsocket(scope as Scope, req, admission, type);
   }
 
+  /**
+   * Pipeline d'un handshake WebSocket, dans la bulle ALS de la connexion :
+   * jugement (`onConnect`), pare-feu, gardes de l'action — PUIS seulement
+   * l'acceptation, la socket et l'action de handshake. Tout refus antérieur à
+   * l'acceptation part en statut HTTP (`onError` → `refuseHandshake`).
+   *
+   * @param scope - scope DI de la connexion
+   * @param req - requête d'upgrade
+   * @param admission - le verdict à rendre
+   * @param type - serveur qui a reçu l'upgrade
+   * @returns ce que rend l'action de handshake
+   */
   async handleWebsocket(
     scope: Scope,
-    ws: Ws,
     req: IncomingMessage,
+    admission: IUpgradeAdmission,
     type: ServerType,
   ): Promise<unknown> {
     let context: WebsocketContext | null = null;
     let error: unknown = null;
     try {
-      context = this.createWebsocketContext(scope, req, ws, type);
+      context = this.createWebsocketContext(scope, req, null, type);
+      context.admission = admission;
     } catch (e) {
       error = e;
     }
@@ -2048,23 +2108,44 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             context.phaseEnd("firewall");
           }
         }
-        if (context) {
-          context.phaseStart("action");
-          try {
-            return await context.handle();
-          } finally {
-            context.phaseEnd("action");
-          }
+        if (!context) return;
+        // GARDES DE L'ACTION — `@IsGranted`, `@RequireScope`, step-up, rôle de
+        // la zone : jugées ICI, avant l'acceptation. Un connecté sans le rôle
+        // reçoit son 403 au handshake au lieu d'une ouverture suivie d'un 1008.
+        // L'exécution de l'action de handshake ne les rejuge pas.
+        const guarded = context.resolver?.authorizeAction();
+        if (guarded !== undefined) await guarded;
+        // ACCEPTATION — le seul endroit d'où part le `101`. Synchrone dans le
+        // cas nominal (cf `IUpgradeAdmission.accept`) : pas d'`await` sur une
+        // valeur, qui coûterait une micro-tâche par connexion pour rien.
+        const accepted = admission.accept();
+        const ws = accepted instanceof Promise ? await accepted : accepted;
+        if (ws === null) {
+          // Le client est parti pendant la décision : rien à servir.
+          this.releaseOrphanWsScope(scope, context);
+          return;
         }
-        return;
+        trackPong(ws);
+        context.acceptConnection(ws);
+        await context.connect();
+        context.phaseStart("action");
+        try {
+          return await context.handle();
+        } finally {
+          context.phaseEnd("action");
+        }
       });
     } catch (e) {
       try {
         await this.onError(e as Error, context as WebsocketContext);
       } catch (errorHandlingError) {
+        // Filet : un handshake reçoit TOUJOURS un verdict (sans effet s'il
+        // est déjà rendu) — sinon le client attendrait jusqu'à son délai.
+        admission.refuse(500);
         this.releaseOrphanWsScope(scope, context);
         throw errorHandlingError;
       }
+      admission.refuse(500);
       this.releaseOrphanWsScope(scope, context);
       throw e;
     }
@@ -2093,10 +2174,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     context.clean();
   }
 
+  /**
+   * Juge un handshake WebSocket AVANT son acceptation : hôte, origine,
+   * `beforeResolve`, contrôleur (protocole négocié), session. N'ouvre rien —
+   * l'acceptation n'a lieu qu'après le pare-feu et les gardes de l'action
+   * (cf {@link handleWebsocket}).
+   *
+   * @param context - contexte du handshake, encore sans socket
+   * @param error - erreur levée à la construction du contexte, relancée telle quelle
+   * @throws la première erreur du jugement — rendue en statut HTTP par `onError`
+   */
   async onConnect(
     context: WebsocketContext | null,
     error: unknown = null,
-  ): Promise<Ws | number> {
+  ): Promise<void> {
     if (error) {
       // Rejet tel quel (une `Error` en pratique : levée par le constructeur du
       // contexte) — l'envelopper changerait le code et le message vus par
@@ -2112,11 +2203,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.checkValidDomain(context);
     }
     // B4 — anti-CSWSH : valide l'Origin du handshake (same-origin par défaut,
-    // loopback dev toléré, allowlist `allowedOrigins`). Refus → close WS 1008.
+    // loopback dev toléré, allowlist `allowedOrigins`). Refus → 403 au handshake.
     this.checkWebsocketOrigin(context);
     // SECURITY HOOK — beforeResolve (P1.7) — WS
     await this.fireAsync("beforeResolve", context);
-    // FRONT CONTROLLER — le WS instancie ICI (avant `connect()`) : le
+    // FRONT CONTROLLER — le WS instancie ICI (avant l'acceptation) : le
     // controller porte le protocole négocié et peut encore toucher la réponse
     // du handshake ; après l'accept, il est trop tard.
     try {
@@ -2132,7 +2223,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (!context.sessionStarting) {
       await this.startSession(context);
     }
-    return context.connect();
   }
 
   checkValidDomain(context: ContextType): number {

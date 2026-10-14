@@ -23,7 +23,7 @@ import type { ContextType } from "@nodefony/http";
  * Preuve attendue (banc `ws-data-plane-auth.test.ts`) :
  *  - admin (ROLE_ADMIN) → `{ granted: true, identifier: "admin" }` ;
  *  - user  (ROLE_USER)  → RpcError `data.status === 403` (autz ≠ authn) ;
- *  - anonyme            → handshake refusé en amont (J3b, close 1008).
+ *  - anonyme            → handshake refusé AVANT le 101 : 401 HTTP (#596).
  */
 @controller("/nodefony/test/api")
 class SecureWsController extends Controller {

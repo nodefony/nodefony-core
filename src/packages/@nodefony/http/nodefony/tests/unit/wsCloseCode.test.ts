@@ -1,6 +1,9 @@
 /// <reference types="node" />
 import { expect } from "vitest";
-import { toWsCloseCode } from "../../src/context/websocket/WebsocketContext.js";
+import {
+  toHandshakeStatus,
+  toWsCloseCode,
+} from "../../src/context/websocket/WebsocketContext.js";
 
 // Conformité RFC 6455 §7.4 des codes de fermeture WebSocket.
 // §7.4.2 : 0-999 « not used » ; 1004/1005/1006/1015 réservés NON émissibles ;
@@ -76,5 +79,43 @@ describe("toWsCloseCode — coercition RFC 6455 §7.4", () => {
         `input ${input} → ${toWsCloseCode(input)} non émissible`,
       );
     }
+  });
+});
+
+describe("toHandshakeStatus — statut d'un handshake refusé avant le 101 (#596)", () => {
+  it("un statut HTTP 4xx/5xx est rendu tel quel", () => {
+    for (const s of [400, 401, 403, 404, 421, 429, 500, 503])
+      expect(toHandshakeStatus(s)).to.equal(s);
+  });
+
+  it("un code de fermeture hérité garde son SENS côté HTTP", () => {
+    expect(toHandshakeStatus(1008), "origine / autorisation").to.equal(403);
+    expect(toHandshakeStatus(1002), "protocole").to.equal(400);
+    expect(toHandshakeStatus(4004), "introuvable").to.equal(404);
+    expect(toHandshakeStatus(4001), "session révoquée").to.equal(401);
+    expect(toHandshakeStatus(1013), "réessayer plus tard").to.equal(503);
+    expect(toHandshakeStatus(1009), "trop gros").to.equal(413);
+  });
+
+  it("absent, non entier, 1xx-3xx ou inconnu → 500, jamais un succès", () => {
+    for (const c of [
+      undefined,
+      null,
+      Number.NaN,
+      1.5,
+      0,
+      101,
+      200,
+      302,
+      1011,
+      3000,
+    ])
+      expect(toHandshakeStatus(c as number)).to.equal(500);
+  });
+
+  it("aller-retour : un refus d'autorisation reste une POLITIQUE des deux côtés", () => {
+    // 401/403 → 1008 (fermeture) et 1008 → 403 (handshake) : jamais 1011/500,
+    // qui ferait reconnecter le client en boucle.
+    expect(toHandshakeStatus(toWsCloseCode(403))).to.equal(403);
   });
 });

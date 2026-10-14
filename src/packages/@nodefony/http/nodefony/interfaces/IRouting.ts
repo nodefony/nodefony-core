@@ -65,6 +65,16 @@ export interface IRouteResolver {
    *   n'attendent, sinon sa promesse
    */
   callController(data?: unknown[], reload?: boolean): MaybePromise<unknown>;
+  /**
+   * Juge les gardes de l'action résolue (`@IsGranted`, `@RequireScope`,
+   * step-up, rôle de la zone) SANS l'exécuter — le pipeline WebSocket l'appelle
+   * avant d'accepter le handshake, pour qu'un refus parte en statut HTTP. Un
+   * verdict favorable vaut pour la PROCHAINE exécution, qui ne le rejuge pas.
+   *
+   * @returns `undefined` quand l'action n'est pas gardée ; sinon la promesse du
+   *   verdict, rompue par un refus (401/403)
+   */
+  authorizeAction(): Promise<void> | undefined;
 }
 
 /**

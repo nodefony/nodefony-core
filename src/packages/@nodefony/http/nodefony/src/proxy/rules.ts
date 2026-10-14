@@ -239,12 +239,19 @@ export function isAmbiguousPath(url: string): boolean {
 }
 
 /** Clé de handshake : 16 octets en base64 (RFC 6455 §4.1, §4.2.1). */
-const WS_KEY = /^[A-Za-z0-9+/]{22}==$/;
+const WS_KEY = /^\s*[A-Za-z0-9+/]{22}==\s*$/;
+/** `Upgrade: websocket`, casse et blancs indifférents. */
+const UPGRADE_WEBSOCKET = /^\s*websocket\s*$/i;
+/** Le jeton `upgrade` dans une liste `Connection` (RFC 9110 §7.6.1). */
+const CONNECTION_UPGRADE = /(?:^|,)\s*upgrade\s*(?:,|$)/i;
 
 /**
  * Un upgrade est-il un handshake WebSocket conforme (RFC 6455 §4.2.1) ? Seul
  * un tel handshake est relayé : un `Upgrade` quelconque (`h2c`…) raccordé
  * octet pour octet ouvrirait un tunnel que rien n'inspecte.
+ *
+ * Appelé à CHAQUE handshake (proxy inverse et routes de Nodefony) : aucune
+ * allocation — des expressions testées, jamais de découpe de chaîne.
  *
  * @param method - méthode de la requête
  * @param headers - en-têtes reçus
@@ -256,24 +263,20 @@ export function websocketHandshakeProblem(
 ): string | null {
   if (method !== "GET") return "méthode autre que GET";
   const upgrade = headers.upgrade;
-  if (
-    typeof upgrade !== "string" ||
-    upgrade.trim().toLowerCase() !== "websocket"
-  ) {
+  if (typeof upgrade !== "string" || !UPGRADE_WEBSOCKET.test(upgrade)) {
     return "Upgrade autre que websocket";
   }
   const connection = headers.connection;
-  const tokens = (
-    Array.isArray(connection) ? connection.join(",") : (connection ?? "")
-  )
-    .toLowerCase()
-    .split(",")
-    .map((t) => t.trim());
-  if (!tokens.includes("upgrade")) return "Connection sans upgrade";
+  const hasUpgrade =
+    typeof connection === "string"
+      ? CONNECTION_UPGRADE.test(connection)
+      : Array.isArray(connection) &&
+        connection.some((token) => CONNECTION_UPGRADE.test(token));
+  if (!hasUpgrade) return "Connection sans upgrade";
   if (headers["sec-websocket-version"] !== "13")
     return "Sec-WebSocket-Version ≠ 13";
   const key = headers["sec-websocket-key"];
-  if (typeof key !== "string" || !WS_KEY.test(key.trim())) {
+  if (typeof key !== "string" || !WS_KEY.test(key)) {
     return "Sec-WebSocket-Key invalide";
   }
   return null;

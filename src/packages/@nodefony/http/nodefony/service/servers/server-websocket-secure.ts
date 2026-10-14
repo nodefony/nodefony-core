@@ -12,10 +12,9 @@ import HttpKernel, {
   SchemeType,
 } from "../http-kernel";
 import { AddressInfo } from "node:net";
-import type { IncomingMessage } from "node:http";
 import https from "node:https";
 import httpsServers from "./server-https";
-import { startHeartbeat, trackPong } from "./wsHeartbeat";
+import { startHeartbeat } from "./wsHeartbeat";
 import { attachUpgradeDispatch } from "../../src/servers/upgradeDispatch";
 
 class WebsocketSecure extends Service {
@@ -95,8 +94,15 @@ class WebsocketSecure extends Service {
           this.server,
           () => this.httpKernel.reverseProxy,
           (req) => this.httpKernel.websocketUpgradeRefusal(req),
+          // #596 — le noyau décide AVANT le 101 : pare-feu, gardes de l'action.
+          (req, admission) => {
+            this.httpKernel
+              .onWebsocketUpgrade(req, admission, this.type)
+              .catch(() => {
+                /* rendu par onError — le verdict est déjà parti */
+              });
+          },
         );
-        this.server.on("connection", this.onConnection.bind(this));
         // G2 — heartbeat keep-alive : UN seul interval/serveur, détecte les zombies.
         this.heartbeatTimer = startHeartbeat(this.server, this.options);
         this.kernel?.prependOnceListener(
@@ -110,16 +116,6 @@ class WebsocketSecure extends Service {
         this.log(e, "ERROR");
         return reject(e instanceof Error ? e : new Error(String(e)));
       }
-    });
-  }
-
-  onConnection(ws: Ws, req: IncomingMessage): void {
-    // G2 — arme le suivi keep-alive (horodatage + listener `pong`) AVANT le pipeline.
-    trackPong(ws);
-    this.httpKernel.onWebsocketRequest(ws, req, this.type).catch(() => {
-      process.nextTick(() => {
-        return;
-      });
     });
   }
 

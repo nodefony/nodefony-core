@@ -123,13 +123,13 @@ type JsonRpcReply = {
 
 /**
  * Observe un handshake : `welcomed=true` si le `realtime:welcome` arrive, sinon
- * `welcomed=false` + le `code` de fermeture WS. Permet d'injecter une `origin`
+ * `welcomed=false` + le `status` HTTP du refus au handshake (#596). Permet d'injecter une `origin`
  * arbitraire (attaque CSWSH) en plus du cookie.
  */
 function observeHandshake(
   cookie: string | null,
   origin?: string,
-): Promise<{ welcomed: boolean; code: number }> {
+): Promise<{ welcomed: boolean; status: number }> {
   return new Promise((resolve) => {
     const headers: Record<string, string> = {};
     if (cookie) headers.cookie = cookie;
@@ -137,7 +137,9 @@ function observeHandshake(
     const ws = new WebSocket(HUB_URL, { rejectUnauthorized: false, headers });
     let welcomed = false;
     let settled = false;
-    const done = (w: boolean, code = 0) => {
+    // `status` : statut HTTP d'un refus AU HANDSHAKE (#596), 0 si la socket
+    // s'est ouverte (ou n'a rien rendu).
+    const done = (w: boolean, status = 0) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -146,7 +148,7 @@ function observeHandshake(
       } catch {
         /* déjà fermé */
       }
-      resolve({ welcomed: w, code });
+      resolve({ welcomed: w, status });
     };
     const timer = setTimeout(() => done(welcomed), TIMEOUT);
     ws.on("message", (data: Buffer) => {
@@ -156,9 +158,13 @@ function observeHandshake(
         done(true);
       }
     });
-    ws.on("close", (code: number) => done(welcomed, code));
+    ws.on("unexpected-response", (_req, res) => {
+      res.resume();
+      done(false, res.statusCode ?? 0);
+    });
+    ws.on("close", () => done(welcomed));
     ws.on("error", () => {
-      /* le refus surgit en error avant close — on attend le close */
+      /* un refus surgit en unexpected-response — l'erreur suit, sans info */
     });
   });
 }
@@ -237,9 +243,9 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
   // explicitement. Un cookie admin VALIDE accompagne chaque attaque : la garde
   // doit refuser sur la seule Origin, AVANT que le cookie ne compte (sinon CSWSH).
 
-  it("O1 Origin cross-site (https://evil.example) + cookie admin → REFUS 1008", async () => {
+  it("O1 Origin cross-site (https://evil.example) + cookie admin → REFUS 403 au handshake", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
-    const { welcomed, code } = await observeHandshake(
+    const { welcomed, status } = await observeHandshake(
       cookie,
       "https://evil.example",
     );
@@ -247,37 +253,39 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
       welcomed,
       "une Origin étrangère ne doit jamais obtenir le welcome",
     ).to.equal(false);
-    expect(code, "refus = 1008 Policy Violation").to.equal(1008);
+    expect(status, "refus = 403 AU HANDSHAKE, jamais d'ouverture").to.equal(
+      403,
+    );
   });
 
-  it("O2 Origin suffixe (https://127.0.0.1.evil.example) + cookie → REFUS 1008", async () => {
+  it("O2 Origin suffixe (https://127.0.0.1.evil.example) + cookie → REFUS 403 au handshake", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
-    const { welcomed, code } = await observeHandshake(
+    const { welcomed, status } = await observeHandshake(
       cookie,
       "https://127.0.0.1.evil.example",
     );
     // Match EXACT (originHost === domain), pas un endsWith laxiste.
     expect(welcomed).to.equal(false);
-    expect(code).to.equal(1008);
+    expect(status).to.equal(403);
   });
 
-  it("O3 Origin userinfo (https://127.0.0.1@evil.example) + cookie → REFUS 1008", async () => {
+  it("O3 Origin userinfo (https://127.0.0.1@evil.example) + cookie → REFUS 403 au handshake", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
-    const { welcomed, code } = await observeHandshake(
+    const { welcomed, status } = await observeHandshake(
       cookie,
       "https://127.0.0.1@evil.example",
     );
     // WHATWG URL : hostname = evil.example (l'userinfo ne trompe pas la garde).
     expect(welcomed).to.equal(false);
-    expect(code).to.equal(1008);
+    expect(status).to.equal(403);
   });
 
-  it("O4 Origin opaque (null) + cookie → REFUS 1008", async () => {
+  it("O4 Origin opaque (null) + cookie → REFUS 403 au handshake", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
-    const { welcomed, code } = await observeHandshake(cookie, "null");
+    const { welcomed, status } = await observeHandshake(cookie, "null");
     // "null" n'est pas une URL valide → originHost null → jamais same-origin.
     expect(welcomed).to.equal(false);
-    expect(code).to.equal(1008);
+    expect(status).to.equal(403);
   });
 
   it("O5 contrôle positif : Origin same-origin (https://127.0.0.1:5152) + cookie → WELCOME", async () => {

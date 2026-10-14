@@ -308,7 +308,10 @@ class Router extends Service implements IRequestRouter {
    *   WEBSOCKET (pont WS-RPC `api.request` d'une MUTATION) : lève l'ambiguïté
    *   GET-via-WS / POST-via-WS sur un même chemin (`context.method` = "WEBSOCKET").
    *   `undefined` (GET/HTTP) → match historique sur `context.method`.
-   * @returns un `Resolver` (`.resolve === true` si une route a matché).
+   * @returns un `Resolver` (`.resolve === true` si une route a matché) — ou,
+   *   pour un chemin servi en WebSocket SEULEMENT et demandé en HTTP, un
+   *   `Resolver` dont `exception` porte le `426` (en-têtes `Upgrade` posés) :
+   *   le pipeline le lève après le pare-feu.
    */
   resolve(
     context: ContextType,
@@ -446,7 +449,17 @@ class Router extends Service implements IRequestRouter {
           Upgrade: "websocket",
           Connection: "Upgrade",
         });
-        throw new HttpError("Upgrade Required: websocket", 426, context);
+        // POSÉ, pas levé (#596) : le pipeline HTTP le lève dans
+        // `prepareFrontController` — tout de suite hors zone, APRÈS le
+        // pare-feu en zone protégée. C'est la SONDE d'un handshake refusé : le
+        // client qui n'a vu qu'un échec d'ouverture apprend ici 401 (refusé)
+        // ou 426 (admis), comme son handshake l'aurait appris.
+        resolver.exception = new HttpError(
+          "Upgrade Required: websocket",
+          426,
+          context,
+        );
+        return resolver;
       }
       if (allowed.size > 0) {
         const allowHeader = Array.from(allowed).join(", ");

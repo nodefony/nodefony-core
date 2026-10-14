@@ -25,6 +25,7 @@ import { expect } from "vitest";
 import https from "node:https";
 import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
+import { expectHandshakeRefused } from "../helpers/wsHandshake";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const AUTH = "/nodefony/security/api/auth";
@@ -221,55 +222,15 @@ function hubConnect(cookie: string | null): Promise<{
   });
 }
 
-/**
- * Observe un handshake attendu REFUSÉ : `refused=true` si fermé sans welcome, +
- * le `code` de fermeture WS (doit être 1008 Policy Violation → le NodefonySocket
- * n'essaie PAS de reconnecter ; 1011 relancerait une boucle de reco).
- */
-function expectRefused(
-  cookie: string | null,
-): Promise<{ refused: boolean; code: number }> {
-  return new Promise((resolve) => {
-    const ws = new WebSocket(HUB_URL, {
-      rejectUnauthorized: false,
-      headers: cookie ? { cookie } : {},
-    });
-    let welcomed = false;
-    let settled = false;
-    const done = (refused: boolean, code = 0) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try {
-        ws.close();
-      } catch {
-        /* déjà fermé */
-      }
-      resolve({ refused, code });
-    };
-    const timer = setTimeout(() => done(false), TIMEOUT); // pas de close → pas refusé
-    ws.on("message", (data: Buffer) => {
-      const frame = JSON.parse(String(data)) as Record<string, unknown>;
-      if (frame.method === "realtime:welcome") {
-        welcomed = true;
-        done(false); // welcome reçu = PAS refusé
-      }
-    });
-    ws.on("close", (code: number) => done(!welcomed, code));
-    ws.on("error", () => {
-      /* le refus peut surgir en error avant close — on attend le close */
-    });
-  });
-}
-
 describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
-  it("handshake ANONYME (sans cookie) → REFUSÉ en close 1008 (Policy, pas de reco)", async () => {
-    const { refused, code } = await expectRefused(null);
-    expect(refused, "anonyme ne reçoit jamais le welcome").to.equal(true);
-    // 1008 (≠ 1011) : un refus d'auth est une violation de POLITIQUE → le
-    // NodefonySocket abandonne au lieu de reconnecter en boucle (régression J3b
-    // qui bloquait la Studio au chargement anonyme).
-    expect(code).to.equal(1008);
+  it("handshake ANONYME (sans cookie) → REFUSÉ en 401 AU HANDSHAKE (jamais d'ouverture)", async () => {
+    // #596 : le pare-feu juge AVANT le 101. Le client voit un refus (401 +
+    // WWW-Authenticate), jamais une socket ouverte puis fermée — et la sonde
+    // de NodefonySocket le lit en refus définitif : pas de reconnexion en boucle
+    // (régression J3b qui bloquait la Studio au chargement anonyme).
+    const refused = await expectHandshakeRefused(HUB_URL);
+    expect(refused.status).to.equal(401);
+    expect(refused.headers["www-authenticate"]).to.be.a("string");
   });
 
   it("HTTP data plane gaté : GET /nodefony/kernel/api/modules sans cookie → 401", async () => {

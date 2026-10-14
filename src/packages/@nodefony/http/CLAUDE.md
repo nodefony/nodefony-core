@@ -97,19 +97,37 @@ le controller porte le protocole négocié et c'est la dernière fenêtre avant
 `connect()` pour toucher la réponse — donc en WS, `initialize()` reste pré-firewall.
 Verrou : `tests/http/pipeline-order.test.ts`.
 
-### Pipeline WebSocket
+### Pipeline WebSocket — rien ne s'ouvre tant que le pipeline n'a pas dit oui
 
 ```
-server-websocket.ts (ws "connection" event) → http-kernel.ts.handleWebsocket()
-  → createWebsocketContext()
-  → handleFrontController() ← résolution route AVANT accept
-  → context.connect() ← accept WS handshake
-  → Controller.execute(null) ← handshake (message=null)
-  → ws "message" → Controller.execute(message)
+serveur (event "upgrade") → attachUpgradeDispatch (src/servers/upgradeDispatch.ts)
+  → proxy inverse                    ← relais, s'il monte le chemin
+  → websocketUpgradeRefusal()        ← 404 chemin sans route WS · 400 URL · 429 · 503 (avant tout scope)
+  → websocketHandshakeProblem()      ← 400 handshake malformé (règle du proxy inverse, 0 allocation)
+  → HttpKernel.onWebsocketUpgrade()  ← quotas par IP → 429 ; enterScope ; bulle ALS
+     → handleWebsocket() → onConnect() : hôte 421 · origine 403 · beforeResolve ·
+       handleFrontController() (controller instancié : protocole négocié) · startSession()
+     → firewall.handleSecurity()     ← 401 + WWW-Authenticate · 403
+     → resolver.authorizeAction()    ← @IsGranted / @RequireScope / step-up → 403 (framework)
+     → admission.accept()            ← LE 101 PART ICI (ws.handleUpgrade) ; null si le client est parti
+     → context.acceptConnection(ws) → connect() → handle() (action de handshake, verdict repris)
+  → ws "message" → handleMessage → gardes jugées PAR message
 ```
 
-**Point critique** : la route est résolue (et le protocole vérifié) AVANT `context.connect()`.
-Protocol incorrect → `HttpError(1002)` → `context.close(1002)` → client reçoit code 1002.
+**Point critique** : tout refus décidé AVANT `admission.accept()` est un **statut HTTP** (RFC 6455
+§4.2.2 — `onError` → `context.refuseHandshake()` → `toHandshakeStatus`) : 401, 403, 404, 400…,
+porteur des en-têtes posés pendant la décision (`response.setHeader` retient dans
+`handshakeHeaders` tant que la socket n'est pas acceptée). Plus jamais d'ouverture suivie d'un
+`1008` : le client ne voit pas une connexion « réussie » puis fermée. APRÈS l'acceptation, les
+codes de fermeture gardent leur rôle (`toWsCloseCode`, réciproque de `toHandshakeStatus`). Pendant
+la décision, le socket a un écouteur `error` : un `ECONNRESET` du client n'abat pas le process, et
+`accept()` rend `null` au lieu d'une promesse pendante.
+
+**Sonde (#596)** : le navigateur cache le statut d'un handshake refusé. Le client (`NodefonySocket`)
+fait alors un GET HTTP sur l'adresse de la socket ; `prepareFrontController` diffère le `426` d'une
+route WS-seule **en zone** jusqu'après le pare-feu (`runFirewall`) → 401/403 = refusé, 426 =
+admis. Hors zone : 426 immédiat, sans session (chemin inchangé). La sonde dit le verdict du
+PARE-FEU, pas celui d'une garde d'action.
 
 ### WebsocketContext — IWsRequestExtension
 
@@ -185,7 +203,7 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 | Auth (flux) | `http/{webauthn-bff,firewall-auth}.test.ts` · `integration/{apikey-flow,oauth2-flow,security-hooks}.test.ts` · `websockets/{ws-scope-jwt,ws-isgranted-jwt,ws-data-plane-auth}.test.ts` |
 | Proxy / IP de confiance | `unit/{trustProxy,forwarded,forwardedWiring,generateProxyConfig,domain}.test.ts` · `http/forward.test.ts` |
 | Traçage / journalisation | `unit/{trace,requestId,RequestLogger,PrettyRequestLogger,wsLogContent,Profiler,AuditLogger,FrameProfile}.test.ts` · `http/traceparent.test.ts` · `websockets/websocket-trace-logging.test.ts` |
-| WebSocket (protocole) | `websockets/{websocket,websocket-protocol,websocket-limits,websocket-fragmentation,websocket-origin,websocket-w3c,websocket-binary-broadcast}.test.ts` · `unit/{wsCloseCode,wsCloseReason,wsHeartbeat,wsBackpressure,wsConnectionCounter,WsResponsePeerGone}.test.ts` |
+| WebSocket (protocole) | `websockets/{websocket,websocket-protocol,websocket-limits,websocket-fragmentation,websocket-origin,websocket-w3c,websocket-binary-broadcast,ws-handshake-refusal}.test.ts` · `unit/{upgradeDispatch,wsCloseCode,wsCloseReason,wsHeartbeat,wsBackpressure,wsConnectionCounter,WsResponsePeerGone}.test.ts` |
 | WebSocket (pont/actions) | `websockets/{ws-bridge-radiography,ws-bridge-rendered-action}.test.ts` |
 | Statique & upload | `http/{static,fileStream,upload}.test.ts` · `unit/{UploadedFile,collectAssets,prebuiltUi}.test.ts` |
 | Routage | `routing/Router.test.ts` · `integration/domain-routing.test.ts` |
@@ -226,8 +244,8 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 
 ## Gotchas
 
-- `onConnection` dans http-kernel a un `catch` silencieux — erreurs WS avalées, vérifier les logs server DEBUG
-- `WebsocketResponse.connection` est assigné **dans le constructeur** (pas seulement dans `connect()`) → `onError` peut fermer avec code 1002 avant même l'accept
+- `server-websocket*.ts` enchaîne `httpKernel.onWebsocketUpgrade(...).catch(() => {})` : le verdict est déjà rendu par `onError` (statut HTTP ou fermeture), l'erreur ne remonte pas — la lire dans les logs serveur DEBUG (`WEBSOCKET REFUSED`)
+- `WebsocketResponse.connection` est **`null` jusqu'à `context.acceptConnection(ws)`** (après le verdict) : avant, `setHeader` retient les en-têtes du refus (`handshakeHeaders`, `null` tant que rien n'est posé) et `send` lève « WebSocket not open » ; `onError` refuse alors en HTTP (`refuseHandshake`), jamais par une fermeture
 - `context.acceptedProtocol` = header `Sec-WebSocket-Protocol` brut (string)
 - `SecuredArea.match()` nécessite `request.url` comme `URL` object — toujours passer par `WsIncomingMessage`
 - **Ne PAS appeler `startSession()` dans `initialize()` d'un controller WS** : le point d'activation

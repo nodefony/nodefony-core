@@ -166,6 +166,11 @@ class Resolver implements IResolver {
    * administrateurs.
    */
   messageInvocation: boolean = false;
+  /**
+   * Les gardes de l'action ont été jugées favorables par {@link authorizeAction}
+   * et ne se rejugent pas à la prochaine exécution — consommé par elle.
+   */
+  private preAuthorized: boolean = false;
   constructor(context: ContextType) {
     this.context = context;
     this.injector = context.container?.get<Injector>("injector") ?? null;
@@ -477,11 +482,36 @@ class Resolver implements IResolver {
     // SECURITY — @IsGranted AVANT newController : un 403 court-circuite
     // l'instanciation DI + initialize() (Zero Trust). `security === null`
     // (route non gardée, 99 %) → 0 lookup, 0 await, 0 alloc.
-    const guarded = this._enforceActionSecurity(meta);
+    let guarded: Promise<void> | undefined;
+    if (this.preAuthorized) this.preAuthorized = false;
+    else guarded = this._enforceActionSecurity(meta);
     if (guarded !== undefined) {
       return guarded.then(() => this._acquireAndInvoke(meta, data, reload));
     }
     return this._acquireAndInvoke(meta, data, reload);
+  }
+
+  /**
+   * Juge les gardes de l'action résolue SANS l'exécuter — appelé par le
+   * pipeline WebSocket AVANT d'accepter le handshake (#596), pour qu'un
+   * connecté sans le rôle reçoive son 403 en statut HTTP au lieu d'une
+   * ouverture suivie d'une fermeture. Un verdict favorable vaut pour la
+   * PROCHAINE exécution (l'action de handshake), qui ne le rejuge pas ; les
+   * messages suivants, eux, sont jugés chacun.
+   *
+   * @returns `undefined` quand l'action n'est pas gardée ; sinon la promesse du
+   *   verdict, rompue par un refus
+   */
+  authorizeAction(): Promise<void> | undefined {
+    const meta = this.route
+      ? resolveActionMeta(this.route)
+      : computeActionMeta(this.controller, this.actionName);
+    const guarded = this._enforceActionSecurity(meta);
+    if (guarded === undefined) return undefined;
+    return guarded.then(() => {
+      this.preAuthorized = true;
+      return undefined;
+    });
   }
 
   /**

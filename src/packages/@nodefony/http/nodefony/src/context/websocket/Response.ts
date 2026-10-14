@@ -1,3 +1,4 @@
+import type { OutgoingHttpHeaders } from "node:http";
 import Cookie from "../../cookies/cookie.js";
 import {
   Message,
@@ -288,17 +289,43 @@ class WebsocketResponse {
   clean() {
     this.connection = null;
     this.body = null;
+    this.handshakeHeaders = null;
   }
 
   setEncoding(encoding: BufferEncoding) {
     return (this.encoding = encoding);
   }
 
-  setHeader(/* name, value*/) {
+  /**
+   * En-têtes de la réponse au handshake, retenus tant que la socket n'est pas
+   * acceptée : ils ne partent que dans un REFUS (`refuseHandshake`) — le `101`
+   * de `ws` ne les porte pas. `null` tant que personne n'en pose (le cas
+   * nominal : aucune allocation).
+   */
+  handshakeHeaders: Record<string, string | number> | null = null;
+
+  /**
+   * Retient un en-tête du handshake (cf {@link handshakeHeaders}) ; sans effet
+   * une fois la socket ouverte, où il n'y a plus de réponse HTTP.
+   *
+   * @param name - nom de l'en-tête
+   * @param value - valeur
+   * @returns toujours `true`
+   */
+  setHeader(name: string, value: number | string | readonly string[]) {
+    if (this.connection !== null) return true;
+    this.handshakeHeaders ??= {};
+    this.handshakeHeaders[name] =
+      typeof value === "object" ? value.join(", ") : value;
     return true;
   }
 
-  setHeaders(/* obj*/) {
+  setHeaders(obj: OutgoingHttpHeaders) {
+    if (this.connection !== null) return true;
+    for (const name of Object.keys(obj)) {
+      const value = obj[name];
+      if (value !== undefined) this.setHeader(name, value);
+    }
     return true;
   }
 

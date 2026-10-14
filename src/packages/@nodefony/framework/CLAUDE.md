@@ -51,7 +51,10 @@ Router.resolve(ctx)
 
 > **En WS, `newController()` + `initialize()` ont lieu plus tôt** (au handshake, avant `connect()`
 > donc avant le firewall) : le controller porte le protocole négocié et c'est la dernière fenêtre
-> pour toucher la réponse de handshake. Cf `../http/CLAUDE.md` § Pipeline.
+> pour toucher la réponse de handshake. Les GARDES, elles, sont jugées AVANT l'acceptation du
+> handshake par `Resolver.authorizeAction()` (#596) — un refus part en statut HTTP, jamais en
+> ouverture suivie d'un `1008` ; l'action de handshake reprend ce verdict sans le rejuger, chaque
+> message est jugé pour son compte. Cf `../http/CLAUDE.md` § Pipeline.
 
 ### Enregistrement des routes (décorateurs)
 

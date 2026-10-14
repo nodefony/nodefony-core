@@ -8,6 +8,7 @@ import { RequestContext } from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
+import type { IUpgradeAdmission } from "../../servers/upgradeDispatch.js";
 import { toWsCloseReason } from "./wsCloseReason.js";
 import { URL } from "node:url";
 import { HTTPMethod } from "../Context.js";
@@ -98,6 +99,40 @@ export function toWsCloseCode(code: number | undefined | null): number {
 }
 
 /**
+ * Statut HTTP d'un handshake REFUSÉ avant le `101` (RFC 6455 §4.2.2) — la
+ * réciproque de {@link toWsCloseCode} : une erreur levée pendant la décision
+ * porte un code HTTP (pare-feu, garde) ou, par héritage, un code de fermeture
+ * WS (origine `1008`, protocole `1002`, introuvable `4004`) ; le client qui
+ * lit le statut doit y reconnaître le même sens.
+ *
+ * @param code - code porté par l'erreur
+ * @returns un statut HTTP 4xx/5xx
+ */
+export function toHandshakeStatus(code: number | undefined | null): number {
+  if (typeof code !== "number" || !Number.isInteger(code)) return 500;
+  if (code >= 400 && code <= 599) return code;
+  switch (code) {
+    case 1002: // protocol error
+    case 1003: // unsupported data
+    case 1007: // invalid payload
+      return 400;
+    case 1008: // policy violation (origine, autorisation)
+    case 4003:
+      return 403;
+    case 4001: // session révoquée
+      return 401;
+    case 1009: // message too big
+      return 413;
+    case 1013: // try again later
+      return 503;
+    case 4004:
+      return 404;
+    default:
+      return 500;
+  }
+}
+
+/**
  * Drapeau « logger le CONTENU des messages WS » — résolu **une seule fois** au
  * premier message (kernel présent). `true` hors production : le Suivi de requête
  * (Studio) affiche alors les frames RECEIVE/SEND/BROADCAST. En prod → `false` →
@@ -119,6 +154,12 @@ export default class WebsocketContext
   // the DI scope, so HttpKernel must clean up explicitly.
   teardownWired: boolean = false;
   connection: Ws | null = null;
+  /**
+   * Le verdict du handshake encore à rendre : posé par le noyau tant que le
+   * pipeline décide (pare-feu, garde de l'action), `null` dès que la socket
+   * est acceptée ou refusée. Tant qu'il est là, AUCUN `101` n'est parti.
+   */
+  admission: IUpgradeAdmission | null = null;
   origin: string;
   proxy: ProxyType | null = null;
   // Résolution canonique forwarded (RFC 7239 prioritaire, repli X-Forwarded-*).
@@ -133,7 +174,12 @@ export default class WebsocketContext
   // octets) par socket, jamais lu en production.
   #frameSeq = 0;
 
-  constructor(scope: Scope, req: IncomingMessage, ws: Ws, type: ServerType) {
+  constructor(
+    scope: Scope,
+    req: IncomingMessage,
+    ws: Ws | null,
+    type: ServerType,
+  ) {
     super(scope, type);
     this.webSocketState = "handshake";
     this.request = req as WsIncomingMessage;
@@ -251,6 +297,36 @@ export default class WebsocketContext
       // Un échec de journalisation ne doit jamais faire tomber la connexion.
       return undefined;
     }
+  }
+
+  /**
+   * Rattache la socket que le handshake vient d'ouvrir (`101` envoyé) : le
+   * contexte a été construit et jugé AVANT, sans elle.
+   *
+   * @param ws - la socket acceptée
+   */
+  acceptConnection(ws: Ws): void {
+    this.admission = null;
+    this.connection = ws;
+    this.response?.setConnection(ws);
+  }
+
+  /**
+   * Refuse le handshake par un statut HTTP, avant tout `101` (RFC 6455
+   * §4.2.2) — avec les en-têtes posés pendant la décision (`WWW-Authenticate`
+   * du pare-feu, `Retry-After`).
+   *
+   * @param status - statut HTTP du refus
+   * @returns `false` si le verdict était déjà rendu (rien n'est écrit)
+   */
+  refuseHandshake(status: number): boolean {
+    const admission = this.admission;
+    if (admission === null) return false;
+    this.admission = null;
+    this.rejected = true;
+    this.webSocketState = "error";
+    admission.refuse(status, this.response?.handshakeHeaders ?? null);
+    return true;
   }
 
   async connect(): Promise<Ws> {

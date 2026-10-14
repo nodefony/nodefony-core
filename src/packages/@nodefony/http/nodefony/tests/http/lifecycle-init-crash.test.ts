@@ -2,6 +2,7 @@
 import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
+import { expectHandshakeRefused } from "../helpers/wsHandshake";
 
 // P2.4 — controller `initialize()` error boundary.
 //
@@ -58,31 +59,14 @@ describe("Controller initialize() error boundary — P2.4 (requires server)", ()
    * pend. Ce que le client doit voir : close **1011** (Internal Error,
    * RFC 6455 §7.4.1).
    */
-  it("in WebSocket, a throwing initialize() closes with 1011 — never hangs", async () => {
-    const closed = await new Promise<{ code: number; opened: boolean }>(
-      (resolve, reject) => {
-        const ws = new WebSocket(
-          "wss://localhost:5152/nodefony/test/lifecycle/init-crash-ws",
-          { rejectUnauthorized: false },
-        );
-        let opened = false;
-        const timer = setTimeout(() => {
-          ws.terminate();
-          reject(new Error("la connexion pend — aucune fermeture reçue"));
-        }, 8000);
-        ws.on("open", () => {
-          opened = true;
-        });
-        ws.on("close", (code: number) => {
-          clearTimeout(timer);
-          resolve({ code, opened });
-        });
-        ws.on("error", () => undefined); // la fermeture est le signal, pas l'erreur socket
-      },
+  it("in WebSocket, a throwing initialize() is refused 500 at the handshake — never opens, never hangs", async () => {
+    // #596 : le contrôleur WS est instancié AVANT l'acceptation ; son échec
+    // est un refus du handshake (500, RFC 6455 §4.2.2), pas une ouverture
+    // suivie d'un close 1011.
+    const refused = await expectHandshakeRefused(
+      "wss://localhost:5152/nodefony/test/lifecycle/init-crash-ws",
+      { timeoutMs: 8000 },
     );
-    expect(
-      closed.code,
-      "close 1011 — erreur interne (RFC 6455 §7.4.1)",
-    ).to.equal(1011);
+    expect(refused.status, "erreur interne au handshake").to.equal(500);
   });
 });

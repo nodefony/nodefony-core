@@ -394,6 +394,40 @@ const ACTIONS = {
   // doivent tous être libérés.
   sseServerClose: () => sseStream("/nodefony/test/sse/three", false),
   sseClientLeave: () => sseStream("/nodefony/test/sse/hold", true),
+  // Handshake REFUSÉ avant le 101 (#596) : un anonyme sur la zone protégée
+  // reçoit 401 sans qu'aucune socket s'ouvre. C'est le chemin qu'un flot
+  // d'anonymes martèle : contexte, scope, session et pare-feu y naissent puis
+  // doivent disparaître sans la fermeture qui, avant, les libérait.
+  wsRefused: () =>
+    new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(`${WSS}/nodefony/studio/api/realtime`, wsOpts);
+      ws.once("unexpected-response", (_req, res) => {
+        res.resume();
+        ws.terminate();
+        if (res.statusCode === 401) resolve();
+        else reject(new Error(`refus attendu 401, reçu ${res.statusCode}`));
+      });
+      ws.once("open", () => {
+        ws.terminate();
+        reject(new Error("handshake anonyme OUVERT sur la zone protégée"));
+      });
+      ws.once("error", () => undefined);
+    }),
+  // La SONDE du client (#596) : GET HTTP anonyme sur l'adresse de la socket,
+  // jugé par le pare-feu avant le 426 différé du routeur.
+  wsProbe: () =>
+    new Promise<void>((resolve, reject) => {
+      https
+        .get({ ...BASE, path: "/nodefony/studio/api/realtime" }, (res) => {
+          res.resume();
+          res.on("end", () => {
+            if (res.statusCode === 401) resolve();
+            else
+              reject(new Error(`sonde : 401 attendu, reçu ${res.statusCode}`));
+          });
+        })
+        .on("error", reject);
+    }),
 } satisfies Record<string, (i: number) => Promise<unknown>>;
 
 /**
@@ -424,6 +458,12 @@ const WARMUP = {
   proxyWs: 300,
   sseServerClose: 400,
   sseClientLeave: 300,
+  wsRefused: 400,
+  // Chemin HTTP complet (session, pare-feu, audit du refus) : même plateau
+  // que `get`. Mesuré hors gate, échauffement 1 500 / paliers de 300 :
+  // 0,02-0,04 Ko par sonde, comme un 401 HTTP ordinaire (0,05) ; avec 450, le
+  // gate publiait l'échauffement (0,37).
+  wsProbe: 1500,
 } satisfies Record<keyof typeof ACTIONS, number>;
 
 /**
@@ -697,6 +737,22 @@ describe("Memory leaks — WebSocket (requires server)", function () {
       "WS JSON-RPC peer round-trips",
       plan("wsJsonRpc", 50),
       THRESHOLDS.wsJsonRpc,
+    );
+  });
+
+  it("WS handshakes refused before the 101 (anonymous → 401) — retain nothing per refusal", async () => {
+    await wsLoop(
+      "WS handshakes refused before the 101",
+      plan("wsRefused", 50),
+      THRESHOLDS.wsRefused,
+    );
+  });
+
+  it("probe of a refused handshake (anonymous GET → 401) — retains nothing per probe", async () => {
+    await wsLoop(
+      "probe of a refused handshake",
+      plan("wsProbe", 250),
+      THRESHOLDS.wsProbe,
     );
   });
 
