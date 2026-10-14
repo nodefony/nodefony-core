@@ -14,11 +14,20 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../README.md).
 
+## [`action-pins.mjs`](action-pins.mjs)
+
+Épingles des actions GitHub — une seule implémentation pour le gate (`actions-pinned.test.mjs`) et pour l'humain qui doit les tenir à jour.
+
+- **Usage** : `node scripts/ci/action-pins.mjs [--write | --resolve owner/repo@vX.Y.Z]`
+- **Appelé par** : aucun automate
+- **Testé par** : `ci/actions-pinned.test.mjs`
+
 ## [`actions-pinned.test.mjs`](actions-pinned.test.mjs)
 
 Gate — toute action GitHub tierce est épinglée par SHA de commit.
 
 - **Lancé par** : `node.js.yml` · `npm run test:tooling`
+- **Utilise** : `ci/action-pins.mjs`
 
 ## [`code-scanning-gate.mjs`](code-scanning-gate.mjs)
 
