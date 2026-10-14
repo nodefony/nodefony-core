@@ -142,6 +142,16 @@ class DrizzleService extends Service {
    */
   #watchers: Map<string, NodeJS.Timeout> | null = null;
 
+  /**
+   * Dernier état SAIN annoncé au journal, par connecteur (`current` à jour,
+   * `ahead` en avance). La surveillance repasse toutes les 15 s : répéter un
+   * état inchangé noyait le journal d'une ligne par passage. Un état sain
+   * s'annonce donc à son arrivée — au démarrage, ou au retour après une panne —,
+   * une anomalie à chaque passage (c'est une alarme). `null` tant que rien n'a
+   * été annoncé, comme `#watchers`.
+   */
+  #announcedHealthy: Map<string, "current" | "ahead"> | null = null;
+
   constructor(module: Module) {
     super(
       serviceName,
@@ -672,6 +682,15 @@ class DrizzleService extends Service {
         check === "fail",
         report.nextActions[0]?.command,
       );
+      // Un état sain déjà annoncé ne se redit pas ; une anomalie, si.
+      const healthy = !ok ? null : enAvance ? "ahead" : "current";
+      if (healthy === null) {
+        this.#announcedHealthy?.delete(name);
+      } else if (this.#announcedHealthy?.get(name) === healthy) {
+        return;
+      } else {
+        (this.#announcedHealthy ??= new Map()).set(name, healthy);
+      }
       if (enAvance) {
         // Ni CRITIC ni geste à taper : il n'y a rien à réparer, et l'action que
         // le rapport propose pour un fichier absent (`git checkout`) n'a aucun
@@ -709,6 +728,8 @@ class DrizzleService extends Service {
       // processus qui ne sait pas dans quel état est son schéma ne doit pas
       // servir — mais on dit la vraie cause.
       const cause = (e as Error).message;
+      // Le retour à la normale devra s'annoncer.
+      this.#announcedHealthy?.delete(name);
       if (check === "fail") {
         kernel.setReadiness(
           readinessName(name),
@@ -766,6 +787,7 @@ class DrizzleService extends Service {
     }
     this.#watchers.clear();
     this.#watchers = null;
+    this.#announcedHealthy = null;
   }
 
   /** Ferme toutes les connexions. */
