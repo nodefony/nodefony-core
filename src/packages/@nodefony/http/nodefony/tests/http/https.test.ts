@@ -1,7 +1,9 @@
 /// <reference types="node" />
 import { expect } from "vitest";
+import http2 from "node:http2";
 import https from "node:https";
 import tls from "node:tls";
+import { devAuthorityPem } from "../helpers/devAuthority";
 
 // Tests for HTTPS/TLS on port 5152
 
@@ -84,6 +86,76 @@ describe("HTTPS/TLS — port 5152 (requires server)", function () {
       // AES-128/256-GCM or CHACHA20 — all strong
       expect(cipher.name).to.match(/AES|CHACHA/);
       s.destroy();
+    });
+  });
+
+  // ── Certificat VALIDÉ ────────────────────────────────────────────
+  //
+  // Les autres cas ignorent la chaîne (`rejectUnauthorized: false`) : ils
+  // resteraient verts avec un certificat qu'aucun navigateur n'accepte — nom
+  // absent du SAN, autorité régénérée sans le certificat, racine mkcert pas
+  // recopiée. Ici, l'autorité que le serveur a écrite (`caPath`) valide la
+  // chaîne ET le nom, comme un navigateur qui l'a reçue. `ca:` est local à
+  // chaque connexion : les ancres du processus ne bougent pas.
+
+  describe("certificat servi — validé par l'autorité générée", () => {
+    const ca = devAuthorityPem();
+
+    function verifiedConnect(
+      host: string,
+      options: tls.ConnectionOptions = {},
+    ): Promise<tls.TLSSocket> {
+      return new Promise((resolve, reject) => {
+        const s = tls.connect({ host, port: 5152, ca, ...options }, () =>
+          resolve(s),
+        );
+        s.on("error", reject);
+      });
+    }
+
+    for (const host of ["localhost", "127.0.0.1"]) {
+      it(`${host} : chaîne et nom validés (HTTP/1.1)`, async () => {
+        const s = await verifiedConnect(host);
+        expect(s.authorized, String(s.authorizationError)).toBe(true);
+        s.destroy();
+      });
+
+      it(`${host} : chaîne et nom validés en HTTP/2 (ALPN h2)`, async () => {
+        const session = http2.connect(`https://${host}:5152`, { ca });
+        try {
+          const status = await new Promise<number>((resolve, reject) => {
+            session.on("error", reject);
+            const req = session.request({ ":path": "/nodefony/test/index" });
+            req.on("response", (h) => resolve(Number(h[":status"])));
+            req.on("error", reject);
+            req.resume();
+            req.end();
+          });
+          expect(session.alpnProtocol).toBe("h2");
+          expect(status).toBe(200);
+        } finally {
+          session.close();
+        }
+      });
+    }
+
+    it("témoin : sans cette autorité, la chaîne est refusée", async () => {
+      // Une racine publique qui n'a rien signé ici : prouve que c'est bien
+      // `caPath` qui valide, et non une ancre posée par l'environnement.
+      const other = tls.rootCertificates[0]!;
+      await expect(
+        verifiedConnect("localhost", { ca: other }),
+      ).rejects.toMatchObject({
+        code: expect.stringMatching(/CERT|VERIFY/),
+      });
+    });
+
+    it("témoin : un nom absent du certificat est refusé", async () => {
+      await expect(
+        verifiedConnect("127.0.0.1", {
+          servername: "absent-du-certificat.example",
+        }),
+      ).rejects.toMatchObject({ code: "ERR_TLS_CERT_ALTNAME_INVALID" });
     });
   });
 
