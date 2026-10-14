@@ -88,6 +88,7 @@
     "@nodefony/realtime": "^<%= it.nodefonyVersion %>",
     "@nodefony/security": "^<%= it.nodefonyVersion %>",
     "@nodefony/frontend": "^<%= it.nodefonyVersion %>",
+    "@nodefony/documentation": "^<%= it.nodefonyVersion %>",
     "@nodefony/studio": "^<%= it.nodefonyVersion %>",
     "@nodefony/redis": "^<%= it.nodefonyVersion %>",
 <% } else if (it.front) { %>    "@nodefony/frontend": "^<%= it.nodefonyVersion %>",

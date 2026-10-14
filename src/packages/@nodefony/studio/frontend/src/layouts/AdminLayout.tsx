@@ -255,6 +255,13 @@ export const AdminLayout = observer(() => {
     void admin.loadInfo();
   }, [admin]);
 
+  // Modules chargés → la nav ne propose pas une page dont le module porteur est
+  // absent (portail de documentation sans `@nodefony/documentation` : tout en
+  // 404). Data plane AUTHENTIFIÉ : le shell n'est monté qu'après connexion.
+  useEffect(() => {
+    void admin.loadModules();
+  }, [admin]);
+
   // Sync debug bar → Studio : un clic sur une requête dans la barre (event
   // window dispatché par le widget Core `nodefony/debugbar`) ouvre le **Suivi de
   // requête** (`/nodefony/logs/trace/:requestId`) — la vue unifiée par requestId
@@ -293,13 +300,19 @@ export const AdminLayout = observer(() => {
    *    entrée de trop qu'une entrée disparue sur un aléa réseau ;
    *  - le DÉCOR : une page `repoOnly` ne parle que du framework, proposée dans
    *    son dépôt seulement. Ici l'inconnu CACHE : montrer à une application la
-   *    feuille de route d'un autre est le défaut même qu'on évite.
+   *    feuille de route d'un autre est le défaut même qu'on évite ;
+   *  - le MODULE porteur (`requiresModule`) : absent du serveur, la page n'a
+   *    pas de back. L'inconnu MONTRE, comme pour l'environnement.
    */
   const availableHere = useCallback(
     (item: NavItem): boolean =>
       !(item.devOnly && admin.isProd) &&
-      !(item.repoOnly && admin.frameworkRepository !== true),
-    [admin.isProd, admin.frameworkRepository],
+      !(item.repoOnly && admin.frameworkRepository !== true) &&
+      !(
+        item.requiresModule !== undefined &&
+        admin.hasModule(item.requiresModule) === false
+      ),
+    [admin],
   );
 
   /** Toutes les entrées visibles pour CET utilisateur, dans CET environnement. */

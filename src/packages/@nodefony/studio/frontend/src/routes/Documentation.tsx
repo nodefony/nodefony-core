@@ -5,6 +5,7 @@ import {
   ActionIcon,
   Alert,
   Badge,
+  Code,
   Divider,
   Group,
   NavLink,
@@ -24,7 +25,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { hasRole } from "nodefony/roles";
-import { useAuth, useStore } from "../stores";
+import { useAdmin, useAuth, useStore } from "../stores";
 import { ROLE_NODEFONY_ADMIN, ROLE_SUPERVISOR } from "../auth/roles";
 import { useResource } from "../hooks";
 import { RoleSwitch } from "../components/RoleSwitch";
@@ -139,7 +140,7 @@ function personaForRoles(roles: string[]): Persona {
 /* ════════════════════════════════════════════════════════════════════════
  * PAGE
  * ════════════════════════════════════════════════════════════════════════ */
-export const Documentation = observer(() => {
+const DocumentationPortal = observer(() => {
   const store = useStore();
   const auth = useAuth();
   // Défaut = le persona correspondant au rôle de l'utilisateur (réactif MobX :
@@ -170,7 +171,11 @@ export const Documentation = observer(() => {
     allPages.find((p) => p.slug === "root~index")?.slug ??
     allPages.find((p) => p.isHub)?.slug ??
     allPages.at(0)?.slug;
-  const activeSlug = params.get("doc") ?? homeSlug ?? "root~index";
+  // La page à lire n'est CONNUE qu'avec `?doc=` ou l'arbre chargé. Demander
+  // `root~index` avant l'arbre rendait un 404 dans toute application, qui n'a
+  // pas ce hub racine : la page attend donc son slug.
+  const pageSlug = params.get("doc") ?? homeSlug ?? null;
+  const activeSlug = pageSlug ?? "root~index";
   const setActiveSlug = useCallback(
     (slug: string) => setParams({ doc: slug }, { replace: false }),
     [setParams],
@@ -225,10 +230,12 @@ export const Documentation = observer(() => {
 
   const pageFetcher = useCallback(
     () =>
-      store.api.getAbsolute<DocContent>(
-        `/nodefony/documentation/api/page/${encodeURIComponent(activeSlug)}`,
-      ),
-    [store, activeSlug],
+      pageSlug === null
+        ? Promise.resolve(null)
+        : store.api.getAbsolute<DocContent>(
+            `/nodefony/documentation/api/page/${encodeURIComponent(pageSlug)}`,
+          ),
+    [store, pageSlug],
   );
   const page = useResource(pageFetcher);
 
@@ -676,7 +683,10 @@ export const Documentation = observer(() => {
           </DataState>
         ) : (
           <DataState
-            loading={page.loading && !page.data}
+            loading={
+              (page.loading && !page.data) ||
+              (pageSlug === null && tree.loading)
+            }
             error={page.error}
             onRetry={page.reload}
             minHeight={300}
@@ -703,6 +713,34 @@ export const Documentation = observer(() => {
       </DocLayout>
     </PageLayout>
   );
+});
+
+/**
+ * Le portail n'a de back que si `@nodefony/documentation` est chargé. Absent,
+ * chaque appel rendait 404 et l'écran s'arrêtait sur deux erreurs de
+ * chargement : on dit plutôt ce qui manque, et comment l'ajouter. Le menu,
+ * lui, ne propose déjà pas l'entrée (`requiresModule`) ; on arrive ici par
+ * l'URL. Tant que la liste des modules est inconnue, le portail se monte.
+ */
+export const Documentation = observer(() => {
+  const admin = useAdmin();
+  if (admin.hasModule("documentation") === false) {
+    return (
+      <PageLayout title="Documentation" icon={<IconFileText size={22} />}>
+        <Alert color="gray" title="Portail de documentation non chargé">
+          <Text size="sm">
+            Le module <Code>@nodefony/documentation</Code> n'est pas chargé par
+            cette application. Pour l'activer :{" "}
+            <Code>npm i @nodefony/documentation</Code> puis{" "}
+            <Code>use("@nodefony/documentation")</Code> dans{" "}
+            <Code>nodefony.config.ts</Code>. La documentation de chaque module
+            reste lisible dans son onglet Docs, page Modules.
+          </Text>
+        </Alert>
+      </PageLayout>
+    );
+  }
+  return <DocumentationPortal />;
 });
 
 export default Documentation;

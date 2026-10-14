@@ -35,6 +35,7 @@ export type { IFrameworkConfigInput } from "@nodefony/framework";
 <% } %><% if (it.complete) { %>export type { IRealtimeConfigInput } from "@nodefony/realtime";
 export type { ISecurityConfigInput } from "@nodefony/security";
 export type { IFrontendConfigInput } from "@nodefony/frontend";
+export type { IDocumentationConfigInput } from "@nodefony/documentation";
 export type { IStudioConfigInput } from "@nodefony/studio";
 export type { IRedisConfigInput } from "@nodefony/redis";
 <% } else if (it.front) { %>export type { IFrontendConfigInput } from "@nodefony/frontend";
@@ -206,6 +207,19 @@ export default defineConfig<typeof env>((ctx) => ({
      * les API réservées aux contextes sécurisés (caméra, WebAuthn…).
      */
     use("@nodefony/frontend", {}),
+
+    /**
+     * Portail de documentation de la console → `/nodefony/documentation` : les
+     * pages livrées par chaque paquet `@nodefony/*` installé, avec recherche
+     * plein texte. Son plan de données vit sous la zone `nodefony-admin`
+     * (session exigée).
+     *
+     * `policy: "dev"` — c'est la doc du FRAMEWORK, un outil pour qui développe :
+     * en production le module n'est pas chargé (moins de routes, aucun scan au
+     * démarrage), et la console ne propose plus l'entrée. La doc de chaque
+     * module reste lisible dans son onglet Docs.
+     */
+    use("@nodefony/documentation", undefined, { policy: "dev" }),
 
     /**
      * Console d'administration → `/nodefony` : modules chargés, routes, config

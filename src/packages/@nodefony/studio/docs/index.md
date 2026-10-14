@@ -69,7 +69,7 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour trouver la bonne famille en cinq secondes ; les cards en dessous pour savoir ce
 qu'on y trouve, et à qui c'est ouvert. La navigation réelle est déclarée d'un seul tenant
-(`NAV_GROUPS`, `navConfig.ts:116`) — ajouter un écran, c'est ajouter une ligne.
+(`NAV_GROUPS`, `navConfig.ts:122`) — ajouter un écran, c'est ajouter une ligne.
 
 | Famille               | Ce qu'on y voit                                          | Ouvert à                     |
 | --------------------- | -------------------------------------------------------- | ---------------------------- |

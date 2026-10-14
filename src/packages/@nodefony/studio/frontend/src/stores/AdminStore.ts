@@ -64,6 +64,7 @@ export interface AdminInvocation {
 }
 
 const CATALOG_PATH = "/nodefony/framework/api/admin";
+const MODULES_PATH = "/nodefony/kernel/api/modules";
 
 /**
  * AdminStore — consomme le **catalogue** du data plane admin (discovery P10.2)
@@ -105,6 +106,37 @@ export class AdminStore {
    * une application. Du confort d'affichage, jamais une garde.
    */
   frameworkRepository: boolean | null = null;
+
+  /**
+   * Clés des modules CHARGÉS par le serveur, lues sur le data plane authentifié
+   * (`/nodefony/kernel/api/modules`) — jamais sur `/info`, public : la
+   * composition d'une application n'a pas à être donnée à un anonyme. `null`
+   * tant qu'elles ne sont pas connues, et après un échec : une entrée de trop
+   * vaut mieux qu'une entrée disparue sur un aléa réseau.
+   */
+  modules: ReadonlySet<string> | null = null;
+
+  /** Le module `key` est-il chargé ? `null` tant que la liste est inconnue. */
+  hasModule(key: string): boolean | null {
+    return this.modules === null ? null : this.modules.has(key);
+  }
+
+  /** Lit la liste des modules chargés (une fois par montage du shell). */
+  async loadModules(): Promise<void> {
+    try {
+      const list = await this.api.getAbsolute<{ key?: unknown }[] | null>(
+        MODULES_PATH,
+      );
+      const keys = (Array.isArray(list) ? list : []).flatMap((m) =>
+        typeof m.key === "string" ? [m.key] : [],
+      );
+      runInAction(() => {
+        this.modules = new Set(keys);
+      });
+    } catch {
+      /* liste inconnue → aucune entrée n'est masquée pour ce motif */
+    }
+  }
 
   /** Le serveur tourne-t-il en production ? (inconnu → on suppose que NON). */
   get isProd(): boolean {

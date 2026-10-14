@@ -94,6 +94,12 @@ export interface NavItem {
    * serait la feuille de route d'un autre présentée comme la sienne.
    */
   repoOnly?: boolean;
+  /**
+   * Clé du module qui porte le back de la page (`documentation`…) → masquée
+   * quand le serveur ne l'a pas chargé, au lieu de mener à un écran en 404.
+   * Tant que la liste des modules est inconnue, l'entrée reste proposée.
+   */
+  requiresModule?: string;
 }
 
 /** Un groupe de navigation repliable. */
@@ -422,6 +428,7 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/documentation",
         label: "Documentation",
         icon: IconBooks,
+        requiresModule: "documentation",
       },
       // La vitrine de ce qui arrive — une entrée, au lieu de quatorze réparties
       // dans tout le menu. Elle n'est pas `wip` : la page, elle, EXISTE.
