@@ -736,7 +736,7 @@ vérifie que ta projection n'expose ni secret ni condensat.
 | Nonce GCM 96 bits           | NIST SP 800-38D §5.2.1.1 | `IV_BYTES` (`secretCipher.ts:30`)                          |
 | Codes de secours            | NIST SP 800-63B §5.1.2   | `generateRecoveryCodes()` (`totpCrypto.ts:330`)            |
 | Backoff des tentatives      | NIST SP 800-63B          | `AuthFlow.completeMfaLogin()` (`authFlow.ts:297`)          |
-| Rate limit (429)            | RFC 6585                 | `429` + `Retry-After` (`SessionAuthController.ts:164-172`) |
+| Rate limit (429)            | RFC 6585                 | `429` + `Retry-After` (`SessionAuthController.ts:165-181`) |
 
 Les **vecteurs de test de la RFC 6238 (Appendix B)** sont rejoués en test sur les trois fonctions de
 hachage — c'est la preuve d'interopérabilité, pas une auto-évaluation.

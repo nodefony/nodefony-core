@@ -79,10 +79,13 @@ console.log(res.status);
 <!-- prettier-ignore -->
 | Export | Ce qu'il fait | Quand s'en servir |
 | --- | --- | --- |
-| `createTestModule()` (`testing/index.ts:287`) | Rend un `Module` jetable portant un conteneur et un bus d'événements | Test unitaire d'un service |
-| `runningAppPort()` (`testing/index.ts:149`) | Lit le port de l'application démarrée par le décor | Tout test de bout en bout |
-| `navigate()` (`testing/index.ts:207`) | Joue une navigation de navigateur (`Sec-Fetch-Mode: navigate`), sans suivre la redirection | Éprouver qu'une page conduit l'anonyme à la connexion |
-| `startSpareApp()` (`testing/index.ts:378`) | Démarre un exemplaire jetable dans un état choisi, puis restaure l'état d'exécution | Éprouver un démarrage, pas un fonctionnement |
+| `createTestModule()` (`testing/index.ts:416`) | Rend un `Module` jetable portant un conteneur et un bus d'événements | Test unitaire d'un service |
+| `runningAppPort()` (`testing/index.ts:278`) | Lit le port de l'application démarrée par le décor | Tout test de bout en bout |
+| `adminLogin()` (`testing/index.ts:100`) | Ouvre une session sur le compte administrateur du décor e2e, rend l'en-tête `cookie` | Éprouver ce que l'admin peut faire |
+| `userLogin()` (`testing/index.ts:147`) | Ouvre une session sur le compte SANS rôle du décor e2e (`E2E_USER_IDENTIFIER`) | Prouver qu'une garde de RÔLE mord — l'anonyme est refusé avec ou sans elle |
+| `csrfHeaders()` (`testing/index.ts:191`) | Complète une identité du jeton anti-CSRF (`cookie` + `x-csrf-token`), semé par `GET …/auth/me` | Toute requête d'un test e2e : ajouter `@CsrfProtect()` ne casse alors rien |
+| `navigate()` (`testing/index.ts:336`) | Joue une navigation de navigateur (`Sec-Fetch-Mode: navigate`), sans suivre la redirection | Éprouver qu'une page conduit l'anonyme à la connexion |
+| `startSpareApp()` (`testing/index.ts:507`) | Démarre un exemplaire jetable dans un état choisi, puis restaure l'état d'exécution | Éprouver un démarrage, pas un fonctionnement |
 | `nodefonyBin()` (`testing/index.ts:66`) | Résout le lanceur du framework, où qu'il soit installé | Appeler une commande depuis un script |
 
 ### `createTestModule()` — et ce qu'il ne fait pas
