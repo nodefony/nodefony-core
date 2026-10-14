@@ -141,6 +141,12 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     ⚠️ Arrêt : `DevCommand` retire les signaux du CLI (`releaseSignalListeners`, même geste que le
     master cluster) AVANT `supervisor.start()` — sinon le `terminate()` du CLI sort au même Ctrl+C
     et l'invite revient pendant qu'un serveur orphelin tient encore les ports.
+    ⚠️ Signaux du superviseur = `installShutdownSignals` (`service/dev/shutdownSignals.ts`), JAMAIS
+    `process.once` : sous `npm run dev` le SIGINT arrive 2× (groupe + relais npm, jusqu'à 1,5 s après) ;
+    écouteur consommé → action par défaut → superviseur mort avant d'avoir tué le serveur (chef de
+    son groupe) = orphelin sur les ports. Doublon < `DUPLICATE_SIGNAL_WINDOW_MS` (3 s) absorbé, insistance
+    → `#forceShutdown` (SIGKILL de l'arbre via `#dyingChild`, puis exit 130). Deux `kill` collés ne
+    reproduisent rien (libuv les fusionne) : le test relaie PENDANT l'arrêt.
     Bloc côté serveur (`StatusLine`, `--no-watch`) retiré sur SIGTERM/SIGINT/SIGHUP
     (`prependOnceListener`), `onTerminate` et `exit` en filets ; `release()` idempotent. Le
     défilement emporte la barre inline ; la barre figée pendant le défilement est le PLEIN ÉCRAN :

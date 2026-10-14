@@ -73,6 +73,7 @@ import {
   waitGroupDead,
   terminateDevProcesses,
 } from "./devProcess";
+import { installShutdownSignals } from "./shutdownSignals";
 import {
   describeTurboFreeze,
   TurboFreezeWatch,
@@ -807,6 +808,11 @@ export class DevSupervisor {
   readonly #standalone: boolean;
 
   #child: ChildProcess | null = null;
+  /**
+   * L'enfant que {@link #killChild} est en train d'arrêter : `#child` est
+   * remis à `null` dès l'ordre donné, et l'arrêt forcé doit encore l'atteindre.
+   */
+  #dyingChild: ChildProcess | null = null;
   #childSpawnedAt = 0;
   #spawnRetries = 0;
   #watcher: FSWatcher | null = null;
@@ -2260,9 +2266,11 @@ export class DevSupervisor {
       const c = this.#child;
       this.#child = null; // marque le restart sollicité avant l'exit
       if (c?.exitCode !== null || c.signalCode !== null) return resolve();
+      this.#dyingChild = c;
       const kill9 = setTimeout(() => this.#signalGroup(c, "SIGKILL"), 4000);
       onServerEnded(c, () => {
         clearTimeout(kill9);
+        if (this.#dyingChild === c) this.#dyingChild = null;
         resolve();
       });
       this.#signalGroup(c, "SIGTERM");
@@ -2362,7 +2370,30 @@ export class DevSupervisor {
   }
 
   /**
-   * Branche les signaux d'arrêt → arrêt propre.
+   * Arrêt FORCÉ — un signal insistant pendant l'arrêt propre : SIGKILL à
+   * l'arbre du serveur et du build, puis sortie. Forcé ne veut pas dire
+   * abandonné : sortir sans tuer l'arbre laisserait le serveur sur les ports.
+   */
+  #forceShutdown(): void {
+    const child = this.#child ?? this.#dyingChild;
+    // `null?.exitCode` vaut `undefined` : un enfant absent ne passe pas.
+    if (child?.exitCode === null && child.signalCode === null) {
+      this.#signalGroup(child, "SIGKILL");
+    }
+    if (this.#buildChild !== null) {
+      this.#signalGroup(this.#buildChild, "SIGKILL");
+    }
+    this.#terminal?.close();
+    this.#releaseLock();
+    process.exit(130);
+  }
+
+  /**
+   * Branche les signaux d'arrêt : le premier lance l'arrêt propre, un doublon
+   * (le relais de `npm run`) est absorbé, une insistance force l'arrêt — cf
+   * {@link installShutdownSignals}. Les écouteurs restent posés jusqu'à la
+   * sortie : retirés au premier signal, le relais de npm tuait le superviseur
+   * par l'action par défaut, avant qu'il ait tué le serveur (#598).
    *
    * `SIGHUP` est **essentiel** : c'est le signal reçu quand le terminal se ferme.
    * Sans lui, un superviseur lancé `detached` survivait indéfiniment (orphelin
@@ -2371,9 +2402,10 @@ export class DevSupervisor {
    */
   #installSignals(): void {
     this.#supervising = true;
-    process.once("SIGINT", () => void this.#shutdown());
-    process.once("SIGTERM", () => void this.#shutdown());
-    process.once("SIGHUP", () => void this.#shutdown());
+    installShutdownSignals({
+      graceful: () => void this.#shutdown(),
+      force: () => this.#forceShutdown(),
+    });
     process.once("exit", () => this.#releaseLock());
   }
 }
