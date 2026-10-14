@@ -12,6 +12,8 @@ import {
   isReconnectableCloseCode,
   type NodefonyNotice,
   type IRealtimeDenied,
+  isProbeRefusal,
+  probeRefusalNotice,
 } from "./notice";
 import {
   JsonRpcPeer,
@@ -115,6 +117,17 @@ export interface NodefonySocketOptions {
   /** Heartbeat ping interval (ms). Défaut: 30000. */
   heartbeatInterval?: number | undefined;
   /**
+   * Sonde d'un échec d'ouverture. Le navigateur cache le statut d'un handshake
+   * refusé : le code ne voit qu'un `1006`, le même qu'un serveur éteint. Avant
+   * de retenter, le client demande donc au serveur, par une requête HTTP sur la
+   * même adresse, ce que le handshake aurait décidé — 401/403/404 : refus
+   * définitif (état `error`, pas de reconnexion) ; 426 : admis, le serveur est
+   * là ; aucune réponse : serveur absent. Les deux derniers retentent. Défaut :
+   * `fetch` (cookies inclus, jeton en `Authorization`) ; `false` désactive la
+   * sonde — tout échec d'ouverture redevient une panne à retenter.
+   */
+  probe?: RealtimeProbe | false | undefined;
+  /**
    * Annoncer le framework dans la console du navigateur ? Défaut : oui.
    *
    * Une socket qui vit NUE — sans noyau — est souvent tout ce qu'une page monte :
@@ -127,6 +140,15 @@ export interface NodefonySocketOptions {
 }
 
 type EventHandler = (...args: unknown[]) => void;
+
+/**
+ * Sonde d'un échec d'ouverture : rend le statut HTTP de l'adresse de la socket
+ * (`http:`/`https:`), ou `null` quand le serveur ne répond pas.
+ */
+export type RealtimeProbe = (
+  url: string,
+  token: string | null,
+) => Promise<number | null>;
 
 /**
  * Stats d'un canal — alias historique de {@link IChannelStats} (le contrat isomorphe
@@ -184,6 +206,8 @@ const STABLE_CONNECTION_MS = 5000;
 
 /** Délai d'ouverture par défaut (ms) — cf {@link NodefonySocketOptions.connectTimeout}. */
 const CONNECT_TIMEOUT_DEFAULT = 10_000;
+/** Borne de la sonde d'un échec d'ouverture (ms). */
+const PROBE_TIMEOUT_MS = 5000;
 
 /**
  * Délai de la tentative `attempt` (1 = la première) : doublement depuis `base`,
@@ -245,6 +269,49 @@ function toSocketUrl(url: string, base: string): URL {
     );
   }
   return u;
+}
+
+/**
+ * Adresse HTTP de la sonde : la même que la socket, en `http:`/`https:`, sans
+ * le jeton dans la requête — il voyage en en-tête (RFC 6750 §2.1).
+ *
+ * @param url - adresse `ws:`/`wss:` de la tentative
+ * @returns l'adresse à sonder
+ */
+function toProbeUrl(url: URL): string {
+  const u = new URL(url);
+  u.protocol = u.protocol === "wss:" ? "https:" : "http:";
+  u.searchParams.delete("token");
+  return u.toString();
+}
+
+/**
+ * Sonde par défaut : `fetch` sur l'adresse, cookies inclus (la session BFF),
+ * jeton en `Authorization`, sans suivre une redirection (une porte d'entrée
+ * `302` n'est pas un verdict). Rend le statut, ou `null` sans réponse.
+ */
+async function fetchProbe(
+  url: string,
+  token: string | null,
+): Promise<number | null> {
+  if (typeof fetch !== "function") return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      redirect: "manual",
+      signal: controller.signal,
+      ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}),
+    });
+    return res.status;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -586,20 +653,26 @@ export class NodefonySocket<
    * un rejet — l'état se suit par {@link onState}. Un appel non attendu s'écrit
    * donc `socket.connect().catch(() => {})`, jamais `void socket.connect()`.
    *
-   * ⚠️ **Résolu ne veut pas dire autorisé.** Le pare-feu du serveur juge la
-   * connexion APRÈS l'ouverture : un anonyme sur une zone protégée voit
-   * `connect()` résoudre, puis la socket se fermer en `1008` sans jamais
-   * recevoir de `realtime:welcome`. Ce refus se lit par {@link onState}
-   * (`"error"`, définitif — pas de reconnexion) et par {@link onNotice} ; une
-   * connexion ACCEPTÉE se constate au welcome ({@link identity} non nul), jamais
-   * à la résolution de cette promesse.
+   * **Rejette si la connexion est refusée.** Le serveur juge le handshake AVANT
+   * de l'accepter (pare-feu, origine, gardes) : un anonyme sur une zone protégée
+   * voit `connect()` REJETER — jamais une socket ouverte puis fermée. Le
+   * navigateur cachant le statut du refus, le client le demande au serveur
+   * (option `probe`) et pose l'état `"error"` (définitif — pas de reconnexion),
+   * lisible par {@link onState} et {@link onNotice} ; une panne, elle, retente
+   * en fond. Une connexion ACCEPTÉE se confirme au welcome ({@link identity}).
    *
    * @param url - adresse à utiliser à la place de celle des options.
    * @throws Error si l'adresse manque, est illisible, d'un autre schéma que
    *   `ws:`/`wss:`/`http:`/`https:`, ou porte des identifiants.
    */
   async connect(url?: string): Promise<void> {
-    if (this._state === "connected" || this._state === "connecting") return;
+    // « connecting » SANS transport = la sonde d'un échec court : un connect()
+    // (ex. après login) ne doit pas se perdre dans ce court-circuit.
+    if (
+      this._state === "connected" ||
+      (this._state === "connecting" && this.transport !== null)
+    )
+      return;
     this.intentionalClose = false;
     this.opts.url = url ?? this.requireUrl();
     return this.openSocket();
@@ -1422,6 +1495,7 @@ export class NodefonySocket<
         return;
       }
       let transport: IRealtimeTransport;
+      let socketUrl: URL | null = null;
       try {
         const url = toSocketUrl(
           this.requireUrl(),
@@ -1429,6 +1503,7 @@ export class NodefonySocket<
             ? window.location.href
             : "http://localhost",
         );
+        socketUrl = url;
         if (this.opts.token) url.searchParams.set("token", this.opts.token);
         // Transport NEUF à chaque tentative (le précédent est clos). Le transport
         // ne sait QUE ouvrir/envoyer/fermer ; l'orchestration reste ici.
@@ -1492,25 +1567,18 @@ export class NodefonySocket<
         // Seule une connexion STABLE remet le back-off à zéro.
         if (openedAt !== 0 && Date.now() - openedAt >= STABLE_CONNECTION_MS)
           this.reconnectAttempt = 0;
-        // Criticité qui casse le temps réel (RFC 6455 §7.4) → notice normalisée,
-        // pendant client du `toWsCloseCode` serveur (@nodefony/http).
-        const notice = closeCodeToNotice(code, reason);
-        if (notice) this.fireNotice(notice);
-        // Un écouteur de notice a pu appeler `disconnect()`.
-        if (this.disconnectRequested()) return;
-        // Respect de la SÉMANTIQUE du close code : un code DÉFINITIF (policy 1008
-        // = 401/403, révocation 4001, protocole, introuvable) ne RELANCE PAS la
-        // boucle de reco — sinon un anonyme martèle un endpoint protégé. L'app
-        // rétablit après l'action corrective (login → `connect()`/`retryNow()`).
-        // Reco réservée aux codes transitoires (perte réseau, restart, erreur serveur).
-        const reconnectable = isReconnectableCloseCode(code);
-        if (reconnectable && this.opts.autoReconnect !== false) {
-          this.scheduleReconnect();
-        } else {
-          // Fatal → "error" (échec définitif, action requise) ; transitoire mais
-          // autoReconnect désactivé → "disconnected".
-          this.setState(reconnectable ? "disconnected" : "error");
+        // Fermée AVANT d'ouvrir, sans motif lisible (1006/1005) : refus ou
+        // panne ? La SONDE tranche avant de décider de retenter (#596). Un code
+        // posé par le serveur (1011, 1001, 1008…) est déjà un motif : pas de sonde.
+        if (
+          openedAt === 0 &&
+          this.opts.probe !== false &&
+          (code === 1006 || code === 1005)
+        ) {
+          void this.probeThenSettle(socketUrl, code, reason);
+          return;
         }
+        this.settleClose(code, reason);
       });
       // Une poignée de main sans réponse ne laisse pas `connect()` pendue : la
       // fermer la fait échouer (1006), et la reconnexion prend le relais.
@@ -1534,6 +1602,65 @@ export class NodefonySocket<
    */
   private disconnectRequested(): boolean {
     return this.intentionalClose;
+  }
+
+  /**
+   * Décide de la suite d'une fermeture non voulue : notice, puis reconnexion si
+   * le code la permet (RFC 6455 §7.4) — sinon état `error` (définitif) ou
+   * `disconnected` (transitoire, reconnexion désactivée).
+   */
+  private settleClose(code: number, reason: string): void {
+    // Criticité qui casse le temps réel (RFC 6455 §7.4) → notice normalisée,
+    // pendant client du `toWsCloseCode` serveur (@nodefony/http).
+    const notice = closeCodeToNotice(code, reason);
+    if (notice) this.fireNotice(notice);
+    // Un écouteur de notice a pu appeler `disconnect()`.
+    if (this.disconnectRequested()) return;
+    // Respect de la SÉMANTIQUE du close code : un code DÉFINITIF (policy 1008
+    // = 401/403, révocation 4001, protocole, introuvable) ne RELANCE PAS la
+    // boucle de reco — sinon un anonyme martèle un endpoint protégé. L'app
+    // rétablit après l'action corrective (login → `connect()`/`retryNow()`).
+    // Reco réservée aux codes transitoires (perte réseau, restart, erreur serveur).
+    const reconnectable = isReconnectableCloseCode(code);
+    if (reconnectable && this.opts.autoReconnect !== false) {
+      this.scheduleReconnect();
+    } else {
+      // Fatal → "error" (échec définitif, action requise) ; transitoire mais
+      // autoReconnect désactivé → "disconnected".
+      this.setState(reconnectable ? "disconnected" : "error");
+    }
+  }
+
+  /**
+   * Fermée avant d'ouvrir sans motif lisible : le navigateur cache le statut
+   * d'un handshake refusé — le code ne voit qu'un `1006`, le même qu'un serveur
+   * éteint. La sonde demande au serveur, par une requête HTTP sur la même
+   * adresse, ce que le handshake aurait décidé (#596) : un refus définitif
+   * arrête là (état `error`) ; tout le reste — 426 « admis », panne, silence —
+   * suit le chemin normal de la reconnexion.
+   */
+  private async probeThenSettle(
+    url: URL,
+    code: number,
+    reason: string,
+  ): Promise<void> {
+    const probe = this.opts.probe || fetchProbe;
+    let status: number | null = null;
+    try {
+      status = await probe(toProbeUrl(url), this.opts.token ?? null);
+    } catch {
+      status = null;
+    }
+    // Pendant la sonde : `disconnect()` a déjà posé son état ; un `connect()`
+    // a déjà ouvert une nouvelle tentative — le verdict d'avant ne la juge pas.
+    if (this.disconnectRequested() || this.transport !== null) return;
+    if (status !== null && isProbeRefusal(status)) {
+      this.fireNotice(probeRefusalNotice(status));
+      if (this.disconnectRequested()) return;
+      this.setState("error");
+      return;
+    }
+    this.settleClose(code, reason);
   }
 
   private scheduleReconnect(): void {

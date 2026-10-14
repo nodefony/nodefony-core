@@ -81,7 +81,9 @@ let transports: MockTransport[] = [];
 function newClient(opts: Record<string, unknown> = {}) {
   transports = [];
   const client = new NodefonySocket(
-    { url: "ws://loopback/realtime", ...opts },
+    // Sans sonde d'échec d'ouverture : ce banc pilote le cycle de connexion à
+    // la minuterie factice, et la sonde a son propre banc (NodefonySocketProbe).
+    { url: "ws://loopback/realtime", probe: false, ...opts },
     () => {
       const t = new MockTransport();
       transports.push(t);

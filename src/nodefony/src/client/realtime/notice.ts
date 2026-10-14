@@ -193,3 +193,51 @@ export function isReconnectableCloseCode(code: number | undefined): boolean {
   if (code === undefined) return true; // pas de code = anormal → on retente
   return !FATAL_CLOSE_CODES.has(code);
 }
+
+/**
+ * Un statut rendu par la SONDE d'un échec d'ouverture dit-il un refus
+ * DÉFINITIF ? Pendant client de `toHandshakeStatus` (@nodefony/http) : 401/403
+ * (pare-feu, origine, garde), 404 (pas de route WebSocket), 400/413 (handshake
+ * malformé ou trop gros). Un `426` dit « admis, passe en WebSocket », un
+ * 408/429 « réessaie », un 5xx une panne, un 2xx/3xx/0 que l'adresse répond
+ * autrement : tous retentent.
+ *
+ * @param status - statut HTTP rendu par la sonde
+ * @returns `true` pour un refus que retenter ne changera pas
+ */
+export function isProbeRefusal(status: number): boolean {
+  if (status < 400 || status >= 500) return false;
+  return status !== 426 && status !== 408 && status !== 429;
+}
+
+/**
+ * Notice d'un refus constaté par la sonde — le pendant de
+ * {@link closeCodeToNotice} pour un statut HTTP.
+ *
+ * @param status - statut HTTP du refus
+ * @returns la notice à afficher
+ */
+export function probeRefusalNotice(status: number): NodefonyNotice {
+  let message: string;
+  switch (status) {
+    case 401:
+      message = "Accès temps réel refusé : connexion requise";
+      break;
+    case 403:
+      message = "Accès temps réel refusé";
+      break;
+    case 404:
+      message = "Ressource temps réel introuvable";
+      break;
+    default:
+      message = `Connexion temps réel refusée (HTTP ${status})`;
+  }
+  return {
+    level: "error",
+    title: "Temps réel",
+    message,
+    source: "realtime",
+    code: status,
+    ts: Date.now(),
+  };
+}
