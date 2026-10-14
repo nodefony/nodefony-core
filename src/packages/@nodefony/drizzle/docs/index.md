@@ -370,7 +370,7 @@ Table dérivée de `drizzleConfigSchema` (`config.ts:136`) et de `SQL_DIALECTS` 
 
 **`filename` est volontairement sans défaut.** Le chemin dépend du kernel, qui n'existe pas quand le
 schéma est évalué. Il est résolu **au démarrage** par `DrizzleService.#defaultFilename()`
-(`DrizzleService.ts:230`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
+(`DrizzleService.ts:240`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
 commun des données runtime : « où sont mes données ? » a une réponse unique, un seul chemin à
 sauvegarder et à ignorer dans git.
 
@@ -417,7 +417,7 @@ use("@nodefony/drizzle", {
 ### Quand la connexion échoue, le démarrage échoue
 
 Un connecteur **déclaré** qui ne se connecte pas lève une `BootConfigurationError`
-(`DrizzleService.ts:423`) — en développement **comme** en production. Ce n'est pas une sévérité
+(`DrizzleService.ts:433`) — en développement **comme** en production. Ce n'est pas une sévérité
 gratuite : une infrastructure déclarée mais injoignable ne se répare pas en continuant. Un serveur qui
 démarrerait « vivant » avec ses stores morts accepterait des requêtes pour échouer plus tard, la cause
 noyée dans un avertissement. Le message d'erreur nomme le connecteur, le dialecte, la cible rédigée et
@@ -513,7 +513,7 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | Pièce                  | Rôle                                                                   | Ancre                                                        |
 | ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                         |
-| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:214`                      |
+| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:224`                      |
 | `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:214`                                          |
 | `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:146`                                   |
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |

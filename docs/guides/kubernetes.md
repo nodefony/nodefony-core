@@ -270,7 +270,7 @@ déploiement ne démarre que s'il a réussi.
 Et si un pod démarre avec un schéma en retard, **il retient sa mise en service de lui-même** au
 lieu de servir des erreurs. Avec Drizzle, c'est le défaut en production (`migrations.check: "fail"`,
 `config.ts:160`) : le module compare la base à ses migrations, inscrit le contributeur
-`drizzle:schema:<connecteur>` (`DrizzleService.ts:603`), et `/readyz` répond `503` tant que des
+`drizzle:schema:<connecteur>` (`DrizzleService.ts:613`), et `/readyz` répond `503` tant que des
 migrations restent à appliquer — `/livez` reste vert, l'ancien exemplaire continue de servir. La
 sonde est rejouée toutes les 15 secondes : le pod devient disponible tout seul une fois le Job
 passé, sans redéploiement. Hors production, le défaut est `warn` (journalisé, le trafic passe).

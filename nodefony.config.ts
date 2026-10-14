@@ -193,7 +193,7 @@ export default defineConfig<Env>((ctx) => ({
     { name: "@nodefony/mediasoup", policy: "dev" },
 
     // ── Doc transverse AVANT Studio.
-    "@nodefony/documentation",
+    { name: "@nodefony/documentation", policy: "dev" },
 
     // Studio admin — console d'administration du framework.
     use("@nodefony/studio", studioConfig(ctx), { policy: "mandatory" }),
