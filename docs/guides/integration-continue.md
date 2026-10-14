@@ -233,7 +233,41 @@ reporters: process.env.CI
 
 ---
 
-## 4. Le décor, et ses deux pièges déjà payés
+## 4. Le décor, et ses pièges déjà payés
+
+### Les images se tirent avec un compte Docker Hub — Dependabot compris
+
+Les bases des jobs (`services:` de PostgreSQL, MariaDB, MongoDB) se tirent
+authentifiées, pour échapper au plafond de téléchargements anonymes de Docker
+Hub. Deux secrets les portent :
+
+| Secret               | Valeur                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NF_DOCKERHUB_USER`  | l'identifiant du compte Docker Hub                                                                                                                    |
+| `NF_DOCKERHUB_TOKEN` | un jeton d'accès personnel Docker Hub (`app.docker.com/settings/personal-access-tokens`), droit **Public Repo Read-only** — il ne tire que des images |
+
+GitHub ne rend jamais la valeur d'un secret : perdue, elle se **régénère** côté
+Docker Hub, elle ne se relit pas. Et elle se pose **deux fois**, parce que
+GitHub tient deux listes : _Settings → Secrets and variables → **Actions**_
+pour les runs ordinaires, et **→ Dependabot** pour les PR de Dependabot, qui
+ne voient PAS les premiers. Sans la seconde, chaque PR Dependabot échoue en
+deux secondes sur `The template is not valid … Unexpected value ''` : le bloc
+`credentials:` reçoit un identifiant vide et GitHub refuse le workflow avant
+de le lancer.
+
+### Les SHA des actions se recopient dans les gabarits
+
+Dependabot monte les actions des workflows de la forge, épinglées par SHA,
+mais ne voit ni les gabarits d'application (`*.yml.tpl`) ni
+`packageManager.ts`. Le gate `scripts/ci/actions-pinned.test.mjs` rougit
+alors sur la parité ; la réparation tient en une commande :
+
+```bash
+node scripts/ci/action-pins.mjs           # les écarts gabarits ↔ forge
+node scripts/ci/action-pins.mjs --write   # les recopier depuis la forge
+node scripts/ci/action-pins.mjs --resolve actions/setup-node@v7.1.0
+                                          # la ligne uses: d'une version, SHA compris
+```
 
 ### Redis se monte par `docker run`, pas par `services:`
 
