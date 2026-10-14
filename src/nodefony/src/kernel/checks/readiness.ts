@@ -274,6 +274,19 @@ export function declaredModuleEntries(source: string): IDeclaredModule[] {
           at: open + 1 + el.at,
           entry: { name: bare, condition: null },
         });
+        continue;
+      }
+      // Forme objet du manifeste — `{ name: "@x/y", policy: "dev" }`. Ignorée,
+      // la brique disparaissait de tous les lecteurs (notice `.env.example`,
+      // `doctor`, `card`) sans un mot.
+      const named = /^\s*\{[\s\S]*?\bname\s*:\s*["'`]([^"'`]+)["'`]/u.exec(
+        el.text,
+      )?.[1];
+      if (named !== undefined) {
+        found.push({
+          at: open + 1 + el.at,
+          entry: { name: named, condition: callCondition(el.text) },
+        });
       }
     }
   }

@@ -90,6 +90,21 @@ describe("manifeste — lecture textuelle des briques déclarées", () => {
     ]);
   });
 
+  it("lit aussi la forme OBJET `{ name, policy }` — sinon la brique disparaît de la notice", () => {
+    const entries = declaredModuleEntries(`
+      modules: [
+        { name: "@nodefony/frontend" },
+        { name: "@nodefony/documentation", policy: "dev" },
+        { name: "@a/b", when: () => false },
+      ],
+    `);
+    assert.deepEqual(entries, [
+      { name: "@nodefony/frontend", condition: null },
+      { name: "@nodefony/documentation", condition: "dev" },
+      { name: "@a/b", condition: "when" },
+    ]);
+  });
+
   it("une brique déclarée deux fois n'est conditionnelle que si TOUTES ses déclarations le sont", () => {
     const entries = declaredModuleEntries(`
       use("@a/b", {}, { when: () => false }),
