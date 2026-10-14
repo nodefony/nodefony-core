@@ -39,6 +39,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import https from "node:https";
 import net from "node:net";
 import WS from "ws";
+import { trustDevAuthority } from "../helpers/devAuthority";
 import {
   connectShared,
   observeChannel,
@@ -52,7 +53,7 @@ import {
   type RealtimeState,
 } from "nodefony/client";
 
-const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
+const BASE = { hostname: "127.0.0.1", port: 5152 };
 const AUTH = "/nodefony/security/api/auth";
 const HUB = "wss://127.0.0.1:5152/nodefony/studio/api/realtime";
 const MODULES = "/nodefony/kernel/api/modules";
@@ -132,17 +133,15 @@ async function loginCookie(): Promise<string> {
  * `BrowserWsTransport` fait `new WebSocket(url)` — un seul argument, comme la
  * norme l'impose. Un navigateur joint le cookie de session tout seul et fait
  * confiance à l'autorité de développement ; Node n'a ni jar de cookies ni cette
- * autorité. On installe donc une globale `WebSocket` qui porte ces deux
- * éléments de contexte, et **rien d'autre** : le transport, le client, les
- * observateurs et le protocole restent ceux du navigateur, à la lettre.
+ * autorité. On installe donc une globale `WebSocket` qui porte le cookie, et
+ * l'on confie l'autorité au processus (`trustDevAuthority`) — la chaîne est
+ * VALIDÉE, jamais ignorée. **Rien d'autre** : le transport, le client, les
+ * observateurs, la sonde et le protocole restent ceux du navigateur, à la lettre.
  */
 function installWebSocket(cookie: string | null): void {
   class TestWebSocket extends WS {
     constructor(url: string) {
-      super(url, {
-        rejectUnauthorized: false,
-        headers: cookie ? { cookie } : {},
-      });
+      super(url, { headers: cookie ? { cookie } : {} });
       socketsCreated++;
     }
   }
@@ -151,24 +150,6 @@ function installWebSocket(cookie: string | null): void {
 
 /** Sockets ouvertes par le transport — une retentative en crée une de plus. */
 let socketsCreated = 0;
-
-/**
- * La sonde (#596) est un `fetch` : même différence de décor que la socket. Le
- * navigateur fait confiance à l'autorité de développement, le `fetch` de Node
- * non (`SELF_SIGNED_CERT_IN_CHAIN` → sonde muette → « panne », et le refus ne
- * se verrait jamais). La variable est lue à chaque connexion TLS : posée le
- * temps de ce fichier, rendue ensuite. La sonde elle-même reste celle du
- * client, à la lettre.
- */
-let tlsBefore: string | undefined;
-function trustDevAuthority(): void {
-  tlsBefore = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-}
-function restoreTlsTrust(): void {
-  if (tlsBefore === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  else process.env.NODE_TLS_REJECT_UNAUTHORIZED = tlsBefore;
-}
 
 /** Un port où personne n'écoute : celui qu'on vient de rendre. */
 async function deadPort(): Promise<number> {
@@ -204,14 +185,16 @@ async function until(
 const remuer = (cookie: string) => request(MODULES, "GET", { cookie });
 
 let cookie: string;
+let restoreTrust: (() => void) | null = null;
 
 beforeAll(async () => {
+  // AVANT le login : plus aucune requête de ce banc n'ignore le certificat.
+  restoreTrust = trustDevAuthority();
   cookie = await loginCookie();
-  trustDevAuthority();
 }, TIMEOUT);
 
 afterAll(() => {
-  restoreTlsTrust();
+  restoreTrust?.();
 });
 
 afterEach(() => {
