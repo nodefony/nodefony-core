@@ -164,6 +164,44 @@ async function waitFile(file: string, timeoutMs = 15_000): Promise<void> {
   assert.fail(`${file} jamais écrit`);
 }
 
+/**
+ * Un SIGINT envoyé par le PARENT (`child.kill`) atteint-il les écouteurs de
+ * l'enfant ? Constaté, jamais déduit de la plateforme : sous Windows, libuv
+ * traduit ce `kill` en `TerminateProcess` — l'enfant meurt sans qu'aucun
+ * écouteur ne s'exécute, et ces cas n'ont alors rien à éprouver. Le Ctrl+C
+ * d'une console Windows, lui, arrive par l'événement de console, que ce
+ * banc ne sait pas émettre.
+ */
+async function parentSigintReachesChild(): Promise<boolean> {
+  const dir = mkdtempSync(path.join(tmpdir(), "nf-sigint-probe-"));
+  try {
+    const marker = path.join(dir, "marker");
+    const script = path.join(dir, "probe.mjs");
+    writeFileSync(
+      script,
+      `import { writeFileSync } from "node:fs";
+process.once("SIGINT", () => { writeFileSync(process.argv[2], "reçu"); process.exit(0); });
+writeFileSync(process.argv[2] + ".ready", "");
+setInterval(() => {}, 1000);`,
+    );
+    const run = track(
+      spawn(process.execPath, [script, marker], { stdio: "ignore" }),
+    );
+    await waitFile(`${marker}.ready`);
+    run.child.kill("SIGINT");
+    await run.ended;
+    try {
+      return readFileSync(marker, "utf8") === "reçu";
+    } catch {
+      return false;
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const PARENT_SIGINT = await parentSigintReachesChild();
+
 describe("signaux d'arrêt du superviseur — processus réel", () => {
   let dir: string;
   let marker: string;
@@ -178,42 +216,53 @@ describe("signaux d'arrêt du superviseur — processus réel", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("le SIGINT relayé PENDANT l'arrêt ne le coupe pas", async () => {
-    const run = track(
-      spawn(process.execPath, [path.join(dir, "child.mjs"), marker], {
-        stdio: "ignore",
-      }),
-    );
-    await waitFile(`${marker}.ready`);
-    // Ce que reçoit l'enfant de `npm run` au Ctrl+C : le groupe, puis le
-    // relais de npm — mesuré jusqu'à 1,5 s plus tard, donc APRÈS que le
-    // premier a été traité. Deux `kill` collés ne reproduisent RIEN : libuv
-    // les capte ensemble avant que le JS ne retire quoi que ce soit.
-    run.child.kill("SIGINT");
-    await waitFile(`${marker}.stopping`);
-    run.child.kill("SIGINT");
-    const { code, signal } = await run.ended;
-    assert.equal(signal, null, "tué par l'action par défaut du second SIGINT");
-    assert.equal(code, 0);
-    assert.equal(readFileSync(marker, "utf8"), "propre");
-  });
+  it.skipIf(!PARENT_SIGINT)(
+    "le SIGINT relayé PENDANT l'arrêt ne le coupe pas",
+    async () => {
+      const run = track(
+        spawn(process.execPath, [path.join(dir, "child.mjs"), marker], {
+          stdio: "ignore",
+        }),
+      );
+      await waitFile(`${marker}.ready`);
+      // Ce que reçoit l'enfant de `npm run` au Ctrl+C : le groupe, puis le
+      // relais de npm — mesuré jusqu'à 1,5 s plus tard, donc APRÈS que le
+      // premier a été traité. Deux `kill` collés ne reproduisent RIEN : libuv
+      // les capte ensemble avant que le JS ne retire quoi que ce soit.
+      run.child.kill("SIGINT");
+      await waitFile(`${marker}.stopping`);
+      run.child.kill("SIGINT");
+      const { code, signal } = await run.ended;
+      assert.equal(
+        signal,
+        null,
+        "tué par l'action par défaut du second SIGINT",
+      );
+      assert.equal(code, 0);
+      assert.equal(readFileSync(marker, "utf8"), "propre");
+    },
+  );
 
-  it("une insistance après la fenêtre force l'arrêt au lieu d'être ignorée", async () => {
-    writeFileSync(
-      path.join(dir, "child.mjs"),
-      CHILD_SCRIPT.replace("400", "5000"),
-    );
-    const run = track(
-      spawn(process.execPath, [path.join(dir, "child.mjs"), marker], {
-        stdio: "ignore",
-      }),
-    );
-    await waitFile(`${marker}.ready`);
-    run.child.kill("SIGINT");
-    await new Promise((r) => setTimeout(r, DUPLICATE_SIGNAL_WINDOW_MS + 200));
-    run.child.kill("SIGINT");
-    const { code } = await run.ended;
-    assert.equal(code, 130);
-    assert.equal(readFileSync(marker, "utf8"), "force");
-  }, 15_000);
+  it.skipIf(!PARENT_SIGINT)(
+    "une insistance après la fenêtre force l'arrêt au lieu d'être ignorée",
+    async () => {
+      writeFileSync(
+        path.join(dir, "child.mjs"),
+        CHILD_SCRIPT.replace("400", "5000"),
+      );
+      const run = track(
+        spawn(process.execPath, [path.join(dir, "child.mjs"), marker], {
+          stdio: "ignore",
+        }),
+      );
+      await waitFile(`${marker}.ready`);
+      run.child.kill("SIGINT");
+      await new Promise((r) => setTimeout(r, DUPLICATE_SIGNAL_WINDOW_MS + 200));
+      run.child.kill("SIGINT");
+      const { code } = await run.ended;
+      assert.equal(code, 130);
+      assert.equal(readFileSync(marker, "utf8"), "force");
+    },
+    15_000,
+  );
 });
