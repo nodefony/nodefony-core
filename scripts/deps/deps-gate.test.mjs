@@ -202,3 +202,31 @@ describe("la garde des dépendances mord là où elle était muette", () => {
     expect(r.code).toBe(1);
   });
 });
+
+describe("la ligne de commande ne lance rien qu'on n'a pas demandé", () => {
+  // Le décor porte un défaut que l'inventaire signalerait : s'il apparaît dans
+  // la sortie, c'est que l'inventaire a TOURNÉ.
+  const fautif = () =>
+    decor("cli", {
+      "package.json": manifeste({
+        dependencies: { truc: "^3.0.0" },
+        overrides: { truc: "^4.0.0" },
+      }),
+    });
+
+  it("--help sert l'aide sans lancer l'inventaire", () => {
+    const r = lancer(fautif(), ["--help"]);
+    expect(r.out).toContain("--gate");
+    expect(r.out + r.err).not.toContain("INCONCILIABLE");
+    expect(r.code).toBe(0);
+  });
+
+  it("une option mal tapée est refusée au lieu d'être ignorée", () => {
+    // `--gat` pour `--gate` : ignorée, elle rendait l'inventaire SANS la garde,
+    // donc un code 0 sur un arbre qui ne s'installe pas.
+    const r = lancer(fautif(), ["--gat"]);
+    expect(r.err).toContain("--gat");
+    expect(r.out + r.err).not.toContain("INCONCILIABLE");
+    expect(r.code).toBe(64);
+  });
+});

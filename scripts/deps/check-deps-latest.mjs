@@ -45,15 +45,12 @@
  * crierait sur `zod` — déclaré de trois façons ici, et parfaitement sain —, et
  * un contrôle qui crie sur ce qui va bien finit désarmé.
  *
- * Usage :
- *   node scripts/deps/check-deps-latest.mjs            # écarts RÉELS (lock à l'appui)
- *   node scripts/deps/check-deps-latest.mjs --strict   # + plages déjà satisfaites
- *   node scripts/deps/check-deps-latest.mjs --all      # + les pins déjà à jour
- *   node scripts/deps/check-deps-latest.mjs --json     # sortie machine
- *   node scripts/deps/check-deps-latest.mjs --gate     # GARDE : code non nul si l'arbre se dédoublerait
- *
- * @usage npm run deps:check
- * @usage npm run deps:gate
+ * @usage  npm run deps:check
+ * @usage  npm run deps:gate
+ * @option --strict  + plages déjà satisfaites
+ * @option --all     + les pins déjà à jour (implique --strict)
+ * @option --json    sortie machine
+ * @option --gate    GARDE : code non nul si l'arbre se dédoublerait
  */
 
 import { execFileSync } from "node:child_process";
@@ -66,6 +63,11 @@ import {
   plusHauteSatisfaisante,
 } from "./lib/reconcile-versions.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
+import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
+
+// Avant tout : `--help` lançait l'inventaire complet (registre interrogé pour
+// chaque paquet), et une option mal tapée était ignorée en silence.
+guardCli(import.meta.url);
 
 // 🔴 Deux points d'injection, et ils n'existent que pour une raison : SANS eux,
 // rien de ce contrôle ne se teste. Le script déduit sa racine de son propre
