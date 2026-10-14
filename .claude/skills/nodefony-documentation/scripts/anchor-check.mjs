@@ -32,7 +32,11 @@ import { execSync } from "node:child_process";
 const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
 }).trim();
-const cibles = process.argv.slice(2);
+// `--all` : liste AUSSI les ancres jugées justes (`[ANCHOR] l.N ref → fichier`),
+// pour `anchor-remap.mjs` — une ancre décalée qui tombe par hasard sur une
+// ligne plausible n'est pas SUSPECTE, et resterait fausse sans le dire.
+const ALL = process.argv.includes("--all");
+const cibles = process.argv.slice(2).filter((arg) => arg !== "--all");
 if (!cibles.length) {
   console.error("usage: node anchor-check.mjs <page.md|dossier> [...]");
   process.exit(2);
@@ -406,6 +410,7 @@ for (const md of args) {
   }
   const mdLines = brut.split("\n");
   const pageProblems = [];
+  const pageAnchors = [];
 
   mdLines.forEach((line, i) => {
     // Contexte = la ligne + la précédente : prettier wrappe les phrases, l'ancre
@@ -530,7 +535,10 @@ for (const md of args) {
         total--;
         continue;
       }
-      if (best.kind !== "OK") {
+      if (best.kind === "OK") {
+        if (ALL && !a.short)
+          pageAnchors.push(`   [ANCHOR] l.${i + 1} ${a.label} → ${best.cand}`);
+      } else {
         pageProblems.push({
           kind: best.kind,
           ref: a.label,
@@ -562,6 +570,7 @@ for (const md of args) {
   } else {
     console.log(`✅ ${md}`);
   }
+  for (const line of pageAnchors) console.log(line);
 }
 
 const nf = problems.FILE_NOT_FOUND.length;

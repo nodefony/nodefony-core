@@ -331,7 +331,7 @@ Dès le `DENY`, le jury **s'arrête** — court-circuit, inutile de finir (`auth
 
 **Contre-exemple piégeux** : le veto ne traverse **pas** une clause OR. Dans
 `@IsGranted(["ROLE_ADMIN", "doc.edit"])`, chaque attribut est un **jury séparé**
-(`Resolver.ts:896-903`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
+(`Resolver.ts:926-933`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
 consulté. Un interdit absolu se porte en clause **AND** : empiler `@IsGranted("ROLE_ADMIN")` puis
 `@IsGranted("doc.edit", { subject: "id" })`.
 
@@ -356,7 +356,7 @@ se voit au premier test.
 ## 🧰 Déclarer l'exigence — `@IsGranted`, `@RequireScope`, `@Anonymous`
 
 Les décorateurs n'écrivent **que des métadonnées** (0 import `@nodefony/security`, 0 cycle) ; le
-moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:678-679`) :
+moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:708-709`) :
 
 | Déclaration                                 | Sémantique                                                                                                                       |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -364,21 +364,21 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:678-679`
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:424-433`)                              |
 | empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1676`)                          |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1648`)                         |
-| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:941`)                                      |
+| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:971`)                                      |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:1002`)         |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:969`) |
 | `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1308`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
-403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:507-509`). Le
+403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:537-539`). Le
 même `executeAction` sert le pipeline HTTP **et** l'invoke WS-RPC : une garde, tous les
 transports. L'enforcement déroule chaque clause : OR interne via un `decide()` par attribut, AND
-entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:871`).
+entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:901`).
 
 > [!IMPORTANT]
 > **Fail-closed intégral** : route gardée mais moteur `authorization` absent (module security non
 > chargé) OU aucune identité résolue (route **hors zone** firewall) → **403** direct
-> (`Resolver.ts:683-693`). Une route gardée doit être couverte par une zone — voir
+> (`Resolver.ts:713-723`). Une route gardée doit être couverte par une zone — voir
 > [firewall](./firewall.md).
 
 ## 🧑‍⚖️ Les voters intégrés — deux axes, un même jury
@@ -511,7 +511,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 
 ## 🔌 HTTP et WebSocket — une garde, N transports
 
-- **La même garde** : `Resolver.executeAction()` (`Resolver.ts:450`) est le point unique
+- **La même garde** : `Resolver.executeAction()` (`Resolver.ts:455`) est le point unique
   d'enforcement — pipeline HTTP classique **et** invoke WS-RPC (pont `api.request`). Un
   `@IsGranted` protège donc l'action quel que soit le transport (prouvé bout en bout par le banc
   `ws-isgranted-jwt`).
@@ -529,7 +529,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 | Modèle de rôles            | RBAC **hiérarchique**, au sens des composantes _Core_ et _Hierarchical_ d'ANSI INCITS 359 — sans séparation des devoirs | `RoleHierarchyWalker.reachableRoles()`                    |
 | Combinaison des votes      | _deny-overrides_ : un refus l'emporte, le silence ferme                                                                 | `Authorization.decide()`                                  |
 | Scopes délégués            | **RFC 6749 §3.3** — définis par le serveur d'autorisation ; sans effet sur une session humaine                          | `ScopeVoter.vote()`                                       |
-| Modèle                     | **Zero Trust** (fermé par défaut)                                                                                       | 403 fail-closed du Resolver (`Resolver.ts:683-693`)       |
+| Modèle                     | **Zero Trust** (fermé par défaut)                                                                                       | 403 fail-closed du Resolver (`Resolver.ts:713-723`)       |
 | Journalisation de sécurité | audit des refus, jamais des octrois                                                                                     | `#auditDeny` → `recordAudit` (`authorization.ts:113-142`) |
 
 > Ce tableau dit ce que le code **fait**, pas ce qu'il revendique : Nodefony n'est pas « conforme
@@ -541,7 +541,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 ## ⚡ Performance & mémoire
 
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
-  alloc (`Resolver.ts:490`) ; l'exigence est **figée une fois** par route et partagée entre
+  alloc (`Resolver.ts:520`) ; l'exigence est **figée une fois** par route et partagée entre
   requêtes (`SecurityRequirement`, `routerDecorators.ts:444`).
 - **`decide()` sans allocation** : itération en place des voters (`authorization.ts:70-72`),
   instanciés **une seule fois** au boot (`authorization.ts:70`).
@@ -560,7 +560,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 | Symptôme                               | Cause (dans le code)                                                                | Correction                                                     |
 | -------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Accès refusé alors que le rôle existe  | Attribut mal formé (pas `ROLE_…`) → le `RoleVoter` n'entre pas                      | Respecter le préfixe `ROLE_`                                   |
-| 403 systématique sur une route gardée  | Moteur absent OU identité non résolue — route **hors zone** (`Resolver.ts:683-693`) | Couvrir la route par une zone firewall                         |
+| 403 systématique sur une route gardée  | Moteur absent OU identité non résolue — route **hors zone** (`Resolver.ts:713-723`) | Couvrir la route par une zone firewall                         |
 | Un voter métier bloque tout            | Il renvoie `DENY` au lieu d'`ABSTAIN` quand il ne s'applique pas                    | Renvoyer `ABSTAIN` hors de son domaine                         |
 | Un `DENY` n'a pas bloqué               | Attributs d'une clause = jurys **séparés** (OR) — un autre attribut a accordé       | Porter l'interdit en clause AND (empiler les `@IsGranted`)     |
 | Clé API accède à une action non prévue | Type de jeton traité comme humain (allowlist)                                       | Vérifier que le type n'est pas dans `NON_SCOPABLE_TOKEN_TYPES` |

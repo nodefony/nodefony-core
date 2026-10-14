@@ -91,8 +91,8 @@ le bouton « Ouvrir / Fermer » basculent le panneau.
 Le contrôle « Temps réel » dit son état en toutes lettres : `arrêté`, `connexion…`,
 `en direct`, `en pause` (la socket est ouverte par l'application, mais la barre ne
 reçoit rien), ou `accès refusé` — la barre lit les données d'administration, et
-sans session administrateur le serveur ferme la socket (code 1008). Le refus se
-lit, il ne se confond pas avec une panne.
+sans session administrateur le serveur refuse le handshake (401/403, avant toute ouverture). Le
+refus se lit, il ne se confond pas avec une panne.
 
 > **Pourquoi le temps réel est arrêté par défaut** : l'abonnement fait tourner des
 > compteurs et un émetteur de journaux côté serveur. En développement on ouvre

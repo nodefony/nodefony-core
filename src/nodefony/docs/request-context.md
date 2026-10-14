@@ -294,7 +294,7 @@ arbitraire. Chaque couche y dépose ce qui la concerne, parmi les clés ci-desso
 | `queries`        | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:98`)                 |
 | `invocation`     | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
 | `body`           | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
-| `idempotencyKey` | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:717`)                                |
+| `idempotencyKey` | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:747`)                                |
 | `renderSink`     | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
 
 > [!NOTE]
@@ -309,7 +309,7 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
 | l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1308` |
 | le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:238`        |
-| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:475`          |
+| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:480`          |
 
 ## 🔌 Où la bulle est ouverte
 
@@ -321,8 +321,8 @@ qui ouvre quoi.
 <!-- prettier-ignore -->
 | Transport | Ouverte par | Ce que la bulle couvre |
 | --- | --- | --- |
-| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1553`) | CORS, routage, firewall, ton action, rendu |
-| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1984`) | poignée de main, firewall, **et toutes les trames** |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1582`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:2031`) | poignée de main, firewall, **et toutes les trames** |
 | WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1070`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:545`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
@@ -333,8 +333,8 @@ Deux points méritent d'être connus.
 
 **La bulle WebSocket survit aux trames.** Une trame arrive dans un tick d'event-loop bien
 postérieur à la poignée de main : elle serait hors bulle. `WebsocketContext.connect()`
-(`WebsocketContext.ts:257`) branche donc `message`, `close` et `error` à travers
-`AsyncResource.bind` (`WebsocketContext.ts:243`) — la bulle est photographiée au branchement, donc
+(`WebsocketContext.ts:333`) branche donc `message`, `close` et `error` à travers
+`AsyncResource.bind` (`WebsocketContext.ts:289`) — la bulle est photographiée au branchement, donc
 depuis l'intérieur, et restaurée à chaque appel.
 
 **Le pont WS-RPC rouvre une bulle par invocation.** Le contexte WebSocket vit pour toute la
@@ -347,7 +347,7 @@ problème par construction.
 C'est l'usage le plus subtil du payload, et le patron à copier pour tout observateur.
 
 Le serveur alloue `queries` (`RequestContext.ts:98`) **uniquement quand le profiler est actif**,
-c'est-à-dire en développement (`http-kernel.ts:1397`). En production, la clé est simplement absente.
+c'est-à-dire en développement (`http-kernel.ts:1426`). En production, la clé est simplement absente.
 Cette absence **est** le signal : les adapters ORM n'ont aucun réglage à lire.
 
 ```mermaid
@@ -478,7 +478,7 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:633`). Quatre 
    authentifié porte un utilisateur sans `id`, `identifier` ou `roles` (authentificateur qui viole
    le contrat) au lieu de le faire passer, sans un mot, pour un anonyme. `this.user` d'un contrôleur,
    `@nodefony/user` (`authenticatedUser`, `requestUser`), le realtime et l'idempotence l'appellent. L'autorisation passe par le firewall et ses décorateurs, qui lisent le **jeton**
-   (`Resolver.ts:854`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
+   (`Resolver.ts:884`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
    révoquée entre-temps. C'est pourquoi le pont WS-RPC **revalide** l'identité à chaque invocation
@@ -501,7 +501,7 @@ Le premier est de loin le plus fréquent, et il ne produit **aucune erreur** —
 > il s'exécute dans un autre tick d'event-loop, hors bulle, et tout rend `undefined`.
 
 C'est ainsi que le framework le fait pour toi aux deux endroits qui comptent : les événements de
-socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:257`) et les rappels d'après-réponse
+socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:333`) et les rappels d'après-réponse
 dans `Context.onAfterResponse()` (`Context.ts:456`). Si tu branches **ton** écouteur sur une socket
 ou une minuterie, la règle est à toi de l'appliquer.
 

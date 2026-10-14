@@ -35,8 +35,15 @@ if git rev-parse --verify -q '@{u}' >/dev/null; then
       { node scripts/site/build-docs-site.mjs --list | tr '\n' '\0' | xargs -0 node "$anchors" >/dev/null &&
         find .claude/skills -path '*/references/*.md' -not -path '*/rfc/*' -not -path '*/specs/*' -print0 |
         xargs -0 node "$anchors" >/dev/null; } || {
-        echo "pre-push : ancres de doc dérivées — npm run doc:anchors:fix (pages) ; pour les références de skills :" >&2
-        echo "  find .claude/skills -path '*/references/*.md' -not -path '*/rfc/*' -not -path '*/specs/*' -print0 | xargs -0 node $anchors | node ${anchors%/*}/anchor-fix.mjs . --apply" >&2
+        echo "pre-push REFUSÉ : des ancres \`fichier:ligne\` de la doc ne pointent plus au bon endroit." >&2
+        echo "  Pourquoi : ton code a ajouté ou retiré des lignes, et des pages citent les lignes d'avant." >&2
+        echo "  La CI refuserait le même push (gate « ancres de la doc »)." >&2
+        echo "  Voir lesquelles : node $anchors \$(node scripts/site/build-docs-site.mjs --list) | grep -A3 '^❌'" >&2
+        echo "  Réparer (le code a bougé → recaler par le diff depuis le dernier vert) :" >&2
+        echo "    node $anchors --all \$(node scripts/site/build-docs-site.mjs --list) | node ${anchors%/*}/anchor-remap.mjs . --base origin/dev --apply" >&2
+        echo "    find .claude/skills -path '*/references/*.md' -not -path '*/rfc/*' -not -path '*/specs/*' -print0 | xargs -0 node $anchors --all | node ${anchors%/*}/anchor-remap.mjs . --base origin/dev --apply" >&2
+        echo "  Ce qui reste « à relire » : recaler à la main (node ${anchors%/*}/anchor-fix.mjs . --suggest dit où est le terme)." >&2
+        echo "  Puis : git add -A docs src/*/docs src/packages/*/*/docs .claude/skills && git commit -m 'docs: recaler les ancres' && git push" >&2
         exit 1
       }
     fi

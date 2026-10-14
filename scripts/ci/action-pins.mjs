@@ -12,6 +12,8 @@
  *   node scripts/ci/action-pins.mjs --write              les recopier depuis la forge
  *   node scripts/ci/action-pins.mjs --resolve actions/setup-node@v7.1.0
  *                                                        la ligne `uses:` prête à coller
+ *
+ * @usage  node scripts/ci/action-pins.mjs [--write | --resolve owner/repo@vX.Y.Z]
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";

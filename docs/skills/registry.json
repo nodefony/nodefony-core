@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-13",
+  "generatedAt": "2026-10-14",
   "count": 40,
   "repoScripts": [
     {
@@ -1269,6 +1269,21 @@
         "npm run test:tooling"
       ],
       "testedBy": []
+    },
+    {
+      "path": "scripts/ci/action-pins.mjs",
+      "test": false,
+      "purpose": "Épingles des actions GitHub — une seule implémentation pour le gate (`actions-pinned.test.mjs`) et pour l'humain qui doit les tenir à jour.",
+      "usage": [
+        "node scripts/ci/action-pins.mjs [--write | --resolve owner/repo@vX.Y.Z]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": [
+        "scripts/ci/actions-pinned.test.mjs"
+      ]
     },
     {
       "path": "scripts/ci/actions-pinned.test.mjs",
@@ -4345,8 +4360,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 488,
-        "approxTokens": 8583
+        "bodyLines": 489,
+        "approxTokens": 8711
       },
       "requires": [],
       "resources": {
@@ -4363,6 +4378,10 @@
               "Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)"
             ],
             "options": [
+              {
+                "flag": "--all",
+                "help": ""
+              },
               {
                 "flag": "--apply",
                 "help": ""
@@ -4455,6 +4474,43 @@
             ],
             "options": [],
             "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/anchor-remap.mjs",
+            "purpose": "Recale les ancres `fichier.ts:N` d'une page de doc par le GIT DIFF, pas par symbole : une ancre juste à la révision `--base` est décalée d'exactement le nombre de lignes que le code a gagné ou perdu AVANT elle. Déterministe — là où `anchor-fix.mjs` doit deviner une ligne à partir des mots qui l'entourent (un en-tête `Retry-After`, un `try`, un littéral ne se retrouvent pas).",
+            "usage": [
+              "node anchor-check.mjs --all <pages…> | node anchor-remap.mjs <repo> --base <rév> [--apply]"
+            ],
+            "options": [
+              {
+                "flag": "--all",
+                "help": ""
+              },
+              {
+                "flag": "--apply",
+                "help": ""
+              },
+              {
+                "flag": "--base",
+                "help": ""
+              },
+              {
+                "flag": "--quiet",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "APPLY",
+                "help": ""
+              },
+              {
+                "name": "BASE",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -4687,7 +4743,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "488",
+            "detail": "489",
             "advisory": true
           }
         ]

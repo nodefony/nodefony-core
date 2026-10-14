@@ -49,7 +49,7 @@ collectées, personne ne les fait respecter.
 ```mermaid
 flowchart TD
   C["Client — GET /realtime<br/>Upgrade: websocket"] --> H1["1. Transport HTTP<br/>same-origin anti-CSWSH"]
-  H1 -->|refus| X1["close 1008"]
+  H1 -->|refus| X1["403 au handshake<br/>aucune socket"]
   H1 --> H2["2. Firewall HTTP<br/>zone protégée ? 401 si anonyme"]
   H2 --> H3["3. Origin realtime<br/>allowlist stricte (opt-in)"]
   H3 -->|refus| X2["close 4003"]
@@ -255,10 +255,10 @@ vers ton domaine, et le navigateur y joindra les cookies de la victime. L'en-tê
 
 Nodefony pose **deux barrières successives**, à deux étages différents.
 
-| Barrière             | Étage                | Défaut                              | Origin absent | Refus        |
-| -------------------- | -------------------- | ----------------------------------- | ------------- | ------------ |
-| Contrôle same-origin | `@nodefony/http`     | **actif** (`allowedOrigins: false`) | accepté       | `close 1008` |
-| Allowlist stricte    | `@nodefony/realtime` | **inactif** (`enabled: false`)      | configurable  | `close 4003` |
+| Barrière             | Étage                | Défaut                              | Origin absent | Refus             |
+| -------------------- | -------------------- | ----------------------------------- | ------------- | ----------------- |
+| Contrôle same-origin | `@nodefony/http`     | **actif** (`allowedOrigins: false`) | accepté       | `403` (handshake) |
+| Allowlist stricte    | `@nodefony/realtime` | **inactif** (`enabled: false`)      | configurable  | `close 4003`      |
 
 **Barrière 1 — transport, active sans rien faire.** `HttpKernel.checkWebsocketOrigin()`
 (`http-kernel.ts:724`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance

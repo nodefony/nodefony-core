@@ -121,7 +121,7 @@ que **deux** appelants traduisent dans leur monde :
 - le **data plane admin** — `AdminApiController.idempotencyGate()`
   (`AdminApiController.ts:155`) → réponse `{status, headers, body}` ;
 - les **controllers userland** décorés `@Idempotent` — seam `Resolver._callWithIdempotency()`
-  (`Resolver.ts:687`) → `nodefonyError` typée, ou réponse rejouée.
+  (`Resolver.ts:717`) → `nodefonyError` typée, ou réponse rejouée.
 
 Conséquence pratique : il est **impossible** que l'idempotence HTTP et l'idempotence WebSocket
 divergent — elles partagent la même fonction. C'est le différenciateur du framework (HTTP + WS
@@ -223,7 +223,7 @@ curl -si -X POST http://localhost:5151/api/payments/charge \
 > [!WARNING]
 > **Le piège n°1** : en verdict `fresh`, la réservation est _in-flight_ tant que `complete` **ou**
 > `abort` n'a pas été appelé. Le seam `@Idempotent` gère ce couple pour toi (`try/catch`,
-> `Resolver.ts:764` et `Resolver.ts:788`). Si tu appelles le store **à la main** (cas avancé), c'est
+> `Resolver.ts:794` et `Resolver.ts:818`). Si tu appelles le store **à la main** (cas avancé), c'est
 > **ta** responsabilité : sans `abort` sur erreur, la clé reste bloquée jusqu'à l'expiration du bail
 > (60 s), et tout rejeu identique reçoit `409` pendant ce temps.
 
@@ -266,7 +266,7 @@ Deux mécanismes rendent ça possible côté socket :
   frame `socket.mutate` créerait un doublon. Le Resolver teste donc
   `isMutationMethod(this.methodOverride ?? context.method)` (`Resolver.ts:130`).
 
-Le pont utilise `executeActionGuarded()` (`Resolver.ts:665`) : porte d'idempotence **sans** rendu HTTP
+Le pont utilise `executeActionGuarded()` (`Resolver.ts:695`) : porte d'idempotence **sans** rendu HTTP
 — la valeur nue est enveloppée par le peer WS, jamais écrite sur un transport HTTP.
 
 ## 🏗️ Architecture interne
@@ -299,13 +299,13 @@ sequenceDiagram
 
 ### Le parcours d'une mutation, étape par étape
 
-1. **Court-circuit hot path.** `callController()` (`Resolver.ts:618`) lit `meta.idempotent` sur les
+1. **Court-circuit hot path.** `callController()` (`Resolver.ts:648`) lit `meta.idempotent` sur les
    métadonnées d'action **figées par route**. `null` sur la quasi-totalité des routes → une
    comparaison, flux normal, **zéro** lookup de store et zéro allocation.
 2. **No-op sur méthode sûre.** Une action `GET` sous une classe `@Idempotent` repart directement en
-   exécution (`Resolver.ts:693`).
+   exécution (`Resolver.ts:723`).
 3. **Empreinte du payload.** `computeFingerprint()` (`idempotency.ts:112`) hache
-   `[nom de route, params de route, corps]` (`Resolver.ts:501`). Le corps vient de l'ALS (pont WS) ou
+   `[nom de route, params de route, corps]` (`Resolver.ts:531`). Le corps vient de l'ALS (pont WS) ou
    du body HTTP parsé.
 4. **Identité.** `resolveIdentity()` (`idempotency.ts:102`) rend l'`identifier` de l'utilisateur
    AUTHENTIFIÉ de la requête (`RequestContext.getAuthenticatedUser()`, la règle unique du cœur).
@@ -314,7 +314,7 @@ sequenceDiagram
    devient `execute` — jamais de partage cross-identité.
 5. **Réservation.** `store.begin()` compose la clé scopée et tranche.
 6. **Mémorisation.** En succès, `complete(clé, {status, body})` où `status` est le code de réponse
-   courant et `body` la **valeur retournée** par l'action (`Resolver.ts:722`). En erreur,
+   courant et `body` la **valeur retournée** par l'action (`Resolver.ts:752`). En erreur,
    `abort(clé)` libère la clé : **un échec ne se mémorise pas**, il doit rester réessayable.
 
 > [!CAUTION]
@@ -323,14 +323,14 @@ sequenceDiagram
 > double-effet reste évité, mais le corps rejoué est vide. Pire, si le corps retourné n'est pas
 > sérialisable (retour d'un objet Response circulaire), un store SQL/Redis lève au `stringify`. Le
 > Resolver attrape ce cas : il **journalise un WARNING explicite** puis mémorise le statut avec un
-> corps `null` (`Resolver.ts:554`) — la dédup est préservée plutôt que perdue en silence.
+> corps `null` (`Resolver.ts:584`) — la dédup est préservée plutôt que perdue en silence.
 
 ### Où la porte est câblée
 
 | Appelant                     | Point d'entrée                                                       | Traduction du verdict              |
 | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
-| Controller userland HTTP     | `callController()` (`Resolver.ts:618`)                               | `nodefonyError` + rendu normal     |
-| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:665`)                         | valeur nue, enveloppée par le peer |
+| Controller userland HTTP     | `callController()` (`Resolver.ts:648`)                               | `nodefonyError` + rendu normal     |
+| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:695`)                         | valeur nue, enveloppée par le peer |
 | Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts:155`) | `{status, headers, body}`          |
 
 ## ⚙️ Configuration
@@ -650,7 +650,7 @@ pour l'affichage Studio, `idempotencyStoreRegistry.ts:81`).
 
 Le coût est **nul hors mutations décorées**. Sans `@Idempotent`, `RouteActionMeta.idempotent` vaut
 `null` (`routerDecorators.ts:1194`) : `callController()` fait **une comparaison** et repart en flux
-normal — zéro lookup de container, zéro `await` supplémentaire, zéro allocation (`Resolver.ts:618`).
+normal — zéro lookup de container, zéro `await` supplémentaire, zéro allocation (`Resolver.ts:648`).
 La métadonnée est **figée par route** et mémoïsée : aucune lecture `Reflect` par requête.
 
 Sur le chemin décoré :
@@ -693,7 +693,7 @@ Trois surfaces existent aujourd'hui :
 
 | Symptôme                                               | Cause (dans le code)                                                                 | Correction                                                                   |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Rejeu qui renvoie un corps **vide**                    | L'action a retourné `this.renderJson(...)` au lieu du payload (`Resolver.ts:778`)    | Retourner la **valeur brute** ; un WARNING le signale déjà dans les logs     |
+| Rejeu qui renvoie un corps **vide**                    | L'action a retourné `this.renderJson(...)` au lieu du payload (`Resolver.ts:808`)    | Retourner la **valeur brute** ; un WARNING le signale déjà dans les logs     |
 | `409` en boucle sur un endpoint                        | Action qui lève avant `complete`/`abort` → in-flight bloqué jusqu'au bail (60 s)     | Le seam le gère ; en usage manuel du store, `try/finally` obligatoire        |
 | `422 Idempotency-Key is already used`                  | Même clé, **payload différent** (empreinte ≠, `idempotency.ts:189`)                  | Une clé = une intention ; nouvelle clé par requête distincte                 |
 | Rien n'est dédupliqué **malgré** la clé                | Pas d'identité fiable → verdict `execute` (`idempotency.ts:176`)                     | S'assurer que le firewall a résolu l'utilisateur **avant** la mutation       |

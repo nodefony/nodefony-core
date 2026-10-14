@@ -390,13 +390,13 @@ tout de suite, le refuse.
 
 Tu n'ouvres jamais un scope toi-même dans une application : le pipeline le fait.
 
-- **HTTP** : ouvert à l'entrée de chaque requête par `HttpKernel.handle()` (`enterScope`, `http-kernel.ts:839`),
+- **HTTP** : ouvert à l'entrée de chaque requête par `HttpKernel.handle()` (`enterScope`, `http-kernel.ts:843`),
   refermé au démontage **après** les hooks `onAfterResponse` et `onFinish`
-  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts:1456`) — y compris quand un hook
-  lève (`failTeardownHttp()`, `http-kernel.ts:1478`).
-- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:1967`),
+  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts:1485`) — y compris quand un hook
+  lève (`failTeardownHttp()`, `http-kernel.ts:1507`).
+- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:2019`),
   refermé à la fermeture de la socket.
-- Le pipeline y pose `context` (`set("context")`, `Context.ts:311`) puis `controller` (`Resolver.ts:400`). Le
+- Le pipeline y pose `context` (`set("context")`, `Context.ts:311`) puis `controller` (`Resolver.ts:405`). Le
   `resolver` n'y est **pas** : c'est un champ du contexte (`context.resolver`).
 
 ### Le contrôleur singleton — le défaut, sous contrat strict

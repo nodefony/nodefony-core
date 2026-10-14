@@ -136,15 +136,15 @@ Service `@injectable()` `"router"` (`nodefony/service/router.ts:124`). Table `st
 
 | Méthode | Signature | Rôle |
 | ------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------- |
-| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:313`) | point d'entrée du routage |
-| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:478`) | forward interne |
-| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:495`) | lookup / dump |
-| `removeRoutes` | `(name?) → void` (`router.ts:504`) | retire 1 route (ou tout si vide) + invalide l'index |
-| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:484`) | toutes les routes dont le pattern matche |
+| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:316`) | point d'entrée du routage |
+| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:491`) | forward interne |
+| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:508`) | lookup / dump |
+| `removeRoutes` | `(name?) → void` (`router.ts:517`) | retire 1 route (ou tout si vide) + invalide l'index |
+| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:497`) | toutes les routes dont le pattern matche |
 | `getSingletonController` | `(ctor, create) → Promise<Controller>` (`router.ts:232`) | cache promesse singleton (V4.3) |
-| `static createRoute` | `(name, RouteOptions) → Route` (`router.ts:350`) | push table + invalide l'index |
-| `static setController` | `(ctor, module) → ctor` (`router.ts:356`) | `proto.module` (writable:false) + clé `module:Class` + propage `route.module` |
-| `static getRoutesForController` | `(ctor) → Route[]` (`router.ts:390`) | log des routes d'un controller |
+| `static createRoute` | `(name, RouteOptions) → Route` (`router.ts:353`) | push table + invalide l'index |
+| `static setController` | `(ctor, module) → ctor` (`router.ts:359`) | `proto.module` (writable:false) + clé `module:Class` + propage `route.module` |
+| `static getRoutesForController` | `(ctor) → Route[]` (`router.ts:393`) | log des routes d'un controller |
 
 ---
 
@@ -179,13 +179,13 @@ Champs : `controller`, `actionName`, `action`, `route`, `variables: unknown[]` (
 
 | Méthode | Signature | Rôle |
 | ------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| `match` | `(route, ctx, cleanPath?) → map                                                     | undefined` (`Resolver.ts:174`) | délègue `route.match`, pose route + intents sur le ctx |
-| `parsePathernController` | `("module:ctrl:action") → void` (`Resolver.ts:251`) | forward |
-| `getMatchedParams` | `() → Record<string,unknown>` (`Resolver.ts:224`) | snapshot `{name}`→valeur (+ `*`) |
-| `newController` | `(ctx?) → Promise<Controller>` (`Resolver.ts:319`) | instancie (DI) + cache, gère singleton |
-| `executeAction` | `(data?, reload?, metaArg?) → Promise<{result, redirectMeta?}>` (`Resolver.ts:450`) | **exécute SANS rendre** (seam multi-transport) |
-| `callController` | `(data?, reload?) → Promise<unknown>` (`Resolver.ts:618`) | exécute **PUIS rend** (pipeline normal) |
-| `returnController` | `(result) → Promise<unknown>` (`Resolver.ts:1043`) | normalise la valeur vers le transport |
+| `match` | `(route, ctx, cleanPath?) → map                                                     | undefined` (`Resolver.ts:179`) | délègue `route.match`, pose route + intents sur le ctx |
+| `parsePathernController` | `("module:ctrl:action") → void` (`Resolver.ts:256`) | forward |
+| `getMatchedParams` | `() → Record<string,unknown>` (`Resolver.ts:229`) | snapshot `{name}`→valeur (+ `*`) |
+| `newController` | `(ctx?) → Promise<Controller>` (`Resolver.ts:324`) | instancie (DI) + cache, gère singleton |
+| `executeAction` | `(data?, reload?, metaArg?) → Promise<{result, redirectMeta?}>` (`Resolver.ts:455`) | **exécute SANS rendre** (seam multi-transport) |
+| `callController` | `(data?, reload?) → Promise<unknown>` (`Resolver.ts:648`) | exécute **PUIS rend** (pipeline normal) |
+| `returnController` | `(result) → Promise<unknown>` (`Resolver.ts:1073`) | normalise la valeur vers le transport |
 
 ---
 
@@ -372,10 +372,10 @@ Router.resolve(ctx)                         router.ts:190
   Pass 1 : merge ordonné littérales(path) ∪ dynamiques (par position d'insertion)
      resolver.match(route, ctx, cleanPath)  → 1ʳᵉ route qui matche path+method → return resolver
   Pass 2 : aucun match + HTTP → 405 + header Allow agrégé (RFC 9110 §15.5.6)
-HttpKernel → resolver.callController()      Resolver.ts:389
+HttpKernel → resolver.callController()      Resolver.ts:394
   meta = resolveActionMeta(route)           memo, 0 Reflect/req
   meta.idempotent !== null ? _callWithIdempotency : executeAction + _handleRedirect
-executeAction()                             Resolver.ts:310
+executeAction()                             Resolver.ts:315
   meta.security !== null → _enforceSecurity (403 AVANT instanciation — Zero Trust)
   controller = container.get("controller") | newController()   (instanceof check WS)
   args = paramsMeta ? _buildParamArgs : [...variables(, ...data)]
@@ -390,7 +390,7 @@ d'insertion** → même séquence que le scan linéaire MOINS les littérales d'
 (`routeIndex=null`) par `createRoute`/`removeRoutes` + garde-fou photo `length/first/last` (mutations
 directes de `routes` des bancs de test). Ne court-circuite JAMAIS `resolver.match()`.
 
-`match()` pose AUSSI sur le contexte (post-match, `Resolver.ts:174`-`154`) : `sessionIntent`,
+`match()` pose AUSSI sur le contexte (post-match, `Resolver.ts:179`-`154`) : `sessionIntent`,
 `cspDirectives` (si `@Csp`), `csrfProtect`/`csrfExempt` — consommés plus tard par le firewall.
 
 ---
@@ -415,14 +415,14 @@ vhosts) → 405 unique. Pseudo-méthode `WEBSOCKET` exposée dans l'agrégat d'u
 
 ## Internals — seam sécurité
 
-`_enforceSecurity(req: SecurityRequirement)` (`Resolver.ts:871`), appelé dans `executeAction` **AVANT
+`_enforceSecurity(req: SecurityRequirement)` (`Resolver.ts:901`), appelé dans `executeAction` **AVANT
 `newController()`** — un 403 court-circuite donc réellement l'instanciation DI et `initialize()`, y
 compris sur le trajet HTTP (le kernel n'instancie plus en amont, cf entrée `initialize()` ci-dessus ;
 c'était une promesse que le pipeline contredisait). Résout le service
 `authorization` **par nom** (`IAuthorizer.decide(token, attribute, subject?) → Promise<boolean>`,
 `Resolver.ts:61`) ; `token = RequestContext.get()?.token`. **Fail-closed** : `!authz || token===undefined`
 → 403. Clauses en **AND** (`req.clauses`), attributs d'une clause en **OR** (`clause.anyOf`) ; `subject`
-résolu via `_resolveSubject(name)` (`Resolver.ts:941`, depuis `route.variables`). `meta.security===null`
+résolu via `_resolveSubject(name)` (`Resolver.ts:971`, depuis `route.variables`). `meta.security===null`
 (99 % des routes) → 0 lookup/await/alloc.
 
 `SecurityRequirement` figé par `computeSecurityRequirement` (`routerDecorators.ts:1648`) = fusion
@@ -477,7 +477,7 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
 **Deux call-sites** traduisent le MÊME verdict :
 
 - **userland** `@Idempotent` → `Resolver.callController` branche vers `_callWithIdempotency(meta, …)`
-  (`Resolver.ts:687`) si `meta.idempotent !== null`. No-op si méthode sûre. Verdict : `reject`→
+  (`Resolver.ts:717`) si `meta.idempotent !== null`. No-op si méthode sûre. Verdict : `reject`→
   `nodefonyError(status)` ; `replay`→ rejoue la réponse mémorisée (status+headers+body) SANS exécuter ;
   `execute`→ exécution directe ; `guarded`→ exécute puis `store.complete(key,{status,body})` (succès)
   ou `store.abort(key)` (échec). Réponse mémorisée = **valeur RETOURNÉE** par l'action (un `this.render`
@@ -490,12 +490,12 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
 
 ## Internals — `callController`/`executeAction`/`initialize`/scope
 
-- **`callController`** (`Resolver.ts:618`) : résout `meta` **1×** (memo) puis le PASSE à `executeAction`
+- **`callController`** (`Resolver.ts:648`) : résout `meta` **1×** (memo) puis le PASSE à `executeAction`
   → 0 double résolution.
-- **`executeAction`** (`Resolver.ts:450`) : exécute et renvoie `{result, redirectMeta}` **sans rendre**
+- **`executeAction`** (`Resolver.ts:455`) : exécute et renvoie `{result, redirectMeta}` **sans rendre**
   (réutilisé par le pont WS-RPC `invoke` / futur GraphQL). Garde-fou : pointeur container `"controller"`
   vérifié `instanceof this.controller` (connexion WS multi-invoke → réécriture du pointeur).
-- **`newController`/`_createController`** (`Resolver.ts:376`,`274`) : `Injector.instantiate(ctor, ctx)`
+- **`newController`/`_createController`** (`Resolver.ts:381`,`274`) : `Injector.instantiate(ctor, ctx)`
   → pose `module` (shadow 1×) → `await controller.initialize()` si présent
   (`ControllerWithInitialize`, hook **per-request**, hot path, JAMAIS borné — distinct du `init()` de
   boot des services).
@@ -549,7 +549,7 @@ Fonctions pures exportées (testables sans serveur) : `buildParamArgs(metas, IPa
 
 ## Internals — contrat de retour controller
 
-`returnController(result)` (`Resolver.ts:1043`) normalise la valeur retournée par l'action vers le
+`returnController(result)` (`Resolver.ts:1073`) normalise la valeur retournée par l'action vers le
 transport (`switch(typeOf)`) :
 
 <!-- prettier-ignore -->
@@ -565,7 +565,7 @@ transport (`switch(typeOf)`) :
 | `void`/`null` + `isRedirect` | `context.send()` |
 | `void`/`null` | `waitAsync=true` (l'action a géré elle-même) |
 
-`@Redirect` : action `void`/`null` → `_handleRedirect` (`Resolver.ts:1002`) appelle `context.redirect(url,
+`@Redirect` : action `void`/`null` → `_handleRedirect` (`Resolver.ts:1032`) appelle `context.redirect(url,
 code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourné par l'action override).
 
 ---

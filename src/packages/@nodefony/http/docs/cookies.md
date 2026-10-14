@@ -270,13 +270,13 @@ boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un co
 `cookiesParser(context)` (`cookie.ts:87`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
 `parser()` `cookie.ts:50`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
 (`Context.ts:696`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
-l'initialisation du contexte HTTP (`HttpContext.ts:255`) **et** WebSocket (`WebsocketContext.ts:170`).
+l'initialisation du contexte HTTP (`HttpContext.ts:255`) **et** WebSocket (`WebsocketContext.ts:216`).
 
 ### Côté WebSocket — lecture oui, écriture non
 
 Les cookies **entrants** sont lus au handshake, exactement comme en HTTP (même parseur). Mais la **poignée
 de main WebSocket ne peut pas poser de cookie** : `setCookie()` et `setCookies()` de la réponse WS sont des
-**no-op** (`websocket/Response.ts:315`), une limite de la bibliothèque `ws`. Le cookie de session, lui, est
+**no-op** (`websocket/Response.ts:342`), une limite de la bibliothèque `ws`. Le cookie de session, lui, est
 posé pendant la **phase HTTP** qui précède l'upgrade. La forme d'un cookie décrit pour le WS est
 `IWsCookie` (`ICookie.ts:19`), produite par `serializeWebSocket()`.
 

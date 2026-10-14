@@ -58,7 +58,7 @@ Trois idées suffisent pour raisonner :
 1. **Un montage = un préfixe → une origine.** `"/billing/"` → `http://127.0.0.1:8080`. Le préfixe le
    plus long gagne (`ReverseProxy.match()`, `reverse-proxy.ts:229`).
 2. **L'aiguillage passe AVANT le routage.** Une route attrape-tout de l'application ne peut pas
-   avaler un préfixe monté (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1699`).
+   avaler un préfixe monté (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1728`).
 3. **Sans montage, il ne coûte rien.** Le pipeline lit un champ (`mounts === null`) et passe son
    chemin (`ReverseProxy.mounts`, `reverse-proxy.ts:174`).
 
@@ -313,7 +313,7 @@ aucun montage n'est posé.
 Avec `websocket: true`, l'upgrade du préfixe est relayé au lieu d'aller au serveur WebSocket de
 Nodefony. Un seul écouteur `upgrade` par serveur fait l'aiguillage : le proxy d'abord, puis `ws`,
 créé en `noServer` pour garder ses propres contrôles (`path`, `verifyClient`, `maxPayload`)
-(`attachUpgradeDispatch()`, `upgradeDispatch.ts:41`).
+(`attachUpgradeDispatch()`, `upgradeDispatch.ts:172`).
 
 Avant de relayer, chaque contrôle rend la réponse qu'aurait rendue le serveur WebSocket de Nodefony
 (`ReverseProxy.handleUpgrade()`, `reverse-proxy.ts:384`) :
@@ -328,7 +328,7 @@ Avant de relayer, chaque contrôle rend la réponse qu'aurait rendue le serveur 
 | passe tous les contrôles                                                  | relayé  |
 
 Les quotas sont ceux d'un upgrade servi par Nodefony, appliqués par la **même** règle du noyau
-(`HttpKernel.websocketQuotaRefusal()`, `http-kernel.ts:2230`) ; un tunnel ouvert garde sa place
+(`HttpKernel.websocketQuotaRefusal()`, `http-kernel.ts:2320`) ; un tunnel ouvert garde sa place
 jusqu'à sa fermeture. Seule la forme du refus diffère : le proxy répond avant le `101`, il peut donc
 rendre un statut HTTP, là où le serveur WebSocket ne peut plus que fermer avec le code 1013.
 
@@ -337,9 +337,9 @@ Une fois l'upgrade transmis, un amont qui accepte la connexion puis se tait est 
 qu'il veut.
 
 Seul `Upgrade: websocket` est relayé : un tunnel `h2c` ou tout autre protocole raccordé octet pour
-octet échapperait à toute inspection (`websocketHandshakeProblem()`, `rules.ts:252`). Une fois la
+octet échapperait à toute inspection (`websocketHandshakeProblem()`, `rules.ts:259`). Une fois la
 connexion établie, les deux sockets sont raccordées et détruites ensemble ; le TCP keep-alive détecte
-un pair mort (`forwardUpgrade()`, `forward.ts:590`).
+un pair mort (`forwardUpgrade()`, `forward.ts:618`).
 
 ## 🧩 Étendre — monter depuis un module
 
@@ -424,7 +424,7 @@ une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 - **Quotas maintenus** : rate-limit par IP sur les requêtes relayées ; mêmes bornes par IP pour un
   upgrade relayé que pour un upgrade servi, plus `maxSockets` tunnels par amont.
 - **Barrière d'hôte maintenue** : un `Host` hors `trustedHosts` n'est jamais relayé ; il suit le
-  pipeline jusqu'au 421, comme toute requête (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1699`).
+  pipeline jusqu'au 421, comme toute requête (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1728`).
 - **Chemins ambigus refusés**, pas normalisés : `.`, `..`, `\`, octet nul et leurs formes encodées
   `%2e`, `%2f`, `%5c`, `%00`, `%25` (`isAmbiguousPath()`, `rules.ts:229`).
 - **Chaîne de confiance** : `Forwarded`, `X-Forwarded-*` et `X-Real-IP` d'un client direct sont
@@ -447,7 +447,7 @@ une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 | RFC 7239 §8.1           | Ne croire `Forwarded` que d'un relais de confiance       | `trustProxy` décide (`ReverseProxy.forward()`, `reverse-proxy.ts:319`)                            |
 | RFC 7239 §4 · §6        | Chaque relais ajoute son élément ; IPv6 entre crochets   | Élément `for=…;proto=…;host=…` ajouté, valeurs non-jeton entre guillemets                         |
 | RFC 6585 §4             | `429 Too Many Requests`                                  | Quota par IP dépassé sur un upgrade relayé, avant le `101`                                        |
-| RFC 6455 §4.2.1 · §10.2 | Handshake conforme ; contrôle d'Origin contre le CSWSH   | `websocketHandshakeProblem()` (`rules.ts:252`) + règle d'Origin du serveur WS                     |
+| RFC 6455 §4.2.1 · §10.2 | Handshake conforme ; contrôle d'Origin contre le CSWSH   | `websocketHandshakeProblem()` (`rules.ts:259`) + règle d'Origin du serveur WS                     |
 | RFC 5842 §7.2           | `508 Loop Detected`                                      | Emprunté à WebDAV pour une boucle de relais (`viaLoops()`, `forward.ts:129`)                      |
 
 ## ⚡ Performance & mémoire

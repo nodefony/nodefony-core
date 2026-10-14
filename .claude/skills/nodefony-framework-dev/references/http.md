@@ -293,7 +293,7 @@ Base `Context extends Service` (`src/context/Context.ts`). Sous-classes : `HttpC
 Méthodes : `connect(): Promise<Ws>` `:222`, `send(data?, encoding?)` `:343`, `broadcast(data?, encoding?)`
 `:354`, `close(reasonCode, description)` `:524`, `onClose(code, reason)` `:436`.
 
-Helper pur exporté : `toWsCloseCode(code): number` (`WebsocketContext.ts:79`) — coercition RFC 6455 §7.4.
+Helper pur exporté : `toWsCloseCode(code): number` (`WebsocketContext.ts:80`) — coercition RFC 6455 §7.4.
 
 ### Request / Response
 

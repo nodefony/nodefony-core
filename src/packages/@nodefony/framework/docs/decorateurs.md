@@ -126,10 +126,10 @@ jamais surprendre.
 **1 — Un décorateur n'écrit QUE des métadonnées.** Aucun décorateur du framework ne contient de
 logique de sécurité, de session ou d'idempotence. `IsGranted()` (`routerDecorators.ts:903`) pose une
 clause ; c'est le `Resolver` qui appellera le moteur d'autorisation, **résolu par son nom** dans le
-conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:871`). Pourquoi ce détour : `@nodefony/framework`
+conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:901`). Pourquoi ce détour : `@nodefony/framework`
 ne dépend **pas** de `@nodefony/security` — sans ça, les deux modules formeraient un cycle. Le prix à
 payer est visible : une route gardée alors que le module `security` est absent renvoie **403**, pas
-une erreur de démarrage (fail-closed, `Resolver.ts:865`).
+une erreur de démarrage (fail-closed, `Resolver.ts:895`).
 
 **2 — Tout est figé une fois, puis relu en O(1).** Les métadonnées de l'action sont consolidées au
 premier passage dans `computeActionMeta()` (`routerDecorators.ts:1729`) puis gelées sur la route.
@@ -457,12 +457,12 @@ ne s'auto-promeut pas.
 | `@Header("X-Foo", "bar")` | méthode | Ajoute un en-tête ; **s'empile** (plusieurs `@Header` cumulent, `routerDecorators.ts:603`) | `@Header("Cache-Control","no-store")` |
 | `@Redirect("/url", 302)`  | méthode | Redirige **si** l'action ne renvoie rien (`Redirect()`, `routerDecorators.ts:649`)         | `@Redirect("/login", 302)`            |
 
-Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:977`) **avant**
+Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:1007`) **avant**
 l'appel de l'action : ton code peut donc les écraser ensuite (`this.renderJson(data, 202)` gagne).
 
 `@Redirect` a une subtilité utile : si l'action **retourne un objet** portant `url` (et
 éventuellement `statusCode`), cet objet **prend le dessus** sur les valeurs du décorateur
-(`Resolver._handleRedirect()`, `Resolver.ts:1002`) — la cible peut donc être calculée à l'exécution :
+(`Resolver._handleRedirect()`, `Resolver.ts:1032`) — la cible peut donc être calculée à l'exécution :
 
 ```typescript
 @Get("/go")
@@ -626,7 +626,7 @@ Trois faits à retenir :
 - **Les décorateurs de paramètre fonctionnent pareil.** Pour une invocation par socket, le corps de
   la mutation voyage dans l'ALS et **prime** sur le corps HTTP (vide dans ce cas) — c'est traité dans
   `resolveParamArg()` (`routerDecorators.ts:1358`), et `@Query` lit la query du chemin **invoqué**,
-  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:947`).
+  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:977`).
 - **Les gardes s'appliquent identiquement.** `@IsGranted` protège une action joignable par socket
   exactement comme une action HTTP : la décision est prise avant l'instanciation, quel que soit le
   transport.
@@ -712,10 +712,10 @@ ont dit de l'action :
 
 Le `Resolver` consomme ce snapshot dans un ordre qui a du sens sécurité :
 **garde d'abord, instanciation ensuite**. `security !== null` déclenche
-`_enforceSecurity()` (`Resolver.ts:871`) **avant** `newController()` — un `403` n'instancie pas le
+`_enforceSecurity()` (`Resolver.ts:901`) **avant** `newController()` — un `403` n'instancie pas le
 contrôleur et n'exécute pas son `initialize()`. Puis viennent les arguments
-(`_buildParamArgs()`, `Resolver.ts:947`), les métadonnées de réponse
-(`_applyResponseMeta()`, `Resolver.ts:977`), l'action, et enfin la redirection éventuelle.
+(`_buildParamArgs()`, `Resolver.ts:977`), les métadonnées de réponse
+(`_applyResponseMeta()`, `Resolver.ts:1007`), l'action, et enfin la redirection éventuelle.
 
 Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1624`) parcourt
 les routes au démarrage pour bâtir le **catalogue des scopes déclarés** — le formulaire de création
@@ -731,7 +731,7 @@ Un décorateur non employé doit coûter **zéro**. C'est tenu par trois mécani
   requête. Le même schéma vaut pour la détection du flux brut
   (`routeExpectsBodyStream()`, `routerDecorators.ts:1509`).
 - **`null` plutôt que structure vide.** Une action sans garde a `security: null` : le `Resolver` teste
-  un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:490`). Idem
+  un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:520`). Idem
   pour `idempotent`, `cspDirectives`, `paramsMeta`.
 - **Objets gelés et partagés.** Les exigences de sécurité et d'idempotence sont créées **une fois** et
   `Object.freeze`-ées (`routerDecorators.ts:1650`, `:1696`) : une seule instance pour la durée de vie
