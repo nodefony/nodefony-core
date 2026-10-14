@@ -36,10 +36,19 @@ Deux frames servent de repères :
 
 ### `welcome`
 
-`receivedAfterMs`, canaux, méthodes, identité. **S'il ne vient jamais** (code de retour 65), les trois
-suspects, dans l'ordre : le chemin du endpoint est faux ; la page n'est pas authentifiée (donner
-`NF_BROWSER_USER` + `NF_BROWSER_LOGIN`) ; l'`Origin` de la page est refusé par le serveur. Le
-réseau qui « passe » n'innocente aucun des trois.
+`verdict`, `receivedAfterMs`, canaux, méthodes, identité. **S'il ne vient jamais** (code de retour
+65), la sortie dit lequel des deux cas :
+
+- **`REFUSÉ AU HANDSHAKE`** — le serveur a répondu autre chose que `101` : la socket ne s'est jamais
+  ouverte, et la sonde le rend tout de suite avec `status`, `afterMs` et la `browserReason` du
+  navigateur (la page ne voit qu'une fermeture `1006` ; le statut, seul le navigateur le connaît).
+  `401` : la page n'est pas authentifiée (donner `NF_BROWSER_USER` + `NF_BROWSER_LOGIN`) ; `403` :
+  le compte n'a pas le rôle, ou l'`Origin` de la page est refusé ; `404` : le chemin du endpoint
+  est faux. Chromium ne nomme pas le code d'un `401` porteur de `WWW-Authenticate` (« HTTP
+  Authentication failed ») : la sonde le traduit.
+- **Rien sur la sortie standard, message « en 8000 ms »** — la socket s'est ouverte mais l'accueil
+  n'est jamais venu : l'endpoint n'est pas un endpoint temps réel Nodefony, ou le serveur ferme
+  après l'ouverture. Le réseau qui « passe » n'innocente rien.
 
 ### `subscription`
 

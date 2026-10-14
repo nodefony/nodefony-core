@@ -24,7 +24,7 @@
  * `@env` NF_BROWSER_PINGS nombre de mesures de latence (défaut 5)
  * `@requires` conteneur du profil `browser` démarré · serveur joignable · un endpoint temps réel exposé
  * `@output` un objet JSON sur stdout : accueil, abonnement, latence, api, reconnexion — un verdict par étape
- * `@exit` 0 scénario joué (les verdicts sont des DONNÉES) · 64 usage (endpoint manquant, params illisibles) · 65 accueil jamais reçu
+ * `@exit` 0 scénario joué (les verdicts sont des DONNÉES) · 64 usage (endpoint manquant, params illisibles) · 65 accueil jamais reçu (refus au handshake : JSON sur stdout, statut nommé)
  */
 import { open, goTo } from "./lib/browser.mjs";
 import { median } from "./lib/probes.mjs";
@@ -95,6 +95,13 @@ async function scenarioSocket(conf) {
   const openSocket = () =>
     new Promise((resolve, reject) => {
       const ws = new WebSocket(url);
+      // Une fermeture AVANT l'ouverture est un refus du HANDSHAKE (réponse
+      // non-101 : 401, 403, 404…) — rien à attendre, et surtout pas les huit
+      // secondes du garde, qui feraient lire un refus net comme un silence.
+      let opened = false;
+      ws.addEventListener("open", () => {
+        opened = true;
+      });
       const guard = setTimeout(() => {
         try {
           ws.close();
@@ -105,6 +112,14 @@ async function scenarioSocket(conf) {
       }, conf.timeoutMs);
       ws.addEventListener("close", (ev) => {
         closes.push({ a: a(), code: ev.code, reason: ev.reason });
+        if (!opened) {
+          clearTimeout(guard);
+          const refusal = new Error(
+            `accueil jamais reçu : connexion refusée au handshake sur ${url}`,
+          );
+          refusal.handshake = { afterMs: a(), closeCode: ev.code };
+          reject(refusal);
+        }
       });
       ws.addEventListener("message", (ev) => {
         let frame;
@@ -181,8 +196,21 @@ async function scenarioSocket(conf) {
       ws.send(JSON.stringify(frame));
     });
 
-  const { ws, welcome } = await openSocket();
+  let first;
+  try {
+    first = await openSocket();
+  } catch (e) {
+    // Le refus au handshake est une RÉPONSE du serveur, pas une panne de la
+    // sonde : il se rend en données (le pilote y joint le statut HTTP que seul
+    // le navigateur connaît — la page ne voit qu'un code de fermeture 1006).
+    if (!e?.handshake) throw e;
+    result.welcome = { verdict: "REFUSÉ AU HANDSHAKE", ...e.handshake };
+    result.closes = closes;
+    return result;
+  }
+  const { ws, welcome } = first;
   result.welcome = {
+    verdict: "OK",
     receivedAfterMs: a(),
     protocol: welcome.protocol ?? null,
     channels: welcome.channels ?? [],
@@ -330,6 +358,19 @@ async function scenarioSocket(conf) {
 const { browser, ctx, page, reuse } = await open();
 await goTo(page, ctx, process.env.NF_BROWSER_PAGE ?? "/", reuse);
 
+// Le statut HTTP d'un handshake refusé n'existe que pour le NAVIGATEUR : la
+// page n'en reçoit qu'un code de fermeture 1006. Le pilote l'écoute là où le
+// navigateur le dit — l'erreur du socket et la console.
+const handshakeErrors = [];
+page.on("websocket", (socket) => {
+  socket.on("socketerror", (error) => handshakeErrors.push(String(error)));
+});
+page.on("console", (message) => {
+  if (message.type() === "error" && message.text().includes("WebSocket")) {
+    handshakeErrors.push(message.text());
+  }
+});
+
 let result;
 try {
   result = await page.evaluate(scenarioSocket, cfg);
@@ -342,6 +383,28 @@ try {
   );
   await browser.close();
   process.exit(65); // EX_DATAERR
+}
+
+if (result.welcome?.verdict === "REFUSÉ AU HANDSHAKE") {
+  // Les messages du navigateur arrivent par le protocole de débogage, parfois
+  // juste APRÈS la fermeture vue par la page : une courte attente bornée.
+  if (handshakeErrors.length === 0) await page.waitForTimeout(500);
+  const reason = handshakeErrors[0]?.slice(0, 300) ?? null;
+  // Chromium nomme le code (« Unexpected response code: 404 ») SAUF pour un
+  // 401 porteur de `WWW-Authenticate` : il le traite en défi d'authentification
+  // qu'il ne sait pas satisfaire, et ne dit que cela.
+  const status = /HTTP Authentication failed/i.test(reason ?? "")
+    ? "401"
+    : /\b([1-5]\d\d)\b/.exec(reason ?? "")?.[1];
+  result.welcome.status = status ? Number(status) : null;
+  result.welcome.browserReason = reason;
+  console.log(JSON.stringify(result, null, 2));
+  console.error(
+    `Accueil jamais reçu : le serveur a REFUSÉ le handshake (statut ${result.welcome.status ?? "non communiqué par le navigateur"}).\n` +
+      `→ 401/403 : la page ${process.env.NF_BROWSER_PAGE ?? "/"} n'est pas authentifiée, ou le compte n'a pas le droit (NF_BROWSER_USER + NF_BROWSER_LOGIN) ; 404 : chemin du endpoint faux ; 403 sur une page authentifiée : Origin refusé.`,
+  );
+  await browser.close();
+  process.exit(65); // EX_DATAERR — l'accueil n'est pas venu, la cause est nommée
 }
 
 // La médiane se calcule ici, avec la fonction que les tests éprouvent — la

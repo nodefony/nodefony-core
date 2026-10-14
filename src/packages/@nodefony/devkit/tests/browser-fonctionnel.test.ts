@@ -547,11 +547,29 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     expect(r.stderr).toContain("NF_BROWSER_SOCKET");
   }, 60000);
 
-  it("sens négatif — endpoint inexistant : accueil jamais reçu, 65 diagnostiqué", () => {
+  it("sens négatif — endpoint inexistant : refus 404 au handshake, 65 diagnostiqué", () => {
     const r = lancerSonde("socket.mjs", ["/route/inexistante-9f4e2a"], {
       NF_BROWSER_SOCKET_WAIT: "1000",
     });
     expect(r.code).toBe(65);
-    expect(r.stderr).toContain("accueil jamais reçu");
+    expect(r.stderr).toContain("Accueil jamais reçu");
+    const accueil = commeObjet(sortieJson(r)["welcome"], "welcome");
+    expect(accueil["verdict"]).toBe("REFUSÉ AU HANDSHAKE");
+    expect(accueil["status"]).toBe(404);
+  }, 120000);
+
+  it("socket.mjs — anonyme vers la socket protégée : refus 401 au handshake, sans attendre le garde", () => {
+    // Une fermeture AVANT l'ouverture est une réponse du serveur : la sonde la
+    // nomme tout de suite, statut compris, au lieu de huit secondes de silence
+    // lues comme « accueil jamais reçu ».
+    const r = lancerSonde("socket.mjs", [SOCKET], {
+      NF_BROWSER_PAGE: PAGE_PUBLIQUE,
+    });
+    expect(r.code, r.stderr).toBe(65);
+    const accueil = commeObjet(sortieJson(r)["welcome"], "welcome");
+    expect(accueil["verdict"]).toBe("REFUSÉ AU HANDSHAKE");
+    expect(accueil["status"]).toBe(401);
+    expect(Number(accueil["afterMs"])).toBeLessThan(5000);
+    expect(r.stderr).toContain("statut 401");
   }, 120000);
 });
