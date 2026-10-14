@@ -5,6 +5,8 @@ import path from "node:path";
 <% } %>import {
 <% if (it.hasSecurity) { %>  adminLogin as loginAdmin,
   E2E_ADMIN_PASSWORD,
+  E2E_USER_IDENTIFIER,
+  E2E_USER_PASSWORD,
 <% } %>  nodefonyBin,
   runningAppPort,
 } from "nodefony/testing";
@@ -296,7 +298,34 @@ export async function setup(): Promise<void> {
 <% } %>    },
   });
   started = true;
-}
+<% if (it.hasSecurity) { %>
+  // Le second compte, SANS privilège (`ROLE_USER` seul) : c'est lui qui prouve
+  // qu'une garde de RÔLE mord — l'anonyme est refusé avec ou sans elle. Semé
+  // APRÈS le démarrage, par la commande du framework : le schéma est alors en
+  // place quel que soit le moteur, et le hash passe par le même `UserService`
+  // que l'application.
+  execFileSync(
+    process.execPath,
+    [
+      bin,
+      "security:user:add",
+      E2E_USER_IDENTIFIER,
+      "--password",
+      E2E_USER_PASSWORD,
+    ],
+    {
+      stdio: "inherit",
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        NF_DATABASE_URL: E2E_BASE_URL,
+        ...PRODUCTION_SECRETS,
+        NF__SECURITY__JWT__KEYSTORE__DIR: "var/keys",
+      },
+    },
+  );
+<% } %>}
 
 export async function teardown(): Promise<void> {
   // Rien à arrêter : cette suite n'a rien démarré (cf `EXTERNAL_BASE_URL`), et

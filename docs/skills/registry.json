@@ -11643,8 +11643,8 @@
       ],
       "description": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion, l'ouverture à un partenaire sans démonter la défense anti-falsification, les zones des programmes (clé d'API, jeton), et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la sécurité. Se CONNECTER (page, second facteur, retour après connexion) → nodefony-authentication. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"403\", \"401\", \"roleHierarchy\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"@CsrfExempt\", \"mon POST passe sans jeton\", \"API pour un programme\", \"clé d'API\", \"client_credentials\", \"désactiver la sécurité pour tester\".",
       "cost": {
-        "bodyLines": 360,
-        "approxTokens": 4929
+        "bodyLines": 362,
+        "approxTokens": 4971
       },
       "requires": [],
       "resources": {
@@ -11713,7 +11713,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "360",
+            "detail": "362",
             "advisory": true
           }
         ]

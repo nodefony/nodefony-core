@@ -5,6 +5,7 @@ import {
   AUTH_LOGIN_PATH,
   AUTH_LOGIN_TOTP_PATH,
   AUTH_LOGOUT_PATH,
+  AUTH_ME_PATH,
   WEBAUTHN_API_BASE,
   WEBAUTHN_LOGIN_OPTIONS_PATH,
   WEBAUTHN_LOGIN_VERIFY_PATH,
@@ -222,6 +223,21 @@ describe("CSRF synchronizer token (@CsrfProtect) — flow double-submit live", (
         })
       ).status,
     ).to.equal(403);
+  });
+
+  it("GET auth/me SÈME le jeton, et il ouvre une AUTRE route protégée → 200", async () => {
+    // Le geste naturel est de protéger les seules ÉCRITURES : aucune lecture
+    // décorée ne sème alors de jeton. `me` est la requête sûre que tout client
+    // connaît — sans elle, la mutation rendait 403 sans issue.
+    const me = await full("GET", AUTH_ME_PATH);
+    expect(me.status).to.equal(200);
+    const token = cookieVal(me.setCookie, "csrf-token");
+    expect(token, "cookie csrf-token posé par me").to.be.a("string");
+    const res = await full("POST", SUBMIT_PATH, {
+      "x-csrf-token": token!,
+      cookie: `csrf-token=${token!}`,
+    });
+    expect(res.status).to.equal(200);
   });
 });
 

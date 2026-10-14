@@ -15,7 +15,7 @@ import {
   runtimeStateFile,
   signalProcessGroup,
 } from "../service/dev/devProcess";
-import { AUTH_LOGIN_PATH } from "../runtime/authRoutes";
+import { AUTH_LOGIN_PATH, AUTH_ME_PATH } from "../runtime/authRoutes";
 
 /**
  * Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL.
@@ -102,14 +102,143 @@ export async function adminLogin(
   password: string = E2E_ADMIN_PASSWORD,
   username = "admin",
 ): Promise<string> {
+  return openSession(baseUrl, username, password, "admin");
+}
+
+/**
+ * Identifiant du compte SANS privilège que le décor e2e d'une application
+ * générée sème à côté de l'admin (rôle `ROLE_USER` seul).
+ *
+ * Il existe pour une seule raison : prouver qu'une garde de RÔLE mord. Avec
+ * l'anonyme pour seul refus, retirer `@IsGranted("ROLE_ADMIN")` ne fait tomber
+ * aucun test — l'anonyme reste refusé par l'authentification, l'admin passe
+ * dans les deux cas. Seul un compte connecté SANS le rôle voit la différence.
+ */
+export const E2E_USER_IDENTIFIER = "e2e-member";
+
+/**
+ * Mot de passe du compte {@link E2E_USER_IDENTIFIER}. Il passe la politique de
+ * mot de passe (10 caractères, ne reprend pas l'identifiant) : un semis refusé
+ * ferait accuser la garde au lieu du décor.
+ */
+export const E2E_USER_PASSWORD = "membre-sans-privilege-42";
+
+/**
+ * Ouvre une session sur le compte SANS privilège du décor e2e, et rend l'en-tête
+ * `cookie` à rejouer.
+ *
+ * @example
+ * ```ts
+ * import { csrfHeaders, userLogin, runningAppPort } from "nodefony/testing";
+ *
+ * const base = `http://127.0.0.1:${runningAppPort()}`;
+ * const member = await csrfHeaders(base, await userLogin(base));
+ * const res = await fetch(`${base}/api/posts/1`, { method: "DELETE", headers: member });
+ * expect(res.status).toBe(403);
+ * ```
+ *
+ * @param baseUrl - adresse de l'application (`http://127.0.0.1:5151`).
+ * @param password - mot de passe du compte ; celui du décor e2e par défaut.
+ * @param username - identifiant du compte ; {@link E2E_USER_IDENTIFIER} par défaut.
+ * @returns l'en-tête `cookie` de la session ouverte.
+ * @throws Quand la connexion ne rend pas 200 — le compte n'a pas été semé, ce
+ *   qui est une faute du décor, pas de la garde mesurée.
+ */
+export async function userLogin(
+  baseUrl: string,
+  password: string = E2E_USER_PASSWORD,
+  username: string = E2E_USER_IDENTIFIER,
+): Promise<string> {
+  return openSession(baseUrl, username, password, "sans privilège");
+}
+
+/**
+ * Complète une identité avec le jeton anti-CSRF, et rend les en-têtes à rejouer
+ * sur CHAQUE requête : `cookie` (session + `csrf-token`) et `x-csrf-token`.
+ *
+ * ## Pourquoi tout test l'utilise, protection posée ou non
+ *
+ * Ajouter `@CsrfProtect()` à une écriture est un DURCISSEMENT. Un test qui
+ * n'apporte pas de jeton le punit : la mutation rend 403, et le réflexe le moins
+ * coûteux devient de retirer la protection. Rejouer le jeton sans condition
+ * rend la suite indifférente à cette décision — et une suite indifférente ne
+ * pousse jamais à désarmer une garde.
+ *
+ * Le jeton est semé par `GET /nodefony/security/api/auth/me`, la seule requête
+ * sûre que toute application à sécurité sert. Quand la défense est désactivée,
+ * aucun cookie n'est posé et seul `cookie` revient : il n'y a rien à rejouer.
+ *
+ * @example
+ * ```ts
+ * import { adminLogin, csrfHeaders, runningAppPort } from "nodefony/testing";
+ *
+ * const base = `http://127.0.0.1:${runningAppPort()}`;
+ * const auth = await csrfHeaders(base, await adminLogin(base));
+ * await fetch(`${base}/api/posts`, {
+ *   method: "POST",
+ *   headers: { "content-type": "application/json", ...auth },
+ *   body: JSON.stringify({ title: "Bonjour" }),
+ * });
+ * ```
+ *
+ * @param baseUrl - adresse de l'application (`http://127.0.0.1:5151`).
+ * @param cookie - en-tête `cookie` d'une session (`adminLogin`, `userLogin`),
+ *   ou chaîne vide pour un anonyme.
+ * @returns les en-têtes `cookie` et, si la défense est active, `x-csrf-token`.
+ * @throws Quand la route d'identité ne rend pas 200 — l'application ne sert pas
+ *   `@nodefony/security`, ou ce n'est pas elle qui répond.
+ */
+export async function csrfHeaders(
+  baseUrl: string,
+  cookie: string,
+): Promise<Record<string, string>> {
+  const res = await fetch(`${baseUrl}${AUTH_ME_PATH}`, {
+    headers: cookie ? { cookie } : {},
+  });
+  await res.body?.cancel();
+  if (res.status !== 200) {
+    throw new Error(
+      `jeton anti-CSRF introuvable : ${AUTH_ME_PATH} a rendu ${res.status} — ` +
+        `l'application sert-elle @nodefony/security ? (le décor de test, pas la route mesurée)`,
+    );
+  }
+  // Les cookies reçus REMPLACENT ceux du même nom : la réponse peut aussi
+  // reposer la session, et deux valeurs d'un même cookie se contrediraient.
+  const jar = new Map<string, string>();
+  const keep = (pair: string): void => {
+    const eq = pair.indexOf("=");
+    if (eq > 0) jar.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+  };
+  for (const pair of cookie.split(";")) keep(pair);
+  for (const line of res.headers.getSetCookie())
+    keep(line.split(";", 1).join(""));
+  const headers: Record<string, string> = {
+    cookie: [...jar].map(([k, v]) => `${k}=${v}`).join("; "),
+  };
+  const token = jar.get(CSRF_COOKIE);
+  if (token) headers["x-csrf-token"] = decodeURIComponent(token);
+  return headers;
+}
+
+/** Nom du cookie lisible du jeton anti-CSRF (posé par `@nodefony/http`). */
+const CSRF_COOKIE = "csrf-token";
+
+/** Connexion par mot de passe : rend l'en-tête `cookie`, ou lève en nommant le compte. */
+async function openSession(
+  baseUrl: string,
+  username: string,
+  password: string,
+  who: string,
+): Promise<string> {
   const res = await fetch(`${baseUrl}${AUTH_LOGIN_PATH}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
+  await res.body?.cancel();
   if (res.status !== 200) {
     throw new Error(
-      `connexion admin impossible (${res.status}) — le décor de test, pas la route mesurée`,
+      `connexion ${who} « ${username} » impossible (${res.status}) — le décor de test, pas la route mesurée`,
     );
   }
   const cookies = res.headers.getSetCookie();

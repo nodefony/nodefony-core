@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
   argvMcpWiring,
+  commandWithName,
   createExitCode,
   migrationFailureCause,
   shouldAskForType,
@@ -6714,9 +6715,23 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         // Et son test e2e ouvre la session par `nodefony/testing` : le décor de
         // l'application est hors du `rootDir` du module (TS6059).
+        const e2e = read(mod, "tests", "order.e2e.test.ts");
+        assert.match(
+          e2e,
+          /import \{\s*adminLogin,\s*csrfHeaders,\s*runningAppPort,\s*userLogin,\s*\} from "nodefony\/testing";/u,
+        );
+        // La garde de RÔLE est éprouvée par un compte connecté SANS le rôle :
+        // l'anonyme est refusé avec ou sans `@IsGranted`, il ne la prouve pas.
         assert.include(
-          read(mod, "tests", "order.e2e.test.ts"),
-          'import { adminLogin, runningAppPort } from "nodefony/testing";',
+          e2e,
+          "MEMBER = await csrfHeaders(BASE, await userLogin(BASE));",
+        );
+        assert.include(e2e, "DELETE par un compte SANS ROLE_ADMIN → 403");
+        // Toute requête du cycle porte le jeton : `@CsrfProtect` ajouté aux
+        // écritures ne doit faire tomber aucun test.
+        assert.include(
+          e2e,
+          "AUTH = await csrfHeaders(BASE, await adminLogin(BASE));",
         );
       });
 
@@ -10649,5 +10664,41 @@ describe("create app — choisir un moteur frontend sans oracle", () => {
     const q = json.types[0]!.questions.find((x) => x.key === "frontend");
     assert.isDefined(q?.note);
     assert.match(q.note, /se change/u);
+  });
+});
+
+describe("create — « nom requis » rend la commande corrigée, prête à coller", () => {
+  it("le nom d'exemple se glisse après le type, options gardées", () => {
+    assert.strictEqual(
+      commandWithName(
+        ["node", "nodefony", "create", "app", "--preset", "minimal", "--yes"],
+        "app",
+      ),
+      "nodefony create app mon-app --preset minimal --yes",
+    );
+  });
+
+  it("type choisi au MENU (absent de l'argv) → il est remis en tête", () => {
+    assert.strictEqual(
+      commandWithName(["node", "nodefony", "create", "--yes"], "entity"),
+      "nodefony create entity Article --yes",
+    );
+  });
+
+  it("une option à espaces est citée — sinon la ligne collée se découpe", () => {
+    assert.strictEqual(
+      commandWithName(
+        [
+          "node",
+          "nodefony",
+          "create",
+          "service",
+          "--description",
+          "envoi des courriels",
+        ],
+        "service",
+      ),
+      'nodefony create service Mailer --description "envoi des courriels"',
+    );
   });
 });

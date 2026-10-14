@@ -135,10 +135,12 @@ n'en envoie aucun, et la défense de provenance le laisse alors passer — c'est
 distingue les sites, pas les intentions. Résultat mesuré : un `POST /api/cart/items` sans jeton rend
 `201`, et l'application croit avoir une défense.
 
-Toute action qui ÉCRIT porte donc `@CsrfProtect` explicitement. Le jeton ne se demande à AUCUN
-endpoint : une requête sûre (`GET`) vers la route protégée sème le cookie lisible `csrf-token`, et
-la mutation le rejoue dans l'en-tête `x-csrf-token` — c'est le double-submit, sinon `403`. La
-provenance et le jeton se **cumulent** ; l'une ne remplace jamais l'autre.
+Toute action qui ÉCRIT porte donc `@CsrfProtect` explicitement. N'écris AUCUNE route pour distribuer
+le jeton : `GET /nodefony/security/api/auth/me` le sème déjà (cookie lisible `csrf-token`), comme
+toute requête sûre vers une route décorée — et il vaut pour TOUTES les routes protégées. La
+mutation le rejoue dans l'en-tête `x-csrf-token` — c'est le double-submit, sinon `403`. Un test le
+récupère par `csrfHeaders(base, cookie)` de `nodefony/testing`. La provenance et le jeton se
+**cumulent** ; l'une ne remplace jamais l'autre.
 
 ## 🔴 Ce qu'il ne faut jamais écrire
 

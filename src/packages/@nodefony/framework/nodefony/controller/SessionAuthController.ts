@@ -4,6 +4,7 @@ import {
   type Module,
 } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
+import { CsrfProtect } from "../decorators/routerDecorators";
 import Router from "../service/router";
 import SecurityApiController from "../src/SecurityApiController";
 
@@ -165,7 +166,15 @@ class SessionAuthController extends SecurityApiController {
    * Identité de la session courante, re-résolue (rôles frais). Toujours `200` :
    * `{ user: null }` quand il n'y a pas de session (ou qu'elle ne mène plus à
    * un compte actif) — l'absence de session est un état, pas une erreur.
+   *
+   * **Sème aussi le jeton anti-CSRF** (cookie lisible `csrf-token`) : c'est la
+   * seule requête sûre que TOUT client connaît d'avance. Sans elle, une mutation
+   * `@CsrfProtect` n'a de jeton à rejouer que si son auteur a AUSSI décoré une
+   * lecture — protéger les seules écritures, le geste naturel, rendait alors 403
+   * sans issue, au navigateur comme aux tests générés. Le jeton est sans état
+   * (HMAC) : celui-ci vaut pour toute route protégée.
    */
+  @CsrfProtect()
   async me() {
     const flow = this.#flow();
     if (!flow) {

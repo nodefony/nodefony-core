@@ -1,4 +1,10 @@
-<% if (it.hasSecurity && it.inModule) { %>import { adminLogin, runningAppPort } from "nodefony/testing";
+<% if (it.hasSecurity && it.inModule) { %>import {
+  adminLogin,
+  csrfHeaders,
+  runningAppPort,
+  userLogin,
+} from "nodefony/testing";
+<% } else if (it.hasSecurity) { %>import { csrfHeaders, runningAppPort, userLogin } from "nodefony/testing";
 <% } else { %>import { runningAppPort } from "nodefony/testing";
 <% } %>import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
@@ -55,8 +61,23 @@ async function json(res: Response): Promise<Record<string, unknown>> {
  * Le cycle s'authentifie donc par défaut, et reste vert que l'espace soit
  * ouvert ou fermé. La seule requête volontairement anonyme est celle qui PROUVE
  * le refus — elle est commentée comme telle.
- */
+<% if (it.hasSecurity) { %> *
+ * Elle porte AUSSI le jeton anti-CSRF (`csrfHeaders`), pour la même raison :
+ * ajouter `@CsrfProtect()` aux écritures est un durcissement, et un cycle sans
+ * jeton le punirait d'un 403 sur chaque mutation.
+<% } %> */
 let AUTH: Record<string, string> = {};
+<% if (it.hasSecurity) { %>
+/**
+ * Un compte CONNECTÉ mais sans `ROLE_ADMIN` — jeton anti-CSRF compris.
+ *
+ * L'anonyme ne suffit pas à prouver une garde de rôle : il est refusé par
+ * l'authentification, que `@IsGranted` soit là ou non. Seul un compte connecté
+ * sans le rôle fait la différence entre « réservé à l'admin » et « réservé à
+ * qui est connecté ».
+ */
+let MEMBER: Record<string, string> = {};
+<% } %>
 
 /** En-têtes d'une requête à corps JSON, identité comprise. */
 const entetes = (): Record<string, string> => ({
@@ -71,7 +92,8 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
 <% if (it.hasSecurity) { %>    // Un MODULE ne peut pas importer le décor de l'application (son `rootDir`
     // est le module) : il ouvre la session par `nodefony/testing`, sur l'adresse
     // qu'il vient de lire.
-    AUTH = { cookie: await adminLogin(<% if (it.inModule) { %>BASE<% } %>) };
+    AUTH = await csrfHeaders(BASE, await adminLogin(<% if (it.inModule) { %>BASE<% } %>));
+    MEMBER = await csrfHeaders(BASE, await userLogin(BASE));
 <% } %><% if (it.relationParents.length) { %>    // Les lignes parentes d'abord — sinon toute création de ce cycle viole la
     // clé étrangère, et la ressource rend 500 au lieu de 201.
     //
@@ -457,6 +479,36 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
 
     // Et surtout : la donnée est toujours là. Un refus qui supprime quand même
     // serait pire qu'une absence de garde, parce qu'il rassure.
+    const survit = await fetch(`${BASE}${ROUTE}/${id}`, { headers: AUTH });
+    expect(survit.status).toBe(200);
+
+    await fetch(`${BASE}${ROUTE}/${id}`, {
+      method: "DELETE",
+      headers: AUTH,
+    });
+  });
+
+  it("DELETE par un compte SANS ROLE_ADMIN → 403, et l'enregistrement survit", async () => {
+    // Le test qui mord quand on RETIRE `@IsGranted("ROLE_ADMIN")` : l'anonyme
+    // reste refusé sans lui, l'admin passe avec ou sans — seul ce compte voit
+    // la différence. Il porte le jeton anti-CSRF : sinon, une écriture
+    // protégée par `@CsrfProtect` le refuserait pour une AUTRE raison, et le
+    // test resterait vert garde retirée.
+    const created = await fetch(`${BASE}${ROUTE}`, {
+      method: "POST",
+      headers: entetes(),
+      body: JSON.stringify(sample(302)),
+    });
+    expect(created.status).toBe(201);
+    const id = String((await json(created)).id);
+
+    // Connecté, donc pas 401 : 403, le refus d'un rôle manquant.
+    const refuse = await fetch(`${BASE}${ROUTE}/${id}`, {
+      method: "DELETE",
+      headers: MEMBER,
+    });
+    expect(refuse.status).toBe(403);
+
     const survit = await fetch(`${BASE}${ROUTE}/${id}`, { headers: AUTH });
     expect(survit.status).toBe(200);
 

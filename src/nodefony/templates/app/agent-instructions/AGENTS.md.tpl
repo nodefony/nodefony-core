@@ -303,8 +303,8 @@ d'un script → skill `nodefony-authentication`.
 
 🔴 **La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`.**
 « Le firewall vérifie déjà `Sec-Fetch-Site` » est faux pour un programme : il n'envoie pas ces
-en-têtes. Mesuré : un `POST` sans jeton rend `201`. Le jeton : un `GET` sur la route sème le
-cookie `csrf-token`, la mutation le rejoue dans `x-csrf-token`, sinon `403`. Une origine tierce
+en-têtes. Mesuré : un `POST` sans jeton rend `201`. Le jeton : `GET …/auth/me` sème le cookie
+`csrf-token`, la mutation le rejoue dans `x-csrf-token`, sinon `403`. Une origine tierce
 se DÉCLARE (`csrf.trustedOrigins`) ; `@CsrfExempt` ouvrirait à **n'importe quel** site.
 🔴 **Et une URL DÉJÀ PUBLIÉE ne se déplace pas — c'est un contrat.** Quand on te demande
 de protéger une adresse existante, la déménager sous la zone déjà réglée la fait répondre

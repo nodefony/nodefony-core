@@ -152,7 +152,10 @@ le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les ac
 
 ### Comment le front obtient — puis rejoue — le token
 
-1. **Obtenir** : une requête **sûre** (GET) vers n'importe quelle route `@CsrfProtect` sème le token
+1. **Obtenir** : `GET /nodefony/security/api/auth/me` sème TOUJOURS le token — c'est la requête sûre
+   que tout client connaît, et elle évite de décorer une lecture pour le seul plaisir d'en obtenir
+   un (le token est sans état : celui-ci vaut pour toute route protégée). Plus généralement, une
+   requête **sûre** (GET) vers n'importe quelle route `@CsrfProtect` sème le token
    (`firewall.ts:994-1000`) ; la réponse pose le cookie **lisible** `csrf-token` — non `HttpOnly`
    exprès, `SameSite=Strict`, `Secure` en HTTPS (`HttpContext.writeHead()`, `HttpContext.ts:570-590`).
 2. **Rejouer** : le SPA lit le cookie et renvoie sa valeur **à l'identique** dans l'en-tête

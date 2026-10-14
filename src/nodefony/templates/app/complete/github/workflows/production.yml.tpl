@@ -284,6 +284,16 @@ jobs:
             exit 1
           fi
           echo "NF_CI_ADMIN_PASSWORD=$PASSWORD" >> "$GITHUB_ENV"
+          # Le compte SANS privilège du décor, à la même source : c'est lui qui
+          # prouve qu'une garde de rôle mord (`DELETE` réservé à l'admin).
+          MEMBER=$(node --input-type=module -e 'const t = await import("nodefony/testing"); process.stdout.write(`${t.E2E_USER_IDENTIFIER ?? ""} ${t.E2E_USER_PASSWORD ?? ""}`)')
+          read -r MEMBER_ID MEMBER_PASSWORD <<< "$MEMBER"
+          if [ -z "${MEMBER_ID:-}" ] || [ -z "${MEMBER_PASSWORD:-}" ]; then
+            echo "::error::compte sans privilège du décor e2e introuvable : E2E_USER_IDENTIFIER/E2E_USER_PASSWORD absents de nodefony/testing"
+            exit 1
+          fi
+          echo "NF_CI_MEMBER_ID=$MEMBER_ID" >> "$GITHUB_ENV"
+          echo "NF_CI_MEMBER_PASSWORD=$MEMBER_PASSWORD" >> "$GITHUB_ENV"
           # Les secrets d'application, eux, sont quelconques : la chaîne prouve
           # que l'application démarre avec CEUX QU'ON LUI DONNE, pas avec des
           # valeurs qu'elle connaîtrait d'avance.
@@ -336,6 +346,16 @@ jobs:
             exit 1
           fi
           echo "✓ le frontal joint l'application par son NOM de service"
+
+      # Le second compte du décor, SANS privilège. En local, la suite le sème
+      # elle-même ; ici elle ne démarre rien — c'est donc la chaîne qui le pose,
+      # par la commande du framework, DANS le conteneur qui sert (même base).
+      - name: Semer le compte sans privilège du décor e2e
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f compose.yaml -f compose.ci.yaml --profile edge exec -T app-edge \
+            node_modules/.bin/nodefony security:user:add "$NF_CI_MEMBER_ID" --password "$NF_CI_MEMBER_PASSWORD"
 
       # 🔴 LE TÉMOIN DE TOUTE LA CHAÎNE, en un seul caractère de préfixe.
       # `__Host-` exige `Secure`, et `Secure` ne se pose que si l'application se

@@ -7,7 +7,15 @@ import type Module from "../kernel/Module";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import type { AddressInfo } from "node:net";
-import { createTestModule, navigate } from "../testing/index";
+import {
+  createTestModule,
+  csrfHeaders,
+  E2E_USER_IDENTIFIER,
+  E2E_USER_PASSWORD,
+  navigate,
+  userLogin,
+} from "../testing/index";
+import { AUTH_LOGIN_PATH, AUTH_ME_PATH } from "../runtime/authRoutes";
 
 /**
  * La porte de test publiée (`nodefony/testing`).
@@ -196,6 +204,123 @@ describe("nodefony/testing — navigate(), une navigation que fetch() ne sait pa
       assert.strictEqual(res.location, "/login?from=%2Fpage");
     } finally {
       await echo.close();
+    }
+  });
+});
+
+/**
+ * Un faux serveur d'identité : `login` rend une session pour le seul compte
+ * attendu, `me` sème le jeton anti-CSRF et REPOSE la session (comme une
+ * session prolongée) — le cas où deux valeurs d'un même cookie se
+ * contrediraient si le client les juxtaposait.
+ */
+async function identityServer(opts: { csrf: boolean; meStatus?: number }) {
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (c: Buffer) => (body += c.toString()));
+    req.on("end", () => {
+      if (req.url === AUTH_LOGIN_PATH && req.method === "POST") {
+        const { username, password } = JSON.parse(body) as Record<
+          string,
+          string
+        >;
+        const ok =
+          username === E2E_USER_IDENTIFIER && password === E2E_USER_PASSWORD;
+        res.writeHead(ok ? 200 : 401, {
+          "set-cookie": ok ? ["sid=initial; Path=/; HttpOnly"] : [],
+        });
+        res.end();
+        return;
+      }
+      if (req.url === AUTH_ME_PATH) {
+        res.setHeader("x-echo-cookie", String(req.headers.cookie));
+        const cookies = ["sid=prolonge; Path=/; HttpOnly"];
+        if (opts.csrf) cookies.push("csrf-token=abc.sig%3D; Path=/");
+        res.writeHead(opts.meStatus ?? 200, { "set-cookie": cookies });
+        res.end("{}");
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address() as AddressInfo;
+  return {
+    base: `http://127.0.0.1:${port}`,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+describe("nodefony/testing — userLogin() et csrfHeaders(), l'identité d'une suite e2e", () => {
+  it("userLogin ouvre la session du compte SANS privilège du décor", async () => {
+    const srv = await identityServer({ csrf: true });
+    try {
+      assert.strictEqual(await userLogin(srv.base), "sid=initial");
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("userLogin refusé → lève en NOMMANT le compte (le décor, pas la garde)", async () => {
+    const srv = await identityServer({ csrf: true });
+    try {
+      await userLogin(srv.base, "mauvais-mot-de-passe").then(
+        () => assert.fail("aurait dû lever"),
+        (e: unknown) => assert.match(String(e), /e2e-member.*401.*décor/u),
+      );
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("csrfHeaders rend le jeton en en-tête ET en cookie, la session reposée remplace l'ancienne", async () => {
+    const srv = await identityServer({ csrf: true });
+    try {
+      const headers = await csrfHeaders(srv.base, "sid=initial");
+      assert.strictEqual(headers["x-csrf-token"], "abc.sig=");
+      assert.strictEqual(headers.cookie, "sid=prolonge; csrf-token=abc.sig%3D");
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("csrfHeaders présente la session à `me` (le jeton sert CETTE identité)", async () => {
+    const srv = await identityServer({ csrf: true });
+    try {
+      const res = await fetch(`${srv.base}${AUTH_ME_PATH}`, {
+        headers: await csrfHeaders(srv.base, "sid=initial"),
+      });
+      assert.strictEqual(
+        res.headers.get("x-echo-cookie"),
+        "sid=prolonge; csrf-token=abc.sig%3D",
+      );
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("défense désactivée (aucun cookie csrf-token) → pas d'en-tête x-csrf-token", async () => {
+    const srv = await identityServer({ csrf: false });
+    try {
+      const headers = await csrfHeaders(srv.base, "");
+      assert.strictEqual(headers["x-csrf-token"], undefined);
+      assert.strictEqual(headers.cookie, "sid=prolonge");
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("`me` absent (pas de @nodefony/security) → lève au lieu de rendre une identité sans jeton", async () => {
+    const srv = await identityServer({ csrf: true, meStatus: 404 });
+    try {
+      await csrfHeaders(srv.base, "sid=initial").then(
+        () => assert.fail("aurait dû lever"),
+        (e: unknown) => assert.match(String(e), /404.*@nodefony\/security/u),
+      );
+    } finally {
+      await srv.close();
     }
   });
 });

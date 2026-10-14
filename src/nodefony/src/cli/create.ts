@@ -1281,6 +1281,49 @@ function runGitInit(
  *
  * @returns exit code sémantique (`OK`, `USAGE`, `CANTCREAT`, `SOFTWARE`)
  */
+/** Nom d'exemple par type : la casse qu'attend chaque générateur. */
+const EXAMPLE_NAMES: Readonly<Record<TCreateType, string>> = {
+  app: "mon-app",
+  module: "blog",
+  controller: "hello",
+  entity: "Article",
+  service: "Mailer",
+  command: "import",
+  front: "admin",
+};
+
+/**
+ * La commande tapée, complétée d'un nom d'exemple À SA PLACE — prête à coller.
+ *
+ * Un refus « nom requis » suivi de l'usage complet laissait recomposer la
+ * ligne à la main, options comprises : un agent l'a demandé tel quel. Les
+ * options déjà tapées sont gardées, le nom se glisse juste après le type.
+ *
+ * @param argv - la ligne de commande complète.
+ * @param type - le type de génération demandé.
+ * @returns la ligne `nodefony create <type> <exemple> …` à relancer.
+ */
+export function commandWithName(
+  argv: readonly string[],
+  type: TCreateType,
+): string {
+  const at = argv.indexOf("create");
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
+  const typeAt = rest.indexOf(type);
+  const words =
+    typeAt === -1
+      ? [type, EXAMPLE_NAMES[type], ...rest]
+      : [
+          ...rest.slice(0, typeAt + 1),
+          EXAMPLE_NAMES[type],
+          ...rest.slice(typeAt + 1),
+        ];
+  const quoted = words.map((w) =>
+    /[\s"'$`]/u.test(w) ? JSON.stringify(w) : w,
+  );
+  return ["nodefony", "create", ...quoted].join(" ");
+}
+
 export async function runCreateCommand(argv: string[]): Promise<number> {
   let parsed = parseCreateArgv(argv);
   // 🔴 Choisie au MENU, la commande n'a reçu AUCUN argument : personne n'a pu
@@ -1434,7 +1477,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     }
   }
   if (answers.name === undefined || answers.name === "") {
-    return printUsageError(pageFor(type), "nom requis");
+    return printUsageError(
+      pageFor(type),
+      `nom requis — par exemple : ${commandWithName(argv, type)}`,
+    );
   }
   // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.
   const dir =

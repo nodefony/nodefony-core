@@ -814,10 +814,14 @@ la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **La SU
 protège déjà le même DELETE, et deux générateurs qui produisent la même route destructrice ne
 peuvent pas avoir deux doctrines. Sans le module, la garde n'est pas émise (le décorateur
 n'existerait pas) et le TSDoc DIT que la route n'est protégée par rien, avec le geste pour la
-protéger. Le décor e2e généré fournit l'identité qui va avec (`adminLogin`, `NF_ADMIN_PASSWORD`
-posé pour la suite seule : la production ne sème aucun compte sans mot de passe explicite), et le
-test e2e d'entité éprouve les DEUX faces — l'admin supprime, l'anonyme est refusé et la donnée
-survit. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
+protéger. Le décor e2e généré fournit les identités qui vont avec (`adminLogin`, `NF_ADMIN_PASSWORD`
+posé pour la suite seule : la production ne sème aucun compte sans mot de passe explicite ; et un
+compte SANS rôle, `userLogin`, semé par `security:user:add` après le démarrage), et le test e2e
+d'entité éprouve les TROIS faces — l'admin supprime, l'anonyme est refusé, le compte sans
+`ROLE_ADMIN` reçoit 403 et la donnée survit. Seule la troisième mord quand on RETIRE
+`@IsGranted` : l'anonyme est refusé avec ou sans elle. Toutes les requêtes du cycle portent le
+jeton anti-CSRF (`csrfHeaders`, semé par `GET …/auth/me`) : ajouter `@CsrfProtect()` aux écritures
+ne casse aucun test généré. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
 DELETE anonyme** (banc de découvrabilité, tâche 20). **Dit la vérité** : la
 table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`), un champ ajouté **qui accepte le
 vide** est posé au boot suivant, un champ **obligatoire** ne l'est jamais (`orm:reset`, ou une
