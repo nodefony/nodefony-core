@@ -385,7 +385,7 @@ Tout est exporté depuis `@nodefony/realtime` (`rt/index.ts`), sauf les briques 
 
 ### 2.2 `RealtimeHub` — broker singleton
 
-`rt/nodefony/src/server/RealtimeHub.ts:1436`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:1432`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
+`rt/nodefony/src/server/RealtimeHub.ts:1436`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:1436`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
 
 **Cœur fan-out / pub-sub** :
 
