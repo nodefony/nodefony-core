@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-14 16:51** (UTC).
+> Empreinte prise le **2026-10-14 17:14** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -113,7 +113,7 @@ Ordre 4.0007 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · fris
 | 4.0008 | P1 — figé à la création | 2 | — | #596 | fix(http): refuser le handshake WebSocket non autorisé avant de l'accepter |
 | 4.0009 | P1 — figé à la création | 1 | — | #597 | fix(scaffold): faire défendre ses gardes par les tests e2e générés |
 | 4.001 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
-| 4.001 | P2 — décision | 1 | — | #598 | fix(cli): arrêter le serveur de dev au Ctrl-C de npm run dev |
+| 4.00105 | P2 — décision | 1 | — | #598 | fix(cli): arrêter le serveur de dev au Ctrl-C de npm run dev |
 | 4.0011 | P2 — décision | 1 | — | #599 | fix(scaffold): ne plus induire l'agent en erreur sur socket, doctor et git |
 | 4.002 | P1 — figé à la création | 0.5 | — | #566 | fix(orm): écrire la première migration d'une application neuve |
 | 4.003 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
