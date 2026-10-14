@@ -15,35 +15,15 @@
  * Forme exigée : `owner/repo[/chemin]@<sha 40> # vX.Y.Z` — le commentaire est ce
  * que Dependabot relit pour proposer la montée ; sans lui, l'épinglage gèle.
  */
-import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import path from "node:path";
-
-const ROOT = path.resolve(import.meta.dirname, "../..");
-const EPINGLE = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+(\.\d+){0,2}$/;
-
-/** Fichiers YAML (et gabarits YAML) sous `dir`, récursivement. */
-function yamlSous(dir) {
-  return readdirSync(path.join(ROOT, dir), {
-    recursive: true,
-    withFileTypes: true,
-  })
-    .filter((e) => e.isFile() && /\.ya?ml(\.tpl)?$/.test(e.name))
-    .map((e) => path.join(e.parentPath, e.name));
-}
-
-/** Chaque référence `uses:` d'un fichier, avec sa ligne. */
-function references(fichier) {
-  const out = [];
-  readFileSync(fichier, "utf8")
-    .split("\n")
-    .forEach((ligne, i) => {
-      const m = /^\s*-?\s*uses:\s*(.+?)\s*$/.exec(ligne);
-      if (m)
-        out.push({ ou: `${path.relative(ROOT, fichier)}:${i + 1}`, ref: m[1] });
-    });
-  return out;
-}
+import {
+  deliveredDrifts,
+  forgePins,
+  packageManagerReferences,
+  PIN as EPINGLE,
+  references,
+  yamlUnder as yamlSous,
+} from "./action-pins.mjs";
 
 /** Une référence locale ou rendue par le gabarit n'est pas une action tierce. */
 const horsGate = (ref) => ref.startsWith("./") || ref.startsWith("<%=");
@@ -64,16 +44,12 @@ describe("actions GitHub épinglées par SHA", () => {
     const fautes = fichiers
       .flatMap(references)
       .filter((r) => !horsGate(r.ref) && !EPINGLE.test(r.ref))
-      .map((r) => `${r.ou} → ${r.ref}`);
+      .map((r) => `${r.at} → ${r.ref}`);
     expect(fautes).toEqual([]);
   });
 
   it("les actions des gestionnaires de paquets (rendues dans l'app) aussi", () => {
-    const source = readFileSync(
-      path.join(ROOT, "src/nodefony/src/cli/packageManager.ts"),
-      "utf8",
-    );
-    const uses = [...source.matchAll(/uses:\s*"([^"]+)"/g)].map((m) => m[1]);
+    const uses = packageManagerReferences().map((r) => r.ref);
     expect(uses.length).toBeGreaterThanOrEqual(2);
     expect(uses.filter((u) => !EPINGLE.test(u))).toEqual([]);
   });
@@ -82,36 +58,16 @@ describe("actions GitHub épinglées par SHA", () => {
     // Dependabot monte les workflows de la forge ; les gabarits et
     // `packageManager.ts` lui échappent. Sans cette parité, les applications
     // générées resteraient sur l'ancien SHA en silence.
-    const shaDe = (ref) => {
-      const [action, reste] = ref.split("@");
-      return [action.split("/").slice(0, 2).join("/"), reste.slice(0, 40)];
-    };
-    const forge = new Map(
-      [...yamlSous(".github/workflows"), ...yamlSous(".github/actions")]
-        .flatMap(references)
-        .filter((r) => EPINGLE.test(r.ref))
-        .map((r) => shaDe(r.ref)),
+    const { pins, conflicts } = forgePins();
+    expect(conflicts).toEqual([]);
+    const ecarts = deliveredDrifts(pins).map(
+      (d) =>
+        `${d.at} → ${d.pin.action} ${d.pin.version} (forge : ${d.forge.version})`,
     );
-    const source = readFileSync(
-      path.join(ROOT, "src/nodefony/src/cli/packageManager.ts"),
-      "utf8",
-    );
-    const livrees = [
-      ...yamlSous("src/nodefony/templates")
-        .flatMap(references)
-        .filter((r) => EPINGLE.test(r.ref)),
-      ...[...source.matchAll(/uses:\s*"([^"]+)"/g)].map((m) => ({
-        ou: "packageManager.ts",
-        ref: m[1],
-      })),
-    ];
-    const ecarts = [];
-    for (const { ou, ref } of livrees) {
-      const [a, sha] = shaDe(ref);
-      if (forge.has(a) && forge.get(a) !== sha)
-        ecarts.push(`${ou} → ${a} (forge : ${forge.get(a)})`);
-    }
-    expect(ecarts).toEqual([]);
+    expect(
+      ecarts,
+      "recopier la forge : node scripts/ci/action-pins.mjs --write",
+    ).toEqual([]);
   });
 
   it("la forme refuse un tag, un SHA court et l'absence de version", () => {
