@@ -365,7 +365,24 @@
         "npm run deps:check",
         "npm run deps:gate"
       ],
-      "options": [],
+      "options": [
+        {
+          "flag": "--strict",
+          "help": "+ plages déjà satisfaites"
+        },
+        {
+          "flag": "--all",
+          "help": "+ les pins déjà à jour (implique --strict)"
+        },
+        {
+          "flag": "--json",
+          "help": "sortie machine"
+        },
+        {
+          "flag": "--gate",
+          "help": "GARDE : code non nul si l'arbre se dédoublerait"
+        }
+      ],
       "env": [
         {
           "name": "CATALOGUE_SCAFFOLD",

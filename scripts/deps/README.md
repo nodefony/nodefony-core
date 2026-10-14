@@ -22,6 +22,10 @@ Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated
 
 - **Usage** : `npm run deps:check`
 - **Usage** : `npm run deps:gate`
+- **Option** `--strict` — + plages déjà satisfaites
+- **Option** `--all` — + les pins déjà à jour (implique --strict)
+- **Option** `--json` — sortie machine
+- **Option** `--gate` — GARDE : code non nul si l'arbre se dédoublerait
 - **Variable** `CATALOGUE_SCAFFOLD`
 - **Variable** `NF_DEPS_REGISTRY`
 - **Variable** `NF_DEPS_ROOT`
