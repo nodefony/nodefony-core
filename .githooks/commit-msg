@@ -2,4 +2,24 @@
 
 # Valide le format Conventional Commits (type(scope): sujet) via commitlint.
 # Refuse un message hors-norme. Bypass d'urgence : git commit --no-verify.
-npx --no-install commitlint --edit "$1"
+#
+# La sortie de commitlint seule (« subject may not be empty [subject-empty] »)
+# dit la règle, pas le geste : le refus redonne donc la forme attendue, un
+# exemple, et pourquoi elle compte ici. Le message n'est pas perdu : git le
+# garde dans .git/COMMIT_EDITMSG.
+npx --no-install commitlint --edit "$1" || {
+  echo "" >&2
+  echo "❌ commit-msg REFUSÉ : le message ne suit pas la forme « type(portée): sujet »." >&2
+  echo "   Pourquoi : la publication lit l'historique par TYPE — un « feat » annonce une" >&2
+  echo "   fonctionnalité, un « ! » une rupture (la mesure de surface publique renvoie aux" >&2
+  echo "   commits « ! ») ; un message hors forme sort de ce relevé sans un mot." >&2
+  echo "   Forme : <type>(<portée>)<!>: <sujet en minuscule, sans point final>" >&2
+  echo "     types  : feat fix perf refactor docs test ci build chore style revert" >&2
+  echo "     portée : le module touché (http, framework, client, scaffold, ci…)" >&2
+  echo "     !      : seulement si le comportement publié change (code, défaut, signature)" >&2
+  echo "   Exemple : fix(http): refuser le handshake avant le 101" >&2
+  echo "   Refaire : ton texte est gardé dans .git/COMMIT_EDITMSG —" >&2
+  echo "     dans un terminal : git commit -e -F .git/COMMIT_EDITMSG   (éditeur ouvert sur ton texte)" >&2
+  echo "     sans éditeur (agent, script) : corriger le fichier, puis git commit -F .git/COMMIT_EDITMSG" >&2
+  exit 1
+}

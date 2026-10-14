@@ -11,7 +11,16 @@ fi
 # Formatage auto des fichiers staged (prettier via lint-staged).
 # NON bloquant pour ton workflow : prettier --write réussit toujours sur du code
 # valide ; il reformate, il ne refuse pas. Bypass d'urgence : git commit --no-verify.
-npx --no-install lint-staged || exit 1
+npx --no-install lint-staged || {
+  echo "" >&2
+  echo "❌ pre-commit REFUSÉ : lint-staged — oxlint a trouvé une faute (règle et fichier:ligne ci-dessus)," >&2
+  echo "   ou prettier n'a pas pu lire un fichier (erreur de syntaxe)." >&2
+  echo "   Pourquoi : la CI lance le même oxlint en --deny-warnings ; un avertissement y est un rouge." >&2
+  echo "   Faire : corriger la ligne citée, ou relire l'aide de la règle : npx oxlint --rules | grep <règle>" >&2
+  echo "   Ne PAS faire taire la règle par un commentaire « oxlint-disable » sans la raison écrite à côté." >&2
+  echo "   Puis  : git add <fichier> && git commit   (tes modifications non indexées sont intactes)" >&2
+  exit 1
+}
 
 # Garde de PORTABILITÉ : un nom de fichier que Windows refuse rend le dépôt
 # INCLONABLE là-bas — `git checkout` sort en 128 sur `invalid path`, avant le
@@ -80,7 +89,8 @@ fi
 # périmée de `nodefony-dev` jusqu'en CI.
 if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^(\.claude/skills/|src/packages/@nodefony/devkit/skills/)'; then
   if ! npm run --silent skills:check; then
-    echo "   → corriger ci-dessus (fiches : npm run skills:doc puis git add docs/skills)"
+    echo "❌ pre-commit REFUSÉ : contrôle des skills — chaque écart ci-dessus porte son Pourquoi et son Faire." >&2
+    echo "   Rejouer seul : npm run skills:check" >&2
     exit 1
   fi
 fi
@@ -185,8 +195,12 @@ ENV_FILES=$(git diff --cached --name-only --diff-filter=ACMR \
   | grep -E '^(src|scripts)/.*\.(ts|tsx|mts|mjs|js)$' || true)
 if [ -n "$ENV_FILES" ] && git diff --cached -U0 -- $ENV_FILES | grep -q 'NF_'; then
   if ! npx tsx scripts/generate/env-snapshot.ts; then
-    echo "❌ catalogue des variables d'environnement — commit annulé"
-    echo "   Une variable de décor lue sans description, ou décrite sans lecture."
+    echo "❌ pre-commit REFUSÉ : catalogue des variables d'environnement (variable citée ci-dessus)." >&2
+    echo "   Pourquoi : une variable NF_ lue sans description fait sauter un banc sans un mot — et un" >&2
+    echo "   banc sauté compte comme vert ; une description sans lecture ment sur ce qui est lu." >&2
+    echo "   Faire : le geste et le fichier du catalogue sont ci-dessus — décrire la variable de banc," >&2
+    echo "   ou retirer la description orpheline." >&2
+    echo "   Puis  : git add .ai/env.json .ai/ENV.md <fichier> && git commit" >&2
     exit 1
   fi
   if ! git diff --quiet .ai/env.json .ai/ENV.md 2>/dev/null; then

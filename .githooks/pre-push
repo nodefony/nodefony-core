@@ -21,7 +21,12 @@ if git rev-parse --verify -q '@{u}' >/dev/null; then
   pushed=$(git diff --name-only --diff-filter=ACMR '@{u}' HEAD)
   if [ -n "$pushed" ]; then
     echo "$pushed" | tr '\n' '\0' | xargs -0 npx prettier --check --ignore-unknown --no-error-on-unmatched-pattern || {
-      echo "pre-push : fichiers poussés non formatés — npx prettier --write <fichier>, puis commit." >&2
+      echo "" >&2
+      echo "❌ pre-push REFUSÉ : des fichiers poussés ne sont pas au format (liste ci-dessus)." >&2
+      echo "   Pourquoi : la CI rejoue le même contrôle (format:check) et tomberait rouge ; un" >&2
+      echo "   commit --no-verify, un cherry-pick ou un rebase échappent au formatage du commit." >&2
+      echo "   Faire : npx prettier --write <fichier>…" >&2
+      echo "   Puis  : git add <fichier>… && git commit -m 'style: formater' && git push" >&2
       exit 1
     }
     # ANCRES `fichier:ligne` du corpus : un .ts qui bouge décale les ancres qui
@@ -49,4 +54,25 @@ if git rev-parse --verify -q '@{u}' >/dev/null; then
     fi
   fi
 fi
-npx turbo run build && npm run typecheck
+# Le dernier verdict n'avait aucun message : turbo et tsc impriment l'erreur,
+# mais rien ne disait que le PUSH était refusé, ni par où reprendre.
+npx turbo run build || {
+  echo "" >&2
+  echo "❌ pre-push REFUSÉ : le build a échoué (erreur ci-dessus, préfixée du paquet « @nodefony/x:build: »)." >&2
+  echo "   Pourquoi : la CI reconstruit tout depuis zéro ; ce qui ne se construit pas ici n'y passera pas." >&2
+  echo "   Faire : corriger, puis rejouer seul : npx turbo run build --filter=<paquet>" >&2
+  echo "   Si l'erreur cite un export ou un fichier qui existe pourtant : npm run clean && npm run build" >&2
+  echo "   (dist périmé après un pull, un merge ou un changement d'index.ts)." >&2
+  echo "   Puis  : git commit && git push" >&2
+  exit 1
+}
+npm run typecheck || {
+  echo "" >&2
+  echo "❌ pre-push REFUSÉ : erreur de typage (fichier:ligne et code TSxxxx ci-dessus)." >&2
+  echo "   Pourquoi : le build (rolldown) ne vérifie pas les types — une erreur TS passe le build," >&2
+  echo "   et c'est la CI qui tomberait. Il couvre aussi les tests et les scripts du dépôt." >&2
+  echo "   Faire : corriger, puis rejouer : npm run typecheck" >&2
+  echo "   « Cannot find module @nodefony/… » (TS2307) sur un paquet existant : npm run build d'abord." >&2
+  echo "   Puis  : git commit && git push" >&2
+  exit 1
+}

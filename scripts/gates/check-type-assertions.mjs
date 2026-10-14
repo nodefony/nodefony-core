@@ -195,6 +195,75 @@ function triage(diagnostics) {
   );
 }
 
+/**
+ * Lignes ajoutées ou modifiées par le travail en cours (arbre ET index contre
+ * `HEAD`) ; sur un arbre propre — la forge —, celles du dernier commit.
+ * Rend `null` si git ne répond pas : le refus reste juste, il ne localise plus.
+ */
+function changedLines() {
+  const read = (args) =>
+    execFileSync("git", ["diff", "--unified=0", "--no-color", ...args], {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 256 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  let diff;
+  let label;
+  try {
+    diff = read(["HEAD"]);
+    label = "modifiées depuis le dernier commit";
+    if (diff.trim() === "") {
+      diff = read(["HEAD~1", "HEAD"]);
+      label = "du dernier commit";
+    }
+  } catch {
+    return null;
+  }
+  const lines = new Map();
+  let file = null;
+  for (const l of diff.split("\n")) {
+    const f = /^\+\+\+ b\/(.+)$/.exec(l);
+    if (f) {
+      file = f[1];
+      lines.set(file, new Set());
+      continue;
+    }
+    const h = /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/.exec(l);
+    if (h && file) {
+      const start = Number(h[1]);
+      const count = h[2] === undefined ? 1 : Number(h[2]);
+      for (let n = start; n < start + count; n++) lines.get(file).add(n);
+    }
+  }
+  return { lines, label };
+}
+
+/**
+ * Les conversions d'un paquet en excès qui tombent sur une ligne que le
+ * travail en cours a touchée — les coupables probables, avec le type d'origine
+ * et le type imposé que donne l'aide d'oxlint.
+ */
+function locateNew(candidates) {
+  const changed = changedLines();
+  if (changed === null) return { lines: [], label: "(git n'a pas répondu)" };
+  const out = [];
+  for (const d of candidates) {
+    const file = d.filename.split(path.sep).join("/");
+    const line = d.labels?.[0]?.span?.line;
+    if (!line || !changed.lines.get(file)?.has(line)) continue;
+    const types =
+      /has type `(.+?)`, and the assertion changes it to `(.+?)`/.exec(
+        d.help ?? "",
+      );
+    const col = d.labels[0].span.column ?? 1;
+    out.push(
+      `${file}:${line}:${col}` + (types ? `  ${types[1]} → ${types[2]}` : ""),
+    );
+  }
+  return { lines: out, label: changed.label };
+}
+
 const diagnostics = collect();
 if (TRIAGE) {
   triage(diagnostics);
@@ -246,23 +315,63 @@ if (UPDATE) {
 }
 
 if (over.length > 0) {
+  const overKeys = new Set(
+    keys.filter((k) => (current[k] ?? 0) > (ceilings[k] ?? 0)),
+  );
+  const suspects = locateNew(
+    diagnostics.filter((d) => overKeys.has(packageOf(d.filename))),
+  );
   console.error(
-    "❌ conversion(s) de type qui resserrent le type — au-delà du plafond du paquet :",
+    "❌ conversions de type REFUSÉ : un paquet dépasse son plafond de conversions qui resserrent un type.",
   );
   for (const l of over) console.error(`   ${l}`);
   console.error(
-    "   → remplacer par un instanceof, une garde ou un type honnête :",
+    "   Pourquoi : `x as T` fait taire le compilateur sans rien vérifier — si la valeur n'est pas un T,",
   );
-  console.error(`     ./node_modules/.bin/oxlint -A all -D ${RULE} <fichier>`);
+  console.error(
+    "   l'erreur sort plus loin, en production, sans désigner la conversion.",
+  );
+  if (suspects.lines.length > 0) {
+    console.error(`   Où (${suspects.label}) :`);
+    for (const l of suspects.lines) console.error(`     ${l}`);
+  } else {
+    console.error(
+      `   Où : aucune ligne ${suspects.label} n'en porte — c'est un TYPE qui a changé et rendu une conversion`,
+    );
+    console.error(
+      "   existante « resserrante ». Lister celles du paquet et comparer avec le dernier commit vert :",
+    );
+    console.error(
+      `     ./node_modules/.bin/oxlint -A all -D ${RULE} <dossier du paquet>`,
+    );
+  }
+  console.error(
+    '   Faire : vérifier la valeur au lieu de l\'affirmer — `instanceof`, une garde (`typeof v === "object" && …`),',
+  );
+  console.error(
+    "           un schéma Zod à la frontière, ou un type d'entrée plus juste qui rend la conversion inutile.",
+  );
+  console.error(
+    `   Contrôler : ./node_modules/.bin/oxlint -A all -D ${RULE} <fichier>`,
+  );
+  console.error(
+    "   Puis : git add <fichier> && git commit (le plafond ne se relève JAMAIS)",
+  );
   process.exit(1);
 }
 if (under.length > 0) {
   console.error(
-    "❌ plafond en retard — des conversions ont été corrigées, il faut l'abaisser :",
+    "❌ conversions de type REFUSÉ : des conversions ont été corrigées, et le plafond ne le sait pas encore.",
   );
   for (const l of under) console.error(`   ${l}`);
   console.error(
-    "   → node scripts/gates/check-type-assertions.mjs --update  puis git add scripts/gates/type-assertions.ceiling.json",
+    "   Pourquoi : la marge regagnée serait reprise en silence par la prochaine conversion ajoutée ailleurs.",
+  );
+  console.error(
+    "   Faire : node scripts/gates/check-type-assertions.mjs --update",
+  );
+  console.error(
+    "   Puis  : git add scripts/gates/type-assertions.ceiling.json && git commit",
   );
   process.exit(1);
 }

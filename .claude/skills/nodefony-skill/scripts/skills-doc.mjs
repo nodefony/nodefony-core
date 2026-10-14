@@ -1399,14 +1399,38 @@ for (const s of soft)
   console.log(
     `  ⚠️  ${s.name} : corps de ${s.bodyLines} lignes (recommandation : < ${MAX_BODY_LINES})`,
   );
-if (perimees.length) {
+if (failed.length) {
   console.log(
-    `  ❌ ${perimees.length} fiche(s) générée(s) PÉRIMÉE(s) — lancer \`npm run skills:doc\` :`,
+    "     Pourquoi : un skill hors standard Agent Skills n'est pas chargé, ou se déclenche mal.",
   );
+  console.log(
+    "     Faire : corriger le frontmatter du SKILL.md nommé (skill nodefony-skill, § standard).",
+  );
+}
+if (perimees.length) {
+  console.log(`  ❌ ${perimees.length} fiche(s) générée(s) PÉRIMÉE(s) :`);
   for (const f of perimees) console.log(`     ${f}`);
+  console.log(
+    "     Pourquoi : la fiche publiée dirait l'ancien skill, avec l'autorité du généré — la CI refuse le même écart.",
+  );
+  console.log("     Faire : npm run skills:doc   puis  git add docs scripts");
 }
 if (scriptGaps.length) {
   console.log(`  ❌ ${scriptGaps.length} écart(s) dans scripts/ :`);
   for (const g of scriptGaps) console.log(`     ${g}`);
+  console.log(
+    "     Pourquoi : le README de chaque dossier de scripts/ est GÉNÉRÉ depuis l'en-tête des scripts —",
+  );
+  console.log(
+    "     sans `@usage`, le script n'y figure pas, et personne ne sait comment le lancer.",
+  );
+  console.log(
+    "     Faire : en tête du fichier, dans le bloc /** … */, une ligne par forme d'appel :",
+  );
+  console.log("       * @usage    node <chemin du script> [options]");
+  console.log(
+    "       (écart « posé à la racine » : git mv vers le sous-dossier de sa nature, ci/ gates/ repo/ …)",
+  );
+  console.log("     Puis : npm run skills:doc   puis  git add docs scripts");
 }
 process.exit(failed.length || perimees.length || scriptGaps.length ? 1 : 0);

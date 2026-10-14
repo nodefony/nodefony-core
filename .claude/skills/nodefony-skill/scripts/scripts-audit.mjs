@@ -389,7 +389,9 @@ if (orphan.length) {
   console.log("\n⚠️  Personne ne les appelle (à documenter, ou à retirer) :");
   for (const r of orphan) console.log(`   ${r.path}  [${r.zone}]`);
 }
-if (jamaisLances.length) {
+// En `--strict` (le hook) : les acquittés sont connus, les lister noierait le refus —
+// ceux qui posent problème sont nommés dans le bloc « à faire ».
+if (jamaisLances.length && !STRICT) {
   console.log(
     "\n📄 Nommés par une page, exécutés par aucun automate (ni npm, ni forge, ni script) :",
   );
@@ -446,14 +448,103 @@ console.log("");
 
 // `--strict` échoue sur les TROIS anomalies. La première version ignorait « à déplacer », et un
 // contrôle négatif l'a montré : une sonde classée à déplacer laissait le gate vert.
-process.exit(
+const refused =
   STRICT &&
-    (orphan.length ||
-      deadRefs.length ||
-      move.length ||
-      acquittes === null ||
-      nonAcquittes.length ||
-      acquittementsPerimes.length)
-    ? 1
-    : 0,
-);
+  (orphan.length ||
+    deadRefs.length ||
+    move.length ||
+    acquittes === null ||
+    nonAcquittes.length ||
+    acquittementsPerimes.length);
+
+/*
+ * Un refus qui ne dit que « orphelin » renvoie à la lecture de ce fichier. Il
+ * dit donc, par anomalie, POURQUOI elle bloque et le GESTE exact — le fichier à
+ * éditer et la ligne à y poser.
+ */
+if (refused) {
+  const say = (s) => console.error(s);
+  say("❌ audit des scripts REFUSÉ — à faire, anomalie par anomalie :\n");
+  if (orphan.length) {
+    say(
+      "  ⚠️  Orphelins — Pourquoi : un script que rien ne cite ni ne lance devient du",
+    );
+    say(
+      "     code mort qu'on n'ose plus retirer, faute de savoir qui en dépend.",
+    );
+    say("     Faire, au choix pour chacun :");
+    say(
+      "       · le CITER dans le SKILL.md (ou references/*.md) du skill qui l'emploie, avec sa commande ;",
+    );
+    say(
+      "       · le CÂBLER : un script dans package.json, une étape de .github/workflows ;",
+    );
+    say(
+      "       · le RETIRER s'il ne sert plus (git rm <chemin>) — demander avant.",
+    );
+    for (const r of orphan) say(`       ${r.path}`);
+    say("");
+  }
+  if (move.length) {
+    say(
+      "  ➡️  À déplacer — Pourquoi : il exige un décor (serveur, docker, réseau) ; hors d'un",
+    );
+    say("     skill, personne ne sait l'installer avant de le lancer.");
+    say(
+      "     Faire : git mv <chemin> .claude/skills/<skill>/scripts/  puis le citer dans son SKILL.md.",
+    );
+    for (const r of move) say(`       ${r.path}   (${r.why})`);
+    say("");
+  }
+  if (deadRefs.length) {
+    say(
+      "  ❌ Renvois morts — Pourquoi : un agent qui suit le skill lance un fichier absent.",
+    );
+    say(
+      "     Faire : corriger le chemin dans le skill, ou retirer la mention.",
+    );
+    for (const d of deadRefs) say(`       ${d.skill} → ${d.ref}`);
+    say("");
+  }
+  if (acquittes === null) {
+    say(`  🔴 Liste d'acquittement illisible : ${ACQUITTES_PATH}`);
+    say(
+      "     Faire : rétablir un JSON valide (git diff -- <fichier> montre ce qui l'a cassée).",
+    );
+    say("");
+  }
+  if (nonAcquittes.length) {
+    say("  🔴 Documentés mais lancés par aucun automate, et non acquittés —");
+    say(
+      "     Pourquoi : un script neuf entre dans cet état sans que personne le remarque ;",
+    );
+    say("     la liste fige l'état connu pour que l'écart, lui, se voie.");
+    say("     Faire, au choix :");
+    say(
+      "       · le CÂBLER (package.json, workflow, ou un autre script qui le lance) ;",
+    );
+    say(
+      `       · s'il se lance à la main, VOULU : ajouter sa ligne à "documentes-jamais-lances" de`,
+    );
+    say(`         ${ACQUITTES_PATH} :`);
+    for (const r of nonAcquittes)
+      say(`           ${JSON.stringify(cle(r.path))},`);
+    say("");
+  }
+  if (acquittementsPerimes.length) {
+    say(
+      "  🔴 Acquittements périmés — Pourquoi : le script est désormais lancé (ou absent) ;",
+    );
+    say(
+      "     la ligne masquerait sa régression le jour où il cesserait de l'être.",
+    );
+    say(`     Faire : retirer ces lignes de ${ACQUITTES_PATH} :`);
+    for (const a of acquittementsPerimes)
+      say(`           ${JSON.stringify(a)}`);
+    say("");
+  }
+  say(
+    "  Puis : npm run skills:check  (vert)  &&  git add -A .claude/skills && git commit",
+  );
+}
+process.exit(refused ? 1 : 0);
