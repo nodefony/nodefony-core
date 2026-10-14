@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T20:41:54.615Z",
+  "generatedAt": "2026-10-14T16:51:08.456Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2985,7 +2985,7 @@
       "title": "fix(scaffold): ne plus induire l'agent en erreur sur socket, doctor et git",
       "url": "https://github.com/nodefony/nodefony-core/issues/599",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -8570,7 +8570,7 @@
       "title": "feat(devkit): lire le journal d'une session Codex interactive au banc",
       "url": "https://github.com/nodefony/nodefony-core/issues/600",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
