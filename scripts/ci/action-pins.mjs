@@ -39,13 +39,17 @@ export function yamlUnder(dir) {
     .map((e) => path.join(e.parentPath, e.name));
 }
 
-/** Chaque référence `uses:` d'un fichier YAML, avec son ancre `fichier:ligne`. */
+/**
+ * Chaque référence `uses:` d'un fichier YAML, avec son ancre `fichier:ligne`.
+ * Une balise de gabarit en tête de ligne (`<% } %>      - uses: …`) ne cache pas
+ * la référence : le rendu la retire, l'application exécute l'action.
+ */
 export function references(file) {
   const out = [];
   readFileSync(file, "utf8")
     .split("\n")
     .forEach((line, i) => {
-      const m = /^\s*-?\s*uses:\s*(.+?)\s*$/.exec(line);
+      const m = /^(?:\s*<%.*?%>)*\s*-?\s*uses:\s*(.+?)\s*$/.exec(line);
       if (m)
         out.push({
           file,

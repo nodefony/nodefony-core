@@ -40,6 +40,15 @@ describe("actions GitHub épinglées par SHA", () => {
     expect(n.length).toBeGreaterThan(20);
   });
 
+  it("une balise de gabarit en tête de ligne ne cache pas l'action", () => {
+    // `<% } %>      - uses: actions/setup-node@…` : seule forme de setup-node
+    // dans les gabarits — le gate l'a longtemps sautée sans le dire.
+    const rendues = yamlSous("src/nodefony/templates")
+      .flatMap(references)
+      .map((r) => r.ref);
+    expect(rendues.some((r) => r.startsWith("actions/setup-node@"))).toBe(true);
+  });
+
   it("aucune action tierce n'est référencée par un tag mobile", () => {
     const fautes = fichiers
       .flatMap(references)
