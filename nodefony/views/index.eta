@@ -441,8 +441,11 @@
       </footer>
     </main>
 
+    <% if (nodefony.environment === "development") { %>
     <!-- Debug bar Nodefony — bundle standalone AUTO-MONTANT servi par
-         /app/debugbar.js (script EXTERNE → passe la CSP script-src 'self'). -->
+         /app/debugbar.js (script EXTERNE → passe la CSP script-src 'self').
+         Développement seulement : la route répond 404 en production. -->
     <script type="module" src="/app/debugbar.js"></script>
+    <% } %>
   </body>
 </html>

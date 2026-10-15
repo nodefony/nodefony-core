@@ -124,6 +124,11 @@ class AppController extends Controller {
     requirements: { methods: ["GET", "HEAD"] },
   })
   debugbarJs() {
+    // Outil de DÉVELOPPEMENT : en production la barre n'a rien à montrer à
+    // personne, et la page d'accueil ne l'inclut plus.
+    if ((this.kernel?.environment ?? "production") !== "development") {
+      throw new HttpError("Not Found", 404, this.context);
+    }
     const js = loadDebugbarBundle();
     if (js === false) {
       throw new HttpError("debugbar bundle introuvable", 404, this.context);
