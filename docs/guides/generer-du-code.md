@@ -293,7 +293,7 @@ le drapeau est la retouche de l'appel.
 > `resolveAnswers()` ne conserve que les clés déclarées : un `"prest"` écrit à la
 > place de `"preset"` produirait un projet différent de celui demandé, sans un
 > mot. Une personne relit le résultat ; un appelant automatique, non
-> (`readAnswersJson()`, `create.ts:470`).
+> (`readAnswersJson()`, `create.ts:471`).
 
 Combinés, ces trois drapeaux forment une boucle sûre pour un agent : se décrire
 (`--describe-json`), proposer (`--answers-json … --dry-run`), puis exécuter.
