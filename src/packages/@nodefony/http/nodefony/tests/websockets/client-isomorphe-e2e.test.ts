@@ -322,8 +322,13 @@ describe("E2E isomorphe — les canaux, contre le protocole RÉEL", () => {
       observeSyslog(live.socket, (e) => (entrees = e));
       live.start();
       await until("connecté", () => live.socket.state === "connected");
+      // DEUX requêtes : en production une requête ne laisse qu'UNE ligne de
+      // journal. En attendre deux ne doit rien au découpage des lots par le
+      // serveur, ni à un message annexe — l'alerte « canal sans règle », qui
+      // fournissait la seconde, a disparu et ce test rougissait sur 3 systèmes.
       await remuer(cookie);
-      await until("journaux reçus", () => entrees.length > 0);
+      await remuer(cookie);
+      await until("journaux reçus", () => entrees.length > 1);
 
       // Ce que le mock ne pouvait pas prouver : le serveur envoie bien un LOT
       // (`{ logs, dropped }`) et non des entrées une à une. Un décodeur qui ne
