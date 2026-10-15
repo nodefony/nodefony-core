@@ -433,6 +433,27 @@ describe("RemoteJwtVerifier — une PANNE n'est pas un jeton invalide", () => {
     );
   });
 
+  it("une autorité non reconnue pour le JWKS nomme son remède", async () => {
+    const issuer = await fakeIssuer();
+    const cause = Object.assign(new Error("self-signed certificate"), {
+      code: "SELF_SIGNED_CERT_IN_CHAIN",
+    });
+    const net = fakeNet({
+      [OAUTH_METADATA_URL]: metadata,
+      [JWKS_URL]: new TypeError("fetch failed", { cause }),
+    });
+    const verifier = new RemoteJwtVerifier({
+      issuers: [{ issuer: ISSUER, algorithms: ["ES256"] }],
+      fetch: net.fetch,
+    });
+    const token = await issuer.sign({ sub: "x" });
+
+    await assert.rejects(
+      () => verifier.verify(token, RESOURCE),
+      /SELF_SIGNED_CERT_IN_CHAIN[\s\S]*NF_TLS_CA_FILE/,
+    );
+  });
+
   it("réessaie la découverte après une panne — elle n'est pas condamnée", async () => {
     const issuer = await fakeIssuer();
     const routes: Record<string, FakeRoute> = {};

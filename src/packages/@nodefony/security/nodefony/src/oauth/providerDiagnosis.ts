@@ -1,6 +1,10 @@
 import { IssuerMismatchError } from "nodefony";
 import type { IOAuthProvider } from "../../contracts/IOAuthProvider";
 import {
+  describeTransportFailure,
+  untrustedAuthorityHint,
+} from "../net/transportFailure";
+import {
   generateCodeVerifier,
   generateState,
   OAuth2RequestError,
@@ -133,10 +137,9 @@ const MAX_ERROR_PAGE_BYTES = 64 * 1024;
 type ClientEvidence = "known" | "unknown";
 
 function errorMessage(error: unknown): string {
-  if (!(error instanceof Error)) return String(error);
-  const cause: unknown = error.cause;
-  if (cause instanceof Error) return `${error.message} (${cause.message})`;
-  return error.message;
+  const hint = untrustedAuthorityHint(error);
+  const text = describeTransportFailure(error);
+  return hint === null ? text : `${text} — ${hint}`;
 }
 
 /** Les premiers octets d'une page, en texte — le reste est abandonné. */

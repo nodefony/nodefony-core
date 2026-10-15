@@ -7,6 +7,10 @@ import {
   validateIssuerMetadata,
   type IAccessPrincipal,
 } from "nodefony";
+import {
+  describeTransportFailure,
+  untrustedAuthorityHint,
+} from "../net/transportFailure";
 
 /**
  * Un émetteur en qui l'application accepte de faire confiance.
@@ -318,9 +322,11 @@ export class RemoteJwtVerifier {
     } catch (error) {
       const code = (error as { code?: string }).code;
       if (!code || !TOKEN_FAULT_CODES.has(code)) {
+        const hint = untrustedAuthorityHint(error);
         throw new Error(
           `vérification impossible : l'émetteur « ${trusted.issuer} » n'a pas ` +
-            `fourni de jeu de clés utilisable (${code ?? (error as Error).message}).`,
+            `fourni de jeu de clés utilisable (${code ?? describeTransportFailure(error)}).` +
+            (hint === null ? "" : ` ${hint}.`),
           { cause: error },
         );
       }

@@ -5,6 +5,10 @@ import {
   validateIssuerMetadata,
 } from "nodefony";
 import { readJsonObjectBounded } from "./httpJson";
+import {
+  describeTransportFailure,
+  untrustedAuthorityHint,
+} from "../net/transportFailure";
 
 /**
  * **Découverte des métadonnées d'un serveur d'autorisation** (RFC 8414) — la face
@@ -92,26 +96,6 @@ export interface IDiscoveryOptions {
    * cette adresse ; ceux vers lesquels le navigateur est envoyé restent en `https`.
    */
   readonly discoveryUrl?: string | undefined;
-}
-
-/**
- * Rend un échec de transport LISIBLE : `fetch` (undici) ne dit que
- * `fetch failed` et range la vraie raison dans `cause` — certificat refusé,
- * connexion refusée, nom introuvable. Sans elle, « métadonnées introuvables »
- * envoie chercher un émetteur absent quand c'est la confiance TLS qui manque.
- */
-function describeTransportFailure(error: unknown): string {
-  if (!(error instanceof Error)) {
-    return String(error);
-  }
-  const cause: unknown = error.cause;
-  if (!(cause instanceof Error)) {
-    return error.message;
-  }
-  const code = (cause as { code?: unknown }).code;
-  return typeof code === "string"
-    ? `${error.message} (${code} : ${cause.message})`
-    : `${error.message} (${cause.message})`;
 }
 
 async function fetchMetadataDocument(
@@ -204,6 +188,7 @@ export async function discoverAuthorizationServer(
 ): Promise<IDiscoveredAuthorizationServer> {
   const issuer = canonicalIssuer(rawIssuer);
   const failures: string[] = [];
+  let hint: string | null = null;
   const discoveryUrl = options.discoveryUrl;
   for (const candidate of metadataCandidateUrls(issuer, discoveryUrl)) {
     let document: Record<string, unknown>;
@@ -211,6 +196,7 @@ export async function discoverAuthorizationServer(
       document = await fetchMetadataDocument(candidate, options);
     } catch (error) {
       failures.push(describeTransportFailure(error));
+      hint ??= untrustedAuthorityHint(error);
       continue;
     }
     // Le document a répondu : à partir d'ici toute anomalie est FATALE — se
@@ -248,6 +234,8 @@ export async function discoverAuthorizationServer(
     };
   }
   throw new Error(
-    `métadonnées introuvables pour « ${issuer} » — ${failures.join(" ; ")}`,
+    `métadonnées introuvables pour « ${issuer} » — ${failures.join(" ; ")}` +
+      // Le remède UNE fois : les adresses essayées échouent sur la même cause.
+      (hint === null ? "" : ` — ${hint}`),
   );
 }

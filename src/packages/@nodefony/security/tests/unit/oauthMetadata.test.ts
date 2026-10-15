@@ -206,6 +206,36 @@ describe("discoverAuthorizationServer", () => {
     );
   });
 
+  // En production l'autorité de développement n'est jamais reconnue : le
+  // journal ne disait que le code, la variable qui le règle n'était écrite
+  // que dans un commentaire du `.env` — fichier qu'un serveur n'a pas.
+  it("une autorité non reconnue nomme son remède, UNE fois", async () => {
+    const fetch = (async () => {
+      const cause = Object.assign(new Error("self-signed certificate"), {
+        code: "SELF_SIGNED_CERT_IN_CHAIN",
+      });
+      throw new TypeError("fetch failed", { cause });
+    }) as typeof globalThis.fetch;
+    const error = await discoverAuthorizationServer(ISSUER, { fetch }).then(
+      () => assert.fail("la découverte devait échouer"),
+      (e: unknown) => e as Error,
+    );
+    assert.equal(error.message.split("NF_TLS_CA_FILE").length - 1, 1);
+  });
+
+  it("une connexion refusée ne parle pas d'autorité", async () => {
+    const fetch = (async () => {
+      const cause = Object.assign(new Error("connect ECONNREFUSED"), {
+        code: "ECONNREFUSED",
+      });
+      throw new TypeError("fetch failed", { cause });
+    }) as typeof globalThis.fetch;
+    await assert.rejects(
+      () => discoverAuthorizationServer(ISSUER, { fetch }),
+      (e: Error) => !e.message.includes("NF_TLS_CA_FILE"),
+    );
+  });
+
   it("émetteur en clair ou porteur d'une requête → refus (RFC 8414 §2, règle du cœur)", async () => {
     const { fetch } = serve({});
     await assert.rejects(
