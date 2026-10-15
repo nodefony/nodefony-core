@@ -107,12 +107,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Un caret laisserait une application générée tirer la mineure suivante
   // avant qu'analogjs l'ait suivie. Monter les deux ENSEMBLE, et prouver par
   // `frontend-families.test.ts` sur le serveur de développement.
-  "@angular/core": "~22.2.2",
-  "@angular/common": "~22.2.2",
-  "@angular/platform-browser": "~22.2.2",
+  "@angular/core": "~22.2.3",
+  "@angular/common": "~22.2.3",
+  "@angular/platform-browser": "~22.2.3",
   "@analogjs/vite-plugin-angular": "^2.8.1",
   "@angular/build": "~22.2.2",
-  "@angular/compiler-cli": "~22.2.2",
+  "@angular/compiler-cli": "~22.2.3",
 };
 
 /**
