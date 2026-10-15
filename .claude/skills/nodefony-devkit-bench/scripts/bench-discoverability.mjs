@@ -178,6 +178,7 @@ import {
   verdictAgrege,
   medianeTours,
   deriveTours,
+  harnessDeReference,
 } from "./lib/reference.mjs";
 
 /**
@@ -7053,8 +7054,9 @@ export function rendreAvancement(runDir) {
  * voir. Et comme le verdict, lui, restait juste, rien ne signalait l'écart.
  *
  * @param {string} transcriptPath - le `task-<n>.transcript.jsonl` de la tâche.
- * @returns {{tours: number, dureeMs: number, coutUsd: number} | null} `null` si
- *   le harnais n'a rien publié (agent tué, transcript tronqué).
+ * @returns {{tours: number|null, dureeMs: number, coutUsd: number} | null}
+ *   `null` si le harnais n'a rien publié (agent tué, transcript tronqué) ;
+ *   `tours: null` si ce harnais ne publie pas de tours.
  */
 /**
  * Le transcript porte-t-il de quoi JUGER — quel que soit l'agent qui l'a écrit ?
@@ -7219,18 +7221,80 @@ export function lireEffort(transcriptPath) {
   if (!r) {
     return null;
   }
-  // Le banc compte en NOMBRES depuis toujours, et son rapport les formate
-  // (`.toFixed`, `Math.round`) : on rend donc 0 là où l agent n emet rien,
-  // exactement comme avant. La distinction `null` = « non emis » vit dans le
-  // module de grammaires et s affiche dans `analyse-transcript` — la porter
-  // jusqu ici demanderait de revoir le rapport entier, et ce n est pas le
-  // meme geste.
+  // Durée et coût restent en NOMBRES (le rapport les formate). Les TOURS, eux,
+  // gardent `null` = « non publiés par ce harness » : un 0 entrait dans la
+  // médiane puis dans la dérive, et un transcript sans `num_turns` mais avec un
+  // appel MCP se classait « ALLÉGÉE −100 % » — un progrès que personne n'a fait.
   return {
-    tours: r.tours ?? 0,
+    tours: r.tours ?? null,
     dureeMs: r.dureeMs ?? 0,
     coutUsd: r.coutUsd ?? 0,
     mcpCalls: r.mcpCalls,
   };
+}
+
+/** Le fichier du run qui garde la version du harness qui l'a joué. */
+const FICHIER_HARNESS = "harness.txt";
+
+/**
+ * La version du harness, CONSTATÉE en le lançant (`<agent> --version`).
+ *
+ * Elle se relève au lancement et s'écrit dans le run : `--analyze-only`
+ * re-juge des pièces des semaines plus tard, quand le harness installé n'est
+ * plus celui qui a joué. Aucun repli : un harness qui ne répond pas rend
+ * `null`, et le rapport dit « inconnue » plutôt qu'une version supposée.
+ *
+ * @param {string} agent - la commande de l'agent.
+ * @returns {string|null} `<agent> <première ligne de --version>`, ou `null`.
+ */
+export function releverHarness(agent) {
+  const r = spawnSync(agent, ["--version"], {
+    encoding: "utf8",
+    timeout: 15_000,
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: needsShell(agent),
+  });
+  if (r.error || r.status !== 0) return null;
+  const ligne = `${r.stdout ?? ""}\n${r.stderr ?? ""}`
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (!ligne) return null;
+  // Préfixer seulement si la ligne ne nomme pas déjà l'outil (`vibe 2.25.4`,
+  // `GitHub Copilot CLI 1.0.85`) — sinon « vibe vibe 2.25.4 ».
+  const nom = path.basename(agent);
+  return ligne.toLowerCase().includes(nom.toLowerCase())
+    ? ligne
+    : `${nom} ${ligne}`;
+}
+
+/** Relève la version du harness et la pose dans le run. */
+function ecrireHarness(runDir) {
+  const h = releverHarness(AGENT);
+  if (h) writeFileSync(path.join(runDir, FICHIER_HARNESS), `${h}\n`);
+  console.log(
+    `• harness : ${h ?? `${AGENT} — version INCONNUE (--version muet)`}`,
+  );
+}
+
+/**
+ * Les versions de harness des runs agrégés, distinctes et triées, jointes par
+ * « + » comme le modèle. `undefined` quand aucun run ne la porte (runs d'avant
+ * ce relevé) — le champ est alors absent du rapport, jamais deviné.
+ *
+ * @param {string[]} dirs - les dossiers de run.
+ * @returns {string|undefined}
+ */
+function harnessDesRuns(dirs) {
+  const vus = new Set();
+  for (const d of dirs) {
+    const f = path.join(d, FICHIER_HARNESS);
+    if (existsSync(f)) {
+      const h = readFileSync(f, "utf8").trim();
+      if (h) vus.add(h);
+    }
+  }
+  return vus.size ? [...vus].sort().join(" + ") : undefined;
 }
 
 /**
@@ -7637,7 +7701,8 @@ function judgeTask(app, runDir, task, occurrence = null) {
   );
   if (effort) {
     console.log(
-      `     effort : ${effort.tours} tours · ${Math.round(effort.dureeMs / 1000)} s · ` +
+      `     effort : ${effort.tours === null ? "tours non publiés" : `${effort.tours} tours`} · ` +
+        `${Math.round(effort.dureeMs / 1000)} s · ` +
         `${effort.coutUsd.toFixed(2)} $ · ${effort.mcpCalls ?? 0} appel(s) MCP`,
     );
   }
@@ -7773,6 +7838,24 @@ function restituerDepistage(bilan, invocation, decors) {
       `          run       : ${run ?? "inconnu"}` +
         (reference && run && reference === run ? "  (identique)" : ""),
     );
+    // Le harness s'AFFICHE, il ne refuse rien (cf `harnessDeReference`).
+    const hRef = decors.harnessReference ?? [];
+    const hRun = decors.harnessRun;
+    console.log(
+      `  harness référence : ${hRef.length ? hRef.join(" · ") : "inconnu"}`,
+    );
+    const memeHarness = hRun && hRef.length === 1 && hRef[0] === hRun;
+    console.log(
+      `          run       : ${hRun ?? "inconnu"}` +
+        (memeHarness ? "  (identique)" : ""),
+    );
+    if (hRun && hRef.length && !memeHarness) {
+      console.log(
+        "  ⚠️ harness DIFFÉRENT de la référence — une chute ou une dérive de tours\n" +
+          "     peut venir de lui (prompt système, outils, définition d'un tour),\n" +
+          "     pas du framework. L'écarter AVANT d'instruire le code.",
+      );
+    }
   }
   ligne(bilan.stables, "✅", "conformes à la référence");
   ligne(bilan.chutes, "🔻", "CHUTE — la référence les donnait PASS");
@@ -7810,6 +7893,11 @@ function restituerDepistage(bilan, invocation, decors) {
     bilan.alourdies ?? [],
     "🐢",
     "ALOURDIES — même verdict, PLUS de tours (guidage perdu ?)",
+  );
+  ligne(
+    bilan.toursNonPublies ?? [],
+    "🕳️ ",
+    "TOURS NON PUBLIÉS par le harness — la référence en avait, aucune dérive mesurable",
   );
   // Une tâche sans référence, mais déjà mesurée trois fois, n'a rien à rejouer —
   // elle a quelque chose à ENREGISTRER. Dire « rien à rejouer » sans le préciser
@@ -8197,6 +8285,7 @@ function main() {
     } else {
       setup(runDir);
     }
+    ecrireHarness(runDir);
     if (args.includes("--setup-only")) {
       console.log(`\napp témoin prête : ${app}`);
       return;
@@ -8356,6 +8445,10 @@ function main() {
         : " · MCP non atteint",
     }),
     agent: AGENT,
+    // La VERSION du harness — affichée au dépistage, jamais un motif de refus
+    // (cf `harnessDeReference`) : une mise à jour change le comportement de
+    // l'agent, et l'écart doit se lire avant d'accuser le framework.
+    harness: harnessDesRuns(analyzeDirs ?? [runDir]),
     // Le commit MESURÉ — la seule variable qu'on veut voir différer entre la
     // référence et le run. Re-juger un run ANCIEN ne le mesure pas au commit
     // d'aujourd'hui : on reprend celui qu'il portait, quitte à n'en avoir
@@ -8410,6 +8503,8 @@ function main() {
     restituerDepistage(bilan, "node " + path.relative(REPO, INVOCATION), {
       reference: reference?.decor,
       run: report?.decor,
+      harnessReference: harnessDeReference(reference, report.results),
+      harnessRun: report.harness,
     });
     aRejouer = bilan.aRejouer.length;
   }

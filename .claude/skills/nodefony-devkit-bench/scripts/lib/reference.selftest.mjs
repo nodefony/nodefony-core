@@ -41,6 +41,7 @@ const {
   empreinteTache,
   fichiersDuVerdict,
   fusionnerReference,
+  harnessDeReference,
   medianeTours,
   NON_JUGEABLE,
   PLANCHER_DERIVE_TOURS,
@@ -349,6 +350,70 @@ if (refAvecTours.verdicts["13"].tours !== 54) {
   echec("la référence doit garder la médiane de tours");
 }
 
+// ─── 8. Tours NON PUBLIÉS — le silence se dit ──────────────────────────────
+console.log("• tours non publiés — classés, jamais une dérive");
+const bilanMuet = depister(
+  { verdicts: { 9: { verdict: "PASS", runs: 3, passes: 3, tours: 30 } } },
+  [{ id: 9, verdict: "PASS", passes: 3, total: 3, tours: null }],
+);
+if (bilanMuet.toursNonPublies?.length !== 1) {
+  echec(
+    "référence à 30 tours, run sans tours → doit être « tours non publiés »",
+  );
+}
+if (bilanMuet.allegees.length || bilanMuet.alourdies.length) {
+  echec("des tours absents ne sont ni une allègement ni un alourdissement");
+}
+if (bilanMuet.aRejouer.length !== 0) {
+  echec("des tours non publiés ne se rejouent pas — ils se regardent");
+}
+// Une référence qui n'en avait pas (harness qui n'en publie jamais) : rien à dire.
+const bilanSansRef = depister(
+  { verdicts: { 9: { verdict: "PASS", runs: 3, passes: 3, tours: null } } },
+  [{ id: 9, verdict: "PASS", passes: 3, total: 3, tours: null }],
+);
+if (bilanSansRef.toursNonPublies?.length) {
+  echec("sans tours dans la référence, leur absence au run n'est pas un écart");
+}
+
+// ─── 9. Harness — enregistré PAR TÂCHE, affiché, jamais refusé ─────────────
+console.log("• harness — enregistré par tâche, affiché, jamais un refus");
+const decorH = { model: "m", decor: "d", agent: "claude" };
+const refH = fusionnerReference(null, {
+  ...decorH,
+  harness: "claude 2.1.0",
+  date: "2026-01-01",
+  commit: "abc",
+  sources: ["run"],
+  results: [{ id: 1, verdict: "PASS", passes: 3, total: 3, tours: 20 }],
+});
+const refH2 = fusionnerReference(refH, {
+  ...decorH,
+  harness: "claude 2.2.0",
+  date: "2026-02-01",
+  commit: "def",
+  sources: ["run2"],
+  results: [{ id: 2, verdict: "PASS", passes: 3, total: 3, tours: 20 }],
+});
+if (refH2.verdicts["1"]?.harness !== "claude 2.1.0") {
+  echec("la version du harness doit rester celle qui a JOUÉ la tâche 1");
+}
+const versions = harnessDeReference(refH2, [{ id: 1 }, { id: 2 }]);
+if (versions.join("|") !== "claude 2.1.0|claude 2.2.0") {
+  echec(`les deux versions de la référence doivent se lire, rendu ${versions}`);
+}
+if (!comparerDecor(refH2, { ...decorH, harness: "claude 9.9.9" }).compatible) {
+  echec("une version de harness différente ne doit PAS refuser la comparaison");
+}
+if (
+  harnessDeReference({ verdicts: { 1: { verdict: "PASS" } } }, [{ id: 1 }])
+    .length
+) {
+  echec(
+    "une référence sans harness rend une liste vide, jamais une version supposée",
+  );
+}
+
 // ─── --prove : chaque règle débranchée doit faire TOMBER ce contrôle ────────
 // Les mutations s'appliquent à une COPIE, dans un répertoire temporaire : muter
 // le fichier du dépôt le laisserait cassé à la première interruption.
@@ -425,6 +490,16 @@ if (process.argv.includes("--prove") && MODULE === "./reference.mjs") {
       regle: "la référence garde la médiane",
       de: "      tours: r.tours ?? null,",
       vers: "",
+    },
+    {
+      regle: "tours non publiés classés (le silence se dit)",
+      de: "        toursNonPublies.push(entree);",
+      vers: "",
+    },
+    {
+      regle: "harness enregistré PAR tâche",
+      de: "      harness: run.harness,\n    };",
+      vers: "    };",
     },
     {
       regle: "fusion non destructive",

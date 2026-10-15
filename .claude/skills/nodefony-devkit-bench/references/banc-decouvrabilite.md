@@ -185,6 +185,24 @@ verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la cl�
 qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
 AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
 
+### La VERSION du harness s'affiche — elle ne refuse rien
+
+Le banc relève `<agent> --version` au lancement (`releverHarness`) et l'écrit dans le run
+(`harness.txt`) : `--analyze-only` re-juge des semaines plus tard, quand le harness installé n'est
+plus celui qui a joué. Le rapport la porte (`harness`), la référence la garde **par tâche**, et le
+dépistage l'affiche à côté du décor — avec un ⚠️ quand elle diffère.
+
+Elle n'entre **pas** dans les champs qui REFUSENT la comparaison (`model`, `decor`, `agent`) : un
+harness se met à jour presque chaque semaine, parfois tout seul (`agy` est passé de 1.1.19 à 1.3.5
+entre deux appels), et la référence deviendrait caduque à chaque fois — or la recaler coûte une
+campagne. Mais une mise à jour change le prompt système, les outils et la définition d'un tour :
+**une chute lue face à un harness différent s'instruit d'abord de ce côté.**
+
+**Les tours se lisent chez le harness, jamais se comptent** — et chacun a sa définition (grammaires
+de `scripts/lib/transcript-dialectes.mjs`). Un harness qui n'en publie pas rend `null`, pas `0` : un zéro
+entrait dans la médiane et classait la tâche « ALLÉGÉE −100 % ». Le dépistage range ce cas à part
+(« TOURS NON PUBLIÉS ») quand la référence en avait.
+
 ### Le décor est l'application REÇUE — et le montage le constate
 
 L'app témoin naît en `create app --no-install`, puis s'installe depuis les tarballs : toute la

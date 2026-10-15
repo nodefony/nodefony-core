@@ -381,6 +381,10 @@ export function depister(ref, results) {
   // regardent.
   const alourdies = [];
   const allegees = [];
+  // La référence avait des tours, le run n'en rend AUCUN : le harness a cessé
+  // de les publier (champ renommé, autre agent). Sans ce classement, l'écart
+  // disparaît du rapport sans un mot — la dérive se tait faute de borne.
+  const toursNonPublies = [];
   const chutes = [];
   const remontees = [];
   const inconnues = [];
@@ -408,6 +412,13 @@ export function depister(ref, results) {
       const derive = deriveTours(attendu.tours, r.tours);
       const entree = { ...r, reference: attendu, derive };
       stables.push(entree);
+      if (
+        typeof attendu.tours === "number" &&
+        attendu.tours > 0 &&
+        typeof r.tours !== "number"
+      ) {
+        toursNonPublies.push(entree);
+      }
       if (derive.signale) {
         (derive.sens === "alourdie" ? alourdies : allegees).push(entree);
       }
@@ -439,6 +450,7 @@ export function depister(ref, results) {
     // dans `aRejouer` rendrait au dépistage le coût qu'il existe pour éviter.
     alourdies,
     allegees,
+    toursNonPublies,
     aRejouer,
   };
 }
@@ -487,6 +499,9 @@ export function fusionnerReference(ref, run) {
       date: run.date,
       sources: run.sources,
       commit: run.commit,
+      // Le harness qui a JOUÉ cette tâche — par tâche, comme le commit : une
+      // référence se remplit par morceaux, sur des versions différentes.
+      harness: run.harness,
     };
   }
   return {
@@ -498,6 +513,31 @@ export function fusionnerReference(ref, run) {
     // différents, et confondre les deux ferait croire à un état d'ensemble.
     date: run.date,
     commit: run.commit,
+    harness: run.harness,
     verdicts,
   };
+}
+
+/**
+ * Les versions de harness sur lesquelles la référence a mesuré ces tâches.
+ *
+ * 🔴 **Elles s'AFFICHENT, elles ne refusent rien** — contrairement à `model`,
+ * `decor` et `agent` ({@link comparerDecor}). Un harness se met à jour presque
+ * chaque semaine : en faire un champ de décor rendrait la référence caduque à
+ * chaque mise à jour, et la recaler coûte une campagne payée. Mais une mise à
+ * jour change le prompt système, les outils, la définition d'un tour — donc
+ * les verdicts ET les tours. L'écart doit se LIRE avant toute chute imputée au
+ * framework.
+ *
+ * @param {object|null} ref - référence chargée.
+ * @param {Array<{id: number}>} results - les tâches comparées.
+ * @returns {string[]} versions distinctes, triées ; vide si aucune n'est connue.
+ */
+export function harnessDeReference(ref, results) {
+  const vus = new Set();
+  for (const r of results ?? []) {
+    const h = ref?.verdicts?.[String(r.id)]?.harness ?? ref?.harness;
+    if (typeof h === "string" && h) vus.add(h);
+  }
+  return [...vus].sort();
 }

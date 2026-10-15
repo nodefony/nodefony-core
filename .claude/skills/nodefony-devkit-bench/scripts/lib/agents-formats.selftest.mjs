@@ -239,6 +239,20 @@ for (const [nom, lignes] of FORMATS) {
     cl?.tours === 4 && cl?.dureeMs === 1200 && cl?.coutUsd === 0.01,
     JSON.stringify(cl),
   );
+  // 🔴 Un harness qui cesse de publier `num_turns` (champ renommé à une mise à
+  // jour) : l'appel MCP suffit à rendre un relevé, et ses tours doivent rester
+  // `null`. Rendus à 0, ils entraient dans la médiane et faisaient classer la
+  // tâche « ALLÉGÉE −100 % » face à la référence.
+  const sansTours = effortDe([
+    CLAUDE[0],
+    { type: "result", turns: 30, duration_ms: 1000 },
+  ]);
+  verifier(
+    "claude sans `num_turns` : tours NON PUBLIÉS (null), jamais 0",
+    // `?.tours` sur un relevé null rend `undefined`, jamais `null` : reste rouge.
+    sansTours?.tours === null,
+    JSON.stringify(sansTours),
+  );
 }
 
 // ─── La sonde de GESTE accepte les trois voies ───────────────────────────────
