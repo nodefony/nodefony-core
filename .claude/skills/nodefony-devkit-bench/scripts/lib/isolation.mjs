@@ -416,6 +416,53 @@ export function peerOverrides(repo, manifestes) {
 }
 
 /**
+ * Les FRÈRES de train d'une pair épinglée : ce qu'il faut épingler avec elle.
+ *
+ * Une famille publiée en bloc (`@angular/*`) exige des versions IDENTIQUES —
+ * `@angular/core@22.2.2` réclame `@angular/compiler@22.2.2`, pas un octet de
+ * plus. Épingler `core` seul sur le dépôt laisse ses frères flotter vers le
+ * dernier patch du registre : `ERESOLVE` à la réinstallation, le gate des fronts
+ * rouge le jour où l'amont publie avant que le dépôt suive (vécu : 22.2.3).
+ *
+ * Un frère se reconnaît sans liste écrite à la main : MÊME scope que la pair,
+ * déclaré en direct par l'application, et installé dans le dépôt à la MÊME
+ * version qu'elle. Un paquet du scope qui vit sa propre ligne de versions
+ * (`@angular/build`) n'a pas la même version : il reste libre.
+ *
+ * @param repo - la racine du dépôt Nodefony
+ * @param app - la racine de l'application témoin
+ * @param versions - `{ <pair>: "<version exacte>" }`, issu de `peerOverrides`
+ * @returns `{ <frère>: "<version exacte>" }`, sans les pairs déjà présentes
+ */
+export function lockstepSiblings(repo, app, versions) {
+  const pkg = JSON.parse(readFileSync(path.join(app, "package.json"), "utf8"));
+  const declares = [
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.devDependencies ?? {}),
+    ...Object.keys(pkg.optionalDependencies ?? {}),
+  ];
+  const siblings = {};
+  for (const [peer, version] of Object.entries(versions)) {
+    if (!peer.startsWith("@")) continue;
+    const scope = `${peer.split("/")[0]}/`;
+    for (const name of declares) {
+      if (!name.startsWith(scope) || name in versions || name in siblings) {
+        continue;
+      }
+      const installed = path.join(repo, "node_modules", name, "package.json");
+      if (!existsSync(installed)) continue;
+      try {
+        const repoVersion = JSON.parse(readFileSync(installed, "utf8")).version;
+        if (repoVersion === version) siblings[name] = repoVersion;
+      } catch {
+        // illisible ⇒ non épinglé, la sonde d'accord tranchera.
+      }
+    }
+  }
+  return siblings;
+}
+
+/**
  * Écrit l'épinglage dans le manifeste de l'application témoin.
  *
  * Deux emplacements, et le choix n'est pas cosmétique : **npm REFUSE un

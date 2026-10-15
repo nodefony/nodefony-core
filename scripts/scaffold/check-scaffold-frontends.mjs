@@ -36,6 +36,7 @@ import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import {
   assertPeerUnique,
   epinglerPairs,
+  lockstepSiblings,
   peerOverrides,
 } from "../../.claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs";
 
@@ -100,7 +101,12 @@ for (const fw of selected) {
     continue;
   }
 
-  epinglerPairs(dest, PEER_VERSIONS);
+  // La pair ET ses frères de train : épingler `@angular/core` seul laisse
+  // `@angular/common` monter au dernier patch du registre — ERESOLVE.
+  epinglerPairs(dest, {
+    ...lockstepSiblings(ROOT, dest, PEER_VERSIONS),
+    ...PEER_VERSIONS,
+  });
   const reinstall = spawnSync(NPM, ["install", "--no-audit", "--no-fund"], {
     cwd: dest,
     encoding: "utf8",
@@ -116,6 +122,16 @@ for (const fw of selected) {
           ? `réinstallation après épinglage en échec (code ${reinstall.status})`
           : `pair(s) en deux exemplaires : ${peers.doublons.map((d) => `${d.nom} (app ${d.app}, dépôt ${d.repo})`).join(", ")}`),
     );
+    if (peers === null) {
+      // Le refus de npm porte sa cause (ERESOLVE, réseau…) : la taire laissait
+      // un « code 1 » qu'il fallait rejouer à la main pour lire.
+      console.error(
+        `${reinstall.stdout}${reinstall.stderr}`
+          .split("\n")
+          .slice(-25)
+          .join("\n"),
+      );
+    }
     failed++;
     if (!keep) rmSync(dir, { recursive: true, force: true });
     continue;
