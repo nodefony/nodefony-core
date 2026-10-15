@@ -8,6 +8,7 @@ import {
   legacyEnvMessage,
   ENV_FILE,
 } from "../index";
+import { envForOtherProject } from "../runtime/loadEnv";
 
 // Clés dédiées au test (préfixe improbable) → pas de collision avec l'env réel ;
 // purgées avant/après chaque cas pour rester déterministe.
@@ -53,6 +54,20 @@ describe("loadEnv — un seul fichier, `.env`, sans écrasement", () => {
 
   it("ignore silencieusement un .env absent (aucune exception)", () => {
     expect(loadEnv({ cwd: dir })).toBe(0);
+  });
+
+  // Vécu : `nodefony create app` lancé depuis le dépôt transmettait le
+  // `NF_TLS_CA_FILE` du `.env` racine aux builds de l'application neuve, où le
+  // chemin relatif ne menait à rien — démarrage refusé.
+  it("envForOtherProject retire ce qui vient du .env, garde ce que le shell a posé", () => {
+    process.env.LOADENV_B = "fromShell";
+    writeFileSync(join(dir, ".env"), "LOADENV_A=fromFile\nLOADENV_B=ignored\n");
+    loadEnv({ cwd: dir });
+    const child = envForOtherProject();
+    expect(child.LOADENV_A).toBeUndefined();
+    expect(child.LOADENV_B).toBe("fromShell");
+    // Le processus courant garde ses valeurs : seule la copie est filtrée.
+    expect(process.env.LOADENV_A).toBe("fromFile");
   });
 });
 

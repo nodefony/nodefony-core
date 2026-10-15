@@ -4,6 +4,7 @@ import { usageCatalog, usagePageFor } from "./scaffold/help";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { portableSpawn } from "./execPortable";
+import { envForOtherProject } from "../runtime/loadEnv";
 import {
   isPackageManagerName,
   packageManagerCommandLines,
@@ -629,6 +630,7 @@ function runInstall(dest: string, pm: PackageManagerName): boolean {
   const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
     stdio: "inherit",
+    env: envForOtherProject(),
     windowsVerbatimArguments: cmd.windowsVerbatimArguments,
   });
   return r.status === 0;
@@ -719,6 +721,7 @@ function runBuild(dest: string, pm: PackageManagerName): boolean {
   const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
     stdio: "inherit",
+    env: envForOtherProject(),
     windowsVerbatimArguments: cmd.windowsVerbatimArguments,
   });
   return r.status === 0;
@@ -827,7 +830,11 @@ function runInitialMigration(
     // `NF_STORE=memory` empêche le démarrage de LIRE une base qui n'a pas
     // encore sa table — le provisionnement d'un annuaire y mourrait avant
     // que le verbe ne s'exécute.
-    env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
+    env: {
+      ...envForOtherProject(),
+      NODE_ENV: "production",
+      NF_STORE: "memory",
+    },
   });
   if (r.status === 0) {
     // 🔴 ÉCRITE ne veut pas dire APPLIQUÉE, et l'application naissait à
@@ -851,7 +858,11 @@ function runInitialMigration(
       cwd: dest,
       encoding: "utf8",
       windowsVerbatimArguments: migrate.windowsVerbatimArguments,
-      env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
+      env: {
+        ...envForOtherProject(),
+        NODE_ENV: "production",
+        NF_STORE: "memory",
+      },
     });
     if (applique.status === 0) {
       return {
@@ -1021,7 +1032,7 @@ function poseEnvNotice(
     const r = spawnSync(
       process.execPath,
       [path.join(pkgDir, ...bin.split("/")), "env", "--example"],
-      { cwd: dest, stdio: "pipe", encoding: "utf8" },
+      { cwd: dest, stdio: "pipe", encoding: "utf8", env: envForOtherProject() },
     );
     return r.status === 0
       ? "régénérée avec les réglages des modules installés"
@@ -1226,7 +1237,7 @@ function runGitInit(
   cmd: TCommandLines,
 ): string {
   // Le dépôt visé est l'application NEUVE, jamais celui qui nous a lancés.
-  const env = isolatedGitEnv();
+  const env = isolatedGitEnv(envForOtherProject());
   const git = (...args: string[]) =>
     spawnSync("git", args, { cwd: dest, stdio: "ignore", env });
   const hooksNote = (): string => {

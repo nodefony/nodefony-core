@@ -204,8 +204,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:51` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:59` |
-| `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:78` |
-| `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:76` |
+| `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:80` |
+| `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:78` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:1096` |
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:770` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |

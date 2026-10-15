@@ -173,8 +173,37 @@ export function loadEnv(opts: ILoadEnvOptions = {}): number {
   for (const key in resolved) {
     if (process.env[key] === undefined) {
       process.env[key] = resolved[key];
+      (fileInjectedKeys ??= new Set()).add(key);
       injected++;
     }
   }
   return injected;
+}
+
+/** Les clés que {@link loadEnv} a posées depuis `.env` ; `null` tant qu'aucune. */
+let fileInjectedKeys: Set<string> | null = null;
+
+/**
+ * L'environnement à transmettre à un processus lancé dans un AUTRE projet :
+ * celui du processus, moins ce que {@link loadEnv} a lu dans le `.env` courant.
+ *
+ * `.env` porte les valeurs du poste pour CE projet. `nodefony create app` lancé
+ * depuis une application les a dans `process.env` ; ses enfants (installation,
+ * build, migrations) les héritaient, et comme une variable déjà posée gagne
+ * toujours sur le fichier, le `.env` de l'application neuve ne pouvait plus
+ * rien corriger. Vécu : `NF_TLS_CA_FILE`, chemin relatif au dépôt, résolu dans
+ * l'application neuve, fichier introuvable, démarrage refusé. Ce que le SHELL a
+ * posé passe toujours : seul le fichier est retiré.
+ *
+ * @param env - l'environnement de départ (défaut `process.env`), jamais modifié.
+ * @returns une copie, sans les clés venues du `.env` du projet courant.
+ */
+export function envForOtherProject(
+  env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = { ...env };
+  if (fileInjectedKeys !== null) {
+    for (const key of fileInjectedKeys) delete out[key];
+  }
+  return out;
 }
