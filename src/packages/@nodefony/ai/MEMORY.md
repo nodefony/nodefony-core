@@ -30,7 +30,7 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
 | Symbole | Fichier | Rôle |
 | --- | --- | --- |
 | `handleMcpMessage` | `nodefony/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue. STRICT : `classifyJsonRpcFrame` ≠ request/notification → `400`+`-32600` `id:null` ; `params` primitif → `-32600`, tableau → `-32602` ; `id` non entier → `-32600` (MCP : « string or integer ») ; une réponse postée → `400` |
-| `checkMcpAccess`/`isLocalAddress` | `nodefony/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
+| `checkMcpAccess`/`isLocalAddress` | `nodefony/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité + **appel relayé refusé** sur porte locale (`relayed` : `Forwarded`/`X-Forwarded-For`/`X-Real-IP`/`Via`, posé par `serve` — un relais sur la même machine arrive du loopback). Localité jugée AVANT l'origine |
 | `declareMcpTools(opts)` | `nodefony/mcp/tools.ts` | `getMcpTools()` de chaque module, dans l'ordre de `kernel.modules`. Écarts → `onSkip` (nom hors forme, préfixe réservé, collision, déclaration qui lève). **Non servable tel quel** : contient les réservés |
 | `collectMcpTools(opts)` | `nodefony/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
 | `mcpDeclaredScopes(opts)` | `nodefony/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |

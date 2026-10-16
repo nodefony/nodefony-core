@@ -22,6 +22,12 @@ export interface IGuardInput {
   origin?: string | undefined;
   /** Adresse distante de la connexion (`socket.remoteAddress`). */
   remoteAddress?: string | undefined;
+  /**
+   * La requête porte un en-tête de relais (`Forwarded`, `X-Forwarded-For`,
+   * `X-Real-IP`, `Via`) : elle a traversé un proxy, quelle que soit
+   * l'adresse de la connexion.
+   */
+  relayed?: boolean | undefined;
 }
 
 /** Réglages qui gouvernent les gardes (viennent de la config du module). */
@@ -81,6 +87,17 @@ export function checkMcpAccess(
     return {
       allowed: false,
       why: `adresse non locale (${input.remoteAddress ?? "inconnue"}) — voir l'option \`allowRemote\` du serveur MCP`,
+    };
+  }
+  // 🔴 Un relais sur la MÊME machine (le frontal que génère `proxy:generate`)
+  // se connecte depuis le loopback : sans `trustProxy`, l'adresse vue est la
+  // sienne, et une porte locale servait alors Internet sans jeton. La localité
+  // ne se prouve pas à travers un relais — un appel qui en porte la trace est
+  // refusé, même si l'adresse résolue est locale.
+  if (!policy.allowRemote && input.relayed === true) {
+    return {
+      allowed: false,
+      why: "appel relayé (en-tête Forwarded, X-Forwarded-For, X-Real-IP ou Via) sur une porte locale — la localité ne se prouve pas à travers un relais ; voir l'option `allowRemote` du serveur MCP",
     };
   }
 

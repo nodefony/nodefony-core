@@ -159,6 +159,11 @@ describe("gate.respond — gardes et corps", () => {
     expect(response).toMatchObject({ kind: "json", status: 403 });
   });
 
+  it("appel relayé sur une porte locale, depuis le loopback : 403", async () => {
+    const response = await gate().respond(request({ relayed: true }), RUNTIME);
+    expect(response).toMatchObject({ kind: "json", status: 403 });
+  });
+
   it("texte qui ne se parse pas : 400 + -32700, distinct d'un `{}` reçu", async () => {
     const parse = await gate().respond(
       request({ body: {}, rawBody: () => "{pas du json" }),

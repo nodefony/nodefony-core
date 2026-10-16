@@ -177,6 +177,11 @@ export interface IMcpGateRequest<S extends IMcpEventSink = IMcpEventSink> {
   authorization?: string | undefined;
   /** Adresse de l'appelant (après `trustProxy`). */
   remoteAddress?: string | undefined;
+  /**
+   * La requête a traversé un relais (en-tête `Forwarded`, `X-Forwarded-For`,
+   * `X-Real-IP` ou `Via`) — refusée par une porte locale.
+   */
+  relayed?: boolean | undefined;
   /** Abattu quand le client abandonne la requête. */
   signal?: AbortSignal | undefined;
   /**
@@ -334,6 +339,17 @@ function unparsableBody(
   }
 }
 
+/**
+ * Les en-têtes qu'un relais pose — leur présence suffit à dire que la requête
+ * n'est pas arrivée directement, quelle que soit l'adresse de la connexion.
+ */
+const RELAY_HEADERS = [
+  "forwarded",
+  "x-forwarded-for",
+  "x-real-ip",
+  "via",
+] as const;
+
 /** Première valeur d'un en-tête HTTP, ou rien. */
 function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -442,7 +458,11 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
     if (!settings.enabled) return DISABLED;
 
     const verdict = checkMcpAccess(
-      { origin: request.origin, remoteAddress: request.remoteAddress },
+      {
+        origin: request.origin,
+        remoteAddress: request.remoteAddress,
+        relayed: request.relayed,
+      },
       {
         allowedOrigins: settings.allowedOrigins,
         allowRemote: settings.allowRemote,
@@ -691,6 +711,9 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
           protocolVersion: firstHeader(headers["mcp-protocol-version"]),
           authorization: firstHeader(headers.authorization),
           remoteAddress: context?.remoteAddress ?? undefined,
+          relayed: RELAY_HEADERS.some(
+            (name) => (firstHeader(headers[name]) ?? "") !== "",
+          ),
           signal: context?.signal,
           // La réponse finale peut dépasser le plafond d'un événement
           // ordinaire : un résultat d'outil n'a pas de borne en JSON, il n'en

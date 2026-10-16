@@ -366,11 +366,16 @@ class ShopMcpController extends Controller {
 ⚠️ Figer `protocol.versions` sur la seule révision `2026-07-28` coupe les clients qui parlent encore
 l'ancienne forme (`initialize`) — c'est le cas des clients déployés aujourd'hui.
 
-Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:437`, éprouvable sans serveur) :
+Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:453`, éprouvable sans serveur) :
 
-- **`checkMcpAccess()`** (`guard.ts:76`) : un client MCP légitime est un _process_ et n'envoie
+- **`checkMcpAccess()`** (`guard.ts:82`) : un client MCP légitime est un _process_ et n'envoie
   aucun `Origin` ; une page web malveillante en pose toujours un. _Absent_ → on passe, _présent et
   hors allowlist_ → `403`. C'est ce qui referme le DNS rebinding contre un serveur local.
+- **Une porte locale refuse un appel RELAYÉ** (`403`) : la requête porte `Forwarded`,
+  `X-Forwarded-For`, `X-Real-IP` ou `Via`. Un relais posé sur la même machine (le frontal de
+  `proxy:generate`) se connecte depuis le loopback ; sans `trustProxy`, l'adresse vue serait la
+  sienne, et la porte servirait Internet sans jeton. La localité ne se prouve pas à travers un
+  relais : une porte joignable par un proxy se déclare `allowRemote` et se protège par jeton.
 - **`createMcpResponseStream()`** (`stream.ts:63`) ouvre le flux SSE au **premier** envoi seulement
   (et seulement si le client l'accepte), enchaîne les envois dans l'ordre, et la réponse finale le
   clôt. Rien envoyé en route → réponse JSON. Pas de reprise (`Last-Event-ID`) : la spec la retire,

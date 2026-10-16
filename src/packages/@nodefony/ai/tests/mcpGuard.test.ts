@@ -76,6 +76,26 @@ describe("MCP — la garde d'accès", () => {
     }
   });
 
+  it("🔴 REFUSE un appel RELAYÉ sur une porte locale, même arrivé du loopback", () => {
+    // Un relais posé sur la même machine (le nginx de `proxy:generate`) se
+    // connecte depuis 127.0.0.1 : sans `trustProxy`, l'adresse vue est la
+    // sienne, et la porte locale servait Internet sans jeton.
+    const verdict = checkMcpAccess(
+      { remoteAddress: "127.0.0.1", relayed: true },
+      { allowedOrigins: [], allowRemote: false },
+    );
+    expect(verdict.allowed).toBe(false);
+    if (!verdict.allowed) expect(verdict.why).toMatch(/relayé/u);
+  });
+
+  it("un appel relayé passe quand la porte admet le distant", () => {
+    const verdict = checkMcpAccess(
+      { remoteAddress: "127.0.0.1", relayed: true },
+      { allowedOrigins: [], allowRemote: true },
+    );
+    expect(verdict.allowed).toBe(true);
+  });
+
   it("allowRemote ouvre la porte quand on l'a demandé", () => {
     const verdict = checkMcpAccess(
       { remoteAddress: "203.0.113.9" },

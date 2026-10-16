@@ -133,6 +133,23 @@ describe.skipIf(reason !== null)(
       expect(reply.status).toBe(403);
     });
 
+    it("appel RELAYÉ (en-tête de relais) sur la porte locale : 403", async () => {
+      // `Via` n'est lu par aucun `trustProxy` : le refus ne peut venir que
+      // de la garde de la porte, qui voit un relais devant elle.
+      for (const relais of [
+        { via: "1.1 nginx" },
+        { "x-forwarded-for": "203.0.113.9" },
+        { forwarded: "for=203.0.113.9" },
+        { "x-real-ip": "203.0.113.9" },
+      ]) {
+        const reply = await post(
+          { jsonrpc: "2.0", id: 5, method: "tools/list" },
+          relais,
+        );
+        expect(reply.status, JSON.stringify(relais)).toBe(403);
+      }
+    });
+
     it("notification : 202 SANS corps", async () => {
       const reply = await post({
         jsonrpc: "2.0",
