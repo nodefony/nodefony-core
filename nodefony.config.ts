@@ -66,6 +66,7 @@ export type { IFrontendConfigInput } from "@nodefony/frontend";
 export type { IDocumentationConfigInput } from "@nodefony/documentation";
 export type { IStudioConfigInput } from "@nodefony/studio";
 export type { IDevkitConfigInput } from "@nodefony/devkit";
+export type { IAiConfigInput } from "@nodefony/ai";
 
 /** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
 type Env = typeof env;
@@ -208,6 +209,9 @@ export default defineConfig<Env>((ctx) => ({
       when: () => !!ctx.infra.cache,
     }),
 
+    // Boîte à outils IA (serveur MCP…) — chargée dans TOUS les environnements :
+    // c’est une brique de production. AVANT devkit, qui la consomme.
+    use("@nodefony/ai", {}),
     /**
      * Outillage de DÉVELOPPEMENT : carte de visite de l'application et portes de
      * découverte pour un agent.

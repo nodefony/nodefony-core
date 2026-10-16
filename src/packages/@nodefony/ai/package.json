@@ -1,0 +1,83 @@
+{
+  "name": "@nodefony/ai",
+  "version": "10.0.0-beta.3",
+  "description": "La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique",
+  "contributors": [],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "nodefony-source": "./index.ts",
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json",
+    "test": "vitest run",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "coverage": "vitest run --coverage"
+  },
+  "private": false,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "keywords": [
+    "nodefony",
+    "ai",
+    "mcp",
+    "model-context-protocol",
+    "agents",
+    "llm",
+    "typescript",
+    "esm"
+  ],
+  "nodefony": {
+    "configSchema": "./dist/nodefony/config/configSchema.js"
+  },
+  "peerDependencies": {
+    "nodefony": "^10.0.0-beta.3",
+    "@nodefony/framework": "^10.0.0-beta.3",
+    "zod": "^4.6.7",
+    "@nodefony/http": "^10.0.0-beta.3"
+  },
+  "dependencies": {
+    "tslib": "2.8.1"
+  },
+  "devDependencies": {
+    "nodefony": "^10.0.0-beta.3",
+    "@nodefony/framework": "^10.0.0-beta.3",
+    "@nodefony/http": "^10.0.0-beta.3",
+    "@types/node": "26.6.5",
+    "vitest": "5.0.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/ai"
+  },
+  "license": "Apache-2.0",
+  "licenses": [
+    {
+      "type": "Apache-2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  ],
+  "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
+  "readmeFilename": "README.md",
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://nodefony.github.io/nodefony-core/",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
+  }
+}
