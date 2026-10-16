@@ -716,6 +716,20 @@ corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé)
 défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). Noms de
 fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
 
+**`--kind mcp [--expose local|oauth]`** — la porte MCP d'APPLICATION (#602) : controller mince
+(`gate.serve`), `nodefony/mcp/<kebab>-gate.ts` (`defineMcpGate`, liste EXPLICITE d'outils —
+jamais `"modules"`, qui publierait par héritage), `<kebab>-tools.ts` (deux exemples : lecture
+courte, opération longue avec progression/annulation), `tests/<kebab>-gate.test.ts`
+(`gate.respond`, sans serveur). `oauth` ajoute `allowRemote`, `authorization` (émetteur ET
+ressource tirés de `publicBaseUrl` de `nodefony/config/security.ts` — une seule règle, jamais
+recopiée) et `<Pascal>GateService` (`publishedProtectedResources()`, câblé `@services`) : sans
+lui, le défi `401` désigne un document en 404. Gardes AVANT écriture (`checkMcpGateScaffold`) :
+`@nodefony/ai` absent · nom `nodefony*` (outils réservés) · `--role` (une porte se protège par
+jeton, pas par session) · `oauth` dans un module (décision d'APPLICATION), sans
+`@nodefony/security`, ou sans `publicBaseUrl`. L'audience de dev n'est PAS insérée dans
+`jwt.audiences` : la note donne la ligne. Banc : `verify-generated.mjs` génère les deux
+expositions et les frappe en production.
+
 `nodefony create service <Nom> [--description "…"] [--module <nom>]` — scaffold
 **IN-PROJECT** d'un service injectable dans `<cible>/nodefony/service/<Nom>Service.ts`,
 accompagné de son interface (`nodefony/interfaces/I<Nom>Service.ts`). Classe

@@ -184,6 +184,10 @@ export function parseCreateArgv(
       answers.database = rest[++i];
     } else if (word === "--kind") {
       answers.kind = rest[++i];
+    } else if (word === "--expose") {
+      // `create controller --kind mcp` : qui peut frapper à la porte. Validée
+      // par la spec (question `choice`) — une valeur inconnue est refusée.
+      answers.expose = rest[++i];
     } else if (word === "--controller") {
       answers.controller = rest[++i];
     } else if (word === "--description") {

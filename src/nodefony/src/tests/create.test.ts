@@ -5087,6 +5087,119 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("mcp local : porte + outils + test, sans jeton ni service de publication", () => {
+      const dest = path.join(tmp, "mcploc");
+      scaffold(dest, { name: "mcploc", preset: "minimal" });
+      const r = controller(dest, { name: "mcp", kind: "mcp" });
+      const at = (...p: string[]) => path.join(dest, ...p);
+      const ctrl = readFileSync(
+        at("nodefony", "controllers", "McpController.ts"),
+        "utf8",
+      );
+      // Le controller SERT la porte, il ne la définit pas : aucune ligne de
+      // protocole, aucun contrôle d'accès dans la classe.
+      assert.include(ctrl, '@controller("/api/mcp")');
+      assert.include(ctrl, "mcpGate.serve(this, body)");
+      assert.include(ctrl, 'methods: ["POST", "GET", "DELETE"]');
+      const gate = readFileSync(at("nodefony", "mcp", "mcp-gate.ts"), "utf8");
+      assert.include(gate, 'import { defineMcpGate } from "@nodefony/ai"');
+      // Liste EXPLICITE : une porte publie ce qu'elle choisit.
+      assert.include(codeOnly(gate), "tools: mcpTools,");
+      assert.notInclude(codeOnly(gate), '"modules"');
+      assert.notInclude(codeOnly(gate), "authorization");
+      assert.notInclude(codeOnly(gate), "allowRemote");
+      const tools = readFileSync(at("nodefony", "mcp", "mcp-tools.ts"), "utf8");
+      assert.include(tools, '"mcp_echo"');
+      assert.include(tools, '"mcp_batch"');
+      assert.include(tools, "run?.progress(");
+      const test = readFileSync(at("tests", "mcp-gate.test.ts"), "utf8");
+      assert.include(test, "status: 403");
+      assert.isFalse(
+        existsSync(at("nodefony", "service", "McpGateService.ts")),
+      );
+      const index = readFileSync(at("index.ts"), "utf8");
+      assert.match(index, /@controllers\(\[[^\]]*McpController\]\)/u);
+      assert.notInclude(index, "GateService");
+      assert.include((r.notes ?? []).join("\n"), "PORTE LOCALE");
+      assertNoEtaResidue(dest);
+    });
+
+    it("mcp oauth : jeton exigé, émetteur de l'app, document RFC 9728 publié", () => {
+      const dest = path.join(tmp, "mcpoauth");
+      scaffold(dest, { name: "mcpoauth", preset: "complete" });
+      const r = controller(dest, {
+        name: "agent",
+        kind: "mcp",
+        expose: "oauth",
+        route: "/api/mcp",
+      });
+      const at = (...p: string[]) => path.join(dest, ...p);
+      const gate = codeOnly(
+        readFileSync(at("nodefony", "mcp", "agent-gate.ts"), "utf8"),
+      );
+      // L'adresse publique vient de la SEULE règle de l'app, jamais du `Host`.
+      assert.include(
+        gate,
+        'import { publicBaseUrl } from "../config/security"',
+      );
+      assert.include(gate, "authorizationServers: [publicBaseUrl(env)]");
+      assert.include(gate, "resource: agentGateResource(env)");
+      assert.include(gate, "allowRemote: true");
+      assert.include(gate, "`${publicBaseUrl(e)}/api/mcp`");
+      const service = readFileSync(
+        at("nodefony", "service", "AgentGateService.ts"),
+        "utf8",
+      );
+      assert.include(service, "publishedProtectedResources()");
+      assert.include(service, "agentGate.protectedResources()");
+      const index = readFileSync(at("index.ts"), "utf8");
+      assert.match(index, /@services\(\[[^\]]*AgentGateService\]\)/u);
+      const test = readFileSync(at("tests", "agent-gate.test.ts"), "utf8");
+      assert.include(test, "status: 401");
+      assert.include(test, "\\/api\\/mcp$/u");
+      const notes = (r.notes ?? []).join("\n");
+      // Écrite SUR PLACE : importer la fonction de la porte dans security.ts
+      // ferait un cycle, et `publicBaseUrl` serait lu avant sa définition.
+      assert.include(notes, "`${publicBaseUrl(ctx.env)}/api/mcp`");
+      assert.notInclude(notes, "agentGateResource(ctx.env)");
+      assert.include(notes, "NF_JWT_ISSUER");
+      assertNoEtaResidue(dest);
+    });
+
+    it("mcp : gardes AVANT écriture (brique, rôle, nom réservé, module, sécurité)", () => {
+      const mini = path.join(tmp, "mcpgard");
+      scaffold(mini, { name: "mcpgard", preset: "minimal" });
+      // Sans @nodefony/security : rien ne vérifierait le jeton.
+      assert.throws(
+        () => controller(mini, { name: "mcp", kind: "mcp", expose: "oauth" }),
+        /@nodefony\/security/u,
+      );
+      assert.throws(
+        () =>
+          controller(mini, { name: "mcp", kind: "mcp", role: "ROLE_AGENT" }),
+        /--role ne s'applique pas/u,
+      );
+      assert.throws(
+        () => controller(mini, { name: "nodefony-tools", kind: "mcp" }),
+        /réservé/u,
+      );
+      assert.isFalse(
+        existsSync(path.join(mini, "nodefony", "mcp")),
+        "un refus n'écrit rien",
+      );
+      // Sans @nodefony/ai : la porte n'aurait pas de protocole.
+      const pkgPath = path.join(mini, "package.json");
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+        dependencies: Record<string, string>;
+      };
+      delete pkg.dependencies["@nodefony/ai"];
+      writeFileSync(pkgPath, JSON.stringify(pkg));
+      assert.throws(
+        () => controller(mini, { name: "mcp", kind: "mcp" }),
+        /@nodefony\/ai/u,
+      );
+    });
+
     it("example complete : vitrine décorateurs (sécu + idempotence + session)", () => {
       const dest = path.join(tmp, "exfull");
       scaffold(dest, { name: "exfull", preset: "complete" });

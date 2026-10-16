@@ -246,6 +246,17 @@ const CONTROLLER_GARDE_CLASS = "CoffreController";
 const ROLE_GARDE = "ROLE_COFFRE";
 
 /**
+ * Les deux PORTES MCP générées (#602) : une locale, une protégée par jeton.
+ *
+ * Elles sortent de deux branches d'un même gabarit, et ce qui les distingue —
+ * l'import de l'émetteur, le service qui publie le document RFC 9728, le
+ * `401` — n'est vu par aucune assertion du dépôt : il faut le compiler, le
+ * tester, puis le FRAPPER sur un serveur réel.
+ */
+const MCP_LOCAL = "outils";
+const MCP_OAUTH = "agent";
+
+/**
  * Le service témoin, la méthode qui REMPLACE son exemple, et la commande qui
  * l'appelle.
  *
@@ -1021,6 +1032,49 @@ step(
     if (!/@entities\(\[[^\]]*CommentEntity/u.test(moduleIndex))
       throw new Error(
         "CommentEntity n'est pas déclarée dans le module — sa table ne sera pas créée",
+      );
+  },
+);
+
+step(
+  "génération : deux PORTES MCP, locale et protégée par jeton (#602)",
+  "Le controller qui sert une porte, ses outils, son test — et, protégée, le service qui publie son document RFC 9728.",
+  () => {
+    run(process.execPath, [
+      BIN,
+      "create",
+      "controller",
+      MCP_LOCAL,
+      "--kind",
+      "mcp",
+      "--yes",
+    ]);
+    run(process.execPath, [
+      BIN,
+      "create",
+      "controller",
+      MCP_OAUTH,
+      "--kind",
+      "mcp",
+      "--expose",
+      "oauth",
+      "--yes",
+    ]);
+    // Le câblage, constaté sur le disque : une porte protégée dont le service
+    // de publication n'est pas enregistré compile et répond 401 — avec un défi
+    // qui désigne une adresse servie par personne.
+    const index = readFileSync(path.join(APP, "index.ts"), "utf8");
+    for (const classe of ["OutilsController", "AgentController"]) {
+      if (!new RegExp(`@controllers\\(\\[[^\\]]*${classe}`, "u").test(index))
+        throw new Error(`${classe} absent de @controllers([…])`);
+    }
+    if (!/@services\(\[[^\]]*AgentGateService/u.test(index))
+      throw new Error(
+        "AgentGateService absent de @services([…]) — le document RFC 9728 ne sera pas publié",
+      );
+    if (/OutilsGateService/u.test(index))
+      throw new Error(
+        "la porte LOCALE a reçu un service de publication — elle ne protège rien",
       );
   },
 );
@@ -1844,6 +1898,50 @@ function exigerBriquesMongoose() {
     );
 }
 
+/**
+ * Les deux portes MCP générées, FRAPPÉES sur le serveur de production (#602).
+ *
+ * Trois faits qu'aucune autre étape ne voit : la porte locale sert un vrai
+ * `tools/call` à la machine ; la porte protégée refuse l'appel sans jeton en
+ * `401` ET désigne, dans son défi, un document que le serveur SERT — un défi
+ * vers un `404` est un mur pour l'agent ; ce document nomme la porte.
+ *
+ * Le document n'est servi que sur l'autorité de sa ressource (`https`, port
+ * TLS) : la sonde le lit donc là, en acceptant le certificat de développement.
+ */
+function frapperPortesMcp() {
+  const sonde = `
+    const appel = (port, chemin) => fetch("http://127.0.0.1:" + port + chemin, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call",
+        params: { name: "${MCP_LOCAL}_echo", arguments: { text: "bonjour-banc" } } }),
+    });
+    const echec = (m) => { console.error(m); process.exit(1); };
+    const locale = await appel(${PORTS.NF_PORT}, "/api/${MCP_LOCAL}");
+    const texte = await locale.text();
+    if (locale.status !== 200 || !texte.includes("bonjour-banc"))
+      echec("porte locale → " + locale.status + " " + texte.slice(0, 300));
+    const protegee = await appel(${PORTS.NF_PORT}, "/api/${MCP_OAUTH}");
+    const defi = protegee.headers.get("www-authenticate") ?? "";
+    if (protegee.status !== 401)
+      echec("porte protégée SANS jeton → " + protegee.status + " (401 attendu)");
+    const meta = /resource_metadata="([^"]+)"/u.exec(defi)?.[1];
+    if (!meta) echec("défi sans resource_metadata : " + defi);
+    const doc = await fetch(meta);
+    const corps = await doc.text();
+    if (doc.status !== 200 || !corps.includes("/api/${MCP_OAUTH}"))
+      echec("document RFC 9728 (" + meta + ") → " + doc.status + " " + corps.slice(0, 300));
+  `;
+  execFileSync(process.execPath, ["--input-type=module", "-e", sonde], {
+    encoding: "utf8",
+    timeout: 30_000,
+    // Certificat de développement de l'application : la sonde lit le document
+    // sur l'autorité https de la ressource, seule où il est servi.
+    env: { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+  });
+}
+
 step(
   "l'app DÉMARRE en PRODUCTION et sert une route",
   "Le mode que les autres étapes n'exercent jamais — un défaut de dépendance " +
@@ -1921,6 +2019,7 @@ step(
         );
         void res;
       }
+      frapperPortesMcp();
       if (MONGO) exigerBriquesMongoose();
     } finally {
       // Toujours, même en échec : un serveur détaché qui survit au banc tient
@@ -2251,6 +2350,115 @@ step(
       throw new Error(
         `token émis pour « ${charge.aud} » — ce n'est pas la porte MCP`,
       );
+    }
+  },
+);
+
+/**
+ * Un `tools/call` sur une porte MCP du serveur témoin — statut et corps, lus
+ * dans un process à part (le banc reste synchrone).
+ */
+function appelMcp(chemin, outil, jeton) {
+  const sonde = `
+    const r = await fetch("http://127.0.0.1:${PORTS.NF_PORT}${chemin}", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        ${jeton ? `authorization: "Bearer ${jeton}",` : ""}
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call",
+        params: { name: "${outil}", arguments: { text: "jeton-banc" } } }),
+    });
+    console.log(JSON.stringify({ status: r.status, body: await r.text() }));
+  `;
+  return JSON.parse(
+    execFileSync(process.execPath, ["--input-type=module", "-e", sonde], {
+      encoding: "utf8",
+      timeout: 30_000,
+    }),
+  );
+}
+
+/** Un jeton émis par l'application pour une ressource — `access_token` seul. */
+function jetonPour(resource) {
+  const out = run(
+    process.execPath,
+    [BIN, "security:token", "--json", "--ttl", "15", "--resource", resource],
+    APP,
+    { NODE_ENV: "development" },
+  );
+  const token = JSON.parse(out).access_token;
+  if (typeof token !== "string" || token === "")
+    throw new Error(`aucun jeton rendu pour ${resource}`);
+  return token;
+}
+
+step(
+  "la porte MCP protégée S'OUVRE avec un jeton de l'application, et se REFERME révoqué (#602)",
+  "Le jeton signé par l'application est reconnu par sa propre porte — aux conditions de l'authentificateur `jwt` : audience, révocation.",
+  () => {
+    // Le geste que la note de `create controller --expose oauth` prescrit,
+    // ÉCRIT tel qu'elle le dit : l'audience de la porte dans `jwt.audiences`,
+    // en expression sur place. Une note fausse (elle a déjà conseillé un import
+    // qui faisait un cycle) tombe ici, pas chez l'utilisateur.
+    const securite = path.join(APP, "nodefony", "config", "security.ts");
+    const source = readFileSync(securite, "utf8");
+    const ancre = /audiences: ctx\.isProd\s*\?\s*\[\]\s*:\s*\[/u;
+    if (!ancre.test(source))
+      throw new Error(
+        "bloc `jwt.audiences` du gabarit introuvable — la note de --expose oauth désigne un endroit qui n'existe plus",
+      );
+    writeFileSync(
+      securite,
+      source.replace(
+        ancre,
+        (m) =>
+          `${m}\n            \`\${publicBaseUrl(ctx.env)}/api/${MCP_OAUTH}\`,`,
+      ),
+    );
+    run("npm", ["run", "build"]);
+    const ressource = `https://localhost:${PORTS.NF_PORT_HTTPS}/api/${MCP_OAUTH}`;
+    try {
+      run(process.execPath, [BIN, "development", "--detach", "--wait"]);
+      const jeton = jetonPour(ressource);
+      const ouvert = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
+      if (ouvert.status !== 200 || !ouvert.body.includes("jeton-banc"))
+        throw new Error(
+          `jeton de l'application REFUSÉ par sa propre porte → ${ouvert.status} ${ouvert.body.slice(0, 300)}`,
+        );
+      // RFC 8707 : un jeton émis pour une AUTRE ressource de la même
+      // application (la porte de développement) ne s'y rejoue pas.
+      const autre = jetonPour(
+        `https://localhost:${PORTS.NF_PORT_HTTPS}/nodefony/mcp`,
+      );
+      const rejoue = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, autre);
+      if (rejoue.status !== 401)
+        throw new Error(
+          `jeton d'une AUTRE audience servi → ${rejoue.status} (401 attendu)`,
+        );
+      // Le geste d'exploitant qui révoque : changer le mot de passe du compte
+      // révoque ses jetons. Le jeton qui ouvrait la porte doit cesser de
+      // l'ouvrir AVANT son expiration — c'est ce que la lecture du seul jeu de
+      // clés publiques laissait passer.
+      run(process.execPath, [
+        BIN,
+        "security:user:password",
+        "admin",
+        "--password",
+        "Banc-rotation-602!",
+      ]);
+      const revoque = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
+      if (revoque.status !== 401)
+        throw new Error(
+          `jeton RÉVOQUÉ encore servi → ${revoque.status} (401 attendu)`,
+        );
+    } finally {
+      spawnSync(process.execPath, [BIN, "stop"], {
+        cwd: APP,
+        encoding: "utf8",
+        env: envDecor(PORTS),
+      });
     }
   },
 );

@@ -11,7 +11,7 @@ audience: [developer]
 tags: [mcp, agent, ia, json-rpc, sse, outils, progression, annulation, oauth]
 version: "doc"
 status: stable
-updated: 2026-10-08
+updated: 2026-10-16
 source: "src/packages/@nodefony/ai/docs/mcp.md"
 ---
 
@@ -92,8 +92,23 @@ voici pourquoi elle n'aboutit pas » est une phrase que l'agent sait corriger se
 
 ## 🚀 Démarrage rapide
 
-Un module d'application qui expose deux outils : une lecture courte, et une opération longue qui
-signale son avancement et s'arrête si l'agent abandonne.
+**Ouvrir la porte MCP de ton application** — elle se génère, avec deux outils d'exemple et son
+test :
+
+```bash
+npx nodefony create controller mcp --kind mcp                  # porte locale : la machine seulement
+npx nodefony create controller mcp --kind mcp --expose oauth   # production : jeton exigé (401 sans)
+```
+
+Tu ajoutes ensuite tes outils à la liste de `nodefony/mcp/mcp-tools.ts` ; la porte
+(`nodefony/mcp/mcp-gate.ts`) publie cette liste, et rien d'autre. Détail des deux expositions :
+[Monter une porte](#-monter-une-porte).
+
+**Offrir des outils sans ouvrir de porte** — un module les DÉCLARE par `getMcpTools()`, et toute
+porte en `tools: "modules"` les ramasse : c'est le cas de la porte de développement de
+`@nodefony/devkit`, donc de l'agent de code du développeur. L'exemple ci-dessous expose ainsi deux
+outils : une lecture courte, et une opération longue qui signale son avancement et s'arrête si
+l'agent abandonne.
 
 ```ts
 import { Kernel, Module, type IMcpTool } from "nodefony";
@@ -297,7 +312,17 @@ de développement est celle de `@nodefony/devkit` (`DevkitService.mcpGate()`,
 `DevkitService.ts:254`, servie par `McpController.mcp()`, `McpController.ts:84`, `policy: "dev"`).
 Une application ouvre la SIENNE — en développement ou en production, selon ses besoins — en deux
 temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts:373`), puis se **sert** d'une
-ligne depuis une action de controller. Aucune ligne de protocole à écrire :
+ligne depuis une action de controller. `npx nodefony create controller <nom> --kind mcp` écrit les
+deux, avec ses outils d'exemple et son test ; `--expose` choisit qui peut frapper :
+
+| `--expose`       | Qui passe                                           | Ce qui est écrit en plus                                                                                                   |
+| ---------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `local` (défaut) | la machine seulement, sans jeton ; page web → `403` | rien : en production derrière un relais, tout appelant est distant, donc refusé                                            |
+| `oauth`          | quiconque présente un jeton émis pour la porte      | l'émetteur et l'URI publique (`publicBaseUrl`), `allowRemote`, et le service qui publie le document RFC 9728 du défi `401` |
+
+**Une porte publie ce qu'elle CHOISIT** : une liste d'outils importée, comme ci-dessous. `tools:
+"modules"` servirait en plus tout outil qu'un module installé déclare, aujourd'hui ou demain — à
+réserver à l'outillage, jamais à une porte exposée. Aucune ligne de protocole à écrire :
 
 ```ts
 import { Controller, route, controller, Body } from "@nodefony/framework";
@@ -358,6 +383,17 @@ Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:437`, éprouvabl
   `resource_metadata` sans jeton, et tire les rôles des scopes. Son document RFC 9728 se publie par
   un service qui expose `publishedProtectedResources()` en rendant `gate.protectedResources()` :
   les scopes publiés sont ceux que le défi exige.
+- **Le jeton est jugé par le vérificateur de l'application** (`accessTokenVerifier`, posé par
+  `@nodefony/security`), avec l'URI de la porte comme audience. Un jeton que l'application signe
+  elle-même (`npx nodefony security:token --resource <URI de la porte>`) y est **toujours**
+  reconnu — sans rien déclarer dans `resourceServer.issuers` — et jugé par les règles de sa zone
+  `jwt` : un jeton révoqué, ou celui d'un compte désactivé, est refusé avant son expiration. Les
+  neuf contrôles, leur ordre et la réponse de la porte à chaque verdict :
+  [Ce que la porte vérifie](../../security/docs/obtenir-un-jeton.md#-ce-que-la-porte-vérifie--un-jeton-de-cette-application-face-à-une-ressource).
+- **Mixte — des outils publics ET des outils réservés sur la même porte** :
+  `authorization.anonymous: true` sert l'appel SANS jeton avec les seuls outils publics, et un
+  outil se réserve par ses `scopes` (absent du catalogue de qui ne les porte pas). Un jeton rejeté
+  est alors servi comme un inconnu — jamais mieux —, et le refus part au journal.
 
 ## 📏 Normes appliquées — ce que la boîte à outils tient pour toi
 

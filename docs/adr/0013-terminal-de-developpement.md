@@ -367,7 +367,7 @@ interface IConfirmDecision {
   `src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts:84`) — les MÊMES qu'un
   agent externe, soumis au même RBAC. Aucun outil propre à l'invite.
 - **Confirmation** : pour tout outil dont `annotations.readOnlyHint !== true`. Ce champ, la
-  définition d'outil du dépôt (`IMcpTool`, `src/nodefony/src/types/IMcpTool.ts:157`) ne le porte
+  définition d'outil du dépôt (`IMcpTool`, `src/nodefony/src/types/IMcpTool.ts:191`) ne le porte
   PAS encore — `rg -c readOnlyHint src/nodefony/src` ne rend rien :
   [#540](https://github.com/nodefony/nodefony-core/issues/540) l'ajoute et l'émet dans
   `tools/list` AVANT #539 — sans lui, les défauts de la spécification rendent tout outil

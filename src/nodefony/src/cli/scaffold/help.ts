@@ -180,6 +180,10 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "avec `--role` : l'habilitation de classe ET sa déclaration dans la " +
         "hiérarchie des rôles — l'administrateur en hérite sans qu'on ait à " +
         "la lui attribuer.",
+      "avec `--kind mcp` : une porte MCP qui expose les outils de " +
+        "l'application à un agent IA, deux outils d'exemple et leur test ; " +
+        "`--expose oauth` la met derrière un serveur d'autorisation (jeton " +
+        "exigé), `local` (défaut) la réserve à la machine.",
     ],
     before: "À lancer DANS une application Nodefony.",
     examples: [
@@ -190,6 +194,10 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       {
         term: "nodefony create controller Admin --role ROLE_COMPTA",
         text: "tout le controller réservé à cette habilitation",
+      },
+      {
+        term: "nodefony create controller mcp --kind mcp --expose oauth",
+        text: "une porte MCP de production sur /api/mcp, jeton exigé",
       },
     ],
   },

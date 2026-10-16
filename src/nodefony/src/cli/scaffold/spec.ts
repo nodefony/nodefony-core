@@ -529,6 +529,7 @@ export const CONTROLLER_KIND_CHOICES = [
   "duplex",
   "realtime",
   "example",
+  "mcp",
 ] as const;
 export type TControllerKindChoice = (typeof CONTROLLER_KIND_CHOICES)[number];
 
@@ -577,8 +578,36 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
           label: "Vitrine des décorateurs",
           hint: "démo pédagogique : TOUS les décorateurs commentés + curl d'essai",
         },
+        {
+          value: "mcp",
+          label: "Porte MCP (outils pour un agent IA)",
+          hint: "porte Model Context Protocol de l'application + deux outils d'exemple (@nodefony/ai)",
+        },
       ],
       default: "hello",
+    },
+    {
+      // Qui peut frapper à la porte — le CHOIX que la commande refuse de faire
+      // à la place de l'utilisateur. Le défaut est le plus fermé : une porte
+      // locale ne sert que la machine où tourne l'application, donc rien en
+      // production derrière un relais (adresse distante → 403).
+      key: "expose",
+      label: "Exposition de la porte MCP",
+      type: "choice",
+      askWhen: { key: "kind", equals: "mcp" },
+      choices: [
+        {
+          value: "local",
+          label: "Locale — développement (recommandé pour commencer)",
+          hint: "appels de la machine seulement, aucun navigateur, aucun jeton",
+        },
+        {
+          value: "oauth",
+          label: "Production — derrière un serveur d'autorisation",
+          hint: "jeton OAuth exigé (401 sans), appels distants admis (@nodefony/security)",
+        },
+      ],
+      default: "local",
     },
     {
       key: "route",
@@ -803,6 +832,11 @@ const MODULE_SPEC: IScaffoldTypeSpec = {
           value: "example",
           label: "Vitrine des décorateurs",
           hint: "démo pédagogique : TOUS les décorateurs commentés + curl d'essai",
+        },
+        {
+          value: "mcp",
+          label: "Porte MCP locale",
+          hint: "porte Model Context Protocol + deux outils d'exemple (@nodefony/ai)",
         },
         {
           value: "none",

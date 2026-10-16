@@ -173,6 +173,20 @@ les leurs. La porte est une ROUTE : elle n'existe que serveur démarré, et un c
 ENSUITE. Tout le reste (déclarer un outil métier, le réserver à des scopes, l'autorisation OAuth) :
 `node_modules/@nodefony/devkit/docs/index.md`.
 
+**Ta tâche est d'OFFRIR les outils de l'application à un agent** (« expose ceci par MCP ») ? Ce
+n'est pas la porte ci-dessus, qui sert l'outillage en développement : c'est une porte de
+l'APPLICATION, et elle se génère — n'écris pas le protocole à la main :
+
+```bash
+npx nodefony create controller mcp --kind mcp                  # porte locale : la machine seulement
+npx nodefony create controller mcp --kind mcp --expose oauth   # production : jeton exigé (401 sans)
+```
+
+Elle naît avec deux outils d'exemple (`nodefony/mcp/mcp-tools.ts`), sa définition
+(`defineMcpGate`, `nodefony/mcp/mcp-gate.ts`) et son test. Ajoute tes outils à la LISTE de la
+porte : elle publie ce qu'elle choisit, rien d'autre. Mode d'emploi :
+`node_modules/@nodefony/ai/docs/mcp.md` § « Monter une porte ».
+
 ### L'environnement : ne devine JAMAIS, demande
 
 ```bash

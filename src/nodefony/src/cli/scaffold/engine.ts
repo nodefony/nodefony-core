@@ -3222,6 +3222,129 @@ function otherControllerSources(
   return out;
 }
 
+/** Ce que la saveur `mcp` a constaté avant d'écrire. */
+interface IMcpGateScaffold {
+  /** Porte derrière un serveur d'autorisation (jeton exigé). */
+  oauth: boolean;
+}
+
+/**
+ * Gardes de la saveur `mcp` — toutes AVANT le premier fichier écrit.
+ *
+ * Une porte générée doit fonctionner telle quelle ; chaque refus ci-dessous
+ * vise un fichier qui compilerait et laisserait croire à une protection qu'il
+ * n'a pas, ou qui ne compilerait pas du tout.
+ *
+ * @throws sans `@nodefony/ai` ; nom qui produirait des outils réservés
+ *   (`nodefony_`) ; `--role` (une porte se protège par jeton, pas par
+ *   session) ; `--expose oauth` dans un module, sans `@nodefony/security`, ou
+ *   sans l'émetteur de l'application (`publicBaseUrl`).
+ */
+function checkMcpGateScaffold(
+  answers: TScaffoldAnswers,
+  target: IScaffoldTarget,
+  targetDeps: ReadonlySet<string>,
+  kebab: string,
+  writer: ScaffoldWriter,
+): IMcpGateScaffold {
+  if (!targetDeps.has("@nodefony/ai")) {
+    throw new Error(
+      `la saveur mcp exige @nodefony/ai dans ${target.name} — c'est lui qui tient ` +
+        `le protocole (defineMcpGate).\n` +
+        `  → l'ajouter : npm install @nodefony/ai, puis use("@nodefony/ai") au manifeste`,
+    );
+  }
+  // Les outils d'exemple se préfixent du nom : `nodefony_` est réservé aux
+  // outils du framework, et la porte refuserait de démarrer.
+  if (/^nodefony(?:-|$)/u.test(kebab)) {
+    throw new Error(
+      `le nom « ${kebab} » préfixerait les outils de \`nodefony_\`, réservé aux ` +
+        `outils du framework — choisis un autre nom (ex : mcp, agent)`,
+    );
+  }
+  // Un `@IsGranted` de classe lit l'identité du pare-feu, pas le jeton que la
+  // porte vérifie : il refuserait l'agent, ou ne protégerait rien. La garde
+  // d'une porte vit dans sa définition (`authorization`, `scopes` d'un outil).
+  if (String(answers.role ?? "").trim() !== "") {
+    throw new Error(
+      "--role ne s'applique pas à une porte MCP : elle se protège par jeton " +
+        "(--expose oauth), et un outil se réserve par ses `scopes`",
+    );
+  }
+  const oauth = answers.expose === "oauth";
+  if (!oauth) return { oauth };
+  // L'autorisation d'une porte publique est une décision de l'APPLICATION,
+  // comme l'audience de ses jetons et la hiérarchie de ses rôles : un module
+  // ne lit pas l'environnement de l'application qui l'installe.
+  if (target.kind === "module") {
+    throw new Error(
+      `--expose oauth se génère à la racine de l'application, pas dans le module ${target.name} : ` +
+        `l'émetteur des jetons et l'URL publique sont à elle.\n` +
+        `  → sans --module, ou --expose local dans le module`,
+    );
+  }
+  if (!targetDeps.has("@nodefony/security")) {
+    throw new Error(
+      `--expose oauth exige @nodefony/security dans ${target.name} — sans lui, aucun ` +
+        `jeton n'est vérifié et la porte refuserait tout (503).\n` +
+        `  → l'ajouter : npm install @nodefony/security, puis use("@nodefony/security", {}) au manifeste`,
+    );
+  }
+  // L'URL publique se lit à UN endroit (`publicBaseUrl`, posé par le preset
+  // complete) : la recopier dans la porte ferait deux règles qui divergent.
+  const securityConfig = path.join(
+    target.dir,
+    "nodefony",
+    "config",
+    "security.ts",
+  );
+  if (
+    !writer.exists(securityConfig) ||
+    !/export const publicBaseUrl\b/u.test(writer.read(securityConfig))
+  ) {
+    throw new Error(
+      "--expose oauth lit l'adresse publique de l'application dans " +
+        "nodefony/config/security.ts (`export const publicBaseUrl`), introuvable — " +
+        "c'est l'émetteur des jetons ET l'audience de la porte.\n" +
+        "  → déclarer `publicBaseUrl` dans ce fichier (le preset complete le fait), " +
+        "ou --expose local",
+    );
+  }
+  return { oauth };
+}
+
+/**
+ * Notes de la saveur `mcp` : ce qui est servi, comment l'essayer, et ce qui
+ * reste à décider — l'audience de développement en mode `oauth`.
+ */
+function mcpGateNotes(
+  route: string,
+  kebab: string,
+  pascal: string,
+  oauth: boolean,
+): string[] {
+  const tools = `${kebab.replaceAll("-", "_")}_echo · ${kebab.replaceAll("-", "_")}_batch`;
+  const common = [
+    `MCP  POST ${route} — outils ${tools} (nodefony/mcp/${kebab}-tools.ts)`,
+    `TEST tests/${kebab}-gate.test.ts — \`npx vitest run\` (la porte éprouvée sans serveur)`,
+  ];
+  if (!oauth) {
+    return [
+      ...common,
+      `PORTE LOCALE : la machine seulement (adresse distante ou page web → 403), sans jeton — ` +
+        `pour la production : --expose oauth`,
+    ];
+  }
+  return [
+    ...common,
+    `PORTE PROTÉGÉE : jeton exigé (401 sans), document RFC 9728 publié par ${pascal}GateService`,
+    `⚠ pour qu'un jeton de CETTE application l'ouvre, ajoute \`\`\${publicBaseUrl(ctx.env)}${route}\`\` ` +
+      `à \`jwt.audiences\` (nodefony/config/security.ts — écrite sur place, sans importer la porte : cycle), puis ` +
+      `\`npx nodefony security:token --resource <URL de la porte>\` — sans elle : invalid_target`,
+    `⚠ en production, pose NF_JWT_ISSUER (l'URL publique) : c'est l'adresse que la porte annonce`,
+  ];
+}
+
 /**
  * Scaffold IN-PROJECT d'un controller : résout la cible (app racine ou module),
  * rend le template de la saveur (`hello`/`rest`/`duplex`/`realtime`/`example`)
@@ -3296,6 +3419,12 @@ function runControllerScaffold(
         `ajoute la dep + use("@nodefony/realtime") au manifeste, ou choisis --kind hello`,
     );
   }
+  // Avant la garde de rôle : sur une porte, `--role` est refusé pour sa
+  // propre raison, pas pour l'absence de @nodefony/security.
+  const mcp =
+    kind === "mcp"
+      ? checkMcpGateScaffold(answers, target, targetDeps, kebab, writer)
+      : null;
   // Une garde de rôle sans le module qui l'évalue serait un décorateur inerte :
   // le controller compilerait, la route répondrait à tout le monde, et rien ne
   // le dirait. Refus AVANT d'écrire, avec le geste — jamais un fichier posé
@@ -3310,10 +3439,18 @@ function runControllerScaffold(
   }
   const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
+  const pascal = toPascalCase(base);
   const data = {
     nameClass,
     kebab,
     route,
+    pascal,
+    camel: pascal.charAt(0).toLowerCase() + pascal.slice(1),
+    // La porte MCP : préfixe de ses outils d'exemple, exposition, et la route
+    // échappée pour l'expression du test généré.
+    toolPrefix: kebab.replaceAll("-", "_"),
+    oauth: mcp?.oauth === true,
+    routeRegex: route.replace(/[.*+?^${}()|[\]\\/]/gu, "\\$&"),
     channel: kebab,
     hasSecurity: targetDeps.has("@nodefony/security"),
     // Le controller créé à la demande monte son index à la racine de SON
@@ -3339,8 +3476,19 @@ function runControllerScaffold(
     // `__KEBAB__` sert au test généré (`tests/<kebab>-realtime.test.ts`) : un
     // fichier de test se nomme d'après la ROUTE qu'il éprouve, pas d'après la
     // classe — c'est ainsi qu'on le retrouve depuis un journal ou une URL.
-    { __NAME__: nameClass, __KEBAB__: kebab },
+    { __NAME__: nameClass, __KEBAB__: kebab, __PASCAL__: pascal },
   );
+  // La porte protégée publie son document RFC 9728 par un service : sans lui,
+  // le défi du 401 désignerait une adresse qui répond 404.
+  if (mcp?.oauth === true) {
+    wireDecoratorList(
+      path.join(target.dir, "index.ts"),
+      "services",
+      `${pascal}GateService`,
+      `./nodefony/service/${pascal}GateService`,
+      writer,
+    );
+  }
   wireDecoratorList(
     path.join(target.dir, "index.ts"),
     "controllers",
@@ -3390,6 +3538,7 @@ function runControllerScaffold(
       `REST ${route} (vitrine décorateurs — voir les curl du TSDoc généré)`,
       `WS   ${route}/echo`,
     ],
+    mcp: mcpGateNotes(route, kebab, pascal, mcp?.oauth === true),
   };
   // 🔴 Une garde de rôle ferme un FICHIER, pas un ESPACE. Toute route servie
   // sous le même préfixe par un AUTRE controller reste ouverte — et la
