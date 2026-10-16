@@ -14,6 +14,7 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { version } from "../../package.json";
 import {
   argvMcpWiring,
@@ -200,6 +201,7 @@ function assertTreeUnchanged(before: Map<string, string>, dir: string): void {
 
 /** Aucun résidu de template dans le rendu (tag eta oublié = projet corrompu). */
 function assertNoEtaResidue(dest: string): void {
+  assertTypeSound(dest);
   for (const entry of readdirSync(dest, {
     recursive: true,
     withFileTypes: true,
@@ -245,12 +247,50 @@ function assertTypeSound(dest: string): void {
     recursive: true,
     withFileTypes: true,
   })) {
-    if (!entry.isFile() || !/\.tsx?$/u.test(entry.name)) continue;
+    if (!entry.isFile() || !/\.(tsx?|vue|svelte)$/u.test(entry.name)) continue;
     const file = path.join(entry.parentPath, entry.name);
     if (file.includes(`${path.sep}node_modules${path.sep}`)) continue;
-    const lines = readFileSync(file, "utf8").split("\n");
+    const raw = readFileSync(file, "utf8");
+    // Un composant Vue/Svelte porte son TypeScript dans <script> : on ne lit que lui.
+    const chunks: { text: string; line: number }[] = /\.(vue|svelte)$/u.test(
+      entry.name,
+    )
+      ? [...raw.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gu)].map((m) => ({
+          text: m[1] ?? "",
+          line: raw.slice(0, m.index).split("\n").length - 1,
+        }))
+      : [{ text: raw, line: 0 }];
+    for (const chunk of chunks) {
+      // L'ARBRE syntaxique décide : « as » dans une chaîne, un gabarit Angular
+      // ou un alias d'import (`import { a as b }`) n'est pas une conversion.
+      const sf = ts.createSourceFile(
+        file,
+        chunk.text,
+        ts.ScriptTarget.Latest,
+        true,
+        entry.name.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      );
+      const visit = (node: ts.Node): void => {
+        const isConstCast =
+          ts.isAsExpression(node) &&
+          ts.isTypeReferenceNode(node.type) &&
+          node.type.typeName.getText(sf) === "const";
+        if (
+          (ts.isAsExpression(node) && !isConstCast) ||
+          ts.isTypeAssertionExpression(node)
+        ) {
+          const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+          assert.fail(
+            `conversion de type non vérifiée (${path.relative(dest, file)}:${line + 1 + chunk.line}) : ${node.getText(sf).split("\n")[0]}`,
+          );
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sf);
+    }
+    if (!/\.tsx?$/u.test(entry.name)) continue;
     let inDoc = false;
-    lines.forEach((line, index) => {
+    raw.split("\n").forEach((line, index) => {
       const where = `${path.relative(dest, file)}:${index + 1}`;
       if (/^\s*\/\*\*/u.test(line) && !line.includes("*/")) inDoc = true;
       else if (inDoc && line.includes("*/")) inDoc = false;
@@ -258,17 +298,9 @@ function assertTypeSound(dest: string): void {
         assert.match(
           line,
           /^\s*\*/u,
-          `TSDoc coupé par une ligne vide (${where})`,
+          `TSDoc coupé par une ligne vide (${where}) après : ${raw.split("\n")[index - 1] ?? ""}`,
         );
       }
-      if (inDoc || /^\s*(\*|\/\/|\/\*)/u.test(line)) return;
-      // Les littéraux de chaîne d'abord : « as » y est de la prose.
-      const code = line.replace(/(["'`])(?:\\.|(?!\1).)*\1/gu, '""');
-      assert.notMatch(
-        code,
-        /\bas\s+(?!const\b)[A-Za-z_{([<]/u,
-        `conversion de type non vérifiée (${where}) : ${line.trim()}`,
-      );
     });
   }
 }
@@ -7911,6 +7943,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, "Relation « ${name} » inconnue");
     });
 
+    it("le code rendu d'une entité à RELATIONS n'affirme aucun type — clé uuid, clé serial, référence facultative", () => {
+      // La fabrique d'échantillon lit `refs` (`string | number`) pour la colonne
+      // de référence : c'est le moteur, pas un gabarit, qui écrit cette ligne —
+      // la garde générique ne la voyait pas tant qu'aucun rendu n'avait de `ref:`.
+      const dest = app("eapp4rel");
+      entity(dest, { name: "Author", fields: "email:string" });
+      entity(dest, {
+        name: "Ticket",
+        fields: "title:string author:ref:Author reviewer:ref:Author?",
+      });
+      entity(dest, { name: "Counter", fields: "label:string", id: "serial" });
+      entity(dest, {
+        name: "Hit",
+        fields: "path:string counter:ref:Counter owner:ref:Counter?",
+        id: "serial",
+      });
+      assertTypeSound(dest);
+      const hit = readFileSync(
+        path.join(dest, "nodefony", "entity", "Hit.ts"),
+        "utf8",
+      );
+      assert.include(hit, "counter: Number(refs.Counter ??");
+      assert.include(hit, "Number(refs.Counter) })");
+    });
+
     it("sans horodatage, l'ordre par défaut retombe sur l'id (jamais rien)", () => {
       const dest = app("eapp4c");
       entity(dest, {
@@ -9107,7 +9164,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /^ \*.*\S \*$/mu,
         "ligne de TSDoc recollée — tag eta en fin de ligne",
       );
-      assert.match(src, /as BlogService \| undefined;/u);
+      assert.match(src, /instanceof BlogService/u);
       // Une cible SANS service : produire l'appel ne compilerait pas — on refuse
       // AVANT d'écrire plutôt que de livrer du code cassé. L'app racine en porte
       // un depuis que « Minimal » pose son exemple, alors le décor l'ôte : c'est

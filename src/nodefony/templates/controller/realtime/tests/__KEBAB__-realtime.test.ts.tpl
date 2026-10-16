@@ -4,7 +4,41 @@ import { getRealtimeHub } from "@nodefony/realtime";
 <% } %>import { createRealtimeHarness } from "@nodefony/realtime/testing";
 import <%= it.nameClass %> from "../nodefony/controllers/<%= it.nameClass %>";
 
-/**
+/** Lit un champ d'une valeur reçue du réseau, sans présumer de sa forme. */
+function field(value: unknown, key: string): unknown {
+  return typeof value === "object" && value !== null && key in value
+    ? Reflect.get(value, key)
+    : undefined;
+}
+
+<% if (it.hasSecurity) { %>/**
+ * Jeton de session factice : celui que le pare-feu aurait résolu au handshake.
+ *
+ * `getAttribute` est une signature à surcharge : le contrat `IRealtimeToken` la
+ * veut typée par l'APPELANT (`getAttribute<IUser>("user")`), ce qu'aucune
+ * implémentation ne peut vérifier — la surcharge le dit, au lieu de le cacher
+ * derrière une conversion.
+ */
+class SessionStubToken implements IRealtimeToken {
+  readonly type = "session";
+
+  constructor(
+    private readonly identifier: string,
+    private readonly attributes: ReadonlyMap<string, unknown>,
+  ) {}
+
+  getUserIdentifier = (): string => this.identifier;
+  isAuthenticated = (): boolean => true;
+  getRoles = (): string[] => ["ROLE_USER"];
+  getScopes = (): string[] => [];
+
+  getAttribute<T = unknown>(key: string): T | undefined;
+  getAttribute(key: string): unknown {
+    return this.attributes.get(key);
+  }
+}
+
+<% } %>/**
  * Tests de la socket de <%= it.nameClass %>, sans serveur ni navigateur.
  *
  * `createRealtimeHarness` monte le controller sur une fausse connexion et
@@ -32,9 +66,12 @@ describe("<%= it.nameClass %> — socket", () => {
   it("annonce ses canaux et ses actions au client qui se connecte", async () => {
     const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx));
     const welcome = await h.connect();
-    const params = welcome.params as Record<string, unknown>;
-    expect(params.channels).toContain("<%= it.channel %>:events");
-    expect(params.methods).toContain("<%= it.channel %>:ping");
+    // Lus d’abord, comparés ensuite : la ligne ne dépend plus de la longueur
+    // du nom du canal, et le formateur la laisse telle quelle.
+    const channels = field(welcome.params, "channels");
+    const methods = field(welcome.params, "methods");
+    expect(channels).toContain("<%= it.channel %>:events");
+    expect(methods).toContain("<%= it.channel %>:ping");
     h.dispose();
   });
 
@@ -83,18 +120,10 @@ describe("<%= it.nameClass %> — socket", () => {
     // écrit au nom de quelqu'un doit avoir CE test : sans lui, un appelant
     // introuvable ne se voit qu'en production.
     const alice = { identifier: "alice" };
-    const attributes = new Map<string, unknown>([["user", alice]]);
-    const identity: IRealtimeToken = {
-      type: "session",
-      getUserIdentifier: () => alice.identifier,
-      isAuthenticated: () => true,
-      getRoles: () => ["ROLE_USER"],
-      getScopes: () => [],
-      // Signature générique imposée par le contrat `IRealtimeToken` — même
-      // dérogation que les jetons du framework.
-      // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
-      getAttribute: <T>(key: string) => attributes.get(key) as T | undefined,
-    };
+    const identity = new SessionStubToken(
+      alice.identifier,
+      new Map<string, unknown>([["user", alice]]),
+    );
     const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx), {
       identity,
     });

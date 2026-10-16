@@ -166,8 +166,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * appliqués après découpage : filtrer une page déjà tranchée rendrait des pages
    * incomplètes, et un `total` qui ne correspond à rien.
    *
-<% } %>
-   * ⚠️ `offset` se dégrade sur les grandes tables (la base doit compter les lignes
+<% } %>   * ⚠️ `offset` se dégrade sur les grandes tables (la base doit compter les lignes
    * sautées) et peut sauter des enregistrements si des insertions ont lieu pendant la
    * pagination. Un curseur opaque viendra le remplacer.
    *
@@ -252,7 +251,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
     const created = await this.createResource(payload);
     this.context?.response?.setHeader(
       "Location",
-      `<%= it.route %>/${encodeURIComponent(String((created as { id: unknown }).id))}`,
+      `<%= it.route %>/${encodeURIComponent(String(created.id))}`,
     );
     return created;
   }

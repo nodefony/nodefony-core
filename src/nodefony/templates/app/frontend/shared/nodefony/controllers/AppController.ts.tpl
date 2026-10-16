@@ -1,6 +1,6 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-import type { FrontendService } from "@nodefony/frontend";
+import { FrontendService } from "@nodefony/frontend";
 
 /**
  * Sert la page de l'app <%= it.frontend %>. Le HTML ne vit PAS ici : c'est la
@@ -23,9 +23,9 @@ class AppController extends Controller {
   @route("route-app-index", { path: "/", method: "GET" })
   renderApp(): unknown {
     this.setContextHtml();
-    const svc = this.context?.container?.get("frontend") as
-      FrontendService | undefined;
-    if (!svc) {
+    // `instanceof` plutôt qu'une conversion : le conteneur rend `unknown`.
+    const svc = this.context?.container?.get("frontend");
+    if (!(svc instanceof FrontendService)) {
       return this.render("<!-- @nodefony/frontend not ready -->");
     }
     return this.render(

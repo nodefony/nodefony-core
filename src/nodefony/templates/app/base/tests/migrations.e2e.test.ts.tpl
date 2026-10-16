@@ -18,6 +18,7 @@ import { nodefonyBin, runningAppPort, startSpareApp } from "nodefony/testing";
 // framework. Un fichier écrit avec la convention du dépôt échoue ici sur un
 // `beforeAll is not defined` — mesuré, pas déduit.
 import { afterAll, beforeAll, describe, it } from "vitest";
+import { z } from "zod";
 import { E2E_BASE_URL, PRODUCTION_SECRETS } from "./e2e.setup";
 
 /**
@@ -86,6 +87,47 @@ interface IRun {
   stderr: string;
 }
 
+/** Ce que `execFile` joint à l'erreur d'un processus qui sort en échec. */
+const ExecFailure = z.object({
+  code: z.unknown(),
+  stdout: z.string().optional(),
+  stderr: z.string().optional(),
+});
+
+/** Ce qu'on retient d'une erreur qui n'est pas celle d'un processus fils. */
+const NO_FAILURE: z.output<typeof ExecFailure> = { code: undefined };
+
+/** Une colonne que la base et le code ne déclarent pas pareil. */
+const Drift = z.object({ table: z.string(), column: z.string() });
+
+/** Un geste proposé par la commande dans son verdict (`nextActions`). */
+const NextAction = z.object({ command: z.string().optional() });
+
+/**
+ * Les champs du verdict `--json` que ces épreuves LISENT. Le reste du document
+ * passe tel quel (`looseObject`) : la commande peut en ajouter sans casser un
+ * test qui ne s'y intéresse pas, mais un champ lu qui change de forme échoue ici,
+ * en le nommant.
+ */
+const Verdict = z.looseObject({
+  driver: z.object({ dialect: z.string().optional() }).optional(),
+  files: z.array(z.string()).optional(),
+  divergence: z
+    .object({
+      additive: z.array(Drift).default([]),
+      blocking: z.array(Drift).default([]),
+      missingTables: z.array(z.string()).default([]),
+    })
+    .optional(),
+  nextActions: z.array(NextAction).optional(),
+  error: z
+    .looseObject({
+      code: z.string().optional(),
+      nextActions: z.array(NextAction).optional(),
+    })
+    .default({}),
+});
+
 /**
  * Lance une commande de l'application et rend ce que le PROCESSUS a produit.
  *
@@ -113,7 +155,10 @@ async function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<IRun> {
     });
     return { code: 0, stdout, stderr };
   } catch (e) {
-    const err = e as { code?: number; stdout?: string; stderr?: string };
+    // L'échec d'un processus fils porte son code et ses deux flux ; on le
+    // LIT au lieu de présumer sa forme (une autre erreur ne les porte pas).
+    const failure = ExecFailure.safeParse(e);
+    const err = failure.success ? failure.data : NO_FAILURE;
     return {
       code: typeof err.code === "number" ? err.code : -1,
       stdout: err.stdout ?? "",
@@ -132,8 +177,8 @@ async function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<IRun> {
  * @param stdout - sortie standard de la commande.
  * @returns l'objet rendu.
  */
-function json(stdout: string): Record<string, unknown> {
-  return JSON.parse(stdout.trim()) as Record<string, unknown>;
+function json(stdout: string): z.output<typeof Verdict> {
+  return Verdict.parse(JSON.parse(stdout.trim()));
 }
 
 <% if (it.db) { %>/**
@@ -269,12 +314,12 @@ dbSuite("migrations — la base de cette application", () => {
     );
 
     const doc = json(r.stdout);
-    const error = (doc.error ?? {}) as Record<string, unknown>;
+    const error = doc.error;
     assert.ok(
       typeof error.code === "string" && error.code.length > 0,
       "un refus doit rester un verdict structuré, pas un crash",
     );
-    const steps = (error.nextActions ?? []) as { command?: string }[];
+    const steps = error.nextActions ?? [];
     assert.ok(
       steps.some((g) => typeof g.command === "string" && g.command.length > 0),
       "un refus doit proposer au moins un geste",
@@ -334,9 +379,9 @@ function quote(dialect: string, name: string): string {
 /** Le moteur de CETTE application, tel que la commande l'annonce. */
 async function currentDialect(): Promise<string> {
   const r = await cli(["orm:migrate:status", "--json"]);
-  const driver = json(r.stdout).driver as { dialect?: string } | undefined;
-  assert.ok(driver?.dialect, "la commande n'annonce pas son moteur");
-  return driver.dialect;
+  const dialect = json(r.stdout).driver?.dialect;
+  assert.ok(dialect, "la commande n'annonce pas son moteur");
+  return dialect;
 }
 
 /**
@@ -394,14 +439,14 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
         "aucune migration écrite : les entités de l'application ne sont pas vues",
       );
       assert.equal(
-        (report.driver as { dialect?: string }).dialect,
+        report.driver?.dialect,
         engine,
         "la migration est écrite pour un AUTRE moteur que celui configuré",
       );
 
       // Le fichier existe, et il CRÉE quelque chose. Un rapport qui annonce une
       // migration vide passerait l'assertion précédente sans rien avoir écrit.
-      const files = report.files as string[];
+      const files = report.files ?? [];
       assert.ok(files.length > 0, "le rapport n'annonce aucun fichier");
       const sql = readFileSync(
         path.join(fixture.migrations, engine, `${String(report.tag)}.sql`),
@@ -440,7 +485,7 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
         "un schéma applicatif absent est passé pour « à jour »",
       );
 
-      const gap = doc.divergence as { missingTables: string[] } | undefined;
+      const gap = doc.divergence;
       assert.ok(
         gap && gap.missingTables.length > 0,
         "les tables absentes ne sont pas nommées : il faudrait ouvrir un client SQL",
@@ -452,14 +497,12 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
       assert.equal(
         apply.code,
         1,
-        `un schéma applicatif absent a laissé passer un déploiement :\n${doc.summary as string}`,
+        `un schéma applicatif absent a laissé passer un déploiement :\n${String(doc.summary)}`,
       );
 
       // …et le geste proposé est celui qui MARCHE : le générateur sait écrire
       // ce que le code déclare.
-      const steps = (doc.nextActions as { command: string }[]).map(
-        (a) => a.command,
-      );
+      const steps = (doc.nextActions ?? []).flatMap((a) => a.command ?? []);
       assert.ok(
         steps.some((g) => g.includes("orm:generate")),
         `aucun geste ne mène au schéma manquant : ${JSON.stringify(steps)}`,
@@ -566,10 +609,7 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
         1,
         "une migration destructive est passée seule",
       );
-      const error = (json(refusal.stdout).error ?? {}) as {
-        code?: string;
-        nextActions?: { command?: string }[];
-      };
+      const error = json(refusal.stdout).error;
       assert.equal(error.code, "NF_MIGRATE_DESTRUCTIVE");
       assert.ok(
         (error.nextActions ?? []).some((a) =>
@@ -595,13 +635,7 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
       // 🔴 Le verdict dit qu'il y a un écart ; la charge utile doit dire LEQUEL.
       // Sans elle, on ouvre un client SQL et on compare table par table, sur une
       // base de production, au pire moment — pour une réponse déjà calculée.
-      const gap = doc.divergence as
-        | {
-            additive: { table: string; column: string }[];
-            blocking: { table: string; column: string }[];
-            missingTables: string[];
-          }
-        | undefined;
+      const gap = doc.divergence;
       assert.ok(gap, "`divergence` absente du verdict `divergent`");
       assert.ok(
         [...gap.additive, ...gap.blocking].some(

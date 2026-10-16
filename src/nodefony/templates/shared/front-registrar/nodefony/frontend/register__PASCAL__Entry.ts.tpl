@@ -1,5 +1,5 @@
 import type { Module } from "nodefony";
-import type { FrontendService } from "@nodefony/frontend";
+import { FrontendService } from "@nodefony/frontend";
 
 /**
  * Déclare l'entry Vite « <%= it.entryName %> » auprès de `@nodefony/frontend`.
@@ -24,9 +24,9 @@ import type { FrontendService } from "@nodefony/frontend";
  * atteint directement le controller.
  */
 export function register<%= it.pascal %>Entry(module: Module): void {
-  const svc = module.kernel?.container?.get("frontend") as
-    FrontendService | undefined;
-  if (!svc) {
+  // `instanceof` plutôt qu'une conversion : le conteneur rend `unknown`.
+  const svc = module.kernel?.container?.get("frontend");
+  if (!(svc instanceof FrontendService)) {
     module.log("@nodefony/frontend service not registered", "ERROR");
     return;
   }

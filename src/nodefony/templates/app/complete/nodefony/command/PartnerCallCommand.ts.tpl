@@ -5,11 +5,12 @@ import {
   type OptionsCommandInterface,
 } from "nodefony";
 import {
+  InvalidTargetError,
   OAuth2RequestError,
   requestClientCredentialsToken,
-  type TokenService,
+  TokenService,
 } from "@nodefony/security";
-import type { UserService } from "@nodefony/user";
+import { UserService } from "@nodefony/user";
 import { env } from "../../env";
 import { partnerResource, publicBaseUrl } from "../config/security";
 
@@ -35,6 +36,11 @@ const options: OptionsCommandInterface = {
 const ISSUERS = ["nodefony", "keycloak"] as const;
 type TIssuer = (typeof ISSUERS)[number];
 
+/** `value` est-il l'un des émetteurs acceptés ? (la garde rend le type, sans l'affirmer) */
+function isIssuer(value: string): value is TIssuer {
+  return ISSUERS.some((issuer) => issuer === value);
+}
+
 /** Le client machine que le realm de développement déclare pour cette app. */
 const MACHINE_CLIENT_ID = "<%= it.appName %>-machine";
 
@@ -57,7 +63,7 @@ function systemCode(error: unknown): string | null {
     /\b(ECONNREFUSED|ENOTFOUND|ETIMEDOUT|SELF_SIGNED_CERT_IN_CHAIN|DEPTH_ZERO_SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT_LOCALLY|ERR_TLS_CERT_ALTNAME_INVALID)\b/u;
   let current: unknown = error;
   for (let depth = 0; current instanceof Error && depth < 5; depth++) {
-    const code = (current as { code?: unknown }).code;
+    const code: unknown = "code" in current ? current.code : undefined;
     if (typeof code === "string" && known.test(code)) return code;
     // La découverte de l'émetteur range le code DANS son message.
     const inMessage = known.exec(current.message);
@@ -93,7 +99,7 @@ function networkFailure(
     );
   }
   return new CallFailure(
-    `${target} injoignable : ${(error as Error).message}`,
+    `${target} injoignable : ${error instanceof Error ? error.message : String(error)}`,
     start,
   );
 }
@@ -141,7 +147,7 @@ class PartnerCallCommand extends Command {
     json?: boolean;
   }): Promise<this> {
     const issuer = opts.issuer ?? "nodefony";
-    if (!(ISSUERS as readonly string[]).includes(issuer)) {
+    if (!isIssuer(issuer)) {
       return this.#fail(
         new CallFailure(
           `émetteur « ${issuer} » inconnu.`,
@@ -153,10 +159,10 @@ class PartnerCallCommand extends Command {
     const base = opts.url ?? publicBaseUrl(env);
     try {
       const accessToken =
-        (issuer as TIssuer) === "keycloak"
+        issuer === "keycloak"
           ? await this.#keycloakToken(resource)
           : await this.#nodefonyToken(opts.as ?? "admin", resource);
-      const answer = await this.#call(base, accessToken, issuer as TIssuer);
+      const answer = await this.#call(base, accessToken, issuer);
       // La SORTIE va sur la sortie standard ; le journal ne raconte que le reste.
       process.stdout.write(
         opts.json
@@ -176,11 +182,13 @@ class PartnerCallCommand extends Command {
   /** Jeton signé par CETTE application, pour un de ses comptes. */
   async #nodefonyToken(identifier: string, resource: string): Promise<string> {
     // Un service s'atteint par sa CLÉ de conteneur, jamais par sa classe.
-    const tokens = this.kernel?.container?.get("tokenService") as
-      TokenService | undefined;
-    const users = this.kernel?.container?.get("users") as
-      UserService | undefined;
-    if (!tokens?.isEnabled() || !users) {
+    const tokens = this.kernel?.container?.get("tokenService");
+    const users = this.kernel?.container?.get("users");
+    if (
+      !(tokens instanceof TokenService) ||
+      !tokens.isEnabled() ||
+      !(users instanceof UserService)
+    ) {
       throw new CallFailure(
         "cette application n'émet pas de jetons (service tokenService ou users absent).",
         "vérifie le bloc `jwt` de nodefony/config/security.ts",
@@ -197,7 +205,7 @@ class PartnerCallCommand extends Command {
       const issued = await tokens.issueTokens(user, [], resource, TOKEN_TTL_S);
       return issued.access_token;
     } catch (error) {
-      if ((error as { oauthError?: string }).oauthError === "invalid_target") {
+      if (error instanceof InvalidTargetError) {
         throw new CallFailure(
           `l'application refuse d'émettre un jeton pour ${resource}.`,
           "ajoute `partnerResource(ctx.env)` à `jwt.audiences` (nodefony/config/security.ts)",

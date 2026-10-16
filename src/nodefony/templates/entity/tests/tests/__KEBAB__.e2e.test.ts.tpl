@@ -8,6 +8,7 @@
 <% } else { %>import { runningAppPort } from "nodefony/testing";
 <% } %>import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
+import { z } from "zod";
 <% if (it.hasSecurity && !it.inModule) { %>import { adminLogin } from "./e2e.setup";
 <% } %>import { <%= it.camel %>Sample } from "../nodefony/entity/<%= it.pascal %>";
 <% it.relationParents.filter(function (p) { return !p.identity; }).forEach(function (p) { %>import { <%= p.camel %>Sample } from "../nodefony/entity/<%= p.pascal %>";
@@ -42,9 +43,31 @@ const parents: Record<string, string | number> = {};
 <% } %>/** L'échantillon de l'entité — une seule fabrique pour les deux tests et la doc. */
 const sample = (n: number) => <%= it.camel %>Sample(n<% if (it.relationParents.length) { %>, parents<% } %>);
 
-/** Lit le corps JSON en le typant à plat, sans supposer la forme complète. */
-async function json(res: Response): Promise<Record<string, unknown>> {
-  return (await res.json()) as Record<string, unknown>;
+/** Un corps JSON lu à plat : un objet dont on ne présume aucun champ. */
+const Body = z.record(z.string(), z.unknown());
+
+/** Un identifiant de ressource, tel que l'API le rend (texte ou entier). */
+const Id = z.union([z.string(), z.number()]);
+
+/**
+ * La forme d'une PAGE de liste. Elle est VÉRIFIÉE à la lecture : une réponse qui
+ * n'a pas cette forme fait échouer le test en nommant le champ fautif.
+ */
+const Page = z.object({
+  items: z.array(Body),
+  hasNext: z.boolean(),
+  total: z.number().optional(),
+  limit: z.number(),
+});
+
+/** Lit le corps JSON en le vérifiant, sans supposer la forme complète. */
+async function json(res: Response): Promise<z.infer<typeof Body>> {
+  return Body.parse(await res.json());
+}
+
+/** Lit un champ d'un objet par son nom, sans en présumer le type. */
+function valueAt(source: object, key: string): unknown {
+  return Reflect.get(source, key);
 }
 
 /**
@@ -112,7 +135,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
             `cycle ne peut aboutir — la clé étrangère serait violée.`,
         );
       }
-      parents["<%= p.pascal %>"] = (await json(moi)).id as string;
+      parents["<%= p.pascal %>"] = Id.parse((await json(moi)).id);
     }
 <% } else { %>    {
       const cree = await fetch(`${BASE}<%= p.route %>`, {
@@ -128,7 +151,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
             `« <%= p.pascal %> » est servie à cette route.`,
         );
       }
-      parents["<%= p.pascal %>"] = (await json(cree)).id as string;
+      parents["<%= p.pascal %>"] = Id.parse((await json(cree)).id);
     }
 <% } %><% }) %><% } %>  });
 
@@ -149,7 +172,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     expect(reread.status).toBe(200);
 <% if (it.comparableField) { %>    const body = await json(reread);
     expect(body["<%= it.comparableField %>"]).toBe(
-      (payload as Record<string, unknown>)["<%= it.comparableField %>"],
+      valueAt(payload, "<%= it.comparableField %>"),
     );
 <% } %>  });
 
@@ -169,7 +192,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     expect(patched.status).toBe(200);
 <% if (it.comparableField) { %>    const body = await json(patched);
     expect(body["<%= it.comparableField %>"]).toBe(
-      (sample(3) as Record<string, unknown>)["<%= it.comparableField %>"],
+      valueAt(sample(3), "<%= it.comparableField %>"),
     );
 <% } %>  });
 
@@ -215,12 +238,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     }
     const res = await fetch(`${BASE}${ROUTE}?limit=2`, { headers: AUTH });
     expect(res.status).toBe(200);
-    const page = (await res.json()) as {
-      items: unknown[];
-      hasNext: boolean;
-      total?: number;
-      limit: number;
-    };
+    const page = Page.parse(await res.json());
     expect(page.items).toHaveLength(2);
     expect(page.limit).toBe(2);
     // `hasNext` est ce qui distingue « c'est tout » de « demande la suite ». Un
@@ -233,7 +251,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     const res = await fetch(`${BASE}${ROUTE}?limit=100000`, {
       headers: AUTH,
     });
-    const page = (await res.json()) as { limit: number };
+    const page = Page.parse(await res.json());
     // Plafonné, pas refusé : le client reçoit une réponse utile, et la table
     // entière ne part jamais en mémoire.
     expect(page.limit).toBeLessThanOrEqual(100);
@@ -268,10 +286,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
         { headers: AUTH },
       );
       expect(res.status).toBe(200);
-      const page = (await res.json()) as {
-        items: Record<string, unknown>[];
-        hasNext: boolean;
-      };
+      const page = Page.parse(await res.json());
       // ASC et DESC doivent porter sur le MÊME ensemble : au-delà d'une page,
       // l'un rend les plus petits et l'autre les plus grands, et les comparer
       // ne veut plus rien dire.
@@ -333,7 +348,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     const lire = async (url: string): Promise<unknown[]> => {
       const res = await fetch(url, { headers: AUTH });
       expect(res.status).toBe(200);
-      const page = (await res.json()) as { items: Record<string, unknown>[] };
+      const page = Page.parse(await res.json());
       return page.items.map((r) => r["<%= it.filterProbe.name %>"]);
     };
     // Le témoin est bien LÀ, et remonte quand on ne filtre pas — sinon

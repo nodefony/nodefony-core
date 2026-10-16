@@ -1,4 +1,4 @@
-import { Service, Module, Container, injectable, inject } from "nodefony";
+import { Service, Module, injectable, inject } from "nodefony";
 
 import AppInfoService from "./AppInfoService";
 
@@ -58,7 +58,7 @@ class AppBannerService extends Service {
   ) {
     super(
       "appBanner",
-      module.container as Container,
+      module.container ?? undefined,
       module.notificationsCenter,
     );
     this.module = module;

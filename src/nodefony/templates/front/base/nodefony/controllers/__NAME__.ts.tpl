@@ -1,6 +1,6 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-import type { FrontendService } from "@nodefony/frontend";
+import { FrontendService } from "@nodefony/frontend";
 
 /**
  * <%= it.nameClass %> — sert la page <%= it.frontend %> « <%= it.kebab %> ».
@@ -36,9 +36,9 @@ class <%= it.nameClass %> extends Controller {
   @route("route-<%= it.kebab %>-page", { path: "<%= it.route %>", method: "GET" })
   renderPage(): unknown {
     this.setContextHtml();
-    const svc = this.context?.container?.get("frontend") as
-      FrontendService | undefined;
-    if (!svc) {
+    // `instanceof` plutôt qu'une conversion : le conteneur rend `unknown`.
+    const svc = this.context?.container?.get("frontend");
+    if (!(svc instanceof FrontendService)) {
       // @nodefony/frontend absent du manifeste (nodefony.config.ts) : la page
       // ne peut pas être construite — on le DIT au lieu d'un écran vide.
       return this.render("<!-- @nodefony/frontend not ready -->");

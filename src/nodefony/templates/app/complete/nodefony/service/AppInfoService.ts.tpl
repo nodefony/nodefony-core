@@ -1,4 +1,4 @@
-import { Service, Module, Container, injectable } from "nodefony";
+import { Service, Module, injectable } from "nodefony";
 
 /**
  * Un SERVICE de ton application — l'exemplaire à LIRE quand tu écris de la
@@ -47,7 +47,7 @@ class AppInfoService extends Service {
   module: Module;
 
   constructor(module: Module) {
-    super("appInfo", module.container as Container, module.notificationsCenter);
+    super("appInfo", module.container ?? undefined, module.notificationsCenter);
     this.module = module;
   }
 

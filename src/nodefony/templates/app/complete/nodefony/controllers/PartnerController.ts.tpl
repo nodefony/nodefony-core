@@ -1,7 +1,21 @@
 import { RequestContext } from "nodefony";
 import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-import type { IToken } from "@nodefony/security";
+
+/**
+ * Émetteur (`issuer`) que l'authenticator a posé sur le jeton de la requête.
+ *
+ * Le contexte de requête type le jeton `unknown` : on s'assure de ce qu'on lit
+ * au lieu de le déclarer.
+ */
+function readIssuer(token: unknown): string | null {
+  if (typeof token !== "object" || token === null) return null;
+  if (!("getAttribute" in token) || typeof token.getAttribute !== "function") {
+    return null;
+  }
+  const issuer: unknown = token.getAttribute.call(token, "issuer");
+  return typeof issuer === "string" ? issuer : null;
+}
 
 /**
  * L'API d'un PROGRAMME — service partenaire, script, agent — qui se présente
@@ -41,11 +55,10 @@ class PartnerController extends Controller {
     // `this.user` : l'identité, sans appel de plus. Le jeton lui-même est
     // dans le contexte de la requête ; chaque authenticator y pose l'attribut
     // `issuer`.
-    const token = RequestContext.get()?.token as IToken | undefined;
     return this.renderJson({
       identifier: this.user?.identifier ?? null,
       roles: this.user?.roles ?? [],
-      issuer: token?.getAttribute<string>("issuer") ?? null,
+      issuer: readIssuer(RequestContext.get()?.token),
     });
   }
 }

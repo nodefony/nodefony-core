@@ -5229,7 +5229,7 @@ function runEntityScaffold(
       // quand toutes les références d'une entité sont facultatives).
       if (f.type === "ref" && f.target) {
         factory.push(
-          `...(refs.${f.target} === undefined ? {} : { ${f.name}: refs.${f.target} as ${refTargetsSerial(f.target, id) ? "number" : "string"} })`,
+          `...(refs.${f.target} === undefined ? {} : { ${f.name}: ${refTargetsSerial(f.target, id) ? "Number" : "String"}(refs.${f.target}) })`,
         );
       }
       continue;
@@ -5239,7 +5239,10 @@ function runEntityScaffold(
     sample[f.name] = fixed;
     factory.push(
       f.type === "ref" && f.target
-        ? `${f.name}: (refs.${f.target} ?? ${expr}) as ${refTargetsSerial(f.target, id) ? "number" : "string"}`
+        ? // `String(…)` / `Number(…)` et non une conversion de type : `refs`
+          // porte `string | number`, la colonne attend l'un des deux, et la
+          // conversion de valeur est une vérification que `as` ne fait pas.
+          `${f.name}: ${refTargetsSerial(f.target, id) ? "Number" : "String"}(refs.${f.target} ?? ${expr})`
         : `${f.name}: ${expr}`,
     );
   }

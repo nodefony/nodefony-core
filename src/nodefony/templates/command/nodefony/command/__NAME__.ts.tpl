@@ -1,5 +1,5 @@
 import { Command, CliKernel, type OptionsCommandInterface } from "nodefony";
-<% if (it.service) { %>import type <%= it.service.pascal %> from "../service/<%= it.service.pascal %>";
+<% if (it.service) { %>import <%= it.service.pascal %> from "../service/<%= it.service.pascal %>";
 <% } %>
 /**
  * `kernelEvent` = point d'ARRÊT du boot : le kernel s'arrête à cette phase, et
@@ -76,8 +76,10 @@ class <%= it.nameClass %> extends Command {
 <% if (it.service) { %>    // On demande le service par sa CLÉ de conteneur — celle du `super("<%= it.service.key %>", …)`
     // du service, pas le nom de sa classe. (Depuis le DI, `@inject("<%= it.service.pascal %>")`
     // mènerait à la même instance ; mais hors injection, c'est la clé qui sert.)
-    const svc = this.kernel?.container?.get("<%= it.service.key %>") as <%= it.service.pascal %> | undefined;
-    if (!svc) {
+    // `instanceof` plutôt qu'une conversion : le conteneur rend `unknown`, et la
+    // garde VÉRIFIE ce que la conversion ne ferait que déclarer.
+    const svc = this.kernel?.container?.get("<%= it.service.key %>");
+    if (!(svc instanceof <%= it.service.pascal %>)) {
       // Absent = le module n'est pas chargé, ou son service a échoué au boot (le
       // kernel l'aura annoncé : « boot DÉGRADÉ »). On le dit, on ne devine pas.
       this.log("service « <%= it.service.key %> » non enregistré", "ERROR");

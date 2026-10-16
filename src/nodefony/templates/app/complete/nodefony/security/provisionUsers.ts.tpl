@@ -8,11 +8,10 @@ import {
 import type { IPasswordEncoder } from "@nodefony/user";
 <% if (it.mongo) { %>import {
   FRAMEWORK_CONNECTOR,
+  MongooseOrm,
   MongooseUserRepository,
 } from "@nodefony/mongoose";
-import type { MongooseOrm } from "@nodefony/mongoose";
-<% } else { %>import { DrizzleUserRepository } from "@nodefony/drizzle";
-import type { DrizzleOrm } from "@nodefony/drizzle";
+<% } else { %>import { DrizzleOrm, DrizzleUserRepository } from "@nodefony/drizzle";
 <% } %>import { env } from "../../env";
 
 const LOG_CTX = "USERS";
@@ -94,12 +93,14 @@ export async function provisionUsers(module: Module): Promise<void> {
 <% if (it.mongo) { %>  //
   // Connecteur `"nodefony"` (et non `"default"`) : c'est celui où
   // `@nodefony/mongoose` range les entités du framework — `User` compris.
-  const registered = ormRegistry.has(FRAMEWORK_CONNECTOR)
-    ? (ormRegistry.get(FRAMEWORK_CONNECTOR) as MongooseOrm)
+  const found = ormRegistry.has(FRAMEWORK_CONNECTOR)
+    ? ormRegistry.get(FRAMEWORK_CONNECTOR)
     : undefined;
-<% } else { %>  const registered = ormRegistry.has("default")
-    ? (ormRegistry.get("default") as DrizzleOrm)
+  const registered = found instanceof MongooseOrm ? found : undefined;
+<% } else { %>  const found = ormRegistry.has("default")
+    ? ormRegistry.get("default")
     : undefined;
+  const registered = found instanceof DrizzleOrm ? found : undefined;
 <% } %>
   const orm = registered?.isConnected() ? registered : undefined;
   if (!orm) {

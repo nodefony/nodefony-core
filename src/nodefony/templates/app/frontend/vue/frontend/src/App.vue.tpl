@@ -13,25 +13,18 @@ import {
 } from "nodefony/vue";
 import { loginPagePath } from "nodefony/client";
 <% } %>import { NODEFONY_LOGO } from "./brand";
+// Lecture VÉRIFIÉE des réponses de l'API (voir `api.ts`) : jamais une conversion.
+import {
+  readApiData,
+<% if (it.complete) { %>  readSecureData,
+  type SecureData,
+<% } %>  type ApiData,
+} from "./api";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
 import "./showcase.css";
 import "./accent.css";
 
-interface ApiData {
-  hello: string;
-  pid: number;
-  /** Identité résolue par la zone firewall `main` (^/api) — « anonyme » sinon. */
-  who?: string;
-}
-<% if (it.complete) { %>
-/** Réponse de la route PROTÉGÉE /api/secure/hello (zone `secure`, 401 sans session). */
-interface SecureData {
-  message: string;
-  zone: string;
-  pid: number;
-}
-<% } %>
 /**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
  *  - panneau de marque (même design que le login de Studio : dégradé, glow,
@@ -78,8 +71,9 @@ const secureData = ref<SecureData | null>(null);
 const refreshHello = () =>
   fetch("/api/hello")
     .then((r) => r.json())
-    .then((j) => {
-      const d = (j.result ?? j) as ApiData; // Nodefony wrappe `{ result }`
+    .then((j: unknown) => {
+      const d = readApiData(j); // Nodefony wrappe `{ result }`
+      if (d === null) throw new Error("réponse inattendue de /api/hello");
       data.value = d;
 <% if (it.complete) { %>      // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
       // ^/api/secure : sans session le firewall répond 401 avant le controller).
@@ -89,7 +83,7 @@ const refreshHello = () =>
           // Le corps d'un `then` REND une valeur : un bloc muet est signalé par
           // le lint (`promise/always-return`) — dans l'application générée, donc
           // chez l'utilisateur, dont la passe naît rouge.
-          .then((s) => (secureData.value = s ? ((s.result ?? s) as SecureData) : null))
+          .then((s: unknown) => (secureData.value = s ? readSecureData(s) : null))
           .catch(() => (secureData.value = null));
       } else {
         secureData.value = null;

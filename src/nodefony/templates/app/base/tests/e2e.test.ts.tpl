@@ -8,7 +8,16 @@ import { <% if (it.hasSecurity) { %>AUTH_LOGIN_PATH, <% } %>readRuntimeState } f
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { NodefonySocket } from "nodefony/client";
 <% } %>import { describe, it, expect, beforeAll } from "vitest";
+import { z } from "zod";
 
+// Ce que l'application PROMET de répondre. `parse` vérifie la forme reçue : une
+// réponse qui dévie fait échouer le test en nommant le champ fautif, là où une
+// conversion de type aurait laissé passer n'importe quoi jusqu'à l'assertion.
+const HelloBody = z.object({ hello: z.string(), pid: z.number() });
+const EchoFrame = z.object({ echo: z.string().optional() });
+<% if (it.complete) { %>const PongBody = z.object({ pong: z.boolean() });
+const LiveMessage = z.object({ text: z.string(), pid: z.number() });
+<% } %>
 /**
  * Test E2E — parle en HTTP + WebSocket à l'application RÉELLE (mode production).
  *
@@ -45,7 +54,7 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
   it("GET /api/hello → 200 + payload JSON", async () => {
     const res = await fetch(`${BASE}/api/hello`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { hello: string; pid: number };
+    const body = HelloBody.parse(await res.json());
     expect(body.hello).toBe("<%= it.appName %>");
     expect(body.pid).toBeGreaterThan(0);
   });
@@ -59,11 +68,11 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       );
       ws.addEventListener("open", () => ws.send("ping-e2e"));
       ws.addEventListener("message", (event) => {
-        const data = JSON.parse(String(event.data)) as { echo?: string };
+        const frame = EchoFrame.safeParse(JSON.parse(String(event.data)));
         // Le handshake du controller peut répondre d'abord — on attend l'echo.
-        if (data.echo !== undefined) {
+        if (frame.success && frame.data.echo !== undefined) {
           clearTimeout(timer);
-          resolve(data);
+          resolve(frame.data);
         }
       });
       ws.addEventListener("error", () => reject(new Error("erreur WS")));
@@ -94,7 +103,7 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       });
       await live.connect();
       // Action OUVERTE ({ authenticated: false }) — répond même anonyme.
-      const pong = (await live.request("live:ping", {})) as { pong: boolean };
+      const pong = PongBody.parse(await live.request("live:ping", {}));
       expect(pong.pong).toBe(true);
       // Canal libre. Il ne bat PAS tout seul : il parle quand il se passe
       // quelque chose — ici, ce que cette connexion envoie et que toutes
@@ -102,7 +111,7 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       // battement qui coûterait une trame par seconde et par client.
       live.subscribe("live:events");
       live.emit("live:say", { text: "bonjour e2e" });
-      const received = (await receivedP) as { text: string; pid: number };
+      const received = LiveMessage.parse(await receivedP);
       expect(received.text).toBe("bonjour e2e");
       expect(received.pid).toBeGreaterThan(0);
     } finally {

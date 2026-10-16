@@ -156,8 +156,11 @@ let publishToChannel: RealtimePublish | null = null;
    */
   @RealtimeInbound("<%= it.channel %>:say")
   say(params: unknown): void {
-    const p = params as { text?: unknown } | null;
-    const text = typeof p?.text === "string" ? p.text.trim().slice(0, 140) : "";
+    const raw: unknown =
+      typeof params === "object" && params !== null && "text" in params
+        ? params.text
+        : undefined;
+    const text = typeof raw === "string" ? raw.trim().slice(0, 140) : "";
     if (!text) return;
     publishToChannel?.("<%= it.channel %>:events", {
       text,

@@ -101,9 +101,7 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
     id: string,
     data: PartialInput<<%= it.pascal %>Row>,
   ): Promise<<%= it.pascal %>Row | null> {
-    const complete = create<%= it.pascal %>Schema.parse(
-      data,
-    ) as PartialInput<<%= it.pascal %>Row>;
+    const complete = create<%= it.pascal %>Schema.parse(data);
     return this.updateOne({ id }, complete);
   }
 }

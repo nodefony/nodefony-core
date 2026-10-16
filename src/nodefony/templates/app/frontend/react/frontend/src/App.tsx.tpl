@@ -14,26 +14,19 @@ import {
 } from "nodefony/react";
 import { loginPagePath } from "nodefony/client";
 <% } %>import { NODEFONY_LOGO } from "./brand";
+// Lecture VÉRIFIÉE des réponses de l'API (voir `api.ts`) : jamais une conversion.
+import {
+  readApiData,
+<% if (it.complete) { %>  readSecureData,
+  type SecureData,
+<% } %>  type ApiData,
+} from "./api";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines (Vite l'injecte dans le document, elle est donc bien globale).
 import "./showcase.css";
 import "./accent.css";
 
-interface ApiData {
-  hello: string;
-  pid: number;
-  /** Identité résolue par la zone firewall `main` (^/api) — « anonyme » sinon. */
-  who?: string;
-}
-<% if (it.complete) { %>
-/** Réponse de la route PROTÉGÉE /api/secure/hello (zone `secure`, 401 sans session). */
-interface SecureData {
-  message: string;
-  zone: string;
-  pid: number;
-}
-
-<% } %>/**
+/**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
  *  - panneau de marque (même design que le login de Studio : dégradé, glow,
  *    logo, slogan, 3 piliers du framework) ;
@@ -147,8 +140,8 @@ function LiveCard() {
   const refreshHello = async (): Promise<void> => {
     try {
       const r = await fetch("/api/hello");
-      const j = (await r.json()) as { result?: ApiData };
-      const d = j.result ?? (j as ApiData); // Nodefony wrappe `{ result }`
+      const d = readApiData(await r.json()); // Nodefony wrappe `{ result }`
+      if (d === null) throw new Error("réponse inattendue de /api/hello");
       setData(d);
 <% if (it.complete) { %>      // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
       // ^/api/secure : sans session le firewall répond 401 avant le controller).
@@ -157,10 +150,7 @@ function LiveCard() {
           const s = await fetch("/api/secure/hello", {
             credentials: "same-origin",
           });
-          const sj = s.ok
-            ? ((await s.json()) as { result?: SecureData })
-            : null;
-          setSecureData(sj ? (sj.result ?? (sj as SecureData)) : null);
+          setSecureData(s.ok ? readSecureData(await s.json()) : null);
         } catch {
           setSecureData(null);
         }

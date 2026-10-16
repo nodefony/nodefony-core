@@ -20,25 +20,18 @@ import {
 } from "nodefony/angular";
 import { loginPagePath } from "nodefony/client";
 <% } %>import { NODEFONY_LOGO } from "../brand";
+// Lecture VÉRIFIÉE des réponses de l'API (voir `api.ts`) : jamais une conversion.
+import {
+  readApiData,
+<% if (it.complete) { %>  readSecureData,
+  type SecureData,
+<% } %>  type ApiData,
+} from "../api";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
 import "../showcase.css";
 import "../accent.css";
-
-interface ApiData {
-  hello: string;
-  pid: number;
-  /** Identité résolue par la zone firewall `main` (^/api) — « anonyme » sinon. */
-  who?: string;
-}
 <% if (it.complete) { %>
-/** Réponse de la route PROTÉGÉE /api/secure/hello (zone `secure`, 401 sans session). */
-interface SecureData {
-  message: string;
-  zone: string;
-  pid: number;
-}
-
 /** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
 interface LiveEvent {
   text: string;
@@ -280,8 +273,9 @@ export class AppComponent implements OnInit, OnDestroy {
   refreshHello() {
     fetch("/api/hello")
       .then((r) => r.json())
-      .then((j: { result?: ApiData } & ApiData) => {
-        const d = j.result ?? j; // Nodefony wrappe `{ result }`
+      .then((j: unknown) => {
+        const d = readApiData(j); // Nodefony wrappe `{ result }`
+        if (d === null) throw new Error("réponse inattendue de /api/hello");
         this.data.set(d);
 <% if (it.complete) { %>        // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
         // ^/api/secure : sans session le firewall répond 401 avant le controller).
@@ -290,9 +284,7 @@ export class AppComponent implements OnInit, OnDestroy {
             .then((r) => (r.ok ? r.json() : null))
             // Le corps d'un `then` REND une valeur : un bloc muet est signalé
             // par le lint (`promise/always-return`) dans l'application générée.
-            .then((s: ({ result?: SecureData } & SecureData) | null) =>
-              this.secureData.set(s ? (s.result ?? s) : null),
-            )
+            .then((s: unknown) => this.secureData.set(readSecureData(s)))
             .catch(() => this.secureData.set(null));
         } else {
           this.secureData.set(null);
