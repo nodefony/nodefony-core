@@ -56,9 +56,15 @@ if (!args.length) {
 // JUSTE vers `scripts/release/release-core.mjs` sortait FILE_NOT_FOUND, et le
 // réflexe est alors de « corriger » la doc — c'est l'instrument qu'il fallait
 // corriger.
+// Seules les racines PRÉSENTES sont passées à `find` : un dossier absent le
+// fait sortir en 1, et `execSync` lève — le gate tombait alors sur TOUT le
+// dépôt (vécu : le retrait de `bin/`, qui ne portait que des `.sh`).
+const racines = ["src", "docs", "scripts"]
+  .filter((d) => fs.existsSync(path.join(REPO, d)))
+  .join(" ");
 const allFiles = execSync(
-  `find src docs bin . -maxdepth 1 -type f \\( -name '*.ts' -o -name '*.mjs' -o -name '*.tsx' \\) 2>/dev/null ; ` +
-    `find src docs bin scripts -type f \\( -name '*.ts' -o -name '*.mjs' -o -name '*.tsx' \\) ` +
+  `find . -maxdepth 1 -type f \\( -name '*.ts' -o -name '*.mjs' -o -name '*.tsx' \\) 2>/dev/null ; ` +
+    `find ${racines} -type f \\( -name '*.ts' -o -name '*.mjs' -o -name '*.tsx' \\) ` +
     `-not -path '*/dist/*' -not -path '*/node_modules/*' 2>/dev/null`,
   { cwd: REPO, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
 )

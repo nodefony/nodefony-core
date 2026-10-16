@@ -23,8 +23,9 @@ const OUTIL = path.join(
 const racine = fs.mkdtempSync(path.join(os.tmpdir(), "anchor-selftest-"));
 try {
   execFileSync("git", ["init", "-q"], { cwd: racine });
-  // L'outil balaye ces quatre racines : absentes, son `find` échoue.
-  for (const d of ["src", "docs", "bin", "scripts"]) {
+  // `scripts/` volontairement ABSENT : l'outil ne balaye que les racines
+  // présentes, un dossier manquant ne doit pas le faire tomber.
+  for (const d of ["src", "docs"]) {
     fs.mkdirSync(path.join(racine, d));
   }
 
