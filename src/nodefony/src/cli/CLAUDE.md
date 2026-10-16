@@ -716,14 +716,15 @@ corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé)
 défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). Noms de
 fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
 
-**`--kind mcp [--expose local|oauth]`** — la porte MCP d'APPLICATION (#602) : controller mince
+**`--kind mcp [--expose local|oauth|mixte]`** — la porte MCP d'APPLICATION (#602) : controller mince
 (`gate.serve`), `nodefony/mcp/<kebab>-gate.ts` (`defineMcpGate`, liste EXPLICITE d'outils —
 jamais `"modules"`, qui publierait par héritage), `<kebab>-tools.ts` (deux exemples : lecture
 courte, opération longue avec progression/annulation), `tests/<kebab>-gate.test.ts`
 (`gate.respond`, sans serveur). `oauth` ajoute `allowRemote`, `authorization` (émetteur ET
 ressource tirés de `publicBaseUrl` de `nodefony/config/security.ts` — une seule règle, jamais
 recopiée) et `<Pascal>GateService` (`publishedProtectedResources()`, câblé `@services`) : sans
-lui, le défi `401` désigne un document en 404. Gardes AVANT écriture (`checkMcpGateScaffold`) :
+lui, le défi `401` désigne un document en 404. `mixte` = `oauth` + `anonymous: true` : sans jeton,
+`_echo` seul ; `_batch` porte `scopes: ["<kebab>:write"]` (la note donne `--scope`). Gardes AVANT écriture (`checkMcpGateScaffold`) :
 `@nodefony/ai` absent · nom `nodefony*` (outils réservés) · `--role` (une porte se protège par
 jeton, pas par session) · `oauth` dans un module (décision d'APPLICATION), sans
 `@nodefony/security`, ou sans `publicBaseUrl`. L'audience de dev n'est PAS insérée dans
@@ -769,10 +770,12 @@ appel qui ne compile pas. `create module --command` **délègue** ici (zéro
 template dupliqué, même patron que controller/front) : la classe porte donc
 l'ACTION (`HelloCommand`), pas le module — un module peut avoir N commandes.
 
-> ⚠️ **Piège eta des templates** : un tag en FIN de ligne fait avaler le saut de
-> ligne suivant (`autoTrim: [false, "nl"]`) → TSDoc recousu, type coupé en deux.
-> Toujours du texte après un `<%= … %>`. Contrôlé par un test de FORME
-> (`/^ \*.*\S \*$/m`), que les assertions de contenu ne voient pas.
+> ⚠️ **Gabarits eta : ce que le gabarit écrit est ce qui sort** (`ETA_OPTIONS`,
+> `autoTrim: false` — le défaut d'eta avalait le saut qui suit un tag en fin de ligne).
+> Le piège restant est l'inverse : un bloc conditionnel ouvert SUR la ligne précédente
+> (`….<% if (x) { %> * suite`) recoud deux lignes de TSDoc. Ouvrir un bloc en DÉBUT
+> de ligne. Contrôlé par un test de FORME (`/^ \*.*\S \*( |$)/m`), que les
+> assertions de contenu ne voient pas.
 
 `nodefony create entity <Nom> [champs…] [--id <uuid7|uuid4|serial>] [--soft-delete]
 [--no-timestamps] [--no-controller] [--no-service] [--no-tests] [--route </api/x>]

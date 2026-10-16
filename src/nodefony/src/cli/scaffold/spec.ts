@@ -606,6 +606,11 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
           label: "Production — derrière un serveur d'autorisation",
           hint: "jeton OAuth exigé (401 sans), appels distants admis (@nodefony/security)",
         },
+        {
+          value: "mixte",
+          label: "Mixte — outils publics ET outils réservés à un jeton",
+          hint: "sans jeton : outils publics seulement ; un outil à scopes exige un jeton qui les porte (@nodefony/security)",
+        },
       ],
       default: "local",
     },

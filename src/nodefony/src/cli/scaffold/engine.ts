@@ -3224,8 +3224,13 @@ function otherControllerSources(
 
 /** Ce que la saveur `mcp` a constaté avant d'écrire. */
 interface IMcpGateScaffold {
-  /** Porte derrière un serveur d'autorisation (jeton exigé). */
+  /** Porte derrière un serveur d'autorisation (`oauth` ou `mixte`). */
   oauth: boolean;
+  /**
+   * Porte `mixte` : l'appel SANS jeton est servi avec les seuls outils publics
+   * (`authorization.anonymous`), un outil à `scopes` exige un jeton qui les porte.
+   */
+  anonymous: boolean;
 }
 
 /**
@@ -3237,8 +3242,8 @@ interface IMcpGateScaffold {
  *
  * @throws sans `@nodefony/ai` ; nom qui produirait des outils réservés
  *   (`nodefony_`) ; `--role` (une porte se protège par jeton, pas par
- *   session) ; `--expose oauth` dans un module, sans `@nodefony/security`, ou
- *   sans l'émetteur de l'application (`publicBaseUrl`).
+ *   session) ; `--expose oauth|mixte` dans un module, sans
+ *   `@nodefony/security`, ou sans l'émetteur de l'application (`publicBaseUrl`).
  */
 function checkMcpGateScaffold(
   answers: TScaffoldAnswers,
@@ -3271,22 +3276,28 @@ function checkMcpGateScaffold(
         "(--expose oauth), et un outil se réserve par ses `scopes`",
     );
   }
-  const oauth = answers.expose === "oauth";
-  if (!oauth) return { oauth };
+  // `mixte` EST une porte protégée : mêmes gardes, même émetteur, même
+  // document RFC 9728 — seule la tolérance de l'appel sans jeton change.
+  const anonymous = answers.expose === "mixte";
+  const oauth = anonymous || answers.expose === "oauth";
+  if (!oauth) return { oauth, anonymous };
+  const flag = `--expose ${anonymous ? "mixte" : "oauth"}`;
   // L'autorisation d'une porte publique est une décision de l'APPLICATION,
   // comme l'audience de ses jetons et la hiérarchie de ses rôles : un module
   // ne lit pas l'environnement de l'application qui l'installe.
   if (target.kind === "module") {
     throw new Error(
-      `--expose oauth se génère à la racine de l'application, pas dans le module ${target.name} : ` +
+      `${flag} se génère à la racine de l'application, pas dans le module ${target.name} : ` +
         `l'émetteur des jetons et l'URL publique sont à elle.\n` +
         `  → sans --module, ou --expose local dans le module`,
     );
   }
+  // Sans lui, une porte `mixte` servirait bien ses outils publics, mais tout
+  // jeton présenté recevrait 503 : ses outils réservés ne s'ouvriraient jamais.
   if (!targetDeps.has("@nodefony/security")) {
     throw new Error(
-      `--expose oauth exige @nodefony/security dans ${target.name} — sans lui, aucun ` +
-        `jeton n'est vérifié et la porte refuserait tout (503).\n` +
+      `${flag} exige @nodefony/security dans ${target.name} — sans lui, aucun ` +
+        `jeton n'est vérifié et la porte refuserait tout jeton (503).\n` +
         `  → l'ajouter : npm install @nodefony/security, puis use("@nodefony/security", {}) au manifeste`,
     );
   }
@@ -3303,14 +3314,14 @@ function checkMcpGateScaffold(
     !/export const publicBaseUrl\b/u.test(writer.read(securityConfig))
   ) {
     throw new Error(
-      "--expose oauth lit l'adresse publique de l'application dans " +
+      `${flag} lit l'adresse publique de l'application dans ` +
         "nodefony/config/security.ts (`export const publicBaseUrl`), introuvable — " +
         "c'est l'émetteur des jetons ET l'audience de la porte.\n" +
         "  → déclarer `publicBaseUrl` dans ce fichier (le preset complete le fait), " +
         "ou --expose local",
     );
   }
-  return { oauth };
+  return { oauth, anonymous };
 }
 
 /**
@@ -3321,8 +3332,9 @@ function mcpGateNotes(
   route: string,
   kebab: string,
   pascal: string,
-  oauth: boolean,
+  mcp: IMcpGateScaffold | null,
 ): string[] {
+  const oauth = mcp?.oauth === true;
   const tools = `${kebab.replaceAll("-", "_")}_echo · ${kebab.replaceAll("-", "_")}_batch`;
   const common = [
     `MCP  POST ${route} — outils ${tools} (nodefony/mcp/${kebab}-tools.ts)`,
@@ -3335,12 +3347,26 @@ function mcpGateNotes(
         `pour la production : --expose oauth`,
     ];
   }
+  // Le scope de l'outil réservé de l'exemple : un jeton émis SANS lui est
+  // accepté par la porte et ne voit toujours que les outils publics — le
+  // défaut de `security:token` (`admin:read`) ne l'ouvre pas.
+  const scope = mcp.anonymous ? ` --scope ${kebab}:write` : "";
   return [
     ...common,
-    `PORTE PROTÉGÉE : jeton exigé (401 sans), document RFC 9728 publié par ${pascal}GateService`,
+    mcp.anonymous
+      ? `PORTE MIXTE : sans jeton, l'outil public seulement (${kebab.replaceAll("-", "_")}_echo) ; ` +
+        `${kebab.replaceAll("-", "_")}_batch exige un jeton au scope ${kebab}:write — ` +
+        `document RFC 9728 publié par ${pascal}GateService`
+      : `PORTE PROTÉGÉE : jeton exigé (401 sans), document RFC 9728 publié par ${pascal}GateService`,
     `⚠ pour qu'un jeton de CETTE application l'ouvre, ajoute \`\`\${publicBaseUrl(ctx.env)}${route}\`\` ` +
       `à \`jwt.audiences\` (nodefony/config/security.ts — écrite sur place, sans importer la porte : cycle), puis ` +
-      `\`npx nodefony security:token --resource <URL de la porte>\` — sans elle : invalid_target`,
+      `\`npx nodefony security:token --resource <URL de la porte>${scope}\` — sans elle : invalid_target`,
+    ...(mcp.anonymous
+      ? [
+          `⚠ porte mixte : un jeton REFUSÉ (expiré, autre audience) est servi comme un anonyme, jamais en 401 — ` +
+            `le refus part au journal (WARNING)`,
+        ]
+      : []),
     `⚠ en production, pose NF_JWT_ISSUER (l'URL publique) : c'est l'adresse que la porte annonce`,
   ];
 }
@@ -3450,6 +3476,8 @@ function runControllerScaffold(
     // échappée pour l'expression du test généré.
     toolPrefix: kebab.replaceAll("-", "_"),
     oauth: mcp?.oauth === true,
+    anonymous: mcp?.anonymous === true,
+    writeScope: `${kebab}:write`,
     routeRegex: route.replace(/[.*+?^${}()|[\]\\/]/gu, "\\$&"),
     channel: kebab,
     hasSecurity: targetDeps.has("@nodefony/security"),
@@ -3538,7 +3566,7 @@ function runControllerScaffold(
       `REST ${route} (vitrine décorateurs — voir les curl du TSDoc généré)`,
       `WS   ${route}/echo`,
     ],
-    mcp: mcpGateNotes(route, kebab, pascal, mcp?.oauth === true),
+    mcp: mcpGateNotes(route, kebab, pascal, mcp),
   };
   // 🔴 Une garde de rôle ferme un FICHIER, pas un ESPACE. Toute route servie
   // sous le même préfixe par un AUTRE controller reste ouverte — et la

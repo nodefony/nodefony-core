@@ -31,7 +31,14 @@ export const <%= it.camel %>GateResource = (
  * mal écrite, un outil mal formé ou un nom en double arrêtent le démarrage en
  * nommant la faute, jamais la première requête.
  *
-<% if (it.oauth) { %> * Exposition : PRODUCTION, derrière un serveur d'autorisation. Un appel sans
+<% if (it.anonymous) { %> * Exposition : MIXTE, derrière un serveur d'autorisation. Un appel SANS jeton
+ * est servi avec les seuls outils publics (`anonymous: true`) ; un outil qui
+ * porte `scopes` n'est listé et appelable qu'avec un jeton émis pour cette
+ * ressource ET porteur de ces scopes. Un jeton refusé (expiré, autre
+ * audience, révoqué) est servi comme un anonyme — jamais mieux — et le refus
+ * part au journal. Les appels distants sont admis : ce qui est public l'est
+ * pour tout le monde, ce qui est réservé l'est par le jeton.
+<% } else if (it.oauth) { %> * Exposition : PRODUCTION, derrière un serveur d'autorisation. Un appel sans
  * jeton reçoit `401` et l'en-tête `WWW-Authenticate` qui dit à l'agent où
  * l'obtenir ; un jeton émis pour une autre ressource est refusé (audience) ;
  * les rôles de l'appelant viennent des scopes du jeton. Les appels distants
@@ -63,5 +70,8 @@ export const <%= it.camel %>Gate = defineMcpGate({
   authorization: {
     authorizationServers: [publicBaseUrl(env)],
     resource: <%= it.camel %>GateResource(env),
-  },
+<% if (it.anonymous) { %>    // Sans jeton : les outils publics, et eux seuls. Retirer cette ligne
+    // fait de la porte une porte de production (401 sans jeton).
+    anonymous: true,
+<% } %>  },
 <% } %>});

@@ -183,7 +183,9 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "avec `--kind mcp` : une porte MCP qui expose les outils de " +
         "l'application à un agent IA, deux outils d'exemple et leur test ; " +
         "`--expose oauth` la met derrière un serveur d'autorisation (jeton " +
-        "exigé), `local` (défaut) la réserve à la machine.",
+        "exigé), `mixte` sert ses outils publics sans jeton et réserve les " +
+        "autres à un jeton qui porte leurs scopes, `local` (défaut) la " +
+        "réserve à la machine.",
     ],
     before: "À lancer DANS une application Nodefony.",
     examples: [

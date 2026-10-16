@@ -98,6 +98,7 @@ test :
 ```bash
 npx nodefony create controller mcp --kind mcp                  # porte locale : la machine seulement
 npx nodefony create controller mcp --kind mcp --expose oauth   # production : jeton exigé (401 sans)
+npx nodefony create controller mcp --kind mcp --expose mixte   # outils publics sans jeton, les autres réservés à un scope
 ```
 
 Tu ajoutes ensuite tes outils à la liste de `nodefony/mcp/mcp-tools.ts` ; la porte
@@ -315,10 +316,11 @@ temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts:373`), pu
 ligne depuis une action de controller. `npx nodefony create controller <nom> --kind mcp` écrit les
 deux, avec ses outils d'exemple et son test ; `--expose` choisit qui peut frapper :
 
-| `--expose`       | Qui passe                                           | Ce qui est écrit en plus                                                                                                   |
-| ---------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `local` (défaut) | la machine seulement, sans jeton ; page web → `403` | rien : en production derrière un relais, tout appelant est distant, donc refusé                                            |
-| `oauth`          | quiconque présente un jeton émis pour la porte      | l'émetteur et l'URI publique (`publicBaseUrl`), `allowRemote`, et le service qui publie le document RFC 9728 du défi `401` |
+| `--expose`       | Qui passe                                                                                | Ce qui est écrit en plus                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `local` (défaut) | la machine seulement, sans jeton ; page web → `403`                                      | rien : en production derrière un relais, tout appelant est distant, donc refusé                                                        |
+| `oauth`          | quiconque présente un jeton émis pour la porte                                           | l'émetteur et l'URI publique (`publicBaseUrl`), `allowRemote`, et le service qui publie le document RFC 9728 du défi `401`             |
+| `mixte`          | tout le monde pour les outils publics ; un jeton porteur de leurs scopes pour les autres | ce qu'écrit `oauth`, plus `anonymous: true` et `scopes: ["<nom>:write"]` sur l'outil long — le jeton s'émet avec `--scope <nom>:write` |
 
 **Une porte publie ce qu'elle CHOISIT** : une liste d'outils importée, comme ci-dessous. `tools:
 "modules"` servirait en plus tout outil qu'un module installé déclare, aujourd'hui ou demain — à

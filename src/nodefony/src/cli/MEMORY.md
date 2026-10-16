@@ -250,9 +250,9 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 - `readNodefonyName(file)` = le `super("…")` d'un `Module`/`Service` : c'est la CLÉ du conteneur, et
   pour un module le préfixe de ses commandes CLI. Ni le nom npm (`@app/blog`) ni le nom de classe —
   les trois peuvent différer, seul celui-là existe au runtime.
-- ⚠️ **eta avale le saut de ligne qui suit un tag en FIN de ligne** (`autoTrim: [false, "nl"]`) : la
-  ligne suivante se recolle. Toujours du texte après un `<%= … %>`, sinon TSDoc recousu / type coupé
-  en deux — invisible pour le contrôle « tag résiduel », d'où un test de FORME.
+- ⚠️ **eta : `autoTrim: false`** (`ETA_OPTIONS`) — le saut qui suit un tag est rendu tel quel. Un bloc
+  conditionnel s'ouvre en DÉBUT de ligne : ouvert sur la ligne précédente, il recoud deux lignes de
+  TSDoc — invisible pour le contrôle « tag résiduel », d'où un test de FORME.
 - `diffLines(before, after)` (writer.ts) : diff LCS, calculé au moteur pour que CLI et Studio
   décrivent le même changement. Au-delà de 1000 lignes → remplacement en bloc.
 - CLI : `--dry-run`/`-n` (plan + diff des réécritures, sort AVANT install/build/git) ·

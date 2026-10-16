@@ -5166,6 +5166,85 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    it("mcp mixte : outil public sans jeton, outil réservé à un scope, même émetteur", () => {
+      const dest = path.join(tmp, "mcpmixte");
+      scaffold(dest, { name: "mcpmixte", preset: "complete" });
+      const r = controller(dest, {
+        name: "vitrine",
+        kind: "mcp",
+        expose: "mixte",
+      });
+      const at = (...p: string[]) => path.join(dest, ...p);
+      const gate = codeOnly(
+        readFileSync(at("nodefony", "mcp", "vitrine-gate.ts"), "utf8"),
+      );
+      // Une porte PROTÉGÉE qui tolère l'anonyme — pas une porte ouverte.
+      assert.include(gate, "authorizationServers: [publicBaseUrl(env)]");
+      assert.include(gate, "resource: vitrineGateResource(env)");
+      assert.include(gate, "anonymous: true,");
+      assert.include(gate, "allowRemote: true");
+      const tools = codeOnly(
+        readFileSync(at("nodefony", "mcp", "vitrine-tools.ts"), "utf8"),
+      );
+      // L'outil long est réservé, l'outil court reste public : UN scope, posé
+      // sur `_batch` seul.
+      assert.equal(tools.match(/scopes: \[/gu)?.length, 1);
+      assert.isBelow(
+        tools.indexOf('"vitrine_batch"'),
+        tools.indexOf('scopes: ["vitrine:write"]'),
+      );
+      // Le document RFC 9728 est publié comme pour `oauth`.
+      const index = readFileSync(at("index.ts"), "utf8");
+      assert.match(index, /@services\(\[[^\]]*VitrineGateService\]\)/u);
+      const test = readFileSync(at("tests", "vitrine-gate.test.ts"), "utf8");
+      assert.notInclude(test, "status: 401");
+      assert.include(test, 'not.toContain("vitrine_batch")');
+      assert.include(test, '.toContain("vitrine:write")');
+      const notes = (r.notes ?? []).join("\n");
+      assert.include(notes, "PORTE MIXTE");
+      // Sans le scope, le jeton est accepté et l'outil reste invisible : la
+      // commande d'émission le NOMME.
+      assert.include(notes, "--scope vitrine:write");
+      assertNoEtaResidue(dest);
+      // Le piège eta : un tag en fin de ligne recoud deux lignes de TSDoc.
+      for (const file of ["vitrine-gate.ts", "vitrine-tools.ts"]) {
+        assert.notMatch(
+          readFileSync(at("nodefony", "mcp", file), "utf8"),
+          /^ \*.*\S \*( |$)/mu,
+          `${file} : ligne de TSDoc recousue`,
+        );
+      }
+    });
+
+    it("mcp oauth|mixte : refusés dans un module — l'autorisation est à l'application", () => {
+      const dest = path.join(tmp, "mcpmod");
+      scaffold(dest, { name: "mcpmod", preset: "complete" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "outils", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      for (const expose of ["oauth", "mixte"]) {
+        assert.throws(
+          () =>
+            controller(dest, {
+              name: "mcp",
+              kind: "mcp",
+              expose,
+              module: "outils",
+            }),
+          new RegExp(`--expose ${expose} se génère à la racine`, "u"),
+        );
+      }
+      assert.isFalse(
+        existsSync(path.join(dest, "modules", "outils", "nodefony", "mcp")),
+      );
+    });
+
     it("mcp : gardes AVANT écriture (brique, rôle, nom réservé, module, sécurité)", () => {
       const mini = path.join(tmp, "mcpgard");
       scaffold(mini, { name: "mcpgard", preset: "minimal" });

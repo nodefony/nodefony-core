@@ -255,6 +255,7 @@ const ROLE_GARDE = "ROLE_COFFRE";
  */
 const MCP_LOCAL = "outils";
 const MCP_OAUTH = "agent";
+const MCP_MIXTE = "vitrine";
 
 /**
  * Le service témoin, la méthode qui REMPLACE son exemple, et la commande qui
@@ -1037,8 +1038,8 @@ step(
 );
 
 step(
-  "génération : deux PORTES MCP, locale et protégée par jeton (#602)",
-  "Le controller qui sert une porte, ses outils, son test — et, protégée, le service qui publie son document RFC 9728.",
+  "génération : trois PORTES MCP, locale, protégée par jeton et mixte (#602)",
+  "Le controller qui sert une porte, ses outils, son test — et, protégée ou mixte, le service qui publie son document RFC 9728.",
   () => {
     run(process.execPath, [
       BIN,
@@ -1060,18 +1061,35 @@ step(
       "oauth",
       "--yes",
     ]);
+    run(process.execPath, [
+      BIN,
+      "create",
+      "controller",
+      MCP_MIXTE,
+      "--kind",
+      "mcp",
+      "--expose",
+      "mixte",
+      "--yes",
+    ]);
     // Le câblage, constaté sur le disque : une porte protégée dont le service
     // de publication n'est pas enregistré compile et répond 401 — avec un défi
     // qui désigne une adresse servie par personne.
     const index = readFileSync(path.join(APP, "index.ts"), "utf8");
-    for (const classe of ["OutilsController", "AgentController"]) {
+    for (const classe of [
+      "OutilsController",
+      "AgentController",
+      "VitrineController",
+    ]) {
       if (!new RegExp(`@controllers\\(\\[[^\\]]*${classe}`, "u").test(index))
         throw new Error(`${classe} absent de @controllers([…])`);
     }
-    if (!/@services\(\[[^\]]*AgentGateService/u.test(index))
-      throw new Error(
-        "AgentGateService absent de @services([…]) — le document RFC 9728 ne sera pas publié",
-      );
+    for (const service of ["AgentGateService", "VitrineGateService"]) {
+      if (!new RegExp(`@services\\(\\[[^\\]]*${service}`, "u").test(index))
+        throw new Error(
+          `${service} absent de @services([…]) — le document RFC 9728 ne sera pas publié`,
+        );
+    }
     if (/OutilsGateService/u.test(index))
       throw new Error(
         "la porte LOCALE a reçu un service de publication — elle ne protège rien",
@@ -1911,11 +1929,11 @@ function exigerBriquesMongoose() {
  */
 function frapperPortesMcp() {
   const sonde = `
-    const appel = (port, chemin) => fetch("http://127.0.0.1:" + port + chemin, {
+    const appel = (port, chemin, outil = "${MCP_LOCAL}_echo") => fetch("http://127.0.0.1:" + port + chemin, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call",
-        params: { name: "${MCP_LOCAL}_echo", arguments: { text: "bonjour-banc" } } }),
+        params: { name: outil, arguments: { text: "bonjour-banc" } } }),
     });
     const echec = (m) => { console.error(m); process.exit(1); };
     const locale = await appel(${PORTS.NF_PORT}, "/api/${MCP_LOCAL}");
@@ -1932,6 +1950,16 @@ function frapperPortesMcp() {
     const corps = await doc.text();
     if (doc.status !== 200 || !corps.includes("/api/${MCP_OAUTH}"))
       echec("document RFC 9728 (" + meta + ") → " + doc.status + " " + corps.slice(0, 300));
+    // La porte MIXTE : sans jeton, l'outil public répond ; l'outil réservé
+    // n'existe pas pour l'appelant — servi en 200, jamais en 401.
+    const publique = await appel(${PORTS.NF_PORT}, "/api/${MCP_MIXTE}", "${MCP_MIXTE}_echo");
+    const textePublic = await publique.text();
+    if (publique.status !== 200 || !textePublic.includes("bonjour-banc"))
+      echec("porte mixte, outil public SANS jeton → " + publique.status + " " + textePublic.slice(0, 300));
+    const reservee = await appel(${PORTS.NF_PORT}, "/api/${MCP_MIXTE}", "${MCP_MIXTE}_batch");
+    const texteReserve = await reservee.text();
+    if (!texteReserve.includes("outil inconnu"))
+      echec("porte mixte, outil RÉSERVÉ servi SANS jeton → " + reservee.status + " " + texteReserve.slice(0, 300));
   `;
   execFileSync(process.execPath, ["--input-type=module", "-e", sonde], {
     encoding: "utf8",
@@ -2358,7 +2386,7 @@ step(
  * Un `tools/call` sur une porte MCP du serveur témoin — statut et corps, lus
  * dans un process à part (le banc reste synchrone).
  */
-function appelMcp(chemin, outil, jeton) {
+function appelMcp(chemin, outil, jeton, args = { text: "jeton-banc" }) {
   const sonde = `
     const r = await fetch("http://127.0.0.1:${PORTS.NF_PORT}${chemin}", {
       method: "POST",
@@ -2368,7 +2396,7 @@ function appelMcp(chemin, outil, jeton) {
         ${jeton ? `authorization: "Bearer ${jeton}",` : ""}
       },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call",
-        params: { name: "${outil}", arguments: { text: "jeton-banc" } } }),
+        params: { name: "${outil}", arguments: ${JSON.stringify(args)} } }),
     });
     console.log(JSON.stringify({ status: r.status, body: await r.text() }));
   `;
@@ -2381,10 +2409,19 @@ function appelMcp(chemin, outil, jeton) {
 }
 
 /** Un jeton émis par l'application pour une ressource — `access_token` seul. */
-function jetonPour(resource) {
+function jetonPour(resource, scope) {
   const out = run(
     process.execPath,
-    [BIN, "security:token", "--json", "--ttl", "15", "--resource", resource],
+    [
+      BIN,
+      "security:token",
+      "--json",
+      "--ttl",
+      "15",
+      "--resource",
+      resource,
+      ...(scope ? ["--scope", scope] : []),
+    ],
     APP,
     { NODE_ENV: "development" },
   );
@@ -2414,7 +2451,8 @@ step(
       source.replace(
         ancre,
         (m) =>
-          `${m}\n            \`\${publicBaseUrl(ctx.env)}/api/${MCP_OAUTH}\`,`,
+          `${m}\n            \`\${publicBaseUrl(ctx.env)}/api/${MCP_OAUTH}\`,` +
+          `\n            \`\${publicBaseUrl(ctx.env)}/api/${MCP_MIXTE}\`,`,
       ),
     );
     run("npm", ["run", "build"]);
@@ -2448,6 +2486,31 @@ step(
         "--password",
         "Banc-rotation-602!",
       ]);
+      // La porte MIXTE : un jeton SANS le scope de l'outil réservé est accepté
+      // et ne l'ouvre pas ; le scope l'ouvre. Jetons émis APRÈS la rotation :
+      // ils portent le mot de passe courant. `batches: 1` — l'outil refuse un
+      // argument qu'il ne déclare pas (`text`).
+      const mixte = `https://localhost:${PORTS.NF_PORT_HTTPS}/api/${MCP_MIXTE}`;
+      const sansScope = appelMcp(
+        `/api/${MCP_MIXTE}`,
+        `${MCP_MIXTE}_batch`,
+        jetonPour(mixte),
+        { batches: 1 },
+      );
+      if (!sansScope.body.includes("outil inconnu"))
+        throw new Error(
+          `porte mixte : outil réservé ouvert par un jeton SANS son scope → ${sansScope.status} ${sansScope.body.slice(0, 300)}`,
+        );
+      const avecScope = appelMcp(
+        `/api/${MCP_MIXTE}`,
+        `${MCP_MIXTE}_batch`,
+        jetonPour(mixte, `${MCP_MIXTE}:write`),
+        { batches: 1 },
+      );
+      if (avecScope.status !== 200 || !avecScope.body.includes("lots traités"))
+        throw new Error(
+          `porte mixte : jeton au scope ${MCP_MIXTE}:write REFUSÉ → ${avecScope.status} ${avecScope.body.slice(0, 300)}`,
+        );
       const revoque = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
       if (revoque.status !== 401)
         throw new Error(

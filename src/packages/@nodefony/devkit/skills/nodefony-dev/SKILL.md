@@ -180,6 +180,7 @@ l'APPLICATION, et elle se génère — n'écris pas le protocole à la main :
 ```bash
 npx nodefony create controller mcp --kind mcp                  # porte locale : la machine seulement
 npx nodefony create controller mcp --kind mcp --expose oauth   # production : jeton exigé (401 sans)
+npx nodefony create controller mcp --kind mcp --expose mixte   # outils publics sans jeton, les autres réservés à un scope
 ```
 
 Elle naît avec deux outils d'exemple (`nodefony/mcp/mcp-tools.ts`), sa définition

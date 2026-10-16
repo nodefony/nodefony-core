@@ -29,7 +29,48 @@ const CALL_ECHO = {
 };
 
 describe("porte MCP <%= it.route %>", () => {
-<% if (it.oauth) { %>  it("sans jeton : 401, et le défi dit à l'agent où l'obtenir", async () => {
+<% if (it.anonymous) { %>  it("sans jeton : liste l'outil public, et retient l'outil réservé", async () => {
+    const response = await <%= it.camel %>Gate.respond(
+      local({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    );
+    expect(response).toMatchObject({ kind: "json", status: 200 });
+    expect(JSON.stringify(json(response))).toContain("<%= it.toolPrefix %>_echo");
+    expect(JSON.stringify(json(response))).not.toContain("<%= it.toolPrefix %>_batch");
+  });
+
+  it("sans jeton : sert l'outil public, même à un appelant distant", async () => {
+    const response = await <%= it.camel %>Gate.respond(
+      local(CALL_ECHO, { remoteAddress: "203.0.113.9" }),
+    );
+    expect(response).toMatchObject({ kind: "json", status: 200 });
+    expect(JSON.stringify(json(response))).toContain("bonjour");
+  });
+
+  it("sans jeton : l'outil réservé n'existe pas pour l'appelant", async () => {
+    const response = await <%= it.camel %>Gate.respond(
+      local({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "<%= it.toolPrefix %>_batch", arguments: {} },
+      }),
+    );
+    expect(JSON.stringify(json(response))).toContain("outil inconnu");
+  });
+
+  it("refuse une page web (en-tête Origin étranger) — DNS rebinding", async () => {
+    const response = await <%= it.camel %>Gate.respond(
+      local(CALL_ECHO, { origin: "https://evil.example" }),
+    );
+    expect(response).toMatchObject({ kind: "json", status: 403 });
+  });
+
+  it("la porte publie sa ressource protégée et le scope qui ouvre l'outil réservé", () => {
+    const [published] = <%= it.camel %>Gate.protectedResources();
+    expect(published?.resource).toMatch(/<%= it.routeRegex %>$/u);
+    expect(published?.scopesSupported).toContain("<%= it.writeScope %>");
+  });
+<% } else if (it.oauth) { %>  it("sans jeton : 401, et le défi dit à l'agent où l'obtenir", async () => {
     const response = await <%= it.camel %>Gate.respond(local(CALL_ECHO));
     expect(response).toMatchObject({ kind: "json", status: 401 });
     const challenge =
