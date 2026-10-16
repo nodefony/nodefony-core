@@ -14,9 +14,13 @@
  * sont eux qui font le travail.
  */
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  readWorkspaceManifests,
+  releasableWorkspaces,
+} from "../lib/workspaces.mjs";
 import {
   EXCLUS_DE_LA_DEPRECIATION,
   PAQUETS_HISTORIQUES,
@@ -1217,25 +1221,30 @@ describe("versionDeLaPageMan — un artefact GÉNÉRÉ qui embarque la version",
 // saboté : il mesurait autre chose que ce qu'il annonçait.
 describe("GATE dépôt — aucun pair interne non borné chez les publiables", () => {
   const RACINE = path.resolve(import.meta.dirname, "../..");
-  const manifestes = JSON.parse(
-    readFileSync(path.join(RACINE, "package.json"), "utf8"),
-  )
-    .workspaces.flatMap((motif) =>
-      motif.endsWith("/*")
-        ? readdirSync(path.join(RACINE, motif.slice(0, -2)), {
-            withFileTypes: true,
-          })
-            .filter((e) => e.isDirectory())
-            .map((e) => path.join(motif.slice(0, -2), e.name))
-        : [motif],
-    )
-    .map((rel) => path.join(RACINE, rel, "package.json"))
-    .filter((f) => existsSync(f))
-    .map((f) => JSON.parse(readFileSync(f, "utf8")));
+  const manifestes = readWorkspaceManifests(RACINE).map((w) => w.manifest);
 
   const publiables = manifestes
     .filter((m) => !m.private)
     .map((m) => ({ nom: m.name, pkg: m }));
+
+  const DECIDES = [
+    "@nodefony/ai",
+    "@nodefony/devkit",
+    "@nodefony/documentation",
+    "@nodefony/drizzle",
+    "@nodefony/framework",
+    "@nodefony/frontend",
+    "@nodefony/http",
+    "@nodefony/mongoose",
+    "@nodefony/orm-core",
+    "@nodefony/realtime",
+    "@nodefony/redis",
+    "@nodefony/security",
+    "@nodefony/studio",
+    "@nodefony/user",
+    "create-nodefony",
+    "nodefony",
+  ];
 
   it("le dépôt publie EXACTEMENT les paquets décidés", () => {
     // La chaîne CALCULE ses publiables (tout workspace non `private`) ; cette
@@ -1245,24 +1254,18 @@ describe("GATE dépôt — aucun pair interne non borné chez les publiables", (
     // qu'un échange (un sorti, un entré) laissait le total inchangé.
     // Un paquet qui naît ou qui sort de la surface publiée = une ligne ici, et
     // sa première publication se fait depuis le poste (`verdictPaquetsNeufs`).
-    expect(publiables.map((p) => p.nom).sort()).toEqual([
-      "@nodefony/ai",
-      "@nodefony/devkit",
-      "@nodefony/documentation",
-      "@nodefony/drizzle",
-      "@nodefony/framework",
-      "@nodefony/frontend",
-      "@nodefony/http",
-      "@nodefony/mongoose",
-      "@nodefony/orm-core",
-      "@nodefony/realtime",
-      "@nodefony/redis",
-      "@nodefony/security",
-      "@nodefony/studio",
-      "@nodefony/user",
-      "create-nodefony",
-      "nodefony",
-    ]);
+    expect(publiables.map((p) => p.nom).sort()).toEqual(DECIDES);
+  });
+
+  // Les fichiers ne sont pas ce que la chaîne lit : `pack-all` et `release.mjs`
+  // passent par l'arbre INSTALLÉ (`npm query`). Les deux doivent dire la même
+  // chose, sinon le lot partirait amputé ou grossi sans un mot.
+  it("la porte de release emporte ces mêmes paquets", () => {
+    expect(
+      releasableWorkspaces(RACINE)
+        .map((w) => w.name)
+        .sort(),
+    ).toEqual(DECIDES);
   });
 
   it("aucun pair interne en `*` — sinon npm sert `latest`, c'est-à-dire la 7.x", () => {

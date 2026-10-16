@@ -131,7 +131,7 @@ import {
 } from "./release-core.mjs";
 import { apiDiffChangelogEntries } from "./api-diff-core.mjs";
 import { latestPublished, measureApiDiff } from "./api-diff.mjs";
-import { publishableWorkspaces } from "../lib/workspaces.mjs";
+import { releasableWorkspaces } from "../lib/workspaces.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -321,10 +321,10 @@ const npm = (args, opts = {}) =>
 const listerPubliables = () => {
   let publiables;
   try {
-    publiables = publishableWorkspaces(ROOT);
+    publiables = releasableWorkspaces(ROOT);
   } catch (e) {
     echouer(
-      `npm query a échoué :\n${e instanceof Error ? e.message : String(e)}`,
+      `inventaire des publiables refusé :\n${e instanceof Error ? e.message : String(e)}`,
     );
   }
   const liste = publiables.map((w) => {

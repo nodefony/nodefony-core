@@ -213,7 +213,7 @@ Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour l'
 
 - **Variable** `BON`
 - **Lancé par** : `npm run test:release`
-- **Utilise** : `release/release-core.mjs` · `release/release.mjs`
+- **Utilise** : `lib/workspaces.mjs` · `release/release-core.mjs` · `release/release.mjs`
 
 ## [`release.mjs`](release.mjs)
 
@@ -223,6 +223,7 @@ release.mjs — PRÉPARE une release Nodefony, et refuse tout ce qui ne se rattr
 - **Usage** : `npm run release -- --version <v> --publish`
 - **Variable** `BRANCHE_ATTENDUE`
 - **Variable** `BRANCHE_PUBLICATION`
+- **Variable** `GITHUB_ACTIONS`
 - **Variable** `PUBLIER`
 - **Variable** `TAG_NPM`
 - **Variable** `VERSION`

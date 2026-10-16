@@ -1,7 +1,7 @@
 ---
 name: nodefony-release
 metadata:
-  version: 2.1.0
+  version: 2.2.0
 description: >
   Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle
   commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne
@@ -221,7 +221,19 @@ constante, lui, se retrouve au `grep`.
 | **La CI du commit tagué, exigée VERTE** (`garde-main`) | publier sur un rouge. Le tag et le push de la branche déclenchent des workflows SÉPARÉS qui s'ignorent : `release.yml` n'exerce que le build, le cœur du script et l'installation vierge — les suites unitaires et d'intégration, le typecheck, les gates et l'analyse de sécurité vivent dans les workflows de la BRANCHE. Liste d'EXCLUSIONS, jamais d'inclusions : un workflow neuf bloque par défaut. Zéro exécution vaut ROUGE — une garde qui passe quand elle ne sait rien ne garde rien |
 
 L'inventaire des publiables vient de `npm query .workspace` filtré sur `private` — jamais d'une
-liste écrite à la main, dont l'oubli serait silencieux.
+liste écrite à la main, dont l'oubli serait silencieux. Les gestes de release le lisent par
+`releasableWorkspaces` (`scripts/lib/workspaces.mjs`), qui REFUSE quand l'arbre installé ne décrit
+plus les fichiers : `npm query` rend l'arbre INSTALLÉ, et un module ajouté sans `npm install`
+partirait oublié du lot. En face, `release-core.test.mjs` porte la liste DÉCIDÉE, par noms : un
+paquet qui entre ou sort de la surface publiée y est une ligne, jamais un compte.
+
+**Un paquet NEUF ne naît pas de la forge** : le publieur de confiance ne se déclare que sur un
+paquet qui existe. `verdictPaquetsNeufs` le refuse sur la forge avant le premier `publish` (en
+répétition aussi) et donne les deux gestes du poste : le faire naître à la dernière version
+publiée du lot (`release:pack` puis `npm publish <tarball> --tag <canal> --access public`), ou
+publier toute la version d'ici (`--publish`). Puis npmjs.com → Trusted Publisher : workflow
+`release.yml`, environnement VIDE (le workflow n'en déclare aucun), publication directe autorisée,
+dist-tags NON (ils se recalent du poste) ; Publishing access → 2FA, jetons refusés.
 
 **Le raisonnement est PUR, et c'est ce qui le rend éprouvable.** Une release ne se répète pas : ce
 qui DÉCIDE vit donc hors des entrées-sorties, dans `scripts/release/release-core.mjs` — validation

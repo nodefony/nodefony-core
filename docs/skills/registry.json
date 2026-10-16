@@ -89,7 +89,8 @@
       "test": false,
       "purpose": "Les workspaces du dépôt, résolus par npm — seule implémentation pour scripts/.",
       "usage": [
-        "import { publishableWorkspaces, listWorkspaces } from \"../lib/workspaces.mjs\""
+        "import { publishableWorkspaces, listWorkspaces } from \"../lib/workspaces.mjs\"",
+        "import { releasableWorkspaces, readWorkspaceManifests } from \"../lib/workspaces.mjs\""
       ],
       "options": [],
       "env": [],
@@ -102,6 +103,22 @@
         "scripts/release/release.mjs",
         "scripts/release/types-rigor.mjs",
         "scripts/test/coverage-all.ts"
+      ],
+      "testedBy": [
+        "scripts/lib/workspaces.test.mjs",
+        "scripts/release/release-core.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/workspaces.test.mjs",
+      "test": true,
+      "purpose": "Vécu : `npm query` rend l'arbre INSTALLÉ. Un module ajouté sans `npm install` derrière lui est sur le disque et absent de npm — le pack l'aurait oublié.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -677,6 +694,7 @@
         "src/modules/mediasoup/vitest.config.ts",
         "src/modules/test/vitest.config.ts",
         "src/nodefony/vitest.config.ts",
+        "src/packages/@nodefony/ai/vitest.config.ts",
         "src/packages/@nodefony/devkit/vitest.config.ts",
         "src/packages/@nodefony/documentation/vitest.config.ts",
         "src/packages/@nodefony/drizzle/vitest.config.ts",
@@ -715,6 +733,7 @@
         "src/modules/mediasoup/vitest.config.ts",
         "src/modules/test/vitest.config.ts",
         "src/nodefony/vitest.config.ts",
+        "src/packages/@nodefony/ai/vitest.config.ts",
         "src/packages/@nodefony/devkit/vitest.config.ts",
         "src/packages/@nodefony/documentation/vitest.config.ts",
         "src/packages/@nodefony/drizzle/vitest.config.ts",
@@ -1921,6 +1940,10 @@
           "help": ""
         },
         {
+          "name": "GITHUB_ACTIONS",
+          "help": ""
+        },
+        {
           "name": "PUBLIER",
           "help": ""
         },
@@ -2464,8 +2487,8 @@
       ],
       "description": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au lieu de la réimplémenter (une seule source de templates). À charger AVANT d'écrire le moindre fichier d'un module neuf : recomposer le squelette à la main produit un module non conforme (types, exports, config, docs) que rien ne signale. Déclencheurs : \"crée un module\", \"scaffold module\", \"nouveau module nodefony\", \"génère un module\", \"create module\", \"bootstrap module\", \"module @nodefony/...\", \"j'ai besoin d'un nouveau paquet\", \"ajouter un module au framework\", \"structure d'un module neuf\".",
       "cost": {
-        "bodyLines": 279,
-        "approxTokens": 4237
+        "bodyLines": 291,
+        "approxTokens": 4486
       },
       "requires": [],
       "resources": {
@@ -2477,7 +2500,8 @@
       },
       "related": [
         "nodefony-check-externals",
-        "nodefony-create-frontend-module"
+        "nodefony-create-frontend-module",
+        "nodefony-release"
       ],
       "conformance": {
         "ok": true,
@@ -2539,7 +2563,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "279",
+            "detail": "291",
             "advisory": true
           }
         ]
@@ -8482,7 +8506,7 @@
       "name": "nodefony-release",
       "summary": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
       "family": "Publier et distribuer",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "keywords": [
         "release:pack",
         "release:smoke",
@@ -8512,8 +8536,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 387,
-        "approxTokens": 7887
+        "bodyLines": 399,
+        "approxTokens": 8152
       },
       "requires": [],
       "resources": {
@@ -8598,7 +8622,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "387",
+            "detail": "399",
             "advisory": true
           }
         ]

@@ -261,7 +261,19 @@ Après génération :
 1. **Build du module** : `npm run build --workspace={{path_dir}}`
 2. **Vérifier 0 erreur TS**
 3. **Si activé dans le manifeste `modules`** : `npm run build` full + check qu'aucun workspace ne casse
-4. **Reporter à l'user** le statut + chemins créés
+4. **`npm run test:tooling`** (racine) — les gates du dépôt sur le module neuf, dont
+   `vitest-tmp-guard` : un `vitest.config.ts` SANS `globalSetup: tmpGuard()` rouvre la fuite de
+   dossiers temporaires, et sa passe reste verte. Un module né de `nodefony create module` (gabarit
+   d'APPLICATION) naît toujours sans : la garde importe un socle de la racine
+   (`scripts/test/vitest/tmp-guard.ts`), absent chez un utilisateur. Modèle à reprendre :
+   `src/packages/@nodefony/devkit/{vitest.config.ts,tsconfig.tests.json}` — la garde ET
+   `transformCache`, plus `rootDir` à la racine et `allowImportingTsExtensions` dans le
+   `tsconfig.tests.json` (sinon le typecheck lève TS5097/TS6059 sur ces imports).
+5. **Paquet publiable** (pas `private`) : l'ajouter à la liste DÉCIDÉE de
+   `scripts/release/release-core.test.mjs` (« publie EXACTEMENT les paquets décidés »), et sa
+   PREMIÈRE publication se fait depuis le poste — la forge le refuse (`verdictPaquetsNeufs`,
+   skill `nodefony-release`).
+6. **Reporter à l'user** le statut + chemins créés
 
 ## Pièges connus à éviter
 

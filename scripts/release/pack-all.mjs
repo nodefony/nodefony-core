@@ -35,7 +35,7 @@ import {
   EXTENSIONS_INSPECTEES,
 } from "./release-core.mjs";
 import { foreignModules, publishedModules } from "../lib/symbols-publish.mjs";
-import { publishableWorkspaces } from "../lib/workspaces.mjs";
+import { releasableWorkspaces } from "../lib/workspaces.mjs";
 import { DOCS_DIR, pagesNonServies, regleDApplication } from "./doc-pages.mjs";
 
 // `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
@@ -70,8 +70,9 @@ const PACK_PEER_OPTIONAL = {
   nodefony: ["react", "react-dom"],
 };
 
-// Workspaces publiables — résolus par npm (source de vérité, pas de liste en dur).
-const workspaces = publishableWorkspaces(ROOT);
+// Workspaces publiables — résolus par npm (source de vérité, pas de liste en dur),
+// après avoir prouvé que l'arbre installé décrit encore les fichiers.
+const workspaces = releasableWorkspaces(ROOT);
 
 // ── Ce qui fait REFUSER la publication, constaté AVANT d'empaqueter ────────
 //

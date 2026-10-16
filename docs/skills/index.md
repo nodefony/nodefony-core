@@ -118,7 +118,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.1.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v2.2.0 · ⚙️ 1 script" }
 ]
 ```
 
@@ -195,7 +195,7 @@ source: "docs/skills/index.md"
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 116 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.0 | 113 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
-| [`nodefony-create-module`](nodefony-create-module.md) | — | 279 | 1 | 0 | ✅ |
+| [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.4.0 | 412 | 9 | 15 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.0.0 | 131 | 0 | 0 | ✅ |
@@ -208,7 +208,7 @@ source: "docs/skills/index.md"
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 532 | 5 | 70 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 2.1.0 | 387 | 0 | 1 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 2.2.0 | 399 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.8.0 | 311 | 0 | 3 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 121 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 397 | 0 | 0 | ✅ |

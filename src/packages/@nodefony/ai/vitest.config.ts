@@ -1,4 +1,6 @@
 import { defineConfig } from "vitest/config";
+import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
+import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 /**
  * Config Vitest du module — suite UNITAIRE, qui ne frappe jamais le réseau.
@@ -18,6 +20,10 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    // Dossier temporaire propre à la passe, contrôlé et supprimé au teardown
+    // (scripts/test/vitest/tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
+    globalSetup: tmpGuard(),
+    ...transformCache,
     include: ["tests/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "tests/**/*.e2e.test.ts"],
   },

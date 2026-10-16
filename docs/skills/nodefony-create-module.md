@@ -28,8 +28,8 @@ source: ".claude/skills/nodefony-create-module/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Développer le framework |
-| Corps | 279 lignes |
-| Coût d'activation | ~4 237 tokens (le corps est chargé à l'invocation) |
+| Corps | 291 lignes |
+| Coût d'activation | ~4 486 tokens (le corps est chargé à l'invocation) |
 | Description | 891 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
@@ -44,7 +44,7 @@ Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-externals`](nodefony-check-externals.md) · [`create-frontend-module`](nodefony-create-frontend-module.md)
+[`check-externals`](nodefony-check-externals.md) · [`create-frontend-module`](nodefony-create-frontend-module.md) · [`release`](nodefony-release.md)
 
 ## Quand il se déclenche
 
@@ -91,7 +91,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 279 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 291 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

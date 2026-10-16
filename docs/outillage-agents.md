@@ -158,7 +158,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "skills/nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.1.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v2.2.0 · ⚙️ 1 script" }
 ]
 ```
 

@@ -45,4 +45,13 @@ Copie publiée du graphe symbolique — module d'un fichier, modules publiés, f
 Les workspaces du dépôt, résolus par npm — seule implémentation pour scripts/.
 
 - **Usage** : `import { publishableWorkspaces, listWorkspaces } from "../lib/workspaces.mjs"`
+- **Usage** : `import { releasableWorkspaces, readWorkspaceManifests } from "../lib/workspaces.mjs"`
 - **Appelé par** : `lib/symbols-publish.mjs` · `release/api-diff.mjs` · `release/pack-all.mjs` · `release/readme-gate.mjs` · `release/release.mjs` · `release/types-rigor.mjs` · `test/coverage-all.ts`
+- **Testé par** : `lib/workspaces.test.mjs` · `release/release-core.test.mjs`
+
+## [`workspaces.test.mjs`](workspaces.test.mjs)
+
+Vécu : `npm query` rend l'arbre INSTALLÉ. Un module ajouté sans `npm install` derrière lui est sur le disque et absent de npm — le pack l'aurait oublié.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/workspaces.mjs`

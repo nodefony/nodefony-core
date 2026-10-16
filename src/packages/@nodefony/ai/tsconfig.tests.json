@@ -2,6 +2,15 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    // `rootDir` est hérité à `./` du tsconfig de BUILD, où il borne la structure
+    // de sortie. Ici il n'y a pas de sortie (`noEmit`) : il ne sert plus qu'à
+    // lever `TS6059` dès que `vitest.config.ts` importe un socle de la racine du
+    // dépôt (`scripts/test/vitest/tmp-guard.ts`, `scripts/test/vitest/perf.ts`).
+    "rootDir": "../../../..",
+    // Les socles de la racine s'importent avec leur extension `.ts` — Vite
+    // l'exige pour son chargeur de configuration natif (#410). TypeScript ne
+    // l'accepte que sous ce drapeau, lui-même conditionné à `noEmit`.
+    "allowImportingTsExtensions": true,
     "types": ["node", "vitest/globals"],
     "noUnusedLocals": false,
     "noUnusedParameters": false
