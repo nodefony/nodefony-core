@@ -282,16 +282,16 @@ prouvées en test :
 
 | Défense                                | Comment                                                                                          | Attaque fermée                                                     |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:120`)        | `alg=none`, algorithm confusion (§3.1)                             |
-| **Clé par `kid` du keyset LOCAL**      | `createLocalJWKSet` — jamais `jku`/`jwk` de l'en-tête (`JwtAuthenticator.ts:174`)                | injection de clé / SSRF (§3.5)                                     |
+| **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:189`)        | `alg=none`, algorithm confusion (§3.1)                             |
+| **Clé par `kid` du keyset LOCAL**      | `createLocalJWKSet` — jamais `jku`/`jwk` de l'en-tête (`JwtAuthenticator.ts:243`)                | injection de clé / SSRF (§3.5)                                     |
 | **`aud` + `iss` + `typ` obligatoires** | `typ: "at+jwt"` (§3.11) sépare access et refresh (`JwtAuthenticator.ts:119-124`)                 | refresh présenté comme access, token d'un autre service (§3.8-3.9) |
-| **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:138-148`)       | jeton auto-porté volé, logout global                               |
+| **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:207-217`)       | jeton auto-porté volé, logout global                               |
 | **Sujet revérifié**                    | `loadUserByIdentifier(sub)` → disparu/inactif/verrouillé = rejet (`JwtAuthenticator.ts:190-203`) | compte banni encore « valide » via son token (§3.10)               |
 
 Le **message d'échec est uniforme** (`INVALID_TOKEN`, `JwtAuthenticator.ts:25`) : la cause fine
 (expiré, `aud`, signature, sujet banni) part en **audit**, jamais au client — anti-oracle. Le token
 promu porte `scopes`, `jti`, `claims` en attributs (`JwtAuthenticator.ts:178-188`). `jose` est
-importé **lazy** — dépendance lourde (`JwtAuthenticator.ts:112`).
+importé **lazy** — dépendance lourde (`JwtAuthenticator.ts:181`).
 
 Les six premiers se déclarent dans une zone (registre `authenticatorRegistry.ts:73`) ;
 `firewall-realtime` ne se déclare pas — le firewall le câble lui-même au handshake WebSocket.
@@ -469,7 +469,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 | --- | --- | --- |
 | Challenge d'auth (401) | RFC 9110 §11 | `Firewall.#setChallenge()` (`firewall.ts:1345`) |
 | Bearer | RFC 6750 | `readBearerHeader()` (`runtime/bearer.ts:68`, cœur) — une porte UNIQUE au cœur, plus une constante par authenticator |
-| JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
+| JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:188-193`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |
 | Backoff de login | NIST SP 800-63B | `#throttler.check()` avant le verifier (`UserPasswordAuthenticator.ts:101-103`) |
 | Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:841`) |
@@ -481,7 +481,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
   (le chemin chaud/froid vit dans le [firewall](./firewall.md)).
 - Résolutions **lazy** : le verifier `#resolveVerifier` est mémoïsé au premier login
   (`UserPasswordAuthenticator.ts:59`) ; keystore, `tokenStore` et `users` sont résolus du
-  container au premier usage ; `jose` est importé lazy (`JwtAuthenticator.ts:112`).
+  container au premier usage ; `jose` est importé lazy (`JwtAuthenticator.ts:181`).
 - `anonymous` : singleton gelé `anonymousUser`, zéro allocation d'utilisateur
   (`AnonymousToken.ts:9`).
 - `apikey` : écriture `lastUsedAt` **coalescée** — pas une écriture par requête
@@ -497,7 +497,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 | --- | --- | --- |
 | 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:929`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
 | 401 générique + log ERROR « service `users` » | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`) | Enregistrer un `UserService` au boot de l'app |
-| JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
+| JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:188-193`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
 | Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`) | Un PAT est révoqué immédiatement ; vérifier `revokedAt` |
 | Révocation WS pas immédiate | Identité figée au handshake — asymétrie assumée du `FirewallRealtimeAuthenticator` (`FirewallRealtimeAuthenticator.ts:51-55`) | Attendre la fenêtre de re-validation, ou utiliser JWT + canal révocation |
 | Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:646`) | Configurer `rateLimit` pour poser le throttler |

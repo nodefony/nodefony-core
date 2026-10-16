@@ -754,7 +754,7 @@ const resourceServerSchema = z
       .array(trustedIssuerSchema)
       .default([])
       .describe(
-        "Émetteurs dont l'application accepte les jetons. VIDE (défaut) = aucun jeton tiers n'est vérifiable, et le service `accessTokenVerifier` n'est pas posé — une porte protégée refusera alors de servir plutôt que d'accepter des porteurs qu'elle ne sait pas lire. Un seul réglage commande le rôle : pas de drapeau `enabled` qui permettrait « activé sans émetteur ».",
+        "Émetteurs TIERS dont l'application accepte les jetons. Les jetons signés par l'application elle-même n'ont pas à y figurer : dès que `jwt.enabled`, le service `accessTokenVerifier` les reconnaît, et les juge par les règles de l'authentificateur `jwt` (révocation, compte actif). VIDE (défaut) = aucun jeton tiers n'est vérifiable ; avec `jwt.enabled: false`, le service n'est pas posé et une porte protégée refusera de servir plutôt que d'accepter des porteurs qu'elle ne sait pas lire. Une liste INVALIDE n'en pose aucun, jetons locaux compris.",
       ),
     subjectPolicy: z
       .enum(["require", "ephemeral"])

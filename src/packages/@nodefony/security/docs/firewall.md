@@ -265,13 +265,13 @@ le keystore du serveur. Défenses **dures**, prouvées en test (RFC 8725 JWT BCP
 `JwtAuthenticator.authenticate()` :
 
 - **allowlist d'algorithmes** `["EdDSA"]` — l'algo n'est **jamais** choisi d'après l'en-tête du
-  token ; `alg=none` rejeté (`JwtAuthenticator.ts:120`).
+  token ; `alg=none` rejeté (`JwtAuthenticator.ts:189`).
 - **clé par `kid` depuis le JWKS LOCAL** (`createLocalJWKSet`) — jamais `jku`/`jwk` de l'en-tête
-  (anti-injection de clé / SSRF, `JwtAuthenticator.ts:174`).
+  (anti-injection de clé / SSRF, `JwtAuthenticator.ts:243`).
 - **`aud` + `iss` obligatoires** + `typ:"at+jwt"` (un refresh présenté comme access est rejeté) +
   exp/nbf (`JwtAuthenticator.ts:119-124`).
 - **révocation** malgré l'auto-portage : denylist `jti` + `invalidBefore` par sujet
-  (`JwtAuthenticator.ts:138-148`).
+  (`JwtAuthenticator.ts:207-217`).
 - **sujet revérifié** à réception (`loadUserByIdentifier(sub)`) : compte disparu/inactif/verrouillé
   = rejet (`JwtAuthenticator.ts:190-201`).
 

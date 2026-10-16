@@ -1,4 +1,5 @@
-import type { Container } from "nodefony";
+import { canonicalIssuer } from "nodefony";
+import type { Container, IAccessPrincipal } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import type { IUser, IUserProvider } from "@nodefony/user";
 import type * as Jose from "jose";
@@ -109,6 +110,74 @@ export class JwtAuthenticator implements IAuthenticator {
     if (typeof raw !== "string" || raw.length === 0) {
       throw new AuthenticationError(INVALID_TOKEN);
     }
+    const { user, payload } = await this.#verify(raw, this.#runtime.audiences);
+    return this.#promote(token, user, payload);
+  }
+
+  /**
+   * Vérifie un jeton émis par CETTE application pour une ressource protégée
+   * nommée par l'appelant — la porte d'une ressource (RFC 8707), pas une zone.
+   *
+   * Les MÊMES règles que {@link authenticate}, appliquées par la même fonction :
+   * signature par le keyset local, `iss`, `typ: at+jwt`, révocation ciblée
+   * (`jti`) et en masse (`invalidBefore`), compte encore actif. Seule
+   * l'audience diffère : c'est celle de la ressource qui appelle, et elle est
+   * exigée. Un jeton révoqué, ou celui d'un compte désactivé, n'ouvre donc pas
+   * plus une porte MCP qu'une route — ce que la vérification par le seul jeu de
+   * clés publiques laissait passer jusqu'à l'expiration.
+   *
+   * @param raw - le jeton présenté, brut
+   * @param audience - l'URI canonique de la ressource qui le reçoit
+   * @returns le principal établi, ou `null` pour tout refus (contrat
+   *   `IAccessTokenVerifier` : un refus n'est jamais une exception)
+   * @throws Error si le câblage manque (keystore, store, annuaire) — la porte
+   *   le traduit en `503`, jamais en jeton accepté
+   */
+  async verifyForResource(
+    raw: string,
+    audience: string,
+  ): Promise<IAccessPrincipal | null> {
+    let verified: { user: IUser; payload: Jose.JWTPayload };
+    try {
+      verified = await this.#verify(raw, audience);
+    } catch (error) {
+      if (error instanceof AuthenticationError) return null;
+      throw error;
+    }
+    const { payload } = verified;
+    const scope = payload.scope;
+    let issuer = this.#runtime.issuer;
+    try {
+      issuer = canonicalIssuer(issuer);
+    } catch {
+      // Émetteur par défaut (`"nodefony"`) : pas une URL, donc pas de forme
+      // canonique — il reste l'identifiant contre lequel la signature a été
+      // vérifiée, ce que le contrat exige.
+    }
+    return {
+      issuer,
+      subject: payload.sub,
+      scopes:
+        typeof scope === "string" && scope.length > 0 ? scope.split(" ") : [],
+      expiresAt: payload.exp,
+      issuedAt: payload.iat,
+      tokenId: payload.jti,
+      claims: payload,
+    };
+  }
+
+  /**
+   * La vérification entière d'un jeton maison — UNE implémentation, pour la
+   * zone ({@link authenticate}) comme pour la ressource
+   * ({@link verifyForResource}).
+   *
+   * @throws AuthenticationError pour tout refus (message uniforme)
+   * @throws Error si le câblage manque
+   */
+  async #verify(
+    raw: string,
+    audience: string | string[],
+  ): Promise<{ user: IUser; payload: Jose.JWTPayload }> {
     const jose = (this.#jose ??= await import("jose"));
     // Résolution du keyset HORS du try crypto : une absence de câblage doit
     // remonter en Error (loggée ERROR), pas être masquée en « token invalide ».
@@ -119,7 +188,7 @@ export class JwtAuthenticator implements IAuthenticator {
       const result = await jose.jwtVerify(raw, getKey, {
         algorithms: ["EdDSA"], // allowlist (RFC 8725 §3.1) — alg=none/confusion rejetés
         issuer: this.#runtime.issuer, // §3.8
-        audience: this.#runtime.audiences, // §3.9 (MUST)
+        audience, // §3.9 (MUST)
         typ: "at+jwt", // §3.11 — un refresh présenté comme access est rejeté
       });
       payload = result.payload;
@@ -149,7 +218,7 @@ export class JwtAuthenticator implements IAuthenticator {
 
     // Sujet valide à la réception (RFC 8725 §3.10) — disparu/inactif/verrouillé = rejet.
     const user = await this.#resolveUserOrReject(sub);
-    return this.#promote(token, user, payload);
+    return { user, payload };
   }
 
   /** Slot audit (J4b). */

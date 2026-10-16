@@ -44,7 +44,14 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   ne connaît que le keyset LOCAL. `verify(token, audience)` = contrat `IAccessTokenVerifier` du cœur ;
   posé au conteneur sous **`accessTokenVerifier`** par le service homonyme (nom générique : le contrat
   prend l'audience en paramètre → 1 instance sert N ressources protégées, RFC 9728 §3.1). Consommé par
-  `McpController` de `@nodefony/devkit`.
+  toute porte MCP protégée (`defineMcpGate`, `@nodefony/ai`) et par `ExternalJwtAuthenticator`.
+  ⭐ **Émetteur LOCAL toujours reconnu** (`service/accessTokenVerifier.ts`) : capacité `jwt.enabled` ⇒
+  `JwtAuthenticator.verifyForResource(token, audience)` — MÊME `#verify` que la zone (EdDSA, `iss`,
+  `typ: at+jwt`, `jti` denylist, `invalidBefore`, compte actif), audience = celle de la ressource.
+  Aiguillage `peekIssuer(token) === jwt.issuer` (égalité EXACTE) → local ; sinon `RemoteJwtVerifier` ;
+  inconnu → `null` sans requête. `issuers` invalide ⇒ AUCUN vérificateur (locaux compris).
+  Contrat : refus = `null` ; panne store/keystore = throw (503) ; panne annuaire = `null` (lue comme
+  compte absent — fail-closed). Banc : `tests/unit/accessTokenVerifier.attack.test.ts`.
   - `iss` NON VÉRIFIÉ lu par `decodeJwt` → sert UNIQUEMENT à indexer une allowlist FERMÉE → émetteur
     inconnu = refus **sans aucune requête sortante** (pas de SSRF déclenchable par un anonyme).
   - Clés par `createRemoteJWKSet` (jamais `jku`/`jwk` d'en-tête, RFC 8725 §3.5) ; `fetch` INJECTABLE
@@ -135,11 +142,12 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   `attaquant.example` publie des clés au nom d'un émetteur légitime ; `jwks_uri` https mais PAS même-origine :
   Google sert `accounts.google.com` depuis `www.googleapis.com`) · `extractScopes` (`scope` string ET `scp`
   array — ignorer la 2ᵉ ferait paraître sans droits des jetons valides).
-- ⭐ **La boucle complète s'éprouve SANS IdP tiers** : une app Nodefony publiant ses métadonnées est
-  découvrable **par elle-même**. L'app de dev se déclare donc dans sa propre allowlist
-  (`resourceServer.issuers += {issuer: "https://localhost:5152", algorithms: ["EdDSA"]}`, **sans
-  `jwksUri`** → la DÉCOUVERTE est réellement exercée), et un jeton émis par
-  `/nodefony/security/api/token` entre par une zone `external-jwt`. Bancs live :
+- ⭐ **La boucle complète s'éprouve SANS IdP tiers** : l'app de dev se déclare dans sa propre
+  allowlist (`resourceServer.issuers += {issuer: "https://localhost:5152", algorithms: ["EdDSA"]}`),
+  et un jeton émis par `/nodefony/security/api/token` entre par une zone `external-jwt`. ⚠️ Ce banc
+  n'exerce PAS la découverte HTTP : un jeton à l'émetteur local est aiguillé vers la vérification
+  LOCALE avant toute liste. La découverte RFC 8414 n'est éprouvée que par `remoteJwtVerifier.test.ts`
+  (`fetch` injecté) et le banc Keycloak. Bancs live :
   `http/external-jwt-e2e.test.ts` (succès, 6) + `http/external-jwt.test.ts` (panne, 6).
   ⚠️ Le processus se joint en https : la CA de dev est posée parmi ses ancres par le service
   certificates de http (`addDefaultCaCertificate`, dev seulement, console comprise) ; une autorité
@@ -438,7 +446,8 @@ skin:"frontispiece" (LOGIN_PAGE_SKINS, cœur), layout?:"split"|"card"|"bare" (LO
 subjectMapping:"prefixed"|"subject"}],
 subjectPolicy:"require"|"ephemeral", ephemeralRoles:[],
 timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `issuers` VIDE =
-  service `accessTokenVerifier` NON posé (un seul réglage commande le rôle — pas de `enabled`).
+  aucun émetteur TIERS — le service `accessTokenVerifier` reste posé si `jwt.enabled` (émetteur
+  local), absent sinon (pas de drapeau `enabled` propre).
   `algorithms` = enum ASYMÉTRIQUE seulement : les clés viennent d'un jeu public, `HS*` y ferait
   de la clé publique un secret de signature (RFC 8725 §2.1). Refus AU BOOT, pas à la vérif.
 - `securityConfigJsonSchema()` = `z.toJSONSchema(schema)` → **Studio génère son formulaire**.

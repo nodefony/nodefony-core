@@ -177,6 +177,83 @@ codex mcp add nodefony --url http://localhost:5151/nodefony/mcp \
 Pour câbler `.mcp.json` d'un seul geste : `npx nodefony ai:mcp --auth`. La déclaration de la porte
 appartient à [devkit](../../devkit/docs/index.md) ; cette page ne fait qu'émettre le porteur.
 
+## 🔐 Ce que la porte vérifie — un jeton de cette application face à une ressource
+
+Une ressource protégée — une porte MCP d'application (`nodefony create controller <nom> --kind mcp
+--expose oauth`), ou la porte de développement quand elle déclare un serveur d'autorisation — ne
+vérifie pas le jeton elle-même : elle le confie au service `accessTokenVerifier`, avec **son** URI
+comme audience. Ce service reconnaît **toujours** l'émetteur de l'application, dès que sa capacité
+JWT est active (`security.jwt.enabled`, vrai par défaut), **sans rien déclarer** dans
+`resourceServer.issuers` (`src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts:88`).
+Une application qui signe un jeton pour sa propre porte peut donc l'y présenter.
+
+**L'aiguillage se fait sur l'émetteur revendiqué, comparé EXACTEMENT** à `security.jwt.issuer`
+(`accessTokenVerifier.ts:138`). Égal : le jeton est jugé par les règles de l'authentificateur `jwt`,
+par la même fonction (`src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts:177`).
+Différent : il est jugé par la liste fermée des émetteurs tiers (Keycloak…, voir
+[Accepter les jetons d'un émetteur tiers](external-jwt.md)) — inconnu d'elle, il est refusé sans
+aucune requête sortante.
+
+Un jeton de l'application n'est accepté que si **chaque** contrôle passe, dans cet ordre :
+
+| #   | Contrôle                                                    | Refusé, par exemple                                                                   | Norme                                                                   |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1   | signature par une clé du jeu LOCAL, algorithme `EdDSA` seul | `alg: none`, `HS256` signé avec la clé publique, clé d'un tiers sous le même `kid`    | [RFC 8725](https://www.rfc-editor.org/rfc/rfc8725.html) §3.1, §3.5      |
+| 2   | `iss` = l'émetteur de l'application                         | `https://app.example/` quand l'émetteur est `https://app.example` (aiguillé ailleurs) | RFC 8725 §3.8                                                           |
+| 3   | `aud` contient l'URI de la porte                            | un jeton émis pour une AUTRE porte de la même application                             | [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html), RFC 8725 §3.9  |
+| 4   | `typ: at+jwt`                                               | un jeton de rafraîchissement présenté comme jeton d'accès, un `typ` absent            | [RFC 9068](https://www.rfc-editor.org/rfc/rfc9068.html), RFC 8725 §3.11 |
+| 5   | `exp` et `nbf`                                              | expiré, pas encore valide                                                             | [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519.html) §4.1.4-5        |
+| 6   | `sub` et `jti` présents                                     | un jeton sans identifiant — donc impossible à révoquer                                |                                                                         |
+| 7   | `jti` absent de la liste de révocation                      | un jeton révoqué individuellement                                                     |                                                                         |
+| 8   | émis APRÈS le seuil `invalidBefore` du compte               | tout jeton antérieur à un changement de mot de passe ou à une déconnexion globale     |                                                                         |
+| 9   | le compte existe, est actif et n'est pas verrouillé         | le jeton d'un compte désactivé, verrouillé ou supprimé                                | RFC 8725 §3.10                                                          |
+
+Les contrôles 7 et 8 viennent **avant** la lecture du compte : un jeton révoqué est refusé sans
+interroger l'annuaire (`JwtAuthenticator.ts:208`). Une PANNE de la liste de révocation est un
+`503` ; une panne de l'annuaire, elle, se lit comme un compte absent — `401`. Dans les deux cas le
+jeton n'est jamais servi : c'est une limite de diagnostic, pas d'accès. Le jeton accepté donne à la porte un principal :
+son sujet (`sub`, l'identifiant du compte local) et ses scopes, qui décident des outils servis.
+
+| Verdict du vérificateur                                        | Réponse de la porte                                            |
+| -------------------------------------------------------------- | -------------------------------------------------------------- |
+| principal                                                      | servi — les outils réservés que ses scopes ouvrent en plus     |
+| refus (l'un des contrôles)                                     | `401` + `WWW-Authenticate`, qui désigne le document RFC 9728   |
+| invérifiable (clés, liste de révocation ou annuaire absents)   | `503`, et le journal crie — jamais un jeton accepté par défaut |
+| aucun vérificateur (capacité JWT coupée, aucun émetteur tiers) | `503`                                                          |
+
+**Révoquer un jeton émis**, c'est révoquer le compte qui le porte : `npx nodefony
+security:user:password <compte>` pose le seuil du contrôle 8 — le prochain appel reçoit `401`, avant
+l'expiration du jeton. C'est éprouvé sur un serveur réel par le banc de vérité du générateur
+(étape « la porte MCP protégée s'ouvre… et se referme révoquée »).
+
+**Ce que la règle n'élargit pas.** Aucun jeton nouveau ne devient valide : l'émetteur ne signe que
+pour les audiences de `jwt.audiences`, et l'audience reste exigée à chaque porte. La zone de
+pare-feu `external-jwt` ne prend, elle, que les jetons des émetteurs qu'ELLE déclare : la règle ne
+lui ouvre rien. Et si `resourceServer.issuers` est mal configurée, **aucun** vérificateur n'est
+posé, jetons de l'application compris — une configuration fausse ne se sert pas à moitié
+(`accessTokenVerifier.ts:112`).
+
+> ⚠️ **En production, pose `NF_JWT_ISSUER`.** Sans elle, l'émetteur vaut `"nodefony"`, qui n'est
+> pas une URL : les jetons se vérifient, mais l'application ne publie ni ses clés ni ses métadonnées,
+> et une porte qui annonce `https://…` comme serveur d'autorisation désigne une adresse dont
+> l'émetteur réel n'est pas celui des jetons.
+
+Pour une porte d'application, l'audience à déclarer est l'URI publique de la porte. Dans une
+application générée, écris-la **sur place** dans `jwt.audiences` de `nodefony/config/security.ts` :
+
+```typescript
+audiences: ctx.isProd
+  ? []
+  : [
+      // … les audiences du gabarit
+      `${publicBaseUrl(ctx.env)}/api/mcp`,
+    ],
+```
+
+⚠️ N'y importe pas la fonction `…GateResource` du fichier de la porte : ce fichier importe
+`security.ts`, et le cycle ferait lire `publicBaseUrl` avant sa définition — `ReferenceError` au
+démarrage.
+
 ## 🔄 Renouveler — c'est réémettre, pas rafraîchir
 
 Il n'y a pas de refresh token ici : ce jeton est signé hors bande, pour une porte, avec une durée
@@ -209,6 +286,13 @@ est décrit dans [tokens](tokens.md), pas ici.
 
 ## 🧪 Tests & couverture
 
+- **unit** : `accessTokenVerifier.attack.test.ts` éprouve la vérification d'un jeton de
+  l'application face à une ressource — chacun des neuf contrôles ci-dessus par un jeton qui le viole,
+  l'aiguillage entre émetteur local et tiers, les entrées hostiles, la configuration fausse — et
+  chacune de ses règles a été vue tomber en la débranchant ;
+- **serveur réel** : le banc de vérité du générateur (`verify-generated.mjs`) ouvre la porte
+  d'une application engendrée avec `security:token`, la voit refuser un jeton d'une autre audience,
+  puis refuser le premier jeton après `security:user:password` ;
 - **unit** : `securityCommands.test.ts` couvre les deux règles pures de la commande — un jeton
   **mort-né** doit s'annoncer avant d'être copié, et `--ttl` doit s'écrire en minutes, refuser une
   valeur aberrante et se borner à 30 jours (`ttlSeconds` est exportée pour cela).

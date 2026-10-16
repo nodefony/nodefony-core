@@ -145,10 +145,14 @@ Trois règles, toutes vérifiées au boot ou au rattachement :
 
 ## Comment ça s'articule
 
-Le service `accessTokenVerifier` n'est posé au conteneur **que si `issuers` n'est pas vide** — il n'y
-a pas de drapeau `enabled` qui permettrait « activé sans émetteur ». Une porte protégée par des
-jetons tiers, dans une application qui n'en déclare aucun, **refuse de servir** plutôt que d'accepter
-des porteurs qu'elle ne sait pas lire.
+Le service `accessTokenVerifier` est posé au conteneur dès qu'il a **quelque chose à vérifier** :
+les jetons de l'application elle-même (capacité `jwt` active, le défaut), et ceux des émetteurs de
+`issuers`. Il aiguille sur l'émetteur revendiqué : celui de l'application est jugé par les règles de
+l'authentificateur `jwt` (révocation et compte compris), tout autre par cette liste fermée — règle
+complète et contrôles, dans l'ordre : [Ce que la porte vérifie](obtenir-un-jeton.md#-ce-que-la-porte-vérifie--un-jeton-de-cette-application-face-à-une-ressource).
+Capacité `jwt` coupée ET `issuers` vide : rien n'est posé, et une porte protégée **refuse de servir**
+(`503`) plutôt que d'accepter des porteurs qu'elle ne sait pas lire. `issuers` mal configurée :
+rien n'est posé non plus, jetons de l'application compris.
 
 L'authentificateur `external-jwt` (`authenticatorRegistry.ts:118`) reconnaît les jetons qui le
 concernent d'après la liste d'émetteurs, puis délègue la vérification au service — qui refait le contrôle sur sa propre liste.
@@ -215,8 +219,12 @@ l'audience à demander.
   l'aiguillage se fait sur l'`iss` du jeton. Inutile de les ranger « dans le bon ordre ».
 - **`HS256` est impossible en configuration**, et ce n'est pas un oubli : un secret partagé ferait de
   l'application un émetteur autant qu'un vérificateur. Seules des clés publiques sont acceptées.
-- **`issuers` vide n'est pas « désactivé par erreur »** : c'est le défaut, et il fait qu'une zone
-  protégée par jetons tiers refuse de servir plutôt que d'accepter des porteurs illisibles.
+- **`issuers` vide n'est pas « désactivé par erreur »** : c'est le défaut. La zone `external-jwt`
+  ne prend alors AUCUN jeton — elle n'aiguille que les émetteurs qu'elle déclare —, et les jetons de
+  l'application restent lisibles par le vérificateur pour les ressources qui le consultent.
+- **Déclarer l'émetteur de l'application dans `issuers` ne le soustrait pas à la révocation** : ses
+  jetons sont aiguillés vers la vérification locale avant toute liste, donc un jeton révoqué ou
+  celui d'un compte désactivé est refusé, déclaré ou non.
 
 ## 📖 Lexique
 

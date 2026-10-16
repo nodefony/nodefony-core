@@ -58,9 +58,10 @@ session BFF (J3) + JWT jose (J4) + WebAuthn/passkeys (J9) + OAuth2 social (J9) +
 repos, store partagé JWT, endpoints session-protégés, anti-énum/anti-DoS). Détail : `MEMORY.md` + kit P6.
 
 ✅ **Jetons TIERS / rôle serveur de ressource (P6.9)** : `RemoteJwtVerifier` + service
-`accessTokenVerifier` (posé au conteneur SI `security.resourceServer.issuers` est non vide). Accepte
-un jeton émis par un serveur d'autorisation externe, là où `JwtAuthenticator` ne vérifie que les
-jetons de Nodefony. **Décisions à ne pas défaire** : l'audience vient de l'APPELANT (RFC 8707) et
+`accessTokenVerifier` (posé au conteneur dès que `jwt.enabled` OU `resourceServer.issuers` non vide).
+Accepte un jeton émis par un serveur d'autorisation externe ET ceux de l'application elle-même — ces
+derniers par `JwtAuthenticator.verifyForResource`, mêmes règles que la zone (révocation, compte),
+jamais par le seul jeu de clés publiques. **Décisions à ne pas défaire** : l'audience vient de l'APPELANT (RFC 8707) et
 rend `aud` obligatoire · allowlist d'émetteurs FERMÉE, consultée avant toute requête sortante · une
 PANNE de l'émetteur lève (5xx) au lieu de rendre « jeton refusé » · `HS*` impossible en config (clés
 publiques) · nom de service GÉNÉRIQUE (le MCP n'est que le premier consommateur). Détail : `MEMORY.md`.

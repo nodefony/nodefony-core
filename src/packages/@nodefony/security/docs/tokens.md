@@ -296,7 +296,7 @@ pour ne jamais auto-générer une clé en clair silencieusement en prod :
 Le JWKS servi par `getPublicJWKS()` est **public** — `JwtKeystore.ts:209`.
 La composante privée `d` en est retirée à l'import, par liste BLANCHE de paramètres
 (`#importKeyset()`, `JwtKeystore.ts:275`, RFC 8037/7517).
-C'est ce JWKS qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:174`),
+C'est ce JWKS qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:243`),
 jamais une clé venue du jeton. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts:215`).
 
 ### Plusieurs pods ou workers — UNE clé pour tous
