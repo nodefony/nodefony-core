@@ -104,6 +104,37 @@ export interface IMcpToolRun {
 }
 
 /** Un outil tel que `tools/list` le publie — sans son implémentation. */
+/**
+ * Ce qu'un outil promet de son effet — les indices `ToolAnnotations` de la spec
+ * MCP (révision 2026-07-28, `schema.ts`), publiés dans `tools/list`.
+ *
+ * ⚠️ Un indice n'est JAMAIS une autorisation : la spec impose au client de le
+ * tenir pour non fiable tant que le serveur ne l'est pas, et chez nous la seule
+ * décision reste le contrôle d'accès de la collecte (scopes, rôles). Il sert à
+ * l'agent à savoir quand demander confirmation. Faute d'annotation, la spec
+ * tient l'outil pour destructif et ouvert sur le monde : un outil qui ne fait
+ * que lire DOIT le dire, et un outil qui modifie DOIT se déclarer
+ * `readOnlyHint: false`.
+ */
+export interface IMcpToolAnnotations {
+  /** Titre lisible, préféré au nom par les interfaces. */
+  title?: string | undefined;
+  /** L'outil ne modifie rien de son environnement (défaut de la spec : `false`). */
+  readOnlyHint?: boolean | undefined;
+  /**
+   * Une écriture peut détruire (défaut : `true`) — `false` : n'ajoute que.
+   * N'a de sens que si `readOnlyHint` vaut `false`.
+   */
+  destructiveHint?: boolean | undefined;
+  /**
+   * Rappeler l'outil avec les mêmes arguments n'a pas d'effet de plus (défaut :
+   * `false`). N'a de sens que si `readOnlyHint` vaut `false`.
+   */
+  idempotentHint?: boolean | undefined;
+  /** L'outil touche un monde extérieur ouvert (défaut : `true`). */
+  openWorldHint?: boolean | undefined;
+}
+
 export interface IMcpToolDefinition {
   /**
    * Identifiant d'appel. Forme admise : `[a-zA-Z0-9_-]{1,64}`.
@@ -121,6 +152,8 @@ export interface IMcpToolDefinition {
   description: string;
   /** Schéma JSON des arguments attendus. */
   inputSchema: Record<string, unknown>;
+  /** Ce que l'outil promet de son effet ; absent = rien n'est publié. */
+  annotations?: IMcpToolAnnotations | undefined;
 }
 
 /**

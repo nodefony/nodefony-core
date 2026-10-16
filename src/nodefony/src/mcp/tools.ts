@@ -24,6 +24,7 @@ import {
 import { skippedChecks } from "../kernel/checks/report";
 import type {
   IMcpTool,
+  IMcpToolAnnotations,
   IMcpToolDefinition,
   IMcpToolResult,
   IMcpCaller,
@@ -32,6 +33,7 @@ import type {
 
 export type {
   IMcpTool,
+  IMcpToolAnnotations,
   IMcpToolDefinition,
   IMcpToolResult,
   IMcpCaller,
@@ -515,6 +517,16 @@ export interface IMcpToolDeps {
 const PREFIX = "nodefony_";
 
 /**
+ * Ce que promettent les sept outils intégrés : ils ne font que LIRE l'état de
+ * l'application (même `admin_call`, qui n'atteint que le catalogue de lecture),
+ * et ne sortent pas de l'application. Partagé : un objet figé ne retient rien.
+ */
+const READ_ONLY_CLOSED: IMcpToolAnnotations = Object.freeze({
+  readOnlyHint: true,
+  openWorldHint: false,
+});
+
+/**
  * Forme admise pour un nom d'outil.
  *
  * Ce nom ne reste pas dans le serveur : il voyage jusque dans le contexte du
@@ -573,6 +585,7 @@ export function builtinMcpTools(
   return {
     inspect: {
       name: `${PREFIX}inspect`,
+      annotations: READ_ONLY_CLOSED,
       description:
         "Lit l'état RÉEL de cette application Nodefony : les routes réellement " +
         "montées, les modules chargés, les services enregistrés, la " +
@@ -614,6 +627,7 @@ export function builtinMcpTools(
 
     card: {
       name: `${PREFIX}card`,
+      annotations: READ_ONLY_CLOSED,
       description:
         "Carte de visite de l'application : son identité, les modules " +
         "chargés, où trouver la documentation, et les commandes à lancer. À " +
@@ -625,6 +639,7 @@ export function builtinMcpTools(
 
     check: {
       name: `${PREFIX}check`,
+      annotations: READ_ONLY_CLOSED,
       description:
         "Diagnostic STATIQUE de l'application : classes écrites que rien " +
         "n'enregistre (entité, controller ou service jamais câblé), paquets " +
@@ -661,6 +676,7 @@ export function builtinMcpTools(
 
     docs: {
       name: `${PREFIX}docs`,
+      annotations: READ_ONLY_CLOSED,
       description:
         "Cherche et lit la DOCUMENTATION des modules installés — la prose " +
         "écrite par leurs auteurs : concepts, recettes, pièges, exemples. À " +
@@ -792,6 +808,7 @@ export function builtinMcpTools(
 
     symbols: {
       name: `${PREFIX}symbols`,
+      annotations: READ_ONLY_CLOSED,
       description:
         "Donne la SIGNATURE RÉELLE d'un symbole du framework — ses " +
         "paramètres, ses types de retour, sa documentation — plus ce qu'il " +
@@ -898,6 +915,7 @@ export function builtinMcpTools(
 
     admin_list: {
       name: `${PREFIX}admin_list`,
+      annotations: READ_ONLY_CLOSED,
       description:
         "Catalogue des lectures d'ADMINISTRATION que cette application " +
         "expose — bien au-delà des sujets de `nodefony_inspect` : journaux, " +
@@ -940,6 +958,7 @@ export function builtinMcpTools(
 
     admin_call: {
       name: `${PREFIX}admin_call`,
+      annotations: READ_ONLY_CLOSED,
       description:
         "Appelle une lecture d'administration, telle que `nodefony_admin_list` " +
         "la nomme. La réponse vient de l'application qui TOURNE — pas d'une " +
@@ -1346,11 +1365,13 @@ export function mcpDeclaredScopes(options: IMcpDeclareOptions): string[] {
 export function publishMcpTools(
   tools: readonly IMcpTool[],
 ): IMcpToolDefinition[] {
-  return tools.map(({ name, description, inputSchema }) => ({
-    name,
-    description,
-    inputSchema,
-  }));
+  return tools.map(({ name, description, inputSchema, annotations }) =>
+    // Absent → le champ n'est pas émis : les défauts de la spec s'appliquent,
+    // on n'invente aucune promesse au nom de l'auteur de l'outil.
+    annotations === undefined
+      ? { name, description, inputSchema }
+      : { name, description, inputSchema, annotations },
+  );
 }
 
 /**

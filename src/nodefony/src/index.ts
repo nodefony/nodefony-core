@@ -1030,6 +1030,7 @@ export {
 } from "./mcp/tools";
 export type {
   IMcpTool,
+  IMcpToolAnnotations,
   IMcpToolDefinition,
   IMcpToolResult,
   IMcpToolDeps,

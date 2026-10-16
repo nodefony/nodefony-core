@@ -82,7 +82,7 @@ voici pourquoi elle n'aboutit pas » est une phrase que l'agent sait corriger se
 - **Un outil est un objet ordinaire.** Le contrat `IMcpTool` (`IMcpTool.ts:157`) est le même pour
   les outils du framework et pour les tiens : le serveur n'a aucun cas particulier.
 - **Rien n'est enregistré au démarrage.** La porte ramasse les outils à chaque requête
-  (`collectMcpTools()`, `tools.ts:1295`) en parcourant les modules : un module ajouté ou rechargé
+  (`collectMcpTools()`, `tools.ts:1314`) en parcourant les modules : un module ajouté ou rechargé
   apparaît sans cache à invalider. La révision `2026-07-28` a retiré les sessions, et c'est ce qui
   rend ce choix possible : chaque requête porte tout ce qu'il faut pour être servie.
 - **L'autorisation se décide à la collecte, une fois.** Un outil réservé est absent de
@@ -171,7 +171,7 @@ main au lot suivant.
 
 | Champ          | Rôle                                                                                                          |
 | -------------- | ------------------------------------------------------------------------------------------------------------- |
-| `name`         | identifiant d'appel, forme `[a-zA-Z0-9_-]{1,64}` (`NAME_PATTERN`, `tools.ts:526`) ; préfixe-le par ton module |
+| `name`         | identifiant d'appel, forme `[a-zA-Z0-9_-]{1,64}` (`NAME_PATTERN`, `tools.ts:538`) ; préfixe-le par ton module |
 | `description`  | **le premier critère de déclenchement** : ce que l'outil REND et QUAND s'en servir                            |
 | `inputSchema`  | schéma JSON des arguments ; tout argument non déclaré est REFUSÉ, jamais ignoré                               |
 | `scopes`       | scopes OAuth exigés — tous ; absent = outil public                                                            |
@@ -186,7 +186,7 @@ Trois règles qui évitent les défauts les plus coûteux :
   ne reçoit qu'un message qui nomme l'outil, le message de l'exception part au journal du serveur
   (`ERROR`) — il pourrait porter un chemin ou un secret. `isError` est le seul canal qui parvient à
   l'agent.
-- **Un argument non déclaré est refusé.** `unknownArguments()` (`tools.ts:1425`) rend un `isError`
+- **Un argument non déclaré est refusé.** `unknownArguments()` (`tools.ts:1446`) rend un `isError`
   qui le nomme : un paramètre accepté puis jeté donnerait une réponse qui _a l'air_ d'avoir honoré la
   demande. Un outil qui veut des arguments libres l'écrit (`additionalProperties: true`).
 - **Un outil n'invente rien.** Il appelle la brique qui répond déjà à une autre porte (un service,
@@ -195,6 +195,64 @@ Trois règles qui évitent les défauts les plus coûteux :
 
 Un outil écarté à la collecte — nom hors forme, nom déjà pris, handler absent, déclaration qui
 lève — le dit en `WARNING` dans le journal du serveur ; les outils intégrés gagnent toute collision.
+
+### Dire ce que fait l'outil — les annotations
+
+Avant d'appeler un outil, l'agent (ou son client) doit décider s'il demande confirmation à
+l'humain. La spec lui donne pour cela des **indices de comportement**, les `ToolAnnotations`
+(révision `2026-07-28`, `schema/schema.ts` ; `spec/server/tools.mdx`, champ `annotations` de
+l'outil). Nodefony les porte dans le contrat (`IMcpToolAnnotations`,
+`src/nodefony/src/types/IMcpTool.ts:119`) et les publie dans `tools/list`.
+
+| Indice            | Ce qu'il promet                                                  | Défaut de la spec | N'a de sens que…            |
+| ----------------- | ---------------------------------------------------------------- | ----------------- | --------------------------- |
+| `title`           | un titre lisible, préféré au `name` par les interfaces           | —                 | toujours                    |
+| `readOnlyHint`    | l'outil ne modifie **rien** de son environnement                 | `false`           | toujours                    |
+| `destructiveHint` | une écriture peut **détruire** ; `false` = il ne fait qu'ajouter | `true`            | si `readOnlyHint` = `false` |
+| `idempotentHint`  | le rappeler avec les mêmes arguments n'a **aucun effet de plus** | `false`           | si `readOnlyHint` = `false` |
+| `openWorldHint`   | il touche un monde **extérieur ouvert** (web, API tierce)        | `true`            | toujours                    |
+
+**Lire les défauts, c'est comprendre pourquoi il faut annoter.** Un outil sans annotation est,
+pour la spec, un outil qui **écrit, détruit, et sort de l'application**. Un client prudent demande
+alors confirmation pour chaque lecture, ce qui le rend inutilisable ; un client pressé n'en demande
+jamais, ce qui le rend dangereux. Deux règles en découlent :
+
+- **un outil qui ne fait que lire le DIT** : `readOnlyHint: true`, et `openWorldHint: false` s'il ne
+  quitte pas l'application ;
+- **un outil qui modifie le DÉCLARE** : `readOnlyHint: false`, puis `destructiveHint` et
+  `idempotentHint` selon ce qu'il fait vraiment (un remboursement : `destructiveHint: false`,
+  `idempotentHint: false` — l'appeler deux fois rembourse deux fois).
+
+```ts
+const refund: IMcpTool = {
+  name: "shop_refund",
+  description: "Rembourse une commande du client authentifié.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } } },
+  scopes: ["shop:billing"],
+  annotations: {
+    title: "Rembourser une commande",
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+  handler: (args) => mcpText({ refunded: args.id }),
+};
+```
+
+Ce que Nodefony fait, et ne fait pas :
+
+- **il ne publie que ce qui est déclaré** (`publishMcpTools`, `src/nodefony/src/mcp/tools.ts:1365`) :
+  sans annotation, le champ n'est pas émis et les défauts de la spec s'appliquent. Aucune promesse
+  n'est inventée au nom de l'auteur de l'outil ;
+- **les sept outils intégrés** (`nodefony_inspect`, `_card`, `_check`, `_symbols`, `_docs`,
+  `_admin_list`, `_admin_call`) se publient `readOnlyHint: true`, `openWorldHint: false` : ils lisent
+  l'état de l'application et n'en sortent pas — `admin_call` n'atteint que le catalogue de lecture
+  du plan d'administration ;
+- **un indice n'est JAMAIS une autorisation.** La spec l'impose au client : « clients **MUST**
+  consider tool annotations to be untrusted unless they come from trusted servers ». Côté serveur,
+  la seule décision reste la collecte : un outil à `scopes` n'est servi qu'à l'appelant qui les
+  porte, qu'il soit annoté `readOnlyHint: true` ou non.
 
 ### Réserver un outil
 

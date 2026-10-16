@@ -221,6 +221,10 @@ class Shop extends Module {
           properties: { sku: { type: "string", description: "Référence" } },
           required: ["sku"],
         },
+        // Il LIT la base et ne sort pas de l'application : il le dit, sinon la
+        // spec le tient pour destructif et l'agent demande confirmation à
+        // chaque lecture.
+        annotations: { readOnlyHint: true, openWorldHint: false },
         handler: async (args) => mcpText(await this.stock(String(args.sku))),
       },
     ];
@@ -228,8 +232,14 @@ class Shop extends Module {
 }
 ```
 
-Trois choses à savoir :
+Quatre choses à savoir :
 
+- **un outil dit ce qu'il fait** (`annotations`, indices `ToolAnnotations` de la
+  spec MCP) : sans annotation, la spec le tient pour un outil qui écrit, détruit
+  et sort de l'application. Un outil qui lit se déclare `readOnlyHint: true` ;
+  un outil qui modifie, `readOnlyHint: false`. Un indice n'est jamais une
+  autorisation — le détail des cinq indices et de leurs défauts :
+  [écrire un outil](../../../../nodefony/docs/mcp.md#dire-ce-que-fait-loutil--les-annotations) ;
 - **rien ne s'enregistre au démarrage** : la liste est relue à chaque requête,
   donc un module ajouté apparaît sans redémarrer quoi que ce soit ;
 - **`mcp.tools` ne filtre que les outils intégrés** — le vôtre est publié dès

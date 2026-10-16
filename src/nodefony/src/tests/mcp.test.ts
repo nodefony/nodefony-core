@@ -6,6 +6,7 @@ import { handleMcpMessage } from "../mcp/server";
 import {
   builtinMcpTools,
   collectMcpTools,
+  declareMcpTools,
   mcpDeclaredScopes,
   callMcpTool,
   publishMcpTools,
@@ -263,7 +264,10 @@ describe("MCP — le protocole", () => {
       context(["card"]),
     );
     const tools = (reply.body as { result: { tools: unknown[] } }).result.tools;
+    // `annotations` est un champ de la définition selon la spec (`Tool`), pas
+    // une implémentation : il se publie.
     expect(Object.keys(tools[0] as object).sort()).toEqual([
+      "annotations",
       "description",
       "inputSchema",
       "name",
@@ -550,6 +554,58 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       modules: { shop: moduleDeclaring(stock) },
     });
     expect(publishMcpTools(tools).map((t) => t.name)).toEqual(["shop_stock"]);
+  });
+
+  /**
+   * Motif : faute d'annotation, la spec (révision 2026-07-28, `ToolAnnotations`)
+   * tient tout outil pour DESTRUCTIF (`readOnlyHint: false`,
+   * `destructiveHint: true`). Un client prudent demandait donc confirmation pour
+   * chaque lecture — inutilisable — et un client pressé n'en demandait jamais.
+   * Les sept outils intégrés ne font que LIRE : ils le disent.
+   */
+  it("🔴 les outils intégrés se publient en LECTURE SEULE, fermés sur l'application", () => {
+    // Les outils DÉCLARÉS, pas ceux servis à un anonyme : les deux outils
+    // d’administration lui sont retenus, et la promesse vaut pour tous.
+    const published = publishMcpTools(
+      declareMcpTools({ builtins: BUILTIN_MCP_TOOL_KEYS, deps: deps() }),
+    );
+    expect(published).toHaveLength(BUILTIN_MCP_TOOL_KEYS.length);
+    for (const tool of published) {
+      expect(tool.annotations, tool.name).toEqual({
+        readOnlyHint: true,
+        openWorldHint: false,
+      });
+    }
+  });
+
+  it("un outil de module SANS annotation est publié sans le champ — aucune valeur inventée", () => {
+    const published = publishMcpTools(
+      collectMcpTools({
+        builtins: [],
+        deps: deps(),
+        modules: { shop: moduleDeclaring(stock) },
+      }),
+    );
+    expect(published[0]).not.toHaveProperty("annotations");
+  });
+
+  it("un outil de module qui MODIFIE le déclare, et la publication le transmet", () => {
+    const refund: IMcpTool = {
+      ...stock,
+      name: "shop_refund",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    };
+    const published = publishMcpTools(
+      collectMcpTools({
+        builtins: [],
+        deps: deps(),
+        modules: { shop: moduleDeclaring(refund) },
+      }),
+    );
+    expect(published[0]?.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: false,
+    });
   });
 
   it("🔴 et APPELABLE de bout en bout par le protocole", async () => {
