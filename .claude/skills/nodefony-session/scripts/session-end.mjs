@@ -30,7 +30,7 @@ import { mentionedTickets } from "../../nodefony-ticket/scripts/commit-kind.mjs"
 import {
   ciVerdict,
   clip,
-  datesIn,
+  netAddedDates,
   modifiedOf,
   sessionLogArgs,
   stateWrittenAt,
@@ -286,10 +286,8 @@ function verify() {
       "*MEMORY.md",
       "*CLAUDE.md",
     ).out;
-    const added = diff
-      .split("\n")
-      .filter((l) => l.startsWith("+") && !l.startsWith("+++"));
-    const dated = added.flatMap(datesIn);
+    // En NET : un texte DÉPLACÉ d'un fichier à l'autre n'ajoute aucune date.
+    const dated = netAddedDates(diff);
     if (dated.length)
       fails.push(
         `dates ajoutées dans MEMORY.md/CLAUDE.md : ${[...new Set(dated)].join(" ")} — ces fichiers décrivent le présent`,

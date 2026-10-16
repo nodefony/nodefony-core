@@ -8,6 +8,7 @@ import {
   cliGate,
   citedHashes,
   datesIn,
+  netAddedDates,
   firstPriority,
   nextStateName,
   linksInSection,
@@ -114,6 +115,19 @@ describe("helpers de mémoire", () => {
       "2026-09-24T06:44:26.016Z",
     );
   });
+  it("netAddedDates : un texte DÉPLACÉ n'ajoute aucune date, une date neuve compte", () => {
+    const diff = [
+      "--- a/src/nodefony/MEMORY.md",
+      "+++ b/src/nodefony/MEMORY.md",
+      "-  révision `2026-07-28`, puis `2025-11-25`",
+      "--- a/ai/MEMORY.md",
+      "+++ b/ai/MEMORY.md",
+      "+  révision `2026-07-28`, puis `2025-11-25`",
+      "+  corrigé le 2026-10-16",
+    ].join("\n");
+    expect(netAddedDates(diff)).toEqual(["2026-10-16"]);
+  });
+
   it("datesIn trouve les dates ISO", () => {
     expect(datesIn("corrigé le 2026-09-24, v10.0.0")).toEqual(["2026-09-24"]);
   });

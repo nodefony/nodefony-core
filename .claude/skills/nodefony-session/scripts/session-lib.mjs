@@ -192,6 +192,37 @@ export function datesIn(text) {
   return [...text.matchAll(/\b20\d{2}-\d{2}-\d{2}\b/gu)].map((m) => m[0]);
 }
 
+/**
+ * Dates AJOUTÉES en net par un diff : celles des lignes `+`, moins celles des
+ * lignes `-` du même diff (un multi-ensemble).
+ *
+ * Un DÉPLACEMENT de texte d'un `MEMORY.md` à un autre ajoute des lignes datées
+ * qu'il retire ailleurs — les identifiants de révision d'une spec (`2026-07-28`)
+ * ne sont pas un journal. Compter les seules lignes ajoutées refusait la clôture
+ * d'une session qui n'avait écrit aucune date. Une date NEUVE reste comptée.
+ *
+ * @param {string} diff - sortie de `git diff -U0`
+ * @returns {string[]} les dates ajoutées sans contrepartie retirée
+ */
+export function netAddedDates(diff) {
+  const removed = new Map();
+  const lines = diff.split("\n");
+  for (const l of lines) {
+    if (!l.startsWith("-") || l.startsWith("---")) continue;
+    for (const d of datesIn(l)) removed.set(d, (removed.get(d) ?? 0) + 1);
+  }
+  const added = [];
+  for (const l of lines) {
+    if (!l.startsWith("+") || l.startsWith("+++")) continue;
+    for (const d of datesIn(l)) {
+      const left = removed.get(d) ?? 0;
+      if (left > 0) removed.set(d, left - 1);
+      else added.push(d);
+    }
+  }
+  return added;
+}
+
 /** Tronque une ligne à `max` caractères visibles. */
 export const clip = (s, max = 90) =>
   s.length > max ? `${s.slice(0, max - 1)}…` : s;
