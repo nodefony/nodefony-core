@@ -1260,13 +1260,21 @@ describe("GATE dépôt — aucun pair interne non borné chez les publiables", (
   // Les fichiers ne sont pas ce que la chaîne lit : `pack-all` et `release.mjs`
   // passent par l'arbre INSTALLÉ (`npm query`). Les deux doivent dire la même
   // chose, sinon le lot partirait amputé ou grossi sans un mot.
-  it("la porte de release emporte ces mêmes paquets", () => {
-    expect(
-      releasableWorkspaces(RACINE)
-        .map((w) => w.name)
-        .sort(),
-    ).toEqual(DECIDES);
-  });
+  // Délai explicite : `releasableWorkspaces` lance un VRAI `npm query` — 0,9 s
+  // sous Linux, 13,6 s mesurées sous Windows (`npm.cmd` + arbre de 1 500
+  // paquets), au-delà des 5 s par défaut de vitest. Le délai borne une panne,
+  // il ne règle rien : un `npm query` bloqué échoue toujours, en le nommant.
+  it(
+    "la porte de release emporte ces mêmes paquets",
+    { timeout: 60_000 },
+    () => {
+      expect(
+        releasableWorkspaces(RACINE)
+          .map((w) => w.name)
+          .sort(),
+      ).toEqual(DECIDES);
+    },
+  );
 
   it("aucun pair interne en `*` — sinon npm sert `latest`, c'est-à-dire la 7.x", () => {
     expect(pairsTropLarges(publiables)).toEqual([]);
