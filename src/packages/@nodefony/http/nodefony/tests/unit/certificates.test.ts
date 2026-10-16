@@ -236,6 +236,38 @@ describe("certificates — écriture sécurisée + stratégies", () => {
     }
   });
 
+  // Un PEM sans saut final se CONCATÈNE mal : `cat fullchain.pem privkey.pem`
+  // (le geste de haproxy, de nginx pour une chaîne, de tout paquet cert+clé)
+  // recolle « -----END CERTIFICATE----------BEGIN PRIVATE KEY----- », que
+  // haproxy refuse (« bad end line »). Invisible avec mkcert, qui termine ses
+  // fichiers : seul l'auto-signé — celui d'un poste ou d'une CI sans mkcert —
+  // tombait.
+  it("chaque fichier PEM écrit se termine par un saut de ligne (concaténable)", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cert-"));
+    try {
+      const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
+      setPaths(c, dir);
+      await c.generateServerCertificates(true);
+      for (const file of [
+        c.privateKeyPath,
+        c.publicKeyPath,
+        c.certPath,
+        c.fullchainPath,
+        c.caPath,
+      ]) {
+        const pem = await fs.readFile(file, "utf8");
+        expect(pem.endsWith("\n"), `${path.basename(file)} sans saut final`).to
+          .be.true;
+      }
+      const bundle =
+        (await fs.readFile(c.fullchainPath, "utf8")) +
+        (await fs.readFile(c.privateKeyPath, "utf8"));
+      expect(bundle).to.not.match(/-----[^\n]*-----BEGIN /u);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   // ── writeCertificates : les trois issues, depuis que la décision « le fichier
   // existe-t-il ? » n'est plus un `access` préalable mais le drapeau `wx` de la
   // création. Le comportement observable ne devait pas bouger : ces cas le

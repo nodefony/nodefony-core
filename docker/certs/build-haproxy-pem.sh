@@ -32,7 +32,10 @@ else
 fi
 
 # Cert présenté au client par haproxy (cert + chaîne + clé privée).
-cat "$SRC/server/fullchain.pem" "$SRC/server/privkey.pem" > "$DST/haproxy.pem"
+# `awk 1`, pas `cat` : il rend le saut final qu'un PEM peut ne pas porter
+# (matériel fourni, ou outil qui le retire) — sans lui, la fin du certificat se
+# recolle au début de la clé et haproxy refuse le fichier (« bad end line »).
+awk 1 "$SRC/server/fullchain.pem" "$SRC/server/privkey.pem" > "$DST/haproxy.pem"
 chmod 600 "$DST/haproxy.pem"
 
 echo "✓ $DST/ca.pem"

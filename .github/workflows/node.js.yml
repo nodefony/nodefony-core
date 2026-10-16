@@ -1277,6 +1277,12 @@ jobs:
         if: matrix.decor == 'browser'
         shell: bash
         run: |
+          # Le volume des captures, créé AVANT le conteneur et inscriptible par
+          # tous : absent, le démon le crée en root ; présent, il appartient au
+          # runner (uid 1001) — dans les deux cas l'utilisateur du conteneur
+          # (`node`, uid 1000) n'y écrit pas (EACCES sur /output). Docker
+          # Desktop masque l'écart d'uid : vert sur un poste macOS, rouge ici.
+          mkdir -p tmp/browser && chmod 0777 tmp/browser
           docker compose -f docker/docker-compose.yml --profile browser up -d browser
           for i in $(seq 1 30); do
             if docker ps --filter name=nodefony-browser --filter status=running --format "{{.Names}}" | grep -qx nodefony-browser; then

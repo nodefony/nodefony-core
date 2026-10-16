@@ -804,8 +804,12 @@ class Certificate extends Service {
 
   createFullChain(): string {
     // Seul appelant : la génération autosignée, sans intermédiaire ni racine
-    // distincte — la chaîne complète EST le certificat.
-    return this.cert?.toString().trim() ?? "";
+    // distincte — la chaîne complète EST le certificat. Le saut final est
+    // RENDU après le `trim` : un PEM qui n'en a pas se recolle au suivant
+    // quand on le concatène (`cat fullchain.pem privkey.pem`, le paquet que
+    // lit haproxy), qui refuse alors le fichier (« bad end line »).
+    const pem = this.cert?.toString().trim() ?? "";
+    return pem === "" ? "" : `${pem}\n`;
   }
 
   async readCerticates(): Promise<this> {
