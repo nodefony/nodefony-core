@@ -91,8 +91,12 @@ runs:
         NF_CI_NODE_ARGS: ${{ inputs.node-args }}
       run: |
         # Variables propres à CE décor, avant tout lancement.
+        # Ligne vide ou commentaire `#` : ignorés — un appelant documente son
+        # décor DANS le bloc, et un `export "# …"` ferait échouer le démarrage.
         while IFS= read -r line; do
           [ -z "${line// }" ] && continue
+          trimmed="${line#"${line%%[![:space:]]*}"}"
+          [ "${trimmed:0:1}" = "#" ] && continue
           export "${line?}"
           echo "décor: ${line%%=*} posé"
         done <<< "$NF_CI_ENV"
