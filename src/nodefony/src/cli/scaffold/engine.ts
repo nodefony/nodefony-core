@@ -2728,6 +2728,119 @@ export interface IAgentsGuideRefresh {
   file: string;
 }
 
+/** Ce qu'un scaffold de module lit du manifeste à la racine du dépôt ou de l'app. */
+interface IRepositoryManifest {
+  name?: string;
+  version?: string;
+  workspaces?: string[];
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  license?: string;
+  author?: unknown;
+  engines?: Record<string, string>;
+  repository?: unknown;
+  homepage?: string;
+  bugs?: unknown;
+}
+
+/**
+ * Version de départ d'un paquet né dans un monorepo : celle de ses FRÈRES.
+ *
+ * Les paquets publiés d'un dépôt avancent verrouillés à la même version ; la
+ * racine, elle, porte souvent celle de l'application de développement (le
+ * dépôt du framework : `10.0.0` à la racine, `10.0.0-beta.3` pour chaque
+ * paquet). Un paquet né à la version de la racine sort du verrou et casse la
+ * publication de l'ensemble. La version la plus portée par les frères gagne ;
+ * la racine ne sert qu'à défaut de frère.
+ *
+ * @param packagesDir - dossier des paquets (absolu).
+ * @param name - nom du dossier du paquet en création, exclu du compte.
+ * @param rootVersion - version de la racine, repli.
+ * @param writer - accès disque du scaffold.
+ * @returns la version à poser dans le `package.json` du nouveau paquet.
+ */
+function siblingPackageVersion(
+  packagesDir: string,
+  name: string,
+  rootVersion: string | undefined,
+  writer: ScaffoldWriter,
+): string {
+  const counts = new Map<string, number>();
+  if (writer.exists(packagesDir)) {
+    for (const entry of writer.listDir(packagesDir)) {
+      if (!entry.isDirectory || entry.name === name) continue;
+      const manifest = path.join(packagesDir, entry.name, "package.json");
+      if (!writer.exists(manifest)) continue;
+      const parsed: unknown = JSON.parse(writer.read(manifest));
+      const version =
+        typeof parsed === "object" && parsed !== null && "version" in parsed
+          ? parsed.version
+          : undefined;
+      if (typeof version === "string" && version.length > 0) {
+        counts.set(version, (counts.get(version) ?? 0) + 1);
+      }
+    }
+  }
+  let best: string | undefined;
+  for (const [version, count] of counts) {
+    if (best === undefined || count > (counts.get(best) ?? 0)) best = version;
+  }
+  return best ?? rootVersion ?? "0.1.0";
+}
+
+/**
+ * Fait hériter un paquet publiable des métadonnées de la racine du dépôt.
+ *
+ * Un paquet publié sans licence, sans dépôt ni moteurs part sur npm avec une
+ * page qui ne dit ni ce qu'on a le droit d'en faire, ni d'où il vient, ni sur
+ * quel Node il tourne. Ces champs appartiennent au DÉPÔT : ils se reprennent
+ * de la racine, jamais ne s'inventent — un champ absent de la racine reste
+ * absent. Le dépôt reçoit le `directory` du paquet (npm le lit pour pointer
+ * le bon dossier), et la licence est copiée si la racine en porte le texte.
+ *
+ * @param projectRoot - racine du dépôt.
+ * @param dest - dossier du paquet rendu.
+ * @param directory - chemin du paquet relatif à la racine, en `/` (il voyage).
+ * @param root - manifeste de la racine.
+ * @param writer - accès disque du scaffold.
+ * @param written - liste des fichiers écrits, complétée.
+ */
+function inheritRepositoryMetadata(
+  projectRoot: string,
+  dest: string,
+  directory: string,
+  root: IRepositoryManifest,
+  writer: ScaffoldWriter,
+  written: string[],
+): void {
+  const manifestPath = path.join(dest, "package.json");
+  const parsed: unknown = JSON.parse(writer.read(manifestPath));
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(
+      `${manifestPath} : le manifeste rendu n'est pas un objet JSON`,
+    );
+  }
+  const manifest: Record<string, unknown> = Object.fromEntries(
+    Object.entries(parsed),
+  );
+  if (root.license !== undefined) manifest["license"] = root.license;
+  if (root.author !== undefined) manifest["author"] = root.author;
+  if (root.engines !== undefined) manifest["engines"] = root.engines;
+  if (typeof root.repository === "object" && root.repository !== null) {
+    manifest["repository"] = { ...root.repository, directory };
+  }
+  if (root.homepage !== undefined) manifest["homepage"] = root.homepage;
+  if (root.bugs !== undefined) manifest["bugs"] = root.bugs;
+  manifest["publishConfig"] = { access: "public" };
+  writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const license = path.join(projectRoot, "LICENSE");
+  if (writer.exists(license)) {
+    const target = path.join(dest, "LICENSE");
+    writer.write(target, writer.read(license));
+    written.push(target);
+  }
+}
+
 /**
  * Régénère le bloc framework de l'`AGENTS.md` d'une application, tel que la
  * version INSTALLÉE de `nodefony` le rend — et lui seul : le texte de
@@ -2798,12 +2911,9 @@ function runModuleScaffold(
   }
   const name = toKebabCase(String(answers.name));
   const appManifestPath = path.join(projectRoot, "package.json");
-  const appManifest = JSON.parse(writer.read(appManifestPath)) as {
-    name?: string;
-    workspaces?: string[];
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
+  const appManifest = JSON.parse(
+    writer.read(appManifestPath),
+  ) as IRepositoryManifest;
   const appName = appManifest.name ?? path.basename(projectRoot);
   // OÙ le module naît et sous quel NOM : constaté dans les workspaces du dépôt,
   // jamais supposé. Une app génère `modules/<nom>` ; un monorepo qui déclare un
@@ -2878,13 +2988,19 @@ function runModuleScaffold(
     /** Dossier où le module atterrit, relatif à la racine (en `/`, il VOYAGE). */
     moduleDir: layout.createDir,
     /**
-     * Version de départ. Un paquet d'un monorepo suit la version de SA racine
-     * (verrouillage naturel : tous les paquets du dépôt avancent ensemble) ; un
-     * module local d'application démarre à `0.1.0`, il a sa propre vie.
+     * Version de départ. Un paquet d'un monorepo suit la version de ses
+     * FRÈRES (verrouillage : les paquets publiés avancent ensemble ; la racine
+     * n'est qu'un repli, cf `siblingPackageVersion`) ; un module local
+     * d'application démarre à `0.1.0`, il a sa propre vie.
      */
     version:
       layout.kind === "packages"
-        ? ((appManifest as { version?: string }).version ?? "0.1.0")
+        ? siblingPackageVersion(
+            path.join(projectRoot, ...layout.createDir.split("/")),
+            name,
+            appManifest.version,
+            writer,
+          )
         : "0.1.0",
   };
   const eta = new Eta(ETA_OPTIONS);
@@ -2937,6 +3053,14 @@ function runModuleScaffold(
       written,
       writer,
       tokens,
+    );
+    inheritRepositoryMetadata(
+      projectRoot,
+      dest,
+      `${layout.createDir}/${name}`,
+      appManifest,
+      writer,
+      written,
     );
   }
   const notes: string[] = [];

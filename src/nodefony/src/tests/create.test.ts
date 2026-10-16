@@ -228,6 +228,51 @@ function assertNoEtaResidue(dest: string): void {
   }
 }
 
+/**
+ * Le code rendu ne se TAIT pas au compilateur : aucune conversion `x as T`
+ * (seul `as const` est admis), et aucun bloc TSDoc coupé par une ligne vide.
+ *
+ * Motif : `create module` engendrait trois conversions — dont une depuis `any`
+ * et une qui effaçait `null` d'un `Container | null` — que la garde du dépôt a
+ * refusées au premier commit d'un paquet né de la commande. Une conversion fait
+ * taire le typage sans rien vérifier : si la valeur n'est pas un `T`, l'erreur
+ * sort plus loin, en production, sans désigner la conversion. Et une ligne vide
+ * dans un TSDoc ferme le bloc pour certains lecteurs : la fiche du symbole perd
+ * tout ce qui suit.
+ */
+function assertTypeSound(dest: string): void {
+  for (const entry of readdirSync(dest, {
+    recursive: true,
+    withFileTypes: true,
+  })) {
+    if (!entry.isFile() || !/\.tsx?$/u.test(entry.name)) continue;
+    const file = path.join(entry.parentPath, entry.name);
+    if (file.includes(`${path.sep}node_modules${path.sep}`)) continue;
+    const lines = readFileSync(file, "utf8").split("\n");
+    let inDoc = false;
+    lines.forEach((line, index) => {
+      const where = `${path.relative(dest, file)}:${index + 1}`;
+      if (/^\s*\/\*\*/u.test(line) && !line.includes("*/")) inDoc = true;
+      else if (inDoc && line.includes("*/")) inDoc = false;
+      else if (inDoc) {
+        assert.match(
+          line,
+          /^\s*\*/u,
+          `TSDoc coupé par une ligne vide (${where})`,
+        );
+      }
+      if (inDoc || /^\s*(\*|\/\/|\/\*)/u.test(line)) return;
+      // Les littéraux de chaîne d'abord : « as » y est de la prose.
+      const code = line.replace(/(["'`])(?:\\.|(?!\1).)*\1/gu, '""');
+      assert.notMatch(
+        code,
+        /\bas\s+(?!const\b)[A-Za-z_{([<]/u,
+        `conversion de type non vérifiée (${where}) : ${line.trim()}`,
+      );
+    });
+  }
+}
+
 describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   let tmp: string;
 
@@ -5726,6 +5771,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       return dest;
     };
 
+    it("le code rendu n'affirme aucun type — module, service du module, service ajouté", () => {
+      const dest = app("mapp");
+      const r = mod(dest, { name: "blog", controller: "none", service: true });
+      assertTypeSound(r.dest);
+      const s = runScaffold(
+        {
+          type: "service",
+          answers: { name: "billing", module: "blog" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assertTypeSound(s.dest);
+    });
+
     it("pose la coquille : package npm, build, config Zod, docs, tests", () => {
       const dest = app("mapp");
       const r = mod(dest, { name: "blog", controller: "none" });
@@ -5831,11 +5892,101 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         manifest.workspaces = ["src/packages/@acme/*", "src/modules/*"];
         manifest.version = "7.3.1";
         manifest.scripts = { ...manifest.scripts, build: "turbo run build" };
+        // Les métadonnées que la racine d'un dépôt porte, et qu'un paquet
+        // publié doit reprendre — sinon il part sur npm sans licence.
+        Object.assign(manifest, {
+          license: "Apache-2.0",
+          author: "Acme <dev@acme.test>",
+          engines: { node: ">=24.0.0" },
+          repository: { type: "git", url: "git+https://example.test/acme.git" },
+        });
         writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        writeFileSync(path.join(dest, "LICENSE"), "Texte de la licence\n");
         // AGENTS.md ÉCRIT À LA MAIN — celui d'un dépôt, pas d'une app générée.
         writeFileSync(path.join(dest, "AGENTS.md"), "# le mien\n");
         return dest;
       };
+
+      /** Paquet frère déjà publié, à la version VERROUILLÉE du dépôt. */
+      const sibling = (dest: string, version: string): void => {
+        const dir = path.join(dest, "src", "packages", "@acme", "core");
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          path.join(dir, "package.json"),
+          `${JSON.stringify({ name: "@acme/core", version }, null, 2)}\n`,
+        );
+      };
+
+      /**
+       * Motif : né dans le dépôt du framework, `@nodefony/ai` sortait en
+       * `10.0.0` — la version de la RACINE, qui est celle de l'application de
+       * développement — quand tous ses frères publiés étaient verrouillés en
+       * `10.0.0-beta.3`. Un paquet hors du verrou casse la publication de N
+       * paquets à la même version. La version d'un paquet suit ses FRÈRES ; la
+       * racine ne sert qu'à défaut d'en avoir.
+       */
+      it("la version suit les paquets FRÈRES, pas la racine, quand ils existent", () => {
+        const dest = mono("mono");
+        sibling(dest, "7.4.0-beta.2");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        const pkg = readJson(path.join(r.dest, "package.json"));
+        assert.equal(pkg["version"] as unknown as string, "7.4.0-beta.2");
+      });
+
+      /**
+       * Motif : le paquet né de la commande n'avait ni licence, ni dépôt, ni
+       * moteurs, ni condition `nodefony-source` — il a fallu le recomposer à la
+       * main sur le modèle d'un frère. Sans la condition, un frère qui le
+       * consomme EN SOURCE (`customConditions`) ne le résout plus tant qu'il
+       * n'est pas bâti (TS2307) : la course de build que la condition existe
+       * pour éviter.
+       */
+      it("naît avec la surface d'un paquet publié : condition source, licence, dépôt, moteurs", () => {
+        const dest = mono("mono");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        const pkg = JSON.parse(
+          readFileSync(path.join(r.dest, "package.json"), "utf8"),
+        ) as Record<string, unknown>;
+        assert.deepEqual(pkg["exports"], {
+          ".": {
+            "nodefony-source": "./index.ts",
+            types: "./dist/types/index.d.ts",
+            import: "./dist/index.js",
+            default: "./dist/index.js",
+          },
+          "./package.json": "./package.json",
+        });
+        assert.equal(pkg["license"], "Apache-2.0");
+        assert.equal(pkg["author"], "Acme <dev@acme.test>");
+        assert.deepEqual(pkg["engines"], { node: ">=24.0.0" });
+        assert.deepEqual(pkg["repository"], {
+          type: "git",
+          url: "git+https://example.test/acme.git",
+          directory: "src/packages/@acme/blog",
+        });
+        assert.deepEqual(pkg["publishConfig"], { access: "public" });
+        const tsconfig = JSON.parse(
+          readFileSync(path.join(r.dest, "tsconfig.json"), "utf8"),
+        ) as { compilerOptions: { customConditions?: string[] } };
+        assert.deepEqual(tsconfig.compilerOptions.customConditions, [
+          "nodefony-source",
+        ]);
+        assert.equal(
+          readFileSync(path.join(r.dest, "LICENSE"), "utf8"),
+          "Texte de la licence\n",
+        );
+        assert.isTrue(existsSync(path.join(r.dest, ".gitignore")));
+      });
+
+      it("le code rendu du paquet n'affirme aucun type", () => {
+        const dest = mono("mono");
+        const r = mod(dest, {
+          name: "blog",
+          controller: "none",
+          service: true,
+        });
+        assertTypeSound(r.dest);
+      });
 
       it("pose le module dans le dossier DÉCLARÉ, sous le scope déclaré", () => {
         const dest = mono("mono");
@@ -5863,8 +6014,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           pkg["private"],
           "un paquet publiable n'est pas privé",
         );
-        // La version suit celle de la RACINE : les paquets d'un dépôt avancent
-        // ensemble, ils ne démarrent pas chacun à 0.1.0.
+        // Sans paquet frère, la version suit la RACINE : les paquets d'un dépôt
+        // avancent ensemble, ils ne démarrent pas chacun à 0.1.0.
         assert.equal(pkg["version"] as unknown as string, "7.3.1");
         assert.include(pkg["scripts"]!["build"], "tsconfig.declarations.json");
         for (const f of [

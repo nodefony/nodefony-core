@@ -1,7 +1,7 @@
 import { parseModuleConfig } from "nodefony";
 import { <%= it.camel %>ConfigSchema } from "./config";
 import { configJsonSchema } from "./configSchema";
-import type { I<%= it.pascal %>Config, I<%= it.pascal %>ConfigInput } from "./config";
+import type { I<%= it.pascal %>Config } from "./config";
 
 /**
  * <%= it.pkgName %> — LE COMMENT : builder PUR de la config.
@@ -34,13 +34,15 @@ import type { I<%= it.pascal %>Config, I<%= it.pascal %>ConfigInput } from "./co
  * chacun leur copie du `try`/`catch`, et elles avaient divergé sur les deux
  * points qui comptent — le type de l'erreur levée et la langue du message.
  *
- * @param config - config brute venue de `use("<%= it.pkgName %>", { … })`.
+ * @param config - config brute venue de `use("<%= it.pkgName %>", { … })` — typée
+ *   `unknown` parce qu'elle est VALIDÉE ici : l'affirmer d'un type serait mentir
+ *   au compilateur juste avant de la vérifier.
  * @returns config validée et gelée.
  * @throws BootConfigurationError si un champ est invalide ou inconnu (toutes les
  *   erreurs Zod agrégées, par champ) — le boot s'interrompt, en dev comme en prod.
  */
 export function define<%= it.pascal %>Config(
-  config: I<%= it.pascal %>ConfigInput = {},
+  config: unknown = {},
 ): I<%= it.pascal %>Config {
   return Object.freeze(
     parseModuleConfig(<%= it.camel %>ConfigSchema, config, "<%= it.pkgName %>"),

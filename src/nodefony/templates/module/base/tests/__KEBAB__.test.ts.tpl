@@ -23,7 +23,7 @@ describe("<%= it.name %>", () => {
 
   it("refuse une config invalide", () => {
     expect(() =>
-      define<%= it.pascal %>Config({ greeting: "" } as never),
+      define<%= it.pascal %>Config({ greeting: "" }),
     ).toThrow(/greeting/u);
   });
 
@@ -33,7 +33,7 @@ describe("<%= it.name %>", () => {
   // et ce cas est ce qui l'empêche de redevenir un `object` au premier refactor.
   it("refuse une clé INCONNUE plutôt que de l'ignorer", () => {
     expect(() =>
-      define<%= it.pascal %>Config({ gretting: "faute de frappe" } as never),
+      define<%= it.pascal %>Config({ gretting: "faute de frappe" }),
     ).toThrow(/gretting/u);
   });
 });

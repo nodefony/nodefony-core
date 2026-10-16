@@ -1,12 +1,7 @@
-import {
-  Service,
-  Module,
-  Container,
-  extend,
-  injectable,
-} from "nodefony";
+import { Service, Module, injectable } from "nodefony";
 import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Service";
-import defaultConfig, { type I<%= it.pascal %>Config } from "../config/config";
+import type { I<%= it.pascal %>Config } from "../config/config";
+import { define<%= it.pascal %>Config } from "../config/defineModuleConfig";
 
 /**
  * Service principal du module — la logique vit ici, pas dans les controllers
@@ -69,15 +64,13 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
   private readonly cfg: I<%= it.pascal %>Config;
 
   constructor(module: Module) {
-    const merged = extend(
-      true,
-      {},
-      defaultConfig,
-      module.options,
-    ) as I<%= it.pascal %>Config;
+    // La config que le module a VALIDÉE à `onKernelRegister` — relue par le
+    // même builder, jamais affirmée : un `as` ferait taire le typage sans rien
+    // vérifier.
+    const merged = define<%= it.pascal %>Config(module.options);
     super(
       "<%= it.name %>",
-      module.container as Container,
+      module.container ?? undefined,
       module.notificationsCenter,
       merged,
     );

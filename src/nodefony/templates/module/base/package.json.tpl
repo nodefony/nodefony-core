@@ -7,9 +7,12 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
+      "nodefony-source": "./index.ts",
       "types": "./dist/types/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",

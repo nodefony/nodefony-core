@@ -6,13 +6,15 @@ import { define<%= it.pascal %>Config } from "./nodefony/config/defineModuleConf
 <% } %>
 /**
  * <%= it.pkgName %> — <%= it.description %>
-
  *
- * Module applicatif : un workspace npm à part entière
+<% if (it.publishable) { %> * Paquet publié du dépôt (`<%= it.moduleDir %>/<%= it.name %>/`), verrouillé à la
+ * version de ses frères. Une application le charge par le manifeste `modules`
+ * de `nodefony.config.ts` ; le Kernel l'importe PAR SON NOM (`<%= it.pkgName %>`).
+<% } else { %> * Module applicatif : un workspace npm à part entière
  * (`<%= it.moduleDir %>/<%= it.name %>/`), chargé par le manifeste `modules` de
  * `nodefony.config.ts`. Le Kernel l'importe PAR SON NOM (`<%= it.pkgName %>`) —
  * d'où le workspace, qui le rend résolvable.
- */
+<% } %> */
 
 /**
  * Rend la config du module typée à l'appel : `use("<%= it.pkgName %>", { … })`
@@ -40,9 +42,7 @@ declare module "nodefony" {
    * fautif nommé, plutôt qu'en `undefined.x` au premier appel en production.
    */
   override async onKernelRegister(): Promise<this> {
-    this.options = define<%= it.pascal %>Config(
-      this.options as I<%= it.pascal %>ConfigInput,
-    );
+    this.options = define<%= it.pascal %>Config(this.options);
     return this;
   }
 }
