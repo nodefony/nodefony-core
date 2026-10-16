@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-16 11:29** (UTC).
+> Empreinte prise le **2026-10-16 13:43** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -26,7 +26,7 @@
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 5 | — |
-| **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `█░░░░░░░░░` 8% | 1 | 11 | — |
+| **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 17% | 2 | 10 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
 | **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `███████░░░` 67% | 4 | 2 | — |
 
@@ -110,7 +110,7 @@ Ordre 4.0007 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · fris
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 4.0007 | P1 — figé à la création | 1 | — | #513 | feat(scaffold): mettre les apps générées en quarantaine de 3 jours |
-| 4.001 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
+| 4.001 | P2 — décision | 3.5 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
 | 4.0011 | P2 — décision | 1 | — | #599 | fix(scaffold): ne plus induire l'agent en erreur sur socket, doctor et git |
 | 4.002 | P1 — figé à la création | 0.5 | — | #566 | fix(orm): écrire la première migration d'une application neuve |
 | 4.003 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
@@ -188,7 +188,7 @@ Ordre 4.0007 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · fris
 | 59 | P1 — figé à la création | 1 | 2026-11-18 → 11-18 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1 | 2026-11-19 → 11-19 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
-## Jalon 12.0.0 — 11 ouverts
+## Jalon 12.0.0 — 10 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -198,7 +198,6 @@ Ordre 4.0007 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · fris
 | 168 | P2 — décision | 1 | — | #248 | feat(rag): eprouver la recherche augmentee de bout en bout |
 | 169 | P2 — décision | 1 | — | #249 | feat(memory): persister la memoire d'un agent |
 | 170 | P2 — décision | 1 | — | #250 | feat(agent): arreter le modele de boucle d'un agent |
-| 171 | P2 — décision | 1 | — | #251 | chore(mcp): trancher si le protocole descend du coeur en module |
 | 172 | P1 — figé à la création | 1 | — | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
 | 173 | P1 — figé à la création | 11 | — | #492 | feat(tenant): isoler les organisations qui partagent une même application |
 | 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |

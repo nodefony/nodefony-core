@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T11:29:57.446Z",
+  "generatedAt": "2026-10-16T13:43:02.847Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -18,10 +18,10 @@
       "title": "11.0.0"
     },
     {
-      "closed": 1,
+      "closed": 2,
       "dueOn": null,
       "number": 5,
-      "open": 11,
+      "open": 10,
       "title": "12.0.0"
     },
     {
@@ -2956,7 +2956,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 2,
+      "jours": 3.5,
       "ordre": 4.001,
       "debut": null,
       "cible": null,
@@ -3196,7 +3196,7 @@
       "title": "feat(studio): suivre en direct le transcript d'un agent de code",
       "url": "https://github.com/nodefony/nodefony-core/issues/556",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -7677,7 +7677,7 @@
       "title": "fix(bench): poser la base que trois bancs multi-pods exigent",
       "url": "https://github.com/nodefony/nodefony-core/issues/216",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -8200,8 +8200,8 @@
       "number": 251,
       "title": "chore(mcp): trancher si le protocole descend du coeur en module",
       "url": "https://github.com/nodefony/nodefony-core/issues/251",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "12.0.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -8523,7 +8523,7 @@
       "title": "feat(mcp): publier quels outils lisent et lesquels modifient",
       "url": "https://github.com/nodefony/nodefony-core/issues/540",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
