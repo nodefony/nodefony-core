@@ -25,6 +25,7 @@
     "coverage": "vitest run --coverage"
   },
   "peerDependencies": {
+    "@nodefony/ai": "^10.0.0-beta.3",
     "@nodefony/framework": "^10.0.0-beta.3",
     "@nodefony/http": "^10.0.0-beta.3",
     "nodefony": "^10.0.0-beta.3",
@@ -33,6 +34,7 @@
     "lighthouse": "^13.0.0"
   },
   "devDependencies": {
+    "@nodefony/ai": "^10.0.0-beta.3",
     "@nodefony/framework": "^10.0.0-beta.3",
     "@nodefony/http": "^10.0.0-beta.3",
     "nodefony": "^10.0.0-beta.3"

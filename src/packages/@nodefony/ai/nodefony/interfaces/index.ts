@@ -1,1 +1,1 @@
-export type { IAiService } from "./IAiService";
+export type { IMcpService } from "./IMcpService";

@@ -12,15 +12,20 @@ La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche
 ## Composants
 
 - `index.ts` — `AiModule extends Module`, nom kernel `ai`. Valide sa config à `onKernelRegister`.
-- `AiService` — `@injectable`, nom `ai`. Se récupère par `container.get("ai")`.
+- `McpService` — `@injectable`, nom `mcp`. Se récupère par `container.get("mcp")` ; `settings()` rend les réglages effectifs de la porte MCP, `isEnabled()` dit si elle répond.
 - `nodefony/config/config.ts` — schéma Zod = **source unique des défauts**. `defineModuleConfig.ts` = builder pur (valide et gèle, ne retape jamais une valeur).
 
 ## Config
 
-| Clé        | Type      | Défaut            |
-| ---------- | --------- | ----------------- |
-| `enabled`  | `boolean` | `true`            |
-| `greeting` | `string`  | `"Bonjour de ai"` |
+| Clé                                      | Type       | Défaut  |
+| ---------------------------------------- | ---------- | ------- |
+| `enabled`                                | `boolean`  | `true`  |
+| `mcp.enabled`                            | `boolean`  | `true`  |
+| `mcp.allowedOrigins`                     | `string[]` | `[]`    |
+| `mcp.allowRemote`                        | `boolean`  | `false` |
+| `mcp.authorization.authorizationServers` | `string[]` | `[]`    |
+
+Schéma complet (autorisation OAuth comprise) : `mcpConfigSchema`, exporté — tout module qui configure la porte l'importe d'ici, jamais une copie. Les outils ne se règlent PAS ici : chaque module déclare les siens (`getMcpTools()`).
 
 Chargement : `use("@nodefony/ai", { … })` dans le `nodefony.config.ts` de
 l'app. Config invalide → boot FATAL, champ nommé.

@@ -2,7 +2,7 @@ import { Kernel, Module, services } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config, { type IAiConfigInput } from "./nodefony/config/config";
 import { defineAiConfig } from "./nodefony/config/defineModuleConfig";
-import AiService from "./nodefony/service/AiService";
+import McpService from "./nodefony/service/McpService";
 
 /**
  * @nodefony/ai — La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique.
@@ -27,7 +27,7 @@ declare module "nodefony" {
 // Les controllers du module se déclarent ici — `nodefony create controller <nom>
 // --module ai` les ajoute à cette liste (et à ce dossier) tout seul.
 @controllers([])
-@services([AiService])
+@services([McpService])
 class AiModule extends Module {
   constructor(kernel: Kernel) {
     super("ai", kernel, import.meta.url, config);
@@ -51,3 +51,17 @@ export default AiModule;
 // entrer l'augmentation dans son programme : `use("@nodefony/ai", { … })`
 // accepterait alors n'importe quelle clé, que Zod retirerait en silence au boot.
 export type { IAiConfigInput } from "./nodefony/config/config";
+
+export { McpService };
+export {
+  aiConfigSchema,
+  mcpConfigSchema,
+  type IAiConfig,
+  type IMcpConfig,
+} from "./nodefony/config/config";
+export {
+  defineAiConfig,
+  aiConfigJsonSchema,
+} from "./nodefony/config/defineModuleConfig";
+export type { IMcpService } from "./nodefony/interfaces";
+export { AiError } from "./nodefony/src/errors/AiError";

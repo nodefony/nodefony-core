@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { canonicalResourceUri, BUILTIN_MCP_TOOL_KEYS } from "nodefony";
+import { BUILTIN_MCP_TOOL_KEYS } from "nodefony";
+import { mcpConfigSchema } from "@nodefony/ai";
 
 /**
  * @nodefony/devkit — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -26,180 +27,16 @@ import { canonicalResourceUri, BUILTIN_MCP_TOOL_KEYS } from "nodefony";
  * la métadonnée. Ces flags ressortent dans le JSON Schema lu par Studio.
  */
 /**
- * Rôle **serveur de ressource OAuth 2.1** de la porte MCP — éteint par défaut.
- *
- * ⭐ **Un seul réglage commande : {@link authorizationServers}.** Vide, la porte
- * se comporte exactement comme avant — anonyme, aucune métadonnée publiée,
- * aucun `401`. Non vide, le rôle s'allume ENTIÈREMENT. Un interrupteur séparé
- * aurait permis deux états qui se contredisent (« protégé mais sans serveur
- * d'autorisation », « métadonnées publiées mais jetons ignorés »), et c'est
- * précisément ce genre d'état que personne ne diagnostique.
- *
- * ⚠️ **Allumer ce rôle ne suffit pas à protéger quoi que ce soit** : il faut
- * aussi qu'un service du conteneur sache VÉRIFIER un jeton. S'il n'y en a pas,
- * la porte refuse de servir (et le dit fort) plutôt que d'accepter n'importe
- * quel porteur.
- */
-const mcpAuthorizationSchema = z
-  .strictObject({
-    /**
-     * Serveurs d'autorisation capables d'émettre un jeton pour cette porte.
-     *
-     * Vide (défaut) = rôle éteint. Non vide, la spécification MCP impose que le
-     * document de métadonnées les publie (« MUST include the
-     * `authorization_servers` field containing at least one authorization
-     * server ») : sans eux, un client apprendrait qu'un jeton est nécessaire
-     * sans jamais pouvoir en obtenir un.
-     */
-    authorizationServers: z
-      .array(z.string())
-      .default([])
-      .describe(
-        "Émetteurs de jetons acceptés (issuer OAuth) ; vide = aucune autorisation",
-      ),
-
-    /**
-     * URI canonique publique de cette porte — l'audience que les jetons doivent
-     * porter (RFC 8707).
-     *
-     * 🔴 **Elle s'écrit, elle ne se devine pas depuis l'en-tête `Host`.** Si
-     * l'URI publiée et l'audience attendue venaient toutes deux de la requête,
-     * un `Host` forgé obtiendrait un jeton d'audience arbitraire *et* passerait
-     * la vérification : la liaison d'audience, dont c'est l'unique raison
-     * d'être, ne protégerait plus rien.
-     *
-     * Ex. `https://mon-app.example/nodefony/mcp`.
-     */
-    resource: z
-      .string()
-      .default("")
-      .describe("URI publique de la porte MCP (audience attendue des jetons)"),
-
-    /**
-     * Autres adresses de CETTE MÊME porte, dont les jetons sont aussi acceptés.
-     *
-     * Le cas courant : l'application sert la porte en clair sur un port et en
-     * TLS sur un autre. Un jeton émis pour l'une était alors refusé sur l'autre
-     * — la liaison d'audience (RFC 8707) faisant son travail. Nommer la seconde
-     * adresse est la bonne réponse ; relâcher la liaison n'en serait pas une.
-     *
-     * 🔴 Ces valeurs s'ÉCRIVENT. Dérivées du `Host`, un en-tête forgé
-     * obtiendrait un jeton d'audience arbitraire ET passerait la vérification.
-     * Seule `resource` est publiée en RFC 9728 : le document n'admet qu'une
-     * valeur, et un client n'a besoin que d'une adresse.
-     *
-     * ⚠️ L'ÉMETTEUR doit servir ces audiences (`security.jwt.audiences`), sinon
-     * il refuse de les émettre — `invalid_target`, et à juste titre.
-     */
-    additionalResources: z
-      .array(z.string())
-      .default([])
-      .describe(
-        "Autres URI de la même porte dont les jetons sont acceptés (jamais dérivées du Host)",
-      ),
-
-    /** Nom lisible, affiché pendant le consentement. */
-    resourceName: z.string().optional().describe("Nom affiché au consentement"),
-
-    /** Page de documentation destinée à un humain. */
-    resourceDocumentation: z
-      .string()
-      .optional()
-      .describe("URL de documentation de la ressource"),
-
-    /**
-     * Servir une requête SANS jeton comme anonyme, au lieu de la refuser.
-     *
-     * `false` (défaut) : sans jeton, `401` + `WWW-Authenticate` — c'est ce qui
-     * apprend au client qu'une autorisation existe et où l'obtenir.
-     * `true` : la porte reste ouverte aux outils publics, et les outils
-     * réservés restent retenus. Utile en développement ; c'est un choix qui
-     * s'écrit, jamais un comportement dont on hérite.
-     */
-    anonymous: z
-      .boolean()
-      .default(false)
-      .describe("Tolérer les requêtes sans jeton (outils publics seulement)"),
-  })
-  .superRefine((value, ctx) => {
-    // Le rôle est éteint : rien à exiger.
-    if (value.authorizationServers.length === 0) return;
-
-    // Un serveur d'autorisation sans audience produirait un document que la
-    // RFC 9728 rejette, et une vérification qui ne peut rien comparer. Le dire
-    // au BOOT plutôt qu'à la première requête : une porte mal configurée ne se
-    // découvre autrement que le jour où un agent s'y casse les dents.
-    if (value.resource.length === 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["resource"],
-        message:
-          "`mcp.authorization.resource` est requis dès qu'un serveur " +
-          "d'autorisation est déclaré : c'est l'URI publique de la porte, et " +
-          "l'audience que les jetons doivent porter (RFC 8707).",
-      });
-      return;
-    }
-
-    // Contrôlée par la fonction qui composera le document, jamais par une
-    // seconde règle écrite ici : deux validations d'une même URI finiraient par
-    // diverger, et c'est la plus laxiste qui laisserait passer.
-    try {
-      canonicalResourceUri(value.resource);
-    } catch (error) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["resource"],
-        message: (error as Error).message,
-      });
-    }
-  });
-
-/**
- * Réglages du serveur MCP — extrait en constante pour une raison mécanique.
+ * Réglages du serveur MCP — le schéma de la porte vient de `@nodefony/ai`
+ * (source unique, {@link mcpConfigSchema}) ; devkit n'y ajoute que l'allowlist
+ * de ses outils intégrés.
  *
  * ⚠️ **Piège Zod 4** : un `.default({})` posé à plat sur un sous-objet NE
  * ré-applique PAS les défauts de ses champs. Le pattern du dépôt est donc
  * `sous.default(() => sous.parse({}))` — le callback force la ré-évaluation, et
  * une application qui n'écrit rien obtient bien les valeurs d'usine.
  */
-const mcpSchema = z.strictObject({
-  /** Répond-on aux requêtes MCP ? Coupé, la route rend `404`. */
-  enabled: z
-    .boolean()
-    .default(true)
-    .describe("Active l'endpoint MCP (POST /nodefony/mcp)"),
-
-  /**
-   * Origines acceptées quand l'en-tête `Origin` est PRÉSENT.
-   *
-   * ⭐ La subtilité qui fait toute la sécurité : un client MCP natif est un
-   * process, pas un navigateur — **il n'envoie pas d'`Origin`**. Une page web
-   * malveillante, elle, en envoie toujours un vers `localhost`. La règle est
-   * donc : *absent → on passe* ; *présent et hors de cette liste → `403`*.
-   * C'est ce que la spec exige (`transports/streamable-http` §Security :
-   * « Servers MUST validate the `Origin` header […] MUST respond with HTTP 403
-   * Forbidden »), et c'est ce qui ferme le DNS rebinding.
-   *
-   * Vide (défaut) = aucune origine de navigateur n'est admise.
-   */
-  allowedOrigins: z
-    .array(z.string())
-    .default([])
-    .describe("Origines navigateur admises ; vide = aucune"),
-
-  /**
-   * Accepter un appel dont l'adresse distante n'est pas locale.
-   *
-   * La spec recommande de n'écouter que sur la boucle locale ; le serveur de
-   * l'application, lui, écoute pour le développement. La garde est donc portée
-   * par la route : toute adresse non locale reçoit `403`.
-   */
-  allowRemote: z
-    .boolean()
-    .default(false)
-    .describe("Autorise les appels depuis une adresse non locale"),
-
+const mcpSchema = mcpConfigSchema.extend({
   /**
    * Outils exposés — **allowlist**, et lecture seule.
    *
@@ -215,17 +52,6 @@ const mcpSchema = z.strictObject({
     // code, absent de la porte, et sans le moindre message pour l'expliquer.
     .default([...BUILTIN_MCP_TOOL_KEYS])
     .describe("Outils MCP activés (allowlist, lecture seule)"),
-
-  /**
-   * Rôle serveur de ressource OAuth 2.1 — **éteint par défaut**.
-   *
-   * Tant qu'aucun serveur d'autorisation n'est déclaré, la porte se comporte
-   * comme elle l'a toujours fait : anonyme, protégée par son seul périmètre
-   * (`policy: "dev"` + gardes `Origin`/localité).
-   */
-  authorization: mcpAuthorizationSchema
-    .default(() => mcpAuthorizationSchema.parse({}))
-    .describe("Serveur de ressource OAuth 2.1 (RFC 9728/6750/8707)"),
 });
 
 export const devkitConfigSchema = z.strictObject({
