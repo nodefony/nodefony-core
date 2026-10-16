@@ -1,39 +1,20 @@
-import {
-  route,
-  controller,
-  Controller,
-  Body,
-  Headers,
-} from "@nodefony/framework";
+import { route, controller, Controller, Body } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
+import { Nodefony, ADMIN_DEFAULT_ROLE, ACCESS_TOKEN_VERIFIER } from "nodefony";
+import type { IAccessTokenVerifier } from "nodefony";
 import {
-  Nodefony,
-  authorizeProtectedResource,
-  protectedResourceMetadataUrl,
-  ACCESS_TOKEN_VERIFIER,
-  readBearerHeader,
-  JsonRpcError,
-  jsonRpcFailure,
-} from "nodefony";
-import type { IMcpCaller, IAccessTokenVerifier } from "nodefony";
-import {
-  checkMcpAccess,
-  handleMcpMessage,
-  createMcpResponseStream,
-  collectMcpTools,
-  mcpCallerRoles,
+  serveMcp,
+  rejectUnsupportedMcpMethod,
+  writeMcpResponse,
 } from "@nodefony/ai";
 import type { IDevkitService } from "../interfaces/IDevkitService";
 
-/**
- * Plafond d'un événement sur le flux de réponse MCP, octets UTF-8 — celui de la
- * réponse finale, qui porte le résultat entier de l'outil (16 Mio).
- */
-const MCP_STREAM_MAX_EVENT_BYTES = 16 * 1024 * 1024;
+/** Le rôle que cette porte accorde à qui l'atteint sans serveur d'autorisation. */
+const DEV_OPERATOR_ROLES: readonly string[] = [ADMIN_DEFAULT_ROLE];
 
 /**
- * Serveur **Model Context Protocol** de l'application — la porte par laquelle
- * un agent externe l'interroge.
+ * Porte **Model Context Protocol** de DÉVELOPPEMENT — celle par laquelle
+ * l'agent de code du développeur interroge l'application.
  *
  * ## Pourquoi une route, et pas un process
  *
@@ -50,7 +31,7 @@ const MCP_STREAM_MAX_EVENT_BYTES = 16 * 1024 * 1024;
  *
  * **Par défaut, le périmètre — et lui seul.** Ce module est `policy: "dev"`,
  * donc cette route n'existe pas en production ; restent les deux gardes que la
- * spec impose au transport, portées par {@link checkMcpAccess} : l'en-tête
+ * spec impose au transport (`checkMcpAccess`, `@nodefony/ai`) : l'en-tête
  * `Origin` et la localité de l'appelant. Elles visent le seul vecteur réel
  * contre un serveur local — une page web ouverte dans le navigateur du
  * développeur.
@@ -77,12 +58,11 @@ const MCP_STREAM_MAX_EVENT_BYTES = 16 * 1024 * 1024;
  * Rôle déclaré + aucun vérificateur = `503` et journal `CRITIC`, jamais une
  * porte qui laisse passer les porteurs sans les lire.
  *
- * **Mince par design** : tout le protocole vit AU CŒUR (`nodefony`, en fonctions
- * pures) ; ce controller ne fait que traduire HTTP ↔ JSON-RPC et fournir au
- * collecteur ce que lui seul connaît — le service du module, le broker
- * d'administration, la racine du projet. C'est ce qui permet à un autre module
- * d'ouvrir la même porte ailleurs (en production, sous authentification) sans
- * réécrire une ligne de protocole.
+ * **Mince par design** : toute la mécanique vit dans `@nodefony/ai`
+ * (`serveMcp`) ; ce controller ne fournit que ce que lui seul connaît — ses
+ * réglages, les modules dont il sert les outils, le rôle d'opérateur. Une
+ * application ouvre SA porte, en développement ou en production, de la même
+ * façon, sans réécrire une ligne de protocole.
  */
 @controller("/nodefony")
 class McpController extends Controller {
@@ -100,395 +80,41 @@ class McpController extends Controller {
   }
 
   /**
-   * Ce qui, dans cette application, sait valider un jeton — ou rien.
-   *
-   * Résolu par NOM dans le conteneur, et non importé : ce module est
-   * `policy: "dev"` et ne peut pas dépendre de `@nodefony/security`, qui porte
-   * la cryptographie. Une application peut donc fournir sa propre
-   * implémentation du contrat sous ce nom, sans que cette porte en sache quoi
-   * que ce soit.
-   *
-   * L'absence est un cas NORMAL (rôle éteint) ou une faute de configuration
-   * (rôle allumé) — c'est l'appelant qui tranche, pas cette méthode.
-   */
-  #tokenVerifier(): IAccessTokenVerifier | undefined {
-    return this.get<IAccessTokenVerifier>(ACCESS_TOKEN_VERIFIER) ?? undefined;
-  }
-
-  /**
-   * L'en-tête porte-t-il un gabarit d'interpolation jamais substitué ?
-   *
-   * Un `.mcp.json` déclare son jeton par `${NF_MCP_TOKEN}` : le client
-   * développe la variable, ou transmet la chaîne telle quelle si elle manque.
-   * Le second cas ne se distingue d'un jeton invalide par AUCUN symptôme
-   * observable de l'extérieur, et c'est pourtant le plus fréquent des deux —
-   * une session lancée depuis un terminal où la variable n'était pas posée.
-   *
-   * @param header - la valeur brute de l'en-tête `Authorization`
-   * @returns vrai si ce qui est présenté est resté un gabarit
-   */
-  #isUnsubstitutedTemplate(header: string | undefined): boolean {
-    const read = readBearerHeader(header);
-    return (
-      read.kind === "token" &&
-      read.token.startsWith("${") &&
-      read.token.endsWith("}")
-    );
-  }
-
-  /**
-   * Le corps reçu est-il un texte qui ne se PARSE pas en JSON ?
-   *
-   * Le parseur HTTP ignore un JSON malformé et laisse `@Body()` à `{}` : seul
-   * le brut (`request.data`) permet alors de distinguer un `{}` envoyé d'un
-   * texte illisible. Relu uniquement quand le corps n'a aucune clé.
-   *
-   * @param body - corps tel que `@Body()` le rend
-   * @returns `true` si le texte reçu n'est pas du JSON
-   */
-  #unparsableBody(body: unknown): boolean {
-    if (
-      body === null ||
-      typeof body !== "object" ||
-      Array.isArray(body) ||
-      Object.keys(body).length > 0
-    ) {
-      return false;
-    }
-    const request = this.request;
-    if (!request || !("data" in request)) return false;
-    const text = request.data.toString(request.charset).trim();
-    if (text === "") return false;
-    try {
-      JSON.parse(text);
-      return false;
-    } catch {
-      return true;
-    }
-  }
-
-  /**
    * `POST /nodefony/mcp` — un message JSON-RPC entre, une réponse sort.
    *
-   * Les trois statuts que rend cette route sont ceux que la spec impose, et pas
-   * un de plus : `202` sans corps pour une notification acceptée, `403` pour un
-   * appel dont l'origine ou l'adresse est refusée, `404` pour une méthode
-   * inconnue (afin de la distinguer d'un serveur qui n'hébergerait pas
-   * d'endpoint MCP du tout).
+   * Toute la mécanique (gardes, autorisation, collecte, flux) est celle de
+   * `serveMcp` (`@nodefony/ai`), partagée avec toute porte d'application. Cette
+   * porte n'apporte que ce qu'elle seule sait : ses réglages (`devkit.mcp`),
+   * TOUS les modules chargés (l'outillage de développement sert aussi les outils
+   * de l'application, pour les éprouver), et le rôle d'opérateur — accordé
+   * parce que son PÉRIMÈTRE la protège (`policy: "dev"`), écrit ici et nulle
+   * part ailleurs.
+   *
+   * Le vérificateur de jeton est résolu par NOM dans le conteneur, jamais
+   * importé : ce module ne peut pas dépendre de `@nodefony/security`, qui
+   * porte la cryptographie et survit à la production, lui non.
    */
   // `requirements.methods`, pas l'option `method` : seule la première
   // restreint le match — avec la seconde, cette route servait aussi `GET`.
   @route("devkit-mcp", { path: "/mcp", requirements: { methods: ["POST"] } })
-  async mcp(
-    @Body() body: unknown,
-    @Headers("origin") origin?: string,
-    @Headers("mcp-protocol-version") protocolVersion?: string,
-    @Headers("authorization") authorization?: string,
-  ) {
-    const settings = this.#service().mcpSettings();
-
-    if (!settings.enabled) {
-      // Coupé par configuration : la porte n'existe pas, elle ne se défend pas.
-      return this.renderJson({ error: "MCP désactivé" }, 404);
-    }
-
-    const verdict = checkMcpAccess(
-      { origin, remoteAddress: this.context?.remoteAddress ?? undefined },
-      {
-        allowedOrigins: settings.allowedOrigins,
-        allowRemote: settings.allowRemote,
-      },
-    );
-    if (!verdict.allowed) {
-      // Le motif est LOGGÉ, jamais renvoyé : un appelant refusé n'a pas à
-      // apprendre quelles origines seraient admises.
-      this.log(`MCP refusé — ${verdict.why}`, "WARNING");
-      return this.renderJson(
-        jsonRpcFailure(null, JsonRpcError.INVALID_REQUEST, "origine refusée"),
-        403,
-      );
-    }
-
-    // JSON-RPC 2.0 §5.1 distingue deux refus que le corps reçu confond :
-    // `-32700` pour un texte qui ne se PARSE pas, `-32600` pour un JSON lisible
-    // qui n'est pas un message. Le parseur HTTP est tolérant — un JSON illisible
-    // est ignoré et `@Body()` rend alors `{}` —, d'où la relecture du brut, sur
-    // ce seul chemin froid (corps vide d'apparence).
-    if (this.#unparsableBody(body)) {
-      return this.renderJson(
-        jsonRpcFailure(
-          null,
-          JsonRpcError.PARSE_ERROR,
-          "corps illisible : JSON invalide",
-        ),
-        400,
-      );
-    }
-    if (body === null || typeof body !== "object") {
-      return this.renderJson(
-        jsonRpcFailure(
-          null,
-          JsonRpcError.INVALID_REQUEST,
-          "corps attendu : un message JSON-RPC (objet)",
-        ),
-        400,
-      );
-    }
-
-    // ─── Qui appelle ? ───────────────────────────────────────────────────────
-    // Sans serveur d'autorisation déclaré, cette porte reste ce qu'elle a
-    // toujours été : anonyme, bornée par son périmètre (`policy: "dev"`) et par
-    // les gardes de transport ci-dessus. Les outils exigeant une identité ou des
-    // scopes restent retenus — un appelant anonyme n'est pas une autorisation
-    // implicite.
-    const authz = settings.authorization;
-    // 🔴 La POSTURE se lit ici — seule la porte sait si elle est protégée —
-    // mais la RÈGLE qui en déduit les rôles vit au cœur (`mcpCallerRoles`),
-    // partagée avec toute porte MCP à venir. Sans serveur d'autorisation
-    // déclaré, cette porte accorde le rôle d'opérateur : sa protection est son
-    // PÉRIMÈTRE (module `policy: "dev"`, gardes d'origine et de localité
-    // ci-dessus), et la refuser ne fermerait rien — qui l'atteint lit déjà les
-    // sources — tout en rendant l'outillage inutile.
-    const gateProtected =
-      settings.authorization.authorizationServers.length > 0;
-    let caller: IMcpCaller = {
-      authenticated: false,
-      scopes: [],
-      roles: mcpCallerRoles({
-        protected: gateProtected,
-        authenticated: false,
-        scopes: [],
-      }),
-    };
-
-    if (gateProtected) {
-      const authVerdict = await authorizeProtectedResource(
-        authorization,
-        {
-          resource: authz.resource,
-          acceptedResources: authz.additionalResources,
-          metadataUrl: protectedResourceMetadataUrl(authz.resource),
-          // Ce que la porte EXIGE, dérivé de ses outils — la MÊME source que
-          // le document RFC 9728 que ce défi fait lire. Deux listes auraient
-          // envoyé le client demander des scopes qu'on n'exige pas, ou taire
-          // ceux qu'on exige.
-          scopes: this.#service().declaredMcpScopes(),
-          allowAnonymous: authz.anonymous,
-        },
-        this.#tokenVerifier(),
-      );
-
-      switch (authVerdict.outcome) {
-        case "unverifiable":
-          // 🔴 La porte se DIT protégée et le jeton n'a pas pu être jugé.
-          // Servir reviendrait à accepter n'importe quel porteur ; se taire
-          // laisserait croire à une protection qui n'existe pas. On refuse, et
-          // on crie. Deux causes, deux messages : rien n'est POSÉ (faute de
-          // configuration) ou la vérification a ÉCHOUÉ (panne). Les confondre
-          // envoyait chercher une clé manquante là où l'émetteur était
-          // simplement injoignable.
-          this.log(
-            authVerdict.why
-              ? "MCP — la vérification du jeton a ÉCHOUÉ, le jeton n'est donc " +
-                  "ni accepté ni refusé : la porte refuse de servir (503). " +
-                  `Cause — ${authVerdict.why}`
-              : "MCP — `mcp.authorization` déclare un serveur d'autorisation, mais " +
-                  "aucun service du conteneur ne sait vérifier un jeton " +
-                  "(`accessTokenVerifier`). La porte refuse de servir : accepter les " +
-                  "porteurs sans les valider serait pire que rester anonyme.",
-            "CRITIC",
-          );
-          return this.renderJson(
-            jsonRpcFailure(
-              null,
-              JsonRpcError.INTERNAL_ERROR,
-              "autorisation indisponible",
-            ),
-            503,
-          );
-        case "challenge":
-          // 🔴 Le refus le plus incompréhensible qui soit : un en-tête
-          // `Bearer ${…}` que personne n'a substitué. Le client CROIT présenter
-          // un jeton, la porte reçoit une chaîne illisible, et le seul symptôme
-          // est un serveur « failed » — alors que le même client, SANS en-tête,
-          // aurait obtenu les outils publics. La cause n'est pas devinable de
-          // l'extérieur : elle se DIT.
-          if (this.#isUnsubstitutedTemplate(authorization)) {
-            this.log(
-              "MCP — l'en-tête `Authorization` porte un GABARIT non substitué : " +
-                "la variable d'environnement du jeton n'est pas posée dans le " +
-                "process du client. Émettre le jeton (`nodefony security:token`) " +
-                "et le poser, ou rendre la porte anonyme pour ce client " +
-                "(`nodefony ai:mcp --no-auth`) — sans en-tête, les outils " +
-                "publics sont servis.",
-              "WARNING",
-            );
-          }
-          // Le défi porte `resource_metadata` : c'est lui qui apprend au client
-          // où obtenir un jeton. Sans cet en-tête, le refus serait un mur.
-          return this.renderJson(
-            jsonRpcFailure(
-              null,
-              JsonRpcError.INVALID_REQUEST,
-              "autorisation requise",
-            ),
-            authVerdict.status,
-            { "WWW-Authenticate": authVerdict.wwwAuthenticate },
-          );
-        case "authenticated":
-          caller = {
-            authenticated: true,
-            scopes: authVerdict.principal.scopes,
-            subject: authVerdict.principal.subject,
-            // Les rôles VIENNENT DU JETON. L'audience (RFC 8707) prouve que le
-            // jeton vise cette ressource ; elle ne dit rien de ce que son
-            // porteur a le droit d'y faire. Un jeton sans scope d'administration
-            // n'obtient donc aucun rôle — et se voit refuser, au lieu d'hériter
-            // d'un administrateur fabriqué.
-            roles: mcpCallerRoles({
-              protected: true,
-              authenticated: true,
-              scopes: authVerdict.principal.scopes,
-            }),
-          };
-          break;
-        case "anonymous":
-          // 🔴 Un jeton PRÉSENTÉ et rejeté est servi en anonyme — mais jamais
-          // en silence. Sans cette ligne, un jeton expiré serait
-          // indistinguable d'une requête muette : l'agent perdrait ses outils
-          // réservés sans que rien n'en donne la raison, et un porteur refusé
-          // ne laisserait aucune trace. `WARNING`, pas `DEBUG` : c'est le
-          // symptôme d'un jeton à renouveler, ou d'une tentative.
-          if (authVerdict.rejected) {
-            this.log(
-              "MCP — jeton REJETÉ (expiré, mauvaise audience ou signature " +
-                "invalide) : la requête est servie en ANONYME, les outils " +
-                "réservés restent retenus. Renouveler le jeton " +
-                "(`nodefony security:token`) pour les retrouver.",
-              "WARNING",
-            );
-          }
-          // La porte a DÉCLARÉ une autorisation et tolère l'anonyme : lui
-          // accorder le rôle d'opérateur viderait cette déclaration de son
-          // sens. Il reste anonyme, donc sans rôle — c'est la règle qui le dit,
-          // pas cette ligne.
-          caller = {
-            authenticated: false,
-            scopes: [],
-            roles: mcpCallerRoles({
-              protected: true,
-              authenticated: false,
-              scopes: [],
-            }),
-          };
-          break;
-      }
-    }
-
+  mcp(@Body() body: unknown) {
     const kernel = Nodefony.getKernel();
-    // Les outils sont ramassés À CHAQUE requête, jamais mémorisés : c'est ce
-    // qui fait qu'un module ajouté — ou rechargé par le superviseur de
-    // développement — apparaît sans qu'aucun cache soit à invalider. Le coût
-    // est celui d'un parcours de `kernel.modules`, payé uniquement par les
-    // requêtes MCP, sur une porte qui n'existe pas en production.
-    // Compté pour l'annonce de `server/discover` : un agent doit pouvoir
-    // apprendre qu'il EXISTE des outils réservés, sinon un catalogue filtré lui
-    // fait conclure « cette application n'a rien de plus » — et il ne demandera
-    // jamais de jeton. Un nombre, jamais un nom.
-    let withheldCount = 0;
-
-    const tools = collectMcpTools({
+    return serveMcp(this, body, {
+      settings: this.#service().mcpSettings(),
       modules: kernel?.modules,
-      caller,
-      // Un outil écarté (nom hors forme, collision, déclaration en échec) se
-      // DIT : sans ce journal, son auteur chercherait la faute dans un handler
-      // que rien n'a jamais appelé.
-      onSkip: (why) => this.log(`MCP — ${why}`, "WARNING"),
-      // Une rétention n'est PAS une faute : c'est un catalogue filtré qui
-      // fonctionne. En DEBUG, donc — un WARNING par outil protégé et par
-      // requête noierait le journal, et on cesserait de le lire.
-      onWithheld: (name, why) => {
-        withheldCount += 1;
-        this.log(`MCP — outil « ${name} » retenu : ${why}`, "DEBUG");
+      verifier:
+        this.get<IAccessTokenVerifier>(ACCESS_TOKEN_VERIFIER) ?? undefined,
+      operatorRoles: DEV_OPERATOR_ROLES,
+      serverInfo: {
+        name: kernel?.projectName ?? "nodefony",
+        version: Nodefony.version,
       },
     });
-
-    // Le flux de réponse : la règle (ouverture paresseuse, ordre, réponse
-    // finale qui clôt) est celle de la boîte à outils ; la porte ne fournit que
-    // l'ouverture. Annulation = `context.signal`, que le noyau abat quand la
-    // réponse se ferme avant sa fin — flux compris : aucun écouteur ajouté.
-    const context = this.context;
-    const stream = createMcpResponseStream({
-      signal: context?.signal,
-      open: this.acceptsSse()
-        ? () =>
-            // La réponse finale peut dépasser le plafond d'un événement
-            // ordinaire : un résultat d'outil n'a pas de borne en JSON, il
-            // n'en reçoit pas une plus basse en flux.
-            this.renderSse({ maxEventBytes: MCP_STREAM_MAX_EVENT_BYTES })
-        : undefined,
-      onError: (error, final) =>
-        this.log(
-          `MCP — ${final ? "réponse finale" : "notification"} perdue sur le flux : ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-          final ? "WARNING" : "DEBUG",
-        ),
-    });
-    const reply = await handleMcpMessage(
-      body,
-      {
-        tools,
-        caller,
-        withheldCount,
-        transport: stream.transport,
-        serverInfo: {
-          name: kernel?.projectName ?? "nodefony",
-          version: Nodefony.version,
-        },
-      },
-      // L'en-tête de révision voyage jusqu'au protocole : c'est lui qui, face
-      // au `_meta` du corps, permet de refuser une requête dont deux
-      // intermédiaires liraient des versions différentes.
-      { protocolVersion },
-    );
-
-    // L'agent n'a reçu qu'un message générique : le détail de l'exception
-    // n'existe QU'ICI. Sans ce journal, l'auteur de l'outil n'aurait rien pour
-    // comprendre son échec.
-    if (reply.failure) {
-      const { tool, error } = reply.failure;
-      this.log(
-        `MCP — l'outil « ${tool} » a levé : ${
-          error instanceof Error
-            ? (error.stack ?? error.message)
-            : String(error)
-        }`,
-        "ERROR",
-      );
-    }
-
-    // Un flux a été ouvert en route : la réponse finale le CLÔT (« SHOULD
-    // terminate the stream »). Sinon, rien n'a été dit avant : JSON, comme
-    // toujours.
-    const sse = await stream.finish(reply.body);
-    if (sse !== null) return sse.close();
-
-    if (reply.body === null) {
-      // `202 Accepted` **sans corps** — la spec l'exige pour une notification
-      // acceptée. Un objet JSON ici ferait échouer un client conforme, qui
-      // n'attend rien à lire.
-      return this.renderResponse("", undefined, reply.status);
-    }
-    return this.renderJson(reply.body, reply.status);
   }
 
   /**
    * `GET` et `DELETE /nodefony/mcp` — refusés en `405`, avec `Allow: POST`.
    *
-   * Un client d'une révision antérieure du transport ouvre un flux SSE en `GET`
-   * et clôt sa session en `DELETE` ; la révision `2026-07-28` a retiré les deux
-   * et demande ce `405` (transports, « Earlier Streamable HTTP Revisions »).
    * Sans cette route, la requête tombait dans le repli SPA du Studio
    * (`/nodefony/{page}`) : `200` + HTML, que le client prenait pour un flux
    * rompu et rouvrait à chaque seconde, indéfiniment.
@@ -498,11 +124,10 @@ class McpController extends Controller {
     requirements: { methods: ["GET", "DELETE"] },
   })
   unsupported() {
-    if (!this.#service().mcpSettings().enabled) {
-      // Même réponse que `POST` quand la porte est coupée : elle n'existe pas.
-      return this.renderJson({ error: "MCP désactivé" }, 404);
-    }
-    return this.renderResponse("", undefined, 405, { allow: "POST" });
+    return writeMcpResponse(
+      this,
+      rejectUnsupportedMcpMethod(this.#service().mcpSettings()),
+    );
   }
 }
 

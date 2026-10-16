@@ -97,7 +97,24 @@ export type {
   IMcpServerContext,
   IMcpHeaders,
   IMcpTransport,
+  IServerInfo,
 } from "./nodefony/mcp/server";
+// La porte HTTP — la mécanique, sans la route : une porte se DÉCLARE par un
+// controller (devkit, ou l'application) qui appelle `serveMcp`.
+export {
+  serveMcp,
+  serveMcpRequest,
+  writeMcpResponse,
+  rejectUnsupportedMcpMethod,
+  mcpProtectedResources,
+  MCP_STREAM_MAX_EVENT_BYTES,
+} from "./nodefony/mcp/gate";
+export type {
+  IMcpGateRequest,
+  IMcpGateOptions,
+  IMcpGateResponse,
+  McpGateSeverity,
+} from "./nodefony/mcp/gate";
 export {
   createProgressReporter,
   readProgressToken,

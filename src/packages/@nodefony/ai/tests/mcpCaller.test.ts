@@ -3,10 +3,10 @@ import { ADMIN_SCOPE_READ } from "nodefony";
 import { mcpCallerRoles } from "../index";
 
 describe("mcpCallerRoles — une règle pour TOUTE porte MCP, présente ou future", () => {
-  it("porte NON protégée → rôle d'opérateur (son périmètre EST sa protection)", () => {
+  it("🔴 porte NON protégée → AUCUN rôle par défaut (elle peut être celle d'une app en production)", () => {
     expect(
       mcpCallerRoles({ protected: false, authenticated: false, scopes: [] }),
-    ).to.deep.equal(["ROLE_NODEFONY_ADMIN"]);
+    ).to.deep.equal([]);
   });
 
   it("porte protégée + jeton vérifié → ce que ses SCOPES ouvrent", () => {
@@ -32,12 +32,11 @@ describe("mcpCallerRoles — une règle pour TOUTE porte MCP, présente ou futur
     ).to.deep.equal([]);
   });
 
-  it("une porte plus stricte passe SES rôles d'opérateur, sans réécrire la règle", () => {
+  it("une porte que son PÉRIMÈTRE protège ÉCRIT son rôle d'opérateur, sans réécrire la règle", () => {
     expect(
-      mcpCallerRoles(
-        { protected: false, authenticated: false, scopes: [] },
-        [],
-      ),
-    ).to.deep.equal([]);
+      mcpCallerRoles({ protected: false, authenticated: false, scopes: [] }, [
+        "ROLE_NODEFONY_ADMIN",
+      ]),
+    ).to.deep.equal(["ROLE_NODEFONY_ADMIN"]);
   });
 });

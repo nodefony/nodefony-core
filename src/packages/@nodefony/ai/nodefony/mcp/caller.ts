@@ -1,4 +1,6 @@
-import { ADMIN_DEFAULT_ROLE, rolesFromScopes } from "nodefony";
+import { rolesFromScopes } from "nodefony";
+
+const NO_ROLES: readonly string[] = [];
 
 /**
  * Ce qu'une porte MCP sait d'elle-même et de son appelant, au moment de dire
@@ -38,26 +40,25 @@ export interface IMcpGatePosture {
  *
  * | La porte | L'appelant | Ce qu'il porte |
  * | --- | --- | --- |
- * | non protégée | quiconque l'atteint | `operatorRoles` — sa protection est son PÉRIMÈTRE |
+ * | non protégée | quiconque l'atteint | `operatorRoles` — AUCUN par défaut ; une porte dont le PÉRIMÈTRE protège l'élargit |
  * | protégée | jeton vérifié | ce que ses SCOPES ouvrent, rien de plus |
  * | protégée | anonyme toléré | **rien** — la déclaration d'autorisation serait vidée de son sens |
  *
- * Le premier cas n'est pas du laxisme : une porte sans serveur d'autorisation
- * est bornée par son module (`policy: "dev"`) et par ses gardes de transport,
- * et qui l'atteint lit déjà les sources de l'application. Lui refuser la
- * lecture n'ajouterait aucune barrière et rendrait l'outillage inutile. Ce qui
- * compte, c'est que ce soit un CHOIX écrit — pas un administrateur fabriqué au
- * fond d'une fonction de lecture.
+ * Le premier cas n'accorde RIEN par défaut : une porte non protégée peut être
+ * celle d'une application, ouverte en production. Seule une porte que son
+ * PÉRIMÈTRE protège — la porte de développement de devkit, module
+ * `policy: "dev"`, dont l'appelant lit déjà les sources — passe le rôle
+ * d'opérateur, et l'écrit. Ce qui compte, c'est que ce soit un CHOIX écrit par
+ * la porte — pas un administrateur fabriqué au fond d'une fonction de lecture.
  *
  * @param posture - ce que la porte sait d'elle-même et de cet appel.
- * @param operatorRoles - ce qu'accorde une porte NON protégée. Une porte qui
- *   veut être plus stricte passe une liste plus courte, voire vide ; elle n'a
- *   pas à réécrire la règle pour autant.
+ * @param operatorRoles - ce qu'accorde une porte NON protégée ; aucun rôle par
+ *   défaut.
  * @returns les rôles à poser sur `IMcpCaller.roles`.
  */
 export function mcpCallerRoles(
   posture: IMcpGatePosture,
-  operatorRoles: readonly string[] = [ADMIN_DEFAULT_ROLE],
+  operatorRoles: readonly string[] = NO_ROLES,
 ): readonly string[] {
   if (!posture.protected) return operatorRoles;
   return posture.authenticated ? rolesFromScopes(posture.scopes) : [];

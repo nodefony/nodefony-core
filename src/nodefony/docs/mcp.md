@@ -292,55 +292,54 @@ finale — rien ne garantit qu'un client fasse entrer les notifications dans son
 
 ## 🚪 Monter une porte
 
-La porte de développement est une route de `@nodefony/devkit` (`McpController.mcp()`,
-`McpController.ts:182`). Toute autre porte — celle d'une application en production, un transport
-`stdio` — suit le même gabarit, en quatre appels à la boîte à outils :
+`@nodefony/ai` ne monte **aucune** route : une porte se **déclare**, par qui en a besoin. La porte
+de développement est un controller de `@nodefony/devkit` (`McpController.mcp()`,
+`McpController.ts:100`, `policy: "dev"`). Une application ouvre la SIENNE — en développement ou en
+production, selon ses besoins — par un controller ordinaire qui appelle `serveMcp()`
+(`gate.ts:531`) ; elle ne recode aucune ligne de protocole :
 
 ```ts
-// 1. La garde de transport : un appel distant, ou une page web hors allowlist, est refusé.
-const verdict = checkMcpAccess(
-  { origin, remoteAddress },
-  { allowedOrigins: [], allowRemote: false },
-);
-if (!verdict.allowed) return refuse(403);
+import { Controller, route, controller, Body } from "@nodefony/framework";
+import { serveMcp, mcpConfigSchema } from "@nodefony/ai";
 
-// 2. Les outils servis à CET appelant — l'autorisation se décide ici, une fois.
-const tools = collectMcpTools({
-  builtins: [],
-  deps,
-  modules: kernel.modules,
-  caller,
-});
+const SETTINGS = mcpConfigSchema.parse({}); // ou un sous-schéma de la config de l'app
 
-// 3. Le flux de réponse : la porte ne fournit que l'ouverture de SON flux.
-const stream = createMcpResponseStream({
-  signal: context.signal,
-  open: clientAcceptsSse ? () => openEventStream() : undefined,
-});
-
-// 4. Le protocole, puis la réponse : en flux si quelque chose a été dit en route, sinon en objet.
-const reply = await handleMcpMessage(body, {
-  tools,
-  caller,
-  serverInfo,
-  transport: stream.transport,
-});
-const sink = await stream.finish(reply.body);
-return sink !== null ? sink.close() : respondJson(reply.status, reply.body);
+@controller("/api")
+class ShopMcpController extends Controller {
+  @route("shop-mcp", { path: "/mcp", requirements: { methods: ["POST"] } })
+  mcp(@Body() body: unknown) {
+    return serveMcp(this, body, {
+      settings: SETTINGS,
+      // les modules dont la porte sert les outils (`getMcpTools()`)
+      modules: { shop: this.context?.kernel?.getModule("shop") },
+      serverInfo: { name: "shop", version: "1.0.0" },
+    });
+  }
+}
 ```
+
+La porte ne fournit que ce qu'ELLE décide : sa route, sa policy, ses réglages, les modules dont
+elle publie les outils (`getMcpTools()`), son vérificateur de jeton. Tout le reste est la
+mécanique commune, `serveMcpRequest()` (`gate.ts:198`), éprouvable sans serveur :
 
 - **`checkMcpAccess()`** (`guard.ts:76`) : un client MCP légitime est un _process_ et n'envoie
   aucun `Origin` ; une page web malveillante en pose toujours un. _Absent_ → on passe, _présent et
   hors allowlist_ → `403`. C'est ce qui referme le DNS rebinding contre un serveur local.
 - **`createMcpResponseStream()`** (`stream.ts:63`) ouvre le flux au **premier** envoi seulement,
   enchaîne les envois dans l'ordre, et `finish()` écrit la réponse finale qui le clôt. Rien envoyé
-  en route → `null`, la porte répond en JSON comme pour une lecture courte.
+  en route → la porte répond en JSON comme pour une lecture courte.
 - **L'annulation** est le signal de la requête : sur le transport HTTP, fermer le flux de réponse
-  EST l'annulation. Une porte Nodefony passe `context.signal`, que le noyau abat quand la réponse se
+  EST l'annulation. `serveMcp()` passe `context.signal`, que le noyau abat quand la réponse se
   ferme avant sa fin — aucun écouteur à ajouter.
-- **Une porte protégée** dérive l'appelant d'un jeton OAuth (`authorizeProtectedResource()`,
-  `protectedResource.ts:505`) et publie son document RFC 9728 ; les rôles viennent des scopes
-  (`mcpCallerRoles()`, `caller.ts:58`), jamais d'une valeur par défaut.
+- **Une porte non protégée n'accorde AUCUN rôle** (`mcpCallerRoles()`, `caller.ts:59`) : ses
+  outils réservés (`scopes`) restent retenus. Seule une porte que son PÉRIMÈTRE protège l'élargit,
+  et l'écrit (`operatorRoles`) — c'est le cas de la porte de développement de devkit.
+- **Une porte protégée** (`settings.authorization.authorizationServers`) dérive l'appelant d'un
+  jeton OAuth (`authorizeProtectedResource()`, `protectedResource.ts:505`) et répond `401` avec
+  `resource_metadata` sans jeton ; les rôles viennent des scopes. Son document RFC 9728 se publie
+  par un service qui expose `publishedProtectedResources()`, composé par
+  `mcpProtectedResources()` (`gate.ts:450`) pour que les scopes publiés soient ceux que le défi
+  exige.
 
 ## 📏 Normes appliquées — ce que la boîte à outils tient pour toi
 

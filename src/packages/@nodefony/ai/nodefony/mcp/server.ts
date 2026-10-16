@@ -46,7 +46,7 @@ import {
  */
 
 /** Ce que ce serveur sait faire, annoncé à l'initialisation. */
-interface IServerInfo {
+export interface IServerInfo {
   name: string;
   version: string;
 }

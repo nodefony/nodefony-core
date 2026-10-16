@@ -165,7 +165,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:86` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:822` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:111` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:113` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3379` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3391` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
@@ -229,8 +229,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
 | `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:167` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
-| `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:367` |
-| `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:368` |
+| `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:368` |
+| `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:369` |
 | `NF_README_ROOT` | `scripts/release/readme-gate.mjs:100` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:162` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:163` |
@@ -238,7 +238,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:24` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:23` |
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
-| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:101` |
+| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:650` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |

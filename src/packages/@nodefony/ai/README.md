@@ -30,8 +30,9 @@ comme le vôtre le sera.
 
 `@nodefony/ai` se charge comme `@nodefony/http` ou `@nodefony/framework` : toujours, dans
 tous les environnements. Les autres modules s'y appuient pour déclarer leurs outils. Il ne coûte
-rien tant qu'aucune capacité n'est configurée, et n'ouvre aucune porte en production sans
-autorisation.
+rien tant qu'aucune capacité n'est configurée, et ne monte **aucune route** : une porte MCP,
+c'est vous qui la déclarez — un controller qui appelle `serveMcp()`, en développement ou en
+production selon vos besoins.
 
 ## Ce qui est fait, ce qui vient
 
@@ -54,9 +55,9 @@ se lit dans le
 
 Chaque outil y annonce s'il ne fait que lire ou s'il modifie (indices `ToolAnnotations` de la
 spec, [#540](https://github.com/nodefony/nodefony-core/issues/540)), pour que l'agent sache quand
-demander confirmation. La boîte à outils MCP fonctionne déjà : elle sert aujourd'hui depuis le paquet `nodefony` (et la
-porte de développement de `@nodefony/devkit`). Elle rejoint ce paquet pour la `10.0.0`, qui en
-devient la seule adresse.
+demander confirmation. La boîte à outils MCP vit dans ce paquet, qui en est la seule adresse. La porte de développement
+de `@nodefony/devkit` (`/nodefony/mcp`) est bâtie sur la même mécanique que celle que vous
+ouvrirez pour vos propres outils.
 
 ### Prévu
 

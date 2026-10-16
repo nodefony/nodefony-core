@@ -34,6 +34,8 @@ import ReadinessController from "./nodefony/controller/ReadinessController";
 import DomainController from "./nodefony/controller/DomainController";
 import DomainClassController from "./nodefony/controller/DomainClassController";
 import DbController from "./nodefony/controller/DbController";
+// Porte MCP TÉMOIN — celle qu'une application écrit avec @nodefony/ai (#565)
+import McpGateController from "./nodefony/controller/McpGateController";
 // P6.13 — récepteur webhook LOCAL (test des livraisons sortantes, /nodefony/test/webhooks/*)
 import WebhookSinkController from "./nodefony/controller/WebhookSinkController";
 // POC « API souveraine » — Phase 1 (JETABLE — supprimer le dossier nodefony/poc/
@@ -181,6 +183,8 @@ function overlayProbe(context: unknown): void {
   LiveSyslogController,
   // Portée `request` de l'injecteur — HTTP et WS
   RequestScopeController,
+  // Porte MCP témoin d'application — ne sert que SES outils
+  McpGateController,
   // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)
   ...(BENCH_WS_BACKPRESSURE ? [BackpressureRealtimeController] : []),
   // Décor du banc du cycle ORM (opt-in `NF_BENCH_ORM=1`)

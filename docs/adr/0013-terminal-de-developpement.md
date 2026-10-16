@@ -364,7 +364,7 @@ interface IConfirmDecision {
   provoque lui-même (auto-développement, livre blanc §6.6), mais sans conteneur, sans syslog ni
   RBAC propres ; dans le serveur, tout cela existe, mais l'état meurt à chaque rechargement.
 - **Outils** : ceux du serveur MCP de l'application (`POST /nodefony/mcp`,
-  `src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts:178`) — les MÊMES qu'un
+  `src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts:100`) — les MÊMES qu'un
   agent externe, soumis au même RBAC. Aucun outil propre à l'invite.
 - **Confirmation** : pour tout outil dont `annotations.readOnlyHint !== true`. Ce champ, la
   définition d'outil du dépôt (`IMcpTool`, `src/nodefony/src/types/IMcpTool.ts:157`) ne le porte

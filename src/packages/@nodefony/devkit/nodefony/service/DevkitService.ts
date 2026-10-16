@@ -11,19 +11,11 @@ import type {
   IMcpTool,
   IProtectedResourceInput,
 } from "nodefony";
-import { mcpDeclaredScopes } from "@nodefony/ai";
+import { mcpDeclaredScopes, mcpProtectedResources } from "@nodefony/ai";
 import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type IDevkitConfig } from "../config/config";
-
-/**
- * Réponse partagée quand la porte MCP n'est pas protégée — le cas par défaut.
- * Allouer un tableau vide pour dire « rien » est la dépense que la règle de
- * lazy-allocation proscrit.
- */
-const EMPTY_PROTECTED_RESOURCES: readonly IProtectedResourceInput[] =
-  Object.freeze([]);
 
 /**
  * Service principal du module — la logique vit ici, pas dans les controllers
@@ -228,20 +220,7 @@ class DevkitService extends Service implements IDevkitService {
    * @returns une entrée pour la porte MCP, ou aucune
    */
   publishedProtectedResources(): readonly IProtectedResourceInput[] {
-    const mcp = this.cfg.mcp;
-    const authz = mcp.authorization;
-    if (!mcp.enabled || authz.authorizationServers.length === 0) {
-      return EMPTY_PROTECTED_RESOURCES;
-    }
-    return [
-      {
-        resource: authz.resource,
-        authorizationServers: authz.authorizationServers,
-        scopesSupported: this.declaredMcpScopes(),
-        resourceName: authz.resourceName,
-        resourceDocumentation: authz.resourceDocumentation,
-      },
-    ];
+    return mcpProtectedResources(this.cfg.mcp, this.module.kernel?.modules);
   }
 
   status(): { ready: boolean } {

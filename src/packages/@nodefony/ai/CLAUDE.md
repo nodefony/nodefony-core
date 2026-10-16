@@ -16,19 +16,20 @@ Deux usages de l'IA, deux paquets — ne JAMAIS les confondre :
 
 | Usage                                                  | Paquet             | Exemples                                                                          |
 | ------------------------------------------------------ | ------------------ | --------------------------------------------------------------------------------- |
-| **IA DANS l'application** (ce que l'utilisateur bâtit) | **`@nodefony/ai`** | boîte MCP, porte, client, `llm`, `vector`, `memory`, `agent`, garde               |
+| **IA DANS l'application** (ce que l'utilisateur bâtit) | **`@nodefony/ai`** | boîte MCP, mécanique de porte, client, `llm`, `vector`, `memory`, `agent`, garde  |
 | **IA POUR développer l'application** (outillage)       | `@nodefony/devkit` | le MCP DE Nodefony (outils `nodefony_*`), lecteur de transcripts d'agents de code |
 
 `@nodefony/devkit` est un **consommateur** de ce module, comme n'importe quelle application : il
-déclare ses outils et s'appuie sur la base commune d'ici. Il n'en possède aucune copie.
+déclare ses outils et s'appuie sur la base commune d'ici. Il n'en possède aucune copie, et il
+garde SA porte de développement (`/nodefony/mcp`, `policy: "dev"`), bâtie sur `serveMcp`.
 
 **Module SOCLE — `policy: "mandatory"`**, au même rang que `http`, `framework` et `security` :
 toujours chargé, jamais filtré, dans TOUS les environnements. Il livre la base dont dépendent
 devkit, tout module qui déclare des outils (`getMcpTools()`) et les agents de l'application.
 Ce statut n'est sûr que tenu par deux règles du module : **aucun coût par requête** tant
-qu'aucune capacité n'est configurée, et **aucune porte ouverte en production sans
-autorisation**. Il ne fait pas
-partie du paquet `nodefony` : le cœur ne l'importe jamais.
+qu'aucune capacité n'est configurée, et **aucune route montée** : une porte MCP se DÉCLARE, par
+le controller de qui en a besoin (devkit, ou l'application — en développement ou en production,
+à son choix). Il ne fait pas partie du paquet `nodefony` : le cœur ne l'importe jamais.
 
 ## Frontières
 
@@ -36,11 +37,11 @@ Cible arrêtée comme hypothèse de travail par l'auteur — révisable ; le pla
 table de placement complète vivent dans #565 (et l'ADR qui le clôt). Critère : **aucun symbole
 public ni aucune clé de configuration ne déménage une seconde fois après la `10.0.0`**.
 
-| Où                     | Ce qui y vit                                                                                                                                                                                                                                  | Pourquoi                                                                                                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **cœur `nodefony`**    | les CONTRATS en types (`types/IMcpTool.ts`, hook `getMcpTools()`), JSON-RPC 2.0, serveur de ressource OAuth (`oauth/`, `runtime/bearer.ts`), `MCP_ENDPOINT_PATH`, `ai:mcp`, `ai:sync`                                                         | partagés (temps réel, security) ; le hook est typé par `Module` sous `noImplicitOverride` ; `ai:mcp`/`ai:sync` tournent avant toute installation (`create app`, `upgrade`) |
-| **`@nodefony/ai`**     | protocole MCP, moteur `handleMcpMessage`, progression, flux, garde, rôles des appelants, collecte et appel des outils, **la porte `POST /nodefony/mcp`** (coquille autour de `serveMcpRequest`, fonction pure), service `mcp`, config `mcp.*` | ce qu'une application emploie pour exposer SES outils, en production comprise ; ré-exporte les contrats du cœur                                                            |
-| **`@nodefony/devkit`** | les 7 outils `nodefony_*`, déclarés par `getMcpTools()` comme ceux de n'importe quel module                                                                                                                                                   | le MCP de Nodefony : un CONSOMMATEUR, sans porte ni config `mcp`                                                                                                           |
+| Où                     | Ce qui y vit                                                                                                                                                                                                                                                            | Pourquoi                                                                                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **cœur `nodefony`**    | les CONTRATS en types (`types/IMcpTool.ts`, hook `getMcpTools()`), JSON-RPC 2.0, serveur de ressource OAuth (`oauth/`, `runtime/bearer.ts`), `MCP_ENDPOINT_PATH`, `ai:mcp`, `ai:sync`                                                                                   | partagés (temps réel, security) ; le hook est typé par `Module` sous `noImplicitOverride` ; `ai:mcp`/`ai:sync` tournent avant toute installation (`create app`, `upgrade`) |
+| **`@nodefony/ai`**     | protocole MCP, moteur `handleMcpMessage`, progression, flux, garde, rôles des appelants, collecte et appel des outils, **la mécanique de porte** (`serveMcpRequest` pure, `serveMcp` pour un controller, `mcpConfigSchema`, `mcpProtectedResources`) — **aucune route** | ce qu'une application emploie pour ouvrir SA porte, en production comprise ; ré-exporte les contrats du cœur                                                               |
+| **`@nodefony/devkit`** | les 7 outils `nodefony_*` (`getMcpTools()`), et **sa porte de développement** `POST /nodefony/mcp` (`policy: "dev"`, config `devkit.mcp.*`), controller mince autour de `serveMcp`                                                                                      | le MCP de Nodefony : un CONSOMMATEUR de la mécanique, qui déclare sa porte comme le ferait une application                                                                 |
 
 Règle des commandes : le cœur possède `ai:mcp` et `ai:sync` ; toute autre commande `ai:*`
 (stdio, fiche du registre, exécution d'agent) appartient au module.
@@ -50,15 +51,18 @@ Règle des commandes : le cœur possède `ai:mcp` et `ai:sync` ; toute autre com
 - **Sens des dépendances** : `@nodefony/ai → nodefony` (+ `@nodefony/http`, `@nodefony/framework`
   en pairs) ; `@nodefony/devkit → @nodefony/ai`. **Le cœur n'importe JAMAIS `@nodefony/ai`** —
   `node scripts/gates/check-package-deps.mjs` refuse tout cycle, la liste des cycles déclarés est vide.
-- **Coût borné au boot, nul par requête** : au démarrage, un import, un service, deux routes et
-  un parse Zod — constants, mesurés par le gate mémoire. Par requête hors de la porte : zéro.
+- **Coût borné au boot, nul par requête** : au démarrage, un import, un service et un parse Zod
+  — constants, mesurés par le gate mémoire. Aucune route : par requête, zéro.
   Quatre invariants à tenir à CHAQUE capacité ajoutée : aucun écouteur sur le chemin de requête
   (`onRequest`, `onRequestScope`) ni minuteur tant que rien n'est configuré ; aucun registre
   peuplé au boot (collecte à la requête) ; aucun `import()` de fournisseur à la charge du module ;
   rien dans le constructeur ni dans `init()` d'un service non configuré, au-delà de lire sa config.
-- **Porte de production = autorisation, sinon 404** : en production, une porte sans
-  `authorizationServers` n'existe pas (404 sur POST/GET/DELETE, rien publié en RFC 9728, une ligne
-  au démarrage). Jamais de rôle d'opérateur hors développement.
+- **Ce module ne monte AUCUNE route** (`@controllers([])`) : une porte se déclare par un
+  controller qui appelle `serveMcp()`. Ne jamais y ajouter « la » porte — c'est le contresens que
+  #565 a corrigé.
+- **Défaut sûr de la mécanique** : une porte NON protégée n'accorde AUCUN rôle
+  (`mcpCallerRoles`, `serveMcpRequest`) ; ses outils réservés restent retenus. Seule une porte que
+  son PÉRIMÈTRE protège (devkit, `policy: "dev"`) passe `operatorRoles`, et l'écrit.
 - **Fournisseurs lourds = sous-chemins optionnels** (`@nodefony/ai/<fournisseur>`, SDK de modèle,
   client de base vectorielle) : `peerDependenciesMeta.optional` + `import()` au premier usage.
   La racine `@nodefony/ai` n'en tire aucun. Un sous-chemin ne se déclare dans `exports` que le
@@ -100,9 +104,8 @@ déménagement ne soit nécessaire après la `10.0.0`.
 index.ts                     AiModule + barrel public (seule porte d'import)
 nodefony/config/             schéma Zod (config.ts) + builder (defineModuleConfig.ts)
 nodefony/service/            un service par capacité (McpService, puis LlmService…)
-nodefony/controllers/        McpController — POST /nodefony/mcp, coquille de serveMcpRequest
 nodefony/mcp/                protocole, moteur, progression, flux, garde, appelants, outils
-nodefony/mcp/gate.ts         serveMcpRequest() : garde → autorisation → collecte → réponse (pur)
+nodefony/mcp/gate.ts         serveMcpRequest() (pur) + serveMcp() pour un controller — la porte SANS la route
 nodefony/mcp/client/         client MCP (consommer un serveur externe)
 nodefony/mcp/resources/      ressources et abonnements (subscriptions/listen)
 nodefony/mcp/bridge/         jonction avec le hub temps réel (résolu par nom)

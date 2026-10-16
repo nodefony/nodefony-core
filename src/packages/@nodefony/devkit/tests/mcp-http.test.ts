@@ -1109,3 +1109,57 @@ describe.skipIf(raison !== null)(
     });
   },
 );
+
+/** La porte TÉMOIN d'application (module `test`) — `@nodefony/ai` sans devkit. */
+const PORTE_TEMOIN = "/nodefony/test/mcp-gate";
+
+describe.skipIf(raison !== null)(
+  "MCP — une porte d'APPLICATION, déclarée avec @nodefony/ai",
+  () => {
+    it("🔴 ne sert QUE ses outils : ni `nodefony_*`, ni ceux du module, ni l'outil réservé", async () => {
+      const reponse = await poster(
+        { jsonrpc: "2.0", id: 1, method: "tools/list" },
+        {},
+        PORTE_TEMOIN,
+      );
+      expect(reponse.status).toBe(200);
+      // `gate_admin` exige un rôle d'administration : une porte non protégée
+      // n'en accorde AUCUN — seule la porte de développement écrit l'opérateur.
+      expect(outilsDe(reponse).map((t) => t.name)).toEqual(["gate_echo"]);
+    });
+
+    it("appelle son outil de bout en bout", async () => {
+      const reponse = await poster(
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: { name: "gate_echo", arguments: { text: "bonjour" } },
+        },
+        {},
+        PORTE_TEMOIN,
+      );
+      expect(reponse.status).toBe(200);
+      const texte = (
+        reponse.body as { result: { content: { text: string }[] } }
+      ).result.content[0]?.text;
+      expect(texte).toBe("bonjour");
+    });
+
+    it("l'outil réservé n'est pas appelable en le nommant", async () => {
+      const reponse = await poster(
+        {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: { name: "gate_admin", arguments: {} },
+        },
+        {},
+        PORTE_TEMOIN,
+      );
+      expect(JSON.stringify(reponse.body)).not.toContain(
+        "ne doit jamais répondre",
+      );
+    });
+  },
+);

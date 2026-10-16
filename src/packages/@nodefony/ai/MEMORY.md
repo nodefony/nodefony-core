@@ -36,6 +36,7 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
 | `collectMcpTools(opts)` | `nodefony/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
 | `mcpDeclaredScopes(opts)` | `nodefony/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
 | `publishMcpTools`/`callMcpTool` | `nodefony/mcp/tools.ts` | projection sans `handler` / exécution par nom |
+| `serveMcpRequest`/`serveMcp` | `nodefony/mcp/gate.ts` | la PORTE sans la route : garde → corps → appelant (jeton, 401 `resource_metadata`, 503 sans vérificateur) → collecte (`modules` passés) → flux/JSON. Rend une réponse DÉCRITE (`json`/`empty`/`stream`) ; `serveMcp(controller, body, opts)` lit la requête et l'écrit. `rejectUnsupportedMcpMethod` → 405 `Allow: POST` ; `mcpProtectedResources` → entrée RFC 9728 |
 | `mcpText` | `nodefony/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils. **BORNÉ** (voir ci-dessous) |
 | `IMcpTool` | cœur `types/IMcpTool.ts` (ré-exporté) | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()` |
 
@@ -75,15 +76,11 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
   handler reçoit `(args, caller)` pour borner ce qu'il REND. Rétention →
   `onWithheld` (DEBUG, c'est normal), distinct d'`onSkip` (WARNING, c'est une
   faute d'auteur).
-  ⚠️ La porte du devkit câble un caller ANONYME (aucun jeton validé) : tout
-  outil à scopes y est invisible pour toujours. Conforme à la spec, qui autorise
-  le catalogue à varier « by the authorization presented on the request » mais
-  l'interdit « per-connection » — d'où la collecte par requête.
-  Ce qui manque pour l'activer = rôle _resource server_ (P6.9) : valider le
-  Bearer (`JwtAuthenticator` existe), publier RFC 9728, `401`+`WWW-Authenticate`
-  (RFC 6750), audience (RFC 8707). ⚠️ L'AS peut être TIERS — « beyond the scope
-  of this specification » ; croire qu'il fallait écrire un AS OAuth 2.1 complet
-  a servi de justification à l'écart, et c'était faux.
+  Porte NON protégée (aucun `authorizationServers`) → caller sans rôle :
+  tout outil à scopes y est RETENU (`operatorRoles` vide par défaut). Seule la
+  porte de devkit (`policy: "dev"`) passe `[ADMIN_DEFAULT_ROLE]`. Porte protégée
+  → rôles dérivés des scopes du jeton. Catalogue variable « by the authorization
+  presented on the request », jamais « per-connection » : collecte par requête.
 - **Nom d'outil** : `^[a-zA-Z0-9_-]{1,64}$`. Il voyage dans le contexte du
   modèle ; hors forme, il produit des appels que rien ne résout.
 - **Dual-ère assumé** : `initialize` (legacy) ET `server/discover` +
