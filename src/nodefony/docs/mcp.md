@@ -293,7 +293,7 @@ finale — rien ne garantit qu'un client fasse entrer les notifications dans son
 ## 🚪 Monter une porte
 
 La porte de développement est une route de `@nodefony/devkit` (`McpController.mcp()`,
-`McpController.ts:180`). Toute autre porte — celle d'une application en production, un transport
+`McpController.ts:182`). Toute autre porte — celle d'une application en production, un transport
 `stdio` — suit le même gabarit, en quatre appels à la boîte à outils :
 
 ```ts
@@ -340,7 +340,7 @@ return sink !== null ? sink.close() : respondJson(reply.status, reply.body);
   ferme avant sa fin — aucun écouteur à ajouter.
 - **Une porte protégée** dérive l'appelant d'un jeton OAuth (`authorizeProtectedResource()`,
   `protectedResource.ts:505`) et publie son document RFC 9728 ; les rôles viennent des scopes
-  (`mcpCallerRoles()`, `caller.ts:59`), jamais d'une valeur par défaut.
+  (`mcpCallerRoles()`, `caller.ts:58`), jamais d'une valeur par défaut.
 
 ## 📏 Normes appliquées — ce que la boîte à outils tient pour toi
 
@@ -358,7 +358,7 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 | `initialize` répond la révision DEMANDÉE quand elle est servie                | `negotiateVersion()` (`server.ts:241`) — annoncer la sienne rendait la porte injoignable                                                         |
 | ère moderne : `resultType` sur chaque résultat                                | `eraResult()` (`server.ts:159`) donne au résultat la forme de l'ère du CLIENT                                                                    |
 | méthode non implémentée → `404` + `-32601`                                    | cas par défaut du protocole                                                                                                                      |
-| progression : jeton fourni, valeur croissante, cadence bornée, arrêt à la fin | `createProgressReporter()` (`src/packages/@nodefony/ai/nodefony/mcp/progress.ts:75`) ; arrêt dans le `finally` de `tools/call` (`server.ts:506`) |
+| progression : jeton fourni, valeur croissante, cadence bornée, arrêt à la fin | `createProgressReporter()` (`src/packages/@nodefony/ai/nodefony/mcp/progress.ts:72`) ; arrêt dans le `finally` de `tools/call` (`server.ts:506`) |
 | flux : notifications liées à la requête, réponse finale qui le termine        | `createMcpResponseStream()` (`stream.ts:63`)                                                                                                     |
 | sur HTTP, fermer le flux = annuler                                            | `run.signal` = le signal de la requête                                                                                                           |
 | le catalogue peut varier selon l'autorisation, jamais selon la connexion      | collecte à chaque requête, sur les identifiants de CETTE requête                                                                                 |
@@ -391,7 +391,7 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 - **Une lecture courte ne paie pas le flux** : il n'est ouvert qu'au premier envoi.
 - **La progression ne réveille rien par défaut** : sans jeton ou sans flux, le rapporteur est un
   objet partagé qui ne fait rien ; avec, il coûte un appel d'horloge et se tait sous 100 ms
-  d'intervalle (`MCP_PROGRESS_MIN_INTERVAL_MS`, `src/packages/@nodefony/ai/nodefony/mcp/progress.ts:21`).
+  d'intervalle (`MCP_PROGRESS_MIN_INTERVAL_MS`, `src/packages/@nodefony/ai/nodefony/mcp/progress.ts:18`).
 - **Aucun écouteur ajouté pour l'annulation** : le signal est celui du contexte, alloué à la
   première lecture et abattu par le noyau.
 
