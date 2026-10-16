@@ -51,6 +51,14 @@ const PROTECTED = {
   },
 };
 
+/**
+ * Une définition volontairement FAUSSE — ce qu'un utilisateur pourrait écrire
+ * en JavaScript, ou après une faute de frappe que le typage n'a pas vue.
+ */
+function invalid(definition: unknown): IMcpGateDefinition {
+  return definition as IMcpGateDefinition;
+}
+
 function gate(extra: Partial<IMcpGateDefinition> = {}) {
   return defineMcpGate({ tools: TOOLS, ...extra });
 }
@@ -85,16 +93,15 @@ function jsonError(response: IMcpGateResponse): number | undefined {
 describe("defineMcpGate — une faute de définition arrête le démarrage, en la nommant", () => {
   it("clé inconnue (faute de frappe) : refusée, jamais ignorée", () => {
     expect(() =>
-      defineMcpGate({ tools: TOOLS, allowRemot: true } as IMcpGateDefinition),
+      defineMcpGate(invalid({ tools: TOOLS, allowRemot: true })),
     ).toThrow(BootConfigurationError);
   });
 
   it("révision du protocole que le paquet ne sait pas servir : refusée", () => {
     expect(() =>
-      defineMcpGate({
-        tools: TOOLS,
-        protocol: { versions: ["2027-01-01"] },
-      } as IMcpGateDefinition),
+      defineMcpGate(
+        invalid({ tools: TOOLS, protocol: { versions: ["2027-01-01"] } }),
+      ),
     ).toThrow(/2027-01-01|protocol/u);
   });
 
@@ -111,9 +118,9 @@ describe("defineMcpGate — une faute de définition arrête le démarrage, en l
   });
 
   it("objet qui n'est pas un outil : refusé", () => {
-    expect(() =>
-      defineMcpGate({ tools: [{ name: "x" }] } as IMcpGateDefinition),
-    ).toThrow(BootConfigurationError);
+    expect(() => defineMcpGate(invalid({ tools: [{ name: "x" }] }))).toThrow(
+      BootConfigurationError,
+    );
   });
 
   it("rôles « sans jeton » sur une porte protégée : refusé (ils n'auraient aucun effet)", () => {
