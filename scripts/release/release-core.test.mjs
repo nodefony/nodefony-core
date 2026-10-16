@@ -25,6 +25,7 @@ import {
   lireVueNpm,
   paquetsNonServis,
   planDeReprise,
+  verdictPaquetsNeufs,
   validerOtp,
   estRefusOtp,
   trierPourRecalage,
@@ -1236,10 +1237,32 @@ describe("GATE dépôt — aucun pair interne non borné chez les publiables", (
     .filter((m) => !m.private)
     .map((m) => ({ nom: m.name, pkg: m }));
 
-  it("le dépôt a bien les 15 publiables attendus", () => {
-    // Si ce compte change, c'est un paquet qui naît ou qui sort de la surface
-    // publiée — une décision, pas un détail : le test doit le dire.
-    expect(publiables.map((p) => p.nom).sort()).toHaveLength(15);
+  it("le dépôt publie EXACTEMENT les paquets décidés", () => {
+    // La chaîne CALCULE ses publiables (tout workspace non `private`) ; cette
+    // liste-ci est la DÉCISION, écrite exprès en face. Un module né sans
+    // `private: true` partirait sur npm à la release suivante : c'est ici qu'il
+    // se voit, et par son nom. Un compte nu ne disait ni lequel était entré, ni
+    // qu'un échange (un sorti, un entré) laissait le total inchangé.
+    // Un paquet qui naît ou qui sort de la surface publiée = une ligne ici, et
+    // sa première publication se fait depuis le poste (`verdictPaquetsNeufs`).
+    expect(publiables.map((p) => p.nom).sort()).toEqual([
+      "@nodefony/ai",
+      "@nodefony/devkit",
+      "@nodefony/documentation",
+      "@nodefony/drizzle",
+      "@nodefony/framework",
+      "@nodefony/frontend",
+      "@nodefony/http",
+      "@nodefony/mongoose",
+      "@nodefony/orm-core",
+      "@nodefony/realtime",
+      "@nodefony/redis",
+      "@nodefony/security",
+      "@nodefony/studio",
+      "@nodefony/user",
+      "create-nodefony",
+      "nodefony",
+    ]);
   });
 
   it("aucun pair interne en `*` — sinon npm sert `latest`, c'est-à-dire la 7.x", () => {
@@ -1914,6 +1937,55 @@ describe("planDeReprise — un lot interrompu se reprend à la MÊME version", (
     const plan = planDeReprise(ordre, locales, { ...locales });
     expect(plan.aPublier).toEqual([]);
     expect(plan.dejaEnLigne).toEqual(ordre);
+  });
+});
+
+// Vécu : `@nodefony/ai`, module neuf du lot. Le publieur de confiance ne se
+// déclare que sur un paquet qui EXISTE ; lancé de la forge, le lot serait parti
+// dans l'ordre et aurait cassé sur lui, ceux d'avant déjà en ligne.
+describe("verdictPaquetsNeufs — un paquet ne NAÎT pas de la forge", () => {
+  it("rien à dire quand tous les paquets existent", () => {
+    expect(
+      verdictPaquetsNeufs([], { forge: true, publier: true, canal: "beta" }),
+    ).toBeNull();
+  });
+
+  it("🔴 sur la forge, un paquet jamais publié REFUSE tout — même en répétition", () => {
+    for (const publier of [true, false]) {
+      const v = verdictPaquetsNeufs(["@nodefony/ai"], {
+        forge: true,
+        publier,
+        canal: "beta",
+      });
+      expect(v?.fatal).toBe(true);
+      expect(v?.message).toContain("@nodefony/ai");
+      // Le geste à faire est donné, avec le canal : sans `--tag`, une
+      // préversion partirait sous `latest`.
+      expect(v?.message).toContain("--tag beta");
+      expect(v?.message).toContain("Trusted Publisher");
+    }
+  });
+
+  it("depuis le poste, une publication les fait naître : rappel, jamais refus", () => {
+    const v = verdictPaquetsNeufs(["@nodefony/ai"], {
+      forge: false,
+      publier: true,
+      canal: "beta",
+    });
+    expect(v?.fatal).toBe(false);
+    expect(v?.message).toContain("naîtront");
+    expect(v?.message).toContain("Trusted Publisher");
+  });
+
+  it("depuis le poste, une répétition prévient que la forge refusera", () => {
+    const v = verdictPaquetsNeufs(["@nodefony/a", "@nodefony/b"], {
+      forge: false,
+      publier: false,
+      canal: "beta",
+    });
+    expect(v?.fatal).toBe(false);
+    expect(v?.message).toContain("la forge ne pourra pas");
+    expect(v?.message).toMatch(/@nodefony\/a[\s\S]*@nodefony\/b/u);
   });
 });
 

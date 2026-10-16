@@ -98,6 +98,7 @@ import path from "node:path";
 import process from "node:process";
 import {
   planDeReprise,
+  verdictPaquetsNeufs,
   alignerReferencesInternes,
   analyserCommits,
   perimetrePublie,
@@ -1094,12 +1095,30 @@ if (HORS_LIGNE) {
   );
 } else {
   const deja = [];
+  const inconnus = new Set();
   for (const p of paquets) {
     const v = npm(["view", `${p.nom}@${VERSION}`, "version", "--json"]);
-    // Un paquet inconnu du registre rend E404 : c'est le cas NORMAL pour les
-    // treize neufs. Seule une sortie 0 non vide signifie « version occupée ».
+    // Seule une sortie 0 non vide signifie « version occupée ».
     if (v.status === 0 && v.stdout.trim()) deja.push(`${p.nom}@${VERSION}`);
+    // `nom@version` rend E404 que le PAQUET ou seulement la VERSION soit
+    // inconnu — le message seul les distingue, et un texte d'npm ne fait pas
+    // contrat. On demande donc le paquet SANS version : E404 = jamais né.
+    else if (v.status !== 0) {
+      const r = npm(["view", p.nom, "name", "--json"]);
+      if (r.status !== 0 && /E404|404 Not Found/.test(r.stderr + r.stdout))
+        inconnus.add(p.nom);
+    }
   }
+  const neufs = verdictPaquetsNeufs(
+    ordre.filter((n) => inconnus.has(n)),
+    {
+      forge: process.env.GITHUB_ACTIONS === "true",
+      publier: PUBLIER,
+      canal: TAG_NPM,
+    },
+  );
+  if (neufs?.fatal) echouer(neufs.message);
+  else if (neufs) alerter(neufs.message);
   if (deja.length && !PHASES.publier) {
     echouer(
       `${deja.length} version(s) DÉJÀ publiée(s) sur le registre :\n` +

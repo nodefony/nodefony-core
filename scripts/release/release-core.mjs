@@ -1680,6 +1680,59 @@ export function planDeReprise(ordre, locales, enLigne) {
 }
 
 /**
+ * Le verdict sur les paquets JAMAIS publiés, selon le chemin de publication.
+ *
+ * Le publieur de confiance (OIDC) se déclare dans les réglages d'un paquet QUI
+ * EXISTE, et npm n'a pas de « publieur en attente ». Un paquet neuf ne peut donc
+ * pas naître de la forge : son `publish` y échoue, et les paquets qui le
+ * précèdent dans l'ordre sont déjà en ligne. `planDeReprise` ne le voit pas —
+ * pour lui, « paquet inconnu » et « version pas encore publiée » sont le même
+ * `null`. Depuis le poste, c'est au contraire le cas NORMAL d'une première
+ * publication : seul un rappel est dû, celui de déclarer ensuite le publieur.
+ *
+ * @param inconnus - noms absents du registre, dans l'ordre de publication
+ * @param contexte - `forge` : la passe tourne sur la forge (publication OIDC,
+ *   aucun jeton) ; `publier` : la passe publie ; `canal` : le dist-tag visé
+ * @returns `null` si aucun paquet n'est neuf, sinon `{ fatal, message }` —
+ *   `fatal` sur la forge, où rien ne doit partir
+ */
+export function verdictPaquetsNeufs(inconnus, { forge, publier, canal }) {
+  if (inconnus.length === 0) return null;
+  const liste = inconnus.map((n) => `    • ${n}`).join("\n");
+  const tag = canal ? ` --tag ${canal}` : "";
+  const declarer =
+    "  Puis, sur npmjs.com → Settings → Trusted Publisher (GitHub Actions) :\n" +
+    "  dépôt et workflow `release.yml` comme les autres paquets, environnement\n" +
+    "  VIDE, publication directe autorisée ; et Publishing access → 2FA, jetons refusés.";
+  if (forge) {
+    return {
+      fatal: true,
+      message:
+        `${inconnus.length} paquet(s) jamais publié(s) — la forge ne peut PAS les faire naître :\n` +
+        liste +
+        "\n\n  Le publieur de confiance ne se déclare que sur un paquet qui existe. Lancé\n" +
+        "  d'ici, le lot partirait et casserait sur eux, ceux d'avant déjà en ligne.\n" +
+        "  Rien n'est publié. Depuis le poste, au choix :\n" +
+        "    • les faire naître à la DERNIÈRE version publiée du lot :\n" +
+        `        npm run release:pack && npm publish release/tarballs/<tarball>${tag} --access public\n` +
+        "    • ou publier toute cette version depuis le poste :\n" +
+        "        npm run release -- --version <v> --publish\n" +
+        declarer +
+        "\n  Relancer ensuite ce job.",
+    };
+  }
+  return {
+    fatal: false,
+    message: publier
+      ? `${inconnus.length} paquet(s) naîtront de cette publication :\n${liste}\n\n` +
+        declarer
+      : `${inconnus.length} paquet(s) jamais publié(s) — la forge ne pourra pas publier ce lot :\n` +
+        `${liste}\n\n  Les faire naître depuis le poste AVANT de pousser le tag, ou publier cette\n` +
+        "  version d'ici (`--publish`). La forge refusera tant qu'ils n'existent pas.",
+  };
+}
+
+/**
  * Les paquets dont la dépréciation reste à poser — ou dont le message a changé.
  *
  * 🔴 Ce que ça évite : un mode de répétition qui rejoue sa liste à l'aveugle ne

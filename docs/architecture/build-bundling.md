@@ -361,7 +361,7 @@ Le second est le standard npm : une condition qu'un outil ne connaît pas est sa
 <!-- prettier-ignore -->
 | Forme | Paquets |
 | --- | --- |
-| **`types` + `nodefony-source`** (lus en source dans le dépôt) | `@nodefony/http` · `@nodefony/framework` · `@nodefony/security` · `@nodefony/user` · `@nodefony/orm-core` |
+| **`types` + `nodefony-source`** (lus en source dans le dépôt) | `@nodefony/ai` · `@nodefony/http` · `@nodefony/framework` · `@nodefony/security` · `@nodefony/user` · `@nodefony/orm-core` |
 | **`types` seul** (`./dist/types/…`) | `@nodefony/devkit` · `@nodefony/documentation` · `@nodefony/drizzle` · `@nodefony/frontend` · `@nodefony/mongoose` · `@nodefony/realtime` · `@nodefony/redis` · `@nodefony/studio` |
 | **Cas à part** | `nodefony` (cœur) — deux conditions, `browser` et `import`, chacune avec ses types |
 
