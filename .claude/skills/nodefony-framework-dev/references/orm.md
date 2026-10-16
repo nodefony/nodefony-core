@@ -432,7 +432,7 @@ connaît plus l'ORM. Valeur de l'abstraction = **swap d'ORM** (un nouvel adapter
 > `findOne`-pour-tester), `upsert` + `createMany` (tuent le SELECT-puis-écrire / les N round-trips),
 > `increment` (compteur atomique sans read-modify-write). **HORS contrat** (non portable → trappe
 > `getNativeConnection()` ou module dédié) : agrégats / `GROUP BY` / joins / fenêtrage / full-text, et la
-> **recherche vectorielle** (`@nodefony/vector`). Ne PAS faire de `IRepository` un Prisma : la portabilité
+> **recherche vectorielle** (phase 12, `@nodefony/ai`). Ne PAS faire de `IRepository` un Prisma : la portabilité
 > « swap d'ORM » EST la valeur. Verbes à forme d'API encore non tranchée (donc absents) : `findPage`
 > (curseur keyset), `upsertMany` (bulk), `stream` (curseur ; bloqué par le driver SYNC better-sqlite3).
 

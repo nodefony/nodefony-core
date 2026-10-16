@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-10-14
+updated: 2026-10-16
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -133,8 +133,8 @@ source: "docs/skills/index.md"
     "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de…",
     "meta": "🟢 conforme v1.8.0 · ⚙️ 3 scripts" },
   { "icon": "🗓️", "title": "roadmap", "href": "nodefony-roadmap.md",
-    "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
-    "meta": "🟢 conforme v2.0.0" }
+    "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode…",
+    "meta": "🟢 conforme v2.1.0" }
 ]
 ```
 
@@ -210,7 +210,7 @@ source: "docs/skills/index.md"
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.1.0 | 387 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.8.0 | 311 | 0 | 3 | ✅ |
-| [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
+| [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 121 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 397 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 10 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |

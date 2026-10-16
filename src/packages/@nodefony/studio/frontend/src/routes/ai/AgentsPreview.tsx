@@ -204,7 +204,7 @@ export function AgentsPreview() {
       subtitle="Des services du conteneur, avec des outils typés, une zone de confiance et un disjoncteur."
       icon={<IconRobot size={22} />}
     >
-      <PreviewBanner module="@nodefony/agent" contract="IAgent / ITool" />
+      <PreviewBanner module="@nodefony/ai" contract="IAgent / ITool" />
 
       <Grid>
         <StatCard label="Agents" hint="déclarés comme services injectables">

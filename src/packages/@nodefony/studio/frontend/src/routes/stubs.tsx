@@ -31,7 +31,7 @@ export const Settings = () => (
 export const AgentGuard = () => (
   <StubPage
     title="Agent Guard"
-    description="Gouvernance IA (différenciateur) : zones, détection PII, circuit breaker, audit signé. Module @nodefony/agent-guard."
+    description="Gouvernance IA (différenciateur) : zones, détection PII, circuit breaker, audit signé. Capacité visée de @nodefony/ai."
     phase="P12.4 + P12.5"
   />
 );

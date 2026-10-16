@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T13:43:02.847Z",
+  "generatedAt": "2026-10-16T14:49:41.138Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6943,7 +6943,7 @@
       "title": "feat(cli): ajouter mcp:stdio pour les agents qui lancent leur serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/462",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,

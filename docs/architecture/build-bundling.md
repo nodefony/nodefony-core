@@ -362,7 +362,7 @@ Le second est le standard npm : une condition qu'un outil ne connaît pas est sa
 | Forme | Paquets |
 | --- | --- |
 | **`types` + `nodefony-source`** (lus en source dans le dépôt) | `@nodefony/http` · `@nodefony/framework` · `@nodefony/security` · `@nodefony/user` · `@nodefony/orm-core` |
-| **`types` seul** (`./dist/types/…`) | `@nodefony/devkit` · `@nodefony/documentation` · `@nodefony/drizzle` · `@nodefony/frontend` · `@nodefony/llm` · `@nodefony/mongoose` · `@nodefony/realtime` · `@nodefony/redis` · `@nodefony/studio` |
+| **`types` seul** (`./dist/types/…`) | `@nodefony/devkit` · `@nodefony/documentation` · `@nodefony/drizzle` · `@nodefony/frontend` · `@nodefony/mongoose` · `@nodefony/realtime` · `@nodefony/redis` · `@nodefony/studio` |
 | **Cas à part** | `nodefony` (cœur) — deux conditions, `browser` et `import`, chacune avec ses types |
 
 Les deux côtés doivent rester d'accord : retirer la condition du `package.json` d'un paquet, ou

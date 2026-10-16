@@ -3,9 +3,10 @@
  * rendue visible avant d'exister.
  *
  * Deux sources, et rien d'autre :
- *  - les CONTRATS déjà esquissés (`@nodefony/llm`, `vector`, `rag`, `memory`,
- *    `agent`) : chaque type ci-dessous est leur MIROIR local, puisque le bundle
- *    de la console n'importe aucun paquet serveur ;
+ *  - les CONTRATS visés pour `@nodefony/ai` (accès modèle, index vectoriel,
+ *    recherche documentaire, mémoire, orchestration) : chaque type ci-dessous en
+ *    porte la FORME locale, puisque le bundle de la console n'importe aucun
+ *    paquet serveur ;
  *  - le livre blanc (`docs/ia/livre-blanc-couche-ia.md`) : garde-fous chiffrés
  *    (§3.4), inférence supervisée (§4.1, ADR-0004), recherche documentaire comme
  *    OUTIL de l'agent (§4.2), standards (§6.1).
@@ -17,7 +18,7 @@
 
 import { jsonRpcRequest } from "nodefony";
 
-// ─── Accès modèle — miroir de `ILLMProvider` (@nodefony/llm) ─────────────────
+// ─── Accès modèle — forme visée de `ILLMProvider` (@nodefony/ai) ─────────────────
 
 /** Fournisseur de modèle. `mistral` n'est pas encore dans l'esquisse : le livre blanc le cite (§3.1). */
 export type LlmProviderName = "ollama" | "mistral" | "claude" | "openai";
@@ -168,7 +169,7 @@ export const DATA_FRONTIER: Record<PreviewZone, LlmProviderName[]> = {
   restricted: ["ollama"],
 };
 
-// ─── Index vectoriel — miroir de `IVectorStore` (@nodefony/vector) ───────────
+// ─── Index vectoriel — forme visée de `IVectorStore` (@nodefony/ai) ───────────
 
 export interface IPreviewCollection {
   collection: string;
@@ -404,7 +405,7 @@ export function searchCorpus(
     }));
 }
 
-// ─── Grounding — miroir de `IRagService` (@nodefony/rag) ─────────────────────
+// ─── Grounding — forme visée de `IRagService` (@nodefony/ai) ─────────────────────
 
 export type ChunkingStrategy = "fixed" | "sentence" | "paragraph";
 export type SourceStatus = "indexed" | "indexing" | "error";
@@ -524,7 +525,7 @@ export const RETRIEVAL_QUALITY = {
   ],
 };
 
-// ─── Mémoire — miroir de `IMemoryService` (@nodefony/memory) ──────────────────
+// ─── Mémoire — forme visée de `IMemoryService` (@nodefony/ai) ──────────────────
 
 export const MEMORY_TIERS = [
   {
@@ -648,7 +649,7 @@ export const MEMORY_TIMELINE: IPreviewMemoryEntry[] = [
 export const MEMORY_CONSOLIDATION =
   "Client fidèle (3ᵉ commande). A demandé l'annulation de A-4821, en transit. Annulation acceptée, ticket T-4821. Préfère des réponses courtes.";
 
-// ─── Orchestration — miroir de `IAgent` / `ITool` (@nodefony/agent) ──────────
+// ─── Orchestration — forme visée de `IAgent` / `ITool` (@nodefony/ai) ──────────
 
 export type BreakerState = "closed" | "half-open" | "open";
 

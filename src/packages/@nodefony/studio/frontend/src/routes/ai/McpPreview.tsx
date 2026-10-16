@@ -83,7 +83,7 @@ export function McpPreview() {
       icon={<IconPlug size={22} />}
     >
       <PreviewBanner
-        module="@nodefony/mcp"
+        module="@nodefony/ai"
         contract="JSON-RPC 2.0 · MCP 2026-07-28"
       />
 

@@ -106,7 +106,7 @@ export const Chat = observer(() => {
         }
       />
 
-      <PreviewBanner module="@nodefony/agent" contract="IAgent.stream()" />
+      <PreviewBanner module="@nodefony/ai" contract="IAgent.stream()" />
 
       <AgentPicker />
 

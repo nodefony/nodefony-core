@@ -140,7 +140,7 @@ export function KnowledgePreview() {
       subtitle="Ce que les agents savent, d'où ils le tiennent — et la preuve qu'ils le citent."
       icon={<IconBooks size={22} />}
     >
-      <PreviewBanner module="@nodefony/rag" contract="IRagService" />
+      <PreviewBanner module="@nodefony/ai" contract="IRagService" />
 
       <Grid>
         <StatCard label="Sources" hint="documents suivis, toutes collections">

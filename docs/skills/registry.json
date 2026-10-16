@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-15",
+  "generatedAt": "2026-10-16",
   "count": 40,
   "repoScripts": [
     {
@@ -687,7 +687,6 @@
         "src/packages/@nodefony/http/vitest.config.ts",
         "src/packages/@nodefony/http/vitest.decors.config.ts",
         "src/packages/@nodefony/http/vitest.integration.config.ts",
-        "src/packages/@nodefony/llm/vitest.config.ts",
         "src/packages/@nodefony/mongoose/vitest.config.ts",
         "src/packages/@nodefony/orm-core/vitest.config.ts",
         "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
@@ -727,7 +726,6 @@
         "src/packages/@nodefony/http/vitest.decors.config.ts",
         "src/packages/@nodefony/http/vitest.integration.config.ts",
         "src/packages/@nodefony/http/vitest.load.config.ts",
-        "src/packages/@nodefony/llm/vitest.config.ts",
         "src/packages/@nodefony/mongoose/vitest.config.ts",
         "src/packages/@nodefony/orm-core/vitest.config.ts",
         "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
@@ -2467,7 +2465,7 @@
       "description": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au lieu de la réimplémenter (une seule source de templates). À charger AVANT d'écrire le moindre fichier d'un module neuf : recomposer le squelette à la main produit un module non conforme (types, exports, config, docs) que rien ne signale. Déclencheurs : \"crée un module\", \"scaffold module\", \"nouveau module nodefony\", \"génère un module\", \"create module\", \"bootstrap module\", \"module @nodefony/...\", \"j'ai besoin d'un nouveau paquet\", \"ajouter un module au framework\", \"structure d'un module neuf\".",
       "cost": {
         "bodyLines": 279,
-        "approxTokens": 4230
+        "approxTokens": 4237
       },
       "requires": [],
       "resources": {
@@ -2587,7 +2585,7 @@
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
         "bodyLines": 255,
-        "approxTokens": 4043
+        "approxTokens": 4040
       },
       "requires": [],
       "resources": {
@@ -8772,16 +8770,19 @@
     },
     {
       "name": "nodefony-roadmap",
-      "summary": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ».",
+      "summary": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ».",
       "family": "Références et livrables",
-      "version": "2.0.0",
-      "keywords": [],
+      "version": "2.1.0",
+      "keywords": [
+        "@nodefony/ai"
+      ],
       "triggers": [
         "couche IA",
         "agentic",
-        "@nodefony/agent",
-        "@nodefony/llm",
-        "@nodefony/rag",
+        "@nodefony/ai",
+        "agent IA",
+        "LLM",
+        "RAG",
         "agent-guard",
         "AI Act",
         "mode souverain",
@@ -8791,10 +8792,10 @@
         "convention route /nodefony",
         "API admin d'un module"
       ],
-      "description": "Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10 (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont pointées vers le skill ou la doc qui les porte désormais, pas recopiées. Déclencheurs : \"couche IA\", \"agentic\", \"@nodefony/agent\", \"@nodefony/llm\", \"@nodefony/rag\", \"agent-guard\", \"AI Act\", \"mode souverain\", \"streaming LLM\", \"phase 12\", \"interface consommée par un agent\", \"convention route /nodefony\", \"API admin d'un module\".",
+      "description": "Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10 (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont pointées vers le skill ou la doc qui les porte désormais, pas recopiées. Déclencheurs : \"couche IA\", \"agentic\", \"@nodefony/ai\", \"agent IA\", \"LLM\", \"RAG\", \"agent-guard\", \"AI Act\", \"mode souverain\", \"streaming LLM\", \"phase 12\", \"interface consommée par un agent\", \"convention route /nodefony\", \"API admin d'un module\".",
       "cost": {
-        "bodyLines": 117,
-        "approxTokens": 2193
+        "bodyLines": 121,
+        "approxTokens": 2238
       },
       "requires": [],
       "resources": {
@@ -8826,7 +8827,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "812",
+            "detail": "832",
             "advisory": false
           },
           {
@@ -8868,7 +8869,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "117",
+            "detail": "121",
             "advisory": true
           }
         ]

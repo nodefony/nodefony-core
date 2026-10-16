@@ -148,7 +148,7 @@ export function VectorStoresPreview() {
       subtitle="Les collections d'embeddings, et ce qu'elles rendent pour une question."
       icon={<IconVector size={22} />}
     >
-      <PreviewBanner module="@nodefony/vector" contract="IVectorStore" />
+      <PreviewBanner module="@nodefony/ai" contract="IVectorStore" />
 
       <Grid>
         <StatCard

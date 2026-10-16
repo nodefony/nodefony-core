@@ -260,7 +260,7 @@ Cas vécu : `project_service_base_improvements` point 3 (6 jours) suggérait `de
 - **Boot enfant direct** : `NF_DEV_CHILD=1` court-circuite le superviseur pour voir le crash brut. La variable est lue par `src/nodefony/src/service/dev/DevSupervisor.ts` et `BootReporter.ts` (vérifié au code). Démarrage/arrêt → `nodefony-start-server`.
 - **`nodefony-framework-dev` §11** : RETEX (kit vivant — bugs réels symptôme→cause→fix).
 - **`nodefony-framework-dev` §2** : règles absolues perf+mémoire (à respecter en debug aussi).
-- **`feedback_session_pitfalls`** (mémoire IA) : pièges récurrents (dist périmé, Bun pour `@nodefony/llm`, etc.).
+- **`feedback_session_pitfalls`** (mémoire IA) : pièges récurrents (dist périmé, cache turbo, etc.).
 - **`feedback_service_options_delete`** (mémoire IA, créée 2026-05-27) : règle `delete` obligatoire tant que les consommateurs `for...in` ne sont pas refactorés.
 - **CLAUDE.md racine** : règle absolue perf+mémoire — le gate et ses seuils (table `THRESHOLDS` de `tests/helpers/retention.ts`) sont des blockers ; lecture d'un rouge → skill `nodefony-check-memory-health`.
 

@@ -107,7 +107,7 @@ export function MemoryPreview() {
       subtitle="Ce que les agents retiennent, combien de temps — et comment l'oublier."
       icon={<IconArchive size={22} />}
     >
-      <PreviewBanner module="@nodefony/memory" contract="IMemoryService" />
+      <PreviewBanner module="@nodefony/ai" contract="IMemoryService" />
 
       <Grid>
         <StatCard label="Entrées" hint="tous niveaux confondus">

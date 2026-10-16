@@ -1,15 +1,16 @@
 ---
 name: nodefony-roadmap
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 description: >
   Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du
-  framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design
+  framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents,
+  garde-fous), invariants de design
   (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act,
   WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10
   (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont
   pointées vers le skill ou la doc qui les porte désormais, pas recopiées.
-  Déclencheurs : "couche IA", "agentic", "@nodefony/agent", "@nodefony/llm", "@nodefony/rag",
+  Déclencheurs : "couche IA", "agentic", "@nodefony/ai", "agent IA", "LLM", "RAG",
   "agent-guard", "AI Act", "mode souverain", "streaming LLM", "phase 12", "interface consommée par
   un agent", "convention route /nodefony", "API admin d'un module".
 ---
@@ -44,21 +45,25 @@ Container = orchestration de sous-agents · multi-ORM = persistance audit/coûts
 > savoir **annuler** un flux en cours, **signaler une erreur au milieu** et **réguler le débit**,
 > ce qu'une simple suite de fragments ne sait pas faire.
 
-### Modules IA — état réel (à revérifier au câblage de la phase)
+### Capacités IA — toutes dans `@nodefony/ai`
 
-| Module                  | Rôle                                                      | Sous-phase |
-| ----------------------- | --------------------------------------------------------- | ---------- |
-| `@nodefony/llm`         | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq) | P12.1      |
-| `@nodefony/vector`      | Adapters vectoriels (pgvector, Qdrant, Chroma)            | P12.1      |
-| `@nodefony/rag`         | Pipeline RAG (ingestion/chunking/embedding/recherche)     | P12.1      |
-| `@nodefony/memory`      | Mémoire agents (court/long/épisodique)                    | P12.1      |
-| `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)           | P12.2      |
-| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts  | P12.4      |
-| `@nodefony/studio`      | Panels IA intégrés dans Studio (pas de module séparé)     | P12.5      |
+La couche IA vit dans UN module socle, `@nodefony/ai` (`policy: "mandatory"`, paquet séparé du
+cœur) : il porte la boîte à outils MCP et sa porte HTTP (#565). Les capacités de la phase 12 y
+naîtront, pas dans des paquets séparés — les anciennes esquisses
+`@nodefony/{llm,vector,rag,memory,agent}` ont été supprimées (git garde l'historique).
 
-> `@nodefony/llm` est le plus avancé (migré vitest) ; les autres sont des WIP. `@nodefony/mcp` est un
-> **POC ABANDONNÉ** — Skill > MCP, ne pas relancer ([[project_mcp_poc_kit]]). Le module
-> `@nodefony/devkit` (outillage d'app) est **distinct** de la vision IA P12 ([[project_devkit_ai_kit]]).
+| Capacité visée  | Rôle                                                        | Sous-phase |
+| --------------- | ----------------------------------------------------------- | ---------- |
+| Accès modèle    | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq)   | P12.1      |
+| Index vectoriel | Adapters vectoriels (pgvector, Qdrant, Chroma)              | P12.1      |
+| RAG             | Ingestion, découpage, plongement, recherche                 | P12.1      |
+| Mémoire         | Mémoire d'agent (court/long/épisodique)                     | P12.1      |
+| Orchestration   | Agent + sous-agents (`@Agent`, `@Tool`)                     | P12.2      |
+| Garde-fous      | **Différenciateur** — zones, PII, audit, approbation, coûts | P12.4      |
+| Studio          | Panneaux IA intégrés dans Studio (pas de module séparé)     | P12.5      |
+
+> Le module `@nodefony/devkit` (l'IA POUR développer) CONSOMME la base d'`@nodefony/ai` (l'IA DANS
+> l'application) : il déclare ses outils `nodefony_*`, servis par la porte d'`ai`.
 
 ### Invariants de design (ne pas dévier)
 

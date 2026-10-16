@@ -153,9 +153,7 @@ Avant de commencer une nouvelle phase / tâche :
 3. **Vérifier les pièges connus** (mémoire IA `feedback_session_pitfalls.md`) :
    - Dist périmé après pull/merge → `npm run clean && npm run build`
    - `npx nodefony development &` meurt SIGHUP → utiliser le skill `nodefony-start-server`
-   - Tests = **vitest PARTOUT** (aucun runner alternatif requis). Les `bun:test` restants
-     (`agent`, `memory`, `rag`, `vector`) sont **inertes** : ces modules WIP P12 n'ont pas de script
-     `test` — à migrer vers vitest au câblage de la phase, pas avant.
+   - Tests = **vitest PARTOUT** (aucun runner alternatif requis).
    - **Un `npm test` vert ne prouve pas ce qu'on croit** : les bancs sur serveur réel se skippent
      sans leurs variables d'infra, et un skip compte comme vert (vécu : drizzle 442/781 non
      exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `NF_REDIS_TEST_URL`).

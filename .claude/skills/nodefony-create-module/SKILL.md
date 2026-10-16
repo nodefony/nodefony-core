@@ -18,7 +18,7 @@ description: >
 Génère un module Nodefony complet — backend uniquement par défaut, optionnellement avec
 controllers HTTP, commands CLI, ou frontend Vite — en suivant les conventions figées
 dans `CLAUDE.md` racine et observées sur les modules existants (`@nodefony/http`,
-`@nodefony/llm`, `@nodefony/frontend`).
+`@nodefony/ai`, `@nodefony/frontend`).
 
 ## 🚦 DEUX CAS — ne pas confondre (lire AVANT toute génération)
 
@@ -284,7 +284,7 @@ Après génération :
 
 ## Exemples concrets de modules créés
 
-- `@nodefony/llm` : service unique (LLMService) + providers + erreurs typées (référence "simple")
+- `@nodefony/ai` : né de `nodefony create module`, puis mis aux conventions du dépôt (référence "simple", socle `mandatory`)
 - `@nodefony/http` : commands CLI + interfaces étoffées + service complexe (référence "complete backend")
 - `@nodefony/frontend` : commands + service + 1 supervisor + 1 builder + presets (référence "avec extension points")
 - `@nodefony/test-frontend-react` (POC) : module applicatif avec controllers + frontend (référence `src/modules/`)

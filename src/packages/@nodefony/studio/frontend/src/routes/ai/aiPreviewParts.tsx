@@ -38,7 +38,7 @@ export function PreviewBanner({
       <Text size="sm">
         Cet écran montre la cible de <Code>{module}</Code>, dans la forme de son
         contrat <Code>{contract}</Code>. Aucune donnée n'est réelle et rien
-        n'est branché : la couche IA n'est pas dans la version 10.
+        n'est branché : ces capacités ne sont pas dans la version 10.
       </Text>
     </Alert>
   );

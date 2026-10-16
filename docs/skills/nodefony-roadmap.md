@@ -5,20 +5,20 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-10-16
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-roadmap/SKILL.md"
 ---
 
 # `nodefony-roadmap`
 
-> Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ».
+> Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ».
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-roadmap**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.0.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.1.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,19 +26,19 @@ source: ".claude/skills/nodefony-roadmap/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `2.0.0` |
+| Version | `2.1.0` |
 | Famille | Références et livrables |
-| Corps | 117 lignes |
-| Coût d'activation | ~2 193 tokens (le corps est chargé à l'invocation) |
-| Description | 812 / 1024 caractères |
-| Déclencheurs | 13 |
+| Corps | 121 lignes |
+| Coût d'activation | ~2 238 tokens (le corps est chargé à l'invocation) |
+| Description | 832 / 1024 caractères |
+| Déclencheurs | 14 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10 (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont pointées vers le skill ou la doc qui les porte désormais, pas recopiées.
+Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10 (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont pointées vers le skill ou la doc qui les porte désormais, pas recopiées.
 
 ## Skills voisins
 
@@ -50,7 +50,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`couche IA` · `agentic` · `@nodefony/agent` · `@nodefony/llm` · `@nodefony/rag` · `agent-guard` · `AI Act` · `mode souverain` · `streaming LLM` · `phase 12` · `interface consommée par un agent` · `convention route /nodefony` · `API admin d'un module`
+`couche IA` · `agentic` · `@nodefony/ai` · `agent IA` · `LLM` · `RAG` · `agent-guard` · `AI Act` · `mode souverain` · `streaming LLM` · `phase 12` · `interface consommée par un agent` · `convention route /nodefony` · `API admin d'un module`
 
 ## Ce que contient le corps
 
@@ -72,14 +72,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 812 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 832 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 117 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 121 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

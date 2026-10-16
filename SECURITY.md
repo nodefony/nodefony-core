@@ -89,10 +89,6 @@ distribué, et plusieurs constats attendus n'en sont donc pas des vulnérabilit�
   noyau les écarte hors développement. Une route de test joignable en développement est voulue.
 - **Les surfaces d'outillage derrière un drapeau explicite**, comme la route de banc activée par
   `NF_BENCH_ROUTE=1` : absente sans le drapeau.
-- **Les maquettes de la couche IA** (`@nodefony/agent`, `@nodefony/llm`, `@nodefony/memory`,
-  `@nodefony/rag`, `@nodefony/vector`, en version `0.0.0`) : des explorations privées qui donnent
-  une direction, non publiées et destinées à être réécrites. Elles ne sont dans aucune version
-  distribuée.
 - **Une application mal configurée** : pare-feu laissé ouvert, secret de session laissé au défaut,
   console d'administration exposée sur Internet, `trust proxy` accordé à un réseau non maîtrisé.
   La documentation en porte la responsabilité — un défaut dangereux **est** en revanche un bug de

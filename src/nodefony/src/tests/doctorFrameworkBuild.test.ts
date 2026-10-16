@@ -156,8 +156,7 @@ describe("doctor — la fraîcheur du FRAMEWORK, pas seulement de l'application"
   });
 
   it("🔴 un paquet LIÉ SANS script `build` n'est pas accusé — personne ne le bâtit", () => {
-    // Paquets en chantier du dépôt (agent, rag…) : liés par les workspaces, sans
-    // build. Le geste « npm run build » ne les réparerait pas : constat faux.
+    // Paquet en chantier du dépôt : lié par les workspaces, sans build. Le geste « npm run build » ne les réparerait pas : constat faux.
     const racine = decor();
     paquetLie(racine, "@nodefony/rag", { dist: false, build: false });
     assert.deepEqual(checkFrameworkBuild(racine), []);

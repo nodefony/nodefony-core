@@ -128,7 +128,7 @@ export function LlmProvidersPreview() {
       subtitle="Une interface, plusieurs modèles — et la donnée ne sort pas sans décision."
       icon={<IconBrain size={22} />}
     >
-      <PreviewBanner module="@nodefony/llm" contract="ILLMProvider" />
+      <PreviewBanner module="@nodefony/ai" contract="ILLMProvider" />
 
       <Grid>
         <StatCard label="Fournisseurs actifs" hint="configurés et joignables">
