@@ -141,8 +141,7 @@ curl --cacert docker/certs/ca.pem --resolve nodefony.com:8443:127.0.0.1 \
 
 > `ca.pem` = la CA qui a signé le cert backend (mkcert rootCA). `haproxy.pem` =
 > cert + clé que haproxy présente au client. Les deux sont **gitignorés** (clé
-> privée) et régénérés par `build-haproxy-pem.sh`. La PKI offline complète
-> (root + intermediate + client mTLS) reste `bin/generateCertificates.sh`.
+> privée) et régénérés par `build-haproxy-pem.sh`.
 
 > ⚠️ **Statiques non offloadés** par ce banc : Nodefony sert N répertoires
 > `public/` (racine + un par module) → un montage volume unique serait un trou.

@@ -28,7 +28,6 @@
     "build:force": "node scripts/repo/turbo.mjs run build --force && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "build:front": "node src/nodefony/bin/nodefony frontend:build",
     "build:packages": "node scripts/repo/turbo.mjs run build --filter=./src/packages/**",
-    "certificates": "bash bin/generateCertificates.sh",
     "check:filenames": "node scripts/gates/check-portable-filenames.mjs",
     "check:lang": "node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.mjs",
     "check:lang:test": "node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs && node --test .claude/skills/nodefony-identifiers/scripts/rename-identifiers.test.mjs",

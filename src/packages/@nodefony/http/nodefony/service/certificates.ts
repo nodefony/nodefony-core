@@ -467,8 +467,7 @@ class Certificate extends Service {
 
   private async ensureDirectoriesExist(): Promise<void> {
     // On ne crée QUE ce qu'on écrit : server/ (clé+cert) et ca/ (ancre de
-    // confiance). Les dossiers client/ et ca_intermediate/ relèvent de la PKI
-    // complète (bin/generateCertificates.sh) — ne pas créer de dossiers vides.
+    // confiance) — ne pas créer de dossiers vides.
     const directories = [
       this.path,
       this.serverPath,

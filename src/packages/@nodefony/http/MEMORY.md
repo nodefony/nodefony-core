@@ -141,8 +141,8 @@ rouge chez tout installeur). Ne pas le réintroduire.
 `nodefony certificates [--force] [--json]` (`command/certificatesCommand.ts`, `kernelEvent:"onBoot"`
 
 - `lifetime:oneshot` → ne démarre pas les serveurs) : (re)génère + imprime `describe()`. Réutilise le
-  service enregistré (`getModules().http.get("certificates")`). PKI complète offline (root+intermediate+
-  client) = `bin/generateCertificates.sh` (`npm run certificates`), outil avancé hors service.
+  service enregistré (`getModules().http.get("certificates")`). Aucune PKI à intermédiaire ni
+  certificat client : rien ne les consomme (pas d'authentificateur mTLS).
 
 `nodefony proxy:generate <nginx|haproxy> [-o file] [-b host] [-l port] [--reencrypt]`
 (`command/proxyGenerateCommand.ts` + générateurs PURS `src/proxy/generateProxyConfig.ts`) : DÉRIVE la

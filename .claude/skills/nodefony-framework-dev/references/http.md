@@ -177,9 +177,8 @@ certificates: { ca: "/etc/ssl/ca.pem", key: "/etc/ssl/private.key", cert: "/etc/
 
 - **HTTPS dev sans erreur navigateur** : `brew install mkcert nss && mkcert -install` (détecté via `mkcert -CAROOT`).
 - `https.rejectUnauthorized` = `false` en dev (auto-signé), **TOUJOURS `true` en prod**.
-- `npm run certificates` (`bin/generateCertificates.sh`) = **outil AVANCÉ** : PKI maison complète offline
-  (root+intermediate CA + cert serveur + **cert client mTLS** + chain/haproxy.pem). CA **non** trustée navigateur.
-  PAS le chemin par défaut. mTLS = token étendu sécurité (P6, `project_security_module_design`).
+- Aucune PKI à intermédiaire ni certificat client mTLS : rien ne les consomme. Le jour où un
+  authentificateur mTLS existe, ses certificats de test se fabriquent par `node:crypto`, comme l'auto-signé.
 
 ## ▸ Partie B — API, internals & gotchas
 
