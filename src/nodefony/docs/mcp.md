@@ -294,7 +294,7 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 | une notification acceptée → `202` sans corps                                  | `handleMcpMessage()` rend `{ status: 202, body: null }`                                                   |
 | l'`id` d'une requête est une chaîne ou un entier, jamais `null`               | refus `400` + `-32600` avant tout autre contrôle                                                          |
 | `params` est un objet nommé                                                   | un tableau → `-32602`, une valeur primitive → `-32600`                                                    |
-| en-tête `MCP-Protocol-Version` ≠ `_meta` → refus                              | `400` + `-32020` (`McpProtocolError`, `protocol.ts:122`) — deux sources de vérité pour une même requête   |
+| en-tête `MCP-Protocol-Version` ≠ `_meta` → refus                              | `400` + `-32020` (`McpProtocolError`, `protocol.ts:96`) — deux sources de vérité pour une même requête    |
 | révision inconnue → refus avec la liste servie                                | `400` + `-32022` et `supported` (`checkProtocolVersion()`, `server.ts:268`)                               |
 | `initialize` répond la révision DEMANDÉE quand elle est servie                | `negotiateVersion()` (`server.ts:241`) — annoncer la sienne rendait la porte injoignable                  |
 | ère moderne : `resultType` sur chaque résultat                                | `eraResult()` (`server.ts:159`) donne au résultat la forme de l'ère du CLIENT                             |

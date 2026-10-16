@@ -55,7 +55,7 @@ aucune écoute réseau (`security-token.ts:36`). C'est ce qui la rend utilisable
 ne tourne pas, en intégration continue, ou dans un conteneur d'amorçage.
 
 **Le jeton vise une porte, et une seule.** L'audience est celle de la porte visée — la porte MCP par
-défaut, `/nodefony/mcp` (`src/nodefony/src/mcp/protocol.ts:97`). Un jeton d'une autre audience est
+défaut, `/nodefony/mcp` (`src/nodefony/src/cli/aiMcpReport.ts:48`). Un jeton d'une autre audience est
 refusé, et c'est toute la raison d'être de la liaison d'audience
 ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)).
 
@@ -147,7 +147,7 @@ d'**expiration** (`expires_at` en `--json`) : c'est elle qui explique le 401 du 
 
 ### Où `--write` pose la valeur
 
-La variable est `NF_MCP_TOKEN` (`src/nodefony/src/cli/aiMcpReport.ts:32`). La commande ne sert que
+La variable est `NF_MCP_TOKEN` (`src/nodefony/src/cli/aiMcpReport.ts:58`). La commande ne sert que
 les agents dont la présence est **constatée** dans le projet — on ne crée pas la configuration d'un
 outil que personne n'utilise ici. La table des cibles vit au cœur
 (`src/nodefony/src/cli/agentTargets.ts:280`) : Claude, Gemini, Vibe, Codex.
