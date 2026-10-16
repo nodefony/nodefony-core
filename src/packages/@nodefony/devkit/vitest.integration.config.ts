@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 import { gateReporter } from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
@@ -13,7 +14,16 @@ import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
  */
 export default defineConfig({
   test: {
-    globalSetup: tmpGuard(),
+    // La sonde du MODE du serveur est celle de la suite http — réutilisée, pas
+    // recopiée : elle pose `NF_TEST_ENV`, que les cas propres à un mode lisent.
+    globalSetup: tmpGuard(
+      fileURLToPath(
+        new URL(
+          "../http/nodefony/tests/probeServerEnv.global.ts",
+          import.meta.url,
+        ),
+      ),
+    ),
     ...transformCache,
     reporters: [
       "default",

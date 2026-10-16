@@ -59,6 +59,14 @@ const RESOURCE_BASE =
  */
 let JETON: string | null = null;
 
+/**
+ * Le MODE du serveur visé, posé par la sonde de la config d'intégration.
+ * La porte de développement tolère l'anonyme en développement et le REFUSE en
+ * production (`anonymous: !ctx.isProd`, `nodefony/config/devkit.ts`) : les cas
+ * qui en dépendent disent ce qu'ils attendent dans CHAQUE mode.
+ */
+const PROD = (process.env.NF_TEST_ENV ?? "development") === "production";
+
 /** Réponse brute d'un appel à la porte MCP. */
 interface IReponse {
   status: number;
@@ -864,7 +872,7 @@ describe.skipIf(raison !== null)(
       expect(absent.body).toHaveProperty("nodefony");
     });
 
-    it("sans jeton, les outils PUBLICS restent servis (mode développement)", async () => {
+    it("sans jeton : outils PUBLICS en développement, défi 401 en production", async () => {
       // `mcp.authorization.anonymous` : l'ABSENCE de jeton est tolérée. Ce n'est
       // pas un désarmement — c'est la seule façon qu'un client MCP standard
       // reste utilisable tant que cette application n'offre aucun flux
@@ -874,6 +882,13 @@ describe.skipIf(raison !== null)(
         { jsonrpc: "2.0", id: 9, method: "tools/list" },
         { authorization: "" },
       );
+      if (PROD) {
+        // En production, la porte n'est PAS ouverte à l'anonyme : refus, avec le
+        // défi qui dit où obtenir un jeton (RFC 9728).
+        expect(reponse.status).toBe(401);
+        expect(JSON.stringify(reponse.body)).toContain("autorisation requise");
+        return;
+      }
       expect(reponse.status).toBe(200);
       expect(outilsDe(reponse).length).toBeGreaterThan(0);
     });
@@ -904,6 +919,12 @@ describe.skipIf(raison !== null)(
         { jsonrpc: "2.0", id: 10, method: "tools/list" },
         { authorization: `Bearer ${jeton as string}` },
       );
+      if (PROD) {
+        // En production, l'anonyme n'est pas toléré : le jeton rejeté n'est pas
+        // rétrogradé, il est REFUSÉ — il n'ouvre rien, et c'est la même garde.
+        expect(reponse.status).toBe(401);
+        return;
+      }
       const noms = outilsDe(reponse).map((t) => t.name);
       expect(noms).to.not.contain("nodefony_admin_list");
       expect(noms).to.not.contain("nodefony_admin_call");
@@ -1128,8 +1149,13 @@ describe.skipIf(raison !== null)(
       // Conversion assumée : le SDK type `sessionId` en `string | undefined` sur son
       // transport et en `sessionId?: string` sur son interface — incompatibles
       // sous `exactOptionalPropertyTypes`, défaut du SDK, pas de ce banc.
+      // Le jeton du banc, comme un client configuré : sans lui, la porte de
+      // production refuse l'anonyme (et c'est voulu).
       const transport = new StreamableHTTPClientTransport(
         new URL(`${RESOURCE_BASE}${chemin}`),
+        JETON === null
+          ? {}
+          : { requestInit: { headers: { authorization: `Bearer ${JETON}` } } },
       ) as Transport;
       await client.connect(transport);
       return client;
