@@ -34,7 +34,7 @@ le controller de qui en a besoin (devkit, ou l'application — en développement
 ## Frontières
 
 Cible arrêtée comme hypothèse de travail par l'auteur — révisable ; le plan, les preuves et la
-table de placement complète vivent dans #565 (et l'ADR qui le clôt). Critère : **aucun symbole
+table de placement complète vivent dans #565 et l'[ADR-0017](../../../../docs/adr/0017-ai-mecanique-mcp-hors-du-coeur.md). Critère : **aucun symbole
 public ni aucune clé de configuration ne déménage une seconde fois après la `10.0.0`**.
 
 | Où                     | Ce qui y vit                                                                                                                                                                                                                                                                     | Pourquoi                                                                                                                                                                   |

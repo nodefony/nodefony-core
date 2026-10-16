@@ -32,3 +32,4 @@ status: stable
 | [0014](0014-fichiers-environnement.md)                        | Fichiers d'environnement — un seul fichier, `.env`, jamais commité                            | accepted | 2026-10-05 |
 | [0015](0015-page-de-connexion-servie-par-le-framework.md)     | Page de connexion — servie par le framework, un balisage, un moteur partagé                   | proposed | 2026-10-10 |
 | [0016](0016-noms-courts-variables-modules.md)                 | Variables d'environnement des modules — le nom court se déclare sur son champ                 | accepted | 2026-10-12 |
+| [0017](0017-ai-mecanique-mcp-hors-du-coeur.md)                | @nodefony/ai — la mécanique MCP hors du cœur, une porte se déclare                            | accepted | 2026-10-16 |
