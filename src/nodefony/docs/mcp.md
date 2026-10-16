@@ -296,7 +296,7 @@ finale — rien ne garantit qu'un client fasse entrer les notifications dans son
 de développement est celle de `@nodefony/devkit` (`DevkitService.mcpGate()`,
 `DevkitService.ts:254`, servie par `McpController.mcp()`, `McpController.ts:84`, `policy: "dev"`).
 Une application ouvre la SIENNE — en développement ou en production, selon ses besoins — en deux
-temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts:369`), puis se **sert** d'une
+temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts:373`), puis se **sert** d'une
 ligne depuis une action de controller. Aucune ligne de protocole à écrire :
 
 ```ts
@@ -339,7 +339,7 @@ class ShopMcpController extends Controller {
 ⚠️ Figer `protocol.versions` sur la seule révision `2026-07-28` coupe les clients qui parlent encore
 l'ancienne forme (`initialize`) — c'est le cas des clients déployés aujourd'hui.
 
-Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:433`, éprouvable sans serveur) :
+Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:437`, éprouvable sans serveur) :
 
 - **`checkMcpAccess()`** (`guard.ts:76`) : un client MCP légitime est un _process_ et n'envoie
   aucun `Origin` ; une page web malveillante en pose toujours un. _Absent_ → on passe, _présent et
