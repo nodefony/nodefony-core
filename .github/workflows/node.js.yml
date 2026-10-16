@@ -1249,12 +1249,18 @@ jobs:
           bash docker/certs/build-haproxy-pem.sh
           echo "127.0.0.1 nodefony.com" | sudo tee -a /etc/hosts
           docker compose -f docker/docker-compose.yml --profile proxy up -d nginx haproxy
+          # LES DEUX relais, pas le premier : n'attendre que nginx laissait les
+          # tests partir sur un haproxy mort, et l'échec tombait en
+          # ECONNREFUSED loin de sa cause.
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/nodefony/test/context || true)
-            if [ "$code" = "200" ]; then echo "✅ nginx relaie vers l'application"; exit 0; fi
+            nginx=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/nodefony/test/context || true)
+            haproxy=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/nodefony/test/context || true)
+            if [ "$nginx" = "200" ] && [ "$haproxy" = "200" ]; then
+              echo "✅ nginx et haproxy relaient vers l'application"; exit 0
+            fi
             sleep 2
           done
-          echo "::error::nginx ne relaie pas vers l'application (dernier code : $code)"
+          echo "::error::un relais ne joint pas l'application (nginx : $nginx, haproxy : $haproxy)"
           docker compose -f docker/docker-compose.yml --profile proxy logs nginx haproxy
           exit 1
 

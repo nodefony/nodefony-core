@@ -491,6 +491,11 @@ services:
   haproxy:
     image: haproxy:3.0-alpine
     container_name: nodefony-haproxy
+    # root au DÉMARRAGE seulement : la clé privée (certs/haproxy.pem, 600) n'est
+    # lisible que par son propriétaire de l'hôte, et l'utilisateur de l'image
+    # (haproxy) n'est pas lui sur Linux. haproxy.cfg (`global: user/group
+    # haproxy`) rend les privilèges dès la configuration chargée.
+    user: "0:0"
     restart: unless-stopped
     profiles: ["proxy"]
     networks: [nodefony]
