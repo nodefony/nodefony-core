@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T10:21:11.484Z",
+  "generatedAt": "2026-10-16T11:29:57.446Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 127,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -3172,6 +3172,23 @@
       "labels": [
         "beta-4",
         "reportable"
+      ]
+    },
+    {
+      "number": 600,
+      "title": "feat(devkit): lire le journal d'une session Codex interactive au banc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/600",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.0115,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog",
+        "beta-4"
       ]
     },
     {
@@ -7660,7 +7677,7 @@
       "title": "fix(bench): poser la base que trois bancs multi-pods exigent",
       "url": "https://github.com/nodefony/nodefony-core/issues/216",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -7926,7 +7943,7 @@
       "title": "perf(orm): préparer une fois les écritures du repository Drizzle",
       "url": "https://github.com/nodefony/nodefony-core/issues/511",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -8559,22 +8576,6 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 915,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 600,
-      "title": "feat(devkit): lire le journal d'une session Codex interactive au banc",
-      "url": "https://github.com/nodefony/nodefony-core/issues/600",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": null,
-      "priorite": "P3 — fin de cycle",
-      "jours": 0.5,
-      "ordre": 916,
       "debut": null,
       "cible": null,
       "labels": [
