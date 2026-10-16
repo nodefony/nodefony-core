@@ -1132,8 +1132,17 @@ describe("Admin data plane — le tri des utilisateurs traverse", () => {
       await req("GET", `${USERS}?limit=50&order=identifier:DESC`, auth())
     ).body as { items: { identifier: string }[] };
     expect(asc.items.length).to.be.above(1);
-    expect(asc.items.map((u) => u.identifier)).to.deep.equal(
-      desc.items.map((u) => u.identifier).reverse(),
+    // Jugé sur les comptes présents dans les DEUX lectures : les fichiers de
+    // cette suite tournent en parallèle contre le même serveur, et un compte
+    // créé entre les deux (vécu : `totp-binding-status`, Windows) rendait le
+    // test rouge sans que le tri y soit pour rien. L'inversion se prouve sur
+    // ce qui n'a pas bougé.
+    const ascIds = asc.items.map((u) => u.identifier);
+    const descIds = desc.items.map((u) => u.identifier);
+    const communs = new Set(ascIds.filter((id) => descIds.includes(id)));
+    expect(communs.size).to.be.above(1);
+    expect(ascIds.filter((id) => communs.has(id))).to.deep.equal(
+      descIds.filter((id) => communs.has(id)).reverse(),
     );
   });
 
