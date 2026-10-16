@@ -31,6 +31,8 @@ export default defineConfig({
       "**/dist/**",
       "tests/**/*.e2e.test.ts",
       "tests/integration/**",
+      // Conteneur navigateur + serveur : `vitest.browser.config.ts`, job « Décor (browser) ».
+      "tests/browser-fonctionnel.test.ts",
     ],
   },
   oxc: {

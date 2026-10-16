@@ -118,7 +118,12 @@ export default defineConfig({
       "nodefony/tests/routing/**/*.test.ts",
       "nodefony/tests/websockets/**/*.test.ts",
     ],
-    exclude: [...configDefaults.exclude, "nodefony/tests/http/memory.test.ts"],
+    exclude: [
+      ...configDefaults.exclude,
+      "nodefony/tests/http/memory.test.ts",
+      // Décor à part (nginx + haproxy) : `vitest.proxy.config.ts`, job « Décor (proxy) ».
+      "nodefony/tests/integration/reverse-proxy.test.ts",
+    ],
     setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
     // Sonde le mode du serveur (route publique /livez) → NF_TEST_ENV, lu
     // par describe.skipIf(IS_PROD_TARGET) pour skipper les tests dev-only en prod.

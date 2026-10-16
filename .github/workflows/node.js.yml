@@ -1135,6 +1135,16 @@ jobs:
             database-url: mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony
           - decor: mongodb
             database-url: mongodb://127.0.0.1:27017/nodefony_boot?replicaSet=rs0
+          # Le serveur derrière de VRAIS reverse-proxy (nginx + haproxy) : sans
+          # ce décor, `reverse-proxy.test.ts` se sautait en silence dans le job
+          # d'intégration, qui ne lève aucun proxy. Base par défaut (SQLite).
+          - decor: proxy
+            database-url: ""
+          # Les sondes navigateur publiées (skill `nodefony-browser`) sur un VRAI
+          # navigateur — le conteneur `nodefony-browser`. Même trou que le proxy :
+          # `browser-fonctionnel.test.ts` se sautait en silence dans `npm test`.
+          - decor: browser
+            database-url: ""
 
     services:
       postgres:
@@ -1212,13 +1222,80 @@ jobs:
         uses: ./.github/actions/nodefony-server
         with:
           mode: development --no-watch
+          # Une ligne vide est ignorée par l'action : chaque décor ne pose que
+          # ce qui le concerne. `NF_BIND_ALL=1` : écoute joignable depuis les
+          # conteneurs, `trustProxy`, et `nodefony.com` ajouté au certificat.
           env: |
-            NF_DATABASE_URL=${{ matrix.database-url }}
+            ${{ matrix.database-url != '' && format('NF_DATABASE_URL={0}', matrix.database-url) || '' }}
+            ${{ (matrix.decor == 'proxy' || matrix.decor == 'browser') && 'NF_BIND_ALL=1' || '' }}
+            # Le Studio PRÉ-CONSTRUIT pour les sondes navigateur : servi par Vite, sa
+            # première compilation à froid dépasse l'attente de la sonde (20 s) —
+            # c'est la sonde qu'on éprouve ici, pas le démarrage de Vite.
+            ${{ matrix.decor == 'browser' && 'NF__STUDIO__UI=static' || '' }}
             NODE_EXTRA_CA_CERTS=${{ github.workspace }}/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
 
       - name: Invariants du décor
+        if: matrix.decor != 'proxy' && matrix.decor != 'browser'
         working-directory: src/packages/@nodefony/http
         run: npx vitest run -c vitest.decors.config.ts
+
+      # Ordre imposé par le décor : le PEM de haproxy se dérive du certificat que
+      # le serveur vient de (re)générer avec `nodefony.com` dans son SAN ; les
+      # conteneurs ne démarrent qu'une fois le PEM posé (haproxy le lit au boot).
+      - name: Proxys réels (nginx + haproxy) devant l'application
+        if: matrix.decor == 'proxy'
+        shell: bash
+        run: |
+          bash docker/certs/build-haproxy-pem.sh
+          echo "127.0.0.1 nodefony.com" | sudo tee -a /etc/hosts
+          docker compose -f docker/docker-compose.yml --profile proxy up -d nginx haproxy
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/nodefony/test/context || true)
+            if [ "$code" = "200" ]; then echo "✅ nginx relaie vers l'application"; exit 0; fi
+            sleep 2
+          done
+          echo "::error::nginx ne relaie pas vers l'application (dernier code : $code)"
+          docker compose -f docker/docker-compose.yml --profile proxy logs nginx haproxy
+          exit 1
+
+      - name: Le serveur derrière de vrais proxys
+        if: matrix.decor == 'proxy'
+        working-directory: src/packages/@nodefony/http
+        env:
+          NF_PROXY_NGINX_URL: http://localhost:8080
+          NF_PROXY_HAPROXY_URL: http://localhost:8081
+          NF_PROXY_HAPROXY_TLS_URL: https://nodefony.com:8443
+        run: npx vitest run -c vitest.proxy.config.ts
+
+      - name: Navigateur réel (conteneur nodefony-browser)
+        if: matrix.decor == 'browser'
+        shell: bash
+        run: |
+          docker compose -f docker/docker-compose.yml --profile browser up -d browser
+          for i in $(seq 1 30); do
+            if docker ps --filter name=nodefony-browser --filter status=running --format "{{.Names}}" | grep -qx nodefony-browser; then
+              echo "✅ conteneur nodefony-browser en marche"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::le conteneur nodefony-browser ne démarre pas"
+          docker compose -f docker/docker-compose.yml --profile browser logs browser
+          exit 1
+
+      - name: Les sondes navigateur sur un vrai navigateur
+        if: matrix.decor == 'browser'
+        working-directory: src/packages/@nodefony/devkit
+        run: npx vitest run -c vitest.browser.config.ts
+
+      - name: Journal du navigateur (échec)
+        if: failure() && matrix.decor == 'browser'
+        shell: bash
+        run: docker compose -f docker/docker-compose.yml --profile browser logs browser || true
+
+      - name: Journal des proxys (échec)
+        if: failure() && matrix.decor == 'proxy'
+        shell: bash
+        run: docker compose -f docker/docker-compose.yml --profile proxy logs nginx haproxy || true
 
       - name: Arrêter l'application
         if: always()
