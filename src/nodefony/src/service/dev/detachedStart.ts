@@ -16,6 +16,9 @@ import {
   detachedLogFile,
   defaultDevPorts,
   discoverDevProcesses,
+  discoverDevProcessesDetailed,
+  processSubtree,
+  terminateDevProcesses,
   probePorts,
   readRuntimeState,
   detectPortShift,
@@ -565,13 +568,7 @@ export async function launchDetached(
         const skipped = extractSkippedModules(readLog(logFile));
         // Pas de runtime à moitié debout laissé derrière : l'appelant a reçu un
         // échec, il n'appellera pas l'arrêt. Même geste que le plafond dépassé.
-        if (child.pid) {
-          try {
-            signalProcessGroup(child.pid, "SIGKILL");
-          } catch {
-            /* déjà mort */
-          }
-        }
+        if (child.pid) await abortDetachedRuntime(child.pid);
         return {
           ok: false,
           pid: child.pid ?? null,
@@ -615,15 +612,8 @@ export async function launchDetached(
     await new Promise((r) => setTimeout(r, TICK_MS));
   }
 
-  // Plafond dépassé : pas de runtime zombie à moitié booté — group-kill (le child est
-  // leader de groupe `detached` → tue aussi ses enfants serveur/Vite).
-  if (child.pid) {
-    try {
-      signalProcessGroup(child.pid, "SIGKILL");
-    } catch {
-      /* déjà mort */
-    }
-  }
+  // Plafond dépassé : pas de runtime zombie à moitié booté.
+  if (child.pid) await abortDetachedRuntime(child.pid);
   return {
     ok: false,
     pid: child.pid ?? null,
@@ -633,6 +623,33 @@ export async function launchDetached(
     reason: `readiness non atteinte après ${waitSec}s — runtime tué (group-kill)`,
     logTail: tailLog(logFile),
   };
+}
+
+/**
+ * Arrête TOUT ce qu'un démarrage détaché a lancé — l'arbre, pas seulement le groupe.
+ *
+ * Un `SIGKILL` au groupe du process lancé ne suffit pas : en développement, ce
+ * process est le superviseur, qui démarre son serveur dans un groupe À LUI. Tué
+ * sans préavis, il ne l'arrête pas, et le serveur orphelin garde les ports —
+ * l'appelant, qui a reçu un échec, n'appellera jamais `stop`, et le run suivant
+ * échoue sur « port occupé ». On relève donc l'arbre (découverte de `stop`) et on
+ * l'arrête par la MÊME implémentation que `nodefony stop` (SIGTERM aux racines,
+ * puis SIGKILL un à un des récalcitrants). Découverte impossible (Windows, `ps`
+ * absent) : le group-kill reste le repli — sous Windows il suit l'arbre.
+ *
+ * @param pid - process lancé par le démarrage détaché
+ */
+async function abortDetachedRuntime(pid: number): Promise<void> {
+  const discovery = discoverDevProcessesDetailed({});
+  const tree = discovery.supported ? processSubtree(pid, discovery.procs) : [];
+  if (tree.length > 0) await terminateDevProcesses(tree);
+  // Ceinture : la racine peut échapper au relevé (titre non reconnu), son
+  // groupe est tué quoi qu'il arrive — un groupe déjà vide ne coûte rien.
+  try {
+    signalProcessGroup(pid, "SIGKILL");
+  } catch {
+    /* déjà mort */
+  }
 }
 
 /**

@@ -32,6 +32,7 @@ import {
   missingWorkspaceDists,
   parsePsRow,
   parseTasklistImage,
+  processSubtree,
   signalProcessGroup,
   processCwd,
   readRuntimeState,
@@ -1113,5 +1114,50 @@ describe("readRuntimeState — les adresses lues d'un fichier restent des adress
     assert.deepStrictEqual(readRuntimeState(cwd)?.urls, [
       "http://localhost:5151",
     ]);
+  });
+});
+
+describe("processSubtree — l'arbre d'un lanceur, pas seulement son groupe", () => {
+  const proc = (
+    pid: number,
+    ppid: number,
+    role: DevProcessInfo["role"],
+  ): DevProcessInfo => ({
+    pid,
+    ppid,
+    mode: "dev",
+    role,
+    label: role,
+    detail: "",
+    rssKb: 0,
+    cpu: 0,
+    uptimeSec: 1,
+  });
+
+  it("🔴 emporte le serveur que le superviseur a lancé dans un AUTRE groupe", () => {
+    // Le cas qui laissait un orphelin : le superviseur (10) a démarré son
+    // serveur (11) et un Vite (12) ; un runtime voisin (20) n'en est pas.
+    const procs = [
+      proc(10, 1, "supervisor"),
+      proc(11, 10, "server"),
+      proc(12, 11, "vite"),
+      proc(20, 1, "server"),
+    ];
+    assert.deepStrictEqual(
+      processSubtree(10, procs).map((p) => p.pid),
+      [10, 11, 12],
+    );
+  });
+
+  it("racine absente du relevé : ses descendants sont rendus quand même", () => {
+    const procs = [proc(11, 10, "server"), proc(12, 11, "vite")];
+    assert.deepStrictEqual(
+      processSubtree(10, procs).map((p) => p.pid),
+      [11, 12],
+    );
+  });
+
+  it("rien d'autre : un pid inconnu rend un arbre vide", () => {
+    assert.deepStrictEqual(processSubtree(99, [proc(20, 1, "server")]), []);
   });
 });

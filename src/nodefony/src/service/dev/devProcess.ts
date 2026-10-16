@@ -1027,6 +1027,37 @@ const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Le sous-arbre d'un process : lui-même s'il est observé, et tous ses descendants.
+ *
+ * Fonction PURE sur un relevé `ps` (lien `ppid`). Sert à arrêter ce qu'un lanceur
+ * a démarré sans compter sur le GROUPE : le superviseur de développement démarre
+ * son serveur dans un groupe À LUI, qu'un signal au groupe du superviseur
+ * n'atteint pas — tué ainsi, le superviseur laisse un serveur orphelin qui tient
+ * les ports.
+ *
+ * @param rootPid - process dont on veut l'arbre
+ * @param procs - relevé des process (`discoverDevProcessesDetailed`)
+ * @returns le sous-arbre, racine comprise si elle figure au relevé
+ */
+export function processSubtree(
+  rootPid: number,
+  procs: readonly DevProcessInfo[],
+): DevProcessInfo[] {
+  const members = new Set<number>([rootPid]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const p of procs) {
+      if (!members.has(p.pid) && members.has(p.ppid)) {
+        members.add(p.pid);
+        grew = true;
+      }
+    }
+  }
+  return procs.filter((p) => members.has(p.pid));
+}
+
+/**
  * Racines d'un ensemble de process : ceux dont le parent n'est PAS lui-même dans
  * l'ensemble. Tuer le GROUPE d'une racine suffit à emporter ses descendants présents
  * (le superviseur emporte enfant serveur + Vite ; un orphelin est sa propre racine).
