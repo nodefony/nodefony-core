@@ -84,7 +84,7 @@ La commande rejoue trois gestes, chacun par l'implémentation qui le fait déjà
 
 | Geste                                              | Implémentation                                                                                                   | Ce qu'il ne fait jamais                                                                             |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Réécrit le **bloc framework** d'`AGENTS.md`        | `refreshAgentsGuide()` (`engine.ts:2743`), le remplacement borné par `replaceFrameworkBlock()` (`engine.ts:934`) | toucher au texte hors des marqueurs `<!-- nodefony:start/end -->` ; recréer un `AGENTS.md` supprimé |
+| Réécrit le **bloc framework** d'`AGENTS.md`        | `refreshAgentsGuide()` (`engine.ts:2856`), le remplacement borné par `replaceFrameworkBlock()` (`engine.ts:934`) | toucher au texte hors des marqueurs `<!-- nodefony:start/end -->` ; recréer un `AGENTS.md` supprimé |
 | Pose les **pointeurs de skills**, nouveaux compris | `syncSkillPointers()` (`aiSync.ts:212`), le geste d'`ai:sync`                                                    | remplacer un `SKILL.md` écrit à la main ; supprimer un orphelin                                     |
 | Rafraîchit les **copies livrées** restées intactes | `runAppContributions()` (`contributions.ts:399`), celui de `scaffold:sync --update`                              | écraser une copie que l'application a retouchée                                                     |
 
