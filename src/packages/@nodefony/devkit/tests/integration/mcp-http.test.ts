@@ -406,7 +406,7 @@ const APPLICATION_ATTENDUE = (
     readFileSync(
       path.resolve(
         path.dirname(fileURLToPath(import.meta.url)),
-        "../../../../../package.json",
+        "../../../../../../package.json",
       ),
       "utf8",
     ),
@@ -1113,77 +1113,6 @@ describe.skipIf(raison !== null)(
   },
 );
 
-/** La porte TÉMOIN d'application (module `test`) — `@nodefony/ai` sans devkit. */
-const PORTE_TEMOIN = "/nodefony/test/mcp-gate";
-
-describe.skipIf(raison !== null)(
-  "MCP — une porte d'APPLICATION, déclarée avec @nodefony/ai",
-  () => {
-    it("🔴 ne sert QUE ses outils : ni `nodefony_*`, ni ceux du module, ni l'outil réservé", async () => {
-      const reponse = await poster(
-        { jsonrpc: "2.0", id: 1, method: "tools/list" },
-        {},
-        PORTE_TEMOIN,
-      );
-      expect(reponse.status).toBe(200);
-      // `gate_admin` exige un rôle d'administration : une porte non protégée
-      // n'en accorde AUCUN — seule la porte de développement écrit l'opérateur.
-      expect(outilsDe(reponse).map((t) => t.name)).toEqual(["gate_echo"]);
-    });
-
-    it("appelle son outil de bout en bout", async () => {
-      const reponse = await poster(
-        {
-          jsonrpc: "2.0",
-          id: 2,
-          method: "tools/call",
-          params: { name: "gate_echo", arguments: { text: "bonjour" } },
-        },
-        {},
-        PORTE_TEMOIN,
-      );
-      expect(reponse.status).toBe(200);
-      const texte = (
-        reponse.body as { result: { content: { text: string }[] } }
-      ).result.content[0]?.text;
-      expect(texte).toBe("bonjour");
-    });
-
-    it("`GET` : 405, comme toute porte MCP — jamais un repli SPA en 200", async () => {
-      const reponse = await lire(PORTE_TEMOIN);
-      expect(reponse.status).toBe(405);
-    });
-
-    it("version du protocole inconnue : 400 + -32022 avec la liste servie", async () => {
-      const reponse = await poster(
-        { jsonrpc: "2.0", id: 4, method: "tools/list" },
-        { "mcp-protocol-version": "2099-01-01" },
-        PORTE_TEMOIN,
-      );
-      expect(reponse.status).toBe(400);
-      expect((reponse.body as { error?: { code: number } }).error?.code).toBe(
-        -32022,
-      );
-    });
-
-    it("l'outil réservé n'est pas appelable en le nommant", async () => {
-      const reponse = await poster(
-        {
-          jsonrpc: "2.0",
-          id: 3,
-          method: "tools/call",
-          params: { name: "gate_admin", arguments: {} },
-        },
-        {},
-        PORTE_TEMOIN,
-      );
-      expect(JSON.stringify(reponse.body)).not.toContain(
-        "ne doit jamais répondre",
-      );
-    });
-  },
-);
-
 /**
  * Le client OFFICIEL de la spec (`@modelcontextprotocol/sdk`) — celui sur
  * lequel s'appuient les agents réels. Les cas ci-dessus forgent leurs requêtes
@@ -1192,7 +1121,7 @@ describe.skipIf(raison !== null)(
  * (révision annoncée qu'aucun SDK ne connaissait), sans qu'aucun test le voie.
  */
 describe.skipIf(raison !== null)(
-  "MCP — le client OFFICIEL (@modelcontextprotocol/sdk) sur les deux portes",
+  "MCP — le client OFFICIEL (@modelcontextprotocol/sdk) sur la porte de développement",
   () => {
     async function ouvrir(chemin: string): Promise<Client> {
       const client = new Client({ name: "banc-sdk", version: "0.0.0" });
@@ -1240,22 +1169,6 @@ describe.skipIf(raison !== null)(
         );
         expect(resultat.isError ?? false).toBe(false);
         expect(etapes).toEqual([1, 2, 3]);
-      } finally {
-        await client.close();
-      }
-    });
-
-    it("porte d'application : ne voit que son outil, et l'appelle", async () => {
-      const client = await ouvrir(PORTE_TEMOIN);
-      try {
-        expect(client.getServerVersion()?.name).toBe("test-gate");
-        const { tools } = await client.listTools();
-        expect(tools.map((t) => t.name)).toEqual(["gate_echo"]);
-        const echo = await client.callTool({
-          name: "gate_echo",
-          arguments: { text: "bonjour du SDK" },
-        });
-        expect(texte(echo)).toBe("bonjour du SDK");
       } finally {
         await client.close();
       }

@@ -22,7 +22,8 @@
     "build": "rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json",
     "test": "vitest run",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "peerDependencies": {
     "@nodefony/ai": "^10.0.0-beta.3",

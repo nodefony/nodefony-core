@@ -25,7 +25,13 @@ export default defineConfig({
     globalSetup: tmpGuard(),
     ...transformCache,
     include: ["tests/**/*.test.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "tests/**/*.e2e.test.ts"],
+    // `tests/integration/` exige un serveur : `npm run test:integration`.
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "tests/**/*.e2e.test.ts",
+      "tests/integration/**",
+    ],
   },
   oxc: {
     decorator: { legacy: true, emitDecoratorMetadata: true },

@@ -426,20 +426,25 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 
 ## 🧪 Tests & couverture
 
-**171 cas sur 5 fichiers**, dont 27 tests d'attaque :
+Trois étages, chacun dans le paquet qui porte ce qu'il éprouve :
 
-- `src/nodefony/src/tests/mcp.test.ts` (95) — le protocole entier en fonctions pures : refus
-  normés, négociation de révision, forme des résultats par ère, collecte et rétention, arguments
-  non déclarés, collisions de noms ;
-- `src/nodefony/src/tests/mcpProgress.test.ts` (12) — jeton, croissance, cadence, arrêt après la
-  réponse (y compris quand l'outil lève), signal transmis, refus de `subscriptions/listen` ;
-- `src/nodefony/src/tests/mcpStream.test.ts` (7) — ouverture au premier envoi, ordre, réponse
-  finale, flux fermé par le client, ouverture en échec qui retombe sur une réponse en objet ;
-- `src/nodefony/src/tests/mcpAdminPlane.attack.test.ts` (27) — les outils d'administration face à
-  un appelant sans droits ;
-- `src/packages/@nodefony/devkit/tests/mcp-http.test.ts` (30) — la porte sur un serveur réel :
-  route montée, garde `Origin`, statuts traversant le contrôleur, outils d'un module de
-  l'application, flux SSE et annulation par fermeture.
+- **Sans serveur — `@nodefony/ai` (`npm test`)** : `tests/gate.test.ts` (la porte : définition
+  refusée au démarrage, gardes, statuts, appelant, versions par porte, cache, instructions, flux),
+  `mcpTools`, `mcpGuard`, `mcpCaller`, `mcpProgress`, `mcpStream` (`tests/*.test.ts`) ;
+- **Sans serveur — `@nodefony/devkit` (`npm test`)** : le catalogue `nodefony_*`
+  (`tests/mcp.test.ts`, `tests/mcpCatalog.test.ts`), les outils d'administration face à un appelant
+  sans droits (`tests/mcpAdminPlane.attack.test.ts`), le document RFC 9728
+  (`tests/oauthMetadata.test.ts`) ;
+- **Serveur réel — `npm run test:integration`**, lancé par la CI avec le serveur démarré :
+  - `@nodefony/ai` `tests/integration/gate-http.test.ts` — la porte témoin d'APPLICATION du
+    module `test` (`policy: "dev"`) : requêtes forgées (statuts, codes) et client OFFICIEL
+    `@modelcontextprotocol/sdk` (connexion, catalogue, appel, progression SSE) ;
+  - `@nodefony/devkit` `tests/integration/mcp-http.test.ts` — la porte de développement : route
+    montée, garde `Origin`, autorisation, outils d'un module de l'application, flux SSE et annulation,
+    client officiel.
+
+Ces deux suites ne se SAUTENT pas en silence : sans serveur, elles le disent, et en CI leur
+rapporteur transforme le saut en échec (« couverture incomplète »).
 
 Chaque garde de la progression et du flux a été vue échouer en la débranchant. Ce qui **n'est pas
 couvert** : aucun banc de charge dédié à la porte, et aucun test du flux derrière un proxy inverse

@@ -20,7 +20,8 @@
     "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json",
     "test": "vitest run",
     "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "private": false,
   "engines": {
@@ -40,19 +41,20 @@
     "configSchema": "./dist/nodefony/config/configSchema.js"
   },
   "peerDependencies": {
-    "nodefony": "^10.0.0-beta.3",
     "@nodefony/framework": "^10.0.0-beta.3",
-    "zod": "^4.6.7",
-    "@nodefony/http": "^10.0.0-beta.3"
+    "@nodefony/http": "^10.0.0-beta.3",
+    "nodefony": "^10.0.0-beta.3",
+    "zod": "^4.6.7"
   },
   "dependencies": {
     "tslib": "2.8.1"
   },
   "devDependencies": {
-    "nodefony": "^10.0.0-beta.3",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@nodefony/framework": "^10.0.0-beta.3",
     "@nodefony/http": "^10.0.0-beta.3",
     "@types/node": "26.6.5",
+    "nodefony": "^10.0.0-beta.3",
     "vitest": "5.0.4"
   },
   "repository": {
