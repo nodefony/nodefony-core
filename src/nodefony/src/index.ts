@@ -614,6 +614,13 @@ export {
   ADMIN_SCOPE_WRITE,
 } from "./kernel/adminPlane/adminCaller";
 export type { IAdminCaller } from "./kernel/adminPlane/adminCaller";
+// Le catalogue de LECTURE du plan d'administration — ce que l'outil MCP
+// `nodefony_admin_list` rend, publié pour que le devkit le serve sans recopie.
+export {
+  adminReadCatalog,
+  findAdminReadEntry,
+} from "./kernel/adminPlane/catalog";
+export type { IAdminCatalogView } from "./kernel/adminPlane/catalog";
 // La règle « que vaut un appelant sur une porte MCP » — UNE implémentation,
 // partagée par la porte du module de développement et par toute porte qu'un
 // module créera plus tard.
@@ -984,7 +991,6 @@ export {
   MCP_PROTOCOL_VERSION,
   MCP_SUPPORTED_VERSIONS,
   MCP_DEFAULT_NEGOTIATED_VERSION,
-  MCP_ENDPOINT_PATH,
   META_PROTOCOL_VERSION,
   META_SERVER_INFO,
   McpProtocolError,
@@ -1041,6 +1047,7 @@ export {
   planMcpConfig,
   renderMcpPlan,
   MCP_CONFIG_FILE,
+  MCP_ENDPOINT_PATH,
   MCP_SERVER_KEY,
 } from "./cli/aiMcpReport";
 export type {
@@ -1099,6 +1106,7 @@ export {
   countCheckFindings,
 } from "./kernel/checks/runDoctor";
 export type { IDoctorReport } from "./kernel/checks/runDoctor";
+export { skippedChecks } from "./kernel/checks/report";
 // La règle « entité ↔ dialecte » de `doctor`, publiée pour que le démarrage de
 // `@nodefony/drizzle` refuse un repli sur un moteur que les entités ne parlent
 // pas — en l'APPELANT, jamais en la recopiant.

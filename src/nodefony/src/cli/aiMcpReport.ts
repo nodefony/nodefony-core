@@ -22,6 +22,32 @@ export const MCP_SERVER_KEY = "nodefony";
 export const MCP_CONFIG_FILE = ".mcp.json";
 
 /**
+ * Chemin de l'endpoint MCP.
+ *
+ * ## Pourquoi `/nodefony/mcp`, et pas `/nodefony/devkit/api/mcp`
+ *
+ * Cette URL est un **contrat public** : elle est écrite dans le `.mcp.json` de
+ * chaque utilisateur. Y faire figurer le module qui l'implémente la rendrait
+ * caduque au premier déménagement — or ce serveur a vocation à bouger le jour
+ * où une application voudra s'exposer en production (le devkit, lui, est
+ * `policy: "dev"`). Le nom d'un module est un détail d'implémentation ; une URL
+ * ne l'est pas.
+ *
+ * Le segment `api` est écarté pour une autre raison : il désigne le plan
+ * d'administration JSON de Studio, avec son contrôle d'accès par rôle. Le MCP
+ * n'est ni REST ni destiné à Studio — ranger deux protocoles sous le même
+ * segment promettrait une parenté qui n'existe pas.
+ *
+ * Et `/mcp` à la racine, qui est la convention de fait ailleurs, prendrait un
+ * chemin qui **appartient à l'application** : `/nodefony` est le préfixe
+ * réservé du framework, donc sans collision possible.
+ *
+ * Constante et **non configurable** : une route décorée est statique, et un
+ * réglage qui n'agirait pas serait pire qu'aucun réglage.
+ */
+export const MCP_ENDPOINT_PATH = "/nodefony/mcp";
+
+/**
  * Nom de la variable d'environnement qui porte le jeton de la porte MCP.
  *
  * 🔴 C'est la VARIABLE qui s'écrit dans `.mcp.json`, jamais le jeton : ce

@@ -16,6 +16,7 @@ import {
   renderMcpPlan,
   serversOf,
   MCP_CONFIG_FILE,
+  MCP_ENDPOINT_PATH,
   MCP_SERVER_KEY,
   MCP_TOKEN_ENV,
   type IMcpConfigDocument,
@@ -61,9 +62,6 @@ import { isTerminal } from "../runtime/isTerminal";
  * deux lectures indépendantes finiraient par annoncer un port où personne
  * n'écoute.
  */
-
-/** Chemin de la route MCP — dupliqué NULLE PART ailleurs dans le cœur. */
-const MCP_PATH = "/nodefony/mcp";
 
 /** La page d'aide — `nodefony ai:mcp --help`, et le rappel après un refus. */
 const PAGE: IUsagePage = {
@@ -1072,7 +1070,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
   // et l'un d'eux avait gardé l'ORIGINE nue : `--dry-run` annonçait donc une
   // commande différente de celle qu'il aurait jouée — le pire défaut possible
   // pour l'option dont le seul rôle est de montrer ce qui va se passer.
-  const mcpUrl = buildMcpUrl(origin, MCP_PATH);
+  const mcpUrl = buildMcpUrl(origin, MCP_ENDPOINT_PATH);
   const file = path.join(projectRoot, MCP_CONFIG_FILE);
   const plan = planMcpConfig(
     readMcpConfig(file),
