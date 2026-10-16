@@ -61,20 +61,74 @@ for (const line of report) {
   }
 }
 
-/** Blocs `@@ -a,b +c,d @@` du diff `BASE` → arbre de travail, par fichier. */
+/** Le fichier existe-t-il à la révision `BASE` ? */
+function existsAtBase(target) {
+  try {
+    execFileSync("git", ["cat-file", "-e", `${BASE}:${target}`], {
+      cwd: REPO,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Chemins déplacés depuis la base : nouveau chemin → ancien, selon la
+ * détection de renommage de git (`-M`, sur le contenu).
+ */
+let renames = null;
+function renamedFrom(target) {
+  if (renames === null) {
+    renames = new Map();
+    const out = execFileSync(
+      "git",
+      ["diff", "-M", "--name-status", "--no-ext-diff", BASE],
+      { cwd: REPO, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    for (const line of out.split("\n")) {
+      const [status, from, to] = line.split("\t");
+      if (status?.startsWith("R") && from && to) renames.set(to, from);
+    }
+  }
+  return renames.get(target) ?? null;
+}
+
+/**
+ * Blocs `@@ -a,b +c,d @@` du diff `BASE` → arbre de travail, par fichier, ou
+ * `null` quand il n'y a RIEN à recaler : le fichier est né après la base.
+ *
+ * 🔴 Un fichier DÉPLACÉ (`git mv`) n'existe pas à la base sous son nouveau
+ * chemin : `git diff BASE -- <nouveau>` le rend comme un fichier NEUF
+ * (`@@ -0,0 +1,N @@`), et chaque ancre glissait de N — la longueur du fichier.
+ * Vécu : les ancres justes de `mcp.md` décalées de 130 à 570 lignes au
+ * déménagement du moteur MCP. Le diff se prend donc depuis l'ANCIEN chemin.
+ */
 const hunksCache = new Map();
 function hunksOf(target) {
   if (hunksCache.has(target)) return hunksCache.get(target);
+  let paths = [target];
+  if (!existsAtBase(target)) {
+    const from = renamedFrom(target);
+    if (from === null) {
+      // Né après la base : aucune ancre n'y était juste « à la base », il n'y a
+      // pas de décalage à appliquer — on n'invente pas un diff.
+      hunksCache.set(target, null);
+      return null;
+    }
+    paths = [from, target];
+  }
   let out = "";
   try {
-    out = execFileSync("git", ["diff", "-U0", BASE, "--", target], {
-      cwd: REPO,
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-    });
+    out = execFileSync(
+      "git",
+      ["diff", "-U0", "-M", "--no-ext-diff", BASE, "--", ...paths],
+      { cwd: REPO, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
   } catch (e) {
     console.error(
-      `anchor-remap : git diff ${BASE} -- ${target} — ${e.message}`,
+      `anchor-remap : git diff ${BASE} -- ${paths.join(" ")} — ${e.message}`,
     );
     process.exit(2);
   }
@@ -94,8 +148,10 @@ function hunksOf(target) {
  * dans un bloc modifié ou supprimé (à relire, jamais devinée).
  */
 function remap(target, n) {
+  const hunks = hunksOf(target);
+  if (hunks === null) return n;
   let offset = 0;
-  for (const { a, b, d } of hunksOf(target)) {
+  for (const { a, b, d } of hunks) {
     if (b === 0) {
       // insertion APRÈS la ligne `a` de la base
       if (n > a) offset += d;
@@ -108,10 +164,52 @@ function remap(target, n) {
   return n + offset;
 }
 
+/** La page telle qu'elle était à la base, ou `null` si elle n'existait pas. */
+const basePages = new Map();
+function pageAtBase(md) {
+  if (basePages.has(md)) return basePages.get(md);
+  let text = null;
+  try {
+    text = execFileSync("git", ["show", `${BASE}:${md}`], {
+      cwd: REPO,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    text = null;
+  }
+  basePages.set(md, text);
+  return text;
+}
+
+/**
+ * L'ancre figurait-elle DÉJÀ dans la page à la base ? Comparée par nom de
+ * fichier et ligne (`progress.ts:75`), parce qu'un déménagement réécrit le
+ * chemin qui la précède sans changer ce qu'elle désigne.
+ *
+ * 🔴 Sinon elle a été ÉCRITE ou RECALÉE depuis la base — donc déjà à la
+ * numérotation de l'arbre — et la décaler encore la ferait glisser deux fois.
+ * Vécu : `servers.md`, recalé et commité, aurait glissé de 1876 à 1907 au
+ * passage suivant ; la garde « page non commitée » ne voit pas un commit.
+ */
+function presentAtBase(job) {
+  const page = pageAtBase(job.md);
+  if (page === null) return false;
+  const token = `${path.basename(job.ref)}:${job.start}`;
+  const esc = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\w.-])${esc}(?![\\d])`, "m").test(page);
+}
+
 const edits = new Map(); // md → [{ mdLine, from, to }]
 const unresolved = [];
 let unchanged = 0;
+let writtenAfterBase = 0;
 for (const job of jobs) {
+  if (!presentAtBase(job)) {
+    writtenAfterBase++;
+    continue;
+  }
   const start = remap(job.target, job.start);
   const end = job.end === null ? null : remap(job.target, job.end);
   if (start === null || (job.end !== null && end === null)) {
@@ -175,7 +273,8 @@ for (const [md, list] of edits) {
 
 console.log(
   `\n${applied} ancre(s) ${APPLY ? "recalée(s)" : "à recaler (relancer avec --apply)"} · ` +
-    `${unchanged} déjà juste(s) pour le diff · ${unresolved.length} à relire`,
+    `${unchanged} déjà juste(s) pour le diff · ${writtenAfterBase} écrite(s) après la base (laissées) · ` +
+    `${unresolved.length} à relire`,
 );
 for (const md of dirty)
   console.log(

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-14
+updated: 2026-10-16
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -29,11 +29,11 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | Version | `3.0.0` |
 | Famille | Développer le framework |
 | Corps | 489 lignes |
-| Coût d'activation | ~8 711 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 777 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 17 |
+| Scripts | 18 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -89,7 +89,8 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. Entrée : la sortie d'anchor-check.mjs (stdin). Sortie : édite les .md en place. Règle : on ne déplace une ancre que si UNE seule ligne de définition plausible est trouvée pour les symboles cités — sinon on laisse et on le signale. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
 | `scripts/anchor-fix.selftest.mjs` | Éprouve `anchor-fix.mjs` sur un dépôt JETABLE : chaque ancre SUSPECTE doit être recalée sur la déclaration du symbole qu'ELLE prouve — jamais sur celui d'une ancre voisine. Un outil qui corrige qu'on n'a jamais vu se tromper n'est pas un outil, c'est un pari. | `--apply` | — |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
-| `scripts/anchor-remap.mjs` | Recale les ancres `fichier.ts:N` d'une page de doc par le GIT DIFF, pas par symbole : une ancre juste à la révision `--base` est décalée d'exactement le nombre de lignes que le code a gagné ou perdu AVANT elle. Déterministe — là où `anchor-fix.mjs` doit deviner une ligne à partir des mots qui l'entourent (un en-tête `Retry-After`, un `try`, un littéral ne se retrouvent pas). | `--all` `--apply` `--base` `--quiet` | `APPLY` `BASE` |
+| `scripts/anchor-remap.mjs` | Recale les ancres `fichier.ts:N` d'une page de doc par le GIT DIFF, pas par symbole : une ancre juste à la révision `--base` est décalée d'exactement le nombre de lignes que le code a gagné ou perdu AVANT elle. Déterministe — là où `anchor-fix.mjs` doit deviner une ligne à partir des mots qui l'entourent (un en-tête `Retry-After`, un `try`, un littéral ne se retrouvent pas). | `--all` `--apply` `--base` `--name-status` `--no-ext-diff` `--quiet` | `APPLY` `BASE` |
+| `scripts/anchor-remap.selftest.mjs` | Éprouve `anchor-remap.mjs` sur un dépôt JETABLE : une ancre juste à la base doit glisser d'EXACTEMENT ce que le code a gagné avant elle — ni plus, ni deux fois. | `--apply` `--base` | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/corpus.mjs` | Dossiers qu'on ne descend jamais. | — | — |
 | `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. Une page ne peut être marquée ✅ que si elle PASSE ce linter. Usage : node doc-lint.mjs /tmp/corpus/*.md | `--instructions` `--list` `--published` `--show-toplevel` | `COVERAGE` `NAV_MAX` |
@@ -109,6 +110,7 @@ Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_O
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-fix.selftest.mjs
 Usage : node anchor-inpage.mjs <page.md ...>
 node anchor-check.mjs --all <pages…> | node anchor-remap.mjs <repo> --base <rév> [--apply]
+`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-remap.selftest.mjs
 Usage : node code-check.mjs <page.md ...>
 Usage : node doc-lint.mjs /tmp/corpus/*.md
 node .claude/skills/nodefony-documentation/scripts/figures.selftest.mjs
