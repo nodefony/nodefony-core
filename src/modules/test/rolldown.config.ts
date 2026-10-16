@@ -4,6 +4,7 @@ export default defineNodefonyRolldownConfig({
   cleanDir: true,
   external: [
     "nodefony",
+    "@nodefony/ai",
     "@nodefony/http",
     "@nodefony/orm-core",
     "drizzle-orm",
