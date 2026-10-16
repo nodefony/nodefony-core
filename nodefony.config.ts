@@ -209,9 +209,10 @@ export default defineConfig<Env>((ctx) => ({
       when: () => !!ctx.infra.cache,
     }),
 
-    // Boîte à outils IA (serveur MCP…) — chargée dans TOUS les environnements :
-    // c’est une brique de production. AVANT devkit, qui la consomme.
-    use("@nodefony/ai", {}),
+    // Socle IA (boîte MCP, puis services de la couche agentique) — `mandatory`,
+    // comme http et framework : devkit et tout module qui déclare des outils en
+    // dépendent. Placé AVANT devkit, qui le consomme.
+    use("@nodefony/ai", {}, { policy: "mandatory" }),
     /**
      * Outillage de DÉVELOPPEMENT : carte de visite de l'application et portes de
      * découverte pour un agent.

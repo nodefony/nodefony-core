@@ -22,6 +22,13 @@ Deux usages de l'IA, deux paquets — ne JAMAIS les confondre :
 `@nodefony/devkit` est un **consommateur** de ce module, comme n'importe quelle application : il
 déclare ses outils et s'appuie sur la base commune d'ici. Il n'en possède aucune copie.
 
+**Module SOCLE — `policy: "mandatory"`**, au même rang que `http`, `framework` et `security` :
+toujours chargé, jamais filtré, dans TOUS les environnements. Il livre la base dont dépendent
+devkit, tout module qui déclare des outils (`getMcpTools()`) et les agents de l'application.
+Ce statut n'est sûr que tenu par deux règles du module : **coût nul** tant qu'aucune capacité
+n'est configurée, et **aucune porte ouverte en production sans autorisation**. Il ne fait pas
+partie du paquet `nodefony` : le cœur ne l'importe jamais.
+
 ## Frontières (arrêtées)
 
 | Où                     | Ce qui y vit                                                                                                                    | Pourquoi                                                                                                                                                                       |
