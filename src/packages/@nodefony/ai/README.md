@@ -109,7 +109,6 @@ nommant le champ, au lieu d'être ignorée en silence.
   [livre blanc](https://github.com/nodefony/nodefony-core/blob/main/docs/ia/livre-blanc-couche-ia.md)
 - Les décisions d'architecture :
   [ADR](https://github.com/nodefony/nodefony-core/tree/main/docs/adr)
-- La documentation du module : [`docs/`](./docs/index.md)
 
 ## Licence
 

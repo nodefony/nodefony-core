@@ -3,7 +3,7 @@
  *
  * Le framework parle JSON-RPC par deux portes qui ne se ressemblent pas : le
  * pair temps réel (`JsonRpcPeer`, machine à état duplex sur WebSocket, des deux
- * côtés du fil) et le serveur MCP (`handleMcpMessage`, sans état, qui rend un
+ * côtés du fil) et le serveur MCP (`handleMcpMessage` de `@nodefony/ai`, sans état, qui rend un
  * verdict HTTP). On partage ici les briques — codes, formes de message,
  * fabriques, classification d'une frame —, jamais les machines : chaque porte
  * garde sa RÉACTION à une frame invalide (le pair la jette et l'audite, le MCP

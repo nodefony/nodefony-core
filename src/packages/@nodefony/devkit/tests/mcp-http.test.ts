@@ -5,11 +5,8 @@ import { request as httpsRequest } from "node:https";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  MCP_ENDPOINT_PATH,
-  MCP_PROTOCOL_VERSION,
-  protectedResourceMetadataPath,
-} from "nodefony";
+import { MCP_ENDPOINT_PATH, protectedResourceMetadataPath } from "nodefony";
+import { MCP_PROTOCOL_VERSION } from "@nodefony/ai";
 
 /** Où la RFC 9728 fait chercher les métadonnées de CETTE porte. */
 const MCP_METADATA_PATH = protectedResourceMetadataPath(MCP_ENDPOINT_PATH);

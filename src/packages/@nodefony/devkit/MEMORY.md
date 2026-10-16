@@ -26,7 +26,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
 | `buildCard` | `nodefony/src/card.ts` | ré-export du cœur (`nodefony` → `cli/cardReport.ts`) |
 | `DevkitService` | `nodefony/service/DevkitService.ts` | `getCard()` — dérive du Kernel, `source: "runtime"` |
 | `DevkitController` | `nodefony/controllers/DevkitController` | `GET /nodefony/devkit/api/card` — mince, délègue |
-| `McpController` | `nodefony/controllers/McpController.ts` | `POST /nodefony/mcp` — SEULE pièce MCP de ce paquet : traduit HTTP ↔ JSON-RPC, ramasse les outils (`collectMcpTools`) et fournit ce que lui seul connaît (service, broker, racine). Le protocole vient de `nodefony`. Corps : texte illisible → `-32700` (le parseur HTTP le TAIT et rend `{}` : relecture de `request.data` sur ce seul chemin froid), JSON non-objet (`null`) → `-32600` |
+| `McpController` | `nodefony/controllers/McpController.ts` | `POST /nodefony/mcp` — la porte : traduit HTTP ↔ JSON-RPC, ramasse les outils (`collectMcpTools`, sans cas particulier pour le catalogue). Le protocole vient de `@nodefony/ai`. Corps : texte illisible → `-32700` (le parseur HTTP le TAIT et rend `{}` : relecture de `request.data` sur ce seul chemin froid), JSON non-objet (`null`) → `-32600` |
 | `devkitConfigSchema` | `nodefony/config/config.ts` | `{ enabled, mcp }` — source unique des défauts |
 | `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot |
 | `DevkitError` | `nodefony/src/errors/DevkitError.ts` | erreurs typées du module |
@@ -97,13 +97,19 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   inutilisable. **Conséquence : `checkMcpAccess` (Origin + localité) et
   `policy: "dev"` sont la SEULE protection de cette route.** Toute donnée
   ajoutée à un outil MCP doit être jugée à cette aune.
-- 🔴 **Le PROTOCOLE MCP n'est pas ici, il est au CŒUR** (`nodefony` →
-  `src/mcp/`) : `handleMcpMessage`, `checkMcpAccess`, `collectMcpTools`,
-  `builtinMcpTools`, `mcpText`, `IMcpTool`. Ce paquet n'en ré-exporte RIEN — deux
-  surfaces pour une brique divergent en silence. Motif : un module `policy:"dev"`
-  disparaît en production, donc y loger le protocole obligerait tout autre
-  serveur MCP (celui de P12, ou une porte authentifiée de production) à le
+- 🔴 **Le PROTOCOLE MCP n'est pas ici, il est dans `@nodefony/ai`**
+  (`nodefony/mcp/`) : `handleMcpMessage`, `checkMcpAccess`, `collectMcpTools`,
+  `mcpText`. Ce paquet n'en ré-exporte RIEN — deux surfaces pour une brique
+  divergent en silence. Motif : un module `policy:"dev"` disparaît en
+  production, donc y loger le protocole obligerait tout autre serveur MCP à le
   redéclarer.
+- **Catalogue `nodefony_*` ICI** (`nodefony/mcp/tools.ts` : `builtinMcpTools`,
+  `selectBuiltinMcpTools`, `BUILTIN_MCP_TOOL_KEYS`, `IMcpToolDeps`), déclaré par
+  `DevkitModule.getMcpTools()` → `DevkitService.mcpTools()`. Le préfixe
+  `nodefony_` est réservé aux modules `@nodefony/*` par la collecte de `ai` :
+  un module d'application ne peut pas s'y substituer, quel que soit l'ordre de
+  chargement. ⚠️ `nodefony_check` scanne le dépôt réel (~4 s) : tout test qui
+  l'exerce porte un `timeout` explicite (défaut vitest 5 s → rouge en CI).
 - 🔴 **L'appelant vient de `mcp.authorization`, et le rôle est ÉTEINT par
   défaut.** `authorizationServers` vide → appelant anonyme
   (`{authenticated:false, scopes:[]}`), donc tout outil déclarant `scopes`/

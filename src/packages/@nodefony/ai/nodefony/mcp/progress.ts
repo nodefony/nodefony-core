@@ -1,7 +1,4 @@
-import {
-  jsonRpcNotification,
-  type IJsonRpcNotification,
-} from "../jsonrpc/index";
+import { jsonRpcNotification, type IJsonRpcNotification } from "nodefony";
 
 /**
  * La progression d'un appel d'outil (`notifications/progress`) — règle PURE,

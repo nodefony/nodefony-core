@@ -43,7 +43,7 @@ const show = (p: string): string =>
  *
  * `-32001` (refus du verrou temps réel) n'y est pas : il a sa constante unique,
  * propre au pair. Les codes MCP (`-32020`, `-32022`) non plus : ils vivent dans
- * `mcp/protocol.ts`, seule source.
+ * `@nodefony/ai/nodefony/mcp/protocol.ts`, seule source.
  */
 const OWNED_CODES = new Map<number, string>([
   ...Object.entries(JsonRpcError).map(([name, code]): [number, string] => [

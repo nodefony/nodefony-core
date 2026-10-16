@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   createProgressReporter,
   readProgressToken,
-  MCP_PROGRESS_MESSAGE_MAX,
   MCP_PROGRESS_MIN_INTERVAL_MS,
-} from "../mcp/progress";
-import { handleMcpMessage, type IMcpServerContext } from "../mcp/server";
-import { mcpText } from "../mcp/tools";
-import type { IJsonRpcNotification } from "../jsonrpc/index";
-import type { IMcpTool, IMcpToolRun } from "../types/IMcpTool";
+  handleMcpMessage,
+  type IMcpServerContext,
+  mcpText,
+  MCP_PROGRESS_MESSAGE_MAX,
+} from "../index";
+import {
+  type IJsonRpcNotification,
+  type IMcpTool,
+  type IMcpToolRun,
+} from "nodefony";
 
 /**
  * Le protocole MCP pendant un appel (#554) : progression liée à la requête,

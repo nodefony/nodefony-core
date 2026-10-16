@@ -16,7 +16,7 @@ import {
   classifyJsonRpcFrame,
   type IJsonRpcNotification,
   type IJsonRpcRequest,
-} from "../jsonrpc/index";
+} from "nodefony";
 import { createProgressReporter, readProgressToken } from "./progress";
 import {
   callMcpTool,

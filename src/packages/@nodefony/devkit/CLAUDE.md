@@ -33,7 +33,8 @@ devkit/
 │   ├── controllers/DevkitController.ts           ← porte HTTP
 │   ├── interfaces/IDevkitService.ts              ← contrat public
 │   └── src/errors/DevkitError.ts                 ← erreurs typées
-├── nodefony/controllers/McpController.ts         ← POST /nodefony/mcp — SEULE pièce MCP d'ici
+├── nodefony/controllers/McpController.ts         ← POST /nodefony/mcp — la porte
+├── nodefony/mcp/tools.ts                         ← catalogue nodefony_* (getMcpTools du module)
 ├── skills/<nom>/SKILL.md                         ← CONTENU des skills d'agent (publié tel quel)
 │   └── scripts/                                  ← outils que le skill fait EXÉCUTER (see-screen : sondes Playwright)
 ├── tests/                                        ← vitest
@@ -56,12 +57,17 @@ devkit/
   `2026-07-28` du transport a supprimé les sessions : un endpoint `POST` suffit,
   donc il n'y a rien à lancer ni à resynchroniser quand le serveur de
   développement recharge.
-- 🔴 **Le PROTOCOLE vit au CŒUR, ce module ne porte que la PORTE.**
-  `handleMcpMessage`, `checkMcpAccess`, `collectMcpTools`, `builtinMcpTools`,
-  `mcpText`, `IMcpTool` s'importent de `nodefony` ; ce paquet n'en ré-exporte
-  rien. Un module `policy: "dev"` disparaît en production — y loger le protocole
-  obligerait toute autre porte MCP (P12, ou une porte authentifiée de prod) à le
+- 🔴 **Le PROTOCOLE vit dans `@nodefony/ai`, ce module porte la PORTE et le
+  CATALOGUE `nodefony_*`.** `handleMcpMessage`, `checkMcpAccess`,
+  `collectMcpTools`, `mcpText` s'importent de `@nodefony/ai` (`IMcpTool` du
+  cœur) ; ce paquet n'en ré-exporte rien. Un module `policy: "dev"` disparaît en
+  production — y loger le protocole obligerait toute autre porte MCP à le
   redéclarer, ce que « 1 règle = 1 implémentation » interdit.
+- 🔴 **Le catalogue `nodefony_*` (`nodefony/mcp/tools.ts`) est déclaré comme
+  celui de n'importe quel module** : `DevkitModule.getMcpTools()` →
+  `DevkitService.mcpTools()` → `selectBuiltinMcpTools(mcp.tools, deps)`. Aucun
+  cas particulier à la collecte ; seul le préfixe `nodefony_`, réservé par
+  `@nodefony/ai` aux modules `@nodefony/*`, le protège d'un homonyme.
 - 🔴 **Une APPLICATION ajoute ses propres outils** : un module implémente
   `getMcpTools(): IMcpTool[]`, le controller les ramasse à chaque requête. Rien
   n'est enregistré au boot — pas de registre, pas d'ordre à respecter, coût nul

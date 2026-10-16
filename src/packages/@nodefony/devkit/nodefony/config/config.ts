@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BUILTIN_MCP_TOOL_KEYS } from "nodefony";
+import { BUILTIN_MCP_TOOL_KEYS } from "../mcp/tools";
 import { mcpConfigSchema } from "@nodefony/ai";
 
 /**

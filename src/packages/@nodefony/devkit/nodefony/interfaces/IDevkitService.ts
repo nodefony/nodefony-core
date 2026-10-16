@@ -4,8 +4,9 @@ import type {
   ICardDoor,
   ICardInput,
   ICardVerb,
-  IMcpToolDeps,
+  IMcpTool,
 } from "nodefony";
+import type { IMcpToolDeps } from "../mcp/tools";
 import type { IDevkitConfig } from "../config/config";
 
 /**
@@ -68,6 +69,12 @@ export interface IDevkitService {
    * dont sont dérivés les scopes publiés.
    */
   mcpToolDeps(): IMcpToolDeps;
+
+  /**
+   * Les outils `nodefony_*` que l'allowlist `mcp.tools` retient — ceux que le
+   * module déclare par `getMcpTools()`.
+   */
+  mcpTools(): IMcpTool[];
 
   /**
    * Les scopes que la porte MCP EXIGE, dérivés des outils déclarés.

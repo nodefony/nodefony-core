@@ -2,47 +2,31 @@ import {
   INSPECT_SUBJECTS,
   readAdminSubject,
   callAdminEndpoint,
-  type IAdminBrokerLike,
-  type InspectResult,
-} from "../kernel/inspect/adminSubjects";
-import { outlineMarkdown } from "../kernel/inspect/docOutline";
-import type { IAdminCaller } from "../kernel/adminPlane/adminCaller";
-import {
+  outlineMarkdown,
   ADMIN_SCOPE_READ,
-  rolesFromScopes,
-} from "../kernel/adminPlane/adminCaller";
-import {
   adminReadCatalog,
   findAdminReadEntry,
-  type IAdminCatalogView,
-} from "../kernel/adminPlane/catalog";
-import { readSymbolsGraph, lookupSymbol } from "../cli/symbols";
-import {
+  readSymbolsGraph,
+  lookupSymbol,
   collectDoctorReport,
   countCheckFindings,
-} from "../kernel/checks/runDoctor";
-import { skippedChecks } from "../kernel/checks/report";
+  skippedChecks,
+} from "nodefony";
 import type {
+  IAdminBrokerLike,
+  InspectResult,
+  IAdminCaller,
+  IAdminCatalogView,
   IMcpTool,
   IMcpToolAnnotations,
-  IMcpToolDefinition,
   IMcpToolResult,
   IMcpCaller,
-  IMcpToolRun,
-} from "../types/IMcpTool";
-
-export type {
-  IMcpTool,
-  IMcpToolAnnotations,
-  IMcpToolDefinition,
-  IMcpToolResult,
-  IMcpCaller,
-  IMcpToolRun,
-};
+} from "nodefony";
+import { mcpText, MCP_TEXT_MAX_CHARS, MCP_RESERVED_PREFIX } from "@nodefony/ai";
 
 /**
- * Outils MCP : le **catalogue intégré** du framework, et la **collecte** de ceux
- * qu'une application déclare.
+ * Outils MCP du framework : le catalogue `nodefony_*`, que `@nodefony/devkit`
+ * déclare par `getMcpTools()` comme n'importe quel module d'application.
  *
  * ⚠️ **Rien n'est calculé ici.** Chaque outil intégré traduit un appel JSON-RPC
  * vers une brique qui répond DÉJÀ à une autre porte : `inspect` lit le plan
@@ -57,179 +41,7 @@ export type {
  * cash — un outil à description neutre n'a jamais été appelé, un skill
  * auto-déclenché prenait la main à chaque fois. Ces descriptions disent donc ce
  * que l'outil rend ET quand s'en servir, pas seulement son nom.
- *
- * ## Pourquoi la collecte, et pas un registre
- *
- * Un module déclare ses outils par {@link IModule.getMcpTools} ; ils sont
- * ramassés **au moment de servir la requête**, jamais stockés. C'est
- * délibérément l'inverse du data plane admin ({@link IAdminRegistry}), qui a
- * besoin d'un registre parce qu'il monte des ROUTES au boot et qu'un module
- * arrivé trop tard n'aurait plus rien à monter. Un outil MCP n'a rien à monter :
- * il est lu à la demande. D'où trois propriétés gagnées gratuitement — aucune
- * structure allouée au démarrage (donc coût nul en production, où aucune porte
- * MCP n'existe), aucun ordre de `register()` à respecter, et une fraîcheur qui
- * est une propriété du mécanisme plutôt qu'une discipline à tenir.
  */
-
-/**
- * Au-delà de quoi une réponse cesse d'être une réponse.
- *
- * Mesuré, pas choisi en l'air : `inspect routes` rendait 47 000 caractères et
- * `inspect config` 190 730 — le second dépassait ce que le client accepte, il
- * partait sur disque, et l'agent brûlait vingt tours à le relire au `jq`. Le
- * premier passait, et ne servait à rien pour autant : à qui demandait le NOMBRE
- * de routes, il fallait compter 119 objets dans un mur de JSON.
- *
- * La borne est donc largement SOUS la limite des clients : ce qu'on protège
- * n'est pas le transport, c'est la capacité de l'agent à répondre sans relire.
- */
-const MCP_TEXT_MAX_CHARS = 32_000;
-
-/** Ce qu'on garde d'une valeur dans une vue d'ensemble : la surface. */
-const SCALAR_MAX_CHARS = 120;
-
-/**
- * La SURFACE d'un objet — ses champs scalaires courts, sans sa profondeur.
- *
- * Ce qui pèse dans un inventaire n'est presque jamais ce qu'on y cherche : sur
- * une route, `name`/`path`/`controller` tiennent en cent caractères, et c'est la
- * description, les tableaux de tags et les objets imbriqués qui font les 47 ko.
- * On jette donc la profondeur et on garde la surface — TOUTES les entrées
- * restent visibles, ce qu'un échantillon des N premières ne permet pas : une
- * question portant sur la 100ᵉ recevrait une réponse fausse, et l'agent n'aurait
- * aucun moyen de le savoir.
- */
-function surfaceOf(value: unknown): unknown {
-  if (value === null || typeof value !== "object") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return `[${value.length}]`;
-  }
-  const kept: Record<string, unknown> = {};
-  for (const [key, v] of Object.entries(value)) {
-    if (v === null || typeof v === "number" || typeof v === "boolean") {
-      kept[key] = v;
-    } else if (typeof v === "string" && v.length <= SCALAR_MAX_CHARS) {
-      kept[key] = v;
-    } else if (Array.isArray(v) && v.every((e) => typeof e === "string")) {
-      // Un tableau de mots courts EST de la surface (`methods: ["GET"]`) ; on
-      // ne le garde que s'il ne se met pas à peser.
-      const rendered = v.join(",");
-      if (rendered.length <= SCALAR_MAX_CHARS) {
-        kept[key] = v;
-      }
-    }
-  }
-  return kept;
-}
-
-/**
- * Une donnée trop volumineuse, ramenée à une RÉPONSE.
- *
- * Deux formes, selon ce qu'on a sous la main :
- *  - **un tableau** rend son `count` — la première chose qu'on veut d'une liste,
- *    et celle qu'un modèle calcule mal et cher — puis ses entrées en surface ;
- *  - **un objet** rend ses clés de premier niveau : c'est la carte qui permet de
- *    demander ensuite la bonne branche (pour `config`, `inspect module <nom>`).
- *
- * Dans les deux cas la réponse DIT ce qu'elle a fait, et elle le dit EN TÊTE.
- * Une troncature muette est pire que pas de troncature — l'agent croit tout
- * tenir ; une troncature annoncée APRÈS vingt mille caractères d'entrées ne vaut
- * guère mieux, il a déjà décidé quoi faire de ce qu'il a lu. Mesuré : sur la
- * tâche « annonce le nombre de routes », l'agent recevait `count` puis 88
- * entrées puis, tout en bas, l'avertissement — et repartait recompter les
- * entrées visibles au lieu de lire le compte exact qu'on venait de lui donner.
- *
- * Et la note ne renvoie PAS vers un affinement : `routes`, `services` ou
- * `modules` n'acceptent aucun filtre, si bien que « affine la demande » nommait
- * un geste qui n'existe pas. Elle désigne ce qui EST utilisable — `count`, exact
- * et portant sur la liste entière.
- */
-function summarize(value: unknown, size: number): string {
-  if (Array.isArray(value)) {
-    const items = value.map(surfaceOf);
-    let rendered = JSON.stringify(
-      {
-        count: value.length,
-        note:
-          `count = ${value.length} : c'est le nombre EXACT, il porte sur la liste entière. ` +
-          `Les entrées ci-dessous sont ramenées à leur surface (${size} caractères au complet) — ` +
-          `demande le détail d'une entrée précise plutôt que la liste entière`,
-        items,
-      },
-      null,
-      2,
-    );
-    if (rendered.length <= MCP_TEXT_MAX_CHARS) {
-      return rendered;
-    }
-    // La surface elle-même déborde : on borne, et le `count` reste EXACT — c'est
-    // lui qui dit à l'agent qu'il ne voit pas tout.
-    let keptCount = items.length;
-    while (keptCount > 1 && rendered.length > MCP_TEXT_MAX_CHARS) {
-      keptCount = Math.floor(keptCount / 2);
-      rendered = JSON.stringify(
-        {
-          count: value.length,
-          note:
-            `count = ${value.length} : c'est le nombre EXACT, il porte sur la liste entière. ` +
-            `Seules ${keptCount} entrées sont montrées (la liste pèse ${size} caractères) — ` +
-            `toute affirmation sur le NOMBRE se fonde sur count, jamais sur les entrées visibles.`,
-          items: items.slice(0, keptCount),
-        },
-        null,
-        2,
-      );
-    }
-    return rendered;
-  }
-  const keys =
-    value && typeof value === "object" ? Object.keys(value) : undefined;
-  return JSON.stringify(
-    {
-      keys,
-      note:
-        `réponse de ${size} caractères, trop volumineuse pour être rendue entière — ` +
-        `demande une branche précise (par exemple le module qui t'intéresse)`,
-    },
-    null,
-    2,
-  );
-}
-
-/**
- * Rend un résultat d'outil — les données partent en JSON indenté, lisible.
- *
- * Exporté parce qu'une application qui déclare un outil en a besoin : sans lui,
- * chacune réinventerait l'enveloppe `content[]`, et une enveloppe mal formée
- * n'échoue pas — elle rend un résultat vide que l'agent prend pour une réponse.
- *
- * **Un résultat est BORNÉ** ({@link MCP_TEXT_MAX_CHARS}) : au-delà, il rend un
- * résumé plutôt qu'un déversement (voir {@link summarize}). La garde vit ICI, et
- * non dans les quatre outils intégrés, pour qu'un outil déclaré par une
- * application en hérite sans le savoir — c'est le genre de règle qu'on
- * n'applique jamais deux fois de la même façon si on la laisse à l'appelant.
- * En deçà de la borne — le cas courant — la donnée part TELLE QUELLE : un
- * consommateur qui la parse n'a rien à changer, et on ne paie pas la garde sur
- * 100 % des appels pour 1 % de gros sujets.
- *
- * @param value - donnée à rendre (sérialisée si ce n'est pas déjà du texte)
- * @param isError - marque un échec MÉTIER (pas une faute de protocole)
- */
-export function mcpText(value: unknown, isError = false): IMcpToolResult {
-  const rendered =
-    typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  // Un message d'erreur est déjà rédigé, et court : le résumer n'apporterait
-  // rien et pourrait effacer la seule phrase que l'agent doit lire.
-  const text =
-    isError || rendered.length <= MCP_TEXT_MAX_CHARS
-      ? rendered
-      : summarize(value, rendered.length);
-  return isError
-    ? { content: [{ type: "text", text: text }], isError: true }
-    : { content: [{ type: "text", text: text }] };
-}
 
 /**
  * Marge laissée au corps d'un refus. Un producteur qui explique pourquoi il
@@ -513,8 +325,11 @@ export interface IMcpToolDeps {
   projectRoot: string;
 }
 
-/** Préfixe des noms d'outils intégrés — un agent voit à qui il parle. */
-const PREFIX = "nodefony_";
+/**
+ * Préfixe des noms d'outils du framework — un agent voit à qui il parle. Sa
+ * réserve aux modules `@nodefony/*` vit dans `@nodefony/ai`, à la collecte.
+ */
+const PREFIX = MCP_RESERVED_PREFIX;
 
 /**
  * Ce que promettent les sept outils intégrés : ils ne font que LIRE l'état de
@@ -525,17 +340,6 @@ const READ_ONLY_CLOSED: IMcpToolAnnotations = Object.freeze({
   readOnlyHint: true,
   openWorldHint: false,
 });
-
-/**
- * Forme admise pour un nom d'outil.
- *
- * Ce nom ne reste pas dans le serveur : il voyage jusque dans le contexte du
- * modèle, et sert d'identifiant d'appel. Un nom porteur d'espace, de guillemet
- * ou de saut de ligne ne provoque pas d'erreur — il produit des appels que rien
- * ne résout, ce qui est bien pire à diagnostiquer. La borne haute est du même
- * ordre : un nom de 4 000 caractères passerait, et mangerait le contexte.
- */
-const NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /**
  * Clés des outils intégrés — ce que l'allowlist de configuration nomme.
@@ -574,7 +378,7 @@ function subjectLines(): string {
  * Catalogue intégré du framework, indexé par clé d'allowlist.
  *
  * Chaque handler capture ses dépendances par fermeture : c'est ce qui permet à
- * ces quatre outils d'être des {@link IMcpTool} ordinaires, du même type que
+ * ces outils d'être des {@link IMcpTool} ordinaires, du même type que
  * ceux d'une application — le serveur n'a plus aucun cas particulier à traiter.
  *
  * @param deps - briques qui répondent réellement
@@ -1065,83 +869,6 @@ export function builtinMcpTools(
 }
 
 /**
- * Ce qu'il faut pour ÉNUMÉRER les déclarations d'outils d'une application.
- *
- * Distinct de {@link IMcpCollectOptions}, qui ajoute l'appelant : énumérer est
- * une question sur le CODE (« que déclare cette application ? »), collecter est
- * une question sur une REQUÊTE (« que sert-on à celui-ci ? »). Le document de
- * ressource protégée, servi sans contexte d'appelant, ne peut poser que la
- * première.
- */
-export interface IMcpDeclareOptions {
-  /**
-   * Allowlist des outils INTÉGRÉS (clés courtes, cf
-   * {@link BUILTIN_MCP_TOOL_KEYS}).
-   *
-   * ⚠️ Elle ne porte QUE sur les intégrés. Un outil déclaré par un module est
-   * publié sans condition : exiger qu'il soit AUSSI nommé ici en ferait un
-   * outil accepté puis jeté — déclaré dans le code, absent de `tools/list`, et
-   * sans le moindre message pour l'expliquer.
-   */
-  builtins: readonly string[];
-  /** Dépendances des outils intégrés. */
-  deps: IMcpToolDeps;
-  /**
-   * Modules chargés (`kernel.modules`), dont on lit `getMcpTools()`.
-   *
-   * Typé large à dessein : le cœur ne peut pas dépendre de la forme concrète
-   * d'un module ici, et la lecture est de toute façon défensive.
-   */
-  modules?: Readonly<Record<string, unknown>> | undefined;
-  /**
-   * Appelé pour chaque déclaration ÉCARTÉE, avec le motif.
-   *
-   * Sans ce rappel, un outil mal nommé ou en collision disparaîtrait en
-   * silence, et son auteur chercherait la faute dans son handler — qui n'a
-   * jamais été appelé.
-   */
-  onSkip?: ((why: string) => void) | undefined;
-}
-
-/** Ce qu'il faut pour ramasser les outils SERVIS à un appelant. */
-export interface IMcpCollectOptions extends IMcpDeclareOptions {
-  /**
-   * Ce que la porte a ÉTABLI de l'appelant. Absent = anonyme.
-   *
-   * Une porte sans authentification n'a rien à passer, et c'est le cas sûr :
-   * l'anonyme par défaut RETIENT tout outil qui exige quoi que ce soit.
-   */
-  caller?: IMcpCaller | undefined;
-  /**
-   * Appelé pour chaque outil RETENU faute d'autorisation.
-   *
-   * Distinct d'{@link IMcpCollectOptions.onSkip}, et la distinction n'est pas
-   * cosmétique : un `onSkip` dénonce une FAUTE de l'auteur (nom hors forme,
-   * handler absent) et mérite un avertissement ; une rétention est le
-   * fonctionnement NORMAL d'un catalogue filtré, et crier à chaque requête pour
-   * chaque outil protégé noierait le journal. Le rappel existe quand même,
-   * parce que sans lui un développeur qui déclare des scopes sur une porte non
-   * authentifiée chercherait son outil sans jamais comprendre.
-   */
-  onWithheld?: (name: string, why: string) => void;
-}
-
-/** Appelant anonyme — le défaut, et le seul défaut sûr. */
-const ANONYMOUS: IMcpCaller = {
-  authenticated: false,
-  scopes: [],
-  // Aucun rôle : un appelant dont personne n'a rien dit n'obtient rien. La
-  // porte qui décide autrement — parce qu'elle n'est pas protégée et qu'elle
-  // l'assume — pose les rôles elle-même.
-  roles: [],
-};
-
-/**
- * L'appelant satisfait-il ce que l'outil exige ?
- *
- * @returns `null` s'il passe, sinon le motif de la rétention
- */
-/**
  * Présente un appelant MCP au plan d'administration.
  *
  * Aucune décision ici : les rôles ont été posés par la porte, qui seule sait si
@@ -1164,311 +891,46 @@ function adminCallerFromMcp(caller: IMcpCaller): IAdminCaller {
   };
 }
 
-function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
-  const needsScopes = tool.scopes !== undefined && tool.scopes.length > 0;
-  if (!needsScopes && tool.requiresAuth !== true) {
-    return null;
-  }
-  if (!caller.authenticated) {
-    // ⭐ On retient sur ce que l'appelant PEUT, pas sur la façon dont il l'a
-    // prouvé. Une porte NON protégée n'a personne à authentifier et pose
-    // pourtant des rôles — ceux de l'opérateur, dont la protection est son
-    // PÉRIMÈTRE (`mcpCallerRoles`). Exiger de lui une identité prouvée cachait
-    // un outil pendant qu'un autre, moins restrictif, lui rendait déjà les
-    // mêmes données par le même chemin : une porte plus stricte en apparence,
-    // et un décor en pratique. Le seul test qui vaille est donc « porte-t-il
-    // déjà ce que ces scopes ouvriraient ? » — non pour un anonyme d'une porte
-    // protégée (`roles: []`), oui pour l'opérateur local.
-    const opened = needsScopes
-      ? rolesFromScopes(tool.scopes as readonly string[])
-      : [];
-    if (
-      opened.length > 0 &&
-      opened.every((role) => caller.roles.includes(role))
-    ) {
-      return null;
-    }
-    return "exige une identité prouvée, l'appelant est anonyme";
-  }
-  if (!needsScopes) {
-    return null;
-  }
-  // TOUS les scopes, pas au moins un : « lire » n'autorise pas « écrire »
-  // parce qu'ils sont demandés ensemble.
-  const missing = (tool.scopes as readonly string[]).filter(
-    (scope) => !caller.scopes.includes(scope),
-  );
-  return missing.length === 0
-    ? null
-    : `scopes manquants : ${missing.join(", ")}`;
-}
-
 /**
- * Énumère ce que cette application DÉCLARE : les intégrés autorisés, puis les
- * outils des modules — sans rien retenir sur l'identité de qui que ce soit.
+ * Les outils du catalogue que l'allowlist de configuration retient.
  *
- * Trois refus, tous énoncés par `onSkip` plutôt que silencieux :
- *  - **nom hors forme** ({@link NAME_PATTERN}) — il ne serait pas appelable ;
- *  - **collision** — le premier inscrit garde le nom, les intégrés passant en
- *    tête ; un module ne peut donc pas se substituer à `nodefony_inspect` et
- *    répondre à sa place ;
- *  - **déclaration en échec** — un `getMcpTools()` qui lève ne doit pas priver
- *    l'agent des outils de tous les autres modules.
+ * C'est la forme sous laquelle `@nodefony/devkit` les déclare (`getMcpTools()`) :
+ * des {@link IMcpTool} ordinaires, collectés par `@nodefony/ai` comme ceux de
+ * n'importe quel module — seul le préfixe `nodefony_`, réservé aux modules
+ * `@nodefony/*`, les distingue.
  *
- * 🔴 **Ce que rend cette fonction n'est PAS servable tel quel** : elle contient
- * les outils réservés. Toute porte passe par {@link collectMcpTools}, qui filtre
- * sur l'appelant. Le seul usage légitime de la liste brute est de raisonner sur
- * le CODE — ce que la porte EXIGE ({@link mcpDeclaredScopes}) — jamais de
- * répondre à une requête.
- *
- * @param options - allowlist, dépendances, modules et journal des écarts
- * @returns les outils déclarés, dans l'ordre où ils seraient publiés
+ * @param allowlist - clés courtes retenues (cf {@link BUILTIN_MCP_TOOL_KEYS})
+ * @param deps - briques qui répondent réellement
+ * @returns les outils retenus, dans l'ordre de l'allowlist
  */
-export function declareMcpTools(options: IMcpDeclareOptions): IMcpTool[] {
-  const declared: IMcpTool[] = [];
-  const seen = new Set<string>();
-
-  // Un module peut être écrit en JavaScript : rien ne garantit la forme reçue.
-  const add = (tool: IMcpTool | null | undefined, origin: string): void => {
-    if (typeof tool?.name !== "string" || !NAME_PATTERN.test(tool.name)) {
-      options.onSkip?.(
-        `outil écarté (${origin}) : nom absent ou hors forme — attendu ${NAME_PATTERN.source}`,
-      );
-      return;
-    }
-    if (typeof tool.handler !== "function") {
-      options.onSkip?.(
-        `outil « ${tool.name} » écarté (${origin}) : sans handler`,
-      );
-      return;
-    }
-    if (seen.has(tool.name)) {
-      options.onSkip?.(
-        `outil « ${tool.name} » écarté (${origin}) : ce nom est déjà pris`,
-      );
-      return;
-    }
-    // Le nom est RÉSERVÉ même quand l'outil sera retenu à la collecte : sans
-    // cela, un module pourrait publier un homonyme public d'un outil protégé
-    // qu'il ne voit pas, et l'agent croirait appeler celui qu'il a lu dans la
-    // documentation. C'est pourquoi la réservation vit ICI, avant tout filtre.
-    seen.add(tool.name);
-    declared.push(tool);
-  };
-
-  // Les intégrés d'abord : ils gagnent toute collision, donc aucun module ne
-  // peut prendre la place de `nodefony_inspect` et répondre à sa place.
-  const builtin = builtinMcpTools(options.deps);
-  for (const key of options.builtins) {
+export function selectBuiltinMcpTools(
+  allowlist: readonly string[],
+  deps: IMcpToolDeps,
+): IMcpTool[] {
+  const builtin = builtinMcpTools(deps);
+  const selected: IMcpTool[] = [];
+  for (const key of allowlist) {
     // `Object.hasOwn` n'est pas une précaution de style : sans lui,
     // `tools: ["toString"]` résolvait une méthode héritée d'`Object.prototype`,
     // la valeur n'étant pas `undefined` elle franchissait le filtre, et un
     // outil fantôme entrait dans le catalogue publié.
-    if (Object.hasOwn(builtin, key)) {
-      add(builtin[key as BuiltinMcpToolKey], "intégré");
+    if (isBuiltinKey(builtin, key)) {
+      selected.push(builtin[key]);
     }
   }
-
-  for (const [name, module] of Object.entries(options.modules ?? {})) {
-    const declare = (module as { getMcpTools?: unknown } | null)?.getMcpTools;
-    if (typeof declare !== "function") continue;
-    let tools: unknown;
-    try {
-      tools = (declare as () => unknown).call(module);
-    } catch (error) {
-      options.onSkip?.(
-        `module « ${name} » : getMcpTools() a échoué — ${(error as Error).message}`,
-      );
-      continue;
-    }
-    if (!Array.isArray(tools)) {
-      options.onSkip?.(
-        `module « ${name} » : getMcpTools() doit rendre un tableau`,
-      );
-      continue;
-    }
-    for (const tool of tools) {
-      add(tool as IMcpTool, `module ${name}`);
-    }
-  }
-
-  return declared;
+  return selected;
 }
 
 /**
- * Ramasse les outils SERVIS à cet appelant.
+ * La clé désigne-t-elle un outil du catalogue — en PROPRE, jamais par héritage ?
  *
- * Aux trois refus de {@link declareMcpTools} s'ajoute une RÉTENTION, qui n'est
- * pas une faute : un outil dont l'appelant ne satisfait pas les exigences
- * ({@link IMcpTool.scopes}, {@link IMcpTool.requiresAuth}) ne sort pas d'ici.
- * ⭐ **Filtrer À LA COLLECTE protège `tools/list` ET `tools/call` d'un seul
- * geste** : le protocole ne reçoit que les outils servis, donc un outil retenu
- * est « inconnu » pour lui — indistinguable d'un outil inexistant, ce qui ne
- * révèle même pas son existence. Filtrer la liste sans filtrer l'appel n'aurait
- * été qu'un rideau, et c'est l'erreur classique : deux points de décision, dont
- * un qu'on oublie.
- *
- * @param options - allowlist, dépendances, modules, appelant et journaux
- * @returns les outils exécutables, dans l'ordre où ils seront publiés
+ * @param catalog - le catalogue construit
+ * @param key - clé lue dans la configuration
+ * @returns `true` si `catalog` porte cette clé en propre
  */
-export function collectMcpTools(options: IMcpCollectOptions): IMcpTool[] {
-  const caller = options.caller ?? ANONYMOUS;
-  const served: IMcpTool[] = [];
-  for (const tool of declareMcpTools(options)) {
-    const withheld = withholdReason(tool, caller);
-    if (withheld !== null) {
-      options.onWithheld?.(tool.name, withheld);
-      continue;
-    }
-    served.push(tool);
-  }
-  return served;
-}
-
-/**
- * Le vocabulaire de scopes que cette porte EXIGE — l'union de ce que ses outils
- * déclarent, jamais une liste écrite à côté.
- *
- * 🔴 **C'est ce qu'un client doit demander**, et c'est à ce titre qu'il est
- * publié (RFC 9728 `scopes_supported`) et nommé dans le défi (RFC 6750
- * `scope`). Une liste de configuration disait autre chose que le code par
- * simple oubli, dans les deux sens et sans qu'aucun contrôle ne l'aperçoive :
- * un scope publié que rien n'exige envoie demander un droit qui n'ouvre rien ;
- * un scope exigé que rien ne publie laisse le client deviner ce qu'on attend de
- * lui — et un outil de module en était systématiquement là.
- *
- * L'énumération est délibérément celle des outils DÉCLARÉS, pas de ceux servis
- * à un appelant : le document se lit avant d'avoir un jeton, et un catalogue
- * filtré n'annoncerait à l'anonyme que ce dont il n'a pas besoin.
- *
- * @param options - allowlist, dépendances, modules et journal des écarts
- * @returns les scopes, dédupliqués et triés ; vide si la porte n'exige rien
- */
-export function mcpDeclaredScopes(options: IMcpDeclareOptions): string[] {
-  const vocabulaire = new Set<string>();
-  for (const tool of declareMcpTools(options)) {
-    for (const scope of tool.scopes ?? []) vocabulaire.add(scope);
-  }
-  // Trié : le document est comparé d'une exécution à l'autre (tests, revue), et
-  // l'ordre d'un `Set` suit celui de la déclaration — donc il change dès qu'un
-  // module s'ajoute, pour un contenu identique.
-  return [...vocabulaire].sort();
-}
-
-/**
- * Projette les outils pour `tools/list` — sans leur implémentation.
- *
- * Le `handler` est une fermeture sur l'état du serveur ; `JSON.stringify` le
- * laisserait tomber en silence, mais compter là-dessus reviendrait à publier
- * par accident ce qu'on ne publie pas exprès.
- */
-export function publishMcpTools(
-  tools: readonly IMcpTool[],
-): IMcpToolDefinition[] {
-  return tools.map(({ name, description, inputSchema, annotations }) =>
-    // Absent → le champ n'est pas émis : les défauts de la spec s'appliquent,
-    // on n'invente aucune promesse au nom de l'auteur de l'outil.
-    annotations === undefined
-      ? { name, description, inputSchema }
-      : { name, description, inputSchema, annotations },
-  );
-}
-
-/**
- * Exécute un outil par son nom public.
- *
- * Un échec métier (sujet inconnu, module absent) rend un résultat `isError`,
- * **pas** une erreur JSON-RPC : le protocole réserve celle-ci aux fautes de
- * protocole. La distinction compte pour l'agent — une erreur de protocole
- * signifie « tu t'y prends mal », un `isError` signifie « ta demande est
- * recevable, voici pourquoi elle n'aboutit pas » ; c'est la seconde qu'il peut
- * corriger seul.
- *
- * ⭐ **Aucun contrôle d'autorisation ici, et c'est voulu** : `tools` ne contient
- * que ce que {@link collectMcpTools} a servi à CET appelant. Refaire la
- * vérification à ce niveau créerait un second point de décision — deux copies
- * d'une même règle, qui divergent en silence. Le corollaire tient en une
- * phrase : **ne jamais passer ici une liste non filtrée.**
- *
- * @param name - nom public de l'outil (`nodefony_inspect`…)
- * @param args - arguments fournis par l'agent
- * @param tools - outils servis, tels que {@link collectMcpTools} les a ramassés
- * @param caller - appelant établi, transmis au handler (anonyme par défaut)
- * @param run - annulation et progression de CET appel (détaché par défaut)
- * @returns le résultat de l'outil, ou `null` si le nom n'est pas exposé
- */
-export async function callMcpTool(
-  name: string,
-  args: Record<string, unknown>,
-  tools: readonly IMcpTool[],
-  caller: IMcpCaller = ANONYMOUS,
-  run: IMcpToolRun = DETACHED_RUN,
-): Promise<IMcpToolResult | null> {
-  const tool = tools.find((candidate) => candidate.name === name);
-  if (!tool) {
-    return null;
-  }
-  const refusal = unknownArguments(tool, args);
-  if (refusal !== null) {
-    return mcpText(refusal, true);
-  }
-  return tool.handler(args, caller, run);
-}
-
-/**
- * L'exécution d'un appel SANS porte qui l'observe (appel direct, test) : jamais
- * annulé, progression muette. Partagé — un signal jamais abattu ne retient rien.
- */
-const DETACHED_RUN: IMcpToolRun = {
-  signal: new AbortController().signal,
-  progress: () => {},
-};
-
-/**
- * Arguments que l'outil ne déclare pas — refusés, jamais ignorés.
- *
- * ⚠️ Un paramètre accepté puis jeté est pire qu'un refus : la réponse a l'air
- * d'avoir honoré la demande. Vécu sur cette porte — un `limit` passé à la
- * recherche documentaire revenait avec vingt résultats, sans un mot, et
- * l'appelant en concluait que la borne ne marchait pas plutôt que de voir
- * qu'elle n'avait jamais été transmise. Le même silence accueillait une clé
- * mal orthographiée : l'outil répondait comme si de rien n'était.
- *
- * La garde vit ICI, une fois, plutôt que dans chaque handler — et elle
- * s'applique donc aussi aux outils qu'une application déclare. Un outil qui
- * veut réellement des arguments libres l'écrit dans son schéma
- * (`additionalProperties: true`), ce qui en fait un choix relu, pas un défaut.
- *
- * @param tool - l'outil visé, avec son schéma d'entrée.
- * @param args - ce que l'agent a passé.
- * @returns le message de refus, ou `null` si tout est déclaré.
- */
-function unknownArguments(
-  tool: IMcpTool,
-  args: Record<string, unknown>,
-): string | null {
-  // `declareMcpTools` ne vérifie pas le schéma d'un outil de module, qui peut
-  // venir de JavaScript : il peut manquer.
-  const schema = tool.inputSchema as
-    | {
-        properties?: Record<string, unknown>;
-        additionalProperties?: unknown;
-      }
-    | undefined;
-  if (schema?.additionalProperties === true) return null;
-  const declared = schema?.properties;
-  // Pas de `properties` du tout = schéma non descriptif : on ne peut rien
-  // affirmer, et refuser sur une absence serait deviner.
-  if (!declared || typeof declared !== "object") return null;
-  const intruders = Object.keys(args).filter(
-    (key) => !Object.hasOwn(declared, key),
-  );
-  if (intruders.length === 0) return null;
-  const known = Object.keys(declared);
-  return (
-    `« ${tool.name} » ne connaît pas ${intruders.map((c) => `« ${c} »`).join(", ")}. ` +
-    (known.length > 0
-      ? `Arguments acceptés : ${known.join(", ")}.`
-      : "Cet outil ne prend aucun argument.")
-  );
+function isBuiltinKey(
+  catalog: Readonly<Record<BuiltinMcpToolKey, IMcpTool>>,
+  key: string,
+): key is BuiltinMcpToolKey {
+  return Object.hasOwn(catalog, key);
 }

@@ -19,6 +19,91 @@ La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche
 | `defineAiConfig`  | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot                                |
 | `AiError`         | `nodefony/src/errors/AiError.ts`        | erreurs typées du module                              |
 
+## Model Context Protocol (`nodefony/mcp/`) — le protocole et la collecte
+
+Tout est PUR : aucun socket, aucun conteneur, aucune horloge. Une porte (HTTP,
+stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
+`nodefony` uniquement (`jsonrpc`, `rolesFromScopes`, `ADMIN_DEFAULT_ROLE`, types
+`IMcpTool*`, ré-exportés ici). Le catalogue `nodefony_*` vit dans `@nodefony/devkit`
+(`nodefony/mcp/tools.ts`), déclaré par `DevkitModule.getMcpTools()`.
+
+<!-- prettier-ignore -->
+| Symbole | Fichier | Rôle |
+| --- | --- | --- |
+| `handleMcpMessage` | `nodefony/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue. STRICT : `classifyJsonRpcFrame` ≠ request/notification → `400`+`-32600` `id:null` ; `params` primitif → `-32600`, tableau → `-32602` ; `id` non entier → `-32600` (MCP : « string or integer ») ; une réponse postée → `400` |
+| `checkMcpAccess`/`isLocalAddress` | `nodefony/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
+| `declareMcpTools(opts)` | `nodefony/mcp/tools.ts` | `getMcpTools()` de chaque module, dans l'ordre de `kernel.modules`. Écarts → `onSkip` (nom hors forme, préfixe réservé, collision, déclaration qui lève). **Non servable tel quel** : contient les réservés |
+| `collectMcpTools(opts)` | `nodefony/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
+| `mcpDeclaredScopes(opts)` | `nodefony/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
+| `publishMcpTools`/`callMcpTool` | `nodefony/mcp/tools.ts` | projection sans `handler` / exécution par nom |
+| `mcpText` | `nodefony/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils. **BORNÉ** (voir ci-dessous) |
+| `IMcpTool` | cœur `types/IMcpTool.ts` (ré-exporté) | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()` |
+
+- **Collecte, PAS registre** — rien n'est alloué au boot, rien n'est mémorisé :
+  la liste se ramasse au moment de servir `tools/list`. Un registre serait
+  nécessaire s'il fallait MONTER quelque chose au boot (c'est le cas de
+  `IAdminRegistry`, qui crée des routes) ; un outil MCP ne monte rien.
+  Conséquences : coût nul en production, aucun ordre de `register()`, fraîcheur
+  gratuite.
+- 🔴 **Préfixe `nodefony_` RÉSERVÉ** (`MCP_RESERVED_PREFIX`) aux modules dont
+  `getModuleName()` commence par `@nodefony/` — jugé AVANT la réservation du nom.
+  Un module d'application ne peut donc pas répondre à la place de
+  `nodefony_inspect`, quel que soit l'ordre de chargement (qui suit le manifeste).
+  Absence de `getModuleName` = refus.
+- 🔴 **Un résultat est une RÉPONSE, pas un déversement** — `mcpText` borne à
+  `MCP_TEXT_MAX_CHARS` (32 000). Au-delà : un tableau rend son `count` EXACT puis
+  ses entrées en SURFACE (`surfaceOf` : scalaires courts gardés, objets/tableaux
+  imbriqués et longues chaînes jetés) ; un objet rend ses `keys`. **En deçà, la
+  donnée part TELLE QUELLE** — aucun consommateur à retoucher, et la garde n'est
+  pas payée sur le cas courant. Garder TOUTES les entrées en surface, jamais un
+  échantillon des N premières : une question portant sur la 100ᵉ recevrait
+  sinon une réponse fausse, sans moyen de le savoir. La garde vit dans `mcpText`
+  (pas dans chaque outil) → un outil d'application en hérite sans le savoir.
+  _Pourquoi_ : `inspect routes` rendait 47 138 caractères et l'agent, à qui on
+  demandait le NOMBRE de routes, recopiait la liste dans un script pour la
+  compter avant d'abandonner ; `inspect config` rendait 190 730 caractères,
+  au-delà de ce que le client accepte → déporté sur disque, vingt tours perdus.
+  L'outil était moins bon que la CLI qu'il expose (`renderHuman` affiche
+  « 119 routes » depuis toujours).
+- 🔴 **Outils RÉSERVÉS** : `IMcpTool.scopes` (TOUS exigés, `every` pas `some`) et
+  `requiresAuth`, filtrés par `collectMcpTools({caller})` — donc **au seul point
+  de collecte**, ce qui couvre `tools/list` ET `tools/call` : le protocole ne
+  reçoit que les outils servis, un outil retenu lui est « inconnu » (son
+  existence n'est pas révélée). Filtrer la liste sans filtrer l'appel = rideau.
+  Le nom d'un outil retenu reste RÉSERVÉ (sinon un homonyme public le double).
+  `caller` absent = `{authenticated:false, scopes:[]}` — **fail-closed**. Le
+  handler reçoit `(args, caller)` pour borner ce qu'il REND. Rétention →
+  `onWithheld` (DEBUG, c'est normal), distinct d'`onSkip` (WARNING, c'est une
+  faute d'auteur).
+  ⚠️ La porte du devkit câble un caller ANONYME (aucun jeton validé) : tout
+  outil à scopes y est invisible pour toujours. Conforme à la spec, qui autorise
+  le catalogue à varier « by the authorization presented on the request » mais
+  l'interdit « per-connection » — d'où la collecte par requête.
+  Ce qui manque pour l'activer = rôle _resource server_ (P6.9) : valider le
+  Bearer (`JwtAuthenticator` existe), publier RFC 9728, `401`+`WWW-Authenticate`
+  (RFC 6750), audience (RFC 8707). ⚠️ L'AS peut être TIERS — « beyond the scope
+  of this specification » ; croire qu'il fallait écrire un AS OAuth 2.1 complet
+  a servi de justification à l'écart, et c'était faux.
+- **Nom d'outil** : `^[a-zA-Z0-9_-]{1,64}$`. Il voyage dans le contexte du
+  modèle ; hors forme, il produit des appels que rien ne résout.
+- **Dual-ère assumé** : `initialize` (legacy) ET `server/discover` +
+  `params._meta` (moderne). En-tête ≠ `_meta` → `400`/`-32020` ; révision
+  inconnue dans `_meta`/en-tête → `400`/`-32022` **avec la liste servie**.
+  Notification → `202` SANS corps. Méthode inconnue → `404`/`-32601`.
+- 🔴 **`initialize` ÉCHOTE la révision du client** (`negotiateVersion`), il
+  n'annonce PAS la préférée. Annoncer `2026-07-28` à tout le monde rendait la
+  porte injoignable : `@modelcontextprotocol/sdk@1.30.0` porte
+  `LATEST = 2025-11-25` et raccroche sur toute réponse hors de sa liste
+  (`SUPPORTED = 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05, 2024-10-07`).
+  Client muet → `MCP_DEFAULT_NEGOTIATED_VERSION` (`2025-03-26`, ce que la spec
+  impose de supposer). Révision inconnue en `initialize` → notre préférée, au
+  client de raccrocher (pas un refus : `initialize` PROPOSE).
+  **`MCP_SUPPORTED_VERSIONS` est une PROMESSE** — un test exerce chacune.
+  ⚠️ Défaut trouvé par un VRAI client, jamais par la suite : conforme à la
+  dernière norme et injoignable par tout le monde.
+
+---
+
 ## Config
 
 - Surcharge par l'app : `use("@nodefony/ai", { … })` dans son `nodefony.config.ts`.

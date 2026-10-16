@@ -339,7 +339,7 @@ Module et du Service (une fois au démarrage, sous garde de boot). Deux cycles d
 vie, deux noms.
 
 **getMcpTools?(): IMcpTool[]** (optionnel, prototype) : outils que le module publie sur la porte MCP
-de l'application. **Lu à la demande** par `collectMcpTools` (cœur, `src/mcp/tools.ts`) quand une
+de l'application. **Lu à la demande** par `collectMcpTools` (`@nodefony/ai`, `nodefony/mcp/tools.ts`) quand une
 requête `tools/list`/`tools/call` arrive — jamais au boot, rien n'est enregistré. Pas
 d'implémentation par défaut sur `Module` : une méthode rendant `[]` coûterait un appel par module et
 par requête. Handlers = fermetures sur `this`. Écart (nom hors `^[a-zA-Z0-9_-]{1,64}$`, nom déjà
@@ -485,7 +485,7 @@ Aucun transport, aucun conteneur. Les appelants ne diffèrent que par la RÉSOLU
 
 - `AdminApiController.runAdmin` (framework) résout par **nom de route** (Router) puis délègue.
 - `callAdminEndpoint` (`inspect/adminSubjects.ts`) résout par **namespace + chemin** puis délègue.
-  Consommateurs : commande `inspect`, serveur MCP (`src/mcp/tools.ts`).
+  Consommateurs : commande `inspect`, catalogue MCP (`@nodefony/devkit`, `nodefony/mcp/tools.ts`).
 - `INSPECT_SUBJECTS` (`inspect/adminSubjects.ts`) = **source unique** des sujets : la commande, le
   serveur MCP (`enum` + description dérivés) et le menu de démarrage la lisent, aucun n'en tient
   copie. Trois champs facultatifs par sujet : `param` (segment de chemin OBLIGATOIRE — absent ⇒
@@ -516,7 +516,7 @@ Règles :
   OBTENIR (appliqué à l'émission par `TokenService.#grantableScopes`). Porter le rôle ne suffit pas
   à avoir le scope, porter le scope ne suffit pas à avoir le rôle. Session cookie = pas de
   délégation = rôles seuls (Studio inchangé).
-- `mcpCallerRoles` (`src/mcp/caller.ts`) : la règle unique de toute porte MCP — non protégée →
+- `mcpCallerRoles` (`@nodefony/ai`, `nodefony/mcp/caller.ts`) : la règle unique de toute porte MCP — non protégée →
   opérateur (son périmètre EST sa protection) · protégée + jeton → ses scopes · protégée + anonyme
   toléré → rien. Toute porte future (module d'agents) l'appelle au lieu de la réécrire.
 - `forbidden` est une raison DISTINCTE de `not-found` : confondre « pas le droit » et « n'existe

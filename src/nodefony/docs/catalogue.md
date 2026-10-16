@@ -129,6 +129,14 @@ deux hubs temps réel qui ne se parlent pas.
 
 `@nodefony/devkit` se déclare `policy: "dev"` : hors développement, il n'est même pas importé.
 
+## Intelligence artificielle
+
+| Paquet         | Prends-le quand…                                                                                                                                      | Ne le prends pas si…                 |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `@nodefony/ai` | tes modules exposent des outils à un agent (`getMcpTools()`, `mcpText`), ou tu écris toi-même une porte MCP : protocole, collecte et appel des outils | aucun agent ne parle à l'application |
+
+`@nodefony/devkit` tire `@nodefony/ai` : ses outils `nodefony_*` sont déclarés comme ceux de n'importe quel module.
+
 ## 🗂️ La documentation de chaque module
 
 Une fois le module choisi, sa documentation est **installée avec lui** — lis ciblé, jamais tout le

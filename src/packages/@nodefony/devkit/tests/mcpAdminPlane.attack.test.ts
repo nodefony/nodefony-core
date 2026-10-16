@@ -1,15 +1,40 @@
 /// <reference types="node" />
 import path from "node:path";
 import { describe, it, expect } from "vitest";
-import { adminReadCatalog } from "../kernel/adminPlane/catalog";
-import { ADMIN_DEFAULT_ROLE } from "../kernel/adminPlane/adminRbac";
 import {
+  adminReadCatalog,
+  ADMIN_DEFAULT_ROLE,
   ADMIN_SCOPE_READ,
   ADMIN_SCOPE_WRITE,
-} from "../kernel/adminPlane/adminCaller";
-import { builtinMcpTools, collectMcpTools, callMcpTool } from "../mcp/tools";
-import type { IAdminApi } from "../types/IAdminApi";
-import type { IMcpCaller, IMcpToolResult } from "../types/IMcpTool";
+  type IAdminApi,
+  type IMcpCaller,
+  type IMcpToolResult,
+} from "nodefony";
+import {
+  builtinMcpTools,
+  selectBuiltinMcpTools,
+  type IMcpToolDeps,
+} from "../nodefony/mcp/tools";
+import { collectMcpTools, callMcpTool } from "@nodefony/ai";
+
+/**
+ * Le module devkit tel que la collecte le voit : nommé `@nodefony/*` (seul
+ * détenteur du préfixe `nodefony_`), et déclarant le catalogue retenu par
+ * l'allowlist — inscrit en TÊTE, comme au boot de l'application.
+ */
+function withFramework(
+  allowlist: readonly string[],
+  toolDeps: IMcpToolDeps,
+  modules: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    devkit: {
+      getModuleName: () => "@nodefony/devkit",
+      getMcpTools: () => selectBuiltinMcpTools(allowlist, toolDeps),
+    },
+    ...modules,
+  };
+}
 
 /**
  * RED-TEAM — la porte MCP du plan d'administration.
@@ -131,8 +156,7 @@ describe("RED-TEAM — pont `tools/list` → `tools/call`", () => {
 
   it("CONTRÔLE POSITIF — le porteur légitime obtient les deux outils et une donnée", async () => {
     const tools = collectMcpTools({
-      builtins: ["admin_list", "admin_call"],
-      deps,
+      modules: withFramework(["admin_list", "admin_call"], deps),
       caller: porteur([ADMIN_SCOPE_READ]),
     });
     expect(tools.map((t) => t.name)).toEqual([
@@ -154,8 +178,7 @@ describe("RED-TEAM — pont `tools/list` → `tools/call`", () => {
     // L'attaque classique du catalogue filtré : la liste cache l'outil, mais
     // l'exécution accepte encore son nom. Ici la collecte gouverne les DEUX.
     const tools = collectMcpTools({
-      builtins: ["admin_list", "admin_call"],
-      deps,
+      modules: withFramework(["admin_list", "admin_call"], deps),
       caller: porteur([]),
     });
     expect(tools).toHaveLength(0);
@@ -174,8 +197,7 @@ describe("RED-TEAM — pont `tools/list` → `tools/call`", () => {
     // `admin:read`, et la vérification est « TOUS les scopes », pas « au moins
     // un ».
     const tools = collectMcpTools({
-      builtins: ["admin_list", "admin_call"],
-      deps,
+      modules: withFramework(["admin_list", "admin_call"], deps),
       caller: porteur([ADMIN_SCOPE_WRITE]),
     });
     expect(tools).toHaveLength(0);
@@ -476,8 +498,7 @@ describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () =
       roles: [ADMIN_DEFAULT_ROLE],
     };
     const noms = collectMcpTools({
-      builtins: ["inspect", "admin_list", "admin_call"],
-      deps,
+      modules: withFramework(["inspect", "admin_list", "admin_call"], deps),
       caller: operateur,
     }).map((tool) => tool.name);
     expect(noms).toContain("nodefony_inspect");
@@ -497,8 +518,7 @@ describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () =
     };
     expect(
       collectMcpTools({
-        builtins: ["admin_list", "admin_call"],
-        deps,
+        modules: withFramework(["admin_list", "admin_call"], deps),
         caller: anonyme,
       }),
     ).toHaveLength(0);
@@ -507,10 +527,9 @@ describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () =
   it("les instructions NOMMENT les outils servis, sans en réciter aucun", async () => {
     // Une énumération écrite à la main avait tu `docs` deux sessions après sa
     // livraison. Ce qui est annoncé se DÉRIVE de ce qui est servi.
-    const { handleMcpMessage } = await import("../mcp/server");
+    const { handleMcpMessage } = await import("@nodefony/ai");
     const tools = collectMcpTools({
-      builtins: ["card", "docs", "admin_list"],
-      deps,
+      modules: withFramework(["card", "docs", "admin_list"], deps),
       caller: { authenticated: true, scopes: [ADMIN_SCOPE_READ], roles: [] },
     });
     const reply = await handleMcpMessage(
@@ -526,7 +545,7 @@ describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () =
   });
 
   it("des outils RETENUS annoncent le geste — les scopes, pas un contournement", async () => {
-    const { handleMcpMessage } = await import("../mcp/server");
+    const { handleMcpMessage } = await import("@nodefony/ai");
     const reply = await handleMcpMessage(
       { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
       {
@@ -560,8 +579,7 @@ describe("CONTRAT D'ENTRÉE — un argument inconnu est REFUSÉ, jamais avalé",
     // cassée, plutôt que de voir qu'elle n'avait jamais été transmise. Une
     // réponse qui a l'air d'avoir obéi est pire qu'un refus.
     const tools = collectMcpTools({
-      builtins: ["admin_list", "admin_call"],
-      deps,
+      modules: withFramework(["admin_list", "admin_call"], deps),
       caller: admin,
     });
     const reply = await callMcpTool(
@@ -578,8 +596,7 @@ describe("CONTRAT D'ENTRÉE — un argument inconnu est REFUSÉ, jamais avalé",
 
   it("un argument DÉCLARÉ passe — la garde ne referme pas la porte", async () => {
     const tools = collectMcpTools({
-      builtins: ["admin_list"],
-      deps,
+      modules: withFramework(["admin_list"], deps),
       caller: admin,
     });
     const reply = await callMcpTool(

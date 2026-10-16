@@ -5,13 +5,14 @@ import {
   Nodefony,
   extend,
   injectable,
-  mcpDeclaredScopes,
 } from "nodefony";
 import type {
   IAdminBrokerLike,
-  IMcpToolDeps,
+  IMcpTool,
   IProtectedResourceInput,
 } from "nodefony";
+import { mcpDeclaredScopes } from "@nodefony/ai";
+import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type IDevkitConfig } from "../config/config";
@@ -173,6 +174,19 @@ class DevkitService extends Service implements IDevkitService {
   }
 
   /**
+   * Les outils `nodefony_*` retenus par l'allowlist `mcp.tools`.
+   *
+   * Recomposés à chaque appel, jamais mémorisés : la collecte a lieu à la
+   * requête MCP, sur une porte qui n'existe qu'en développement — un cache
+   * serait une structure de plus à invalider pour un gain nul.
+   *
+   * @returns les outils, dans l'ordre de l'allowlist
+   */
+  mcpTools(): IMcpTool[] {
+    return selectBuiltinMcpTools(this.cfg.mcp.tools, this.mcpToolDeps());
+  }
+
+  /**
    * Les scopes que la porte MCP EXIGE — dérivés des outils qu'elle déclare.
    *
    * 🔴 **Aucune liste de configuration ne double celle-ci**, et c'est la
@@ -188,11 +202,7 @@ class DevkitService extends Service implements IDevkitService {
    * @returns les scopes dédupliqués et triés
    */
   declaredMcpScopes(): readonly string[] {
-    return mcpDeclaredScopes({
-      builtins: this.cfg.mcp.tools,
-      deps: this.mcpToolDeps(),
-      modules: this.module.kernel?.modules,
-    });
+    return mcpDeclaredScopes({ modules: this.module.kernel?.modules });
   }
 
   /**

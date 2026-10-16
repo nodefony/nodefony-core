@@ -1,10 +1,31 @@
 import { describe, it, expect } from "vitest";
 import {
   builtinMcpTools,
-  collectMcpTools,
   BUILTIN_MCP_TOOL_KEYS,
-} from "nodefony";
+  selectBuiltinMcpTools,
+  type IMcpToolDeps,
+} from "../nodefony/mcp/tools";
+import { collectMcpTools } from "@nodefony/ai";
 import { defineDevkitConfig } from "../nodefony/config/defineModuleConfig";
+
+/**
+ * Le module devkit tel que la collecte le voit : nommé `@nodefony/*` (seul
+ * détenteur du préfixe `nodefony_`), et déclarant le catalogue retenu par
+ * l'allowlist — inscrit en TÊTE, comme au boot de l'application.
+ */
+function withFramework(
+  allowlist: readonly string[],
+  toolDeps: IMcpToolDeps,
+  modules: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    devkit: {
+      getModuleName: () => "@nodefony/devkit",
+      getMcpTools: () => selectBuiltinMcpTools(allowlist, toolDeps),
+    },
+    ...modules,
+  };
+}
 
 /**
  * Ce que cette suite prouve, et ce qu'elle NE prouve plus.
@@ -72,7 +93,10 @@ describe("devkit — la configuration du serveur MCP", () => {
       ],
     };
     expect(
-      collectMcpTools({ builtins: defaults.tools, deps, caller: toutPermis }),
+      collectMcpTools({
+        modules: withFramework(defaults.tools, deps),
+        caller: toutPermis,
+      }),
     ).toHaveLength(defaults.tools.length);
   });
 
@@ -86,9 +110,9 @@ describe("devkit — la configuration du serveur MCP", () => {
       (tool) => tool.requiresAuth === true || (tool.scopes?.length ?? 0) > 0,
     );
     expect(proteges.length).toBeGreaterThan(0);
-    const anonyme = collectMcpTools({ builtins: defaults.tools, deps }).map(
-      (tool) => tool.name,
-    );
+    const anonyme = collectMcpTools({
+      modules: withFramework(defaults.tools, deps),
+    }).map((tool) => tool.name);
     for (const tool of proteges) {
       expect(anonyme, `« ${tool.name} » ne doit rien révéler`).not.toContain(
         tool.name,

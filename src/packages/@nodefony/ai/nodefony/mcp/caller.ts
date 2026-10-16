@@ -1,5 +1,4 @@
-import { ADMIN_DEFAULT_ROLE } from "../kernel/adminPlane/adminRbac";
-import { rolesFromScopes } from "../kernel/adminPlane/adminCaller";
+import { ADMIN_DEFAULT_ROLE, rolesFromScopes } from "nodefony";
 
 /**
  * Ce qu'une porte MCP sait d'elle-même et de son appelant, au moment de dire

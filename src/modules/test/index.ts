@@ -3,10 +3,10 @@ import {
   Module,
   services,
   registerLogDriver,
-  mcpText,
   overlayConfig,
 } from "nodefony";
 import type { IAdminRegistry, IMcpTool } from "nodefony";
+import { mcpText } from "@nodefony/ai";
 import type { HttpKernel } from "@nodefony/http";
 // P6.8 — banc d'idempotence des mutations socket (mutation admin à compteur).
 import { createTestAdminApi } from "./nodefony/admin/TestAdminApi";

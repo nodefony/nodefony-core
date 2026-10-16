@@ -1,10 +1,12 @@
 import { Kernel, Module, services } from "nodefony";
+import type { IMcpTool } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config, { type IDevkitConfigInput } from "./nodefony/config/config";
 import { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 import DevkitService from "./nodefony/service/DevkitService";
 import DevkitController from "./nodefony/controllers/DevkitController";
 import McpController from "./nodefony/controllers/McpController";
+import type { IDevkitService } from "./nodefony/interfaces/IDevkitService";
 /**
  * @nodefony/devkit — Outillage de developpement d une application Nodefony : carte de visite et portes de decouverte pour un agent
  *
@@ -59,17 +61,38 @@ class DevkitModule extends Module {
     this.options = defineDevkitConfig(input ?? {});
     return this;
   }
+
+  /**
+   * Déclare les outils `nodefony_*` — comme n'importe quel module.
+   *
+   * Aucun cas particulier côté collecte : `@nodefony/ai` les ramasse avec ceux
+   * de l'application, et seul le préfixe `nodefony_`, réservé aux modules
+   * `@nodefony/*`, les distingue. Un service absent (module en cours de
+   * démontage) ne déclare rien plutôt que de lever.
+   *
+   * @returns les outils retenus par l'allowlist `mcp.tools`
+   */
+  override getMcpTools(): IMcpTool[] {
+    return this.get<IDevkitService>("devkit")?.mcpTools() ?? [];
+  }
 }
 
 export default DevkitModule;
 export { DevkitService, DevkitController, McpController };
 
-// Serveur MCP — ce module n'expose QUE la porte (`McpController`, ci-dessus).
-// Le protocole, les gardes, le catalogue intégré et la collecte des outils
-// vivent au cœur et s'importent de `nodefony` : `handleMcpMessage`,
-// `checkMcpAccess`, `collectMcpTools`, `mcpText`, `IMcpTool`. Les republier ici
-// donnerait deux surfaces pour une même brique — et le jour où l'une bougerait,
-// l'autre continuerait de passer ses tests.
+// Serveur MCP — ce module expose la porte (`McpController`, ci-dessus) et le
+// catalogue `nodefony_*`. Le protocole, les gardes et la collecte des outils
+// vivent dans `@nodefony/ai` et s'importent de là : `handleMcpMessage`,
+// `checkMcpAccess`, `collectMcpTools`, `mcpText`. Les republier ici donnerait
+// deux surfaces pour une même brique — et le jour où l'une bougerait, l'autre
+// continuerait de passer ses tests.
+export {
+  builtinMcpTools,
+  selectBuiltinMcpTools,
+  BUILTIN_MCP_TOOL_KEYS,
+  type BuiltinMcpToolKey,
+  type IMcpToolDeps,
+} from "./nodefony/mcp/tools";
 
 // Brique PURE, réutilisable par une autre porte (CLI, presse-papier, MCP) : la
 // carte se compose à partir d'un état injecté, pas d'un Kernel. « Une source,

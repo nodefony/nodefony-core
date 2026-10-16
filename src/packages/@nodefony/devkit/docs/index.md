@@ -203,7 +203,8 @@ métier — et c'est précisément ce qu'un agent invente le plus mal. N'importe
 module de votre application peut donc en publier :
 
 ```ts
-import { Module, mcpText, type IMcpTool } from "nodefony";
+import { Module, type IMcpTool } from "nodefony";
+import { mcpText } from "@nodefony/ai";
 
 class Shop extends Module {
   getMcpTools(): IMcpTool[] {

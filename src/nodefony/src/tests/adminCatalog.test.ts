@@ -8,7 +8,6 @@ import {
 import { ADMIN_DEFAULT_ROLE } from "../kernel/adminPlane/adminRbac";
 import { ADMIN_SCOPE_READ } from "../kernel/adminPlane/adminCaller";
 import type { IAdminCaller } from "../kernel/adminPlane/adminCaller";
-import { builtinMcpTools, collectMcpTools } from "../mcp/tools";
 import type { IAdminApi } from "../types/IAdminApi";
 import type { IMcpCaller, IMcpToolResult } from "../types/IMcpTool";
 
@@ -109,25 +108,6 @@ function broker(): { list(): readonly IAdminApi[] } {
   };
 }
 
-/** Les deux outils, montés sur le plan de banc. */
-function outils() {
-  return builtinMcpTools({
-    broker: broker(),
-    getCard: () => ({ app: "banc" }),
-    projectRoot: REPO_ROOT,
-  });
-}
-
-/** L'appelant MCP tel que la porte l'établit après vérification d'un jeton. */
-function porteur(scopes: readonly string[]): IMcpCaller {
-  return { authenticated: true, scopes, roles: [ADMIN_DEFAULT_ROLE] };
-}
-
-/** Texte rendu par un outil. */
-function texte(result: IMcpToolResult): string {
-  return (result.content[0] as { text: string }).text;
-}
-
 describe("catalogue d'administration — ce qui est LISTÉ est APPELABLE", () => {
   it("ne retient que les lectures, et COMPTE les mutations écartées", () => {
     const vue = adminReadCatalog(broker(), ADMIN);
@@ -205,144 +185,5 @@ describe("catalogue d'administration — ce qui est LISTÉ est APPELABLE", () =>
     expect(findAdminReadEntry(broker(), QUIDAM, "kernel", "modules")).toBe(
       null,
     );
-  });
-});
-
-describe("nodefony_admin_list — annonce ce qu'il ne montre pas", () => {
-  it("rend les lectures groupées par producteur, et dit les écarts", async () => {
-    const rendu = texte(
-      await outils().admin_list.handler({}, porteur([ADMIN_SCOPE_READ])),
-    );
-    expect(rendu).toContain("## kernel (3)");
-    expect(rendu).toContain("## profiler (1)");
-    expect(rendu).toContain("modules chargés");
-    expect(rendu).toMatch(/2 mutations/u);
-    expect(rendu).toMatch(/1 self-service/u);
-    expect(rendu).toMatch(/1 hors des droits/u);
-    // Ce qui n'est pas appelable n'apparaît pas comme s'il l'était.
-    expect(rendu).not.toContain("config/{module}");
-    expect(rendu).not.toContain("livez");
-  });
-
-  it("publie les tris et filtres RÉELLEMENT acceptés", async () => {
-    const rendu = texte(
-      await outils().admin_list.handler({}, porteur([ADMIN_SCOPE_READ])),
-    );
-    // Sans cette ligne, un appelant tente `?sort=createdAt` et prend un 400 :
-    // le plan REFUSE ce qui n'est pas déclaré, il ne l'ignore pas.
-    expect(rendu).toContain("tri: createdAt,expiresAt");
-    expect(rendu).toContain("filtres: status");
-    expect(rendu).toContain("recherche q");
-  });
-
-  it("réduit le catalogue au producteur demandé", async () => {
-    const rendu = texte(
-      await outils().admin_list.handler(
-        { namespace: "profiler" },
-        porteur([ADMIN_SCOPE_READ]),
-      ),
-    );
-    expect(rendu).toContain("## profiler (1)");
-    expect(rendu).not.toContain("## kernel");
-  });
-});
-
-describe("nodefony_admin_call — appelle, ou refuse en NOMMANT", () => {
-  it("résout la LECTURE même quand la mutation est déclarée avant", async () => {
-    const result = await outils().admin_call.handler(
-      { namespace: "profiler", path: "recent" },
-      porteur([ADMIN_SCOPE_READ]),
-    );
-    expect(result.isError).toBeUndefined();
-    expect(JSON.parse(texte(result))).toEqual({ profils: [] });
-  });
-
-  it("passe les variables de chemin au producteur", async () => {
-    const result = await outils().admin_call.handler(
-      { namespace: "kernel", path: "module/{name}", params: { name: "http" } },
-      porteur([ADMIN_SCOPE_READ]),
-    );
-    expect(JSON.parse(texte(result))).toEqual({ vu: "http" });
-  });
-
-  it("refuse une mutation, et ne la présente pas comme inexistante", async () => {
-    const result = await outils().admin_call.handler(
-      { namespace: "kernel", path: "config/{module}" },
-      porteur([ADMIN_SCOPE_READ]),
-    );
-    expect(result.isError).toBe(true);
-    // Le refus NOMME ce qui est appelable à la place — sans cela, l'agent
-    // conclut que le producteur n'expose rien.
-    expect(texte(result)).toContain("modules");
-    expect(texte(result)).toContain("module/{name}");
-  });
-
-  it("refuse un producteur vide en disant les DEUX causes possibles", async () => {
-    const result = await outils().admin_call.handler(
-      { namespace: "coffre", path: "secrets" },
-      porteur([ADMIN_SCOPE_READ]),
-    );
-    expect(result.isError).toBe(true);
-    expect(texte(result)).toMatch(/n'est pas chargé|ce jeton ne l'ouvre pas/u);
-  });
-
-  it("nomme la variable de chemin oubliée", async () => {
-    const result = await outils().admin_call.handler(
-      { namespace: "kernel", path: "module/{name}" },
-      porteur([ADMIN_SCOPE_READ]),
-    );
-    expect(result.isError).toBe(true);
-    expect(texte(result)).toContain("« name »");
-  });
-
-  it("refuse une valeur non transportable plutôt que de la jeter", async () => {
-    const result = await outils().admin_call.handler(
-      {
-        namespace: "kernel",
-        path: "module/{name}",
-        params: { name: { profond: true } },
-      },
-      porteur([ADMIN_SCOPE_READ]),
-    );
-    expect(result.isError).toBe(true);
-    expect(texte(result)).toContain("params.name");
-  });
-
-  it("exige namespace et path", async () => {
-    const result = await outils().admin_call.handler(
-      { namespace: "kernel" },
-      porteur([ADMIN_SCOPE_READ]),
-    );
-    expect(result.isError).toBe(true);
-    expect(texte(result)).toContain("nodefony_admin_list");
-  });
-});
-
-describe("les deux outils sont RETENUS sans le scope de lecture", () => {
-  const deps = {
-    broker: broker(),
-    getCard: () => ({ app: "banc" }),
-    projectRoot: REPO_ROOT,
-  };
-  const noms = (caller?: IMcpCaller) =>
-    collectMcpTools({
-      builtins: ["admin_list", "admin_call"],
-      deps,
-      caller,
-    }).map((tool) => tool.name);
-
-  it("anonyme : aucun des deux n'existe même pour le protocole", () => {
-    expect(noms()).toEqual([]);
-  });
-
-  it("authentifié sans scope : toujours rien", () => {
-    expect(noms(porteur([]))).toEqual([]);
-  });
-
-  it("porteur du scope de lecture : les deux", () => {
-    expect(noms(porteur([ADMIN_SCOPE_READ]))).toEqual([
-      "nodefony_admin_list",
-      "nodefony_admin_call",
-    ]);
   });
 });

@@ -10,7 +10,7 @@
  * @see https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
  */
 
-import type { IJsonRpcSuccess, IJsonRpcFailure } from "../jsonrpc/index";
+import type { IJsonRpcSuccess, IJsonRpcFailure } from "nodefony";
 
 /** Révision PRÉFÉRÉE de ce serveur — celle qu'il met en tête de ce qu'il sait faire. */
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
@@ -78,13 +78,13 @@ export {
   jsonRpcSuccess,
   jsonRpcFailure,
   isNotification,
-} from "../jsonrpc/index";
+} from "nodefony";
 export type {
   JsonRpcId,
   IJsonRpcMessage,
   IJsonRpcSuccess,
   IJsonRpcFailure,
-} from "../jsonrpc/index";
+} from "nodefony";
 /**
  * Codes réservés par la spec MCP, hors plage JSON-RPC standard.
  *

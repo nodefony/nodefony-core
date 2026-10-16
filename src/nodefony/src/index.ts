@@ -621,11 +621,6 @@ export {
   findAdminReadEntry,
 } from "./kernel/adminPlane/catalog";
 export type { IAdminCatalogView } from "./kernel/adminPlane/catalog";
-// La règle « que vaut un appelant sur une porte MCP » — UNE implémentation,
-// partagée par la porte du module de développement et par toute porte qu'un
-// module créera plus tard.
-export { mcpCallerRoles } from "./mcp/caller";
-export type { IMcpGatePosture } from "./mcp/caller";
 // Découpe d'un markdown par ses titres — le plan d'une page de documentation,
 // puis une section. Partagée par le serveur MCP (cœur) et le plan
 // d'administration (framework) : une page de 80 ko ne se rend pas entière.
@@ -978,68 +973,19 @@ export type {
   IAuthorizationServerInput,
 } from "./oauth/authorizationServer";
 
-// ─── Model Context Protocol — le PROTOCOLE au cœur, la PORTE dans un module ───
-// Tout ce qui suit est PUR : traitement d'un message, gardes de transport,
-// catalogue intégré, collecte des outils qu'une application déclare. Rien n'y
-// touche au socket. C'est ce qui permet à `@nodefony/devkit` d'exposer
-// `POST /nodefony/mcp` en développement, et à un futur module de porter la même
-// chose ailleurs — sans qu'aucun des deux ne réécrive une ligne de protocole.
-// La règle « 1 règle = 1 implémentation » n'a pas d'autre forme ici : deux
-// serveurs MCP qui redéclareraient leurs codes d'erreur divergeraient en
-// silence, chacun passant ses propres tests.
-export {
-  MCP_PROTOCOL_VERSION,
-  MCP_SUPPORTED_VERSIONS,
-  MCP_DEFAULT_NEGOTIATED_VERSION,
-  META_PROTOCOL_VERSION,
-  META_SERVER_INFO,
-  McpProtocolError,
-} from "./mcp/protocol";
-// Les codes et fabriques JSON-RPC qu'emploie le MCP sont exportés plus haut,
-// depuis `jsonrpc/` — même nom, une seule source.
-export type { IMcpHttpReply } from "./mcp/protocol";
-export { handleMcpMessage } from "./mcp/server";
-export type {
-  IMcpServerContext,
-  IMcpHeaders,
-  IMcpTransport,
-} from "./mcp/server";
-export {
-  createProgressReporter,
-  readProgressToken,
-  MCP_PROGRESS_MIN_INTERVAL_MS,
-} from "./mcp/progress";
-export type { IMcpProgressReporter, McpProgressToken } from "./mcp/progress";
-export { createMcpResponseStream } from "./mcp/stream";
-export type {
-  IMcpEventSink,
-  IMcpResponseStream,
-  IMcpResponseStreamOptions,
-} from "./mcp/stream";
-export { checkMcpAccess, isLocalAddress } from "./mcp/guard";
-export type { GuardVerdict, IGuardInput, IGuardPolicy } from "./mcp/guard";
-export {
-  mcpText,
-  builtinMcpTools,
-  declareMcpTools,
-  collectMcpTools,
-  mcpDeclaredScopes,
-  publishMcpTools,
-  callMcpTool,
-  BUILTIN_MCP_TOOL_KEYS,
-} from "./mcp/tools";
+// ─── Model Context Protocol — les CONTRATS au cœur, la mécanique dans `@nodefony/ai` ───
+// Un module déclare ses outils par `getMcpTools()` sans dépendre d'aucune
+// porte : les types qu'il implémente vivent donc ici. Le protocole, le moteur,
+// la collecte et l'appel des outils vivent dans `@nodefony/ai`, que le cœur
+// n'importe jamais.
 export type {
   IMcpTool,
   IMcpToolAnnotations,
   IMcpToolDefinition,
   IMcpToolResult,
-  IMcpToolDeps,
   IMcpCaller,
   IMcpToolRun,
-  IMcpDeclareOptions,
-  IMcpCollectOptions,
-  BuiltinMcpToolKey,
-} from "./mcp/tools";
+} from "./types/IMcpTool";
 
 // Câblage MCP — composition PURE (le fichier `.mcp.json` qu'un agent lit) et
 // son adaptateur, côté CLI (`nodefony ai:mcp`).

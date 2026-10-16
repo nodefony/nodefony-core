@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createMcpResponseStream, type IMcpEventSink } from "../mcp/stream";
-import { jsonRpcNotification } from "../jsonrpc/index";
+import { createMcpResponseStream, type IMcpEventSink } from "../index";
+import { jsonRpcNotification } from "nodefony";
 
 /**
  * Le flux de réponse paresseux de la boîte à outils MCP (#554) : générique,

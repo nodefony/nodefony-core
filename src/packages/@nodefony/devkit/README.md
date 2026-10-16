@@ -170,7 +170,8 @@ module de votre application peut publier les siens en implémentant
 `getMcpTools(): IMcpTool[]` :
 
 ```ts
-import { Module, mcpText, type IMcpTool } from "nodefony";
+import { Module, type IMcpTool } from "nodefony";
+import { mcpText } from "@nodefony/ai";
 
 class Shop extends Module {
   getMcpTools(): IMcpTool[] {

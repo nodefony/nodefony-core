@@ -8,19 +8,21 @@ import {
 import type { ContextType } from "@nodefony/http";
 import {
   Nodefony,
-  checkMcpAccess,
-  handleMcpMessage,
-  createMcpResponseStream,
-  collectMcpTools,
   authorizeProtectedResource,
   protectedResourceMetadataUrl,
   ACCESS_TOKEN_VERIFIER,
-  mcpCallerRoles,
   readBearerHeader,
   JsonRpcError,
   jsonRpcFailure,
 } from "nodefony";
 import type { IMcpCaller, IAccessTokenVerifier } from "nodefony";
+import {
+  checkMcpAccess,
+  handleMcpMessage,
+  createMcpResponseStream,
+  collectMcpTools,
+  mcpCallerRoles,
+} from "@nodefony/ai";
 import type { IDevkitService } from "../interfaces/IDevkitService";
 
 /**
@@ -396,7 +398,6 @@ class McpController extends Controller {
     let withheldCount = 0;
 
     const tools = collectMcpTools({
-      builtins: settings.tools,
       modules: kernel?.modules,
       caller,
       // Un outil écarté (nom hors forme, collision, déclaration en échec) se
@@ -410,10 +411,6 @@ class McpController extends Controller {
         withheldCount += 1;
         this.log(`MCP — outil « ${name} » retenu : ${why}`, "DEBUG");
       },
-      // Composées par le SERVICE : les mêmes dépendances servent à dériver les
-      // scopes publiés, et deux compositions auraient fini par décrire deux
-      // applications.
-      deps: this.#service().mcpToolDeps(),
     });
 
     // Le flux de réponse : la règle (ouverture paresseuse, ordre, réponse
