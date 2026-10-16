@@ -124,6 +124,7 @@ import {
   ROUTE_FACTURATION,
   ROUTE_IMPORT,
   ROUTE_EN_PANNE,
+  ROUTE_MCP_APP,
   ROUTE_MACHINE,
   ROUTE_RAPPORT_MACHINE,
   ROUTE_RELUE,
@@ -131,6 +132,9 @@ import {
   ROUTE_VIREMENT,
   SCRIPT_RAPPORT,
   TEXTE_SESSION_OUVERTE,
+  LOTS_REINDEX,
+  OUTIL_REINDEX,
+  OUTIL_STOCK,
   VAR_CLE_RAPPORT,
   VAR_URL_RAPPORT,
 } from "./lib/enonces.mjs";
@@ -841,6 +845,13 @@ const JUGE_SECRET_RETIRE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-secret-retire.mjs",
+);
+
+/** Juge « la porte MCP de l'application sert ses deux outils, avancement compris ». */
+const JUGE_MCP_PORTE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-mcp-porte.mjs",
 );
 
 /** Juge « la route en panne répond de nouveau, servie par son controller ». */
@@ -5160,6 +5171,64 @@ export const TASKS = [
         kind: "gate",
         name: "le jeton écrit en dur a quitté le source",
         cmd: ["node", JUGE_SECRET_RETIRE],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+  {
+    id: 44,
+    name: "développer un MCP de A à Z",
+    // Offrir les outils de l'APPLICATION à un agent IA. Le générateur
+    // (`create controller --kind mcp`) écrit la porte `defineMcpGate`, ses
+    // outils d'exemple et son test : il reste à remplacer les exemples par les
+    // deux outils demandés. Le contournement naturel est de RECODER le
+    // protocole dans un controller (JSON-RPC à la main) : il répond à
+    // `tools/list`, et rate ce que la porte tient d'office — l'avancement sur
+    // flux SSE, la garde d'origine. Le juge parle le protocole en client réel
+    // et nomme lequel des deux manque.
+    //
+    // Écrite APRÈS le générateur : sans lui, elle mesurerait l'écriture à la
+    // main. Le décor exige `@nodefony/ai` (module socle des apps générées) —
+    // sans lui, la tâche n'aurait pas de solution outillée.
+    prepare: `grep -q '"@nodefony/ai"' package.json`,
+    prompt:
+      "Expose les outils de mon application à un agent IA, par MCP, à l'adresse " +
+      `${ROUTE_MCP_APP} de l'application — pas par la porte de développement. Deux outils : ` +
+      `${OUTIL_STOCK}, qui reçoit un \`sku\` et rend son stock (la réponse rappelle le sku), ` +
+      `et ${OUTIL_REINDEX}, qui réindexe le catalogue en ${LOTS_REINDEX} lots et signale son ` +
+      "avancement à chaque lot. Je l'appelle depuis cette machine, sans jeton. Termine en " +
+      "prouvant que les tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a lu le mode d'emploi MCP",
+        /@nodefony\/ai\/docs\/mcp\.md/u,
+      ),
+      sondeLecture(
+        "a appelé le générateur de porte",
+        /create\s+controller\b[^\n"]*--kind[\s=]+mcp/u,
+      ),
+      {
+        // OBSERVÉ. Le juge tranche sur le comportement ; ce relevé dit si la
+        // porte vient de la mécanique du framework ou d'un protocole recodé.
+        kind: "code",
+        name: "defineMcpGate dans le code ajouté",
+        pattern: /defineMcpGate\(/u,
+        where: "addedTs",
+        observe: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        kind: "gate",
+        name: "la porte MCP sert ses deux outils, avancement et garde compris",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_MCP_PORTE} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_MCP_PORTE}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],

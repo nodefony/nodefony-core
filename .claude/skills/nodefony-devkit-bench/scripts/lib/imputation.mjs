@@ -428,6 +428,21 @@ export const IMPUTATIONS = Object.freeze({
   // lieu de remonter la classe que rien ne déclarait — un contournement.
   "route-remplacee": AGENT,
 
+  // ─── Développer un MCP de A à Z (tâche 44) ────────────────────────────────
+  "porte-absente": AGENT,
+  // Une réponse, mais pas un catalogue JSON-RPC : une route REST appelée MCP.
+  "porte-non-mcp": AGENT,
+  "outil-absent": AGENT,
+  "outil-faux": AGENT,
+  // L'opération longue répond, sans un seul `notifications/progress` sur le
+  // flux : l'avancement demandé n'atteint jamais l'agent.
+  "progression-absente": AGENT,
+  // Une page web étrangère est servie : protocole recodé sans sa garde.
+  "garde-origine-absente": AGENT,
+  // 401/403 à un appel LOCAL sans jeton, que l'énoncé décrit : porte fermée
+  // à qui la demandait.
+  "porte-fermee": AGENT,
+
   // ─── Relis la sécurité avant que je pousse (tâche 43) ────────────────────
   // La valeur est encore écrite dans un fichier que git suit : déplacée,
   // recopiée dans la notice ou citée dans la relecture, elle reste publiée.

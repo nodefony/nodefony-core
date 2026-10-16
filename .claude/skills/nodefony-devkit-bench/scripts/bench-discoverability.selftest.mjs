@@ -2071,6 +2071,45 @@ const SAMPLES = {
     },
   },
 
+  // ── T44 — développer un MCP de A à Z ─────────────────────────────────────
+  "44 :: a lu le mode d'emploi MCP": {
+    pass: {
+      transcript: `{"file_path":"/app/node_modules/@nodefony/ai/docs/mcp.md"}`,
+    },
+    // La porte de DÉVELOPPEMENT de devkit n'est pas le mode d'emploi demandé.
+    fail: {
+      transcript: `{"file_path":"/app/node_modules/@nodefony/devkit/docs/mcp.md"}`,
+    },
+  },
+  "44 :: a appelé le générateur de porte": {
+    pass: {
+      transcript: `{"command":"npx nodefony create controller mcp --kind mcp --yes"}`,
+    },
+    // Le générateur appelé pour une AUTRE saveur ne compte pas.
+    fail: {
+      transcript: `{"command":"npx nodefony create controller mcp --kind rest"}`,
+    },
+    extra: [
+      {
+        label: "reconnaît --kind=mcp",
+        matter: {
+          transcript: `{"command":"npx nodefony create controller outils --kind=mcp"}`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "44 :: defineMcpGate dans le code ajouté": {
+    pass: { addedTs: "export const mcpGate = defineMcpGate({" },
+    fail: { addedTs: `if (body.method === "tools/list") {` },
+  },
+  "44 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { addedTs: "export const mcpGate = defineMcpGate({" },
+    fail: {
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
+
   "34 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
       added: `    use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),`,

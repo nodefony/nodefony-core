@@ -3154,6 +3154,10 @@
                 "help": ""
               },
               {
+                "name": "JUGE_MCP_PORTE",
+                "help": ""
+              },
+              {
                 "name": "JUGE_MEDIA",
                 "help": ""
               },
@@ -3230,6 +3234,10 @@
                 "help": ""
               },
               {
+                "name": "LOTS_REINDEX",
+                "help": ""
+              },
+              {
                 "name": "MARQUE_CONNEXION",
                 "help": ""
               },
@@ -3267,6 +3275,14 @@
               },
               {
                 "name": "ORIGINE_PARTENAIRE",
+                "help": ""
+              },
+              {
+                "name": "OUTIL_REINDEX",
+                "help": ""
+              },
+              {
+                "name": "OUTIL_STOCK",
                 "help": ""
               },
               {
@@ -3347,6 +3363,10 @@
               },
               {
                 "name": "ROUTE_MACHINE",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_MCP_APP",
                 "help": ""
               },
               {

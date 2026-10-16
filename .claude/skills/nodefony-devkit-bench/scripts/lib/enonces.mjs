@@ -361,3 +361,24 @@ export const CONSTANTE_JETON = "EXPORT_TOKEN";
 
 /** Même tâche — le fichier où la relecture est écrite (imposé : le juge le lit). */
 export const FICHIER_RELECTURE = "RELECTURE.md";
+
+/**
+ * Tâche « développer un MCP de A à Z » — l'adresse de la porte de
+ * l'APPLICATION (pas la porte de développement `/nodefony/mcp` de devkit).
+ */
+export const ROUTE_MCP_APP = "/api/mcp";
+
+/** Même tâche — l'outil de lecture courte : le stock d'un `sku`. */
+export const OUTIL_STOCK = "stock_lookup";
+
+/**
+ * Même tâche — le `sku` que le juge demande. Assez singulier pour qu'une
+ * réponse qui le rappelle ne le doive pas au hasard.
+ */
+export const SKU_TEMOIN = "SKU-7731-BANC";
+
+/** Même tâche — l'opération longue, qui signale son avancement. */
+export const OUTIL_REINDEX = "catalog_reindex";
+
+/** Même tâche — le nombre de lots que l'énoncé impose à la réindexation. */
+export const LOTS_REINDEX = 3;

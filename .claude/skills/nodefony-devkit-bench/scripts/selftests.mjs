@@ -95,6 +95,7 @@ const LOT_ATTENDU = new Set([
   "lib/gate-login-return.selftest.mjs",
   "lib/gate-login-throttle.selftest.mjs",
   "lib/gate-m2m-stateless.selftest.mjs",
+  "lib/gate-mcp-porte.selftest.mjs",
   "lib/gate-media-range.selftest.mjs",
   "lib/gate-migration.selftest.mjs",
   "lib/gate-module-local.selftest.mjs",
