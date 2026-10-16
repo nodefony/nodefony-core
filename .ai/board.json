@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T19:39:19.994Z",
+  "generatedAt": "2026-10-16T20:09:39.498Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,7 +46,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 127,
+      "closed": 128,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 38,
@@ -63,7 +63,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 37,
+      "open": 36,
       "title": "10.1.0"
     }
   ],
@@ -2952,8 +2952,8 @@
       "number": 565,
       "title": "refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique",
       "url": "https://github.com/nodefony/nodefony-core/issues/565",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 3.5,
@@ -2990,6 +2990,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.0011,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 602,
+      "title": "feat(cli): générer une porte MCP d'application avec create controller",
+      "url": "https://github.com/nodefony/nodefony-core/issues/602",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.0012,
       "debut": null,
       "cible": null,
       "labels": [
@@ -7959,20 +7975,6 @@
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.2.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 157,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 602,
-      "title": "feat(cli): générer une porte MCP d'application avec create controller",
-      "url": "https://github.com/nodefony/nodefony-core/issues/602",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 157,
