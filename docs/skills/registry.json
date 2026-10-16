@@ -3918,6 +3918,10 @@
             ],
             "options": [
               {
+                "flag": "--admin",
+                "help": ""
+              },
+              {
                 "flag": "--app",
                 "help": ""
               },

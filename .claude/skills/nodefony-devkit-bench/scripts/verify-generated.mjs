@@ -60,7 +60,7 @@ import {
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec, lignesLisibles } from "./lib/extrait-echec.mjs";
-import { MOT_DE_PASSE_POSE, TEMOIN } from "./lib/identites.mjs";
+import { MOT_DE_PASSE_POSE, TEMOIN, TEMOIN_ADMIN } from "./lib/identites.mjs";
 import { PORTES } from "./lib/redteam-portes-mcp.mjs";
 import { createRequire } from "node:module";
 
@@ -2495,6 +2495,21 @@ step(
           TEMOIN.username,
           "--password",
           TEMOIN.password,
+        ],
+        APP,
+        { NODE_ENV: "development" },
+      );
+      // Son administrateur, à mot de passe CONNU : celui d'`admin` dépend du
+      // moteur (semé par l'étape de production quand la base est partagée).
+      run(
+        process.execPath,
+        [
+          BIN,
+          "security:user:add",
+          TEMOIN_ADMIN.username,
+          "--password",
+          TEMOIN_ADMIN.password,
+          "--admin",
         ],
         APP,
         { NODE_ENV: "development" },

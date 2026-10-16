@@ -172,6 +172,18 @@ export const TEMOIN_MFA = {
   password: "TemoinMfaPassw0rd42x",
 };
 
+/**
+ * L'administrateur de la RED-TEAM des portes MCP : créé par le banc (`--admin`)
+ * juste avant l'attaque, pour que son mot de passe ne dépende pas de l'histoire
+ * du décor. Celui d'`ADMIN` en dépend : sur un moteur où développement et
+ * production partagent la base (MongoDB), le compte a été semé par l'étape de
+ * production avec `NF_ADMIN_PASSWORD`, et la valeur de développement rend 401.
+ */
+export const TEMOIN_ADMIN = {
+  username: "bench-admin-rt",
+  password: "AdminRtPassw0rd42x",
+};
+
 /** Un refus du framework : 401 (identité exigée) ou 403 (rôle refusé). */
 export const estRefus = (status) => status === 401 || status === 403;
 

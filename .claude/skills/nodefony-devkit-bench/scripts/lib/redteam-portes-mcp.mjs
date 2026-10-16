@@ -28,7 +28,7 @@ import { generateKeyPairSync, sign as signer, createHmac } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CookieJar, request, PORT } from "./http-probe.mjs";
-import { ADMIN, TEMOIN, ouvrirSession } from "./identites.mjs";
+import { TEMOIN, TEMOIN_ADMIN, ouvrirSession } from "./identites.mjs";
 
 const PORT_HTTPS = process.env.NF_PORT_HTTPS ?? "5362";
 const BIN = path.join(
@@ -666,7 +666,8 @@ export const VECTEURS = [
     titre: "mixte, session d'admin sans jeton : vaut anonyme",
     run: async () => {
       const jar = await sessionAdmin();
-      if (!jar) return "ABSTENTION — session admin non ouverte";
+      if (!jar)
+        return `ABSTENTION — session admin non ouverte : ${motifSession}`;
       return nonExecute(
         await poster("mixte", appel(B("mixte"), { batches: 1 }), { jar }),
       );
@@ -677,7 +678,8 @@ export const VECTEURS = [
     titre: "protégée, session d'admin sans jeton : 401",
     run: async () => {
       const jar = await sessionAdmin();
-      if (!jar) return "ABSTENTION — session admin non ouverte";
+      if (!jar)
+        return `ABSTENTION — session admin non ouverte : ${motifSession}`;
       const r = await poster("protegee", appel(E("protegee"), { text: "x" }), {
         jar,
       });
@@ -900,11 +902,13 @@ async function httpsGet(url) {
 }
 
 let jarAdmin;
+let motifSession = "";
 /** Une session d'administrateur ouverte par la vraie page de connexion de l'app. */
 async function sessionAdmin() {
   if (jarAdmin !== undefined) return jarAdmin;
-  const ouverte = await ouvrirSession(ADMIN);
+  const ouverte = await ouvrirSession(TEMOIN_ADMIN);
   jarAdmin = ouverte.jar ?? null;
+  motifSession = ouverte.echec ?? ouverte.injoignable ?? "";
   return jarAdmin;
 }
 
