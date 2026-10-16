@@ -70,13 +70,13 @@ Règle des commandes : le cœur possède `ai:mcp` et `ai:sync` ; toute autre com
   vérificateur de jeton) se résolvent **par NOM + contrat structurel**, jamais par une
   dépendance de paquet (précédents : `ACCESS_TOKEN_VERIFIER`, `IAdminBrokerLike`).
 - **Révision MCP** : le serveur parle aux clients déployés (handshake `initialize`) et porte la
-  FORME de résultat `2026-07-28` ; `server/discover` est volontairement non servi tant qu'aucun
-  client déployé n'emprunte le fil moderne. La révision `2026-07-28` est **sans état** (plus de
+  FORME de résultat de la révision COURANTE de la spec ; `server/discover` est volontairement non servi tant qu'aucun
+  client déployé n'emprunte le fil moderne. Cette révision est **sans état** (plus de
   `initialize` ni de `Mcp-Session-Id`, plus de flux ouvert par `GET`, capacités du client dans
   `_meta` à chaque requête) et le serveur n'y émet JAMAIS de requête vers le client : une demande à
   l'utilisateur ou au modèle y passe par le « multi round-trip » (`resultType: "input_required"` +
   `requestState`, qui doit être signé, lié à l'appelant et borné dans le temps) — non servi ici. Sampling et Roots sont **dépréciés** : ne rien bâtir
-  dessus. Spec hors ligne : skill `nodefony-rfc` (`references/mcp-2026-07-28/`). Trancher une
+  dessus. Spec hors ligne : skill `nodefony-rfc` (sa référence MCP, révision courante). Trancher une
   question de protocole sur la spec, jamais de mémoire.
 - **Un échec métier d'outil est un résultat `isError`, jamais une erreur JSON-RPC** : le
   protocole réserve ses erreurs aux fautes de protocole ; l'agent ne peut corriger seul que la
