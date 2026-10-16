@@ -32,6 +32,7 @@ class SessionStubToken implements IRealtimeToken {
   getRoles = (): string[] => ["ROLE_USER"];
   getScopes = (): string[] => [];
 
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- forme imposée par IRealtimeToken
   getAttribute<T = unknown>(key: string): T | undefined;
   getAttribute(key: string): unknown {
     return this.attributes.get(key);

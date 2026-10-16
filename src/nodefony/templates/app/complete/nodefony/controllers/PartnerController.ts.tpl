@@ -10,10 +10,10 @@ import type { ContextType } from "@nodefony/http";
  */
 function readIssuer(token: unknown): string | null {
   if (typeof token !== "object" || token === null) return null;
-  if (!("getAttribute" in token) || typeof token.getAttribute !== "function") {
-    return null;
-  }
-  const issuer: unknown = token.getAttribute.call(token, "issuer");
+  if (!("getAttribute" in token)) return null;
+  const getAttribute = token.getAttribute;
+  if (typeof getAttribute !== "function") return null;
+  const issuer: unknown = getAttribute.call(token, "issuer");
   return typeof issuer === "string" ? issuer : null;
 }
 
