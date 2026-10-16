@@ -2,18 +2,17 @@
 title: "Boîte à outils MCP — exposer les outils d'une application à un agent"
 navTitle: Boîte à outils MCP
 lang: fr
-module: "@nodefony/core"
+module: "@nodefony/ai"
 topic: mcp
-coverageModule: nodefony-core
-coveragePackage: "nodefony (cœur)"
+coverageModule: ai
 coverageFiles: "ai/nodefony/mcp/server.ts, ai/nodefony/mcp/tools.ts, ai/nodefony/mcp/progress.ts, ai/nodefony/mcp/stream.ts, ai/nodefony/mcp/guard.ts, ai/nodefony/mcp/caller.ts, devkit/nodefony/mcp/tools.ts"
-section: "Cœur runtime"
+section: "Intelligence artificielle"
 audience: [developer]
 tags: [mcp, agent, ia, json-rpc, sse, outils, progression, annulation, oauth]
 version: "doc"
 status: stable
 updated: 2026-10-08
-source: "src/nodefony/docs/mcp.md"
+source: "src/packages/@nodefony/ai/docs/mcp.md"
 ---
 
 # Boîte à outils MCP — exposer les outils d'une application à un agent
@@ -24,7 +23,7 @@ source: "src/nodefony/docs/mcp.md"
 > le protocole — versions, erreurs, autorisation, progression, annulation — est tenu pour toi, une
 > fois, selon la norme. Ancrée sur `src/packages/@nodefony/ai/nodefony/mcp/` et `src/nodefony/src/types/IMcpTool.ts`.
 
-📍 [Documentation](../../../docs/index.md) › [Cœur — @nodefony/core](index.md) › **Boîte à outils MCP**
+📍 [Documentation](../../../../../docs/index.md) › [@nodefony/ai](index.md) › **Boîte à outils MCP**
 
 ## 🗺️ Schéma général
 
@@ -270,7 +269,8 @@ const invoice: IMcpTool = {
 
 `caller` (`IMcpCaller`, `IMcpTool.ts:45`) porte ce que la porte a **établi** — jamais ce que la
 requête prétend : `authenticated`, `scopes`, `roles`, `subject`. Une porte qui n'authentifie personne
-rend un appelant anonyme, et un outil à scopes n'y sort jamais : fermé par défaut.
+rend un appelant anonyme, et un outil à scopes n'y sort jamais : fermé par défaut — à savoir
+avant de chercher une panne.
 
 ### Un outil LONG — progression et annulation
 
@@ -448,14 +448,14 @@ rapporteur transforme le saut en échec (« couverture incomplète »).
 
 Chaque garde de la progression et du flux a été vue échouer en la débranchant. Ce qui **n'est pas
 couvert** : aucun banc de charge dédié à la porte, et aucun test du flux derrière un proxy inverse
-(la tenue d'un flux SSE par un proxy est traitée dans [Server-Sent Events](../../packages/@nodefony/http/docs/sse.md)).
-Couverture : `npm run coverage` dans `src/nodefony`.
+(la tenue d'un flux SSE par un proxy est traitée dans [Server-Sent Events](../../http/docs/sse.md)).
+Couverture : `npm run coverage` dans `src/packages/@nodefony/ai`.
 
 ## 🔗 Pour aller plus loin
 
-- ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
+- ⬆️ **Retour au hub** : [@nodefony/ai — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
 - La porte de développement, ses outils intégrés et son autorisation OAuth →
-  [devkit](../../packages/@nodefony/devkit/docs/index.md)
-- Le flux d'événements serveur sur lequel la porte répond → [Server-Sent Events](../../packages/@nodefony/http/docs/sse.md)
-- Le contexte de requête, dont le signal sert l'annulation → [Contexte de requête](request-context.md)
+  [devkit](../../devkit/docs/index.md)
+- Le flux d'événements serveur sur lequel la porte répond → [Server-Sent Events](../../http/docs/sse.md)
+- Le contexte de requête, dont le signal sert l'annulation → [Contexte de requête](../../../../nodefony/docs/request-context.md)
 - La norme, hors ligne : skill `nodefony-rfc` (`references/mcp-2026-07-28/`)

@@ -76,6 +76,7 @@
     "nodefony": "^<%= it.nodefonyVersion %>",
     "@nodefony/http": "^<%= it.nodefonyVersion %>",
     "@nodefony/framework": "^<%= it.nodefonyVersion %>",
+    "@nodefony/ai": "^<%= it.nodefonyVersion %>",
 <% if (it.complete) { %>    "@nodefony/orm-core": "^<%= it.nodefonyVersion %>",
 <% if (it.mongo) { %>    "@nodefony/mongoose": "^<%= it.nodefonyVersion %>",
 <% } else { %>    "@nodefony/drizzle": "^<%= it.nodefonyVersion %>",

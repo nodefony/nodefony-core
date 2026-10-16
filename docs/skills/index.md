@@ -210,8 +210,8 @@ source: "docs/skills/index.md"
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.2.0 | 399 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.8.0 | 311 | 0 | 3 | ✅ |
-| [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 121 | 0 | 0 | ✅ |
-| [`nodefony-security-review`](nodefony-security-review.md) | — | 397 | 0 | 0 | ✅ |
+| [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
+| [`nodefony-security-review`](nodefony-security-review.md) | — | 399 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 10 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |

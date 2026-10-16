@@ -41,10 +41,14 @@ const AVANT =
   "outillage IA, skills, conventions internes, branche dev. Pour un projet neuf, " +
   "cela représente un coût cognitif et technique important.";
 
-/** La réponse RÉELLE d'après — mêmes questions, corpus corrigé. */
+/**
+ * La réponse RÉELLE d'après — mêmes questions, corpus corrigé. Seul son chiffre de
+ * dépendances est recalé sur le gabarit courant : le juge attend le fait VRAI.
+ */
 const APRES = `1. Nodefony est un framework Node.js fullstack en TypeScript strict où HTTP et
 WebSocket partagent le même contexte de contrôleur, la même session et le même pare-feu.
-2. Quatre dépendances de production : nodefony, @nodefony/http, @nodefony/framework, zod.
+2. Cinq dépendances de production : nodefony, @nodefony/http, @nodefony/framework,
+@nodefony/ai, zod.
 3. OUI — AGENTS.md renvoie aux jalons du dépôt, et compatibilite.md porte le contrat.
 4. NON — préversion alpha publiée par un développeur solo bénévole, et seule la
 dernière majeure reçoit des correctifs.`;
@@ -109,7 +113,7 @@ for (const m of MOTIFS_FAUX) {
 console.log("━━ une réponse saine ne déclenche aucun motif faux");
 const SAINE =
   "Le framework met HTTP et WebSocket sur la même route. Une application minimale " +
-  "porte quatre dépendances. Les jalons disent ce qui reste. OUI, ça vaut un essai.";
+  "porte cinq dépendances. Les jalons disent ce qui reste. OUI, ça vaut un essai.";
 const saine = juger(SAINE);
 if (saine.faux.length)
   echec(

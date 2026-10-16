@@ -148,8 +148,10 @@ git diff HEAD -- 'src/**/*.ts' | grep -nE ':\s*any\b|as any|@ts-ignore|@ts-noche
 
 ### G. Agentic — porte MCP, outils, jetons d'agent ⚠️→⛔
 
-La porte MCP existe (`src/nodefony/src/mcp/` : `server.ts`, `guard.ts`, `tools.ts`) : ce n'est plus
-une surface future.
+La mécanique MCP existe (`src/packages/@nodefony/ai/nodefony/mcp/` : `server.ts`, `guard.ts`,
+`tools.ts`, `gate.ts`) et chaque porte se déclare par un controller (`defineMcpGate`) : ce n'est
+plus une surface future. Auditer CHAQUE porte déclarée — celle de devkit (`policy: "dev"`) et
+celles de l'application, qui peuvent vivre en production.
 
 - **Jeton** : audience liée à CE serveur (RFC 8707, RFC 9728) — un jeton émis pour un autre
   service est REFUSÉ, jamais relayé en aval (« token passthrough » interdit, _confused deputy_).

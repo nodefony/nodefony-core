@@ -19,11 +19,12 @@ import { REPO_ROOT as RACINE } from "../lib/repo-root.mjs";
 const gabarit = fs.readFileSync(path.join(RACINE, APP_TEMPLATE_PATH), "utf8");
 
 describe("dépendances d'une application minimale", () => {
-  it("rend les quatre paquets du niveau zéro, et rien des variantes", () => {
+  it("rend les cinq paquets du niveau zéro, et rien des variantes", () => {
     expect(minimalAppDependencies(RACINE)).toEqual([
       "nodefony",
       "@nodefony/http",
       "@nodefony/framework",
+      "@nodefony/ai",
       "zod",
     ]);
   });

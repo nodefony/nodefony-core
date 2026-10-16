@@ -48,7 +48,8 @@ Container = orchestration de sous-agents · multi-ORM = persistance audit/coûts
 ### Capacités IA — toutes dans `@nodefony/ai`
 
 La couche IA vit dans UN module socle, `@nodefony/ai` (`policy: "mandatory"`, paquet séparé du
-cœur) : il porte la boîte à outils MCP et sa porte HTTP (#565). Les capacités de la phase 12 y
+cœur) : il porte la boîte à outils MCP et la mécanique de porte (`defineMcpGate`), sans monter
+aucune route — une porte se déclare par le controller de qui en a besoin (#565). Les capacités de la phase 12 y
 naîtront, pas dans des paquets séparés — les anciennes esquisses
 `@nodefony/{llm,vector,rag,memory,agent}` ont été supprimées (git garde l'historique).
 

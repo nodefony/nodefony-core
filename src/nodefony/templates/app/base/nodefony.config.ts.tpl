@@ -30,6 +30,7 @@ import { devkitConfig } from "./nodefony/config/devkit";
 // Y AJOUTER une ligne en montant un module dont on configure les clés.
 export type { IHttpConfigInput } from "@nodefony/http";
 export type { IFrameworkConfigInput } from "@nodefony/framework";
+export type { IAiConfigInput } from "@nodefony/ai";
 <% if (it.complete && it.mongo) { %>export type { IMongooseConfigInput } from "@nodefony/mongoose";
 <% } else if (it.complete) { %>export type { IDrizzleConfigInput } from "@nodefony/drizzle";
 <% } %><% if (it.complete) { %>export type { IRealtimeConfigInput } from "@nodefony/realtime";
@@ -183,6 +184,15 @@ export default defineConfig<typeof env>((ctx) => ({
 
     /** Router + controllers + décorateurs (`@controller`, `@route`). */
     "@nodefony/framework",
+
+    /**
+     * Socle IA — la MÉCANIQUE MCP (catalogue d'outils, protocole, porte à
+     * déclarer). Il ne monte AUCUNE route : une porte MCP naît d'un controller
+     * qui l'écrit (`defineMcpGate`) — `node_modules/@nodefony/ai/docs/mcp.md`.
+     * `mandatory`, comme http et framework : tout module qui déclare des outils
+     * (`getMcpTools()`) en dépend, et devkit, plus bas, le consomme.
+     */
+    use("@nodefony/ai", undefined, { policy: "mandatory" }),
 <% if (it.complete) { %>
     /**
      * Socket Nodefony (canaux duplex multiplexés). Backplane `cluster` = IPC

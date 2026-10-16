@@ -104,7 +104,7 @@ identique à l'amont**, donc une URL `…/specification/2026-07-28/<chemin>` se 
    demande rend la porte injoignable par tout SDK déployé. La conformité se mesure **sur un
    client**, pas sur une spec.
 
-Révision courante servie par le code : `src/nodefony/src/mcp/protocol.ts`.
+Révision courante servie par le code : `src/packages/@nodefony/ai/nodefony/mcp/protocol.ts`.
 
 Poser une **nouvelle** révision quand l'amont en publie une (un tarball, pas 180 appels d'API ;
 `schema.mdx` est écarté — 726 KB de prose qui redit `schema.ts`) :

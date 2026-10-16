@@ -17,7 +17,7 @@
  *
  * Origine mesurée : un agent grand public a conseillé d'écarter le framework au
  * motif qu'on « hériterait du monorepo, de la migration, du Studio, de
- * l'outillage IA ». Une application minimale installe quatre paquets.
+ * l'outillage IA ». Une application minimale installe cinq paquets.
  */
 
 /**
@@ -35,9 +35,9 @@ export const ATTENDUS = [
   },
   {
     cle: "q2",
-    quoi: "ce qu'une application installe — quatre dépendances de production",
+    quoi: "ce qu'une application installe — cinq dépendances de production",
     motif:
-      /\b(quatre|4)\b[^.]{0,60}d[ée]pendances|d[ée]pendances[^.]{0,30}\b(quatre|4)\b/iu,
+      /\b(cinq|5)\b[^.]{0,60}d[ée]pendances|d[ée]pendances[^.]{0,30}\b(cinq|5)\b/iu,
   },
   {
     cle: "q3",

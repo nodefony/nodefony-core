@@ -240,7 +240,7 @@ Quatre choses à savoir :
   et sort de l'application. Un outil qui lit se déclare `readOnlyHint: true` ;
   un outil qui modifie, `readOnlyHint: false`. Un indice n'est jamais une
   autorisation — le détail des cinq indices et de leurs défauts :
-  [écrire un outil](../../../../nodefony/docs/mcp.md#dire-ce-que-fait-loutil--les-annotations) ;
+  [écrire un outil](../../ai/docs/mcp.md#dire-ce-que-fait-loutil--les-annotations) ;
 - **rien ne s'enregistre au démarrage** : la liste est relue à chaque requête,
   donc un module ajouté apparaît sans redémarrer quoi que ce soit ;
 - **`mcp.tools` ne filtre que les outils intégrés** — le vôtre est publié dès

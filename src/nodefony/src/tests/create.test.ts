@@ -2618,6 +2618,37 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("moteur — socle @nodefony/ai (deux presets)", () => {
+    // `ai` est un module SOCLE : devkit le consomme en pair et tout module qui
+    // déclare des outils en dépend. Dans `devDependencies`, `npm ci --omit=dev`
+    // le retirerait de l'image ; absent du manifeste, `getMcpTools()` n'aurait
+    // personne pour le servir en production. Placé APRÈS devkit, le Kernel
+    // chargerait le consommateur avant sa base.
+    for (const preset of ["minimal", "complete"] as const) {
+      it(`${preset} : en dependencies, mandatory, avant devkit`, () => {
+        const dest = path.join(tmp, `ai-${preset}`);
+        scaffold(dest, { name: `ai-${preset}`, preset });
+        const pkg = readJson(path.join(dest, "package.json"));
+        assert.equal(pkg["dependencies"]!["@nodefony/ai"], `^${version}`);
+        assert.notProperty(pkg["devDependencies"], "@nodefony/ai");
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        const entry = 'use("@nodefony/ai", undefined, { policy: "mandatory" })';
+        assert.include(config, entry);
+        assert.include(
+          config,
+          'export type { IAiConfigInput } from "@nodefony/ai";',
+        );
+        assert.isBelow(
+          config.indexOf(entry),
+          config.indexOf('use("@nodefony/devkit"'),
+        );
+      });
+    }
+  });
+
   describe("moteur — preset minimal", () => {
     it("base saine : http+framework seuls, PAS d'infra docker", () => {
       const dest = path.join(tmp, "mini");
@@ -4235,13 +4266,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "getMcpTools()");
       assert.include(
         agents,
-        "@nodefony/devkit/docs/index.md",
+        "@nodefony/ai/docs/mcp.md",
         "la porte doit DONNER le chemin du mode d'emploi, pas seulement le sigle",
       );
       const docMcp = readFileSync(
         path.join(
           path.resolve(findPackageRoot(), "..", ".."),
-          "src/packages/@nodefony/devkit/docs/index.md",
+          "src/packages/@nodefony/ai/docs/mcp.md",
         ),
         "utf8",
       );
@@ -4250,7 +4281,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "mcpText(",
         // Un outil réservé se DÉCLARE, et l'agent doit savoir que le refus est
         // fermé par défaut — sinon il croit à une panne et contourne.
-        'scopes: ["shop:read", "shop:billing"]',
+        'scopes: ["shop:billing"]',
         "inappelable en le nommant",
         // La POSTURE de la porte — une seule clé la commande, et l'agent doit
         // savoir qu'un outil muet n'est pas une panne. ⚠️ Ce gate a déjà figé
@@ -4261,7 +4292,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "resource_metadata",
         "avant de chercher une panne",
       ]) {
-        assert.include(docMcp, needle, `doc devkit sans « ${needle} »`);
+        assert.include(docMcp, needle, `doc ai sans « ${needle} »`);
       }
       // Les 3 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
       // le cœur est ISOMORPHE (jamais un client WS/type dupliqué à la main),

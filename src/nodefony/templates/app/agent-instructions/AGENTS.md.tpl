@@ -289,7 +289,7 @@ fichiers répondront toujours quelque chose, mais pas à la question posée.
 
 **Tes modules publient AUSSI leurs outils** — `npx nodefony ai:mcp` écrit `.mcp.json`, et
 un module qui implémente `getMcpTools()` expose son métier, pas la plomberie (contrat,
-scopes : `node_modules/@nodefony/devkit/docs/index.md`). C'est une ROUTE : démarre l'app
+scopes : `node_modules/@nodefony/ai/docs/mcp.md`). C'est une ROUTE : démarre l'app
 D'ABORD, ta session ENSUITE.
 
 <% if (it.hasSecurity) { %>🔴 **La connexion est DÉJÀ servie — n'écris ni page de login, ni controller de compte.**

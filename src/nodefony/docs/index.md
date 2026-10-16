@@ -110,19 +110,19 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Page                                     | Ce qu'elle résout                                     | Tu en as besoin quand…                         |
-| ---------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
-| [Service](service.md)                    | la classe de base : injection, événements, journal    | tu écris n'importe quel composant              |
-| [Journalisation](syslog.md)              | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
-| [Kernel & Module](kernel.md)             | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
-| [CLI](cli.md)                            | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
-| [Tests](testing.md)                      | éprouver ce que tu écris — unitaire, bout en bout     | tu lances `npm test` pour la première fois     |
-| [RequestContext](request-context.md)     | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
-| [Boîte à outils MCP](mcp.md)             | exposer les outils de ton application à un agent      | un agent doit interroger ou piloter ton app    |
-| [Client isomorphe](client.md)            | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
-| [Hooks React](react-hooks.md)            | la socket en idiomes React                            | ton front est en React                         |
-| [Composables Vue](vue-composables.md)    | la socket en idiomes Vue                              | ton front est en Vue 3                         |
-| [Injection Angular](angular-services.md) | la socket en idiomes Angular                          | ton front est en Angular                       |
+| Page                                                          | Ce qu'elle résout                                     | Tu en as besoin quand…                         |
+| ------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| [Service](service.md)                                         | la classe de base : injection, événements, journal    | tu écris n'importe quel composant              |
+| [Journalisation](syslog.md)                                   | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
+| [Kernel & Module](kernel.md)                                  | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
+| [CLI](cli.md)                                                 | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
+| [Tests](testing.md)                                           | éprouver ce que tu écris — unitaire, bout en bout     | tu lances `npm test` pour la première fois     |
+| [RequestContext](request-context.md)                          | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
+| [Boîte à outils MCP](../../packages/@nodefony/ai/docs/mcp.md) | exposer les outils de ton application à un agent      | un agent doit interroger ou piloter ton app    |
+| [Client isomorphe](client.md)                                 | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
+| [Hooks React](react-hooks.md)                                 | la socket en idiomes React                            | ton front est en React                         |
+| [Composables Vue](vue-composables.md)                         | la socket en idiomes Vue                              | ton front est en Vue 3                         |
+| [Injection Angular](angular-services.md)                      | la socket en idiomes Angular                          | ton front est en Angular                       |
 
 ```nodefony-cards
 [
@@ -144,7 +144,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
   { "icon": "🧵", "title": "request-context", "href": "request-context.md",
     "desc": "Plusieurs requêtes traversent le même processus en même temps, et chacune garde son identité à travers les await, les rappels et les minuteries. Ce qu'on peut y ranger — identifiant de requête, utilisateur, trace distribuée — et le piège des écouteurs qui se déclenchent plus tard.",
     "meta": "tu corrèles des journaux, ou tu lis l'identité" },
-  { "icon": "🤖", "title": "mcp", "href": "mcp.md",
+  { "icon": "🤖", "title": "mcp", "href": "../../packages/@nodefony/ai/docs/mcp.md",
     "desc": "Un agent d'intelligence artificielle appelle les outils d'un logiciel par le Model Context Protocol. Chaque module déclare les siens — une fonction, une description, un schéma — et la norme est tenue pour lui : versions, erreurs, autorisation, progression d'un outil long, annulation quand l'agent abandonne. Et le gabarit pour monter sa propre porte.",
     "meta": "un agent doit interroger ou piloter ton application" },
   { "icon": "🌐", "title": "client", "href": "client.md",
