@@ -60,7 +60,8 @@ import {
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec, lignesLisibles } from "./lib/extrait-echec.mjs";
-import { MOT_DE_PASSE_POSE } from "./lib/identites.mjs";
+import { MOT_DE_PASSE_POSE, TEMOIN } from "./lib/identites.mjs";
+import { PORTES } from "./lib/redteam-portes-mcp.mjs";
 import { createRequire } from "node:module";
 
 /**
@@ -253,9 +254,16 @@ const ROLE_GARDE = "ROLE_COFFRE";
  * `401` — n'est vu par aucune assertion du dépôt : il faut le compiler, le
  * tester, puis le FRAPPER sur un serveur réel.
  */
-const MCP_LOCAL = "outils";
-const MCP_OAUTH = "agent";
-const MCP_MIXTE = "vitrine";
+// Les noms des trois portes : ceux que la red-team frappe — une seule source.
+const MCP_LOCAL = PORTES.locale.prefixe;
+const MCP_OAUTH = PORTES.protegee.prefixe;
+const MCP_MIXTE = PORTES.mixte.prefixe;
+/** La red-team des trois portes générées — lancée dans l'app, serveur up. */
+const REDTEAM_PORTES_MCP = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "redteam-portes-mcp.mjs",
+);
 
 /**
  * Le service témoin, la méthode qui REMPLACE son exemple, et la commande qui
@@ -2475,6 +2483,23 @@ step(
         throw new Error(
           `jeton d'une AUTRE audience servi → ${rejoue.status} (401 attendu)`,
         );
+      // La RED-TEAM des trois portes générées, sur ce serveur, AVANT la
+      // rotation : sa session d'administrateur (une session ne doit rien ouvrir)
+      // se connecte avec le mot de passe semé. Matrice conçue sans lire la
+      // mécanique — chaque vecteur dit ce que la norme exige.
+      run(
+        process.execPath,
+        [
+          BIN,
+          "security:user:add",
+          TEMOIN.username,
+          "--password",
+          TEMOIN.password,
+        ],
+        APP,
+        { NODE_ENV: "development" },
+      );
+      run(process.execPath, [REDTEAM_PORTES_MCP]);
       // Le geste d'exploitant qui révoque : changer le mot de passe du compte
       // révoque ses jetons. Le jeton qui ouvrait la porte doit cesser de
       // l'ouvrir AVANT son expiration — c'est ce que la lecture du seul jeu de
