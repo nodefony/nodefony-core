@@ -25,30 +25,40 @@ déclare ses outils et s'appuie sur la base commune d'ici. Il n'en possède aucu
 **Module SOCLE — `policy: "mandatory"`**, au même rang que `http`, `framework` et `security` :
 toujours chargé, jamais filtré, dans TOUS les environnements. Il livre la base dont dépendent
 devkit, tout module qui déclare des outils (`getMcpTools()`) et les agents de l'application.
-Ce statut n'est sûr que tenu par deux règles du module : **coût nul** tant qu'aucune capacité
-n'est configurée, et **aucune porte ouverte en production sans autorisation**. Il ne fait pas
+Ce statut n'est sûr que tenu par deux règles du module : **aucun coût par requête** tant
+qu'aucune capacité n'est configurée, et **aucune porte ouverte en production sans
+autorisation**. Il ne fait pas
 partie du paquet `nodefony` : le cœur ne l'importe jamais.
 
-## Frontières (arrêtées)
+## Frontières
 
-| Où                     | Ce qui y vit                                                                                                                    | Pourquoi                                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **cœur `nodefony`**    | JSON-RPC 2.0 (`jsonrpc/`), serveur de ressource OAuth (`oauth/`, `runtime/bearer.ts`), `ai:mcp`, `ai:sync`, `MCP_ENDPOINT_PATH` | partagés avec le temps réel et `@nodefony/security` ; `ai:mcp`/`ai:sync` tournent avant toute installation (`create app`, `upgrade`) et doivent exister dans une app `minimal` |
-| **`@nodefony/ai`**     | protocole MCP, moteur `handleMcpMessage`, progression, flux, garde d'accès, rôles des appelants, collecte et appel des outils   | ce qu'une application emploie pour exposer SES outils — prêt pour la production, pas réservé au dev                                                                            |
-| **`@nodefony/devkit`** | les 7 outils `nodefony_*` (inspect, card, check, symbols, docs, admin_list, admin_call)                                         | le MCP de Nodefony, chargé en développement (`policy: "dev"`)                                                                                                                  |
+Cible arrêtée comme hypothèse de travail par l'auteur — révisable ; le plan, les preuves et la
+table de placement complète vivent dans #565 (et l'ADR qui le clôt). Critère : **aucun symbole
+public ni aucune clé de configuration ne déménage une seconde fois après la `10.0.0`**.
 
-Les arbitrages encore ouverts (porte HTTP ici ou dans devkit, emplacement des types `IMcpTool`,
-dépendance de l'app générée, règle de production d'une porte anonyme) vivent dans le ticket
-**#565** et dans l'ADR qui le clôt — pas ici. Ce fichier ne porte que ce qui est arrêté.
+| Où                     | Ce qui y vit                                                                                                                                                                                                                                  | Pourquoi                                                                                                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **cœur `nodefony`**    | les CONTRATS en types (`types/IMcpTool.ts`, hook `getMcpTools()`), JSON-RPC 2.0, serveur de ressource OAuth (`oauth/`, `runtime/bearer.ts`), `MCP_ENDPOINT_PATH`, `ai:mcp`, `ai:sync`                                                         | partagés (temps réel, security) ; le hook est typé par `Module` sous `noImplicitOverride` ; `ai:mcp`/`ai:sync` tournent avant toute installation (`create app`, `upgrade`) |
+| **`@nodefony/ai`**     | protocole MCP, moteur `handleMcpMessage`, progression, flux, garde, rôles des appelants, collecte et appel des outils, **la porte `POST /nodefony/mcp`** (coquille autour de `serveMcpRequest`, fonction pure), service `mcp`, config `mcp.*` | ce qu'une application emploie pour exposer SES outils, en production comprise ; ré-exporte les contrats du cœur                                                            |
+| **`@nodefony/devkit`** | les 7 outils `nodefony_*`, déclarés par `getMcpTools()` comme ceux de n'importe quel module                                                                                                                                                   | le MCP de Nodefony : un CONSOMMATEUR, sans porte ni config `mcp`                                                                                                           |
+
+Règle des commandes : le cœur possède `ai:mcp` et `ai:sync` ; toute autre commande `ai:*`
+(stdio, fiche du registre, exécution d'agent) appartient au module.
 
 ## Règles du module (non négociables)
 
 - **Sens des dépendances** : `@nodefony/ai → nodefony` (+ `@nodefony/http`, `@nodefony/framework`
   en pairs) ; `@nodefony/devkit → @nodefony/ai`. **Le cœur n'importe JAMAIS `@nodefony/ai`** —
   `node scripts/gates/check-package-deps.mjs` refuse tout cycle, la liste des cycles déclarés est vide.
-- **Coût nul sans usage** : une capacité dont aucun fournisseur n'est configuré coûte **zéro
-  allocation et zéro import**. Collecte des outils paresseuse, à la requête ; aucun registre
-  peuplé au boot « au cas où ». Règle perf/mémoire du `CLAUDE.md` racine, sans exception.
+- **Coût borné au boot, nul par requête** : au démarrage, un import, un service, deux routes et
+  un parse Zod — constants, mesurés par le gate mémoire. Par requête hors de la porte : zéro.
+  Quatre invariants à tenir à CHAQUE capacité ajoutée : aucun écouteur sur le chemin de requête
+  (`onRequest`, `onRequestScope`) ni minuteur tant que rien n'est configuré ; aucun registre
+  peuplé au boot (collecte à la requête) ; aucun `import()` de fournisseur à la charge du module ;
+  rien dans le constructeur ni dans `init()` d'un service non configuré, au-delà de lire sa config.
+- **Porte de production = autorisation, sinon 404** : en production, une porte sans
+  `authorizationServers` n'existe pas (404 sur POST/GET/DELETE, rien publié en RFC 9728, une ligne
+  au démarrage). Jamais de rôle d'opérateur hors développement.
 - **Fournisseurs lourds = sous-chemins optionnels** (`@nodefony/ai/<fournisseur>`, SDK de modèle,
   client de base vectorielle) : `peerDependenciesMeta.optional` + `import()` au premier usage.
   La racine `@nodefony/ai` n'en tire aucun. Un sous-chemin ne se déclare dans `exports` que le
@@ -59,12 +69,13 @@ dépendance de l'app générée, règle de production d'une porte anonyme) viven
   `vector`, `memory`, `agent`, `guard`). Les jonctions avec d'autres modules (temps réel,
   vérificateur de jeton) se résolvent **par NOM + contrat structurel**, jamais par une
   dépendance de paquet (précédents : `ACCESS_TOKEN_VERIFIER`, `IAdminBrokerLike`).
-- **Révision MCP servie : `2026-07-28`, en double ère** (anciens clients acceptés). Cette révision
-  est **sans état** : plus de `initialize`, plus de `Mcp-Session-Id`, plus de flux ouvert par
-  `GET` ; les capacités du client voyagent dans `_meta` à chaque requête ; le serveur n'émet
-  JAMAIS de requête JSON-RPC vers le client — une demande à l'utilisateur ou au modèle passe par
-  le « multi round-trip » (`resultType: "input_required"` + `requestState`, qui doit être signé,
-  lié à l'appelant et borné dans le temps). Sampling et Roots sont **dépréciés** : ne rien bâtir
+- **Révision MCP** : le serveur parle aux clients déployés (handshake `initialize`) et porte la
+  FORME de résultat `2026-07-28` ; `server/discover` est volontairement non servi tant qu'aucun
+  client déployé n'emprunte le fil moderne. La révision `2026-07-28` est **sans état** (plus de
+  `initialize` ni de `Mcp-Session-Id`, plus de flux ouvert par `GET`, capacités du client dans
+  `_meta` à chaque requête) et le serveur n'y émet JAMAIS de requête vers le client : une demande à
+  l'utilisateur ou au modèle y passe par le « multi round-trip » (`resultType: "input_required"` +
+  `requestState`, qui doit être signé, lié à l'appelant et borné dans le temps) — non servi ici. Sampling et Roots sont **dépréciés** : ne rien bâtir
   dessus. Spec hors ligne : skill `nodefony-rfc` (`references/mcp-2026-07-28/`). Trancher une
   question de protocole sur la spec, jamais de mémoire.
 - **Un échec métier d'outil est un résultat `isError`, jamais une erreur JSON-RPC** : le
@@ -77,8 +88,8 @@ dépendance de l'app générée, règle de production d'une porte anonyme) viven
   agent de l'application qui appelle ses propres outils, y compris dans un pod sans serveur.
 - **Variables d'environnement préfixées `NF_`**, lues par le seul `env.ts` de l'application.
 - **Pré-version** : pas d'alias de compatibilité pour ce qui a quitté `nodefony` ; entrée de
-  changelog sous `Changed`. À partir de la `10.0.0`, la politique publique
-  (`docs/guides/compatibilite.md`) s'applique : la garantie porte sur `exports`.
+  changelog sous `Changed` — semver §9 : une pré-version n'engage aucune compatibilité (la page
+  `docs/guides/compatibilite.md` ne traite pas des pré-versions ; sa garantie porte sur `exports`).
 
 ## Structure cible (dossiers réservés)
 
@@ -89,7 +100,9 @@ déménagement ne soit nécessaire après la `10.0.0`.
 index.ts                     AiModule + barrel public (seule porte d'import)
 nodefony/config/             schéma Zod (config.ts) + builder (defineModuleConfig.ts)
 nodefony/service/            un service par capacité (McpService, puis LlmService…)
+nodefony/controllers/        McpController — POST /nodefony/mcp, coquille de serveMcpRequest
 nodefony/mcp/                protocole, moteur, progression, flux, garde, appelants, outils
+nodefony/mcp/gate.ts         serveMcpRequest() : garde → autorisation → collecte → réponse (pur)
 nodefony/mcp/client/         client MCP (consommer un serveur externe)
 nodefony/mcp/resources/      ressources et abonnements (subscriptions/listen)
 nodefony/mcp/bridge/         jonction avec le hub temps réel (résolu par nom)
@@ -97,9 +110,10 @@ nodefony/command/            commandes qui SERVENT le MCP de l'app (stdio, fiche
 nodefony/{llm,vector,memory,agent,guard}/   capacités de la couche agentique
 ```
 
-Les esquisses `src/packages/@nodefony/{agent,llm,memory,rag,vector}` (privées, tests inertes)
-restent où elles sont jusqu'à l'audit d'ouverture de la phase 12 (#245), qui dira ce qui se garde,
-se réécrit ou se supprime. Ne pas les absorber par anticipation.
+Les esquisses `src/packages/@nodefony/{agent,llm,memory,rag,vector}` (privées, `0.0.0`, tests
+inertes) ne sont PAS la source de ces capacités : leur suppression est décidée (geste 0 de #565),
+git en garde l'historique. Une capacité naît ici, dessinée par l'état de l'art qui ouvre la
+phase 12 (#245) — jamais recopiée d'une esquisse.
 
 ## Interdits sans accord explicite de l'auteur
 
@@ -107,7 +121,6 @@ se réécrit ou se supprime. Ne pas les absorber par anticipation.
 - Ajouter une dépendance npm d'exécution (peser taille et mémoire) — un fournisseur part en
   sous-chemin optionnel.
 - Ajouter une entrée à `exports`, ou déplacer un symbole public hors de ce paquet.
-- Supprimer les esquisses de la phase 12 ou les dossiers vides `mcp/`, `agent-guard/`.
 
 ## Gates avant commit
 
