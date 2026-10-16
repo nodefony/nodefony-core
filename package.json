@@ -152,7 +152,6 @@
       "build:force": "Comme « build », mais ignore le cache turbo — à utiliser quand un dist paraît périmé.",
       "build:front": "Bâtit les bundles frontend de l'application, par la commande du framework.",
       "build:packages": "Bâtit les seuls paquets @nodefony/*, sans le cœur ni l'application.",
-      "certificates": "Engendre des certificats TLS auto-signés pour le développement. Outil avancé, pas le chemin par défaut.",
       "check:filenames": "Refuse un nom de fichier que Windows n'accepte pas, en nommant la raison exacte.",
       "check:lang": "Gate : les identifiants du code de production doivent être en anglais. Échoue en les nommant.",
       "check:lang:test": "Éprouve le gate de langue sur ses propres cas — il doit attraper et ne pas sur-attraper —, puis l'outil de renommage.",
