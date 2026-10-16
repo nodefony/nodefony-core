@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T17:35:52.080Z",
+  "generatedAt": "2026-10-16T19:32:49.946Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -63,7 +63,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 36,
+      "open": 37,
       "title": "10.1.0"
     }
   ],
@@ -7959,6 +7959,20 @@
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 157,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 602,
+      "title": "feat(cli): générer une porte MCP d'application avec create controller",
+      "url": "https://github.com/nodefony/nodefony-core/issues/602",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 157,
