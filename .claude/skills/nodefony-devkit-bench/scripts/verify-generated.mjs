@@ -1889,8 +1889,15 @@ step(
         );
       }
     }
-    run(process.execPath, [BIN, "production", "--detach", "--wait"], APP, env);
+    // Le démarrage est DANS le `try` : s'il lève (boot dégradé, délai), un
+    // serveur peut quand même tourner — l'arrêt du `finally` doit le voir.
     try {
+      run(
+        process.execPath,
+        [BIN, "production", "--detach", "--wait"],
+        APP,
+        env,
+      );
       // `--wait` dit que le serveur écoute ; il ne dit pas qu'il RÉPOND. Le
       // boot peut aussi échouer APRÈS l'ouverture du port (hook de cycle de
       // vie), et c'est exactement le cas qu'on garde ici.
@@ -1937,10 +1944,10 @@ step(
     // application qui émet les jetons de ses partenaires l'y ajoute
     // elle-même). En production, l'émission rendrait `invalid_target` — par
     // décision du gabarit, pas par défaut de la commande.
-    run(process.execPath, [BIN, "development", "--detach"], APP, {
-      NODE_ENV: "development",
-    });
     try {
+      run(process.execPath, [BIN, "development", "--detach"], APP, {
+        NODE_ENV: "development",
+      });
       const out = run(
         process.execPath,
         [BIN, "app:partner:call", "--json"],
@@ -2079,8 +2086,8 @@ containersOnly(
     run("docker", [...compose, "down", "-v"], APP, kcEnv);
     try {
       run("docker", [...compose, "up", "-d", "--wait", "keycloak"], APP, kcEnv);
-      run(process.execPath, [BIN, "development", "--detach"], APP, appEnv);
       try {
+        run(process.execPath, [BIN, "development", "--detach"], APP, appEnv);
         const probe = spawnSync(
           process.execPath,
           [

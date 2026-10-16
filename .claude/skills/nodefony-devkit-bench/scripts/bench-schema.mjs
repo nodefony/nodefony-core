@@ -1497,6 +1497,14 @@ async function withServer(app, runDir, fn) {
     console.log(
       `    ⚠️  le serveur n'a pas démarré (exit ${start.status}) — voir ${path.join(runDir, "server.log")}`,
     );
+    // Un échec de démarrage peut laisser un serveur DEBOUT (boot dégradé) :
+    // l'arrêter ici, sinon il tient les ports du run suivant.
+    spawnSync(process.execPath, [bin, "stop"], {
+      cwd: app,
+      encoding: "utf8",
+      timeout: 60_000,
+      env: APP_ENV,
+    });
     return { started: false, probes: [] };
   }
   try {

@@ -173,8 +173,23 @@ export function installFromTarballs(app, packed) {
       installed.push(name);
     }
   }
+  // Un paquet du framework que l'app NE déclare PAS (pair d'un autre, tirée par
+  // npm) partirait sinon du REGISTRE — la version déjà publiée, pas celle qu'on
+  // éprouve. Vécu : `@nodefony/ai`, pair de devkit, arrivait en beta.3 sans le
+  // code déménagé, et le boot tombait sur un export introuvable. On l'épingle sur
+  // son tarball par `overrides` (npm refuse un override qui contredit une
+  // dépendance DÉCLARÉE, d'où la seule liste des non déclarés).
+  const pinned = [];
+  for (const [name, tgz] of Object.entries(packed.manifest)) {
+    if (installed.includes(name)) continue;
+    pkg.overrides = pkg.overrides ?? {};
+    pkg.overrides[name] = `file:./tarballs/${tgz}`;
+    pinned.push(name);
+  }
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
-  console.log(`• npm install (${installed.length} paquets depuis tarballs)…`);
+  console.log(
+    `• npm install (${installed.length} paquets depuis tarballs, ${pinned.length} épinglé(s) en overrides)…`,
+  );
   sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
   return installed.sort();
 }
@@ -252,6 +267,33 @@ export function assertIsolated(repo, app) {
     `aucune source .ts du framework atteignable` +
       (sample ? ` (${sample})` : ""),
   );
+
+  // Le quatrième fait : chaque paquet du framework INSTALLÉ vient d'un tarball,
+  // jamais du registre. Les trois premiers ne le voient pas — un paquet tiré du
+  // registre vit dans l'app, sans lien ni source.
+  const lockPath = path.join(app, "package-lock.json");
+  if (existsSync(lockPath)) {
+    const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+    const fromRegistry = Object.entries(lock.packages ?? {})
+      .filter(([key]) =>
+        /(^|\/)node_modules\/(nodefony|@nodefony\/[^/]+)$/.test(key),
+      )
+      .filter(([, meta]) => !String(meta?.resolved ?? "").startsWith("file:"))
+      .map(
+        ([key, meta]) =>
+          `${key.replace(/^.*node_modules\//, "")}@${meta?.version}`,
+      );
+    note(
+      fromRegistry.length === 0,
+      `aucun paquet du framework ne vient du registre` +
+        (fromRegistry.length ? ` (${fromRegistry.join(", ")})` : ""),
+    );
+  } else {
+    note(
+      false,
+      "aucun paquet du framework ne vient du registre (verrou absent : non constatable)",
+    );
+  }
 
   return { ok, facts };
 }
