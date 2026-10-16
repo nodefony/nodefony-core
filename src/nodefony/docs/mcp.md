@@ -76,7 +76,7 @@ voici pourquoi elle n'aboutit pas » est une phrase que l'agent sait corriger se
 
 ## La vision Nodefony
 
-- **Le protocole est une fonction pure.** `handleMcpMessage()` (`server.ts:330`) reçoit un message
+- **Le protocole est une fonction pure.** `handleMcpMessage()` (`server.ts:372`) reçoit un message
   et rend un statut et un corps : ni socket, ni conteneur, ni horloge. Tout le protocole s'éprouve
   sans serveur, et une seconde porte (HTTP de production, `stdio`) appelle la même fonction.
 - **Un outil est un objet ordinaire.** Le contrat `IMcpTool` (`IMcpTool.ts:157`) est le même pour
@@ -293,53 +293,71 @@ finale — rien ne garantit qu'un client fasse entrer les notifications dans son
 ## 🚪 Monter une porte
 
 `@nodefony/ai` ne monte **aucune** route : une porte se **déclare**, par qui en a besoin. La porte
-de développement est un controller de `@nodefony/devkit` (`McpController.mcp()`,
-`McpController.ts:100`, `policy: "dev"`). Une application ouvre la SIENNE — en développement ou en
-production, selon ses besoins — par un controller ordinaire qui appelle `serveMcp()`
-(`gate.ts:531`) ; elle ne recode aucune ligne de protocole :
+de développement est celle de `@nodefony/devkit` (`DevkitService.mcpGate()`,
+`DevkitService.ts:254`, servie par `McpController.mcp()`, `McpController.ts:84`, `policy: "dev"`).
+Une application ouvre la SIENNE — en développement ou en production, selon ses besoins — en deux
+temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts:369`), puis se **sert** d'une
+ligne depuis une action de controller. Aucune ligne de protocole à écrire :
 
 ```ts
 import { Controller, route, controller, Body } from "@nodefony/framework";
-import { serveMcp, mcpConfigSchema } from "@nodefony/ai";
+import { defineMcpGate } from "@nodefony/ai";
+import { stockTool, orderTool } from "./tools";
 
-const SETTINGS = mcpConfigSchema.parse({}); // ou un sous-schéma de la config de l'app
+// Définie UNE fois : validée au chargement — une clé mal écrite, une révision
+// du protocole inconnue, un outil mal formé arrêtent le démarrage en la nommant.
+const shopGate = defineMcpGate({
+  name: "shop", // le nom que l'agent voit
+  instructions: "Stock et commandes du magasin.", // QUAND l'agent doit s'en servir
+  tools: [stockTool, orderTool], // ce que l'agent peut appeler
+});
 
 @controller("/api")
 class ShopMcpController extends Controller {
-  @route("shop-mcp", { path: "/mcp", requirements: { methods: ["POST"] } })
+  // POST sert le message ; GET et DELETE répondent 405 (verbes retirés par la spec).
+  @route("shop-mcp", {
+    path: "/mcp",
+    requirements: { methods: ["POST", "GET", "DELETE"] },
+  })
   mcp(@Body() body: unknown) {
-    return serveMcp(this, body, {
-      settings: SETTINGS,
-      // les modules dont la porte sert les outils (`getMcpTools()`)
-      modules: { shop: this.context?.kernel?.getModule("shop") },
-      serverInfo: { name: "shop", version: "1.0.0" },
-    });
+    return shopGate.serve(this, body);
   }
 }
 ```
 
-La porte ne fournit que ce qu'ELLE décide : sa route, sa policy, ses réglages, les modules dont
-elle publie les outils (`getMcpTools()`), son vérificateur de jeton. Tout le reste est la
-mécanique commune, `serveMcpRequest()` (`gate.ts:198`), éprouvable sans serveur :
+| Réglage                           | Défaut                                            | Ce qu'il décide                                                                                  |
+| --------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `tools`                           | — (requis)                                        | une liste d'outils, ou `"modules"` pour ceux que déclarent les modules chargés (`getMcpTools()`) |
+| `name`, `version`, `instructions` | nom du projet, version de Nodefony, phrase neutre | ce que l'agent lit en arrivant                                                                   |
+| `allowRemote`, `allowedOrigins`   | `false`, `[]`                                     | qui peut frapper : la machine locale seulement, aucune page web                                  |
+| `authorization`                   | aucune                                            | serveur(s) d'autorisation et URI de la porte : un jeton est alors exigé                          |
+| `unprotectedRoles`                | `[]`                                              | rôles accordés SANS jeton — refusé à côté d'une `authorization`                                  |
+| `protocol.versions`               | toutes celles du paquet                           | figer les révisions acceptées (porte de production)                                              |
+| `cache`                           | `{ ttlMs: 0, scope: "private" }`                  | indices de cache des listes, servis aux clients modernes                                         |
+| `enabled`                         | `true`                                            | coupée, la porte répond `404`                                                                    |
+
+⚠️ Figer `protocol.versions` sur la seule révision `2026-07-28` coupe les clients qui parlent encore
+l'ancienne forme (`initialize`) — c'est le cas des clients déployés aujourd'hui.
+
+Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:433`, éprouvable sans serveur) :
 
 - **`checkMcpAccess()`** (`guard.ts:76`) : un client MCP légitime est un _process_ et n'envoie
   aucun `Origin` ; une page web malveillante en pose toujours un. _Absent_ → on passe, _présent et
   hors allowlist_ → `403`. C'est ce qui referme le DNS rebinding contre un serveur local.
-- **`createMcpResponseStream()`** (`stream.ts:63`) ouvre le flux au **premier** envoi seulement,
-  enchaîne les envois dans l'ordre, et `finish()` écrit la réponse finale qui le clôt. Rien envoyé
-  en route → la porte répond en JSON comme pour une lecture courte.
-- **L'annulation** est le signal de la requête : sur le transport HTTP, fermer le flux de réponse
-  EST l'annulation. `serveMcp()` passe `context.signal`, que le noyau abat quand la réponse se
-  ferme avant sa fin — aucun écouteur à ajouter.
+- **`createMcpResponseStream()`** (`stream.ts:63`) ouvre le flux SSE au **premier** envoi seulement
+  (et seulement si le client l'accepte), enchaîne les envois dans l'ordre, et la réponse finale le
+  clôt. Rien envoyé en route → réponse JSON. Pas de reprise (`Last-Event-ID`) : la spec la retire,
+  le client rejoue sa requête.
+- **L'annulation** est le signal de la requête : fermer le flux de réponse EST l'annulation, que le
+  noyau transmet à l'outil — aucun écouteur à ajouter.
 - **Une porte non protégée n'accorde AUCUN rôle** (`mcpCallerRoles()`, `caller.ts:59`) : ses
   outils réservés (`scopes`) restent retenus. Seule une porte que son PÉRIMÈTRE protège l'élargit,
-  et l'écrit (`operatorRoles`) — c'est le cas de la porte de développement de devkit.
-- **Une porte protégée** (`settings.authorization.authorizationServers`) dérive l'appelant d'un
-  jeton OAuth (`authorizeProtectedResource()`, `protectedResource.ts:505`) et répond `401` avec
-  `resource_metadata` sans jeton ; les rôles viennent des scopes. Son document RFC 9728 se publie
-  par un service qui expose `publishedProtectedResources()`, composé par
-  `mcpProtectedResources()` (`gate.ts:450`) pour que les scopes publiés soient ceux que le défi
-  exige.
+  et l'écrit (`unprotectedRoles`) — c'est le cas de la porte de développement de devkit.
+- **Une porte protégée** (`authorization.authorizationServers`) dérive l'appelant d'un jeton OAuth
+  (`authorizeProtectedResource()`, `protectedResource.ts:505`), répond `401` avec
+  `resource_metadata` sans jeton, et tire les rôles des scopes. Son document RFC 9728 se publie par
+  un service qui expose `publishedProtectedResources()` en rendant `gate.protectedResources()` :
+  les scopes publiés sont ceux que le défi exige.
 
 ## 📏 Normes appliquées — ce que la boîte à outils tient pour toi
 
@@ -353,9 +371,9 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 | l'`id` d'une requête est une chaîne ou un entier, jamais `null`               | refus `400` + `-32600` avant tout autre contrôle                                                                                                 |
 | `params` est un objet nommé                                                   | un tableau → `-32602`, une valeur primitive → `-32600`                                                                                           |
 | en-tête `MCP-Protocol-Version` ≠ `_meta` → refus                              | `400` + `-32020` (`McpProtocolError`, `protocol.ts:96`) — deux sources de vérité pour une même requête                                           |
-| révision inconnue → refus avec la liste servie                                | `400` + `-32022` et `supported` (`checkProtocolVersion()`, `server.ts:268`)                                                                      |
-| `initialize` répond la révision DEMANDÉE quand elle est servie                | `negotiateVersion()` (`server.ts:241`) — annoncer la sienne rendait la porte injoignable                                                         |
-| ère moderne : `resultType` sur chaque résultat                                | `eraResult()` (`server.ts:159`) donne au résultat la forme de l'ère du CLIENT                                                                    |
+| révision inconnue → refus avec la liste servie                                | `400` + `-32022` et `supported` (`checkProtocolVersion()`, `server.ts:309`)                                                                      |
+| `initialize` répond la révision DEMANDÉE quand elle est servie                | `negotiateVersion()` (`server.ts:276`) — annoncer la sienne rendait la porte injoignable                                                         |
+| ère moderne : `resultType` sur chaque résultat                                | `eraResult()` (`server.ts:195`) donne au résultat la forme de l'ère du CLIENT                                                                    |
 | méthode non implémentée → `404` + `-32601`                                    | cas par défaut du protocole                                                                                                                      |
 | progression : jeton fourni, valeur croissante, cadence bornée, arrêt à la fin | `createProgressReporter()` (`src/packages/@nodefony/ai/nodefony/mcp/progress.ts:72`) ; arrêt dans le `finally` de `tools/call` (`server.ts:506`) |
 | flux : notifications liées à la requête, réponse finale qui le termine        | `createMcpResponseStream()` (`stream.ts:63`)                                                                                                     |

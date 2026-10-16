@@ -55,6 +55,9 @@ export const MCP_SUPPORTED_VERSIONS = [
   "2024-11-05",
 ] as const;
 
+/** Une révision du protocole que ce paquet sait servir. */
+export type McpProtocolVersion = (typeof MCP_SUPPORTED_VERSIONS)[number];
+
 /**
  * Clé de métadonnée par laquelle un client MODERNE déclare sa révision.
  *

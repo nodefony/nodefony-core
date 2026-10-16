@@ -7,6 +7,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MCP_ENDPOINT_PATH, protectedResourceMetadataPath } from "nodefony";
 import { MCP_PROTOCOL_VERSION } from "@nodefony/ai";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 /** Où la RFC 9728 fait chercher les métadonnées de CETTE porte. */
 const MCP_METADATA_PATH = protectedResourceMetadataPath(MCP_ENDPOINT_PATH);
@@ -1146,6 +1149,23 @@ describe.skipIf(raison !== null)(
       expect(texte).toBe("bonjour");
     });
 
+    it("`GET` : 405, comme toute porte MCP — jamais un repli SPA en 200", async () => {
+      const reponse = await lire(PORTE_TEMOIN);
+      expect(reponse.status).toBe(405);
+    });
+
+    it("version du protocole inconnue : 400 + -32022 avec la liste servie", async () => {
+      const reponse = await poster(
+        { jsonrpc: "2.0", id: 4, method: "tools/list" },
+        { "mcp-protocol-version": "2099-01-01" },
+        PORTE_TEMOIN,
+      );
+      expect(reponse.status).toBe(400);
+      expect((reponse.body as { error?: { code: number } }).error?.code).toBe(
+        -32022,
+      );
+    });
+
     it("l'outil réservé n'est pas appelable en le nommant", async () => {
       const reponse = await poster(
         {
@@ -1160,6 +1180,85 @@ describe.skipIf(raison !== null)(
       expect(JSON.stringify(reponse.body)).not.toContain(
         "ne doit jamais répondre",
       );
+    });
+  },
+);
+
+/**
+ * Le client OFFICIEL de la spec (`@modelcontextprotocol/sdk`) — celui sur
+ * lequel s'appuient les agents réels. Les cas ci-dessus forgent leurs requêtes
+ * à la main : ils prouvent la conformité à la lettre, pas qu'un vrai client se
+ * CONNECTE. C'est exactement l'écart qui a déjà rendu la porte injoignable
+ * (révision annoncée qu'aucun SDK ne connaissait), sans qu'aucun test le voie.
+ */
+describe.skipIf(raison !== null)(
+  "MCP — le client OFFICIEL (@modelcontextprotocol/sdk) sur les deux portes",
+  () => {
+    async function ouvrir(chemin: string): Promise<Client> {
+      const client = new Client({ name: "banc-sdk", version: "0.0.0" });
+      // Conversion assumée : le SDK type `sessionId` en `string | undefined` sur son
+      // transport et en `sessionId?: string` sur son interface — incompatibles
+      // sous `exactOptionalPropertyTypes`, défaut du SDK, pas de ce banc.
+      const transport = new StreamableHTTPClientTransport(
+        new URL(`${RESOURCE_BASE}${chemin}`),
+      ) as Transport;
+      await client.connect(transport);
+      return client;
+    }
+
+    function texte(resultat: unknown): string {
+      const contenu = (resultat as { content?: { text?: string }[] }).content;
+      return contenu?.[0]?.text ?? "";
+    }
+
+    it("porte de développement : connexion, catalogue, appel", async () => {
+      const client = await ouvrir(MCP_ENDPOINT_PATH);
+      try {
+        const { tools } = await client.listTools();
+        const noms = tools.map((t) => t.name);
+        expect(noms).toContain("nodefony_card");
+        expect(noms).toContain("test_probe");
+        const carte = await client.callTool({
+          name: "nodefony_card",
+          arguments: {},
+        });
+        expect(carte.isError ?? false).toBe(false);
+        expect(texte(carte)).toContain('"app"');
+      } finally {
+        await client.close();
+      }
+    });
+
+    it("🔴 la progression traverse le flux SSE jusqu'au client", async () => {
+      const client = await ouvrir(MCP_ENDPOINT_PATH);
+      try {
+        const etapes: number[] = [];
+        const resultat = await client.callTool(
+          { name: "test_progress", arguments: { steps: 3 } },
+          undefined,
+          { onprogress: (p) => etapes.push(p.progress) },
+        );
+        expect(resultat.isError ?? false).toBe(false);
+        expect(etapes).toEqual([1, 2, 3]);
+      } finally {
+        await client.close();
+      }
+    });
+
+    it("porte d'application : ne voit que son outil, et l'appelle", async () => {
+      const client = await ouvrir(PORTE_TEMOIN);
+      try {
+        expect(client.getServerVersion()?.name).toBe("test-gate");
+        const { tools } = await client.listTools();
+        expect(tools.map((t) => t.name)).toEqual(["gate_echo"]);
+        const echo = await client.callTool({
+          name: "gate_echo",
+          arguments: { text: "bonjour du SDK" },
+        });
+        expect(texte(echo)).toBe("bonjour du SDK");
+      } finally {
+        await client.close();
+      }
     });
   },
 );

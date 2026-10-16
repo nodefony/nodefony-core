@@ -84,7 +84,43 @@ export interface IMcpServerContext {
    * comme une lecture courte : jamais annulé, sans progression.
    */
   transport?: IMcpTransport;
+  /**
+   * Révisions du protocole que CETTE porte accepte, la préférée en tête.
+   * Absent = toutes celles que le moteur sait servir ({@link MCP_SUPPORTED_VERSIONS}).
+   */
+  versions?: readonly string[];
+  /**
+   * Ce que l'agent lit pour savoir QUAND se servir de cette porte — la phrase
+   * d'ouverture des `instructions`. Absent = une phrase neutre.
+   */
+  instructions?: string;
+  /**
+   * Indices de cache des listes (`ttlMs`, `cacheScope`), servis aux clients de
+   * l'ère moderne seulement. Absent = `0` / `"private"`.
+   */
+  cache?: IMcpCacheHints;
 }
+
+/** Indices de cache d'un résultat MCP (spec `server/utilities/caching`). */
+export interface IMcpCacheHints {
+  /** Durée de fraîcheur en millisecondes, `>= 0` (MUST). */
+  ttlMs: number;
+  /** `private` dès que le résultat dépend de l'appelant. */
+  cacheScope: "public" | "private";
+}
+
+/**
+ * Défaut sûr : rien n'est frais, rien n'est partageable — le catalogue d'une
+ * porte varie selon l'autorisation présentée, et en développement à chaque
+ * rechargement.
+ */
+const DEFAULT_CACHE_HINTS: IMcpCacheHints = Object.freeze({
+  ttlMs: 0,
+  cacheScope: "private",
+});
+
+/** Phrase d'ouverture des `instructions` quand la porte n'en donne pas. */
+const DEFAULT_INSTRUCTIONS = "Outils de cette application.";
 
 /**
  * Le transport d'UNE requête, vu du protocole.
@@ -199,10 +235,9 @@ function discoverInstructions(context: IMcpServerContext): string {
   // porte, et donc invisible pour l'agent qui la lit en premier.
   const names = context.tools.map((tool) => tool.name);
   const base =
-    "Outils d'introspection d'une application Nodefony — ils répondent depuis " +
-    "l'application qui TOURNE, pas depuis une lecture des sources. " +
+    `${context.instructions ?? DEFAULT_INSTRUCTIONS} ` +
     (names.length > 0
-      ? `Disponibles ici : ${names.join(", ")}. Commence par la carte de visite si tu arrives sur cette application.`
+      ? `Disponibles ici : ${names.join(", ")}.`
       : "Aucun outil n'est servi à cet appelant.");
   const withheld = context.withheldCount ?? 0;
   if (withheld <= 0) {
@@ -238,17 +273,23 @@ function discoverInstructions(context: IMcpServerContext): string {
  * @param params - `params` de la requête `initialize`
  * @returns la révision à annoncer
  */
-function negotiateVersion(params: Record<string, unknown>): string {
+function negotiateVersion(
+  params: Record<string, unknown>,
+  versions: readonly string[],
+): string {
   const asked =
     typeof params.protocolVersion === "string"
       ? params.protocolVersion
       : metaVersion(params);
+  // La préférée de la PORTE, quand elle ne sert pas ce qu'on lui demande :
+  // à charge pour le client de raccrocher, comme la spec le prévoit.
+  const preferred = versions[0] ?? MCP_PROTOCOL_VERSION;
   if (asked === undefined) {
-    return MCP_DEFAULT_NEGOTIATED_VERSION;
+    return versions.includes(MCP_DEFAULT_NEGOTIATED_VERSION)
+      ? MCP_DEFAULT_NEGOTIATED_VERSION
+      : preferred;
   }
-  return (MCP_SUPPORTED_VERSIONS as readonly string[]).includes(asked)
-    ? asked
-    : MCP_PROTOCOL_VERSION;
+  return versions.includes(asked) ? asked : preferred;
 }
 
 /**
@@ -269,6 +310,7 @@ function checkProtocolVersion(
   id: JsonRpcId | null,
   params: Record<string, unknown>,
   headers: IMcpHeaders,
+  versions: readonly string[],
 ): IMcpHttpReply | null {
   const fromMeta = metaVersion(params);
   const fromHeader = headers.protocolVersion;
@@ -291,14 +333,14 @@ function checkProtocolVersion(
   // 2025-03-26`) ; c'est le choix DUAL-ÈRE assumé ici.
   if (!declared) return null;
 
-  if (!(MCP_SUPPORTED_VERSIONS as readonly string[]).includes(declared)) {
+  if (!versions.includes(declared)) {
     return {
       status: 400,
       body: jsonRpcFailure(
         id,
         McpProtocolError.UNSUPPORTED_PROTOCOL_VERSION,
         "Unsupported protocol version",
-        { supported: [...MCP_SUPPORTED_VERSIONS], requested: declared },
+        { supported: [...versions], requested: declared },
       ),
     };
   }
@@ -397,7 +439,8 @@ export async function handleMcpMessage(
   const id = (frame as IJsonRpcRequest).id;
   const params = (rawParams ?? {}) as Record<string, unknown>;
 
-  const refusal = checkProtocolVersion(id, params, headers);
+  const versions = context.versions ?? MCP_SUPPORTED_VERSIONS;
+  const refusal = checkProtocolVersion(id, params, headers, versions);
   if (refusal) return refusal;
 
   // L'ère du CLIENT décide de la forme de chaque résultat (cf `eraResult`).
@@ -431,7 +474,7 @@ export async function handleMcpMessage(
       return {
         status: 200,
         body: jsonRpcSuccess(id, {
-          protocolVersion: negotiateVersion(params),
+          protocolVersion: negotiateVersion(params, versions),
           // Seuls les outils sont servis : annoncer une capacité qu'on n'a pas
           // ferait porter au client des appels qui échoueraient ensuite.
           capabilities: { tools: {} },
@@ -457,6 +500,9 @@ export async function handleMcpMessage(
           id,
           eraResult(modern, context.serverInfo, {
             tools: publishMcpTools(context.tools),
+            // Indices de cache : un MUST de l'ère moderne sur les listes ;
+            // un client legacy ne les définit pas, il ne les reçoit pas.
+            ...(modern ? (context.cache ?? DEFAULT_CACHE_HINTS) : {}),
           }),
         ),
       };

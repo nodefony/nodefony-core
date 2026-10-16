@@ -2,19 +2,7 @@ import { Controller, route, controller, Body } from "@nodefony/framework";
 import type { Context } from "@nodefony/http";
 import { ADMIN_SCOPE_READ } from "nodefony";
 import type { IMcpTool } from "nodefony";
-import {
-  serveMcp,
-  rejectUnsupportedMcpMethod,
-  writeMcpResponse,
-  mcpConfigSchema,
-  mcpText,
-} from "@nodefony/ai";
-
-/**
- * Réglages de la porte témoin : les défauts — locale, anonyme. Une application
- * les lirait dans sa config (`mcpConfigSchema` en sous-schéma de la sienne).
- */
-const SETTINGS = mcpConfigSchema.parse({});
+import { defineMcpGate, mcpText } from "@nodefony/ai";
 
 /** Les outils que CETTE porte sert — et eux seuls. */
 const GATE_TOOLS: IMcpTool[] = [
@@ -38,13 +26,17 @@ const GATE_TOOLS: IMcpTool[] = [
   },
 ];
 
-/** Ce que la collecte lit : un module qui déclare ses outils. */
-const GATE_MODULES = {
-  gate: {
-    getModuleName: () => "test-gate",
-    getMcpTools: () => GATE_TOOLS,
-  },
-};
+/**
+ * La porte témoin — définie UNE fois, validée au chargement du module. Aucun
+ * réglage d'accès : la plus fermée possible (locale, sans navigateur, sans
+ * jeton, sans rôle).
+ */
+const GATE = defineMcpGate({
+  name: "test-gate",
+  version: "0.0.0",
+  instructions: "Porte témoin du module de test — un écho.",
+  tools: GATE_TOOLS,
+});
 
 /**
  * Porte MCP TÉMOIN — celle qu'une application écrit pour exposer SES outils.
@@ -61,26 +53,13 @@ class McpGateController extends Controller {
     super("McpGateController", context);
   }
 
-  /** `POST /nodefony/test/mcp-gate` — sert un message MCP. */
+  /** `POST` sert un message MCP ; `GET`/`DELETE` rendent `405`. */
   @route("test-mcp-gate", {
     path: "",
-    requirements: { methods: ["POST"] },
+    requirements: { methods: ["POST", "GET", "DELETE"] },
   })
   mcp(@Body() body: unknown) {
-    return serveMcp(this, body, {
-      settings: SETTINGS,
-      modules: GATE_MODULES,
-      serverInfo: { name: "test-gate", version: "0.0.0" },
-    });
-  }
-
-  /** `GET` / `DELETE` — `405`, comme toute porte MCP. */
-  @route("test-mcp-gate-unsupported", {
-    path: "",
-    requirements: { methods: ["GET", "DELETE"] },
-  })
-  unsupported() {
-    return writeMcpResponse(this, rejectUnsupportedMcpMethod(SETTINGS));
+    return GATE.serve(this, body);
   }
 }
 

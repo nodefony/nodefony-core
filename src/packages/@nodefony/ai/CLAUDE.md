@@ -21,7 +21,7 @@ Deux usages de l'IA, deux paquets — ne JAMAIS les confondre :
 
 `@nodefony/devkit` est un **consommateur** de ce module, comme n'importe quelle application : il
 déclare ses outils et s'appuie sur la base commune d'ici. Il n'en possède aucune copie, et il
-garde SA porte de développement (`/nodefony/mcp`, `policy: "dev"`), bâtie sur `serveMcp`.
+garde SA porte de développement (`/nodefony/mcp`, `policy: "dev"`), bâtie sur `defineMcpGate`.
 
 **Module SOCLE — `policy: "mandatory"`**, au même rang que `http`, `framework` et `security` :
 toujours chargé, jamais filtré, dans TOUS les environnements. Il livre la base dont dépendent
@@ -37,11 +37,11 @@ Cible arrêtée comme hypothèse de travail par l'auteur — révisable ; le pla
 table de placement complète vivent dans #565 (et l'ADR qui le clôt). Critère : **aucun symbole
 public ni aucune clé de configuration ne déménage une seconde fois après la `10.0.0`**.
 
-| Où                     | Ce qui y vit                                                                                                                                                                                                                                                            | Pourquoi                                                                                                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **cœur `nodefony`**    | les CONTRATS en types (`types/IMcpTool.ts`, hook `getMcpTools()`), JSON-RPC 2.0, serveur de ressource OAuth (`oauth/`, `runtime/bearer.ts`), `MCP_ENDPOINT_PATH`, `ai:mcp`, `ai:sync`                                                                                   | partagés (temps réel, security) ; le hook est typé par `Module` sous `noImplicitOverride` ; `ai:mcp`/`ai:sync` tournent avant toute installation (`create app`, `upgrade`) |
-| **`@nodefony/ai`**     | protocole MCP, moteur `handleMcpMessage`, progression, flux, garde, rôles des appelants, collecte et appel des outils, **la mécanique de porte** (`serveMcpRequest` pure, `serveMcp` pour un controller, `mcpConfigSchema`, `mcpProtectedResources`) — **aucune route** | ce qu'une application emploie pour ouvrir SA porte, en production comprise ; ré-exporte les contrats du cœur                                                               |
-| **`@nodefony/devkit`** | les 7 outils `nodefony_*` (`getMcpTools()`), et **sa porte de développement** `POST /nodefony/mcp` (`policy: "dev"`, config `devkit.mcp.*`), controller mince autour de `serveMcp`                                                                                      | le MCP de Nodefony : un CONSOMMATEUR de la mécanique, qui déclare sa porte comme le ferait une application                                                                 |
+| Où                     | Ce qui y vit                                                                                                                                                                                                                                                                     | Pourquoi                                                                                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **cœur `nodefony`**    | les CONTRATS en types (`types/IMcpTool.ts`, hook `getMcpTools()`), JSON-RPC 2.0, serveur de ressource OAuth (`oauth/`, `runtime/bearer.ts`), `MCP_ENDPOINT_PATH`, `ai:mcp`, `ai:sync`                                                                                            | partagés (temps réel, security) ; le hook est typé par `Module` sous `noImplicitOverride` ; `ai:mcp`/`ai:sync` tournent avant toute installation (`create app`, `upgrade`) |
+| **`@nodefony/ai`**     | protocole MCP, moteur `handleMcpMessage`, progression, flux, garde, rôles des appelants, collecte et appel des outils, **la mécanique de porte** (`defineMcpGate` → `gate.serve` / `gate.respond` pure / `gate.protectedResources`, schéma `mcpConfigSchema`) — **aucune route** | ce qu'une application emploie pour ouvrir SA porte, en production comprise ; ré-exporte les contrats du cœur                                                               |
+| **`@nodefony/devkit`** | les 7 outils `nodefony_*` (`getMcpTools()`), et **sa porte de développement** `POST /nodefony/mcp` (`policy: "dev"`, config `devkit.mcp.*`), controller mince autour de `defineMcpGate`                                                                                          | le MCP de Nodefony : un CONSOMMATEUR de la mécanique, qui déclare sa porte comme le ferait une application                                                                 |
 
 Règle des commandes : le cœur possède `ai:mcp` et `ai:sync` ; toute autre commande `ai:*`
 (stdio, fiche du registre, exécution d'agent) appartient au module.
@@ -58,11 +58,11 @@ Règle des commandes : le cœur possède `ai:mcp` et `ai:sync` ; toute autre com
   peuplé au boot (collecte à la requête) ; aucun `import()` de fournisseur à la charge du module ;
   rien dans le constructeur ni dans `init()` d'un service non configuré, au-delà de lire sa config.
 - **Ce module ne monte AUCUNE route** (`@controllers([])`) : une porte se déclare par un
-  controller qui appelle `serveMcp()`. Ne jamais y ajouter « la » porte — c'est le contresens que
+  controller qui appelle `gate.serve()` d'une porte `defineMcpGate`. Ne jamais y ajouter « la » porte — c'est le contresens que
   #565 a corrigé.
 - **Défaut sûr de la mécanique** : une porte NON protégée n'accorde AUCUN rôle
-  (`mcpCallerRoles`, `serveMcpRequest`) ; ses outils réservés restent retenus. Seule une porte que
-  son PÉRIMÈTRE protège (devkit, `policy: "dev"`) passe `operatorRoles`, et l'écrit.
+  (`mcpCallerRoles`, `defineMcpGate`) ; ses outils réservés restent retenus. Seule une porte que
+  son PÉRIMÈTRE protège (devkit, `policy: "dev"`) passe `unprotectedRoles`, et l'écrit.
 - **Fournisseurs lourds = sous-chemins optionnels** (`@nodefony/ai/<fournisseur>`, SDK de modèle,
   client de base vectorielle) : `peerDependenciesMeta.optional` + `import()` au premier usage.
   La racine `@nodefony/ai` n'en tire aucun. Un sous-chemin ne se déclare dans `exports` que le
@@ -103,9 +103,9 @@ déménagement ne soit nécessaire après la `10.0.0`.
 ```
 index.ts                     AiModule + barrel public (seule porte d'import)
 nodefony/config/             schéma Zod (config.ts) + builder (defineModuleConfig.ts)
-nodefony/service/            un service par capacité (McpService, puis LlmService…)
+nodefony/service/            un service par capacité (LlmService… — aucun aujourd'hui)
 nodefony/mcp/                protocole, moteur, progression, flux, garde, appelants, outils
-nodefony/mcp/gate.ts         serveMcpRequest() (pur) + serveMcp() pour un controller — la porte SANS la route
+nodefony/mcp/gate.ts         defineMcpGate() → porte validée et figée (serve / respond / protectedResources), SANS route
 nodefony/mcp/client/         client MCP (consommer un serveur externe)
 nodefony/mcp/resources/      ressources et abonnements (subscriptions/listen)
 nodefony/mcp/bridge/         jonction avec le hub temps réel (résolu par nom)

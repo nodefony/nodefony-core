@@ -146,7 +146,7 @@ const mcpAuthorizationSchema = z
         code: "custom",
         path: ["resource"],
         message:
-          "`mcp.authorization.resource` est requis dès qu'un serveur " +
+          "`authorization.resource` est requis dès qu'un serveur " +
           "d'autorisation est déclaré : c'est l'URI publique de la porte, et " +
           "l'audience que les jetons doivent porter (RFC 8707).",
       });
@@ -190,7 +190,7 @@ export const mcpConfigSchema = z.strictObject({
   enabled: z
     .boolean()
     .default(true)
-    .describe("Active l'endpoint MCP (POST /nodefony/mcp)"),
+    .describe("Active la porte MCP ; coupée, elle répond 404"),
 
   /**
    * Origines acceptées quand l'en-tête `Origin` est PRÉSENT.
@@ -234,11 +234,6 @@ export const aiConfigSchema = z.strictObject({
     .boolean()
     .default(true)
     .describe("Active les fonctionnalités du module ai"),
-
-  /** La porte MCP — par laquelle un agent externe appelle les outils de l'app. */
-  mcp: mcpConfigSchema
-    .default(() => mcpConfigSchema.parse({}))
-    .describe("Serveur MCP : la porte des agents externes"),
 });
 
 /** Réglages `mcp.*` tels que le CODE les lit — défauts appliqués. */

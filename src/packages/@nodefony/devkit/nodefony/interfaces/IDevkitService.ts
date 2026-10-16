@@ -1,3 +1,4 @@
+import type { IMcpGate } from "@nodefony/ai";
 import type {
   ICard,
   ICardAppInfo,
@@ -84,4 +85,10 @@ export interface IDevkitService {
    * n'exige rien, et le champ est alors omis du document.
    */
   declaredMcpScopes(): readonly string[];
+
+  /**
+   * La porte MCP de développement (`POST /nodefony/mcp`), bâtie sur
+   * `defineMcpGate` à partir de `devkit.mcp.*` — définie une fois, au premier usage.
+   */
+  mcpGate(): IMcpGate;
 }

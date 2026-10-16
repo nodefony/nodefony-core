@@ -13,7 +13,6 @@ La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche
 | Symbole           | Fichier                                 | Rôle                                                  |
 | ----------------- | --------------------------------------- | ----------------------------------------------------- |
 | `Ai`              | `index.ts`                              | classe Module — déclare `@services`, valide la config |
-| `McpService`      | `nodefony/service/McpService.ts`        | service injectable, clé conteneur `mcp`               |
 | `mcpConfigSchema` | `nodefony/config/config.ts`             | schéma `mcp.*` — SOURCE UNIQUE, importé par devkit    |
 | `aiConfigSchema`  | `nodefony/config/config.ts`             | schéma Zod = source unique des défauts                |
 | `defineAiConfig`  | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot                                |
@@ -36,7 +35,7 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
 | `collectMcpTools(opts)` | `nodefony/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
 | `mcpDeclaredScopes(opts)` | `nodefony/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
 | `publishMcpTools`/`callMcpTool` | `nodefony/mcp/tools.ts` | projection sans `handler` / exécution par nom |
-| `serveMcpRequest`/`serveMcp` | `nodefony/mcp/gate.ts` | la PORTE sans la route : garde → corps → appelant (jeton, 401 `resource_metadata`, 503 sans vérificateur) → collecte (`modules` passés) → flux/JSON. Rend une réponse DÉCRITE (`json`/`empty`/`stream`) ; `serveMcp(controller, body, opts)` lit la requête et l'écrit. `rejectUnsupportedMcpMethod` → 405 `Allow: POST` ; `mcpProtectedResources` → entrée RFC 9728 |
+| `defineMcpGate` | `nodefony/mcp/gate.ts` | la PORTE sans la route. Définition validée (`mcpGateSchema` strict → `BootConfigurationError`), figée ; outils d'une liste vérifiés UNE fois (forme, doublon, `nodefony_` refusé). `gate.respond(req, runtime)` PUR : garde → corps → appelant (jeton, 401 `resource_metadata`, 503 sans vérificateur) → collecte → flux/JSON, réponse DÉCRITE (`json`/`empty`/`stream`). `gate.serve(controller, body)` : GET/DELETE → 405, sinon lit la requête, résout le vérificateur PAR NOM (porte protégée seulement), écrit. `gate.protectedResources()` → entrée RFC 9728. `protocol.versions` → liste passée au moteur (-32022 avec LA liste de la porte) ; `cache` → `ttlMs`/`cacheScope` sur `tools/list` MODERNE seulement ; `instructions` → ouverture du texte (défaut NEUTRE) |
 | `mcpText` | `nodefony/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils. **BORNÉ** (voir ci-dessous) |
 | `IMcpTool` | cœur `types/IMcpTool.ts` (ré-exporté) | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()` |
 
@@ -114,8 +113,6 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
 
 ## Gotchas
 
-- La clé de CONTENEUR (`super("mcp", …)`) n'est pas le nom de la CLASSE :
-  `container.get("mcp")`, `@inject("McpService")`.
 - `@nodefony/devkit` étend `mcpConfigSchema` de `tools` (son allowlist) : le schéma de la porte n'existe qu'ici.
 - Ne jamais déréférencer le Kernel au top-level d'un fichier chargé à l'import
   (`Nodefony.getKernel()` rend `null` avant le boot) — passer par un getter.

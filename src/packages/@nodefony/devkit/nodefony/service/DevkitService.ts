@@ -5,17 +5,30 @@ import {
   Nodefony,
   extend,
   injectable,
+  ADMIN_DEFAULT_ROLE,
 } from "nodefony";
 import type {
   IAdminBrokerLike,
   IMcpTool,
   IProtectedResourceInput,
 } from "nodefony";
-import { mcpDeclaredScopes, mcpProtectedResources } from "@nodefony/ai";
+import { defineMcpGate, mcpDeclaredScopes, type IMcpGate } from "@nodefony/ai";
 import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type IDevkitConfig } from "../config/config";
+
+/**
+ * Ce que l'agent lit en arrivant sur la porte de développement — la phrase
+ * d'ouverture des `instructions`, suivie par le moteur des outils servis.
+ */
+const DEVKIT_MCP_INSTRUCTIONS =
+  "Outils d'introspection d'une application Nodefony — ils répondent depuis " +
+  "l'application qui TOURNE, pas depuis une lecture des sources. Commence " +
+  "par la carte de visite si tu arrives sur cette application.";
+
+/** Ce qu'accorde la porte de développement à qui l'atteint sans jeton. */
+const DEV_OPERATOR_ROLES: readonly string[] = [ADMIN_DEFAULT_ROLE];
 
 /**
  * Service principal du module — la logique vit ici, pas dans les controllers
@@ -64,6 +77,8 @@ import defaultConfig, { type IDevkitConfig } from "../config/config";
 class DevkitService extends Service implements IDevkitService {
   module: Module;
   private readonly cfg: IDevkitConfig;
+  /** La porte MCP de développement — définie au premier usage (`mcpGate()`). */
+  #mcpGate: IMcpGate | null = null;
 
   constructor(module: Module) {
     // Sans config déclarée, le module peut n'avoir reçu aucune section.
@@ -220,7 +235,37 @@ class DevkitService extends Service implements IDevkitService {
    * @returns une entrée pour la porte MCP, ou aucune
    */
   publishedProtectedResources(): readonly IProtectedResourceInput[] {
-    return mcpProtectedResources(this.cfg.mcp, this.module.kernel?.modules);
+    return this.mcpGate().protectedResources(this.module.kernel?.modules);
+  }
+
+  /**
+   * La porte MCP de développement — définie au premier usage, une fois.
+   *
+   * Bâtie sur `defineMcpGate` comme celle de n'importe quelle application : ses
+   * réglages viennent de `devkit.mcp.*`, elle sert les outils de TOUS les modules
+   * chargés (`tools: "modules"` — l'outillage éprouve aussi ceux de l'app), et
+   * accorde le rôle d'opérateur à qui l'atteint sans jeton. Ce rôle n'est sûr que
+   * parce que son PÉRIMÈTRE la protège (module `policy: "dev"`, absent en
+   * production) ; une porte protégée par un serveur d'autorisation le tire, elle,
+   * des scopes du jeton.
+   *
+   * @returns la porte, prête à servir.
+   */
+  mcpGate(): IMcpGate {
+    if (this.#mcpGate === null) {
+      const mcp = this.cfg.mcp;
+      const gateProtected = mcp.authorization.authorizationServers.length > 0;
+      this.#mcpGate = defineMcpGate({
+        enabled: mcp.enabled,
+        allowedOrigins: mcp.allowedOrigins,
+        allowRemote: mcp.allowRemote,
+        authorization: mcp.authorization,
+        tools: "modules",
+        instructions: DEVKIT_MCP_INSTRUCTIONS,
+        unprotectedRoles: gateProtected ? [] : [...DEV_OPERATOR_ROLES],
+      });
+    }
+    return this.#mcpGate;
   }
 
   status(): { ready: boolean } {

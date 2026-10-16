@@ -31,7 +31,7 @@ comme le vôtre le sera.
 `@nodefony/ai` se charge comme `@nodefony/http` ou `@nodefony/framework` : toujours, dans
 tous les environnements. Les autres modules s'y appuient pour déclarer leurs outils. Il ne coûte
 rien tant qu'aucune capacité n'est configurée, et ne monte **aucune route** : une porte MCP,
-c'est vous qui la déclarez — un controller qui appelle `serveMcp()`, en développement ou en
+c'est vous qui la déclarez — une porte `defineMcpGate()` servie par un controller, en développement ou en
 production selon vos besoins.
 
 ## Ce qui est fait, ce qui vient

@@ -1,16 +1,6 @@
 import { route, controller, Controller, Body } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-import { Nodefony, ADMIN_DEFAULT_ROLE, ACCESS_TOKEN_VERIFIER } from "nodefony";
-import type { IAccessTokenVerifier } from "nodefony";
-import {
-  serveMcp,
-  rejectUnsupportedMcpMethod,
-  writeMcpResponse,
-} from "@nodefony/ai";
 import type { IDevkitService } from "../interfaces/IDevkitService";
-
-/** Le rôle que cette porte accorde à qui l'atteint sans serveur d'autorisation. */
-const DEV_OPERATOR_ROLES: readonly string[] = [ADMIN_DEFAULT_ROLE];
 
 /**
  * Porte **Model Context Protocol** de DÉVELOPPEMENT — celle par laquelle
@@ -58,11 +48,10 @@ const DEV_OPERATOR_ROLES: readonly string[] = [ADMIN_DEFAULT_ROLE];
  * Rôle déclaré + aucun vérificateur = `503` et journal `CRITIC`, jamais une
  * porte qui laisse passer les porteurs sans les lire.
  *
- * **Mince par design** : toute la mécanique vit dans `@nodefony/ai`
- * (`serveMcp`) ; ce controller ne fournit que ce que lui seul connaît — ses
- * réglages, les modules dont il sert les outils, le rôle d'opérateur. Une
- * application ouvre SA porte, en développement ou en production, de la même
- * façon, sans réécrire une ligne de protocole.
+ * **Mince par design** : la porte est définie par `defineMcpGate` (`@nodefony/ai`)
+ * dans `DevkitService.mcpGate()`, à partir de `devkit.mcp.*` ; ce controller
+ * ne fait que la servir. Une application ouvre SA porte, en développement ou en
+ * production, exactement de la même façon.
  */
 @controller("/nodefony")
 class McpController extends Controller {
@@ -80,54 +69,20 @@ class McpController extends Controller {
   }
 
   /**
-   * `POST /nodefony/mcp` — un message JSON-RPC entre, une réponse sort.
-   *
-   * Toute la mécanique (gardes, autorisation, collecte, flux) est celle de
-   * `serveMcp` (`@nodefony/ai`), partagée avec toute porte d'application. Cette
-   * porte n'apporte que ce qu'elle seule sait : ses réglages (`devkit.mcp`),
-   * TOUS les modules chargés (l'outillage de développement sert aussi les outils
-   * de l'application, pour les éprouver), et le rôle d'opérateur — accordé
-   * parce que son PÉRIMÈTRE la protège (`policy: "dev"`), écrit ici et nulle
-   * part ailleurs.
-   *
-   * Le vérificateur de jeton est résolu par NOM dans le conteneur, jamais
-   * importé : ce module ne peut pas dépendre de `@nodefony/security`, qui
-   * porte la cryptographie et survit à la production, lui non.
-   */
-  // `requirements.methods`, pas l'option `method` : seule la première
-  // restreint le match — avec la seconde, cette route servait aussi `GET`.
-  @route("devkit-mcp", { path: "/mcp", requirements: { methods: ["POST"] } })
-  mcp(@Body() body: unknown) {
-    const kernel = Nodefony.getKernel();
-    return serveMcp(this, body, {
-      settings: this.#service().mcpSettings(),
-      modules: kernel?.modules,
-      verifier:
-        this.get<IAccessTokenVerifier>(ACCESS_TOKEN_VERIFIER) ?? undefined,
-      operatorRoles: DEV_OPERATOR_ROLES,
-      serverInfo: {
-        name: kernel?.projectName ?? "nodefony",
-        version: Nodefony.version,
-      },
-    });
-  }
-
-  /**
-   * `GET` et `DELETE /nodefony/mcp` — refusés en `405`, avec `Allow: POST`.
-   *
-   * Sans cette route, la requête tombait dans le repli SPA du Studio
+   * `/nodefony/mcp` — `POST` sert un message JSON-RPC ; `GET` et `DELETE`
+   * rendent `405` + `Allow: POST` (verbes retirés par la révision
+   * `2026-07-28`). Sans eux, la requête tombait dans le repli SPA du Studio
    * (`/nodefony/{page}`) : `200` + HTML, que le client prenait pour un flux
    * rompu et rouvrait à chaque seconde, indéfiniment.
    */
-  @route("devkit-mcp-unsupported", {
+  // `requirements.methods`, pas l'option `method` : seule la première
+  // restreint le match.
+  @route("devkit-mcp", {
     path: "/mcp",
-    requirements: { methods: ["GET", "DELETE"] },
+    requirements: { methods: ["POST", "GET", "DELETE"] },
   })
-  unsupported() {
-    return writeMcpResponse(
-      this,
-      rejectUnsupportedMcpMethod(this.#service().mcpSettings()),
-    );
+  mcp(@Body() body: unknown) {
+    return this.#service().mcpGate().serve(this, body);
   }
 }
 

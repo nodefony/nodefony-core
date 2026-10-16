@@ -1,8 +1,7 @@
-import { Kernel, Module, services } from "nodefony";
+import { Kernel, Module } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config, { type IAiConfigInput } from "./nodefony/config/config";
 import { defineAiConfig } from "./nodefony/config/defineModuleConfig";
-import McpService from "./nodefony/service/McpService";
 
 /**
  * @nodefony/ai — La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique.
@@ -27,7 +26,6 @@ declare module "nodefony" {
 // Les controllers du module se déclarent ici — `nodefony create controller <nom>
 // --module ai` les ajoute à cette liste (et à ce dossier) tout seul.
 @controllers([])
-@services([McpService])
 class AiModule extends Module {
   constructor(kernel: Kernel) {
     super("ai", kernel, import.meta.url, config);
@@ -52,7 +50,6 @@ export default AiModule;
 // accepterait alors n'importe quelle clé, que Zod retirerait en silence au boot.
 export type { IAiConfigInput } from "./nodefony/config/config";
 
-export { McpService };
 export {
   aiConfigSchema,
   mcpConfigSchema,
@@ -63,7 +60,6 @@ export {
   defineAiConfig,
   aiConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
-export type { IMcpService } from "./nodefony/interfaces";
 
 // ─── Model Context Protocol — la boîte à outils ───────────────────────────────
 // Tout ce qui suit est PUR : traitement d'un message, gardes de transport,
@@ -91,6 +87,7 @@ export type {
   IJsonRpcMessage,
   IJsonRpcSuccess,
   IJsonRpcFailure,
+  McpProtocolVersion,
 } from "./nodefony/mcp/protocol";
 export { handleMcpMessage } from "./nodefony/mcp/server";
 export type {
@@ -98,20 +95,21 @@ export type {
   IMcpHeaders,
   IMcpTransport,
   IServerInfo,
+  IMcpCacheHints,
 } from "./nodefony/mcp/server";
-// La porte HTTP — la mécanique, sans la route : une porte se DÉCLARE par un
-// controller (devkit, ou l'application) qui appelle `serveMcp`.
+// La porte HTTP — la mécanique, sans la route : une porte se DÉFINIT une fois
+// (`defineMcpGate`) et se sert d'une action de controller (`gate.serve`).
 export {
-  serveMcp,
-  serveMcpRequest,
-  writeMcpResponse,
-  rejectUnsupportedMcpMethod,
-  mcpProtectedResources,
+  defineMcpGate,
+  mcpGateSchema,
   MCP_STREAM_MAX_EVENT_BYTES,
 } from "./nodefony/mcp/gate";
 export type {
+  IMcpGate,
+  IMcpGateDefinition,
+  IMcpGateSettings,
   IMcpGateRequest,
-  IMcpGateOptions,
+  IMcpGateRuntime,
   IMcpGateResponse,
   McpGateSeverity,
 } from "./nodefony/mcp/gate";
