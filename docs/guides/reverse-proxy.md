@@ -134,14 +134,17 @@ configuré pour l'ignorer.
 ### Et côté application — l'autre moitié
 
 ```typescript
-// nodefony.config.ts (extrait) — sans ceci, le proxy parle dans le vide
-use("@nodefony/http", {
-  // L'adresse du proxy, jamais `true`, sauf s'il est l'unique point d'entrée.
-  trustProxy: ["10.0.0.0/8"],
-  // Le proxy filtre déjà le Host ? Alors la barrière applicative peut s'ouvrir.
-  // Sinon, énumérez vos vhosts plutôt que de passer `true`.
-  trustedHosts: ["app.example.com"],
-});
+// nodefony/config/http.ts — sans ceci, le proxy parle dans le vide
+import type { IHttpConfigInput } from "@nodefony/http";
+
+export const httpConfig = () =>
+  ({
+    // L'adresse du proxy, jamais `true`, sauf s'il est l'unique point d'entrée.
+    trustProxy: ["10.0.0.0/8"],
+    // Le proxy filtre déjà le Host ? Alors la barrière applicative peut s'ouvrir.
+    // Sinon, énumérez vos vhosts plutôt que de passer `true`.
+    trustedHosts: ["app.example.com"],
+  }) satisfies IHttpConfigInput;
 ```
 
 Le détail de ces deux clés — préréglages, remontée de chaîne de droite à gauche, barrière `Host`

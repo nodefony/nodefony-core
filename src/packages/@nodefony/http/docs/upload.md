@@ -143,30 +143,29 @@ n'écris que tes bornes (si les défauts ne conviennent pas) et le contrôleur q
 
 ### 1. Les bornes de payload
 
-Réglées sur le module `@nodefony/http`, colocalisées dans le manifeste via `use()`. Toutes ces clés
-sont facultatives : ce sont les défauts du schéma, écrits ici pour les rendre visibles et les resserrer.
+Réglées sur le module `@nodefony/http`, dans son fragment `nodefony/config/http.ts` (que le manifeste
+passe à `use()`). Toutes ces clés sont facultatives : ce sont les défauts du schéma, écrits ici pour
+les rendre visibles et les resserrer.
 
 ```typescript
-// nodefony.config.ts — bornes de payload de l'application
-export default defineConfig(() => ({
-  modules: [
-    use("@nodefony/http", {
-      // Corps NON-multipart (JSON, urlencoded, XML, brut) : 1 MiB par défaut.
-      // Au-delà → 413 « Content Too Large ». 0 = illimité.
-      maxBodySize: 1_048_576,
-      upload: {
-        // Chaque fichier (busboy limits.fileSize) — dépassement → 413.
-        maxFileSize: 10 * 1024 * 1024, // 10 MiB
-        // Cumul de TOUS les fichiers d'une même requête (compteur Nodefony).
-        maxTotalFileSize: 30 * 1024 * 1024, // 30 MiB
-        maxFiles: 10, // nombre de fichiers — anti-DoS
-        // Intégrité optionnelle : hash calculé PENDANT le stream (0 relecture).
-        hashAlgorithm: "sha256",
-      },
-    }),
-    "@nodefony/framework",
-  ],
-}));
+// nodefony/config/http.ts — bornes de payload de l'application
+import type { IHttpConfigInput } from "@nodefony/http";
+
+export const httpConfig = () =>
+  ({
+    // Corps NON-multipart (JSON, urlencoded, XML, brut) : 1 MiB par défaut.
+    // Au-delà → 413 « Content Too Large ». 0 = illimité.
+    maxBodySize: 1_048_576,
+    upload: {
+      // Chaque fichier (busboy limits.fileSize) — dépassement → 413.
+      maxFileSize: 10 * 1024 * 1024, // 10 MiB
+      // Cumul de TOUS les fichiers d'une même requête (compteur Nodefony).
+      maxTotalFileSize: 30 * 1024 * 1024, // 30 MiB
+      maxFiles: 10, // nombre de fichiers — anti-DoS
+      // Intégrité optionnelle : hash calculé PENDANT le stream (0 relecture).
+      hashAlgorithm: "sha256",
+    },
+  }) satisfies IHttpConfigInput;
 ```
 
 ### 2. Le contrôleur qui reçoit l'upload

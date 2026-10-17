@@ -150,22 +150,27 @@ le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.t
 
 ### La config : une zone protégée par `jwt` + une clé qui survit au redémarrage
 
-```typescript
-// nodefony.config.ts (extrait) — la zone API machine + la source de clé
-use("@nodefony/security", {
-  jwt: {
-    // dev : persiste la clé Ed25519 sous var/ (sinon clé ÉPHÉMÈRE + warning).
-    // prod : NF_JWT_KEYSET, la même clé sur tous les pods — voir la section keystore.
-    keystore: {
-      keySetJson: process.env.NF_JWT_KEYSET,
-      dir: "var/keys",
+```typescript ignore
+// nodefony/config/security.ts — la zone API machine + la source de clé
+import type { ConfigContext } from "nodefony";
+import type { ISecurityConfigInput } from "@nodefony/security";
+import type { env } from "../../env";
+
+export const securityConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    jwt: {
+      // dev : persiste la clé Ed25519 sous var/ (sinon clé ÉPHÉMÈRE + warning).
+      // prod : NF_JWT_KEYSET, la même clé sur tous les pods — voir la section keystore.
+      keystore: {
+        keySetJson: ctx.env.NF_JWT_KEYSET,
+        dir: "var/keys",
+      },
     },
-  },
-  areas: {
-    // Le firewall vérifie le Bearer JWT sur CHAQUE requête de la zone.
-    api: { pattern: "^/api/v1", authenticators: ["jwt"] },
-  },
-});
+    areas: {
+      // Le firewall vérifie le Bearer JWT sur CHAQUE requête de la zone.
+      api: { pattern: "^/api/v1", authenticators: ["jwt"] },
+    },
+  }) satisfies ISecurityConfigInput;
 ```
 
 ### Ce que TU écris : le controller scopé

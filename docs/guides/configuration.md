@@ -167,7 +167,7 @@ import type { ConfigContext } from "nodefony";
 import type { IHttpConfigInput } from "@nodefony/http";
 import type { env } from "../../env";
 
-export const http = (ctx: ConfigContext<typeof env>) =>
+export const httpConfig = (ctx: ConfigContext<typeof env>) =>
   ({
     headerServer: ctx.isProd ? null : "nodefony",
     upload: { maxFileSize: 1_048_576 },
@@ -176,10 +176,11 @@ export const http = (ctx: ConfigContext<typeof env>) =>
 
 ```typescript
 // nodefony.config.ts — garde les use(), qui restent l'index ordonné des modules
-import { http } from "./nodefony/config/http";
+import { defineConfig, use } from "nodefony";
+import { httpConfig } from "./nodefony/config/http";
 
 export default defineConfig((ctx) => ({
-  modules: [use("@nodefony/http", http(ctx))],
+  modules: [use("@nodefony/http", httpConfig(ctx))],
 }));
 ```
 

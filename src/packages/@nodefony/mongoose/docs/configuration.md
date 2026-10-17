@@ -215,18 +215,29 @@ Une fois le driver chargé, les stores Mongo sont **sélectionnables par leur no
 le module les enregistre lui-même à son démarrage.
 
 ```typescript
+// nodefony/config/security.ts — trois clés de plus dans `securityConfig`
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    tokenStore: { store: "mongoose" },
+    passkeys: { store: "mongoose" },
+    webhooks: { store: "mongoose" },
+  }) satisfies ISecurityConfigInput;
+```
+
+```typescript ignore
 // nodefony.config.ts — sessions, jetons, passkeys et webhooks dans Mongo
+import { defineConfig, use } from "nodefony";
+import { securityConfig } from "./nodefony/config/security";
+
 export default defineConfig(() => ({
   modules: [
     use("@nodefony/mongoose", {
       connectors: { nodefony: { uri: "mongodb://127.0.0.1:27017/app" } },
     }),
     use("@nodefony/http", { session: { store: "mongoose" } }),
-    use("@nodefony/security", {
-      tokenStore: { store: "mongoose" },
-      passkeys: { store: "mongoose" },
-      webhooks: { store: "mongoose" },
-    }),
+    use("@nodefony/security", securityConfig()),
     "@nodefony/framework",
   ],
 }));
@@ -300,18 +311,24 @@ publique** de ton application : le changer déplace des entités.
 **transport** plutôt qu'à l'adresse : taille du pool, délais, TLS, identifiants séparés.
 
 ```typescript
-use("@nodefony/mongoose", {
-  connectors: {
-    nodefony: {
-      uri: process.env.NF_DATABASE_URL,
-      options: {
-        maxPoolSize: 50, // connexions simultanées ouvertes vers le serveur
-        serverSelectionTimeoutMS: 5_000, // délai avant de déclarer la base injoignable
-        socketTimeoutMS: 45_000, // délai d'une opération individuelle
+// nodefony/config/mongoose.ts
+import type { ConfigContext } from "nodefony";
+import type { IMongooseConfigInput } from "@nodefony/mongoose";
+import type { env } from "../../env";
+
+export const mongooseConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    connectors: {
+      nodefony: {
+        uri: ctx.env.NF_DATABASE_URL,
+        options: {
+          maxPoolSize: 50, // connexions simultanées ouvertes vers le serveur
+          serverSelectionTimeoutMS: 5_000, // délai avant de déclarer la base injoignable
+          socketTimeoutMS: 45_000, // délai d'une opération individuelle
+        },
       },
     },
-  },
-});
+  }) satisfies IMongooseConfigInput;
 ```
 
 Le contenu d'`options` n'est **pas** validé par Zod : c'est Mongoose qui l'accepte ou le rejette, à la

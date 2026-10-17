@@ -397,10 +397,42 @@ complète : sinon l'émetteur change selon qui demande, et l'application refuse 
 Les trois valeurs entrent par `env.ts`, seul lecteur des variables d'environnement. Le fournisseur
 n'est déclaré que si les trois sont présentes : pas de bouton mort quand une variable manque.
 
-```typescript
+```ts ignore
+// nodefony/config/security.ts — le fragment du module, importé par le manifeste
+import type { ConfigContext } from "nodefony";
+import type { ISecurityConfigInput } from "@nodefony/security";
+import type { env } from "../../env";
+
+export const securityConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    oauth2: {
+      // Rôles posés à la CRÉATION du compte local ; ceux du realm ne sont pas lus.
+      defaultRoles: ["ROLE_USER"],
+      providers: {
+        ...(ctx.env.NF_KEYCLOAK_ISSUER &&
+        ctx.env.NF_KEYCLOAK_CLIENT_ID &&
+        ctx.env.NF_KEYCLOAK_CLIENT_SECRET
+          ? {
+              keycloak: {
+                issuer: ctx.env.NF_KEYCLOAK_ISSUER,
+                clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
+                clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
+                redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/keycloak/callback`,
+                // Libellé du bouton ; omis, il vaut « Keycloak ».
+                label: "Compte entreprise",
+              },
+            }
+          : {}),
+      },
+    },
+  }) satisfies ISecurityConfigInput;
+```
+
+```typescript ignore
 // env.ts — SEUL lecteur de process.env (catalogue typé, validé au boot).
 // nodefony.config.ts — `ctx.env` EST ce catalogue (typé par le paramètre générique).
 import { defineConfig, defineEnv, envString, use } from "nodefony";
+import { securityConfig } from "./nodefony/config/security";
 
 export const env = defineEnv({
   // Émetteur = URL du realm, en https (la découverte et le contrôle de `iss` en partent).
@@ -415,28 +447,7 @@ export default defineConfig<typeof env>((ctx) => ({
   modules: [
     "@nodefony/http",
     "@nodefony/framework",
-    use("@nodefony/security", {
-      oauth2: {
-        // Rôles posés à la CRÉATION du compte local ; ceux du realm ne sont pas lus.
-        defaultRoles: ["ROLE_USER"],
-        providers: {
-          ...(ctx.env.NF_KEYCLOAK_ISSUER &&
-          ctx.env.NF_KEYCLOAK_CLIENT_ID &&
-          ctx.env.NF_KEYCLOAK_CLIENT_SECRET
-            ? {
-                keycloak: {
-                  issuer: ctx.env.NF_KEYCLOAK_ISSUER,
-                  clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
-                  clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
-                  redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/keycloak/callback`,
-                  // Libellé du bouton ; omis, il vaut « Keycloak ».
-                  label: "Compte entreprise",
-                },
-              }
-            : {}),
-        },
-      },
-    }),
+    use("@nodefony/security", securityConfig(ctx)),
   ],
 }));
 ```
@@ -597,26 +608,30 @@ coché.
 jetons :
 
 ```typescript ignore
-use("@nodefony/security", {
-  resourceServer: {
-    issuers: [
-      // Les clés publiques du realm sont découvertes par l'émetteur.
-      {
-        issuer: "https://sso.example.com/realms/mon-entreprise",
-        algorithms: ["RS256"],
-      },
-    ],
-  },
-  areas: {
-    api: {
-      pattern: "^/api",
-      authenticators: ["external-jwt"],
-      stateless: true,
-      // L'audience exigée : celle que le mapper inscrit dans le jeton.
-      resource: "https://api.example.com",
+// nodefony/config/security.ts
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    resourceServer: {
+      issuers: [
+        // Les clés publiques du realm sont découvertes par l'émetteur.
+        {
+          issuer: "https://sso.example.com/realms/mon-entreprise",
+          algorithms: ["RS256"],
+        },
+      ],
     },
-  },
-});
+    areas: {
+      api: {
+        pattern: "^/api",
+        authenticators: ["external-jwt"],
+        stateless: true,
+        // L'audience exigée : celle que le mapper inscrit dans le jeton.
+        resource: "https://api.example.com",
+      },
+    },
+  }) satisfies ISecurityConfigInput;
 ```
 
 **Le même compte, pas un second.** Quand l'émetteur d'un jeton est celui d'un fournisseur de

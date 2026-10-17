@@ -136,36 +136,45 @@ aux administrateurs, et voir ce que reçoit un client non autorisé.
 ### 1. Déclarer la zone et activer l'origine stricte
 
 ```typescript
-// nodefony.config.ts — extrait
-use("@nodefony/security", {
-  areas: {
-    // Zone protégée : le handshake WS de /rt passe par le MÊME contrôle que
-    // le HTTP. `realtime` vaut true par défaut → ne pas l'écrire suffit.
-    app: {
-      pattern: "^/rt",
-      authenticators: ["session"],
-    },
-  },
-  roleHierarchy: {
-    ROLE_ADMIN: ["ROLE_USER"],
-  },
-});
+// nodefony/config/security.ts — la zone du handshake et la hiérarchie de rôles
+import type { ISecurityConfigInput } from "@nodefony/security";
 
-use("@nodefony/realtime", {
-  csrf: {
-    checkOrigin: {
-      // Deuxième barrière d'origine : allowlist EXACTE (pas de wildcard).
-      enabled: true,
-      allowList: ["https://app.exemple.com", "https://127.0.0.1:5152"],
-      // Un client sans en-tête Origin (mobile natif, script) est refusé.
-      allowMissingOrigin: false,
+export const securityConfig = () =>
+  ({
+    areas: {
+      // Zone protégée : le handshake WS de /rt passe par le MÊME contrôle que
+      // le HTTP. `realtime` vaut true par défaut → ne pas l'écrire suffit.
+      app: {
+        pattern: "^/rt",
+        authenticators: ["session"],
+      },
     },
-  },
-  limits: {
-    // Garde anti-OOM : au-delà, le subscribe est refusé (pas de close).
-    maxChannelsPerConnection: 64,
-  },
-});
+    roleHierarchy: {
+      ROLE_ADMIN: ["ROLE_USER"],
+    },
+  }) satisfies ISecurityConfigInput;
+```
+
+```typescript
+// nodefony/config/realtime.ts — la barrière d'origine et la garde anti-OOM
+import type { IRealtimeConfigInput } from "@nodefony/realtime";
+
+export const realtimeConfig = () =>
+  ({
+    csrf: {
+      checkOrigin: {
+        // Deuxième barrière d'origine : allowlist EXACTE (pas de wildcard).
+        enabled: true,
+        allowList: ["https://app.exemple.com", "https://127.0.0.1:5152"],
+        // Un client sans en-tête Origin (mobile natif, script) est refusé.
+        allowMissingOrigin: false,
+      },
+    },
+    limits: {
+      // Garde anti-OOM : au-delà, le subscribe est refusé (pas de close).
+      maxChannelsPerConnection: 64,
+    },
+  }) satisfies IRealtimeConfigInput;
 ```
 
 ### 2. Le controller : un canal libre, un canal gardé

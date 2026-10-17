@@ -151,7 +151,26 @@ interne.
 ### 1. Déclarer le module
 
 ```ts
+// nodefony/config/documentation.ts — le fragment du module, importé par le manifeste
+import type { IDocumentationConfigInput } from "@nodefony/documentation";
+
+export const documentationConfig = () =>
+  ({
+    // `docs/` à la racine du projet = la doc transverse de TON application.
+    scan: { rootDir: "docs", includeModules: true, includeInstalled: true },
+    // Le lien « Modifier » de chaque page pointera vers TON dépôt.
+    repo: { url: "https://github.com/acme/boutique", editPathPrefix: "blob" },
+    // 0 = rescan à chaque appel : un nouveau `.md` apparaît sans redémarrer.
+    // En production, garder le défaut (30 s) — le scan touche le disque.
+    cache: { ttlMs: 0 },
+  }) satisfies IDocumentationConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — l'orchestrateur de l'application
+import { defineConfig, use } from "nodefony";
+import { documentationConfig } from "./nodefony/config/documentation";
+
 export default defineConfig(() => ({
   modules: [
     "@nodefony/http",
@@ -159,15 +178,7 @@ export default defineConfig(() => ({
     // Le data plane est protégé par rôle : sans pare-feu, personne ne porte
     // le rôle qui ouvre /nodefony/documentation/api/*.
     "@nodefony/security",
-    use("@nodefony/documentation", {
-      // `docs/` à la racine du projet = la doc transverse de TON application.
-      scan: { rootDir: "docs", includeModules: true, includeInstalled: true },
-      // Le lien « Modifier » de chaque page pointera vers TON dépôt.
-      repo: { url: "https://github.com/acme/boutique", editPathPrefix: "blob" },
-      // 0 = rescan à chaque appel : un nouveau `.md` apparaît sans redémarrer.
-      // En production, garder le défaut (30 s) — le scan touche le disque.
-      cache: { ttlMs: 0 },
-    }),
+    use("@nodefony/documentation", documentationConfig()),
     // Studio APRÈS : son portail consomme le data plane déclaré au-dessus.
     "@nodefony/studio",
   ],

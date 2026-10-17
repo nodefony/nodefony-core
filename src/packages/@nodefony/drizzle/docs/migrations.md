@@ -149,27 +149,26 @@ Côté configuration, il n'y a rien à écrire pour le cas courant : le mode se 
 environnement. Ne le déclarer que pour s'en écarter — un serveur unique qui migre au démarrage :
 
 ```typescript
-import { defineConfig, use } from "nodefony";
+// nodefony/config/drizzle.ts — le fragment que `nodefony.config.ts` passe à
+// `use("@nodefony/drizzle", drizzleConfig())`
+import type { IDrizzleConfigInput } from "@nodefony/drizzle";
 
-export default defineConfig(() => ({
-  modules: [
-    use("@nodefony/drizzle", {
-      connectors: {
-        // Le démarrage applique les migrations, sous verrou. À réserver aux
-        // déploiements SANS orchestrateur — un serveur unique, une machine
-        // virtuelle : ailleurs, c'est un travail dédié qui migre, et les
-        // exemplaires restent en "none".
-        default: { ddl: "migrate" },
-      },
-      migrations: {
-        // Retenir la mise en service tant que le schéma est en retard (défaut),
-        // et faire de la divergence une barrière plutôt qu'une observation.
-        check: "fail",
-        divergence: "fail",
-      },
-    }),
-  ],
-}));
+export const drizzleConfig = () =>
+  ({
+    connectors: {
+      // Le démarrage applique les migrations, sous verrou. À réserver aux
+      // déploiements SANS orchestrateur — un serveur unique, une machine
+      // virtuelle : ailleurs, c'est un travail dédié qui migre, et les
+      // exemplaires restent en "none".
+      default: { ddl: "migrate" },
+    },
+    migrations: {
+      // Retenir la mise en service tant que le schéma est en retard (défaut),
+      // et faire de la divergence une barrière plutôt qu'une observation.
+      check: "fail",
+      divergence: "fail",
+    },
+  }) satisfies IDrizzleConfigInput;
 ```
 
 ## Écrire les migrations de votre application — `orm:generate`

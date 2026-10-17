@@ -481,7 +481,7 @@ self-service sont déjà là, la console Studio les consomme déjà (`/nodefony/
 
 ```typescript
 use("@nodefony/security", {
-  totp: { encryptionKey: process.env.NF_TOTP_KEY },
+  totp: { encryptionKey: ctx.env.NF_TOTP_KEY },
 });
 ```
 

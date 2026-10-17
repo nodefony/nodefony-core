@@ -244,14 +244,16 @@ C'est la moitié que **tu** écris, côté destinataire. Voici la version courte
 vingtaine de lignes et fait le seul geste indispensable — **recalculer l'empreinte sur les octets
 reçus**.
 
-```typescript
+```typescript ignore
 // nodefony/controller/HookMiniController.ts — récepteur minimal
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Buffer } from "node:buffer";
 // prettier-ignore
 import { Controller, controller, Post, Body, Headers, BypassFirewall } from "@nodefony/framework";
+// NF_HOOK_SECRET se déclare dans env.ts (`envString`) : seul lecteur de l'environnement.
+import { env } from "../../env";
 
-const SECRET = (process.env.NF_HOOK_SECRET ?? "").replace(/^whsec_/, "");
+const SECRET = (env.NF_HOOK_SECRET ?? "").replace(/^whsec_/, "");
 
 @controller("/hooks")
 class HookMiniController extends Controller {
@@ -300,15 +302,16 @@ signature parmi **plusieurs** (le temps d'une rotation de secret), et **dédupli
 `webhook-id` avant d'agir — un réessai rejoue le même identifiant, et livrer deux fois une commande
 n'est pas la même chose que la livrer une fois.
 
-```typescript
+```typescript ignore
 // nodefony/controller/HookController.ts — récepteur complet, compile tel quel
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Buffer } from "node:buffer";
 // prettier-ignore
 import { Controller, controller, Post, Body, Headers, BypassFirewall } from "@nodefony/framework";
+import { env } from "../../env";
 
-/** Secret `whsec_…` donné par l'émetteur — via l'environnement, jamais en dur. */
-const SECRET = process.env.NF_HOOK_SECRET ?? "";
+/** Secret `whsec_…` donné par l'émetteur — déclaré dans env.ts, jamais en dur. */
+const SECRET = env.NF_HOOK_SECRET ?? "";
 /** Fenêtre anti-rejeu (s) : un message plus vieux est refusé. */
 const TOLERANCE_S = 300;
 

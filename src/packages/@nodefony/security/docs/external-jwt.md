@@ -177,11 +177,13 @@ et son secret. Le framework le porte, pour qu'aucun appelant ne recopie la plomb
 
 ```ts
 import { requestClientCredentialsToken } from "@nodefony/security";
+// `env.ts` est le seul lecteur de l'environnement : le secret y est déclaré (NF_KEYCLOAK_MACHINE_SECRET).
+import { env } from "../../env";
 
 const tokens = await requestClientCredentialsToken({
   issuer: "https://sso.example.com/realms/acme", // le point de jeton en est DÉCOUVERT (RFC 8414)
   clientId: "acme-machine",
-  clientSecret: process.env.NF_KEYCLOAK_MACHINE_SECRET ?? "",
+  clientSecret: env.NF_KEYCLOAK_MACHINE_SECRET ?? "",
   resource: "https://app.example/api/partner", // audience visée (RFC 8707), facultative
 });
 await fetch("https://app.example/api/partner/whoami", {

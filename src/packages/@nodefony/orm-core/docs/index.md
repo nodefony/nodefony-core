@@ -227,18 +227,18 @@ Le driver et la cible physique vivent dans la config, **jamais** dans l'entité 
 changement de moteur indolore.
 
 ```ts
-// nodefony.config.ts — un seul connecteur, en SQLite : zéro installation.
-export default defineConfig(() => ({
-  modules: [
-    "@nodefony/framework",
-    use("@nodefony/drizzle", {
-      connectors: {
-        // "default" est le NOM de la connexion, pas celui du moteur.
-        default: { dialect: "sqlite", filename: "nodefony/databases/app.db" },
-      },
-    }),
-  ],
-}));
+// nodefony/config/drizzle.ts — le fragment que le générateur a posé, que
+// `nodefony.config.ts` passe à `use("@nodefony/drizzle", drizzleConfig())`.
+// Un seul connecteur, en SQLite : zéro installation.
+import type { IDrizzleConfigInput } from "@nodefony/drizzle";
+
+export const drizzleConfig = () =>
+  ({
+    connectors: {
+      // "default" est le NOM de la connexion, pas celui du moteur.
+      default: { dialect: "sqlite", filename: "var/databases/app.db" },
+    },
+  }) satisfies IDrizzleConfigInput;
 ```
 
 ### 2. Décrire l'entité, et la déclarer au module

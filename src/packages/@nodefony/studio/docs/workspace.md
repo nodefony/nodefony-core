@@ -130,24 +130,35 @@ lui** : il apparaît dès que Studio est chargé. Ce qui se règle, c'est ce qu'
 **qui** verra quoi.
 
 ```ts
+// nodefony/config/security.ts — le fragment du module, importé par le manifeste
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    areas: {
+      studio: { pattern: "^/nodefony", authenticators: ["session"] },
+    },
+    // Les MODÈLES de bureau sont filtrés par rôle : sans hiérarchie déclarée,
+    // un compte administrateur ne « couvre » pas les rôles développeur et
+    // exploitant, et ne voit donc que les bureaux ouverts à tous.
+    roleHierarchy: {
+      ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SUPERVISOR", "ROLE_DEV"],
+      ROLE_ADMIN: ["ROLE_USER"],
+    },
+  }) satisfies ISecurityConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — l'orchestrateur de l'application
+import { defineConfig, use } from "nodefony";
+import { securityConfig } from "./nodefony/config/security";
+
 export default defineConfig(() => ({
   modules: [
     "@nodefony/http",
     "@nodefony/framework",
     // Sans pare-feu, pas d'identité : ni bureau, ni blocs (tout est authentifié).
-    use("@nodefony/security", {
-      areas: {
-        studio: { pattern: "^/nodefony", authenticators: ["session"] },
-      },
-      // Les MODÈLES de bureau sont filtrés par rôle : sans hiérarchie déclarée,
-      // un compte administrateur ne « couvre » pas les rôles développeur et
-      // exploitant, et ne voit donc que les bureaux ouverts à tous.
-      roleHierarchy: {
-        ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SUPERVISOR", "ROLE_DEV"],
-        ROLE_ADMIN: ["ROLE_USER"],
-      },
-    }),
+    use("@nodefony/security", securityConfig()),
     // Les blocs système lisent la santé AGRÉGÉE : c'est ce module qui la publie.
     "@nodefony/realtime",
     use("@nodefony/studio", { ui: "auto" }),

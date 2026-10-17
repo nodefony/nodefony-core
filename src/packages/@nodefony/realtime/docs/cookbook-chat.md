@@ -781,20 +781,23 @@ couvre le HTTP **et** le WebSocket qu'elle recouvre — c'est le défaut, et c'e
 zone protégée qui laisserait passer le WebSocket serait une porte dérobée.
 
 ```ts ignore
-// nodefony.config.ts (ajout de l'étape 5)
-use("@nodefony/security", {
-  areas: {
-    chat: {
-      pattern: "^/chat",
-      // Cookie de session (BFF) : le navigateur n'a aucun jeton à manipuler,
-      // et le cookie voyage naturellement avec la poignée de main WebSocket.
-      authenticators: ["session"],
+// nodefony/config/security.ts — (ajout de l'étape 5)
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    areas: {
+      chat: {
+        pattern: "^/chat",
+        // Cookie de session (BFF) : le navigateur n'a aucun jeton à manipuler,
+        // et le cookie voyage naturellement avec la poignée de main WebSocket.
+        authenticators: ["session"],
+      },
     },
-  },
-  roleHierarchy: {
-    ROLE_ADMIN: ["ROLE_USER"],
-  },
-});
+    roleHierarchy: {
+      ROLE_ADMIN: ["ROLE_USER"],
+    },
+  }) satisfies ISecurityConfigInput;
 ```
 
 > [!NOTE]

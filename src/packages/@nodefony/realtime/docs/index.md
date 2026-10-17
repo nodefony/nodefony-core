@@ -172,24 +172,35 @@ fichiers.
 ### 1. Déclarer le module
 
 ```ts
+// nodefony/config/realtime.ts — le fragment du module, importé par le manifeste
+import type { IRealtimeConfigInput } from "@nodefony/realtime";
+
+export const realtimeConfig = () =>
+  ({
+    // Un seul processus en développement : le hub distribue localement,
+    // aucun transport réseau n'est ouvert. Passer à "redis" en production.
+    backplane: { driver: "loopback" },
+    // Défense CSRF à la poignée de main (RFC 6455 §10.2) : sans elle, un site
+    // tiers peut ouvrir une socket avec les cookies de ton utilisateur.
+    csrf: {
+      checkOrigin: {
+        enabled: true,
+        allowList: ["https://127.0.0.1:5152"],
+      },
+    },
+  }) satisfies IRealtimeConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — l'orchestrateur de l'application
+import { defineConfig, use } from "nodefony";
+import { realtimeConfig } from "./nodefony/config/realtime";
+
 export default defineConfig(() => ({
   modules: [
     "@nodefony/http",
     "@nodefony/framework",
-    use("@nodefony/realtime", {
-      // Un seul processus en développement : le hub distribue localement,
-      // aucun transport réseau n'est ouvert. Passer à "redis" en production.
-      backplane: { driver: "loopback" },
-      // Défense CSRF à la poignée de main (RFC 6455 §10.2) : sans elle, un site
-      // tiers peut ouvrir une socket avec les cookies de ton utilisateur.
-      csrf: {
-        checkOrigin: {
-          enabled: true,
-          allowList: ["https://127.0.0.1:5152"],
-        },
-      },
-    }),
+    use("@nodefony/realtime", realtimeConfig()),
   ],
 }));
 ```

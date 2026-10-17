@@ -157,31 +157,42 @@ On garde le fond de panier local, on ferme la porte d'entrée, on abaisse le pla
 dont l'application a réellement besoin.
 
 ```ts
+// nodefony/config/realtime.ts — le fragment du module, importé par le manifeste
+import type { IRealtimeConfigInput } from "@nodefony/realtime";
+
+export const realtimeConfig = () =>
+  ({
+    // Un seul processus : le hub diffuse localement, aucun transport n'est ouvert.
+    backplane: { driver: "loopback" },
+
+    // Défense CSWSH (RFC 6455 §10.2). Sans elle, une page tierce ouvre une socket
+    // avec les cookies de ton utilisateur : le navigateur n'applique pas CORS ici.
+    csrf: {
+      checkOrigin: {
+        enabled: true,
+        allowList: ["https://127.0.0.1:5152"],
+        // Un client non-navigateur n'envoie pas d'en-tête Origin. Le laisser à
+        // false n'a de sens que si tout ton trafic vient d'un navigateur.
+        allowMissingOrigin: false,
+      },
+    },
+
+    // Garde anti-saturation : le défaut de 256 est généreux. Un écran qui suit
+    // dix canaux n'a aucune raison d'en ouvrir plus de quelques dizaines.
+    limits: { maxChannelsPerConnection: 32 },
+  }) satisfies IRealtimeConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — le manifeste de l'application
+import { defineConfig, use } from "nodefony";
+import { realtimeConfig } from "./nodefony/config/realtime";
+
 export default defineConfig(() => ({
   modules: [
     "@nodefony/http",
     "@nodefony/framework",
-    use("@nodefony/realtime", {
-      // Un seul processus : le hub diffuse localement, aucun transport n'est ouvert.
-      backplane: { driver: "loopback" },
-
-      // Défense CSWSH (RFC 6455 §10.2). Sans elle, une page tierce ouvre une socket
-      // avec les cookies de ton utilisateur : le navigateur n'applique pas CORS ici.
-      csrf: {
-        checkOrigin: {
-          enabled: true,
-          allowList: ["https://127.0.0.1:5152"],
-          // Un client non-navigateur n'envoie pas d'en-tête Origin. Le laisser à
-          // false n'a de sens que si tout ton trafic vient d'un navigateur.
-          allowMissingOrigin: false,
-        },
-      },
-
-      // Garde anti-saturation : le défaut de 256 est généreux. Un écran qui suit
-      // dix canaux n'a aucune raison d'en ouvrir plus de quelques dizaines.
-      limits: { maxChannelsPerConnection: 32 },
-    }),
+    use("@nodefony/realtime", realtimeConfig()),
   ],
 }));
 ```
@@ -191,8 +202,39 @@ export default defineConfig(() => ({
 Passer à N pods sur N machines ne change **ni le contrôleur, ni le client, ni un seul canal** : on
 remplace le nom du driver, et on déclare le module qui fournit les connexions pub/sub.
 
-```ts
+```ts ignore
+// nodefony/config/realtime.ts — le fragment du module, importé par le manifeste
+import type { ConfigContext } from "nodefony";
+import type { IRealtimeConfigInput } from "@nodefony/realtime";
+import type { env } from "../../env";
+
+export const realtimeConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    backplane: {
+      // En production seulement : en développement, le fond de panier local évite
+      // d'exiger une infrastructure pour lancer l'application.
+      driver: ctx.isProd ? "redis" : "loopback",
+
+      // La cloison. Le numéro de base Redis ne cloisonne PAS le pub/sub : sans ce
+      // nom, préproduction et production sur un même Redis échangeraient leurs
+      // diffusions. À poser explicitement, et différemment par déploiement.
+      namespace: ctx.isProd ? "boutique.prod" : "boutique.dev",
+    },
+    csrf: {
+      checkOrigin: {
+        enabled: true,
+        allowList: ["https://boutique.example.com"],
+      },
+    },
+    limits: { maxChannelsPerConnection: 32 },
+  }) satisfies IRealtimeConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — la même application, déployée en plusieurs répliques
+import { defineConfig, use } from "nodefony";
+import { realtimeConfig } from "./nodefony/config/realtime";
+
 export default defineConfig((ctx) => ({
   modules: [
     "@nodefony/http",
@@ -202,25 +244,7 @@ export default defineConfig((ctx) => ({
     // module. Sans lui déclaré, le hub reste local — et le dit dans les journaux.
     "@nodefony/redis",
 
-    use("@nodefony/realtime", {
-      backplane: {
-        // En production seulement : en développement, le fond de panier local évite
-        // d'exiger une infrastructure pour lancer l'application.
-        driver: ctx.isProd ? "redis" : "loopback",
-
-        // La cloison. Le numéro de base Redis ne cloisonne PAS le pub/sub : sans ce
-        // nom, préproduction et production sur un même Redis échangeraient leurs
-        // diffusions. À poser explicitement, et différemment par déploiement.
-        namespace: ctx.isProd ? "boutique.prod" : "boutique.dev",
-      },
-      csrf: {
-        checkOrigin: {
-          enabled: true,
-          allowList: ["https://boutique.example.com"],
-        },
-      },
-      limits: { maxChannelsPerConnection: 32 },
-    }),
+    use("@nodefony/realtime", realtimeConfig(ctx)),
   ],
 }));
 ```

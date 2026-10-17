@@ -238,11 +238,14 @@ nom explicite dans la configuration du module — il **gagne** sur l'`auto`, et 
 visible :
 
 ```ts
-// nodefony.config.ts
-use("@nodefony/security", {
-  tokenStore: { store: "redis" }, // jetons sur Redis même si la base est PostgreSQL
-  audit: { store: "drizzle" }, // audit sur la base SQL
-});
+// nodefony/config/security.ts — deux clés de plus dans `securityConfig`
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    tokenStore: { store: "redis" }, // jetons sur Redis même si la base est PostgreSQL
+    audit: { store: "drizzle" }, // audit sur la base SQL
+  }) satisfies ISecurityConfigInput;
 ```
 
 ## 📖 Lexique

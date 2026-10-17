@@ -181,10 +181,41 @@ de login quand la variable manque.
 > valeur sous un second nom, qui finirait par diverger. La base des callbacks, elle, n'est émise par
 > personne : c'est un réglage que votre application se donne, donc `NF_OAUTH_REDIRECT_BASE`.
 
-```typescript
+```ts ignore
+// nodefony/config/security.ts — le fragment du module, importé par le manifeste
+import type { ConfigContext } from "nodefony";
+import type { ISecurityConfigInput } from "@nodefony/security";
+import type { env } from "../../env";
+
+export const securityConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    oauth2: {
+      // Rôles posés à la CRÉATION du compte local, jamais réécrits ensuite.
+      defaultRoles: ["ROLE_USER"],
+      allowSignup: true, // false = un compte local déjà lié est exigé
+      successRedirect: "/",
+      failureRedirect: "/login?error=oauth",
+      providers: {
+        // Secrets absents → fournisseur non monté, bouton non affiché.
+        ...(ctx.env.GITHUB_CLIENT_ID && ctx.env.GITHUB_CLIENT_SECRET
+          ? {
+              github: {
+                clientId: ctx.env.GITHUB_CLIENT_ID,
+                clientSecret: ctx.env.GITHUB_CLIENT_SECRET,
+                redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
+              },
+            }
+          : {}),
+      },
+    },
+  }) satisfies ISecurityConfigInput;
+```
+
+```typescript ignore
 // env.ts — SEUL lecteur de process.env (catalogue typé, validé au boot).
 // nodefony.config.ts — `ctx.env` EST ce catalogue (typé par le paramètre générique).
 import { defineConfig, defineEnv, envString, use } from "nodefony";
+import { securityConfig } from "./nodefony/config/security";
 
 export const env = defineEnv({
   GITHUB_CLIENT_ID: envString({ optional: true }),
@@ -198,27 +229,7 @@ export default defineConfig<typeof env>((ctx) => ({
   modules: [
     "@nodefony/http",
     "@nodefony/framework",
-    use("@nodefony/security", {
-      oauth2: {
-        // Rôles posés à la CRÉATION du compte local, jamais réécrits ensuite.
-        defaultRoles: ["ROLE_USER"],
-        allowSignup: true, // false = un compte local déjà lié est exigé
-        successRedirect: "/",
-        failureRedirect: "/login?error=oauth",
-        providers: {
-          // Secrets absents → fournisseur non monté, bouton non affiché.
-          ...(ctx.env.GITHUB_CLIENT_ID && ctx.env.GITHUB_CLIENT_SECRET
-            ? {
-                github: {
-                  clientId: ctx.env.GITHUB_CLIENT_ID,
-                  clientSecret: ctx.env.GITHUB_CLIENT_SECRET,
-                  redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
-                },
-              }
-            : {}),
-        },
-      },
-    }),
+    use("@nodefony/security", securityConfig(ctx)),
   ],
 }));
 ```

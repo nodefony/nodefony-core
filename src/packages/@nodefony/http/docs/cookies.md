@@ -201,10 +201,13 @@ Pour qu'une valeur ne puisse pas être **falsifiée** côté client (sans la chi
 secret **configuré** (le secret par défaut est refusé) :
 
 ```typescript ignore
-// fragment — un secret prévisible est refusé (fail-closed)
+// fragment — un secret prévisible est refusé (fail-closed).
+// `NF_COOKIE_SECRET` se déclare dans `env.ts` (`envString`), seul lecteur de l'environnement.
+import { env } from "../../env";
+
 const c = new Cookie("pref", "v1", {
   signed: true,
-  secret: process.env.COOKIE_SECRET!,
+  secret: env.NF_COOKIE_SECRET,
 });
 // c.value === "s:v1.<hmac base64url>" ; c.unsign() renvoie "v1" ou false si altéré
 ```

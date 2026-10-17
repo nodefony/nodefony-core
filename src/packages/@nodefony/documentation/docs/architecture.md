@@ -160,20 +160,29 @@ valeur calculée par le serveur.
 ### 1. Charger le module
 
 ```ts
+// nodefony/config/documentation.ts — le fragment du module, importé par le manifeste
+import type { IDocumentationConfigInput } from "@nodefony/documentation";
+
+export const documentationConfig = () =>
+  ({
+    // La doc transverse de l'app. Les `<module>/docs/` s'ajoutent tout seuls.
+    scan: { rootDir: "docs" },
+    // Le lien « voir la source » de chaque page pointe vers TON dépôt.
+    repo: { url: "https://github.com/acme/monapp", editPathPrefix: "blob" },
+    // 0 = pas de cache : un nouveau `.md` apparaît à la requête suivante.
+    cache: { ttlMs: 0 },
+  }) satisfies IDocumentationConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — l'orchestrateur de l'application
 import { defineConfig, use } from "nodefony";
+import { documentationConfig } from "./nodefony/config/documentation";
 
 export default defineConfig(() => ({
   modules: [
     "@nodefony/framework",
-    use("@nodefony/documentation", {
-      // La doc transverse de l'app. Les `<module>/docs/` s'ajoutent tout seuls.
-      scan: { rootDir: "docs" },
-      // Le lien « voir la source » de chaque page pointe vers TON dépôt.
-      repo: { url: "https://github.com/acme/monapp", editPathPrefix: "blob" },
-      // 0 = pas de cache : un nouveau `.md` apparaît à la requête suivante.
-      cache: { ttlMs: 0 },
-    }),
+    use("@nodefony/documentation", documentationConfig()),
   ],
 }));
 ```

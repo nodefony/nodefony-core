@@ -164,25 +164,31 @@ trois fichiers, et il fonctionne en mono-process comme en cluster.
 ### 1. Charger le module et choisir le fond de panier
 
 ```ts
+// nodefony/config/realtime.ts — le fragment du module, importé par le manifeste
+import type { IRealtimeConfigInput } from "@nodefony/realtime";
+
+export const realtimeConfig = () =>
+  ({
+    // "loopback" = un seul process : le hub suffit, aucun transport réseau.
+    // "cluster" (workers IPC) ou "redis" (multi-pods) sans changer une ligne de code.
+    backplane: { driver: "loopback" },
+    // Défense CSRF de l'upgrade WebSocket : SameSite ne protège pas un handshake.
+    csrf: {
+      checkOrigin: {
+        enabled: true,
+        allowList: ["http://localhost:5151"],
+      },
+    },
+  }) satisfies IRealtimeConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts
 import { defineConfig, use } from "nodefony";
+import { realtimeConfig } from "./nodefony/config/realtime";
 
 export default defineConfig(() => ({
-  modules: [
-    "@nodefony/framework",
-    use("@nodefony/realtime", {
-      // "loopback" = un seul process : le hub suffit, aucun transport réseau.
-      // "cluster" (workers IPC) ou "redis" (multi-pods) sans changer une ligne de code.
-      backplane: { driver: "loopback" },
-      // Défense CSRF de l'upgrade WebSocket : SameSite ne protège pas un handshake.
-      csrf: {
-        checkOrigin: {
-          enabled: true,
-          allowList: ["http://localhost:5151"],
-        },
-      },
-    }),
-  ],
+  modules: ["@nodefony/framework", use("@nodefony/realtime", realtimeConfig())],
 }));
 ```
 

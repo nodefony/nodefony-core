@@ -401,12 +401,18 @@ schéma du framework en double. Un `default` que l'application écrit elle-même
 les autres sont à toi.
 
 ```ts ignore
-use("@nodefony/drizzle", {
-  connectors: {
-    default: { dialect: "postgres", url: process.env.NF_DATABASE_URL },
-    analytics: { dialect: "sqlite", filename: "var/databases/analytics.db" },
-  },
-});
+// nodefony/config/drizzle.ts — `NF_DATABASE_URL` est déjà au catalogue d'`env.ts`
+import type { ConfigContext } from "nodefony";
+import type { IDrizzleConfigInput } from "@nodefony/drizzle";
+import type { env } from "../../env";
+
+export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    connectors: {
+      default: { dialect: "postgres", url: ctx.env.NF_DATABASE_URL },
+      analytics: { dialect: "sqlite", filename: "var/databases/analytics.db" },
+    },
+  }) satisfies IDrizzleConfigInput;
 ```
 
 > [!WARNING]
@@ -683,10 +689,17 @@ Tu peux évidemment forcer :
 
 ```ts ignore
 use("@nodefony/http", { session: { store: "drizzle" } });
-use("@nodefony/security", {
-  audit: { store: "drizzle" },
-  tokenStore: { store: "drizzle" },
-});
+```
+
+```ts ignore
+// nodefony/config/security.ts — deux clés de plus dans `securityConfig`
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    audit: { store: "drizzle" },
+    tokenStore: { store: "drizzle" },
+  }) satisfies ISecurityConfigInput;
 ```
 
 > [!IMPORTANT]

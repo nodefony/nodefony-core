@@ -164,45 +164,45 @@ export default defineConfig((ctx) => ({
 
 ### 2. Le réglage — le comportement de chaque serveur
 
-Le réglage appartient au **module**, colocalisé dans le manifeste via `use()`. Toutes les clés
+Le réglage appartient au **module** : il vit dans `nodefony/config/http.ts`, que le manifeste passe
+à `use("@nodefony/http", …)`. Toutes les clés
 ci-dessous sont facultatives : ce sont les défauts du schéma Zod, écrits ici pour les montrer.
 
 ```typescript
-// nodefony.config.ts — réglage transport (extrait du manifeste `modules`)
-export default defineConfig(() => ({
-  modules: [
-    use("@nodefony/http", {
-      // Ne pas exposer l'identité du serveur (anti-empreinte, recommandé en prod).
-      headerServer: null,
-      // Barrière Host : le domaine canonique est toujours accepté, + ceux-ci.
-      trustedHosts: ["app.example.com"],
-      // Un seul reverse-proxy en amont ? alors et alors seulement, lui faire confiance.
-      trustProxy: false,
-      http: {
-        requestTimeout: 30_000, // anti slow-loris (réception complète)
-        keepAliveTimeout: 5_000, // réutilisation de la socket TCP
-        shutdownTimeout: 5_000, // drain avant destruction forcée
-      },
-      http2: {
-        maxConcurrentStreams: 100, // défense CVE-2023-44487 (Rapid Reset)
-        maxSessionMemory: 10, // Mo par session h2
-      },
-      websocket: {
-        maxPayload: 1024 * 1024, // 1 MiB → au-delà, close 1009
-        keepaliveInterval: 20_000, // ping toutes les 20 s
-        keepaliveGracePeriod: 10_000, // pong attendu sous 10 s, sinon zombie
-      },
-      // Probes cloud-native — actives par défaut.
-      health: {
-        enabled: true,
-        livenessPath: "/livez",
-        readinessPath: "/readyz",
-      },
-      certificates: { strategy: "auto" }, // mkcert en dev, sinon auto-signé
-    }),
-    "@nodefony/framework",
-  ],
-}));
+// nodefony/config/http.ts — réglage transport, le fragment que
+// `nodefony.config.ts` passe à `use("@nodefony/http", httpConfig())`
+import type { IHttpConfigInput } from "@nodefony/http";
+
+export const httpConfig = () =>
+  ({
+    // Ne pas exposer l'identité du serveur (anti-empreinte, recommandé en prod).
+    headerServer: null,
+    // Barrière Host : le domaine canonique est toujours accepté, + ceux-ci.
+    trustedHosts: ["app.example.com"],
+    // Un seul reverse-proxy en amont ? alors et alors seulement, lui faire confiance.
+    trustProxy: false,
+    http: {
+      requestTimeout: 30_000, // anti slow-loris (réception complète)
+      keepAliveTimeout: 5_000, // réutilisation de la socket TCP
+      shutdownTimeout: 5_000, // drain avant destruction forcée
+    },
+    http2: {
+      maxConcurrentStreams: 100, // défense CVE-2023-44487 (Rapid Reset)
+      maxSessionMemory: 10, // Mo par session h2
+    },
+    websocket: {
+      maxPayload: 1024 * 1024, // 1 MiB → au-delà, close 1009
+      keepaliveInterval: 20_000, // ping toutes les 20 s
+      keepaliveGracePeriod: 10_000, // pong attendu sous 10 s, sinon zombie
+    },
+    // Probes cloud-native — actives par défaut.
+    health: {
+      enabled: true,
+      livenessPath: "/livez",
+      readinessPath: "/readyz",
+    },
+    certificates: { strategy: "auto" }, // mkcert en dev, sinon auto-signé
+  }) satisfies IHttpConfigInput;
 ```
 
 ### 3. Le contrôleur qui répond sur les deux transports
@@ -305,23 +305,33 @@ C'est le déploiement **nominal** en Kubernetes : l'ingress porte le certificat,
 `https: false` désactive HTTPS **et** le WSS qui en hérite, et supprime au passage toute génération de
 certificat au boot.
 
-```typescript
+```typescript ignore
 // nodefony.config.ts — pod k8s derrière un ingress qui termine le TLS
+import { defineConfig, use } from "nodefony";
+import { httpConfig } from "./nodefony/config/http";
+
 export default defineConfig((ctx) => ({
   domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1",
   servers: {
     https: false, // un seul port exposé : 5151
   },
-  modules: [
-    use("@nodefony/http", {
-      // L'ingress est l'unique point d'entrée → ses X-Forwarded-* sont fiables.
-      trustProxy: ctx.isProd ? "uniquelocal" : false,
-      // L'ingress filtre déjà le Host ; sinon lister les vhosts servis.
-      trustedHosts: ["app.example.com"],
-    }),
-    "@nodefony/framework",
-  ],
+  modules: [use("@nodefony/http", httpConfig(ctx)), "@nodefony/framework"],
 }));
+```
+
+```typescript ignore
+// nodefony/config/http.ts — le fragment que le manifeste ci-dessus appelle
+import type { ConfigContext } from "nodefony";
+import type { IHttpConfigInput } from "@nodefony/http";
+import type { env } from "../../env";
+
+export const httpConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    // L'ingress est l'unique point d'entrée → ses X-Forwarded-* sont fiables.
+    trustProxy: ctx.isProd ? "uniquelocal" : false,
+    // L'ingress filtre déjà le Host ; sinon lister les vhosts servis.
+    trustedHosts: ["app.example.com"],
+  }) satisfies IHttpConfigInput;
 ```
 
 ## 🔌 Les quatre serveurs (et le cinquième service)
@@ -564,21 +574,19 @@ Réglées par `certificates.strategy` (`certificatesSchema`, `config.ts:479`), r
 | `selfsigned`    | Secours, CI, machine sans mkcert            | Auto-signé (`node:crypto`), non trusté.                                     |
 
 ```typescript
-// nodefony.config.ts — production : certificat fourni, jamais généré
-export default defineConfig(() => ({
-  modules: [
-    use("@nodefony/http", {
-      certificates: {
-        strategy: "explicit",
-        key: "/etc/tls/privkey.pem",
-        cert: "/etc/tls/fullchain.pem",
-        ca: "/etc/tls/chain.pem",
-      },
-      https: { rejectUnauthorized: true },
-    }),
-    "@nodefony/framework",
-  ],
-}));
+// nodefony/config/http.ts — production : certificat fourni, jamais généré
+import type { IHttpConfigInput } from "@nodefony/http";
+
+export const httpConfig = () =>
+  ({
+    certificates: {
+      strategy: "explicit",
+      key: "/etc/tls/privkey.pem",
+      cert: "/etc/tls/fullchain.pem",
+      ca: "/etc/tls/chain.pem",
+    },
+    https: { rejectUnauthorized: true },
+  }) satisfies IHttpConfigInput;
 ```
 
 > [!TIP]

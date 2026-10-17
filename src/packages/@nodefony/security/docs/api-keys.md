@@ -141,25 +141,28 @@ Dans une app générée par `nodefony create app`, tout se déclare dans la conf
 dont les authenticators contiennent `apikey` exige un `Authorization: Bearer nf_…` valide :
 
 ```typescript
-// nodefony.config.ts (extrait) — la zone machine + la politique d'émission
-use("@nodefony/security", {
-  areas: {
-    // Zone protégée : sans clé valide → 401 AVANT ton controller (Zero Trust).
-    // `jwt` cohabite sans conflit — les deux se discriminent par la FORME du
-    // bearer (JWT = a.b.c, clé d'API = nf_…).
-    api: {
-      pattern: "^/api/v1",
-      authenticators: ["apikey", "jwt"],
-      mode: "first",
+// nodefony/config/security.ts — la zone machine + la politique d'émission
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    areas: {
+      // Zone protégée : sans clé valide → 401 AVANT ton controller (Zero Trust).
+      // `jwt` cohabite sans conflit — les deux se discriminent par la FORME du
+      // bearer (JWT = a.b.c, clé d'API = nf_…).
+      api: {
+        pattern: "^/api/v1",
+        authenticators: ["apikey", "jwt"],
+        mode: "first",
+      },
     },
-  },
-  apiKeys: {
-    prefix: "acme", // marque de TES clés : acme_… (secret-scanning + support)
-    defaultExpiryDays: 90, // une clé émise sans durée meurt au bout de 90 jours
-    maxPerSubject: 20, // plafond de clés ACTIVES par porteur (au-delà : 409)
-    allowedScopes: ["orders:read", "orders:write"], // catalogue fermé
-  },
-});
+    apiKeys: {
+      prefix: "acme", // marque de TES clés : acme_… (secret-scanning + support)
+      defaultExpiryDays: 90, // une clé émise sans durée meurt au bout de 90 jours
+      maxPerSubject: 20, // plafond de clés ACTIVES par porteur (au-delà : 409)
+      allowedScopes: ["orders:read", "orders:write"], // catalogue fermé
+    },
+  }) satisfies ISecurityConfigInput;
 ```
 
 ### 2. Écrire le controller, borné par un scope

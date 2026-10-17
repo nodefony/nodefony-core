@@ -114,18 +114,18 @@ Le moteur et sa cible physique vivent ici, et nulle part ailleurs. SQLite ne dem
 installation : c'est le bon choix pour ce premier tour.
 
 ```ts
-// nodefony.config.ts — le connecteur "default" est le NOM de la connexion,
-// pas celui du moteur : c'est `dialect` qui nomme le moteur.
-export default defineConfig(() => ({
-  modules: [
-    "@nodefony/framework",
-    use("@nodefony/drizzle", {
-      connectors: {
-        default: { dialect: "sqlite", filename: "nodefony/databases/app.db" },
-      },
-    }),
-  ],
-}));
+// nodefony/config/drizzle.ts — le fragment que le générateur a posé, que
+// `nodefony.config.ts` passe à `use("@nodefony/drizzle", drizzleConfig())`.
+// Le connecteur "default" est le NOM de la connexion, pas celui du moteur :
+// c'est `dialect` qui nomme le moteur.
+import type { IDrizzleConfigInput } from "@nodefony/drizzle";
+
+export const drizzleConfig = () =>
+  ({
+    connectors: {
+      default: { dialect: "sqlite", filename: "var/databases/app.db" },
+    },
+  }) satisfies IDrizzleConfigInput;
 ```
 
 ### 2. Décrire la table et l'inscrire
@@ -266,12 +266,19 @@ c'est simplement celui que les entités visent quand elles n'en nomment pas d'au
 Une deuxième base se déclare exactement pareil, sous un autre nom :
 
 ```ts ignore
-use("@nodefony/drizzle", {
-  connectors: {
-    default: { dialect: "sqlite", filename: "nodefony/databases/app.db" },
-    analytics: { dialect: "postgres", url: process.env.PG_URL },
-  },
-});
+// nodefony/config/drizzle.ts — `NF_ANALYTICS_URL` se déclare dans `env.ts`
+// (`envString`), puis se lit par `ctx.env` : jamais `process.env` ici.
+import type { ConfigContext } from "nodefony";
+import type { IDrizzleConfigInput } from "@nodefony/drizzle";
+import type { env } from "../../env";
+
+export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
+  ({
+    connectors: {
+      default: { dialect: "sqlite", filename: "var/databases/app.db" },
+      analytics: { dialect: "postgres", url: ctx.env.NF_ANALYTICS_URL },
+    },
+  }) satisfies IDrizzleConfigInput;
 ```
 
 Les dialectes disponibles, leurs options et le choix de la cible sont détaillés dans la page du

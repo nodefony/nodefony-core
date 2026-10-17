@@ -402,18 +402,29 @@ câblage : le module les enregistre lui-même à son démarrage
 (`registerMongooseFrameworkStores()` (`registerStores.ts:126`)).
 
 ```typescript
+// nodefony/config/security.ts — trois clés de plus dans `securityConfig`
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    tokenStore: { store: "mongoose" },
+    passkeys: { store: "mongoose" },
+    webhooks: { store: "mongoose" },
+  }) satisfies ISecurityConfigInput;
+```
+
+```typescript ignore
 // nodefony.config.ts — sessions, jetons, passkeys et webhooks dans Mongo
+import { defineConfig, use } from "nodefony";
+import { securityConfig } from "./nodefony/config/security";
+
 export default defineConfig(() => ({
   modules: [
     use("@nodefony/mongoose", {
       connectors: { nodefony: { uri: "mongodb://127.0.0.1:27017/app" } },
     }),
     use("@nodefony/http", { session: { store: "mongoose" } }),
-    use("@nodefony/security", {
-      tokenStore: { store: "mongoose" },
-      passkeys: { store: "mongoose" },
-      webhooks: { store: "mongoose" },
-    }),
+    use("@nodefony/security", securityConfig()),
     "@nodefony/framework",
   ],
 }));

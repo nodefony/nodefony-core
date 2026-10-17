@@ -77,28 +77,31 @@ Le scaffold déclare trois zones (`main`, `secure`, `machine`) dans `nodefony/co
 nom**, validé Zod au boot : `areas: z.record(...)`, `config.ts:1443-1444`) :
 
 ```typescript
-// nodefony/config/security.ts (extrait généré par `nodefony create app`)
-use("@nodefony/security", {
-  areas: {
-    // Zone de TES routes : `session` PUIS `anonymous` → identifié si cookie,
-    // sinon visiteur accepté. Hors zone, l'identité n'est JAMAIS résolue.
-    main: {
-      pattern: "^/api",
-      authenticators: ["session", "anonymous"],
+// nodefony/config/security.ts
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const securityConfig = () =>
+  ({
+    areas: {
+      // Zone de TES routes : `session` PUIS `anonymous` → identifié si cookie,
+      // sinon visiteur accepté. Hors zone, l'identité n'est JAMAIS résolue.
+      main: {
+        pattern: "^/api",
+        authenticators: ["session", "anonymous"],
+      },
+      // Zone PROTÉGÉE — pattern PLUS SPÉCIFIQUE que ^/api : le firewall trie
+      // par longueur → /api/secure/* tombe ICI. Pas d'`anonymous` : sans
+      // session → 401 AVANT ton controller (Zero Trust).
+      secure: {
+        pattern: "^/api/secure",
+        authenticators: ["session"],
+      },
     },
-    // Zone PROTÉGÉE — pattern PLUS SPÉCIFIQUE que ^/api : le firewall trie
-    // par longueur → /api/secure/* tombe ICI. Pas d'`anonymous` : sans
-    // session → 401 AVANT ton controller (Zero Trust).
-    secure: {
-      pattern: "^/api/secure",
-      authenticators: ["session"],
+    roleHierarchy: {
+      ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SUPERVISOR", "ROLE_DEV"],
+      ROLE_ADMIN: ["ROLE_USER"],
     },
-  },
-  roleHierarchy: {
-    ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SUPERVISOR", "ROLE_DEV"],
-    ROLE_ADMIN: ["ROLE_USER"],
-  },
-});
+  }) satisfies ISecurityConfigInput;
 ```
 
 > [!IMPORTANT]

@@ -153,27 +153,38 @@ vérifier.
 ### 1. Déclarer le module
 
 ```ts
+// nodefony/config/redis.ts — le fragment du module, importé par le manifeste
+import type { IRedisConfigInput } from "@nodefony/redis";
+
+export const redisConfig = () =>
+  ({
+    globalOptions: {
+      socket: {
+        host: "127.0.0.1",
+        port: 6379,
+        // 5 s pour établir le socket : au-delà, on échoue au lieu de pendre.
+        connectTimeout: 5_000,
+      },
+      // Aucun secret ici : le mot de passe arrive par NF_REDIS_PASSWORD.
+    },
+    connections: {
+      // S'AJOUTE à main / publish / subscribe (fusion profonde des défauts) —
+      // une base séparée pour un cache applicatif qu'on pourra vider seul.
+      cache: { name: "cache", database: 1 },
+    },
+  }) satisfies IRedisConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — l'orchestrateur de l'application
+import { defineConfig, use } from "nodefony";
+import { redisConfig } from "./nodefony/config/redis";
+
 export default defineConfig(() => ({
   modules: [
     // Redis d'abord : il enregistre ses fabriques de stores pendant
     // l'enregistrement des modules, donc avant tout consommateur.
-    use("@nodefony/redis", {
-      globalOptions: {
-        socket: {
-          host: "127.0.0.1",
-          port: 6379,
-          // 5 s pour établir le socket : au-delà, on échoue au lieu de pendre.
-          connectTimeout: 5_000,
-        },
-        // Aucun secret ici : le mot de passe arrive par NF_REDIS_PASSWORD.
-      },
-      connections: {
-        // S'AJOUTE à main / publish / subscribe (fusion profonde des défauts) —
-        // une base séparée pour un cache applicatif qu'on pourra vider seul.
-        cache: { name: "cache", database: 1 },
-      },
-    }),
+    use("@nodefony/redis", redisConfig()),
     "@nodefony/http",
     "@nodefony/framework",
   ],

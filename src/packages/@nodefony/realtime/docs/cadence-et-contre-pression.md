@@ -226,18 +226,27 @@ Deux réglages, et le second est celui qu'on oublie :
   `atelier:load:2000` ouvert à n'importe qui.
 
 ```ts
+// nodefony/config/http.ts — le fragment du module, importé par le manifeste
+import type { IHttpConfigInput } from "@nodefony/http";
+
+export const httpConfig = () =>
+  ({
+    websocket: { maxBackpressure: 1048576, backpressureCloseAfterDrops: 200 },
+    websocketSecure: {
+      maxBackpressure: 1048576,
+      backpressureCloseAfterDrops: 200,
+    },
+  }) satisfies IHttpConfigInput;
+```
+
+```ts ignore
 // nodefony.config.ts — extrait
 import { defineConfig, use } from "nodefony";
+import { httpConfig } from "./nodefony/config/http";
 
 export default defineConfig(() => ({
   modules: [
-    use("@nodefony/http", {
-      websocket: { maxBackpressure: 1048576, backpressureCloseAfterDrops: 200 },
-      websocketSecure: {
-        maxBackpressure: 1048576,
-        backpressureCloseAfterDrops: 200,
-      },
-    }),
+    use("@nodefony/http", httpConfig()),
     "@nodefony/framework",
     use("@nodefony/security", {
       // Préfixe : garde atelier:load ET atelier:load:2000, atelier:load:4000…
