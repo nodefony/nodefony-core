@@ -724,7 +724,7 @@ courte, opération longue avec progression/annulation), `tests/<kebab>-gate.test
 ressource tirés de `publicBaseUrl` de `nodefony/config/security.ts` — une seule règle, jamais
 recopiée) et `<Pascal>GateService` (`publishedProtectedResources()`, câblé `@services`) : sans
 lui, le défi `401` désigne un document en 404. `mixte` = `oauth` + `anonymous: true` : sans jeton,
-`_echo` seul ; `_batch` porte `scopes: ["<kebab>:write"]` (la note donne `--scope`). Gardes AVANT écriture (`checkMcpGateScaffold`) :
+`_echo` seul ; `_batch` porte `scopes: ["<kebab>:write"]` (la note donne `--scope`), et ce scope est RÉSERVÉ à `ROLE_ADMIN` dans `grantableScopes` de `nodefony/config/security.ts` (`wireGrantableScope` — sans déclaration, tout compte l'obtiendrait en le demandant ; ancre absente = note à coller). Gardes AVANT écriture (`checkMcpGateScaffold`) :
 `@nodefony/ai` absent · nom `nodefony*` (outils réservés) · `--role` (une porte se protège par
 jeton, pas par session) · `oauth` dans un module (décision d'APPLICATION), sans
 `@nodefony/security`, ou sans `publicBaseUrl`. L'audience de dev n'est PAS insérée dans

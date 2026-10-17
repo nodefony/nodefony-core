@@ -171,7 +171,7 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   ⚠️ jose v6 : `generateKeyPair("Ed25519",{extractable:true})` (pas `"EdDSA"`) ; header/verify = `"EdDSA"`.
 - `TokenService` (service "tokenService", J4) : `issueForCredentials`(password grant → access JWT +
   refresh opaque **haché sha256** stocké), `refresh`(rotation + **reuse detection** RFC 9700 §4.14 →
-  `revokeFamily`), downscoping (scopes ne montent jamais). **Orchestrateur du seam `ITokenStore.gc()`** :
+  `revokeFamily`), downscoping (scopes ne montent jamais, REJUGÉS au refresh sur les rôles relus). **Orchestrateur du seam `ITokenStore.gc()`** :
   `runGc()` PUBLIC + timer `setInterval(base).unref()` à **phase jittérée** (`onBoot`/`onTerminate`) ;
   `gcIntervalS:0` délègue à un ordonnanceur externe (cron P5.0b). Pose `tokenStore`+`jwtKeystore` container.
 - Endpoints JWT : `TokenAuthController` (@nodefony/framework) `/nodefony/security/api/token{,/refresh}`
@@ -326,7 +326,7 @@ backchannel-logout` (`bypassFirewall`, 0 session, 0 CSRF — la signature authen
   en attribut ; 401 **uniforme** (anti-énum). **Discrimination JWT/PAT par FORME** : `JwtAuthenticator.supports()`
   resserré à `a.b.c` (JWS compact, 3ᵉ `*` → `alg=none` reste routé jose) → les deux cohabitent dans une zone.
   `ApiKeyService` (`apiKeys`) : `createForSubject`/`listForSubject`/`revokeForSubject`/**`listPagePat`** sur le **même `ITokenStore`**
-  que JWT (record `kind:"pat"`, secret affiché **1×**) ; cap `maxPerSubject`→409, scopes ⊆ `allowedScopes`→400,
+  que JWT (record `kind:"pat"`, secret affiché **1×**) ; cap `maxPerSubject`→409, scopes ⊆ `allowedScopes`→400, scope non obtenable→403 (4ᵉ arg `roles`, omis = aucun rôle),
   expiry `defaultExpiryDays`, IDOR→`false`. **TokenService possède le store+gc** : boot étendu `jwt.enabled ‖
 apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (keystore). Endpoints =
   `ApiKeyController` (@nodefony/framework, couplé par nom `apiKeys`+`authFlow`) `/nodefony/security/api/keys`
@@ -608,6 +608,7 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 
 ## Gotchas
 
+- **`grantableScopes` = qui OBTIENT un scope** (`src/token/scopeGrants.ts`) : `ScopeGrantPolicy` (exact > famille `préfixe:*` la plus longue, ordre des clés indifférent) + `refusedScopes(requested, roles, policy, hierarchy)` = SEUL juge des deux familles (`refusedAdminScopes` du cœur, rôles PLATS ; politique app, hiérarchie via `container.get("roleHierarchy")`). Appelé par `TokenService.#grantableScopes` (retire, RFC 6749 §3.3) ET `ApiKeyService.createForSubject` (403). Non déclaré = accordé. Clés `admin:read|write|*` refusées au boot — jugées dans `superRefine` du RECORD (Zod remplace le message d'une clé refusée par « Invalid key in record »). Ne borne PAS un jeton d'émetteur tiers. ≠ `@RequireScope` (contrôle d'USAGE).
 - **Zod v4** : `.default(()=>S.parse({}))` sur sections objet (`.default({})` refusé : TS2769).
 - **Build** : `cd <pkg> && npm run build` (pas `npx rolldown -c` direct, flaky). zod + @nodefony/user en `external`.
 - **Câblage http-kernel FAIT (J1)** : `handleSecurity` appelé HTTP + WS ; `startSession` AVANT le
