@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T15:28:41.222Z",
+  "generatedAt": "2026-10-17T16:59:09.208Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2953,7 +2953,7 @@
       "title": "fix(orm): dire quelle base manque et comment la créer",
       "url": "https://github.com/nodefony/nodefony-core/issues/609",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3081,7 +3081,7 @@
       "title": "fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/401",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -8507,7 +8507,7 @@
       "title": "refactor(core): découper le noyau, un fichier de 4 708 lignes",
       "url": "https://github.com/nodefony/nodefony-core/issues/488",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 3,
