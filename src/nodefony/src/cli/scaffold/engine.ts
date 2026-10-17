@@ -4919,17 +4919,13 @@ function readMigrationsDir(
   projectRoot: string,
   writer: ScaffoldWriter,
 ): string {
-  const configPath = manifestFileWith(
-    projectRoot,
-    writer,
-    /\bconnectors\s*:\s*\{/u,
-  );
+  // Le fichier qui porte CETTE clé, pas celui des connecteurs : un fragment
+  // `nodefony/config/drizzle.ts` peut déclarer l'un et le manifeste l'autre.
+  const pattern = /\bmigrations\s*:\s*\{[^{}]*?\bdir\s*:\s*["']([^"']+)["']/u;
+  const configPath = manifestFileWith(projectRoot, writer, pattern);
   if (!writer.exists(configPath)) return "migrations";
-  const source = withoutComments(writer.read(configPath));
   return (
-    /\bmigrations\s*:\s*\{[^{}]*?\bdir\s*:\s*["']([^"']+)["']/u.exec(
-      source,
-    )?.[1] ?? "migrations"
+    pattern.exec(withoutComments(writer.read(configPath)))?.[1] ?? "migrations"
   );
 }
 

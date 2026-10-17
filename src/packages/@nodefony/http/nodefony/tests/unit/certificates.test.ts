@@ -9,6 +9,7 @@ import tls from "node:tls";
 import type { AddressInfo } from "node:net";
 import Certificate, {
   addDefaultCaCertificate,
+  caFileRemedy,
   splitPemCertificates,
   trustCaFile,
   trustOutboundAuthorities,
@@ -678,6 +679,200 @@ describe("certificates — autorités sortantes déclarées (`extraCaFiles`)", (
     } finally {
       tls.setDefaultCACertificates(before);
       await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});
+
+/**
+ * La matrice de ce qu'un développeur rencontre en déclarant une autorité
+ * sortante (`NF_TLS_CA_FILE` → `extraCaFiles`) : pour CHAQUE décor, soit le
+ * démarrage passe et le journal dit pourquoi, soit il est refusé et le message
+ * dit le problème, d'où vient la valeur, et le geste qui répare.
+ */
+describe("certificates — autorités sortantes : chaque cas passe, ou dit comment s'en sortir", () => {
+  function fakeStore(): ITlsTrustStore & { list: string[] } {
+    const store = {
+      list: ["SYSTEME"],
+      getCACertificates: () => [...store.list],
+      setDefaultCACertificates: (certs: ReadonlyArray<string>) => {
+        store.list = [...certs];
+      },
+    };
+    return store;
+  }
+  async function pem(): Promise<string> {
+    const c = makeCert({ san: { dns: ["localhost"], ip: [] } });
+    c.keysPair = await c.generateKeys();
+    return (await c.createCertificate()).toString();
+  }
+
+  let root = "";
+  let devCa = "";
+  const DEV_DECLARED = path.join(
+    "nodefony",
+    "config",
+    "certificates",
+    "ca",
+    "nodefony-root-ca.crt.pem",
+  );
+  beforeEach(async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "nf-trust-matrix-"));
+    devCa = path.join(root, DEV_DECLARED);
+  });
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  /** Joue la confiance sortante dans un décor donné ; rend journal ET refus. */
+  async function run(
+    files: string[],
+    opts: { development: boolean; env?: NodeJS.ProcessEnv },
+  ): Promise<{ journal: string[]; error: Error | null; store: string[] }> {
+    const journal: string[] = [];
+    const store = fakeStore();
+    const error = await trustOutboundAuthorities(
+      files,
+      root,
+      (m) => journal.push(m),
+      {
+        development: opts.development,
+        developmentAuthority: devCa,
+        env: opts.env ?? {},
+        store,
+      },
+    ).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    return { journal, error, store: store.list };
+  }
+
+  // ── L'autorité de DÉVELOPPEMENT ──────────────────────────────────────────
+
+  it("dev · autorité de dev pas encore engendrée → démarrage, une ligne dit pourquoi, RIEN n'est écrit", async () => {
+    const r = await run([DEV_DECLARED], { development: true });
+    expect(r.error).to.equal(null);
+    expect(r.journal.join("\n")).to.include("pas encore engendrée : ignorée");
+    expect(r.journal.join("\n")).to.include("npx nodefony development");
+    expect(r.store).to.deep.equal(["SYSTEME"]);
+    const written = await fs.access(path.dirname(devCa)).then(
+      () => true,
+      () => false,
+    );
+    expect(
+      written,
+      "aucun certificat fabriqué par la confiance sortante",
+    ).to.equal(false);
+  });
+
+  it("dev · autorité de dev présente → reconnue, comme n'importe quelle autorité", async () => {
+    await fs.mkdir(path.dirname(devCa), { recursive: true });
+    await fs.writeFile(devCa, await pem());
+    const r = await run([DEV_DECLARED], { development: true });
+    expect(r.error).to.equal(null);
+    expect(r.journal.join("\n")).to.include("1 ajoutée(s)");
+    expect(r.store).to.have.length(2);
+  });
+
+  it("production · autorité de dev absente, déclarée par NF_TLS_CA_FILE → refus qui nomme la variable, la cause et les deux issues", async () => {
+    const r = await run([DEV_DECLARED], {
+      development: false,
+      env: { NF_TLS_CA_FILE: DEV_DECLARED },
+    });
+    expect(BootConfigurationError.is(r.error)).to.equal(true);
+    const message = r.error?.message ?? "";
+    expect(message).to.include(devCa);
+    expect(message).to.include("ENOENT");
+    expect(message).to.include("Valeur venue de NF_TLS_CA_FILE");
+    expect(message).to.include("autorité de DÉVELOPPEMENT");
+    expect(message).to.include("npx nodefony http:certificates");
+    expect(message).to.include("retirer la déclaration");
+  });
+
+  it("production · autorité de dev absente, écrite À LA MAIN dans la config → refus qui n'accuse PAS la variable", async () => {
+    const r = await run([DEV_DECLARED], {
+      development: false,
+      env: { NF_TLS_CA_FILE: "autre.pem" },
+    });
+    expect(BootConfigurationError.is(r.error)).to.equal(true);
+    expect(r.error?.message).to.not.include("NF_TLS_CA_FILE");
+    expect(r.error?.message).to.include("npx nodefony http:certificates");
+  });
+
+  it("dev · autorité de dev déclarée par un chemin ABSOLU → même tolérance que le chemin relatif", async () => {
+    const r = await run([devCa], { development: true });
+    expect(r.error).to.equal(null);
+    expect(r.journal.join("\n")).to.include("pas encore engendrée");
+  });
+
+  // ── Une autorité d'ENTREPRISE (tout autre fichier) ───────────────────────
+
+  for (const development of [true, false]) {
+    const decor = development ? "dev" : "production";
+    it(`${decor} · autorité d'entreprise absente → refus : chemin, variable d'origine, geste`, async () => {
+      const r = await run(["certs/entreprise.pem"], {
+        development,
+        env: { NF_TLS_CA_FILE: "certs/entreprise.pem" },
+      });
+      expect(BootConfigurationError.is(r.error)).to.equal(true);
+      const message = r.error?.message ?? "";
+      expect(message).to.include(path.join(root, "certs", "entreprise.pem"));
+      expect(message).to.include("Valeur venue de NF_TLS_CA_FILE");
+      expect(message).to.include(caFileRemedy("ENOENT"));
+      expect(message, "jamais confondue avec l'autorité de dev").to.not.include(
+        "DÉVELOPPEMENT",
+      );
+    });
+  }
+
+  it("un DOSSIER déclaré au lieu du fichier → refus qui le dit", async () => {
+    await fs.mkdir(path.join(root, "certs"));
+    const r = await run(["certs"], { development: true });
+    expect(BootConfigurationError.is(r.error)).to.equal(true);
+    expect(r.error?.message).to.include(caFileRemedy("EISDIR"));
+  });
+
+  it("une CLÉ PRIVÉE déclarée au lieu du certificat → refus qui dit quoi fournir et comment convertir", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    await fs.writeFile(
+      path.join(root, "cle.pem"),
+      privateKey.export({ type: "pkcs8", format: "pem" }),
+    );
+    const r = await run(["cle.pem"], {
+      development: false,
+      env: { NF_TLS_CA_FILE: "cle.pem" },
+    });
+    expect(BootConfigurationError.is(r.error)).to.equal(true);
+    const message = r.error?.message ?? "";
+    expect(message).to.include("aucun certificat PEM");
+    expect(message).to.include("Valeur venue de NF_TLS_CA_FILE");
+    expect(message).to.include("pas sa clé privée");
+    expect(message).to.include("openssl x509 -inform der");
+  });
+
+  it("autorité de dev absente ET autorité d'entreprise présente, en dev → la première est ignorée, la seconde reconnue", async () => {
+    await fs.writeFile(path.join(root, "entreprise.pem"), await pem());
+    const r = await run([DEV_DECLARED, "entreprise.pem"], {
+      development: true,
+    });
+    expect(r.error).to.equal(null);
+    expect(r.journal).to.have.length(2);
+    expect(r.journal[0]).to.include("ignorée");
+    expect(r.journal[1]).to.include("1 ajoutée(s)");
+    expect(r.store).to.have.length(2);
+  });
+
+  // ── Chaque cause a SON geste (y compris celles qu'une machine de test ne
+  //    produit pas : un droit refusé ne l'est pas à root, ni sous Windows) ──
+
+  it("chaque cause système nomme un geste distinct", () => {
+    const causes = ["ENOENT", "EACCES", "EISDIR", "NOPEM", "EIO"];
+    const remedies = causes.map(caFileRemedy);
+    expect(new Set(remedies).size).to.equal(causes.length);
+    expect(caFileRemedy("EPERM")).to.equal(caFileRemedy("EACCES"));
+    expect(caFileRemedy("EACCES")).to.include("droit de le lire");
+    for (const remedy of remedies) {
+      expect(remedy.length, remedy).to.be.greaterThan(20);
     }
   });
 });

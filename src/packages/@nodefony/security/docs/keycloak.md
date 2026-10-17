@@ -475,7 +475,7 @@ exister — `npx nodefony http:certificates` l'engendre. C'est l'équivalent, po
 `NODE_EXTRA_CA_CERTS` : même effet, sans syntaxe de shell à traduire sous Windows.
 
 Pourquoi la deuxième ligne du tableau : l'autorité de développement n'est reconnue d'office qu'en
-mode `development` (`Certificate.trustDevelopmentAuthority()`, `certificates.ts:663`). Lancée
+mode `development` (`Certificate.trustDevelopmentAuthority()`, `certificates.ts:703`). Lancée
 en production — pour essayer le build sur le poste, par exemple —, l'application ne lui fait plus
 confiance sans qu'on le lui dise, et c'est voulu : une application de production qui adopterait en
 silence une autorité de développement ouvrirait une porte qu'aucune configuration ne montre. Le

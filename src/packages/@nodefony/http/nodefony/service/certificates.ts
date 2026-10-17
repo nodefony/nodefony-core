@@ -123,7 +123,11 @@ export interface ICaFileTrust {
  *
  * @param file - chemin du fichier, absolu ou relatif à `root`
  * @param root - racine de l'application
+ * Chaque refus dit le problème, d'où vient le chemin quand on le sait, puis le
+ * geste qui répare ({@link caFileRemedy}).
+ *
  * @param store - accès aux ancres ; `node:tls` par défaut
+ * @param origin - phrase qui dit d'où vient le chemin (` Valeur venue de …`), insérée dans un refus
  * @returns le bilan de l'ajout
  * @throws BootConfigurationError - fichier illisible, sans certificat, ou Node
  *         incapable d'élargir ses ancres en cours d'exécution
@@ -132,6 +136,7 @@ export async function trustCaFile(
   file: string,
   root: string,
   store: ITlsTrustStore = tls,
+  origin = "",
 ): Promise<ICaFileTrust> {
   const absolute = path.resolve(root, file);
   let content: string;
@@ -148,14 +153,14 @@ export async function trustCaFile(
           ? error.message
           : String(error);
     throw new BootConfigurationError(
-      `http.certificates.extraCaFiles : « ${absolute} » est illisible (${reason}).`,
+      `${unreadableProblem(absolute, reason)}${origin} ${caFileRemedy(reason)}`,
     );
   }
   const certificates = splitPemCertificates(content);
   if (certificates.length === 0) {
     throw new BootConfigurationError(
       `http.certificates.extraCaFiles : « ${absolute} » ne contient aucun ` +
-        "certificat PEM (-----BEGIN CERTIFICATE-----).",
+        `certificat PEM (-----BEGIN CERTIFICATE-----).${origin} ${caFileRemedy("NOPEM")}`,
     );
   }
   let added = 0;
@@ -175,6 +180,50 @@ export async function trustCaFile(
     else present += 1;
   }
   return { file: absolute, added, present };
+}
+
+/** Première phrase d'un refus de lecture : le fichier et la cause en un mot. */
+function unreadableProblem(absolute: string, reason: string): string {
+  return `http.certificates.extraCaFiles : « ${absolute} » est illisible (${reason}).`;
+}
+
+/**
+ * Le geste qui répare une autorité déclarée qu'on ne peut pas reconnaître.
+ *
+ * Un refus au démarrage qui ne dit que la cause envoie chercher ; celui-ci dit
+ * quoi faire. Pure : éprouvée cause par cause, y compris celles qu'une machine
+ * de test ne sait pas produire (un droit refusé ne l'est pas à `root`, ni
+ * sous Windows).
+ *
+ * @param cause - code système (`ENOENT`, `EACCES`, `EPERM`, `EISDIR`),
+ *   `NOPEM` pour un fichier lu sans certificat, ou tout autre motif
+ * @returns la phrase du geste
+ */
+export function caFileRemedy(cause: string): string {
+  switch (cause) {
+    case "ENOENT":
+      return (
+        "Poser le fichier à ce chemin (absolu, ou relatif à la racine de " +
+        "l'application), ou retirer la déclaration."
+      );
+    case "EACCES":
+    case "EPERM":
+      return (
+        "Le compte qui lance l'application n'a pas le droit de le lire : lui " +
+        "donner ce droit (sous Kubernetes, monter le ConfigMap ou le Secret " +
+        "lisible par l'utilisateur du pod)."
+      );
+    case "EISDIR":
+      return "C'est un dossier : désigner le fichier PEM qu'il contient.";
+    case "NOPEM":
+      return (
+        "Le fichier doit porter le CERTIFICAT de l'autorité (pas sa clé " +
+        "privée), au format PEM ; un fichier DER se convertit par " +
+        "`openssl x509 -inform der -in autorite.der -out autorite.pem`."
+      );
+    default:
+      return "Vérifier le chemin et les droits du fichier, ou retirer la déclaration.";
+  }
 }
 
 /**
@@ -235,7 +284,8 @@ async function isMissing(file: string): Promise<boolean> {
  * lui-même quand il la fabrique ({@link Certificate.generateServerCertificates}).
  * Rien n'est fabriqué ici : une commande console n'écrit pas de certificat.
  * Une autre autorité absente, ou n'importe laquelle hors développement, reste
- * un refus — qui nomme la variable d'origine et le geste qui répare.
+ * un refus — qui nomme la variable d'origine et le geste qui répare
+ * ({@link caFileRemedy}).
  *
  * @param files - `certificates.extraCaFiles`
  * @param root - racine de l'application
@@ -268,27 +318,19 @@ export async function trustOutboundAuthorities(
       );
       continue;
     }
-    let trust: ICaFileTrust;
-    try {
-      trust = await trustCaFile(file, root, context.store);
-    } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !BootConfigurationError.is(error) ||
-        !(await isMissing(absolute))
-      ) {
-        throw error;
-      }
+    const origin = originOf(absolute, root, context.env ?? process.env);
+    if (isDevelopmentAuthority && (await isMissing(absolute))) {
+      // Hors développement : rien ne la fabriquera, et le refus dit pourquoi.
       throw new BootConfigurationError(
-        `${error.message}${originOf(absolute, root, context.env ?? process.env)} ` +
-          (isDevelopmentAuthority
-            ? "C'est l'autorité de DÉVELOPPEMENT : elle n'existe qu'une fois " +
-              "engendrée (`npx nodefony http:certificates`, ou un premier " +
-              "`npx nodefony development`), et n'est jamais fabriquée hors " +
-              "développement. L'engendrer, ou retirer la déclaration."
-            : "Poser le fichier à ce chemin, ou retirer la déclaration."),
+        `${unreadableProblem(absolute, "ENOENT")}${origin} ` +
+          "C'est l'autorité de DÉVELOPPEMENT : Nodefony la fabrique au premier " +
+          "`npx nodefony development`, jamais hors développement. Pour essayer " +
+          "la production sur ce poste, l'engendrer une fois " +
+          "(`npx nodefony http:certificates`) puis relancer ; sinon retirer la " +
+          "déclaration — une production réelle n'en a pas besoin.",
       );
     }
+    const trust = await trustCaFile(file, root, context.store, origin);
     log(
       `autorité sortante ${trust.file} : ${trust.added} ajoutée(s), ${trust.present} déjà présente(s)`,
       "INFO",

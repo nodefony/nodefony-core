@@ -7914,6 +7914,83 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
     }
 
+    /** Remplace la déclaration nue de drizzle par une configuration écrite. */
+    const withDrizzle = (dest: string, config: string): void => {
+      const cfg = path.join(dest, "nodefony.config.ts");
+      writeFileSync(
+        cfg,
+        readFileSync(cfg, "utf8").replace(
+          '"@nodefony/drizzle",',
+          `use("@nodefony/drizzle", ${config}),`,
+        ),
+      );
+    };
+    const sql = (dest: string, ...rel: string[]): void => {
+      const file = path.join(dest, ...rel);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, "CREATE TABLE x (id int);\n");
+    };
+
+    it('un mode ÉCRIT gagne sur les migrations versionnées (`ddl: "auto"`) — comme au démarrage', () => {
+      const dest = app("ddlexplicitauto");
+      withDrizzle(dest, '{ connectors: { default: { ddl: "auto" } } }');
+      sql(dest, "migrations", "sqlite", "0000_init.sql");
+      const notes = (
+        entity(dest, { name: "Draft", fields: "body:text" }).notes ?? []
+      ).join("\n");
+      assert.include(notes, "créée au prochain boot en développement");
+    });
+
+    it("connecteur SECONDAIRE : les migrations de la racine appartiennent à `default`, pas à lui", () => {
+      const dest = app("ddlsecondaryroot");
+      withDrizzle(
+        dest,
+        '{ connectors: { default: { dialect: "sqlite" }, analytics: { dialect: "sqlite" } } }',
+      );
+      sql(dest, "migrations", "sqlite", "0000_init.sql");
+      const notes = (
+        entity(dest, {
+          name: "Hit",
+          fields: "path:string",
+          connector: "analytics",
+        }).notes ?? []
+      ).join("\n");
+      assert.include(notes, "« analytics »");
+      assert.include(notes, "créée au prochain boot en développement");
+    });
+
+    it("connecteur SECONDAIRE qui versionne SES migrations : la note le dit, `--connector` compris dans chaque commande", () => {
+      const dest = app("ddlsecondaryown");
+      withDrizzle(
+        dest,
+        '{ connectors: { default: { dialect: "sqlite" }, analytics: { dialect: "sqlite" } } }',
+      );
+      sql(dest, "migrations", "analytics", "sqlite", "0000_init.sql");
+      const notes = (
+        entity(dest, {
+          name: "Hit",
+          fields: "path:string",
+          connector: "analytics",
+        }).notes ?? []
+      ).join("\n");
+      assert.include(notes, "le démarrage ne la crée PAS");
+      assert.include(
+        notes,
+        "nodefony orm:generate --name hits --apply --connector analytics",
+      );
+      assert.include(notes, "nodefony orm:migrate --connector analytics");
+    });
+
+    it("`migrations.dir` écrit dans la configuration est celui qu'on lit", () => {
+      const dest = app("ddlcustomdir");
+      withDrizzle(dest, '{ migrations: { dir: "db/migrations" } }');
+      sql(dest, "db", "migrations", "sqlite", "0000_init.sql");
+      const notes = (
+        entity(dest, { name: "Order", fields: "code:string" }).notes ?? []
+      ).join("\n");
+      assert.include(notes, "le démarrage ne la crée PAS");
+    });
+
     it("des migrations sans `.sql` (journal `meta/` seul) ne font pas foi : la création au boot reste annoncée", () => {
       const dest = app("ddlmetaonly");
       mkdirSync(path.join(dest, "migrations", "meta"), { recursive: true });
