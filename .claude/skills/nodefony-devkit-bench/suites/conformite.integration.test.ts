@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { DrizzleOrm } from "@nodefony/drizzle";
 import { is } from "drizzle-orm";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -311,7 +312,10 @@ describe("intégration — la couche donnée, sur une vraie base", () => {
       [];
     for (const nom of entites) {
       const fichier = path.join(dirEntites, `${nom}.ts`);
-      const mod = (await import(fichier)) as Record<string, unknown>;
+      const mod = (await import(pathToFileURL(fichier).href)) as Record<
+        string,
+        unknown
+      >;
       const entity = mod[`${nom}Entity`] as Record<string, unknown> | undefined;
       if (entity === undefined) continue;
       // Les entités d'un AUTRE dialecte ne sont pas jouables sur SQLite : leurs
@@ -376,7 +380,10 @@ describe("intégration — la couche donnée, sur une vraie base", () => {
     for (const nom of entites) {
       const f = path.join(dirEntites, `${nom}.schema.ts`);
       if (!existsSync(f)) continue;
-      const mod = (await import(f)) as Record<string, unknown>;
+      const mod = (await import(pathToFileURL(f).href)) as Record<
+        string,
+        unknown
+      >;
       const schema = mod[`create${nom}Schema`] as
         { parse: (v: unknown) => unknown } | undefined;
       if (schema === undefined) continue;
@@ -398,7 +405,10 @@ describe("intégration — la couche donnée, sur une vraie base", () => {
     for (const nom of entites) {
       const f = path.join(dirEntites, `${nom}.schema.ts`);
       if (!existsSync(f)) continue;
-      const mod = (await import(f)) as Record<string, unknown>;
+      const mod = (await import(pathToFileURL(f).href)) as Record<
+        string,
+        unknown
+      >;
       const schema = mod[`create${nom}Schema`] as
         | { safeParse: (v: unknown) => { success: boolean; data?: unknown } }
         | undefined;

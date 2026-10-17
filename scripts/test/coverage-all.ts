@@ -48,9 +48,8 @@ interface Gate {
   service?: { name: string };
   values?: () => Record<string, string>;
 }
-const gates: Record<string, unknown> = await import(
-  path.join(ROOT, "scripts", "test", "vitest", "gates.ts")
-);
+// Spécificateur RELATIF au module, pas un chemin : `import("C:\\…")` lève sous Windows.
+const gates: Record<string, unknown> = await import("./vitest/gates.ts");
 // ⚠️ Surtout PAS `test-all.ts` : c'est un SCRIPT, son corps s'exécute à l'import
 // — en importer une fonction relançait l'infra, le build et la batterie entière.
 import { containerHealthy } from "./lib/docker.ts";

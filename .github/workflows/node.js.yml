@@ -196,6 +196,14 @@ jobs:
       - name: Gate — noms de fichiers portables (3 systèmes)
         run: npm run check:filenames
 
+      # `import()` d'un chemin NATIF : `C:\…` y est lu comme le protocole `c:`,
+      # donc il lève sous Windows et passe partout ailleurs — invisible là où
+      # l'on développe. Vécu : la configuration de grappe ignorée en silence
+      # sous Windows. Gate STATIQUE (AST, origine des variables suivie), il
+      # tient sans le job Windows : il refuse la FORME, pas le symptôme.
+      - name: Gate — import() reçoit une URL, jamais un chemin natif
+        run: node scripts/gates/check-import-specifiers.mjs
+
       # `package.json` est du JSON : aucun commentaire n'y est possible, et le
       # seul indice de ce que fait un script y est son NOM. Sur un dépôt qui en
       # porte soixante, son auteur ne s'en souvient plus — et un agent qui

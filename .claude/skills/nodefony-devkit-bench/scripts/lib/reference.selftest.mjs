@@ -26,14 +26,17 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // Le module éprouvé est paramétrable : `--prove` relance ce même fichier sur
 // des copies mutées. Une seule liste de cas, donc — la faire diverger ferait
 // « prouver » à la mutation un contrôle qui n'est pas celui qu'on exécute.
 const MODULE = !process.argv.includes("--module")
   ? "./reference.mjs"
-  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+  : // Une URL, pas un chemin : `import("C:\\…")` lève sous Windows.
+    pathToFileURL(
+      path.resolve(process.argv[process.argv.indexOf("--module") + 1]),
+    ).href;
 const {
   comparerDecor,
   depister,

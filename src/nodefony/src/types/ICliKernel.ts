@@ -1,14 +1,11 @@
 import type { Command as CommanderCommand } from "commander";
 import type { EnvironmentType, DebugType } from "./globals";
-
-// Redéfinis localement — import circulaire impossible (IKernel → ICliKernel → CliKernel → Kernel → Service → IService → IKernel)
-// Miroir de IRunProfile/RunLifetime de Kernel.ts.
-type RunLifetime = "oneshot" | "longrunning";
+// Module feuille (aucun cycle IKernel → ICliKernel → CliKernel → Kernel → … → IKernel).
+// MUTATION #488 — miroir dérivé (sans schemaWork) réintroduit
 interface IRunProfile {
   servers: boolean;
-  lifetime: RunLifetime;
+  lifetime: "oneshot" | "longrunning";
   interactive: boolean;
-  /** Ce run ouvre-t-il des connexions vers l'infrastructure (base, cache, courtier) ? */
   externalServices: boolean;
 }
 

@@ -38,11 +38,14 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const MODULE = !process.argv.includes("--module")
   ? "./identites.mjs"
-  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+  : // Une URL, pas un chemin : `import("C:\\…")` lève sous Windows.
+    pathToFileURL(
+      path.resolve(process.argv[process.argv.indexOf("--module") + 1]),
+    ).href;
 const {
   motDePasseAdmin,
   MOT_DE_PASSE_POSE,
@@ -53,7 +56,7 @@ const {
 /** Le module SOUS TEST, en chemin de fichier — c'est LUI qu'on relance. */
 const CHEMIN_MODULE = MODULE.startsWith(".")
   ? path.join(path.dirname(fileURLToPath(import.meta.url)), "identites.mjs")
-  : MODULE;
+  : fileURLToPath(MODULE);
 
 /** Racine du dépôt, trouvée en REMONTANT — ce contrôle vit dans un skill. */
 function racineDepot(depuis) {
@@ -214,7 +217,7 @@ if (DIST === null || !existsSync(DIST)) {
   // principal. La politique éprouvée n'est alors pas celle qu'on croit — un
   // verdict juste sur la mauvaise cible reste un verdict faux.
   console.log(`  ℹ politique lue dans ${DIST}`);
-  const { PasswordPolicy } = await import(DIST);
+  const { PasswordPolicy } = await import(pathToFileURL(DIST).href);
   const politique = new PasswordPolicy();
   const aEprouver = [
     [

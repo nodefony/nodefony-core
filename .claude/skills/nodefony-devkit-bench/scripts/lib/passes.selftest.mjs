@@ -17,11 +17,14 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const MODULE = !process.argv.includes("--module")
   ? "./passes.mjs"
-  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+  : // Une URL, pas un chemin : `import("C:\\…")` lève sous Windows.
+    pathToFileURL(
+      path.resolve(process.argv[process.argv.indexOf("--module") + 1]),
+    ).href;
 const { indiceDeLaPasse, passesDe, commitsDuHarnais } = await import(MODULE);
 
 // Trois répétitions de la tâche 26, telles que le banc les écrit — décor et

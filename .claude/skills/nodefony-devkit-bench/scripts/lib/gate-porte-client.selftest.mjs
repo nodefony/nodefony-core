@@ -15,11 +15,14 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const MODULE = !process.argv.includes("--module")
   ? "./gate-porte-client.mjs"
-  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+  : // Une URL, pas un chemin : `import("C:\\…")` lève sous Windows.
+    pathToFileURL(
+      path.resolve(process.argv[process.argv.indexOf("--module") + 1]),
+    ).href;
 const { jugerPorteClient, sourcesDe, lignesAjoutees } = await import(MODULE);
 
 const PROVE =

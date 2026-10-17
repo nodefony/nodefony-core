@@ -16,11 +16,14 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, rmSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const MODULE = !process.argv.includes("--module")
   ? "./decor-source.mjs"
-  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+  : // Une URL, pas un chemin : `import("C:\\…")` lève sous Windows.
+    pathToFileURL(
+      path.resolve(process.argv[process.argv.indexOf("--module") + 1]),
+    ).href;
 const {
   SOURCES,
   ETIQUETTES,

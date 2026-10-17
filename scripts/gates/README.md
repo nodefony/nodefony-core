@@ -30,6 +30,23 @@ Suite de l'audit `external` — écrite pour le faire ÉCHOUER, pas pour l'accom
 - **Lancé par** : `npm run test:externals` · `npm run test:tooling`
 - **Utilise** : `gates/check-externals.mjs`
 
+## [`check-import-specifiers.mjs`](check-import-specifiers.mjs)
+
+check-import-specifiers — un `import()` ne reçoit jamais un chemin NATIF.
+
+- **Usage** : `node scripts/gates/check-import-specifiers.mjs          # fichiers SUIVIS de src/, scripts/, .claude/skills/`
+- **Usage** : `node scripts/gates/check-import-specifiers.mjs <fichier…>`
+- **Produit** : chaque `import()` fautif, `fichier:ligne:colonne`, avec l'origine du chemin ; sortie 1 si un seul l'est
+- **Appelé par** : `node.js.yml`
+- **Testé par** : `gates/check-import-specifiers.test.mjs`
+
+## [`check-import-specifiers.test.mjs`](check-import-specifiers.test.mjs)
+
+Suite du gate `import()` de chemin natif — écrite pour le faire ÉCHOUER.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `gates/check-import-specifiers.mjs`
+
 ## [`check-licenses.mjs`](check-licenses.mjs)
 
 check-licenses — DÉLÈGUE à la commande du produit, et ne décide plus rien.

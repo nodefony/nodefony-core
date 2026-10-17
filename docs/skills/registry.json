@@ -160,6 +160,37 @@
       "testedBy": []
     },
     {
+      "path": "scripts/gates/check-import-specifiers.mjs",
+      "test": false,
+      "purpose": "check-import-specifiers — un `import()` ne reçoit jamais un chemin NATIF.",
+      "usage": [
+        "node scripts/gates/check-import-specifiers.mjs          # fichiers SUIVIS de src/, scripts/, .claude/skills/",
+        "node scripts/gates/check-import-specifiers.mjs <fichier…>"
+      ],
+      "options": [],
+      "env": [],
+      "output": "chaque `import()` fautif, `fichier:ligne:colonne`, avec l'origine du chemin ; sortie 1 si un seul l'est",
+      "calledBy": [
+        "node.js.yml"
+      ],
+      "testedBy": [
+        "scripts/gates/check-import-specifiers.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/gates/check-import-specifiers.test.mjs",
+      "test": true,
+      "purpose": "Suite du gate `import()` de chemin natif — écrite pour le faire ÉCHOUER.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/gates/check-licenses.mjs",
       "test": false,
       "purpose": "check-licenses — DÉLÈGUE à la commande du produit, et ne décide plus rien.",

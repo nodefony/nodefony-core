@@ -23,11 +23,14 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const MODULE = !process.argv.includes("--module")
   ? "./env-decor.mjs"
-  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+  : // Une URL, pas un chemin : `import("C:\\…")` lève sous Windows.
+    pathToFileURL(
+      path.resolve(process.argv[process.argv.indexOf("--module") + 1]),
+    ).href;
 const { autresEcartees, envAgent, envDecor, nfEcartees } = await import(MODULE);
 
 // Un poste RÉALISTE : les variables du harnais, un jeton MCP émis pour le

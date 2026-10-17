@@ -45,7 +45,13 @@ Rien ne le signalait ; on l'a vu dans les journaux d'un build de CI, à l'œil.
 `D:\app\index.js` a un `d:` qui est un **schéma d'URL syntaxiquement valide** → Node refuse
 (`ERR_UNSUPPORTED_ESM_URL_SCHEME`). Passer par le helper unique `toImportSpecifier`
 (`kernel/resolveModuleEntry.ts`) ; l'absoluité s'y teste AVANT toute lecture de schéma, sinon on
-reprend `d:` pour un protocole.
+reprend `d:` pour un protocole. Hors du cœur (skills, scripts) : `pathToFileURL(chemin).href`.
+
+**Gardé par `scripts/gates/check-import-specifiers.mjs`** (CI, job statique) : il refuse un
+`import()` dont l'argument naît d'un `path.join`/`resolve`, de `fileURLToPath`, `process.cwd()`,
+`__dirname`, `import.meta.dirname`, `os.tmpdir()` ou `mkdtemp` — en suivant les variables de la
+même portée (`const DIST = path.join(…)` puis `import(DIST)`). Une origine qu'il ne peut pas
+montrer (paramètre, appel quelconque) n'est pas accusée : ce n'est pas un quitus pour elle.
 
 ---
 

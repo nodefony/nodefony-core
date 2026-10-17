@@ -9,7 +9,7 @@
 // Usage : bash .claude/skills/nodefony-load-test/scripts/run.sh aimd
 //     ou : node .claude/skills/nodefony-load-test/scripts/aimd-demo.mjs
 
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import { PLATFORM_CHANNELS } from "nodefony";
 
@@ -24,7 +24,7 @@ const DIST = path.join(
 
 let bindAdaptiveChannel;
 try {
-  ({ bindAdaptiveChannel } = await import(DIST));
+  ({ bindAdaptiveChannel } = await import(pathToFileURL(DIST).href));
 } catch (e) {
   console.error(
     `\n✖ Impossible de charger la lib AIMD buildée :\n  ${DIST}\n` +

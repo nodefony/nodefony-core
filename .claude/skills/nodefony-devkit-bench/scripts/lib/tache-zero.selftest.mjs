@@ -12,7 +12,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // Le module éprouvé est paramétrable : `--prove` relance CE MÊME fichier sur
 // des copies mutées. Une seule liste de cas, donc — la faire diverger ferait
@@ -20,7 +20,10 @@ import { fileURLToPath } from "node:url";
 // Même patron que `reference.selftest.mjs` : une règle, une implémentation.
 const MODULE = !process.argv.includes("--module")
   ? "./tache-zero.mjs"
-  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+  : // Une URL, pas un chemin : `import("C:\\…")` lève sous Windows.
+    pathToFileURL(
+      path.resolve(process.argv[process.argv.indexOf("--module") + 1]),
+    ).href;
 const {
   canalDe,
   commandeCreation,
