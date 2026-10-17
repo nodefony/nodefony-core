@@ -100,6 +100,14 @@ readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
 - **Appelé par** : `pages.yml` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/markdown-highlight.mjs`
 
+## [`schemas-organigramme.test.mjs`](schemas-organigramme.test.mjs)
+
+Le tracé des organigrammes du site — jugé sur le CORPUS réel.
+
+- **Variable** `REPO_ROOT`
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/repo-root.mjs`
+
 ## [`schemas-sequence.test.mjs`](schemas-sequence.test.mjs)
 
 Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS réel.

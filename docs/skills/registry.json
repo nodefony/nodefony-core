@@ -48,6 +48,7 @@
       "testedBy": [
         "scripts/gates/dev-credentials.test.mjs",
         "scripts/gates/vitest-tmp-guard.test.mjs",
+        "scripts/site/schemas-organigramme.test.mjs",
         "scripts/site/schemas-sequence.test.mjs",
         "scripts/site/site-plan.test.mjs"
       ]
@@ -1195,6 +1196,24 @@
       "calledBy": [
         "pages.yml",
         ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/schemas-organigramme.test.mjs",
+      "test": true,
+      "purpose": "Le tracé des organigrammes du site — jugé sur le CORPUS réel.",
+      "usage": [],
+      "options": [],
+      "env": [
+        {
+          "name": "REPO_ROOT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
       ],
       "testedBy": []
     },

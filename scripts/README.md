@@ -19,7 +19,7 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`test/lib/`](test/lib/README.md) | Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB. | 2 |
 | [`test/vitest/`](test/vitest/README.md) | Socles partagés par TOUTES les configs vitest du dépôt — garde des dossiers temporaires, gates d'infrastructure, décorateurs oxc, cache de transformation — et la config des suites lancées depuis la racine. Importés par les configs, jamais lancés à la main. | 5 |
 | [`generate/`](generate/README.md) | Génération d'artefacts : graphe symbolique, page de manuel, catalogue d'environnement, logo. | 7 |
-| [`site/`](site/README.md) | Rendu du site de documentation publié et de ses pages annexes. | 10 |
+| [`site/`](site/README.md) | Rendu du site de documentation publié et de ses pages annexes. | 11 |
 | [`site/lib/`](site/lib/README.md) | Helpers propres au rendu du site de documentation. | 3 |
 | [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 7 |
 | [`ci/`](ci/README.md) | Ce que la forge lance ou éprouve sur elle-même. | 7 |
