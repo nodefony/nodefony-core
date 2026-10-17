@@ -38,10 +38,12 @@
         "scripts/scaffold/check-scaffold-format.mjs",
         "scripts/scaffold/check-scaffold-frontends.mjs",
         "scripts/scaffold/format-templates.mjs",
+        "scripts/site/assemble-site.mjs",
         "scripts/site/build-docs-site.mjs",
         "scripts/site/build-perf-site.mjs",
         "scripts/site/build-qualite-site.mjs",
         "scripts/site/build-site-plan.mjs",
+        "scripts/site/build-site.mjs",
         "scripts/site/readme-html.mjs",
         "scripts/test/test-all.ts"
       ],
@@ -50,7 +52,8 @@
         "scripts/gates/vitest-tmp-guard.test.mjs",
         "scripts/site/schemas-organigramme.test.mjs",
         "scripts/site/schemas-sequence.test.mjs",
-        "scripts/site/site-plan.test.mjs"
+        "scripts/site/site-plan.test.mjs",
+        "scripts/site/site-versions.test.mjs"
       ]
     },
     {
@@ -879,11 +882,37 @@
       "testedBy": []
     },
     {
+      "path": "scripts/site/assemble-site.mjs",
+      "test": false,
+      "purpose": "Assemble le site en ligne à partir de rendus DÉJÀ faits : la version publiée à la racine, `dev` sous `/next/`, chaque release archivée sous `/<version>/`.",
+      "usage": [
+        "node scripts/site/assemble-site.mjs --published <dossier> --out <dossier> [--next <dossier>] [--archives <dossier>] [--version <x.y.z>]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NEXT",
+          "help": ""
+        },
+        {
+          "name": "VERSION",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "pages.yml"
+      ],
+      "testedBy": [
+        "scripts/site/site-versions.test.mjs"
+      ]
+    },
+    {
       "path": "scripts/site/build-docs-site.mjs",
       "test": false,
       "purpose": "Construit le SITE de documentation publié — toute la doc Nodefony en HTML autonome, régénérée à chaque release.",
       "usage": [
-        "node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--base \"\"] [--quiet]",
+        "node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--mount /docs] [--channel published|next] [--quiet]",
         "node scripts/site/build-docs-site.mjs --list"
       ],
       "options": [],
@@ -894,6 +923,10 @@
         },
         {
           "name": "BUILT_AT",
+          "help": ""
+        },
+        {
+          "name": "CHANNEL",
           "help": ""
         },
         {
@@ -940,8 +973,8 @@
       "output": "",
       "calledBy": [
         "node.js.yml",
-        "pages.yml",
         ".githooks/pre-push",
+        "scripts/site/build-site.mjs",
         ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs",
         ".claude/skills/nodefony-documentation/scripts/doc-lint.mjs",
         ".claude/skills/nodefony-documentation/scripts/render-figures.mjs"
@@ -972,7 +1005,7 @@
       ],
       "output": "",
       "calledBy": [
-        "pages.yml"
+        "scripts/site/build-site.mjs"
       ],
       "testedBy": []
     },
@@ -992,7 +1025,7 @@
       ],
       "output": "",
       "calledBy": [
-        "pages.yml"
+        "scripts/site/build-site.mjs"
       ],
       "testedBy": []
     },
@@ -1014,7 +1047,36 @@
       "output": "",
       "calledBy": [
         "npm run site:plan",
-        "pages.yml"
+        "scripts/site/build-site.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/build-site.mjs",
+      "test": false,
+      "purpose": "Rend UN site complet — accueil, documentation, mesures, qualité, plan — dans un dossier, pour une version donnée.",
+      "usage": [
+        "node scripts/site/build-site.mjs --out dist-site [--channel published|next] [--site-url <url>]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "BASE",
+          "help": ""
+        },
+        {
+          "name": "CHANNEL",
+          "help": ""
+        },
+        {
+          "name": "NEXT_DIR",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "pages.yml",
+        "release.yml"
       ],
       "testedBy": []
     },
@@ -1037,6 +1099,7 @@
         "pages.yml"
       ],
       "testedBy": [
+        "scripts/site/site-versions.test.mjs",
         ".claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs"
       ]
     },
@@ -1091,6 +1154,46 @@
       ]
     },
     {
+      "path": "scripts/site/lib/out-dir.mjs",
+      "test": false,
+      "purpose": "Dossier de sortie d'un générateur du site : neuf à chaque rendu, ou refusé.",
+      "usage": [
+        "import { prepareOutDir } from \"./lib/out-dir.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/assemble-site.mjs",
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/site-versions.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/site-versions.mjs",
+      "test": false,
+      "purpose": "Versions du site publié — qui vit où, et comment passer de l'une à l'autre.",
+      "usage": [
+        "import { planVersions, manifestFor } from \"./lib/site-versions.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "pages.yml",
+        "scripts/site/assemble-site.mjs",
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-site.mjs",
+        "scripts/site/readme-html.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/site-versions.test.mjs"
+      ]
+    },
+    {
       "path": "scripts/site/markdown-highlight.mjs",
       "test": false,
       "purpose": "markdown-highlight.mjs — coloration syntaxique des blocs de code du site publié.",
@@ -1125,12 +1228,16 @@
       "test": false,
       "purpose": "readme-html.mjs — Nodefony, matrice de présentation (10 minutes).",
       "usage": [
-        "node scripts/site/readme-html.mjs [fichier-de-sortie.html]"
+        "node scripts/site/readme-html.mjs [fichier-de-sortie.html] [--channel published|next]"
       ],
       "options": [],
       "env": [
         {
           "name": "BLOB",
+          "help": ""
+        },
+        {
+          "name": "CHANNEL",
           "help": ""
         },
         {
@@ -1148,7 +1255,7 @@
       ],
       "output": "",
       "calledBy": [
-        "pages.yml",
+        "scripts/site/build-site.mjs",
         ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs"
       ],
       "testedBy": []
@@ -1200,6 +1307,19 @@
       "calledBy": [
         "npm run test:site-plan",
         "node.js.yml",
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/site-versions.test.mjs",
+      "test": true,
+      "purpose": "Éprouve l'agencement des versions du site et le dossier de sortie neuf.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
         "npm run test:tooling"
       ],
       "testedBy": []
@@ -4389,7 +4509,7 @@
       "name": "nodefony-documentation",
       "summary": "Kit de dev de la DOCUMENTATION Nodefony, trois faces.",
       "family": "Développer le framework",
-      "version": "3.0.0",
+      "version": "3.1.0",
       "keywords": [
         "build-docs-site.mjs",
         "publish",
@@ -4417,8 +4537,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 488,
-        "approxTokens": 8583
+        "bodyLines": 498,
+        "approxTokens": 8813
       },
       "requires": [],
       "resources": {
@@ -4759,7 +4879,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "488",
+            "detail": "498",
             "advisory": true
           }
         ]
@@ -8483,7 +8603,7 @@
       "name": "nodefony-release",
       "summary": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
       "family": "Publier et distribuer",
-      "version": "2.1.0",
+      "version": "2.3.0",
       "keywords": [
         "release:pack",
         "release:smoke",
@@ -8513,8 +8633,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 387,
-        "approxTokens": 7887
+        "bodyLines": 388,
+        "approxTokens": 7920
       },
       "requires": [],
       "resources": {
@@ -8599,7 +8719,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "387",
+            "detail": "388",
             "advisory": true
           }
         ]

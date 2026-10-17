@@ -794,9 +794,11 @@ jobs:
     # même cran que la publication npm.
     if: vars.NF_RELEASE_ARMED == 'true' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Le site archivé se rend ici (dépendances, module de documentation,
+    # symboles, ~100 pages) : dix minutes ne laissaient aucune marge.
+    timeout-minutes: 25
     permissions:
-      contents: write # créer la release
+      contents: write # créer la release, y joindre le site archivé
       actions: write # relancer la publication du site
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -851,6 +853,33 @@ jobs:
           echo "canal : ${canal[*]:-version courante (latest)}"
           gh release create "$VERSION" --title "$VERSION" \
             --notes-file /tmp/notes.md "${canal[@]}"
+
+      # 🔴 LA DOCUMENTATION D'UNE VERSION SURVIT À LA SUIVANTE. Le site en ligne
+      # garde un dossier `/<version>/` par release (`pages.yml`) — mais il ne le
+      # REBÂTIT jamais : un vieux tag passerait par le générateur d'aujourd'hui,
+      # et la page ne serait plus celle qu'on a publiée. Le site est donc rendu
+      # UNE fois, ici, depuis le tag, et joint à la release (`site-<v>.tar.gz`) ;
+      # chaque déploiement le remet tel quel. Joint AVANT la republication
+      # ci-dessous, qui doit le trouver.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.x"
+      - name: Archiver le site de cette version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          V="${VERSION#v}"
+          npm ci --ignore-scripts
+          npx turbo run build --filter=@nodefony/documentation
+          npm run generate-symbols
+          # Un tag se bâtit en HEAD détaché : le canal se DIT, il ne se déduit
+          # d'aucune branche.
+          node scripts/site/build-site.mjs --out dist-site --channel published
+          tar -czf "site-$V.tar.gz" -C dist-site .
+          gh release upload "$VERSION" "site-$V.tar.gz"
+          echo "site archivé : site-$V.tar.gz ($(du -h "site-$V.tar.gz" | cut -f1))"
 
       # 🔴 LE SITE NE SE REPUBLIE PAS TOUT SEUL — et le croire a coûté cent runs
       # muets. `pages.yml` a longtemps déclaré `on: release: published` ; ce

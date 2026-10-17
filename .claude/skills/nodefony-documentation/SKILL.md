@@ -1,7 +1,7 @@
 ---
 name: nodefony-documentation
 metadata:
-  version: 3.0.0
+  version: 3.1.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur
   `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens
@@ -63,6 +63,16 @@ sur la résolution des liens, exactement le défaut que ces briques existent pou
   `scripts/site/readme-html.mjs`), `/docs/` la documentation, `/performance/` les mesures. Un seul flux
   les publie (`.github/workflows/pages.yml`) — GitHub Pages ne connaît qu'UN artefact et chaque
   déploiement REMPLACE le site entier, donc deux flux s'effaceraient l'un l'autre.
+- **Plusieurs versions en ligne** : la racine décrit la version PUBLIÉE (bâtie depuis `main`),
+  `/next/` la branche `dev` (bandeau, `noindex`, absente de `llms.txt`/`sitemap.xml`), et
+  `/<version>/` le site archivé de chaque release (`site-<v>.tar.gz`, joint par `release.yml`),
+  remis tel quel — jamais rebâti. Une séquence de rendu (`scripts/site/build-site.mjs
+--channel published|next`), un assembleur (`scripts/site/assemble-site.mjs`) qui pose un `versions.json`
+  par dossier, lu par le sélecteur de l'en-tête (`scripts/site/lib/site-versions.mjs`). Le contrôle de liens
+  porte sur le site ASSEMBLÉ : le bandeau de `/next/` remonte vers la racine, et un lien qui sort
+  du dossier contrôlé est refusé.
+- **Un générateur repart d'un dossier NEUF** : il vide sa sortie si elle porte un rendu précédent
+  (signature), la refuse sinon (`scripts/site/lib/out-dir.mjs`) — jamais de pages périmées mêlées aux neuves.
 - **Qui est public** se décide par dossier, par statut, puis par la clé `publish` de la page :
   standard §2, rubrique `publish`. Le générateur affiche ce qu'il écarte, avec le motif.
 - **Les liens sont RELATIFS**, sans exception : le site est servi sous `/nodefony-core/`, où un

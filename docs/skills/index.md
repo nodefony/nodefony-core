@@ -58,7 +58,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "📘", "title": "documentation", "href": "nodefony-documentation.md",
     "desc": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort.",
-    "meta": "🟢 conforme v3.0.0 · ⚙️ 16 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme v3.1.0 · ⚙️ 16 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
     "meta": "🟢 conforme v2.1.0 · 📎 11 réf" },
@@ -118,7 +118,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.1.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v2.3.0 · ⚙️ 1 script" }
 ]
 ```
 
@@ -199,7 +199,7 @@ source: "docs/skills/index.md"
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.4.0 | 412 | 9 | 15 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.0.0 | 131 | 0 | 0 | ✅ |
-| [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 488 | 2 | 16 | ✅ |
+| [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 498 | 2 | 16 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.1.0 | 410 | 11 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 116 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |
@@ -208,7 +208,7 @@ source: "docs/skills/index.md"
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 532 | 5 | 70 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 2.1.0 | 387 | 0 | 1 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 2.3.0 | 388 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.8.0 | 311 | 0 | 3 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 397 | 0 | 0 | ✅ |
