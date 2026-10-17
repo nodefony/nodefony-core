@@ -478,6 +478,7 @@ function lireSequence(lignes) {
   const participants = [];
   const evenements = [];
   const vu = new Set();
+  let autonumber = false;
   const ajoute = (id, alias) => {
     if (!vu.has(id)) {
       vu.add(id);
@@ -487,6 +488,10 @@ function lireSequence(lignes) {
   for (const brut of lignes) {
     const l = brut.trim();
     if (!l || l.startsWith("%%")) continue;
+    if (/^autonumber\b/i.test(l)) {
+      autonumber = true;
+      continue;
+    }
     let m;
     if ((m = /^(participant|actor)\s+(\S+)(?:\s+as\s+(.+))?$/.exec(l))) {
       ajoute(m[2], m[3]?.trim());
@@ -495,10 +500,11 @@ function lireSequence(lignes) {
     ) {
       evenements.push({
         genre: "note",
+        position: m[1].toLowerCase(),
         cibles: m[2].split(",").map((s) => s.trim()),
         texte: m[3].trim(),
       });
-    } else if ((m = /^(loop|alt|opt|par|critical)\s*(.*)$/i.exec(l))) {
+    } else if ((m = /^(loop|alt|opt|par|critical|rect)\b\s*(.*)$/i.exec(l))) {
       evenements.push({
         genre: "ouvre",
         cadre: m[1].toLowerCase(),
@@ -512,18 +518,19 @@ function lireSequence(lignes) {
     } else if (/^end\b/i.test(l)) {
       evenements.push({ genre: "ferme" });
     } else if ((m = /^(\S+?)\s*(-?->>?|-->>|->)\s*([^:]+?):\s*(.+)$/.exec(l))) {
+      const vers = m[3].trim().replace(/^[+-]/, "");
       ajoute(m[1]);
-      ajoute(m[3].trim());
+      ajoute(vers);
       evenements.push({
         genre: "message",
         de: m[1],
-        vers: m[3].trim(),
+        vers,
         texte: m[4].trim(),
         pointille: m[2].startsWith("--"),
       });
     }
   }
-  return { type: "sequence", participants, evenements };
+  return { type: "sequence", participants, evenements, autonumber };
 }
 
 /* ─────────────────────── 2. Placer un organigramme ─────────────────────── */
@@ -869,13 +876,183 @@ const ech = (s) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
+/** Largeur moyenne d'un caractère des libellés de message et de note (11,5 px). */
+export const CAR_MESSAGE = 6.5;
+/** Longueur, en caractères, au-delà de laquelle un libellé de message passe à la ligne. */
+const COUPE_MESSAGE = 32;
+const INTERLIGNE = 14;
+/** Place qu'une pastille de numéro (`autonumber`) prend devant un libellé. */
+const PASTILLE = 20;
+
+/** Les lignes d'un libellé de message ou de note : `<br/>` respecté, puis coupé. */
+const lignesDe = (texte) => {
+  const morceaux = libelle(texte).flatMap((s) => couper(s, COUPE_MESSAGE, 6));
+  return morceaux.length ? morceaux : [""];
+};
+
+/** Largeur estimée d'un bloc de lignes, en pixels. */
+export const largeurLignes = (lignes) =>
+  Math.max(...lignes.map((l) => l.length)) * CAR_MESSAGE;
+
+/**
+ * Place un diagramme de séquence : colonnes, messages, notes et cadres, en
+ * coordonnées — sans rien dessiner.
+ *
+ * L'écart entre deux lignes de vie n'est pas fixe : il grandit jusqu'à contenir
+ * le plus long libellé qui les relie, et un message à soi-même réserve sa place
+ * à droite de sa colonne. Un écart constant faisait déborder les libellés sur les
+ * colonnes voisines et chevaucher les boucles. Les bornes horizontales englobent
+ * tout ce qui est posé — une note plus large que les colonnes n'est plus coupée.
+ *
+ * @param {{participants: {id: string, nom: string}[], evenements: object[], autonumber?: boolean}} modele
+ * @param {number} haut - ordonnée des lignes de vie (sous les en-têtes).
+ * @returns {{colonnes: number[], boites: number[], messages: object[], notes: object[], cadres: object[], x0: number, largeur: number, hauteur: number}}
+ */
+export function placerSequence(modele, haut) {
+  const P = modele.participants;
+  const n = P.length;
+  const rang = (id) =>
+    Math.max(
+      0,
+      P.findIndex((p) => p.id === id),
+    );
+  const boites = P.map((p) => p.nom.length * CAR + 26);
+  const avance = modele.autonumber ? PASTILLE : 0;
+  const evts = modele.evenements.map((e) =>
+    e.genre === "message" || e.genre === "note"
+      ? { ...e, lignes: lignesDe(e.texte) }
+      : e,
+  );
+
+  const ecarts = Array.from({ length: Math.max(0, n - 1) }, (_, k) =>
+    Math.max(150, (boites[k] + boites[k + 1]) / 2 + 30),
+  );
+  let droite = boites[n - 1] / 2;
+  for (const e of evts) {
+    if (e.genre !== "message") continue;
+    const a = rang(e.de);
+    const b = rang(e.vers);
+    const w = largeurLignes(e.lignes) + avance;
+    if (a === b) {
+      const besoin = 34 + w + 14;
+      if (a < n - 1) ecarts[a] = Math.max(ecarts[a], besoin);
+      else droite = Math.max(droite, besoin);
+      continue;
+    }
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    let portee = 0;
+    for (let k = lo; k < hi; k++) portee += ecarts[k];
+    const besoin = w + 36;
+    if (portee < besoin)
+      for (let k = lo; k < hi; k++) ecarts[k] += (besoin - portee) / (hi - lo);
+  }
+  const colonnes = [0];
+  for (let k = 0; k < n - 1; k++) colonnes.push(colonnes[k] + ecarts[k]);
+  const x = (id) => colonnes[rang(id)];
+
+  let gauche = colonnes[0] - boites[0] / 2;
+  let fin = colonnes[n - 1] + droite;
+  const messages = [];
+  const notes = [];
+  const cadres = [];
+  const ouverts = [];
+  let y = haut + 12;
+  let numero = 0;
+  for (const e of evts) {
+    if (e.genre === "message") {
+      const x1 = x(e.de);
+      const x2 = x(e.vers);
+      const supl = (e.lignes.length - 1) * INTERLIGNE;
+      const m = {
+        x1,
+        x2,
+        texte: e.texte,
+        lignes: e.lignes,
+        pointille: e.pointille,
+        numero: modele.autonumber ? ++numero : null,
+        haut: y,
+      };
+      if (x1 === x2) {
+        m.yl = y + 10;
+        m.boucle = Math.max(16, supl + 10);
+        y += m.boucle + 24;
+      } else {
+        m.yl = y + 14 + supl;
+        y += 34 + supl;
+      }
+      m.bas = y;
+      messages.push(m);
+    } else if (e.genre === "note") {
+      const xs = e.cibles.map(x);
+      const w = largeurLignes(e.lignes) + 24;
+      let gx;
+      let nw;
+      if (e.position === "left of") {
+        nw = Math.max(w, 100);
+        gx = Math.min(...xs) - 12 - nw;
+      } else if (e.position === "right of") {
+        nw = Math.max(w, 100);
+        gx = Math.max(...xs) + 12;
+      } else {
+        const g = Math.min(...xs) - 50;
+        const d = Math.max(...xs) + 50;
+        nw = Math.max(w, d - g);
+        gx = (g + d) / 2 - nw / 2;
+      }
+      const nh = 24 + (e.lignes.length - 1) * INTERLIGNE;
+      notes.push({
+        x: gx,
+        y: y + 2,
+        largeur: nw,
+        hauteur: nh,
+        texte: e.texte,
+        lignes: e.lignes,
+      });
+      gauche = Math.min(gauche, gx);
+      fin = Math.max(fin, gx + nw);
+      y += nh + 10;
+    } else if (e.genre === "ouvre") {
+      ouverts.push({
+        cadre: e.cadre,
+        texte:
+          e.cadre === "rect"
+            ? ""
+            : `${e.cadre}${e.texte ? ` — ${e.texte}` : ""}`,
+        y0: y,
+        profondeur: ouverts.length,
+        sinons: [],
+      });
+      y += e.cadre === "rect" ? 8 : 22;
+    } else if (e.genre === "sinon") {
+      ouverts.at(-1)?.sinons.push({ y, texte: e.texte });
+      y += 22;
+    } else if (e.genre === "ferme") {
+      const c = ouverts.pop();
+      if (c) cadres.push({ ...c, y1: y + 6 });
+      y += 12;
+    }
+  }
+  const x0 = gauche - 8 - 18;
+  return {
+    colonnes,
+    boites,
+    messages,
+    notes,
+    cadres,
+    x0,
+    largeur: fin + 8 + 18 - x0,
+    hauteur: y + 16,
+  };
+}
+
 /**
  * Rend un diagramme de séquence — en SVG direct.
  *
  * Aucune bibliothèque : des participants en colonnes, des messages en lignes.
- * Le placement est arithmétique, et le tracé tient dans cette fonction ; passer
- * par un moteur de graphes ne rendrait pas le trait plus juste, seulement le
- * code plus indirect.
+ * Le placement est arithmétique (`placerSequence`), le tracé tient dans cette
+ * fonction ; passer par un moteur de graphes ne rendrait pas le trait plus
+ * juste, seulement le code plus indirect.
  *
  * @param {{source: string, titre?: string, sousTitre?: string, theme?: "clair"|"sombre", desc?: string}} o
  * @returns {string} SVG.
@@ -886,99 +1063,110 @@ export function sequence(o) {
   if (modele.type !== "sequence")
     throw new Error("sequence() attend un sequenceDiagram");
   const T = THEMES[theme];
-  const P = modele.participants;
-
-  const COL = Math.max(150, ...P.map((p) => p.nom.length * CAR + 40));
-  const MARGE = 18;
   const HAUT = (titre ? 26 : 0) + (sousTitre ? 18 : 0) + 46;
-  const PAS = 34;
-  const L = MARGE * 2 + COL * P.length;
-
-  const x = (id) => {
-    const i = P.findIndex((p) => p.id === id);
-    return MARGE + COL * (i < 0 ? 0 : i) + COL / 2;
-  };
+  const g = placerSequence(modele, HAUT);
+  const { x0, largeur: L, hauteur: H } = g;
+  const police = `font-family="${POLICE}"`;
+  const texte = (lignes, tx, ty, attrs) =>
+    `<text x="${tx}" y="${ty}" ${attrs} ${police}>${lignes
+      .map(
+        (l, i) =>
+          `<tspan x="${tx}"${i ? ` dy="${INTERLIGNE}"` : ""}>${ech(l)}</tspan>`,
+      )
+      .join("")}</text>`;
+  const pastille = (cx, cy, n) =>
+    `<circle cx="${cx}" cy="${cy}" r="8" fill="${T.encre}"/>` +
+    `<text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-size="9.5" font-weight="600" fill="${T.fond}" ${police}>${n}</text>`;
 
   const corps = [];
-  let y = HAUT + 12;
-  const cadres = [];
-  for (const e of modele.evenements) {
-    if (e.genre === "message") {
-      const x1 = x(e.de);
-      const x2 = x(e.vers);
-      const memeCol = Math.abs(x1 - x2) < 1;
-      const yl = y + 12;
-      if (memeCol) {
-        // Un message à soi-même : une boucle courte, pas une flèche invisible.
-        corps.push(
-          `<path d="M${x1} ${yl} h26 v16 h-26" fill="none" stroke="${T.muet}" stroke-width="1.2"${e.pointille ? ' stroke-dasharray="4 3"' : ""} marker-end="url(#fl)"/>`,
-          `<text x="${x1 + 32}" y="${yl + 6}" font-size="11.5" fill="${T.encre}" font-family="${POLICE}">${ech(e.texte)}</text>`,
-        );
-        y += 30;
-      } else {
-        const sens = x2 > x1 ? -1 : 1;
-        corps.push(
-          `<line x1="${x1}" y1="${yl}" x2="${x2 + sens * 5}" y2="${yl}" stroke="${T.muet}" stroke-width="1.2"${e.pointille ? ' stroke-dasharray="4 3"' : ""} marker-end="url(#fl)"/>`,
-          `<text x="${(x1 + x2) / 2}" y="${yl - 6}" text-anchor="middle" font-size="11.5" fill="${T.encre}" font-family="${POLICE}">${ech(e.texte)}</text>`,
-        );
-        y += PAS;
-      }
-    } else if (e.genre === "note") {
-      const xs = e.cibles.map((c) => x(c));
-      const gx = Math.min(...xs) - 60;
-      const largeurNote = Math.max(...xs) - Math.min(...xs) + 120;
+  const gx = x0 + 18;
+  const gw = L - 36;
+  for (const c of g.cadres) {
+    const r = 5 + c.profondeur * 6;
+    const fx = gx + c.profondeur * 6;
+    const fw = gw - c.profondeur * 12;
+    if (c.cadre === "rect") {
       corps.push(
-        `<rect x="${gx}" y="${y + 2}" width="${largeurNote}" height="24" rx="4" fill="${T.fondDoux}" stroke="${T.trait}"/>`,
-        `<text x="${gx + largeurNote / 2}" y="${y + 18}" text-anchor="middle" font-size="11" fill="${T.muet}" font-family="${POLICE}">${ech(e.texte)}</text>`,
+        `<rect x="${fx}" y="${c.y0 - 4}" width="${fw}" height="${c.y1 - c.y0 + 4}" rx="${r}" fill="${T.fondDoux}" opacity="0.6"/>`,
       );
-      y += 34;
-    } else if (e.genre === "ouvre") {
-      cadres.push({
-        y0: y,
-        texte: `${e.cadre}${e.texte ? ` — ${e.texte}` : ""}`,
-      });
-      y += 22;
-    } else if (e.genre === "sinon") {
-      corps.push(
-        `<line class="cadre" x1="${MARGE + 6}" y1="${y}" x2="${L - MARGE - 6}" y2="${y}" stroke="${T.trait}" stroke-dasharray="4 3"/>`,
-        `<text x="${MARGE + 12}" y="${y + 13}" font-size="10.5" fill="${T.muet}" font-family="${POLICE}">sinon ${ech(e.texte)}</text>`,
-      );
-      y += 22;
-    } else if (e.genre === "ferme") {
-      const c = cadres.pop();
-      if (c)
-        corps.unshift(
-          `<rect x="${MARGE + 6}" y="${c.y0 - 4}" width="${L - MARGE * 2 - 12}" height="${y - c.y0 + 10}" rx="5" fill="none" stroke="${T.trait}"/>` +
-            `<rect x="${MARGE + 6}" y="${c.y0 - 4}" width="${c.texte.length * 6 + 16}" height="17" rx="4" fill="${T.fondDoux}" stroke="${T.trait}"/>` +
-            `<text x="${MARGE + 13}" y="${c.y0 + 8}" font-size="10.5" fill="${T.muet}" font-family="${POLICE}">${ech(c.texte)}</text>`,
-        );
-      y += 12;
+      continue;
     }
+    corps.push(
+      `<rect x="${fx}" y="${c.y0 - 4}" width="${fw}" height="${c.y1 - c.y0 + 4}" rx="5" fill="none" stroke="${T.trait}"/>` +
+        `<rect x="${fx}" y="${c.y0 - 4}" width="${c.texte.length * 6 + 16}" height="17" rx="4" fill="${T.fondDoux}" stroke="${T.trait}"/>` +
+        `<text x="${fx + 7}" y="${c.y0 + 8}" font-size="10.5" fill="${T.muet}" ${police}>${ech(c.texte)}</text>`,
+    );
+    for (const s of c.sinons)
+      corps.push(
+        `<line x1="${fx}" y1="${s.y}" x2="${fx + fw}" y2="${s.y}" stroke="${T.trait}" stroke-dasharray="4 3"/>`,
+        `<text x="${fx + 6}" y="${s.y + 13}" font-size="10.5" fill="${T.muet}" ${police}>sinon ${ech(s.texte)}</text>`,
+      );
   }
 
-  const H = y + 16;
-  const entete = P.map((p, i) => {
-    const cx = MARGE + COL * i + COL / 2;
-    const w = p.nom.length * CAR + 26;
-    return (
+  for (const [i, cx] of g.colonnes.entries()) {
+    const p = modele.participants[i];
+    const w = g.boites[i];
+    corps.unshift(
       `<line x1="${cx}" y1="${HAUT}" x2="${cx}" y2="${H - 8}" stroke="${T.trait}" stroke-dasharray="3 4"/>` +
-      `<rect x="${cx - w / 2}" y="${HAUT - 30}" width="${w}" height="26" rx="6" fill="${T.fondDoux}" stroke="${T.trait}"/>` +
-      `<text x="${cx}" y="${HAUT - 12}" text-anchor="middle" font-size="12" font-weight="600" fill="${T.encre}" font-family="${POLICE}">${ech(p.nom)}</text>`
+        `<rect x="${cx - w / 2}" y="${HAUT - 30}" width="${w}" height="26" rx="6" fill="${T.fondDoux}" stroke="${T.trait}"/>` +
+        `<text x="${cx}" y="${HAUT - 12}" text-anchor="middle" font-size="12" font-weight="600" fill="${T.encre}" ${police}>${ech(p.nom)}</text>`,
     );
-  }).join("");
+  }
+
+  for (const nt of g.notes)
+    corps.push(
+      `<rect x="${nt.x}" y="${nt.y}" width="${nt.largeur}" height="${nt.hauteur}" rx="4" fill="${T.fondDoux}" stroke="${T.trait}"/>`,
+      texte(
+        nt.lignes,
+        nt.x + nt.largeur / 2,
+        nt.y + 16,
+        `text-anchor="middle" font-size="11" fill="${T.muet}"`,
+      ),
+    );
+
+  for (const m of g.messages) {
+    const trait = `stroke="${T.muet}" stroke-width="1.2"${m.pointille ? ' stroke-dasharray="4 3"' : ""} marker-end="url(#fl)"`;
+    const decale = m.numero === null ? 0 : PASTILLE;
+    if (m.x1 === m.x2) {
+      corps.push(
+        `<path d="M${m.x1} ${m.yl} h26 v${m.boucle} h-26" fill="none" ${trait}/>`,
+        texte(
+          m.lignes,
+          m.x1 + 34 + decale,
+          m.yl + 4,
+          `font-size="11.5" fill="${T.encre}"`,
+        ),
+      );
+      if (m.numero !== null)
+        corps.push(pastille(m.x1 + 34 + 8, m.yl, m.numero));
+      continue;
+    }
+    const sens = m.x2 > m.x1 ? -1 : 1;
+    const mx = (m.x1 + m.x2) / 2 + decale / 2;
+    const premiere = m.yl - 6 - (m.lignes.length - 1) * INTERLIGNE;
+    corps.push(
+      `<line x1="${m.x1}" y1="${m.yl}" x2="${m.x2 + sens * 5}" y2="${m.yl}" ${trait}/>`,
+      texte(
+        m.lignes,
+        mx,
+        premiere,
+        `text-anchor="middle" font-size="11.5" fill="${T.encre}"`,
+      ),
+    );
+    if (m.numero !== null) corps.push(pastille(m.x1, m.yl, m.numero));
+  }
 
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${L} ${H}" width="${L}" height="${H}" role="img" aria-label="${ech(titre ?? "diagramme de séquence")}"${desc ? ` aria-description="${ech(desc)}"` : ""}>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} 0 ${L} ${H}" width="${L}" height="${H}" role="img" aria-label="${ech(titre ?? "diagramme de séquence")}"${desc ? ` aria-description="${ech(desc)}"` : ""}>`,
     `<title>${ech(titre ?? "diagramme de séquence")}</title>`,
     `<defs><marker id="fl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="${T.muet}"/></marker></defs>`,
-    `<rect width="100%" height="100%" fill="${T.fond}"/>`,
+    `<rect x="${x0}" y="0" width="${L}" height="${H}" fill="${T.fond}"/>`,
     titre
-      ? `<text x="${MARGE}" y="20" font-size="14" font-weight="600" fill="${T.encre}" font-family="${POLICE}">${ech(titre)}</text>`
+      ? `<text x="${gx}" y="20" font-size="14" font-weight="600" fill="${T.encre}" ${police}>${ech(titre)}</text>`
       : "",
     sousTitre
-      ? `<text x="${MARGE}" y="${titre ? 38 : 20}" font-size="12" fill="${T.muet}" font-family="${POLICE}">${ech(sousTitre)}</text>`
+      ? `<text x="${gx}" y="${titre ? 38 : 20}" font-size="12" fill="${T.muet}" ${police}>${ech(sousTitre)}</text>`
       : "",
-    entete,
     corps.join("\n"),
     "</svg>",
   ].join("\n");

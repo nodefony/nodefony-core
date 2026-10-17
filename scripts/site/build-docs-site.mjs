@@ -105,6 +105,7 @@ import { schema } from "../../.claude/skills/nodefony-html-report/lib/schemas.mj
 import { NODEFONY_BRAND } from "../../.claude/skills/nodefony-html-report/lib/brand.mjs";
 import { slugifyHeading } from "../../.claude/skills/nodefony-documentation/lib/slug-heading.mjs";
 import { sansBalises } from "./lib/html-text.mjs";
+import { sansCommentaires } from "./lib/markdown-source.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -474,8 +475,10 @@ function renderMermaid(source) {
     // donc son défilement est atteignable au clavier.
     const w = largeurSvg(clair);
     const large = w > SCHEMA_LARGE_PX;
+    // La largeur naturelle est posée sur TOUTE figure : c'est elle qui borne
+    // l'agrandissement d'un petit schéma (cf `.schema-zone svg`).
     return `<figure class="schema-zone${large ? " large" : ""}"${
-      large ? ` style="--schema-w:${Math.round(w)}px"` : ""
+      w > 0 ? ` style="--schema-w:${Math.round(w)}px"` : ""
     } tabindex="0" role="img" aria-label="Diagramme">
 <div class="d d-light">${clair}</div><div class="d d-dark">${sombre}</div></figure>`;
   } catch {
@@ -1195,11 +1198,14 @@ a.nf-card:hover .card-t { color:var(--accent); }
 }
 .schema-zone { margin:18px 0; padding:12px; border:1px solid var(--line); border-radius:9px;
   background:var(--card); overflow-x:auto; }
-/* Le SVG occupe toute la largeur de son cadre. Il porte une zone de vue, donc il
-   s'échelonne sans se déformer — traits et libellés grandissent ensemble. Sans
-   cette règle il gardait sa largeur naturelle, calculée par le moteur, et
-   flottait dans un cadre bien plus large que lui. */
-.schema-zone svg { display:block; width:100%; height:auto; }
+/* Le SVG porte une zone de vue, donc il s'échelonne sans se déformer — traits et
+   libellés grandissent ensemble. Il suit la largeur du cadre, centré, mais ne
+   GRANDIT pas au-delà de 110 % de sa taille naturelle : étiré à toute la colonne,
+   un schéma de quatre boîtes doublait de taille et ses libellés passaient de
+   12,5 px à plus de 20 — des boîtes énormes pour trois mots, vu sur la carte des
+   modules. Le léger agrandissement permis évite le cadre à moitié vide. */
+.schema-zone svg { display:block; width:100%; height:auto; margin:0 auto;
+  max-width:calc(var(--schema-w, 100%) * 1.1); }
 /* Un schéma LARGE (ruban de pipeline, frise) ne se laisse pas réduire jusqu'à
    l'illisible : la colonne de contenu fait ~580 px, et un ruban de 1 758 px y
    tombe à 33 %, où les libellés ne se lisent plus — le lecteur doit alors cliquer
@@ -1294,7 +1300,7 @@ function renderPage(d, published, index, publishedPaths) {
 
   const fromDir = path.posix.dirname(d.repoRel);
   // 1. ce qui n'aura pas d'URL de site part vers GitHub, tant que c'est un chemin
-  const ext = externalizeLinks(body, fromDir, publishedPaths);
+  const ext = externalizeLinks(sansCommentaires(body), fromDir, publishedPaths);
   // 2. ce qui en aura une devient un chemin relatif vers elle
   const linked = rewriteInternalLinks(ext.markdown, {
     fromDir,

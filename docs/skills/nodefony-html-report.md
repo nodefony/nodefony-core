@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-07
+updated: 2026-10-17
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-html-report/SKILL.md"
 ---
@@ -98,7 +98,7 @@ script, donc toujours à jour après régénération.
 | `lib/echarts.mjs` | Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique. | `--muted` | — |
 | `lib/report-echarts.mjs` | **Adaptateurs** — les fonctions de `report.mjs`, rendues par ECharts. | — | — |
 | `lib/report.mjs` | report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes. | `--accent` `--bg` `--card` `--dim` `--fg` `--line` `--note-bg` `--note-fg` `--warn-bg` `--warn-fg` | `CSS` `PRINT_JS` `SORT_JS` `THEME_JS` |
-| `lib/schemas.mjs` | Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`. | — | `HAUT` `MARGE` `POLICE` |
+| `lib/schemas.mjs` | Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`. | — | `HAUT` `INTERLIGNE` `MARGE` `POLICE` |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -109,7 +109,7 @@ node .claude/skills/nodefony-html-report/scripts/formats.selftest.mjs
 node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `CSS` · `HAUT` · `MARGE` · `OUT` · `POLICE` · `PRINT_JS` · `SORT_JS` · `THEME_JS`
+**Toutes les variables lues par ce skill** : `CSS` · `HAUT` · `INTERLIGNE` · `MARGE` · `OUT` · `POLICE` · `PRINT_JS` · `SORT_JS` · `THEME_JS`
 
 ## Conformité au standard Agent Skills
 

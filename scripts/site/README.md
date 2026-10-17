@@ -34,7 +34,7 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Variable** `STYLE_CODE`
 - **Variable** `VERSION`
 - **Appelé par** : `node.js.yml` · `pages.yml` · `.githooks/pre-push` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs` · `.claude/skills/nodefony-documentation/scripts/doc-lint.mjs` · `.claude/skills/nodefony-documentation/scripts/render-figures.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-perf-site.mjs`](build-perf-site.mjs)
 
@@ -82,6 +82,11 @@ markdown-highlight.mjs — coloration syntaxique des blocs de code du site publi
 - **Usage** : `import { highlight, STYLE_CODE } from "./markdown-highlight.mjs"`
 - **Appelé par** : `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/readme-html.mjs`
 
+## [`markdown-source.test.mjs`](markdown-source.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/markdown-source.mjs`
+
 ## [`readme-html.mjs`](readme-html.mjs)
 
 readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
@@ -93,6 +98,14 @@ readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
 - **Variable** `STYLE_CODE`
 - **Appelé par** : `pages.yml` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/markdown-highlight.mjs`
+
+## [`schemas-sequence.test.mjs`](schemas-sequence.test.mjs)
+
+Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS réel.
+
+- **Variable** `REPO_ROOT`
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/repo-root.mjs`
 
 ## [`site-plan.test.mjs`](site-plan.test.mjs)
 
