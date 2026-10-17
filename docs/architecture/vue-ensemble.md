@@ -152,7 +152,7 @@ Ce que porte `Context` pour les deux transports : `router` (`Context.ts:227`), `
 **Le besoin.** Tu veux une application qui serve une route JSON **et** un écho temps réel, sans
 monter deux serveurs ni dupliquer ta configuration.
 
-`npx nodefony create app mon-app` génère le squelette : `nodefony.config.ts` (les écarts aux défauts
+`npm create nodefony@beta mon-app` génère le squelette : `nodefony.config.ts` (les écarts aux défauts
 du framework), `env.ts` (le catalogue typé des variables d'environnement), `index.ts` (le module de
 l'app) et un premier contrôleur. Voici les deux fichiers qui comptent.
 
