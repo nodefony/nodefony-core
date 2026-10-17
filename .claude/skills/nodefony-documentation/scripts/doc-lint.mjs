@@ -7,6 +7,7 @@ import path from "node:path";
 import { resoudreCorpus, instructionsDe } from "./corpus.mjs";
 import { indexerIdentifiants, symbolesFantomes } from "./symboles.mjs";
 import { defautsDesFigures } from "./figures.mjs";
+import { exampleDefects } from "./examples.mjs";
 
 // Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/scratch/doc-work/.
 import { execSync } from "node:child_process";
@@ -45,6 +46,10 @@ const pagesPubliees = () =>
     .split(/\r?\n/u)
     .filter(Boolean)
     .map((p) => path.relative(process.cwd(), path.join(REPO, p)));
+
+let publishedPaths = null;
+const publishedSet = () =>
+  (publishedPaths ??= new Set(pagesPubliees().map((p) => path.resolve(p))));
 
 const files = seulementInstructions
   ? []
@@ -397,6 +402,15 @@ for (const f of files) {
   // l'illisible (avertissement, qui ne casse pas les pages existantes).
   const figures = defautsDesFigures(src);
   errs.push(...figures.erreurs);
+
+  // 8) EXEMPLES — un exemple de page PUBLIÉE se recopie : il ne lit pas `process.env` hors
+  // de `env.ts` et ne range pas sa base sous `nodefony/databases/`. Le périmètre est celui du
+  // générateur (jamais recopié) ; il n'est demandé qu'au premier défaut, pour ne pas payer
+  // un balayage du corpus à chaque page conforme.
+  for (const d of exampleDefects(src)) {
+    if (publishedSet().has(path.resolve(f)))
+      errs.push(`exemple, ligne ${d.line} : ${d.message}`);
+  }
 
   if (errs.length) failed++;
   report.push([f, errs, figures.avertissements]);
