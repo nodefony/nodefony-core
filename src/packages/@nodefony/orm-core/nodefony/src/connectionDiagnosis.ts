@@ -47,6 +47,13 @@ export interface IConnectionDiagnosis {
 export interface IConnectionTarget {
   host: string | null;
   port: number | null;
+  /**
+   * Nom de la base désignée par l'URL — de quoi NOMMER une base absente et
+   * écrire la commande qui la crée. Absent : la phrase n'en parle pas.
+   */
+  database?: string | null;
+  /** Compte de connexion (jamais son mot de passe) — propriétaire de la base à créer. */
+  user?: string | null;
 }
 
 /**
@@ -140,25 +147,118 @@ function readCode(error: unknown): string | null {
 }
 
 /**
- * Extrait l'hôte et le port d'une URL de connexion, sans son secret.
+ * Extrait l'hôte, le port, la base et le compte d'une URL de connexion, sans
+ * son secret.
  *
  * @param url - URL de connexion (`postgres://…`, `mysql://…`, `mongodb://…`).
  * @returns l'adresse visée ; champs à `null` si l'URL est absente ou illisible.
  */
 export function parseConnectionTarget(url?: string | null): IConnectionTarget {
+  const none = { host: null, port: null, database: null, user: null };
   if (!url) {
-    return { host: null, port: null };
+    return none;
   }
   try {
     const parsed = new URL(url);
     const port = parsed.port ? Number(parsed.port) : null;
+    // `decodeURIComponent` lève sur un `%` orphelin : rattrapé ci-dessous, comme
+    // une URL illisible — jamais un nom à moitié décodé.
+    const database = decodeURIComponent(parsed.pathname.slice(1));
+    const user = decodeURIComponent(parsed.username);
     return {
       host: parsed.hostname || null,
       port: Number.isFinite(port) ? port : null,
+      database: database || null,
+      user: user || null,
     };
   } catch {
-    return { host: null, port: null };
+    return none;
   }
+}
+
+/**
+ * Identifiant PostgreSQL entre guillemets — un nom de base peut porter un
+ * tiret ou une majuscule, que PostgreSQL plierait ou refuserait nu.
+ */
+function quotePgIdent(name: string): string {
+  return `"${name.replaceAll('"', '""')}"`;
+}
+
+/** Identifiant MySQL/MariaDB entre accents graves. */
+function quoteMysqlIdent(name: string): string {
+  return `\`${name.replaceAll("`", "``")}\``;
+}
+
+/** Chaîne SQL MySQL/MariaDB entre apostrophes (nom de compte d'un `GRANT`). */
+function quoteMysqlString(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+/**
+ * La base désignée manque — ou, sous MySQL/MariaDB, le compte n'y a aucun
+ * droit, ce que le serveur ne distingue pas.
+ *
+ * Les trois codes ne sortent qu'APRÈS l'acceptation du mot de passe (constaté :
+ * un mauvais mot de passe rend `28P01` ou `ER_ACCESS_DENIED_ERROR`, même sur
+ * une base absente). Vérifier les identifiants n'est donc pas le geste : il
+ * faut créer la base, avec un compte qui en a le droit — l'application ne la
+ * crée jamais, un compte capable de créer des bases l'est aussi d'en supprimer.
+ *
+ * @returns l'explication rédigée, ou `null` si le code n'est pas celui d'une
+ *   base absente ou si l'URL ne nomme pas la base.
+ */
+function describeMissingDatabase(
+  code: string,
+  target: IConnectionTarget,
+  where: string,
+  portHint: string,
+): string | null {
+  const database = target.database;
+  if (!database) return null;
+  const account = target.user ? ` « ${target.user} »` : "";
+  const how =
+    "La créer avec un compte qui en a le droit (administrateur du serveur, " +
+    "ou celui du conteneur dans le décor docker), puis relancer : ";
+  // Cette base devrait exister ? Le serveur n'est peut-être pas le bon — le
+  // conteneur d'un autre projet, aux identifiants par défaut identiques.
+  const elsewhere = portHint
+    ? ` Si cette base devrait déjà exister, vérifier que ce port est bien ` +
+      `tenu par VOTRE serveur.${portHint}`
+    : "";
+
+  if (code === "3D000") {
+    const owner = target.user ? ` OWNER ${quotePgIdent(target.user)}` : "";
+    return (
+      `la base « ${database} » n'existe pas sur le serveur ${where} (${code}) — ` +
+      `le serveur a répondu et accepté le compte${account}, mais l'application ` +
+      `ne crée jamais sa base (CREATE DATABASE est un privilège ` +
+      `d'administration). ${how}` +
+      `CREATE DATABASE ${quotePgIdent(database)}${owner};${elsewhere}`
+    );
+  }
+
+  if (code === "ER_BAD_DB_ERROR" || code === "ER_DBACCESS_DENIED_ERROR") {
+    const grant = target.user
+      ? ` GRANT ALL PRIVILEGES ON ${quoteMysqlIdent(database)}.* TO ` +
+        `${quoteMysqlString(target.user)}@'%';`
+      : "";
+    // 1044 : un compte sans privilège global ne sait pas si la base manque —
+    // MySQL répond pareil pour une base existante qui lui est fermée.
+    const doubt =
+      code === "ER_DBACCESS_DENIED_ERROR"
+        ? `le compte${account} n'a accès à aucune base « ${database} » sur le ` +
+          `serveur ${where} (${code}) : soit elle n'existe pas, soit elle ` +
+          `existe sans droit pour ce compte — MySQL ne dit pas lequel. `
+        : `la base « ${database} » n'existe pas sur le serveur ${where} ` +
+          `(${code}). `;
+    return (
+      `${doubt}Le mot de passe a été accepté, et l'application ne crée jamais ` +
+      `sa base (privilège d'administration). ${how}` +
+      `CREATE DATABASE IF NOT EXISTS ${quoteMysqlIdent(database)};${grant}` +
+      elsewhere
+    );
+  }
+  return null;
 }
 
 /**
@@ -211,6 +311,10 @@ export function diagnoseConnectionFailure(
         ? ` Pour savoir qui tient ce port : « docker ps --filter publish=${target.port} », ` +
           `ou « ${whoHoldsPort(target.port, platform)} ».`
         : "";
+    const missing = describeMissingDatabase(code, target, where, portHint);
+    if (missing !== null) {
+      return { verdict: "answered", code, explanation: missing };
+    }
     return {
       verdict: "answered",
       code,

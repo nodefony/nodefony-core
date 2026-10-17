@@ -197,19 +197,102 @@ describe("diagnoseConnectionFailure — ce qu'on ne sait pas", () => {
   });
 });
 
+describe("diagnoseConnectionFailure — la BASE manque (#609)", () => {
+  const pg = parseConnectionTarget(
+    "postgres://nodefony:secret@127.0.0.1:5432/blog",
+  );
+  const my = parseConnectionTarget("mysql://app:secret@127.0.0.1:3306/blog");
+
+  it("🔴 3D000 : nomme la base, le serveur, le compte, et la commande qui la crée", () => {
+    const d = diagnoseConnectionFailure({ code: "3D000" }, pg, "linux");
+    assert.equal(d.verdict, "answered");
+    assert.match(d.explanation, /la base « blog » n'existe pas/);
+    assert.match(d.explanation, /127\.0\.0\.1:5432/);
+    assert.match(d.explanation, /accepté le compte « nodefony »/);
+    assert.ok(
+      d.explanation.includes('CREATE DATABASE "blog" OWNER "nodefony";'),
+      d.explanation,
+    );
+    // Ni « mauvais identifiants » ni « autre serveur » en cause première.
+    assert.doesNotMatch(d.explanation, /mauvais identifiants|AUTRE SERVEUR/);
+    assert.doesNotMatch(d.explanation, /secret/);
+  });
+
+  it("🔴 1044 (MySQL) : dit qu'il ne sait pas si la base manque ou se ferme, et donne le geste qui couvre les deux", () => {
+    const d = diagnoseConnectionFailure(
+      { code: "ER_DBACCESS_DENIED_ERROR" },
+      my,
+      "linux",
+    );
+    assert.match(d.explanation, /soit elle n'existe pas, soit elle existe/);
+    assert.ok(
+      d.explanation.includes(
+        "CREATE DATABASE IF NOT EXISTS `blog`; GRANT ALL PRIVILEGES ON `blog`.* TO 'app'@'%';",
+      ),
+      d.explanation,
+    );
+  });
+
+  it("1049 (MySQL, compte privilégié) : la base manque, sans doute possible", () => {
+    const d = diagnoseConnectionFailure({ code: "ER_BAD_DB_ERROR" }, my);
+    assert.match(d.explanation, /la base « blog » n'existe pas/);
+    assert.doesNotMatch(d.explanation, /MySQL ne dit pas lequel/);
+  });
+
+  it("les noms sont ÉCHAPPÉS — un nom de base ne termine pas l'instruction", () => {
+    const d = diagnoseConnectionFailure(
+      { code: "3D000" },
+      { host: "h", port: 5432, database: 'a"b', user: "u" },
+    );
+    assert.ok(d.explanation.includes('CREATE DATABASE "a""b"'), d.explanation);
+    const m = diagnoseConnectionFailure(
+      { code: "ER_BAD_DB_ERROR" },
+      { host: "h", port: 3306, database: "a`b", user: "o'k" },
+    );
+    assert.ok(m.explanation.includes("`a``b`"), m.explanation);
+    assert.ok(m.explanation.includes("TO 'o''k'@'%'"), m.explanation);
+  });
+
+  it("sans compte dans l'URL : la base se crée sans propriétaire ni GRANT inventés", () => {
+    const d = diagnoseConnectionFailure(
+      { code: "3D000" },
+      { host: "h", port: 5432, database: "blog", user: null },
+    );
+    assert.ok(d.explanation.includes('CREATE DATABASE "blog";'), d.explanation);
+    assert.doesNotMatch(d.explanation, /OWNER/);
+  });
+
+  it("sans nom de base, rien n'est affirmé : la phrase générique reste", () => {
+    const d = diagnoseConnectionFailure(
+      { code: "3D000" },
+      { host: "h", port: 5432 },
+    );
+    assert.match(d.explanation, /AUTRE SERVEUR/);
+    assert.doesNotMatch(d.explanation, /CREATE DATABASE/);
+  });
+
+  it("🔴 un refus d'IDENTIFIANTS garde son diagnostic, base connue ou non", () => {
+    for (const code of ["28P01", "ER_ACCESS_DENIED_ERROR"]) {
+      const d = diagnoseConnectionFailure({ code }, code === "28P01" ? pg : my);
+      assert.match(d.explanation, /AUTRE SERVEUR/, code);
+      assert.doesNotMatch(d.explanation, /CREATE DATABASE/, code);
+    }
+  });
+});
+
 describe("parseConnectionTarget — l'adresse, jamais le secret", () => {
   it("extrait hôte et port des trois familles d'URL", () => {
     assert.deepEqual(
       parseConnectionTarget("postgres://user:motdepasse@127.0.0.1:5432/base"),
-      { host: "127.0.0.1", port: 5432 },
+      { host: "127.0.0.1", port: 5432, database: "base", user: "user" },
     );
     assert.deepEqual(
       parseConnectionTarget("mysql://user:motdepasse@db.local:3306/base"),
-      { host: "db.local", port: 3306 },
+      { host: "db.local", port: 3306, database: "base", user: "user" },
     );
     assert.deepEqual(
       parseConnectionTarget("mongodb://user:motdepasse@127.0.0.1:27017/base"),
-      { host: "127.0.0.1", port: 27017 },
+      { host: "127.0.0.1", port: 27017, database: "base", user: "user" },
     );
   });
 
@@ -219,13 +302,20 @@ describe("parseConnectionTarget — l'adresse, jamais le secret", () => {
       {
         host: "grappe.example",
         port: null,
+        database: "base",
+        user: null,
       },
     );
   });
 
   it("URL absente ou illisible → aucun champ affirmé", () => {
     for (const url of [undefined, null, "", "pas une url"]) {
-      assert.deepEqual(parseConnectionTarget(url), { host: null, port: null });
+      assert.deepEqual(parseConnectionTarget(url), {
+        host: null,
+        port: null,
+        database: null,
+        user: null,
+      });
     }
   });
 });
