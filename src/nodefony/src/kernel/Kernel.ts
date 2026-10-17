@@ -1,9 +1,4 @@
-import {
-  logColor,
-  setLogColor,
-  resolveColorEnabled,
-  isLogColorEnabled,
-} from "../syslog/logColor";
+import { logColor, isLogColorEnabled } from "../syslog/logColor";
 import { renderBrand, resolveBrandCharset } from "../cli/brand";
 import cluster from "node:cluster";
 import fs from "node:fs";
@@ -23,25 +18,11 @@ import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
 import type Pdu from "../syslog/Pdu";
-import Syslog, { NULL_LOG_SINK } from "../syslog/Syslog";
-import { FileSink } from "../syslog/sinks/FileSink";
-import {
-  registerLogDriver,
-  setActiveLogDriver,
-  getActiveLogDriver,
-  getLogDriverFactory,
-  listLogDriverFactories,
-  type ILogDriverContext,
-} from "../syslog/drivers/logDriverRegistry";
-import {
-  registerBuiltinLogDrivers,
-  resolveQueryDriver,
-} from "../syslog/drivers/builtinLogDrivers";
+import { getActiveLogDriver } from "../syslog/drivers/logDriverRegistry";
 import {
   isInKubernetes,
   shouldWarnPerPodView,
 } from "../service/cluster/podEnvironment";
-import type { ITransport } from "../types/ITransport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import type { PackageManagerName } from "../Cli";
@@ -136,7 +117,7 @@ import {
 import { ReadinessRegistry } from "./readinessRegistry";
 import type { IReadinessContributor } from "./readinessRegistry";
 import { KernelReadinessPublisher } from "./kernelReadiness";
-import { DEFAULT_LOG_DIR } from "../service/dev/devProcess";
+import { KernelLogSetup } from "./kernelLog";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
@@ -601,14 +582,13 @@ class Kernel extends Service implements IKernel {
   progress: number = Events.onInit;
   injector: Injector;
   /**
-   * Transports d'ÉCRITURE montés par {@link initializeLog} (drivers du Log
-   * Backplane). `initializeLog` est ré-entrant (logger précoce dans `start()`,
-   * puis re-init avec la config app dans `loadApp()`) : on retire ces transports
-   * AVANT d'en monter de nouveaux, sinon chaque `FileTransport` (nouvelle instance
-   * → dédup `addTransport` par référence inopérante) s'accumule et chaque log est
-   * écrit N× dans le JSONL. Lazy (`null` tant qu'aucun transport monté).
+   * Montage du journal ({@link KernelLogSetup}) — famille LOG, par composition.
+   * Alloué au premier {@link Kernel.initializeLog}, puis CONSERVÉ : il porte les
+   * transports montés au passage précédent, que la ré-entrée doit retrouver pour
+   * les démonter (sinon chaque log serait écrit N fois dans le JSONL). Lazy
+   * (`null` tant que le journal n'a pas été monté).
    */
-  private _mountedLogTransports: ITransport[] | null = null;
+  private logSetup: KernelLogSetup | null = null;
   isDev: boolean = false;
   isProd: boolean = true;
   /**
@@ -2837,172 +2817,19 @@ class Kernel extends Service implements IKernel {
     return false;
   }
 
+  /**
+   * Monte le journal du noyau : sink, drivers du Log Backplane, transports
+   * d'écriture, seuils de sévérité, puis démarre la sortie console du Syslog.
+   *
+   * Ré-entrant : appelé tôt dans `start()` puis de nouveau avec la config de
+   * l'application dans `loadApp()`. Chaque passage démonte d'abord les transports
+   * que le précédent a montés. Le travail vit dans {@link KernelLogSetup}.
+   *
+   * @returns le résultat de `initSyslog` (CLI si attachée, noyau sinon) ;
+   *   `undefined` si la section `log` existe sans `active` vrai (absent compris).
+   */
   initializeLog(): void | null {
-    this.syslog?.removeAllListeners();
-    // Idempotence des transports d'écriture : `removeAllListeners` ne touche QUE
-    // les listeners EventEmitter, PAS le tableau `_transports`. Retirer ceux que
-    // ce même `initializeLog` a montés au passage précédent (cf champ doc).
-    if (this._mountedLogTransports !== null) {
-      for (const t of this._mountedLogTransports) {
-        this.syslog?.removeTransport(t);
-      }
-      this._mountedLogTransports = null;
-    }
-
-    if (this.options.log && !this.options.log.active) {
-      return;
-    }
-    // Bufférisation de la sortie console (process-global) — coalesce les writes
-    // d'un même tick en 1 syscall sous forte concurrence. "auto" (défaut) =
-    // bufférise hors TTY (pipe/fichier = prod/collecteur), immédiat sur TTY
-    // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
-    const logCfg = this.options.log;
-    Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
-    // Couleur ANSI des logs — résolue UNE fois ici (boot) à partir de `this.isTTY`
-    // (déjà résolu, NF_NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
-    // des conventions NO_COLOR (no-color.org) + FORCE_COLOR. pipe/fichier = brut →
-    // 0 ANSI baké (stdout pipe + .jsonl propres). 0 test par log ensuite.
-    setLogColor(resolveColorEnabled(this.isTTY));
-    // Répertoire des logs — SOURCE UNIQUE : sink `.log` (LB.W) + JSONL queryable
-    // (LB.2/5) + viewer Studio. Configurable `log.dir` (défaut "logs"), sous cwd.
-    const logDirAbs = path.resolve(
-      process.cwd(),
-      logCfg?.dir ?? DEFAULT_LOG_DIR,
-    );
-    // Driver de sink (LB.W) : stdout (défaut, cloud-native pipe non-bloquant) |
-    // file (fd async PAR worker → pas de contention d'inode en cluster ; garde-fou,
-    // le levier mesuré étant la coalescence du ring/tick) | null (bench).
-    // FileSink Node-only ; Syslog reste isomorphe.
-    const logDriver = logCfg?.driver ?? "stdout";
-    if (logDriver === "file") {
-      const logPath =
-        logCfg?.file?.path ??
-        path.join(logDirAbs, `nodefony-${process.pid}.log`);
-      Syslog.setLogSink(
-        new FileSink({ path: logPath, sync: logCfg?.file?.sync }),
-      );
-    } else if (logDriver === "null") {
-      Syslog.setLogSink(NULL_LOG_SINK);
-    } else {
-      Syslog.setLogSink(null); // stdout (défaut isomorphe)
-    }
-    // ── Log Backplane (LB.1) — axe DESTINATION queryable (≠ sink write ci-dessus,
-    //    ≠ bus temps réel nodefony:syslog). Le driver `memory` relit le ring buffer
-    //    du syslog (source injectée lazy → lit le syslog courant à la query).
-    //    Défaut dev ; `file`-JSONL / `elastic`-`loki` (Node-only, LB.2+) = drivers
-    //    enregistrés à part. Switch à la volée = action de contrôle dev-only (Studio).
-    // Profondeur du ring de relecture : config explicite, sinon 2000 en dev
-    // (trace d'une requête lisible malgré le bruit), 100 ailleurs (prod-safe).
-    const maxStack =
-      logCfg?.maxStack ??
-      (this.environment === "development" ? 2000 : undefined);
-    if (maxStack) this.syslog?.setMaxStack(maxStack);
-    // Défaut `auto` = dérivé de la config : une destination distante déclarée
-    // (loki/opensearch — URL montée depuis l'infra logs) impose son driver de
-    // relecture (1 knob : l'URL ⇒ le driver) ; les DEUX déclarées sans choix
-    // explicite = throw (fail-loud, pas d'arbitrage silencieux). Sinon la vue
-    // s'adapte au mode de lancement (mono → `memory` 0 I/O ; worker de cluster
-    // → `cluster-file`, vue unifiée cross-worker). Surcharge explicite
-    // respectée. Résolution pure + testée (`resolveQueryDriver`).
-    const queryDriver = resolveQueryDriver(
-      logCfg?.queryDriver,
-      cluster.isWorker,
-      {
-        loki: logCfg?.loki?.url,
-        opensearch: logCfg?.opensearch?.url,
-      },
-    );
-    // Résolution des drivers par FABRIQUES (logDriverRegistry) — AUCUN `if (name === …)`
-    // dans le Kernel : les drivers natifs (memory/file/cluster-file/loki/opensearch)
-    // s'enregistrent dans `builtinLogDrivers` (idempotent), un userland ajoute le sien
-    // via `registerLogDriverFactory`. Le Kernel ne fait que RÉSOUDRE + BRANCHER.
-    registerBuiltinLogDrivers();
-    const driverCtx: ILogDriverContext = {
-      logCfg,
-      environment: this.environment,
-      logDir: logDirAbs,
-      pid: process.pid,
-      getRingStack: () => this.syslog?.ringStack ?? [],
-    };
-    // Drivers à monter : l'ACTIF demandé + `memory` (toujours présent = fallback sûr) +
-    // en DÉVELOPPEMENT les drivers fichier (switchables à chaud depuis Studio — on les
-    // ENREGISTRE en plus, l'actif reste `queryDriver`). En prod = opt-in strict (12-factor :
-    // destination figée, pas d'I/O « au cas où »). `writeKey` déduplique le transport
-    // d'écriture partagé (file ↔ cluster-file = même JSONL par worker → branché 1×).
-    const toMount = new Set<string>(["memory", queryDriver]);
-    if (this.environment === "development") {
-      // En dev : tenter de monter TOUS les drivers ENREGISTRÉS (registre de fabriques) →
-      // switch à chaud (Studio) entre eux sans reboot, SANS liste codée en dur dans le
-      // Kernel. Chaque fabrique s'auto-skippe (`null`) si sa config manque (ex. loki/
-      // opensearch sans URL) → 0 I/O « au cas où ». En PROD = opt-in strict (`queryDriver`).
-      // Conséquence assumée en dev : double-push si plusieurs destinations sont configurées
-      // (volume dev faible) — c'est le prix du switch instantané.
-      for (const name of listLogDriverFactories()) toMount.add(name);
-    }
-    const addedWrites = new Set<string>();
-    for (const name of toMount) {
-      const factory = getLogDriverFactory(name);
-      if (factory === undefined) continue;
-      const mount = factory(driverCtx);
-      if (mount === null) continue;
-      registerLogDriver(mount.driver);
-      if (mount.transport !== undefined) {
-        const key = mount.writeKey;
-        if (key === undefined || !addedWrites.has(key)) {
-          this.syslog?.addTransport(mount.transport);
-          (this._mountedLogTransports ??= []).push(mount.transport);
-          if (key !== undefined) addedWrites.add(key);
-        }
-      }
-    }
-    try {
-      setActiveLogDriver(queryDriver);
-    } catch {
-      // Driver configuré non enregistré (ex. "elastic" sans son module) → fallback
-      // "memory" (toujours présent) + avertissement. Jamais de crash au boot.
-      this.syslog?.log(
-        `Log query driver "${queryDriver}" introuvable — fallback "memory".`,
-        "WARNING",
-        "SYSLOG",
-      );
-      setActiveLogDriver("memory");
-    }
-    // CLI prend la priorité absolue sur la config.
-    // La config log.debug n'est utilisée qu'en mode programmatique (sans CLI).
-    if (!this.cli && !this.debug && this.options.log?.debug) {
-      this.debug = this.options.log.debug;
-    }
-    // T2 (profil delta vs Express) — gate d'ENTRÉE par sévérité, posé ICI
-    // (composition root : env RÉEL + debug RÉSOLU — pas dans Syslog.init(),
-    // appelé tôt avec un défaut "production" pollué). En prod sans debug,
-    // l'impression filtre déjà `severity <= INFO` → un DEBUG était créé +
-    // poussé au ring puis jamais consommé (~1,7 % du profil CPU/req). Le gate
-    // le court-circuite AVANT toute allocation. Dev/test/debug : pas de gate
-    // (ring complet pour Studio + assertions). Re-résoluble à chaud
-    // (syslog.setSeverityThreshold — vision « audit à chaud »).
-    this.syslog?.setSeverityThreshold(
-      this.environment === "production" && !this.debug ? "INFO" : null,
-    );
-    // Debug runtime CIBLÉ via env — lu directement comme NODE_ENV/NF_CLUSTER
-    // (knob opérationnel framework, PAS config applicative → hors catalogue
-    // env.ts de l'app). `NF__DEBUG=FIREWALL,SESSION:NOTICE` rallume ces modules
-    // au boot ; `*` lève le gate global. Pas de TTL : un restart remet à zéro
-    // (l'opérateur l'a posé sciemment, persistance souhaitée le temps du run).
-    const debugSpec = process.env.NF__DEBUG;
-    if (debugSpec && this.syslog) {
-      const { global, overrides } = Syslog.parseDebugSpec(debugSpec);
-      if (global) {
-        this.syslog.setSeverityThreshold(null);
-      }
-      for (const ov of overrides) {
-        this.syslog.setDebugOverride(ov.module, ov.level);
-      }
-    }
-    if (this.cli) {
-      return this.cli.initSyslog(this.environment, this.debug);
-    } else {
-      return this.initSyslog(this.environment, this.debug);
-    }
+    return (this.logSetup ??= new KernelLogSetup(this)).initialize();
   }
 
   setCli(cli?: CliKernel | null): CliKernel | null {

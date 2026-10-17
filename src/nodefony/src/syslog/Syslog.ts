@@ -1420,7 +1420,7 @@ class Syslog extends Event implements ISyslog {
     // DISTINCTS vers le même fichier ont `name === "file"` et doublonnaient
     // l'écriture quand un même syslog (ressource partagée) est ré-initialisé par
     // DEUX Kernels — cas cluster : le worker boote 2 cycles development→production,
-    // et `_mountedLogTransports` (état du Kernel) ne traque pas les transports
+    // et les transports retenus par le `KernelLogSetup` d'un Kernel ne traquent pas ceux
     // montés par un Kernel précédent → ils s'accumulaient (ratio JSONL ~2.0). On
     // REMPLACE l'existant → destination la plus récente, jamais de doublon.
     // Boot-only (hors hot path : le dispatch `_fireTransports` est inchangé).

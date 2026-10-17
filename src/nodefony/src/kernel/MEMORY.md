@@ -49,6 +49,8 @@ propriétaire, écriture seulement si l'état change) et `logFlip(rapport)` (INF
 l'appel). `setReadiness`/`clearReadiness`/`readinessReport` restent des méthodes du Kernel (orchestrateurs
 courts). Verrous : `tests/kernelReadiness.test.ts` (Kernel + publieur à hôte fictif), `tests/readinessRegistry.test.ts`.
 
+**Journal = `kernel/kernelLog.ts`** (`KernelLogSetup`, feuille à l'exécution — seul import de `./Kernel` : `import type`, COMPOSÉ : champ privé `logSetup`, alloué au premier `initializeLog` (`??=`) et CONSERVÉ) : porte le corps de `initializeLog` (sink `stdout`/`file`/`null`, tampon, couleur ANSI, ring, drivers du backplane par fabriques, seuil de sévérité, `NF__DEBUG`) et `#mountedTransports` — SEUL propriétaire des transports d'écriture montés, retirés au passage suivant (la dédup d'`addTransport` se fait par NOM : elle ne remplace pas ce démontage). `initializeLog` est appelé deux fois par boot (`start()` puis `loadApp()`), d'où l'instance conservée. L'hôte est typé `ILogHost` : `options.log`, `syslog`, `environment`, `isTTY`, `cli`, `initSyslog` LUS à l'appel, et `debug` (écrit une fois : `log.debug` ne le pose que sans CLI et si rien ne l'a posé). Ces champs restent au Kernel (`isTTY` = famille terminal/superviseur ; `debug`/`environment` = identité). Verrous : `tests/kernelLog.test.ts` (via le Kernel, puis la classe devant un hôte fictif dont chaque valeur CHANGE entre deux passages), `tests/LogBackplaneWiring.test.ts`.
+
 **Lifecycle flags** (ordre strict, jamais régressifs):
 
 ```
@@ -278,7 +280,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **setEnv(env)**: `"dev"|"development"` → `this.environment = "development"`. Sinon → `"production"`.
 **setNodeEnv(env)**: side-effects `process.env.NODE_ENV`, `BABEL_ENV`, `NODE_DEBUG`.
 
-**initializeLog()**: reset tous listeners syslog → skip si `options.log.active === false` → délègue à `cli.initSyslog()` ou `this.initSyslog()`.
+**initializeLog()**: méthode publique du Kernel qui délègue à `KernelLogSetup.initialize()` (`logSetup`, créé au premier appel puis CONSERVÉ — voir ci-dessus). Ordre : reset des listeners syslog → démontage des transports du passage précédent → skip si `options.log.active` est faux (le démontage a lieu AVANT ce skip) → sink, tampon, couleur, drivers, seuil de sévérité, `NF__DEBUG` → `cli.initSyslog()` si une CLI est attachée, sinon `this.initSyslog()` (valeur rendue telle quelle).
 
 **checkPath(p)**: absolu → tel quel. Relatif → `resolve(this.path, p)`. Falsy → `null`.
 
@@ -314,7 +316,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:4195`).
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:4022`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.

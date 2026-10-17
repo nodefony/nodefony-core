@@ -47,8 +47,8 @@ au code et se relit au moment où l'on s'en sert.
 | Secrets montés en fichier      | `src/nodefony/src/config/defineEnv.ts:193` — suffixe `_FILE` sur **toute** variable du catalogue                                                                                       |
 | Utilisateur non root numérique | `src/nodefony/templates/app/base/Dockerfile.tpl:319` — `USER 1000:1000` (`WORKDIR /app` `:257`, `EXPOSE 5151` `:320`)                                                                  |
 
-> 🔴 **`tmp/` et `var/` n'ont pas le même ancrage.** `Kernel.ts:1054` résout `tmp` sur
-> **`process.cwd()`**, `Kernel.ts:1062` résout `var` sur **`this.path`**. Deux volumes montés sur
+> 🔴 **`tmp/` et `var/` n'ont pas le même ancrage.** `Kernel.ts:1034` résout `tmp` sur
+> **`process.cwd()`**, `Kernel.ts:1042` résout `var` sur **`this.path`**. Deux volumes montés sur
 > `/app/tmp` et `/app/var` ne se rejoignent donc que si le répertoire courant EST la racine de
 > l'application — vrai dans l'image, faux dès qu'un `command:` change de dossier, et **sans aucune
 > erreur** : l'application écrira ailleurs, en silence.
