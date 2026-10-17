@@ -625,6 +625,10 @@ export function placerEnCouches({ noeuds, aretes }) {
 
 const CAR = 7.05; // largeur moyenne d'un caractère à 13 px
 const LIGNE = 16;
+/** Écart entre deux pistes de coude dans un même intervalle entre rangs. */
+const PISTE = 10;
+/** Distance minimale entre un couloir de contournement et la boîte qu'il longe. */
+const DEGAGEMENT = 14;
 
 const taille = (n) => {
   const largeur = Math.max(...n.texte.map((t) => t.length)) * CAR + 30;
@@ -646,6 +650,388 @@ const teinte = (n) => {
 };
 
 /**
+ * Le cartouche d'une étiquette d'arête : ses lignes et sa taille. Partagé par le
+ * placement, qui lui réserve sa place, et par le dessin, qui le pose.
+ */
+const mesurerEtiquette = (texte) => {
+  const lignes = couper(texte, 22, 3);
+  return {
+    lignes,
+    w: Math.max(...lignes.map((l) => l.length)) * 6.1 + 10,
+    h: lignes.length * 12 + 4,
+  };
+};
+
+/** Retire d'une ligne brisée les points répétés et ceux qui ne coudent pas. */
+const simplifier = (pts) => {
+  const out = [];
+  for (const p of pts) {
+    const q = out.at(-1);
+    if (q && Math.abs(q[0] - p[0]) < 0.5 && Math.abs(q[1] - p[1]) < 0.5)
+      continue;
+    const r = out.at(-2);
+    if (
+      q &&
+      r &&
+      ((Math.abs(r[0] - q[0]) < 0.5 && Math.abs(q[0] - p[0]) < 0.5) ||
+        (Math.abs(r[1] - q[1]) < 0.5 && Math.abs(q[1] - p[1]) < 0.5))
+    )
+      out.pop();
+    out.push(p);
+  }
+  return out;
+};
+
+/**
+ * Place un organigramme : boîtes et tracé de chaque arête, en coordonnées SVG,
+ * sans rien dessiner.
+ *
+ * Le sens de la source est respecté (`TD`/`TB`, `BT`, `LR`, `RL`) : GitHub le
+ * suit, et un rendu qui l'inverse dit le contraire du même fichier.
+ *
+ * Le tracé est orthogonal et ne se superpose pas :
+ *
+ *   - une arête quitte sa source par la face qui REGARDE sa cible, et entre dans
+ *     la cible par la face opposée — jamais par un côté, ce qui faisait courir un
+ *     trait horizontal entre deux boîtes voisines ;
+ *   - plusieurs arêtes d'une même face partent de PORTS répartis sur sa largeur,
+ *     triés par la position de l'autre extrémité, au lieu de partir du même
+ *     point et de se confondre ;
+ *   - chaque coude suit sa propre PISTE dans l'intervalle entre deux rangs, et
+ *     l'intervalle s'élargit au nombre de pistes qu'il porte ;
+ *   - une arête qui saute un rang descend par un COULOIR libre, à l'écart des
+ *     boîtes intermédiaires, au lieu de les traverser.
+ *
+ * @param {{dir: string, noeuds: Array, aretes: Array}} modele - un modèle `flux`.
+ * @param {number} haut - place réservée au-dessus (titre, sous-titre).
+ * @returns {{noeuds: {id: string, x: number, y: number, w: number, h: number}[], aretes: {de: string, vers: string, etiquette?: string, pointille?: boolean, points: number[][]}[], largeur: number, hauteur: number}}
+ */
+export function placerOrganigramme(modele, haut = 0) {
+  const pos = placerEnCouches(modele);
+  const horizontal = /^(LR|RL)$/.test(modele.dir);
+  const inverse = /^(BT|RL)$/.test(modele.dir);
+  const dim = new Map(modele.noeuds.map((n) => [n.id, taille(n)]));
+  const formes = new Map(modele.noeuds.map((n) => [n.id, n.forme]));
+  // Longueur d'une boîte le long de l'axe TRANSVERSAL (t) et de la PROFONDEUR (d).
+  const lt = (id) => (horizontal ? dim.get(id)[1] : dim.get(id)[0]);
+  const ld = (id) => (horizontal ? dim.get(id)[0] : dim.get(id)[1]);
+
+  const rangs = [...new Set([...pos.values()].map((p) => p.rang))].sort(
+    (a, b) => a - b,
+  );
+  const ri = new Map(rangs.map((r, i) => [r, i]));
+  const rangDe = (id) => ri.get(pos.get(id).rang);
+  const parRang = rangs.map(() => []);
+  for (const n of modele.noeuds) parRang[rangDe(n.id)].push(n);
+  for (const g of parRang)
+    g.sort((a, b) => pos.get(a.id).ordre - pos.get(b.id).ordre);
+
+  // Les arêtes tracées, et l'intervalle où chacune fait ses coudes. L'intervalle
+  // `k` est celui qui suit le rang `k`.
+  const aretes = modele.aretes
+    .filter((a) => a.de !== a.vers && dim.has(a.de) && dim.has(a.vers))
+    .map((a, i) => {
+      const ra = rangDe(a.de);
+      const rb = rangDe(a.vers);
+      const sens = rb > ra ? 1 : rb < ra ? -1 : 0;
+      return Object.assign({}, a, {
+        i,
+        ra,
+        rb,
+        // Même rang : on sort et on rentre par la face « après ».
+        faceDe: sens === 0 ? 1 : sens,
+        faceVers: sens === 0 ? 1 : -sens,
+        cartouche: a.etiquette ? mesurerEtiquette(a.etiquette) : null,
+        premier: sens >= 0 ? ra : ra - 1,
+        dernier: sens > 0 ? rb - 1 : sens < 0 ? rb : ra,
+      });
+    });
+  const pistes = rangs.map(() => []);
+  for (const a of aretes) {
+    pistes[a.premier].push(a);
+    if (a.dernier !== a.premier) pistes[a.dernier].push(a);
+  }
+
+  const ECART_RANG = horizontal ? 76 : 54;
+  const ECART_ORDRE = 28;
+  const MARGE = 18;
+  // Place qu'une arête prend dans un intervalle : une piste, ou — dans son
+  // PREMIER intervalle, où se pose son étiquette — l'épaisseur de l'étiquette.
+  // Sans cela, trois étiquettes d'un même intervalle s'empilaient sur 54 px.
+  const place = (a, k) =>
+    a.cartouche && k === a.premier
+      ? (horizontal ? a.cartouche.w : a.cartouche.h) + 8
+      : PISTE;
+  const besoin = (k) => pistes[k].reduce((n, a) => n + place(a, k), 0);
+  const ecart = (k) =>
+    Math.max(
+      k < rangs.length - 1 || pistes[k].length ? ECART_RANG : 0,
+      pistes[k].length ? 16 + besoin(k) + PISTE : 0,
+    );
+
+  // Profondeur : rang après rang, chaque intervalle à la taille de ses pistes.
+  const bande = [];
+  let d = MARGE;
+  for (let k = 0; k < rangs.length; k++) {
+    const epais = Math.max(...parRang[k].map((n) => ld(n.id)));
+    bande.push({ debut: d, fin: d + epais });
+    d += epais + ecart(k);
+  }
+  const profondeur = d + MARGE;
+
+  // Transversal : chaque rang centré sur le plus large.
+  const total = (g) =>
+    g.reduce((s, n) => s + lt(n.id), 0) + (g.length - 1) * ECART_ORDRE;
+  const transversalMax = Math.max(...parRang.map(total));
+  const centre = new Map();
+  parRang.forEach((g, k) => {
+    let t = (transversalMax - total(g)) / 2 + MARGE;
+    for (const n of g) {
+      centre.set(n.id, {
+        t: t + lt(n.id) / 2,
+        d: (bande[k].debut + bande[k].fin) / 2,
+      });
+      t += lt(n.id) + ECART_ORDRE;
+    }
+  });
+
+  // Ports : les arêtes d'une même face, réparties sur sa largeur dans l'ordre
+  // transversal de leur autre extrémité — c'est ce qui évite qu'elles se croisent
+  // en sortant.
+  const faces = new Map();
+  const inscrire = (id, face, a, autre) => {
+    const k = `${id}|${face}`;
+    if (!faces.has(k)) faces.set(k, []);
+    faces.get(k).push({ a, autre });
+  };
+  for (const a of aretes) {
+    inscrire(a.de, a.faceDe, a, centre.get(a.vers).t);
+    inscrire(a.vers, a.faceVers, a, centre.get(a.de).t);
+  }
+  const port = new Map();
+  for (const [k, liste] of faces) {
+    const id = k.slice(0, k.lastIndexOf("|"));
+    liste.sort((x, y) => x.autre - y.autre);
+    const c = centre.get(id).t;
+    // Un losange n'a qu'un point sur chaque face : sa pointe.
+    const pointe = formes.get(id) === "losange";
+    const etendue = pointe
+      ? 0
+      : Math.min(lt(id) * 0.7, (liste.length - 1) * 22);
+    liste.forEach(({ a }, i) => {
+      const t =
+        liste.length === 1 || pointe
+          ? c
+          : c - etendue / 2 + (etendue * i) / (liste.length - 1);
+      port.set(`${a.i}|${id}`, t);
+    });
+  }
+  // Une face qui ne porte qu'UNE arête n'a rien à partager : son port se cale
+  // en face de l'autre extrémité, dans les limites de la boîte, et le trait
+  // devient droit au lieu de faire un crochet de quelques pixels.
+  for (const a of aretes) {
+    for (const [id, face, autre] of [
+      [a.de, a.faceDe, a.vers],
+      [a.vers, a.faceVers, a.de],
+    ]) {
+      if (faces.get(`${id}|${face}`).length !== 1) continue;
+      if (formes.get(id) === "losange") continue;
+      const cible = port.get(`${a.i}|${autre}`);
+      const c = centre.get(id).t;
+      const m = lt(id) * 0.35;
+      port.set(`${a.i}|${id}`, Math.min(c + m, Math.max(c - m, cible)));
+    }
+  }
+  const portDe = (a) => port.get(`${a.i}|${a.de}`);
+  const portVers = (a) => port.get(`${a.i}|${a.vers}`);
+
+  const traverses = (a) => {
+    const out = [];
+    for (let k = Math.min(a.ra, a.rb) + 1; k < Math.max(a.ra, a.rb); k++)
+      out.push(k);
+    return out;
+  };
+
+  // Couloirs : une arête qui traverse des rangs passe à l'écart de leurs boîtes.
+  // Choisis AVANT les pistes, sur toute la hauteur des rangs traversés : l'ordre
+  // des pistes dépend des colonnes qu'occupent les couloirs.
+  const couloirs = [];
+  const libre = (t, rangsTraverses, d1, d2, interdits = []) =>
+    interdits.every((x) => Math.abs(x - t) >= PISTE) &&
+    rangsTraverses.every((k) =>
+      parRang[k].every((n) => {
+        const c = centre.get(n.id).t;
+        return Math.abs(t - c) >= lt(n.id) / 2 + DEGAGEMENT - 0.5;
+      }),
+    ) &&
+    couloirs.every(
+      (c) =>
+        Math.abs(c.t - t) >= PISTE || Math.max(c.d1, d1) >= Math.min(c.d2, d2),
+    );
+  const couloir = new Map();
+  for (const a of aretes) {
+    const tr = traverses(a);
+    if (tr.length === 0) continue;
+    const ts = portDe(a);
+    const tv = portVers(a);
+    const d1 = bande[Math.min(a.ra, a.rb)].fin;
+    const d2 = bande[Math.max(a.ra, a.rb)].debut;
+    const bornes = tr.flatMap((k) =>
+      parRang[k].flatMap((n) => {
+        const c = centre.get(n.id).t;
+        const m = lt(n.id) / 2 + DEGAGEMENT;
+        return [c - m, c + m];
+      }),
+    );
+    // Le couloir descend aussi dans le premier et le dernier intervalle : il y
+    // croiserait la colonne d'arrivée ou de départ d'une autre arête.
+    const interdits = [...pistes[a.premier], ...pistes[a.dernier]].flatMap(
+      (b) => (b === a ? [] : [portDe(b), portVers(b)]),
+    );
+    const cout = (t) => Math.abs(t - ts) + Math.abs(t - tv);
+    let t = [tv, ts, (ts + tv) / 2, ...bornes]
+      .filter((x) => libre(x, tr, d1, d2, interdits))
+      .sort((x, y) => cout(x) - cout(y))[0];
+    // Repli : s'écarter pas à pas hors de tout, sans jamais renoncer.
+    for (let pas = 1; t === undefined; pas++)
+      for (const x of [
+        Math.min(...bornes) - pas * PISTE,
+        Math.max(...bornes) + pas * PISTE,
+      ])
+        if (t === undefined && libre(x, tr, d1, d2, interdits)) t = x;
+    couloirs.push({ t, d1, d2 });
+    couloir.set(a.i, t);
+  }
+
+  // Les colonnes qu'une arête occupe dans l'intervalle k : côté du rang k
+  // (« bas ») entre le bord et sa piste, côté du rang k + 1 (« haut ») entre sa
+  // piste et le bord.
+  const colonnes = (a, k) => {
+    const ts = portDe(a);
+    const tv = portVers(a);
+    const c = couloir.get(a.i);
+    if (a.ra === a.rb) return { bas: [ts, tv], haut: [] };
+    if (a.rb > a.ra)
+      return k === a.premier
+        ? { bas: [ts], haut: [c ?? tv] }
+        : { bas: [c], haut: [tv] };
+    return k === a.premier
+      ? { bas: [c ?? tv], haut: [ts] }
+      : { bas: [tv], haut: [c] };
+  };
+
+  // Piste de chaque arête dans chacun de ses intervalles. L'ordre n'est pas
+  // indifférent : si X occupe, côté bas, la colonne où Y occupe le côté haut,
+  // la piste de X doit précéder celle de Y — sinon les deux traits courent l'un
+  // contre l'autre sur la même colonne, et se lisent comme un seul. Tri
+  // topologique sur cette contrainte, la position transversale départageant le
+  // reste ; un cycle se résout dans l'ordre transversal.
+  const piste = new Map();
+  pistes.forEach((liste, k) => {
+    const debut = bande[k].fin;
+    const fin = k + 1 < bande.length ? bande[k + 1].debut : debut + ecart(k);
+    const restantes = [...liste].sort(
+      (x, y) =>
+        Math.min(portDe(x), portVers(x)) - Math.min(portDe(y), portVers(y)),
+    );
+    const col = new Map(restantes.map((a) => [a.i, colonnes(a, k)]));
+    const avant = (x, y) =>
+      col
+        .get(x.i)
+        .bas.some((cx) =>
+          col.get(y.i).haut.some((cy) => Math.abs(cx - cy) < PISTE),
+        );
+    const ordre = [];
+    while (restantes.length) {
+      const i = restantes.findIndex((y) =>
+        restantes.every((x) => x === y || !avant(x, y)),
+      );
+      ordre.push(...restantes.splice(i < 0 ? 0 : i, 1));
+    }
+    let curseur = debut + (fin - debut - besoin(k)) / 2;
+    for (const a of ordre) {
+      piste.set(`${a.i}|${k}`, curseur + place(a, k) / 2);
+      curseur += place(a, k);
+    }
+  });
+
+  const placees = aretes.map((a) => {
+    const s = centre.get(a.de);
+    const v = centre.get(a.vers);
+    const ts = portDe(a);
+    const tv = portVers(a);
+    const ds = s.d + (a.faceDe * ld(a.de)) / 2;
+    const dv = v.d + (a.faceVers * ld(a.vers)) / 2;
+    const p1 = piste.get(`${a.i}|${a.premier}`);
+    const p2 = piste.get(`${a.i}|${a.dernier}`);
+    const c = couloir.get(a.i);
+    let pts;
+    if (c === undefined)
+      pts =
+        Math.abs(ts - tv) < 0.5 && a.ra !== a.rb
+          ? [
+              [ts, ds],
+              [tv, dv],
+            ]
+          : [
+              [ts, ds],
+              [ts, p1],
+              [tv, p1],
+              [tv, dv],
+            ];
+    else
+      pts = [
+        [ts, ds],
+        [ts, p1],
+        [c, p1],
+        [c, p2],
+        [tv, p2],
+        [tv, dv],
+      ];
+    // L'étiquette se pose sur la piste du premier intervalle, là où sa place a
+    // été réservée : au milieu du coude transversal, ou sur le trait droit.
+    const fin1 = c ?? tv;
+    const ancre = [Math.abs(ts - fin1) < 0.5 ? ts : (ts + fin1) / 2, p1];
+    return { a, pts: simplifier(pts), ancre };
+  });
+
+  // Coordonnées logiques (t, d) → SVG. Un couloir peut sortir du cadre : on
+  // élargit et on recale, plutôt que de couper un trait.
+  let tMin = MARGE;
+  let tMax = transversalMax + MARGE;
+  for (const { pts } of placees)
+    for (const [t] of pts) {
+      tMin = Math.min(tMin, t - MARGE / 2);
+      tMax = Math.max(tMax, t + MARGE / 2);
+    }
+  const recale = MARGE - tMin;
+  const vers = (t, dd) => {
+    const p = inverse ? profondeur - dd : dd;
+    return horizontal ? [p, t + recale + haut] : [t + recale, p + haut];
+  };
+  const transversal = tMax - tMin + MARGE * 2;
+
+  return {
+    noeuds: modele.noeuds.map((n) => {
+      const c = centre.get(n.id);
+      const [x, y] = vers(c.t, c.d);
+      const [w, h] = dim.get(n.id);
+      return { id: n.id, x, y, w, h };
+    }),
+    aretes: placees.map(({ a, pts, ancre }) => ({
+      de: a.de,
+      vers: a.vers,
+      etiquette: a.etiquette,
+      pointille: a.pointille,
+      points: pts.map(([t, dd]) => vers(t, dd)),
+      ancre: vers(...ancre),
+    })),
+    largeur: horizontal ? profondeur : transversal,
+    hauteur: (horizontal ? transversal : profondeur) + haut,
+  };
+}
+
+/**
  * Rend un organigramme depuis sa source Mermaid — en SVG direct.
  *
  * 🔴 **Pourquoi pas le type `graph` d'ECharts, qui sait pourtant tracer un
@@ -655,7 +1041,8 @@ const teinte = (n) => {
  * en diagonale par-dessus un nœud. Ces deux défauts sont structurels à un
  * moteur de graphes : il dessine des liens, pas un organigramme. Dessiner ici
  * donne les bords, les étiquettes droites et le coude orthogonal — sans
- * bibliothèque de plus, puisque le placement est déjà calculé.
+ * bibliothèque de plus, puisque le placement est déjà calculé
+ * (`placerOrganigramme`).
  *
  * @param {{source: string|object, titre?: string, sousTitre?: string, theme?: "clair"|"sombre", desc?: string}} o
  * @returns {string} SVG.
@@ -666,96 +1053,16 @@ export function organigramme(o) {
   if (modele.type !== "flux")
     throw new Error("organigramme() attend un flowchart");
   const T = THEMES[theme];
-  const pos = placerEnCouches(modele);
-  const horizontal = /^(LR|RL)$/.test(modele.dir);
-
-  const dim = new Map(modele.noeuds.map((n) => [n.id, taille(n)]));
-  const rangs = [...new Set([...pos.values()].map((p) => p.rang))].sort(
-    (a, b) => a - b,
-  );
-  const parRang = new Map(rangs.map((r) => [r, []]));
-  for (const n of modele.noeuds) parRang.get(pos.get(n.id).rang).push(n);
-
-  const ECART_RANG = horizontal ? 76 : 54;
-  const ECART_ORDRE = 28;
   const MARGE = 18;
   const HAUT =
     (titre ? 24 : 0) + (sousTitre ? 18 : 0) + (titre || sousTitre ? 16 : 0);
-
-  // Coordonnées du CENTRE de chaque nœud. L'axe « profondeur » suit les rangs,
-  // l'axe « transversal » l'ordre dans le rang.
-  const centre = new Map();
-  let profondeur = MARGE;
-  let transversalMax = 0;
-  for (const r of rangs) {
-    const groupe = parRang
-      .get(r)
-      .sort((a, b) => pos.get(a.id).ordre - pos.get(b.id).ordre);
-    const epais = Math.max(
-      ...groupe.map((n) => (horizontal ? dim.get(n.id)[0] : dim.get(n.id)[1])),
-    );
-    const total =
-      groupe.reduce(
-        (a, n) => a + (horizontal ? dim.get(n.id)[1] : dim.get(n.id)[0]),
-        0,
-      ) +
-      (groupe.length - 1) * ECART_ORDRE;
-    let curseur = 0;
-    for (const n of groupe) {
-      const [w, h] = dim.get(n.id);
-      const long = horizontal ? h : w;
-      const c = curseur + long / 2;
-      centre.set(
-        n.id,
-        horizontal ? [profondeur + epais / 2, c] : [c, profondeur + epais / 2],
-      );
-      curseur += long + ECART_ORDRE;
-    }
-    transversalMax = Math.max(transversalMax, total);
-    profondeur += epais + ECART_RANG;
-  }
-  // Chaque rang est CENTRÉ sur la largeur totale : un rang d'un seul nœud ne
-  // doit pas être collé à gauche pendant qu'un autre en porte quatre.
-  for (const r of rangs) {
-    const groupe = parRang.get(r);
-    const total =
-      groupe.reduce(
-        (a, n) => a + (horizontal ? dim.get(n.id)[1] : dim.get(n.id)[0]),
-        0,
-      ) +
-      (groupe.length - 1) * ECART_ORDRE;
-    const decalage = (transversalMax - total) / 2 + MARGE;
-    for (const n of groupe) {
-      const c = centre.get(n.id);
-      if (horizontal) c[1] += decalage;
-      else c[0] += decalage;
-    }
-  }
-
-  const L = (horizontal ? profondeur : transversalMax + MARGE * 2) + MARGE;
-  const H = (horizontal ? transversalMax + MARGE * 2 : profondeur) + HAUT;
-  const decaleY = (id) => {
-    const c = centre.get(id);
-    return [c[0], c[1] + HAUT];
-  };
-
-  /** Le point de sortie ou d'entrée sur le BORD, pas au centre. */
-  const bord = (id, versX, versY) => {
-    const [cx, cy] = decaleY(id);
-    const [w, h] = dim.get(id);
-    const dx = versX - cx;
-    const dy = versY - cy;
-    if (Math.abs(dy) * w > Math.abs(dx) * h) {
-      const y = cy + Math.sign(dy) * (h / 2);
-      return [cx + (dx * (h / 2)) / Math.max(1, Math.abs(dy)), y];
-    }
-    const x = cx + Math.sign(dx) * (w / 2);
-    return [x, cy + (dy * (w / 2)) / Math.max(1, Math.abs(dx))];
-  };
+  const g = placerOrganigramme(modele, HAUT);
+  const L = Math.ceil(g.largeur);
+  const H = Math.ceil(g.hauteur);
 
   const out = [];
   out.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Math.ceil(L)} ${Math.ceil(H)}" width="${Math.ceil(L)}" height="${Math.ceil(H)}" role="img" aria-label="${ech(titre ?? "organigramme")}"${desc ? ` aria-description="${ech(desc)}"` : ""} font-family="${POLICE}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${L} ${H}" width="${L}" height="${H}" role="img" aria-label="${ech(titre ?? "organigramme")}"${desc ? ` aria-description="${ech(desc)}"` : ""} font-family="${POLICE}">`,
     `<title>${ech(titre ?? "organigramme")}</title>`,
     `<defs><marker id="fl-${theme}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="${T.muet}"/></marker></defs>`,
     `<rect width="100%" height="100%" fill="${T.fond}"/>`,
@@ -772,20 +1079,10 @@ export function organigramme(o) {
   // Les arêtes d'abord : elles passent SOUS les boîtes.
   // Cartouches d'étiquettes déjà posés — sert à ne pas les empiler.
   const posees = [];
-  for (const a of modele.aretes) {
-    if (!centre.has(a.de) || !centre.has(a.vers)) continue;
-    const [x1, y1] = decaleY(a.de);
-    const [x2, y2] = decaleY(a.vers);
-    const [sx, sy] = bord(a.de, x2, y2);
-    const [ex, ey] = bord(a.vers, x1, y1);
-    // Coude orthogonal quand les deux nœuds ne sont pas alignés : un trait en
-    // diagonale se lit mal dès qu'il en croise un autre.
-    const aligne = Math.abs(sx - ex) < 6 || Math.abs(sy - ey) < 6;
-    const d = aligne
-      ? `M${sx.toFixed(1)} ${sy.toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}`
-      : horizontal
-        ? `M${sx.toFixed(1)} ${sy.toFixed(1)} L${((sx + ex) / 2).toFixed(1)} ${sy.toFixed(1)} L${((sx + ex) / 2).toFixed(1)} ${ey.toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}`
-        : `M${sx.toFixed(1)} ${sy.toFixed(1)} L${sx.toFixed(1)} ${((sy + ey) / 2).toFixed(1)} L${ex.toFixed(1)} ${((sy + ey) / 2).toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}`;
+  for (const a of g.aretes) {
+    const d = a.points
+      .map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`)
+      .join(" ");
     out.push(
       `<path d="${d}" fill="none" stroke="${T.muet}" stroke-width="1.25" stroke-linejoin="round"${a.pointille ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#fl-${theme})"/>`,
     );
@@ -799,11 +1096,8 @@ export function organigramme(o) {
       // recouvert — ce qui se lit comme un schéma cassé, et l'était en pratique
       // sur les transitions d'un diagramme d'états. Le texte entier reste
       // accessible au survol.
-      const mx = aligne ? (sx + ex) / 2 : horizontal ? (sx + ex) / 2 : sx;
-      const my0 = aligne ? (sy + ey) / 2 : horizontal ? sy : (sy + ey) / 2;
-      const lignes = couper(a.etiquette, 22, 3);
-      const w = Math.max(...lignes.map((l) => l.length)) * 6.1 + 10;
-      const h = lignes.length * 12 + 4;
+      const { lignes, w, h } = mesurerEtiquette(a.etiquette);
+      const [mx, my0] = a.ancre;
       // Deux arêtes issues d'un même nœud ont des milieux voisins, donc des
       // cartouches OPAQUES qui se recouvrent : le premier disparaît sous le
       // second et son texte semble tronqué. On les écarte de part et d'autre du
@@ -835,9 +1129,9 @@ export function organigramme(o) {
   }
 
   // Puis les nœuds.
+  const boite = new Map(g.noeuds.map((b) => [b.id, b]));
   for (const n of modele.noeuds) {
-    const [cx, cy] = decaleY(n.id);
-    const [w, h] = dim.get(n.id);
+    const { x: cx, y: cy, w, h } = boite.get(n.id);
     const x = cx - w / 2;
     const y = cy - h / 2;
     const couleur = teinte(n);
