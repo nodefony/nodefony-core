@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T23:40:53.347Z",
+  "generatedAt": "2026-10-17T02:50:11.524Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 128,
+      "closed": 129,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 39,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -3000,8 +3000,8 @@
       "number": 602,
       "title": "feat(cli): générer une porte MCP d'application avec create controller",
       "url": "https://github.com/nodefony/nodefony-core/issues/602",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -3017,7 +3017,7 @@
       "title": "feat(security): borner les scopes d'application aux rôles du compte",
       "url": "https://github.com/nodefony/nodefony-core/issues/604",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
