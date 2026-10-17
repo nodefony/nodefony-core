@@ -95,7 +95,7 @@ const ext = kernel.interfacesFilter({
   family: "IPv4",
   condition: "&&",
 });
-const loc = kernel.interfacesFilter({ type: "local" });
+const loc = kernel.interfacesFilter({ type: "local", condition: "||" });
 
 // Première IP externe
 const ip = kernel.getFirstExternalInterface("IPv4");
@@ -103,10 +103,10 @@ const ip = kernel.getFirstExternalInterface("IPv4");
 
 // Réseau complet structuré
 const net = kernel.getNetwork();
-// { external, local, ipv4, ipv6, interfaces }
+// { external, local, ipv4, ipv6, interfaces } — seul `interfaces` est garni (voir le gotcha)
 ```
 
-> **Gotcha** : `interfacesFilter({})` — filtre vide → tous les tableaux vides (ni `type` ni `family` → `matchType=false && matchFamily=false → false`).
+> **Gotcha** : chaque critère absent vaut faux et la condition par défaut est `&&` : `interfacesFilter({})` **et** `interfacesFilter({ type: "local" })` rendent tous les tableaux vides. Un critère seul se pose avec `condition: "||"`. Conséquence : les quatre vues de `getNetwork()` (`external`, `local`, `ipv4`, `ipv6`) sont toujours vides — comportement d'origine, conservé tel quel et verrouillé par `tests/kernelNetwork.test.ts`.
 
 ### Commandes (lifecycle conditionnel)
 

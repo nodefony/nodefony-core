@@ -81,8 +81,14 @@ import {
   resolveFailureHint,
 } from "../config/envOverride";
 import type { ConfigContext } from "../config/types";
-import { resolveInfra, AUTO_STORE } from "../config/infra";
 import type { IInfra, IStoreResolution } from "../config/infra";
+import { KernelNetwork } from "./kernelNetwork";
+import type {
+  NetworkInterface,
+  FamilyType,
+  FilterInterface,
+} from "./kernelNetwork";
+import { KernelStores } from "./kernelStores";
 import type { IRunProfile } from "./runProfile";
 import { CONSOLE_RUN_PROFILE, runWillServeTraffic } from "./runProfile";
 import { findSetReservedKeys } from "../config/configProvenance";
@@ -371,16 +377,14 @@ interface AppEnvironmentType {
   environment: EnvironmentType | (string & {});
 }
 
-export interface NetworkInterface {
-  [name: string]: os.NetworkInterfaceInfo[];
-}
-export type FamilyType = "IPv4" | "IPv6";
-
-export interface FilterInterface {
-  type?: "local" | "external";
-  family?: FamilyType;
-  condition?: "&&" | "||" | "==";
-}
+// Interfaces réseau : types et filtres vivent dans `./kernelNetwork` (module
+// feuille, composé par le Kernel). Ré-exportés ICI pour que la surface de
+// `Kernel.ts` — ses `.d.ts`, les importeurs directs — reste identique.
+export type {
+  NetworkInterface,
+  FamilyType,
+  FilterInterface,
+} from "./kernelNetwork";
 
 /**
  * Interface-marqueur du **hook de cycle de vie async de boot** (pattern NestJS
@@ -575,7 +579,19 @@ class Kernel extends Service implements IKernel {
    * `tmpDir` → garanti créé au boot. Distinct de `tmpDir` (éphémère).
    */
   varDir?: FileClass;
-  interfaces: NetworkInterface;
+  /**
+   * Famille RÉSEAU du noyau, par composition : instantané des interfaces et
+   * filtres ({@link KernelNetwork}). Construite au constructeur, à l'instant où
+   * l'instantané était relevé — un seul appel système, inchangé.
+   */
+  private readonly network: KernelNetwork;
+  /** Instantané des interfaces réseau de la machine — détenu par {@link KernelNetwork}, lu et écrit ici comme un champ. */
+  get interfaces(): NetworkInterface {
+    return this.network.interfaces;
+  }
+  set interfaces(interfaces: NetworkInterface) {
+    this.network.interfaces = interfaces;
+  }
   domain: string = "localhost";
   progress: number = Events.onInit;
   injector: Injector;
@@ -737,7 +753,7 @@ class Kernel extends Service implements IKernel {
     this.set("kernel", this);
     this.runProfile = { ...CONSOLE_RUN_PROFILE };
     this.cli = this.setCli(cli);
-    this.interfaces = this.getNetworkInterfaces();
+    this.network = new KernelNetwork();
     this.injector = new Injector(this);
     this.set("injector", this.injector);
     this.fire("onInit", this);
@@ -2146,29 +2162,25 @@ class Kernel extends Service implements IKernel {
     };
   }
 
-  /** Infra déclarée mémoïsés — lazy, `null` tant que non lus. */
-  private _infra: IInfra | null = null;
+  /**
+   * Famille STORE du noyau, par composition : infra déclarée mémoïsée et registre
+   * des résolutions ({@link KernelStores}). Allouée au constructeur — deux
+   * emplacements `null` tant que personne ne lit.
+   */
+  private readonly stores = new KernelStores();
 
   /**
-   * Infra déclarée (`database`/`cache`/`logs`) résolus depuis
-   * `process.env` (modèle « infra déclarée », Phase 0.8). Calcul 1 fois, mémoïsé —
+   * Infra déclarée (`database`/`cache`/`logs`) résolue depuis
+   * `process.env` (modèle « infra déclarée »). Calcul 1 fois, mémoïsé —
    * consommé par le ctx `defineConfig` (`ctx.infra`) et par les briques dont
-   * le store vaut `"auto"` (`resolveAutoStore`).
+   * le store vaut `"auto"` (`resolveAutoStore`). Délégué à {@link KernelStores.infra}.
    *
    * @throws Error au premier accès si `NF_DATABASE_URL` a un scheme non
    *   supporté (fail-loud : jamais de repli sqlite silencieux).
    */
   get infra(): IInfra {
-    this._infra ??= resolveInfra(process.env);
-    return this._infra;
+    return this.stores.infra;
   }
-
-  /**
-   * Registre des résolutions de stores — lazy (`null` tant qu'aucune brique n'a
-   * résolu son store). Alloué au premier `registerStoreResolution` (au boot, une
-   * fois par brique) — jamais dans le hot-path. Clé = `brick` (dernière gagne).
-   */
-  private _storeResolutions: Map<string, IStoreResolution> | null = null;
 
   /**
    * Résolutions EFFECTIVES des stores de persistance capturées au boot — la
@@ -2176,9 +2188,7 @@ class Kernel extends Service implements IKernel {
    * et l'écran Studio « Stores ». Vide si aucune brique n'a encore résolu.
    */
   get storeResolutions(): IStoreResolution[] {
-    return this._storeResolutions
-      ? Array.from(this._storeResolutions.values())
-      : [];
+    return this.stores.storeResolutions;
   }
 
   /**
@@ -2192,11 +2202,7 @@ class Kernel extends Service implements IKernel {
   registerStoreResolution(
     resolution: Omit<IStoreResolution, "provenance">,
   ): void {
-    this._storeResolutions ??= new Map<string, IStoreResolution>();
-    this._storeResolutions.set(resolution.brick, {
-      ...resolution,
-      provenance: resolution.configured === AUTO_STORE ? "infra" : "explicit",
-    });
+    this.stores.registerStoreResolution(resolution);
   }
 
   /**
@@ -4341,88 +4347,23 @@ class Kernel extends Service implements IKernel {
     return stat;
   }
 
+  /** Filtre l'instantané des interfaces — délégué à {@link KernelNetwork.interfacesFilter} (contrat et piège d'origine inclus). */
   interfacesFilter(filters?: FilterInterface): NetworkInterface {
-    if (filters) {
-      let condition = (ele: boolean, ele2: boolean): boolean => {
-        return ele && ele2;
-      };
-      if (filters.condition && filters.condition === "||") {
-        condition = (ele: boolean, ele2: boolean): boolean => {
-          return ele || ele2;
-        };
-      }
-      const interfaces: NetworkInterface = {};
-      for (const [myinterface, list] of Object.entries(this.interfaces)) {
-        const kept: os.NetworkInterfaceInfo[] = [];
-        interfaces[myinterface] = kept;
-        for (const infos of list) {
-          let matchType = false;
-          let matchFamily = false;
-          for (const filter in filters) {
-            switch (filter) {
-              case "type":
-                if (filters["type"] === "external") {
-                  if (!infos.internal) {
-                    matchType = true;
-                  }
-                }
-                if (filters["type"] === "local") {
-                  if (infos.internal) {
-                    matchType = true;
-                  }
-                }
-                break;
-              case "family":
-                if (filters["family"] === infos.family) {
-                  matchFamily = true;
-                }
-                break;
-            }
-          }
-          if (condition(matchType, matchFamily)) kept.push(infos);
-        }
-      }
-      return interfaces;
-    }
-    return this.interfaces;
+    return this.network.interfacesFilter(filters);
   }
 
   getNetworkInterfaces(): { [name: string]: os.NetworkInterfaceInfo[] } {
-    const nets = os.networkInterfaces();
-    const devices: { [name: string]: os.NetworkInterfaceInfo[] } = {};
-    Object.entries(nets).forEach(([name, ni]) => {
-      if (!ni) return;
-      devices[name] = ni;
-    });
-    return devices;
+    return this.network.getNetworkInterfaces();
   }
 
   getNetwork() {
-    return {
-      external: this.interfacesFilter({ type: "external" }),
-      local: this.interfacesFilter({ type: "local", condition: "==" }),
-      ipv4: this.interfacesFilter({ family: "IPv4" }),
-      ipv6: this.interfacesFilter({ family: "IPv6" }),
-      interfaces: this.interfaces,
-    };
+    return this.network.getNetwork();
   }
 
   getFirstExternalInterface(
     family?: FamilyType,
   ): os.NetworkInterfaceInfo | undefined {
-    const filter: FilterInterface = {
-      type: "external",
-      family: family || "IPv4",
-      condition: "&&",
-    };
-    const res: NetworkInterface = this.interfacesFilter(filter);
-    const ele: os.NetworkInterfaceInfo[] = [];
-    for (const list of Object.values(res)) {
-      for (const info of list) {
-        ele.push(info);
-      }
-    }
-    return ele[0];
+    return this.network.getFirstExternalInterface(family);
   }
 
   // async getProjectName(): Promise<string> {

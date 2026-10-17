@@ -26,6 +26,19 @@
 type canonique — plus de miroir écrit à la main (`tests/runProfile.test.ts` le verrouille par
 IDENTITÉ de type au typecheck).
 
+**Réseau = `kernel/kernelNetwork.ts`** (`KernelNetwork`, module FEUILLE, COMPOSÉ : champ privé
+`network` construit au ctor — c'est LÀ que l'instantané `os.networkInterfaces()` est relevé, 1 appel
+système, lecteur injectable) : `interfaces` (accesseur get/set du Kernel, même sémantique qu'un champ),
+`interfacesFilter`, `getNetworkInterfaces`, `getNetwork`, `getFirstExternalInterface` délégués sans
+allocation. `domain`/`setDomain` RESTENT sur Kernel (`domain` = chemin de requête). Types
+`NetworkInterface`/`FamilyType`/`FilterInterface` déclarés là, ré-exportés par `Kernel.ts` et le barrel.
+**Stores = `kernel/kernelStores.ts`** (`KernelStores`, feuille, COMPOSÉ : champ privé `stores` alloué au
+ctor, 2 emplacements `null`) : `infra` (mémo, `process.env` lu au PREMIER accès — jamais capturé —,
+source injectable ; un accès qui lève ne mémoïse rien), `storeResolutions` (tableau NEUF à chaque
+lecture), `registerStoreResolution` (Map, ordre d'insertion, même brique = remplacement EN PLACE,
+provenance TOUJOURS dérivée de `configured`). Getters/méthode du Kernel délégués. Verrous :
+`tests/kernelNetwork.test.ts`, `tests/kernelStores.test.ts` (machine et env INJECTÉS, vus rouges).
+
 **Lifecycle flags** (ordre strict, jamais régressifs):
 
 ```
@@ -261,12 +274,18 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **readConfig(config?)**: sans arg → retourne `this.options` sans mutation. Avec → `extend(this.options, config)` (merge in-place).
 
-**interfacesFilter(filters?)**:
+**interfacesFilter(filters?)** (délégué à `KernelNetwork`) :
 
-- Sans filtre → retourne `this.interfaces` brut.
-- Avec `{ type: "external" }` → `!infos.internal`; `{ type: "local" }` → `infos.internal`.
-- `condition` : `"&&"` (défaut), `"||"`. `"=="` → traité comme `"&&"`.
-- Filtre vide `{}` → tous tableaux vides (matchType=false && matchFamily=false → false).
+- Sans filtre → retourne `this.interfaces` brut (MÊME référence). Avec filtre → objet NEUF, TOUTES les
+  interfaces présentes (tableaux vides compris), tableaux neufs.
+- Chaque critère (`type` : `internal` ; `family`) vaut FAUX tant qu'il n'est pas posé. `condition` :
+  `"&&"` (défaut), `"||"`. `"=="` → traité comme `"&&"`.
+- ⚠️ PIÈGE (conservé tel quel, verrouillé par `kernelNetwork.test.ts`) : UN SEUL critère sous `&&` ne
+  garde RIEN — `{ type: "external" }` seul ⇒ tout vide ; sélectionner par type ou famille seuls exige
+  `condition: "||"`. Conséquence : `getNetwork().external/local/ipv4/ipv6` sont TOUJOURS vides (un
+  critère chacun, `local` en `"=="`) ; seul `interfaces` y porte quelque chose.
+  `getFirstExternalInterface` pose les deux critères en `&&` → correct.
+- Filtre vide `{}` → tous tableaux vides.
 
 **isConsole()**: `!runProfile.servers` (défensif : `false` si `runProfile` indéfini).
 **isModule(cls)**: `isSubclassOf(cls, Module)`. **Throws TypeError** si `cls === null`.
@@ -285,7 +304,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:4243`).
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:4249`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.

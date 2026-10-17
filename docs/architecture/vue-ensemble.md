@@ -241,8 +241,8 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1590`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1701`). L'ordre du tableau **est** l'ordre
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1606`) puis
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1717`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -293,7 +293,7 @@ flowchart BT
 
 `Service` (`Service.ts:43`) est la classe de base de **tout** : Kernel, Module, contrôleurs, services
 métier. Elle apporte l'accès au conteneur, l'émission d'événements et le journal structuré. Au-dessus
-vivent `Kernel` (`Kernel.ts:461`), `Module` (`Module.ts:60`) et `Container` (`Container.ts:93`).
+vivent `Kernel` (`Kernel.ts:465`), `Module` (`Module.ts:60`) et `Container` (`Container.ts:93`).
 Commence par sa page si tu veux comprendre « pourquoi tout hérite de la même chose ».
 
 ### [`@nodefony/http`](../../src/packages/@nodefony/http/docs/index.md) — le transport
@@ -324,19 +324,19 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 ### Le boot — une chaîne de phases, jamais un big-bang
 
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
-(`Events`, `Kernel.ts:337`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
+(`Events`, `Kernel.ts:343`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:771`), `Kernel.boot()` (`Kernel.ts:1232`), `Kernel.onReady()`
-(`Kernel.ts:1262`) et `Kernel.initServers()` (`Kernel.ts:1383`).
+`Kernel.start()` (`Kernel.ts:787`), `Kernel.boot()` (`Kernel.ts:1248`), `Kernel.onReady()`
+(`Kernel.ts:1278`) et `Kernel.initServers()` (`Kernel.ts:1399`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
 `onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:4096`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:4102`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3509`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3515`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 

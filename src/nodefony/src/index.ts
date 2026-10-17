@@ -701,14 +701,16 @@ export { SEVERITY_NAMES, BROWSER_ORIGIN } from "./syslog/Pdu";
 export type { Message, Msgid, Pci, Severity, SeverityName } from "./syslog/Pdu";
 
 export type {
-  FamilyType,
   KernelEventsType,
-  NetworkInterface,
-  FilterInterface,
   ServiceWithInit,
   ServiceConstructor,
   TypeKernelOptions,
 } from "./kernel/Kernel";
+export type {
+  FamilyType,
+  NetworkInterface,
+  FilterInterface,
+} from "./kernel/kernelNetwork";
 
 // Profil d'exécution d'un run : la commande DÉCLARE ce dont elle a besoin
 // (serveurs, durée de vie, TTY, infrastructure). Exporté parce qu'une commande

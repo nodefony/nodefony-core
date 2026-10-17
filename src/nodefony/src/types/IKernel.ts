@@ -7,12 +7,12 @@ import type {
 } from "../kernel/bootReport";
 import type { IReadinessContributor } from "../kernel/readinessRegistry";
 import type { IRunProfile } from "../kernel/runProfile";
+import type { KernelNetworkResult } from "../kernel/kernelNetwork";
 import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
 import type { IInfra, IStoreResolution } from "../config/infra";
 import type { ICommand } from "./ICommand";
-import type os from "node:os";
 
 // Redéfini localement — import circulaire impossible (Kernel.ts → Service.ts → IService.ts → IKernel.ts).
 // Le profil d'exécution, lui, vient de `kernel/runProfile.ts` (module feuille : aucun cycle).
@@ -20,14 +20,8 @@ type EventsType = Record<string, number>;
 // Redéfini depuis Kernel.ts (trunkType)
 type TrunkType = "javascript" | "typescript" | null;
 
-// Résultat de Kernel.getNetwork() — redéfini ici pour éviter l'import circulaire
-export interface KernelNetworkResult {
-  external: Record<string, os.NetworkInterfaceInfo[]>;
-  local: Record<string, os.NetworkInterfaceInfo[]>;
-  ipv4: Record<string, os.NetworkInterfaceInfo[]>;
-  ipv6: Record<string, os.NetworkInterfaceInfo[]>;
-  interfaces: Record<string, os.NetworkInterfaceInfo[]>;
-}
+// Résultat de Kernel.getNetwork() — défini par le module feuille `kernel/kernelNetwork.ts`.
+export type { KernelNetworkResult } from "../kernel/kernelNetwork";
 
 /**
  * Contrat public du Kernel nodefony.

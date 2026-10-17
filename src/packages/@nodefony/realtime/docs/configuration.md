@@ -704,7 +704,7 @@ L'ordre de recouvrement, du plus faible au plus fort :
 2. **La configuration de l'application** — ton `use("@nodefony/realtime", { … })`.
 3. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`** et
    **`NF_REALTIME_BACKPLANE_SECRET`** — posées par le Kernel après la fusion et **avant** la
-   validation Zod (`applyEnvShortcuts`, `Kernel.ts:1896`) : une valeur fausse **arrête le démarrage** en nommant la
+   validation Zod (`applyEnvShortcuts`, `Kernel.ts:1912`) : une valeur fausse **arrête le démarrage** en nommant la
    variable (un secret de moins de 32 caractères, un espace de noms qui contient `:`). Chacune
    accepte aussi sa forme `<NOM>_FILE` (secret monté par Docker ou Kubernetes).
 4. **`NF__REALTIME__<CHEMIN>`** — même moment, même validation. Un chemin introuvable produit un
