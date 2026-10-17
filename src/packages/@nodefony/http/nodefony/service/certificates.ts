@@ -178,31 +178,138 @@ export async function trustCaFile(
 }
 
 /**
+ * Dossier où Nodefony range les certificats qu'il fabrique en développement,
+ * relatif au répertoire courant.
+ *
+ * @returns le chemin absolu de `nodefony/config/certificates`
+ */
+export function certificatesDirectory(): string {
+  return resolve(".", "nodefony", "config", "certificates");
+}
+
+/**
+ * Chemin de l'autorité de DÉVELOPPEMENT : le certificat racine que Nodefony
+ * fabrique lui-même pour signer le certificat du serveur local. Généré, jamais
+ * versionné — une seule convention, que le service et la confiance sortante lisent.
+ *
+ * @param directory - dossier des certificats ; {@link certificatesDirectory} par défaut
+ * @returns le chemin absolu du fichier PEM de l'autorité
+ */
+export function developmentAuthorityPath(
+  directory: string = certificatesDirectory(),
+): string {
+  return resolve(directory, "ca", "nodefony-root-ca.crt.pem");
+}
+
+/** Décor de {@link trustOutboundAuthorities} — injectable pour l'éprouver. */
+export interface IOutboundTrustContext {
+  /** Vrai en développement : seul décor où l'autorité de dev absente est tolérée. */
+  readonly development?: boolean;
+  /** Chemin absolu de l'autorité de développement ; {@link developmentAuthorityPath} par défaut. */
+  readonly developmentAuthority?: string;
+  /** Environnement lu pour nommer la variable d'origine ; `process.env` par défaut. */
+  readonly env?: NodeJS.ProcessEnv;
+  /** Accès aux ancres ; `node:tls` par défaut. */
+  readonly store?: ITlsTrustStore;
+}
+
+/** Vrai si le fichier n'existe pas (et seulement dans ce cas). */
+async function isMissing(file: string): Promise<boolean> {
+  try {
+    await fs.stat(file);
+    return false;
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === "ENOENT";
+  }
+}
+
+/**
  * Ajoute aux ancres TLS du processus les autorités déclarées
  * (`certificates.extraCaFiles`), au plus tôt : appelé à l'enregistrement du
  * module, avant tout service — toute requête sortante, commande console
  * comprise, les trouve en place.
  *
- * La CA de DÉVELOPPEMENT n'y figure pas : le service de certificats la pose
- * lui-même ({@link Certificate.generateServerCertificates}).
+ * L'autorité de DÉVELOPPEMENT déclarée mais pas encore engendrée est ignorée en
+ * développement, et le journal le dit : elle n'a signé aucun certificat, il n'y
+ * a donc rien à lui faire confiance, et le serveur de développement la pose
+ * lui-même quand il la fabrique ({@link Certificate.generateServerCertificates}).
+ * Rien n'est fabriqué ici : une commande console n'écrit pas de certificat.
+ * Une autre autorité absente, ou n'importe laquelle hors développement, reste
+ * un refus — qui nomme la variable d'origine et le geste qui répare.
  *
  * @param files - `certificates.extraCaFiles`
  * @param root - racine de l'application
  * @param log - journal du module
+ * @param context - décor (environnement, autorité de dev, ancres)
  * @throws BootConfigurationError - cf {@link trustCaFile}
  */
 export async function trustOutboundAuthorities(
   files: readonly string[],
   root: string,
   log: (message: string, severity: "INFO") => void,
+  context: IOutboundTrustContext = {},
 ): Promise<void> {
+  const developmentAuthority =
+    context.developmentAuthority ?? developmentAuthorityPath();
   for (const file of files) {
-    const trust = await trustCaFile(file, root);
+    const absolute = path.resolve(root, file);
+    const isDevelopmentAuthority = absolute === developmentAuthority;
+    if (
+      isDevelopmentAuthority &&
+      context.development === true &&
+      (await isMissing(absolute))
+    ) {
+      log(
+        `autorité de développement ${absolute} pas encore engendrée : ignorée. ` +
+          "Elle naît au premier `npx nodefony development` (ou " +
+          "`npx nodefony http:certificates`), et le serveur de développement " +
+          "lui fait alors confiance de lui-même.",
+        "INFO",
+      );
+      continue;
+    }
+    let trust: ICaFileTrust;
+    try {
+      trust = await trustCaFile(file, root, context.store);
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !BootConfigurationError.is(error) ||
+        !(await isMissing(absolute))
+      ) {
+        throw error;
+      }
+      throw new BootConfigurationError(
+        `${error.message}${originOf(absolute, root, context.env ?? process.env)} ` +
+          (isDevelopmentAuthority
+            ? "C'est l'autorité de DÉVELOPPEMENT : elle n'existe qu'une fois " +
+              "engendrée (`npx nodefony http:certificates`, ou un premier " +
+              "`npx nodefony development`), et n'est jamais fabriquée hors " +
+              "développement. L'engendrer, ou retirer la déclaration."
+            : "Poser le fichier à ce chemin, ou retirer la déclaration."),
+      );
+    }
     log(
       `autorité sortante ${trust.file} : ${trust.added} ajoutée(s), ${trust.present} déjà présente(s)`,
       "INFO",
     );
   }
+}
+
+/**
+ * Nomme la variable d'où vient le chemin, quand c'est `NF_TLS_CA_FILE` — la
+ * déclaration que pose le gabarit d'application. Constaté sur la valeur, jamais
+ * supposé : une configuration écrite à la main n'est pas attribuée à la variable.
+ */
+function originOf(
+  absolute: string,
+  root: string,
+  env: NodeJS.ProcessEnv,
+): string {
+  const declared = env.NF_TLS_CA_FILE;
+  return declared && path.resolve(root, declared) === absolute
+    ? " Valeur venue de NF_TLS_CA_FILE (`.env` ou environnement du processus)."
+    : "";
 }
 
 /** Paire de clés RSA du certificat auto-signé. */
@@ -360,9 +467,9 @@ class Certificate extends Service {
   /** CAROOT résolu de mkcert (null tant que non détecté / indisponible). */
   private mkcertCaRoot: string | null = null;
 
-  path: string = resolve(".", "nodefony", "config", "certificates");
+  path: string = certificatesDirectory();
   serverPath: string = resolve(this.path, "server");
-  caPath: string = resolve(this.path, "ca", "nodefony-root-ca.crt.pem");
+  caPath: string = developmentAuthorityPath(this.path);
   publicKeyPath: string = resolve(this.path, "server", "publickey.pem");
   privateKeyPath: string = resolve(this.path, "server", "privkey.pem");
   certPath: string = resolve(this.path, "server", "cert.pem");

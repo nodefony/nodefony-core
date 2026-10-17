@@ -469,11 +469,13 @@ plusieurs fichiers PEM, absolus ou relatifs à la racine de l'application, une c
 processus au démarrage, avant tout service (`trustCaFile()`, `certificates.ts:131`), et servent à
 **tous** ses appels sortants : découverte, point de jeton, jeu de clés. Un fichier introuvable, ou
 sans certificat, **interrompt le démarrage** en nommant le chemin (code 78) — plutôt qu'un
-`fetch failed` au premier clic d'un utilisateur. C'est l'équivalent, porté par la configuration, de
+`fetch failed` au premier clic d'un utilisateur. Seule exception : l'autorité de développement pas
+encore engendrée est ignorée en mode `development` (le journal le dit) ; en production, elle doit
+exister — `npx nodefony http:certificates` l'engendre. C'est l'équivalent, porté par la configuration, de
 `NODE_EXTRA_CA_CERTS` : même effet, sans syntaxe de shell à traduire sous Windows.
 
 Pourquoi la deuxième ligne du tableau : l'autorité de développement n'est reconnue d'office qu'en
-mode `development` (`Certificate.trustDevelopmentAuthority()`, `certificates.ts:555`). Lancée
+mode `development` (`Certificate.trustDevelopmentAuthority()`, `certificates.ts:663`). Lancée
 en production — pour essayer le build sur le poste, par exemple —, l'application ne lui fait plus
 confiance sans qu'on le lui dise, et c'est voulu : une application de production qui adopterait en
 silence une autorité de développement ouvrirait une porte qu'aucune configuration ne montre. Le

@@ -559,12 +559,12 @@ serveur qui, lui, écoute très bien.
 **Générer un certificat est un confort de développement, pas une fonction de production.** Nodefony
 n'est pas une autorité de certification : en production, on fournit un vrai certificat (Let's Encrypt,
 ingress k8s, reverse-proxy). Le service crie un avertissement si ce n'est pas le cas
-(`Certificate.resolveStrategy()`, `certificates.ts:577`).
+(`Certificate.resolveStrategy()`, `certificates.ts:693`).
 
 ### Les quatre stratégies
 
 Réglées par `certificates.strategy` (`certificatesSchema`, `config.ts:479`), résolues par
-`Certificate.resolveStrategy()` (`certificates.ts:577`).
+`Certificate.resolveStrategy()` (`certificates.ts:693`).
 
 | Stratégie       | Quand l'utiliser                            | Ce qui se passe                                                             |
 | --------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
@@ -622,7 +622,11 @@ Le gabarit d'application la lit dans `NF_TLS_CA_FILE`. Les autorités sont ajout
 processus à l'enregistrement du module, avant tout service — donc aussi pour une commande en ligne
 (`Http.onKernelRegister()`, `index.ts:104` ; `trustCaFile()`, `certificates.ts:131`). Un fichier
 introuvable ou sans certificat **interrompt le démarrage** en nommant le chemin (code 78), plutôt
-qu'un `fetch failed` loin de sa cause. C'est l'équivalent de `NODE_EXTRA_CA_CERTS`, porté par la
+qu'un `fetch failed` loin de sa cause — et, quand le chemin vient de `NF_TLS_CA_FILE`, le refus le
+dit. Une seule exception : l'autorité de **développement** (`nodefony/config/certificates/ca/…`)
+déclarée avant d'avoir été engendrée est **ignorée en développement**, une ligne du journal le dit ;
+elle n'a encore rien signé, et le serveur de développement lui fait confiance dès qu'il la fabrique.
+Rien n'est fabriqué à l'enregistrement : une commande console n'écrit aucun certificat. C'est l'équivalent de `NODE_EXTRA_CA_CERTS`, porté par la
 configuration : rien à poser au lancement, et la même écriture sous Windows.
 
 ### Conformité de l'auto-signé
@@ -633,7 +637,7 @@ invalid »). Celui de Nodefony respecte les règles qui comptent :
 | Exigence                                | Norme                | Mise en œuvre                                             |
 | --------------------------------------- | -------------------- | --------------------------------------------------------- |
 | Signature SHA-256, **jamais** SHA-1     | RFC 5280, CA/B Forum | `selfSigned.hash` par défaut `sha256` (`config.ts:400`)   |
-| Numéro de série aléatoire 128 bits      | RFC 5280 §4.1.2.2    | `Certificate.generateSerialHex()` (`certificates.ts:443`) |
+| Numéro de série aléatoire 128 bits      | RFC 5280 §4.1.2.2    | `Certificate.generateSerialHex()` (`certificates.ts:552`) |
 | Le SAN fait foi, pas le CN              | RFC 9525             | SAN dérivé du kernel si non fourni (`config.ts:444`)      |
 | `notBefore` reculé (décalage d'horloge) | pratique             | `selfSigned.backdateMinutes`, défaut 5 (`config.ts:415`)  |
 | Clé privée non lisible par tous         | hygiène              | `privateKeyMode` `0600` (`config.ts:499`)                 |
@@ -641,7 +645,7 @@ invalid »). Celui de Nodefony respecte les règles qui comptent :
 ### Régénération automatique
 
 Un certificat présent sur disque n'est pas forcément **adéquat**. `Certificate.isCertAdequate()`
-(`certificates.ts:743`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
+(`certificates.ts:859`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
 plus les noms requis — le dernier cas est celui qui sauve : changer le domaine d'écoute sans ce
 contrôle laisserait un certificat obsolète en place indéfiniment.
 
@@ -890,7 +894,7 @@ demande le backplane realtime.
 | WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:585`)                                       |
 | CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:728`)                  |
 | En-têtes forwarded                    | RFC 7239           | `resolveForwarded()` (`forwarded.ts:253`)                                   |
-| Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:443`)                   |
+| Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:552`)                   |
 | Certificat — identité par le SAN      | RFC 9525           | `sanSchema` (`config.ts:446`)                                               |
 
 ## ⚠️ Pièges (symptôme → cause → correction)
@@ -931,7 +935,7 @@ l'origine du transport.
 
 `proxy:generate` mérite un mot : la configuration nginx/HAProxy est **dérivée** des domaines de
 confiance, des ports effectifs et des dossiers statiques montés — donc elle ne diverge pas du code. Le
-résumé de certificat vient de `Certificate.describe()` (`certificates.ts:973`), source unique partagée
+résumé de certificat vient de `Certificate.describe()` (`certificates.ts:1085`), source unique partagée
 par la commande, le boot et un futur écran d'administration.
 
 **Runtime.** `nodefony status` et `nodefony stop` lisent les ports effectifs publiés au boot ; ils

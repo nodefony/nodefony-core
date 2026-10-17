@@ -118,6 +118,8 @@ class Http extends Module<IHttpConfig> {
       options.certificates.extraCaFiles,
       this.kernel?.path ?? process.cwd(),
       (message, severity) => this.log(message, severity),
+      // Seul décor où l'autorité de dev pas encore engendrée est tolérée.
+      { development: this.kernel?.environment === "development" },
     );
     return this;
   }

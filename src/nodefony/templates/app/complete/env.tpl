@@ -160,7 +160,8 @@ NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 # 1. Reconnaître l'autorité de développement, qui signe le certificat du
 #    Keycloak du compose. En production, il faut la déclarer — sans elle,
 #    « certificat refusé (SELF_SIGNED_CERT_IN_CHAIN) ». Ce fichier naît au
-#    premier `npm run dev` : déclaré avant, il bloquerait le démarrage.
+#    premier `npm run dev` : avant, le développement l'ignore (le journal le
+#    dit), la production refuse de démarrer.
 #    Choix : le chemin d'un fichier PEM, relatif à l'application ou absolu.
 # NF_TLS_CA_FILE=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
 #    Un Keycloak signé par l'autorité de TON entreprise : même variable, son
