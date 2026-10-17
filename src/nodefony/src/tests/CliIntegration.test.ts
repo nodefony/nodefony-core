@@ -32,6 +32,7 @@ import {
   readRuntimeState,
   readSupervisorPid,
 } from "../service/dev/devProcess";
+import { resolveEnvCascade } from "../runtime/loadEnv";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // src/nodefony/src/tests
 const CORE_ROOT = path.resolve(HERE, "../.."); // src/nodefony
@@ -117,6 +118,30 @@ interface CliResult {
  * son sujet. Réglable par `NF_CLI_TIMEOUT_MS` (CI lente, machine modeste).
  */
 const CLI_TIMEOUT_MS = Number(process.env.NF_CLI_TIMEOUT_MS) || 120_000;
+
+/**
+ * Le décor d'un boot qui ne doit RIEN au `.env` du poste : chaque clé que ce
+ * fichier pose est passée vide — une valeur vide vaut absente pour le
+ * catalogue d'environnement, et une variable déjà posée gagne sur le fichier.
+ * Ce que le shell ou la CI ont posé passe toujours.
+ *
+ * Sans lui, le verdict dépendait de la machine. Vécu : un `NF_TLS_CA_FILE`
+ * visant une autorité pas encore régénérée arrêtait le démarrage AVANT la
+ * panne de base que le banc veut voir nommée — rouge pour une raison qui
+ * n'était pas la sienne.
+ *
+ * @param extra - ce que le banc pose lui-même, qui gagne.
+ * @returns l'environnement à ajouter à celui du processus.
+ */
+function withoutWorkstationEnv(
+  extra: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of Object.keys(resolveEnvCascade({}, { cwd: REPO_ROOT }))) {
+    if (process.env[key] === undefined) out[key] = "";
+  }
+  return { ...out, ...extra };
+}
 
 function runCli(
   args: string[],
@@ -641,9 +666,13 @@ describe.skipIf(!fs.existsSync(DIST))(
       // appartient désormais à une commande qui DÉCLARE en avoir besoin.
       // `security:user:list` lit des comptes (`CONSOLE_DATA_RUN_PROFILE`), donc
       // l'échec de connexion y est fatal, et il doit rester LISIBLE.
-      const r = await runCli(["security:user:list", "--json"], CLI_TIMEOUT_MS, {
-        NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
-      });
+      const r = await runCli(
+        ["security:user:list", "--json"],
+        CLI_TIMEOUT_MS,
+        withoutWorkstationEnv({
+          NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
+        }),
+      );
 
       assert.notStrictEqual(
         r.code,
@@ -666,9 +695,13 @@ describe.skipIf(!fs.existsSync(DIST))(
     });
 
     it("l'échec ne pollue pas la sortie standard réservée aux données", async () => {
-      const r = await runCli(["security:user:list", "--json"], CLI_TIMEOUT_MS, {
-        NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
-      });
+      const r = await runCli(
+        ["security:user:list", "--json"],
+        CLI_TIMEOUT_MS,
+        withoutWorkstationEnv({
+          NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
+        }),
+      );
 
       // Rien, ou du JSON — jamais du texte de journal : `… --json | jq` doit
       // rester utilisable, y compris le jour où la commande échoue.
