@@ -137,10 +137,10 @@ Service `@injectable()` `"router"` (`nodefony/service/router.ts:124`). Table `st
 | Méthode | Signature | Rôle |
 | ------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------- |
 | `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:316`) | point d'entrée du routage |
-| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:491`) | forward interne |
-| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:508`) | lookup / dump |
-| `removeRoutes` | `(name?) → void` (`router.ts:517`) | retire 1 route (ou tout si vide) + invalide l'index |
-| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:497`) | toutes les routes dont le pattern matche |
+| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:499`) | forward interne |
+| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:516`) | lookup / dump |
+| `removeRoutes` | `(name?) → void` (`router.ts:525`) | retire 1 route (ou tout si vide) + invalide l'index |
+| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:505`) | toutes les routes dont le pattern matche |
 | `getSingletonController` | `(ctor, create) → Promise<Controller>` (`router.ts:232`) | cache promesse singleton (V4.3) |
 | `static createRoute` | `(name, RouteOptions) → Route` (`router.ts:353`) | push table + invalide l'index |
 | `static setController` | `(ctor, module) → ctor` (`router.ts:359`) | `proto.module` (writable:false) + clé `module:Class` + propage `route.module` |

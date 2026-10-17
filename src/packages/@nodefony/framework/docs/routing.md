@@ -49,7 +49,7 @@ Trois faits à retenir avant tout le reste :
 
 1. **L'ordre de déclaration EST la priorité.** Une route paramétrée déclarée avant une route
    littérale gagne sur le chemin littéral — c'est figé par le banc de non-régression
-   (`routing-nonregression.test.ts:83`).
+   (`routing-nonregression.test.ts:89`).
 2. **Le routeur ne lève jamais de 404.** Aucun match = `resolver.resolve === false`, sans exception ;
    le 404 est décidé plus loin, après le repli sur les fichiers statiques
    (`HttpError("Not Found", 404)`, `http-kernel.ts:934`).
@@ -354,7 +354,7 @@ correspondent à `/books/new` : `{id}` capturerait `"new"` comme un identifiant.
 ```
 
 Aucune spécificité n'est calculée : la première route déclarée qui correspond gagne
-(`routing-nonregression.test.ts:83`). La même règle vaut pour le catch-all `*`, qui absorbe tout ce qui
+(`routing-nonregression.test.ts:89`). La même règle vaut pour le catch-all `*`, qui absorbe tout ce qui
 le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 
 > [!TIP]
@@ -442,7 +442,7 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
 - **La pseudo-méthode `WEBSOCKET` n'apparaît jamais dans `Allow`** : ce n'est pas une méthode HTTP
   (RFC 9110 §10.2.1), elle est retirée de l'agrégat. Un chemin qui n'existe qu'en WebSocket, appelé
   en HTTP, répond `426 Upgrade Required` avec `Upgrade: websocket` plutôt qu'un 405
-  (`routing-nonregression.test.ts:164`).
+  (`routing-nonregression.test.ts:170`).
 - **Une invocation WS d'une mutation doit dire quelle méthode logique elle vise.** Sur une socket,
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même
   chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:156`) que la
@@ -489,7 +489,7 @@ Trois niveaux de préfixe coexistent, et un seul est à ta main.
    lui-même.
 2. **Le module propriétaire** — il n'ajoute **aucun** préfixe d'URL. `@controllers([…])` enregistre la
    classe au boot et propage le nom du module sur les routes déjà créées, pour l'introspection et les
-   logs (`Router.setController()`, `router.ts:555`). Un module tiers et ton app peuvent porter deux
+   logs (`Router.setController()`, `router.ts:563`). Un module tiers et ton app peuvent porter deux
    contrôleurs homonymes sans collision : la clé du registre est `module:Classe` (`router.ts:203`).
 3. **Le data plane d'administration** — réservé, non négociable : `/nodefony/<namespace>/api/<endpoint>`
    (`AdminBroker.resolvePath()`, `AdminBroker.ts:99`). Trois segments minimum, pour ne jamais entrer en
@@ -509,10 +509,10 @@ d'une route — il survit à un changement de chemin.
 | Besoin                                   | Comment                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
 | Retrouver une route par son nom          | `router.getRoutes("ma-route")` → l'objet `Route` (`router.ts:329`)        |
-| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:508`)              |
-| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:497`) |
+| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:516`)              |
+| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:505`) |
 | Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:744`)          |
-| Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:517`)                       |
+| Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:525`)                       |
 
 **Il n'existe pas de générateur d'URL inverse côté serveur** (pas de `path("ma-route", {id})` à la
 Symfony). Le chemin déclaré est lisible sur l'objet `Route` (`route.path`), et la substitution des
