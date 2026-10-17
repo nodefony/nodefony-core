@@ -25,12 +25,13 @@ import type { ChildProcess } from "node:child_process";
 import type { IStartupView, IStatusContext } from "./startupScreen";
 import {
   DEV_CHANNEL,
+  DEV_CHILD_ENV,
   isDevResize,
   isTerminalDimension,
   type IDevResize,
 } from "./devChannelBase";
 
-export { DEV_CHANNEL, isTerminalDimension, type IDevResize };
+export { DEV_CHANNEL, DEV_CHILD_ENV, isTerminalDimension, type IDevResize };
 
 /**
  * Serveur → superviseur : le bilan du serveur prêt, de quoi dessiner la barre
@@ -184,16 +185,39 @@ function isStatusContext(value: unknown): value is IStatusContext {
 }
 
 /**
+ * Ce que le côté SERVEUR touche de son processus — la forme de `process` que
+ * le canal lit et écrit, injectable pour éprouver le canal sans parler au vrai
+ * parent. `process` la satisfait structurellement.
+ */
+export interface IDevChannelEndpoint {
+  /** `true` tant que le canal IPC vers le parent est ouvert. */
+  readonly connected?: boolean;
+  /** Présent seulement si le processus a été lancé avec un canal IPC. */
+  send?(message: DevChannelMessage): boolean;
+  on(event: "message", listener: (message: unknown) => void): unknown;
+  removeListener(
+    event: "message",
+    listener: (message: unknown) => void,
+  ): unknown;
+  /** Le canal lui-même, pour le relâcher (`unref`). */
+  readonly channel?: { unref(): void } | null;
+}
+
+/**
  * Côté SERVEUR : envoie au superviseur. Sans superviseur (`--no-watch`, ou
  * lancé autrement), il n'y a pas de canal : rien n'est envoyé.
  *
  * @param message - le message.
+ * @param endpoint - le processus porteur du canal ; `process` par défaut.
  * @returns `true` s'il est parti.
  */
-export function sendToSupervisor(message: DevChannelMessage): boolean {
-  if (typeof process.send !== "function" || !process.connected) return false;
+export function sendToSupervisor(
+  message: DevChannelMessage,
+  endpoint: IDevChannelEndpoint = process,
+): boolean {
+  if (typeof endpoint.send !== "function" || !endpoint.connected) return false;
   try {
-    return process.send(message);
+    return endpoint.send(message);
   } catch {
     return false; // canal en cours de fermeture : le processus s'arrête
   }
@@ -204,19 +228,21 @@ export function sendToSupervisor(message: DevChannelMessage): boolean {
  * garde pas, à lui seul, le processus en vie.
  *
  * @param handler - appelé pour chaque message valide du canal.
+ * @param endpoint - le processus porteur du canal ; `process` par défaut.
  * @returns la désinscription — ou une fonction vide sans canal.
  */
 export function listenToSupervisor(
   handler: (message: DevChannelMessage) => void,
+  endpoint: IDevChannelEndpoint = process,
 ): () => void {
-  if (typeof process.send !== "function") return () => {};
+  if (typeof endpoint.send !== "function") return () => {};
   const listener = (message: unknown): void => {
     if (isDevChannelMessage(message)) handler(message);
   };
-  process.on("message", listener);
-  process.channel?.unref();
+  endpoint.on("message", listener);
+  endpoint.channel?.unref();
   return () => {
-    process.removeListener("message", listener);
+    endpoint.removeListener("message", listener);
   };
 }
 

@@ -44,12 +44,12 @@ Trois besoins dépassent ce modèle :
 
 Les faits qui contraignent la solution, au code :
 
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1773` — le serveur est lancé `detached` sous
+- `src/nodefony/src/service/dev/DevSupervisor.ts:1778` — le serveur est lancé `detached` sous
   POSIX : un groupe en arrière-plan qui LIT le terminal reçoit `SIGTTIN` et est suspendu. Seul le
-  superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts:2374`) peut lire le clavier.
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1134` — `stdio: ["inherit", "inherit", "inherit",
+  superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts:2378`) peut lire le clavier.
+- `src/nodefony/src/service/dev/DevSupervisor.ts:1139` — `stdio: ["inherit", "inherit", "inherit",
 "ipc"]` : le serveur écrit directement dans le terminal.
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1095` (`#log`) et `:1104` (`#startSpin`) — le
+- `src/nodefony/src/service/dev/DevSupervisor.ts:1100` (`#log`) et `:1108` (`#startSpin`) — le
   superviseur écrit lui aussi en direct, et anime son spinner de build par `\r`.
 - Un terminal ne fige rien dans son propre historique. Une zone de défilement (`DECSTBM`) a été
   essayée en #533 : historique vidé, Windows Terminal ne garde pas ce qui en sort, terminal cassé
@@ -175,11 +175,11 @@ interface ITranscriptEntry {
   ligne en cours (un spinner réécrit sa ligne, il n'empile pas cent entrées).
 - **Assainissement de TOUTE source** (serveur, commande, modèle) et des chaînes de la barre.
   Gardés : couleurs (SGR), `\r`, effacement de ligne, hyperliens OSC 8 dont l'URL est `http`,
-  `https` ou `file` (le serveur en émet, `#hyperlinks` à `BootReporter.ts:195`). Retiré : tout le reste —
+  `https` ou `file` (le serveur en émet, `#hyperlinks` à `BootReporter.ts:193`). Retiré : tout le reste —
   déplacement de curseur, titre de fenêtre, presse-papiers OSC 52, changement d'écran. Rendu ET
   sécurité : une ligne de journal ne pilote pas le terminal du développeur.
 - **L'effacement d'écran a un sens** : `ESC[2J` (`CLEAR_SCREEN`, écrit par le serveur au boot,
-  `Kernel.ts:1016`, et au `ready`, `BootReporter.ts:458`) n'est pas relayé brut ; il devient
+  `supervisorLink.ts:272`, et au `ready`, `BootReporter.ts:461`) n'est pas relayé brut ; il devient
   `DevTerminal.clear()` — retour au direct et séparateur en plein écran, `CLEAR_SCREEN` réémis
   dans le repli. La « page propre » de #533 survit.
 
@@ -406,7 +406,7 @@ interface IConfirmDecision {
   `uncaughtException`, `exit` — par le protocole unique (§5). Seul `kill -9` laisse un terminal à
   `reset` : c'est la raison d'être de la surface `inline`.
 - Le verdict de crash du serveur s'arme sur l'évènement `close` de l'enfant (émis après la fin de
-  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts:683`) : sinon la pile d'un crash
+  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts:688`) : sinon la pile d'un crash
   au démarrage arrive après le message, ou se perd.
 
 ### 10. Hors du rendu humain, rien ne change

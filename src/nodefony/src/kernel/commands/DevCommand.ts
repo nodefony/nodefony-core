@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
+import { DEV_CHILD_ENV } from "../../service/dev/devChannel";
 import BootReporter from "../../service/dev/BootReporter";
 import {
   DEV_BUILD_ISSUE_ENV,
@@ -29,9 +30,6 @@ const options: OptionsCommandInterface = {
   // être connue dès l'import de `env.ts` (garde `requiredIn`).
   servesTraffic: true,
 };
-
-/** Variable d'env distinguant le serveur enfant du process superviseur parent. */
-const CHILD_ENV = "NF_DEV_CHILD";
 
 /**
  * `true` si l'invocation demande un mode développement SANS superviseur.
@@ -139,7 +137,8 @@ class Dev extends Command {
    * → marqueurs statiques + logs bruts (cf {@link BootReporter}).
    */
   override async onKernelPreStart(): Promise<void> {
-    const supervised = process.env[CHILD_ENV] === "1";
+    const kernel = this.kernel as Kernel | null;
+    const supervised = kernel?.supervisorLink.supervised === true;
     if (!supervised && !isWatchDisabled(process.argv)) return;
     if (!supervised) {
       // `--no-watch` : personne n'a bâti avant nous. Même garantie que l'enfant
@@ -149,7 +148,7 @@ class Dev extends Command {
         await import("../../service/dev/DevSupervisor");
       await new DevSupervisor({
         cwd: process.cwd(),
-        childEnvKey: CHILD_ENV,
+        childEnvKey: DEV_CHILD_ENV,
       }).ensureBuilt();
     }
     // Piles d'appels vers le `.ts` de l'application (maps du build de dev). ICI et
@@ -174,7 +173,6 @@ class Dev extends Command {
         this.onInspectorOpened(opened.url);
       } else this.log(`débogueur non ouvert : ${opened.reason}`, "WARNING");
     }
-    const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
     const buildIssue = process.env[DEV_BUILD_ISSUE_ENV];
     if (buildIssue) kernel.reportBootNotice(devBuildIssueNotice(buildIssue));
@@ -187,7 +185,6 @@ class Dev extends Command {
       // Déjà validé à `onKernelStart`, qui refuse une valeur inconnue.
       mode: kernel.startupOutputMode(),
       reload: reloadCount(process.env) > 0,
-      supervised: process.env[CHILD_ENV] === "1",
       inspector: this.#inspectorUrl,
     });
     this.#reporter.attach();
@@ -248,12 +245,13 @@ class Dev extends Command {
     //    un rebuild déclenché en plein run coupe les connexions sous les tests, et
     //    le diagnostic qui suit accuse le code plutôt que le décor.
     // Le superviseur reste le défaut ; ceci est la sortie explicite, pas un repli.
-    if (process.env[CHILD_ENV] === "1" || isWatchDisabled(process.argv)) {
+    const kernel = this.kernel as Kernel | null;
+    if (kernel?.supervisorLink.supervised || isWatchDisabled(process.argv)) {
       // Nom de process repérable, distinct du superviseur parent
       // (`nodefony-dev-supervisor`). Posé à `onReady` car `Kernel.preRegister`
       // (onPreRegister) écrase le title avec le `projectName` (Kernel.ts:608) —
       // notre nom doit gagner APRÈS. Cf convention cluster master/worker.
-      (this.kernel as Kernel | null)?.once("onReady", () => {
+      kernel?.once("onReady", () => {
         process.title = "nodefony-dev-server";
       });
       (this.cli as CliKernel).setRunProfile({
@@ -286,7 +284,7 @@ class Dev extends Command {
       await import("../../service/dev/DevSupervisor");
     const supervisor = new DevSupervisor({
       cwd: process.cwd(),
-      childEnvKey: CHILD_ENV,
+      childEnvKey: DEV_CHILD_ENV,
     });
     // Le superviseur reprend la main sur les signaux, comme le master du
     // cluster (`runtimeLauncher.ts`) — et par le même geste : on retire

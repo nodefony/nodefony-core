@@ -13,6 +13,15 @@
 export const DEV_CHANNEL = "nf-dev";
 
 /**
+ * Variable d'environnement qui distingue le serveur ENFANT du superviseur de
+ * développement : `DevSupervisor` la pose à `"1"` dans l'environnement du
+ * processus qu'il lance, `SupervisorLink` la lit. Elle vit dans ce socle sans
+ * import pour que le superviseur n'importe JAMAIS de code du noyau — un
+ * superviseur qui tirerait le noyau s'alourdirait à chaque ajout au noyau.
+ */
+export const DEV_CHILD_ENV = "NF_DEV_CHILD";
+
+/**
  * Superviseur → serveur : le terminal a changé de taille. Le serveur écrit
  * dans un tube et ne reçoit pas `SIGWINCH` : la porte (`terminalSize`, dans
  * `runtime/isTerminal.ts`) prend ces dimensions pour les siennes.

@@ -1,6 +1,5 @@
-import { logColor, isLogColorEnabled } from "../syslog/logColor";
-import { renderBrand, resolveBrandCharset } from "../cli/brand";
-import cluster from "node:cluster";
+import { logColor } from "../syslog/logColor";
+import cluster, { type Worker } from "node:cluster";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -39,11 +38,6 @@ import {
 // nomme aucun type de `@nodefony/http`, qui dépend de lui.
 import type { IServerKernel, IStartedServer } from "../types/IServerKernel";
 import Injector from "./injector/injector";
-import {
-  isClusterMessage,
-  CLUSTER_RT_KIND,
-  CLUSTER_PROBE_SNAPSHOT_KIND,
-} from "../service/cluster/clusterMessage";
 import type { IKernel } from "../types/IKernel";
 import type { IModuleManifest } from "../types/IModuleManifest";
 import {
@@ -76,7 +70,7 @@ import { findSetReservedKeys } from "../config/configProvenance";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
-import { isTerminal, terminalSize } from "../runtime/isTerminal";
+import { isTerminal } from "../runtime/isTerminal";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
@@ -106,18 +100,13 @@ import type {
   IBootLinkDeclaration,
 } from "./bootReport";
 import { collectBootNotices, resolveBootLinks } from "./bootReport";
-import {
-  CLEAR_SCREEN,
-  isDebugRequested,
-  readOutputFlag,
-  reloadCount,
-  resolveOutputMode,
-  type StartupOutputMode,
-} from "../service/dev/outputMode";
+import type { StartupOutputMode } from "../service/dev/outputMode";
 import { ReadinessRegistry } from "./readinessRegistry";
 import type { IReadinessContributor } from "./readinessRegistry";
 import { KernelReadinessPublisher } from "./kernelReadiness";
 import { KernelLogSetup } from "./kernelLog";
+import { SupervisorLink } from "./supervisorLink";
+import { KernelCluster, type ClusterType } from "./kernelCluster";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
@@ -307,7 +296,6 @@ export function resolveDevModulesTtlMs(
   );
 }
 
-type ClusterType = "master" | "worker";
 type NodefonyStartType = "CONSOLE" | "NODEFONY" | "NODEFONY_CONSOLE";
 
 // type EventsType = {
@@ -471,12 +459,20 @@ class Kernel extends Service implements IKernel {
    */
   private readinessPublisher: KernelReadinessPublisher | null = null;
   /**
-   * Supprime les bannières serveurs « Server Listen on… » (`showBanner`) — posé
-   * par le `BootReporter` animé (dev TTY non-debug) : le bloc « ✓ Prêt » liste
-   * déjà les URLs, ces logs feraient doublon. Reste `false` en prod/CI/`--debug`
-   * → bannières affichées (aucun changement hors écran de boot animé).
+   * Lien avec le superviseur de développement et le terminal
+   * ({@link SupervisorLink}) — famille « terminal & superviseur », par
+   * composition. Alloué au constructeur dans TOUS les modes (objet inerte sans
+   * superviseur) : c'est la SEULE porte typée `DevChannelMessage` côté noyau,
+   * lue par `BootReporter` et `DevCommand`.
    */
-  suppressBootBanners: boolean = false;
+  readonly supervisorLink: SupervisorLink = new SupervisorLink(this);
+  /** Supprime les bannières serveurs sous l'écran de boot animé — détenu par {@link SupervisorLink}, lu et écrit ici comme un champ. */
+  get suppressBootBanners(): boolean {
+    return this.supervisorLink.suppressBootBanners;
+  }
+  set suppressBootBanners(value: boolean) {
+    this.supervisorLink.suppressBootBanners = value;
+  }
   trunk: trunkType = null;
   // Entrée app résolue par resolveAppEntry() — undefined = pas encore résolue.
   private _appEntry: string | null | undefined = undefined;
@@ -515,11 +511,40 @@ class Kernel extends Service implements IKernel {
     environment: process.env.NODE_ENV as string,
   };
   path: string = process.cwd();
-  typeCluster: ClusterType = this.clusterIsMaster() ? "master" : "worker";
-  pid: number = process.pid;
-  //process: NodeJS.Process = process;
-  workerId: number | undefined = cluster.worker?.id;
-  worker = cluster.worker;
+  /**
+   * Le noyau dans sa topologie de processus ({@link KernelCluster}) — famille
+   * CLUSTER, par composition. Alloué au constructeur : le rôle est lu dès
+   * `setCli`. Seul propriétaire de `typeCluster`, `pid`, `workerId`, `worker`.
+   */
+  private readonly clusterLink: KernelCluster = new KernelCluster(this);
+  /** Rôle dans la topologie — détenu par {@link KernelCluster}, lu et écrit ici comme un champ. */
+  get typeCluster(): ClusterType {
+    return this.clusterLink.typeCluster;
+  }
+  set typeCluster(value: ClusterType) {
+    this.clusterLink.typeCluster = value;
+  }
+  /** PID de ce processus — détenu par {@link KernelCluster}. */
+  get pid(): number {
+    return this.clusterLink.pid;
+  }
+  set pid(value: number) {
+    this.clusterLink.pid = value;
+  }
+  /** Identifiant du worker (`undefined` dans le primaire) — détenu par {@link KernelCluster}. */
+  get workerId(): number | undefined {
+    return this.clusterLink.workerId;
+  }
+  set workerId(value: number | undefined) {
+    this.clusterLink.workerId = value;
+  }
+  /** Le worker courant (`undefined` dans le primaire) — détenu par {@link KernelCluster}. */
+  get worker(): Worker | undefined {
+    return this.clusterLink.worker;
+  }
+  set worker(value: Worker | undefined) {
+    this.clusterLink.worker = value;
+  }
   console: boolean = this.isConsole();
   /**
    * Vrai terminal disponible ? Résolu UNE fois dans le constructor (volet
@@ -591,22 +616,20 @@ class Kernel extends Service implements IKernel {
   private logSetup: KernelLogSetup | null = null;
   isDev: boolean = false;
   isProd: boolean = true;
-  /**
-   * En dev, `BootReporter` (checklist animée) prend la main sur l'en-tête de boot
-   * (splash + banner `SERVER`). Quand `true`, `initCluster()` ne ré-imprime PAS le
-   * banner `logEnv()` (le reporter le place lui-même, dans le bon ordre). Dev-only,
-   * boot-only — 0 impact runtime/requête.
-   */
-  reporterOwnsHeader: boolean = false;
-
-  /**
-   * En dev, le bandeau de démarrage est DIFFÉRÉ : une page propre suivra, et
-   * c'est elle qui le pose (BootReporter). Imprimé ici ET là, il apparaissait
-   * deux fois dans l'historique du terminal. Le BootReporter le pose une seule
-   * fois — en haut de la page « prêt », ou au-dessus du bilan quand il n'y a
-   * pas de page propre (échec, débogage) — puis remet ce drapeau à `false`.
-   */
-  devHeaderDeferred: boolean = false;
+  /** Le BootReporter possède l'en-tête de boot (dev) — détenu par {@link SupervisorLink}, lu et écrit ici comme un champ. */
+  get reporterOwnsHeader(): boolean {
+    return this.supervisorLink.reporterOwnsHeader;
+  }
+  set reporterOwnsHeader(value: boolean) {
+    this.supervisorLink.reporterOwnsHeader = value;
+  }
+  /** Bandeau de démarrage différé au BootReporter (dev) — détenu par {@link SupervisorLink}, lu et écrit ici comme un champ. */
+  get devHeaderDeferred(): boolean {
+    return this.supervisorLink.devHeaderDeferred;
+  }
+  set devHeaderDeferred(value: boolean) {
+    this.supervisorLink.devHeaderDeferred = value;
+  }
   // Buffer FIFO des `MODULE ADD` émis avant l'en-tête `SERVER` (logEnv) —
   // flushé par `initCluster()` après le banner. Tant qu'il n'est pas null
   // les logs sont différés ; passé à `null`, addModule() log immédiatement.
@@ -990,41 +1013,10 @@ class Kernel extends Service implements IKernel {
         });
     }
 
-    // Splash ASCII (banner figlet + version) — affiché en TÊTE du boot, AVANT
-    // `SERVICE ADD`, `MODULE ADD` et les events kernel.
-    //
-    // Gaté pour rester un confort de DEV interactif uniquement :
-    // - **PRODUCTION / CLUSTER** → JAMAIS de splash. Cloud-native = logs structurés
-    //   (collecteur JSON) : un art ASCII multi-ligne est du bruit ; en cluster, N workers
-    //   produiraient N splash. L'info de boot vit dans les logs (`MODULE ADD`, `Server Listen`).
-    // - **DEV** → un SEUL splash, dans le process qui boote réellement le serveur (l'enfant
-    //   du DevSupervisor, `NF_DEV_CHILD=1`), PAS le superviseur parent CONSOLE
-    //   (sinon double splash : parent + enfant — cf 2 ASCII art observés).
-    const devChild =
-      this.environment === "development" && process.env.NF_DEV_CHILD === "1";
-    // Ni en rendu machine (`plain`/`json`). Dans un terminal, hors --debug :
-    // page propre au PREMIER démarrage (l'historique du terminal reste
-    // intact) ; un rechargement n'écrit que ce qui a changé.
-    const devSplash = devChild && this.startupOutputMode() === "human";
-    // Un RECHARGEMENT ne repose ni page ni bandeau : la barre d'état porte
-    // l'identité, et l'historique doit garder ce qui s'est passé. Le
-    // BootReporter n'y écrit que ce qui a changé.
-    if (this.cli && devSplash && reloadCount(process.env) === 0) {
-      if (this.isTTY && !isDebugRequested(process.argv)) {
-        // Page propre à venir : le bandeau attend le BootReporter, qui le
-        // pose UNE fois — l'imprimer aussi ici le doublait dans l'historique.
-        process.stdout.write(CLEAR_SCREEN);
-        this.devHeaderDeferred = true;
-      } else {
-        // Sans page propre (débogage, hors terminal) : bannière AVANT tout
-        // log de boot, ordre stable. Précalculée : plus de figlet au démarrage.
-        this.printDevHeader();
-      }
-    }
-    // L'identité (version, environnement) est portée par le bilan du
-    // BootReporter dans TOUS ses rendus : `initCluster()` ne ré-imprime donc
-    // pas `logEnv` — ni sous le splash, ni sans lui (rechargement, plain, json).
-    if (this.cli && devChild) this.reporterOwnsHeader = true;
+    // Écran de démarrage (splash en TÊTE du boot, page propre, bandeau différé,
+    // propriété de l'en-tête) — dev interactif seulement, dans l'enfant du
+    // superviseur : cf {@link SupervisorLink.prepareDevScreen}.
+    this.supervisorLink.prepareDevScreen();
 
     // `tmp/` est gitignored (jamais commité) → absent sur un checkout frais (CI),
     // un container/pod neuf ou un premier boot. `FileClass` fait un `lstatSync()`
@@ -2931,106 +2923,38 @@ class Kernel extends Service implements IKernel {
       process.env.APP_ENV || process.env.NF_ENV || runtime;
   }
 
-  /**
-   * Bannière de boot dev (dev-only) : logo, mot « nodefony » et encart — version,
-   * application et environnement, runtime, topologie. Rendue par `renderBrand`
-   * (précalculée, sans figlet) ; couleurs gatées comme les journaux (logColor).
-   */
-  /**
-   * Le rendu du démarrage demandé (`--output`, `NF_OUTPUT`, sinon la capacité
-   * du terminal) — lu ici pour le splash, qui part avant tout hook de commande.
-   * Une valeur invalide rend `human` : c'est la commande `development` qui la
-   * refuse, en la nommant ; le splash n'a pas à mourir pour elle.
-   *
-   * @returns le rendu.
-   */
+  /** Rendu du démarrage demandé (`--output`, `NF_OUTPUT`, sinon le terminal) — délégué à {@link SupervisorLink.startupOutputMode}. */
   startupOutputMode(): StartupOutputMode {
-    try {
-      return resolveOutputMode(
-        readOutputFlag(process.argv),
-        process.env,
-        this.isTTY,
-      );
-    } catch {
-      return "human";
-    }
+    return this.supervisorLink.startupOutputMode();
   }
 
-  /**
-   * Version de Nodefony — celle du paquet `nodefony` qui tourne, jamais celle
-   * de l'application. La version portée par la ligne de commande ne convient
-   * pas : au chargement de l'application, `setCommandVersion` la remplace par
-   * celle de l'APP (le bandeau du bilan affichait « Nodefony 0.1.0 » pour une
-   * application en 0.1.0).
-   *
-   * @returns la version du framework.
-   */
+  /** Version du paquet `nodefony` qui tourne, jamais celle de l'application — délégué à {@link SupervisorLink.frameworkVersion}. */
   frameworkVersion(): string {
-    return Nodefony.version;
+    return this.supervisorLink.frameworkVersion();
   }
 
-  /**
-   * La bannière de développement (logo, version, environnement, Node, mode),
-   * rendue pour la largeur ACTUELLE du terminal — le `BootReporter` la repose
-   * en haut de l'écran, et la redessine quand la fenêtre change de taille.
-   *
-   * @returns la bannière, retours chariot compris.
-   */
+  /** Bannière de développement, rendue pour la largeur actuelle du terminal — délégué à {@link SupervisorLink.devHeader}. */
   devHeader(): string {
-    const version = this.frameworkVersion();
-    // Axe DÉPLOIEMENT (APP_ENV / NF_ENV) affiché seulement s'il DIFFÈRE du
-    // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
-    // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
-    const appEnv = process.env.APP_ENV || process.env.NF_ENV;
-    const env =
-      appEnv && appEnv !== this.environment
-        ? `${this.environment} · ${appEnv}`
-        : this.environment;
-    const rows = [
-      { label: "app", value: `${this.projectName} · ${env}` },
-      {
-        label: "node",
-        value: `${process.version} · ${process.platform} · pid ${process.pid}`,
-      },
-      // Rappel du volet TTY (découvrabilité) : interactif possible SSI interactive && tty.
-      {
-        label: "mode",
-        value: [this.typeCluster, this.isTTY ? "tty" : "sans tty"]
-          .filter(Boolean)
-          .join(" · "),
-      },
-    ];
-    return renderBrand({
-      ...(version ? { version } : {}),
-      rows,
-      columns: terminalSize().columns || 80,
-      color: isLogColorEnabled(),
-      charset: resolveBrandCharset(process.platform, process.env),
-    });
+    return this.supervisorLink.devHeader();
   }
 
   /** Imprime la bannière de développement ({@link devHeader}) en tête du boot. */
   printDevHeader(): void {
-    process.stdout.write(this.devHeader());
+    this.supervisorLink.printDevHeader();
   }
 
+  /**
+   * Bannière `SERVER` (profil, rôle cluster, environnements, debug) — délégué à
+   * {@link KernelCluster.logEnv}. ⚠️ Avec une CLI attachée, RECOPIE
+   * `cli.runProfile` dans `runProfile` (piège d'origine, conservé).
+   */
   logEnv(): string {
-    if (this.cli) {
-      this.runProfile = this.cli.runProfile;
-    }
-    const profileLabel = this.runProfile.servers ? "server" : "console";
-    let txt = `      \x1b ${logColor.blue(profileLabel)} `;
-    txt += ` ${logColor.magenta("Cluster")} : ${this.typeCluster} `;
-    txt += ` ${logColor.magenta("Nodefony Environment")} : ${this.environment}  `;
-    txt += ` ${logColor.magenta("App Environment")} : ${
-      this.appEnvironment.environment
-    }  `;
-    txt += ` ${logColor.magenta("Debug")} : ${String(this.debug)}\n`;
-    return txt;
+    return this.clusterLink.logEnv();
   }
 
+  /** `true` dans le processus primaire du cluster — délégué à {@link KernelCluster.clusterIsMaster}. */
   clusterIsMaster(): boolean {
-    return cluster.isPrimary;
+    return this.clusterLink.clusterIsMaster();
   }
 
   /**
@@ -3047,43 +2971,18 @@ class Kernel extends Service implements IKernel {
     }
   }
 
+  /**
+   * Entrée dans le cluster, à `preRegister` : pid, bannière `SERVER`,
+   * `MODULE ADD` différés (SOUS la bannière), `onCluster`, puis — worker —
+   * écoute des messages de contrôle du primaire. Corps dans
+   * {@link KernelCluster} (`announceRole` / `join`) ; le vidage des
+   * `MODULE ADD` reste ici (tampon du noyau).
+   */
   initCluster(): void {
-    this.pid = process.pid;
-    //this.process = process;
-    if (this.console && this.cli?.commander?.opts().json) {
-      return;
-    }
-    if (cluster.isPrimary) {
-      if (!this.reporterOwnsHeader && !this.cli?.quietBoot)
-        console.log(this.logEnv());
-      this.flushPendingModuleAddLogs();
-      this.fire("onCluster", "MASTER", this, process);
-    } else if (cluster.isWorker) {
-      if (!this.reporterOwnsHeader && !this.cli?.quietBoot)
-        console.log(this.logEnv());
-      this.flushPendingModuleAddLogs();
-      this.workerId = cluster.worker?.id;
-      this.worker = cluster.worker;
-      this.fire("onCluster", "WORKER", this, process);
-      process.on("message", (msg) => {
-        // Canal IPC partagé : les publications realtime (nf:rt) et les snapshots de sonde
-        // agrégée (nf:probe:snap) sont consommés par leurs propres listeners (ClusterBackplane
-        // / ClusterProbeClient) → ne PAS les logger ni les re-fire ici, sinon flood au rythme
-        // du fan-out / de la cadence sonde. On ne relaie que les messages de contrôle (rares).
-        if (
-          isClusterMessage(msg) &&
-          (msg.kind === CLUSTER_RT_KIND ||
-            msg.kind === CLUSTER_PROBE_SNAPSHOT_KIND)
-        ) {
-          return;
-        }
-        this.log(msg, "INFO", "IPC MESSAGE");
-        this.fire("onMessage", msg);
-      });
-    }
-    // if (nodefony.warning) {
-    //   this.log(nodefony.warning, "WARNING");
-    // }
+    const role = this.clusterLink.announceRole();
+    if (role === null) return;
+    this.flushPendingModuleAddLogs();
+    this.clusterLink.join(role);
   }
 
   override fire(event: KernelEventsType, ...args: unknown[]): boolean {
@@ -4049,24 +3948,17 @@ class Kernel extends Service implements IKernel {
     return path.resolve(this.path, myPath);
   }
 
+  /**
+   * Enveloppe IPC héritée (`type: "process:msg"`) vers le processus parent —
+   * délégué à {@link KernelCluster.sendMessage} (hors du canal `nf-dev`).
+   */
   sendMessage(
     message: unknown,
     handle?: SendHandle,
     options?: { swallowErrors?: boolean; keepOpen?: boolean | undefined },
     callback?: (error: Error | null) => void,
   ): boolean {
-    if (process.send) {
-      return process.send(
-        {
-          type: "process:msg",
-          data: message,
-        },
-        handle,
-        options,
-        callback,
-      );
-    }
-    throw new Error(`process.send not found `);
+    return this.clusterLink.sendMessage(message, handle, options, callback);
   }
 
   memoryUsage(message?: string, severity: Severity = "DEBUG") {

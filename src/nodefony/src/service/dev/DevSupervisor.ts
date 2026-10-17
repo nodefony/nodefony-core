@@ -44,7 +44,12 @@ import {
   isTerminal,
 } from "../../runtime/isTerminal";
 import { ERASE_LINE } from "./statusLine";
-import { DEV_CHANNEL, listenToServer, sendToServer } from "./devChannel";
+import {
+  DEV_CHANNEL,
+  DEV_CHILD_ENV,
+  listenToServer,
+  sendToServer,
+} from "./devChannel";
 import {
   DevTerminal,
   probeTerminal,
@@ -863,7 +868,7 @@ export class DevSupervisor {
   constructor(options: DevSupervisorOptions) {
     this.#cwd = options.cwd;
     this.#debounceMs = options.debounceMs ?? 250;
-    this.#childEnvKey = options.childEnvKey ?? "NF_DEV_CHILD";
+    this.#childEnvKey = options.childEnvKey ?? DEV_CHILD_ENV;
     this.#mode = devSupervisorMode(process.argv, process.env);
     // En `json`, le flux standard appartient au bilan JSON du serveur.
     this.#out = this.#mode === "json" ? process.stderr : process.stdout;

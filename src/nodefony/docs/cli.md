@@ -209,7 +209,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 <!-- prettier-ignore -->
 | Commande | Alias | Ce qu'elle fait | Arrêt | Classe |
 | --- | --- | --- | --- | --- |
-| `development` | `dev` | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`) | `onPostReady` | `DevCommand.ts:49` |
+| `development` | `dev` | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`) | `onPostReady` | `DevCommand.ts:47` |
 | `debug` | — | `development` + débogueur ouvert DANS le serveur, rouvert à chaque rechargement (`--inspect=<port>`, `--inspect-brk`) | `onPostReady` | `DebugCommand.ts:17` |
 | `production` | `prod` | Runtime prod au premier plan ; topologie via `-w, --workers` | `onPostReady` | `ProdCommand.ts:40` |
 | `cluster` | — | Cluster de N workers (cgroup-aware, respawn) — `-w, --workers` | `onPostReady` | `ClusterCommand.ts:39` |

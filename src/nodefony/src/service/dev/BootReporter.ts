@@ -18,7 +18,7 @@ import {
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { StatusLine } from "./statusLine";
 import { onTerminalResize, terminalSize } from "../../runtime/isTerminal";
-import { DEV_CHANNEL, sendToSupervisor } from "./devChannel";
+import { DEV_CHANNEL } from "./devChannel";
 import { startRuntimeSampler } from "./runtimeSampler";
 import {
   buildStartupView,
@@ -174,8 +174,6 @@ class BootReporter {
       tty: boolean;
       mode: StartupOutputMode;
       reload: boolean;
-      /** Lancé par le superviseur (rechargement automatique) ou `--no-watch`. */
-      supervised: boolean;
       /** URL du débogueur ouvert dans le serveur, ou `null`. */
       inspector: string | null;
     },
@@ -193,7 +191,8 @@ class BootReporter {
     this.#hyperlinks =
       opts.mode === "human" && supportsHyperlinks(process.env, opts.tty);
     this.#reload = opts.reload;
-    this.#supervised = opts.supervised;
+    // Vérité unique du noyau (`NF_DEV_CHILD` constaté une fois) — plus d'option.
+    this.#supervised = kernel.supervisorLink.supervised;
     this.#inspector = opts.inspector;
     this.#charset = resolveBrandCharset(process.platform, process.env);
     this.#symbols = SCREEN_SYMBOLS[this.#charset];
@@ -345,13 +344,13 @@ class BootReporter {
 
   /**
    * Dit au superviseur l'étape en cours — sa barre d'état la montre pendant
-   * le démarrage. Sans superviseur, rien ne part (`sendToSupervisor` rend
+   * le démarrage. Sans superviseur, rien ne part (`supervisorLink.send` rend
    * `false`) : quelques messages par démarrage, aucun en régime établi.
    */
   #announceStep(): void {
     if (!this.#supervised || this.#done) return;
     const frontend = this.#frontendLabel !== null;
-    sendToSupervisor({
+    this.#kernel.supervisorLink.send({
       channel: DEV_CHANNEL,
       type: "boot-step",
       step: this.#label(),
@@ -417,7 +416,11 @@ class BootReporter {
     // Prêt et supervisé : la barre du superviseur reçoit des mesures vivantes.
     if (this.#supervised && view.ready && this.#stopSampler === null) {
       this.#stopSampler = startRuntimeSampler((sample) => {
-        sendToSupervisor({ channel: DEV_CHANNEL, type: "runtime", ...sample });
+        this.#kernel.supervisorLink.send({
+          channel: DEV_CHANNEL,
+          type: "runtime",
+          ...sample,
+        });
       });
       this.#kernel.once("onTerminate", () => this.#stopSampler?.());
     }
@@ -533,7 +536,7 @@ class BootReporter {
     };
     if (
       this.#status === null &&
-      sendToSupervisor({
+      this.#kernel.supervisorLink.send({
         channel: DEV_CHANNEL,
         type: "status-view",
         view,
