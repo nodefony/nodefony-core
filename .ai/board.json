@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T04:09:37.347Z",
+  "generatedAt": "2026-10-17T04:11:04.908Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -3049,7 +3049,7 @@
       "title": "fix(cli): annoncer la migration requise après create entity",
       "url": "https://github.com/nodefony/nodefony-core/issues/606",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
