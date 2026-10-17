@@ -1207,16 +1207,19 @@ a.nf-card:hover .card-t { color:var(--accent); }
   :root:not([data-theme="light"]) .d-dark { display:block; }
   :root:not([data-theme="light"]) .d-light { display:none; }
 }
-.schema-zone { margin:18px 0; padding:12px; border:1px solid var(--line); border-radius:9px;
-  background:var(--card); overflow-x:auto; }
-/* Le SVG porte une zone de vue, donc il s'échelonne sans se déformer — traits et
-   libellés grandissent ensemble. Il suit la largeur du cadre, centré, mais ne
-   GRANDIT pas au-delà de 110 % de sa taille naturelle : étiré à toute la colonne,
-   un schéma de quatre boîtes doublait de taille et ses libellés passaient de
+/* Le CADRE épouse le schéma, et non l'inverse. Étiré à toute la colonne, un
+   schéma de quatre boîtes doublait de taille et ses libellés passaient de
    12,5 px à plus de 20 — des boîtes énormes pour trois mots, vu sur la carte des
-   modules. Le léger agrandissement permis évite le cadre à moitié vide. */
-.schema-zone svg { display:block; width:100%; height:auto; margin:0 auto;
-  max-width:calc(var(--schema-w, 100%) * 1.1); }
+   modules. Bridé à sa taille sans toucher au cadre, il flottait au milieu d'un
+   cadre à moitié vide. Le cadre prend donc la largeur naturelle du schéma
+   (\`--schema-w\`), centré dans la colonne, et ne la dépasse jamais : plus étroite
+   que le schéma, la colonne le réduit, cadre compris. Aucune marge intérieure :
+   le SVG porte déjà les siennes, et une marge de plus laissait voir son fond
+   blanc inscrit dans le cadre gris, comme un second cadre. */
+.schema-zone { width:fit-content; max-width:100%; box-sizing:border-box;
+  margin:18px auto; padding:0; border:1px solid var(--line); border-radius:9px;
+  background:var(--card); overflow-x:auto; }
+.schema-zone svg { display:block; height:auto; width:var(--schema-w, 100%); max-width:100%; }
 /* Un schéma LARGE (ruban de pipeline, frise) ne se laisse pas réduire jusqu'à
    l'illisible : la colonne de contenu fait ~580 px, et un ruban de 1 758 px y
    tombe à 33 %, où les libellés ne se lisent plus — le lecteur doit alors cliquer
@@ -1233,6 +1236,7 @@ a.nf-card:hover .card-t { color:var(--accent); }
    sur toute la hauteur de la page. Une marge négative faisait passer le ruban
    PAR-DESSUS ses entrees — mesure a l'ecran, deux textes superposes. La place
    semblait libre ; elle ne l'etait pas. */
+.schema-zone.large { width:100%; }
 .schema-zone.large svg { width:100%;
   min-width:calc(var(--schema-w) * 0.9);
   max-width:var(--schema-w); }
