@@ -31,7 +31,10 @@ import process from "node:process";
 const args = process.argv.slice(2);
 const baseAt = args.indexOf("--base");
 const base = baseAt === -1 ? "HEAD" : args[baseAt + 1];
-const target = args.find((a, i) => !a.startsWith("--") && i !== baseAt + 1);
+// Sans `--base`, `baseAt + 1` vaudrait 0 et écarterait la cible elle-même.
+const target = args.find(
+  (a, i) => !a.startsWith("--") && (baseAt === -1 || i !== baseAt + 1),
+);
 if (!target || !base) {
   console.error("Usage: anchor-pair-check.mjs <fichier.ts> [--base <rév>]");
   process.exit(2);
