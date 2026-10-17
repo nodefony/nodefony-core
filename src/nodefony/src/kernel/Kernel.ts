@@ -135,11 +135,8 @@ import {
 } from "../service/dev/outputMode";
 import { ReadinessRegistry } from "./readinessRegistry";
 import type { IReadinessContributor } from "./readinessRegistry";
-import {
-  clearReadinessState,
-  DEFAULT_LOG_DIR,
-  writeReadinessState,
-} from "../service/dev/devProcess";
+import { KernelReadinessPublisher } from "./kernelReadiness";
+import { DEFAULT_LOG_DIR } from "../service/dev/devProcess";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
@@ -484,6 +481,14 @@ class Kernel extends Service implements IKernel {
    * aucune application ne se sert. Lire {@link Kernel.readinessBlocked}.
    */
   private readiness: ReadinessRegistry | null = null;
+  /**
+   * Publication sur disque et journal de bascule de la mise en service
+   * ({@link KernelReadinessPublisher}) — famille READY, par composition.
+   * Allouée au premier {@link Kernel.setReadiness}, JAMAIS libérée ensuite : elle
+   * porte la signature du dernier état publié, qui doit survivre au
+   * `readiness = null` de {@link Kernel.clearReadiness}.
+   */
+  private readinessPublisher: KernelReadinessPublisher | null = null;
   /**
    * Supprime les bannières serveurs « Server Listen on… » (`showBanner`) — posé
    * par le `BootReporter` animé (dev TTY non-debug) : le bloc « ✓ Prêt » liste
@@ -3625,12 +3630,6 @@ class Kernel extends Service implements IKernel {
    *
    * @returns le nombre de contributeurs non prêts (`0` quand personne n'est inscrit)
    */
-  /**
-   * Signature du dernier état publié sur le disque — `null` tant que rien ne
-   * l'a été. Sert UNIQUEMENT à ne pas réécrire un fichier identique.
-   */
-  #readinessPublished: string | null = null;
-
   get readinessBlocked(): number {
     return this.readiness === null ? 0 : this.readiness.blocked;
   }
@@ -3711,10 +3710,13 @@ class Kernel extends Service implements IKernel {
     // contributeur qui dira plus tard « plus prêt ».
     this.readiness ??= new ReadinessRegistry();
     const flipped = this.readiness.set(name, ready, reason, blocking, action);
+    const publisher = (this.readinessPublisher ??= new KernelReadinessPublisher(
+      this,
+    ));
     if (flipped) {
-      this.logReadinessFlip();
+      publisher.logFlip(this.readinessReport());
     }
-    this.publishReadinessState();
+    publisher.publish(this.readinessReport());
   }
 
   /**
@@ -3732,10 +3734,15 @@ class Kernel extends Service implements IKernel {
     if (this.readiness.size === 0) {
       this.readiness = null;
     }
+    // Le publieur existe déjà (un registre non nul vient d'un `setReadiness`) ;
+    // le `??=` ne sert qu'à le dire au compilateur, il n'alloue jamais ici.
+    const publisher = (this.readinessPublisher ??= new KernelReadinessPublisher(
+      this,
+    ));
     if (flipped) {
-      this.logReadinessFlip();
+      publisher.logFlip(this.readinessReport());
     }
-    this.publishReadinessState();
+    publisher.publish(this.readinessReport());
   }
 
   /**
@@ -3746,67 +3753,6 @@ class Kernel extends Service implements IKernel {
    */
   readinessReport(): IReadinessContributor[] {
     return this.readiness === null ? [] : this.readiness.report();
-  }
-
-  /**
-   * Publie sur le disque QUI retient la mise en service — le canal que lit
-   * `nodefony status`.
-   *
-   * **Pourquoi un fichier plutôt que la sonde** : le détail existe déjà sur
-   * `livez`, mais réservé à un appelant authentifié, et cette route est publique
-   * en production. Le système de fichiers est la vraie frontière « local », il
-   * répond même quand la boucle d'événements ne répond plus, et il n'ouvre
-   * aucune surface publique. Détail : {@link readinessStateFile}.
-   *
-   * **N'écrit que si l'état a CHANGÉ.** En régime établi — un contributeur qui
-   * repose le même verdict toutes les quinze secondes — ce mécanisme ne touche
-   * pas le disque. La signature est une chaîne courte, composée hors du chemin
-   * d'une requête : `setReadiness` n'est appelé qu'au démarrage et au rythme
-   * propre de chaque contributeur.
-   */
-  private publishReadinessState(): void {
-    const contributors = this.readinessReport();
-    // Signature de l'ÉTAT, pas du temps : deux appels identiques n'écrivent
-    // qu'une fois. Un `ts` dans la comparaison rendrait le garde inopérant.
-    const signature = contributors
-      .map((c) => `${c.name}\u0000${c.ready ? 1 : 0}\u0000${c.reason ?? ""}`)
-      .join("\u0001");
-    if (signature === this.#readinessPublished) {
-      return;
-    }
-    this.#readinessPublished = signature;
-    if (contributors.length === 0) {
-      clearReadinessState(this.path);
-      return;
-    }
-    writeReadinessState(this.path, contributors);
-  }
-
-  /**
-   * Dit au journal ce qui vient de basculer. Appelé UNIQUEMENT quand le verdict
-   * agrégé change (jamais à chaque pose de verdict identique) : un pod retenu
-   * plusieurs heures ne doit pas noyer son propre journal, et un exploitant qui
-   * voit un pod jamais disponible doit trouver ici le NOM de ce qui le retient —
-   * le corps de la sonde, lui, reste une constante pré-allouée.
-   */
-  private logReadinessFlip(): void {
-    // Le registre peut avoir été libéré à l'instant (dernier contributeur
-    // retiré) : c'est exactement le cas « plus rien ne retient ».
-    const retenant =
-      this.readiness === null
-        ? []
-        : this.readiness.report().filter((c) => !c.ready);
-    if (retenant.length === 0) {
-      this.log("Mise en service libérée — /readyz rend de nouveau 200", "INFO");
-      return;
-    }
-    const details = retenant
-      .map((c) => (c.reason ? `${c.name} (${c.reason})` : c.name))
-      .join(", ");
-    this.log(
-      `Mise en service RETENUE — /readyz rend 503 : ${details}`,
-      "CRITIC",
-    );
   }
 
   /**

@@ -130,10 +130,10 @@ Chaque copie s'inscrit d'elle-même à son évaluation
 (`src/nodefony/src/runtime/packageInstances.ts:63`), dans une entrée de
 `globalThis` adressée par un symbole du registre global — la seule case mémoire
 que deux copies partagent. Le boot les COMPTE, à deux instants : après l'import
-de l'application (`src/nodefony/src/kernel/Kernel.ts:2533`), puis après le
+de l'application (`src/nodefony/src/kernel/Kernel.ts:2538`), puis après le
 chargement des modules du manifeste, qui peut en apporter une seconde
-(`src/nodefony/src/kernel/Kernel.ts:1136`). Le
-verdict (`src/nodefony/src/kernel/Kernel.ts:2274`) tranche alors :
+(`src/nodefony/src/kernel/Kernel.ts:1141`). Le
+verdict (`src/nodefony/src/kernel/Kernel.ts:2279`) tranche alors :
 
 - **en développement** — l'application démarre, et un avertissement nomme **les
   deux chemins**. Celui qui lance lit son journal, et il a besoin de son serveur.
