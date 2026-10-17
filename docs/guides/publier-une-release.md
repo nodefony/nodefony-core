@@ -7,7 +7,7 @@ audience: [devops]
 tags: [release, npm, publication, changelog, oidc, smoke]
 version: "doc"
 status: stable
-updated: 2026-09-01
+updated: 2026-10-17
 source: "docs/guides/publier-une-release.md"
 navTitle: Publier une release
 related: scripts/release/, .github/workflows/release.yml, docs/release/nodefony-10.md
@@ -174,7 +174,7 @@ tag v10.*  ─►  épreuve (base, front, studio, cluster) + accès + garde main
                                        ├─►  vitrine nodefony/nodefony
                                        │       └─►  verdict de SA chaîne
                                        ├─►  image docker
-                                       ├─►  release GitHub
+                                       ├─►  release GitHub + site archivé
                                        └─►  bilan
 ```
 
@@ -185,6 +185,20 @@ qu'elle rend et fait échouer la publication si elle est rouge. Il n'empêche ri
 `npm publish`, donc après le point irrattrapable. Son rôle est qu'un verdict cesse d'être ignoré.
 Il exige du jeton `NF_VITRINE_TOKEN` une permission de plus — **Actions = Read** ; sans elle il
 avertit au lieu d'échouer, plutôt que de fabriquer un rouge permanent sur un défaut de jeton.
+
+### Le site de la version — rendu une fois, gardé pour toujours
+
+Le site public sert plusieurs versions à la fois : la **racine** décrit la version publiée (bâtie
+depuis `main`), `/next/` la branche `dev` avec un bandeau « pas encore publié », et
+`/<version>/` chaque release passée. Le job `annonce` rend le site **depuis le tag**
+(`scripts/site/build-site.mjs --channel published`) et le joint à la Release GitHub sous
+`site-<version>.tar.gz`, **avant** de demander la republication. Chaque déploiement remet ensuite
+ces archives telles quelles (`scripts/site/assemble-site.mjs`) — il ne rebâtit jamais un vieux tag,
+qui passerait par le générateur d'aujourd'hui et ne montrerait plus la page publiée.
+
+Une release publiée **sans** cette pièce jointe (toutes celles antérieures au versionnement du site)
+n'a simplement pas de dossier : le sélecteur de l'en-tête ne la propose pas. Pour la rattraper,
+rendre le site depuis son tag et joindre l'archive à la main — le prochain déploiement la sert.
 
 ### 🔒 Le cran d'armement
 

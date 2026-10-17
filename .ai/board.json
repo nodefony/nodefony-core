@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T04:19:53.380Z",
+  "generatedAt": "2026-10-17T04:24:32.019Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4075,7 +4075,7 @@
       "title": "docs(config): remettre les exemples à la forme du générateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/607",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,

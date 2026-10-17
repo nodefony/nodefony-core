@@ -1,5 +1,26 @@
-# Publie le site Nodefony sur GitHub Pages — la documentation à la racine, les
-# mesures de performance sous `/performance/`.
+# Publie le site Nodefony sur GitHub Pages — l'accueil à la racine, la
+# documentation sous `/docs/`, les mesures sous `/performance/` — et ce, pour
+# PLUSIEURS versions à la fois :
+#
+#   /                 la version PUBLIÉE sur npm, bâtie depuis `main`
+#   /next/            la branche `dev`, avec bandeau « pas encore publié »
+#   /<version>/       chaque release archivée, telle qu'elle était à sa sortie
+#
+# Un sélecteur dans l'en-tête de chaque page passe de l'une à l'autre
+# (`scripts/site/lib/site-versions.mjs`).
+#
+# POURQUOI LA RACINE VIENT DE `main` ET PAS DE L'ARCHIVE DE LA RELEASE. `main`
+# n'avance qu'aux releases : elle porte ce qui est publié. Une correction du
+# RENDU (schéma, mise en page) s'y reporte par cherry-pick et se voit le jour
+# même, sans attendre la release suivante. L'archive, elle, ne change plus
+# jamais : c'est l'adresse permanente de la version.
+#
+# POURQUOI UN RUN DE `dev` DEMANDE UN RUN DE `main`. L'environnement
+# `github-pages` n'autorise que `main` ; `/next/` ne peut donc être mis en ligne
+# que par un run porté par `main`, qui récupère `dev` dans un second dossier.
+# Un push sur `dev` bâtit et éprouve SON site ici, puis demande ce run
+# (`workflow_dispatch`, seul événement que le `GITHUB_TOKEN` a le droit de
+# déclencher). La racine n'en bouge pas : elle se rebâtit depuis `main`.
 #
 # POURQUOI UN SEUL FLUX POUR DEUX SITES. GitHub Pages ne connaît qu'UN artefact,
 # et chaque déploiement REMPLACE l'intégralité du site. Deux flux séparés ne se
@@ -83,6 +104,11 @@ jobs:
   build:
     name: Rendre le site depuis les sources versionnées
     runs-on: ubuntu-latest
+    env:
+      # Sur `main`, la racine est la version publiée et `/next/` vient de `dev`.
+      # Ailleurs, le run éprouve le site de SA branche : il est bâti sous les
+      # deux canaux depuis la même source, assemblé, contrôlé — jamais déployé.
+      ON_MAIN: ${{ github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -94,26 +120,19 @@ jobs:
       # dernier n'existait longtemps que par transitivité de `typedoc` — un bump
       # aurait emporté le rendu de la documentation sans qu'aucun test ne bouge.
       # `--ignore-scripts` : rien ici n'a besoin de compiler quoi que ce soit.
-      - name: Installer les dépendances de rendu
-        run: npm ci --ignore-scripts
-
+      #
       # Le générateur de documentation consomme la surface PUBLIÉE de
       # `@nodefony/documentation` (scan, slugs, réécriture des liens) — la même
       # que verrait une application qui l'installe. Elle exige donc un paquet
       # bâti ; sans cette étape, le générateur s'arrête en nommant cette commande.
-      - name: Bâtir le module de documentation
-        run: npx turbo run build --filter=@nodefony/documentation
-
+      #
       # Le graphe symbolique n'est pas versionné : l'accueil en lit le compteur,
       # qui s'afficherait « — » sans un mot s'il manquait.
-      - name: Graphe symbolique
-        run: npm run generate-symbols
-
-      # La RACINE est la page de présentation, tirée du README : c'est ce que
-      # voit quelqu'un qui découvre le projet. La documentation vit sous `/docs/`,
-      # les mesures sous `/performance/` — trois objets, trois publics.
-      - name: Construire la page d'accueil
-        run: node scripts/site/readme-html.mjs dist-site/index.html
+      - name: Préparer le rendu (dépendances, module de documentation, symboles)
+        run: |
+          npm ci --ignore-scripts
+          npx turbo run build --filter=@nodefony/documentation
+          npm run generate-symbols
 
       # Le lecteur mermaid du moteur jette en silence une flèche qu'il ne
       # reconnaît pas : le schéma se rend quand même, amputé. Ses formes de
@@ -121,44 +140,97 @@ jobs:
       - name: Éprouver le lecteur de schémas
         run: node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
 
-      - name: Construire le site de documentation
-        run: node scripts/site/build-docs-site.mjs --out dist-site --mount /docs
+      # La séquence d'un rendu complet (accueil, documentation, mesures, qualité,
+      # plan) vit dans `build-site.mjs` : elle sert ici, sous `/next/` et à
+      # l'archive d'une release — une seule copie.
+      - name: Rendre la version publiée
+        run: node scripts/site/build-site.mjs --out dist-published --channel published
 
-      # Les mesures gardent leur place, sous `/performance/`. Une URL publiée ne
-      # se change plus sans casser les liens de ceux qui l'ont citée.
-      - name: Construire le dossier de performance
-        run: node scripts/site/build-perf-site.mjs --out dist-site/performance
+      # Sur `dev`, la même source sous le canal `next` : c'est ce que `/next/`
+      # montrera, bandeau compris, et son contrôle de liens ne se fait que sur le
+      # site assemblé (le bandeau remonte vers la racine).
+      - name: Rendre la branche courante sous /next/ (hors main)
+        if: env.ON_MAIN != 'true'
+        run: node scripts/site/build-site.mjs --out dist-next --channel next
 
-      # Le verdict d'une CAMPAGNE DE TEST par version, sous `/qualite/`. Même
-      # contrat que la performance : le script ne teste rien, il rend des données
-      # commitées avec leur décor. Ce qu'il publie n'est donc pas « tout est
-      # vert » mais « voici ce qui a été éprouvé, et ce qui ne l'a pas été ».
-      - name: Construire le dossier de qualité
-        run: node scripts/site/build-qualite-site.mjs --out dist-site/qualite
+      # Sur `main`, `/next/` vient de `dev` — une SECONDE copie du dépôt, bâtie
+      # par SON propre outillage : c'est le site que `dev` décrit, pas celui que
+      # l'outillage de `main` en ferait.
+      - name: Récupérer dev pour /next/ (main)
+        if: env.ON_MAIN == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: dev
+          path: next-src
+      - name: Rendre dev sous /next/ (main)
+        if: env.ON_MAIN == 'true'
+        working-directory: next-src
+        run: |
+          npm ci --ignore-scripts
+          npx turbo run build --filter=@nodefony/documentation
+          npm run generate-symbols
+          node scripts/site/build-site.mjs --out "$GITHUB_WORKSPACE/dist-next" --channel next
 
-      # Le PLAN du site, écrit sur ce qui vient d'être rendu — jamais sur les
-      # sources. Un développeur interroge un agent avant d'ouvrir un README :
-      # `llms.txt` est ce qui dit à cet agent où lire, et surtout ce qu'une
-      # application installe vraiment. Cette étape vient donc APRÈS les trois
-      # rendus, sinon le plan décrirait un site incomplet.
-      - name: Écrire le plan du site (llms.txt, sitemap, robots)
-        run: node scripts/site/build-site-plan.mjs --out dist-site
+      # Chaque release a archivé son site (`release.yml`, job `annonce`) :
+      # on le REMET tel quel, sans rien rebâtir — un vieux tag passerait par le
+      # générateur d'aujourd'hui, et la page ne serait plus celle publiée. Une
+      # release sans archive (antérieure au versionnement) est simplement
+      # absente du sélecteur. Le nom de chaque dossier est contrôlé à
+      # l'assemblage : seul un numéro de version devient un dossier du site.
+      - name: Récupérer les sites archivés des releases (main)
+        if: env.ON_MAIN == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p archives-tgz archives
+          for tag in $(gh release list --limit 200 --json tagName --jq '.[].tagName'); do
+            gh release download "$tag" --pattern 'site-*.tar.gz' --dir archives-tgz 2>/dev/null \
+              || echo "  $tag : pas d'archive de site"
+          done
+          shopt -s nullglob
+          for f in archives-tgz/site-*.tar.gz; do
+            v=$(basename "$f" .tar.gz); v=${v#site-}
+            mkdir -p "archives/$v"
+            tar -xzf "$f" -C "archives/$v"
+          done
+          echo "archives : $(ls archives | tr '\n' ' ')"
+
+      - name: Assembler les versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "$ON_MAIN" = "true" ]; then extra=(--archives archives); fi
+          node scripts/site/assemble-site.mjs --published dist-published \
+            --next dist-next --out dist-site "${extra[@]}"
 
       # Le site doit MONTRER quelque chose : une page vide se publierait en
       # silence. On exige la porte d'entrée, une page profonde et la page de
-      # mesures courante — trois points qui tombent pour trois raisons distinctes.
+      # mesures courante — trois points qui tombent pour trois raisons distinctes
+      # — à la racine ET sous `/next/`, plus le manifeste du sélecteur.
       - name: Vérifier que le site n'est pas vide
         shell: bash
         run: |
-          test -s dist-site/index.html
+          for d in dist-site dist-site/next; do
+            test -s $d/index.html
+            test -s $d/docs/index.html
+            test -s $d/docs/modules/security/firewall/index.html
+            test -s $d/docs/modules/security/firewall/index.md
+            test -s $d/performance/latest/index.html
+            test -s $d/versions.json
+          done
           test -s dist-site/404.html
-          test -s dist-site/docs/index.html
-          test -s dist-site/docs/modules/security/firewall/index.html
-          test -s dist-site/performance/latest/index.html
-          test -s dist-site/docs/modules/security/firewall/index.md
           test -s dist-site/llms.txt
           test -s dist-site/sitemap.xml
           test -s dist-site/robots.txt
+          # Le plan décrit la version installable : `/next/` n'y figure pas.
+          if grep -q '/next/' dist-site/sitemap.xml; then
+            echo "::error::sitemap.xml cite /next/ — le plan doit décrire la version publiée"
+            exit 1
+          fi
+          grep -q 'nf-next-banner' dist-site/next/docs/index.html
           echo "pages rendues : $(find dist-site -name index.html | wc -l)"
 
       # La recherche plein texte tient à DEUX artefacts, et perdre l'un des deux
@@ -190,7 +262,8 @@ jobs:
 
       # Un lien mort ne se voit qu'une fois en ligne, et le site est servi sous
       # un sous-chemin (`/nodefony-core/`) : ses liens sont donc RELATIFS, et
-      # cette garde est ce qui prouve qu'ils le sont restés.
+      # cette garde est ce qui prouve qu'ils le sont restés — sur le site
+      # ASSEMBLÉ, archives comprises, puisque c'est lui qui part en ligne.
       - name: Refuser un lien interne cassé
         run: node scripts/site/check-site-links.mjs dist-site
 
@@ -201,12 +274,13 @@ jobs:
   deploy:
     name: Déployer sur Pages
     needs: build
-    # 🔴 LE SITE EN LIGNE DÉCRIT CE QUI EST PUBLIÉ — donc `main`, jamais `dev`.
+    # 🔴 LE SITE EN LIGNE SE DÉPLOIE DEPUIS `main`, JAMAIS DEPUIS `dev`.
     # Sur `dev`, tout ce qui précède tourne quand même : le site est BÂTI et ses
     # gardes mordent (site non vide, recherche servie, aucun lien interne cassé).
-    # Seule la mise en ligne est retenue — un lecteur qui arrive de npmjs.com
-    # trouverait sinon une documentation décrivant du code qu'il ne peut pas
-    # installer, exactement le défaut que #257 a corrigé dans les README.
+    # Seule la mise en ligne est retenue — `dev` n'atteint le public que sous
+    # `/next/`, par le run de `main` que le job `next` ci-dessous demande. Un
+    # lecteur qui arrive de npmjs.com trouve ainsi à la racine la documentation
+    # de ce qu'il peut installer, exactement ce que #257 a corrigé dans les README.
     #
     # ⚠️ Cette règle vit ICI, dans le produit, et pas seulement dans la politique
     # de branches de l'environnement `github-pages`. Ce réglage-là est invisible
@@ -228,3 +302,24 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  next:
+    name: Mettre /next/ à jour — demander le run de main
+    needs: build
+    # Seul un run de `main` déploie : c'est lui qui récupère `dev` pour `/next/`.
+    # `workflow_dispatch` est l'exception documentée à la règle du jeton (les
+    # autres événements produits par le `GITHUB_TOKEN` ne déclenchent rien).
+    # Le groupe de concurrence `pages` ne garde qu'UN run en attente : une rafale
+    # de pushes sur `dev` ne produit qu'un déploiement de plus.
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Demander la republication depuis main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run pages.yml --ref main
+          echo "site : republication demandée depuis main (/next/ ← dev)"

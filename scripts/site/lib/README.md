@@ -36,3 +36,19 @@ Préparation de la SOURCE Markdown d'une page avant son rendu par le site.
 - **Usage** : `import { sansCommentaires } from "./lib/markdown-source.mjs"`
 - **Appelé par** : `site/build-docs-site.mjs`
 - **Testé par** : `site/markdown-source.test.mjs`
+
+## [`out-dir.mjs`](out-dir.mjs)
+
+Dossier de sortie d'un générateur du site : neuf à chaque rendu, ou refusé.
+
+- **Usage** : `import { prepareOutDir } from "./lib/out-dir.mjs"`
+- **Appelé par** : `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-site.mjs`
+- **Testé par** : `site/site-versions.test.mjs`
+
+## [`site-versions.mjs`](site-versions.mjs)
+
+Versions du site publié — qui vit où, et comment passer de l'une à l'autre.
+
+- **Usage** : `import { planVersions, manifestFor } from "./lib/site-versions.mjs"`
+- **Appelé par** : `pages.yml` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-site.mjs` · `site/readme-html.mjs`
+- **Testé par** : `site/site-versions.test.mjs`

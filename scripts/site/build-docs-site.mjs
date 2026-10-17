@@ -33,12 +33,16 @@
  * sur une machine sans Chromium.
  *
  * Usage :
- *   node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--base ""] [--quiet]
+ *   node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--mount /docs]
+ *        [--channel published|next] [--site-url <url>] [--quiet]
+ *
+ * Le dossier de la documentation (`<out>/<mount>`) est VIDÉ avant le rendu s'il
+ * porte un rendu précédent, refusé s'il porte autre chose (`lib/out-dir.mjs`).
  *
  * Sortie 1 si aucune page n'a pu être rendue, ou si le hub d'accueil manque —
  * un site vide se publierait en silence.
  *
- * @usage node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--base ""] [--quiet]
+ * @usage node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--mount /docs] [--channel published|next] [--quiet]
  * @usage node scripts/site/build-docs-site.mjs --list
  */
 import {
@@ -106,6 +110,8 @@ import { NODEFONY_BRAND } from "../../.claude/skills/nodefony-html-report/lib/br
 import { slugifyHeading } from "../../.claude/skills/nodefony-documentation/lib/slug-heading.mjs";
 import { sansBalises } from "./lib/html-text.mjs";
 import { sansCommentaires } from "./lib/markdown-source.mjs";
+import { prepareOutDir } from "./lib/out-dir.mjs";
+import { versionSwitchScript } from "./lib/site-versions.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -139,22 +145,58 @@ const git = (...a) => {
     return "";
   }
 };
-const BRANCH = git("branch", "--show-current") || "main";
+/**
+ * La référence git d'où viennent les pages — elle entre dans le lien « page
+ * générée depuis ». Un tag (archive de release) se bâtit en HEAD détaché, sans
+ * branche : c'est alors le tag qui désigne la bonne révision du fichier.
+ */
+const BRANCH =
+  git("branch", "--show-current") ||
+  git("describe", "--tags", "--exact-match") ||
+  "main";
 const COMMIT = git("rev-parse", "--short", "HEAD") || "?";
+/**
+ * Ce que le rendu décrit : `published` (la version servie par npm — la racine du
+ * site, et chaque archive de release) ou `next` (la branche `dev`, servie sous
+ * `/next/`). Déduit de la branche à défaut : `main` n'avance qu'aux releases.
+ * Le flux de publication le DIT toujours — un tag se bâtit en HEAD détaché, sans
+ * branche à lire.
+ */
+const CHANNEL = arg("channel", BRANCH === "main" ? "published" : "next");
+if (CHANNEL !== "published" && CHANNEL !== "next") {
+  console.error(`✗ --channel ${CHANNEL} : attendu « published » ou « next ».`);
+  process.exit(1);
+}
+const IS_NEXT = CHANNEL === "next";
 /**
  * La version que le site AFFICHE : celle du paquet publié (`nodefony`), jamais
  * celle de la racine — l'application de développement, figée à `10.0.0`, faisait
- * annoncer « Nodefony 10.0.0 » pendant que npm servait une beta. Hors de `main`
- * (qui n'avance qu'aux releases), la page décrit ce qui VIENT après cette
- * version, et le dit.
+ * annoncer « Nodefony 10.0.0 » pendant que npm servait une beta. Sur `next`, la
+ * page décrit ce qui VIENT après cette version, et le dit.
  */
 const PUBLISHED = JSON.parse(
   readFileSync(path.join(ROOT, "src", "nodefony", "package.json"), "utf8"),
 ).version;
-const VERSION =
-  BRANCH === "main" ? PUBLISHED : `en développement, après ${PUBLISHED}`;
+const VERSION = IS_NEXT ? `en développement, après ${PUBLISHED}` : PUBLISHED;
 /** La pastille de l'en-tête, à côté du nom : courte, lisible d'un coup d'œil. */
-const BADGE = BRANCH === "main" ? PUBLISHED : `${PUBLISHED} + dev`;
+const BADGE = IS_NEXT ? `${PUBLISHED} + dev` : PUBLISHED;
+
+/**
+ * Bandeau de `/next/` : ce que la page décrit n'est pas installable. Le lien
+ * remonte d'un cran — `next/` vit sous la racine, qui porte la version publiée.
+ *
+ * @param {string} rootRel - chemin relatif de la page vers la racine de SA version.
+ * @returns {string} le bandeau, vide hors de `next`.
+ */
+function nextBanner(rootRel) {
+  if (!IS_NEXT) return "";
+  return (
+    `<div class="nf-next-banner" role="note"><strong>En développement — pas encore publié.</strong> ` +
+    `Cette page décrit la branche <code>dev</code> (<a href="${REPO_URL}/commit/${esc(COMMIT)}"><code>${esc(COMMIT)}</code></a>) : ` +
+    `ce qu'elle annonce n'est pas encore dans <code>nodefony@${esc(PUBLISHED)}</code>. ` +
+    `<a href="${rootRel}../">Lire la documentation de la version publiée</a>.</div>`
+  );
+}
 const BUILT_AT = new Date().toISOString().slice(0, 10);
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1028,6 +1070,9 @@ const buildToc = (toc) =>
    ════════════════════════════════════════════════════════════════════════════ */
 
 const SITE_CSS = `
+.nf-next-banner { margin:0 0 22px; padding:10px 14px; border:1px solid var(--warn-fg);
+  border-left-width:4px; border-radius:6px; background:var(--warn-bg); color:var(--warn-fg); font-size:14px; }
+.nf-next-banner a { color:inherit; text-decoration:underline; }
 .site-nav a { display:block; color:var(--fg); text-decoration:none; padding:3px 8px;
   border-radius:5px; line-height:1.4; }
 .site-nav a:hover { background:var(--card); color:var(--accent); }
@@ -1384,13 +1429,18 @@ function renderPage(d, published, index, publishedPaths) {
         ? `<link rel="icon" href="${rel(d.url, "/")}${FAVICON.slice(1)}">\n`
         : "") +
       `<link rel="canonical" href="${SITE_URL}${esc(d.url)}">\n` +
+      // `/next/` décrit ce qui n'est pas installable : un moteur de recherche
+      // qui l'indexerait enverrait le lecteur sur une API qu'il n'a pas.
+      (IS_NEXT ? `<meta name="robots" content="noindex">\n` : "") +
+      versionSwitchScript(rel(d.url, "/")) +
+      "\n" +
       // Le markdown de la page, servi à côté d'elle : un agent l'obtient sans
       // HTML, en un seul appel, au bon grain. C'est ce qui remplace un
       // `llms-full.txt` de trois mégaoctets — qu'un lecteur tronquerait par le
       // haut, lisant un tiers arbitraire du corpus en croyant l'avoir lu entier.
       `<link rel="alternate" type="text/markdown" href="index.md">`,
     subtitle: badges ? `<span class="badges">${badges}</span>` : "",
-    sections: [html],
+    sections: [nextBanner(rel(d.url, "/")), html],
     nav: buildNav(published, d),
     aside: buildToc(toc),
     style: SITE_CSS,
@@ -1482,6 +1532,17 @@ for (const p of published) {
 const index = new Map(published.map((p) => [p.repoRel, p.url]));
 const publishedPaths = new Set(index.keys());
 
+// Un dossier réutilisé garde les pages retirées du périmètre — servies, elles
+// donnent l'illusion qu'un retrait n'a pas pris. On repart d'un dossier neuf,
+// mais on ne vide que ce qu'on reconnaît comme un rendu précédent.
+try {
+  prepareOutDir(path.join(OUT, MOUNT.replace(/^\//, "")), "search-index.json", {
+    protect: ROOT,
+  });
+} catch (e) {
+  console.error(`✗ ${e.message}`);
+  process.exit(1);
+}
 mkdirSync(OUT, { recursive: true });
 
 // L'icône du site — le logo de la marque, extrait de son data-URI. Sans elle,
@@ -1533,25 +1594,6 @@ writeFileSync(
   }),
 );
 
-// Un dossier de sortie réutilisé conserve les pages retirées du périmètre : en
-// local, elles restent servies et donnent l'illusion qu'un retrait n'a pas pris.
-// On ne supprime rien — le chemin vient de l'appelant — mais on le DIT.
-const written = new Set(
-  published.map((p) => path.join(OUT, p.url.replace(/^\//, ""), "index.html")),
-);
-written.add(path.join(OUT, "404.html"));
-written.add(path.join(OUT, MOUNT.replace(/^\//, ""), "search-index.json"));
-const stale = [];
-const sweep = (dir) => {
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, e.name);
-    if (e.isDirectory()) sweep(full);
-    else if (e.name.endsWith(".html") && !written.has(full))
-      stale.push(path.relative(OUT, full));
-  }
-};
-sweep(OUT);
-
 if (!QUIET) {
   const byWhy = new Map();
   for (const r of rejected)
@@ -1575,17 +1617,6 @@ if (!QUIET) {
   console.log(`   écartées : ${rejected.length} pages`);
   for (const [why, n] of [...byWhy].sort((a, b) => b[1] - a[1]))
     console.log(`              ${String(n).padStart(4)}  ${why}`);
-  if (stale.length) {
-    console.log(
-      `\n   ⚠️ ${stale.length} page(s) d'une génération PRÉCÉDENTE encore dans ${path.relative(ROOT, OUT)} —`,
-    );
-    console.log(
-      "      elles seraient servies alors qu'elles ne sont plus publiées :",
-    );
-    for (const f of stale.slice(0, 8)) console.log(`      ${f}`);
-    if (stale.length > 8)
-      console.log(`      … et ${stale.length - 8} autre(s)`);
-  }
   if (dead.length) {
     console.log(
       `\n   ⚠️ ${dead.length} lien(s) sans cible (ni page publiée, ni fichier du dépôt) :`,

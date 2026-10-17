@@ -11,8 +11,9 @@
  *
  *   node scripts/site/readme-html.mjs           # → readme.html
  *   node scripts/site/readme-html.mjs out.html
+ *   node scripts/site/readme-html.mjs out.html --channel next   # accueil de /next/, avec bandeau
  *
- * @usage node scripts/site/readme-html.mjs [fichier-de-sortie.html]
+ * @usage node scripts/site/readme-html.mjs [fichier-de-sortie.html] [--channel published|next]
  */
 import {
   doc,
@@ -39,8 +40,18 @@ import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { sansBalises } from "./lib/html-text.mjs";
 import { join, resolve, dirname } from "node:path";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import { versionSwitchScript } from "./lib/site-versions.mjs";
 
-const OUT = process.argv[2] ?? join(ROOT, "readme.html");
+const ARGS = process.argv.slice(2);
+const channelAt = ARGS.indexOf("--channel");
+const CHANNEL = channelAt === -1 ? "published" : ARGS[channelAt + 1];
+if (CHANNEL !== "published" && CHANNEL !== "next") {
+  console.error(`✗ --channel ${CHANNEL} : attendu « published » ou « next ».`);
+  process.exit(1);
+}
+const OUT =
+  ARGS.find((a, i) => !a.startsWith("--") && i !== channelAt + 1) ??
+  join(ROOT, "readme.html");
 
 /* ── Collecte : le dépôt se décrit lui-même ───────────────────────────────── */
 
@@ -949,7 +960,9 @@ const html = doc({
     `<meta name="description" content="Nodefony — framework Node.js fullstack en TypeScript : ` +
     `un serveur HTTP/HTTP2 et un serveur WebSocket qui partagent le même contexte de contrôleur, ` +
     `une injection de dépendances, un noyau de modules et une couche de sécurité complète.">\n` +
-    `<link rel="icon" href="./favicon.svg" type="image/svg+xml">`,
+    `<link rel="icon" href="./favicon.svg" type="image/svg+xml">\n` +
+    (CHANNEL === "next" ? `<meta name="robots" content="noindex">\n` : "") +
+    versionSwitchScript("./"),
   // 🔴 NI une colonne étroite, NI toute la largeur — les deux sont faux ici.
   //
   // Cette page a d'abord été publiée en pleine largeur, au motif qu'une porte
@@ -1001,6 +1014,14 @@ ${STYLE_CODE}
   subtitle:
     "Temps réel natif, développement agentic-ready, sur un socle TypeScript isomorphe. Dix minutes pour comprendre ce que le framework couvre, ce qu'il coûte et ce qui lui manque.",
   sections: [
+    // `/next/` décrit la branche de développement : le dire AVANT tout le reste,
+    // le lecteur venu d'un moteur de recherche croirait lire la version installable.
+    CHANNEL === "next"
+      ? warn(
+          `<strong>En développement — pas encore publié.</strong> Cet accueil décrit la branche ` +
+            `<code>dev</code>. <a href="../">Lire le site de la version publiée</a>.`,
+        )
+      : "",
     `<div class="noprint" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
     // Cette page est la PORTE D'ENTRÉE du site publié : sans ces deux liens, un
     // lecteur y arrive et n'a nulle part où aller. Les cibles sont relatives —

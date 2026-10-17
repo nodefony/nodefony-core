@@ -95,7 +95,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "📘", "title": "documentation", "href": "skills/nodefony-documentation.md",
     "desc": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort.",
-    "meta": "🟢 conforme v3.0.0 · ⚙️ 18 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme v3.1.0 · ⚙️ 18 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "skills/nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
     "meta": "🟢 conforme v2.1.0 · 📎 11 réf" },
@@ -158,7 +158,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "skills/nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.2.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v2.3.0 · ⚙️ 1 script" }
 ]
 ```
 

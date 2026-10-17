@@ -1,7 +1,7 @@
 ---
 name: nodefony-release
 metadata:
-  version: 2.2.0
+  version: 2.3.0
 description: >
   Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle
   commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne
@@ -97,8 +97,9 @@ l'auteur le seul point où il relit ce qui sortira sous son nom.
 
 **Ce que le tag déclenche, dans l'ordre** (`release.yml`) : `epreuve` (les trois scénarios de smoke
 en matrice) **et** `garde-main` en parallèle → `publier` (les 15 paquets par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
-Release GitHub — `--prerelease` déduit de semver — **et republie le site public** en appelant
-`pages.yml` sur `main`. Puis `bilan`, qui dit ce qui a été SAUTÉ. Compter une bonne dizaine de
+Release GitHub — `--prerelease` déduit de semver —, y **joint le site de la version**
+(`site-<v>.tar.gz`, rendu UNE fois depuis le tag : c'est lui que `/<v>/` servira pour toujours) **et
+republie le site public** en appelant `pages.yml` sur `main`. Puis `bilan`, qui dit ce qui a été SAUTÉ. Compter une bonne dizaine de
 minutes avant le premier `publish` : le smoke bâtit des conteneurs.
 
 Le changelog est un **brouillon**, marqué comme tel dans le fichier. L'automate rassemble la

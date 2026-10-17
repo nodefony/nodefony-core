@@ -96,6 +96,15 @@ for (const file of found) {
       continue;
     }
     const resolved = path.resolve(fromDir, target);
+    // Un lien qui REMONTE au-dessus du dossier contrôlé trouverait peut-être un
+    // fichier sur le disque — et serait déclaré valide sans rien prouver du site
+    // publié. Le bandeau de `/next/` remonte d'un cran vers la version publiée :
+    // il ne se contrôle donc que sur le site ASSEMBLÉ, jamais sur `next` seul.
+    const inside = path.relative(ROOT, resolved);
+    if (inside.startsWith("..") || path.isAbsolute(inside)) {
+      broken.push({ page: path.relative(ROOT, file), href, absolu: false });
+      continue;
+    }
     const candidates = [resolved, path.join(resolved, "index.html")];
     if (!candidates.some((c) => existsSync(c) && statSync(c).isFile()))
       broken.push({ page: path.relative(ROOT, file), href, absolu: false });
