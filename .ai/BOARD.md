@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-17 20:55** (UTC).
+> Empreinte prise le **2026-10-17 23:36** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 78% | 137 | 38 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 79% | 138 | 37 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -32,11 +32,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#488 — refactor(core): découper le noyau, un fichier de 4 708 lignes**
+**#610 — feat(realtime): acquitter les abonnements pour dire quand le flux arrive**
 
-Ordre 4.0045 · P0 — bloque le reste · 3 j · jalon 10.0.0-beta · frise —
+Ordre 4.0046 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 38 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 37 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,11 +105,10 @@ Ordre 4.0045 · P0 — bloque le reste · 3 j · jalon 10.0.0-beta · frise —
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 | 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
 
-## Jalon 10.0.0-beta — 38 ouverts
+## Jalon 10.0.0-beta — 37 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.0045 | P0 — bloque le reste | 3 | — | #488 | refactor(core): découper le noyau, un fichier de 4 708 lignes |
 | 4.0046 | P1 — figé à la création | 1 | — | #610 | feat(realtime): acquitter les abonnements pour dire quand le flux arrive |
 | 4.0047 | P2 — décision | 0.5 | — | #611 | fix(core): faire rendre au filtre réseau les interfaces qu'il annonce |
 | 4.005 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
@@ -203,7 +202,7 @@ Ordre 4.0045 · P0 — bloque le reste · 3 j · jalon 10.0.0-beta · frise —
 | 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |
 | 175 | P2 — décision | 2 | — | #550 | feat(mcp): rendre un serveur MCP publiable au registre officiel |
 
-## Backlog — aucune date promise · 16 ouverts
+## Backlog — aucune date promise · 17 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -223,4 +222,5 @@ Ordre 4.0045 · P0 — bloque le reste · 3 j · jalon 10.0.0-beta · frise —
 | 914 | P2 — décision | 2 | — | #558 | docs: rendre lisibles les schémas verticaux trop hauts de la doc |
 | 915 | P3 — fin de cycle | 2 | — | #567 | feat(realtime): ajouter WebTransport comme second transport temps réel |
 | 916 | P3 — fin de cycle | 1 | — | #603 | feat(http): ouvrir le défi ACME dans la config proxy générée |
+| 917 | P3 — fin de cycle | 6 | — | #612 | refactor(core): finir le découpage du noyau, une famille à la fois |
 
