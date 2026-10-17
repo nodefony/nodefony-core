@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T05:09:05.212Z",
+  "generatedAt": "2026-10-17T08:50:54.608Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -3041,7 +3041,7 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "beta-4"
+        "beta-5"
       ]
     },
     {
