@@ -623,6 +623,25 @@ export function placerEnCouches({ noeuds, aretes }) {
 
 /* ───────────────────── 3. Dessiner un organigramme ─────────────────────── */
 
+/**
+ * Identifiant de la pointe de flèche d'UN schéma, dans UN thème.
+ *
+ * Le site met dans la même page le rendu clair ET le rendu sombre de chaque
+ * schéma, et en masque un. Deux `<marker id="fl">` identiques font pointer
+ * `url(#fl)` vers le PREMIER du document — celui du rendu clair, masqué en
+ * thème sombre : les flèches y perdaient leur pointe. L'identifiant dérive donc
+ * de la source et du thème, ce qui le rend aussi stable d'un build à l'autre.
+ */
+const idPointe = (source, theme) => {
+  const texte = typeof source === "string" ? source : JSON.stringify(source);
+  let h = 2166136261;
+  for (let i = 0; i < texte.length; i++) {
+    h ^= texte.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return `fl-${theme}-${(h >>> 0).toString(36)}`;
+};
+
 const CAR = 7.05; // largeur moyenne d'un caractère à 13 px
 const LIGNE = 16;
 /** Écart entre deux pistes de coude dans un même intervalle entre rangs. */
@@ -1057,6 +1076,7 @@ export function organigramme(o) {
   const HAUT =
     (titre ? 24 : 0) + (sousTitre ? 18 : 0) + (titre || sousTitre ? 16 : 0);
   const g = placerOrganigramme(modele, HAUT);
+  const pointe = idPointe(source, theme);
   const L = Math.ceil(g.largeur);
   const H = Math.ceil(g.hauteur);
 
@@ -1064,7 +1084,7 @@ export function organigramme(o) {
   out.push(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${L} ${H}" width="${L}" height="${H}" role="img" aria-label="${ech(titre ?? "organigramme")}"${desc ? ` aria-description="${ech(desc)}"` : ""} font-family="${POLICE}">`,
     `<title>${ech(titre ?? "organigramme")}</title>`,
-    `<defs><marker id="fl-${theme}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="${T.muet}"/></marker></defs>`,
+    `<defs><marker id="${pointe}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="${T.muet}"/></marker></defs>`,
     `<rect width="100%" height="100%" fill="${T.fond}"/>`,
   );
   if (titre)
@@ -1084,7 +1104,7 @@ export function organigramme(o) {
       .map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`)
       .join(" ");
     out.push(
-      `<path d="${d}" fill="none" stroke="${T.muet}" stroke-width="1.25" stroke-linejoin="round"${a.pointille ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#fl-${theme})"/>`,
+      `<path d="${d}" fill="none" stroke="${T.muet}" stroke-width="1.25" stroke-linejoin="round"${a.pointille ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#${pointe})"/>`,
     );
     if (a.etiquette) {
       // Toujours HORIZONTALE, posée sur un fond opaque : une étiquette tournée
@@ -1359,6 +1379,7 @@ export function sequence(o) {
   const T = THEMES[theme];
   const HAUT = (titre ? 26 : 0) + (sousTitre ? 18 : 0) + 46;
   const g = placerSequence(modele, HAUT);
+  const pointe = idPointe(source, theme);
   const { x0, largeur: L, hauteur: H } = g;
   const police = `font-family="${POLICE}"`;
   const texte = (lignes, tx, ty, attrs) =>
@@ -1419,7 +1440,7 @@ export function sequence(o) {
     );
 
   for (const m of g.messages) {
-    const trait = `stroke="${T.muet}" stroke-width="1.2"${m.pointille ? ' stroke-dasharray="4 3"' : ""} marker-end="url(#fl)"`;
+    const trait = `stroke="${T.muet}" stroke-width="1.2"${m.pointille ? ' stroke-dasharray="4 3"' : ""} marker-end="url(#${pointe})"`;
     const decale = m.numero === null ? 0 : PASTILLE;
     if (m.x1 === m.x2) {
       corps.push(
@@ -1453,7 +1474,7 @@ export function sequence(o) {
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} 0 ${L} ${H}" width="${L}" height="${H}" role="img" aria-label="${ech(titre ?? "diagramme de séquence")}"${desc ? ` aria-description="${ech(desc)}"` : ""}>`,
     `<title>${ech(titre ?? "diagramme de séquence")}</title>`,
-    `<defs><marker id="fl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="${T.muet}"/></marker></defs>`,
+    `<defs><marker id="${pointe}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="${T.muet}"/></marker></defs>`,
     `<rect x="${x0}" y="0" width="${L}" height="${H}" fill="${T.fond}"/>`,
     titre
       ? `<text x="${gx}" y="20" font-size="14" font-weight="600" fill="${T.encre}" ${police}>${ech(titre)}</text>`
