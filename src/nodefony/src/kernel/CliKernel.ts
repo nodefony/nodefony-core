@@ -7,11 +7,9 @@ import { SysExit } from "../cli/sysexits";
 import { toImportSpecifier } from "./resolveModuleEntry";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
 import { resolvePackageManager } from "../cli/packageManager";
-import Kernel, {
-  IRunProfile,
-  CONSOLE_RUN_PROFILE,
-  TypeKernelOptions,
-} from "./Kernel";
+import Kernel, { TypeKernelOptions } from "./Kernel";
+import type { IRunProfile } from "./runProfile";
+import { CONSOLE_RUN_PROFILE } from "./runProfile";
 import Command from "../command/Command";
 import Menu from "./commands/MenuCommand";
 import Dev from "./commands/DevCommand";

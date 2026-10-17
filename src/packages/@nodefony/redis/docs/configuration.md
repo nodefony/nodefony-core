@@ -556,7 +556,7 @@ abonné ne peut plus émettre de commandes normales. Une connexion unique rendra
 stockage mutuellement exclusifs.
 
 Ajouter une connexion se fait en nommant une nouvelle clé. La fusion du manifeste est **profonde** —
-`loadModulesFromManifest()` (`Kernel.ts:1859`) fusionne la configuration de `use()` sous les défauts
+`loadModulesFromManifest()` (`Kernel.ts:1701`) fusionne la configuration de `use()` sous les défauts
 déjà matérialisés du module — donc les trois connexions d'usine restent en place :
 
 ```ts ignore

@@ -1,4 +1,9 @@
-// Redéfinis localement — import circulaire impossible (IKernel → ICommand → Kernel → Service → IService → IKernel)
+// `kernel/runProfile` est un module feuille : l'importer ne recrée pas le cycle
+// IKernel → ICommand → Kernel → Service → IService → IKernel, d'où le type canonique
+// plutôt qu'un miroir recopié.
+import type { RunLifetime } from "../kernel/runProfile";
+
+// Redéfini localement — import circulaire impossible (IKernel → ICommand → Kernel → Service → IService → IKernel)
 type KernelEventKey =
   | "onInit"
   | "onPreStart"
@@ -11,9 +16,6 @@ type KernelEventKey =
   | "onServersReady"
   | "onPostReady"
   | "onTerminate";
-
-// Miroir de RunLifetime (Kernel.ts) — redéfini ici pour la même raison anti-circulaire.
-type RunLifetime = "oneshot" | "longrunning";
 
 export type { KernelEventKey, RunLifetime };
 

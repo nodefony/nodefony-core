@@ -93,4 +93,4 @@ toutes les applications, qu'elles l'aient demandée ou non.
   pour des capacités qui partagent appelants, garde et conteneur.
 - **Un interrupteur « stdout réservé » au cœur** pour une porte `stdio` — sa prémisse était
   fausse : `CliKernel` pose déjà `quietBoot` pour toute commande de module
-  (`dispatchModuleCommand`, `CliKernel.ts:812`).
+  (`dispatchModuleCommand`, `CliKernel.ts:807`).

@@ -714,7 +714,7 @@ export type {
 // (serveurs, durée de vie, TTY, infrastructure). Exporté parce qu'une commande
 // de module tiers doit pouvoir le déclarer — sans ces valeurs, elle recopierait
 // un littéral qui figerait un axe le jour où il en naît un cinquième.
-export type { IRunProfile, RunLifetime } from "./kernel/Kernel";
+export type { IRunProfile, RunLifetime } from "./kernel/runProfile";
 export {
   CONSOLE_RUN_PROFILE,
   CONSOLE_DATA_RUN_PROFILE,
@@ -722,7 +722,7 @@ export {
   runNeedsExternalServices,
   runWorksOnSchema,
   storeConnectivity,
-} from "./kernel/Kernel";
+} from "./kernel/runProfile";
 
 export type {
   IBootReport,

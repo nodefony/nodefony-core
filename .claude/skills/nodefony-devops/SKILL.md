@@ -40,15 +40,15 @@ au code et se relit au moment où l'on s'en sert.
 
 | Capacité                       | Où elle vit                                                                                                                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sondes `/livez` et `/readyz`   | `@nodefony/http/nodefony/service/http-kernel.ts:1145-1162` — **court-circuit du pipeline AVANT le rate-limit** ; posées par `configureHealth()` (`:534`), câblées au boot (`:579-580`) |
+| Sondes `/livez` et `/readyz`   | `@nodefony/http/nodefony/service/http-kernel.ts:1180-1200` — **court-circuit du pipeline AVANT le rate-limit** ; posées par `configureHealth()` (`:550`), câblées au boot (`:579-580`) |
 | Drain à l'arrêt                | `src/nodefony/src/config/defaults.ts:46` — `shutdownDeadline: 15_000` (15 s, sous les 30 s du kubelet)                                                                                 |
 | Délai avant drain              | `@nodefony/http/nodefony/config/config.ts:990` — `shutdownDelay`, pour laisser le répartiteur retirer le pod                                                                           |
 | Identité du pod                | `src/nodefony/src/config/reservedEnv.ts:139` — `NF_POD_NAME` (Downward API)                                                                                                            |
 | Secrets montés en fichier      | `src/nodefony/src/config/defineEnv.ts:193` — suffixe `_FILE` sur **toute** variable du catalogue                                                                                       |
 | Utilisateur non root numérique | `src/nodefony/templates/app/base/Dockerfile.tpl:319` — `USER 1000:1000` (`WORKDIR /app` `:257`, `EXPOSE 5151` `:320`)                                                                  |
 
-> 🔴 **`tmp/` et `var/` n'ont pas le même ancrage.** `Kernel.ts:1126` résout `tmp` sur
-> **`process.cwd()`**, `Kernel.ts:1134` résout `var` sur **`this.path`**. Deux volumes montés sur
+> 🔴 **`tmp/` et `var/` n'ont pas le même ancrage.** `Kernel.ts:1033` résout `tmp` sur
+> **`process.cwd()`**, `Kernel.ts:1041` résout `var` sur **`this.path`**. Deux volumes montés sur
 > `/app/tmp` et `/app/var` ne se rejoignent donc que si le répertoire courant EST la racine de
 > l'application — vrai dans l'image, faux dès qu'un `command:` change de dossier, et **sans aucune
 > erreur** : l'application écrira ailleurs, en silence.
@@ -65,7 +65,7 @@ au code et se relit au moment où l'on s'en sert.
 | `templates/app/complete/deploy/migrate-job.yaml.tpl`         | `complete` |
 
 Variable de branchement : **`it.db`** (`src/nodefony/src/cli/scaffold/engine.ts:1504`, alimentée
-`:1453-1456` par `resolveDatabase`, valeurs `:387-402`). Elle vaut **`null` pour sqlite** ; sinon
+`:1453-1456` par `resolveDatabase`, valeurs `:434-470`). Elle vaut **`null` pour sqlite** ; sinon
 un objet `{choice, service, label, scheme, port, url, …}` pour postgres, mariadb ou mysql. C'est
 donc `it.db` qui dit s'il y a une base **serveur** — et par là, en Kubernetes, s'il peut y avoir
 plusieurs répliques.

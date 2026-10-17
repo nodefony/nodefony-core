@@ -6,6 +6,7 @@ import type {
   IBootLinkDeclaration,
 } from "../kernel/bootReport";
 import type { IReadinessContributor } from "../kernel/readinessRegistry";
+import type { IRunProfile } from "../kernel/runProfile";
 import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
@@ -13,16 +14,8 @@ import type { IInfra, IStoreResolution } from "../config/infra";
 import type { ICommand } from "./ICommand";
 import type os from "node:os";
 
-// Redéfinis localement — import circulaire impossible (Kernel.ts → Service.ts → IService.ts → IKernel.ts)
-// Miroir de IRunProfile/RunLifetime de Kernel.ts (profil d'exécution : serveurs ? durée de vie ? interactif ?).
-type RunLifetime = "oneshot" | "longrunning";
-interface IRunProfile {
-  servers: boolean;
-  lifetime: RunLifetime;
-  interactive: boolean;
-  /** Ce run ouvre-t-il des connexions vers l'infrastructure (base, cache, courtier) ? */
-  externalServices: boolean;
-}
+// Redéfini localement — import circulaire impossible (Kernel.ts → Service.ts → IService.ts → IKernel.ts).
+// Le profil d'exécution, lui, vient de `kernel/runProfile.ts` (module feuille : aucun cycle).
 type EventsType = Record<string, number>;
 // Redéfini depuis Kernel.ts (trunkType)
 type TrunkType = "javascript" | "typescript" | null;

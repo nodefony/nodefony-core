@@ -1,13 +1,9 @@
 import type { Command as CommanderCommand } from "commander";
 import type { EnvironmentType, DebugType } from "./globals";
-// Module feuille (aucun cycle IKernel → ICliKernel → CliKernel → Kernel → … → IKernel).
-// MUTATION #488 — miroir dérivé (sans schemaWork) réintroduit
-interface IRunProfile {
-  servers: boolean;
-  lifetime: "oneshot" | "longrunning";
-  interactive: boolean;
-  externalServices: boolean;
-}
+// `kernel/runProfile` est un module feuille : l'importer ne recrée pas le cycle
+// IKernel → ICliKernel → CliKernel → Kernel → … → IKernel, d'où le type canonique
+// plutôt qu'un miroir recopié.
+import type { IRunProfile } from "../kernel/runProfile";
 
 export interface ICliKernel {
   commander: CommanderCommand | null;

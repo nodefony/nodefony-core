@@ -507,7 +507,7 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 ### `Kernel` / `CliKernel`
 
-`kernel/Kernel.ts:619` — `class Kernel extends Service implements IKernel`. Le ctor `:893` appelle `Nodefony.setKernel(this)`.
+`kernel/Kernel.ts:461` — `class Kernel extends Service implements IKernel`. Le ctor `:699` appelle `Nodefony.setKernel(this)`.
 
 - **Chaîne async de boot** (chaque maillon appelle le suivant si `!setCommandComplete`) :
   `start()` `:482` → `preRegister()` `:600` → `boot()` `:694` → `onReady()` `:724` → `initServers()` `:793`.
@@ -521,10 +521,10 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
   `finishOrPark(code)` `:852` (park si `lifetime==="longrunning" && !servers`, sinon `terminate`). `terminate(code?)` `:2287`.
 - Divers : `initializeLog()` `:1384` · `setEnv` `:1576` / `setNodeEnv` `:1538` · `getBootReport(): IBootReport` `:1850`
   (distingue `bootServers===null` non-mesuré de `[]` 0-serveur).
-- **`Events`** (bitmask frozen, `Kernel.ts:339`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
+- **`Events`** (bitmask frozen, `Kernel.ts:337`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
 onBoot onReady onServersReady onPostReady onTerminate=1<<10`.
 
-`kernel/CliKernel.ts:70` — **`class CliKernel extends Cli`** (⚠️ PAS `Kernel`). Le `Kernel` est instancié à part et lié à
+`kernel/CliKernel.ts:125` — **`class CliKernel extends Cli`** (⚠️ PAS `Kernel`). Le `Kernel` est instancié à part et lié à
 `cliKernel.kernel`. `constructor(environment?)` `:142`. `start(options?)` `:231` crée le Kernel + ajoute les built-ins +
 `parseAsync`. `setRunProfile(profile)` `:504` (`{servers,lifetime,interactive}`, recopié dans `kernel.runProfile` à
 `onStart`). `addCommand` `:518` · `initSyslog` `:568` · `terminate` `:637` (délègue à `kernel.terminate` si présent).
@@ -698,7 +698,7 @@ Séparation stricte (réutilisable, testable) :
 - **`Event.emitAsyncGuarded`** `Event.ts:302` = mécanique PURE : série + try/catch + timeout/warnMs par listener, retourne
   `{results, errors, stopped}`. Ne décide d'AUCUNE politique (ni log, ni criticité) — l'appelant tranche via les callbacks
   `onListenerError` (retour `true` = stoppe la chaîne) / `onListenerSlow`.
-- **`Kernel.fireLifecycle`** `Kernel.ts:4254` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
+- **`Kernel.fireLifecycle`** `Kernel.ts:4096` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
   lit les tags `(owner, critical)` du listener (`readListenerTags` — déballe le wrapper `once` via `.listener`), et applique
   `isBootErrorFatal` : `critical && prod` → fatal (throw, le reste ne boote pas) ; sinon fail-soft + WARNING.
 - `Service` **COMPOSE** `Event` (`this.nc`), ne l'étend pas → toute nouvelle méthode event = ajout à `Event` **ET** re-export

@@ -17,6 +17,15 @@
 
 **Purpose**: Orchestrateur principal du framework. `extends Service implements IKernel`.
 
+**Profil d'exécution = `kernel/runProfile.ts`** (module FEUILLE, 0 état, 0 import de `Kernel`) :
+`RunLifetime`, `IRunProfile`, `CONSOLE_RUN_PROFILE` / `CONSOLE_DATA_RUN_PROFILE` /
+`CONSOLE_SCHEMA_RUN_PROFILE`, `runNeedsExternalServices`, `runWorksOnSchema`, `storeConnectivity`,
+`runWillServeTraffic`. `Kernel.ts` ré-exporte TOUT (surface `.d.ts` identique, `export *` de
+`types/nodefony.d.ts`, importeurs directs) et n'en consomme que `CONSOLE_RUN_PROFILE` (ctor) et
+`runWillServeTraffic` (`loadApp`). `types/IKernel.ts`, `ICliKernel.ts`, `ICommand.ts` importent le
+type canonique — plus de miroir écrit à la main (`tests/runProfile.test.ts` le verrouille par
+IDENTITÉ de type au typecheck).
+
 **Lifecycle flags** (ordre strict, jamais régressifs):
 
 ```
@@ -276,7 +285,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:4336`).
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:4243`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.
@@ -380,7 +389,7 @@ pris, handler absent, déclaration qui lève) → écarté + `onSkip`, jamais si
 
 **setPackageManager(mgr?, dir?)**: délègue à `resolvePackageManager` (`cli/packageManager.ts`, SEULE décision) : config > verrou de `dir` (`pnpm-lock.yaml`/`yarn.lock`/`bun.lock[b]`/`package-lock.json`) > `npm_config_user_agent` > npm. `bun` a son lanceur (plus de repli muet). Kernel passe `this.path`. Config SANS défaut (`defaults.ts`) : un défaut posé masquerait le verrou.
 
-**setRunProfile(profile)**: pose `IRunProfile {servers,lifetime,interactive}` (ex `setType`) ; recopié dans `kernel.runProfile` à `onStart`. `isConsole()`=`!servers`. Ne pilote PAS le montage serveur (= `kernelEvent`+`HttpKernel`) ni le park. Cf `project_kernel_runmodes_introspection`.
+**setRunProfile(profile)**: pose `IRunProfile {servers,lifetime,interactive,externalServices,schemaWork?}` (`kernel/runProfile.ts`, ex `setType`) ; recopié dans `kernel.runProfile` à `onStart`. `isConsole()`=`!servers`. Ne pilote PAS le montage serveur (= `kernelEvent`+`HttpKernel`) ni le park. Cf `project_kernel_runmodes_introspection`.
 
 **addCommand(Ctor)**: instancie, stocke `commands[name]`, enregistre dans commander.
 

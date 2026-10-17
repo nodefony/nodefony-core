@@ -16,7 +16,7 @@ import {
 import Builder from "./Builder";
 import { extend } from "../Tools";
 import type { KernelEventKey, RunLifetime } from "../types/ICommand";
-import type { IRunProfile } from "../kernel/Kernel";
+import type { IRunProfile } from "../kernel/runProfile";
 import { tagCommandAction } from "../kernel/lifecycleTags";
 
 interface OptionsCommandInterface extends DefaultOptionsService {
