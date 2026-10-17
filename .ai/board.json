@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T08:50:54.608Z",
+  "generatedAt": "2026-10-17T08:52:42.454Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -3029,22 +3029,6 @@
       ]
     },
     {
-      "number": 605,
-      "title": "feat(site): versionner le site de documentation par release",
-      "url": "https://github.com/nodefony/nodefony-core/issues/605",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 4.0013,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
       "number": 606,
       "title": "fix(cli): annoncer la migration requise après create entity",
       "url": "https://github.com/nodefony/nodefony-core/issues/606",
@@ -4141,6 +4125,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 605,
+      "title": "feat(site): versionner le site de documentation par release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/605",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 5.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
     },
     {
       "number": 159,
