@@ -141,9 +141,18 @@ const git = (...a) => {
 };
 const BRANCH = git("branch", "--show-current") || "main";
 const COMMIT = git("rev-parse", "--short", "HEAD") || "?";
-const VERSION = JSON.parse(
-  readFileSync(path.join(ROOT, "package.json"), "utf8"),
+/**
+ * La version que le site AFFICHE : celle du paquet publié (`nodefony`), jamais
+ * celle de la racine — l'application de développement, figée à `10.0.0`, faisait
+ * annoncer « Nodefony 10.0.0 » pendant que npm servait une beta. Hors de `main`
+ * (qui n'avance qu'aux releases), la page décrit ce qui VIENT après cette
+ * version, et le dit.
+ */
+const PUBLISHED = JSON.parse(
+  readFileSync(path.join(ROOT, "src", "nodefony", "package.json"), "utf8"),
 ).version;
+const VERSION =
+  BRANCH === "main" ? PUBLISHED : `en développement, après ${PUBLISHED}`;
 const BUILT_AT = new Date().toISOString().slice(0, 10);
 
 /* ════════════════════════════════════════════════════════════════════════════
