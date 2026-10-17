@@ -5,7 +5,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
@@ -159,7 +159,7 @@ class TotpService extends Service {
         this.kernel?.infra ?? EMPTY_INFRA,
         listTotpStores(),
         "memory",
-        runNeedsExternalServices(this.kernel),
+        storeConnectivity(this.kernel),
       );
       driver = auto.store;
       reason = auto.reason;
@@ -183,7 +183,7 @@ class TotpService extends Service {
       this.log(
         `totp.store "memory" en PRODUCTION — secrets 2FA volatils : perdus au ` +
           `redémarrage (utilisateurs verrouillés). ` +
-          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
+          durableStoreRemedy(storeConnectivity(this.kernel)),
         "WARNING",
       );
     }

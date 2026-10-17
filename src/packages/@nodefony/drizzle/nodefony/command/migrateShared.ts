@@ -1,6 +1,6 @@
 import {
   Command,
-  CONSOLE_DATA_RUN_PROFILE,
+  CONSOLE_SCHEMA_RUN_PROFILE,
   resolveColorEnabled,
   type CliKernel,
   type Kernel,
@@ -87,7 +87,10 @@ export interface IMigrateSharedOptions {
  */
 export abstract class OrmMigrateCommand extends Command {
   /**
-   * Toutes les commandes `orm:*` parlent à la base — c'est leur définition.
+   * Toutes les commandes `orm:*` parlent à la base ET en travaillent le
+   * schéma — c'est leur définition : connectées, mais sans schéma dérivé au
+   * démarrage ni brique du framework confiée à des tables peut-être absentes
+   * (`CONSOLE_SCHEMA_RUN_PROFILE`).
    *
    * Déclaré ICI et pas dans le littéral d'options de chacune : la déclaration
    * appartient à la FAMILLE, et une famille qui se déclare six fois finit par
@@ -98,7 +101,7 @@ export abstract class OrmMigrateCommand extends Command {
    */
   constructor(...args: ConstructorParameters<typeof Command>) {
     super(...args);
-    this.runProfile ??= { ...CONSOLE_DATA_RUN_PROFILE };
+    this.runProfile ??= { ...CONSOLE_SCHEMA_RUN_PROFILE };
   }
 
   /**

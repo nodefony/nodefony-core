@@ -5,7 +5,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
@@ -197,7 +197,7 @@ class WebAuthnService extends Service {
           this.kernel?.infra ?? EMPTY_INFRA,
           listWebAuthnStores(),
           "memory",
-          runNeedsExternalServices(this.kernel),
+          storeConnectivity(this.kernel),
         );
         driver = auto.store;
         reason = auto.reason;
@@ -226,7 +226,7 @@ class WebAuthnService extends Service {
           `passkeys.store "memory" en PRODUCTION — credentials WebAuthn volatils : tous ` +
             `les passkeys enregistrés sont perdus au redémarrage (utilisateurs verrouillés ` +
             `hors de leur compte). ` +
-            durableStoreRemedy(runNeedsExternalServices(this.kernel)),
+            durableStoreRemedy(storeConnectivity(this.kernel)),
           "WARNING",
         );
       }

@@ -1,4 +1,4 @@
-import type { Module } from "nodefony";
+import { storeConnectivity, type Module } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
 import {
   describeSeedFailure,
@@ -102,19 +102,31 @@ export async function provisionUsers(module: Module): Promise<void> {
     : undefined;
   const registered = found instanceof DrizzleOrm ? found : undefined;
 <% } %>
-  const orm = registered?.isConnected() ? registered : undefined;
+  // 3. Une commande qui TRAVAILLE le schéma (`orm:generate`, `orm:migrate`)
+  //    est connectée, mais la table des comptes n'existe peut-être pas encore :
+  //    c'est elle qui va la créer. Le verdict est celui du framework
+  //    (`storeConnectivity`), le même que pour ses propres briques.
+  const connectivity = storeConnectivity(module.kernel);
+  const schemaWork =
+    !connectivity.allowed && connectivity.cause === "schema-work";
+  const orm = registered?.isConnected() && !schemaWork ? registered : undefined;
   if (!orm) {
     // Repli ANNONCÉ (jamais silencieux), et le message nomme la cause RÉELLE :
     // envoyer réinstaller un module présent ferait chercher là où il n'y a rien.
     module.log(
-      registered
-        ? `ORM "<%= it.mongo ? "nodefony" : "default" %>" enregistré mais NON CONNECTÉ — ce run n'a pas déclaré ` +
+      schemaWork
+        ? `Ce run travaille le schéma (commande orm:*) : annuaire utilisateurs ` +
+            `EN MÉMOIRE le temps de la commande, la table des comptes pouvant ne ` +
+            `pas exister encore. L'application, elle, utilise sa base.`
+        : registered
+          ? `ORM "<%= it.mongo ? "nodefony" : "default" %>" enregistré mais NON CONNECTÉ — ce run n'a pas déclaré ` +
             `\`externalServices\` (une commande qui lit ou écrit des données le ` +
             `déclare via CONSOLE_DATA_RUN_PROFILE) → annuaire utilisateurs EN ` +
             `MÉMOIRE le temps de ce run.`
-        : `ORM "<%= it.mongo ? "nodefony" : "default" %>" absent (module <%= it.mongo ? "@nodefony/mongoose" : "@nodefony/drizzle" %> retiré ?) → annuaire ` +
+          : `ORM "<%= it.mongo ? "nodefony" : "default" %>" absent (module <%= it.mongo ? "@nodefony/mongoose" : "@nodefony/drizzle" %> retiré ?) → annuaire ` +
             `utilisateurs EN MÉMOIRE : les comptes ne survivront pas au redémarrage.`,
-      "WARNING",
+      // Le travail du schéma est un cas NOMINAL : il s'annonce, il n'alerte pas.
+      schemaWork ? "INFO" : "WARNING",
       LOG_CTX,
     );
     const users = new UserService(

@@ -8,7 +8,7 @@ import {
   EMPTY_INFRA,
   canonicalIssuer,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   durableStoreRemedy,
   readStoreLocation,
   readStoreConnector,
@@ -188,7 +188,7 @@ class TokenService extends Service {
         this.kernel?.infra ?? EMPTY_INFRA,
         listTokenStores(),
         "memory",
-        runNeedsExternalServices(this.kernel),
+        storeConnectivity(this.kernel),
       );
       storeName = auto.store;
       reason = auto.reason;
@@ -215,7 +215,7 @@ class TokenService extends Service {
         `tokenStore "memory" en PRODUCTION — denylist JWT, refresh tokens et clés API ` +
           `per-pod et volatils : révocation non partagée entre pods, tout est perdu au ` +
           `redémarrage. ` +
-          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
+          durableStoreRemedy(storeConnectivity(this.kernel)),
         "WARNING",
       );
     }

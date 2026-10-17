@@ -75,27 +75,23 @@ const BIN = path.join(ROOT, "src", "nodefony", "bin", "nodefony");
 export const MIGRATIONS = path.resolve(import.meta.dirname, "../../migrations");
 
 /**
- * Le décor dans lequel les migrations veulent dire quelque chose.
+ * Le décor des bancs de migration sur l'application du DÉPÔT.
  *
- * Deux variables, et chacune répare une confusion découverte en exécutant :
+ * **`NODE_ENV=production`** : l'application du dépôt est une vitrine de
+ * développement, qui charge en `development` des modules réservés au dev
+ * (`policy: "dev"`) dont certaines entités ne sont portées que sur sqlite.
+ * Leur présence change le schéma déclaré, et la migration générée sur MySQL
+ * en devient destructrice — constaté. Ce n'est pas le contrat qu'éprouvent
+ * ces bancs : on démarre donc l'application comme en production.
  *
- * - **`NODE_ENV=production`** donne le mode `none` : le démarrage ne fabrique
- *   plus le schéma. En développement (`auto`), c'est lui qui crée les tables,
- *   et `migrate` refuse alors à juste titre sur une base pourtant créée à
- *   l'instant — le refus est exact, mais il n'apprend rien sur les migrations.
- *   C'est aussi ce qui garantit que le rattrapage additif ne vient PAS reposer
- *   la colonne que le cas « divergent » retire à la main.
- * - **`NF_STORE=memory`** empêche l'application de démarrage de lire la base.
- *   Sans elle, l'application meurt au démarrage sur `no such table: User`
- *   AVANT que la commande ne s'exécute : sur une base pas encore migrée, le
- *   code applicatif qui provisionne l'annuaire tape une table qui n'existe pas
- *   encore. C'est un vrai trou de la chaîne — un exemplaire devrait attendre
- *   sa migration, pas mourir en boucle —, mais il vit dans le gabarit
- *   d'application (ticket #101), pas dans les commandes éprouvées ici.
+ * Ce décor ne contourne PLUS rien du produit : une commande `orm:*` ne
+ * dérive pas le schéma et ne lit aucune table du framework au démarrage
+ * (`CONSOLE_SCHEMA_RUN_PROFILE`, #566) — d'où l'absence de `NF_STORE=memory`.
+ * Le cas « première migration en développement » se joue, lui, SANS décor
+ * (`migrate-cli.e2e.test.ts`).
  */
 export const DECOR_MIGRATIONS = {
   NODE_ENV: "production",
-  NF_STORE: "memory",
 } as const;
 
 export interface IRun {

@@ -5,7 +5,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
@@ -267,7 +267,7 @@ class WebhookService extends Service {
         this.kernel?.infra ?? EMPTY_INFRA,
         listWebhookStores(),
         "memory",
-        runNeedsExternalServices(this.kernel),
+        storeConnectivity(this.kernel),
       );
       driver = auto.store;
       reason = auto.reason;
@@ -292,7 +292,7 @@ class WebhookService extends Service {
       this.log(
         `webhooks.store "memory" en PRODUCTION — abonnements volatils et per-pod : ` +
           `perdus au redémarrage, non partagés entre pods. ` +
-          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
+          durableStoreRemedy(storeConnectivity(this.kernel)),
         "WARNING",
       );
     }

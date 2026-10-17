@@ -100,7 +100,7 @@ pour quoi il est bon. Redis se déclare de nature `cache` et annonce quatre briq
 
 La nuance décisive n'est pas « couvert / pas couvert », c'est **qui choisit**. Chaque brique déclare
 la nature de sa donnée (`StoreKind`, `infra.ts:176`), et la résolution automatique ne propose Redis
-que pour les natures non durables (`resolveAutoStore()`, `infra.ts:289`).
+que pour les natures non durables (`resolveAutoStore()`, `infra.ts:330`).
 
 <!-- prettier-ignore -->
 | Brique | Nature | Implémentation | Choisi par `auto` ? | Où on l'allume explicitement |

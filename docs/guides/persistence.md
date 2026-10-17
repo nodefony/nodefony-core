@@ -67,7 +67,7 @@ PostgreSQL, `mysql://` → MySQL, `mongodb://` → MongoDB. Un schéma inconnu *
 ## `store: "auto"` — comment le framework choisit
 
 Chaque brique a `store: "auto"` **par défaut**. La résolution est portée par une fonction unique,
-`resolveAutoStore()` (`infra.ts:297`), et suit la nature de la donnée :
+`resolveAutoStore()` (`infra.ts:330`), et suit la nature de la donnée :
 
 - **durable** (utilisateurs, jetons, passkeys, webhooks, audit, TOTP) → l'infrastructure
   `database` si déclarée ;
@@ -88,7 +88,7 @@ session.store "auto" → "drizzle" (aucune infra déclarée — backend local pe
 ```
 
 > **Un interrupteur global existe** : `NF_STORE` force toute brique `auto` sur un backend donné,
-> quand il est enregistré pour elle (`infra.ts:247`). Il sert aux bancs de charge — pas à la
+> quand il est enregistré pour elle (`infra.ts:374`). Il sert aux bancs de charge — pas à la
 > production.
 
 ## Matrice brique × backend

@@ -7,7 +7,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   durableStoreRemedy,
   readStoreLocation,
   readStoreConnector,
@@ -248,7 +248,7 @@ class Framework extends Module<IFrameworkConfig> {
         this.kernel?.infra ?? EMPTY_INFRA,
         listIdempotencyBackends(),
         "memory",
-        runNeedsExternalServices(this.kernel),
+        storeConnectivity(this.kernel),
       );
       name = auto.store;
       reason = auto.reason;
@@ -261,7 +261,7 @@ class Framework extends Module<IFrameworkConfig> {
         this.log(
           `idempotency.store "memory" en PRODUCTION — déduplication per-pod uniquement : ` +
             `un rejeu routé vers un autre pod n'est pas dédupliqué (double-effet possible). ` +
-            durableStoreRemedy(runNeedsExternalServices(this.kernel)),
+            durableStoreRemedy(storeConnectivity(this.kernel)),
           "WARNING",
         );
       }

@@ -225,7 +225,7 @@ Ce que `@nodefony/mongoose` déclare : les huit briques — `session`, `user`, `
 ### Ce qui se passe quand tu ne choisis rien
 
 Chaque brique a une clé `store` dont le défaut est `"auto"`. La résolution
-(`resolveAutoStore()` (`infra.ts:297`)) suit l'infrastructure **déclarée**, bornée aux backends
+(`resolveAutoStore()` (`infra.ts:330`)) suit l'infrastructure **déclarée**, bornée aux backends
 réellement chargés :
 
 | Ta situation                                            | Ce que `auto` choisit                                    |

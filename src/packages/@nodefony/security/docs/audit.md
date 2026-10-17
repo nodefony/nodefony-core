@@ -511,7 +511,7 @@ Table dérivée du schéma Zod `auditSchema` (`config.ts:971`), rattaché à la 
 ### Comment `store: "auto"` décide
 
 Le défaut ne suppose rien : il **suit l'infrastructure déclarée**, borné aux backends réellement
-enregistrés (`auditService.ts:96`, logique `resolveAutoStore()` dans `infra.ts:289`).
+enregistrés (`auditService.ts:96`, logique `resolveAutoStore()` dans `infra.ts:330`).
 
 1. `NF_STORE` posée et le backend est enregistré pour l'audit → il gagne (levier de banc de charge) ;
 2. sinon, une base est déclarée (`NF_DATABASE_URL`) → `drizzle`, ou `mongoose` selon la famille ;

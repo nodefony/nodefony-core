@@ -7,8 +7,8 @@ import {
   ciblesPour,
   cli,
   citer,
-  DECOR_MIGRATIONS,
   MIGRATIONS,
+  DECOR_MIGRATIONS,
   dossierMigrations,
   assertDialecte,
   parse,
@@ -309,9 +309,8 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
     // applicatif tape `User`, l'échec était FATAL en production, et la commande
     // mourait avant de s'exécuter. Pour migrer, il aurait fallu avoir migré.
     //
-    // Les autres cas de ce fichier posent `NF_STORE=memory` pour contourner ce
-    // trou (cf DECOR_MIGRATIONS) : celui-ci ne le pose PAS — c'est tout son
-    // objet. Un exemplaire dont la mise en service est retenue reste vivant, ne
+    // Aucun décor au-delà de la production : ni `NF_STORE`, ni rien — c'est
+    // tout son objet. Un exemplaire dont la mise en service est retenue reste vivant, ne
     // reçoit aucun trafic, et peut recevoir le geste qui lève la rétention.
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-vierge-"));
     const base = path.join(dir, "vierge.db");
@@ -335,6 +334,46 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
         env,
       );
       assert.equal(compte.code, 0, compte.stderr.slice(-800));
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 300_000);
+
+  it("🔴 écrit puis applique la PREMIÈRE migration d'une application neuve, en développement, sans décor (#566)", async () => {
+    // La séquence que `create app` affiche, TELLE QUELLE : ni `NODE_ENV`, ni
+    // `NF_STORE`. Avant le correctif, le démarrage de `orm:generate` dérivait
+    // le schéma du code (mode `auto`), la commande trouvait alors les tables
+    // qu'elle devait décrire, et refusait d'écrire
+    // (`NF_GENERATE_DATABASE_NOT_ADOPTED`) une base que personne n'avait créée.
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-premiere-"));
+    const migrations = path.join(dir, "migrations");
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: "development",
+      NF_DATABASE_URL: `sqlite:${path.join(dir, "neuve.db")}`,
+      NF__DRIZZLE__MIGRATIONS__DIR: migrations,
+    };
+    try {
+      const ecrite = await cli(
+        ["orm:generate", "--name", "init", "--json"],
+        env,
+      );
+      assert.equal(
+        ecrite.code,
+        0,
+        `la première migration n'est pas écrite :\n${ecrite.stdout.slice(-1200)}\n${ecrite.stderr.slice(-800)}`,
+      );
+      const fichiers = (
+        await fs.readdir(dossierMigrations("sqlite", migrations))
+      ).filter((nom) => nom.endsWith(".sql"));
+      assert.equal(
+        fichiers.length,
+        1,
+        "un seul fichier : la migration initiale",
+      );
+
+      const appliquee = await cli(["orm:migrate", "--json"], env);
+      assert.equal(appliquee.code, 0, appliquee.stderr.slice(-1200));
+      assert.equal(parse(appliquee.stdout).verdict, "up-to-date");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

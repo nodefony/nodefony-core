@@ -82,7 +82,11 @@ import {
 } from "../config/envOverride";
 import type { ConfigContext } from "../config/types";
 import { resolveInfra, AUTO_STORE } from "../config/infra";
-import type { IInfra, IStoreResolution } from "../config/infra";
+import type {
+  IInfra,
+  IStoreConnectivity,
+  IStoreResolution,
+} from "../config/infra";
 import { findSetReservedKeys } from "../config/configProvenance";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
@@ -393,6 +397,21 @@ export interface IRunProfile {
    * La question posée n'est pas « est-ce fatal ? » mais « ce run en a-t-il besoin ? ».
    */
   externalServices: boolean;
+  /**
+   * Ce run TRAVAILLE le schéma de la base — écrire, appliquer, lire l'état des
+   * migrations (`orm:*`) ?
+   *
+   * Un tel run se connecte (`externalServices`), mais il ne doit RIEN
+   * fabriquer au démarrage : un démarrage en développement dérive le schéma du
+   * code, et la base se retrouvait peuplée par la commande même qui devait en
+   * écrire la première migration — qui refusait alors d'écrire. Il ne doit pas
+   * non plus confier les briques du framework à des tables qui n'existent peut-
+   * être pas encore : ses stores `auto` restent en mémoire le temps du run.
+   *
+   * Optionnel, `false` par défaut : seule la famille `orm:*` le déclare, par
+   * {@link CONSOLE_SCHEMA_RUN_PROFILE}.
+   */
+  schemaWork?: boolean;
 }
 
 /** Profil par défaut — équivaut à l'ancien `type = "CONSOLE"` (one-shot, sans serveur). */
@@ -415,6 +434,52 @@ export const CONSOLE_DATA_RUN_PROFILE: Readonly<IRunProfile> = Object.freeze({
   ...CONSOLE_RUN_PROFILE,
   externalServices: true,
 });
+
+/**
+ * Profil d'une commande qui TRAVAILLE le schéma (`orm:generate`, `orm:migrate`…) :
+ * connectée, mais sans schéma dérivé au démarrage ni store durable `auto`.
+ * Cf {@link IRunProfile.schemaWork}.
+ */
+export const CONSOLE_SCHEMA_RUN_PROFILE: Readonly<IRunProfile> = Object.freeze({
+  ...CONSOLE_DATA_RUN_PROFILE,
+  schemaWork: true,
+});
+
+/**
+ * Ce run travaille-t-il le schéma de la base ? Point d'appel UNIQUE de la question.
+ *
+ * @param kernel - le kernel courant, ou `null` hors kernel.
+ * @returns `true` si le run a déclaré `schemaWork`.
+ */
+export function runWorksOnSchema(
+  kernel: { runProfile?: IRunProfile | null } | null | undefined,
+): boolean {
+  return kernel?.runProfile?.schemaWork === true;
+}
+
+/**
+ * Les briques du framework peuvent-elles, dans ce run, résoudre leur store
+ * `auto` vers un backend CONNECTÉ (base, cache) — et sinon, pourquoi ?
+ *
+ * Oui si le run ouvre des connexions ET ne travaille pas le schéma : celui qui
+ * écrit la première migration ne peut pas lire des tables qui n'existent pas
+ * encore. Point d'appel UNIQUE des stores — à passer à `resolveAutoStore` et à
+ * `durableStoreRemedy`, jamais `runNeedsExternalServices`, qui décide de la
+ * CONNEXION, pas du store.
+ *
+ * @param kernel - le kernel courant, ou `null` hors kernel.
+ * @returns le verdict, avec sa cause quand il refuse.
+ */
+export function storeConnectivity(
+  kernel: { runProfile?: IRunProfile | null } | null | undefined,
+): IStoreConnectivity {
+  if (!runNeedsExternalServices(kernel)) {
+    return { allowed: false, cause: "no-external-services" };
+  }
+  return runWorksOnSchema(kernel)
+    ? { allowed: false, cause: "schema-work" }
+    : { allowed: true };
+}
 
 /**
  * Ce run a-t-il DÉCLARÉ avoir besoin de l'infrastructure de l'application ?

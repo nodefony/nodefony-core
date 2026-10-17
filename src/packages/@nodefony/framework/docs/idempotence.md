@@ -347,16 +347,16 @@ Source unique = schéma Zod `idempotencySchema`
 ### Comment `store: "auto"` se résout VRAIMENT
 
 `Framework.onKernelBoot()` (`src/packages/@nodefony/framework/index.ts:230`) délègue à
-`resolveAutoStore("ephemeral", …)` (`src/nodefony/src/config/infra.ts:289`), borné aux backends
+`resolveAutoStore("ephemeral", …)` (`src/nodefony/src/config/infra.ts:330`), borné aux backends
 **réellement enregistrés** (`listIdempotencyBackends()`, `idempotencyStoreRegistry.ts:81`). L'ordre
 réel est le suivant :
 
 | Ordre | Condition                                                                | Résolution                             | Ancre          |
 | ----- | ------------------------------------------------------------------------ | -------------------------------------- | -------------- |
-| 1     | `NF_STORE=<x>` et `<x>` enregistré pour cette brique                     | `<x>` (override global)                | `infra.ts:343` |
-| 2     | Infra **cache** déclarée (`NF_REDIS_URL`) et `redis` enregistré          | `redis`                                | `infra.ts:258` |
+| 1     | `NF_STORE=<x>` et `<x>` enregistré pour cette brique                     | `<x>` (override global)                | `infra.ts:381` |
+| 2     | Infra **cache** déclarée (`NF_REDIS_URL`) et `redis` enregistré          | `redis`                                | `infra.ts:291` |
 | 3     | Infra **database** déclarée (`NF_DATABASE_URL`) et le backend enregistré | `drizzle` (SQL) / `mongoose` (Mongo)   | `infra.ts:261` |
-| 4     | Une préférence existait mais son backend n'est pas enregistré            | `fallback` = `memory`, raison ANNONCÉE | `infra.ts:274` |
+| 4     | Une préférence existait mais son backend n'est pas enregistré            | `fallback` = `memory`, raison ANNONCÉE | `infra.ts:334` |
 | 5     | **Aucune infra déclarée** mais un backend local persistant est chargé    | `drizzle`, puis `mongoose`             | `infra.ts:288` |
 | 6     | Rien de tout ça                                                          | `memory` (volatil)                     | `infra.ts:295` |
 

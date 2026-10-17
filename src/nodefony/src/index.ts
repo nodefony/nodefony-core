@@ -533,6 +533,7 @@ export type {
   IInfraCache,
   IInfraLogs,
   IAutoStoreResolution,
+  IStoreConnectivity,
   IStoreResolution,
   StoreProvenance,
   InfraSqlDialect,
@@ -717,7 +718,10 @@ export type { IRunProfile, RunLifetime } from "./kernel/Kernel";
 export {
   CONSOLE_RUN_PROFILE,
   CONSOLE_DATA_RUN_PROFILE,
+  CONSOLE_SCHEMA_RUN_PROFILE,
   runNeedsExternalServices,
+  runWorksOnSchema,
+  storeConnectivity,
 } from "./kernel/Kernel";
 
 export type {

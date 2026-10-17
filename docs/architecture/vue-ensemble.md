@@ -241,8 +241,8 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1671`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1794`). L'ordre du tableau **est** l'ordre
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1748`) puis
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1859`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -324,19 +324,19 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 ### Le boot — une chaîne de phases, jamais un big-bang
 
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
-(`Events`, `Kernel.ts:332`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
+(`Events`, `Kernel.ts:339`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:853`), `Kernel.boot()` (`Kernel.ts:1325`), `Kernel.onReady()`
-(`Kernel.ts:1355`) et `Kernel.initServers()` (`Kernel.ts:1464`).
+`Kernel.start()` (`Kernel.ts:929`), `Kernel.boot()` (`Kernel.ts:1325`), `Kernel.onReady()`
+(`Kernel.ts:1420`) et `Kernel.initServers()` (`Kernel.ts:1541`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
 `onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:4180`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:4254`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3602`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3667`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 

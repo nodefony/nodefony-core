@@ -309,7 +309,7 @@ Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:803`) et
 ### Comment `store: "auto"` se résout au boot
 
 `auto` n'est pas un store : c'est une sentinelle résolue une fois, au boot, par `resolveAutoStore()`
-(`config/infra.ts:297`), puis journalisée. Elle suit **l'infra que tu as déclarée**, bornée aux stores
+(`config/infra.ts:330`), puis journalisée. Elle suit **l'infra que tu as déclarée**, bornée aux stores
 réellement enregistrés (`SessionsService.initializeStorage()`, `sessions-service.ts:258`).
 
 ```mermaid

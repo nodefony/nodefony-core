@@ -423,7 +423,7 @@ export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
 ### Quand la connexion échoue, le démarrage échoue
 
 Un connecteur **déclaré** qui ne se connecte pas lève une `BootConfigurationError`
-(`DrizzleService.ts:433`) — en développement **comme** en production. Ce n'est pas une sévérité
+(`DrizzleService.ts:440`) — en développement **comme** en production. Ce n'est pas une sévérité
 gratuite : une infrastructure déclarée mais injoignable ne se répare pas en continuant. Un serveur qui
 démarrerait « vivant » avec ses stores morts accepterait des requêtes pour échouer plus tard, la cause
 noyée dans un avertissement. Le message d'erreur nomme le connecteur, le dialecte, la cible rédigée et
@@ -674,7 +674,7 @@ ou l'idempotence (`createIdempotencyTable`, `idempotencyEntity.ts:85`).
 ### Comment ça s'active — la réponse est : tout seul
 
 Chaque brique choisit son backend par une option `store`, dont le **défaut est `"auto"`**. La
-résolution automatique (`resolveAutoStore()`, `infra.ts:297`) applique cette préférence :
+résolution automatique (`resolveAutoStore()`, `infra.ts:330`) applique cette préférence :
 
 1. une infra `database` déclarée (`NF_DATABASE_URL`) → **`drizzle`** (ou `mongoose` si l'URL est Mongo) ;
 2. sinon, un backend local persistant réellement chargé → **`drizzle`**, c'est-à-dire SQLite ;

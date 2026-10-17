@@ -233,6 +233,29 @@ export interface IStoreResolution {
 }
 
 /**
+ * Un run peut-il confier ses briques `auto` à un backend CONNECTÉ — et sinon,
+ * pourquoi ? La cause fait la phrase : accuser `externalServices` une commande
+ * qui l'a déclaré, mais qui travaille le schéma, enverrait corriger ce qui va.
+ */
+export type IStoreConnectivity =
+  | { readonly allowed: true }
+  | {
+      readonly allowed: false;
+      /** `no-external-services` : le run n'ouvre aucune connexion ; `schema-work` : il travaille le schéma. */
+      readonly cause: "no-external-services" | "schema-work";
+    };
+
+/** Lit un verdict donné sous sa forme historique (booléen) ou complète. */
+function asStoreConnectivity(
+  connectivity: boolean | IStoreConnectivity,
+): IStoreConnectivity {
+  if (typeof connectivity !== "boolean") return connectivity;
+  return connectivity
+    ? { allowed: true }
+    : { allowed: false, cause: "no-external-services" };
+}
+
+/**
  * Le REMÈDE à nommer quand une brique durable se retrouve en mémoire.
  *
  * Une seule implémentation, parce qu'il y a deux causes et qu'en nommer une
@@ -241,12 +264,22 @@ export interface IStoreResolution {
  * fait chercher là où il n'y a rien. Vécu sur une commande en ligne dont le
  * seul tort était de ne pas déclarer son besoin de données.
  *
- * @param canOpenConnections - ce run ouvre-t-il des connexions externes ?
- *   (`runNeedsExternalServices(kernel)` chez l'appelant).
+ * @param connectivity - verdict du run (`storeConnectivity(kernel)` chez
+ *   l'appelant) ; un booléen vaut « connexions ouvertes ou non ».
  * @returns la phrase de remède, à concaténer après la conséquence métier.
  */
-export function durableStoreRemedy(canOpenConnections: boolean): string {
-  return canOpenConnections
+export function durableStoreRemedy(
+  connectivity: boolean | IStoreConnectivity,
+): string {
+  const verdict = asStoreConnectivity(connectivity);
+  if (!verdict.allowed && verdict.cause === "schema-work") {
+    return (
+      "Ce run travaille le schéma (commande orm:*) : ses briques restent en " +
+      "mémoire le temps de la commande, ses tables pouvant ne pas exister " +
+      "encore. Rien à corriger — l'application, elle, utilise sa base."
+    );
+  }
+  return verdict.allowed
     ? `Déclarer une infra durable (NF_DATABASE_URL) ou un store persistant.`
     : `Ce run n'ouvre aucune connexion : il n'a pas déclaré \`externalServices\`. ` +
         `Une commande qui lit ou écrit des données le déclare via ` +
@@ -289,18 +322,20 @@ const CONNECTED_STORES: ReadonlySet<string> = new Set([
  * @param available - backends enregistrés dans le registre de la brique.
  * @param fallback - backend de repli (défaut `"memory"` — c'est aussi ce que passe
  *   le service de session : aucun appelant ne demande un autre repli).
- * @param canOpenConnections - ce run ouvre-t-il des connexions externes ?
- *   `runNeedsExternalServices(kernel)` chez l'appelant. `false` écarte tout
- *   backend connecté du choix `auto` — un store explicitement configuré, lui,
- *   ne passe pas par ici et échoue franchement, comme il doit.
+ * @param connectivity - verdict du run, `storeConnectivity(kernel)` chez
+ *   l'appelant (un booléen reste accepté). Refusé, il écarte tout backend
+ *   connecté du choix `auto` — un store explicitement configuré, lui, ne passe
+ *   pas par ici et échoue franchement, comme il doit.
  */
 export function resolveAutoStore(
   kind: StoreKind,
   infra: IInfra,
   available: readonly string[],
   fallback = "memory",
-  canOpenConnections = true,
+  connectivity: boolean | IStoreConnectivity = true,
 ): IAutoStoreResolution {
+  const verdict = asStoreConnectivity(connectivity);
+  const canOpenConnections = verdict.allowed;
   // 🔴 Un run qui n'ouvre AUCUNE connexion ne reçoit AUCUN backend connecté —
   // et le filtre s'applique PARTOUT, infra déclarée comprise.
   //
@@ -327,11 +362,14 @@ export function resolveAutoStore(
     ? []
     : available.filter((s) => CONNECTED_STORES.has(s));
   const profileNote =
-    discarded.length > 0
-      ? ` ; ${discarded.join("/")} écarté(s) : ce run n'a pas déclaré ` +
-        `\`externalServices\` (une commande qui lit ou écrit des données le ` +
-        `déclare via CONSOLE_DATA_RUN_PROFILE)`
-      : "";
+    discarded.length === 0
+      ? ""
+      : !verdict.allowed && verdict.cause === "schema-work"
+        ? ` ; ${discarded.join("/")} écarté(s) : ce run travaille le schéma ` +
+          `(commande orm:*), ses tables peuvent ne pas exister encore`
+        : ` ; ${discarded.join("/")} écarté(s) : ce run n'a pas déclaré ` +
+          `\`externalServices\` (une commande qui lit ou écrit des données le ` +
+          `déclare via CONSOLE_DATA_RUN_PROFILE)`;
 
   // Override GLOBAL (`NF_STORE`) — PRIORITÉ MAX sur toute préférence d'infra : force
   // ce backend pour toute brique `auto` s'il est enregistré (banc de charge « tout en

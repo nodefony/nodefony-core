@@ -321,14 +321,9 @@ process.exit(pkg.dependencies?.["@nodefony/drizzle"] ? 0 : 1);
     || { tail -30 "$WORK/.host-build.out"; fail "npm run build côté hôte"; }
   ok "application bâtie côté hôte"
 
-  # 🔴 Le décor sans lequel la commande se mord la queue : elle démarre
-  # l'application, et un démarrage en DÉVELOPPEMENT dérive le schéma du code —
-  # la base se retrouve peuplée par la commande elle-même, qui refuse alors
-  # d'écrire une première migration (`NF_GENERATE_DATABASE_NOT_ADOPTED`).
-  # `production` donne le mode `none` ; `NF_STORE=memory` empêche le démarrage
-  # de lire une table qui n'existe pas encore.
-  (cd "$dir" && NODE_ENV=production NF_STORE=memory \
-    npx nodefony orm:generate --name init) > "$WORK/.host-generate.out" 2>&1 \
+  # La ligne TELLE que les « Prochaines étapes » la donnent, sans décor : la
+  # commande se déclare elle-même un run qui travaille le schéma (#566).
+  (cd "$dir" && npx nodefony orm:generate --name init) > "$WORK/.host-generate.out" 2>&1 \
     || { tail -30 "$WORK/.host-generate.out"; fail "nodefony orm:generate --name init"; }
 
   # Un code de sortie 0 ne prouve pas qu'un fichier a été écrit. C'est
@@ -1797,8 +1792,7 @@ if runs pm; then
     ok "module « blog » généré, et l'application compile avec lui"
 
     step "[pm:$PM] migration initiale (écrite au poste, elle voyage dans l'image)"
-    (cd "$PAPP" && NODE_ENV=production NF_STORE=memory \
-      sh -c "$(pm_line "$PM" exec nodefony) orm:generate --name init") > "$WORK/.pm-$PM-generate.out" 2>&1 \
+    (cd "$PAPP" && sh -c "$(pm_line "$PM" exec nodefony) orm:generate --name init") > "$WORK/.pm-$PM-generate.out" 2>&1 \
       || { tail -30 "$WORK/.pm-$PM-generate.out"; fail "$PM : orm:generate"; }
     n=$(find "$PAPP/migrations" -name '*.sql' 2>/dev/null | wc -l | tr -d ' ')
     [ "$n" -ge 1 ] || fail "$PM : orm:generate sorti en 0 sans écrire de .sql"

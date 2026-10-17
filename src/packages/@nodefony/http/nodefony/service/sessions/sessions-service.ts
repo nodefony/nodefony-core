@@ -13,7 +13,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   readStoreLocation,
   readStoreConnector,
   countFacets,
@@ -272,7 +272,7 @@ class SessionsService extends Service {
         this.kernel?.infra ?? EMPTY_INFRA,
         SessionsService.storageHandlers(),
         "memory",
-        runNeedsExternalServices(this.kernel),
+        storeConnectivity(this.kernel),
       );
       storeName = auto.store;
       reason = auto.reason;

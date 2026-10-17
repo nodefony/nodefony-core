@@ -1,7 +1,7 @@
 import {
   Module,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   durableStoreRemedy,
 } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
@@ -115,7 +115,7 @@ export async function provisionUsers(module: Module): Promise<void> {
       module.kernel?.infra ?? { database: null, cache: null, logs: null },
       ["drizzle", "mongoose", "memory"],
       "drizzle",
-      runNeedsExternalServices(module.kernel),
+      storeConnectivity(module.kernel),
     );
     store = resolution.store;
     reason = `NF_USER_STORE=auto → "${store}" (${resolution.reason}).`;
@@ -130,7 +130,7 @@ export async function provisionUsers(module: Module): Promise<void> {
       module.log(
         `NF_USER_STORE=memory en PRODUCTION — annuaire utilisateurs volatil : comptes ` +
           `perdus au redémarrage, non partagés entre pods. ` +
-          durableStoreRemedy(runNeedsExternalServices(module.kernel)),
+          durableStoreRemedy(storeConnectivity(module.kernel)),
         "WARNING",
         LOG_CTX,
       );

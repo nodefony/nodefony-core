@@ -5,6 +5,7 @@ import {
   BootConfigurationError,
   projectEntityDialectMismatches,
   runNeedsExternalServices,
+  runWorksOnSchema,
 } from "nodefony";
 import type { Container, Kernel, Module } from "nodefony";
 import {
@@ -316,6 +317,12 @@ class DrizzleService extends Service {
       ),
       cfg.filename === MEMORY_DATABASE,
     );
+    // 🔴 Une commande qui TRAVAILLE le schéma (`orm:*`) se connecte sans le
+    // toucher : un démarrage qui le dériverait peuplerait la base que la
+    // commande doit décrire — `orm:generate` trouvait alors les tables qu'il
+    // devait créer, et refusait d'écrire la première migration. La politique
+    // du mode (appliquer, surveiller) revient, elle aussi, à la commande.
+    const schemaWork = runWorksOnSchema(this.kernel);
     let filename: string | undefined;
     if (dialect === "sqlite") {
       // `filename` optionnel (schéma pur) → résolu ici via le kernel si omis.
@@ -354,7 +361,7 @@ class DrizzleService extends Service {
       dialect,
       filename,
       url: cfg.url,
-      deriveSchema: ddl === "auto",
+      deriveSchema: ddl === "auto" && !schemaWork,
       // L'état des migrations se lit dans la CONFIGURATION (fichiers, mode de
       // schéma, coordonnées) : l'ORM, lui, ne connaît que sa connexion. Le
       // lecteur est donc posé ici, par le seul objet qui détienne les deux.
@@ -459,6 +466,14 @@ class DrizzleService extends Service {
     // 3 heures du matin n'est pas « suis-je connecté » mais « qui fabrique mon
     // schéma, et est-il à jour ». Une ligne qui tait le mode laisse croire au
     // comportement de développement partout.
+    if (schemaWork) {
+      this.log(
+        `Drizzle « ${name} » connecté (${dialect}: ${target}) — schéma : ` +
+          `laissé à la commande en cours (mode configuré : ${ddl})`,
+        "INFO",
+      );
+      return;
+    }
     this.log(
       `Drizzle « ${name} » connecté (${dialect}: ${target}) — schéma : ` +
         `${ddl} ${DDL_EXPLAINED[ddl]}`,

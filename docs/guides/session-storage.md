@@ -88,7 +88,7 @@ session.store "auto" → "redis" (cache redis déclaré)
 SESSION STORAGE active : redis
 ```
 
-La résolution est portée par `resolveAutoStore()` (`infra.ts:289`), appelée depuis
+La résolution est portée par `resolveAutoStore()` (`infra.ts:330`), appelée depuis
 `initializeStorage()` (`sessions-service.ts:258`) — la même fonction sert aux autres briques qui
 déclarent un store, ce qui évite deux politiques divergentes.
 

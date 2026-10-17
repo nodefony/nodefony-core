@@ -825,20 +825,11 @@ function runInitialMigration(
     cwd: dest,
     encoding: "utf8",
     windowsVerbatimArguments: generate.windowsVerbatimArguments,
-    // 🔴 Le décor MINIMAL sans lequel la commande se mord la queue. Elle
-    // démarre l'application, et un démarrage en développement DÉRIVE le
-    // schéma du code : la base se retrouve peuplée par la commande
-    // elle-même, qui refuse alors d'écrire une première migration puisque
-    // « la base porte déjà toutes les tables déclarées » (constaté).
-    // `production` donne le mode `none` : le démarrage ne fabrique rien.
-    // `NF_STORE=memory` empêche le démarrage de LIRE une base qui n'a pas
-    // encore sa table — le provisionnement d'un annuaire y mourrait avant
-    // que le verbe ne s'exécute.
-    env: {
-      ...envForOtherProject(),
-      NODE_ENV: "production",
-      NF_STORE: "memory",
-    },
+    // Aucun décor : la commande se déclare elle-même `CONSOLE_SCHEMA_RUN_PROFILE`
+    // — son démarrage ne dérive pas le schéma et ne lit aucune table du
+    // framework. C'est la MÊME ligne que celle que les « Prochaines étapes »
+    // donnent à l'utilisateur.
+    env: envForOtherProject(),
   });
   if (r.status === 0) {
     // 🔴 ÉCRITE ne veut pas dire APPLIQUÉE, et l'application naissait à
@@ -850,10 +841,9 @@ function runInitialMigration(
     // aucune migration n'y est enregistrée », le boot loggue « no such table:
     // User », et la forge du scaffold criait « 2 migrations à appliquer ».
     //
-    // Un agent qui rencontre ça répare du vide. On applique donc, dans le même
-    // décor que l'écriture (`production` + `NF_STORE=memory`) : le mode `none`
-    // empêche le démarrage de fabriquer quoi que ce soit, et c'est bien la
-    // MIGRATION qui crée les tables.
+    // Un agent qui rencontre ça répare du vide. On applique donc, par la même
+    // ligne que celle des « Prochaines étapes » : c'est bien la MIGRATION qui
+    // crée les tables.
     const migrate = portableSpawn(
       pm,
       packageManagerExecArgs(pm, "nodefony", ["orm:migrate"]),
@@ -862,11 +852,7 @@ function runInitialMigration(
       cwd: dest,
       encoding: "utf8",
       windowsVerbatimArguments: migrate.windowsVerbatimArguments,
-      env: {
-        ...envForOtherProject(),
-        NODE_ENV: "production",
-        NF_STORE: "memory",
-      },
+      env: envForOtherProject(),
     });
     if (applique.status === 0) {
       return {

@@ -456,7 +456,7 @@ muet ne l'est pas. Voici ce que le code fait réellement, moment par moment.
 ### Moment 1 — Redis est absent au démarrage
 
 Le module est déclaré non critique (`index.ts:36`), et l'initialisation du service est **bornée dans
-le temps** : `Kernel.guardInitialize()` (`Kernel.ts:4336`) enveloppe l'appel dans un délai maximal de
+le temps** : `Kernel.guardInitialize()` (`Kernel.ts:4401`) enveloppe l'appel dans un délai maximal de
 démarrage. Un `init()` qui pend ne gèle donc pas le boot ; l'échec est agrégé au rapport de démarrage,
 qui fait dire « démarrage DÉGRADÉ » au superviseur au lieu de mentir sur un état sain.
 
@@ -636,7 +636,7 @@ c'est la contrepartie assumée de la séparation imposée par le protocole.
 - **Écran Stores** (`/nodefony/stores`) : pour chaque brique, le store réellement retenu au démarrage
   **et la raison**. La résolution est enregistrée par `SessionsService.initializeStorage()`
   (`sessions-service.ts:258`), qui journalise aussi la décision au format « `auto` → `redis` (infra
-  cache) ». Le choix automatique lui-même vient de `resolveAutoStore()` (`infra.ts:297`) : Redis n'est
+  cache) ». Le choix automatique lui-même vient de `resolveAutoStore()` (`infra.ts:330`) : Redis n'est
   proposé que pour les natures non durables.
 - **Écran Sessions** : l'énumération y passe par `listPage` en mode curseur — d'où l'absence de
   compteur total et la navigation « page suivante » seule. C'est la capacité réduite décrite plus

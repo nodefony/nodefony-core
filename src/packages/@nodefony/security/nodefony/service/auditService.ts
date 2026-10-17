@@ -6,7 +6,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
-  runNeedsExternalServices,
+  storeConnectivity,
   durableStoreRemedy,
   readStoreLocation,
   readStoreConnector,
@@ -97,7 +97,7 @@ class AuditService extends Service implements IAuditSink {
         this.kernel?.infra ?? EMPTY_INFRA,
         listAuditStores(),
         "memory",
-        runNeedsExternalServices(this.kernel),
+        storeConnectivity(this.kernel),
       );
       storeName = auto.store;
       reason = auto.reason;
@@ -128,7 +128,7 @@ class AuditService extends Service implements IAuditSink {
         `audit.store "memory" en PRODUCTION — journal de sécurité volatil et per-pod : ` +
           `perdu au redémarrage, invisible des autres pods, rétention de conformité ` +
           `impossible. ` +
-          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
+          durableStoreRemedy(storeConnectivity(this.kernel)),
         "WARNING",
       );
     }
