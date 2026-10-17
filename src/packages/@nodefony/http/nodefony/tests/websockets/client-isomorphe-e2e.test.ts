@@ -184,6 +184,38 @@ async function until(
 /** Provoque du trafic serveur — donc des journaux à pousser sur le canal syslog. */
 const remuer = (cookie: string) => request(MODULES, "GET", { cookie });
 
+/**
+ * Attend une trame du flux en PROVOQUANT du trafic tant qu'elle n'est pas venue.
+ *
+ * `connected` est posé à l'ouverture TCP ; l'abonnement, lui, n'est (re)joué
+ * qu'au `realtime:welcome` (`NodefonySocket.replaySubscriptions`), et le serveur
+ * ne l'acquitte pas. Un journal émis entre les deux est PERDU : le pont syslog
+ * ne s'attache qu'à l'abonnement. Un `remuer` unique juste après `connected`
+ * tombait dans ce trou — vécu en intégration continue (macOS, production, où
+ * aucun journal DEBUG ne vient combler le flux après coup) : requête partie 2 ms
+ * après l'ouverture, puis dix secondes de silence.
+ *
+ * Remuer à chaque tour ne relâche rien : sans abonnement actif côté serveur,
+ * aucune trame n'arrive, quel que soit le trafic provoqué.
+ *
+ * @param geste - le trafic d'un tour ; deux requêtes d'affilée quand le test
+ *   attend deux lignes dans le MÊME lot (le pont coalesce sur 200 ms).
+ */
+async function untilStirred(
+  ce: string,
+  predicat: () => boolean,
+  ms = 8000,
+  geste: () => Promise<unknown> = () => remuer(cookie),
+): Promise<void> {
+  const fin = Date.now() + ms;
+  while (Date.now() < fin) {
+    if (predicat()) return;
+    await geste();
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`jamais observé en ${ms} ms (trafic relancé) : ${ce}`);
+}
+
 let cookie: string;
 let restoreTrust: (() => void) | null = null;
 
@@ -326,9 +358,12 @@ describe("E2E isomorphe — les canaux, contre le protocole RÉEL", () => {
       // journal. En attendre deux ne doit rien au découpage des lots par le
       // serveur, ni à un message annexe — l'alerte « canal sans règle », qui
       // fournissait la seconde, a disparu et ce test rougissait sur 3 systèmes.
-      await remuer(cookie);
-      await remuer(cookie);
-      await until("journaux reçus", () => entrees.length > 1);
+      await untilStirred(
+        "journaux reçus",
+        () => entrees.length > 1,
+        8000,
+        () => remuer(cookie).then(() => remuer(cookie)),
+      );
 
       // Ce que le mock ne pouvait pas prouver : le serveur envoie bien un LOT
       // (`{ logs, dropped }`) et non des entrées une à une. Un décodeur qui ne
@@ -358,8 +393,7 @@ describe("E2E isomorphe — les canaux, contre le protocole RÉEL", () => {
         a.push(p),
       );
       observeChannel(live.socket, PLATFORM_CHANNELS.syslog, (p) => b.push(p));
-      await remuer(cookie);
-      await until("les deux servis", () => a.length > 0 && b.length > 0);
+      await untilStirred("les deux servis", () => a.length > 0 && b.length > 0);
 
       offA();
       const bAvant = b.length;
@@ -383,8 +417,7 @@ describe("E2E isomorphe — les canaux, contre le protocole RÉEL", () => {
       const off = observeChannel(live.socket, PLATFORM_CHANNELS.syslog, (p) =>
         recus.push(p),
       );
-      await remuer(cookie);
-      await until("premier lot", () => recus.length > 0);
+      await untilStirred("premier lot", () => recus.length > 0);
 
       off();
       const apresLiberation = recus.length;
@@ -413,9 +446,8 @@ describe("E2E isomorphe — les canaux, contre le protocole RÉEL", () => {
         PLATFORM_CHANNELS.syslog,
         (s) => (vues = s?.msgCount ?? 0),
       );
-      await remuer(cookie);
       // L'échantillonneur tourne 1×/s : la valeur remonte au tick suivant.
-      await until("compteur non nul", () => vues > 0, 6000);
+      await untilStirred("compteur non nul", () => vues > 0, 6000);
     },
     TIMEOUT,
   );
@@ -431,8 +463,7 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
     live.start();
     await until("connecté", () => live.socket.state === "connected");
     observeChannel(live.socket, PLATFORM_CHANNELS.syslog, (p) => recus.push(p));
-    await remuer(cookie);
-    await until("premier lot", () => recus.length > 0);
+    await untilStirred("premier lot", () => recus.length > 0);
 
     // Une perte réseau ne s'ENVOIE pas, elle se SUBIT : `1006` est réservé par
     // la RFC 6455 et aucune pile ne l'émet (`ws` refuse même de l'essayer).
@@ -450,9 +481,18 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
       10_000,
     );
     await until("reconnecté", () => live.socket.state === "connected", 12_000);
-    await remuer(cookie);
     // Rien n'a été ré-abonné par le test : c'est le client qui rejoue.
-    await until("flux repris", () => recus.length > avant, 10_000);
+    //
+    // On attend la trace d'une requête provoquée APRÈS la reconnexion, pas
+    // « une trame quelconque » : en développement, les journaux DEBUG nés de
+    // l'abonnement lui-même suffisaient à faire passer le test, qui ne
+    // départageait donc rien — il est resté vert avec un `remuer` lancé dans le
+    // trou d'avant le welcome, que ce prédicat fait rougir 3 fois sur 3.
+    await untilStirred(
+      "flux repris",
+      () => JSON.stringify(recus.slice(avant)).includes(MODULES),
+      10_000,
+    );
   }, 30_000);
 
   it(
