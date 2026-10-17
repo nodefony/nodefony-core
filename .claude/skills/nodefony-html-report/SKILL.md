@@ -298,6 +298,7 @@ Le skill étant **générique**, tout se surcharge :
 
 ```js
 doc({ brand: { name: "Acme", logo: "data:image/…", tagline: "…" } }); // autre marque
+doc({ brand: { ...NODEFONY_BRAND, version: "10.0.0-beta.3" } }); // pastille de version à côté du nom
 doc({ brand: null }); // document neutre
 ```
 
