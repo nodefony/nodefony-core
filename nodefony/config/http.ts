@@ -30,7 +30,7 @@ export const httpConfig = (ctx: ConfigContext<typeof env>) =>
     // (node:crypto, SHA-256). PROD : fournir un VRAI certificat (Let's Encrypt,
     // ingress k8s, reverse-proxy edge) — Nodefony n'est PAS une autorité de
     // certification ; la génération reste un confort de DÉVELOPPEMENT.
-    // (Re)génération / inspection manuelle : `nodefony certificates [--force]`.
+    // (Re)génération / inspection manuelle : `nodefony http:certificates [--force]`.
     certificates: {
       // Autorité à reconnaître pour les appels SORTANTS (Keycloak interne,
       // autorité d'entreprise) — la CA de développement l'est d'office.

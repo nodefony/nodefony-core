@@ -138,7 +138,7 @@ rouge chez tout installeur). Ne pas le réintroduire.
 
 ### Commande CLI
 
-`nodefony certificates [--force] [--json]` (`command/certificatesCommand.ts`, `kernelEvent:"onBoot"`
+`nodefony http:certificates [--force] [--json]` (`command/certificatesCommand.ts`, `kernelEvent:"onBoot"`
 
 - `lifetime:oneshot` → ne démarre pas les serveurs) : (re)génère + imprime `describe()`. Réutilise le
   service enregistré (`getModules().http.get("certificates")`). Aucune PKI à intermédiaire ni
