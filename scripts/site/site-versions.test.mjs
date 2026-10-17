@@ -98,7 +98,12 @@ describe("versions du site", () => {
   it("le script servi embarque la fonction éprouvée, et se lit", () => {
     const s = versionSwitchScript("../../");
     expect(s).toContain(versionTarget.toString());
-    const js = /<script>([\s\S]*)<\/script>/.exec(s)[1];
+    // Découpe par positions, pas par expression régulière : CodeQL lit tout
+    // motif `<script>…</script>` comme un filtre HTML (js/bad-tag-filter).
+    const open = "<script>";
+    const start = s.indexOf(open) + open.length;
+    const js = s.slice(start, s.indexOf("</script>", start));
+    expect(js.length).toBeGreaterThan(0);
     // Compilé sans être exécuté : une erreur de syntaxe dans la page ne se
     // verrait nulle part ailleurs — le sélecteur serait juste absent.
     expect(() => new vm.Script(js)).not.toThrow();
