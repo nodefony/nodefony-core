@@ -174,12 +174,16 @@ toujours · **jamais sous `NODE_ENV=test`** (un exemplaire par worker ; bases é
 développement, inchangé (`none`). Branché aux DEUX points, sinon boot et CLI expliqueraient deux
 états : `DrizzleService.#connectOne` et `resolveConnector`. Lecture disque SYNCHRONE et bornée
 (1 `readdirSync` par connecteur au boot, `meta/` ignoré, sous-dossiers de dialecte comptés).
+🔴 La règle du dossier (`connectorVersionsMigrations`, `connectorMigrationsDir`,
+`ownsSharedMigrations`, `RESERVED_MIGRATION_DIRS`) vit au CŒUR (`nodefony`,
+`kernel/migrationsLayout.ts`) : `create entity` la lit pour annoncer ce que fera le démarrage.
+Ce paquet la RÉ-EXPORTE (`paths.ts`, `resolve.ts`, `frameworkConnector.ts`) — jamais la recopier.
 
 ## Propriétaire des migrations — un dossier PAR connecteur
 
-`ownsSharedMigrations(connector)` (`src/frameworkConnector.ts`, `FRAMEWORK_CONNECTOR` = `"default"`)
+`ownsSharedMigrations(connector)` (cœur, ré-exporté par `src/frameworkConnector.ts` ; `FRAMEWORK_CONNECTOR` = `FRAMEWORK_SQL_CONNECTOR` = `"default"`)
 dit qui reçoit les migrations du FRAMEWORK et de la racine `migrations/<dialecte>` : `default` seul.
-`connectorMigrationsDir(appDir, connector)` (`src/migrator/paths.ts`) = LA règle du dossier propre :
+`connectorMigrationsDir(appDir, connector)` (cœur, ré-exporté par `src/migrator/paths.ts`) = LA règle du dossier propre :
 `default` → racine · secondaire → `migrations/<connecteur>` · nom réservé
 (`RESERVED_MIGRATION_DIRS` : `sqlite`/`postgres`/`mysql`/`meta`) → `undefined`. Tous les lecteurs
 passent par elle : `defaultMigrationSources` (secondaire = source `app` sur son dossier, jamais

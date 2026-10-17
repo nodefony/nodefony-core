@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { connectorMigrationsDir, ownsSharedMigrations } from "nodefony";
 import type { IMigrationSource } from "./types";
-import { ownsSharedMigrations } from "../frameworkConnector";
 
 /** Nom logique RÉSERVÉ de la source livrée par le framework. */
 export const FRAMEWORK_SOURCE = "framework";
@@ -21,59 +21,10 @@ export const FRAMEWORK_RANK = 0;
  */
 export const APP_RANK = 1_000_000;
 
-/**
- * Noms qui ne peuvent PAS désigner le dossier d'un connecteur secondaire : ce
- * sont ceux des dossiers de dialecte (et du journal) que le connecteur du
- * framework range déjà sous `migrations/`. Un connecteur `postgres` y lirait les
- * migrations de `default` comme les siennes.
- */
-export const RESERVED_MIGRATION_DIRS: readonly string[] = [
-  "sqlite",
-  "postgres",
-  "mysql",
-  "meta",
-];
-
-/**
- * Le nom de ce connecteur collisionne-t-il avec un dossier de dialecte ?
- *
- * @param connector - nom du connecteur (clé de `connectors`).
- * @returns `true` pour un connecteur SECONDAIRE nommé comme un dossier réservé.
- */
-export function isReservedConnectorName(connector: string): boolean {
-  return (
-    !ownsSharedMigrations(connector) &&
-    RESERVED_MIGRATION_DIRS.includes(connector)
-  );
-}
-
-/**
- * Dossier des migrations PROPRES à un connecteur — la seule règle qui dit où
- * elles vivent.
- *
- * Le connecteur du framework garde la racine (`migrations/<dialecte>`) : ses
- * migrations décrivent la base du framework et des entités de l'application.
- * Un connecteur secondaire reçoit son sous-dossier (`migrations/<connecteur>/
- * <dialecte>`) : sa base ne reçoit que ce qui y est écrit, et celle du
- * framework n'en voit rien — le dossier de dialecte qu'elle lit n'est pas le
- * même.
- *
- * @param appDir - dossier de migrations de l'application (`appMigrationsDir`).
- * @param connector - nom du connecteur.
- * @returns le dossier parent des sous-dossiers de dialecte, ou `undefined` sans
- *   racine d'application, ou pour un nom réservé ({@link isReservedConnectorName}).
- */
-export function connectorMigrationsDir(
-  appDir: string | undefined,
-  connector: string,
-): string | undefined {
-  if (appDir === undefined || isReservedConnectorName(connector)) {
-    return undefined;
-  }
-  return ownsSharedMigrations(connector)
-    ? appDir
-    : path.join(appDir, connector);
-}
+// Où vivent les migrations d'un connecteur : règle du cœur, que le générateur
+// (`create entity`) lit aussi — il ne peut pas importer ce paquet.
+export { connectorMigrationsDir };
+export { RESERVED_MIGRATION_DIRS, isReservedConnectorName } from "nodefony";
 
 /** Dossier de migrations, mémoïsé — la remontée ne se fait qu'une fois. */
 let cachedDir: string | null = null;

@@ -7887,6 +7887,46 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(notes, "production : appliquer les migrations");
     });
 
+    // 🔴 Vécu sur une application `complete` (10.0.0-beta.3) : elle naît avec sa
+    // migration initiale, le démarrage en développement passe donc en `migrate`
+    // et ne crée aucune table. La commande annonçait pourtant « créée au
+    // prochain boot » — `GET /api/articles` répondait `500 no such table`.
+    for (const [layout, file] of [
+      [
+        "sous-dossier de dialecte",
+        path.join("migrations", "sqlite", "0000_init.sql"),
+      ],
+      ["à la racine du dossier", path.join("migrations", "0000_init.sql")],
+    ] as const) {
+      it(`une application qui VERSIONNE ses migrations (${layout}) : le démarrage ne crée pas la table, et la commande le dit`, () => {
+        const dest = app(`ddlversioned-${file.length}`);
+        mkdirSync(path.dirname(path.join(dest, file)), { recursive: true });
+        writeFileSync(path.join(dest, file), "CREATE TABLE x (id int);\n");
+        const notes = (
+          entity(dest, { name: "Article", fields: "title:string" }).notes ?? []
+        ).join("\n");
+        assert.include(notes, "le démarrage ne la crée PAS");
+        assert.include(notes, "l'application versionne ses migrations");
+        assert.include(notes, "nodefony orm:generate --name articles --apply");
+        assert.include(notes, "nodefony orm:migrate");
+        assert.notInclude(notes, "créée au prochain boot");
+        assert.notInclude(notes, "orm:reset");
+      });
+    }
+
+    it("des migrations sans `.sql` (journal `meta/` seul) ne font pas foi : la création au boot reste annoncée", () => {
+      const dest = app("ddlmetaonly");
+      mkdirSync(path.join(dest, "migrations", "meta"), { recursive: true });
+      writeFileSync(
+        path.join(dest, "migrations", "meta", "_journal.json"),
+        "{}\n",
+      );
+      const notes = (
+        entity(dest, { name: "Note", fields: "body:text" }).notes ?? []
+      ).join("\n");
+      assert.include(notes, "créée au prochain boot en développement");
+    });
+
     it("drizzle-orm est déclaré par l'app (import direct de l'entité générée)", () => {
       // L'entité produite importe `drizzle-orm/<dialecte>-core` : c'est une dep DE
       // L'APP. Sans elle, la résolution ne tient que par le hissage npm des

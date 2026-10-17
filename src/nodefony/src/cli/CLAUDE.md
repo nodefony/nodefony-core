@@ -840,7 +840,10 @@ d'entité éprouve les TROIS faces — l'admin supprime, l'anonyme est refusé, 
 jeton anti-CSRF (`csrfHeaders`, semé par `GET …/auth/me`) : ajouter `@CsrfProtect()` aux écritures
 ne casse aucun test généré. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
 DELETE anonyme** (banc de découvrabilité, tâche 20). **Dit la vérité** : la
-table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`), un champ ajouté **qui accepte le
+table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`) — SAUF si le connecteur versionne
+déjà une migration (cas de toute app `complete`) : le démarrage est alors en `migrate`, la note dit
+qu'il ne crée PAS la table et donne `orm:generate --name <table> --apply` puis `orm:migrate`
+(jugé par `connectorVersionsMigrations`, la règle du cœur que Drizzle lit aussi) ; un champ ajouté **qui accepte le
 vide** est posé au boot suivant, un champ **obligatoire** ne l'est jamais (`orm:reset`, ou une
 migration), et la production s'applique par `orm:migrate`. Design + alternatives rejetées :
 `create-entity-design-2026-07` (mémoire IA `core-dev/audits/`).

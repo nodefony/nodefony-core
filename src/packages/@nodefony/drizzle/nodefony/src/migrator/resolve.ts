@@ -1,8 +1,12 @@
-import fs from "node:fs";
 import path from "node:path";
 import type { Kernel } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
-import { parseDatabaseUrl, sqliteFilenameFromUrl } from "nodefony";
+import {
+  connectorVersionsMigrations,
+  parseDatabaseUrl,
+  sqliteFilenameFromUrl,
+  versionsMigrations,
+} from "nodefony";
 import type {
   DdlMode,
   DivergenceMode,
@@ -12,7 +16,7 @@ import type {
 import type { IDrizzleConfig } from "../../interfaces/IDrizzleConfig";
 import { resolveConnectorTarget } from "../connectorTarget";
 import { DrizzleMigrator } from "./DrizzleMigrator";
-import { connectorMigrationsDir, defaultMigrationSources } from "./paths";
+import { defaultMigrationSources } from "./paths";
 import type { IMigrationTarget } from "./drivers/index";
 
 /**
@@ -171,64 +175,14 @@ export function resolveDdlMode(
 }
 
 /**
- * L'application versionne-t-elle au moins une migration ?
- *
- * Lecture SYNCHRONE et bornée à un `readdirSync` par connecteur au démarrage —
- * hors de tout chemin de requête. Elle doit l'être : le mode de schéma se
- * décide avant la connexion, et le rendre asynchrone propagerait un `await`
- * dans toute la chaîne de résolution pour une réponse qui ne change jamais
- * pendant la vie du processus.
- *
- * Un dossier absent, illisible ou vide répond `false` — l'application n'a alors
- * rien à appliquer, et `auto` reste le bon défaut de démarrage rapide.
- *
- * @param dir - dossier de migrations de l'application ({@link appMigrationsDir}).
- * @returns `true` si au moins un fichier `.sql` y est versionné, à un niveau
- *   ou sous un sous-dossier de dialecte (`migrations/postgres/0001_x.sql`).
+ * L'application versionne-t-elle au moins une migration dans ce dossier ?
+ * Règle du cœur ({@link versionsMigrations}), partagée avec le générateur.
  */
-export function appVersionsMigrations(dir: string | undefined): boolean {
-  if (!dir) {
-    return false;
-  }
-  try {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isFile() && entry.name.endsWith(".sql")) {
-        return true;
-      }
-      if (entry.isDirectory() && entry.name !== "meta") {
-        const nested = fs.readdirSync(path.join(dir, entry.name));
-        if (nested.some((name) => name.endsWith(".sql"))) {
-          return true;
-        }
-      }
-    }
-  } catch {
-    // Dossier absent ou illisible : l'application ne versionne rien.
-    return false;
-  }
-  return false;
-}
+export const appVersionsMigrations = versionsMigrations;
 
-/**
- * Des migrations versionnées CONCERNENT-elles ce connecteur ?
- *
- * C'est la question que pose la bascule `auto` → `migrate`, et elle n'est pas
- * « l'application versionne-t-elle des migrations ? » : celles de la racine
- * décrivent la base du framework. Posée telle quelle, elle faisait basculer en
- * `migrate` un connecteur secondaire qui n'en recevra jamais une — sa base
- * restait alors sans schéma, ni dérivé ni migré. On regarde donc le dossier
- * DU connecteur ({@link connectorMigrationsDir}).
- *
- * @param connector - nom du connecteur.
- * @param dir - dossier de migrations de l'application ({@link appMigrationsDir}).
- * @returns `true` si le dossier propre au connecteur porte au moins un `.sql`.
- */
-export function connectorVersionsMigrations(
-  connector: string,
-  dir: string | undefined,
-): boolean {
-  return appVersionsMigrations(connectorMigrationsDir(dir, connector));
-}
+// La bascule `auto` → `migrate` d'un connecteur : règle du cœur, que
+// `create entity` lit aussi pour annoncer ce que fera le démarrage.
+export { connectorVersionsMigrations };
 
 /**
  * La conduite de la sonde de disponibilité face à un schéma en retard.

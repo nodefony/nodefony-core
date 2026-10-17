@@ -118,6 +118,7 @@ import {
 } from "./spec";
 import { openSiblingRoutes } from "./routePaths";
 import { nodefonyImports } from "../../kernel/checks/packageDeps";
+import { connectorVersionsMigrations } from "../../kernel/migrationsLayout";
 
 /**
  * Moteur de scaffold — PUR : réponses validées → fichiers écrits. Aucune I/O
@@ -4905,6 +4906,34 @@ function readConnectors(
 }
 
 /**
+ * Dossier de migrations de l'application (`migrations.dir` du module Drizzle),
+ * lu SANS démarrer le noyau, dans le fichier qui déclare les connecteurs.
+ *
+ * Même lecture textuelle que {@link readConnectors}, pour la même raison.
+ *
+ * @param projectRoot - racine du projet.
+ * @param writer - accès fichiers transactionnel du scaffold.
+ * @returns la valeur écrite, ou `migrations` (le défaut du module).
+ */
+function readMigrationsDir(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): string {
+  const configPath = manifestFileWith(
+    projectRoot,
+    writer,
+    /\bconnectors\s*:\s*\{/u,
+  );
+  if (!writer.exists(configPath)) return "migrations";
+  const source = withoutComments(writer.read(configPath));
+  return (
+    /\bmigrations\s*:\s*\{[^{}]*?\bdir\s*:\s*["']([^"']+)["']/u.exec(
+      source,
+    )?.[1] ?? "migrations"
+  );
+}
+
+/**
  * Entités déjà déclarées dans une cible, lues au disque.
  *
  * Sert à transformer `ref:` d'un texte libre en un CHOIX : le formulaire de
@@ -5848,7 +5877,24 @@ function runEntityScaffold(
   const writtenMode = readConnectors(projectRoot, writer).find(
     (c) => c.name === connector,
   )?.ddl;
-  const schemaBuiltAtBoot = writtenMode !== "none" && writtenMode !== "migrate";
+  // Configuration muette : le démarrage en développement bascule en `migrate`
+  // dès que le connecteur versionne une migration — et c'est le cas de toute
+  // application `complete`, qui naît avec la sienne. Jugé par la MÊME règle que
+  // le module Drizzle (`connectorVersionsMigrations`, cœur), sur la vue de la
+  // transaction : annoncer « créée au prochain boot » y envoyait vers un
+  // `500 no such table`.
+  const versioned =
+    writtenMode === undefined &&
+    !mongo &&
+    connectorVersionsMigrations(
+      connector,
+      path.resolve(projectRoot, readMigrationsDir(projectRoot, writer)),
+      (dir) => writer.listDir(dir),
+    );
+  const connectorFlag =
+    connector === "default" ? "" : ` --connector ${connector}`;
+  const schemaBuiltAtBoot =
+    writtenMode !== "none" && writtenMode !== "migrate" && !versioned;
   const notes = mongo
     ? [
         // Rien à migrer, et le dire : c'est la question que pose quiconque
@@ -5863,20 +5909,28 @@ function runEntityScaffold(
         // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
         schemaBuiltAtBoot
           ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
-          : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${writtenMode}) — le démarrage ne la crée PAS`,
+          : versioned
+            ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — le démarrage ne la crée PAS : l'application versionne ses migrations, elles font foi même en développement`
+            : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${writtenMode}) — le démarrage ne la crée PAS`,
         ...(schemaBuiltAtBoot
           ? [
               `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
               `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
             ]
-          : [
-              // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
-              // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
-              // il efface, et ce mode est celui d'une base qui porte des données.
-              `→ écrire la migration : nodefony orm:generate --name <nom>`,
-              `→ l'appliquer : nodefony orm:migrate${connector === "default" ? "" : ` --connector ${connector}`}`,
-              `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
-            ]),
+          : versioned
+            ? [
+                `→ en développement : nodefony orm:generate --name ${table} --apply${connectorFlag}`,
+                `→ en production : nodefony orm:migrate${connectorFlag}, AVANT le déploiement`,
+                `⚠ tant qu'elle n'est pas appliquée, la table n'existe pas en base — ses routes répondent 500`,
+              ]
+            : [
+                // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
+                // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
+                // il efface, et ce mode est celui d'une base qui porte des données.
+                `→ écrire la migration : nodefony orm:generate --name <nom>`,
+                `→ l'appliquer : nodefony orm:migrate${connectorFlag}`,
+                `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
+              ]),
       ];
   if (controller) {
     notes.push(

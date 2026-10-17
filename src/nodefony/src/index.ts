@@ -9,6 +9,21 @@ export { default as Module } from "./kernel/Module";
 export { BootConfigurationError } from "./kernel/BootConfigurationError";
 export { parseStoreManifest } from "./kernel/storeManifest";
 export type { IStoreManifest } from "./kernel/storeManifest";
+// Où vivent les migrations SQL d'une application, et quand elles font foi : lu
+// par le module Drizzle au démarrage ET par `create entity` — une seule règle.
+export {
+  FRAMEWORK_SQL_CONNECTOR,
+  ownsSharedMigrations,
+  RESERVED_MIGRATION_DIRS,
+  isReservedConnectorName,
+  connectorMigrationsDir,
+  versionsMigrations,
+  connectorVersionsMigrations,
+} from "./kernel/migrationsLayout";
+export type {
+  IMigrationsDirEntry,
+  IListMigrationsDir,
+} from "./kernel/migrationsLayout";
 export {
   parseModuleConfig,
   freezeConfigTree,
