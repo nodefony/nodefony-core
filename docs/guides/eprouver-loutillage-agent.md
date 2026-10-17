@@ -119,12 +119,12 @@ Sur un seul schéma réel :
 | 29 corrections à la main                                               | l'essentiel : nommer les colonnes SQL                                 |
 
 Le premier point s'est révélé être un **défaut du produit**, pas un manque : `detectDialect()`
-(`engine.ts:4655`) déduisait le dialecte en lisant le fichier de configuration, alors qu'une
+(`engine.ts:4682`) déduisait le dialecte en lisant le fichier de configuration, alors qu'une
 application déclare sa base par URL — le cas normal en conteneur, en intégration continue, en
 production. Le générateur produisait donc du code SQLite pour une application tournant sur
 PostgreSQL, **en l'annonçant dans une ligne que personne ne relit**. Corrigé en le branchant sur
 la même résolution que le noyau, `resolveInfra()` (`infra.ts:134`), appelée depuis
-`engine.ts:4222` : l'environnement d'abord, le fichier ensuite.
+`engine.ts:4773` : l'environnement d'abord, le fichier ensuite.
 
 Aucune relecture de code ne l'avait vu. Il a fallu qu'un tiers ignorant demande au framework
 quelque chose de banal.
