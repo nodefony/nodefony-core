@@ -28,3 +28,11 @@ Retrait des balises HTML — **une seule implémentation pour tout le dépôt**.
 
 - **Usage** : `import { sansBalises } from "./lib/html-text.mjs"`
 - **Appelé par** : `site/build-docs-site.mjs` · `site/readme-html.mjs`
+
+## [`markdown-source.mjs`](markdown-source.mjs)
+
+Préparation de la SOURCE Markdown d'une page avant son rendu par le site.
+
+- **Usage** : `import { sansCommentaires } from "./lib/markdown-source.mjs"`
+- **Appelé par** : `site/build-docs-site.mjs`
+- **Testé par** : `site/markdown-source.test.mjs`
