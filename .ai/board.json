@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T15:08:06.544Z",
+  "generatedAt": "2026-10-17T15:28:41.222Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -8504,7 +8504,7 @@
     },
     {
       "number": 488,
-      "title": "refactor(core): découper le noyau, un fichier de 4 255 lignes",
+      "title": "refactor(core): découper le noyau, un fichier de 4 708 lignes",
       "url": "https://github.com/nodefony/nodefony-core/issues/488",
       "state": "OPEN",
       "status": "Todo",
