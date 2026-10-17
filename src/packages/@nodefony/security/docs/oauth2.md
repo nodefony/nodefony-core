@@ -400,7 +400,7 @@ préfixée `provider:providerId` — jamais de collision entre fournisseurs (`Us
 `defaultRoles` s'applique **au moment du `create`** (`UserService.ts:203`). Un second login
 n'écrase rien : promouvoir quelqu'un dans ta base reste effectif, et modifier `defaultRoles` en
 config ne repeint pas les comptes existants. C'est la traduction de la règle « OAuth =
-authentification, pas autorisation » (`oauth2.ts:414-418`, `config.ts:1065-1070`).
+authentification, pas autorisation » (`oauth2.ts:414-418`, `config.ts:1066-1071`).
 
 > [!TIP]
 > Un fournisseur social ne doit **jamais** figurer dans le chemin d'obtention d'un rôle privilégié.
@@ -547,25 +547,25 @@ que le mapping du profil. Exemple sans réseau dans le dépôt :
 
 ## ⚙️ Configuration
 
-Schéma Zod `oauth2Schema` (`config.ts:1357`), branché sur la section `oauth2` de la config du module
-(`config.ts:1472`). Table dérivée du schéma — les défauts sont ceux du code.
+Schéma Zod `oauth2Schema` (`config.ts:1358`), branché sur la section `oauth2` de la config du module
+(`config.ts:1508`). Table dérivée du schéma — les défauts sont ceux du code.
 
 | Option            | Type                 | Défaut                      | Effet                                                                                                                                      |
 | ----------------- | -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `enabled`         | booléen              | `true`                      | Coupe le social login : `authorize`/`callback` rendent 503.                                                                                |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1233`).                                                                                 |
-| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1371`).                                                                                 |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1234`).                                                                                 |
+| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1372`).                                                                                 |
 | `successRedirect` | chemin               | `/`                         | Où revient l'utilisateur après succès, quand la page de départ n'a pas donné `from`.                                                       |
 | `failureRedirect` | chemin               | `loginPage.path` (`/login`) | Où il revient après échec, quand la page de départ n'a pas donné `back`. Omis = la page de connexion, qu'il suit si elle change de chemin. |
-| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1387`).                                                                                                   |
+| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1388`).                                                                                                   |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:1169`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:1170`) :
 
 <!-- prettier-ignore -->
 | Option | Requis | Effet |
 | --- | :---: | --- |
 | `clientId` / `clientSecret` | ✅ | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
-| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:1190`). |
+| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:1191`). |
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
@@ -683,9 +683,9 @@ ou détruire les sessions), pas chez le fournisseur.
 | ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Flux Authorization Code               | RFC 6749                               | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:99`)                    |
 | PKCE                                  | RFC 7636                               | `usesPkce` (`IOAuthProvider.ts:72`) · `oidc.ts:104-111`                                  |
-| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1357`)                    |
+| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1358`)                    |
 | Anti-mix-up (`iss`)                   | RFC 9207                               | `issuerPolicy` (`IOAuthProvider.ts:79`) · `oauth2.ts:402-408`                            |
-| Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:1190`)                                                         |
+| Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:1191`)                                                         |
 | Claims d'identité OIDC                | OpenID Connect Core                    | `fetchProfile()` du helper OIDC (`oidc.ts:205-220`)                                      |
 | ID token consommé en code flow        | OIDC Core §3.1.3.7                     | `assertIdTokenClaims()` (`oidc.ts:143`)                                                  |
 | Anti-fixation de session              | OWASP Session Management               | `session.regenerateId()` au login (`authFlow.ts:388`)                                    |
@@ -745,7 +745,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | `404` « Unknown provider » sur `authorize`           | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:19`)                                       | Vérifier le nom exact **et** la présence des secrets                            |
 | Bouton absent de l'écran de login                    | Secrets manquants → fournisseur non monté (spread conditionnel)                                          | Renseigner `clientId`/`clientSecret` dans l'env                                 |
 | Bouton absent + WARNING « indisponible » au boot     | Émetteur injoignable à la construction (`OAuth2Service.#resolveProvider()`)                              | Démarrer le serveur d'autorisation ; le bouton revient sous 30 s                |
-| `redirect_uri_mismatch` chez le fournisseur          | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:1170`)                                    | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`                   |
+| `redirect_uri_mismatch` chez le fournisseur          | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:1171`)                                    | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`                   |
 | Retour systématique sur `failureRedirect`            | `state`/`verifier` absents (cookie perdu entre les deux requêtes)                                        | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev                     |
 | Callback échoue au **deuxième** essai                | `state` à usage unique, consommé (`OAuth2Controller.ts:163-165`)                                         | Refaire le flux depuis `authorize` — comportement attendu                       |
 | `OAuth issuer mismatch`                              | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:402-408`)                                                    | Corriger `issuer` (Keycloak : URL exacte du realm)                              |

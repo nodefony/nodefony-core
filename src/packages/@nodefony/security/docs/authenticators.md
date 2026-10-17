@@ -124,7 +124,7 @@ un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggabl
 ### Une zone, trois preuves — la même API pour le web et les machines
 
 Dans une app `nodefony create app`, on déclare quelles preuves une zone accepte — un **objet par
-nom**, validé Zod au boot (`areas: z.record(...)`, `config.ts:1358`) :
+nom**, validé Zod au boot (`areas: z.record(...)`, `config.ts:1359`) :
 
 ```typescript
 // nodefony.config.ts (extrait)
@@ -360,7 +360,7 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
 ## ⚙️ Composer une zone — ordre, mode, cohabitation
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:1236`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
+(`firewall.ts:1236`) selon le `mode` de la zone (`first` par défaut, `config.ts:88-93`).
 
 ### Situation 1 — humains ET machines sur la même API (`first`)
 

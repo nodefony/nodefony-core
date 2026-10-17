@@ -255,7 +255,7 @@ Choisir en cinq secondes — puis le détail dans les cartes.
 **La menace** : n'importe quelle entrée non échappée (commentaire, nom d'utilisateur, paramètre
 réfléchi) devient un vecteur d'exécution de code. Le CSP est le filet quand l'échappement a raté.
 
-**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts:276`) : seul `script-src`
+**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts:277`) : seul `script-src`
 est **strict** — `'self'` plus le nonce de la requête, ce qui est la vraie défense XSS. Le reste
 couvre les besoins réels d'une app moderne (CSS-in-JS via `style-src 'unsafe-inline'`, images
 `data:`/`blob:`, workers, fetch/WS same-origin) et ajoute les durcissements gratuits :
@@ -315,7 +315,7 @@ inclus.
 **La menace** : la fuite d'URL. Chemins parlants, identifiants de session dans une query, jetons de
 réinitialisation — tout part chez le site suivant via le `Referer`.
 
-Défaut Nodefony : `no-referrer` (`security/nodefony/config/config.ts:316`), la valeur la plus stricte. La valeur est un
+Défaut Nodefony : `no-referrer` (`security/nodefony/config/config.ts:317`), la valeur la plus stricte. La valeur est un
 **enum W3C fermé** — huit valeurs validées au boot, donc pas de faute de frappe qui passerait en
 silence (l'écriture libre `no-refferer` casserait la protection sans prévenir).
 
@@ -379,7 +379,7 @@ config security est la première source de confusion sur ce sujet.
 
 ### Couche applicative — `use("@nodefony/security", { headers })`
 
-Dérivé du schéma Zod `headersSchema` (`config.ts:256`).
+Dérivé du schéma Zod `headersSchema` (`config.ts:257`).
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
@@ -411,10 +411,10 @@ recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 > [!WARNING]
 > Les clés `hsts`, `hstsMaxAgeS`, `frameguard` et `noSniff` **existent** dans la config security
-> (`config.ts:263`, `config.ts:263`, `config.ts:263`, `config.ts:263`) mais **ne pilotent rien** : la couche
+> (`config.ts:264`, `config.ts:263`, `config.ts:263`, `config.ts:263`) mais **ne pilotent rien** : la couche
 > applicative ne les lit pas (`securityHeaders.ts:6`), elles ne servent qu'à l'introspection
 > affichée dans Studio. Pour changer réellement `X-Frame-Options`, c'est `securityHeaders.frameOptions`
-> **du module http**. Même remarque pour `hidePoweredBy` (`config.ts:288`) : Nodefony n'émet aucun
+> **du module http**. Même remarque pour `hidePoweredBy` (`config.ts:289`) : Nodefony n'émet aucun
 > `X-Powered-By`, l'option est un no-op documenté.
 
 ## 🏗️ Le CSP en détail — deux régimes, trois façons de l'étendre
@@ -521,7 +521,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Nonce CSP (unicité, imprévisibilité) | W3C CSP Level 3 §6.7.4           | `Context.cspNonce` — 128 bits CSPRNG (`Context.ts:253`)      |
 | HSTS                                 | RFC 6797                         | posé sur TLS uniquement (`http-kernel.ts:996`)               |
 | Champ structuré booléen              | RFC 9651                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
-| Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:273`)                 |
+| Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:274`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
 | Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1170`)              |
 | Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:415`)       |

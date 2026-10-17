@@ -91,7 +91,7 @@ contrôleur** : l'attaque meurt sans avoir touché ton code.
 ## La vision Nodefony
 
 - **Vérifier la provenance d'abord** (OWASP 2025, modèle Go 1.25 `CrossOriginProtection`) : la
-  couche 1 est la défense **par défaut**, `csrf.enabled: true` (`config.ts:169-174`).
+  couche 1 est la défense **par défaut**, `csrf.enabled: true` (`config.ts:170-175`).
 - **Globale, pas liée aux zones** : toute mutation cross-site est refusée, route publique ou non —
   branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1895`) arrive **après** le
   resolve (les marqueurs de route sont lisibles) et **avant** la session (rejet précoce : un
@@ -249,7 +249,7 @@ autorisation :
 
 Cas voisin — **façade multi-domaine** (`www.example.com` poste vers l'API d'un autre domaine à toi) :
 déclarer l'alias dans `csrf.trustedOrigins` (match exact d'origine), pas dans `cors.origins` — CORS
-ouvrirait **aussi** la lecture des réponses au JS tiers (`config.ts:194-199`).
+ouvrirait **aussi** la lecture des réponses au JS tiers (`config.ts:195-200`).
 
 ## 🏗️ Architecture interne
 
@@ -311,18 +311,18 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 4. `HttpContext.writeHead()` matérialise `context.csrfToken` en cookie `csrf-token` — flush groupé
    avec le cookie de session (`HttpContext.ts:636-655`).
 
-## ⚙️ Configuration (schéma Zod `csrfSchema`, `config.ts:167-210`)
+## ⚙️ Configuration (schéma Zod `csrfSchema`, `config.ts:168-211`)
 
 <!-- prettier-ignore -->
 | Option | Type · défaut | Effet |
 | --- | --- | --- |
-| `enabled` | boolean · `true` | Active toute la défense — couches 1 **et** 2 (`config.ts:169-174`). |
-| `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:207-212`). |
-| `checkOrigin` | boolean · `true` | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:182-187`). |
-| `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:220-225`). |
+| `enabled` | boolean · `true` | Active toute la défense — couches 1 **et** 2 (`config.ts:170-175`). |
+| `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:208-213`). |
+| `checkOrigin` | boolean · `true` | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:183-188`). |
+| `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:221-226`). |
 | `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:650`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:634`). |
-| `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:226-231`). |
-| `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:232-238`). |
+| `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:227-232`). |
+| `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:233-239`). |
 
 ## 📜 Normes appliquées
 

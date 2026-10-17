@@ -109,7 +109,7 @@ requête se réduit à une lecture de `Set` (voir Performance).
 Trois invariants de sécurité, tenus par construction :
 
 - **Jamais `*` avec credentials.** La combinaison est **rejetée au boot** par un `refine` Zod
-  (`config.ts:162-165`) — le navigateur la refuserait de toute façon. Défense en profondeur : même
+  (`config.ts:163-166`) — le navigateur la refuserait de toute façon. Défense en profondeur : même
   instanciée à la main avec cette combinaison, `Cors.#allowOrigin()` **reflète l'origine** au lieu
   d'émettre `*` (`cors.ts:58`).
 - **Reflet d'origine ⇒ `Vary: Origin`.** Dès que la valeur `Allow-Origin` n'est pas `*`, la politique
@@ -204,8 +204,8 @@ curl -si http://localhost:5151/api/articles -H 'Origin: https://evil.com'
 
 ## ⚙️ Configuration et mises en situation
 
-La section `cors` de la config du module (`corsSchema`, `config.ts:179` ; branchée à la racine en
-`config.ts:1143`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
+La section `cors` de la config du module (`corsSchema`, `config.ts:180` ; branchée à la racine en
+`config.ts:1144`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
@@ -273,7 +273,7 @@ cors: { origins: ["https://app.example.com", "https://admin.example.com"], crede
 
 > [!WARNING]
 > `origins: ["*"]` **avec** `credentials: true` est rejeté par le schéma Zod au démarrage
-> (`config.ts:194-197`), avec un message qui dit quoi faire. La raison n'est pas cosmétique : cette
+> (`config.ts:195-198`), avec un message qui dit quoi faire. La raison n'est pas cosmétique : cette
 > combinaison, si un serveur la contournait en reflétant chaque origine, laisserait **tout site du
 > web** lire les réponses authentifiées de tes utilisateurs. Ne « corrige » jamais cette erreur en
 > reflétant l'origine reçue sans la valider.
@@ -376,7 +376,7 @@ CORS ne peut pas être, au même instant, traité comme une tentative CSRF.
 
 L'inverse n'est pas vrai, et c'est délibéré : `csrf.trustedOrigins` déclare un **alias de domaine**
 légitime de ton app (une façade multi-domaine) sans pour autant exposer tes réponses au JS de cette
-origine (`config.ts:194`). Ajouter une origine à `cors.origins` est **plus** permissif que l'ajouter à
+origine (`config.ts:195`). Ajouter une origine à `cors.origins` est **plus** permissif que l'ajouter à
 `csrf.trustedOrigins`.
 
 ## 🔌 Et le WebSocket ?
@@ -406,7 +406,7 @@ Deux réglages distincts, parce que deux mécanismes navigateur distincts.
 | --------------------------------- | --------------------------- | --------------------------------------------------------------------------- |
 | Protocole CORS                    | Fetch Standard (WHATWG)     | `Cors` (`cors.ts:33`) — preflight vs requête réelle séparés                 |
 | Preflight sans credentials        | Fetch Standard              | court-circuit en 204 avant auth/routing (`firewall.ts:1038`)                |
-| `*` incompatible avec credentials | Fetch Standard · OWASP CORS | rejet au boot (`config.ts:162-165`) + reflet défensif (`cors.ts:58`)        |
+| `*` incompatible avec credentials | Fetch Standard · OWASP CORS | rejet au boot (`config.ts:163-166`) + reflet défensif (`cors.ts:58`)        |
 | Correction de cache               | RFC 9110 (`Vary`)           | `Vary: Origin` dès que l'origine est reflétée (`cors.ts:81`, `cors.ts:94`)  |
 | Comparaison d'origines            | RFC 6454 (Web Origin)       | match **exact** `scheme://host:port` — `Cors.#allowOrigin()` (`cors.ts:57`) |
 | Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:728`)                  |
@@ -447,7 +447,7 @@ secondes les « pourtant j'ai bien mis l'origine ».
 
 | Symptôme                                                  | Cause                                                                                  | Correction                                                                                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Le boot échoue sur la config CORS                         | `origins:["*"]` **et** `credentials:true` (`config.ts:194-197`)                        | Lister les origines, ou passer `credentials:false`                                        |
+| Le boot échoue sur la config CORS                         | `origins:["*"]` **et** `credentials:true` (`config.ts:195-198`)                        | Lister les origines, ou passer `credentials:false`                                        |
 | Requête bloquée alors que l'origine « est » dans la liste | Match **exact** : port, scheme ou sous-domaine divergent                               | Écrire l'origine complète `scheme://host:port`, une entrée par variante                   |
 | `curl` fonctionne, le navigateur non                      | CORS s'applique dans le navigateur, pas au serveur                                     | Normal — reproduire avec un `Origin` explicite (`curl -H 'Origin: …'`)                    |
 | Cookie non envoyé malgré `credentials:true`               | Opt-in serveur seul : le client n'a pas `credentials: "include"`                       | Activer les deux côtés (et un cookie `SameSite=None; Secure` en cross-site)               |

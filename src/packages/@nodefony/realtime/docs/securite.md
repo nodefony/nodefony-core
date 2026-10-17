@@ -115,7 +115,7 @@ HTTP et WebSocket vivent dans le même contexte : la sécurité en hérite, **on
 politiques.**
 
 - Une zone du firewall couvre HTTP **et** WS par défaut (`realtime: true` —
-  `security/nodefony/config/config.ts:132`). L'opt-out est explicite ; un opt-in aurait été
+  `security/nodefony/config/config.ts:133`). L'opt-out est explicite ; un opt-in aurait été
   _fail-open_ (une zone qui oublie le flag laisserait le WS anonyme).
 - Le verrou de frame consulte la **même** fonction de match que le HTTP, `Firewall.matchPath()`
   (`firewall.ts:783`), et la **même** hiérarchie de rôles, `Firewall.hasRole()`
@@ -477,7 +477,7 @@ Trois durcissements méritent d'être connus :
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
 - **La config passe avant les défauts** — les règles de `realtimeChannels`
-  (`security/nodefony/config/config.ts:1447`) sont placées en tête, premier match gagnant. On peut
+  (`security/nodefony/config/config.ts:1483`) sont placées en tête, premier match gagnant. On peut
   donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
 Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub
