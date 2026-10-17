@@ -390,10 +390,25 @@ export function renderReport(
     const superseded = tellingSummaries.map((s) =>
       supersededByCurrentChecks(s, report),
     );
+    // Le titre dit que c'est du PASSÉ : la date relative du bloc ne suffisait
+    // pas (vécu, beta.3 : un agent a lu le bilan d'un exemplaire de production
+    // détaché par la suite e2e comme l'état courant de son application).
+    // Titre COURT (il ne se replie pas), la précision sur sa propre ligne.
     section(
-      tellingSummaries.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE",
+      tellingSummaries.length > 1
+        ? "DERNIERS DÉMARRAGES (passés)"
+        : "DERNIER DÉMARRAGE (passé)",
       superseded.every(Boolean) ? p.dim : p.warning,
     );
+    for (const l of wrap(
+      "Bilan figé à la fin d'un démarrage antérieur — PAS l'état actuel" +
+        " de l'application. Il n'entre pas dans le verdict.",
+      width,
+      BODY,
+    )) {
+      lines.push(p.dim(l));
+    }
+    lines.push("");
     let premier = true;
     for (const [i, startup] of tellingSummaries.entries()) {
       if (!premier) lines.push("");
@@ -1492,6 +1507,9 @@ function lastStartup(
       lines.push(p.action(l));
     }
   }
+  // La date ABSOLUE en plus de l'âge du titre : « il y a 2 heures » ne permet
+  // pas de recouper avec un journal, ni de reconnaître le passage qui l'a écrit.
+  lines.push(...field("daté du", entry.timestamp));
   // SON fichier, pas celui du serveur : avec deux bilans affichés, un
   // chemin unique enverrait lire le mauvais.
   lines.push(...field("bilan complet", lastBootFileFor(entry.profile)));

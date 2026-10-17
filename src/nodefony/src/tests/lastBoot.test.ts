@@ -253,6 +253,32 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       assert.notInclude(out, "AVANT l'exécution de la commande");
     });
 
+    it("🔴 le bilan s'annonce PASSÉ et DATÉ, distinct de l'état courant (#599)", async () => {
+      // Vécu (beta.3) : un agent a lu le bilan d'un exemplaire de PRODUCTION
+      // détaché par la suite e2e — « migrations en attente » — comme l'état de
+      // son application en développement.
+      writeLastBoot(
+        dir,
+        ok({
+          profile: "server",
+          command: "production",
+          environment: "production",
+          bricksSkipped: [{ module: "orm", reason: "2 migrations en attente" }],
+        }),
+      );
+      const { out, code } = await capture(() =>
+        runDoctorCommand(["--no-strict"]),
+      );
+      assert.include(out, "DERNIER DÉMARRAGE (passé)");
+      assert.match(out, /PAS l'état actuel\s+de l'application/u);
+      assert.match(out, /daté du\s+2026-07-30T18:00:00\.000Z/u);
+      // Qui l'a produit : la commande ET l'environnement.
+      assert.include(out, "`nodefony production` (serveur)");
+      assert.match(out, /environnement\s+production/u);
+      // Un fait d'exécution passé ne compte jamais dans le verdict.
+      assert.equal(code, 0);
+    });
+
     it("un profil serveur qui finit SANS serveur est nommé", async () => {
       writeLastBoot(dir, ok({ healthy: false }));
       const { out } = await capture(() => runDoctorCommand([]));

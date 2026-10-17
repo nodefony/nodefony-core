@@ -116,11 +116,29 @@ function parseInclude(include?: string): string[] {
 <% } %>
 
 /**
- * `<%= it.pascal %>` exposée en HTTP **et** par la socket Nodefony — une seule classe.
+ * `<%= it.pascal %>` exposée en HTTP, dont les LECTURES répondent aussi par la socket
+ * Nodefony — une seule classe.
  *
  * Les deux actions de lecture déclarent `methods: ["GET", "WEBSOCKET"]` : la même
- * méthode répond à `GET <%= it.route %>` et à un appel de la socket. Il n'y a rien à
- * réécrire pour le temps réel, et les deux chemins ne peuvent pas diverger.
+ * méthode répond à `GET <%= it.route %>` et à une requête envoyée par la socket, dont
+ * la réponse ne revient qu'au client qui l'a posée. Il n'y a rien à réécrire pour LIRE
+ * par la socket, et les deux chemins ne peuvent pas diverger.
+ *
+ * ⚠️ **Aucune écriture n'est DIFFUSÉE.** Une création, un remplacement, une retouche
+ * ou une suppression ne sont poussés à aucun client abonné : un écran qui doit voir
+ * arriver les nouveautés sans relire la liste attend une PUBLICATION, et elle s'écrit
+ * à la main dans l'action d'écriture, après le succès — module `@nodefony/realtime`
+ * requis :
+ *
+ * ```ts
+ * import { getRealtimeHub } from "@nodefony/realtime";
+ *
+ * const created = await this.createResource(payload);
+ * getRealtimeHub().publish("<%= it.kebab %>:created", created);
+ * ```
+ *
+ * Le client s'abonne au canal `<%= it.kebab %>:created`. Recette complète, règles
+ * d'abonnement comprises : `node_modules/@nodefony/realtime/docs/cookbook-chat.md`.
  *
  * Le controller ne contient **aucune logique** : il traduit une requête en appel de
  * service, et une erreur en statut. Tout le métier (validation comprise) vit dans
@@ -243,6 +261,9 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * une API de paiement le doit, un blog n'en a pas besoin.
    *
    * Un corps invalide devient un **422** qui nomme les champs fautifs.
+   *
+   * La ressource créée n'est diffusée à personne : pour la pousser aux clients de la
+   * socket, voir la publication décrite en tête de cette classe.
    */
   @Post("")
   @HttpCode(201)

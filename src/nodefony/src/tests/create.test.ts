@@ -7128,6 +7128,56 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
       });
 
+      it("🔴 le controller ne promet aucune DIFFUSION : seules les lectures passent par la socket (#599)", () => {
+        // Vécu (tâche 0, beta.3) : « exposée en HTTP ET par la socket » a fait
+        // croire à un agent que les créations étaient poussées en direct.
+        const repoRoot = path.resolve(findPackageRoot(), "..", "..");
+        const dest = app("audit-broadcast");
+        entity(dest, { name: "BlogPost", fields: "title:string" });
+        const controller = read(
+          dest,
+          "nodefony",
+          "controllers",
+          "BlogPostController.ts",
+        );
+        assert.notInclude(controller, "exposée en HTTP **et** par la socket");
+        assert.include(controller, "Aucune écriture n'est DIFFUSÉE");
+        assert.include(
+          controller,
+          'getRealtimeHub().publish("blog-post:created", created);',
+        );
+        // Le geste prescrit doit exister là où il envoie : un nom d'import
+        // renommé côté realtime laisserait le gabarit enseigner du code mort.
+        assert.match(
+          read(
+            repoRoot,
+            "src",
+            "packages",
+            "@nodefony",
+            "realtime",
+            "index.ts",
+          ),
+          /^\s+getRealtimeHub,$/mu,
+        );
+        assert.match(
+          controller,
+          /node_modules\/@nodefony\/realtime\/docs\/cookbook-chat\.md/u,
+        );
+        assert.isTrue(
+          existsSync(
+            path.join(
+              repoRoot,
+              "src",
+              "packages",
+              "@nodefony",
+              "realtime",
+              "docs",
+              "cookbook-chat.md",
+            ),
+          ),
+        );
+      });
+
       it("🔴 dans un MODULE, le DELETE naît GARDÉ — la sécurité est lue dans l'APP", () => {
         // Un module ne déclare jamais @nodefony/security en peer : ne lire que
         // lui faisait naître une suppression ouverte à l'anonyme.
