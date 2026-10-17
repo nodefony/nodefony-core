@@ -120,7 +120,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 70 scripts · 📎 5 réf" },
+    "meta": "🟢 conforme · ⚙️ 73 scripts · 📎 5 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 12 scripts · 📎 2 réf" },
@@ -158,7 +158,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "skills/nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.3.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v2.3.0 · ⚙️ 2 scripts" }
 ]
 ```
 

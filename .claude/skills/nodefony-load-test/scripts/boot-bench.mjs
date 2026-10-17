@@ -17,7 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(HERE, "..");
+const REPO_ROOT = path.resolve(HERE, "..", "..", "..", "..");
 const BIN = path.join(REPO_ROOT, "src", "nodefony", "bin", "nodefony");
 const READY_RE = /Server Listen on http/i; // 1er serveur réseau (pas les statics)
 

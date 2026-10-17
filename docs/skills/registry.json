@@ -1747,6 +1747,7 @@
       "env": [],
       "output": "",
       "calledBy": [
+        ".claude/skills/nodefony-release/scripts/compare-dts-exports.mjs",
         ".claude/skills/nodefony-release/scripts/compare-exports.mjs",
         "scripts/release/api-diff.mjs",
         "scripts/release/release.mjs",
@@ -6161,12 +6162,13 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.",
       "cost": {
-        "bodyLines": 532,
-        "approxTokens": 9389
+        "bodyLines": 534,
+        "approxTokens": 9527
       },
       "requires": [
         "serveur UP",
         "redis",
+        "dist à jour (npm run build)",
         "docker",
         "base de données"
       ],
@@ -6694,6 +6696,23 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/console-boot-bench.mjs",
+            "purpose": "Banc — boot CONSOLE du noyau, N runs, médiane.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot-before.json",
+              "node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot.json -- inspect routes --json"
+            ],
+            "options": [
+              {
+                "flag": "--json",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "médianes wall/uptime/heapUsed/rss en JSON (défaut : tmp/bench/console-boot.json)",
+            "selfDocumented": true
+          },
+          {
             "path": "scripts/cut-analyze.mjs",
             "purpose": "Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête.",
             "usage": [
@@ -6838,6 +6857,20 @@
               },
               {
                 "name": "WS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/heap-at-exit.mjs",
+            "purpose": "Crochet de banc (`console-boot-bench.mjs`) — chargé par `NODE_OPTIONS=--import=<ce fichier>` dans un processus `nodefony` en boot CONSOLE. À la sortie du processus, force deux collectes (exige `--expose-gc`) puis consigne le tas RETENU et la durée de vie du processus (UNE horloge : `process.uptime()`), une ligne JSON par processus, dans le fichier `NF_BENCH_HEAP_FILE`.",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_BENCH_HEAP_FILE",
                 "help": ""
               }
             ],
@@ -7697,6 +7730,22 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/server-boot-bench.mjs",
+            "purpose": "Banc — boot SERVEUR de développement, N cycles start/stop, médiane.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/server-boot-bench.mjs 7 tmp/bench/<sujet>-server-boot-before.json"
+            ],
+            "options": [
+              {
+                "flag": "--keep-last",
+                "help": "laisse le serveur du dernier cycle en vie (pour enchaîner un gate)."
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
             "path": "scripts/soak.mjs",
             "purpose": "soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu.",
             "usage": [
@@ -8368,7 +8417,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "532",
+            "detail": "534",
             "advisory": true
           }
         ]
@@ -8894,14 +8943,31 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 400,
-        "approxTokens": 8185
+        "bodyLines": 403,
+        "approxTokens": 8263
       },
       "requires": [],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
         "scripts": [
+          {
+            "path": "scripts/compare-dts-exports.mjs",
+            "purpose": "compare-dts-exports.mjs — compare les exports de TYPES de deux arbres de déclarations (`dist/types` avant/après un refactor), par le compilateur.",
+            "usage": [
+              "node .claude/skills/nodefony-release/scripts/compare-dts-exports.mjs <avant/> <après/> [fichier.d.ts…]",
+              "node .claude/skills/nodefony-release/scripts/compare-dts-exports.mjs tmp/scratch/488-types-before src/nodefony/dist/types index.d.ts kernel/Kernel.d.ts types/IKernel.d.ts"
+            ],
+            "options": [
+              {
+                "flag": "--strict",
+                "help": "échoue aussi sur un export « à relire » ou de nature changée"
+              }
+            ],
+            "env": [],
+            "output": "par fichier : exports avant/après, perdus, ajoutés, à relire (membres retirés/modifiés) ; exit 1 si un export est perdu",
+            "selfDocumented": true
+          },
           {
             "path": "scripts/compare-exports.mjs",
             "purpose": "compare-exports.mjs — gate #2 de la migration rolldown (sentinelle).",
@@ -8980,7 +9046,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "400",
+            "detail": "403",
             "advisory": true
           }
         ]

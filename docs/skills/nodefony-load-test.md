@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-09
+updated: 2026-10-17
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 532 lignes |
-| Coût d'activation | ~9 389 tokens (le corps est chargé à l'invocation) |
+| Corps | 534 lignes |
+| Coût d'activation | ~9 527 tokens (le corps est chargé à l'invocation) |
 | Description | 986 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 70 |
+| Scripts | 73 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -42,7 +42,7 @@ Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest ver
 
 ## Prérequis
 
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP** · **redis** · **docker** · **base de données**.
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP** · **redis** · **dist à jour (npm run build)** · **docker** · **base de données**.
 
 ## Skills voisins
 
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 322 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 324 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 65 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -111,12 +111,14 @@ script, donc toujours à jour après régénération.
 | `scripts/cluster-probe-e2e.mjs` | Preuve BOUT-EN-BOUT de la SONDE AGRÉGÉE pod (cluster sans PM2) — Phase 4c, mode push. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/cluster-realtime-e2e.mjs` | Preuve BOUT-EN-BOUT du realtime cross-process Nodefony (cluster sans PM2) — Phase 4b. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/config-env-override-e2e.mjs` | Banc e2e TERRAIN — override de config par variable d'environnement (ADR-0006) — sans navigateur. | — | `BOOT_TIMEOUT_MS` `FAIL_TIMEOUT_MS` `HTTPS_PORT` `HTTP_PORT` |
+| `scripts/console-boot-bench.mjs` | Banc — boot CONSOLE du noyau, N runs, médiane. | `--json` | — |
 | `scripts/cut-analyze.mjs` | Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête. | `--partial` | `KEY` `MAX_SPREAD` |
 | `scripts/cut-probe.mjs` | Bissection par COURT-CIRCUIT du pipeline HTTP — préchargée dans le serveur (`NODE_OPTIONS=--import=…/cut-probe.mjs`), jamais dans le produit. | — | `NF_BENCH_CUT` |
 | `scripts/db-backend-cost.mjs` | db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non ce qu'il coûte en lui-même. | `--ceiling` `--prove` | `CONC` `JSON_OUT` `LIMIT` `NF_DATABASE_URL` `NF_PG_URL` `PG_CONTAINER` `REPS` `ROWS` `SEC` `SERIES` |
 | `scripts/debug-runtime-e2e.mjs` | Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur. | — | — |
 | `scripts/decor-probe.mjs` | Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`) dans le serveur mesuré. À la PREMIÈRE requête, elle refuse (code 3) si un hook du chemin de requête a un écouteur : un seul suffit à faire passer chaque requête par `fireAsync` (une Promise, une microtâche), coût qu'une application sans ce hook ne paie pas — et que le banc imputerait au framework. Vécu deux fois sur #508, les deux fois posé par le module test (`onRequestScope`, puis `beforeResolve`) ; la seconde n'a été vue qu'au chronométrage in situ, parce que rien ne la cherchait. | — | — |
 | `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `HTTP_SLOW_URL` `PORT` `WS_URL` |
+| `scripts/heap-at-exit.mjs` | Crochet de banc (`console-boot-bench.mjs`) — chargé par `NODE_OPTIONS=--import=<ce fichier>` dans un processus `nodefony` en boot CONSOLE. À la sortie du processus, force deux collectes (exige `--expose-gc`) puis consigne le tas RETENU et la durée de vie du processus (UNE horloge : `process.uptime()`), une ligne JSON par processus, dans le fichier `NF_BENCH_HEAP_FILE`. | — | `NF_BENCH_HEAP_FILE` |
 | `scripts/http-load.mjs` | Stress HTTP — N requêtes avec concurrence C sur une route Nodefony. Mesure : RPS, latence p50/p90/p95/p99/max, distribution des codes, erreurs. | — | `BODY` `METHOD` `URL` `URL_STR` |
 | `scripts/hub-load.mjs` | Charge de la SOCKET Nodefony côté HUB (RealtimeHub) — fait bouger le panneau « Realtime Hub » de Studio (/nodefony/hub) + l'endpoint /nodefony/realtime/api/health. | — | `ADMIN_USER` `BASE` `BATCH` `HOLD` `HOLD_MS` `HOST` `HTTP_PATH` `HTTP_RPS` `MODE` `NF_BENCH_ADMIN_PASSWORD` `NF_BENCH_ADMIN_USER` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `WS_URL` |
 | `scripts/ic-sites.mjs` | Lit un journal V8 `--log-ic` et rend les sites d'accès aux propriétés qui ont basculé en MÉGAMORPHE (état `N`) — là où V8 renonce au chemin rapide et passe par un cache global (`LoadIC_Megamorphic`, `KeyedLoadIC_Megamorphic`…). | `--log-ic` `--logfile` `--no-logfile-per-isolate` | — |
@@ -144,6 +146,7 @@ script, donc toujours à jour après régénération.
 | `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et comment ce coût grandit avec le nombre de routes. | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
 | `scripts/run.sh` | Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES (non-régression de charge) ou vers les scripts client standalone (exploration). | `--config` `--rupture` | — |
 | `scripts/scaffold-ws-probe.mjs` | Sonde : prouve que le job de scaffold est bien streamé sur la socket Nodefony. | — | `NF_STEPS` `NF_WAIT` |
+| `scripts/server-boot-bench.mjs` | Banc — boot SERVEUR de développement, N cycles start/stop, médiane. | `--keep-last` | — |
 | `scripts/soak.mjs` | soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu. | `--attendre-charge` `--conn` `--force-charge` `--format` `--latency` `--minutes` `--pid` `--show-toplevel` `--skip` `--url` `--version` `--workspace` | `ATTENDRE_CHARGE` `COEURS` `CONN` `LOG` `MINUTES` `MIN_AMPLITUDE_MB` `MIN_MINUTES` `OUT` `PROBE` `ROOT` `SKIP` `SONDE_ESSAIS` `SONDE_TIMEOUT_MS` `THREADS` `TRANCHE` `TTL_DEROGATION_MIN` `URL` `VCPU_VIRTUALISES` `WINDOW` `WINDOWS` |
 | `scripts/span-analyze.mjs` | Relit les fenêtres de `span-probe.mjs` (via `span-run.sh`) et rend, par méthode, la MÉDIANE des runs en ns/requête — brute, puis corrigée du coût de l'enveloppe (étalonné par la sonde, multiplié par les appels imbriqués). | — | — |
 | `scripts/span-probe.mjs` | Chronométrage IN SITU des appels d'un étage du pipeline — préchargé dans le serveur COMPLET (`NODE_OPTIONS=--import=…/span-probe.mjs`), jamais dans le produit. | — | `NF_SPAN_PROBE_OUT` |
@@ -181,6 +184,7 @@ node .claude/skills/nodefony-load-test/scripts/cluster-orm-rich-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/cluster-probe-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/config-env-override-e2e.mjs
+node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot-before.json
 Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]
 node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
@@ -204,6 +208,7 @@ node promise-map.mjs [url] [--method POST] [--body '{"a":1}'] [KEY=VAL …]
 bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs
 Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]
+node .claude/skills/nodefony-load-test/scripts/server-boot-bench.mjs 7 tmp/bench/<sujet>-server-boot-before.json
 node .claude/skills/nodefony-load-test/scripts/soak.mjs
 Usage : node span-analyze.mjs <dossier>
 node .claude/skills/nodefony-load-test/scripts/supervision-stress.mjs
@@ -220,7 +225,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ADMIN_USER` · `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `LOG` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_ELU_SAMPLES` · `MIN_MINUTES` · `MIN_R2` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_OUT` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `ADMIN_USER` · `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `LOG` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_ELU_SAMPLES` · `MIN_MINUTES` · `MIN_R2` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_HEAP_FILE` · `NF_BENCH_OUT` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ### Détail des scripts auto-documentés
 
@@ -246,6 +251,26 @@ import { benchOut } from "./bench-out.mjs"
 | --- | --- |
 | `NF_BENCH_OUT` | dossier des sorties (défaut : <racine du dépôt>/tmp/bench/ab) |
 
+#### `scripts/console-boot-bench.mjs`
+
+Produit : médianes wall/uptime/heapUsed/rss en JSON (défaut : tmp/bench/console-boot.json)
+
+```bash
+node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot-before.json
+node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot.json -- inspect routes --json
+```
+
+#### `scripts/server-boot-bench.mjs`
+
+
+```bash
+node .claude/skills/nodefony-load-test/scripts/server-boot-bench.mjs 7 tmp/bench/<sujet>-server-boot-before.json
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--keep-last` | laisse le serveur du dernier cycle en vie (pour enchaîner un gate). |
+
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
@@ -265,7 +290,7 @@ import { benchOut } from "./bench-out.mjs"
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 532 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 534 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

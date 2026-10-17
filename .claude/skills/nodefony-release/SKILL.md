@@ -402,6 +402,9 @@ semaines : la lire fait partie du gate.
 builds exportent réellement, par **import réel dans des process isolés** — la seule méthode qui vaille
 (compter les fichiers émis ment : chunks vides, granularité de tree-shaking). Sentinelle héritée de la
 migration de bundler, à relancer dès qu'on touche à la chaîne de build ou à un `index.ts` public.
+Son pendant pour les **types** : `compare-dts-exports.mjs <avant/> <après/> [fichier.d.ts…]` compare
+deux arbres `dist/types` (copier celui d'avant AVANT d'éditer) par la lecture de `release:api-diff` —
+exit 1 sur un export perdu ; membres retirés ou modifiés listés « à relire » (`--strict` les rend bloquants).
 
 **Ruptures depuis la dernière publication** — outils du PRODUIT, dans `scripts/release/` :
 `npm run release:api-diff -- [--from <version>] [--details]` compare les tarballs npm publiés

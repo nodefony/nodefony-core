@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-release/SKILL.md"
 | --- | --- |
 | Version | `2.3.0` |
 | Famille | Publier et distribuer |
-| Corps | 400 lignes |
-| Coût d'activation | ~8 185 tokens (le corps est chargé à l'invocation) |
+| Corps | 403 lignes |
+| Coût d'activation | ~8 263 tokens (le corps est chargé à l'invocation) |
 | Description | 1013 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 0 page(s) |
-| Scripts | 1 |
+| Scripts | 2 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -68,13 +68,30 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
+| `scripts/compare-dts-exports.mjs` | compare-dts-exports.mjs — compare les exports de TYPES de deux arbres de déclarations (`dist/types` avant/après un refactor), par le compilateur. | `--strict` | — |
 | `scripts/compare-exports.mjs` | compare-exports.mjs — gate #2 de la migration rolldown (sentinelle). | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
+node .claude/skills/nodefony-release/scripts/compare-dts-exports.mjs <avant/> <après/> [fichier.d.ts…]
 node .claude/skills/nodefony-release/scripts/compare-exports.mjs <entryA.js> <entryB.js>   # diff A vs B
 ```
+
+### Détail des scripts auto-documentés
+
+#### `scripts/compare-dts-exports.mjs`
+
+Produit : par fichier : exports avant/après, perdus, ajoutés, à relire (membres retirés/modifiés) ; exit 1 si un export est perdu
+
+```bash
+node .claude/skills/nodefony-release/scripts/compare-dts-exports.mjs <avant/> <après/> [fichier.d.ts…]
+node .claude/skills/nodefony-release/scripts/compare-dts-exports.mjs tmp/scratch/488-types-before src/nodefony/dist/types index.d.ts kernel/Kernel.d.ts types/IKernel.d.ts
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--strict` | échoue aussi sur un export « à relire » ou de nature changée |
 
 ## Conformité au standard Agent Skills
 
@@ -95,7 +112,7 @@ node .claude/skills/nodefony-release/scripts/compare-exports.mjs <entryA.js> <en
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 400 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 403 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
