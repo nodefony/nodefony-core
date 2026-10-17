@@ -463,7 +463,11 @@ class Kernel extends Service implements IKernel {
    * ({@link SupervisorLink}) — famille « terminal & superviseur », par
    * composition. Alloué au constructeur dans TOUS les modes (objet inerte sans
    * superviseur) : c'est la SEULE porte typée `DevChannelMessage` côté noyau,
-   * lue par `BootReporter` et `DevCommand`.
+   * lue par `BootReporter` et `DevCommand`. Interne au framework, hors de la
+   * surface publiée : la couture doit pouvoir évoluer avec l'invite et
+   * l'assistant du terminal — la rendre publique plus tard sera additif.
+   *
+   * @internal
    */
   readonly supervisorLink: SupervisorLink = new SupervisorLink(this);
   /** Supprime les bannières serveurs sous l'écran de boot animé — détenu par {@link SupervisorLink}, lu et écrit ici comme un champ. */

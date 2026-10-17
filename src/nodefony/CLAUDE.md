@@ -114,7 +114,7 @@ src/nodefony/
    ├── Service discovery (@injectable + @services([...]) sur les modules)
    ├── fire("onPreBoot") | fire("onBoot")
    └── Activate modules — instances créées via Container DI
-7. Kernel.onReady() — phase DISTINCTE de boot(), enchaînée par `start()` (`Kernel.ts:795`, `:1268`)
+7. Kernel.onReady() — phase DISTINCTE de boot(), enchaînée par `start()` (`Kernel.ts:799`, `:1268`)
    ├── fire("onReady")
    ├── phase cible atteinte SANS serveur (mode console) → finishOrPark() et on s'arrête ICI
    ├── initServers() — http-kernel met les serveurs en écoute
