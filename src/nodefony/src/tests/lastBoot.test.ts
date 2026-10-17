@@ -18,6 +18,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import {
   writeLastBoot,
   readLastBoot,
@@ -59,6 +60,12 @@ const failed = (over: Partial<ILastBoot> = {}): ILastBoot =>
  *
  * 100 plutôt que 80 : au-dessus de la borne haute du rendu (96), donc la même
  * mise en page quelle que soit l'évolution de cette borne.
+ *
+ * ⚠️ Les COULEURS non plus ne sont pas héritées : la sortie est rendue sans
+ * séquences ANSI. Le rapport se colore selon `NO_COLOR`/`FORCE_COLOR`, et un
+ * libellé de champ est grisé — une assertion `libellé\s+valeur` passait sur un
+ * poste `NO_COLOR=1` et tombait en intégration continue (`FORCE_COLOR: 1`), où
+ * une séquence s'insère entre les deux.
  */
 const LARGEUR_DE_TEST = 100;
 
@@ -74,7 +81,8 @@ async function capture(
     return true;
   };
   try {
-    return { code: await run(), out: chunks.join("") };
+    const code = await run();
+    return { code, out: stripVTControlCharacters(chunks.join("")) };
   } finally {
     process.stdout.write = write;
     process.stdout.columns = colonnes;
