@@ -1195,6 +1195,8 @@ export const CAR_MESSAGE = 6.5;
 /** Longueur, en caractères, au-delà de laquelle un libellé de message passe à la ligne. */
 const COUPE_MESSAGE = 32;
 const INTERLIGNE = 14;
+/** Hauteur réservée au rappel des en-têtes, au pied du diagramme. */
+const PIED = 34;
 /** Place qu'une pastille de numéro (`autonumber`) prend devant un libellé. */
 const PASTILLE = 20;
 
@@ -1356,7 +1358,9 @@ export function placerSequence(modele, haut) {
     cadres,
     x0,
     largeur: fin + 8 + 18 - x0,
-    hauteur: y + 16,
+    // Les en-têtes sont rappelés au pied, comme le fait Mermaid : sur un
+    // diagramme long, on ne remonte pas chercher à qui appartient une colonne.
+    hauteur: y + 16 + PIED,
   };
 }
 
@@ -1422,9 +1426,16 @@ export function sequence(o) {
     const p = modele.participants[i];
     const w = g.boites[i];
     corps.unshift(
-      `<line x1="${cx}" y1="${HAUT}" x2="${cx}" y2="${H - 8}" stroke="${T.trait}" stroke-dasharray="3 4"/>` +
-        `<rect x="${cx - w / 2}" y="${HAUT - 30}" width="${w}" height="26" rx="6" fill="${T.fondDoux}" stroke="${T.trait}"/>` +
-        `<text x="${cx}" y="${HAUT - 12}" text-anchor="middle" font-size="12" font-weight="600" fill="${T.encre}" ${police}>${ech(p.nom)}</text>`,
+      // Ligne de vie CONTINUE et lisible : trop pâle, elle disparaissait derrière
+      // les boucles et les pastilles, et se lisait comme interrompue.
+      `<line x1="${cx}" y1="${HAUT}" x2="${cx}" y2="${H - PIED + 4}" stroke="${T.muet}" stroke-opacity="0.55" stroke-dasharray="4 4"/>` +
+        [HAUT - 30, H - PIED + 4]
+          .map(
+            (by) =>
+              `<rect x="${cx - w / 2}" y="${by}" width="${w}" height="26" rx="6" fill="${T.fondDoux}" stroke="${T.trait}"/>` +
+              `<text x="${cx}" y="${by + 18}" text-anchor="middle" font-size="12" font-weight="600" fill="${T.encre}" ${police}>${ech(p.nom)}</text>`,
+          )
+          .join(""),
     );
   }
 
@@ -1468,7 +1479,12 @@ export function sequence(o) {
         `text-anchor="middle" font-size="11.5" fill="${T.encre}"`,
       ),
     );
-    if (m.numero !== null) corps.push(pastille(m.x1, m.yl, m.numero));
+    // La pastille précède le libellé, jamais sur la ligne de vie de départ :
+    // posée là, elle en masquait un morceau à chaque message numéroté.
+    if (m.numero !== null)
+      corps.push(
+        pastille(mx - largeurLignes(m.lignes) / 2 - 11, premiere - 4, m.numero),
+      );
   }
 
   return [
