@@ -28,6 +28,7 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Variable** `FAVICON`
 - **Variable** `MOUNT`
 - **Variable** `OUT`
+- **Variable** `PUBLISHED`
 - **Variable** `REPO_URL`
 - **Variable** `ROOT`
 - **Variable** `SITE_URL`

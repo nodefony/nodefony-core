@@ -153,6 +153,8 @@ const PUBLISHED = JSON.parse(
 ).version;
 const VERSION =
   BRANCH === "main" ? PUBLISHED : `en développement, après ${PUBLISHED}`;
+/** La pastille de l'en-tête, à côté du nom : courte, lisible d'un coup d'œil. */
+const BADGE = BRANCH === "main" ? PUBLISHED : `${PUBLISHED} + dev`;
 const BUILT_AT = new Date().toISOString().slice(0, 10);
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1371,7 +1373,7 @@ function renderPage(d, published, index, publishedPaths) {
     title: d.title,
     // La marque en tête ramène à l'accueil du site — le premier geste d'un
     // lecteur perdu, avant même de chercher un menu.
-    brand: { ...NODEFONY_BRAND, href: rel(d.url, "/") },
+    brand: { ...NODEFONY_BRAND, href: rel(d.url, "/"), version: BADGE },
     head:
       `<meta name="description" content="${esc(firstText)}">\n` +
       (FAVICON

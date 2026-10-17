@@ -758,6 +758,8 @@ button.ghost { background:none; border:1px solid var(--line); color:var(--dim); 
 .brand-logo { height:34px; width:auto; display:block; }
 .brand-name { font-weight:650; font-size:15px; letter-spacing:-.01em; }
 .brand-tag { color:var(--dim); font-size:12px; }
+.brand-version { margin-left:6px; padding:1px 7px; border:1px solid var(--line); border-radius:999px;
+  color:var(--dim); font-size:11.5px; font-weight:500; letter-spacing:0; vertical-align:2px; }
 .foot-row { display:flex; align-items:flex-start; gap:12px; }
 .foot-logo { height:26px; width:auto; flex:none; opacity:.85; }
 .print-only { display:none; }
@@ -955,7 +957,7 @@ try{var t=localStorage.getItem("nf-theme");if(t==="dark"||t==="light")document.d
         ? `<${brand.href ? "a" : "div"} class="brand"${brand.href ? ` href="${esc(brand.href)}"` : ""}>
       <img src="${brand.logo}" alt="${esc(brand.name)}" class="brand-logo">
       <div>
-        <div class="brand-name">${esc(brand.name)}</div>
+        <div class="brand-name">${esc(brand.name)}${brand.version ? ` <span class="brand-version">${esc(brand.version)}</span>` : ""}</div>
         ${brand.tagline ? `<div class="brand-tag">${esc(brand.tagline)}</div>` : ""}
       </div>
     </${brand.href ? "a" : "div"}>`
