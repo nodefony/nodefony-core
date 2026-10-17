@@ -29,7 +29,24 @@ export function sansCommentaires(markdown) {
         else if (f[1][0] === cloture) cloture = null;
         return true;
       }
-      return cloture !== null || !/^\s*<!--.*-->\s*$/.test(ligne);
+      return cloture !== null || !commentaireSeul(ligne);
     })
     .join("\n");
+}
+
+/**
+ * La ligne n'est-elle QU'UN commentaire HTML (`<!-- … -->`) ?
+ *
+ * Écrit en comparaisons de chaînes, pas en expression régulière : un motif
+ * `<!--.*-->` est la forme que l'analyse de code signale comme filtre de balise
+ * incomplet (`js/bad-tag-filter` — un commentaire se ferme aussi par `--!>`).
+ * Ici l'enjeu n'est pas la sécurité — la source est le Markdown du dépôt, et le
+ * rendu échappe tout HTML —, mais un motif signalé à tort reste une alerte
+ * ouverte, et le dépôt refuse d'en garder une.
+ */
+function commentaireSeul(ligne) {
+  const l = ligne.trim();
+  return (
+    l.startsWith("<!--") && l.endsWith("-->") && !l.slice(4, -3).includes("-->")
+  );
 }
