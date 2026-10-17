@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T03:19:34.079Z",
+  "generatedAt": "2026-10-17T04:09:37.347Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 129,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 39,
+      "open": 40,
       "title": "10.0.0-beta"
     },
     {
@@ -3033,11 +3033,27 @@
       "title": "feat(site): versionner le site de documentation par release",
       "url": "https://github.com/nodefony/nodefony-core/issues/605",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 4.0013,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 606,
+      "title": "fix(cli): annoncer la migration requise après create entity",
+      "url": "https://github.com/nodefony/nodefony-core/issues/606",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.0014,
       "debut": null,
       "cible": null,
       "labels": [
@@ -8121,7 +8137,7 @@
       "title": "feat(realtime): servir le bus par Kafka pour la retention",
       "url": "https://github.com/nodefony/nodefony-core/issues/243",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "11.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
