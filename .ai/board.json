@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T04:11:04.908Z",
+  "generatedAt": "2026-10-17T04:19:53.380Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 129,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 40,
+      "open": 41,
       "title": "10.0.0-beta"
     },
     {
@@ -4068,6 +4068,22 @@
       "cible": null,
       "labels": [
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 607,
+      "title": "docs(config): remettre les exemples à la forme du générateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/607",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.9,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
       ]
     },
     {
