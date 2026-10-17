@@ -196,7 +196,7 @@ export default OrdersController;
 ### 3. Émettre la clé — par l'API, avec une session
 
 L'émission est un **endpoint fourni**, monté seulement si le service `apiKeys` existe
-(`mountApiKeyRoutes()`, `ApiKeyController.ts:192`). Il n'y a **pas** de commande CLI pour créer une
+(`mountApiKeyRoutes()`, `ApiKeyController.ts:224`). Il n'y a **pas** de commande CLI pour créer une
 clé : la création exige une **session BFF** (les routes ne sont pas `bypassFirewall` —
 `ApiKeyController.ts:50-54`), parce que le porteur est **toujours** l'utilisateur courant, jamais un
 paramètre.
@@ -232,7 +232,7 @@ curl -si https://localhost:5152/api/v1/orders/list | head -1
 > [!WARNING]
 > Le champ `token` de la réponse 201 est la **seule** occasion de lire le secret : il n'est pas
 > stocké, donc pas re-dérivable (`IApiKeyCreated`, `IApiKey.ts:44`). Le listing ultérieur ne
-> renvoie que le `prefix` public (`#toView()`, `apiKeys.ts:386`). Perdue = ré-émise.
+> renvoie que le `prefix` public (`#toView()`, `apiKeys.ts:413`). Perdue = ré-émise.
 
 ## 🔐 Anatomie d'une clé — ce que chaque morceau paie
 
@@ -279,24 +279,28 @@ jamais par le préfixe.
 
 ### Émission — `ApiKeyService.createForSubject()`
 
-`ApiKeyService.createForSubject()` (`apiKeys.ts:121`) est le seul chemin d'émission. Dans l'ordre :
+`ApiKeyService.createForSubject()` (`apiKeys.ts:135`) est le seul chemin d'émission. Dans l'ordre :
 
 1. **Validation du nom** — non vide, ≤ 100 caractères ; sinon `ApiKeyError` 400 (`#normalizeName()`,
-   `apiKeys.ts:330`).
+   `apiKeys.ts:357`).
 2. **Validation des scopes** — tableau de chaînes non vides, dédupliquées, et **⊆ catalogue** si
-   `allowedScopes` est défini ; sinon 400 (`#normalizeScopes()`, `apiKeys.ts:341`).
-3. **Résolution de l'expiration** — `expiresInDays` explicite, sinon le défaut de config, `null` =
-   sans expiration ; une valeur non positive lève un 400 (`#resolveExpiry()`, `apiKeys.ts:363`).
-4. **Plafond anti-abus** — on ne compte que les clés **actives** (ni révoquées ni expirées) via
-   `#isActive()` (`apiKeys.ts:379`) ; au-delà de `maxPerSubject` → 409 (`apiKeys.ts:48`).
-5. **Génération** — 32 octets aléatoires, `publicPrefix` et `secretHash` dérivés
+   `allowedScopes` est défini ; sinon 400 (`#normalizeScopes()`, `apiKeys.ts:368`).
+3. **Droit d'obtenir chaque scope** — un scope réservé par `grantableScopes` à des rôles que le
+   porteur n'a pas, ou `admin:*` sans le rôle d'administration, refuse la création entière :
+   `ApiKeyError` **403** qui nomme le scope (`refusedScopes()`, `apiKeys.ts:144`). Même juge que
+   l'émission des jetons — voir [autorisation](./authorization.md).
+4. **Résolution de l'expiration** — `expiresInDays` explicite, sinon le défaut de config, `null` =
+   sans expiration ; une valeur non positive lève un 400 (`#resolveExpiry()`, `apiKeys.ts:390`).
+5. **Plafond anti-abus** — on ne compte que les clés **actives** (ni révoquées ni expirées) via
+   `#isActive()` (`apiKeys.ts:406`) ; au-delà de `maxPerSubject` → 409 (`apiKeys.ts:50`).
+6. **Génération** — 32 octets aléatoires, `publicPrefix` et `secretHash` dérivés
    (`generateApiKey()`, `apiKeyFormat.ts:92`).
-6. **Écriture** — le `record` de `kind:"pat"` posé au store par `store.put()` (`apiKeys.ts:177`).
-7. **Audit** — `apikey.created`, catégorie `token`, avec l'**id public** et les scopes, **jamais le
+7. **Écriture** — le `record` de `kind:"pat"` posé au store par `store.put()` (`apiKeys.ts:197`).
+8. **Audit** — `apikey.created`, catégorie `token`, avec l'**id public** et les scopes, **jamais le
    secret** (`apiKeys.ts:183-189`).
 
 Le service ne connaît pas le store à la construction : il le résout **paresseusement** du container
-au premier usage (`#resolveStore()`, `apiKeys.ts:317`) — indépendant de l'ordre de boot. Store
+au premier usage (`#resolveStore()`, `apiKeys.ts:344`) — indépendant de l'ordre de boot. Store
 absent = **503 explicite**, jamais une 500 opaque.
 
 ### Vérification — `ApiKeyAuthenticator.authenticate()`
@@ -356,13 +360,13 @@ apiKeys: {
 **Ce qu'on observe** : `npx nodefony security:user:add ci-bot` (rôle `ROLE_USER` par défaut), login
 en tant que `ci-bot`, puis émission avec `{"scopes":["orders:read"]}`. Demander
 `{"scopes":["orders:write"]}` renvoie **400 `scope not allowed: orders:write`** — refusé à
-l'émission, pas seulement à l'usage (`#normalizeScopes()`, `apiKeys.ts:341`).
+l'émission, pas seulement à l'usage (`#normalizeScopes()`, `apiKeys.ts:368`).
 
 > [!TIP]
 > Le catalogue `allowedScopes` de la config est un **complément**, pas la source : la console
 > propose aussi les scopes **découverts sur tes routes** (`@RequireScope`) par
 > `collectDeclaredApiScopes()` (`scopeCatalog.ts:29`), agrégés dans l'endpoint `capabilities`
-> (`ApiKeyController.ts:97`). Un formulaire de création qui ne ment pas.
+> (`ApiKeyController.ts:107`). Un formulaire de création qui ne ment pas.
 
 ### Faire tourner une clé sans coupure de service
 
@@ -391,8 +395,8 @@ Deux chemins, selon qui agit :
 
 | Qui        | Endpoint                                          | Portée                 | Ancrage                                 |
 | ---------- | ------------------------------------------------- | ---------------------- | --------------------------------------- |
-| Le porteur | `DELETE /nodefony/security/api/keys/{id}`         | **ses** clés seulement | `revokeForSubject()` (`apiKeys.ts:296`) |
-| Un admin   | `POST /nodefony/security/api/apikeys/{id}/revoke` | n'importe quelle clé   | `revokeAnyPat()` (`apiKeys.ts:250`)     |
+| Le porteur | `DELETE /nodefony/security/api/keys/{id}`         | **ses** clés seulement | `revokeForSubject()` (`apiKeys.ts:323`) |
+| Un admin   | `POST /nodefony/security/api/apikeys/{id}/revoke` | n'importe quelle clé   | `revokeAnyPat()` (`apiKeys.ts:277`)     |
 
 **Ce qu'on observe** : la révocation est **idempotente** et prend effet à la requête suivante —
 l'authenticator lit `revokedAt` avant toute autre décision (`ApiKeyAuthenticator.ts:111-118`).
@@ -420,7 +424,7 @@ Trois sources, et il faut connaître les limites de chacune :
 
 1. **L'état** — le listing d'administration paginé, tous porteurs confondus : `GET
 /nodefony/security/api/apikeys` (`SecurityAdminApi.ts:394`), servi par `listPagePat()`
-   (`apiKeys.ts:209`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
+   (`apiKeys.ts:236`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
    `order=champ:ASC` (`parseTokenListQuery()`, `SecurityAdminApi.ts:126`), plafonnée à 200 entrées
    (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:122`).
 
@@ -434,7 +438,7 @@ Trois sources, et il faut connaître les limites de chacune :
    l'ordre dépend de la base configurée ne vaut pas mieux qu'un tri absent.
 
 2. **Le journal** — les événements d'audit `apikey.created` (`apiKeys.ts:183-189`) et `apikey.revoked`
-   (`apiKeys.ts:268-271` côté admin, `apiKeys.ts:311-313` côté porteur), catégorie `token`. La révocation
+   (`apiKeys.ts:288-291` côté admin, `apiKeys.ts:331-333` côté porteur), catégorie `token`. La révocation
    admin trace **l'acteur ET le porteur cible** — voir [audit](./audit.md).
 3. **Le dernier usage** — `lastUsedAt`, avec l'IP et l'agent de ce dernier appel
    (`lastUsedIp`, `lastUsedUserAgent`, `ITokenStore.ts:135`), écrits ensemble par `markUsed`
@@ -474,15 +478,15 @@ Deux réglages méritent une décision consciente :
 ### Les endpoints — deux portées, jamais mélangées
 
 **Console « mes clés »** (le porteur gère les siennes) — montées par `mountApiKeyRoutes()`
-(`ApiKeyController.ts:192`) **seulement si** le service `apiKeys` existe (`framework/index.ts:468`) ;
+(`ApiKeyController.ts:224`) **seulement si** le service `apiKeys` existe (`framework/index.ts:468`) ;
 sinon 404, zéro surface. Aucune n'est `bypassFirewall` : la zone data plane exige la session BFF.
 
-| Méthode  | Chemin                                     | Rôle                                              | Ancrage                                     |
-| -------- | ------------------------------------------ | ------------------------------------------------- | ------------------------------------------- |
-| `POST`   | `/nodefony/security/api/keys`              | Émission → **201** + `token` clair (1×)           | `create()` (`ApiKeyController.ts:66`)       |
-| `GET`    | `/nodefony/security/api/keys`              | Mes clés, sans secret                             | `list()` (`ApiKeyController.ts:114`)        |
-| `GET`    | `/nodefony/security/api/keys/capabilities` | Plafond, scopes proposés, préfixe, durée          | `capabilities()` (`ApiKeyController.ts:97`) |
-| `DELETE` | `/nodefony/security/api/keys/{id}`         | Révoque **ma** clé ; 404 sinon (anti-énumération) | `revoke()` (`ApiKeyController.ts:127`)      |
+| Méthode  | Chemin                                     | Rôle                                              | Ancrage                                      |
+| -------- | ------------------------------------------ | ------------------------------------------------- | -------------------------------------------- |
+| `POST`   | `/nodefony/security/api/keys`              | Émission → **201** + `token` clair (1×)           | `create()` (`ApiKeyController.ts:70`)        |
+| `GET`    | `/nodefony/security/api/keys`              | Mes clés, sans secret                             | `list()` (`ApiKeyController.ts:124`)         |
+| `GET`    | `/nodefony/security/api/keys/capabilities` | Plafond, scopes proposés, préfixe, durée          | `capabilities()` (`ApiKeyController.ts:107`) |
+| `DELETE` | `/nodefony/security/api/keys/{id}`         | Révoque **ma** clé ; 404 sinon (anti-énumération) | `revoke()` (`ApiKeyController.ts:137`)       |
 
 **Administration** (gouvernance, réponse à incident) — data plane `SecurityAdminApi`, RBAC
 `ROLE_NODEFONY_ADMIN` :
@@ -496,8 +500,8 @@ sinon 404, zéro surface. Aucune n'est `bypassFirewall` : la zone data plane exi
 Les deux espaces de chemins sont **disjoints** (`keys` vs `apikeys`) — aucune collision, et une
 console d'admin ne peut pas atterrir par erreur sur l'endpoint personnel.
 
-Codes d'erreur mappés par duck-typing sur `code` (`#renderApiKeyError()`, `ApiKeyController.ts:165`) :
-**400** validation (nom, scope, durée), **409** plafond atteint, **503** clés indisponibles (store
+Codes d'erreur mappés par duck-typing sur `code` (`#renderApiKeyError()`, `ApiKeyController.ts:188`) :
+**400** validation (nom, scope, durée), **403** scope que le porteur ne peut pas obtenir, **409** plafond atteint, **503** clés indisponibles (store
 absent ou `enabled:false`).
 
 ### Ce qu'on importe côté application
@@ -617,7 +621,7 @@ Le coût par requête authentifiée par clé est **maîtrisé par construction**
   container au premier usage et mémoïsés (`ApiKeyAuthenticator.ts:173`, `apiKeys.ts:268`) — le boot
   ne paie rien si aucune clé n'est jamais présentée.
 - **Jamais N enregistrements en RAM** côté administration : le listing est paginé **au store**
-  (`listPagePat()`, `apiKeys.ts:209`), fenêtre plafonnée à 200 (`SecurityAdminApi.ts:107`).
+  (`listPagePat()`, `apiKeys.ts:236`), fenêtre plafonnée à 200 (`SecurityAdminApi.ts:107`).
 
 Le point de vigilance restant : `createForSubject()` compte les clés actives via `findBySubject()`
 (`ITokenStore.ts:211`), qui charge **toutes** les clés du porteur. C'est borné par `maxPerSubject`
@@ -651,8 +655,8 @@ pas masqué à l'affichage. Voir aussi l'écran **Audit** pour les événements 
 | 503 « API keys unavailable »                           | Store non provisionné (`TokenService` absent/désactivé) (`apiKeys.ts:330`)                     | Vérifier `jwt`/`tokenStore` — le `TokenService` pose le store          |
 | 401 à la création de clé                               | Ces routes exigent une **session** (pas de `bypassFirewall`)                                   | Se connecter d'abord (`/nodefony/security/api/auth/login`)             |
 | Le token clair est introuvable après coup              | Seul `sha256` est stocké — non re-dérivable (`apiKeyFormat.ts:70`)                             | Émettre une nouvelle clé, révoquer l'ancienne                          |
-| 409 « API key limit reached »                          | Plafond de clés **actives** atteint (`apiKeys.ts:144-147`)                                     | Révoquer les clés inutilisées ou relever `maxPerSubject`               |
-| 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts:284`)                                     | Ajouter le scope au catalogue, ou corriger la demande                  |
+| 409 « API key limit reached »                          | Plafond de clés **actives** atteint (`apiKeys.ts:163-167`)                                     | Révoquer les clés inutilisées ou relever `maxPerSubject`               |
+| 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts:311`)                                     | Ajouter le scope au catalogue, ou corriger la demande                  |
 | Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts:165`)       | Garder le `prefix` STABLE après la première émission                   |
 | Clé valide mais 403 sur la route                       | Autorisation, pas authentification : scope manquant — `ScopeVoter.vote()` (`ScopeVoter.ts:50`) | Émettre une clé portant le scope exigé par `@RequireScope`             |
 | Clé rejetée alors qu'elle n'est ni expirée ni révoquée | Porteur désactivé/verrouillé, ou seuil `invalidBefore` (`ApiKeyAuthenticator.ts:121-124`)      | Réactiver le compte, ou réémettre après le bannissement                |

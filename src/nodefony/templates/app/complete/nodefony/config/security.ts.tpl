@@ -364,6 +364,18 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     },
 
     /**
+     * Qui peut OBTENIR un scope d'application, dans un jeton ou une clé API.
+     * Clé : un scope exact (`vitrine:write`) ou une famille (`shop:*`) ;
+     * valeur : les rôles dont UN suffit, hiérarchie ci-dessous comprise.
+     * Un scope absent d'ici est accordé à tout compte connecté qui le demande :
+     * `@RequireScope` et les `scopes` d'un outil MCP contrôlent le scope à
+     * l'USAGE, cette section décide qui le REÇOIT.
+     * `create controller --kind mcp --expose mixte` y déclare le scope de son
+     * outil réservé.
+     */
+    grantableScopes: {},
+
+    /**
      * Hiérarchie de rôles — un rôle COUVRE ceux qu'il liste, transitivement.
      * `ROLE_NODEFONY_*` = plateforme (console Studio) ; `ROLE_*` = applicatif.
      * Le compte admin semé par `nodefony/security/provisionUsers.ts` les porte.

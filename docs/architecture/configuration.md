@@ -70,7 +70,7 @@ service, jamais validé, absent en production.
 | **`ctx`**            | Le contexte passé à la forme fonction : `env`, `infra`, `appEnv`, `runtimeEnv`, `isProd`, `isDev`, `isTest`. |
 | **`defineEnv`**      | Le catalogue de variables d'environnement typées — **seul** lecteur de `process.env`.                        |
 | **`use()`**          | Déclare un module dans le manifeste `modules`, avec sa config colocalisée et typée.                          |
-| **Deep-merge**       | Fusion récursive : les objets se complètent clé par clé, les tableaux se remplacent.                         |
+| **Deep-merge**       | Fusion récursive : les objets se complètent clé par clé, les tableaux se fusionnent case par case.           |
 | **Zod**              | La bibliothèque de schémas qui valide **et** type la config. Une source, pas deux.                           |
 | **Override env**     | Surcharge d'un champ par une variable `NF__…`, sans toucher au code (métier du devops).                      |
 | **`*_FILE`**         | Convention de secret monté : `NF_X_FILE=/run/secrets/x` fait lire le **contenu du fichier**.                 |

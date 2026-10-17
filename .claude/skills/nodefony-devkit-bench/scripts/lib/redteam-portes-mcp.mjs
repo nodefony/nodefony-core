@@ -536,20 +536,45 @@ export const VECTEURS = [
 
   {
     id: "T24",
-    titre: "compte sans rôle : admin:write jamais accordé (RFC 6749 §3.3)",
+    titre:
+      "compte sans rôle : ni admin:write ni le scope réservé de la porte mixte (RFC 6749 §3.3)",
     run: async () => {
       const accordes = scopesAccordes({
         compte: TEMOIN.username,
         ressource: audience("mixte"),
-        scope: "admin:write vitrine:write",
+        scope: "admin:write vitrine:write vitrine:read",
       });
       if (accordes === null)
         return "ABSTENTION — émission impossible pour le témoin (compte absent ?)";
-      // `vitrine:write` est accordé : un scope d'APPLICATION s'obtient sur
-      // demande — limite assumée, écrite dans le gabarit des outils.
-      return accordes.includes("admin:write")
-        ? `admin:write accordé au témoin : ${accordes}`
-        : null;
+      // `vitrine:write` est réservé à ROLE_ADMIN par la déclaration que
+      // `--expose mixte` écrit dans `grantableScopes` (#604) ; la retirer
+      // rouvre ce vecteur.
+      const fautes = ["admin:write", "vitrine:write"].filter((s) =>
+        accordes.includes(s),
+      );
+      if (fautes.length > 0)
+        return `accordé(s) au témoin : ${fautes.join(" ")} (jeton : ${accordes})`;
+      // Contrôle positif dans le même jeton : un scope NON déclaré reste
+      // accordé — sans lui, « tout refuser » passerait pour un vert.
+      return accordes.includes("vitrine:read")
+        ? null
+        : `scope libre vitrine:read refusé au témoin : ${accordes}`;
+    },
+  },
+  {
+    id: "T24-positif",
+    titre: "administrateur : le scope réservé de la porte mixte reste accordé",
+    run: async () => {
+      const accordes = scopesAccordes({
+        compte: TEMOIN_ADMIN.username,
+        ressource: audience("mixte"),
+        scope: "vitrine:write",
+      });
+      if (accordes === null)
+        return "ABSTENTION — émission impossible pour l'administrateur (compte absent ?)";
+      return accordes.includes("vitrine:write")
+        ? null
+        : `vitrine:write refusé à l'administrateur : ${accordes}`;
     },
   },
 

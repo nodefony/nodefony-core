@@ -6,6 +6,8 @@ import { nodefonyError } from "nodefony";
  * classes de `@nodefony/security`).
  *
  *  - `400` — entrée invalide (nom vide, scope hors catalogue) ;
+ *  - `403` — scope demandé que le porteur ne peut pas obtenir (`grantableScopes`,
+ *    ou `admin:*` sans le rôle d'administration) ;
  *  - `409` — plafond `apiKeys.maxPerSubject` atteint ;
  *  - `503` — store de jetons indisponible (clés activées mais non provisionnées).
  *
@@ -13,8 +15,8 @@ import { nodefonyError } from "nodefony";
  * 401, message uniforme anti-énumération).
  */
 export class ApiKeyError extends nodefonyError {
-  // oxlint-disable-next-line no-useless-constructor -- pas redondant : il RESTREINT `code` aux trois statuts admis ci-dessus, là où le parent accepte n'importe quel nombre
-  constructor(message: string, code: 400 | 409 | 503) {
+  // oxlint-disable-next-line no-useless-constructor -- pas redondant : il RESTREINT `code` aux quatre statuts admis ci-dessus, là où le parent accepte n'importe quel nombre
+  constructor(message: string, code: 400 | 403 | 409 | 503) {
     super(message, code);
   }
 }

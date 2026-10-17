@@ -21,10 +21,9 @@ import { mcpText, type IMcpTool } from "@nodefony/ai";
  * sans jeton, n'en accorde aucun : l'outil y restera invisible<% } %>.
 <% if (it.anonymous) { %> * Sur cette porte mixte, `<%= it.toolPrefix %>_batch` en est l'exemple : un appel sans
  * jeton ne le voit pas, un jeton émis avec `--scope <%= it.writeScope %>` l'ouvre.
- * ⚠️ Un scope d'APPLICATION s'obtient sur simple demande par tout compte de
- * l'application : il dit ce que le jeton VISE, pas qui a le droit de l'avoir.
- * Pour réserver l'outil à certains comptes, juge `caller.subject` (le compte
- * qui porte le jeton) dans le handler.
+ * Qui peut OBTENIR ce scope se décide dans `grantableScopes`
+ * (nodefony/config/security.ts), où la génération l'a réservé à
+ * `<%= it.reservedRole %>` : un autre compte reçoit un jeton sans lui.
 <% } %> *
  * Ces outils sont aussi visibles par l'agent de code du développeur, sur la
  * porte de développement de `@nodefony/devkit`, si le module de l'application

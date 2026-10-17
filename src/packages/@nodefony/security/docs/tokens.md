@@ -239,11 +239,11 @@ Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController
 `issueForCredentials()` (`tokenService.ts:387`) vérifie l'identifiant/mot de passe via le
 service `users`, avec le **throttling NIST partagé** — `ThrottledError` avant tout hachage
 (`tokenService.ts:398`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
-par `#auditGrant()` (`tokenService.ts:414-426`). Puis `issueTokens()` (`tokenService.ts:582`)
+par `#auditGrant()` (`tokenService.ts:414-426`). Puis `issueTokens()` (`tokenService.ts:599`)
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
-  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:694-707`) ;
+  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:754-775`) ;
 - un **refresh token** : secret opaque haute entropie `nfr_<32 octets base64url>`, **stocké haché**
   `sha256` (le clair n'existe qu'en réponse, jamais au repos) — `#buildRefresh()`
   (`tokenService.ts:726-761`).
@@ -253,19 +253,20 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:50-58`). 
 
 ### Rotation & détection de rejeu (RFC 9700 §4.14)
 
-`refresh()` (`tokenService.ts:647`) est le cœur défensif, dans l'ordre :
+`refresh()` (`tokenService.ts:664`) est le cœur défensif, dans l'ordre :
 
-1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:653`).
+1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:672`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
-   famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:622-636`).
-3. Expiration `expiresAt` vérifiée (`tokenService.ts:793`).
+   famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:678-693`).
+3. Expiration `expiresAt` vérifiée (`tokenService.ts:697`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:852`).
-5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
-   (`tokenService.ts:684`).
+   `#resolveUserForRefresh()` (`tokenService.ts:871`).
+5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus — et ils
+   sont REJUGÉS sur les rôles du compte relu (`grantableScopes`, règle d'administration) : un rôle
+   retiré retire son scope au prochain renouvellement (`tokenService.ts:705`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
-   `"rotated"` (`tokenService.ts:716-718`). Si `rotateRefresh` est désactivé, l'access est réémis
-   et le refresh courant reste valide (`tokenService.ts:702`).
+   `"rotated"` (`tokenService.ts:739-741`). Si `rotateRefresh` est désactivé, l'access est réémis
+   et le refresh courant reste valide (`tokenService.ts:725`).
 
 ### Mise en situation — ton refresh token a été volé
 
@@ -362,18 +363,18 @@ seuil `invalidBefore` par porteur (`ITokenStore.ts:11-15`). Les backends s'enreg
 fabrique — `registerTokenStore()` (`tokenStoreRegistry.ts:41-46`) : les adapters lourds importent
 `import type { ITokenStore }` (effacé à la compilation), zéro couplage runtime.
 
-Sa résolution au boot (`tokenService.ts:156-207`) suit la doctrine `store:"auto"` du framework :
+Sa résolution au boot (`tokenService.ts:161-233`) suit la doctrine `store:"auto"` du framework :
 
 - `auto` (défaut) → suit l'infra database déclarée via `resolveAutoStore` — **borné aux backends
-  réellement enregistrés**, repli memory **annoncé** (`tokenService.ts:160-168`) ;
+  réellement enregistrés**, repli memory **annoncé** (`tokenService.ts:185-196`) ;
 - store explicite **inconnu** → en prod, **boot avorté** (fail-loud) ; en dev, brique désactivée et
-  annoncée avec la liste `listTokenStores()` (`tokenService.ts:171-182`) — jamais de fallback
+  annoncée avec la liste `listTokenStores()` (`tokenService.ts:198-210`) — jamais de fallback
   memory silencieux pour du durable ;
 - store `memory` **en prod** → `WARNING` nommant l'impact : denylist/refresh/clés API per-pod et
-  volatils, révocation non partagée (`tokenService.ts:186-193`).
+  volatils, révocation non partagée (`tokenService.ts:213-221`).
 
 La décision (configuré → résolu, raison) est publiée au kernel par `registerStoreResolution()`
-(`tokenService.ts:195-204`) — visible dans Studio.
+(`tokenService.ts:223-233`) — visible dans Studio.
 
 ### Mise en situation — quel store pour quelle app ?
 
@@ -445,7 +446,7 @@ Les colonnes par dialecte vivent dans la doc de chaque adapter (règle anti-trip
 - `listAll()` reste réservé au **dump d'incident** cross-porteur, cold-path admin
   (`ITokenStore.ts:222`).
 - Consommateur type : le data plane des clés API — `ApiKeyService.listPagePat()`
-  (`apiKeys.ts:209`), jamais un listAll matérialisé.
+  (`apiKeys.ts:236`), jamais un listAll matérialisé.
 
 ### Révoquer — trois portées
 
@@ -503,9 +504,9 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `token
 | Domaine                          | Norme           | Ancrage                                                 |
 | -------------------------------- | --------------- | ------------------------------------------------------- |
 | Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:50-58`)              |
-| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:647`)                     |
-| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:694-707`)             |
-| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:731-739`)             |
+| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:664`)                     |
+| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:754-775`)             |
+| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:754-775`)             |
 | Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:275`)                |
 | Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts:104-105`)         |
 | 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:111-118`) |
@@ -513,7 +514,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `token
 
 ## ⚡ Performance & mémoire
 
-- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:826`)
+- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:845`)
   — le boot ne paie rien si le JWT n'est jamais sollicité ; keystore mémoïsé pareil.
 - **Rien sur le hot path requête** : émission et rotation sont des endpoints cold-path ; la
   vérification (hot path) vit chez le `JwtAuthenticator`.
@@ -525,7 +526,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `token
 ## 📡 Observabilité — Studio
 
 - **Écran Stores** (`/nodefony/stores`) : la résolution du store de jetons (configuré → résolu +
-  raison) publiée par `registerStoreResolution()` (`tokenService.ts:195-204`).
+  raison) publiée par `registerStoreResolution()` (`tokenService.ts:223-233`).
 - **Écran Audit** (`/nodefony/audit`) : événements `token.issued`, `token.reuse_detected` (signal d'attaque),
   `login.failure`/`login.throttled` du grant — corrélables par `tokenId`.
 - **Écran ApiKeys** : le même store côté PAT, listing paginé serveur.

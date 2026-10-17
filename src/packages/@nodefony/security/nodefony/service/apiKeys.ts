@@ -19,6 +19,8 @@ import type {
 } from "../contracts/IApiKey";
 import { ApiKeyError } from "../errors/ApiKeyError";
 import { generateApiKey } from "../src/apikey/apiKeyFormat";
+import { ScopeGrantPolicy, refusedScopes } from "../src/token/scopeGrants";
+import type { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { recordAudit } from "../src/audit/recordAudit";
 
 const serviceName = "apiKeys";
@@ -47,6 +49,8 @@ class ApiKeyService extends Service {
   #defaultExpiryDays: number | null = 90;
   #maxPerSubject = 100;
   #allowedScopes: string[] | null = null;
+  /** `grantableScopes` compilé au boot ; `null` tant que la config n'est pas lue. */
+  #scopeGrants: ScopeGrantPolicy | null = null;
 
   constructor(public module: Module) {
     super(
@@ -77,6 +81,7 @@ class ApiKeyService extends Service {
     this.#defaultExpiryDays = ak.defaultExpiryDays;
     this.#maxPerSubject = ak.maxPerSubject;
     this.#allowedScopes = ak.allowedScopes;
+    this.#scopeGrants = new ScopeGrantPolicy(config.grantableScopes);
     this.log(
       `api keys ready — prefix "${ak.prefix}_", max ${ak.maxPerSubject}/porteur`,
       "DEBUG",
@@ -114,7 +119,16 @@ class ApiKeyService extends Service {
    * Émet une nouvelle clé API pour un porteur — renvoie sa vue publique **+ le
    * token en clair** (affiché une seule fois).
    *
+   * Un scope que le porteur ne peut pas OBTENIR — réservé par
+   * `grantableScopes` à des rôles qu'il n'a pas, ou `admin:*` sans le rôle
+   * d'administration — refuse la création entière : une clé émise avec moins
+   * que demandé surprendrait sans qu'aucune réponse ne le dise. Même juge que
+   * l'émission des jetons ({@link refusedScopes}).
+   *
+   * @param roles - rôles du porteur tels que son compte les porte ; omis =
+   *   aucun rôle, donc tout scope réservé est refusé (fail-closed).
    * @throws ApiKeyError 400 — nom vide/trop long, scope hors catalogue, expiry invalide.
+   * @throws ApiKeyError 403 — scope réservé à des rôles que le porteur n'a pas.
    * @throws ApiKeyError 409 — plafond `maxPerSubject` atteint.
    * @throws ApiKeyError 503 — store indisponible.
    */
@@ -122,10 +136,23 @@ class ApiKeyService extends Service {
     subjectId: string,
     subjectType: "user" | "service",
     opts: ICreateApiKeyOptions,
+    roles: readonly string[] = [],
   ): Promise<IApiKeyCreated> {
     const store = this.#resolveStore();
     const name = this.#normalizeName(opts.name);
     const scopes = this.#normalizeScopes(opts.scopes);
+    const refusals = refusedScopes(
+      scopes,
+      roles,
+      this.#scopeGrants ?? new ScopeGrantPolicy(),
+      this.container?.get<RoleHierarchyWalker>("roleHierarchy") ?? null,
+    );
+    if (refusals.length > 0) {
+      throw new ApiKeyError(
+        `scope not grantable to this account: ${refusals.map((r) => r.scope).join(", ")}`,
+        403,
+      );
+    }
     const now = Date.now();
     const expiresAt = this.#resolveExpiry(opts.expiresInDays, now);
 

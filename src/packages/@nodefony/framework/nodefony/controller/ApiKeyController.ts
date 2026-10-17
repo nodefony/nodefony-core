@@ -5,12 +5,14 @@ import SecurityApiController from "../src/SecurityApiController";
 import { collectDeclaredApiScopes } from "../src/scopeCatalog";
 
 /**
- * Vue MINIMALE de l'utilisateur courant exposée par `authFlow.me` (P6 J3) — on ne
- * lit que l'identifiant (= `IUser.identifier`), qui devient
- * le `subjectId` de la clé (cohérent avec le `sub` d'un JWT).
+ * Vue MINIMALE de l'utilisateur courant exposée par `authFlow.me` (P6 J3) :
+ * l'identifiant (= `IUser.identifier`) devient le `subjectId` de la clé
+ * (cohérent avec le `sub` d'un JWT) ; les rôles bornent les scopes qu'elle
+ * peut porter (`grantableScopes`).
  */
 interface ISafeUserLike {
   identifier: string;
+  roles?: unknown;
 }
 
 /** Vue locale du flux de session BFF (service `authFlow`, posé par security). */
@@ -28,6 +30,7 @@ interface IApiKeyManager {
     subjectId: string,
     subjectType: "user" | "service",
     opts: { name: unknown; scopes?: unknown; expiresInDays?: unknown },
+    roles?: readonly string[],
   ): Promise<unknown>;
   listForSubject(subjectId: string): Promise<unknown>;
   revokeForSubject(subjectId: string, id: string): Promise<boolean>;
@@ -69,8 +72,8 @@ class ApiKeyController extends SecurityApiController {
     if (!svc || !svc.isEnabled()) {
       return this.renderJson({ error: "API keys unavailable" }, 503);
     }
-    const subject = await this.#currentSubject();
-    if (subject === null) {
+    const holder = await this.#currentHolder();
+    if (holder === null) {
       return this.renderJson({ error: "Unauthorized" }, 401);
     }
     const post = this.queryPost as Record<string, unknown> | undefined;
@@ -80,11 +83,16 @@ class ApiKeyController extends SecurityApiController {
       expiresInDays?: unknown;
     };
     try {
-      const created = await svc.createForSubject(subject, "user", {
-        name: body.name,
-        scopes: body.scopes,
-        expiresInDays: body.expiresInDays,
-      });
+      const created = await svc.createForSubject(
+        holder.identifier,
+        "user",
+        {
+          name: body.name,
+          scopes: body.scopes,
+          expiresInDays: body.expiresInDays,
+        },
+        holder.roles,
+      );
       return await this.renderJson(created, 201);
     } catch (e) {
       return this.#renderApiKeyError(e);
@@ -156,10 +164,23 @@ class ApiKeyController extends SecurityApiController {
 
   /** Identifiant du porteur courant (session BFF revalidée), ou `null` si non authentifié. */
   async #currentSubject(): Promise<string | null> {
+    return (await this.#currentHolder())?.identifier ?? null;
+  }
+
+  // Identité ET rôles du porteur courant, lus sur la MÊME réponse de `me` : les
+  // rôles bornent les scopes d'une clé à sa création.
+  async #currentHolder(): Promise<{
+    identifier: string;
+    roles: string[];
+  } | null> {
     const flow = this.#flow();
     if (!flow) return null;
     const me = await flow.me(this.context as ContextType);
-    return me && typeof me.identifier === "string" ? me.identifier : null;
+    if (!me || typeof me.identifier !== "string") return null;
+    const roles = Array.isArray(me.roles)
+      ? me.roles.filter((r): r is string => typeof r === "string")
+      : [];
+    return { identifier: me.identifier, roles };
   }
 
   // 400 → message de validation (input, jamais un secret) ; 409 → plafond ;
@@ -171,6 +192,14 @@ class ApiKeyController extends SecurityApiController {
       return this.renderJson(
         { error: typeof message === "string" ? message : "Bad request" },
         400,
+      );
+    }
+    if (code === 403) {
+      // Le message nomme les scopes refusés — ceux que le porteur vient de
+      // demander, donc rien qu'il ne sache déjà.
+      return this.renderJson(
+        { error: e instanceof Error ? e.message : "Forbidden" },
+        403,
       );
     }
     if (code === 409) {

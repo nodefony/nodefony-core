@@ -2527,30 +2527,12 @@ export function wireRoleHierarchy(
   // Déjà déclaré, où que ce soit dans la hiérarchie : rejouer la commande ne
   // doit rien ajouter — et un rôle couvert par une AUTRE branche que
   // `ROLE_ADMIN` est un choix de l'utilisateur, qu'on ne corrige pas.
-  const block = /roleHierarchy\s*:\s*\{/u.exec(source);
-  if (block?.index === undefined) {
+  const block = findObjectLiteral(source, /roleHierarchy\s*:\s*\{/u);
+  if (block === null) {
     return manual;
   }
-  // Accolade fermante APPARIÉE du bloc — un `indexOf("}")` couperait à la
-  // première sous-structure.
-  let depth = 0;
-  let close = -1;
-  for (let i = block.index + block[0].length - 1; i < source.length; i++) {
-    const char = source[i];
-    if (char === "{") {
-      depth++;
-    } else if (char === "}") {
-      depth--;
-      if (depth === 0) {
-        close = i;
-        break;
-      }
-    }
-  }
-  if (close === -1) {
-    return manual;
-  }
-  const body = source.slice(block.index, close);
+  const { start, close } = block;
+  const body = source.slice(start, close);
   if (body.includes(`"${role}"`)) {
     return null;
   }
@@ -2574,7 +2556,111 @@ export function wireRoleHierarchy(
     body.slice(admin.index + admin[0].length);
   writer.write(
     configPath,
-    source.slice(0, block.index) + patchedBody + source.slice(close),
+    source.slice(0, start) + patchedBody + source.slice(close),
+  );
+  return null;
+}
+
+/**
+ * Le littéral objet ouvert par `pattern` (qui finit sur son `{`) : début du
+ * motif et position de l'accolade fermante APPARIÉE — un `indexOf("}")`
+ * couperait à la première sous-structure.
+ *
+ * @param source - le fichier lu.
+ * @param pattern - motif qui se termine par l'accolade ouvrante du bloc.
+ * @returns les bornes, ou `null` si le motif ou sa fermeture manque.
+ */
+function findObjectLiteral(
+  source: string,
+  pattern: RegExp,
+): { start: number; open: number; close: number } | null {
+  const match = pattern.exec(source);
+  if (match?.index === undefined) {
+    return null;
+  }
+  const open = match.index + match[0].length - 1;
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    const char = source[i];
+    if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        return { start: match.index, open, close: i };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Réserve un scope d'application à un rôle dans `grantableScopes` de la
+ * configuration de sécurité.
+ *
+ * ## Pourquoi l'écrire, et pas seulement le conseiller
+ *
+ * Un outil MCP réservé par `scopes: ["<nom>:write"]` se lit « réservé à
+ * certains ». Sans déclaration, l'émetteur accorde pourtant ce scope à tout
+ * compte qui le demande : le générateur fabriquerait une fausse sécurité, et
+ * un commentaire lu après coup ne protège personne (#604).
+ *
+ * ## Ce que cette fonction n'invente pas
+ *
+ * Même doctrine que {@link wireRoleHierarchy} : elle n'ajoute JAMAIS une clé
+ * `grantableScopes` absente — le gabarit `complete` la pose vide. Ancre
+ * manquante (application antérieure, fichier réorganisé) → la note à taper.
+ * Un scope déjà déclaré n'est pas touché : ses rôles sont un choix de
+ * l'utilisateur.
+ *
+ * @param configPath - fichier du manifeste qui porte `grantableScopes`.
+ * @param scope - le scope à réserver (`vitrine:write`).
+ * @param role - le rôle qui l'obtient.
+ * @param writer - écrivain du scaffold (respecte `--dry-run`).
+ * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
+ */
+export function wireGrantableScope(
+  configPath: string,
+  scope: string,
+  role: string,
+  writer: ScaffoldWriter,
+): string | null {
+  const entry = `"${scope}": ["${role}"]`;
+  const manual =
+    `ajoute à la main dans grantableScopes de nodefony/config/security.ts :\n` +
+    `  ${entry},\n` +
+    `  (sans quoi tout compte connecté obtient « ${scope} » en le demandant)`;
+  if (!writer.exists(configPath)) {
+    return manual;
+  }
+  const source = writer.read(configPath);
+  const block = findObjectLiteral(source, /grantableScopes\s*:\s*\{/u);
+  if (block === null) {
+    return manual;
+  }
+  const { open, close } = block;
+  const inner = source.slice(open + 1, close);
+  if (inner.includes(`"${scope}"`)) {
+    return null;
+  }
+  let patched: string;
+  if (inner.trim().length === 0) {
+    patched = `{ ${entry} }`;
+  } else if (inner.includes("\n")) {
+    // Bloc sur plusieurs lignes : une entrée de plus, à l'indentation de la
+    // dernière. La virgule finale se pose seulement si elle manque.
+    const lineStart = source.lastIndexOf("\n", close) + 1;
+    const closingIndent =
+      /^\s*/u.exec(source.slice(lineStart, close))?.[0] ?? "";
+    const body = inner.replace(/\s*$/u, "");
+    const comma = body.endsWith(",") ? "" : ",";
+    patched = `{${body}${comma}\n${closingIndent}  ${entry},\n${closingIndent}}`;
+  } else {
+    patched = `{ ${inner.trim().replace(/,\s*$/u, "")}, ${entry} }`;
+  }
+  writer.write(
+    configPath,
+    source.slice(0, open) + patched + source.slice(close + 1),
   );
   return null;
 }
@@ -3223,6 +3309,12 @@ function otherControllerSources(
 }
 
 /** Ce que la saveur `mcp` a constaté avant d'écrire. */
+/**
+ * Le rôle auquel `--expose mixte` réserve le scope de son outil d'exemple —
+ * celui que le compte administrateur semé par le preset `complete` porte.
+ */
+const MCP_RESERVED_TOOL_ROLE = "ROLE_ADMIN";
+
 interface IMcpGateScaffold {
   /** Porte derrière un serveur d'autorisation (`oauth` ou `mixte`). */
   oauth: boolean;
@@ -3333,6 +3425,7 @@ function mcpGateNotes(
   kebab: string,
   pascal: string,
   mcp: IMcpGateScaffold | null,
+  scopeNote: string | null,
 ): string[] {
   const oauth = mcp?.oauth === true;
   const tools = `${kebab.replaceAll("-", "_")}_echo · ${kebab.replaceAll("-", "_")}_batch`;
@@ -3363,6 +3456,10 @@ function mcpGateNotes(
       `\`npx nodefony security:token --resource <URL de la porte>${scope}\` — sans elle : invalid_target`,
     ...(mcp.anonymous
       ? [
+          scopeNote === null
+            ? `RÉSERVÉ : ${kebab}:write déclaré pour ${MCP_RESERVED_TOOL_ROLE} dans grantableScopes ` +
+              `(nodefony/config/security.ts) — un autre compte reçoit un jeton SANS ce scope ; change le rôle là`
+            : `⚠ scope NON réservé — ${scopeNote}`,
           `⚠ porte mixte : un jeton REFUSÉ (expiré, autre audience) est servi comme un anonyme, jamais en 401 — ` +
             `le refus part au journal (WARNING)`,
         ]
@@ -3478,6 +3575,7 @@ function runControllerScaffold(
     oauth: mcp?.oauth === true,
     anonymous: mcp?.anonymous === true,
     writeScope: `${kebab}:write`,
+    reservedRole: MCP_RESERVED_TOOL_ROLE,
     routeRegex: route.replace(/[.*+?^${}()|[\]\\/]/gu, "\\$&"),
     channel: kebab,
     hasSecurity: targetDeps.has("@nodefony/security"),
@@ -3551,6 +3649,17 @@ function runControllerScaffold(
           writer,
         )
       : null;
+  // L'outil réservé d'une porte mixte porte `scopes: ["<kebab>:write"]` : sans
+  // déclaration, l'émetteur accorderait ce scope à tout compte (#604).
+  const noteScope =
+    mcp?.anonymous === true
+      ? wireGrantableScope(
+          manifestFileWith(projectRoot, writer, /grantableScopes\s*:\s*\{/u),
+          `${kebab}:write`,
+          MCP_RESERVED_TOOL_ROLE,
+          writer,
+        )
+      : null;
   const NOTES: Record<TControllerKindChoice, string[]> = {
     hello: [`GET  ${route}`, `WS   ${route}/echo`],
     rest: [`REST ${route} (GET/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE)`],
@@ -3566,7 +3675,7 @@ function runControllerScaffold(
       `REST ${route} (vitrine décorateurs — voir les curl du TSDoc généré)`,
       `WS   ${route}/echo`,
     ],
-    mcp: mcpGateNotes(route, kebab, pascal, mcp),
+    mcp: mcpGateNotes(route, kebab, pascal, mcp, noteScope),
   };
   // 🔴 Une garde de rôle ferme un FICHIER, pas un ESPACE. Toute route servie
   // sous le même préfixe par un AUTRE controller reste ouverte — et la

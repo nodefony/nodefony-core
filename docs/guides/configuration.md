@@ -287,6 +287,23 @@ avec le module, le chemin, la valeur remplacée et la nouvelle (un secret est r�
 entre au bilan de boot : une décision explicite de l'application écrasée par une fixture ne se
 manifesterait autrement que par un comportement inexplicable.
 
+⚠️ **Une liste ne se remplace pas : elle se fusionne case par case.** La fusion profonde
+(`extend(true, …)`, la même pour la configuration de l'application et pour ces surcharges) traite
+un tableau comme un objet indexé :
+
+```typescript
+// application                       // module (module-security)
+grantableScopes: {                   grantableScopes: {
+  "x:write": ["ROLE_A", "ROLE_B"],     "x:write": ["ROLE_C"],
+}                                    }
+// résultat : "x:write": ["ROLE_C", "ROLE_B"] — ROLE_B survit sans que personne ne l'ait écrit
+```
+
+Pour une liste de rôles, d'origines ou d'émetteurs, c'est un droit hérité en silence. La règle qui
+l'évite : **une liste n'est déclarée qu'à un endroit** — un module complète par des clés qui sont
+les siennes (son préfixe de scopes, sa zone), il ne redéclare pas celles de l'application. Ce
+comportement est figé par un test (`src/nodefony/src/tests/Tools.test.ts:285`).
+
 ## Typage par module — `use()` propose les bonnes clés
 
 Pour que `use("@nodefony/x", …)` auto-complète les clés du module x, **le module augmente le registre**

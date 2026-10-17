@@ -49,6 +49,7 @@ import {
   filterProbe,
   malformedProbe,
   FRONTEND_PARAMS,
+  wireGrantableScope,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import { readBrandFavicon, readBrandLogo } from "../cli/scaffold/brandAssets";
@@ -5205,6 +5206,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Sans le scope, le jeton est accepté et l'outil reste invisible : la
       // commande d'émission le NOMME.
       assert.include(notes, "--scope vitrine:write");
+      // #604 — le scope de l'outil réservé est RÉSERVÉ à l'émission : sans
+      // cette déclaration, tout compte l'obtiendrait en le demandant.
+      const security = codeOnly(
+        readFileSync(at("nodefony", "config", "security.ts"), "utf8"),
+      );
+      assert.match(
+        security,
+        /grantableScopes: \{ "vitrine:write": \["ROLE_ADMIN"\] \}/u,
+      );
+      assert.include(notes, "RÉSERVÉ : vitrine:write déclaré pour ROLE_ADMIN");
+      assert.notInclude(tools, "caller.subject");
+      // Rejouer la génération d'une AUTRE porte ajoute sa clé sans toucher la
+      // première.
+      controller(dest, { name: "atelier", kind: "mcp", expose: "mixte" });
+      assert.match(
+        codeOnly(readFileSync(at("nodefony", "config", "security.ts"), "utf8")),
+        /grantableScopes: \{ "vitrine:write": \["ROLE_ADMIN"\], "atelier:write": \["ROLE_ADMIN"\] \}/u,
+      );
       assertNoEtaResidue(dest);
       // Le piège eta : un tag en fin de ligne recoud deux lignes de TSDoc.
       for (const file of ["vitrine-gate.ts", "vitrine-tools.ts"]) {
@@ -11131,5 +11150,48 @@ describe("create — « nom requis » rend la commande corrigée, prête à coll
       ),
       'nodefony create service Mailer --description "envoi des courriels"',
     );
+  });
+});
+
+describe("wireGrantableScope — réserver un scope à l'émission (#604)", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(os.tmpdir(), "nf-grant-"));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const wire = (source: string): { note: string | null; out: string } => {
+    const file = path.join(dir, "security.ts");
+    writeFileSync(file, source);
+    const writer = new ScaffoldWriter();
+    const note = wireGrantableScope(file, "shop:write", "ROLE_ADMIN", writer);
+    writer.commit();
+    return { note, out: readFileSync(file, "utf8") };
+  };
+
+  it("bloc multiligne : une entrée de plus, à l'indentation, virgule posée", () => {
+    const { note, out } = wire(
+      'x({\n    grantableScopes: {\n      "a:b": ["ROLE_X"]\n    },\n  })',
+    );
+    assert.isNull(note);
+    assert.include(
+      out,
+      '    grantableScopes: {\n      "a:b": ["ROLE_X"],\n      "shop:write": ["ROLE_ADMIN"],\n    },',
+    );
+  });
+
+  it("déjà déclaré : rien n'est touché — les rôles sont un choix de l'utilisateur", () => {
+    const source = 'x({ grantableScopes: { "shop:write": ["ROLE_SHOP"] } })';
+    const { note, out } = wire(source);
+    assert.isNull(note);
+    assert.equal(out, source);
+  });
+
+  it("ancre absente : aucune écriture, la note donne la ligne à coller", () => {
+    const source = "x({ roleHierarchy: {} })";
+    const { note, out } = wire(source);
+    assert.equal(out, source);
+    assert.include(note ?? "", '"shop:write": ["ROLE_ADMIN"],');
   });
 });

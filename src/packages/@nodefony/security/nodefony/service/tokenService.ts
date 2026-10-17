@@ -7,7 +7,6 @@ import {
   BootConfigurationError,
   EMPTY_INFRA,
   canonicalIssuer,
-  refusedAdminScopes,
   resolveAutoStore,
   runNeedsExternalServices,
   durableStoreRemedy,
@@ -42,6 +41,8 @@ import {
 } from "../src/token/tokenStoreRegistry";
 import { recordAudit } from "../src/audit/recordAudit";
 import { JwtKeystore } from "../src/token/JwtKeystore";
+import { ScopeGrantPolicy, refusedScopes } from "../src/token/scopeGrants";
+import type { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import {
   defaultAudience,
   resolveJwtRuntime,
@@ -95,6 +96,8 @@ class TokenService extends Service {
   #throttler: LoginThrottler | null = null;
   #throttlerResolved = false;
   #transport: CredentialTransportPolicy | null = null;
+  /** `grantableScopes` compilé au boot ; `null` tant que la config n'est pas lue. */
+  #scopeGrants: ScopeGrantPolicy | null = null;
   // Maintenance des jetons expirés (refresh/PAT/denylist) — timer/jitter/
   // anti-empilement/désarmement mutualisés dans le GcScheduler du core.
   #gc: GcScheduler | null = null;
@@ -170,6 +173,7 @@ class TokenService extends Service {
     // `JwtAuthenticator` le résolvent du container par nom.
     const jwtEnabled = config.jwt.enabled;
     const apiKeysEnabled = config.apiKeys.enabled;
+    this.#scopeGrants = new ScopeGrantPolicy(config.grantableScopes);
     if (!jwtEnabled && !apiKeysEnabled) {
       this.log("token service idle — JWT et clés API désactivés", "DEBUG");
       return;
@@ -557,26 +561,41 @@ class TokenService extends Service {
    * d'informer le client — c'est ce que fait le champ `scope` de la réponse,
    * déjà rempli avec les scopes réellement accordés.
    *
-   * Les scopes d'une APPLICATION ne sont pas jugés ici : c'est à elle de dire
-   * qui peut obtenir `shop:read`.
+   * Les scopes d'une APPLICATION se bornent par `grantableScopes` : c'est elle
+   * qui dit qui peut obtenir `shop:write`. Un scope qu'elle ne déclare pas
+   * reste accordé à tout porteur. Les deux familles passent par le MÊME juge
+   * ({@link refusedScopes}), que les clés API appellent aussi.
    *
    * @param user - le porteur, déjà authentifié.
    * @param requested - ce qu'il demande.
    * @returns ce qui lui est accordé.
    */
   #grantableScopes(user: IUser, requested: string[]): string[] {
+    if (requested.length === 0) return requested;
     const roles = Array.isArray(user.roles)
       ? user.roles.filter((r): r is string => typeof r === "string")
       : [];
-    const refuses = refusedAdminScopes(requested, roles);
-    if (refuses.length === 0) return requested;
+    const refusals = refusedScopes(
+      requested,
+      roles,
+      this.#scopeGrants ?? new ScopeGrantPolicy(),
+      this.container?.get<RoleHierarchyWalker>("roleHierarchy") ?? null,
+    );
+    if (refusals.length === 0) return requested;
+    const named = refusals
+      .map(
+        (r) =>
+          `${r.scope} (${r.rule === "admin" ? "réservé au rôle d'administration" : "réservé par grantableScopes"})`,
+      )
+      .join(", ");
     this.log(
-      `grant : scope(s) « ${refuses.join(" ")} » NON accordé(s) à ` +
-        `« ${user.identifier} » — réservé(s) au rôle d'administration. ` +
+      `grant : scope(s) NON accordé(s) à « ${user.identifier} » — ${named}. ` +
         "Le jeton est émis avec les scopes restants (RFC 6749 §3.3).",
       "WARNING",
     );
-    return requested.filter((scope) => !refuses.includes(scope));
+    return requested.filter(
+      (scope) => !refusals.some((r) => r.scope === scope),
+    );
   }
 
   async issueTokens(
@@ -680,8 +699,10 @@ class TokenService extends Service {
     }
     // Sujet revérifié — révocation sans attendre l'exp (ban, compte supprimé).
     const user = await this.#resolveUserForRefresh(record.subjectId);
-    // Downscoping : les scopes ne montent JAMAIS sur la chaîne de refresh.
-    const scopes = [...record.scopes];
+    // Downscoping : les scopes ne montent JAMAIS sur la chaîne de refresh. Et
+    // ils se REJUGENT sur les rôles du compte relu : un rôle retiré retire le
+    // scope qu'il ouvrait au prochain renouvellement, pas à la reconnexion.
+    const scopes = this.#grantableScopes(user, [...record.scopes]);
     // L'AUDIENCE non plus. Elle est reprise du record, jamais recalculée : un
     // renouvellement qui retomberait sur l'audience par défaut élargirait la
     // portée du jeton sans que personne ne l'ait demandé — une restriction qui

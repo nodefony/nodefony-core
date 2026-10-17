@@ -8,6 +8,7 @@ import {
   safeRedirectPath,
 } from "nodefony";
 import { parseKeySet } from "../src/token/JwtKeystore";
+import { scopeGrantKeyProblem } from "../src/token/scopeGrants";
 import {
   isPlatformRole,
   PLATFORM_ROLE_PREFIX,
@@ -1394,6 +1395,40 @@ const oauth2Schema = z
   .describe("Social login OAuth 2.0 — Authorization Code + PKCE, session BFF.");
 
 /**
+ * Qui peut OBTENIR un scope d'application — appliqué par CHAQUE émetteur de
+ * l'application (jeton d'accès, clé API), jamais par une zone : un jeton ne
+ * sait pas quelle zone le lira, et `security:token` signe sans requête.
+ */
+const grantableScopesSchema = z
+  .record(
+    z.string(),
+    z
+      .array(z.string().min(1))
+      .min(
+        1,
+        "au moins un rôle — pour n'accorder ce scope à personne, ne pas l'exposer",
+      ),
+  )
+  // Jugé sur le DICTIONNAIRE, pas sur sa clé : Zod remplace le message d'une
+  // clé refusée par « Invalid key in record », qui ne dit pas pourquoi.
+  .superRefine((grants, ctx) => {
+    for (const key of Object.keys(grants)) {
+      const problem = scopeGrantKeyProblem(key);
+      if (problem !== null) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: `« ${key} » ${problem}`,
+        });
+      }
+    }
+  })
+  .default({})
+  .describe(
+    'Qui peut OBTENIR un scope d\'application. Clé : un scope exact (`vitrine:write`) ou une famille (`shop:*`) ; valeur : les rôles dont UN suffit, hiérarchie de rôles comprise. Une clé exacte l\'emporte sur une famille, la famille la plus longue sur une plus courte. Un scope qu\'aucune clé ne couvre reste accordé à tout compte connecté. Appliqué par chaque émetteur de CETTE application : un jeton d\'accès est émis sans les scopes refusés (RFC 6749 §3.3, nommés au journal), une clé API demandée avec l\'un d\'eux est refusée (403). Ne borne PAS les jetons d\'un émetteur tiers (Keycloak…), qui signe selon sa propre politique. `admin:read`, `admin:write` et `admin:*` sont refusés au démarrage : réservés au framework. Un module peut compléter cette section par `module-security` ; un préfixe = un propriétaire, car la fusion de configuration fusionne les listes case par case (`["A","B"]` surchargé par `["C"]` donne `["C","B"]`).',
+  );
+
+/**
  * Règle d'autorisation d'un **namespace de canaux WebSocket** (subscribe/inbound)
  * par préfixe. Contraintes cumulatives ; un champ absent = pas de contrainte sur
  * cet axe. Étend OU surcharge les défauts système (placée AVANT eux à l'évaluation).
@@ -1440,6 +1475,7 @@ export const securityConfigSchema = z.strictObject({
     .record(z.string(), z.array(z.string()))
     .default({})
     .describe("Hiérarchie de rôles (ROLE_ADMIN: ['ROLE_USER'])."),
+  grantableScopes: grantableScopesSchema,
   areas: z
     .record(z.string(), areaSchema)
     .default({})

@@ -436,6 +436,53 @@ verbe métier. Le cœur est le **modèle de confiance** :
   bridé par défaut. Un nouveau type de jeton délégué est **fermé par oubli**, jamais ouvert.
 - Pur : aucune dépendance, aucune I/O — instancié une fois au boot.
 
+### Qui OBTIENT un scope — `grantableScopes`
+
+Le voter `scope` contrôle un scope à l'**usage** : il regarde ce que le jeton porte, jamais comment
+il l'a obtenu. `@RequireScope("vitrine:write")` et les `scopes` d'un outil MCP sont des contrôles
+d'usage. Reste à décider qui a le droit de **recevoir** ce scope : sans réponse, l'émetteur de
+l'application l'accorde à tout compte connecté qui le demande, et le contrôle d'usage ne filtre
+plus rien.
+
+```typescript
+use("@nodefony/security", {
+  grantableScopes: {
+    "vitrine:write": ["ROLE_ADMIN"], // un scope exact
+    "shop:*": ["ROLE_SHOP"], // une famille
+    "shop:refund": ["ROLE_SHOP_MANAGER"], // l'exact l'emporte sur la famille
+  },
+});
+```
+
+- **Clé** : un scope exact, ou une famille `préfixe:*`. Une clé exacte l'emporte sur une famille,
+  la famille la plus longue sur une plus courte ; l'ordre des clés ne décide de rien
+  (`ScopeGrantPolicy.rolesFor()`, `scopeGrants.ts:109`).
+- **Valeur** : les rôles dont **un** suffit, hiérarchie de rôles comprise. Une liste vide est
+  refusée au démarrage : pour n'accorder un scope à personne, on ne l'expose pas.
+- **Non déclaré** : le scope reste accordé à tout compte connecté. Rien ne change pour une
+  application qui ne déclare rien.
+- **Refusées au démarrage** : `admin:read`, `admin:write` et `admin:*`, réservés au plan
+  d'administration du framework (`scopeGrantKeyProblem()`, `scopeGrants.ts:51`). Le message nomme
+  la clé et la raison.
+
+Un seul juge pour les deux émetteurs de l'application, et pour les deux familles de scopes
+(`refusedScopes()`, `scopeGrants.ts:136`) :
+
+| Émetteur                                   | Scope refusé                                                                                    | Pourquoi cette forme                                                        |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Jeton d'accès (`/token`, `security:token`) | retiré ; le jeton est émis avec le reste, le refus est nommé au journal (`tokenService.ts:573`) | RFC 6749 §3.3 : le serveur accorde moins que demandé et le dit dans `scope` |
+| Renouvellement d'un jeton                  | rejugé sur les rôles du compte relu (`tokenService.ts:705`)                                     | un rôle retiré retire son scope au prochain renouvellement                  |
+| Clé API                                    | création refusée, **403** qui nomme le scope (`apiKeys.ts:144`)                                 | une clé créée avec moins que demandé surprendrait sans rien dire            |
+
+`grantableScopes` ne borne **pas** un jeton signé par un émetteur tiers (Keycloak…) : celui-ci
+accorde selon sa propre politique. Et ce n'est pas une règle de zone : un jeton ne sait pas quelle
+zone le lira, et `security:token` signe sans aucune requête.
+
+**Depuis un module.** Un module complète la section par `module-security` dans sa configuration
+(voir [configuration](../../../../../docs/guides/configuration.md)). Un préfixe = un propriétaire :
+la fusion de configuration fusionne les listes **case par case**, si bien qu'une clé déclarée à deux
+endroits mêle les deux listes de rôles.
+
 ### La hiérarchie de rôles — aplatie et vérifiée au boot
 
 `RoleHierarchyWalker` se déclare dans la config (`use("@nodefony/security", { roleHierarchy })`,
