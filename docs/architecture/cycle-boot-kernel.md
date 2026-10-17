@@ -561,7 +561,7 @@ les deux faisait crier « dégradé » à tort pendant toute la montée des serv
 « pas encore mesuré » n'est pas « mesuré, vraiment zéro » :
 
 - `healthy = false` **uniquement** si un profil serveur était attendu, que la mesure a été faite
-  (`Kernel.captureBootServers()`, `Kernel.ts:3531`) et qu'**aucun** serveur n'écoute (`Kernel.ts:3526`) ;
+  (`Kernel.captureBootServers()`, `Kernel.ts:3531`) et qu'**aucun** serveur n'écoute (`Kernel.ts:3611`) ;
 - des modules ignorés **seuls** laissent le boot `healthy` : dégradé, mais vivant.
 
 Le verdict est **toujours** logué, production comprise, en trois formes :
