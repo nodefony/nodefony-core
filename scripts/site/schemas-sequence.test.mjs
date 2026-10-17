@@ -13,6 +13,7 @@ import {
   largeurLignes,
   lireMermaid,
   placerSequence,
+  schema,
   sequence,
 } from "../../.claude/skills/nodefony-html-report/lib/schemas.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
@@ -111,5 +112,32 @@ describe("lecture des diagrammes de séquence", () => {
   it("une flèche d'activation (`->>+B`) ne crée pas de participant « +B »", () => {
     const m = lireMermaid("sequenceDiagram\n  A->>+B: ouvre\n  B-->>-A: rend");
     expect(m.participants.map((p) => p.id)).toEqual(["A", "B"]);
+  });
+});
+
+describe("pointes de flèche des schémas", () => {
+  const blocs = [];
+  for (const f of fichiers)
+    for (const m of readFileSync(`${REPO_ROOT}/${f}`, "utf8").matchAll(
+      /```mermaid\n([\s\S]*?)```/g,
+    ))
+      blocs.push(m[1]);
+
+  it("chaque SVG désigne SES marqueurs, distincts entre le rendu clair et le sombre", () => {
+    const echecs = [];
+    for (const source of blocs) {
+      const ids = {};
+      for (const theme of ["clair", "sombre"]) {
+        const svg = schema({ source, theme });
+        ids[theme] = [...svg.matchAll(/\sid="([^"]+)"/g)].map((x) => x[1]);
+        for (const [, ref] of svg.matchAll(/url\(#([^)]+)\)/g))
+          if (!ids[theme].includes(ref))
+            echecs.push(`${theme} : url(#${ref}) hors du SVG`);
+      }
+      for (const id of ids.clair)
+        if (ids.sombre.includes(id))
+          echecs.push(`même id clair/sombre : ${id}`);
+    }
+    expect([...new Set(echecs)]).toEqual([]);
   });
 });
