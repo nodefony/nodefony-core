@@ -55,7 +55,7 @@
     "@nodefony/http": "^10.0.0-beta.3",
     "@types/node": "26.6.5",
     "nodefony": "^10.0.0-beta.3",
-    "vitest": "5.0.4"
+    "vitest": "5.0.5"
   },
   "repository": {
     "type": "git",

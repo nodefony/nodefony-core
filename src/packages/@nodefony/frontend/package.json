@@ -46,10 +46,10 @@
     "@nodefony/http": "^10.0.0-beta.3",
     "@types/chai": "5.2.3",
     "@types/node": "26.6.5",
-    "@vitest/coverage-v8": "5.0.4",
+    "@vitest/coverage-v8": "5.0.5",
     "nodefony": "^10.0.0-beta.3",
     "vite": "8.3.4",
-    "vitest": "5.0.4"
+    "vitest": "5.0.5"
   },
   "private": false,
   "engines": {

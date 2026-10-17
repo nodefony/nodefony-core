@@ -82,12 +82,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   prettier: "^3.9.10",
   rolldown: "^1.2.14",
   typescript: "^6.0.3",
-  vitest: "^5.0.4",
+  vitest: "^5.0.5",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
   // `coverage:setup` : elle pèse 60 Ko, quand playwright et lighthouse — eux
   // restés à la demande — pèsent 5 et 21 Mo. Un installateur pour 60 Ko est une
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
-  "@vitest/coverage-v8": "^5.0.4",
+  "@vitest/coverage-v8": "^5.0.5",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.3.4",
   react: "^19.3.1",
@@ -111,7 +111,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/common": "~22.2.3",
   "@angular/platform-browser": "~22.2.3",
   "@analogjs/vite-plugin-angular": "^2.8.1",
-  "@angular/build": "~22.2.2",
+  "@angular/build": "~22.2.3",
   "@angular/compiler-cli": "~22.2.3",
 };
 
