@@ -39,6 +39,7 @@ function makeCtx(
   pathname: string,
   method = "GET",
   domain = "localhost",
+  httpVersionMajor?: number,
 ): ContextType & { response: FakeResponse } {
   const response: FakeResponse = {
     headers: {},
@@ -47,7 +48,12 @@ function makeCtx(
     },
   };
   return {
-    request: { url: new URL(`http://${domain}${pathname}`) },
+    request: {
+      url: new URL(`http://${domain}${pathname}`),
+      // La requête Node sous-jacente — seul `httpVersionMajor` est lu.
+      request:
+        httpVersionMajor === undefined ? undefined : { httpVersionMajor },
+    },
     method,
     domain,
     response,
@@ -200,6 +206,35 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
     expect(String(ctx.response.headers["Upgrade"])).to.equal("websocket");
     expect(String(ctx.response.headers["Connection"])).to.equal("Upgrade");
     expect(ctx.response.headers["Allow"]).to.equal(undefined);
+  });
+
+  // RFC 9113 §8.2.2 : HTTP/2 INTERDIT les en-têtes propres à la connexion —
+  // Node les retire et avertit (« The provided connection header is not
+  // valid »). Le WebSocket sur HTTP/2 passe par CONNECT étendu (RFC 8441),
+  // pas par Upgrade : le 426 reste, sans ces deux en-têtes. Le critère est le
+  // protocole NÉGOCIÉ — le serveur HTTP/2 accepte aussi HTTP/1.1 (allowHTTP1).
+  it("route WebSocket SEULE appelée en HTTP/2 → 426 SANS Upgrade ni Connection", () => {
+    Router.createRoute("ws-only-h2", {
+      path: "/ws-only-h2",
+      requirements: { methods: ["WEBSOCKET"] },
+    });
+    const ctx = makeCtx("/ws-only-h2", "GET", "localhost", 2);
+    const resolver = makeRouter().resolve(ctx);
+    const err = resolver.exception as HttpError | null | undefined;
+    expect(err?.code).to.equal(426);
+    expect(ctx.response.headers["Upgrade"]).to.equal(undefined);
+    expect(ctx.response.headers["Connection"]).to.equal(undefined);
+  });
+
+  it("route WebSocket SEULE appelée en HTTP/1.1 sur le serveur HTTP/2 → Upgrade gardé", () => {
+    Router.createRoute("ws-only-h1", {
+      path: "/ws-only-h1",
+      requirements: { methods: ["WEBSOCKET"] },
+    });
+    const ctx = makeCtx("/ws-only-h1", "GET", "localhost", 1);
+    makeRouter().resolve(ctx);
+    expect(String(ctx.response.headers["Upgrade"])).to.equal("websocket");
+    expect(String(ctx.response.headers["Connection"])).to.equal("Upgrade");
   });
 
   it("route SANS requirements.methods → sert toutes les méthodes", () => {

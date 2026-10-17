@@ -444,11 +444,19 @@ class Router extends Service implements IRequestRouter {
       const servesWebsocket = allowed.delete("WEBSOCKET");
       if (allowed.size === 0 && servesWebsocket) {
         // Le chemin n'existe qu'en WebSocket : 426 Upgrade Required, qui DOIT
-        // porter `Upgrade` et l'option `upgrade` de Connection (§15.5.22, §7.8).
-        context.response?.setHeaders({
-          Upgrade: "websocket",
-          Connection: "Upgrade",
-        });
+        // porter `Upgrade` et l'option `upgrade` de Connection (§15.5.22, §7.8)
+        // — en HTTP/1.x seulement. HTTP/2 interdit les en-têtes propres à la
+        // connexion (RFC 9113 §8.2.2 ; Node les retire en avertissant) et ouvre
+        // un WebSocket par CONNECT étendu (RFC 8441). Le critère est le
+        // protocole NÉGOCIÉ : le serveur HTTP/2 accepte aussi HTTP/1.1.
+        const req = context.request;
+        const incoming = req && "request" in req ? req.request : req;
+        if (incoming?.httpVersionMajor !== 2) {
+          context.response?.setHeaders({
+            Upgrade: "websocket",
+            Connection: "Upgrade",
+          });
+        }
         // POSÉ, pas levé (#596) : le pipeline HTTP le lève dans
         // `prepareFrontController` — tout de suite hors zone, APRÈS le
         // pare-feu en zone protégée. C'est la SONDE d'un handshake refusé : le
