@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T15:30:26.617Z",
+  "generatedAt": "2026-10-18T16:30:55.958Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7,7 +7,7 @@
       "closed": 1,
       "dueOn": null,
       "number": 3,
-      "open": 28,
+      "open": 29,
       "title": "10.2.0"
     },
     {
@@ -21,7 +21,7 @@
       "closed": 2,
       "dueOn": null,
       "number": 5,
-      "open": 10,
+      "open": 11,
       "title": "12.0.0"
     },
     {
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 143,
+      "closed": 144,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 32,
+      "open": 33,
       "title": "10.0.0-beta"
     },
     {
@@ -3208,7 +3208,7 @@
       "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/427",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3223,14 +3223,46 @@
       "number": 451,
       "title": "fix(client): cesser d'ignorer en silence les trames binaires reçues",
       "url": "https://github.com/nodefony/nodefony-core/issues/451",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.009,
       "debut": "2026-10-22",
       "cible": "2026-10-22",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 617,
+      "title": "fix(realtime): cesser de lire en texte les trames binaires reçues",
+      "url": "https://github.com/nodefony/nodefony-core/issues/617",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.0095,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 620,
+      "title": "refactor(realtime): typer l'état de connexion sans conversion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/620",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.0096,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-4"
       ]
@@ -8257,6 +8289,20 @@
       "labels": []
     },
     {
+      "number": 618,
+      "title": "feat(realtime): router les trames binaires vers leur canal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/618",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 163,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 244,
       "title": "feat(security): trancher le serveur d'autorisation et le mTLS",
       "url": "https://github.com/nodefony/nodefony-core/issues/244",
@@ -8450,6 +8496,20 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 175,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 619,
+      "title": "feat(ai): converser à la voix avec un agent, sur la socket",
+      "url": "https://github.com/nodefony/nodefony-core/issues/619",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P2 — décision",
+      "jours": 5,
+      "ordre": 176,
       "debut": null,
       "cible": null,
       "labels": []
