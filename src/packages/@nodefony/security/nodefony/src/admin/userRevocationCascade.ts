@@ -64,6 +64,27 @@ export async function cascadeUserRevocation(
   now: number = Date.now(),
 ): Promise<void> {
   const identifier = event.identifier;
+  await revokeAccessArtifacts(container, identifier, now);
+  if (event.reason === "deleted")
+    await removeAccountFactors(container, identifier);
+}
+
+/**
+ * Éjecte les artefacts d'accès rangés sous un identifiant — ses sessions (http,
+ * `destroyByUser`) et ses jetons/PAT/clés d'API (`tokenStore.revokeAllForSubject`,
+ * seuil `invalidBefore`). SEULE implémentation du geste, appelée à la révocation
+ * d'un compte ET à sa création. Best-effort par brique : l'indisponibilité de
+ * l'une n'empêche pas l'autre.
+ *
+ * @param container - container du kernel (services `sessions`, `tokenStore`).
+ * @param identifier - `IUser.identifier` du compte.
+ * @param invalidBefore - seuil (epoch ms) : tout jeton émis avant est rejeté.
+ */
+async function revokeAccessArtifacts(
+  container: ServiceLookupLike,
+  identifier: string,
+  invalidBefore: number,
+): Promise<void> {
   // Sessions (http) — déconnexion partout.
   try {
     const sessions = container.get("sessions") as SessionsLike | undefined;
@@ -74,12 +95,39 @@ export async function cascadeUserRevocation(
   // Tokens / PAT (security) — invalidation en masse par seuil `invalidBefore`.
   try {
     const tokenStore = container.get("tokenStore") as ITokenStore | undefined;
-    await tokenStore?.revokeAllForSubject(identifier, now);
+    await tokenStore?.revokeAllForSubject(identifier, invalidBefore);
   } catch {
     /* best-effort */
   }
-  if (event.reason === "deleted")
-    await removeAccountFactors(container, identifier);
+}
+
+/**
+ * Purge, à la NAISSANCE d'un compte, tout ce qu'un ancien titulaire du même
+ * identifiant a laissé derrière lui : sessions, jetons et facteurs. Un compte
+ * qui vient de naître n'a encore rien émis — tout artefact déjà rangé sous son
+ * identifiant appartient donc à quelqu'un d'autre. C'est ce qui ferme le cas
+ * d'un compte supprimé HORS du framework (`DELETE` SQL, aucun événement), dont
+ * l'accès redeviendrait valide dès qu'un compte renaît sous son nom.
+ *
+ * Le seuil est tronqué à la SECONDE : l'`iat` d'un JWT l'est aussi (RFC 7519
+ * §2, NumericDate), et un seuil à la milliseconde rejetterait le jeton du
+ * nouveau titulaire émis dans la même seconde que sa création.
+ *
+ * @param container - container du kernel.
+ * @param identifier - `IUser.identifier` du compte créé.
+ * @param now - horloge (epoch ms) injectable pour les tests.
+ */
+export async function purgeInheritedAccess(
+  container: ServiceLookupLike,
+  identifier: string,
+  now: number = Date.now(),
+): Promise<void> {
+  await revokeAccessArtifacts(
+    container,
+    identifier,
+    Math.floor(now / 1000) * 1000,
+  );
+  await removeAccountFactors(container, identifier);
 }
 
 /**
@@ -134,11 +182,12 @@ function isUserCreatedEvent(value: unknown): value is IUserCreatedEvent {
  * `@nodefony/security` — avant qu'aucun compte ne puisse être créé ou révoqué
  * (les comptes semés au démarrage compris). Deux abonnements :
  *  - {@link USER_REVOKED_EVENT} → {@link cascadeUserRevocation} ;
- *  - {@link USER_CREATED_EVENT} → purge des facteurs HÉRITÉS : un compte qui
- *    vient de naître n'a encore rien enrôlé, donc tout facteur déjà rangé sous
- *    son identifiant appartient à un ancien titulaire. Règle exacte, aucune
- *    date à comparer. ⚠️ Un import qui chargerait les facteurs AVANT les
- *    comptes les verrait retirés : importer les comptes d'abord.
+ *  - {@link USER_CREATED_EVENT} → {@link purgeInheritedAccess} : sessions,
+ *    jetons et facteurs HÉRITÉS. Un compte qui vient de naître n'a encore rien
+ *    émis ni enrôlé, donc tout artefact déjà rangé sous son identifiant
+ *    appartient à un ancien titulaire. Règle exacte, aucune date à comparer.
+ *    ⚠️ Un import qui chargerait les facteurs AVANT les comptes les verrait
+ *    retirés : importer les comptes d'abord.
  *
  * Les deux sont émis par `UserService` seul, et attendus : chaque handler rend
  * sa promesse. **Extensible** : tout autre module (webhooks…) s'abonne aux
@@ -156,7 +205,7 @@ export function registerUserRevocationCascade(
   );
   kernel.on(USER_CREATED_EVENT, (event: unknown) =>
     isUserCreatedEvent(event)
-      ? removeAccountFactors(container, event.identifier)
+      ? purgeInheritedAccess(container, event.identifier)
       : undefined,
   );
 }
