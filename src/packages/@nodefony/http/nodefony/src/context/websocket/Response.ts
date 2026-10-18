@@ -218,8 +218,12 @@ class WebsocketResponse {
       this.body = Buffer.from(ele, encoding ?? this.encoding);
     } else if (ele instanceof ArrayBuffer || ele instanceof SharedArrayBuffer) {
       this.body = Buffer.from(ele);
-    } else if ("buffer" in ele && ele.buffer instanceof ArrayBuffer) {
-      this.body = Buffer.from(ele.buffer);
+    } else if (ArrayBuffer.isView(ele)) {
+      // Une vue n'est qu'une FENÊTRE sur son buffer : sans offset ni longueur,
+      // on émettait le buffer parent entier — un `subarray()`, ou le pool de
+      // 8 Ko partagé des petits `Buffer` de Node, octets d'autres allocations
+      // compris (#617). Une vue sur `SharedArrayBuffer` est couverte aussi.
+      this.body = Buffer.from(ele.buffer, ele.byteOffset, ele.byteLength);
     }
     return this.body;
   }

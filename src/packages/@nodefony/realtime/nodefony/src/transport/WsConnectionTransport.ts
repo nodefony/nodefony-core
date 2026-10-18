@@ -7,7 +7,10 @@ import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe";
  * `ctx.connection` (WebsocketContext) la fournit.
  */
 export interface RawWsConnection {
-  send(data: string, cb?: (err?: Error) => void): void;
+  send(
+    data: string | ArrayBuffer | ArrayBufferView,
+    cb?: (err?: Error) => void,
+  ): void;
   close(code?: number, reason?: string): void;
   readonly readyState: number;
   /**
@@ -55,6 +58,10 @@ export class WsConnectionTransport
   private _messagesSent = 0;
   // Frames jetées par back-pressure (drop latest-wins + close slow-consumer).
   private _dropped = 0;
+  // Trames ENTRANTES écartées faute de savoir les lire (#617) — jamais en
+  // silence : le contrôleur journalise la première de chaque nature.
+  private _binaryDiscarded = 0;
+  private _malformedDiscarded = 0;
   // Réglages de contre-pression de CETTE connexion, lus une fois au handshake
   // depuis les options du serveur WebSocket (source unique, côté `@nodefony/http`).
   // Absents → `max: 0` = protection désactivée, comme un serveur non configuré.
@@ -103,6 +110,56 @@ export class WsConnectionTransport
     this.conn.send(raw, () => {
       /* socket fermée pendant l'envoi — ignoré */
     });
+  }
+
+  /**
+   * Émet des octets tels quels — trame binaire RFC 6455, hors JSON-RPC (#617).
+   * Même contre-pression (`decideSend`, la règle unique) et mêmes compteurs que
+   * {@link send}. Écrite à part, et non en factorisant `send` : `send` est le
+   * chemin de CHAQUE frame JSON-RPC, et n'y paie pas un appel de plus.
+   *
+   * @param data - les octets à émettre.
+   * @returns `true` si la trame est partie, `false` si la connexion était
+   *   fermée ou la contre-pression l'a jetée.
+   */
+  sendBinary(data: ArrayBuffer | ArrayBufferView): boolean {
+    if (this.conn.readyState !== TransportState.OPEN) return false;
+    if (
+      decideSend(this.conn, this._max, this._policy, this._closeAfterDrops) !==
+      "send"
+    ) {
+      this._dropped += 1;
+      return false;
+    }
+    this._bytesSent += data.byteLength;
+    this._messagesSent += 1;
+    this.conn.send(data, () => {
+      /* socket fermée pendant l'envoi — ignoré */
+    });
+    return true;
+  }
+
+  /**
+   * Compte une trame ENTRANTE écartée et rend le cumul de sa nature — `1` dit
+   * « première », le seul instant où l'appelant journalise.
+   *
+   * @param kind - `binary` (sans lecteur) ou `malformed` (texte non JSON).
+   * @returns le cumul de cette nature, après incrément.
+   */
+  discard(kind: "binary" | "malformed"): number {
+    return kind === "binary"
+      ? ++this._binaryDiscarded
+      : ++this._malformedDiscarded;
+  }
+
+  /** Cumul de trames BINAIRES reçues et écartées faute de lecteur — monotone. */
+  get binaryDiscarded(): number {
+    return this._binaryDiscarded;
+  }
+
+  /** Cumul de trames TEXTE reçues et écartées parce que non JSON — monotone. */
+  get malformedDiscarded(): number {
+    return this._malformedDiscarded;
   }
 
   close(code?: number, reason?: string): void {

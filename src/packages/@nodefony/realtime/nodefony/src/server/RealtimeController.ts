@@ -373,9 +373,43 @@ export abstract class RealtimeController<
     // connexion, pas sur l'instance (un forward en fait construire une neuve,
     // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
     // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    (ctx as unknown as RealtimeHolder).__nfRealtime?.transport.feed(
-      message.toString(),
-    );
+    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    // Chemin de CHAQUE frame : un `typeof` remplace l'ancien `toString()`, qui
+    // DÉCODAIT le binaire en UTF-8 avant de le perdre au `JSON.parse` (#617).
+    if (typeof message === "string") {
+      state?.transport.feed(message);
+      return;
+    }
+    // Binaire — chemin froid. Avant le welcome, aucun état : écarté comme le texte.
+    if (state !== undefined) this.receiveBinary(state.transport, message);
+  }
+
+  /**
+   * Lit les trames BINAIRES de cette connexion — le point d'extension d'un
+   * protocole binaire écrit par l'application, à côté du JSON-RPC ; pendant
+   * serveur de `NodefonySocket.onBinary`.
+   *
+   * Le protocole temps réel est du JSON-RPC texte : il ne sait pas à quel canal
+   * une trame binaire appartient. Sans cette méthode, une trame binaire est
+   * écartée, comptée (`binaryDiscarded` de la sonde de connexion) et journalisée
+   * une fois par connexion. La surcharger la reçoit telle quelle, octets exacts.
+   *
+   * @param data - les octets reçus.
+   */
+  protected onRealtimeBinary?(data: Buffer): void;
+
+  private receiveBinary(transport: WsConnectionTransport, data: Buffer): void {
+    if (this.onRealtimeBinary !== undefined) {
+      this.onRealtimeBinary(data);
+      return;
+    }
+    if (transport.discard("binary") === 1) {
+      this.log(
+        "WS realtime : trame binaire reçue et écartée — le protocole est du " +
+          "JSON-RPC texte ; pour la lire, surcharger onRealtimeBinary()",
+        "WARNING",
+      );
+    }
   }
 
   /**
@@ -398,12 +432,7 @@ export abstract class RealtimeController<
     params?: ActionParams<Actions, K>,
     timeoutMs?: number,
   ): Promise<ActionResult<Actions, K>> {
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
-    // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    const state = (this.context as unknown as RealtimeHolder<Emit, Actions>)
-      .__nfRealtime;
+    const state = this.coldConnState();
     if (!state) {
       return Promise.reject(
         new Error(
@@ -431,6 +460,32 @@ export abstract class RealtimeController<
     const state = (this.context as unknown as RealtimeHolder<Emit, Actions>)
       .__nfRealtime;
     state?.peer.notify(method, params);
+  }
+
+  /**
+   * Émet une trame BINAIRE vers CETTE connexion, sans la sérialiser — pendant
+   * sortant de {@link onRealtimeBinary}, et de `NodefonySocket.sendBinary` côté
+   * client. Même contre-pression que les frames JSON-RPC.
+   *
+   * @param data - les octets à émettre.
+   * @returns `false` si le handshake n'est pas terminé, la connexion fermée ou
+   *   la trame jetée par la contre-pression.
+   */
+  protected sendBinaryToClient(data: ArrayBuffer | ArrayBufferView): boolean {
+    return this.coldConnState()?.transport.sendBinary(data) ?? false;
+  }
+
+  /**
+   * État realtime de CETTE connexion, `undefined` avant le welcome — pour les
+   * chemins FROIDS (requête sortante, binaire). `notifyClient` et la réception
+   * gardent leur lecture en ligne : ils sont sur le chemin de chaque frame.
+   */
+  private coldConnState(): RealtimeConnState<Emit, Actions> | undefined {
+    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
+    // connexion, pas sur l'instance (un forward en fait construire une neuve,
+    // cf realtimeScope.test.ts).
+    return (this.context as unknown as RealtimeHolder<Emit, Actions>)
+      .__nfRealtime;
   }
 
   /**
@@ -620,7 +675,14 @@ export abstract class RealtimeController<
       try {
         parsed = JSON.parse(raw);
       } catch {
-        return; // frame illisible → ignorée
+        // Jamais en silence (#617) : comptée, journalisée à la première.
+        if (transport.discard("malformed") === 1) {
+          this.log(
+            "WS realtime : trame texte illisible (pas du JSON) reçue et écartée",
+            "WARNING",
+          );
+        }
+        return;
       }
       peer.receive(parsed);
     });
