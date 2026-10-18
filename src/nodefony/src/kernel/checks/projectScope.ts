@@ -16,7 +16,7 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { resolveEnvCascade } from "../../runtime/loadEnv";
+import { envForOtherProject, resolveEnvCascade } from "../../runtime/loadEnv";
 import { checkSurface, entityDialectMismatches } from "./surface";
 import type { IEntityDialectScan, SqlDialectName } from "./surface";
 
@@ -62,15 +62,24 @@ export function wiringTargets(cwd: string): string[] {
  * La cascade est celle d'ICI : viser un autre environnement ne fait pas
  * apparaître des fichiers qui ne sont pas sur cette machine.
  *
+ * Et le `.env` est celui de `root`, jamais celui du dossier où la commande a
+ * été tapée : le binaire charge ce dernier dans `process.env` avant tout, et
+ * comme une variable posée gagne sur le fichier, le `.env` d'un AUTRE projet
+ * masquait celui de l'application jugée — `check --cwd`, `check` lancé depuis
+ * un sous-dossier, rapport de fin de `create app` lancé depuis une application.
+ * Ce que le SHELL a posé passe toujours (`envForOtherProject`).
+ *
  * @param root - racine du projet (ou dossier de départ, hors projet).
+ * @param env - l'environnement du processus (défaut `process.env`), jamais modifié.
  * @returns l'environnement effectif ; `process.env` n'est jamais modifié.
  */
 export function appEnvironment(
   root: string,
+  env: NodeJS.ProcessEnv = process.env,
 ): Record<string, string | undefined> {
-  const runtimeEnv = process.env.NODE_ENV ?? "development";
-  const rawAppEnv = process.env.APP_ENV ?? process.env.NF_ENV ?? "";
-  return resolveEnvCascade(process.env, {
+  const runtimeEnv = env.NODE_ENV ?? "development";
+  const rawAppEnv = env.APP_ENV ?? env.NF_ENV ?? "";
+  return resolveEnvCascade(envForOtherProject(env), {
     cwd: root,
     runtimeEnv,
     ...(rawAppEnv && rawAppEnv !== runtimeEnv ? { appEnv: rawAppEnv } : {}),

@@ -5,7 +5,10 @@ import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { pathToFileURL } from "node:url";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
-import { configInconsistencies } from "../kernel/checks/projectScope";
+import {
+  appEnvironment,
+  configInconsistencies,
+} from "../kernel/checks/projectScope";
 import {
   declaredModuleEntries,
   type IDeclaredModule,
@@ -404,7 +407,10 @@ export async function buildProjectEnvReport(
     runtimeEnv,
     appEnv,
     targetEnv,
-    processEnv: process.env,
+    // L'environnement de l'application de `root`, pas celui du processus : ce
+    // dernier porte le `.env` du dossier où la commande a été tapée — rien
+    // depuis un sous-dossier, celui d'un AUTRE projet avec `--cwd`.
+    processEnv: appEnvironment(root),
     // Le fichier lu reste celui d'ici : viser un autre environnement ne fait pas
     // lire ce qui n'est pas sur cette machine. Ce que la commande répond, c'est
     // « avec ce que j'ai sous la main, qu'est-ce qui manquera là-bas ? ».

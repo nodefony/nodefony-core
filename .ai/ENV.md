@@ -208,7 +208,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:80` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:78` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:130` |
-| `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:770` |
+| `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:304` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:94` |

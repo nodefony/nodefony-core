@@ -765,11 +765,17 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
  *     tourne (cas du tout premier boot : personne n'a pu publier quoi que ce soit).
  *
  * @param cwd - racine du projet (le state file est par projet).
+ * @param env - l'environnement de l'application jugée (défaut `process.env`).
+ *   Un diagnostic qui vise un AUTRE projet que celui du processus passe le sien
+ *   (`projectEnv`) : sinon les marches 1 et 3 lisent les ports d'un voisin.
  */
-export function defaultDevPorts(cwd: string = process.cwd()): number[] {
-  const env = process.env.NF_DEV_PORTS;
-  if (env) {
-    const parsed = env
+export function defaultDevPorts(
+  cwd: string = process.cwd(),
+  env: Record<string, string | undefined> = process.env,
+): number[] {
+  const override = env.NF_DEV_PORTS;
+  if (override) {
+    const parsed = override
       .split(",")
       .map((s) => Number.parseInt(s.trim(), 10))
       .filter((n) => Number.isInteger(n) && n > 0);
@@ -779,7 +785,7 @@ export function defaultDevPorts(cwd: string = process.cwd()): number[] {
   if (state && state.ports.length > 0) return [...state.ports];
   // Ce que l'application DÉCLARE. On ne sonde QUE ce qui est déclaré : compléter
   // avec un port par défaut reviendrait à surveiller celui d'un voisin.
-  const declares = declaredPorts();
+  const declares = declaredPorts(env);
   if (declares.length > 0) return declares;
   return [...FALLBACK_DEV_PORTS];
 }

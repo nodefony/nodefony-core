@@ -145,11 +145,20 @@ function declaresDependency(projectRoot: string, name: string): boolean {
  * sain le plus courant, et l'accuser d'occuper « son » port ferait de `check` un
  * outil qu'on apprend à ignorer.
  *
+ * Les ports sont ceux de l'APPLICATION (`appEnvironment`) : son `.env`, pas
+ * celui du dossier où la commande a été tapée — sinon la sonde accusait le
+ * serveur d'un projet voisin d'occuper des ports que l'application n'écoutera
+ * jamais.
+ *
  * @param projectRoot - racine de l'application.
+ * @param env - l'environnement effectif de l'application.
  * @returns le verdict à injecter dans la règle, jamais la mesure elle-même.
  */
-async function probeLocalPorts(projectRoot: string): Promise<IPortProbe> {
-  const ports = defaultDevPorts(projectRoot);
+async function probeLocalPorts(
+  projectRoot: string,
+  env: Record<string, string | undefined>,
+): Promise<IPortProbe> {
+  const ports = defaultDevPorts(projectRoot, env);
   const states = await probePorts(ports);
   return {
     probed: ports,
@@ -940,22 +949,28 @@ export async function collectDoctorReport(
   // manquements vide sans un mot faisait afficher « ✓ Prêt à démarrer » à un
   // contrôle qui n'avait rien ouvert : le pire rendu possible pour un outil de
   // diagnostic — silencieux, et rassurant à tort.
-  const readiness: IReadinessResult = projectRoot
-    ? await checkReadiness({
-        projectRoot,
-        probe: await probeLocalPorts(projectRoot),
-        infra: await probeDeclaredInfra(process.env),
-        targetEnv,
-        tracked: probeTrackedEnvFiles(projectRoot),
-      })
-    : {
-        findings: [],
-        catalogUnreadable: false,
-        portsProbed: [],
-        portsShifting: [],
-        infraProbed: 0,
-        trackedUnknown: null,
-      };
+  //
+  // Ports et infrastructures se lisent dans l'environnement de l'APPLICATION,
+  // pas dans celui du processus : il porte le `.env` du dossier où la commande
+  // a été tapée, qui peut être celui d'un autre projet.
+  const targetEnvironment = projectRoot ? appEnvironment(projectRoot) : null;
+  const readiness: IReadinessResult =
+    projectRoot && targetEnvironment
+      ? await checkReadiness({
+          projectRoot,
+          probe: await probeLocalPorts(projectRoot, targetEnvironment),
+          infra: await probeDeclaredInfra(targetEnvironment),
+          targetEnv,
+          tracked: probeTrackedEnvFiles(projectRoot),
+        })
+      : {
+          findings: [],
+          catalogUnreadable: false,
+          portsProbed: [],
+          portsShifting: [],
+          infraProbed: 0,
+          trackedUnknown: null,
+        };
 
   // La surface s'analyse sur les MÊMES cibles que le câblage : ce qui compte
   // est ce que l'application et ses modules déclarent, pas ce que les paquets
