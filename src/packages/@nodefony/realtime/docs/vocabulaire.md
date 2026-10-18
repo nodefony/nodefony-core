@@ -113,7 +113,7 @@ Trois mots du lexique ne sont pas des synonymes de ce que proposent les autres b
 temps réel. Ce sont les différenciateurs du framework.
 
 **`socket` est isomorphe.** Le même contrat `IRealtimeSocket` (`IRealtimeSocket.ts:122`) décrit la
-prise **côté navigateur** (`NodefonySocket`, `NodefonySocket.ts:219`) **et côté serveur**
+prise **côté navigateur** (`NodefonySocket`, `NodefonySocket.ts:221`) **et côté serveur**
 (`ServerRealtimeSocket`, `ServerRealtimeSocket.ts:44`). Un service back publie exactement comme une
 page front : `publish("chat:room-42", payload)`. Il n'y a pas une API cliente et une API serveur à
 apprendre, il y en a **une**.
@@ -125,9 +125,9 @@ vers un autre service — et le consommateur ne voit jamais la différence
 (`IRealtimeChannel`, `IRealtimeSocket.ts:87`).
 
 **`contrôleur` est le même mot qu'en HTTP.** Un endpoint temps réel est un contrôleur qui étend
-`RealtimeController` (`RealtimeController.ts:203`) et porte une route WebSocket : HTTP et WebSocket
+`RealtimeController` (`RealtimeController.ts:204`) et porte une route WebSocket : HTTP et WebSocket
 vivent dans le **même contexte de contrôleur**. C'est ce qui permet au pont `api.request`
-(`RealtimeController.realtimeApiRequest()`, `RealtimeController.ts:321`) de rejouer sur la socket
+(`RealtimeController.realtimeApiRequest()`, `RealtimeController.ts:322`) de rejouer sur la socket
 **la même action** que celle servie en REST.
 
 ## 🚀 Démarrage rapide — les mots en situation
@@ -270,7 +270,7 @@ Un handler qui lève une erreur rend un `-32603` **générique** ; seule une `Rp
 
 Un canal où le **client a le droit d'émettre** vers le serveur. Défaut sûr : **aucun**. Un canal
 n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:278`) ou
-par l'override `realtimeInbound()` (`RealtimeController.ts:307`).
+par l'override `realtimeInbound()` (`RealtimeController.ts:308`).
 
 Le handler reçoit `(params, reply)` — `params` vient du réseau, donc **jamais fiable** :
 `RealtimeInboundHandler` (`IRealtimeController.ts:16`).
@@ -285,7 +285,7 @@ point d'accroche des canaux à état — un appel SIP, une connexion pontée.
 
 ### `client` — la socket côté navigateur
 
-`NodefonySocket` (`NodefonySocket.ts:184`) : reconnexion automatique, réémission des abonnements,
+`NodefonySocket` (`NodefonySocket.ts:186`) : reconnexion automatique, réémission des abonnements,
 compteurs par canal, heartbeat. Publié dans le sous-chemin `nodefony/client` du cœur — donc
 importable **sans** aucune dépendance serveur, ce qui est la condition de l'isomorphisme.
 
@@ -297,7 +297,7 @@ importable **sans** aucune dépendance serveur, ce qui est la condition de l'iso
 (`ServerRealtimeSocket.ts:243`) : un service métier tient un handle et publie **comme une page
 front**. Une différence assumée : `request()` n'y est pas supporté — au-dessus du hub il n'y a pas
 **un** pair mais N clients. Pour un appel serveur → un client précis, c'est `requestClient()`
-(`RealtimeController.ts:395`).
+(`RealtimeController.ts:396`).
 
 ### `accueil` (welcome) — la première frame
 
@@ -419,8 +419,8 @@ Politique de forward du hub — `#broadcastPrefixes` (`RealtimeHub.ts:395`).
 La classe de base d'un endpoint : elle porte tout le protocole (handshake, accueil, discrimination
 des frames, cycle de vie des canaux) et ne laisse au métier que ses canaux et ses actions.
 
-`RealtimeController` (`RealtimeController.ts:203`), point d'entrée `handleRealtime()`
-(`RealtimeController.ts:344`). C'est un **contrôleur** au sens habituel de Nodefony : la même classe
+`RealtimeController` (`RealtimeController.ts:204`), point d'entrée `handleRealtime()`
+(`RealtimeController.ts:345`). C'est un **contrôleur** au sens habituel de Nodefony : la même classe
 peut porter des routes HTTP.
 
 ### `service realtime` — la façade d'injection
@@ -437,7 +437,7 @@ L'option qui expose la méthode `api.request { path }` : la connexion rejoue **l
 contrôleur** que celle servie en REST, avec **la même garde**. Le pont n'atteint que les routes qui
 déclarent explicitement le transport WebSocket — aucun contournement possible.
 
-`realtimeApiRequest()` (`RealtimeController.ts:321`), mise en œuvre `invokeApiRequest()`
+`realtimeApiRequest()` (`RealtimeController.ts:322`), mise en œuvre `invokeApiRequest()`
 (`RealtimeController.ts:1099`). Désactivé par défaut.
 
 ## 🔌 Le protocole et le transport — ce qui passe sur le fil
@@ -631,7 +631,7 @@ l'authenticator tourne et que l'identité est figée. Tout ce qui coûte cher se
 frame.
 
 DTO neutre `IRealtimeHandshake` (`IRealtimeHandshake.ts:14`) — en-têtes, cookies, URL, origine,
-sous-protocoles. Traitement dans `onHandshake()` (`RealtimeController.ts:450`).
+sous-protocoles. Traitement dans `onHandshake()` (`RealtimeController.ts:451`).
 
 ### `authenticator` — du handshake à l'identité
 

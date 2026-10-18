@@ -137,7 +137,7 @@ et gèle le résultat. Il ne lit aucune variable d'environnement. Les trois vari
 déclarées sur leur champ dans le schéma (`.meta({ env })`, `config.ts:59`, `:76`, `:93`) et posées
 par le Kernel **avant** l'analyse : le schéma les valide comme une valeur écrite dans le fichier.
 
-Le module **augmente le registre de types** (`index.ts:167`) : `use("@nodefony/realtime", { … })`
+Le module **augmente le registre de types** (`index.ts:173`) : `use("@nodefony/realtime", { … })`
 propose ses clés en autocomplétion et **refuse** une clé inconnue à la compilation.
 
 > [!IMPORTANT]

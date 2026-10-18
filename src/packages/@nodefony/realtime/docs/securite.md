@@ -301,7 +301,7 @@ n'est jamais traitée.
 
 ### Le pipeline exact
 
-`RealtimeController.onHandshake()` (`RealtimeController.ts:450`) exécute, une fois par connexion :
+`RealtimeController.onHandshake()` (`RealtimeController.ts:451`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
    (`RealtimeController.ts:1384`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
@@ -551,7 +551,7 @@ C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:306`) : san
 évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
-posé au moment de son handshake (`RealtimeController.ts:562`, via
+posé au moment de son handshake (`RealtimeController.ts:563`, via
 `RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:1039`). Choix de performance délibéré (un hub
 non sécurisé garde un coût nul par frame), mais avec une conséquence : **une connexion ouverte avant
 la pose du verrou n'est jamais gardée**, et ce jusqu'à sa fermeture. En fonctionnement normal le
@@ -560,7 +560,7 @@ firewall se construit au boot, avant tout trafic ; le cas ne se présente qu'en 
 
 **Le refus de dégrader en silence.** Quand des policies sont déclarées sans décideur câblé,
 `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1098`) renvoie `true` et le controller
-émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:639`) :
+émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:640`) :
 
 ```text
 Realtime channel policies declared but NO frame authorizer is wired —
@@ -587,7 +587,7 @@ Le refus doit être observable sans devenir un oracle. Nodefony tranche ainsi :
 | Type de frame refusée               | Réponse au client                                                                |
 | ----------------------------------- | -------------------------------------------------------------------------------- |
 | Requête (avec `id`)                 | `-32001 "unauthorized"` — `JsonRpcPeer.receive()` (`JsonRpcPeer.ts:419`)         |
-| Notification (`subscribe`, inbound) | `realtime:denied { channel, reason: "forbidden" }` (`RealtimeController.ts:553`) |
+| Notification (`subscribe`, inbound) | `realtime:denied { channel, reason: "forbidden" }` (`RealtimeController.ts:554`) |
 | Dépassement du plafond de canaux    | `realtime:denied { channel, reason: "limit" }`                                   |
 | Canal sans aucun producteur         | `realtime:denied { channel, reason: "unknown" }`                                 |
 
@@ -623,7 +623,7 @@ ou changée → `-32000` avec `status: 401`, et le client bascule sur un `fetch`
 courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
-`isValid` (`RealtimeController.ts:715`) — anonymes et JWT n'y entrent jamais, coût nul.
+`isValid` (`RealtimeController.ts:716`) — anonymes et JWT n'y entrent jamais, coût nul.
 `RealtimeHub.registerRevocable()` (`RealtimeHub.ts:796`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:112`), 30 s, alignée sur le heartbeat WS.

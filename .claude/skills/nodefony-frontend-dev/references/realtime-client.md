@@ -30,14 +30,14 @@ Trois couches, séparées pour rester isomorphes (seule la dernière diffère cl
 
 ```
 NodefonySocket            ← la « socket » (orchestration : reconnect, heartbeat, stats,
-  (IRealtimeSocket)          ref-count subscribe, identité, frameLog). NodefonySocket.ts:177
+  (IRealtimeSocket)          ref-count subscribe, identité, frameLog). NodefonySocket.ts:179
    └─ JsonRpcPeer         ← moteur protocole JSON-RPC 2.0 ISOMORPHE (classe une frame,
         (IRealtimePeer)      route, corrèle les id, gère erreurs). realtime/JsonRpcPeer.ts:311
          └─ IRealtimeTransport  ← LES OCTETS — seul maillon qui diffère. Front =
                                   BrowserWsTransport (wrap WebSocket). IRealtimeTransport.ts:34
 ```
 
-- `NodefonySocket` **compose** un `JsonRpcPeer` (`NodefonySocket.ts:964`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
+- `NodefonySocket` **compose** un `JsonRpcPeer` (`NodefonySocket.ts:1123`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
 - Le transport est **injectable** (constructeur, 2ᵉ arg `RealtimeTransportFactory`, `NodefonySocket.ts:40`) → tests sans vrai socket ; défaut = `BrowserWsTransport`.
 - `NodefonySocket` implémente `IRealtimeSocket` (`IRealtimeSocket.ts:122`) ET `IRealtimePeer` (`JsonRpcPeer.ts:261`) — le MÊME contrat qu'exposera une façade serveur. Du code écrit contre ces interfaces tourne des deux côtés.
 
@@ -49,16 +49,16 @@ Discrimination JSON-RPC (le cœur, `JsonRpcPeer.ts:419-477`) : le rôle d'une fr
 ## 2. Obtenir un client : `shared` / constructeur / `connect`
 
 ```ts
-// Singleton PAR URL (recommandé) — NodefonySocket.ts:261
+// Singleton PAR URL (recommandé) — NodefonySocket.ts:263
 static shared(opts?: NodefonySocketOptions): NodefonySocket;
 
-// Constructeur direct — NodefonySocket.ts:241
+// Constructeur direct — NodefonySocket.ts:243
 constructor(opts?: NodefonySocketOptions, transportFactory?: RealtimeTransportFactory);
 ```
 
-`NodefonySocket.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `NodefonySocket.ts:567-577`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `NodefonySocket.shared(opt)` (`NodefonyKernel.ts:232`) ; une application comme Studio ne la nomme plus, elle passe par `new NodefonyKernel` (`RootStore.ts:76`) et donne le noyau à son fournisseur (`kernel={…}`).
+`NodefonySocket.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `NodefonySocket.ts:599-609`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `NodefonySocket.shared(opt)` (`NodefonyKernel.ts:232`) ; une application comme Studio ne la nomme plus, elle passe par `new NodefonyKernel` (`RootStore.ts:76`) et donne le noyau à son fournisseur (`kernel={…}`).
 
-`NodefonySocketOptions` (`NodefonySocket.ts:98-118`) :
+`NodefonySocketOptions` (`NodefonySocket.ts:100-120`) :
 
 ```ts
 interface NodefonySocketOptions {
@@ -98,7 +98,7 @@ retryNow(): void;                           // force une reco immédiate, annule
 - **Heartbeat** : ping `{ ts }` toutes les `heartbeatInterval` ms tant que le transport est OPEN (`startHeartbeat`, `:1160`). Timer `unref` (n'empêche pas la sortie de process côté Node/test).
 - **Sémantique des close codes** (RFC 6455 §7.4) : un code **définitif** (1000, 1002, 1003, 1007, 1008=401/403, 1010, 4004 privé Nodefony) **ne relance PAS** la reco (sinon un anonyme martèle un endpoint protégé) → état `error`, l'app doit agir (login) puis `connect()`/`retryNow()`. Les codes **transitoires** (1001 restart, 1006 perte réseau, 1011, code absent) relancent la reco. Décidé par `isReconnectableCloseCode` (`notice.ts:185`, set `FATAL_CLOSE_CODES` `:169`).
 
-Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `NodefonySocket.ts:1787-1791`).
+Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `NodefonySocket.ts:1980-1984`).
 
 ---
 
@@ -117,7 +117,7 @@ channel(name): IRealtimeChannel;     // handle par-canal {on,send,open,close} (:
 
 **Distinction fondamentale** : `on(channel, h)` **REÇOIT** (branche le handler local) ; `subscribe(channel)` **DEMANDE** au serveur de pousser. Les deux sont nécessaires : `on` sans `subscribe` ne reçoit rien (le serveur ne pousse pas) ; `subscribe` sans `on` reçoit mais n'a aucun handler.
 
-**Ref-comptage** (`_subscriptions: Map<channel, count>`, `NodefonySocket.ts:939`) : la notification réseau `subscribe`/`unsubscribe` n'est émise qu'aux **transitions 0↔1**. N consommateurs (hooks React + store) sur le même canal partagent **UN seul abonnement serveur** sans se couper l'un l'autre :
+**Ref-comptage** (`_subscriptions: Map<channel, count>`, `NodefonySocket.ts:1098`) : la notification réseau `subscribe`/`unsubscribe` n'est émise qu'aux **transitions 0↔1**. N consommateurs (hooks React + store) sur le même canal partagent **UN seul abonnement serveur** sans se couper l'un l'autre :
 
 - `subscribe` : `count++` ; émet `subscribe` réseau **seulement** au 1ᵉʳ (`count === 1`, `:501`).
 - `unsubscribe` : `count--` ; émet `unsubscribe` réseau **seulement** au dernier (`:438-440`).
@@ -132,7 +132,7 @@ Convention de **cadence dans le nom du canal** (`channelRate.ts`) : `base` nu = 
 ## 5. RPC : `request`, `mutate`, `ping`, `stream` + pont `api.request`
 
 ```ts
-// Trois surcharges (NodefonySocket.ts:803-836) :
+// Trois surcharges (NodefonySocket.ts:956-989) :
 request<T>(path: `/${string}`, timeoutMs?): Promise<T>;          // forme PATH → pont api.request (lecture GET)
 request<K, T>(method: K, params?, timeoutMs?): Promise<…>;       // forme RPC — K = NOM de la méthode, T = résultat
 request<K extends ActionNames<Actions>>(method: K, params?, …);  // contrat IRealtimePeer rendu explicite
@@ -159,7 +159,7 @@ mutate<T>(path: `/${string}`, init: {
   body?: unknown;
   idempotencyKey: string;          // OBLIGATOIRE
   timeoutMs?: number;              // défaut 30000
-}): Promise<T>;                    // NodefonySocket.ts:690
+}): Promise<T>;                    // NodefonySocket.ts:722
 ```
 
 Pendant **écriture** de `request` (qui ne fait que des GET). Transporte la méthode HTTP logique + le corps + une **clé d'idempotence obligatoire** : une socket reconnecte et peut rejouer une frame en vol → la clé dédoublonne le rejeu (anti double-effet) côté serveur. Échec → `RpcError` (`data.status` : 400 clé absente, 409 rejeu concurrent, 403 refus, 404 path inconnu…).
@@ -174,7 +174,7 @@ await socket.mutate("/nodefony/security/api/apikeys/42/revoke", {
 ### `ping` — RTT
 
 ```ts
-ping(timeoutMs = 5000): Promise<KernelPingResult & { rtt: number }>;   // NodefonySocket.ts:719
+ping(timeoutMs = 5000): Promise<KernelPingResult & { rtt: number }>;   // NodefonySocket.ts:762
 // KernelPingResult (:145) = { pong: true; ts; uptime; pid; version? }
 ```
 
@@ -239,7 +239,7 @@ whenSubscribed(channel: string): Promise<void>;   // résolue à l'acquittement,
 ```
 
 - `onNotice` : flux de **notices normalisées** (`NodefonyNotice` `notice.ts:20` = `{ level, title?, message, source, code?, ts }`). Le client interprète les close codes RFC 6455 (`closeCodeToNotice`, `notice.ts:81` — `null` pour 1000/1001, pas de bruit), les erreurs serveur poussées, et émet une notice `success` au rétablissement de connexion. Brancher un centre de notifications (snackbar) — monter **une seule fois** (shell) pour ne pas dupliquer les toasts.
-- `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts:272` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
+- `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts:302` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
 - `whenSubscribed` / `onSubscribed` : `connected` = transport ouvert, PAS abonné. L'abonnement est effectif à `realtime:subscribed` (`IRealtimeSubscribed` = `{ channel }`). Patron « je recharge l'état puis je suis le flux » : `subscribe(ch)` → `await whenSubscribed(ch)` → charger l'état. Rejetée sur refus du même canal (refus en `cause`), `unsubscribe` du dernier consommateur, `disconnect()`. Serveur sans `subscriptionAcks` au welcome ⇒ résolue au rejeu. Un premier message peut précéder l'acquittement.
 
 ---
@@ -603,6 +603,6 @@ Côté serveur (contrat jumeau) : `this.renderSse()` → skill `nodefony-framewo
 - **Réponse mémorisée ≠ replay d'un `render` manuel** (côté serveur idempotence) : la valeur rejouée est la valeur RETOURNÉE par l'action.
 - **`onNotice`/`useNodefonyNotifications` : monter une seule fois** (shell) sinon toasts dupliqués.
 - **Canaux d'événements ≠ cadence adaptative** : ne JAMAIS `adaptiveChannel`/`useNodefonyAdaptiveChannel*` sur syslog/frames (chaque item compte) — réservé aux canaux d'ÉTAT latest-wins.
-- **Pas de buffering offline** : une frame émise hors connexion est droppée (`NodefonySocket.ts:980`).
+- **Pas de buffering offline** : une frame émise hors connexion est droppée (`NodefonySocket.ts:1139`).
 - **`disconnect()` ≠ perte réseau** : volontaire → identité `null` (login) + requêtes en vol rejetées ; perte réseau → identité conservée + reco (selon close code, §3).
 - **Close code fatal (1008=401/403, 4004…) ne relance pas la reco** → état `error` ; l'app doit corriger (login) puis `connect()`/`retryNow()`.

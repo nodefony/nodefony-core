@@ -272,7 +272,7 @@ L'accueil porte cinq champs — `ts`, `protocol`, `channels`, `methods`, `identi
 (`IRealtimeWelcome`, `RealtimeEventMap.ts:231`) — plus un sixième, `env`, **uniquement hors
 production** (`welcomeEnv()`, `welcomeEnv.ts:19`) : c'est lui que porte l'exemple ci-dessus, capturé
 en développement. Émis par le contrôleur au handshake (`peer.notify("realtime:welcome")`,
-`RealtimeController.ts:796`). Il n'y a pas de champ `version`.
+`RealtimeController.ts:797`). Il n'y a pas de champ `version`.
 
 ## 🔌 Anatomie d'une frame, champ par champ
 
@@ -341,21 +341,21 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 | Méthode               | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
 | --------------------- | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
-| `subscribe`           | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:577` |
-| `unsubscribe`         | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:849` |
+| `subscribe`           | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:578` |
+| `unsubscribe`         | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:853` |
 | `ping`                | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `NodefonySocket.ts:1326`    |
-| `<canal>`             | server→client |   non   | Push d'un message : le **nom du canal est la `method`** du `notify`   | `RealtimeController.ts:874` |
+| `<canal>`             | server→client |   non   | Push d'un message : le **nom du canal est la `method`** du `notify`   | `RealtimeController.ts:894` |
 | `<canal entrant>`     | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:863` |
-| `realtime:welcome`    | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:796` |
-| `realtime:denied`     | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:573` |
+| `realtime:welcome`    | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:797` |
+| `realtime:denied`     | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:574` |
 | `realtime:subscribed` | server→client |   non   | Acquitte un `subscribe` ACCEPTÉ — le flux est actif                   | `RealtimeController.ts:879` |
-| `api.request`         | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:651` |
+| `api.request`         | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:652` |
 | `<action>`            | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:191` |
 
 > [!TIP]
 > **L'accueil est ta carte du territoire.** `channels` ne liste que les canaux que ce visiteur
 > pourrait obtenir (filtrés par le même verrou que `subscribe`), `methods` les actions de l'endpoint
-> (`RealtimeController.ts:786`) : un client peut activer ou griser
+> (`RealtimeController.ts:787`) : un client peut activer ou griser
 > ses commandes sans rien coder en dur. Côté navigateur, ils se lisent en `socket.serverMethods` et
 > `socket.serverChannels`.
 
@@ -370,7 +370,7 @@ Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma 
 > n'attend jamais de réponse.
 
 `subscribe` et `unsubscribe` ne sont **pas** des actions enregistrées : elles sont traitées dans
-`onRealtimeNotification()` (`RealtimeController.ts:840`). Envoyées avec un `id`, elles seraient
+`onRealtimeNotification()` (`RealtimeController.ts:844`). Envoyées avec un `id`, elles seraient
 classées « requête », ne trouveraient aucun handler et récolteraient un `-32601`.
 
 ## Une conversation type, de bout en bout
@@ -408,7 +408,7 @@ de `RpcError`.
 | `-32603` | même méthode (`JsonRpcPeer.ts:573`)                         | le handler a levé une exception **ordinaire**       | `internal error` — générique, rien d'autre     |
 | `-32001` | le refus du verrou de frame (`JsonRpcPeer.ts:449`)          | `beforeDispatch` a dit non **sur une requête**      | `unauthorized`, sans jamais dire pourquoi      |
 | `-32000` | défaut du constructeur de `RpcError` (`JsonRpcPeer.ts:101`) | le handler expose volontairement son refus          | le message ET le `data` choisis par le handler |
-| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:1027`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
+| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:1056`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
 
 Et un échec qui n'est **pas** une frame : l'expiration. `startCall()` ne reçoit rien dans le délai
 imparti, supprime l'entrée en attente et rejette localement avec `RPC timeout: <méthode>`
@@ -427,7 +427,7 @@ fil : c'est un échec local, et la frame est auditée `invalid`.
 porte** ici :
 
 - un JSON illisible n'atteint même pas le pair — le contrôleur l'abandonne à la lecture
-  (`RealtimeController.ts:586`) ;
+  (`RealtimeController.ts:587`) ;
 - une frame lisible mais non conforme — pas d'objet, un lot, `jsonrpc` absent ou faux, `id` `null`,
   objet ou booléen, `method` non chaîne, réponse sans `result` ni `error` bien formé, ou avec les
   deux — est classée `invalid`, signalée à l'audit, et **rien n'est renvoyé** (`JsonRpcPeer.ts:423`).
@@ -446,12 +446,12 @@ radicalement :
 | La frame refusée est… | Ce qui part                                                     | Pourquoi                                             |
 | --------------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
 | une **requête**       | `-32001 "unauthorized"` (`JsonRpcPeer.ts:449`)                  | Un `id` existe : il y a un canal de réponse          |
-| une **notification**  | la notification `realtime:denied` (`RealtimeController.ts:573`) | Aucun `id` : sans elle, le client se croirait abonné |
+| une **notification**  | la notification `realtime:denied` (`RealtimeController.ts:574`) | Aucun `id` : sans elle, le client se croirait abonné |
 
 `IRealtimeDenied` (`RealtimeEventMap.ts:302`) porte `channel` et `reason` — plus un `detail` optionnel, posé hors production seulement — et le motif
 est **générique**. Jamais « il te manque `ROLE_ADMIN` » : ce serait un oracle d'autorisation, un
 attaquant y lirait la carte des droits. Trois motifs circulent : `forbidden` (le verrou a dit non),
-`limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:852`) et `unknown`
+`limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:856`) et `unknown`
 (aucun producteur ne sert ce nom — jamais un oracle : un canal gardé rend `forbidden`, qu'il existe ou
 non). Côté client,
 `onDenied()` (`NodefonySocket.ts:803`) branche un handler dessus.
@@ -490,7 +490,7 @@ en découlent :
    politique du canal ; la demande a exactement la même forme qu'un abonnement autorisé, seule la
    réponse diffère.
 3. **Le client ne pousse que là où c'est déclaré.** Un canal n'accepte d'entrée que si un handler
-   entrant existe pour ce nom (`RealtimeController.ts:825`) ; sinon la notification est ignorée en
+   entrant existe pour ce nom (`RealtimeController.ts:829`) ; sinon la notification est ignorée en
    silence. Le défaut est fermé.
 
 Les mécanismes eux-mêmes — authenticator, verrou de frame, politique de canal, révocation — sont
@@ -500,7 +500,7 @@ décrits dans [la page sécurité](./securite.md).
 
 | Symptôme                                                         | Cause                                                                                                            | Correction                                                                         |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `subscribe` répond `-32601 method not found`                     | Envoyé **avec un `id`** : classé requête, or c'est une notification (`RealtimeController.ts:809`)                | L'émettre sans `id` — `socket.subscribe(canal)`                                    |
+| `subscribe` répond `-32601 method not found`                     | Envoyé **avec un `id`** : classé requête, or c'est une notification (`RealtimeController.ts:810`)                | L'émettre sans `id` — `socket.subscribe(canal)`                                    |
 | Le handler passé à `subscribe` n'est jamais appelé               | `NodefonySocket.subscribe()` prend **un seul** argument (`NodefonySocket.ts:974`)                                | `subscribe(canal)` **et** `on(canal, handler)`, deux gestes distincts              |
 | `request()` expire immédiatement, ou ignore le délai             | Signature **positionnelle** `(méthode, params, ms)` (`NodefonySocket.ts:1177`) — un objet d'options n'est pas lu | `request(m, p, 5000)` ; le défaut est 30 000 ms                                    |
 | Un tableau de frames n'obtient aucune réponse                    | Le batch n'est pas implémenté : un tableau n'a pas de `jsonrpc` → `invalid` (`jsonrpc/index.ts:178`)             | Une frame = un objet ; le multiplexage remplace le batch                           |
@@ -508,7 +508,7 @@ décrits dans [la page sécurité](./securite.md).
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:573`)                              | Lever une `RpcError` pour exposer volontairement code et `data`                    |
 | Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:219`)                                      | Écouter `realtime:denied` via `onDenied()` (`NodefonySocket.ts:803`)               |
 | `nodefony:kernel:ping` répond `-32601` sur mon endpoint          | L'action `nodefony:kernel:ping` est déclarée par `@nodefony/studio` (`StudioRealtimeController.ts:114`)          | Déclarer la sienne, ou lire `serverMethods` avant d'appeler                        |
-| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:831`)                                        | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`NodefonySocket.ts:1326`) |
+| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:835`)                                        | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`NodefonySocket.ts:1326`) |
 | Une réponse reçue est ignorée sans message                       | Corrélation sur `id` **numériques** seulement (`JsonRpcPeer.ts:582`)                                             | Ne pas fabriquer soi-même de réponse à `id` chaîne                                 |
 | Les premières frames envoyées après `connect()` semblent perdues | Le transport n'est branché qu'une fois le handshake terminé                                                      | Attendre `realtime:welcome` — le client le fait déjà                               |
 

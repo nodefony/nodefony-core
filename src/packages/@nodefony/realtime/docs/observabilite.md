@@ -454,7 +454,7 @@ après fusion et validation — la seule vue qui dit ce qui s'applique, plutôt 
 > ne change rien au comportement de la socket.
 
 Couper la sonde cluster est un **contournement total**, pas une mise en sourdine : sans elle, il n'y a
-ni client, ni minuteur, ni écouteur, ni message IPC (`Realtime.wireClusterProbe()`, `index.ts:351`), et
+ni client, ni minuteur, ni écouteur, ni message IPC (`Realtime.wireClusterProbe()`, `index.ts:381`), et
 l'endpoint retombe sur la vue per-instance. Aucun coût « au cas où ».
 
 ## 🏗️ En cluster — par pod ou par worker ?

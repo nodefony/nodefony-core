@@ -406,7 +406,7 @@ Types : `ChannelSink = (payload: unknown) => void` `:62` · `ChannelFactory = (c
 
 ### 2.3 `RealtimeController` — base endpoint WS
 
-`rt/nodefony/src/server/RealtimeController.ts:152`. `abstract RealtimeController<Emit extends EventsMap = Default, Actions extends ActionsMap = Default> extends Controller implements IRealtimeController`. Factorise TOUT le protocole ; une sous-classe garde sa route WS et délègue à `handleRealtime(message)`.
+`rt/nodefony/src/server/RealtimeController.ts:153`. `abstract RealtimeController<Emit extends EventsMap = Default, Actions extends ActionsMap = Default> extends Controller implements IRealtimeController`. Factorise TOUT le protocole ; une sous-classe garde sa route WS et délègue à `handleRealtime(message)`.
 
 **Override seams** (tous `protected`, défauts vides/sûrs) :
 
@@ -468,7 +468,7 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 
 ### 2.5 `NodefonySocket` — client isomorphe (core)
 
-`core/src/client/realtime/NodefonySocket.ts:573`. `import { NodefonySocket } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
+`core/src/client/realtime/NodefonySocket.ts:605`. `import { NodefonySocket } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle |

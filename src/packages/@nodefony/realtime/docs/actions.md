@@ -277,11 +277,11 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 | Voie                                                   | Quand la choisir                                            |
 | ------------------------------------------------------ | ----------------------------------------------------------- |
 | `@RealtimeAction("nom")` (`realtimeDecorators.ts:191`) | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts:281`)      | la table est **calculée** (noms dynamiques, boucle, config) |
+| `realtimeActions()` (`RealtimeController.ts:282`)      | la table est **calculée** (noms dynamiques, boucle, config) |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
-(`RealtimeController.ts:598`). Un endpoint sans aucune action ne paie rien — la table du pair est
+(`RealtimeController.ts:599`). Un endpoint sans aucune action ne paie rien — la table du pair est
 allouée au premier enregistrement seulement.
 
 ### Ce que ton `return` et ton `throw` deviennent sur le fil
@@ -457,7 +457,7 @@ Trois leviers existent, et ils ne font pas la même chose :
 1. **Le délai d'expiration** — libère le client, laisse le serveur travailler.
 2. **La fermeture de la connexion** — `dispose()` rejette **tous** les appels en attente d'un
    coup (`JsonRpcPeer.ts:480`), appelé au nettoyage de la socket
-   (`RealtimeController.ts:749`). Là encore : côté client seulement.
+   (`RealtimeController.ts:750`). Là encore : côté client seulement.
 3. **Une action compagnon** — la seule vraie annulation. On expose une seconde action qui prend
    l'identifiant du travail et l'interrompt côté serveur. Le modèle du dépôt est
    `nodefony:scaffold:cancel` (`StudioRealtimeController.ts:159`), pendant de `nodefony:scaffold:run`.
@@ -545,7 +545,7 @@ Un cas particulier mérite d'être connu avant d'écrire une action : **elle exi
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
 (`RealtimeController.ts:1099`). Il est **désactivé par défaut** et s'active en surchargeant
-`realtimeApiRequest()` (`RealtimeController.ts:321`).
+`realtimeApiRequest()` (`RealtimeController.ts:322`).
 
 ```ts ignore
 const modules = await socket.request("/nodefony/kernel/api/modules");
@@ -596,11 +596,11 @@ vivent dans la carte de l'aperçu, régénérée depuis les résultats réels, j
 ### Éprouver SON action — le harnais, identité comprise
 
 Une application teste ses actions sans serveur ni navigateur avec `createRealtimeHarness`
-(`@nodefony/realtime/testing`, `nodefony/testing/index.ts:206`) : il monte le contrôleur sur une
+(`@nodefony/realtime/testing`, `nodefony/testing/index.ts:212`) : il monte le contrôleur sur une
 fausse connexion, envoie les frames qu'un client enverrait et rend celles qui sortent. Sans option,
 la connexion est **anonyme** — le repli Zero Trust. Une action qui lit `@CurrentUser()` s'éprouve
 donc avec l'identité qu'aurait posée le pare-feu au handshake, passée en `identity`
-(`nodefony/testing/index.ts:93`) :
+(`nodefony/testing/index.ts:94`) :
 
 ```ts ignore
 import { describe, it, expect, afterEach } from "vitest";

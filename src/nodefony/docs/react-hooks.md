@@ -494,7 +494,7 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
 
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
 trames reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts:1436`). La série glisse sur 32
-points — `STATS_SERIES_POINTS` (`client/realtime/NodefonySocket.ts:159`) —, échantillonnés une fois par seconde par
+points — `STATS_SERIES_POINTS` (`client/realtime/NodefonySocket.ts:161`) —, échantillonnés une fois par seconde par
 `startStatsSampler()` (`client/realtime/NodefonySocket.ts:1646`).
 
 > [!WARNING]
@@ -657,7 +657,7 @@ démonté.
 ### Ce qui survit à une coupure
 
 Après une perte de connexion, le client se reconnecte avec un délai croissant et **rejoue tous les
-abonnements encore comptés** (`client/realtime/NodefonySocket.ts:1081`). Un composant monté avant la
+abonnements encore comptés** (`client/realtime/NodefonySocket.ts:1240`). Un composant monté avant la
 coupure retrouve son flux sans une ligne de code — et sans même savoir qu'il y a eu coupure.
 
 Corollaire utile : s'abonner **avant** que la socket ne soit ouverte est sûr. Le compteur est posé,

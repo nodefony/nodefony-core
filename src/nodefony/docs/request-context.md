@@ -323,7 +323,7 @@ qui ouvre quoi.
 | --- | --- | --- |
 | HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1582`) | CORS, routage, firewall, ton action, rendu |
 | WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:2031`) | poignée de main, firewall, **et toutes les trames** |
-| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1070`) | **une** invocation : corps, clé d'idempotence, profil |
+| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1099`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:545`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Les trois premières bulles portent le scope DI de la requête (`scope`, rendu par `getScope()`) ;
@@ -404,7 +404,7 @@ Une minuterie, une promesse non attendue, un rappel armé **pendant** la requêt
 VIDE donc ce store à la fin de chaque unité de travail (`RequestContext.release()`,
 `RequestContext.ts:366`) — requête HTTP et connexion WebSocket au nettoyage du contexte
 (`Context.ts:587`), appel `api.request` et action temps réel décorée à la fin de l'appel
-(`RealtimeController.ts:1304`, `RealtimeController.ts:1040`).
+(`RealtimeController.ts:1333`, `RealtimeController.ts:1069`).
 
 | Après la fin                                                                           | Rend                               | Pourquoi                                                                               |
 | -------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- |
@@ -516,7 +516,7 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:400`)      | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
 | Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                       | déjà traité pour les contextes (`Context.ts:252`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                                | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |
-| Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                               | revalider par invocation (`RealtimeController.ts:812`), ne pas mettre en cache       |
+| Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                               | revalider par invocation (`RealtimeController.ts:813`), ne pas mettre en cache       |
 | `getUser()` vide dans une minuterie armée pendant la requête       | la minuterie s'est déclenchée après la fin : le store a été vidé (`RequestContext.ts:254`) | passer l'identité en argument au travail détaché, et réautoriser au moment d'agir    |
 | Fuite mémoire autour d'un écouteur lié                             | `AsyncResource.bind` retient le payload, donc l'utilisateur et le contexte                 | ne lier que ce qui meurt avec la requête ou la connexion                             |
 

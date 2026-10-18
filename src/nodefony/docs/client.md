@@ -124,7 +124,7 @@ conséquences pratiques, dans l'ordre où on les rencontre.
 > [!IMPORTANT]
 > Isomorphe ne veut pas dire « identique ». Le navigateur n'a ni kernel, ni serveurs, ni accès à la
 > base. Le barrel client publie une **sélection** — `NodefonySocket`, `Syslog`, `Pdu`, `Service`,
-> `Container` (`client/index.ts:121`) : les briques qui ont un sens dans un onglet. Le reste n'est
+> `Container` (`client/index.ts:122`) : les briques qui ont un sens dans un onglet. Le reste n'est
 > simplement pas là, et n'alourdit donc pas ton bundle.
 
 ## La vision Nodefony
@@ -299,14 +299,14 @@ afficherait un message de rétablissement au chargement.
 
 ## 🔌 `NodefonySocket` — la socket vue du navigateur
 
-C'est la brique centrale du subpath. `NodefonySocket` (`client/realtime/NodefonySocket.ts:184`)
+C'est la brique centrale du subpath. `NodefonySocket` (`client/realtime/NodefonySocket.ts:186`)
 implémente le contrat de socket isomorphe **et** le contrat de pair JSON-RPC : il sait donc à la fois
 recevoir des messages poussés et **répondre** à des requêtes venues du serveur.
 
 ### Les options du constructeur
 
 `new NodefonySocket(options)` et `NodefonySocket.shared(options)` prennent le même objet,
-`NodefonySocketOptions` (`client/realtime/NodefonySocket.ts:98`). Toutes les clés sont facultatives ;
+`NodefonySocketOptions` (`client/realtime/NodefonySocket.ts:100`). Toutes les clés sont facultatives ;
 seule l'adresse doit être connue au moment de `connect()`.
 
 | Option              | Défaut  | Effet                                                                                                                                                                                                                      |
@@ -314,7 +314,7 @@ seule l'adresse doit être connue au moment de `connect()`.
 | `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`NodefonySocket.ts:714`). |
 | `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`NodefonySocket.ts:297`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.         |
 | `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`NodefonySocket.ts:1818`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
-| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec, avec une gigue, sans jamais descendre sous 100 ms (`NodefonySocket.ts:222`).                                                                          |
+| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec, avec une gigue, sans jamais descendre sous 100 ms (`NodefonySocket.ts:224`).                                                                          |
 | `reconnectDelayMax` | `30000` | Plafond de ce délai (ms) (`NodefonySocket.ts:1864`).                                                                                                                                                                       |
 | `connectTimeout`    | `10000` | Délai d'ouverture (ms) : une poignée de main sans réponse est abandonnée, la promesse d'ouverture rejette et la reconnexion prend le relais. `0` retire la borne (`NodefonySocket.ts:1778`).                               |
 | `heartbeatInterval` | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`NodefonySocket.ts:1885`).                                                                                                                 |
@@ -379,7 +379,7 @@ est nul.
 
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
 Le serveur repart d'un état vide après une coupure ; c'est le client qui se souvient de ce qu'il
-écoutait, dans la routine d'ouverture de socket (`client/realtime/NodefonySocket.ts:1081`).
+écoutait, dans la routine d'ouverture de socket (`client/realtime/NodefonySocket.ts:1240`).
 
 **`connected` ne veut pas dire « abonné ».** L'état passe à `connected` dès l'ouverture du
 transport ; les abonnements ne sont rejoués qu'au `realtime:welcome`, et ne deviennent effectifs
@@ -456,7 +456,7 @@ ne fait rien d'autre : ouvrir, envoyer, fermer, relayer quatre événements. Tou
 
 Cette séparation a une conséquence directe et très utile : le client accepte une **fabrique de
 transport** injectée en second argument de son constructeur
-(`client/realtime/NodefonySocket.ts:248`). Les tests branchent un transport factice et exercent toute
+(`client/realtime/NodefonySocket.ts:250`). Les tests branchent un transport factice et exercent toute
 la machine à états **sans ouvrir une seule socket**. C'est ce qui rend les 177 cas de test de cette
 page possibles hors navigateur.
 
@@ -469,12 +469,12 @@ Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choi
   faits qu'à la **lecture** — `recordFrame()` (`client/realtime/NodefonySocket.ts:1928`). Un
   inspecteur qu'on n'ouvre jamais ne coûte donc presque rien.
 - **Les secrets ne transitent pas en clair dans l'inspecteur.** `redactFrame()`
-  (`client/realtime/NodefonySocket.ts:350`) remplace toute clé ressemblant à un jeton, un mot de
+  (`client/realtime/NodefonySocket.ts:352`) remplace toute clé ressemblant à un jeton, un mot de
   passe ou une autorisation, avec une profondeur bornée.
 - **Ce qui n'a pas servi n'existe pas.** L'anneau de trames, l'identité et les capacités annoncées
   démarrent à `null` et ne sont alloués qu'au premier usage.
 - **L'échantillonnage de débit ne retient pas le processus.** Le minuteur de statistiques est
-  déréférencé (`client/realtime/NodefonySocket.ts:1023`) — utile quand le même code tourne dans un
+  déréférencé (`client/realtime/NodefonySocket.ts:1182`) — utile quand le même code tourne dans un
   test Node.
 
 ## ⚡ Cadence adaptative — une capacité du CLIENT
