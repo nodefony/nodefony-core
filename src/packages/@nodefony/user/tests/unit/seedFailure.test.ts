@@ -141,8 +141,11 @@ describe("les mots de passe de fixture passent la politique par défaut", () => 
   };
 
   it("celui de l'application GÉNÉRÉE (gabarit `create app`)", async () => {
+    // La valeur vit dans le MOTEUR du scaffold, seule source : les gabarits n'en
+    // portent que le marqueur, et `devAdminPasswordParity.test.ts` (cœur)
+    // prouve que le rendu y injecte exactement cette constante.
     const motDePasse = constanteDe(
-      "../../../../../nodefony/templates/app/complete/nodefony/security/provisionUsers.ts.tpl",
+      "../../../../../nodefony/src/cli/scaffold/engine.ts",
       "DEV_ADMIN_PASSWORD",
     );
     assert.equal(
