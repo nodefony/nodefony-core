@@ -665,9 +665,11 @@ export function lintBoard({
   // A5 — ancres `fichier:ligne` dans les tickets OUVERTS. La règle du skill les
   // interdit depuis longtemps, mais rien ne la faisait mordre : chaque session
   // en payait la dérive à la main. UN constat agrégé, pas un par ticket — des
-  // dizaines de lignes à chaque reprise apprendraient à passer outre. Un
-  // avertissement, pas une erreur : une erreur bloquerait l'empreinte tant que
-  // le stock n'est pas converti.
+  // dizaines de lignes à chaque reprise apprendraient à passer outre. Une
+  // ERREUR : en avertissement, 249 s'étaient accumulées. Et la conversion
+  // datée (`ticket-anchor-migrate.mjs`) n'est sûre que près de la date
+  // d'écriture — plus tard, le code a bougé et l'ancre devient « instable ».
+  // Bloquer l'empreinte force à convertir pendant que c'est une commande.
   const ancrees = issues
     .map((i) => ({ n: i.n, anchors: i.lineAnchors ?? [] }))
     .filter((i) => i.anchors.length > 0)
@@ -679,11 +681,11 @@ export function lintBoard({
       .map((i) => `#${i.n} (${i.anchors.length})`)
       .join(", ");
     add(
-      "avertissement",
+      "erreur",
       "ANCRE-LIGNE",
       null,
       `${total} ancre(s) fichier:ligne dans ${ancrees.length} ticket(s) ouvert(s) — ${tete}${ancrees.length > 5 ? ", …" : ""} ; ex. ${ancrees[0].anchors[0]}`,
-      "réécrire en <fichier>.ts#<Symbole> (show-symbol --outline au commit d'écriture du ticket) ; sans symbole (.md, .yml, .sh) : un titre ou un motif rg",
+      `node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs --apply ${ancrees.map((i) => i.n).join(" ")} (chaque ancre lue dans le code de SA date) ; ce qu'il laisse, et les ancres sans symbole (.md, .yml, .sh) : un titre ou un motif rg, à la main`,
     );
   }
 

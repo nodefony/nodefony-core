@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T12:12:37.596Z",
+  "generatedAt": "2026-10-18T12:42:51.974Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7653,7 +7653,7 @@
       "title": "chore(core): trancher l'héritage des dépendances déclarées",
       "url": "https://github.com/nodefony/nodefony-core/issues/75",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -8403,7 +8403,7 @@
       "title": "feat(tenant): isoler les organisations qui partagent une même application",
       "url": "https://github.com/nodefony/nodefony-core/issues/492",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "12.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 11,
@@ -8475,7 +8475,7 @@
       "title": "chore(pilotage): convertir les ancres par ligne des tickets en symboles",
       "url": "https://github.com/nodefony/nodefony-core/issues/614",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,

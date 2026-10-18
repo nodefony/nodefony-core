@@ -789,7 +789,7 @@ describe("ANCRE-LIGNE — la règle « jamais fichier:ligne » mord enfin", () =
     expect(parseLineAnchors(undefined)).toEqual([]);
   });
 
-  it("UN constat agrégé, avertissement, qui nomme le total et les pires tickets", () => {
+  it("UN constat agrégé, ERREUR, qui nomme le total, les pires tickets et le convertisseur", () => {
     const findings = lintBoard({
       items: [sain(1), sain(2), sain(3)],
       issues: [
@@ -800,7 +800,10 @@ describe("ANCRE-LIGNE — la règle « jamais fichier:ligne » mord enfin", () =
       now: MAINTENANT,
     }).filter((f) => f.code === "ANCRE-LIGNE");
     expect(findings).toHaveLength(1);
-    expect(findings[0].severity).toBe("avertissement");
+    expect(findings[0].severity).toBe("erreur");
+    expect(findings[0].unlock).toMatch(
+      /ticket-anchor-migrate\.mjs --apply 2 1/,
+    );
     expect(findings[0].message).toMatch(
       /^3 ancre\(s\) fichier:ligne dans 2 ticket/,
     );

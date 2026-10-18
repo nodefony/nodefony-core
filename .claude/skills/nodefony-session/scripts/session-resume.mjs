@@ -297,7 +297,7 @@ if (pending) {
     say(
       `Tableau : ${errors.length} erreur(s), ${warns} avertissement(s)${errors.length ? " — à solder MAINTENANT" : ""}`,
     );
-    for (const f of errors.slice(0, 3))
+    for (const f of errors.filter((e) => e.code !== "ANCRE-LIGNE").slice(0, 3))
       say(`   [${f.code}] #${f.n} ${clip(f.message ?? "", 70)}`);
     // Les ancres `fichier:ligne` ont leur ligne : comptées parmi les
     // avertissements, elles restaient invisibles — et chaque session en payait
