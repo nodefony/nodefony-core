@@ -25,6 +25,7 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  BENCH_ADMIN_PASSWORD,
   benchDatabaseUrl,
   compare,
   countWork,
@@ -195,6 +196,15 @@ function verify(key, { breakReader = false } = {}) {
   const before = parsed.tables.filter((t) => wanted.has(t.model));
   const originalNames = before.map((t) => t.model);
   const { tables: after } = subset(parsed, def);
+  // Sans lui, un lecteur qui ne voit plus RIEN rend une section vide — zéro
+  // contrôle, donc zéro échec. Vécu : Ghost passé de 4 à 2 espaces
+  // d'indentation, 0 table lue, et « tous les contrôles passent ».
+  check(
+    `${key} — tables du sous-ensemble lues`,
+    after.length,
+    def.tables.length,
+    "le lecteur a perdu des tables : les contrôles par table seraient sautés sans bruit",
+  );
 
   for (let i = 0; i < after.length; i += 1) {
     const origin = originalNames[i];
@@ -631,6 +641,33 @@ function verifyRenamed() {
       { columns: ["id", "userId", "name", "timeZone"].map(col), indexes: [] },
     ],
   ]);
+  // Le cas vécu au run suivant : `schedule` appariée à `membership`, la table
+  // d'une AUTRE cible, qui en porte `id` et `userId`.
+  const membership = {
+    ...expected[0],
+    model: "Membership",
+    table: "membership",
+    columns: ["id", "userId", "teamId", "role"].map((column) => ({
+      prop: column,
+      column,
+      logical: "string",
+      nullable: true,
+      unique: false,
+      isId: column === "id",
+    })),
+  };
+  const prise = new Map([
+    [
+      "membership",
+      { columns: ["id", "userId", "teamId", "role"].map(col), indexes: [] },
+    ],
+  ]);
+  check(
+    "table déjà prise par une autre cible — jamais appariée",
+    String(compare([membership, ...expected], prise)[1].renamedTo),
+    "null",
+    "membership est la table d'une autre cible : elle ne peut pas être aussi schedule",
+  );
   check(
     "table de l'agent au pluriel — reconnue",
     String(compare(expected, pluriel)[0].renamedTo),
@@ -682,6 +719,28 @@ function verifyEngine() {
  * authentifiées n'étaient pas jouées — et le banc sortait en 0. Pire, aucune
  * sonde HTTP ne pesait sur la sortie, contrairement à ce qu'annonce l'aide.
  */
+/**
+ * Le mot de passe que le décor impose passe la VRAIE politique du framework.
+ *
+ * Le cas vécu : `bench-schema-admin-42` contient l'identifiant `admin` — le
+ * semis l'a refusé, aucun compte, et la session du juge restait en 401. Le
+ * contrôle appelle la politique de `@nodefony/user`, jamais une copie.
+ */
+async function verifyAdminPassword() {
+  console.log(`\n━━ mot de passe admin du décor`);
+  const { PasswordPolicy } = await import("@nodefony/user");
+  check(
+    "accepté par la politique du framework",
+    String(
+      await new PasswordPolicy().violation(BENCH_ADMIN_PASSWORD, {
+        identifier: "admin",
+      }),
+    ),
+    "null",
+    "le semis refuserait ce mot de passe : aucun compte admin, juge en 401",
+  );
+}
+
 function verifyExitCode() {
   console.log(`\n━━ code de sortie`);
   const probe = (ok, extra = {}) => ({ name: "p", ok, detail: "", ...extra });
@@ -819,6 +878,7 @@ if (!prove) verifyCountWork();
 if (!prove) verifyRenamed();
 if (!prove) verifyEngine();
 if (!prove) verifyExitCode();
+if (!prove) await verifyAdminPassword();
 const judgeExercised =
   (await verifyPostgresJudge({ prove })) &&
   (prove || (await verifyBenchDatabase()));

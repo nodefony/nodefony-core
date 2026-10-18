@@ -286,7 +286,10 @@ const DB_URL = {
  * sautées, à chaque run. Dépendre du défaut du gabarit referait le même piège au
  * premier changement de ce défaut : le décor le fixe.
  */
-const BENCH_ADMIN_PASSWORD = "bench-schema-admin-42";
+// Sans « admin » : la politique refuse un mot de passe qui contient
+// l'identifiant — vécu, le semis a refusé le premier choix et le juge est resté
+// en 401. L'autotest le confronte à la VRAIE politique (`PasswordPolicy`).
+export const BENCH_ADMIN_PASSWORD = "banc-schema-cle-42";
 
 /**
  * Env de tout ce qui s'exécute DANS l'app témoin.
@@ -357,9 +360,9 @@ export const SCHEMAS = {
   ghost: {
     format: "knex",
     repo: "TryGhost/Ghost",
-    file: "ghost/core/core/server/data/schema/schema.js",
+    file: "ghost/core/server/data/schema/schema.js",
     license: "MIT",
-    sha256: "217fcb84cc3cc574",
+    sha256: "1ad58537db42eb0a",
     /** Six tables sur quatre-vingt-neuf. */
     tables: [
       "newsletters", // maxlength partout, defaultTo, isIn
@@ -648,7 +651,14 @@ function sliceBraces(src, from) {
  */
 export function readKnex(src) {
   const tables = [];
-  for (const open of src.matchAll(/^ {4}(\w+): \{$/gmu)) {
+  // L'indentation se LIT dans la source, elle ne se suppose pas : Ghost est
+  // passé de 4/8 à 2/4 espaces, et un lecteur figé sur 4 rendait ZÉRO table —
+  // sans erreur. La table est le premier niveau sous `module.exports`, la
+  // colonne le niveau suivant (même pas).
+  const step = /^module\.exports = \{\n( +)\w+: \{$/mu.exec(src)?.[1] ?? "    ";
+  const tableRe = new RegExp(`^${step}(\\w+): \\{$`, "gmu");
+  const columnRe = new RegExp(`^${step.repeat(2)}(\\w+): \\{`, "gmu");
+  for (const open of src.matchAll(tableRe)) {
     const name = open[1];
     const body = sliceBraces(src, open.index);
     if (body === null) continue;
@@ -660,7 +670,7 @@ export function readKnex(src) {
     // regex à un niveau d'imbrication perdait `bio`, `meta_title`, `secret`… —
     // toutes celles portant `validations: {isLength: {max: 300}}`, DEUX niveaux.
     // Un compteur d'accolades ne se laisse pas surprendre par la profondeur.
-    for (const col of body.matchAll(/^ {8}(\w+): \{/gmu)) {
+    for (const col of body.matchAll(columnRe)) {
       const prop = col[1];
       const attrs = sliceBraces(body, col.index);
       if (attrs === null) continue;
@@ -1799,11 +1809,11 @@ async function judgeHttp(app, runDir, table, chain) {
  *
  * @returns `{name, got}` ou `null`.
  */
-function findRenamed(expected, actual) {
+function findRenamed(expected, actual, taken = new Set()) {
   const wanted = expected.columns.map((c) => c.column.toLowerCase());
   if (wanted.length === 0) return null;
   for (const [name, got] of actual) {
-    if (FRAMEWORK_TABLES.has(name)) continue;
+    if (FRAMEWORK_TABLES.has(name) || taken.has(name)) continue;
     const have = new Set(got.columns.map((c) => c.name.toLowerCase()));
     const hits = wanted.filter((w) => have.has(w)).length;
     if (hits / wanted.length >= 0.5) return { name, got };
@@ -1833,11 +1843,18 @@ export function exitCodeOf({ schemaOk, chain, http }) {
 
 /** Confronte le schéma attendu au schéma réellement créé. */
 export function compare(expected, actual) {
+  // Une table qui EST, sous son nom exact, celle d'une autre cible n'est pas
+  // candidate : vécu, `schedule` appariée à `membership` (id et userId communs).
+  const taken = new Set(
+    expected
+      .map((t) => t.table.toLowerCase())
+      .filter((name) => actual.has(name)),
+  );
   return expected.map((t) => {
     let got = actual.get(t.table.toLowerCase());
     let renamedTo = null;
     if (!got) {
-      const near = findRenamed(t, actual);
+      const near = findRenamed(t, actual, taken);
       if (near) {
         // La table EXISTE, sous un autre nom. On la juge quand même — sinon on
         // ne saurait rien de ses colonnes — mais on garde qu'elle est mal
