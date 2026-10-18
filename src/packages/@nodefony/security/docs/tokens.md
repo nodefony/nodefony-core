@@ -87,20 +87,20 @@ défaut » en prod.
 ## La vision Nodefony — un service propriétaire, des endpoints minces
 
 `TokenService` est **propriétaire** du store et du keystore : à `TokenService.#build()`
-(`tokenService.ts:158`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
-`tokenStore` au container (`tokenService.ts:219`) puis crée le keystore et pose `jwtKeystore`
-(`tokenService.ts:225-231`) — consommés par le `JwtAuthenticator` et les endpoints. Il arme un
+(`tokenService.ts#TokenService.#build`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
+`tokenStore` au container (`tokenService.ts#TokenService.#build`) puis crée le keystore et pose `jwtKeystore`
+(`tokenService.ts#TokenService.#build`) — consommés par le `JwtAuthenticator` et les endpoints. Il arme un
 **gc** via `GcScheduler` (timer `unref` + **jitter** de phase pour étaler les balayages entre pods,
-`tokenService.ts:233-239`).
+`tokenService.ts#TokenService.#build`).
 
 Les endpoints HTTP sont des **adaptateurs minces** portés par `@nodefony/framework`, couplés **par
 nom de service** via le contrat structurel `ITokenIssuer` — framework n'importe jamais security
-(`TokenAuthController.ts:11-22`).
+(`TokenAuthController.ts#ITokenIssuer`).
 
 Constat clé de cohérence : `iss`/`aud`/`ttl` sont dérivés **une seule fois** par
-`resolveJwtRuntime()` (`jwtRuntime.ts:30-41`) et **partagés** entre l'émetteur et le vérificateur —
+`resolveJwtRuntime()` (`jwtRuntime.ts#resolveJwtRuntime`) et **partagés** entre l'émetteur et le vérificateur —
 une divergence ferait tout rejeter. Fonction pure : les deux côtés obtiennent la même valeur sans la
-partager par référence. `issuer` omis → `"nodefony"` (`jwtRuntime.ts:31`), à surcharger en prod.
+partager par référence. `issuer` omis → `"nodefony"` (`jwtRuntime.ts#resolveJwtRuntime`), à surcharger en prod.
 
 ### Être DÉCOUVRABLE — publier ses clés (RFC 8414)
 
@@ -136,15 +136,15 @@ seulement ses signatures vérifiables. Omettre `grant_types_supported` annoncera
 ### Les endpoints d'émission sont FOURNIS
 
 Dans une app `nodefony create app`, dès que le module security est chargé avec `jwt.enabled` (défaut),
-le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.ts:161-176`) :
+le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.ts#mountTokenAuthRoutes`) :
 
 - `POST /nodefony/security/api/token` — body `{username, password, scope?}` → couple access/refresh ;
 - `POST /nodefony/security/api/token/refresh` — body `{refresh_token}` → rotation.
 
 > [!IMPORTANT]
 > Ces routes n'existent **que si** `@nodefony/security` est chargé — sinon 404, zéro surface
-> (`framework/index.ts:415`). Module chargé mais JWT désactivé : elles existent et répondent
-> `503 Token issuance unavailable` (`TokenAuthController.ts:69`). Elles sont `bypassFirewall: true` (`TokenAuthController.ts:188`) :
+> (`framework/index.ts#Framework.onKernelReady`). Module chargé mais JWT désactivé : elles existent et répondent
+> `503 Token issuance unavailable` (`TokenAuthController.ts#TokenAuthController.token`). Elles sont `bypassFirewall: true` (`TokenAuthController.ts#mountTokenAuthRoutes`) :
 > elles SONT le mécanisme d'émission — protégées, obtenir un token exigerait d'être déjà
 > authentifié (deadlock). Le JWT part en **réponse JSON** (Bearer), jamais en cookie ni en URL.
 
@@ -227,46 +227,46 @@ curl -s -H 'Content-Type: application/json' \
 # 4) Rejouer l'ANCIEN refresh → 401 {"error":"invalid_grant"} + famille coupée
 ```
 
-Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController.ts:108-120`) :
+Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController.ts#TokenAuthController.#renderAuthError`) :
 401 message uniforme `invalid_grant` (anti-énumération), 429 avec `Retry-After` du throttler NIST.
 Émission indisponible (JWT désactivé, store absent) → 503 `isEnabled()`
-(`TokenAuthController.ts:67-69`).
+(`TokenAuthController.ts#ITokenIssuer.isEnabled`).
 
 ## 🏗️ Architecture interne — la vie d'un couple access/refresh
 
 ### Émission (grant M2M/CLI)
 
-`issueForCredentials()` (`tokenService.ts:387`) vérifie l'identifiant/mot de passe via le
+`issueForCredentials()` (`tokenService.ts#TokenService.issueForCredentials`) vérifie l'identifiant/mot de passe via le
 service `users`, avec le **throttling NIST partagé** — `ThrottledError` avant tout hachage
-(`tokenService.ts:398`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
-par `#auditGrant()` (`tokenService.ts:414-426`). Puis `issueTokens()` (`tokenService.ts:599`)
+(`tokenService.ts#TokenService.issueForCredentials`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
+par `#auditGrant()` (`tokenService.ts#TokenService.#auditGrant`). Puis `issueTokens()` (`tokenService.ts#TokenService.issueTokens`)
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
-  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:754-775`) ;
+  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts#TokenService.#signAccess`) ;
 - un **refresh token** : secret opaque haute entropie `nfr_<32 octets base64url>`, **stocké haché**
   `sha256` (le clair n'existe qu'en réponse, jamais au repos) — `#buildRefresh()`
-  (`tokenService.ts:726-761`).
+  (`tokenService.ts#TokenService.#buildRefresh`).
 
-La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:50-58`). Tout succès est audité
-`token.issued` via `recordAudit` avec le `tokenId` corrélable (`tokenService.ts:357-363`).
+La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts#ITokenResponse`). Tout succès est audité
+`token.issued` via `recordAudit` avec le `tokenId` corrélable (`tokenService.ts#TokenService.runGc`).
 
 ### Rotation & détection de rejeu (RFC 9700 §4.14)
 
-`refresh()` (`tokenService.ts:664`) est le cœur défensif, dans l'ordre :
+`refresh()` (`tokenService.ts#TokenService.refresh`) est le cœur défensif, dans l'ordre :
 
-1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:672`).
+1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts#TokenService.refresh`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
-   famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:678-693`).
-3. Expiration `expiresAt` vérifiée (`tokenService.ts:697`).
+   famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts#TokenService.refresh`).
+3. Expiration `expiresAt` vérifiée (`tokenService.ts#TokenService.refresh`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:871`).
+   `#resolveUserForRefresh()` (`tokenService.ts#TokenService.#resolveUserForRefresh`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus — et ils
    sont REJUGÉS sur les rôles du compte relu (`grantableScopes`, règle d'administration) : un rôle
-   retiré retire son scope au prochain renouvellement (`tokenService.ts:705`).
+   retiré retire son scope au prochain renouvellement (`tokenService.ts#TokenService.#grantableScopes`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
-   `"rotated"` (`tokenService.ts:739-741`). Si `rotateRefresh` est désactivé, l'access est réémis
-   et le refresh courant reste valide (`tokenService.ts:725`).
+   `"rotated"` (`tokenService.ts#TokenService.refresh`). Si `rotateRefresh` est désactivé, l'access est réémis
+   et le refresh courant reste valide (`tokenService.ts#TokenService.refresh`).
 
 ### Mise en situation — ton refresh token a été volé
 
@@ -286,24 +286,24 @@ la victime est déconnectée (signal visible) au lieu d'un vol silencieux indéf
 
 ## 🔐 Le keystore Ed25519 — la clé ne fuit pas, pas de secret « par défaut » en prod
 
-`JwtKeystore.#load()` résout la source de clé par **priorité** (`JwtKeystore.ts:219`), pensée
+`JwtKeystore.#load()` résout la source de clé par **priorité** (`JwtKeystore.ts#JwtKeystore.#load`), pensée
 pour ne jamais auto-générer une clé en clair silencieusement en prod :
 
 1. **env** — `keySetJson` (`NF_JWT_KEYSET` dans une application générée) : la MÊME clé pour tous
-   les process qui servent l'application (`JwtKeystore.ts:222`).
+   les process qui servent l'application (`JwtKeystore.ts#JwtKeystore.#load`).
 2. **fichier** — `dir/keyset.json`, généré si absent, en mode 600, par une création **exclusive**
-   (`createSecretExclusive`, `secretFile.ts:188`) : quand plusieurs workers de `nodefony cluster`
-   démarrent ensemble, un seul crée la clé et les autres relisent la sienne (`JwtKeystore.ts:242`).
+   (`createSecretExclusive`, `secretFile.ts#createSecretExclusive`) : quand plusieurs workers de `nodefony cluster`
+   démarrent ensemble, un seul crée la clé et les autres relisent la sienne (`JwtKeystore.ts#JwtKeystore.#load`).
    Source de développement, ou d'un serveur unique à disque persistant.
-3. **mémoire** — aucune source → clé **éphémère**, propre au process (`JwtKeystore.ts:263`). En
+3. **mémoire** — aucune source → clé **éphémère**, propre au process (`JwtKeystore.ts#JwtKeystore.#load`). En
    développement : un WARNING au premier jeton. En production, un process qui sert **refuse de
    démarrer** (§ suivant).
 
-Le JWKS servi par `getPublicJWKS()` est **public** — `JwtKeystore.ts:209`.
+Le JWKS servi par `getPublicJWKS()` est **public** — `JwtKeystore.ts#JwtKeystore.getPublicJWKS`.
 La composante privée `d` en est retirée à l'import, par liste BLANCHE de paramètres
-(`#importKeyset()`, `JwtKeystore.ts:275`, RFC 8037/7517).
-C'est ce JWKS qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:243`),
-jamais une clé venue du jeton. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts:215`).
+(`#importKeyset()`, `JwtKeystore.ts#JwtKeystore.#importKeyset`, RFC 8037/7517).
+C'est ce JWKS qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts#JwtAuthenticator.#ensureGetKey`),
+jamais une clé venue du jeton. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts#JwtKeystore.#ensureLoaded`).
 
 ### Plusieurs pods ou workers — UNE clé pour tous
 
@@ -312,10 +312,10 @@ les jetons l'un de l'autre : derrière un répartiteur, l'utilisateur est décon
 et tout redémarrage invalide les jetons en vol.
 
 **En production, un process qui SERT sans source partagée refuse de démarrer**
-(`#requireSharedSigningKey`, `tokenService.ts:123`), avec le motif et les trois issues dans le
+(`#requireSharedSigningKey`, `tokenService.ts#TokenService.#requireSharedSigningKey`), avec le motif et les trois issues dans le
 journal. Une commande de console (`orm:migrate`, `security:user:add`) n'est pas concernée : elle
 ne signe aucun jeton. Sous `nodefony cluster`, un worker refusé ne se relance pas — le master
-arrête le cluster et sort en **78** (`ClusterManager.ts:212`), le code d'une faute de configuration.
+arrête le cluster et sort en **78** (`ClusterManager.ts#ClusterManager.#onExit`), le code d'une faute de configuration.
 
 Le déploiement, de bout en bout :
 
@@ -359,22 +359,22 @@ jwt: {
 ### Le contrat et l'enregistrement
 
 Le `tokenStore` héberge **trois structures** : les records (refresh + PAT), la denylist `jti` et le
-seuil `invalidBefore` par porteur (`ITokenStore.ts:11-15`). Les backends s'enregistrent par
-fabrique — `registerTokenStore()` (`tokenStoreRegistry.ts:41-46`) : les adapters lourds importent
+seuil `invalidBefore` par porteur (`ITokenStore.ts`). Les backends s'enregistrent par
+fabrique — `registerTokenStore()` (`tokenStoreRegistry.ts#registerTokenStore`) : les adapters lourds importent
 `import type { ITokenStore }` (effacé à la compilation), zéro couplage runtime.
 
-Sa résolution au boot (`tokenService.ts:161-233`) suit la doctrine `store:"auto"` du framework :
+Sa résolution au boot (`tokenService.ts#TokenService.#build`) suit la doctrine `store:"auto"` du framework :
 
 - `auto` (défaut) → suit l'infra database déclarée via `resolveAutoStore` — **borné aux backends
-  réellement enregistrés**, repli memory **annoncé** (`tokenService.ts:185-196`) ;
+  réellement enregistrés**, repli memory **annoncé** (`tokenService.ts#TokenService.#build`) ;
 - store explicite **inconnu** → en prod, **boot avorté** (fail-loud) ; en dev, brique désactivée et
-  annoncée avec la liste `listTokenStores()` (`tokenService.ts:198-210`) — jamais de fallback
+  annoncée avec la liste `listTokenStores()` (`tokenService.ts#TokenService.#build`) — jamais de fallback
   memory silencieux pour du durable ;
 - store `memory` **en prod** → `WARNING` nommant l'impact : denylist/refresh/clés API per-pod et
-  volatils, révocation non partagée (`tokenService.ts:213-221`).
+  volatils, révocation non partagée (`tokenService.ts#TokenService.#build`).
 
 La décision (configuré → résolu, raison) est publiée au kernel par `registerStoreResolution()`
-(`tokenService.ts:223-233`) — visible dans Studio.
+(`tokenService.ts#TokenService.#build`) — visible dans Studio.
 
 ### Mise en situation — quel store pour quelle app ?
 
@@ -390,143 +390,143 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 
 ### `memory` — la référence 0 dépendance
 
-- Builtin, enregistré à l'import du module via `registerTokenStore` (`tokenStoreRegistry.ts:63-68`).
+- Builtin, enregistré à l'import du module via `registerTokenStore` (`tokenStoreRegistry.ts#registerTokenStore`).
 - `listPage` : tri `createdAt` DESC + tiebreaker `id`, déterministe pour l'offset — parité SQL
-  (`MemoryTokenStore.ts:165-185`).
+  (`MemoryTokenStore.ts#MemoryTokenStore.listPage`).
 - Denylist bornée : purge **amortie** tous les 256 ajouts — `#maybeSweep()`
-  (`MemoryTokenStore.ts:393`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
+  (`MemoryTokenStore.ts#MemoryTokenStore.#maybeSweep`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
 - `snapshot()`/`restore()` sérialisables — base d'une persistance fichier, index reconstruits
-  (`MemoryTokenStore.ts:324-354`).
+  (`MemoryTokenStore.ts#MemoryTokenStore.restore`).
 - Volatil, par-process : dev/tests. Pilote le banc de contrat commun.
 
 ### `drizzle` — SQL, le défaut durable
 
-- Enregistré par le module drizzle (`drizzle/nodefony/registerStores.ts:261`).
+- Enregistré par le module drizzle (`drizzle/nodefony/registerStores.ts#registerDrizzleFrameworkStores`).
 - Élu par `store:"auto"` dès qu'une infra database SQL est déclarée ; sinon sqlite local si drizzle
-  est chargé (`config.ts:452-457`).
+  est chargé (`config.ts#jwtSchema`).
 - Pagination **offset + total** (helper `paginate()` d'orm-core) ; e2e sur PostgreSQL et MySQL réels.
 
 ### `mongoose` — MongoDB
 
-- Enregistré par le module mongoose (`mongoose/nodefony/registerStores.ts:170`).
-- Pagination **offset + total** via `listPage` (`MongooseTokenStore.ts:236-246`).
-- Purge par `gc()` explicite sur `expiresAt` (`MongooseTokenStore.ts:170`).
+- Enregistré par le module mongoose (`mongoose/nodefony/registerStores.ts#registerMongooseFrameworkStores`).
+- Pagination **offset + total** via `listPage` (`MongooseTokenStore.ts#MongooseTokenStore.listPage`).
+- Purge par `gc()` explicite sur `expiresAt` (`MongooseTokenStore.ts#MongooseTokenStore.#toRecord`).
 
 ### `redis` — cluster, TTL natif
 
-- Enregistré par le module redis (`redis/nodefony/registerStores.ts:75`).
-- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts:94`) — l'expiration ne
+- Enregistré par le module redis (`redis/nodefony/registerStores.ts#registerRedisFrameworkStores`).
+- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts#RedisClientLike.expire`) — l'expiration ne
   dépend pas du gc.
 - Listing par `SCAN` : curseur opaque `skip:scanCursor`, `decodeCursor()`
-  (`RedisTokenStore.ts:428`) — sans ordre global ni total, capacité réduite **assumée**.
+  (`RedisTokenStore.ts#RedisTokenStore.listAll`) — sans ordre global ni total, capacité réduite **assumée**.
 - `countTokens()` renvoie `-1` : un comptage exact exigerait un SCAN complet O(N), refusé
-  (`RedisTokenStore.ts:529`).
+  (`RedisTokenStore.ts#RedisTokenStore.countTokens`).
 
 ### Le record — une seule table pour PAT et refresh
 
-`IAccessTokenRecord` (`ITokenStore.ts:69`) est **single-table** : un même schéma porte PAT et
-refresh, champs non pertinents à `null`, horodatages epoch ms (`ITokenStore.ts:60-64`). Deux
+`IAccessTokenRecord` (`ITokenStore.ts#IAccessTokenRecord`) est **single-table** : un même schéma porte PAT et
+refresh, champs non pertinents à `null`, horodatages epoch ms (`ITokenStore.ts#IAccessTokenRecord`). Deux
 constats de design :
 
 - `subjectId` est une **référence logique souple, PAS une FK SQL** : porteur polymorphe
   (user/service), store multi-backend, découplage des modules — intégrité assurée à l'usage
-  (`ITokenStore.ts:80-95`) ;
+  (`ITokenStore.ts#IAccessTokenRecord.subjectId`) ;
 - slots prêts sans migration : `resources` (permissions fine-grained façon GitHub) et `cnf`
-  (sender-constrained DPoP/mTLS) (`ITokenStore.ts:101-119`).
+  (sender-constrained DPoP/mTLS) (`ITokenStore.ts#IAccessTokenRecord.cnf`).
 
 Les colonnes par dialecte vivent dans la doc de chaque adapter (règle anti-triple-vérité).
 
 ### Lister pour l'admin — pagination native
 
-- `listPage()` ne matérialise **jamais** plus d'une page (`ITokenStore.ts:233`) — capacité par
+- `listPage()` ne matérialise **jamais** plus d'une page (`ITokenStore.ts#ITokenStore.listPage`) — capacité par
   backend : **offset + total** (SQL/Mongo/mémoire) ou **curseur** (`nextCursor`, Redis).
-- `countTokens()` donne le `total` ; Redis répond `-1` (`ITokenStore.ts:238`).
-- Filtres portables `ITokenListQuery` : `subjectId`, `kind`, `revoked` (`ITokenStore.ts:154-161`) —
-  prédicat partagé `matchesTokenQuery()` (`MemoryTokenStore.ts:11-26`).
+- `countTokens()` donne le `total` ; Redis répond `-1` (`ITokenStore.ts#ITokenStore.countTokens`).
+- Filtres portables `ITokenListQuery` : `subjectId`, `kind`, `revoked` (`ITokenStore.ts#ITokenListQuery`) —
+  prédicat partagé `matchesTokenQuery()` (`MemoryTokenStore.ts#matchesTokenQuery`).
 - `listAll()` reste réservé au **dump d'incident** cross-porteur, cold-path admin
-  (`ITokenStore.ts:222`).
+  (`ITokenStore.ts#ITokenStore.listAll`).
 - Consommateur type : le data plane des clés API — `ApiKeyService.listPagePat()`
-  (`apiKeys.ts:236`), jamais un listAll matérialisé.
+  (`apiKeys.ts#ApiKeyService.listPagePat`), jamais un listAll matérialisé.
 
 ### Révoquer — trois portées
 
-- **Un access** avant son `exp` : denylist `denyJti()`/`isJtiDenied()` (`ITokenStore.ts:251`).
+- **Un access** avant son `exp` : denylist `denyJti()`/`isJtiDenied()` (`ITokenStore.ts#ITokenStore.isJtiDenied`).
 - **Un refresh/PAT** : `revoke()` idempotent, `revokeFamily()` pour la chaîne de rotation
-  (`ITokenStore.ts:242`).
+  (`ITokenStore.ts#ITokenStore.revokeFamily`).
 - **Tout un porteur** (logout global, ban) : seuil `revokeAllForSubject()` — tout access dont
-  `iat < invalidBefore` est rejeté (`ITokenStore.ts:259-263`) ; le seuil est **monotone**, deux
-  logouts successifs ne le reculent pas (`MemoryTokenStore.ts:262-267`).
+  `iat < invalidBefore` est rejeté (`ITokenStore.ts#ITokenStore`) ; le seuil est **monotone**, deux
+  logouts successifs ne le reculent pas (`MemoryTokenStore.ts#MemoryTokenStore.revokeAllForSubject`).
 
 ### La maintenance (gc)
 
 Le `gc()` du store purge la `denylist` expirée, les records à terme, les PAT révoqués au-delà de
-la rétention (`ITokenStore.ts:274-280`). Orchestré par le `GcScheduler` du service ; `runGc()` reste public pour
-un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts:338`).
+la rétention (`ITokenStore.ts#ITokenStore.gc`). Orchestré par le `GcScheduler` du service ; `runGc()` reste public pour
+un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts#TokenService.getPublicJWKS`).
 
 > [!TIP]
 > Un refresh révoqué **par rotation** n'est PAS purgé tout de suite : il est conservé jusqu'à son
 > `expiresAt` — c'est la **fenêtre de détection de rejeu** — puis tombe au gc, `#isPurgeable()`
-> (`MemoryTokenStore.ts:301-310`). Un store **local** (memory) est par-process : seul SON process
+> (`MemoryTokenStore.ts#MemoryTokenStore.#isPurgeable`). Un store **local** (memory) est par-process : seul SON process
 > peut le purger → ne déléguez le gc au cron QUE pour un store partagé.
 
 ## ⚙️ Configuration
 
-Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `tokenStoreSchema`
-(`config.ts:482-514`), défauts inclus.
+Tables dérivées du schéma Zod — `jwtSchema` (`config.ts#jwtSchema`) et `tokenStoreSchema`
+(`config.ts#tokenStoreSchema`), défauts inclus.
 
 ### `jwt.*`
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
 | --- | --- | --- | --- |
-| `enabled` | boolean | `true` | Active signature + refresh (`config.ts:375`) |
-| `alg` | `EdDSA` \| `RS256` | `EdDSA` | `RS256` = slot non câblé (`jwtRuntime.ts:21`) |
-| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:420`) |
-| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:425`) |
-| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:430`) |
+| `enabled` | boolean | `true` | Active signature + refresh (`config.ts#rateLimitSchema`) |
+| `alg` | `EdDSA` \| `RS256` | `EdDSA` | `RS256` = slot non câblé (`jwtRuntime.ts#IJwtRuntime.alg`) |
+| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts#jwtSchema`) |
+| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts#jwtSchema`) |
+| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts#jwtSchema`) |
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
-| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:446`) |
+| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts#jwtSchema`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
-| `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts:452`) |
-| `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600, création exclusive — dev, ou serveur unique à disque persistant (`config.ts:434`) |
+| `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts#jwtSchema`) |
+| `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600, création exclusive — dev, ou serveur unique à disque persistant (`config.ts#jwtSchema`) |
 
 ### `tokenStore.*`
 
-| Option                 | Type       | Défaut   | Effet                                                                                 |
-| ---------------------- | ---------- | -------- | ------------------------------------------------------------------------------------- |
-| `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:452-457`)    |
-| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:501`) |
-| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:509`)              |
-| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:515`)              |
+| Option                 | Type       | Défaut   | Effet                                                                                              |
+| ---------------------- | ---------- | -------- | -------------------------------------------------------------------------------------------------- |
+| `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts#jwtSchema`)               |
+| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts#tokenStoreSchema`) |
+| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts#tokenStoreSchema`)              |
+| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts#tokenStoreSchema`)              |
 
 ## 📜 Normes appliquées
 
-| Domaine                          | Norme           | Ancrage                                                 |
-| -------------------------------- | --------------- | ------------------------------------------------------- |
-| Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:50-58`)              |
-| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:664`)                     |
-| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:754-775`)             |
-| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:754-775`)             |
-| Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:275`)                |
-| Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts:104-105`)         |
-| 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:111-118`) |
-| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts:433`)  |
+| Domaine                          | Norme           | Ancrage                                                                              |
+| -------------------------------- | --------------- | ------------------------------------------------------------------------------------ |
+| Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts#ITokenResponse`)                                  |
+| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts#TokenService.refresh`)                                 |
+| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts#TokenService.#signAccess`)                         |
+| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts#TokenService.#signAccess`)                         |
+| Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts#JwtKeystore.#importKeyset`)                       |
+| Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts#IAccessTokenRecord.audience`)                  |
+| 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts#TokenAuthController.#renderAuthError`) |
+| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts#TokenService.issueForCredentials`)  |
 
 ## ⚡ Performance & mémoire
 
-- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:845`)
+- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts#TokenService.#ensureJose`)
   — le boot ne paie rien si le JWT n'est jamais sollicité ; keystore mémoïsé pareil.
 - **Rien sur le hot path requête** : émission et rotation sont des endpoints cold-path ; la
   vérification (hot path) vit chez le `JwtAuthenticator`.
 - **Timers civilisés** : `GcScheduler` `unref` (n'empêche pas l'arrêt) + jitter anti-balayages
-  simultanés (`tokenService.ts:233-239`) ; denylist mémoire bornée par purge amortie
-  (`MemoryTokenStore.ts:331-341`).
-- **Jamais N en RAM** : `listPage()` borne toute lecture admin à une page (`ITokenStore.ts:233`).
+  simultanés (`tokenService.ts#TokenService.#build`) ; denylist mémoire bornée par purge amortie
+  (`MemoryTokenStore.ts#MemoryTokenStore.restore`).
+- **Jamais N en RAM** : `listPage()` borne toute lecture admin à une page (`ITokenStore.ts#ITokenStore.listPage`).
 
 ## 📡 Observabilité — Studio
 
 - **Écran Stores** (`/nodefony/stores`) : la résolution du store de jetons (configuré → résolu +
-  raison) publiée par `registerStoreResolution()` (`tokenService.ts:223-233`).
+  raison) publiée par `registerStoreResolution()` (`tokenService.ts#TokenService.#build`).
 - **Écran Audit** (`/nodefony/audit`) : événements `token.issued`, `token.reuse_detected` (signal d'attaque),
   `login.failure`/`login.throttled` du grant — corrélables par `tokenId`.
 - **Écran ApiKeys** : le même store côté PAT, listing paginé serveur.

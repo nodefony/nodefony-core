@@ -72,8 +72,8 @@ qu'on imite.
 C'est une différence de nature. Un agent — ou un développeur pressé — qui imite
 un fichier existant reproduit ce que cet exemple avait de particulier, y compris
 ce qui a vieilli. Un appel, lui, part de la spec courante : `getScaffoldSpec()`
-(`spec.ts:1201`) décrit les types, leurs questions et leurs valeurs permises, et
-`resolveAnswers()` (`engine.ts:706`) refuse tout ce qui sort de cette
+(`spec.ts#getScaffoldSpec`) décrit les types, leurs questions et leurs valeurs permises, et
+`resolveAnswers()` (`engine.ts#resolveAnswers`) refuse tout ce qui sort de cette
 description. Le générateur peut donc dire ce qu'il attend, et l'appelant n'a rien
 à deviner.
 
@@ -81,8 +81,8 @@ Le second parti pris est qu'**un refus ne doit rien coûter**. Un scaffold est u
 suite d'étapes dont plusieurs peuvent échouer tard : le nom de classe est déjà
 pris, l'`index.ts` n'a pas de décorateur où insérer, un gabarit est cassé. Toutes
 les écritures passent donc par une transaction (`ScaffoldWriter`,
-`writer.ts:122`), et seul le scaffold racine la verse sur le disque
-(`commit()`, `writer.ts:263`). Refuser redevient un non-événement.
+`writer.ts#ScaffoldWriter`), et seul le scaffold racine la verse sur le disque
+(`commit()`, `writer.ts#ScaffoldWriter.commit`). Refuser redevient un non-événement.
 
 ## Démarrage rapide
 
@@ -255,7 +255,7 @@ npx nodefony create entity Article title:string
 ```
 
 La garantie tient à la transaction, pas à la position des vérifications dans le
-code : `runScaffold()` (`engine.ts:1809`) ouvre la transaction, chaque étape y
+code : `runScaffold()` (`engine.ts#runScaffold`) ouvre la transaction, chaque étape y
 écrit, et le versement n'a lieu qu'après la dernière. Une garde ajoutée demain
 est automatiquement sûre, où qu'elle soit placée.
 
@@ -294,7 +294,7 @@ le drapeau est la retouche de l'appel.
 > `resolveAnswers()` ne conserve que les clés déclarées : un `"prest"` écrit à la
 > place de `"preset"` produirait un projet différent de celui demandé, sans un
 > mot. Une personne relit le résultat ; un appelant automatique, non
-> (`readAnswersJson()`, `create.ts:471`).
+> (`readAnswersJson()`, `create.ts#readAnswersJson`).
 
 Combinés, ces trois drapeaux forment une boucle sûre pour un agent : se décrire
 (`--describe-json`), proposer (`--answers-json … --dry-run`), puis exécuter.
@@ -305,7 +305,7 @@ L'écran « Créer » de l'administration web (`/nodefony/create`) passe par le 
 n'existe pas de seconde implémentation qui pourrait dériver. Il sert le
 formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 **préview** du plan avant d'exécuter (`preview()`,
-`ScaffoldService.ts:364`), puis streame la progression du travail — écriture,
+`ScaffoldService.ts#ScaffoldService.preview`), puis streame la progression du travail — écriture,
 installation des dépendances, construction — sur un canal temps réel. Les étapes
 partent par le gestionnaire de paquets de l'application (npm, pnpm, yarn ou bun, lu
 à son fichier de verrou), comme en ligne de commande.

@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **0/1** recommandé (SHOULD) · 🏷️ `v3.1.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.1.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | --- | --- |
 | Version | `3.1.0` |
 | Famille | Développer le framework |
-| Corps | 502 lignes |
-| Coût d'activation | ~9 582 tokens (le corps est chargé à l'invocation) |
+| Corps | 486 lignes |
+| Coût d'activation | ~9 333 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 23 |
+| Scripts | 24 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -87,13 +87,14 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--all` `--apply` `--json` `--prouve` `--show-toplevel` | — |
-| `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre qui a DÉRIVÉ loin de la déclaration qu'elle prouve, et se taire sur une ancre juste — posée sur la déclaration, dans son TSDoc, ou sur un site d'usage. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | — | — |
+| `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--all` `--apply` `--json` `--lines` `--prouve` `--show-toplevel` | — |
+| `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre qui a DÉRIVÉ loin de la déclaration qu'elle prouve, et se taire sur une ancre juste — posée sur la déclaration, dans son TSDoc, ou sur un site d'usage. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | `--lines` | — |
 | `scripts/anchor-context.mjs` | Règles de CONTEXTE d'une ancre, partagées par anchor-check (qui juge) et anchor-fix (qui recale). Écrites deux fois, elles divergeaient : le juge découpait une ligne là où le réparateur ne la découpait pas, et recalait une ancre juste sur le symbole de sa voisine. | — | — |
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. Entrée : la sortie d'anchor-check.mjs (stdin). Sortie : édite les .md en place. Règle : on ne déplace une ancre que si UNE seule ligne de définition plausible est trouvée pour les symboles cités — sinon on laisse et on le signale. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
-| `scripts/anchor-fix.selftest.mjs` | Éprouve `anchor-fix.mjs` sur un dépôt JETABLE : chaque ancre SUSPECTE doit être recalée sur la déclaration du symbole qu'ELLE prouve — jamais sur celui d'une ancre voisine. Un outil qui corrige qu'on n'a jamais vu se tromper n'est pas un outil, c'est un pari. | `--apply` | — |
+| `scripts/anchor-fix.selftest.mjs` | Éprouve `anchor-fix.mjs` sur un dépôt JETABLE : chaque ancre SUSPECTE doit être recalée sur la déclaration du symbole qu'ELLE prouve — jamais sur celui d'une ancre voisine. Un outil qui corrige qu'on n'a jamais vu se tromper n'est pas un outil, c'est un pari. | `--apply` `--lines` | — |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
-| `scripts/anchor-migrate.mjs` | anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`). | `--json` `--report` `--show-toplevel` | — |
+| `scripts/anchor-migrate.mjs` | anchor-migrate.mjs — convertit les ancres `fichier:ligne` d'une page en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`). | `--apply` `--json` `--report` `--show-toplevel` | — |
+| `scripts/anchor-migrate.selftest.mjs` | Éprouve `anchor-migrate.mjs --apply` sur un dépôt JETABLE : chaque règle de conversion a son cas, la page convertie doit être EXACTEMENT celle attendue, puis passer le gate (`anchor-check` sans option, qui refuse toute ligne). | `--apply` `--report` | — |
 | `scripts/anchor-pair-check.mjs` | anchor-pair-check.mjs — après un refactor, confronte chaque ancre `<Fichier>.ts:N` RECALÉE dans l'arbre de travail : le texte de la ligne visée AVANT (à la révision de base) doit être identique au texte de la ligne visée APRÈS (dans l'arbre). Déterministe, exhaustif sur le diff. | `--base` | — |
 | `scripts/anchor-remap.mjs` | Recale les ancres `fichier.ts:N` d'une page de doc par le GIT DIFF, pas par symbole : une ancre juste à la révision `--base` est décalée d'exactement le nombre de lignes que le code a gagné ou perdu AVANT elle. Déterministe — là où `anchor-fix.mjs` doit deviner une ligne à partir des mots qui l'entourent (un en-tête `Retry-After`, un `try`, un littéral ne se retrouvent pas). | `--all` `--apply` `--base` `--name-status` `--no-ext-diff` `--quiet` | `APPLY` `BASE` |
 | `scripts/anchor-remap.selftest.mjs` | Éprouve `anchor-remap.mjs` sur un dépôt JETABLE : une ancre juste à la base doit glisser d'EXACTEMENT ce que le code a gagné avant elle — ni plus, ni deux fois. | `--apply` `--base` | — |
@@ -118,7 +119,8 @@ Usage : node anchor-check.mjs [--all|--json] <page.md> [...]   (exit 1 si FILE_N
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-fix.selftest.mjs
 Usage : node anchor-inpage.mjs <page.md ...>
-Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--report <f.json>]
+Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--apply] [--report <f.json>]
+`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-migrate.selftest.mjs
 node .claude/skills/nodefony-documentation/scripts/anchor-pair-check.mjs src/nodefony/src/kernel/Kernel.ts
 node anchor-check.mjs --all <pages…> | node anchor-remap.mjs <repo> --base <rév> [--apply]
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-remap.selftest.mjs
@@ -167,7 +169,7 @@ node .claude/skills/nodefony-documentation/scripts/anchor-pair-check.mjs src/nod
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 502 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 486 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

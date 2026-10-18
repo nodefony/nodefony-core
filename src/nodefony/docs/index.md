@@ -177,25 +177,25 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 Quatre propriétés, toutes vérifiables dans le code — c'est ce qui distingue le cœur d'une simple
 boîte à outils.
 
-**Tout composant partage la même classe de base.** `Service` (`Service.ts:43`) porte à la fois le
+**Tout composant partage la même classe de base.** `Service` (`Service.ts#Service`) porte à la fois le
 conteneur d'injection, le bus d'événements et l'accès au journal. Conséquence pratique : un module,
 un contrôleur et un adaptateur de base de données s'observent, se configurent et se nettoient de la
 même façon. Il n'y a pas de composant « à part » dans une application Nodefony.
 
-**Le kernel possède les modules, jamais l'inverse.** `Kernel.boot()` (`Kernel.ts:1229`) charge le
+**Le kernel possède les modules, jamais l'inverse.** `Kernel.boot()` (`Kernel.ts#Kernel.boot`) charge le
 manifeste, construit les modules, puis fait passer tout le monde par les mêmes phases. Un `Module`
-(`Module.ts:60`) déclare s'il est **critique** — un module non critique dont le démarrage échoue
+(`Module.ts#Module`) déclare s'il est **critique** — un module non critique dont le démarrage échoue
 n'emporte pas le processus, il annonce sa dégradation et le reste continue. Les commandes en ligne
-empruntent le même chemin par `CliKernel` (`CliKernel.ts:84`).
+empruntent le même chemin par `CliKernel` (`CliKernel.ts#CliKernel`).
 
-**Le journal est structuré, borné, et il part où tu veux.** `Syslog` (`Syslog.ts:628`) écrit des
+**Le journal est structuré, borné, et il part où tu veux.** `Syslog` (`Syslog.ts#Syslog.errorTotal`) écrit des
 enregistrements typés plutôt que des chaînes, et les conserve dans un tampon circulaire
-(`CircularBuffer`, `CircularBuffer.ts:13`) : les dernières entrées restent lisibles à chaud, sans que la
+(`CircularBuffer`, `CircularBuffer.ts#CircularBuffer`) : les dernières entrées restent lisibles à chaud, sans que la
 mémoire enfle avec le temps de fonctionnement. Les transports décident ensuite de la destination —
 sortie standard, fichier, agrégateur.
 
 **Le contexte d'une requête voyage sans être passé en paramètre.** `RequestContext`
-(`RequestContext.ts:115`) s'appuie sur le stockage asynchrone de Node : un service appelé profondément
+(`RequestContext.ts#RequestContext`) s'appuie sur le stockage asynchrone de Node : un service appelé profondément
 peut lire l'identifiant de requête ou l'utilisateur courant sans que personne n'ait threadé
 d'argument. C'est ce qui rend les journaux corrélables et l'identité disponible partout.
 

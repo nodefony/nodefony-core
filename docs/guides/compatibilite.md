@@ -201,7 +201,7 @@ la carte de l'aperçu, jamais figés ici.
 <!-- prettier-ignore -->
 | Type | Où | Ce qui est prouvé |
 | --- | --- | --- |
-| Unitaires (surface) | `nodefony` `packageDeps.test.ts:38`, `clientSubpathSurface.types.test.ts:164` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe et publie — la règle elle-même vit dans `checkPackageDeps()` (`packageDeps.ts:281`) |
+| Unitaires (surface) | `nodefony` `packageDeps.test.ts#analyse`, `clientSubpathSurface.types.test.ts#_typeOnly` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe et publie — la règle elle-même vit dans `checkPackageDeps()` (`packageDeps.ts#checkPackageDeps`) |
 | Unitaires (client) | `nodefony` `clientSurfaceExercised.test.ts` | les sous-chemins navigateur sont réellement exercés, pas seulement déclarés |
 | Typage (cible navigateur) | `nodefony` `tsconfigClient.json` (`lib` ES2022), via `npm run typecheck` | aucune API postérieure à ES2022 n'entre dans le code client |
 | Unitaires (client) | `nodefony` `randomUuid.test.ts` | les identifiants client tiennent hors contexte sécurisé |

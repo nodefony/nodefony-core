@@ -47,8 +47,8 @@ compte comme un succès. Une passe verte peut donc ne rien avoir prouvé.
 
 Toute cette page découle de là. Le dépôt ne se contente pas de lancer des tests : il **déclare le
 décor attendu** en un seul endroit (`scripts/test/vitest/gates.ts`) — une cible par base, `PG_GATE`
-(`scripts/test/vitest/gates.ts:290`) et `MYSQL_GATE` (`scripts/test/vitest/gates.ts:307`), plus la liste des interrupteurs
-optionnels `OPT_IN_SWITCHES` (`scripts/test/vitest/gates.ts:137`) —, vérifie que chaque décor déclaré a
+(`scripts/test/vitest/gates.ts#PG_GATE`) et `MYSQL_GATE` (`scripts/test/vitest/gates.ts#MYSQL_GATE`), plus la liste des interrupteurs
+optionnels `OPT_IN_SWITCHES` (`scripts/test/vitest/gates.ts#OPT_IN_SWITCHES`) —, vérifie que chaque décor déclaré a
 réellement servi, et **fait échouer la passe** en intégration continue quand une cible annoncée
 n'a pas été exercée. Une absence voulue s'énonce ; elle ne s'oublie pas.
 
@@ -447,14 +447,14 @@ seuil serait une décision de projet, pas un effet de bord d'un outil de mesure.
 
 ## 📖 Lexique
 
-| Terme                | Ce que c'est                                                                                                                                        |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Forge**            | L'intégration continue — ici GitHub Actions. Ce qui rejoue les contrôles à chaque poussée, sur une machine qui n'est pas la vôtre.                  |
-| **Décor**            | Ce qu'une suite exige pour s'exécuter vraiment : une base joignable, un cache, une variable posée. Déclaré dans `scripts/test/vitest/gates.ts:101`. |
-| **Gate**             | Un contrôle bloquant : tant qu'il est rouge, la chaîne s'arrête.                                                                                    |
-| **Saut** (_skip_)    | Un test non exécuté faute de décor. Il ressort **vert** dans le rapport — c'est tout le problème que cette page traite.                             |
-| **Preuve** (`proof`) | La trace qu'un décor a réellement servi, et pas seulement été déclaré.                                                                              |
-| **Absence énoncée**  | `NF_GATES_ALLOW` : dire explicitement qu'une cible ne sera pas exercée. Ce qui distingue un choix d'un oubli.                                       |
+| Terme                | Ce que c'est                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Forge**            | L'intégration continue — ici GitHub Actions. Ce qui rejoue les contrôles à chaque poussée, sur une machine qui n'est pas la vôtre.                      |
+| **Décor**            | Ce qu'une suite exige pour s'exécuter vraiment : une base joignable, un cache, une variable posée. Déclaré dans `scripts/test/vitest/gates.ts#EnvGate`. |
+| **Gate**             | Un contrôle bloquant : tant qu'il est rouge, la chaîne s'arrête.                                                                                        |
+| **Saut** (_skip_)    | Un test non exécuté faute de décor. Il ressort **vert** dans le rapport — c'est tout le problème que cette page traite.                                 |
+| **Preuve** (`proof`) | La trace qu'un décor a réellement servi, et pas seulement été déclaré.                                                                                  |
+| **Absence énoncée**  | `NF_GATES_ALLOW` : dire explicitement qu'une cible ne sera pas exercée. Ce qui distingue un choix d'un oubli.                                           |
 
 ## ⚠️ Pièges
 
@@ -483,7 +483,7 @@ lui-même qui le couvrent. Les chiffres exacts vivent dans la carte de l'aperçu
 | Unitaires (CLI) | `nodefony` `Cli.test.ts` | codes de sortie et signaux — ce que la forge lit pour décider rouge ou vert |
 | Intégration | `nodefony` `CliIntegration.test.ts` | l'exécution réelle des commandes que les workflows appellent |
 
-> La déclaration du décor elle-même (`gateReporter()`, `scripts/test/vitest/gates.ts:693`) n'est pas couverte
+> La déclaration du décor elle-même (`gateReporter()`, `scripts/test/vitest/gates.ts#gateReporter`) n'est pas couverte
 > par un test unitaire : elle est éprouvée par l'usage, en étant lue à la fin de chaque passe. La
 > seule façon de vérifier qu'un gate mord reste de le casser exprès.
 

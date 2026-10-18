@@ -45,7 +45,7 @@ validation : `NF_REDIS_PORT=abc` était ignorée en silence, le port par défaut
    `host: z.string().default("localhost").meta({ env: "NF_REDIS_HOST" })`. Rien d'autre à
    écrire. Forme imposée `NF_<MODULE>_<RÉGLAGE>`, sur une feuille (jamais une section).
 2. **Le Kernel le pose**, avant la validation du module et par la même fonction que `NF__…`
-   (`applyEnvShortcuts()`, `envShortcuts.ts:146`). Le schéma valide donc la valeur comme une
+   (`applyEnvShortcuts()`, `envShortcuts.ts#applyEnvShortcuts`). Le schéma valide donc la valeur comme une
    valeur de l'application : une valeur fausse **arrête le démarrage**, en nommant la variable.
    Le builder du module ne lit plus ces variables.
 3. **Chaque nom court accepte `<NOM>_FILE`** (secret monté par Docker, Kubernetes) — même

@@ -51,11 +51,11 @@ flowchart LR
 ```
 
 **Aucun serveur n'est en marche.** La commande démarre le noyau jusqu'à `onReady` — services prêts,
-aucune écoute réseau (`security-token.ts:36`). C'est ce qui la rend utilisable quand l'application
+aucune écoute réseau (`security-token.ts#options`). C'est ce qui la rend utilisable quand l'application
 ne tourne pas, en intégration continue, ou dans un conteneur d'amorçage.
 
 **Le jeton vise une porte, et une seule.** L'audience est celle de la porte visée — la porte MCP par
-défaut, `/nodefony/mcp` (`src/nodefony/src/cli/aiMcpReport.ts:48`). Un jeton d'une autre audience est
+défaut, `/nodefony/mcp` (`src/nodefony/src/cli/aiMcpReport.ts#MCP_ENDPOINT_PATH`). Un jeton d'une autre audience est
 refusé, et c'est toute la raison d'être de la liaison d'audience
 ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)).
 
@@ -69,7 +69,7 @@ refusé, et c'est toute la raison d'être de la liaison d'audience
 - **Audience** — la ressource pour laquelle un jeton est valable. Déclarée par l'émetteur ; un
   porteur ne choisit pas la sienne.
 - **Scope** — un pouvoir nommé, porté par le jeton. `admin:read` lit, `admin:write` mute
-  (`src/nodefony/src/kernel/adminPlane/adminCaller.ts:53`).
+  (`src/nodefony/src/kernel/adminPlane/adminCaller.ts#ADMIN_SCOPE_READ`).
 
 ## Qu'est-ce que ça résout — la faille du `curl` avec mot de passe
 
@@ -136,9 +136,9 @@ Puis `npm run build` — le runtime lit le `dist`, pas la source.
 | `-j, --json`           | —                                            | sortie machine, sans invite                              |
 
 Le plafond de `--ttl` n'est pas décoratif : un jeton posé dans un fichier **est une clé**, et une
-clé se remplace (`security-token.ts:67-84`).
+clé se remplace (`security-token.ts#ttlSeconds`).
 
-**Posé chez un agent, le jeton vit 8 h par défaut** (`security-token.ts:106-110`). L'en-tête d'un
+**Posé chez un agent, le jeton vit 8 h par défaut** (`security-token.ts#tokenTtlSeconds`). L'en-tête d'un
 agent est figé : rien ne le rafraîchit, et le défaut de la configuration (15 min, taillé pour un
 client d'API qui renouvelle son jeton) produisait un 401 au bout d'un quart d'heure. Huit heures
 couvrent une journée de travail et bornent une fuite à quelques heures ; `--ttl` explicite
@@ -147,10 +147,10 @@ d'**expiration** (`expires_at` en `--json`) : c'est elle qui explique le 401 du 
 
 ### Où `--write` pose la valeur
 
-La variable est `NF_MCP_TOKEN` (`src/nodefony/src/cli/aiMcpReport.ts:58`). La commande ne sert que
+La variable est `NF_MCP_TOKEN` (`src/nodefony/src/cli/aiMcpReport.ts#MCP_TOKEN_ENV`). La commande ne sert que
 les agents dont la présence est **constatée** dans le projet — on ne crée pas la configuration d'un
 outil que personne n'utilise ici. La table des cibles vit au cœur
-(`src/nodefony/src/cli/agentTargets.ts:280`) : Claude, Gemini, Vibe, Codex.
+(`src/nodefony/src/cli/agentTargets.ts#AGENT_TARGETS`) : Claude, Gemini, Vibe, Codex.
 
 Deux garanties qui ne se négocient pas :
 
@@ -184,12 +184,12 @@ Une ressource protégée — une porte MCP d'application (`nodefony create contr
 vérifie pas le jeton elle-même : elle le confie au service `accessTokenVerifier`, avec **son** URI
 comme audience. Ce service reconnaît **toujours** l'émetteur de l'application, dès que sa capacité
 JWT est active (`security.jwt.enabled`, vrai par défaut), **sans rien déclarer** dans
-`resourceServer.issuers` (`src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts:88`).
+`resourceServer.issuers` (`src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts#AccessTokenVerifierService.#build`).
 Une application qui signe un jeton pour sa propre porte peut donc l'y présenter.
 
 **L'aiguillage se fait sur l'émetteur revendiqué, comparé EXACTEMENT** à `security.jwt.issuer`
-(`accessTokenVerifier.ts:138`). Égal : le jeton est jugé par les règles de l'authentificateur `jwt`,
-par la même fonction (`src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts:177`).
+(`accessTokenVerifier.ts#AccessTokenVerifierService.#build`). Égal : le jeton est jugé par les règles de l'authentificateur `jwt`,
+par la même fonction (`src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts#JwtAuthenticator.#verify`).
 Différent : il est jugé par la liste fermée des émetteurs tiers (Keycloak…, voir
 [Accepter les jetons d'un émetteur tiers](external-jwt.md)) — inconnu d'elle, il est refusé sans
 aucune requête sortante.
@@ -209,7 +209,7 @@ Un jeton de l'application n'est accepté que si **chaque** contrôle passe, dans
 | 9   | le compte existe, est actif et n'est pas verrouillé         | le jeton d'un compte désactivé, verrouillé ou supprimé                                | RFC 8725 §3.10                                                          |
 
 Les contrôles 7 et 8 viennent **avant** la lecture du compte : un jeton révoqué est refusé sans
-interroger l'annuaire (`JwtAuthenticator.ts:208`). Une PANNE de la liste de révocation est un
+interroger l'annuaire (`JwtAuthenticator.ts#JwtAuthenticator.#verify`). Une PANNE de la liste de révocation est un
 `503` ; une panne de l'annuaire, elle, se lit comme un compte absent — `401`. Dans les deux cas le
 jeton n'est jamais servi : c'est une limite de diagnostic, pas d'accès. Le jeton accepté donne à la porte un principal :
 son sujet (`sub`, l'identifiant du compte local) et ses scopes, qui décident des outils servis.
@@ -231,7 +231,7 @@ pour les audiences de `jwt.audiences`, et l'audience reste exigée à chaque por
 pare-feu `external-jwt` ne prend, elle, que les jetons des émetteurs qu'ELLE déclare : la règle ne
 lui ouvre rien. Et si `resourceServer.issuers` est mal configurée, **aucun** vérificateur n'est
 posé, jetons de l'application compris — une configuration fausse ne se sert pas à moitié
-(`accessTokenVerifier.ts:112`).
+(`accessTokenVerifier.ts#AccessTokenVerifierService.#build`).
 
 > ⚠️ **En production, pose `NF_JWT_ISSUER`.** Sans elle, l'émetteur vaut `"nodefony"`, qui n'est
 > pas une URL : les jetons se vérifient, mais l'application ne publie ni ses clés ni ses métadonnées,
@@ -271,17 +271,17 @@ est décrit dans [tokens](tokens.md), pas ici.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                              | Cause                                                                                                                                    | Correction                                                                                     |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `impossible d'émettre un jeton pour cette porte ici`                  | **en développement** : l'audience n'est pas déclarée à l'émetteur — c'est une liste blanche, pas un défaut ouvert                        | `use("@nodefony/security", { jwt: { audiences: ["<la porte>"] } })`, puis `npm run build`      |
-| Le même message, mais l'environnement affiché n'est pas `development` | la porte MCP est servie par un module `policy: "dev"` : **elle n'existe pas** dans cet environnement                                     | `NODE_ENV=development npx nodefony security:token`, ou viser une autre porte avec `--resource` |
-| Le jeton est émis, mais avec **moins** de scopes que demandé          | l'émetteur retire ceux que ce porteur ne peut pas obtenir, et il le dit ([RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749) §3.3) | lire le champ `scopes` de la sortie — c'est celui qui fait foi (`security-token.ts:460`)       |
-| L'agent reçoit `401` alors que le jeton vient d'être posé             | la valeur a été écrite dans un dossier que **cet** agent ne lit pas                                                                      | `--agent <nom>` pour viser explicitement, ou l'`export` dans le shell qui lance l'agent        |
-| `--write` ne fait rien et n'écrit aucun fichier                       | aucun agent n'est **constaté** dans ce projet                                                                                            | la commande liste alors les emplacements connus et donne la ligne d'`export`                   |
+| Symptôme                                                              | Cause                                                                                                                                    | Correction                                                                                                  |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `impossible d'émettre un jeton pour cette porte ici`                  | **en développement** : l'audience n'est pas déclarée à l'émetteur — c'est une liste blanche, pas un défaut ouvert                        | `use("@nodefony/security", { jwt: { audiences: ["<la porte>"] } })`, puis `npm run build`                   |
+| Le même message, mais l'environnement affiché n'est pas `development` | la porte MCP est servie par un module `policy: "dev"` : **elle n'existe pas** dans cet environnement                                     | `NODE_ENV=development npx nodefony security:token`, ou viser une autre porte avec `--resource`              |
+| Le jeton est émis, mais avec **moins** de scopes que demandé          | l'émetteur retire ceux que ce porteur ne peut pas obtenir, et il le dit ([RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749) §3.3) | lire le champ `scopes` de la sortie — c'est celui qui fait foi (`security-token.ts#SecurityToken.generate`) |
+| L'agent reçoit `401` alors que le jeton vient d'être posé             | la valeur a été écrite dans un dossier que **cet** agent ne lit pas                                                                      | `--agent <nom>` pour viser explicitement, ou l'`export` dans le shell qui lance l'agent                     |
+| `--write` ne fait rien et n'écrit aucun fichier                       | aucun agent n'est **constaté** dans ce projet                                                                                            | la commande liste alors les emplacements connus et donne la ligne d'`export`                                |
 
 > 🔴 **Le premier réflexe est faux.** Devant un refus, on cherche un serveur éteint — la commande
 > n'en utilise aucun. Le message écarte cette fausse piste dès sa deuxième ligne
-> (`security-token.ts:456-484`) ; il a lui-même été corrigé pour cesser d'accuser une cause unique
+> (`security-token.ts#SecurityToken.generate`) ; il a lui-même été corrigé pour cesser d'accuser une cause unique
 > qu'il ne constatait pas.
 
 ## 🧪 Tests & couverture

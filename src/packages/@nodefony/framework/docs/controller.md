@@ -46,11 +46,11 @@ flowchart LR
 
 Trois idées à retenir :
 
-1. **Tu hérites de `Service`** — `Controller` étend `Service` (`Controller.ts:146`). Tu récupères
+1. **Tu hérites de `Service`** — `Controller` étend `Service` (`Controller.ts#ControllerScope`). Tu récupères
    donc gratuitement le container (`this.get()`), les logs (`this.log()`) et les événements.
 2. **Tu ne construis rien toi-même** — le `Resolver` instancie ta classe via l'injecteur
-   (`Resolver.newController()`, `Resolver.ts:324`), jamais un `new` direct.
-3. **Ton `return` EST la réponse** — `Resolver.returnController()` (`Resolver.ts:1069`) traduit la
+   (`Resolver.newController()`, `Resolver.ts#Resolver.newController`), jamais un `new` direct.
+3. **Ton `return` EST la réponse** — `Resolver.returnController()` (`Resolver.ts#Resolver.returnController`) traduit la
    valeur retournée : objet → JSON, string → corps brut, `void` → « j'ai répondu moi-même ».
 
 ## 📖 Lexique
@@ -196,18 +196,18 @@ sequenceDiagram
 
 Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 
-| #   | Étape                                   | Où                                                  |
-| --- | --------------------------------------- | --------------------------------------------------- |
-| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1746`)          |
-| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1756`)    |
-| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1738`                               |
-| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:880`)   |
-| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1879`)    |
-| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1359`) |
-| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1894`) |
-| 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:455`)      |
-| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:455`)      |
-| 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:391`)       |
+| #   | Étape                                   | Où                                                                              |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts#HttpKernel.routeHttpRequest`)               |
+| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts#HttpKernel.routeHttpRequest`)         |
+| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts#HttpKernel.routeHttpRequest`                                    |
+| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts#HttpKernel.prepareFrontController`) |
+| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts#HttpKernel.armAndGuard`)              |
+| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts#HttpKernel.startSession`)          |
+| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts#HttpKernel.armAndGuard`)           |
+| 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts#Resolver.executeAction`)               |
+| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts#Resolver.executeAction`)               |
+| 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts#Resolver._createController`)            |
 
 > [!IMPORTANT]
 > **Rien de ton contrôleur ne s'exécute pour une requête qui sera refusée.** L'appariement de route
@@ -222,8 +222,8 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 C'est **sa raison d'être** : un `constructor` ne peut pas être `async`, et la résolution DI est
 synchrone. Tout ce qui demande un `await` à la mise en place de l'instance n'a pas d'autre endroit
 où aller. Le hook est **optionnel** — le Resolver ne l'appelle que s'il existe
-(`Resolver._createController()`, `Resolver.ts:339`). Son contrat est décrit par
-`ControllerWithInitialize` (`Resolver.ts:76`) : aucun argument, retour `Promise<this>`.
+(`Resolver._createController()`, `Resolver.ts#Resolver._createController`). Son contrat est décrit par
+`ControllerWithInitialize` (`Resolver.ts#ControllerWithInitialize`) : aucun argument, retour `Promise<this>`.
 
 > [!IMPORTANT]
 > **Sur un contrôleur singleton — le défaut —, `initialize()` tourne UNE fois**, à la création, dans
@@ -256,10 +256,10 @@ async initialize(): Promise<this> {
 
 Si ton `initialize()` lève, l'exception remonte le pipeline et sort en réponse d'erreur cohérente :
 **500 JSON**, serveur toujours sain. C'est prouvé par une sonde dédiée du dépôt
-(`LifecycleController.initialize()`, `LifecycleController.ts:21`, exercée par
+(`LifecycleController.initialize()`, `LifecycleController.ts#LifecycleController.initialize`, exercée par
 `lifecycle-init-crash.test.ts`). Aucune requête pendue, aucun timeout muet. Pour un singleton,
 une création en échec ne reste pas en cache : la requête suivante recrée l'instance
-(`Router.getSingletonController()`, `router.ts:232`) — une base pas encore prête au premier appel ne
+(`Router.getSingletonController()`, `router.ts#Router.getSingletonController`) — une base pas encore prête au premier appel ne
 tue pas le contrôleur jusqu'au redémarrage.
 
 ### Les phases mesurées
@@ -267,7 +267,7 @@ tue pas le contrôleur jusqu'au redémarrage.
 Chaque étape est chronométrée sous le nom d'une **phase**, lisible dans la debug bar et le profileur :
 `resolve` · `initialize` (DI + ton hook) · `parse` · `firewall` · `action` · `render` · `send`.
 La phase `initialize` existe précisément pour que le temps passé dans ton hook et dans la résolution
-DI **soit imputé à quelqu'un** au lieu de disparaître dans le bloc `action` (`Resolver.ts:116`).
+DI **soit imputé à quelqu'un** au lieu de disparaître dans le bloc `action` (`Resolver.ts#Resolver.action`).
 
 ## 🔌 HTTP et WebSocket — le même contrôleur
 
@@ -303,16 +303,16 @@ class ChatController extends Controller {
 | --- | --- | --- |
 | Durée de vie du contexte | Une requête | **Toute la connexion** |
 | Instance du contrôleur | Singleton (défaut) : **la même** pour toutes les requêtes · `@Scope("request")` : une par requête | Singleton : **la même** pour toutes les connexions · `@Scope("request")` : **une par connexion**, réutilisée à chaque frame |
-| Nombre d'appels d'action | 1 | 1 au handshake (`WebsocketContext.handle()`, `WebsocketContext.ts:373`) + 1 par frame (`handleMessage()`, `WebsocketContext.ts:583`) |
-| Argument de l'action | Variables de route (ou paramètres décorés) | Idem + **le message** en dernier argument (`WebsocketContext.ts:584`) |
+| Nombre d'appels d'action | 1 | 1 au handshake (`WebsocketContext.handle()`, `WebsocketContext.ts#WebsocketContext.handle`) + 1 par frame (`handleMessage()`, `WebsocketContext.ts#WebsocketContext.handleMessage`) |
+| Argument de l'action | Variables de route (ou paramètres décorés) | Idem + **le message** en dernier argument (`WebsocketContext.ts#WebsocketContext.handleMessage`) |
 | Rendu d'un `return` | Corps de la réponse | Frame envoyée sur la socket |
 | Échec | Statut HTTP + corps d'erreur | **Code de fermeture** RFC 6455 (401/403 → 1008, 5xx → 1011, autre → 4004) ; chemin sans route WebSocket → **404 HTTP avant l'ouverture** |
 | `initialize()` | Singleton : **une fois**, à la création · `@Scope("request")` : à chaque requête | Singleton : une fois, à la création · `@Scope("request")` : **une fois par connexion**, au handshake |
 
 La réutilisation de l'instance vient du cache posé sur le container du contexte
-(`Resolver.newController()`, `Resolver.ts:324`) : le contexte WS étant partagé par la connexion, le
+(`Resolver.newController()`, `Resolver.ts#Resolver.newController`) : le contexte WS étant partagé par la connexion, le
 contrôleur l'est aussi. Un garde-fou vérifie que l'instance cachée est bien de la classe de la route
-courante et la reconstruit sinon (`Resolver.ts:353-356`) — sans quoi un message invoquant une autre
+courante et la reconstruit sinon (`Resolver.ts#Resolver._pinController`) — sans quoi un message invoquant une autre
 action se tromperait d'objet.
 
 > [!WARNING]
@@ -321,28 +321,28 @@ action se tromperait d'objet.
 > `@Scope("request")`, chaque requête HTTP repart d'une instance neuve ; un singleton, lui, refuse
 > tout état de requête sur `this`.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:2189`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts#HttpKernel.onConnect`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
-(`http-kernel.ts:1359`), avant l'acceptation de la socket, et avant le firewall
-(`http-kernel.ts:1517`).
+(`http-kernel.ts#HttpKernel.startSession`), avant l'acceptation de la socket, et avant le firewall
+(`http-kernel.ts#HttpKernel.failTeardownHttp`).
 
 ## 🧠 D'où viennent `request`, `response`, `session`
 
 Ton contrôleur expose des raccourcis vers le transport. Ils ne sont **pas** des copies figées : ce
 sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ ?? dérivation`.
 
-| Raccourci        | Ce que tu obtiens                                  | Ancre               |
-| ---------------- | -------------------------------------------------- | ------------------- |
-| `this.context`   | Le contexte transport de la requête courante       | `Controller.ts:238` |
-| `this.route`     | La route matchée                                   | `Controller.ts:256` |
-| `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts:269` |
-| `this.response`  | La réponse du transport                            | `Controller.ts:277` |
-| `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts:212` |
-| `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts:315` |
-| `this.queryPost` | Le corps parsé                                     | `Controller.ts:364` |
-| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts:364` |
-| `this.queryFile` | Les fichiers uploadés                              | `Controller.ts:354` |
-| `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts:384` |
+| Raccourci        | Ce que tu obtiens                                  | Ancre                                |
+| ---------------- | -------------------------------------------------- | ------------------------------------ |
+| `this.context`   | Le contexte transport de la requête courante       | `Controller.ts#Controller.context`   |
+| `this.route`     | La route matchée                                   | `Controller.ts#Controller.route`     |
+| `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts#Controller.route`     |
+| `this.response`  | La réponse du transport                            | `Controller.ts#Controller.request`   |
+| `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts#Controller.#query`    |
+| `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts#Controller.queryGet`  |
+| `this.queryPost` | Le corps parsé                                     | `Controller.ts#Controller.queryPost` |
+| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts#Controller.queryPost` |
+| `this.queryFile` | Les fichiers uploadés                              | `Controller.ts#Controller.queryFile` |
+| `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts#Controller.body`      |
 
 Pourquoi des accesseurs plutôt que des champs recopiés au constructeur : **la fraîcheur et le coût**.
 Une valeur recopiée vieillit dès que le pipeline modifie le contexte, et recopier quatre structures
@@ -351,7 +351,7 @@ gratuitement.
 
 ### La session est **lazy** — elle n'existe que si tu la demandes
 
-`this.session` est un simple getter sur `context.session` (`Controller.ts:397`). Il n'y a **pas** de
+`this.session` est un simple getter sur `context.session` (`Controller.ts#Controller.session`). Il n'y a **pas** de
 `startSession()` à appeler depuis un contrôleur : l'activation se déclare sur la route, avec
 `@UseSession()` (ou un paramètre `@Session()`, qui vaut déclaration implicite), et le pipeline
 l'exécute à son point unique. Sans déclaration et sans cookie de session entrant, **aucune session
@@ -360,26 +360,26 @@ n'est créée** — donc aucun coût de stockage.
 Deux corollaires :
 
 - Dans `initialize()`, `this.session` vaut `null` (l'activation vient plus tard — étape 6 du cycle).
-- `this.getSession()` (`Controller.ts:704`) ne « démarre » rien : il retourne la session existante,
+- `this.getSession()` (`Controller.ts#Controller.getSession`) ne « démarre » rien : il retourne la session existante,
   ou `undefined`.
 
-Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:724`)
-journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:740`)
+Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts#Controller.getFlashBag`)
+journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts#Controller.addFlash`)
 retournent `null` sans rien journaliser — pas de crash, mais rien n'est mémorisé.
 
 ### Contrôleur singleton — le défaut : `this` n'est pas à toi
 
-Par défaut, `Controller.scope` vaut `"singleton"` (`Controller.ts:412`) : UNE instance par classe,
+Par défaut, `Controller.scope` vaut `"singleton"` (`Controller.ts#Controller.constructor`) : UNE instance par classe,
 construite à sa première requête puis partagée par toutes les suivantes, concurrentes comprises.
 
 - **une seule instance** pour tout le process, liée au container du **kernel**, pas à celui de la
-  requête (`Controller.ts:399-411`) — capturer le container de requête serait fatal, il est nettoyé
+  requête (`Controller.ts#Controller`) — capturer le container de requête serait fatal, il est nettoyé
   à la fin de la requête ;
 - **`initialize()` n'est appelé qu'une fois**, à la création (sémantique « démarrage ») ;
 - le contexte n'est pas posé sur l'objet : `this.context` **lit l'ALS**
-  (`RequestContext.getContext()`, `Controller.ts:223`) et retrouve donc la requête réellement en
+  (`RequestContext.getContext()`, `Controller.ts#Controller.#assertPerRequest`) et retrouve donc la requête réellement en
   cours, jamais celle d'une requête concurrente — y compris la route et la query d'un appel du pont
-  `api.request` (`Controller.ts:269`).
+  `api.request` (`Controller.ts#Controller.route`).
 
 Deux filets rendent visible l'état de requête posé sur `this` : les accesseurs (`this.query = …`,
 `setRoute()`…) **lèvent** dans tous les environnements, et **en développement** toute écriture sur
@@ -404,26 +404,26 @@ class MeController extends Controller {
 
 ## 🧰 Répondre — ce que ton `return` déclenche
 
-Le traducteur unique est `Resolver.returnController()` (`Resolver.ts:1069`). Il regarde le **type**
+Le traducteur unique est `Resolver.returnController()` (`Resolver.ts#Resolver.returnController`). Il regarde le **type**
 de ce que tu as retourné :
 
 <!-- prettier-ignore -->
 | Tu retournes… | Ce qui se passe | Ancre |
 | --- | --- | --- |
-| Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts:878-888` |
-| Une `string` | Envoyée telle quelle en corps | `Resolver.ts:746` |
-| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts:1116` |
-| Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:769` |
-| Un `Buffer` | Envoyé brut | `Resolver.ts:1109` |
-| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:629` |
-| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:1259`) |
-| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:1195` |
-| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:1143-1152` |
+| Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts#Resolver._areaSecurity` |
+| Une `string` | Envoyée telle quelle en corps | `Resolver.ts#Resolver._callWithIdempotency` |
+| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts#Resolver.returnController` |
+| Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts#Resolver._callWithIdempotency` |
+| Un `Buffer` | Envoyé brut | `Resolver.ts#Resolver.returnController` |
+| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts#Resolver._invokeAction` |
+| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts#NO_BODY_STATUS`) |
+| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts#Resolver.returnController` |
+| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts#Resolver.returnController` |
 
 > [!WARNING]
 > **Le piège n° 1 : `return null` sur un statut à corps.** Le framework l'interprète comme « je
 > répondrai moi-même » et attend — jusqu'au timeout. La distinction se fait sur le **statut** :
-> `NO_BODY_STATUS` (`Resolver.ts:1259`) contient 204, 205 et 304. Donc un `@Delete` qui fait
+> `NO_BODY_STATUS` (`Resolver.ts#NO_BODY_STATUS`) contient 204, 205 et 304. Donc un `@Delete` qui fait
 > `@HttpCode(204)` puis `return null` répond bien 204 vide ; le même `return null` sans `@HttpCode`
 > laisse la requête pendue.
 
@@ -434,27 +434,27 @@ volontairement pas passée à `JSON.stringify`. Retourne un objet simple — ou 
 
 Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 
-| Helper                                       | Pour…                                                    | Ancre               |
-| -------------------------------------------- | -------------------------------------------------------- | ------------------- |
-| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:631` |
-| `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:499` |
-| `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:556` |
-| `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:535` |
-| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:710` |
-| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:744` |
-| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:443` |
+| Helper                                       | Pour…                                                    | Ancre                                     |
+| -------------------------------------------- | -------------------------------------------------------- | ----------------------------------------- |
+| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts#Controller.renderJson`     |
+| `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts#Controller.render`         |
+| `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts#Controller.renderView`     |
+| `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts#Controller.renderResponse` |
+| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts#Controller.redirect`       |
+| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts#Controller.forward`        |
+| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts#Controller.setContextHtml` |
 
 `renderView()` mesure sa propre phase `render` et injecte automatiquement les aides frontend
 (`frontendTags`, `frontendDocument`, `asset`) dans les variables du template
-(`withFrontendLocals()`, `Controller.ts:594`) — tes propres valeurs restent prioritaires.
+(`withFrontendLocals()`, `Controller.ts#Controller.withFrontendLocals`) — tes propres valeurs restent prioritaires.
 
 `forward()` re-résout un contrôleur sur le **même** contexte et rappelle son action
-(`Controller.ts:744`) : c'est une délégation interne, la requête cliente reste unique.
+(`Controller.ts#Controller.forward`) : c'est une délégation interne, la requête cliente reste unique.
 
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
 > RFC 9110 §15.4 (301, 302, 303, 307, 308) retombe sur 302 avec un log d'avertissement
-> (`Response.redirect()`, `Response.ts:755`). Un 301 par défaut piégeait : les navigateurs le mettent
+> (`Response.redirect()`, `Response.ts#HttpResponse.redirect`). Un 301 par défaut piégeait : les navigateurs le mettent
 > en cache de façon quasi irréversible.
 
 ## 📁 Servir un fichier — téléchargement et flux média
@@ -463,15 +463,15 @@ Deux besoins distincts, deux helpers.
 
 ### Téléchargement — `renderFileDownload()`
 
-`renderFileDownload(file, options?, headers?)` (`Controller.ts:825`) pose
+`renderFileDownload(file, options?, headers?)` (`Controller.ts#Controller.renderFileDownload`) pose
 `Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
-de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:786`) ;
+de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts#Controller.getFileAsync`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
 et gèle le process le temps du stat.
 
 ### Lecture en continu — `renderMediaStream()`
 
-`renderMediaStream(file, headers?, options?)` (`Controller.ts:999`) implémente les **requêtes par
+`renderMediaStream(file, headers?, options?)` (`Controller.ts#Controller.renderMediaStream`) implémente les **requêtes par
 plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le flux :
 
 | Le client envoie…                             | Réponse                                                         |
@@ -482,16 +482,16 @@ plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le fl
 | Plage hors fichier                            | **416** + `Content-Range: bytes */<taille>` (RFC 9110 §15.5.17) |
 | Syntaxe invalide, multi-plage, unité inconnue | En-tête **ignoré** → 200 complet (jamais un 500)                |
 
-La logique est isolée dans une fonction pure exportée, `parseByteRange()` (`Controller.ts:107`) —
+La logique est isolée dans une fonction pure exportée, `parseByteRange()` (`Controller.ts#parseByteRange`) —
 donc testable sans serveur.
 
 ### Ce que `streamFile()` garantit
 
-`streamFile()` (`Controller.ts:865`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
+`streamFile()` (`Controller.ts#Controller.streamFile`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
 **nettoyage** : le flux est ouvert avec `autoClose: false`, et un client qui raccroche en plein
 téléchargement laisserait sinon un descripteur de fichier ouvert et une promesse pendue à jamais. Un
 écouteur `close` sur la réponse détruit le flux, ce qui déclenche la fermeture du descripteur et
-résout la promesse (`Controller.ts:931-969`), puis se retire lui-même (`Controller.ts:961`). Un
+résout la promesse (`Controller.ts#Controller.streamFile`), puis se retire lui-même (`Controller.ts#Controller.streamFile`). Un
 téléchargement interrompu ne coûte donc **rien** en ressource retenue.
 
 ## ⚠️ Erreurs — lever, rendre, observer
@@ -506,19 +506,19 @@ throw new nodefonyError("Article introuvable", 404); // statut porté par l'erre
 throw new HttpError("Not Found", 404, this.context); // variante enrichie du contexte
 ```
 
-L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:1009`), qui délègue la mise en
+L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts#HttpKernel.onError`), qui délègue la mise en
 forme au rendeur d'erreurs. Ce qui en sort :
 
 - **statut normalisé** — un code absent (ou l'ancien quirk `200`) devient **500**
-  (`normalizeHttpStatus()`, `error-renderer.ts:642`) ;
+  (`normalizeHttpStatus()`, `error-renderer.ts#DefaultErrorRenderer.normalizeHttpStatus`) ;
 - **corps structuré** : `{ code, message, result: null, error: {…}, nodefony: {…} }`, l'enveloppe
   `nodefony` portant l'environnement, l'URL et l'**identifiant de requête** — de quoi retrouver la
   trace complète dans les logs ;
 - **course gérée** : si le client est déjà parti (contexte terminé ou réponse envoyée), le framework
-  ne tente pas de rendre — il journalise et s'arrête (`http-kernel.ts:786-791`).
+  ne tente pas de rendre — il journalise et s'arrête (`http-kernel.ts#HttpKernel.applyRequestLoggerFromConfig`).
 
 En **WebSocket**, il n'y a pas de statut : l'erreur devient un **code de fermeture** RFC 6455
-(`renderWebsocket()`, `error-renderer.ts:518`) — 401/403 → 1008 (violation de politique),
+(`renderWebsocket()`, `error-renderer.ts#DefaultErrorRenderer.renderWebsocket`) — 401/403 → 1008 (violation de politique),
 5xx → 1011 (erreur interne), le reste → 4004 (plage privée). Si la socket n'est pas encore acceptée,
 c'est un **rejet** de handshake. Un chemin qu'aucune route WebSocket ne sert n'atteint jamais ton
 contrôleur : il reçoit un **404 HTTP** avant l'ouverture (RFC 6455 §4.2.2), le client ne voit donc
@@ -526,7 +526,7 @@ jamais d'`open`.
 
 > [!NOTE]
 > Les erreurs de ton action remontent **seules** : le Resolver n'enveloppe pas l'appel dans un
-> `try/catch` inutile (`Resolver.ts:660-661`). Inutile d'attraper pour re-lever — sauf si tu veux
+> `try/catch` inutile (`Resolver.ts#Resolver.callController`). Inutile d'attraper pour re-lever — sauf si tu veux
 > vraiment traduire l'erreur en un autre statut.
 
 ## 🧩 Services injectés — trois façons
@@ -540,7 +540,7 @@ explicite :
 const catalog = this.get<CatalogService>("catalog"); // null si absent ou container nettoyé
 ```
 
-`Service.get()` (`Service.ts:588`) est une **façade sûre** : elle retourne `null` au lieu de lever si
+`Service.get()` (`Service.ts#Service.get`) est une **façade sûre** : elle retourne `null` au lieu de lever si
 le container a déjà été détaché. C'est le style à privilégier dans `initialize()`.
 
 ### 2. Injection par le constructeur — `@inject`
@@ -560,10 +560,10 @@ class DemoController extends Controller {
 ```
 
 L'injecteur lit les noms déclarés par `@inject` et résout chaque dépendance dans le container avant
-de construire (`Injector._instantiateWithStack()`, `injector.ts:549`). Le **contexte n'est pas une
+de construire (`Injector._instantiateWithStack()`, `injector.ts#Injector._instantiateWithStack`). Le **contexte n'est pas une
 dépendance** : il est passé en argument par le Resolver, et les paramètres non annotés le reçoivent
-dans l'ordre (`injector.ts:309`). Les **dépendances circulaires sont détectées** et signalées avec le
-chemin complet (`injector.ts:262-266`), jamais silencieusement.
+dans l'ordre (`injector.ts#Injector._resolveWithStack`). Les **dépendances circulaires sont détectées** et signalées avec le
+chemin complet (`injector.ts#Injector._resolveWithStack`), jamais silencieusement.
 
 ### 3. Depuis le contexte — pour un service optionnel
 
@@ -580,30 +580,30 @@ Un contrôleur est sur le **hot path** : ce qu'il alloue est multiplié par le n
 code du framework applique — et attend de toi — les règles suivantes :
 
 - **Zéro recopie au constructeur** : l'état per-requête vit en champs privés `null` par défaut, et
-  les accesseurs dérivent du contexte (`Controller.ts:126-134`). Quatre allocations par requête ont
+  les accesseurs dérivent du contexte (`Controller.ts#parseByteRange`). Quatre allocations par requête ont
   disparu de cette façon.
 - **Zéro écouteur résiduel** : plus aucun `once("onRequestEnd")` n'est posé pour ré-échantillonner
   l'état. Le seul écouteur restant est celui du flux de fichiers, explicitement retiré
-  (`Controller.ts:574`).
+  (`Controller.ts#Controller.renderView`).
 - **Métadonnées d'action figées** : `@HttpCode`, `@Header`, les paramètres décorés et l'intention de
   session sont calculés **une fois** par route puis mémorisés, au lieu d'être relus par `Reflect` à
-  chaque requête (`resolveActionMeta()` appelé en `Resolver.ts:467`).
+  chaque requête (`resolveActionMeta()` appelé en `Resolver.ts#Resolver.executeAction`).
 - **Gardes payées seulement si présentes** : sans `@IsGranted`, la vérification d'autorisation est
-  un test de nullité (`Resolver.ts:925`) — 0 lookup, 0 `await`, 0 allocation.
+  un test de nullité (`Resolver.ts#Resolver._enforceSecurity`) — 0 lookup, 0 `await`, 0 allocation.
 - **Ta part du contrat** : pas de structure allouée « au cas où » dans le constructeur ni dans
   `initialize()`. Une valeur utile à 5 % des requêtes s'alloue à la demande.
 
 ## 📜 Normes appliquées
 
-| Domaine                          | Norme                    | Comment le code s'y conforme                                    |
-| -------------------------------- | ------------------------ | --------------------------------------------------------------- |
-| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:1259`)                           |
-| Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:107`)                        |
-| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:535`)               |
-| Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:666`)                   |
-| Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:1116`), vérifié par le banc `auto-json` |
-| Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:769`)                   |
-| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:518`)                   |
+| Domaine                          | Norme                    | Comment le code s'y conforme                                                         |
+| -------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts#NO_BODY_STATUS`)                                      |
+| Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts#parseByteRange`)                                  |
+| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts#Controller.renderResponse`)              |
+| Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts#HttpResponse.send`)                          |
+| Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts#Resolver.returnController`), vérifié par le banc `auto-json` |
+| Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts#Resolver._callWithIdempotency`)              |
+| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts#DefaultErrorRenderer.renderWebsocket`)       |
 
 ## 📡 Observabilité — Studio
 
@@ -620,17 +620,17 @@ code du framework applique — et attend de toi — les règles suivantes :
 <!-- prettier-ignore -->
 | Symptôme | Cause (dans le code) | Correction |
 | --- | --- | --- |
-| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:1195`) | Retourner une valeur, ou poser `@HttpCode(204)` |
-| Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:1152`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
+| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts#Resolver.returnController`) | Retourner une valeur, ou poser `@HttpCode(204)` |
+| Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts#Resolver.returnController`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
 | `Route Action not found` | L'action porte un nom déjà utilisé par un membre de `Controller` | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
-| `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1812`) | Lire la session dans l'action, pas dans le hook |
-| Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1894`) | Déplacer l'effet de bord dans l'action |
+| `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts#HttpKernel.serveHttpRequest`) | Lire la session dans l'action, pas dans le hook |
+| Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts#HttpKernel.armAndGuard`) | Déplacer l'effet de bord dans l'action |
 | Redirection permanente non voulue | Un statut invalide retombe sur 302, un `301` explicite reste 301 | Passer le code voulu : `this.redirect(url, 302)` |
-| WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée — par TOUTES les connexions en singleton (le défaut), par toute la connexion en `@Scope("request")` (`Resolver.ts:990`) | Porter l'état par message, ou sur le contexte de la connexion |
+| WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée — par TOUTES les connexions en singleton (le défaut), par toute la connexion en `@Scope("request")` (`Resolver.ts#Resolver._buildParamArgs`) | Porter l'état par message, ou sur le contexte de la connexion |
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
 | Contrôleur singleton : données d'un autre utilisateur | État muté que les filets ne voient pas (`#privé`, objet muté) sur l'instance partagée | Passer par les arguments décorés, ou déclarer `@Scope("request")` |
 | « Contrôleur … : écriture de « this.x » refusée » | Un état de requête écrit sur un singleton (le défaut) | Argument décoré, service `request`, ou `@Scope("request")` sur la classe |
-| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:746`) | Utiliser `getFileAsync()` (`Controller.ts:786`) |
+| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts#Controller.forward`) | Utiliser `getFileAsync()` (`Controller.ts#Controller.getFileAsync`) |
 
 ## 🧪 Tests & couverture
 

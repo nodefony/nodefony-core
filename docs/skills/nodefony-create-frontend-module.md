@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-03
+updated: 2026-10-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-create-frontend-module/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-create-frontend-module/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Développer le framework |
 | Corps | 262 lignes |
-| Coût d'activation | ~4 009 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 007 tokens (le corps est chargé à l'invocation) |
 | Description | 669 / 1024 caractères |
 | Déclencheurs | 8 |
 | Ressources `references/` | 1 page(s) |

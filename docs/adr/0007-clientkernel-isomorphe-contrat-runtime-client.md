@@ -127,13 +127,13 @@ Trois faits, vérifiés :
    (`studio/frontend/src/services/ApiClient.ts`), pas dans le core. La prochaine app front (ou le
    debug-client) devra les réécrire — le wrapper `fetch` (cookies BFF `same-origin`, gestion 401
    non-destructive, pont « API souveraine » via la socket) n'est **pas réutilisable** aujourd'hui.
-2. **Une règle de SÉCURITÉ vit dans la glue d'une seule app** : `RootStore.ts:140-148` — au
+2. **Une règle de SÉCURITÉ vit dans la glue d'une seule app** : `RootStore.ts#RootStore.constructor` — au
    changement d'identité, la socket WebSocket doit être re-handshakée (`disconnect()` +
    `connect()`), sinon le pont `api.request` rejoue des requêtes avec le token de l'**ancienne**
    identité gravée au handshake → fuite de données (**vécu en prod**). Toute app qui recâble sa
    glue sans reproduire cette reaction MobX **reproduit la faille**. Une règle de sécurité ne doit
    pas dépendre de la qualité du câblage artisanal de chaque app.
-3. **La façade client viole les règles du core** : `src/client/index.ts:56-78` = `class Nodefony`
+3. **La façade client viole les règles du core** : `src/client/index.ts` = `class Nodefony`
    singleton + **`export default`** (règle « named exports only » violée), et cette façade est
    **incohérente** avec le node (`Nodefony` statique, `getKernel()`). Audit client de mai
    (points B/C), jamais soldé. Fait nouveau vérifié ce jour : **aucun consommateur n'importe ce
@@ -283,7 +283,7 @@ contractuelle), **pas** un container à décorateurs :
   déjà exclus du build client (`tsconfigClient.json` exclut `src/kernel/**`), et n'ont rien à y
   faire : le poids (`reflect-metadata` ≈ 3 KB gzip + metadata emit sur chaque classe) n'achète
   rien qu'une factory explicite ne donne pas dans une app front ;
-- cette décision **entérine** le choix déjà posé par Studio (`RootStore.ts:31` : « Pas de DI lib
+- cette décision **entérine** le choix déjà posé par Studio (`RootStore.ts#realtimeUrl` : « Pas de DI lib
   côté front : MobX + un objet RootStore suffit, durable, facile à mocker en test ») — le
   NodefonyKernel formalise ce qui marche, il n'impose pas ce qui manque ;
 - le `Container` isomorphe existant (déjà exporté par le barrel client) reste disponible pour qui
@@ -291,7 +291,7 @@ contractuelle), **pas** un container à décorateurs :
 
 ### D4 — Façade unique : mort de l'export default et du singleton `class Nodefony` client
 
-La 10.0.0 supprime du barrel client (`src/client/index.ts:56-78`) la `class Nodefony` singleton
+La 10.0.0 supprime du barrel client (`src/client/index.ts`) la `class Nodefony` singleton
 et son `export default`. Une seule forme d'accès : **named exports** + factory
 **`new NodefonyKernel(options)`**.
 
@@ -335,7 +335,7 @@ depuis `client/index.ts` ; ② le barrel node (`src/index.ts`) ne tire jamais `s
 ### D7 — Opt-in strict : le kernel compose, il n'impose pas
 
 Chaque primitive reste utilisable **nue**, sans kernel : `NodefonySocket.shared()` (utilisé par
-Studio et la debug bar aujourd'hui — `NodefonySocket.ts:600`) continue de fonctionner tel quel,
+Studio et la debug bar aujourd'hui — `NodefonySocket.ts#NodefonySocket.shared`) continue de fonctionner tel quel,
 de même que `mountDebugBar()`, les hooks `nodefony/react`, `Storage`. Le NodefonyKernel est la
 **voie recommandée** pour une app complète, jamais un péage. **Pourquoi** : la DX des cas simples
 (un widget, une page, un POC) est un actif — un kernel obligatoire pour afficher 3 stats serait
@@ -395,7 +395,7 @@ Et c'est la matière première de la couche IA (Phase 12) : un flux d'événemen
 ### D9 — La sécurité d'identité devient structurelle (sort de la glue applicative)
 
 Le cycle « identité change → re-handshake socket + purge des états scopés utilisateur »
-(aujourd'hui `RootStore.ts:104-156`, règle née d'une **fuite vécue en prod**) devient un
+(aujourd'hui `RootStore.ts#RootStore.constructor`, règle née d'une **fuite vécue en prod**) devient un
 comportement **du kernel** (`onIdentityChange`) :
 
 - le kernel re-négocie la socket (`disconnect()`/`connect()` — relecture du cookie courant, les
@@ -528,7 +528,7 @@ ferait du kernel un moule du legacy Studio.
 ## Références
 
 - Code (ancrages vérifiés 2026-07-03) : `src/nodefony/package.json` (exports browser+subpaths) ·
-  `src/nodefony/src/client/index.ts:56-78` (façade à supprimer) · `tsconfigClient.json`
+  `src/nodefony/src/client/index.ts` (façade à supprimer) · `tsconfigClient.json`
   (garantie `types:[]` + shims) · `createClientConfig` (alors dans `rollup.config.ts`,
   aujourd'hui `rolldown.config.ts`) ·
   `studio/frontend/src/stores/RootStore.ts` (composition manuelle ; :31 pas de DI front ;

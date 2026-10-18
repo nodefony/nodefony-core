@@ -102,10 +102,10 @@ Le mot est surchargé dans Nodefony. Les confondre produit des bugs qui ne plant
 
 | Ce qu'on écrit                        | Ce que ça règle                                           | Où c'est implémenté                                                               |
 | ------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `@injectable({ scope: "request" })`   | la **durée de vie** d'un service (`DIScope`)              | `DIScope` (`injector.ts:27`)                                                      |
-| `RequestContext.getScope()`           | le **calque** de la requête en cours (un `Scope`)         | `RequestContext.getScope()` (`RequestContext.ts:321`)                             |
-| `Injector.getScope("nom")`            | la durée de vie **déclarée** d'un service — pas un calque | `Injector.getScope()` (`injector.ts:137`)                                         |
-| `@Scope("request")` sur un contrôleur | un contrôleur par requête au lieu d'une instance partagée | `Scope()` (`routerDecorators.ts:795`)                                             |
+| `@injectable({ scope: "request" })`   | la **durée de vie** d'un service (`DIScope`)              | `DIScope` (`injector.ts#DIScope`)                                                 |
+| `RequestContext.getScope()`           | le **calque** de la requête en cours (un `Scope`)         | `RequestContext.getScope()` (`RequestContext.ts#RequestContext.getScope`)         |
+| `Injector.getScope("nom")`            | la durée de vie **déclarée** d'un service — pas un calque | `Injector.getScope()` (`injector.ts#Injector.getScope`)                           |
+| `@Scope("request")` sur un contrôleur | un contrôleur par requête au lieu d'une instance partagée | `Scope()` (`routerDecorators.ts#Scope`)                                           |
 | `@RequireScope("users:write")`        | une **permission** — rien à voir avec l'injection         | autorisation ([firewall](../../src/packages/@nodefony/security/docs/firewall.md)) |
 
 Les quatre premières parlent de durée de vie ; la cinquième est un faux ami — c'est un droit
@@ -201,7 +201,7 @@ autour d'une attente, montre qu'une variable de module est écrasée par l'autre
 lui, rend à chacune la sienne.
 
 > [!TIP]
-> Un contrôleur est un **singleton** par défaut (`Controller.scope`, `Controller.ts:182`) : il ne
+> Un contrôleur est un **singleton** par défaut (`Controller.scope`, `Controller.ts#Controller.scope`) : il ne
 > peut donc pas injecter un service `request` — ce serait une dépendance captive, refusée **au
 > démarrage**. D'où le `@Scope("request")` de `MeController` : une instance par requête, qui reçoit
 > le calque de SA requête.
@@ -253,22 +253,22 @@ plupart des applications n'ont besoin que de la première ; la seconde sert quan
 
 Le conteneur du kernel est créé au démarrage, et le kernel y **pose** les services partagés. Le
 pipeline HTTP déclare au démarrage un type de scope `"request"` (`Container.addScope()`,
-`Container.ts:224`), puis, à chaque requête, en ouvre une instance (`Container.enterScope()`,
-`Container.ts:245`).
+`Container.ts#Container.addScope`), puis, à chaque requête, en ouvre une instance (`Container.enterScope()`,
+`Container.ts#Container.enterScope`).
 
-Le scope **adopte le prototype du conteneur parent** (`Scope`, `Container.ts:344`) : son annuaire
+Le scope **adopte le prototype du conteneur parent** (`Scope`, `Container.ts#Scope`) : son annuaire
 de services est un objet dont le prototype est celui de la carte. Trois conséquences, toutes
 voulues :
 
 - **Lire, c'est remonter la chaîne** : `scope.get("syslog")` trouve le journal de l'application sans
-  code intermédiaire (`Container.get()`, `Container.ts:168`). Un service ajouté à la carte **après**
+  code intermédiaire (`Container.get()`, `Container.ts#Container.get`). Un service ajouté à la carte **après**
   l'ouverture d'un scope y est aussitôt visible.
-- **Écrire, c'est rester sur le calque** : `Scope.set()` (`Container.ts:155`) n'écrit que sur
+- **Écrire, c'est rester sur le calque** : `Scope.set()` (`Container.ts#Container.set`) n'écrit que sur
   l'objet du scope. Le `set()` du conteneur racine, lui, écrit sur le prototype partagé
-  (`Container.set()`, `Container.ts:151`) — c'est pourquoi `Scope` le **redéfinit** : sans cette
+  (`Container.set()`, `Container.ts#Container.set`) — c'est pourquoi `Scope` le **redéfinit** : sans cette
   redéfinition, un service posé pour une requête deviendrait visible de toutes les requêtes
   concurrentes.
-- **Retirer ne touche que le calque** : `Scope.remove()` (`Container.ts:190`) ne retire qu'une clé
+- **Retirer ne touche que le calque** : `Scope.remove()` (`Container.ts#Container.remove`) ne retire qu'une clé
   posée sur le scope, jamais un service hérité.
 
 > [!IMPORTANT]
@@ -281,15 +281,15 @@ voulues :
 
 Ce qu'un scope sait encore faire :
 
-- **se fermer une fois** : `Container.leaveScope()` (`Container.ts:264`) le retire du registre
+- **se fermer une fois** : `Container.leaveScope()` (`Container.ts#Container.leaveScope`) le retire du registre
   **avant** de le nettoyer — un `clean()` qui lèverait ne l'épinglerait pas. Un scope fermé ne se
-  rouvre pas : `closed` vaut `true` (`Container.ts:105`), `get()` rend `null`, `set()` lève ;
+  rouvre pas : `closed` vaut `true` (`Container.ts#Container.closed`), `get()` rend `null`, `set()` lève ;
 - **porter un calque sur le calque** : un scope ouvert depuis un scope chaîne sur les services de
-  **son** parent (`Container.ts:365`), donc voit ce que la requête a posé ;
+  **son** parent (`Container.ts#Scope.constructor`), donc voit ce que la requête a posé ;
 - **refuser `reset()`** : sur un scope, il lèverait plutôt que de le détacher en silence de sa carte
-  (`Scope.reset()`, `Container.ts:336`) ;
+  (`Scope.reset()`, `Container.ts#Container.reset`) ;
 - **ne pas confondre un nom de JavaScript avec un service** : les prototypes n'héritent pas
-  d'`Object.prototype` (`createProto()`, `Container.ts:32`), donc `has("toString")` rend `false`.
+  d'`Object.prototype` (`createProto()`, `Container.ts#createProto`), donc `has("toString")` rend `false`.
 
 ## ⚙️ Les portées — mises en situation
 
@@ -309,11 +309,11 @@ Choisir en cinq secondes, puis lire la section correspondante.
 La portée par **défaut**. C'est ce que tu veux dès qu'un service porte un état qui n'a de sens
 qu'unique : un cache, un compteur, une connexion, un pool.
 
-La résolution suit un ordre précis (`Injector._resolveWithStack()`, `injector.ts:257`) :
+La résolution suit un ordre précis (`Injector._resolveWithStack()`, `injector.ts#Injector._resolveWithStack`) :
 
 1. le nom écrit dans `@inject` retrouve la **classe** au registre ;
 2. la classe dit **où** son instance vit — clé apprise à la pose
-   (`Injector.containerKeyOf()`, `injector.ts:128`) ;
+   (`Injector.containerKeyOf()`, `injector.ts#Injector.containerKeyOf`) ;
 3. si le conteneur du kernel la porte, elle est **rendue telle quelle** ;
 4. sinon elle est construite **puis mémorisée** sous sa clé canonique.
 
@@ -341,7 +341,7 @@ nettoyage.
 
 `@injectable({ scope: "request" })` donne **un exemplaire par requête** — par **connexion** en
 WebSocket. Le contrat, tel que l'injecteur l'applique (`Injector._resolveRequestScoped()`,
-`injector.ts:333`) :
+`injector.ts#Injector._resolveRequestScoped`) :
 
 - **créé à la première résolution** dans la requête, puis rendu à chaque résolution suivante de la
   même requête ; une requête qui ne le résout pas ne paie rien ;
@@ -350,7 +350,7 @@ WebSocket. Le contrat, tel que l'injecteur l'applique (`Injector._resolveRequest
   `super()` ;
 - **nettoyé à la fermeture** : son `clean()` est appelé une fois, dans l'ordre **inverse** des
   créations (un service créé après ceux dont il dépend est nettoyé avant eux), par `Scope.clean()`
-  (`Container.ts:468`). Un `clean()` qui lève est journalisé et n'empêche pas les suivants ;
+  (`Container.ts#Scope.clean`). Un `clean()` qui lève est journalisé et n'empêche pas les suivants ;
 - **refusé hors d'une requête** : résolu au démarrage, dans une commande, ou dans une promesse qui
   continue après la réponse, il lève en nommant la cause.
 
@@ -358,12 +358,12 @@ WebSocket. Le contrat, tel que l'injecteur l'applique (`Injector._resolveRequest
 > **Un singleton ne peut pas dépendre d'un service `request`** : mémorisé à sa première
 > construction, il garderait l'exemplaire de la première requête et le servirait à toutes les
 > suivantes. L'injecteur refuse cette **dépendance captive** au démarrage, par analyse des
-> déclarations (`Injector.assertNoCaptiveDependency()`, `injector.ts:453`), et à la résolution pour
+> déclarations (`Injector.assertNoCaptiveDependency()`, `injector.ts#Injector.assertNoCaptiveDependency`), et à la résolution pour
 > le reste. Le message propose trois remèdes : passer le détenteur en `request`, en `transient`, ou
 > lire le service à l'appel par `RequestContext.getScope()`.
 >
 > La garde voit le graphe **déclaré** — les `@inject` et la pile de résolution. Un
-> `Injector.instantiate()` écrit à la main repart d'une pile vide (`injector.ts:236`) : appelé depuis
+> `Injector.instantiate()` écrit à la main repart d'une pile vide (`injector.ts#Injector.instantiate`) : appelé depuis
 > le constructeur d'un singleton pendant une requête, il rend l'exemplaire de CETTE requête sans que
 > la garde connaisse le détenteur, et le singleton qui le garde l'a capturé. Passer par l'injection
 > déclarée, jamais par une résolution impérative gardée dans un champ.
@@ -390,19 +390,19 @@ tout de suite, le refuse.
 
 Tu n'ouvres jamais un scope toi-même dans une application : le pipeline le fait.
 
-- **HTTP** : ouvert à l'entrée de chaque requête par `HttpKernel.handle()` (`enterScope`, `http-kernel.ts:843`),
+- **HTTP** : ouvert à l'entrée de chaque requête par `HttpKernel.handle()` (`enterScope`, `http-kernel.ts#HttpKernel.handle`),
   refermé au démontage **après** les hooks `onAfterResponse` et `onFinish`
-  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts:1485`) — y compris quand un hook
-  lève (`failTeardownHttp()`, `http-kernel.ts:1507`).
-- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:2019`),
+  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts#HttpKernel.finishTeardownHttp`) — y compris quand un hook
+  lève (`failTeardownHttp()`, `http-kernel.ts#HttpKernel.failTeardownHttp`).
+- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts#HttpKernel.onWebsocketUpgrade`),
   refermé à la fermeture de la socket.
-- Le pipeline y pose `context` (`set("context")`, `Context.ts:311`) puis `controller` (`Resolver.ts:405`). Le
+- Le pipeline y pose `context` (`set("context")`, `Context.ts#Context.constructor`) puis `controller` (`Resolver.ts#Resolver.controller`). Le
   `resolver` n'y est **pas** : c'est un champ du contexte (`context.resolver`).
 
 ### Le contrôleur singleton — le défaut, sous contrat strict
 
 Un contrôleur est un **singleton** par défaut : construit à sa première requête, mis en cache par
-le routeur (`Router.getSingletonController()`, `router.ts:232`), puis partagé par toutes les
+le routeur (`Router.getSingletonController()`, `router.ts#Router.getSingletonController`), puis partagé par toutes les
 requêtes, concurrentes comprises. Son `initialize()` tourne une fois, à la création.
 
 Le **contrat est strict** : l'action ne lit ni n'écrit **aucun** état de requête sur `this`. Tout
@@ -415,7 +415,7 @@ Deux filets rendent la faute visible au lieu de la laisser fuir :
 - les accesseurs d'état (`this.query = …`, `this.context = …`, `setRoute()`…) **lèvent** sur un
   singleton, dans tous les environnements ;
 - **en développement**, toute écriture sur un champ de l'instance lève aussi, en nommant le
-  contrôleur, le champ et le remède (`guardSingletonState()`, `singletonGuard.ts:71`).
+  contrôleur, le champ et le remède (`guardSingletonState()`, `singletonGuard.ts#guardSingletonState`).
 
 > [!CAUTION]
 > Ce que les filets ne voient pas : un champ `#privé`, et la mutation d'un objet tenu par un champ
@@ -426,11 +426,11 @@ Deux filets rendent la faute visible au lieu de la laisser fuir :
 
 ### `@Scope("request")` — une instance par requête
 
-Le décorateur `Scope()` (`routerDecorators.ts:795`) rend à une classe une instance par requête —
+Le décorateur `Scope()` (`routerDecorators.ts#Scope`) rend à une classe une instance par requête —
 par CONNEXION en WebSocket. À déclarer quand le contrôleur injecte un service `request` à son
 constructeur, prépare chaque requête dans `initialize()`, ou garde un état sur `this`.
 
-`RealtimeController` l'est par construction (`RealtimeController.ts:177`), et refuse le singleton au
+`RealtimeController` l'est par construction (`RealtimeController.ts#RealtimeController`), et refuse le singleton au
 démarrage : son pair JSON-RPC et `notifyClient`/`requestClient` désignent la connexion par
 l'instance.
 
@@ -532,7 +532,7 @@ class AuditService extends Service {
 ```
 
 Le moteur rend la faute moins probable : une dépendance se résout **sans argument** — elle n'hérite
-jamais des arguments de son parent (`Injector._instantiateWithStack()`, `injector.ts:549`) —, et un
+jamais des arguments de son parent (`Injector._instantiateWithStack()`, `injector.ts#Injector._instantiateWithStack`) —, et un
 singleton qui dépendrait d'un service `request` est refusé. Mais un contexte passé à la main reste
 possible : c'est à toi de ne pas le garder.
 
@@ -573,8 +573,8 @@ requête — un service, un écouteur, une fonction utilitaire.
 | `RequestContext.getScope()`     | le scope ouvert, ou `undefined`                  | le code qui peut aussi tourner hors requête    |
 | `RequestContext.requireScope()` | le scope ouvert, ou **lève** en nommant la cause | le code qui n'a pas de sens hors d'une requête |
 
-`getScope()` (`RequestContext.ts:321`) rend `undefined` dans trois cas, et `requireScope()`
-(`RequestContext.ts:350`) les **distingue** dans son message, parce que chacun appelle un geste
+`getScope()` (`RequestContext.ts#RequestContext.getScope`) rend `undefined` dans trois cas, et `requireScope()`
+(`RequestContext.ts#RequestContext.requireScope`) les **distingue** dans son message, parce que chacun appelle un geste
 différent :
 
 1. **aucune requête en cours** — démarrage, commande en ligne, minuterie armée hors requête ;
@@ -586,7 +586,7 @@ attendue** qui continue après la réponse, non — elle tombe dans le troisièm
 besoin avant que la réponse parte.
 
 Le pont `api.request` du temps réel pose lui aussi le scope dans sa bulle
-(`RealtimeController.ts:1041`) : c'est celui de la **connexion**, partagé par les invocations
+(`RealtimeController.ts#RealtimeController.actionParamsWrapper`) : c'est celui de la **connexion**, partagé par les invocations
 concurrentes de la même socket.
 
 > [!NOTE]
@@ -613,7 +613,7 @@ flowchart TD
 
 Nodefony tient **deux annuaires différents**, et ils ne portent pas les mêmes clés.
 
-1. **Le registre** indexe des **classes** décorées `@injectable` (`injectables`, `injector.ts:53`) —
+1. **Le registre** indexe des **classes** décorées `@injectable` (`injectables`, `injector.ts#injectables`) —
    un objet sans prototype, pour qu'aucun `toString` ou `__proto__` ne réponde comme un faux
    service.
 2. **Le conteneur** range des **instances** sous le nom passé à `super(nom, …)`.
@@ -621,13 +621,13 @@ Nodefony tient **deux annuaires différents**, et ils ne portent pas les mêmes 
 Le décorateur ne **peut pas** connaître le second nom : il s'exécute au **chargement** de la classe,
 `super()` seulement à la **construction**. La solution est un apprentissage : au moment où le
 service est posé, le couple (classe, clé) est mémorisé (`Injector.rememberContainerKey()`,
-`injector.ts:116`), et toute résolution ultérieure passe par la **classe**. Sans ce relais,
+`injector.ts#Injector.rememberContainerKey`), et toute résolution ultérieure passe par la **classe**. Sans ce relais,
 `@inject("Router")` interrogeait le conteneur avec `"Router"` là où l'instance est rangée sous
 `"router"` : réponse `null`, service **reconstruit en silence avec un cache vide**.
 
 ### Deux sources de dépendances, une priorité
 
-L'injecteur lit deux métadonnées (`Injector._instantiateWithStack()`, `injector.ts:549`) :
+L'injecteur lit deux métadonnées (`Injector._instantiateWithStack()`, `injector.ts#Injector._instantiateWithStack`) :
 
 1. **`inject:services`** — posé par `@inject("nom")`. **Prioritaire**, indexé par position.
 2. **`design:paramtypes`** — émis par TypeScript (`emitDecoratorMetadata`), pour l'**injection
@@ -640,18 +640,18 @@ recevoir son `context` en premier argument, et ses `@inject` ensuite.
 ### L'injection par propriété — présente dans le moteur, pas dans la surface publique
 
 Le moteur applique une injection après construction (`Injector._applyPropertyInjection()`,
-`injector.ts:533`), alimentée par le décorateur `Inject` majuscule. **Préférer l'injection par
+`injector.ts#Injector._applyPropertyInjection`), alimentée par le décorateur `Inject` majuscule. **Préférer l'injection par
 constructeur** : elle est explicite, couverte, et c'est elle que le tri des services sait ordonner.
 
 ### Garde-fous du moteur
 
 - **Dépendances circulaires** : la pile de résolution est propre à chaque arbre d'appel ; un nom
-  déjà présent lève avec le **chemin complet** `A → B → A` (`injector.ts:557`).
+  déjà présent lève avec le **chemin complet** `A → B → A` (`injector.ts#Injector._instantiateWithStack`).
 - **Message actionnable** : quand un service `@injectable` absent du conteneur est construit sans
   argument et que son constructeur casse, l'erreur nomme le demandeur et **la cause probable** — un
   ordre de déclaration.
 - **Dépendance captive** : refusée au démarrage et à la résolution, avec le chemin complet et trois
-  remèdes (`Injector._captiveError()`, `injector.ts:436`).
+  remèdes (`Injector._captiveError()`, `injector.ts#Injector._captiveError`).
 
 ### Le cycle de vie, selon la portée
 
@@ -673,20 +673,20 @@ sequenceDiagram
 
 ## 🧰 API du conteneur
 
-| Méthode               | Rôle                                                                                                                                                 |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `set(name, instance)` | poser un service — racine : sur le prototype partagé ; scope : sur le scope seul (`Container.ts:151`, `:389`)                                        |
-| `get<T>(name)`        | lire un service — `null` si absent ou si le conteneur est fermé (`Container.ts:168`)                                                                 |
-| `has(name)`           | le nom est-il lisible, hérité compris ? (`Container.ts:205`)                                                                                         |
-| `remove(name)`        | retirer — racine : les scopes cessent d'en hériter, leurs surcharges propres restent ; scope : sa clé propre seulement (`Container.ts:183`)          |
-| `addScope(name)`      | **déclarer** un type de scope, au démarrage (`Container.ts:224`)                                                                                     |
-| `enterScope(name)`    | **ouvrir** une instance de scope — lève si le type n'est pas déclaré (`Container.ts:245`)                                                            |
-| `leaveScope(scope)`   | fermer et nettoyer une instance ; un second appel ne fait rien (`Container.ts:264`)                                                                  |
-| `scopeCount(name)`    | nombre de scopes ouverts — sonde de fuite bon marché (`Container.ts:281`)                                                                            |
-| `clean()` / `reset()` | démontage / remise à zéro de la racine ; `reset()` lève sur un scope (`Container.clean()`, `Container.ts:319` ; `Scope.reset()`, `Container.ts:336`) |
-| `scope.hasOwn(name)`  | le nom est-il posé **sur ce scope** ? (`Container.ts:421`)                                                                                           |
-| `scope.own(instance)` | rattacher un objet pour que son `clean()` soit appelé à la fermeture (`Scope.own()`, `Container.ts:438`)                                             |
-| `scope.closed`        | `true` une fois le scope refermé (`Container.ts:105`)                                                                                                |
+| Méthode               | Rôle                                                                                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `set(name, instance)` | poser un service — racine : sur le prototype partagé ; scope : sur le scope seul (`Container.ts#Container.set`, `Container.ts#Scope.set`)                                    |
+| `get<T>(name)`        | lire un service — `null` si absent ou si le conteneur est fermé (`Container.ts#Container.get`)                                                                               |
+| `has(name)`           | le nom est-il lisible, hérité compris ? (`Container.ts#Container.has`)                                                                                                       |
+| `remove(name)`        | retirer — racine : les scopes cessent d'en hériter, leurs surcharges propres restent ; scope : sa clé propre seulement (`Container.ts#Container.remove`)                     |
+| `addScope(name)`      | **déclarer** un type de scope, au démarrage (`Container.ts#Container.addScope`)                                                                                              |
+| `enterScope(name)`    | **ouvrir** une instance de scope — lève si le type n'est pas déclaré (`Container.ts#Container.enterScope`)                                                                   |
+| `leaveScope(scope)`   | fermer et nettoyer une instance ; un second appel ne fait rien (`Container.ts#Container.leaveScope`)                                                                         |
+| `scopeCount(name)`    | nombre de scopes ouverts — sonde de fuite bon marché (`Container.ts#Container.scopeCount`)                                                                                   |
+| `clean()` / `reset()` | démontage / remise à zéro de la racine ; `reset()` lève sur un scope (`Container.clean()`, `Container.ts#Container.clean` ; `Scope.reset()`, `Container.ts#Container.reset`) |
+| `scope.hasOwn(name)`  | le nom est-il posé **sur ce scope** ? (`Container.ts#Scope.hasOwn`)                                                                                                          |
+| `scope.own(instance)` | rattacher un objet pour que son `clean()` soit appelé à la fermeture (`Scope.own()`, `Container.ts#Scope.own`)                                                               |
+| `scope.closed`        | `true` une fois le scope refermé (`Container.ts#Container.closed`)                                                                                                           |
 
 Signatures complètes : générées depuis les TSDoc, jamais recopiées ici.
 
@@ -699,7 +699,7 @@ constructeur casse. Faire reposer cet ordre sur une liste écrite à la main est
 requête.
 
 Comme les dépendances sont déjà déclarées, l'ordre se **calcule**
-(`orderServicesByDependencies()`, `serviceOrder.ts:49`) :
+(`orderServicesByDependencies()`, `serviceOrder.ts#orderServicesByDependencies`) :
 
 - **tri topologique stable** — à contrainte égale, l'ordre d'écriture est conservé, donc une liste
   déjà correcte sort **inchangée** ;
@@ -718,9 +718,9 @@ Ce chemin s'exécute à chaque requête. Les choix de `Container.ts` suivent tou
 - **Héritage par prototype plutôt que remontée logicielle** : lire un service de la carte depuis un
   scope est résolu par le moteur JavaScript, sans code intermédiaire.
 - **Adoption du prototype parent** : ouvrir un scope ne fabrique ni closure ni prototype jetés.
-- **Registre des scopes ouverts = un `Set` par nom** (`Scopes`, `Container.ts:17`) : il sert à les
+- **Registre des scopes ouverts = un `Set` par nom** (`Scopes`, `Container.ts#Scopes`) : il sert à les
   compter et à tout refermer à l'arrêt, sans fabriquer ni hacher de clé à chaque requête.
-- **Identifiant fabriqué à la première lecture** (`Container.id`, `Container.ts:89`) : une requête
+- **Identifiant fabriqué à la première lecture** (`Container.id`, `Container.ts#Container.id`) : une requête
   ordinaire ne le lit jamais, donc ne le paie jamais.
 - **Rien d'alloué pour les services `request` tant qu'aucun n'est résolu** : le champ qui les
   rattache reste `null`.
@@ -736,7 +736,7 @@ Les ordres de grandeur, avec leur décor :
 
 Toute modification de `Container.ts` ou du pipeline de requête passe par le gate mémoire
 (`npm run test:memory` dans `@nodefony/http`) : il compte les scopes restés ouverts et les services
-`request` jamais libérés après chaque boucle. La sonde `scopeCount()` (`Container.ts:281`) existe
+`request` jamais libérés après chaque boucle. La sonde `scopeCount()` (`Container.ts#Container.scopeCount`) existe
 pour voir une fuite venir.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
@@ -766,7 +766,7 @@ L'identité réelle des services se vérifie **depuis l'intérieur du serveur** 
 ne la voit pas, parce qu'un doublon ne casse rien de visible : chaque copie « marche », seul son état
 est dupliqué et perdu.
 
-Le module de test expose une sonde (`DiController.probe()`, `DiController.ts:36`) qui répond à la
+Le module de test expose une sonde (`DiController.probe()`, `DiController.ts#DiController.probe`) qui répond à la
 seule question qui compte : **les consommateurs d'un service partagent-ils la même instance ?** Elle
 ne renvoie que des booléens d'identité, jamais un objet de service. Pour la portée `request`, la
 route `/nodefony/test/request-scope/probe` dit si l'exemplaire est le même dans toute la requête et

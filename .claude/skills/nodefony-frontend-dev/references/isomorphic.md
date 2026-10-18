@@ -121,7 +121,7 @@ La règle d'or : **du code front n'importe jamais la face serveur**. Concrèteme
 - Le code protocole partagé (`src/nodefony/src/realtime/*` : `JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`) est **sans dépendance Node** (browser-safe par construction) — c'est ce qui rend l'isomorphisme possible.
 - Le barrel client (`src/client/index.ts`) ne réexporte QUE des briques browser-safe : `Service`, `Container`, `Syslog`, `Pdu`, helpers `Tools`, `NodefonySocket`, `JsonRpcPeer`, transports, AdaptiveRate, drivers Pdu. Il N'expose PAS `Kernel`/`Module`/http.
 
-Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/`react-dom` sont **optionnels** (`peerDependenciesMeta`, lignes 98-104) — tirés seulement si on importe `nodefony/react` ; `zod` reste requis. Aucun JSX dans le build Core : le provider React est créé via `React.createElement` (cf `src/client/react/index.ts:140`) → le build Core ne dépend d'aucun transform JSX.
+Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/`react-dom` sont **optionnels** (`peerDependenciesMeta`, lignes 98-104) — tirés seulement si on importe `nodefony/react` ; `zod` reste requis. Aucun JSX dans le build Core : le provider React est créé via `React.createElement` (cf `src/client/react/index.ts#NodefonyProviderProps.client`) → le build Core ne dépend d'aucun transform JSX.
 
 ---
 
@@ -148,15 +148,15 @@ Barrel client — points d'ancrage (`src/client/index.ts`) :
 
 Source : `src/client/roles/` — barrel `index.ts`, fonctions `roles.ts`, masque `registry.ts`. **Pur, sans état global, sans dépendance** → identique front et serveur (un voter serveur et un rendu conditionnel front partagent la MÊME logique).
 
-Convention : la source de vérité = les chaînes `ROLE_*` (ce que transportent JWT/OAuth/claims, `roles.ts:1-5`). Le mécanisme reste agnostique (n'importe quelle chaîne fait office de rôle) ; les rôles applicatifs (`ROLE_DEV`…) sont définis par le consommateur, **jamais par le core** (`index.ts:1-12`).
+Convention : la source de vérité = les chaînes `ROLE_*` (ce que transportent JWT/OAuth/claims, `roles.ts#Role`). Le mécanisme reste agnostique (n'importe quelle chaîne fait office de rôle) ; les rôles applicatifs (`ROLE_DEV`…) sont définis par le consommateur, **jamais par le core** (`index.ts`).
 
 ### Trois niveaux selon le coût
 
-| Brique                                   | Quand                                               | Coût                                | Ancre                              |
-| ---------------------------------------- | --------------------------------------------------- | ----------------------------------- | ---------------------------------- |
-| `hasRole` / `hasAnyRole` / `hasAllRoles` | Contrôle **ponctuel** (1 test)                      | Zéro allocation (parcours linéaire) | `roles.ts:19-24`, `34-41`, `51-59` |
-| `RoleSet`                                | Contrôles **répétés** (filtrer une nav, N panneaux) | 1 alloc `Set`, puis O(1)/O(k)       | `roles.ts:69-112`                  |
-| `RoleRegistry` (+ masque)                | Ensemble **FIXE** en hot path serveur (voters)      | Masque binaire `&`/`\|`, 0 alloc    | `registry.ts:27-107`               |
+| Brique                                   | Quand                                               | Coût                                | Ancre                        |
+| ---------------------------------------- | --------------------------------------------------- | ----------------------------------- | ---------------------------- |
+| `hasRole` / `hasAnyRole` / `hasAllRoles` | Contrôle **ponctuel** (1 test)                      | Zéro allocation (parcours linéaire) | `roles.ts`, `34-41`, `51-59` |
+| `RoleSet`                                | Contrôles **répétés** (filtrer une nav, N panneaux) | 1 alloc `Set`, puis O(1)/O(k)       | `roles.ts#RoleSet`           |
+| `RoleRegistry` (+ masque)                | Ensemble **FIXE** en hot path serveur (voters)      | Masque binaire `&`/`\|`, 0 alloc    | `registry.ts#RoleRegistry`   |
 
 ### Signatures (vérifiées au source)
 
@@ -189,7 +189,7 @@ class RoleSet {
 
 ### `RoleRegistry` — bitmask O(1), cap 31 rôles
 
-`registry.ts:11` : `ROLE_MASK_CAPACITY = 31`. **Pourquoi 31** : les opérateurs bit-à-bit de JS travaillent sur des entiers **32 bits signés** — `1 << 31` devient négatif, `1 << 32` repart à `1`. On réserve donc les bits 0..30 (31 rôles) pour rester sur des masques positifs sûrs. Au-delà → rester sur les chaînes (`RoleSet`) ou un futur registre `BigInt`.
+`registry.ts#ROLE_MASK_CAPACITY` : `ROLE_MASK_CAPACITY = 31`. **Pourquoi 31** : les opérateurs bit-à-bit de JS travaillent sur des entiers **32 bits signés** — `1 << 31` devient négatif, `1 << 32` repart à `1`. On réserve donc les bits 0..30 (31 rôles) pour rester sur des masques positifs sûrs. Au-delà → rester sur les chaînes (`RoleSet`) ou un futur registre `BigInt`.
 
 ```ts
 class RoleRegistry {
@@ -209,7 +209,7 @@ class RoleRegistry {
 
 Règle de sécurité centrale. Le front teste des rôles **résolus et annoncés par le serveur**, il ne décode **jamais** un JWT côté client pour en extraire des rôles.
 
-La connexion temps réel annonce l'identité résolue au handshake via `realtime:welcome` → `RealtimeIdentity` (`src/realtime/RealtimeEventMap.ts:215-226`) :
+La connexion temps réel annonce l'identité résolue au handshake via `realtime:welcome` → `RealtimeIdentity` (`src/realtime/RealtimeEventMap.ts#RealtimeIdentity`) :
 
 ```ts
 interface RealtimeIdentity {
@@ -221,7 +221,7 @@ interface RealtimeIdentity {
 }
 ```
 
-Le commentaire du contrat (`RealtimeEventMap.ts:204-214`) le pose : c'est une vue « sur soi » (équivalent `/auth/me`), **aucun secret** — seulement l'état d'auth et les rôles/scopes que le porteur connaît déjà. Le pattern front :
+Le commentaire du contrat (`RealtimeEventMap.ts#RealtimeIdentity`) le pose : c'est une vue « sur soi » (équivalent `/auth/me`), **aucun secret** — seulement l'état d'auth et les rôles/scopes que le porteur connaît déjà. Le pattern front :
 
 ```ts
 const identity = useNodefonyIdentity();              // rôles résolus serveur (cf realtime-client.md)
@@ -238,16 +238,16 @@ const canAdmin = hasAnyRole(identity.roles, ["ROLE_NODEFONY_ADMIN", "ROLE_DEV"])
 Exemples vérifiés dans le front Studio (`src/packages/@nodefony/studio/frontend/`) :
 
 ```ts
-// stores/RootStore.ts:4 — le client (face browser, via customConditions)
+// stores/RootStore.ts — le client (face browser, via customConditions)
 import { NodefonySocket } from "nodefony";
 // …
-this.realtime = NodefonySocket.shared({ /* url, token… */ });   // RootStore.ts:54 — singleton par URL
+this.realtime = NodefonySocket.shared({ /* url, token… */ });   // RootStore.ts#RootStore.kernel — singleton par URL
 
-// App.tsx:12 + :278 — le provider React au-dessus du shell
+// App.tsx + :278 — le provider React au-dessus du shell
 import { NodefonyProvider } from "nodefony/react";
 <NodefonyProvider client={rootStore.realtime}> … </NodefonyProvider>
 
-// auth/roles.ts:20 — RBAC isomorphe
+// auth/roles.ts — RBAC isomorphe
 import { hasAnyRole, hasRole } from "nodefony/roles";
 ```
 

@@ -160,7 +160,7 @@ Les cibles ci-dessous sont données **telles qu'on les écrit depuis une page de
 
 - **Vers une autre page docs/** : la voisine s'écrit `build-bundling.md`, une page d'un autre
   sous-dossier `../guides/…`.
-- **Vers le code source** : chemin absolu depuis la racine, sans backtick : `src/nodefony/src/Container.ts:249` (`enterScope`).
+- **Vers le code source** : chemin absolu depuis la racine, sans backtick : `src/nodefony/src/Container.ts#Container.enterScope` (`enterScope`).
 - **Vers une doc colocalisée à un module** (ADR-0001) : remonter jusqu'à la racine —
   `../../src/nodefony/docs/service.md` pour le cœur, `../../src/packages/@nodefony/http/docs/…` pour un paquet.
 

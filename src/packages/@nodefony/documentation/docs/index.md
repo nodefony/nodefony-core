@@ -104,43 +104,43 @@ Quatre propriétés, toutes vérifiables dans le code — c'est ce qui distingue
 `readFile` sur un dossier.
 
 **La doc voyage avec le code qu'elle décrit.** Le service scanne le `docs/` racine du projet **et**
-le `docs/` de chaque module chargé (`DocumentationService.#scanAll()`, `DocumentationService.ts:332`).
+le `docs/` de chaque module chargé (`DocumentationService.#scanAll()`, `DocumentationService.ts#DocumentationService.#scanAll`).
 Pour ton module, la seule condition est d'avoir déclaré `docs` dans le champ `files` de son
 `package.json` — sans quoi npm ne publie pas le dossier, et la doc disparaît à l'installation.
 Le regroupement en sections ne se déclare nulle part : il est **calculé depuis le dossier parent**
-du fichier (`group`, `docScanner.ts:87`), et l'`index.md` d'un dossier est présenté en premier
-(`DocumentationService.#orderPages()`, `DocumentationService.ts:498`) — un point d'entrée trié
+du fichier (`group`, `docScanner.ts#ScannedDoc.group`), et l'`index.md` d'un dossier est présenté en premier
+(`DocumentationService.#orderPages()`, `DocumentationService.ts#DocumentationService.#orderPages`) — un point d'entrée trié
 alphabétiquement se retrouverait au milieu de ses propres pages.
 
 **La doc d'un module non activé est lisible quand même.** Les paquets présents dans
 `node_modules/@nodefony/*` sont scannés même s'ils ne figurent pas dans le manifeste de
-l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts:398`). C'est
+l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts#DocumentationService.#installedDocDirs`). C'est
 précisément le moment où on lit la doc d'un module : pour décider de l'activer. Les chemins sont
 résolus en lien réel, donc un dépôt en espace de travail indexe la source, jamais le lien
 symbolique — sinon le même fichier existerait sous deux chemins, et ses liens ne résoudraient plus.
 
 **Un identifiant de page est une clé, jamais un chemin.** Servir une page consiste à retrouver son
 entrée par **égalité d'identifiant** dans le catalogue scanné, puis à ouvrir le chemin absolu déjà
-connu (`DocumentationService.getPage()`, `DocumentationService.ts:252`). Le `mod~http~index` reçu du
+connu (`DocumentationService.getPage()`, `DocumentationService.ts#DocumentationService.getPage`). Le `mod~http~index` reçu du
 client n'est jamais concaténé à un chemin de système de fichiers. Une garde en défense de profondeur
-(`isSafeSlug()`, `slug.ts:39`) rejette en plus tout identifiant suspect — segment `..`, séparateur,
+(`isSafeSlug()`, `slug.ts#isSafeSlug`) rejette en plus tout identifiant suspect — segment `..`, séparateur,
 octet nul, hors jeu de caractères — **avant** même la recherche.
 
 **Tes liens relatifs restent valides des deux côtés.** Une page se lie à ses voisines par chemin
 relatif (`[Architecture](./architecture.md)`), ce qui la rend lisible sur GitHub et dans l'éditeur ;
 le portail, lui, navigue par identifiant. La traduction est faite au service
-(`rewriteInternalLinks()`, `linkResolver.ts:91`), seul à connaître la table chemin → identifiant.
+(`rewriteInternalLinks()`, `linkResolver.ts#rewriteInternalLinks`), seul à connaître la table chemin → identifiant.
 Une cible **absente de l'index** est laissée intacte plutôt que réécrite au hasard : mieux vaut un
 lien inerte qu'un identifiant inventé.
 
 > [!IMPORTANT]
 > **Le module ne rend aucun HTML.** Il produit deux formes de données, `IDocTree`
-> (`IDocumentation.ts:64`) et `IDocPage` (`IDocumentation.ts:74`), et s'arrête là. Conséquence
+> (`IDocumentation.ts#IDocTree`) et `IDocPage` (`IDocumentation.ts#IDocPage`), et s'arrête là. Conséquence
 > pratique : tout ce que montre le portail est aussi lisible en `curl`, en script, ou par un agent —
 > et le même data plane alimentera un générateur de site statique ou une indexation documentaire
 > sans qu'une ligne du module change. Le rendu appartient au lecteur, jamais au serveur.
 
-Le module se déclare par ailleurs **non critique** (`Documentation.critical`, `index.ts:46`) : un
+Le module se déclare par ailleurs **non critique** (`Documentation.critical`, `index.ts#Documentation.critical`) : un
 échec de son démarrage n'emporte jamais le processus. On perd le catalogue, jamais l'application.
 
 ## 🚀 Démarrage rapide
@@ -188,7 +188,7 @@ export default defineConfig(() => ({
 ### 2. Écrire une page
 
 Un fichier `.md` dans `docs/` (ou `<ton-module>/docs/`), ouvert par un bloc de métadonnées. Le
-parseur est un **YAML plat** volontairement restreint (`parseFrontmatter()`, `frontmatter.ts:51`) :
+parseur est un **YAML plat** volontairement restreint (`parseFrontmatter()`, `frontmatter.ts#parseFrontmatter`) :
 clé/valeur, liste en ligne `[a, b]` ou liste en bloc. Ni objets imbriqués, ni valeurs multilignes.
 
 ```yaml
@@ -216,14 +216,14 @@ conservées telles quelles, sans effet sur le catalogue — elles servent à l'i
 | `source`   | le chemin dépôt qui construit le lien « Modifier »    | le chemin réel du fichier, relatif au projet |
 
 Les valeurs de `audience` et de `status` sont des énumérations fermées, `DocAudience`
-(`IDocumentation.ts:10`) et `DocStatus` (`IDocumentation.ts:13`) : toute valeur hors liste est
+(`IDocumentation.ts#DocAudience`) et `DocStatus` (`IDocumentation.ts#DocStatus`) : toute valeur hors liste est
 **silencieusement écartée**, jamais affichée telle quelle.
 
 > [!WARNING]
 > **Deux pièges coûtent une page mal rangée.** La date se déclare `updated` — un `last-updated`
 > n'est pas lu, et la page paraît sans fraîcheur. Et une clé `section` dans le frontmatter ne
 > regroupe rien : le regroupement vient du **dossier parent** du fichier (`group`,
-> `docScanner.ts:87`). Pour ranger une page ailleurs, on la déplace ; on ne la renomme pas.
+> `docScanner.ts#ScannedDoc.group`). Pour ranger une page ailleurs, on la déplace ; on ne la renomme pas.
 
 ### 3. La lire
 
@@ -272,16 +272,16 @@ consommateur parmi d'autres.
 ## 🧰 Surface publique
 
 Côté serveur, le module expose `DocumentationService` — sa méthode `getTree()`
-(`DocumentationService.ts:189`) construit le catalogue, `getPage()`
-(`DocumentationService.ts:252`) sert une page, `invalidate()` (`DocumentationService.ts:185`) force
-un rescan immédiat, et `registerVar()` (`DocumentationService.ts:180`) branche une variable
+(`DocumentationService.ts#DocumentationService.getTree`) construit le catalogue, `getPage()`
+(`DocumentationService.ts#DocumentationService.getPage`) sert une page, `invalidate()` (`DocumentationService.ts#DocumentationService.invalidate`) force
+un rescan immédiat, et `registerVar()` (`DocumentationService.ts#DocumentationService.registerVar`) branche une variable
 dynamique.
 
 Les variables sont la seule extension du module. Une page écrit `{{ nom }}` ; le serveur substitue
 la valeur au moment de servir (`DocumentationService.#resolveVars()`,
-`DocumentationService.ts:555`). Trois variables sont fournies d'office — version du noyau, branche
+`DocumentationService.ts#DocumentationService.#resolveVars`). Trois variables sont fournies d'office — version du noyau, branche
 et empreinte git — enregistrées quand tous les modules sont montés
-(`Documentation.onKernelReady()`, `index.ts:78`). Ton module peut ajouter les siennes :
+(`Documentation.onKernelReady()`, `index.ts#Documentation.onKernelReady`). Ton module peut ajouter les siennes :
 
 ```ts
 // Dans le hook onKernelReady de ton module : tous les services existent.
@@ -293,7 +293,7 @@ Une variable sans fournisseur est **laissée telle quelle** dans la page : l'aut
 un branchement, au lieu d'un trou silencieux. Un fournisseur qui échoue ne casse jamais le rendu.
 
 Le module publie aussi ses briques pures, utilisables hors serveur — `parseFrontmatter()`,
-`scanDocsDir()` (`docScanner.ts:66`), `isSafeSlug()` et `pathToSlug()` (`slug.ts:60`) — de quoi
+`scanDocsDir()` (`docScanner.ts#scanDocsDir`), `isSafeSlug()` et `pathToSlug()` (`slug.ts#pathToSlug`) — de quoi
 écrire un générateur de site qui range les fichiers exactement comme le portail. Les signatures
 exactes vivent dans le graphe généré (`jq '.symbols.DocumentationService' .ai/symbols.json`), jamais
 recopiées ici : elles divergeraient en silence.
@@ -302,7 +302,7 @@ recopiées ici : elles divergeraient en silence.
 
 Un seul point d'entrée : `use("@nodefony/documentation", { … })` dans `nodefony.config.ts`, validé
 au démarrage contre le schéma du module (`documentationConfigSchema`,
-`nodefony/config/config.ts:134`). Quatre blocs :
+`nodefony/config/config.ts#documentationConfigSchema`). Quatre blocs :
 
 | Bloc      | Ce qu'il décide                                                                       | Défaut d'usine                  |
 | --------- | ------------------------------------------------------------------------------------- | ------------------------------- |
@@ -312,14 +312,14 @@ au démarrage contre le schéma du module (`documentationConfigSchema`,
 | `cache`   | la durée de vie du catalogue ; `0` = rescan à chaque appel                            | `30000` ms                      |
 
 Deux réglages se surchargent par l'environnement, `NF_DOCS_REPO_URL` et `NF_DOCS_REPO_BRANCH`,
-déclarés sur leur champ dans le schéma (`config.ts:97` et `:109`) et posés par le Kernel **avant**
+déclarés sur leur champ dans le schéma (`config.ts#repoSchema` et `config.ts#repoSchema`) et posés par le Kernel **avant**
 la validation.
 Le second sert en conteneur, où le dépôt git n'est pas embarqué — sans lui, la branche est lue au
 runtime dans le dépôt réel, et retombe sur `main` s'il n'y en a pas.
 
 > [!TIP]
 > **Le cache ne porte que le catalogue, jamais le contenu.** Une page est relue à chaque demande
-> (`DocumentationService.#ensureCache()`, `DocumentationService.ts:306`) : corriger une phrase se
+> (`DocumentationService.#ensureCache()`, `DocumentationService.ts#DocumentationService.#ensureCache`) : corriger une phrase se
 > voit au rafraîchissement. C'est **ajouter ou supprimer un fichier** qui attend l'expiration — d'où
 > `ttlMs: 0` en développement, et le défaut en production.
 
@@ -331,17 +331,17 @@ centre, le sommaire et le lien « Modifier » à droite. La page du module,
 symboles.
 
 Trois portes composent le data plane, toutes réservées aux rôles de développement et de
-supervision (`DocumentationController.ts:49`) — la documentation technique n'est pas une page
+supervision (`DocumentationController.ts#DocumentationController.tree`) — la documentation technique n'est pas une page
 publique :
 
-| Route                                  | Ce qu'elle renvoie                                                          |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `GET /nodefony/documentation/api/tree` | le catalogue : sections, pages, personas (`DocumentationController.ts:50`)  |
-| `GET …/api/search?q=`                  | titres et corps cherchés, extraits situés (`DocumentationController.ts:70`) |
-| `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:82`)        |
+| Route                                  | Ce qu'elle renvoie                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `GET /nodefony/documentation/api/tree` | le catalogue : sections, pages, personas (`DocumentationController.ts#DocumentationController.tree`)    |
+| `GET …/api/search?q=`                  | titres et corps cherchés, extraits situés (`DocumentationController.ts#DocumentationController.search`) |
+| `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts#DocumentationController.page`)          |
 
 Le lien « Modifier » est assemblé côté serveur à partir d'un chemin **relatif** au dépôt
-(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:574`) : aucun chemin absolu de
+(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts#DocumentationService.#buildSourceUrl`) : aucun chemin absolu de
 système de fichiers ne sort jamais du serveur.
 
 ## 🧪 Tests & couverture

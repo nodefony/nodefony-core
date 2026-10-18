@@ -8,6 +8,7 @@ import { resoudreCorpus, instructionsDe } from "./corpus.mjs";
 import { indexerIdentifiants, symbolesFantomes } from "./symboles.mjs";
 import { defautsDesFigures } from "./figures.mjs";
 import { exampleDefects } from "./examples.mjs";
+import { SYMBOL_ANCHOR_RE } from "./anchor-context.mjs";
 
 // Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/scratch/doc-work/.
 import { execSync } from "node:child_process";
@@ -324,12 +325,13 @@ for (const f of files) {
       "retour manquant (1ʳᵉ ligne de « Pour aller plus loin » : `- ⬆️ **Retour au hub** : …`)",
     );
 
-  // 5) Ancres fichier:ligne présentes (une doc « code = vérité » sans ancre = suspecte).
+  // 5) Ancres <fichier>#<Symbole> présentes (une doc « code = vérité » sans ancre = suspecte).
   // Un hub oriente et ne cite pas le code : lui réclamer des ancres fabriquerait du faux.
-  const anchors = src.match(/[\w./@-]+\.ts:\d+/g) ?? [];
+  // Le motif est celui d'anchor-check : une ancre de ligne ne compte plus, il la refuse.
+  const anchors = [...src.matchAll(SYMBOL_ANCHOR_RE)];
   if (!isHub && !testsOptOut && anchors.length < 3)
     errs.push(
-      `trop peu d'ancres fichier:ligne (${anchors.length}) — doc probablement superficielle`,
+      `trop peu d'ancres <fichier>#<Symbole> (${anchors.length}) — doc probablement superficielle`,
     );
 
   // 5bis) LIENS INTERNES VIVANTS — une navigation par hubs ne vaut que si les liens tiennent.

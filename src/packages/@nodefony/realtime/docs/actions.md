@@ -117,7 +117,7 @@ attendre trop longtemps et repartir.
 
 Techniquement, ce numéro est le champ `id` de la frame JSON-RPC 2.0. Le pair l'attribue, garde
 l'appel en attente dans une table, arme une minuterie, et résout la `Promise` quand la réponse
-portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:579`). Une frame sans
+portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts#JsonRpcPeer.handleResponse`). Une frame sans
 `id` ne crée aucune de ces trois choses — c'est pourquoi une publication ne coûte rien au repos.
 
 ## La vision Nodefony — un nom, un handler, une découverte
@@ -126,18 +126,18 @@ Trois partis pris distinguent les actions Nodefony d'une couche RPC classique.
 
 **Il n'y a pas de couche RPC séparée.** Une action est une **méthode de contrôleur**, dans la même
 classe que tes canaux et — si tu le veux — que tes routes HTTP. Pas de service dédié, pas de
-schéma à compiler : `@RealtimeAction("orders:quote")` (`realtimeDecorators.ts:191`) suffit, et le
+schéma à compiler : `@RealtimeAction("orders:quote")` (`realtimeDecorators.ts#RealtimeAction`) suffit, et le
 retour de la méthode devient le `result` de la réponse.
 
 **Le contrat du handler est minuscule, volontairement.** Une action reçoit **un seul argument**,
 les paramètres bruts du client, et rend une valeur — `RpcActionHandler`
-(`JsonRpcPeer.ts:153`). Pas de contexte injecté dans la signature : le `this` est lié à
+(`JsonRpcPeer.ts#RpcActionHandler`). Pas de contexte injecté dans la signature : le `this` est lié à
 l'instance du contrôleur au handshake, ce qui donne accès au noyau, aux services et à la
 connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
-`IRealtimeWelcome` (`RealtimeController.ts:12`) — et se lit côté client par
-`NodefonySocket.serverMethods` (`NodefonySocket.ts:1041`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`IRealtimeWelcome` (`RealtimeController.ts`) — et se lit côté client par
+`NodefonySocket.serverMethods` (`NodefonySocket.ts#NodefonySocket.serverMethods`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -274,20 +274,20 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 
 ### Deux voies, un même registre
 
-| Voie                                                   | Quand la choisir                                            |
-| ------------------------------------------------------ | ----------------------------------------------------------- |
-| `@RealtimeAction("nom")` (`realtimeDecorators.ts:191`) | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts:282`)      | la table est **calculée** (noms dynamiques, boucle, config) |
+| Voie                                                                             | Quand la choisir                                            |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `@RealtimeAction("nom")` (`realtimeDecorators.ts#RealtimeAction`)                | le cas courant — un nom fixe, une méthode, déclaratif       |
+| `realtimeActions()` (`RealtimeController.ts#RealtimeController.realtimeActions`) | la table est **calculée** (noms dynamiques, boucle, config) |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
-(`RealtimeController.ts:599`). Un endpoint sans aucune action ne paie rien — la table du pair est
+(`RealtimeController.ts#RealtimeController.onHandshake`). Un endpoint sans aucune action ne paie rien — la table du pair est
 allouée au premier enregistrement seulement.
 
 ### Ce que ton `return` et ton `throw` deviennent sur le fil
 
 Le retour du handler est envoyé tel quel en `result`. Les erreurs, elles, suivent une règle Zero
-Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:526`) :
+Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts#JsonRpcPeer.handleRequest`) :
 
 | Côté serveur                    | Ce que reçoit le client                  | Pourquoi                                        |
 | ------------------------------- | ---------------------------------------- | ----------------------------------------------- |
@@ -299,7 +299,7 @@ Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:52
 
 > [!WARNING]
 > **Le temps réel n'a qu'UNE erreur, et elle vient du cœur.** Pour choisir ce que voit le client,
-> c'est `RpcError` (`JsonRpcPeer.ts:101`), importée depuis `nodefony` — son `code` est un entier
+> c'est `RpcError` (`JsonRpcPeer.ts#RpcError`), importée depuis `nodefony` — son `code` est un entier
 > JSON-RPC et son `data` traverse le fil. Toute autre exception donne un `-32603` opaque. Ne pas
 > chercher d'erreur maison dans `@nodefony/realtime` : il n'y en a pas, et
 > `tests/unit/errorSurface.test.ts` refuse d'en exporter une que personne ne lève.
@@ -313,8 +313,8 @@ Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:52
 
 Cette défense est le **verrou de frame**, posé par `@nodefony/security`. Il examine chaque frame
 entrante et, pour une action, résout une politique **par son nom** — exactement le mécanisme des
-canaux (`buildFrameAuthorizer()`, `frameAuthorizer.ts:388` ; branche des méthodes,
-`frameAuthorizer.ts:388`). Trois situations, à connaître dans cet ordre :
+canaux (`buildFrameAuthorizer()`, `frameAuthorizer.ts#buildFrameAuthorizer` ; branche des méthodes,
+`frameAuthorizer.ts#buildFrameAuthorizer`). Trois situations, à connaître dans cet ordre :
 
 ### Situation 1 — une action est FERMÉE par défaut
 
@@ -345,22 +345,22 @@ homonyme), elle est conservée : le défaut ne rétrograde jamais une règle plu
 ### Situation 2 — les namespaces réservés portent un plancher
 
 Un nom qui commence par `nodefony:` hérite d'un plancher non contournable : authentifié **et**
-`ROLE_NODEFONY_ADMIN` (`SYSTEM_CHANNEL_POLICY`, `frameAuthorizer.ts:89`) — un rôle de la plateforme,
+`ROLE_NODEFONY_ADMIN` (`SYSTEM_CHANNEL_POLICY`, `frameAuthorizer.ts#SYSTEM_CHANNEL_POLICY`) — un rôle de la plateforme,
 pas le `ROLE_ADMIN` d'une organisation. Un seul préfixe couvre donc tout
-ce que la plateforme expose (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts:106`). C'est ce qui
+ce que la plateforme expose (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts#DEFAULT_SYSTEM_PREFIXES`). C'est ce qui
 protège `nodefony:kernel:gc` : le nom **est** la garde, et la comparaison est insensible à la casse
 pour qu'un `NODEFONY:kernel:gc` ne passe pas à côté.
 
 Ce plancher **prime sur ta déclaration** — y compris sur `{ authenticated: false }`. Et il ne
 s'arrête pas aux préfixes : tout nom **contenant** `:health` ou `:stats` est traité comme un canal
-d'observabilité (`matchSystemPolicy`, `frameAuthorizer.ts:243`). Une action `public:health` reste
+d'observabilité (`matchSystemPolicy`, `frameAuthorizer.ts#matchSystemPolicy`). Une action `public:health` reste
 donc réservée, quoi qu'en dise son décorateur. À savoir avant de nommer une action « ouverte ».
 
 ### Situation 3 — couvrir SES actions par la configuration
 
 Pour exiger un rôle sur tes propres actions, on déclare une règle de préfixe dans la
 configuration de sécurité — la même liste que pour les canaux
-(`realtimeChannels`, `security/nodefony/config/config.ts:1483`) :
+(`realtimeChannels`, `security/nodefony/config/config.ts#securityConfigSchema`) :
 
 ```ts ignore
 use("@nodefony/security", {
@@ -376,7 +376,7 @@ use("@nodefony/security", {
 
 Une action authentifiée sait que l'appelant est identifié ; elle peut aussi savoir **qui** il est.
 Les décorateurs de paramètres d'une route y prennent le même sens
-(`actionParamsWrapper`, `RealtimeController.ts:1036`) :
+(`actionParamsWrapper`, `RealtimeController.ts#RealtimeController.actionParamsWrapper`) :
 
 ```ts ignore
 import { Body, CurrentUser } from "@nodefony/framework";
@@ -402,8 +402,8 @@ rien ne change pour elle, ni comportement ni coût.
 
 > [!IMPORTANT]
 > **L'identité est celle de l'ouverture de la socket.** Elle n'est pas relue à chaque appel : le
-> hub la revalide toutes les 30 secondes (`REVOCATION_REVALIDATE_MS`, `RealtimeHub.ts:112`) et
-> ferme la socket en `4001` si la session est morte (`RealtimeHub.ts:842`). Après une
+> hub la revalide toutes les 30 secondes (`REVOCATION_REVALIDATE_MS`, `RealtimeHub.ts#channelFamily`) et
+> ferme la socket en `4001` si la session est morte (`RealtimeHub.ts#RealtimeHub.probe`). Après une
 > déconnexion, une action peut donc encore voir l'ancien utilisateur pendant cette fenêtre. Pour
 > une écriture sensible — paiement, droits, suppression — passe par une route
 > `POST + WEBSOCKET` appelée par `socket.mutate()` : ce pont revalide l'identité à **chaque**
@@ -414,7 +414,7 @@ rien ne change pour elle, ni comportement ni coût.
 Une action réservée au développement se contrôle **dans le handler, côté serveur** — jamais par un
 drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le modèle est
 `nodefony:scaffold:run` dans Studio, qui refuse net hors développement avant même de lire ses paramètres
-(`StudioRealtimeController.ts:133`).
+(`StudioRealtimeController.ts#StudioRealtimeController.actionScaffoldRun`).
 
 > [!CAUTION]
 > Le défaut fermé protège de l'oubli, pas de la sur-ouverture. Une action mutable reste la surface
@@ -428,21 +428,21 @@ drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le
 ### Le délai d'expiration est la seule libération automatique
 
 `request()` prend le délai en **troisième argument positionnel**, en millisecondes — il n'y a pas
-d'objet d'options (`NodefonySocket.request()`, `NodefonySocket.ts:1177`) :
+d'objet d'options (`NodefonySocket.request()`, `NodefonySocket.ts#NodefonySocket.request`) :
 
 ```ts ignore
 await socket.request("orders:quote", { orderId }); // 30 000 ms par défaut
 await socket.request("orders:export", { scope }, 120_000); // action longue
 ```
 
-| Défaut    | Valeur    | Ancrage              |
-| --------- | --------- | -------------------- |
-| `request` | 30 000 ms | `JsonRpcPeer.ts:353` |
+| Défaut    | Valeur    | Ancrage                              |
+| --------- | --------- | ------------------------------------ |
+| `request` | 30 000 ms | `JsonRpcPeer.ts#JsonRpcPeer.request` |
 
 À l'expiration, l'entrée en attente est **retirée** et la `Promise` rejetée avec
-`RPC timeout: <méthode>` (`JsonRpcPeer.ts:502`). Conséquence à connaître : une réponse qui
+`RPC timeout: <méthode>` (`JsonRpcPeer.ts#JsonRpcPeer.startCall`). Conséquence à connaître : une réponse qui
 arriverait après coup ne trouve plus personne et est ignorée en silence
-(`JsonRpcPeer.ts:584`) — pas de résolution tardive, pas de fuite.
+(`JsonRpcPeer.ts#JsonRpcPeer.handleResponse`) — pas de résolution tardive, pas de fuite.
 
 ### Abandonner : ce qui existe vraiment
 
@@ -456,11 +456,11 @@ Trois leviers existent, et ils ne font pas la même chose :
 
 1. **Le délai d'expiration** — libère le client, laisse le serveur travailler.
 2. **La fermeture de la connexion** — `dispose()` rejette **tous** les appels en attente d'un
-   coup (`JsonRpcPeer.ts:480`), appelé au nettoyage de la socket
-   (`RealtimeController.ts:750`). Là encore : côté client seulement.
+   coup (`JsonRpcPeer.ts#JsonRpcPeer.dispose`), appelé au nettoyage de la socket
+   (`RealtimeController.ts#RealtimeController.onHandshake`). Là encore : côté client seulement.
 3. **Une action compagnon** — la seule vraie annulation. On expose une seconde action qui prend
    l'identifiant du travail et l'interrompt côté serveur. Le modèle du dépôt est
-   `nodefony:scaffold:cancel` (`StudioRealtimeController.ts:159`), pendant de `nodefony:scaffold:run`.
+   `nodefony:scaffold:cancel` (`StudioRealtimeController.ts#StudioRealtimeController.actionScaffoldRun`), pendant de `nodefony:scaffold:run`.
 
 ### Rejouer : idempotence par action
 
@@ -478,8 +478,8 @@ fois ? »**.
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`NodefonySocket.ts:1250`), et c'est la garde `@Idempotent`
-(`routerDecorators.ts:1171`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
+par la signature** de `mutate()` (`NodefonySocket.ts#NodefonySocket.mutate`), et c'est la garde `@Idempotent`
+(`routerDecorators.ts#Idempotent`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
 ```ts ignore
@@ -505,11 +505,11 @@ contraire des résultats **au fil de l'eau**, pendant des minutes.
 Le remède tient en trois gestes, et il est déjà en production dans Studio :
 
 1. **L'action lance et rend un identifiant**, sans attendre — `nodefony:scaffold:run`
-   (`StudioRealtimeController.ts:133`) démarre le travail et rend son état, dont son `id`.
+   (`StudioRealtimeController.ts#StudioRealtimeController.actionScaffoldRun`) démarre le travail et rend son état, dont son `id`.
 2. **Le flux se diffuse sur un canal dédié**, nommé d'après ce travail — `nodefony:scaffold:job@<id>`,
-   servi par le contrôleur (`StudioRealtimeController.ts:190`).
+   servi par le contrôleur (`StudioRealtimeController.ts#StudioRealtimeController.actionScaffoldCancel`).
 3. **Le client s'abonne à ce canal** et regarde le travail se faire, ligne après ligne
-   (`Create.tsx:323`).
+   (`Create.tsx#Create`).
 
 ### La course, et comment le dépôt la neutralise
 
@@ -519,7 +519,7 @@ prudente est donc de **s'abonner avant** de lancer l'appel.
 
 Nodefony a choisi la garantie côté serveur plutôt que la discipline côté client : le producteur du
 canal **rejoue son historique** au nouvel abonné, de sorte qu'un arrivant tardif voit tout depuis
-le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:456`). C'est ce qui autorise le front
+le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts#ScaffoldService.subscribe`). C'est ce qui autorise le front
 à faire l'appel d'abord et à s'abonner ensuite, sans rien perdre.
 
 > [!TIP]
@@ -529,7 +529,7 @@ le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:456`). C'est ce qu
 
 ### Et le streaming du protocole ?
 
-**Il n'y en a pas.** Une action rend **une** valeur (`RpcActionHandler`, `JsonRpcPeer.ts:153`), que
+**Il n'y en a pas.** Une action rend **une** valeur (`RpcActionHandler`, `JsonRpcPeer.ts#RpcActionHandler`), que
 le pair emballe en une réponse unique. Pour tout ce qui progresse — une réponse mot à mot d'un
 modèle de langage, un export qui avance, un traitement long — la voie est le motif
 **« travail + canal »** : l'action accuse réception, et la progression arrive sur un canal.
@@ -544,15 +544,15 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:1099`). Il est **désactivé par défaut** et s'active en surchargeant
-`realtimeApiRequest()` (`RealtimeController.ts:322`).
+(`RealtimeController.ts#RealtimeController.invokeApiRequest`). Il est **désactivé par défaut** et s'active en surchargeant
+`realtimeApiRequest()` (`RealtimeController.ts#RealtimeController.realtimeApiRequest`).
 
 ```ts ignore
 const modules = await socket.request("/nodefony/kernel/api/modules");
 ```
 
 La forme se discrimine toute seule : un chemin commence par `/`, jamais un nom d'action —
-`NodefonySocket.request()` (`NodefonySocket.ts:1177`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
+`NodefonySocket.request()` (`NodefonySocket.ts#NodefonySocket.request`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
 passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit dans le
 [vocabulaire](./vocabulaire.md) et l'[architecture](./architecture.md).
 
@@ -596,11 +596,11 @@ vivent dans la carte de l'aperçu, régénérée depuis les résultats réels, j
 ### Éprouver SON action — le harnais, identité comprise
 
 Une application teste ses actions sans serveur ni navigateur avec `createRealtimeHarness`
-(`@nodefony/realtime/testing`, `nodefony/testing/index.ts:212`) : il monte le contrôleur sur une
+(`@nodefony/realtime/testing`, `nodefony/testing/index.ts#createRealtimeHarness`) : il monte le contrôleur sur une
 fausse connexion, envoie les frames qu'un client enverrait et rend celles qui sortent. Sans option,
 la connexion est **anonyme** — le repli Zero Trust. Une action qui lit `@CurrentUser()` s'éprouve
 donc avec l'identité qu'aurait posée le pare-feu au handshake, passée en `identity`
-(`nodefony/testing/index.ts:94`) :
+(`nodefony/testing/index.ts#IRealtimeHarnessOptions.identity`) :
 
 ```ts ignore
 import { describe, it, expect, afterEach } from "vitest";

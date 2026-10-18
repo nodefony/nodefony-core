@@ -96,7 +96,7 @@ temps de réponse — elle mesure **ce qui n'est pas encore parti**.
 Trois partis pris, tous lisibles dans le code.
 
 **1. La sonde est une lecture pure, jamais un collecteur.** `RealtimeHub.probe()`
-(`RealtimeHub.ts:847`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
+(`RealtimeHub.ts#RealtimeHub.probe`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
 Aucune entrée-sortie, aucune exception possible, aucun état de lecture conservé. Appeler la sonde
 mille fois par seconde ne changerait rien à ce que le hub fait par ailleurs.
 
@@ -107,7 +107,7 @@ divergence entre deux consommateurs, et un rafraîchissement qui se choisit libr
 
 **3. La mesure voyage sur la socket qu'elle décrit.** Le même producteur alimente l'endpoint HTTP
 (premier affichage, sans attendre un tick) et le canal temps réel (le suivi). Un seul code, deux
-portes — `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`).
+portes — `buildRealtimeHealth()` (`RealtimeAdminApi.ts#buildRealtimeHealth`).
 
 Le compromis assumé : cette sonde est **per-instance par nature**. Un pod à quatre workers rend quatre
 vérités partielles. Nodefony ne les moyenne pas au hasard de la requête — il pousse une vue agrégée
@@ -247,26 +247,26 @@ socket.subscribe("shop:health");
 
 ## 🧰 Ce que la sonde expose, champ par champ
 
-Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts:61`). Quatre familles, un discriminant.
+Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts#IRealtimeProbe`). Quatre familles, un discriminant.
 
 ### Canaux — qui vit, qui écoute
 
-| Champ                    | Ce qu'il dit                                                                                             |
-| ------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `channels[]`             | Une entrée par canal **actif** (au moins un abonné), cf `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`). |
-| `channels[].channel`     | Le nom exact souscrit, **suffixe de cadence compris** (`nodefony:orm:health:2000`).                      |
-| `channels[].subscribers` | Abonnés locaux vivants. Instantané, pas un cumul.                                                        |
-| `channels[].messages`    | Publications cumulées sur ce canal.                                                                      |
-| `channelCount`           | Nombre de canaux actifs sur ce processus.                                                                |
+| Champ                    | Ce qu'il dit                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `channels[]`             | Une entrée par canal **actif** (au moins un abonné), cf `IRealtimeChannelStat` (`IRealtimeProbe.ts#IRealtimeChannelStat`). |
+| `channels[].channel`     | Le nom exact souscrit, **suffixe de cadence compris** (`nodefony:orm:health:2000`).                                        |
+| `channels[].subscribers` | Abonnés locaux vivants. Instantané, pas un cumul.                                                                          |
+| `channels[].messages`    | Publications cumulées sur ce canal.                                                                                        |
+| `channelCount`           | Nombre de canaux actifs sur ce processus.                                                                                  |
 
 ### Fan-out — l'amplification réelle du broker
 
-| Champ                  | Ce qu'il dit                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `publishTotal`         | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                         |
-| `fanoutTotal`          | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                     |
-| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:836`). |
-| `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                        |
+| Champ                  | Ce qu'il dit                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `publishTotal`         | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                                               |
+| `fanoutTotal`          | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                                           |
+| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts#RealtimeHub.recordInbound`). |
+| `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                                              |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille
 moyenne d'un salon**. S'il vaut 1, chaque publication ne touche qu'une personne — un canal par client,
@@ -314,9 +314,9 @@ deux autres. Le débit en octets par seconde se dérive de deux photos.
 | `backpressure.slowConsumers`       | Connexions au-dessus du seuil de comptage.                                          |
 | `backpressure.drops`               | Cumul des frames **jetées** pour protéger la mémoire.                               |
 
-La source par connexion est `IRealtimeConnProbe` (`IRealtimeProbe.ts:25`), implémentée par le
+La source par connexion est `IRealtimeConnProbe` (`IRealtimeProbe.ts#IRealtimeConnProbe`), implémentée par le
 transport. Les seuils d'ACTION sont distincts du seuil de comptage, et ils sont
-**configurables** (`@nodefony/http`, `http/nodefony/config/config.ts:1226`) : au-delà de
+**configurables** (`@nodefony/http`, `http/nodefony/config/config.ts#httpConfigSchema`) : au-delà de
 `websocket.maxBackpressure` (4 MiB par défaut) la politique `websocket.backpressurePolicy`
 s'applique — `drop` par défaut, la frame est **jetée**. Sur un canal d'état c'est sans
 conséquence, le prochain instantané la remplace ; mais le rejet ne trie rien, et une réponse RPC
@@ -357,8 +357,8 @@ Trois champs n'apparaissent que lorsqu'ils ont un sens :
 
 ### La couche d'identité, au-dessus
 
-`buildOwnHealth()` (`RealtimeAdminApi.ts:52`) enrichit ce snapshot pur pour produire
-`IRealtimeHealth` (`IRealtimeProbe.ts:121`) : `instanceId`, la santé **process** du worker
+`buildOwnHealth()` (`RealtimeAdminApi.ts#buildOwnHealth`) enrichit ce snapshot pur pour produire
+`IRealtimeHealth` (`IRealtimeProbe.ts#IRealtimeHealth`) : `instanceId`, la santé **process** du worker
 (CPU, mémoire, boucle d'événements), et — si elles ont été branchées — la santé ORM et les compteurs
 d'erreurs du journal. Ces trois derniers champs sont **additifs et optionnels** : un consommateur qui
 ne les connaît pas les ignore.
@@ -370,22 +370,22 @@ resterait vide jusqu'au premier tick.
 
 ### L'instantané HTTP
 
-`GET /nodefony/realtime/api/health`, monté par `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:98`)
+`GET /nodefony/realtime/api/health`, monté par `createRealtimeAdminApi()` (`RealtimeAdminApi.ts#createRealtimeAdminApi`)
 sous le namespace `realtime` du data plane admin. Sert le premier affichage, les sondes de liveness,
 et tout script qui ne veut pas ouvrir une socket.
 
 ### Le canal temps réel
 
 `nodefony:socket`. Le producteur est un minuteur qui rappelle **le même endpoint** à travers le
-courtier admin (`StudioRealtimeController.createRealtimeChannel()`, `StudioRealtimeController.ts:212`,
-via `createBrokerTicker()` (`providers.ts:465`)). Rien n'est dupliqué : le canal est un endpoint
+courtier admin (`StudioRealtimeController.createRealtimeChannel()`, `StudioRealtimeController.ts#StudioRealtimeController.createRealtimeChannel`,
+via `createBrokerTicker()` (`providers.ts#createBrokerTicker`)). Rien n'est dupliqué : le canal est un endpoint
 rejoué.
 
 ### La cadence vit dans le nom du canal
 
 Convention isomorphe, partagée par les deux bords : `base` nu = cadence par défaut du serveur ;
-`base:<ms>` = cadence explicite. Le client fabrique le nom avec `rateChannel()` (`channelRate.ts:44`),
-le serveur le résout et le **borne** avec `parseRate()` (`channelRate.ts:63`).
+`base:<ms>` = cadence explicite. Le client fabrique le nom avec `rateChannel()` (`channelRate.ts#rateChannel`),
+le serveur le résout et le **borne** avec `parseRate()` (`channelRate.ts#parseRate`).
 
 Conséquence voulue : **un canal = une cadence = un compteur de références**. `nodefony:socket:500` et
 `nodefony:socket` sont deux minuteurs distincts, jamais réconciliés — et deux consommateurs qui
@@ -394,23 +394,23 @@ veulent tous deux le défaut partagent un seul minuteur, parce que la cadence pa
 
 ### Les canaux de santé qui circulent sur la socket
 
-Les bornes sont déclarées dans `RATE_BOUNDS` (`StudioRealtimeController.ts:59`), les noms dans
-`CHANNELS` (`providers.ts:98`). Une cadence hors bornes est **ramenée dans l'intervalle**, jamais
+Les bornes sont déclarées dans `RATE_BOUNDS` (`StudioRealtimeController.ts#RATE_BOUNDS`), les noms dans
+`CHANNELS` (`providers.ts#CHANNELS`). Une cadence hors bornes est **ramenée dans l'intervalle**, jamais
 refusée.
 
-| Canal                  | Qui le produit                                                     | Cadence par défaut | Bornes        |
-| ---------------------- | ------------------------------------------------------------------ | ------------------ | ------------- |
-| `nodefony:socket`      | La sonde du hub, rejouée depuis l'endpoint admin `realtime`        | 2 s                | 500 ms – 60 s |
-| `nodefony:supervision` | `createStatsTicker()` (`providers.ts:222`) — CPU, mémoire, GC, ELU | 1 s                | 250 ms – 60 s |
-| `nodefony:debugbar`    | Le même producteur, canal séparé pour la barre de débogage         | 1 s                | 250 ms – 60 s |
-| `nodefony:orm:health`  | Endpoint admin `orm/connection/health`, rejoué                     | 5 s                | 1 s – 60 s    |
-| `nodefony:orm:flow`    | Endpoint admin `orm/flow` (débit de requêtes)                      | 2 s                | 500 ms – 60 s |
-| `nodefony:syslog`      | `createSyslogBridge()` (`providers.ts:145`)                        | **événementiel**   | — (coalescé)  |
+| Canal                  | Qui le produit                                                                   | Cadence par défaut | Bornes        |
+| ---------------------- | -------------------------------------------------------------------------------- | ------------------ | ------------- |
+| `nodefony:socket`      | La sonde du hub, rejouée depuis l'endpoint admin `realtime`                      | 2 s                | 500 ms – 60 s |
+| `nodefony:supervision` | `createStatsTicker()` (`providers.ts#createStatsTicker`) — CPU, mémoire, GC, ELU | 1 s                | 250 ms – 60 s |
+| `nodefony:debugbar`    | Le même producteur, canal séparé pour la barre de débogage                       | 1 s                | 250 ms – 60 s |
+| `nodefony:orm:health`  | Endpoint admin `orm/connection/health`, rejoué                                   | 5 s                | 1 s – 60 s    |
+| `nodefony:orm:flow`    | Endpoint admin `orm/flow` (débit de requêtes)                                    | 2 s                | 500 ms – 60 s |
+| `nodefony:syslog`      | `createSyslogBridge()` (`providers.ts#createSyslogBridge`)                       | **événementiel**   | — (coalescé)  |
 
 > [!WARNING]
 > **`nodefony:dashboard` n'est servi par aucun fournisseur.** Le canal de supervision s'appelle
 > `nodefony:supervision`. Le nom survit pourtant comme constante exportée, dépréciée
-> (`PLATFORM_CHANNELS.dashboard`, `platformChannels.ts:58`, retrait en 11.0.0) — c'est ce qui le rend piégeux. S'abonner à un canal inconnu ne lève **aucune
+> (`PLATFORM_CHANNELS.dashboard`, `platformChannels.ts#PLATFORM_CHANNELS`, retrait en 11.0.0) — c'est ce qui le rend piégeux. S'abonner à un canal inconnu ne lève **aucune
 > erreur** — le provider rend `null` et rien n'arrive jamais. C'est le piège numéro un de la page.
 
 `nodefony:syslog` est le seul de la liste à ne pas être cadencé : il **relaie** au lieu de sonder. Comme
@@ -441,11 +441,11 @@ après fusion et validation — la seule vue qui dit ce qui s'applique, plutôt 
 
 ## ⚙️ Configuration
 
-| Clé                      | Défaut | Effet                                                                     |
-| ------------------------ | ------ | ------------------------------------------------------------------------- |
-| `slowConsumer.bytes`     | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts:121`). |
-| `cluster.probe.enabled`  | `true` | Branche la sonde agrégée pod en worker de cluster (`config.ts:30`).       |
-| `NF_CLUSTER_PROBE` (env) | —      | Mis à `0`, coupe la sonde pod quelle que soit la configuration.           |
+| Clé                      | Défaut | Effet                                                                                    |
+| ------------------------ | ------ | ---------------------------------------------------------------------------------------- |
+| `slowConsumer.bytes`     | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts#slowConsumerSchema`). |
+| `cluster.probe.enabled`  | `true` | Branche la sonde agrégée pod en worker de cluster (`config.ts#probeSchema`).             |
+| `NF_CLUSTER_PROBE` (env) | —      | Mis à `0`, coupe la sonde pod quelle que soit la configuration.                          |
 
 > [!CAUTION]
 > `slowConsumer.bytes` ne pilote **que la métrique**. Les seuils qui jettent une frame ou ferment une
@@ -454,7 +454,7 @@ après fusion et validation — la seule vue qui dit ce qui s'applique, plutôt 
 > ne change rien au comportement de la socket.
 
 Couper la sonde cluster est un **contournement total**, pas une mise en sourdine : sans elle, il n'y a
-ni client, ni minuteur, ni écouteur, ni message IPC (`Realtime.wireClusterProbe()`, `index.ts:381`), et
+ni client, ni minuteur, ni écouteur, ni message IPC (`Realtime.wireClusterProbe()`, `index.ts#createRealtimeHarness`), et
 l'endpoint retombe sur la vue per-instance. Aucun coût « au cas où ».
 
 ## 🏗️ En cluster — par pod ou par worker ?
@@ -464,11 +464,11 @@ instantané est exact — et ne dit rien des trois autres. Pire : deux appels co
 sur deux workers et sembler se contredire.
 
 **La réponse de Nodefony est un modèle _push_.** Chaque worker remonte périodiquement sa santé au
-maître via `ClusterProbeClient.start()` (`ClusterProbeClient.ts:190`) ; le maître fusionne et
+maître via `ClusterProbeClient.start()` (`ClusterProbeClient.ts#ClusterProbeClient.start`) ; le maître fusionne et
 rediffuse ; chaque worker met le résultat en cache. **N'importe lequel** sert alors la vue pod en temps
-constant, sans latence de requête (`ClusterProbeClient.getClusterHealth()`, `ClusterProbeClient.ts:306`).
+constant, sans latence de requête (`ClusterProbeClient.getClusterHealth()`, `ClusterProbeClient.ts#ClusterProbeClient.getClusterHealth`).
 
-La fusion, `mergeClusterHealth()` (`ClusterProbeClient.ts:60`), est une fonction pure — et sa règle
+La fusion, `mergeClusterHealth()` (`ClusterProbeClient.ts#mergeClusterHealth`), est une fonction pure — et sa règle
 mérite d'être connue :
 
 | Grandeur                                                         | Agrégation  | Pourquoi                                                                   |
@@ -478,14 +478,14 @@ mérite d'être connue :
 | `backpressure.maxBufferedAmount`                                 | **maximum** | La santé d'une flotte se juge sur son **pire** membre, pas sur sa moyenne. |
 | `slowConsumers`, `drops`                                         | somme       | Ce sont des dénombrements.                                                 |
 
-Le discriminant est le champ `cluster: true` de `IRealtimeClusterHealth` (`IRealtimeProbe.ts:178`) :
+Le discriminant est le champ `cluster: true` de `IRealtimeClusterHealth` (`IRealtimeProbe.ts#IRealtimeClusterHealth`) :
 un consommateur sait immédiatement s'il lit une vue pod ou une vue per-instance, et `instances[]`
 garde le détail par worker pour le forage.
 
 ### On paie ce qu'on regarde
 
 Les sondes coûteuses ne tournent pas en permanence. Le maître peut demander à un worker précis
-d'**enrichir** sa remontée — `ClusterProbeClient.requestEnrich()` (`ClusterProbeClient.ts:259`) — quand
+d'**enrichir** sa remontée — `ClusterProbeClient.requestEnrich()` (`ClusterProbeClient.ts#ClusterProbeClient.requestEnrich`) — quand
 un humain ouvre le forage de ce `pid`. La sonde riche (espaces mémoire, cycles de ramasse-miettes,
 descripteurs actifs) est alors allouée ; à la fermeture de l'écran, elle est libérée et son observateur
 détaché.
@@ -506,8 +506,8 @@ l'orchestrateur finit par le tuer de force à l'expiration du délai de grâce.
 
 La règle est tenue partout dans le code, y compris là où on ne l'attendrait pas — le tick de
 revalidation d'identité du hub, qui ne démarre qu'au premier inscrit, est lui aussi détaché
-(`RealtimeHub.ts:443`), tout comme le report de la sonde cluster (`ClusterProbeClient.ts:170`) et le
-minuteur générique des canaux (`providers.ts:465`).
+(`RealtimeHub.ts#RealtimeHub.subscribeClient`), tout comme le report de la sonde cluster (`ClusterProbeClient.ts#ClusterProbeClient.#ormRich`) et le
+minuteur générique des canaux (`providers.ts#createBrokerTicker`).
 
 ```ts ignore
 const timer = setInterval(tick, 2000);

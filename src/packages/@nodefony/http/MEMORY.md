@@ -211,7 +211,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 
 ## Multi-process / scaling (post-PM2)
 
-- Serveurs bind via `server.listen(this.port, this.domain, cb)` **positionnel** (`server-http.ts:97`, `server-https.ts:120/237`).
+- Serveurs bind via `server.listen(this.port, this.domain, cb)` **positionnel** (`server-http.ts#ServerHttp.createServer`, `server-https.ts#ServerHttps.createServer/237`).
 - **Scaling horizontal** (PM2 déprécié, [[project_pm2_deprecation]]) :
   - **Prod** : N pods + LB orchestrateur (k8s/Swarm/Cloud Run). 1 process = 1 pod.
   - **Single host** : **`SO_REUSEPORT`** (Node 23.1+, repo Node 26) → passer `listen({ port, host, reusePort: true })` → N process Node sur le MÊME port, kernel OS répartit. Remplace PM2-cluster. Feature cible Phase 16 : `nodefony <env> --workers N` (fork Kernel + reusePort). Alt : `node:cluster`.
@@ -243,7 +243,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 
 - **Avant** : `onHttpRequest` tentait `serverStatic.handle()` AVANT le routing (static-first) → chaque requête API payait le `fs.stat`/`path.normalize` de serve-static pour rien (≈836 ticks profilés). **Après** : static tenté en **FALLBACK** dans `handleHttp`, APRÈS un route-match raté (`resolver?.resolve !== true && !resolver?.exception`) → une requête qui matche une route ne touche plus le disque. **+28 % RPS** (mono prod 4805→6167, ≈ bypass total → le fallback ne coûte rien aux routes).
 - `serverStatic.handle()` reste **PENDING** si un fichier est servi (court-circuit ; `response.end`→`onFinish`→teardown déjà wiré par `createHttpContext`) ; **RESOLVE** si aucun fichier → pipeline → 404. Teardown (logRequest/leaveScope) via l'event `finish` → OK même quand le static court-circuite.
-- ⚠️ Avant `serverStatic.handle` en fallback : `response.removeHeader("Content-Type")` — le Context a posé le défaut `application/octet-stream` (`Response.ts:37`) que serve-static (`send`) **n'écrase pas** s'il existe → sinon favicon/webm en octet-stream. Validé : `static.test`, intégration 405, memory 9/9.
+- ⚠️ Avant `serverStatic.handle` en fallback : `response.removeHeader("Content-Type")` — le Context a posé le défaut `application/octet-stream` (`Response.ts#PEER_GONE_CODES`) que serve-static (`send`) **n'écrase pas** s'il existe → sinon favicon/webm en octet-stream. Validé : `static.test`, intégration 405, memory 9/9.
 - Hooks pipeline (`onServerRequest`/`onCreateContext`/`beforeResolve`/`afterAuth`/`onFinish`) guardés `if (listenerCount(e))` — `fireAsync` est async → `await` crée 1 Promise+microtask même à 0 listener ; 0 hook sans @nodefony/security. Gain RPS non mesurable (microtasks trop légères) mais cohérent perf-first.
 
 ## Rate-limit général par IP (P0.3)
@@ -500,7 +500,7 @@ Extension de l'`AuditErrorEntry` :
 ## Body parsing — drain OBLIGATOIRE avant lecture
 
 - `@Body`/`@Query`(POST) lisent `request.queryPost`, rempli par les parsers (`ParserJson`/`ParserQs`/`ParserXml`).
-- **`body` = alias de `queryPost`**, UN seul sens dans tout le framework (celui d'`IAdminRequest` et de l'écosystème) : le CORPS, jamais la query string. 3 chemins, même valeur — `controller.body`, `request.body` (getter, `Request.ts:229`), `request.request.body` (posé sur la requête Node à `fireRequestEnd`). ⚠️ Ne PAS confondre avec `query`, qui FUSIONNE GET+POST (`Request.ts:327`). Banc : `decorators.test.ts` « body-alias ».
+- **`body` = alias de `queryPost`**, UN seul sens dans tout le framework (celui d'`IAdminRequest` et de l'écosystème) : le CORPS, jamais la query string. 3 chemins, même valeur — `controller.body`, `request.body` (getter, `Request.ts#HttpRequest.body`), `request.request.body` (posé sur la requête Node à `fireRequestEnd`). ⚠️ Ne PAS confondre avec `query`, qui FUSIONNE GET+POST (`Request.ts#HttpRequest.query`). Banc : `decorators.test.ts` « body-alias ».
 - **Le corps DOIT être entièrement reçu avant de parser** : `Parser.parse()` (base) fait `await this.ended()` (attend `end`) PUIS `Buffer.concat(chunks)`. `initialize()` fait `await parser.parse()` AVANT de fire `onRequestEnd` → le controller lit un `queryPost` complet.
 - 🐛 **2 bugs corrigés** (révélés par `decorators-response.test.ts`/`body-content-types.test.ts`) :
   1. **`Request` ctor attachait `on("data")` (compteur `dataSize` MORT, jamais lu)** → flux en flowing mode dès la construction → les chunks s'écoulaient AVANT que le parser (attaché tard dans `parseRequest`) ne les voie → `queryPost` vide. **Listener + champ supprimés.**

@@ -88,34 +88,34 @@ npx nodefony proxy:generate nginx --backend 10.0.0.12 --listen 443
 npx nodefony proxy:generate nginx --reencrypt
 ```
 
-La commande lit l'application **réelle** (`proxyGenerateCommand.ts:31`) : ports effectifs, domaines
+La commande lit l'application **réelle** (`proxyGenerateCommand.ts#ProxyGenerate`) : ports effectifs, domaines
 de confiance, dossiers statiques montés par chaque module, et deux réglages du serveur que le proxy
 doit refléter sous peine d'imposer les siens **en silence** — la taille de corps acceptée et le
 battement du WebSocket.
 
 ### Ce que le générateur pose, et pourquoi chaque ligne compte
 
-| Ce qui est généré                                                                                                     | Ce que ça évite                                                                                                       |
-| --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `X-Forwarded-For` **écrasé** avec l'adresse vue du client                                                             | un client qui s'invente une IP — le motif est écrit dans le générateur (`generateProxyConfig.ts:134`)                 |
-| `Upgrade` / `Connection` relayés                                                                                      | un WebSocket qui « ne se connecte pas » sans le moindre message d'erreur                                              |
-| `proxy_read_timeout` dérivé du battement WebSocket — quatre battements, plancher 300 s (`generateProxyConfig.ts:132`) | un proxy qui coupe des sockets **vivantes** parce que son inactivité par défaut est plus courte que le battement      |
-| `client_max_body_size` dérivé de `maxBodySize`                                                                        | un `413` posé par nginx (1 Mo par défaut) que l'application n'a jamais vu passer                                      |
-| une chaîne de `try_files` sur les racines statiques                                                                   | les statiques d'un module en `404`, alors qu'ils sont bien montés (`generateProxyConfig.ts:378`)                      |
-| HAProxy : `Forwarded` entrant **effacé** avant le nôtre                                                               | un en-tête forgé conservé à côté du vrai (RFC 7239 §8.1)                                                              |
-| HAProxy : le schéma **constaté** sur `ssl_fc`                                                                         | annoncer `proto=https` à un client venu en clair — le défaut a existé, il a été corrigé par le banc contre proxy réel |
+| Ce qui est généré                                                                                                                           | Ce que ça évite                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `X-Forwarded-For` **écrasé** avec l'adresse vue du client                                                                                   | un client qui s'invente une IP — le motif est écrit dans le générateur (`generateProxyConfig.ts#NGINX_FORWARD_HEADERS_TPL`) |
+| `Upgrade` / `Connection` relayés                                                                                                            | un WebSocket qui « ne se connecte pas » sans le moindre message d'erreur                                                    |
+| `proxy_read_timeout` dérivé du battement WebSocket — quatre battements, plancher 300 s (`generateProxyConfig.ts#NGINX_FORWARD_HEADERS_TPL`) | un proxy qui coupe des sockets **vivantes** parce que son inactivité par défaut est plus courte que le battement            |
+| `client_max_body_size` dérivé de `maxBodySize`                                                                                              | un `413` posé par nginx (1 Mo par défaut) que l'application n'a jamais vu passer                                            |
+| une chaîne de `try_files` sur les racines statiques                                                                                         | les statiques d'un module en `404`, alors qu'ils sont bien montés (`generateProxyConfig.ts#nginxServerBlock`)               |
+| HAProxy : `Forwarded` entrant **effacé** avant le nôtre                                                                                     | un en-tête forgé conservé à côté du vrai (RFC 7239 §8.1)                                                                    |
+| HAProxy : le schéma **constaté** sur `ssl_fc`                                                                                               | annoncer `proto=https` à un client venu en clair — le défaut a existé, il a été corrigé par le banc contre proxy réel       |
 
 ### Les flux SSE derrière le proxy
 
 Un flux SSE est une réponse HTTP qui ne finit pas : le proxy n'a rien à apprendre de neuf, mais
 trois réglages décident s'il le relaie bien. `proxy:generate` les pose tous.
 
-| De quel côté       | Ce qui est réglé                                                     | Pourquoi                                                                                                                          |
-| ------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| navigateur ↔ proxy | HTTP/2 servi par le proxy (`http2 on`, `generateProxyConfig.ts:270`) | le plafond d'environ six connexions par origine est celui du navigateur envers le **proxy** : c'est là que le multiplexage compte |
-| proxy ↔ Nodefony   | HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts:351`)    | une connexion par flux vers le backend ; activer HTTP/2 sur Nodefony n'y change rien                                              |
-| mise en tampon     | Nodefony envoie `X-Accel-Buffering: no` (`SseStream.ts:512`)         | nginx relaie chaque événement au lieu d'attendre de remplir son tampon                                                            |
-| inactivité         | délai d'au moins 300 s, soit vingt battements SSE de 15 s            | un flux muet n'est tenu que par son battement ; un test lie les deux valeurs, il tombe si le battement est relevé au-delà         |
+| De quel côté       | Ce qui est réglé                                                                  | Pourquoi                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| navigateur ↔ proxy | HTTP/2 servi par le proxy (`http2 on`, `generateProxyConfig.ts#nginxServerBlock`) | le plafond d'environ six connexions par origine est celui du navigateur envers le **proxy** : c'est là que le multiplexage compte |
+| proxy ↔ Nodefony   | HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts#nginxServerBlock`)    | une connexion par flux vers le backend ; activer HTTP/2 sur Nodefony n'y change rien                                              |
+| mise en tampon     | Nodefony envoie `X-Accel-Buffering: no` (`SseStream.ts#startSseStream`)           | nginx relaie chaque événement au lieu d'attendre de remplir son tampon                                                            |
+| inactivité         | délai d'au moins 300 s, soit vingt battements SSE de 15 s                         | un flux muet n'est tenu que par son battement ; un test lie les deux valeurs, il tombe si le battement est relevé au-delà         |
 
 Sous Kubernetes, l'**ingress-nginx** a ses propres réglages, que ce générateur n'écrit pas — à poser
 en annotations sur l'`Ingress` :
@@ -239,7 +239,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 | Unitaires — générateur | `unit/generateProxyConfig.test.ts` | ce que produisent les deux cibles, à partir d'une introspection donnée |
 | Unitaires — confiance | `unit/trustProxy.test.ts` | CIDR, préréglages, listes — quelle socket a le droit d'être crue |
 | Unitaires — résolution | `unit/forwarded.test.ts`, `unit/forwardedWiring.test.ts` | la remontée RFC 7239, et son câblage dans le pipeline |
-| Intégration — proxys RÉELS | `integration/reverse-proxy.test.ts` | les raccords contre nginx **et** HAProxy en marche, derrière `PROXY_GATE` (`scripts/test/vitest/gates.ts:454`) |
+| Intégration — proxys RÉELS | `integration/reverse-proxy.test.ts` | les raccords contre nginx **et** HAProxy en marche, derrière `PROXY_GATE` (`scripts/test/vitest/gates.ts#PROXY_GATE`) |
 
 > **Ce qui a été attrapé par le banc réel, et par rien d'autre** : `proxy:generate` annonçait
 > `proto=https` à un client venu en clair. Aucun test unitaire ne pouvait le voir — il fallait un

@@ -357,13 +357,13 @@ Au démarrage, en mode `auto`, la connexion se fait en **trois temps** — et l'
 
 1. les tables manquantes sont créées (`CREATE TABLE IF NOT EXISTS`) ;
 2. le schéma déclaré est **comparé** à celui de la base, table par table
-   (`compareSchema()`, `schemaDiff.ts:122`) ;
+   (`compareSchema()`, `schemaDiff.ts#compareSchema`) ;
 3. les index sont posés.
 
 Entre les deux, ce qui se rattrape est rattrapé :
 
 - **colonne manquante qui accepte le vide** → elle est ajoutée (`additiveSql()`,
-  `schemaDiff.ts:181`) et journalisée en clair. Le front n'a rien à taper : il tire, le serveur
+  `schemaDiff.ts#additiveSql`) et journalisée en clair. Le front n'a rien à taper : il tire, le serveur
   redémarre, ça marche.
 - **colonne manquante et obligatoire** → jamais posée. La créer exigerait d'inventer une valeur pour
   les lignes déjà présentes, ce qui est une décision métier, pas une décision d'outil. L'écart est
@@ -419,13 +419,13 @@ spec:
 Trois propriétés en découlent, et elles valent d'être nommées :
 
 - **Le verrou rend les variantes sûres.** Si deux exemplaires du travail partent ensemble, le second
-  attend : le verrou est natif au moteur — `lock()` (`postgresDriver.ts:178`) demande un
+  attend : le verrou est natif au moteur — `lock()` (`postgresDriver.ts#PostgresMigrationDriver.lock`) demande un
   `pg_advisory_lock` —, donc il s'auto-libère à la mort de la connexion. Une table de verrou maison laisserait un zombie à
   déverrouiller à la main.
-- **Rien n'est appliqué deux fois.** L'historique (`nodefony_migrations`, `types.ts:23`) est écrit
+- **Rien n'est appliqué deux fois.** L'historique (`nodefony_migrations`, `types.ts#HISTORY_TABLE`) est écrit
   dans la même transaction que le DDL, là où le moteur le permet.
 - **Un pod en retard ne reçoit pas de trafic.** En `none` comme en `migrate`, l'état du schéma est
-  publié à la sonde de disponibilité (`#publishReadiness()`, `DrizzleService.ts:647`) : `/readyz`
+  publié à la sonde de disponibilité (`#publishReadiness()`, `DrizzleService.ts#DrizzleService.#publishReadiness`) : `/readyz`
   répond 503, l'orchestrateur sort l'exemplaire du répartiteur de charge, et l'ancien continue de
   servir. `/livez` n'est jamais touché — un schéma en retard n'est pas un processus malade, et le
   redémarrer ne réparerait rien. La vérification est rejouée toutes les 15 secondes : dès que le
@@ -489,7 +489,7 @@ qui la prend. Un outil qui prétendrait la préparer tout seul inviterait à ne 
 Ce que l'outil fait à la place, et qui vaut mieux :
 
 - **il refuse d'appliquer sans que vous sachiez.** Le SQL en attente est examiné avant la moindre
-  écriture (`scanDestructive()`, `destructive.ts:282`) : une suppression de données est refusée hors
+  écriture (`scanDestructive()`, `destructive.ts#scanDestructive`) : une suppression de données est refusée hors
   développement, en nommant l'instruction et ce qui disparaît. Il faut `--allow-destructive` pour
   passer outre, et **au démarrage il n'y a aucun drapeau pour lever le refus** — un exemplaire qui
   redémarre ne supprime jamais de colonne de lui-même, parce que personne ne regarde à ce
@@ -505,7 +505,7 @@ sauvegarde — pas un fichier `.bak` pris par un outil qui ne sait rien de votre
 Les outils de migration connaissent **deux** choses : les fichiers, et l'historique. Ils en
 concluent « tout est appliqué ». Ils ne regardent jamais la base.
 
-Nodefony croise une **troisième** source (`describeDivergence()`, `divergence.ts:127`), et rend un
+Nodefony croise une **troisième** source (`describeDivergence()`, `divergence.ts#describeDivergence`), et rend un
 constat qu'aucun outil ne produit en continu :
 
 > l'historique est complet, aucune migration n'est en attente — **et pourtant la base ne correspond
@@ -700,7 +700,7 @@ Trois choses valent d'être dites, parce qu'elles décident de ce que vous pouve
   avertissement. Donnez toujours un défaut, ou déclarez le champ facultatif ; si les deux sont
   nécessaires, c'est trois migrations — ajouter avec défaut, remplir (`--custom`), retirer le
   défaut. Mesuré sur les trois moteurs :
-  `src/packages/@nodefony/drizzle/tests/integration/user-migrations.e2e.test.ts:1`.
+  `src/packages/@nodefony/drizzle/tests/integration/user-migrations.e2e.test.ts`.
 - **`orm:migrate:repair --update-hashes` réécrit les empreintes.** Il fait taire une dérive au lieu
   de la corriger : les autres bases ont reçu l'ancienne version du fichier et ne recevront jamais la
   nouvelle. C'est pour cela que le refus propose d'abord de RÉTABLIR le fichier, et ce

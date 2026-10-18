@@ -99,8 +99,8 @@ pour quoi il est bon. Redis se déclare de nature `cache` et annonce quatre briq
 `package.json` (clé `nodefony.stores`) — ni plus, ni moins.
 
 La nuance décisive n'est pas « couvert / pas couvert », c'est **qui choisit**. Chaque brique déclare
-la nature de sa donnée (`StoreKind`, `infra.ts:176`), et la résolution automatique ne propose Redis
-que pour les natures non durables (`resolveAutoStore()`, `infra.ts:330`).
+la nature de sa donnée (`StoreKind`, `infra.ts#StoreKind`), et la résolution automatique ne propose Redis
+que pour les natures non durables (`resolveAutoStore()`, `infra.ts#resolveAutoStore`).
 
 <!-- prettier-ignore -->
 | Brique | Nature | Implémentation | Choisi par `auto` ? | Où on l'allume explicitement |
@@ -218,7 +218,7 @@ flowchart TD
 ```
 
 Le module ne connaît aucun de ses consommateurs : il expose un service, ils s'y branchent. C'est aussi
-pour ça qu'il se déclare **non critique** (`Redis.critical` vaut `false`, `index.ts:36`) — un Redis
+pour ça qu'il se déclare **non critique** (`Redis.critical` vaut `false`, `index.ts#nodefony`) — un Redis
 injoignable au démarrage n'empêche pas l'application de monter.
 
 ## 🧰 Surface publique
@@ -227,9 +227,9 @@ injoignable au démarrage n'empêche pas l'application de monter.
 `RedisTokenStore`, `RedisWebAuthnCredentialStore` —, le builder `defineRedisConfig` avec son schéma,
 et un ré-export de la bibliothèque `redis` elle-même pour qui a besoin de ses types.
 
-Charger le module suffit : `registerRedisFrameworkStores()` (`registerStores.ts:72`) inscrit les
+Charger le module suffit : `registerRedisFrameworkStores()` (`registerStores.ts#registerRedisFrameworkStores`) inscrit les
 fabriques `redis` dans les registres de `@nodefony/security`, et le store de session s'auto-déclare
-(`SessionStorage.ts:323`). Aucun câblage applicatif — il ne reste qu'à nommer le store, ou à laisser
+(`SessionStorage.ts#RedisSessionStorage.listAll`). Aucun câblage applicatif — il ne reste qu'à nommer le store, ou à laisser
 `auto` faire.
 
 Les signatures exactes vivent dans le graphe généré (`jq '.symbols.RedisService' .ai/symbols.json`),
@@ -273,7 +273,7 @@ chose**.
 > [!IMPORTANT]
 > **Une suite verte ne prouve rien sans serveur Redis.** Les bancs d'intégration se **skippent** quand
 > l'infra manque, et un skip compte comme un succès : on peut lire « tout est vert » sur une suite qui
-> n'a rien exercé. Le module déclare donc sa gate — `REDIS_GATE` dans `scripts/test/vitest/gates.ts:351` — et la
+> n'a rien exercé. Le module déclare donc sa gate — `REDIS_GATE` dans `scripts/test/vitest/gates.ts#REDIS_GATE` — et la
 > fin de run nomme la cible non testée avec la commande exacte pour la satisfaire. **Lis ce bloc avant
 > de conclure.** Les variables et la commande docker viennent de là, pas de cette page : les recopier
 > ici les condamnerait à diverger.

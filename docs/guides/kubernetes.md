@@ -42,7 +42,7 @@ cluster.
 | ------------------------------------------ | ------------------------------------------------- | ----------------------------------- |
 | Ce qui est **secret**                      | `NF_DATABASE_URL`, `NF_REALTIME_BACKPLANE_SECRET` | un `Secret`, monté en variables     |
 | Ce qui est **public mais par déploiement** | `NF_REALTIME_BACKPLANE_NAMESPACE`, `NODE_ENV`     | un `ConfigMap`                      |
-| Ce que **le cluster seul connaît**         | `NF_POD_NAME` (`reservedEnv.ts:124`)              | un `fieldRef` — jamais écrit en dur |
+| Ce que **le cluster seul connaît**         | `NF_POD_NAME` (`reservedEnv.ts#RESERVED_ENV`)     | un `fieldRef` — jamais écrit en dur |
 
 ## 📖 Lexique
 
@@ -111,13 +111,13 @@ spec:
 un pod qui vide ses connexions n'est pas un pod mort, et le redémarrer casserait exactement ce qu'on
 protège. `/readyz` bascule en `503` **dès le début de l'arrêt**, ce qui retire le pod du service
 avant que la première connexion ne tombe. Les deux sont servies par un court-circuit total du
-pipeline (`http-kernel.ts:477`), monté **avant** la limitation de débit (`http-kernel.ts:980`) — un
+pipeline (`http-kernel.ts#HttpKernel.onConfigChanged`), monté **avant** la limitation de débit (`http-kernel.ts#HttpKernel.setErrorRenderer`) — un
 kubelet qui reçoit un `429` croit le pod mort. Le détail vit dans
 [servers](../../src/packages/@nodefony/http/docs/servers.md).
 
 > **`initialDelaySeconds` ne se recopie pas.** Le boot est dominé par l'import et l'instanciation
 > des modules de **votre** application : mesurez le vôtre. `NF_BOOT_TIMEOUT_MS` le borne — un module
-> suspendu fait échouer le pod vite (`reservedEnv.ts:178`), au lieu de le laisser à moitié vivant.
+> suspendu fait échouer le pod vite (`reservedEnv.ts#RESERVED_ENV`), au lieu de le laisser à moitié vivant.
 
 ## Secret et ConfigMap — ce qui va où
 
@@ -137,11 +137,11 @@ stringData:
   NF_WEBHOOK_KEY: "…"
   # Le compte `admin` créé au premier démarrage — sans lui, aucun compte.
   NF_ADMIN_PASSWORD: "…"
-  # La base : le SCHÉMA de l'URL décide du dialecte (`infra.ts:91`), et un schéma
+  # La base : le SCHÉMA de l'URL décide du dialecte (`infra.ts#parseDatabaseUrl`), et un schéma
   # inconnu fait échouer le boot — jamais de choix silencieux.
   NF_DATABASE_URL: "postgres://app:…@postgres:5432/app"
   NF_REDIS_URL: "redis://redis:6379"
-  # Scelle les enveloppes du bus temps réel (`reservedEnv.ts:130`) : sans lui, tout
+  # Scelle les enveloppes du bus temps réel (`reservedEnv.ts#RESERVED_ENV`) : sans lui, tout
   # ce qui peut publier sur le Redis peut injecter un message qui ressortira chez
   # vos clients.
   NF_REALTIME_BACKPLANE_SECRET: "…"
@@ -151,7 +151,7 @@ kind: ConfigMap
 metadata: { name: mon-app-config }
 data:
   NODE_ENV: production
-  # 🔴 Ce qui CLOISONNE deux applications sur un même bus (`reservedEnv.ts:134`).
+  # 🔴 Ce qui CLOISONNE deux applications sur un même bus (`reservedEnv.ts#RESERVED_ENV`).
   # Deux déploiements qui partagent un Redis sans espaces de noms distincts se
   # voient mutuellement.
   NF_REALTIME_BACKPLANE_NAMESPACE: mon-app-prod
@@ -159,7 +159,7 @@ data:
 
 Les alias de plateforme `DATABASE_URL` et `REDIS_URL` sont acceptés — ce sont les noms qu'un
 hébergeur pose lui-même —, mais la forme préfixée `NF_` gagne quand les deux sont présentes ; la
-lecture est faite une seule fois, par `resolveInfra()` (`infra.ts:134`). Le
+lecture est faite une seule fois, par `resolveInfra()` (`infra.ts#resolveInfra`). Le
 détail des trois familles d'infrastructure et des profils qui en découlent vit dans
 [persistence](./persistence.md).
 
@@ -269,14 +269,14 @@ déploiement ne démarre que s'il a réussi.
 
 Et si un pod démarre avec un schéma en retard, **il retient sa mise en service de lui-même** au
 lieu de servir des erreurs. Avec Drizzle, c'est le défaut en production (`migrations.check: "fail"`,
-`config.ts:160`) : le module compare la base à ses migrations, inscrit le contributeur
-`drizzle:schema:<connecteur>` (`DrizzleService.ts:613`), et `/readyz` répond `503` tant que des
+`config.ts#limitsSchema`) : le module compare la base à ses migrations, inscrit le contributeur
+`drizzle:schema:<connecteur>` (`DrizzleService.ts#DrizzleService.#applySchemaPolicy`), et `/readyz` répond `503` tant que des
 migrations restent à appliquer — `/livez` reste vert, l'ancien exemplaire continue de servir. La
 sonde est rejouée toutes les 15 secondes : le pod devient disponible tout seul une fois le Job
 passé, sans redéploiement. Hors production, le défaut est `warn` (journalisé, le trafic passe).
 
 Pour un état que le framework ne connaît pas (un cache froid, un service tiers), le même mécanisme
-s'appelle à la main : `kernel.setReadiness(nom, false, raison)` (`Kernel.ts:3431`). Ses règles
+s'appelle à la main : `kernel.setReadiness(nom, false, raison)` (`Kernel.ts#Kernel.setReadiness`). Ses règles
 vivent dans [servers](../../src/packages/@nodefony/http/docs/servers.md).
 
 ## Mise à l'échelle
@@ -303,7 +303,7 @@ Deux conditions pour que l'ajout d'un pod serve à quelque chose :
   publié.
 
 > ⚠️ **Le pool de connexions à la base n'est pas réglable aujourd'hui** : le pilote PostgreSQL est
-> instancié avec ses défauts (`DrizzleOrm.ts:1017`), soit dix connexions par process. Dix pods
+> instancié avec ses défauts (`DrizzleOrm.ts#DrizzleOrm.#rawExec`), soit dix connexions par process. Dix pods
 > demandent donc jusqu'à cent connexions, à confronter au `max_connections` du serveur avant de
 > pousser `maxReplicas`.
 

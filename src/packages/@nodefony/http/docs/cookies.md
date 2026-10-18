@@ -112,20 +112,20 @@ Nodefony ne se contente pas de proposer ces attributs : il **choisit des défaut
 les invariants** que le navigateur exigerait de toute façon — pour que l'erreur ne parte pas sur le fil.
 
 **Le défaut est fermé.** Un cookie créé sans options est `Secure` + `HttpOnly` + `SameSite=Lax`
-(`cookieDefaultSettings`, `cookie.ts:39`). Il faut **choisir** d'ouvrir (ex. `httpOnly: false` pour un
+(`cookieDefaultSettings`, `cookie.ts#cookieDefaultSettings`). Il faut **choisir** d'ouvrir (ex. `httpOnly: false` pour un
 cookie lu en JS), jamais choisir de fermer.
 
 **Les préfixes sont forcés, pas espérés.** Nommer un cookie `__Host-…` ne suffit pas : `serialize()`
-(`cookie.ts:393`) **réécrit** la sortie — `Secure` ajouté, `Path=/` imposé, `Domain` retiré — pour que le
+(`cookie.ts#Cookie.serialize`) **réécrit** la sortie — `Secure` ajouté, `Path=/` imposé, `Domain` retiré — pour que le
 navigateur ne rejette jamais le cookie en silence. Idem `__Secure-` (Secure imposé) et `SameSite=None` (qui
-impose `Secure`, `cookie.ts:393`).
+impose `Secure`, `cookie.ts#Cookie.secure`).
 
 **La signature refuse le secret prévisible.** Un cookie `signed: true` sans secret configuré **jette**
-(`setValue()`, `cookie.ts:205`) : signer avec le secret public par défaut ne protégerait rien
-(fail-closed). La vérification est **timing-safe** (`unsign()` → `crypto.timingSafeEqual`, `cookie.ts:380`).
+(`setValue()`, `cookie.ts#Cookie.setValue`) : signer avec le secret public par défaut ne protégerait rien
+(fail-closed). La vérification est **timing-safe** (`unsign()` → `crypto.timingSafeEqual`, `cookie.ts#Cookie.unsign`).
 
 **`SameSite` retombe toujours sur `Lax`, jamais sur `None`.** Toute valeur inconnue est normalisée vers
-`Lax` (`setSameSite()`, `cookie.ts:250`) : `None` désactive la protection CSRF, ce n'est jamais un défaut.
+`Lax` (`setSameSite()`, `cookie.ts#Cookie.setSameSite`) : `None` désactive la protection CSRF, ce n'est jamais un défaut.
 
 **HTTP et WebSocket lisent les mêmes cookies.** Le parseur tourne pour les deux transports ; en revanche la
 poignée de main WebSocket **ne peut pas** écrire de cookie (limite de la bibliothèque `ws`) — voir plus bas.
@@ -221,119 +221,119 @@ suit montre l'**usage réel**. La classe s'importe `import { Cookie } from "@nod
 ### Construire un cookie et ses attributs
 
 Le constructeur accepte `(nom, valeur, options?)` ou **un cookie à copier** (surcharge,
-`cookie.ts:149`). Les options fusionnent avec les défauts sûrs.
+`cookie.ts#Cookie.constructor`). Les options fusionnent avec les défauts sûrs.
 
-| Option     | Type                       | Défaut       | Effet                                                                  |
-| ---------- | -------------------------- | ------------ | ---------------------------------------------------------------------- |
-| `maxAge`   | `number` (secondes)        | `0`          | Durée de vie. `0` = cookie de session (ni `Max-Age` ni `Expires`).     |
-| `expires`  | `Date \| string \| number` | —            | Date d'expiration absolue (`setExpires()`, `cookie.ts:272`).           |
-| `path`     | `string`                   | `/`          | Préfixe d'URL de portée.                                               |
-| `domain`   | `string`                   | `undefined`  | Domaine de portée (retiré si nom `__Host-`).                           |
-| `secure`   | `boolean`                  | `true`       | HTTPS only. Forcé si `SameSite=None` ou préfixe `__Host-`/`__Secure-`. |
-| `httpOnly` | `boolean`                  | `true`       | Invisible à `document.cookie` (anti-XSS).                              |
-| `sameSite` | `SameSiteType`             | `Lax`        | `Strict`/`Lax`/`None`. Toute autre valeur retombe sur `Lax`.           |
-| `signed`   | `boolean`                  | `false`      | Signe la valeur (HMAC). Exige `secret` configuré, sinon **jette**.     |
-| `secret`   | `string`                   | (par défaut) | Clé HMAC. Le secret par défaut est **refusé** pour signer.             |
-| `priority` | `High \| Medium \| Low`    | `undefined`  | Attribut `Priority` (`setPriority()`, `cookie.ts:305`).                |
+| Option     | Type                       | Défaut       | Effet                                                                      |
+| ---------- | -------------------------- | ------------ | -------------------------------------------------------------------------- |
+| `maxAge`   | `number` (secondes)        | `0`          | Durée de vie. `0` = cookie de session (ni `Max-Age` ni `Expires`).         |
+| `expires`  | `Date \| string \| number` | —            | Date d'expiration absolue (`setExpires()`, `cookie.ts#Cookie.setExpires`). |
+| `path`     | `string`                   | `/`          | Préfixe d'URL de portée.                                                   |
+| `domain`   | `string`                   | `undefined`  | Domaine de portée (retiré si nom `__Host-`).                               |
+| `secure`   | `boolean`                  | `true`       | HTTPS only. Forcé si `SameSite=None` ou préfixe `__Host-`/`__Secure-`.     |
+| `httpOnly` | `boolean`                  | `true`       | Invisible à `document.cookie` (anti-XSS).                                  |
+| `sameSite` | `SameSiteType`             | `Lax`        | `Strict`/`Lax`/`None`. Toute autre valeur retombe sur `Lax`.               |
+| `signed`   | `boolean`                  | `false`      | Signe la valeur (HMAC). Exige `secret` configuré, sinon **jette**.         |
+| `secret`   | `string`                   | (par défaut) | Clé HMAC. Le secret par défaut est **refusé** pour signer.                 |
+| `priority` | `High \| Medium \| Low`    | `undefined`  | Attribut `Priority` (`setPriority()`, `cookie.ts#Cookie.setPriority`).     |
 
-Les défauts sont matérialisés dans `cookieDefaultSettings` (`cookie.ts:39`) ; la fusion se fait dans le
-constructeur de `Cookie` (`cookie.ts:130`).
+Les défauts sont matérialisés dans `cookieDefaultSettings` (`cookie.ts#cookieDefaultSettings`) ; la fusion se fait dans le
+constructeur de `Cookie` (`cookie.ts#Cookie.options`).
 
 ### Sérialiser : `serialize()` et `serializeWebSocket()`
 
-- `serialize()` (`cookie.ts:393`) produit la **ligne `Set-Cookie`** complète (attributs dans l'ordre,
+- `serialize()` (`cookie.ts#Cookie.serialize`) produit la **ligne `Set-Cookie`** complète (attributs dans l'ordre,
   préfixes forcés, `Max-Age` seulement s'il est positif).
-- `serializeWebSocket()` (`cookie.ts:435`) produit un **objet** `IWsCookie` (mêmes invariants de sécurité)
+- `serializeWebSocket()` (`cookie.ts#Cookie.serializeWebSocket`) produit un **objet** `IWsCookie` (mêmes invariants de sécurité)
   — utilisé quand un cookie doit être décrit hors en-tête HTTP.
-- `toString()` (`cookie.ts:325`) ne rend que `nom=valeurEncodée` (sans attributs).
+- `toString()` (`cookie.ts#Cookie.toString`) ne rend que `nom=valeurEncodée` (sans attributs).
 
 ### Signer / vérifier : `sign()` et `unsign()`
 
-- `sign(val, secret)` (`cookie.ts:331`) → `val.base64url(HMAC-SHA256)` — la valeur d'origine est
+- `sign(val, secret)` (`cookie.ts#Cookie.sign`) → `val.base64url(HMAC-SHA256)` — la valeur d'origine est
   **préservée** (récupérable), la signature garantit l'intégrité.
-- `unsign(val?, secret?)` (`cookie.ts:355`) → la valeur en clair si la signature est valide, sinon `false`.
-  Comparaison **timing-safe** (`cookie.ts:380`) ; tolère le préfixe marqueur `s:`.
+- `unsign(val?, secret?)` (`cookie.ts#Cookie.unsign`) → la valeur en clair si la signature est valide, sinon `false`.
+  Comparaison **timing-safe** (`cookie.ts#Cookie.unsign`) ; tolère le préfixe marqueur `s:`.
 
 ### Lire et écrire depuis le contexte
 
-| Besoin                         | Appel                                                 | Où                                       |
-| ------------------------------ | ----------------------------------------------------- | ---------------------------------------- |
-| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:706`) |
-| Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts:193`)             |
-| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:717`)         |
-| Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:233`                   |
+| Besoin                         | Appel                                                 | Où                                                             |
+| ------------------------------ | ----------------------------------------------------- | -------------------------------------------------------------- |
+| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts#Context.getRequestCookies`) |
+| Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts#Context.cookies`)                       |
+| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts#Context.setCookie`)                 |
+| Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts#HttpResponse.deleteCookieByName`             |
 
-Côté réponse HTTP, `addCookie()` (`http/Response.ts:215`) enregistre le cookie, et `setCookies()`
-(`http/Response.ts:241`) émet **une ligne `Set-Cookie` par cookie** — un tableau passé à Node, jamais une
+Côté réponse HTTP, `addCookie()` (`http/Response.ts#HttpResponse.addCookie`) enregistre le cookie, et `setCookies()`
+(`http/Response.ts#HttpResponse.setCookies`) émet **une ligne `Set-Cookie` par cookie** — un tableau passé à Node, jamais une
 boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un cookie chez le client :
-`clearCookie()` (`cookie.ts:200`) recule `Expires` à l'époque.
+`clearCookie()` (`cookie.ts#Cookie.clearCookie`) recule `Expires` à l'époque.
 
 ### Parsing des cookies entrants
 
-`cookiesParser(context)` (`cookie.ts:87`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
-`parser()` `cookie.ts:50`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
-(`Context.ts:696`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
-l'initialisation du contexte HTTP (`HttpContext.ts:255`) **et** WebSocket (`WebsocketContext.ts:216`).
+`cookiesParser(context)` (`cookie.ts#cookiesParser`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
+`parser()` `cookie.ts#parser`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
+(`Context.ts#Context.addRequestCookie`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
+l'initialisation du contexte HTTP (`HttpContext.ts#HttpContext.constructor`) **et** WebSocket (`WebsocketContext.ts#WebsocketContext.constructor`).
 
 ### Côté WebSocket — lecture oui, écriture non
 
 Les cookies **entrants** sont lus au handshake, exactement comme en HTTP (même parseur). Mais la **poignée
 de main WebSocket ne peut pas poser de cookie** : `setCookie()` et `setCookies()` de la réponse WS sont des
-**no-op** (`websocket/Response.ts:342`), une limite de la bibliothèque `ws`. Le cookie de session, lui, est
+**no-op** (`websocket/Response.ts#WebsocketResponse.setCookies`), une limite de la bibliothèque `ws`. Le cookie de session, lui, est
 posé pendant la **phase HTTP** qui précède l'upgrade. La forme d'un cookie décrit pour le WS est
-`IWsCookie` (`ICookie.ts:19`), produite par `serializeWebSocket()`.
+`IWsCookie` (`ICookie.ts#IWsCookie`), produite par `serializeWebSocket()`.
 
 ## ⚙️ Configuration
 
 Les cookies **applicatifs** ne se configurent pas par schéma : on les construit dans le code, avec les
-défauts sûrs de `cookieDefaultSettings` (`cookie.ts:39`). Le seul cookie **piloté par la config** est celui
-de la **session** — bloc Zod `sessionCookieSchema` (`config.ts:769`), avec notamment `hostPrefix`
-(`config.ts:791`) qui décide du préfixe `__Host-`. Tout cela est documenté dans [Sessions](session.md) :
+défauts sûrs de `cookieDefaultSettings` (`cookie.ts#cookieDefaultSettings`). Le seul cookie **piloté par la config** est celui
+de la **session** — bloc Zod `sessionCookieSchema` (`config.ts#sessionCookieSchema`), avec notamment `hostPrefix`
+(`config.ts#sessionCookieSchema`) qui décide du préfixe `__Host-`. Tout cela est documenté dans [Sessions](session.md) :
 cette page ne le duplique pas.
 
 Le nom effectif du cookie de session (avec ou sans `__Host-` selon le transport) est calculé par
-`getSessionCookieName()` (`Context.ts:757`) — encore un détail qui appartient à la page Sessions.
+`getSessionCookieName()` (`Context.ts#Context.getSessionCookieName`) — encore un détail qui appartient à la page Sessions.
 
 ## 🛡️ Défenses par attribut
 
-| Attribut / mécanisme       | Faille bloquée                          | Comment Nodefony l'applique                                              |
-| -------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
-| `HttpOnly` (défaut `true`) | Vol de cookie par **XSS**               | Défaut fermé (`cookieDefaultSettings`, `cookie.ts:39`)                   |
-| `SameSite=Lax` (défaut)    | **CSRF** inter-site                     | Fallback toujours `Lax`, jamais `None` (`setSameSite()` `cookie.ts:250`) |
-| `Secure` (défaut `true`)   | Interception en clair                   | Forcé aussi par `None`/préfixes (`serialize()` `cookie.ts:393`)          |
-| Préfixe `__Host-`          | **Session fixation** cross-sous-domaine | `Domain` retiré + `Path=/` imposés (`serialize()` `cookie.ts:393`)       |
-| Cookie signé (HMAC)        | Altération de la valeur côté client     | `sign()`/`unsign()` timing-safe (`cookie.ts:355`, `cookie.ts:355`)       |
-| Refus du secret par défaut | Signature « fantôme » sans protection   | Fail-closed à la signature (`setValue()` `cookie.ts:205`)                |
+| Attribut / mécanisme       | Faille bloquée                          | Comment Nodefony l'applique                                                             |
+| -------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------- |
+| `HttpOnly` (défaut `true`) | Vol de cookie par **XSS**               | Défaut fermé (`cookieDefaultSettings`, `cookie.ts#cookieDefaultSettings`)               |
+| `SameSite=Lax` (défaut)    | **CSRF** inter-site                     | Fallback toujours `Lax`, jamais `None` (`setSameSite()` `cookie.ts#Cookie.setSameSite`) |
+| `Secure` (défaut `true`)   | Interception en clair                   | Forcé aussi par `None`/préfixes (`serialize()` `cookie.ts#Cookie.serialize`)            |
+| Préfixe `__Host-`          | **Session fixation** cross-sous-domaine | `Domain` retiré + `Path=/` imposés (`serialize()` `cookie.ts#Cookie.serialize`)         |
+| Cookie signé (HMAC)        | Altération de la valeur côté client     | `sign()`/`unsign()` timing-safe (`cookie.ts#Cookie.unsign`)                             |
+| Refus du secret par défaut | Signature « fantôme » sans protection   | Fail-closed à la signature (`setValue()` `cookie.ts#Cookie.setValue`)                   |
 
 ## 📜 Normes appliquées
 
-| Domaine                            | Norme                | Ancrage                                                            |
-| ---------------------------------- | -------------------- | ------------------------------------------------------------------ |
-| Cookies — syntaxe `Set-Cookie`     | RFC 6265bis          | `serialize()` (`cookie.ts:393`)                                    |
-| `SameSite` — 3 valeurs canoniques  | RFC 6265bis §5.4.7   | `SameSiteType` (`ICookie.ts:3`), `setSameSite()` (`cookie.ts:250`) |
-| Préfixes `__Host-` / `__Secure-`   | RFC 6265bis §4.1.3   | `serialize()` force les contraintes (`cookie.ts:393`)              |
-| `SameSite=None` impose `Secure`    | RFC 6265bis          | `serialize()` (`cookie.ts:393`)                                    |
-| Intégrité — HMAC-SHA256, base64url | RFC 2104 / RFC 4648  | `sign()` (`cookie.ts:331`)                                         |
-| Vérification à temps constant      | bonne pratique OWASP | `unsign()` → `timingSafeEqual` (`cookie.ts:380`)                   |
+| Domaine                            | Norme                | Ancrage                                                                                      |
+| ---------------------------------- | -------------------- | -------------------------------------------------------------------------------------------- |
+| Cookies — syntaxe `Set-Cookie`     | RFC 6265bis          | `serialize()` (`cookie.ts#Cookie.serialize`)                                                 |
+| `SameSite` — 3 valeurs canoniques  | RFC 6265bis §5.4.7   | `SameSiteType` (`ICookie.ts#SameSiteType`), `setSameSite()` (`cookie.ts#Cookie.setSameSite`) |
+| Préfixes `__Host-` / `__Secure-`   | RFC 6265bis §4.1.3   | `serialize()` force les contraintes (`cookie.ts#Cookie.serialize`)                           |
+| `SameSite=None` impose `Secure`    | RFC 6265bis          | `serialize()` (`cookie.ts#Cookie.serialize`)                                                 |
+| Intégrité — HMAC-SHA256, base64url | RFC 2104 / RFC 4648  | `sign()` (`cookie.ts#Cookie.sign`)                                                           |
+| Vérification à temps constant      | bonne pratique OWASP | `unsign()` → `timingSafeEqual` (`cookie.ts#Cookie.unsign`)                                   |
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                  | Cause                                                                     | Correction                                                               |
-| --------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Le cookie posé en HTTP clair n'est pas stocké             | Défaut `Secure: true` → le navigateur exige HTTPS (sauf `localhost`)      | Servir en HTTPS, ou `secure: false` en dev hors localhost                |
-| Un cookie `__Host-` ignore mon `Domain`/`Path`            | `serialize()` **force** les contraintes du préfixe                        | Attendu (RFC 6265bis) — renommer sans préfixe si tu veux un `Domain`     |
-| `new Cookie(..., { signed: true })` **jette**             | Aucun `secret` configuré → refus du secret prévisible (fail-closed)       | Passer un `secret` réel (`{ signed: true, secret: … }`)                  |
-| Modifier un cookie entrant ne change rien côté client     | Lecture (`context.cookies`) et écriture (réponse) ne sont pas symétriques | (Re)poser le cookie sur la réponse : `context.setCookie(new Cookie(…))`  |
-| Le cookie WS posé au handshake n'arrive jamais            | `setCookie`/`setCookies` de la réponse WS sont des no-op (`ws`)           | Poser le cookie pendant la phase HTTP avant l'upgrade (cf session)       |
-| Deux `Set-Cookie` s'écrasent, un seul survit              | Un `setHeader('Set-Cookie', str)` remplace le précédent                   | Déjà géré : `setCookies()` passe un **tableau** (`http/Response.ts:241`) |
-| `SameSite` mal orthographié devient `Lax` silencieusement | Fallback fail-safe sur `Lax`                                              | Attendu — vérifier la casse ; `Strict`/`Lax`/`None` seulement            |
-| `maxAge` interprété en millisecondes                      | `maxAge` est en **secondes** (comme `Set-Cookie` Max-Age)                 | Passer des secondes (`30*24*60*60`), pas des ms                          |
+| Symptôme                                                  | Cause                                                                     | Correction                                                                                   |
+| --------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Le cookie posé en HTTP clair n'est pas stocké             | Défaut `Secure: true` → le navigateur exige HTTPS (sauf `localhost`)      | Servir en HTTPS, ou `secure: false` en dev hors localhost                                    |
+| Un cookie `__Host-` ignore mon `Domain`/`Path`            | `serialize()` **force** les contraintes du préfixe                        | Attendu (RFC 6265bis) — renommer sans préfixe si tu veux un `Domain`                         |
+| `new Cookie(..., { signed: true })` **jette**             | Aucun `secret` configuré → refus du secret prévisible (fail-closed)       | Passer un `secret` réel (`{ signed: true, secret: … }`)                                      |
+| Modifier un cookie entrant ne change rien côté client     | Lecture (`context.cookies`) et écriture (réponse) ne sont pas symétriques | (Re)poser le cookie sur la réponse : `context.setCookie(new Cookie(…))`                      |
+| Le cookie WS posé au handshake n'arrive jamais            | `setCookie`/`setCookies` de la réponse WS sont des no-op (`ws`)           | Poser le cookie pendant la phase HTTP avant l'upgrade (cf session)                           |
+| Deux `Set-Cookie` s'écrasent, un seul survit              | Un `setHeader('Set-Cookie', str)` remplace le précédent                   | Déjà géré : `setCookies()` passe un **tableau** (`http/Response.ts#HttpResponse.setCookies`) |
+| `SameSite` mal orthographié devient `Lax` silencieusement | Fallback fail-safe sur `Lax`                                              | Attendu — vérifier la casse ; `Strict`/`Lax`/`None` seulement                                |
+| `maxAge` interprété en millisecondes                      | `maxAge` est en **secondes** (comme `Set-Cookie` Max-Age)                 | Passer des secondes (`30*24*60*60`), pas des ms                                              |
 
 ## 📡 Observabilité
 
 Il n'y a pas d'écran Studio dédié aux cookies applicatifs (le cookie **de session** est surfacé dans
 l'écran **Sessions**). En développement, chaque écriture de cookie est journalisée en `DEBUG` par la
-réponse HTTP (`ADD COOKIE ==> …`, `setCookie()` `http/Response.ts:261`) — visible via le skill
+réponse HTTP (`ADD COOKIE ==> …`, `setCookie()` `http/Response.ts#HttpResponse.setCookie`) — visible via le skill
 `nodefony-tail-error-logs` ou le Suivi de requête. Sur le fil, un `curl -i` montre les lignes `Set-Cookie`.
 
 ## 🧪 Tests & couverture

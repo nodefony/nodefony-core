@@ -385,42 +385,42 @@ connaît plus l'ORM. Valeur de l'abstraction = **swap d'ORM** (un nouvel adapter
 ### 2.1 Contrats core (`@nodefony/orm-core`)
 
 **`IOrm`** — instance ORM (1 par connexion logique), enregistrée dans `OrmRegistry` sous un nom unique.
-`orm-core/nodefony/interfaces/IOrm.ts:12`
+`orm-core/nodefony/interfaces/IOrm.ts#IOrm`
 
 <!-- prettier-ignore -->
 | Membre | Signature | Ancrage |
 | --- | --- | --- |
-| `name` | `readonly string` (clé `OrmRegistry.get`) | `IOrm.ts:14` |
-| `connect` | `(): Promise<void>` — ouvre + compile les entités | `IOrm.ts:22` |
-| `disconnect` | `(): Promise<void>` | `IOrm.ts:25` |
-| `isConnected` | `(): boolean` | `IOrm.ts:28` |
-| `getRepository<T>` | `(name): IRepository<T>` — throw si entité inconnue | `IOrm.ts:33` |
-| `transaction<R>` | `(work: (tx) => Promise<R>): Promise<R>` — commit si résolu, rollback si rejeté | `IOrm.ts:41` |
-| `getNativeConnection<C>` | `(): C` — **trappe SQL/commandes brutes** (anti-blocage requêtes non couvertes) | `IOrm.ts:51` |
-| `describeEntity?` | `(name): IColumnInfo[]` — colonnes normalisées (graphe/ERD/IA) | `IOrm.ts:81` |
-| `describeConnection?` | `(): IConnectionInfo` — driver + cible **sans credential** | `IOrm.ts:91` |
-| `ping?` | `(): Promise<void>` — round-trip réel (`SELECT 1` / `admin().ping`), **rejette** si injoignable | `IOrm.ts:112` |
-| `probe?` | `(): Promise<IOrmProbe>` — sonde profonde (storage/pool), best-effort (jamais throw) | `IOrm.ts:122` |
+| `name` | `readonly string` (clé `OrmRegistry.get`) | `IOrm.ts#IOrm` |
+| `connect` | `(): Promise<void>` — ouvre + compile les entités | `IOrm.ts#IOrm.connect` |
+| `disconnect` | `(): Promise<void>` | `IOrm.ts#IOrm.disconnect` |
+| `isConnected` | `(): boolean` | `IOrm.ts#IOrm.isConnected` |
+| `getRepository<T>` | `(name): IRepository<T>` — throw si entité inconnue | `IOrm.ts#IOrm.getRepository` |
+| `transaction<R>` | `(work: (tx) => Promise<R>): Promise<R>` — commit si résolu, rollback si rejeté | `IOrm.ts#IOrm.transaction` |
+| `getNativeConnection<C>` | `(): C` — **trappe SQL/commandes brutes** (anti-blocage requêtes non couvertes) | `IOrm.ts#IOrm.getNativeConnection` |
+| `describeEntity?` | `(name): IColumnInfo[]` — colonnes normalisées (graphe/ERD/IA) | `IOrm.ts#IOrm.describeEntity` |
+| `describeConnection?` | `(): IConnectionInfo` — driver + cible **sans credential** | `IOrm.ts#IOrm.describeConnection` |
+| `ping?` | `(): Promise<void>` — round-trip réel (`SELECT 1` / `admin().ping`), **rejette** si injoignable | `IOrm.ts#IOrm.ping` |
+| `probe?` | `(): Promise<IOrmProbe>` — sonde profonde (storage/pool), best-effort (jamais throw) | `IOrm.ts#IOrm.probe` |
 
-**`IRepository<T>`** — CRUD portable. `orm-core/nodefony/interfaces/IRepository.ts:101`
+**`IRepository<T>`** — CRUD portable. `orm-core/nodefony/interfaces/IRepository.ts#UpdateData`
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Ancrage |
 | --- | --- | --- |
-| `find` | `(criteria?, options?: RepositoryReadOptions): Promise<T[]>` | `IRepository.ts:216` |
-| `findOne` | `(criteria, options?): Promise<T \| null>` | `IRepository.ts:230` |
-| `exists` | `(criteria): Promise<boolean>` — `SELECT 1 … LIMIT 1` / `exists` (préférer à `findOne!=null` / `count>0`) | `IRepository.ts:254` |
-| `create` | `(data: Partial<T>): Promise<T>` (id/défauts générés) | `IRepository.ts:240` |
-| `createMany` | `(data[]): Promise<T[]>` — 1 `INSERT … VALUES (…),(…)` / `insertMany` ; `[]` = no-op | `IRepository.ts:252` |
-| `upsert` | `(criteria, update, insertOnly?): Promise<T>` — insert\|update **atomique** (`ON CONFLICT DO UPDATE` / `findOneAndUpdate({upsert})`) ; `insertOnly` posé qu'à la création | `IRepository.ts:296` |
-| `updateOne` | `(criteria, data): Promise<T \| null>` — **atomique** (`UPDATE … RETURNING` / `findOneAndUpdate`) | `IRepository.ts:156` |
-| `updateMany` | `(criteria, data): Promise<number>` — masse | `IRepository.ts:312` |
-| `increment` | `(criteria, changes): Promise<T \| null>` — `SET f=f+?` / `$inc` (atomique, sans read-modify-write ; delta<0 décrémente) | `IRepository.ts:206` |
-| `delete` | `(criteria): Promise<number>` — masse | `IRepository.ts:336` |
-| `deleteOne` | `(criteria): Promise<boolean>` — AU PLUS une, atomique | `IRepository.ts:345` |
-| `findOneAndDelete` | `(criteria): Promise<T \| null>` — pop atomique (`DELETE … RETURNING` / `findOneAndDelete`) | `IRepository.ts:355` |
-| `count` | `(criteria?): Promise<number>` | `IRepository.ts:362` |
-| `withTransaction` | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4) | `IRepository.ts:406` |
+| `find` | `(criteria?, options?: RepositoryReadOptions): Promise<T[]>` | `IRepository.ts#IRepository.find` |
+| `findOne` | `(criteria, options?): Promise<T \| null>` | `IRepository.ts#IRepository.findOne` |
+| `exists` | `(criteria): Promise<boolean>` — `SELECT 1 … LIMIT 1` / `exists` (préférer à `findOne!=null` / `count>0`) | `IRepository.ts#IRepository.updateOne` |
+| `create` | `(data: Partial<T>): Promise<T>` (id/défauts générés) | `IRepository.ts#IRepository.create` |
+| `createMany` | `(data[]): Promise<T[]>` — 1 `INSERT … VALUES (…),(…)` / `insertMany` ; `[]` = no-op | `IRepository.ts#IRepository.createMany` |
+| `upsert` | `(criteria, update, insertOnly?): Promise<T>` — insert\|update **atomique** (`ON CONFLICT DO UPDATE` / `findOneAndUpdate({upsert})`) ; `insertOnly` posé qu'à la création | `IRepository.ts#IRepository.upsert` |
+| `updateOne` | `(criteria, data): Promise<T \| null>` — **atomique** (`UPDATE … RETURNING` / `findOneAndUpdate`) | `IRepository.ts#Criteria` |
+| `updateMany` | `(criteria, data): Promise<number>` — masse | `IRepository.ts#IRepository.updateMany` |
+| `increment` | `(criteria, changes): Promise<T \| null>` — `SET f=f+?` / `$inc` (atomique, sans read-modify-write ; delta<0 décrémente) | `IRepository.ts#IRepository` |
+| `delete` | `(criteria): Promise<number>` — masse | `IRepository.ts#IRepository.delete` |
+| `deleteOne` | `(criteria): Promise<boolean>` — AU PLUS une, atomique | `IRepository.ts#IRepository.deleteOne` |
+| `findOneAndDelete` | `(criteria): Promise<T \| null>` — pop atomique (`DELETE … RETURNING` / `findOneAndDelete`) | `IRepository.ts#IRepository.findOneAndDelete` |
+| `count` | `(criteria?): Promise<number>` | `IRepository.ts#IRepository.count` |
+| `withTransaction` | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4) | `IRepository.ts#IRepository.withTransaction` |
 
 > ⚠️ **VÉRITÉ COURANTE** : l'API d'écriture est `updateOne` + `updateMany` (pas un `update` unique —
 > les MEMORY/recipes qui écrivent `repo.update(...)` sont **périmés**). `updateOne` est **atomique**
@@ -438,69 +438,69 @@ connaît plus l'ORM. Valeur de l'abstraction = **swap d'ORM** (un nouvel adapter
 
 **Critères** (`IRepository.ts`) — `Criteria<T>` = `{ [K in keyof T]?: FieldCriteria<T[K]> } & OrmCriteria` :
 typé par champ (`{ email }` doit être `string` si `T.email` l'est) **+** échappatoire `OrmCriteria`
-(`Record<string,unknown>`, `IRepository.ts:10`). `FieldCriteria<V>` = valeur nue (égalité) **ou**
-`FieldOperators<V>` (`IRepository.ts:53`). **Opérateurs riches** `$`-préfixés (combinés en `AND` sur un
-même champ) : `$eq $ne $gt $gte $lt $lte $in $nin $like` (`$like` = SQL `%`/`_`) — `IRepository.ts:26`.
+(`Record<string,unknown>`, `IRepository.ts#OrmCriteria`). `FieldCriteria<V>` = valeur nue (égalité) **ou**
+`FieldOperators<V>` (`IRepository.ts#FieldOperators.$null`). **Opérateurs riches** `$`-préfixés (combinés en `AND` sur un
+même champ) : `$eq $ne $gt $gte $lt $lte $in $nin $like` (`$like` = SQL `%`/`_`) — `IRepository.ts#FieldOperators.$like`.
 Sous-ensemble = intersection portable des 3 ORM. `RepositoryReadOptions` = `{ relations?, limit?,
-offset?, order?: Array<[string,"ASC"|"DESC"]> }` (`IRepository.ts:174`) — `relations` = eager-load des
+offset?, order?: Array<[string,"ASC"|"DESC"]> }` (`IRepository.ts#RepositoryReadOptions`) — `relations` = eager-load des
 assos **déclarées** dans `@entity`.
 
-**`IEntity<S, M>`** — `orm-core/nodefony/interfaces/IEntity.ts:33`. Champs : `name` (clé logique),
+**`IEntity<S, M>`** — `orm-core/nodefony/interfaces/IEntity.ts#IEntityIndex`. Champs : `name` (clé logique),
 `orm` (nom du connecteur cible), `schema: S` (forme libre, propre au driver), `model?: M` (compilé
 **après** connexion), `relations?: IEntityRelation[]`. Deux axes de regroupement Studio/ERD :
-`module?` (propriétaire, `IEntity.ts:45`) **distinct de** `domain?` (classification fonctionnelle,
-`IEntity.ts:54` — pour une grosse base : grouper/filtrer N tables d'un même module). `timestamps?:
-boolean` (`IEntity.ts:68`) : Mongoose l'applique (`timestamps:true`) ; Drizzle (schema-as-code) → **sans
-effet** (colonnes explicites). `IEntityRelation` (`IEntity.ts:4`) : `type` (`one-to-one|one-to-many|
+`module?` (propriétaire, `IEntity.ts#IEntity.module`) **distinct de** `domain?` (classification fonctionnelle,
+`IEntity.ts#IEntity.domain` — pour une grosse base : grouper/filtrer N tables d'un même module). `timestamps?:
+boolean` (`IEntity.ts#IEntity.domain`) : Mongoose l'applique (`timestamps:true`) ; Drizzle (schema-as-code) → **sans
+effet** (colonnes explicites). `IEntityRelation` (`IEntity.ts#IEntityRelation`) : `type` (`one-to-one|one-to-many|
 many-to-one|many-to-many`), `target`, `field`, `foreignKey?` (omise → dérivée camelCase `<entité>Id`).
 
-**`ITransaction`** — `orm-core/nodefony/interfaces/ITransaction.ts:8` : `commit()`, `rollback()`,
+**`ITransaction`** — `orm-core/nodefony/interfaces/ITransaction.ts#ITransaction` : `commit()`, `rollback()`,
 `savepoint(name)`, `rollbackTo(name)`, `getNative<C>()`. **2PC cross-ORM NON garanti** (1 tx = 1 ORM).
 Savepoints driver-dépendants (no-op possible : Mongo).
 
 ### 2.2 Classes de base + registres
 
-**`Orm` abstract extends Service** — `orm-core/nodefony/src/Orm.ts:29`. **S'auto-register au ctor**
-(`ormRegistry.register(this.name, this)`, `Orm.ts:44` — possible car `name` arrive de `Service`, dispo
-tôt). `connect()` = **template method** (`Orm.ts:118`) → appelle l'abstrait `onConnect()` (`Orm.ts:364`)
-puis `fire("onOrmReady", this)` (`Orm.ts:66`). Abstraits à implémenter : `onConnect`, `disconnect`
-(`:367`), `isConnected` (`:80`), `getRepository` (`:374`), `transaction` (`:381`), `getNativeConnection`
-(`:97`). `describeEntity` par défaut renvoie `[]` (`Orm.ts:396`, relations seules) → surchargé par
+**`Orm` abstract extends Service** — `orm-core/nodefony/src/Orm.ts#Orm`. **S'auto-register au ctor**
+(`ormRegistry.register(this.name, this)`, `Orm.ts#Orm` — possible car `name` arrive de `Service`, dispo
+tôt). `connect()` = **template method** (`Orm.ts#Orm.connect`) → appelle l'abstrait `onConnect()` (`Orm.ts#Orm.onConnect`)
+puis `fire("onOrmReady", this)` (`Orm.ts#Orm.#lostPending`). Abstraits à implémenter : `onConnect`, `disconnect`
+(`Orm.ts#Orm.disconnect`), `isConnected` (`Orm.ts#Orm.isConnected`), `getRepository` (`Orm.ts#Orm.getRepository`), `transaction` (`Orm.ts#Orm.transaction`), `getNativeConnection`
+. `describeEntity` par défaut renvoie `[]` (`Orm.ts#Orm.describeEntity`, relations seules) → surchargé par
 l'adapter.
 
-**`Entity` abstract** — `orm-core/nodefony/src/Entity.ts:22`. Abstraits : `name` (`:26`), `orm` (`:29`),
-`getSchema(): S` (`:42`) ; getter `schema` délègue à `getSchema()` (`:45`). **`register()` explicite**
-(`Entity.ts:55` → `entityRegistry.register(this)`) — **PAS** auto au ctor (cf §4).
+**`Entity` abstract** — `orm-core/nodefony/src/Entity.ts#Entity`. Abstraits : `name` (`orm-core/nodefony/src/Entity.ts#Entity.name`), `orm` (`orm-core/nodefony/src/Entity.ts#Entity.connector`),
+`getSchema(): S` (`orm-core/nodefony/src/Entity.ts#Entity.getSchema`) ; getter `schema` délègue à `getSchema()` (`orm-core/nodefony/src/Entity.ts#Entity.getSchema`). **`register()` explicite**
+(`Entity.ts#Entity.register` → `entityRegistry.register(this)`) — **PAS** auto au ctor (cf §4).
 
-**`OrmRegistry`** + singleton `ormRegistry` — `orm-core/nodefony/src/OrmRegistry.ts:15` / `:88`.
-`register(name, orm)` (doublon → **throw**, `:26`/`:30`), `get(name)` (`:45`), `has` (`:58`), `list()`
-(`:67`), `unregister` (`:77`). Map lazy (rien alloué tant qu'aucun ORM).
+**`OrmRegistry`** + singleton `ormRegistry` — `orm-core/nodefony/src/OrmRegistry.ts#OrmRegistry`.
+`register(name, orm)` (doublon → **throw**, `orm-core/nodefony/src/OrmRegistry.ts#OrmRegistry.register`/`orm-core/nodefony/src/OrmRegistry.ts#OrmRegistry.register`), `get(name)` (`orm-core/nodefony/src/OrmRegistry.ts#OrmRegistry.get`), `has` (`orm-core/nodefony/src/OrmRegistry.ts#OrmRegistry.has`), `list()`
+, `unregister`. Map lazy (rien alloué tant qu'aucun ORM).
 
-**`EntityRegistry`** + singleton `entityRegistry` — `orm-core/nodefony/src/EntityRegistry.ts:14` / `:146`.
-`Object.create(null)` lazy, indexé `entities[name][connector]`. `register(entity)` (`:24`), `get(name, connector?)`
-(`:54`) : **ambigu → throw** si `orm` omis et l'entité existe pour plusieurs ORM ; `has`, `unregister`.
+**`EntityRegistry`** + singleton `entityRegistry` — `orm-core/nodefony/src/EntityRegistry.ts#EntityRegistry` / `orm-core/nodefony/src/EntityRegistry.ts#entityRegistry`.
+`Object.create(null)` lazy, indexé `entities[name][connector]`. `register(entity)` (`orm-core/nodefony/src/EntityRegistry.ts#EntityRegistry.register`), `get(name, connector?)`
+: **ambigu → throw** si `orm` omis et l'entité existe pour plusieurs ORM ; `has`, `unregister`.
 
 ### 2.3 `AbstractCrudService<T, R>`
 
-`orm-core/nodefony/src/AbstractCrudService.ts:34` — **extends Service** (abstract). Socle CRUD générique :
+`orm-core/nodefony/src/AbstractCrudService.ts#AbstractCrudService` — **extends Service** (abstract). Socle CRUD générique :
 service = **source de vérité métier**, REST/WS/GraphQL/CLI = adaptateurs minces. `R extends IRepository<T>`
 (2ᵉ générique) conserve les finders métier de la sous-classe.
 
-- **Ctor** `(name, repository: R, ...wiring: ServiceWiring)` (`:46`) — `ServiceWiring` = tuple
+- **Ctor** `(name, repository: R, ...wiring: ServiceWiring)` — `ServiceWiring` = tuple
   `[container?, nc?, options?]` capté en rest-param et forwardé `super(name, ...wiring)` (fin du tunneling
   des 3 args de câblage). Exporté depuis `@nodefony/orm-core`.
-- **Lectures = délégation pure** (hot path, 0 hook/event) : `find` (`:59`), `findOne` (`:69`),
-  `findById(id, options?)` (`:84` — suppose **PK `id` string**, override sinon), `count` (`:93`).
+- **Lectures = délégation pure** (hot path, 0 hook/event) : `find`, `findOne`,
+  `findById(id, options?)` ( — suppose **PK `id` string**, override sinon), `count`.
 - **Mutations = hooks template-method + events** (event émis **seulement si mutation effective**) :
-  - `create(data)` (`:105`) : `beforeCreate` → persist → `afterCreate` → `fire("onCreated", entity)` (`:109`).
-  - `updateOne(criteria, data)` (`:130`) : `beforeUpdate` → `repository.updateOne` → `afterUpdate` →
-    `fire("onUpdated", updated)` (`:135`) — **pas d'event si `null`**. ⚠️ **`updateMany` n'est PAS
+  - `create(data)` : `beforeCreate` → persist → `afterCreate` → `fire("onCreated", entity)`.
+  - `updateOne(criteria, data)` : `beforeUpdate` → `repository.updateOne` → `afterUpdate` →
+    `fire("onUpdated", updated)` — **pas d'event si `null`**. ⚠️ **`updateMany` n'est PAS
     exposée** sur le service (primitive niveau repository ; à remonter quand un usage métier la réclame).
-  - `delete(criteria)` (`:147`) : `beforeDelete` → `repository.delete` → `afterDelete` →
-    `fire("onDeleted", criteria, count)` (`:152`).
-- **Hooks protected no-op** (à surcharger) : `beforeCreate(data)→data` (`:168`), `afterCreate(e)` (`:173`),
-  `beforeUpdate(crit,data)→data` (`:182`), `afterUpdate(e)` (`:190`), `beforeDelete(crit)` (`:193`),
-  `afterDelete(crit,n)` (`:196`).
+  - `delete(criteria)` : `beforeDelete` → `repository.delete` → `afterDelete` →
+    `fire("onDeleted", criteria, count)`.
+- **Hooks protected no-op** (à surcharger) : `beforeCreate(data)→data`, `afterCreate(e)`,
+  `beforeUpdate(crit,data)→data`, `afterUpdate(e)`, `beforeDelete(crit)`,
+  `afterDelete(crit,n)`.
 - **Singleton DI stateless LÉGITIME** : état par requête (user/tenant/tx) → `Context`/ALS, **jamais** un
   champ du service.
 
@@ -509,14 +509,14 @@ service = **source de vérité métier**, REST/WS/GraphQL/CLI = adaptateurs minc
 `orm-core/nodefony/src/decorators/`. **SANS reflect-metadata** (WeakMap maison `metadataStore.ts` →
 0 dep runtime ; diverge volontairement du DI core/framework qui, lui, a besoin de reflect).
 
-- **`@entity({ connector, name?, schema?, relations?, module?, domain?, timestamps? })`** (`entityDecorator.ts:61`,
+- **`@entity({ connector, name?, schema?, relations?, module?, domain?, timestamps? })`** (`entityDecorator.ts#entity`,
   class deco) : `name` défaut = nom de classe ; construit un descripteur `IEntity` **depuis les options**
-  (0 instanciation) → `entityRegistry.register(descriptor)` **au chargement du module** (`:83`) + stocke
+  (0 instanciation) → `entityRegistry.register(descriptor)` **au chargement du module** + stocke
   la métadonnée. La classe décorée peut être **vide** (le descripteur vient des options).
 - **`@repository(name, { entity, connector? })`** (class deco) : **tag pur** du lien repo↔entity, **AUCUN
   registre** (le binding DI est le job de l'adapter).
 - Accesseurs métadonnée exportés : `getEntityMeta`/`hasEntityMeta`/`getRepositoryMeta`/`hasRepositoryMeta`.
-- Helper critères exporté : `OPERATOR_KEYS` (`criteria.ts:10`), `isFieldOperators()` (`criteria.ts:38`),
+- Helper critères exporté : `OPERATOR_KEYS` (`criteria.ts#OPERATOR_KEYS`), `isFieldOperators()` (`criteria.ts#isFieldOperators`),
   type `OperatorKey`.
 
 ### 2.5 Adapter Drizzle (référence / défaut SQL)
@@ -524,21 +524,21 @@ service = **source de vérité métier**, REST/WS/GraphQL/CLI = adaptateurs minc
 Exports : `DrizzleOrm`, `DrizzleRepository`, `DrizzleTransaction` (+ types `DrizzleOrmOptions`,
 `DrizzleDb`, `DrizzleResolvedRelation`).
 
-**`DrizzleOrm extends Orm`** — `drizzle/nodefony/src/orm-core/DrizzleOrm.ts:80`. Schema-as-code
+**`DrizzleOrm extends Orm`** — `drizzle/nodefony/src/orm-core/DrizzleOrm.ts#MysqlPoolInternals`. Schema-as-code
 (`entity.schema` EST une table Drizzle `sqliteTable(...)`). DDL dérivé via `getTableConfig()`
-(`DrizzleOrm.ts:664`, dev/test ; **prod = `drizzle-kit`**). `getRepository(name)` (`:1693`) →
-`new DrizzleRepository(db, table, relations, connector)` (`:1718`). `transaction` (`:350`) →
-`new DrizzleTransaction(db, client)` (`:359`). `getNativeConnection<DrizzleDb>()` (`:370`).
-`describeConnection()` (`:468`). `get dialect` (`:114`).
+(`DrizzleOrm.ts#DrizzleOrm.#createTableSQL`, dev/test ; **prod = `drizzle-kit`**). `getRepository(name)` (`DrizzleOrm.ts#DrizzleOrm.getRepository`) →
+`new DrizzleRepository(db, table, relations, connector)` (`DrizzleOrm.ts#DrizzleOrm.getRepository`). `transaction` (`DrizzleOrm.ts#DrizzleOrm.transaction`) →
+`new DrizzleTransaction(db, client)`. `getNativeConnection<DrizzleDb>()`.
+`describeConnection()`. `get dialect`.
 
-**`DrizzleRepository<T>`** (`DrizzleRepository.ts:177`, même dossier que l'ORM Drizzle). **Ctor**
-`(db, table, relations, connector="default")` (`:260`). `#where(criteria)` traduit en `eq/and/gt/inArray/
-like` (`:186`). `#populate` = eager-load **manuel**, 1 requête `IN(...)` par relation (`:249`). Sortie
-= **cast `rows as T[]`** (`:320` — schema-as-code : la ligne EST l'entité, pas de remap générique).
-Verbes : `createMany` (`:341`), `updateOne` (`:354`), `upsert` (`:375`, `onConflictDoUpdate`+RETURNING),
-`updateMany` (`:415`), `increment` (`:428`, `SET f=f+?` + rowid LIMIT 1), `deleteOne`/`findOneAndDelete`
-(`:472`/`:477`, `DELETE … rowid LIMIT 1 RETURNING` — helper `#deleteOneReturning`), `exists` (`:512`,
-`SELECT 1 LIMIT 1`), `withTransaction` (`:528`).
+**`DrizzleRepository<T>`** (`DrizzleRepository.ts#IPreparedSelect.execute`, même dossier que l'ORM Drizzle). **Ctor**
+`(db, table, relations, connector="default")` (`DrizzleRepository.ts#DrizzleRepository.constructor`). `#where(criteria)` traduit en `eq/and/gt/inArray/
+like`. `#populate` = eager-load **manuel**, 1 requête `IN(...)` par relation. Sortie
+= **cast `rows as T[]`** ( — schema-as-code : la ligne EST l'entité, pas de remap générique).
+Verbes : `createMany`, `updateOne`, `upsert` (, `onConflictDoUpdate`+RETURNING),
+`updateMany`, `increment` (, `SET f=f+?` + rowid LIMIT 1), `deleteOne`/`findOneAndDelete`
+(, `DELETE … rowid LIMIT 1 RETURNING` — helper `#deleteOneReturning`), `exists` (,
+`SELECT 1 LIMIT 1`), `withTransaction`.
 
 **`DrizzleTransaction`** : `BEGIN`/`COMMIT`/`ROLLBACK` **manuels** sur la connexion (unique). `getNative()`
 = le même `db` (1 connexion). savepoint = SQL brut.
@@ -547,20 +547,20 @@ Verbes : `createMany` (`:341`), `updateOne` (`:354`), `upsert` (`:375`, `onConfl
 
 Exports : `MongooseOrm`, `MongooseRepository`, `MongooseTransaction`.
 
-**`MongooseOrm extends Orm`** — `mongoose/nodefony/src/orm-core/MongooseOrm.ts:43`. `onConnect()` (`:138`)
-= `mongoose.createConnection(uri, options?)` (`:74` — **connexion isolée**, PAS le singleton global →
-multi-ORM) puis compile schémas/modèles depuis `entityRegistry` (`connection.model(...)` `:154`,
-`entity.model = model` `:159`). `getRepository(name)` (`:179`) → `new MongooseRepository(model, this.name)`
-(`:191`). `getNativeConnection<C>()` (`:215`). Sondes Studio : `ping` (`:229`, `admin().command({ping:1})`),
-`probe` (`:243`, `serverStatus`→pool), `describeEntity` (`:272`, `schema.paths`, `_id`=PK),
-`describeConnection` (`:295`) **sync** → `safeTarget()` (`:307`) strip `user:pass` de l'URI.
+**`MongooseOrm extends Orm`** — `mongoose/nodefony/src/orm-core/MongooseOrm.ts#IIndexAudit.entity`. `onConnect()` (`mongoose/nodefony/src/orm-core/MongooseOrm.ts#MongooseOrm.onConnect`)
+= `mongoose.createConnection(uri, options?)` (`mongoose/nodefony/src/orm-core/MongooseOrm.ts#MongooseOrm` — **connexion isolée**, PAS le singleton global →
+multi-ORM) puis compile schémas/modèles depuis `entityRegistry` (`connection.model(...)`,
+`entity.model = model`). `getRepository(name)` → `new MongooseRepository(model, this.name)`
+. `getNativeConnection<C>()`. Sondes Studio : `ping` (, `admin().command({ping:1})`),
+`probe` (, `serverStatus`→pool), `describeEntity` (, `schema.paths`, `_id`=PK),
+`describeConnection` **sync** → `safeTarget()` strip `user:pass` de l'URI.
 
-**`MongooseRepository<T>`** — `MongooseRepository.ts:42`. **Ctor** `(model, connector, session?)` (`:53`).
+**`MongooseRepository<T>`** — `MongooseRepository.ts#IMongooseReferrer.path`. **Ctor** `(model, connector, session?)` (`MongooseRepository.ts#MongooseRepository`).
 `id`→`_id` en critère, sortie `toObject({ virtuals:true })` (expose le virtuel `id` hex). `relations`→
-`populate()`, `$like`→`$regex`. Verbes : `createMany` (`:254`, `insertMany`), `updateOne` (`:271`),
-`upsert` (`:293`, `findOneAndUpdate({upsert})` + `$setOnInsert`), `updateMany` (`:331`), `increment`
-(`:347`, `$inc`), `deleteOne`/`findOneAndDelete` (`:384`/`:398`), `exists` (`:423`, `Model.exists`),
-`withTransaction` (`:438`).
+`populate()`, `$like`→`$regex`. Verbes : `createMany` (, `insertMany`), `updateOne`,
+`upsert` (, `findOneAndUpdate({upsert})` + `$setOnInsert`), `updateMany`, `increment`
+(, `$inc`), `deleteOne`/`findOneAndDelete`, `exists` (, `Model.exists`),
+`withTransaction`.
 
 **`MongooseTransaction`** : wrap `ClientSession` (`session.withTransaction`, managé). savepoint/rollbackTo
 = **no-op** (Mongo n'a pas de savepoints). **Transactions = replica set obligatoire** (standalone = pas de tx).
@@ -573,13 +573,13 @@ Représentation canonique sérialisable (ORMs + entités + colonnes + relations)
 <!-- prettier-ignore -->
 | Fonction | Rôle | Ancrage |
 | --- | --- | --- |
-| `buildOrmGraph(ormFilter?)` | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations) | `OrmAdminApi.ts:228` |
-| `buildConnectionHealth(connector?)` | État + **ping** + `probe()` (storage/pool) — **émet une requête** | `OrmAdminApi.ts:303` |
-| `buildOrmFlow(filter?)` | Débit/latence/slow — lecture pure (**aucune requête émise**) | `OrmAdminApi.ts:361` |
-| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema | `OrmAdminApi.ts:499` / `:376` |
-| `createOrmAdminApi()` | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?connector=` filtre) | `OrmAdminApi.ts:563` |
-| `registerOrmAdminApi(registry)` | Monte `/nodefony/orm/api/*` (idempotent) | `OrmAdminApi.ts:541` |
-| `wireOrmAdminPlane(kernel)` | Câblage GLOBAL factorisé (admin API + providers santé/flux) — appelé par chaque driver à `onKernelBoot` | `ormWiring.ts:31` |
+| `buildOrmGraph(ormFilter?)` | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations) | `OrmAdminApi.ts#buildOrmGraph` |
+| `buildConnectionHealth(connector?)` | État + **ping** + `probe()` (storage/pool) — **émet une requête** | `OrmAdminApi.ts#buildConnectionHealth` |
+| `buildOrmFlow(filter?)` | Débit/latence/slow — lecture pure (**aucune requête émise**) | `OrmAdminApi.ts#buildOrmFlow` |
+| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema | `OrmAdminApi.ts#toJsonSchema` / `OrmAdminApi.ts#buildOrmFlow` |
+| `createOrmAdminApi()` | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?connector=` filtre) | `OrmAdminApi.ts#createOrmAdminApi` |
+| `registerOrmAdminApi(registry)` | Monte `/nodefony/orm/api/*` (idempotent) | `OrmAdminApi.ts#createOrmAdminApi` |
+| `wireOrmAdminPlane(kernel)` | Câblage GLOBAL factorisé (admin API + providers santé/flux) — appelé par chaque driver à `onKernelBoot` | `ormWiring.ts#wireOrmAdminPlane` |
 | `buildOrmLeanHealth()` | Agrégat per-instance (0 ping/0 toSQL) pour la sonde cluster | `src/buildOrmLeanHealth.ts` |
 
 orm-core étant une **lib pure**, le montage est déclenché par un **module driver** (`Drizzle`/`Mongoose`
@@ -592,7 +592,7 @@ orm-core étant une **lib pure**, le montage est déclenché par un **module dri
 
 État factuel (bloqueur release SQL prod). `connector.dialect` ∈ `"sqlite" | "postgres" | "mysql"`
 (défaut `sqlite`) + `url` (pg/mysql, porte le secret → jamais loggée). `drizzle/nodefony/config/schema.ts`:
-`SQL_DIALECTS` (`:26`), `SqlDialect` (`:29`), `dialect` (`:33`), `url` (`:52`).
+`SQL_DIALECTS`, `SqlDialect`, `dialect`, `url`.
 
 `DrizzleOrm` est **dialect-aware** : `onConnect` route `#connectSqlite` (better-sqlite3, sync) /
 `#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rolldown ;
@@ -626,16 +626,16 @@ PG** ; **reste** `user` (⚠️ `findBySocialProvider` `json_each` SQLite → `j
 **Mapping row → entité**
 
 - **Drizzle** : schema-as-code → la ligne EST l'entité, `DrizzleRepository` fait un **cast** `rows as T[]`
-  (`DrizzleRepository.ts:987`) — **aucun remap générique**.
+  (`DrizzleRepository.ts#DrizzleRepository.find`) — **aucun remap générique**.
 - **Mongoose** : `toObject({ virtuals:true })` + `_id`→`id` (hex string).
 - **Stores domaine** (User/token/session) : remap **manuel** ligne ↔ objet métier — ex.
-  `DrizzleUserRepository.#toUser(row)` → `new BaseUser({...})` (`DrizzleUserRepository.ts:64`). **C'est ici
+  `DrizzleUserRepository.#toUser(row)` → `new BaseUser({...})` (`DrizzleUserRepository.ts#assertUserTableIsOwned`). **C'est ici
   que le danger « colonne oubliée → `undefined` » se joue** (cf §4), pas dans le repo générique.
 
 **Résolution lazy du driver**
 
-- Drizzle `#db`/`#tables` = `null` jusqu'à `onConnect` (`DrizzleOrm.ts:795`/`:92`), remis `null` à
-  `disconnect` (`:1656`). `pg` chargé **lazily** (`await import("pg")` dans `#connectPostgres`, jamais
+- Drizzle `#db`/`#tables` = `null` jusqu'à `onConnect` (`DrizzleOrm.ts#DrizzleOrm.onConnect`/`DrizzleOrm.ts#MysqlPoolInternals`), remis `null` à
+  `disconnect` (`DrizzleOrm.ts#DrizzleOrm.disconnect`). `pg` chargé **lazily** (`await import("pg")` dans `#connectPostgres`, jamais
   au top-level : un déploiement SQLite n'a pas `pg`).
 - Stores branchés (idempotence/token) prennent un **résolveur** `() => Db | null` (garde `isConnected()`)
   → tolère l'ordre de boot (framework résout le store à `onKernelBoot`, l'ORM connecte à `onBoot`) **et**
@@ -644,14 +644,14 @@ PG** ; **reste** `user` (⚠️ `findBySocialProvider` `json_each` SQLite → `j
 **Dialect-aware** : cf §2.8 — `onConnect` route par `connector.dialect`, DDL via le `getTableConfig` du
 bon sous-module Drizzle, drivers pg/mysql en `optionalDependencies` lazy.
 
-**Sondes flux** (`QueryFlowMonitor`, `orm-core/nodefony/src/QueryFlowMonitor.ts:58`, singleton `:146`) :
-process-wide, **indépendant de l'ALS**, **OFF par défaut** (`enabled = false` `:60` → coût nul prod/bancs).
-`record(connector, durationMs, sql?)` (`:101`) : EWMA α=0.2 (`:20`), ring slow borné, `sql` fourni **que
-sur le chemin lent** (`durationMs >= slowMs`, défaut 50 `:62`) → jamais `toSQL()` au cas nominal. Débit/s
+**Sondes flux** (`QueryFlowMonitor`, `orm-core/nodefony/src/QueryFlowMonitor.ts#QueryFlowMonitor`, singleton) :
+process-wide, **indépendant de l'ALS**, **OFF par défaut** (`enabled = false` `orm-core/nodefony/src/QueryFlowMonitor.ts#QueryFlowMonitor.enabled` → coût nul prod/bancs).
+`record(connector, durationMs, sql?)` : EWMA α=0.2, ring slow borné, `sql` fourni **que
+sur le chemin lent** (`durationMs >= slowMs`, défaut 50) → jamais `toSQL()` au cas nominal. Débit/s
 **dérivé** côté lecteur (delta `total`/`ts`), **0 persistance** (RAM, reset au restart). Gating = job du
-driver : `resolveOrmFlowEnabled` (`ormWiring.ts:96`) → `setEnabled(env !== "production")` (override
-`NF_ORM_FLOW=1/0`). Tap : chaque op du repo passe par `#prof` (Drizzle `DrizzleRepository.ts:489`,
-Mongoose `MongooseRepository.ts:77`), gardé par les 2 drapeaux (buffer ALS dev + flux) → `if (!buf &&
+driver : `resolveOrmFlowEnabled` (`ormWiring.ts#resolveOrmFlowEnabled`) → `setEnabled(env !== "production")` (override
+`NF_ORM_FLOW=1/0`). Tap : chaque op du repo passe par `#prof` (Drizzle `DrizzleRepository.ts#DrizzleRepository.#prof`,
+Mongoose `MongooseRepository.ts#MongooseRepository.constructor`), gardé par les 2 drapeaux (buffer ALS dev + flux) → `if (!buf &&
 !flow) return builder`. **Couverture** : Drizzle alimente le tap ; Mongoose aussi (middleware repo) —
 les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne passent **pas** par`#prof`.
 
@@ -662,12 +662,12 @@ les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne pass
 - **`Entity` ne s'auto-register PAS au ctor** : en TS, le ctor de la base s'exécute **avant** les
   initialiseurs de champs de la sous-classe → `this.name`/`this.orm` seraient `undefined`. Auto-register =
   job du décorateur `@entity` (métadonnée de classe). Sans décorateur → `entity.register()` explicite.
-  `Orm`, lui, s'auto-register au ctor (`name` vient de `Service`, dispo tôt). (`Orm.ts:44` vs `Entity.ts:55`)
+  `Orm`, lui, s'auto-register au ctor (`name` vient de `Service`, dispo tôt). (`Orm.ts#Orm` vs `Entity.ts#Entity.register`)
 - **`@entity` OU `register()`, jamais les deux** pour la même entité → `entityRegistry` **throw** sur
   doublon `name+orm`. Tests décorateurs → `unregister(name, orm)` **scopé à l'ORM** en `afterEach`
   (sans `orm` = efface le bucket entier = contamine les autres bancs).
 - **`entityRegistry.get(name)` ambigu** si l'entité existe pour plusieurs ORM et `orm` omis → **throw**
-  (`EntityRegistry.ts:54`). Toujours préciser l'ORM en contexte multi-driver.
+  (`EntityRegistry.ts#EntityRegistry.get`). Toujours préciser l'ORM en contexte multi-driver.
 - **Mapping qui oublie une colonne → `undefined`/`null` silencieux** : dans un remap manuel ligne↔domaine
   (stores User/token/session), une colonne ajoutée au schéma mais absente du `#toX(row)` ne lève
   **aucune erreur** — le champ devient `undefined`. Synchroniser schéma ↔ mapper ↔ interface du domaine.
@@ -678,7 +678,7 @@ les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne pass
   **synchrone** → pas de `db.transaction(asyncCb)` (committe **avant** les `await` du contrat async) →
   `BEGIN/COMMIT/ROLLBACK` manuels, connexion unique. Mongoose tx → **replica set obligatoire**.
 - **`Orm.connect()` = template method** : surcharger `onConnect()`, **pas** `connect()` (sinon
-  `onOrmReady` n'est plus émis → l'ORM ne signale jamais sa disponibilité). (`Orm.ts:54`/`:66`/`:74`)
+  `onOrmReady` n'est plus émis → l'ORM ne signale jamais sa disponibilité). (`Orm.ts#Orm.#lostPending`/`Orm.ts#Orm.#lostPending`/`Orm.ts#Orm.liveness`)
 - **`SessionStorage` tolère le shutdown** : `#repo()` renvoie `null` si `!orm.isConnected()` (l'ORM ferme
   au `onTerminate` **avant** le drain des serveurs http → une requête en vol qui retouche l'ORM mort =
   `unhandledRejection`). NE PAS « simplifier » en rappelant `getRepository` direct.

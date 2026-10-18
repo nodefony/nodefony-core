@@ -82,13 +82,13 @@ Un mélange de versions n'est pas garanti ; la politique complète est dans
 
 La commande rejoue trois gestes, chacun par l'implémentation qui le fait déjà ailleurs :
 
-| Geste                                              | Implémentation                                                                                                   | Ce qu'il ne fait jamais                                                                             |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Réécrit le **bloc framework** d'`AGENTS.md`        | `refreshAgentsGuide()` (`engine.ts:2942`), le remplacement borné par `replaceFrameworkBlock()` (`engine.ts:934`) | toucher au texte hors des marqueurs `<!-- nodefony:start/end -->` ; recréer un `AGENTS.md` supprimé |
-| Pose les **pointeurs de skills**, nouveaux compris | `syncSkillPointers()` (`aiSync.ts:212`), le geste d'`ai:sync`                                                    | remplacer un `SKILL.md` écrit à la main ; supprimer un orphelin                                     |
-| Rafraîchit les **copies livrées** restées intactes | `runAppContributions()` (`contributions.ts:399`), celui de `scaffold:sync --update`                              | écraser une copie que l'application a retouchée                                                     |
+| Geste                                              | Implémentation                                                                                                                                   | Ce qu'il ne fait jamais                                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Réécrit le **bloc framework** d'`AGENTS.md`        | `refreshAgentsGuide()` (`engine.ts#refreshAgentsGuide`), le remplacement borné par `replaceFrameworkBlock()` (`engine.ts#replaceFrameworkBlock`) | toucher au texte hors des marqueurs `<!-- nodefony:start/end -->` ; recréer un `AGENTS.md` supprimé |
+| Pose les **pointeurs de skills**, nouveaux compris | `syncSkillPointers()` (`aiSync.ts#syncSkillPointers`), le geste d'`ai:sync`                                                                      | remplacer un `SKILL.md` écrit à la main ; supprimer un orphelin                                     |
+| Rafraîchit les **copies livrées** restées intactes | `runAppContributions()` (`contributions.ts#runAppContributions`), celui de `scaffold:sync --update`                                              | écraser une copie que l'application a retouchée                                                     |
 
-Le tout est orchestré par `runUpgrade()` (`upgrade.ts:121`). Ce que la commande ne tranche pas —
+Le tout est orchestré par `runUpgrade()` (`upgrade.ts#runUpgrade`). Ce que la commande ne tranche pas —
 une copie retouchée, un skill écrit à la main, un pointeur orphelin — est **nommé** sous
 « À trancher à la main », jamais tu.
 
@@ -99,14 +99,14 @@ Elle ne démarre pas l'application et n'installe rien : elle sert précisément 
 
 `npm run build` recompile l'application contre les nouveaux paquets. `nodefony doctor` le confirme :
 sa famille « Fraîcheur du build » signale désormais un bloc d'`AGENTS.md` ou des pointeurs de
-skills en retard — `checkAgentsGuide()` (`freshness.ts:409`), qui appelle le même jugement que
+skills en retard — `checkAgentsGuide()` (`freshness.ts#checkAgentsGuide`), qui appelle le même jugement que
 `upgrade` en simulation — en nommant `nodefony upgrade` comme geste. Si le changelog annonce un
 changement de schéma, appliquez ensuite les migrations (`nodefony orm:migrate`).
 
 ## En intégration continue
 
 `nodefony upgrade --check` n'écrit rien et sort en **1** si un des trois gestes reste à faire —
-`isUpgradePending()` (`upgrade.ts:97`) en décide. Placé dans la CI, il refuse une branche qui a
+`isUpgradePending()` (`upgrade.ts#isUpgradePending`) en décide. Placé dans la CI, il refuse une branche qui a
 monté ses paquets sans remettre l'application au niveau :
 
 ```bash

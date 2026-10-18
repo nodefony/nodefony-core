@@ -33,7 +33,7 @@ export class ReportService {
 }
 ```
 
-🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts:215`) mais **absent du
+🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts#Inject`) mais **absent du
 barrel** : `src/nodefony/src/index.ts` n'exporte que `injectable`, `inject`, `services`. Une app qui
 l'importe reçoit `undefined`. Utiliser l'injection **par constructeur** (`@inject`).
 
@@ -55,8 +55,8 @@ class MyOrmModule extends Module {}
 ```
 
 ⚠️ **`@entities` n'appartient PAS au core** : il vit dans `@nodefony/orm-core`
-(`nodefony/src/decorators/entitiesDecorator.ts`, exporté par son `index.ts:95`).
-`kernelDecorator.ts:175` n'exporte que `injectable`, `inject`, `Inject`, `services`.
+(`nodefony/src/decorators/entitiesDecorator.ts`, exporté par son `index.ts#adminLogin`).
+`kernelDecorator.ts#injectable` n'exporte que `injectable`, `inject`, `Inject`, `services`.
 Sa phase est **`onRegister`, jamais `onBoot`** : les connecteurs se branchent à
 `onBoot` et y créent les tables — inscrire les entités à `onBoot` en ferait une
 course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
@@ -90,7 +90,7 @@ course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
 
    ⚠️ L'injecteur CONSTRUIT, il n'initialise pas : `injector.ts` n'appelle
    ni `init` ni `initialize`. Le démarrage du service est déclenché par
-   l'APPELANT — `Module.addService()` (`Module.ts:457`), qui passe par
+   l'APPELANT — `Module.addService()` (`Module.ts#Module.addService`), qui passe par
    `Kernel.guardServiceInitialize()` (timeout + criticité) quand un kernel
    est présent, et appelle `init(this)` directement sinon.
 
@@ -139,16 +139,16 @@ C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté
 
 Les deux décorateurs s'inscrivent par `kernel.once(...)` depuis le constructeur du
 mixin, donc **avant** les hooks de la sous-classe (`Module.setEvents()` s'exécute
-au constructeur de `Module`, `Module.ts:70`). Le seul `prependOnceListener` du
-lifecycle est celui de `Module.setEvents()` (`Module.ts:238`) : il charge le
+au constructeur de `Module`, `Module.ts#Module`). Le seul `prependOnceListener` du
+lifecycle est celui de `Module.setEvents()` (`Module.ts#Module.setEvents`) : il charge le
 `package.json` du module en tête de `onPreBoot` — ce n'est pas un décorateur.
 
 ```typescript
 // Écouteurs posés par un module décoré :
-//   @services  → kernel.once("onPreBoot")   (kernelDecorator.ts:40)
-//   @entities  → kernel.once("onRegister")  (entitiesDecorator.ts:66, orm-core)
+//   @services  → kernel.once("onPreBoot")   (kernelDecorator.ts#services)
+//   @entities  → kernel.once("onRegister")  (entitiesDecorator.ts#entities, orm-core)
 //   Module     → kernel.prependOnceListener("onPreBoot")  (package.json, index 0)
-//   hooks user → onKernelRegister / onKernelBoot / onKernelReady (Module.ts:214-231)
+//   hooks user → onKernelRegister / onKernelBoot / onKernelReady (Module.ts#Module)
 ```
 
 ## Catches d'erreur par décorateur
@@ -158,12 +158,12 @@ lifecycle est celui de `Module.setEvents()` (`Module.ts:238`) : il charge le
 | `@services` | onPreBoot  | ✅ Catché → `handleServiceBootError` | Politique de criticité : fatal en prod sur module critique |
 | `@entities` | onRegister | ❌ **Aucun catch**                   | L'erreur remonte au `fire("onRegister")` du Kernel         |
 
-→ Un doublon d'entité est **ignoré** (idempotence, `entitiesDecorator.ts:76`), mais
+→ Un doublon d'entité est **ignoré** (idempotence, `entitiesDecorator.ts#entities`), mais
 une **collision réelle** (deux entités différentes, même nom, même connecteur) est
 levée par le registre et n'est rattrapée par aucun décorateur.
 
 → Conséquence : l'échec d'un service dans `@services` passe par `Module.handleServiceBootError()`
-(`Module.ts:519`), qui applique la **politique de boot** au lieu de simplement logger. En production
+(`Module.ts#Module.handleServiceBootError`), qui applique la **politique de boot** au lieu de simplement logger. En production
 sur un module critique, l'erreur est **relancée** et avorte le boot ; sinon le service est absent du
 container et l'échec est **agrégé au BootReport** (le superviseur annonce « boot DÉGRADÉ »).
 Jamais un skip silencieux. Détection via `container.has("foo")` après boot, ou via le BootReport.

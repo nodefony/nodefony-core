@@ -69,7 +69,7 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour trouver la bonne famille en cinq secondes ; les cards en dessous pour savoir ce
 qu'on y trouve, et à qui c'est ouvert. La navigation réelle est déclarée d'un seul tenant
-(`NAV_GROUPS`, `navConfig.ts:122`) — ajouter un écran, c'est ajouter une ligne.
+(`NAV_GROUPS`, `navConfig.ts#NAV_GROUPS`) — ajouter un écran, c'est ajouter une ligne.
 
 | Famille               | Ce qu'on y voit                                          | Ouvert à                     |
 | --------------------- | -------------------------------------------------------- | ---------------------------- |
@@ -117,19 +117,19 @@ bord de plus.
 
 **Il n'invente aucune donnée.** Chaque chiffre affiché vient d'un endpoint qu'un module a publié
 lui-même, sous `/nodefony/<module>/api/*`. Studio découvre ces producteurs par le catalogue
-`/nodefony/framework/api/admin` (`FrameworkAdminApi.ts:356`) et construit sa navigation avec.
+`/nodefony/framework/api/admin` (`FrameworkAdminApi.ts#createFrameworkAdminApi`) et construit sa navigation avec.
 Conséquence pratique : tout ce que montre l'écran est aussi lisible en `curl`, en script, ou depuis
 un agent — l'interface n'est pas un passage obligé.
 
 **Il est facultatif, et le framework le sait.** Le module se déclare non critique
-(`Studio.critical`, `index.ts:59`) : un échec de son démarrage n'emporte jamais le processus. S'il
+(`Studio.critical`, `index.ts#Studio.critical`) : un échec de son démarrage n'emporte jamais le processus. S'il
 n'est pas chargé du tout, ce sont **les pages** qui disparaissent — le data plane de chaque module,
 lui, reste monté et servi. On perd la vue, jamais la donnée.
 
 **Il se protège avec le pare-feu de l'application.** Studio n'a pas d'authentification à lui : la
 connexion passe par `@nodefony/security` (session serveur, cookie opaque), et chaque endpoint
 d'administration porte un rôle minimum appliqué par le courtier (`IAdminEndpoint.role`,
-`IAdminApi.ts:166`). Un administrateur de plateforme voit tout ; un développeur voit
+`IAdminApi.ts#IAdminEndpoint.role`). Un administrateur de plateforme voit tout ; un développeur voit
 l'introspection ; un simple compte ne voit que son espace.
 
 ## 🏛️ Place dans le framework
@@ -179,15 +179,15 @@ export default defineConfig(() => ({
 Ce qu'on observe ensuite :
 
 1. Au démarrage, le module annonce le mode retenu et **la raison** de ce choix dans les journaux
-   (`Studio.onKernelBoot()`, `index.ts:99`) — c'est le premier endroit à regarder si la page reste
+   (`Studio.onKernelBoot()`, `index.ts#Studio.onKernelBoot`) — c'est le premier endroit à regarder si la page reste
    blanche.
 2. `https://127.0.0.1:5152/nodefony` sert la page ; toute URL à un segment sous `/nodefony` renvoie
-   la même page React (`StudioController.renderStudio()`, `StudioController.ts:64`), pour que le
+   la même page React (`StudioController.renderStudio()`, `StudioController.ts#StudioController.renderStudio`), pour que le
    rechargement d'un lien profond ne tombe pas sur une erreur.
 3. `curl https://127.0.0.1:5152/nodefony/studio/api/health` répond sans authentification :
    c'est la sonde de vie, volontairement placée hors du pare-feu et réduite à l'état, la durée de
    fonctionnement et l'identifiant de processus (`StudioController.apiHealth()`,
-   `StudioController.ts:177`).
+   `StudioController.ts#StudioController.apiHealth`).
 
 ## 🔐 Accéder à Studio
 
@@ -242,7 +242,7 @@ masquerait les vraies routes que d'autres modules montent sous `/nodefony/<x>/<y
 
 ## 🧩 Publier ses écrans et ses données
 
-Un module devient administrable en publiant un objet `IAdminApi` (`IAdminApi.ts:212`) — un
+Un module devient administrable en publiant un objet `IAdminApi` (`IAdminApi.ts#IAdminApi`) — un
 **producteur de données**, qui ne connaît ni le routeur, ni le contexte HTTP, ni la sérialisation.
 
 ```ts ignore
@@ -272,7 +272,7 @@ registry.register(inventoryAdminApi);
 
 Ce que le framework fait ensuite, sans que le module s'en occupe :
 
-1. `AdminBroker.register()` (`AdminBroker.ts:53`) mémorise le producteur et refuse un espace de nom
+1. `AdminBroker.register()` (`AdminBroker.ts#AdminBroker.register`) mémorise le producteur et refuse un espace de nom
    déjà pris, ou un enregistrement arrivé après le montage.
 2. Au montage, chaque endpoint devient une vraie route `/nodefony/<namespace>/api/<path>`, avec son
    contrôle de rôle appliqué **avant** l'appel du handler.
@@ -306,7 +306,7 @@ Une seule connexion WebSocket permanente porte tout ce qui bouge : `WS
 demande — le client s'abonne à un canal, le producteur démarre ; il se désabonne, le producteur
 s'arrête, et la connexion reste ouverte.
 
-Les canaux sont déclarés d'un seul endroit (`CHANNELS`, `providers.ts:98`) : flux des journaux,
+Les canaux sont déclarés d'un seul endroit (`CHANNELS`, `providers.ts#CHANNELS`) : flux des journaux,
 sondes de processus pour la supervision et pour la barre de débogage, santé et flux de l'ORM, santé
 de la socket elle-même. Beaucoup acceptent un **suffixe de cadence** (`nodefony:orm:flow:5000`) : c'est le
 lecteur qui choisit sa granularité, dans des bornes que le serveur impose.
@@ -314,10 +314,10 @@ lecteur qui choisit sa granularité, dans des bornes que le serveur impose.
 Deux autres formes de trafic circulent sur la même connexion :
 
 - des **actions** en aller-retour (`StudioRealtimeController.realtimeActions()`,
-  `StudioRealtimeController.ts:114`) — mesurer la latence, déclencher un ramasse-miettes, piloter le
+  `StudioRealtimeController.ts#StudioRealtimeController.realtimeActions`) — mesurer la latence, déclencher un ramasse-miettes, piloter le
   générateur de code ;
 - le **pont d'API** (`StudioRealtimeController.realtimeApiRequest()`,
-  `StudioRealtimeController.ts:203`), qui permet d'appeler un endpoint du data plane **par la
+  `StudioRealtimeController.ts#StudioRealtimeController.realtimeApiRequest`), qui permet d'appeler un endpoint du data plane **par la
   socket** plutôt qu'en HTTP, avec exactement la même réponse.
 
 > [!WARNING]

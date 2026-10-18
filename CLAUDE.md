@@ -524,13 +524,13 @@ Les **invariants** qui doivent rester présents en permanence :
   Render, Upstash) ⇒ alias. `REDIS_HOST`, `POD_NAME` non — personne ne les pose, c'est
   l'application qui se les donne ⇒ collision pure, donc préfixe obligatoire.
   (3) Les **identifiants ÉMIS par un service tiers, dont l'écosystème fixe déjà le nom** :
-  `GOOGLE_CLIENT_ID`/`_SECRET`, `GITHUB_CLIENT_ID`/`_SECRET` (`env.ts:445-469`). Cette valeur
+  `GOOGLE_CLIENT_ID`/`_SECRET`, `GITHUB_CLIENT_ID`/`_SECRET` (`env.ts#env`). Cette valeur
   n'est pas à nous — elle est délivrée par Google ou GitHub, et leur documentation, Auth.js et
   Passport emploient tous ce nom. Préfixer reviendrait à revendiquer le bien d'autrui et à forcer
   l'utilisateur à dédoubler une variable qu'il possède déjà ; pire, deux valeurs finiraient par
   diverger en silence. ⚠️ L'exception porte sur l'identifiant REÇU, jamais sur le réglage qu'on
   bâtit autour : la base des callbacks n'est émise par personne, c'est l'application qui se la
-  donne, donc `NF_OAUTH_REDIRECT_BASE` (`env.ts:569`).
+  donne, donc `NF_OAUTH_REDIRECT_BASE` (`env.ts#env`).
   ✅ **La dette est SOLDÉE** : `NODEFONY_*` (18), génériques (12) et interrupteurs de coût (6)
   renommés d'un bloc avant la release, **sans alias de compatibilité**. Ne pas en réintroduire.
   ⚠️ Une garde d'isolation de test qui purge `REDIS_URL` sans purger `NF_REDIS_URL` est
@@ -556,7 +556,7 @@ Les **invariants** qui doivent rester présents en permanence :
   divergent en silence : chacune passe ses propres tests (vécu : deux seuils de contre-pression
   WS, `resolve.dedupe` présent en dev et absent du build → crash en production).
 - **Une brique requise en PROD n'est jamais fournie par un seul module `policy:"dev"`**, ni par
-  un défaut Zod vide (`.default({})`) : le gating `policy:"dev"` (`Kernel.ts:1605`) la fait disparaître en
+  un défaut Zod vide (`.default({})`) : le gating `policy:"dev"` (`Kernel.ts#Kernel.resolveModuleEntries`) la fait disparaître en
   production sans un mot. Défaut framework sain + un test « boot SANS la config dev » qui
   vérifie que le service requis est toujours posé.
 
@@ -837,7 +837,7 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 > **Emplacement HYBRIDE (ADR-0001)** : la doc d'un module vit DANS le module (`<module>/docs/*.md`, frontmatter `module:`) et est surfacée dans **Studio** (`/nodefony/modules/{key}` onglet Docs ; core = carte `/nodefony/modules/core` ← `src/nodefony/docs/`). Le transverse reste sous `docs/` racine. Cf [`docs/adr/0001-docs-modules-emplacement-hybride.md`](docs/adr/0001-docs-modules-emplacement-hybride.md).
 
-**Page de référence** : [`src/packages/@nodefony/security/docs/firewall.md`](src/packages/@nodefony/security/docs/firewall.md) montre le format attendu (frontmatter + sections + ancres `fichier:ligne` + Démarrage rapide qui compile). Le standard complet et ses gates : `.claude/skills/nodefony-documentation/`.
+**Page de référence** : [`src/packages/@nodefony/security/docs/firewall.md`](src/packages/@nodefony/security/docs/firewall.md) montre le format attendu (frontmatter + sections + ancres `<fichier>.ts#<Symbole>` + Démarrage rapide qui compile). Le standard complet et ses gates : `.claude/skills/nodefony-documentation/`.
 
 **Surfaçage Studio actif** (depuis 2026-05-20) : endpoints `/nodefony/kernel/api/module/{name}/{docs,docs/{slug},symbols}` (helper `framework/nodefony/src/docsReader.ts`) → onglets Docs (markdown + badges version/status/git) + API (`.ai/symbols.json`). Couvre core/http/framework/frontend/studio.
 
@@ -922,7 +922,7 @@ une fois fait). Discipline (vaut AUSSI pour les **skills**, cf leur note _Mainte
   **décisions d'architecture = `docs/adr/`**, l'**historique = `git log`**.
 - Mettre à jour = **éditer la section concernée EN PLACE**. Une leçon durable se **fond en RÈGLE** (dans Gotchas),
   pas en entrée datée.
-- Un fait **PÉRIMÉ** (contredit par le code) se **CORRIGE** (devise : ancrer au code, `fichier:ligne`) — jamais
+- Un fait **PÉRIMÉ** (contredit par le code) se **CORRIGE** (devise : ancrer au code, `<fichier>.ts#<Symbole>` — jamais une ligne) — jamais
   annoté « (corrigé le …) ». Les labels internes non-datés (G1/G2, V4, lots) restent OK.
 
 Vérification avant commit :

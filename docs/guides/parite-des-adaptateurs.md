@@ -35,13 +35,13 @@ comportement entre deux moteurs devient donc un test rouge, par construction.
 <!-- prettier-ignore -->
 | Contrat | Banc (propriétaire) | Mémoire | Drizzle × sqlite / pg / mysql | MongoDB |
 | --- | --- | --- | --- | --- |
-| `IRepository` + `IOrm` | `runRepositoryContract()` (`orm-core/tests/support/repositoryContract.ts:80`) | — | ✅ | ✅ |
-| `ITokenStore` | `runTokenStoreContract()` (`security/tests/support/tokenStoreContract.ts:80`) | ✅ | ✅ | ✅ (+ Redis) |
-| `IWebAuthnCredentialStore` | `runWebAuthnStoreContract()` (`security/tests/support/webAuthnStoreContract.ts:63`) | ✅ | ✅ | ✅ |
-| `IWebhookStore` | `runWebhookStoreContract()` (`security/tests/support/webhookStoreContract.ts:66`) | ✅ | ✅ | ✅ |
-| `ITotpSecretStore` | `runTotpStoreContract()` (`security/tests/support/totpStoreContract.ts:81`) | ✅ | ✅ | ✅ |
-| Journal d'audit sous rafale | `runAuditBurstContract()` (`security/tests/support/auditBurstContract.ts:56`) | — | ✅ | ✅ |
-| Manifeste des stores | `runStoreManifestContract()` (`security/tests/support/storeManifestContract.ts:82`) | — | ✅ | ✅ |
+| `IRepository` + `IOrm` | `runRepositoryContract()` (`orm-core/tests/support/repositoryContract.ts#runRepositoryContract`) | — | ✅ | ✅ |
+| `ITokenStore` | `runTokenStoreContract()` (`security/tests/support/tokenStoreContract.ts#runTokenStoreContract`) | ✅ | ✅ | ✅ (+ Redis) |
+| `IWebAuthnCredentialStore` | `runWebAuthnStoreContract()` (`security/tests/support/webAuthnStoreContract.ts#runWebAuthnStoreContract`) | ✅ | ✅ | ✅ |
+| `IWebhookStore` | `runWebhookStoreContract()` (`security/tests/support/webhookStoreContract.ts#runWebhookStoreContract`) | ✅ | ✅ | ✅ |
+| `ITotpSecretStore` | `runTotpStoreContract()` (`security/tests/support/totpStoreContract.ts#runTotpStoreContract`) | ✅ | ✅ | ✅ |
+| Journal d'audit sous rafale | `runAuditBurstContract()` (`security/tests/support/auditBurstContract.ts#runAuditBurstContract`) | — | ✅ | ✅ |
+| Manifeste des stores | `runStoreManifestContract()` (`security/tests/support/storeManifestContract.ts#runStoreManifestContract`) | — | ✅ | ✅ |
 
 Au-dessus de ces bancs unitaires, **l'application entière démarre sur MongoDB** et rejoue la
 passe d'intégration HTTP (`npm run test:all -- --mongo`, garde `MONGO_BOOT_GATE` dans
@@ -55,14 +55,14 @@ laissait passer.
 
 - **`$ne` et `$nin` attrapaient les valeurs absentes sous MongoDB**, que SQL écarte — la même
   requête rendait plus de lignes en production MongoDB. Corrigé dans `#mongoOps()`
-  (`MongooseRepository.ts:173`).
+  (`MongooseRepository.ts#MongooseRepository.#mongoOps`).
 - **`describeEntity()` parlait le vocabulaire du moteur** (`_id`, `__v`) : l'ERD et le contexte
-  IA changeaient de noms selon l'adaptateur (`MongooseOrm.ts:672`).
+  IA changeaient de noms selon l'adaptateur (`MongooseOrm.ts#MongooseOrm.describeEntity`).
 - **Le store de jetons MongoDB rendait le document brut**, champs du moteur compris.
 - **Le store de jetons Redis laissait RECULER le seuil de révocation en masse** sous
   concurrence (`GET` puis `SET`) : deux déconnexions simultanées pouvaient rendre valides des
   jetons révoqués. Il pose désormais le seuil en une instruction serveur
-  (`MONOTONIC_SET_SCRIPT`, `RedisTokenStore.ts:115`). Il gardait aussi l'ancien secret d'un jeton
+  (`MONOTONIC_SET_SCRIPT`, `RedisTokenStore.ts#MONOTONIC_SET_SCRIPT`). Il gardait aussi l'ancien secret d'un jeton
   réécrit, acceptait deux jetons pour un même secret, et ne purgeait jamais un PAT enregistré
   déjà révoqué.
 - **Le journal d'audit sous MongoDB parcourait toute la collection puis triait en mémoire**
@@ -71,8 +71,8 @@ laissait passer.
   total `{ ts: -1, _id: -1 }` est servi par l'index — un test lit le plan d'exécution.
 - **Les stores mémoire partageaient leurs objets avec l'appelant** et gardaient d'anciens liens
   d'index : un jeton réécrit sous un nouveau secret restait joignable par l'ancien. Copies
-  profondes et ré-indexation : `cloneOrNull()` (`MemoryTokenStore.ts:51`), `cloneCredential()`
-  (`MemoryWebAuthnCredentialStore.ts:53`), `cloneEndpoint()` (`MemoryWebhookStore.ts:53`), `cloneSecret()` (`MemoryTotpSecretStore.ts:68`).
+  profondes et ré-indexation : `cloneOrNull()` (`MemoryTokenStore.ts#cloneOrNull`), `cloneCredential()`
+  (`MemoryWebAuthnCredentialStore.ts#cloneCredential`), `cloneEndpoint()` (`MemoryWebhookStore.ts#cloneEndpoint`), `cloneSecret()` (`MemoryTotpSecretStore.ts#cloneSecret`).
 
 ## Écarts ASSUMÉS entre moteurs
 
@@ -82,11 +82,11 @@ exige donc pas — et les nomme.
 <!-- prettier-ignore -->
 | Écart | SQL | MongoDB | Ce que ça change pour vous |
 | --- | --- | --- | --- |
-| **Savepoints** | réels | `savepoint()`/`rollbackTo()` lèvent `SavepointNotSupportedError` (`MongooseTransaction.ts:69`) | Pas de rollback PARTIEL sous MongoDB : le refus fait échouer le callback, et la transaction ENTIÈRE est annulée. Le banc éprouve ce refus (`savepoints: false`). |
+| **Savepoints** | réels | `savepoint()`/`rollbackTo()` lèvent `SavepointNotSupportedError` (`MongooseTransaction.ts#MongooseTransaction.rollbackTo`) | Pas de rollback PARTIEL sous MongoDB : le refus fait échouer le callback, et la transaction ENTIÈRE est annulée. Le banc éprouve ce refus (`savepoints: false`). |
 | **Expiration des jetons** | `gc()` balaie et compte | `gc()` balaie et compte ; **Redis** : TTL natif, `gc()` rend toujours 0, à la seconde près | Le banc vérifie que l'expiré a DISPARU plutôt qu'un compte (`nativeTtl`), et saute la borne à la milliseconde sous Redis. |
 | **Casse de `$like`** | suit la collation (sqlite/mysql insensibles, pg sensible) | expression régulière, sensible | Ne pas compter sur l'insensibilité à la casse : le banc n'utilise que des motifs à casse exacte. |
 | **Ordre de deux écritures concurrentes** | sqlite : le premier lancé gagne ; pg/mysql : ordre d'arrivée libre | ordre d'arrivée libre | Le banc exige ce qui vaut partout — aucun rejet, une seule révocation effective, aucune réécriture ultérieure — jamais QUI gagne. |
-| **Deux jetons au même `secretHash`** | sqlite/pg **rejettent** ; mysql **écrase** la ligne en conflit | rejette | Inatteignable en pratique (le hash vient d'un secret aléatoire). L'invariant portable — jamais deux jetons pour un secret — est exigé ; la manière, non (`DrizzleTokenStore.ts:180`). |
+| **Deux jetons au même `secretHash`** | sqlite/pg **rejettent** ; mysql **écrase** la ligne en conflit | rejette | Inatteignable en pratique (le hash vient d'un secret aléatoire). L'invariant portable — jamais deux jetons pour un secret — est exigé ; la manière, non (`DrizzleTokenStore.ts#DrizzleTokenStore.put`). |
 | **Visibilité avant commit** hors transaction | sqlite : connexion unique, tout lit dans la transaction ; pg/mysql : invisible | invisible | Seule règle portable : `withTransaction(tx)` est le SEUL moyen d'entrer dans une transaction. |
 
 ## Ce que les bancs ne prouvent PAS

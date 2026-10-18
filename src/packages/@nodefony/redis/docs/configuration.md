@@ -64,9 +64,9 @@ flowchart TD
 Deux résolutions distinctes, souvent confondues :
 
 1. **La configuration du module** est résolue **une fois**, au démarrage, par `defineRedisConfig()`
-   (`defineModuleConfig.ts:85`). Le résultat est **gelé** — plus personne ne le modifie ensuite.
+   (`defineModuleConfig.ts#defineRedisConfig`). Le résultat est **gelé** — plus personne ne le modifie ensuite.
 2. **Les options d'un client** sont assemblées **par connexion**, au moment de l'ouverture, par
-   `buildClientOptions()` (`buildClientOptions.ts:45`). C'est là que `url` écrase l'hôte, et que la
+   `buildClientOptions()` (`buildClientOptions.ts#buildClientOptions`). C'est là que `url` écrase l'hôte, et que la
    surcharge d'une connexion se pose par-dessus le socket global.
 
 > [!TIP]
@@ -119,21 +119,21 @@ Le module ne possède pas de « fichier de valeurs par défaut » à côté d'un
 options ». Il possède **un schéma Zod commenté**, et tout en dérive :
 
 - **Les défauts** sont les `.default(...)` du schéma. Les valeurs d'usine effectivement chargées au
-  démarrage sont produites par le schéma lui-même — `redisConfigSchema.parse({})` (`config.ts:248`) —
+  démarrage sont produites par le schéma lui-même — `redisConfigSchema.parse({})` (`config.ts#redisConfigSchema`) —
   et non retapées à la main.
-- **Le type TypeScript** est inféré, jamais redéclaré : `IRedisConfig` (`IRedisConfig.ts:11`) et son
-  pendant d'entrée `IRedisConfigInput` (`IRedisConfig.ts:17`), où tout champ portant un défaut devient
+- **Le type TypeScript** est inféré, jamais redéclaré : `IRedisConfig` (`IRedisConfig.ts#IRedisConfig`) et son
+  pendant d'entrée `IRedisConfigInput` (`IRedisConfig.ts#IRedisConfigInput`), où tout champ portant un défaut devient
   optionnel.
 - **Le texte d'aide** vit dans les `.describe()` du schéma, ce qui permet à
-  `redisConfigJsonSchema()` (`defineModuleConfig.ts:101`) de publier un JSON Schema **documenté** que
+  `redisConfigJsonSchema()` (`defineModuleConfig.ts#redisConfigJsonSchema`) de publier un JSON Schema **documenté** que
   Studio transforme en formulaire.
 - **Les champs sensibles se déclarent** : `url` et `password` portent un `.meta({ secret: true })`
-  (`config.ts:187`), ce qui les fait masquer là où la configuration est affichée.
+  (`config.ts#globalOptionsSchema`), ce qui les fait masquer là où la configuration est affichée.
 
 Le schéma reste volontairement **pur** : il ne lit jamais `process.env`. Sans cette règle, il
 deviendrait non déterministe et le JSON Schema publié dépendrait de la machine qui l'a produit. La
 lecture de l'environnement est donc une couche explicite, appliquée après coup par
-`applyEnvOverrides()` (`defineModuleConfig.ts:23`).
+`applyEnvOverrides()` (`defineModuleConfig.ts#applyEnvOverrides`).
 
 Cette organisation est la convention de configuration du framework, tenue à deux fichiers et deux
 seulement : `config.ts` porte **le quoi** (schéma, contraintes, défauts), `defineModuleConfig.ts`
@@ -142,7 +142,7 @@ troisième fichier de configuration, dans un module Nodefony, est un signal d'al
 
 > [!NOTE]
 > La configuration du module est **immuable après le démarrage** : `defineRedisConfig()` rend un objet
-> gelé (`defineModuleConfig.ts:85`). Changer de serveur Redis suppose donc un redémarrage — aucune
+> gelé (`defineModuleConfig.ts#defineRedisConfig`). Changer de serveur Redis suppose donc un redémarrage — aucune
 > clé n'est modifiable à chaud.
 
 ## 🚀 Démarrage rapide
@@ -258,7 +258,7 @@ export default RedisTargetController;
 ### 4. Ce qu'on observe
 
 Au démarrage, chaque connexion annonce sa cible — le point d'entrée est journalisé avec les
-identifiants masqués, par `Connection.#endpoint()` (`Connection.ts:70`) :
+identifiants masqués, par `Connection.#endpoint()` (`Connection.ts#Connection.#endpoint`) :
 
 ```
 REDIS CONNECTION main       CONNECT 127.0.0.1:6379
@@ -280,7 +280,7 @@ C'est la fusion profonde du manifeste, et c'est le comportement voulu.
 
 ## ⚙️ Toutes les clés du schéma
 
-Les défauts ci-dessous sont ceux du schéma, lus dans `redisConfigSchema` (`config.ts:200`). Une seule
+Les défauts ci-dessous sont ceux du schéma, lus dans `redisConfigSchema` (`config.ts#redisConfigSchema`). Une seule
 valeur effective diffère du schéma au démarrage — `maxRetries`, traitée dans sa propre section.
 
 ### Racine
@@ -295,7 +295,7 @@ valeur effective diffère du schéma au démarrage — `maxRetries`, traitée da
 | `keyNamespace` | chaîne | nom de l'application | Cloison des **clés** par application sur un Redis mutualisé (cf ci-dessous). |
 
 Le sous-objet `connections` est un dictionnaire libre : la clé est le nom logique, la valeur décrit la
-connexion. Les trois entrées par défaut sont matérialisées dans `redisConfigSchema` (`config.ts:200`).
+connexion. Les trois entrées par défaut sont matérialisées dans `redisConfigSchema` (`config.ts#redisConfigSchema`).
 
 #### `keyNamespace` — deux applications sur un même Redis
 
@@ -338,11 +338,11 @@ historiques (`nf:sess`, `nf:tok`, `nf:wac`) sont conservés tels quels.
 
 ### `globalOptions`
 
-| Clé        | Type            | Défaut                    | Effet                                                                                                     |
-| ---------- | --------------- | ------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `socket`   | objet           | défauts de `socketSchema` | Les options TCP/TLS communes.                                                                             |
-| `username` | chaîne          | _absent_                  | Utilisateur ACL (Redis 6+). Absent avec un `password` présent = authentification héritée `requirepass`.   |
-| `password` | chaîne (secret) | _absent_                  | Mot de passe. Marqué secret dans `globalOptionsSchema` (`config.ts:173`) → masqué là où il s'afficherait. |
+| Clé        | Type            | Défaut                    | Effet                                                                                                                     |
+| ---------- | --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `socket`   | objet           | défauts de `socketSchema` | Les options TCP/TLS communes.                                                                                             |
+| `username` | chaîne          | _absent_                  | Utilisateur ACL (Redis 6+). Absent avec un `password` présent = authentification héritée `requirepass`.                   |
+| `password` | chaîne (secret) | _absent_                  | Mot de passe. Marqué secret dans `globalOptionsSchema` (`config.ts#globalOptionsSchema`) → masqué là où il s'afficherait. |
 
 `username` n'a **pas** de variable d'environnement dédiée : sur un serveur à ACL, il se pose dans la
 configuration de l'application (il n'est pas secret par lui-même), ou dans l'URL.
@@ -359,7 +359,7 @@ configuration de l'application (il n'est pas secret par lui-même), ou dans l'UR
 | `tls` | booléen | `false` | Chiffre le canal. Voir la limite de forme plus bas — c'est un drapeau, pas un jeu de certificats. |
 | `reconnectStrategy` | objet | défauts de `reconnectStrategySchema` | La politique de reconnexion, décrite juste après. |
 
-Ces contraintes sont portées par `socketSchema` (`config.ts:79`) : ce sont elles qui font échouer le
+Ces contraintes sont portées par `socketSchema` (`config.ts#socketSchema`) : ce sont elles qui font échouer le
 démarrage plutôt que de laisser passer un port fantaisiste.
 
 ### `globalOptions.socket.reconnectStrategy`
@@ -371,7 +371,7 @@ démarrage plutôt que de laisser passer un port fantaisiste.
 | `maxRetries` | entier ≥ 0 | `0`              | Nombre de tentatives avant abandon. `0` = illimité. **Valeur effective : voir ci-dessous.** |
 
 Ces trois valeurs sont déclaratives ; elles sont converties en fonction par
-`buildReconnectStrategy()` (`buildClientOptions.ts:13`) au moment d'assembler le client, parce qu'un
+`buildReconnectStrategy()` (`buildClientOptions.ts#buildReconnectStrategy`) au moment d'assembler le client, parce qu'un
 schéma Zod ne sait pas transporter une fonction.
 
 ### `connections.<nom>`
@@ -382,13 +382,13 @@ schéma Zod ne sait pas transporter une fonction.
 | `database` | entier ≥ 0      | `0`             | Base Redis sélectionnée. **N'isole que les commandes clé-valeur** — le pub/sub ignore la base.      |
 | `socket`   | objet partiel   | _absent_        | Surcharge du socket pour cette connexion seulement ; les champs omis restent ceux du socket global. |
 
-`name` est le seul champ sans valeur d'usine dans tout le schéma (`connectionSchema` (`config.ts:143`)) :
+`name` est le seul champ sans valeur d'usine dans tout le schéma (`connectionSchema` (`config.ts#connectionSchema`)) :
 une connexion sans nom serait invisible dans les journaux et côté serveur, on refuse donc de deviner.
 
 ### `connections.<nom>.socket` — la surcharge
 
 Cinq champs, tous facultatifs et **tous sans défaut** : `host`, `port`, `family`, `connectTimeout`,
-`tls`. C'est une décision de conception, portée par `socketOverrideSchema` (`config.ts:133`) : un
+`tls`. C'est une décision de conception, portée par `socketOverrideSchema` (`config.ts#socketOverrideSchema`) : un
 schéma partiel qui réappliquerait ses propres défauts écraserait silencieusement le socket global —
 poser un `host` particulier ramènerait le port à `6379` sans le dire.
 
@@ -407,11 +407,11 @@ connections: {
 Deux mécanismes, et un seul endroit chacun :
 
 - **`NF_REDIS_URL`** (alias de plateforme `REDIS_URL`) est une variable d'**infrastructure** : résolue
-  par `resolveInfra()` (`infra.ts:134`) et posée sur `url` par `applyEnvOverrides()`
-  (`defineModuleConfig.ts:23`), après la validation.
+  par `resolveInfra()` (`infra.ts#resolveInfra`) et posée sur `url` par `applyEnvOverrides()`
+  (`defineModuleConfig.ts#applyEnvOverrides`), après la validation.
 - Les **quatre noms courts** sont DÉCLARÉS sur leur champ dans le schéma — `.meta({ env: "NF_REDIS_HOST" })`
-  (`config.ts:90`). Le Kernel les pose avant la validation, par `applyEnvShortcuts()`
-  (`envShortcuts.ts:146`) ; le schéma les valide donc comme une valeur de l'application.
+  (`config.ts#socketSchema`). Le Kernel les pose avant la validation, par `applyEnvShortcuts()`
+  (`envShortcuts.ts#applyEnvShortcuts`) ; le schéma les valide donc comme une valeur de l'application.
 
 | Variable                        | Ce qu'elle vise             | Comportement                                                                                          |
 | ------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -435,11 +435,11 @@ reprendre la main sur une variable imposée par l'environnement d'hébergement.
 
 1. Le **Kernel** pose les noms courts (`NF_REDIS_HOST`…) puis les surcharges `NF__REDIS__…` sur la
    configuration de l'application, avant toute validation.
-2. `defineRedisConfig()` (`defineModuleConfig.ts:85`) valide — les défauts comblent ce que personne
+2. `defineRedisConfig()` (`defineModuleConfig.ts#defineRedisConfig`) valide — les défauts comblent ce que personne
    n'a dit, la validation refuse ce qui est hors bornes, d'où qu'il vienne.
-3. `applyResilienceDefaults()` (`defineModuleConfig.ts:52`) — le garde-fou de reconnexion, qui
+3. `applyResilienceDefaults()` (`defineModuleConfig.ts#applyResilienceDefaults`) — le garde-fou de reconnexion, qui
    inspecte l'entrée **brute** pour savoir si l'application s'est prononcée.
-4. `applyEnvOverrides()` (`defineModuleConfig.ts:23`) — l'URL d'infrastructure écrase `url`.
+4. `applyEnvOverrides()` (`defineModuleConfig.ts#applyEnvOverrides`) — l'URL d'infrastructure écrase `url`.
 5. `Object.freeze` — plus rien ne bouge.
 
 D'où la règle, dans cet ordre croissant d'autorité : **défauts du schéma → configuration de
@@ -453,13 +453,13 @@ l'application → environnement**. Le comportement est verrouillé par les tests
 > recompiler — mais c'est aussi la première cause de « ma configuration est ignorée ».
 
 Un cinquième geste vient plus tard, à l'ouverture de chaque connexion : la précédence **`url` ▸ socket
-de la connexion ▸ socket global**, tranchée par `buildClientOptions()` (`buildClientOptions.ts:45`)
-et prouvée par `config.test.ts:128`.
+de la connexion ▸ socket global**, tranchée par `buildClientOptions()` (`buildClientOptions.ts#buildClientOptions`)
+et prouvée par `config.test.ts`.
 
 ### Le double effet de l'URL d'infra
 
 `NF_REDIS_URL` n'est pas seulement la cible de ce module : c'est la déclaration d'une **infra de
-cache** pour le framework entier. `resolveAutoStore()` (`infra.ts:330`) s'en sert pour les briques
+cache** pour le framework entier. `resolveAutoStore()` (`infra.ts#resolveAutoStore`) s'en sert pour les briques
 dont le store vaut `auto` :
 
 | Brique                    | Nature de la donnée | Avec une infra de cache déclarée |
@@ -482,7 +482,7 @@ jamais où les sessions ont atterri. Le comparatif transverse vit dans
 ### Quand une URL est posée, ce qui devient sans effet
 
 Dès que `url` est renseignée — par l'application ou par l'environnement — `buildClientOptions()`
-(`buildClientOptions.ts:45`) **ne pose plus** `socket.host` ni `socket.port` : ils entreraient en
+(`buildClientOptions.ts#buildClientOptions`) **ne pose plus** `socket.host` ni `socket.port` : ils entreraient en
 conflit avec ceux de l'URL. Trois conséquences à connaître :
 
 <!-- prettier-ignore -->
@@ -516,8 +516,8 @@ définitivement.
 **Hors production, ce réglage fait pendre le démarrage.** Avec des tentatives illimitées, la première
 ouverture ne rend jamais la main tant que Redis ne répond pas ; la file d'attente hors ligne du client
 retient les commandes, et un démarrage sans serveur se transforme en attente infinie plutôt qu'en
-échec lisible. D'où `applyResilienceDefaults()` (`defineModuleConfig.ts:52`), qui borne les tentatives
-à `DEV_DEFAULT_MAX_RETRIES` (`defineModuleConfig.ts:32`) — cinq — quand, et seulement quand,
+échec lisible. D'où `applyResilienceDefaults()` (`defineModuleConfig.ts#applyResilienceDefaults`), qui borne les tentatives
+à `DEV_DEFAULT_MAX_RETRIES` (`defineModuleConfig.ts#DEV_DEFAULT_MAX_RETRIES`) — cinq — quand, et seulement quand,
 l'application ne s'est pas prononcée.
 
 | `NODE_ENV`                          | L'application fixe `maxRetries` ? | Valeur effective                    |
@@ -529,9 +529,9 @@ l'application ne s'est pas prononcée.
 
 La distinction « fixé / non fixé » se lit sur l'**entrée brute** de l'application, avant le parcours du
 schéma : une fois les défauts appliqués, un `0` d'usine serait indiscernable d'un `0` voulu. Les trois
-branches sont couvertes par les tests (`config.test.ts:85`, `config.test.ts:91`, `config.test.ts:99`).
+branches sont couvertes par les tests (`config.test.ts`).
 
-**Le calcul du délai.** `buildReconnectStrategy()` (`buildClientOptions.ts:13`) rend
+**Le calcul du délai.** `buildReconnectStrategy()` (`buildClientOptions.ts#buildReconnectStrategy`) rend
 `min((tentative + 1) × baseMs, maxMs)`, et une erreur — donc l'abandon — dès que le nombre de
 tentatives atteint `maxRetries`, si celui-ci est fini. Avec les valeurs d'usine, hors production :
 
@@ -556,7 +556,7 @@ abonné ne peut plus émettre de commandes normales. Une connexion unique rendra
 stockage mutuellement exclusifs.
 
 Ajouter une connexion se fait en nommant une nouvelle clé. La fusion du manifeste est **profonde** —
-`loadModulesFromManifest()` (`Kernel.ts:1698`) fusionne la configuration de `use()` sous les défauts
+`loadModulesFromManifest()` (`Kernel.ts#Kernel.loadModulesFromManifest`) fusionne la configuration de `use()` sous les défauts
 déjà matérialisés du module — donc les trois connexions d'usine restent en place :
 
 ```ts ignore
@@ -633,7 +633,7 @@ Aucune ligne dans `nodefony.config.ts`. Le mot de passe voyage dans l'URL : trai
 secret entier, jamais comme une adresse.
 
 **La limite de forme à connaître** : le schéma n'expose qu'un **booléen** `tls`
-(`socketSchema` (`config.ts:79`)). Autorité de certification privée, certificat client, nom de
+(`socketSchema` (`config.ts#socketSchema`)). Autorité de certification privée, certificat client, nom de
 serveur explicite — rien de tout cela n'est exprimable. Un service managé à certificat public
 fonctionne ; une authentification mutuelle par certificat n'est pas couverte par la configuration du
 module.
@@ -660,7 +660,7 @@ Deux réponses, selon l'intention.
 **Ne pas charger Redis du tout** : retirer le module du manifeste. C'est le plus propre quand aucune
 brique n'en dépend.
 
-**Le charger, inerte** : `enabled: false` (`redisConfigSchema` (`config.ts:202`)) laisse le module en
+**Le charger, inerte** : `enabled: false` (`redisConfigSchema` (`config.ts#redisConfigSchema`)) laisse le module en
 place sans ouvrir un seul socket. Utile quand le manifeste est commun à plusieurs environnements.
 
 ```ts ignore
@@ -675,7 +675,7 @@ use("@nodefony/redis", { enabled: false });
 ### `cluster-sentinel` — ce qui n'est pas couvert
 
 Le module construit ses clients avec la fabrique **client simple** de la bibliothèque `redis` —
-`buildClientOptions()` (`buildClientOptions.ts:45`) produit des options de client, pas de grappe. Ni
+`buildClientOptions()` (`buildClientOptions.ts#buildClientOptions`) produit des options de client, pas de grappe. Ni
 Redis Cluster (répartition par partitions, redirections `MOVED`/`ASK`), ni Sentinel (élection du
 maître) ne sont exprimables dans le schéma.
 
@@ -693,9 +693,9 @@ Mieux vaut le savoir en concevant l'infrastructure qu'en la déployant.
 Deux échecs très différents partagent le même symptôme apparent — « Redis ne marche pas » — et se
 règlent à des endroits opposés.
 
-**La configuration est invalide.** `Redis.onKernelRegister()` (`index.ts:64`) valide avant tout le
+**La configuration est invalide.** `Redis.onKernelRegister()` (`index.ts#Redis.onKernelRegister`) valide avant tout le
 reste et refuse de démarrer sur une valeur hors bornes. Le message nomme le champ fautif
-(`index.ts:68`) :
+(`index.ts#Redis.onKernelRegister`) :
 
 ```
 [@nodefony/redis] configuration invalide — globalOptions.socket.port : Too big: expected number to be <=65535
@@ -704,9 +704,9 @@ reste et refuse de démarrer sur une valeur hors bornes. Le message nomme le cha
 C'est un défaut de configuration : rien à chercher côté réseau.
 
 **Le serveur ne répond pas.** La configuration est bonne, l'ouverture échoue. Le module est déclaré
-**non critique** — `Redis.critical` (`index.ts:46`) vaut `false` — donc l'application démarre quand
+**non critique** — `Redis.critical` (`index.ts#Redis.critical`) vaut `false` — donc l'application démarre quand
 même, en état dégradé annoncé. Chaque connexion est tentée indépendamment et journalisée en `ERROR`
-par `RedisService.init()` (`redis.ts:123`) : une connexion en échec n'empêche pas les suivantes.
+par `RedisService.init()` (`redis.ts#RedisService.init`) : une connexion en échec n'empêche pas les suivantes.
 
 Ce que ce démarrage dégradé implique côté appelants — pourquoi le garde `if (!client)` des stores couvre
 aussi une ouverture ratée, ce que devient une commande pendant une reconnexion — est
@@ -719,21 +719,21 @@ faire avant une mise en production.
 | Symptôme | Cause | Correction |
 | --- | --- | --- |
 | Le démarrage échoue avec `configuration invalide — <chemin>` | Clé inconnue (faute de frappe) : le schéma est strict | Corriger l'orthographe d'après les tables ci-dessus |
-| L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:45`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
+| L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts#buildClientOptions`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
 | Le démarrage échoue en nommant `NF_REDIS_PORT` | Valeur non entière ou hors `1..65535` : le schéma la refuse | Corriger la valeur — un port faux n'est plus ignoré, il arrête le démarrage |
 | Toutes les connexions atterrissent sur la même base | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion | Déclarer l'URL sans chemin et laisser `database` cloisonner |
-| Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:52`)) ; sinon fixer une valeur finie |
+| Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts#applyResilienceDefaults`)) ; sinon fixer une valeur finie |
 | Erreur `NOAUTH` alors que le mot de passe est configuré | L'URL porte des identifiants qui recouvrent `NF_REDIS_PASSWORD` | Ne pas mélanger : l'URL **ou** hôte + mot de passe |
-| Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:330`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout |
-| Une surcharge de connexion ramène le port à `6379` | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts:133`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global |
-| Le module démarre mais n'ouvre rien | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`)) | Le réactiver, ou retirer le module du manifeste |
+| Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts#resolveAutoStore`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout |
+| Une surcharge de connexion ramène le port à `6379` | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts#socketOverrideSchema`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global |
+| Le module démarre mais n'ouvre rien | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts#RedisService.init`)) | Le réactiver, ou retirer le module du manifeste |
 | Le formulaire Studio annonce `maxRetries: 0` en développement | Le JSON Schema décrit le schéma, pas la superposition d'exécution | Lire la configuration effective du service |
-| Une valeur changée à chaud ne prend pas | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts:85`)) | Redémarrer le process |
+| Une valeur changée à chaud ne prend pas | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts#defineRedisConfig`)) | Redémarrer le process |
 
 ## 📡 Observabilité — Studio
 
 - **Carte du module** (`/nodefony/modules/redis`) : la configuration validée, rendue par un formulaire
-  **dérivé** du JSON Schema que publie `Redis.configSchema()` (`index.ts:53`). Les champs marqués
+  **dérivé** du JSON Schema que publie `Redis.configSchema()` (`index.ts#Redis.configSchema`). Les champs marqués
   secrets — `url`, `password` — y sont masqués par construction, pas par une liste d'exclusion tenue
   à la main.
 - **Écran Stores** (`/nodefony/stores`) : pour chaque brique, le store réellement retenu au démarrage
@@ -753,14 +753,14 @@ cette prose. Ce qui doit être dit ici, c'est **ce que la configuration a de pro
 <!-- prettier-ignore -->
 | Ce qui est vérifié | Où |
 | --- | --- |
-| Défauts d'usine et sous-défauts | `config.test.ts:15` (hôte, port, TLS, trois connexions) |
-| Refus d'une valeur hors bornes | `config.test.ts:38` (port hors plage) |
-| Superposition de l'environnement | `config.test.ts:56` et `config.test.ts:66` |
-| Port d'environnement invalide ignoré | `config.test.ts:72` |
-| Garde-fou de reconnexion, ses trois branches | `config.test.ts:85`, `config.test.ts:91`, `config.test.ts:99` |
-| Gel de la configuration | `config.test.ts:51` |
-| Assemblage des options du client | `config.test.ts:107` (fusion) et `config.test.ts:128` (précédence de l'URL) |
-| Back-off et abandon | `config.test.ts:139` |
+| Défauts d'usine et sous-défauts | `config.test.ts` (hôte, port, TLS, trois connexions) |
+| Refus d'une valeur hors bornes | `config.test.ts` (port hors plage) |
+| Superposition de l'environnement | `config.test.ts` et `config.test.ts` |
+| Port d'environnement invalide ignoré | `config.test.ts` |
+| Garde-fou de reconnexion, ses trois branches | `config.test.ts` |
+| Gel de la configuration | `config.test.ts` |
+| Assemblage des options du client | `config.test.ts` (fusion) et `config.test.ts` (précédence de l'URL) |
+| Back-off et abandon | `config.test.ts` |
 
 Ces bancs sont **unitaires** : ils tournent sans serveur. La configuration est donc la partie du
 module dont la vérification ne dépend d'aucune infrastructure — c'est aussi pour ça que le schéma doit
@@ -770,7 +770,7 @@ rester pur.
 > **Une suite verte ne prouve rien du reste sans serveur Redis.** Les bancs d'intégration se
 > **skippent** quand l'infra manque, et un skip compte comme un succès : on peut lire « tout est
 > vert » sur une suite qui n'a rien exercé. La gate du module est déclarée une seule fois —
-> `REDIS_GATE` (`scripts/test/vitest/gates.ts:351`) — et la fin de run nomme la cible non exercée avec la commande
+> `REDIS_GATE` (`scripts/test/vitest/gates.ts#REDIS_GATE`) — et la fin de run nomme la cible non exercée avec la commande
 > exacte pour la satisfaire. **Les variables et la commande docker se lisent là, pas ici** : les
 > recopier dans cette page les condamnerait à diverger.
 

@@ -62,10 +62,10 @@ flowchart TD
 
 Trois idées portent tout le reste :
 
-1. **Le `Content-Type` décide, pas la méthode.** `parseRequest()` (`context/http/Request.ts:502`)
+1. **Le `Content-Type` décide, pas la méthode.** `parseRequest()` (`context/http/Request.ts#HttpRequest.parseRequest`)
    aiguille vers `ParserJson` / `ParserQs` / `ParserXml` / **busboy** / parser brut selon l'en-tête.
 2. **Seul le multipart écrit sur disque.** Les fichiers sont **streamés** au fil de l'eau vers un
-   fichier temporaire (`parseMultipart()`, `context/http/Request.ts:574`) — jamais bufferisés en RAM.
+   fichier temporaire (`parseMultipart()`, `context/http/Request.ts#HttpRequest.parseMultipart`) — jamais bufferisés en RAM.
    JSON / urlencoded / XML restent en mémoire (petits corps).
 3. **Deux budgets distincts, jamais confondus.** Le corps **non-multipart** est borné par `maxBodySize`
    (défaut **1 MiB**) ; le multipart a **ses propres** limites busboy (`maxFileSize`, `maxTotalFileSize`,
@@ -117,18 +117,18 @@ Trois choix structurent l'implémentation, et chacun a une raison de sécurité 
 
 **Le multipart ne touche jamais la RAM.** Là où l'ancien chemin bufferisait le corps entier, busboy lit
 le flux et écrit chaque fichier au fil de l'eau dans le dossier temporaire (`streamMultipart()`,
-`context/http/Request.ts:615`). Un upload de 1 Go ne coûte donc pas 1 Go de heap — seuls les petits
+`context/http/Request.ts#HttpRequest.streamMultipart`). Un upload de 1 Go ne coûte donc pas 1 Go de heap — seuls les petits
 champs texte restent en mémoire. C'est ce qui rend un endpoint d'upload public tenable.
 
 **Le nom du fichier temporaire n'est jamais celui du client.** Chaque fichier reçu est écrit sous un nom
-`randomUUID()` + extension d'origine (`context/http/Request.ts:672`) : un nom malveillant
+`randomUUID()` + extension d'origine (`context/http/Request.ts#HttpRequest.streamMultipart`) : un nom malveillant
 (`../../etc/passwd`) ne peut pas influencer le **chemin** d'écriture. Le nom d'origine est conservé en
 **métadonnée** (`filename`), pas dans le chemin.
 
 **Deux budgets, secure-by-default.** Le corps non-multipart est plafonné à **1 MiB** par défaut
-(`maxBodySize`, `http/nodefony/config/config.ts:1208`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
+(`maxBodySize`, `http/nodefony/config/config.ts#httpConfigSchema`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
 multipart, lui, a ses propres bornes busboy (par fichier, cumul, nombre) qui coupent le flux et
-nettoient les temporaires déjà posés au moindre dépassement (`context/http/Request.ts:481`).
+nettoient les temporaires déjà posés au moindre dépassement (`context/http/Request.ts#HttpRequest.enforceBodyLimit`).
 
 > [!IMPORTANT]
 > `@nodefony/http` ne peut pas importer `@nodefony/framework` (cycle). Les **décorateurs**
@@ -256,19 +256,19 @@ sequenceDiagram
 Les points d'implémentation qui expliquent des comportements surprenants :
 
 1. **L'aiguillage lit le `Content-Type`, pas la méthode** — `parseRequest()`
-   (`context/http/Request.ts:502`). `PATCH` porte un corps comme `POST`/`PUT` : il figure dans la table
-   des méthodes parsées (`context/http/Request.ts:94`) — l'oubli laissait tout `PATCH` avec un corps vide.
+   (`context/http/Request.ts#HttpRequest.parseRequest`). `PATCH` porte un corps comme `POST`/`PUT` : il figure dans la table
+   des méthodes parsées (`context/http/Request.ts#parse`) — l'oubli laissait tout `PATCH` avec un corps vide.
 2. **Le multipart draine sur un `finish`, après flush de tous les writes** — `streamMultipart()`
-   (`context/http/Request.ts:615`) accumule les `Promise` d'écriture disque et ne résout `{ fields, files }`
-   qu'une fois tous les fichiers fermés (`bb.on("finish")`, `context/http/Request.ts:707`).
+   (`context/http/Request.ts#HttpRequest.streamMultipart`) accumule les `Promise` d'écriture disque et ne résout `{ fields, files }`
+   qu'une fois tous les fichiers fermés (`bb.on("finish")`, `context/http/Request.ts#HttpRequest.streamMultipart`).
 3. **Une limite dépassée nettoie les temporaires déjà posés** — `abort()`
-   (`context/http/Request.ts:646`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
-   déjà écrits (`context/http/Request.ts:64`) avant de rejeter en `413` : pas d'orphelins sur le disque.
+   (`context/http/Request.ts#HttpRequest.streamMultipart`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
+   déjà écrits (`context/http/Request.ts#unlinkQuiet`) avant de rejeter en `413` : pas d'orphelins sur le disque.
 4. **Les autres formats drainent AVANT de concaténer** — la base `Parser.parse()` attend `end`
-   (`context/http/parser.ts:111`) avant `Buffer.concat` : sans ce drain, `ParserQs`/`ParserXml`
+   (`context/http/parser.ts#Parser.parse`) avant `Buffer.concat` : sans ce drain, `ParserQs`/`ParserXml`
    lisaient un corps partiel → `queryPost` vide (bug de régression, cf tests).
 5. **Un multipart sans boundary exploitable ne crashe pas** — `new Busboy()` lève **synchroniquement** ;
-   c'est rattrapé et on bascule sur le `Parser` brut (`context/http/Request.ts:417`).
+   c'est rattrapé et on bascule sur le `Parser` brut (`context/http/Request.ts#HttpRequest.parser`).
 
 ## ⚙️ Configuration — deux budgets, jamais confondus
 
@@ -282,10 +282,10 @@ non-multipart n'écoute pas `upload.*`.
 | `maxBodySize` | octets | `1_048_576` (1 MiB) | Plafond d'un corps **JSON / urlencoded / XML / brut** → `413`. `0` = illimité. |
 
 Deux rideaux, tous deux `runtimeMutable` (éditable à chaud) : un **pré-check** sur `Content-Length`
-qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:479`), puis un **compteur
+qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts#HttpRequest.enforceBodyLimit`), puis un **compteur
 en streaming** qui coupe le socket si le corps déborde sans `Content-Length` honnête — chunked ou
-menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:33`).
-Champ `maxBodySize` du schéma : `config/config.ts:1208`.
+menteur (`Parser.write()`, `context/http/parser.ts#Parser.write`, dépassement `context/http/parser.ts#Parser.write`).
+Champ `maxBodySize` du schéma : `config/config.ts#httpConfigSchema`.
 
 **Par requête** : `maxBodySize` et les limites `upload.*` (hors `uploadDir`) sont sur la liste blanche
 du calque de configuration — une application peut les changer pour une requête
@@ -295,22 +295,22 @@ sont lus au moment de lire le corps (`Request.readBodyLimits()`), donc un calque
 
 ### Fichiers multipart — `upload.*`
 
-Table dérivée de `uploadSchema` (`config/config.ts:159`). Toutes les bornes sont `runtimeMutable`.
+Table dérivée de `uploadSchema` (`config/config.ts#uploadSchema`). Toutes les bornes sont `runtimeMutable`.
 
-| Option             | Type                             | Défaut                 | Effet                                                                                               |
-| ------------------ | -------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
-| `uploadDir`        | chemin                           | `""` → `kernel.tmpDir` | Dossier de dépôt des temporaires. Vide = temp du kernel (`config/config.ts:162`).                   |
-| `maxFileSize`      | octets                           | `524_288_000` (500 MB) | Taille max d'**UN** fichier (busboy `limits.fileSize`) → `413` (`config/config.ts:171`).            |
-| `maxTotalFileSize` | octets                           | `524_288_000` (500 MB) | Taille **CUMULÉE** des fichiers d'une requête (compteur Nodefony) → `413` (`config/config.ts:183`). |
-| `maxFiles`         | entier                           | `1000`                 | Nombre max de fichiers (busboy `limits.files`) → `413` (`config/config.ts:195`).                    |
-| `maxFields`        | entier                           | `1000`                 | Nombre max de champs texte (busboy `limits.fields`) → `413` (`config/config.ts:206`).               |
-| `maxFieldsSize`    | octets                           | `2_097_152` (2 MB)     | Taille max d'un champ texte (busboy `limits.fieldSize`) (`config/config.ts:217`).                   |
-| `hashAlgorithm`    | `false` \| `sha256`/`sha1`/`md5` | `false`                | Hash calculé pendant le stream (intégrité) (`config/config.ts:228`).                                |
-| `encoding`         | chaîne                           | `"utf-8"`              | Encodage par défaut des champs texte (busboy `defCharset`) (`config/config.ts:235`).                |
+| Option             | Type                             | Défaut                 | Effet                                                                                                        |
+| ------------------ | -------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `uploadDir`        | chemin                           | `""` → `kernel.tmpDir` | Dossier de dépôt des temporaires. Vide = temp du kernel (`config/config.ts#uploadSchema`).                   |
+| `maxFileSize`      | octets                           | `524_288_000` (500 MB) | Taille max d'**UN** fichier (busboy `limits.fileSize`) → `413` (`config/config.ts#uploadSchema`).            |
+| `maxTotalFileSize` | octets                           | `524_288_000` (500 MB) | Taille **CUMULÉE** des fichiers d'une requête (compteur Nodefony) → `413` (`config/config.ts#uploadSchema`). |
+| `maxFiles`         | entier                           | `1000`                 | Nombre max de fichiers (busboy `limits.files`) → `413` (`config/config.ts#uploadSchema`).                    |
+| `maxFields`        | entier                           | `1000`                 | Nombre max de champs texte (busboy `limits.fields`) → `413` (`config/config.ts#uploadSchema`).               |
+| `maxFieldsSize`    | octets                           | `2_097_152` (2 MB)     | Taille max d'un champ texte (busboy `limits.fieldSize`) (`config/config.ts#uploadSchema`).                   |
+| `hashAlgorithm`    | `false` \| `sha256`/`sha1`/`md5` | `false`                | Hash calculé pendant le stream (intégrité) (`config/config.ts#uploadSchema`).                                |
+| `encoding`         | chaîne                           | `"utf-8"`              | Encodage par défaut des champs texte (busboy `defCharset`) (`config/config.ts#uploadSchema`).                |
 
 > [!WARNING]
 > `uploadDir` vide est **résolu au boot** sur le répertoire temporaire du kernel par le builder de config
-> (`defineModuleConfig.ts:43`) : un défaut vide n'est jamais un chemin vide en runtime. Ne dérérérence
+> (`defineModuleConfig.ts#applyKernelDefaults`) : un défaut vide n'est jamais un chemin vide en runtime. Ne dérérérence
 > **jamais** le kernel au top-level d'un `config.ts` — c'est la raison du champ marqué `kernelDerived`.
 
 ## 🧰 API — accéder aux champs et aux fichiers
@@ -319,34 +319,34 @@ Depuis un contrôleur, deux surfaces équivalentes : les **décorateurs de param
 recommandé) et les **getters** de `Controller` (impératif). Les signatures exactes vivent dans
 `.ai/symbols.json` — jamais recopiées ici.
 
-| Accès                                              | Source lue                           | Ancrage                                                             |
-| -------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1312`)            |
-| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1311`)             |
-| `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1232`)             |
-| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1279`)                       |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1358`)               |
-| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:354`) |
-| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:364`) |
+| Accès                                              | Source lue                           | Ancrage                                                                              |
+| -------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
+| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts#UploadedFiles`)                    |
+| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts#UploadedFile`)                      |
+| `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts#Body`)                              |
+| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts#Body`)                                        |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts#resolveParamArg`)                     |
+| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts#Controller.queryFile`) |
+| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts#Controller.queryPost`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
-(`routerDecorators.ts:1312`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
-`IParsedUploadFile` viennent de `@nodefony/http` (`interfaces/IUpload.ts:49`, `interfaces/IUpload.ts:7`).
+(`routerDecorators.ts#UploadedFiles`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
+`IParsedUploadFile` viennent de `@nodefony/http` (`interfaces/IUpload.ts#IUploadedFile`, `interfaces/IUpload.ts#IParsedUploadFile`).
 
 ### Un fichier uploadé — `UploadedFile`
 
-Chaque entrée de `queryFile` est un `UploadedFile` (`service/upload/upload-service.ts:96`), déjà écrit
+Chaque entrée de `queryFile` est un `UploadedFile` (`service/upload/upload-service.ts#UploadedFile`), déjà écrit
 sur disque. Ses membres utiles :
 
-| Membre                   | Ce qu'il donne                                                          | Ancrage                                                    |
-| ------------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `filename`               | Nom **d'origine** déclaré par le client (métadonnée, jamais le chemin). | `realName()` (`service/upload/upload-service.ts:147`)      |
-| `size`                   | Taille réellement écrite (octets).                                      | `getSize()` (`service/upload/upload-service.ts:139`)       |
-| `prettySize`             | Taille lisible (`« 1.2 MB »`).                                          | `getPrettySize()` (`service/upload/upload-service.ts:143`) |
-| `mimeType`               | Type MIME déclaré (`image/png`…), sinon deviné de l'extension.          | `getMimeType()` (`service/upload/upload-service.ts:153`)   |
-| `hash` / `hashAlgorithm` | Empreinte d'intégrité si `upload.hashAlgorithm` est réglé.              | `interfaces/IUpload.ts:55`                                 |
-| `moveAsync(target)`      | Déplace le temp — **non bloquant, recommandé** dans le pipeline.        | `moveAsync()` (`service/upload/upload-service.ts:218`)     |
-| `move(target)`           | Variante **synchrone** (compat) — bloque l'event-loop.                  | `move()` (`service/upload/upload-service.ts:186`)          |
+| Membre                   | Ce qu'il donne                                                          | Ancrage                                                                           |
+| ------------------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `filename`               | Nom **d'origine** déclaré par le client (métadonnée, jamais le chemin). | `realName()` (`service/upload/upload-service.ts#UploadedFile.realName`)           |
+| `size`                   | Taille réellement écrite (octets).                                      | `getSize()` (`service/upload/upload-service.ts#UploadedFile.getSize`)             |
+| `prettySize`             | Taille lisible (`« 1.2 MB »`).                                          | `getPrettySize()` (`service/upload/upload-service.ts#UploadedFile.getPrettySize`) |
+| `mimeType`               | Type MIME déclaré (`image/png`…), sinon deviné de l'extension.          | `getMimeType()` (`service/upload/upload-service.ts#UploadedFile.getMimeType`)     |
+| `hash` / `hashAlgorithm` | Empreinte d'intégrité si `upload.hashAlgorithm` est réglé.              | `interfaces/IUpload.ts#IUploadedFile.hashAlgorithm`                               |
+| `moveAsync(target)`      | Déplace le temp — **non bloquant, recommandé** dans le pipeline.        | `moveAsync()` (`service/upload/upload-service.ts#UploadedFile.moveAsync`)         |
+| `move(target)`           | Variante **synchrone** (compat) — bloque l'event-loop.                  | `move()` (`service/upload/upload-service.ts#UploadedFile.move`)                   |
 
 `move`/`moveAsync` acceptent un **fichier cible** ou un **dossier existant** : sur un dossier, la
 destination est bâtie avec `filename` — d'où l'avertissement de sécurité ci-dessous.
@@ -356,7 +356,7 @@ destination est bâtie avec `filename` — d'où l'avertissement de sécurité c
 Pour piper directement un très gros corps (vidéo, backup) vers le disque ou S3 sans passer par busboy ni
 par la RAM, `@Body({ stream: true })` court-circuite le parse et injecte l'`IncomingMessage` brut (un
 `Readable`). Le pipeline sait le sauter en amont via `routeExpectsBodyStream()`
-(`routerDecorators.ts:1509`), mémoïsé sur la route.
+(`routerDecorators.ts#routeExpectsBodyStream`), mémoïsé sur la route.
 
 ```ts
 // fragment — le contrôleur pipe le flux lui-même (0 parse, 0 pic RAM)
@@ -375,15 +375,15 @@ piégé. Les défenses en place, et **ce qui reste à ta charge**.
 <!-- prettier-ignore -->
 | Menace | Défense côté framework | À ta charge |
 | --- | --- | --- |
-| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:672`). | La **destination** de `move()` (voir avertissement). |
+| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts#HttpRequest.streamMultipart`). | La **destination** de `move()` (voir avertissement). |
 | **Saturation RAM** | Multipart streamé (jamais bufferisé) ; corps non-multipart borné (`maxBodySize`). | Resserrer `maxBodySize` selon l'endpoint. |
-| **Saturation disque** | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:646`). | Purger les temp non déplacés (TTL / cron). |
-| **DoS par quantité** | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:754`). | — |
+| **Saturation disque** | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts#HttpRequest.streamMultipart`). | Purger les temp non déplacés (TTL / cron). |
+| **DoS par quantité** | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts#HttpRequest.streamMultipart`). | — |
 | **Type de fichier hostile** | `mimeType` **déclaré** est exposé tel quel. | Valider le type/contenu réel (le MIME client est déclaratif). |
 
 > [!WARNING]
 > **Path traversal sur la destination.** `move(dir)` / `moveAsync(dir)` vers un **dossier** construit le
-> chemin final avec `file.filename` — le nom **client** (`service/upload/upload-service.ts:101`). Un nom
+> chemin final avec `file.filename` — le nom **client** (`service/upload/upload-service.ts#UploadedFile.filename`). Un nom
 > `../../etc/cron.d/x` s'échapperait du dossier. Le framework protège le chemin du **temporaire**, pas
 > celui que **tu** choisis. Règle : passe une **cible complète** que tu contrôles, ou assainis toujours
 > avec `path.basename(file.filename)` — exactement le `safeName` du Démarrage rapide.
@@ -393,14 +393,14 @@ piégé. Les défenses en place, et **ce qui reste à ta charge**.
 Le parsing du corps est sur le chemin de chaque requête écrivante — les choix visibles dans le code :
 
 - **Multipart en flux pur** — plus de double-bufferisation : busboy écrit sur disque au fil de l'eau,
-  seuls les champs texte restent en mémoire (`context/http/Request.ts:400`).
+  seuls les champs texte restent en mémoire (`context/http/Request.ts#HttpRequest.initialize`).
 - **Rejet AVANT lecture** — le pré-check `Content-Length` renvoie `413` sans lire un octet
-  (`context/http/Request.ts:466`) ; le compteur streaming **libère immédiatement** la RAM déjà
-  bufferisée au dépassement (`context/http/parser.ts:43`).
+  (`context/http/Request.ts#HttpRequest.readBodyLimits`) ; le compteur streaming **libère immédiatement** la RAM déjà
+  bufferisée au dépassement (`context/http/parser.ts#Parser.write`).
 - **`stat` non bloquant** — `UploadedFile.create()` résout les stats du fichier en async
-  (`service/upload/upload-service.ts:130`), plus de `lstatSync` par fichier uploadé.
+  (`service/upload/upload-service.ts#UploadedFile.create`), plus de `lstatSync` par fichier uploadé.
 - **Listeners jumeaux nettoyés** — le drain de fin de corps retire ses écouteurs `end`/`error`/overflow
-  à la main (`once` n'auto-détache que celui qui fire) (`context/http/parser.ts:78`).
+  à la main (`once` n'auto-détache que celui qui fire) (`context/http/parser.ts#Parser.ended`).
 - **Hash opt-in** — `hashAlgorithm: false` par défaut : zéro coût CPU tant que l'intégrité n'est pas
   demandée.
 
@@ -409,28 +409,28 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 
 ## 📜 Normes appliquées
 
-| Domaine                            | Norme                            | Ancrage                                                       |
-| ---------------------------------- | -------------------------------- | ------------------------------------------------------------- |
-| Formulaire avec fichiers           | RFC 7578 (`multipart/form-data`) | `parseMultipart()` via busboy (`context/http/Request.ts:574`) |
-| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:479`)          |
-| 413 en streaming (chunked/menteur) | RFC 9110 §15.5.14                | `Parser.write()` (`context/http/parser.ts:33`)                |
-| Bornes multipart → 413             | RFC 9110 §15.5.14                | `stream.on("limit")` (`context/http/Request.ts:481`)          |
-| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:672`)                |
-| Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts:875`)                |
+| Domaine                            | Norme                            | Ancrage                                                                              |
+| ---------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
+| Formulaire avec fichiers           | RFC 7578 (`multipart/form-data`) | `parseMultipart()` via busboy (`context/http/Request.ts#HttpRequest.parseMultipart`) |
+| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts#HttpRequest.enforceBodyLimit`)        |
+| 413 en streaming (chunked/menteur) | RFC 9110 §15.5.14                | `Parser.write()` (`context/http/parser.ts#Parser.write`)                             |
+| Bornes multipart → 413             | RFC 9110 §15.5.14                | `stream.on("limit")` (`context/http/Request.ts#HttpRequest.enforceBodyLimit`)        |
+| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts#HttpRequest.streamMultipart`)               |
+| Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts#HttpRequest.getCharset`)                    |
 
 ## ⚠️ Pièges
 
-| Symptôme                                                | Cause                                                               | Correction                                                                                         |
-| ------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `@Body()` est vide sur un upload de fichier             | Les fichiers vont dans `queryFile`, **pas** dans `queryPost`        | Lire les fichiers avec `@UploadedFiles()` / `this.queryFile` ; `@Body()` = champs texte            |
-| Un `POST` JSON de 1,5 Mo est refusé en `413`            | `maxBodySize` vaut **1 MiB** par défaut                             | Augmenter `maxBodySize` (pas `upload.maxFileSize`)                                                 |
-| Un gros fichier passe alors que `maxBodySize` est petit | Le multipart **n'écoute pas** `maxBodySize`                         | Régler `upload.maxFileSize` / `maxTotalFileSize`                                                   |
-| `413` sur upload sans message clair                     | Une borne busboy atteinte en streaming (fichier, cumul, nombre)     | Vérifier les bornes `upload.*` — 413 émis sur `stream.on("limit")` (`context/http/Request.ts:481`) |
-| Un fichier écrit `../../etc/…` après un `move`          | `move(dossier)` utilise le nom **client** (`upload-service.ts:197`) | Passer une cible complète, ou `path.basename(file.filename)`                                       |
-| Des fichiers temporaires s'accumulent dans `uploadDir`  | Le contrôleur ne déplace jamais le temp                             | Appeler `moveAsync()` (ou purger l'ancien temp par TTL)                                            |
-| `queryPost` vide sur `PATCH`                            | Déjà géré : `PATCH` est dans la table des méthodes parsées          | Aucune — corps `PATCH` parsé comme `POST` (`context/http/Request.ts:93`)                           |
-| Corps `latin1` mal décodé                               | Déjà géré : le `charset=` du `Content-Type` est honoré              | Aucune — `getCharset()` normalise (`context/http/Request.ts:875`)                                  |
-| `multipart` sans boundary fait planter                  | `new Busboy()` throw synchrone                                      | Déjà géré : bascule sur le parser brut (`context/http/Request.ts:521`)                             |
+| Symptôme                                                | Cause                                                                             | Correction                                                                                                                  |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `@Body()` est vide sur un upload de fichier             | Les fichiers vont dans `queryFile`, **pas** dans `queryPost`                      | Lire les fichiers avec `@UploadedFiles()` / `this.queryFile` ; `@Body()` = champs texte                                     |
+| Un `POST` JSON de 1,5 Mo est refusé en `413`            | `maxBodySize` vaut **1 MiB** par défaut                                           | Augmenter `maxBodySize` (pas `upload.maxFileSize`)                                                                          |
+| Un gros fichier passe alors que `maxBodySize` est petit | Le multipart **n'écoute pas** `maxBodySize`                                       | Régler `upload.maxFileSize` / `maxTotalFileSize`                                                                            |
+| `413` sur upload sans message clair                     | Une borne busboy atteinte en streaming (fichier, cumul, nombre)                   | Vérifier les bornes `upload.*` — 413 émis sur `stream.on("limit")` (`context/http/Request.ts#HttpRequest.enforceBodyLimit`) |
+| Un fichier écrit `../../etc/…` après un `move`          | `move(dossier)` utilise le nom **client** (`upload-service.ts#UploadedFile.move`) | Passer une cible complète, ou `path.basename(file.filename)`                                                                |
+| Des fichiers temporaires s'accumulent dans `uploadDir`  | Le contrôleur ne déplace jamais le temp                                           | Appeler `moveAsync()` (ou purger l'ancien temp par TTL)                                                                     |
+| `queryPost` vide sur `PATCH`                            | Déjà géré : `PATCH` est dans la table des méthodes parsées                        | Aucune — corps `PATCH` parsé comme `POST` (`context/http/Request.ts#parse`)                                                 |
+| Corps `latin1` mal décodé                               | Déjà géré : le `charset=` du `Content-Type` est honoré                            | Aucune — `getCharset()` normalise (`context/http/Request.ts#HttpRequest.getCharset`)                                        |
+| `multipart` sans boundary fait planter                  | `new Busboy()` throw synchrone                                                    | Déjà géré : bascule sur le parser brut (`context/http/Request.ts#HttpRequest.parseRequest`)                                 |
 
 ## 🧪 Tests & couverture
 

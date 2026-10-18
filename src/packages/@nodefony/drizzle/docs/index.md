@@ -113,14 +113,14 @@ loin, et ces deux pas expliquent la taille de cette page.
 
 **1. Il porte le framework, pas seulement ton métier.** Les huit briques durables (session, users,
 jetons, passkeys, TOTP, audit, webhooks, idempotence) ont leurs tables **dans le module**, déclarées
-au démarrage par `registerDrizzleFrameworkStores()` (`registerStores.ts:184`). Aucune application
+au démarrage par `registerDrizzleFrameworkStores()` (`registerStores.ts#registerDrizzleFrameworkStores`). Aucune application
 n'écrit de `registerXStore(...)`.
 
 **2. Il reconstruit la portabilité que Drizzle n'offre pas.** Drizzle est schema-as-code
 **dialect-spécifique** : `sqliteTable` n'est pas `pgTable`, les types de colonnes diffèrent. On ne peut
 donc pas « juste changer le dialecte ». Le module rétablit cette abstraction au niveau du framework —
 une spécification logique par entité, traduite dans le bon dialecte par le `colKit`
-(`buildFrameworkTable()`, `colKit.ts:543`). Le coût est assumé (une fabrique par entité framework),
+(`buildFrameworkTable()`, `colKit.ts#buildFrameworkTable`). Le coût est assumé (une fabrique par entité framework),
 la contrepartie est la type-safety intégrale.
 
 > [!IMPORTANT]
@@ -342,10 +342,10 @@ de drizzle qui sert de modèle. Deux fichiers, mêmes noms partout, aucune quest
 | `nodefony/config/config.ts`             | **le QUOI**    | schéma Zod commenté = source **unique** des défauts, matérialisés `parse({})` |
 | `nodefony/config/defineModuleConfig.ts` | **le COMMENT** | builder **pur** : parse → surcharge d'environnement → gel                     |
 
-Concrètement : `drizzleConfigSchema` (`config.ts:136`) porte chaque `.default()` et chaque
+Concrètement : `drizzleConfigSchema` (`config.ts#drizzleConfigSchema`) porte chaque `.default()` et chaque
 `.describe()` — changer un défaut du module, c'est éditer **là et nulle part ailleurs**. Le builder
-`defineDrizzleConfig()` (`defineModuleConfig.ts:132`) ne retape jamais une valeur : il valide, applique
-l'environnement, gèle. Et `drizzleConfigJsonSchema()` (`defineModuleConfig.ts:150`) expose le tout en
+`defineDrizzleConfig()` (`defineModuleConfig.ts#defineDrizzleConfig`) ne retape jamais une valeur : il valide, applique
+l'environnement, gèle. Et `drizzleConfigJsonSchema()` (`defineModuleConfig.ts#drizzleConfigJsonSchema`) expose le tout en
 JSON Schema pour l'écran de configuration de Studio.
 
 Le schéma reste **pur** : il ne lit ni `process.env` ni le kernel. C'est ce qui rend le module
@@ -366,11 +366,11 @@ importable et testable sans serveur.
 | `migrations.divergence`    | `"report" \| "fail" \| "off"`       | `"report"`          | Conduite face à une migration appliquée qui a changé depuis.                                           |
 | `frameworkEntities`        | `boolean`                           | `true`              | Déclare (ou non) le schéma des huit briques durables sur `default`.                                    |
 
-Table dérivée de `drizzleConfigSchema` (`config.ts:136`) et de `SQL_DIALECTS` (`config.ts:37`).
+Table dérivée de `drizzleConfigSchema` (`config.ts#drizzleConfigSchema`) et de `SQL_DIALECTS` (`config.ts#SQL_DIALECTS`).
 
 **`filename` est volontairement sans défaut.** Le chemin dépend du kernel, qui n'existe pas quand le
 schéma est évalué. Il est résolu **au démarrage** par `DrizzleService.#defaultFilename()`
-(`DrizzleService.ts:240`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
+(`DrizzleService.ts#DrizzleService.#defaultFilename`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
 commun des données runtime : « où sont mes données ? » a une réponse unique, un seul chemin à
 sauvegarder et à ignorer dans git.
 
@@ -390,7 +390,7 @@ NF_DATABASE_URL=mysql://app:secret@db:3306/prod
 NF_DATABASE_URL=sqlite:/var/lib/app/prod.db
 ```
 
-`applyEnvOverrides()` (`defineModuleConfig.ts:85`) lit l'infra, en déduit le dialecte depuis le
+`applyEnvOverrides()` (`defineModuleConfig.ts#applyEnvOverrides`) lit l'infra, en déduit le dialecte depuis le
 _scheme_, et pose `filename` ou `url` sur le connecteur primaire. Une URL `mongodb://` n'est **pas
 lue ici** : elle appartient à `@nodefony/mongoose`. Drizzle en tire aussi la conséquence — il ne crée
 **pas** le connecteur `default` que ses défauts posent, donc aucune base SQLite parallèle et aucun
@@ -417,13 +417,13 @@ export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
 
 > [!WARNING]
 > Une URL de connexion **porte un mot de passe**. Le module ne la journalise jamais telle quelle :
-> `redactUrl()` (`DrizzleService.ts:103`) remplace le mot de passe par `***` avant tout log de
+> `redactUrl()` (`DrizzleService.ts#redactUrl`) remplace le mot de passe par `***` avant tout log de
 > démarrage, et la sonde d'administration applique la même règle.
 
 ### Quand la connexion échoue, le démarrage échoue
 
 Un connecteur **déclaré** qui ne se connecte pas lève une `BootConfigurationError`
-(`DrizzleService.ts:440`) — en développement **comme** en production. Ce n'est pas une sévérité
+(`DrizzleService.ts#DrizzleService.#connectOne`) — en développement **comme** en production. Ce n'est pas une sévérité
 gratuite : une infrastructure déclarée mais injoignable ne se répare pas en continuant. Un serveur qui
 démarrerait « vivant » avec ses stores morts accepterait des requêtes pour échouer plus tard, la cause
 noyée dans un avertissement. Le message d'erreur nomme le connecteur, le dialecte, la cible rédigée et
@@ -431,7 +431,7 @@ la piste à vérifier.
 
 Pour les dialectes réseau, la connexion fait un **ping réel** au démarrage : les pools `pg` et `mysql2`
 sont paresseux, sans ce `SELECT 1` une base morte « se connecterait » et n'échouerait qu'à la première
-requête métier (`#connectPostgres()`, `DrizzleOrm.ts:1206` · `#connectMysql()`, `DrizzleOrm.ts:1521`).
+requête métier (`#connectPostgres()`, `DrizzleOrm.ts#DrizzleOrm.#connectPostgres` · `#connectMysql()`, `DrizzleOrm.ts#DrizzleOrm.#connectMysql`).
 
 ## Dialectes — une base par déploiement, un seul code
 
@@ -472,19 +472,19 @@ regarder si un comportement te surprend.
 | `OFFSET` sans `LIMIT` | fragment `-1` | rien (valide seul) | `LIMIT` sentinelle | Chaque moteur refuse une forme différente. |
 
 Toute cette traduction vit à **un seul endroit**, le `colKit` (`buildFrameworkTable()`,
-`colKit.ts:543` ; variante MySQL : `mysqlColumn()`, `colKit.ts:444`). Ajouter un dialecte, c'est
+`colKit.ts#buildFrameworkTable` ; variante MySQL : `mysqlColumn()`, `colKit.ts#mysqlColumn`). Ajouter un dialecte, c'est
 étendre le kit — jamais retoucher les entités.
 
 En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, `upsert`,
 `findOneAndDelete`) se décomposent en sélection de la cible → mutation bornée par la clé primaire **avec
 le critère revérifié dans le `WHERE`** → relecture. Deux à trois allers-retours au lieu d'un : c'est le
 prix du dialecte, payé **uniquement** en MySQL. Une course perdue rend `null`, jamais une mutation hors
-critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1333`).
+critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts#DrizzleRepository.#mysqlInsertReturning`).
 
 Le SQL brut nécessaire aux entités du framework est lui aussi routé par dialecte, dans un seul fichier
-(`queryKit.ts`) : recherche dans une colonne JSON (`findUserIdBySocialProvider()`, `queryKit.ts:76`),
-réservation atomique d'idempotence en MySQL (`reserveIdempotencyKeyMysql()`, `queryKit.ts:152`),
-pagination des utilisateurs (`listUserIdsPage()`, `queryKit.ts:439`). Toutes ces requêtes sont
+(`queryKit.ts`) : recherche dans une colonne JSON (`findUserIdBySocialProvider()`, `queryKit.ts#findUserIdBySocialProvider`),
+réservation atomique d'idempotence en MySQL (`reserveIdempotencyKeyMysql()`, `queryKit.ts#reserveIdempotencyKeyMysql`),
+pagination des utilisateurs (`listUserIdsPage()`, `queryKit.ts#listUserIdsPage`). Toutes ces requêtes sont
 **paramétrées** — jamais de concaténation.
 
 ## 🏗️ Architecture interne
@@ -516,21 +516,21 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 
 ### Les pièces
 
-| Pièce                  | Rôle                                                                   | Ancre                                                        |
-| ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                         |
-| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:224`                      |
-| `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:214`                                          |
-| `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:146`                                   |
-| `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |
-| `buildFrameworkTable`  | une spécification logique → la table du dialecte demandé               | `colKit.ts:543`                                              |
-| `queryKit` (interne)   | le SQL brut des entités framework, émis **et exécuté** par dialecte    | `findUserIdBySocialProvider()` (`queryKit.ts:76`)            |
-| `registerStores`       | l'auto-enregistrement des huit briques                                 | `registerDrizzleFrameworkStores()` (`registerStores.ts:184`) |
+| Pièce                  | Rôle                                                                   | Ancre                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                                                    |
+| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts#DrizzleService.connectAll`                           |
+| `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts#DrizzleOrm`                                                              |
+| `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts#COMPARISONS`                                                      |
+| `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts#DrizzleTransaction.rollback`                                     |
+| `buildFrameworkTable`  | une spécification logique → la table du dialecte demandé               | `colKit.ts#buildFrameworkTable`                                                         |
+| `queryKit` (interne)   | le SQL brut des entités framework, émis **et exécuté** par dialecte    | `findUserIdBySocialProvider()` (`queryKit.ts#findUserIdBySocialProvider`)               |
+| `registerStores`       | l'auto-enregistrement des huit briques                                 | `registerDrizzleFrameworkStores()` (`registerStores.ts#registerDrizzleFrameworkStores`) |
 
 ### Le DDL dérivé — comment les tables apparaissent
 
 Drizzle ne « synchronise » pas un schéma. L'adapter dérive lui-même un `CREATE TABLE IF NOT EXISTS`
-depuis chaque table déclarée (`#buildCreateTable()`, `DrizzleOrm.ts:509`) et l'exécute à la connexion
+depuis chaque table déclarée (`#buildCreateTable()`, `DrizzleOrm.ts#DrizzleOrm.#buildCreateTable`) et l'exécute à la connexion
 **quand le connecteur est en `ddl: "auto"`** — le défaut en développement et en test ; en production
 le défaut est `none`, et un travail extérieur lance `orm:migrate`. Trois conséquences à connaître
 **avant** de dépendre de ce mécanisme :
@@ -576,7 +576,7 @@ await posts.count({ views: { $gte: 10 } });
 
 Les opérateurs (`$eq $ne $gt $gte $lt $lte $in $nin $like`) sont **ceux d'orm-core**, identiques sur
 tous les drivers ; la traduction en `eq()`/`inArray()` se fait dans `#where()`
-(`DrizzleRepository.ts:577`). Leur référence complète est dans
+(`DrizzleRepository.ts#DrizzleRepository.#where`). Leur référence complète est dans
 [la page d'orm-core](../../orm-core/docs/index.md).
 
 `$like` est émis avec sa clause `ESCAPE '\'` (`likeSql.ts`), ce qui rend un `%` ou un `_` **littéral**
@@ -589,10 +589,10 @@ Deux points de comportement qui évitent des surprises :
 - **« au plus une ligne »** est garanti par construction pour `updateOne`/`deleteOne`/`increment` :
   la mutation est bornée à une ligne : `WHERE <pk> = ?` quand le critère fixe toute la clé primaire,
   sinon `WHERE pk IN (SELECT pk FROM (SELECT pk … LIMIT 1) AS picked)` — jamais un `LIMIT` sur
-  l'`UPDATE` lui-même (`#pickOne()`, `DrizzleRepository.ts:380`). C'est ce qui rend ces verbes portables — MySQL
+  l'`UPDATE` lui-même (`#pickOne()`, `DrizzleRepository.ts#DrizzleRepository.#pickOne`). C'est ce qui rend ces verbes portables — MySQL
   interdit la forme naïve.
 - **l'eager-load est manuel** : une requête `IN (…)` par relation déclarée, puis regroupement en
-  mémoire (`#populate()`, `DrizzleRepository.ts:922`). Choix assumé — pas de couche de relations à
+  mémoire (`#populate()`, `DrizzleRepository.ts#DrizzleRepository.#populate`). Choix assumé — pas de couche de relations à
   déclarer une seconde fois, et le comportement est le même sur les trois dialectes.
 
 ### Transactions — une connexion dédiée, jamais le pool
@@ -609,7 +609,7 @@ await orm.transaction(async (tx) => {
 Le module pilote `BEGIN`/`COMMIT`/`ROLLBACK` **à la main** plutôt que d'utiliser l'aide du moteur, pour
 une raison précise : `better-sqlite3` est **synchrone**, son helper commite au `return` — donc _avant_
 les `await` d'un contrat asynchrone. Le pilotage manuel rétablit la sémantique attendue
-(`DrizzleTransaction`, `DrizzleTransaction.ts:70`).
+(`DrizzleTransaction`, `DrizzleTransaction.ts#DrizzleTransaction`).
 
 > [!WARNING]
 > **`getRepository()` écrit HORS transaction.** Un repository obtenu normalement passe par le pool ;
@@ -621,10 +621,10 @@ Le mécanisme diffère par dialecte, sans que ton code le voie : en PostgreSQL/M
 emprunte une connexion **dédiée** au pool, rendue au commit — et **détruite** si celui-ci échoue,
 jamais recyclée dans un état inconnu. En SQLite la connexion est unique, donc c'est un pool de taille 1 :
 les transactions concurrentes sont **sérialisées par une file d'attente** (`#sqliteTxGate`,
-`DrizzleOrm.ts:360`), sinon deux requêtes HTTP simultanées émettraient deux `BEGIN` sur la même
+`DrizzleOrm.ts#DrizzleOrm.#sqliteTxGate`), sinon deux requêtes HTTP simultanées émettraient deux `BEGIN` sur la même
 connexion et la seconde échouerait.
 
-Les points de sauvegarde sont disponibles (`savepoint()`, `DrizzleTransaction.ts:123`) ; le nom est
+Les points de sauvegarde sont disponibles (`savepoint()`, `DrizzleTransaction.ts#DrizzleTransaction.savepoint`) ; le nom est
 validé et cité selon le dialecte — en MySQL/MariaDB, `"x"` est une **chaîne**, pas un identifiant.
 
 ### Trappe SQL brut — quand l'abstraction ne suffit plus
@@ -645,7 +645,7 @@ const rows = await db.all(sql`
 `);
 ```
 
-C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:1792`) : CTE,
+C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts#DrizzleOrm.getNativeConnection`) : CTE,
 fonctions de fenêtre, sous-requêtes corrélées, jointures arbitraires. Deux contreparties assumées :
 ce SQL n'est plus portable entre dialectes, et il **ne passe pas** par la sonde de profilage des
 requêtes.
@@ -668,13 +668,13 @@ briques durables disponibles**, sans aucun câblage.
 | Idempotence | `idempotency_key` | `IIdempotencyStore` (core) | la dédup des mutations, **partagée** |
 
 Les huit sont portées sur les **trois** dialectes. Chaque table est déclarée par une spécification
-logique traduite par le colKit — par exemple la session (`SESSION_TABLE_SPEC`, `sessionEntity.ts:25`)
-ou l'idempotence (`createIdempotencyTable`, `idempotencyEntity.ts:85`).
+logique traduite par le colKit — par exemple la session (`SESSION_TABLE_SPEC`, `sessionEntity.ts#SESSION_TABLE_SPEC`)
+ou l'idempotence (`createIdempotencyTable`, `idempotencyEntity.ts#createIdempotencyTable`).
 
 ### Comment ça s'active — la réponse est : tout seul
 
 Chaque brique choisit son backend par une option `store`, dont le **défaut est `"auto"`**. La
-résolution automatique (`resolveAutoStore()`, `infra.ts:330`) applique cette préférence :
+résolution automatique (`resolveAutoStore()`, `infra.ts#resolveAutoStore`) applique cette préférence :
 
 1. une infra `database` déclarée (`NF_DATABASE_URL`) → **`drizzle`** (ou `mongoose` si l'URL est Mongo) ;
 2. sinon, un backend local persistant réellement chargé → **`drizzle`**, c'est-à-dire SQLite ;
@@ -704,14 +704,14 @@ export const securityConfig = () =>
 
 > [!IMPORTANT]
 > **Les TSDoc de deux fichiers du module décrivent une « approche B » où l'application câblerait
-> elle-même la fabrique et l'entité d'idempotence** (`DrizzleIdempotencyStore.ts:97` ·
-> `idempotencyEntity.ts:32`). Ce n'est plus le comportement : le module inscrit lui-même la fabrique
-> via `registerIdempotencyStore()` (`registerStores.ts:356`). **Le code exécuté fait autorité** —
+> elle-même la fabrique et l'entité d'idempotence** (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore` ·
+> `idempotencyEntity.ts#createIdempotencyTableFactory`). Ce n'est plus le comportement : le module inscrit lui-même la fabrique
+> via `registerIdempotencyStore()` (`registerStores.ts#registerDrizzleFrameworkStores`). **Le code exécuté fait autorité** —
 > ces commentaires sont périmés.
 
 ### Le mécanisme, et comment garder la main
 
-`registerDrizzleFrameworkStores()` (`registerStores.ts:184`) est appelé à l'enregistrement du module,
+`registerDrizzleFrameworkStores()` (`registerStores.ts#registerDrizzleFrameworkStores`) est appelé à l'enregistrement du module,
 avec le dialecte du connecteur `default`. Pour chaque brique, il déclare l'entité puis inscrit la
 fabrique du store dans le registre de son propriétaire (`http`, `security` ou `framework`). Deux
 garde-fous préservent ta liberté :
@@ -724,7 +724,7 @@ Et deux garde-fous protègent de l'incohérence :
 - une brique **non portée** sur le dialecte configuré n'est ni déclarée ni fabricable — la
   sélectionner échoue franchement au démarrage plutôt que de produire une table fantôme ;
 - la fabrique **capture le dialecte** de son enregistrement : elle refuse un ORM d'un autre dialecte
-  (`resolveConnectedOrm()`, `registerStores.ts:143`).
+  (`resolveConnectedOrm()`, `registerStores.ts#resolveConnectedOrm`).
 
 Pour tout couper — module « données seulement », aucune entité ni fabrique framework :
 
@@ -742,13 +742,13 @@ construction : ils la résolvent à chaque appel. C'est nécessaire parce que l'
 le framework résout ses stores avant que l'ORM ne soit connecté — et parce que l'ORM se **déconnecte à
 l'arrêt** avant que les serveurs HTTP n'aient fini de vider leurs requêtes en vol. Handle absent =
 dégradation annoncée, pas un plantage : le `SessionStorage` rend une session vide et ignore les
-écritures (`#repo()`, `SessionStorage.ts:86`), le store d'idempotence laisse passer la mutation sans
-dédup (`begin()`, `DrizzleIdempotencyStore.ts:225`).
+écritures (`#repo()`, `SessionStorage.ts#SessionStorage.#repo`), le store d'idempotence laisse passer la mutation sans
+dédup (`begin()`, `DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.begin`).
 
 **SQL n'a pas de TTL.** Contrairement à Redis, rien n'expire tout seul : chaque store expose un `gc()`
 applicatif qui supprime les lignes échues, déclenché par un minuteur hors du chemin chaud —
-sessions (`SessionStorage.ts:166`), jetons (`DrizzleTokenStore.ts:297`), idempotence
-(`DrizzleIdempotencyStore.ts:318`), audit selon la rétention configurée (`DrizzleAuditStore.ts:231`).
+sessions (`SessionStorage.ts#SessionStorage.open`), jetons (`DrizzleTokenStore.ts#DrizzleTokenStore.revokeAllForSubject`), idempotence
+(`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.abort`), audit selon la rétention configurée (`DrizzleAuditStore.ts#DrizzleAuditStore.listPage`).
 
 ### Deux détails de conception qui valent la lecture
 
@@ -757,10 +757,10 @@ expiré` dont le `RETURNING` ne rend une ligne que si l'insertion (clé neuve) o
 morte a réellement eu lieu. C'est l'équivalent SQL du `SET NX PX` de Redis, en une instruction — et
 c'est ce qui interdit de conclure « nouvelle mutation » hors d'une réservation gagnée. En MySQL, où ni
 `RETURNING` ni `WHERE` ne sont disponibles sur un `ON DUPLICATE KEY UPDATE`, la même garantie s'obtient
-en deux instructions au verdict non ambigu (`reserveIdempotencyKeyMysql()`, `queryKit.ts:152`).
+en deux instructions au verdict non ambigu (`reserveIdempotencyKeyMysql()`, `queryKit.ts#reserveIdempotencyKeyMysql`).
 
 **Le journal d'audit** pagine par un curseur **composite auto-portant** `<horodatage>:<id>` sur un ordre
-total, plutôt que par un identifiant seul (`listPage()`, `DrizzleAuditStore.ts:175`). Deux gains : plus
+total, plutôt que par un identifiant seul (`listPage()`, `DrizzleAuditStore.ts#DrizzleAuditStore.listPage`). Deux gains : plus
 d'aller-retour pour résoudre le curseur, et une pagination qui ne rembobine pas à la première page si
 l'événement de référence a été purgé entre deux appels.
 
@@ -859,7 +859,7 @@ faire lui-même).
 Côté écrans : **Database**, **ORM (vue d'ensemble et par entité)** et **Stores** — ce dernier répond à
 la question « où sont écrites mes données ? » pour chaque brique.
 
-La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:1873`) :
+La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts#DrizzleOrm.probe`) :
 
 - **SQLite** → `storage` : taille du fichier, mode de journal, pages libres (lus par `PRAGMA`) ;
 - **PostgreSQL / MySQL** → `pool` : taille, connexions libres, empruntées, en attente — **compteurs en
@@ -871,12 +871,12 @@ que promettre en silence — c'est le principe « superviser sans peser sur la p
 
 Chaque store expose aussi son **emplacement physique** pour l'écran Stores : le chemin du fichier
 SQLite, relativisé (anti-fuite d'information), et `undefined` pour un backend réseau — dont
-l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts:481`).
+l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts#DrizzleOrm.location`).
 
 ## ⚡ Performance & mémoire
 
 **La sonde de requêtes ne coûte rien quand elle est éteinte.** Chaque exécution passe par un point de
-mesure unique (`#prof()`, `DrizzleRepository.ts:489`) qui alimente deux consommateurs — le profileur
+mesure unique (`#prof()`, `DrizzleRepository.ts#DrizzleRepository.#prof`) qui alimente deux consommateurs — le profileur
 par requête (barre de debug) et l'agrégat de flux. Les deux sont gardés par un drapeau : si aucun n'est
 actif, la fonction rend le constructeur de requête tel quel, sans allocation. Le flux est **désactivé
 en production** par défaut.

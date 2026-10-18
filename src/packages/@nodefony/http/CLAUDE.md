@@ -84,7 +84,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
 ```
 
 ⚠️ **`Firewall.check()` n'existe pas** — le point d'entrée du firewall est
-`handleSecurity()` (`firewall.ts:825`), et il est précédé de trois autres appels
+`handleSecurity()` (`firewall.ts#Firewall.handleSecurity`), et il est précédé de trois autres appels
 (`handleCors`, `applySecurityHeaders`, `enforceCsrf`) qui, eux, tournent sur
 **toutes** les requêtes, zone ou pas.
 
@@ -250,11 +250,11 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 - `SecuredArea.match()` nécessite `request.url` comme `URL` object — toujours passer par `WsIncomingMessage`
 - **Ne PAS appeler `startSession()` dans `initialize()` d'un controller WS** : le point d'activation
   est unique et partagé avec le HTTP — `HttpKernel.onConnect()` l'appelle après le front controller
-  et avant `context.connect()` (`http-kernel.ts:2116-2122`), gardé par `context.sessionStarting`.
-  Il est **paresseux** : sans intent de route ni cookie entrant, il ne crée rien (`:1365-1368`).
+  et avant `context.connect()` (`http-kernel.ts#HttpKernel.handleWebsocket`), gardé par `context.sessionStarting`.
+  Il est **paresseux** : sans intent de route ni cookie entrant, il ne crée rien (`http-kernel.ts#HttpKernel.startSession`).
   L'appeler à la main dans un controller rétablit l'ancien « démarre sur toutes les routes » — donc
   une session persistée par connexion WS, y compris sur `echo`/`broadcast` qui n'en ont aucun besoin
-  (le contrôleur WS du module `test` n'en appelle donc aucun : `initialize()` absent, `WebSocketController.ts:18`).
+  (le contrôleur WS du module `test` n'en appelle donc aucun : `initialize()` absent, `WebSocketController.ts#WebsocketController.index`).
 - `httpError.ts` ne peut pas importer `@nodefony/framework` (dépendance circulaire) → il lit `context.resolver`, typé par le contrat `IRouteResolver` de http
 - Tout nouveau fichier test `.ts` doit avoir `/// <reference types="node" />` en première ligne
 

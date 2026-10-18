@@ -55,7 +55,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - **Contrats** : `IUser` (strict) + `IPasswordAuthenticatedUser` + `ISocialProvider` + `IUserProvider` + `IUserRepository` + `IPasswordEncoder` + `BaseUser` + `AnonymousUser` (+ singleton `anonymousUser`). **`IRole`/`IPermission` ne sont PAS ici** : le format RBAC se fige sur un cas voter concret (slot commenté dans le barrel).
 - **`UserService extends AbstractCrudService`** : CRUD hérité + `authenticate()` + events credential. **`BcryptEncoder`** (`@node-rs/bcrypt`, rounds 12).
 - **Adapters** (hors de ce module, il ne dépend d'aucun ORM) : `@nodefony/drizzle` (`entity/userTable` schema-as-code, `src/DrizzleUserRepository`, `findByIdentifier`/`findBySocialProvider` bindé) et `@nodefony/mongoose` (`entity/userEntity` `timestamps:true`, `src/MongooseUserRepository`, `findBySocialProvider` via `$elemMatch`). **Convention : `entity/` = schéma, `src/` = repository.**
-- **La session ne porte PAS un `IUser`** mais son identifiant (`ISession.user: string`) — l'objet se recharge depuis le provider. L'anti-fixation `session.regenerateId()` est câblée au login (`security/…/authFlow.ts:391`).
+- **La session ne porte PAS un `IUser`** mais son identifiant (`ISession.user: string`) — l'objet se recharge depuis le provider. L'anti-fixation `session.regenerateId()` est câblée au login (`security/…/authFlow.ts#AuthFlow.logout`).
 
 > **Trou connu** : aucun test cross-ORM (même `IUser` exercé par les deux adapters). Chaque adapter
 > teste le sien — une divergence de contrat entre eux ne serait vue par personne.

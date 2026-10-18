@@ -50,11 +50,11 @@ Trois familles, déclarées par **URL** — le schéma décide du backend :
 
 Les alias de plateforme (`DATABASE_URL`, `REDIS_URL`) sont acceptés tels quels — ce sont les noms
 qu'un hébergeur pose lui-même. La lecture est faite une seule fois, par `resolveInfra()`
-(`infra.ts:134`).
+(`infra.ts#resolveInfra`).
 
 Le **schéma** de `NF_DATABASE_URL` déduit le dialecte : `sqlite:` → SQLite, `postgres://` →
 PostgreSQL, `mysql://` → MySQL, `mongodb://` → MongoDB. Un schéma inconnu **fait échouer le boot**
-(`infra.ts:106`) : jamais de choix silencieux.
+(`infra.ts#parseDatabaseUrl`) : jamais de choix silencieux.
 
 ## Les trois profils
 
@@ -67,7 +67,7 @@ PostgreSQL, `mysql://` → MySQL, `mongodb://` → MongoDB. Un schéma inconnu *
 ## `store: "auto"` — comment le framework choisit
 
 Chaque brique a `store: "auto"` **par défaut**. La résolution est portée par une fonction unique,
-`resolveAutoStore()` (`infra.ts:330`), et suit la nature de la donnée :
+`resolveAutoStore()` (`infra.ts#resolveAutoStore`), et suit la nature de la donnée :
 
 - **durable** (utilisateurs, jetons, passkeys, webhooks, audit, TOTP) → l'infrastructure
   `database` si déclarée ;
@@ -88,7 +88,7 @@ session.store "auto" → "drizzle" (aucune infra déclarée — backend local pe
 ```
 
 > **Un interrupteur global existe** : `NF_STORE` force toute brique `auto` sur un backend donné,
-> quand il est enregistré pour elle (`infra.ts:374`). Il sert aux bancs de charge — pas à la
+> quand il est enregistré pour elle (`infra.ts#resolveAutoStore`). Il sert aux bancs de charge — pas à la
 > production.
 
 ## Matrice brique × backend
@@ -199,7 +199,7 @@ point n'a rien à faire dans le store d'audit.
 Nodefony échoue **bruyamment** sur la dégradation, et **doucement** sur la disponibilité :
 
 - un `store` **explicite** introuvable (par exemple `store: "redis"` sans l'adaptateur chargé) →
-  **en production, le boot avorte** (`sessions-service.ts:269`) : une persistance silencieusement
+  **en production, le boot avorte** (`sessions-service.ts#SessionsService.initializeStorage`) : une persistance silencieusement
   absente casse le pare-feu en cascade, alors qu'un pod qui refuse de démarrer se voit tout de
   suite ; **en développement, la dégradation est ANNONCÉE** (un avertissement nomme le repli) ;
 - une **brique durable** résolue en `memory` **en production** → avertissement nommant l'impact
@@ -273,7 +273,7 @@ export const securityConfig = () =>
 - **Sans `NF_DATABASE_URL`, une application avec drizzle chargé écrit quand même sur disque**
   (SQLite local). C'est voulu, mais cela surprend qui croyait tourner « en mémoire » : vérifiez la
   raison écrite au boot avant de conclure.
-- **Un schéma d'URL inconnu ne dégrade pas, il arrête le boot** (`infra.ts:106`). C'est le seul
+- **Un schéma d'URL inconnu ne dégrade pas, il arrête le boot** (`infra.ts#parseDatabaseUrl`). C'est le seul
   endroit où une erreur de configuration d'infrastructure est fatale — et c'est délibéré.
 
 ## 🧪 Tests & couverture

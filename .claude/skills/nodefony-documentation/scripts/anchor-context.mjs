@@ -12,8 +12,12 @@
 export const SYMBOL_ANCHOR_RE =
   /(?<![\w/:.-])`?([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx))#(?!L\d)([A-Za-z_$#][\w$#]*(?:\.[A-Za-z_$#][\w$#]*)?)`?/g;
 
-/** Ancre COURTE `` `:N` `` : reprend le fichier de l'ancre qui la précède. */
-export const SHORT_ANCHOR_RE = /`:\d+(?:-\d+)?`/g;
+/**
+ * Ancre COURTE `` `:N` `` : reprend le fichier de l'ancre qui la précède. La
+ * forme multiple `` `:N/:M` `` en est une aussi — elle ne se juge pas (laquelle
+ * des lignes ?), elle se retire.
+ */
+export const SHORT_ANCHOR_RE = /`:\d+(?:-\d+)?(?:\/:\d+(?:-\d+)?)*`/g;
 
 /**
  * Le symbole entre parenthèses qui SUIT immédiatement une ancre —

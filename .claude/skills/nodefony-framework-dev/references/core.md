@@ -428,42 +428,42 @@ et expose un sous-ensemble (NodefonySocket, Pdu, Syslog, Tools…) ⇒ le même 
 > Tout est re-exporté par le barrel `index.ts`. ⚠️ **2 symboles du décorateur DI NE sont PAS dans le barrel** :
 > `Inject` (propriété, Majuscule) et `entities` (ce dernier n'existe d'ailleurs plus). Un consumer ne peut donc
 > faire que `@inject` (paramètre ctor), PAS `@Inject` (injection de propriété) via `import { … } from "nodefony"`.
-> `kernelDecorator.ts:146` exporte `{ injectable, inject, Inject, services }` mais `index.ts:232-236` ne ré-exporte
+> `kernelDecorator.ts#injectable` exporte `{ injectable, inject, Inject, services }` mais `index.ts#useNodefony` ne ré-exporte
 > que `{ injectable, inject, services }`.
 
 ### Façade `Nodefony`
 
-`Nodefony.ts:22` — classe **statique** (`private constructor`, `#kernel` privé statique). Point d'entrée unique au kernel.
+`Nodefony.ts#Nodefony` — classe **statique** (`private constructor`, `#kernel` privé statique). Point d'entrée unique au kernel.
 
 | Membre                    | Signature                          | Rôle                                                        | Ancre |
 | ------------------------- | ---------------------------------- | ----------------------------------------------------------- | ----- |
-| `version`                 | `static readonly string`           | version (lue de `package.json`)                             | `:24` |
-| `getKernel()`             | `static (): Kernel \| null`        | kernel courant — **`null` avant `start()`** → toujours `?.` | `:34` |
-| `setKernel(k)`            | `static (k): void`                 | appelé par le ctor `Kernel` (pollue le singleton)           | `:44` |
-| `generateId()`            | `static (): string`                | uuid v4                                                     | `:53` |
-| `generateV5Id(name, ns?)` | `static (string, string?): string` | uuid v5                                                     | `:67` |
+| `version`                 | `static readonly string`           | version (lue de `package.json`)                             |       |
+| `getKernel()`             | `static (): Kernel \| null`        | kernel courant — **`null` avant `start()`** → toujours `?.` |       |
+| `setKernel(k)`            | `static (k): void`                 | appelé par le ctor `Kernel` (pollue le singleton)           |       |
+| `generateId()`            | `static (): string`                | uuid v4                                                     |       |
+| `generateV5Id(name, ns?)` | `static (string, string?): string` | uuid v5                                                     |       |
 
 ### `Service`
 
-`Service.ts:88` — `class Service implements IService` (n'**étend rien** : EventEmitter **composé**, pas hérité).
-Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
+`Service.ts#Service` — `class Service implements IService` (n'**étend rien** : EventEmitter **composé**, pas hérité).
+Constructeur `(name, container?, notificationsCenter?, options?)` `Service.ts#describeReceived`.
 
-- **DI délégué au container** : `get<T>(name): T|null` `:427` (null si pas de container, no-throw) · `set<T>(name,obj): void`
-  `:435` (**throw** si pas de container) · `has(name): boolean` `:477`
-  · `remove(name): boolean` `:447` (appelle `clean()` si c'est un `Service`, rend `true` s'il existait).
+- **DI délégué au container** : `get<T>(name): T|null` (null si pas de container, no-throw) · `set<T>(name,obj): void`
+  (**throw** si pas de container) · `has(name): boolean`
+  · `remove(name): boolean` (appelle `clean()` si c'est un `Service`, rend `true` s'il existait).
   Aucune API de paramètres : `getParameters`/`setParameters` sont retirés (ADR-0012) — un module
   lit sa config dans `this.options`, figée à la fin de `onReady` ; par requête → `useConfig()`.
-- **Events délégués à `#nc` (un `Event`)** : `fire` `:272` (=`emit`), `fireAsync`/`emitAsync` `:277`/`:287`,
-  `emitAsyncGuarded` `:296` (délègue à `this.nc.emitAsyncGuarded`), `on`/`once`/`off` `:328`/`:335`/`:343`,
-  `listen` `:317` (non traçé → pas retiré au `clean`), `settingsToListen` `:353` (auto-wire des clés `onFoo`).
-  `notificationsCenter:false` → pas d'Event → tout appel event throw `notificationsCenter not initialized` (getter `nc` `:62`).
-- **Logging** : `log(pci, severity?, msgid?, msg?): Pdu` `:209` · `spinlog(msg): Pdu` `:236` (SPINNER) · `logger`/`trace`
-  `:226`/`:231` (= `console.debug`/`trace`). Fallback Pdu standalone si `syslog===null`.
-- **Cycle de vie** : `initSyslog(env, debug, opts?)` `:159` · `clean(syslog=false)` `:179` (null toutes les refs ;
+- **Events délégués à `#nc` (un `Event`)** : `fire` (=`emit`), `fireAsync`/`emitAsync`,
+  `emitAsyncGuarded` (délègue à `this.nc.emitAsyncGuarded`), `on`/`once`/`off`,
+  `listen` (non traçé → pas retiré au `clean`), `settingsToListen` (auto-wire des clés `onFoo`).
+  `notificationsCenter:false` → pas d'Event → tout appel event throw `notificationsCenter not initialized` (getter `nc`).
+- **Logging** : `log(pci, severity?, msgid?, msg?): Pdu` · `spinlog(msg): Pdu` (SPINNER) · `logger`/`trace`
+  (= `console.debug`/`trace`). Fallback Pdu standalone si `syslog===null`.
+- **Cycle de vie** : `initSyslog(env, debug, opts?)` · `clean(syslog=false)` (null toutes les refs ;
   `clean(true)` → `syslog.reset()`). `clean()` appelle `clean()` sur les enfants `instanceof Service`.
 - ⚠️ **SURFACE RÉSERVÉE — 13 noms qu'un service métier ne peut pas redéfinir librement** :
   `get set has remove clean log trace on off once emit fire listen`. Ce sont des méthodes de `Service`
-  (`get<T>(name): T|null` `:442` est l'accès au CONTENEUR, pas un accesseur métier). Redéfinir l'une
+  (`get<T>(name): T|null` est l'accès au CONTENEUR, pas un accesseur métier). Redéfinir l'une
   d'elles avec une autre signature casse l'assignabilité de la classe — et le symptôme est
   **trompeur** : l'IDE souligne le décorateur `@services([X])` du module qui l'enregistre, alors que
   l'erreur (`TS2416`) porte sur la LIGNE DE LA MÉTHODE du service. Vécu : le gate `nodefony check`
@@ -475,12 +475,12 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 `Container.ts` — `class Container implements IContainer`. Registre de services + scopes hiérarchiques.
 
-- `set(name,obj)` `:195` (écrit dans `services[name]` **ET** `protoService.prototype` → héritage scopes) · `get<T>(name): T|null`
-  `:212` · `has(name)` `:247` / `remove(name)` `:225` (via `name in services`, pas `!!value` → falsy OK) · `keys`/`entries` `:252`/`:257`.
-- Scopes (LAZY — `scopes:null` tant que 0 `addScope`) : `addScope` `:272` · `enterScope` `:293` → `Scope` · `leaveScope` `:312`
-  · `scopeCount(name): number` `:330` (sonde fuite/Studio) · `removeScope` `:341`.
-- `clean()` `:412` / `reset()` `:423` (racine seulement : clean + recrée les protos → réutilisable).
-- **`Scope extends Container implements IScope`** `:440` : `set`/`remove` overridés **own-property only** (`:466`/`:479`)
+- `set(name,obj)` (écrit dans `services[name]` **ET** `protoService.prototype` → héritage scopes) · `get<T>(name): T|null`
+  · `has(name)` / `remove(name)` (via `name in services`, pas `!!value` → falsy OK) · `keys`/`entries`.
+- Scopes (LAZY — `scopes:null` tant que 0 `addScope`) : `addScope` · `enterScope` → `Scope` · `leaveScope`
+  · `scopeCount(name): number` (sonde fuite/Studio) · `removeScope`.
+- `clean()` / `reset()` (racine seulement : clean + recrée les protos → réutilisable).
+- **`Scope extends Container implements IScope`** : `set`/`remove` overridés **own-property only**
   — écrire sur le proto partagé polluerait le parent (data race per-requête). `reset()` **lève** sur un scope.
   `hasOwn(name)` (posé SUR ce scope, jamais hérité) · `own(obj)` (rattache : `clean()` LIFO à la fermeture ;
   lève si scope fermé) · `closed` (getter, `services === null`). Scope imbriqué → chaîne sur les services
@@ -488,17 +488,17 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 ### `Event` (+ `emitAsyncGuarded`)
 
-`Event.ts:117` — `class Event extends EventEmitter` (node:events). Ajoute :
+`Event.ts#Event` — `class Event extends EventEmitter` (node:events). Ajoute :
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle | Ancre |
 | --- | --- | --- | --- |
-| `fire` | `(name, ...args): boolean` | alias `emit` (sync) | `:186` |
-| `emitAsync` | `async (name, ...args): Promise<false \| unknown[]>` | série, **await conditionnel** (skip microtask si non-thenable) ; `false` si 0 listener | `:200` |
-| `fireAsync` | idem | alias `emitAsync` | `:229` |
-| `emitAsyncGuarded` | `async (name, options, ...args): Promise<IGuardedEmitResult>` | série **gardée** : try/catch + timeout par listener, collecte `{results,errors,stopped}` | `:257` |
-| `listen` | `(name, fn)` | bind un listener | `:171` |
-| `settingsToListen` | `(opts, ctx)` | auto-wire `onFoo` → listeners | `:147` |
+| `fire` | `(name, ...args): boolean` | alias `emit` (sync) | |
+| `emitAsync` | `async (name, ...args): Promise<false \| unknown[]>` | série, **await conditionnel** (skip microtask si non-thenable) ; `false` si 0 listener | |
+| `fireAsync` | idem | alias `emitAsync` | |
+| `emitAsyncGuarded` | `async (name, options, ...args): Promise<IGuardedEmitResult>` | série **gardée** : try/catch + timeout par listener, collecte `{results,errors,stopped}` | |
+| `listen` | `(name, fn)` | bind un listener | |
+| `settingsToListen` | `(opts, ctx)` | auto-wire `onFoo` → listeners | |
 
 `emitAsyncGuarded` court-circuite 0-listener avant `rawListeners` (0 alloc). Quand `timeoutMs>0` : 1 timer `unref`
 
@@ -507,39 +507,39 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 ### `Kernel` / `CliKernel`
 
-`kernel/Kernel.ts:431` — `class Kernel extends Service implements IKernel`. Le ctor `:756` appelle `Nodefony.setKernel(this)`.
+`kernel/Kernel.ts#Kernel` — `class Kernel extends Service implements IKernel`. Le ctor `kernel/Kernel.ts#Kernel.constructor` appelle `Nodefony.setKernel(this)`.
 
 - **Chaîne async de boot** (chaque maillon appelle le suivant si `!setCommandComplete`) :
-  `start()` `:482` → `preRegister()` `:600` → `boot()` `:694` → `onReady()` `:724` → `initServers()` `:793`.
-- **Flags chronologiques** (booléens, jamais régressifs) : `started` `:315`, `preRegistered` `:330`, `registered` `:331`,
-  `booted` `:316`, `ready` `:317`, `postReady` `:318`. `progress: number` `:367` = OR cumulatif du bitmask `Events`.
-- `setCommandComplete(p): boolean` `:1363` / `isCommandComplete(p): boolean` `:1369` (toujours `false` si `command===null`).
-- **Registre modules** : `addModule(Ctor, ...args)` `:1041` · `getModule` `:1064` / `getModules` `:1067` · `loadModule(name)` `:941`
-  (dynamic import) · `addKernelService(Ctor, ...args)` `:908` (service direct sur le container kernel).
-- **Lifecycle gardé** : `fireLifecycle(event, ...args): Promise<IGuardedEmitResult>` `:1998` (politique, voir Internals).
-- **Park / fin de cycle** : `park({keepAlive?})` `:832` (Promise jamais résolue — source UNIQUE du « rester vivant ») ·
-  `finishOrPark(code)` `:852` (park si `lifetime==="longrunning" && !servers`, sinon `terminate`). `terminate(code?)` `:2287`.
-- Divers : `initializeLog()` `:1384` · `setEnv` `:1576` / `setNodeEnv` `:1538` · `getBootReport(): IBootReport` `:1850`
+  `start()` → `preRegister()` → `boot()` → `onReady()` → `initServers()`.
+- **Flags chronologiques** (booléens, jamais régressifs) : `started`, `preRegistered`, `registered`,
+  `booted`, `ready`, `postReady`. `progress: number` = OR cumulatif du bitmask `Events`.
+- `setCommandComplete(p): boolean` / `isCommandComplete(p): boolean` (toujours `false` si `command===null`).
+- **Registre modules** : `addModule(Ctor, ...args)` · `getModule` / `getModules` · `loadModule(name)`
+  (dynamic import) · `addKernelService(Ctor, ...args)` (service direct sur le container kernel).
+- **Lifecycle gardé** : `fireLifecycle(event, ...args): Promise<IGuardedEmitResult>` (politique, voir Internals).
+- **Park / fin de cycle** : `park({keepAlive?})` (Promise jamais résolue — source UNIQUE du « rester vivant ») ·
+  `finishOrPark(code)` (park si `lifetime==="longrunning" && !servers`, sinon `terminate`). `terminate(code?)`.
+- Divers : `initializeLog()` · `setEnv` / `setNodeEnv` · `getBootReport(): IBootReport`
   (distingue `bootServers===null` non-mesuré de `[]` 0-serveur).
-- **`Events`** (bitmask frozen, `Kernel.ts:309`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
+- **`Events`** (bitmask frozen, `Kernel.ts#Events`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
 onBoot onReady onServersReady onPostReady onTerminate=1<<10`.
 
-`kernel/CliKernel.ts:125` — **`class CliKernel extends Cli`** (⚠️ PAS `Kernel`). Le `Kernel` est instancié à part et lié à
-`cliKernel.kernel`. `constructor(environment?)` `:142`. `start(options?)` `:231` crée le Kernel + ajoute les built-ins +
-`parseAsync`. `setRunProfile(profile)` `:504` (`{servers,lifetime,interactive}`, recopié dans `kernel.runProfile` à
-`onStart`). `addCommand` `:518` · `initSyslog` `:568` · `terminate` `:637` (délègue à `kernel.terminate` si présent).
+`kernel/CliKernel.ts#CliKernel` — **`class CliKernel extends Cli`** (⚠️ PAS `Kernel`). Le `Kernel` est instancié à part et lié à
+`cliKernel.kernel`. `constructor(environment?)` `kernel/CliKernel.ts#CliKernel.constructor`. `start(options?)` `kernel/CliKernel.ts#CliKernel.start` crée le Kernel + ajoute les built-ins +
+`parseAsync`. `setRunProfile(profile)` (`{servers,lifetime,interactive}`, recopié dans `kernel.runProfile` à
+`onStart`). `addCommand` · `initSyslog` · `terminate` (délègue à `kernel.terminate` si présent).
 
 ### `Module`
 
-`kernel/Module.ts:58` — `class Module extends Service implements IModule`. Ctor `(name, kernel, path, options)` `:97`.
+`kernel/Module.ts#Module` — `class Module extends Service implements IModule`. Ctor `(name, kernel, path, options)` `kernel/Module.ts#Module.appOptions`.
 
-- `static controllers` `:60` (registre **partagé** toutes instances) · **`static critical: boolean = true`** `:74`
-  (lue au ctor via `(this.constructor as typeof Module).critical`, AVANT les initializers de sous-classe) · `path` `:76`.
-- `setPath(p)` `:142` (résout `file://`, remonte 2 niveaux si `dist/`, sinon 1) · `setEvents()` `:185` (wire les hooks +
-  tags owner/critical) · `readOverrideModuleConfig(deep=true)` `:237` (clés `Module-<name>` → `extend` config d'un AUTRE module).
-- `addService(Ctor, ...args)` `:286` (via `Injector.instantiate`) · `getController<T>(name)` `:366` · `getDependencies()` `:400`
-  (deps + peerDeps, devDeps exclus, **pas de dédup**) · `getPackageJson(cwd?)` `:347`.
-- `addCommand(Ctor)` `:438` (throw `Kernel not ready` si `kernel.cli===null`) · `install`/`outdated` `:464`/`:486`.
+- `static controllers` (registre **partagé** toutes instances) · **`static critical: boolean = true`**
+  (lue au ctor via `(this.constructor as typeof Module).critical`, AVANT les initializers de sous-classe) · `path`.
+- `setPath(p)` (résout `file://`, remonte 2 niveaux si `dist/`, sinon 1) · `setEvents()` (wire les hooks +
+  tags owner/critical) · `readOverrideModuleConfig(deep=true)` (clés `Module-<name>` → `extend` config d'un AUTRE module).
+- `addService(Ctor, ...args)` (via `Injector.instantiate`) · `getController<T>(name)` · `getDependencies()`
+  (deps + peerDeps, devDeps exclus, **pas de dédup**) · `getPackageJson(cwd?)`.
+- `addCommand(Ctor)` (throw `Kernel not ready` si `kernel.cli===null`) · `install`/`outdated`.
 - **Hooks lifecycle** (optionnels, **méthodes prototype obligatoires**) : `onKernelRegister`/`onKernelBoot`/`onKernelReady`
   (`async (): Promise<this>`) + `initialize?(kernel?)`. Le ctor attache **toujours** 1 listener (`onPreBoot` → `getPackageJson`).
 
@@ -570,77 +570,77 @@ erreur **actionnable** (nomme le service, son demandeur, et le remède), `cause`
 ⚠️ `instantiate(X)` sur la classe RACINE ne consulte jamais le container : le scope ne gouverne que
 les **dépendances**.
 
-Types exportés : `DIScope = "singleton" \| "transient" \| "request"`, `InjectableOptions` `:11`. Décorateurs (`kernelDecorator.ts:146`) :
+Types exportés : `DIScope = "singleton" \| "transient" \| "request"`, `InjectableOptions`. Décorateurs (`kernelDecorator.ts#injectable`) :
 `@injectable(nameOrOptions?)` (register + pose `di:scope`), `@inject("name")` (paramètre ctor → metadata `inject:services`
 sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties` sur le **prototype** — **absent du barrel public**),
 `@services([...])` (sur Module → `onPreBoot`).
 
 ### `Syslog` / `Pdu`
 
-`syslog/Syslog.ts:621` — `class Syslog extends Event implements ISyslog`. Ring buffer `CircularBuffer<Pdu>` (`:623`, FIFO O(1)).
+`syslog/Syslog.ts#Syslog` — `class Syslog extends Event implements ISyslog`. Ring buffer `CircularBuffer<Pdu>` (`syslog/Syslog.ts#Syslog._ring`, FIFO O(1)).
 
-- `log(payload, severity?, moduleName?, msg?): Pdu` `:925` · raccourcis `error`/`warn`/`info`/`debug`/`trace` `:1132`+ ·
-  `print(...args)` `:1152` / `logMultiple(sev, ...args)` `:1157`.
-- `init(env, debug?, options?)` `:794` · `addTransport`/`removeTransport` `:1162`/`:1182` · `getLogStack(start?,end?,cond?)` `:1033`
-  · `listenWithConditions(cond, cb)` `:1125`.
-- **Statics process-global** : `setOutputBuffering(mode)` `:1405` / `flushOutput()` `:1410` · `setLogSink(sink \| null)` `:1421`
-  (`ILogSink` : stdout/file/null) · `overrideConsole(instance)` `:1459`.
+- `log(payload, severity?, moduleName?, msg?): Pdu` · raccourcis `error`/`warn`/`info`/`debug`/`trace`+ ·
+  `print(...args)` / `logMultiple(sev, ...args)`.
+- `init(env, debug?, options?)` · `addTransport`/`removeTransport` · `getLogStack(start?,end?,cond?)`
+  · `listenWithConditions(cond, cb)`.
+- **Statics process-global** : `setOutputBuffering(mode)` / `flushOutput()` · `setLogSink(sink \| null)`
+  (`ILogSink` : stdout/file/null) · `overrideConsole(instance)`.
 - 3 axes ORTHOGONAUX : ① **sink write** (`ILogSink`) ② **driver query** (`ILogDriver` : memory/file/loki/opensearch, chemin FROID)
   ③ **bus realtime** (`nodefony:syslog`). Tous enfichables + exportés du barrel.
 
-`syslog/Pdu.ts:132` — `class Pdu` (entrée de log immuable). Champs : `payload`, `uid` (monotone par process), `severity:number`,
-`severityName:string` `:137`, `timeStamp:number` (**pas** d'objet `Date`), `moduleName`, `msgid`, `msg`, `status`, `pid`
-(`= process.pid`, capté 1×), `requestId?` (corrélation ALS). **Provider injectable** `static requestIdProvider` `:169`
-(branché côté Node par `index.ts:381-384` sur `RequestContext.getRequestId` ; `null` côté navigateur). Enum `SysLogSeverity`
-`:27` : `EMERGENCY=0 ALERT=1 CRITIC=2 ERROR=3 WARNING=4 NOTICE=5 INFO=6 DEBUG=7 SPINNER=-1`. `translateSeverity` `:51`.
+`syslog/Pdu.ts#PID` — `class Pdu` (entrée de log immuable). Champs : `payload`, `uid` (monotone par process), `severity:number`,
+`severityName:string` `syslog/Pdu.ts#fastTypeOf`, `timeStamp:number` (**pas** d'objet `Date`), `moduleName`, `msgid`, `msg`, `status`, `pid`
+(`= process.pid`, capté 1×), `requestId?` (corrélation ALS). **Provider injectable** `static requestIdProvider`
+(branché côté Node par `index.ts#ITestModuleOptions.options` sur `RequestContext.getRequestId` ; `null` côté navigateur). Enum `SysLogSeverity`
+`index.ts` : `EMERGENCY=0 ALERT=1 CRITIC=2 ERROR=3 WARNING=4 NOTICE=5 INFO=6 DEBUG=7 SPINNER=-1`. `translateSeverity` `index.ts#JsonRpcServerError`.
 
 ### `Cli` / `Command`
 
-`Cli.ts:212` — `class Cli extends Service` (wrapper Commander). Surcharges du `constructor` `:260-273`.
+`Cli.ts#Cli` — `class Cli extends Service` (wrapper Commander). Surcharges du `constructor` `Cli.ts#Cli.constructor`.
 
-- `addCommand(Ctor)` `:540` · `hasCommand` `:546` / `getCommand` `:553` · `parse`/`parseAsync` `:462`/`:469`.
-- `setCommandVersion(v)` `:518` (⚠️ throw si rappelé — le ctor ajoute déjà `-v`) · `setCommandOption` `:507` · `setCommand` `:529`.
-- `static niceBytes(x)` `:592` (`1024`→`"1.0 KB"`) · `startTimer`/`stopTimer` `:697`/`:713` · `setProcessTitle` `:375` ·
-  `showBanner` `:335` · `handleSignals()` `:225` (idempotent : 1ᵉʳ signal draine, 2ᵉ force `exit`) · `terminate` `:680`.
+- `addCommand(Ctor)` · `hasCommand` / `getCommand` · `parse`/`parseAsync`.
+- `setCommandVersion(v)` (⚠️ throw si rappelé — le ctor ajoute déjà `-v`) · `setCommandOption` · `setCommand`.
+- `static niceBytes(x)` (`1024`→`"1.0 KB"`) · `startTimer`/`stopTimer` · `setProcessTitle` ·
+  `showBanner` · `handleSignals()` (idempotent : 1ᵉʳ signal draine, 2ᵉ force `exit`) · `terminate`.
 
-`command/Command.ts:62` — `class Command extends Service`. Ctor `(name, description, cli, options?)` `:93`. Enregistre son
-action dans Commander au ctor. `onKernelStart?(...args)` `:150` (hook pré-boot). `setEvents()` `:217` (guard `eventsRegistered`,
-idempotent). Chaîne standalone : `action()` `:222` → `run()` `:247` → `generate()` `:277` (à override ; ⚠️ Commander passe
-l'instance `Cmd` en **dernier** arg). `addOption` `:365` / `addArgument` `:382` / `alias` `:292`. `kernelEvent` défaut `"onRegister"`.
+`command/Command.ts#OptionsCommandInterface.quietBoot` — `class Command extends Service`. Ctor `(name, description, cli, options?)` `command/Command.ts#defaultCommandOptions`. Enregistre son
+action dans Commander au ctor. `onKernelStart?(...args)` `command/Command.ts#Command.onKernelStart` (hook pré-boot). `setEvents()` `command/Command.ts#Command.setEvents` (guard `eventsRegistered`,
+idempotent). Chaîne standalone : `action()` → `run()` → `generate()` (à override ; ⚠️ Commander passe
+l'instance `Cmd` en **dernier** arg). `addOption` / `addArgument` / `alias`. `kernelEvent` défaut `"onRegister"`.
 
 ### `FileClass` / `Finder`
 
-`FileClass.ts:64` — wrapper `fs` typé. **⚠️ Le constructeur `new FileClass(path)` `:89` est SYNCHRONE** (`fs.lstatSync` via
-`getRealpath` `:232`/`checkType` `:197`). Pour le pipeline → **`static async from(path): Promise<FileClass>` `:116`**
-(I/O non bloquante via `stat()` `:130`). Lecture : `content(enc?)` `:272` (sync), `read(enc?)` `:285` (sync),
-`readAsync(enc?)` `:296`, `readByLine(cb)` `:304`. Écriture : `write` `:327`, `move` `:340` / `moveAsync` `:352`, `unlink` `:358`.
-`toJson()` `:173`, `isFile`/`isDirectory` `:249`/`:254`.
+`FileClass.ts#FileClass.stats` — wrapper `fs` typé. **⚠️ Le constructeur `new FileClass(path)` `FileClass.ts#FileClass.constructor` est SYNCHRONE** (`fs.lstatSync` via
+`getRealpath` `FileClass.ts#FileClass.getRealpath`/`checkType` `FileClass.ts#FileClass.checkType`). Pour le pipeline → **`static async from(path): Promise<FileClass>` `FileClass.ts#FileClass.from`**
+(I/O non bloquante via `stat()`). Lecture : `content(enc?)` (sync), `read(enc?)` (sync),
+`readAsync(enc?)`, `readByLine(cb)`. Écriture : `write`, `move` / `moveAsync`, `unlink`.
+`toJson()`, `isFile`/`isDirectory`.
 
 `Finder` (`finder/Finder.ts`, `extends Event`) : traverseur async — `checkPath(path)` (sync `FileResult`), `in(path, settings?)`
 (`Promise<Result>`, utilise `File.from()`). `File`/`FileResult`/`Result` exportés du barrel.
 
 ### `RequestContext` (ALS)
 
-`runtime/RequestContext.ts:164` — façade statique au-dessus d'`AsyncLocalStorage` (instance **lazy** `:167-172` → 0 coût si jamais `run`).
+`runtime/RequestContext.ts#RequestContextPayload.resolver` — façade statique au-dessus d'`AsyncLocalStorage` (instance **lazy** `runtime/RequestContext.ts` → 0 coût si jamais `run`).
 
-| Méthode                 | Signature                                                      | Ancre           |
-| ----------------------- | -------------------------------------------------------------- | --------------- |
-| `run`                   | `static <T>(payload, fn): T`                                   | `:175`          |
-| `get`                   | `static (): RequestContextPayload \| undefined`                | `:180`          |
-| `getRequestId`          | `static (): string \| undefined`                               | `:186`          |
-| `getUser` / `getUserId` | `static (): unknown / string \| null`                          | `:254` / `:316` |
-| `getContext<T>`         | `static (): T \| undefined`                                    | `:200`          |
-| `getScope`              | `static (): IScope \| undefined` (scope refermé → `undefined`) | `:232`          |
-| `requireScope`          | `static (): IScope` — lève en nommant la cause                 | `:246`          |
-| `set<K>`                | `static (key, value): void` (no-op hors scope)                 | `:257`          |
-| `isProfiling`           | `static (): boolean`                                           | `:272`          |
-| `pushQuery`             | `static (query): void` (no-op si !profiling → 0 coût prod)     | `:282`          |
+| Méthode                 | Signature                                                      | Ancre |
+| ----------------------- | -------------------------------------------------------------- | ----- |
+| `run`                   | `static <T>(payload, fn): T`                                   |       |
+| `get`                   | `static (): RequestContextPayload \| undefined`                |       |
+| `getRequestId`          | `static (): string \| undefined`                               |       |
+| `getUser` / `getUserId` | `static (): unknown / string \| null`                          |       |
+| `getContext<T>`         | `static (): T \| undefined`                                    |       |
+| `getScope`              | `static (): IScope \| undefined` (scope refermé → `undefined`) |       |
+| `requireScope`          | `static (): IScope` — lève en nommant la cause                 |       |
+| `set<K>`                | `static (key, value): void` (no-op hors scope)                 |       |
+| `isProfiling`           | `static (): boolean`                                           |       |
+| `pushQuery`             | `static (query): void` (no-op si !profiling → 0 coût prod)     |       |
 
 ### `nodefonyError`
 
-`Error.ts:167` — `class nodefonyError extends Error` (= `globalThis.Error`, mais **exporté sous le nom `nodefonyError`** —
-l'ancien export `Error` a été renommé, cassant). Ctor `(message?: string | Error, code?: number)` `:182`. Champ
-`code: number | null` `:168`, `errorType` auto-détecté, `toJSON()` filtré (exclut les réfs circulaires/secrets).
+`Error.ts#nodefonyError` — `class nodefonyError extends Error` (= `globalThis.Error`, mais **exporté sous le nom `nodefonyError`** —
+l'ancien export `Error` a été renommé, cassant). Ctor `(message?: string | Error, code?: number)` `Error.ts#nodefonyError.error`. Champ
+`code: number | null`, `errorType` auto-détecté, `toJSON()` filtré (exclut les réfs circulaires/secrets).
 
 ---
 
@@ -648,7 +648,7 @@ l'ancien export `Error` a été renommé, cassant). Ctor `(message?: string | Er
 
 ### Algo DI (résolution + scopes)
 
-`Injector.instantiate(Ctor, ...args)` → `_instantiateWithStack(Ctor, [], args)` `:156`. Par arbre d'appel :
+`Injector.instantiate(Ctor, ...args)` → `_instantiateWithStack(Ctor, [], args)`. Par arbre d'appel :
 
 1. **Détection de cycle** : `if (stack.includes(Ctor.name)) throw "Circular dependency detected: A → B → A"`. `nextStack = [...stack, name]`
    — **copie par valeur** (jamais de mutation du parent) → async-safe.
@@ -656,9 +656,9 @@ l'ancien export `Error` a été renommé, cassant). Ctor `(message?: string | Er
    `design:paramtypes` (émis par TS si `emitDecoratorMetadata`). Si aucune → `Reflect.construct(Ctor, args)` (rétro-compat) puis property injection.
 3. Pour chaque position `i` : `@inject[i]` défini → `_resolveWithStack(name)` ; sinon `paramTypes[i].name` enregistré → auto-injection
    par type ; sinon → arg explicite `argsClass[explicitIdx++]`. Args restants appendés.
-4. `_applyPropertyInjection` `:125` : lit `inject:properties` sur le **prototype** → set les props post-construction.
+4. `_applyPropertyInjection` : lit `inject:properties` sur le **prototype** → set les props post-construction.
 
-`_resolveWithStack(name, args, stack)` `:93` : si `@injectable` → `scope==="transient"` → toujours `new` ; `"singleton"` →
+`_resolveWithStack(name, args, stack)` : si `@injectable` → `scope==="transient"` → toujours `new` ; `"singleton"` →
 **court-circuit** `kernel.get(name)` si présent (= le cache singleton), sinon `new`. Si non-`@injectable` → fallback `kernel.get(name)`,
 sinon throw. `"request"` → `_resolveRequestScoped` : refus d'un détenteur singleton, scope lu par
 `RequestContext.requireScope()`, lecture sur les propriétés PROPRES du scope, création paresseuse
@@ -678,14 +678,14 @@ onInit (ctor) → onPreStart → onStart → onPreRegister → [applyModuleConfi
   `loadModulesFromManifest` — plus de décorateur `@modules`).
 - Flags posés APRÈS leur hook : `preRegistered`(onPreRegister) `registered`(onRegister) `booted`(onBoot) `ready`/`postReady`(onReady).
 - ⚠️ **`booted=true` PRÉCÈDE `captureBootServers()`** (qui tourne dans `onReady`→`initServers`) → `booted:true` ≠ « serveurs prêts ».
-- Hooks de module via `setEvents()` `:185` : `onKernelRegister`→`once("onRegister")`, `onKernelBoot`→`once("onBoot")`,
+- Hooks de module via `setEvents()` : `onKernelRegister`→`once("onRegister")`, `onKernelBoot`→`once("onBoot")`,
   `onKernelReady`→`once("onReady")`, + `prependOnceListener("onPreBoot")` (charge le `package.json`). Chaque listener est **taggé**
   `(owner, critical)` via `tagListener` (lu par `fireLifecycle`).
-- Fin de cycle : `finishOrPark(code)` `:852` → `park()` (daemon long-running sans serveur) ou `terminate()` (one-shot).
+- Fin de cycle : `finishOrPark(code)` → `park()` (daemon long-running sans serveur) ou `terminate()` (one-shot).
 
 ### `applyModuleConfigOverrides`
 
-`Kernel.applyModuleConfigOverrides()` `:1086` boucle sur `this.modules` et appelle `readOverrideModuleConfig()` sur chacun.
+`Kernel.applyModuleConfigOverrides()` boucle sur `this.modules` et appelle `readOverrideModuleConfig()` sur chacun.
 **Pourquoi centralisé** : avant, l'override `Module-<name>` était appliqué à `onPreBoot` (bitmask 32), donc APRÈS la validation
 Zod des modules (`onRegister`, bitmask 16) → silencieusement ignoré pour un module qui fige sa config tôt. Il est désormais
 exécuté **ENTRE `onPreRegister` et `onRegister`** (tous les modules enregistrés, validation pas encore faite). Un listener
@@ -695,21 +695,21 @@ ajouté PENDANT le fire `onPreRegister` ne serait jamais rappelé → d'où l'ap
 
 Séparation stricte (réutilisable, testable) :
 
-- **`Event.emitAsyncGuarded`** `Event.ts:302` = mécanique PURE : série + try/catch + timeout/warnMs par listener, retourne
+- **`Event.emitAsyncGuarded`** `Event.ts#Event.emitAsyncGuarded` = mécanique PURE : série + try/catch + timeout/warnMs par listener, retourne
   `{results, errors, stopped}`. Ne décide d'AUCUNE politique (ni log, ni criticité) — l'appelant tranche via les callbacks
   `onListenerError` (retour `true` = stoppe la chaîne) / `onListenerSlow`.
-- **`Kernel.fireLifecycle`** `Kernel.ts:3778` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
+- **`Kernel.fireLifecycle`** `Kernel.ts#Kernel.fireLifecycle` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
   lit les tags `(owner, critical)` du listener (`readListenerTags` — déballe le wrapper `once` via `.listener`), et applique
   `isBootErrorFatal` : `critical && prod` → fatal (throw, le reste ne boote pas) ; sinon fail-soft + WARNING.
 - `Service` **COMPOSE** `Event` (`this.nc`), ne l'étend pas → toute nouvelle méthode event = ajout à `Event` **ET** re-export
-  délégué dans `Service` (cf `Service.emitAsyncGuarded` `:296`). Le hot path HTTP/WS garde `emitAsync` **nu** (0 timer/alloc/requête).
+  délégué dans `Service` (cf `Service.emitAsyncGuarded`). Le hot path HTTP/WS garde `emitAsync` **nu** (0 timer/alloc/requête).
 
 ### Propagation ALS
 
 `RequestContext.run(payload, fn)` ouvre un scope ; tout `await` dans `fn` voit `payload`. La lecture (`get`/`getRequestId`…)
 est O(1). **Piège** : un listener EventEmitter attaché DANS la bulle mais qui fire plus tard (message/close/finish, timer,
 hook post-réponse) ne voit PLUS l'ALS → l'envelopper dans `AsyncResource.bind()` au moment du bind. Le `requestId` arrive dans
-chaque `Pdu` via `Pdu.requestIdProvider` (branché Node-only dans `index.ts:381-384`) ; côté navigateur le provider reste `null`
+chaque `Pdu` via `Pdu.requestIdProvider` (branché Node-only dans `index.ts#useNodefonyAdaptiveChannel`) ; côté navigateur le provider reste `null`
 (0 lecture, 0 alloc). Une corrélation qui doit survivre au teardown ALS → la porter sur un objet explicite (`context`), pas l'ALS.
 
 ---
@@ -751,9 +751,9 @@ chaque `Pdu` via `Pdu.requestIdProvider` (branché Node-only dans `index.ts:381-
 
 Les deux symboles **EXISTENT** (le faux négatif d'un audit antérieur venait d'un `grep` cassé qui renvoyait un fantôme `n()`) :
 
-- **`FileClass.from()`** — `static async from(...)` à `FileClass.ts:116`. Fabrique **asynchrone** (I/O non bloquante via
-  `stat()` `:130`), à utiliser dans tout pipeline ; le constructeur `new FileClass()` `:89` reste **synchrone** (`lstatSync`).
-- **`getFileAsync()`** — `async getFileAsync(file): Promise<FileClass>` à **`@nodefony/framework` `Controller.ts:739`** (délègue à
-  `FileClass.from`). Son jumeau **synchrone `getFile()` `:756` est `@deprecated`** (« Bloque l'event-loop via `fs.lstatSync` »).
-  Interface miroir : `IController.ts:65-68` (`getFile` deprecated + `getFileAsync`). ⚠️ `getFileAsync` vit dans `framework`,
+- **`FileClass.from()`** — `static async from(...)` à `FileClass.ts#FileClass.from`. Fabrique **asynchrone** (I/O non bloquante via
+  `stat()` `FileClass.ts#FileClass.stat`), à utiliser dans tout pipeline ; le constructeur `new FileClass()` `FileClass.ts#FileClass.constructor` reste **synchrone** (`lstatSync`).
+- **`getFileAsync()`** — `async getFileAsync(file): Promise<FileClass>` à **`@nodefony/framework` `Controller.ts#Controller.addFlash`** (délègue à
+  `FileClass.from`). Son jumeau **synchrone `getFile()` `Controller.ts#Controller.getFile` est `@deprecated`** (« Bloque l'event-loop via `fs.lstatSync` »).
+  Interface miroir : `IController.ts#IController` (`getFile` deprecated + `getFileAsync`). ⚠️ `getFileAsync` vit dans `framework`,
   pas dans le core — mais le verdict demandé est : **il existe bien** (pas de méthode nommée `n`).

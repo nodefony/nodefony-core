@@ -30,8 +30,8 @@ source: "src/packages/@nodefony/security/docs/audit.md"
 > Chaque fois qu'une **décision de sécurité** est prise — un login réussit, un accès est refusé, une
 > clé d'API est révoquée, un jeton volé resurgit — Nodefony écrit une ligne dans un journal
 > **append-only** : qui, quoi, quand, d'où, avec quel verdict. Pas le trafic (ça, c'est le log HTTP) :
-> les **transitions d'état**. Ancré sur `AuditService` (`auditService.ts:51`), le contrat
-> `IAuditEvent` (`IAuditEvent.ts:61`) et les stores de `nodefony/src/audit/`.
+> les **transitions d'état**. Ancré sur `AuditService` (`auditService.ts#AuditService.#store`), le contrat
+> `IAuditEvent` (`IAuditEvent.ts#IAuditEvent`) et les stores de `nodefony/src/audit/`.
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Journal d'audit**
 
@@ -70,7 +70,7 @@ flowchart LR
   API --> UI["Studio — Journal d'audit"]
 ```
 
-`AuditService.record()` (`auditService.ts:187`) est le point de passage unique : il pose l'identité et
+`AuditService.record()` (`auditService.ts#AuditService.record`) est le point de passage unique : il pose l'identité et
 l'horodatage, écrit **sans attendre**, et notifie les abonnés live. Tout le reste — stores, pont WS,
 webhooks, console — se branche autour de lui.
 
@@ -118,24 +118,24 @@ Trois partis pris, tous vérifiables dans le code.
 
 **1. Le journal trace les transitions, jamais le trafic.** Le succès nominal est **muet** : une
 requête authentifiée qui passe n'écrit rien. Prouvé par les tests « SUCCÈS authentifié → AUCUNE
-émission » (`auditEmissionHotPath.test.ts:229`) et « SUCCÈS anonyme EXPLICITE → AUCUNE émission »
-(`auditEmissionHotPath.test.ts:243`). Conséquence directe : ce que tu lis dans le journal **est** un
+émission » (`auditEmissionHotPath.test.ts`) et « SUCCÈS anonyme EXPLICITE → AUCUNE émission »
+(`auditEmissionHotPath.test.ts`). Conséquence directe : ce que tu lis dans le journal **est** un
 signal, pas du bruit à filtrer.
 
 **2. L'audit ne peut jamais casser le métier.** `record()` est synchrone, sans `await`, et l'écriture
-part en fire-and-forget avec un `.catch()` qui se contente de logger (`auditService.ts:199`). Un
+part en fire-and-forget avec un `.catch()` qui se contente de logger (`auditService.ts#AuditService.record`). Un
 store en panne dégrade la traçabilité, il ne renvoie pas 500 à l'utilisateur.
 
 **3. Le store est pluggable, jamais câblé en dur.** Le service résout un **nom** via un registre
-(`getAuditStoreFactory()`, `auditStoreRegistry.ts:48`) ; le socle n'embarque que le builtin mémoire,
-posé par `registerAuditStore("memory")` à l'import (`auditStoreRegistry.ts:64`), et les backends
+(`getAuditStoreFactory()`, `auditStoreRegistry.ts#getAuditStoreFactory`) ; le socle n'embarque que le builtin mémoire,
+posé par `registerAuditStore("memory")` à l'import (`auditStoreRegistry.ts#registerAuditStore`), et les backends
 lourds s'enregistrent depuis **leur** module. Un
 `if (name === "drizzle")` dans le service trahirait la promesse.
 
 ## 🚀 Démarrage rapide
 
 Dans une app générée par `nodefony create app`, l'audit est **déjà actif** (`enabled: true` par
-défaut, `config.ts:758`) sur le store que résout `auto` : la base SQLite locale de l'application
+défaut, `config.ts#resourceServerSchema`) sur le store que résout `auto` : la base SQLite locale de l'application
 générée, la mémoire seulement si aucun ORM n'est chargé. Voici le parcours complet : configurer, émettre,
 relire.
 
@@ -155,11 +155,11 @@ use("@nodefony/security", {
 ```
 
 Rien d'autre à écrire : l'adapter `@nodefony/drizzle` déclare l'entité **et** la fabrique de store
-tout seul au démarrage (`registerStores.ts:241`).
+tout seul au démarrage (`registerStores.ts#registerMongooseFrameworkStores`).
 
 ### 2. Émettre un événement depuis ton code
 
-`recordAudit()` (`recordAudit.ts:15`) est exporté par le module. Il est **no-op** si l'audit est
+`recordAudit()` (`recordAudit.ts#recordAudit`) est exporté par le module. Il est **no-op** si l'audit est
 absent ou désactivé — tu peux l'appeler sans garde.
 
 ```typescript
@@ -197,7 +197,7 @@ export default ExportController;
 ```
 
 > [!IMPORTANT]
-> `category` est une **union fermée** de sous-systèmes de sécurité (`IAuditEvent.ts:71`) : il n'existe
+> `category` est une **union fermée** de sous-systèmes de sécurité (`IAuditEvent.ts#IAuditEvent.category`) : il n'existe
 > pas de catégorie « métier ». C'est volontaire — ce journal est celui de la sécurité. Range ton
 > événement dans la catégorie de sécurité qu'il concerne (ici `authz` : un accès privilégié à des
 > données) et laisse `action` porter le vocabulaire métier.
@@ -205,7 +205,7 @@ export default ExportController;
 ### 3. Relire le journal
 
 Le data plane d'admin sert une **page filtrée**, réservée à `ROLE_NODEFONY_ADMIN`
-(`SecurityAdminApi.ts:331`) :
+(`SecurityAdminApi.ts#createSecurityAdminApi`) :
 
 ```bash
 # Les échecs d'authentification d'un compte, sur une fenêtre donnée
@@ -255,7 +255,7 @@ et ratées, sur une fenêtre précise.
 
 Aucune configuration : les événements d'authentification sont émis par défaut. Il suffit de filtrer.
 Les critères se **combinent en ET** et sont traduits par `parseAuditQuery()`
-(`SecurityAdminApi.ts:184`) :
+(`SecurityAdminApi.ts#parseAuditQuery`) :
 
 | Paramètre   | Effet                                           | Exemple                     |
 | ----------- | ----------------------------------------------- | --------------------------- |
@@ -283,7 +283,7 @@ si le backoff NIST s'est déclenché — la signature d'une attaque par essais r
 Un auditeur demande la preuve que le contrôle d'accès n'est pas décoratif.
 
 Le jury d'autorisation journalise **tout refus** et **seulement** les refus, par un appel à
-`recordAudit()` (`authorization.ts:130`) : les octrois restent muets, parce qu'un octroi est du
+`recordAudit()` (`authorization.ts#Authorization.#auditDeny`) : les octrois restent muets, parce qu'un octroi est du
 volume, pas un signal.
 
 ```bash
@@ -313,17 +313,17 @@ use("@nodefony/security", {
 ```
 
 Ce que ça déclenche : le service arme un `GcScheduler` de purge **toutes les heures**
-(`auditService.ts:159`, intervalle `GC_INTERVAL_MS` — `auditService.ts:34`), avec gigue
+(`auditService.ts#AuditService.#build`, intervalle `GC_INTERVAL_MS` — `auditService.ts#GC_INTERVAL_MS`), avec gigue
 anti-avalanche en cluster. Chaque
 tour appelle la purge du contrat — `gc()`, voisin de `listPage()` dans le même contrat
-(`IAuditStore.ts:59`) — qui supprime les événements plus vieux que la fenêtre : un `DELETE` par seuil
-côté SQL (`DrizzleAuditStore.ts:256`), un défilement de file tant que l'événement de tête dépasse le
-`threshold` côté mémoire (`MemoryAuditStore.ts:133`).
+(`IAuditStore.ts#IAuditStore.listPage`) — qui supprime les événements plus vieux que la fenêtre : un `DELETE` par seuil
+côté SQL (`DrizzleAuditStore.ts#DrizzleAuditStore.gc`), un défilement de file tant que l'événement de tête dépasse le
+`threshold` côté mémoire (`MemoryAuditStore.ts#MemoryAuditStore.gc`).
 
 Ce qu'on observe dans les logs : `audit gc — 1284 événement(s) purgé(s)` en niveau DEBUG.
 
 Le store mémoire porte une **seconde** protection, indépendante du temps : un plafond de
-**10 000 entrées** en FIFO (`MemoryAuditStore.ts:10`, appliqué à `MemoryAuditStore.ts:59`). Ce n'est
+**10 000 entrées** en FIFO (`MemoryAuditStore.ts#DEFAULT_MAX_ENTRIES`, appliqué à `MemoryAuditStore.ts#MemoryAuditStore.append`). Ce n'est
 pas une politique de rétention, c'est un garde-fou anti-fuite : la mémoire d'un pod est bornée quoi
 qu'il arrive.
 
@@ -332,26 +332,26 @@ qu'il arrive.
 La base est indisponible pendant trente secondes. Que se passe-t-il ?
 
 Le choix de Nodefony est explicite : **le métier passe avant la trace**. L'écriture part en
-fire-and-forget — `append()` sans `await`, échec absorbé en log ERROR (`auditService.ts:199`) ; côté SQL, si l'ORM n'est
-pas connecté, `append()` est un no-op assumé (`DrizzleAuditStore.ts:152`). Un login n'échoue jamais
+fire-and-forget — `append()` sans `await`, échec absorbé en log ERROR (`auditService.ts#AuditService.record`) ; côté SQL, si l'ORM n'est
+pas connecté, `append()` est un no-op assumé (`DrizzleAuditStore.ts#DrizzleAuditStore.append`). Un login n'échoue jamais
 parce que le journal est cassé.
 
 > [!WARNING]
 > Le corollaire est une **perte possible d'événements** pendant une panne du store. Le contrat est
 > best-effort, pas transactionnel : il n'existe pas de tampon de reprise ni de journal d'écriture
 > anticipée. Si ta conformité exige « aucune action sans trace », il faut un store à haute
-> disponibilité — le contrat `IAuditStore` (`IAuditStore.ts:48`) est le point d'extension pour ça.
+> disponibilité — le contrat `IAuditStore` (`IAuditStore.ts#IAuditStore`) est le point d'extension pour ça.
 
 Deux garde-fous limitent la casse au démarrage : un store **explicitement** configuré mais inconnu
-**avorte le boot en production** (`auditService.ts:115`), et un store `memory` en production déclenche
+**avorte le boot en production** (`auditService.ts#AuditService.#build`), et un store `memory` en production déclenche
 un `WARNING` nommant précisément le risque — volatil, per-pod, rétention réglementaire impossible
-(`auditService.ts:128`).
+(`auditService.ts#AuditService.#build`).
 
 ## 🔐 Le catalogue des événements audités
 
-Deux axes de classement. La **catégorie** est une union **fermée** (`IAuditEvent.ts:24`) : c'est
+Deux axes de classement. La **catégorie** est une union **fermée** (`IAuditEvent.ts#AuditCategory`) : c'est
 l'axe de filtrage principal de la console. L'**action** est une chaîne **ouverte**
-(`IAuditEvent.ts:74`) : la liste grandit sans jamais casser le contrat.
+(`IAuditEvent.ts#IAuditEvent.action`) : la liste grandit sans jamais casser le contrat.
 
 ### Vue d'ensemble — choisir son filtre en cinq secondes
 
@@ -375,7 +375,7 @@ l'importer (`@nodefony/user`, `@nodefony/framework`) : `tests/unit/auditCategory
 relit les sources de tous les paquets et refuse un littéral hors contrat. Un filtre sur les
 catégories déclarées voit donc tout le journal.
 
-Les trois issues possibles (`IAuditEvent.ts:43`) ne sont pas interchangeables : `failure` = **l'acteur
+Les trois issues possibles (`IAuditEvent.ts#AuditOutcome`) ne sont pas interchangeables : `failure` = **l'acteur
 a échoué une preuve** (mauvais mot de passe, signature invalide) ; `denied` = **une politique a
 refusé** un acteur pourtant bien formé (Zero Trust, rôle manquant) ; `success` = l'action a abouti.
 Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non autorisé.
@@ -383,80 +383,80 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 ### `auth` — la chaîne d'authentification
 
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
-(`firewall.ts:989`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
+(`firewall.ts#Firewall.#recordAuth`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
-- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:819`) ;
-- `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:808`) ;
+- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts#Firewall.isSecure`) ;
+- `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts#Firewall.isSecure`) ;
 - `auth.unverifiable` — le vérificateur de jetons est indisponible : réponse 503, sans défi
-  (`firewall.ts:813`) ;
+  (`firewall.ts#Firewall.isSecure`) ;
 - `auth.denied` / `no_credentials` — Zero Trust : rien n'a été présenté sur une zone protégée
-  (`firewall.ts:823`) ;
-- `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:851`).
+  (`firewall.ts#Firewall.handleSecurity`) ;
+- `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts#Firewall.handleSecurity`).
 
 Le parcours de login BFF émet en parallèle son propre vocabulaire depuis `AuthFlow` :
-`login.failure` sur identité inconnue (`authFlow.ts:125`) ou mot de passe faux (`authFlow.ts:153`),
-`login.throttled` (`authFlow.ts:139`), `login.mfa_required` quand un second facteur est réclamé
-(`authFlow.ts:175`), et `login.success` après la preuve complète (`authFlow.ts:191`,
-`authFlow.ts:232`).
+`login.failure` sur identité inconnue (`authFlow.ts#AuthFlow.#loginPage`) ou mot de passe faux (`authFlow.ts#AuthFlow.login`),
+`login.throttled` (`authFlow.ts#AuthFlow.login`), `login.mfa_required` quand un second facteur est réclamé
+(`authFlow.ts#AuthFlow.login`), et `login.success` après la preuve complète (`authFlow.ts#AuthFlow.login`,
+`authFlow.ts#AuthFlow.login`).
 
 ### `authz` — le refus d'autorisation
 
 Un seul événement, mais c'est le plus parlant : `access.denied`, émis par le jury de voters
-(`authorization.ts:130`). `resource` porte l'attribut refusé, `reason` le motif de la décision.
+(`authorization.ts#Authorization.#auditDeny`). `resource` porte l'attribut refusé, `reason` le motif de la décision.
 
 ### `token` — la vie et la mort des jetons longue durée
 
 - `token.issued` — un couple access/refresh vient d'être émis, donc une surface d'attaque vient
-  d'être créée ; les `scopes` et l'identifiant du jeton partent en `metadata` (`tokenService.ts:539`) ;
+  d'être créée ; les `scopes` et l'identifiant du jeton partent en `metadata` (`tokenService.ts#TokenService.#grantableScopes`) ;
 - `token.reuse_detected` — **le signal d'attaque le plus fort du journal** : un refresh déjà révoqué
   a été re-présenté, donc quelqu'un détient un jeton volé. Toute la famille est coupée
-  (`tokenService.ts:604`, RFC 9700 §4.14) ;
-- `apikey.created` / `apikey.revoked` — cycle de vie des clés d'API (`apiKeys.ts:180`,
-  `apiKeys.ts:239`).
+  (`tokenService.ts#TokenService.issueTokens`, RFC 9700 §4.14) ;
+- `apikey.created` / `apikey.revoked` — cycle de vie des clés d'API (`apiKeys.ts#ApiKeyService.createForSubject`,
+  `apiKeys.ts#ApiKeyService.listPagePat`).
 
 ### `ws` — le verrou de frame WebSocket
 
-`frame.denied` est émis par le rapporteur branché sur le verrou de frame (`firewall.ts:308`) quand une
+`frame.denied` est émis par le rapporteur branché sur le verrou de frame (`firewall.ts#Firewall.#wireRealtime`) quand une
 socket tente un `api.request` vers une zone protégée ou s'abonne à un canal interdit. La frame ne
 porte ni IP ni `requestId` — acteur et cible suffisent.
 
 ### `webhook` — les mutations d'endpoints et la mort d'un endpoint
 
-Les mutations d'admin sont tracées une par une (`WebhookAdminApi.ts:305` à `WebhookAdminApi.ts:509`),
+Les mutations d'admin sont tracées une par une (`WebhookAdminApi.ts#webhookAdminEndpoints` à `WebhookAdminApi.ts#webhookAdminEndpoints`),
 y compris `webhook.revealed` : révéler un secret en clair est une action à auditer. L'auto-désactivation
 après échecs répétés émet **un seul** événement `webhook.disabled` par endpoint qui meurt, jamais un par
-échec (`webhooks.ts:587`).
+échec (`webhooks.ts#WebhookService.delete`).
 
 ### `config` et Studio — les actions d'admin
 
-Les producteurs d'admin passent par `auditAdmin()` (`adminAudit.ts:37`), qui lit le sink
-défensivement, et par `adminActor()` (`adminAudit.ts:19`) pour dériver un libellé d'identité stable
+Les producteurs d'admin passent par `auditAdmin()` (`adminAudit.ts#auditAdmin`), qui lit le sink
+défensivement, et par `adminActor()` (`adminAudit.ts#adminActor`) pour dériver un libellé d'identité stable
 depuis l'utilisateur de la requête — avec repli `"admin"`, jamais une décision d'autorisation.
 
 ## 🧰 Le contrat d'une entrée
 
-Un événement est un objet **sérialisable JSON** (`IAuditEvent.ts:61`). L'émetteur ne fournit qu'un
-brouillon `IAuditEventDraft` (`IAuditEvent.ts:113`) : `id` et `ts` sont posés par le service, ce qui
+Un événement est un objet **sérialisable JSON** (`IAuditEvent.ts#IAuditEvent`). L'émetteur ne fournit qu'un
+brouillon `IAuditEventDraft` (`IAuditEvent.ts#IAuditEventDraft`) : `id` et `ts` sont posés par le service, ce qui
 garantit un seul appel d'horloge, centralisé hors des points d'émission.
 
-| Champ       | Type                       | Posé par | Rôle                                                         |
-| ----------- | -------------------------- | -------- | ------------------------------------------------------------ |
-| `id`        | `string`                   | service  | unique dans le process ; sert aussi de composante de curseur |
-| `ts`        | `number` (epoch ms)        | service  | horodatage (`auditService.ts:195`)                           |
-| `category`  | `AuditCategory`            | émetteur | sous-système — union fermée                                  |
-| `action`    | `string`                   | émetteur | le fait, `<sujet>.<verbe>` — chaîne ouverte                  |
-| `outcome`   | `success\|failure\|denied` | émetteur | le verdict                                                   |
-| `actor`     | `string \| null`           | émetteur | libellé d'identité, `null` si anonyme (`IAuditEvent.ts:82`)  |
-| `resource`  | `string \| null`           | émetteur | zone, route, canal, attribut — descripteur **léger**         |
-| `reason`    | `string \| null`           | émetteur | motif **machine** filtrable, pas un message traduit          |
-| `ip`        | `string \| null`           | contexte | provenance réseau                                            |
-| `userAgent` | `string \| null`           | contexte | provenance client                                            |
-| `requestId` | `string \| null`           | contexte | corrélation log ↔ audit ↔ trace                              |
-| `flags`     | `IAuditEventFlags`         | contexte | **présence** de matériel sensible, jamais la valeur          |
-| `metadata`  | `Record<string, unknown>`  | émetteur | extras applicatifs libres, absents par défaut                |
+| Champ       | Type                       | Posé par | Rôle                                                                       |
+| ----------- | -------------------------- | -------- | -------------------------------------------------------------------------- |
+| `id`        | `string`                   | service  | unique dans le process ; sert aussi de composante de curseur               |
+| `ts`        | `number` (epoch ms)        | service  | horodatage (`auditService.ts#AuditService.record`)                         |
+| `category`  | `AuditCategory`            | émetteur | sous-système — union fermée                                                |
+| `action`    | `string`                   | émetteur | le fait, `<sujet>.<verbe>` — chaîne ouverte                                |
+| `outcome`   | `success\|failure\|denied` | émetteur | le verdict                                                                 |
+| `actor`     | `string \| null`           | émetteur | libellé d'identité, `null` si anonyme (`IAuditEvent.ts#IAuditEvent.actor`) |
+| `resource`  | `string \| null`           | émetteur | zone, route, canal, attribut — descripteur **léger**                       |
+| `reason`    | `string \| null`           | émetteur | motif **machine** filtrable, pas un message traduit                        |
+| `ip`        | `string \| null`           | contexte | provenance réseau                                                          |
+| `userAgent` | `string \| null`           | contexte | provenance client                                                          |
+| `requestId` | `string \| null`           | contexte | corrélation log ↔ audit ↔ trace                                            |
+| `flags`     | `IAuditEventFlags`         | contexte | **présence** de matériel sensible, jamais la valeur                        |
+| `metadata`  | `Record<string, unknown>`  | émetteur | extras applicatifs libres, absents par défaut                              |
 
 Les quatre derniers champs de provenance sont remplis d'un coup par `readAuditContext()`
-(`readAuditContext.ts:33`), qui lit un contexte HTTP ou WS de façon défensive — tous les champs sont
+(`readAuditContext.ts#readAuditContext`), qui lit un contexte HTTP ou WS de façon défensive — tous les champs sont
 optionnels, un contexte partiel ne casse rien.
 
 ## ⚡ Performance & mémoire — pourquoi l'audit ne pèse pas sur la requête
@@ -466,33 +466,33 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:989`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:379`).
-Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:333`).
+(`firewall.ts#Firewall.#recordAuth`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts#Firewall.#wireRealtime`).
+Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
-avant tout appel d'horloge si le service est inactif (`auditService.ts:187`). Aucun objet créé,
+avant tout appel d'horloge si le service est inactif (`auditService.ts#AuditService.record`). Aucun objet créé,
 aucun appel d'horloge. Prouvé par le banc « audit désactivé → `issueTokens` n'est pas journalisé »
-(`auditEmissionHotPath.test.ts:499`).
+(`auditEmissionHotPath.test.ts`).
 
 **3. L'écriture ne bloque pas.** `append()` part sans `await`, avec un `.catch()` qui logge
-(`auditService.ts:199`). La latence du store n'entre jamais dans la latence de la requête.
+(`auditService.ts#AuditService.record`). La latence du store n'entre jamais dans la latence de la requête.
 
 **4. Tout ce qui n'est pas utilisé n'est pas alloué.** La liste d'abonnés live reste `null` tant que
-personne n'écoute et **redevient** `null` au dernier désabonnement (`auditService.ts:228`). Le pont
+personne n'écoute et **redevient** `null` au dernier désabonnement (`auditService.ts#AuditService.subscribe`). Le pont
 WS n'existe qu'entre le premier et le dernier auditeur connecté, et son tampon circulaire n'est
-alloué qu'au premier événement reçu (`auditBridge.ts:62`) ; son minuteur est armé à la demande et
-`unref` (`auditBridge.ts:93`).
+alloué qu'au premier événement reçu (`auditBridge.ts#createAuditBridge`) ; son minuteur est armé à la demande et
+`unref` (`auditBridge.ts#createAuditBridge`).
 
 Le pont applique en plus un **coalescing borné** : au plus une frame WS toutes les 250 ms
-(`auditBridge.ts:59`), tampon plafonné à 200 événements (`auditBridge.ts:60`). Sous une rafale
+(`auditBridge.ts#createAuditBridge`), tampon plafonné à 200 événements (`auditBridge.ts#createAuditBridge`). Sous une rafale
 d'échecs de login, le tampon écrase les plus anciens et compte les omis dans `dropped`
-(`auditBridge.ts:86`) — la console affiche un récapitulatif au lieu de se figer. Superviser ne doit
+(`auditBridge.ts#IAuditBatch.dropped`) — la console affiche un récapitulatif au lieu de se figer. Superviser ne doit
 jamais faire tomber ce qu'on supervise.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `auditSchema` (`config.ts:971`), rattaché à la racine sous la clé `audit`
-(`config.ts:1518`).
+Table dérivée du schéma Zod `auditSchema` (`config.ts#auditSchema`), rattaché à la racine sous la clé `audit`
+(`config.ts#securityConfigSchema`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
@@ -505,20 +505,20 @@ Table dérivée du schéma Zod `auditSchema` (`config.ts:971`), rattaché à la 
 > [!WARNING]
 > `immutable` et `stream` sont déclarés dans le schéma mais **ne sont lus par aucun code** aujourd'hui.
 > Les mettre à `false` ne change rien. L'immuabilité vient du **contrat** `IAuditStore`, qui n'expose
-> ni `update` ni `delete` ciblé (`IAuditStore.ts:48`) ; la diffusion live est gouvernée par la
-> **présence d'abonnés** — la liste `#listeners` du service (`auditService.ts:55`).
+> ni `update` ni `delete` ciblé (`IAuditStore.ts#IAuditStore`) ; la diffusion live est gouvernée par la
+> **présence d'abonnés** — la liste `#listeners` du service (`auditService.ts#AuditService.#listeners`).
 
 ### Comment `store: "auto"` décide
 
 Le défaut ne suppose rien : il **suit l'infrastructure déclarée**, borné aux backends réellement
-enregistrés (`auditService.ts:96`, logique `resolveAutoStore()` dans `infra.ts:330`).
+enregistrés (`auditService.ts#AuditService.#build`, logique `resolveAutoStore()` dans `infra.ts#resolveAutoStore`).
 
 1. `NF_STORE` posée et le backend est enregistré pour l'audit → il gagne (levier de banc de charge) ;
 2. sinon, une base est déclarée (`NF_DATABASE_URL`) → `drizzle`, ou `mongoose` selon la famille ;
 3. sinon, un backend local persistant réellement chargé (`drizzle` = SQLite, puis `mongoose`) ;
 4. sinon, repli **annoncé** sur `memory` (volatil) — la décision est loggée en INFO, jamais silencieuse.
 
-La résolution finale est publiée au kernel (`auditService.ts:145`), ce qui alimente l'écran des stores
+La résolution finale est publiée au kernel (`auditService.ts#AuditService.#build`), ce qui alimente l'écran des stores
 de Studio : configuré, résolu, disponible, motif, emplacement physique.
 
 ## 🏗️ Architecture interne
@@ -542,39 +542,39 @@ sequenceDiagram
 
 Quatre pièces, quatre responsabilités :
 
-- **`recordAudit()`** (`recordAudit.ts:15`) — le point d'émission côté appelant. Une résolution par le
+- **`recordAudit()`** (`recordAudit.ts#recordAudit`) — le point d'émission côté appelant. Une résolution par le
   container, sur le cold-path uniquement. C'est ce qui rend l'audit **découplé** : module absent →
   aucun effet, jamais d'exception qui remonterait dans le flux métier.
-- **`AuditService`** (`auditService.ts:51`) — le propriétaire. Il construit le store au boot, le pose
-  au container sous le nom `auditStore` (`auditService.ts:144`), arme la purge, et implémente
-  `IAuditSink` (`IAuditStore.ts:77`).
-- **`IAuditStore`** (`IAuditStore.ts:48`) — le contrat de persistance : `append`, `listPage`, `gc`.
+- **`AuditService`** (`auditService.ts#AuditService.#store`) — le propriétaire. Il construit le store au boot, le pose
+  au container sous le nom `auditStore` (`auditService.ts#AuditService.#build`), arme la purge, et implémente
+  `IAuditSink` (`IAuditStore.ts#IAuditSink`).
+- **`IAuditStore`** (`IAuditStore.ts#IAuditStore`) — le contrat de persistance : `append`, `listPage`, `gc`.
   **`append` est la seule écriture** : ni `update`, ni `delete` ciblé. L'immuabilité EST la garantie
   d'audit.
-- **`createAuditBridge()`** (`auditBridge.ts:53`) — le pont vers le canal WS `nodefony:audit`
-  (`auditBridge.ts:8`), enregistré comme canal **système** par le firewall (`firewall.ts:388`) et donc
-  gardé par le plancher `security:` → `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:106`).
+- **`createAuditBridge()`** (`auditBridge.ts#createAuditBridge`) — le pont vers le canal WS `nodefony:audit`
+  (`auditBridge.ts#SECURITY_AUDIT_CHANNEL`), enregistré comme canal **système** par le firewall (`firewall.ts#Firewall.#wireRealtime`) et donc
+  gardé par le plancher `security:` → `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts#DEFAULT_SYSTEM_PREFIXES`).
 
 ### La lecture paginée — pourquoi un curseur et pas un décalage
 
 Un journal reçoit des écritures **pendant** qu'on le parcourt. Un `OFFSET 200` glisserait d'une page
 à l'autre : on reverrait des événements déjà lus, on en manquerait d'autres. Le contrat impose donc le
-**curseur** (`IAuditStore.ts:22`).
+**curseur** (`IAuditStore.ts#IAuditListQuery`).
 
 Le curseur est **composite et auto-portant** : `<ts>:<id>`. Deux propriétés que les deux backends
 tiennent identiquement :
 
 - **ordre total** — l'horodatage porte la chronologie, l'identifiant départage les collisions à la
   milliseconde. Sans ce tri `desc(ts), desc(id)`, trois échecs de login de la même milliseconde
-  pourraient se répéter ou disparaître (`MemoryAuditStore.ts:83`, `DrizzleAuditStore.ts:197`) ;
+  pourraient se répéter ou disparaître (`MemoryAuditStore.ts#MemoryAuditStore.listPage`, `DrizzleAuditStore.ts#DrizzleAuditStore.listPage`) ;
 - **auto-portance** — le jeton contient tout ce qu'il faut pour se comparer, donc une page reste juste
-  même si l'événement qui l'a produite a été purgé entre-temps (`MemoryAuditStore.ts:115`,
-  `DrizzleAuditStore.ts:219`). Un curseur réduit à un identifiant nu aurait rembobiné en silence à la
+  même si l'événement qui l'a produite a été purgé entre-temps (`MemoryAuditStore.ts#MemoryAuditStore.#parseCursor`,
+  `DrizzleAuditStore.ts#DrizzleAuditStore.listPage`). Un curseur réduit à un identifiant nu aurait rembobiné en silence à la
   première page — et fait boucler la console.
 
 Le `total` est **refusable** (`withTotal: false`) : un `COUNT` filtré sur une rétention longue se
-paie (`IAuditStore.ts:59`). `hasNext` et `nextCursor` restent fiables dans les deux cas, grâce à une
-ligne de garde `limit + 1` (`DrizzleAuditStore.ts:225`).
+paie (`IAuditStore.ts#IAuditStore.listPage`). `hasNext` et `nextCursor` restent fiables dans les deux cas, grâce à une
+ligne de garde `limit + 1` (`DrizzleAuditStore.ts#DrizzleAuditStore.listPage`).
 
 ## Entité de persistance et dialectes pris en charge
 
@@ -599,9 +599,9 @@ garder tout ça en mémoire vive coûte cher pour un motif d'accès qui n'est pa
 
 ### La table `audit_event`
 
-L'entité est déclarée en spécification logique (`auditEventEntity.ts:37`), déclinée par dialecte via
+L'entité est déclarée en spécification logique (`auditEventEntity.ts#auditEventSchema`), déclinée par dialecte via
 le `colKit` — mêmes **noms** de colonnes partout, donc un store dialect-agnostique. La forme de ligne
-`AuditEventRow` (`auditEventEntity.ts:85`) est **identique** au contrat `IAuditEvent`, champ pour
+`AuditEventRow` (`auditEventEntity.ts#AuditEventRow`) est **identique** au contrat `IAuditEvent`, champ pour
 champ : aucun mapping surprise.
 
 | Colonne                                 | SQLite      | PostgreSQL | MySQL/MariaDB     | Note                       |
@@ -618,37 +618,37 @@ En MySQL, toute colonne texte **indexée** (ou clé primaire) devient `varchar(5
 pas indexer un `TEXT` sans longueur de préfixe. Même règle pour tout le framework, portée par le
 `colKit` — jamais par l'entité.
 
-Quatre index couvrent les axes de la console (`auditEventEntity.ts:61`) : `ts` pour la pagination
+Quatre index couvrent les axes de la console (`auditEventEntity.ts#AuditEventRow`) : `ts` pour la pagination
 chronologique, `category`, `actor` et `requestId` pour les filtres. Ils sont lus par `drizzle-kit`
 pour les migrations de production ; en dev et en test, le DDL dérivé les ignore — pure performance de
 filtrage, jamais de sémantique.
 
 L'entité et la fabrique sont enregistrées automatiquement par l'adapter au démarrage
-(`registerStores.ts:276`, entité via `registerAuditEntities()`, `auditEventEntity.ts:141`). Côté
-implémentation, `DrizzleAuditStore` (`DrizzleAuditStore.ts:64`) résout son handle de base **à chaque
+(`registerStores.ts#registerMongooseFrameworkStores`, entité via `registerAuditEntities()`, `auditEventEntity.ts#registerAuditEntities`). Côté
+implémentation, `DrizzleAuditStore` (`DrizzleAuditStore.ts#DrizzleAuditStore`) résout son handle de base **à chaque
 appel**, pas à la construction : l'ordre de démarrage n'est pas garanti, et l'ORM se déconnecte au
 `onTerminate` avant le drain des serveurs.
 
 ## 🔐 Sécurité — ce qui n'entre JAMAIS dans le journal
 
-La règle d'or est écrite en tête du contrat (`IAuditEvent.ts:8`) : **un secret n'entre jamais dans un
+La règle d'or est écrite en tête du contrat (`IAuditEvent.ts#AuditCategory`) : **un secret n'entre jamais dans un
 événement**. Ni mot de passe, ni jeton, ni cookie, ni corps de requête, ni en-têtes.
 
 Ce que le code garantit, concrètement :
 
 - **Le typage rend le secret difficile à faire entrer.** `actor` est documenté comme un _libellé
-  d'identité_ (`IAuditEvent.ts:82`) et `resource` comme un _descripteur léger_ — « jamais le corps ni
-  les en-têtes de la requête » (`IAuditEvent.ts:87`).
-- **La présence remplace la valeur.** `IAuditEventFlags` (`IAuditEvent.ts:53`) ne porte que deux
+  d'identité_ (`IAuditEvent.ts#IAuditEvent.actor`) et `resource` comme un _descripteur léger_ — « jamais le corps ni
+  les en-têtes de la requête » (`IAuditEvent.ts#IAuditEvent.resource`).
+- **La présence remplace la valeur.** `IAuditEventFlags` (`IAuditEvent.ts#IAuditEventFlags`) ne porte que deux
   booléens : un en-tête `Authorization` était-il là, un cookie était-il là. `readAuditContext()`
-  les calcule par un simple `Boolean(headers[…])` (`readAuditContext.ts:40`) — la valeur n'est jamais
+  les calcule par un simple `Boolean(headers[…])` (`readAuditContext.ts#readAuditContext`) — la valeur n'est jamais
   copiée.
 - **Les émetteurs journalisent l'identifiant public, pas le secret.** Une clé d'API émet son `id`
   public en `resource`, jamais le jeton. Prouvé explicitement : le test vérifie que la sérialisation
   complète de l'événement **ne contient pas** le secret créé
-  (`auditEmissionHotPath.test.ts:545`).
+  (`auditEmissionHotPath.test.ts`).
 - **Le motif reste machine.** `reason` est une valeur stable et filtrable, pas un message d'erreur
-  libre (`IAuditEvent.ts:92`) : c'est ce qui empêche une cause fine de fuir dans la trace… et qui
+  libre (`IAuditEvent.ts#IAuditEvent.reason`) : c'est ce qui empêche une cause fine de fuir dans la trace… et qui
   permet de la garder **côté audit** alors que le client, lui, reçoit un message d'échec uniforme
   (anti-énumération).
 
@@ -656,62 +656,62 @@ Deux autres propriétés de sécurité valent d'être connues :
 
 - **Pas d'événement fantôme.** Révoquer la clé d'API d'autrui n'émet **rien** : l'anti-énumération
   vaut aussi pour le journal, sinon le journal lui-même deviendrait un oracle
-  (`auditEmissionHotPath.test.ts:561`).
+  (`auditEmissionHotPath.test.ts`).
 - **Lecture réservée aux administrateurs.** L'endpoint est gardé `ROLE_NODEFONY_ADMIN`, le canal live
-  aussi via le plancher irréductible `security:` (`frameAuthorizer.ts:107`) — un utilisateur ordinaire
+  aussi via le plancher irréductible `security:` (`frameAuthorizer.ts#SECURITY_CHANNEL_POLICY`) — un utilisateur ordinaire
   qui tente de s'y abonner produit lui-même un `frame.denied`.
 
 ## 📜 Normes appliquées
 
-| Exigence                                  | Norme                             | Comment le code s'y conforme                                                      |
-| ----------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------- |
-| Journaliser les échecs d'authentification | OWASP Logging Cheat Sheet         | `auth.failure`/`auth.throttled`/`auth.denied` (`firewall.ts:711`)                 |
-| Journaliser les refus d'autorisation      | OWASP A09:2021                    | `access.denied` sur tout refus du jury (`authorization.ts:130`)                   |
-| Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts:49`)                                 |
-| Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts:61`) |
-| Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts:48`)                |
-| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:1000`)                      |
-| Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts:604`)               |
-| Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:947`)                   |
+| Exigence                                  | Norme                             | Comment le code s'y conforme                                                                 |
+| ----------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| Journaliser les échecs d'authentification | OWASP Logging Cheat Sheet         | `auth.failure`/`auth.throttled`/`auth.denied` (`firewall.ts#Firewall.describeRoleHierarchy`) |
+| Journaliser les refus d'autorisation      | OWASP A09:2021                    | `access.denied` sur tout refus du jury (`authorization.ts#Authorization.#auditDeny`)         |
+| Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts#AuditOutcome`)                                  |
+| Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts#IAuditEvent`)   |
+| Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts#IAuditStore`)                  |
+| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts#auditSchema`)                          |
+| Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts#TokenService.issueTokens`)     |
+| Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts#Firewall.handleSecurity`)          |
 
 ## 📡 Observabilité — Studio
 
-L'écran **Sécurité → Journal d'audit** (`/nodefony/audit`) (`Audit.tsx:62`) consomme le data plane
+L'écran **Sécurité → Journal d'audit** (`/nodefony/audit`) (`Audit.tsx#ENDPOINT`) consomme le data plane
 `GET /nodefony/security/api/audit/events` en pagination **serveur**. Il offre :
 
-- un tableau filtrable par heure, catégorie, action, issue, acteur, raison et IP (`Audit.tsx:227`) ;
+- un tableau filtrable par heure, catégorie, action, issue, acteur, raison et IP (`Audit.tsx#Audit`) ;
 - un indicateur du **store réellement résolu** pour la brique `audit`, alimenté par la publication de
-  résolution du service (`auditService.ts:145`) ;
-- un interrupteur **Temps réel** qui s'abonne au canal `nodefony:audit` (`AuditLive.tsx:20`) — pensé
+  résolution du service (`auditService.ts#AuditService.#build`) ;
+- un interrupteur **Temps réel** qui s'abonne au canal `nodefony:audit` (`AuditLive.tsx#AuditLive`) — pensé
   pour les pics d'activité : un journal d'audit se consulte, il ne se regarde pas défiler ;
 - un renvoi vers la **trace de requête** quand l'événement porte un `requestId`, ce qui recolle
   l'événement de sécurité à toute la vie de la requête.
 
 Quand l'audit est désactivé en configuration, l'endpoint répond **503** avec un message explicite
-(`SecurityAdminApi.ts:341`) et la console l'affiche tel quel plutôt qu'un tableau vide ambigu.
+(`SecurityAdminApi.ts#createSecurityAdminApi`) et la console l'affiche tel quel plutôt qu'un tableau vide ambigu.
 
 ### Le journal alimente les webhooks
 
 Le flux d'audit est la **source d'événements** du dispatcher de webhooks sortants : celui-ci s'abonne
-au service au démarrage (`webhooks.ts:214`) et filtre les actions souscrites avant de livrer
-(`WebhookDispatcher.ts:132`). Conséquence pratique : ce qui n'est pas audité ne peut pas déclencher de
+au service au démarrage (`webhooks.ts#WebhookService.#attachDispatcher`) et filtre les actions souscrites avant de livrer
+(`WebhookDispatcher.ts#WebhookDispatcher.onAuditEvent`). Conséquence pratique : ce qui n'est pas audité ne peut pas déclencher de
 webhook. Détail des souscriptions, de la signature et des relivraisons → [webhooks](webhooks.md).
 
 ## ⚠️ Pièges
 
-| Symptôme                                            | Cause (dans le code)                                              | Correction                                                 |
-| --------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
-| Journal vide après un redémarrage                   | Store `memory` : volatile et per-pod (`MemoryAuditStore.ts:37`)   | `audit.store: "drizzle"` (ou déclarer `NF_DATABASE_URL`)   |
-| Un pod voit des événements, l'autre non             | Store `memory` non partagé                                        | Store durable partagé                                      |
-| Le boot échoue en production sur l'audit            | Store **explicite** inconnu, fail-closed (`auditService.ts:115`)  | Corriger le nom, ou charger l'adapter qui l'enregistre     |
-| `limit=5000` ne rend que 200 événements             | Plafond de l'endpoint (`parsePageQuery`, `pageQuery.ts:77`)       | Paginer avec `nextCursor`, jamais gonfler `limit`          |
-| La page 2 répète ou saute des événements            | Pagination réimplémentée en offset                                | Repasser le `nextCursor` reçu — le curseur est opaque      |
-| `?category=authen` renvoie 400                      | Valeur hors union refusée (`PageQueryError`)                      | Utiliser une valeur de l'union (`auth`, `authz`, `token`…) |
-| Le paramètre `q` renvoie 400                        | Recherche plein texte non supportée sur ce journal                | Filtrer par `category`/`actor`/`action`/`requestId`        |
-| `stream: false` ne coupe pas le live                | Drapeau non lu ; le live suit `#listeners` (`auditService.ts:55`) | Retirer le rôle admin, ou ne pas exposer le canal          |
-| Trous dans le journal pendant une panne de base     | Écriture best-effort (`auditService.ts:199`)                      | Store à haute disponibilité si la conformité l'exige       |
-| Aucun `login.success` alors que les logins marchent | Le succès du **firewall** est muet ; `login.success` vient du BFF | Filtrer `action=login.success`, pas `category=auth` seul   |
-| Endpoint d'audit en 503                             | `audit.enabled: false` (`SecurityAdminApi.ts:320`)                | Réactiver l'audit en configuration                         |
+| Symptôme                                            | Cause (dans le code)                                                                   | Correction                                                 |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Journal vide après un redémarrage                   | Store `memory` : volatile et per-pod (`MemoryAuditStore.ts#MemoryAuditStore`)          | `audit.store: "drizzle"` (ou déclarer `NF_DATABASE_URL`)   |
+| Un pod voit des événements, l'autre non             | Store `memory` non partagé                                                             | Store durable partagé                                      |
+| Le boot échoue en production sur l'audit            | Store **explicite** inconnu, fail-closed (`auditService.ts#AuditService.#build`)       | Corriger le nom, ou charger l'adapter qui l'enregistre     |
+| `limit=5000` ne rend que 200 événements             | Plafond de l'endpoint (`parsePageQuery`, `pageQuery.ts#toPageParams`)                  | Paginer avec `nextCursor`, jamais gonfler `limit`          |
+| La page 2 répète ou saute des événements            | Pagination réimplémentée en offset                                                     | Repasser le `nextCursor` reçu — le curseur est opaque      |
+| `?category=authen` renvoie 400                      | Valeur hors union refusée (`PageQueryError`)                                           | Utiliser une valeur de l'union (`auth`, `authz`, `token`…) |
+| Le paramètre `q` renvoie 400                        | Recherche plein texte non supportée sur ce journal                                     | Filtrer par `category`/`actor`/`action`/`requestId`        |
+| `stream: false` ne coupe pas le live                | Drapeau non lu ; le live suit `#listeners` (`auditService.ts#AuditService.#listeners`) | Retirer le rôle admin, ou ne pas exposer le canal          |
+| Trous dans le journal pendant une panne de base     | Écriture best-effort (`auditService.ts#AuditService.record`)                           | Store à haute disponibilité si la conformité l'exige       |
+| Aucun `login.success` alors que les logins marchent | Le succès du **firewall** est muet ; `login.success` vient du BFF                      | Filtrer `action=login.success`, pas `category=auth` seul   |
+| Endpoint d'audit en 503                             | `audit.enabled: false` (`SecurityAdminApi.ts#createSecurityAdminApi`)                  | Réactiver l'audit en configuration                         |
 
 ## 🧪 Tests & couverture
 

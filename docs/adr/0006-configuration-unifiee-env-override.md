@@ -28,7 +28,7 @@ auteur : « marre de rien comprendre à la config »). Trois douleurs, **vérifi
    Preuve : `@nodefony/security` —
    - `nodefony/config/defineSecurityConfig.ts` (depuis renommé `defineModuleConfig.ts`) →
      `timeCost.default(3)` (le Zod),
-   - `nodefony/config/config.ts:35` → `timeCost: 2` (re-tapé),
+   - `nodefony/config/config.ts#studioConfigSchema` → `timeCost: 2` (re-tapé),
    - le commentaire du même fichier → exemple `1`.
      → **trois valeurs, trois endroits.** Idem la CSP, **copiée mot pour mot** dans les deux fichiers,
      avec un commentaire d'aveu (dans ce même fichier : « DOIT rester identique… divergence

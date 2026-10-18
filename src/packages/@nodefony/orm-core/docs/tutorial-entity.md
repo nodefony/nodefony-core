@@ -74,7 +74,7 @@ changer de moteur ne touche pas ton code.
 
 Une fois l'entité inscrite, tu ne la manipules plus jamais directement : tu demandes son
 **repository**, et c'est lui qui porte les verbes (`find`, `create`, `updateOne`…). Un repository
-est le contrat `IRepository<T>` (`IRepository.ts:176`), identique quel que soit le moteur.
+est le contrat `IRepository<T>` (`IRepository.ts#RepositoryReadOptions.relations`), identique quel que soit le moteur.
 
 > [!NOTE]
 > `@nodefony/orm-core` n'est **pas un module à démarrer** : rien à ajouter dans `modules: [...]`.
@@ -87,16 +87,16 @@ Deux partis pris expliquent la forme exacte des étapes qui suivent. Les connaî
 battre contre le cadre.
 
 **1. Le connecteur est une donnée de configuration, jamais de code.** C'est pourquoi le
-descripteur qu'on écrit (`IEntityDefinition`, `defineEntity.ts:15`) est un `IEntity`
-(`IEntity.ts:51`) **privé de son `connector`** : celui-ci est résolu au démarrage, avec `"default"`
-pour valeur de repli (`DEFAULT_CONNECTOR`, `entitiesDecorator.ts:12`). Figer la connexion dans le
+descripteur qu'on écrit (`IEntityDefinition`, `defineEntity.ts#IEntityDefinition`) est un `IEntity`
+(`IEntity.ts#IEntity`) **privé de son `connector`** : celui-ci est résolu au démarrage, avec `"default"`
+pour valeur de repli (`DEFAULT_CONNECTOR`, `entitiesDecorator.ts#DEFAULT_CONNECTOR`). Figer la connexion dans le
 fichier d'entité interdirait de servir la même table depuis une base différente selon
 l'environnement.
 
 **2. L'inscription est déclarative, et elle a lieu tôt.** `defineEntity()`
-(`defineEntity.ts:48`) n'a **aucun effet de bord** : importer un fichier d'entité n'inscrit rien.
-C'est le décorateur `entities()` (`entitiesDecorator.ts:56`), posé sur la classe du module, qui
-inscrit la liste — à la phase `onRegister` (`entitiesDecorator.ts:66`), strictement **avant** que
+(`defineEntity.ts#defineEntity`) n'a **aucun effet de bord** : importer un fichier d'entité n'inscrit rien.
+C'est le décorateur `entities()` (`entitiesDecorator.ts#entities`), posé sur la classe du module, qui
+inscrit la liste — à la phase `onRegister` (`entitiesDecorator.ts#entities`), strictement **avant** que
 le connecteur ne s'ouvre et ne crée les tables.
 
 Le bénéfice est concret : une entité oubliée se voit **dans une liste**, pas dans un import à
@@ -234,8 +234,8 @@ export async function demo(): Promise<void> {
 ### Ce qu'on observe
 
 Au démarrage, le driver crée la table et le récap de boot affiche la connexion sous
-« Services & ORM » (`reportOrmBootLines()`, `ormWiring.ts:60`). En journal `DEBUG`, chaque entité
-inscrite laisse une ligne `ADD ENTITY` (`entitiesDecorator.ts:84`) — c'est la preuve la plus
+« Services & ORM » (`reportOrmBootLines()`, `ormWiring.ts#reportOrmBootLines`). En journal `DEBUG`, chaque entité
+inscrite laisse une ligne `ADD ENTITY` (`entitiesDecorator.ts#entities`) — c'est la preuve la plus
 directe que le décorateur a bien travaillé.
 
 Le data plane confirme depuis l'extérieur, sans ouvrir la base :
@@ -304,29 +304,29 @@ Deux conséquences du DDL dérivé au boot, à connaître dès maintenant :
 
 ### Étape 3 — déclarer l'entité
 
-`defineEntity()` (`defineEntity.ts:48`) est une fonction d'**identité typée** : elle attache le
+`defineEntity()` (`defineEntity.ts#defineEntity`) est une fonction d'**identité typée** : elle attache le
 type et rend son argument, rien de plus. Aucun registre n'est touché.
 
 Cette absence d'effet de bord est délibérée : elle permet d'importer une entité depuis un test,
 un script ou un autre module **sans** déclencher son inscription dans un singleton global.
 
 Les champs facultatifs qui servent tôt : `module` (qui apporte l'entité) et `domain`
-(`IEntity.ts:72`), l'axe de classification qui rend navigable une base de plusieurs centaines de
+(`IEntity.ts#IEntity.domain`), l'axe de classification qui rend navigable une base de plusieurs centaines de
 tables dans l'ERD Studio.
 
 ### Étape 4 — brancher l'entité au module
 
-C'est `entities()` (`entitiesDecorator.ts:56`) qui inscrit, et lui seul. Trois propriétés valent
+C'est `entities()` (`entitiesDecorator.ts#entities`) qui inscrit, et lui seul. Trois propriétés valent
 d'être connues :
 
-1. **Phase `onRegister`** (`entitiesDecorator.ts:66`) — strictement avant l'ouverture des
+1. **Phase `onRegister`** (`entitiesDecorator.ts#entities`) — strictement avant l'ouverture des
    connexions. C'est ce qui rend l'ordre sûr par construction, contrairement à `@controllers`, qui
    travaille à `onBoot`.
 2. **Idempotent** — une entité déjà inscrite sur le même connecteur est ignorée (un module peut
    être instancié deux fois : tests, rechargement). Une vraie collision, elle, lève
-   (`EntityRegistry.register()`, `EntityRegistry.ts:24`).
+   (`EntityRegistry.register()`, `EntityRegistry.ts#EntityRegistry.register`).
 3. **Connecteur commun** — `entities([...], { connector: "analytics" })` pose toute la liste sur
-   une autre base ; une entité qui porte son propre `connector` (`IEntity.ts:56`) garde le sien.
+   une autre base ; une entité qui porte son propre `connector` (`IEntity.ts#IEntity.connector`) garde le sien.
 
 ### Le raccourci — `nodefony create entity`
 
@@ -355,27 +355,27 @@ que l'import plus la ligne du décorateur.
 Le repository porte **quinze verbes**, pas cinq. Ils se choisissent sur la **garantie** qu'ils
 apportent, jamais sur leur nom.
 
-| Verbe                 | Ce qu'il garantit                                                         | Ancre                        |
-| --------------------- | ------------------------------------------------------------------------- | ---------------------------- |
-| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                           | `IRepository.ts:230`, `:192` |
-| `create`              | insère une ligne et rend sa version persistée (id, défauts)               | `IRepository.ts:240`         |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots            | `IRepository.ts:252`         |
-| `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend               | `IRepository.ts:269`         |
-| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**                  | `IRepository.ts:312`         |
-| `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction           | `IRepository.ts:296`         |
-| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, limitation de débit         | `IRepository.ts:287`         |
-| `delete`              | supprime tout ce qui matche, rend le nombre                               | `IRepository.ts:336`         |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                           | `IRepository.ts:345`         |
-| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique              | `IRepository.ts:355`         |
-| `count`               | compter les entités qui correspondent au critère                          | `IRepository.ts:362`         |
-| `exists`              | savoir s'il y en a au moins une, sans charger de colonne                  | `IRepository.ts:395`         |
-| `countDistinct`       | compter les valeurs DISTINCTES et non nulles d'un champ, sans les charger | `IRepository.ts:381`         |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                          | `IRepository.ts:406`         |
+| Verbe                 | Ce qu'il garantit                                                         | Ancre                                                                              |
+| --------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                           | `IRepository.ts#IRepository.findOne`, `IRepository.ts#RepositoryReadOptions.order` |
+| `create`              | insère une ligne et rend sa version persistée (id, défauts)               | `IRepository.ts#IRepository.create`                                                |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots            | `IRepository.ts#IRepository.createMany`                                            |
+| `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend               | `IRepository.ts#IRepository.updateOne`                                             |
+| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**                  | `IRepository.ts#IRepository.updateMany`                                            |
+| `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction           | `IRepository.ts#IRepository.upsert`                                                |
+| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, limitation de débit         | `IRepository.ts#IRepository.upsert`                                                |
+| `delete`              | supprime tout ce qui matche, rend le nombre                               | `IRepository.ts#IRepository.delete`                                                |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                           | `IRepository.ts#IRepository.deleteOne`                                             |
+| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique              | `IRepository.ts#IRepository.findOneAndDelete`                                      |
+| `count`               | compter les entités qui correspondent au critère                          | `IRepository.ts#IRepository.count`                                                 |
+| `exists`              | savoir s'il y en a au moins une, sans charger de colonne                  | `IRepository.ts#IRepository.exists`                                                |
+| `countDistinct`       | compter les valeurs DISTINCTES et non nulles d'un champ, sans les charger | `IRepository.ts#IRepository.countDistinct`                                         |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                          | `IRepository.ts#IRepository.withTransaction`                                       |
 
 > [!IMPORTANT]
 > **Il n'existe pas de méthode `update()`.** Le choix est explicite et il est intentionnel :
-> `IRepository.updateOne()` (`IRepository.ts:269`) pour une ligne — atomique, et elle **rend** la
-> ligne modifiée —, `IRepository.updateMany()` (`IRepository.ts:312`) pour un lot — qui rend le
+> `IRepository.updateOne()` (`IRepository.ts#IRepository.updateOne`) pour une ligne — atomique, et elle **rend** la
+> ligne modifiée —, `IRepository.updateMany()` (`IRepository.ts#IRepository.updateMany`) pour un lot — qui rend le
 > **nombre** de lignes touchées. Un verbe unique masquerait cette différence de garantie, qui est
 > précisément ce qu'on veut choisir en connaissance de cause.
 
@@ -404,8 +404,8 @@ await orm.transaction(async (tx) => {
 ```
 
 Deux réflexes de performance, dès le premier jour : préférer `IRepository.exists()`
-(`IRepository.ts:395`) à `findOne(...) !== null` — aucune colonne n'est chargée —, et
-`IRepository.increment()` (`IRepository.ts:325`) à une lecture suivie d'une écriture : une requête
+(`IRepository.ts#IRepository.exists`) à `findOne(...) !== null` — aucune colonne n'est chargée —, et
+`IRepository.increment()` (`IRepository.ts#IRepository.increment`) à une lecture suivie d'une écriture : une requête
 au lieu de deux, et pas de course.
 
 ## 🔎 Filtrer — les opérateurs de critère
@@ -421,7 +421,7 @@ await posts.find({ title: { $like: "Bon%" } }); // motif SQL
 await posts.find({ publishedAt: { $null: false } }); // IS NOT NULL
 ```
 
-**Dix** opérateurs sont reconnus, figés dans `OPERATOR_KEYS` (`criteria.ts:13`) — source unique
+**Dix** opérateurs sont reconnus, figés dans `OPERATOR_KEYS` (`criteria.ts#OPERATOR_KEYS`) — source unique
 partagée par tous les drivers :
 
 | Opérateur | Effet                            | Opérateur | Effet                              |
@@ -438,21 +438,21 @@ Plusieurs opérateurs sur un même champ se combinent en **ET**.
 > **`$null` est celui qu'on oublie, et il coûte cher.** En SQL, `colonne = NULL` est **toujours
 > faux** : un filtre « la colonne est vide » écrit naïvement ne remonte jamais rien — sans la
 > moindre erreur. Deux formes équivalentes le résolvent : la valeur nue `{ publishedAt: null }`
-> et l'opérateur `{ publishedAt: { $null: true } }` (`FieldOperators.$null`, `IRepository.ts:65`).
+> et l'opérateur `{ publishedAt: { $null: true } }` (`FieldOperators.$null`, `IRepository.ts#FieldOperators.$null`).
 > La valeur nue n'est ouverte par le typage que si le champ est **nullable** (`FieldCriteria`,
-> `IRepository.ts:128`) : chercher `IS NULL` sur une colonne non-nullable est une erreur de
+> `IRepository.ts#FieldCriteria`) : chercher `IS NULL` sur une colonne non-nullable est une erreur de
 > raisonnement, et le compilateur la refuse.
 
 **Comment un objet est reconnu comme filtre plutôt que comme valeur** : `isFieldOperators()`
-(`criteria.ts:42`) ne l'interprète que si **toutes** ses clés sont des opérateurs connus. Une
+(`criteria.ts#isFieldOperators`) ne l'interprète que si **toutes** ses clés sont des opérateurs connus. Une
 colonne JSON ou un sous-document (`{ meta: { auteur: "…" } }`) reste donc une égalité — c'est ce
 qui évite qu'une donnée métier soit prise pour une requête.
 
 ### Les opérateurs d'écriture — `$max` et `$min`
 
 Une seconde famille, distincte, s'applique **en écriture** dans un `upsert` :
-`UpdateOperators` (`IRepository.ts:94`), dont les clés reconnues sont listées par
-`UPDATE_OPERATOR_KEYS` (`criteria.ts:67`).
+`UpdateOperators` (`IRepository.ts#UpdateOperators`), dont les clés reconnues sont listées par
+`UPDATE_OPERATOR_KEYS` (`criteria.ts#UPDATE_OPERATOR_KEYS`).
 
 Ils existent parce qu'un upsert **ne peut pas porter de condition** : son `DO UPDATE` s'applique
 dès qu'il y a conflit de clé (MySQL n'accepte pas de `WHERE` sur `ON DUPLICATE KEY UPDATE`). Pour
@@ -475,16 +475,16 @@ Sur une ligne dont on sait qu'elle **existe**, ils sont inutiles :
 
 Les sous-requêtes, les agrégats et les jointures arbitraires n'en font pas partie (la disjonction,
 elle, s'exprime par `$or: [...]`). Ce n'est pas un oubli : c'est la limite de ce qui se porte d'un moteur SQL à MongoDB. La
-sortie est `IOrm.getNativeConnection()` (`IOrm.ts:51`), qui rend la connexion brute du driver.
+sortie est `IOrm.getNativeConnection()` (`IOrm.ts#IOrm.getNativeConnection`), qui rend la connexion brute du driver.
 
-Un champ absent de l'entité lève `UnknownCriteriaField` (`errors.ts:23`), et le message liste les
+Un champ absent de l'entité lève `UnknownCriteriaField` (`errors.ts#UnknownCriteriaField`), et le message liste les
 champs connus — le diagnostic d'une faute de frappe est immédiat.
 
 ## 📄 Pager les résultats
 
-`find()` avec `limit`/`offset`/`order` (`RepositoryReadOptions`, `IRepository.ts:174`) suffit pour
+`find()` avec `limit`/`offset`/`order` (`RepositoryReadOptions`, `IRepository.ts#RepositoryReadOptions`) suffit pour
 une tranche. Pour une vraie page — celle qui sait s'il y a une suite — utilise `paginate()`
-(`paginate.ts:47`) :
+(`paginate.ts#paginate`) :
 
 ```ts ignore
 const page = await paginate(posts, {
@@ -504,7 +504,7 @@ sur une grosse table.
 ## ⚙️ Ranger le métier dans un service
 
 Dès que la logique dépasse l'appel direct, elle quitte le controller. `AbstractCrudService`
-(`AbstractCrudService.ts:37`) donne le socle : les lectures sont une **délégation pure** (aucun
+(`AbstractCrudService.ts#AbstractCrudService`) donne le socle : les lectures sont une **délégation pure** (aucun
 surcoût sur le chemin chaud), les mutations sont encadrées par des points d'extension puis un
 événement de cycle de vie.
 
@@ -523,7 +523,7 @@ export class PostService extends AbstractCrudService<PostRow> {
 
 L'intérêt est de n'avoir **qu'un seul endroit** à modifier quand la règle change : la même méthode
 sert la route REST, l'appel WebSocket, un résolveur GraphQL et une commande CLI. Pour toute liste
-d'administration, la primitive est `AbstractCrudService.findPage()` (`AbstractCrudService.ts:110`)
+d'administration, la primitive est `AbstractCrudService.findPage()` (`AbstractCrudService.ts#AbstractCrudService.findPage`)
 — elle ne charge qu'une page, quelle que soit la taille de la table.
 
 > [!WARNING]
@@ -533,20 +533,20 @@ d'administration, la primitive est `AbstractCrudService.findPage()` (`AbstractCr
 
 ## ⚠️ Pièges
 
-| Symptôme                                                      | Cause                                                                                            | Correction                                                                                               |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `posts.update is not a function`                              | la méthode `update()` n'existe pas dans le contrat                                               | `updateOne` pour une ligne (`IRepository.ts:269`), `updateMany` pour un lot (`IRepository.ts:312`)       |
-| « no entity registered under "Post" » au premier appel        | le fichier d'entité est importé, mais `defineEntity()` est **sans effet de bord**                | ajouter l'entité à `@entities([...])` sur le module (`entitiesDecorator.ts:56`)                          |
-| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec l'ouverture du connecteur                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:56`)                     |
-| Une colonne ajoutée au schéma reste absente de la table       | colonne **obligatoire** : le rattrapage de développement n'ajoute que les colonnes facultatives  | `nodefony orm:reset` en développement, ou `orm:generate` puis `orm:migrate`                              |
-| Un `DEFAULT` SQL déclaré n'apparaît pas                       | le DDL dérivé ne l'émet pas                                                                      | poser le défaut côté JavaScript (`$defaultFn`)                                                           |
-| Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                        | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts:65`)                    |
-| `UnknownCriteriaField` sur un champ qui « existe pourtant »   | faute de frappe, ou champ calculé absent du schéma                                               | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`               |
-| `connector: "sqlite"` ne trouve aucune connexion              | `connector` nomme une **connexion**, pas un moteur                                               | mettre la clé de `connectors` (`"default"`) ; le moteur est le `dialect` de la config                    |
-| « entity "Post" exists on multiple connectors … specify one » | la même entité est inscrite sur deux connexions                                                  | préciser laquelle : `entityRegistry.get("Post", "analytics")` (`EntityRegistry.ts:54`)                   |
-| « no ORM registered under "default" » au premier appel        | le repository est demandé avant l'ouverture du connecteur, ou le driver n'est pas dans `modules` | construire le service **au premier usage**, pas au chargement (`ormRegistry.get()`, `OrmRegistry.ts:45`) |
-| Une entité déclarée dans un module reste invisible            | le module embarque sa **propre copie** du registre (singleton dédoublé)                          | externaliser `@nodefony/orm-core` dans le `rolldown.config.ts` du module                                 |
-| Une transaction ne couvre pas les deux bases                  | une transaction porte sur **un seul** connecteur (2PC non garanti)                               | rassembler les écritures atomiques sur une seule connexion                                               |
+| Symptôme                                                      | Cause                                                                                            | Correction                                                                                                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `posts.update is not a function`                              | la méthode `update()` n'existe pas dans le contrat                                               | `updateOne` pour une ligne (`IRepository.ts#IRepository.updateOne`), `updateMany` pour un lot (`IRepository.ts#IRepository.updateMany`) |
+| « no entity registered under "Post" » au premier appel        | le fichier d'entité est importé, mais `defineEntity()` est **sans effet de bord**                | ajouter l'entité à `@entities([...])` sur le module (`entitiesDecorator.ts#entities`)                                                   |
+| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec l'ouverture du connecteur                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts#entities`)                                              |
+| Une colonne ajoutée au schéma reste absente de la table       | colonne **obligatoire** : le rattrapage de développement n'ajoute que les colonnes facultatives  | `nodefony orm:reset` en développement, ou `orm:generate` puis `orm:migrate`                                                             |
+| Un `DEFAULT` SQL déclaré n'apparaît pas                       | le DDL dérivé ne l'émet pas                                                                      | poser le défaut côté JavaScript (`$defaultFn`)                                                                                          |
+| Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                        | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts#FieldOperators.$null`)                                 |
+| `UnknownCriteriaField` sur un champ qui « existe pourtant »   | faute de frappe, ou champ calculé absent du schéma                                               | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`                                              |
+| `connector: "sqlite"` ne trouve aucune connexion              | `connector` nomme une **connexion**, pas un moteur                                               | mettre la clé de `connectors` (`"default"`) ; le moteur est le `dialect` de la config                                                   |
+| « entity "Post" exists on multiple connectors … specify one » | la même entité est inscrite sur deux connexions                                                  | préciser laquelle : `entityRegistry.get("Post", "analytics")` (`EntityRegistry.ts#EntityRegistry.get`)                                  |
+| « no ORM registered under "default" » au premier appel        | le repository est demandé avant l'ouverture du connecteur, ou le driver n'est pas dans `modules` | construire le service **au premier usage**, pas au chargement (`ormRegistry.get()`, `OrmRegistry.ts#OrmRegistry.get`)                   |
+| Une entité déclarée dans un module reste invisible            | le module embarque sa **propre copie** du registre (singleton dédoublé)                          | externaliser `@nodefony/orm-core` dans le `rolldown.config.ts` du module                                                                |
+| Une transaction ne couvre pas les deux bases                  | une transaction porte sur **un seul** connecteur (2PC non garanti)                               | rassembler les écritures atomiques sur une seule connexion                                                                              |
 
 ## 🧪 Tests & couverture
 

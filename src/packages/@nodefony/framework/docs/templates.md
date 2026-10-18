@@ -44,11 +44,11 @@ flowchart LR
 Deux idées à retenir :
 
 1. **Le contrôleur lit le fichier, le moteur ne fait que rendre une chaîne.** `renderView()` résout le
-   chemin, lit l'octet, puis passe la **source** à Eta (`Controller.renderView()`, `Controller.ts:556`).
+   chemin, lit l'octet, puis passe la **source** à Eta (`Controller.renderView()`, `Controller.ts#Controller.renderView`).
    Il n'y a **pas** de dossier `views/` magique connu du moteur.
 2. **L'échappement est automatique.** Une donnée interpolée par `<%= %>` est neutralisée (`<` devient
    `&lt;`) avant d'entrer dans le HTML — c'est la protection XSS, active par défaut
-   (`autoEscape`, `Eta.ts:16`).
+   (`autoEscape`, `Eta.ts#defaultOption`).
 
 ## 📖 Lexique
 
@@ -87,24 +87,24 @@ site. C'est une faille **XSS**. La parade est l'**échappement** : on remplace `
 ## La vision Nodefony
 
 Nodefony a **un seul** moteur de vues : **Eta** (il remplace Twig et EJS, retirés). Le choix est
-documenté au source (`Eta`, `Eta.ts:34`) : écrit en TypeScript (types fournis, pas de `@types/*`), ESM
+documenté au source (`Eta`, `Eta.ts#Eta`) : écrit en TypeScript (types fournis, pas de `@types/*`), ESM
 natif, échappement natif, et surtout des délimiteurs `<% %>` qui **n'entrent pas en collision** avec la
 syntaxe TS/JSON/JSX — décisif car le même moteur sert aussi à générer du code (le scaffold `create`).
 
 Le branchement est **délibérément minimal** :
 
 - Le service Eta est enregistré au boot sous le nom `template` (`@services([Router, Eta, …])`,
-  `nodefony/framework/index.ts:76`) ; chaque contrôleur le récupère à sa construction
-  (`this.get<Eta>("template")`, `Controller.ts:253`).
+  `nodefony/framework/index.ts`) ; chaque contrôleur le récupère à sa construction
+  (`this.get<Eta>("template")`, `Controller.ts#Controller.route`).
 - Le moteur ne connaît **que le rendu d'une chaîne** : `Eta.render(source, data)` appelle
-  `renderStringAsync` (`Eta.ts:51`). C'est le contrôleur qui lit le fichier — pas Eta.
+  `renderStringAsync` (`Eta.ts#Eta.render`). C'est le contrôleur qui lit le fichier — pas Eta.
 - Deux options seulement sont posées, plus le cache : `autoEscape`, `useWith`, `cache`
-  (`defaultOption`, `Eta.ts:15`). Il n'y a **pas** de racine `views/`, donc **pas** de résolution
+  (`defaultOption`, `Eta.ts#defaultOption`). Il n'y a **pas** de racine `views/`, donc **pas** de résolution
   d'`include`/layout par nom (voir Pièges).
 
 > [!NOTE]
 > Le rendu **d'erreurs** ne passe **pas** par les templates : une exception devient un corps **JSON
-> structuré** (`ErrorRenderer.renderHttp()`, `error-renderer.ts:473`), jamais une page Eta. Le moteur
+> structuré** (`ErrorRenderer.renderHttp()`, `error-renderer.ts#DefaultErrorRenderer.renderHttp`), jamais une page Eta. Le moteur
 > de vues ne sert que le HTML **que tu rends explicitement**.
 
 ## 🚀 Démarrage rapide
@@ -187,17 +187,17 @@ curl -s 'http://localhost:5151/hello/%3Cb%3Ex%3C%2Fb%3E'
 > [!TIP]
 > Tu n'as écrit **aucun** appel d'envoi (`send`, `res.end`). `renderView()` produit le corps **et**
 > l'envoie. Pour piloter l'envoi toi-même, retourne plutôt une chaîne via `render()`
-> (`Controller.render()`, `Controller.ts:499`).
+> (`Controller.render()`, `Controller.ts#Controller.render`).
 
 ## 🏗️ Architecture interne — le parcours d'un `renderView()`
 
 Deux classes, une responsabilité chacune :
 
-- **`Template`** (`Template.ts:2`) — la base : elle étend `Service` (donc container + logs), garde une
+- **`Template`** (`Template.ts#Template`) — la base : elle étend `Service` (donc container + logs), garde une
   référence au `module` et **décide du cache** selon l'environnement (`this.cache` vrai en `prod`,
-  `Template.ts:20`).
-- **`Eta`** (`Eta.ts:34`) — l'implémentation : elle instancie le moteur `eta` (`new EtaEngine()`,
-  `Eta.ts:38`), applique le cache calculé par `Template` (`this.engine.configure()`, `Eta.ts:41`), et
+  `Template.ts#Template.constructor`).
+- **`Eta`** (`Eta.ts#Eta`) — l'implémentation : elle instancie le moteur `eta` (`new EtaEngine()`,
+  `Eta.ts#Eta.constructor`), applique le cache calculé par `Template` (`this.engine.configure()`, `Eta.ts#Eta.constructor`), et
   expose deux méthodes de rendu.
 
 Le trajet d'un appel, étape par étape :
@@ -216,17 +216,17 @@ sequenceDiagram
   C->>Ctx: setContextHtml() puis renderResponse(html)
 ```
 
-| #   | Étape                                        | Où                                                            |
-| --- | -------------------------------------------- | ------------------------------------------------------------- |
-| 1   | Résolution + lecture async du fichier        | `FileClass` dans `renderView()` (`Controller.ts:556`)         |
-| 2   | Ouverture de la phase mesurée `render`       | `phaseStart("render")` (`Controller.ts:509`)                  |
-| 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts:594`)                  |
-| 4   | Rendu de la source par le moteur             | `Eta.render()` → `renderStringAsync` (`Eta.ts:51`)            |
-| 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts:535`) |
+| #   | Étape                                        | Où                                                                                  |
+| --- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1   | Résolution + lecture async du fichier        | `FileClass` dans `renderView()` (`Controller.ts#Controller.renderView`)             |
+| 2   | Ouverture de la phase mesurée `render`       | `phaseStart("render")` (`Controller.ts#Controller.render`)                          |
+| 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts#Controller.withFrontendLocals`)              |
+| 4   | Rendu de la source par le moteur             | `Eta.render()` → `renderStringAsync` (`Eta.ts#Eta.render`)                          |
+| 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts#Controller.renderResponse`) |
 
 Le point notable de l'étape 3 : `withFrontendLocals()` ajoute automatiquement `frontendTags`,
 `frontendDocument` et `asset` aux locals **si** le service `frontend` est présent — et **tes** valeurs
-priment (spread `param` en dernier, `Controller.ts:558`). Si le module frontend n'est pas chargé, la
+priment (spread `param` en dernier, `Controller.ts#Controller.renderView`). Si le module frontend n'est pas chargé, la
 fonction retourne les locals inchangés : zéro couplage dur.
 
 ## 🔐 Sécurité — échappement HTML et XSS
@@ -239,7 +239,7 @@ La règle Eta se lit sur les délimiteurs. Trois formes, trois comportements :
 | `<%~ v %>` | interpole `v` **brut**    |    non    | du HTML de confiance que TU produis (fragments) |
 | `<% … %>`  | exécute du code (if/for…) |    n/a    | logique de template (pas de sortie directe)     |
 
-L'échappement par défaut vient de l'option `autoEscape: true` posée dans `defaultOption` (`Eta.ts:16`).
+L'échappement par défaut vient de l'option `autoEscape: true` posée dans `defaultOption` (`Eta.ts#defaultOption`).
 Concrètement, `<%= %>` passe la valeur dans la fonction d'échappement d'Eta, qui remplace `& < > " '`
 par leurs entités HTML. Une chaîne d'attaque comme `<script>alert(1)</script>` ressort donc en texte
 inerte `&lt;script&gt;alert(1)&lt;/script&gt;`.
@@ -255,22 +255,22 @@ Deux niveaux : ce que le **service Eta** expose, et ce que le **contrôleur** t'
 
 ### Le service `Eta` (nom d'injection `template`)
 
-| Méthode                   | Rôle                                                       | Ancre       |
-| ------------------------- | ---------------------------------------------------------- | ----------- |
-| `render(source, data?)`   | Rend un template depuis une **chaîne** (chemin chaud)      | `Eta.ts:51` |
-| `renderFile(path, data?)` | Lit un fichier `.eta` **puis** le rend (usages CLI/outils) | `Eta.ts:66` |
+| Méthode                   | Rôle                                                       | Ancre                   |
+| ------------------------- | ---------------------------------------------------------- | ----------------------- |
+| `render(source, data?)`   | Rend un template depuis une **chaîne** (chemin chaud)      | `Eta.ts#Eta.render`     |
+| `renderFile(path, data?)` | Lit un fichier `.eta` **puis** le rend (usages CLI/outils) | `Eta.ts#Eta.renderFile` |
 
 `render()` est ce qu'appelle le contrôleur ; `renderFile()` lit lui-même le fichier
-(`readFile` + `renderStringAsync`, `Eta.ts:71`) pour les usages qui partent d'un chemin (générateurs,
+(`readFile` + `renderStringAsync`, `Eta.ts#Eta.renderFile`) pour les usages qui partent d'un chemin (générateurs,
 scaffold). Les deux sont **asynchrones** (I/O non bloquante).
 
 ### Les helpers du contrôleur
 
-| Helper                              | Pour…                                                   | Ancre               |
-| ----------------------------------- | ------------------------------------------------------- | ------------------- |
-| `renderView(path, locals, status?)` | Rendre une vue `.eta` (lit le fichier + aides frontend) | `Controller.ts:524` |
-| `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:499` |
-| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:631` |
+| Helper                              | Pour…                                                   | Ancre                                 |
+| ----------------------------------- | ------------------------------------------------------- | ------------------------------------- |
+| `renderView(path, locals, status?)` | Rendre une vue `.eta` (lit le fichier + aides frontend) | `Controller.ts#Controller.render`     |
+| `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts#Controller.render`     |
+| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts#Controller.renderJson` |
 
 Les signatures exactes vivent dans le graphe symbolique `.ai/symbols.json` — jamais recopiées ici.
 
@@ -278,14 +278,14 @@ Les signatures exactes vivent dans le graphe symbolique `.ai/symbols.json` — j
 
 Le moteur est configuré **en dur**, pas via un bloc Zod exposé à `use()`. Trois réglages seulement :
 
-| Réglage      | Valeur Nodefony               | Effet                                                               | Ancre            |
-| ------------ | ----------------------------- | ------------------------------------------------------------------- | ---------------- |
-| `autoEscape` | `true`                        | `<%= %>` échappe le HTML par défaut (anti-XSS)                      | `Eta.ts:16`      |
-| `useWith`    | `true`                        | locals exposés nus (`<%= name %>`) — DX façon EJS                   | `Eta.ts:17`      |
-| `cache`      | `true` en prod, `false` sinon | compile-once des templates en production ; recompile à chaud en dev | `Template.ts:20` |
+| Réglage      | Valeur Nodefony               | Effet                                                               | Ancre                              |
+| ------------ | ----------------------------- | ------------------------------------------------------------------- | ---------------------------------- |
+| `autoEscape` | `true`                        | `<%= %>` échappe le HTML par défaut (anti-XSS)                      | `Eta.ts#defaultOption`             |
+| `useWith`    | `true`                        | locals exposés nus (`<%= name %>`) — DX façon EJS                   | `Eta.ts#defaultOption`             |
+| `cache`      | `true` en prod, `false` sinon | compile-once des templates en production ; recompile à chaud en dev | `Template.ts#Template.constructor` |
 
 Le cache n'est **pas** un booléen figé : `Template` le dérive de l'environnement du kernel
-(`environment === "prod"`, `Template.ts:20`) puis `Eta` l'applique au moteur (`Eta.ts:34`). En
+(`environment === "prod"`, `Template.ts#Template.constructor`) puis `Eta` l'applique au moteur (`Eta.ts#Eta`). En
 développement, un template modifié est donc pris en compte sans redémarrer.
 
 ## 🔌 HTTP et WebSocket — le même rendu
@@ -306,11 +306,11 @@ c'est le différenciateur Nodefony : une classe, deux transports, le même moteu
 
 ## 📜 Normes appliquées
 
-| Domaine            | Norme / référence       | Comment le code s'y conforme                                          |
-| ------------------ | ----------------------- | --------------------------------------------------------------------- |
-| Neutralisation XSS | OWASP — Output Encoding | échappement HTML par défaut (`autoEscape`, `Eta.ts:16`)               |
-| Type de média HTML | `text/html`             | posé par `setContextHtml()` dans `renderView()` (`Controller.ts:556`) |
-| I/O non bloquante  | Node.js async fs        | lecture async du fichier (`readFile`, `Eta.ts:71`)                    |
+| Domaine            | Norme / référence       | Comment le code s'y conforme                                                            |
+| ------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
+| Neutralisation XSS | OWASP — Output Encoding | échappement HTML par défaut (`autoEscape`, `Eta.ts#defaultOption`)                      |
+| Type de média HTML | `text/html`             | posé par `setContextHtml()` dans `renderView()` (`Controller.ts#Controller.renderView`) |
+| I/O non bloquante  | Node.js async fs        | lecture async du fichier (`readFile`, `Eta.ts#Eta.renderFile`)                          |
 
 ## ⚡ Performance et mémoire
 
@@ -318,13 +318,13 @@ Le rendu de vue est la partie **réellement coûteuse** d'une réponse (lecture 
 template), et le framework l'isole pour ça :
 
 - **Phase dédiée** : `renderView()` chronomètre le rendu sous la phase `render`
-  (`phaseStart("render")`, `Controller.ts:524`) — distincte de `action` et de `send`. On voit ainsi si
+  (`phaseStart("render")`, `Controller.ts#Controller.render`) — distincte de `action` et de `send`. On voit ainsi si
   le temps part dans le moteur ou dans l'écriture réseau.
 - **Cache en prod** : les templates sont compilés une fois (`cache` vrai en production,
-  `Template.ts:20`) ; le coût de parsing n'est payé qu'au premier rendu.
+  `Template.ts#Template.cache`) ; le coût de parsing n'est payé qu'au premier rendu.
 - **Lecture non bloquante** : le fichier est lu en async (`FileClass.readAsync()` côté `renderView`,
-  `readFile` côté `renderFile`, `Eta.ts:66`) — l'event loop n'est jamais gelé par un `readFileSync`.
-- **Aides frontend paresseuses** : `withFrontendLocals()` (`Controller.ts:594`) ne construit les
+  `readFile` côté `renderFile`, `Eta.ts#Eta.renderFile`) — l'event loop n'est jamais gelé par un `readFileSync`.
+- **Aides frontend paresseuses** : `withFrontendLocals()` (`Controller.ts#Controller.withFrontendLocals`) ne construit les
   fonctions `frontendTags`/`asset` que si le service `frontend` répond — sinon il rend les locals tels
   quels, zéro allocation superflue.
 
@@ -337,14 +337,14 @@ template), et le framework l'isole pour ça :
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                 | Cause (dans le code)                                                               | Correction                                                                 |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `<%~ include("partial") %>` ne trouve pas la vue         | Aucune racine `views/` n'est configurée (`defaultOption`, `Eta.ts:15`)             | Compose côté contrôleur : rends chaque fragment, ou passe le HTML en local |
-| Un `<b>` d'utilisateur s'exécute dans la page            | Sortie brute `<%~ %>` sur une donnée non fiable                                    | Utiliser `<%= %>` (échappé par défaut)                                     |
-| `<%= it.name %>` requis alors qu'on attend `<%= name %>` | `useWith` mal compris — Nodefony l'active (`Eta.ts:17`), les locals sont nus       | Écrire `<%= name %>` directement                                           |
-| Modif de template ignorée en prod                        | `cache: true` en production (`Template.ts:20`)                                     | Redémarrer le pod ; en dev le cache est off, recompile à chaud             |
-| La réponse d'erreur n'est pas ma vue Eta                 | Les erreurs rendent du JSON, pas un template (`error-renderer.ts:109`)             | Pour une page d'erreur HTML, rendre explicitement une vue dans un handler  |
-| `renderView()` rejette et logge une ERROR                | Fichier introuvable ou template invalide (le `catch` re-lève, `Controller.ts:544`) | Vérifier le chemin résolu (`resolve(module.path, …)`)                      |
+| Symptôme                                                 | Cause (dans le code)                                                                                     | Correction                                                                 |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `<%~ include("partial") %>` ne trouve pas la vue         | Aucune racine `views/` n'est configurée (`defaultOption`, `Eta.ts#defaultOption`)                        | Compose côté contrôleur : rends chaque fragment, ou passe le HTML en local |
+| Un `<b>` d'utilisateur s'exécute dans la page            | Sortie brute `<%~ %>` sur une donnée non fiable                                                          | Utiliser `<%= %>` (échappé par défaut)                                     |
+| `<%= it.name %>` requis alors qu'on attend `<%= name %>` | `useWith` mal compris — Nodefony l'active (`Eta.ts#defaultOption`), les locals sont nus                  | Écrire `<%= name %>` directement                                           |
+| Modif de template ignorée en prod                        | `cache: true` en production (`Template.ts#Template.constructor`)                                         | Redémarrer le pod ; en dev le cache est off, recompile à chaud             |
+| La réponse d'erreur n'est pas ma vue Eta                 | Les erreurs rendent du JSON, pas un template (`error-renderer.ts#IValidationField.message`)              | Pour une page d'erreur HTML, rendre explicitement une vue dans un handler  |
+| `renderView()` rejette et logge une ERROR                | Fichier introuvable ou template invalide (le `catch` re-lève, `Controller.ts#Controller.renderResponse`) | Vérifier le chemin résolu (`resolve(module.path, …)`)                      |
 
 ## 🧪 Tests et couverture
 

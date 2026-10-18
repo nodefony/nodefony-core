@@ -51,26 +51,26 @@ Trois faits ont pesé, tous constatés dans le code :
 ## Décision
 
 **1. Un conteneur par requête, par copie prototypale.** Le pipeline ouvre un `Scope` par requête
-HTTP et par connexion WebSocket (`Container.enterScope()`, `Container.ts:245`). Le scope **adopte
+HTTP et par connexion WebSocket (`Container.enterScope()`, `Container.ts#Container.enterScope`). Le scope **adopte
 le prototype** du conteneur parent : la lecture remonte la chaîne de prototypes, l'écriture reste
-sur le scope (`Scope.set()`, `Container.ts:155`). Fermé par `leaveScope()` à la fin, qui le retire
+sur le scope (`Scope.set()`, `Container.ts#Container.set`). Fermé par `leaveScope()` à la fin, qui le retire
 du registre **avant** de le nettoyer.
 
 **2. Le scope est atteignable par l'ALS.** Le contexte asynchrone de la requête porte le scope
 (champ `scope`), posé par le kernel HTTP et par le pont `api.request` du temps réel.
-`RequestContext.getScope()` (`RequestContext.ts:321`) le rend, ou `undefined` ;
-`RequestContext.requireScope()` (`RequestContext.ts:350`) lève en nommant l'une des trois causes
+`RequestContext.getScope()` (`RequestContext.ts#RequestContext.getScope`) le rend, ou `undefined` ;
+`RequestContext.requireScope()` (`RequestContext.ts#RequestContext.requireScope`) lève en nommant l'une des trois causes
 (aucune requête, bulle sans scope, scope refermé). Un scope refermé n'est jamais rendu.
 
 **3. Une portée `request` pour les services.** `@injectable({ scope: "request" })` (`DIScope`,
-`injector.ts:27`) donne une instance par requête : créée à sa première résolution, rangée sur le
+`injector.ts#DIScope`) donne une instance par requête : créée à sa première résolution, rangée sur le
 scope que l'ALS désigne, nettoyée (`clean()`) à la fermeture dans l'ordre inverse des créations.
 Rien n'est alloué pour une requête qui n'en résout aucune.
 
 **4. La dépendance captive est refusée, toujours.** Un singleton qui dépendrait d'un service
 `request` garderait l'exemplaire de la première requête pour toutes les suivantes : l'injecteur le
 refuse au démarrage, par analyse des déclarations (`Injector.assertNoCaptiveDependency()`,
-`injector.ts:453`), et à la résolution pour le reste — en développement comme en production.
+`injector.ts#Injector.assertNoCaptiveDependency`), et à la résolution pour le reste — en développement comme en production.
 
 **5. En WebSocket, la requête est la connexion.** Un scope par connexion, partagé par ses messages
 et ses invocations `api.request`, concurrentes comprises. Un scope par message est différé : il

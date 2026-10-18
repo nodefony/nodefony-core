@@ -66,7 +66,7 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
   est un confort) mais part en `ERROR`, donc compté dans `var/last-boot.json` → relisible par
   `nodefony doctor`. ⚠️ La règle se lit sur la PROPRIÉTÉ `violation`, jamais par `instanceof` : deux
   copies du paquet dans un arbre npm feraient perdre la seule information utile.
-  ⚠️ Un échec de hook n'est fatal qu'en PRODUCTION (`Kernel.ts:3255`) — en développement il était
+  ⚠️ Un échec de hook n'est fatal qu'en PRODUCTION (`Kernel.ts#Kernel.captureBootServers`) — en développement il était
   déjà fail-soft, avec un message technique que rien ne reliait à un compte.
 
 - `assertUserContract(present, origin, expected?)` : refuse une entité qui ne porte pas les colonnes
@@ -87,7 +87,7 @@ Contrats + `UserService` + `BcryptEncoder`. **Aucun ORM** : les deux implémenta
 `IUserRepository` vivent chez les adapters (`@nodefony/drizzle`, `@nodefony/mongoose`), convention
 **`entity/` = schéma, `src/` = repository**, avec `createdAt`/`updatedAt`. Le pont vers le firewall
 passe par `UserService` lui-même : il `implements IUserProvider, IPasswordVerifier,
-IOAuthUserProvisioner` (`nodefony/service/UserService.ts:69`) — c'est lui que `@nodefony/security`
+IOAuthUserProvisioner` (`nodefony/service/UserService.ts#USER_CREATED_EVENT`) — c'est lui que `@nodefony/security`
 consomme, jamais le repository directement.
 
 ## Compteurs de tête (facettes) — annuaire

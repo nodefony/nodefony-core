@@ -177,7 +177,7 @@ garantit que la dépendance va bien du concret vers l'abstrait, et jamais l'inve
 > [!NOTE]
 > `orm-core` n'est **pas un module bootable** : pas de classe `Module`, rien à mettre dans
 > `modules: [...]`. C'est une bibliothèque pure. Les modules, ce sont les **drivers** — ce sont eux
-> qui s'enregistrent dans `ormRegistry` (`OrmRegistry.ts:86`) à leur démarrage.
+> qui s'enregistrent dans `ormRegistry` (`OrmRegistry.ts#ormRegistry`) à leur démarrage.
 
 ## La vision Nodefony
 
@@ -193,7 +193,7 @@ sur-dimensionner pour ce cas serait une erreur.
 
 **2. L'abstraction assume de ne pas tout couvrir — et fournit la trappe.** Une jointure arbitraire,
 une CTE, une fonction fenêtre : ça ne se porte pas d'un moteur SQL à MongoDB. Plutôt que d'inventer
-un langage de requête maison, `IOrm.getNativeConnection()` (`IOrm.ts:51`) rend la connexion brute du
+un langage de requête maison, `IOrm.getNativeConnection()` (`IOrm.ts#IOrm.getNativeConnection`) rend la connexion brute du
 driver. Le contrat est honnête : **plus tu recours à la trappe, moins ton code est portable** — et
 tu le sais en l'écrivant, parce que l'appel est visible.
 
@@ -201,18 +201,18 @@ tu le sais en l'écrivant, parce que l'appel est visible.
 Un critère qui référence un champ inexistant (`{ emial: "…" }`) serait **ignoré** par Drizzle — la
 condition disparaît, la requête rend **toute** la table — et **conservé** par Mongoose, qui rend
 **zéro** résultat. Le même code, deux comportements opposés, aucune erreur : la promesse de
-portabilité s'effondre en silence. D'où `UnknownCriteriaField` (`errors.ts:23`), levée **par les deux
+portabilité s'effondre en silence. D'où `UnknownCriteriaField` (`errors.ts#UnknownCriteriaField`), levée **par les deux
 drivers** : on échoue tôt, et pareil.
 
 La même règle vaut pour les **options** : une forme de tri voisine mais fausse — `{ age: "asc" }` au
 lieu de `[["age", "ASC"]]` — faisait partir la requête **sans `ORDER BY`**, et l'appelant recevait des
-lignes non triées qu'il croyait triées. `assertOrderOption()` (`readOptions.ts:39`) est appelée par
-chaque adapter en amont de sa requête et lève `InvalidOrderOption` (`errors.ts:65`) ; le sens est
+lignes non triées qu'il croyait triées. `assertOrderOption()` (`readOptions.ts#assertOrderOption`) est appelée par
+chaque adapter en amont de sa requête et lève `InvalidOrderOption` (`errors.ts#InvalidOrderOption`) ; le sens est
 vérifié en casse exacte, parce qu'un `"desc"` minuscule aurait trié à l'**envers**. Normaliser une
 entrée utilisateur (casse, `champ:sens`) appartient à la frontière qui la reçoit — `parsePageQuery`
 le fait —, jamais au repository.
 
-**4. Le contrat va plus loin que le CRUD scolaire.** `IRepository` (`IRepository.ts:197`) porte
+**4. Le contrat va plus loin que le CRUD scolaire.** `IRepository` (`IRepository.ts#IRepository`) porte
 quinze verbes, pas cinq : les opérations **atomiques** (`upsert`, `increment`, `updateOne`,
 `findOneAndDelete`) sont dans le contrat parce qu'un `SELECT` suivi d'un `UPDATE` est une **course**,
 et qu'une course en base ne se rattrape pas côté application.
@@ -243,8 +243,8 @@ export const drizzleConfig = () =>
 
 ### 2. Décrire l'entité, et la déclarer au module
 
-`defineEntity()` (`defineEntity.ts:48`) n'a **aucun effet de bord** : importer ce fichier n'inscrit
-rien. C'est le décorateur `entities()` (`entitiesDecorator.ts:56`) posé sur le module qui inscrit la
+`defineEntity()` (`defineEntity.ts#defineEntity`) n'a **aucun effet de bord** : importer ce fichier n'inscrit
+rien. C'est le décorateur `entities()` (`entitiesDecorator.ts#entities`) posé sur le module qui inscrit la
 liste, à la phase `onRegister` — avant que le connecteur n'ouvre et ne crée les tables.
 
 ```ts
@@ -339,7 +339,7 @@ export async function demo(): Promise<void> {
 ### Ce qu'on observe
 
 Au démarrage, le driver crée la table et le récap de boot annonce la connexion
-(`reportOrmBootLines()`, `ormWiring.ts:60`). Le data plane confirme depuis l'extérieur :
+(`reportOrmBootLines()`, `ormWiring.ts#reportOrmBootLines`). Le data plane confirme depuis l'extérieur :
 
 ```bash
 # Les connecteurs enregistrés et leur état
@@ -377,24 +377,24 @@ sequenceDiagram
   Note over K: onServersReady → récap de boot
 ```
 
-**`entityRegistry`** (`EntityRegistry.ts:145`) indexe les entités à **deux** niveaux — nom puis
+**`entityRegistry`** (`EntityRegistry.ts#entityRegistry`) indexe les entités à **deux** niveaux — nom puis
 connecteur — parce qu'une même entité logique (`User`) peut vivre sur plusieurs connexions. Demander
 `get("User")` sans préciser le connecteur alors que deux le portent **lève** plutôt que de deviner
-(`EntityRegistry.get()`, `EntityRegistry.ts:54`). Le stockage est un `Object.create(null)` alloué
+(`EntityRegistry.get()`, `EntityRegistry.ts#EntityRegistry.get`). Le stockage est un `Object.create(null)` alloué
 **au premier enregistrement** : une application sans base ne paie rien.
 
-**`ormRegistry`** (`OrmRegistry.ts:86`) associe un nom de connexion à son instance `IOrm`. Un doublon
-de nom **lève** (`OrmRegistry.register()`, `OrmRegistry.ts:26`) : deux connexions homonymes seraient
+**`ormRegistry`** (`OrmRegistry.ts#ormRegistry`) associe un nom de connexion à son instance `IOrm`. Un doublon
+de nom **lève** (`OrmRegistry.register()`, `OrmRegistry.ts#OrmRegistry.register`) : deux connexions homonymes seraient
 un bug silencieux, jamais une intention.
 
 **La phase d'inscription est le piège n°1.** Les connecteurs se branchent à `onBoot` et créent les
 tables à ce moment. Inscrire une entité à `onBoot` la met donc en **course** avec `connect()` : selon
 l'ordre des écouteurs, la table existe ou non. `entities()` s'accroche à `onRegister`
-(`entitiesDecorator.ts:66`), strictement antérieur — sûr par construction. C'est la différence de
+(`entitiesDecorator.ts#entities`), strictement antérieur — sûr par construction. C'est la différence de
 comportement avec `@controllers`, qui lui reste à `onBoot`.
 
-**`Orm.connect()`** (`Orm.ts:118`) est une **template method** : elle mesure la latence, alimente le
-moniteur de connexion, puis émet `onOrmReady`. Un adapter surcharge `onConnect()` (`Orm.ts:363`), et
+**`Orm.connect()`** (`Orm.ts#Orm.connect`) est une **template method** : elle mesure la latence, alimente le
+moniteur de connexion, puis émet `onOrmReady`. Un adapter surcharge `onConnect()` (`Orm.ts#Orm.onConnect`), et
 **jamais** `connect()` — sinon l'événement et l'instrumentation disparaissent.
 
 ## 🧰 Les contrats — la surface publique
@@ -405,44 +405,44 @@ divergeraient.
 
 ### [`IOrm`](../../drizzle/docs/index.md) — une connexion logique
 
-`IOrm` (`IOrm.ts:12`) représente **une** connexion nommée. Il ouvre et ferme
-(`connect`/`disconnect`), rend les repositories (`IOrm.getRepository()`, `IOrm.ts:33`), ouvre une
-transaction (`IOrm.transaction()`, `IOrm.ts:41`) et expose la trappe native
-(`IOrm.getNativeConnection()`, `IOrm.ts:51`).
+`IOrm` (`IOrm.ts#IOrm`) représente **une** connexion nommée. Il ouvre et ferme
+(`connect`/`disconnect`), rend les repositories (`IOrm.getRepository()`, `IOrm.ts#IOrm.getRepository`), ouvre une
+transaction (`IOrm.transaction()`, `IOrm.ts#IOrm.transaction`) et expose la trappe native
+(`IOrm.getNativeConnection()`, `IOrm.ts#IOrm.getNativeConnection`).
 
 Quatre méthodes sont **optionnelles** — un adapter qui ne les implémente pas dégrade proprement au
-lieu d'échouer : `describeEntity()` (`IOrm.ts:78`, colonnes pour l'ERD), `describeConnection()`
-(`IOrm.ts:88`, driver et cible **sans credential**), `ping()` (`IOrm.ts:109`, aller-retour réel) et
-`probe()` (`IOrm.ts:119`, métriques driver, qui ne doit **jamais** lever).
+lieu d'échouer : `describeEntity()` (`IOrm.ts#IOrm.describeEntity`, colonnes pour l'ERD), `describeConnection()`
+(`IOrm.ts#IOrm.describeConnection`, driver et cible **sans credential**), `ping()` (`IOrm.ts#IOrm.ping`, aller-retour réel) et
+`probe()` (`IOrm.ts#IOrm.probe`, métriques driver, qui ne doit **jamais** lever).
 
 ### [`IRepository`](tutorial-entity.md) — les quinze verbes
 
-`IRepository<T>` (`IRepository.ts:197`) est la seule surface que ton métier devrait connaître. Les
+`IRepository<T>` (`IRepository.ts#IRepository`) est la seule surface que ton métier devrait connaître. Les
 verbes se choisissent sur **la garantie** qu'ils apportent, pas sur leur nom.
 
-| Verbe                 | Ce qu'il garantit                                                         | Ancre                |
-| --------------------- | ------------------------------------------------------------------------- | -------------------- |
-| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                               | `IRepository.ts:230` |
-| `count`               | compter les entités qui correspondent au critère                          | `IRepository.ts:362` |
-| `exists`              | savoir s'il y en a au moins un, sans charger de colonne                   | `IRepository.ts:395` |
-| `countDistinct`       | compter les valeurs DISTINCTES et non nulles d'un champ, sans les charger | `IRepository.ts:381` |
-| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)            | `IRepository.ts:240` |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots            | `IRepository.ts:252` |
-| `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend            | `IRepository.ts:269` |
-| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**               | `IRepository.ts:312` |
-| `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction       | `IRepository.ts:296` |
-| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, rate-limit                  | `IRepository.ts:287` |
-| `delete`              | supprime tout ce qui matche, rend le nombre                               | `IRepository.ts:336` |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                           | `IRepository.ts:345` |
-| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique      | `IRepository.ts:355` |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                          | `IRepository.ts:406` |
+| Verbe                 | Ce qu'il garantit                                                         | Ancre                                         |
+| --------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
+| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                               | `IRepository.ts#IRepository.findOne`          |
+| `count`               | compter les entités qui correspondent au critère                          | `IRepository.ts#IRepository.count`            |
+| `exists`              | savoir s'il y en a au moins un, sans charger de colonne                   | `IRepository.ts#IRepository.exists`           |
+| `countDistinct`       | compter les valeurs DISTINCTES et non nulles d'un champ, sans les charger | `IRepository.ts#IRepository.countDistinct`    |
+| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)            | `IRepository.ts#IRepository.create`           |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots            | `IRepository.ts#IRepository.createMany`       |
+| `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend            | `IRepository.ts#IRepository.updateOne`        |
+| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**               | `IRepository.ts#IRepository.updateMany`       |
+| `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction       | `IRepository.ts#IRepository.upsert`           |
+| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, rate-limit                  | `IRepository.ts#IRepository.upsert`           |
+| `delete`              | supprime tout ce qui matche, rend le nombre                               | `IRepository.ts#IRepository.delete`           |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                           | `IRepository.ts#IRepository.deleteOne`        |
+| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique      | `IRepository.ts#IRepository.findOneAndDelete` |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                          | `IRepository.ts#IRepository.withTransaction`  |
 
 > [!IMPORTANT]
 > `updateOne` est atomique **par construction** : une seule requête (`UPDATE … RETURNING` en SQL,
 > `findOneAndUpdate` en Mongo), jamais un `UPDATE` suivi d'une relecture. La différence n'est pas
 > cosmétique : la relecture rendrait `null` **à tort** dès que le critère porte sur un champ qu'on
 > vient de modifier — `updateOne({ status: "pending" }, { status: "done" })` ne retrouve plus rien
-> après coup (`IRepository.ts:269`).
+> après coup (`IRepository.ts#IRepository.updateOne`).
 
 Quelques usages, un par garantie :
 
@@ -468,27 +468,27 @@ await quotas.upsert(
 
 L'`upsert` mérite une note. Son `DO UPDATE` est **inconditionnel** — MySQL n'accepte pas de `WHERE`
 sur `ON DUPLICATE KEY UPDATE`. Une valeur qui ne doit jamais régresser porte donc sa condition
-**dans la valeur écrite**, via `UpdateOperators` (`IRepository.ts:94`) : `$max`/`$min` se traduisent
+**dans la valeur écrite**, via `UpdateOperators` (`IRepository.ts#UpdateOperators`) : `$max`/`$min` se traduisent
 en `MAX()` (sqlite), `GREATEST()` (postgres, mysql) ou `$max` natif (Mongo) — **une** instruction
 atomique sur les quatre backends.
 
 ### [`IEntity`](tutorial-entity.md) — la description d'une table
 
-`IEntity` (`IEntity.ts:51`) porte un nom logique, un `connector` (le nom d'une **connexion**, jamais
+`IEntity` (`IEntity.ts#IEntity`) porte un nom logique, un `connector` (le nom d'une **connexion**, jamais
 d'un moteur), un `schema` natif du driver, et des `relations` déclaratives (`IEntityRelation`,
-`IEntity.ts:4`). Deux champs facultatifs servent la lisibilité d'un gros modèle : `module` (qui
-apporte l'entité) et `domain` (`IEntity.ts:72`, la classification métier — l'axe qui rend navigable
+`IEntity.ts#IEntityRelation`). Deux champs facultatifs servent la lisibilité d'un gros modèle : `module` (qui
+apporte l'entité) et `domain` (`IEntity.ts#IEntity.domain`, la classification métier — l'axe qui rend navigable
 une base de plusieurs centaines de tables). Un troisième, `indexes` (`IEntityIndex`), déclare les
 index COMPOSITES qu'un adaptateur ne sait pas exprimer dans son schéma : Mongoose les applique
 (`schema.index()`), Drizzle les ignore, puisqu'il les déclare dans sa table.
 
 Dans une application, on ne construit pas un `IEntity` à la main : on écrit un `IEntityDefinition`
-(`defineEntity.ts:15`) — le même objet **sans** `connector`, justement parce que le connecteur est
+(`defineEntity.ts#IEntityDefinition`) — le même objet **sans** `connector`, justement parce que le connecteur est
 une donnée de configuration, résolue au boot.
 
 ### [`ITransaction`](../../drizzle/docs/index.md) — tout ou rien
 
-`ITransaction` (`ITransaction.ts:8`) expose `commit`, `rollback`, `savepoint` (`ITransaction.ts:20`),
+`ITransaction` (`ITransaction.ts#ITransaction`) expose `commit`, `rollback`, `savepoint` (`ITransaction.ts#ITransaction.savepoint`),
 `rollbackTo` et la trappe `getNative`. En pratique on ne l'appelle presque jamais directement : on
 passe par `IOrm.transaction()`, qui valide si le travail se résout et annule s'il lève.
 
@@ -508,7 +508,7 @@ contexte implicite, donc deux transactions concurrentes ne peuvent pas se mélan
 > [!WARNING]
 > Une transaction porte sur **un seul** connecteur. Les transactions réparties (2PC) ne sont pas
 > garanties : écrire dans `default` et `analytics` dans un même `transaction()` ne donne aucune
-> atomicité entre les deux (`ITransaction.ts:5`).
+> atomicité entre les deux (`ITransaction.ts#ITransaction`).
 
 ## 🔎 Les critères de recherche
 
@@ -523,32 +523,32 @@ await articles.find({ title: { $like: "Hel%" } }); // motif SQL
 await articles.find({ publishedAt: { $null: false } }); // IS NOT NULL
 ```
 
-Les dix opérateurs reconnus sont figés dans `OPERATOR_KEYS` (`criteria.ts:13`) — source unique
+Les dix opérateurs reconnus sont figés dans `OPERATOR_KEYS` (`criteria.ts#OPERATOR_KEYS`) — source unique
 partagée par tous les adapters : `$eq $ne $gt $gte $lt $lte $in $nin $like $null`. Plusieurs
 opérateurs sur un même champ se combinent en **ET**.
 
 **Le `null` est le piège que le contrat désamorce.** En SQL, `colonne = NULL` est **toujours faux** :
 un filtre « la colonne est vide » écrit naïvement ne matcherait jamais rien, sans erreur. Deux formes
 équivalentes le résolvent — la valeur nue `{ publishedAt: null }` et l'opérateur
-`{ publishedAt: { $null: true } }` (`IRepository.ts:65`), qui produisent tous deux un `IS NULL`. La
+`{ publishedAt: { $null: true } }` (`IRepository.ts#FieldOperators.$null`), qui produisent tous deux un `IS NULL`. La
 valeur nue n'est d'ailleurs **ouverte par le typage que si le champ est nullable** (`FieldCriteria`,
-`IRepository.ts:128`) : chercher `IS NULL` sur une colonne non-nullable est une erreur de
+`IRepository.ts#FieldCriteria`) : chercher `IS NULL` sur une colonne non-nullable est une erreur de
 raisonnement, et le compilateur la refuse.
 
 **Comment un objet est reconnu comme filtre plutôt que comme valeur** : `isFieldOperators()`
-(`criteria.ts:42`) ne l'interprète que si **toutes** ses clés sont des opérateurs connus. Une colonne
+(`criteria.ts#isFieldOperators`) ne l'interprète que si **toutes** ses clés sont des opérateurs connus. Une colonne
 JSON ou un sous-document (`{ meta: { auteur: "…" } }`) reste donc une égalité — c'est ce qui évite
 qu'une donnée métier soit prise pour une requête.
 
 **Ce que le critère ne couvre pas** : les sous-requêtes, les agrégats, les jointures arbitraires
 (la disjonction, elle, s'exprime par `$or: [...]`, portable). Ce n'est pas un oubli — c'est la limite du portable, et la sortie est
-`getNativeConnection()`. L'erreur `UnknownCriteriaField` (`errors.ts:23`) le dit d'ailleurs
+`getNativeConnection()`. L'erreur `UnknownCriteriaField` (`errors.ts#UnknownCriteriaField`) le dit d'ailleurs
 explicitement dans son message, avec la liste des champs connus de l'entité (diagnostic d'une faute
 de frappe).
 
 ## 📄 Pagination portable
 
-`paginate()` (`paginate.ts:47`) construit une page **au-dessus** des primitives que tout adapter
+`paginate()` (`paginate.ts#paginate`) construit une page **au-dessus** des primitives que tout adapter
 implémente déjà (`find` avec `limit`/`offset`/`order`, et `count`). Aucun driver n'a eu à changer.
 
 Deux décisions le rendent utilisable sur une grosse table :
@@ -559,13 +559,13 @@ Deux décisions le rendent utilisable sur une grosse table :
    `false`. C'est la distinction « Page » (avec total) et « Slice » (sans), reprise de Spring Data.
 
 Les bornes sont normalisées plutôt que propagées : un `limit` de `0` ou un `offset` négatif est
-ramené dans le domaine valide (`paginate.ts:56`) — un `find({ limit: 0 })` a un comportement qui
+ramené dans le domaine valide (`paginate.ts#paginate`) — un `find({ limit: 0 })` a un comportement qui
 dépend du dialecte, donc on ne le laisse pas sortir.
 
 Le contrat de page lui-même (`IPage`, `IPageQuery`) vit dans le **cœur**
-(`src/nodefony/src/types/IPage.ts:22`), pas ici : il est partagé par tous les stores paginés du
+(`src/nodefony/src/types/IPage.ts#IPageQuery`), pas ici : il est partagé par tous les stores paginés du
 framework (sessions HTTP, jetons, audit…). `orm-core` ne fait que l'enrichir du `criteria` typé, sous
-le nom `PageQuery` (`IPage.ts:18`).
+le nom `PageQuery` (`IPage.ts#PageQuery`).
 
 ## ⚙️ Le socle CRUD — `AbstractCrudService`
 
@@ -587,17 +587,17 @@ export class ArticleService extends AbstractCrudService<ArticleRow> {
 }
 ```
 
-`AbstractCrudService` (`AbstractCrudService.ts:37`) sépare volontairement deux régimes :
+`AbstractCrudService` (`AbstractCrudService.ts#AbstractCrudService`) sépare volontairement deux régimes :
 
 - **Lectures** (`find`, `findOne`, `findById`, `count`, `findPage`) — **délégation pure**. Aucun
   hook, aucun événement : c'est le chemin chaud, il ne doit rien payer.
 - **Mutations** (`create`, `updateOne`, `delete`) — encadrées par des hooks _template method_
-  (`beforeCreate`, `AbstractCrudService.ts:212`, et ses six frères) puis un événement de cycle de vie
+  (`beforeCreate`, `AbstractCrudService.ts#AbstractCrudService.beforeCreate`, et ses six frères) puis un événement de cycle de vie
   `onCreated` / `onUpdated` / `onDeleted`, **émis seulement si la mutation a eu lieu**
-  (`AbstractCrudService.ts:167`). L'audit, l'invalidation de cache ou une notification Studio s'y
+  (`AbstractCrudService.ts#AbstractCrudService.updateOne`). L'audit, l'invalidation de cache ou une notification Studio s'y
   abonnent sans toucher au service.
 
-`findPage()` (`AbstractCrudService.ts:110`) est la primitive à utiliser pour **toute** liste
+`findPage()` (`AbstractCrudService.ts#AbstractCrudService.findPage`) est la primitive à utiliser pour **toute** liste
 d'administration : elle ne charge qu'une page, quelle que soit la taille de la table.
 
 > [!WARNING]
@@ -610,19 +610,19 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
-`DrizzleRepository.upsert()` (`DrizzleRepository.ts:1091`) et `MongooseRepository.upsert()`
-(`MongooseRepository.ts:439`).
+`DrizzleRepository.upsert()` (`DrizzleRepository.ts#DrizzleRepository.upsert`) et `MongooseRepository.upsert()`
+(`MongooseRepository.ts#MongooseRepository.upsert`).
 
-| Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`                         |
-| -------------------------------------- | ----------------------------------- | -------------------------------------------- |
-| Moteurs                                | SQLite, PostgreSQL, MySQL / MariaDB | MongoDB                                      |
-| Contrat `IRepository` (15 verbes)      | complet                             | complet                                      |
-| Eager-load `{ relations }`             | oui                                 | oui (`populate`)                             |
-| Transactions                           | oui                                 | oui (replica set requis par Mongo)           |
-| Savepoints (rollback partiel)          | oui                                 | non — refusés (`SavepointNotSupportedError`) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1982`)          | oui (`MongooseOrm.ts:649`)                   |
-| Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | oui — alimente `queryFlowMonitor`            |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1873`)          | oui (`MongooseOrm.ts:617`)                   |
+| Capacité                               | `@nodefony/drizzle`                             | `@nodefony/mongoose`                                   |
+| -------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ |
+| Moteurs                                | SQLite, PostgreSQL, MySQL / MariaDB             | MongoDB                                                |
+| Contrat `IRepository` (15 verbes)      | complet                                         | complet                                                |
+| Eager-load `{ relations }`             | oui                                             | oui (`populate`)                                       |
+| Transactions                           | oui                                             | oui (replica set requis par Mongo)                     |
+| Savepoints (rollback partiel)          | oui                                             | non — refusés (`SavepointNotSupportedError`)           |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts#DrizzleOrm.describeEntity`) | oui (`MongooseOrm.ts#MongooseOrm.probe`)               |
+| Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`               | oui — alimente `queryFlowMonitor`                      |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts#DrizzleOrm.probe`)          | oui (`MongooseOrm.ts#MongooseOrm.getNativeConnection`) |
 
 **Les « stores » du framework** : chaque adapter déclare ce qu'il porte dans son `package.json`, clé
 `nodefony.stores`. Les deux backends durables portent les huit :
@@ -648,20 +648,20 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 
 Le contrat minimal tient en peu de choses, parce que `orm-core` fournit déjà la plomberie.
 
-1. **Étendre `Orm`** (`Orm.ts:46`) : implémenter `onConnect()`, `disconnect()`, `isConnected()`,
+1. **Étendre `Orm`** (`Orm.ts#Orm`) : implémenter `onConnect()`, `disconnect()`, `isConnected()`,
    `getRepository()`, `transaction()`, `getNativeConnection()`. L'enregistrement dans `ormRegistry`
    est fait par le constructeur de base — il n'y a rien à écrire. **Ne jamais surcharger
    `connect()`** : c'est la template method qui émet `onOrmReady` et instrumente la latence.
-2. **Implémenter `IRepository<T>`** en traduisant les critères. `isFieldOperators()` (`criteria.ts:42`)
-   et `isUpdateOperators()` (`criteria.ts:87`) sont fournis pour que la détection soit **identique**
+2. **Implémenter `IRepository<T>`** en traduisant les critères. `isFieldOperators()` (`criteria.ts#isFieldOperators`)
+   et `isUpdateOperators()` (`criteria.ts#isUpdateOperators`) sont fournis pour que la détection soit **identique**
    partout — les réécrire, c'est fabriquer une divergence.
-3. **Lever `UnknownCriteriaField`** (`errors.ts:23`) sur un champ inconnu, et **appeler
-   `assertOrderOption()`** (`readOptions.ts:39`) une fois, en amont, sur `options.order`. C'est le
+3. **Lever `UnknownCriteriaField`** (`errors.ts#UnknownCriteriaField`) sur un champ inconnu, et **appeler
+   `assertOrderOption()`** (`readOptions.ts#assertOrderOption`) une fois, en amont, sur `options.order`. C'est le
    prix de la promesse de portabilité : un adapter qui retesterait la forme lui-même finirait par
    diverger de l'autre.
 4. **Câbler le data plane** en une ligne à `onKernelBoot` : `wireOrmAdminPlane(this.kernel)`
-   (`ormWiring.ts:31`) monte les routes admin, la santé et le diagnostic riche. Et
-   `resolveOrmFlowEnabled(kernel)` (`ormWiring.ts:96`) décide si la sonde de flux s'allume — hors
+   (`ormWiring.ts#wireOrmAdminPlane`) monte les routes admin, la santé et le diagnostic riche. Et
+   `resolveOrmFlowEnabled(kernel)` (`ormWiring.ts#resolveOrmFlowEnabled`) décide si la sonde de flux s'allume — hors
    production par défaut, `NF_ORM_FLOW=1` force.
 5. **Déclarer les capacités** dans `package.json` (`nodefony.storeKind`, `nodefony.stores`) : c'est
    ainsi que le framework sait ce que ton adapter sait faire.
@@ -674,39 +674,39 @@ s'ajoutent ensuite : sans elles l'adapter fonctionne, il est simplement moins ob
 Deux sondes **indépendantes**, et un data plane qui les expose. La séparation est délibérée : mesurer
 la santé ne doit pas coûter le débit, et observer le débit ne doit pas réveiller la base.
 
-**`connectionMonitor`** (`ConnectionMonitor.ts:197`) suit le **cycle de vie** d'une connexion :
+**`connectionMonitor`** (`ConnectionMonitor.ts#ConnectionMonitor.#pushEvent`) suit le **cycle de vie** d'une connexion :
 première connexion, reconnexions, erreurs récentes, et une fenêtre de latence de ping
-(`ConnectionMonitor.recordPing()`, `ConnectionMonitor.ts:136`). Il est alimenté par `Orm.connect()`
+(`ConnectionMonitor.recordPing()`, `ConnectionMonitor.ts#ConnectionMonitor.recordPing`). Il est alimenté par `Orm.connect()`
 sans que l'adapter ait à y penser.
 
-**`queryFlowMonitor`** (`QueryFlowMonitor.ts:144`) suit le **débit** : total de requêtes, latence
+**`queryFlowMonitor`** (`QueryFlowMonitor.ts#queryFlowMonitor`) suit le **débit** : total de requêtes, latence
 moyenne et EWMA, pire latence, et un anneau borné à vingt requêtes lentes. Trois propriétés le
 rendent sûr en production :
 
 - **éteint par défaut** — `enabled = false` : coût nul tant qu'on ne l'allume pas ;
 - **lazy** — la table de statistiques n'est allouée qu'au premier enregistrement ;
-- **le SQL n'est capté que sur le chemin lent** (`QueryFlowMonitor.record()`, `QueryFlowMonitor.ts:101`) :
+- **le SQL n'est capté que sur le chemin lent** (`QueryFlowMonitor.record()`, `QueryFlowMonitor.ts#QueryFlowMonitor.record`) :
   jamais de sérialisation de requête au cas nominal ;
 - **aucune persistance** — tout est en mémoire vive. Une sonde n'écrit jamais dans la base qu'elle
   observe, et le débit par seconde est **dérivé côté lecteur** (delta entre deux relevés), donc rien
   n'est muté à la lecture.
 
-Le data plane `/nodefony/orm/api/*` (`createOrmAdminApi()`, `OrmAdminApi.ts:541`) expose onze points
+Le data plane `/nodefony/orm/api/*` (`createOrmAdminApi()`, `OrmAdminApi.ts#createOrmAdminApi`) expose onze points
 d'entrée, tous filtrables par `?connector=` :
 
-| Point d'entrée      | Ce qu'il rend                                                      |
-| ------------------- | ------------------------------------------------------------------ |
-| `orms`              | les connecteurs, leur état, leur nombre d'entités                  |
-| `entities`          | le modèle complet : colonnes + relations                           |
-| `entity/{name}`     | une entité (404 si inconnue)                                       |
-| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:227`)      |
-| `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table           |
-| `connection/health` | état, latence, erreurs, reconnexions, sondes                       |
-| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:360`)  |
-| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:395`) ou `jsonschema`          |
-| `migrations`        | l'état des migrations (même objet que `orm:migrate:status --json`) |
-| `migrations/plan`   | le SQL en attente                                                  |
-| `migrations/apply`  | applique les migrations (développement seulement)                  |
+| Point d'entrée      | Ce qu'il rend                                                              |
+| ------------------- | -------------------------------------------------------------------------- |
+| `orms`              | les connecteurs, leur état, leur nombre d'entités                          |
+| `entities`          | le modèle complet : colonnes + relations                                   |
+| `entity/{name}`     | une entité (404 si inconnue)                                               |
+| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts#buildOrmGraph`)    |
+| `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table                   |
+| `connection/health` | état, latence, erreurs, reconnexions, sondes                               |
+| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts#buildOrmFlow`) |
+| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts#toDbml`) ou `jsonschema`               |
+| `migrations`        | l'état des migrations (même objet que `orm:migrate:status --json`)         |
+| `migrations/plan`   | le SQL en attente                                                          |
+| `migrations/apply`  | applique les migrations (développement seulement)                          |
 
 Ce graphe canonique est **la pièce maîtresse**, pas le diagramme : c'est une donnée sérialisable qui
 sert à la fois l'ERD de Studio, un export vers un outil tiers, et le contexte d'un agent IA
@@ -719,14 +719,14 @@ Côté Studio, trois écrans le consomment : `/nodefony/orm` (vue d'ensemble), `
 
 Le socle est conçu pour **ne rien coûter quand il ne sert pas**.
 
-| Ce qui pourrait coûter     | Ce que fait `orm-core`                                                              |
-| -------------------------- | ----------------------------------------------------------------------------------- |
-| Registres au démarrage     | alloués au **premier** enregistrement (`EntityRegistry.ts:25`, `OrmRegistry.ts:27`) |
-| Contrats                   | interfaces TypeScript — effacées à la compilation, zéro coût runtime                |
-| Lectures d'un service CRUD | délégation directe : ni hook, ni événement sur le chemin chaud                      |
-| Sonde de flux              | éteinte par défaut ; table allouée au premier relevé ; anneau des lentes borné à 20 |
-| Sérialisation du SQL       | seulement sur le chemin **lent**, jamais au cas nominal                             |
-| Comptage d'une page        | `COUNT(*)` évitable (`withTotal: false`), `hasNext` obtenu par `limit + 1`          |
+| Ce qui pourrait coûter     | Ce que fait `orm-core`                                                                                                     |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Registres au démarrage     | alloués au **premier** enregistrement (`EntityRegistry.ts#EntityRegistry.register`, `OrmRegistry.ts#OrmRegistry.register`) |
+| Contrats                   | interfaces TypeScript — effacées à la compilation, zéro coût runtime                                                       |
+| Lectures d'un service CRUD | délégation directe : ni hook, ni événement sur le chemin chaud                                                             |
+| Sonde de flux              | éteinte par défaut ; table allouée au premier relevé ; anneau des lentes borné à 20                                        |
+| Sérialisation du SQL       | seulement sur le chemin **lent**, jamais au cas nominal                                                                    |
+| Comptage d'une page        | `COUNT(*)` évitable (`withTotal: false`), `hasNext` obtenu par `limit + 1`                                                 |
 
 Deux conséquences pratiques pour ton code : préférer `exists()` à `findOne() !== null` (aucune
 colonne n'est chargée), et `increment()` à une lecture suivie d'une écriture (une requête au lieu de
@@ -734,19 +734,19 @@ deux, et pas de course).
 
 ## ⚠️ Pièges
 
-| Symptôme                                                      | Cause                                                                                              | Correction                                                                                  |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| « no entity registered under "X" » au premier appel           | l'entité n'a jamais été inscrite (fichier importé mais `defineEntity` est sans effet de bord)      | l'ajouter à `@entities([...])` sur le module (`entitiesDecorator.ts:56`)                    |
-| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec `connect()`                                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:56`)        |
-| « entity "User" exists on multiple connectors … specify one » | la même entité vit sur plusieurs connecteurs                                                       | préciser le connecteur : `entityRegistry.get("User", "analytics")` (`EntityRegistry.ts:54`) |
-| Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                          | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts:65`)       |
-| `UnknownCriteriaField` sur un champ qui existe « pourtant »   | faute de frappe, ou champ calculé absent du schéma                                                 | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`  |
-| `updateOne` rend `null` alors que la ligne a bien changé      | ancien réflexe `UPDATE` + relecture (le critère porte sur le champ modifié)                        | utiliser `updateOne`, atomique par construction (`IRepository.ts:269`)                      |
-| Un `upsert` écrase une valeur qui devait progresser           | le `DO UPDATE` est inconditionnel (contrainte MySQL)                                               | poser la condition **dans** la valeur : `{ seuil: { $max: v } }` (`IRepository.ts:94`)      |
-| Un objet de critère est pris pour une égalité (colonne JSON)  | comportement **voulu** : une valeur n'est un filtre que si **toutes** ses clés sont des opérateurs | c'est la protection ; pour filtrer dedans, passer au natif (`criteria.ts:42`)               |
-| `onOrmReady` ne part plus après un ajout dans l'adapter       | `connect()` a été surchargé                                                                        | surcharger `onConnect()` (`Orm.ts:363`), jamais `connect()`                                 |
-| Une entité déclarée dans un module reste invisible            | le module embarque sa **propre copie** du registre (singleton dédoublé)                            | externaliser `@nodefony/orm-core` dans le `rolldown.config.ts` du module                    |
-| Rien dans `flow` alors que la base travaille                  | la sonde est éteinte hors développement, ou le driver n'a pas de tap                               | `NF_ORM_FLOW=1` (`ormWiring.ts:96`) ; les deux drivers officiels ont un tap                 |
+| Symptôme                                                      | Cause                                                                                              | Correction                                                                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| « no entity registered under "X" » au premier appel           | l'entité n'a jamais été inscrite (fichier importé mais `defineEntity` est sans effet de bord)      | l'ajouter à `@entities([...])` sur le module (`entitiesDecorator.ts#entities`)                              |
+| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec `connect()`                                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts#entities`)                  |
+| « entity "User" exists on multiple connectors … specify one » | la même entité vit sur plusieurs connecteurs                                                       | préciser le connecteur : `entityRegistry.get("User", "analytics")` (`EntityRegistry.ts#EntityRegistry.get`) |
+| Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                          | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts#FieldOperators.$null`)     |
+| `UnknownCriteriaField` sur un champ qui existe « pourtant »   | faute de frappe, ou champ calculé absent du schéma                                                 | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`                  |
+| `updateOne` rend `null` alors que la ligne a bien changé      | ancien réflexe `UPDATE` + relecture (le critère porte sur le champ modifié)                        | utiliser `updateOne`, atomique par construction (`IRepository.ts#IRepository.updateOne`)                    |
+| Un `upsert` écrase une valeur qui devait progresser           | le `DO UPDATE` est inconditionnel (contrainte MySQL)                                               | poser la condition **dans** la valeur : `{ seuil: { $max: v } }` (`IRepository.ts#UpdateOperators`)         |
+| Un objet de critère est pris pour une égalité (colonne JSON)  | comportement **voulu** : une valeur n'est un filtre que si **toutes** ses clés sont des opérateurs | c'est la protection ; pour filtrer dedans, passer au natif (`criteria.ts#isFieldOperators`)                 |
+| `onOrmReady` ne part plus après un ajout dans l'adapter       | `connect()` a été surchargé                                                                        | surcharger `onConnect()` (`Orm.ts#Orm.onConnect`), jamais `connect()`                                       |
+| Une entité déclarée dans un module reste invisible            | le module embarque sa **propre copie** du registre (singleton dédoublé)                            | externaliser `@nodefony/orm-core` dans le `rolldown.config.ts` du module                                    |
+| Rien dans `flow` alors que la base travaille                  | la sonde est éteinte hors développement, ou le driver n'a pas de tap                               | `NF_ORM_FLOW=1` (`ormWiring.ts#resolveOrmFlowEnabled`) ; les deux drivers officiels ont un tap              |
 
 ## 🧪 Tests & couverture
 

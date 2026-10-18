@@ -58,9 +58,9 @@ parfois le pire : cette table n'est pas une table comme les autres.
 **La table des utilisateurs est relue à chaque requête portant une session authentifiée.** Ce n'est
 pas un détail d'implémentation, c'est le cœur du modèle : une session ne transporte qu'un
 identifiant, jamais l'utilisateur lui-même. À chaque requête, `SessionAuthenticator.authenticate()`
-(`src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts:96`) redemande
+(`src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts#SessionAuthenticator.authenticate`) redemande
 l'identité vivante — `resolveSessionIdentity`
-(`src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts:27`) — pour que
+(`src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts#resolveSessionIdentity`) — pour que
 la désactivation d'un compte, un changement de rôle ou un verrouillage prennent effet
 **immédiatement**, sans attendre l'expiration d'un jeton.
 
@@ -91,7 +91,7 @@ Le test qui tranche en une question : **cette donnée doit-elle être en mémoir
 
 Quand une donnée réglementée doit vivre en base, le framework a son précédent : le secret d'un
 second facteur est stocké **chiffré**, en blob opaque, jamais en clair — `totpSecretEntity`
-(`src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts:41`). Reprends ce patron :
+(`src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts#TOTP_SECRET_TABLE_SPEC`). Reprends ce patron :
 une entité dédiée, un blob chiffré, et une lecture qui n'a lieu qu'au moment où la donnée sert.
 
 ## Démarrage rapide (exemple minimal qui compile)
@@ -149,7 +149,7 @@ Il y a **deux** dépôts, et c'est volontaire.
 
 - **En LECTURE, il n'y a rien à faire.** Le dépôt d'identité reporte sur l'utilisateur toute colonne
   qu'il ne connaît pas — `attachExtraColumns`
-  (`src/packages/@nodefony/user/nodefony/src/userContract.ts:288`). Un champ ajouté à la table arrive
+  (`src/packages/@nodefony/user/nodefony/src/userContract.ts#attachExtraColumns`). Un champ ajouté à la table arrive
   donc sur l'objet utilisateur sans une ligne de code.
 - **En ÉCRITURE, `IUserRepository` les refuse**, et c'est une garde, pas un manque : il est typé sur
   le contrat d'identité, et laisser écrire n'importe quoi par cette porte reviendrait à laisser un

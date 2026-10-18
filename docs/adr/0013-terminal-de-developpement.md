@@ -44,21 +44,21 @@ Trois besoins dépassent ce modèle :
 
 Les faits qui contraignent la solution, au code :
 
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1778` — le serveur est lancé `detached` sous
+- `src/nodefony/src/service/dev/DevSupervisor.ts#DevSupervisor.#spawnChild` — le serveur est lancé `detached` sous
   POSIX : un groupe en arrière-plan qui LIT le terminal reçoit `SIGTTIN` et est suspendu. Seul le
-  superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts:2378`) peut lire le clavier.
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1139` — `stdio: ["inherit", "inherit", "inherit",
+  superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts#DevSupervisor.#forceShutdown`) peut lire le clavier.
+- `src/nodefony/src/service/dev/DevSupervisor.ts#DevSupervisor.#clearSpin` — `stdio: ["inherit", "inherit", "inherit",
 "ipc"]` : le serveur écrit directement dans le terminal.
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1100` (`#log`) et `:1108` (`#startSpin`) — le
+- `src/nodefony/src/service/dev/DevSupervisor.ts#DevSupervisor.#symbolsFailed` (`#log`) et `src/nodefony/src/service/dev/DevSupervisor.ts#DevSupervisor.#log` (`#startSpin`) — le
   superviseur écrit lui aussi en direct, et anime son spinner de build par `\r`.
 - Un terminal ne fige rien dans son propre historique. Une zone de défilement (`DECSTBM`) a été
   essayée en #533 : historique vidé, Windows Terminal ne garde pas ce qui en sort, terminal cassé
   au `kill -9`.
-- `src/nodefony/src/runtime/isTerminal.ts:197` (`isTerminal`, qui lit `isTTY`) — la porte unique où le code constate « suis-je dans
+- `src/nodefony/src/runtime/isTerminal.ts#isTerminal` (`isTerminal`, qui lit `isTTY`) — la porte unique où le code constate « suis-je dans
   un terminal ? ». Quatorze lectures directes de `process.stdout.columns` la contournent encore,
   dans sept fichiers.
 - Vite n'est PAS concerné : le serveur le lance déjà en tube, sans couleur
-  (`src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts:493-500`,
+  (`src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts#ViteProcessSupervisor.attemptSpawn`,
   `FORCE_COLOR: "0"`) ; il ne touche jamais le terminal et n'efface jamais l'écran.
 
 ## Décision
@@ -81,7 +81,7 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
 - **`FORCE_COLOR`** est posé pour les bibliothèques de couleur du processus serveur (nom de
   l'écosystème, qu'on ne possède pas). Les deux lecteurs de couleur du dépôt qui consultent
   `isTTY` en direct passent par la porte : le défaut d'import de `src/nodefony/src/syslog/logColor.ts`
-  et `shouldAnimate` de `src/nodefony/src/cli/progress.ts:144`.
+  et `shouldAnimate` de `src/nodefony/src/cli/progress.ts#shouldAnimate`.
 - **Deux tubes ne garantissent pas l'ordre relatif entre `out` et `err`** (aujourd'hui, `inherit`
   ordonne par appel système). C'est le prix du champ `stream` de l'historique ; il est accepté.
 - **Sans superviseur** (`--no-watch`), le serveur garde `StatusLine` et dessine lui-même, comme
@@ -164,7 +164,7 @@ interface ITranscriptEntry {
 - **Deux plafonds** : 10 000 entrées ET **8 Mio d'octets** — le second est celui qui compte
   (10 000 × 16 Kio feraient 160 Mio). Éviction par la tête tant que l'un est dépassé.
 - **Un seul anneau dans le dépôt** : `CircularBuffer`, jusque-là interne à `Syslog.ts`, sort
-  dans `src/nodefony/src/runtime/` (`src/nodefony/src/runtime/CircularBuffer.ts:13`), ÉTENDU de `at(i)` et `shift()` (O(1), sans
+  dans `src/nodefony/src/runtime/` (`src/nodefony/src/runtime/CircularBuffer.ts#CircularBuffer`), ÉTENDU de `at(i)` et `shift()` (O(1), sans
   copie — `toArray()` à chaque image allouerait 10 000 cases soixante fois par seconde). `Syslog`
   le réimporte sans changer d'API.
 - **Découpe sur le `Buffer`**, une ligne décodée à la fois (`buf.toString("utf8", a, b)`), avec
@@ -175,11 +175,11 @@ interface ITranscriptEntry {
   ligne en cours (un spinner réécrit sa ligne, il n'empile pas cent entrées).
 - **Assainissement de TOUTE source** (serveur, commande, modèle) et des chaînes de la barre.
   Gardés : couleurs (SGR), `\r`, effacement de ligne, hyperliens OSC 8 dont l'URL est `http`,
-  `https` ou `file` (le serveur en émet, `#hyperlinks` à `BootReporter.ts:193`). Retiré : tout le reste —
+  `https` ou `file` (le serveur en émet, `#hyperlinks` à `BootReporter.ts#BootReporter.#hyperlinks`). Retiré : tout le reste —
   déplacement de curseur, titre de fenêtre, presse-papiers OSC 52, changement d'écran. Rendu ET
   sécurité : une ligne de journal ne pilote pas le terminal du développeur.
 - **L'effacement d'écran a un sens** : `ESC[2J` (`CLEAR_SCREEN`, écrit par le serveur au boot,
-  `supervisorLink.ts:272`, et au `ready`, `BootReporter.ts:461`) n'est pas relayé brut ; il devient
+  `supervisorLink.ts#SupervisorLink.prepareDevScreen`, et au `ready`, `BootReporter.ts#IFrontendReadyPayload.ready`) n'est pas relayé brut ; il devient
   `DevTerminal.clear()` — retour au direct et séparateur en plein écran, `CLEAR_SCREEN` réémis
   dans le repli. La « page propre » de #533 survit.
 
@@ -297,7 +297,7 @@ interface IDevResize {
 } // superviseur → serveur
 ```
 
-- **Aucun type neuf pour la barre** : `IStartupView` (`startupScreen.ts:178`) est déjà un objet
+- **Aucun type neuf pour la barre** : `IStartupView` (`startupScreen.ts#IStartupView`) est déjà un objet
   plat (le rendu `json` le sérialise), consommé tel quel par `renderStatusBlock` /
   `renderStatusLine` avec `IStatusContext`.
 - **Le redimensionnement** : `terminalSize()` lit le verdict au boot puis le dernier `resize` reçu ;
@@ -347,7 +347,7 @@ interface IConfirmDecision {
   l'appel qu'elle accompagne, jamais « pour la session ».
 - Implémentations : **verbes du superviseur** (`restart`, `clear`, `help`, `quit`) et **commandes
   du CLI** (`nodefony <cmd>` en sous-processus, complétion par `readCliManifest` /
-  `computeCompletions`, `src/nodefony/src/cli/completion.ts:271` et `:271`) en #538 ;
+  `computeCompletions`, `src/nodefony/src/cli/completion.ts#computeCompletions` et `src/nodefony/src/cli/completion.ts#computeCompletions`) en #538 ;
   **assistant** en #539.
 
 ### 8. L'assistant : un client de l'application, jamais un passe-droit
@@ -364,10 +364,10 @@ interface IConfirmDecision {
   provoque lui-même (auto-développement, livre blanc §6.6), mais sans conteneur, sans syslog ni
   RBAC propres ; dans le serveur, tout cela existe, mais l'état meurt à chaque rechargement.
 - **Outils** : ceux du serveur MCP de l'application (`POST /nodefony/mcp`,
-  `src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts:84`) — les MÊMES qu'un
+  `src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts#McpController.mcp`) — les MÊMES qu'un
   agent externe, soumis au même RBAC. Aucun outil propre à l'invite.
 - **Confirmation** : pour tout outil dont `annotations.readOnlyHint !== true`. Ce champ, la
-  définition d'outil du dépôt (`IMcpTool`, `src/nodefony/src/types/IMcpTool.ts:191`) ne le porte
+  définition d'outil du dépôt (`IMcpTool`, `src/nodefony/src/types/IMcpTool.ts#IMcpTool`) ne le porte
   PAS encore — `rg -c readOnlyHint src/nodefony/src` ne rend rien :
   [#540](https://github.com/nodefony/nodefony-core/issues/540) l'ajoute et l'émet dans
   `tools/list` AVANT #539 — sans lui, les défauts de la spécification rendent tout outil
@@ -376,7 +376,7 @@ interface IConfirmDecision {
 - **Audit** : l'`id` de la décision voyage dans `tools/call._meta` ; c'est le SERVEUR qui
   journalise l'appel et la décision (syslog, RBAC) — une piste d'audit, un seul endroit.
 - **Contexte** : d'abord les journaux STRUCTURÉS et déjà expurgés des secrets, par le plan
-  d'administration (`logs/search`, `src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts:270`) ;
+  d'administration (`logs/search`, `src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts#createSyslogAdminApi`) ;
   ensuite l'historique de l'écran, réduit aux sources `user` / `command` / `assistant` et à N
   lignes du serveur, borné. L'écran brut ne passe par aucun gestionnaire qui expurge.
 - **Souveraineté** (livre blanc §3.1) : aucun envoi de contexte à un fournisseur `mode: "cloud"`
@@ -406,7 +406,7 @@ interface IConfirmDecision {
   `uncaughtException`, `exit` — par le protocole unique (§5). Seul `kill -9` laisse un terminal à
   `reset` : c'est la raison d'être de la surface `inline`.
 - Le verdict de crash du serveur s'arme sur l'évènement `close` de l'enfant (émis après la fin de
-  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts:688`) : sinon la pile d'un crash
+  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts#onServerEnded`) : sinon la pile d'un crash
   au démarrage arrive après le message, ou se perd.
 
 ### 10. Hors du rendu humain, rien ne change

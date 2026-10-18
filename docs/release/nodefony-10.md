@@ -248,9 +248,9 @@ Un numéro de préversion ne coûte rien (`beta.2`, `beta.3`) ; `10.0.0` ne se r
 `npm install nodefony` continue de servir 7.0.2 : personne ne reçoit la beta sans la nommer.
 
 **Rien à écrire pour cela** : `release.mjs` porte déjà `--npm-tag`, REFUSE une préversion sans
-dist-tag (`:180`) comme une version stable sous un autre tag que `latest` (`:187`), publie avec
-`--access public` explicite (`:650`), et calcule l'ordre de publication depuis les dépendances
-(`release-core.mjs:100`). Le mode existe ; il n'a jamais été lancé.
+dist-tag comme une version stable sous un autre tag que `latest`, publie avec
+`--access public` explicite, et calcule l'ordre de publication depuis les dépendances
+(`release-core.mjs#ordreTopologique`). Le mode existe ; il n'a jamais été lancé.
 
 **Principe : la logique vit dans un SCRIPT Node (runnable en LOCAL) ; la GH Action est un wrapper
 mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie que `start.sh`/`run.sh`).
@@ -530,7 +530,7 @@ jobs:
 | **Sécurité** | P6 | ✅ **Cœur MVP LIVRÉ — bloqueur levé** (firewall, auth, JWT, RBAC `@IsGranted`). Reste le durcissement et les niches, **hors périmètre**. |
 | **ORM** | P5/P7 | **Core stable** (✅) + **Drizzle multi-dialecte sqlite/pg/mysql ✅ LIVRÉ** — les vagues S1→S4 portent les 8 briques sur les 3 dialectes (**comparatif ORM froid ✅ Drizzle confirmé** `a370b5a1`). **Reste : les migrations de schéma en production** (S5, #17), **dégelées et dans le périmètre** — un framework qui livre des entités sans voie de migration en production a un trou dans son modèle, et `drizzle-kit` est un contournement, pas une réponse. **Adapter Mongoose = DÛ COMPLET** (#30) : « une app doit tourner sans drizzle » est acté, donc 4 briques sur 7 est un chemin durable incomplet, pas une couverture adaptée. |
 | **Cloud-native** | P16 (**baseline**) | ✅ **Dockerfile livré** (gabarit de `create app`, prouvé par `smoke-docker.sh` sur une app GÉNÉRÉE) + **graceful shutdown complet** (drain 3 serveurs, probes `/livez` `/readyz` natives, bascule readiness au SIGTERM, `shutdownDeadline` kernel) — Phase 0.7. Config par env (12-factor) : `defineEnv` + `NF__*` déjà en place. **PAS** le P16 complet (HPA, opérateurs k8s, secret managers = **10.x**). |
-| **Reste** | P10/P11/P13/P14 | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend. ⚠️ Les commandes `framework:*` **ne font PAS partie** du périmètre : `nodefony inspect` couvre déjà `routes`, `modules`, `services`, `config`, `stores`, `entities`, `graph` et `status` (`src/nodefony/src/kernel/commands/InspectCommand.ts:87`) — une commande `framework:routes:list` serait une **seconde implémentation de la même règle**. Côté ligne de commande il ne reste que `security:user:password` (#21). |
+| **Reste** | P10/P11/P13/P14 | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend. ⚠️ Les commandes `framework:*` **ne font PAS partie** du périmètre : `nodefony inspect` couvre déjà `routes`, `modules`, `services`, `config`, `stores`, `entities`, `graph` et `status` (`src/nodefony/src/kernel/commands/InspectCommand.ts#Inspect`) — une commande `framework:routes:list` serait une **seconde implémentation de la même règle**. Côté ligne de commande il ne reste que `security:user:password` (#21). |
 | **Preset Svelte** | P14 | ✅ **LIVRÉ** — `svelte5-vite` rejoint `react19`, `vue3`, `angular` et `vanilla` dans les presets de `@nodefony/frontend`, et `nodefony create module --frontend svelte` est branché. **Studio reste React 19 + Mantine** : la raison est le coût de réécriture d'une app admin qui marche, pas une limite de l'écosystème Svelte (Carbon Components Svelte, shadcn-svelte, Skeleton v3, Flowbite Svelte — et notre grille vient déjà de **TanStack Table headless**, qui a un adaptateur Svelte). |
 | **Liaisons temps réel des quatre fronts** | P13/P14 | Le framework **annonce quatre fronts** et n'en équipe qu'un : 12 hooks + Provider sous `nodefony/react`, **rien** pour Vue 3, Angular et Svelte 5, où il faut câbler et nettoyer `NodefonySocket.shared()` à la main. Une promesse non tenue est structurelle → socle agnostique (#36), puis les composables Vue (#37), les services Angular (#38) et les runes Svelte (#39). |
 | **Symétrie des pilotes de base de données** | P7 | Les trois dialectes en **dépendance de pair optionnelle + import dynamique** (#19). Seul poste qu'**aucune version suivante ne répare** : `better-sqlite3` en dépendance dure d'un `@nodefony/drizzle` publié ne se retire plus sans changer l'arbre d'installation de tous ceux en `^10.0.0`. ⚠️ **Vite est dans la même dette** côté `@nodefony/frontend` — dépendance de pair que rien ne rend optionnelle à la source. |
@@ -730,7 +730,7 @@ les deux cas**. Le script ANNONCE ce trou au lieu de le taire (règle : un gate 
 
 ➡️ **Dette produit ouverte — symétrie des drivers et de Vite.** Deux déclarations mentent
 aujourd'hui : `better-sqlite3` est une dépendance DURE de `@nodefony/drizzle` importée
-STATIQUEMENT (`DrizzleOrm.ts:4`) pendant que `pg` et `mysql2`, chargés dynamiquement, ne sont
+STATIQUEMENT (`DrizzleOrm.ts`) pendant que `pg` et `mysql2`, chargés dynamiquement, ne sont
 déclarés NULLE PART — npm n'avertit donc personne de leur absence ; et Vite est une dépendance de
 pair de `@nodefony/frontend` que rien ne rend optionnelle à la source. SQLite en production est un
 choix légitime (mono-pod, edge, embarqué) : il ne s'agit pas de le sortir, mais de rendre les trois

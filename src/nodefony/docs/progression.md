@@ -69,16 +69,16 @@ bar.stop(`✓ ${files.length} bundles`);
 
 ## 🗺️ Où vit quoi
 
-| Ce qu'on cherche                                       | Où c'est                                                            |
-| ------------------------------------------------------ | ------------------------------------------------------------------- |
-| Le socle des deux formes — une ligne réécrite en place | `src/nodefony/src/cli/progress.ts:349` (`LiveLine`)                 |
-| Le tourniquet                                          | `src/nodefony/src/cli/progress.ts:472` (`Spinner`)                  |
-| La barre                                               | `src/nodefony/src/cli/progress.ts:619` (`ProgressBar`)              |
-| Le dessin PUR, utilisable sans terminal                | `src/nodefony/src/cli/progress.ts:296` (`renderBar`)                |
-| La capacité Unicode, CONSTATÉE sur l'environnement     | `src/nodefony/src/cli/progress.ts:117` (`supportsUnicode`)          |
-| Les images, et leur repli                              | `src/nodefony/src/cli/progress.ts:46` (braille) et `:60` (ASCII)    |
-| Pourquoi une commande longue n'est plus interrompue    | `src/nodefony/src/command/Command.ts:275`                           |
-| L'appelant asynchrone qui rend l'animation possible    | `runProjectScript()` (`src/nodefony/src/kernel/checks/deep.ts:402`) |
+| Ce qu'on cherche                                       | Où c'est                                                                                                              |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Le socle des deux formes — une ligne réécrite en place | `src/nodefony/src/cli/progress.ts#LiveLine` (`LiveLine`)                                                              |
+| Le tourniquet                                          | `src/nodefony/src/cli/progress.ts#Spinner` (`Spinner`)                                                                |
+| La barre                                               | `src/nodefony/src/cli/progress.ts#ProgressBar` (`ProgressBar`)                                                        |
+| Le dessin PUR, utilisable sans terminal                | `src/nodefony/src/cli/progress.ts#renderBar` (`renderBar`)                                                            |
+| La capacité Unicode, CONSTATÉE sur l'environnement     | `src/nodefony/src/cli/progress.ts#supportsUnicode` (`supportsUnicode`)                                                |
+| Les images, et leur repli                              | `src/nodefony/src/cli/progress.ts#BRAILLE_FRAMES` (braille) et `src/nodefony/src/cli/progress.ts#LINE_FRAMES` (ASCII) |
+| Pourquoi une commande longue n'est plus interrompue    | `src/nodefony/src/command/Command.ts#Command.setEvents`                                                               |
+| L'appelant asynchrone qui rend l'animation possible    | `runProjectScript()` (`src/nodefony/src/kernel/checks/deep.ts#runProjectScript`)                                      |
 
 ## 📖 Lexique
 

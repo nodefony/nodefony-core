@@ -110,7 +110,7 @@ Deux usages :
   s'interroge donc en comparant des **CHAÎNES** (`information_schema … WHERE table_name = ?`),
   jamais en résolvant un identifiant — c'est aussi ce que fait `columnsOf`, et **les deux moitiés
   d'un même lecteur doivent voir la même base**. Les bancs ne le voyaient pas : leurs tables
-  s'écrivent toutes en minuscules (`catalog.ts:66`, garde `schema-reconcile-dialects.e2e.test.ts`).
+  s'écrivent toutes en minuscules (`catalog.ts#ISchemaReader.tableExists`, garde `schema-reconcile-dialects.e2e.test.ts`).
 - 🔴 **`grep` sans `-a` rend un faux « rien trouvé »** sur nos fichiers accentués (il les prend
   pour du binaire et se tait). Un contrôle qui en conclut « le symbole n'existe plus » est faux.
 - 🔴 **Passer en WAL une base SQLite NEUVE ouverte par plusieurs processus = `SQLITE_BUSY`

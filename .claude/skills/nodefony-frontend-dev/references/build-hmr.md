@@ -46,9 +46,9 @@ transpiler/servir les SPA déclarées par chaque module, multi-framework :
 - **vanilla** TS/JS (aucun plugin)
 
 La liste ci-dessus est EXHAUSTIVE : `FrontPresetType` ne déclare que des presets réellement
-enregistrés par `ViteBuilder` (constructeur, `ViteBuilder.ts:75-80`). Un type hors liste est
-refusé à la compilation, et au démarrage par `FrontendPresetUnknownError` (`ViteBuilder.ts:112`,
-`ViteConfigGenerator.ts:144`). Solid n'existe pas — l'ajouter = un fichier dans `src/presets/`,
+enregistrés par `ViteBuilder` (constructeur, `ViteBuilder.ts#ViteBuilder.constructor`). Un type hors liste est
+refusé à la compilation, et au démarrage par `FrontendPresetUnknownError` (`ViteBuilder.ts#ViteBuilder.buildViteConfig`,
+`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`). Solid n'existe pas — l'ajouter = un fichier dans `src/presets/`,
 un `registerPreset`, un `case` dans le générateur, une entrée dans l'union.
 
 **Approche hybride découplée** : Vite tourne dans un **process système séparé**
@@ -107,24 +107,24 @@ types `IFrontendConfigInput`/`IFrontendConfig`).
 ### 3.1 `FrontendService` (service injectable)
 
 `@injectable()`, nom DI **`"frontend"`** → `container.get("frontend")`
-(`FrontendService.ts:69-70`, construit avec le nom `"frontend"` `:92-93`). Implémente
-`IFrontendService` (`IFrontendService.ts:23`).
+(`FrontendService.ts#normalizePublicPath`, construit avec le nom `"frontend"` `FrontendService.ts#FrontendService`). Implémente
+`IFrontendService` (`IFrontendService.ts#IFrontendService`).
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle | Ancrage |
 | --- | --- | --- | --- |
-| `registerEntry` | `(module: Module, decl: IFrontendModuleDeclaration) => IResolvedFrontendEntry` | Déclare un front à builder/servir. | `FrontendService.ts:228` |
-| `listEntries` | `() => ReadonlyArray<IResolvedFrontendEntry>` | Snapshot des entrées résolues. | `:248` |
-| `status` | `() => IViteSupervisorStatus` | État du superviseur **primaire** (famille `default`). | `:252` |
-| `statusAll` | `() => ReadonlyArray<{ family; status }>` | État de **chaque** instance Vite (multi-famille). | `:271` |
-| `startDev` | `() => Promise<void>` | Démarre Vite (1 instance/famille). Idempotent. Auto au boot. | `:289` |
-| `stopDev` | `() => Promise<void>` | Stoppe toutes les instances (SIGINT→SIGKILL). | `:495` |
-| `build` | `(opts?: { force?: boolean }) => Promise<IFrontendBuildResult>` | Build prod `vite.build()` par entry. | `:525` |
-| `renderTags` | `(entryName, nonce?) => string` | Balises `<script>`/`<link>` à injecter. | `:630` |
-| `renderDocument` | `(entryName, nonce?) => string` | Document HTML complet (index.html du module + tags). | `:618` |
-| `assetUrl` | `(p: string) => string` | Résout l'URL publique d'un asset (préfixe CDN si configuré). | `:114` |
+| `registerEntry` | `(module: Module, decl: IFrontendModuleDeclaration) => IResolvedFrontendEntry` | Déclare un front à builder/servir. | `FrontendService.ts#FrontendService.registerEntry` |
+| `listEntries` | `() => ReadonlyArray<IResolvedFrontendEntry>` | Snapshot des entrées résolues. | |
+| `status` | `() => IViteSupervisorStatus` | État du superviseur **primaire** (famille `default`). | |
+| `statusAll` | `() => ReadonlyArray<{ family; status }>` | État de **chaque** instance Vite (multi-famille). | |
+| `startDev` | `() => Promise<void>` | Démarre Vite (1 instance/famille). Idempotent. Auto au boot. | |
+| `stopDev` | `() => Promise<void>` | Stoppe toutes les instances (SIGINT→SIGKILL). | |
+| `build` | `(opts?: { force?: boolean }) => Promise<IFrontendBuildResult>` | Build prod `vite.build()` par entry. | |
+| `renderTags` | `(entryName, nonce?) => string` | Balises `<script>`/`<link>` à injecter. | |
+| `renderDocument` | `(entryName, nonce?) => string` | Document HTML complet (index.html du module + tags). | |
+| `assetUrl` | `(p: string) => string` | Résout l'URL publique d'un asset (préfixe CDN si configuré). | |
 
-`IFrontendBuildResult` (`IFrontendService.ts:5`) : `{ built: string[]; skipped: string[];
+`IFrontendBuildResult` (`IFrontendService.ts#IFrontendBuildResult`) : `{ built: string[]; skipped: string[];
 failures: { entryName; message }[] }`.
 
 > Note : `getCspDirectives()` **n'existe plus** comme API publique. La CSP des origines Vite est
@@ -132,22 +132,22 @@ failures: { entryName; message }[] }`.
 
 ### 3.2 `registerEntry` + déclaration d'entrée
 
-`IFrontendModuleDeclaration` (`IFrontBuilder.ts:10`) — ce que le module consommateur passe :
+`IFrontendModuleDeclaration` (`IFrontBuilder.ts#IFrontendModuleDeclaration`) — ce que le module consommateur passe :
 
 <!-- prettier-ignore -->
 | Champ | Type | Défaut | Rôle | Ancrage |
 | --- | --- | --- | --- | --- |
-| `type` | `FrontPresetType` | (requis) | `"react19"`/`"vue3"`/`"angular"`/`"vanilla"`/… | `IFrontBuilder.ts:12` |
-| `entry` | `string` | (requis) | Point d'entrée **relatif au module** (ex `./frontend/src/main.tsx`). | `:14` |
-| `outDir` | `string?` | `./public/dist` | Sortie du build prod (relatif module). | `:16` |
-| `root` | `string?` | `./frontend` | Racine front (contient `index.html`). | `:18` |
-| `name` | `string?` | nom du module | Nom logique de l'entrée (= `entryName`, clé de `renderTags`). | `:20` |
-| `publicPath` | `string?` | `/_assets/<name>/` | Préfixe public prod (cf §4.3/§4.8). | `:27` |
+| `type` | `FrontPresetType` | (requis) | `"react19"`/`"vue3"`/`"angular"`/`"vanilla"`/… | `IFrontBuilder.ts#IFrontendModuleDeclaration.type` |
+| `entry` | `string` | (requis) | Point d'entrée **relatif au module** (ex `./frontend/src/main.tsx`). | |
+| `outDir` | `string?` | `./public/dist` | Sortie du build prod (relatif module). | |
+| `root` | `string?` | `./frontend` | Racine front (contient `index.html`). | |
+| `name` | `string?` | nom du module | Nom logique de l'entrée (= `entryName`, clé de `renderTags`). | |
+| `publicPath` | `string?` | `/_assets/<name>/` | Préfixe public prod (cf §4.3/§4.8). | |
 
-`registerEntry` (`FrontendService.ts:228`) résout les chemins en **absolu** depuis `module.path`,
+`registerEntry` (`FrontendService.ts#FrontendService.registerEntry`) résout les chemins en **absolu** depuis `module.path`,
 stocke `entryFile` relatif au `root`, normalise `publicPath` (leading + trailing `/`,
-`:235`/`normalizePublicPath` `:50`), et retourne une `IResolvedFrontendEntry`
-(`IFrontBuilder.ts:33` : `moduleName`, `entryName`, `type`, `root`, `entryFile`, `outDir`,
+/`normalizePublicPath`), et retourne une `IResolvedFrontendEntry`
+(`IFrontBuilder.ts#IResolvedFrontendEntry` : `moduleName`, `entryName`, `type`, `root`, `entryFile`, `outDir`,
 `publicPath`). **À appeler dans le `onKernelBoot()` du module consommateur**
 (avant `onServersReady` qui démarre Vite).
 
@@ -158,19 +158,19 @@ Source unique des balises = `TemplateHelper` (`src/template/TemplateHelper.ts`).
 
 - prod → `prodHelper` (lit les manifests) ;
 - dev → helper de la **famille** de l'entrée (`entryFamily.get(name)` → `templateHelpers.get(family)`),
-  `FrontendService.ts:764-765`.
+  `FrontendService.ts#FrontendService.renderTags`.
 
 - **`renderTags(name, nonce?)`** : juste les `<script>`/`<link>`. À injecter dans un `<head>`.
 - **`renderDocument(name, nonce?)`** : lit l'`index.html` **du module** (le dev y met
   meta/polices/externals), **retire** le `<script type=module src=…entry…>` source (non
   résolvable hors dev server Vite), et injecte les tags au marqueur **`<!--nodefony:frontend-->`**
-  sinon avant `</head>` (`TemplateHelper.ts:82`/`injectIntoHtml:105`/`FRONTEND_MARKER:23`). Pas
-  d'`index.html` → coquille minimale `<div id="root">` générée (`:137-147`).
+  sinon avant `</head>` (`TemplateHelper.ts#TemplateHelper.devTarget`/`injectIntoHtml:105`/`FRONTEND_MARKER:23`). Pas
+  d'`index.html` → coquille minimale `<div id="root">` générée (`TemplateHelper.ts#TemplateHelper.renderDocument`).
 - **`assetUrl(p)`** : préfixe `p` par `assetBaseUrl` (CDN) si configuré, sinon identité ; URLs
-  absolues inchangées (`FrontendService.ts:114`).
+  absolues inchangées (`FrontendService.ts#FrontendService.constructor`).
 
 Le `nonce` (issu de `Context.cspNonce`) est posé sur les `<script>` (preamble inline dev + entrée)
-pour satisfaire `script-src 'nonce-…'` sans `'unsafe-inline'` (`TemplateHelper.ts:237`).
+pour satisfaire `script-src 'nonce-…'` sans `'unsafe-inline'` (`TemplateHelper.ts#TemplateHelper.renderDevTags`).
 
 **Aucune origine dans les balises.** En développement, toutes les URLs vers Vite sont relatives à
 la page (`/_vite/<famille>/…`) et relayées par Nodefony (§4.9) : elles suivent d'elles-mêmes l'hôte
@@ -186,16 +186,16 @@ contenu mixte. En **production**, les URLs du manifest sont relatives au documen
 
 ### 3.4 `ViteProcessSupervisor`
 
-Implémente `IViteSupervisor` (`IViteSupervisor.ts:70` : `start(entries, viteConfig)`, `stop()`,
+Implémente `IViteSupervisor` (`IViteSupervisor.ts#IViteSupervisor` : `start(entries, viteConfig)`, `stop()`,
 `status()`). Une instance par famille d'isolation.
 
-`ViteSupervisorOptions` (`ViteProcessSupervisor.ts:81`) : `devHost`, `devPort`, `startupTimeoutMs`,
+`ViteSupervisorOptions` (`ViteProcessSupervisor.ts#ViteSupervisorOptions`) : `devHost`, `devPort`, `startupTimeoutMs`,
 `pipeLogs`, `cwd`, `logger`, `backendOrigin?`, `https?` ({keyPath, certPath}), `nodeEnv?`,
 `extraEnv?`, + résilience (`autoRestart`, `maxRestarts`, `restartBackoffBaseMs`,
 `restartBackoffMaxMs`, `healthCheckIntervalMs`, `healthCheckFailureThreshold`,
-`healthCheckTimeoutMs`, `portRetryAttempts`). `DEFAULTS` à `:124`.
+`healthCheckTimeoutMs`, `portRetryAttempts`). `DEFAULTS` à.
 
-`IViteSupervisorStatus` (`IViteSupervisor.ts:21`) : `state` (`ViteSupervisorState` `:6` =
+`IViteSupervisorStatus` (`IViteSupervisor.ts#IViteSupervisorStatus`) : `state` (`ViteSupervisorState` `IViteSupervisor.ts#ViteSupervisorState` =
 `idle`|`starting`|`ready`|`compiling`|`restarting`|`crashed`|`stopping`|`stopped`|`errored`),
 `host`, `port` (réel résolu, `null` si non démarré), `pid`, `lastError`, `entries`, `https`,
 `restartCount`, `healthFailures`.
@@ -204,15 +204,15 @@ Mécanique : résout le **vrai binaire Vite** (`vite/package.json` → champ `bi
 `npx vite` — 1 process au lieu de 2, et `SIGINT`/`SIGKILL` atteignent Vite directement (sinon Vite
 orphelin → `EADDRINUSE` au restart) ; fallback `npx` si non résolu (`resolveViteBin:32`).
 `detached: false` → Vite reste dans le groupe de process du serveur (Ctrl+C terminal l'atteint,
-`:338`). Le port réel est lu en parsant `Local:\s+https?://host:port` dans le stdout (`:378`/`:401`).
+). Le port réel est lu en parsant `Local:\s+https?://host:port` dans le stdout.
 
 ### 3.5 Config (`defineFrontendConfig` / schema)
 
 **Source de vérité = `config/schema.ts` (Zod)**. `config/config.ts` en dérive les défauts
-(`frontendConfigSchema.parse({})` `config.ts:24`). `defineFrontendConfig(input)` valide+gèle la
-fusion `défauts + module.options` au hook `onKernelRegister` (`index.ts:55`, plante propre si
+(`frontendConfigSchema.parse({})` `config.ts#UI_DELIVERY_MODES`). `defineFrontendConfig(input)` valide+gèle la
+fusion `défauts + module.options` au hook `onKernelRegister` (`index.ts#App.configSchema`, plante propre si
 invalide). `frontendConfigJsonSchema()` produit le JSON Schema introspectable (panneau config Studio,
-`index.ts:45`/`defineModuleConfig.ts:35`).
+`index.ts#Frontend.configSchema`/`defineModuleConfig.ts#studioConfigJsonSchema`).
 
 Défauts (`schema.ts`) :
 
@@ -237,11 +237,11 @@ config (hors schéma).
 
 ### 3.6 Data plane admin (`createFrontendAdminApi`)
 
-`createFrontendAdminApi(service)` (`src/FrontendAdminApi.ts:173`) construit un `IAdminApi`
-(namespace `"frontend"`) enregistré auprès du broker au `onKernelBoot` (`index.ts:75-86`). Expose
-**`GET /nodefony/frontend/api/vite`** → `buildFrontendStatus(service)` (`:139`) :
-`IFrontendStatusView` (`:100`) = `{ available, vite?(version), primary, bundles[] }`, chaque bundle
-= `IViteInstanceView` (`:78`) **sans paths FS absolus** (anti info-leak) : `family`, `state`, `host`,
+`createFrontendAdminApi(service)` (`src/FrontendAdminApi.ts#createFrontendAdminApi`) construit un `IAdminApi`
+(namespace `"frontend"`) enregistré auprès du broker au `onKernelBoot` (`index.ts#Studio.onKernelBoot`). Expose
+**`GET /nodefony/frontend/api/vite`** → `buildFrontendStatus(service)` (`index.ts#userLogin`) :
+`IFrontendStatusView` = `{ available, vite?(version), primary, bundles[] }`, chaque bundle
+= `IViteInstanceView` **sans paths FS absolus** (anti info-leak) : `family`, `state`, `host`,
 `port`, `pid`, `https`, `restartCount`, `healthFailures`, `entries[{entryName,type,version}]`.
 Best-effort, jamais `throw` ; en prod l'instance est `idle`/`pid:null` (Vite ne tourne pas).
 
@@ -251,10 +251,10 @@ Best-effort, jamais `throw` ; en prod l'instance est `idle`/`pid:null` (Vite ne 
 
 ### 4.1 Dev — comment le SPA est servi (HMR Vite)
 
-`startDev()` (`FrontendService.ts:314`) écrit **`<root>/vite.config.generated.mjs`** via
-`ViteConfigGenerator.toMjs()` (`service/ViteConfigGenerator.ts:63`), puis spawn Vite. Le fichier
+`startDev()` (`FrontendService.ts#FrontendService.startDev`) écrit **`<root>/vite.config.generated.mjs`** via
+`ViteConfigGenerator.toMjs()` (`service/ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`), puis spawn Vite. Le fichier
 généré est autosuffisant : il `import`e Vite + les plugins **hardcodés** selon les types détectés
-(`:77-113`). Il est **réécrit à chaque `startDev`** — ne JAMAIS l'éditer.
+. Il est **réécrit à chaque `startDev`** — ne JAMAIS l'éditer.
 
 Contenu clé de la config générée :
 
@@ -266,18 +266,18 @@ Contenu clé de la config générée :
   posé en dev : le superviseur possède le port.
 - `server.cors: true` : le navigateur charge depuis l'origine Nodefony des assets servis par Vite.
 - `server.fs.allow` : `process.cwd()` (workspace root, node_modules hoistés) + le `root` de **chaque**
-  entry (`:128-129`) → permet de servir via `/@fs/<abs>` (clé du multi-bundle, §4.4).
+  entry → permet de servir via `/@fs/<abs>` (clé du multi-bundle, §4.4).
 - `server.https` (si `cfg.https`) : injecte `fs.readFileSync(keyPath/certPath)` — mêmes certs que
   `server-https` (5152), résolus via le service `certificates` (`FrontendService.resolveHttps:372`).
 
 Les balises injectées en dev (`TemplateHelper.renderDevTags:153`) :
 
-1. **Preamble React Fast Refresh** (entries `react19` uniquement, `:191-201`) : un `<script type=module>`
+1. **Preamble React Fast Refresh** (entries `react19` uniquement) : un `<script type=module>`
    inline (noncé) qui installe `RefreshRuntime.injectIntoGlobalHook`. Obligatoire — sinon
    `@vitejs/plugin-react can't detect preamble` (normalement injecté par `transformIndexHtml`, mais
    ici c'est Nodefony qui rend l'HTML). Vue/Angular/vanilla : pas de preamble.
-2. **`<script src="<base>/@vite/client">`** (`:203`) : le client HMR de Vite (ouvre sa propre WS).
-3. **`<script src="<base>/@fs/<abs>/entry">`** (`:205`) : l'entrée, en `/@fs/<absolu>` (cf §4.4).
+2. **`<script src="<base>/@vite/client">`** : le client HMR de Vite (ouvre sa propre WS).
+3. **`<script src="<base>/@fs/<abs>/entry">`** : l'entrée, en `/@fs/<absolu>` (cf §4.4).
 4. **Pont HMR sans socket** (`hmrBridgeTag:226`) : réutilise `createHotContext` du client `@vite/client`
    DÉJÀ chargé (zéro WS supplémentaire) → relaie les events Vite vers un `CustomEvent("nodefony:hmr")`
    sur `window`, observé par la debug bar.
@@ -285,7 +285,7 @@ Les balises injectées en dev (`TemplateHelper.renderDevTags:153`) :
    sert via `/@fs`, monte la carte Frontend + sonde HMR. Irrésoluble → commentaire HTML (jamais d'erreur).
 
 Si le superviseur n'est pas `ready` quand `renderTags` est appelé → un **commentaire HTML**
-`<!-- @nodefony/frontend: vite supervisor state=... -->` (jamais une page cassée, `:158-160`).
+`<!-- @nodefony/frontend: vite supervisor state=... -->` (jamais une page cassée).
 
 ### 4.2 Appels d'API — sur l'origine de la page, sans proxy
 
@@ -298,11 +298,11 @@ port de Vite (SPA-fallback HTML) : l'ouvrir par Nodefony.
 
 ### 4.3 Prod — build + manifest + statiques
 
-**Build** : `FrontendService.build({force?})` (`FrontendService.ts:634`) importe `vite` à la demande
-(`:640`) et appelle `vite.build()` **par entry** (boucle sur `this.entries`, `:670`) — chaque bundle a son propre
+**Build** : `FrontendService.build({force?})` (`FrontendService.ts#FrontendService.build`) importe `vite` à la demande
+(`FrontendService.ts#FrontendService.build`) et appelle `vite.build()` **par entry** (boucle sur `this.entries`, `FrontendService.ts#FrontendService.entries`) — chaque bundle a son propre
 `root`/`outDir`/`base`/`manifest` (multi-module + isolation Angular). `ViteBuilder.buildViteConfig`
-(`src/builders/ViteBuilder.ts:95`) pose `base = assetBaseUrl + publicPath` **seulement en production**
-(`:79-80`) et `build.manifest: true`. Le résultat est `IFrontendBuildResult` :
+(`src/builders/ViteBuilder.ts#ViteBuilder.buildViteConfig`) pose `base = assetBaseUrl + publicPath` **seulement en production**
+(`src/builders/ViteBuilder.ts#ViteBuilder.constructor`) et `build.manifest: true`. Le résultat est `IFrontendBuildResult` :
 
 - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources est
   **`skipped`** (`isBuildFresh:571` + `newestSourceMtime:584` — scan borné, ignore
@@ -310,48 +310,48 @@ port de Vite (SPA-fallback HTML) : l'ouvrir par Nodefony.
 - **Erreurs collectées** : un bundle KO ne stoppe pas les autres → `failures[]` ; la commande CLI met
   `process.exitCode = 1` (pipeline CI).
 
-**Rendu prod** : `TemplateHelper.renderProdTags` (`TemplateHelper.ts:336`) lit
+**Rendu prod** : `TemplateHelper.renderProdTags` (`TemplateHelper.ts#TemplateHelper.renderProdTags`) lit
 `outDir/.vite/manifest.json` (Vite ≥5), fallback `outDir/manifest.json` (layout legacy), caché par
 `outDir` (`loadManifest:329`). Clé du manifest = `entryFile` POSIX, sinon fallback chunk `isEntry`
-(`:297-300`). Émet : **CSS** d'abord (récursif sur les imports, `collectCss:351`, anti-FOUC),
+. Émet : **CSS** d'abord (récursif sur les imports, `collectCss:351`, anti-FOUC),
 **`<link rel="modulepreload">`** des imports partagés, puis **`<script type=module crossorigin>`**.
-Toutes les URLs préfixées par `assetBaseUrl + publicPath` (`:306`). Manifest absent → commentaire HTML
+Toutes les URLs préfixées par `assetBaseUrl + publicPath`. Manifest absent → commentaire HTML
 (jamais de crash).
 
 **Service statique** : `FrontendService.setupProd()` (hook `onServersReady`, `env !== development`,
-`:463`) monte chaque `outDir` sur son `publicPath` via `container.get("server-static").addMount(prefix,
-dir)` — **résolu par nom** (anti-cycle, `:472-479`). Si `server-static` absent → warning (un proxy
-frontal/CDN est attendu). Puis crée le `prodHelper` (`:486`).
+) monte chaque `outDir` sur son `publicPath` via `container.get("server-static").addMount(prefix,
+dir)` — **résolu par nom** (anti-cycle). Si `server-static` absent → warning (un proxy
+frontal/CDN est attendu). Puis crée le `prodHelper`.
 
 ### 4.4 Multi-bundle + familles d'isolation
 
 Plusieurs modules peuvent enregistrer chacun leur entrée — elles **coexistent**. Le piège résolu :
 deux consumers ayant chacun `frontend/src/main.tsx` produiraient la même URL relative
 `<base>/src/main.tsx`, et Vite (root unique = `entries[0].root`) résoudrait les deux contre le **root
-du premier**. Fix : URL en **`/@fs/<chemin absolu>`** (`TemplateHelper.ts:172-180`) + `server.fs.allow`
-listant chaque `root` (`ViteConfigGenerator.ts:160`).
+du premier**. Fix : URL en **`/@fs/<chemin absolu>`** (`TemplateHelper.ts#TemplateHelper.injectIntoHtml`) + `server.fs.allow`
+listant chaque `root` (`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`).
 
-**Familles d'isolation** (`src/isolationGroups.ts`) : `isolationGroup(type)` (`:20`) renvoie une clé de
+**Familles d'isolation** (`src/isolationGroups.ts`) : `isolationGroup(type)` renvoie une clé de
 famille. React/Vue/vanilla/Svelte → **`default`** (extensions disjointes, cohabitent dans **une**
 instance Vite). **Angular → `angular`** (process Vite **séparé**) car son plugin transforme **tout**
 `.ts` (y compris les stores des autres bundles) → il doit être scopé par son `tsconfig.app.json`
-(résolu en absolu, `ViteConfigGenerator.ts:89-105`).
+(résolu en absolu, `ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`).
 
 `startDev` regroupe par famille (`groupEntriesByFamily:388`), alloue un **bloc de ports disjoint** par
-famille via `familyPortPlan(devPort, families, portRetryAttempts)` (`isolationGroups.ts:112` ; bloc =
+famille via `familyPortPlan(devPort, families, portRetryAttempts)` (`isolationGroups.ts#familyPortPlan` ; bloc =
 `portRetryAttempts + 1` ports → le port-retry d'une instance n'empiète jamais sur une autre famille).
-La famille **`default` (PRIMARY_FAMILY, `:35`)** garde `devPort` (5173) ; les autres prennent les blocs
+La famille **`default` (PRIMARY_FAMILY)** garde `devPort` (5173) ; les autres prennent les blocs
 suivants (`orderFamilies:45`). Chaque famille démarre **indépendamment** (`Promise.allSettled:326`) :
 une famille qui échoue (ex. Angular) est isolée — `startDev` ne rejette que si **aucune** famille n'a
-démarré (`:354-360`).
+démarré.
 
 ### 4.5 Ordre de chargement au boot
 
 - **`@nodefony/frontend` doit être chargé AVANT les modules consommateurs** dans le manifeste `modules`
   de `nodefony.config.ts`. Sinon le service `frontend` n'existe pas dans le Container au `onKernelBoot`
   du consommateur → `registerEntry` impossible (le consommateur log une erreur et skip).
-- `registerEntry` se fait au **`onKernelBoot`** du consommateur (vérifié : `studio/index.ts:99`,
-  `test-frontend-vue/index.ts:28`).
+- `registerEntry` se fait au **`onKernelBoot`** du consommateur (vérifié : `studio/index.ts#Studio.onKernelBoot`,
+  `test-frontend-vue/index.ts#TestFrontendVue.onKernelBoot`).
 - Le superviseur Vite démarre au **`onServersReady`** (pas `onReady`) : Vite ne doit spawner qu'APRÈS
   que les 4 serveurs Nodefony écoutent, sinon le proxy Vite tape un backend pas encore prêt
   (`FrontendService.init:121-185`). En prod, le même hook fait `setupProd()` à la place.
@@ -375,28 +375,28 @@ couvre le `ws(s):` du HMR de même hôte), `'unsafe-eval'` en `script-src` (Reac
 
 ### 4.7 Résilience du superviseur
 
-`ViteProcessSupervisor` (`service/ViteProcessSupervisor.ts:148`) :
+`ViteProcessSupervisor` (`service/ViteProcessSupervisor.ts#ViteProcessSupervisor`) :
 
 - **Idempotence** : `start()` ré-entrant partage `startPromise` ; `stop()` mémorise `stopPromise`
-  (`:197`/`:224`).
+  .
 - **Port retry** : `EADDRINUSE` → essaie `devPort+1`, `devPort+2`… jusqu'à `portRetryAttempts`
   (`spawnWithPortRetry:257`). Le port réel est dans `status().port`.
 - **Auto-restart** : un exit avec `state=ready` (crash inattendu) → `scheduleRestart` avec **backoff
-  exponentiel borné** (`base * 2^n`, plafonné à `restartBackoffMaxMs`, `:488-523`). `willingShutdown`
+  exponentiel borné** (`base * 2^n`, plafonné à `restartBackoffMaxMs`). `willingShutdown`
   distingue un stop volontaire (`attachRuntimeExitHandler:463`). Au-delà de `maxRestarts` → `state=errored`.
 - **Health check** : `setInterval` (défaut 30s) GET HTTP(S) sur `/` ; N échecs consécutifs (défaut 3)
   → kill le child → restart (`startHealthCheck:529`/`pingVite:573`). `0` désactive.
 - **Cleanup** : `stop()` = SIGINT puis **SIGKILL après 3s** (évite les zombies bloquant le port,
-  `doStop:605`/`:629-642`). Tous les listeners sur `child` sont tracés (`trackListener:660`) et drainés
+  `doStop:605`). Tous les listeners sur `child` sont tracés (`trackListener:660`) et drainés
   à chaque mort (`cleanupChildListeners:669`) → pas de `MaxListenersExceededWarning` entre restarts.
 
 ### 4.8 Assets / CDN
 
 `publicPath` (par entrée, défaut `/_assets/<name>/`) aligne **3 pièces** par construction :
 
-1. `base` Vite au **build** (`ViteBuilder.ts:134`) ;
-2. **mount prefix** du serveur statique `Statics` (`setupProd` `addMount`, `:477`) ;
-3. **préfixe des URLs** émises par `renderProdTags` (`TemplateHelper.ts:336`).
+1. `base` Vite au **build** (`ViteBuilder.ts#ViteBuilder.buildViteConfig`) ;
+2. **mount prefix** du serveur statique `Statics` (`setupProd` `addMount`) ;
+3. **préfixe des URLs** émises par `renderProdTags` (`TemplateHelper.ts#TemplateHelper.renderProdTags`).
 
 `assetBaseUrl` (config, défaut `""`) est la base **CDN/object-storage** des assets prod. Quand
 renseignée (ex `https://cdn.example.com`), elle préfixe le `base` Vite au build, les URLs de
@@ -600,7 +600,7 @@ https://127.0.0.1:5152/_vite/default/@vite/client` → `200` attendu, en-tête `
   jamais des `<script>` à la main.
 - **Angular casse les autres bundles** : si le plugin Angular transforme des `.ts` hors de son app,
   c'est un défaut de scoping → famille d'isolation `angular` (process séparé) + `tsconfig.app.json` dont
-  le `include` ne couvre QUE le front Angular (`isolationGroups.ts`/`ViteConfigGenerator.ts:89`).
+  le `include` ne couvre QUE le front Angular (`isolationGroups.ts`/`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`).
   Angular HMR = page reload (pas hot-swap).
 - **HTTPS en dev** : rien à faire côté Vite — il est relayé sur l'origine de la page (§4.9), un seul
   certificat à accepter (celui de 5152). `frontend.https` n'existe plus (clé refusée au boot).
@@ -619,7 +619,7 @@ https://127.0.0.1:5152/_vite/default/@vite/client` → `200` attendu, en-tête `
 
 ## 7. Commandes CLI
 
-Enregistrées par le module (`index.ts:37-39`) :
+Enregistrées par le module (`index.ts#App`) :
 
 - **`nodefony frontend:build [-f|--force]`** (`command/frontend-build.ts`) — build prod de toutes les
   entrées (`vite.build()` par bundle). Idempotent (skip si à jour) ; `--force` rebuild tout ; exit code

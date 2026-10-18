@@ -38,8 +38,8 @@ source: "src/packages/@nodefony/security/docs/headers.md"
 > les pose en **deux couches, une seule autorité par en-tête** : le socle **transport**
 > (`@nodefony/http`, dès l'entrée brute — couvre aussi les fichiers statiques et les erreurs) et la
 > couche **applicative** (`@nodefony/security`, dans le pipeline — CSP, Referrer-Policy, isolation
-> cross-origin). Ancré sur `SecurityHeaders` (`securityHeaders.ts:42`) et
-> `Firewall.applySecurityHeaders()` (`firewall.ts:1152`).
+> cross-origin). Ancré sur `SecurityHeaders` (`securityHeaders.ts#SecurityHeaders`) et
+> `Firewall.applySecurityHeaders()` (`firewall.ts#Firewall.applySecurityHeaders`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **En-têtes de sécurité**
 
@@ -67,7 +67,7 @@ flowchart TD
 
 **Une seule source par en-tête** : `@nodefony/security` ne ré-émet **jamais** les trois en-têtes
 transport — c'est écrit noir sur blanc dans le contrat de la couche applicative
-(`ISecurityHeadersOptions`, `securityHeaders.ts:12`). Pas de double émission, donc pas de valeurs
+(`ISecurityHeadersOptions`, `securityHeaders.ts#ISecurityHeadersOptions`). Pas de double émission, donc pas de valeurs
 contradictoires sur la même réponse.
 
 ## 📖 Lexique
@@ -117,20 +117,20 @@ Le détail de chaque en-tête — menace, valeur par défaut, compromis — est 
 Un framework qui recalcule ses en-têtes à chaque requête paie ce confort en allocations. Nodefony
 fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage**.
 
-- `SecurityHeaders` (`securityHeaders.ts:42`) construit **au boot** la table des en-têtes constants
+- `SecurityHeaders` (`securityHeaders.ts#SecurityHeaders`) construit **au boot** la table des en-têtes constants
   (Referrer-Policy, COOP/COEP/CORP, Origin-Agent-Cluster, Permissions-Policy, et le CSP quand il est
-  statique) et la **gèle** avec `Object.freeze` (`securityHeaders.ts:77`). Par requête, le firewall
+  statique) et la **gèle** avec `Object.freeze` (`securityHeaders.ts#SecurityHeaders.constructor`). Par requête, le firewall
   se contente de la parcourir et de la poser : zéro concaténation, zéro objet créé.
 - Côté transport, même principe : `HttpKernel.computeSecurityHeaderCaches()`
-  (`http-kernel.ts:415`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
-  boot ; `onHttpRequest` (`http-kernel.ts:1122`) ne fait plus que trois `setHeader`.
+  (`http-kernel.ts#HttpKernel.computeSecurityHeaderCaches`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
+  boot ; `onHttpRequest` (`http-kernel.ts#HttpKernel.onHttpRequest`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
-  (`Context.ts:253`) ne tire ses 128 bits (16 octets CSPRNG, en base64) d'un pool amorti (`randomFillSync`, 4 Ko pour 256 nonces) qu'à la première lecture,
+  (`Context.ts#Context.#cspNonce`) ne tire ses 128 bits (16 octets CSPRNG, en base64) d'un pool amorti (`randomFillSync`, 4 Ko pour 256 nonces) qu'à la première lecture,
   puis mémoïse. Une réponse qui n'a aucun script inline à signer ne paie aucun appel crypto.
 
 Le second parti pris est la **séparation d'autorité** décrite plus haut : un seul émetteur par
 en-tête, donc un comportement prévisible et testable — le banc live vérifie les deux couches sur la
-même réponse (`security-headers.test.ts:30`).
+même réponse (`security-headers.test.ts`).
 
 > [!IMPORTANT]
 > `@nodefony/security` est **optionnel**, pas le socle. Une app Nodefony sans module security émet
@@ -173,7 +173,7 @@ export default defineConfig(() => ({
 ```
 
 Les clés sont **typées et auto-complétées** : le module augmente le registre `NodefonyModuleConfig`
-du core (`index.ts:37`), donc `use("@nodefony/security", …)` propose les clés **et** les valeurs
+du core (`index.ts#nodefony`), donc `use("@nodefony/security", …)` propose les clés **et** les valeurs
 d'enum (`referrerPolicy`, `coop`, `corp`…). Une valeur hors enum casse le boot, pas la production.
 
 ### 2. Ce qu'on observe
@@ -230,7 +230,7 @@ export default EmbedController;
 curl -sI http://localhost:5151/embed/video | grep -i content-security-policy
 # … ; frame-src https://www.youtube.com      ← ajouté ICI seulement
 curl -sI http://localhost:5151/nodefony/test/index | grep -c youtube
-# 0                                          ← isolation prouvée (security-headers.test.ts:83)
+# 0                                          ← isolation prouvée (security-headers.test.ts)
 ```
 
 ## 🛡️ Le catalogue des en-têtes
@@ -255,7 +255,7 @@ Choisir en cinq secondes — puis le détail dans les cartes.
 **La menace** : n'importe quelle entrée non échappée (commentaire, nom d'utilisateur, paramètre
 réfléchi) devient un vecteur d'exécution de code. Le CSP est le filet quand l'échappement a raté.
 
-**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts:277`) : seul `script-src`
+**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts#headersSchema`) : seul `script-src`
 est **strict** — `'self'` plus le nonce de la requête, ce qui est la vraie défense XSS. Le reste
 couvre les besoins réels d'une app moderne (CSS-in-JS via `style-src 'unsafe-inline'`, images
 `data:`/`blob:`, workers, fetch/WS same-origin) et ajoute les durcissements gratuits :
@@ -275,8 +275,8 @@ privilégient `frame-ancestors`, `X-Frame-Options` reste le filet pour les ancie
 victime est capté par ton interface.
 
 Posé par le **transport** depuis un cache calculé au boot — `secFrameOptions`
-(`http-kernel.ts:1173`) — et configuré côté `@nodefony/http` avec `frameOptions`
-(`http/nodefony/config/config.ts:136`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
+(`http-kernel.ts#HttpKernel.secFrameOptions`) — et configuré côté `@nodefony/http` avec `frameOptions`
+(`http/nodefony/config/config.ts#securityHeadersSchema`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
 s'auto-encadre. C'est un des trois en-têtes que security **ne ré-émet pas** : il doit valoir aussi
 pour un HTML statique servi directement depuis `public/`.
 
@@ -287,9 +287,9 @@ pour un HTML statique servi directement depuis `public/`.
 avec tes cookies.
 
 Valeur unique reconnue : `nosniff`, posée depuis le cache `secContentTypeOptions`
-(`http-kernel.ts:1170`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
+(`http-kernel.ts#HttpKernel.secContentTypeOptions`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
 vient précisément des fichiers servis hors pipeline applicatif — un banc live le prouve sur une 404
-(`security-headers.test.ts:38`).
+(`security-headers.test.ts`).
 
 ### `Strict-Transport-Security` — HTTPS, et rien d'autre
 
@@ -297,15 +297,15 @@ vient précisément des fichiers servis hors pipeline applicatif — un banc liv
 installer un intercepteur.
 
 La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
-(`http-kernel.ts:415`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
+(`http-kernel.ts#HttpKernel.computeSecurityHeaderCaches`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:1176`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts#HttpKernel.secHsts`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 
 > [!CAUTION]
-> `preload: true` (`http/nodefony/config/config.ts:107`) inscrit ton domaine dans la liste
+> `preload: true` (`http/nodefony/config/config.ts#strictTransportSecuritySchema`) inscrit ton domaine dans la liste
 > pré-chargée des navigateurs. C'est un **engagement quasi irréversible** : tout sous-domaine
 > incapable de servir en HTTPS devient inaccessible, et la sortie de liste prend des mois. À ne
 > jamais activer « pour voir ».
@@ -315,7 +315,7 @@ inclus.
 **La menace** : la fuite d'URL. Chemins parlants, identifiants de session dans une query, jetons de
 réinitialisation — tout part chez le site suivant via le `Referer`.
 
-Défaut Nodefony : `no-referrer` (`security/nodefony/config/config.ts:317`), la valeur la plus stricte. La valeur est un
+Défaut Nodefony : `no-referrer` (`security/nodefony/config/config.ts#headersSchema`), la valeur la plus stricte. La valeur est un
 **enum W3C fermé** — huit valeurs validées au boot, donc pas de faute de frappe qui passerait en
 silence (l'écriture libre `no-refferer` casserait la protection sans prévenir).
 
@@ -328,7 +328,7 @@ interne, origine seule vers l'extérieur, rien du tout vers du HTTP en clair.
 `window.opener` et partage un groupe de contexte de navigation — surface d'attaque pour du
 _tabnabbing_ et pour les canaux auxiliaires type Spectre.
 
-`same-origin` (`securityHeaders.ts:71`) rompt ce lien. C'est aussi, avec COEP, l'une des deux
+`same-origin` (`securityHeaders.ts#SecurityHeaders.constructor`) rompt ce lien. C'est aussi, avec COEP, l'une des deux
 conditions de l'**isolation cross-origin**, indispensable si tu veux `SharedArrayBuffer` ou des
 timers haute résolution.
 
@@ -337,13 +337,13 @@ timers haute résolution.
 **La menace** : ta page embarque des ressources tierces qui n'ont jamais donné leur accord, et les
 place dans ton processus.
 
-`require-corp` (`securityHeaders.ts:72`) exige que **chaque** ressource tierce s'annonce comme
+`require-corp` (`securityHeaders.ts#SecurityHeaders.constructor`) exige que **chaque** ressource tierce s'annonce comme
 partageable (CORP ou CORS). C'est le complément de COOP pour l'isolation complète.
 
 > [!WARNING]
 > `coep: "require-corp"` **casse toutes les ressources tierces non conformes** — polices Google,
 > images de CDN, iframes de paiement. C'est pour cette raison qu'il est absent des défauts, et
-> volontairement exclu du banc de test (`security-headers.test.ts:62`). À activer seulement si tu
+> volontairement exclu du banc de test (`security-headers.test.ts`). À activer seulement si tu
 > as besoin de l'isolation cross-origin, et après audit de tes assets.
 
 ### `Cross-Origin-Resource-Policy` — mes assets ne s'incluent pas ailleurs
@@ -351,7 +351,7 @@ partageable (CORP ou CORS). C'est le complément de COOP pour l'isolation compl�
 **La menace** : symétrique du précédent. Un site tiers inclut tes images ou tes scripts pour les
 mesurer, les mettre en cache, ou monter une attaque par inclusion.
 
-`same-origin` (`securityHeaders.ts:73`) interdit toute inclusion externe ; `same-site` autorise tes
+`same-origin` (`securityHeaders.ts#SecurityHeaders.constructor`) interdit toute inclusion externe ; `same-site` autorise tes
 propres sous-domaines ; `cross-origin` ouvre — c'est ce qu'il faut sur une CDN publique assumée.
 
 ### `Origin-Agent-Cluster` — un bac à sable par origine
@@ -360,14 +360,14 @@ propres sous-domaines ; `cross-origin` ouvre — c'est ce qu'il faut sur une CDN
 mesurables.
 
 Nodefony l'émet comme un **booléen de champ structuré** RFC 9651 : la valeur est littéralement `?1`
-(`securityHeaders.ts:75`). C'est une **demande**, pas une garantie — le navigateur décide.
+(`securityHeaders.ts#SecurityHeaders.constructor`). C'est une **demande**, pas une garantie — le navigateur décide.
 
 ### `Permissions-Policy` — coupe le micro par défaut
 
 **La menace** : une iframe tierce (widget, publicité) demande la caméra, le micro ou la position, et
 la boîte de dialogue s'affiche sous **ton** nom de domaine.
 
-Valeur libre — le champ `permissionsPolicy` est recopié tel quel (`securityHeaders.ts:76`),
+Valeur libre — le champ `permissionsPolicy` est recopié tel quel (`securityHeaders.ts#ISecurityHeadersOptions.permissionsPolicy`),
 typiquement `camera=(), microphone=(), geolocation=()` : la
 liste vide signifie « personne, pas même moi ». Absent par défaut car la liste des fonctionnalités
 dépend entièrement de l'application.
@@ -379,7 +379,7 @@ config security est la première source de confusion sur ce sujet.
 
 ### Couche applicative — `use("@nodefony/security", { headers })`
 
-Dérivé du schéma Zod `headersSchema` (`config.ts:257`).
+Dérivé du schéma Zod `headersSchema` (`config.ts#headersSchema`).
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
@@ -396,8 +396,8 @@ Dérivé du schéma Zod `headersSchema` (`config.ts:257`).
 
 ### Socle transport — `use("@nodefony/http", { securityHeaders })`
 
-Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts:123`). Ces trois réglages sont
-**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:465`)
+Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts#securityHeadersSchema`). Ces trois réglages sont
+**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts#HttpKernel.onConfigChanged`)
 recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 | Option                                      | Type              | Défaut     | Effet                                                              |
@@ -411,10 +411,10 @@ recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 > [!WARNING]
 > Les clés `hsts`, `hstsMaxAgeS`, `frameguard` et `noSniff` **existent** dans la config security
-> (`config.ts:264`, `config.ts:263`, `config.ts:263`, `config.ts:263`) mais **ne pilotent rien** : la couche
-> applicative ne les lit pas (`securityHeaders.ts:6`), elles ne servent qu'à l'introspection
+> (`config.ts#headersSchema`) mais **ne pilotent rien** : la couche
+> applicative ne les lit pas (`securityHeaders.ts#ISecurityHeadersOptions`), elles ne servent qu'à l'introspection
 > affichée dans Studio. Pour changer réellement `X-Frame-Options`, c'est `securityHeaders.frameOptions`
-> **du module http**. Même remarque pour `hidePoweredBy` (`config.ts:289`) : Nodefony n'émet aucun
+> **du module http**. Même remarque pour `hidePoweredBy` (`config.ts#headersSchema`) : Nodefony n'émet aucun
 > `X-Powered-By`, l'option est un no-op documenté.
 
 ## 🏗️ Le CSP en détail — deux régimes, trois façons de l'étendre
@@ -422,11 +422,11 @@ recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 ### Régime 1 — CSP statique (0 allocation par requête)
 
 Si le CSP ne contient pas `{{nonce}}`, ou si `cspNonces` est à `false`, la chaîne est rangée telle
-quelle dans la table gelée du boot (`securityHeaders.ts:66`). Par requête : une lecture, un
+quelle dans la table gelée du boot (`securityHeaders.ts#SecurityHeaders.constructor`). Par requête : une lecture, un
 `setHeader`. Rien d'autre.
 
 Détail de robustesse : si tu désactives `cspNonces` en laissant le placeholder dans la chaîne, le
-token résiduel `'nonce-{{nonce}}'` est **purgé** (`securityHeaders.ts:63`). Sans ça, tu servirais un
+token résiduel `'nonce-{{nonce}}'` est **purgé** (`securityHeaders.ts#SecurityHeaders.constructor`). Sans ça, tu servirais un
 CSP contenant un nonce littéral jamais émis — donc un `script-src` qui bloque **tout**, y compris tes
 propres scripts. Le code refuse de produire un CSP cassé.
 
@@ -437,22 +437,22 @@ attaquant ne peut pas deviner la valeur : il est refusé même s'il est syntaxiq
 
 Le chemin complet, sans surprise :
 
-1. **Au boot**, la chaîne CSP est **pré-découpée** autour de `{{nonce}}` (`securityHeaders.ts:58`).
+1. **Au boot**, la chaîne CSP est **pré-découpée** autour de `{{nonce}}` (`securityHeaders.ts#SecurityHeaders.constructor`).
    Aucun parsing ni regex n'aura lieu pendant une requête.
-2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:1152`) lit `context.cspNonce` —
-   ce qui **génère** le jeton à cet instant (`Context.ts:253`) — puis appelle
-   `SecurityHeaders.cspFor()` (`securityHeaders.ts:100`) : un seul `join`.
+2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts#Firewall.applySecurityHeaders`) lit `context.cspNonce` —
+   ce qui **génère** le jeton à cet instant (`Context.ts#Context.#cspNonce`) — puis appelle
+   `SecurityHeaders.cspFor()` (`securityHeaders.ts#SecurityHeaders.cspFor`) : un seul `join`.
 3. **Dans la vue**, le contrôleur relit `context.cspNonce`, qui est **mémoïsé** : l'en-tête et le
    `<script nonce="…">` portent forcément la même valeur. C'est le motif employé par le contrôleur
-   de Studio (`StudioController.ts:62`).
+   de Studio (`StudioController.ts#StudioController.renderStudio`).
 
-`SecurityHeaders.hasNonce` (`securityHeaders.ts:100`) est le drapeau qui décide du régime : à `false`,
+`SecurityHeaders.hasNonce` (`securityHeaders.ts#SecurityHeaders.hasNonce`) est le drapeau qui décide du régime : à `false`,
 pas une seule opération crypto. Il n'y a **aucun setter** pour `cspNonce` : un jeton serveur doit
 rester imprévisible, jamais pilotable par le client — contrairement au `requestId`, qui, lui, accepte
 une corrélation entrante.
 
 **Placement dans le pipeline** : `applySecurityHeaders` est appelé **après le resolve** et **avant**
-le repli statique et le `writeHead` (`http-kernel.ts:1695`). Cet ordre n'est pas cosmétique : il
+le repli statique et le `writeHead` (`http-kernel.ts#HttpKernel.runHttpPipeline`). Cet ordre n'est pas cosmétique : il
 faut que le routeur ait posé les directives `@Csp` de la route pour pouvoir les fusionner, et il faut
 être avant l'écriture des en-têtes pour pouvoir en poser.
 
@@ -464,21 +464,21 @@ faut que le routeur ait posé les directives `@Csp` de la route pour pouvoir les
 | Module             | `Firewall.registerCspOrigins()` | besoin **permanent** d'un module (ex. Vite)     | à l'enregistrement  |
 | Route / contrôleur | `@Csp({ … })`                   | besoin **ponctuel** d'une réponse (iframe, CDN) | par requête décorée |
 
-Les trois convergent vers `mergeCspFragments()` (`csp.ts:56`), et c'est un **merge structuré**, pas
+Les trois convergent vers `mergeCspFragments()` (`csp.ts#mergeCspFragments`), et c'est un **merge structuré**, pas
 une concaténation. Pourquoi c'est vital : en CSP, une directive **répétée est ignorée** après sa
-première occurrence (W3C CSP Level 3 §3, rationnel documenté `csp.ts:8`). Concaténer
+première occurrence (W3C CSP Level 3 §3, rationnel documenté `csp.ts#CspFragment`). Concaténer
 `"script-src 'self'"` et `"script-src https://cdn"` produirait un en-tête où la seconde est purement
 et simplement jetée — une extension silencieusement sans effet, le pire des deux mondes.
 
 Le merge fusionne donc les sources **dans une seule directive**, dédoublonnées, base d'abord ; une
 directive absente est ajoutée en fin. La fonction est **pure et déterministe** (`parseCsp()`
-`csp.ts:25` → `serializeCsp()` `csp.ts:34`), ce qui rend l'en-tête stable d'une requête à l'autre et
+`csp.ts#parseCsp` → `serializeCsp()` `csp.ts#serializeCsp`), ce qui rend l'en-tête stable d'une requête à l'autre et
 les tests fiables.
 
 **Coût** : le merge d'un module est payé **une fois**, au (dés)enregistrement
-(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts:1209`), jamais par requête. Le merge d'une route
+(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts#Firewall.#rebuildSecurityHeaders`), jamais par requête. Le merge d'une route
 `@Csp` est payé **uniquement sur les routes décorées** (`SecurityHeaders.cspForExtra()`,
-`securityHeaders.ts:131`) ; le cas courant reste le simple `join`.
+`securityHeaders.ts#SecurityHeaders.cspForExtra`) ; le cas courant reste le simple `join`.
 
 ## 🧩 Extension — déclarer un fragment CSP depuis son module
 
@@ -502,44 +502,44 @@ Trois propriétés à retenir :
 
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
-- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1202`) retire le fragment et
+- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts#Firewall.unregisterCspOrigins`) retire le fragment et
   reconstruit le CSP de base. C'est ce que fait `@nodefony/frontend` à l'arrêt du serveur Vite.
 - **Idempotent** : la reconstruction repart **toujours** du `headers.csp` d'origine
-  (`firewall.ts:1212`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
+  (`firewall.ts#Firewall.#rebuildSecurityHeaders`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
   enregistrements.
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
 origines du serveur Vite et `'unsafe-eval'` (exigé par le Fast Refresh de React) via
-`FrontendService.#viteCspFragment()` (`FrontendService.ts:804`) — ce qui explique qu'un CSP observé
+`FrontendService.#viteCspFragment()` (`FrontendService.ts#FrontendService.#viteCspFragment`) — ce qui explique qu'un CSP observé
 en dev soit plus large qu'en production, où ce fragment n'existe pas.
 
 ## 📜 Normes appliquées
 
-| Domaine                              | Norme                            | Ancrage dans le code                                         |
-| ------------------------------------ | -------------------------------- | ------------------------------------------------------------ |
-| Politique de sécurité du contenu     | W3C CSP Level 3                  | `mergeCspFragments()` (`csp.ts:56`), directive non dupliquée |
-| Nonce CSP (unicité, imprévisibilité) | W3C CSP Level 3 §6.7.4           | `Context.cspNonce` — 128 bits CSPRNG (`Context.ts:253`)      |
-| HSTS                                 | RFC 6797                         | posé sur TLS uniquement (`http-kernel.ts:996`)               |
-| Champ structuré booléen              | RFC 9651                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
-| Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:274`)                 |
-| Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
-| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1170`)              |
-| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:415`)       |
+| Domaine                              | Norme                            | Ancrage dans le code                                                                      |
+| ------------------------------------ | -------------------------------- | ----------------------------------------------------------------------------------------- |
+| Politique de sécurité du contenu     | W3C CSP Level 3                  | `mergeCspFragments()` (`csp.ts#mergeCspFragments`), directive non dupliquée               |
+| Nonce CSP (unicité, imprévisibilité) | W3C CSP Level 3 §6.7.4           | `Context.cspNonce` — 128 bits CSPRNG (`Context.ts#Context.#cspNonce`)                     |
+| HSTS                                 | RFC 6797                         | posé sur TLS uniquement (`http-kernel.ts#HttpKernel.getErrorRenderer`)                    |
+| Champ structuré booléen              | RFC 9651                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts#SecurityHeaders.constructor`)             |
+| Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts#headersSchema`)                                    |
+| Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts#SecurityHeaders.constructor`                                          |
+| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts#HttpKernel.secContentTypeOptions`)               |
+| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts#HttpKernel.computeSecurityHeaderCaches`) |
 
 ## ⚡ Performance & mémoire
 
 Le coût est concentré au boot, par construction :
 
-- **En-têtes constants** : une seule table, gelée (`securityHeaders.ts:77`). Par requête, une boucle
+- **En-têtes constants** : une seule table, gelée (`securityHeaders.ts#SecurityHeaders.constructor`). Par requête, une boucle
   `for…in` sur un objet de 1 à 6 entrées et autant de `setHeader`. Aucune allocation.
 - **CSP statique** : rien de plus — la chaîne est dans la table.
 - **CSP à nonce** : un tirage dans le pool plus une concaténation `préfixe + nonce + suffixe` par requête. C'est le seul coût variable, et il
-  n'existe **que** si le CSP porte un placeholder : `hasNonce` (`securityHeaders.ts:100`)
-  court-circuite entièrement ce chemin sinon. La paresse de `Context.cspNonce` (`Context.ts:253`)
+  n'existe **que** si le CSP porte un placeholder : `hasNonce` (`securityHeaders.ts#SecurityHeaders.hasNonce`)
+  court-circuite entièrement ce chemin sinon. La paresse de `Context.cspNonce` (`Context.ts#Context.#cspNonce`)
   protège en plus les chemins internes qui n'atteignent jamais le firewall.
 - **Merge CSP** : jamais dans le chemin chaud. Le fragment d'un module est fusionné à
-  l'enregistrement (`firewall.ts:1142`) ; celui d'une route ne coûte que sur les routes `@Csp`.
-- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1160-1166`), avec
+  l'enregistrement (`firewall.ts#Firewall.currentRevalidator`) ; celui d'une route ne coûte que sur les routes `@Csp`.
+- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts#HttpKernel.dispatchHttpRequest`), avec
   un test `!== null` qui annule le coût des en-têtes désactivés.
 
 Le module n'attache aucun écouteur d'événement et ne conserve aucun état par requête : il n'entre pas
@@ -548,9 +548,9 @@ dans le périmètre du gate mémoire, qu'il ne peut structurellement pas dégrad
 ## 📡 Observabilité — Studio
 
 L'écran **Firewall** de Studio affiche la section « En-têtes de sécurité » — pilotée par
-`headers.enabled` (`FirewallDefenses.tsx:219`) — avec le CSP effectif, l'état du nonce par requête, la
+`headers.enabled` (`FirewallDefenses.tsx#FirewallDefenses`) — avec le CSP effectif, l'état du nonce par requête, la
 Referrer-Policy et les valeurs d'isolation. Les données
-viennent de `Firewall.describe()` (`firewall.ts:588`), qui projette la config **sans aucun secret**,
+viennent de `Firewall.describe()` (`firewall.ts#Firewall.describe`), qui projette la config **sans aucun secret**,
 exposée par `GET /nodefony/security/api/firewall`.
 
 L'onglet **Configuration** de Studio rend les mêmes options depuis le schéma Zod — chaque champ y
@@ -563,17 +563,17 @@ porte sa description, ce qui en fait la référence toujours à jour des défaut
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                 | Cause dans le code                                                          | Correction                                                                      |
-| -------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `frameguard: "sameorigin"` en config security sans effet | Clé **inerte** — non lue par la couche applicative (`securityHeaders.ts:6`) | Régler `securityHeaders.frameOptions` du module **http**                        |
-| `<script>` inline bloqué                                 | Le template ne reprend pas le nonce                                         | Rendre `<script nonce="…">` depuis `context.cspNonce`                           |
-| CSP contenant `'nonce-{{nonce}}'` littéral               | `cspNonces` désactivé, placeholder laissé                                   | Nodefony purge le résiduel (`securityHeaders.ts:63`) ; retirer le placeholder   |
-| Une extension `script-src` de module sans effet          | Second en-tête / directive dupliquée (ignorée, W3C CSP3 §3)                 | Déclarer un fragment via `registerCspOrigins()`, jamais un `setHeader`          |
-| Assets tiers cassés après activation de l'isolation      | `coep: "require-corp"` exige CORP/CORS sur **chaque** ressource             | Retirer `coep` ou faire annoncer les ressources                                 |
-| HSTS absent en développement                             | Posé sur TLS uniquement (`http-kernel.ts:996`)                              | Comportement conforme RFC 6797 — vérifier sur le port HTTPS                     |
-| Le CSP est plus large en dev qu'en prod                  | `@nodefony/frontend` déclare les origines Vite (`FrontendService.ts:695`)   | Attendu : le fragment n'existe pas en production                                |
-| Aucun en-tête applicatif                                 | Module security absent ou `headers.enabled: false`                          | Le socle transport reste actif ; réactiver security pour CSP/Referrer/isolation |
-| Domaine injoignable après activation de `preload`        | Inscription à la liste pré-chargée, sortie très lente                       | Ne jamais activer sans plan HTTPS sur **tous** les sous-domaines                |
+| Symptôme                                                 | Cause dans le code                                                                                  | Correction                                                                                                   |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `frameguard: "sameorigin"` en config security sans effet | Clé **inerte** — non lue par la couche applicative (`securityHeaders.ts#ISecurityHeadersOptions`)   | Régler `securityHeaders.frameOptions` du module **http**                                                     |
+| `<script>` inline bloqué                                 | Le template ne reprend pas le nonce                                                                 | Rendre `<script nonce="…">` depuis `context.cspNonce`                                                        |
+| CSP contenant `'nonce-{{nonce}}'` littéral               | `cspNonces` désactivé, placeholder laissé                                                           | Nodefony purge le résiduel (`securityHeaders.ts#ISecurityHeadersOptions.cspNonces`) ; retirer le placeholder |
+| Une extension `script-src` de module sans effet          | Second en-tête / directive dupliquée (ignorée, W3C CSP3 §3)                                         | Déclarer un fragment via `registerCspOrigins()`, jamais un `setHeader`                                       |
+| Assets tiers cassés après activation de l'isolation      | `coep: "require-corp"` exige CORP/CORS sur **chaque** ressource                                     | Retirer `coep` ou faire annoncer les ressources                                                              |
+| HSTS absent en développement                             | Posé sur TLS uniquement (`http-kernel.ts#HttpKernel.getErrorRenderer`)                              | Comportement conforme RFC 6797 — vérifier sur le port HTTPS                                                  |
+| Le CSP est plus large en dev qu'en prod                  | `@nodefony/frontend` déclare les origines Vite (`FrontendService.ts#FrontendService.#buildEntries`) | Attendu : le fragment n'existe pas en production                                                             |
+| Aucun en-tête applicatif                                 | Module security absent ou `headers.enabled: false`                                                  | Le socle transport reste actif ; réactiver security pour CSP/Referrer/isolation                              |
+| Domaine injoignable après activation de `preload`        | Inscription à la liste pré-chargée, sortie très lente                                               | Ne jamais activer sans plan HTTPS sur **tous** les sous-domaines                                             |
 
 ## 🧪 Tests & couverture
 
@@ -587,12 +587,12 @@ depuis vitest :
 - **Intégration sur serveur réel** (`@nodefony/http`, port 5151) — `security-headers.test` vérifie les
   deux couches sur une **vraie** réponse. Quatre invariants y sont prouvés :
   - le socle transport survit à une 404, avec `x-content-type-options` sur une route inexistante
-    (`security-headers.test.ts:38`) ;
+    (`security-headers.test.ts`) ;
   - le CSP applicatif complète cette réponse avec `content-security-policy`
-    (`security-headers.test.ts:43`) ;
+    (`security-headers.test.ts`) ;
   - une route décorée voit sa directive `frame-src` fusionnée, sans dupliquer `img-src`
-    (`security-headers.test.ts:73`) ;
-  - deux requêtes concurrentes reçoivent deux nonces différents (`security-headers.test.ts:100`).
+    (`security-headers.test.ts`) ;
+  - deux requêtes concurrentes reçoivent deux nonces différents (`security-headers.test.ts`).
 
   `headers.test` et `security.test` couvrent le reste du contrat d'en-têtes.
 

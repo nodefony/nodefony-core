@@ -50,7 +50,7 @@ Trois faits ont pesé, tous mesurés dans le code :
 ## Décision
 
 **1. La configuration d'un module est figée à la fin de `onReady`.** Le kernel gèle en profondeur
-les `options` de chaque module (`freezeConfigTree()`, `kernel/moduleConfig.ts:199`), après les
+les `options` de chaque module (`freezeConfigTree()`, `kernel/moduleConfig.ts#freezeConfigTree`), après les
 écouteurs de `onReady` et avant que le premier serveur n'écoute. Seuls les objets simples et les
 tableaux sont gelés : une instance de classe rangée en configuration garde son état. Une écriture
 lève une `TypeError`, au lieu de changer la configuration de tout le monde en silence.
@@ -61,10 +61,10 @@ pendant une série majeure.
 
 **3. Une requête pose un CALQUE, sur la liste blanche du module.**
 
-- `overlayConfig("@nodefony/http", { … })` (`config/overlay.ts:104`) valide le calque contre le
+- `overlayConfig("@nodefony/http", { … })` (`config/overlay.ts#overlayConfig`) valide le calque contre le
   schéma de surcharge du module (`Module.overlaySchema`, un schéma Zod strict), le fusionne avec la
   configuration figée, gèle le résultat et le range sur le scope de la requête.
-- `useConfig("@nodefony/http")` (`config/overlay.ts:142`) rend la configuration telle que la voit
+- `useConfig("@nodefony/http")` (`config/overlay.ts#useConfig`) rend la configuration telle que la voit
   la requête courante. Sans calque, c'est l'objet figé du module, rendu par référence : aucune
   allocation.
 - **Refus par défaut** : un module qui ne déclare pas de liste blanche n'accepte aucun calque, et

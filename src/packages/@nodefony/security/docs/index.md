@@ -133,7 +133,7 @@ flowchart LR
 ```
 
 Le module consomme `@nodefony/user` (jamais l'inverse) et n'importe `@nodefony/http` / `framework`
-qu'en **type-only**, à une exception près : `schemaMismatchOf` (`webhooks.ts:49`), importé de
+qu'en **type-only**, à une exception près : `schemaMismatchOf` (`webhooks.ts`), importé de
 `@nodefony/http` pour reconnaître une base au schéma en retard avec la même règle que le cœur HTTP,
 plutôt qu'avec une copie.
 
@@ -168,8 +168,8 @@ En terminal, le mot de passe est **demandé masqué** et confirmé ; pour un scr
 l'accepte en argument — au prix de l'historique du shell, que la commande rappelle.
 
 Deux garde-fous qui se constatent plutôt qu'ils ne se supposent : le **dernier administrateur actif
-ne se supprime pas** (`security-user-delete.ts:101`), et un changement de mot de passe **éjecte les
-accès en cours** par la même cascade que la suppression (`userRevocationCascade.ts:37`) — on change
+ne se supprime pas** (`security-user-delete.ts#SecurityUserDelete.generate`), et un changement de mot de passe **éjecte les
+accès en cours** par la même cascade que la suppression (`userRevocationCascade.ts#KernelListenerLike`) — on change
 un mot de passe parce qu'il est perdu ou compromis.
 
 ## ⚙️ Configuration

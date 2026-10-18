@@ -33,6 +33,7 @@ import {
   loadDeclarations,
 } from "../lib/code-declarations.mjs";
 import { execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
@@ -47,9 +48,14 @@ const ALL = process.argv.includes("--all");
 // une seule fois, au lieu d'être recopiée dans le convertisseur.
 const JSON_OUT = process.argv.includes("--json");
 const say = JSON_OUT ? () => {} : console.log;
+// Une ancre de LIGNE est REFUSÉE (#613) : elle bouge dès qu'on écrit au-dessus
+// d'elle, et la recaler coûtait plus que tout le reste de la doc. `--lines`
+// (impliqué par `--json` et `--all`) rend l'ancien jugement des lignes, que
+// lisent la migration et les outils de recalage — pas un gate.
+const LINES = JSON_OUT || ALL || process.argv.includes("--lines");
 const cibles = process.argv
   .slice(2)
-  .filter((arg) => arg !== "--all" && arg !== "--json");
+  .filter((arg) => !["--all", "--json", "--lines"].includes(arg));
 if (!cibles.length) {
   console.error("usage: node anchor-check.mjs <page.md|dossier> [...]");
   process.exit(2);
@@ -206,8 +212,8 @@ function anchorsOfLine(line, mdLine, decalage) {
   }
   for (const m of line.matchAll(SHORT_ANCHOR_RE)) {
     const parent = full.findLast((f) => f.index < decalage + m.index);
-    if (!parent) {
-      orphans++;
+    if (!parent || m[0].includes("/")) {
+      out.push({ raw: m[0], index: m.index, orphan: true, label: m[0] });
       continue;
     }
     const [, startS, endS] = /:(\d+)(?:-(\d+))?/.exec(m[0]);
@@ -395,6 +401,7 @@ const problems = {
   SUSPECT: [],
   INDECIS: [],
   SYMBOL_NOT_FOUND: [],
+  LINE_ANCHOR: [],
 };
 const fileCache = new Map();
 function linesOf(rel) {
@@ -447,6 +454,32 @@ for (const md of args) {
       : line;
     const decalage = mdLine.length - line.length;
     for (const a of anchorsOfLine(line, mdLine, decalage)) {
+      if (!LINES) {
+        total++;
+        pageProblems.push({
+          kind: "LINE_ANCHOR",
+          ref: a.label,
+          line: i + 1,
+          detail: "une ligne bouge : écrire <fichier>#<Symbole>",
+        });
+        continue;
+      }
+      if (a.orphan) {
+        orphans++;
+        if (JSON_OUT)
+          console.log(
+            JSON.stringify({
+              page: md,
+              line: i + 1,
+              index: a.index,
+              raw: a.raw,
+              label: a.raw,
+              short: true,
+              kind: "ORPHAN",
+            }),
+          );
+        continue;
+      }
       const { raw, ref, startS, endS } = a;
       total++;
       const start = Number(startS);
@@ -665,11 +698,13 @@ const lo = problems.LINE_OUT.length;
 const su = problems.SUSPECT.length;
 const ind = problems.INDECIS.length;
 const sym = problems.SYMBOL_NOT_FOUND.length;
+const lines = problems.LINE_ANCHOR.length;
 const bilan = JSON_OUT ? console.error : console.log;
 bilan(
-  `\n${total} ancres — ${total - nf - lo - su - ind - sym} OK · ${su} SUSPECT · ${ind} INDÉCIS` +
+  `\n${total} ancres — ${total - nf - lo - su - ind - sym - lines} OK · ${su} SUSPECT · ${ind} INDÉCIS` +
     ` · ${lo} LINE_OUT · ${nf} FILE_NOT_FOUND` +
-    (sym ? ` · ${sym} SYMBOL_NOT_FOUND` : ""),
+    (sym ? ` · ${sym} SYMBOL_NOT_FOUND` : "") +
+    (lines ? ` · ${lines} LINE_ANCHOR` : ""),
 );
 if (ind) {
   bilan(
@@ -689,4 +724,10 @@ if (su) {
       `    ou \`node anchor-check.mjs <pages> | node anchor-fix.mjs . --apply\` ; le reste se relit à la main.)`,
   );
 }
-process.exit(nf + lo + su + sym ? 1 : 0);
+if (lines) {
+  bilan(
+    `   (LINE_ANCHOR = ancre \`fichier:ligne\`, refusée : elle ment au premier ajout de ligne au-dessus.\n` +
+      `    Convertir : node ${path.relative(process.cwd(), path.join(path.dirname(fileURLToPath(import.meta.url)), "anchor-migrate.mjs"))} <pages> --apply)`,
+  );
+}
+process.exit(nf + lo + su + sym + lines ? 1 : 0);

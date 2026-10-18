@@ -58,8 +58,8 @@ flowchart LR
 ```
 
 Deux frontières décident de tout : **`WebhookDispatcher.onAuditEvent()`**
-(`WebhookDispatcher.ts:132`) qui filtre sans jamais bloquer l'émetteur, et
-**`WebhookDispatcher.#process()`** (`WebhookDispatcher.ts:189`) qui signe, livre et classe l'issue.
+(`WebhookDispatcher.ts#WebhookDispatcher.onAuditEvent`) qui filtre sans jamais bloquer l'émetteur, et
+**`WebhookDispatcher.#process()`** (`WebhookDispatcher.ts#WebhookDispatcher.#process`) qui signe, livre et classe l'issue.
 Le détail de chaque étape est plus bas, dans **Architecture interne**.
 
 ### À quoi ça sert, concrètement
@@ -146,25 +146,25 @@ propre serveur**.
 Trois partis pris, tous vérifiables dans le code :
 
 1. **La source est le journal d'audit, pas un bus métier.** `WebhookService.#attachDispatcher()`
-   (`webhooks.ts:198`) s'abonne au service `auditService` et à lui seul. Si l'audit est absent, le
+   (`webhooks.ts#WebhookService.#attachDispatcher`) s'abonne au service `auditService` et à lui seul. Si l'audit est absent, le
    dispatcher n'existe pas — le CRUD d'endpoints reste disponible, mais **rien ne part**. C'est une
    limite assumée : les webhooks notifient des **événements de sécurité**.
 2. **Le secret est chiffré, jamais haché.** Contrairement à une clé d'API (qu'on vérifie donc qu'on
    peut hacher), le serveur doit **relire** le secret pour signer chaque livraison → AES-256-GCM avec
-   une clé dérivée HKDF propre au domaine webhook (`deriveWebhookKey()`, `webhookCipher.ts:30`).
+   une clé dérivée HKDF propre au domaine webhook (`deriveWebhookKey()`, `webhookCipher.ts#deriveWebhookKey`).
 3. **Le tiers ne peut pas nuire au framework.** File bornée, concurrence bornée, historique borné,
    abandon annoncé : le dispatcher est écrit pour qu'un endpoint mort coûte un log, pas une panne
-   (`WebhookDispatcher.#enqueue()`, `WebhookDispatcher.ts:146`).
+   (`WebhookDispatcher.#enqueue()`, `WebhookDispatcher.ts#WebhookDispatcher.#enqueue`).
 
 ## 🚀 Démarrage rapide
 
 ### 1. Activer les webhooks et poser la clé de chiffrement
 
-Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:810`).
+Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts#tokenExchangeSchema`).
 La seule chose que tu dois vraiment fournir, c'est la **clé de chiffrement des secrets de signature** :
 sans elle, une clé éphémère est générée en dev (avec un WARNING), et en production les webhooks sont
 **désactivés** — un secret chiffré par une clé perdue au redémarrage serait illisible
-(`WebhookService.#resolveKey()`, `webhooks.ts:316`).
+(`WebhookService.#resolveKey()`, `webhooks.ts#WebhookService.#resolveKey`).
 
 ```bash
 # Génère les clés du module security et guide le câblage en 3 fichiers.
@@ -203,14 +203,14 @@ export default defineConfig<typeof env>((ctx) => ({
 
 > [!WARNING]
 > `denyPrivateIps: false` **désactive tout le contrôle d'IP** : le garde retourne immédiatement sur
-> `allowPrivate`, sans résoudre le DNS ni comparer quoi que ce soit (`ssrfGuard.ts:153`). C'est un
+> `allowPrivate`, sans résoudre le DNS ni comparer quoi que ce soit (`ssrfGuard.ts#IAssertPublicUrlOptions.allowPrivate`). C'est un
 > réglage de poste de développement, à ne jamais laisser fuiter en production.
 
 ### 2. Enregistrer un abonnement (API d'administration)
 
 Il n'y a **pas de déclaration d'endpoint en config** : un abonnement est une donnée, créée à
 l'exécution via le data plane admin `/nodefony/security/api/webhooks`, gardé
-`ROLE_NODEFONY_ADMIN` (`webhookAdminEndpoints()`, `WebhookAdminApi.ts:219`).
+`ROLE_NODEFONY_ADMIN` (`webhookAdminEndpoints()`, `WebhookAdminApi.ts#webhookAdminEndpoints`).
 
 ```bash
 # Session admin (le BFF de login pose le cookie)
@@ -406,16 +406,16 @@ curl -sk -b /tmp/jar https://localhost:5152/nodefony/security/api/webhooks/wh_9X
 
 Un `attempt` supérieur à 0 signale que la trace enregistrée est celle d'une **issue finale après
 retries** : les tentatives intermédiaires ne sont pas tracées, seule l'issue passe par
-`recordDelivery()` (`WebhookDispatcher.ts:247`).
+`recordDelivery()` (`WebhookDispatcher.ts#IWebhookDispatcherDeps.recordDelivery`).
 
 ## Quels événements partent en webhook ?
 
 Réponse honnête et vérifiable : **les actions du journal d'audit de sécurité, et rien d'autre**. Le
-dispatcher est branché sur `AuditService.subscribe()` (`auditService.ts:212`), appelé dans le
-fire-and-forget de `AuditService.record()` (`auditService.ts:187`). Aucun autre point d'émission
+dispatcher est branché sur `AuditService.subscribe()` (`auditService.ts#AuditService.subscribe`), appelé dans le
+fire-and-forget de `AuditService.record()` (`auditService.ts#AuditService.record`). Aucun autre point d'émission
 n'existe dans le code.
 
-Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts:24`) donnent la surface réelle :
+Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts#AuditCategory`) donnent la surface réelle :
 
 | Catégorie  | Ce qu'elle trace (exemples d'`action`)                                     |
 | ---------- | -------------------------------------------------------------------------- |
@@ -433,12 +433,12 @@ Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts:24`) donne
 
 > [!NOTE]
 > Trois catégories sont **réservées** au contrat sans émetteur à ce jour : `oauth`, `csrf`, `cors`
-> (`IAuditEvent.ts:16`). S'y abonner est accepté, mais ne livre jamais rien.
+> (`IAuditEvent.ts#AuditCategory`). S'y abonner est accepté, mais ne livre jamais rien.
 
 ### La syntaxe d'abonnement
 
 Le champ `events` d'un endpoint accepte trois formes, résolues par `matchesSubscription()`
-(`WebhookDispatcher.ts:30`) :
+(`WebhookDispatcher.ts#matchesSubscription`) :
 
 | Motif             | Matche                                                | Usage typique                   |
 | ----------------- | ----------------------------------------------------- | ------------------------------- |
@@ -448,7 +448,7 @@ Le champ `events` d'un endpoint accepte trois formes, résolues par `matchesSubs
 
 > [!CAUTION]
 > Les événements de catégorie `webhook` **ne déclenchent jamais de livraison**
-> (`WebhookDispatcher.ts:136`), même avec un abonnement `"*"`. C'est une garde anti-amplification :
+> (`WebhookDispatcher.ts#WebhookDispatcher.onAuditEvent`), même avec un abonnement `"*"`. C'est une garde anti-amplification :
 > sans elle, un échec de livraison auditerait `webhook.disabled`, qui déclencherait une livraison,
 > qui échouerait… Un banc d'attaque le prouve (`webhookDispatch.attack.test.ts`).
 
@@ -466,8 +466,8 @@ base signée = {webhook-id}.{webhook-timestamp}.{corps JSON}
 signature   = "v1," + base64( HMAC-SHA256( secret, base ) )
 ```
 
-`buildSignatureBase()` (`webhookSignature.ts:30`) construit la base,
-`signStandardWebhook()` (`webhookSignature.ts:47`) produit la valeur d'en-tête. Trois conséquences
+`buildSignatureBase()` (`webhookSignature.ts#buildSignatureBase`) construit la base,
+`signStandardWebhook()` (`webhookSignature.ts#signStandardWebhook`) produit la valeur d'en-tête. Trois conséquences
 qui comptent :
 
 - **L'identifiant du message est couvert** → un attaquant ne peut pas rejouer un corps valide sous
@@ -479,7 +479,7 @@ qui comptent :
 
 ### Les trois en-têtes posés
 
-`webhookSignatureHeaders()` (`webhookSignature.ts:60`) retourne :
+`webhookSignatureHeaders()` (`webhookSignature.ts#webhookSignatureHeaders`) retourne :
 
 | En-tête             | Contenu                     | Rôle côté récepteur                  |
 | ------------------- | --------------------------- | ------------------------------------ |
@@ -487,8 +487,8 @@ qui comptent :
 | `webhook-timestamp` | epoch **secondes**          | fenêtre **anti-rejeu**               |
 | `webhook-signature` | `v1,<base64(HMAC-SHA256)>`  | preuve de l'émetteur                 |
 
-Le secret est un `whsec_<base64 de 256 bits>` généré par `generateSecret()` (`webhooks.ts:117`) ;
-`parseWebhookSecret()` (`webhookSignature.ts:22`) décode la partie base64 — le préfixe n'entre pas
+Le secret est un `whsec_<base64 de 256 bits>` généré par `generateSecret()` (`webhooks.ts#generateSecret`) ;
+`parseWebhookSecret()` (`webhookSignature.ts#parseWebhookSecret`) décode la partie base64 — le préfixe n'entre pas
 dans la clé HMAC, et un secret déjà sans préfixe est toléré.
 
 ### Le secret au repos — chiffré, pas haché
@@ -496,7 +496,7 @@ dans la clé HMAC, et un secret déjà sans préfixe est toléré.
 Une clé d'API se **hache** (on la vérifie, on ne la relit jamais). Un secret de signature doit être
 **relu à chaque livraison** pour recalculer le HMAC → il est chiffré en AES-256-GCM, avec une clé
 dérivée par HKDF-SHA256 (RFC 5869) sur un contexte **propre au domaine webhook**
-(`WEBHOOK_DERIVATION`, `webhookCipher.ts:21`).
+(`WEBHOOK_DERIVATION`, `webhookCipher.ts#WEBHOOK_DERIVATION`).
 
 Ce cloisonnement n'est pas cosmétique : un blob webhook ne se déchiffre **pas** avec la clé TOTP, et
 réciproquement — un banc d'attaque vérifie cette confusion de domaine, ainsi que le refus des blobs
@@ -517,7 +517,7 @@ curl -sk -b /tmp/jar -X POST \
 # {"endpoint":{…}, "secret":"whsec_NOUVEAU…"}
 ```
 
-`WebhookService.rotateSecret()` (`webhooks.ts:560`) régénère et rechiffre. Comportement à connaître
+`WebhookService.rotateSecret()` (`webhooks.ts#WebhookService.rotateSecret`) régénère et rechiffre. Comportement à connaître
 **avant** de cliquer :
 
 - l'ancien secret cesse d'être valide **immédiatement** — il n'y a pas de fenêtre de recouvrement
@@ -530,31 +530,31 @@ curl -sk -b /tmp/jar -X POST \
 ## 🛡️ Défenses SSRF — ce qu'une URL de destination ne peut pas être
 
 C'est la partie la plus attaquée de la brique, et celle qui porte le plus de tests
-(`webhookSsrf.attack.test.ts`). Le contrôle vit dans `assertPublicUrl()` (`ssrfGuard.ts:128`),
+(`webhookSsrf.attack.test.ts`). Le contrôle vit dans `assertPublicUrl()` (`ssrfGuard.ts#assertPublicUrl`),
 appliqué **deux fois** : à l'enregistrement, et **à nouveau juste avant chaque livraison**.
 
 ### Ce qui est refusé
 
-| Ce que l'attaquant tente                            | Exemple                                     | Défense                                                                                          |
-| --------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Schéma exotique (Gopher, Redis, `file`…)            | `redis://1.1.1.1:6379/`                     | allowlist stricte `https:` (+ `http:` si `allowHttp`) — `ssrfGuard.ts:139`                       |
-| Identifiants embarqués pour masquer l'hôte réel     | `https://trusted.com@169.254.169.254/`      | refus de `username`/`password` dans l'URL (`SsrfError`, `ssrfGuard.ts:145`)                      |
-| IP littérale interne                                | `https://127.0.0.1/`                        | 15 plages IPv4 bloquées (`BLOCKED_V4`, `ssrfGuard.ts:22`)                                        |
-| Métadonnées cloud (credentials IAM)                 | `http://169.254.169.254/`                   | plage `169.254.0.0/16` bloquée                                                                   |
-| IPv6 interne, ULA, link-local, NAT64, 6to4          | `https://[fe80::1%25eth0]/`                 | 9 plages IPv6 bloquées (`BLOCKED_V6`, `ssrfGuard.ts:41`)                                         |
-| IPv4-mapped IPv6 sous toutes ses notations          | `::ffff:7f00:1`, `0:0:0:0:0:ffff:127.0.0.1` | rabattu nativement sur les règles IPv4 par `BlockList` (`isBlockedAddress()`, `ssrfGuard.ts:79`) |
-| IP encodée en dword/hex/octal dans le nom d'hôte    | `http://2130706433/`                        | on passe l'IP **résolue** à `isBlockedAddress()`, jamais la chaîne d'hôte (`ssrfGuard.ts:171`)   |
-| Nom DNS public qui **résout** vers du privé         | `hook.evil.com → 10.0.0.5`                  | toutes les IP résolues sont contrôlées, une seule interne = refus                                |
-| **DNS rebinding** entre le contrôle et la connexion | —                                           | l'IP validée est **pinnée** à la connexion TCP (`webhookDelivery.ts:75`)                         |
-| **Redirection** `302 → 169.254.169.254`             | —                                           | `node:http(s)` ne suit **jamais** les 3xx ; le 3xx est rendu tel quel                            |
+| Ce que l'attaquant tente                            | Exemple                                     | Défense                                                                                                        |
+| --------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Schéma exotique (Gopher, Redis, `file`…)            | `redis://1.1.1.1:6379/`                     | allowlist stricte `https:` (+ `http:` si `allowHttp`) — `ssrfGuard.ts#IAssertPublicUrlOptions.allowHttp`       |
+| Identifiants embarqués pour masquer l'hôte réel     | `https://trusted.com@169.254.169.254/`      | refus de `username`/`password` dans l'URL (`SsrfError`, `ssrfGuard.ts#assertPublicUrl`)                        |
+| IP littérale interne                                | `https://127.0.0.1/`                        | 15 plages IPv4 bloquées (`BLOCKED_V4`, `ssrfGuard.ts#BLOCKED_V4`)                                              |
+| Métadonnées cloud (credentials IAM)                 | `http://169.254.169.254/`                   | plage `169.254.0.0/16` bloquée                                                                                 |
+| IPv6 interne, ULA, link-local, NAT64, 6to4          | `https://[fe80::1%25eth0]/`                 | 9 plages IPv6 bloquées (`BLOCKED_V6`, `ssrfGuard.ts#BLOCKED_V6`)                                               |
+| IPv4-mapped IPv6 sous toutes ses notations          | `::ffff:7f00:1`, `0:0:0:0:0:ffff:127.0.0.1` | rabattu nativement sur les règles IPv4 par `BlockList` (`isBlockedAddress()`, `ssrfGuard.ts#isBlockedAddress`) |
+| IP encodée en dword/hex/octal dans le nom d'hôte    | `http://2130706433/`                        | on passe l'IP **résolue** à `isBlockedAddress()`, jamais la chaîne d'hôte (`ssrfGuard.ts#isBlockedAddress`)    |
+| Nom DNS public qui **résout** vers du privé         | `hook.evil.com → 10.0.0.5`                  | toutes les IP résolues sont contrôlées, une seule interne = refus                                              |
+| **DNS rebinding** entre le contrôle et la connexion | —                                           | l'IP validée est **pinnée** à la connexion TCP (`webhookDelivery.ts#deliverWebhook`)                           |
+| **Redirection** `302 → 169.254.169.254`             | —                                           | `node:http(s)` ne suit **jamais** les 3xx ; le 3xx est rendu tel quel                                          |
 
 ### Les deux subtilités qui font la différence
 
 **Le pin d'IP.** Valider puis se reconnecter, c'est laisser une fenêtre : le DNS peut répondre une IP
-publique au contrôle et une IP privée 50 ms plus tard. `deliverWebhook()` (`webhookDelivery.ts:52`)
+publique au contrôle et une IP privée 50 ms plus tard. `deliverWebhook()` (`webhookDelivery.ts#deliverWebhook`)
 installe un `lookup` qui force la connexion vers l'IP **déjà validée**, tout en conservant le nom
 d'hôte pour le SNI/TLS et l'en-tête `Host`. Le second contrôle SSRF avant livraison —
-`resolveTarget()` (`WebhookDispatcher.ts:209`) — sert exactement à produire ces adresses ; s'il échoue, la livraison est
+`resolveTarget()` (`WebhookDispatcher.ts#IWebhookDispatcherDeps.resolveTarget`) — sert exactement à produire ces adresses ; s'il échoue, la livraison est
 **abandonnée sans retry** (une cible devenue interne ne redeviendra pas légitime au réessai).
 
 **Le non-suivi des redirections.** `fetch()` suit les 3xx par défaut — ce qui annulerait tout le
@@ -604,10 +604,10 @@ sequenceDiagram
 `onAuditEvent()` est appelé **dans** la boucle de notification de `AuditService.record()` — trois
 gardes empêchent le journal d'audit de payer le prix des webhooks :
 
-1. **Court-circuit à coût nul** — `endpointCount()` (`webhooks.ts:648`) lit la taille d'une `Map` :
+1. **Court-circuit à coût nul** — `endpointCount()` (`webhooks.ts#WebhookService.endpointCount`) lit la taille d'une `Map` :
    zéro endpoint = retour immédiat, aucune allocation (le cas dominant).
 2. **Travail lourd différé** — JSON, HMAC et réseau partent dans un `queueMicrotask` coalescé
-   (`#schedulePump()`, `WebhookDispatcher.ts:163`), jamais dans la pile de l'appelant.
+   (`#schedulePump()`, `WebhookDispatcher.ts#WebhookDispatcher.#schedulePump`), jamais dans la pile de l'appelant.
 3. **Zéro E/S pour router** — `getSnapshot()` lit un **cache mémoire**, jamais le store : aucune
    requête n'est faite pour décider qui doit recevoir un événement. Le cache est chargé au boot
    (`#reloadSnapshot()`), tenu à jour par chaque écriture CRUD **du même pod**, et **rechargé quand
@@ -647,7 +647,7 @@ rafale d'événements ne déclenche **qu'une** relecture, et qu'un store en pann
 
 ### Politique de retry — ce qui est réessayé, et pendant combien de temps
 
-`classifyDelivery()` (`WebhookDispatcher.ts:45`) tranche en trois catégories :
+`classifyDelivery()` (`WebhookDispatcher.ts#classifyDelivery`) tranche en trois catégories :
 
 | Issue de la tentative                    | Verdict             | Pourquoi                                                  |
 | ---------------------------------------- | ------------------- | --------------------------------------------------------- |
@@ -657,8 +657,8 @@ rafale d'événements ne déclenche **qu'une** relecture, et qu'un store en pann
 | `3xx`                                    | **échec définitif** | redirection non suivie = configuration cliente à corriger |
 | `4xx` (hors 408/429)                     | **échec définitif** | erreur cliente : réessayer ne changera rien               |
 
-Le délai suit un **backoff exponentiel déterministe** — `backoffMs()` (`WebhookDispatcher.ts:55`) :
-`5 s × 2^tentative`, plafonné à 5 min (`MAX_BACKOFF_MS`, `WebhookDispatcher.ts:26`).
+Le délai suit un **backoff exponentiel déterministe** — `backoffMs()` (`WebhookDispatcher.ts#backoffMs`) :
+`5 s × 2^tentative`, plafonné à 5 min (`MAX_BACKOFF_MS`, `WebhookDispatcher.ts#MAX_BACKOFF_MS`).
 
 | Tentative | 0   | 1    | 2    | 3    | 4    | 5     | 6+          |
 | --------- | --- | ---- | ---- | ---- | ---- | ----- | ----------- |
@@ -666,7 +666,7 @@ Le délai suit un **backoff exponentiel déterministe** — `backoffMs()` (`Webh
 
 Avec le défaut `maxRetries: 5`, une livraison est tentée **6 fois** sur environ 4 min 15 avant
 abandon. Chaque retry **repasse par la file bornée** (`#scheduleRetry()`,
-`WebhookDispatcher.ts:264`) : un pic de retries ne peut pas contourner le plafond mémoire.
+`WebhookDispatcher.ts#WebhookDispatcher.#scheduleRetry`) : un pic de retries ne peut pas contourner le plafond mémoire.
 
 > [!NOTE]
 > Le backoff est **déterministe, sans jitter**. Sur un seul pod c'est sans conséquence ; sur N pods
@@ -675,7 +675,7 @@ abandon. Chaque retry **repasse par la file bornée** (`#scheduleRetry()`,
 
 ### Auto-désactivation d'un endpoint mort
 
-Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:682`) : succès →
+Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts#WebhookService.markDelivery`) : succès →
 `failureCount = 0` ; échec → incrément. Au-delà de `autoDisableThreshold` (défaut **20**), l'endpoint
 est **désactivé** et un unique événement d'audit `webhook.disabled` est émis — **un par endpoint qui
 meurt**, jamais un par échec (le volume resterait ingérable). Mettre le seuil à `0` désactive
@@ -688,7 +688,7 @@ Le scénario vécu, du début à la fin :
 1. **Tentative 1** → `ECONNREFUSED`. Classé `retry` ; rien n'est encore écrit en base.
 2. **Tentatives 2 à 6** sur ~4 min. Toujours rien de persisté (seule l'issue finale l'est).
 3. **Abandon.** `markDelivery` écrit `lastDeliveryStatus: null`, `lastDeliveryError`, et incrémente
-   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts:612`).
+   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts#WebhookService.#recordDelivery`).
 4. **L'événement est PERDU.** Il n'y a pas de file persistée : un webhook est **best-effort**. Rien
    ne sera rejoué quand le destinataire reviendra.
 5. **Après 20 échecs consécutifs**, l'endpoint passe `enabled: false` et cesse de consommer des
@@ -701,14 +701,14 @@ Le scénario vécu, du début à la fin :
 
 ### Arrêt propre
 
-`WebhookService.#shutdown()` (`webhooks.ts:234`) se désabonne de l'audit puis appelle
-`WebhookDispatcher.shutdown()` (`WebhookDispatcher.ts:280`) : admission stoppée, **tous les timers de
+`WebhookService.#shutdown()` (`webhooks.ts#WebhookService.#shutdown`) se désabonne de l'audit puis appelle
+`WebhookDispatcher.shutdown()` (`WebhookDispatcher.ts#WebhookDispatcher.shutdown`) : admission stoppée, **tous les timers de
 retry annulés**, file relâchée. Aucun timer orphelin ne retient le process — et les timers de retry
-sont `unref()` (`webhooks.ts:222`), donc ils n'empêchent jamais Node de sortir.
+sont `unref()` (`webhooks.ts#WebhookService.#attachDispatcher`), donc ils n'empêchent jamais Node de sortir.
 
 ## ⚙️ Configuration
 
-Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:871`), lue via
+Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts#webhooksSchema`), lue via
 `use("@nodefony/security", { webhooks: … })`.
 
 | Option                 | Type       | Défaut     | Effet                                                                                                       |
@@ -720,7 +720,7 @@ Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/c
 | `timestampToleranceS`  | `int > 0`  | `300`      | Fenêtre anti-rejeu **recommandée au récepteur** (voir la note ci-dessous).                                  |
 | `maxRetries`           | `int ≥ 0`  | `5`        | Réessais après la 1ʳᵉ tentative → 6 envois au total.                                                        |
 | `autoDisableThreshold` | `int ≥ 0`  | `20`       | Échecs consécutifs avant désactivation automatique. `0` = jamais.                                           |
-| `deliveryTimeoutMs`    | `int > 0`  | `10000`    | Délai dur d'une tentative ; au-delà, `req.destroy()` (`webhookDelivery.ts:136`).                            |
+| `deliveryTimeoutMs`    | `int > 0`  | `10000`    | Délai dur d'une tentative ; au-delà, `req.destroy()` (`webhookDelivery.ts#deliverWebhook`).                 |
 | `maxConcurrent`        | `int > 0`  | `8`        | Livraisons simultanées : borne les sockets/FD qu'un endpoint lent peut immobiliser.                         |
 | `maxQueue`             | `int > 0`  | `1000`     | File d'attente ; au-delà, **abandon** annoncé par log (best-effort, mémoire bornée).                        |
 | `denyPrivateIps`       | `boolean`  | `true`     | Contrôle SSRF. `false` **saute entièrement** la résolution et le contrôle d'IP (dev only).                  |
@@ -728,14 +728,14 @@ Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/c
 
 > [!NOTE]
 > `timestampToleranceS` est **transporté** dans la politique de livraison
-> (`getDeliveryPolicy()`, `webhooks.ts:663`) mais l'émetteur ne l'applique jamais : la fenêtre
+> (`getDeliveryPolicy()`, `webhooks.ts#WebhookService.getDeliveryPolicy`) mais l'émetteur ne l'applique jamais : la fenêtre
 > anti-rejeu est par nature un contrôle du **récepteur**. Traite cette valeur comme la tolérance que
 > tu documentes à tes destinataires — c'est celle du récepteur qui protège.
 
 ## Entité de persistance — le registre d'endpoints
 
 Un endpoint est une **configuration durable**, pas un cache : il survit aux redémarrages et se
-partage entre pods. Les colonnes suivent `IWebhookEndpoint` (`IWebhookEndpoint.ts:10`), plat et
+partage entre pods. Les colonnes suivent `IWebhookEndpoint` (`IWebhookEndpoint.ts#IWebhookEndpoint`), plat et
 « tout `| null` ».
 
 <!-- prettier-ignore -->
@@ -757,29 +757,29 @@ partage entre pods. Les colonnes suivent `IWebhookEndpoint` (`IWebhookEndpoint.t
 | `metadata` | extras applicatifs (jamais de secret) | `text mode:json` · `jsonb` · `json` | `Object` |
 
 Côté SQL, la table est décrite **une seule fois** en spec logique
-(`WEBHOOK_ENDPOINT_TABLE_SPEC`, `drizzle/nodefony/entity/webhookEndpointEntity.ts:28`) puis déclinée
+(`WEBHOOK_ENDPOINT_TABLE_SPEC`, `drizzle/nodefony/entity/webhookEndpointEntity.ts#WEBHOOK_ENDPOINT_TABLE_SPEC`) puis déclinée
 par dialecte via le `colKit`. Côté documentaire, le schéma force `_id: String` — l'identifiant
 `wh_…` **est** la clé primaire, pas un `ObjectId` généré
-(`webhookEndpointSchema`, `mongoose/nodefony/entity/webhookEndpointEntity.ts:23`).
+(`webhookEndpointSchema`, `mongoose/nodefony/entity/webhookEndpointEntity.ts#webhookEndpointSchema`).
 
 Ce qui **n'est pas** persisté : l'historique des livraisons. Il vit en RAM, borné à 20 entrées par
-endpoint (`MAX_DELIVERIES_PER_ENDPOINT`, `webhooks.ts:63`), corps de requête tronqué à 8 Ko, corps
-de réponse à 2 Ko (`RESPONSE_BODY_CAP`, `webhookDelivery.ts:21`) — et il est **par pod**. C'est de
+endpoint (`MAX_DELIVERIES_PER_ENDPOINT`, `webhooks.ts#MAX_DELIVERIES_PER_ENDPOINT`), corps de requête tronqué à 8 Ko, corps
+de réponse à 2 Ko (`RESPONSE_BODY_CAP`, `webhookDelivery.ts#RESPONSE_BODY_CAP`) — et il est **par pod**. C'est de
 l'observabilité éphémère de mise au point, pas un journal d'audit.
 
 ## Backends pris en charge — trois enregistrés, un exclu volontairement
 
 | Backend    | Enregistrement                                               | Durable | Partagé multi-pod | Usage                          |
 | ---------- | ------------------------------------------------------------ | :-----: | :---------------: | ------------------------------ |
-| `memory`   | intégré, à l'import (`webhookStoreRegistry.ts:55`)           |   ❌    |        ❌         | dev, tests                     |
+| `memory`   | intégré, à l'import (`webhookStoreRegistry.ts`)              |   ❌    |        ❌         | dev, tests                     |
 | `drizzle`  | auto-register de l'adapter (SQLite/PostgreSQL/MySQL/MariaDB) |   ✅    |        ✅         | production SQL                 |
 | `mongoose` | auto-register de l'adapter                                   |   ✅    |        ✅         | production documentaire        |
 | `redis`    | **volontairement absent**                                    |    —    |         —         | un registre n'est pas un cache |
 
 Redis n'est pas une omission : un endpoint est de la **configuration durable**, sa place n'est pas
-dans un magasin volatil (`IWebhookStore.ts:43`).
+dans un magasin volatil (`IWebhookStore.ts#IWebhookStore`).
 
-La résolution est explicite et **annoncée**. `WebhookService.#resolveStore()` (`webhooks.ts:244`)
+La résolution est explicite et **annoncée**. `WebhookService.#resolveStore()` (`webhooks.ts#WebhookService.#resolveStore`)
 privilégie un adapter déjà posé au container, puis résout `auto` d'après l'infra déclarée, et
 **enregistre sa décision** (visible dans Studio). Deux garde-fous :
 
@@ -789,32 +789,32 @@ privilégie un adapter déjà posé au container, puis résout `auto` d'après l
 
 ### Pagination du registre
 
-`WebhookService.listPage()` (`webhooks.ts:475`) délègue au store — la console n'a **jamais** tout le
+`WebhookService.listPage()` (`webhooks.ts#WebhookService.listPage`) délègue au store — la console n'a **jamais** tout le
 registre en RAM. Ce contrat est vérifié par un **banc unique** rejoué sur tous les backends
 (`webhookPaginationContract.ts`) : mêmes 12 endpoints de seed, mêmes assertions.
 
 - Ordre par défaut : `createdAt` DESC, départagé par `id` ASC — sans ce tiebreaker, deux endpoints
   créés dans la même milliseconde pourraient changer de page et l'un ne jamais apparaître.
 - Tri demandable, mais **sur un vocabulaire déclaré** : `createdAt`, `updatedAt`, `url`, `enabled`,
-  `failureCount`, `id` (`WEBHOOK_SORTABLE_FIELDS`, `webhookSort.ts:32`). Un champ hors liste est
+  `failureCount`, `id` (`WEBHOOK_SORTABLE_FIELDS`, `webhookSort.ts#WEBHOOK_SORTABLE_FIELDS`). Un champ hors liste est
   refusé, pas ignoré — et le store publie ce qu'il sait trier (`ISortableSource.sortableFields`,
-  `IWebhookStore.ts:50`), plutôt que de laisser le front le deviner. Les colonnes **nullables** en
+  `IWebhookStore.ts#IWebhookStore.save`), plutôt que de laisser le front le deviner. Les colonnes **nullables** en
   sont volontairement absentes : PostgreSQL range les `NULL` en tête d'un `DESC` là où
   SQLite/MySQL/mémoire les rangent en queue — un tri dont l'ordre dépend de la base configurée ne
   vaut pas mieux qu'un tri absent.
 - Filtres appliqués **au store**, jamais après un chargement complet : `enabled`, `event`
   (appartenance au tableau JSON — « qui écoute `user.created` ? »), `failing` (au moins un échec
-  consécutif courant — « qu'est-ce qui casse ? », `IWebhookStore.ts:35`), `q` (sous-chaîne
+  consécutif courant — « qu'est-ce qui casse ? », `IWebhookStore.ts#IWebhookListQuery.failing`), `q` (sous-chaîne
   insensible à la casse sur `url` **ou** `description`).
 - Mode unique **offset** : tous les backends d'endpoints savent le faire, aucune capacité n'est donc
-  à déclarer (`MemoryWebhookStore.listPage()`, `MemoryWebhookStore.ts:90` ;
-  `DrizzleWebhookStore.ts:185` ; `MongooseWebhookStore.ts:227`).
+  à déclarer (`MemoryWebhookStore.listPage()`, `MemoryWebhookStore.ts#MemoryWebhookStore.listPage` ;
+  `DrizzleWebhookStore.ts#DrizzleWebhookStore.listPage` ; `MongooseWebhookStore.ts#MongooseWebhookStore.listPage`).
 - **Les compteurs suivent la recherche.** `GET webhooks/stats` déclare `search`
-  (`WebhookAdminApi.ts:307`) et descend le même `q` jusqu'au store : un terme sans correspondance
+  (`WebhookAdminApi.ts#webhookAdminEndpoints`) et descend le même `q` jusqu'au store : un terme sans correspondance
   vide les cartes autant que le tableau. Sans cela, la console afficherait « 12 endpoints » au-dessus
   d'une liste filtrée à 2 — un chiffre qui ne répond plus à la question posée à l'écran.
 
-`IWebhookStore.listAll()` (`IWebhookStore.ts:72`) existe toujours, mais il est **réservé au snapshot
+`IWebhookStore.listAll()` (`IWebhookStore.ts#IWebhookStore.listAll`) existe toujours, mais il est **réservé au snapshot
 du dispatcher** : celui-ci doit connaître tous les abonnements pour ne rater aucune livraison. C'est
 un cold-path (boot + après écriture CRUD), jamais un chemin d'affichage.
 
@@ -825,19 +825,19 @@ un cold-path (boot + après écriture CRUD), jamais un chemin d'affichage.
 Résolu depuis le container (`container.get("webhooks")`), toutes les méthodes sont asynchrones sauf
 mention.
 
-| Méthode                       | Rôle                                                               | Ancrage           |
-| ----------------------------- | ------------------------------------------------------------------ | ----------------- |
-| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts:441` |
-| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:475` |
-| `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts:489` |
-| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:517` |
-| `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:528` |
-| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:549` |
-| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:560` |
-| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:579` |
-| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:587` |
-| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:602` |
-| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:414` |
+| Méthode                       | Rôle                                                               | Ancrage                                      |
+| ----------------------------- | ------------------------------------------------------------------ | -------------------------------------------- |
+| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts#WebhookService.register`        |
+| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts#WebhookService.listPage`        |
+| `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts#WebhookService.countEndpoints`  |
+| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts#WebhookService.getEndpoint`     |
+| `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts#IWebhookRegisterInput.metadata` |
+| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts#WebhookService.setEnabled`      |
+| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts#WebhookService.rotateSecret`    |
+| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts#WebhookService.revealSecret`    |
+| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts#WebhookService.delete`          |
+| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts#WebhookService.listDeliveries`  |
+| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts#WebhookService.isReady`         |
 
 Types et briques réutilisables exportés par `@nodefony/security` : `IWebhookEndpoint`,
 `WebhookEndpointSummary`, `IWebhookStore`, `IWebhookListQuery`, `MemoryWebhookStore`,
@@ -864,19 +864,19 @@ porte d'idempotence sur les mutations.
 
 Deux détails de conception qui se voient à l'usage :
 
-- **`reveal` est un `POST`, pas un `GET`** (`WebhookAdminApi.ts:569`) : un secret n'a rien à faire
+- **`reveal` est un `POST`, pas un `GET`** (`WebhookAdminApi.ts#webhookAdminEndpoints`) : un secret n'a rien à faire
   dans une URL, donc ni dans un journal d'accès, ni dans un `Referer`. Le `POST` impose en prime la
   protection CSRF.
 - **La lecture est défensive, jamais `503`** : webhooks désactivés → la console affiche un badge
   honnête (`enabled: false`) et une liste vide, plutôt qu'une erreur. Les **mutations**, elles,
   rendent bien `503` si le service n'est pas prêt.
 - **Le listing est borné** : `limit` par défaut 50, plafond dur **200**
-  (`parseWebhookListQuery()`, `WebhookAdminApi.ts:161`) — un client ne peut pas demander « tout ».
+  (`parseWebhookListQuery()`, `WebhookAdminApi.ts#parseWebhookListQuery`) — un client ne peut pas demander « tout ».
 
 ## 🧩 Extension — brancher son propre registre
 
 Le registre de stores est un simple `Map` nom → fabrique (`registerWebhookStore()`,
-`webhookStoreRegistry.ts:35`). Implémenter `IWebhookStore` (6 méthodes) suffit ; aucun couplage au
+`webhookStoreRegistry.ts#registerWebhookStore`). Implémenter `IWebhookStore` (6 méthodes) suffit ; aucun couplage au
 cœur.
 
 ```typescript ignore
@@ -895,16 +895,16 @@ de filtres et de bornes sont alors prouvés, pas supposés.
 
 ## 📜 Normes appliquées
 
-| Domaine                 | Norme / référence                     | Ancrage                                                            |
-| ----------------------- | ------------------------------------- | ------------------------------------------------------------------ |
-| HMAC                    | RFC 2104 (via `node:crypto`)          | `signStandardWebhook()` (`webhookSignature.ts:47`)                 |
-| Schéma de signature     | Standard Webhooks v1                  | `webhookSignatureHeaders()` (`webhookSignature.ts:60`)             |
-| Dérivation de clé       | RFC 5869 (HKDF-SHA256)                | `deriveWebhookKey()` (`webhookCipher.ts:30`)                       |
-| Chiffrement au repos    | AES-256-GCM (chiffrement authentifié) | `secretCipher.ts:77`                                               |
-| SSRF                    | OWASP A10:2021, CAPEC-664             | `assertPublicUrl()` (`ssrfGuard.ts:128`)                           |
-| Plages non routables    | RFC 1918, 6598, 3927, 7526            | `BLOCKED_V4` (`ssrfGuard.ts:22`), `BLOCKED_V6` (`ssrfGuard.ts:41`) |
-| Réessai sur `429`/`408` | RFC 6585, RFC 9110                    | `classifyDelivery()` (`WebhookDispatcher.ts:45`)                   |
-| Comparaison de secret   | temps constant                        | `timingSafeEqual` côté récepteur (`WebhookSinkController.ts:94`)   |
+| Domaine                 | Norme / référence                     | Ancrage                                                                            |
+| ----------------------- | ------------------------------------- | ---------------------------------------------------------------------------------- |
+| HMAC                    | RFC 2104 (via `node:crypto`)          | `signStandardWebhook()` (`webhookSignature.ts#signStandardWebhook`)                |
+| Schéma de signature     | Standard Webhooks v1                  | `webhookSignatureHeaders()` (`webhookSignature.ts#webhookSignatureHeaders`)        |
+| Dérivation de clé       | RFC 5869 (HKDF-SHA256)                | `deriveWebhookKey()` (`webhookCipher.ts#deriveWebhookKey`)                         |
+| Chiffrement au repos    | AES-256-GCM (chiffrement authentifié) | `secretCipher.ts#encryptSecret`                                                    |
+| SSRF                    | OWASP A10:2021, CAPEC-664             | `assertPublicUrl()` (`ssrfGuard.ts#assertPublicUrl`)                               |
+| Plages non routables    | RFC 1918, 6598, 3927, 7526            | `BLOCKED_V4` (`ssrfGuard.ts#BLOCKED_V4`), `BLOCKED_V6` (`ssrfGuard.ts#BLOCKED_V6`) |
+| Réessai sur `429`/`408` | RFC 6585, RFC 9110                    | `classifyDelivery()` (`WebhookDispatcher.ts#classifyDelivery`)                     |
+| Comparaison de secret   | temps constant                        | `timingSafeEqual` côté récepteur (`WebhookSinkController.ts#verifySignature`)      |
 
 ## ⚡ Performance & mémoire
 
@@ -914,12 +914,12 @@ qu'il y en a.
 <!-- prettier-ignore -->
 | Mécanisme | Borne | Ancrage |
 | --- | --- | --- |
-| Court-circuit hot-path | 0 allocation si `endpointCount() == 0` | `WebhookDispatcher.ts:137` |
-| File d'attente | `maxQueue` (1000) puis **abandon** + log | `WebhookDispatcher.ts:149` |
-| Sockets / FD simultanés | `maxConcurrent` (8) | `WebhookDispatcher.#pump()` (`WebhookDispatcher.ts:173`) |
-| Durée d'une tentative | 10 s puis `req.destroy()` | `webhookDelivery.ts:136` |
-| Historique par endpoint | 20 entrées, corps requête 8 Ko, réponse 2 Ko | `webhooks.ts:63` · `webhookDelivery.ts:21` |
-| Allocations paresseuses | file, `Set` de timers, historique : `null` tant qu'inutilisés | `WebhookDispatcher.ts:114` |
+| Court-circuit hot-path | 0 allocation si `endpointCount() == 0` | `WebhookDispatcher.ts#IWebhookDispatcherDeps.endpointCount` |
+| File d'attente | `maxQueue` (1000) puis **abandon** + log | `WebhookDispatcher.ts#WebhookDispatcher.#enqueue` |
+| Sockets / FD simultanés | `maxConcurrent` (8) | `WebhookDispatcher.#pump()` (`WebhookDispatcher.ts#WebhookDispatcher.#pump`) |
+| Durée d'une tentative | 10 s puis `req.destroy()` | `webhookDelivery.ts#deliverWebhook` |
+| Historique par endpoint | 20 entrées, corps requête 8 Ko, réponse 2 Ko | `webhooks.ts#MAX_RECORDED_BODY` · `webhookDelivery.ts#RESPONSE_BODY_CAP` |
+| Allocations paresseuses | file, `Set` de timers, historique : `null` tant qu'inutilisés | `WebhookDispatcher.ts#WebhookDispatcher.#queue` |
 
 La preuve n'est pas déclarative : un banc d'attaque envoie **5000 événements vers un endpoint mort**
 et vérifie que 4000 livraisons sont abandonnées (file plafonnée) et que le pic de connexions
@@ -927,12 +927,12 @@ simultanées ne dépasse jamais 8 (`webhookDispatch.attack.test.ts`).
 
 Deux propriétés complètent le tableau : les timers de retry sont `unref()` (ils n'empêchent jamais
 le process de sortir), et l'arrêt annule tout (`WebhookDispatcher.shutdown()`,
-`WebhookDispatcher.ts:280`) — aucun listener ni timer orphelin.
+`WebhookDispatcher.ts#WebhookDispatcher.shutdown`) — aucun listener ni timer orphelin.
 
 ## 📡 Observabilité — Studio
 
 L'écran **Webhooks** (`/nodefony/webhooks`, `Webhooks.tsx`) est la console de la brique. Il consomme
-exactement le data plane décrit plus haut (`WEBHOOKS_ENDPOINT`, `webhooksModel.ts:112`) :
+exactement le data plane décrit plus haut (`WEBHOOKS_ENDPOINT`, `webhooksModel.ts#WEBHOOKS_ENDPOINT`) :
 
 - **table paginée côté serveur** — URL, abonnements, état, dernière livraison, compteur d'échecs ;
 - **formulaire de création/édition** avec validation d'URL avant envoi (`WebhookFormModal.tsx`) ;
@@ -941,13 +941,13 @@ exactement le data plane décrit plus haut (`WEBHOOKS_ENDPOINT`, `webhooksModel.
 - **panneau des livraisons récentes** — ce qui a été envoyé et ce que le destinataire a répondu
   (`DeliveriesPanel.tsx`) ;
 - **badge « où on écrit »** : `memory` ou `orm`, dérivé du nom de classe réel du store
-  (`webhookStoreDriver()`, `WebhookAdminApi.ts:113`) — un store tiers inconnu affiche `null` plutôt
+  (`webhookStoreDriver()`, `WebhookAdminApi.ts#webhookStoreDriver`) — un store tiers inconnu affiche `null` plutôt
   qu'un driver inventé.
 
 En développement, le module `test` fournit un **récepteur local** à demeure — le remplaçant
 non-jetable de webhook.site. Il capture les en-têtes de signature, vérifie le HMAC si on lui passe le
 secret, et sait **simuler des pannes** pour observer retries et auto-désactivation
-(`WebhookSinkController.ts:99`) :
+(`WebhookSinkController.ts#WebhookSinkController`) :
 
 | Route                                             | Ce qu'elle fait                                        |
 | ------------------------------------------------- | ------------------------------------------------------ |
@@ -959,21 +959,21 @@ secret, et sait **simuler des pannes** pour observer retries et auto-désactivat
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                                       | Cause (dans le code)                                                                                       | Correction                                                             |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Boot : « webhooks désactivés » en production                                   | Aucune `encryptionKey` — fail-safe (`webhooks.ts:299`)                                                     | `npx nodefony security:secrets` puis câbler `NF_WEBHOOK_KEY`           |
-| Après redémarrage, les signatures ne valident plus                             | Clé **éphémère** de dev : les secrets stockés sont illisibles                                              | Poser une `encryptionKey` stable ; tourner les secrets des endpoints   |
-| `422` à la création d'un endpoint                                              | `assertPublicUrl()` refuse la cible (IP interne, schéma, userinfo)                                         | Viser une URL publique en `https://` ; en dev, `denyPrivateIps: false` |
-| Rien n'arrive alors que l'endpoint est actif                                   | Aucun `auditService` → dispatcher inactif (`webhooks.ts:191`)                                              | Vérifier que l'audit est activé ; le CRUD seul ne livre rien           |
-| Un événement « métier » n'arrive jamais                                        | La source est le **journal d'audit**, pas un bus applicatif                                                | S'abonner à une action d'audit existante                               |
-| Signature invalide côté récepteur                                              | Corps re-sérialisé avant le HMAC, ou en-tête `webhook-id`/`-timestamp` ignoré                              | Lire le corps **brut** ; signer `{id}.{timestamp}.{body}`              |
-| Le récepteur voit deux fois le même événement                                  | Un retry rejoue le **même** `webhook-id`                                                                   | Dédupliquer par `webhook-id` côté récepteur                            |
-| Endpoint passé `enabled: false` tout seul                                      | 20 échecs consécutifs → auto-désactivation (`webhooks.ts:565`)                                             | Réparer la destination, puis `PATCH … {"enabled":true}`                |
-| Livraisons « abandonnées » dans les logs                                       | File pleine (`maxQueue`) — best-effort assumé                                                              | Augmenter `maxQueue`/`maxConcurrent`, ou réduire le volume souscrit    |
-| Un `302` vers l'interne n'est pas suivi                                        | **Voulu** : `node:http(s)` ne suit jamais les 3xx                                                          | Rien à corriger — configurer l'URL finale côté destinataire            |
-| Le secret a été perdu                                                          | Il n'est montré qu'à la création/rotation                                                                  | `POST …/reveal` (audité) ou rotation + redéploiement chez le tiers     |
-| Après un redémarrage, plus aucun endpoint                                      | `store: "memory"` — registre volatil et par pod                                                            | Déclarer une infra durable (`store: "auto"` suffit alors)              |
-| Multi-pod : un endpoint créé ne livre pas tout de suite depuis les autres pods | Le snapshot est relu après `webhooks.snapshotTtlS` (30 s par défaut, `webhooks.ts:406`), pas immédiatement | Attendre au plus `snapshotTtlS`, ou le baisser                         |
+| Symptôme                                                                       | Cause (dans le code)                                                                                                                 | Correction                                                             |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Boot : « webhooks désactivés » en production                                   | Aucune `encryptionKey` — fail-safe (`webhooks.ts#WebhookService.#resolveStore`)                                                      | `npx nodefony security:secrets` puis câbler `NF_WEBHOOK_KEY`           |
+| Après redémarrage, les signatures ne valident plus                             | Clé **éphémère** de dev : les secrets stockés sont illisibles                                                                        | Poser une `encryptionKey` stable ; tourner les secrets des endpoints   |
+| `422` à la création d'un endpoint                                              | `assertPublicUrl()` refuse la cible (IP interne, schéma, userinfo)                                                                   | Viser une URL publique en `https://` ; en dev, `denyPrivateIps: false` |
+| Rien n'arrive alors que l'endpoint est actif                                   | Aucun `auditService` → dispatcher inactif (`webhooks.ts#WebhookService.#attachDispatcher`)                                           | Vérifier que l'audit est activé ; le CRUD seul ne livre rien           |
+| Un événement « métier » n'arrive jamais                                        | La source est le **journal d'audit**, pas un bus applicatif                                                                          | S'abonner à une action d'audit existante                               |
+| Signature invalide côté récepteur                                              | Corps re-sérialisé avant le HMAC, ou en-tête `webhook-id`/`-timestamp` ignoré                                                        | Lire le corps **brut** ; signer `{id}.{timestamp}.{body}`              |
+| Le récepteur voit deux fois le même événement                                  | Un retry rejoue le **même** `webhook-id`                                                                                             | Dédupliquer par `webhook-id` côté récepteur                            |
+| Endpoint passé `enabled: false` tout seul                                      | 20 échecs consécutifs → auto-désactivation (`webhooks.ts#WebhookService.rotateSecret`)                                               | Réparer la destination, puis `PATCH … {"enabled":true}`                |
+| Livraisons « abandonnées » dans les logs                                       | File pleine (`maxQueue`) — best-effort assumé                                                                                        | Augmenter `maxQueue`/`maxConcurrent`, ou réduire le volume souscrit    |
+| Un `302` vers l'interne n'est pas suivi                                        | **Voulu** : `node:http(s)` ne suit jamais les 3xx                                                                                    | Rien à corriger — configurer l'URL finale côté destinataire            |
+| Le secret a été perdu                                                          | Il n'est montré qu'à la création/rotation                                                                                            | `POST …/reveal` (audité) ou rotation + redéploiement chez le tiers     |
+| Après un redémarrage, plus aucun endpoint                                      | `store: "memory"` — registre volatil et par pod                                                                                      | Déclarer une infra durable (`store: "auto"` suffit alors)              |
+| Multi-pod : un endpoint créé ne livre pas tout de suite depuis les autres pods | Le snapshot est relu après `webhooks.snapshotTtlS` (30 s par défaut, `webhooks.ts#WebhookService.#touchSnapshot`), pas immédiatement | Attendre au plus `snapshotTtlS`, ou le baisser                         |
 
 ## 🧪 Tests & couverture
 

@@ -37,7 +37,7 @@ coverageFiles: idempotency.ts,IdempotencyStore.ts,RedisIdempotencyStore.ts,idemp
 ## 🧠 Le modèle mental — un verrou par intention
 
 C'est LA chose à comprendre. `store.begin(clé, empreinte)` est **atomique** et rend l'un de quatre
-verdicts (`IdempotencyOutcome`, `src/nodefony/src/types/IIdempotencyStore.ts:34`) ; le helper les
+verdicts (`IdempotencyOutcome`, `src/nodefony/src/types/IIdempotencyStore.ts#IdempotencyOutcome`) ; le helper les
 traduit en une décision neutre que le pipeline applique.
 
 ```mermaid
@@ -53,14 +53,14 @@ stateDiagram-v2
 ```
 
 Les quatre verdicts du store et leur traduction, décidés par `evaluateIdempotency()`
-(`idempotency.ts:131`) :
+(`idempotency.ts#evaluateIdempotency`) :
 
 - **fresh** → tu détiens la réservation : exécute l'action, puis **obligatoirement** `complete(clé,
 réponse)` (succès) ou `abort(clé)` (échec). Verdict rendu : `guarded`.
 - **replayed** → la réponse de la 1ʳᵉ exécution est renvoyée telle quelle, l'action **n'est pas
   rejouée**. Verdict rendu : `replay`.
 - **in-flight** → une exécution identique est **déjà en cours** → `409` (le client réessaiera).
-- **mismatch** → la clé a déjà servi pour un **autre** payload → `422` (`idempotency.ts:189`).
+- **mismatch** → la clé a déjà servi pour un **autre** payload → `422` (`idempotency.ts#evaluateIdempotency`).
 
 S'il ne faut retenir qu'une image : `begin` est un **verrou atomique par intention**, et tout le
 reste du pipeline ne fait que traduire son verdict.
@@ -98,13 +98,13 @@ Sans ce ticket, trois choses cassent :
    donc il **doit** retenter ; c'est au serveur de rendre le retry inoffensif.
 2. **IDOR sur le cache** — si la clé stockée était la clé brute du client, il suffirait de deviner
    `order-42` pour lire la **réponse mémorisée d'un autre utilisateur**. Nodefony stocke
-   `JSON.stringify([identité, cléClient])` (`idempotency.ts:171`) : l'anti-IDOR n'est pas un contrôle
+   `JSON.stringify([identité, cléClient])` (`idempotency.ts#evaluateIdempotency`) : l'anti-IDOR n'est pas un contrôle
    ajouté, il est **structurel**, encodé dans la clé de cache. Le JSON sert de frontière non ambiguë
    (aucun séparateur magique qui pourrait entrer en collision).
 3. **DoS du cache** — une clé arbitrairement longue, ou un flot de clés uniques, remplirait la
    mémoire. Une clé > 255 octets est traitée comme **absente** plutôt que stockée
-   (`IDEMPOTENCY_KEY_MAX`, `idempotency.ts:36`) et le cache mémoire est **borné** (`DEFAULT_CAP`,
-   `IdempotencyStore.ts:25`).
+   (`IDEMPOTENCY_KEY_MAX`, `idempotency.ts#IDEMPOTENCY_KEY_MAX`) et le cache mémoire est **borné** (`DEFAULT_CAP`,
+   `IdempotencyStore.ts#DEFAULT_CAP`).
 
 > [!IMPORTANT]
 > L'idempotence n'est pas qu'une commodité de résilience : c'est une brique de **sécurité**. Une
@@ -114,21 +114,21 @@ Sans ce ticket, trois choses cassent :
 ## La vision Nodefony
 
 Le constat de conception qui compte : la sémantique IETF (quels statuts, quel scope, quelle
-empreinte) est décidée dans **un helper pur**, `evaluateIdempotency()` (`idempotency.ts:131`), qui ne
-connaît **aucun transport**. Il rend un verdict neutre (`IdempotencyVerdict`, `idempotency.ts:50`)
+empreinte) est décidée dans **un helper pur**, `evaluateIdempotency()` (`idempotency.ts#evaluateIdempotency`), qui ne
+connaît **aucun transport**. Il rend un verdict neutre (`IdempotencyVerdict`, `idempotency.ts#IdempotencyVerdict`)
 que **deux** appelants traduisent dans leur monde :
 
 - le **data plane admin** — `AdminApiController.idempotencyGate()`
-  (`AdminApiController.ts:155`) → réponse `{status, headers, body}` ;
+  (`AdminApiController.ts#AdminApiController.idempotencyGate`) → réponse `{status, headers, body}` ;
 - les **controllers userland** décorés `@Idempotent` — seam `Resolver._callWithIdempotency()`
-  (`Resolver.ts:717`) → `nodefonyError` typée, ou réponse rejouée.
+  (`Resolver.ts#Resolver._callWithIdempotency`) → `nodefonyError` typée, ou réponse rejouée.
 
 Conséquence pratique : il est **impossible** que l'idempotence HTTP et l'idempotence WebSocket
 divergent — elles partagent la même fonction. C'est le différenciateur du framework (HTTP + WS
 co-citoyens dans le même contexte controller) appliqué à une brique de sécurité.
 
 Second choix structurant : **le stockage est pluggable**. Le contrat `IIdempotencyStore` vit au
-**CORE** (`src/nodefony/src/types/IIdempotencyStore.ts:106`), pas dans `@nodefony/framework` — pour
+**CORE** (`src/nodefony/src/types/IIdempotencyStore.ts#IIdempotencyStore`), pas dans `@nodefony/framework` — pour
 que `@nodefony/redis` et `@nodefony/drizzle`, qui sont **sous** framework dans le graphe de
 dépendances, puissent l'implémenter sans créer de cycle.
 
@@ -176,7 +176,7 @@ le fait pour toi.)
 ### 2. Le store — rien à écrire en dev, un mot en cluster
 
 Le store par défaut est **posé automatiquement** par le module framework (`@services([… ,
-MemoryIdempotencyStore])`, `src/packages/@nodefony/framework/index.ts:40`). En mono-pod, tu n'as
+MemoryIdempotencyStore])`, `src/packages/@nodefony/framework/index.ts`). En mono-pod, tu n'as
 rien à configurer. Pour un cluster multi-pod, nomme un store **distribué** :
 
 ```typescript
@@ -223,7 +223,7 @@ curl -si -X POST http://localhost:5151/api/payments/charge \
 > [!WARNING]
 > **Le piège n°1** : en verdict `fresh`, la réservation est _in-flight_ tant que `complete` **ou**
 > `abort` n'a pas été appelé. Le seam `@Idempotent` gère ce couple pour toi (`try/catch`,
-> `Resolver.ts:794` et `Resolver.ts:818`). Si tu appelles le store **à la main** (cas avancé), c'est
+> `Resolver.ts#Resolver._callWithIdempotency` et `Resolver.ts#Resolver._callWithIdempotency`). Si tu appelles le store **à la main** (cas avancé), c'est
 > **ta** responsabilité : sans `abort` sur erreur, la clé reste bloquée jusqu'à l'expiration du bail
 > (60 s), et tout rejeu identique reçoit `409` pendant ce temps.
 
@@ -238,7 +238,7 @@ une route que d'anciens clients appellent déjà sans clé, le temps de la migra
 async subscribe(@Body() body: SubscribeInput) { /* … */ }
 ```
 
-Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1710`), comme
+Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts#computeIdempotent`), comme
 `@UseSession`. Poser `@Idempotent()` sur la **classe** couvre toutes les mutations du controller ;
 une méthode peut resserrer ou relâcher le mode. Les méthodes sûres (GET…) restent des no-op même
 sous une classe décorée.
@@ -247,7 +247,7 @@ sous une classe décorée.
 
 Une socket **reconnecte et rejoue par nature** : muter sans clé y serait un piège à double-effet
 garanti. D'où la règle, dans le helper partagé : `requiredEffective = required || isWs`
-(`idempotency.ts:160`). Une mutation par socket **exige toujours** une clé, même quand le mode HTTP
+(`idempotency.ts#evaluateIdempotency`). Une mutation par socket **exige toujours** une clé, même quand le mode HTTP
 est souple.
 
 | Situation                                    | `@Idempotent()` (strict) | `@Idempotent({ required:false })` |
@@ -260,13 +260,13 @@ est souple.
 Deux mécanismes rendent ça possible côté socket :
 
 - **La clé voyage par l'ALS** — le pont WS la pose dans `RequestContext`, et
-  `resolveIdempotencyKey()` (`idempotency.ts:68`) donne la **priorité à l'ALS** sur l'en-tête HTTP.
+  `resolveIdempotencyKey()` (`idempotency.ts#resolveIdempotencyKey`) donne la **priorité à l'ALS** sur l'en-tête HTTP.
 - **La méthode logique voyage par `methodOverride`** — sur une socket, `context.method` vaut
   `WEBSOCKET`, qui n'est **pas** une mutation. Sans override, la porte serait sautée et un rejeu de
   frame `socket.mutate` créerait un doublon. Le Resolver teste donc
-  `isMutationMethod(this.methodOverride ?? context.method)` (`Resolver.ts:130`).
+  `isMutationMethod(this.methodOverride ?? context.method)` (`Resolver.ts#Resolver.action`).
 
-Le pont utilise `executeActionGuarded()` (`Resolver.ts:695`) : porte d'idempotence **sans** rendu HTTP
+Le pont utilise `executeActionGuarded()` (`Resolver.ts#Resolver.executeActionGuarded`) : porte d'idempotence **sans** rendu HTTP
 — la valeur nue est enveloppée par le peer WS, jamais écrite sur un transport HTTP.
 
 ## 🏗️ Architecture interne
@@ -299,22 +299,22 @@ sequenceDiagram
 
 ### Le parcours d'une mutation, étape par étape
 
-1. **Court-circuit hot path.** `callController()` (`Resolver.ts:648`) lit `meta.idempotent` sur les
+1. **Court-circuit hot path.** `callController()` (`Resolver.ts#Resolver.callController`) lit `meta.idempotent` sur les
    métadonnées d'action **figées par route**. `null` sur la quasi-totalité des routes → une
    comparaison, flux normal, **zéro** lookup de store et zéro allocation.
 2. **No-op sur méthode sûre.** Une action `GET` sous une classe `@Idempotent` repart directement en
-   exécution (`Resolver.ts:723`).
-3. **Empreinte du payload.** `computeFingerprint()` (`idempotency.ts:112`) hache
-   `[nom de route, params de route, corps]` (`Resolver.ts:531`). Le corps vient de l'ALS (pont WS) ou
+   exécution (`Resolver.ts#Resolver._callWithIdempotency`).
+3. **Empreinte du payload.** `computeFingerprint()` (`idempotency.ts#computeFingerprint`) hache
+   `[nom de route, params de route, corps]` (`Resolver.ts#Resolver._enforceActionSecurity`). Le corps vient de l'ALS (pont WS) ou
    du body HTTP parsé.
-4. **Identité.** `resolveIdentity()` (`idempotency.ts:102`) rend l'`identifier` de l'utilisateur
+4. **Identité.** `resolveIdentity()` (`idempotency.ts#resolveIdentity`) rend l'`identifier` de l'utilisateur
    AUTHENTIFIÉ de la requête (`RequestContext.getAuthenticatedUser()`, la règle unique du cœur).
    L'anonyme d'une zone `anonymous` n'a pas d'identité : tous les visiteurs anonymes partagent le
    même `identifier`, ils partageraient donc le même cache. **`null` = pas de cache** : le verdict
    devient `execute` — jamais de partage cross-identité.
 5. **Réservation.** `store.begin()` compose la clé scopée et tranche.
 6. **Mémorisation.** En succès, `complete(clé, {status, body})` où `status` est le code de réponse
-   courant et `body` la **valeur retournée** par l'action (`Resolver.ts:752`). En erreur,
+   courant et `body` la **valeur retournée** par l'action (`Resolver.ts#Resolver._callWithIdempotency`). En erreur,
    `abort(clé)` libère la clé : **un échec ne se mémorise pas**, il doit rester réessayable.
 
 > [!CAUTION]
@@ -323,48 +323,48 @@ sequenceDiagram
 > double-effet reste évité, mais le corps rejoué est vide. Pire, si le corps retourné n'est pas
 > sérialisable (retour d'un objet Response circulaire), un store SQL/Redis lève au `stringify`. Le
 > Resolver attrape ce cas : il **journalise un WARNING explicite** puis mémorise le statut avec un
-> corps `null` (`Resolver.ts:584`) — la dédup est préservée plutôt que perdue en silence.
+> corps `null` (`Resolver.ts#Resolver._acquireAndInvoke`) — la dédup est préservée plutôt que perdue en silence.
 
 ### Où la porte est câblée
 
-| Appelant                     | Point d'entrée                                                       | Traduction du verdict              |
-| ---------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
-| Controller userland HTTP     | `callController()` (`Resolver.ts:648`)                               | `nodefonyError` + rendu normal     |
-| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:695`)                         | valeur nue, enveloppée par le peer |
-| Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts:155`) | `{status, headers, body}`          |
+| Appelant                     | Point d'entrée                                                                                      | Traduction du verdict              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Controller userland HTTP     | `callController()` (`Resolver.ts#Resolver.callController`)                                          | `nodefonyError` + rendu normal     |
+| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts#Resolver.executeActionGuarded`)                              | valeur nue, enveloppée par le peer |
+| Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts#AdminApiController.idempotencyGate`) | `{status, headers, body}`          |
 
 ## ⚙️ Configuration
 
 Source unique = schéma Zod `idempotencySchema`
-(`src/packages/@nodefony/framework/nodefony/config/config.ts:42`).
+(`src/packages/@nodefony/framework/nodefony/config/config.ts#idempotencySchema`).
 
-| Option        | Type      | Défaut   | Effet                                                                                                                          |
-| ------------- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `store`       | `string`  | `"auto"` | Backing du cache. `auto` suit l'infra déclarée ; `memory` / `redis` / `drizzle` / `mongoose` sont explicites (`config.ts:43`). |
-| `gcIntervalS` | `int ≥ 0` | `600`    | Intervalle de purge des clés expirées, **hors** hot-path. Sans effet pour `redis` (TTL natif) et `memory` (`config.ts:57`).    |
-| `gcJitter`    | `bool`    | `true`   | Étale le départ du GC par process — anti _thundering-herd_ sur un store SQL partagé (`config.ts:68`).                          |
+| Option        | Type      | Défaut   | Effet                                                                                                                                         |
+| ------------- | --------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `store`       | `string`  | `"auto"` | Backing du cache. `auto` suit l'infra déclarée ; `memory` / `redis` / `drizzle` / `mongoose` sont explicites (`config.ts#idempotencySchema`). |
+| `gcIntervalS` | `int ≥ 0` | `600`    | Intervalle de purge des clés expirées, **hors** hot-path. Sans effet pour `redis` (TTL natif) et `memory` (`config.ts#idempotencySchema`).    |
+| `gcJitter`    | `bool`    | `true`   | Étale le départ du GC par process — anti _thundering-herd_ sur un store SQL partagé (`config.ts#idempotencySchema`).                          |
 
 ### Comment `store: "auto"` se résout VRAIMENT
 
-`Framework.onKernelBoot()` (`src/packages/@nodefony/framework/index.ts:230`) délègue à
-`resolveAutoStore("ephemeral", …)` (`src/nodefony/src/config/infra.ts:330`), borné aux backends
-**réellement enregistrés** (`listIdempotencyBackends()`, `idempotencyStoreRegistry.ts:81`). L'ordre
+`Framework.onKernelBoot()` (`src/packages/@nodefony/framework/index.ts#Framework.onKernelBoot`) délègue à
+`resolveAutoStore("ephemeral", …)` (`src/nodefony/src/config/infra.ts#resolveAutoStore`), borné aux backends
+**réellement enregistrés** (`listIdempotencyBackends()`, `idempotencyStoreRegistry.ts#listIdempotencyBackends`). L'ordre
 réel est le suivant :
 
-| Ordre | Condition                                                                | Résolution                             | Ancre          |
-| ----- | ------------------------------------------------------------------------ | -------------------------------------- | -------------- |
-| 1     | `NF_STORE=<x>` et `<x>` enregistré pour cette brique                     | `<x>` (override global)                | `infra.ts:381` |
-| 2     | Infra **cache** déclarée (`NF_REDIS_URL`) et `redis` enregistré          | `redis`                                | `infra.ts:291` |
-| 3     | Infra **database** déclarée (`NF_DATABASE_URL`) et le backend enregistré | `drizzle` (SQL) / `mongoose` (Mongo)   | `infra.ts:261` |
-| 4     | Une préférence existait mais son backend n'est pas enregistré            | `fallback` = `memory`, raison ANNONCÉE | `infra.ts:334` |
-| 5     | **Aucune infra déclarée** mais un backend local persistant est chargé    | `drizzle`, puis `mongoose`             | `infra.ts:288` |
-| 6     | Rien de tout ça                                                          | `memory` (volatil)                     | `infra.ts:295` |
+| Ordre | Condition                                                                | Résolution                             | Ancre                         |
+| ----- | ------------------------------------------------------------------------ | -------------------------------------- | ----------------------------- |
+| 1     | `NF_STORE=<x>` et `<x>` enregistré pour cette brique                     | `<x>` (override global)                | `infra.ts#resolveAutoStore`   |
+| 2     | Infra **cache** déclarée (`NF_REDIS_URL`) et `redis` enregistré          | `redis`                                | `infra.ts#CONNECTED_STORES`   |
+| 3     | Infra **database** déclarée (`NF_DATABASE_URL`) et le backend enregistré | `drizzle` (SQL) / `mongoose` (Mongo)   | `infra.ts#durableStoreRemedy` |
+| 4     | Une préférence existait mais son backend n'est pas enregistré            | `fallback` = `memory`, raison ANNONCÉE | `infra.ts#resolveAutoStore`   |
+| 5     | **Aucune infra déclarée** mais un backend local persistant est chargé    | `drizzle`, puis `mongoose`             | `infra.ts#CONNECTED_STORES`   |
+| 6     | Rien de tout ça                                                          | `memory` (volatil)                     | `infra.ts#CONNECTED_STORES`   |
 
 > [!NOTE]
 > L'étape **5** surprend souvent : dans une app dev qui charge `@nodefony/drizzle` **sans** déclarer
 > `NF_DATABASE_URL`, `auto` ne résout **pas** vers `memory` mais vers `drizzle` (SQLite local) — pour
 > que les données survivent au redémarrage. La résolution effective est toujours **journalisée au
-> boot** (`index.ts:207`) : lis cette ligne plutôt que de la déduire.
+> boot** (`index.ts#Framework.onKernelRegister`) : lis cette ligne plutôt que de la déduire.
 
 MongoDB mérite une mention : `mongoose` porte lui aussi un store d'idempotence. Déclarer
 `NF_DATABASE_URL=mongodb://…` résout donc en étape **3** → `mongoose`, et la dédup cross-pod tient
@@ -376,20 +376,20 @@ le perdant reçoit un `E11000` : l'équivalent Mongo du `SET … NX PX` de Redis
 
 Quand un store **explicitement nommé** ne peut pas s'initialiser (nom inconnu, `redis` demandé sans
 le module `@nodefony/redis` chargé), la politique dépend de l'environnement
-(`index.ts:132`) :
+(`index.ts`) :
 
-- **production** → **boot avorté** (`index.ts:281`). En cluster multi-pod, dégrader vers un cache
+- **production** → **boot avorté** (`index.ts#Framework.onKernelBoot`). En cluster multi-pod, dégrader vers un cache
   per-pod produirait du double-effet non dédupliqué : c'est un défaut de sécurité, pas une commodité.
 - **dev / test** (mono-pod) → **WARNING fort + repli sur le cache mémoire** déjà en place. La dédup
   per-pod suffit hors cluster, et on ne casse pas le routeur pour une option d'infra absente en local.
 
 Un garde-fou supplémentaire : `store: "memory"` **en production** émet un WARNING dédié
-(`index.ts:212`) — la dédup n'y est que per-pod.
+(`index.ts#Framework.onKernelRegister`) — la dédup n'y est que per-pod.
 
 ## 🧩 Les stores d'idempotence
 
 Tous respectent le même contrat `IIdempotencyStore`
-(`src/nodefony/src/types/IIdempotencyStore.ts:106`) : `begin` / `complete` / `abort` obligatoires,
+(`src/nodefony/src/types/IIdempotencyStore.ts#IIdempotencyStore`) : `begin` / `complete` / `abort` obligatoires,
 `gc` **optionnel**, plus `listPage` et `size` pour l'introspection.
 
 ### Choisir en 5 secondes
@@ -403,20 +403,20 @@ Tous respectent le même contrat `IIdempotencyStore`
 
 ### `memory` — le défaut per-pod, gratuit
 
-`MemoryIdempotencyStore` (`IdempotencyStore.ts:44`) est enregistré d'office comme service DI
+`MemoryIdempotencyStore` (`IdempotencyStore.ts#MemoryIdempotencyStore`) est enregistré d'office comme service DI
 `idempotencyStore` par le manifeste `@services` du module framework — zéro configuration.
 
-- **Atomicité par le mono-thread JS** : `begin()` (`IdempotencyStore.ts:115`) lit et écrit la `Map`
+- **Atomicité par le mono-thread JS** : `begin()` (`IdempotencyStore.ts#MemoryIdempotencyStore.begin`) lit et écrit la `Map`
   sans point de suspension → deux `begin` concurrents ne peuvent pas se croiser.
-- **Constantes** : rétention `DEFAULT_TTL_MS` = 600 s (`IdempotencyStore.ts:21`), bail
-  `DEFAULT_LEASE_MS` = 60 s (`IdempotencyStore.ts:23`), plafond `DEFAULT_CAP` = 1000 entrées
-  (`IdempotencyStore.ts:25`). Elles ne sont **pas** configurables.
-- **Lazy** : la `Map` n'est allouée qu'au **1ᵉʳ** `begin` (`IdempotencyStore.ts:115`) ; aucun timer,
+- **Constantes** : rétention `DEFAULT_TTL_MS` = 600 s (`IdempotencyStore.ts#DEFAULT_TTL_MS`), bail
+  `DEFAULT_LEASE_MS` = 60 s (`IdempotencyStore.ts#DEFAULT_LEASE_MS`), plafond `DEFAULT_CAP` = 1000 entrées
+  (`IdempotencyStore.ts#DEFAULT_CAP`). Elles ne sont **pas** configurables.
+- **Lazy** : la `Map` n'est allouée qu'au **1ᵉʳ** `begin` (`IdempotencyStore.ts#MemoryIdempotencyStore.begin`) ; aucun timer,
   aucun listener.
 - **Purge passive** : les entrées expirées ne sont retirées qu'à l'écriture, dans `evictIfNeeded()`
-  (`IdempotencyStore.ts:172`), qui purge d'abord les mortes puis évince en **FIFO** jusqu'à repasser
+  (`IdempotencyStore.ts#MemoryIdempotencyStore.evictIfNeeded`), qui purge d'abord les mortes puis évince en **FIFO** jusqu'à repasser
   sous le cap. Coût nul tant qu'on n'écrit pas.
-- **Garde anti-résurrection** : `complete()` (`IdempotencyStore.ts:142`) n'écrit **que** si la clé est
+- **Garde anti-résurrection** : `complete()` (`IdempotencyStore.ts#MemoryIdempotencyStore.complete`) n'écrit **que** si la clé est
   encore _notre_ in-flight — jamais de résurrection d'une clé déjà `abort`-ée ou évincée.
 
 ⚠️ Limite structurelle : la dédup est **affine au pod**. Un rejeu routé vers un autre pod n'est pas
@@ -424,22 +424,22 @@ dédupliqué.
 
 ### `redis` — le choix cluster
 
-`RedisIdempotencyStore` (`RedisIdempotencyStore.ts:121`) vit dans `@nodefony/framework` (le
+`RedisIdempotencyStore` (`RedisIdempotencyStore.ts#RedisIdempotencyStore`) vit dans `@nodefony/framework` (le
 consommateur du contrat), pas dans `@nodefony/redis` : il résout le service `redis` **par nom** dans
 le container (couplage structurel, zéro dépendance directe, zéro cycle). La fabrique est enregistrée
-au chargement du module framework (`index.ts:119`).
+au chargement du module framework (`index.ts`).
 
-- **`SET key … NX PX`** = réservation atomique **côté serveur** (`RedisIdempotencyStore.ts:237`) : le
+- **`SET key … NX PX`** = réservation atomique **côté serveur** (`RedisIdempotencyStore.ts#RedisIdempotencyStore.#prefix`) : le
   `409` in-flight fonctionne vraiment entre pods. Deux requêtes concurrentes sur deux pods, un seul
   `SET NX` gagne.
 - **TTL natif** sur le bail _et_ sur la réponse mémorisée → `gc()` **superflu**, donc **non
   implémenté** : rien à planifier.
-- **Empreinte préservée à la complétion** : `complete()` (`RedisIdempotencyStore.ts:300`) **relit**
+- **Empreinte préservée à la complétion** : `complete()` (`RedisIdempotencyStore.ts#RedisIdempotencyStore.complete`) **relit**
   l'entrée in-flight pour reporter son empreinte dans l'entrée `done`. Sans cela, un rejeu de la clé
   avec un autre payload **après** complétion ne serait plus détecté (le 422 serait perdu).
 - **Course rare gérée** : si la clé expire entre le `SET NX` échoué et le `GET`, la réservation est
-  retentée **une** fois ; encore prise → `in-flight` (`RedisIdempotencyStore.ts:258`).
-- **Namespace** : `nf:idem:<clé>` (`RedisIdempotencyStore.ts:11`).
+  retentée **une** fois ; encore prise → `in-flight` (`RedisIdempotencyStore.ts#RedisIdempotencyStore.begin`).
+- **Namespace** : `nf:idem:<clé>` (`RedisIdempotencyStore.ts#KEY_BASE`).
 - **Dégradation gracieuse** : connexion `main` fermée (boot / shutdown) → `begin` renvoie `fresh`,
   `complete`/`abort` sont des no-op. La mutation s'exécute **sans dédup** plutôt que d'être bloquée.
 
@@ -450,47 +450,47 @@ au chargement du module framework (`index.ts:119`).
 
 ### `drizzle` — le cluster sans Redis
 
-`DrizzleIdempotencyStore` (`DrizzleIdempotencyStore.ts:102`). Motivation : un cluster qui possède
+`DrizzleIdempotencyStore` (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore`). Motivation : un cluster qui possède
 déjà Postgres mais pas Redis obtient la dédup cross-pod **sans nouvelle infra**.
 
 - **Réservation atomique en UNE instruction** — un `INSERT` avec
-  `onConflictDoUpdate` (`DrizzleIdempotencyStore.ts:234`) dont la garde `setWhere` ne réécrit que si
-  l'entrée est morte (`DrizzleIdempotencyStore.ts:269`). Le `returning` ne rend une ligne que si
+  `onConflictDoUpdate` (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.begin`) dont la garde `setWhere` ne réécrit que si
+  l'entrée est morte (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.begin`). Le `returning` ne rend une ligne que si
   l'INSERT a passé (clé neuve) ou si le `DO UPDATE` a **volé** une entrée expirée → `fresh`. Zéro
   ligne = contention → on lit l'état réel.
 - **Invariant capital** : le store ne renvoie **jamais** `fresh` hors réservation atomique gagnée.
   Même la course rare « la clé a expiré entre l'upsert et le SELECT » renvoie prudemment `in-flight`
-  (`DrizzleIdempotencyStore.ts:264`), jamais `fresh`.
+  (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.begin`), jamais `fresh`.
 - **MySQL/MariaDB** : ni `RETURNING`, ni `WHERE` sur l'`ON DUPLICATE KEY UPDATE`, et un `affectedRows`
   ambigu → la réservation passe par `reserveIdempotencyKeyMysql()`
-  (`DrizzleIdempotencyStore.ts:233`), qui la reconstruit en deux instructions chacune atomique.
-- **Pas de TTL natif** → `gc()` (`DrizzleIdempotencyStore.ts:318`) = `DELETE WHERE expiresAt <= now`.
+  (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.begin`), qui la reconstruit en deux instructions chacune atomique.
+- **Pas de TTL natif** → `gc()` (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.abort`) = `DELETE WHERE expiresAt <= now`.
   C'est le **seul** store qui expose `gc`, donc le seul que le framework planifie (voir plus bas).
-- **Mutations conditionnelles** : `complete()` (`DrizzleIdempotencyStore.ts:301`) et `abort()`
-  (`DrizzleIdempotencyStore.ts:319`) portent `WHERE state = 'if'` — jamais d'écrasement d'une réponse
+- **Mutations conditionnelles** : `complete()` (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.complete`) et `abort()`
+  (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.abort`) portent `WHERE state = 'if'` — jamais d'écrasement d'une réponse
   déjà mémorisée, jamais de résurrection d'une clé libérée. `complete` ne touche pas `fingerprint`.
 - **Résolution lazy + dégradation gracieuse** : le handle Drizzle est résolu à **chaque** appel
-  (`DrizzleIdempotencyStore.from()`, `DrizzleIdempotencyStore.ts:191`). ORM non connecté → `begin`
+  (`DrizzleIdempotencyStore.from()`, `DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.from`). ORM non connecté → `begin`
   renvoie `fresh` (sans dédup), le reste est no-op.
 
 Le câblage est **automatique** : charger `@nodefony/drizzle` enregistre l'entité **et** la fabrique
-(`registerStores.ts:316`). Activation = `store: "drizzle"` (ou `NF_STORE=drizzle`, qui force toutes les briques `auto`), rien
+(`registerStores.ts#registerDrizzleFrameworkStores`). Activation = `store: "drizzle"` (ou `NF_STORE=drizzle`, qui force toutes les briques `auto`), rien
 d'autre à écrire.
 
 ### Le GC — armé pour un seul store
 
-`scheduleIdempotencyGc()` (`idempotencyGc.ts:32`) arme un `GcScheduler` **uniquement si le store
-expose `gc()`** (`idempotencyGc.ts:37`). Un store à TTL natif (`redis`) ou à purge passive (`memory`)
+`scheduleIdempotencyGc()` (`idempotencyGc.ts#scheduleIdempotencyGc`) arme un `GcScheduler` **uniquement si le store
+expose `gc()`** (`idempotencyGc.ts#scheduleIdempotencyGc`). Un store à TTL natif (`redis`) ou à purge passive (`memory`)
 ne l'expose pas ; le brancher sur un timer serait un no-op coûteux. Le scheduler est armé au boot
-(`nodefony/framework/index.ts:311`) et arrêté à `onTerminate`.
+(`nodefony/framework/index.ts#Framework.onKernelBoot`) et arrêté à `onTerminate`.
 
 `gcIntervalS: 0` désarme le timer — à réserver au cas où la purge est déléguée (cron, `CronJob` k8s).
 
 ## 🗄️ Entité de persistance (store SQL)
 
 Table `idempotency_key`, décrite par une **spec colKit** unique
-(`idempotencyEntity.ts:66`) déclinée par dialecte via `createIdempotencyTable(dialect)`
-(`idempotencyEntity.ts:85`).
+(`idempotencyEntity.ts#IDEMPOTENCY_ENTITY_NAME`) déclinée par dialecte via `createIdempotencyTable(dialect)`
+(`idempotencyEntity.ts#createIdempotencyTable`).
 
 | Colonne       | Type logique | SQLite             | PostgreSQL | MySQL / MariaDB | Rôle                                                                                  |
 | ------------- | ------------ | ------------------ | ---------- | --------------- | ------------------------------------------------------------------------------------- |
@@ -504,15 +504,15 @@ Deux détails qui expliquent des surprises réelles :
 
 - **`varchar(512)` en MySQL** n'est pas un caprice : un `TEXT` InnoDB n'est pas indexable sans
   préfixe, et 512 caractères couvrent `JSON.stringify([identité, clé ≤ 255])`.
-- **Aucun `DEFAULT` SQL** : le DDL dérivé n'en émet pas (`idempotencyEntity.ts:38`). Toutes les
+- **Aucun `DEFAULT` SQL** : le DDL dérivé n'en émet pas (`idempotencyEntity.ts#idempotencyKeySchema`). Toutes les
   colonnes sont posées explicitement par le store — jamais d'INSERT cassé par un défaut manquant.
 
-`registerIdempotencyEntities(connector, dialect)` (`idempotencyEntity.ts:146`) doit être appelé
+`registerIdempotencyEntities(connector, dialect)` (`idempotencyEntity.ts#registerIdempotencyEntities`) doit être appelé
 **avant** `orm.connect()` (la table est créée au connect) — le module drizzle s'en charge tout seul.
 
 > [!NOTE]
 > **SQLite = banc de test de la sémantique.** Un fichier SQLite est mono-machine (verrou d'écriture)
-> → aucun intérêt multi-pod (`idempotencyEntity.ts:26`). La cible réelle est PostgreSQL ou
+> → aucun intérêt multi-pod (`idempotencyEntity.ts#idempotencyKeySchema`). La cible réelle est PostgreSQL ou
 > MySQL/MariaDB, où l'atomicité de l'instruction tient sous concurrence inter-pods.
 
 ## 🗃️ Dialectes et bases pris en charge
@@ -540,24 +540,24 @@ Signatures complètes : `.ai/symbols.json`. Ce qui compte à l'usage :
 
 ### Le décorateur
 
-`@Idempotent(options?)` (`routerDecorators.ts:1171`) — dual **classe + méthode**. N'écrit que des
-métadonnées (`IdempotentMeta`, `routerDecorators.ts:477`), zéro import de `@nodefony/security`, zéro
+`@Idempotent(options?)` (`routerDecorators.ts#Idempotent`) — dual **classe + méthode**. N'écrit que des
+métadonnées (`IdempotentMeta`, `routerDecorators.ts#IdempotentMeta`), zéro import de `@nodefony/security`, zéro
 cycle. La porte est appliquée par le Resolver.
 
 ### Le contrat de store
 
-| Membre                    | Obligatoire | Rôle                                                                                                            |
-| ------------------------- | :---------: | --------------------------------------------------------------------------------------------------------------- |
-| `begin(key, fingerprint)` |     ✅      | Réserve atomiquement, rend le verdict (`src/nodefony/src/types/IIdempotencyStore.ts:118`).                      |
-| `complete(key, response)` |     ✅      | Mémorise la réponse d'une clé in-flight → rejeux futurs = `replayed`.                                           |
-| `abort(key)`              |     ✅      | Libère une clé in-flight dont l'exécution a échoué. Rien n'est mémorisé.                                        |
-| `gc(now?)`                |     ❌      | Purge des expirées — **uniquement** sans expiration native (`src/nodefony/src/types/IIdempotencyStore.ts:139`). |
-| `listPage(query)`         |     ✅      | Page de clés vivantes, pour l'introspection admin (`src/nodefony/src/types/IIdempotencyStore.ts:153`).          |
-| `size`                    |     ✅      | Nombre d'entrées vivantes, **sync best-effort** (`src/nodefony/src/types/IIdempotencyStore.ts:159`).            |
+| Membre                    | Obligatoire | Rôle                                                                                                                             |
+| ------------------------- | :---------: | -------------------------------------------------------------------------------------------------------------------------------- |
+| `begin(key, fingerprint)` |     ✅      | Réserve atomiquement, rend le verdict (`src/nodefony/src/types/IIdempotencyStore.ts#IIdempotencyStore.begin`).                   |
+| `complete(key, response)` |     ✅      | Mémorise la réponse d'une clé in-flight → rejeux futurs = `replayed`.                                                            |
+| `abort(key)`              |     ✅      | Libère une clé in-flight dont l'exécution a échoué. Rien n'est mémorisé.                                                         |
+| `gc(now?)`                |     ❌      | Purge des expirées — **uniquement** sans expiration native (`src/nodefony/src/types/IIdempotencyStore.ts#IIdempotencyStore.gc`). |
+| `listPage(query)`         |     ✅      | Page de clés vivantes, pour l'introspection admin (`src/nodefony/src/types/IIdempotencyStore.ts#IIdempotencyStore.listPage`).    |
+| `size`                    |     ✅      | Nombre d'entrées vivantes, **sync best-effort** (`src/nodefony/src/types/IIdempotencyStore.ts#IIdempotencyStore.size`).          |
 
-Les helpers du seam sont exportés et réutilisables : `isMutationMethod()` (`idempotency.ts:28`),
-`resolveIdempotencyKey()` (`idempotency.ts:68`), `resolveIdentity()` (`idempotency.ts:102`),
-`computeFingerprint()` (`idempotency.ts:112`), `evaluateIdempotency()` (`idempotency.ts:131`).
+Les helpers du seam sont exportés et réutilisables : `isMutationMethod()` (`idempotency.ts#isMutationMethod`),
+`resolveIdempotencyKey()` (`idempotency.ts#resolveIdempotencyKey`), `resolveIdentity()` (`idempotency.ts#resolveIdentity`),
+`computeFingerprint()` (`idempotency.ts#computeFingerprint`), `evaluateIdempotency()` (`idempotency.ts#evaluateIdempotency`).
 
 ### `listPage` — capacités RÉELLES par store
 
@@ -577,18 +577,18 @@ que le code fait, store par store — à lire avant d'écrire un client :
 | `state` | ✅ | ✅ | ✅ (filtre après lecture) |
 | Page pleine à `limit` | ✅ | ✅ | ❌ peut être plus courte |
 | Exclusion des expirées | ✅ à la lecture | ✅ `expiresAt > now` | ✅ par TTL natif |
-| Ancre | `IdempotencyStore.ts:72` | `DrizzleIdempotencyStore.ts:340` | `RedisIdempotencyStore.ts:166` |
+| Ancre | `IdempotencyStore.ts#MemoryIdempotencyStore.listPage` | `DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.gc` | `RedisIdempotencyStore.ts#RedisIdempotencyStore.listPage` |
 
 Le mode **curseur** de Redis mérite une explication, parce qu'il piège : `SCAN COUNT` **n'est pas un
 plafond** mais un indice d'effort — Redis peut rendre plus de clés que demandé. Sans précaution, la
-page dépasserait `limit` et violerait le contrat `IPage` (`src/nodefony/src/types/IPage.ts:108`). D'où
+page dépasserait `limit` et violerait le contrat `IPage` (`src/nodefony/src/types/IPage.ts#IPage`). D'où
 le **curseur composite** `"<consommé>:<curseurRedis>"` (`encodeCursor()`,
-`RedisIdempotencyStore.ts:63`) : on ne rend que `limit` éléments et on mémorise combien de clés du
+`RedisIdempotencyStore.ts#encodeCursor`) : on ne rend que `limit` éléments et on mémorise combien de clés du
 lot ont été consommées ; la page suivante rejoue le **même** `SCAN` et reprend là.
 
 > [!IMPORTANT]
 > **Une clé rendue par `listPage` ne contient JAMAIS la réponse mémorisée ni l'empreinte.**
-> `IIdempotencyKeyEntry` (`src/nodefony/src/types/IIdempotencyStore.ts:51`) n'expose que `key`,
+> `IIdempotencyKeyEntry` (`src/nodefony/src/types/IIdempotencyStore.ts#IIdempotencyKeyEntry`) n'expose que `key`,
 > `state`, `expiresAtMs` et `hasResponse` (un booléen). Le corps mémorisé est la donnée métier d'un
 > utilisateur : le laisser sortir par ce chemin recréerait exactement l'IDOR sur le cache que le
 > scope de clé interdit.
@@ -628,35 +628,35 @@ Trois règles héritées du code existant, à respecter sous peine de double-eff
 3. **`complete` doit préserver l'empreinte** de l'entrée in-flight, sinon un rejeu avec un autre
    payload après complétion ne produit plus de 422.
 
-Fonctions du registre : `registerIdempotencyStore()` (`idempotencyStoreRegistry.ts:48`),
-`getIdempotencyStoreFactory()` (`idempotencyStoreRegistry.ts:56`), `listIdempotencyStores()`
-(distribués seuls, `idempotencyStoreRegistry.ts:67`), `listIdempotencyBackends()` (avec `memory`,
-pour l'affichage Studio, `idempotencyStoreRegistry.ts:81`).
+Fonctions du registre : `registerIdempotencyStore()` (`idempotencyStoreRegistry.ts#registerIdempotencyStore`),
+`getIdempotencyStoreFactory()` (`idempotencyStoreRegistry.ts#getIdempotencyStoreFactory`), `listIdempotencyStores()`
+(distribués seuls, `idempotencyStoreRegistry.ts#listIdempotencyStores`), `listIdempotencyBackends()` (avec `memory`,
+pour l'affichage Studio, `idempotencyStoreRegistry.ts#listIdempotencyBackends`).
 
 ## 📜 Normes appliquées
 
 <!-- prettier-ignore -->
 | Sujet | Norme | Ancrage |
 | --- | --- | --- |
-| En-tête `Idempotency-Key`, statuts, rejeu | `draft-ietf-httpapi-idempotency-key-header-06` | `evaluateIdempotency()` (`idempotency.ts:131`) |
-| Clé réutilisée avec un autre payload → 422 | draft §2.2 / §2.7 | `idempotency.ts:189` |
-| Exécution concurrente identique → 409 | draft §2.6 | `idempotency.ts:186` |
-| Clé requise absente → 400 | draft §2.7 | `idempotency.ts:165` |
-| Méthodes non sûres = mutations | RFC 9110 §9.2.1 | `MUTATION_METHODS` (`idempotency.ts:25`) |
-| Sémantique du 422 | RFC 9110 §15.5.21 | `IdempotencyVerdict` (`idempotency.ts:50`) |
-| Borne de clé (convention Stripe) | 255 octets | `IDEMPOTENCY_KEY_MAX` (`idempotency.ts:36`) |
+| En-tête `Idempotency-Key`, statuts, rejeu | `draft-ietf-httpapi-idempotency-key-header-06` | `evaluateIdempotency()` (`idempotency.ts#evaluateIdempotency`) |
+| Clé réutilisée avec un autre payload → 422 | draft §2.2 / §2.7 | `idempotency.ts#evaluateIdempotency` |
+| Exécution concurrente identique → 409 | draft §2.6 | `idempotency.ts#evaluateIdempotency` |
+| Clé requise absente → 400 | draft §2.7 | `idempotency.ts#evaluateIdempotency` |
+| Méthodes non sûres = mutations | RFC 9110 §9.2.1 | `MUTATION_METHODS` (`idempotency.ts#MUTATION_METHODS`) |
+| Sémantique du 422 | RFC 9110 §15.5.21 | `IdempotencyVerdict` (`idempotency.ts#IdempotencyVerdict`) |
+| Borne de clé (convention Stripe) | 255 octets | `IDEMPOTENCY_KEY_MAX` (`idempotency.ts#IDEMPOTENCY_KEY_MAX`) |
 
 ## ⚡ Performance et mémoire
 
 Le coût est **nul hors mutations décorées**. Sans `@Idempotent`, `RouteActionMeta.idempotent` vaut
-`null` (`routerDecorators.ts:1194`) : `callController()` fait **une comparaison** et repart en flux
-normal — zéro lookup de container, zéro `await` supplémentaire, zéro allocation (`Resolver.ts:648`).
+`null` (`routerDecorators.ts#Idempotent`) : `callController()` fait **une comparaison** et repart en flux
+normal — zéro lookup de container, zéro `await` supplémentaire, zéro allocation (`Resolver.ts#Resolver.callController`).
 La métadonnée est **figée par route** et mémoïsée : aucune lecture `Reflect` par requête.
 
 Sur le chemin décoré :
 
 - Le store mémoire n'alloue sa `Map` qu'au 1ᵉʳ `begin`, ne pose **aucun timer ni listener**, et purge
-  en passif (`IdempotencyStore.ts:115`).
+  en passif (`IdempotencyStore.ts#MemoryIdempotencyStore.begin`).
 - L'empreinte est un hash SHA-256 court → comparaison O(1), et le payload n'est jamais conservé en
   clair.
 - Le GC est **hors hot-path** et armé pour un seul store (SQL) ; le jitter évite que N pods purgent
@@ -673,15 +673,15 @@ froid par construction ; si ton profil de trafic la place sur un chemin chaud, m
 Trois surfaces existent aujourd'hui :
 
 - **Playground** (`/nodefony/playground`) — chaque mutation protégée porte un badge `@Idempotent` (strict ou souple)
-  (`playground/PlaygroundFormat.tsx:69`). L'écran génère une clé par exécution et propose « Rejouer
-  même clé » dès que `action.guards.idempotent` est posé (`playground/ActionPanel.tsx:516`) : c'est la
+  (`playground/PlaygroundFormat.tsx#GuardBadges`). L'écran génère une clé par exécution et propose « Rejouer
+  même clé » dès que `action.guards.idempotent` est posé (`playground/ActionPanel.tsx#ActionPanel`) : c'est la
   façon la plus rapide de voir un rejeu, un `409` ou un `422` en vrai.
 - **Stores** — la brique `idempotency` y apparaît avec sa nature **éphémère**, le backend configuré,
   le backend résolu, la liste des backends disponibles et la raison de la résolution — brique
-  `idempotency` (`stores/storesModel.ts:145`). C'est là qu'on vérifie qu'`auto` a choisi ce qu'on
+  `idempotency` (`stores/storesModel.ts#BRICK_PURPOSE`). C'est là qu'on vérifie qu'`auto` a choisi ce qu'on
   croyait.
 - **ERD** — la table `idempotency_key` est regroupée sous `@nodefony/framework`
-  (`idempotencyEntity.ts:133`), pas sous l'ORM qui l'héberge.
+  (`idempotencyEntity.ts#createIdempotencyEntities`), pas sous l'ORM qui l'héberge.
 
 > [!NOTE]
 > Il n'existe **pas encore** d'écran ni d'endpoint admin listant les clés d'idempotence vivantes :
@@ -691,19 +691,19 @@ Trois surfaces existent aujourd'hui :
 
 ## ⚠️ Pièges
 
-| Symptôme                                               | Cause (dans le code)                                                                 | Correction                                                                   |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Rejeu qui renvoie un corps **vide**                    | L'action a retourné `this.renderJson(...)` au lieu du payload (`Resolver.ts:808`)    | Retourner la **valeur brute** ; un WARNING le signale déjà dans les logs     |
-| `409` en boucle sur un endpoint                        | Action qui lève avant `complete`/`abort` → in-flight bloqué jusqu'au bail (60 s)     | Le seam le gère ; en usage manuel du store, `try/finally` obligatoire        |
-| `422 Idempotency-Key is already used`                  | Même clé, **payload différent** (empreinte ≠, `idempotency.ts:189`)                  | Une clé = une intention ; nouvelle clé par requête distincte                 |
-| Rien n'est dédupliqué **malgré** la clé                | Pas d'identité fiable → verdict `execute` (`idempotency.ts:176`)                     | S'assurer que le firewall a résolu l'utilisateur **avant** la mutation       |
-| Rien n'est dédupliqué, clé « un peu longue »           | Clé > 255 octets → traitée comme **absente** (`idempotency.ts:36`)                   | Utiliser un UUID ; en mode strict la requête part en 400, pas en silence     |
-| Dédup qui saute en cluster                             | `store: memory` (per-pod)                                                            | `redis` (`SET NX`) ou `drizzle` (Postgres/MySQL)                             |
-| `400 Idempotency-Key required` inattendu               | Mode strict par défaut, **ou** requête WebSocket (toujours stricte)                  | Envoyer la clé, ou `@Idempotent({ required:false })` — sans effet en WS      |
-| `auto` résout `drizzle` alors qu'on attendait `memory` | Repli local persistant quand aucune infra n'est déclarée (`infra.ts:288`)            | Comportement voulu ; forcer avec `store: "memory"` ou `NF_STORE=memory`      |
-| Boot qui échoue en prod sur l'idempotence              | Store distribué nommé mais non câblé → fatal (`index.ts:132`)                        | Charger le module manquant (`@nodefony/redis`) ou corriger le nom            |
-| Aucune purge sur un store SQL                          | `intervalS` à 0 → scheduler désarmé, dit dans le log de boot (`idempotencyGc.ts:49`) | Remettre un intervalle, ou assumer une purge externe (cron)                  |
-| `listPage` : `total` toujours absent                   | Backend Redis = mode **curseur**, `total` jamais rendu                               | Boucler sur `nextCursor` ; ne pas coder de pagination par offset côté client |
+| Symptôme                                               | Cause (dans le code)                                                                                              | Correction                                                                   |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Rejeu qui renvoie un corps **vide**                    | L'action a retourné `this.renderJson(...)` au lieu du payload (`Resolver.ts#Resolver._callWithIdempotency`)       | Retourner la **valeur brute** ; un WARNING le signale déjà dans les logs     |
+| `409` en boucle sur un endpoint                        | Action qui lève avant `complete`/`abort` → in-flight bloqué jusqu'au bail (60 s)                                  | Le seam le gère ; en usage manuel du store, `try/finally` obligatoire        |
+| `422 Idempotency-Key is already used`                  | Même clé, **payload différent** (empreinte ≠, `idempotency.ts#evaluateIdempotency`)                               | Une clé = une intention ; nouvelle clé par requête distincte                 |
+| Rien n'est dédupliqué **malgré** la clé                | Pas d'identité fiable → verdict `execute` (`idempotency.ts#evaluateIdempotency`)                                  | S'assurer que le firewall a résolu l'utilisateur **avant** la mutation       |
+| Rien n'est dédupliqué, clé « un peu longue »           | Clé > 255 octets → traitée comme **absente** (`idempotency.ts#IDEMPOTENCY_KEY_MAX`)                               | Utiliser un UUID ; en mode strict la requête part en 400, pas en silence     |
+| Dédup qui saute en cluster                             | `store: memory` (per-pod)                                                                                         | `redis` (`SET NX`) ou `drizzle` (Postgres/MySQL)                             |
+| `400 Idempotency-Key required` inattendu               | Mode strict par défaut, **ou** requête WebSocket (toujours stricte)                                               | Envoyer la clé, ou `@Idempotent({ required:false })` — sans effet en WS      |
+| `auto` résout `drizzle` alors qu'on attendait `memory` | Repli local persistant quand aucune infra n'est déclarée (`infra.ts#CONNECTED_STORES`)                            | Comportement voulu ; forcer avec `store: "memory"` ou `NF_STORE=memory`      |
+| Boot qui échoue en prod sur l'idempotence              | Store distribué nommé mais non câblé → fatal (`index.ts`)                                                         | Charger le module manquant (`@nodefony/redis`) ou corriger le nom            |
+| Aucune purge sur un store SQL                          | `intervalS` à 0 → scheduler désarmé, dit dans le log de boot (`idempotencyGc.ts#IIdempotencyGcOptions.intervalS`) | Remettre un intervalle, ou assumer une purge externe (cron)                  |
+| `listPage` : `total` toujours absent                   | Backend Redis = mode **curseur**, `total` jamais rendu                                                            | Boucler sur `nextCursor` ; ne pas coder de pagination par offset côté client |
 
 ## 🧪 Tests et couverture
 
@@ -746,5 +746,5 @@ Couverture : `npm run coverage` dans `@nodefony/framework` et `@nodefony/drizzle
 - 🧭 **Pages sœurs** : [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) · [Firewall (l'identité qui scope la clé)](../../security/docs/firewall.md)
 - 🗄️ **Stores distribués** : [@nodefony/redis](../../redis/docs/index.md) · [@nodefony/drizzle](../../drizzle/docs/index.md)
 - 📖 **Contrat de pagination** partagé par tous les stores : `IPage` / `IPageQuery`
-  (`src/nodefony/src/types/IPage.ts:18`)
+  (`src/nodefony/src/types/IPage.ts#IPageQuery`)
 - 🧠 **Contexte de requête** (ALS : identité, clé WS, corps) → [request-context](../../../../nodefony/docs/request-context.md)

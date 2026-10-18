@@ -44,14 +44,14 @@ Deux bénéfices, et c'est toute la raison d'être du mécanisme : **aucun cycle
 ajouter un pilote **ne touche pas** `@nodefony/http`. La résolution du nom est insensible à la casse.
 
 Le registre et sa résolution vivent dans `SessionsService.registerStorage()`
-(`sessions-service.ts:196`), `SessionsService.getStorage()` (`sessions-service.ts:205`) et
-`SessionsService.storageHandlers()` (`sessions-service.ts:214`) ; le stockage intégré s'enregistre
-en fin de fichier (`registerStorage("memory")`, `sessions-service.ts:196`).
+(`sessions-service.ts#SessionsService.registerStorage`), `SessionsService.getStorage()` (`sessions-service.ts#SessionsService.getStorage`) et
+`SessionsService.storageHandlers()` (`sessions-service.ts#SessionsService.storageHandlers`) ; le stockage intégré s'enregistre
+en fin de fichier (`registerStorage("memory")`, `sessions-service.ts#SessionsService.registerStorage`).
 
 ## Choisir le backend — un seul réglage
 
 La clé `session.store` du module http sélectionne le stockage par son **nom**
-(`config.ts:795`) :
+(`config.ts#sessionCookieSchema`) :
 
 ```typescript
 // nodefony/config/http.ts (fragment, passé à use("@nodefony/http", …) par le manifeste)
@@ -88,8 +88,8 @@ session.store "auto" → "redis" (cache redis déclaré)
 SESSION STORAGE active : redis
 ```
 
-La résolution est portée par `resolveAutoStore()` (`infra.ts:330`), appelée depuis
-`initializeStorage()` (`sessions-service.ts:258`) — la même fonction sert aux autres briques qui
+La résolution est portée par `resolveAutoStore()` (`infra.ts#resolveAutoStore`), appelée depuis
+`initializeStorage()` (`sessions-service.ts#SessionsService.initializeStorage`) — la même fonction sert aux autres briques qui
 déclarent un store, ce qui évite deux politiques divergentes.
 
 ### L'interface du registre
@@ -191,7 +191,7 @@ stockage adossé au repository, purge par un opérateur portable
 ## ⚠️ Pièges
 
 - **Un nom inconnu ne se comporte pas pareil selon l'environnement, et c'est voulu.** En
-  production, un `store` explicite introuvable **avorte le boot** (`sessions-service.ts:269`) :
+  production, un `store` explicite introuvable **avorte le boot** (`sessions-service.ts#SessionsService.initializeStorage`) :
   des sessions silencieusement mortes cassent le pare-feu en cascade, un pod qui ne démarre pas se
   voit tout de suite. En développement, l'application se replie sur `memory` avec un
   avertissement — elle reste utilisable, les sessions sont volatiles. Le cas `auto` ne passe

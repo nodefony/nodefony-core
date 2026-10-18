@@ -96,7 +96,7 @@ container (`authorization`, `authFlow`, `tokenService`…).
 
 ## Exports publics (`index.ts`)
 
-`Framework` (default, classe `Module`). Nommés (`index.ts:324`) :
+`Framework` (default, classe `Module`). Nommés (`index.ts#Framework.onKernelBoot`) :
 
 - **Classes** : `Controller`, `ResourceController`, `Route`, `Router`, `Resolver`, `AdminBroker`,
   `MemoryIdempotencyStore`, `AdminApiController`, `Eta`.
@@ -118,9 +118,9 @@ container (`authorization`, `authFlow`, `tokenService`…).
 
 > ⚠️ `Twig`/`Ejs` **n'existent plus** : moteur unique = `Eta` (cf [moteur de vues](#api--moteur-de-vues-eta)).
 > Les `module-level` `frameworkConfigSchema` et `MemoryIdempotencyStore` sont enregistrés via
-> `@services([Router, Eta, AdminBroker, MemoryIdempotencyStore])` (`index.ts:123`).
+> `@services([Router, Eta, AdminBroker, MemoryIdempotencyStore])` (`index.ts`).
 
-**Module `Framework`** (`index.ts:124`) — hooks : `onKernelRegister` (valide config Zod →
+**Module `Framework`** (`index.ts#Http.onKernelRegister`) — hooks : `onKernelRegister` (valide config Zod →
 `this.options`) · `onKernelBoot` (résout store d'idempotence distribué si `idempotency.store!=="memory"`,
 fail-loud prod / fail-soft dev) · `onKernelReady` (register producteurs admin kernel/framework/syslog +
 `broker.mountAll()` PUIS monte conditionnellement les routes d'auth selon présence du service :
@@ -131,92 +131,92 @@ fail-loud prod / fail-soft dev) · `onKernelReady` (register producteurs admin k
 
 ## API — `Router`
 
-Service `@injectable()` `"router"` (`nodefony/service/router.ts:124`). Table `static routes: Route[]`
-**module-level, partagée process-wide** (`router.ts:48`,`126`).
+Service `@injectable()` `"router"` (`nodefony/service/router.ts#Router`). Table `static routes: Route[]`
+**module-level, partagée process-wide** (`router.ts#routes`,`126`).
 
 | Méthode | Signature | Rôle |
 | ------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------- |
-| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:316`) | point d'entrée du routage |
-| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:499`) | forward interne |
-| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:516`) | lookup / dump |
-| `removeRoutes` | `(name?) → void` (`router.ts:525`) | retire 1 route (ou tout si vide) + invalide l'index |
-| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:505`) | toutes les routes dont le pattern matche |
-| `getSingletonController` | `(ctor, create) → Promise<Controller>` (`router.ts:232`) | cache promesse singleton (V4.3) |
-| `static createRoute` | `(name, RouteOptions) → Route` (`router.ts:353`) | push table + invalide l'index |
-| `static setController` | `(ctor, module) → ctor` (`router.ts:359`) | `proto.module` (writable:false) + clé `module:Class` + propage `route.module` |
-| `static getRoutesForController` | `(ctor) → Route[]` (`router.ts:393`) | log des routes d'un controller |
+| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts#Router.resolve`) | point d'entrée du routage |
+| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts#Router.resolveController`) | forward interne |
+| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts#Router.getRoutes`) | lookup / dump |
+| `removeRoutes` | `(name?) → void` (`router.ts#Router.removeRoutes`) | retire 1 route (ou tout si vide) + invalide l'index |
+| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts#Router.matchRoutes`) | toutes les routes dont le pattern matche |
+| `getSingletonController` | `(ctor, create) → Promise<Controller>` (`router.ts#Router.getSingletonController`) | cache promesse singleton (V4.3) |
+| `static createRoute` | `(name, RouteOptions) → Route` (`router.ts#Router.resolve`) | push table + invalide l'index |
+| `static setController` | `(ctor, module) → ctor` (`router.ts#Router.resolve`) | `proto.module` (writable:false) + clé `module:Class` + propage `route.module` |
+| `static getRoutesForController` | `(ctor) → Route[]` (`router.ts#Router.resolve`) | log des routes d'un controller |
 
 ---
 
 ## API — `Route`
 
-`Route implements IRoute` (`nodefony/src/Route.ts:257`). `RouteOptions` (`Route.ts:158`) :
+`Route implements IRoute` (`nodefony/src/Route.ts#Route`). `RouteOptions` (`Route.ts#RouteOptions`) :
 `path`, `constructor`, `classMethod`, `prefix`, `method`, `host`, `defaults`, `requirements`,
 `filePath`, **`bypassFirewall?`** (court-circuite le firewall, défaut `false`). `RouteRequirements`
-(`Route.ts:214`) : `domain`, `scheme`, `methods` (`HTTPMethod[]|HTTPMethod|"a,b"`), `protocol`.
+(`Route.ts#RouteRequirements`) : `domain`, `scheme`, `methods` (`HTTPMethod[]|HTTPMethod|"a,b"`), `protocol`.
 
-Champs notables : `variables: string[]` = **NOMS** des params `{x}` (`Route.ts:131`) ; `pattern: RegExp`
+Champs notables : `variables: string[]` = **NOMS** des params `{x}` (`Route.ts#replaceCallback`) ; `pattern: RegExp`
 (compilée flag `i`) ; `methodsSet`/`methodsAllow`/`varRegexp` (pré-compilés au boot) ; `hostRegexp`
 (vhosts) ; `bodyStream?`/`actionMeta?` (memo lazy) ; `bypassFirewall`.
 
-Méthodes : `static cleanPathname(ctx)` (`Route.ts:355`, pathname sans slash final, **1×/req**) ·
-`match(ctx, cleanPath?, methodOverride?)` (`Route.ts:393`) · `compile()` (`Route.ts:514`) ·
-`compileRequirements()` (`Route.ts:568`) · `matchRequirements(ctx, methodOverride?)` (`Route.ts:816`) ·
-`matchHostname(ctx)` (`Route.ts:754`, 403 si vhost interdit) · `addRequirement`/`getRequirement` ·
+Méthodes : `static cleanPathname(ctx)` (`Route.ts#Route.cleanPathname`, pathname sans slash final, **1×/req**) ·
+`match(ctx, cleanPath?, methodOverride?)` (`Route.ts#Route.match`) · `compile()` (`Route.ts#Route.compile`) ·
+`compileRequirements()` (`Route.ts#Route.compileRequirements`) · `matchRequirements(ctx, methodOverride?)` (`Route.ts#Route.matchRequirements`) ·
+`matchHostname(ctx)` (`Route.ts#Route.matchHostname`, 403 si vhost interdit) · `addRequirement`/`getRequirement` ·
 `generateId()` (md5) · `toObject()`/`toLogLine()`.
 
 ---
 
 ## API — `Resolver`
 
-`Resolver implements IResolver` (`nodefony/src/Resolver.ts:126`). **POJO per-requête, n'étend PAS
+`Resolver implements IResolver` (`nodefony/src/Resolver.ts#Resolver`). **POJO per-requête, n'étend PAS
 `Service`** ; 1 par requête HTTP, 1 par connexion WS (réutilisé par message). Cache du controller sur
 `context.container` clé `"controller"` (survit au Resolver).
 
 Champs : `controller`, `actionName`, `action`, `route`, `variables: unknown[]` (VALEURS matchées),
-`resolve`, `bypassFirewall`, `acceptedProtocol`, `queryOverride` (pont WS-RPC, `Resolver.ts:147`),
-`methodOverride` (méthode logique WS, `Resolver.ts:156`).
+`resolve`, `bypassFirewall`, `acceptedProtocol`, `queryOverride` (pont WS-RPC, `Resolver.ts#Resolver.queryOverride`),
+`methodOverride` (méthode logique WS, `Resolver.ts#Resolver.methodOverride`).
 
 | Méthode | Signature | Rôle |
 | ------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
-| `match` | `(route, ctx, cleanPath?) → map                                                     | undefined` (`Resolver.ts:179`) | délègue `route.match`, pose route + intents sur le ctx |
-| `parsePathernController` | `("module:ctrl:action") → void` (`Resolver.ts:256`) | forward |
-| `getMatchedParams` | `() → Record<string,unknown>` (`Resolver.ts:229`) | snapshot `{name}`→valeur (+ `*`) |
-| `newController` | `(ctx?) → Promise<Controller>` (`Resolver.ts:324`) | instancie (DI) + cache, gère singleton |
-| `executeAction` | `(data?, reload?, metaArg?) → Promise<{result, redirectMeta?}>` (`Resolver.ts:455`) | **exécute SANS rendre** (seam multi-transport) |
-| `callController` | `(data?, reload?) → Promise<unknown>` (`Resolver.ts:648`) | exécute **PUIS rend** (pipeline normal) |
-| `returnController` | `(result) → Promise<unknown>` (`Resolver.ts:1073`) | normalise la valeur vers le transport |
+| `match` | `(route, ctx, cleanPath?) → map                                                     | undefined` (`Resolver.ts#Resolver.match`) | délègue `route.match`, pose route + intents sur le ctx |
+| `parsePathernController` | `("module:ctrl:action") → void` (`Resolver.ts#Resolver.parsePathernController`) | forward |
+| `getMatchedParams` | `() → Record<string,unknown>` (`Resolver.ts#Resolver.getMatchedParams`) | snapshot `{name}`→valeur (+ `*`) |
+| `newController` | `(ctx?) → Promise<Controller>` (`Resolver.ts#Resolver.newController`) | instancie (DI) + cache, gère singleton |
+| `executeAction` | `(data?, reload?, metaArg?) → Promise<{result, redirectMeta?}>` (`Resolver.ts#Resolver.executeAction`) | **exécute SANS rendre** (seam multi-transport) |
+| `callController` | `(data?, reload?) → Promise<unknown>` (`Resolver.ts#Resolver.callController`) | exécute **PUIS rend** (pipeline normal) |
+| `returnController` | `(result) → Promise<unknown>` (`Resolver.ts#Resolver.returnController`) | normalise la valeur vers le transport |
 
 ---
 
 ## API — `Controller`
 
-`Controller extends Service implements IController` (`nodefony/src/Controller.ts:175`). Statiques :
+`Controller extends Service implements IController` (`nodefony/src/Controller.ts#asError`). Statiques :
 `prefix = "/"` ; **`scope: ControllerScope = "singleton"`** (`"request"|"singleton"`, posé par `@Scope`,
 lu via `new.target`) ; `assertScope()` (statique, appelé par `Router.setController` — une base qui
 n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le singleton).
 
 **Getters/setters per-request (V4.1)** — dérivent du `context` LIVE (`shadow ?? context.x`), 0 alloc :
-`context` (`Controller.ts:239`, retombe sur `RequestContext.getContext()` pour un singleton), `route`
+`context` (`Controller.ts#Controller.context`, retombe sur `RequestContext.getContext()` pour un singleton), `route`
 (via `context.resolver`), `request`, `response`, `method`, `queryGet`, `query`, `queryFile`,
-`queryPost`, **`session`** (getter direct `context.session ?? null`, `Controller.ts:229` — **plus de
+`queryPost`, **`session`** (getter direct `context.session ?? null`, `Controller.ts#Controller.#assertPerRequest` — **plus de
 `startSession()`** ; activation par `@UseSession`/`@Session`/cookie). `module`, `template` (Eta).
 
 | Méthode | Signature | Rôle |
 | --------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `renderJson` | `(obj, status?, headers?) → Promise<Response>` (`Controller.ts:631`) | JSON + `content-type` |
-| `render` | `(data, encoding?, status?, headers?)` (`Controller.ts:497`) | délègue `context.render` |
-| `renderResponse` | `(data, encoding?, status?, headers?)` (`Controller.ts:535`) | `context.send` brut |
-| `renderView` | `(path                                                                     | FileClass, param={}, status?, headers?)` (`Controller.ts:556`) | lit le fichier → `template.render` (Eta) → HTML, injecte les helpers frontend |
-| `renderFileDownload` | `(file, options?, headers={}) → Promise<ReadStream>` (`Controller.ts:825`) | `attachment` |
-| `renderMediaStream` | `(file, headers={}, options={})` (`Controller.ts:999`) | Range RFC 9110 (`parseByteRange` → 206/416) |
-| `streamFile` | `(file, headers?, options={}) → Promise<ReadStream>` (`Controller.ts:865`) | pipe + cleanup fd (client parti) |
-| `redirect` | `(url, status?, headers?)` (`Controller.ts:710`) | délègue `context.redirect` |
-| `forward` | `("module:ctrl:action", param?)` (`Controller.ts:744`) | re-route interne (`reload:true`) |
-| `getSession`/`getFlashBag`/`setFlashBag`/`addFlash` | (`Controller.ts:740`,`386`) | session/flash |
-| `getFileAsync` | `(file                                                                     | string) → Promise<FileClass>` (`Controller.ts:786`) | stats async (préférer à `getFile`, sync `@deprecated`) |
+| `renderJson` | `(obj, status?, headers?) → Promise<Response>` (`Controller.ts#Controller.renderJson`) | JSON + `content-type` |
+| `render` | `(data, encoding?, status?, headers?)` (`Controller.ts#Controller.render`) | délègue `context.render` |
+| `renderResponse` | `(data, encoding?, status?, headers?)` (`Controller.ts#Controller.renderResponse`) | `context.send` brut |
+| `renderView` | `(path                                                                     | FileClass, param={}, status?, headers?)` (`Controller.ts#Controller.renderView`) | lit le fichier → `template.render` (Eta) → HTML, injecte les helpers frontend |
+| `renderFileDownload` | `(file, options?, headers={}) → Promise<ReadStream>` (`Controller.ts#Controller.renderFileDownload`) | `attachment` |
+| `renderMediaStream` | `(file, headers={}, options={})` (`Controller.ts#Controller.renderMediaStream`) | Range RFC 9110 (`parseByteRange` → 206/416) |
+| `streamFile` | `(file, headers?, options={}) → Promise<ReadStream>` (`Controller.ts#Controller.streamFile`) | pipe + cleanup fd (client parti) |
+| `redirect` | `(url, status?, headers?)` (`Controller.ts#Controller.redirect`) | délègue `context.redirect` |
+| `forward` | `("module:ctrl:action", param?)` (`Controller.ts#Controller.forward`) | re-route interne (`reload:true`) |
+| `getSession`/`getFlashBag`/`setFlashBag`/`addFlash` | (`Controller.ts#Controller.addFlash`,`386`) | session/flash |
+| `getFileAsync` | `(file                                                                     | string) → Promise<FileClass>` (`Controller.ts#Controller.getFileAsync`) | stats async (préférer à `getFile`, sync `@deprecated`) |
 
-**`ResourceController<T>`** (`nodefony/src/ResourceController.ts:67`) — controller souverain
+**`ResourceController<T>`** (`nodefony/src/ResourceController.ts#IResourceService.findPage`) — controller souverain
 **`static scope = "singleton"`** (stateless). Service injecté `IResourceService<T>` (`find`/`findById`
 requis ; `create`/`updateOne`/`delete` optionnels). Helpers `protected` retournant la **valeur brute**
 (seam multi-transport) : `listResource(criteria?)`, `getResource(id)`, `createResource(data)` (501 si
@@ -243,41 +243,41 @@ read-only), `updateResource(criteria, data)`, `removeResource(criteria)`. **Aucu
 Tous dans `nodefony/decorators/routerDecorators.ts`. Reposent sur `reflect-metadata`
 (`experimentalDecorators` requis). N'écrivent **QUE de la metadata** (0 logique sécu/cycle).
 
-**Routage** : `controllers(ctrls)` (classe Module, `:18` — hook `onBoot` → `Router.setController`) ·
-`controller(prefix)` (classe controller, `:75` — lit la metadata `@route` → `Router.createRoute`) ·
-`route(name, RouteOptions)` (méthode, `:157`).
+**Routage** : `controllers(ctrls)` (classe Module — hook `onBoot` → `Router.setController`) ·
+`controller(prefix)` (classe controller — lit la metadata `@route` → `Router.createRoute`) ·
+`route(name, RouteOptions)` (méthode).
 
-**Méthode HTTP** (factory `httpMethodDecorator`, `:340` ; auto-name `Class::method`) :
+**Méthode HTTP** (factory `httpMethodDecorator` ; auto-name `Class::method`) :
 `@Get/@Post/@Put/@Delete/@Patch/@Options/@Head(path?, options?)` → `requirements.methods:[VERB]`
-(`:361`). `@All(path?, options?)` (`:374`) = **aucun** `requirements.methods` (matche toutes).
+. `@All(path?, options?)` = **aucun** `requirements.methods` (matche toutes).
 `options = Omit<RouteOptions,"path"|"method">`.
 
-**Réponse** (Reflect, appliqués par le Resolver) : `@HttpCode(status)` (`:387`) · `@Header(k, v)`
-(accumulable, `:398`) · `@Redirect(url, status=302)` (`:412`).
+**Réponse** (Reflect, appliqués par le Resolver) : `@HttpCode(status)` · `@Header(k, v)`
+(accumulable) · `@Redirect(url, status=302)`.
 
-**Paramètres** (factory `paramDecoratorFactory`, `:946` ; `(key?)`) — `ParamSource` (`:250`) :
-`@Param(key?)` (`:966`, var de route ; `@Param()`=tous) · `@Query(key?)` (`:967`) · `@Body(keyOr{stream})`
-(`:976` ; `@Body({stream:true})`=flux brut `Readable`, saute le parse) · `@Headers(key?)` (`:999`,
-lookup lowercase) · `@Cookie(key?)` · `@Session(key?)` (active la session) · `@CurrentUser()` (`:1003`,
+**Paramètres** (factory `paramDecoratorFactory` ; `(key?)`) — `ParamSource` :
+`@Param(key?)` (, var de route ; `@Param()`=tous) · `@Query(key?)` · `@Body(keyOr{stream})`
+( ; `@Body({stream:true})`=flux brut `Readable`, saute le parse) · `@Headers(key?)` (,
+lookup lowercase) · `@Cookie(key?)` · `@Session(key?)` (active la session) · `@CurrentUser()` (,
 user ALS, jamais le credential) · `@Req()`/`@Res()` · `@UploadedFile()` (1er fichier) /
 `@UploadedFiles()` (tous).
 
 **Sécurité** (déclaratif ; décision rendue par voter `authorization` par nom au runtime) :
-`@IsGranted(attr|attr[], {subject?})` (`:664` — clause `anyOf` en OR ; empilage = AND ; `subject`=nom
-de param de route) · `@RequireScope(scope|scope[])` (`:761` — axe scopes `api:action`, metadata
-DÉDIÉE pour la découverte boot ; no-op pour session humaine) · `@Anonymous()` (`:712` — public :
+`@IsGranted(attr|attr[], {subject?})` ( — clause `anyOf` en OR ; empilage = AND ; `subject`=nom
+de param de route) · `@RequireScope(scope|scope[])` ( — axe scopes `api:action`, metadata
+DÉDIÉE pour la découverte boot ; no-op pour session humaine) · `@Anonymous()` ( — public :
 pose anonymous **+** bypassFirewall, override `@IsGranted` de classe).
 
-**CSP/CSRF** : `@Csp({"frame-src":[…]})` (`:826`, additif classe+méthode) · `@CsrfProtect()` (`:888`,
-synchronizer token HMAC) · `@CsrfExempt()` (`:897`, hors CSRF mais auth conservée).
+**CSP/CSRF** : `@Csp({"frame-src":[…]})` (, additif classe+méthode) · `@CsrfProtect()` (,
+synchronizer token HMAC) · `@CsrfExempt()` (, hors CSRF mais auth conservée).
 
-**Idempotence** : `@Idempotent({required?})` (`:926`) — `IdempotentMeta{required}` (défaut `true`=strict).
+**Idempotence** : `@Idempotent({required?})` — `IdempotentMeta{required}` (défaut `true`=strict).
 No-op GET/WS-handshake ; précédence méthode > classe.
 
-**Cycle de vie / divers** : `@Scope("singleton"|"request")` (`:552`, classe — pose `static scope`) ·
-`@UseSession({context?,readOnly?,eager?})` (`:585`, classe+méthode — **unique** activation de session
-explicite ; `resolveSessionIntent` `:618`) · `@Domain(pattern|patterns)` (`:448`, classe+méthode →
-`route.host`) · `@BypassFirewall` (`:509` — **flag SANS parenthèses**, route publique).
+**Cycle de vie / divers** : `@Scope("singleton"|"request")` (, classe — pose `static scope`) ·
+`@UseSession({context?,readOnly?,eager?})` (, classe+méthode — **unique** activation de session
+explicite ; `resolveSessionIntent`) · `@Domain(pattern|patterns)` (, classe+méthode →
+`route.host`) · `@BypassFirewall` ( — **flag SANS parenthèses**, route publique).
 
 > Duals classe+méthode (`@Domain/@BypassFirewall/@IsGranted/@RequireScope/@Csp/@Idempotent/@UseSession/
 @Anonymous`) : `target` = ctor (classe) ou prototype (méthode) → idiome `any` polymorphe assumé.
@@ -293,34 +293,34 @@ explicite ; `resolveSessionIntent` `:618`) · `@Domain(pattern|patterns)` (`:448
 `path` (relatif), `method`, `role`, `handler(IAdminRequest)`, `public?`. Producteur externe importe
 SEULEMENT depuis `"nodefony"` (`IAdminApi`/`IAdminRegistry`), jamais framework (cycle).
 
-**`AdminBroker`** Service `"adminBroker"` `implements IAdminBroker` (`nodefony/service/AdminBroker.ts:21`).
+**`AdminBroker`** Service `"adminBroker"` `implements IAdminBroker` (`nodefony/service/AdminBroker.ts#AdminBroker`).
 Constantes : `rootPrefix="/nodefony"`, `apiSegment="api"`, `defaultRole="ROLE_NODEFONY_ADMIN"`.
 
-| Méthode       | Signature                                          | Note                                         |
-| ------------- | -------------------------------------------------- | -------------------------------------------- |
-| `register`    | `(api) → this` (`AdminBroker.ts:51`)               | **throw** si déjà monté / namespace dup      |
-| `unregister`  | `(ns) → boolean` (`:61`)                           | retire routes si monté                       |
-| `has`         | `(ns) → boolean` (`:79`)                           | (override de `Service.has`)                  |
-| `getApi`      | `(ns) → IAdminApi?` (`:83`)                        | ⚠️ **PAS `get`** (masquerait `Service.get`)  |
-| `resolvePath` | `(ns, path) → "/nodefony/<ns>/api/<path>"` (`:91`) |                                              |
-| `resolve`     | `(routeName) → IAdminRoute?` (`:96`)               | lookup O(1) du dispatch                      |
-| `routes`      | `() → readonly IAdminRoute[]` (`:100`)             | introspection                                |
-| `mountAll`    | `() → void` (`:104`)                               | idempotent ; 1 `Router.createRoute`/endpoint |
+| Méthode       | Signature                                              | Note                                         |
+| ------------- | ------------------------------------------------------ | -------------------------------------------- |
+| `register`    | `(api) → this` (`AdminBroker.ts#AdminBroker.register`) | **throw** si déjà monté / namespace dup      |
+| `unregister`  | `(ns) → boolean`                                       | retire routes si monté                       |
+| `has`         | `(ns) → boolean`                                       | (override de `Service.has`)                  |
+| `getApi`      | `(ns) → IAdminApi?`                                    | ⚠️ **PAS `get`** (masquerait `Service.get`)  |
+| `resolvePath` | `(ns, path) → "/nodefony/<ns>/api/<path>"`             |                                              |
+| `resolve`     | `(routeName) → IAdminRoute?`                           | lookup O(1) du dispatch                      |
+| `routes`      | `() → readonly IAdminRoute[]`                          | introspection                                |
+| `mountAll`    | `() → void`                                            | idempotent ; 1 `Router.createRoute`/endpoint |
 
-**`mountAll`** : chaque endpoint GET monté `methods:[method,"WEBSOCKET"]` (`AdminBroker.ts:123`) →
+**`mountAll`** : chaque endpoint GET monté `methods:[method,"WEBSOCKET"]` (`AdminBroker.ts#AdminBroker.mountAll`) →
 invocable par le pont WS-RPC `api.request` ; `endpoint.public` → `role=""` (RBAC court-circuité).
 Nom de route = `admin.<ns>.<method>.<path>`. `Router.setController(AdminApiController, …)` gardé par
 `hasOwnProperty("module")` (idempotent).
 
-**`AdminApiController.dispatch(...args)`** (`nodefony/controller/AdminApiController.ts:65`) — 1 controller
-pour N endpoints. `runAdmin()` (`:106`) transport-agnostique : `broker.resolve(route.name)` → `buildRequest`
+**`AdminApiController.dispatch(...args)`** (`nodefony/controller/AdminApiController.ts#AdminApiController.dispatch`) — 1 controller
+pour N endpoints. `runAdmin()` (`nodefony/controller/AdminApiController.ts#AdminApiController.runAdmin`) transport-agnostique : `broker.resolve(route.name)` → `buildRequest`
 (Context→`IAdminRequest`, params zippés depuis `route.variables`, body via ALS du pont WS sinon
 `queryPost`) → **RBAC** `isAdminGranted(roles, role)` (`src/adminRbac.ts`, fail-closed, 403 si rôle
 absent ; `role===""`=public) → **idempotencyGate** → `handler` → `normalize`. Rendu : **HTTP** =
 `renderJson(body,status,{…,"x-nodefony-instance":pid})` ; **WS** = body NU, status≥400 → `RpcError(-32000,
 {status,body})`.
 
-`normalize()` (`:255`) : l'enveloppe `{status,headers,body}` n'est reconnue que si `status` OU `headers`
+`normalize()` : l'enveloppe `{status,headers,body}` n'est reconnue que si `status` OU `headers`
 présent — sinon donnée brute (⚠️ un `{body}` seul = double-wrap `{body:{body}}`).
 
 ---
@@ -328,13 +328,13 @@ présent — sinon donnée brute (⚠️ un `{body}` seul = double-wrap `{body:{
 ## API — Moteur de vues (Eta)
 
 **Moteur UNIQUE** = `Eta` (remplace EJS + Twig, retirés). `Eta extends Template` service `"template"`
-(`nodefony/service/Eta.ts:34`). Choisi : écrit en TS (types fournis), ESM natif, autoescape, délimiteurs
+(`nodefony/service/Eta.ts#Eta`). Choisi : écrit en TS (types fournis), ESM natif, autoescape, délimiteurs
 `<% %>`/`<%= %>` (pas de collision TS/JSON/JSX).
 
-- `render(str, data={}) → Promise<string>` (`Eta.ts:51`) — source chaîne (chemin chaud du Controller).
-- `renderFile(path, data={}) → Promise<string>` (`Eta.ts:66`) — depuis un fichier (CLI/Builder).
+- `render(str, data={}) → Promise<string>` (`Eta.ts#Eta.render`) — source chaîne (chemin chaud du Controller).
+- `renderFile(path, data={}) → Promise<string>` (`Eta.ts#Eta.renderFile`) — depuis un fichier (CLI/Builder).
 - Options : `autoEscape:true` (échappe `<%= %>` ; brut volontaire `<%~ %>`), `useWith:true` (locals nus
-  comme EJS), `cache` = `true` en prod uniquement (`Template.ts:20`, `Eta.ts:41`).
+  comme EJS), `cache` = `true` en prod uniquement (`Template.ts#Template.constructor`, `Eta.ts#Eta.constructor`).
 
 `Controller.renderView` lit le fichier (`FileClass`) puis appelle `template.render(source, locals)` ;
 `withFrontendLocals` injecte `frontendTags`/`frontendDocument`/`asset` (service `frontend` par nom).
@@ -349,33 +349,33 @@ présent — sinon donnée brute (⚠️ un `{body}` seul = double-wrap `{body:{
 (+ `gc?` pour les stores SQL sans TTL natif). Sync (mémoire) **ou** async (distribué) → `evaluateIdempotency`
 `await`e `begin`.
 
-**`MemoryIdempotencyStore`** (`nodefony/service/IdempotencyStore.ts:41`, service `"idempotencyStore"`,
+**`MemoryIdempotencyStore`** (`nodefony/service/IdempotencyStore.ts#MemoryIdempotencyStore`, service `"idempotencyStore"`,
 défaut `@services`) : `Map` **lazy** (1er `begin`), 0 timer/listener (purge passive + éviction FIFO).
-TTL réponse 600 s, lease in-flight 60 s, cap 1000 (`:11`).
+TTL réponse 600 s, lease in-flight 60 s, cap 1000.
 
 **Registre de stores distribués** (`nodefony/src/idempotencyStoreRegistry.ts`) :
 `registerIdempotencyStore(name, factory)`, `getIdempotencyStoreFactory(name)`, `listIdempotencyStores()`.
-Driver **`redis`** builtin (enregistré au chargement de `index.ts:107`, résout le service `redis` par
+Driver **`redis`** builtin (enregistré au chargement de `index.ts#E2E_USER_IDENTIFIER`, résout le service `redis` par
 nom → 0 import `@nodefony/redis`, 0 cycle). Sélection par config `idempotency.store`
-(`nodefony/config/schema.ts:40`) ; `gcIntervalS` (défaut 600, 0=désarmé) + `gcJitter`. Échec de
+(`nodefony/config/schema.ts#serverSchema`) ; `gcIntervalS` (défaut 600, 0=désarmé) + `gcJitter`. Échec de
 résolution : **prod = fatal** (anti double-effet cluster) ; **dev/test = WARNING + fallback mémoire**
-(`index.ts:182`).
+(`index.ts#classifyJsonRpcFrame`).
 
 ---
 
 ## Internals — pipeline de résolution
 
 ```
-Router.resolve(ctx)                         router.ts:190
+Router.resolve(ctx)                         router.ts#Router.routes
   cleanPath = Route.cleanPathname(ctx)      (1× pour tout le scan)
   index = routeIndex | buildRouteIndex()    partition statics(Map path.toLowerCase) / dynamics
   Pass 1 : merge ordonné littérales(path) ∪ dynamiques (par position d'insertion)
      resolver.match(route, ctx, cleanPath)  → 1ʳᵉ route qui matche path+method → return resolver
   Pass 2 : aucun match + HTTP → 405 + header Allow agrégé (RFC 9110 §15.5.6)
-HttpKernel → resolver.callController()      Resolver.ts:394
+HttpKernel → resolver.callController()      Resolver.ts#Resolver._createController
   meta = resolveActionMeta(route)           memo, 0 Reflect/req
   meta.idempotent !== null ? _callWithIdempotency : executeAction + _handleRedirect
-executeAction()                             Resolver.ts:315
+executeAction()                             Resolver.ts#Resolver.newController
   meta.security !== null → _enforceSecurity (403 AVANT instanciation — Zero Trust)
   controller = container.get("controller") | newController()   (instanceof check WS)
   args = paramsMeta ? _buildParamArgs : [...variables(, ...data)]
@@ -384,30 +384,30 @@ executeAction()                             Resolver.ts:315
 _handleRedirect → returnController          normalise vers transport
 ```
 
-**Index de routes** (`router.ts:64`-`121`) : `statics` = paths littéraux (Map → candidates O(1)) ;
+**Index de routes** (`router.ts#IndexedRoute`-`121`) : `statics` = paths littéraux (Map → candidates O(1)) ;
 `dynamics` = `{var}`/`*`/metachar regex → scan ordonné. `resolve()` fusionne **par position
 d'insertion** → même séquence que le scan linéaire MOINS les littérales d'autres paths. Invalidé
 (`routeIndex=null`) par `createRoute`/`removeRoutes` + garde-fou photo `length/first/last` (mutations
 directes de `routes` des bancs de test). Ne court-circuite JAMAIS `resolver.match()`.
 
-`match()` pose AUSSI sur le contexte (post-match, `Resolver.ts:179`-`154`) : `sessionIntent`,
+`match()` pose AUSSI sur le contexte (post-match, `Resolver.ts#Resolver.match`-`154`) : `sessionIntent`,
 `cspDirectives` (si `@Csp`), `csrfProtect`/`csrfExempt` — consommés plus tard par le firewall.
 
 ---
 
 ## Internals — `match()` + methodOverride + 405/host
 
-`Route.match(ctx, cleanPath?, methodOverride?)` (`Route.ts:393`) : pattern-test → `hydrateDefaultParameters`
+`Route.match(ctx, cleanPath?, methodOverride?)` (`Route.ts#Route.match`) : pattern-test → `hydrateDefaultParameters`
 → **`matchHostname` AVANT `matchRequirements`** (la ressource cible inclut le host : un vhost interdit
 jette **403**, jamais une 405 qui fuiterait les méthodes d'un autre vhost) → renvoie `map` = captures
 `res.slice(1)` (array hybride + accès par nom + `*`).
 
-`matchRequirements(ctx, methodOverride?)` (`Route.ts:816`) : `methods` via `methodsSet` (Set UPPERCASE
+`matchRequirements(ctx, methodOverride?)` (`Route.ts#Route.matchRequirements`) : `methods` via `methodsSet` (Set UPPERCASE
 pré-compilé) → 405 `HttpError{code:405, allow}`. **methodOverride** (pont WS-RPC d'une mutation) : sur
 le transport `WEBSOCKET` unique, exige `methodsSet.has("WEBSOCKET") && has(methodOverride)` pour lever
 l'ambiguïté GET-via-WS / POST-via-WS. `protocol` WS → 1002.
 
-Pass 2 du Router (`router.ts:261`) : si aucune route ne matche (ou pass 1 finit sur 405) ET HTTP →
+Pass 2 du Router (`router.ts#Router.getSingletonController`) : si aucune route ne matche (ou pass 1 finit sur 405) ET HTTP →
 agrège l'`Allow` de **toutes** les routes du path **sur ce vhost** (`isDomainAllowed`, exclut les autres
 vhosts) → 405 unique. Pseudo-méthode `WEBSOCKET` exposée dans l'agrégat d'un path duplex.
 
@@ -415,20 +415,20 @@ vhosts) → 405 unique. Pseudo-méthode `WEBSOCKET` exposée dans l'agrégat d'u
 
 ## Internals — seam sécurité
 
-`_enforceSecurity(req: SecurityRequirement)` (`Resolver.ts:901`), appelé dans `executeAction` **AVANT
+`_enforceSecurity(req: SecurityRequirement)` (`Resolver.ts#Resolver._enforceSecurity`), appelé dans `executeAction` **AVANT
 `newController()`** — un 403 court-circuite donc réellement l'instanciation DI et `initialize()`, y
 compris sur le trajet HTTP (le kernel n'instancie plus en amont, cf entrée `initialize()` ci-dessus ;
 c'était une promesse que le pipeline contredisait). Résout le service
 `authorization` **par nom** (`IAuthorizer.decide(token, attribute, subject?) → Promise<boolean>`,
-`Resolver.ts:61`) ; `token = RequestContext.get()?.token`. **Fail-closed** : `!authz || token===undefined`
+`Resolver.ts#IAuthorizer.decide`) ; `token = RequestContext.get()?.token`. **Fail-closed** : `!authz || token===undefined`
 → 403. Clauses en **AND** (`req.clauses`), attributs d'une clause en **OR** (`clause.anyOf`) ; `subject`
-résolu via `_resolveSubject(name)` (`Resolver.ts:971`, depuis `route.variables`). `meta.security===null`
+résolu via `_resolveSubject(name)` (`Resolver.ts#Resolver._resolveSubject`, depuis `route.variables`). `meta.security===null`
 (99 % des routes) → 0 lookup/await/alloc.
 
-`SecurityRequirement` figé par `computeSecurityRequirement` (`routerDecorators.ts:1648`) = fusion
+`SecurityRequirement` figé par `computeSecurityRequirement` (`routerDecorators.ts#computeSecurityRequirement`) = fusion
 `@IsGranted` (rôles) **+** `@RequireScope` (scopes) classe+méthode en AND. `@Anonymous` méthode →
 `null` (override classe). Découverte boot des scopes : `collectDeclaredApiScopes()`
-(`nodefony/src/scopeCatalog.ts:29`, scanne `Router.routes` → groupes par API).
+(`nodefony/src/scopeCatalog.ts#collectDeclaredApiScopes`, scanne `Router.routes` → groupes par API).
 
 ### 🔴 Le rôle par défaut d'une ZONE — et pourquoi un scope ne le remplace pas
 
@@ -477,12 +477,12 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
 **Deux call-sites** traduisent le MÊME verdict :
 
 - **userland** `@Idempotent` → `Resolver.callController` branche vers `_callWithIdempotency(meta, …)`
-  (`Resolver.ts:717`) si `meta.idempotent !== null`. No-op si méthode sûre. Verdict : `reject`→
+  (`Resolver.ts#Resolver._callWithIdempotency`) si `meta.idempotent !== null`. No-op si méthode sûre. Verdict : `reject`→
   `nodefonyError(status)` ; `replay`→ rejoue la réponse mémorisée (status+headers+body) SANS exécuter ;
   `execute`→ exécution directe ; `guarded`→ exécute puis `store.complete(key,{status,body})` (succès)
   ou `store.abort(key)` (échec). Réponse mémorisée = **valeur RETOURNÉE** par l'action (un `this.render`
   manuel n'est pas rejoué fidèlement).
-- **admin** → `AdminApiController.idempotencyGate(adminRoute, request)` (`AdminApiController.ts:155`) =
+- **admin** → `AdminApiController.idempotencyGate(adminRoute, request)` (`AdminApiController.ts#AdminApiController.idempotencyGate`) =
   ne fait que TRADUIRE le verdict en `{shortCircuit}` / callbacks `onSuccess`/`onFailure`. `required:false`
   (admin n'exige la clé qu'en WS).
 
@@ -490,12 +490,12 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
 
 ## Internals — `callController`/`executeAction`/`initialize`/scope
 
-- **`callController`** (`Resolver.ts:648`) : résout `meta` **1×** (memo) puis le PASSE à `executeAction`
+- **`callController`** (`Resolver.ts#Resolver.callController`) : résout `meta` **1×** (memo) puis le PASSE à `executeAction`
   → 0 double résolution.
-- **`executeAction`** (`Resolver.ts:455`) : exécute et renvoie `{result, redirectMeta}` **sans rendre**
+- **`executeAction`** (`Resolver.ts#Resolver.executeAction`) : exécute et renvoie `{result, redirectMeta}` **sans rendre**
   (réutilisé par le pont WS-RPC `invoke` / futur GraphQL). Garde-fou : pointeur container `"controller"`
   vérifié `instanceof this.controller` (connexion WS multi-invoke → réécriture du pointeur).
-- **`newController`/`_createController`** (`Resolver.ts:381`,`274`) : `Injector.instantiate(ctor, ctx)`
+- **`newController`/`_createController`** (`Resolver.ts#Resolver._createController`,`274`) : `Injector.instantiate(ctor, ctx)`
   → pose `module` (shadow 1×) → `await controller.initialize()` si présent
   (`ControllerWithInitialize`, hook **per-request**, hot path, JAMAIS borné — distinct du `init()` de
   boot des services).
@@ -532,24 +532,24 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
 
 ## Internals — `RouteActionMeta` (memo)
 
-`RouteActionMeta` (`routerDecorators.ts:1537`) gèle par route : `paramsMeta`, `redirectMeta`, `httpCode`,
+`RouteActionMeta` (`routerDecorators.ts#RouteActionMeta`) gèle par route : `paramsMeta`, `redirectMeta`, `httpCode`,
 `headerEntries` (`Object.entries` 1×), `sessionIntent`, `security`, `cspDirectives`, `csrfProtect`,
 `csrfExempt`, `idempotent`. **Mémoïsé** au 1er hit sur `route.actionMeta` via `resolveActionMeta(route)`
-(`:1386`) → **0 `Reflect.getMetadata` par requête** (avant ~6/req). `computeActionMeta(ctor, method)`
-(`:1338`) = calcul pur (chemin froid forward sans route). Objet **PARTAGÉ entre requêtes — ne JAMAIS
+→ **0 `Reflect.getMetadata` par requête** (avant ~6/req). `computeActionMeta(ctor, method)`
+= calcul pur (chemin froid forward sans route). Objet **PARTAGÉ entre requêtes — ne JAMAIS
 muter** (`Object.freeze` sur `security`/`cspDirectives`/`idempotent`). Posé après `generateId()` → hash
 de route stable.
 
 Fonctions pures exportées (testables sans serveur) : `buildParamArgs(metas, IParamArgContext)` /
-`resolveParamArg(meta, ctx)` (`:1103`,`:1050`) · `routeExpectsBodyStream(route)` (`:1121`, memo
+`resolveParamArg(meta, ctx)` · `routeExpectsBodyStream(route)` (, memo
 `route.bodyStream`, lu **en amont** par `handleHttp` pour sauter le parse) · `resolveSessionIntent`
-(`:618`) · `extractActionScopes` (`:1232`).
+· `extractActionScopes`.
 
 ---
 
 ## Internals — contrat de retour controller
 
-`returnController(result)` (`Resolver.ts:1073`) normalise la valeur retournée par l'action vers le
+`returnController(result)` (`Resolver.ts#Resolver.returnController`) normalise la valeur retournée par l'action vers le
 transport (`switch(typeOf)`) :
 
 <!-- prettier-ignore -->
@@ -565,7 +565,7 @@ transport (`switch(typeOf)`) :
 | `void`/`null` + `isRedirect` | `context.send()` |
 | `void`/`null` | `waitAsync=true` (l'action a géré elle-même) |
 
-`@Redirect` : action `void`/`null` → `_handleRedirect` (`Resolver.ts:1032`) appelle `context.redirect(url,
+`@Redirect` : action `void`/`null` → `_handleRedirect` (`Resolver.ts#Resolver._handleRedirect`) appelle `context.redirect(url,
 code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourné par l'action override).
 
 ---
@@ -581,7 +581,7 @@ code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourn
   module les liste encore : périmé). Vue : `renderView` (lit fichier `.eta`).
 - **Ordre des décorateurs** : `@route`/`@Get`… (méthode) évalués AVANT `@controller` (classe), car les
   décorateurs sont bottom-up et `@controller` LIT la metadata accumulée. `@controller` **supprime** la
-  metadata après lecture (`routerDecorators.ts:196`).
+  metadata après lecture (`routerDecorators.ts#controller`).
 - **Décorateurs de CLASSE sous `@controller`** : `@Domain`/`@BypassFirewall`/`@UseSession`/`@IsGranted`
   de classe doivent être placés SOUS `@controller` (appliqués bas→haut ; `@controller` doit les voir
   posés au moment où il construit les routes).
@@ -595,7 +595,7 @@ code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourn
   comme donnée brute → `{body:{body:…}}`. Succès défaut 200 = renvoyer la donnée BRUTE.
 - **`@Scope` homonyme** : le core `nodefony` exporte aussi `Scope` (scope DI du Container) — le
   décorateur controller s'importe depuis `@nodefony/framework`.
-- **`extractControllerFilePath`** (`routerDecorators.ts:347`) : regex stack-trace `controllers?/.*\.js`
+- **`extractControllerFilePath`** (`routerDecorators.ts#extractControllerFilePath`) : regex stack-trace `controllers?/.*\.js`
   → ne capture le `filePath` d'une route qu'avec des fichiers **compilés `.js`** (no-op en ts-node).
 - **Singleton par défaut, stateless strict** : JAMAIS `this.x=…` par requête (data race) — les setters
   d'état lèvent partout, tout champ lève en dev (`singletonGuard.ts`). Déclarer `@Scope("request")`

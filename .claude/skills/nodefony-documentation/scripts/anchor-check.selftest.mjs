@@ -64,9 +64,23 @@ try {
   code[75] = "export function applyX(): void {}";
   fs.writeFileSync(path.join(racine, "src", "deco.ts"), code.join("\n"));
 
-  /** @type {Array<[string, string[], string]>} */
+  // 4e élément : les options du contrôle — par défaut `--lines`, l'ancien
+  // jugement des ancres de ligne ; `[]` = le GATE, qui les refuse.
+  /** @type {Array<[string, string[], string, string[]?]>} */
   const cas = [
     // [ligne de la page, verdict attendu, pourquoi ce cas existe]
+    [
+      "`Alpha()` (`deco.ts:9`), `K.gc()` (`deco.ts#K.gc`), `Beta` `:30`",
+      ["LINE_ANCHOR deco.ts:9", "LINE_ANCHOR deco.ts:30"],
+      "le gate REFUSE toute ancre de ligne, même juste, longue ou courte",
+      [],
+    ],
+    [
+      "`Alpha()` (`deco.ts#Alpha`) et la ligne `:12` sans fichier",
+      ["LINE_ANCHOR `:12`"],
+      "une ancre courte sans fichier est refusée aussi",
+      [],
+    ],
     [
       "`Alpha()` (`deco.ts#Alpha`), `K.gc()` (`deco.ts#K.gc`)",
       [],
@@ -195,16 +209,16 @@ try {
   ];
 
   let echecs = 0;
-  for (const [ligne, attendu, pourquoi] of cas) {
+  for (const [ligne, attendu, pourquoi, options = ["--lines"]] of cas) {
     const page = path.join(racine, "page.md");
     fs.writeFileSync(page, `# Page\n\n${ligne}\n`);
-    const r = spawnSync(process.execPath, [OUTIL, page], {
+    const r = spawnSync(process.execPath, [OUTIL, ...options, page], {
       cwd: racine,
       encoding: "utf8",
     });
     const obtenu = [
       ...r.stdout.matchAll(
-        /\[(SUSPECT|INDECIS|LINE_OUT|FILE_NOT_FOUND|SYMBOL_NOT_FOUND)\] l\.\d+ (\S+)/g,
+        /\[(SUSPECT|INDECIS|LINE_OUT|FILE_NOT_FOUND|SYMBOL_NOT_FOUND|LINE_ANCHOR)\] l\.\d+ (\S+)/g,
       ),
     ]
       .map((m) => `${m[1]} ${m[2]}`)

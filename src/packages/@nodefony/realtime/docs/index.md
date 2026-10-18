@@ -133,34 +133,34 @@ Quatre propriétés, toutes vérifiables dans le code — c'est ce qui justifie 
 WebSocket brute.
 
 **Un contrôleur temps réel est un contrôleur.** `RealtimeController`
-(`RealtimeController.ts:204`) étend le `Controller` du framework : il se déclare avec les mêmes
+(`RealtimeController.ts#RealtimeController`) étend le `Controller` du framework : il se déclare avec les mêmes
 décorateurs de route, reçoit la même injection, passe par le même pare-feu. HTTP et WebSocket ne sont
 pas deux applications à écrire deux fois, mais deux entrées du même pipeline.
 
 **Une connexion, N canaux, dans les deux sens.** Le client s'abonne à autant de canaux qu'il veut sur
 la même socket. Trois formes de trafic coexistent : le serveur diffuse (`@RealtimeChannel`,
-`realtimeDecorators.ts:240`), le client appelle et attend une réponse (`@RealtimeAction`,
-`realtimeDecorators.ts:191`), le client pousse sans attendre (`@RealtimeInbound`,
-`realtimeDecorators.ts:278`). Rien n'est ouvert qui n'ait été déclaré.
+`realtimeDecorators.ts#RealtimeChannel`), le client appelle et attend une réponse (`@RealtimeAction`,
+`realtimeDecorators.ts#RealtimeAction`), le client pousse sans attendre (`@RealtimeInbound`,
+`realtimeDecorators.ts#RealtimeInbound`). Rien n'est ouvert qui n'ait été déclaré.
 
 **Le travail est fait une fois par processus, pas une fois par client.** Le `RealtimeHub`
-(`RealtimeHub.ts:214`) tient **un seul producteur par canal** : le premier abonné le démarre, le
+(`RealtimeHub.ts#RealtimeHub`) tient **un seul producteur par canal** : le premier abonné le démarre, le
 dernier départ l'arrête. Chaque connexion supplémentaire n'ajoute qu'une destination de diffusion.
 Un salon suivi par mille personnes coûte un producteur, pas mille.
 
 **Le backplane est un transport, jamais un magasin.** Il relaie les publications d'un processus vers
 les autres, et rien de plus : aucun historique, aucune reprise. Les drivers vivent dans un registre
-(`registerBackplaneDriver`, `backplaneRegistry.ts:55`) — `loopback` (un seul processus), `cluster`
+(`registerBackplaneDriver`, `backplaneRegistry.ts#registerBackplaneDriver`) — `loopback` (un seul processus), `cluster`
 (échanges entre workers d'un même pod), `redis` (entre machines) — et tu peux y inscrire le tien sans
 toucher au cœur.
 
 > [!IMPORTANT]
 > **Rien ne franchit la frontière du processus sans intention explicite.** Par défaut, un canal reste
 > local. Il faut le déclarer diffusable (`@RealtimeBroadcast`,
-> `realtimeDecorators.ts:420`) pour qu'il emprunte le backplane. C'est volontaire : un canal
+> `realtimeDecorators.ts#RealtimeBroadcast`) pour qu'il emprunte le backplane. C'est volontaire : un canal
 > d'observation qui décrit l'état d'**un** pod n'aurait aucun sens répliqué sur les autres.
 
-Le module se déclare par ailleurs **non critique** (`Realtime.critical`, `index.ts:148`) et son
+Le module se déclare par ailleurs **non critique** (`Realtime.critical`, `index.ts#IRealtimeHarness.call`) et son
 démarrage de backplane est borné dans le temps : un Redis injoignable n'empêche pas l'application de
 monter, le hub reste local, et la dégradation est annoncée dans les journaux plutôt que subie.
 
@@ -316,7 +316,7 @@ reste local et le dit.
 ## 🧰 Surface publique
 
 Côté serveur : `RealtimeController` (la classe à étendre), les décorateurs `RealtimeChannel`,
-`RealtimeAction` et `RealtimeInbound`, le service `RealtimeService` (`RealtimeService.ts:50`) pour
+`RealtimeAction` et `RealtimeInbound`, le service `RealtimeService` (`RealtimeService.ts#RealtimeService`) pour
 publier depuis n'importe quel service injecté, le `RealtimeHub` et sa sonde, les trois backplanes
 natifs, et le registre de drivers pour brancher le tien.
 
@@ -329,7 +329,7 @@ jamais recopiées ici : elles divergeraient en silence.
 ## ⚙️ Configuration
 
 Un seul point d'entrée : `use("@nodefony/realtime", { … })` dans `nodefony.config.ts`, validé au boot
-contre le schéma du module (`realtimeConfigSchema`, `config.ts:259`). Six blocs :
+contre le schéma du module (`realtimeConfigSchema`, `config.ts#realtimeConfigSchema`). Six blocs :
 
 - `backplane` — le driver de fan-out et son espace de nommage. Ce cloisonnement devient
   indispensable dès que **deux déploiements partagent le même Redis** : sans lui, leurs publications
@@ -351,7 +351,7 @@ vue de tous les workers d'un pod.
 
 Le data plane admin expose `/nodefony/realtime/api/health` — canaux et abonnés, compteurs de
 diffusion, connexions, octets et frames, pression d'écriture. C'est la même donnée que celle rendue à
-l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:847`).
+l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts#RealtimeHub.probe`).
 
 ## 🧪 Tests & couverture
 

@@ -249,16 +249,16 @@ Exports config : `defineHttpConfig`, `httpConfigSchema`, `httpConfigJsonSchema`,
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle |
 | --- | --- | --- |
-| `handle` | `(request, response, type: ServerType): Promise<HttpContext>` `:444` | Entrée HTTP : ouvre un scope DI `request`, délègue à `handleHttp`. |
-| `handleHttp` | `(scope, request, response, type): Promise<…>` `:820` | Crée le contexte, wrap ALS, parse, route, firewall, action, teardown. |
-| `handleWebsocket` | `(req, ws, type): Promise<…>` `:1067` | Entrée WS : crée le contexte, résout la route **avant accept**, connect, dispatch. |
-| `handleFrontController` | `(context, checkFirewall = true): Promise<Controller \| number>` `:465` | Router.resolve → firewall → controller (HTTP **et** WS). Réutilise `context.resolver` si déjà matché. |
-| `onError` | `(error, context?, _extraHeaders?): Promise<HttpContext \| WebsocketContext>` `:559` | Rend l'erreur via `errorRenderer` ; HTTP→status, WS→close code (1011/1008/4004). |
-| `startSession` | `(context): Promise<Session \| null>` `:709` | Point d'activation **UNIQUE** session (HTTP+WS). Lazy : `null` si pas d'intent ni cookie. |
-| `setRequestLogger` / `getRequestLogger` | `(IRequestLogger): void` `:551` / `: IRequestLogger` `:555` | Échange le logger de requête (singleton stateless). |
-| `setErrorRenderer` / `getErrorRenderer` | `(IErrorRenderer): void` `:539` / `: IErrorRenderer` `:543` | Échange le renderer d'erreur (RFC 9457, hide-stack prod…). |
-| `isValidDomain` / `checkValidDomain` | `(context): boolean` `:1227` / `: number` `:1216` | Barrière Host (trustedHosts) → 401 si Host non trusté. |
-| `createHttpContext` / `createWebsocketContext` | `:781` / `:1015` | Fabriques de contexte (wirent teardown via event `finish`/`onFinish`). |
+| `handle` | `(request, response, type: ServerType): Promise<HttpContext>` | Entrée HTTP : ouvre un scope DI `request`, délègue à `handleHttp`. |
+| `handleHttp` | `(scope, request, response, type): Promise<…>` | Crée le contexte, wrap ALS, parse, route, firewall, action, teardown. |
+| `handleWebsocket` | `(req, ws, type): Promise<…>` | Entrée WS : crée le contexte, résout la route **avant accept**, connect, dispatch. |
+| `handleFrontController` | `(context, checkFirewall = true): Promise<Controller \| number>` | Router.resolve → firewall → controller (HTTP **et** WS). Réutilise `context.resolver` si déjà matché. |
+| `onError` | `(error, context?, _extraHeaders?): Promise<HttpContext \| WebsocketContext>` | Rend l'erreur via `errorRenderer` ; HTTP→status, WS→close code (1011/1008/4004). |
+| `startSession` | `(context): Promise<Session \| null>` | Point d'activation **UNIQUE** session (HTTP+WS). Lazy : `null` si pas d'intent ni cookie. |
+| `setRequestLogger` / `getRequestLogger` | `(IRequestLogger): void` / `: IRequestLogger` | Échange le logger de requête (singleton stateless). |
+| `setErrorRenderer` / `getErrorRenderer` | `(IErrorRenderer): void` / `: IErrorRenderer` | Échange le renderer d'erreur (RFC 9457, hide-stack prod…). |
+| `isValidDomain` / `checkValidDomain` | `(context): boolean` / `: number` | Barrière Host (trustedHosts) → 401 si Host non trusté. |
+| `createHttpContext` / `createWebsocketContext` | | Fabriques de contexte (wirent teardown via event `finish`/`onFinish`). |
 
 Champs publics : `requestLogger: IRequestLogger` (défaut `DefaultRequestLogger`), `errorRenderer: IErrorRenderer`
 (défaut `DefaultErrorRenderer`), `router`, `firewall`, `sessionService`, `profiler` (null en prod).
@@ -268,52 +268,52 @@ Champs publics : `requestLogger: IRequestLogger` (défaut `DefaultRequestLogger`
 Base `Context extends Service` (`src/context/Context.ts`). Sous-classes : `HttpContext` (HTTP/HTTPS/HTTP2),
 `WebsocketContext`. Props et méthodes héritées par les deux :
 
-| Membre                                           | Ancre           | Note                                                                      |
-| ------------------------------------------------ | --------------- | ------------------------------------------------------------------------- |
-| `requestId: string`                              | `:194`          | `randomUUID()` au ctor ; override par header `X-Request-Id` entrant.      |
-| `type: ServerType`, `scheme: SchemeType`         | `:145` / `:235` | `http`/`https`/`ws`/`wss`.                                                |
-| `method: HTTPMethod \| null`, `url: string`      | `:156` / `:155` | WS : `method` = `"WEBSOCKET"`.                                            |
-| `session: Session \| null \| undefined`          | `:162`          | `null` tant que pas activée (lazy).                                       |
-| `sessionIntent: SessionIntent \| null`           | `:176`          | Posé par `Resolver.match` (`@UseSession`/`@Session`).                     |
-| `cookies: Cookies`, `resolver: Resolver \| null` | `:159` / `:170` | `resolver` = seul lien vers framework (cast `any`).                       |
-| `metaData: Data`                                 | `:231`          | `setMetaData()` `:318` (inclut `nodefony.requestId`).                     |
-| `webSocketState`                                 | `:236`          | État WS (null en HTTP).                                                   |
-| `get signal(): AbortSignal`                      | `:383`          | **Lazy** : alloue `AbortController` au 1er accès seulement.               |
-| `phaseStart(name)` / `phaseEnd(name)`            | `:330` / `:338` | Instrumentation ; noop si timing off (`EMPTY_PHASES`).                    |
-| `onAfterResponse(fn)`                            | `:348`          | Hook post-réponse, fire-once, dédup finish/close.                         |
-| `logRequest(error?)`                             | `:498`          | Délègue au `requestLogger` ; gère le sampling (`shouldSample`).           |
-| `hasSession()` / `getSessionCookieName()`        | `:597` / `:617` | Reprise de session L1 / nom cookie (`__Host-` selon `cookie.hostPrefix`). |
+| Membre                                           | Ancre | Note                                                                      |
+| ------------------------------------------------ | ----- | ------------------------------------------------------------------------- |
+| `requestId: string`                              |       | `randomUUID()` au ctor ; override par header `X-Request-Id` entrant.      |
+| `type: ServerType`, `scheme: SchemeType`         |       | `http`/`https`/`ws`/`wss`.                                                |
+| `method: HTTPMethod \| null`, `url: string`      |       | WS : `method` = `"WEBSOCKET"`.                                            |
+| `session: Session \| null \| undefined`          |       | `null` tant que pas activée (lazy).                                       |
+| `sessionIntent: SessionIntent \| null`           |       | Posé par `Resolver.match` (`@UseSession`/`@Session`).                     |
+| `cookies: Cookies`, `resolver: Resolver \| null` |       | `resolver` = seul lien vers framework (cast `any`).                       |
+| `metaData: Data`                                 |       | `setMetaData()` (inclut `nodefony.requestId`).                            |
+| `webSocketState`                                 |       | État WS (null en HTTP).                                                   |
+| `get signal(): AbortSignal`                      |       | **Lazy** : alloue `AbortController` au 1er accès seulement.               |
+| `phaseStart(name)` / `phaseEnd(name)`            |       | Instrumentation ; noop si timing off (`EMPTY_PHASES`).                    |
+| `onAfterResponse(fn)`                            |       | Hook post-réponse, fire-once, dédup finish/close.                         |
+| `logRequest(error?)`                             |       | Délègue au `requestLogger` ; gère le sampling (`shouldSample`).           |
+| `hasSession()` / `getSessionCookieName()`        |       | Reprise de session L1 / nom cookie (`__Host-` selon `cookie.hostPrefix`). |
 
-`HttpContext` ajoute : `handle(): Promise<this>` `:206` (exécute l'action), `render(...)` `:280`,
-`redirect(...)` `:460`, `setTimeout()` `:232` (couche pipeline `responseTimeout`).
+`HttpContext` ajoute : `handle(): Promise<this>` (exécute l'action), `render(...)`,
+`redirect(...)`, `setTimeout()` (couche pipeline `responseTimeout`).
 
-`WebsocketContext` ajoute : `acceptedProtocol?` `:84`, `rejected` `:86`, `connection: Ws \| null` `:91`
-(assigné **dans le ctor**), `wsUrl: URL \| null` `:97`, `request` étendu en `WsIncomingMessage` (url = `URL`).
-Méthodes : `connect(): Promise<Ws>` `:222`, `send(data?, encoding?)` `:343`, `broadcast(data?, encoding?)`
-`:354`, `close(reasonCode, description)` `:524`, `onClose(code, reason)` `:436`.
+`WebsocketContext` ajoute : `acceptedProtocol?`, `rejected`, `connection: Ws \| null`
+(assigné **dans le ctor**), `wsUrl: URL \| null`, `request` étendu en `WsIncomingMessage` (url = `URL`).
+Méthodes : `connect(): Promise<Ws>`, `send(data?, encoding?)`, `broadcast(data?, encoding?)`
+, `close(reasonCode, description)`, `onClose(code, reason)`.
 
-Helper pur exporté : `toWsCloseCode(code): number` (`WebsocketContext.ts:80`) — coercition RFC 6455 §7.4.
+Helper pur exporté : `toWsCloseCode(code): number` (`WebsocketContext.ts#toWsCloseCode`) — coercition RFC 6455 §7.4.
 
 ### Request / Response
 
 - `HttpRequest` / `Http2Request` (`src/context/http/Request.ts`, `http2/Request.ts`) : parse du corps
   (busboy/JSON/QS/XML) ; remplit `request.queryPost`/`queryGet`. **Drain obligatoire** avant lecture
   (`Parser.parse()` `await this.ended()`).
-- `Response` (= `HttpResponse`, `src/context/http/Response.ts`) : `setStatusCode(...)` `:233`,
-  `setBody(ele, encoding?)` `:296`, `setLength(...)` `:317`, `setHeader(...)` `:133`, `getHeader(...)` `:515`,
-  `writeHead(...)` `:364` (sanitize statusMessage ASCII + injecte `x-request-id`), `send(...)` `:426`
-  (backpressure : resolve sur `drain` si buffer plein), `redirect(...)` `:534`.
+- `Response` (= `HttpResponse`, `src/context/http/Response.ts`) : `setStatusCode(...)`,
+  `setBody(ele, encoding?)`, `setLength(...)`, `setHeader(...)`, `getHeader(...)`,
+  `writeHead(...)` (sanitize statusMessage ASCII + injecte `x-request-id`), `send(...)`
+  (backpressure : resolve sur `drain` si buffer plein), `redirect(...)`.
 - `Http2Response` (`http2/Response.ts`) : chemin `stream.respond()` ; gardes `stream.destroyed/closed/writable`.
-- `WebsocketResponse` (= `wsResponse`, `src/context/websocket/Response.ts`) : `send(...)` `:71`,
-  `broadcast(data?, type?)` `:113` (= `wss.clients.forEach` → **inclut l'émetteur**), `close(reasonCode, description)` `:181`.
+- `WebsocketResponse` (= `wsResponse`, `src/context/websocket/Response.ts`) : `send(...)`,
+  `broadcast(data?, type?)` (= `wss.clients.forEach` → **inclut l'émetteur**), `close(reasonCode, description)`.
 
 ### `SessionsService` / `Session`
 
 `service/sessions/sessions-service.ts` + `src/session/session.ts`. `SessionsService` = **registre IoC**
 des backends (http n'importe **aucun** ORM) :
 
-- `static registerStorage(name, ctor): void` `:141`, `static getStorage(name)` `:150`, `static storageHandlers(): string[]` `:155`.
-- `start(context, readOnly?)` `:252`, `createSession(name, options?): Session` `:344`.
+- `static registerStorage(name, ctor): void`, `static getStorage(name)`, `static storageHandlers(): string[]`.
+- `start(context, readOnly?)`, `createSession(name, options?): Session`.
 - Chaque backend s'auto-enregistre au chargement (`files` par http ; `drizzle`/`mongoose` par leur module).
   Sélection par `session.handler` (défaut reco `drizzle`).
 
@@ -362,9 +362,9 @@ Per-instance (header `x-nodefony-instance`) — vue cluster = Redis.
 
 `src/context/domainMatcher.ts` — fonctions **pures** réutilisées par `@nodefony/framework` (`@Domain`) :
 
-- `compileDomainPattern(pattern): RegExp` `:51`, `compileDomainPatterns(...)` `:68`,
-  `compileTrustedHosts(...)` `:95`, `isDomainAllowed(regAlias, domain): boolean` `:124`.
-- Types : `DomainPattern = string \| RegExp` `:24`, `ITrustedHostsConfig = boolean \| DomainPattern \| DomainPattern[]` `:35`.
+- `compileDomainPattern(pattern): RegExp`, `compileDomainPatterns(...)`,
+  `compileTrustedHosts(...)`, `isDomainAllowed(regAlias, domain): boolean`.
+- Types : `DomainPattern = string \| RegExp`, `ITrustedHostsConfig = boolean \| DomainPattern \| DomainPattern[]`.
 - Politique de pattern UNIQUE (partagée kernel ↔ route) : string exact ancré (`.` littéral) / `*` wildcard
   un-label (RFC 9525) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
 
@@ -546,7 +546,7 @@ consommateur : `@nodefony/frontend` en dev, `/_vite/<famille>/` → Vite local. 
 
 ## Config (clés Zod)
 
-`config/schema.ts` = **source de vérité** (`httpConfigSchema` `:744` ; `config.ts` = `httpConfigSchema.parse({})`).
+`config/schema.ts` = **source de vérité** (`httpConfigSchema` ; `config.ts` = `httpConfigSchema.parse({})`).
 Validation au boot par `defineHttpConfig` (injecte les défauts kernel APRÈS parse). Config **non gelée** (les
 services mutent `module.options`). `strict` (strip, attrape typos) pour **notre code** ; `looseObject`
 (passthrough) pour les sections transmises à une lib tierce (`http`/`https`/`http2`/`websocket(s)`/`queryString`/`statics.*.options`).
@@ -554,16 +554,16 @@ services mutent `module.options`). `strict` (strip, attrape typos) pour **notre 
 <!-- prettier-ignore -->
 | Section (sous-schéma) | Ancre | Clés clés |
 | --- | --- | --- |
-| racine `httpConfigSchema` | `http/nodefony/config/config.ts:1171` | `watch` (reserved), `headerServer` (runtimeMutable, déf `"nodefony"`), `maxBodySize` (→413), `trustProxy`, `trustedHosts` |
-| `securityHeadersSchema` | `http/nodefony/config/config.ts:123` | `contentTypeOptions`, `frameOptions`, `strictTransportSecurity` (maxAge/includeSubDomains/preload) |
-| `uploadSchema` | `http/nodefony/config/config.ts:159` | `uploadDir` (kernelDerived ← `kernel.tmpDir`), `maxFileSize`, `maxTotalFileSize`, `maxFiles`, `hashAlgorithm` |
-| `queryStringSchema` | `http/nodefony/config/config.ts:246` | `parameterLimit`, `delimiter`, `ignoreQueryPrefix` |
-| `httpServerSchema` / `httpsServerSchema` | `http/nodefony/config/config.ts:338` / `http/nodefony/config/config.ts:336` | `keepAliveTimeout`, `timeout`, `requestTimeout`, `responseTimeout`, `headers`, `rejectUnauthorized` (https) |
-| `http2Schema` | `http/nodefony/config/config.ts:353` | `maxConcurrentStreams`, `maxSessionMemory` |
-| `certificatesSchema` | `http/nodefony/config/config.ts:480` | `strategy` (auto/mkcert/selfsigned/explicit), `ca`/`key`/`cert`, `privateKeyMode` (0600), `san` ({dns,ip}), `dev.useMkcert`, `selfSigned` ({size, hash, validityDays, backdateMinutes, attrs kernelDerived} — l'auto-signé est produit par `node-forge`, sans binaire externe) |
-| `websocketSchema` (+ `websocketSecure`) | `http/nodefony/config/config.ts:535` | `keepaliveInterval`, `keepaliveGracePeriod`, `closeTimeout`, `maxPayload` (1 MiB), `allowedOrigins` (anti-CSWSH), `perMessageDeflate`, `autoPong`, `maxBackpressure` (4 MiB), `backpressurePolicy` (drop/close) |
-| `staticsSchema` | `http/nodefony/config/config.ts:738` | `enabled` (déf true), `defaultOptions`, `web` ({path:"public"}), `cacheControl`, `maxAge` |
-| `sessionSchema` (+ `sessionCookieSchema` `http/nodefony/config/config.ts:769`) | `http/nodefony/config/config.ts:782` | `savePath`, `gcIntervalS`, `gcJitter`, `maxLifetimeS`, `absoluteTimeoutS`, `refererCheck`, `cookie` ({maxAge, httpOnly, secure, signed, hostPrefix}) |
+| racine `httpConfigSchema` | `http/nodefony/config/config.ts#httpConfigSchema` | `watch` (reserved), `headerServer` (runtimeMutable, déf `"nodefony"`), `maxBodySize` (→413), `trustProxy`, `trustedHosts` |
+| `securityHeadersSchema` | `http/nodefony/config/config.ts#securityHeadersSchema` | `contentTypeOptions`, `frameOptions`, `strictTransportSecurity` (maxAge/includeSubDomains/preload) |
+| `uploadSchema` | `http/nodefony/config/config.ts#uploadSchema` | `uploadDir` (kernelDerived ← `kernel.tmpDir`), `maxFileSize`, `maxTotalFileSize`, `maxFiles`, `hashAlgorithm` |
+| `queryStringSchema` | `http/nodefony/config/config.ts#queryStringSchema` | `parameterLimit`, `delimiter`, `ignoreQueryPrefix` |
+| `httpServerSchema` / `httpsServerSchema` | `http/nodefony/config/config.ts#httpsServerSchema` / `http/nodefony/config/config.ts#httpServerSchema` | `keepAliveTimeout`, `timeout`, `requestTimeout`, `responseTimeout`, `headers`, `rejectUnauthorized` (https) |
+| `http2Schema` | `http/nodefony/config/config.ts#http2Schema` | `maxConcurrentStreams`, `maxSessionMemory` |
+| `certificatesSchema` | `http/nodefony/config/config.ts#certificatesSchema` | `strategy` (auto/mkcert/selfsigned/explicit), `ca`/`key`/`cert`, `privateKeyMode` (0600), `san` ({dns,ip}), `dev.useMkcert`, `selfSigned` ({size, hash, validityDays, backdateMinutes, attrs kernelDerived} — l'auto-signé est produit par `node-forge`, sans binaire externe) |
+| `websocketSchema` (+ `websocketSecure`) | `http/nodefony/config/config.ts#websocketSchema` | `keepaliveInterval`, `keepaliveGracePeriod`, `closeTimeout`, `maxPayload` (1 MiB), `allowedOrigins` (anti-CSWSH), `perMessageDeflate`, `autoPong`, `maxBackpressure` (4 MiB), `backpressurePolicy` (drop/close) |
+| `staticsSchema` | `http/nodefony/config/config.ts#staticsSchema` | `enabled` (déf true), `defaultOptions`, `web` ({path:"public"}), `cacheControl`, `maxAge` |
+| `sessionSchema` (+ `sessionCookieSchema` `http/nodefony/config/config.ts#sessionCookieSchema`) | `http/nodefony/config/config.ts#sessionCookieSchema` | `savePath`, `gcIntervalS`, `gcJitter`, `maxLifetimeS`, `absoluteTimeoutS`, `refererCheck`, `cookie` ({maxAge, httpOnly, secure, signed, hostPrefix}) |
 
 Flags `meta()` (`config/configMeta.ts`, helper `meta()`) : `reserved`/`runtimeMutable`/`kernelDerived`/`secret`
 → recopiés dans le JSON Schema (`httpConfigJsonSchema()` via `z.toJSONSchema`) pour Studio/doc. ⚠️ poser le

@@ -70,12 +70,12 @@ ce que fait une porte MCP.
 >
 > Ce plafond vaut pour l'origine que **voit le navigateur**. Derrière nginx, HAProxy ou un
 > ingress qui termine le TLS, cette origine est le proxy : c'est **lui** qui doit servir HTTP/2,
-> et `proxy:generate` le pose déjà (`http2 on`, `generateProxyConfig.ts:270`). Nodefony reçoit
-> alors du HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts:351`) — y activer HTTP/2
+> et `proxy:generate` le pose déjà (`http2 on`, `generateProxyConfig.ts#nginxServerBlock`). Nodefony reçoit
+> alors du HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts#nginxServerBlock`) — y activer HTTP/2
 > n'y change rien. Sans proxy, c'est Nodefony qui sert HTTP/2.
 >
 > De chaque côté du proxy, un flux est une connexion qui se tait entre deux événements. Le
-> battement (`SSE_HEARTBEAT_MS`, 15 s, `SseStream.ts:77`) la garde vivante ; le délai
+> battement (`SSE_HEARTBEAT_MS`, 15 s, `SseStream.ts#SSE_HEARTBEAT_MS`) la garde vivante ; le délai
 > d'inactivité généré (300 s au moins) en tient vingt. Le seul piège réel : une action qui éteint
 > le battement (`heartbeat: false`) et se tait plus longtemps que ce délai se fait couper par le
 > proxy. Le guide [reverse-proxy](../../../../../docs/guides/reverse-proxy.md) détaille le reste.
@@ -142,23 +142,23 @@ data: {"step":"écriture"}
 
 - Les en-têtes partent dès `renderSse()` : `Content-Type: text/event-stream; charset=utf-8`,
   `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no` (`openSseStream()`,
-  `SseStream.ts:427`).
+  `SseStream.ts#openSseStream`).
 - `await sse.send()` freine l'action si le client lit lentement — c'est la contre-pression.
 
 ## ⚙️ Les deux bouts de l'API
 
 ### Côté serveur — `this.renderSse()` et l'objet `SseStream`
 
-| Membre                          | Rôle                                                                                               |
-| ------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `this.renderSse(options?)`      | ouvre le flux (`Controller.renderSse()`, `Controller.ts:665`) ; lève sur WebSocket                 |
-| `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts:649`)    |
-| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts:260`)              |
-| `sse.comment(text)`             | un commentaire, ignoré par le client                                                               |
-| `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                           |
-| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts:306`) |
-| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts:321`)                           |
-| `sse.closed`                    | le flux est-il fermé — à tester dans une boucle longue                                             |
+| Membre                          | Rôle                                                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `this.renderSse(options?)`      | ouvre le flux (`Controller.renderSse()`, `Controller.ts#Controller.renderSse`) ; lève sur WebSocket               |
+| `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts#Controller.acceptsSse`) |
+| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts#SseStream.send`)                  |
+| `sse.comment(text)`             | un commentaire, ignoré par le client                                                                              |
+| `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                                          |
+| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts#SseStream.onClose`)  |
+| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts#SseStream.close`)                              |
+| `sse.closed`                    | le flux est-il fermé — à tester dans une boucle longue                                                            |
 
 Options de `renderSse()` :
 
@@ -185,13 +185,13 @@ async runTask() {
 }
 ```
 
-`acceptsEventStream()` (`SseStream.ts:395`) ne retient `text/event-stream` que **nommé** avec un
+`acceptsEventStream()` (`SseStream.ts#acceptsEventStream`) ne retient `text/event-stream` que **nommé** avec un
 poids non nul : `*/*` ne suffit pas — un client qui ne nomme pas le flux ne sait pas le lire —, et
 `q=0` est un refus (RFC 9110 §12.4.2).
 
 ### Côté client — `NodefonySse`
 
-`NodefonySse` (`NodefonySse.ts:110`) reprend le vocabulaire d'`EventSource` — `onopen`,
+`NodefonySse` (`NodefonySse.ts#NodefonySse`) reprend le vocabulaire d'`EventSource` — `onopen`,
 `onmessage`, `onerror`, `addEventListener(type)`, `readyState`, `lastEventId`, `close()`,
 reconnexion avec `Last-Event-ID` — et ajoute ce que le natif refuse : `method`, `headers` (un
 `Authorization: Bearer`), `body`. Il est bâti sur `fetch`, donc tourne aussi sous Node, où
@@ -205,7 +205,7 @@ reconnexion avec `Last-Event-ID` — et ajoute ce que le natif refuse : `method`
 | autre statut (204 compris), autre type      | `error`, `CLOSED`, **sans** reconnexion (WHATWG §9.2.3)                             |
 | événement au-delà de `maxEventSize` (4 Mi)  | `CLOSED` sans reconnexion                                                           |
 
-L'analyseur du format est `SseParser` (`SseParser.ts:61`), exporté par `nodefony/client` : c'est
+L'analyseur du format est `SseParser` (`SseParser.ts#SseParser`), exporté par `nodefony/client` : c'est
 le même qui relit le flux dans les tests du serveur.
 
 ## 🏗️ Architecture interne — ce que fait l'ouverture
@@ -213,20 +213,20 @@ le même qui relit le flux dans les tests du serveur.
 1. **La réponse est prise** (`context.sended`) : plus rien ne peut répondre à la place du flux.
 2. **La session est sauvée** s'il y en a une — ses cookies partent avec les en-têtes.
 3. **Le transport se constate** : flux HTTP/2, ou réponse HTTP/1.1 ; ni l'un ni l'autre → 500,
-   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts:485`).
+   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts#startSseStream`).
 4. **Les en-têtes partent** — `respond()` en HTTP/2, `flushHeaders()` en HTTP/1.1 — et le délai
    d'inactivité de la requête est **désarmé** : sans cela, le flux vivant prendrait un 408 au bout
    de 30 s.
 5. **Le battement démarre** sur un minuteur `unref()`.
 
-La fin, quel que soit le bout qui ferme, passe par **un seul** nettoyage (`SseStream.ts:254`) :
+La fin, quel que soit le bout qui ferme, passe par **un seul** nettoyage (`SseStream.ts#SseStream.send`) :
 minuteur arrêté, écouteurs `close` et `drain` retirés, attente de `drain` libérée, puis les
 écouteurs `onClose`.
 
 ## 🔐 Sécurité
 
 - **Injection de flux** : `event` et `id` sont refusés s'ils contiennent CR, LF ou NUL
-  (`singleLine()`, `SseStream.ts:105`) — une valeur venue d'un utilisateur ne peut pas clore
+  (`singleLine()`, `SseStream.ts#singleLine`) — une valeur venue d'un utilisateur ne peut pas clore
   l'événement pour en forger un autre. Les `data` sur plusieurs lignes sont découpés en autant de
   champs, jamais recopiés tels quels.
 - **Client** : un serveur qui n'envoie jamais de fin de ligne ferait grossir la mémoire du client

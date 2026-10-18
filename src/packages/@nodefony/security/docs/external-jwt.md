@@ -33,9 +33,9 @@ Accepter un émetteur ne veut pas dire lui remettre les clés. Deux décisions r
 sont elles qui font la différence entre « intégrer un annuaire » et « en faire l'unique autorité
 d'accès » :
 
-1. **La liste des émetteurs acceptés** est une allowlist (`trustedIssuerSchema`, `config.ts:711`). Un jeton dont l'`iss` n'y figure pas est
+1. **La liste des émetteurs acceptés** est une allowlist (`trustedIssuerSchema`, `config.ts#trustedIssuerSchema`). Un jeton dont l'`iss` n'y figure pas est
    refusé **avant toute requête sortante** — l'application ne va pas interroger un émetteur inconnu.
-2. **Le sujet du jeton ne devient pas d'office un utilisateur** (`config.ts:679-684`). Par défaut, il
+2. **Le sujet du jeton ne devient pas d'office un utilisateur** (`config.ts#remoteJwtAlgSchema`). Par défaut, il
    doit correspondre à un compte local. Un annuaire d'entreprise vaut pour des milliers de personnes : les accepter
    toutes parce que leur jeton est valide supprimerait la seconde décision, qui est la raison d'être
    du pare-feu.
@@ -89,7 +89,7 @@ normalisés (RFC 8414 / OpenID), et le pare-feu accepte désormais un `Authoriza
 Un `sub` n'est unique que **dans l'espace de son émetteur** (OIDC Core §2). L'identité est donc la
 paire `(émetteur, sujet)`, jamais le sujet seul.
 
-En mode `prefixed` (`config.ts:724-728`), l'identifiant cherché localement est `<issuer>#<sub>` : deux émetteurs ne peuvent
+En mode `prefixed` (`config.ts#trustedIssuerSchema`), l'identifiant cherché localement est `<issuer>#<sub>` : deux émetteurs ne peuvent
 pas se disputer un compte, et surtout **aucun sujet étranger ne peut tomber par hasard sur un
 identifiant local existant**. En mode `subject`, le `sub` est cherché tel quel — dans un annuaire où
 l'utilisateur choisit son identifiant, quelqu'un peut alors se présenter avec `sub: "admin"` et être
@@ -104,7 +104,7 @@ parce qu'il **est** cette application, ou parce que ses sujets sont déjà des i
   Absent, désactivé ou verrouillé : l'accès est refusé. C'est le mode d'une application dont les
   utilisateurs existent chez elle, l'émetteur ne servant qu'à les authentifier.
 - **`ephemeral`** — aucun compte local n'est exigé ni créé ; l'appelant vit le temps de la requête
-  avec les rôles d'`ephemeralRoles` (`config.ts:746`). C'est le mode de l'appelant **purement machine** : un agent, un
+  avec les rôles d'`ephemeralRoles` (`config.ts#trustedIssuerSchema`). C'est le mode de l'appelant **purement machine** : un agent, un
   service. Sans rôle déclaré, il ne passe aucun `@IsGranted` et n'est autorisé que par ses **scopes**
   — qui viennent du jeton, donc bornés par le serveur d'autorisation.
 
@@ -154,7 +154,7 @@ Capacité `jwt` coupée ET `issuers` vide : rien n'est posé, et une porte prot�
 (`503`) plutôt que d'accepter des porteurs qu'elle ne sait pas lire. `issuers` mal configurée :
 rien n'est posé non plus, jetons de l'application compris.
 
-L'authentificateur `external-jwt` (`authenticatorRegistry.ts:118`) reconnaît les jetons qui le
+L'authentificateur `external-jwt` (`authenticatorRegistry.ts`) reconnaît les jetons qui le
 concernent d'après la liste d'émetteurs, puis délègue la vérification au service — qui refait le contrôle sur sa propre liste.
 La liste sert donc à deux choses : router, et dire dans quel espace de noms lire le sujet.
 

@@ -320,7 +320,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:3925`).
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts#Kernel.guardInitialize`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.
@@ -378,7 +378,7 @@ async init?(kernel?: IKernel): Promise<this> { ... }
 ```
 
 ⚠️ `init`, PAS `initialize`. `initialize()` est le hook du **Controller** (appelé
-sans argument à CHAQUE requête, `Resolver.ts:82`) ; `init(owner)` est celui du
+sans argument à CHAQUE requête, `Resolver.ts#ControllerWithInitialize.initialize`) ; `init(owner)` est celui du
 Module et du Service (une fois au démarrage, sous garde de boot). Deux cycles de
 vie, deux noms.
 
@@ -391,7 +391,7 @@ pris, handler absent, déclaration qui lève) → écarté + `onSkip`, jamais si
 
 **readOverrideModuleConfig(deep?)**: keys `Module-<name>` dans `this.options` → `extend(mod.options, override)`. Warn si module inconnu.
 
-**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `init(module)` si présente (`Module.ts:110`), sous `guardServiceInitialize` quand un kernel est présent. L'injecteur CONSTRUIT seulement — il n'appelle aucun hook.
+**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `init(module)` si présente (`Module.ts#Module.init`), sous `guardServiceInitialize` quand un kernel est présent. L'injecteur CONSTRUIT seulement — il n'appelle aucun hook.
 
 **getDependencies()**: `dependencies + peerDependencies` (PAS devDependencies). Pas de dedup — doublon possible si présent dans les deux.
 
@@ -511,7 +511,7 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
     trie par dépendances déclarées (`inject:services` + `design:paramtypes`) AVANT d'instancier.
     Tri **STABLE** → une liste déjà correcte sort inchangée ; cycle → erreur qui NOMME le cycle ;
     les chemins `string` (deps inconnaissables sans charger) et les ctors hors registre gardent leur
-    position. Avant : `HttpKernel` descendu de 3 lignes dans `http/index.ts:52` → 499
+    position. Avant : `HttpKernel` descendu de 3 lignes dans `http/index.ts#nodefony` → 499
     « sessionService not found » sur chaque requête.
     ⚠️ **Le tri ne sauve QUE les services dont le nom round-trippe** (`@injectable` == clé `super()`,
     cas de `HttpKernel`) : un `super("probeDep")` sous `@injectable()` → `"ProbeDep"` reste

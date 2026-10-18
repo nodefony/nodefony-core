@@ -85,7 +85,7 @@ Confondre **autorisation** (« l'endpoint est déjà gardé, on peut être permi
 
 **Entrée** `IPageQuery` — `limit` (obligatoire, jamais « tout »), `offset` **ou** `cursor`, `order`
 (tableau de couples `[champ, sens]`), `withTotal`, `q`, `tenantId` (**réservé** multi-tenant, non
-appliqué : le passer ne filtre rien, `IPage.ts:56-64`).
+appliqué : le passer ne filtre rien, `IPage.ts#IPageQuery.tenantId`).
 
 **Sortie** `IPage<T>` — `items`, `limit`, `hasNext` (toujours fiable), `total` (mode **Page**,
 absent en mode **Slice** quand `withTotal: false`), `offset` ou `nextCursor` selon le mode.
@@ -105,7 +105,7 @@ assertPageQuery(query, "offset"); // lève PaginationModeError (400) si un `curs
 ```
 
 Sans cette garde, le champ hors-mode était avalé en silence et **un client curseur bouclait
-indéfiniment sur la page 1** d'un store offset (`pageGuard.ts:23-35`).
+indéfiniment sur la page 1** d'un store offset (`pageGuard.ts#PaginationModeError`).
 
 Les filtres propres à une ressource **n'entrent pas** dans `IPageQuery` : chaque store l'étend —
 `interface ISessionListQuery extends IPageQuery { authenticated?: boolean }`.
@@ -114,7 +114,7 @@ Les filtres propres à une ressource **n'entrent pas** dans `IPageQuery` : chaqu
 
 ## 3. `parsePageQuery` — le traducteur unique
 
-`src/nodefony/src/runtime/pageQuery.ts:224`
+`src/nodefony/src/runtime/pageQuery.ts#parsePageQuery`
 
 Fonction **pure** : aucun accès au kernel, à l'ALS ni à la requête HTTP. Elle ne connaît pas HTTP —
 sa source est un `PageQuerySource` (`Record<string, string | string[] | undefined>`), donc une query
@@ -134,7 +134,7 @@ plantait à `NaN` là), et **aucune** ne validait le tri.
 | `withTotal` | `?withTotal=false`         | posé **seulement** si `false` (défaut `true`)       |
 | `q`         | `?q=jean`                  | trimé, posé si non vide — **400** sans `searchable` |
 
-Options (`IParsePageQueryOptions`, `pageQuery.ts:23`) :
+Options (`IParsePageQueryOptions`, `pageQuery.ts#IParsePageQueryOptions`) :
 
 - `defaultLimit` (50) · `maxLimit` (200) — une demande supérieure est **ramenée** au plafond, pas
   refusée : un client qui demande trop mérite une page, pas une erreur.
@@ -143,12 +143,12 @@ Options (`IParsePageQueryOptions`, `pageQuery.ts:23`) :
 
 Deux détails qui portent une décision :
 
-- **Une clé à plusieurs valeurs est refusée** (`singleValue`, `pageQuery.ts:118`). Ni le contrat de
+- **Une clé à plusieurs valeurs est refusée** (`singleValue`, `pageQuery.ts#singleValue`). Ni le contrat de
   page ni une spec de filtre n'expriment l'appartenance à un ensemble ; prendre la première valeur
   et jeter les autres rendrait une page filtrée sur `a` à qui a demandé `a` **et** `b`. Le jour où
   un endpoint doit accepter plusieurs valeurs, ce sera une **nature de filtre déclarée**, pas une
   tolérance du lecteur.
-- **`PAGE_QUERY_KEYS`** (`pageQuery.ts:90`) est la source unique des clés que le contrat revendique
+- **`PAGE_QUERY_KEYS`** (`pageQuery.ts#PAGE_QUERY_KEYS`) est la source unique des clés que le contrat revendique
   sur le fil. Son consommateur est `parseFilters`, qui doit distinguer un paramètre de pagination
   d'un filtre inconnu. La recopier là-bas suffirait à ce qu'un paramètre légitime devienne un 400 le
   jour où le contrat gagne une clé ici et pas là.
@@ -157,7 +157,7 @@ Deux détails qui portent une décision :
 
 ## 4. `parseFilters` + `IFilterSpec` — l'obligation
 
-`src/nodefony/src/runtime/pageFilters.ts:128`
+`src/nodefony/src/runtime/pageFilters.ts#isEach`
 
 Une **spec** déclare ce qu'un point d'entrée sait filtrer : nom public → nature ou liste fermée.
 C'est une **donnée**, pas un comportement — une constante à côté du contrat de la ressource.
@@ -191,7 +191,7 @@ Trois refus, tous en 400 :
 Le troisième est le plus important et le moins évident. `PAGE_QUERY_KEYS` est bien sûr admise —
 c'est la même URL qui porte les deux.
 
-**`accepts`** (`IParseFiltersOptions`, `pageFilters.ts:77`) — les paramètres que l'appelant lit
+**`accepts`** (`IParseFiltersOptions`, `pageFilters.ts#IParseFiltersOptions`) — les paramètres que l'appelant lit
 lui-même, hors filtres : une projection (`?include=author`), un format de sortie. Sans cette liste,
 `?include=author` deviendrait un 400 sur un paramètre légitime, et la seule échappatoire serait de
 ne plus refuser du tout.
@@ -203,7 +203,7 @@ ne plus refuser du tout.
 
 ## 5. `countFacets` + `IFacetSpec` — les cartes de tête d'écran
 
-`src/nodefony/src/runtime/pageFacets.ts:74`
+`src/nodefony/src/runtime/pageFacets.ts#countFacets`
 
 Une **facette** est une question fermée posée à la collection **entière** — « combien de sessions
 authentifiées ? ». C'est ce que les cartes en tête d'un écran d'administration prétendent afficher,
@@ -239,7 +239,7 @@ Trois règles portées par le type et l'algorithme :
   se recouvrir (un compte peut être à la fois désactivé **et** verrouillé), et la soustraction
   rendrait un nombre que rien ne compte.
 
-**`facetDimensions(facets)`** (`pageFacets.ts:109`) rend les champs qu'une table de facettes
+**`facetDimensions(facets)`** (`pageFacets.ts#facetDimensions`) rend les champs qu'une table de facettes
 décompose — donc ceux qu'un endpoint de statistiques **ne doit pas** accepter en filtre. Un client
 envoie naturellement le même query string à la liste et aux compteurs ; sans cette garde, la réponse
 se contredit (« 5 clés au total, dont 538 révoquées »). À vérifier par un test, par ressource.
@@ -266,7 +266,7 @@ déclaré par store laisse croire qu'un filtre du contrat est facultatif.
 plus à écrire pour que le tri y soit refusé. Les capacités **peuvent** être inégales d'un backend à
 l'autre : elles sont alors annoncées, jamais simulées.
 
-`ISortableSource` (`IPage.ts:92`) existe pour qu'il n'y ait **qu'une** forme à connaître — nom de la
+`ISortableSource` (`IPage.ts#ISortableSource`) existe pour qu'il n'y ait **qu'une** forme à connaître — nom de la
 propriété, nullabilité et sémantique écrits une fois, au lieu d'être redéclarés dans chaque contrat
 de store. Le mécanisme est le même pour toutes les ressources : le store **déclare**, le data plane
 **demande** et passe en allowlist à `parsePageQuery`, tout `?order=` hors liste est **refusé**.
@@ -287,7 +287,7 @@ async listPage(query: ISessionListQuery): Promise<IPage<Session>> {
 }
 ```
 
-**`pickOrder`** (`pageSort.ts:87`) retient les seuls couples déclarés triables et retombe sur
+**`pickOrder`** (`pageSort.ts#pickOrder`) retient les seuls couples déclarés triables et retombe sur
 l'ordre par défaut s'il n'en reste aucun. Ce n'est **pas** redondant avec le refus 400 du data
 plane : tout appelant interne (un autre service, un test, un futur endpoint) peut fabriquer un
 `IPageQuery` à la main. Sans ce filtre, le backend mémoire trierait sur un champ jamais annoncé
@@ -300,7 +300,7 @@ quand le backend SQL l'ignorerait — le contrat partagé ne décrirait plus un 
 moteur. Les couples s'appliquent dans l'ordre : le premier qui départage l'emporte. Les backends SQL
 et Mongo n'en ont pas besoin — ils poussent l'`order` dans la requête, infiniment moins cher.
 
-**`renameOrderFields`** (`pageSort.ts:54`) traduit les noms **publics** (ceux de l'URL) en noms de
+**`renameOrderFields`** (`pageSort.ts#renameOrderFields`) traduit les noms **publics** (ceux de l'URL) en noms de
 colonnes internes. L'allowlist est toujours en vocabulaire public.
 
 **Un ordre par défaut n'est pas décoratif** : sans ordre déterministe, la base rend les lignes dans
@@ -312,7 +312,7 @@ départager les ex æquo.
 
 ## 8. Publier la capacité — `IAdminEndpoint.page`
 
-`src/nodefony/src/types/IAdminApi.ts:104` et `:182`
+`src/nodefony/src/types/IAdminApi.ts#IAdminPageCapabilities` et `src/nodefony/src/types/IAdminApi.ts#IAdminEndpoint.page`
 
 Le front **demande** la capacité, il ne l'invente pas. Un endpoint admin la publie dans le catalogue
 (déjà chargé par la console) via `page?: IAdminPageCapabilities` :
@@ -324,7 +324,7 @@ Le front **demande** la capacité, il ne l'invente pas. Un endpoint admin la pub
   page: {
     // FONCTIONS — la réponse dépend du store branché au démarrage. Le motif réel
     // interroge le service, et rend une liste VIDE quand il ne sait pas faire
-    // (cf HttpAdminApi.ts:344) — le refus est alors gratuit.
+    // (cf HttpAdminApi.ts#createHttpAdminApi) — le refus est alors gratuit.
     sortable: () => {
       const svc = this.sessionService();
       return svc?.supportsEnumeration() ? svc.sortableFields() : [];
@@ -339,8 +339,8 @@ Le front **demande** la capacité, il ne l'invente pas. Un endpoint admin la pub
 
 Il n'existe volontairement **pas** de propriété générique `supportsSearch` : chaque ressource
 répond selon ce que son backend sait faire — `() => true` quand c'est inconditionnel
-(`UserAdminApi.ts:349`), une condition sur le service quand ça ne l'est pas
-(`WebhookAdminApi.ts:247`).
+(`UserAdminApi.ts#createUserAdminApi`), une condition sur le service quand ça ne l'est pas
+(`WebhookAdminApi.ts#webhookAdminEndpoints`).
 
 Pourquoi `sortable` et `search` sont des **fonctions** et pas des constantes : la réponse dépend du
 store effectivement branché **au démarrage**, pas d'une valeur de compilation. Elles sont évaluées à
@@ -439,7 +439,7 @@ it("l'endpoint de stats ne filtre aucune dimension qu'il décompose", () => {
   doit **réduire** l'ensemble, et l'assertion doit le mesurer.
 - **Un endpoint de statistiques qui accepte la dimension qu'il décompose** rend une réponse qui se
   contredit. Garde : `facetDimensions` + le test ci-dessus.
-- **`tenantId` traverse le contrat mais n'est PAS appliqué** (`IPage.ts:56`). Le passer ne filtre
+- **`tenantId` traverse le contrat mais n'est PAS appliqué** (`IPage.ts#IPageQuery.tenantId`). Le passer ne filtre
   rien. Ne pas s'en servir comme d'un scoping.
 - **`accepts` non lu** = le paramètre accepté puis jeté, réintroduit par la porte de service.
 - **Ne pas rejouer `countFacets` à chaque tour de page** — les facettes ne dépendent ni de `limit`,
@@ -454,10 +454,10 @@ Points connus, à traiter quand on passe à côté — ne pas les prendre pour m
 
 - **`paginate()` de `@nodefony/orm-core` ignore `q`** (`paginate.ts` — le paramètre n'y est ni lu ni
   transmis). Un service CRUD qui s'appuie dessus ne cherche pas, quoi qu'il déclare.
-- **`SyslogAdminApi` lit ses filtres hors `parseFilters`** (`:121`, `:130` — `Array.isArray(raw) ?
+- **`SyslogAdminApi` lit ses filtres hors `parseFilters`** ( — `Array.isArray(raw) ?
 raw[0] : raw`, soit la tolérance « prendre la première valeur et jeter les autres » que
-  `singleValue` refuse partout ailleurs ; `:166` compose un multi-valeurs pour `flow`).
-- **`MemoryAuditStore` trie en dur** (`:85`, `matched.sort(…)` sans passer par `pickOrder`) — donc
+  `singleValue` refuse partout ailleurs ; compose un multi-valeurs pour `flow`).
+- **`MemoryAuditStore` trie en dur** (, `matched.sort(…)` sans passer par `pickOrder`) — donc
   potentiellement sur un champ jamais déclaré, là où le backend SQL de la même ressource refuserait.
 - **`routes/page` (`FrameworkAdminApi:174`) ne publie pas `page:`** dans le catalogue, et la vue
   Routes code donc ses colonnes en dur. Le reste y est **conforme et assumé** : `parsePageQuery`

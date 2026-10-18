@@ -258,7 +258,7 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
 2. **`Unexpected token '<'` sur `fetch("{ROUTE}/api/...")`** : la page est ouverte sur le port de Vite (SPA-fallback HTML) — l'ouvrir par Nodefony (5152).
 3. **CSP** : page blanche + `blocked:csp` → nonce non propagé (`renderTags` sans `cspNonce`), ou origine Vite absente du CSP (firewall pas encore `ready` → recharger après le boot complet).
 4. **Cache navigateur HMR** : après changement CSP/manifest → **Cmd+Shift+R**.
-5. **Certificat de dev** : l'accepter UNE fois sur `:5152` — Vite est relayé sur la même origine (un seul certificat), ou installer la CA Nodefony.
+5. **Certificat de dev** : l'accepter UNE fois sur — Vite est relayé sur la même origine (un seul certificat), ou installer la CA Nodefony.
 6. **Placeholders** : remplacer `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}`, `{TYPE}`, `{ENTRY}`, `{MOUNT_NODE}` AVANT le Write.
 
 > Pièges **spécifiques React** (preamble) et **Angular** (`--legacy-peer-deps`, external rolldown, tsconfig.app,

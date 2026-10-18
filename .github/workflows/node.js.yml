@@ -549,6 +549,9 @@ jobs:
           # L'outil d'abord : un contrôle qui ne sait plus voir une ancre dérivée
           # rendrait tout le corpus « OK » sans un mot.
           node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
+          # Le CONVERTISSEUR des ancres de ligne en symboles (#613) : une ancre
+          # écrite par habitude se convertit, et la cible doit être la bonne.
+          node .claude/skills/nodefony-documentation/scripts/anchor-migrate.selftest.mjs
           # Le FIXEUR aussi : un recalage sur le mauvais symbole rend une ancre
           # juste au sens du gate et fausse au sens du lecteur.
           node .claude/skills/nodefony-documentation/scripts/anchor-fix.selftest.mjs

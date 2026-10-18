@@ -104,9 +104,9 @@ Ce qu'il **n'est pas**, dit franchement :
   services, événements de cycle de vie, firewall par zones, contrôleurs à décorateurs), mais
   l'architecture, la terminologie et surtout le modèle de transport unifié lui sont propres.
 - **Ce n'est pas un runtime alternatif.** Les serveurs s'appuient sur Node.js natif :
-  `node:http` et `node:http2` (`ServerHttp.createServer()`, `server-http.ts:83`), `node:https`
-  (`ServerHttps.createServer()`, `server-https.ts:92`), et la bibliothèque `ws` pour le WebSocket
-  (`Websocket.createServer()`, `server-websocket.ts:62`). Pas de moteur maison, pas de `Bun.serve()`.
+  `node:http` et `node:http2` (`ServerHttp.createServer()`, `server-http.ts#ServerHttp.createServer`), `node:https`
+  (`ServerHttps.createServer()`, `server-https.ts#ServerHttps.createServer`), et la bibliothèque `ws` pour le WebSocket
+  (`Websocket.createServer()`, `server-websocket.ts#Websocket.createServer`). Pas de moteur maison, pas de `Bun.serve()`.
 - **Ce n'est pas une bibliothèque temps réel greffée à côté.** Le WebSocket n'est pas un module
   optionnel branché sur le serveur web : il traverse **le même pipeline**, avec la même session et le
   même firewall.
@@ -124,28 +124,28 @@ L'affirmation se vérifie à trois endroits du code, pas dans un slogan.
 deux de `Context` — l'objet qui transporte session, utilisateur, identifiant de requête et décision
 du firewall :
 
-| Transport | Classe                                   | Ancrage                   |
-| --------- | ---------------------------------------- | ------------------------- |
-| Commun    | `class Context extends Service`          | `Context.ts:158`          |
-| HTTP/2    | `class HttpContext extends Context`      | `HttpContext.ts:77`       |
-| WebSocket | `class WebsocketContext extends Context` | `WebsocketContext.ts:143` |
+| Transport | Classe                                   | Ancrage                                |
+| --------- | ---------------------------------------- | -------------------------------------- |
+| Commun    | `class Context extends Service`          | `Context.ts#Context`                   |
+| HTTP/2    | `class HttpContext extends Context`      | `HttpContext.ts#switchUrlScheme`       |
+| WebSocket | `class WebsocketContext extends Context` | `WebsocketContext.ts#WebsocketContext` |
 
 **2. Les deux traversent le même résolveur.** `HttpContext.handle()` appelle `router.resolve(this)`
-puis `resolver.callController()` (`HttpContext.ts:287`) ; `WebsocketContext.handle()` fait exactement
-la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts:372`). Un seul
-`Router` (`router.ts:164`), un seul `Resolver` (`Resolver.ts:90`).
+puis `resolver.callController()` (`HttpContext.ts#HttpContext._onTimeout`) ; `WebsocketContext.handle()` fait exactement
+la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts#WebsocketContext.handle`). Un seul
+`Router` (`router.ts#Router`), un seul `Resolver` (`Resolver.ts#Resolver`).
 
 **3. Une route déclare ses transports, elle ne choisit pas son monde.** Le transport est une
 **exigence de route** parmi d'autres : `Route.match()` compare `context.method` — qui vaut
 littéralement `"WEBSOCKET"` sur une socket — au `methodsSet` précompilé de la route
-(`Route.ts:243`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
+(`Route.ts#Route.methodsSet`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
 deux portes.
 
 Ce que ça change concrètement : **une** session, **un** modèle de droits, **un** identifiant de
 requête tracé, **un** journal — que l'appel arrive en HTTP/1.1, en HTTP/2 ou par une trame WebSocket.
-Ce que porte `Context` pour les deux transports : `router` (`Context.ts:227`), `resolver`
-(`Context.ts:228`), `session` (`Context.ts:196`), `user` (`Context.ts:198`), la décision du firewall
-(`Context.ts:198`), le `requestId` (`Context.ts:252`) et le nonce CSP paresseux (`Context.ts:252`).
+Ce que porte `Context` pour les deux transports : `router` (`Context.ts#Context.router`), `resolver`
+(`Context.ts#Context.resolver`), `session` (`Context.ts#Context.session`), `user` (`Context.ts#Context.user`), la décision du firewall
+(`Context.ts#Context.user`), le `requestId` (`Context.ts#Context.requestId`) et le nonce CSP paresseux (`Context.ts#Context.requestId`).
 
 ## 🚀 Démarrage rapide
 
@@ -241,8 +241,8 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1587`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1698`). L'ordre du tableau **est** l'ordre
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts#Kernel.resolveModuleEntries`) puis
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts#Kernel.loadModulesFromManifest`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -291,24 +291,24 @@ flowchart BT
 
 ### [`nodefony`](../../src/nodefony/docs/index.md) — le socle
 
-`Service` (`Service.ts:43`) est la classe de base de **tout** : Kernel, Module, contrôleurs, services
+`Service` (`Service.ts#Service`) est la classe de base de **tout** : Kernel, Module, contrôleurs, services
 métier. Elle apporte l'accès au conteneur, l'émission d'événements et le journal structuré. Au-dessus
-vivent `Kernel` (`Kernel.ts:431`), `Module` (`Module.ts:60`) et `Container` (`Container.ts:93`).
+vivent `Kernel` (`Kernel.ts#Kernel`), `Module` (`Module.ts#Module`) et `Container` (`Container.ts#Container.id`).
 Commence par sa page si tu veux comprendre « pourquoi tout hérite de la même chose ».
 
 ### [`@nodefony/http`](../../src/packages/@nodefony/http/docs/index.md) — le transport
 
 Serveurs HTTP/1.1, HTTP/2, HTTPS et WebSocket, contextes de requête, sessions, certificats TLS. C'est
 ici que naît le `Context` que ton contrôleur reçoit, et ici que vit le pipeline unique
-(`HttpKernel`, `http-kernel.ts:280`). À lire quand tu touches au transport, aux sessions ou aux
+(`HttpKernel`, `http-kernel.ts#HttpKernel`). À lire quand tu touches au transport, aux sessions ou aux
 en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
 
-`Router` (`router.ts:164`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:90`) et les
-décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts:189`), `route()`
-(`routerDecorators.ts:287`), `Get` (`routerDecorators.ts:540`), `IsGranted()`
-(`routerDecorators.ts:903`), `CurrentUser` (`routerDecorators.ts:1308`). C'est la surface que tu
+`Router` (`router.ts#Router`), `Controller` (`Controller.ts#Controller`), `Resolver` (`Resolver.ts#Resolver`) et les
+décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts#controller`), `route()`
+(`routerDecorators.ts#route`), `Get` (`routerDecorators.ts#Get`), `IsGranted()`
+(`routerDecorators.ts#IsGranted`), `CurrentUser` (`routerDecorators.ts#CurrentUser`). C'est la surface que tu
 manipules le plus.
 
 ### [`@nodefony/security`](../../src/packages/@nodefony/security/docs/index.md) — protéger l'application
@@ -324,19 +324,19 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 ### Le boot — une chaîne de phases, jamais un big-bang
 
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
-(`Events`, `Kernel.ts:309`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
+(`Events`, `Kernel.ts#Events`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:799`), `Kernel.boot()` (`Kernel.ts:1229`), `Kernel.onReady()`
-(`Kernel.ts:1259`) et `Kernel.initServers()` (`Kernel.ts:1380`).
+`Kernel.start()` (`Kernel.ts#Kernel.start`), `Kernel.boot()` (`Kernel.ts#Kernel.boot`), `Kernel.onReady()`
+(`Kernel.ts#Kernel.onReady`) et `Kernel.initServers()` (`Kernel.ts#Kernel.initServers`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
-`onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
+`onKernelReady` : `Module.setEvents()` (`Module.ts#Module.setEvents`) les attache, et n'attache **que** ceux qui
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3778`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts#Kernel.fireLifecycle`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3250`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts#Kernel.recordBootFailure`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 
@@ -365,23 +365,23 @@ flowchart LR
   OUT --> TD["Teardown<br/>journal · leaveScope · nettoyage"]
 ```
 
-Les points d'ancrage, dans l'ordre réel (`http-kernel.ts`) : `HttpKernel.onHttpRequest()` (`:819`)
+Les points d'ancrage, dans l'ordre réel (`http-kernel.ts`) : `HttpKernel.onHttpRequest()`
 reçoit la requête et pose le socle d'en-têtes ; `HttpKernel.handle()` ouvre le scope
-(`enterScope("request")`, `:636`) ; `HttpKernel.createHttpContext()` (`:1078`) construit le contexte
-et pose **un unique** `response.on("close")` (`:1093`) qui déclenchera le teardown ;
-`HttpKernel.handleHttp()` (`:1117`) entre dans la bulle `RequestContext.run` (`:1151`), applique CORS
-(`:1168`), résout la route puis pose les en-têtes de sécurité (`:1193`) ; `HttpKernel.onRequestEnd()`
-(`:1250`) enchaîne CSRF (`:1283`), session (`HttpKernel.startSession()`, `:1006`) et firewall
-(`:1294`) ; enfin `HttpKernel.teardownHttp()` (`:1029`) journalise, quitte le scope et nettoie.
+(`enterScope("request")`) ; `HttpKernel.createHttpContext()` construit le contexte
+et pose **un unique** `response.on("close")` qui déclenchera le teardown ;
+`HttpKernel.handleHttp()` entre dans la bulle `RequestContext.run`, applique CORS
+, résout la route puis pose les en-têtes de sécurité ; `HttpKernel.onRequestEnd()`
+enchaîne CSRF, session (`HttpKernel.startSession()`) et firewall
+; enfin `HttpKernel.teardownHttp()` journalise, quitte le scope et nettoie.
 
 Côté WebSocket, la même partition, avec une règle de plus : **rien ne s'ouvre tant que le pipeline
-n'a pas dit oui**. `HttpKernel.onWebsocketUpgrade()` (`:2018`) borne le handshake et ouvre le scope
-AVANT le `101`, `HttpKernel.createWebsocketContext()` (`:1947`) pose un `once("onFinish")` (`:1957`)
-qui sauvegarde la session et libère le scope, `HttpKernel.onConnect()` (`:2184`) vérifie l'origine
-(`HttpKernel.checkWebsocketOrigin()`, `:740` — la garde anti-CSWSH) puis passe la main au firewall et
+n'a pas dit oui**. `HttpKernel.onWebsocketUpgrade()` borne le handshake et ouvre le scope
+AVANT le `101`, `HttpKernel.createWebsocketContext()` pose un `once("onFinish")`
+qui sauvegarde la session et libère le scope, `HttpKernel.onConnect()` vérifie l'origine
+(`HttpKernel.checkWebsocketOrigin()` — la garde anti-CSWSH) puis passe la main au firewall et
 aux gardes ; seule leur décision favorable accepte la socket. Un refus est un **statut HTTP** au
-handshake (`toHandshakeStatus()`, `WebsocketContext.ts:111` — un `1008` hérité devient un 403) ;
-une fois la socket ouverte, `toWsCloseCode()` (`WebsocketContext.ts:81`) traduit un statut en code de
+handshake (`toHandshakeStatus()`, `WebsocketContext.ts#toHandshakeStatus` — un `1008` hérité devient un 403) ;
+une fois la socket ouverte, `toWsCloseCode()` (`WebsocketContext.ts#toWsCloseCode`) traduit un statut en code de
 fermeture conforme RFC 6455 §7.4 — un 401 devient un `1008`.
 
 Le pas-à-pas exhaustif, avec le détail de chaque garde →
@@ -390,15 +390,15 @@ Le pas-à-pas exhaustif, avec le détail de chaque garde →
 ### L'injection — la carte et les calques
 
 Le conteneur racine tient les services partagés : c'est la **carte**. À chaque requête HTTP (et à
-chaque connexion WebSocket), `Container.enterScope()` (`Container.ts:245`) pose dessus un
-**calque** — un scope qui **adopte le prototype** du conteneur racine (`Scope`, `Container.ts:344`).
+chaque connexion WebSocket), `Container.enterScope()` (`Container.ts#Container.enterScope`) pose dessus un
+**calque** — un scope qui **adopte le prototype** du conteneur racine (`Scope`, `Container.ts#Scope`).
 On lit toute la carte à travers : résoudre un service partagé depuis un scope ne coûte aucun saut
 logiciel, c'est le moteur JavaScript qui remonte la chaîne de prototypes.
 
-Ce que la requête pose, elle le pose sur son calque seulement (`Scope.set()`, `Container.ts:155`) :
+Ce que la requête pose, elle le pose sur son calque seulement (`Scope.set()`, `Container.ts#Container.set`) :
 le pipeline y range le `context` et le `controller`, et un service déclaré
 `@injectable({ scope: "request" })` y vit le temps de la requête. Deux requêtes concurrentes ne se
-voient jamais, et `Container.leaveScope()` (`Container.ts:264`) jette le calque à la fin — en
+voient jamais, et `Container.leaveScope()` (`Container.ts#Container.leaveScope`) jette le calque à la fin — en
 appelant le `clean()` des services créés pour elle. Depuis n'importe quel code de la requête,
 `RequestContext.getScope()` rend le calque courant, sans recevoir le contexte.
 
@@ -409,9 +409,9 @@ Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 ## 🔐 La sécurité en un coup d'œil
 
 Le pare-feu applicatif de `@nodefony/security` raisonne par **zones** : un motif d'URL, une politique.
-`Firewall.matchPath()` (`firewall.ts:783`) rattache la requête à la zone dont le motif est le plus
-spécifique ; `Firewall.isSecure()` (`firewall.ts:792`) répond « protégée ou non » sur le chemin chaud ;
-`Firewall.handleSecurity()` (`firewall.ts:825`) ne travaille que sur zone protégée.
+`Firewall.matchPath()` (`firewall.ts#Firewall.matchPath`) rattache la requête à la zone dont le motif est le plus
+spécifique ; `Firewall.isSecure()` (`firewall.ts#Firewall.isSecure`) répond « protégée ou non » sur le chemin chaud ;
+`Firewall.handleSecurity()` (`firewall.ts#Firewall.handleSecurity`) ne travaille que sur zone protégée.
 
 ```mermaid
 flowchart TD
@@ -428,7 +428,7 @@ Deux points à retenir dès maintenant :
 
 - **La politique par défaut est Zero Trust** : sur une zone protégée, pas de preuve valide = 401. Une
   route « publique » qui veut néanmoins connaître l'utilisateur doit lister `anonymous`
-  explicitement — c'est l'authenticator enregistré à `authenticatorRegistry.ts:72`.
+  explicitement — c'est l'authenticator enregistré à `authenticatorRegistry.ts`.
 - **Le WebSocket est couvert par le même firewall** : la zone est résolue pareil, et l'autorisation
   descend jusqu'aux canaux.
 
@@ -444,7 +444,7 @@ Trois profils, trois façons d'atterrir. Ce qui se ressemble, ce qui change, ce 
 
 **Ce qui se ressemble.** Le routage reste « un chemin, une méthode, une fonction ». La stratégie de
 résolution t'est même familière : Nodefony est **router-first** — si aucune route ne matche, on
-retombe sur le service de fichiers statiques (`http-kernel.ts:1224` et suivantes), exactement comme
+retombe sur le service de fichiers statiques (`http-kernel.ts#HttpKernel.dispatchHttpRequest` et suivantes), exactement comme
 un `express.static()` placé en fin de chaîne.
 
 **Ce qui change.** Il n'y a pas de `app.use(middleware)` empilable à volonté. Le pipeline est **fixe
@@ -462,8 +462,8 @@ alors plus une propriété fragile de ton fichier d'entrée.
 **Ce qui se ressemble.** Beaucoup : les contrôleurs à décorateurs (`@controller`, `@Get`, `@Param`,
 `@Body`, `@Query`), l'injection de dépendances, les gardes d'autorisation, l'idée de modules. Une
 garde `@IsGranted` s'applique **avant** l'instanciation du contrôleur, au niveau du résolveur — même
-contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:695`) enveloppe
-l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:901`) tranche, fail-closed en 403.
+contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts#Resolver.executeActionGuarded`) enveloppe
+l'action, et `Resolver._enforceSecurity()` (`Resolver.ts#Resolver._enforceSecurity`) tranche, fail-closed en 403.
 
 **Ce qui change.** Deux choses. D'abord, **pas de gateway WebSocket séparée** : là où Nest te
 demande un `@WebSocketGateway()` distinct de tes contrôleurs, Nodefony te fait déclarer le transport
@@ -513,16 +513,16 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 
 ## 📜 Normes appliquées
 
-| Domaine                      | Norme                          | Ancrage code                                              |
-| ---------------------------- | ------------------------------ | --------------------------------------------------------- |
-| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:393`)                          |
-| Challenge d'authentification | RFC 9110 §11                   | `Firewall.handleSecurity()` (`firewall.ts:825`)           |
-| Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:79`)              |
-| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1706`)           |
-| Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1895`)          |
-| Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
-| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:170`) · `Service.log()` (`Service.ts:364`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1582`)         |
+| Domaine                      | Norme                          | Ancrage code                                                          |
+| ---------------------------- | ------------------------------ | --------------------------------------------------------------------- |
+| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts#Route.match`)                              |
+| Challenge d'authentification | RFC 9110 §11                   | `Firewall.handleSecurity()` (`firewall.ts#Firewall.handleSecurity`)   |
+| Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts#toWsCloseCode`)               |
+| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts#HttpKernel.runHttpPipeline`) |
+| Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts#HttpKernel.armAndGuard`)    |
+| Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()`                                   |
+| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts#Pdu`) · `Service.log()` (`Service.ts#Service.log`)     |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts#HttpKernel.handleHttp`)    |
 
 ## ⚡ Performance & mémoire
 
@@ -530,13 +530,13 @@ Nodefony est un framework **runtime** : chaque allocation par requête se multip
 règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
-  qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:62`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1629`) ; le nonce CSP
-  n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
+  qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts#Container.scopes`) ; le tampon de requêtes ORM du
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts#HttpKernel.serveHttpContext`) ; le nonce CSP
+  n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts#Context.#cspNonce`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.
 - **Un seul écouteur de fin de requête.** `createHttpContext()` pose un unique
-  `response.on("close")` (`http-kernel.ts:1453`) qui déclenche le teardown : pas de paire
+  `response.on("close")` (`http-kernel.ts#HttpKernel.teardownHttp`) qui déclenche le teardown : pas de paire
   `finish`/`close` à démonter à la main.
 
 Ces choix sont **mesurés**, pas postulés. La suite `memory.test.ts` mesure les octets retenus par
@@ -547,7 +547,7 @@ vivent dans la table `THRESHOLDS` de `tests/helpers/retention.ts`, partagée ave
 ## 📡 Observabilité — Studio
 
 Studio est la console d'administration du framework, servie sur `/nodefony`
-(`StudioController.ts:45`). Elle montre l'instance **telle qu'elle tourne**, pas telle que les
+(`StudioController.ts#StudioController`). Elle montre l'instance **telle qu'elle tourne**, pas telle que les
 fichiers la décrivent : configuration résolue, modules chargés, routes déclarées, sessions actives,
 journal, firewall, temps réel — et cette documentation elle-même.
 

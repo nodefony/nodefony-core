@@ -75,13 +75,13 @@ voici pourquoi elle n'aboutit pas » est une phrase que l'agent sait corriger se
 
 ## La vision Nodefony
 
-- **Le protocole est une fonction pure.** `handleMcpMessage()` (`server.ts:372`) reçoit un message
+- **Le protocole est une fonction pure.** `handleMcpMessage()` (`server.ts#handleMcpMessage`) reçoit un message
   et rend un statut et un corps : ni socket, ni conteneur, ni horloge. Tout le protocole s'éprouve
   sans serveur, et une seconde porte (HTTP de production, `stdio`) appelle la même fonction.
-- **Un outil est un objet ordinaire.** Le contrat `IMcpTool` (`IMcpTool.ts:157`) est le même pour
+- **Un outil est un objet ordinaire.** Le contrat `IMcpTool` (`IMcpTool.ts#IMcpTool`) est le même pour
   les outils du framework et pour les tiens : le serveur n'a aucun cas particulier.
 - **Rien n'est enregistré au démarrage.** La porte ramasse les outils à chaque requête
-  (`collectMcpTools()`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts:457`) en parcourant les modules : un module ajouté ou rechargé
+  (`collectMcpTools()`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts#collectMcpTools`) en parcourant les modules : un module ajouté ou rechargé
   apparaît sans cache à invalider. La révision `2026-07-28` a retiré les sessions, et c'est ce qui
   rend ce choix possible : chaque requête porte tout ce qu'il faut pour être servie.
 - **L'autorisation se décide à la collecte, une fois.** Un outil réservé est absent de
@@ -185,24 +185,24 @@ main au lot suivant.
 
 ### Le contrat
 
-| Champ          | Rôle                                                                                                                                                 |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | identifiant d'appel, forme `[a-zA-Z0-9_-]{1,64}` (`NAME_PATTERN`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts:210`) ; préfixe-le par ton module |
-| `description`  | **le premier critère de déclenchement** : ce que l'outil REND et QUAND s'en servir                                                                   |
-| `inputSchema`  | schéma JSON des arguments ; tout argument non déclaré est REFUSÉ, jamais ignoré                                                                      |
-| `scopes`       | scopes OAuth exigés — tous ; absent = outil public                                                                                                   |
-| `requiresAuth` | exige une identité prouvée, sans scope particulier                                                                                                   |
-| `handler`      | `(args, caller, run?) => IMcpToolResult` — synchrone ou promesse                                                                                     |
+| Champ          | Rôle                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | identifiant d'appel, forme `[a-zA-Z0-9_-]{1,64}` (`NAME_PATTERN`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts#NAME_PATTERN`) ; préfixe-le par ton module |
+| `description`  | **le premier critère de déclenchement** : ce que l'outil REND et QUAND s'en servir                                                                            |
+| `inputSchema`  | schéma JSON des arguments ; tout argument non déclaré est REFUSÉ, jamais ignoré                                                                               |
+| `scopes`       | scopes OAuth exigés — tous ; absent = outil public                                                                                                            |
+| `requiresAuth` | exige une identité prouvée, sans scope particulier                                                                                                            |
+| `handler`      | `(args, caller, run?) => IMcpToolResult` — synchrone ou promesse                                                                                              |
 
 Trois règles qui évitent les défauts les plus coûteux :
 
 - **Un échec métier se rend en `isError`, jamais en exception.** `mcpText(message, true)`
-  (`src/packages/@nodefony/ai/nodefony/mcp/tools.ts:187`). Une exception devient une erreur de protocole (`-32603`), que l'agent lit comme
+  (`src/packages/@nodefony/ai/nodefony/mcp/tools.ts#mcpText`). Une exception devient une erreur de protocole (`-32603`), que l'agent lit comme
   « le serveur est cassé » au lieu de « corrige ta demande ». Elle est de plus **opaque** : l'agent
   ne reçoit qu'un message qui nomme l'outil, le message de l'exception part au journal du serveur
   (`ERROR`) — il pourrait porter un chemin ou un secret. `isError` est le seul canal qui parvient à
   l'agent.
-- **Un argument non déclaré est refusé.** `unknownArguments()` (`src/packages/@nodefony/ai/nodefony/mcp/tools.ts:589`) rend un `isError`
+- **Un argument non déclaré est refusé.** `unknownArguments()` (`src/packages/@nodefony/ai/nodefony/mcp/tools.ts#unknownArguments`) rend un `isError`
   qui le nomme : un paramètre accepté puis jeté donnerait une réponse qui _a l'air_ d'avoir honoré la
   demande. Un outil qui veut des arguments libres l'écrit (`additionalProperties: true`).
 - **Un outil n'invente rien.** Il appelle la brique qui répond déjà à une autre porte (un service,
@@ -218,7 +218,7 @@ Avant d'appeler un outil, l'agent (ou son client) doit décider s'il demande con
 l'humain. La spec lui donne pour cela des **indices de comportement**, les `ToolAnnotations`
 (révision `2026-07-28`, `schema/schema.ts` ; `spec/server/tools.mdx`, champ `annotations` de
 l'outil). Nodefony les porte dans le contrat (`IMcpToolAnnotations`,
-`src/nodefony/src/types/IMcpTool.ts:119`) et les publie dans `tools/list`.
+`src/nodefony/src/types/IMcpTool.ts#IMcpToolAnnotations`) et les publie dans `tools/list`.
 
 | Indice            | Ce qu'il promet                                                  | Défaut de la spec | N'a de sens que…            |
 | ----------------- | ---------------------------------------------------------------- | ----------------- | --------------------------- |
@@ -258,7 +258,7 @@ const refund: IMcpTool = {
 
 Ce que Nodefony fait, et ne fait pas :
 
-- **il ne publie que ce qui est déclaré** (`publishMcpTools`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts:508`) :
+- **il ne publie que ce qui est déclaré** (`publishMcpTools`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts#publishMcpTools`) :
   sans annotation, le champ n'est pas émis et les défauts de la spec s'appliquent. Aucune promesse
   n'est inventée au nom de l'auteur de l'outil ;
 - **les sept outils intégrés** (`nodefony_inspect`, `_card`, `_check`, `_symbols`, `_docs`,
@@ -283,14 +283,14 @@ const invoice: IMcpTool = {
 };
 ```
 
-`caller` (`IMcpCaller`, `IMcpTool.ts:45`) porte ce que la porte a **établi** — jamais ce que la
+`caller` (`IMcpCaller`, `IMcpTool.ts#IMcpCaller`) porte ce que la porte a **établi** — jamais ce que la
 requête prétend : `authenticated`, `scopes`, `roles`, `subject`. Une porte qui n'authentifie personne
 rend un appelant anonyme, et un outil à scopes n'y sort jamais : fermé par défaut — à savoir
 avant de chercher une panne.
 
 ### Un outil LONG — progression et annulation
 
-Le troisième paramètre, `run` (`IMcpToolRun`, `IMcpTool.ts:83`), sert l'outil qui dure :
+Le troisième paramètre, `run` (`IMcpToolRun`, `IMcpTool.ts#IMcpToolRun`), sert l'outil qui dure :
 
 - **`run.signal`** est abattu quand l'agent abandonne l'appel. Le consulter entre deux étapes, ou le
   passer à ce qu'on attend (`fetch`, une requête de base) ;
@@ -310,9 +310,9 @@ finale — rien ne garantit qu'un client fasse entrer les notifications dans son
 
 `@nodefony/ai` ne monte **aucune** route : une porte se **déclare**, par qui en a besoin. La porte
 de développement est celle de `@nodefony/devkit` (`DevkitService.mcpGate()`,
-`DevkitService.ts:254`, servie par `McpController.mcp()`, `McpController.ts:84`, `policy: "dev"`).
+`DevkitService.ts#DevkitService.mcpGate`, servie par `McpController.mcp()`, `McpController.ts#McpController.mcp`, `policy: "dev"`).
 Une application ouvre la SIENNE — en développement ou en production, selon ses besoins — en deux
-temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts:373`), puis se **sert** d'une
+temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts#defineMcpGate`), puis se **sert** d'une
 ligne depuis une action de controller. `npx nodefony create controller <nom> --kind mcp` écrit les
 deux, avec ses outils d'exemple et son test ; `--expose` choisit qui peut frapper :
 
@@ -366,9 +366,9 @@ class ShopMcpController extends Controller {
 ⚠️ Figer `protocol.versions` sur la seule révision `2026-07-28` coupe les clients qui parlent encore
 l'ancienne forme (`initialize`) — c'est le cas des clients déployés aujourd'hui.
 
-Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:453`, éprouvable sans serveur) :
+Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts#IMcpGate.respond`, éprouvable sans serveur) :
 
-- **`checkMcpAccess()`** (`guard.ts:82`) : un client MCP légitime est un _process_ et n'envoie
+- **`checkMcpAccess()`** (`guard.ts#checkMcpAccess`) : un client MCP légitime est un _process_ et n'envoie
   aucun `Origin` ; une page web malveillante en pose toujours un. _Absent_ → on passe, _présent et
   hors allowlist_ → `403`. C'est ce qui referme le DNS rebinding contre un serveur local.
 - **Une porte locale refuse un appel RELAYÉ** (`403`) : la requête porte `Forwarded`,
@@ -376,17 +376,17 @@ Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:453`, éprouvabl
   `proxy:generate`) se connecte depuis le loopback ; sans `trustProxy`, l'adresse vue serait la
   sienne, et la porte servirait Internet sans jeton. La localité ne se prouve pas à travers un
   relais : une porte joignable par un proxy se déclare `allowRemote` et se protège par jeton.
-- **`createMcpResponseStream()`** (`stream.ts:63`) ouvre le flux SSE au **premier** envoi seulement
+- **`createMcpResponseStream()`** (`stream.ts#createMcpResponseStream`) ouvre le flux SSE au **premier** envoi seulement
   (et seulement si le client l'accepte), enchaîne les envois dans l'ordre, et la réponse finale le
   clôt. Rien envoyé en route → réponse JSON. Pas de reprise (`Last-Event-ID`) : la spec la retire,
   le client rejoue sa requête.
 - **L'annulation** est le signal de la requête : fermer le flux de réponse EST l'annulation, que le
   noyau transmet à l'outil — aucun écouteur à ajouter.
-- **Une porte non protégée n'accorde AUCUN rôle** (`mcpCallerRoles()`, `caller.ts:59`) : ses
+- **Une porte non protégée n'accorde AUCUN rôle** (`mcpCallerRoles()`, `caller.ts#mcpCallerRoles`) : ses
   outils réservés (`scopes`) restent retenus. Seule une porte que son PÉRIMÈTRE protège l'élargit,
   et l'écrit (`unprotectedRoles`) — c'est le cas de la porte de développement de devkit.
 - **Une porte protégée** (`authorization.authorizationServers`) dérive l'appelant d'un jeton OAuth
-  (`authorizeProtectedResource()`, `protectedResource.ts:505`), répond `401` avec
+  (`authorizeProtectedResource()`, `protectedResource.ts#authorizeProtectedResource`), répond `401` avec
   `resource_metadata` sans jeton, et tire les rôles des scopes. Son document RFC 9728 se publie par
   un service qui expose `publishedProtectedResources()` en rendant `gate.protectedResources()` :
   les scopes publiés sont ceux que le défi exige.
@@ -404,24 +404,24 @@ Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts:453`, éprouvabl
 
 ## 📏 Normes appliquées — ce que la boîte à outils tient pour toi
 
-Révision de référence : `2026-07-28` (`MCP_PROTOCOL_VERSION`, `protocol.ts:16`), servie avec les
+Révision de référence : `2026-07-28` (`MCP_PROTOCOL_VERSION`, `protocol.ts#MCP_PROTOCOL_VERSION`), servie avec les
 révisions antérieures que les clients déployés emploient encore (`MCP_SUPPORTED_VERSIONS`,
-`protocol.ts:50`).
+`protocol.ts#MCP_SUPPORTED_VERSIONS`).
 
-| Exigence de la norme                                                          | Comment elle est tenue                                                                                                                           |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| une notification acceptée → `202` sans corps                                  | `handleMcpMessage()` rend `{ status: 202, body: null }`                                                                                          |
-| l'`id` d'une requête est une chaîne ou un entier, jamais `null`               | refus `400` + `-32600` avant tout autre contrôle                                                                                                 |
-| `params` est un objet nommé                                                   | un tableau → `-32602`, une valeur primitive → `-32600`                                                                                           |
-| en-tête `MCP-Protocol-Version` ≠ `_meta` → refus                              | `400` + `-32020` (`McpProtocolError`, `protocol.ts:96`) — deux sources de vérité pour une même requête                                           |
-| révision inconnue → refus avec la liste servie                                | `400` + `-32022` et `supported` (`checkProtocolVersion()`, `server.ts:309`)                                                                      |
-| `initialize` répond la révision DEMANDÉE quand elle est servie                | `negotiateVersion()` (`server.ts:276`) — annoncer la sienne rendait la porte injoignable                                                         |
-| ère moderne : `resultType` sur chaque résultat                                | `eraResult()` (`server.ts:195`) donne au résultat la forme de l'ère du CLIENT                                                                    |
-| méthode non implémentée → `404` + `-32601`                                    | cas par défaut du protocole                                                                                                                      |
-| progression : jeton fourni, valeur croissante, cadence bornée, arrêt à la fin | `createProgressReporter()` (`src/packages/@nodefony/ai/nodefony/mcp/progress.ts:72`) ; arrêt dans le `finally` de `tools/call` (`server.ts:506`) |
-| flux : notifications liées à la requête, réponse finale qui le termine        | `createMcpResponseStream()` (`stream.ts:63`)                                                                                                     |
-| sur HTTP, fermer le flux = annuler                                            | `run.signal` = le signal de la requête                                                                                                           |
-| le catalogue peut varier selon l'autorisation, jamais selon la connexion      | collecte à chaque requête, sur les identifiants de CETTE requête                                                                                 |
+| Exigence de la norme                                                          | Comment elle est tenue                                                                                                                                                            |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| une notification acceptée → `202` sans corps                                  | `handleMcpMessage()` rend `{ status: 202, body: null }`                                                                                                                           |
+| l'`id` d'une requête est une chaîne ou un entier, jamais `null`               | refus `400` + `-32600` avant tout autre contrôle                                                                                                                                  |
+| `params` est un objet nommé                                                   | un tableau → `-32602`, une valeur primitive → `-32600`                                                                                                                            |
+| en-tête `MCP-Protocol-Version` ≠ `_meta` → refus                              | `400` + `-32020` (`McpProtocolError`, `protocol.ts#McpProtocolError`) — deux sources de vérité pour une même requête                                                              |
+| révision inconnue → refus avec la liste servie                                | `400` + `-32022` et `supported` (`checkProtocolVersion()`, `server.ts#checkProtocolVersion`)                                                                                      |
+| `initialize` répond la révision DEMANDÉE quand elle est servie                | `negotiateVersion()` (`server.ts#negotiateVersion`) — annoncer la sienne rendait la porte injoignable                                                                             |
+| ère moderne : `resultType` sur chaque résultat                                | `eraResult()` (`server.ts#eraResult`) donne au résultat la forme de l'ère du CLIENT                                                                                               |
+| méthode non implémentée → `404` + `-32601`                                    | cas par défaut du protocole                                                                                                                                                       |
+| progression : jeton fourni, valeur croissante, cadence bornée, arrêt à la fin | `createProgressReporter()` (`src/packages/@nodefony/ai/nodefony/mcp/progress.ts#createProgressReporter`) ; arrêt dans le `finally` de `tools/call` (`server.ts#handleMcpMessage`) |
+| flux : notifications liées à la requête, réponse finale qui le termine        | `createMcpResponseStream()` (`stream.ts#createMcpResponseStream`)                                                                                                                 |
+| sur HTTP, fermer le flux = annuler                                            | `run.signal` = le signal de la requête                                                                                                                                            |
+| le catalogue peut varier selon l'autorisation, jamais selon la connexion      | collecte à chaque requête, sur les identifiants de CETTE requête                                                                                                                  |
 
 ## 🚫 Ce qui n'est pas servi — et pourquoi
 
@@ -451,7 +451,7 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 - **Une lecture courte ne paie pas le flux** : il n'est ouvert qu'au premier envoi.
 - **La progression ne réveille rien par défaut** : sans jeton ou sans flux, le rapporteur est un
   objet partagé qui ne fait rien ; avec, il coûte un appel d'horloge et se tait sous 100 ms
-  d'intervalle (`MCP_PROGRESS_MIN_INTERVAL_MS`, `src/packages/@nodefony/ai/nodefony/mcp/progress.ts:18`).
+  d'intervalle (`MCP_PROGRESS_MIN_INTERVAL_MS`, `src/packages/@nodefony/ai/nodefony/mcp/progress.ts#MCP_PROGRESS_MIN_INTERVAL_MS`).
 - **Aucun écouteur ajouté pour l'annulation** : le signal est celui du contexte, alloué à la
   première lecture et abattu par le noyau.
 

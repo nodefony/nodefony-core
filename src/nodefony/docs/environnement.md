@@ -42,7 +42,7 @@ nodefony env          # chaque variable, sa valeur EFFECTIVE et sa PROVENANCE
 nodefony env --json   # le même rapport, pour un script ou un agent
 ```
 
-La commande ne démarre rien ([`cli/env.ts:208`](../src/cli/env.ts)) — elle répond même sur une
+La commande ne démarre rien ([`cli/env.ts#readLevels`](../src/cli/env.ts)) — elle répond même sur une
 application qui ne boote plus, ce qui est précisément le moment où on la lance. Elle sort en
 **78** (`EX_CONFIG`) si une variable requise manque, pour qu'un script s'arrête là plutôt que de
 tenter un démarrage voué à l'échec.
@@ -145,10 +145,10 @@ d'autre façon d'en démarrer un. Le défaut ne concerne donc que les commandes 
 | `.env.example` | ✅ oui    | **jamais**      | la notice : toutes les variables, commentées, sans valeur |
 
 Il n'y a pas de troisième rang. L'injection
-([`loadEnv.ts:174`](../src/runtime/loadEnv.ts)) n'écrase **jamais** une clé déjà posée : une
+([`loadEnv.ts#loadEnv`](../src/runtime/loadEnv.ts)) n'écrase **jamais** une clé déjà posée : une
 variable exportée par le shell ou l'orchestrateur ne peut être contredite par `.env`. Le nom du
 fichier vit à un seul endroit, [`envFileOrder`](../src/runtime/loadEnv.ts)
-([`loadEnv.ts:48`](../src/runtime/loadEnv.ts)) — celui que `nodefony env` affiche.
+([`loadEnv.ts#envFileOrder`](../src/runtime/loadEnv.ts)) — celui que `nodefony env` affiche.
 
 Le chargement a lieu **une fois**, au démarrage du binaire, **avant** la construction du noyau :
 les configurations de modules lisent `process.env` pendant le boot, il doit donc être peuplé
@@ -168,7 +168,7 @@ des variables `VITE_` publiques.
 
 `.env.local`, `.env.development`, `.env.production`, `.env.<APP_ENV>` et leurs `.local` ne sont
 plus lus. S'ils restent dans une application, le démarrage **s'arrête** (code 78) en les nommant
-([`loadEnv.ts:71`](../src/runtime/loadEnv.ts)) — les ignorer en silence ferait disparaître leurs
+([`loadEnv.ts#findLegacyEnvFiles`](../src/runtime/loadEnv.ts)) — les ignorer en silence ferait disparaître leurs
 variables. Le geste : recopier leurs lignes **actives** dans `.env`, puis les supprimer ; un
 réglage de production non secret va dans `nodefony.config.ts`, un secret de production dans le
 gestionnaire de secrets.
@@ -185,7 +185,7 @@ npx nodefony security:secrets --write      # tes propres clés de chiffrement
 ## Déclarer une variable — `env.ts`
 
 `env.ts` est le **seul** endroit du projet qui lit `process.env`
-([`defineEnv.ts:270`](../src/config/defineEnv.ts)). Une variable non déclarée là n'existe pas
+([`defineEnv.ts#BaseOpts.requiredIn`](../src/config/defineEnv.ts)). Une variable non déclarée là n'existe pas
 pour l'application, quoi qu'un fichier `.env` en dise.
 
 ```typescript
@@ -392,7 +392,7 @@ Deux mécanismes coexistent, et les confondre est l'erreur la plus fréquente :
 | `NF_PORT=5151`                        | variable de l'**application**, typée et validée | `env.ts` — non déclarée = **sans effet**   |
 | `NF__HTTP__SERVERS__HTTPS__PORT=8443` | surcharge **directe** d'une clé de module       | rien à déclarer — `__` sépare les segments |
 
-Le second ([`envOverride.ts:80`](../src/config/envOverride.ts)) vise une clé de configuration
+Le second ([`envOverride.ts#coerceEnvValue`](../src/config/envOverride.ts)) vise une clé de configuration
 par son chemin, sans passer par `env.ts` : `NF__<MODULE>__<CHEMIN…>`. Une liste s'écrit en
 valeurs séparées par des virgules. Un segment mal orthographié est signalé au démarrage avec la
 clé la plus proche — le « vouliez-vous dire » de git.
@@ -402,7 +402,7 @@ code. Ce que l'application possède en propre se déclare dans `env.ts`.
 
 ## 🧪 Tests
 
-Le calcul du rapport est un module **pur** ([`envReport.ts:219`](../src/cli/envReport.ts)) : il
+Le calcul du rapport est un module **pur** ([`envReport.ts#collectUnknown`](../src/cli/envReport.ts)) : il
 reçoit les fichiers déjà lus et l'environnement effectif, et conclut. Cette séparation est ce qui
 rend éprouvables les trois affirmations sur lesquelles on va se fier pour corriger une
 configuration — d'où vient une valeur, ce qui est masqué, ce qui n'a aucun effet. Se tromper sur

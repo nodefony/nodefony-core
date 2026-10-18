@@ -108,7 +108,7 @@ source: "<chemin repo>" # optionnel
 ## 4. Visuels — « jamais bloqué » (capacités VÉRIFIÉES du portail)
 
 Rendu Studio (`MarkdownDoc.tsx`) : **Mermaid 11.16** + react-markdown + remark-gfm, **SANS
-`rehype-raw`** (`MarkdownDoc.tsx:57` — « 0 HTML injecté »).
+`rehype-raw`** (`MarkdownDoc.tsx#nodeText` — « 0 HTML injecté »).
 
 | Visuel voulu                                                | Comment                                               |
 | ----------------------------------------------------------- | ----------------------------------------------------- |
@@ -252,13 +252,13 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
 - **Le code est la règle, le `git log` est la règle.** `MEMORY.md`/`CLAUDE.md` et tout document de
   pilotage = indices périmables, jamais preuve. Chaque affirmation ancrée sur un `fichier:ligne` lu, ou sur un
   **test** (dont `tests/load` et `memory.test.ts` pour les chiffres de perf/mémoire).
-- **ANCRE SYMBOLIQUE (règle 2026-07-19) — le symbole d'abord, la ligne en preuve.** Format :
-  `` `Firewall.matchPath()` (`firewall.ts:529`) ``. Le NOM porte le sens (le lecteur sait ce qu'il va
-  trouver sans ouvrir le fichier) et survit aux déplacements de code ; la ligne date la preuve.
-  **INTERDIT** : une ligne nue sans symbole ni fichier (``(`:223-232`)``) — illisible pour un humain,
-  irrésoluble pour une IA (vécu : 19 ancres sur 283 déjà décalées 2 jours après écriture ; le symbole,
-  lui, se re-résout par `grep`/`.ai/symbols.json`). Vérif mécanique : `anchor-check.mjs` (résout chaque
-  ancre contre le code réel — FILE_NOT_FOUND/LINE_OUT/SUSPECT).
+- **ANCRE PAR SYMBOLE, jamais par ligne.** Format : `` `Firewall.matchPath()` (`firewall.ts#Firewall.matchPath`) ``
+  — `#Classe.membre` pour un membre, `#Symbole` au premier niveau, le fichier seul pour du code hors
+  déclaration (un `describe`, le corps d'un script). Le NOM porte le sens (le lecteur sait ce qu'il va
+  trouver sans ouvrir le fichier), se trouve au `grep`, et ne ment pas : une ligne bouge dès qu'on écrit
+  au-dessus d'elle, un symbole seulement au renommage, quand la doc DOIT suivre. Vérif mécanique :
+  `anchor-check.mjs` refuse une ancre `fichier:ligne` (LINE_ANCHOR) et un symbole absent du fichier
+  (SYMBOL_NOT_FOUND) ; `anchor-migrate.mjs --apply` convertit une ancre de ligne écrite par habitude.
 - **Exemples** > 3 lignes : tirés du dépôt (donner le chemin) ou compilés (typecheck du module).
 - **Gate rendu HTML parfait** (par page) : 0 HTML/SVG brut ; aperçu vérifié avec un moteur fidèle à
   Studio (react-markdown + remark-gfm + Mermaid 11, sans rehype-raw) ; tous les Mermaid compilent ;
@@ -555,7 +555,7 @@ Le linter (`tmp/doc-corpus/_tools/doc-lint.mjs`) échoue si, pour une page :
 - pas d'intro en blockquote ;
 - **pas de section « Tests »** ET pas de `coverage/tests.<topic>.json` (le défaut historique) — sauf
   opt-out explicite `tests: none` dûment justifié (page purement conceptuelle) ;
-- moins de 3 ancres `fichier:ligne` (doc probablement superficielle) ;
+- moins de 3 ancres `<fichier>.ts#<Symbole>` (doc probablement superficielle) ;
 - du HTML brut (le portail Studio n'a pas `rehype-raw`).
 
 **Workflow par page (ordre imposé)** : lire le code → rédiger (intro §8 + analyse §8bis + complétude

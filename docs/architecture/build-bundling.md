@@ -63,9 +63,9 @@ flowchart TD
 Trois faits structurent tout le reste :
 
 1. **Le bundler ne génère aucun `.d.ts`.** C'est écrit noir sur blanc en tête du socle partagé
-   (`bundler/index.ts:22`) : les déclarations sortent de `tsgo`, jamais de rolldown.
+   (`bundler/index.ts`) : les déclarations sortent de `tsgo`, jamais de rolldown.
 2. **La configuration de build est du code publié**, pas un fichier copié de projet en projet :
-   `defineNodefonyRolldownConfig()` (`bundler/index.ts:149`) vit dans le paquet `nodefony` et
+   `defineNodefonyRolldownConfig()` (`bundler/index.ts#defineNodefonyRolldownConfig`) vit dans le paquet `nodefony` et
    s'importe par le subpath `nodefony/bundler`.
 3. **Le bundle ne contient que ton code.** Tout ce que le paquet déclare comme dépendance en sort par
    la liste `external`. Un paquet gonflé est presque toujours un `external` oublié.
@@ -122,10 +122,10 @@ Quatre partis pris, tous lisibles dans le fichier :
   application installée depuis npm importe **exactement la même fonction** que le dépôt, jamais un
   fichier interne recopié.
 - **Le cœur s'importe lui-même en relatif**, et c'est délibéré : il ne peut pas consommer son propre
-  `dist` avant de l'avoir construit (`bundler/index.ts:9`). C'est la seule exception du dépôt.
+  `dist` avant de l'avoir construit (`bundler/index.ts`). C'est la seule exception du dépôt.
 - **Les invariants sont gravés dans le socle, pas dans une note.** Le nom propre du paquet toujours
   externe, le side-effect de `reflect-metadata` préservé, `nodefony` externalisé en exact-match : les
-  trois sont codés puis testés (`bundler/index.ts:12`).
+  trois sont codés puis testés (`bundler/index.ts`).
 - **Un `rolldown.config.ts` de paquet ne contient plus qu'une liste.** Tout le reste — entrées,
   format, `preserveModules`, tree-shaking — descend du socle.
 
@@ -209,15 +209,15 @@ dist/
 
 > [!TIP]
 > `npx nodefony build` ne construit rien lui-même : la commande délègue à `turbo run build`
-> (`BuildCommand.ts:35`), et `--force` ajoute simplement le drapeau turbo (`BuildCommand.ts:36`). Une
+> (`BuildCommand.ts#Build.generate`), et `--force` ajoute simplement le drapeau turbo (`BuildCommand.ts#Build.generate`). Une
 > seule source de vérité pour le build, qu'on passe par npm ou par la CLI.
 
 ## 🏗️ Ce que produit un build — l'anatomie de `dist/`
 
 ### `preserveModules` — un fichier source, un fichier de sortie
 
-Le socle impose `preserveModules: true` (`bundler/index.ts:188`) avec `entryFileNames: "[name].js"`
-(`bundler/index.ts:185`) et une racine relative au paquet (`bundler/index.ts:189`). La sortie est
+Le socle impose `preserveModules: true` (`bundler/index.ts#defineNodefonyRolldownConfig`) avec `entryFileNames: "[name].js"`
+(`bundler/index.ts#defineNodefonyRolldownConfig`) et une racine relative au paquet (`bundler/index.ts#defineNodefonyRolldownConfig`). La sortie est
 donc le **miroir** des sources, pas un gros fichier concaténé.
 
 Ce n'est pas cosmétique. Trois conséquences directes :
@@ -230,9 +230,9 @@ Ce n'est pas cosmétique. Trois conséquences directes :
 
 ### Les entrées — tout `nodefony/**`, jamais les tests
 
-`nodefonyInput()` (`bundler/index.ts:115`) construit la carte des entrées : `index.ts` plus le glob
+`nodefonyInput()` (`bundler/index.ts#nodefonyInput`) construit la carte des entrées : `index.ts` plus le glob
 `nodefony/**/*.ts`, chaque fichier nommé par son chemin relatif. Le filtre `IGNORED`
-(`bundler/index.ts:67`) écarte quatre familles : `.d.ts`, `.test.ts`, `.spec.ts` et tout ce qui vit
+(`bundler/index.ts#IGNORED`) écarte quatre familles : `.d.ts`, `.test.ts`, `.spec.ts` et tout ce qui vit
 sous un dossier `tests/`.
 
 C'est ce qui garantit qu'un paquet publié **ne contient pas ses tests** — ni le code, ni les fixtures
@@ -275,11 +275,11 @@ Le cœur, encore une fois, en émet **deux jeux** : `tsconfig.declarations.json`
 Une dépendance est `external` quand elle doit rester **un `import` dans la sortie**, résolu au runtime
 depuis `node_modules`. Le bundler laisse la ligne intacte au lieu d'aspirer le paquet.
 
-`defineNodefonyRolldownConfig()` construit cette liste en trois apports (`bundler/index.ts:149`) : le
+`defineNodefonyRolldownConfig()` construit cette liste en trois apports (`bundler/index.ts#defineNodefonyRolldownConfig`) : le
 **nom propre du paquet** (toujours, sans condition), la liste passée en option, et — si
-`externalDeps` est vrai (`bundler/index.ts:41`) — toutes les `dependencies` et `peerDependencies`
+`externalDeps` est vrai (`bundler/index.ts#INodefonyRolldownOptions.externalDeps`) — toutes les `dependencies` et `peerDependencies`
 lues dans le `package.json` courant. Dans ce mode, **tout `@nodefony/*` est externe même s'il
-n'est pas déclaré** (`bundler/index.ts:90`) : recopié dans `dist/`, un paquet du framework
+n'est pas déclaré** (`bundler/index.ts#FRAMEWORK_SCOPE`) : recopié dans `dist/`, un paquet du framework
 dédoublerait ses singletons (`ormRegistry`, registres d'entités) sans la moindre erreur. Une peer
 oubliée se paie alors, au pire, d'un `ERR_MODULE_NOT_FOUND` franc.
 
@@ -311,16 +311,16 @@ cassent, dans cet ordre :
 
 ### Les deux gardes codées dans le socle
 
-- **Le nom propre est toujours externe** (`bundler/index.ts:157`). Un paquet qui s'importe par son
+- **Le nom propre est toujours externe** (`bundler/index.ts#defineNodefonyRolldownConfig`). Un paquet qui s'importe par son
   propre nom ferait avaler son `dist` par le bundler — c'est le piège du self-import.
 - **`nodefony` est externalisé en exact-match seulement.** `nodefonyExternalMatcher()`
-  (`bundler/index.ts:79`) accepte le préfixe `<nom>/` pour tous les paquets **sauf** `nodefony` : avec
+  (`bundler/index.ts#nodefonyExternalMatcher`) accepte le préfixe `<nom>/` pour tous les paquets **sauf** `nodefony` : avec
   `preserveModules`, les chunks internes s'appellent `nodefony/service/…`, et un match par préfixe les
-  externaliserait à tort. Le test le verrouille (`bundler.test.ts:27`).
+  externaliserait à tort. Le test le verrouille (`bundler.test.ts`).
 
 ### Le tree-shaking et son exception
 
-`nodefonyTreeshake` (`bundler/index.ts:96`) déclare les modules externes sans effet de bord — sauf
+`nodefonyTreeshake` (`bundler/index.ts#nodefonyTreeshake`) déclare les modules externes sans effet de bord — sauf
 **un** : `reflect-metadata`. Sa raison d'être **est** son effet de bord (il patche l'objet global
 `Reflect`), donc l'élaguer produit un `Reflect.defineMetadata is not a function` au premier
 décorateur. Une seule ligne dans le socle, et le piège ne se rejoue plus jamais.
@@ -431,11 +431,11 @@ flowchart LR
   RB --> K["group-kill + redémarrage du serveur"]
 ```
 
-- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts:2116`) reconstruit
+- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts#DevSupervisor.#build`) reconstruit
   les seuls workspaces touchés et leurs dépendants (`turbo --filter=pkg...`), puis l'app racine
   (`rolldown -c`) si un fichier de la racine a bougé. Un `npm run build` complet coûtait plus de
   quatre-vingts secondes pour un fichier.
-- **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts:132`) : une modification
+- **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts#APP_DEV_BUILD_ARGS`) : une modification
   front ne doit surtout pas redémarrer le serveur, sinon on perd le HMR de Vite.
 - **Hors monorepo**, jamais turbo, qui n'a rien à ordonner. Mais un module LOCAL (`modules/<nom>`,
   né de `create module`) est un workspace que l'app charge par son `dist/` et laisse hors de son
@@ -450,42 +450,42 @@ Le JavaScript du navigateur ne passe **pas** par rolldown : il est bâti par **V
 
 ### En production — `nodefony frontend:build`
 
-`ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:95`) assemble la configuration Vite depuis les
+`ViteBuilder.buildViteConfig()` (`ViteBuilder.ts#ViteBuilder.buildViteConfig`) assemble la configuration Vite depuis les
 entrées déclarées par les modules. Trois réglages font tout le travail :
 
-- **`manifest: true`** (`ViteBuilder.ts:147`) : Vite écrit un `manifest.json` qui associe chaque entrée
+- **`manifest: true`** (`ViteBuilder.ts#ViteBuilder.buildViteConfig`) : Vite écrit un `manifest.json` qui associe chaque entrée
   source à son fichier hashé. C'est lui que le rendu HTML relit — sans lui, aucune balise `<script>`
   ne peut être écrite correctement.
-- **`base`** (`ViteBuilder.ts:133`) : en production seulement, préfixé par le `publicPath` (et par
+- **`base`** (`ViteBuilder.ts#ViteBuilder.buildViteConfig`) : en production seulement, préfixé par le `publicPath` (et par
   l'URL du CDN si elle est configurée). C'est ce qui aligne les URLs émises dans le HTML sur ce que
   sert réellement le serveur de fichiers statiques.
-- **`rollupOptions.input`** (`ViteBuilder.ts:118`) : une carte d'entrées, donc plusieurs bundles dans
+- **`rollupOptions.input`** (`ViteBuilder.ts#ViteBuilder.buildViteConfig`) : une carte d'entrées, donc plusieurs bundles dans
   une seule passe.
 
-La commande (`frontend-build.ts:22`) est faite pour un pipeline d'intégration :
+La commande (`frontend-build.ts#FrontendBuild`) est faite pour un pipeline d'intégration :
 
-| Comportement                         | Détail                                                                                              |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| **Idempotent**                       | Une entrée dont le manifeste est plus récent que ses sources est ignorée (`FrontendService.ts:560`) |
-| **`--force`**                        | Reconstruit tout, sans test de fraîcheur                                                            |
-| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts:653`)                              |
-| **Code de sortie**                   | Passe à `1` s'il reste un échec (`frontend-build.ts:103`) — la CI casse                             |
+| Comportement                         | Détail                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| **Idempotent**                       | Une entrée dont le manifeste est plus récent que ses sources est ignorée (`FrontendService.ts#FrontendService.setupProd`) |
+| **`--force`**                        | Reconstruit tout, sans test de fraîcheur                                                                                  |
+| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts#FrontendService.build`)                                  |
+| **Code de sortie**                   | Passe à `1` s'il reste un échec (`frontend-build.ts#FrontendBuild.generate`) — la CI casse                                |
 
 ### Publier les assets — `assets:publish`
 
 Un déploiement cloud-native veut souvent servir les fichiers statiques depuis un CDN plutôt que depuis
-le processus Node. `planAssetPublish()` (`collectAssets.ts:43`) calcule le plan de copie : pour chaque
+le processus Node. `planAssetPublish()` (`collectAssets.ts#planAssetPublish`) calcule le plan de copie : pour chaque
 source — montage statique de module ou bundle front — le dossier cible **miroir du préfixe d'URL**.
 
 La fonction est **pure, sans aucune entrée/sortie disque**, donc testable ; la copie réelle est faite
-par la commande `assets:publish` (`assetsPublishCommand.ts:52`). L'envoi vers S3, un CDN ou un rsync
+par la commande `assets:publish` (`assetsPublishCommand.ts#AssetsPublish`). L'envoi vers S3, un CDN ou un rsync
 reste à l'orchestrateur : Nodefony assemble l'arbre, le déploiement le pousse.
 
 ### Le cas des modules distribués avec une interface
 
 Un module publié sur npm avec son interface d'administration ne peut pas exiger que le consommateur
-compile son front. `resolveUiDelivery()` (`prebuiltUi.ts:48`) arbitre trois modes via la molette `ui`
-(`prebuiltUi.ts:48`) :
+compile son front. `resolveUiDelivery()` (`prebuiltUi.ts#resolveUiDelivery`) arbitre trois modes via la molette `ui`
+(`prebuiltUi.ts#resolveUiDelivery`) :
 
 | Mode     | Comportement                                                                          |
 | -------- | ------------------------------------------------------------------------------------- |
@@ -511,13 +511,13 @@ sources, les tests, les configurations — **reste dans le dépôt**.
 | `public`    | `@nodefony/studio`       | Les assets d'interface pré-buildés, servis en mode `static`.      |
 
 L'entrée **`docs` n'est pas décorative** : c'est ce qui rend la documentation d'un module lisible
-depuis une application qui l'a simplement installé. `listModuleDocs()` (`docsReader.ts:227`) lit le
-dossier `docs/` **du module tel qu'installé**, et `readDependencies()` (`docsReader.ts:841`) résout
+depuis une application qui l'a simplement installé. `listModuleDocs()` (`docsReader.ts#listModuleDocs`) lit le
+dossier `docs/` **du module tel qu'installé**, et `readDependencies()` (`docsReader.ts#readDependencies`) résout
 les versions réellement présentes dans `node_modules`. Un module publié sans son `docs/` devient muet
 dans la console d'administration.
 
 Enfin, un module n'est jamais chargé par un chemin de fichier mais **par son nom de paquet**, résolu
-depuis l'application : `resolveModuleEntry()` (`resolveModuleEntry.ts:29`) construit une URL `file://`
+depuis l'application : `resolveModuleEntry()` (`resolveModuleEntry.ts#resolveModuleEntry`) construit une URL `file://`
 à partir du `package.json` de l'app. C'est ce qui fait fonctionner les topologies non triviales —
 `npm link`, pnpm, hoisting — où le paquet `nodefony` n'habite pas le même `node_modules` que les
 modules de l'application.
@@ -525,13 +525,13 @@ modules de l'application.
 ## 🧩 Générer du code plutôt que le compiler — le `Builder`
 
 À côté des deux chaînes de build, un troisième producteur de fichiers : le scaffolding. `Builder`
-(`Builder.ts:48`) étend `Service` et n'a rien d'un bundler — il **matérialise des squelettes**.
+(`Builder.ts#Builder`) étend `Service` et n'a rien d'un bundler — il **matérialise des squelettes**.
 
-Il consomme des descriptions `BuilderObject` (`Builder.ts:27`) — un fichier, un dossier, une copie ou
-un lien symbolique — et les écrit via `build()` (`Builder.ts:162`), après rendu du squelette par le
-moteur de templates Eta (`buildSkeleton()`, `Builder.ts:114`).
+Il consomme des descriptions `BuilderObject` (`Builder.ts#BuilderObject.name`) — un fichier, un dossier, une copie ou
+un lien symbolique — et les écrit via `build()` (`Builder.ts#Builder.build`), après rendu du squelette par le
+moteur de templates Eta (`buildSkeleton()`, `Builder.ts#Builder.buildSkeleton`).
 
-Trois options de rendu, et une seule mérite une explication (`Builder.ts:47`) :
+Trois options de rendu, et une seule mérite une explication (`Builder.ts#Builder`) :
 
 - **`autoEscape: false`** — on génère du TypeScript et du JSON, pas du HTML. L'échappement casserait
   `<`, `&` et les apostrophes dans le code produit.
@@ -561,18 +561,18 @@ mesurables **au runtime** :
 | --------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | Le bundle explose après un `npm install`                  | Une nouvelle dépendance n'est pas dans `external`                  | L'ajouter à la liste ; auditer avec le skill `nodefony-check-externals`                                    |
 | Build KO : `"hash" is not exported` (ou binaire natif)    | Une peerDependency est bundlée, le bundler a suivi jusqu'au natif  | Externaliser la peerDependency                                                                             |
-| `Reflect.defineMetadata is not a function`                | Le side-effect de `reflect-metadata` a été élagué                  | Déjà couvert par `nodefonyTreeshake` (`bundler/index.ts:96`) — ne pas le contourner                        |
+| `Reflect.defineMetadata is not a function`                | Le side-effect de `reflect-metadata` a été élagué                  | Déjà couvert par `nodefonyTreeshake` (`bundler/index.ts#nodefonyTreeshake`) — ne pas le contourner         |
 | `EntityRegistry: entity "…" already registered`           | Deux copies du même paquet dans le processus                       | Vérifier qu'il est bien `external` partout                                                                 |
-| Chunks cassés / `dist` incohérent avec `preserveModules`  | `nodefony` externalisé par préfixe au lieu d'exact-match           | Passer par `nodefonyExternalMatcher()` (`bundler/index.ts:79`)                                             |
-| Le paquet publié contient ses tests                       | Le glob d'entrées ne les exclut pas                                | Utiliser la fabrique : `IGNORED` les écarte (`bundler/index.ts:67`)                                        |
+| Chunks cassés / `dist` incohérent avec `preserveModules`  | `nodefony` externalisé par préfixe au lieu d'exact-match           | Passer par `nodefonyExternalMatcher()` (`bundler/index.ts#nodefonyExternalMatcher`)                        |
+| Le paquet publié contient ses tests                       | Le glob d'entrées ne les exclut pas                                | Utiliser la fabrique : `IGNORED` les écarte (`bundler/index.ts#IGNORED`)                                   |
 | **TS2307** sur un paquet du dépôt qu'on vient de modifier | Il est lu par `dist/types` (absent ou périmé) au lieu de sa source | Déclarer `"nodefony-source": "./index.ts"` dans ses `exports` (et `customConditions` chez le consommateur) |
 | Typecheck vert alors que le type a changé                 | Le consommateur lit un `.d.ts` périmé                              | Même correction — ou rebuilder la dépendance avant                                                         |
 | `does not provide an export named 'X'` au démarrage       | `dist` périmé après un pull / merge                                | `npm run clean && npm run build`                                                                           |
 | Une modification du `rolldown.config.ts` reste sans effet | Il n'est pas dans les `inputs` de turbo → cache non invalidé       | `npm run build:force` (ou `npx nodefony build --force`)                                                    |
 | Les `.d.ts` atterrissent au milieu du JavaScript          | `declarationDir` absent du `tsconfig.declarations.json`            | Le déclarer explicitement (`./dist/types`)                                                                 |
-| `frontend:build` ne reconstruit rien                      | Comportement normal : le manifeste est plus récent que les sources | `--force` (`frontend-build.ts:103` casse l'exit code en cas d'échec réel)                                  |
-| La documentation d'un module installé n'apparaît pas      | `docs` absent du champ `files` du paquet                           | L'ajouter — `listModuleDocs()` lit `docs/` dans `node_modules` (`docsReader.ts:178`)                       |
-| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts:132`)                                                 |
+| `frontend:build` ne reconstruit rien                      | Comportement normal : le manifeste est plus récent que les sources | `--force` (`frontend-build.ts#FrontendBuild.generate` casse l'exit code en cas d'échec réel)               |
+| La documentation d'un module installé n'apparaît pas      | `docs` absent du champ `files` du paquet                           | L'ajouter — `listModuleDocs()` lit `docs/` dans `node_modules` (`docsReader.ts#gitLastUpdated`)            |
+| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts#APP_DEV_BUILD_ARGS`)                                  |
 
 ## 🧪 Tests & couverture
 

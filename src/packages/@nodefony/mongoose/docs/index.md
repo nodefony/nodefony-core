@@ -192,7 +192,7 @@ des connexions, la compilation des schémas, et présente le tout derrière le c
 
 Nodefony ne demande pas à chaque backend de tout savoir faire. **Chaque adapter déclare ce qu'il
 implémente**, dans son `package.json` (clé `nodefony.stores`), et le framework lit cette déclaration
-à chaud (`readAdapterManifest()` (`KernelAdminApi.ts:93`)). Rien n'est curaté dans le cœur : la
+à chaud (`readAdapterManifest()` (`KernelAdminApi.ts#readAdapterManifest`)). Rien n'est curaté dans le cœur : la
 source de vérité, c'est l'adapter lui-même — ce qui vaut aussi pour un adapter tiers.
 
 Ce que `@nodefony/mongoose` déclare : les huit briques — `session`, `user`, `tokens`, `passkeys`,
@@ -225,7 +225,7 @@ Ce que `@nodefony/mongoose` déclare : les huit briques — `session`, `user`, `
 ### Ce qui se passe quand tu ne choisis rien
 
 Chaque brique a une clé `store` dont le défaut est `"auto"`. La résolution
-(`resolveAutoStore()` (`infra.ts:330`)) suit l'infrastructure **déclarée**, bornée aux backends
+(`resolveAutoStore()` (`infra.ts#resolveAutoStore`)) suit l'infrastructure **déclarée**, bornée aux backends
 réellement chargés :
 
 | Ta situation                                            | Ce que `auto` choisit                                    |
@@ -399,7 +399,7 @@ INFO  mongoose  Mongoose ORM "nodefony" connected (127.0.0.1:27017/blog)
 
 Une fois le driver chargé, les stores Mongo deviennent **sélectionnables par leur nom**, sans aucun
 câblage : le module les enregistre lui-même à son démarrage
-(`registerMongooseFrameworkStores()` (`registerStores.ts:126`)).
+(`registerMongooseFrameworkStores()` (`registerStores.ts#registerMongooseFrameworkStores`)).
 
 ```typescript
 // nodefony/config/security.ts — trois clés de plus dans `securityConfig`
@@ -495,7 +495,7 @@ sequenceDiagram
 
 L'ordre n'est pas cosmétique. Les entités sont déclarées à `onKernelRegister`, **strictement avant**
 le `connect` de `onBoot` : les modèles sont compilés à la connexion
-(`MongooseOrm.onConnect()` (`MongooseOrm.ts:137`)), donc une entité déclarée trop tard n'existe tout
+(`MongooseOrm.onConnect()` (`MongooseOrm.ts#MongooseOrm.onConnect`)), donc une entité déclarée trop tard n'existe tout
 simplement pas. C'est aussi pour ça que `@entities` s'exécute à la phase `onRegister` et non `onBoot`.
 
 Chaque connecteur ouvre une **connexion isolée** (`mongoose.createConnection`), pas le singleton
@@ -503,9 +503,9 @@ global de Mongoose : c'est ce qui permet à plusieurs bases — voire plusieurs 
 le même processus.
 
 Le service orchestre ce cycle de bout en bout : il ouvre une connexion par connecteur déclaré au
-démarrage (`MongooseService.connectAll()` (`MongooseService.ts:104`)) et referme tout à l'arrêt
-(`MongooseService.disconnectAll()` (`MongooseService.ts:210`)). Le module se déclare **non critique**
-(`Mongoose.critical` (`mongoose/index.ts:48`)) : une base injoignable ne tue pas le processus —
+démarrage (`MongooseService.connectAll()` (`MongooseService.ts#MongooseService.connectAll`)) et referme tout à l'arrêt
+(`MongooseService.disconnectAll()` (`MongooseService.ts#MongooseService.disconnectAll`)). Le module se déclare **non critique**
+(`Mongoose.critical` (`mongoose/index.ts#Mongoose.critical`)) : une base injoignable ne tue pas le processus —
 l'application monte quand même, l'échec est journalisé, et c'est l'orchestrateur qui relèvera Mongo.
 
 > [!NOTE]
@@ -513,15 +513,15 @@ l'application monte quand même, l'échec est journalisé, et c'est l'orchestrat
 > indexées par `(connecteur, nom)` dans un registre **global au processus**. Si Drizzle (dont le
 > connecteur par défaut est `default`) et Mongoose tournaient ensemble avec le même nom, leurs deux
 > entités `session` entreraient en collision. Un nom distinct par driver règle le problème par
-> construction (`FRAMEWORK_CONNECTOR` (`registerStores.ts:77`)).
+> construction (`FRAMEWORK_CONNECTOR` (`registerStores.ts#FRAMEWORK_CONNECTOR`)).
 
 ### Le trajet d'une requête
 
 `repo.find({ views: { $gte: 10 } }, { limit: 20 })` traverse quatre étapes :
 
-1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts:255`)) : chaque
+1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts#MongooseRepository.#filter`)) : chaque
    champ est résolu (`id` devient `_id`), chaque opérateur portable est converti.
-2. **Validation du champ** (`MongooseRepository.#resolveField()` (`MongooseRepository.ts:222`)) : un
+2. **Validation du champ** (`MongooseRepository.#resolveField()` (`MongooseRepository.ts#MongooseRepository.#resolveField`)) : un
    champ absent du schéma lève `UnknownCriteriaField` — plutôt que de renvoyer zéro résultat sans
    rien dire, ce qui est la pire façon d'échouer.
 3. **Exécution** : la requête Mongoose est construite (session transactionnelle, `populate`, `skip`,
@@ -529,7 +529,7 @@ l'application monte quand même, l'échec est journalisé, et c'est l'orchestrat
 4. **Sérialisation** : chaque document sort en objet plat, **virtuels compris** — c'est là que `id`
    apparaît.
 
-Une sonde facultative encadre l'opération (`MongooseRepository.#prof()` (`MongooseRepository.ts:118`)) :
+Une sonde facultative encadre l'opération (`MongooseRepository.#prof()` (`MongooseRepository.ts#MongooseRepository.#prof`)) :
 voir [Performance et mémoire](#-performance-et-mémoire).
 
 ## 🧰 Le repository portable — l'API que tu utilises vraiment
@@ -554,24 +554,24 @@ drivers. Les signatures exactes vivent dans le graphe généré
 | `withTransaction` | rejouer les mêmes opérations dans une transaction | ajoute la `session` à chaque opération |
 
 Les écritures qui « lisent puis écrivent » sont **atomiques par construction**
-(`MongooseRepository.upsert()` (`MongooseRepository.ts:439`),
-`MongooseRepository.increment()` (`MongooseRepository.ts:524`)) : un seul aller-retour, la
+(`MongooseRepository.upsert()` (`MongooseRepository.ts#MongooseRepository.upsert`),
+`MongooseRepository.increment()` (`MongooseRepository.ts#MongooseRepository.increment`)) : un seul aller-retour, la
 comparaison est faite par le serveur. Ce n'est pas une optimisation cosmétique — c'est ce qui évite
 que deux requêtes simultanées lisent le même état et s'écrasent mutuellement.
 
 ### Les critères et leurs opérateurs
 
 Les opérateurs portables sont ceux d'[`orm-core`](../../orm-core/docs/index.md), et la plupart sont
-natifs en Mongo. Deux méritent une explication (`MongooseRepository.#mongoOps()` (`MongooseRepository.ts:173`)) :
+natifs en Mongo. Deux méritent une explication (`MongooseRepository.#mongoOps()` (`MongooseRepository.ts#MongooseRepository.#mongoOps`)) :
 
-| Opérateur portable         | Côté Mongo                | Remarque                                                            |
-| -------------------------- | ------------------------- | ------------------------------------------------------------------- |
-| `$eq $gt $gte $lt $lte`    | identiques                | natifs                                                              |
-| `$ne` / `$nin`             | `$nin` + `null`           | comme en SQL, jamais un champ absent (un `$nin` vide reste neutre)  |
-| `$in`                      | identique                 | natif                                                               |
-| `$like: "ab%"`             | `$regex` **ancrée**       | motif SQL traduit (`sqlLikeToRegex()` (`MongooseRepository.ts:25`)) |
-| `$null: true` / `false`    | `$eq: null` / `$ne: null` | en Mongo, `null` couvre aussi le champ **absent**                   |
-| `$max` / `$min` (écriture) | `$max` / `$min` natifs    | l'équivalent du `GREATEST(col, ?)` SQL                              |
+| Opérateur portable         | Côté Mongo                | Remarque                                                                           |
+| -------------------------- | ------------------------- | ---------------------------------------------------------------------------------- |
+| `$eq $gt $gte $lt $lte`    | identiques                | natifs                                                                             |
+| `$ne` / `$nin`             | `$nin` + `null`           | comme en SQL, jamais un champ absent (un `$nin` vide reste neutre)                 |
+| `$in`                      | identique                 | natif                                                                              |
+| `$like: "ab%"`             | `$regex` **ancrée**       | motif SQL traduit (`sqlLikeToRegex()` (`MongooseRepository.ts#IMongooseReferrer`)) |
+| `$null: true` / `false`    | `$eq: null` / `$ne: null` | en Mongo, `null` couvre aussi le champ **absent**                                  |
+| `$max` / `$min` (écriture) | `$max` / `$min` natifs    | l'équivalent du `GREATEST(col, ?)` SQL                                             |
 
 ```typescript
 await articles.find({ tags: "nodefony" }); // tableau : appartenance native
@@ -641,7 +641,7 @@ await orm.transaction(async (tx) => {
 }); // commit si la fonction résout, annulation si elle échoue
 ```
 
-`MongooseOrm.transaction()` (`MongooseOrm.ts:591`) s'appuie sur les sessions Mongo « managées »
+`MongooseOrm.transaction()` (`MongooseOrm.ts#MongooseOrm.transaction`) s'appuie sur les sessions Mongo « managées »
 (commit, annulation et **reprises** gérées par le driver).
 
 > [!IMPORTANT]
@@ -653,11 +653,11 @@ await orm.transaction(async (tx) => {
 
 ### La trappe native — quand le contrat ne suffit plus
 
-`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:611`) rend la connexion Mongoose telle quelle :
+`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts#MongooseOrm.getNativeConnection`) rend la connexion Mongoose telle quelle :
 agrégations, `$or`, index, `$text`, `bulkWrite`, changements de flux. Le module lui-même s'en sert
 là où le contrat portable ne suffit pas — par exemple pour la recherche texte du listing des
 webhooks, qui a besoin d'un `$or` sur deux champs
-(`MongooseWebhookStore.#listFilter()` (`MongooseWebhookStore.ts:195`)).
+(`MongooseWebhookStore.#listFilter()` (`MongooseWebhookStore.ts#MongooseWebhookStore.#listFilter`)).
 
 C'est un **anti-blocage assumé** : le contrat portable couvre le quotidien, la trappe couvre le reste.
 Le code qui l'emprunte cesse d'être portable, et ça se voit — ce qui est exactement le but.
@@ -680,7 +680,7 @@ la connexion ne s'ouvre.
 | Audit        | `IAuditStore` (security)      | `audit: { store: "mongoose" }`                   | `audit_event`                                      |
 | Idempotence  | `IIdempotencyStore` (cœur)    | `idempotency: { store: "mongoose" }` (framework) | `idempotency_key`                                  |
 
-L'auto-enregistrement peut être coupé (`frameworkEntities: false` (`config.ts:120`)) : le module
+L'auto-enregistrement peut être coupé (`frameworkEntities: false` (`config.ts#mongooseConfigSchema`)) : le module
 devient alors un pur driver de données, sans schéma framework.
 
 ### Sessions
@@ -691,18 +691,18 @@ devient alors un pur driver de données, sans schéma framework.
 
 Trois comportements valent d'être connus :
 
-- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:199`)) :
+- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts#SessionStorage.gc`)) :
   l'inactivité (depuis la dernière activité) et l'âge absolu (depuis la création, **jamais prolongé** —
   la ré-authentification finit par être imposée, conformément aux recommandations NIST/OWASP).
-- **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts:229`)) : rafraîchir
+- **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts#SessionStorage.touch`)) : rafraîchir
   l'activité ne réécrit pas le contenu de la session, juste son horodatage.
-- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:323`)) :
+- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts#SessionStorage.listPage`)) :
   le contenu applicatif et les messages flash **ne sortent pas de la base**. Studio affiche qui est
   connecté, jamais ce qu'il y a dans sa session.
 
 Quand l'ORM n'est plus connecté — typiquement pendant l'arrêt du serveur, alors que des requêtes sont
 encore en vol — le store dégrade **gracieusement** au lieu de lever une exception
-(`SessionStorage.#repo()` (`SessionStorage.ts:84`)). Une session non persistée le temps de l'arrêt
+(`SessionStorage.#repo()` (`SessionStorage.ts#SessionStorage.#repo`)). Une session non persistée le temps de l'arrêt
 vaut mieux qu'une erreur 500 et un rejet non capturé.
 
 ### Utilisateurs
@@ -710,15 +710,15 @@ vaut mieux qu'une erreur 500 et un rejet non capturé.
 `MongooseUserRepository` rend des objets `BaseUser` (avec leur comportement : rôles, actif, verrouillé),
 pas des documents nus. Deux recherches lui sont propres :
 
-- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts:238`)) :
+- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts#MongooseUserRepository.findBySocialProvider`)) :
   un `$elemMatch` sur un tableau libre de fournisseurs — le pendant Mongo du parcours JSON en SQL.
   C'est ce qui porte le motif « Shadow User » d'OAuth (un compte créé à la volée au premier login social),
   **sans colonne par fournisseur** : ajouter GitHub demain n'est pas une migration.
-- **listing paginé** (`MongooseUserRepository.listPage()` (`MongooseUserRepository.ts:281`)) : requête
+- **listing paginé** (`MongooseUserRepository.listPage()` (`MongooseUserRepository.ts#MongooseUserRepository.listPage`)) : requête
   native bornée (`skip`/`limit + 1`), tri sur liste blanche, `_id` en départage. Une page est une page,
   jamais la collection entière rapatriée en mémoire.
 
-Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:343`))
+Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts#MongooseUserRepository.countActiveAdmins`))
 compte côté serveur — c'est le garde-fou qui empêche de supprimer le dernier administrateur.
 
 ### Jetons
@@ -726,25 +726,25 @@ compte côté serveur — c'est le garde-fou qui empêche de supprimer le dernie
 Trois collections : les jetons eux-mêmes, la denylist de `jti`, les seuils de révocation par porteur.
 Deux invariants de sécurité sont tenus **par la requête**, pas par du code JavaScript entre deux appels :
 
-- **Révocation idempotente** (`MongooseTokenStore.revoke()` (`MongooseTokenStore.ts:275`)) : la
+- **Révocation idempotente** (`MongooseTokenStore.revoke()` (`MongooseTokenStore.ts#MongooseTokenStore.revoke`)) : la
   condition « pas encore révoqué » est dans le filtre. Deux révocations simultanées ne se recouvrent
   pas ; la première date et la première raison sont conservées.
-- **Seuil monotone** (`MongooseTokenStore.revokeAllForSubject()` (`MongooseTokenStore.ts:334`)) : le
+- **Seuil monotone** (`MongooseTokenStore.revokeAllForSubject()` (`MongooseTokenStore.ts#MongooseTokenStore.revokeAllForSubject`)) : le
   « déconnecte-moi de partout » utilise `$max`. Avec une lecture suivie d'une écriture, deux
   déconnexions simultanées pourraient reposer un seuil **plus ancien** — et des jetons révoqués
   redeviendraient valides. Ici, c'est structurellement impossible.
 
-La purge, bornée par `retentionRevokedMs` (`MongooseTokenStore.gc()` (`MongooseTokenStore.ts:356`)), s'appuie sur une particularité utile
+La purge, bornée par `retentionRevokedMs` (`MongooseTokenStore.gc()` (`MongooseTokenStore.ts#MongooseTokenStore.gc`)), s'appuie sur une particularité utile
 de Mongo : une comparaison numérique **ignore** les documents dont le champ est `null`. Les jetons sans
 expiration ne sont donc jamais balayés par erreur ; ils partent par une règle de rétention distincte.
 
 ### Passkeys
 
 Une collection, l'identifiant du credential en clé primaire. L'enregistrement passe par un `upsert`
-atomique (`MongooseWebAuthnCredentialStore.save()` (`MongooseWebAuthnCredentialStore.ts:109`)) : deux
+atomique (`MongooseWebAuthnCredentialStore.save()` (`MongooseWebAuthnCredentialStore.ts#MongooseWebAuthnCredentialStore.save`)) : deux
 enregistrements concurrents de la même passkey ne peuvent pas produire de collision de clé.
 
-Le listing d'administration (`MongooseWebAuthnCredentialStore.listPage()` (`MongooseWebAuthnCredentialStore.ts:173`))
+Le listing d'administration (`MongooseWebAuthnCredentialStore.listPage()` (`MongooseWebAuthnCredentialStore.ts#MongooseWebAuthnCredentialStore.listPage`))
 projette **sans la clé publique** — elle ne franchit jamais la frontière du store. La recherche libre
 est un **préfixe ancré**, pas une expression régulière fournie par l'appelant : une recherche
 utilisateur n'est jamais interprétée comme du code.
@@ -752,12 +752,12 @@ utilisateur n'est jamais interprétée comme du code.
 ### Webhooks
 
 Registre **durable** des destinations à notifier, par opposition au store mémoire qui disparaît au
-redémarrage. Le listing paginé (`MongooseWebhookStore.listPage()` (`MongooseWebhookStore.ts:227`))
+redémarrage. Le listing paginé (`MongooseWebhookStore.listPage()` (`MongooseWebhookStore.ts#MongooseWebhookStore.listPage`))
 lit `limit + 1` documents pour savoir s'il existe une page suivante — sans second comptage — et
 échappe les métacaractères de la recherche texte.
 
 Détail révélateur de la doctrine du framework : si le store est construit sans modèle natif, le
-listing paginé **refuse** de répondre (`MongooseWebhookStore.#nativeModel()` (`MongooseWebhookStore.ts:179`))
+listing paginé **refuse** de répondre (`MongooseWebhookStore.#nativeModel()` (`MongooseWebhookStore.ts#MongooseWebhookStore.#nativeModel`))
 au lieu de retomber sur un chargement complet de la collection. Une garantie silencieusement trahie
 serait pire qu'une erreur.
 
@@ -795,14 +795,14 @@ Deux choix structurants s'y lisent :
 
 **La clé naturelle prend la place de `_id`.** Pour les jetons, les passkeys et les webhooks,
 l'identifiant vient de l'appelant (un `jti`, un identifiant d'authentificateur, un `wh_…`) : il est
-posé **en clé primaire** (`accessTokenSchema` (`tokenEntity.ts:22`)) plutôt que dupliqué dans un champ
+posé **en clé primaire** (`accessTokenSchema` (`tokenEntity.ts#accessTokenSchema`)) plutôt que dupliqué dans un champ
 indexé à côté d'un `ObjectId` inutile. Gratuit : l'unicité, et l'éligibilité à un index d'expiration
 natif.
 
 **Les horodatages sont des nombres, pas des dates.** Les contrats du framework portent des `number`
 (millisecondes depuis l'époque) : les stocker tels quels garde la logique de purge **strictement
 identique** à celle de l'adapter SQL. Seule l'entité `User` utilise la gestion automatique de Mongoose
-(`createUserEntity()` (`userEntity.ts:104`)), parce que son contrat porte des dates.
+(`createUserEntity()` (`userEntity.ts#createUserEntity`)), parce que son contrat porte des dates.
 
 Le contrat expose partout `id: string`, jamais un `ObjectId` : le champ virtuel `id` est activé à la
 sérialisation, sur toutes les entités compilées par l'adapter.
@@ -819,9 +819,9 @@ heures plus tard.
 | `debug`             | trace toutes les opérations Mongoose (développement)           | `false`                                 |
 | `frameworkEntities` | déclare le schéma framework et rend ses stores sélectionnables | `true`                                  |
 
-Les valeurs font foi dans le schéma (`mongooseConfigSchema` (`config.ts:98`)) ; la surcharge par
+Les valeurs font foi dans le schéma (`mongooseConfigSchema` (`config.ts#mongooseConfigSchema`)) ; la surcharge par
 l'environnement est appliquée **après** la validation
-(`applyEnvOverrides()` (`defineModuleConfig.ts:22`)), ce qui garde le schéma pur et publiable en
+(`applyEnvOverrides()` (`defineModuleConfig.ts#applyEnvOverrides`)), ce qui garde le schéma pur et publiable en
 JSON Schema pour Studio.
 
 ➡️ **Tout le détail — champs, variables d'environnement, sécurité des identifiants — est dans
@@ -831,7 +831,7 @@ JSON Schema pour Studio.
 ## 📡 Observabilité — Studio
 
 Le module alimente le plan d'administration ORM, monté par
-`wireOrmAdminPlane()` (`ormWiring.ts:31`) — appelé par **chaque** driver, ce qui garantit qu'une
+`wireOrmAdminPlane()` (`ormWiring.ts#wireOrmAdminPlane`) — appelé par **chaque** driver, ce qui garantit qu'une
 application uniquement Mongo a un Studio ORM aussi vivant qu'une application SQL.
 
 | Écran Studio           | Ce que tu y vois                                                    |
@@ -845,17 +845,17 @@ Côté données, le plan d'administration expose `/nodefony/orm/api/*` : `orms`,
 `entity/{name}`, `graph`, `counts`, `connection/health`, `flow`, `export/{format}` (DBML ou JSON
 Schema). Le module fournit les sondes correspondantes :
 
-| Sonde                  | Ce qu'elle renvoie                                                          |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:626`)                    |
-| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:640`)              |
-| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:672`)    |
-| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:699`) |
+| Sonde                  | Ce qu'elle renvoie                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts#MongooseOrm.ping`)                                  |
+| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts#MongooseOrm.probe`)                           |
+| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts#MongooseOrm.describeEntity`)        |
+| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts#MongooseOrm.describeConnection`) |
 
 > [!IMPORTANT]
 > **Aucun identifiant ne sort jamais.** La cible affichée est nettoyée de tout `utilisateur:mot de
 passe@` avant d'atteindre le plan d'administration ou les journaux
-> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:711`)), y compris pour les URI multi-hôtes que
+> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts#MongooseOrm.safeTarget`)), y compris pour les URI multi-hôtes que
 > l'analyseur d'URL standard ne sait pas découper.
 
 ## ⚡ Performance et mémoire
@@ -865,10 +865,10 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 - **Instrumentation à coût nul hors observation.** Chaque opération peut alimenter deux sondes (le
   profil par requête de la barre de debug, et le flux agrégé). Les deux drapeaux sont lus **avant**
   toute allocation, et la description de la requête n'est construite que si l'on regarde
-  (`MongooseRepository.#prof()` (`MongooseRepository.ts:118`)). En production, le chemin est celui d'un
+  (`MongooseRepository.#prof()` (`MongooseRepository.ts#MongooseRepository.#prof`)). En production, le chemin est celui d'un
   appel direct.
 - **Repositories alloués à la demande.** Le cache est créé au premier accès, pas à la connexion
-  (`MongooseOrm.getRepository()` (`MongooseOrm.ts:567`)).
+  (`MongooseOrm.getRepository()` (`MongooseOrm.ts#MongooseOrm.getRepository`)).
 - **Un aller-retour par écriture.** Les opérations « lire puis écrire » sont exprimées en une seule
   requête atomique — moins de latence _et_ pas de course.
 - **Le comptage reste côté serveur.** Les listings paginés lisent `limit + 1` documents pour savoir
@@ -879,19 +879,19 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                     | Cause                                                                         | Correction                                                                        |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `Transaction numbers are only allowed on a replica set…`     | Serveur Mongo isolé : pas de transactions                                     | Démarrer un replica set (même à un nœud) ou utiliser un service managé            |
-| `ORM "nodefony" introuvable` au montage d'un store           | `@nodefony/security` chargé **avant** `@nodefony/mongoose`                    | Mettre le driver **avant** dans `modules` (`registerStores.ts:64`)                |
-| `no entity model registered under "X"`                       | Entité déclarée après la connexion (les modèles sont compilés au `connect`)   | Déclarer via `@entities` (phase `onRegister`), jamais à `onBoot`                  |
-| `UnknownCriteriaField` sur un champ pourtant présent en base | Le champ n'est pas dans le **schéma** déclaré                                 | L'ajouter au schéma, ou passer par la connexion native                            |
-| Un critère renvoie tout au lieu de filtrer                   | Deux conditions posées sur le **même champ** (le critère est un ET de champs) | `$or: [...]`, ou une requête native (agrégation)                                  |
-| `many-to-many non portable`                                  | Refus explicite : pas de traduction unique en Mongo                           | Déclarer la relation via la connexion native                                      |
-| Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto` |
-| `audit store "xxx" inconnu` — boot avorté en production      | Nom de store inexistant, ou `frameworkEntities: false`                        | Corriger le nom, ou laisser `auto`                                                |
-| Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:89`)        |
-| Un champ écrit se relit `undefined`, sans aucune erreur      | Il n'est pas dans le **schéma** : Mongoose est strict et l'écarte en silence  | L'ajouter au schéma de l'entité — le type TypeScript seul ne suffit pas           |
-| Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                |
+| Symptôme                                                     | Cause                                                                         | Correction                                                                                          |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `Transaction numbers are only allowed on a replica set…`     | Serveur Mongo isolé : pas de transactions                                     | Démarrer un replica set (même à un nœud) ou utiliser un service managé                              |
+| `ORM "nodefony" introuvable` au montage d'un store           | `@nodefony/security` chargé **avant** `@nodefony/mongoose`                    | Mettre le driver **avant** dans `modules` (`registerStores.ts#FRAMEWORK_CONNECTOR`)                 |
+| `no entity model registered under "X"`                       | Entité déclarée après la connexion (les modèles sont compilés au `connect`)   | Déclarer via `@entities` (phase `onRegister`), jamais à `onBoot`                                    |
+| `UnknownCriteriaField` sur un champ pourtant présent en base | Le champ n'est pas dans le **schéma** déclaré                                 | L'ajouter au schéma, ou passer par la connexion native                                              |
+| Un critère renvoie tout au lieu de filtrer                   | Deux conditions posées sur le **même champ** (le critère est un ET de champs) | `$or: [...]`, ou une requête native (agrégation)                                                    |
+| `many-to-many non portable`                                  | Refus explicite : pas de traduction unique en Mongo                           | Déclarer la relation via la connexion native                                                        |
+| Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto`                   |
+| `audit store "xxx" inconnu` — boot avorté en production      | Nom de store inexistant, ou `frameworkEntities: false`                        | Corriger le nom, ou laisser `auto`                                                                  |
+| Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts#MongooseUserRepository.from`) |
+| Un champ écrit se relit `undefined`, sans aucune erreur      | Il n'est pas dans le **schéma** : Mongoose est strict et l'écarte en silence  | L'ajouter au schéma de l'entité — le type TypeScript seul ne suffit pas                             |
+| Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                                  |
 
 ## 🧪 Tests et couverture
 

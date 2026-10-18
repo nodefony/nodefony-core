@@ -1,46 +1,38 @@
 #!/usr/bin/env node
 /**
- * anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE
- * (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).
+ * anchor-migrate.mjs — convertit les ancres `fichier:ligne` d'une page en ancres
+ * par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).
  *
  * Une ligne bouge dès qu'on écrit au-dessus d'elle ; un symbole ne bouge qu'au
- * renommage, quand la doc DOIT suivre. Ce script trouve, pour chaque ancre, la
- * déclaration qui ENGLOBE la ligne visée — l'AST TypeScript du fichier fait foi,
- * jamais une recherche de texte — et la classe :
+ * renommage, quand la doc DOIT suivre. La cible se lit dans l'AST du fichier
+ * visé (`lib/code-declarations.mjs`), jamais dans son texte, et aucune ancre
+ * n'est laissée à la main :
  *
- *   EXACT        l'englobant est le symbole que la page cite devant l'ancre
- *   ENGLOBANT    ancre juste, mais elle vise une instruction : elle se rabat sur
- *                la déclaration qui la contient (perte de précision assumée)
- *   RECALE       ancre dérivée (SUSPECT), mais le symbole cité n'est déclaré
- *                qu'une fois dans le fichier : c'est lui la cible
- *   A_RELIRE     ancre jugée juste, mais le symbole cité est déclaré AILLEURS
- *                dans le fichier : site d'usage, ou ligne qui a glissé — les
- *                deux cibles sont proposées, aucune n'est choisie
- *   INDECIS      le contrôle ne sait pas ce que l'ancre prouve : convertible
- *                sur l'englobant, à relire
- *   HORS_SYMBOLE la ligne n'est dans aucune déclaration nommée (import, code
- *                de haut niveau d'un script) : reliquat à la main
- *   HOMONYME     l'englobant porte un nom déclaré plusieurs fois dans le
- *                fichier (fusion de déclarations) : le lien serait incertain
- *   CASSEE       fichier introuvable, ligne hors fichier, ancre dérivée sans
- *                cible unique, ancre courte non contrôlée : jamais devinée
+ *   symbole cité   la page nomme, devant l'ancre, un symbole déclaré UNE fois
+ *                  ailleurs dans le fichier : site d'usage, ou ligne qui a
+ *                  glissé (vécu : `webhooks.ts:63` pour une constante en 62).
+ *                  Sa déclaration est un lien vrai, l'englobant ne l'est pas.
+ *   englobant      la déclaration la plus intérieure qui contient la ligne ;
+ *                  une ancre d'instruction se rabat sur sa méthode.
+ *   fichier        la ligne n'est dans aucune déclaration (code de haut
+ *                  niveau, `describe` d'un test) : l'ancre garde le fichier
+ *                  seul, qui ne casse qu'à son renommage.
+ *   retirée        ancre courte `:N` dont le fichier n'est pas écrit, ou que
+ *                  le contrôle réfute : elle ne désigne rien qu'on sache
+ *                  ouvrir. Le symbole qui la précède se trouve au `grep`.
  *
- * La détection des ancres (fichier visé, symbole cité) n'est PAS ici : elle
- * vient de `anchor-check.mjs --json`, pour qu'il n'en existe qu'une.
+ * La détection (fichier visé, symbole cité, ancres courtes) vient de
+ * `anchor-check.mjs --json` : une seule implémentation.
  *
- * ESSAI À BLANC : ne réécrit rien. Rend le bilan, et le détail ancre par ancre
- * dans `--report` (défaut `tmp/reports/anchor-migrate.json`).
- *
- * Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--report <f.json>]
+ * Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--apply] [--report <f.json>]
+ *   sans --apply : rien n'est écrit, le bilan dit ce qui le serait.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import picomatch from "picomatch";
 import {
   enclosingDeclaration,
-  isAmbiguous,
   loadDeclarations,
 } from "../lib/code-declarations.mjs";
 
@@ -50,27 +42,30 @@ const REPO = execFileSync("git", ["rev-parse", "--show-toplevel"], {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const argv = process.argv.slice(2);
+const APPLY = argv.includes("--apply");
 const iReport = argv.indexOf("--report");
 const reportPath =
   iReport >= 0
     ? argv[iReport + 1]
     : path.join(REPO, "tmp", "reports", "anchor-migrate.json");
-const cibles = argv.filter((a, i) => i !== iReport && i !== iReport + 1);
+const cibles = argv
+  .filter((a, i) => a !== "--apply" && i !== iReport && i !== iReport + 1)
+  .map((c) => path.resolve(c));
 if (!cibles.length) {
   console.error(
-    "usage: node anchor-migrate.mjs <page.md|dossier> [...] [--report <f.json>]",
+    "usage: node anchor-migrate.mjs <page.md|dossier> [...] [--apply] [--report <f.json>]",
   );
   process.exit(2);
 }
 
-// Le contrôle sort en 1 dès qu'une ancre est fausse : c'est attendu ici, les
-// ancres fausses font partie de ce qu'on compte.
+// Le contrôle sort en 1 dès qu'une ancre est fausse : attendu ici.
 let sortie;
 try {
   sortie = execFileSync(
     process.execPath,
     [path.join(HERE, "anchor-check.mjs"), "--json", ...cibles],
     {
+      cwd: REPO,
       encoding: "utf8",
       maxBuffer: 256 * 1024 * 1024,
       stdio: ["ignore", "pipe", "ignore"],
@@ -83,190 +78,134 @@ try {
 const ancres = sortie
   .split("\n")
   .filter(Boolean)
-  .map((l) => JSON.parse(l));
-
-// Périmètre du graphe symbolique : une ancre vers un fichier qu'il ne parse pas
-// ne se résoudra pas au rendu tant que ce périmètre ne l'inclut pas.
-const { default: graphe } = await import(
-  path.join(REPO, "scripts", "generate", "generate-symbols.config.ts")
-);
-const dansGraphe = picomatch(graphe.include, { ignore: graphe.exclude });
+  .map((l) => JSON.parse(l))
+  // Une ancre déjà par symbole n'a rien à convertir.
+  .filter((a) => a.symbol === undefined);
 
 const norm = (s) =>
   String(s ?? "")
     .replace(/^#/, "")
     .toLowerCase();
-// Blocs de code d'une page : une ancre dans une fence est souvent un exemple
-// (trace de pile, sortie de commande), pas une référence — le bilan le dit.
-const fenceCache = new Map();
-function dansFence(page, line) {
-  if (!fenceCache.has(page)) {
-    const lignes = fs.readFileSync(page, "utf8").split("\n");
-    const dedans = new Set();
-    let ouvert = false;
-    lignes.forEach((l, k) => {
-      if (/^\s*(```|~~~)/.test(l)) ouvert = !ouvert;
-      else if (ouvert) dedans.add(k + 1);
-    });
-    fenceCache.set(page, dedans);
-  }
-  return fenceCache.get(page).has(line);
+
+/**
+ * La cible d'une ancre de ligne : `{ action, symbol? }`, ou `null` si son
+ * fichier est introuvable — le contrôle la refusera, et le bilan le dit.
+ */
+function cibleDe(a) {
+  if (a.kind === "ORPHAN" || a.kind === "NON_CONTROLEE")
+    return { action: "retirée" };
+  if (!a.cand || a.kind === "FILE_NOT_FOUND" || a.kind === "LINE_OUT")
+    return null;
+  const index = loadDeclarations(path.join(REPO, a.cand));
+  const cites = a.prouve
+    ? index.list.filter((d) => norm(d.name) === norm(a.prouve) && !d.overload)
+    : [];
+  const englobant = enclosingDeclaration(index, a.start, a.end);
+  // Le symbole cité qui CONTIENT l'englobant (la classe d'une méthode visée)
+  // est moins précis que lui : l'englobant gagne.
+  const contient = (x, y) => y && x.start <= y.start && x.end >= y.end;
+  if (cites.length === 1 && !contient(cites[0], englobant))
+    return { action: "symbole cité", symbol: cites[0].qualified };
+  if (englobant) return { action: "englobant", symbol: englobant.qualified };
+  return { action: "fichier" };
 }
 
+/** Le texte qui remplace l'ancre, `""` pour une ancre retirée. */
+function remplacement(a, c) {
+  if (c.action === "retirée") return "";
+  const suffixe = c.symbol ? `#${c.symbol}` : "";
+  if (a.short) return `\`${a.label.replace(/:\d+(?:-\d+)?$/, "")}${suffixe}\``;
+  return a.raw.replace(/:\d+(?:-\d+)?(`?)$/, `${suffixe}$1`);
+}
+
+/**
+ * L'étendue à effacer pour une ancre retirée, séparateur compris : ` (`:54`)`,
+ * `, `:18``, ` `:1384``. Sans lui, la phrase garderait une virgule ou des
+ * parenthèses vides.
+ */
+function etendueRetiree(ligne, debut, fin) {
+  const avant = ligne.slice(0, debut);
+  const apres = ligne.slice(fin);
+  const parenthese = /\s*\(\s*$/.exec(avant);
+  const fermante = /^\s*\)/.exec(apres);
+  if (parenthese && fermante)
+    return [debut - parenthese[0].length, fin + fermante[0].length];
+  const separateur = /(?:\s*[,·/]\s*|\s+)$/.exec(avant);
+  return [debut - (separateur ? separateur[0].length : 0), fin];
+}
+
+const parPage = new Map();
+const bilan = {};
 const detail = [];
 for (const a of ancres) {
-  let categorie;
-  let cible = null;
-  let motif = null;
-  let parNom = null;
-  if (
-    !a.cand ||
-    a.kind === "FILE_NOT_FOUND" ||
-    a.kind === "LINE_OUT" ||
-    a.kind === "NON_CONTROLEE"
-  ) {
-    categorie = "CASSEE";
-    motif = a.kind;
-  } else {
-    const index = loadDeclarations(path.join(REPO, a.cand));
-    const decls = index.list;
-    if (a.kind === "SUSPECT") {
-      const nommes = a.prouve
-        ? decls.filter((d) => norm(d.name) === norm(a.prouve))
-        : [];
-      if (nommes.length === 1) {
-        categorie = "RECALE";
-        cible = nommes[0];
-      } else {
-        categorie = "CASSEE";
-        motif = nommes.length
-          ? `SUSPECT, ${nommes.length} déclarations de ${a.prouve}`
-          : "SUSPECT sans cible";
-      }
-    } else {
-      const d = enclosingDeclaration(index, a.start, a.end);
-      if (!d) categorie = "HORS_SYMBOLE";
-      else {
-        cible = d;
-        categorie =
-          a.kind === "INDECIS"
-            ? "INDECIS"
-            : a.prouve &&
-                (norm(d.name) === norm(a.prouve) ||
-                  norm(d.qualified) === norm(a.prouve))
-              ? "EXACT"
-              : "ENGLOBANT";
-        // Le symbole cité devant l'ancre est déclaré AILLEURS dans le fichier :
-        // l'ancre vise un site d'usage, ou une ligne qui a glissé et que la
-        // fenêtre large du contrôle a laissée passer (vécu : `webhooks.ts:63`
-        // pour une constante déclarée en 62). Se rabattre sur l'englobant
-        // figerait alors le MAUVAIS symbole : on ne choisit pas, on montre.
-        const cites =
-          categorie === "ENGLOBANT" && a.prouve
-            ? decls.filter((x) => norm(x.name) === norm(a.prouve))
-            : [];
-        if (cites.length) {
-          const ecart = Math.min(
-            ...cites.map((x) =>
-              a.start < x.start
-                ? x.start - a.start
-                : Math.max(0, a.start - x.end),
-            ),
-          );
-          categorie = "A_RELIRE";
-          motif = `${a.prouve} déclaré ailleurs (écart ${ecart} l.) — englobant ${d.qualified}, ou ${cites[0].qualified}`;
-          parNom = { cible: cites.length === 1 ? cites[0] : null, ecart };
-        }
-      }
-    }
-    if (cible && isAmbiguous(index, cible.qualified)) {
-      motif = `${cible.qualified} déclaré plusieurs fois`;
-      categorie = "HOMONYME";
-    }
-  }
+  const c = cibleDe(a);
+  const action = c?.action ?? "introuvable";
+  bilan[action] = (bilan[action] ?? 0) + 1;
+  const texte = c ? remplacement(a, c) : null;
   detail.push({
-    page: path.relative(REPO, path.resolve(a.page)),
+    page: path.relative(REPO, path.resolve(REPO, a.page)),
     line: a.line,
     raw: a.raw,
-    short: a.short,
-    plage: a.end !== a.start,
-    fence: dansFence(a.page, a.line),
-    controle: a.kind,
-    prouve: a.prouve,
-    cand: a.cand,
-    categorie,
-    motif,
-    cible: cible
-      ? `${a.label.replace(/:\d+(-\d+)?$/, "")}#${cible.qualified}`
-      : null,
-    membre: cible?.member ?? null,
-    horsGraphe: a.cand ? !dansGraphe(a.cand) : null,
-    ecartCite: parNom?.ecart ?? null,
-    cibleParNom: parNom?.cible
-      ? `${a.label.replace(/:\d+(-\d+)?$/, "")}#${parNom.cible.qualified}`
-      : null,
+    action,
+    texte,
   });
+  if (c === null) continue;
+  if (!parPage.has(a.page)) parPage.set(a.page, []);
+  parPage.get(a.page).push({ ...a, texte });
 }
 
-const ORDRE = [
-  "EXACT",
-  "ENGLOBANT",
-  "RECALE",
-  "A_RELIRE",
-  "INDECIS",
-  "HORS_SYMBOLE",
-  "HOMONYME",
-  "CASSEE",
-];
-const CONVERTIBLES = new Set(["EXACT", "ENGLOBANT", "RECALE"]);
-const compte = (f) => detail.filter(f).length;
-const pct = (n) => `${((100 * n) / detail.length).toFixed(1)} %`;
+let ecrites = 0;
+let decalees = 0;
+for (const [page, edits] of parPage) {
+  const abs = path.resolve(REPO, page);
+  const lignes = fs.readFileSync(abs, "utf8").split("\n");
+  const touchees = new Set();
+  const debutDeLigne = new Set();
+  // De droite à gauche : une réécriture ne décale pas les index de celles
+  // qui la précèdent sur la ligne.
+  edits.sort((x, y) => x.line - y.line || y.index - x.index);
+  for (const e of edits) {
+    const l = lignes[e.line - 1];
+    if (l.slice(e.index, e.index + e.raw.length) !== e.raw) {
+      decalees++;
+      continue;
+    }
+    const [debut, fin] =
+      e.texte === ""
+        ? etendueRetiree(l, e.index, e.index + e.raw.length)
+        : [e.index, e.index + e.raw.length];
+    if (e.texte === "" && /^\s*$/.test(l.slice(0, debut)) && debut === 0)
+      debutDeLigne.add(e.line - 1);
+    lignes[e.line - 1] = l.slice(0, debut) + e.texte + l.slice(fin);
+    touchees.add(e.line - 1);
+  }
+  // Trois ancres vers trois lignes d'un même test deviennent trois fois le
+  // même fichier : on n'en garde qu'une. Un retrait en tête de ligne n'y
+  // laisse pas d'espace.
+  for (const k of touchees)
+    lignes[k] = lignes[k]
+      .replace(/(`[^`]+`)(?:,\s*\1)+/g, "$1")
+      .replace(/^(\s*)\s(?=\S)/, (m, avant) =>
+        debutDeLigne.has(k) ? avant : m,
+      );
+  if (APPLY) {
+    fs.writeFileSync(abs, lignes.join("\n"));
+    ecrites++;
+  }
+}
 
-console.log(
-  `${detail.length} ancres lues par anchor-check (${new Set(detail.map((d) => d.page)).size} pages)\n`,
-);
-console.log(
-  "catégorie      ancres   part    dont plage  dont courte  dont fence  cible hors graphe",
-);
-for (const c of ORDRE) {
-  const de = detail.filter((d) => d.categorie === c);
+console.log(`${ancres.length} ancres de ligne dans ${parPage.size} pages`);
+for (const [action, n] of Object.entries(bilan).sort((x, y) => y[1] - x[1]))
+  console.log(`  ${String(n).padStart(6)}  ${action}`);
+if (decalees)
   console.log(
-    `${c.padEnd(14)} ${String(de.length).padStart(6)}  ${pct(de.length).padStart(7)}` +
-      `  ${String(de.filter((d) => d.plage).length).padStart(10)}` +
-      `  ${String(de.filter((d) => d.short).length).padStart(11)}` +
-      `  ${String(de.filter((d) => d.fence).length).padStart(10)}` +
-      `  ${String(de.filter((d) => d.horsGraphe).length).padStart(17)}`,
+    `  ⚠️ ${decalees} ancre(s) introuvable(s) à leur position : page modifiée pendant le run ?`,
   );
-}
-const conv = detail.filter((d) => CONVERTIBLES.has(d.categorie));
-console.log(
-  `\nConvertibles sans ambiguïté (EXACT + ENGLOBANT + RECALE) : ${conv.length} (${pct(conv.length)})` +
-    `\n  dont visant un MEMBRE (exige les membres dans le graphe) : ${conv.filter((d) => d.membre).length}` +
-    `\n  dont cible HORS du périmètre de .ai/symbols.json : ${conv.filter((d) => d.horsGraphe).length}` +
-    `\n  symboles cibles distincts : ${new Set(conv.map((d) => `${d.cand}#${d.cible.split("#")[1]}`)).size}` +
-    `\nÀ relire (A_RELIRE + INDECIS) : ${compte((d) => ["A_RELIRE", "INDECIS"].includes(d.categorie))}` +
-    ` — A_RELIRE par écart au symbole cité : ≤ 3 l. ${compte((d) => d.ecartCite !== null && d.ecartCite <= 3)}` +
-    `, 4-30 l. ${compte((d) => d.ecartCite > 3 && d.ecartCite <= 30)}, > 30 l. ${compte((d) => d.ecartCite > 30)}` +
-    `\n` +
-    ` · reliquat à la main (HORS_SYMBOLE + HOMONYME + CASSEE) : ` +
-    compte((d) => ["HORS_SYMBOLE", "HOMONYME", "CASSEE"].includes(d.categorie)),
-);
-const horsGrapheParRacine = {};
-for (const d of conv.filter((x) => x.horsGraphe)) {
-  const r = d.cand
-    .split("/")
-    .slice(0, d.cand.startsWith("src/packages") ? 4 : 2)
-    .join("/");
-  horsGrapheParRacine[r] = (horsGrapheParRacine[r] ?? 0) + 1;
-}
-console.log("\nCibles hors graphe, par racine :");
-for (const [r, n] of Object.entries(horsGrapheParRacine)
-  .sort((x, y) => y[1] - x[1])
-  .slice(0, 12))
-  console.log(`  ${String(n).padStart(5)}  ${r}`);
-
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(reportPath, JSON.stringify(detail, null, 1));
 console.log(
-  `\nDétail ancre par ancre : ${path.relative(REPO, path.resolve(reportPath))} — rien n'a été réécrit.`,
+  APPLY
+    ? `${ecrites} page(s) réécrite(s). Détail : ${path.relative(REPO, reportPath)}`
+    : `Rien n'a été écrit (--apply pour réécrire). Détail : ${path.relative(REPO, reportPath)}`,
 );
+process.exitCode = decalees || bilan.introuvable ? 1 : 0;

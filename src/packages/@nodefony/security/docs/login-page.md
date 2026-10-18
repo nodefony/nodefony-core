@@ -64,14 +64,14 @@ la personnaliser là où c'est sans risque : les textes, les couleurs, le conten
 ## La vision Nodefony
 
 - **Configuration dans `@nodefony/security`, rendu dans `@nodefony/framework`** : le premier décrit
-  la page (`AuthFlow.describeLoginPage()`, `authFlow.ts:470`), le second la rend
-  (`buildLoginPageView()`, `loginPage.ts:227`) et la sert (`LoginPageController`,
-  `LoginPageController.ts:102`). Le contrat entre les deux, `ILoginPageDescription`, vit au cœur
-  (`authRoutes.ts:262`).
+  la page (`AuthFlow.describeLoginPage()`, `authFlow.ts#AuthFlow.describeLoginPage`), le second la rend
+  (`buildLoginPageView()`, `loginPage.ts#buildLoginPageView`) et la sert (`LoginPageController`,
+  `LoginPageController.ts#LoginPageController`). Le contrat entre les deux, `ILoginPageDescription`, vit au cœur
+  (`authRoutes.ts#ILoginPageDescription`).
 - **Tout passe par du texte échappé** : aucune valeur de la configuration ni de la requête n'entre
   dans le balisage autrement que par `<%= %>`. L'image du panneau passe par votre feuille de style,
   jamais par une adresse injectée dans le HTML.
-- **Un seul déroulé** : le script de la page (`mountLoginPage()`, `mountLoginPage.ts:85`) s'appuie
+- **Un seul déroulé** : le script de la page (`mountLoginPage()`, `mountLoginPage.ts#mountLoginPage`) s'appuie
   sur `NodefonyLogin`, le même client que vos propres écrans peuvent utiliser.
 
 ## 🚀 Démarrage rapide
@@ -119,7 +119,7 @@ redéfinissent pour les deux thèmes (voir « Pièges », plus bas) :
 ### Ce qu'on observe
 
 - `GET /login` rend la page, avec `Cache-Control: no-store` et une CSP
-  `frame-ancestors 'none'` (`LoginPageController.ts:112`) ;
+  `frame-ancestors 'none'` (`LoginPageController.ts#LoginPageController.constructor`) ;
 - le titre de la carte vaut « Espace client », le panneau affiche votre accroche à la place de la
   vitrine Nodefony ;
 - votre feuille arrive en second `<link rel="stylesheet">`, après `login.css` : vos variables
@@ -136,7 +136,7 @@ et ne laisse que votre marque sur l'image du panneau.
 
 `password: false` retire le formulaire : il ne reste que les boutons des fournisseurs. Chaque
 bouton prend son image si vous la réglez (`oauth2.providers.<nom>.icon`, sinon la marque GitHub ou
-une clé) — `listDisplayProviders()` (`oauth2.ts:422`).
+une clé) — `listDisplayProviders()` (`oauth2.ts#OAuth2Service.listDisplayProviders`).
 
 Le libellé suit ce que l'utilisateur connaît. Une marque grand public (GitHub, Google, Microsoft…)
 garde son nom. Un serveur d'identité d'organisation (Keycloak, un OIDC d'entreprise) se lit
@@ -148,7 +148,7 @@ une page de connexion.
 
 Par défaut, quand des fournisseurs sont proposés, leurs boutons passent avant le formulaire : la
 plupart des comptes d'une entreprise sont ceux de son annuaire. `providersFirst: false` inverse
-l'ordre (`loginPage.ts:255`).
+l'ordre (`loginPage.ts#buildLoginPageView`).
 
 ### Situation 4 — votre propre page
 
@@ -217,7 +217,7 @@ export const acmeSkin = {
 
 **Trois feuilles, dans cet ordre** : `login.css` (le socle), la feuille de l'habillage
 (`/nodefony/security/login/skins/<skin>.css`, aucune pour `frontispiece`), puis la vôtre — vos
-variables l'emportent toujours (`loginPage.ts:210`).
+variables l'emportent toujours (`loginPage.ts#resolveSkin`).
 
 **La photo vient de vous.** Aucun habillage n'en publie : une photo par défaut alourdirait chaque
 installation et finirait à l'identique dans toutes les applications. Une seule variable suffit,
@@ -233,7 +233,7 @@ une couleur pleine.
 ```
 
 **La mise en page suit l'habillage** : sans `layout`, c'est celle pour laquelle il est dessiné ;
-un `layout` écrit gagne (`authFlow.ts:495`).
+un `layout` écrit gagne (`authFlow.ts#AuthFlow.describeLoginPage`).
 
 **Keycloak suit le même habillage** : chaque habillage a son thème de connexion Keycloak
 (`nodefony-<habillage>`), que `security:keycloak:realm --write` pose dans le realm d'après
@@ -243,7 +243,7 @@ couleurs et leur mise en page.
 
 **Comparer sans redémarrer** : en développement, `/login?skin=dots` sert la page sous un autre
 habillage, et `&layout=card` force la mise en page — le temps d'une requête, sur vos vrais
-réglages. En production ces paramètres sont ignorés (`loginPage.ts:207`) : la page servie est
+réglages. En production ces paramètres sont ignorés (`loginPage.ts#resolveSkin`) : la page servie est
 celle de la configuration, et rien d'autre.
 
 ## 🏗️ Architecture interne
@@ -262,11 +262,11 @@ sequenceDiagram
 ```
 
 - **La route est montée au démarrage** par `mountLoginPage()` du framework, hors firewall
-  (`bypassFirewall`, `LoginPageController.ts:156`) — sinon une application qui protège `^/`
+  (`bypassFirewall`, `LoginPageController.ts#mountLoginPage`) — sinon une application qui protège `^/`
   exigerait d'être connecté pour se connecter.
 - **Les fournisseurs sont relus à chaque requête** : l'un d'eux peut tomber ou revenir pendant que
   le serveur tourne, et un bouton qui mène à une erreur est retiré de l'offre.
-- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:231`) : une adresse
+- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts#buildLoginPageView`) : une adresse
   hors de l'origine retombe sur `/`.
 - **Les boutons de fournisseur portent `from` et `back`** : `back` désigne cette page, si bien que
   le « Retour » du fournisseur et un échec y ramènent, destination comprise, quel que soit
@@ -275,7 +275,7 @@ sequenceDiagram
   FIXE dans la zone de message ; une annulation n'en affiche aucun. La raison reçue n'est jamais
   recopiée dans la page.
 
-## ⚙️ Configuration (schéma Zod `loginPageSchema`, `config.ts:1041`)
+## ⚙️ Configuration (schéma Zod `loginPageSchema`, `config.ts#loginPageSchema`)
 
 <!-- prettier-ignore -->
 | Option | Type · défaut | Effet |
@@ -286,17 +286,17 @@ sequenceDiagram
 | `logo` | string · logo Nodefony | Adresse du logo (chemin servi, ou URL autorisée par la CSP). |
 | `heading` | string · « Se connecter » | Titre de la carte et de l'onglet. |
 | `subtitle` | string · déduit | Ligne sous le titre ; par défaut, déduite des moyens proposés. |
-| `stylesheet` | string · — | Feuille chargée après `login.css` et l'habillage (`config.ts:1025`). |
-| `skin` | un des neuf · `frontispiece` | Habillage (`config.ts:1134`) — voir « Habillages ». |
-| `layout` | `split` · `card` · `bare` · celle de l'habillage | Mise en page : panneau et formulaire, carte centrée, formulaire seul (`config.ts:1140`). |
-| `hero` | `{ heading, text? }` · `false` · vitrine | Contenu du panneau (`config.ts:1106`) ; une clé inconnue est refusée au démarrage. |
-| `providersFirst` | boolean · `true` | Fournisseurs avant le formulaire (`config.ts:1100`). |
-| `footer` | boolean · `true` | Protections de la session et « Propulsé par Nodefony » (`config.ts:1122`). |
+| `stylesheet` | string · — | Feuille chargée après `login.css` et l'habillage (`config.ts#studioSchema`). |
+| `skin` | un des neuf · `frontispiece` | Habillage (`config.ts#loginPageSchema`) — voir « Habillages ». |
+| `layout` | `split` · `card` · `bare` · celle de l'habillage | Mise en page : panneau et formulaire, carte centrée, formulaire seul (`config.ts#loginPageSchema`). |
+| `hero` | `{ heading, text? }` · `false` · vitrine | Contenu du panneau (`config.ts#loginPageSchema`) ; une clé inconnue est refusée au démarrage. |
+| `providersFirst` | boolean · `true` | Fournisseurs avant le formulaire (`config.ts#loginPageSchema`). |
+| `footer` | boolean · `true` | Protections de la session et « Propulsé par Nodefony » (`config.ts#loginPageSchema`). |
 | `password` | boolean · `true` | `false` = fournisseurs seulement. |
 | `previewPicker` | boolean · `false` | En **développement** seulement : un sélecteur d'habillage et de mise en page posé dans un coin, qui recharge avec `?skin=` / `?layout=`. Sans effet en production. |
 | `previewHook` | chemin · — | Avec `previewPicker`, en **développement** : chemin de l'application prévenu en `POST` (`{ skin, layout }`, même origine) AVANT chaque rechargement de l'aperçu — pour qu'un tiers suive l'habillage choisi (le thème d'un Keycloak de développement). Un échec n'empêche pas le rechargement ; une autre origine est refusée au démarrage. |
 | `template` | string · — | Gabarit `.eta` de remplacement — dernier recours. |
-| `oauth2.providers.<nom>.icon` | string · icône du framework | Image du bouton du fournisseur (`config.ts:1297`). |
+| `oauth2.providers.<nom>.icon` | string · icône du framework | Image du bouton du fournisseur (`config.ts#oauthProviderSchema`). |
 
 Toute la section est en `z.strictObject` : une clé mal orthographiée interrompt le démarrage en la
 nommant, au lieu d'être ignorée.
@@ -307,7 +307,7 @@ nommant, au lieu d'être ignorée.
   le script porte le nonce CSP de la requête.
 - **Mot de passe en clair refusé en production** : sur une requête qui n'arrive pas en HTTPS, la
   connexion répond 403 avant toute vérification, et la page affiche « doit passer par HTTPS » au
-  lieu de « mot de passe incorrect » (`mountLoginPage.ts:150`). Derrière un proxy qui termine TLS,
+  lieu de « mot de passe incorrect » (`mountLoginPage.ts#mountLoginPage`). Derrière un proxy qui termine TLS,
   déclarez-le dans `trustProxy` ([authenticators](authenticators.md#mot-de-passe-en-clair--refusé-en-production)).
 - **Message d'échec uniforme** : un refus d'identifiants affiche un message fixe, jamais le texte du
   serveur — il ne dit pas si le compte existe.
@@ -317,7 +317,7 @@ nommant, au lieu d'être ignorée.
 ## ⚡ Performance & mémoire
 
 - Le gabarit est compilé **une fois par processus**, et un échec de chargement n'est pas mémorisé
-  (`keepSuccess()`, `loginPage.ts:128`) : la page ne reste pas en 500 après une correction.
+  (`keepSuccess()`, `loginPage.ts#keepSuccess`) : la page ne reste pas en 500 après une correction.
 - Feuille et script sont servis en statique, versionnés par leur empreinte (`?v=`) : le navigateur
   les garde en cache jusqu'au prochain changement. Le script pèse 4 Ko.
 

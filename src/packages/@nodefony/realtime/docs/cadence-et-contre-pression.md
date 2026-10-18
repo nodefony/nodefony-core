@@ -279,8 +279,8 @@ curl -sk https://127.0.0.1:5152/nodefony/realtime/api/health | jq '.backpressure
 ### La cadence vit dans le nom du canal
 
 Un canal d'état cadencé s'appelle `base` (cadence par défaut) ou `base:<ms>` (cadence explicite).
-Le client fabrique le nom avec `rateChannel()` (`channelRate.ts:44`), le serveur le relit et le
-**borne** avec `parseRate()` (`channelRate.ts:63`). Une même fonction pour les deux bords : la
+Le client fabrique le nom avec `rateChannel()` (`channelRate.ts#rateChannel`), le serveur le relit et le
+**borne** avec `parseRate()` (`channelRate.ts#parseRate`). Une même fonction pour les deux bords : la
 convention ne peut pas diverger.
 
 Conséquences voulues :
@@ -288,7 +288,7 @@ Conséquences voulues :
 - **1 canal = 1 cadence = 1 ticker.** Deux clients à 2 s partagent `base:2000` ; un troisième à 4 s
   ouvre `base:4000`. Le hub compte les abonnés et arrête le ticker au dernier.
 - **Le serveur garde la main.** Un client qui demande `base:10` obtient la borne basse : Studio
-  borne ses statistiques à 250 ms minimum (`RATE_BOUNDS`, `StudioRealtimeController.ts:61`).
+  borne ses statistiques à 250 ms minimum (`RATE_BOUNDS`, `StudioRealtimeController.ts#RATE_BOUNDS`).
 - **Aucun message de contrôle** : changer de cadence, c'est changer d'abonnement. Le protocole
   reste celui des canaux, rien de plus.
 
@@ -301,7 +301,7 @@ Conséquences voulues :
 
 ### Ce que le client mesure
 
-À chaque trame reçue, `AdaptiveRate.noteFrame()` (`AdaptiveRate.ts:137`) compare l'écart depuis
+À chaque trame reçue, `AdaptiveRate.noteFrame()` (`AdaptiveRate.ts#AdaptiveRate.noteFrame`) compare l'écart depuis
 la trame précédente à la cadence courante. Trois zones, et une seule décision par trame :
 
 ```mermaid
@@ -319,7 +319,7 @@ flowchart LR
 | **Bande morte** | entre les deux           | ne change rien, et **remet à zéro** le compte des bons échantillons  |
 
 Les seuils et la fenêtre sont des options (`starvationFactor`, `healthyFactor`, `recoveryWindow`),
-avec ces défauts (`AdaptiveRate.ts:100`).
+avec ces défauts (`AdaptiveRate.ts#AdaptiveRate.constructor`).
 
 > [!TIP]
 > La **bande morte** est ce qui empêche l'oscillation : un réseau « moyen » ne fait ni monter ni
@@ -329,7 +329,7 @@ avec ces défauts (`AdaptiveRate.ts:100`).
 ### Ralentir vite, accélérer prudemment
 
 - **L'échelle** est géométrique : de la cadence désirée, doublée jusqu'à 60 s par défaut — `1 s,
-2 s, 4 s, 8 s, …, 60 s` (`deriveLadder()`, `AdaptiveRate.ts:67`). Une échelle sur mesure se passe
+2 s, 4 s, 8 s, …, 60 s` (`deriveLadder()`, `AdaptiveRate.ts#deriveLadder`). Une échelle sur mesure se passe
   par l'option `ladder`.
 - **Ralentir** = monter d'un cran (×2) **dès la première famine**. Plusieurs famines successives
   doublent plusieurs fois : c'est ce qui rend la décroissance multiplicative.
@@ -338,15 +338,15 @@ avec ces défauts (`AdaptiveRate.ts:100`).
 - **Après chaque changement**, la mesure repart de zéro : la première trame du nouveau canal ne sert
   que de référence.
 - **Famine totale** : si plus aucune trame n'arrive, `noteFrame()` ne serait jamais appelé. Un chien
-  de garde, réarmé à chaque cadence, appelle `checkStarvation()` (`AdaptiveRate.ts:174`) et ralentit
+  de garde, réarmé à chaque cadence, appelle `checkStarvation()` (`AdaptiveRate.ts#AdaptiveRate.checkStarvation`) et ralentit
   quand même.
 
 ### Changer de cadence sans trou
 
 **L'image** : on change de voie sur l'autoroute en s'insérant dans la nouvelle **avant** de quitter
-l'ancienne, jamais l'inverse. `bindAdaptiveChannel()` (`AdaptiveRate.ts:242`) fait pareil : il
+l'ancienne, jamais l'inverse. `bindAdaptiveChannel()` (`AdaptiveRate.ts#bindAdaptiveChannel`) fait pareil : il
 **s'abonne au nouveau canal, puis quitte l'ancien**, dans le même geste (`applyDecision()`,
-`AdaptiveRate.ts:295`).
+`AdaptiveRate.ts#bindAdaptiveChannel`).
 
 ```mermaid
 flowchart LR
@@ -403,12 +403,12 @@ rétabli. Il sonde prudemment, recule s'il s'est trompé, et ne le paie que de q
 Quand le serveur envoie une trame, la socket l'accepte et la place dans sa **file d'envoi** :
 `bufferedAmount` compte les octets qui attendent le réseau. Un client qui ne lit plus fait grossir
 cette file sans fin. Nodefony la plafonne à **`maxBackpressure`**, 4 Mio par défaut
-(`@nodefony/http/nodefony/config/config.ts:651`).
+(`@nodefony/http/nodefony/config/config.ts#websocketSchema`).
 
 La décision est prise **trame par trame**, par une seule fonction : `decideSend()`
-(`wsBackpressure.ts:89`). Elle sert à la fois le `send()`/`broadcast()` d'un contexte WebSocket de
+(`wsBackpressure.ts#decideSend`). Elle sert à la fois le `send()`/`broadcast()` d'un contexte WebSocket de
 `@nodefony/http` et chaque connexion temps réel (`WsConnectionTransport.send()`,
-`WsConnectionTransport.ts:82`). Une seule règle, deux usages.
+`WsConnectionTransport.ts#WsConnectionTransport.send`). Une seule règle, deux usages.
 
 ```mermaid
 flowchart LR
@@ -497,8 +497,8 @@ Le client **n'apprend jamais** les seuils : il ne reçoit que leur effet.
 - Une trame jetée **n'existe pas** pour lui : il voit seulement un écart plus long entre deux
   trames.
 - Une fermeture arrive avec le code `1013`. Il le classe **transitoire** : ce n'est pas un des codes
-  définitifs (`FATAL_CLOSE_CODES`, `notice.ts:176`), donc `isReconnectableCloseCode()`
-  (`notice.ts:192`) répond oui, et il se reconnecte avec une attente croissante.
+  définitifs (`FATAL_CLOSE_CODES`, `notice.ts#FATAL_CLOSE_CODES`), donc `isReconnectableCloseCode()`
+  (`notice.ts#isReconnectableCloseCode`) répond oui, et il se reconnecte avec une attente croissante.
 
 ## 🔌 Comment les deux étages se rencontrent
 
@@ -523,7 +523,7 @@ sans activer de trace.
 
 ### Ce que la sonde du hub expose
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:847`) parcourt les connexions et rend un bloc
+`RealtimeHub.probe()` (`RealtimeHub.ts#RealtimeHub.probe`) parcourt les connexions et rend un bloc
 `backpressure` :
 
 | Champ                 | Ce qu'il dit                                                                | Lecture                                                 |

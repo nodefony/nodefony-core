@@ -61,9 +61,9 @@ flowchart TD
 Trois idées à retenir :
 
 1. **Le producteur ne connaît pas le transport** — un handler lit un `IAdminRequest`
-   (`IAdminApi.ts:33`) et rend du JSON. Il ne touche jamais au socket ni à la `Response`.
+   (`IAdminApi.ts#IAdminRequest`) et rend du JSON. Il ne touche jamais au socket ni à la `Response`.
 2. **Un seul controller pont** — toutes les routes admin pointent vers
-   `AdminApiController.dispatch()` (`AdminApiController.ts:65`). Pas de génération dynamique de
+   `AdminApiController.dispatch()` (`AdminApiController.ts#AdminApiController.dispatch`). Pas de génération dynamique de
    classes ; chaque route reste une vraie `Route` (404/405 du Router intacts).
 3. **Le broker possède le Router, pas le kernel** — c'est pourquoi il vit dans `@nodefony/framework`,
    niveau qui monte les routes, alors que le contrat producteur vit dans le core.
@@ -110,19 +110,19 @@ le broker la monte.
 
 Nodefony sépare **deux rôles** par inversion de dépendance :
 
-- **Producteur** (`IAdminApi`, dans le core `IAdminApi.ts:212`) : un module dit _quoi_ il expose —
+- **Producteur** (`IAdminApi`, dans le core `IAdminApi.ts#IAdminApi`) : un module dit _quoi_ il expose —
   son `adminNamespace` et ses `adminEndpoints()` — **sans importer `@nodefony/framework`**. Le
   contrat vit au plus bas niveau commun pour qu'un adapter ORM, un service IA ou le kernel lui-même
   puissent l'implémenter.
-- **Transporteur** (`AdminBroker`, dans le framework `AdminBroker.ts:21`) : lui seul possède le
+- **Transporteur** (`AdminBroker`, dans le framework `AdminBroker.ts#AdminBroker`) : lui seul possède le
   Router. Il collecte les producteurs et monte `/nodefony/<ns>/api/*`.
 
 Pour s'enregistrer sans dépendre du framework, un producteur récupère le broker via sa **vue
-minimale** `IAdminRegistry` (`IAdminApi.ts:243`) — juste `register()` — depuis le container. Le
+minimale** `IAdminRegistry` (`IAdminApi.ts#IAdminRegistry`) — juste `register()` — depuis le container. Le
 kernel n'étant **pas** un `Module`, c'est le framework qui construit et enregistre l'`IAdminApi` du
 kernel à sa place (`createKernelAdminApi()`, cité plus bas).
 
-Le compromis assumé : **un seul controller pont** (`AdminApiController.ts:36`) sert les N endpoints.
+Le compromis assumé : **un seul controller pont** (`AdminApiController.ts#AdminApiController`) sert les N endpoints.
 On y gagne zéro génération de classe, un dispatch O(1), et une garde RBAC + idempotence appliquée au
 même endroit pour tout le monde.
 
@@ -237,7 +237,7 @@ curl -s -b /tmp/jar http://localhost:5151/nodefony/framework/api/admin | head -c
 ```
 
 > [!NOTE]
-> Chaque réponse HTTP porte un en-tête `x-nodefony-instance` (`AdminApiController.ts:84`) : en
+> Chaque réponse HTTP porte un en-tête `x-nodefony-instance` (`AdminApiController.ts#AdminApiController.dispatch`) : en
 > multi-pod, il dit **quel process** a répondu (le data plane est per-instance).
 
 ## 🏗️ Architecture interne — register → mountAll → dispatch
@@ -262,63 +262,63 @@ sequenceDiagram
   AC-->>RT: handler(IAdminRequest) → JSON / RpcError
 ```
 
-| #   | Étape                                     | Où                                                         |
-| --- | ----------------------------------------- | ---------------------------------------------------------- |
-| 1   | Le producteur s'enregistre                | `AdminBroker.register()` (`AdminBroker.ts:53`)             |
-| 2   | Le framework monte tout                   | `AdminBroker.mountAll()` (`AdminBroker.ts:112`)            |
-| 3   | Une route par endpoint (nom déterministe) | `Router.createRoute()` (`AdminBroker.ts:124`)              |
-| 4   | Le controller pont estampillé une fois    | `Router.setController()` idempotent (`AdminBroker.ts:146`) |
-| 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts:102`)      |
-| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts:199`)             |
-| 7   | Normalisation du retour                   | `normalizeAdminResult()` (`executeAdmin.ts:90`)            |
+| #   | Étape                                     | Où                                                                            |
+| --- | ----------------------------------------- | ----------------------------------------------------------------------------- |
+| 1   | Le producteur s'enregistre                | `AdminBroker.register()` (`AdminBroker.ts#AdminBroker.register`)              |
+| 2   | Le framework monte tout                   | `AdminBroker.mountAll()` (`AdminBroker.ts#AdminBroker.mountAll`)              |
+| 3   | Une route par endpoint (nom déterministe) | `Router.createRoute()` (`AdminBroker.ts#AdminBroker.mountAll`)                |
+| 4   | Le controller pont estampillé une fois    | `Router.setController()` idempotent (`AdminBroker.ts#AdminBroker.mountAll`)   |
+| 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts#AdminApiController.runAdmin`) |
+| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts#AdminApiController.buildRequest`)    |
+| 7   | Normalisation du retour                   | `normalizeAdminResult()` (`executeAdmin.ts#normalizeAdminResult`)             |
 
 Points de conception saillants :
 
 - **Le montage FIGE les routes.** Après `mountAll()`, tout `register()` lève
-  (`AdminBroker.ts:53`) : on ne monte pas une route à chaud (Zero surprise en prod). Le broker garde
+  (`AdminBroker.ts#AdminBroker.register`) : on ne monte pas une route à chaud (Zero surprise en prod). Le broker garde
   la trace via son drapeau `mounted`.
-- **Le nom de route est déterministe** : `admin.<ns>.<method>.<path>` (`AdminBroker.ts:123`) — c'est
+- **Le nom de route est déterministe** : `admin.<ns>.<method>.<path>` (`AdminBroker.ts#AdminBroker.mountAll`) — c'est
   la clé du lookup O(1) que le pont refait à chaque requête.
-- **`Router.setController` n'est appelé qu'une fois** par process (`AdminBroker.ts:146`) : il pose
+- **`Router.setController` n'est appelé qu'une fois** par process (`AdminBroker.ts#AdminBroker.mountAll`) : il pose
   une propriété non réinscriptible sur le prototype ; une garde `hasOwnProperty` rend l'appel
   idempotent (multi-broker en test, re-boot).
 - **Le catalogue se construit à la volée** depuis `AdminBroker.list()` + `AdminBroker.routes()`
-  (`AdminBroker.ts:108`) — jamais un état retenu.
+  (`AdminBroker.ts#AdminBroker.routes`) — jamais un état retenu.
 
 > [!IMPORTANT]
 > Convention de route **figée** : le data plane est toujours en **≥ 3 segments**
-> `/nodefony/<module>/api/*` (`IAdminBroker.ts:42`). Jamais une route admin mono-segment
+> `/nodefony/<module>/api/*` (`IAdminBroker.ts#IAdminBroker`). Jamais une route admin mono-segment
 > `/nodefony/<module>` — elle entrerait en collision avec le fallback SPA de Studio. Le chemin
-> relatif d'un endpoint a **≥ 1 segment** (`types/IAdminApi.ts:155`) : la racine `/nodefony/<ns>/api` est
+> relatif d'un endpoint a **≥ 1 segment** (`types/IAdminApi.ts#IAdminEndpoint.path`) : la racine `/nodefony/<ns>/api` est
 > réservée.
 
 ## 🔐 RBAC — autorisation du data plane
 
 Deux gardes se succèdent, dans cet ordre :
 
-1. **Le firewall AUTHENTIFIE en amont.** La zone `nodefony-admin` (`config.ts:137`) couvre
-   `^/nodefony/[^/]+/api(/|$)` (`config.ts:141`) avec l'authenticator `session` (cookie BFF) : sans
+1. **Le firewall AUTHENTIFIE en amont.** La zone `nodefony-admin` (`config.ts`) couvre
+   `^/nodefony/[^/]+/api(/|$)` (`config.ts`) avec l'authenticator `session` (cookie BFF) : sans
    session, c'est **401** avant même le controller.
 2. **Le broker tranche le RÔLE.** À l'exécution, le pont compare le rôle exigé aux rôles de
-   l'appelant via la fonction pure `isAdminGranted()` (`adminRbac.ts:24`). Rôle absent → **403**.
+   l'appelant via la fonction pure `isAdminGranted()` (`adminRbac.ts#isAdminGranted`). Rôle absent → **403**.
    Le refus est prononcé au CŒUR (`executeAdmin.ts`), pas dans le controller HTTP : c'est ce
    qui fait que les deux chemins d'appel — la route et le pont MCP — refusent à l'identique.
 
 La décision est **fail-closed** : un authentifié **sans** le rôle requis — y compris `roles=[]`
-(compte non doté) — est **rejeté** (`adminRbac.ts:27`). C'était l'ex-fail-open historique (un
+(compte non doté) — est **rejeté** (`adminRbac.ts#isAdminGranted`). C'était l'ex-fail-open historique (un
 `roles.length > 0 &&` héritait du « mode mock » d'avant l'auth) : l'absence de rôle ne vaut pas
 laissez-passer.
 
 - **Rôle par défaut** : sans `role` explicite, un endpoint exige `ROLE_NODEFONY_ADMIN`
-  (`AdminBroker.ts:112` ; défaut du champ `IAdminEndpoint.role`, `IAdminApi.ts:166`).
-- **Endpoint public** : `public: true` (`IAdminApi.ts:175`) → le RBAC du broker est court-circuité
-  (`role === ""`, `adminRbac.ts:26`). À réserver aux sondes cloud-native (liveness/readiness) et à
+  (`AdminBroker.ts#AdminBroker.mountAll` ; défaut du champ `IAdminEndpoint.role`, `IAdminApi.ts#IAdminEndpoint.role`).
+- **Endpoint public** : `public: true` (`IAdminApi.ts#IAdminEndpoint.public`) → le RBAC du broker est court-circuité
+  (`role === ""`, `adminRbac.ts#isAdminGranted`). À réserver aux sondes cloud-native (liveness/readiness) et à
   placer hors d'une zone fermée — sinon le firewall verrouille en amont. Exemple réel :
-  `GET /nodefony/kernel/api/livez` (`KernelAdminApi.ts:513`), sorti de `nodefony-admin` par la zone
-  publique `nodefony-liveness` (`config.ts:132`).
-- **Endpoint qui reçoit un mot de passe** : `credentials: true` (`IAdminApi.ts:189`). En
+  `GET /nodefony/kernel/api/livez` (`KernelAdminApi.ts#auditLogLevelChange`), sorti de `nodefony-admin` par la zone
+  publique `nodefony-liveness` (`config.ts`).
+- **Endpoint qui reçoit un mot de passe** : `credentials: true` (`IAdminApi.ts#IAdminEndpoint.credentials`). En
   production, une requête arrivée en clair est refusée en **403 avant le rôle et le handler**
-  (`executeAdmin.ts:144`) — la décision est celle de security (`credentialTransport`), le
+  (`executeAdmin.ts#executeAdminEndpoint`) — la décision est celle de security (`credentialTransport`), le
   contrôleur la fournit pour HTTP et pour le pont WS. La CLI n'a pas de transport : rien n'est
   jugé. Exemples : `POST me/password`, `POST users/{id}/password`, `POST users` (module `user`).
 
@@ -329,19 +329,19 @@ laissez-passer.
 
 ## 🔌 HTTP et WebSocket — la même action (API souveraine)
 
-Toute action admin déclare **aussi** le transport `WEBSOCKET` (`AdminBroker.ts:123`) : la route est
+Toute action admin déclare **aussi** le transport `WEBSOCKET` (`AdminBroker.ts#AdminBroker.mountAll`) : la route est
 montée avec `[method, "WEBSOCKET"]`. Elle devient donc invocable par le pont WS-RPC `api.request`
-(`WebsocketContext.ts:354`) — même action, même handler, même réponse. Seul l'emballage diffère :
+(`WebsocketContext.ts#WebsocketContext.request`) — même action, même handler, même réponse. Seul l'emballage diffère :
 
-- **HTTP** : `renderJson` + statut + en-tête `x-nodefony-instance` (`AdminApiController.ts:82`).
+- **HTTP** : `renderJson` + statut + en-tête `x-nodefony-instance` (`AdminApiController.ts#AdminApiController.dispatch`).
 - **WS-RPC** : la valeur **nue** (le pont l'enveloppe `{id, result}`) ; un statut ≥ 400 devient un
-  `RpcError` avec `data.status`/`data.body` (`AdminApiController.ts:66`), symétrie d'un `fetch` qui
+  `RpcError` avec `data.status`/`data.body` (`AdminApiController.ts#AdminApiController.dispatch`), symétrie d'un `fetch` qui
   expose son statut.
 
 Les **mutations** sont pontables par socket. La sécurité d'écriture repose alors sur l'**idempotence**
-(`idempotencyGate()`, `AdminApiController.ts:155`) : la clé `Idempotency-Key` est **obligatoire en
+(`idempotencyGate()`, `AdminApiController.ts#AdminApiController.idempotencyGate`) : la clé `Idempotency-Key` est **obligatoire en
 WS** (une socket reconnecte et rejoue), **optionnelle en HTTP** (`required: false`,
-`AdminApiController.ts:157`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts:143`) ; la
+`AdminApiController.ts#AdminApiController.idempotencyGate`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts#AdminApiController.idempotencyGate`) ; la
 porte est évaluée **après** le RBAC (un 403 ne consomme aucune entrée). Le helper est le **même** que
 le seam `@Idempotent` des controllers userland — voir [Idempotence](idempotence.md).
 
@@ -350,37 +350,37 @@ le seam `@Idempotent` des controllers userland — voir [Idempotence](idempotenc
 Trois pas, du point de vue d'un module :
 
 1. **Écrire un `IAdminApi`** : `adminNamespace` (url-safe, stable), `adminDescriptor()` (sidebar
-   Studio, `IAdminApi.ts:227`) et `adminEndpoints()` (`IAdminApi.ts:229`). Un endpoint peut renvoyer
+   Studio, `IAdminApi.ts#IAdminApi.adminDescriptor`) et `adminEndpoints()` (`IAdminApi.ts#IAdminApi.adminEndpoints`). Un endpoint peut renvoyer
    la donnée brute (assumée `{status:200, body}`) ou une `IAdminResponse` pour piloter statut/en-têtes
-   (`IAdminApi.ts:67`).
-2. **S'enregistrer au `onKernelBoot`** via `IAdminRegistry.register()` (`IAdminApi.ts:256`), récupéré
+   (`IAdminApi.ts#IAdminResponse`).
+2. **S'enregistrer au `onKernelBoot`** via `IAdminRegistry.register()` (`IAdminApi.ts#IAdminRegistry.register`), récupéré
    par `container.get("adminBroker")`. Rendre l'appel **idempotent** (`registry.has(ns)` avant
    `register`) — modèle de tous les producteurs.
 3. **Laisser le framework monter** : à `onKernelReady`, `Framework.onKernelReady()` enregistre les
-   producteurs internes puis appelle `broker.mountAll()` (`index.ts:369`).
+   producteurs internes puis appelle `broker.mountAll()` (`index.ts#Framework.onKernelReady`).
 
 **Handlers lazy** : résous tes services **dans** le handler (à la requête), jamais au montage — un
 service désactivable renvoie alors `503` proprement au lieu de casser le boot.
 
 ### Les producteurs réels (à imiter, sans les redocumenter)
 
-Le broker lui-même est déclaré comme service du framework (`index.ts:144`). Les producteurs internes
+Le broker lui-même est déclaré comme service du framework (`index.ts`). Les producteurs internes
 sont enregistrés au `onKernelReady` du framework :
 
-| Namespace   | Producteur                                            | Rôle                                              |
-| ----------- | ----------------------------------------------------- | ------------------------------------------------- |
-| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:646`)      | modules, process, uptime, `livez`                 |
-| `framework` | `createFrameworkAdminApi` (`FrameworkAdminApi.ts:86`) | dump du Router + **catalogue** + Playground (dev) |
-| `syslog`    | `createSyslogAdminApi` (`SyslogAdminApi.ts:95`)       | viewer de logs (dev)                              |
+| Namespace   | Producteur                                                                 | Rôle                                              |
+| ----------- | -------------------------------------------------------------------------- | ------------------------------------------------- |
+| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts#createKernelAdminApi`)          | modules, process, uptime, `livez`                 |
+| `framework` | `createFrameworkAdminApi` (`FrameworkAdminApi.ts#createFrameworkAdminApi`) | dump du Router + **catalogue** + Playground (dev) |
+| `syslog`    | `createSyslogAdminApi` (`SyslogAdminApi.ts#createSyslogAdminApi`)          | viewer de logs (dev)                              |
 
 Les modules externes s'enregistrent depuis leur propre `onKernelBoot` :
 
-| Namespace  | Module               | Enregistrement                                       |
-| ---------- | -------------------- | ---------------------------------------------------- |
-| `http`     | `@nodefony/http`     | `createHttpAdminApi` (`http/index.ts:121`)           |
-| `security` | `@nodefony/security` | `registerSecurityAdminApi` (`security/index.ts:114`) |
-| `user`     | `@nodefony/user`     | `adminNamespace` (`UserAdminApi.ts:900`)             |
-| `orm`      | `@nodefony/orm-core` | `adminNamespace` (`OrmAdminApi.ts:709`)              |
+| Namespace  | Module               | Enregistrement                                                         |
+| ---------- | -------------------- | ---------------------------------------------------------------------- |
+| `http`     | `@nodefony/http`     | `createHttpAdminApi` (`http/index.ts#Http.onKernelRegister`)           |
+| `security` | `@nodefony/security` | `registerSecurityAdminApi` (`security/index.ts#Security.onKernelBoot`) |
+| `user`     | `@nodefony/user`     | `adminNamespace` (`UserAdminApi.ts#createUserAdminApi`)                |
+| `orm`      | `@nodefony/orm-core` | `adminNamespace` (`OrmAdminApi.ts#createOrmAdminApi`)                  |
 
 Pour le détail de chacun, se reporter à la doc de son module — le broker reste agnostique de leur
 contenu.
@@ -392,42 +392,42 @@ Depuis une app : `AdminBroker` (le service) et les types `IAdminApi`, `IAdminEnd
 `@nodefony/framework` et `nodefony`. Les signatures exactes vivent dans `.ai/symbols.json` — jamais
 recopiées ici (elles s'y périmeraient).
 
-| Membre (`IAdminBroker`)  | Rôle                                                     | Ancre                |
-| ------------------------ | -------------------------------------------------------- | -------------------- |
-| `register(api)`          | Enregistre un producteur (throw si namespace pris/monté) | `AdminBroker.ts:53`  |
-| `unregister(ns)`         | Retire un producteur (et ses routes si montées)          | `AdminBroker.ts:69`  |
-| `has(ns)` / `getApi(ns)` | Interrogation du registre                                | `AdminBroker.ts:91`  |
-| `list()`                 | Producteurs enregistrés (immuable)                       | `AdminBroker.ts:95`  |
-| `resolvePath(ns, path)`  | Chemin absolu d'un endpoint sans le monter               | `AdminBroker.ts:99`  |
-| `mountAll()`             | Monte toutes les routes (idempotent)                     | `AdminBroker.ts:112` |
-| `resolve(routeName)`     | Lookup O(1) d'une route montée (utilisé par le pont)     | `AdminBroker.ts:104` |
-| `routes()`               | Introspection des routes montées (source du catalogue)   | `AdminBroker.ts:108` |
+| Membre (`IAdminBroker`)  | Rôle                                                     | Ancre                                    |
+| ------------------------ | -------------------------------------------------------- | ---------------------------------------- |
+| `register(api)`          | Enregistre un producteur (throw si namespace pris/monté) | `AdminBroker.ts#AdminBroker.register`    |
+| `unregister(ns)`         | Retire un producteur (et ses routes si montées)          | `AdminBroker.ts#AdminBroker.unregister`  |
+| `has(ns)` / `getApi(ns)` | Interrogation du registre                                | `AdminBroker.ts#AdminBroker.getApi`      |
+| `list()`                 | Producteurs enregistrés (immuable)                       | `AdminBroker.ts#AdminBroker.list`        |
+| `resolvePath(ns, path)`  | Chemin absolu d'un endpoint sans le monter               | `AdminBroker.ts#AdminBroker.resolvePath` |
+| `mountAll()`             | Monte toutes les routes (idempotent)                     | `AdminBroker.ts#AdminBroker.mountAll`    |
+| `resolve(routeName)`     | Lookup O(1) d'une route montée (utilisé par le pont)     | `AdminBroker.ts#AdminBroker.resolve`     |
+| `routes()`               | Introspection des routes montées (source du catalogue)   | `AdminBroker.ts#AdminBroker.routes`      |
 
 ## 📡 Observabilité — Studio
 
-- **Catalogue / discovery** : `GET /nodefony/framework/api/admin` (`FrameworkAdminApi.ts:203`) —
+- **Catalogue / discovery** : `GET /nodefony/framework/api/admin` (`FrameworkAdminApi.ts#createFrameworkAdminApi`) —
   producteurs + descriptors + endpoints. C'est ce que Studio lit pour générer sa navigation admin.
-- **Routes** : `GET /nodefony/framework/api/routes` (`FrameworkAdminApi.ts:122`) — l'équivalent web
-  de `nodefony router:dump` ; une variante paginée serveur `routes/page` (`FrameworkAdminApi.ts:129`).
+- **Routes** : `GET /nodefony/framework/api/routes` (`FrameworkAdminApi.ts#createFrameworkAdminApi`) — l'équivalent web
+  de `nodefony router:dump` ; une variante paginée serveur `routes/page` (`FrameworkAdminApi.ts#createFrameworkAdminApi`).
 - **Playground** (`/nodefony/playground`, **dev only**) : `buildPlaygroundSnapshot()`
-  (`PlaygroundAdminApi.ts:167`) sérialise controllers + actions + transports + params + gardes — la
+  (`PlaygroundAdminApi.ts#buildPlaygroundSnapshot`) sérialise controllers + actions + transports + params + gardes — la
   page Studio bâtit ses formulaires depuis ces métadonnées, **sans code généré**. Le montage est
-  conditionné à l'environnement (`index.ts:342`). Le pont admin lui-même est **exclu** du snapshot
-  (`PlaygroundAdminApi.ts:180`) pour ne pas noyer les controllers applicatifs.
+  conditionné à l'environnement (`index.ts#Framework.onKernelBoot`). Le pont admin lui-même est **exclu** du snapshot
+  (`PlaygroundAdminApi.ts#buildPlaygroundSnapshot`) pour ne pas noyer les controllers applicatifs.
 - Les écrans admin de Studio (Routes, Sessions, Firewall, Users…) sont des vues qui consomment ces
   data planes — voir le [module Studio](../../studio/docs/index.md).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                         | Cause (dans le code)                                                                | Correction                                                                           |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `register()` throw « routes figées »             | Appel **après** `mountAll()` (`AdminBroker.ts:112`)                                 | Enregistrer au `onKernelBoot`, pas plus tard                                         |
-| `register()` throw « namespace déjà enregistré » | Deux producteurs sur le même `adminNamespace` (`AdminBroker.ts:51`)                 | Namespace unique ; garder `register()` idempotent (`has(ns)` avant)                  |
-| 401 sur toute route `/nodefony/<ns>/api/*`       | Zone `nodefony-admin` : pas de session BFF (`config.ts:141`)                        | S'authentifier (login BFF) ; pour une sonde publique → `public: true` + zone anonyme |
-| 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts:24`)                     | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |
-| WS : mutation refusée `400` clé requise          | Idempotence : clé obligatoire par socket (`AdminApiController.ts:154`)              | Fournir `Idempotency-Key` sur la mutation WS                                         |
-| Route admin injoignable / collision Studio       | Endpoint mono-segment `/nodefony/<module>` (`IAdminBroker.ts:42`)                   | Toujours `≥ 3` segments `/nodefony/<ns>/api/<path>`                                  |
-| 500 « Admin endpoint not registered »            | `adminRoute` absent du registre — incohérence interne (`AdminApiController.ts:109`) | Vérifier que le producteur a bien été enregistré avant `mountAll()`                  |
+| Symptôme                                         | Cause (dans le code)                                                                                        | Correction                                                                           |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `register()` throw « routes figées »             | Appel **après** `mountAll()` (`AdminBroker.ts#AdminBroker.mountAll`)                                        | Enregistrer au `onKernelBoot`, pas plus tard                                         |
+| `register()` throw « namespace déjà enregistré » | Deux producteurs sur le même `adminNamespace` (`AdminBroker.ts#AdminBroker.register`)                       | Namespace unique ; garder `register()` idempotent (`has(ns)` avant)                  |
+| 401 sur toute route `/nodefony/<ns>/api/*`       | Zone `nodefony-admin` : pas de session BFF (`config.ts`)                                                    | S'authentifier (login BFF) ; pour une sonde publique → `public: true` + zone anonyme |
+| 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts#isAdminGranted`)                                 | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |
+| WS : mutation refusée `400` clé requise          | Idempotence : clé obligatoire par socket (`AdminApiController.ts#AdminApiController.idempotencyGate`)       | Fournir `Idempotency-Key` sur la mutation WS                                         |
+| Route admin injoignable / collision Studio       | Endpoint mono-segment `/nodefony/<module>` (`IAdminBroker.ts#IAdminBroker`)                                 | Toujours `≥ 3` segments `/nodefony/<ns>/api/<path>`                                  |
+| 500 « Admin endpoint not registered »            | `adminRoute` absent du registre — incohérence interne (`AdminApiController.ts#AdminApiController.runAdmin`) | Vérifier que le producteur a bien été enregistré avant `mountAll()`                  |
 
 ## 🧪 Tests & couverture
 

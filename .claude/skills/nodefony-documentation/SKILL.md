@@ -305,9 +305,11 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 
 ### Les 3 règles qui font la qualité (nées du retour user 2026-07-19)
 
-1. **ANCRE SYMBOLIQUE — le symbole d'abord, la ligne en preuve** : `` `Firewall.matchPath()`
-(`firewall.ts:529`) ``. JAMAIS de ligne nue (``(`:223-232`)``) : illisible pour un humain,
-   irrésoluble pour une IA, et fragile (vécu : 19/283 ancres décalées 2 jours après écriture).
+1. **ANCRE PAR SYMBOLE, jamais par ligne** : `` `Firewall.matchPath()` (`firewall.ts#Firewall.matchPath`) ``,
+   `#Classe.membre` pour un membre, `#Symbole` au premier niveau, le fichier seul pour du code hors
+   déclaration. Une ligne bouge dès qu'on écrit au-dessus d'elle ; un symbole ne bouge qu'au
+   renommage, quand la doc DOIT suivre. `anchor-check` REFUSE toute ancre `fichier:ligne` (LINE_ANCHOR)
+   et tout symbole absent du fichier (SYMBOL_NOT_FOUND).
 2. **« Démarrage rapide » = LIVRABLE** : toute page de brique montre l'exemple minimal COMPLET vu
    depuis une app `nodefony create app` (imports réels, config `use()`, controller, ce qu'on
    observe) — et il **compile**. Chaque capacité majeure = un extrait d'usage. Une doc qui décrit
@@ -321,10 +323,10 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 | --- | --- |
 | `scripts/doc-lint.mjs <page.md>` | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, liens vivants, 0 HTML brut). **5 régimes** selon la nature de la page — brique · hub `index.md` · glossaire `lexique.md` · index de dossier `README.md` · ADR `NNNN-*.md` (cf standard §8bis-\*) |
 | `scripts/anchor-check.mjs <page.md>` | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel, et chaque `<fichier>#<Symbole>` contre l'AST du fichier (`lib/code-declarations.mjs`) ; exit 1 sur SUSPECT, LINE_OUT, FILE_NOT_FOUND ou SYMBOL_NOT_FOUND (gate CI) — l'INDÉCIS ne bloque pas |
-| `scripts/anchor-fix.mjs` | **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation. |
-| `scripts/anchor-remap.mjs` | **RECALE PAR LE DIFF** quand c'est le CODE qui a bougé : décale chaque ancre d'exactement les lignes gagnées ou perdues avant elle depuis `--base <rév>` (où les ancres étaient justes, ex. `origin/dev`). Entrée : `anchor-check --all` (les ancres jugées justes aussi — une ancre glissée sur une ligne plausible n'est pas SUSPECTE). Ne devine jamais une ancre tombée dans un bloc modifié ; refuse une page déjà modifiée (double décalage) et laisse une ancre ABSENTE de la page à la base (écrite ou recalée depuis : elle est déjà à la numérotation de l'arbre). Fichier déplacé (`git mv`) : diff depuis l'ancien chemin ; fichier né après la base : rien à recaler. Autotest : `anchor-remap.selftest.mjs`. À préférer à `anchor-fix` après un refactor. |
-| `scripts/anchor-pair-check.mjs`| **CONFRONTE CHAQUE RECALAGE** après un refactor : pour toute ancre `<Fichier>.ts:N` sur une ligne modifiée depuis `--base` (défaut `HEAD`), le texte de la ligne visée avant doit être celui de la ligne visée après — déterministe, exit 1 sur écart. Attrape le recalage tombé sur une ligne plausible (que `anchor-check` dit OK) et l'ancre laissée à l'ancien numéro sur une ligne réécrite. Ne voit ni les lignes non touchées (→ `anchor-remap`) ni une ancre déjà fausse décalée fidèlement (→ agent de confrontation des affirmations, check-claims).                                                                                                                                                                                                                                  |
-| `scripts/anchor-migrate.mjs <pages\|dossiers>` | **Convertit `fichier:ligne` en `fichier#Symbole`** (#613) : lit `anchor-check --json` (une seule détection) et cherche, dans l'AST TypeScript du fichier visé, la déclaration qui ENGLOBE la ligne (l'en-tête TSDoc compte, comme dans `enteteDe`). Classe chaque ancre — EXACT, ENGLOBANT (instruction rabattue sur sa méthode), A_RELIRE (le symbole cité est déclaré AILLEURS : site d'usage ou ligne glissée, les deux cibles proposées), HORS_SYMBOLE, HOMONYME, CASSEE — et ne devine jamais. Aujourd'hui essai à blanc seulement : bilan + détail dans `tmp/reports/anchor-migrate.json`. |
+| `scripts/anchor-fix.mjs` | **Obsolète (#613)** — ne sert qu'aux ancres de ligne, désormais refusées ; retrait proposé. **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation. |
+| `scripts/anchor-remap.mjs` | **Obsolète (#613)** — ne sert qu'aux ancres de ligne, désormais refusées ; retrait proposé. **RECALE PAR LE DIFF** quand c'est le CODE qui a bougé : décale chaque ancre d'exactement les lignes gagnées ou perdues avant elle depuis `--base <rév>` (où les ancres étaient justes, ex. `origin/dev`). Entrée : `anchor-check --all` (les ancres jugées justes aussi — une ancre glissée sur une ligne plausible n'est pas SUSPECTE). Ne devine jamais une ancre tombée dans un bloc modifié ; refuse une page déjà modifiée (double décalage) et laisse une ancre ABSENTE de la page à la base (écrite ou recalée depuis : elle est déjà à la numérotation de l'arbre). Fichier déplacé (`git mv`) : diff depuis l'ancien chemin ; fichier né après la base : rien à recaler. Autotest : `anchor-remap.selftest.mjs`. À préférer à `anchor-fix` après un refactor. |
+| `scripts/anchor-pair-check.mjs`| **Obsolète (#613)** — ne sert qu'aux ancres de ligne, désormais refusées ; retrait proposé. **CONFRONTE CHAQUE RECALAGE** après un refactor : pour toute ancre `<Fichier>.ts:N` sur une ligne modifiée depuis `--base` (défaut `HEAD`), le texte de la ligne visée avant doit être celui de la ligne visée après — déterministe, exit 1 sur écart. Attrape le recalage tombé sur une ligne plausible (que `anchor-check` dit OK) et l'ancre laissée à l'ancien numéro sur une ligne réécrite. Ne voit ni les lignes non touchées (→ `anchor-remap`) ni une ancre déjà fausse décalée fidèlement (→ agent de confrontation des affirmations, check-claims).                                                                                                                                                                                                                                  |
+| `scripts/anchor-migrate.mjs <pages\|dossiers>` | **Convertit `fichier:ligne` en `<fichier>.ts#<Symbole>`** : lit `anchor-check --json` (une seule détection), cherche dans l'AST du fichier visé (`lib/code-declarations.mjs`) la déclaration qui ENGLOBE la ligne, ou le symbole cité devant l'ancre s'il est déclaré ailleurs ; sinon le fichier seul. Une ancre courte sans fichier est retirée avec son séparateur. Sans `--apply` : bilan seul. Autotest : `anchor-migrate.selftest.mjs`. |
 | `scripts/anchor-inpage.mjs <page.md>` | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts) |
 | `scripts/code-check.mjs <page.md>` | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict. Un bloc qui importe un fichier de l'APPLICATION (`./nodefony/config/<m>`, `../../env`) ne se résout pas dans ce harnais isolé : il se marque ` ts ignore` et se confronte à une application générée (`npx tsgo --noEmit` + `nodefony doctor`) |
 | `scripts/render-figures.mjs <page.md>` | **Regarder les figures** : rend chaque schéma comme la console (mermaid 11, colonne de 860 px, plafond à 60 % de l'écran) ET comme le site, en images sous `tmp/reports/figures-<page>/` — à OUVRIR. Standard §4bis |
@@ -335,30 +337,12 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 | `scripts/gen-counters.mjs [topic]` | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
 | `scripts/site/build-docs-site.mjs --only <page.md>` | Aperçu d'UNE page, rendu par le moteur du SITE — donc l'aperçu EST ce qui sera publié |
 
-> 🔁 **Un diff de code décale les ancres de la doc qui le cite — recaler à la MAIN coûte cher et se
-> trompe.** Enchaîner les deux scripts, en simulation puis pour de bon :
->
-> ```bash
-> node .../anchor-check.mjs <module>/docs/*.md | node .../anchor-fix.mjs .            # simulation
-> node .../anchor-check.mjs <module>/docs/*.md | node .../anchor-fix.mjs . --apply    # applique
-> node .../anchor-check.mjs <module>/docs/*.md                                        # re-contrôle
-> ```
->
-> Deux pièges, vécus tous les deux en une passe : (1) le symbole le plus proche gagne, or **le nom
-> de la CLASSE est plus près que la méthode** → toutes les ancres d'un fichier convergeaient sur
-> `export class X` ; `anchor-fix` lit donc d'abord le symbole **cité juste avant l'ancre** dans la
-> page. (2) Une définition « faible » (`  nom: Type,`) attrape un **paramètre**, pas une méthode →
-> les motifs forts (class/interface/function/const/type + méthode) l'emportent, le faible ne sert
-> qu'en dernier recours. (3) **Plusieurs ancres sur une ligne** : chacune n'a pour contexte que
-> le texte qui la sépare de sa voisine, plus le `(Symbole)` qui la suit immédiatement. La forme
-> courte `` `:N` `` est une ancre à part entière : elle hérite du fichier de l'ancre longue qui la
-> précède sur la ligne, se contrôle et se recale comme elle. Sans parent sur la ligne, elle n'est
-> pas contrôlée, et le bilan le dit. Une nouvelle puce, un titre ou une rangée n'héritent jamais du
-> symbole de la ligne du dessus. Ces règles vivent une seule fois, dans `scripts/anchor-context.mjs`,
-> que lisent le juge ET le réparateur. Ce qui reste SUSPECT après la passe est en général un **littéral** cité
-> entre backticks (`unauthorized`, `limit`) : le gate ne peut pas le résoudre, ce n'est pas une
-> ancre fausse. **Relire le diff** — une passe automatisée sur du markdown déplace parfois plus que
-> prévu.
+> 🔁 **Une ancre de ligne écrite par habitude** se convertit, elle ne se recale pas :
+> `node .../anchor-migrate.mjs <page.md> --apply` vise la déclaration qui ENGLOBE la ligne (l'en-tête
+> TSDoc compte), ou le symbole que la page cite devant l'ancre s'il est déclaré ailleurs dans le
+> fichier, ou le fichier seul ; une ancre courte `:N` sans fichier écrit est retirée. Les règles de
+> CONTEXTE (quel symbole une ancre cite) vivent une seule fois, dans `scripts/anchor-context.mjs`.
+> **Relire le diff** — une passe automatisée sur du markdown déplace parfois plus que prévu.
 
 > ⚠️ **`anchor-inpage.mjs` et `slugifyHeading()` (`studio/frontend/src/components/ui/DocToc.tsx`)
 > portent la MÊME règle de slug** — convention GitHub, accents conservés, ponctuation/symboles/emoji

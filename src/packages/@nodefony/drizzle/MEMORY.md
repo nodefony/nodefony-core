@@ -45,7 +45,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - `DrizzleService.#connectOne` propage `dialect`/`url` à `DrizzleOrm` ; `#defaultFilename`+`mkdirSync` UNIQUEMENT en sqlite ; log de boot = URL rédigée (`redactUrl`, jamais de password). **Échec de connexion d'un connecteur configuré → `BootConfigurationError`** (core) = boot FATAL dev ET prod (une infra déclarée non honorable ne se répare pas en continuant — jamais de serveur « vivant » aux stores morts). `#connectPostgres`/`#connectMysql` font un **ping réel `SELECT 1`** au connect (pool pg/mysql2 LAZY : sans ping, une base morte « connecterait » et n'échouerait qu'à la 1ʳᵉ requête métier) + `pool.end()` si le ping échoue (0 handle fuité).
 - 🔴 **Repli sqlite = connecteur PRINCIPAL sans infra SQL ni `dialect`/`filename`/`url` écrit** (`isDialectFallback`, `defineModuleConfig.ts` — après le parse, le défaut Zod `sqlite` est indiscernable d'un écrit, d'où `declared`). Au connect, `#refuseForeignFallback` APPELLE la règle de `doctor` (`projectEntityDialectMismatches`, cœur `checks/projectScope.ts` → `entityDialectMismatches` `surface.ts`) : entité d'app écrite pour pg/mysql seulement → `BootConfigurationError` nommant dialecte + fichiers + `NF_DATABASE_URL`, AVANT tout `mkdir`. Repli légitime → INFO « repli sur sqlite, fichier … ». Run sans connexion : ni refus ni annonce. Motif du dialecte en valeur = annoté OU `as const satisfies SqlDialect` (forme du gabarit, banc `doctorSurface.test.ts` lit `User.ts.tpl`). Banc `tests/unit/dialectFallback.test.ts`.
 - **Les 3 pilotes = peerDependencies OPTIONNELLES** (`better-sqlite3`, `pg`, `mysql2`), chargés par `await import()`. Symétriques : la lib n'en impose aucun, l'APP déclare celui qu'elle ouvre (le scaffold le pose selon `--dialect`). Une dep dure imposait un node-gyp à toute app pg ; un `optionalDependencies` échoué est SKIPPÉ EN SILENCE (app pg sans pg). devDeps du paquet = les 3, ses bancs exercent les 3.
-  ⚠️ Marquer une peer optionnelle NE la sort PAS de l'image si l'app l'a en devDep — elle SATISFAIT la peer et survit à `npm prune --omit=dev` (cas Vite, mesuré, `pack-all.mjs:35`). Ici les pilotes vont en `dependencies` de l'app : le piège ne s'applique pas.
+  ⚠️ Marquer une peer optionnelle NE la sort PAS de l'image si l'app l'a en devDep — elle SATISFAIT la peer et survit à `npm prune --omit=dev` (cas Vite, mesuré, `pack-all.mjs`). Ici les pilotes vont en `dependencies` de l'app : le piège ne s'applique pas.
 - Boot vérifié : `MODULE ADD : drizzle` + `Drizzle ORM "default" connected` + db créée, 4 serveurs UP, health 200.
 
 ## Adapter User (ORM par défaut)
@@ -211,7 +211,7 @@ fichier ⇒ « matérialiser depuis le registre » est impossible, voie écarté
   implémentation de l'application (gardes destructives, verrou, historique restent uniques).
   🔴 La commande se prend sur le **MODULE** (`kernel.getModule("drizzle").commands`), jamais sur
   `cli.getCommand` : `Cli.addCommand` sert les commandes INTÉGRÉES, `Module.addCommand` range les
-  siennes dans le module (`Module.ts:656`) — `cli.getCommand("orm:migrate")` rend donc toujours
+  siennes dans le module (`Module.ts#Module.addCommand`) — `cli.getCommand("orm:migrate")` rend donc toujours
   `null`. Ni le typecheck ni les tests unitaires ne voient ce registre : seule l'exécution réelle
   d'une app générée l'a montré.
   Refus hors développement et sous `NODE_ENV=test` (`NF_MIGRATE_NOT_DEVELOPMENT`). En `--json`, le

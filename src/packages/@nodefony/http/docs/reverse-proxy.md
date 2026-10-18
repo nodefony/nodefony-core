@@ -56,11 +56,11 @@ flowchart LR
 Trois idées suffisent pour raisonner :
 
 1. **Un montage = un préfixe → une origine.** `"/billing/"` → `http://127.0.0.1:8080`. Le préfixe le
-   plus long gagne (`ReverseProxy.match()`, `reverse-proxy.ts:229`).
+   plus long gagne (`ReverseProxy.match()`, `reverse-proxy.ts#ReverseProxy.match`).
 2. **L'aiguillage passe AVANT le routage.** Une route attrape-tout de l'application ne peut pas
-   avaler un préfixe monté (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1728`).
+   avaler un préfixe monté (`HttpKernel.routeHttpRequest()`, `http-kernel.ts#HttpKernel.routeHttpRequest`).
 3. **Sans montage, il ne coûte rien.** Le pipeline lit un champ (`mounts === null`) et passe son
-   chemin (`ReverseProxy.mounts`, `reverse-proxy.ts:174`).
+   chemin (`ReverseProxy.mounts`, `reverse-proxy.ts#ReverseProxy.mounts`).
 
 ## 📖 Lexique
 
@@ -100,17 +100,17 @@ autres. Mal écrit, un proxy ouvre ses propres failles, et c'est contre elles qu
 
 - **Contournement de préfixe** — `/billing/..%2fadmin` : le proxy voit `/billing/`, l'amont décode
   `/admin`. Un chemin ambigu est refusé en 400, jamais normalisé en silence (`isAmbiguousPath()`,
-  `rules.ts:229`).
+  `rules.ts#isAmbiguousPath`).
 - **Désynchronisation de requête** (_request smuggling_) — proxy et amont ne s'accordent pas sur la
-  fin du corps. Le cadrage est recalculé à chaque relais (`bodyFramingOf()`, `forward.ts:166`).
+  fin du corps. Le cadrage est recalculé à chaque relais (`bodyFramingOf()`, `forward.ts#bodyFramingOf`).
 - **Usurpation d'origine** — un client pose lui-même `X-Forwarded-For: 10.0.0.1`. Ces en-têtes ne
-  sont crus que d'un pair `trustProxy` (`requestHeadersFor()`, `forward.ts:201`).
+  sont crus que d'un pair `trustProxy` (`requestHeadersFor()`, `forward.ts#requestHeadersFor`).
 
 ## La vision Nodefony
 
 Le proxy est un **service générique** de `@nodefony/http`, `reverse-proxy` (`ReverseProxy`,
-`reverse-proxy.ts:82`). Il accepte deux sources de montages, soumises aux **mêmes règles**
-(`proxyMountProblems()`, `rules.ts:98`) :
+`reverse-proxy.ts#ReverseProxy`). Il accepte deux sources de montages, soumises aux **mêmes règles**
+(`proxyMountProblems()`, `rules.ts#proxyMountProblems`) :
 
 - **la configuration** de l'application — `proxy.mounts`, validée au démarrage ;
 - **un module**, par `mount()` — c'est ainsi que `@nodefony/frontend` sert Vite sous `/_vite/`.
@@ -130,7 +130,7 @@ Le compromis assumé :
 > **Un préfixe monté est servi AVANT le pare-feu, la protection CSRF et les en-têtes de sécurité
 > APPLICATIFS de l'application (CSP, `Referrer-Policy`, COOP).** C'est une surface publique pour qui
 > atteint Nodefony : l'amont porte sa propre politique d'accès (`ReverseProxy.forward()`,
-> `reverse-proxy.ts:319`). Ne montez jamais un service qui suppose être protégé par le pare-feu
+> `reverse-proxy.ts#ReverseProxy.forward`). Ne montez jamais un service qui suppose être protégé par le pare-feu
 > Nodefony.
 
 Ce qui s'applique malgré tout, parce que posé à l'entrée, avant l'aiguillage :
@@ -212,12 +212,12 @@ via: 1.1 nodefony-3f9a1c2e
 - Le préfixe a été retiré du chemin, et l'amont l'apprend par `X-Forwarded-Prefix`.
 - `Host` est celui de l'amont ; le nom demandé par le client part dans `X-Forwarded-Host`.
 - `Via` porte le pseudonyme de CE processus, tiré au hasard au démarrage — il ne dit rien de la
-  machine (`ReverseProxy.pseudonym`, `reverse-proxy.ts:290`).
+  machine (`ReverseProxy.pseudonym`, `reverse-proxy.ts#ReverseProxy.pseudonym`).
 
 ## ⚙️ Configuration
 
 Section `proxy` de `use("@nodefony/http", { … })`, schéma Zod strict : une clé inconnue interrompt le
-démarrage en la nommant (`proxySchema`, `config.ts:1085`).
+démarrage en la nommant (`proxySchema`, `config.ts#proxySchema`).
 
 | Option             | Type     | Défaut  | Effet                                                                                                                                                         |
 | ------------------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -226,7 +226,7 @@ démarrage en la nommant (`proxySchema`, `config.ts:1085`).
 | `maxSockets`       | entier   | `256`   | Connexions simultanées vers UN amont (pool dédié par montage) ; au-delà, les requêtes attendent. Borne aussi les tunnels WebSocket, hors pool : au-delà, 503. |
 | `mounts`           | `record` | `{}`    | Préfixe → montage. Préfixe le plus long d'abord.                                                                                                              |
 
-Chaque montage (`proxyMountSchema`, `config.ts:1013`) :
+Chaque montage (`proxyMountSchema`, `config.ts#proxyMountSchema`) :
 
 | Option         | Type       | Défaut            | Effet                                                                                                                        |
 | -------------- | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -239,13 +239,13 @@ Chaque montage (`proxyMountSchema`, `config.ts:1013`) :
 | `timeoutMs`    | entier     | `proxy.timeoutMs` | Délai d'inactivité propre au montage, handshake WebSocket compris (jusqu'au `101`). Ne s'applique pas à un WebSocket établi. |
 | `secure`       | `boolean`  | `true`            | Vérifie le certificat d'une cible `https`. `false` n'est accepté que vers la boucle locale.                                  |
 
-**Refusés au démarrage**, avec le motif (`proxyMountProblems()`, `rules.ts:98`) :
+**Refusés au démarrage**, avec le motif (`proxyMountProblems()`, `rules.ts#proxyMountProblems`) :
 
 - le préfixe `/` — il relaierait toute l'application, routes et pare-feu compris ;
 - un préfixe sous `/nodefony/` (console d'administration) ou, depuis la configuration, sous
-  `/_vite/` (monté par `@nodefony/frontend`) — `RESERVED_PROXY_PREFIXES` (`rules.ts:18`) ;
+  `/_vite/` (monté par `@nodefony/frontend`) — `RESERVED_PROXY_PREFIXES` (`rules.ts#RESERVED_PROXY_PREFIXES`) ;
 - un préfixe qui contient `?`, `#`, `%`, `\`, un espace ou un segment `.`/`..` ;
-- une cible qui n'est pas une origine `http(s)` nue (`parseProxyOrigin()`, `rules.ts:56`) ;
+- une cible qui n'est pas une origine `http(s)` nue (`parseProxyOrigin()`, `rules.ts#parseProxyOrigin`) ;
 - deux clés qui désignent le même préfixe (`/svc` et `/svc/`).
 
 ### Choisir les réglages — en situation
@@ -259,7 +259,7 @@ retirer.
 
 **L'amont croit être à la racine** (un service existant qu'on ne modifie pas) : retirer le préfixe.
 Ses redirections `Location: /login` sont ramenées en `/billing/login`
-(`rewriteLocation()`, `forward.ts:288`).
+(`rewriteLocation()`, `forward.ts#rewriteLocation`).
 
 ```ts ignore
 "/billing/": { target: "http://127.0.0.1:8080", stripPrefix: true }
@@ -305,7 +305,7 @@ réglage.
 Ce qui se règle reste côté frontend, dans `use("@nodefony/frontend", { … })` : `devHost` (défaut
 `127.0.0.1`, à garder — le navigateur ne joint jamais Vite directement) et `devPort` (défaut `5173`,
 chaque famille prend le port suivant). Le préfixe `/_vite/` est refusé dans `proxy.mounts` : il
-appartient au module (`MODULE_PROXY_PREFIXES`, `rules.ts:25`). En production, Vite ne tourne pas et
+appartient au module (`MODULE_PROXY_PREFIXES`, `rules.ts#MODULE_PROXY_PREFIXES`). En production, Vite ne tourne pas et
 aucun montage n'est posé.
 
 ## 🔌 WebSocket relayé
@@ -313,10 +313,10 @@ aucun montage n'est posé.
 Avec `websocket: true`, l'upgrade du préfixe est relayé au lieu d'aller au serveur WebSocket de
 Nodefony. Un seul écouteur `upgrade` par serveur fait l'aiguillage : le proxy d'abord, puis `ws`,
 créé en `noServer` pour garder ses propres contrôles (`path`, `verifyClient`, `maxPayload`)
-(`attachUpgradeDispatch()`, `upgradeDispatch.ts:172`).
+(`attachUpgradeDispatch()`, `upgradeDispatch.ts#attachUpgradeDispatch`).
 
 Avant de relayer, chaque contrôle rend la réponse qu'aurait rendue le serveur WebSocket de Nodefony
-(`ReverseProxy.handleUpgrade()`, `reverse-proxy.ts:384`) :
+(`ReverseProxy.handleUpgrade()`, `reverse-proxy.ts#ReverseProxy.handleUpgrade`) :
 
 | Le handshake…                                                             | Réponse |
 | ------------------------------------------------------------------------- | ------- |
@@ -328,7 +328,7 @@ Avant de relayer, chaque contrôle rend la réponse qu'aurait rendue le serveur 
 | passe tous les contrôles                                                  | relayé  |
 
 Les quotas sont ceux d'un upgrade servi par Nodefony, appliqués par la **même** règle du noyau
-(`HttpKernel.websocketQuotaRefusal()`, `http-kernel.ts:2320`) ; un tunnel ouvert garde sa place
+(`HttpKernel.websocketQuotaRefusal()`, `http-kernel.ts#HttpKernel.websocketQuotaRefusal`) ; un tunnel ouvert garde sa place
 jusqu'à sa fermeture. Seule la forme du refus diffère : le proxy répond avant le `101`, il peut donc
 rendre un statut HTTP, là où le serveur WebSocket ne peut plus que fermer avec le code 1013.
 
@@ -337,9 +337,9 @@ Une fois l'upgrade transmis, un amont qui accepte la connexion puis se tait est 
 qu'il veut.
 
 Seul `Upgrade: websocket` est relayé : un tunnel `h2c` ou tout autre protocole raccordé octet pour
-octet échapperait à toute inspection (`websocketHandshakeProblem()`, `rules.ts:259`). Une fois la
+octet échapperait à toute inspection (`websocketHandshakeProblem()`, `rules.ts#websocketHandshakeProblem`). Une fois la
 connexion établie, les deux sockets sont raccordées et détruites ensemble ; le TCP keep-alive détecte
-un pair mort (`forwardUpgrade()`, `forward.ts:618`).
+un pair mort (`forwardUpgrade()`, `forward.ts#forwardUpgrade`).
 
 ## 🧩 Étendre — monter depuis un module
 
@@ -359,13 +359,13 @@ proxy?.unmount("/outil/");
 ```
 
 - `mount()` est **idempotent** pour un préfixe : il remplace le montage précédent. S'il remplace un
-  montage de la configuration, il le dit en `WARNING` (`ReverseProxy.mount()`, `reverse-proxy.ts:129`).
+  montage de la configuration, il le dit en `WARNING` (`ReverseProxy.mount()`, `reverse-proxy.ts#ReverseProxy.mount`).
 - `unmount()` ferme le pool de l'amont ; le dernier retiré remet `mounts` à `null`, et le pipeline
-  cesse de le consulter (`ReverseProxy.unmount()`, `reverse-proxy.ts:199`).
+  cesse de le consulter (`ReverseProxy.unmount()`, `reverse-proxy.ts#ReverseProxy.unmount`).
 
 **Exemple réel** : `@nodefony/frontend` monte ainsi chaque famille Vite (voir « Le cas Vite »), avec
 une cible fonction qui ne vise un port que si le Vite de CETTE application y répond
-(`FrontendService.mountDevProxy()`, `FrontendService.ts:486`).
+(`FrontendService.mountDevProxy()`, `FrontendService.ts#FrontendService.mountDevProxy`).
 
 ## 🏗️ Architecture interne — le parcours d'une requête relayée
 
@@ -386,25 +386,25 @@ sequenceDiagram
 
 Ce que le relais fait aux en-têtes, dans les deux sens :
 
-| Vers l'amont (`requestHeadersFor()`, `forward.ts:201`)                | Vers le client (`responseHeadersFor()`, `forward.ts:311`)        |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| retire les en-têtes de connexion, et ceux que nomme `Connection`      | retire les en-têtes de connexion, et ceux que nomme `Connection` |
-| retire `Expect` (Nodefony a déjà répondu `100`) et les `stripHeaders` | garde les `Set-Cookie` multiples                                 |
-| réécrit `Host` sur la cible (sauf `preserveHost`)                     | ramène `Location` sous le préfixe (`stripPrefix`)                |
-| `X-Forwarded-*` : prolongés d'un pair `trustProxy`, recommencés sinon | prolonge `Via`                                                   |
-| `X-Forwarded-Prefix` : à la suite de celui d'un pair `trustProxy`     |                                                                  |
-| `Forwarded` d'un pair `trustProxy` : prolongé de ce saut, jamais créé |                                                                  |
-| prolonge `Via` ; recalcule le cadrage du corps                        |                                                                  |
+| Vers l'amont (`requestHeadersFor()`, `forward.ts#requestHeadersFor`)  | Vers le client (`responseHeadersFor()`, `forward.ts#responseHeadersFor`) |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| retire les en-têtes de connexion, et ceux que nomme `Connection`      | retire les en-têtes de connexion, et ceux que nomme `Connection`         |
+| retire `Expect` (Nodefony a déjà répondu `100`) et les `stripHeaders` | garde les `Set-Cookie` multiples                                         |
+| réécrit `Host` sur la cible (sauf `preserveHost`)                     | ramène `Location` sous le préfixe (`stripPrefix`)                        |
+| `X-Forwarded-*` : prolongés d'un pair `trustProxy`, recommencés sinon | prolonge `Via`                                                           |
+| `X-Forwarded-Prefix` : à la suite de celui d'un pair `trustProxy`     |                                                                          |
+| `Forwarded` d'un pair `trustProxy` : prolongé de ce saut, jamais créé |                                                                          |
+| prolonge `Via` ; recalcule le cadrage du corps                        |                                                                          |
 
-Les échecs, dans l'ordre où ils peuvent survenir (`forwardRequest()`, `forward.ts:408`) :
+Les échecs, dans l'ordre où ils peuvent survenir (`forwardRequest()`, `forward.ts#forwardRequest`) :
 
 - **508** — la requête porte déjà le pseudonyme de ce processus dans `Via`, ou au moins
   `MAX_VIA_HOPS` (10) sauts : une boucle, l'amont n'est pas contacté (`viaLoops()`,
-  `forward.ts:129`). Le plafond compte parce que le pseudonyme ne repère une boucle qu'au retour
+  `forward.ts#viaLoops`). Le plafond compte parce que le pseudonyme ne repère une boucle qu'au retour
   dans ce processus — derrière un répartiteur qui tourne sur N instances, après N+1 sauts ;
 - **501** — un `Transfer-Encoding` autre que `chunked` seul (`gzip, chunked`) : le transmettre
   réétiqueté livrerait à l'amont un corps compressé qu'il croirait en clair (`bodyFramingOf()`,
-  `forward.ts:166`) ;
+  `forward.ts#bodyFramingOf`) ;
 - **504** — connexion non établie sous `connectTimeoutMs`, ou amont muet au-delà de `timeoutMs` ;
 - **502** — amont injoignable, ou réponse que la sortie refuse (en-tête interdit en HTTP/2) ;
 - **coupure** — si l'amont tombe APRÈS avoir commencé à répondre, la réponse au client est
@@ -412,8 +412,8 @@ Les échecs, dans l'ordre où ils peuvent survenir (`forwardRequest()`, `forward
 
 Chaque montage a son **pool keep-alive dédié**, jamais l'agent global de Node : sous
 `NODE_USE_ENV_PROXY` (poste d'entreprise), l'agent global enverrait un amont local au proxy de
-l'entreprise (`ReverseProxy.agentFor()`, `reverse-proxy.ts:270`). Les pools sont fermés à l'arrêt du
-noyau (`ReverseProxy.closeAll()`, `reverse-proxy.ts:215`) ; un relais encore en vol part ensuite sur
+l'entreprise (`ReverseProxy.agentFor()`, `reverse-proxy.ts#ReverseProxy.agentFor`). Les pools sont fermés à l'arrêt du
+noyau (`ReverseProxy.closeAll()`, `reverse-proxy.ts#ReverseProxy.closeAll`) ; un relais encore en vol part ensuite sur
 une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 
 ## 🔐 Sécurité
@@ -424,9 +424,9 @@ une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 - **Quotas maintenus** : rate-limit par IP sur les requêtes relayées ; mêmes bornes par IP pour un
   upgrade relayé que pour un upgrade servi, plus `maxSockets` tunnels par amont.
 - **Barrière d'hôte maintenue** : un `Host` hors `trustedHosts` n'est jamais relayé ; il suit le
-  pipeline jusqu'au 421, comme toute requête (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1728`).
+  pipeline jusqu'au 421, comme toute requête (`HttpKernel.routeHttpRequest()`, `http-kernel.ts#HttpKernel.routeHttpRequest`).
 - **Chemins ambigus refusés**, pas normalisés : `.`, `..`, `\`, octet nul et leurs formes encodées
-  `%2e`, `%2f`, `%5c`, `%00`, `%25` (`isAmbiguousPath()`, `rules.ts:229`).
+  `%2e`, `%2f`, `%5c`, `%00`, `%25` (`isAmbiguousPath()`, `rules.ts#isAmbiguousPath`).
 - **Chaîne de confiance** : `Forwarded`, `X-Forwarded-*` et `X-Real-IP` d'un client direct sont
   écartés ; seul un pair `trustProxy` les prolonge.
 - **Certificat vérifié** vers une cible `https` ; `secure: false` n'est accepté que vers
@@ -437,18 +437,18 @@ une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 
 ## 📜 Normes appliquées
 
-| Norme                   | Exigence                                                 | Comment le code s'y conforme                                                                      |
-| ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| RFC 9110 §7.6.1         | Un intermédiaire retire les en-têtes de connexion        | Liste fixe + jetons de `Connection`, dans les deux sens (`requestHeadersFor()`, `forward.ts:201`) |
-| RFC 9110 §7.6.3         | Un intermédiaire ajoute son entrée à `Via`               | Pseudonyme par processus, prolongé à l'aller et au retour (`forward.ts:244`)                      |
-| RFC 9112 §6.3           | Un seul cadrage de corps ; `Transfer-Encoding` l'emporte | `Content-Length` retiré quand le corps est découpé (`bodyFramingOf()`, `forward.ts:166`)          |
-| RFC 9112 §6.1           | Codage de transfert non compris → 501                    | Tout autre que `chunked` seul est refusé, jamais réétiqueté (`forward.ts:147`)                    |
-| RFC 9113 §8.2.2         | Pas d'en-tête de connexion en HTTP/2                     | Réponse refusée par la sortie h2 → 502, jamais une exception non rattrapée                        |
-| RFC 7239 §8.1           | Ne croire `Forwarded` que d'un relais de confiance       | `trustProxy` décide (`ReverseProxy.forward()`, `reverse-proxy.ts:319`)                            |
-| RFC 7239 §4 · §6        | Chaque relais ajoute son élément ; IPv6 entre crochets   | Élément `for=…;proto=…;host=…` ajouté, valeurs non-jeton entre guillemets                         |
-| RFC 6585 §4             | `429 Too Many Requests`                                  | Quota par IP dépassé sur un upgrade relayé, avant le `101`                                        |
-| RFC 6455 §4.2.1 · §10.2 | Handshake conforme ; contrôle d'Origin contre le CSWSH   | `websocketHandshakeProblem()` (`rules.ts:259`) + règle d'Origin du serveur WS                     |
-| RFC 5842 §7.2           | `508 Loop Detected`                                      | Emprunté à WebDAV pour une boucle de relais (`viaLoops()`, `forward.ts:129`)                      |
+| Norme                   | Exigence                                                 | Comment le code s'y conforme                                                                                    |
+| ----------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| RFC 9110 §7.6.1         | Un intermédiaire retire les en-têtes de connexion        | Liste fixe + jetons de `Connection`, dans les deux sens (`requestHeadersFor()`, `forward.ts#requestHeadersFor`) |
+| RFC 9110 §7.6.3         | Un intermédiaire ajoute son entrée à `Via`               | Pseudonyme par processus, prolongé à l'aller et au retour (`forward.ts#requestHeadersFor`)                      |
+| RFC 9112 §6.3           | Un seul cadrage de corps ; `Transfer-Encoding` l'emporte | `Content-Length` retiré quand le corps est découpé (`bodyFramingOf()`, `forward.ts#bodyFramingOf`)              |
+| RFC 9112 §6.1           | Codage de transfert non compris → 501                    | Tout autre que `chunked` seul est refusé, jamais réétiqueté (`forward.ts#viaEntry`)                             |
+| RFC 9113 §8.2.2         | Pas d'en-tête de connexion en HTTP/2                     | Réponse refusée par la sortie h2 → 502, jamais une exception non rattrapée                                      |
+| RFC 7239 §8.1           | Ne croire `Forwarded` que d'un relais de confiance       | `trustProxy` décide (`ReverseProxy.forward()`, `reverse-proxy.ts#ReverseProxy.forward`)                         |
+| RFC 7239 §4 · §6        | Chaque relais ajoute son élément ; IPv6 entre crochets   | Élément `for=…;proto=…;host=…` ajouté, valeurs non-jeton entre guillemets                                       |
+| RFC 6585 §4             | `429 Too Many Requests`                                  | Quota par IP dépassé sur un upgrade relayé, avant le `101`                                                      |
+| RFC 6455 §4.2.1 · §10.2 | Handshake conforme ; contrôle d'Origin contre le CSWSH   | `websocketHandshakeProblem()` (`rules.ts#websocketHandshakeProblem`) + règle d'Origin du serveur WS             |
+| RFC 5842 §7.2           | `508 Loop Detected`                                      | Emprunté à WebDAV pour une boucle de relais (`viaLoops()`, `forward.ts#viaLoops`)                               |
 
 ## ⚡ Performance & mémoire
 
@@ -472,7 +472,7 @@ en-tête `Via`.
 
 | Symptôme                                                         | Cause                                                         | Correction                                                                                              |
 | ---------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Le boot s'arrête sur `proxy.mounts`                              | Préfixe `/`, réservé, ou cible avec un chemin                 | Lire le motif : il nomme la clé et le geste (`rules.ts:98`)                                             |
+| Le boot s'arrête sur `proxy.mounts`                              | Préfixe `/`, réservé, ou cible avec un chemin                 | Lire le motif : il nomme la clé et le geste (`rules.ts#proxyMountProblems`)                             |
 | Une route de l'application sous le préfixe n'est jamais atteinte | Le proxy passe AVANT le routage                               | Attendu : choisir un préfixe qui n'appartient qu'à l'amont                                              |
 | L'amont redirige hors du montage                                 | `stripPrefix` + liens absolus dans le HTML de l'amont         | Servir l'amont sous son préfixe, ou lui faire lire `X-Forwarded-Prefix`                                 |
 | L'amont voit `127.0.0.1` comme client                            | Lecture de l'IP de la socket au lieu de `X-Forwarded-For`     | Faire confiance à Nodefony côté amont (son équivalent de `trustProxy`)                                  |

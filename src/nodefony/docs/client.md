@@ -114,17 +114,17 @@ conséquences pratiques, dans l'ordre où on les rencontre.
 - **Les types sont les mêmes objets, pas des copies.** Le contrat de socket `IRealtimeSocket` décrit
   la prise côté navigateur **et** côté serveur. Une méthode qui change de signature casse la
   compilation des deux côtés, au build, pas en production.
-- **Les règles de rôles s'évaluent à l'identique.** `hasAnyRole()` (`client/roles/roles.ts:34`) est
+- **Les règles de rôles s'évaluent à l'identique.** `hasAnyRole()` (`client/roles/roles.ts#hasAnyRole`) est
   la fonction que le front appelle pour griser un bouton et que le back peut appeler dans un jury
   d'autorisation. Plus de « le front croyait que `ROLE_ADMIN` suffisait ».
 - **Les erreurs se traduisent une seule fois.** Le serveur ferme la connexion avec un code RFC 6455 ;
-  le client traduit ce code en message lisible via `closeCodeToNotice()` (`client/realtime/notice.ts:81`).
+  le client traduit ce code en message lisible via `closeCodeToNotice()` (`client/realtime/notice.ts#closeCodeToNotice`).
   La table de correspondance vit à un seul endroit.
 
 > [!IMPORTANT]
 > Isomorphe ne veut pas dire « identique ». Le navigateur n'a ni kernel, ni serveurs, ni accès à la
 > base. Le barrel client publie une **sélection** — `NodefonySocket`, `Syslog`, `Pdu`, `Service`,
-> `Container` (`client/index.ts:122`) : les briques qui ont un sens dans un onglet. Le reste n'est
+> `Container` (`client/index.ts`) : les briques qui ont un sens dans un onglet. Le reste n'est
 > simplement pas là, et n'alourdit donc pas ton bundle.
 
 ## La vision Nodefony
@@ -145,7 +145,7 @@ navigateur — le socle (`client`, `roles`, `debugbar`) et une liaison par moteu
 | `nodefony` (au front) | La **même chose** que `nodefony/client`, via la condition `browser`      | Code partagé front/back ; sinon préfère l'explicite |
 
 Ces entrées navigateur sont produites par une compilation dédiée — `clientConfig`
-(`rolldown.config.ts:116`) déclare exactement ces sept fichiers d'entrée, en conservant la structure
+(`rolldown.config.ts#clientConfig`) déclare exactement ces sept fichiers d'entrée, en conservant la structure
 des modules pour que le client temps réel ne soit émis **qu'une fois** même s'il est tiré par deux
 subpaths.
 
@@ -155,13 +155,13 @@ Deux choix méritent d'être explicités, parce qu'ils se voient dans ton bundle
   ne tire ni React, ni la barre de debug. C'est ce qui permet à la barre de peser **zéro octet** en
   production : personne ne l'importe.
 - **React, Vue, Angular et Svelte sont des dépendances externes, jamais empaquetées.** `clientExternal`
-  (`rolldown.config.ts:105`) marque `react`/`react-dom`, `vue`, `@angular/*` et `svelte` comme
+  (`rolldown.config.ts#clientExternal`) marque `react`/`react-dom`, `vue`, `@angular/*` et `svelte` comme
   externes : c'est **ton** runtime qui sera utilisé, donc pas de double
   instance et pas de règle des hooks violée.
 
 Le compromis assumé : côté navigateur, quelques API Node manquent. Nodefony ne charge pas de
 polyfill lourd — il substitue au build deux **shims** minimaux, `browserShim`
-(`rolldown.config.ts:88`), qui redirigent `node:events` et `node:util` vers des implémentations
+(`rolldown.config.ts#browserShim`), qui redirigent `node:events` et `node:util` vers des implémentations
 navigateur de quelques dizaines de lignes.
 
 ## 🚀 Démarrage rapide
@@ -299,26 +299,26 @@ afficherait un message de rétablissement au chargement.
 
 ## 🔌 `NodefonySocket` — la socket vue du navigateur
 
-C'est la brique centrale du subpath. `NodefonySocket` (`client/realtime/NodefonySocket.ts:186`)
+C'est la brique centrale du subpath. `NodefonySocket` (`client/realtime/NodefonySocket.ts#NodefonySocket`)
 implémente le contrat de socket isomorphe **et** le contrat de pair JSON-RPC : il sait donc à la fois
 recevoir des messages poussés et **répondre** à des requêtes venues du serveur.
 
 ### Les options du constructeur
 
 `new NodefonySocket(options)` et `NodefonySocket.shared(options)` prennent le même objet,
-`NodefonySocketOptions` (`client/realtime/NodefonySocket.ts:100`). Toutes les clés sont facultatives ;
+`NodefonySocketOptions` (`client/realtime/NodefonySocket.ts#NodefonySocketOptions`). Toutes les clés sont facultatives ;
 seule l'adresse doit être connue au moment de `connect()`.
 
-| Option              | Défaut  | Effet                                                                                                                                                                                                                      |
-| ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`NodefonySocket.ts:714`). |
-| `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`NodefonySocket.ts:297`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.         |
-| `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`NodefonySocket.ts:1818`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
-| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec, avec une gigue, sans jamais descendre sous 100 ms (`NodefonySocket.ts:224`).                                                                          |
-| `reconnectDelayMax` | `30000` | Plafond de ce délai (ms) (`NodefonySocket.ts:1864`).                                                                                                                                                                       |
-| `connectTimeout`    | `10000` | Délai d'ouverture (ms) : une poignée de main sans réponse est abandonnée, la promesse d'ouverture rejette et la reconnexion prend le relais. `0` retire la borne (`NodefonySocket.ts:1778`).                               |
-| `heartbeatInterval` | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`NodefonySocket.ts:1885`).                                                                                                                 |
-| `banner`            | `true`  | Annonce du framework dans la console et handle `nodefony` (`NodefonySocket.ts:588`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                            |
+| Option              | Défaut  | Effet                                                                                                                                                                                                                                            |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`NodefonySocket.ts#NodefonySocket.requireUrl`). |
+| `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`NodefonySocket.ts#NodefonySocketOptions.token`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.       |
+| `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`NodefonySocket.ts#NodefonySocket.settleClose`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
+| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec, avec une gigue, sans jamais descendre sous 100 ms (`NodefonySocket.ts#reconnectDelay`).                                                                                     |
+| `reconnectDelayMax` | `30000` | Plafond de ce délai (ms) (`NodefonySocket.ts#NodefonySocket.scheduleReconnect`).                                                                                                                                                                 |
+| `connectTimeout`    | `10000` | Délai d'ouverture (ms) : une poignée de main sans réponse est abandonnée, la promesse d'ouverture rejette et la reconnexion prend le relais. `0` retire la borne (`NodefonySocket.ts#NodefonySocket.openSocket`).                                |
+| `heartbeatInterval` | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`NodefonySocket.ts#NodefonySocket.startHeartbeat`).                                                                                                              |
+| `banner`            | `true`  | Annonce du framework dans la console et handle `nodefony` (`NodefonySocket.ts#NodefonySocket.constructor`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                           |
 
 ⚠️ Avec `shared()`, les options ne s'appliquent qu'à la **première** création pour une URL : les
 appels suivants rendent l'instance existante, réglages compris.
@@ -338,7 +338,7 @@ stateDiagram-v2
 ```
 
 La subtilité utile est la distinction entre fermeture **transitoire** et **définitive**.
-`isReconnectableCloseCode()` (`client/realtime/notice.ts:185`) lit le code de fermeture : une perte
+`isReconnectableCloseCode()` (`client/realtime/notice.ts#isReconnectableCloseCode`) lit le code de fermeture : une perte
 réseau (1006) ou un redémarrage serveur (1011) relancent la boucle de reconnexion ; un refus de
 politique (1008, c'est-à-dire un 401/403 traduit), une session refusée ou révoquée (4001) et une
 origine refusée (4003) ne la relancent **pas**. Un refus AU HANDSHAKE (le serveur répond 401/403
@@ -349,7 +349,7 @@ indéfiniment un point d'entrée protégé — et une session révoquée rejouer
 tentative.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/NodefonySocket.ts:1859`) — plafonné à 30 secondes par défaut. Trois garde-fous
+(`client/realtime/NodefonySocket.ts#NodefonySocket.scheduleReconnect`) — plafonné à 30 secondes par défaut. Trois garde-fous
 le tiennent face à un serveur qui coupe tout le monde au même instant :
 
 - une **gigue** : le délai tombe entre la moitié et la totalité du doublement, pour que mille
@@ -372,14 +372,14 @@ traitement.
 C'est le mécanisme qui évite la classe de bugs la plus pénible d'une application temps réel : deux
 composants écoutent le même canal, l'un se démonte, et **coupe le flux de l'autre**.
 
-`NodefonySocket.subscribe()` (`client/realtime/NodefonySocket.ts:974`) compte les consommateurs et
+`NodefonySocket.subscribe()` (`client/realtime/NodefonySocket.ts#NodefonySocket.subscribe`) compte les consommateurs et
 n'envoie la demande au serveur qu'au **premier**. `NodefonySocket.unsubscribe()`
-(`client/realtime/NodefonySocket.ts:987`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
+(`client/realtime/NodefonySocket.ts#NodefonySocket.unsubscribe`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
 est nul.
 
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
 Le serveur repart d'un état vide après une coupure ; c'est le client qui se souvient de ce qu'il
-écoutait, dans la routine d'ouverture de socket (`client/realtime/NodefonySocket.ts:1240`).
+écoutait, dans la routine d'ouverture de socket (`client/realtime/NodefonySocket.ts#NodefonySocket.mutate`).
 
 **`connected` ne veut pas dire « abonné ».** L'état passe à `connected` dès l'ouverture du
 transport ; les abonnements ne sont rejoués qu'au `realtime:welcome`, et ne deviennent effectifs
@@ -392,7 +392,7 @@ await socket.whenSubscribed("app:orders"); // rejetée si le serveur refuse le c
 const snapshot = await loadOrders(); // tout ce qui est publié à partir d'ici est livré
 ```
 
-`whenSubscribed()` (`client/realtime/NodefonySocket.ts:853`) repart de zéro à chaque reconnexion ;
+`whenSubscribed()` (`client/realtime/NodefonySocket.ts#NodefonySocket.whenSubscribed`) repart de zéro à chaque reconnexion ;
 `onSubscribed()` rappelle un écouteur à chaque acquittement. Face à un serveur qui n'annonce pas
 `subscriptionAcks` dans son welcome (version antérieure), la promesse se résout dès le rejeu : la
 garantie d'avant, sans plus. Un premier message peut arriver AVANT l'acquittement (le producteur
@@ -406,28 +406,28 @@ s'attache d'abord) — la garantie porte sur ce qui suit, pas sur « rien n'arri
 
 ### Les quatre façons de parler au serveur
 
-| Appel                                 | Ancre                                    | Ce que ça fait                                                   |
-| ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
-| `NodefonySocket.emit()` / `publish()` | `client/realtime/NodefonySocket.ts:956`  | Notification sans réponse — la forme du pub/sub                  |
-| `NodefonySocket.request()`            | `client/realtime/NodefonySocket.ts:1177` | Requête/réponse ; un argument commençant par `/` cible une route |
-| `NodefonySocket.mutate()`             | `client/realtime/NodefonySocket.ts:1250` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
+| Appel                                 | Ancre                                                      | Ce que ça fait                                                   |
+| ------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `NodefonySocket.emit()` / `publish()` | `client/realtime/NodefonySocket.ts#NodefonySocket.publish` | Notification sans réponse — la forme du pub/sub                  |
+| `NodefonySocket.request()`            | `client/realtime/NodefonySocket.ts#NodefonySocket.request` | Requête/réponse ; un argument commençant par `/` cible une route |
+| `NodefonySocket.mutate()`             | `client/realtime/NodefonySocket.ts#NodefonySocket.mutate`  | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
 
 Deux compléments moins courants. `NodefonySocket.call()`
-(`client/realtime/NodefonySocket.ts:1292`) rend l'**enveloppe complète** — la valeur **et**
+(`client/realtime/NodefonySocket.ts#NodefonySocket.call`) rend l'**enveloppe complète** — la valeur **et**
 l'identifiant du profil serveur de cette trame, ce qui permet en développement d'aller lire la
 radiographie de l'appel. Et `NodefonySocket.register()`
-(`client/realtime/NodefonySocket.ts:1364`) fait du navigateur un **appelé** : le serveur peut lui
+(`client/realtime/NodefonySocket.ts#NodefonySocket.register`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
 ### Ce que la socket dit d'elle-même — instantané et description
 
-`socketSnapshot()` (`client/realtime/snapshot.ts:80`) lit l'état de la socket sans émettre une
+`socketSnapshot()` (`client/realtime/snapshot.ts#socketSnapshot`) lit l'état de la socket sans émettre une
 trame : adresse, état, identité, canaux tenus, canaux et actions annoncés à l'accueil, trames
-reçues. `observeSnapshot()` (`client/realtime/observe.ts:396`) le pousse à chaque échantillon, à
+reçues. `observeSnapshot()` (`client/realtime/observe.ts#observeSnapshot`) le pousse à chaque échantillon, à
 chaque changement d'état et à chaque accueil — c'est ce dernier qui apporte l'identité, après le
 passage à « connecté ».
 
-`describeSocket()` (`client/realtime/snapshot.ts:128`) met cet instantané en mots : une ligne par
+`describeSocket()` (`client/realtime/snapshot.ts#describeSocket`) met cet instantané en mots : une ligne par
 fait, avec sa valeur ET une phrase qui dit ce qu'elle garantit. C'est la source UNIQUE du tableau
 que la console du navigateur affiche en développement, et de la vignette « Le client vu de
 l'intérieur » des quatre vitrines — écrit dans chaque page, le texte des explications divergerait
@@ -437,26 +437,26 @@ de celui de la console à la première retouche.
 
 L'identité de la connexion n'est pas devinée par le front : le serveur l'annonce dans sa première
 trame, et le client la retient. `NodefonySocket.identity`
-(`client/realtime/NodefonySocket.ts:1031`) vaut `null` tant que rien n'est reçu, puis porte un objet
+(`client/realtime/NodefonySocket.ts#NodefonySocket.identity`) vaut `null` tant que rien n'est reçu, puis porte un objet
 dont `authenticated` vaut `false` pour un visiteur anonyme. Un écran de connexion se décide donc
 **sans appeler aucune route**.
 
 Le pendant côté refus : quand le serveur rejette un abonnement, il pousse un message dédié que le
 client transforme en deux signaux — une notice générique pour le centre de notifications, et un
 événement ciblé consommable par `NodefonySocket.onDenied()`
-(`client/realtime/NodefonySocket.ts:803`) pour une réaction précise (griser le contrôle concerné). Le
+(`client/realtime/NodefonySocket.ts#NodefonySocket.onDenied`) pour une réaction précise (griser le contrôle concerné). Le
 motif reste volontairement générique : le serveur ne dit jamais **quel** rôle manquait, ce qui en
 ferait un oracle.
 
 ### Le transport, et pourquoi il est aussi bête
 
-`BrowserWsTransport` (`client/realtime/BrowserWsTransport.ts:12`) enveloppe la `WebSocket` native et
+`BrowserWsTransport` (`client/realtime/BrowserWsTransport.ts#BrowserWsTransport`) enveloppe la `WebSocket` native et
 ne fait rien d'autre : ouvrir, envoyer, fermer, relayer quatre événements. Toute l'orchestration —
 état, reconnexion, battement de cœur, statistiques — vit au-dessus.
 
 Cette séparation a une conséquence directe et très utile : le client accepte une **fabrique de
 transport** injectée en second argument de son constructeur
-(`client/realtime/NodefonySocket.ts:250`). Les tests branchent un transport factice et exercent toute
+(`client/realtime/NodefonySocket.ts#toSocketUrl`). Les tests branchent un transport factice et exercent toute
 la machine à états **sans ouvrir une seule socket**. C'est ce qui rend les 177 cas de test de cette
 page possibles hors navigateur.
 
@@ -466,15 +466,15 @@ Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choi
 
 - **Le journal de protocole est différé.** Chaque trame est poussée dans un anneau borné à 300
   entrées sous forme de **référence brute** ; la mise en forme et le masquage des secrets ne sont
-  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/NodefonySocket.ts:1928`). Un
+  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/NodefonySocket.ts#NodefonySocket.recordFrame`). Un
   inspecteur qu'on n'ouvre jamais ne coûte donc presque rien.
 - **Les secrets ne transitent pas en clair dans l'inspecteur.** `redactFrame()`
-  (`client/realtime/NodefonySocket.ts:352`) remplace toute clé ressemblant à un jeton, un mot de
+  (`client/realtime/NodefonySocket.ts#redactFrame`) remplace toute clé ressemblant à un jeton, un mot de
   passe ou une autorisation, avec une profondeur bornée.
 - **Ce qui n'a pas servi n'existe pas.** L'anneau de trames, l'identité et les capacités annoncées
   démarrent à `null` et ne sont alloués qu'au premier usage.
 - **L'échantillonnage de débit ne retient pas le processus.** Le minuteur de statistiques est
-  déréférencé (`client/realtime/NodefonySocket.ts:1182`) — utile quand le même code tourne dans un
+  déréférencé (`client/realtime/NodefonySocket.ts#NodefonySocket.request`) — utile quand le même code tourne dans un
   test Node.
 
 ## ⚡ Cadence adaptative — une capacité du CLIENT
@@ -486,7 +486,7 @@ Le principe repose sur une convention de nommage : la cadence vit **dans le nom 
 (`stats` à 1 s, `stats:2000` à 2 s…). Un canal = une cadence = un ticker serveur. Changer de cadence
 revient donc à **changer de canal**, opération que le client sait faire tout seul.
 
-`AdaptiveRate` (`client/realtime/AdaptiveRate.ts:78`) est la machine à états pure qui prend la
+`AdaptiveRate` (`client/realtime/AdaptiveRate.ts#AdaptiveRate`) est la machine à états pure qui prend la
 décision — aucun minuteur, aucune socket, donc parfaitement déterministe et testable. Elle applique la
 loi AIMD de TCP :
 
@@ -500,13 +500,13 @@ L'asymétrie est délibérée : on recule vite sous pression, on revient douceme
 qui empêche l'oscillation, et la bande morte empêche le va-et-vient autour du seuil.
 
 Deux détecteurs se complètent. `AdaptiveRate.noteFrame()`
-(`client/realtime/AdaptiveRate.ts:134`) mesure l'écart **à chaque trame reçue** ; mais si le flux
+(`client/realtime/AdaptiveRate.ts#AdaptiveRate.noteFrame`) mesure l'écart **à chaque trame reçue** ; mais si le flux
 s'arrête complètement, il n'y a plus de trame pour déclencher quoi que ce soit — d'où le chien de
-garde `AdaptiveRate.checkStarvation()` (`client/realtime/AdaptiveRate.ts:171`), appelé
+garde `AdaptiveRate.checkStarvation()` (`client/realtime/AdaptiveRate.ts#AdaptiveRate.checkStarvation`), appelé
 périodiquement, qui voit la famine **totale**.
 
 Le câblage à une socket réelle est séparé : `bindAdaptiveChannel()`
-(`client/realtime/AdaptiveRate.ts:239`) s'abonne au nouveau canal **avant** de couper l'ancien, ce
+(`client/realtime/AdaptiveRate.ts#bindAdaptiveChannel`) s'abonne au nouveau canal **avant** de couper l'ancien, ce
 qui évite le trou de quelques centaines de millisecondes qu'on obtiendrait dans l'ordre inverse.
 
 ```typescript ignore
@@ -527,7 +527,7 @@ binding.dispose(); // coupe le chien de garde, l'écouteur ET l'abonnement
 > Réservé aux canaux d'**état** (latest-wins : supervision, statistiques), où sauter une valeur
 > intermédiaire est sans conséquence. Sur un canal d'**événements** (journal, messages de chat), chaque
 > élément compte : décimer perdrait des données. Ces flux-là se **regroupent**, ils ne se décime pas.
-> Le réglage `enabled: false` (`client/realtime/AdaptiveRate.ts:200`) bascule en abonnement fixe sans
+> Le réglage `enabled: false` (`client/realtime/AdaptiveRate.ts#defaultClock`) bascule en abonnement fixe sans
 > changer le code appelant.
 
 ## 📡 `NodefonySse` — un flux serveur, et ses quatre liaisons de vue
@@ -535,7 +535,7 @@ binding.dispose(); // coupe le chien de garde, l'écouteur ET l'abonnement
 La socket est un téléphone, le flux SSE une radio : le serveur parle, le navigateur écoute. Côté
 serveur, une action ouvre le flux par `this.renderSse()` — tout est dans la page
 [Flux SSE](../../packages/@nodefony/http/docs/sse.md). Côté navigateur, `NodefonySse`
-(`client/sse/NodefonySse.ts:110`) parle le vocabulaire d'`EventSource` et y ajoute `method`,
+(`client/sse/NodefonySse.ts#NodefonySse`) parle le vocabulaire d'`EventSource` et y ajoute `method`,
 `headers` et `body`.
 
 Une différence avec la socket, et elle est voulue : **un flux n'est pas partagé**. C'est la
@@ -544,7 +544,7 @@ ouvre donc le sien, et le doit FERMER à son démontage : un flux oublié est un
 reste ouverte, que personne ne lit.
 
 C'est la seule raison d'être des liaisons. Toutes s'appuient sur `observeSse()`
-(`client/sse/observe.ts:117`), qui ouvre le flux, rend son état et le ferme à la libération ;
+(`client/sse/observe.ts#observeSse`), qui ouvre le flux, rend son état et le ferme à la libération ;
 aucune n'écrit d'ouverture de flux elle-même.
 
 | Front   | Fonction                                 | Rend                         | Fermé quand                             |
@@ -567,7 +567,7 @@ Les options sont celles de `NodefonySse`, plus deux :
   ici, sans quoi React, qui regroupe les rendus d'un même tour, en perdrait.
 
 Une adresse `null` n'ouvre rien : la vue suspend l'écoute sans se démonter. Le flux n'est rouvert
-que si l'adresse ou les types écoutés changent (`sseRebindKey()`, `client/sse/observe.ts:95`) —
+que si l'adresse ou les types écoutés changent (`sseRebindKey()`, `client/sse/observe.ts#sseRebindKey`) —
 un `onEvent` recréé à chaque rendu ne coupe rien.
 
 ```tsx ignore
@@ -610,7 +610,7 @@ readonly flux = injectNodefonySse("/progress/run", {
 ```
 
 Deux écarts entre les fronts, et ce sont ceux de la socket. **Angular ouvre le flux hors zone**
-(`client/angular/index.ts:692`) : avec `zone.js`, chaque morceau lu par `fetch` relancerait une
+(`client/angular/index.ts#injectNodefonySse`) : avec `zone.js`, chaque morceau lu par `fetch` relancerait une
 détection de changements globale. **Svelte est paresseux** : une valeur créée mais jamais lue
 n'ouvre aucun flux, et `onEvent` ne court que tant qu'elle est affichée.
 
@@ -620,7 +620,7 @@ Le serveur sert toute l'API de connexion : mot de passe, second facteur (le code
 chiffres), passkey, fournisseurs externes (Keycloak, Google, GitHub…). Ce qui manquait, c'est
 le **déroulé** côté navigateur : identifiant, puis mot de passe, puis code si le compte en exige
 un ; le blocage après trop d'essais ; le bouton de chaque fournisseur. `NodefonyLogin`
-(`client/auth/NodefonyLogin.ts:267`) porte ces règles, **sans aucune interface** : le balisage et
+(`client/auth/NodefonyLogin.ts#NodefonyLogin`) porte ces règles, **sans aucune interface** : le balisage et
 le design restent entièrement à l'application.
 
 ```ts ignore
@@ -652,7 +652,7 @@ L'état, `NodefonyLoginState`, se lit en une ligne :
 - `providers` — les fournisseurs configurés, chargés par `loadProviders()` ; `null` avant.
 - `passkeyAvailable` — le navigateur sait-il signer ? **Constaté** : il faut
   `PublicKeyCredential.parseRequestOptionsFromJSON` et `navigator.credentials.get`
-  (`client/auth/NodefonyLogin.ts:231`), pas seulement l'existence de `PublicKeyCredential`.
+  (`client/auth/NodefonyLogin.ts#nativePasskeyAgent`), pas seulement l'existence de `PublicKeyCredential`.
 
 Les actions : `submitIdentifier`, `submitPassword`, `login` (les deux d'un coup, pour un
 formulaire d'un seul écran), `submitMfaCode`, `loginWithPasskey`, `loadProviders`,
@@ -673,11 +673,11 @@ Trois choses que la classe **ne fait pas**, et c'est délibéré :
 la suivre pour fermer AUSSI la session Keycloak, sans quoi le prochain clic sur « Keycloak »
 reconnecte sans rien demander.
 
-Les chemins appelés sont des constantes du cœur (`runtime/authRoutes.ts:20`) que le module
+Les chemins appelés sont des constantes du cœur (`runtime/authRoutes.ts#AUTH_API_BASE`) que le module
 framework utilise aussi pour MONTER les routes : client et serveur ne peuvent pas diverger.
 
 Chaque liaison ne fait que relayer l'état par `observeLogin()`
-(`client/auth/NodefonyLogin.ts:658`) — aucune règle n'y est réécrite. Elles rendent toutes
+(`client/auth/NodefonyLogin.ts#observeLogin`) — aucune règle n'y est réécrite. Elles rendent toutes
 `{ state, flow }` : l'état dans la réactivité du front, et l'instance qui porte les actions.
 
 | Front   | Fonction                       | `state`                             | Libéré quand                            |
@@ -723,7 +723,7 @@ de connexion déplacée (`security.loginPage.path`), que le navigateur ne peut p
 ## 🧠 `NodefonyKernel` — le noyau client, et ses quatre liaisons
 
 La socket parle au serveur ; le noyau tient l'application. `NodefonyKernel`
-(`client/NodefonyKernel.ts:53`) compose les services techniques d'une application front — la
+(`client/NodefonyKernel.ts#NodefonyKernel`) compose les services techniques d'une application front — la
 socket, le journal, le cycle d'identité — et porte leur cycle de vie dans le navigateur. Il ne
 possède jamais le rendu, le routage ni l'état métier : React, Vue, Angular et Svelte restent
 maîtres de la vue. Il se construit par `new`, comme `NodefonySocket` et `NodefonySse` — jamais un
@@ -743,8 +743,8 @@ kernel.setIdentity({ key: user.id }); // ouvre la socket, ou la renégocie au ch
 `setIdentity()` porte une règle de sécurité : sur un **vrai** changement de compte, et lui seul, le
 noyau coupe la socket et en rouvre une — sans cela le pont `api.request` rejouerait des requêtes
 avec le jeton du compte précédent. Une clé inchangée (profil rafraîchi) ne touche à rien. Le
-contrat complet est `INodefonyKernel` (`client/INodefonyKernel.ts:173`) ; le registre de services
-`NodefonyKernelServices` (`client/INodefonyKernel.ts:101`) s'étend par augmentation de module,
+contrat complet est `INodefonyKernel` (`client/INodefonyKernel.ts#INodefonyKernel`) ; le registre de services
+`NodefonyKernelServices` (`client/INodefonyKernel.ts#NodefonyKernelServices`) s'étend par augmentation de module,
 comme le registre de configuration côté serveur. L'ADR-0007 en donne les décisions.
 
 **Un composant profond doit pouvoir l'atteindre** — déclarer une connexion, lire l'état du noyau,
@@ -752,7 +752,7 @@ suivre l'identité — sans que l'application écrive son propre contexte. C'est
 troisième source des fournisseurs, `kernel`, à côté de `client` et `url`. La socket se prend alors
 dans `kernel.get("realtime")`, et **son cycle reste au noyau** : le fournisseur ne l'ouvre ni ne la
 ferme. La précédence `kernel` > `client` > `url` s'écrit une fois, dans `connectShared()`
-(`client/realtime/observe.ts:143`) ; un noyau composé sans socket (`realtime: false`) cède la place
+(`client/realtime/observe.ts#connectShared`) ; un noyau composé sans socket (`realtime: false`) cède la place
 à `client`, puis à `url`.
 
 | Front   | Fournir                              | Lire le noyau            | Son état                         | Son identité                        |
@@ -767,7 +767,7 @@ changer. L'état suit le cycle `created` → `booting` → `ready` → `terminat
 que l'application a DÉCLARÉE par `setIdentity()`, et elle suit les changements de **compte**, pas
 de profil. Ne pas la confondre avec `useNodefonyIdentity()`, l'identité RÉSOLUE par le serveur au
 welcome de la socket. Toutes s'appuient sur `observeKernelState()` et `observeKernelIdentity()`
-(`client/realtime/observe.ts:263`), et libèrent leurs écouteurs au démontage — y compris après un
+(`client/realtime/observe.ts#observeKernelIdentity`), et libèrent leurs écouteurs au démontage — y compris après un
 `terminate()`, sur lequel `on` et `off` sont inertes.
 
 ```tsx ignore
@@ -793,13 +793,13 @@ démontrerait rien. La console d'administration est son premier consommateur ré
 Le subpath `nodefony/roles` fournit des fonctions **pures**, sans état ni dépendance, utilisables
 telles quelles des deux côtés.
 
-| Outil           | Ancre                         | Coût                               | Quand l'employer                              |
-| --------------- | ----------------------------- | ---------------------------------- | --------------------------------------------- |
-| `hasRole()`     | `client/roles/roles.ts:19`    | zéro allocation, parcours linéaire | Un contrôle ponctuel                          |
-| `hasAnyRole()`  | `client/roles/roles.ts:34`    | idem                               | « L'un de ces rôles suffit »                  |
-| `hasAllRoles()` | `client/roles/roles.ts:51`    | idem                               | « Tous ces rôles sont requis »                |
-| `RoleSet`       | `client/roles/roles.ts:69`    | 1 allocation, puis O(1)            | Contrôles **répétés** sur le même utilisateur |
-| `RoleRegistry`  | `client/roles/registry.ts:27` | masques binaires, O(1) sans alloc  | Ensemble **fixe** de rôles, chemin chaud      |
+| Outil           | Ancre                                   | Coût                               | Quand l'employer                              |
+| --------------- | --------------------------------------- | ---------------------------------- | --------------------------------------------- |
+| `hasRole()`     | `client/roles/roles.ts#hasRole`         | zéro allocation, parcours linéaire | Un contrôle ponctuel                          |
+| `hasAnyRole()`  | `client/roles/roles.ts#hasAnyRole`      | idem                               | « L'un de ces rôles suffit »                  |
+| `hasAllRoles()` | `client/roles/roles.ts#hasAllRoles`     | idem                               | « Tous ces rôles sont requis »                |
+| `RoleSet`       | `client/roles/roles.ts#RoleSet`         | 1 allocation, puis O(1)            | Contrôles **répétés** sur le même utilisateur |
+| `RoleRegistry`  | `client/roles/registry.ts#RoleRegistry` | masques binaires, O(1) sans alloc  | Ensemble **fixe** de rôles, chemin chaud      |
 
 Deux conventions à connaître, parce qu'elles surprennent au premier essai :
 
@@ -807,7 +807,7 @@ Deux conventions à connaître, parce qu'elles surprennent au premier essai :
   satisfaite. `hasAllRoles()` avec une liste vide rend `true`, comme `Array.every`. Les deux sont
   cohérentes avec la logique, pas entre elles.
 - `RoleRegistry` est plafonné à 31 rôles — `ROLE_MASK_CAPACITY`
-  (`client/roles/registry.ts:11`) — parce que les opérateurs binaires de JavaScript travaillent sur
+  (`client/roles/registry.ts#ROLE_MASK_CAPACITY`) — parce que les opérateurs binaires de JavaScript travaillent sur
   des entiers 32 bits **signés**. Au-delà, on reste sur les chaînes. Il est aussi inadapté aux rôles
   **créés dynamiquement** en base : ils n'ont pas de bit fixe.
 
@@ -826,25 +826,25 @@ croiser.
 ### `nodefony/debugbar` — voir le framework respirer
 
 Une barre de développement type « bandeau de profilage », montée par `mountDebugBar()`
-(`client/debugbar/index.ts:46`). Elle ouvre **la même** socket temps réel que le reste de la page,
+(`client/debugbar/index.ts#mountDebugBar`). Elle ouvre **la même** socket temps réel que le reste de la page,
 intercepte les appels réseau et affiche la cascade des phases serveur d'une requête. Rendue en Shadow
 DOM, sans aucune dépendance d'interface.
 
 En pratique tu ne l'appelles pas : en développement, `@nodefony/frontend` l'injecte lui-même dans la
-page, en la résolvant depuis le paquet installé (`ViteConfigGenerator.ts:135`). Tu l'appelles à la
+page, en la résolvant depuis le paquet installé (`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`). Tu l'appelles à la
 main uniquement sur une page **hors Vite**, où le bundle autonome fait office d'alternative.
 
 Le subpath expose aussi son **modèle pur** — `computeWaterfall()`
-(`client/debugbar/profile.ts:168`) et `NetworkModel` (`client/debugbar/profile.ts:91`) — sans une
+(`client/debugbar/profile.ts#computeWaterfall`) et `NetworkModel` (`client/debugbar/profile.ts#NetworkModel`) — sans une
 ligne de DOM. C'est ce qui permet à Studio d'afficher la même cascade dans son écran de profilage
 sans recopier le calcul.
 
 ### Les shims — pourquoi ton code Node compile dans un onglet
 
 Deux modules Node sont remplacés au build par des équivalents navigateur de quelques dizaines de
-lignes : `EventEmitter` (`client/shim/events.ts:15`) couvre exactement l'API que le bus d'événements
-du cœur appelle réellement, et `inspect` (`client/shim/util.ts:5`) rend un affichage lisible via
-`JSON.stringify`. La façade de couleur, elle, devient l'identité (`client/shim/util.ts:20`) : il n'y a
+lignes : `EventEmitter` (`client/shim/events.ts#EventEmitter`) couvre exactement l'API que le bus d'événements
+du cœur appelle réellement, et `inspect` (`client/shim/util.ts#inspect`) rend un affichage lisible via
+`JSON.stringify`. La façade de couleur, elle, devient l'identité (`client/shim/util.ts#styleText`) : il n'y a
 pas de terminal dans un navigateur, donc jamais de code d'échappement.
 
 Tu ne les importes jamais — ils sont substitués au moment du build. Leur seul intérêt pour toi est de
@@ -862,7 +862,7 @@ comme n'importe quel paquet du dossier `node_modules`. Trois points valent d'êt
    destinations — c'est le mécanisme central, et aussi la source du piège numéro un de cette page.
 2. **La barre de debug est autorisée explicitement.** Vite refuse par défaut de servir un fichier hors
    de la racine du projet. Le générateur de configuration ajoute le dossier de la lib cliente à la
-   liste autorisée (`ViteConfigGenerator.ts:135`), sans quoi une application liée en développement
+   liste autorisée (`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`), sans quoi une application liée en développement
    verrait la barre répondre en refus d'accès.
 3. **En production, seul ce que tu importes part.** Les sous-chemins (`client`, `roles`, `debugbar`, `react`, `vue`, `svelte`, `angular`) sont des entrées séparées :
    ce que tu n'importes pas n'est pas dans le bundle.
@@ -872,22 +872,22 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                        | Cause (dans le code)                                                                                          | Correction                                                                                   |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                               | Importer depuis `nodefony/client`                                                            |
-| `has no exported member 'NodefonySocket'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                    | Importer explicitement depuis `nodefony/client`                                              |
-| `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`               | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)    |
-| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                 | Appeler les deux (`client/realtime/NodefonySocket.ts:974`)                                   |
-| Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                 | Ne pas contourner l'API en émettant `unsubscribe` à la main                                  |
-| Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                          | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                  |
-| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                          | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/NodefonySocket.ts:666`) |
-| Deux connexions WebSocket pour la même page                     | Deux `new NodefonySocket(…)` au lieu de l'instance partagée                                                   | `NodefonySocket.shared()` (`client/realtime/NodefonySocket.ts:600`)                          |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts:1123`) | Émettre après la résolution de `connect()`                                                   |
-| La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                      | La réserver aux canaux d'état, ou passer `enabled: false`                                    |
-| `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts:34`)                                          | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                           |
-| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts:27`)                                             | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                       |
-| Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                            | Protéger la route côté serveur — c'est lui l'autorité                                        |
-| Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                        | Déjà traité au build (`rolldown.config.ts:94`) ; vérifier ses propres alias                  |
+| Symptôme                                                        | Cause (dans le code)                                                                                                         | Correction                                                                                                       |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                                              | Importer depuis `nodefony/client`                                                                                |
+| `has no exported member 'NodefonySocket'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                                   | Importer explicitement depuis `nodefony/client`                                                                  |
+| `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`                              | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)                        |
+| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                                | Appeler les deux (`client/realtime/NodefonySocket.ts#NodefonySocket.subscribe`)                                  |
+| Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                                | Ne pas contourner l'API en émettant `unsubscribe` à la main                                                      |
+| Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                                         | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                                      |
+| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/NodefonySocket.ts#NodefonySocket.retryNow`) |
+| Deux connexions WebSocket pour la même page                     | Deux `new NodefonySocket(…)` au lieu de l'instance partagée                                                                  | `NodefonySocket.shared()` (`client/realtime/NodefonySocket.ts#NodefonySocket.shared`)                            |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts#NodefonySocket.send`) | Émettre après la résolution de `connect()`                                                                       |
+| La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                                     | La réserver aux canaux d'état, ou passer `enabled: false`                                                        |
+| `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts#hasAnyRole`)                                                 | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                                               |
+| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts#RoleRegistry`)                                                  | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                                           |
+| Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                                           | Protéger la route côté serveur — c'est lui l'autorité                                                            |
+| Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                                       | Déjà traité au build (`rolldown.config.ts#browserShim`) ; vérifier ses propres alias                             |
 
 ## 🧪 Tests & couverture
 

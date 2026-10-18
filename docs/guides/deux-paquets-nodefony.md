@@ -51,12 +51,12 @@ sont identiques au bit près.
 
 Ce qui casse alors, concrètement :
 
-| Ce qui est propre à chaque copie                                          | Conséquence                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| La classe `Container` (`src/nodefony/src/Container.ts:56`)                | `container instanceof Container` échoue à la frontière — le service refusait le container reçu et s'en fabriquait un vide, donc plus de kernel, plus de journal, plus d'injection. C'est la CAUSE RACINE ; depuis, ce cas lève une erreur qui la nomme |
-| Le contexte de requête (`src/nodefony/src/runtime/RequestContext.ts:216`) | un `AsyncLocalStorage` par copie : l'identité posée par l'une est **invisible** aux modules de l'autre                                                                                                                                                 |
-| Le singleton `Nodefony` (`src/nodefony/src/Nodefony.ts:25`)               | un champ statique privé par copie — `Nodefony.getKernel()` rend `null` du mauvais côté                                                                                                                                                                 |
-| Les registres d'injection et de décorateurs                               | un service déclaré d'un côté est introuvable de l'autre                                                                                                                                                                                                |
+| Ce qui est propre à chaque copie                                                     | Conséquence                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| La classe `Container` (`src/nodefony/src/Container.ts#Container`)                    | `container instanceof Container` échoue à la frontière — le service refusait le container reçu et s'en fabriquait un vide, donc plus de kernel, plus de journal, plus d'injection. C'est la CAUSE RACINE ; depuis, ce cas lève une erreur qui la nomme |
+| Le contexte de requête (`src/nodefony/src/runtime/RequestContext.ts#RequestContext`) | un `AsyncLocalStorage` par copie : l'identité posée par l'une est **invisible** aux modules de l'autre                                                                                                                                                 |
+| Le singleton `Nodefony` (`src/nodefony/src/Nodefony.ts#Nodefony`)                    | un champ statique privé par copie — `Nodefony.getKernel()` rend `null` du mauvais côté                                                                                                                                                                 |
+| Les registres d'injection et de décorateurs                                          | un service déclaré d'un côté est introuvable de l'autre                                                                                                                                                                                                |
 
 Un module construit à cette frontière n'attache **aucun hook de cycle de vie**.
 Il ne lève pas d'erreur : il est là, et inerte.
@@ -127,13 +127,13 @@ racine, ou une surcharge de résolution.
 ## Ce que le framework fait de lui-même
 
 Chaque copie s'inscrit d'elle-même à son évaluation
-(`src/nodefony/src/runtime/packageInstances.ts:63`), dans une entrée de
+(`src/nodefony/src/runtime/packageInstances.ts#registerPackageInstance`), dans une entrée de
 `globalThis` adressée par un symbole du registre global — la seule case mémoire
 que deux copies partagent. Le boot les COMPTE, à deux instants : après l'import
-de l'application (`src/nodefony/src/kernel/Kernel.ts:2514`), puis après le
+de l'application (`src/nodefony/src/kernel/Kernel.ts#Kernel.loadApp`), puis après le
 chargement des modules du manifeste, qui peut en apporter une seconde
-(`src/nodefony/src/kernel/Kernel.ts:1117`). Le
-verdict (`src/nodefony/src/kernel/Kernel.ts:2255`) tranche alors :
+(`src/nodefony/src/kernel/Kernel.ts#Kernel.preRegister`). Le
+verdict (`src/nodefony/src/kernel/Kernel.ts#Kernel.packageDualityVerdict`) tranche alors :
 
 - **en développement** — l'application démarre, et un avertissement nomme **les
   deux chemins**. Celui qui lance lit son journal, et il a besoin de son serveur.

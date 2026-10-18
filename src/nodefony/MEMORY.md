@@ -34,7 +34,7 @@ Service(name, container?, notificationsCenter?, options?)
 - `notificationsCenter=Event` → Event partagé (cross-services) → `#sharedNc=true`
 - Syslog réutilisé depuis container si présent, sinon auto-créé (variable locale, pas champ)
 - `options.events.nbListeners` : bus AUTO-CRÉÉ → appliqué tel quel ; bus PARTAGÉ → ne peut que
-  RELEVER le plafond (`wanted > shared`, `Service.ts:128`), jamais l'abaisser. Le Kernel
+  RELEVER le plafond (`wanted > shared`, `Service.ts#Service.nc`), jamais l'abaisser. Le Kernel
   dimensionne le sien à 60 ; chaque Service qui y réécrivait son défaut 20 faisait crier
   `MaxListenersExceededWarning` au boot sans qu'il fuie quoi que ce soit — le dernier arrivé
   décidait. **Règle : un plafond posé sur une ressource qu'on ne possède pas ne se restreint

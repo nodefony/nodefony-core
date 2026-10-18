@@ -55,7 +55,7 @@ flowchart TD
 ```
 
 Un bloc ne sait **ni** comment il est affiché, **ni** comment ses données arrivent. Il déclare ce
-qu'il lui faut (`IWidgetDef`, `types.ts:121`) et rend une donnée qu'on lui tend. C'est ce qui permet
+qu'il lui faut (`IWidgetDef`, `types.ts#IWidgetDef`) et rend une donnée qu'on lui tend. C'est ce qui permet
 au même bloc d'apparaître comme fenêtre de bureau, comme panneau du Jumeau vivant, ou comme
 vignette d'aperçu — sans une ligne dupliquée.
 
@@ -91,7 +91,7 @@ système fournit des applications, chacun pose sur son écran d'accueil celles d
 Concrètement, dans Studio :
 
 1. Le bureau vit sur `/nodefony/workspace`, dans le groupe **Mon espace** — accessible à **tout
-   compte authentifié**, sans rôle particulier (`Workspace`, `Workspace.tsx:26`).
+   compte authentifié**, sans rôle particulier (`Workspace`, `Workspace.tsx#Workspace`).
 2. Le bouton **Ajouter** ouvre le catalogue ; les blocs qu'on n'a pas le droit de voir n'y
    apparaissent pas.
 3. On glisse les fenêtres par leur en-tête, on les redimensionne par le coin. Le bureau retient.
@@ -105,21 +105,21 @@ et des canaux temps réel sur une socket unique. Ce qui manquait, c'était de re
 sonde est déjà un bloc** — il suffisait d'arrêter de recopier, écran après écran, le même mécanisme
 « je lis un instantané, puis je m'abonne à un canal ».
 
-Ce mécanisme est désormais écrit **une seule fois** (`useBlockSource()`, `useBlockSource.tsx:51`), et
+Ce mécanisme est désormais écrit **une seule fois** (`useBlockSource()`, `useBlockSource.tsx#useBlockSource`), et
 un bloc se réduit à trois lignes de déclaration plus un composant d'affichage pur. Trois
 conséquences directes :
 
 **L'abonnement temps réel n'est monté que s'il sert.** Le flux n'est branché que quand l'interrupteur
 « Temps réel » est actif — le composant d'abonnement est alors monté, et démonté sinon
-(`BlockLiveFeed`, `useBlockSource.tsx:28`). Un bureau ouvert avec le temps réel coupé ne coûte au
+(`BlockLiveFeed`, `useBlockSource.tsx#BlockLiveFeed`). Un bureau ouvert avec le temps réel coupé ne coûte au
 serveur que ses lectures d'instantané.
 
 **Le bloc ne connaît pas la topologie.** Qu'il y ait un processus ou huit, un bloc reçoit une donnée
 déjà normalisée et un contexte qui dit s'il est en cluster (`useWidgetRuntime()`,
-`useWidgetRuntime.ts:13`). Il n'a **pas** à écrire deux rendus.
+`useWidgetRuntime.ts#useWidgetRuntime`). Il n'a **pas** à écrire deux rendus.
 
 **Les capacités sont dérivées, jamais déclarées.** Qu'un bloc soit « temps réel » ou « prêt pour le
-cluster » se **calcule** depuis sa définition (`widgetCapabilities()`, `tags.ts:99`) et s'affiche
+cluster » se **calcule** depuis sa définition (`widgetCapabilities()`, `tags.ts#widgetCapabilities`) et s'affiche
 comme étiquette dans le catalogue. On ne peut donc pas mentir dans une étiquette : il n'y a rien à
 saisir.
 
@@ -170,10 +170,10 @@ Ce qu'on observe ensuite :
 
 1. Ouvrir `https://127.0.0.1:5152/nodefony/workspace` après connexion. Au **tout premier
    affichage**, les modèles sont semés et le bureau actif est **« Mon compte »**
-   (`DEFAULT_WORKSPACE_ID`, `presets.ts:167`) : profil, clés d'API, sessions — trois blocs qu'un
+   (`DEFAULT_WORKSPACE_ID`, `presets.ts#DEFAULT_WORKSPACE_ID`) : profil, clés d'API, sessions — trois blocs qu'un
    simple utilisateur a le droit de voir.
 2. Cliquer **Ajouter** : le catalogue s'ouvre. Survoler une carte affiche un **aperçu en direct** du
-   vrai bloc, pas une image (`WidgetPreview`, `WidgetCatalogDrawer.tsx:60`). Cliquer la pose sur le
+   vrai bloc, pas une image (`WidgetPreview`, `WidgetCatalogDrawer.tsx#WidgetPreview`). Cliquer la pose sur le
    bureau, sous le contenu existant.
 3. Glisser une fenêtre par son en-tête, la redimensionner par son coin bas-droit, puis **recharger la
    page** : tout est à sa place.
@@ -191,18 +191,18 @@ curl -s -b /tmp/jar https://127.0.0.1:5152/nodefony/realtime/api/health | head -
 
 ### Les gestes disponibles
 
-| Geste                   | Ce qui se passe                                                                |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| **Ajouter** un bloc     | Posé **sous** les fenêtres existantes, au premier plan (`addWidget()`, `:125`) |
-| Glisser l'en-tête       | Suivi du curseur ; une **seule** écriture au relâché (`moveTo()`, `:152`)      |
-| Tirer le coin bas-droit | Redimensionne largeur **et** hauteur, bornes appliquées au relâché             |
-| Cliquer une fenêtre     | Elle passe au premier plan (`bringToFront()`, `:175`)                          |
-| **Ranger**              | Pavage automatique de gauche à droite, tailles conservées (`tidy()`, `:189`)   |
-| **Réinitialiser**       | Rend au bureau son modèle d'origine — sans effet sur un bureau créé à la main  |
-| Menu ⋮ d'une fenêtre    | La retire du bureau                                                            |
-| Bandeau de vignettes    | Créer, renommer, dupliquer, réordonner et supprimer des bureaux                |
+| Geste                   | Ce qui se passe                                                               |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| **Ajouter** un bloc     | Posé **sous** les fenêtres existantes, au premier plan (`addWidget()`)        |
+| Glisser l'en-tête       | Suivi du curseur ; une **seule** écriture au relâché (`moveTo()`)             |
+| Tirer le coin bas-droit | Redimensionne largeur **et** hauteur, bornes appliquées au relâché            |
+| Cliquer une fenêtre     | Elle passe au premier plan (`bringToFront()`)                                 |
+| **Ranger**              | Pavage automatique de gauche à droite, tailles conservées (`tidy()`)          |
+| **Réinitialiser**       | Rend au bureau son modèle d'origine — sans effet sur un bureau créé à la main |
+| Menu ⋮ d'une fenêtre    | La retire du bureau                                                           |
+| Bandeau de vignettes    | Créer, renommer, dupliquer, réordonner et supprimer des bureaux               |
 
-Les ancrages ci-dessus pointent tous `WorkspaceStore.ts` (`WorkspaceStore`, `WorkspaceStore.ts:83`),
+Les ancrages ci-dessus pointent tous `WorkspaceStore.ts` (`WorkspaceStore`, `WorkspaceStore.ts#WorkspaceStore`),
 l'unique détenteur de l'état du bureau.
 
 ### Un bureau libre, pas une grille
@@ -210,42 +210,42 @@ l'unique détenteur de l'état du bureau.
 Le choix assumé est celui du **bureau libre** : les fenêtres flottent, peuvent se **chevaucher**, et
 s'empilent selon un rang de profondeur. Il n'y a pas de colonnes imposées.
 
-Les coordonnées sont **mixtes**, et c'est délibéré (`WidgetInstance`, `types.ts:154`) :
+Les coordonnées sont **mixtes**, et c'est délibéré (`WidgetInstance`, `types.ts#WidgetInstance`) :
 
 - **X et largeur en fraction** de la largeur du bureau (0 à 1) → le bureau **s'adapte** à la taille
   de l'écran sans casser la disposition ;
 - **Y et hauteur en pixels** → le bureau **défile** verticalement, sans limite de hauteur.
 
 Rien n'est complètement libre pour autant : au relâché seulement, la position et la taille passent
-par une **aimantation douce** (`snap()`, `grid.ts:13`) et par des bornes minimales — un sixième de
-largeur, 96 pixels de haut (`MIN_W`, `types.ts:25`). Assez pour que les fenêtres s'alignent
+par une **aimantation douce** (`snap()`, `grid.ts#snap`) et par des bornes minimales — un sixième de
+largeur, 96 pixels de haut (`MIN_W`, `types.ts#MIN_W`). Assez pour que les fenêtres s'alignent
 naturellement, pas assez pour contraindre.
 
 > [!TIP]
-> « Ranger » n'est pas un retour en arrière : le pavage (`autoTile()`, `grid.ts:45`) **conserve les
+> « Ranger » n'est pas un retour en arrière : le pavage (`autoTile()`, `grid.ts#autoTile`) **conserve les
 > tailles** et l'ordre de lecture courant. C'est l'équivalent du « ranger les icônes » d'un système
 > de bureau — on récupère un alignement propre sans perdre son travail.
 
 ### Où vit un bureau
 
 La disposition est enregistrée dans le **stockage local du navigateur**
-(`LAYOUTS_KEY`, `WorkspaceStore.ts:11`). Deux conséquences à connaître :
+(`LAYOUTS_KEY`, `WorkspaceStore.ts#LAYOUTS_KEY`). Deux conséquences à connaître :
 
 - Un bureau est **lié à l'appareil**, pas au compte. Le même utilisateur sur deux machines a deux
   bureaux différents.
 - Comme le stockage n'est pas lié à l'identité, un changement de compte sur le même navigateur
-  **purge et ressème** les bureaux (`resetForIdentity()`, `WorkspaceStore.ts:322`) — sinon la
+  **purge et ressème** les bureaux (`resetForIdentity()`, `WorkspaceStore.ts#WorkspaceStore.resetForIdentity`) — sinon la
   disposition d'un administrateur resterait affichée au compte suivant.
 
 Une fois des bureaux enregistrés, ce sont **eux** qui font foi : les modèles ne sont semés qu'au tout
 premier lancement, puis ils ne servent plus qu'à la création d'un nouveau bureau
-(`load()`, `WorkspaceStore.ts:340`). Une création, un renommage ou une suppression ne sera jamais
+(`load()`, `WorkspaceStore.ts#WorkspaceStore.load`). Une création, un renommage ou une suppression ne sera jamais
 écrasé par un modèle.
 
 ## 🗂️ Le catalogue de blocs
 
 Le catalogue est peuplé au chargement de la page : chaque bloc s'y inscrit lui-même
-(`registerWidget()`, `workspace/registry.ts:33`). Il n'y a **aucune liste centrale** à tenir à jour —
+(`registerWidget()`, `workspace/registry.ts#registerWidget`). Il n'y a **aucune liste centrale** à tenir à jour —
 d'où le fait qu'un bloc oublié dans un bureau enregistré disparaisse sans casser quoi que ce soit.
 
 | Famille                 | Ce qu'on y trouve                                               | Ouvert à                  |
@@ -261,7 +261,7 @@ d'où le fait qu'un bloc oublié dans un bureau enregistré disparaisse sans cas
 
 ### Trouver un bloc
 
-Le catalogue n'est pas une simple liste : il se **filtre à facettes** (`WIDGET_TAGS`, `tags.ts:27`),
+Le catalogue n'est pas une simple liste : il se **filtre à facettes** (`WIDGET_TAGS`, `tags.ts#WIDGET_TAGS`),
 sur deux axes saisis dans la définition du bloc et un axe calculé.
 
 - **Domaine** — le thème observé, hiérarchique : `système` se décline en processeur, mémoire,
@@ -282,10 +282,10 @@ comportement.
 ### Ce qu'un bloc déclare
 
 Un bloc est une **structure de données** plus un composant d'affichage (`IWidgetDef`,
-`types.ts:121`) : identifiant, titre, description, famille, icône, étiquettes, taille par défaut,
+`types.ts#IWidgetDef`) : identifiant, titre, description, famille, icône, étiquettes, taille par défaut,
 et surtout sa **source**.
 
-La source est l'élément central, en trois formes (`WidgetSource`, `types.ts:83`) :
+La source est l'élément central, en trois formes (`WidgetSource`, `types.ts#WidgetSource`) :
 
 | Forme          | Ce que le bloc reçoit              | À employer quand…                                    |
 | -------------- | ---------------------------------- | ---------------------------------------------------- |
@@ -298,19 +298,19 @@ coupé, il affiche « Active le temps réel pour ce bloc » plutôt qu'un vide i
 
 ### Comment la donnée arrive
 
-Le cœur partagé fait exactement quatre choses (`useBlockSource()`, `useBlockSource.tsx:51`) : lire
+Le cœur partagé fait exactement quatre choses (`useBlockSource()`, `useBlockSource.tsx#useBlockSource`) : lire
 l'instantané, monter l'abonnement **si et seulement si** le temps réel est actif, préférer la donnée
 du flux quand elle existe, et exposer un drapeau qui dit d'où vient ce qu'on regarde — c'est lui qui
 allume la pastille verte de l'en-tête.
 
-Le rendu commun (`BlockBody`, `useBlockSource.tsx:89`) enveloppe le composant du bloc dans la gestion
+Le rendu commun (`BlockBody`, `useBlockSource.tsx#BlockBody`) enveloppe le composant du bloc dans la gestion
 des trois états ordinaires : chargement, erreur avec bouton de reprise, donnée absente. Un auteur de
 bloc n'écrit donc **jamais** de gestion d'erreur : il reçoit une donnée non nulle ou n'est pas rendu.
 
 ### Comment la fenêtre bouge
 
 Le déplacement et le redimensionnement sont pris en charge par la surface du bureau
-(`WidgetGrid`, `WidgetGrid.tsx:53`), pas par la fenêtre. La raison est de performance : pendant le
+(`WidgetGrid`, `WidgetGrid.tsx#WidgetGrid`), pas par la fenêtre. La raison est de performance : pendant le
 geste, la fenêtre est déplacée **directement** par transformation graphique, sans que l'état de
 l'application soit touché ; le magasin ne reçoit **qu'une écriture**, au relâché. Un déplacement de
 deux secondes ne provoque donc pas deux secondes de recalculs.
@@ -324,7 +324,7 @@ bandeau ou de la barre supérieure.
 
 Le registre de blocs et le registre de widgets sont **le même objet**, ré-exposé sous un vocabulaire
 neutre pour les contenants autres que le bureau. Monter un bloc n'importe où tient en un composant
-(`BlockView`, `BlockView.tsx:25`) — c'est ce dont se sert le Jumeau vivant, dont deux panneaux
+(`BlockView`, `BlockView.tsx#BlockView`) — c'est ce dont se sert le Jumeau vivant, dont deux panneaux
 affichent exactement les blocs « santé du hub » et « fond de panier des journaux » du bureau.
 
 ## 📡 Le bureau en cluster
@@ -342,7 +342,7 @@ présenté comme l'état du pod, il **ment**.
 de la donnée est identique, le bloc a **un seul** code.
 
 **Le rendu.** Une brique d'affichage partagée décide de la présentation (`ClusterView`,
-`ClusterView.tsx:33`) :
+`ClusterView.tsx#ClusterView`) :
 
 | Topologie               | Ce que montre la fenêtre                                                       |
 | ----------------------- | ------------------------------------------------------------------------------ |
@@ -366,19 +366,19 @@ Deux filtres distincts s'appliquent, et il faut les distinguer pour ne pas s'ét
 absent.
 
 **Les blocs du catalogue.** La visibilité d'un bloc est décidée par une politique **par famille**
-(`CATEGORY_ROLES`, `workspace/registry.ts:19`), qu'un bloc peut surcharger individuellement. Les
+(`CATEGORY_ROLES`, `workspace/registry.ts#CATEGORY_ROLES`), qu'un bloc peut surcharger individuellement. Les
 blocs « Mon compte » ne demandent rien : ils sont en libre-service, et le serveur les restreint de
 toute façon aux données du demandeur. Les blocs de sécurité, à l'opposé, sont réservés à
 l'administrateur de plateforme.
 
 **Les modèles de bureau.** Un modèle porte lui aussi ses rôles (`isWorkspaceVisible()`,
-`presets.ts:162`). Sans cela, un simple utilisateur se retrouverait devant un bureau « Développeur »
+`presets.ts#isWorkspaceVisible`). Sans cela, un simple utilisateur se retrouverait devant un bureau « Développeur »
 rempli de blocs qui lui répondraient tous par un refus. Et si le bureau actif cesse d'être
 accessible — un changement de compte, une révocation de rôle — la page bascule d'elle-même sur le
 premier bureau visible, au lieu d'afficher une page morte.
 
-Les deux filtres partagent **la même fonction** (`isVisibleForRoles()`, `roleNames.ts:82`) et les mêmes
-paquets de rôles que la barre latérale (`VIEW_ROLES`, `roleNames.ts:98`) : c'est ce qui garantit qu'un
+Les deux filtres partagent **la même fonction** (`isVisibleForRoles()`, `roleNames.ts#isVisibleForRoles`) et les mêmes
+paquets de rôles que la barre latérale (`VIEW_ROLES`, `roleNames.ts#VIEW_ROLES`) : c'est ce qui garantit qu'un
 menu, une route et un catalogue ne divergent pas.
 
 > [!IMPORTANT]
@@ -419,7 +419,7 @@ en même temps**. Cinq garde-fous, tous vérifiables dans le code.
   canal ne provoquent pas deux flux.
 - **Le contexte transverse est calculé une fois** pour tout le bureau, pas par fenêtre : la topologie
   ne change pas en cours de session, un instantané suffit (`useWidgetRuntime()`,
-  `useWidgetRuntime.ts:13`).
+  `useWidgetRuntime.ts#useWidgetRuntime`).
 - **Un geste = une écriture.** Déplacer ou redimensionner ne touche l'état qu'au relâché ; pendant le
   geste, tout se joue en transformation graphique, à zéro rendu par image.
 - **Chaque fenêtre est confinée** : son contenu ne peut pas provoquer de recalcul de mise en page à

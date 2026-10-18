@@ -925,8 +925,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "scripts/generate/generate-symbols.ts",
-        ".claude/skills/nodefony-documentation/scripts/anchor-migrate.mjs"
+        "scripts/generate/generate-symbols.ts"
       ],
       "testedBy": []
     },
@@ -2618,7 +2617,7 @@
       "description": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps). Déclencheurs : \"crée un module frontend\", \"module react\", \"module vue\", \"module angular\", \"module svelte\", \"scaffold module avec front\", \"nouveau front nodefony\", \"module vite\".",
       "cost": {
         "bodyLines": 262,
-        "approxTokens": 4009
+        "approxTokens": 4007
       },
       "requires": [],
       "resources": {
@@ -4569,7 +4568,7 @@
       "description": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit. Déclencheurs : \"gabarit de déploiement\", \"Dockerfile généré\", \"manifeste Kubernetes du scaffold\", \"politique Restricted\", \"readOnlyRootFilesystem\", \"sondes liveness et readiness\", \"arrêt gracieux d'un pod\", \"Podman\", \"corpus docker\", \"corpus kubernetes\", \"la CI de l'application générée\", \"GitLab CI\", \"scanner l'image\".",
       "cost": {
         "bodyLines": 131,
-        "approxTokens": 2443
+        "approxTokens": 2758
       },
       "requires": [],
       "resources": {
@@ -4688,8 +4687,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 502,
-        "approxTokens": 9582
+        "bodyLines": 486,
+        "approxTokens": 9333
       },
       "requires": [
         "base de données"
@@ -4721,6 +4720,10 @@
                 "help": ""
               },
               {
+                "flag": "--lines",
+                "help": ""
+              },
+              {
                 "flag": "--prouve",
                 "help": ""
               },
@@ -4739,7 +4742,12 @@
             "usage": [
               "`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs"
             ],
-            "options": [],
+            "options": [
+              {
+                "flag": "--lines",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -4794,6 +4802,10 @@
               {
                 "flag": "--apply",
                 "help": ""
+              },
+              {
+                "flag": "--lines",
+                "help": ""
               }
             ],
             "env": [],
@@ -4813,11 +4825,15 @@
           },
           {
             "path": "scripts/anchor-migrate.mjs",
-            "purpose": "anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).",
+            "purpose": "anchor-migrate.mjs — convertit les ancres `fichier:ligne` d'une page en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).",
             "usage": [
-              "Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--report <f.json>]"
+              "Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--apply] [--report <f.json>]"
             ],
             "options": [
+              {
+                "flag": "--apply",
+                "help": ""
+              },
               {
                 "flag": "--json",
                 "help": ""
@@ -4828,6 +4844,26 @@
               },
               {
                 "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/anchor-migrate.selftest.mjs",
+            "purpose": "Éprouve `anchor-migrate.mjs --apply` sur un dépôt JETABLE : chaque règle de conversion a son cas, la page convertie doit être EXACTEMENT celle attendue, puis passer le gate (`anchor-check` sans option, qui refuse toute ligne).",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-migrate.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--apply",
+                "help": ""
+              },
+              {
+                "flag": "--report",
                 "help": ""
               }
             ],
@@ -5195,8 +5231,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "502",
+            "ok": true,
+            "detail": "486",
             "advisory": true
           }
         ]
@@ -10539,7 +10575,7 @@
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
       "cost": {
         "bodyLines": 474,
-        "approxTokens": 9145
+        "approxTokens": 9159
       },
       "requires": [
         "redis"

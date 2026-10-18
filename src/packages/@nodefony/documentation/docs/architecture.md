@@ -114,8 +114,8 @@ aucun contenu. Il répond à trois questions :
 2. **Donne-moi cette page-là.** → le Markdown, métadonnées à part, prêt à afficher.
 3. **Où est-ce expliqué ?** → la recherche dans les titres et les corps, avec des extraits situés.
 
-C'est ce que veut dire **headless** (`Documentation` — `index.ts:44`) : la sortie est du JSON
-(`IDocPage`, `IDocumentation.ts:74`), et trois consommateurs très différents s'en servent —
+C'est ce que veut dire **headless** (`Documentation` — `index.ts#Documentation`) : la sortie est du JSON
+(`IDocPage`, `IDocumentation.ts#IDocPage`), et trois consommateurs très différents s'en servent —
 le portail Studio (React), un futur générateur de site, et l'indexation RAG qui réingère le
 Markdown brut.
 
@@ -134,9 +134,9 @@ contrepartie, c'est qu'il faut un **index transverse** pour recoller des dizaine
 séparés — c'est précisément le travail de ce module.
 
 **Les briques de base sont pures.** Le découpage du frontmatter (`parseFrontmatter()`,
-`frontmatter.ts:51`), la fabrication du slug (`pathToSlug()`, `slug.ts:60`), le parcours du
-disque (`scanDocsDir()`, `docScanner.ts:66`) et la traduction des liens
-(`rewriteInternalLinks()`, `linkResolver.ts:91`) sont des fonctions sans état et sans Kernel.
+`frontmatter.ts#parseFrontmatter`), la fabrication du slug (`pathToSlug()`, `slug.ts#pathToSlug`), le parcours du
+disque (`scanDocsDir()`, `docScanner.ts#scanDocsDir`) et la traduction des liens
+(`rewriteInternalLinks()`, `linkResolver.ts#rewriteInternalLinks`) sont des fonctions sans état et sans Kernel.
 Elles sont exportées telles quelles, donc réutilisables par un générateur statique ou un
 indexeur RAG — et testables sans démarrer un serveur.
 
@@ -279,12 +279,12 @@ Chaque couche ne connaît que sa voisine du dessous, et la plus volatile est la 
 
 Le contrôleur est un **singleton** (le défaut des contrôleurs) : une seule instance sert
 toutes les requêtes, et il ne retient rien sur `this` — c'est voulu. Le service est un singleton par process ; il porte l'index caché (`#cache`,
-`DocumentationService.ts:143`) et le registre des variables (`#vars`,
-`DocumentationService.ts:557`), tous deux à `null` tant que personne n'a rien demandé.
+`DocumentationService.ts#DocumentationService.#cache`) et le registre des variables (`#vars`,
+`DocumentationService.ts#DocumentationService.#vars`), tous deux à `null` tant que personne n'a rien demandé.
 
 ### Le scan — trois sources, et une qui surprend
 
-`#scanAll()` (`DocumentationService.ts:332`) interroge le disque dans cet ordre :
+`#scanAll()` (`DocumentationService.ts#DocumentationService.#scanAll`) interroge le disque dans cet ordre :
 
 | Source                    | Où                                             | Pourquoi                                                                        |
 | ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -294,23 +294,23 @@ toutes les requêtes, et il ne retient rien sur `this` — c'est voulu. Le servi
 
 La troisième mérite l'explication. Un module qu'on n'a pas encore activé est précisément
 celui dont on lit la doc : pour décider de l'activer. `#installedDocDirs()`
-(`DocumentationService.ts:398`) parcourt donc le scope npm et **dédoublonne** avec les
+(`DocumentationService.ts#DocumentationService.#installedDocDirs`) parcourt donc le scope npm et **dédoublonne** avec les
 modules déjà chargés. Ses chemins sont résolus en real-path : en dépôt workspace,
 `node_modules/@nodefony/x` est un lien vers la source, et c'est la source qui doit indexer —
 sinon un même fichier aurait deux chemins, et les liens entre pages ne se résoudraient plus.
 
-Le parcours lui-même, `scanDocsDir()` (`docScanner.ts:66`), est **best-effort** par
+Le parcours lui-même, `scanDocsDir()` (`docScanner.ts#scanDocsDir`), est **best-effort** par
 construction : un dossier absent rend une liste vide au lieu de lever une erreur. C'est ce
 qui permet de balayer les `docs/` de modules qui n'en ont pas, sans que rien ne plante. Un
-fichier illisible garde un titre dérivé de son nom (`humanizeFilename()`, `docScanner.ts:40`)
+fichier illisible garde un titre dérivé de son nom (`humanizeFilename()`, `docScanner.ts#humanizeFilename`)
 et un frontmatter vide.
 
-L'exclusion (`isExcluded()`, `docScanner.ts:49`) compare **par segment de chemin**, pas par
+L'exclusion (`isExcluded()`, `docScanner.ts#isExcluded`) compare **par segment de chemin**, pas par
 préfixe : `node_modules` exclut le dossier, jamais un fichier nommé `node_modules-guide.md`.
 
 ### Le frontmatter — ce que le module lit vraiment
 
-`parseFrontmatter()` (`frontmatter.ts:51`) est un parseur maison de **YAML plat**. Pas de
+`parseFrontmatter()` (`frontmatter.ts#parseFrontmatter`) est un parseur maison de **YAML plat**. Pas de
 `gray-matter` : la doc n'utilise qu'un sous-ensemble minuscule, et on ne paie pas des
 dépendances transitives pour ça.
 
@@ -326,7 +326,7 @@ dépendances transitives pour ça.
 **Non supporté, volontairement** : objets imbriqués, multi-lignes `|` / `>`, ancres YAML.
 Une ligne mal formée est simplement sautée — elle ne fait jamais échouer la page.
 
-Le service ne consomme ensuite qu'une poignée de clés. `getPage()` (`DocumentationService.ts:252`)
+Le service ne consomme ensuite qu'une poignée de clés. `getPage()` (`DocumentationService.ts#DocumentationService.getPage`)
 en lit cinq pour rendre une page — `title`, `version` (défaut `"doc"`), `status`, `updated`,
 `source` — et l'index y ajoute `audience` (filtre de vue) et `navTitle` (libellé court de la
 navigation, lu au scan par `scanDocsDir()` avec repli sur `title`). **Toutes les autres clés sont
@@ -334,16 +334,16 @@ conservées dans le fichier et ignorées** — elles servent au RAG et aux outil
 
 Deux valeurs sont **contraintes**, et le hors-piste est silencieusement écarté :
 
-| Clé        | Valeurs retenues                                                                                       | Sinon                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `audience` | `developer` · `devops` · `supervisor` · `admin` (`DocAudience`, `IDocumentation.ts:10`)                | la valeur est filtrée (`#toPageRef()`, `DocumentationService.ts:525`)      |
-| `status`   | `stable` · `draft` · `temporary` · `experimental` · `deprecated` (`DocStatus`, `IDocumentation.ts:13`) | le champ devient absent (`#coerceStatus()`, `DocumentationService.ts:546`) |
+| Clé        | Valeurs retenues                                                                                              | Sinon                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `audience` | `developer` · `devops` · `supervisor` · `admin` (`DocAudience`, `IDocumentation.ts#DocAudience`)              | la valeur est filtrée (`#toPageRef()`, `DocumentationService.ts#DocumentationService.#toPageRef`)         |
+| `status`   | `stable` · `draft` · `temporary` · `experimental` · `deprecated` (`DocStatus`, `IDocumentation.ts#DocStatus`) | le champ devient absent (`#coerceStatus()`, `DocumentationService.ts#DocumentationService.#coerceStatus`) |
 
 > [!WARNING]
 > Une `audience: [human, ai]` ne provoque **aucune erreur** : les deux valeurs sont
 > écartées, la page se retrouve avec une liste vide — c'est-à-dire « visible par toutes les
 > personas ». L'inverse de ce que l'auteur croyait écrire. Le vocabulaire exact est celui de
-> `AUDIENCES` (`DocumentationService.ts:49`), qui porte aussi les libellés affichés par le
+> `AUDIENCES` (`DocumentationService.ts#AUDIENCES`), qui porte aussi les libellés affichés par le
 > sélecteur de vue.
 
 Et un point à ne pas confondre : **l'audience n'est pas un contrôle d'accès**. Elle n'existe
@@ -352,7 +352,7 @@ que soit le persona du lecteur. Le vrai garde est le RBAC posé sur les routes.
 
 ### Le slug — une cote, jamais un chemin
 
-`pathToSlug()` (`slug.ts:60`) transforme un chemin en identifiant d'un seul segment :
+`pathToSlug()` (`slug.ts#pathToSlug`) transforme un chemin en identifiant d'un seul segment :
 
 | Fichier                           | Slug                         |
 | --------------------------------- | ---------------------------- |
@@ -362,7 +362,7 @@ que soit le persona du lecteur. Le vrai garde est le RBAC posé sur les routes.
 
 La recette : normaliser les `\` en `/`, retirer `.md`, remplacer chaque `/` par `~`, préfixer
 par l'origine. Le nom du module perd son scope npm et tout caractère exotique
-(`sanitizeSegment()`, `slug.ts:71`) — un module nommé n'importe comment produit quand même un
+(`sanitizeSegment()`, `slug.ts#sanitizeSegment`) — un module nommé n'importe comment produit quand même un
 slug sûr.
 
 Pourquoi `~` : le slug doit tenir dans **un** segment de route (`/api/page/{slug}`), donc il
@@ -373,7 +373,7 @@ ne reconstruit un chemin depuis un slug.
 > Ne confonds pas deux slugs qui n'ont rien à voir. Celui-ci nomme une **page**
 > (`mod~security~cors`). Les ancres de titre — celles de la forme `#pièges` — suivent une
 > tout autre règle, celle de **GitHub** : accents **conservés**, ponctuation et emoji retirés, espaces en
-> tirets — `slugifyHeading()` (`DocToc.tsx:54`). Retirer les accents côté portail rendait
+> tirets — `slugifyHeading()` (`DocToc.tsx#slugifyHeading`). Retirer les accents côté portail rendait
 > morts des liens qui marchaient sur GitHub. Toute divergence entre le portail et le gate
 > `anchor-inpage` casse les sommaires **en silence**.
 
@@ -384,23 +384,23 @@ sur GitHub, dans ton éditeur, dans une revue de diff. Mais le portail ne navigu
 chemin — il navigue par slug.
 
 Le pont, c'est une table `chemin repo → slug` construite au scan (`#ensureCache()`,
-`DocumentationService.ts:306`) et appliquée à la lecture par `#resolveLinks()`
-(`DocumentationService.ts:278`). **Seul le serveur peut le faire** : le client reçoit
+`DocumentationService.ts#DocumentationService.#ensureCache`) et appliquée à la lecture par `#resolveLinks()`
+(`DocumentationService.ts#DocumentationService.#resolveLinks`). **Seul le serveur peut le faire** : le client reçoit
 `../../../../../docs/index.md` sans le moindre moyen de savoir à quel fichier ça correspond —
 il ne connaît ni l'arborescence du dépôt, ni le point de départ de la page.
 
-`rewriteInternalLinks()` (`linkResolver.ts:91`) applique quatre règles :
+`rewriteInternalLinks()` (`linkResolver.ts#rewriteInternalLinks`) applique quatre règles :
 
-1. **Seules les cibles `.md` internes** sont touchées (`MD_LINK`, `linkResolver.ts:31`). Les
+1. **Seules les cibles `.md` internes** sont touchées (`MD_LINK`, `linkResolver.ts#MD_LINK`). Les
    URL absolues, les `mailto:`, les ancres pures `#section`, les images et les `.ts` restent
    intacts.
 2. **Le chemin est résolu contre le dossier de la page** (`resolveRelative()`,
-   `linkResolver.ts:44`), en saturant à la racine : une remontée excessive ne peut pas sortir
+   `linkResolver.ts#resolveRelative`), en saturant à la racine : une remontée excessive ne peut pas sortir
    du dépôt.
 3. **Une cible non indexée reste telle quelle.** Mieux vaut un lien inerte qu'un slug inventé
    qui produirait un 404.
 4. **Les fences typées aussi.** Un catalogue de hub porte ses cibles dans du JSON
-   (`"href": "cors.md"`) : sans traduction, `JSON_HREF` (`linkResolver.ts:41`), les cards
+   (`"href": "cors.md"`) : sans traduction, `JSON_HREF` (`linkResolver.ts#JSON_HREF`), les cards
    d'un hub renverraient dans le vide.
 
 L'ancre de section est **préservée** : `pipeline.md#etapes` devient `root~…~pipeline.md#etapes`.
@@ -412,55 +412,55 @@ lien interne.
 Un tri purement alphabétique enterre `index.md` au milieu de ses propres pages : pour la
 sécurité, entre `headers` et `lexique`. Le point d'entrée devient invisible.
 
-`#orderPages()` (`DocumentationService.ts:498`) trie donc en deux temps : le hub d'abord, le
+`#orderPages()` (`DocumentationService.ts#DocumentationService.#orderPages`) trie donc en deux temps : le hub d'abord, le
 reste par titre. Un hub est reconnu à son nom de fichier — `index.md`, à n'importe quelle
-profondeur — et le drapeau `isHub` (`IDocPageRef`, `IDocumentation.ts:24`) remonte jusqu'à
+profondeur — et le drapeau `isHub` (`IDocPageRef`, `IDocumentation.ts#IDocPageRef`) remonte jusqu'à
 l'interface, où le portail s'en sert pour choisir la page d'atterrissage d'une section.
 
-Les sections elles-mêmes (`#buildSections()`, `DocumentationService.ts:422`) viennent du
+Les sections elles-mêmes (`#buildSections()`, `DocumentationService.ts#DocumentationService.#buildSections`) viennent du
 **dossier parent** du fichier, jamais d'une clé `section` du frontmatter. Seuls les groupes
 DÉCLARÉS descendent dans le menu, dans l'ordre où ils sont écrits (`ROOT_GROUPS`,
-`DocumentationService.ts:89`) : un dossier de `docs/` absent de cette liste — décisions
+`DocumentationService.ts#ROOT_GROUPS`) : un dossier de `docs/` absent de cette liste — décisions
 d'architecture, plan de publication, documents de pilotage — n'apparaît pas. C'est un choix, pas
 un oubli : cette référence de mainteneur noyait le chemin de lecture. Les pages posées à la
-racine de `docs/` ont leur propre liste (`ROOT_PAGES`, `DocumentationService.ts:103`) sous le
+racine de `docs/` ont leur propre liste (`ROOT_PAGES`, `DocumentationService.ts#ROOT_PAGES`) sous le
 libellé « Pour commencer ». Les sections de module sont préfixées `mod-`, celles de la racine
 `root-`.
 
 ### Le cache — l'index, pas le contenu
 
-`#ensureCache()` (`DocumentationService.ts:306`) sert son instantané tant qu'il est dans le
+`#ensureCache()` (`DocumentationService.ts#DocumentationService.#ensureCache`) sert son instantané tant qu'il est dans le
 TTL, et rescanne sinon. Ce qui est caché tient dans `CacheEntry`
-(`DocumentationService.ts:118`) : l'arbre, l'index `slug → doc`, et la table `chemin → slug`.
+(`DocumentationService.ts#CacheEntry`) : l'arbre, l'index `slug → doc`, et la table `chemin → slug`.
 
 Le **contenu d'une page ne l'est jamais**. Chaque `getPage()` relit le fichier. La raison est
 simple : le coût est celui d'une lecture froide sur un chemin d'administration, et la
 contrepartie serait de servir un Markdown périmé à quelqu'un qui vient justement de le
 corriger.
 
-`invalidate()` (`DocumentationService.ts:185`) remet le cache à `null` — c'est la porte de
+`invalidate()` (`DocumentationService.ts#DocumentationService.invalidate`) remet le cache à `null` — c'est la porte de
 sortie quand un outil sait, lui, que le disque a bougé.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod (`documentationConfigSchema`, `config.ts:134`), qui est la source
+Table dérivée du schéma Zod (`documentationConfigSchema`, `config.ts#documentationConfigSchema`), qui est la source
 unique des défauts.
 
 <!-- prettier-ignore -->
 | Clé | Type | Défaut | Effet |
 | --- | --- | --- | --- |
-| `enabled` | booléen | `true` | drapeau d'activation déclaré au schéma (`config.ts:136`) |
+| `enabled` | booléen | `true` | drapeau d'activation déclaré au schéma (`config.ts#documentationConfigSchema`) |
 | `scan.rootDir` | chaîne | `"docs"` | dossier transverse, relatif à la racine du projet |
 | `scan.includeModules` | booléen | `true` | ajoute les `<module>/docs/` des modules chargés |
-| `scan.includeInstalled` | booléen | `true` | ajoute les paquets installés non chargés (`config.ts:64`) |
-| `scan.exclude` | liste de chaînes | `["session-retros", "node_modules", "dist"]` | segments de chemin ignorés (`config.ts:75`) |
+| `scan.includeInstalled` | booléen | `true` | ajoute les paquets installés non chargés (`config.ts#scanSchema`) |
+| `scan.exclude` | liste de chaînes | `["session-retros", "node_modules", "dist"]` | segments de chemin ignorés (`config.ts#scanSchema`) |
 | `repo.url` | chaîne | dépôt nodefony-core | base du lien « voir la source » |
 | `repo.branch` | chaîne (option.) | — → branche git réelle, sinon `main` | branche du lien source |
 | `repo.editPathPrefix` | `edit` \| `blob` \| `tree` | `"edit"` | segment GitHub : éditeur web, lecture, ou dossier |
-| `cache.ttlMs` | entier ≥ 0 | `30000` | fraîcheur de l'index ; `0` = rescan à chaque requête (`config.ts:120`) |
+| `cache.ttlMs` | entier ≥ 0 | `30000` | fraîcheur de l'index ; `0` = rescan à chaque requête (`config.ts#cacheSchema`) |
 
 Deux variables d'environnement écrasent la config. Chacune est déclarée sur son champ dans le
-schéma (`.meta({ env })`, `config.ts:97` et `:109`) ; le Kernel la pose **avant** la validation,
+schéma (`.meta({ env })`, `config.ts#repoSchema` et `config.ts#repoSchema`) ; le Kernel la pose **avant** la validation,
 qui la juge comme une valeur du fichier — le builder, lui, ne lit aucune variable :
 
 | Variable              | Écrase        | Quand c'est utile                                        |
@@ -468,27 +468,27 @@ qui la juge comme une valeur du fichier — le builder, lui, ne lit aucune varia
 | `NF_DOCS_REPO_URL`    | `repo.url`    | image de conteneur partagée entre plusieurs dépôts       |
 | `NF_DOCS_REPO_BRANCH` | `repo.branch` | CI ou production détachée de git (pas de `.git` lisible) |
 
-La validation a lieu au `onKernelRegister` (`index.ts:63`), **avant** l'instanciation du
+La validation a lieu au `onKernelRegister` (`index.ts#Documentation.onKernelRegister`), **avant** l'instanciation du
 service : une config invalide arrête le démarrage avec un message qui nomme le champ fautif,
 plutôt qu'un `undefined.x` trois phases plus loin. Le JSON Schema publié par
-`configSchema()` (`index.ts:53`) alimente le panneau de configuration Studio.
+`configSchema()` (`index.ts#Documentation.configSchema`) alimente le panneau de configuration Studio.
 
-Enfin, le module est déclaré **non critique** (`index.ts:46`) : son échec ne tue jamais le
+Enfin, le module est déclaré **non critique** (`index.ts#Documentation.critical`) : son échec ne tue jamais le
 process — une application ne tombe pas parce que sa documentation est indisponible.
 
 ## 🔌 Data plane — trois routes, trois formes
 
-`DocumentationController` (`DocumentationController.ts:31`) est monté sur `/nodefony` et
+`DocumentationController` (`DocumentationController.ts#DocumentationController`) est monté sur `/nodefony` et
 respecte la convention d'administration : jamais de route mono-segment, toujours
 `/nodefony/<module>/api/*`.
 
-| Route                                         | Rend                                | Contrat                                      |
-| --------------------------------------------- | ----------------------------------- | -------------------------------------------- |
-| `GET /nodefony/documentation/api/tree`        | l'index complet, sections ordonnées | `IDocTree` (`IDocumentation.ts:64`)          |
-| `GET /nodefony/documentation/api/page/{slug}` | une page résolue                    | `IDocPage` (`IDocumentation.ts:74`)          |
-| `GET /nodefony/documentation/api/search?q=`   | extraits situés, titres et corps    | `IDocSearchResult` (`IDocumentation.ts:148`) |
+| Route                                         | Rend                                | Contrat                                                   |
+| --------------------------------------------- | ----------------------------------- | --------------------------------------------------------- |
+| `GET /nodefony/documentation/api/tree`        | l'index complet, sections ordonnées | `IDocTree` (`IDocumentation.ts#IDocTree`)                 |
+| `GET /nodefony/documentation/api/page/{slug}` | une page résolue                    | `IDocPage` (`IDocumentation.ts#IDocPage`)                 |
+| `GET /nodefony/documentation/api/search?q=`   | extraits situés, titres et corps    | `IDocSearchResult` (`IDocumentation.ts#IDocSearchResult`) |
 
-Les trois exigent un rôle (`@IsGranted`, `DocumentationController.ts:49`) : `ROLE_DEV` ou
+Les trois exigent un rôle (`@IsGranted`, `DocumentationController.ts#DocumentationController.tree`) : `ROLE_DEV` ou
 `ROLE_SUPERVISOR`. C'est de la doc technique de framework — architecture, internals — pas du
 contenu destiné à l'utilisateur final d'une application.
 
@@ -504,7 +504,7 @@ Les réponses d'erreur sont **génériques par principe** :
 Les deux premiers cas rendent **la même chose au client**, volontairement : lui dire qu'un
 slug a été « rejeté » plutôt qu'« introuvable », c'est lui confirmer que sa tentative a été
 détectée — et lui apprendre où chercher. Le détail vit côté serveur, porté par un code machine
-stable (`docCode`, `DocumentationError.ts:19`).
+stable (`docCode`, `DocumentationError.ts#DocumentationError.docCode`).
 
 ## 🔐 Sécurité — la traversée de répertoire, bloquée deux fois
 
@@ -514,28 +514,28 @@ double-encodage, normalisation Unicode…).
 
 La parade est un **changement de nature**, doublé d'un garde :
 
-1. **Allowlist par construction.** `getPage()` (`DocumentationService.ts:252`) cherche une
+1. **Allowlist par construction.** `getPage()` (`DocumentationService.ts#DocumentationService.getPage`) cherche une
    entrée par **égalité de slug** dans l'index, puis lit l'`absPath` mémorisé au scan
-   (`ScannedDoc`, `docScanner.ts:11`). Le slug n'est jamais concaténé à un chemin. Un slug
+   (`ScannedDoc`, `docScanner.ts#ScannedDoc`). Le slug n'est jamais concaténé à un chemin. Un slug
    inconnu ne mène nulle part, quelle que soit sa forme.
-2. **Défense en profondeur, avant même la recherche.** `isSafeSlug()` (`slug.ts:39`) rejette
-   la chaîne vide, la longueur au-delà de 512 (`MAX_SLUG_LENGTH`, `slug.ts:28`), l'octet nul,
-   tout caractère hors du charset autorisé (`SAFE_SLUG`, `slug.ts:25`) et tout segment `..`,
+2. **Défense en profondeur, avant même la recherche.** `isSafeSlug()` (`slug.ts#isSafeSlug`) rejette
+   la chaîne vide, la longueur au-delà de 512 (`MAX_SLUG_LENGTH`, `slug.ts#MAX_SLUG_LENGTH`), l'octet nul,
+   tout caractère hors du charset autorisé (`SAFE_SLUG`, `slug.ts#SAFE_SLUG`) et tout segment `..`,
    même déguisé en séparateur `~`.
 
 Le charset exclut `%`, donc `%2e%2e` est refusé comme n'importe quel autre caractère
 inattendu — la question du double-décodage ne se pose pas.
 
 Une troisième règle protège une surface différente : les variables `{{ }}` sont résolues par
-des fournisseurs enregistrés côté serveur (`DocVarProvider`, `IDocumentation.ts:89`), et ne
+des fournisseurs enregistrés côté serveur (`DocVarProvider`, `IDocumentation.ts#DocVarProvider`), et ne
 doivent rendre que des valeurs **sûres** — version, identité git, information publique. Jamais
 un secret, jamais un chemin absolu. Une variable inconnue est **laissée telle quelle**
-(`#resolveVars()`, `DocumentationService.ts:555`), ce qui signale à l'auteur qu'il manque un
+(`#resolveVars()`, `DocumentationService.ts#DocumentationService.#resolveVars`), ce qui signale à l'auteur qu'il manque un
 fournisseur au lieu de masquer le trou. Un fournisseur qui lève une exception ne casse pas le
 rendu.
 
 Enfin, le lien « voir la source » est assemblé depuis un chemin **relatif au dépôt**
-(`#buildSourceUrl()`, `DocumentationService.ts:574`) : aucun chemin du système de fichiers ne
+(`#buildSourceUrl()`, `DocumentationService.ts#DocumentationService.#buildSourceUrl`) : aucun chemin du système de fichiers ne
 sort jamais du serveur.
 
 ## ⚡ Performance & mémoire
@@ -543,8 +543,8 @@ sort jamais du serveur.
 Le module vit sur un chemin **froid** — un humain qui lit de la doc, pas dix mille requêtes
 par seconde. La discipline reste la même.
 
-- **Tout est alloué paresseusement.** L'index (`#cache`, `DocumentationService.ts:143`) et le
-  registre de variables (`#vars`, `DocumentationService.ts:557`) valent `null` jusqu'au
+- **Tout est alloué paresseusement.** L'index (`#cache`, `DocumentationService.ts#DocumentationService.#cache`) et le
+  registre de variables (`#vars`, `DocumentationService.ts#DocumentationService.#vars`) valent `null` jusqu'au
   premier usage. Une application qui charge le module sans jamais ouvrir la doc ne paie ni un
   objet, ni une lecture disque.
 - **Le scan est mutualisé.** Les modules sont parcourus en parallèle, et le résultat sert
@@ -568,7 +568,7 @@ production, les 30 secondes par défaut le rendent négligeable.
   est bien indexée, bien rangée, et que ses liens cliquent.
 - **La carte du module** (`/nodefony/modules/documentation`) montre sa doc, ses symboles, ses
   tests et sa configuration validée — le formulaire y est dérivé du JSON Schema publié par
-  `configSchema()` (`index.ts:53`), jamais écrit à la main.
+  `configSchema()` (`index.ts#Documentation.configSchema`), jamais écrit à la main.
 - **Le journal** nomme chaque refus avec son code stable (`DOC_NOT_FOUND`, `DOC_UNSAFE_SLUG`).
   Une page qui « n'apparaît pas » se diagnostique là, en une ligne.
 
@@ -578,9 +578,9 @@ entièrement lisible dans ses trois réponses.
 ## 🧩 Extension — trois points d'accroche
 
 **1. Une variable `{{ }}`** — le point d'extension du contenu. `registerVar()`
-(`DocumentationService.ts:180`) accepte un fournisseur **synchrone** qui rend une chaîne
+(`DocumentationService.ts#DocumentationService.registerVar`) accepte un fournisseur **synchrone** qui rend une chaîne
 (l'exemple du Démarrage rapide). Le module en enregistre trois lui-même au `onKernelReady`
-(`index.ts:78`) : `version`, `branch`, `commit`.
+(`index.ts#Documentation.onKernelReady`) : `version`, `branch`, `commit`.
 
 **2. Les briques pures** — le point d'extension de l'outillage. `parseFrontmatter()`,
 `scanDocsDir()`, `pathToSlug()`, `isSafeSlug()` sont exportées par le paquet et n'ont besoin
@@ -596,17 +596,17 @@ ligne change côté serveur.
 | Symptôme                                                      | Cause                                                                                                  | Correction                                                              |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
 | Une nouvelle page n'apparaît pas                              | l'index est encore dans son TTL (30 s par défaut)                                                      | attendre, ou poser `cache.ttlMs: 0` en développement                    |
-| Une page reste introuvable même après rescan                  | son dossier porte un segment exclu (`node_modules`, `dist`, `session-retros`)                          | déplacer la page, ou ajuster `scan.exclude` (`config.ts:75`)            |
+| Une page reste introuvable même après rescan                  | son dossier porte un segment exclu (`node_modules`, `dist`, `session-retros`)                          | déplacer la page, ou ajuster `scan.exclude` (`config.ts#scanSchema`)    |
 | `audience` sans effet, page visible par tous                  | valeur hors `DocAudience` — silencieusement filtrée (`#toPageRef()`)                                   | n'utiliser que `developer` · `devops` · `supervisor` · `admin`          |
 | `status` absent de l'arbre alors qu'il est écrit              | valeur hors `DocStatus` — ramenée à « absent » (`#coerceStatus()`)                                     | s'en tenir aux cinq statuts du contrat                                  |
 | La date de la page ne s'affiche pas                           | clé `last-updated` au lieu de `updated` — le service ne lit que `updated`                              | renommer la clé en `updated`                                            |
 | Un lien relatif reste inerte dans le portail                  | la cible n'est pas indexée (`CLAUDE.md`, `MEMORY.md`, fichier supprimé) → laissée telle quelle         | lier une page de doc, ou accepter le lien inerte                        |
 | Un lien de card ne mène nulle part                            | `href` d'une fence typée mal compté (le JSON est traduit comme le markdown, mais pas deviné)           | vérifier le chemin relatif ; le banc de corpus l'attrape                |
-| Une ancre `#section` marche sur GitHub, morte dans le portail | divergence entre `slugifyHeading()` (`DocToc.tsx:54`) et le gate `anchor-inpage`                       | garder les deux implémentations identiques — accents conservés          |
+| Une ancre `#section` marche sur GitHub, morte dans le portail | divergence entre `slugifyHeading()` (`DocToc.tsx#slugifyHeading`) et le gate `anchor-inpage`           | garder les deux implémentations identiques — accents conservés          |
 | Le bouton « voir la source » pointe vers un mauvais fichier   | le frontmatter `source:` **écrase** le chemin réel dans `#buildSourceUrl()`                            | tenir `source:` à jour, ou l'omettre pour laisser le chemin réel gagner |
 | Le lien source pointe vers une branche absente en production  | pas de `.git` lisible dans le conteneur → repli sur `main`                                             | poser `NF_DOCS_REPO_BRANCH` (ou `repo.branch`)                          |
 | Une clé de frontmatter n'a aucun effet                        | seules `title` · `navTitle` · `audience` · `version` · `status` · `updated` · `source` sont consommées | comportement voulu : les autres clés servent au RAG                     |
-| Un frontmatter multi-lignes (`                                | `) casse le titre                                                                                      | non supporté par le parseur plat (`frontmatter.ts:51`)                  | rester en YAML plat : scalaire ou liste |
+| Un frontmatter multi-lignes (`                                | `) casse le titre                                                                                      | non supporté par le parseur plat (`frontmatter.ts#parseFrontmatter`)    | rester en YAML plat : scalaire ou liste |
 
 ## 🧪 Tests & couverture
 
@@ -627,9 +627,9 @@ dans la carte de l'aperçu, régénérés depuis les résultats réels.
 
 Le dernier mérite qu'on s'y arrête. Les autres travaillent sur un index fabriqué ; celui-là
 parcourt les vraies pages et attrape ce qu'aucun double ne peut voir : un `../` mal compté,
-une page renommée, un lien vers un fichier supprimé (`analyze()`, `corpusLinks.test.ts:122`).
+une page renommée, un lien vers un fichier supprimé (`analyze()`, `corpusLinks.test.ts#analyze`).
 
-Il porte un **cliquet** : `LEGACY_BROKEN_LINKS` (`corpusLinks.test.ts:149`) liste les pages
+Il porte un **cliquet** : `LEGACY_BROKEN_LINKS` (`corpusLinks.test.ts#LEGACY_BROKEN_LINKS`) liste les pages
 pas encore reprises au standard, qui traînent des liens faux hérités. Deux assertions
 l'encadrent — les pages hors liste ne doivent avoir **aucun** lien mort, et une page de la
 liste qui a été réparée doit en **sortir**. Sans cette seconde garde, la liste se relâcherait

@@ -87,15 +87,15 @@ c'est la même garantie, dite dans la langue du framework.**
 1. **Le client n'entre jamais dans un `ref()`.** Il serait enveloppé dans un proxy réactif profond :
    ses égalités de référence internes casseraient, et chaque accès paierait une interception — pour
    une réactivité dont il n'a aucun besoin, ses changements passant par ses propres `on*`. Le plugin
-   le pose `markRaw` (`src/nodefony/src/client/vue/index.ts:200`), et un test le vérifie
+   le pose `markRaw` (`src/nodefony/src/client/vue/index.ts#nodefonyVue`), et un test le vérifie
    (`isReactive(useNodefony()) === false`).
 2. **La libération passe par `onScopeDispose`**, jamais par `onUnmounted` seul : c'est le seul des
    deux qui couvre aussi une portée créée hors composant (`effectScope()`). Un abonnement qui fuit
    **ne se voit pas à l'écran** — la page affiche ce qu'il faut, et le serveur pousse un canal que
    plus personne ne regarde. Le motif commun à tous les composables est unique
-   (`src/nodefony/src/client/vue/index.ts:217`) : brancher, rebrancher quand la source change,
+   (`src/nodefony/src/client/vue/index.ts#nodefonyVue`) : brancher, rebrancher quand la source change,
    libérer à la mort de la portée.
-3. **Un composable appelé hors portée lève** (`src/nodefony/src/client/vue/index.ts:199`), plutôt
+3. **Un composable appelé hors portée lève** (`src/nodefony/src/client/vue/index.ts#nodefonyVue`), plutôt
    que de fuir en silence. Le message dit le remède : envelopper l'appel dans `effectScope()`.
 
 ## 🚀 Démarrage rapide
@@ -115,7 +115,7 @@ createApp(App).use(nodefonyVue, { url: "/api/live/realtime" }).mount(el);
 
 L'adresse est écrite **ici, et nulle part ailleurs**. Le framework n'en devine aucune : une adresse
 devinée marche en développement et se trompe en production. Sans `url` ni `client`, le plugin refuse
-(`src/nodefony/src/client/realtime/observe.ts:126`).
+(`src/nodefony/src/client/realtime/observe.ts#ConnectSharedOptions.client`).
 
 ### 2. La page
 
@@ -199,7 +199,7 @@ déballe). La socket, elle, n'est pas réactive : c'est un objet, pas un état.
 | `useNodefonyNotifications(onNotice)`   | —                                     | les notices normalisées — à monter **une seule fois**        |
 | `useNodefonyNoticeLog(opts?)`          | `Ref<NodefonyNotice[]>`               | l'historique borné des incidents                             |
 
-La déclaration de chacun se lit dans `src/nodefony/src/client/vue/index.ts:179` et suivantes.
+La déclaration de chacun se lit dans `src/nodefony/src/client/vue/index.ts#NodefonyVueOptions.url` et suivantes.
 
 Sont aussi réexportés depuis ce subpath : `rateChannel`, `parseRate`, `isRateChannel` (fabriquer un
 nom de canal cadencé), et les types `RealtimeIdentity`, `RealtimeState`, `NodefonyNotice`,
@@ -263,7 +263,7 @@ fin de portée      → unsubscribe (si dernier consommateur)
 Ce qui est **partagé** et ne dépend pas de Vue — le comptage de références, le rejeu après
 reconnexion, l'appariement `on`↔`subscribe` — vit dans le socle agnostique et est prouvé une fois
 pour les quatre fronts. Ce qui est **propre à Vue** — la portée, la réactivité, la non-réactivité du
-client — est prouvé dans `src/nodefony/src/tests/clientVue.test.ts:1`.
+client — est prouvé dans `src/nodefony/src/tests/clientVue.test.ts`.
 
 La socket, elle, **n'est jamais coupée par un composant**. Elle appartient à la page : la fermer au
 démontage trancherait les requêtes en vol des autres consommateurs.

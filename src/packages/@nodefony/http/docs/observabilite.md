@@ -111,19 +111,19 @@ Le différenciateur — **HTTP et WebSocket dans le même pipeline** — se retr
 un `requestId`, un `traceparent` et un contrat de logger **uniques** couvrent les deux transports.
 
 **Le `requestId` est un citoyen du contexte, pas un décor.** Il naît dans le constructeur de base
-`Context.requestId = randomUUID()` (`Context.ts:244`), voyage dans l'ALS via `RequestContext.run(...)`
-(`http-kernel.ts:523` pour HTTP, `http-kernel.ts:1999` pour WS), et se lit de n'importe où avec
+`Context.requestId = randomUUID()` (`Context.ts#Context.csrfProtect`), voyage dans l'ALS via `RequestContext.run(...)`
+(`http-kernel.ts#HttpKernel.configureRateLimit` pour HTTP, `http-kernel.ts#HttpKernel.finishWebsocket` pour WS), et se lit de n'importe où avec
 `RequestContext.getRequestId()` — un controller, un service, un adapter ORM, sans jamais le threader.
 
 **La ligne de bilan est branchable.** Le kernel ne code pas un format en dur : il consulte un
-`IRequestLogger` (`IRequestLogger.ts:25`) résolu au boot depuis la config (`applyRequestLoggerFromConfig`,
-`http-kernel.ts:760`), remplaçable à chaud par `httpKernel.setRequestLogger(...)` (`http-kernel.ts:1001`).
+`IRequestLogger` (`IRequestLogger.ts#IRequestLogger`) résolu au boot depuis la config (`applyRequestLoggerFromConfig`,
+`http-kernel.ts#HttpKernel.applyRequestLoggerFromConfig`), remplaçable à chaud par `httpKernel.setRequestLogger(...)` (`http-kernel.ts#HttpKernel.setRequestLogger`).
 Trois formateurs sont livrés ; un quatrième maison s'écrit en implémentant l'interface.
 
 **Zero Trust sur l'entrée cliente.** Un `X-Request-Id` fourni par le client finit réfléchi en réponse,
 écrit dans les logs et propagé en ALS — donc une valeur non assainie ouvrirait log-injection (CR/LF) et
 throw natif de `setHeader`. Nodefony **valide puis adopte, ou rejette** (`sanitizeRequestId`,
-`requestId.ts:38`) : jamais nettoyer (masquerait l'abus), toujours retomber sur l'UUID serveur.
+`requestId.ts#sanitizeRequestId`) : jamais nettoyer (masquerait l'abus), toujours retomber sur l'UUID serveur.
 
 ## 🚀 Démarrage rapide
 
@@ -222,43 +222,43 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 
 ### Le `requestId` — génération, adoption, réflexion
 
-| Étape               | Où                                                                  | Comportement                                                                                                                                                                            |
-| ------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Génération          | `Context.requestId = randomUUID()` (`Context.ts:244`)               | UUID v4 posé dans le constructeur de base — HTTP **et** WS.                                                                                                                             |
-| Adoption HTTP       | `sanitizeRequestId(headers["x-request-id"])` (`HttpContext.ts:158`) | Remplace l'UUID **si** la valeur cliente est sûre, sinon on garde l'UUID.                                                                                                               |
-| Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:208`)   | Même validation, stable sur toute la durée de la socket (handshake → close).                                                                                                            |
-| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:248`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                                                                                                                                       |
-| Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                                                                                                                           |
-| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:523`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                                                                                                                                      |
-| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:523`)       | Handshake **et** messages : la bulle ouverte à la connexion est reliée à chaque message par `AsyncResource.bind`, sinon l'identité résolue au handshake se perdrait au premier message. |
-| Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:262`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur.                                                                                                            |
+| Étape               | Où                                                                                         | Comportement                                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Génération          | `Context.requestId = randomUUID()` (`Context.ts#Context.csrfProtect`)                      | UUID v4 posé dans le constructeur de base — HTTP **et** WS.                                                                                                                             |
+| Adoption HTTP       | `sanitizeRequestId(headers["x-request-id"])` (`HttpContext.ts#HttpContext.response`)       | Remplace l'UUID **si** la valeur cliente est sûre, sinon on garde l'UUID.                                                                                                               |
+| Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts#WebsocketContext.constructor`) | Même validation, stable sur toute la durée de la socket (handshake → close).                                                                                                            |
+| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts#HttpResponse.setHeader`)             | Écrit dans `writeHead()`, sur **chaque** réponse.                                                                                                                                       |
+| Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts#Http2Response.writeHead`)   | Sinon les réponses du port 5152 sortiraient sans corrélation.                                                                                                                           |
+| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts#HttpKernel.configureRateLimit`)    | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                                                                                                                                      |
+| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts#HttpKernel.configureRateLimit`)    | Handshake **et** messages : la bulle ouverte à la connexion est reliée à chaque message par `AsyncResource.bind`, sinon l'identité résolue au handshake se perdrait au premier message. |
+| Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts#Pdu.sysLogSeverity`)                  | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur.                                                                                                            |
 
 > [!IMPORTANT]
 > Les logs de **fin** de requête (bilan `req`, `onClose`) sont émis **hors** de la bulle ALS (déjà
-> refermée). L'override `Context.log()` (`Context.ts:545`) rouvre alors une micro-bulle depuis
+> refermée). L'override `Context.log()` (`Context.ts#Context.log`) rouvre alors une micro-bulle depuis
 > `this.requestId` pour que le `Pdu` capture quand même la corrélation — sinon la ligne d'entrée d'une
 > trace serait la seule à ne PAS porter son `requestId`.
 
 ### La trace W3C — `traceparent`
 
-Nodefony implémente **W3C Trace Context** (le code s'y réfère explicitement, `trace.ts:1`). À l'entrée :
+Nodefony implémente **W3C Trace Context** (le code s'y réfère explicitement, `trace.ts`). À l'entrée :
 
 - Un `traceparent` entrant **valide** est prolongé : on garde `version`/`traceId`/`flags` et on frappe
-  un nouveau `spanId` (on est un maillon enfant) — `resolveTraceparent()` (`trace.ts:83`).
+  un nouveau `spanId` (on est un maillon enfant) — `resolveTraceparent()` (`trace.ts#resolveTraceparent`).
 - Absent ou malformé → on **forge** une trace neuve (`00-<traceId>-<spanId>-01`, échantillonnée).
 - La validation refuse `version=ff` et un `traceId`/`spanId` tout-à-zéro — `parseTraceparent()`
-  (`trace.ts:38`), conforme à la spec (le récepteur NE DOIT PAS propager ces valeurs).
+  (`trace.ts#parseTraceparent`), conforme à la spec (le récepteur NE DOIT PAS propager ces valeurs).
 
-Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse HTTP (`context/http/Response.ts:572`). Côté
+Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse HTTP (`context/http/Response.ts#HttpResponse.writeHead`). Côté
 **WebSocket**, il est propagé en ALS mais **pas** réfléchi dans la réponse de handshake — la bibliothèque
-`ws` n'expose pas proprement ce chemin (`http-kernel.ts:1479`) ; la corrélation reste visible côté serveur.
+`ws` n'expose pas proprement ce chemin (`http-kernel.ts#HttpKernel.finishTeardownHttp`) ; la corrélation reste visible côté serveur.
 
 ### Le contrat de logger — `IRequestLogger`
 
-Le kernel tient un `IRequestLogger` singleton (`http-kernel.ts:338`) et lui délègue le rendu de la ligne
-de bilan, au teardown, via `Context.logRequest()` (`Context.ts:640`) côté HTTP et
-`WebsocketContext.logRequest()` (`WebsocketContext.ts:279`) côté WS. Le contrat a trois méthodes
-(`IRequestLogger.ts:25`) :
+Le kernel tient un `IRequestLogger` singleton (`http-kernel.ts#HttpKernel.secContentTypeOptions`) et lui délègue le rendu de la ligne
+de bilan, au teardown, via `Context.logRequest()` (`Context.ts#Context.logRequest`) côté HTTP et
+`WebsocketContext.logRequest()` (`WebsocketContext.ts#WebsocketContext.logRequest`) côté WS. Le contrat a trois méthodes
+(`IRequestLogger.ts#IRequestLogger`) :
 
 - `renderHttp(context, error?)` → `{ text, severity, msgid }` remis à `context.log()`.
 - `renderWebsocket(context, error?, acceptedProtocol?)` → idem pour le WS.
@@ -268,38 +268,38 @@ de bilan, au teardown, via `Context.logRequest()` (`Context.ts:640`) côté HTTP
 ### La trace des frames WebSocket
 
 Chaque frame WS (RECEIVE / SEND / BROADCAST) peut être tracée pour le Suivi de requête (Studio). Le
-formatage du contenu est **pur** et **borné** — `formatWsLogContent()` (`wsLogContent.ts:55`), appelé par
-`WebsocketContext.logMessageContent()` (`WebsocketContext.ts:469`) :
+formatage du contenu est **pur** et **borné** — `formatWsLogContent()` (`wsLogContent.ts#formatWsLogContent`), appelé par
+`WebsocketContext.logMessageContent()` (`WebsocketContext.ts#WebsocketContext.logMessageContent`) :
 
-- `string` → tronquée à `WS_LOG_CONTENT_CAP` (4096, `wsLogContent.ts:15`) + ellipse.
+- `string` → tronquée à `WS_LOG_CONTENT_CAP` (4096, `wsLogContent.ts#WS_LOG_CONTENT_CAP`) + ellipse.
 - **binaire** (Buffer, ArrayBuffer, TypedArray, Blob, `Buffer[]`) → résumé `[binary N B]`, **jamais**
-  sérialisé (`binaryByteLength()`, `wsLogContent.ts:27`) — un dump `{"0":..,"1":..}` serait énorme et faux.
+  sérialisé (`binaryByteLength()`, `wsLogContent.ts#binaryByteLength`) — un dump `{"0":..,"1":..}` serait énorme et faux.
 - objet « JSON » → `JSON.stringify` compact tronqué, repli `String(...)` sur cycle/`bigint`.
 
 Le tout est **gaté hors production** : `logMessageContent` court-circuite avant toute construction de
-chaîne quand l'env est `production` (`WebsocketContext.ts:477`) → 0 surcoût sur le hot path WS.
+chaîne quand l'env est `production` (`WebsocketContext.ts#WebsocketContext.broadcast`) → 0 surcoût sur le hot path WS.
 
 ## ⚙️ Configuration
 
 Un seul réglage d'app, côté cœur (bloc `log`), pilote le format des lignes.
 
-| Option              | Type                                      | Défaut | Effet                                                                                |
-| ------------------- | ----------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
-| `log.requestFormat` | `auto` \| `default` \| `pretty` \| `json` | `auto` | Format de la ligne de bilan. `auto` = pretty en dev / json en prod (`schema.ts:39`). |
+| Option              | Type                                      | Défaut | Effet                                                                                          |
+| ------------------- | ----------------------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
+| `log.requestFormat` | `auto` \| `default` \| `pretty` \| `json` | `auto` | Format de la ligne de bilan. `auto` = pretty en dev / json en prod (`schema.ts#serverSchema`). |
 
-`auto` est résolu au boot selon l'environnement (`applyRequestLoggerFromConfig`, `http-kernel.ts:760`) :
+`auto` est résolu au boot selon l'environnement (`applyRequestLoggerFromConfig`, `http-kernel.ts#HttpKernel.applyRequestLoggerFromConfig`) :
 
-| Valeur    | Formateur              | Rendu                                                                                     |
-| --------- | ---------------------- | ----------------------------------------------------------------------------------------- |
-| `pretty`  | `PrettyRequestLogger`  | 1 ligne colorée `GET 200 /x 12.3ms 127.0.0.1 [a1b2c3d4]` (`pretty-request-logger.ts:34`). |
-| `json`    | `JsonAuditLogger`      | 1 objet JSON canonique par requête (`audit-logger.ts:136`).                               |
-| `default` | `DefaultRequestLogger` | Format legacy verbeux `URL : … FROM : … ID : <uuid>` (`request-logger.ts:21`).            |
+| Valeur    | Formateur              | Rendu                                                                                                                 |
+| --------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pretty`  | `PrettyRequestLogger`  | 1 ligne colorée `GET 200 /x 12.3ms 127.0.0.1 [a1b2c3d4]` (`pretty-request-logger.ts#PrettyRequestLogger.renderHttp`). |
+| `json`    | `JsonAuditLogger`      | 1 objet JSON canonique par requête (`audit-logger.ts#JsonAuditLogger`).                                               |
+| `default` | `DefaultRequestLogger` | Format legacy verbeux `URL : … FROM : … ID : <uuid>` (`request-logger.ts#DefaultRequestLogger.renderHttp`).           |
 
 > [!NOTE]
 > Le **réglage fin** du logger JSON (`sampleRate`, `includeStack`, `maxCauseDepth`, `nominal`) n'est pas
 > un champ déclaré du schéma d'app : il se pose **programmatiquement**, en construisant le logger et en
 > l'injectant — `httpKernel.setRequestLogger(new JsonAuditLogger({ sampleRate: 10 }))` (options :
-> `JsonAuditLoggerOptions`, `audit-logger.ts:92`). L'override programmatique gagne toujours sur la config.
+> `JsonAuditLoggerOptions`, `audit-logger.ts#JsonAuditLoggerOptions`). L'override programmatique gagne toujours sur la config.
 
 ## 🧰 Les trois formateurs (et le contrat)
 
@@ -314,31 +314,31 @@ Choisir en cinq secondes :
 ### `PrettyRequestLogger` — une ligne pour l'humain
 
 Le plus grand gain en dev : `méthode statut url durée remote [id]`, avec couleur du statut (vert 2xx,
-jaune 4xx, rouge 5xx — `colorizeStatus()`, `pretty-request-logger.ts:100`) et `requestId` tronqué aux 8
-premiers caractères (`shortId()`, `pretty-request-logger.ts:116`). La durée est dérivée des phases de
-timing (`pretty-request-logger.ts:116`).
+jaune 4xx, rouge 5xx — `colorizeStatus()`, `pretty-request-logger.ts#colorizeStatus`) et `requestId` tronqué aux 8
+premiers caractères (`shortId()`, `pretty-request-logger.ts#shortId`). La durée est dérivée des phases de
+timing (`pretty-request-logger.ts#shortId`).
 
 ### `JsonAuditLogger` — un PDU par requête, pour la machine
 
-Émet un `AuditLogEntry` canonique (`audit-logger.ts:28`) : `ts`, `requestId`, `userIdentifier` (appelant authentifié, posé par le pare-feu sur `context.userIdentifier`), `type`, `method`,
+Émet un `AuditLogEntry` canonique (`audit-logger.ts#AuditLogEntry.ts`) : `ts`, `requestId`, `userIdentifier` (appelant authentifié, posé par le pare-feu sur `context.userIdentifier`), `type`, `method`,
 `url`, `status`, `durationMs`, `remoteAddress`, `host`, `userAgent`, phases, erreur enrichie (nom, code,
 `errorType`, `cause` bornée à 5, stack **dev seulement**). Deux propriétés majeures :
 
 - **Redaction par construction** : `Authorization` et `Cookie` ne sont **jamais** sérialisés — seuls des
-  drapeaux `hasAuthorization`/`hasCookie` le sont (`audit-logger.ts:226`).
-- **Sampling déterministe** : `shouldSample()` (`audit-logger.ts:156`) garde 1 requête nominale sur N mais
+  drapeaux `hasAuthorization`/`hasCookie` le sont (`audit-logger.ts#AuditLogEntry.hasCookie`).
+- **Sampling déterministe** : `shouldSample()` (`audit-logger.ts#JsonAuditLogger.shouldSample`) garde 1 requête nominale sur N mais
   **jamais** une erreur ni un `status >= 400` — on ne perd aucun échec ; compteur, pas de RNG.
 
 ### `DefaultRequestLogger` — le format legacy
 
-Singleton sans état, 0 allocation par requête (`request-logger.ts:21`). Conserve le format historique
+Singleton sans état, 0 allocation par requête (`request-logger.ts#DefaultRequestLogger.renderHttp`). Conserve le format historique
 `URL : … FROM : … ORIGIN : … ID : <uuid>`, avec `Accept-Protocol` en plus côté WebSocket.
 
 ### Écrire son propre formateur
 
-Implémenter `IRequestLogger` (`IRequestLogger.ts:25`) et l'injecter — NCSA Common Log Format, syslog RFC
-5424 texte, OpenTelemetry logs… `httpKernel.setRequestLogger(monLogger)` (`http-kernel.ts:1001`). Les trois
-formateurs et le type sont exportés depuis `@nodefony/http` (`index.ts:221`).
+Implémenter `IRequestLogger` (`IRequestLogger.ts#IRequestLogger`) et l'injecter — NCSA Common Log Format, syslog RFC
+5424 texte, OpenTelemetry logs… `httpKernel.setRequestLogger(monLogger)` (`http-kernel.ts#HttpKernel.setRequestLogger`). Les trois
+formateurs et le type sont exportés depuis `@nodefony/http` (`index.ts`).
 
 ## 🔐 Sécurité
 
@@ -348,15 +348,15 @@ sensibles à la fois — d'où une validation stricte.
 <!-- prettier-ignore -->
 | Menace | Vecteur | Défense |
 | --- | --- | --- |
-| Log injection (CR/LF) | `X-Request-Id: a\r\nFAKE LINE` écrit tel quel dans les logs | Allowlist `[A-Za-z0-9._-]{1,128}` (`requestId.ts:26`) — CR/LF exclus. |
-| Response splitting / DoS | Caractère de contrôle / non-ASCII → throw `setHeader` natif (500) | Même allowlist ; valeur non conforme **rejetée**, pas nettoyée — `sanitizeRequestId()` (`requestId.ts:38`). |
-| Log flooding | `X-Request-Id` géant | Borne `MAX_REQUEST_ID_LENGTH = 128` (`requestId.ts:18`). |
-| Fuite de secret dans l'audit | `Authorization` / `Cookie` sérialisés dans le log JSON | Drapeaux de présence seuls — valeurs jamais écrites (`audit-logger.ts:211`). |
-| Fuite de stack en prod | `error.stack` dans les logs d'audit publics | `includeStack` par défaut `false` en production (`audit-logger.ts:133`). |
+| Log injection (CR/LF) | `X-Request-Id: a\r\nFAKE LINE` écrit tel quel dans les logs | Allowlist `[A-Za-z0-9._-]{1,128}` (`requestId.ts#SAFE_REQUEST_ID`) — CR/LF exclus. |
+| Response splitting / DoS | Caractère de contrôle / non-ASCII → throw `setHeader` natif (500) | Même allowlist ; valeur non conforme **rejetée**, pas nettoyée — `sanitizeRequestId()` (`requestId.ts#sanitizeRequestId`). |
+| Log flooding | `X-Request-Id` géant | Borne `MAX_REQUEST_ID_LENGTH = 128` (`requestId.ts#MAX_REQUEST_ID_LENGTH`). |
+| Fuite de secret dans l'audit | `Authorization` / `Cookie` sérialisés dans le log JSON | Drapeaux de présence seuls — valeurs jamais écrites (`audit-logger.ts#JsonAuditLogger.renderHttp`). |
+| Fuite de stack en prod | `error.stack` dans les logs d'audit publics | `includeStack` par défaut `false` en production (`audit-logger.ts#JsonAuditLogger`). |
 
 > [!WARNING]
 > On **rejette** plutôt que d'assainir un `requestId` invalide : nettoyer donnerait au client un faux
-> contrôle sur l'identifiant et masquerait la tentative d'abus (`requestId.ts:31`).
+> contrôle sur l'identifiant et masquerait la tentative d'abus (`requestId.ts#sanitizeRequestId`).
 
 ## ⚡ Performance & mémoire
 
@@ -364,15 +364,15 @@ La ligne de bilan et la corrélation sont sur le **chemin chaud** : leur coût e
 Les choix visibles dans le code :
 
 - **`requestId` gratuit à l'entropie** — `randomUUID()` de Node met en cache l'entropie (128 UUID/appel
-  système) ; les ids W3C amortissent de même via un pool de 4096 o (`randomHex()`, `trace.ts:66`).
+  système) ; les ids W3C amortissent de même via un pool de 4096 o (`randomHex()`, `trace.ts#randomHex`).
 - **Provider ALS lu paresseusement** — un `Pdu` hors bulle ne paie que 1 test de référence ; le provider
-  reste `null` côté navigateur/debugbar (`Pdu.ts:169`) → 0 lecture, 0 allocation.
+  reste `null` côté navigateur/debugbar (`Pdu.ts#guid`) → 0 lecture, 0 allocation.
 - **Sampling avant rendu** — `shouldSample()` saute la requête **avant** `renderHttp` : 0 objet, 0
-  `toISOString`, 0 `JSON.stringify`, 0 `Pdu` au ring (`audit-logger.ts:156`).
+  `toISOString`, 0 `JSON.stringify`, 0 `Pdu` au ring (`audit-logger.ts#JsonAuditLogger.shouldSample`).
 - **Audit nominal coupable** — l'option `nominal` coupe le log des 2xx/3xx si le sink texte est `null`
-  (l'entrée n'atteindrait aucune destination) — ~5,9 % du profil CPU récupérés (`audit-logger.ts:104`).
+  (l'entrée n'atteindrait aucune destination) — ~5,9 % du profil CPU récupérés (`audit-logger.ts#JsonAuditLoggerOptions.sampleRate`).
 - **Trace des frames WS gatée en prod** — `logMessageContent()` court-circuite avant toute construction
-  de chaîne hors dev (`WebsocketContext.ts:469`) ; les events lifecycle ne créent aucun `Pdu` en production (`Context.ts:67`).
+  de chaîne hors dev (`WebsocketContext.ts#WebsocketContext.logMessageContent`) ; les events lifecycle ne créent aucun `Pdu` en production (`Context.ts#EVENT_SEVERITY`).
 
 Gate mémoire avant tout commit touchant le pipeline : `npm run test:memory` (skill
 `nodefony-check-memory-health`). Rejouer les chiffres de charge : skill `nodefony-load-test`.
@@ -387,10 +387,10 @@ Le `requestId` est la **clé de jointure** de l'admin Studio (dev). Les écrans 
 | **Suivi de requête** (`TraceView`) | `/nodefony/syslog/api/logs/search?requestId=…&order=asc` | Toutes les lignes corrélées + le profil serveur (phases, requêtes SQL). |
 | **Logs** (stream) | data plane syslog | Le flux de logs live, filtrable. |
 | **Audit** | écran Audit | Les événements d'audit persistés. |
-| **Profiler** (dev) | `/nodefony/profiler/api/{requestId}` (`ProfilerAdminApi.ts:23`) | Le profil complet (waterfall des phases) d'une requête donnée. |
+| **Profiler** (dev) | `/nodefony/profiler/api/{requestId}` (`ProfilerAdminApi.ts#createProfilerAdminApi`) | Le profil complet (waterfall des phases) d'une requête donnée. |
 
-Le profiler indexe ses instantanés par `requestId` (`Profiler.ts:214`) ; la debug bar lit le
-`X-Request-Id` de son propre appel AJAX et va chercher le profil (`Profiler.ts:14`). Le profiler n'est
+Le profiler indexe ses instantanés par `requestId` (`Profiler.ts#Profiler.collect`) ; la debug bar lit le
+`X-Request-Id` de son propre appel AJAX et va chercher le profil (`Profiler.ts#ProfilePhase`). Le profiler n'est
 instancié **qu'en dev** (fuite d'info + coût en prod).
 
 > [!NOTE]
@@ -403,28 +403,28 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 <!-- prettier-ignore -->
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
-| W3C Trace Context (`traceparent`) | W3C Trace Context | `resolveTraceparent()` (`trace.ts:83`), `parseTraceparent()` (`trace.ts:38`) |
-| Sûreté des valeurs d'en-tête (field-value) | RFC 9110 §5.5 | `sanitizeRequestId()` allowlist (`requestId.ts:38`) |
-| En-têtes trop volumineux / borne | anti-abus (log flooding) | `MAX_REQUEST_ID_LENGTH` (`requestId.ts:18`) |
-| Log structuré (PDU, sévérités) | RFC 5424 | `Pdu` + `requestId`/`pid` (`Pdu.ts:184`) |
-| Sévérité dérivée du statut HTTP | RFC 9110 (catégories) | `severityFromStatus()` (`audit-logger.ts:85`) |
-| Non-journalisation des secrets | OWASP (logging) | redaction présence-only (`audit-logger.ts:211`) |
+| W3C Trace Context (`traceparent`) | W3C Trace Context | `resolveTraceparent()` (`trace.ts#resolveTraceparent`), `parseTraceparent()` (`trace.ts#parseTraceparent`) |
+| Sûreté des valeurs d'en-tête (field-value) | RFC 9110 §5.5 | `sanitizeRequestId()` allowlist (`requestId.ts#sanitizeRequestId`) |
+| En-têtes trop volumineux / borne | anti-abus (log flooding) | `MAX_REQUEST_ID_LENGTH` (`requestId.ts#MAX_REQUEST_ID_LENGTH`) |
+| Log structuré (PDU, sévérités) | RFC 5424 | `Pdu` + `requestId`/`pid` (`Pdu.ts#Pdu.requestId`) |
+| Sévérité dérivée du statut HTTP | RFC 9110 (catégories) | `severityFromStatus()` (`audit-logger.ts#severityFromStatus`) |
+| Non-journalisation des secrets | OWASP (logging) | redaction présence-only (`audit-logger.ts#JsonAuditLogger.renderHttp`) |
 
 > `X-Request-Id` n'est **pas** un en-tête normalisé (convention de-facto) ; c'est la **valeur** qu'il
 > transporte qui est soumise à la sûreté RFC 9110 §5.5.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                            | Cause                                                               | Correction                                                                         |
-| --------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur |
-| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts:545`)           |
-| Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts:106`) — le port 5152 réfléchit aussi                 |
-| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:2049`)                |
-| Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts:63`)                           |
-| Le format de log ne change pas malgré la config     | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler       |
-| Logs d'audit trop volumineux en prod                | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`           |
-| `Authorization`/`Cookie` attendus dans le log JSON  | Redaction : jamais sérialisés                                       | Par conception — lire les drapeaux `hasAuthorization`/`hasCookie`                  |
+| Symptôme                                            | Cause                                                               | Correction                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur        |
+| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts#Context.log`)          |
+| Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts#Http2Response.writeHead`) — le port 5152 réfléchit aussi    |
+| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts#HttpKernel.handleWebsocket`) |
+| Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts#formatWsLogContent`)                  |
+| Le format de log ne change pas malgré la config     | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler              |
+| Logs d'audit trop volumineux en prod                | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`                  |
+| `Authorization`/`Cookie` attendus dans le log JSON  | Redaction : jamais sérialisés                                       | Par conception — lire les drapeaux `hasAuthorization`/`hasCookie`                         |
 
 ## 🧪 Tests & couverture
 

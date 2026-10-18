@@ -118,20 +118,20 @@ pour les cas où le rôle ne suffit pas.
 
 ## La vision Nodefony — un jury découplé et fail-closed
 
-`Authorization.decide(token, attribute, subject?)` (`authorization.ts:70`) itère les voters, teste
-`supports()` en place — zéro allocation par appel (`authorization.ts:78-80`) — et applique la
+`Authorization.decide(token, attribute, subject?)` (`authorization.ts#Authorization.decide`) itère les voters, teste
+`supports()` en place — zéro allocation par appel (`authorization.ts#Authorization.decide`) — et applique la
 stratégie ci-dessus. Points structurants :
 
 - **Fail-closed sur erreur** : un voter qui `throw` (lookup DB down, bug) ne fait ni accorder
   l'accès ni planter la requête en 500 — on **refuse** cette décision + log `ERROR`
-  (`authorization.ts:85-93`). Même posture que le firewall sur une erreur interne.
+  (`authorization.ts#Authorization.decide`). Même posture que le firewall sur une erreur interne.
 - **Découverte par registre** : les voters sont instanciés **une fois au boot** par
-  `Authorization.#build()` (`authorization.ts:55-64`) depuis le registre — aucun nom en dur dans
-  le service. Les builtins `role`/`scope` s'enregistrent à l'import (`voterRegistry.ts:55-59`).
+  `Authorization.#build()` (`authorization.ts#Authorization.#build`) depuis le registre — aucun nom en dur dans
+  le service. Les builtins `role`/`scope` s'enregistrent à l'import (`voterRegistry.ts`).
 - **Transport-agnostique** : l'audit lit `getUserIdentifier()` (et non `getUser()`), commun au
-  token HTTP **et** au token WS `IRealtimeToken` (`authorization.ts:119-122`).
+  token HTTP **et** au token WS `IRealtimeToken` (`authorization.ts#Authorization.#auditDeny`).
 - **Audit asymétrique** : tout **refus** est audité par `Authorization.#auditDeny()` — WARNING +
-  `recordAudit` (`authorization.ts:113-142`) ; les octrois restent **muets** (volume, pas un
+  `recordAudit` (`authorization.ts#Authorization`) ; les octrois restent **muets** (volume, pas un
   signal). Le refus porte sa raison : `veto` / `abstain` / `no-voter` / `error`.
 
 ## 🚀 Démarrage rapide
@@ -327,18 +327,18 @@ class LegalHoldVoter implements IAccessVoter {
 | `DocumentVoter` GRANT (propriétaire) + `LegalHoldVoter` ABSTAIN | ✅ 200                                 |
 | `DocumentVoter` GRANT + `LegalHoldVoter` **DENY**               | ❌ 403 (`veto`) — le DENY bat le GRANT |
 
-Dès le `DENY`, le jury **s'arrête** — court-circuit, inutile de finir (`authorization.ts:94-97`).
+Dès le `DENY`, le jury **s'arrête** — court-circuit, inutile de finir (`authorization.ts#Authorization.decide`).
 
 **Contre-exemple piégeux** : le veto ne traverse **pas** une clause OR. Dans
 `@IsGranted(["ROLE_ADMIN", "doc.edit"])`, chaque attribut est un **jury séparé**
-(`Resolver.ts:926-933`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
+(`Resolver.ts#Resolver._enforceSecurity`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
 consulté. Un interdit absolu se porte en clause **AND** : empiler `@IsGranted("ROLE_ADMIN")` puis
 `@IsGranted("doc.edit", { subject: "id" })`.
 
 ### Situation 3 — le silence ferme la porte (la typo devient un 403, pas une faille)
 
 Tu déploies `@IsGranted("doc.edti")` (faute de frappe), ou tu as oublié d'enregistrer ton voter.
-**Aucun voter compétent** → refus par défaut (`!granted`, `authorization.ts:100-108`) : la route répond 403
+**Aucun voter compétent** → refus par défaut (`!granted`, `authorization.ts#Authorization`) : la route répond 403
 systématiquement, et le log nomme la cause :
 
 ```
@@ -356,29 +356,29 @@ se voit au premier test.
 ## 🧰 Déclarer l'exigence — `@IsGranted`, `@RequireScope`, `@Anonymous`
 
 Les décorateurs n'écrivent **que des métadonnées** (0 import `@nodefony/security`, 0 cycle) ; le
-moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:708-709`) :
+moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts#Resolver._callWithIdempotency`) :
 
-| Déclaration                                 | Sémantique                                                                                                                       |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:903`)                                             |
-| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:424-433`)                              |
-| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1676`)                          |
-| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1648`)                         |
-| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:971`)                                      |
-| `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:1002`)         |
-| `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:969`) |
-| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1308`)                                |
+| Déclaration                                 | Sémantique                                                                                                                             |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts#IsGranted`)                                             |
+| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts#SecurityClause.anyOf`)                       |
+| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts#SecurityRequirement.clauses`)         |
+| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts#computeSecurityRequirement`)         |
+| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts#Resolver._resolveSubject`)                       |
+| `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts#RequireScope`)       |
+| `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts#Anonymous`) |
+| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts#CurrentUser`)                               |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
-403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:537-539`). Le
+403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts#Resolver._enforceSecurity`). Le
 même `executeAction` sert le pipeline HTTP **et** l'invoke WS-RPC : une garde, tous les
 transports. L'enforcement déroule chaque clause : OR interne via un `decide()` par attribut, AND
-entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:901`).
+entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts#Resolver._enforceSecurity`).
 
 > [!IMPORTANT]
 > **Fail-closed intégral** : route gardée mais moteur `authorization` absent (module security non
 > chargé) OU aucune identité résolue (route **hors zone** firewall) → **403** direct
-> (`Resolver.ts:713-723`). Une route gardée doit être couverte par une zone — voir
+> (`Resolver.ts#Resolver._callWithIdempotency`). Une route gardée doit être couverte par une zone — voir
 > [firewall](./firewall.md).
 
 ## 🧑‍⚖️ Les voters intégrés — deux axes, un même jury
@@ -391,16 +391,16 @@ entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:901`).
 
 ### `role` — l'axe « qui tu es »
 
-Capte les attributs `ROLE_*` (`RoleVoter.supports()`, `RoleVoter.ts:25-27`) et vote :
+Capte les attributs `ROLE_*` (`RoleVoter.supports()`, `RoleVoter.ts#RoleVoter.supports`) et vote :
 
 - **`GRANT`** si l'utilisateur possède le rôle, hiérarchie résolue ; **`ABSTAIN` sinon — jamais
-  `DENY`** (`RoleVoter.vote()`, `RoleVoter.ts:33-35`). L'absence d'un rôle ne doit pas opposer un
+  `DENY`** (`RoleVoter.vote()`, `RoleVoter.ts#RoleVoter.vote`). L'absence d'un rôle ne doit pas opposer un
   **veto** aux autres axes (un accès peut être légitime via un scope ou l'ownership) : c'est le
   default-DENY du jury qui ferme, pas ce voter. C'est aussi ce qui rend l'OR
   (`@IsGranted(["A","B"])`) possible.
 - La hiérarchie est lue **en lazy** depuis le container — clé `roleHierarchy`
-  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:210`).
-- Sync par nature → `Promise.resolve`, pas de wrapper `async` inutile (`RoleVoter.ts:36-38`).
+  (`RoleVoter.ts#RoleVoter.vote`), posée par le firewall au boot (`firewall.ts#Firewall.#build`).
+- Sync par nature → `Promise.resolve`, pas de wrapper `async` inutile (`RoleVoter.ts#RoleVoter.vote`).
 
 #### Deux échelles de rôles — plateforme et organisation
 
@@ -424,15 +424,15 @@ héberge aussi les autres.
 ### `scope` — l'axe « ce qu'une clé déléguée peut faire »
 
 Frère du `role` sur l'autre axe. Capte la forme conventionnée `api:action` — un `:`, jamais
-`ROLE_*` (`ScopeVoter.supports()`, `ScopeVoter.ts:46-48`) → aucune collision avec les rôles ni un
+`ROLE_*` (`ScopeVoter.supports()`, `ScopeVoter.ts#ScopeVoter.supports`) → aucune collision avec les rôles ni un
 verbe métier. Le cœur est le **modèle de confiance** :
 
 - **Jeton humain** (`session`, `userpassword`, `anonymous`) → `GRANT` no-op : un scope ne bride
-  **jamais** un humain, son autorisation passe par ses rôles (`ScopeVoter.ts:52-54`).
+  **jamais** un humain, son autorisation passe par ses rôles (`ScopeVoter.ts#ScopeVoter.vote`).
 - **Jeton machine** (`apikey`, `jwt`, `oauth2`, ou tout type futur) → `GRANT` si le scope exact
-  est présent, sinon `ABSTAIN` (`ScopeVoter.ts:57-61`).
+  est présent, sinon `ABSTAIN` (`ScopeVoter.ts#ScopeVoter.vote`).
 - **Fail-closed côté machine** : `NON_SCOPABLE_TOKEN_TYPES` est une **allowlist d'humains**
-  (`ScopeVoter.ts:17-21`) — tout type absent (`mtls`, `agent`…) est considéré **scopable**, donc
+  (`ScopeVoter.ts#NON_SCOPABLE_TOKEN_TYPES`) — tout type absent (`mtls`, `agent`…) est considéré **scopable**, donc
   bridé par défaut. Un nouveau type de jeton délégué est **fermé par oubli**, jamais ouvert.
 - Pur : aucune dépendance, aucune I/O — instancié une fois au boot.
 
@@ -456,23 +456,23 @@ use("@nodefony/security", {
 
 - **Clé** : un scope exact, ou une famille `préfixe:*`. Une clé exacte l'emporte sur une famille,
   la famille la plus longue sur une plus courte ; l'ordre des clés ne décide de rien
-  (`ScopeGrantPolicy.rolesFor()`, `scopeGrants.ts:109`).
+  (`ScopeGrantPolicy.rolesFor()`, `scopeGrants.ts#ScopeGrantPolicy.rolesFor`).
 - **Valeur** : les rôles dont **un** suffit, hiérarchie de rôles comprise. Une liste vide est
   refusée au démarrage : pour n'accorder un scope à personne, on ne l'expose pas.
 - **Non déclaré** : le scope reste accordé à tout compte connecté. Rien ne change pour une
   application qui ne déclare rien.
 - **Refusées au démarrage** : `admin:read`, `admin:write` et `admin:*`, réservés au plan
-  d'administration du framework (`scopeGrantKeyProblem()`, `scopeGrants.ts:51`). Le message nomme
+  d'administration du framework (`scopeGrantKeyProblem()`, `scopeGrants.ts#scopeGrantKeyProblem`). Le message nomme
   la clé et la raison.
 
 Un seul juge pour les deux émetteurs de l'application, et pour les deux familles de scopes
-(`refusedScopes()`, `scopeGrants.ts:136`) :
+(`refusedScopes()`, `scopeGrants.ts#refusedScopes`) :
 
-| Émetteur                                   | Scope refusé                                                                                    | Pourquoi cette forme                                                        |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Jeton d'accès (`/token`, `security:token`) | retiré ; le jeton est émis avec le reste, le refus est nommé au journal (`tokenService.ts:573`) | RFC 6749 §3.3 : le serveur accorde moins que demandé et le dit dans `scope` |
-| Renouvellement d'un jeton                  | rejugé sur les rôles du compte relu (`tokenService.ts:705`)                                     | un rôle retiré retire son scope au prochain renouvellement                  |
-| Clé API                                    | création refusée, **403** qui nomme le scope (`apiKeys.ts:144`)                                 | une clé créée avec moins que demandé surprendrait sans rien dire            |
+| Émetteur                                   | Scope refusé                                                                                                              | Pourquoi cette forme                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Jeton d'accès (`/token`, `security:token`) | retiré ; le jeton est émis avec le reste, le refus est nommé au journal (`tokenService.ts#TokenService.#grantableScopes`) | RFC 6749 §3.3 : le serveur accorde moins que demandé et le dit dans `scope` |
+| Renouvellement d'un jeton                  | rejugé sur les rôles du compte relu (`tokenService.ts#TokenService.refresh`)                                              | un rôle retiré retire son scope au prochain renouvellement                  |
+| Clé API                                    | création refusée, **403** qui nomme le scope (`apiKeys.ts#ApiKeyService.createForSubject`)                                | une clé créée avec moins que demandé surprendrait sans rien dire            |
 
 `grantableScopes` ne borne **pas** un jeton signé par un émetteur tiers (Keycloak…) : celui-ci
 accorde selon sa propre politique. Et ce n'est pas une règle de zone : un jeton ne sait pas quelle
@@ -489,10 +489,10 @@ endroits mêle les deux listes de rôles.
 voir [firewall](./firewall.md)) et fait deux choses au boot :
 
 - **Aplatissement DFS précalculé** (`#detectCycles()` puis `#precompute()`,
-  `RoleHierarchyWalker.ts:13-14`) → `RoleHierarchyWalker.hasRole()` est **O(1)** sur le hot path
-  (`RoleHierarchyWalker.ts:23-30`).
+  `RoleHierarchyWalker.ts#RoleHierarchyWalker.#precompute`) → `RoleHierarchyWalker.hasRole()` est **O(1)** sur le hot path
+  (`RoleHierarchyWalker.ts#RoleHierarchyWalker.hasRole`).
 - **Détection de cycles** par DFS coloré — un arc vers un nœud « en cours de visite » = cycle, et
-  le boot **jette avec le chemin complet** `A → B → A` (`RoleHierarchyWalker.ts:69-95`) : jamais
+  le boot **jette avec le chemin complet** `A → B → A` (`RoleHierarchyWalker.ts#RoleHierarchyWalker.#detectCycles`) : jamais
   de boucle infinie silencieuse en production.
 
 ## 🛡️ Le rôle par défaut d'une zone — et ce qu'il n'écrase pas
@@ -540,44 +540,44 @@ doit valoir partout se place donc dans le code de l'action, pas seulement dans u
 
 ## 🧩 Étendre le jury — le contrat et le registre
 
-Le contrat `IAccessVoter` (`IAccessVoter.ts:20-26`) tient en deux méthodes :
+Le contrat `IAccessVoter` (`IAccessVoter.ts#IAccessVoter`) tient en deux méthodes :
 
 - `supports(attribute, subject?)` — test **bon marché** : ce voter sait-il décider de cet
   attribut ? Appelé sur chaque voter à chaque `decide()`.
 - `vote(token, attribute, subject?)` — **async** (les voters métier font des lookups DB) ; renvoie
-  un `VoterVote` : `GRANT` / `DENY` / `ABSTAIN` (`IAccessVoter.ts:7-11`).
+  un `VoterVote` : `GRANT` / `DENY` / `ABSTAIN` (`IAccessVoter.ts#VoterVote`).
 
 L'enregistrement passe par le registre — `registerVoterFactory(name, factory)`
-(`voterRegistry.ts:39-44`), consommé une fois au boot (`listVoterFactories()`,
-`voterRegistry.ts:47-49`). La fabrique reçoit `{ container }` et ne fait **que construire** : les
+(`voterRegistry.ts#registerVoterFactory`), consommé une fois au boot (`listVoterFactories()`,
+`voterRegistry.ts#listVoterFactories`). La fabrique reçoit `{ container }` et ne fait **que construire** : les
 résolutions coûteuses restent lazy dans l'instance (cf. le `DocumentVoter` du Démarrage rapide).
 
 Pourquoi un registre et pas un scan DI des `@injectable` : les interfaces TS sont **effacées à la
 compilation** — rien à scanner au runtime ; le registre **est** le marqueur explicite
-(`voterRegistry.ts:10-16`). Convention-frère : `authenticatorRegistry`, `tokenStoreRegistry`.
+(`voterRegistry.ts#IVoterFactoryContext`). Convention-frère : `authenticatorRegistry`, `tokenStoreRegistry`.
 
 ## 🔌 HTTP et WebSocket — une garde, N transports
 
-- **La même garde** : `Resolver.executeAction()` (`Resolver.ts:455`) est le point unique
+- **La même garde** : `Resolver.executeAction()` (`Resolver.ts#Resolver.executeAction`) est le point unique
   d'enforcement — pipeline HTTP classique **et** invoke WS-RPC (pont `api.request`). Un
   `@IsGranted` protège donc l'action quel que soit le transport (prouvé bout en bout par le banc
   `ws-isgranted-jwt`).
 - **Le service ignore le transport** : l'audit lit `getUserIdentifier()`, commun à `IToken` (HTTP)
-  et `IRealtimeToken` (WS) (`authorization.ts:119-122`).
+  et `IRealtimeToken` (WS) (`authorization.ts#Authorization.#auditDeny`).
 - **Le verrou de frame** (canaux realtime) applique son RBAC par canal avec la **même
-  hiérarchie** : `satisfies()` (`frameAuthorizer.ts:290`) délègue à `Firewall.hasRole()`
-  (`firewall.ts:521`) — les rôles exigés par un canal héritent comme partout ailleurs.
+  hiérarchie** : `satisfies()` (`frameAuthorizer.ts#satisfies`) délègue à `Firewall.hasRole()`
+  (`firewall.ts#Firewall.hasRole`) — les rôles exigés par un canal héritent comme partout ailleurs.
 
 ## 📜 Normes appliquées
 
-| Domaine                    | Norme / posture                                                                                                         | Ancrage                                                   |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Contrôle d'accès           | OWASP Top 10 **A01** (IDOR, élévation)                                                                                  | défaut `DENY` du jury (`authorization.ts:100-108`)        |
-| Modèle de rôles            | RBAC **hiérarchique**, au sens des composantes _Core_ et _Hierarchical_ d'ANSI INCITS 359 — sans séparation des devoirs | `RoleHierarchyWalker.reachableRoles()`                    |
-| Combinaison des votes      | _deny-overrides_ : un refus l'emporte, le silence ferme                                                                 | `Authorization.decide()`                                  |
-| Scopes délégués            | **RFC 6749 §3.3** — définis par le serveur d'autorisation ; sans effet sur une session humaine                          | `ScopeVoter.vote()`                                       |
-| Modèle                     | **Zero Trust** (fermé par défaut)                                                                                       | 403 fail-closed du Resolver (`Resolver.ts:713-723`)       |
-| Journalisation de sécurité | audit des refus, jamais des octrois                                                                                     | `#auditDeny` → `recordAudit` (`authorization.ts:113-142`) |
+| Domaine                    | Norme / posture                                                                                                         | Ancrage                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Contrôle d'accès           | OWASP Top 10 **A01** (IDOR, élévation)                                                                                  | défaut `DENY` du jury (`authorization.ts#Authorization`)                  |
+| Modèle de rôles            | RBAC **hiérarchique**, au sens des composantes _Core_ et _Hierarchical_ d'ANSI INCITS 359 — sans séparation des devoirs | `RoleHierarchyWalker.reachableRoles()`                                    |
+| Combinaison des votes      | _deny-overrides_ : un refus l'emporte, le silence ferme                                                                 | `Authorization.decide()`                                                  |
+| Scopes délégués            | **RFC 6749 §3.3** — définis par le serveur d'autorisation ; sans effet sur une session humaine                          | `ScopeVoter.vote()`                                                       |
+| Modèle                     | **Zero Trust** (fermé par défaut)                                                                                       | 403 fail-closed du Resolver (`Resolver.ts#Resolver._callWithIdempotency`) |
+| Journalisation de sécurité | audit des refus, jamais des octrois                                                                                     | `#auditDeny` → `recordAudit` (`authorization.ts#Authorization`)           |
 
 > Ce tableau dit ce que le code **fait**, pas ce qu'il revendique : Nodefony n'est pas « conforme
 > ANSI 359 » (ni sessions de rôles, ni séparation des devoirs), pas « conforme XACML » (un seul
@@ -588,14 +588,14 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 ## ⚡ Performance & mémoire
 
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
-  alloc (`Resolver.ts:520`) ; l'exigence est **figée une fois** par route et partagée entre
-  requêtes (`SecurityRequirement`, `routerDecorators.ts:444`).
-- **`decide()` sans allocation** : itération en place des voters (`authorization.ts:70-72`),
-  instanciés **une seule fois** au boot (`authorization.ts:70`).
+  alloc (`Resolver.ts#Resolver._enforceActionSecurity`) ; l'exigence est **figée une fois** par route et partagée entre
+  requêtes (`SecurityRequirement`, `routerDecorators.ts#SecurityRequirement`).
+- **`decide()` sans allocation** : itération en place des voters (`authorization.ts#Authorization.decide`),
+  instanciés **une seule fois** au boot (`authorization.ts#Authorization.decide`).
 - **`hasRole()` O(1)** : hiérarchie aplatie au boot, rien de récursif par requête
-  (`RoleHierarchyWalker.ts:23-30`).
+  (`RoleHierarchyWalker.ts#RoleHierarchyWalker.hasRole`).
 - **Audit = cold path** : uniquement sur refus, avec un descripteur léger du sujet — jamais de
-  `JSON.stringify` aveugle (`describeSubject()`, `authorization.ts:159-165`).
+  `JSON.stringify` aveugle (`describeSubject()`, `authorization.ts#describeSubject`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
@@ -604,16 +604,16 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 | Une action gardée par `@RequireScope` seul reste accessible à un humain | le voter de scope accorde sans condition à une session — il ne contraint que les clés déléguées | ajouter un `@IsGranted`, ou compter sur le rôle par défaut de la zone   |
 | `@RequireScope("openid")` refuse tout, sans message                     | un scope sans `:` n'est capté par aucun voter → le jury ferme par défaut                        | employer la forme `api:action`, ou déclarer un voter pour cette famille |
 
-| Symptôme                               | Cause (dans le code)                                                                | Correction                                                     |
-| -------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Accès refusé alors que le rôle existe  | Attribut mal formé (pas `ROLE_…`) → le `RoleVoter` n'entre pas                      | Respecter le préfixe `ROLE_`                                   |
-| 403 systématique sur une route gardée  | Moteur absent OU identité non résolue — route **hors zone** (`Resolver.ts:713-723`) | Couvrir la route par une zone firewall                         |
-| Un voter métier bloque tout            | Il renvoie `DENY` au lieu d'`ABSTAIN` quand il ne s'applique pas                    | Renvoyer `ABSTAIN` hors de son domaine                         |
-| Un `DENY` n'a pas bloqué               | Attributs d'une clause = jurys **séparés** (OR) — un autre attribut a accordé       | Porter l'interdit en clause AND (empiler les `@IsGranted`)     |
-| Clé API accède à une action non prévue | Type de jeton traité comme humain (allowlist)                                       | Vérifier que le type n'est pas dans `NON_SCOPABLE_TOKEN_TYPES` |
-| `ROLE_ADMIN` n'hérite pas `ROLE_USER`  | Hiérarchie non déclarée / non posée au container                                    | Déclarer `roleHierarchy` (config security) au boot             |
-| Boot qui plante « cycle détecté »      | Hiérarchie de rôles cyclique                                                        | Casser le cycle (le message nomme le chemin)                   |
-| Accès accordé à un voter qui a planté  | (n'arrive pas) fail-closed : une erreur de voter = refus                            | Corriger le voter ; l'erreur est loggée ERROR                  |
+| Symptôme                               | Cause (dans le code)                                                                                      | Correction                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Accès refusé alors que le rôle existe  | Attribut mal formé (pas `ROLE_…`) → le `RoleVoter` n'entre pas                                            | Respecter le préfixe `ROLE_`                                   |
+| 403 systématique sur une route gardée  | Moteur absent OU identité non résolue — route **hors zone** (`Resolver.ts#Resolver._callWithIdempotency`) | Couvrir la route par une zone firewall                         |
+| Un voter métier bloque tout            | Il renvoie `DENY` au lieu d'`ABSTAIN` quand il ne s'applique pas                                          | Renvoyer `ABSTAIN` hors de son domaine                         |
+| Un `DENY` n'a pas bloqué               | Attributs d'une clause = jurys **séparés** (OR) — un autre attribut a accordé                             | Porter l'interdit en clause AND (empiler les `@IsGranted`)     |
+| Clé API accède à une action non prévue | Type de jeton traité comme humain (allowlist)                                                             | Vérifier que le type n'est pas dans `NON_SCOPABLE_TOKEN_TYPES` |
+| `ROLE_ADMIN` n'hérite pas `ROLE_USER`  | Hiérarchie non déclarée / non posée au container                                                          | Déclarer `roleHierarchy` (config security) au boot             |
+| Boot qui plante « cycle détecté »      | Hiérarchie de rôles cyclique                                                                              | Casser le cycle (le message nomme le chemin)                   |
+| Accès accordé à un voter qui a planté  | (n'arrive pas) fail-closed : une erreur de voter = refus                                                  | Corriger le voter ; l'erreur est loggée ERROR                  |
 
 ## 📡 Observabilité — Studio
 

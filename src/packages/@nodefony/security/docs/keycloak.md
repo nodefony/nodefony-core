@@ -36,8 +36,8 @@ source: "src/packages/@nodefony/security/docs/keycloak.md"
 > du realm suffit à le décrire. Le travail se passe surtout dans Keycloak : créer le realm, déclarer
 > un client **confidentiel**, enregistrer l'URL de retour au caractère près. Cette page fait le
 > chemin entier, puis montre comment le jeton Keycloak de la même personne ouvre aussi ton API, sur
-> le **même compte**. Ancré sur le fournisseur `createDiscoveredOidcProvider()` (`oidc.ts:267`) et
-> sur `OAuth2Service` (`oauth2.ts:280`).
+> le **même compte**. Ancré sur le fournisseur `createDiscoveredOidcProvider()` (`oidc.ts#createDiscoveredOidcProvider`) et
+> sur `OAuth2Service` (`oauth2.ts#OAuth2Service`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Keycloak**
 
@@ -98,19 +98,19 @@ Pour ton application, cela bloque trois risques concrets :
 
 **Aucun code propre à Keycloak.** Un serveur OpenID Connect publie lui-même ses points d'entrée ;
 le fournisseur `keycloak` les **découvre** à partir de l'émetteur, et c'est tout ce qu'il sait faire
-(`createDiscoveredOidcProvider()`, `oidc.ts:267`). Changer de realm, c'est changer une URL.
+(`createDiscoveredOidcProvider()`, `oidc.ts#createDiscoveredOidcProvider`). Changer de realm, c'est changer une URL.
 
 **Une configuration fausse arrête le démarrage.** Le fournisseur `keycloak` est enregistré avec
-`requiresIssuer: true` (`oauthProviderRegistry.ts:137`). Au boot, un émetteur absent, ou qui n'est
+`requiresIssuer: true` (`oauthProviderRegistry.ts#withKeycloakThemeHint`). Au boot, un émetteur absent, ou qui n'est
 pas une URL `https` sans requête ni fragment, lève une erreur qui nomme la clé
-(`checkProviderIssuer()`, `oauth2.ts:210`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
+(`checkProviderIssuer()`, `oauth2.ts#checkProviderIssuer`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
 disparaît de l'écran de connexion et revient tout seul quand le realm répond à nouveau
-(`#isReachable()`, `oauth2.ts:830`).
+(`#isReachable()`, `oauth2.ts#OAuth2Service.#isReachable`).
 
 **L'identité est la paire `(keycloak, sub)`, jamais l'email.** Au premier login, l'application crée
-un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:603`). Un
+un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts#UserService.provisionOAuthUser`). Un
 compte local qui porte déjà le même identifiant sans ce lien n'est **jamais** rattaché en silence :
-la connexion est refusée (`UserService.ts:414`).
+la connexion est refusée (`UserService.ts#UserService.changePassword`).
 
 **Keycloak authentifie, l'application autorise.** Les rôles du realm ne sont pas lus : le compte
 reçoit `defaultRoles` à sa création, puis la base locale fait foi. Une élévation se fait dans
@@ -263,7 +263,7 @@ lui, en a un de test — Mailpit (`--profile keycloak`, interface `http://localh
    développement de l'application, et l'application **reconnaît d'office l'autorité qui l'a
    signé** : en développement, le service de certificats l'ajoute aux autorités de confiance du
    processus dès le démarrage, commandes en ligne comprises (`addDefaultCaCertificate()`,
-   `certificates.ts:65`). La variable `NODE_EXTRA_CA_CERTS` n'est plus nécessaire.
+   `certificates.ts#addDefaultCaCertificate`). La variable `NODE_EXTRA_CA_CERTS` n'est plus nécessaire.
 
 Le realm généré porte aussi, comme celui du dépôt, un client **machine** `<app>-machine` (compte de
 service, `client_credentials`). Ses jetons portent l'audience de la zone `partner` que le gabarit
@@ -466,7 +466,7 @@ par une autorité qu'elle connaît. Trois cas :
 `NF_TLS_CA_FILE` alimente la clé `certificates.extraCaFiles` du module `@nodefony/http` : un ou
 plusieurs fichiers PEM, absolus ou relatifs à la racine de l'application, une chaîne entière
 (racine + intermédiaires) pouvant tenir dans un seul fichier. Ils sont ajoutés aux autorités du
-processus au démarrage, avant tout service (`trustCaFile()`, `certificates.ts:131`), et servent à
+processus au démarrage, avant tout service (`trustCaFile()`, `certificates.ts#trustCaFile`), et servent à
 **tous** ses appels sortants : découverte, point de jeton, jeu de clés. Un fichier introuvable, ou
 sans certificat, **interrompt le démarrage** en nommant le chemin (code 78) — plutôt qu'un
 `fetch failed` au premier clic d'un utilisateur. Seule exception : l'autorité de développement pas
@@ -475,7 +475,7 @@ exister — `npx nodefony http:certificates` l'engendre. C'est l'équivalent, po
 `NODE_EXTRA_CA_CERTS` : même effet, sans syntaxe de shell à traduire sous Windows.
 
 Pourquoi la deuxième ligne du tableau : l'autorité de développement n'est reconnue d'office qu'en
-mode `development` (`Certificate.trustDevelopmentAuthority()`, `certificates.ts:703`). Lancée
+mode `development` (`Certificate.trustDevelopmentAuthority()`, `certificates.ts#Certificate.trustDevelopmentAuthority`). Lancée
 en production — pour essayer le build sur le poste, par exemple —, l'application ne lui fait plus
 confiance sans qu'on le lui dise, et c'est voulu : une application de production qui adopterait en
 silence une autorité de développement ouvrirait une porte qu'aucune configuration ne montre. Le
@@ -561,14 +561,14 @@ keycloak: {
 1. Keycloak rend un jeton d'accès qui porte `"resource_access": { "mon-app": { "roles": ["admin"] } }`
    — c'est là, et seulement là par défaut, que Keycloak met les rôles (ni dans l'ID token, ni
    dans _userinfo_).
-2. `mapProviderRoles()` (`providerRoles.ts:87`) traduit `admin` → `ROLE_ADMIN` par la table.
-3. Le compte de bob reçoit `ROLE_ADMIN` (`reconcileProviderRoles()`, `user/nodefony/src/providerRoles.ts:112` côté
+2. `mapProviderRoles()` (`providerRoles.ts#mapProviderRoles`) traduit `admin` → `ROLE_ADMIN` par la table.
+3. Le compte de bob reçoit `ROLE_ADMIN` (`reconcileProviderRoles()`, `user/nodefony/src/providerRoles.ts#reconcileProviderRoles` côté
    `@nodefony/user`).
 
 **Les règles, à connaître avant de l'activer :**
 
 - **Recalcul à chaque connexion ET à chaque jeton d'API.** Un rôle retiré dans Keycloak disparaît
-  au login suivant, et dès le jeton suivant sur l'API (`syncOAuthRoles()`, `UserService.ts:690`).
+  au login suivant, et dès le jeton suivant sur l'API (`syncOAuthRoles()`, `UserService.ts#UserService.syncOAuthRoles`).
   Une session déjà ouverte garde ses droits jusqu'à la reconnexion.
 - **Un rôle Keycloak absent de la table est ignoré**, jamais recopié tel quel : l'annuaire ne
   fabrique pas de droit que l'application n'a pas déclaré.
@@ -584,7 +584,7 @@ keycloak: {
 - **Rôles de plateforme (`ROLE_NODEFONY_*`) refusés par défaut.** Ils ouvrent la console
   d'administration, la génération de code, les secrets : les faire venir de Keycloak fait de
   l'administrateur du realm un administrateur de l'instance. La table qui en contient un refuse
-  le démarrage (`config.ts:1244`) — sauf `allowPlatformRoles: true` ÉCRIT sur le fournisseur, que
+  le démarrage (`config.ts#oauthProviderSchema`) — sauf `allowPlatformRoles: true` ÉCRIT sur le fournisseur, que
   chaque démarrage rappelle par un avertissement. Sinon, ce rôle se donne à la main
   (`security:user:add --admin`, console d'administration).
 
@@ -638,7 +638,7 @@ export const securityConfig = () =>
 
 **Le même compte, pas un second.** Quand l'émetteur d'un jeton est celui d'un fournisseur de
 connexion déclaré (`oauth2.providers.keycloak.issuer`), l'authenticator cherche d'abord le compte lié
-à `(keycloak, sub)` — celui que le login par navigateur a créé (`ExternalJwtAuthenticator.ts:403`).
+à `(keycloak, sub)` — celui que le login par navigateur a créé (`ExternalJwtAuthenticator.ts#IExternalIssuerBinding.issuer`).
 Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<émetteur>#<sub>`.
 
 ## ☸️ En cluster — joindre Keycloak par son adresse interne
@@ -718,17 +718,17 @@ son adresse interne (constaté, pas déduit) :
 **Ce qui reste vérifié**, et ne se relâche jamais :
 
 - **L'émetteur est comparé à l'identique.** Seul le lieu de lecture change
-  (`metadataCandidateUrls()`, `authorizationServer.ts:214`) : un document lu à l'adresse interne
+  (`metadataCandidateUrls()`, `authorizationServer.ts#metadataCandidateUrls`) : un document lu à l'adresse interne
   qui se déclare d'un autre émetteur est refusé.
 - **Le `http` n'est admis que sur l'origine EXACTE de `discoveryUrl`** — même schéma, même hôte,
   même port —, et seulement pour le point de jeton et le jeu de clés
-  (`isBackChannelTransportAllowed()`, `authorizationServer.ts:240`). L'opérateur a déjà choisi
+  (`isBackChannelTransportAllowed()`, `authorizationServer.ts#isBackChannelTransportAllowed`). L'opérateur a déjà choisi
   cette adresse en l'écrivant ; un `http` vers une autre adresse est une adresse que personne n'a
   écrite, refusée.
 - **Les points du navigateur restent en `https`** (autorisation, déconnexion) : un navigateur
   renvoyé vers une adresse interne n'aboutirait nulle part.
 - **L'adresse est vérifiée au démarrage** : ni `http(s)`, ou porteuse d'identifiants ou d'un
-  fragment → démarrage refusé (`parseDiscoveryUrl()`, `authorizationServer.ts:183`).
+  fragment → démarrage refusé (`parseDiscoveryUrl()`, `authorizationServer.ts#parseDiscoveryUrl`).
 
 > [!WARNING]
 > Une adresse interne en `http` fait passer le **secret du client** et les jetons **en clair** sur
@@ -740,7 +740,7 @@ son adresse interne (constaté, pas déduit) :
 
 - **`https` partout, même en développement.** L'ID token est lu sans vérifier sa signature, ce
   qu'OIDC Core §3.1.3.7 n'admet que parce qu'il arrive du point de jeton par TLS. Un émetteur en
-  `http` est refusé au démarrage (`canonicalIssuer()`, `authorizationServer.ts:76`).
+  `http` est refusé au démarrage (`canonicalIssuer()`, `authorizationServer.ts#canonicalIssuer`).
 - **Client confidentiel obligatoire** : le schéma exige un secret non vide. Un client public ne
   conviendrait qu'à une application sans serveur, ce que n'est pas une application Nodefony.
 - **Anti-mix-up** : le paramètre `iss` du retour et le claim `iss` de l'ID token doivent égaler
@@ -777,27 +777,27 @@ les mêmes échecs (famille « Fournisseurs OAuth »), l'administration les sert
 `/nodefony/security/api/oauth/diagnosis`. Côté Keycloak, la sonde ouvre une session de connexion
 vide, qui expire seule.
 
-| Symptôme                                                                                                                           | Cause                                                                                                                   | Correction                                                                                                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Démarrage refusé : `security.oauth2.providers.keycloak.issuer est requis`                                                          | Les trois variables ne sont pas posées ensemble, ou `issuer` manque à la main                                           | Poser `NF_KEYCLOAK_ISSUER` (`checkProviderIssuer()`, `oauth2.ts:210`)                                                             |
-| Démarrage refusé : `émetteur invalide … https`                                                                                     | Émetteur en `http`, ou avec `?…`/`#…`                                                                                   | Recopier l'`issuer` du document _OpenID Endpoint Configuration_                                                                   |
-| Pas de bouton + WARNING `oauth2 provider "keycloak" indisponible`                                                                  | Keycloak injoignable, ou certificat non reconnu (`fetch failed (SELF_SIGNED_CERT_IN_CHAIN …)`)                          | Démarrer Keycloak ; déclarer l'autorité d'entreprise par `NF_TLS_CA_FILE`. Retour sous 30 s                                       |
-| Démarrage refusé (78) : `http.certificates.extraCaFiles : « … » est illisible`                                                     | Le fichier de `NF_TLS_CA_FILE` n'existe pas à ce chemin (relatif = à la racine de l'application)                        | Corriger le chemin, ou monter le fichier dans le pod                                                                              |
-| Avec `discoveryUrl` : `le document déclare « http://keycloak.sso:8080/… » alors qu'il a été demandé à « https://sso… »`            | `KC_HOSTNAME` absent : Keycloak prend le nom de l'adresse par laquelle on l'interroge                                   | `KC_HOSTNAME` = l'URL publique COMPLÈTE                                                                                           |
-| Avec `discoveryUrl` : le bouton est là, mais le retour de connexion échoue en `fetch failed` vers l'adresse publique               | `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` absent : Keycloak publie son point de jeton sur l'adresse publique                    | `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`                                                                                            |
-| Avec `discoveryUrl` : `« token_endpoint » doit être en https (ou en http sur l'origine de discoveryUrl …)`                         | Keycloak publie une AUTRE origine que celle de `discoveryUrl` (hôte ou port réécrit par un intermédiaire)               | Écrire dans `discoveryUrl` exactement l'origine que Keycloak publie                                                               |
-| `Invalid parameter: redirect_uri` sur la page Keycloak                                                                             | `redirectUri` ≠ les **Valid redirect URIs** du client                                                                   | Aligner schéma, hôte (`localhost` ≠ `127.0.0.1`), port et chemin                                                                  |
-| Retour sur `failureRedirect` + WARNING `unauthorized_client` (secret faux) ou `invalid_client` (client inconnu)                    | Mauvais secret, client absent du realm, ou client public (_Client authentication OFF_)                                  | Recopier le secret de l'onglet _Credentials_ ; passer le client en ON                                                             |
-| Retour sur `failureRedirect` + WARNING `OAuth issuer mismatch`                                                                     | Keycloak joint par deux adresses différentes : l'émetteur varie                                                         | Fixer `KC_HOSTNAME` à l'URL publique complète                                                                                     |
-| Retour sur `failureRedirect` + WARNING `local account exists without a keycloak link`                                              | Un compte local porte déjà cet identifiant (`UserService.ts:414`) — typiquement un `sub` changé après réimport du realm | Rattacher le compte explicitement, ou fixer l'`id` des utilisateurs dans l'export du realm                                        |
-| API : `401` avec un jeton Keycloak valide                                                                                          | Audience absente du jeton : pas de mapper _Audience_                                                                    | `security:keycloak:realm --write` puis import partiel ; `aud` doit contenir la `resource` de la zone                              |
-| Session de l'application vivante après une déconnexion chez Keycloak ; Keycloak journalise `Some clients have not been logged out` | _Front channel logout_ ON, ou **Backchannel logout URL** absente ou injoignable depuis Keycloak                         | _Front channel logout_ OFF ; une URL que Keycloak joint (en développement Linux : serveur à l'écoute au-delà de la boucle locale) |
+| Symptôme                                                                                                                           | Cause                                                                                                                                          | Correction                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Démarrage refusé : `security.oauth2.providers.keycloak.issuer est requis`                                                          | Les trois variables ne sont pas posées ensemble, ou `issuer` manque à la main                                                                  | Poser `NF_KEYCLOAK_ISSUER` (`checkProviderIssuer()`, `oauth2.ts#checkProviderIssuer`)                                             |
+| Démarrage refusé : `émetteur invalide … https`                                                                                     | Émetteur en `http`, ou avec `?…`/`#…`                                                                                                          | Recopier l'`issuer` du document _OpenID Endpoint Configuration_                                                                   |
+| Pas de bouton + WARNING `oauth2 provider "keycloak" indisponible`                                                                  | Keycloak injoignable, ou certificat non reconnu (`fetch failed (SELF_SIGNED_CERT_IN_CHAIN …)`)                                                 | Démarrer Keycloak ; déclarer l'autorité d'entreprise par `NF_TLS_CA_FILE`. Retour sous 30 s                                       |
+| Démarrage refusé (78) : `http.certificates.extraCaFiles : « … » est illisible`                                                     | Le fichier de `NF_TLS_CA_FILE` n'existe pas à ce chemin (relatif = à la racine de l'application)                                               | Corriger le chemin, ou monter le fichier dans le pod                                                                              |
+| Avec `discoveryUrl` : `le document déclare « http://keycloak.sso:8080/… » alors qu'il a été demandé à « https://sso… »`            | `KC_HOSTNAME` absent : Keycloak prend le nom de l'adresse par laquelle on l'interroge                                                          | `KC_HOSTNAME` = l'URL publique COMPLÈTE                                                                                           |
+| Avec `discoveryUrl` : le bouton est là, mais le retour de connexion échoue en `fetch failed` vers l'adresse publique               | `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` absent : Keycloak publie son point de jeton sur l'adresse publique                                           | `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`                                                                                            |
+| Avec `discoveryUrl` : `« token_endpoint » doit être en https (ou en http sur l'origine de discoveryUrl …)`                         | Keycloak publie une AUTRE origine que celle de `discoveryUrl` (hôte ou port réécrit par un intermédiaire)                                      | Écrire dans `discoveryUrl` exactement l'origine que Keycloak publie                                                               |
+| `Invalid parameter: redirect_uri` sur la page Keycloak                                                                             | `redirectUri` ≠ les **Valid redirect URIs** du client                                                                                          | Aligner schéma, hôte (`localhost` ≠ `127.0.0.1`), port et chemin                                                                  |
+| Retour sur `failureRedirect` + WARNING `unauthorized_client` (secret faux) ou `invalid_client` (client inconnu)                    | Mauvais secret, client absent du realm, ou client public (_Client authentication OFF_)                                                         | Recopier le secret de l'onglet _Credentials_ ; passer le client en ON                                                             |
+| Retour sur `failureRedirect` + WARNING `OAuth issuer mismatch`                                                                     | Keycloak joint par deux adresses différentes : l'émetteur varie                                                                                | Fixer `KC_HOSTNAME` à l'URL publique complète                                                                                     |
+| Retour sur `failureRedirect` + WARNING `local account exists without a keycloak link`                                              | Un compte local porte déjà cet identifiant (`UserService.ts#UserService.changePassword`) — typiquement un `sub` changé après réimport du realm | Rattacher le compte explicitement, ou fixer l'`id` des utilisateurs dans l'export du realm                                        |
+| API : `401` avec un jeton Keycloak valide                                                                                          | Audience absente du jeton : pas de mapper _Audience_                                                                                           | `security:keycloak:realm --write` puis import partiel ; `aud` doit contenir la `resource` de la zone                              |
+| Session de l'application vivante après une déconnexion chez Keycloak ; Keycloak journalise `Some clients have not been logged out` | _Front channel logout_ ON, ou **Backchannel logout URL** absente ou injoignable depuis Keycloak                                                | _Front channel logout_ OFF ; une URL que Keycloak joint (en développement Linux : serveur à l'écoute au-delà de la boucle locale) |
 
 | Démarrage refusé : `… est un rôle de PLATEFORME` | `roleMapping` traduit vers un `ROLE_NODEFONY_*` | Donner ce rôle à la main, ou écrire `allowPlatformRoles: true` en connaissance de cause |
 | Le rôle Keycloak n'apparaît pas dans l'application | Rôle du REALM alors que la source est `client`, ou rôle d'un autre client, ou session ouverte avant le changement | Créer le rôle sur le client de l'application, ou `rolesSource: ["realm"]` ; se reconnecter |
 
 La cause d'un retour sur `failureRedirect` n'est jamais montrée au navigateur ; elle est dans le
-journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.ts:213`).
+journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.ts#OAuth2Controller.authorize`).
 
 ## 🧪 Tests & couverture
 

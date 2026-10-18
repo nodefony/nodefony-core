@@ -81,7 +81,7 @@ sur quatre.
 La liaison passe par **`createSubscriber`** (`svelte/reactivity`), l'API publique faite exactement
 pour ce cas : elle intègre un objet ordinaire — écrit en TypeScript, bâti par le même bundler que les
 trois autres subpaths — au système d'effets, sans qu'aucune rune ne vive dans la bibliothèque
-(`src/nodefony/src/client/svelte/index.ts:228`).
+(`src/nodefony/src/client/svelte/index.ts#nodefony`).
 
 > ⚠️ **Cela ne restreint en rien ton application** : `$state`, `$derived`, `$effect` y fonctionnent
 > normalement — c'est le plugin Svelte du builder Nodefony qui les compile. Les exemples ci-dessous
@@ -97,7 +97,7 @@ mais jamais affichée ne s'abonne donc jamais.
 
 C'est le contrat de `createSubscriber`, et le comportement des primitives réactives de Svelte
 lui-même. Il est **mesuré**, pas supposé : un composant qui ne lit rien ne produit aucune trame
-`subscribe` (`src/nodefony/src/tests/clientSvelte.test.ts:1`).
+`subscribe` (`src/nodefony/src/tests/clientSvelte.test.ts`).
 
 **Quand l'abonnement doit être pris quoi qu'il arrive** — une présence, un effet de bord côté serveur
 — prendre {@link nodefonyChannel} dans un `$effect` : cette forme-là n'est pas paresseuse.
@@ -125,7 +125,7 @@ mount(App, { target: el });
 Svelte n'a pas de contexte applicatif comparable à React : `setContext` ne se pose qu'à
 l'initialisation d'un composant, et ne couvrirait donc pas les liaisons appelées ailleurs. La
 politique s'écrit ici comme ce qu'elle est en Svelte — une configuration de module
-(`src/nodefony/src/client/svelte/index.ts:171`).
+(`src/nodefony/src/client/svelte/index.ts#NodefonySvelteOptions.kernel`).
 
 L'adresse est écrite **ici, et nulle part ailleurs**. Sans `url` ni `client`, la configuration refuse :
 le framework ne devine aucune adresse, une adresse devinée marche en développement et se trompe en
@@ -235,7 +235,7 @@ un **teardown**, à donner à `$effect`.
 | `nodefonyNotifications(onNotice)`   | `teardown`                                 | les notices normalisées — à monter **une seule fois**        |
 | `nodefonyNoticeLog(opts?)`          | `Reactive<NodefonyNotice[]>`               | l'historique borné des incidents                             |
 
-La déclaration de chacune se lit dans `src/nodefony/src/client/svelte/index.ts:247` et suivantes.
+La déclaration de chacune se lit dans `src/nodefony/src/client/svelte/index.ts#nodefony` et suivantes.
 
 Sont aussi réexportés depuis ce subpath : `rateChannel`, `parseRate`, `isRateChannel` (fabriquer un
 nom de canal cadencé), et les types `RealtimeIdentity`, `RealtimeState`, `NodefonyNotice`,
@@ -292,7 +292,7 @@ Ce qui est **partagé** et ne dépend pas de Svelte — le comptage de référen
 reconnexion, l'appariement `on`↔`subscribe` — vit dans le socle agnostique et est prouvé une fois
 pour les quatre fronts. Ce qui est **propre à Svelte** — l'instant de l'abonnement, celui de sa
 restitution, l'ordre quand un canal change — est prouvé dans
-`src/nodefony/src/tests/clientSvelte.test.ts:1`.
+`src/nodefony/src/tests/clientSvelte.test.ts`.
 
 La socket, elle, **n'est jamais coupée par un composant**. Elle appartient à la page : la fermer au
 démontage trancherait les requêtes en vol des autres consommateurs.

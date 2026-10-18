@@ -214,11 +214,11 @@ sans embarquer un pare-feu applicatif, un moteur de jetons et une pile OAuth.
 L'utilisateur n'est pas UNE classe : c'est un contrat, une implémentation partagée, et des entités
 par ORM. Chaque couche a le droit d'ignorer la suivante.
 
-| Couche            | Quoi                            | Qui l'utilise                                        |
-| ----------------- | ------------------------------- | ---------------------------------------------------- |
-| ① Contrat strict  | `IUser` (`IUser.ts:31`)         | framework, décorateurs, Studio, agents — **partout** |
-| ② POJO partagé    | `BaseUser` (`BaseUser.ts:44`)   | tests, fixtures, dépôt mémoire, mapping des adapters |
-| ③ Entités par ORM | table Drizzle / schéma Mongoose | uniquement l'adapter concerné                        |
+| Couche            | Quoi                                | Qui l'utilise                                        |
+| ----------------- | ----------------------------------- | ---------------------------------------------------- |
+| ① Contrat strict  | `IUser` (`IUser.ts#IUser`)          | framework, décorateurs, Studio, agents — **partout** |
+| ② POJO partagé    | `BaseUser` (`BaseUser.ts#BaseUser`) | tests, fixtures, dépôt mémoire, mapping des adapters |
+| ③ Entités par ORM | table Drizzle / schéma Mongoose     | uniquement l'adapter concerné                        |
 
 Un adapter ORM n'expose jamais sa classe à l'application : il rend du `BaseUser` (ou tout ce qui
 satisfait le contrat). Changer de base de données ne change donc **rien** en amont.
@@ -237,10 +237,10 @@ flowchart LR
 ```
 
 - Le **repository** est la frontière de persistance : il lit et écrit le hash, par nature
-  (`IUserRepository.ts:42`).
-- L'**encodeur** est le seul autre composant à le manipuler (`IPasswordEncoder.ts:11`).
+  (`IUserRepository.ts#IUserListQuery.hasSocial`).
+- L'**encodeur** est le seul autre composant à le manipuler (`IPasswordEncoder.ts#IPasswordEncoder`).
 - Tout ce qui est **en aval** — provider, décorateurs, DTO, logs — reçoit `IUser`, sans credential
-  (`IUserProvider.ts:14`).
+  (`IUserProvider.ts#IUserProvider`).
 
 Le bénéfice n'est pas théorique : `@nodefony/security` tape sur un contrat typé plutôt que de faire
 un `as any` sur un objet dont il espère qu'il porte un champ `password`. Zéro downcast, zéro fuite
@@ -259,7 +259,7 @@ if (user.hasRole(ROLE_ANONYMOUS)) {
 ```
 
 Le singleton est **gelé** et son tableau de rôles aussi, partagé entre toutes les requêtes
-(`AnonymousUser.ts:8`) : sur une route publique très sollicitée, une requête anonyme n'alloue
+(`AnonymousUser.ts#ANONYMOUS_ROLES`) : sur une route publique très sollicitée, une requête anonyme n'alloue
 strictement rien pour représenter son utilisateur.
 
 ## 🚀 Démarrage rapide
@@ -271,7 +271,7 @@ choisir comment leurs mots de passe sont rangés, créer un compte et le retrouv
 
 L'encodeur ne se configure pas dans ce module : il est **dérivé de la config sécurité**, parce que
 c'est une politique de sécurité. Le firewall lit la section `encoders` et pose le service
-`passwordEncoder` dans le container (`service/firewall.ts:415`).
+`passwordEncoder` dans le container (`service/firewall.ts#Firewall.#wireRealtime`).
 
 ```typescript
 // nodefony.config.ts — extrait du manifeste `modules`
@@ -289,7 +289,7 @@ use("@nodefony/security", {
 
 > [!NOTE]
 > Sans section `encoders`, le défaut du schéma Zod est **déjà** un Argon2id sûr
-> (`security/nodefony/config/config.ts:1447`). Tu ne déclares cette section que pour ajouter un format
+> (`security/nodefony/config/config.ts#realtimeChannelRuleSchema`). Tu ne déclares cette section que pour ajouter un format
 > legacy, ou pour ajuster les coûts.
 
 ### 2. Déclarer le service `users` (`nodefony/security/provisionUsers.ts`)
@@ -460,7 +460,7 @@ sequenceDiagram
 ```
 
 Deux invariants s'y cachent. **Tous** les chemins d'échec consomment exactement une vérification de
-hash, y compris ceux qui n'ont aucun hash réel à vérifier (`UserService.ts:207`) — c'est ce qui
+hash, y compris ceux qui n'ont aucun hash réel à vérifier (`UserService.ts#UserService.create`) — c'est ce qui
 interdit de deviner l'existence d'un compte au chronomètre
 ([détail](#-sécurité--ce-que-le-module-défend-vraiment)). Et le **re-hash est transparent** : il a
 lieu au seul moment où le mot de passe en clair existe côté serveur, un login réussi.
@@ -468,7 +468,7 @@ lieu au seul moment où le mot de passe en clair existe côté serveur, un login
 ### L'ordre des vérifications
 
 `locked` → `disabled` → `no_password` → `bad_credentials`. Cet ordre est fixé
-(`UserService.ts:508`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
+(`UserService.ts#UserService.authenticate`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
 dans tous les cas, et la raison précise part dans l'événement `onAuthenticationFailure` — donc dans
 l'audit serveur, jamais dans la réponse.
 
@@ -483,7 +483,7 @@ l'audit serveur, jamais dans la réponse.
 | `onAuthenticated`         | authentification réussie                      | l'utilisateur            |
 | `onAuthenticationFailure` | tout échec                                    | identifiant + raison     |
 
-`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:411`) : un changement de
+`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts#UserService.changePassword`) : un changement de
 credential n'est pas une modification banale, et un abonné (audit, notification, invalidation de
 sessions) doit pouvoir le traiter à part.
 
@@ -494,33 +494,33 @@ et ne sont jamais recopiées ici (elles divergeraient). Ce tableau donne l'**usa
 
 ### Contrats
 
-| Contrat                      | Ce qu'il promet                                               | Ancre                         |
-| ---------------------------- | ------------------------------------------------------------- | ----------------------------- |
-| `IUser`                      | identité + rôles plats, sans credential                       | `IUser.ts:31`                 |
-| `IPasswordAuthenticatedUser` | idem + `password: string \| null`                             | `IUser.ts:72`                 |
-| `ISocialProvider`            | un lien vers un compte externe (`provider`/`providerId`)      | `IUser.ts:13`                 |
-| `IUserRepository`            | CRUD portable + finders métier + pagination native            | `IUserRepository.ts:81`       |
-| `IUserListQuery`             | filtres de listing (`role`, `enabled`, `q`) + fenêtre de page | `IUserRepository.ts:23`       |
-| `IUserProvider`              | source d'identité : **lève** si introuvable, jamais `null`    | `IUserProvider.ts:14`         |
-| `IPasswordVerifier`          | valide un couple identifiant/mot de passe, rend un verdict    | `IPasswordVerifier.ts:15`     |
-| `IPasswordEncoder`           | `supports`/`hash`/`verify`/`needsRehash`                      | `IPasswordEncoder.ts:51`      |
-| `IPasswordBlocklist`         | point d'extension « ce mot de passe est-il compromis ? »      | `IPasswordBlocklist.ts:12`    |
-| `IOAuthProfile`              | profil normalisé issu d'un fournisseur, **sans aucun jeton**  | `IOAuthUserProvisioner.ts:12` |
-| `IOAuthProvisionPolicy`      | rôles par défaut + autorisation de création à la volée        | `IOAuthUserProvisioner.ts:37` |
-| `IOAuthUserProvisioner`      | crée la ligne locale au premier login externe                 | `IOAuthUserProvisioner.ts:61` |
-| `IUserProfile`               | claims OIDC d'affichage, sous allowlist                       | `IUserProfile.ts:15`          |
+| Contrat                      | Ce qu'il promet                                               | Ancre                                              |
+| ---------------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
+| `IUser`                      | identité + rôles plats, sans credential                       | `IUser.ts#IUser`                                   |
+| `IPasswordAuthenticatedUser` | idem + `password: string \| null`                             | `IUser.ts#IPasswordAuthenticatedUser`              |
+| `ISocialProvider`            | un lien vers un compte externe (`provider`/`providerId`)      | `IUser.ts#ISocialProvider.providerId`              |
+| `IUserRepository`            | CRUD portable + finders métier + pagination native            | `IUserRepository.ts#IUserRepository`               |
+| `IUserListQuery`             | filtres de listing (`role`, `enabled`, `q`) + fenêtre de page | `IUserRepository.ts#IUserListQuery.enabled`        |
+| `IUserProvider`              | source d'identité : **lève** si introuvable, jamais `null`    | `IUserProvider.ts#IUserProvider`                   |
+| `IPasswordVerifier`          | valide un couple identifiant/mot de passe, rend un verdict    | `IPasswordVerifier.ts#IPasswordVerifier`           |
+| `IPasswordEncoder`           | `supports`/`hash`/`verify`/`needsRehash`                      | `IPasswordEncoder.ts#IPasswordEncoder.needsRehash` |
+| `IPasswordBlocklist`         | point d'extension « ce mot de passe est-il compromis ? »      | `IPasswordBlocklist.ts#IPasswordBlocklist`         |
+| `IOAuthProfile`              | profil normalisé issu d'un fournisseur, **sans aucun jeton**  | `IOAuthUserProvisioner.ts#IOAuthProfile`           |
+| `IOAuthProvisionPolicy`      | rôles par défaut + autorisation de création à la volée        | `IOAuthUserProvisioner.ts#IOAuthProvisionPolicy`   |
+| `IOAuthUserProvisioner`      | crée la ligne locale au premier login externe                 | `IOAuthUserProvisioner.ts#IOAuthUserProvisioner`   |
+| `IUserProfile`               | claims OIDC d'affichage, sous allowlist                       | `IUserProfile.ts#IUserProfile`                     |
 
 ### Le repository — quatre méthodes qui comptent
 
 `IUserRepository` étend `IRepository` d'[`@nodefony/orm-core`](../../orm-core/docs/index.md) et
 ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 
-| Méthode                  | Rôle                                                            | Ancre                    |
-| ------------------------ | --------------------------------------------------------------- | ------------------------ |
-| `findByIdentifier()`     | retrouver par email/login — le chemin du login                  | `IUserRepository.ts:92`  |
-| `findBySocialProvider()` | retrouver par lien externe — le chemin OAuth                    | `IUserRepository.ts:103` |
-| `listPage()`             | listing **paginé au store** (jamais un `find()` complet en RAM) | `IUserRepository.ts:121` |
-| `countActiveAdmins()`    | `COUNT` natif — le garde-fou anti-verrouillage                  | `IUserRepository.ts:131` |
+| Méthode                  | Rôle                                                            | Ancre                                                     |
+| ------------------------ | --------------------------------------------------------------- | --------------------------------------------------------- |
+| `findByIdentifier()`     | retrouver par email/login — le chemin du login                  | `IUserRepository.ts#IUserRepository.findByIdentifier`     |
+| `findBySocialProvider()` | retrouver par lien externe — le chemin OAuth                    | `IUserRepository.ts#IUserRepository.findBySocialProvider` |
+| `listPage()`             | listing **paginé au store** (jamais un `find()` complet en RAM) | `IUserRepository.ts#IUserRepository.listPage`             |
+| `countActiveAdmins()`    | `COUNT` natif — le garde-fou anti-verrouillage                  | `IUserRepository.ts#IUserRepository.countActiveAdmins`    |
 
 > [!IMPORTANT]
 > `listPage()` n'est pas un confort : c'est la règle mémoire du framework appliquée aux utilisateurs.
@@ -530,18 +530,18 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 
 ### Le service
 
-| Appel                                | Ce qu'il fait                                                 | Ancre                |
-| ------------------------------------ | ------------------------------------------------------------- | -------------------- |
-| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:203` |
-| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:333` |
-| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:371` |
-| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:397` |
-| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:494` |
-| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:531` |
-| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:547` |
-| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:582` |
-| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:603` |
-| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:179` |
+| Appel                                | Ce qu'il fait                                                 | Ancre                                             |
+| ------------------------------------ | ------------------------------------------------------------- | ------------------------------------------------- |
+| `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts#UserService.create`               |
+| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts#UserService.findByIdentifier`     |
+| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts#UserService.countActiveAdmins`    |
+| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts#UserService.countUserFacets`      |
+| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts#UserService.authenticate`         |
+| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts#UserService.authenticate`         |
+| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts#UserService.loadUserByIdentifier` |
+| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts#UserService.refreshUser`          |
+| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts#UserService.provisionOAuthUser`   |
+| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts#UserService.passwordBlocklist`    |
 
 **La distinction à retenir** : `loadUserByOAuth()` **lit** (et lève si le lien est inconnu) ;
 `provisionOAuthUser()` **écrit** (et crée le compte). Deux contrats, deux responsabilités — c'est ce
@@ -549,10 +549,10 @@ qui permet de brancher un provisionnement maison sans réécrire la lecture.
 
 ### Les erreurs
 
-| Erreur              | Code | Levée par                                                 | Ancre                     |
-| ------------------- | ---- | --------------------------------------------------------- | ------------------------- |
-| `UserNotFoundError` | 404  | les méthodes `IUserProvider`, et le provisionnement fermé | `UserNotFoundError.ts:13` |
-| `WeakPasswordError` | 400  | `createUser`/`changePassword` si la blocklist refuse      | `WeakPasswordError.ts:10` |
+| Erreur              | Code | Levée par                                                 | Ancre                                    |
+| ------------------- | ---- | --------------------------------------------------------- | ---------------------------------------- |
+| `UserNotFoundError` | 404  | les méthodes `IUserProvider`, et le provisionnement fermé | `UserNotFoundError.ts#UserNotFoundError` |
+| `WeakPasswordError` | 400  | `createUser`/`changePassword` si la blocklist refuse      | `WeakPasswordError.ts#WeakPasswordError` |
 
 `UserNotFoundError` porte un détail (`identifier "x"`, `social github:42`) destiné aux **logs
 serveur**. Les authenticators de sécurité la convertissent en 401 générique : la distinction
@@ -577,11 +577,11 @@ rendre insupportable pour ton serveur.
 | Détection du format         | préfixe PHC `$argon2id$`               | préfixe `$2a$`/`$2b$`/`$2y$`            |
 
 Les deux bindings sont des **peer dependencies optionnelles** chargées par import dynamique au
-premier `hash`/`verify` (`Argon2idEncoder.ts:140`) : une app qui n'authentifie que par OAuth ou par
+premier `hash`/`verify` (`Argon2idEncoder.ts#Argon2idEncoder.verify`) : une app qui n'authentifie que par OAuth ou par
 jeton ne les charge jamais.
 
 > [!TIP]
-> **Pourquoi `DEFAULT_TIME_COST` vaut 3 et non le minimum OWASP `t=2`** (`Argon2idEncoder.ts:47`) : une passe
+> **Pourquoi `DEFAULT_TIME_COST` vaut 3 et non le minimum OWASP `t=2`** (`Argon2idEncoder.ts#DEFAULT_TIME_COST`) : une passe
 > de plus renchérit l'attaquant d'environ 50 % **sans augmenter la RAM par hash**. Or c'est la
 > mémoire, multipliée par le nombre de hachages simultanés, qui est le vrai budget anti-déni de
 > service. Durcir par `t` est l'ajustement le moins risqué.
@@ -606,7 +606,7 @@ use("@nodefony/security", {
 ```
 
 `encoderFromConfig()` traduit cette liste ordonnée en encodeur exécutable
-(`encoderFromConfig.ts:56`) : une seule entrée → l'encodeur seul ; plusieurs entrées → un
+(`encoderFromConfig.ts#encoderFromConfig`) : une seule entrée → l'encodeur seul ; plusieurs entrées → un
 `MigratingEncoder` ; liste vide → un Argon2id aux défauts OWASP (repli sûr, jamais rien de plus
 faible).
 
@@ -624,8 +624,8 @@ retires l'entrée `historique` — et c'est tout.
 
 Le verdict de re-hachage se lit **dans le format PHC**, sans jamais avoir besoin du mot de passe en
 clair (analyse synchrone et gratuite) : variante autre que `id`, version antérieure à `0x13` ou coûts
-**inférieurs** aux coûts courants pour Argon2id (`Argon2idEncoder.ts:153`) ; coût inférieur pour
-bcrypt (`BcryptEncoder.ts:90`) ; format non principal pour le composite (`MigratingEncoder.ts:83`).
+**inférieurs** aux coûts courants pour Argon2id (`Argon2idEncoder.ts#Argon2idEncoder.needsRehash`) ; coût inférieur pour
+bcrypt (`BcryptEncoder.ts#BcryptEncoder.verify`) ; format non principal pour le composite (`MigratingEncoder.ts#MigratingEncoder.needsRehash`).
 Des coûts **supérieurs** ne déclenchent rien — on ne rétrograde jamais une politique déjà renforcée.
 
 > [!CAUTION]
@@ -635,7 +635,7 @@ Des coûts **supérieurs** ne déclenchent rien — on ne rétrograde jamais une
 
 ### Le tableau des paramètres
 
-Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1447`) — la source
+Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts#realtimeChannelRuleSchema`) — la source
 unique des bornes et des défauts.
 
 | Option        | Type                     | Défaut     | Bornes    | Effet                                            |
@@ -648,7 +648,7 @@ unique des bornes et des défauts.
 
 Le schéma **empêche** de descendre sous les minimums OWASP au boot : une config trop faible est
 rejetée avant que le serveur n'accepte la moindre requête. Les encodeurs, eux, ne valident que les
-bornes techniques de l'algorithme (`Argon2idEncoder.ts:76`) — c'est ce qui permet aux tests
+bornes techniques de l'algorithme (`Argon2idEncoder.ts#Argon2idEncoder.parallelism`) — c'est ce qui permet aux tests
 d'utiliser des coûts bas et rapides sans affaiblir la politique de production.
 
 ## 🔐 L'OAuth et le Shadow User — l'identité reste chez toi
@@ -674,7 +674,7 @@ flowchart TD
 
 Le compte local est le **Shadow User** : ton application garde sa propre ligne, avec ses propres
 rôles, son propre état actif/verrouillé. Le fournisseur n'est qu'une façon de prouver qu'on est bien
-la personne rattachée à cette ligne (`UserService.ts:388`).
+la personne rattachée à cette ligne (`UserService.ts#UserService.countUserFacets`).
 
 ### Trois invariants, et pourquoi ils existent
 
@@ -686,35 +686,35 @@ la personne rattachée à cette ligne (`UserService.ts:388`).
    connecté**.
 2. **Les rôles ne sont écrits qu'à la création.** Un re-login ne réapplique jamais
    `policy.defaultRoles` : si tu as retiré un rôle à quelqu'un, se reconnecter ne le lui rend pas
-   (`IOAuthUserProvisioner.ts:58`).
+   (`IOAuthUserProvisioner.ts#IOAuthProvisionPolicy.defaultRoles`).
 3. **Les comptes sont séparés par fournisseur.** `google:777` et `github:777` sont deux identités
    distinctes — la recherche porte sur la **paire** `(provider, providerId)`.
 
 Ces trois points ne sont pas des intentions : ils sont **prouvés** par le banc d'attaque
-`oauth.attack.test.ts:69` (`A1` collision d'email, `A2` élévation par re-login, `A3` collision
+`oauth.attack.test.ts` (`A1` collision d'email, `A2` élévation par re-login, `A3` collision
 d'identifiant entre fournisseurs).
 
 ### L'identifiant du Shadow User
 
-`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts:583`). Un
+`profile.email` s'il existe, sinon la clé stable `provider:providerId` (`UserService.ts#UserService.refreshUser`). Un
 fournisseur qui n'expose pas d'email ne bloque donc pas la connexion, et deux fournisseurs ne peuvent
 pas produire le même identifiant fonctionnel.
 
 ### Le profil d'affichage — des claims OIDC sous allowlist
 
 Nom, prénom, avatar, locale : ce sont des données d'**affichage**, pas d'identité. Elles vivent dans
-`metadata.profile`, jamais dans des colonnes dédiées (`IUserProfile.ts:15`), et six clés seulement
-sont reconnues (`userProfile.ts:142`).
+`metadata.profile`, jamais dans des colonnes dédiées (`IUserProfile.ts#IUserProfile`), et six clés seulement
+sont reconnues (`userProfile.ts#projectProfile`).
 
 Au provisionnement, ces champs sont pré-remplis depuis les claims du fournisseur — **une seule fois,
 à la création** : un login ultérieur n'écrase jamais ce que l'utilisateur a édité depuis.
-`profileFromClaims()` valide **champ par champ** (`userProfile.ts:192`) : un claim mal formé est
+`profileFromClaims()` valide **champ par champ** (`userProfile.ts#profileFromClaims`) : un claim mal formé est
 ignoré sans faire échouer la connexion, ni jeter les autres champs.
 
 > [!WARNING]
 > **Un avatar est du contenu hostile.** `picture` accepte une URL `http(s)` ou une data URL image,
 > mais uniquement `png`/`jpeg`/`webp` en base64 strict, plafonnée à 128 Ko
-> (`userProfile.ts:51`). **Le SVG est exclu par construction** : un SVG embarque du script, donc
+> (`userProfile.ts#DATA_IMAGE_RE`). **Le SVG est exclu par construction** : un SVG embarque du script, donc
 > afficher l'avatar d'un inconnu exécuterait son code (XSS). Le GIF est exclu pour le poids et
 > l'animation.
 
@@ -728,30 +728,30 @@ implémentes ; rien à déclarer ailleurs.
 Implémente `IUserRepository` et passe-le au `UserService`. Les adapters livrés
 (`DrizzleUserRepository`, `MongooseUserRepository`) ne sont rien d'autre que cela — et
 `InMemoryUserRepository` est l'implémentation de référence à lire pour comprendre le contrat
-(`InMemoryUserRepository.ts:35`).
+(`InMemoryUserRepository.ts#InMemoryUserRepository.sortableFields`).
 
 **Trois pièges à ne pas reproduire**, appris en écrivant le dépôt mémoire :
 
 - `updateOne` doit appliquer **tous** les champs du patch, pas seulement ceux qui t'arrangent —
-  c'est le rôle de `#apply()` (`InMemoryUserRepository.ts:148`). N'en honorer qu'une partie fait un
+  c'est le rôle de `#apply()` (`InMemoryUserRepository.ts#InMemoryUserRepository.#apply`). N'en honorer qu'une partie fait un
   dépôt qui ment : un `{ enabled: false }` semble réussir sans rien désactiver.
 - `create` doit persister `socialProviders`, `enabled` et `locked` — sinon le second login OAuth ne
   retrouve pas le compte et crée un doublon.
 - `listPage` doit filtrer **au store**, avec un tri déterministe par défaut (`identifier ASC`) :
   sans ordre stable, la pagination par décalage saute et répète des lignes.
 
-Un **banc de contrat unique** (`tests/support/userPaginationContract.ts:54`) valide ces invariants
+Un **banc de contrat unique** (`tests/support/userPaginationContract.ts#runUserPaginationContract`) valide ces invariants
 sur n'importe quel backend : importe-le depuis ton paquet et branche ton harnais. Un écart entre
 deux stores devient un échec de test, pas une surprise en production.
 
 ### Sa propre source d'identité
 
-Un annuaire LDAP, un SSO maison ? Implémente `IUserProvider` (`IUserProvider.ts:14`) : la sécurité ne
+Un annuaire LDAP, un SSO maison ? Implémente `IUserProvider` (`IUserProvider.ts#IUserProvider`) : la sécurité ne
 connaît que ce contrat. Sémantique à respecter — **lever**, jamais rendre `null` : l'absence
 d'identité est un échec explicite, pas une valeur.
 
 Si tu veux seulement valider un couple identifiant/mot de passe contre un système externe, le contrat
-plus étroit `IPasswordVerifier` suffit (`IPasswordVerifier.ts:15`).
+plus étroit `IPasswordVerifier` suffit (`IPasswordVerifier.ts#IPasswordVerifier`).
 
 ### La politique de mot de passe — posée par défaut, et remplaçable
 
@@ -843,7 +843,7 @@ node scripts/generate/generate-password-blocklist.mjs <fichier-source>
 
 ### Son propre provisionnement OAuth
 
-Implémente `IOAuthUserProvisioner` (`IOAuthUserProvisioner.ts:61`). La capability est **duck-typée**
+Implémente `IOAuthUserProvisioner` (`IOAuthUserProvisioner.ts#IOAuthUserProvisioner`). La capability est **duck-typée**
 par `@nodefony/security` : si tu poses la tienne, elle est utilisée ; sinon, celle de `UserService`
 s'applique. C'est là qu'on branche une politique métier (rôles déduits d'un domaine d'email,
 rattachement à un tenant, refus d'un fournisseur pour certains comptes).
@@ -868,9 +868,9 @@ Le module ne persiste **rien** par lui-même : il définit la forme, les adapter
 | `createdAt`       | date             | `dateMs` non nul      | `timestamps: true`       | création                            |
 | `updatedAt`       | date             | `dateMs` + `onUpdate` | `timestamps: true`       | dernière modification               |
 
-**Source unique** : `USER_COLUMNS` (`user/nodefony/src/userContract.ts:109`). Les deux adapters en
-**dérivent** leur définition — `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts:82`) et
-`userSchema` (`mongoose/nodefony/entity/userEntity.ts:65`) ne recopient rien, ils traduisent. Chaque
+**Source unique** : `USER_COLUMNS` (`user/nodefony/src/userContract.ts#USER_COLUMNS`). Les deux adapters en
+**dérivent** leur définition — `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts#USER_TABLE_SPEC`) et
+`userSchema` (`mongoose/nodefony/entity/userEntity.ts#userSchema`) ne recopient rien, ils traduisent. Chaque
 colonne y déclare aussi **qui la lit**, ce qui permet à un refus de nommer le lecteur en même temps
 que la colonne absente. Le tableau ci-dessus est donc une lecture du contrat, jamais une quatrième
 copie : un test par adapter refuse toute colonne du contrat sans correspondance.
@@ -900,19 +900,19 @@ const carol = await userRepository.findByIdentifier("carol@example.com");
 ```
 
 **En lecture, il n'y a rien à faire.** Les trois dépôts reportent sur l'utilisateur rendu toute
-colonne hors contrat (`attachExtraColumns`, `userContract.ts:288`) : `carol.firstName` vaut
+colonne hors contrat (`attachExtraColumns`, `userContract.ts#attachExtraColumns`) : `carol.firstName` vaut
 `"Carol"`. Sans ce report, l'écriture passerait et la lecture perdrait — **sans une erreur** —, et tu
 verrais ta donnée en base et vide dans ton code.
 
 > [!WARNING]
 > **Un champ métier ne sort JAMAIS dans la console d'administration.** `toUserSummary` construit son
-> résumé champ par champ (`UserAdminApi.ts:107`) : ni ton `salaire` ni ta `note RH` ne partent dans
-> le data plane. Un test le garde (`UserAdminApi.test.ts:270`) — l'étanchéité ne tient pas à la
+> résumé champ par champ (`UserAdminApi.ts#toUserSummary`) : ni ton `salaire` ni ta `note RH` ne partent dans
+> le data plane. Un test le garde (`UserAdminApi.test.ts`) — l'étanchéité ne tient pas à la
 > prudence de qui édite ce fichier.
 
 > [!TIP]
 > **Où mettre la donnée ?** L'utilisateur est relu à **chaque requête portant une session**
-> (`SessionAuthenticator.ts:69`) : chaque colonne de cette table est ramenée en mémoire à chaque
+> (`SessionAuthenticator.ts#SessionAuthenticator.validateArea`) : chaque colonne de cette table est ramenée en mémoire à chaque
 > fois. D'où la règle : contrainte ou index sur une donnée du quotidien → **colonne dans `User`** ;
 > donnée sensible ou consultée rarement → **entité liée** ; sans schéma → **`metadata`**.
 
@@ -930,7 +930,7 @@ annuaire d'identités interrogeable par rôle et par sous-chaîne.
 Le choix du backend n'est pas résolu automatiquement — contrairement aux stores de session ou de
 jetons. C'est **l'application** qui construit son dépôt (voir le
 [Démarrage rapide](#-démarrage-rapide)). Un registre déclaratif énumère ce qui est branchable pour
-l'écran Studio « Stores » (`userStoreRegistry.ts:23`), sans jamais rien sélectionner.
+l'écran Studio « Stores » (`userStoreRegistry.ts#registerUserStore`), sans jamais rien sélectionner.
 
 ## 🧑‍⚖️ Rôles — deux échelles, et où s'arrête ce module
 
@@ -943,11 +943,11 @@ nommage.
 | `ROLE_*`          | l'**applicatif** — ton métier, ton tenant | `ROLE_ADMIN`, `ROLE_USER` |
 
 `ROLE_NODEFONY_ADMIN` est le rôle qui ouvre le data plane d'administration ; c'est celui que
-protègent les garde-fous anti-verrouillage (`UserAdminApi.ts:25`). Un `ROLE_ADMIN` applicatif
+protègent les garde-fous anti-verrouillage (`UserAdminApi.ts`). Un `ROLE_ADMIN` applicatif
 n'ouvre **pas** la console : il administre ton domaine métier, pas le framework.
 
 Ce module s'arrête à la **liste plate** : `IUser.roles` n'a aucune hiérarchie résolue
-(`IUser.ts:39`) et `hasRole()` compare de façon **exacte** (`BaseUser.ts:71`) — c'est ce qui rend la
+(`IUser.ts#IUser.roles`) et `hasRole()` compare de façon **exacte** (`BaseUser.ts#BaseUser.hasRole`) — c'est ce qui rend la
 lecture des rôles bon marché à chaque requête et les logs non ambigus. Trois choses n'y sont donc
 pas, par conception :
 
@@ -971,14 +971,14 @@ En quelques milliers de requêtes, l'attaquant reconstitue la liste des comptes.
 
 **La défense.** Tous les chemins d'échec consomment exactement une vérification de hash — y compris
 « identifiant inconnu », « compte verrouillé », « compte désactivé » et « compte sans mot de passe »
-(`UserService.ts:207`). Les trois derniers sont particulièrement traîtres : ils sont détectables
+(`UserService.ts#UserService.create`). Les trois derniers sont particulièrement traîtres : ils sont détectables
 **avant** toute vérification, donc les traiter naïvement crée un oracle plus rapide encore que
 l'identifiant inconnu.
 
-Le leurre vérifie le mot de passe **réellement saisi** contre un hash factice (`UserService.ts:399`),
+Le leurre vérifie le mot de passe **réellement saisi** contre un hash factice (`UserService.ts#UserService.countUserFacets`),
 et non une constante : le temps de calcul suit ainsi la taille de l'entrée, comme dans le cas réel.
 
-**La preuve.** Le banc `userServiceTiming.attack.test.ts:131` compte les appels à `verify` sur chaque
+**La preuve.** Le banc `userServiceTiming.attack.test.ts` compte les appels à `verify` sur chaque
 branche et vérifie qu'ils sont **égaux**, plutôt que de mesurer des durées (une mesure de temps est
 instable en intégration continue ; un compteur ne l'est pas).
 
@@ -986,14 +986,14 @@ instable en intégration continue ; un compteur ne l'est pas).
 
 Détaillée plus haut : [aucune liaison automatique par email, pas de réécriture des rôles au
 re-login, séparation par fournisseur](#-loauth-et-le-shadow-user--lidentité-reste-chez-toi).
-Prouvée par `oauth.attack.test.ts:71`.
+Prouvée par `oauth.attack.test.ts`.
 
 ### Le hash ne fuite pas
 
 Trois barrières, indépendantes :
 
-1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts:70`).
-2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts:107`). Il
+1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts#IPasswordAuthenticatedUser.password`).
+2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts#toUserSummary`). Il
    n'expose ni `password`, ni `metadata` (qui peut contenir du sensible), ni le moindre jeton dans
    les liens sociaux — seulement `provider`, `providerId` et une date. Le champ `hasPassword` dit
    qu'un mot de passe local **existe**, sans rien en révéler.
@@ -1002,7 +1002,7 @@ Trois barrières, indépendantes :
 ### Anti-verrouillage de l'administration
 
 Une erreur d'administration ne doit pas fermer la porte définitivement. Cinq garde-fous, tous dans
-`UserAdminApi.ts:345` :
+`UserAdminApi.ts#createUserAdminApi` :
 
 | Tentative                                      | Réponse                                     |
 | ---------------------------------------------- | ------------------------------------------- |
@@ -1013,7 +1013,7 @@ Une erreur d'administration ne doit pas fermer la porte définitivement. Cinq ga
 | supprimer ou désactiver le dernier admin actif | 409                                         |
 
 Le comptage passe par `countActiveAdmins()`, un `COUNT` natif au store — jamais un chargement complet
-en mémoire (`UserService.ts:371`).
+en mémoire (`UserService.ts#UserService.countActiveAdmins`).
 
 ### Cascade de révocation
 
@@ -1021,7 +1021,7 @@ en mémoire (`UserService.ts:371`).
 attend ses abonnés avant de rendre la main : `create` émet `onUserCreated`, et `onUserRevoked`
 part de `delete` (un événement par compte effectivement supprimé), de `updateOne` qui désactive
 (`enabled: false`), verrouille (`locked: true`) ou écrit un hash de mot de passe, et de
-`changePassword` (`USER_REVOKED_EVENT`, `UserService.ts:112`). Aucun transport — plan
+`changePassword` (`USER_REVOKED_EVENT`, `UserService.ts#USER_REVOKED_EVENT`). Aucun transport — plan
 d'administration, ligne de commande, contrôleur — n'émet : un geste qui passe par le service
 déclenche la cascade, quel que soit le chemin qui l'a porté. `@nodefony/security` s'y abonne une
 fois, au démarrage, pour éjecter sessions et jetons, et retirer les facteurs (TOTP, passkeys) d'un
@@ -1045,10 +1045,10 @@ personne n'entend ses événements. Passez le container du module en troisième 
 
 Les trois routes « moi » (`me`, `me/password`, `me/profile`) ne prennent **jamais** d'identifiant en
 paramètre. La cible est lue dans le contexte de requête serveur, posé au login par le firewall
-(`UserAdminApi.ts:197`). Viser le compte d'autrui est donc impossible — pas « interdit par un
+(`UserAdminApi.ts#currentIdentifier`). Viser le compte d'autrui est donc impossible — pas « interdit par un
 contrôle », mais inexprimable.
 
-`me/password` exige en plus le mot de passe **actuel** (`UserAdminApi.ts:767`) : une session volée ne
+`me/password` exige en plus le mot de passe **actuel** (`UserAdminApi.ts#createUserAdminApi`) : une session volée ne
 suffit pas à verrouiller un compte. Et comme cette re-vérification passe par `authenticate()`, qui ne
 déclenche aucun verrouillage dur, un attaquant ne peut pas non plus s'en servir pour enfermer le
 propriétaire légitime dehors.
@@ -1072,15 +1072,15 @@ propriétaire légitime dehors.
 Le module vit majoritairement **hors du chemin chaud** : un `BaseUser` est instancié à
 l'authentification, pas à chaque requête. Les points qui comptent :
 
-| Point               | Décision                                                                                                        | Ancre                     |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| Utilisateur anonyme | singleton gelé + rôles partagés gelés → 0 allocation/requête                                                    | `AnonymousUser.ts:44`     |
-| Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés                                                    | `BcryptEncoder.ts:10`     |
-| Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache                                                      | `UserService.ts:399`      |
-| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:179`      |
-| Listing             | pagination **native au store**, jamais de `find()` complet                                                      | `IUserRepository.ts:121`  |
-| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes                                                            | `IUserRepository.ts:131`  |
-| Registre de stores  | `Set` allouée au premier enregistrement                                                                         | `userStoreRegistry.ts:16` |
+| Point               | Décision                                                                                                        | Ancre                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Utilisateur anonyme | singleton gelé + rôles partagés gelés → 0 allocation/requête                                                    | `AnonymousUser.ts#anonymousUser`                       |
+| Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés                                                    | `BcryptEncoder.ts#loadBcrypt`                          |
+| Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache                                                      | `UserService.ts#UserService.countUserFacets`           |
+| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts#UserService.passwordBlocklist`         |
+| Listing             | pagination **native au store**, jamais de `find()` complet                                                      | `IUserRepository.ts#IUserRepository.listPage`          |
+| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes                                                            | `IUserRepository.ts#IUserRepository.countActiveAdmins` |
+| Registre de stores  | `Set` allouée au premier enregistrement                                                                         | `userStoreRegistry.ts#stores`                          |
 
 **Le vrai budget, c'est la mémoire du hachage.** Avec les défauts Argon2id, chaque vérification
 mobilise 19 MiB. Vingt logins simultanés, c'est ~380 MiB transitoires. Dimensionne en conséquence, et
@@ -1101,7 +1101,7 @@ banc de débit dédié (`npm run test:load` dans le paquet).
 ### Le data plane
 
 Le producteur est **défini** ici (le domaine lui appartient) mais **enregistré** par
-`@nodefony/security` au démarrage (`UserAdminApi.ts:894`) : `@nodefony/user` est une bibliothèque
+`@nodefony/security` au démarrage (`UserAdminApi.ts#createUserAdminApi`) : `@nodefony/user` est une bibliothèque
 pure, pas un module bootable. Le cœur prévoit explicitement ce cas.
 
 | Méthode  | Route                                    | Rôle requis           | Effet                                          |
@@ -1117,7 +1117,7 @@ pure, pas un module bootable. Le cœur prévoit explicitement ce cas.
 | `POST`   | `/nodefony/user/api/me/password`         | authentifié           | mon mot de passe (re-auth exigée)              |
 | `POST`   | `/nodefony/user/api/me/profile`          | authentifié           | mon profil d'affichage                         |
 
-Les bornes de pagination sont dures : 50 par défaut, **200 maximum** (`UserAdminApi.ts:26`). Les
+Les bornes de pagination sont dures : 50 par défaut, **200 maximum** (`UserAdminApi.ts`). Les
 mutations d'administration sont auditées dans la catégorie `authz` ; les actions self-service dans
 `authn`, **succès et échecs** — un échec de ré-authentification est un signal de sécurité.
 
@@ -1156,7 +1156,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vite
   (CRUD **et** pagination), le service (`UserService`), le provider (`userProvider`), le
   provisionnement (`oauthProvisioner`), la logique pure du profil (`userProfile`) et le data plane
   (`UserAdminApi`) ;
-- **banc de contrat** — `runUserPaginationContract()` (`userPaginationContract.ts:54`), importé
+- **banc de contrat** — `runUserPaginationContract()` (`userPaginationContract.ts#runUserPaginationContract`), importé
   **cross-paquet** par les adapters :
   le même seed déterministe et les mêmes assertions tournent sur mémoire, Drizzle (sqlite,
   PostgreSQL, MySQL/MariaDB) et Mongoose. Un écart entre backends est un échec, par construction ;

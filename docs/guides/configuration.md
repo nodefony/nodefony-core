@@ -302,7 +302,7 @@ grantableScopes: {                   grantableScopes: {
 Pour une liste de rôles, d'origines ou d'émetteurs, c'est un droit hérité en silence. La règle qui
 l'évite : **une liste n'est déclarée qu'à un endroit** — un module complète par des clés qui sont
 les siennes (son préfixe de scopes, sa zone), il ne redéclare pas celles de l'application. Ce
-comportement est figé par un test (`src/nodefony/src/tests/Tools.test.ts:285`).
+comportement est figé par un test (`src/nodefony/src/tests/Tools.test.ts`).
 
 ## Typage par module — `use()` propose les bonnes clés
 
@@ -339,7 +339,7 @@ registre. `nodefony create module` le génère déjà : un module neuf naît con
 ## Réactivité : `hot` vs `boot`
 
 La réactivité n'est **pas** déduite d'un tag posé sur chaque champ : elle vient d'une **liste
-explicite**, `configReactivity` (`src/nodefony/src/config/reactivity.ts:27`), interrogée par
+explicite**, `configReactivity` (`src/nodefony/src/config/reactivity.ts#configReactivity`), interrogée par
 `getConfigReactivity(path)`.
 
 - **`hot`** — applicable à chaud. Aujourd'hui **trois chemins exactement** : `log.active`,
@@ -349,7 +349,7 @@ explicite**, `configReactivity` (`src/nodefony/src/config/reactivity.ts:27`), in
   `protocol`, liste `modules`, `domain` compris.
 
 Un champ absent de la liste est donc `boot` — c'est le défaut sûr. L'application à chaud se fait par
-le data plane `PATCH /nodefony/kernel/api/config/{module}` (`KernelAdminApi.ts:891`), qu'utilise
+le data plane `PATCH /nodefony/kernel/api/config/{module}` (`KernelAdminApi.ts#createKernelAdminApi`), qu'utilise
 l'onglet **Configuration** de Studio, lequel badge chaque champ `🔥 à chaud` / `🔒 redémarrage`.
 
 ## Figée au démarrage — et surchargée par requête
@@ -563,7 +563,7 @@ host: z.string().min(1).default("localhost")
 ```
 
 Rien d'autre à écrire : le démarrage applique la variable (`applyEnvShortcuts()`,
-`src/nodefony/src/config/envShortcuts.ts:146`), `nodefony env` la reconnaît et `.env.example` la
+`src/nodefony/src/config/envShortcuts.ts#applyEnvShortcuts`), `nodefony env` la reconnaît et `.env.example` la
 décrit, avec la description et le défaut du schéma. `.meta()` se place **en dernier** dans la
 chaîne. Le nom suit la forme `NF_<MODULE>_<RÉGLAGE>`.
 
@@ -623,9 +623,9 @@ projet ni du framework. C'est le modèle Spring Boot starter / Symfony bundle, t
 
 | Terme               | Ce que c'est                                                                                                                                       |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`defineConfig`**  | La fonction qui compose la configuration de l'application (`defineConfig.ts:178`). Elle ne lit jamais l'environnement — elle assemble.             |
+| **`defineConfig`**  | La fonction qui compose la configuration de l'application (`defineConfig.ts#defineConfig`). Elle ne lit jamais l'environnement — elle assemble.    |
 | **`env.ts`**        | Le **seul** endroit qui lit l'environnement. Tout le reste reçoit des valeurs déjà résolues, ce qui rend la configuration testable sans variables. |
-| **`use()`**         | Déclarer un module et le configurer **avec ses types** (`use.ts:88`) : une clé mal orthographiée ne compile pas.                                   |
+| **`use()`**         | Déclarer un module et le configurer **avec ses types** (`use.ts#use`) : une clé mal orthographiée ne compile pas.                                  |
 | **Fusion profonde** | Les défauts du cœur et de chaque module servent de socle ; votre fichier n'écrit que les **écarts**.                                               |
 | **Provenance**      | D'où vient chaque valeur retenue : défaut, fichier, variable d'environnement. Elle reste consultable après le boot.                                |
 | **`hot` / `boot`**  | Une clé est soit relue à chaud, soit figée au démarrage. Confondre les deux fait croire qu'un réglage « ne prend pas ».                            |

@@ -101,7 +101,7 @@ Une clé d'API découpe le problème en trois :
 
 > [!IMPORTANT]
 > Une clé d'API n'est **pas** un mot de passe et ne s'utilise pas comme tel : elle a une entropie
-> de 256 bits (`SECRET_BYTES` de 32 octets, `apiKeyFormat.ts:30`) — inutile de la « complexifier »,
+> de 256 bits (`SECRET_BYTES` de 32 octets, `apiKeyFormat.ts#SECRET_BYTES`) — inutile de la « complexifier »,
 > impossible de la deviner. Le vrai risque n'est pas le devinage, c'est la **fuite** : d'où le
 > hachage au repos, l'expiration par défaut et la révocation immédiate.
 
@@ -115,21 +115,21 @@ qu'il arrive côté serveur — révoquer exige d'ajouter… un état serveur (d
 lecture qu'on voulait éviter. Une clé d'API vit **des mois** : un jeton auto-porté de six mois qui
 fuite est une porte ouverte de six mois. Le PAT inverse le compromis : sa vérité est dans le store,
 donc `revokedAt` posé = accès coupé à la requête suivante, sans attendre aucune expiration
-(`ApiKeyAuthenticator.authenticate()`, `ApiKeyAuthenticator.ts:97-104`).
+(`ApiKeyAuthenticator.authenticate()`, `ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`).
 
 **Ce que Nodefony fait pour que ça reste bon marché** — trois décisions ancrées au code :
 
 - **Un filtre hors-ligne avant la base.** La forme et le checksum sont validés en O(1) sans aucun
-  I/O — `parseApiKey()` (`apiKeyFormat.ts:131`). Une avalanche de chaînes au hasard ne devient
+  I/O — `parseApiKey()` (`apiKeyFormat.ts#parseApiKey`). Une avalanche de chaînes au hasard ne devient
   jamais une avalanche de requêtes SQL.
 - **Le secret n'existe nulle part au repos.** Seul `sha256(token)` est persisté — `hashApiKey()`
-  (`apiKeyFormat.ts:70`). Une fuite de la base ne donne aucune clé utilisable.
+  (`apiKeyFormat.ts#hashApiKey`). Une fuite de la base ne donne aucune clé utilisable.
 - **Aucun store en propre.** Les clés vivent dans le **même** `ITokenStore` que les refresh tokens,
-  discriminées par `kind: "pat"` (`ITokenStore.ts:74`) — une brique de moins à configurer, à
+  discriminées par `kind: "pat"` (`ITokenStore.ts#IAccessTokenRecord.kind`) — une brique de moins à configurer, à
   purger et à superviser. Le propriétaire du store reste le `TokenService` ([tokens](./tokens.md)).
 
 Et une décision assumée sur la crypto : `sha256` suffit **ici**, alors qu'un mot de passe humain
-exige argon2. La raison est écrite dans le code (`apiKeyFormat.ts:22-25`) — un secret de 256 bits
+exige argon2. La raison est écrite dans le code (`apiKeyFormat.ts#PUBID_BYTES`) — un secret de 256 bits
 tiré au hasard n'est ni brute-forçable ni exposé aux tables arc-en-ciel ; un hachage lent ne
 protégerait que des secrets faibles, et coûterait sur le chemin chaud.
 
@@ -196,9 +196,9 @@ export default OrdersController;
 ### 3. Émettre la clé — par l'API, avec une session
 
 L'émission est un **endpoint fourni**, monté seulement si le service `apiKeys` existe
-(`mountApiKeyRoutes()`, `ApiKeyController.ts:224`). Il n'y a **pas** de commande CLI pour créer une
+(`mountApiKeyRoutes()`, `ApiKeyController.ts#mountApiKeyRoutes`). Il n'y a **pas** de commande CLI pour créer une
 clé : la création exige une **session BFF** (les routes ne sont pas `bypassFirewall` —
-`ApiKeyController.ts:50-54`), parce que le porteur est **toujours** l'utilisateur courant, jamais un
+`ApiKeyController.ts#ApiKeyController`), parce que le porteur est **toujours** l'utilisateur courant, jamais un
 paramètre.
 
 ```bash
@@ -231,23 +231,23 @@ curl -si https://localhost:5152/api/v1/orders/list | head -1
 
 > [!WARNING]
 > Le champ `token` de la réponse 201 est la **seule** occasion de lire le secret : il n'est pas
-> stocké, donc pas re-dérivable (`IApiKeyCreated`, `IApiKey.ts:44`). Le listing ultérieur ne
-> renvoie que le `prefix` public (`#toView()`, `apiKeys.ts:413`). Perdue = ré-émise.
+> stocké, donc pas re-dérivable (`IApiKeyCreated`, `IApiKey.ts#IApiKeyCreated`). Le listing ultérieur ne
+> renvoie que le `prefix` public (`#toView()`, `apiKeys.ts#ApiKeyService.#toView`). Perdue = ré-émise.
 
 ## 🔐 Anatomie d'une clé — ce que chaque morceau paie
 
 Format émis : `<prefix>_<pubid><secret><crc>` — **un seul** `_`, le reste est **positionnel**. La
-raison est dans le code (`apiKeyFormat.ts:8-10`) : le charset base64url contient lui-même `-` et
+raison est dans le code (`apiKeyFormat.ts#PUBID_BYTES`) : le charset base64url contient lui-même `-` et
 `_`, donc un `split("_")` serait fragile ; on découpe par longueurs fixes.
 
-| Morceau  | Taille               | Secret ? | À quoi ça sert                                                                                     |
-| -------- | -------------------- | :------: | -------------------------------------------------------------------------------------------------- |
-| `prefix` | ≤ 12 car. minuscules |   non    | Marque applicative — discrimine du JWT, aide le secret-scanning (`config.ts:823`)                  |
-| `pubid`  | 6 octets → 8 car.    |   non    | Identifiant affichable dans la console (`nf_a1b2c3d4`) — `generateApiKey()` (`apiKeyFormat.ts:92`) |
-| `secret` | 32 octets → 43 car.  | **oui**  | 256 bits d'entropie — `SECRET_BYTES` (`apiKeyFormat.ts:30`)                                        |
-| `crc`    | 4 octets → 6 car.    |   non    | CRC32 du `prefix_pubid+secret` — `crcChunk()` (`apiKeyFormat.ts:63`)                               |
+| Morceau  | Taille               | Secret ? | À quoi ça sert                                                                                                 |
+| -------- | -------------------- | :------: | -------------------------------------------------------------------------------------------------------------- |
+| `prefix` | ≤ 12 car. minuscules |   non    | Marque applicative — discrimine du JWT, aide le secret-scanning (`config.ts#apiKeysSchema`)                    |
+| `pubid`  | 6 octets → 8 car.    |   non    | Identifiant affichable dans la console (`nf_a1b2c3d4`) — `generateApiKey()` (`apiKeyFormat.ts#generateApiKey`) |
+| `secret` | 32 octets → 43 car.  | **oui**  | 256 bits d'entropie — `SECRET_BYTES` (`apiKeyFormat.ts#SECRET_BYTES`)                                          |
+| `crc`    | 4 octets → 6 car.    |   non    | CRC32 du `prefix_pubid+secret` — `crcChunk()` (`apiKeyFormat.ts#crcChunk`)                                     |
 
-Le corps total fait donc 57 caractères — `BODY_LEN` (`apiKeyFormat.ts:34`), longueur vérifiée
+Le corps total fait donc 57 caractères — `BODY_LEN` (`apiKeyFormat.ts#BODY_LEN`), longueur vérifiée
 strictement au parsing.
 
 ### À quoi sert vraiment le CRC (et à quoi il ne sert pas)
@@ -257,21 +257,21 @@ deux choses très concrètes :
 
 1. **Rejeter une clé malformée en O(1), sans toucher le store.** `parseApiKey()` vérifie préfixe,
    longueur, charset base64url puis CRC — et renvoie `null` avant tout I/O
-   (`apiKeyFormat.ts:136-142`). C'est une défense **anti-DoS** : un attaquant qui bombarde des
+   (`apiKeyFormat.ts#parseApiKey`). C'est une défense **anti-DoS** : un attaquant qui bombarde des
    `nf_` aléatoires consomme du CPU, jamais des lectures de base.
 2. **Le secret-scanning.** GitHub, GitGuardian & co. reconnaissent un motif `nf_…` **dont le
    checksum tombe juste** avec un taux de faux positifs quasi nul. Une clé poussée par erreur dans
    un dépôt est détectée par l'outillage de l'écosystème, pas seulement par toi.
 
 La table CRC32 (IEEE 802.3) est précalculée **une fois** au chargement du module — `CRC_TABLE`
-(`apiKeyFormat.ts:40`) — et l'implémentation est locale et déterministe, pour ne dépendre ni d'une
-dépendance ni d'une variation de version Node (`crc32()`, `apiKeyFormat.ts:53`).
+(`apiKeyFormat.ts#CRC_TABLE`) — et l'implémentation est locale et déterministe, pour ne dépendre ni d'une
+dépendance ni d'une variation de version Node (`crc32()`, `apiKeyFormat.ts#crc32`).
 
 ### Un test encore moins cher, pour l'aiguillage
 
 Avant même de parser, le firewall doit savoir **quel** authenticator prend la main. C'est
-`looksLikeApiKey()` (`apiKeyFormat.ts:117`) : un simple `startsWith("<prefix>_")`, appelé par
-`ApiKeyAuthenticator.supports()` (`ApiKeyAuthenticator.ts:75`). C'est ce qui rend la cohabitation
+`looksLikeApiKey()` (`apiKeyFormat.ts#looksLikeApiKey`) : un simple `startsWith("<prefix>_")`, appelé par
+`ApiKeyAuthenticator.supports()` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.supports`). C'est ce qui rend la cohabitation
 `["apikey", "jwt"]` possible dans une même zone — un JWT a la structure `a.b.c`, il ne commence
 jamais par le préfixe.
 
@@ -279,44 +279,44 @@ jamais par le préfixe.
 
 ### Émission — `ApiKeyService.createForSubject()`
 
-`ApiKeyService.createForSubject()` (`apiKeys.ts:135`) est le seul chemin d'émission. Dans l'ordre :
+`ApiKeyService.createForSubject()` (`apiKeys.ts#ApiKeyService.createForSubject`) est le seul chemin d'émission. Dans l'ordre :
 
 1. **Validation du nom** — non vide, ≤ 100 caractères ; sinon `ApiKeyError` 400 (`#normalizeName()`,
-   `apiKeys.ts:357`).
+   `apiKeys.ts#ApiKeyService.#normalizeName`).
 2. **Validation des scopes** — tableau de chaînes non vides, dédupliquées, et **⊆ catalogue** si
-   `allowedScopes` est défini ; sinon 400 (`#normalizeScopes()`, `apiKeys.ts:368`).
+   `allowedScopes` est défini ; sinon 400 (`#normalizeScopes()`, `apiKeys.ts#ApiKeyService.#normalizeScopes`).
 3. **Droit d'obtenir chaque scope** — un scope réservé par `grantableScopes` à des rôles que le
    porteur n'a pas, ou `admin:*` sans le rôle d'administration, refuse la création entière :
-   `ApiKeyError` **403** qui nomme le scope (`refusedScopes()`, `apiKeys.ts:144`). Même juge que
+   `ApiKeyError` **403** qui nomme le scope (`refusedScopes()`, `apiKeys.ts#ApiKeyService.createForSubject`). Même juge que
    l'émission des jetons — voir [autorisation](./authorization.md).
 4. **Résolution de l'expiration** — `expiresInDays` explicite, sinon le défaut de config, `null` =
-   sans expiration ; une valeur non positive lève un 400 (`#resolveExpiry()`, `apiKeys.ts:390`).
+   sans expiration ; une valeur non positive lève un 400 (`#resolveExpiry()`, `apiKeys.ts#ApiKeyService.#resolveExpiry`).
 5. **Plafond anti-abus** — on ne compte que les clés **actives** (ni révoquées ni expirées) via
-   `#isActive()` (`apiKeys.ts:406`) ; au-delà de `maxPerSubject` → 409 (`apiKeys.ts:50`).
+   `#isActive()` (`apiKeys.ts#ApiKeyService.#isActive`) ; au-delà de `maxPerSubject` → 409 (`apiKeys.ts#ApiKeyService.#maxPerSubject`).
 6. **Génération** — 32 octets aléatoires, `publicPrefix` et `secretHash` dérivés
-   (`generateApiKey()`, `apiKeyFormat.ts:92`).
-7. **Écriture** — le `record` de `kind:"pat"` posé au store par `store.put()` (`apiKeys.ts:197`).
+   (`generateApiKey()`, `apiKeyFormat.ts#generateApiKey`).
+7. **Écriture** — le `record` de `kind:"pat"` posé au store par `store.put()` (`apiKeys.ts#ApiKeyService.createForSubject`).
 8. **Audit** — `apikey.created`, catégorie `token`, avec l'**id public** et les scopes, **jamais le
-   secret** (`apiKeys.ts:183-189`).
+   secret** (`apiKeys.ts#ApiKeyService.createForSubject`).
 
 Le service ne connaît pas le store à la construction : il le résout **paresseusement** du container
-au premier usage (`#resolveStore()`, `apiKeys.ts:344`) — indépendant de l'ordre de boot. Store
+au premier usage (`#resolveStore()`, `apiKeys.ts#ApiKeyService.#resolveStore`) — indépendant de l'ordre de boot. Store
 absent = **503 explicite**, jamais une 500 opaque.
 
 ### Vérification — `ApiKeyAuthenticator.authenticate()`
 
-Le chemin chaud, dans l'ordre exact du code (`ApiKeyAuthenticator.ts:93`) — chaque étape est un
+Le chemin chaud, dans l'ordre exact du code (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`) — chaque étape est un
 filtre qui coûte plus cher que la précédente :
 
-| #   | Contrôle                                | Coût            | Ancrage                                               |
-| --- | --------------------------------------- | --------------- | ----------------------------------------------------- |
-| 1   | Bearer présent + préfixe                | regex           | `readBearerHeader()` (`runtime/bearer.ts:68`)         |
-| 2   | Longueur, charset, **CRC**              | CPU local       | `parseApiKey` (`ApiKeyAuthenticator.ts:103`)          |
-| 3   | Lookup par `secretHash`                 | 1 lecture store | `findByHash` (`ApiKeyAuthenticator.ts:109`)           |
-| 4   | `kind:"pat"`, non révoquée, non expirée | en mémoire      | `ApiKeyAuthenticator.ts:111-118`                      |
-| 5   | Porteur banni ? (`invalidBefore`)       | 1 lecture store | `getInvalidBefore` (`ApiKeyAuthenticator.ts:121`)     |
-| 6   | Compte actif et non verrouillé          | 1 lecture user  | `#resolveUserOrReject` (`ApiKeyAuthenticator.ts:209`) |
-| 7   | `lastUsedAt` (throttlé)                 | 0 ou 1 écriture | `markUsed` (`ApiKeyAuthenticator.ts:187`)             |
+| #   | Contrôle                                | Coût            | Ancrage                                                                                    |
+| --- | --------------------------------------- | --------------- | ------------------------------------------------------------------------------------------ |
+| 1   | Bearer présent + préfixe                | regex           | `readBearerHeader()` (`runtime/bearer.ts#readBearerHeader`)                                |
+| 2   | Longueur, charset, **CRC**              | CPU local       | `parseApiKey` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`)                  |
+| 3   | Lookup par `secretHash`                 | 1 lecture store | `findByHash` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`)                   |
+| 4   | `kind:"pat"`, non révoquée, non expirée | en mémoire      | `ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`                                  |
+| 5   | Porteur banni ? (`invalidBefore`)       | 1 lecture store | `getInvalidBefore` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`)             |
+| 6   | Compte actif et non verrouillé          | 1 lecture user  | `#resolveUserOrReject` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.#resolveUserOrReject`) |
+| 7   | `lastUsedAt` (throttlé)                 | 0 ou 1 écriture | `markUsed` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.onSuccess`)                        |
 
 Deux points méritent d'être soulignés parce qu'ils décident du niveau de sécurité réel :
 
@@ -325,20 +325,20 @@ Deux points méritent d'être soulignés parce qu'ils décident du niveau de sé
   n'y a pas de cache d'identité. C'est ce qui fait qu'un départ de collaborateur coupe ses clés
   sans avoir à les énumérer.
 - **L'échec est toujours le même.** Malformée, inconnue, révoquée, expirée, porteur banni, compte
-  supprimé : un unique `"Invalid token"` (`INVALID_TOKEN`, `ApiKeyAuthenticator.ts:17`). Un
+  supprimé : un unique `"Invalid token"` (`INVALID_TOKEN`, `ApiKeyAuthenticator.ts#INVALID_TOKEN`). Un
   attaquant ne peut pas distinguer « cette clé n'existe pas » de « cette clé est révoquée » — c'est
   l'**anti-énumération**, la cause fine part dans l'audit, jamais au client.
 
 En cas de succès, le jeton est promu et porte trois attributs consommés en aval : `scopes`,
-`apiKeyId` et `tenantId` (`ApiKeyAuthenticator.ts:138-140`). Le challenge renvoyé sur un 401 de la
-zone est un simple `Bearer` (`challenge()`, `ApiKeyAuthenticator.ts:205`).
+`apiKeyId` et `tenantId` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`). Le challenge renvoyé sur un 401 de la
+zone est un simple `Bearer` (`challenge()`, `ApiKeyAuthenticator.ts#ApiKeyAuthenticator.challenge`).
 
 ### Câblage — d'où viennent le préfixe et le throttle
 
 L'authenticator n'est jamais instancié à la main : le firewall le construit depuis le registre, en
 lui injectant la config effective — `registerAuthenticatorFactory("apikey")`
-(`authenticatorRegistry.ts:52`), qui lit `prefix` et `lastUsedThrottleS`
-(`authenticatorRegistry.ts:166`). Conséquence pratique : changer `apiKeys.prefix` change **à la
+(`authenticatorRegistry.ts#registerAuthenticatorFactory`), qui lit `prefix` et `lastUsedThrottleS`
+(`authenticatorRegistry.ts`). Conséquence pratique : changer `apiKeys.prefix` change **à la
 fois** l'émission et la reconnaissance — les anciennes clés ne sont plus reconnues.
 
 ## Quatre parcours vécus
@@ -360,13 +360,13 @@ apiKeys: {
 **Ce qu'on observe** : `npx nodefony security:user:add ci-bot` (rôle `ROLE_USER` par défaut), login
 en tant que `ci-bot`, puis émission avec `{"scopes":["orders:read"]}`. Demander
 `{"scopes":["orders:write"]}` renvoie **400 `scope not allowed: orders:write`** — refusé à
-l'émission, pas seulement à l'usage (`#normalizeScopes()`, `apiKeys.ts:368`).
+l'émission, pas seulement à l'usage (`#normalizeScopes()`, `apiKeys.ts#ApiKeyService.#normalizeScopes`).
 
 > [!TIP]
 > Le catalogue `allowedScopes` de la config est un **complément**, pas la source : la console
 > propose aussi les scopes **découverts sur tes routes** (`@RequireScope`) par
-> `collectDeclaredApiScopes()` (`scopeCatalog.ts:29`), agrégés dans l'endpoint `capabilities`
-> (`ApiKeyController.ts:107`). Un formulaire de création qui ne ment pas.
+> `collectDeclaredApiScopes()` (`scopeCatalog.ts#collectDeclaredApiScopes`), agrégés dans l'endpoint `capabilities`
+> (`ApiKeyController.ts#ApiKeyController.capabilities`). Un formulaire de création qui ne ment pas.
 
 ### Faire tourner une clé sans coupure de service
 
@@ -375,7 +375,7 @@ doit y avoir **aucune** fenêtre pendant laquelle le job échoue.
 
 **Il n'y a pas de bouton « rotate »** — et c'est délibéré : une rotation atomique impliquerait
 soit deux secrets valides sous le même id (ambigu à auditer), soit une coupure. Le motif est le
-**recouvrement**, rendu possible par le plafond `maxPerSubject` (`apiKeys.ts:48`) :
+**recouvrement**, rendu possible par le plafond `maxPerSubject` (`apiKeys.ts#ApiKeyService.#maxPerSubject`) :
 
 1. Émettre une **seconde** clé (même porteur, mêmes scopes, nom `CI deploy v2`).
 2. Déployer le nouveau secret dans le CI.
@@ -383,7 +383,7 @@ soit deux secrets valides sous le même id (ambigu à auditer), soit une coupure
 4. **Puis** révoquer la v1.
 
 Ce qui rend l'étape 3 fiable : `lastUsedAt` est écrit de façon **throttlée**, pas à chaque requête —
-la fenêtre par défaut est de 60 s (`lastUsedThrottleS`, `config.ts:839`). Attends donc une minute
+la fenêtre par défaut est de 60 s (`lastUsedThrottleS`, `config.ts#apiKeysSchema`). Attends donc une minute
 avant de conclure qu'une clé « ne sert plus ».
 
 ### Révoquer une clé qui a fuité
@@ -393,27 +393,27 @@ aux autres clés ni au compte.
 
 Deux chemins, selon qui agit :
 
-| Qui        | Endpoint                                          | Portée                 | Ancrage                                 |
-| ---------- | ------------------------------------------------- | ---------------------- | --------------------------------------- |
-| Le porteur | `DELETE /nodefony/security/api/keys/{id}`         | **ses** clés seulement | `revokeForSubject()` (`apiKeys.ts:323`) |
-| Un admin   | `POST /nodefony/security/api/apikeys/{id}/revoke` | n'importe quelle clé   | `revokeAnyPat()` (`apiKeys.ts:277`)     |
+| Qui        | Endpoint                                          | Portée                 | Ancrage                                                            |
+| ---------- | ------------------------------------------------- | ---------------------- | ------------------------------------------------------------------ |
+| Le porteur | `DELETE /nodefony/security/api/keys/{id}`         | **ses** clés seulement | `revokeForSubject()` (`apiKeys.ts#ApiKeyService.revokeForSubject`) |
+| Un admin   | `POST /nodefony/security/api/apikeys/{id}/revoke` | n'importe quelle clé   | `revokeAnyPat()` (`apiKeys.ts#ApiKeyService.revokeAnyPat`)         |
 
 **Ce qu'on observe** : la révocation est **idempotente** et prend effet à la requête suivante —
-l'authenticator lit `revokedAt` avant toute autre décision (`ApiKeyAuthenticator.ts:111-118`).
+l'authenticator lit `revokedAt` avant toute autre décision (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`).
 Le banc d'intégration le prouve bout en bout : 200 avant, 401 après
-(`apikey-flow.test.ts:182-191`).
+(`apikey-flow.test.ts`).
 
 Une propriété de sécurité facile à manquer : si la clé n'existe pas **ou** appartient à quelqu'un
-d'autre, le porteur reçoit un **404 indiscernable**, jamais un 403 (`ApiKeyController.ts:139-142`).
+d'autre, le porteur reçoit un **404 indiscernable**, jamais un 403 (`ApiKeyController.ts#ApiKeyController.revoke`).
 Un 403 dirait « cette clé existe, mais pas à toi » — assez pour énumérer les identifiants des
-autres. Le banc couvre explicitement cet IDOR (`apikey-flow.test.ts:209`).
+autres. Le banc couvre explicitement cet IDOR (`apikey-flow.test.ts`).
 
 > [!WARNING]
 > Si tu dois couper **toutes** les clés d'un porteur d'un coup (compte compromis, départ), ne les
 > révoque pas une par une : pose le seuil `invalidBefore` du porteur
-> (`revokeAllForSubject`, `ITokenStore.ts:261`). L'authenticator rejette alors toute clé créée avant
+> (`revokeAllForSubject`, `ITokenStore.ts#ITokenStore.revokeAllForSubject`). L'authenticator rejette alors toute clé créée avant
 > ce seuil : `getInvalidBefore` est comparé au `createdAt` du record
-> (`ApiKeyAuthenticator.ts:121-124`) — y compris pour les clés que tu aurais oubliées.
+> (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`) — y compris pour les clés que tu aurais oubliées.
 
 ### Auditer qui a utilisé quoi
 
@@ -423,26 +423,26 @@ servi et qui les a révoquées.
 Trois sources, et il faut connaître les limites de chacune :
 
 1. **L'état** — le listing d'administration paginé, tous porteurs confondus : `GET
-/nodefony/security/api/apikeys` (`SecurityAdminApi.ts:394`), servi par `listPagePat()`
-   (`apiKeys.ts:236`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
-   `order=champ:ASC` (`parseTokenListQuery()`, `SecurityAdminApi.ts:126`), plafonnée à 200 entrées
-   (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:122`).
+/nodefony/security/api/apikeys` (`SecurityAdminApi.ts#createSecurityAdminApi`), servi par `listPagePat()`
+   (`apiKeys.ts#ApiKeyService.listPagePat`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
+   `order=champ:ASC` (`parseTokenListQuery()`, `SecurityAdminApi.ts#parseTokenListQuery`), plafonnée à 200 entrées
+   (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts#KEYS_MAX_LIMIT`).
 
    Le tri n'est accepté que sur les champs que le backend branché **déclare** savoir trier
-   (`sortableFields()`, `apiKeys.ts:102` → `ITokenStore.sortableFields`) : `createdAt`, `name`,
-   `subjectId`, `id` sur mémoire/SQL/Mongo (`TOKEN_SORTABLE_FIELDS`, `tokenSort.ts:27`). Tout autre
+   (`sortableFields()`, `apiKeys.ts#ApiKeyService.sortableFields` → `ITokenStore.sortableFields`) : `createdAt`, `name`,
+   `subjectId`, `id` sur mémoire/SQL/Mongo (`TOKEN_SORTABLE_FIELDS`, `tokenSort.ts#TOKEN_SORTABLE_FIELDS`). Tout autre
    champ est refusé en **400** — jamais accepté puis ignoré. Un backend Redis ne déclare rien (son
    `SCAN` n'a pas d'ordre global) : tout `order` y est donc refusé, ce qui est la vérité de ce
    store. Les champs _nullables_ (`lastUsedAt`, `expiresAt`, `revokedAt`) sont volontairement hors
    du vocabulaire : le placement des valeurs absentes diffère d'un moteur à l'autre, et un tri dont
    l'ordre dépend de la base configurée ne vaut pas mieux qu'un tri absent.
 
-2. **Le journal** — les événements d'audit `apikey.created` (`apiKeys.ts:183-189`) et `apikey.revoked`
-   (`apiKeys.ts:288-291` côté admin, `apiKeys.ts:331-333` côté porteur), catégorie `token`. La révocation
+2. **Le journal** — les événements d'audit `apikey.created` (`apiKeys.ts#ApiKeyService.createForSubject`) et `apikey.revoked`
+   (`apiKeys.ts#ApiKeyService.revokeAnyPat` côté admin, `apiKeys.ts#ApiKeyService.revokeForSubject` côté porteur), catégorie `token`. La révocation
    admin trace **l'acteur ET le porteur cible** — voir [audit](./audit.md).
 3. **Le dernier usage** — `lastUsedAt`, avec l'IP et l'agent de ce dernier appel
-   (`lastUsedIp`, `lastUsedUserAgent`, `ITokenStore.ts:135`), écrits ensemble par `markUsed`
-   (`ApiKeyAuthenticator.ts:187`). L'IP est lue par l'accesseur du contexte, qui tient compte des
+   (`lastUsedIp`, `lastUsedUserAgent`, `ITokenStore.ts#IAccessTokenRecord.lastUsedUserAgent`), écrits ensemble par `markUsed`
+   (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.onSuccess`). L'IP est lue par l'accesseur du contexte, qui tient compte des
    proxys de confiance ; si elle ne peut pas être lue, le champ reste vide sans faire échouer
    l'authentification.
 
@@ -453,17 +453,17 @@ applicatif qu'il faut alimenter, pas le store de jetons.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:820`), branché à la racine de la config du
-module (`config.ts:739`). Toutes les valeurs ci-dessous sont les **défauts réels**.
+Table dérivée du schéma Zod `apiKeysSchema` (`config.ts#apiKeysSchema`), branché à la racine de la config du
+module (`config.ts#trustedIssuerSchema`). Toutes les valeurs ci-dessous sont les **défauts réels**.
 
-| Option              | Type             | Défaut | Effet                                                                                  |
-| ------------------- | ---------------- | ------ | -------------------------------------------------------------------------------------- |
-| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts:811`)    |
-| `prefix`            | string ≤ 12      | `"nf"` | Marque des clés ; minuscules/chiffres — discrimine du JWT (`config.ts:823`)            |
-| `defaultExpiryDays` | number \| null   | `90`   | Expiration appliquée si l'appelant n'en donne pas ; `null` = jamais (`config.ts:832`)  |
-| `lastUsedThrottleS` | number (s)       | `60`   | Coalescence d'écriture de `lastUsedAt` ; `0` = à chaque usage (`config.ts:839`)        |
-| `maxPerSubject`     | number > 0       | `100`  | Plafond de clés **actives** par porteur ; au-delà → 409 (`config.ts:848`)              |
-| `allowedScopes`     | string[] \| null | `null` | Catalogue fermé à la création ; `null` = tout scope non vide accepté (`config.ts:857`) |
+| Option              | Type             | Défaut | Effet                                                                                               |
+| ------------------- | ---------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts#tokenExchangeSchema`) |
+| `prefix`            | string ≤ 12      | `"nf"` | Marque des clés ; minuscules/chiffres — discrimine du JWT (`config.ts#apiKeysSchema`)               |
+| `defaultExpiryDays` | number \| null   | `90`   | Expiration appliquée si l'appelant n'en donne pas ; `null` = jamais (`config.ts#apiKeysSchema`)     |
+| `lastUsedThrottleS` | number (s)       | `60`   | Coalescence d'écriture de `lastUsedAt` ; `0` = à chaque usage (`config.ts#apiKeysSchema`)           |
+| `maxPerSubject`     | number > 0       | `100`  | Plafond de clés **actives** par porteur ; au-delà → 409 (`config.ts#apiKeysSchema`)                 |
+| `allowedScopes`     | string[] \| null | `null` | Catalogue fermé à la création ; `null` = tout scope non vide accepté (`config.ts#apiKeysSchema`)    |
 
 Deux réglages méritent une décision consciente :
 
@@ -478,29 +478,29 @@ Deux réglages méritent une décision consciente :
 ### Les endpoints — deux portées, jamais mélangées
 
 **Console « mes clés »** (le porteur gère les siennes) — montées par `mountApiKeyRoutes()`
-(`ApiKeyController.ts:224`) **seulement si** le service `apiKeys` existe (`framework/index.ts:468`) ;
+(`ApiKeyController.ts#mountApiKeyRoutes`) **seulement si** le service `apiKeys` existe (`framework/index.ts#Framework.onKernelReady`) ;
 sinon 404, zéro surface. Aucune n'est `bypassFirewall` : la zone data plane exige la session BFF.
 
-| Méthode  | Chemin                                     | Rôle                                              | Ancrage                                      |
-| -------- | ------------------------------------------ | ------------------------------------------------- | -------------------------------------------- |
-| `POST`   | `/nodefony/security/api/keys`              | Émission → **201** + `token` clair (1×)           | `create()` (`ApiKeyController.ts:70`)        |
-| `GET`    | `/nodefony/security/api/keys`              | Mes clés, sans secret                             | `list()` (`ApiKeyController.ts:124`)         |
-| `GET`    | `/nodefony/security/api/keys/capabilities` | Plafond, scopes proposés, préfixe, durée          | `capabilities()` (`ApiKeyController.ts:107`) |
-| `DELETE` | `/nodefony/security/api/keys/{id}`         | Révoque **ma** clé ; 404 sinon (anti-énumération) | `revoke()` (`ApiKeyController.ts:137`)       |
+| Méthode  | Chemin                                     | Rôle                                              | Ancrage                                                                |
+| -------- | ------------------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `POST`   | `/nodefony/security/api/keys`              | Émission → **201** + `token` clair (1×)           | `create()` (`ApiKeyController.ts#ApiKeyController.create`)             |
+| `GET`    | `/nodefony/security/api/keys`              | Mes clés, sans secret                             | `list()` (`ApiKeyController.ts#ApiKeyController.list`)                 |
+| `GET`    | `/nodefony/security/api/keys/capabilities` | Plafond, scopes proposés, préfixe, durée          | `capabilities()` (`ApiKeyController.ts#ApiKeyController.capabilities`) |
+| `DELETE` | `/nodefony/security/api/keys/{id}`         | Révoque **ma** clé ; 404 sinon (anti-énumération) | `revoke()` (`ApiKeyController.ts#ApiKeyController.revoke`)             |
 
 **Administration** (gouvernance, réponse à incident) — data plane `SecurityAdminApi`, RBAC
 `ROLE_NODEFONY_ADMIN` :
 
-| Méthode | Chemin                                       | Rôle                                     | Ancrage                   |
-| ------- | -------------------------------------------- | ---------------------------------------- | ------------------------- |
-| `GET`   | `/nodefony/security/api/apikeys`             | Toutes les clés, **paginé au store**     | `SecurityAdminApi.ts:380` |
-| `GET`   | `/nodefony/security/api/apikeys/status`      | « Où on écrit » : classe réelle + driver | `SecurityAdminApi.ts:416` |
-| `POST`  | `/nodefony/security/api/apikeys/{id}/revoke` | Révoque n'importe quelle clé, audité     | `SecurityAdminApi.ts:440` |
+| Méthode | Chemin                                       | Rôle                                     | Ancrage                                      |
+| ------- | -------------------------------------------- | ---------------------------------------- | -------------------------------------------- |
+| `GET`   | `/nodefony/security/api/apikeys`             | Toutes les clés, **paginé au store**     | `SecurityAdminApi.ts#createSecurityAdminApi` |
+| `GET`   | `/nodefony/security/api/apikeys/status`      | « Où on écrit » : classe réelle + driver | `SecurityAdminApi.ts#createSecurityAdminApi` |
+| `POST`  | `/nodefony/security/api/apikeys/{id}/revoke` | Révoque n'importe quelle clé, audité     | `SecurityAdminApi.ts#createSecurityAdminApi` |
 
 Les deux espaces de chemins sont **disjoints** (`keys` vs `apikeys`) — aucune collision, et une
 console d'admin ne peut pas atterrir par erreur sur l'endpoint personnel.
 
-Codes d'erreur mappés par duck-typing sur `code` (`#renderApiKeyError()`, `ApiKeyController.ts:188`) :
+Codes d'erreur mappés par duck-typing sur `code` (`#renderApiKeyError()`, `ApiKeyController.ts#ApiKeyController.#renderApiKeyError`) :
 **400** validation (nom, scope, durée), **403** scope que le porteur ne peut pas obtenir, **409** plafond atteint, **503** clés indisponibles (store
 absent ou `enabled:false`).
 
@@ -523,9 +523,9 @@ import type {
 } from "@nodefony/security";
 ```
 
-Les contrats vivent dans `IApiKey.ts` : `IApiKeyView` (`IApiKey.ts:6`), `IApiKeyCreated`
-(`IApiKey.ts:44`), `IApiKeyCapabilities` (`IApiKey.ts:55`), `ICreateApiKeyOptions`
-(`IApiKey.ts:69`). Les signatures détaillées vivent dans le graphe TSDoc (`.ai/symbols.json`) —
+Les contrats vivent dans `IApiKey.ts` : `IApiKeyView` (`IApiKey.ts#IApiKeyView`), `IApiKeyCreated`
+(`IApiKey.ts#IApiKeyCreated`), `IApiKeyCapabilities` (`IApiKey.ts#IApiKeyCapabilities`), `ICreateApiKeyOptions`
+(`IApiKey.ts#ICreateApiKeyOptions`). Les signatures détaillées vivent dans le graphe TSDoc (`.ai/symbols.json`) —
 cette page explique l'usage, elle ne recopie pas les prototypes.
 
 ## 🧑‍⚖️ Scopes — ce que la clé a le droit de faire
@@ -537,10 +537,10 @@ Deux axes se combinent, et les confondre est l'erreur la plus fréquente :
 
 Une clé ne peut donc **jamais** dépasser son porteur : elle en est une restriction, pas une
 extension. Concrètement, `@RequireScope("orders:read")` sur une action est tranché par le
-`ScopeVoter`, dont la règle est asymétrique (`ScopeVoter.ts:44`) :
+`ScopeVoter`, dont la règle est asymétrique (`ScopeVoter.ts#ScopeVoter`) :
 
 - un jeton **humain** (session, mot de passe, anonyme) n'est jamais bridé par un scope — la liste
-  `NON_SCOPABLE_TOKEN_TYPES` (`ScopeVoter.ts:17`) le fait passer ; ce sont ses **rôles** qui décident ;
+  `NON_SCOPABLE_TOKEN_TYPES` (`ScopeVoter.ts#NON_SCOPABLE_TOKEN_TYPES`) le fait passer ; ce sont ses **rôles** qui décident ;
 - un jeton **machine délégué** (`apikey`, `jwt`, `oauth2`) doit porter le scope **exact**, sinon
   refus par défaut du jury.
 
@@ -549,24 +549,24 @@ Le détail du jury (voters, veto, hiérarchie de rôles) est sur la page
 
 ## Persistance — un store partagé avec les jetons
 
-Une clé d'API **n'a pas de table à elle**. Elle est un `IAccessTokenRecord` (`ITokenStore.ts:69`)
-de `kind:"pat"` (`ITokenStore.ts:74`), dans la même table que les refresh tokens — les champs sans
+Une clé d'API **n'a pas de table à elle**. Elle est un `IAccessTokenRecord` (`ITokenStore.ts#IAccessTokenRecord`)
+de `kind:"pat"` (`ITokenStore.ts#IAccessTokenRecord.kind`), dans la même table que les refresh tokens — les champs sans
 objet pour un PAT (`family`, `replacedBy`, `audience`) valent `null`.
 
 Les champs qui portent le sens **pour une clé d'API** :
 
-| Champ        | Rôle pour un PAT                                              | Ancrage              |
-| ------------ | ------------------------------------------------------------- | -------------------- |
-| `kind`       | `"pat"` — discrimine du refresh dans la même table            | `ITokenStore.ts:74`  |
-| `name`       | Libellé humain (« CI deploy ») — ce qu'on lit dans la console | `ITokenStore.ts:76`  |
-| `prefix`     | Préfixe public `nf_a1b2c3d4` (jamais le secret)               | `ITokenStore.ts:78`  |
-| `subjectId`  | Porteur — **référence logique**, pas une clé étrangère SQL    | `ITokenStore.ts:95`  |
-| `scopes`     | Capacités de la clé (lues par le `ScopeVoter`)                | `ITokenStore.ts:103` |
-| `secretHash` | `sha256` du token entier — clé de `findByHash`                | `ITokenStore.ts:111` |
-| `hashAlg`    | `"sha256"` — agilité crypto pour une migration future         | `ITokenStore.ts:113` |
-| `expiresAt`  | Expiration ou `null` (clé longue durée)                       | `ITokenStore.ts:131` |
-| `lastUsedAt` | Dernier usage, écrit **throttlé**                             | `ITokenStore.ts:133` |
-| `revokedAt`  | Révocation — le contrôle n°1 de l'authenticator               | `ITokenStore.ts:139` |
+| Champ        | Rôle pour un PAT                                              | Ancrage                                        |
+| ------------ | ------------------------------------------------------------- | ---------------------------------------------- |
+| `kind`       | `"pat"` — discrimine du refresh dans la même table            | `ITokenStore.ts#IAccessTokenRecord.kind`       |
+| `name`       | Libellé humain (« CI deploy ») — ce qu'on lit dans la console | `ITokenStore.ts#IAccessTokenRecord.name`       |
+| `prefix`     | Préfixe public `nf_a1b2c3d4` (jamais le secret)               | `ITokenStore.ts#IAccessTokenRecord.prefix`     |
+| `subjectId`  | Porteur — **référence logique**, pas une clé étrangère SQL    | `ITokenStore.ts#IAccessTokenRecord.subjectId`  |
+| `scopes`     | Capacités de la clé (lues par le `ScopeVoter`)                | `ITokenStore.ts#IAccessTokenRecord.scopes`     |
+| `secretHash` | `sha256` du token entier — clé de `findByHash`                | `ITokenStore.ts#ITokenStore.findByHash`        |
+| `hashAlg`    | `"sha256"` — agilité crypto pour une migration future         | `ITokenStore.ts#IAccessTokenRecord.hashAlg`    |
+| `expiresAt`  | Expiration ou `null` (clé longue durée)                       | `ITokenStore.ts#IAccessTokenRecord.expiresAt`  |
+| `lastUsedAt` | Dernier usage, écrit **throttlé**                             | `ITokenStore.ts#IAccessTokenRecord.lastUsedAt` |
+| `revokedAt`  | Révocation — le contrôle n°1 de l'authenticator               | `ITokenStore.ts#IAccessTokenRecord.revokedAt`  |
 
 > [!NOTE]
 > Les **colonnes et types par dialecte** ne sont pas dupliqués ici : le propriétaire du schéma est
@@ -593,38 +593,38 @@ révocation ne traverse pas. Le détail de la résolution, des avertissements et
 
 ## 📜 Normes appliquées
 
-| Domaine                           | Norme                                  | Ancrage                                                |
-| --------------------------------- | -------------------------------------- | ------------------------------------------------------ |
-| Schéma `Bearer` (transport)       | RFC 6750 §2.1                          | `readBearerHeader()` (`runtime/bearer.ts:68`)          |
-| `invalid_token` → 401 + challenge | RFC 6750 §3.1 · RFC 9110 §11           | `challenge()` (`ApiKeyAuthenticator.ts:205`)           |
-| Secret **jamais** stocké en clair | OWASP ASVS (secret storage)            | `hashApiKey()` (`apiKeyFormat.ts:70`)                  |
-| Secret montré une seule fois      | Pratique « shown once »                | `IApiKeyCreated.token` (`IApiKey.ts:46`)               |
-| Anti-énumération des ressources   | OWASP API1:2023 (BOLA/IDOR)            | 404 indiscernable (`ApiKeyController.ts:139-142`)      |
-| Message d'échec uniforme          | OWASP API2:2023 (Broken Auth)          | `INVALID_TOKEN` (`ApiKeyAuthenticator.ts:17`)          |
-| Révocation immédiate côté serveur | OWASP API2:2023                        | `revokedAt` vérifié (`ApiKeyAuthenticator.ts:111-118`) |
-| Entropie du secret (≥ 128 bits)   | NIST SP 800-63B                        | 32 octets aléatoires (`apiKeyFormat.ts:30`)            |
-| Plafond de ressources par acteur  | OWASP API4:2023 (Resource Consumption) | `maxPerSubject` (`apiKeys.ts:48`)                      |
+| Domaine                           | Norme                                  | Ancrage                                                                         |
+| --------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------- |
+| Schéma `Bearer` (transport)       | RFC 6750 §2.1                          | `readBearerHeader()` (`runtime/bearer.ts#readBearerHeader`)                     |
+| `invalid_token` → 401 + challenge | RFC 6750 §3.1 · RFC 9110 §11           | `challenge()` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.challenge`)          |
+| Secret **jamais** stocké en clair | OWASP ASVS (secret storage)            | `hashApiKey()` (`apiKeyFormat.ts#hashApiKey`)                                   |
+| Secret montré une seule fois      | Pratique « shown once »                | `IApiKeyCreated.token` (`IApiKey.ts#IApiKeyCreated.token`)                      |
+| Anti-énumération des ressources   | OWASP API1:2023 (BOLA/IDOR)            | 404 indiscernable (`ApiKeyController.ts#ApiKeyController.revoke`)               |
+| Message d'échec uniforme          | OWASP API2:2023 (Broken Auth)          | `INVALID_TOKEN` (`ApiKeyAuthenticator.ts#INVALID_TOKEN`)                        |
+| Révocation immédiate côté serveur | OWASP API2:2023                        | `revokedAt` vérifié (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`) |
+| Entropie du secret (≥ 128 bits)   | NIST SP 800-63B                        | 32 octets aléatoires (`apiKeyFormat.ts#SECRET_BYTES`)                           |
+| Plafond de ressources par acteur  | OWASP API4:2023 (Resource Consumption) | `maxPerSubject` (`apiKeys.ts#ApiKeyService.#maxPerSubject`)                     |
 
 ## ⚡ Performance & mémoire
 
 Le coût par requête authentifiée par clé est **maîtrisé par construction**, dans cet ordre :
 
 - **Le filtre le moins cher d'abord.** `supports()` ne fait qu'un `startsWith`
-  (`ApiKeyAuthenticator.ts:68`) ; le parsing complet (CRC inclus) est purement local
-  (`apiKeyFormat.ts:131`). Une valeur invalide ne coûte **aucun** I/O.
+  (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.constructor`) ; le parsing complet (CRC inclus) est purement local
+  (`apiKeyFormat.ts#parseApiKey`). Une valeur invalide ne coûte **aucun** I/O.
 - **Table CRC précalculée une fois** au chargement du module, jamais par appel
-  (`CRC_TABLE`, `apiKeyFormat.ts:40`).
+  (`CRC_TABLE`, `apiKeyFormat.ts#CRC_TABLE`).
 - **`lastUsedAt` throttlé** — sans cette coalescence, chaque requête d'API deviendrait une
-  **écriture** en base. Fenêtre par défaut 60 s (`ApiKeyAuthenticator.ts:127-134`) ; `0` rétablit
+  **écriture** en base. Fenêtre par défaut 60 s (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`) ; `0` rétablit
   l'écriture systématique, à ne choisir qu'en connaissance de cause.
 - **Dépendances résolues paresseusement** : store et fournisseur d'utilisateurs sont récupérés du
-  container au premier usage et mémoïsés (`ApiKeyAuthenticator.ts:173`, `apiKeys.ts:268`) — le boot
+  container au premier usage et mémoïsés (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.onSuccess`, `apiKeys.ts#ApiKeyService.revokeAnyPat`) — le boot
   ne paie rien si aucune clé n'est jamais présentée.
 - **Jamais N enregistrements en RAM** côté administration : le listing est paginé **au store**
-  (`listPagePat()`, `apiKeys.ts:236`), fenêtre plafonnée à 200 (`SecurityAdminApi.ts:107`).
+  (`listPagePat()`, `apiKeys.ts#ApiKeyService.listPagePat`), fenêtre plafonnée à 200 (`SecurityAdminApi.ts#IApiKeyAdmin`).
 
 Le point de vigilance restant : `createForSubject()` compte les clés actives via `findBySubject()`
-(`ITokenStore.ts:211`), qui charge **toutes** les clés du porteur. C'est borné par `maxPerSubject`
+(`ITokenStore.ts#ITokenStore.findBySubject`), qui charge **toutes** les clés du porteur. C'est borné par `maxPerSubject`
 (100 par défaut) et c'est un chemin froid (émission), pas le chemin chaud.
 
 ## 📡 Observabilité — Studio
@@ -633,15 +633,15 @@ L'écran **API Keys** (`/nodefony/api-keys`, `studio/frontend/src/routes/ApiKeys
 deux portées dans une seule page :
 
 - **Mes clés** — création, listing et révocation via le data plane personnel
-  (`KEYS_ENDPOINT`, `studio/frontend/src/routes/apikeys/apiKeysModel.ts:83`). Le secret est affiché
+  (`KEYS_ENDPOINT`, `studio/frontend/src/routes/apikeys/apiKeysModel.ts#KEYS_ENDPOINT`). Le secret est affiché
   dans la modale de création, une fois.
 - **Administration** — toutes les clés du système, pagination serveur et révocation ciblée
-  (`ADMIN_KEYS_ENDPOINT`, `studio/frontend/src/routes/apikeys/apiKeysModel.ts:93`), réservé à
+  (`ADMIN_KEYS_ENDPOINT`, `studio/frontend/src/routes/apikeys/apiKeysModel.ts#ADMIN_KEYS_ENDPOINT`), réservé à
   `ROLE_NODEFONY_ADMIN`.
 - **Badge « où on écrit »** — la classe réelle du store et son driver, lu défensivement pour que la
   console affiche toujours un état honnête (`API_KEYS_STATUS_ENDPOINT`,
-  `studio/frontend/src/routes/apikeys/apiKeysModel.ts:99` ; handler `IApiKeysStatus`,
-  `SecurityAdminApi.ts:61`).
+  `studio/frontend/src/routes/apikeys/apiKeysModel.ts#API_KEYS_STATUS_ENDPOINT` ; handler `IApiKeysStatus`,
+  `SecurityAdminApi.ts#IApiKeysStatus`).
 
 Les types du front sont des **miroirs** du contrat serveur — le secret est exclu par construction,
 pas masqué à l'affichage. Voir aussi l'écran **Audit** pour les événements `apikey.created` /
@@ -649,21 +649,21 @@ pas masqué à l'affichage. Voir aussi l'écran **Audit** pour les événements 
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                               | Cause (dans le code)                                                                           | Correction                                                             |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 404 sur `/nodefony/security/api/keys`                  | Routes montées seulement si le service `apiKeys` existe (`framework/index.ts:385`)             | Charger `@nodefony/security` + `apiKeys.enabled: true`                 |
-| 503 « API keys unavailable »                           | Store non provisionné (`TokenService` absent/désactivé) (`apiKeys.ts:330`)                     | Vérifier `jwt`/`tokenStore` — le `TokenService` pose le store          |
-| 401 à la création de clé                               | Ces routes exigent une **session** (pas de `bypassFirewall`)                                   | Se connecter d'abord (`/nodefony/security/api/auth/login`)             |
-| Le token clair est introuvable après coup              | Seul `sha256` est stocké — non re-dérivable (`apiKeyFormat.ts:70`)                             | Émettre une nouvelle clé, révoquer l'ancienne                          |
-| 409 « API key limit reached »                          | Plafond de clés **actives** atteint (`apiKeys.ts:163-167`)                                     | Révoquer les clés inutilisées ou relever `maxPerSubject`               |
-| 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts:311`)                                     | Ajouter le scope au catalogue, ou corriger la demande                  |
-| Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts:165`)       | Garder le `prefix` STABLE après la première émission                   |
-| Clé valide mais 403 sur la route                       | Autorisation, pas authentification : scope manquant — `ScopeVoter.vote()` (`ScopeVoter.ts:50`) | Émettre une clé portant le scope exigé par `@RequireScope`             |
-| Clé rejetée alors qu'elle n'est ni expirée ni révoquée | Porteur désactivé/verrouillé, ou seuil `invalidBefore` (`ApiKeyAuthenticator.ts:121-124`)      | Réactiver le compte, ou réémettre après le bannissement                |
-| 404 en révoquant la clé d'un autre porteur             | Anti-énumération volontaire, jamais 403 (`ApiKeyController.ts:139-142`)                        | Attendu — passer par l'endpoint d'administration                       |
-| `lastUsedAt` qui ne bouge pas tout de suite            | Écriture throttlée, 60 s par défaut (`ApiKeyAuthenticator.ts:127-134`)                         | Attendre la fenêtre, ou `lastUsedThrottleS: 0` (coût : 1 écriture/req) |
-| Révocation sans effet entre pods                       | Store `memory` en production (per-pod)                                                         | Store durable partagé — voir [tokens](./tokens.md)                     |
-| Listing d'admin sans `total` sur Redis                 | Comptage exact refusé (O(N)) — pagination par curseur                                          | Attendu : capacité réduite annoncée, paginer par `nextCursor`          |
+| Symptôme                                               | Cause (dans le code)                                                                                               | Correction                                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| 404 sur `/nodefony/security/api/keys`                  | Routes montées seulement si le service `apiKeys` existe (`framework/index.ts#Framework.onKernelReady`)             | Charger `@nodefony/security` + `apiKeys.enabled: true`                 |
+| 503 « API keys unavailable »                           | Store non provisionné (`TokenService` absent/désactivé) (`apiKeys.ts#ApiKeyService.revokeForSubject`)              | Vérifier `jwt`/`tokenStore` — le `TokenService` pose le store          |
+| 401 à la création de clé                               | Ces routes exigent une **session** (pas de `bypassFirewall`)                                                       | Se connecter d'abord (`/nodefony/security/api/auth/login`)             |
+| Le token clair est introuvable après coup              | Seul `sha256` est stocké — non re-dérivable (`apiKeyFormat.ts#hashApiKey`)                                         | Émettre une nouvelle clé, révoquer l'ancienne                          |
+| 409 « API key limit reached »                          | Plafond de clés **actives** atteint (`apiKeys.ts#ApiKeyService.createForSubject`)                                  | Révoquer les clés inutilisées ou relever `maxPerSubject`               |
+| 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts#ApiKeyService.#allowedScopes`)                                | Ajouter le scope au catalogue, ou corriger la demande                  |
+| Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts`)                               | Garder le `prefix` STABLE après la première émission                   |
+| Clé valide mais 403 sur la route                       | Autorisation, pas authentification : scope manquant — `ScopeVoter.vote()` (`ScopeVoter.ts#ScopeVoter.vote`)        | Émettre une clé portant le scope exigé par `@RequireScope`             |
+| Clé rejetée alors qu'elle n'est ni expirée ni révoquée | Porteur désactivé/verrouillé, ou seuil `invalidBefore` (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`) | Réactiver le compte, ou réémettre après le bannissement                |
+| 404 en révoquant la clé d'un autre porteur             | Anti-énumération volontaire, jamais 403 (`ApiKeyController.ts#ApiKeyController.revoke`)                            | Attendu — passer par l'endpoint d'administration                       |
+| `lastUsedAt` qui ne bouge pas tout de suite            | Écriture throttlée, 60 s par défaut (`ApiKeyAuthenticator.ts#ApiKeyAuthenticator.authenticate`)                    | Attendre la fenêtre, ou `lastUsedThrottleS: 0` (coût : 1 écriture/req) |
+| Révocation sans effet entre pods                       | Store `memory` en production (per-pod)                                                                             | Store durable partagé — voir [tokens](./tokens.md)                     |
+| Listing d'admin sans `total` sur Redis                 | Comptage exact refusé (O(N)) — pagination par curseur                                                              | Attendu : capacité réduite annoncée, paginer par `nextCursor`          |
 
 ## 🧪 Tests & couverture
 

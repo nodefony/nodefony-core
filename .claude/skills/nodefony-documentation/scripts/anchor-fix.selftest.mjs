@@ -98,7 +98,7 @@ try {
 
   const report = spawnSync(
     process.execPath,
-    [CHECK, "docs/page.md", "docs/lignes.md"],
+    [CHECK, "--lines", "docs/page.md", "docs/lignes.md"],
     {
       cwd: root,
       encoding: "utf8",

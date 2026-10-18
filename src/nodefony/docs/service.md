@@ -98,26 +98,26 @@ le même socle, et tout le monde parle la même langue.
 
 ## La vision Nodefony
 
-`Service` (`Service.ts:88`) porte cinq membres publics — `name`, `container`, `kernel`, `syslog`,
+`Service` (`Service.ts#Service`) porte cinq membres publics — `name`, `container`, `kernel`, `syslog`,
 `options` — et un bus **privé** `#nc` exposé en lecture seule par le getter
-`Service.notificationsCenter` (`Service.ts:117`). Toutes les méthodes d'événements passent par un
-getter privé gardé `Service.nc` (`Service.ts:98`) : c'est lui, et lui seul, qui lève
+`Service.notificationsCenter` (`Service.ts#Service.notificationsCenter`). Toutes les méthodes d'événements passent par un
+getter privé gardé `Service.nc` (`Service.ts#Service.#trackedListeners`) : c'est lui, et lui seul, qui lève
 `notificationsCenter not initialized` — le test est écrit **une fois** au lieu d'être dupliqué sur
 les 18 méthodes déléguées.
 
-Le constructeur (`Service.ts:79`) est volontairement **opportuniste** : il réutilise ce que le
+Le constructeur (`Service.ts#describeReceived`) est volontairement **opportuniste** : il réutilise ce que le
 container lui offre (`kernel`, `syslog`) et ne fabrique que ce qui manque. Le bus suit la même
 logique — partagé si on lui en passe un, dédié sinon, absent si on passe `false`.
 
-Le bus lui-même, `Event` (`Event.ts:117`), étend l'`EventEmitter` de Node avec exactement deux idées
+Le bus lui-même, `Event` (`Event.ts#Event`), étend l'`EventEmitter` de Node avec exactement deux idées
 maison :
 
-- `Event.emitAsync()` (`Event.ts:248`) attend les écouteurs **en séquence**, jamais en `Promise.all` —
+- `Event.emitAsync()` (`Event.ts#Event.emitAsync`) attend les écouteurs **en séquence**, jamais en `Promise.all` —
   l'ordre des effets de bord est prévisible par construction ;
-- `Event.emitAsyncGuarded()` (`Event.ts:301`) isole **chaque** écouteur (try/catch + délai maximal)
+- `Event.emitAsyncGuarded()` (`Event.ts#Event.emitAsyncGuarded`) isole **chaque** écouteur (try/catch + délai maximal)
   et renvoie `{ results, errors, stopped }` au lieu de laisser le premier rejet faire sauter la suite.
 
-Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3778`) : un
+Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts#Kernel.fireLifecycle`) : un
 hook de module qui pend ou qui jette ne gèle plus le démarrage du serveur.
 
 Le compromis assumé : `Service` **délègue** massivement (18 méthodes d'événements + 6 méthodes de
@@ -197,8 +197,8 @@ NOTICE  app          catalogue modifié : NF-001 ×3  # l'écouteur du module a 
 ```
 
 Le `msgid` de la deuxième ligne est `catalog` sans qu'on l'ait écrit : `Service.log()`
-(`Service.ts:364`) prend `this.name` par défaut. La trace `SERVICE ADD` vient de
-`Module.addService()` (`Module.ts:457`), qui instancie via l'injecteur puis range l'instance au
+(`Service.ts#Service.log`) prend `this.name` par défaut. La trace `SERVICE ADD` vient de
+`Module.addService()` (`Module.ts#Module.addService`), qui instancie via l'injecteur puis range l'instance au
 container sous `instance.name`.
 
 ### Sans kernel ni module — un Service tout seul
@@ -236,15 +236,15 @@ initialized`) et `set()` lève aussi (`container not initialized`) — mais `get
 
 ### Ce que fait le constructeur, dans l'ordre
 
-`Service.ts:79` exécute cinq étapes, toutes lisibles en 50 lignes :
+`Service.ts#describeReceived` exécute cinq étapes, toutes lisibles en 50 lignes :
 
 1. **Identité** — `name` est posé tel quel ; il servira de clé container et de `msgid` syslog.
-2. **Container** — celui qu'on fournit, sinon un `new Container()` frais (`Service.ts:86`).
+2. **Container** — celui qu'on fournit, sinon un `new Container()` frais (`Service.ts#describeReceived`).
 3. **Kernel + syslog** — récupérés depuis le container ; si le syslog manque, un `Syslog` est créé
-   avec `moduleName = this.name` puis **posé au container** pour les suivants (`Service.ts:116`).
-4. **Bus** — les trois formes ci-dessous (`Service.ts:116`).
+   avec `moduleName = this.name` puis **posé au container** pour les suivants (`Service.ts#Service.name`).
+4. **Bus** — les trois formes ci-dessous (`Service.ts#Service.notificationsCenter`).
 5. **Écartement des options** — la clé `events` n'est jamais recopiée dans `this.options` : elle
-   est lue puis écartée par rest-destructuring (`Service.ts:219`).
+   est lue puis écartée par rest-destructuring (`Service.ts#Service.options`).
 
 > [!WARNING]
 > L'étape 5 écarte `events` à la construction plutôt que de la supprimer après coup par `delete`
@@ -273,12 +273,12 @@ super(
 ```
 
 **Situation 2 — une brique isolée.** Rien à prévenir, personne à écouter : laisse le troisième
-argument vide. Le bus est créé (`Service.ts:117`) et, s'il n'y a pas de kernel partageant le même
+argument vide. Le bus est créé (`Service.ts#Service.notificationsCenter`) et, s'il n'y a pas de kernel partageant le même
 container, il est publié sous la clé `notificationsCenter` pour que d'autres puissent le retrouver
-(`Service.ts:117`).
+(`Service.ts#Service.notificationsCenter`).
 
 **Situation 3 — un pur utilitaire.** Un helper qui ne signale rien : `false`. Aucun `Event` n'est
-alloué, et `options` n'est **pas** fusionné avec les défauts (`Service.ts:215`) — ce que le contre-cas
+alloué, et `options` n'est **pas** fusionné avec les défauts (`Service.ts#Service.options`) — ce que le contre-cas
 suivant illustre :
 
 ```typescript ignore
@@ -289,8 +289,8 @@ new Service("calc", container, false).fire("x"); // ❌ lève : notificationsCen
 ### Écouteurs trackés — la mécanique anti-fuite
 
 C'est **la** raison d'être de la délégation. Chaque écouteur posé par l'API du service
-(`Service.on()` (`Service.ts:485`), `once`, `addListener`, `prependListener`…) est enregistré dans la
-carte privée `#trackedListeners` (`Service.ts:101`) via `Service.trackListener()` (`Service.ts:392`).
+(`Service.on()` (`Service.ts#Service.on`), `once`, `addListener`, `prependListener`…) est enregistré dans la
+carte privée `#trackedListeners` (`Service.ts#Service.#trackedListeners`) via `Service.trackListener()` (`Service.ts#Service.trackListener`).
 
 ```mermaid
 sequenceDiagram
@@ -306,7 +306,7 @@ sequenceDiagram
   Note over S: syslog / nc / container / kernel = null
 ```
 
-`Service.clean()` (`Service.ts:333`) ne retire les écouteurs que si le bus est **partagé** : sur un
+`Service.clean()` (`Service.ts#Service.clean`) ne retire les écouteurs que si le bus est **partagé** : sur un
 bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a rien à décrocher.
 
 ### Cycle de vie
@@ -315,10 +315,10 @@ bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a ri
 | Étape | Appel | Ce qui se passe |
 | --- | --- | --- |
 | Naissance | `new Service(name, container, nc, options)` | câblage des trois broches, écouteurs de config attachés |
-| Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:109`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à sa création (une fois pour un singleton, à chaque requête sous `@Scope("request")`) |
-| Journal | `Service.initSyslog()` (`Service.ts:313`) | démarre la sortie console (environnement + verbosité + filtres) |
+| Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts#Module.init`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à sa création (une fois pour un singleton, à chaque requête sous `@Scope("request")`) |
+| Journal | `Service.initSyslog()` (`Service.ts#Service.initSyslog`) | démarre la sortie console (environnement + verbosité + filtres) |
 | Vie | `log` / `fire` / `on` / `get` | délégation vers syslog, bus et container |
-| Destruction | `Service.clean()` (`Service.ts:333`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
+| Destruction | `Service.clean()` (`Service.ts#Service.clean`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
 | Destruction+ | `clean(true)` | appelle en plus `Syslog.reset()` — les transports sont fermés |
 
 `clean()` est **idempotent** : le rappeler ne lève pas.
@@ -329,67 +329,67 @@ Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui
 
 ### Dépendances — la façade container
 
-| Appel            | Ancre            | Comportement                                                    |
-| ---------------- | ---------------- | --------------------------------------------------------------- |
-| `get<T>(name)`   | `Service.ts:427` | l'instance typée, ou **`null`** si absente ou après `clean()`   |
-| `set(name, obj)` | `Service.ts:596` | enregistre — **lève** si le container est détaché               |
-| `remove(name)`   | `Service.ts:608` | si la cible est un `Service`, appelle son `clean()` **d'abord** |
-| `has(name)`      | `Service.ts:622` | `false` plutôt qu'une erreur quand le container est détaché     |
+| Appel            | Ancre                       | Comportement                                                    |
+| ---------------- | --------------------------- | --------------------------------------------------------------- |
+| `get<T>(name)`   | `Service.ts#Service.fire`   | l'instance typée, ou **`null`** si absente ou après `clean()`   |
+| `set(name, obj)` | `Service.ts#Service.set`    | enregistre — **lève** si le container est détaché               |
+| `remove(name)`   | `Service.ts#Service.remove` | si la cible est un `Service`, appelle son `clean()` **d'abord** |
+| `has(name)`      | `Service.ts#Service.has`    | `false` plutôt qu'une erreur quand le container est détaché     |
 
 Cette façade est **tolérante en lecture, stricte en écriture**. Le détail du container lui-même
 (scopes par requête, arbre de paramètres, héritage prototypal) est traité dans
-[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:245`),
-`Container.leaveScope()` (`Container.ts:264`) et `Container.scopeCount()` (`Container.ts:281`) pour
+[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts#Container.enterScope`),
+`Container.leaveScope()` (`Container.ts#Container.leaveScope`) et `Container.scopeCount()` (`Container.ts#Container.scopeCount`) pour
 les sondes de fuite.
 
 ### Journal
 
-| Appel                               | Ancre            | Usage                                       |
-| ----------------------------------- | ---------------- | ------------------------------------------- |
-| `log(pci, severity?, msgid?, msg?)` | `Service.ts:364` | le point d'entrée de **tout** log Nodefony  |
-| `logger(pci, …)`                    | `Service.ts:381` | raccourci `DEBUG` + `console.debug` formaté |
-| `trace(pci, …)`                     | `Service.ts:386` | idem avec `console.trace` (pile d'appels)   |
+| Appel                               | Ancre                       | Usage                                       |
+| ----------------------------------- | --------------------------- | ------------------------------------------- |
+| `log(pci, severity?, msgid?, msg?)` | `Service.ts#Service.log`    | le point d'entrée de **tout** log Nodefony  |
+| `logger(pci, …)`                    | `Service.ts#Service.logger` | raccourci `DEBUG` + `console.debug` formaté |
+| `trace(pci, …)`                     | `Service.ts#Service.trace`  | idem avec `console.trace` (pile d'appels)   |
 
 `log()` est **increvable** : sans syslog il fabrique un `Pdu` directement, et toute exception y est
-attrapée pour retomber sur `console` (`Service.ts:300`). Un service qui journalise ne peut pas faire
+attrapée pour retomber sur `console` (`Service.ts#Service.attachConfiguredListeners`). Un service qui journalise ne peut pas faire
 tomber le process à cause du journal. Sévérités et transports : [syslog](syslog.md).
 
 ### Événements
 
-| Appel                                 | Ancre            | Note                                                            |
-| ------------------------------------- | ---------------- | --------------------------------------------------------------- |
-| `fire(name, …)` / `emit(name, …)`     | `Service.ts:439` | synchrone, **0 microtask** — le défaut sur le hot path          |
-| `fireAsync(name, …)` / `emitAsync(…)` | `Service.ts:445` | attend les écouteurs asynchrones, **en séquence**               |
-| `emitAsyncGuarded(name, options?, …)` | `Service.ts:455` | isole chaque écouteur — **boot / jobs uniquement**              |
-| `on` / `once` / `addListener`         | `Service.ts:464` | **trackés** → retirés par `clean()`                             |
-| `off` / `removeListener`              | `Service.ts:524` | retirent aussi l'entrée de suivi                                |
-| `listen(name, listener)`              | `Service.ts:476` | bind sur `this`, **non tracké** — renvoie un déclencheur        |
-| `settingsToListen(settings, ctx)`     | `Service.ts:510` | câble les clés `onXxx` d'un objet de config                     |
-| `removeAllListeners(name?)`           | `Service.ts:531` | ⚠️ sur un bus partagé, vide **aussi** les écouteurs des voisins |
+| Appel                                 | Ancre                                   | Note                                                            |
+| ------------------------------------- | --------------------------------------- | --------------------------------------------------------------- |
+| `fire(name, …)` / `emit(name, …)`     | `Service.ts#Service.emit`               | synchrone, **0 microtask** — le défaut sur le hot path          |
+| `fireAsync(name, …)` / `emitAsync(…)` | `Service.ts#Service.emitAsync`          | attend les écouteurs asynchrones, **en séquence**               |
+| `emitAsyncGuarded(name, options?, …)` | `Service.ts#Service.emitAsyncGuarded`   | isole chaque écouteur — **boot / jobs uniquement**              |
+| `on` / `once` / `addListener`         | `Service.ts#Service.addListener`        | **trackés** → retirés par `clean()`                             |
+| `off` / `removeListener`              | `Service.ts#Service.removeListener`     | retirent aussi l'entrée de suivi                                |
+| `listen(name, listener)`              | `Service.ts#Service.listen`             | bind sur `this`, **non tracké** — renvoie un déclencheur        |
+| `settingsToListen(settings, ctx)`     | `Service.ts#Service.settingsToListen`   | câble les clés `onXxx` d'un objet de config                     |
+| `removeAllListeners(name?)`           | `Service.ts#Service.removeAllListeners` | ⚠️ sur un bus partagé, vide **aussi** les écouteurs des voisins |
 
 Le contrat `EventEmitter` complet (`listenerCount`, `eventNames`, `rawListeners`, `prependListener`,
 `setMaxListeners`…) est délégué à l'identique.
 
 ### `emitAsyncGuarded` — la garde du cycle de vie
 
-Options purement **mécaniques** (`IGuardedEmitOptions`, `Event.ts:74`) : la **politique** reste à
+Options purement **mécaniques** (`IGuardedEmitOptions`, `Event.ts#IGuardedEmitOptions`) : la **politique** reste à
 l'appelant.
 
-| Option            | Effet                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------- |
-| `timeoutMs`       | délai maximal par écouteur. `0`/absent = **aucun timer alloué**                             |
-| `warnMs`          | seuil de lenteur. `0`/absent = **aucune mesure** (pas un seul `Date.now`)                   |
-| `onListenerError` | appelé sur rejet **ou** dépassement ; renvoyer `true` **arrête** la chaîne (`Event.ts:370`) |
-| `onListenerSlow`  | appelé quand un écouteur réussit mais dépasse `warnMs` (`Event.ts:314`)                     |
+| Option            | Effet                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| `timeoutMs`       | délai maximal par écouteur. `0`/absent = **aucun timer alloué**                                                |
+| `warnMs`          | seuil de lenteur. `0`/absent = **aucune mesure** (pas un seul `Date.now`)                                      |
+| `onListenerError` | appelé sur rejet **ou** dépassement ; renvoyer `true` **arrête** la chaîne (`Event.ts#Event.emitAsyncGuarded`) |
+| `onListenerSlow`  | appelé quand un écouteur réussit mais dépasse `warnMs` (`Event.ts#IGuardedEmitOptions.warnMs`)                 |
 
-Le résultat (`IGuardedEmitResult`, `Event.ts:102`) porte `results`, `errors` et `stopped`. En cas de
-dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) : le délai est suivi par
-un simple drapeau `timedOut` (`Event.ts:322`), et aucune valeur qui ne soit pas une `Error` ne
+Le résultat (`IGuardedEmitResult`, `Event.ts#IGuardedEmitResult`) porte `results`, `errors` et `stopped`. En cas de
+dépassement, l'erreur remontée est une `Error` explicite (`Event.ts#IGuardedEmitError.error`) : le délai est suivi par
+un simple drapeau `timedOut` (`Event.ts#Event.emitAsyncGuarded`), et aucune valeur qui ne soit pas une `Error` ne
 peut remonter.
 
-Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3778`) branche la politique : délai issu de
-`Kernel.bootTimeoutMs()` (`Kernel.ts:3026`) — 20 s en développement, 60 s en production, surchargeable
-par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3038`), 5 s par
+Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts#Kernel.fireLifecycle`) branche la politique : délai issu de
+`Kernel.bootTimeoutMs()` (`Kernel.ts#Kernel.bootTimeoutMs`) — 20 s en développement, 60 s en production, surchargeable
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts#Kernel.bootWarnMs`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service
@@ -406,7 +406,7 @@ restent lisibles via `this.options` — c'est le canal de configuration d'un ser
 
 > [!WARNING]
 > **`events` remplace le défaut EN ENTIER, il ne s'y fusionne pas.** Sans `events`, le défaut de
-> `defaultOptions` s'applique (`nbListeners: 20`, `Service.ts:169`). Mais passer `events: { captureRejections: true }`
+> `defaultOptions` s'applique (`nbListeners: 20`, `Service.ts#Service.constructor`). Mais passer `events: { captureRejections: true }`
 > sans `nbListeners` fait retomber la limite à celle de Node — **10** : l'objet fourni remplace tout
 > le défaut. Redonne `nbListeners` dès que tu passes `events`.
 
@@ -415,10 +415,10 @@ restent lisibles via `this.options` — c'est le canal de configuration d'un ser
 Une clé d'options qui commence par `on` suivi d'au moins un caractère est câblée comme écouteur. Mais
 **pas par le même chemin** selon la forme du bus :
 
-- **bus partagé** → `Service.attachConfiguredListeners()` (`Service.ts:294`) passe par `this.on`,
+- **bus partagé** → `Service.attachConfiguredListeners()` (`Service.ts#Service.attachConfiguredListeners`) passe par `this.on`,
   donc l'écouteur est **tracké** et `clean()` le retirera ;
 - **bus dédié** → c'est le constructeur d'`Event` qui appelle `Event.settingsToListen()`
-  (`Event.ts:192`), lequel utilise `Event.listen()` (`Event.ts:216`) : l'écouteur est **bindé, non
+  (`Event.ts#Event.settingsToListen`), lequel utilise `Event.listen()` (`Event.ts#Event.listen`) : l'écouteur est **bindé, non
   tracké**. Sans conséquence, puisque le bus meurt avec le service.
 
 C'est exactement le correctif qui empêche une fuite d'écouteurs par instance sur un bus partagé.
@@ -427,13 +427,13 @@ C'est exactement le correctif qui empêche une fuite d'écouteurs par instance s
 
 ### Les trois décorateurs
 
-| Décorateur          | Ancre                    | Rôle                                                               |
-| ------------------- | ------------------------ | ------------------------------------------------------------------ |
-| `@injectable(nom?)` | `kernelDecorator.ts:135` | inscrit la **classe** au registre DI (défaut : `constructor.name`) |
-| `@inject("nom")`    | `kernelDecorator.ts:186` | injecte un service par nom sur un **paramètre** de constructeur    |
-| `@services([…])`    | `kernelDecorator.ts:53`  | déclare les services d'un module — instanciés à `onPreBoot`        |
+| Décorateur          | Ancre                           | Rôle                                                               |
+| ------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| `@injectable(nom?)` | `kernelDecorator.ts#injectable` | inscrit la **classe** au registre DI (défaut : `constructor.name`) |
+| `@inject("nom")`    | `kernelDecorator.ts#inject`     | injecte un service par nom sur un **paramètre** de constructeur    |
+| `@services([…])`    | `kernelDecorator.ts#services`   | déclare les services d'un module — instanciés à `onPreBoot`        |
 
-`@injectable` accepte aussi un objet `{ name?, scope? }` où `scope` (`DIScope`, `injector.ts:27`)
+`@injectable` accepte aussi un objet `{ name?, scope? }` où `scope` (`DIScope`, `injector.ts#DIScope`)
 vaut `singleton` (défaut, une instance pour le processus), `transient` (une instance neuve à chaque
 résolution) ou `request` (une instance par requête — par connexion en WebSocket —, nettoyée à sa
 fin ; son constructeur reçoit le scope de la requête). Il n'existe **ni** `singleton: true`, **ni**
@@ -442,7 +442,7 @@ l'atteindre depuis n'importe quel code :
 [Injection et portées](../../../docs/architecture/injection-portees.md).
 
 > [!CAUTION]
-> Le décorateur de **propriété** `@Inject` existe dans le code (`kernelDecorator.ts:215`) mais n'est
+> Le décorateur de **propriété** `@Inject` existe dans le code (`kernelDecorator.ts#Inject`) mais n'est
 > **pas ré-exporté** par le paquet `nodefony` : une app ne peut pas l'importer. Injecte par
 > **constructeur** (`@inject`), qui est le chemin supporté.
 
@@ -450,8 +450,8 @@ l'atteindre depuis n'importe quel code :
 
 Historiquement, un service devait être listé **avant** ses consommateurs dans `@services([…])` :
 déplacer une classe de trois lignes suffisait à casser le serveur au runtime. Aujourd'hui, l'ordre se
-**calcule** — `orderServicesByDependencies()` (`serviceOrder.ts:49`), appelé par le décorateur
-(`kernelDecorator.ts:80`), fait un tri topologique **stable** depuis les dépendances déclarées
+**calcule** — `orderServicesByDependencies()` (`serviceOrder.ts#orderServicesByDependencies`), appelé par le décorateur
+(`kernelDecorator.ts#services`), fait un tri topologique **stable** depuis les dépendances déclarées
 (`@inject` puis `design:paramtypes`). Une liste déjà correcte ressort inchangée.
 
 ```typescript ignore
@@ -467,34 +467,34 @@ décorateur ne peut pas connaître la seconde : il s'exécute au **chargement** 
 seulement à la **construction**.
 
 Le pont est appris au seul instant où le couple est connu — quand l'instance est posée au container :
-`Injector.rememberContainerKey()` (`injector.ts:116`), appelé depuis `Module.addService()`
-(`Module.ts:457`). Toute résolution ultérieure passe alors par la classe et retrouve **cette**
+`Injector.rememberContainerKey()` (`injector.ts#Injector.rememberContainerKey`), appelé depuis `Module.addService()`
+(`Module.ts#Module.addService`). Toute résolution ultérieure passe alors par la classe et retrouve **cette**
 instance, au lieu d'en fabriquer une seconde au cache vide.
 
 Les cycles sont détectés à l'instanciation, avec le chemin complet dans le message
-(`injector.ts:262`).
+(`injector.ts#Injector._resolveWithStack`).
 
 ### Charger un service depuis un chemin
 
-`Module.loadService()` (`Module.ts:559`) accepte un spécificateur de module (`import()` dynamique) et
+`Module.loadService()` (`Module.ts#Module.loadService`) accepte un spécificateur de module (`import()` dynamique) et
 délègue à `addService`. Utile pour un service optionnel dont la présence dépend de la configuration.
 
 ## 🔐 Intégrité du boot — jamais de dégradation silencieuse
 
 Un service qu'on ne peut pas **construire** suit exactement la même politique qu'un service qu'on ne
-peut pas **initialiser** : `Module.handleServiceBootError()` (`Module.ts:513`) délègue au verdict du
+peut pas **initialiser** : `Module.handleServiceBootError()` (`Module.ts#Module.handleServiceBootError`) délègue au verdict du
 kernel, qui tranche selon deux axes.
 
-| Contexte                                            | Verdict                                                         |
-| --------------------------------------------------- | --------------------------------------------------------------- |
-| Production **+** module critique                    | **fatal** — l'erreur remonte, le boot s'interrompt              |
-| Développement **+** module critique                 | fail-soft **ANNONCÉ** : agrégé au BootReport → « boot DÉGRADÉ » |
-| `static override critical = false` (`Module.ts:79`) | fail-soft annoncé **même en production**                        |
-| Erreur de configuration                             | fatal quel que soit l'environnement                             |
+| Contexte                                                         | Verdict                                                         |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| Production **+** module critique                                 | **fatal** — l'erreur remonte, le boot s'interrompt              |
+| Développement **+** module critique                              | fail-soft **ANNONCÉ** : agrégé au BootReport → « boot DÉGRADÉ » |
+| `static override critical = false` (`Module.ts#Module.critical`) | fail-soft annoncé **même en production**                        |
+| Erreur de configuration                                          | fatal quel que soit l'environnement                             |
 
 Deux garanties complémentaires, vérifiées par les tests d'attaque : un service dont la construction
 échoue **n'est pas** au container (pas de demi-instance), et le message d'erreur est **actionnable** —
-il nomme le service manquant, celui qui le réclame, et ce qu'il faut faire (`injector.ts:188`).
+il nomme le service manquant, celui qui le réclame, et ce qu'il faut faire (`injector.ts#Injector._lifetimeOf`).
 
 > [!IMPORTANT]
 > Le scénario que cette politique interdit est vécu : un serveur démarrant « UP », ports à l'écoute,
@@ -506,16 +506,16 @@ il nomme le service manquant, celui qui le réclame, et ce qu'il faut faire (`in
 `Service` est dans le chemin de **chaque** requête (le contexte HTTP/WS en hérite). Les choix
 mesurables :
 
-- **Court-circuit sans abonné** — `emitAsync` (`Event.ts:248`) et `emitAsyncGuarded` (`Event.ts:301`)
+- **Court-circuit sans abonné** — `emitAsync` (`Event.ts#Event.emitAsync`) et `emitAsyncGuarded` (`Event.ts#Event.emitAsyncGuarded`)
   sortent sur `listenerCount() === 0` : **0 allocation, 0 microtask**. Un hook optionnel que personne
   n'écoute ne coûte rien. Le test compte les allocations, pas les intentions : `listenerCount` n'alloue
   pas, là où `rawListeners` **copie** le tableau interne à chaque appel.
 - **Pas d'`await` gratuit** — `emitAsync` n'attend que si l'écouteur renvoie réellement un thenable
-  (`Event.ts:248`) : un hook synchrone ne paie aucune microtask, et l'ordre séquentiel reste garanti.
+  (`Event.ts#Event.emitAsync`) : un hook synchrone ne paie aucune microtask, et l'ordre séquentiel reste garanti.
 - **Timers seulement si demandés** — `emitAsyncGuarded` n'alloue 1 timer + 1 promesse de course par
-  écouteur que si `timeoutMs > 0` ; le timer est `unref()` (`Event.ts:291`) et un rejet arrivant après
-  la course perdue est neutralisé (`Event.ts:280`) pour ne pas devenir un rejet non géré.
-- **Aucune fuite d'écouteurs** — le suivi `#trackedListeners` (`Service.ts:101`) rend `clean()` exact
+  écouteur que si `timeoutMs > 0` ; le timer est `unref()` (`Event.ts#Event.emitAsyncGuarded`) et un rejet arrivant après
+  la course perdue est neutralisé (`Event.ts#Event.emitAsyncGuarded`) pour ne pas devenir un rejet non géré.
+- **Aucune fuite d'écouteurs** — le suivi `#trackedListeners` (`Service.ts#Service.#trackedListeners`) rend `clean()` exact
   sur un bus partagé.
 - **Bus optionnel** — `notificationsCenter: false` n'alloue **aucun** `Event`.
 
@@ -529,29 +529,29 @@ mesurables :
 
 Les services d'un module sont introspectables sans lire le code :
 
-- **API** — `GET /nodefony/kernel/api/module/{name}` (`KernelAdminApi.ts:1109`) renvoie un tableau
-  `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts:547`) croisé
-  avec le container (`KernelAdminApi.ts:978`).
+- **API** — `GET /nodefony/kernel/api/module/{name}` (`KernelAdminApi.ts#createKernelAdminApi`) renvoie un tableau
+  `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts#Module.getServiceNames`) croisé
+  avec le container (`KernelAdminApi.ts#createKernelAdminApi`).
 - **Écran** — la page de détail d'un module (`studio/frontend/src/routes/ModuleDetail.tsx`) affiche
   cette liste à côté de la config, des docs et des symboles du module.
-- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:281`) donne le nombre de scopes
+- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts#Container.scopeCount`) donne le nombre de scopes
   **vivants** : un compteur qui monte sans jamais redescendre signale un `leaveScope` manquant.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                | Cause (dans le code)                                                              | Correction                                                                  |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:392`)   |
-| `off()` ne retire rien                                  | `Service.listen()` (`Service.ts:476`) **bind** — la référence posée diffère       | retirer via le déclencheur renvoyé, jamais l'original                       |
-| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:531`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
-| `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts:333`)                        | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur  |
-| `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts:333`)                                       | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                  |
-| Avertissement `MaxListeners` à 11 abonnés               | `events` fourni sans `nbListeners` : l'objet remplace tout le défaut (20)         | redonner `nbListeners` dans `events`                                        |
-| Le déclencheur de `listen()` passe un argument en trop  | `Event.listen()` (`Event.ts:216`) préfixe les arguments par le nom de l'événement | lire le 1ᵉʳ argument comme le nom, ou émettre via `fire()`                  |
-| Écouteurs asynchrones exécutés l'un après l'autre       | `emitAsync` est **séquentiel par design** (`Event.ts:248`)                        | comportement attendu ; paralléliser **dans** l'écouteur si besoin           |
-| Le service est reconstruit, son cache vide              | clé container ≠ nom `@injectable`, pont non appris (`injector.ts:88`)             | passer par `Module.addService()` — jamais un `new` manuel                   |
-| Un service déclaré n'est pas au container après le boot | sa construction a échoué, fail-soft **annoncé** (`Module.ts:365`)                 | lire le BootReport / les ERROR de démarrage ; en prod le boot aurait échoué |
-| `options.events` introuvable après construction         | la clé est **écartée** volontairement (`Service.ts:219`)                          | lire la valeur avant, ou la conserver sous une autre clé                    |
+| Symptôme                                                | Cause (dans le code)                                                                                   | Correction                                                                                  |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service                             | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts#Service.trackListener`) |
+| `off()` ne retire rien                                  | `Service.listen()` (`Service.ts#Service.listen`) **bind** — la référence posée diffère                 | retirer via le déclencheur renvoyé, jamais l'original                                       |
+| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts#Service.removeAllListeners`) agit sur le bus **partagé** en entier | cibler l'événement, ou retirer écouteur par écouteur                                        |
+| `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts#Service.clean`)                                   | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur                  |
+| `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts#Service.clean`)                                                  | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                                  |
+| Avertissement `MaxListeners` à 11 abonnés               | `events` fourni sans `nbListeners` : l'objet remplace tout le défaut (20)                              | redonner `nbListeners` dans `events`                                                        |
+| Le déclencheur de `listen()` passe un argument en trop  | `Event.listen()` (`Event.ts#Event.listen`) préfixe les arguments par le nom de l'événement             | lire le 1ᵉʳ argument comme le nom, ou émettre via `fire()`                                  |
+| Écouteurs asynchrones exécutés l'un après l'autre       | `emitAsync` est **séquentiel par design** (`Event.ts#Event.emitAsync`)                                 | comportement attendu ; paralléliser **dans** l'écouteur si besoin                           |
+| Le service est reconstruit, son cache vide              | clé container ≠ nom `@injectable`, pont non appris (`injector.ts#Injector.constructor`)                | passer par `Module.addService()` — jamais un `new` manuel                                   |
+| Un service déclaré n'est pas au container après le boot | sa construction a échoué, fail-soft **annoncé** (`Module.ts#Module.#warnOverwrittenAppConfig`)         | lire le BootReport / les ERROR de démarrage ; en prod le boot aurait échoué                 |
+| `options.events` introuvable après construction         | la clé est **écartée** volontairement (`Service.ts#Service.constructor`)                               | lire la valeur avant, ou la conserver sous une autre clé                                    |
 
 ## 🧪 Tests & couverture
 
@@ -564,7 +564,7 @@ depuis vitest, jamais figés ici :
   entre deux services.
 - **Unitaires — l'anti-fuite** : le cœur de `clean()` est prouvé point par point — retrait sur bus
   partagé, **non**-retrait des écouteurs des autres services, retrait des écouteurs injectés par
-  config (`Service.test.ts:731`).
+  config (`Service.test.ts`).
 - **Unitaires — le bus** : `Event.test.ts` (construction par settings, `listen`, `fire`, `emitAsync`,
   cas limites, charge) et `EventGuarded.test.ts` (isolation, délai maximal, `stopped`, et la
   non-régression du court-circuit `emitAsync`).

@@ -313,7 +313,7 @@ Architecture en deux morceaux : `cli/envReport.ts` = calcul **PUR** (`buildEnvRe
 les fichiers déjà lus + l'env effectif, conclut) ; `cli/env.ts` = adaptateur (lecture fichiers,
 import du catalogue depuis `dist/index.js` de l'app, rendu humain/JSON).
 
-**Les fichiers lus viennent de `envFileOrder`** (`runtime/loadEnv.ts:48` — `.env` seul) — jamais
+**Les fichiers lus viennent de `envFileOrder`** (`runtime/loadEnv.ts#envFileOrder` — `.env` seul) — jamais
 d'une copie : une liste AFFICHÉE qui différerait de la liste APPLIQUÉE serait pire que pas
 d'affichage, puisqu'on la croirait sur parole. Les fichiers de l'ancienne convention
 (`.env.local`, `.env.<mode>`) refusent le démarrage du binaire (`findLegacyEnvFiles`, 78).
@@ -428,7 +428,7 @@ ce que le raccourci évite.
 (une source, deux portes). C'est le verbe qui répond à « qu'est-ce qui est VRAIMENT monté ? » quand
 le code laisse croire autre chose.
 
-⚠️ **`kernelEvent: "onPostReady"`, et pas `onReady` malgré les apparences** (`InspectCommand.ts:11`) :
+⚠️ **`kernelEvent: "onPostReady"`, et pas `onReady` malgré les apparences** (`InspectCommand.ts`) :
 le plan d'administration est monté PAR un écouteur de `onReady` (`Framework.onKernelReady`), or
 l'action d'une commande intégrée est branchée avant que le moindre module n'existe. À `onReady` elle
 passerait AVANT celui qui peuple le registre, et ne trouverait rien à inspecter. Aucun serveur

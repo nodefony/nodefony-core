@@ -50,8 +50,8 @@ c'est ce qu'envoient `docker stop` et l'arrêt d'un pod — déclenche l'arrêt 
 HTTP et HTTPS fermés proprement, sortie en code 0, en quelques centaines de millisecondes. Aucun
 `SIGKILL` n'est nécessaire.
 
-Les quatre signaux d'arrêt sont attachés au même endroit (`Cli.ts:367`), et un **second** signal
-pendant l'arrêt coupe court plutôt que d'attendre (`Cli.ts:348`) — c'est ce qui évite un pod
+Les quatre signaux d'arrêt sont attachés au même endroit (`Cli.ts#Cli.handleSignals`), et un **second** signal
+pendant l'arrêt coupe court plutôt que d'attendre (`Cli.ts#Cli.constructor`) — c'est ce qui évite un pod
 bloqué en fin de vie.
 
 ## Trois régimes de boot, trois objets Docker/k8s
@@ -71,7 +71,7 @@ bloqué en fin de vie.
 - **Petit pod k8s + HPA** (recommandé cloud-native) : `nodefony production` = **1 process Node
   par pod**. Le scaling horizontal est délégué à l'orchestrateur (k8s HPA, Cloud Run, Fargate).
 - **Serveur dédié multi-cœurs** : `nodefony cluster --workers N` (ou `NF_WORKERS`, qui tient
-  compte des limites cgroup — `ProdCommand.ts:27`) = un superviseur et N ouvriers dans **le même
+  compte des limites cgroup — `ProdCommand.ts#Prod`) = un superviseur et N ouvriers dans **le même
   conteneur**.
 
 ## Logs
@@ -188,7 +188,7 @@ Le framework expose **deux sondes, actives par défaut** — rien à écrire :
 | Vivacité      | `/livez`  | 200 tant que le process sert — **y compris pendant l'arrêt** : un pod qui vide ses connexions n'est pas un pod mort, le tuer couperait les requêtes en cours |
 | Disponibilité | `/readyz` | 200 quand le pod peut recevoir du trafic, **503 dès le début de l'arrêt** — l'équilibreur le retire avant que la première connexion tombe                    |
 
-Elles sont montées **avant la limitation de débit** (`http-kernel.ts:967`) : un kubelet qui sonde
+Elles sont montées **avant la limitation de débit** (`http-kernel.ts#HttpKernel.setErrorRenderer`) : un kubelet qui sonde
 toutes les secondes ne doit pas se faire limiter, puis déclarer le pod mort. Les chemins et
 l'activation se règlent dans la configuration du module http (`config.ts`, `enabled` à `true` par
 défaut).
@@ -200,7 +200,7 @@ readinessProbe: { httpGet: { path: /readyz, port: 5151 }, periodSeconds: 5 }
 terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1 s)
 ```
 
-- `NF_BOOT_TIMEOUT_MS` (`reservedEnv.ts:178`) borne le temps de boot : si un module reste
+- `NF_BOOT_TIMEOUT_MS` (`reservedEnv.ts#RESERVED_ENV`) borne le temps de boot : si un module reste
   suspendu, le pod échoue vite au lieu de rester à moitié vivant.
 - Le boot d'une application est dominé par l'import et l'instanciation de ses modules : un **pod
   réel** démarre nettement plus vite que l'application de démonstration du dépôt. Ajustez

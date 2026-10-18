@@ -41,7 +41,7 @@ s'en sert**, jamais « une fois pour toutes » :
 
 | Ce qu'on écrit                     | Ce qu'on vérifie AVANT de l'écrire — et de nouveau avant de s'en servir                                                                                                                                           |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Une ancre `fichier:ligne`          | Qu'elle pointe encore sur ce qu'on annonce. Une ancre dérive à chaque refactor honnête ; fausse, elle est **pire qu'absente** — elle a l'air d'une preuve.                                                        |
+| Une ancre vers le code             | Qu'elle s'écrive `<fichier>.ts#<Symbole>` (`#Classe.membre`), jamais `fichier:ligne` : une ligne dérive à chaque refactor honnête, et fausse, elle est **pire qu'absente** — elle a l'air d'une preuve.           |
 | Un **chiffre**                     | Qu'il vienne d'une mesure d'aujourd'hui. Vécu : « 437 ancres en dérive » valait **108** ; l'estimation passait de 2 j à 0,5 j.                                                                                    |
 | Un **renvoi** vers un autre numéro | Qu'il désigne l'objet annoncé. Vécu : un corps renvoyait à « #9 » pour un travail de documentation — **#9 est une demande de fusion de mise à jour de dépendances**. Un renvoi mort ressemble à un renvoi vivant. |
 | Un **critère de fin**              | Qu'une commande le rende observable, et que la garde ait été **vue mordre** : la débrancher, constater que quelque chose tombe. « C'est implémenté » n'est pas un critère.                                        |
@@ -156,7 +156,7 @@ Deux à quatre phrases : ce qui ne va pas et ce que ça coûte. Le PROBLÈME, pa
 sinon on fige une réponse avant d'avoir compris la question.
 
 **Preuve au terrain**
-`fichier:ligne` ACTUEL, ou la commande qui le montre. Sans preuve, le ticket est une opinion,
+`<fichier>.ts#<Symbole>` (jamais une ligne, qui se périme au prochain commit), ou la commande qui le montre. Sans preuve, le ticket est une opinion,
 et il se périme sans que personne le sache. Ce qui n'est pas vérifiable par lecture s'écrit
 `NON VÉRIFIABLE PAR LECTURE`.
 

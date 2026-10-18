@@ -118,7 +118,7 @@ canal à 10 Hz coûte dix détections par seconde à toute l'application — et 
 s'affiche parfaitement.
 
 `provideNodefony` ouvre donc la connexion dans `NgZone.runOutsideAngular`
-(`src/nodefony/src/client/angular/index.ts:226`). Les valeurs, elles, arrivent par des **signals**,
+(`src/nodefony/src/client/angular/index.ts#provideNodefony`). Les valeurs, elles, arrivent par des **signals**,
 qui notifient leurs lecteurs sans zone : justes dans les deux mondes, `zone.js` ou
 `provideZonelessChangeDetection()`.
 
@@ -144,7 +144,7 @@ bootstrapApplication(AppComponent, {
 L'adresse est écrite **ici, et nulle part ailleurs**. Le framework n'en devine aucune : une adresse
 devinée marche en développement et se trompe en production. Sans `url` ni `client`, le fournisseur
 refuse — et il refuse **à la composition des providers**
-(`src/nodefony/src/client/angular/index.ts:186`), pas au premier rendu d'un composant, où l'erreur
+(`src/nodefony/src/client/angular/index.ts#NodefonyAngularOptions`), pas au premier rendu d'un composant, où l'erreur
 se lirait loin de sa cause.
 
 ### 2. La page
@@ -229,7 +229,7 @@ export class SalonComponent {
 ```
 
 Un argument constant ne coûte **aucun** effet : le branchement est direct, et seule une source
-_fonction_ installe un `effect` (`src/nodefony/src/client/angular/index.ts:315`).
+_fonction_ installe un `effect` (`src/nodefony/src/client/angular/index.ts#observeReactive`).
 
 ## 🧰 Les fonctions
 
@@ -255,7 +255,7 @@ socket, elle, n'est pas un signal : c'est un objet, pas un état.
 | `injectNodefonyNotifications(onNotice)`   | —                                        | les notices normalisées — à monter **une seule fois**        |
 | `injectNodefonyNoticeLog(opts?)`          | `Signal<NodefonyNotice[]>`               | l'historique borné des incidents                             |
 
-La déclaration de chacune se lit dans `src/nodefony/src/client/angular/index.ts:284` et suivantes.
+La déclaration de chacune se lit dans `src/nodefony/src/client/angular/index.ts#injectNodefony` et suivantes.
 
 Sont aussi réexportés depuis ce subpath : `NODEFONY_CLIENT` (le jeton, pour fournir une AUTRE socket
 à un sous-arbre), `NODEFONY_KERNEL` (le jeton du noyau), `rateChannel`, `parseRate`, `isRateChannel` (fabriquer un nom de canal cadencé), et
@@ -319,7 +319,7 @@ Ce qui est **partagé** et ne dépend pas d'Angular — le comptage de référen
 reconnexion, l'appariement `on`↔`subscribe` — vit dans le socle agnostique et est prouvé une fois
 pour les quatre fronts. Ce qui est **propre à Angular** — le contexte d'injection, les signals,
 l'ouverture hors zone, la libération — est prouvé dans
-`src/nodefony/src/tests/clientAngular.test.ts:1`.
+`src/nodefony/src/tests/clientAngular.test.ts`.
 
 La socket, elle, **n'est jamais coupée par un composant**. Elle appartient à la page : la fermer à la
 destruction trancherait les requêtes en vol des autres consommateurs.

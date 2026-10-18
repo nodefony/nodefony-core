@@ -39,7 +39,7 @@ ce que votre implémentation doit savoir répondre.
 Le principe qui les rend réels tient en une ligne de code absente : **le framework ne teste jamais
 un nom de pilote en dur**. Il lit le nom que la configuration lui donne, le cherche dans un
 registre, et appelle ce qu'il y trouve — que ce soit une brique livrée ou la vôtre. C'est vérifiable
-au source (`src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts:55`), et
+au source (`src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts#registerBackplaneDriver`), et
 c'est gardé par un test qui refuse la réapparition d'un nom en dur.
 
 ## 1. Un seul patron, appris une fois
@@ -76,11 +76,11 @@ c'est ce qui rend la liste extensible plutôt que figée.
 | Le stockage des points de webhook   | `registerWebhookStore(nom, fabrique)`         | `IWebhookStore`               |
 
 Les fabriques OAuth acceptent un retour asynchrone (`IOAuthProvider | Promise<IOAuthProvider>`,
-`src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts:58`) : un fournisseur
+`src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts#IOAuthProviderContext`) : un fournisseur
 qui doit découvrir sa configuration OpenID Connect au démarrage peut le faire là. Les sept autres
 suivent le même patron — par exemple l'authentification
-(`src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts:52`) et les
-votants (`src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts:39`).
+(`src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts#registerAuthenticatorFactory`) et les
+votants (`src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts#registerVoterFactory`).
 
 ### Le noyau — `nodefony`
 
@@ -92,9 +92,9 @@ votants (`src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts:39
 
 `registerLogDriver` est le seul à prendre l'instance directement plutôt qu'une fabrique : le driver
 porte son propre nom (`driver.name`), et le premier enregistré devient actif
-(`src/nodefony/src/syslog/drivers/logDriverRegistry.ts:32`). La variante à fabrique vit juste en
-dessous (`src/nodefony/src/syslog/drivers/logDriverRegistry.ts:152`), et l'adaptateur d'erreurs
-dans le noyau (`src/nodefony/src/Error.ts:108`).
+(`src/nodefony/src/syslog/drivers/logDriverRegistry.ts#registerLogDriver`). La variante à fabrique vit juste en
+dessous (`src/nodefony/src/syslog/drivers/logDriverRegistry.ts#registerLogDriverFactory`), et l'adaptateur d'erreurs
+dans le noyau (`src/nodefony/src/Error.ts#registerErrorAdapter`).
 
 ### Le reste
 
@@ -104,7 +104,7 @@ dans le noyau (`src/nodefony/src/Error.ts:108`).
 | Le stockage d'idempotence    | `registerIdempotencyStore(nom, fabrique)` — `@nodefony/framework` | `IIdempotencyStore`           |
 
 L'idempotence se branche de la même façon
-(`src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts:48`).
+(`src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts#registerIdempotencyStore`).
 
 Le backplane est l'exemple le plus parlant : trois pilotes natifs sont livrés — `loopback` (une
 seule instance), `cluster` (plusieurs processus, par IPC) et `redis` (plusieurs pods) — et rien dans
@@ -114,7 +114,7 @@ sans distinction de rang.
 ### Le quatorzième, qui n'est pas comme les autres
 
 `registerUserStore(nom)` — `@nodefony/user`,
-`src/packages/@nodefony/user/nodefony/src/userStoreRegistry.ts:23` — ne prend **qu'un nom**, sans
+`src/packages/@nodefony/user/nodefony/src/userStoreRegistry.ts#registerUserStore` — ne prend **qu'un nom**, sans
 fabrique. Ce n'est pas un
 oubli : le module `user` ne construit pas le dépôt lui-même, il déclare qu'un backend de ce nom
 existe. L'implémentation, elle, est posée par le module qui la porte (`@nodefony/drizzle`,

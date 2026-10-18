@@ -82,11 +82,11 @@ Si tu cherches comment ça marche aujourd'hui, va directement à la bonne page d
 Le principe DX tient en une phrase : **la socket, c'est le patron**. Un consommateur ne parle jamais
 au transport brut, il parle à sa socket — et cela vaut des deux côtés du fil. Côté navigateur,
 `NodefonySocket` implémente le contrat ; côté serveur, `ServerRealtimeSocket` implémente
-`IRealtimeSocket` (`ServerRealtimeSocket.ts:47`) au-dessus du hub, si bien qu'un service back code
+`IRealtimeSocket` (`ServerRealtimeSocket.ts#ServerRealtimeSocket`) au-dessus du hub, si bien qu'un service back code
 comme une page front.
 
 La trajectoire découle de ce contrat. Un canal est **duplex par nature**, et le contrat prévoit déjà
-que ce qu'il y a derrière lui soit interchangeable : `IRealtimeChannel.kind` (`IRealtimeSocket.ts:94`)
+que ce qu'il y a derrière lui soit interchangeable : `IRealtimeChannel.kind` (`IRealtimeSocket.ts#IRealtimeChannel.kind`)
 annonce la nature du backing. **Le catalogue visé** :
 
 ### `pubsub` — la diffusion d'événements
@@ -121,15 +121,15 @@ formes d'adressage, en couches :
 
 1. Les primitives par **nom de canal** (`subscribe` / `on` / `publish`) — le moteur.
 2. Un **handle par canal**, `socket.channel(name)`, fine liaison au-dessus des primitives
-   (`NodefonySocket.channel()` (`NodefonySocket.ts:1107`)). Il porte son nom, sa nature, son cycle de vie.
+   (`NodefonySocket.channel()` (`NodefonySocket.ts#NodefonySocket.channel`)). Il porte son nom, sa nature, son cycle de vie.
 
 Le handle est le bon point d'accroche parce qu'il permet d'ajouter des couches **sans retoucher le
-hub** — c'est écrit dans le contrat lui-même (`IRealtimeChannel` (`IRealtimeSocket.ts:81`)) :
+hub** — c'est écrit dans le contrat lui-même (`IRealtimeChannel` (`IRealtimeSocket.ts#IRealtimeChannel`)) :
 
 - le **codec de protocole** (SIP) ;
 - le **pont** et le **proxy** ;
 - la **cadence par canal** — la boucle AIMD existe déjà côté client (`AdaptiveRate`
-  (`AdaptiveRate.ts:78`), branchée par `bindAdaptiveChannel()` (`AdaptiveRate.ts:239`)) : la lib
+  (`AdaptiveRate.ts#AdaptiveRate`), branchée par `bindAdaptiveChannel()` (`AdaptiveRate.ts#bindAdaptiveChannel`)) : la lib
   accélère par petits pas et ralentit d'un coup quand le fil sature ;
 - la **politique de débordement par canal** — `drop` (décimer : un canal d'état n'a besoin que de la
   dernière valeur), `coalesce` (fusionner les mises à jour d'un même tick), `batch` (grouper : un flux
@@ -238,14 +238,14 @@ Deux modes de proxy, les deux visés :
 
 ## ⚠️ Pièges
 
-| Symptôme                                                             | Cause                                                                             | Correction                                                                                                                                         |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| « Le fond de panier me servira à joindre Asterisk »                  | Confusion entre fan-out interne et câblage externe                                | Le fond de panier relie les instances d'une même app ; un service tiers se joint par un pont ou un proxy.                                          |
-| Un message publié sur un pod n'arrive pas aux clients de l'autre pod | La diffusion entre pods est **opt-in par préfixe**, pas automatique               | Déclarer le préfixe via `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`) — cf la page Architecture du module.                           |
-| On veut porter aussi la couche `transports/` de l'ancienne lib       | Réflexe de portage exhaustif                                                      | Ne porter que le protocolaire. Le transport et la corrélation ont été refaits, et ils sont meilleurs.                                              |
-| On lit `channel.kind` et il vaut `undefined`                         | Le champ est **déclaré** dans le contrat, mais seul le backing pub/sub existe     | Ne pas brancher de logique dessus tant qu'un backing ne l'annonce pas.                                                                             |
-| « J'appelle l'utilisateur X où qu'il soit » ne marche pas cross-pod  | Le fond de panier est un plan **pub/sub**, pas un annuaire de pairs               | Un RPC ciblé vers un pair distant demande une couche en plus (savoir qui est où) — elle n'est pas offerte par la simple diffusion.                 |
-| Le fan-out cross-pod ne part jamais                                  | Le médium partagé n'est pas joignable par tous les pods (question de déploiement) | C'est un problème d'infrastructure, pas d'architecture : réseaux isolés → prévoir un relai, qui est lui-même une implémentation du fond de panier. |
+| Symptôme                                                             | Cause                                                                             | Correction                                                                                                                                            |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| « Le fond de panier me servira à joindre Asterisk »                  | Confusion entre fan-out interne et câblage externe                                | Le fond de panier relie les instances d'une même app ; un service tiers se joint par un pont ou un proxy.                                             |
+| Un message publié sur un pod n'arrive pas aux clients de l'autre pod | La diffusion entre pods est **opt-in par préfixe**, pas automatique               | Déclarer le préfixe via `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts#RealtimeHub.markBroadcastChannel`) — cf la page Architecture du module. |
+| On veut porter aussi la couche `transports/` de l'ancienne lib       | Réflexe de portage exhaustif                                                      | Ne porter que le protocolaire. Le transport et la corrélation ont été refaits, et ils sont meilleurs.                                                 |
+| On lit `channel.kind` et il vaut `undefined`                         | Le champ est **déclaré** dans le contrat, mais seul le backing pub/sub existe     | Ne pas brancher de logique dessus tant qu'un backing ne l'annonce pas.                                                                                |
+| « J'appelle l'utilisateur X où qu'il soit » ne marche pas cross-pod  | Le fond de panier est un plan **pub/sub**, pas un annuaire de pairs               | Un RPC ciblé vers un pair distant demande une couche en plus (savoir qui est où) — elle n'est pas offerte par la simple diffusion.                    |
+| Le fan-out cross-pod ne part jamais                                  | Le médium partagé n'est pas joignable par tous les pods (question de déploiement) | C'est un problème d'infrastructure, pas d'architecture : réseaux isolés → prévoir un relai, qui est lui-même une implémentation du fond de panier.    |
 
 ## 🧪 Tests
 
@@ -268,6 +268,6 @@ chiffre, régénéré, jamais recopié ici.
   pas confondre socket, canal, hub et fond de panier.
 - [ADR-0002 — schéma de conférence WebRTC / mediasoup](../adr/0002-schema-conference-webrtc-mediasoup.md)
   — la brique média vers laquelle pointe le backing du même nom.
-- Code de référence : le contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts:122`), la façade
-  serveur `ServerRealtimeSocket` (`ServerRealtimeSocket.ts:47`), le registre de drivers de fond de
-  panier `registerBackplaneDriver()` (`backplaneRegistry.ts:55`).
+- Code de référence : le contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts#IRealtimeSocket`), la façade
+  serveur `ServerRealtimeSocket` (`ServerRealtimeSocket.ts#ServerRealtimeSocket`), le registre de drivers de fond de
+  panier `registerBackplaneDriver()` (`backplaneRegistry.ts#registerBackplaneDriver`).
