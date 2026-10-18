@@ -7,6 +7,7 @@ import {
   lintBoard,
   parseBefore,
   parseDependsOn,
+  parseLineAnchors,
   incidentLines,
   readGithubIncidents,
 } from "./board-lint.mjs";
@@ -777,6 +778,45 @@ describe("ALERTE-CODE", () => {
  * légitime. Le chiffre, lui, a été RETIRÉ de la prose : il se périme au premier
  * ajout, et aucun automate ne peut le recompter dans une phrase.
  */
+describe("ANCRE-LIGNE — la règle « jamais fichier:ligne » mord enfin", () => {
+  it("relève les ancres fichier:ligne, pas les URL ni les ancres par symbole", () => {
+    expect(
+      parseLineAnchors(
+        "voir `src/a/devProcess.ts:905` et docs/x.md:12, " +
+          "mais pas https://exemple.org:8443 ni `devProcess.ts#signalProcessGroup`",
+      ),
+    ).toEqual(["src/a/devProcess.ts:905", "docs/x.md:12"]);
+    expect(parseLineAnchors(undefined)).toEqual([]);
+  });
+
+  it("UN constat agrégé, avertissement, qui nomme le total et les pires tickets", () => {
+    const findings = lintBoard({
+      items: [sain(1), sain(2), sain(3)],
+      issues: [
+        issueSaine(1, { lineAnchors: ["a.ts:1"] }),
+        issueSaine(2, { lineAnchors: ["b.ts:2", "c.ts:3"] }),
+        issueSaine(3),
+      ],
+      now: MAINTENANT,
+    }).filter((f) => f.code === "ANCRE-LIGNE");
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe("avertissement");
+    expect(findings[0].message).toMatch(
+      /^3 ancre\(s\) fichier:ligne dans 2 ticket/,
+    );
+    expect(findings[0].message).toMatch(/#2 \(2\), #1 \(1\)/);
+  });
+
+  it("se tait quand aucun ticket n'en porte", () => {
+    const findings = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("ANCRE-LIGNE");
+  });
+});
+
 describe("la table des contrôles dit ce que le script rend", () => {
   const CODES = new Set(
     [

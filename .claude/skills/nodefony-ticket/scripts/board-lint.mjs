@@ -97,6 +97,26 @@ export function parseBefore(body) {
 }
 
 /**
+ * Relève les ancres `fichier.ext:ligne` d'un corps de ticket — la forme que la
+ * règle du skill interdit, et qu'aucun automate ne voyait.
+ *
+ * Une ligne dérive à chaque refactor honnête ; décalée mais présente, elle
+ * passe encore la résolution de `ticket-verify` et a l'air d'une preuve. La
+ * forme durable est `<fichier>.ts#<Symbole>`. Une URL (`exemple.org:8443`) n'a
+ * pas d'extension de fichier devant ses deux-points : elle n'est pas relevée.
+ *
+ * @param body - le corps brut de l'issue
+ * @returns les ancres trouvées, dans l'ordre, doublons compris
+ */
+export function parseLineAnchors(body) {
+  return [
+    ...String(body ?? "").matchAll(
+      /[\w./@-]+\.(?:ts|tsx|mts|cts|mjs|cjs|js|jsx|json|md|ya?ml|sh|vue|css):\d+/g,
+    ),
+  ].map((m) => m[0]);
+}
+
+/**
  * Lit le lot `beta-N` porté par les labels d'un ticket.
  *
  * @param labels - noms des labels du ticket
@@ -642,6 +662,31 @@ export function lintBoard({
     }
   }
 
+  // A5 — ancres `fichier:ligne` dans les tickets OUVERTS. La règle du skill les
+  // interdit depuis longtemps, mais rien ne la faisait mordre : chaque session
+  // en payait la dérive à la main. UN constat agrégé, pas un par ticket — des
+  // dizaines de lignes à chaque reprise apprendraient à passer outre. Un
+  // avertissement, pas une erreur : une erreur bloquerait l'empreinte tant que
+  // le stock n'est pas converti.
+  const ancrees = issues
+    .map((i) => ({ n: i.n, anchors: i.lineAnchors ?? [] }))
+    .filter((i) => i.anchors.length > 0)
+    .sort((a, b) => b.anchors.length - a.anchors.length || a.n - b.n);
+  if (ancrees.length > 0) {
+    const total = ancrees.reduce((s, i) => s + i.anchors.length, 0);
+    const tete = ancrees
+      .slice(0, 5)
+      .map((i) => `#${i.n} (${i.anchors.length})`)
+      .join(", ");
+    add(
+      "avertissement",
+      "ANCRE-LIGNE",
+      null,
+      `${total} ancre(s) fichier:ligne dans ${ancrees.length} ticket(s) ouvert(s) — ${tete}${ancrees.length > 5 ? ", …" : ""} ; ex. ${ancrees[0].anchors[0]}`,
+      "réécrire en <fichier>.ts#<Symbole> (show-symbol --outline au commit d'écriture du ticket) ; sans symbole (.md, .yml, .sh) : un titre ou un motif rg",
+    );
+  }
+
   const poids = { erreur: 0, avertissement: 1 };
   return findings.sort(
     (a, b) => poids[a.severity] - poids[b.severity] || a.n - b.n,
@@ -806,6 +851,7 @@ function readIssues() {
     labels: i.labels.map((l) => l.name),
     dependsOn: parseDependsOn(i.body),
     before: parseBefore(i.body),
+    lineAnchors: parseLineAnchors(i.body),
   }));
 }
 

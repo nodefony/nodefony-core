@@ -299,6 +299,11 @@ if (pending) {
     );
     for (const f of errors.slice(0, 3))
       say(`   [${f.code}] #${f.n} ${clip(f.message ?? "", 70)}`);
+    // Les ancres `fichier:ligne` ont leur ligne : comptées parmi les
+    // avertissements, elles restaient invisibles — et chaque session en payait
+    // la dérive à la main.
+    const anchors = findings.find((f) => f.code === "ANCRE-LIGNE");
+    if (anchors) say(`   ⚓ ${clip(anchors.message ?? "", 90)}`);
   } catch {
     say("⚠️ lint du tableau illisible — lancer `npm run ticket:lint`");
   }

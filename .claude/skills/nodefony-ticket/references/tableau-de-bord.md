@@ -76,6 +76,7 @@ arbitrage sans bonne réponse mécanique :
 | `FRISE-DECALEE`                | la frise démarre loin d'aujourd'hui — elle date d'un plan qu'on ne suit plus _(avertissement)_                                                                    |
 | `FRISE-TROP-COURTE`            | plus de jours estimés que la fenêtre `Début`→`Cible` n'en contient _(avertissement)_                                                                              |
 | `ALERTE-CODE`                  | une alerte d'analyse de code restée ouverte, que rien ne nommait _(avertissement)_                                                                                |
+| `ANCRE-LIGNE`                  | des ancres `fichier:ligne` dans les tickets ouverts — UN constat agrégé (total + pires tickets) ; la forme durable est `fichier.ts#Symbole` _(avertissement)_     |
 
 Deux pièges que ce script a déjà payés, et qui valent pour tout automate de pilotage :
 
