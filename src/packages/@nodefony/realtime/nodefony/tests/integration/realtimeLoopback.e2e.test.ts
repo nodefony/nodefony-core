@@ -602,6 +602,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     const back = serverSocket();
     let msg = "";
     try {
+      // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe (retrait 11.0, #630)
       await back.request("anything");
     } catch (e) {
       msg = (e as Error).message;
