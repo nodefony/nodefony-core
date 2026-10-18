@@ -46,17 +46,27 @@ export class UserRealtimeToken implements IRealtimeToken {
   readonly #scopes: readonly string[];
 
   /**
+   * Confirmation du COMPTE (annuaire relu), fournie par le
+   * {@link FirewallRealtimeAuthenticator} pour les modes dont l'application
+   * émet elle-même l'artefact. `null` = rien à confirmer.
+   */
+  readonly #confirmAccount: (() => Promise<boolean>) | null;
+
+  /**
    * @param user - identité authentifiée résolue par le firewall.
    * @param revalidate - preuve de vie de l'identité, adaptée à son mode.
    * @param type - mode d'authentification réel (défaut `"session"`).
    * @param scopes - scopes délégués du jeton d'origine (défaut aucun).
+   * @param confirmAccount - relecture du compte, payée sur `api.request` seul.
    */
   constructor(
     user: IUser,
     revalidate: ((nowMs?: number) => Promise<boolean>) | null = null,
     type: string = "session",
     scopes: readonly string[] = EMPTY_SCOPES,
+    confirmAccount: (() => Promise<boolean>) | null = null,
   ) {
+    this.#confirmAccount = confirmAccount;
     this.#user = user;
     this.#revalidate = revalidate;
     this.type = type;
@@ -77,6 +87,16 @@ export class UserRealtimeToken implements IRealtimeToken {
    */
   isValid(nowMs?: number): Promise<boolean> {
     return this.#revalidate ? this.#revalidate(nowMs) : Promise.resolve(true);
+  }
+
+  /**
+   * Le compte qui a ouvert la socket existe-t-il toujours, actif, et sous le
+   * même `id` immuable ? `true` si aucune confirmation n'est câblée.
+   */
+  confirmAccount(): Promise<boolean> {
+    return this.#confirmAccount
+      ? this.#confirmAccount()
+      : Promise.resolve(true);
   }
 
   getUserIdentifier(): string {

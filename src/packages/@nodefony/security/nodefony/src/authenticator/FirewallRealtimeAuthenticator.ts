@@ -1,6 +1,7 @@
 import { Nodefony, RequestContext } from "nodefony";
 import { authenticatedUser } from "@nodefony/user";
-import type { IUser } from "@nodefony/user";
+import type { IUser, IUserProvider } from "@nodefony/user";
+import { isBoundToAccount } from "../accountBinding";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import type { IToken } from "../../contracts/IToken";
 import type {
@@ -66,14 +67,25 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
   readonly #resolveStore: (() => IRealtimeRevocationStore | null) | null;
 
   /**
+   * Accès paresseux à l'annuaire des comptes, pour confirmer avant chaque
+   * `api.request` que le compte de la socket existe toujours sous le même `id`.
+   * Absent (`null`) → aucune confirmation (seul `isValid` fait foi).
+   */
+  readonly #resolveUsers: (() => IUserProvider | null) | null;
+
+  /**
    * @param resolveStore - fournit le store de révocation des jetons (le firewall
    *   passe une closure sur son container). Omis → mode dégradé documenté :
    *   seules les bornes portées par le jeton lui-même sont vérifiables.
+   * @param resolveUsers - fournit l'annuaire des comptes (`users`). Omis → pas
+   *   de confirmation du compte avant `api.request`.
    */
   constructor(
     resolveStore: (() => IRealtimeRevocationStore | null) | null = null,
+    resolveUsers: (() => IUserProvider | null) | null = null,
   ) {
     this.#resolveStore = resolveStore;
+    this.#resolveUsers = resolveUsers;
   }
 
   /** Une identité authentifiée a-t-elle été résolue (par le firewall) au handshake ? */
@@ -104,7 +116,13 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
     // qui n'est pas downscopé (cf `NON_SCOPABLE_TOKEN_TYPES`).
     const scopes = issued ? issued.getScopes() : undefined;
 
-    return new UserRealtimeToken(user, revalidate, type, scopes);
+    return new UserRealtimeToken(
+      user,
+      revalidate,
+      type,
+      scopes,
+      this.#accountConfirmationFor(user, type),
+    );
   }
 
   /**
@@ -130,6 +148,39 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
    * Choisit la preuve de révocation selon le mode d'authentification : la
    * session se relit, un jeton porteur se borne par `exp` et la denylist.
    */
+  /**
+   * Confirmation du compte, pour les modes dont l'APPLICATION émet l'artefact
+   * (session, JWT maison, clé d'API) : le compte relu doit exister, être actif
+   * et porter le même `id` immuable qu'au handshake — sinon il a disparu ou un
+   * autre compte a repris son identifiant hors du framework (#139). Un sujet
+   * `external-jwt` peut être éphémère, sans compte local : il n'est pas
+   * confirmé. `null` = rien à confirmer.
+   */
+  #accountConfirmationFor(
+    user: IUser,
+    type: string,
+  ): (() => Promise<boolean>) | null {
+    const resolveUsers = this.#resolveUsers;
+    if (resolveUsers === null || !ACCOUNT_CONFIRMED_TYPES.has(type)) {
+      return null;
+    }
+    return async (): Promise<boolean> => {
+      const users = resolveUsers();
+      if (users === null) return true; // aucun annuaire : rien à relire
+      let current: IUser;
+      try {
+        current = await users.loadUserByIdentifier(user.identifier);
+      } catch {
+        return false; // compte disparu
+      }
+      return (
+        current.isActive() &&
+        !current.isLocked() &&
+        isBoundToAccount(current, user.id)
+      );
+    };
+  }
+
   #revalidatorFor(
     user: IUser,
     issued: IToken | undefined,
@@ -227,6 +278,13 @@ export interface IRealtimeRevocationStore {
 }
 
 const EMPTY_CLAIMS: Record<string, unknown> = Object.freeze({});
+
+/** Modes dont l'application émet l'artefact : leur compte est local, donc relisible. */
+const ACCOUNT_CONFIRMED_TYPES: ReadonlySet<string> = new Set([
+  "session",
+  "jwt",
+  "apikey",
+]);
 
 /** Claim temporel JWT (secondes, RFC 7519) → epoch ms, ou `null` si absent/invalide. */
 function secondsToMs(value: unknown): number | null {

@@ -36,6 +36,12 @@ export interface IRealtimeToken {
    * (absent = valide). Appelé par le pont `api.request` avant l'action data plane.
    */
   isValid?(nowMs?: number): boolean | Promise<boolean>;
+  /**
+   * Le compte de la socket existe-t-il toujours, actif, sous le même `id` ?
+   * (miroir de `IRealtimeToken.confirmAccount` realtime). Optionnel (absent =
+   * confirmé). Relit l'annuaire : payé sur `api.request` seul, jamais au tick.
+   */
+  confirmAccount?(): Promise<boolean>;
 }
 
 /**

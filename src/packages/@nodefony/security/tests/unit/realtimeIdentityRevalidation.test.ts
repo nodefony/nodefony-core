@@ -120,6 +120,67 @@ describe("Identité realtime — mode SESSION (cookie BFF)", () => {
   });
 });
 
+describe("Identité realtime — le COMPTE relu avant api.request (#139)", () => {
+  // Une suppression hors framework (`DELETE` SQL) ne détruit ni la session ni
+  // le jeton : `isValid` reste vrai. Seule la relecture de l'annuaire voit que
+  // le compte a disparu, ou qu'un autre a repris son identifiant.
+  const directory = (account: IUser | null) => () => ({
+    loadUserByIdentifier: async (): Promise<IUser> => {
+      if (account === null) throw new Error("not found");
+      return account;
+    },
+  });
+  const confirmed = async (
+    account: IUser | null,
+    token = new UserToken("session").promote(alice),
+  ): Promise<boolean | undefined> => {
+    const auth = new FirewallRealtimeAuthenticator(
+      null,
+      directory(account) as never,
+    );
+    const rt = await inScope(
+      {
+        user: alice,
+        token,
+        context: sessionCtx("sess-1", { user: "alice" }),
+      },
+      () => auth.authenticate(HANDSHAKE),
+    );
+    return rt.confirmAccount?.();
+  };
+
+  it("même compte, actif → confirmé", async () => {
+    assert.equal(await confirmed(alice), true);
+  });
+
+  it("🔴 compte disparu (supprimé en SQL) → refusé", async () => {
+    assert.equal(await confirmed(null), false);
+  });
+
+  it("🔴 un AUTRE compte a repris l'identifiant (recréé hors framework) → refusé", async () => {
+    const reborn = new BaseUser({
+      id: "u-alice-2",
+      identifier: "alice",
+      roles: [],
+    });
+    assert.equal(await confirmed(reborn), false);
+  });
+
+  it("🔴 compte verrouillé depuis le handshake → refusé", async () => {
+    const locked = new BaseUser({
+      id: "u-alice",
+      identifier: "alice",
+      roles: [],
+      locked: true,
+    });
+    assert.equal(await confirmed(locked), false);
+  });
+
+  it("sujet `external-jwt` (peut être éphémère, sans compte local) → pas de confirmation", async () => {
+    assert.equal(await confirmed(null, bearerToken("external-jwt", {})), true);
+  });
+});
+
 describe("Identité realtime — mode JETON PORTEUR (JWT / clé API, agent M2M)", () => {
   it("porte le VRAI type du jeton, pas `session`", async () => {
     // Le type sert au diagnostic ET aux politiques (un scope n'existe que sur un

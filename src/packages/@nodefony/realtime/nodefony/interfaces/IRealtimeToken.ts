@@ -55,4 +55,18 @@ export interface IRealtimeToken {
    * (publish/subscribe), payé seulement sur `api.request`.
    */
   isValid?(nowMs?: number): boolean | Promise<boolean>;
+
+  /**
+   * Le COMPTE qui a ouvert la socket existe-t-il toujours, actif, et est-ce
+   * bien le même ? `false` si le compte a disparu, a été désactivé ou
+   * verrouillé, ou si un AUTRE compte a repris son identifiant (suppression
+   * hors framework puis recréation). Optionnel — absent = considéré confirmé.
+   *
+   * Distinct d'{@link isValid} parce que son coût l'est : il relit l'annuaire
+   * des comptes (une lecture, comme une requête HTTP en zone), là où
+   * `isValid` ne lit qu'un store de jetons ou de sessions. Appelé par le pont
+   * `api.request` SEULEMENT, jamais par la re-validation périodique du hub —
+   * qui le paierait pour chaque socket ouverte, à chaque tour.
+   */
+  confirmAccount?(): Promise<boolean>;
 }

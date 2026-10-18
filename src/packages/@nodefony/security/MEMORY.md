@@ -658,8 +658,13 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   SANS liaison = refusé (message uniforme). `ApiKeyService.createForSubject` lit l'`id` dans
   l'annuaire `users` (jamais reçu de l'appelant) → 503 sans annuaire, 403 sujet inconnu. Pas de
   clé étrangère : `User` appartient à l'app, sessions/jetons vivent aussi hors SQL, un JWT n'est
-  pas une ligne. Bancs : `userRecreation.attack.test.ts` + vecteurs 🔴 de `jwt.attack`,
-  `apiKeyAuthenticator`, `sessionAuthenticator`, `tokenService`.
+  pas une ligne. Socket WS : identité figée au handshake (liaison contrôlée là) ; ensuite
+  `UserRealtimeToken.confirmAccount` relit le compte (existe, actif, même `id`) avant chaque
+  `api.request` SEULEMENT, pour `session`/`jwt`/`apikey` (`external-jwt` peut être éphémère, sans
+  compte local). Bancs : `userRecreation.attack.test.ts` + vecteurs 🔴 de `jwt.attack`,
+  `apiKeyAuthenticator`, `sessionAuthenticator`, `tokenService`, `realtimeIdentityRevalidation` ;
+  live `framework/…/account-lifecycle-revocation.test.ts` (DELETE + INSERT SQL réels, SQLite du
+  décor de dev, sauté en le nommant hors de ce décor).
 - **`users` construit SANS container n'atteint pas le kernel** : ses événements partent sur son
   propre bus, personne n'écoute → avis de boot `USERS_SERVICE_WITHOUT_KERNEL`
   (`usersEventBusNotice`, à `onPostReady`). `provisionUsers` (app + gabarit) passe le container.

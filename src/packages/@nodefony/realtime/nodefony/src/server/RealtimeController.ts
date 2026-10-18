@@ -1221,6 +1221,11 @@ export abstract class RealtimeController<
         frame?.phaseStart("identity");
         try {
           valid = await token.isValid();
+          // Le compte lui-même, relu seulement ici : une action data plane
+          // vaut une requête HTTP, qui relit le compte à chaque appel.
+          if (valid && token.confirmAccount) {
+            valid = await token.confirmAccount();
+          }
         } catch {
           valid = false; // fail-closed : une re-validation qui throw = refus
         } finally {

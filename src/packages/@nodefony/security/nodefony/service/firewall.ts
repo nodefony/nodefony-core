@@ -12,6 +12,7 @@ import {
 import type { IProtectedResourceInput } from "nodefony";
 import type { ContextType, ISecurityTrace } from "@nodefony/http";
 import { encoderFromConfig } from "@nodefony/user";
+import type { IUserProvider } from "@nodefony/user";
 
 import { SecuredArea } from "../src/SecuredArea";
 import { entryPointLocation } from "../src/entryPoint";
@@ -327,6 +328,9 @@ class Firewall extends Service implements IFirewall {
         new FirewallRealtimeAuthenticator(
           () =>
             this.container?.get<IRealtimeRevocationStore>("tokenStore") ?? null,
+          // Annuaire relu avant chaque `api.request` (jamais au tick) : le
+          // compte de la socket existe-t-il toujours sous le même `id` ?
+          () => this.container?.get<IUserProvider>("users") ?? null,
         ),
       );
       wired = true;

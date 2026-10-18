@@ -520,6 +520,44 @@ describe("RealtimeController E2E — pont api.request (toute la grille)", () => 
     client.disconnect();
   });
 
+  // #139 — la session ou le jeton survit à une suppression hors framework
+  // (`isValid` reste vrai) : seule la relecture du COMPTE la voit, et le pont
+  // la paie avant d'exécuter, comme une requête HTTP le ferait.
+  for (const [label, confirm] of [
+    ["🔴 compte non confirmé (disparu ou repris) → status 401", false],
+    ["compte confirmé → l'action s'exécute", true],
+  ] as const) {
+    it(label, async () => {
+      let confirmations = 0;
+      getRealtimeHub().useAuthenticator(
+        { pattern: /.*/ },
+        {
+          name: "bound",
+          supports: () => true,
+          authenticate: async () => ({
+            ...mkToken(true),
+            isValid: async () => true,
+            confirmAccount: async () => {
+              confirmations += 1;
+              return confirm;
+            },
+          }),
+        },
+      );
+      const { client } = await connect();
+      let outcome: unknown;
+      try {
+        outcome = await client.request("api.request", { path: "/x" });
+      } catch (e) {
+        outcome = (e as RpcError).data;
+      }
+      expect(confirmations).to.equal(1);
+      if (confirm) expect(outcome).to.deep.include({ ok: true });
+      else expect(outcome).to.deep.equal({ status: 401 });
+      client.disconnect();
+    });
+  }
+
   it("action throw 403 (garde @IsGranted) → status 403 (pas -32603 opaque)", async () => {
     routerMode = "action403";
     const { client } = await connect();

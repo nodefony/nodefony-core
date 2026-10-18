@@ -28,6 +28,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
+import { randomUUID } from "node:crypto";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 const HTTPS_BASE = {
   hostname: "localhost",
@@ -147,6 +149,7 @@ const PROBES = {
   demoted: "lifecycle-demoted",
   witness: "lifecycle-witness",
   deleted: "lifecycle-deleted",
+  sqlReinserted: "lifecycle-sql-reinserted",
 } as const;
 const PASSWORD = "lifecycle-secret-ancien-1";
 const NEW_PASSWORD = "lifecycle-secret-neuf-2";
@@ -310,6 +313,55 @@ describe("Cycle de vie du compte — les accès en cours suivent le geste (#589)
     const deleted = await req("DELETE", `${USERS}/${access.id}`, auth());
     expect(deleted.status).to.equal(200);
     await expectAccessCut(access, "suppression");
+  });
+});
+
+describe("Compte supprimé HORS du framework puis réinséré en SQL (#139)", () => {
+  // Le geste qu'aucun événement ne porte : une console de base, une
+  // restauration, un import. La ligne `User` disparaît puis revient sous le
+  // MÊME identifiant et le même mot de passe, avec un autre `id` — ni la
+  // cascade de suppression ni la purge de création ne jouent. Seule la
+  // liaison des artefacts à l'`id` immuable distingue l'ancien titulaire.
+  it("🔴 l'ancienne session et l'ancienne clé n'ouvrent pas le compte réinséré", async (ctx) => {
+    const dbFile = path.join(
+      REPO_ROOT,
+      "var",
+      "databases",
+      "nodefony-drizzle.db",
+    );
+    const access = await openAccess(PROBES.sqlReinserted);
+    let db: DatabaseSync | null = null;
+    try {
+      db = new DatabaseSync(dbFile);
+    } catch {
+      // ouverture impossible : traité comme « compte hors de ce fichier »
+    }
+    const row = db
+      ?.prepare('SELECT * FROM "User" WHERE id = ?')
+      .get(access.id) as Record<string, SQLInputValue> | undefined;
+    if (!db || !row) {
+      db?.close();
+      ctx.skip(
+        "annuaire hors du SQLite local (décor mémoire ou autre dialecte) — " +
+          "le geste SQL ne peut pas être rejoué ici",
+      );
+      return;
+    }
+    try {
+      const columns = Object.keys(row);
+      db.prepare('DELETE FROM "User" WHERE id = ?').run(access.id);
+      db.prepare(
+        `INSERT INTO "User" (${columns.map((c) => `"${c}"`).join(", ")}) ` +
+          `VALUES (${columns.map(() => "?").join(", ")})`,
+      ).run(...columns.map((c) => (c === "id" ? randomUUID() : row[c]!)));
+    } finally {
+      db.close();
+    }
+
+    // Le compte réinséré est un VRAI compte : il ouvre une session neuve.
+    const relogged = await login(PROBES.sqlReinserted, PASSWORD);
+    expect(relogged.status, "login sur le compte réinséré").to.equal(200);
+    await expectAccessCut(access, "réinsertion SQL sous un autre id");
   });
 });
 
