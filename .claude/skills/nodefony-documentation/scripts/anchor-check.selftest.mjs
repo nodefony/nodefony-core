@@ -68,6 +68,31 @@ try {
   const cas = [
     // [ligne de la page, verdict attendu, pourquoi ce cas existe]
     [
+      "`Alpha()` (`deco.ts#Alpha`), `K.gc()` (`deco.ts#K.gc`)",
+      [],
+      "une ancre par symbole, de premier niveau ou membre, est OK",
+    ],
+    [
+      "`onConnect` (`deco.ts#Orm.onConnect`)",
+      [],
+      "une méthode abstraite (sans corps) reste un symbole",
+    ],
+    [
+      "`renamed` (`deco.ts#K.renamed`), `gone` (`deco.ts#Gone`)",
+      ["SYMBOL_NOT_FOUND deco.ts#K.renamed", "SYMBOL_NOT_FOUND deco.ts#Gone"],
+      "un symbole renommé ou supprimé fait échouer le contrôle en le nommant",
+    ],
+    [
+      "`missing.ts#Alpha`",
+      ["FILE_NOT_FOUND missing.ts#Alpha"],
+      "une ancre par symbole vers un fichier absent est refusée",
+    ],
+    [
+      "voir https://github.com/x/y/blob/main/src/deco.ts#L13 et `deco.ts#L13`",
+      [],
+      "un fragment de ligne GitHub ou une URL n'est pas une ancre par symbole",
+    ],
+    [
       "| Rangée | `Alpha()` (`deco.ts:24`), `Beta()` (`deco.ts:9`) |",
       ["SUSPECT deco.ts:24", "SUSPECT deco.ts:9"],
       "une ancre DÉRIVÉE est signalée même si un mot voisin traîne à côté",
@@ -179,7 +204,7 @@ try {
     });
     const obtenu = [
       ...r.stdout.matchAll(
-        /\[(SUSPECT|INDECIS|LINE_OUT|FILE_NOT_FOUND)\] l\.\d+ (\S+)/g,
+        /\[(SUSPECT|INDECIS|LINE_OUT|FILE_NOT_FOUND|SYMBOL_NOT_FOUND)\] l\.\d+ (\S+)/g,
       ),
     ]
       .map((m) => `${m[1]} ${m[2]}`)

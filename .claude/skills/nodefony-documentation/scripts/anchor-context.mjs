@@ -3,6 +3,15 @@
 // découpait une ligne là où le réparateur ne la découpait pas, et recalait une
 // ancre juste sur le symbole de sa voisine.
 
+/**
+ * Ancre par SYMBOLE : `<fichier>.ts#<Symbole>` ou `<fichier>.ts#<Classe.membre>`.
+ * Elle ne casse qu'au renommage ou à la suppression du symbole — quand la doc
+ * DOIT suivre. Le chemin ne prolonge pas une URL (`…/proxy.ts#L13` n'en est
+ * pas une), et `#L<n>` est le fragment de ligne de GitHub, pas un symbole.
+ */
+export const SYMBOL_ANCHOR_RE =
+  /(?<![\w/:.-])`?([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx))#(?!L\d)([A-Za-z_$#][\w$#]*(?:\.[A-Za-z_$#][\w$#]*)?)`?/g;
+
 /** Ancre COURTE `` `:N` `` : reprend le fichier de l'ancre qui la précède. */
 export const SHORT_ANCHOR_RE = /`:\d+(?:-\d+)?`/g;
 

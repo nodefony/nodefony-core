@@ -29,11 +29,11 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | Version | `3.1.0` |
 | Famille | Développer le framework |
 | Corps | 502 lignes |
-| Coût d'activation | ~9 556 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~9 582 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 22 |
+| Scripts | 23 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -93,7 +93,7 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. Entrée : la sortie d'anchor-check.mjs (stdin). Sortie : édite les .md en place. Règle : on ne déplace une ancre que si UNE seule ligne de définition plausible est trouvée pour les symboles cités — sinon on laisse et on le signale. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
 | `scripts/anchor-fix.selftest.mjs` | Éprouve `anchor-fix.mjs` sur un dépôt JETABLE : chaque ancre SUSPECTE doit être recalée sur la déclaration du symbole qu'ELLE prouve — jamais sur celui d'une ancre voisine. Un outil qui corrige qu'on n'a jamais vu se tromper n'est pas un outil, c'est un pari. | `--apply` | — |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
-| `scripts/anchor-migrate.mjs` | anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE (`Fichier.ts#Symbole`, `Fichier.ts#Classe.membre`). | `--json` `--report` `--show-toplevel` | — |
+| `scripts/anchor-migrate.mjs` | anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`). | `--json` `--report` `--show-toplevel` | — |
 | `scripts/anchor-pair-check.mjs` | anchor-pair-check.mjs — après un refactor, confronte chaque ancre `<Fichier>.ts:N` RECALÉE dans l'arbre de travail : le texte de la ligne visée AVANT (à la révision de base) doit être identique au texte de la ligne visée APRÈS (dans l'arbre). Déterministe, exhaustif sur le diff. | `--base` | — |
 | `scripts/anchor-remap.mjs` | Recale les ancres `fichier.ts:N` d'une page de doc par le GIT DIFF, pas par symbole : une ancre juste à la révision `--base` est décalée d'exactement le nombre de lignes que le code a gagné ou perdu AVANT elle. Déterministe — là où `anchor-fix.mjs` doit deviner une ligne à partir des mots qui l'entourent (un en-tête `Retry-After`, un `try`, un littéral ne se retrouvent pas). | `--all` `--apply` `--base` `--name-status` `--no-ext-diff` `--quiet` | `APPLY` `BASE` |
 | `scripts/anchor-remap.selftest.mjs` | Éprouve `anchor-remap.mjs` sur un dépôt JETABLE : une ancre juste à la base doit glisser d'EXACTEMENT ce que le code a gagné avant elle — ni plus, ni deux fois. | `--apply` `--base` | — |
@@ -108,6 +108,7 @@ script, donc toujours à jour après régénération.
 | `scripts/render-figures.mjs` | Rend les figures mermaid d'une page COMME LE LECTEUR LES VOIT, dans les deux moteurs, et les dépose en images — pour les REGARDER avant de dire « fait ». | `--console-seulement` `--only` `--show-toplevel` | — |
 | `scripts/symboles.mjs` | Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`, `MEMORY.md`) après un renommage du français vers l'anglais. | — | — |
 | `scripts/symboles.selftest.mjs` | Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que le code ne porte plus, et ne PAS crier sur ce qui est vivant, externe ou hors grammaire. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | — | — |
+| `lib/code-declarations.mjs` | Déclarations NOMMÉES d'un fichier source, avec leur plage de lignes — la seule source qui résout une ancre de doc par symbole (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`). | — | — |
 | `lib/slug-heading.mjs` | Slug d'un titre de page — la SEULE implémentation côté Node. | — | — |
 
 **Invocation telle que documentée dans chaque script :**

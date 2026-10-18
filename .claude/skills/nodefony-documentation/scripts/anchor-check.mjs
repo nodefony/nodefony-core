@@ -24,9 +24,14 @@ import path from "node:path";
 import { resoudreCorpus } from "./corpus.mjs";
 import {
   SHORT_ANCHOR_RE,
+  SYMBOL_ANCHOR_RE,
   anchorEnd,
   continuesPreviousLine,
 } from "./anchor-context.mjs";
+import {
+  findDeclarations,
+  loadDeclarations,
+} from "../lib/code-declarations.mjs";
 import { execSync } from "node:child_process";
 
 const REPO = execSync("git rev-parse --show-toplevel", {
@@ -384,7 +389,13 @@ let total = 0;
 // Ancres courtes `:N` sans ancre longue avant elles : le fichier n'est pas
 // résolu, donc rien n'est contrôlé — le DIRE, un saut muet se lit comme un vert.
 let orphans = 0;
-const problems = { FILE_NOT_FOUND: [], LINE_OUT: [], SUSPECT: [], INDECIS: [] };
+const problems = {
+  FILE_NOT_FOUND: [],
+  LINE_OUT: [],
+  SUSPECT: [],
+  INDECIS: [],
+  SYMBOL_NOT_FOUND: [],
+};
 const fileCache = new Map();
 function linesOf(rel) {
   if (!fileCache.has(rel)) {
@@ -592,6 +603,47 @@ for (const md of args) {
         });
       }
     }
+    // Ancres par SYMBOLE : un seul verdict, sans fenêtre ni contexte — le
+    // symbole est déclaré dans le fichier visé, ou il a été renommé ou
+    // supprimé et la page doit suivre.
+    for (const m of line.matchAll(SYMBOL_ANCHOR_RE)) {
+      const [raw, ref, symbol] = m;
+      total++;
+      const label = `${ref}#${symbol}`;
+      const cands = resolveCandidates(ref, moduleRoot);
+      const found = cands.find(
+        (c) =>
+          findDeclarations(loadDeclarations(path.join(REPO, c)), symbol).length,
+      );
+      const kind = !cands.length
+        ? "FILE_NOT_FOUND"
+        : found
+          ? "OK"
+          : "SYMBOL_NOT_FOUND";
+      if (JSON_OUT)
+        console.log(
+          JSON.stringify({
+            page: md,
+            line: i + 1,
+            index: m.index,
+            raw,
+            label,
+            symbol,
+            kind,
+            cand: found ?? cands[0] ?? null,
+          }),
+        );
+      if (kind !== "OK")
+        pageProblems.push({
+          kind,
+          ref: label,
+          line: i + 1,
+          detail:
+            kind === "SYMBOL_NOT_FOUND"
+              ? `${cands.join(", ")} ne déclare pas « ${symbol} » — renommé ou supprimé : la page doit suivre`
+              : undefined,
+        });
+    }
   });
 
   if (pageProblems.length) {
@@ -612,10 +664,12 @@ const nf = problems.FILE_NOT_FOUND.length;
 const lo = problems.LINE_OUT.length;
 const su = problems.SUSPECT.length;
 const ind = problems.INDECIS.length;
+const sym = problems.SYMBOL_NOT_FOUND.length;
 const bilan = JSON_OUT ? console.error : console.log;
 bilan(
-  `\n${total} ancres — ${total - nf - lo - su - ind} OK · ${su} SUSPECT · ${ind} INDÉCIS` +
-    ` · ${lo} LINE_OUT · ${nf} FILE_NOT_FOUND`,
+  `\n${total} ancres — ${total - nf - lo - su - ind - sym} OK · ${su} SUSPECT · ${ind} INDÉCIS` +
+    ` · ${lo} LINE_OUT · ${nf} FILE_NOT_FOUND` +
+    (sym ? ` · ${sym} SYMBOL_NOT_FOUND` : ""),
 );
 if (ind) {
   bilan(
@@ -635,4 +689,4 @@ if (su) {
       `    ou \`node anchor-check.mjs <pages> | node anchor-fix.mjs . --apply\` ; le reste se relit à la main.)`,
   );
 }
-process.exit(nf + lo + su ? 1 : 0);
+process.exit(nf + lo + su + sym ? 1 : 0);

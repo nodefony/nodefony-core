@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE
- * (`Fichier.ts#Symbole`, `Fichier.ts#Classe.membre`).
+ * (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).
  *
  * Une ligne bouge dès qu'on écrit au-dessus d'elle ; un symbole ne bouge qu'au
  * renommage, quand la doc DOIT suivre. Ce script trouve, pour chaque ancre, la
@@ -37,8 +37,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
 import picomatch from "picomatch";
+import {
+  enclosingDeclaration,
+  isAmbiguous,
+  loadDeclarations,
+} from "../lib/code-declarations.mjs";
 
 const REPO = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",
@@ -88,130 +92,10 @@ const { default: graphe } = await import(
 );
 const dansGraphe = picomatch(graphe.include, { ignore: graphe.exclude });
 
-const lineOf = (sf, pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
-
-/**
- * Première ligne de l'EN-TÊTE d'un nœud : TSDoc, décorateurs, et les `//`
- * collés au-dessus (sans ligne vide). Pointer la doc d'une méthode, c'est
- * pointer la méthode — la règle d'`anchor-check` (`enteteDe`).
- */
-function debutDe(sf, node) {
-  let debut = lineOf(sf, node.getStart(sf, true));
-  const commentaires =
-    ts.getLeadingCommentRanges(sf.text, node.getFullStart()) ?? [];
-  for (let k = commentaires.length - 1; k >= 0; k--) {
-    const c = commentaires[k];
-    if (lineOf(sf, c.end) < debut - 1) break;
-    debut = Math.min(debut, lineOf(sf, c.pos));
-  }
-  return debut;
-}
-
-const nomDe = (n) =>
-  n &&
-  (ts.isIdentifier(n) || ts.isPrivateIdentifier(n) || ts.isStringLiteral(n))
-    ? n.text
-    : null;
-
-/** Déclarations nommées d'un fichier : haut niveau, puis membres de classe et d'interface. */
-const declCache = new Map();
-function declarationsOf(rel) {
-  if (declCache.has(rel)) return declCache.get(rel);
-  const text = fs.readFileSync(path.join(REPO, rel), "utf8");
-  const kind = rel.endsWith(".tsx")
-    ? ts.ScriptKind.TSX
-    : rel.endsWith(".mjs") || rel.endsWith(".js")
-      ? ts.ScriptKind.JS
-      : ts.ScriptKind.TS;
-  const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, kind);
-  const out = [];
-  const pousser = (node, name, parent = null) =>
-    out.push({
-      name,
-      qualified: parent ? [parent, name].join(".") : name,
-      member: Boolean(parent),
-      start: debutDe(sf, node),
-      end: lineOf(sf, node.getEnd()),
-      overload:
-        (ts.isFunctionDeclaration(node) ||
-          ts.isMethodDeclaration(node) ||
-          ts.isConstructorDeclaration(node)) &&
-        !node.body,
-      accessor:
-        ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node),
-    });
-  for (const st of sf.statements) {
-    if (ts.isVariableStatement(st)) {
-      const decls = st.declarationList.declarations;
-      for (const d of decls) {
-        const n = nomDe(d.name);
-        if (n) pousser(decls.length === 1 ? st : d, n);
-      }
-      continue;
-    }
-    const n = nomDe(st.name);
-    if (!n) continue;
-    pousser(st, n);
-    if (ts.isClassDeclaration(st) || ts.isInterfaceDeclaration(st)) {
-      for (const m of st.members) {
-        const mn = ts.isConstructorDeclaration(m)
-          ? "constructor"
-          : nomDe(m.name);
-        if (mn) pousser(m, mn, n);
-      }
-    }
-  }
-  out.lignes = text.split("\n");
-  declCache.set(rel, out);
-  return out;
-}
-
-/**
- * La déclaration la plus INTÉRIEURE qui contient toute la plage.
- *
- * Une ancre posée entre deux membres — sur la ligne vide ou le commentaire qui
- * précède un TSDoc — vise la déclaration qui SUIT, pas la classe qui les
- * contient : c'est la règle `enteteDe` d'`anchor-check`, qui l'a jugée juste.
- */
-function englobant(decls, start, end) {
-  let best = null;
-  for (const d of decls) {
-    if (
-      d.start <= start &&
-      d.end >= end &&
-      (!best || d.end - d.start < best.end - best.start)
-    )
-      best = d;
-  }
-  const entete = (l) => l === "" || /^(\/\*\*?|\*|\/\/|@)/.test(l);
-  const suivante = decls
-    .filter(
-      (d) =>
-        d.start > start &&
-        d.end >= end &&
-        (!best ||
-          (d.start <= best.end && d.end - d.start < best.end - best.start)) &&
-        decls.lignes
-          .slice(start - 1, d.start - 1)
-          .every((l) => entete(l.trim())),
-    )
-    .sort(
-      (x, y) => x.start - y.start || y.end - y.start - (x.end - x.start),
-    )[0];
-  return suivante ?? best;
-}
-
 const norm = (s) =>
   String(s ?? "")
     .replace(/^#/, "")
     .toLowerCase();
-// Une surcharge (signature sans corps) et une paire get/set ne sont qu'UN
-// symbole ; deux déclarations qui fusionnent (classe + interface) en sont deux.
-const homonyme = (decls, d) => {
-  const meme = decls.filter((x) => x.qualified === d.qualified && !x.overload);
-  return meme.length > 1 && !meme.every((x) => x.accessor);
-};
-
 // Blocs de code d'une page : une ancre dans une fence est souvent un exemple
 // (trace de pile, sortie de commande), pas une référence — le bilan le dit.
 const fenceCache = new Map();
@@ -244,7 +128,8 @@ for (const a of ancres) {
     categorie = "CASSEE";
     motif = a.kind;
   } else {
-    const decls = declarationsOf(a.cand);
+    const index = loadDeclarations(path.join(REPO, a.cand));
+    const decls = index.list;
     if (a.kind === "SUSPECT") {
       const nommes = a.prouve
         ? decls.filter((d) => norm(d.name) === norm(a.prouve))
@@ -259,7 +144,7 @@ for (const a of ancres) {
           : "SUSPECT sans cible";
       }
     } else {
-      const d = englobant(decls, a.start, a.end);
+      const d = enclosingDeclaration(index, a.start, a.end);
       if (!d) categorie = "HORS_SYMBOLE";
       else {
         cible = d;
@@ -294,7 +179,7 @@ for (const a of ancres) {
         }
       }
     }
-    if (cible && homonyme(decls, cible)) {
+    if (cible && isAmbiguous(index, cible.qualified)) {
       motif = `${cible.qualified} déclaré plusieurs fois`;
       categorie = "HOMONYME";
     }

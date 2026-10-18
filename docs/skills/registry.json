@@ -4689,7 +4689,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 502,
-        "approxTokens": 9556
+        "approxTokens": 9582
       },
       "requires": [
         "base de données"
@@ -4813,7 +4813,7 @@
           },
           {
             "path": "scripts/anchor-migrate.mjs",
-            "purpose": "anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE (`Fichier.ts#Symbole`, `Fichier.ts#Classe.membre`).",
+            "purpose": "anchor-migrate.mjs — convertit les ancres `fichier:ligne` en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).",
             "usage": [
               "Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--report <f.json>]"
             ],
@@ -5100,6 +5100,15 @@
             "usage": [
               "`@usage` node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs"
             ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "lib/code-declarations.mjs",
+            "purpose": "Déclarations NOMMÉES d'un fichier source, avec leur plage de lignes — la seule source qui résout une ancre de doc par symbole (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).",
+            "usage": [],
             "options": [],
             "env": [],
             "output": "",
