@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T10:35:18.736Z",
+  "generatedAt": "2026-10-18T11:58:41.719Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 142,
+      "closed": 143,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 33,
+      "open": 32,
       "title": "10.0.0-beta"
     },
     {
@@ -3190,8 +3190,8 @@
       "number": 62,
       "title": "fix(cli): sonder les ports réellement utilisés par l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/62",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
