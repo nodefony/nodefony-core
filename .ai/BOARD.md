@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-18 21:05** (UTC).
+> Empreinte prise le **2026-10-18 21:57** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 86% | 147 | 23 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 87% | 148 | 22 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 2% | 1 | 44 | — |
@@ -32,11 +32,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#630 — refactor(realtime)!: aligner la socket du navigateur et du serveur avant 10.0**
+**#572 — refactor(types): remplacer les conversions de type qui resserrent un type**
 
-Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise —
+Ordre 4.02 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 22 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,34 +105,6 @@ Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 23 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 4.01 | P1 — figé à la création | 1 | — | #630 | refactor(realtime)!: aligner la socket du navigateur et du serveur avant 10.0 |
-| 4.02 | P1 — figé à la création | 1 | — | #572 | refactor(types): remplacer les conversions de type qui resserrent un type |
-| 4.03 | P1 — figé à la création | 2 | 2026-11-17 → 11-18 | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
-| 4.04 | P2 — décision | 1 | 2026-10-23 → 10-23 | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
-| 4.05 | P2 — décision | 0.5 | 2026-10-30 → 10-30 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
-| 4.06 | P2 — décision | 0.5 | 2026-11-02 → 11-02 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
-| 4.07 | P2 — décision | 0.5 | — | #595 | feat(scaffold): générer les secrets de production dans la CI de l'application |
-| 4.08 | P2 — décision | 1 | 2026-10-15 → 10-15 | #352 | test(release): éprouver un flux SSE à travers le frontal généré |
-| 4.09 | P2 — décision | 2 | — | #570 | feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent |
-| 4.1 | P2 — décision | 1 | 2026-11-06 → 11-06 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
-| 5.01 | P2 — décision | 0.5 | — | #605 | feat(site): versionner le site de documentation par release |
-| 5.02 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
-| 5.03 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
-| 5.04 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
-| 5.05 | P2 — décision | 1 | 2026-10-20 → 10-20 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
-| 5.06 | P0 — bloque le reste | 1 | 2026-11-04 → 11-04 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
-| 5.07 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
-| 5.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
-| 5.09 | P2 — décision | 0.5 | — | #600 | feat(devkit): lire le journal d'une session Codex interactive au banc |
-| 5.1 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
-| 5.11 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
-| 6.09 | P2 — décision | 1 | — | #585 | feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire |
-| 6.1 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
-
 ## Backlog — aucune date promise · 22 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
@@ -159,6 +131,33 @@ Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 917 | P3 — fin de cycle | 6 | — | #612 | refactor(core): finir le découpage du noyau, une famille à la fois |
 | 918 | P2 — décision | 2 | — | #615 | feat(cli): ajouter un type de champ chiffré au repos à create entity |
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
+
+## Jalon 10.0.0-beta — 22 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 4.02 | P1 — figé à la création | 1 | — | #572 | refactor(types): remplacer les conversions de type qui resserrent un type |
+| 4.03 | P1 — figé à la création | 2 | 2026-11-17 → 11-18 | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
+| 4.04 | P2 — décision | 1 | 2026-10-23 → 10-23 | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
+| 4.05 | P2 — décision | 0.5 | 2026-10-30 → 10-30 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
+| 4.06 | P2 — décision | 0.5 | 2026-11-02 → 11-02 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
+| 4.07 | P2 — décision | 0.5 | — | #595 | feat(scaffold): générer les secrets de production dans la CI de l'application |
+| 4.08 | P2 — décision | 1 | 2026-10-15 → 10-15 | #352 | test(release): éprouver un flux SSE à travers le frontal généré |
+| 4.09 | P2 — décision | 2 | — | #570 | feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent |
+| 4.1 | P2 — décision | 1 | 2026-11-06 → 11-06 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
+| 5.01 | P2 — décision | 0.5 | — | #605 | feat(site): versionner le site de documentation par release |
+| 5.02 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
+| 5.03 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
+| 5.04 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
+| 5.05 | P2 — décision | 1 | 2026-10-20 → 10-20 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
+| 5.06 | P0 — bloque le reste | 1 | 2026-11-04 → 11-04 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
+| 5.07 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
+| 5.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
+| 5.09 | P2 — décision | 0.5 | — | #600 | feat(devkit): lire le journal d'une session Codex interactive au banc |
+| 5.1 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
+| 5.11 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
+| 6.09 | P2 — décision | 1 | — | #585 | feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire |
+| 6.1 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 
 ## Jalon 10.2.0 — 44 ouverts
 
