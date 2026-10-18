@@ -307,6 +307,13 @@ const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
       "stream-json",
       "--verbose",
       "--dangerously-skip-permissions",
+      // Sans lui, `claude -p` charge le PROFIL de qui lance le banc
+      // (`~/.claude/CLAUDE.md`) : l'agent mesuré obéit alors aux consignes d'un
+      // développeur (« une session = un module », « jamais package.json sans
+      // demander ») au lieu de ce que l'application lui dit. Même option, même
+      // motif que bench-schema.mjs — le CLAUDE.md du projet reste lu.
+      "--setting-sources",
+      "project,local",
     ];
 
 /**

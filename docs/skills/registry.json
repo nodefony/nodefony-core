@@ -3256,6 +3256,10 @@
                 "help": ""
               },
               {
+                "flag": "--setting-sources",
+                "help": ""
+              },
+              {
                 "flag": "--setup-only",
                 "help": ""
               },

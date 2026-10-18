@@ -77,7 +77,7 @@ donner la ligne entière pour un autre agent.
 <!-- prettier-ignore -->
 | Agent | `NF_DEVKIT_BENCH_AGENT_ARGS` | Modèle | Comment il atteint la porte |
 | --- | --- | --- | --- |
-| `claude` (défaut) | _(laisser vide)_ | `NF_DEVKIT_BENCH_MODEL` (défaut `haiku`) | `--mcp-config .mcp.json --strict-mcp-config`, ajoutés d'office |
+| `claude` (défaut) | _(laisser vide)_ — le défaut porte `--setting-sources project,local` : sans lui, l'agent lit le `~/.claude/CLAUDE.md` de qui lance le banc ; un override doit le reprendre | `NF_DEVKIT_BENCH_MODEL` (défaut `haiku`) | `--mcp-config .mcp.json --strict-mcp-config`, ajoutés d'office |
 | `vibe` | `--output streaming --yolo --trust -p` | poser `NF_DEVKIT_BENCH_MODEL=` **vide** | déclaré chez lui par `vibe mcp add`, dans un foyer JETABLE |
 | `codex` | `exec --json --skip-git-repo-check --approve-for-me` | vide | `codex mcp add`, foyer JETABLE `CODEX_HOME` |
 | `gemini` | `--skip-trust -y -o stream-json --model gemini-3.1-flash-lite -p` (`-p` en DERNIER, modèle DANS les args) | vide — **surtout pas** `NF_DEVKIT_BENCH_MODEL` | portée PROJET (`.gemini/`) : rien à déporter |
