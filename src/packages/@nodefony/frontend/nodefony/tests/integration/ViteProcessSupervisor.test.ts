@@ -10,6 +10,8 @@ import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const FIXTURE_ROOT = path.resolve(__dirname, "../fixtures/minimal-frontend");
+// Racine de la SECONDE application du cas de décalage — cf ce cas.
+const PEER_ROOT = path.resolve(__dirname, "../fixtures/peer-frontend");
 
 const silentLogger = {
   info: () => {},
@@ -17,14 +19,14 @@ const silentLogger = {
   debug: () => {},
 };
 
-function makeEntry(): IResolvedFrontendEntry {
+function makeEntry(root: string = FIXTURE_ROOT): IResolvedFrontendEntry {
   return {
     moduleName: "fixture",
     entryName: "fixture",
     type: "vanilla",
-    root: FIXTURE_ROOT,
+    root,
     entryFile: "src/main.ts",
-    outDir: path.resolve(FIXTURE_ROOT, "dist"),
+    outDir: path.resolve(root, "dist"),
     publicPath: "/_assets/fixture/",
   };
 }
@@ -180,14 +182,28 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     // reste mort et l'on cherche la panne ailleurs. Le config généré porte
     // TOUJOURS `strictPort: true` (il est lié à l'origine annoncée) : Vite ne
     // se décalera donc jamais de lui-même, c'est le superviseur qui doit relancer.
+    //
+    // 🔴 Chaque instance a SA racine, comme deux applications réelles. Partager
+    // `FIXTURE_ROOT` faisait écrire aux deux le MÊME `vite.config.generated.mjs` :
+    // la 1ʳᵉ, qui surveille ce fichier, redémarrait (`_closeServer` puis
+    // `listen`) dès que la 2ᵉ le réécrivait. Quand la 2ᵉ se liait dans cette
+    // fenêtre, elle prenait le port SANS conflit (0 repli) et la 1ʳᵉ ne s'y
+    // reliait plus — l'intermittence de la forge (#427), décidée par la course
+    // entre le watcher et le spawn, jamais par le superviseur.
     const port = await freePort();
+    // La 1ʳᵉ parle : son journal est la seule preuve qu'elle n'a pas redémarré.
+    const firstLog: string[] = [];
     const first = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,
       startupTimeoutMs: 20_000,
-      pipeLogs: false,
+      pipeLogs: true,
       cwd: FIXTURE_ROOT,
-      logger: silentLogger,
+      logger: {
+        info: (msg: string) => void firstLog.push(msg),
+        error: (msg: string) => void firstLog.push(msg),
+        debug: () => {},
+      },
       healthCheckIntervalMs: 0,
       autoRestart: false,
     });
@@ -196,7 +212,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       devPort: port, // MÊME port de base : le conflit est le sujet du test
       startupTimeoutMs: 20_000,
       pipeLogs: false,
-      cwd: FIXTURE_ROOT,
+      cwd: PEER_ROOT,
       logger: silentLogger,
       healthCheckIntervalMs: 0,
       autoRestart: false,
@@ -235,7 +251,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       // composé AU MOMENT du dépassement : c'est le seul instant où l'état du
       // superviseur dit encore où il en était.
       await withDeadline(
-        second.start([makeEntry()], {}),
+        second.start([makeEntry(PEER_ROOT)], {}),
         STARTUP_DEADLINE_MS,
         () => {
           const st = second.status();
@@ -255,6 +271,17 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       );
       const status = second.status();
       expect(status.state).to.equal("ready");
+      // PRÉMISSE du décor : la 1ʳᵉ n'a pas redémarré pendant que la 2ᵉ
+      // démarrait. Un redémarrage libère le port le temps de se relier, et le
+      // verdict qui suit ne jugerait plus le superviseur mais la course.
+      const restart = firstLog.find((l) =>
+        /restarting server|server restarted/u.test(l),
+      );
+      expect(
+        restart,
+        "la 1ʳᵉ instance a redémarré pendant le démarrage de la 2ᵉ — les deux " +
+          "partagent-elles un fichier surveillé (config généré, racine) ?",
+      ).to.equal(undefined);
       // 🔴 LA CAUSE, avant le verdict. Ce cas est tombé par intermittence sur
       // les agents macOS partagés (`expected 49263 to be above 49263`) sans
       // qu'on puisse dire POURQUOI : le port seul n'accuse personne. Deux
@@ -291,9 +318,10 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
                 "et annonce pourtant ce numéro — le défaut est dans ce que le " +
                 "superviseur retient comme port RÉEL, pas dans la liaison"
               : tenantDuPort === pidSeconde
-                ? "c'est la 2ᵉ instance qui tient le port : les deux coexistent sur " +
-                  "ce numéro — familles d'adresses distinctes, ou `SO_REUSEADDR` " +
-                  "accepté par le noyau ; le défaut est dans la LIAISON"
+                ? "c'est la 2ᵉ instance qui tient le port : soit la 1ʳᵉ l'a LÂCHÉ " +
+                  "(redémarrage, mort), soit les deux coexistent sur ce numéro — " +
+                  "familles d'adresses distinctes, ou `SO_REUSEADDR` accepté par le " +
+                  "noyau ; dans ce dernier cas le défaut est dans la LIAISON"
                 : "un TIERS tient le port — ni la 1ʳᵉ ni la 2ᵉ instance : l'agent " +
                   "est partagé et le port a été pris entre-temps";
         expect.fail(
