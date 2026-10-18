@@ -207,7 +207,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les bo
 | `Env`           | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)                           |
 | `Card`          | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)                             |
 | `See`           | —             | `SeeCommand.ts`        | **standalone** — mesure un ÉCRAN, 3 modes (cf § see)                              |
-| `Check`         | `doctor`      | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § check)                                 |
+| `Doctor`        | —             | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § doctor)                                |
 | `Inspect`       | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect)                     |
 | `Symbols`       | —             | `SymbolsCommand.ts`    | **standalone** — lit le graphe ; `--generate` écrit celui de l'app (cf § symbols) |
 | `ai:sync`       | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)                               |
@@ -306,7 +306,7 @@ document de FORME différente, que l'agrégateur lirait mal sans rien signaler.
 
 `nodefony env [--json] [--cwd <path>]` (+ `--example [--check]` : dérive/vérifie `.env.example` depuis le catalogue, ADR-0006) — le `.env` lu (ADR-0014), variables déclarées, valeur
 EFFECTIVE de chacune et sa PROVENANCE, puis ce qui est ignoré. Standalone **par nécessité**
-(même raison que `check`, en plus tranchée) : on cherche une variable précisément quand l'app
+(même raison que `doctor`, en plus tranchée) : on cherche une variable précisément quand l'app
 NE démarre pas. Sort en **78** (`EX_CONFIG`) si une variable requise manque.
 
 Architecture en deux morceaux : `cli/envReport.ts` = calcul **PUR** (`buildEnvReport` — reçoit
@@ -358,8 +358,8 @@ module »), pas des modules **chargés**. La ligne le mentionne et renvoie à
 
 ## `nodefony doctor` / `doctor` — statique par défaut, `--live` DEMANDE à l'app
 
-`nodefony doctor [--json] [--strict|--no-strict] [--live|--no-live] [--cwd <path>]`, alias
-**`check`**. Par défaut il ne lit que des fichiers (`package.json` + sources) — donc il fonctionne
+`nodefony doctor [--json] [--strict|--no-strict] [--live|--no-live] [--cwd <path>]`. Par
+défaut il ne lit que des fichiers (`package.json` + sources) — donc il fonctionne
 sur une application **qui ne démarre plus**, et c'est sa raison d'être. Fast-path dans
 `CliKernel.start()` : le faire booter coûterait un démarrage complet pour une réponse qui n'en
 dépend pas, et noierait le rapport sous le journal du Kernel.
@@ -384,15 +384,23 @@ mal — sort quoi qu'il arrive.
 ⚠️ **La cible est l'APPLICATION, pas le dossier où l'on a tapé.** La commande remonte au premier
 dossier portant `nodefony.config.ts` (`findProjectRoot` — la MÊME définition de « où commence
 l'app » que le lanceur et les scaffolds), et **annonce cette racine** quand elle diffère du dossier
-de départ. Sans cette remontée, un `check` lancé dans `modules/blog/` — le cas courant, on est dans
+de départ. Sans cette remontée, un `doctor` lancé dans `modules/blog/` — le cas courant, on est dans
 le module qu'on développe — ne trouvait ni le manifeste ni `var/last-boot.json`, et concluait
 « rien à signaler » : un outil de diagnostic silencieux, et rassurant à tort. Hors projet, le
 dossier de départ reste la cible (ce dépôt-ci, un dossier de paquets). `--cwd` déplace le point de
 départ de la remontée, comme pour `env`.
 
-⚠️ **L'alias DOIT partager le fast-path.** Sans l'entrée `requested === "doctor"`, commander ne le
-voit pas parmi les intégrées avant le chargement des modules → dispatch différé → boot, exactement
-ce que le raccourci évite.
+⚠️ **Le fast-path ne reconnaît que `doctor`** (`isDoctorCommand`). L'ancien alias `check` est RETIRÉ —
+il ne disait pas ce qu'il vérifie et heurtait `typecheck`/`format:check` : `nodefony check` n'est
+plus une intégrée, part en dispatch différé, donc en boot, et répond « Pas de projet Nodefony ici »
+hors d'une application construite. Un nom neuf pour ce verbe s'ajoute À `isDoctorCommand`, sinon
+il boote exactement là où le raccourci existe pour l'éviter.
+
+⚠️ **L'environnement jugé est celui de l'application VISÉE** (`appEnvironment(root)`), jamais
+`process.env` : le binaire y a chargé le `.env` du dossier où la commande a été tapée — aucun depuis
+un sous-dossier, celui d'un AUTRE projet avec `--cwd` ou en fin de `create app`. Ports
+(`defaultDevPorts(root, env)`), infrastructures et variables requises le lisent ; `ai:mcp`
+(`guessOrigin`) aussi.
 
 **Dix règles**, en deux familles :
 
@@ -434,7 +442,7 @@ l'action d'une commande intégrée est branchée avant que le moindre module n'e
 passerait AVANT celui qui peuple le registre, et ne trouverait rien à inspecter. Aucun serveur
 n'écoute pour autant : le profil console (`servers: false`) est respecté par `Kernel.initServers`.
 
-> **Deux verbes, une frontière** : `check` est STATIQUE (des fichiers, marche sur une app cassée),
+> **Deux verbes, une frontière** : `doctor` est STATIQUE (des fichiers, marche sur une app cassée),
 > `inspect` est RUNTIME (elle boote, sans port). Un agent n'a que ces deux-là à retenir.
 
 ## `nodefony symbols` — lire le graphe, et `--generate` celui de l'application

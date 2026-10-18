@@ -23,6 +23,7 @@ import path from "node:path";
 import { collectDoctorReport } from "../kernel/checks/runDoctor";
 import { appEnvironment } from "../kernel/checks/projectScope";
 import { loadEnv } from "../runtime/loadEnv";
+import { guessOrigin } from "../cli/aiMcp";
 
 const VARS = [
   "NF_PORT",
@@ -134,5 +135,14 @@ describe("doctor — l'environnement de l'application VISÉE (#62)", () => {
 
     assert.strictEqual(env.NF_DATABASE_URL, "postgres://cible/db");
     assert.strictEqual(env.DOCTOR62_SHELL_MARKER, "shell");
+  });
+
+  it("ai:mcp --cwd écrit l'URL du port de l'application visée, pas celui du voisin", () => {
+    for (const k of VARS) delete process.env[k];
+    const neighbour = app("voisin", "NF_PORT=6391\n");
+    loadEnv({ cwd: neighbour });
+    const target = app("cible", "NF_PORT=6393\n");
+
+    assert.strictEqual(guessOrigin(target), "http://localhost:6393");
   });
 });

@@ -10,6 +10,7 @@ import {
 } from "../kernel/adminPlane/adminCaller";
 import { findProjectRoot } from "./projectRoot";
 import { defaultDevPorts } from "../service/dev/devProcess";
+import { appEnvironment } from "../kernel/checks/projectScope";
 import {
   buildMcpUrl,
   planMcpConfig,
@@ -250,10 +251,14 @@ export function parseAiMcpArgv(
  * qui le refuse ne dit pas pourquoi — il rend « serveur injoignable ». L'appel
  * est purement local ; `--url` reste là pour qui veut le TLS.
  *
+ * Le port se lit dans l'environnement de l'APPLICATION (`appEnvironment`) :
+ * avec `--cwd`, `process.env` porte le `.env` du dossier où la commande a été
+ * tapée, et l'URL écrite dans `.mcp.json` aurait visé le serveur d'un voisin.
+ *
  * @param cwd - racine du projet
  */
 export function guessOrigin(cwd: string): string {
-  const ports = defaultDevPorts(cwd);
+  const ports = defaultDevPorts(cwd, appEnvironment(cwd));
   return `http://localhost:${ports[0] ?? 5151}`;
 }
 
