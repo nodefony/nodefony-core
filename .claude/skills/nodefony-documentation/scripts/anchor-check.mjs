@@ -10,7 +10,7 @@
  *                       l'ancre n'apparaît dans la fenêtre [début-10 .. fin+15]
  *   - OK              : fichier + ligne + au moins un symbole du contexte retrouvés
  *
- * Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)
+ * Usage : node anchor-check.mjs [--all|--json] <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)
  *
  * SUSPECT bloque, INDÉCIS non. Un SUSPECT est actionnable — un des symboles cités
  * existe ailleurs dans le fichier, l'ancre vise la bonne cible à la mauvaise ligne,
@@ -36,7 +36,15 @@ const REPO = execSync("git rev-parse --show-toplevel", {
 // pour `anchor-remap.mjs` — une ancre décalée qui tombe par hasard sur une
 // ligne plausible n'est pas SUSPECTE, et resterait fausse sans le dire.
 const ALL = process.argv.includes("--all");
-const cibles = process.argv.slice(2).filter((arg) => arg !== "--all");
+// `--json` : une ligne JSON par ancre, verdict compris, sur stdout — le bilan
+// lisible passe sur stderr. Lu par `anchor-migrate.mjs`, qui convertit les
+// ancres en symboles : la détection (fichier visé, symbole cité) reste ICI,
+// une seule fois, au lieu d'être recopiée dans le convertisseur.
+const JSON_OUT = process.argv.includes("--json");
+const say = JSON_OUT ? () => {} : console.log;
+const cibles = process.argv
+  .slice(2)
+  .filter((arg) => arg !== "--all" && arg !== "--json");
 if (!cibles.length) {
   console.error("usage: node anchor-check.mjs <page.md|dossier> [...]");
   process.exit(2);
@@ -411,7 +419,7 @@ for (const md of args) {
   const moduleRoot = moduleRootOf(md.replace(/^tmp\/doc-corpus\//, ""));
   const brut = fs.readFileSync(md, "utf8");
   if (estRemplacee(brut)) {
-    console.log(`\x1b[2m⏭  ${md} — page remplacée (status: superseded)\x1b[0m`);
+    say(`\x1b[2m⏭  ${md} — page remplacée (status: superseded)\x1b[0m`);
     continue;
   }
   const mdLines = brut.split("\n");
@@ -433,7 +441,28 @@ for (const md of args) {
       const start = Number(startS);
       const end = endS ? Number(endS) : start;
       const cands = resolveCandidates(ref, moduleRoot);
+      const segment = segmentDeLAncre(mdLine, decalage + a.index, raw.length);
+      const prouve = symboleProuve(segment, raw.replaceAll("`", ""));
+      const emit = (kind, cand = null) => {
+        if (JSON_OUT)
+          console.log(
+            JSON.stringify({
+              page: md,
+              line: i + 1,
+              index: a.index,
+              raw,
+              label: a.label,
+              short: Boolean(a.short),
+              start,
+              end,
+              kind,
+              cand,
+              prouve,
+            }),
+          );
+      };
       if (!cands.length) {
+        emit("FILE_NOT_FOUND");
         pageProblems.push({
           kind: "FILE_NOT_FOUND",
           ref: a.label,
@@ -441,7 +470,6 @@ for (const md of args) {
         });
         continue;
       }
-      const segment = segmentDeLAncre(mdLine, decalage + a.index, raw.length);
       const tokens = contextTokens(
         segment,
         raw.replaceAll("`", ""),
@@ -460,7 +488,6 @@ for (const md of args) {
           break;
         }
         // Le symbole que l'ancre engage est là où elle pointe : c'est réglé.
-        const prouve = symboleProuve(segment, raw.replaceAll("`", ""));
         if (prouve && declareIci(code, prouve, start, end)) {
           best = { kind: "OK", cand };
           break;
@@ -537,10 +564,12 @@ for (const md of args) {
       // Une ligne absente, ou un symbole que ce fichier ne connaît pas, réfute
       // la supposition — on ne juge pas, et le bilan la compte non contrôlée.
       if (a.short && (best.kind === "LINE_OUT" || best.kind === "INDECIS")) {
+        emit("NON_CONTROLEE", best.cand);
         orphans++;
         total--;
         continue;
       }
+      emit(best.kind, best.cand);
       if (best.kind === "OK") {
         if (ALL && !a.short)
           pageAnchors.push(`   [ANCHOR] l.${i + 1} ${a.label} → ${best.cand}`);
@@ -566,41 +595,42 @@ for (const md of args) {
   });
 
   if (pageProblems.length) {
-    console.log(`\n❌ ${md}`);
+    say(`\n❌ ${md}`);
     for (const p of pageProblems) {
       problems[p.kind].push(`${md}: ${p.ref}`);
-      console.log(
+      say(
         `   [${p.kind}] l.${p.line} ${p.ref}${p.detail ? " → " + p.detail : ""}`,
       );
     }
   } else {
-    console.log(`✅ ${md}`);
+    say(`✅ ${md}`);
   }
-  for (const line of pageAnchors) console.log(line);
+  for (const line of pageAnchors) say(line);
 }
 
 const nf = problems.FILE_NOT_FOUND.length;
 const lo = problems.LINE_OUT.length;
 const su = problems.SUSPECT.length;
 const ind = problems.INDECIS.length;
-console.log(
+const bilan = JSON_OUT ? console.error : console.log;
+bilan(
   `\n${total} ancres — ${total - nf - lo - su - ind} OK · ${su} SUSPECT · ${ind} INDÉCIS` +
     ` · ${lo} LINE_OUT · ${nf} FILE_NOT_FOUND`,
 );
 if (ind) {
-  console.log(
+  bilan(
     `   (INDÉCIS = le gate ne sait pas quoi chercher — littéral, ou symbole que prouve l'ancre voisine.\n` +
       `    Ce n'est pas un défaut de la doc : ne pas « corriger » ces ancres sans les avoir lues.)`,
   );
 }
 if (orphans) {
-  console.log(
+  bilan(
     `   (${orphans} ancre(s) courte(s) \`:N\` NON contrôlée(s) : leur fichier n'est pas écrit, et celui de\n` +
       `    l'ancre longue d'avant ne la confirme pas. Écrire le chemin en entier pour qu'elle soit vérifiée.)`,
   );
 }
 if (su) {
-  console.log(
+  bilan(
     `   (SUSPECT = l'ancre a dérivé. Recaler : \`npm run doc:anchors:fix\` pour le corpus,\n` +
       `    ou \`node anchor-check.mjs <pages> | node anchor-fix.mjs . --apply\` ; le reste se relit à la main.)`,
   );

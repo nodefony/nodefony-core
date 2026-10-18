@@ -63,7 +63,7 @@ Fige la liste des mots de passe les plus courants en artefact VERSIONNÉ.
 Configuration for scripts/generate/generate-symbols.ts
 
 - **Usage** : `import config from "./generate-symbols.config.ts"`
-- **Appelé par** : `generate/generate-symbols.ts`
+- **Appelé par** : `generate/generate-symbols.ts` · `.claude/skills/nodefony-documentation/scripts/anchor-migrate.mjs`
 
 ## [`generate-symbols.ts`](generate-symbols.ts)
 
