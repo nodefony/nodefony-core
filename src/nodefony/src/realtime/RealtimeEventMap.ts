@@ -256,6 +256,36 @@ export interface IRealtimeWelcome {
    * permission de parler — et on ne l'accorde pas par défaut.
    */
   env?: string;
+  /**
+   * Le serveur ACQUITTE chaque abonnement accepté (`realtime:subscribed`, cf
+   * {@link IRealtimeSubscribed}).
+   *
+   * ⚠️ **Une absence vaut « pas d'acquittement »** : un serveur antérieur à la
+   * notification ne pose pas ce champ, et un client qui l'attendrait resterait
+   * suspendu pour toujours. Sans lui, le client répute l'abonnement actif dès
+   * qu'il l'a rejoué au welcome — la garantie d'avant, sans plus.
+   */
+  subscriptionAcks?: boolean;
+}
+
+/**
+ * Payload de la notification système `realtime:subscribed` — poussée par le
+ * serveur quand un `subscribe` est ACCEPTÉ, y compris pour un canal que la
+ * connexion suivait déjà (sans quoi un `subscribe` réémis attendrait un
+ * acquittement qui ne vient jamais).
+ *
+ * Garantie : tout événement publié sur le canal APRÈS l'émission de cette
+ * notification est livré à la connexion. Le producteur s'attache AVANT
+ * l'acquittement : une première charge (un tick initial) peut donc arriver
+ * avant lui — « rien n'arrive avant » n'est PAS promis.
+ *
+ * Le pendant de {@link IRealtimeDenied} : un abonnement reçoit l'un ou l'autre,
+ * jamais les deux, et un refus n'est jamais acquitté. Cold path (1×/canal et
+ * par connexion).
+ */
+export interface IRealtimeSubscribed {
+  /** Canal dont l'abonnement est désormais effectif sur cette connexion. */
+  channel: string;
 }
 
 /**

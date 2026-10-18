@@ -268,6 +268,7 @@ export type {
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeDenied,
+  IRealtimeSubscribed,
 } from "./realtime/RealtimeEventMap";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────

@@ -329,7 +329,7 @@ appels suivants rendent l'instance existante, réglages compris.
 stateDiagram-v2
   [*] --> disconnected
   disconnected --> connecting: connect()
-  connecting --> connected: transport ouvert + welcome
+  connecting --> connected: transport ouvert (AVANT le welcome)
   connected --> reconnecting: fermeture TRANSITOIRE (1006, 1011…)
   reconnecting --> connected: nouvelle tentative réussie
   connected --> error: fermeture DÉFINITIVE (1008, 1002…)
@@ -380,6 +380,23 @@ est nul.
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
 Le serveur repart d'un état vide après une coupure ; c'est le client qui se souvient de ce qu'il
 écoutait, dans la routine d'ouverture de socket (`client/realtime/NodefonySocket.ts:1081`).
+
+**`connected` ne veut pas dire « abonné ».** L'état passe à `connected` dès l'ouverture du
+transport ; les abonnements ne sont rejoués qu'au `realtime:welcome`, et ne deviennent effectifs
+qu'à l'**acquittement** du serveur (`realtime:subscribed`). Ce qui est publié entre les deux est
+perdu. Pour le patron « je recharge l'état, puis je suis le flux », attendre l'acquittement :
+
+```ts
+socket.subscribe("app:orders");
+await socket.whenSubscribed("app:orders"); // rejetée si le serveur refuse le canal
+const snapshot = await loadOrders(); // tout ce qui est publié à partir d'ici est livré
+```
+
+`whenSubscribed()` (`client/realtime/NodefonySocket.ts:820`) repart de zéro à chaque reconnexion ;
+`onSubscribed()` rappelle un écouteur à chaque acquittement. Face à un serveur qui n'annonce pas
+`subscriptionAcks` dans son welcome (version antérieure), la promesse se résout dès le rejeu : la
+garantie d'avant, sans plus. Un premier message peut arriver AVANT l'acquittement (le producteur
+s'attache d'abord) — la garantie porte sur ce qui suit, pas sur « rien n'arrive avant ».
 
 > [!WARNING]
 > `on(canal, handler)` et `subscribe(canal)` ne font **pas** la même chose et ne se remplacent pas.

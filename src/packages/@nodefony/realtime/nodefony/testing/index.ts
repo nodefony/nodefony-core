@@ -32,6 +32,7 @@
 import { RequestContext, type IRealtimeDenied } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import type { RealtimeController } from "../src/server/RealtimeController";
+import { isRecord } from "../src/guards";
 import {
   getRealtimeHub,
   type RealtimeHub,
@@ -137,7 +138,10 @@ export interface IRealtimeHarness<C extends RealtimeController> {
    *   échec) : lire `closes` pour en connaître la cause.
    */
   connect(): Promise<IRealtimeFrame>;
-  /** Demande un canal, comme le ferait un client. */
+  /**
+   * Demande un canal, comme le ferait un client, et attend la réponse du
+   * serveur (acquittement `realtime:subscribed` ou refus `realtime:denied`).
+   */
   subscribe(channel: string): Promise<void>;
   /** Rend un canal — le provider est disposé au dernier abonné. */
   unsubscribe(channel: string): Promise<void>;
@@ -156,6 +160,8 @@ export interface IRealtimeHarness<C extends RealtimeController> {
   messages(channel: string): readonly unknown[];
   /** Les refus d'abonnement notifiés (`realtime:denied`). */
   denials(): readonly IHarnessDenied[];
+  /** Les canaux dont l'abonnement a été acquitté (`realtime:subscribed`), dans l'ordre. */
+  subscriptions(): readonly string[];
   /** Ferme la socket côté client : la base dispose alors tous ses providers. */
   close(): void;
   /** `close()` puis remise à zéro du hub. À appeler en fin de cas. */
@@ -328,7 +334,31 @@ export function createRealtimeHarness<C extends RealtimeController>(
     },
 
     async subscribe(channel: string): Promise<void> {
+      const from = received.length;
       await feed(rpc({ method: "subscribe", params: { channel } }));
+      // Attendre la RÉPONSE du serveur — acquittement ou refus —, pas seulement
+      // l'envoi : sans quoi une publication faite juste après pouvait précéder
+      // l'abonnement réel et se perdre. Borné : un `subscribe` malformé n'en
+      // reçoit aucune, et le cas qui l'éprouve ne doit pas rester suspendu.
+      await waitFor(() => {
+        for (let i = from; i < received.length; i++) {
+          const f = received[i];
+          if (
+            (f?.method === "realtime:subscribed" ||
+              f?.method === "realtime:denied") &&
+            isRecord(f.params) &&
+            f.params["channel"] === channel
+          )
+            return true;
+        }
+        return false;
+      }, 20);
+    },
+
+    subscriptions(): readonly string[] {
+      return received
+        .filter((f) => f.method === "realtime:subscribed")
+        .map((f) => (isRecord(f.params) ? String(f.params["channel"]) : ""));
     },
 
     async unsubscribe(channel: string): Promise<void> {

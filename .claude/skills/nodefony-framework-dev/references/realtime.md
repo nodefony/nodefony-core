@@ -485,7 +485,7 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 | `ping` | `(timeoutMs?): Promise<KernelPingResult & { rtt }>` | RTT via `nodefony:kernel:ping` (helper réutilisable). `:645` |
 | `adaptiveChannel` | `(base, handler, options): AdaptiveChannelBinding` | Canal d'ÉTAT en cadence AIMD (latest-wins). `:533` |
 
-Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) · `serverChannels`/`serverMethods` (découverte) · `subscribedChannels` · `framesReceived` · `frameLog` (ring lazy, redacté) · `reconnectAttempts`/`nextRetryAt`. Events locaux (jamais réseau) : `onNotice`/`onDenied`/`onIdentity`. Transport injectable (2ᵉ arg ctor) → testable sans vrai socket.
+Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) · `serverChannels`/`serverMethods` (découverte) · `subscribedChannels` · `framesReceived` · `frameLog` (ring lazy, redacté) · `reconnectAttempts`/`nextRetryAt`. Events locaux (jamais réseau) : `onNotice`/`onDenied`/`onSubscribed`/`onIdentity`. `whenSubscribed(ch)` : l'abonnement effectif (acquitté par `realtime:subscribed`, que `startChannel` émet après inscription du sink et aussi sur un canal déjà tenu ; jamais sur refus). Transport injectable (2ᵉ arg ctor) → testable sans vrai socket.
 
 <a id="26-jsonrpcpeer"></a>
 

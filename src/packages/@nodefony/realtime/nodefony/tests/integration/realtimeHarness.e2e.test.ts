@@ -166,6 +166,8 @@ describe("createRealtimeHarness — le décor d'un test de socket, publié", () 
     await h.subscribe("demo:members");
     expect(h.messages("demo:members")).to.have.length(0);
     expect(h.denials().map((d) => d.channel)).to.deep.equal(["demo:members"]);
+    // Le refus du VERROU DE FRAME n'est jamais acquitté (#610).
+    expect(h.subscriptions()).to.have.length(0);
     h.dispose();
   });
 
@@ -178,6 +180,7 @@ describe("createRealtimeHarness — le décor d'un test de socket, publié", () 
     await h.subscribe("demo:members");
     expect(h.messages("demo:members")).to.deep.equal([{ members: true }]);
     expect(h.denials()).to.have.length(0);
+    expect(h.subscriptions()).to.deep.equal(["demo:members"]);
     h.dispose();
   });
 

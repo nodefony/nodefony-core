@@ -36,11 +36,12 @@ export type {
   IApiCallResult,
   // Ré-export DX promis par `NodefonySocket.ts` : le consommateur navigateur
   // type `socket.identity` / la trame de refus depuis le MÊME subpath que le
-  // client. Sans ces trois lignes les types n'existent qu'au barrel node, que
+  // client. Sans ces lignes les types n'existent qu'au barrel node, que
   // la condition `browser` ne résout jamais (TS2724 chez le consommateur).
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeDenied,
+  IRealtimeSubscribed,
   // Charge utile de `onReconnect` / `observeReconnect` : l'écran qui rend un
   // compte à rebours doit pouvoir NOMMER ce qu'il reçoit.
   RealtimeReconnectInfo,

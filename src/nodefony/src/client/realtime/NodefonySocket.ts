@@ -56,6 +56,7 @@ import type {
   EventPayload,
   EventsMap,
   RealtimeIdentity,
+  IRealtimeSubscribed,
   TypedRpcActionHandler,
   ContractParams,
   ContractResult,
@@ -88,6 +89,7 @@ export { RpcError } from "../../realtime/JsonRpcPeer";
 export type {
   RealtimeIdentity,
   IRealtimeWelcome,
+  IRealtimeSubscribed,
 } from "../../realtime/RealtimeEventMap";
 import { PLATFORM_METHODS } from "../../realtime/platformChannels";
 import { isJsonRpcId } from "../../jsonrpc/index";
@@ -366,6 +368,24 @@ function redactFrame(value: unknown, depth = 0): unknown {
  * objet qui le porte. Le serveur est un pair, pas une source de confiance : ce
  * qu'il envoie se lit champ par champ, jamais se déclare d'un type.
  */
+/** La charge d'un acquittement `realtime:subscribed` a-t-elle sa forme ? */
+function isSubscribedAck(value: unknown): value is IRealtimeSubscribed {
+  return typeof fieldOf(value, "channel") === "string";
+}
+
+/** Une attente `whenSubscribed` en cours : ses deux issues. */
+interface IAckWaiter {
+  resolve: () => void;
+  reject: (e: Error) => void;
+}
+
+// Messages de rejet de `whenSubscribed` — fonctions du MODULE, pas des fermetures :
+// rien n'est alloué tant qu'aucune attente n'est à rejeter.
+const unsubscribedBeforeAck = (channel: string): string =>
+  `[nodefony] abonnement à « ${channel} » rendu (unsubscribe) avant son acquittement`;
+const deniedBeforeAck = (channel: string): string =>
+  `[nodefony] abonnement à « ${channel} » refusé par le serveur`;
+
 function fieldOf(value: unknown, key: string): unknown {
   // Propriété PROPRE seulement : `constructor` ou `toString` hérités ne sont
   // pas des champs envoyés par le serveur.
@@ -501,6 +521,18 @@ export class NodefonySocket<
   // porter (`RealtimeController.handleRealtime`). Ce drapeau est donc la seule fenêtre
   // où un `subscribe` compte. Un booléen, remis à `false` à chaque tentative.
   private _welcomed = false;
+  // Le serveur de CETTE connexion acquitte-t-il les abonnements ? Annoncé au
+  // welcome (`subscriptionAcks`) ; sans l'annonce, un abonnement est réputé
+  // actif dès son rejeu — attendre un acquittement qui ne viendra pas
+  // suspendrait `whenSubscribed` pour toujours.
+  private _subscriptionAcks = false;
+  // Canaux acquittés sur la connexion COURANTE — lazy, remis à `null` à chaque
+  // tentative : un acquittement ne survit pas à la socket qui l'a reçu.
+  private _acked: Set<string> | null = null;
+  // Attentes `whenSubscribed` en cours, par canal — lazy (0 alloc tant que
+  // personne n'attend). Elles TRAVERSENT une reconnexion : le rejeu des
+  // abonnements y appelle un nouvel acquittement.
+  private _ackWaiters: Map<string, IAckWaiter[]> | null = null;
   private reconnectAttempt = 0;
   private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -695,6 +727,17 @@ export class NodefonySocket<
     // perte RÉSEAU (onClose non intentionnel) garde la dernière identité jusqu'au
     // prochain welcome → évite un flash login pendant une micro-reconnexion.
     this._welcomed = false;
+    this._subscriptionAcks = false;
+    this._acked = null;
+    const waiters = this._ackWaiters;
+    if (waiters !== null) {
+      this._ackWaiters = null;
+      const error = new Error(
+        "[nodefony] connexion temps réel fermée par disconnect()",
+      );
+      for (const list of waiters.values())
+        for (const w of list) w.reject(error);
+    }
     this._identity = null;
     this._serverChannels = null;
     this._serverMethods = null;
@@ -759,6 +802,116 @@ export class NodefonySocket<
    */
   onDenied(handler: (denied: IRealtimeDenied) => void): () => void {
     return this.on(LOCAL_EVENTS.denied, handler as never);
+  }
+
+  /**
+   * S'abonne aux **acquittements d'abonnement** poussés par le serveur
+   * (`realtime:subscribed`) : le canal est désormais actif sur la connexion
+   * courante. Rappelé à chaque (re)connexion, puisque chaque socket neuve
+   * rejoue ses abonnements. Event LOCAL `__subscribed__`.
+   *
+   * @param handler - reçoit `{ channel }`.
+   * @returns dispose (désabonnement).
+   */
+  onSubscribed(handler: (ack: IRealtimeSubscribed) => void): () => void {
+    // Une garde plutôt qu'une conversion : la table locale porte des charges
+    // `unknown`, et la forme se VÉRIFIE avant d'atteindre le handler.
+    const wrapped: EventHandler = (ack) => {
+      if (isSubscribedAck(ack)) handler(ack);
+    };
+    let set = this.handlers.get(LOCAL_EVENTS.subscribed);
+    if (!set) {
+      set = new Set();
+      this.handlers.set(LOCAL_EVENTS.subscribed, set);
+    }
+    set.add(wrapped);
+    return () => {
+      this.handlers.get(LOCAL_EVENTS.subscribed)?.delete(wrapped);
+    };
+  }
+
+  /**
+   * Attend que l'abonnement à `channel` soit EFFECTIF côté serveur — le signal
+   * qui manquait au patron « je recharge l'état, puis je suis le flux ».
+   *
+   * Garantie : tout événement publié sur le canal APRÈS la résolution est
+   * livré. Une première charge peut arriver AVANT (le producteur s'attache
+   * avant l'acquittement) : ce n'est pas « rien n'arrive avant ».
+   *
+   * À chaque reconnexion l'attente repart de zéro : une promesse obtenue avant
+   * la coupure se résout au prochain acquittement. Face à un serveur qui
+   * n'annonce pas `subscriptionAcks` (antérieur à la notification), elle se
+   * résout dès le rejeu du welcome — la garantie d'avant, sans plus.
+   *
+   * @param channel - un canal déjà demandé par {@link subscribe}.
+   * @returns une promesse résolue à l'acquittement.
+   * @throws (rejet) Si le serveur refuse le canal (`realtime:denied`, l'erreur
+   *   porte le refus en `cause`), si le canal est rendu par {@link unsubscribe}
+   *   avant l'acquittement, au `disconnect()`, ou si aucun `subscribe()` n'est
+   *   en cours sur ce canal.
+   */
+  whenSubscribed(channel: EventNames<Listen> | (string & {})): Promise<void> {
+    if (!this._subscriptions.has(channel)) {
+      return Promise.reject(
+        new Error(
+          `[nodefony] whenSubscribed("${channel}") : aucun subscribe() en cours sur ce canal`,
+        ),
+      );
+    }
+    if (this.isSubscriptionActive(channel)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const waiters = (this._ackWaiters ??= new Map<string, IAckWaiter[]>());
+      let list = waiters.get(channel);
+      if (!list) {
+        list = [];
+        waiters.set(channel, list);
+      }
+      list.push({ resolve, reject });
+    });
+  }
+
+  /** L'abonnement à `channel` est-il effectif sur la connexion courante ? */
+  private isSubscriptionActive(channel: string): boolean {
+    if (!this._welcomed) return false;
+    return this._subscriptionAcks ? this._acked?.has(channel) === true : true;
+  }
+
+  /** Résout les attentes d'un canal. Cold path. */
+  private resolveAckWaiters(channel: string): void {
+    const list = this.takeAckWaiters(channel);
+    if (list) for (const w of list) w.resolve();
+  }
+
+  /**
+   * Retire et rend les attentes d'un canal (`undefined` s'il n'y en a pas),
+   * en reposant la table à `null` quand elle se vide.
+   */
+  private takeAckWaiters(channel: string): IAckWaiter[] | undefined {
+    const waiters = this._ackWaiters;
+    const list = waiters?.get(channel);
+    if (!waiters || !list) return undefined;
+    waiters.delete(channel);
+    if (waiters.size === 0) this._ackWaiters = null;
+    return list;
+  }
+
+  /**
+   * Rejette les attentes d'un canal. L'erreur n'est fabriquée QUE s'il y a
+   * quelqu'un à prévenir : une `Error` capture une pile, et `unsubscribe` passe
+   * ici à chaque démontage d'un composant.
+   */
+  private rejectAckWaiters(
+    channel: string,
+    message: (channel: string) => string,
+    cause?: unknown,
+  ): void {
+    const list = this.takeAckWaiters(channel);
+    if (!list) return;
+    const error =
+      cause === undefined
+        ? new Error(message(channel))
+        : new Error(message(channel), { cause });
+    for (const w of list) w.reject(error);
   }
 
   /**
@@ -837,6 +990,8 @@ export class NodefonySocket<
     if (!cur) return;
     if (cur <= 1) {
       this._subscriptions.delete(c);
+      this._acked?.delete(c);
+      this.rejectAckWaiters(c, unsubscribedBeforeAck);
       // Avant le welcome, le serveur n'a rien enregistré : retirer l'entrée suffit.
       if (this._welcomed) this._emitRaw("unsubscribe", { channel: c });
     } else {
@@ -844,7 +999,11 @@ export class NodefonySocket<
     }
   }
 
-  /** Canaux actuellement abonnés (≥ 1 consommateur). Lecture seule. */
+  /**
+   * Canaux DEMANDÉS (≥ 1 consommateur) — l'intention locale, pas un état
+   * confirmé par le serveur : l'abonnement effectif se lit sur
+   * {@link whenSubscribed} / {@link onSubscribed}. Lecture seule.
+   */
   get subscribedChannels(): string[] {
     return Array.from(this._subscriptions.keys());
   }
@@ -1314,6 +1473,34 @@ export class NodefonySocket<
     for (const channel of this._subscriptions.keys()) {
       this._emitRaw("subscribe", { channel });
     }
+    // Serveur qui n'acquitte pas : l'abonnement est réputé actif dès son rejeu,
+    // et les attentes en cours se résolvent ici plutôt que jamais.
+    // Toutes les attentes portent sur des canaux suivis (`unsubscribe` rejette
+    // les siennes) : la table entière se solde d'un coup, sans copie de clés.
+    const waiters = this._ackWaiters;
+    if (!this._subscriptionAcks && waiters !== null) {
+      this._ackWaiters = null;
+      for (const list of waiters.values()) for (const w of list) w.resolve();
+    }
+  }
+
+  /**
+   * Ingère un `realtime:subscribed` : marque le canal acquitté sur la connexion
+   * courante, résout ses attentes et émet `__subscribed__`. Un acquittement pour
+   * un canal rendu entre-temps est ignoré. Cold path (1×/canal et par connexion).
+   */
+  private ingestSubscribed(params: unknown): void {
+    const channel = fieldOf(params, "channel");
+    if (typeof channel !== "string" || !this._subscriptions.has(channel))
+      return;
+    (this._acked ??= new Set()).add(channel);
+    if (this._ackWaiters !== null) this.resolveAckWaiters(channel);
+    // La charge n'est construite que si quelqu'un écoute : sans écouteur, un
+    // acquittement ne coûte qu'une entrée de Set.
+    if (this.handlers.get(LOCAL_EVENTS.subscribed)?.size) {
+      const ack: IRealtimeSubscribed = { channel };
+      this.fireLocal(LOCAL_EVENTS.subscribed, ack);
+    }
   }
 
   /**
@@ -1322,6 +1509,9 @@ export class NodefonySocket<
    * welcome partiel/legacy (champs absents → `null`). Cold path (1×/connexion).
    */
   private ingestWelcome(params: unknown): void {
+    // Avant la sortie anticipée : un welcome partiel/legacy n'annonce rien, et
+    // c'est précisément le cas où il ne faut pas attendre d'acquittement.
+    this._subscriptionAcks = fieldOf(params, "subscriptionAcks") === true;
     if (params === null || typeof params !== "object") return;
     this._identity = identityOf(fieldOf(params, "identity"));
     this._serverChannels = stringsOf(fieldOf(params, "channels"));
@@ -1389,6 +1579,7 @@ export class NodefonySocket<
     };
     this.fireNotice(deniedToNotice(denied));
     this.fireLocal(LOCAL_EVENTS.denied, denied);
+    this.rejectAckWaiters(channel, deniedBeforeAck, denied);
   }
 
   /**
@@ -1402,7 +1593,8 @@ export class NodefonySocket<
       // HORS de `ingestWelcome`, qui sort tôt sur un welcome partiel/legacy : le
       // rejeu est dû quel que soit le contenu de la trame.
       this.replaySubscriptions();
-    } else if (method === "realtime:denied") this.ingestDenied(params);
+    } else if (method === "realtime:subscribed") this.ingestSubscribed(params);
+    else if (method === "realtime:denied") this.ingestDenied(params);
     this.trackFrame(method); // stats génériques avant dispatch
     this.handlers.get(method)?.forEach((h) => {
       try {
@@ -1486,6 +1678,7 @@ export class NodefonySocket<
       // Nouvelle tentative = nouvelle session serveur : rien n'y est abonné tant
       // que le welcome de CETTE connexion n'est pas arrivé.
       this._welcomed = false;
+      this._acked = null;
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
       // Un écouteur d'état a pu appeler `disconnect()` : rien ne s'ouvre après.
       if (this.intentionalClose) {

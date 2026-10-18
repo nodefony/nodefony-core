@@ -234,10 +234,13 @@ Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`I
 ```ts
 onNotice(handler: (n: NodefonyNotice) => void): () => void;    // criticités temps réel normalisées (:359)
 onDenied(handler: (d: IRealtimeDenied) => void): () => void;   // refus d'un canal précis (:379)
+onSubscribed(handler: (a: IRealtimeSubscribed) => void): () => void; // abonnement acquitté (flux actif)
+whenSubscribed(channel: string): Promise<void>;   // résolue à l'acquittement, rejetée sur refus
 ```
 
 - `onNotice` : flux de **notices normalisées** (`NodefonyNotice` `notice.ts:20` = `{ level, title?, message, source, code?, ts }`). Le client interprète les close codes RFC 6455 (`closeCodeToNotice`, `notice.ts:81` — `null` pour 1000/1001, pas de bruit), les erreurs serveur poussées, et émet une notice `success` au rétablissement de connexion. Brancher un centre de notifications (snackbar) — monter **une seule fois** (shell) pour ne pas dupliquer les toasts.
 - `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts:272` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
+- `whenSubscribed` / `onSubscribed` : `connected` = transport ouvert, PAS abonné. L'abonnement est effectif à `realtime:subscribed` (`IRealtimeSubscribed` = `{ channel }`). Patron « je recharge l'état puis je suis le flux » : `subscribe(ch)` → `await whenSubscribed(ch)` → charger l'état. Rejetée sur refus du même canal (refus en `cause`), `unsubscribe` du dernier consommateur, `disconnect()`. Serveur sans `subscriptionAcks` au welcome ⇒ résolue au rejeu. Un premier message peut précéder l'acquittement.
 
 ---
 
@@ -317,7 +320,7 @@ const off = observeChannelData<LiveEvent>(live.socket, "live:events", (e) =>
 live.start(); // au démontage : off() — surtout PAS live.socket.disconnect()
 ```
 
-**Événements locaux** : `LOCAL_EVENTS` (`client/realtime/localEvents.ts`) est la source unique des six noms `__…__` ; les portes publiques sont `onState`/`onIdentity`/`onStats`/`onNotice`/`onDenied`/`onReconnect`. Écrire `on("__state__", …)` en clair est refusé par un gate (`tests/clientObserve.test.ts`), gabarits compris — ils avaient déjà divergé.
+**Événements locaux** : `LOCAL_EVENTS` (`client/realtime/localEvents.ts`) est la source unique des sept noms `__…__` ; les portes publiques sont `onState`/`onIdentity`/`onStats`/`onNotice`/`onDenied`/`onSubscribed`/`onReconnect`. Écrire `on("__state__", …)` en clair est refusé par un gate (`tests/clientObserve.test.ts`), gabarits compris — ils avaient déjà divergé.
 
 ### 11.2 Les hooks React `nodefony/react`
 

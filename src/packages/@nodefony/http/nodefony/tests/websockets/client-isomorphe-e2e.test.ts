@@ -188,8 +188,8 @@ const remuer = (cookie: string) => request(MODULES, "GET", { cookie });
  * Attend une trame du flux en PROVOQUANT du trafic tant qu'elle n'est pas venue.
  *
  * `connected` est posé à l'ouverture TCP ; l'abonnement, lui, n'est (re)joué
- * qu'au `realtime:welcome` (`NodefonySocket.replaySubscriptions`), et le serveur
- * ne l'acquitte pas. Un journal émis entre les deux est PERDU : le pont syslog
+ * qu'au `realtime:welcome` (`NodefonySocket.replaySubscriptions`), et n'est actif
+ * qu'à son acquittement (`whenSubscribed`, #610). Un journal émis entre les deux est PERDU : le pont syslog
  * ne s'attache qu'à l'abonnement. Un `remuer` unique juste après `connected`
  * tombait dans ce trou — vécu en intégration continue (macOS, production, où
  * aucun journal DEBUG ne vient combler le flux après coup) : requête partie 2 ms
@@ -483,12 +483,25 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
     await until("reconnecté", () => live.socket.state === "connected", 12_000);
     // Rien n'a été ré-abonné par le test : c'est le client qui rejoue.
     //
-    // On attend la trace d'une requête provoquée APRÈS la reconnexion, pas
-    // « une trame quelconque » : en développement, les journaux DEBUG nés de
-    // l'abonnement lui-même suffisaient à faire passer le test, qui ne
-    // départageait donc rien — il est resté vert avec un `remuer` lancé dans le
-    // trou d'avant le welcome, que ce prédicat fait rougir 3 fois sur 3.
-    await untilStirred(
+    // `connected` ne dit PAS que le flux est actif : seul l'acquittement du
+    // serveur le dit (#610). Borné, pour qu'un acquittement qui ne vient pas
+    // rougisse en le nommant au lieu d'épuiser le délai du test.
+    await Promise.race([
+      live.socket.whenSubscribed(PLATFORM_CHANNELS.syslog),
+      new Promise((_, reject) =>
+        setTimeout(
+          () =>
+            reject(new Error("abonnement syslog jamais acquitté en 10 000 ms")),
+          10_000,
+        ),
+      ),
+    ]);
+    // UN SEUL trafic, lancé après l'acquittement : la garantie dit qu'il est
+    // livré. On attend la trace de CETTE requête, pas « une trame quelconque » :
+    // en développement, les journaux DEBUG nés de l'abonnement lui-même
+    // suffisaient à faire passer le test, qui ne départageait donc rien.
+    await remuer(cookie);
+    await until(
       "flux repris",
       () => JSON.stringify(recus.slice(avant)).includes(MODULES),
       10_000,

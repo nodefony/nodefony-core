@@ -339,17 +339,18 @@ rétro-compatible par construction.
 Ce que le serveur comprend **sans qu'aucun contrôleur ne l'ait déclaré**, plus les deux formes
 ouvertes à l'application. Colonne `id` : présent = requête (réponse due), absent = notification.
 
-| Méthode            | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
-| ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
-| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:577` |
-| `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:849` |
-| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `NodefonySocket.ts:1158`    |
-| `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`** du `notify`   | `RealtimeController.ts:874` |
-| `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:825` |
-| `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:796` |
-| `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:573` |
-| `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:651` |
-| `<action>`         | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:191` |
+| Méthode               | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
+| --------------------- | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
+| `subscribe`           | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:577` |
+| `unsubscribe`         | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:849` |
+| `ping`                | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `NodefonySocket.ts:1158`    |
+| `<canal>`             | server→client |   non   | Push d'un message : le **nom du canal est la `method`** du `notify`   | `RealtimeController.ts:874` |
+| `<canal entrant>`     | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:825` |
+| `realtime:welcome`    | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:796` |
+| `realtime:denied`     | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:573` |
+| `realtime:subscribed` | server→client |   non   | Acquitte un `subscribe` ACCEPTÉ — le flux est actif                   | `RealtimeController.ts:884` |
+| `api.request`         | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:651` |
+| `<action>`            | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:191` |
 
 > [!TIP]
 > **L'accueil est ta carte du territoire.** `channels` ne liste que les canaux que ce visiteur
@@ -454,6 +455,23 @@ attaquant y lirait la carte des droits. Trois motifs circulent : `forbidden` (le
 (aucun producteur ne sert ce nom — jamais un oracle : un canal gardé rend `forbidden`, qu'il existe ou
 non). Côté client,
 `onDenied()` (`NodefonySocket.ts:751`) branche un handler dessus.
+
+### L'abonnement accepté s'acquitte
+
+Le pendant du refus : un `subscribe` ACCEPTÉ reçoit `realtime:subscribed { channel }`
+(`IRealtimeSubscribed`), y compris pour un canal que la connexion suivait déjà — sans quoi un
+`subscribe` réémis attendrait une réponse qui ne vient jamais. Un abonnement reçoit l'un OU
+l'autre, jamais les deux.
+
+**Garantie** : tout événement publié sur le canal APRÈS l'émission de l'acquittement est livré
+à la connexion. Le producteur s'attache AVANT : une première charge (un tick initial) peut arriver
+avant l'acquittement — « rien n'arrive avant » n'est pas promis. L'abonnement d'une connexion est
+local au pod, le backplane n'y prend aucune part : l'acquittement local suffit.
+
+Le welcome annonce la capacité (`subscriptionAcks: true`). Un client qui ne la voit pas — serveur
+antérieur — répute l'abonnement actif dès le rejeu, au lieu d'attendre pour toujours. Côté client,
+`whenSubscribed(canal)` se résout à l'acquittement et se rejette sur un refus du même canal ;
+`onSubscribed()` rappelle un écouteur à chaque acquittement.
 
 > [!CAUTION]
 > Un `-32403 Forbidden` circule dans d'anciennes notes. **Ce code n'existe pas** dans Nodefony, et il

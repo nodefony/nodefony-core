@@ -370,18 +370,30 @@ const ACTIONS = {
   // l'écho BRUT et ne traversent jamais `JsonRpcPeer`. Celui-ci passe par les
   // trois voies du pair — notification émise (l'accueil), requête entrante
   // refusée en `-32601`, notification entrante — sur une socket anonyme.
+  // Plus un abonnement ACQUITTÉ (#610) : `startChannel` inscrit un sink au hub
+  // et pousse `realtime:subscribed` ; la fermeture doit tout désinscrire. La
+  // socket ne se ferme qu'après les DEUX réponses — sans acquittement, le
+  // scénario expire et le gate rougit au lieu de mesurer un chemin non suivi.
   wsJsonRpc: () =>
     new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(`${WSS}/api/live/realtime`, wsOpts);
+      let pending = 2;
+      const done = (): void => {
+        if (--pending === 0) ws.close();
+      };
       ws.on("message", (raw: Buffer) => {
         const frame = JSON.parse(raw.toString()) as {
           id?: unknown;
           method?: unknown;
         };
         if (frame.method === "realtime:welcome") {
+          ws.send(
+            '{"jsonrpc":"2.0","method":"subscribe","params":{"channel":"live:salon"}}',
+          );
           ws.send('{"jsonrpc":"2.0","method":"live:say","params":{"text":""}}');
           ws.send('{"jsonrpc":"2.0","id":1,"method":"bench.absent"}');
-        } else if (frame.id === 1) ws.close();
+        } else if (frame.method === "realtime:subscribed") done();
+        else if (frame.id === 1) done();
       });
       ws.once("close", () => resolve());
       ws.once("error", reject);

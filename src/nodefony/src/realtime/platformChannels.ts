@@ -104,7 +104,7 @@ export type PlatformInboundChannel =
  * dans l'espace de nommage où une application déclare ses propres actions.
  *
  * ⚠️ À ne pas confondre avec les **notifications du protocole** (`realtime:welcome`,
- * `realtime:denied`) : celles-là décrivent la mécanique de la socket elle-même, pas
+ * `realtime:denied`, `realtime:subscribed`) : celles-là décrivent la mécanique de la socket elle-même, pas
  * une surface de la plateforme, et ne sont ni des canaux ni des actions.
  */
 export const PLATFORM_METHODS = {

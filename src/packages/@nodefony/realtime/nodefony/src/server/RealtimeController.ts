@@ -72,6 +72,7 @@ import {
 } from "../../decorators/realtimeDecorators";
 import { welcomeEnv } from "./welcomeEnv";
 import { isRecord } from "../guards";
+import { subscribedAckFrame } from "./subscribedAck";
 import { deniedDetail } from "./deniedDetail";
 
 /**
@@ -820,6 +821,9 @@ export abstract class RealtimeController<
       protocol: "jsonrpc-2.0",
       channels: announcedChannels,
       methods: peer.methods,
+      // Annonce de capacité : sans elle, un client récent n'attend pas un
+      // acquittement qu'un serveur ancien n'enverrait jamais.
+      subscriptionAcks: true,
       ...welcomeEnv(env),
       identity: {
         type: token.type,
@@ -865,6 +869,22 @@ export abstract class RealtimeController<
     // `ping` = heartbeat no-op ; notification inconnue = ignorée.
   }
 
+  /**
+   * Acquitte un abonnement ACCEPTÉ (`realtime:subscribed`) — le seul signal
+   * qui dise au client à partir de quand le flux du canal lui est livré.
+   *
+   * Un refus n'y passe jamais : il a `realtime:denied`. Cold path (1×/canal et
+   * par connexion).
+   */
+  private acknowledgeSubscription(
+    state: RealtimeConnState,
+    channel: string,
+  ): void {
+    // Écrite d'un bloc, sans enveloppe ni sérialisation générique : même voie
+    // que la frame pré-sérialisée du sink (cf `subscribedAck.ts`).
+    state.transport.send(subscribedAckFrame(channel));
+  }
+
   /** Abonne la connexion à un canal via le hub partagé (idempotent par connexion). */
   private startChannel(ctx: WebsocketContext, channel?: string): void {
     if (!channel) return;
@@ -873,7 +893,13 @@ export abstract class RealtimeController<
     // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
     // (micro-realtime-state.mjs) : refusée sur ce chemin.
     const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
-    if (!state || state.channels.has(channel)) return;
+    if (!state) return;
+    // Déjà suivi : rien à rouvrir, mais l'acquittement est dû — un client qui
+    // réémet son `subscribe` attendrait sinon une réponse qui ne vient jamais.
+    if (state.channels.has(channel)) {
+      this.acknowledgeSubscription(state, channel);
+      return;
+    }
     // F6a (revue 0.6) — cap anti-OOM : plafond de canaux par connexion. Chaque
     // canal ouvert = 1 ticker hub + provider + entrée Map → un socket qui subscribe
     // à N canaux sans borne = OOM. Vérifié APRÈS l'idempotence (un re-subscribe d'un
@@ -946,6 +972,9 @@ export abstract class RealtimeController<
       state.channels.set(channel, sink);
       if (isServedByPattern())
         getRealtimeHub().noticeUnguardedDynamicChannel(channel);
+      // APRÈS `channels.set` : à l'émission de l'acquittement, le sink est déjà
+      // inscrit au hub, donc toute publication postérieure est livrée.
+      this.acknowledgeSubscription(state, channel);
       this.log(`WS subscribe → ${channel}`, "DEBUG");
       return;
     }
