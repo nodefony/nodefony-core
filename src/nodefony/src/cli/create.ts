@@ -1811,7 +1811,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         : "") +
       `  ${cmd.run("dev")}        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
       (answers.preset === "complete"
-        ? `                     # console d'administration : /nodefony — admin/admin en dev\n`
+        ? // Le mot de passe que `provisionUsers.ts.tpl` SÈME (`DEV_ADMIN_PASSWORD`),
+          // jamais « admin » : la politique le refuse, il contient l'identifiant.
+          // `devAdminPasswordParity.test.ts` garde les deux en accord.
+          `                     # console d'administration : /nodefony — admin / nodefony-dev-42 en dev (NF_ADMIN_PASSWORD)\n`
         : "") +
       // Le geste n'est PAS perdu quand il n'a pas été proposé (forge, --yes) ou
       // qu'il a été décliné : il se nomme. Une capacité qu'on n'atteint pas

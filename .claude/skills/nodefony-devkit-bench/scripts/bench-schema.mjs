@@ -33,8 +33,12 @@
  * ## Ce qui juge
  *
  * La **base réellement créée**, jamais les sources. Après le passage de l'agent,
- * l'application boote en console (`inspect entities` — aucun port ouvert), ce qui
- * exécute le DDL de développement ; on lit alors `sqlite_master` et les `PRAGMA`.
+ * le banc DÉMARRE l'application (serveur réel, ports dédiés) — c'est le
+ * démarrage qui exécute le DDL de développement — et lit la base pendant qu'elle
+ * tourne : `information_schema`, ou `sqlite_master` et les `PRAGMA`. Un boot
+ * console (`inspect entities`) ne crée AUCUNE table : constaté sur une base
+ * vierge, 0 table. Tant que la base était partagée, le juge lisait en réalité
+ * les tables que l'agent avait créées en lançant lui-même son serveur.
  * Une table absente y est absente, une colonne mal nommée y porte son vrai nom,
  * un index composite y est ou n'y est pas. Lire les fichiers `.ts` dirait ce que
  * l'agent a écrit ; la base dit ce qui EXISTE.
@@ -273,16 +277,28 @@ const DB_URL = {
 };
 
 /**
+ * Mot de passe du compte admin, IMPOSÉ par le décor — l'agent et le juge le
+ * partagent par l'environnement (`NF_ADMIN_PASSWORD`, que le semis lit).
+ *
+ * Le juge postait `admin`/`admin` : ce compte n'existe pas. Le semis de
+ * développement pose `nodefony-dev-42` par défaut, et la politique refuse
+ * `admin`, qui contient l'identifiant. Toutes les sondes authentifiées étaient
+ * sautées, à chaque run. Dépendre du défaut du gabarit referait le même piège au
+ * premier changement de ce défaut : le décor le fixe.
+ */
+const BENCH_ADMIN_PASSWORD = "bench-schema-admin-42";
+
+/**
  * Env de tout ce qui s'exécute DANS l'app témoin.
  *
  * `NF_DATABASE_URL` est la variable que le gabarit d'application désigne
  * lui-même pour pointer une vraie base ; le dialecte s'en déduit par le schéma
  * d'URL. Rien d'autre à configurer.
  */
-const APP_ENV = envDecor(
-  PORTS,
-  DB_URL[DIALECT] ? { NF_DATABASE_URL: DB_URL[DIALECT] } : {},
-);
+const APP_ENV = envDecor(PORTS, {
+  ...(DB_URL[DIALECT] ? { NF_DATABASE_URL: DB_URL[DIALECT] } : {}),
+  NF_ADMIN_PASSWORD: BENCH_ADMIN_PASSWORD,
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Les schémas — sources EXTERNES, sous-ensembles FIGÉS
@@ -1416,7 +1432,10 @@ function appBin(app) {
   return existsSync(own) ? own : BIN;
 }
 
-/** Boote l'app en console — exécute le DDL de développement, sans ouvrir de port. */
+/**
+ * Construit l'app et la boote en console, sans ouvrir de port — preuve qu'elle
+ * DÉMARRE. Ce boot ne crée aucune table : le schéma se lit serveur démarré.
+ */
 function bootApp(app, runDir) {
   console.log("\n• build de l'app…");
   const build = spawnSync("npm", ["run", "build"], {
@@ -1427,7 +1446,7 @@ function bootApp(app, runDir) {
     env: APP_ENV,
   });
   console.log(`  build : exit ${build.status}`);
-  console.log("• boot console (crée les tables)…");
+  console.log("• boot console (l'application démarre)…");
   const boot = spawnSync(
     process.execPath,
     [appBin(app), "inspect", "entities", "--json"],
@@ -1635,7 +1654,7 @@ async function judgeHttp(app, runDir, table, chain) {
   //    `identifier` : la première version postait la mauvaise clé et récoltait
   //    un 401 qu'on aurait pu lire comme « l'app refuse l'admin ».
   const login = await call("POST", "/nodefony/security/api/auth/login", {
-    body: { username: "admin", password: "admin" },
+    body: { username: "admin", password: BENCH_ADMIN_PASSWORD },
   });
   const raw = login.headers.getSetCookie?.() ?? [];
   const cookie = raw.map((c) => c.split(";")[0]).join("; ");
@@ -2288,33 +2307,47 @@ async function main() {
     ? { buildOk: true, bootOk: true }
     : bootApp(app, runDir);
 
-  const dbPath = DIALECT === "sqlite" ? findDatabase(app) : DB_URL[DIALECT];
-  const actual =
-    DIALECT === "postgres"
-      ? await readPostgres(DB_URL.postgres)
-      : dbPath
-        ? readSqlite(dbPath)
-        : new Map();
-  const rows = compare(expected, actual);
+  const readSchema = async () => {
+    const dbPath = DIALECT === "sqlite" ? findDatabase(app) : DB_URL[DIALECT];
+    const actual =
+      DIALECT === "postgres"
+        ? await readPostgres(DB_URL.postgres)
+        : dbPath
+          ? readSqlite(dbPath)
+          : new Map();
+    return { dbPath, actual };
+  };
 
-  // Le juge du schéma a lu la base ; celui-ci démarre l'application et frappe
-  // l'API. Les deux sont nécessaires : une table juste ne dit rien d'une route
-  // servie, et une route qui répond ne dit rien du schéma sous-jacente.
-  let http = null;
-  if (chainOn && boot.buildOk) {
-    const chain = CHAIN[key];
-    const target = expected.find((t) => t.model === chain.model);
-    if (!target) {
-      console.log(
-        `\n⚠️  table de chaîne « ${chain.model} » absente du sous-ensemble — juge HTTP sauté`,
-      );
-    } else {
-      console.log(`\n• serveur réel — API ${chain.route}…`);
-      http = await withServer(app, runDir, () =>
-        judgeHttp(app, runDir, target, chain),
-      );
-    }
+  // Le schéma se lit SERVEUR DÉMARRÉ — c'est le démarrage qui pose le DDL de
+  // développement — puis la même instance sert le juge HTTP. Les deux sont
+  // nécessaires : une table juste ne dit rien d'une route servie, et une route
+  // qui répond ne dit rien du schéma sous-jacent.
+  const chain = chainOn ? CHAIN[key] : null;
+  const chainTable = chain
+    ? expected.find((t) => t.model === chain.model)
+    : null;
+  if (chain && !chainTable) {
+    console.log(
+      `\n⚠️  table de chaîne « ${chain.model} » absente du sous-ensemble — juge HTTP sauté`,
+    );
   }
+  let schema = null;
+  let http = null;
+  if (boot.buildOk) {
+    console.log(
+      `\n• serveur réel — schéma${chainTable ? ` puis API ${chain.route}` : ""}…`,
+    );
+    const served = await withServer(app, runDir, async () => {
+      schema = await readSchema();
+      return chainTable ? judgeHttp(app, runDir, chainTable, chain) : [];
+    });
+    if (chainTable) http = served;
+  }
+  // Serveur absent (build en échec, démarrage refusé) : la base est lue telle
+  // quelle, et le rapport dit pourquoi elle est vide.
+  schema ??= await readSchema();
+  const { dbPath } = schema;
+  const rows = compare(expected, schema.actual);
 
   const ok = report({
     runDir,
