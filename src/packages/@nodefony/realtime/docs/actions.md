@@ -137,7 +137,7 @@ connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:12`) — et se lit côté client par
-`NodefonySocket.serverMethods` (`NodefonySocket.ts:882`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`NodefonySocket.serverMethods` (`NodefonySocket.ts:1041`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -376,7 +376,7 @@ use("@nodefony/security", {
 
 Une action authentifiée sait que l'appelant est identifié ; elle peut aussi savoir **qui** il est.
 Les décorateurs de paramètres d'une route y prennent le même sens
-(`actionParamsWrapper`, `RealtimeController.ts:1007`) :
+(`actionParamsWrapper`, `RealtimeController.ts:1036`) :
 
 ```ts ignore
 import { Body, CurrentUser } from "@nodefony/framework";
@@ -428,7 +428,7 @@ drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le
 ### Le délai d'expiration est la seule libération automatique
 
 `request()` prend le délai en **troisième argument positionnel**, en millisecondes — il n'y a pas
-d'objet d'options (`NodefonySocket.request()`, `NodefonySocket.ts:1009`) :
+d'objet d'options (`NodefonySocket.request()`, `NodefonySocket.ts:1177`) :
 
 ```ts ignore
 await socket.request("orders:quote", { orderId }); // 30 000 ms par défaut
@@ -478,7 +478,7 @@ fois ? »**.
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`NodefonySocket.ts:1082`), et c'est la garde `@Idempotent`
+par la signature** de `mutate()` (`NodefonySocket.ts:1250`), et c'est la garde `@Idempotent`
 (`routerDecorators.ts:1171`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
@@ -544,7 +544,7 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:1070`). Il est **désactivé par défaut** et s'active en surchargeant
+(`RealtimeController.ts:1099`). Il est **désactivé par défaut** et s'active en surchargeant
 `realtimeApiRequest()` (`RealtimeController.ts:321`).
 
 ```ts ignore
@@ -552,7 +552,7 @@ const modules = await socket.request("/nodefony/kernel/api/modules");
 ```
 
 La forme se discrimine toute seule : un chemin commence par `/`, jamais un nom d'action —
-`NodefonySocket.request()` (`NodefonySocket.ts:1009`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
+`NodefonySocket.request()` (`NodefonySocket.ts:1177`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
 passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit dans le
 [vocabulaire](./vocabulaire.md) et l'[architecture](./architecture.md).
 

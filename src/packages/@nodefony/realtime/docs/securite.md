@@ -304,7 +304,7 @@ n'est jamais traitée.
 `RealtimeController.onHandshake()` (`RealtimeController.ts:450`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
-   (`RealtimeController.ts:1356`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
+   (`RealtimeController.ts:1384`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
 3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:943`) :
@@ -330,7 +330,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 - `host` optionnel → comparaison **stricte** (insensible à la casse) sur l'en-tête `Host`, sans
   wildcard.
 - Le match porte sur le **path**, query comprise, jamais sur l'URL absolue : `handshakePath()`
-  (`RealtimeController.ts:1408`) extrait `pathname + search` du `WebsocketContext.url`, qui est
+  (`RealtimeController.ts:1436`) extrait `pathname + search` du `WebsocketContext.url`, qui est
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
@@ -615,7 +615,7 @@ Nodefony ferme l'écart par deux mécanismes de granularité différente.
 
 | Surface                     | Re-validation        | Fenêtre d'exposition | Où                                                                     |
 | --------------------------- | -------------------- | -------------------- | ---------------------------------------------------------------------- |
-| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:1070`) |
+| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:1099`) |
 | `subscribe` / flux de canal | **périodique**, 30 s | ≤ 30 s               | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:815`)             |
 
 **Sur `api.request`**, `token.isValid()` est appelé avant l'exécution de l'action ; identité périmée
@@ -667,7 +667,7 @@ pas** borné.
 Chaque canal ouvert coûte un provider, un ticker et une entrée de Map. Sans borne, une connexion
 peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **un seul** client.
 
-`RealtimeController.startChannel()` (`RealtimeController.ts:869`) refuse au-delà de
+`RealtimeController.startChannel()` (`RealtimeController.ts:889`) refuse au-delà de
 `limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:142`), défaut **256**,
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 

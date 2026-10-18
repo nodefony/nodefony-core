@@ -218,7 +218,7 @@ Le **handle unique** manipulé par le code applicatif : quatre verbes (`subscrib
 `request`) et une vue par canal. Le mot vient de la prise murale : on branche, on ignore le câblage.
 
 Contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts:122`), implémenté côté navigateur par
-`NodefonySocket` (`NodefonySocket.ts:461`) et côté serveur par `ServerRealtimeSocket`
+`NodefonySocket` (`NodefonySocket.ts:482`) et côté serveur par `ServerRealtimeSocket`
 (`ServerRealtimeSocket.ts:44`). ⚠️ La socket **n'est pas** le [transport](#transport--la-couche-octets).
 
 → [Architecture](./architecture.md) pour la pile complète.
@@ -438,7 +438,7 @@ contrôleur** que celle servie en REST, avec **la même garde**. Le pont n'attei
 déclarent explicitement le transport WebSocket — aucun contournement possible.
 
 `realtimeApiRequest()` (`RealtimeController.ts:321`), mise en œuvre `invokeApiRequest()`
-(`RealtimeController.ts:1070`). Désactivé par défaut.
+(`RealtimeController.ts:1099`). Désactivé par défaut.
 
 ## 🔌 Le protocole et le transport — ce qui passe sur le fil
 
@@ -700,7 +700,7 @@ Une notification refusée serait abandonnée en silence, laissant le client aveu
 donc `realtime:denied`. Le motif est **générique** : jamais le rôle ou le scope manquant, qui
 transformerait le refus en oracle d'autorisation.
 
-`IRealtimeDenied` (`RealtimeEventMap.ts:269`), conversion en message d'interface `deniedToNotice()`
+`IRealtimeDenied` (`RealtimeEventMap.ts:302`), conversion en message d'interface `deniedToNotice()`
 (`notice.ts:46`).
 
 ### `audit de frame` — tracer le notable
