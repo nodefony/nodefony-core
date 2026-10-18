@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T14:20:38.893Z",
+  "generatedAt": "2026-10-18T15:30:26.617Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -8782,6 +8782,38 @@
       "priorite": "P3 — fin de cycle",
       "jours": 6,
       "ordre": 917,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 615,
+      "title": "feat(cli): ajouter un type de champ chiffré au repos à create entity",
+      "url": "https://github.com/nodefony/nodefony-core/issues/615",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 918,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 616,
+      "title": "feat(cli): exprimer une énumération partagée entre tables dans create entity",
+      "url": "https://github.com/nodefony/nodefony-core/issues/616",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 919,
       "debut": null,
       "cible": null,
       "labels": [
