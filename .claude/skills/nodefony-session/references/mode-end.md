@@ -23,6 +23,10 @@ cité, le tableau contrôlé (`board-lint`) **puis seulement** photographié (em
 projet + issue épinglée, dans le même run), et le chemin du `_state` à écrire.
 `--no-publish` évite les deux vitrines ; `--since <rév>` force le début de la plage.
 
+- La ligne **« Lecture de code »** (`scripts/tool-usage.mjs`, calculée par le script, zéro appel
+  d'outil) dit comment la session a lu le code : `show-symbol` contre les lectures que la règle 6 du
+  hook refuserait. Une ⚠️ = le réflexe de la tranche devinée a repris : le dire au user, pas de
+  ticket. `node scripts/tool-usage.mjs --all` rend le coût par famille d'outil, toutes sessions.
 - Le tableau en erreur **bloque l'empreinte** : une empreinte prise sur un tableau incohérent grave
   l'incohérence, et c'est elle qu'on relira hors ligne. Solder, relancer.
 - Un refus de l'empreinte se LIT (« GitHub muet » : l'ancienne est conservée, c'est voulu ;

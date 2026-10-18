@@ -105,4 +105,34 @@ if printf '%s' "$cmd" | grep -qE '(^|[;&|(`]|do|then|\$\()[[:space:]]*g?timeout[
   fi
 fi
 
+# 6. Lire du CODE par grosse tranche — `sed -n 100,250p f.ts`, `cat f.ts`. Mesuré sur les
+#    415 sessions du dépôt : lire du code par tranches pèse ~65 % de ce que les sorties
+#    d'outils coûtent en relecture (`sed` seul : 33 %, 8 102 appels). On imprime 150 lignes
+#    pour en lire 20, et la sortie se repaie à CHAQUE tour suivant. Une règle écrite ne
+#    change pas ce réflexe ; le refus, si — à condition de donner la commande qui remplace.
+#    `show-symbol.mjs` borne la lecture par l'AST : la déclaration ENTIÈRE, rien autour —
+#    il ne raccourcit pas, il remplace une borne devinée par une borne exacte. Le refus ne
+#    doit jamais faire lire MOINS que nécessaire : l'outil Read reste libre pour le fichier
+#    entier, et le message le dit. Tolérés : une tranche ≤ 60 lignes, un `cat` filtré
+#    (`| grep`), un fichier court, tout ce qui n'est pas du code source.
+SHOW=".claude/skills/nodefony-inspect/scripts/show-symbol.mjs"
+lecture_refusee() {
+  deny "REFUS — lire du code par tranche ($1) : on imprime tout pour en lire quelques lignes, et la sortie se repaie à CHAQUE tour suivant (premier poste de dépense mesuré). Plan du fichier : \`node $SHOW --outline $2\` ; puis une déclaration entière, TSDoc compris : \`node $SHOW '$2#Classe.methode'\` (ou \`#fonction\`), plusieurs d'un coup si besoin — rien n'est tronqué. Une tranche courte (≤ 60 lignes) reste permise ; s'il faut VRAIMENT le fichier entier (refactor global, code de haut niveau d'un script), l'outil Read le lit, sciemment."
+}
+re_sed="sed[[:space:]]+-n[[:space:]]+['\"]?([0-9]+),([0-9]+)p['\"]?[[:space:]]+['\"]?([^[:space:];|&'\"]+\.(ts|tsx|mts|mjs))"
+reste=$cmd
+while [[ $reste =~ $re_sed ]]; do
+  if ((BASH_REMATCH[2] - BASH_REMATCH[1] + 1 > 60)); then
+    lecture_refusee "$((BASH_REMATCH[2] - BASH_REMATCH[1] + 1)) lignes" "${BASH_REMATCH[3]}"
+  fi
+  reste=${reste#*"${BASH_REMATCH[0]}"}
+done
+re_cat="(^|[;&(])[[:space:]]*cat[[:space:]]+['\"]?([^[:space:];|&<>'\"]+\.(ts|tsx|mts|mjs))['\"]?[[:space:]]*(;|&&|$)"
+if [[ $cmd =~ $re_cat ]]; then
+  f=${BASH_REMATCH[2]}
+  case $f in /*) p=$f ;; *) p="${cwd:-.}/$f" ;; esac
+  n=$( [ -f "$p" ] && wc -l <"$p" | tr -d ' ' || echo 0)
+  if [ "$n" -gt 150 ]; then lecture_refusee "fichier entier, $n lignes" "$f"; fi
+fi
+
 exit 0

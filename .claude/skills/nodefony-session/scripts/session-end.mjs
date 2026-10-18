@@ -42,6 +42,12 @@ import {
   strayEntries,
 } from "../../../../scripts/repo/tmp-layout.mjs";
 import { guardCli } from "./cli-guard.mjs";
+import {
+  analyseTranscript,
+  currentTranscript,
+  readingLine,
+  transcriptsDir,
+} from "./tool-usage.mjs";
 
 guardCli(import.meta.url);
 
@@ -225,6 +231,15 @@ function prepare() {
     } catch {
       say("⚠️ lint illisible — `npm run ticket:lint`");
     }
+  }
+  // Comment la session a LU le code : l'outil par symbole est-il adopté, ou la
+  // tranche devinée a-t-elle repris ? Mesuré à chaque clôture — une règle qu'on
+  // ne mesure pas, on la croit suivie.
+  try {
+    const t = currentTranscript(transcriptsDir(ROOT));
+    if (t) say(readingLine(analyseTranscript(t)));
+  } catch {
+    say("⚠️ lecture de code non mesurée (transcript illisible)");
   }
   // Chemins à écrire.
   say(

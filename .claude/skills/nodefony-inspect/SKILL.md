@@ -1,7 +1,7 @@
 ---
 name: nodefony-inspect
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 description: >
   Interroge le dépôt Nodefony par TROIS voies : le graphe symbolique pour les relations de CODE (qui
   étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), la commande
@@ -10,9 +10,9 @@ description: >
   mêmes réponses par outils, sans boot, si l'application tourne. Donne aussi le diff propre.
   Déclencheurs : "qui étend cette classe ?", "qui implémente cette interface ?", "qui utilise ce
   symbole ?", "où est défini X ?", "trouver les consommateurs", "analyse d'impact avant refactor",
-  "quels paramètres prend cette méthode ?", "montre la config de ce
-  module", "quelles routes expose ce module", "ce service est-il enregistré ?", "qu'est-ce que j'ai
-  modifié ?", "diff rapide", "graphe symbolique", "interroge l'application qui tourne", "demande au serveur MCP", "carte de visite de l'application".
+  "quels paramètres prend cette méthode ?", "lire une méthode", "plan de ce fichier",
+  "montre la config de ce
+  module", "quelles routes expose ce module", "ce service est-il enregistré ?", "qu'est-ce que j'ai modifié ?", "graphe symbolique", "interroge l'application qui tourne", "demande au serveur MCP", "carte de visite de l'application".
 ---
 
 # nodefony-inspect — interroger le dépôt sans le lire
@@ -136,13 +136,37 @@ jq '.symbols.DefaultController.methods[] | select(.decorators | length > 0) | {n
   .ai/symbols.verbose.json
 ```
 
-**Absente de l'index** (méthode privée, classe anonyme, `Object.assign(this, …)`) : ne pas ouvrir le
-fichier entier — le localiser puis n'en extraire que la fenêtre utile.
+### LIRE une déclaration — `show-symbol.mjs`, jamais une tranche devinée
+
+Le graphe dit la FORME d'une méthode ; pour en lire le CORPS, la borne vient de l'AST, pas d'une
+plage de lignes devinée. C'est le premier poste de dépense mesuré sur les sessions du dépôt : lire du
+code par tranches (`sed -n 100,250p`, `cat`) pèse ~65 % de ce que les sorties d'outils coûtent en
+relecture — on imprime 150 lignes pour en lire 20, et la sortie se repaie à chaque tour suivant.
 
 ```bash
-grep -n "methodName" src/path/to/File.ts
-sed -n '120,135p' src/path/to/File.ts
+S=.claude/skills/nodefony-inspect/scripts/show-symbol.mjs
+node $S --outline http-kernel.ts                  # le PLAN : une ligne par déclaration, avec sa plage
+node $S 'http-kernel.ts#HttpKernel.handleHttp'    # UNE déclaration, entière, TSDoc compris, numérotée
+node $S 'NodefonySocket.ts#connect' 'a.ts#helper' # plusieurs d'un coup ; un membre nu s'il est unique
 ```
+
+Méthode privée (`#x`), accesseur, constructeur, fonction non exportée, test : tout ce qui est DÉCLARÉ
+y est — c'est le module qui résout aussi les ancres de la doc (`code-declarations.mjs`), pas le graphe
+des seuls exportés.
+
+**Ce que l'outil N'EST PAS — ne rien perdre en lisant moins :**
+
+- **Pas une recherche.** `rg` reste l'outil qui TROUVE, parce qu'il est exhaustif : usages, chaînes,
+  clés de config, commentaires. Le geste : `rg -n X` pour tout trouver, puis `show-symbol` pour LIRE
+  précisément ce qu'il a trouvé — au lieu d'un `sed -n` sur une plage devinée autour du résultat.
+- **Pas un raccourci.** Il ne tronque jamais : une méthode de 300 lignes sort en entier. Le plan
+  (`--outline`) ne liste que les déclarations NOMMÉES — ni les fonctions imbriquées, ni les membres d'un
+  objet littéral, ni le code de haut niveau d'un script. Pour celui-là, ou quand il faut vraiment le
+  fichier entier (refactor global), l'outil `Read` le lit, sciemment.
+
+Le hook `guard-bash.sh` (règle 6) refuse `sed -n A,Bp` au-delà de 60 lignes sur du code et un `cat`
+brut d'un fichier source de plus de 150 lignes, en donnant la commande ci-dessus. Autotest :
+`scripts/show-symbol.selftest.mjs`.
 
 ## 5. Comment un module est câblé (config, services, routes)
 

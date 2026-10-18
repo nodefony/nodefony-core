@@ -76,7 +76,7 @@ serait sans effet à la régénération suivante.
 [
   { "icon": "🧭", "title": "session", "href": "skills/nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire…",
-    "meta": "🟢 conforme v1.1.0 · ⚙️ 10 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 12 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 4 scripts" }
@@ -139,7 +139,7 @@ serait sans effet à la régénération suivante.
 [
   { "icon": "🔬", "title": "inspect", "href": "skills/nodefony-inspect.md",
     "desc": "Interroge le dépôt Nodefony par TROIS voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), la commande `nodefony inspect` pour l'état RÉEL d'une application (routes montées, services, config effective…",
-    "meta": "🟢 conforme v1.0.0" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 2 scripts" },
   { "icon": "🛡️", "title": "security-review", "href": "skills/nodefony-security-review.md",
     "desc": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any).",
     "meta": "🟢 conforme" },

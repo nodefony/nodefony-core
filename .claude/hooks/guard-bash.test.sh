@@ -92,6 +92,20 @@ export NF_GUARD_HAS_TIMEOUT=1
 t PASSE 'timeout 300 npm test'
 unset NF_GUARD_HAS_TIMEOUT
 
+echo "=== règle 6 — code lu par GROSSE tranche : doit REFUSER ==="
+seq 200 | sed 's/^/\/\/ l/' >"$R/gros.ts"
+seq 20 | sed 's/^/\/\/ l/' >"$R/petit.ts"
+for c in "sed -n '100,250p' src/x.ts" 'sed -n 1,200p a/b.tsx' \
+  "rg -n foo x.ts && sed -n '10,120p' src/y.mjs" 'cat gros.ts' 'ls && cat gros.ts'; do
+  t deny "$c"
+done
+echo "=== règle 6 — tranche courte, fichier court, cat filtré, non-code : doivent PASSER ==="
+for c in "sed -n '100,140p' src/x.ts" 'sed -n 1,500p notes.md' 'cat petit.ts' \
+  'cat gros.ts | grep l1' "sed -n '5,10p' a.ts; sed -n '20,70p' b.ts" \
+  "sed -i 's/a/b/' x.ts"; do
+  t PASSE "$c"
+done
+
 echo
 if [ "$ko" -eq 0 ]; then
   echo "BANC VERT — 0 écart"

@@ -552,6 +552,11 @@ jobs:
           # Le CONVERTISSEUR des ancres de ligne en symboles (#613) : une ancre
           # écrite par habitude se convertit, et la cible doit être la bonne.
           node .claude/skills/nodefony-documentation/scripts/anchor-migrate.selftest.mjs
+          # Le LECTEUR par symbole, qui partage leur module d'extraction : une borne
+          # fausse ferait lire une autre méthode que celle demandée.
+          node .claude/skills/nodefony-inspect/scripts/show-symbol.selftest.mjs
+          # La MESURE qui dit, à chaque fin de session, si ce lecteur est adopté.
+          node .claude/skills/nodefony-session/scripts/tool-usage.selftest.mjs
           # Le FIXEUR aussi : un recalage sur le mauvais symbole rend une ancre
           # juste au sens du gate et fausse au sens du lecteur.
           node .claude/skills/nodefony-documentation/scripts/anchor-fix.selftest.mjs

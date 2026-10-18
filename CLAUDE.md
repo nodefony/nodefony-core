@@ -381,6 +381,7 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
 Pour économiser le quota de tokens (session de 5h) :
 
 1. **Réponses "Chirurgicales"** : Ne jamais réécrire un fichier entier. Utilise les blocs de code partiels ou les outils d'édition de fichiers de Claude Code.
+   **LIRE du code : `rg` TROUVE (exhaustif), `show-symbol` LIT** — `node .claude/skills/nodefony-inspect/scripts/show-symbol.mjs --outline F.ts` puis `'F.ts#Classe.methode'` : la déclaration entière, jamais une tranche `sed -n` devinée (~65 % de la relecture mesurée). Fichier entier vraiment nécessaire → `Read`, sciemment. Détail : skill `nodefony-inspect` §4.
 2. **Style "Caveman"** : Pas de politesses, pas de phrases d'introduction ("Voici le code...", "J'ai analysé..."). Va directement au code ou à l'erreur.
 3. **Context Stripping** : À chaque début de session, n'analyse QUE le module cible (ex: `@nodefony/http`). Ignore le reste.
 4. **Log Cleaning** : Avant de me donner un retour de test, résume-le. Supprime les warnings inutiles, ne garde que l'erreur bloquante.

@@ -6119,7 +6119,7 @@
       "name": "nodefony-inspect",
       "summary": "Interroge le dépôt Nodefony par TROIS voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), la commande `nodefony inspect` pour l'état RÉEL d'une application (routes montées, services, config effective et provenance de chaque valeur), et le serveur MCP de Nodefony quand la session y est branchée — mêmes réponses par outils, sans boot, si l'application tourne.",
       "family": "Inspecter et auditer",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [],
       "triggers": [
         "qui étend cette classe ?",
@@ -6129,26 +6129,64 @@
         "trouver les consommateurs",
         "analyse d'impact avant refactor",
         "quels paramètres prend cette méthode ?",
+        "lire une méthode",
+        "plan de ce fichier",
         "montre la config de ce module",
         "quelles routes expose ce module",
         "ce service est-il enregistré ?",
         "qu'est-ce que j'ai modifié ?",
-        "diff rapide",
         "graphe symbolique",
         "interroge l'application qui tourne",
         "demande au serveur MCP",
         "carte de visite de l'application"
       ],
-      "description": "Interroge le dépôt Nodefony par TROIS voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), la commande `nodefony inspect` pour l'état RÉEL d'une application (routes montées, services, config effective et provenance de chaque valeur), et le serveur MCP de Nodefony quand la session y est branchée — mêmes réponses par outils, sans boot, si l'application tourne. Donne aussi le diff propre. Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"diff rapide\", \"graphe symbolique\", \"interroge l'application qui tourne\", \"demande au serveur MCP\", \"carte de visite de l'application\".",
+      "description": "Interroge le dépôt Nodefony par TROIS voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), la commande `nodefony inspect` pour l'état RÉEL d'une application (routes montées, services, config effective et provenance de chaque valeur), et le serveur MCP de Nodefony quand la session y est branchée — mêmes réponses par outils, sans boot, si l'application tourne. Donne aussi le diff propre. Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"lire une méthode\", \"plan de ce fichier\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"graphe symbolique\", \"interroge l'application qui tourne\", \"demande au serveur MCP\", \"carte de visite de l'application\".",
       "cost": {
-        "bodyLines": 290,
-        "approxTokens": 4245
+        "bodyLines": 314,
+        "approxTokens": 4697
       },
       "requires": [],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
-        "scripts": []
+        "scripts": [
+          {
+            "path": "scripts/show-symbol.mjs",
+            "purpose": "show-symbol.mjs — imprime UNE déclaration d'un fichier source, ou son plan, au lieu d'une tranche de lignes.",
+            "usage": [
+              "node show-symbol.mjs <fichier>#<Symbole> [...]   la déclaration, numérotée"
+            ],
+            "options": [
+              {
+                "flag": "--outline",
+                "help": ""
+              },
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/show-symbol.selftest.mjs",
+            "purpose": "Éprouve `show-symbol.mjs` sur un dépôt JETABLE : la déclaration rendue doit être EXACTEMENT celle demandée (TSDoc compris, rien autour), le plan doit lister chaque déclaration, et une cible fausse doit faire échouer l'outil en le disant.",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-inspect/scripts/show-symbol.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--outline",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
       },
       "related": [
         "nodefony-create-module",
@@ -6175,7 +6213,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "987",
+            "detail": "1014",
             "advisory": false
           },
           {
@@ -6217,7 +6255,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "290",
+            "detail": "314",
             "advisory": true
           }
         ]
@@ -9772,6 +9810,42 @@
             "env": [],
             "output": "~30 lignes ; code 0 toujours — c'est un état des lieux, pas un gate",
             "selfDocumented": true
+          },
+          {
+            "path": "scripts/tool-usage.mjs",
+            "purpose": "tool-usage.mjs — ce que les sorties d'outils coûtent, et comment on lit le code.",
+            "usage": [
+              "node tool-usage.mjs            # lecture de code de la session COURANTE",
+              "node tool-usage.mjs --all      # coût par famille d'outil, toutes sessions"
+            ],
+            "options": [
+              {
+                "flag": "--all",
+                "help": ""
+              },
+              {
+                "flag": "--outline",
+                "help": ""
+              },
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/tool-usage.selftest.mjs",
+            "purpose": "Éprouve `tool-usage.mjs` sur un transcript FORGÉ : chaque forme de lecture de code doit être comptée dans sa case, la relecture d'une sortie doit valoir sa taille × les tours qui la suivent, et l'alerte ne doit crier que sur ce que la règle 6 du hook refuserait — une tranche courte est permise.",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-session/scripts/tool-usage.selftest.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-12
+updated: 2026-10-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Description | 581 / 1024 caractères |
 | Déclencheurs | 9 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 10 |
+| Scripts | 12 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -78,7 +78,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/mode-end.md` | MODE END — clôture de session | 130 |
+| `references/mode-end.md` | MODE END — clôture de session | 134 |
 
 
 ## Scripts embarqués
@@ -98,6 +98,8 @@ script, donc toujours à jour après régénération.
 | `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans disque : `session-resume.mjs` et `session-end.mjs` les appellent, leurs tests les éprouvent. | `--chek` `--format` `--help` `--json` `--since` | — |
 | `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. / | `--check` `--chek` `--help` `--since` `--verify` | — |
 | `scripts/session-resume.mjs` | session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l). | `--offline` | — |
+| `scripts/tool-usage.mjs` | tool-usage.mjs — ce que les sorties d'outils coûtent, et comment on lit le code. | `--all` `--outline` `--show-toplevel` | — |
+| `scripts/tool-usage.selftest.mjs` | Éprouve `tool-usage.mjs` sur un transcript FORGÉ : chaque forme de lecture de code doit être comptée dans sa case, la relecture d'une sortie doit valoir sa taille × les tours qui la suivent, et l'alerte ne doit crier que sur ce que la règle 6 du hook refuserait — une tranche courte est permise. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -106,6 +108,8 @@ npm run board:snapshot
 import { guardCli } from "./cli-guard.mjs"; guardCli(import.meta.url);
 npm run session:end                 # préparation
 npm run session:resume
+node tool-usage.mjs            # lecture de code de la session COURANTE
+`@usage` node .claude/skills/nodefony-session/scripts/tool-usage.selftest.mjs
 ```
 
 **Toutes les variables lues par ce skill** : `MEM` · `PROJECT_NUMBER` · `PROJECT_OWNER` · `PUBLISH` · `QUERY` · `REPO_NAME` · `REPO_OWNER`
@@ -164,6 +168,14 @@ npm run session:resume
 | Option | Rôle |
 | --- | --- |
 | `--offline` | ne joint pas GitHub (empreinte du dernier END, datée) |
+
+#### `scripts/tool-usage.mjs`
+
+
+```bash
+node tool-usage.mjs            # lecture de code de la session COURANTE
+node tool-usage.mjs --all      # coût par famille d'outil, toutes sessions
+```
 
 ## Conformité au standard Agent Skills
 
