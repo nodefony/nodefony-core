@@ -82,6 +82,7 @@
     ".claude/skills/nodefony-start-server/stop.sh",
     ".claude/skills/nodefony-ticket/scripts/francise.mjs",
     ".claude/skills/nodefony-ticket/scripts/pose-lexique.mjs",
+    ".claude/skills/nodefony-ticket/scripts/ticket-reorder.mjs",
     "scripts/generate/brand-assets.mjs",
     "scripts/repo/safe-commit.sh",
     "scripts/test/realtime-coverage-map.mjs"
