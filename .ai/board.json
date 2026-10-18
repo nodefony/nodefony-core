@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T16:53:12.439Z",
+  "generatedAt": "2026-10-18T19:54:23.797Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7,7 +7,7 @@
       "closed": 1,
       "dueOn": null,
       "number": 3,
-      "open": 29,
+      "open": 37,
       "title": "10.2.0"
     },
     {
@@ -46,7 +46,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 146,
+      "closed": 147,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 31,
@@ -199,6 +199,20 @@
       "labels": [
         "arbitrage"
       ]
+    },
+    {
+      "number": 83,
+      "title": "feat(notification): doter le framework de l'envoi de messages sortants",
+      "url": "https://github.com/nodefony/nodefony-core/issues/83",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 6,
+      "ordre": 1,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
+      "labels": []
     },
     {
       "number": 220,
@@ -869,6 +883,20 @@
       "ordre": 2,
       "debut": null,
       "cible": null,
+      "labels": []
+    },
+    {
+      "number": 378,
+      "title": "feat(core): rendre traduisibles les textes du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/378",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 2,
+      "debut": "2026-11-24",
+      "cible": "2026-11-28",
       "labels": []
     },
     {
@@ -3171,6 +3199,22 @@
       ]
     },
     {
+      "number": 630,
+      "title": "refactor(realtime)!: aligner la socket du navigateur et du serveur avant 10.0",
+      "url": "https://github.com/nodefony/nodefony-core/issues/630",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
       "number": 139,
       "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
       "url": "https://github.com/nodefony/nodefony-core/issues/139",
@@ -3255,8 +3299,8 @@
       "number": 620,
       "title": "refactor(realtime): typer l'état de connexion sans conversion",
       "url": "https://github.com/nodefony/nodefony-core/issues/620",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -6569,20 +6613,6 @@
       "labels": []
     },
     {
-      "number": 378,
-      "title": "feat(core): rendre traduisibles les textes du framework",
-      "url": "https://github.com/nodefony/nodefony-core/issues/378",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 12,
-      "debut": "2026-11-24",
-      "cible": "2026-11-28",
-      "labels": []
-    },
-    {
       "number": 379,
       "title": "feat(core): servir une application dans la langue du visiteur",
       "url": "https://github.com/nodefony/nodefony-core/issues/379",
@@ -6696,20 +6726,6 @@
       "ordre": 14,
       "debut": "2026-10-02",
       "cible": "2026-10-02",
-      "labels": []
-    },
-    {
-      "number": 83,
-      "title": "feat(notification): doter le framework de l'envoi de messages sortants",
-      "url": "https://github.com/nodefony/nodefony-core/issues/83",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 6,
-      "ordre": 15,
-      "debut": "2026-11-16",
-      "cible": "2026-12-15",
       "labels": []
     },
     {
@@ -8275,6 +8291,48 @@
       "labels": []
     },
     {
+      "number": 627,
+      "title": "docs(adr): figer l'architecture de la socket temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/627",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 162.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 628,
+      "title": "feat(realtime): tenir le serveur au même contrat que le client",
+      "url": "https://github.com/nodefony/nodefony-core/issues/628",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 162.8,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 629,
+      "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/629",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 162.9,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 243,
       "title": "feat(realtime): servir le bus par Kafka pour la retention",
       "url": "https://github.com/nodefony/nodefony-core/issues/243",
@@ -8298,6 +8356,50 @@
       "priorite": "P2 — décision",
       "jours": 3,
       "ordre": 163,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 621,
+      "title": "feat(realtime): compléter le temps réel : binaire, canaux privés, voix",
+      "url": "https://github.com/nodefony/nodefony-core/issues/621",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 19,
+      "ordre": 163,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 622,
+      "title": "feat(realtime): admettre un abonné de canal par son identité",
+      "url": "https://github.com/nodefony/nodefony-core/issues/622",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 163.1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 623,
+      "title": "feat(realtime): identifier les abonnés d'un canal côté serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/623",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 163.2,
       "debut": null,
       "cible": null,
       "labels": []
@@ -8345,6 +8447,48 @@
       "labels": [
         "Librairie Cliente"
       ]
+    },
+    {
+      "number": 624,
+      "title": "docs(adr): figer le contrat du modèle média partagé et de la capture",
+      "url": "https://github.com/nodefony/nodefony-core/issues/624",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1.5,
+      "ordre": 165.1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 625,
+      "title": "feat(media): livrer le modèle média partagé, sans dépendance au navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/625",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 165.2,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 626,
+      "title": "feat(realtime): transcrire la voix du navigateur sur la socket",
+      "url": "https://github.com/nodefony/nodefony-core/issues/626",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 165.3,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 246,
@@ -8508,7 +8652,7 @@
       "status": "Todo",
       "milestone": "12.0.0",
       "priorite": "P2 — décision",
-      "jours": 5,
+      "jours": 4,
       "ordre": 176,
       "debut": null,
       "cible": null,

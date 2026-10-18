@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-18 16:53** (UTC).
+> Empreinte prise le **2026-10-18 19:54** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,10 +21,10 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 82% | 146 | 31 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 83% | 147 | 31 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
-| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 29 | — |
+| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 37 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 5 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
@@ -32,48 +32,25 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#620 — refactor(realtime): typer l'état de connexion sans conversion**
+**#630 — refactor(realtime)!: aligner la socket du navigateur et du serveur avant 10.0**
 
-Ordre 4.0096 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
+Ordre 4.005 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise —
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 31 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 13.0.0 — 1 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 1 | P2 — décision | 3 | — | #583 | feat(security): authentifier par certificat client sur carte à puce |
-
-## Jalon 11.0.0 — 5 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 1 | P2 — décision | 1 | — | #584 | feat(client): proposer les passkeys dans le champ identifiant |
-| 162 | P3 — fin de cycle | 1 | — | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
-| 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
-| 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
-| 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
-
-## Jalon outillage-agents — 2 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
-| 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
-
 ## Jalon 10.1.0 — 36 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
+| 1 | P1 — figé à la création | 6 | 2026-11-16 → 12-15 | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
+| 2 | P2 — décision | 1 | 2026-11-24 → 11-28 | #378 | feat(core): rendre traduisibles les textes du framework |
 | 3.93 | P1 — figé à la création | 5 | — | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.945 | P1 — figé à la création | 2 | — | #522 | feat(studio): ajouter un écran Identité pour les fournisseurs de connexion |
 | 3.95 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
 | 3.955 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
-| 12 | P2 — décision | 1 | 2026-11-24 → 11-28 | #378 | feat(core): rendre traduisibles les textes du framework |
-| 15 | P1 — figé à la création | 6 | 2026-11-16 → 12-15 | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
 | 16 | P2 — décision | 1 | 2026-11-16 → 12-15 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 17 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #84 | feat(mail): créer le module et son service d'envoi |
 | 18 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #85 | feat(mail): composer un courriel depuis un gabarit |
@@ -105,11 +82,34 @@ Ordre 4.0096 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 | 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
 
+## Jalon 13.0.0 — 1 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 1 | P2 — décision | 3 | — | #583 | feat(security): authentifier par certificat client sur carte à puce |
+
+## Jalon 11.0.0 — 5 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 1 | P2 — décision | 1 | — | #584 | feat(client): proposer les passkeys dans le champ identifiant |
+| 162 | P3 — fin de cycle | 1 | — | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
+| 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
+| 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
+| 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
+
+## Jalon outillage-agents — 2 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
+| 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
+
 ## Jalon 10.0.0-beta — 31 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.0096 | P2 — décision | 1 | — | #620 | refactor(realtime): typer l'état de connexion sans conversion |
+| 4.005 | P1 — figé à la création | 1 | — | #630 | refactor(realtime)!: aligner la socket du navigateur et du serveur avant 10.0 |
 | 4.01 | P1 — figé à la création | 2 | 2026-11-17 → 11-18 | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
 | 4.011 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
 | 4.0115 | P2 — décision | 0.5 | — | #600 | feat(devkit): lire le journal d'une session Codex interactive au banc |
@@ -141,7 +141,7 @@ Ordre 4.0096 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 6.1 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 6.11 | P1 — figé à la création | 1 | — | #513 | feat(scaffold): mettre les apps générées en quarantaine de 3 jours |
 
-## Jalon 10.2.0 — 29 ouverts
+## Jalon 10.2.0 — 37 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -173,7 +173,15 @@ Ordre 4.0096 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
 | 161 | P2 — décision | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
 | 162 | P2 — décision | 2 | — | #502 | feat(orm): propager la transaction en cours sans la passer à chaque dépôt |
+| 162.5 | P2 — décision | 2 | — | #627 | docs(adr): figer l'architecture de la socket temps réel |
+| 162.8 | P2 — décision | 2 | — | #628 | feat(realtime): tenir le serveur au même contrat que le client |
+| 162.9 | P2 — décision | 2 | — | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
 | 163 | P2 — décision | 3 | — | #618 | feat(realtime): router les trames binaires vers leur canal |
+| 163.1 | P2 — décision | 1 | — | #622 | feat(realtime): admettre un abonné de canal par son identité |
+| 163.2 | P2 — décision | 2 | — | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
+| 165.1 | P2 — décision | 1.5 | — | #624 | docs(adr): figer le contrat du modèle média partagé et de la capture |
+| 165.2 | P2 — décision | 1 | — | #625 | feat(media): livrer le modèle média partagé, sans dépendance au navigateur |
+| 165.3 | P2 — décision | 3 | — | #626 | feat(realtime): transcrire la voix du navigateur sur la socket |
 
 ## Jalon 10.0.0 — 2 ouverts
 
@@ -182,26 +190,11 @@ Ordre 4.0096 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 59 | P1 — figé à la création | 1 | 2026-11-18 → 11-18 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1 | 2026-11-19 → 11-19 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
-## Jalon 12.0.0 — 11 ouverts
+## Backlog — aucune date promise · 20 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 165 | P1 — figé à la création | 1 | — | #245 | chore(ia): refaire l'etat de l'art avant de coder la couche IA |
-| 166 | P1 — figé à la création | 1 | — | #246 | feat(llm): brancher un fournisseur de modele reel |
-| 167 | P2 — décision | 1 | — | #247 | feat(vector): eprouver le stockage de vecteurs en reel |
-| 168 | P2 — décision | 1 | — | #248 | feat(rag): eprouver la recherche augmentee de bout en bout |
-| 169 | P2 — décision | 1 | — | #249 | feat(memory): persister la memoire d'un agent |
-| 170 | P2 — décision | 1 | — | #250 | feat(agent): arreter le modele de boucle d'un agent |
-| 172 | P1 — figé à la création | 1 | — | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
-| 173 | P1 — figé à la création | 11 | — | #492 | feat(tenant): isoler les organisations qui partagent une même application |
-| 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |
-| 175 | P2 — décision | 2 | — | #550 | feat(mcp): rendre un serveur MCP publiable au registre officiel |
-| 176 | P2 — décision | 5 | — | #619 | feat(ai): converser à la voix avec un agent, sur la socket |
-
-## Backlog — aucune date promise · 19 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
+| 163 | P2 — décision | 19 | — | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 901 | P2 — décision | 0.5 | — | #387 | fix(test): sonder les deux ports avant de lancer le banc de démarrage |
 | 902 | P2 — décision | 1 | — | #422 | feat(ci): regarder l'écran d'une application générée à chaque publication |
 | 903 | P2 — décision | 1 | — | #423 | test(release): éprouver la surface npm telle que le registre la sert |
@@ -221,4 +214,20 @@ Ordre 4.0096 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 917 | P3 — fin de cycle | 6 | — | #612 | refactor(core): finir le découpage du noyau, une famille à la fois |
 | 918 | P2 — décision | 2 | — | #615 | feat(cli): ajouter un type de champ chiffré au repos à create entity |
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
+
+## Jalon 12.0.0 — 11 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 165 | P1 — figé à la création | 1 | — | #245 | chore(ia): refaire l'etat de l'art avant de coder la couche IA |
+| 166 | P1 — figé à la création | 1 | — | #246 | feat(llm): brancher un fournisseur de modele reel |
+| 167 | P2 — décision | 1 | — | #247 | feat(vector): eprouver le stockage de vecteurs en reel |
+| 168 | P2 — décision | 1 | — | #248 | feat(rag): eprouver la recherche augmentee de bout en bout |
+| 169 | P2 — décision | 1 | — | #249 | feat(memory): persister la memoire d'un agent |
+| 170 | P2 — décision | 1 | — | #250 | feat(agent): arreter le modele de boucle d'un agent |
+| 172 | P1 — figé à la création | 1 | — | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
+| 173 | P1 — figé à la création | 11 | — | #492 | feat(tenant): isoler les organisations qui partagent une même application |
+| 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |
+| 175 | P2 — décision | 2 | — | #550 | feat(mcp): rendre un serveur MCP publiable au registre officiel |
+| 176 | P2 — décision | 4 | — | #619 | feat(ai): converser à la voix avec un agent, sur la socket |
 
