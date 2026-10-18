@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T12:44:49.864Z",
+  "generatedAt": "2026-10-18T14:20:38.893Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -8474,8 +8474,8 @@
       "number": 614,
       "title": "chore(pilotage): convertir les ancres par ligne des tickets en symboles",
       "url": "https://github.com/nodefony/nodefony-core/issues/614",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
@@ -8649,7 +8649,7 @@
       "title": "chore(scripts): fiabiliser et alléger l'outillage du dépôt",
       "url": "https://github.com/nodefony/nodefony-core/issues/532",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 2,
