@@ -10,6 +10,7 @@ import {
   datesIn,
   netAddedDates,
   firstPriority,
+  pruneStatePointers,
   nextStateName,
   linksInSection,
   modifiedOf,
@@ -258,5 +259,33 @@ describe("cliGate — l'en-tête du script décide de l'aide et des options", ()
     );
     expect(cliGate(source, ["--since=abc123"]).action).toBe("run");
     expect(cliGate(source, []).action).toBe("run");
+  });
+});
+
+describe("pruneStatePointers — l'index mémoire ne garde que les états récents", () => {
+  const index = [
+    "## 🧭 État",
+    "- [⭐⭐⭐ État 10-18c](project_session_2026-10-18c_state.md) — dernier",
+    "- [⭐⭐⭐ État 10-18b](project_session_2026-10-18b_state.md) — avant",
+    "- [⭐ FIL DIRECTEUR — release](project_release_nodefony10.md) — reste",
+    "- [⭐⭐⭐ État 10-17](project_session_2026-10-17_state.md) — vieux",
+    "## 🏗️ Chantiers",
+  ].join("\n");
+
+  it("garde les N premiers pointeurs d'état et rend ceux qu'il retire", () => {
+    const { text, removed } = pruneStatePointers(index, 1);
+    expect(removed).toEqual([
+      "project_session_2026-10-18b_state.md",
+      "project_session_2026-10-17_state.md",
+    ]);
+    expect(text).toContain("État 10-18c");
+    expect(text).not.toContain("État 10-18b");
+  });
+
+  it("ne touche à aucune autre ligne, même étoilée, même dans la section État", () => {
+    const { text } = pruneStatePointers(index, 1);
+    expect(text).toContain("FIL DIRECTEUR");
+    expect(text).toContain("## 🏗️ Chantiers");
+    expect(pruneStatePointers(index, 9).text).toBe(index);
   });
 });

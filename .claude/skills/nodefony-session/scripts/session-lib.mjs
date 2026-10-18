@@ -223,6 +223,33 @@ export function netAddedDates(diff) {
   return added;
 }
 
+/**
+ * Retire de l'index mémoire les pointeurs d'état anciens : seuls les `keep` premiers
+ * (les plus récents, la clôture les écrit en tête) restent.
+ *
+ * L'index est chargé à CHAQUE session, et chaque pointeur périmé s'y relit à chaque
+ * tour ; la reprise, elle, lit le dernier `_state` SUR LE DISQUE, jamais l'index.
+ * Les fichiers restent : seul leur pointeur sort. Mesuré : 14 pointeurs chargés
+ * pour un seul utile.
+ *
+ * @param text - contenu de `MEMORY.md`.
+ * @param keep - pointeurs d'état à garder.
+ * @returns le texte élagué et les fichiers dont le pointeur est sorti.
+ */
+export function pruneStatePointers(text, keep) {
+  const pointer =
+    /^- \[[^\]]*État[^\]]*\]\((project_session_[^)]+_state\.md)\)/u;
+  const removed = [];
+  let seen = 0;
+  const lines = text.split("\n").filter((l) => {
+    const m = pointer.exec(l);
+    if (!m || seen++ < keep) return true;
+    removed.push(m[1]);
+    return false;
+  });
+  return { text: lines.join("\n"), removed };
+}
+
 /** Tronque une ligne à `max` caractères visibles. */
 export const clip = (s, max = 90) =>
   s.length > max ? `${s.slice(0, max - 1)}…` : s;

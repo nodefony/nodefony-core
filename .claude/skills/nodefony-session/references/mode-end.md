@@ -27,6 +27,8 @@ projet + issue épinglée, dans le même run), et le chemin du `_state` à écri
   d'outil) dit comment la session a lu le code : `show-symbol` contre les lectures que la règle 6 du
   hook refuserait. Une ⚠️ = le réflexe de la tranche devinée a repris : le dire au user, pas de
   ticket. `node scripts/tool-usage.mjs --all` rend le coût par famille d'outil, toutes sessions.
+- L'**index mémoire** n'y garde que le dernier pointeur d'état (`pruneStatePointers`) : il est chargé
+  à chaque session, la reprise lit le `_state` sur le disque. Les fichiers restent.
 - Le tableau en erreur **bloque l'empreinte** : une empreinte prise sur un tableau incohérent grave
   l'incohérence, et c'est elle qu'on relira hors ligne. Solder, relancer.
 - Un refus de l'empreinte se LIT (« GitHub muet » : l'ancienne est conservée, c'est voulu ;

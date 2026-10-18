@@ -28,6 +28,7 @@ import path from "node:path";
 import { dependentsOf } from "../../nodefony-ticket/scripts/dependents.mjs";
 import { mentionedTickets } from "../../nodefony-ticket/scripts/commit-kind.mjs";
 import {
+  pruneStatePointers,
   ciVerdict,
   clip,
   netAddedDates,
@@ -240,6 +241,24 @@ function prepare() {
     if (t) say(readingLine(analyseTranscript(t)));
   } catch {
     say("⚠️ lecture de code non mesurée (transcript illisible)");
+  }
+  // L'index mémoire est chargé à CHAQUE session : n'y garder que le dernier
+  // pointeur d'état (la clôture ajoute le sien en tête — deux en tout). La
+  // reprise lit le `_state` sur le disque ; les fichiers restent.
+  try {
+    const indexPath = path.join(MEM, "MEMORY.md");
+    const { text, removed } = pruneStatePointers(
+      fs.readFileSync(indexPath, "utf8"),
+      1,
+    );
+    if (removed.length) {
+      fs.writeFileSync(indexPath, text);
+      say(
+        `Index mémoire : ${removed.length} pointeur(s) d'état ancien(s) retiré(s) (fichiers conservés)`,
+      );
+    }
+  } catch {
+    say("⚠️ index mémoire non élagué (MEMORY.md illisible)");
   }
   // Chemins à écrire.
   say(

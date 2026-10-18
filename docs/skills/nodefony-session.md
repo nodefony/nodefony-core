@@ -78,7 +78,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/mode-end.md` | MODE END — clôture de session | 134 |
+| `references/mode-end.md` | MODE END — clôture de session | 136 |
 
 
 ## Scripts embarqués
