@@ -2515,6 +2515,11 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             `la cause (connexion) est à l'écran\n${text}`,
           );
           assert.doesNotMatch(
+            unwrapped,
+            /TimeStamp:|ModuleName:|UID:/,
+            `l'erreur se lit au format console, pas en enregistrement brut\n${text}`,
+          );
+          assert.doesNotMatch(
             text,
             /crash rapide/,
             `une erreur de configuration ne se relance pas\n${text}`,

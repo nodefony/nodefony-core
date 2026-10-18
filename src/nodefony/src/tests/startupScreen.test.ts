@@ -23,6 +23,7 @@ import {
   renderStartupHuman,
   renderStartupPlain,
   renderActivity,
+  renderBootErrorLine,
   renderRuntime,
   SCREEN_SYMBOLS,
   renderStatusBlock,
@@ -59,6 +60,7 @@ import {
   type IBootReport,
 } from "../kernel/bootReport";
 import type { DevProcessInfo } from "../service/dev/devProcess";
+import Pdu from "../syslog/Pdu";
 
 const ESC = "\x1b";
 
@@ -1089,5 +1091,34 @@ describe("barre d'état — mesures vivantes", () => {
     expect(isDevChannelMessage(rt({ cpuPercent: Number.NaN }))).to.equal(false);
     expect(isDevChannelMessage(rt({ rssBytes: -1 }))).to.equal(false);
     expect(isDevChannelMessage(rt({ eluPercent: 101 }))).to.equal(false);
+  });
+});
+
+describe("écran d'échec — une erreur retenue se lit comme à la console", () => {
+  // Vécu (banc #313) : l'écran d'échec déversait l'enregistrement BRUT
+  // `TimeStamp:… Log:… ModuleName:… UID:… Message:` au lieu de la ligne que
+  // la console de développement aurait affichée.
+  const pdu = new Pdu(
+    'le module "drizzle" n\'a pas pu se connecter',
+    "ERROR",
+    "app",
+    "ORM",
+  );
+
+  it("rend le format console : heure, sévérité, émetteur, message", () => {
+    const line = renderBootErrorLine(pdu, false);
+    expect(line).toMatch(
+      /^\d{2}:\d{2}:\d{2}\.\d{3} ERROR\s+ORM\s+: le module "drizzle" n'a pas pu se connecter$/,
+    );
+  });
+
+  it("n'expose aucun champ de l'enregistrement brut", () => {
+    expect(renderBootErrorLine(pdu, false)).not.toMatch(
+      /TimeStamp:|Log:|ModuleName:|SeverityName:|MessageID:|UID:/,
+    );
+  });
+
+  it("sans couleur, aucune séquence ANSI ne passe", () => {
+    expect(renderBootErrorLine(pdu, false)).not.toMatch(/\x1b\[/);
   });
 });

@@ -1,5 +1,4 @@
 import readline from "node:readline";
-import { stripVTControlCharacters } from "node:util";
 import type Kernel from "../../kernel/Kernel";
 import Syslog, { STDERR_LOG_SINK } from "../../syslog/Syslog";
 import { readLastBoot, type ILastBoot } from "../../kernel/checks/lastBoot";
@@ -28,6 +27,7 @@ import {
   renderReloadPlain,
   renderStartupHuman,
   renderStartupPlain,
+  renderBootErrorLine,
   renderStatusBar,
   SCREEN_SYMBOLS,
   supportsHyperlinks,
@@ -695,8 +695,7 @@ class BootReporter {
     const out = this.#mode === "json" ? process.stderr : process.stdout;
     for (const pdu of sys.ringStack) {
       if (pdu.severity >= 0 && pdu.severity <= 3) {
-        const line = pdu.toString();
-        out.write(`  ${this.#color ? line : stripVTControlCharacters(line)}\n`);
+        out.write(`  ${renderBootErrorLine(pdu, this.#color)}\n`);
       }
     }
   }

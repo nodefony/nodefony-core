@@ -13,6 +13,8 @@
  * noyau ni capturer une sortie standard.
  */
 import { stripVTControlCharacters } from "node:util";
+import Syslog from "../../syslog/Syslog";
+import type Pdu from "../../syslog/Pdu";
 import type {
   IBootLink,
   IBootModuleGated,
@@ -1434,4 +1436,22 @@ export function renderReloadPlain(
     for (const l of view.open) out.push(`open.${l.id}: ${l.url}`);
   }
   return out.map(bare);
+}
+
+/**
+ * Rend une erreur retenue pendant que l'écran de démarrage était coupé, au
+ * format de la console de développement (`HH:MM:SS.mmm ERROR MSGID : message`).
+ *
+ * Le gabarit vient de {@link Syslog.wrapper}, seule source du format console :
+ * l'écran d'échec montre donc la ligne qu'on aurait lue écran ouvert, jamais
+ * l'enregistrement brut (`TimeStamp:… Log:… ModuleName:… UID:…`) que rend
+ * `Pdu.toString()` et qui n'est fait que pour une machine.
+ *
+ * @param pdu - l'entrée du journal à afficher.
+ * @param color - garder la coloration ANSI (terminal), ou la retirer.
+ * @returns la ligne, sans indentation ni saut de ligne final.
+ */
+export function renderBootErrorLine(pdu: Pdu, color: boolean): string {
+  const line = `${Syslog.wrapper(pdu).text}${String(pdu.payload)}`;
+  return color ? line : stripVTControlCharacters(line);
 }
