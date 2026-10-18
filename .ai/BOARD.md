@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-18 16:30** (UTC).
+> Empreinte prise le **2026-10-18 16:45** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 81% | 144 | 33 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 82% | 146 | 31 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 29 | — |
@@ -32,11 +32,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#427 — fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows**
+**#620 — refactor(realtime): typer l'état de connexion sans conversion**
 
-Ordre 4.008 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-10-21 → 10-21
+Ordre 4.0096 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 33 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 31 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,12 +105,10 @@ Ordre 4.008 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 | 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
 
-## Jalon 10.0.0-beta — 33 ouverts
+## Jalon 10.0.0-beta — 31 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.008 | P2 — décision | 0.5 | 2026-10-21 → 10-21 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows |
-| 4.0095 | P2 — décision | 1 | — | #617 | fix(realtime): cesser de lire en texte les trames binaires reçues |
 | 4.0096 | P2 — décision | 1 | — | #620 | refactor(realtime): typer l'état de connexion sans conversion |
 | 4.01 | P1 — figé à la création | 2 | 2026-11-17 → 11-18 | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
 | 4.011 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |

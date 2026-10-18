@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T16:30:55.958Z",
+  "generatedAt": "2026-10-18T16:45:12.597Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 144,
+      "closed": 146,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 33,
+      "open": 31,
       "title": "10.0.0-beta"
     },
     {
@@ -3207,8 +3207,8 @@
       "number": 427,
       "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/427",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3239,8 +3239,8 @@
       "number": 617,
       "title": "fix(realtime): cesser de lire en texte les trames binaires reçues",
       "url": "https://github.com/nodefony/nodefony-core/issues/617",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
