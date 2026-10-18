@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T08:24:39.732Z",
+  "generatedAt": "2026-10-18T09:06:29.127Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 138,
+      "closed": 141,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 34,
       "title": "10.0.0-beta"
     },
     {
@@ -3126,8 +3126,8 @@
       "number": 610,
       "title": "feat(realtime): acquitter les abonnements pour dire quand le flux arrive",
       "url": "https://github.com/nodefony/nodefony-core/issues/610",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3142,8 +3142,8 @@
       "number": 611,
       "title": "fix(core): faire rendre au filtre réseau les interfaces qu'il annonce",
       "url": "https://github.com/nodefony/nodefony-core/issues/611",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3158,8 +3158,8 @@
       "number": 313,
       "title": "fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative",
       "url": "https://github.com/nodefony/nodefony-core/issues/313",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
