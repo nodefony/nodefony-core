@@ -177,6 +177,13 @@ const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
       "stream-json",
       "--verbose",
       "--dangerously-skip-permissions",
+      // Sans lui, `claude -p` charge le PROFIL de qui lance le banc
+      // (`~/.claude/CLAUDE.md`) : vécu, l'agent obéissait à « une session = un
+      // module » et « jamais package.json sans demander », s'arrêtait à 1 table
+      // sur 6 et refusait d'ajouter un pilote. Constaté : sans l'option, il cite
+      // le profil ; avec, il ne le voit plus et lit toujours le CLAUDE.md du projet.
+      "--setting-sources",
+      "project,local",
     ];
 
 /**
@@ -902,6 +909,38 @@ const FRAMEWORK_TABLES = new Set([
   "idempotency_key",
 ]);
 
+/** Le pilote qu'une application générée pour ce moteur déclare. */
+const ENGINE_DRIVER = {
+  postgres: "pg",
+  mysql: "mysql2",
+  sqlite: "better-sqlite3",
+};
+
+/**
+ * L'application témoin est-elle générée pour le moteur du run ?
+ *
+ * Constat, pas supposition : lancée sans `--database`, `create app` rendait
+ * une application SQLite que `NF_DATABASE_URL` envoyait sur PostgreSQL —
+ * `User.ts` en SQLite, `pg` absent. L'agent corrigeait les deux, comptés
+ * comme une limite de la grammaire, et la session admin du juge tombait en 401.
+ *
+ * @param dialect - moteur du run.
+ * @param pkgJson - texte du `package.json` de l'application.
+ * @param userSource - texte de `nodefony/entity/User.ts`.
+ * @returns `null` si le décor est cohérent, sinon la raison.
+ */
+export function engineMismatch(dialect, pkgJson, userSource) {
+  const pkg = JSON.parse(pkgJson);
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const driver = ENGINE_DRIVER[dialect];
+  if (driver && !deps[driver])
+    return `pilote \`${driver}\` absent du package.json`;
+  const declared = /const DIALECT = "(\w+)"/.exec(userSource)?.[1];
+  if (declared !== dialect)
+    return `User.ts écrit pour ${declared ?? "un moteur inconnu"}, run sur ${dialect}`;
+  return null;
+}
+
 /**
  * Supprime les tables du sous-ensemble AVANT le run — par CONTENU, pas par nom.
  *
@@ -1082,6 +1121,10 @@ function setup(runDir, target) {
       "complete",
       "--frontend",
       "none",
+      // Le moteur du run, DÈS la génération : sans lui l'application naît en
+      // SQLite (`User.ts`, pilote) et l'agent passe son temps à la convertir.
+      "--database",
+      DIALECT,
       ...(LINKED
         ? ["--link"]
         : // Les deps du scaffold pointent le registre npm, où la version 10
@@ -1721,7 +1764,10 @@ async function judgeHttp(app, runDir, table, chain) {
  * et on accuse l'agent au lieu de l'outil.
  *
  * Le critère est le CONTENU, jamais la ressemblance des noms : une table qui
- * porte la moitié des colonnes attendues est la même table.
+ * porte la moitié des colonnes attendues est la même table. Sauf une table du
+ * FRAMEWORK, que l'agent n'a pas créée : `schedule` (id, userId, name,
+ * timeZone) était appariée à `access_token`, qui en porte `id` et `name` — le
+ * rapport annonçait une table jamais écrite. Même liste que `dropExpected`.
  *
  * @returns `{name, got}` ou `null`.
  */
@@ -1729,6 +1775,7 @@ function findRenamed(expected, actual) {
   const wanted = expected.columns.map((c) => c.column.toLowerCase());
   if (wanted.length === 0) return null;
   for (const [name, got] of actual) {
+    if (FRAMEWORK_TABLES.has(name)) continue;
     const have = new Set(got.columns.map((c) => c.name.toLowerCase()));
     const hits = wanted.filter((w) => have.has(w)).length;
     if (hits / wanted.length >= 0.5) return { name, got };
@@ -2158,6 +2205,23 @@ async function main() {
     isolation = assertIsolated(REPO, app);
     console.log(`\n• isolation du décor`);
     for (const f of isolation.facts) console.log(`  ${f}`);
+    const engine = engineMismatch(
+      DIALECT,
+      readFileSync(path.join(app, "package.json"), "utf8"),
+      readFileSync(path.join(app, "nodefony", "entity", "User.ts"), "utf8"),
+    );
+    console.log(
+      engine
+        ? `  ❌ application NON générée pour ${DIALECT} : ${engine}`
+        : `  ✅ application générée pour ${DIALECT} (pilote et User.ts)`,
+    );
+    if (engine) {
+      console.error(
+        `\n🛑 décor sur le mauvais moteur — l'agent le convertirait, et ce travail\n` +
+          `   serait compté contre la grammaire. Arrêt avant l'agent.\n   Décor : ${app}`,
+      );
+      process.exit(3);
+    }
     if (!isolation.ok && !LINKED) {
       console.error(
         `\n🛑 décor NON isolé — le banc mesurerait un agent mieux servi que\n` +

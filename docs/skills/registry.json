@@ -3809,6 +3809,10 @@
                 "help": ""
               },
               {
+                "flag": "--database",
+                "help": ""
+              },
+              {
                 "flag": "--detach",
                 "help": ""
               },
@@ -3874,6 +3878,10 @@
               },
               {
                 "flag": "--schema-only",
+                "help": ""
+              },
+              {
+                "flag": "--setting-sources",
                 "help": ""
               },
               {
@@ -3947,6 +3955,10 @@
             "options": [
               {
                 "flag": "--allow-no-pg",
+                "help": ""
+              },
+              {
+                "flag": "--database",
                 "help": ""
               },
               {

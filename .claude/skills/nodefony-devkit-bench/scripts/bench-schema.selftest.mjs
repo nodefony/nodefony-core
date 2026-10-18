@@ -25,7 +25,9 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  compare,
   countWork,
+  engineMismatch,
   pgMismatch,
   readKnex,
   readPostgres,
@@ -583,6 +585,93 @@ async function verifyPostgresJudge({ prove }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Une table du FRAMEWORK n'est jamais la table attendue sous un autre nom.
+ *
+ * Le cas vécu : `schedule` (id, userId, name, timeZone) apparié à
+ * `access_token`, qui en porte `id` et `name` — la moitié, le seuil. Le
+ * rapport annonçait une table que l'agent n'avait jamais créée.
+ */
+function verifyRenamed() {
+  console.log(`\n━━ table trouvée sous un autre nom`);
+  const col = (name) => ({ name, type: "text", nullable: true });
+  const expected = [
+    {
+      model: "Schedule",
+      table: "schedule",
+      columns: ["id", "userId", "name", "timeZone"].map((column) => ({
+        prop: column,
+        column,
+        logical: "string",
+        nullable: true,
+        unique: false,
+        isId: column === "id",
+      })),
+      indexes: [],
+    },
+  ];
+  const decor = new Map([
+    [
+      "access_token",
+      { columns: ["id", "name", "token"].map(col), indexes: [] },
+    ],
+  ]);
+  check(
+    "table du framework jamais appariée",
+    String(compare(expected, decor)[0].renamedTo),
+    "null",
+    "access_token partage id et name : l'appariement par contenu doit l'écarter",
+  );
+  const pluriel = new Map([
+    [
+      "schedules",
+      { columns: ["id", "userId", "name", "timeZone"].map(col), indexes: [] },
+    ],
+  ]);
+  check(
+    "table de l'agent au pluriel — reconnue",
+    String(compare(expected, pluriel)[0].renamedTo),
+    "schedules",
+  );
+}
+
+/**
+ * L'application témoin est générée pour le moteur du run.
+ *
+ * Le cas vécu : `create app` sans `--database`, puis `NF_DATABASE_URL` vers
+ * PostgreSQL. `User.ts` restait en SQLite, `pg` absent : l'agent a dû les
+ * corriger — comptés comme une limite de la grammaire — et la session admin du
+ * juge tombait en 401.
+ */
+function verifyEngine() {
+  console.log(`\n━━ décor généré pour le moteur du run`);
+  const pkg = (deps) => JSON.stringify({ dependencies: deps });
+  const user = (d) => `const DIALECT = "${d}" as const satisfies SqlDialect;`;
+  check(
+    "décor SQLite sous un run PostgreSQL — refusé",
+    String(
+      engineMismatch(
+        "postgres",
+        pkg({ "better-sqlite3": "13" }),
+        user("sqlite"),
+      ) !== null,
+    ),
+    "true",
+  );
+  check(
+    "pilote présent, User.ts resté SQLite — refusé",
+    String(
+      engineMismatch("postgres", pkg({ pg: "8" }), user("sqlite")) !== null,
+    ),
+    "true",
+  );
+  check(
+    "décor PostgreSQL cohérent — accepté",
+    String(engineMismatch("postgres", pkg({ pg: "8" }), user("postgres"))),
+    "null",
+  );
+}
+
 const prove = process.argv.includes("--prove");
 
 console.log(
@@ -595,6 +684,8 @@ console.log(
 for (const key of Object.keys(SCHEMAS)) verify(key, { breakReader: prove });
 if (!prove) verifyShape();
 if (!prove) verifyCountWork();
+if (!prove) verifyRenamed();
+if (!prove) verifyEngine();
 const judgeExercised = await verifyPostgresJudge({ prove });
 
 console.log(
