@@ -36,7 +36,10 @@ export interface IWsRequestExtension {
 
 export type WsIncomingMessage = IncomingMessage & IWsRequestExtension;
 
-import type { IWebsocketContext as IWebsocketContextInterface } from "../../../interfaces/IContext";
+import type {
+  IWebsocketContext as IWebsocketContextInterface,
+  IWebsocketConnectionState,
+} from "../../../interfaces/IContext";
 import type { IRouteResolver } from "../../../interfaces/IRouting";
 import { parseWebsocketUrl } from "./websocketUrl";
 
@@ -140,10 +143,14 @@ export function toHandshakeStatus(code: number | undefined | null): number {
  */
 let wsContentLogging: boolean | null = null;
 
-export default class WebsocketContext
-  extends Context
-  implements IWebsocketContextInterface
-{
+// Fusion de déclarations : la classe reçoit, typés, les champs que les modules
+// déclarent sur `IWebsocketConnectionState` (cf son TSDoc). Tous optionnels, et
+// aucun code émis — l'instance n'en porte aucun tant qu'un module ne l'a pas posé.
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging
+interface WebsocketContext extends IWebsocketConnectionState {}
+export { WebsocketContext as default };
+
+class WebsocketContext extends Context implements IWebsocketContextInterface {
   override request: WsIncomingMessage | null;
   override response: WebsocketResponse | null = null;
   acceptedProtocol?: string | undefined;

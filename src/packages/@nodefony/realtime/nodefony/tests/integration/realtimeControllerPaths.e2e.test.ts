@@ -14,6 +14,7 @@ import {
   type Scope,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
+import { FRAMEWORK_ROUTER } from "@nodefony/framework";
 import { FrameProfile } from "@nodefony/http";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
@@ -163,6 +164,8 @@ resetBarrier();
 
 function makeRouter() {
   return {
+    // Le pont n'accepte que le Router du framework : ce faux s'en réclame.
+    [FRAMEWORK_ROUTER]: true,
     resolve(_ctx: unknown, pathname: string) {
       if (routerMode === "throw405") {
         throw Object.assign(new Error("method not allowed"), { code: 405 });
@@ -304,6 +307,7 @@ function makeServer(
   // n'alloue rien et répond une valeur nue — c'est le chemin que couvre la grille.
   let frameSeq = 0;
   const ctx = {
+    type: "websocket",
     connection: conn,
     once: (event: string, fn: () => void) => {
       if (event === "onFinish") lastFinish = fn;
@@ -714,16 +718,27 @@ describe("RealtimeController E2E — edge dégradés & parsing", () => {
     lastFinish = null;
   });
 
-  it("handleRealtime quand this.context est undefined → no-op (garde 170)", () => {
-    const wire = new LoopbackWire();
-    const rt = makeServer(wire);
-    (rt as unknown as { context: unknown }).context = undefined;
-    expect(() => rt.feed(null)).to.not.throw();
+  it("handleRealtime sur une instance qui ne sert pas une WebSocket → TypeError qui nomme la faute", () => {
+    const ctx = {
+      type: "http",
+      connection: null,
+      once: () => {},
+      request: { headers: {}, url: "/realtime" },
+      url: "/realtime",
+    };
+    const rt = new ApiRt(ctx as unknown as ContextType);
+    expect(() => rt.feed(null)).to.throw(
+      TypeError,
+      /ApiRt\.handleRealtime : cette instance ne sert pas une connexion WebSocket \(contexte de type « http »\)/,
+    );
+    // Une frame texte aussi : aucun chemin ne se tait.
+    expect(() => rt.feed("{}")).to.throw(TypeError);
   });
 
   it("onHandshake avec connection null → no-op (pas de welcome)", async () => {
     const wire = new LoopbackWire();
     const ctx = {
+      type: "websocket",
       connection: null,
       once: () => {},
       request: { headers: {}, url: "/realtime" },

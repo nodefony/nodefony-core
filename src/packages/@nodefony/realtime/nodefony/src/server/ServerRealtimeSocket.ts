@@ -96,30 +96,30 @@ export class ServerRealtimeSocket<
     }
   }
 
-  /** Branche un handler de réception sur un canal. Renvoie un `dispose`. */
+  /**
+   * Branche un handler de réception sur un canal. Renvoie un `dispose`.
+   *
+   * Le handler typé par `Listen` se range sans conversion sous
+   * `RealtimeHandler`, qui porte la frontière du contrat typé : il reçoit ce
+   * que le hub publie, dont `Listen` décrit la forme sans la valider.
+   */
   on<K extends string>(
     channel: K,
     handler: K extends EventNames<Listen>
       ? (payload: EventPayload<Listen, K>) => void
       : RealtimeHandler,
   ): () => void {
-    // Conversion ASSUMÉE (#573) — frontière du contrat typé : le handler d'un
-    // canal reçoit ce que le hub publie ; la forme est promise par `Listen`,
-    // jamais vérifiée. Directive d'exception à poser quand la règle passera en erreur.
-    return this.#addHandler(channel, handler as RealtimeHandler);
+    return this.#addHandler(channel, handler);
   }
 
-  /** Retire un handler d'un canal. */
+  /** Retire un handler d'un canal — même frontière que {@link on}. */
   off<K extends string>(
     channel: K,
     handler: K extends EventNames<Listen>
       ? (payload: EventPayload<Listen, K>) => void
       : RealtimeHandler,
   ): void {
-    // Conversion ASSUMÉE (#573) — frontière du contrat typé : le handler d'un
-    // canal reçoit ce que le hub publie ; la forme est promise par `Listen`,
-    // jamais vérifiée. Directive d'exception à poser quand la règle passera en erreur.
-    this.#removeHandler(channel, handler as RealtimeHandler);
+    this.#removeHandler(channel, handler);
   }
 
   /** Porte non typée de {@link on} : un nom de canal quelconque, un handler `unknown`. */

@@ -1,13 +1,16 @@
 /// <reference types="node" />
 import { route, controller } from "@nodefony/framework";
 import { RealtimeController } from "@nodefony/realtime";
-import { Context, readBackpressureOptions } from "@nodefony/http";
+import {
+  Context,
+  isWebsocketContext,
+  readBackpressureOptions,
+} from "@nodefony/http";
 import type { RealtimePublish } from "@nodefony/realtime";
 import {
   countPushed,
   readBackpressureProbe,
   setProbedTransport,
-  type IProbedTransport,
 } from "./backpressureProbe";
 
 /**
@@ -50,17 +53,14 @@ class BackpressureRealtimeController extends RealtimeController {
     // c'est la seule vue fiable de ce qui a été refusé (le client, lui, ne
     // distingue pas une frame jetée d'une frame pas encore lue).
     if (message == null) {
-      const t = (
-        this.context as unknown as {
-          __nfRealtime?: { transport: IProbedTransport };
-        }
-      ).__nfRealtime?.transport;
+      // Lu sans conversion : `@nodefony/realtime` déclare l'état sur
+      // `IWebsocketConnectionState`, et la garde rétrécit le contexte.
+      const ctx = this.context;
+      if (ctx === undefined || !isWebsocketContext(ctx)) return;
+      const server = ctx.server;
       setProbedTransport(
-        t ?? null,
-        readBackpressureOptions(
-          (this.context as unknown as { server?: unknown })
-            .server as Parameters<typeof readBackpressureOptions>[0],
-        ),
+        ctx.__nfRealtime?.transport ?? null,
+        readBackpressureOptions(server && "options" in server ? server : null),
       );
     }
   }

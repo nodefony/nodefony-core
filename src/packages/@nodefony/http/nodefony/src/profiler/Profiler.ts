@@ -19,6 +19,8 @@
  * origine par requestId). Agrégat cluster = Redis (P13).
  */
 
+import type { ProfiledResolver } from "./FrameProfile.js";
+
 /** Une phase du pipeline, projetée pour le transport (durée résolue). */
 export interface ProfilePhase {
   name: string;
@@ -138,14 +140,7 @@ interface ProfilableContext {
         durationMs?: number | undefined;
       }>
     | undefined;
-  resolver?:
-    | {
-        route?: { name?: string | undefined } | null;
-        controller?: { name?: string | undefined } | null | undefined;
-        actionName?: string | undefined;
-      }
-    | null
-    | undefined;
+  resolver?: ProfiledResolver | null | undefined;
   /**
    * Buffer de requêtes ORM rempli pendant la requête (dev-only). Même tableau
    * que la payload ALS — les adapters ORM y poussent via `RequestContext`.

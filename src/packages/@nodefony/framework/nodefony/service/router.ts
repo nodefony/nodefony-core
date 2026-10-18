@@ -185,8 +185,23 @@ function indexRoute(
   }
 }
 
+/**
+ * Marque du Router de `@nodefony/framework` — ce que {@link isFrameworkRouter}
+ * lit. `Symbol.for` : la même marque pour deux copies installées du framework,
+ * là où `instanceof` échouerait en silence. Un faux routeur de test s'en
+ * réclame explicitement.
+ */
+export const FRAMEWORK_ROUTER: unique symbol = Symbol.for(
+  "nodefony.framework.router",
+);
+
 @injectable()
 class Router extends Service implements IRequestRouter {
+  /** Marque {@link FRAMEWORK_ROUTER} — sur le prototype, aucun champ par instance. */
+  get [FRAMEWORK_ROUTER](): true {
+    return true;
+  }
+
   //static controllers = controllers;
   static routes = routes;
   routes: Route[] = Router.routes;
@@ -607,6 +622,25 @@ class Router extends Service implements IRequestRouter {
   ): Route[] {
     return routes.filter((r) => r.controller === myconstructor);
   }
+}
+
+/**
+ * Dit si le service `router` d'un contexte est le Router de
+ * `@nodefony/framework` — la garde qui rétrécit le contrat `IRequestRouter` de
+ * `@nodefony/http` sans conversion, pour qui lit des membres propres au
+ * framework (le Resolver complet que rend `resolve`).
+ *
+ * Lit la marque {@link FRAMEWORK_ROUTER}, jamais `instanceof` : deux copies
+ * installées du framework feraient échouer `instanceof` en silence. Une
+ * lecture de propriété.
+ *
+ * @param router - le routeur lu sur le contexte (`context.router`).
+ * @returns `true` si c'est le Router du framework.
+ */
+export function isFrameworkRouter(
+  router: IRequestRouter | null | undefined,
+): router is Router {
+  return router != null && FRAMEWORK_ROUTER in router;
 }
 
 export default Router;

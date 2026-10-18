@@ -27,22 +27,15 @@ import {
   isJsonRpcId,
   jsonRpcFailure,
 } from "nodefony";
-import type {
-  ContextType,
-  WebsocketContext,
-  ProfiledResolver,
-} from "@nodefony/http";
-import { readBackpressureOptions } from "@nodefony/http";
+import type { ContextType, WebsocketContext } from "@nodefony/http";
+import { isWebsocketContext, readBackpressureOptions } from "@nodefony/http";
 import {
   Controller,
   buildContextParamArgs,
   getParamArgsMeta,
+  isFrameworkRouter,
 } from "@nodefony/framework";
-import type {
-  ControllerScope,
-  IParamArgSource,
-  Router,
-} from "@nodefony/framework";
+import type { ControllerScope } from "@nodefony/framework";
 import { createSyslogUplinkHandler } from "./syslogUplink";
 import {
   WsConnectionTransport,
@@ -61,6 +54,7 @@ import type {
 } from "../../interfaces/IRealtimeController";
 import type { IRealtimeHandshake } from "../../interfaces/IRealtimeHandshake";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
+import type { IRealtimeConnectionState } from "../../interfaces/IRealtimeConnectionState";
 import {
   getRealtimeActions,
   getRealtimeChannels,
@@ -131,28 +125,6 @@ function toFrameRpcError(
     );
   }
   return e;
-}
-
-/** État realtime PAR connexion ws, stocké sur le contexte (persiste entre messages). */
-interface RealtimeConnState<
-  Emit extends EventsMap = DefaultEventsMap,
-  Actions extends ActionsMap = DefaultActionsMap,
-> {
-  welcomed: boolean;
-  /** Typé du contrat de la sous-classe : `notifyClient`/`requestClient` le lisent tel quel. */
-  peer: JsonRpcPeer<Emit, DefaultEventsMap, Actions>;
-  transport: WsConnectionTransport;
-  /** canal → sink de CETTE connexion auprès du hub partagé (pour se désabonner). */
-  channels: Map<string, ChannelSink>;
-  /** canaux full-duplex acceptant une entrée client (null si aucun — cas par défaut). */
-  inbound: Record<string, RealtimeInboundHandler> | null;
-}
-
-interface RealtimeHolder<
-  Emit extends EventsMap = DefaultEventsMap,
-  Actions extends ActionsMap = DefaultActionsMap,
-> {
-  __nfRealtime?: RealtimeConnState<Emit, Actions>;
 }
 
 /** Le canal nommé par les params d'un `subscribe`/`unsubscribe` — entrée réseau. */
@@ -249,7 +221,20 @@ export abstract class RealtimeController<
     // refusée.
     new.target.assertScope();
     super(name, context);
+    this.#connection = isWebsocketContext(context) ? context : null;
   }
+
+  /**
+   * La connexion WebSocket que sert CETTE instance — rétrécie UNE fois, ici,
+   * plutôt qu'à chaque frame.
+   *
+   * Sûr parce que l'instance est liée à sa connexion pour toute sa vie : la
+   * portée `singleton` est refusée au constructeur, et le contexte n'est posé
+   * qu'à la construction. `null` si la classe sert aussi une route HTTP et que
+   * cette instance en est issue. Le chemin de chaque frame lit ce champ au lieu
+   * de l'accesseur `context` : une lecture de champ, sans appel.
+   */
+  readonly #connection: WebsocketContext | null;
 
   /**
    * Map des factories de canaux EXACT, lue depuis les décorateurs `@RealtimeChannel`
@@ -343,10 +328,8 @@ export abstract class RealtimeController<
    * écoute (welcome) » de `NodefonySocketCoverage.test.ts`.
    */
   protected handleRealtime(message: string | Buffer | null): void {
-    // Conversion ASSUMÉE (#573) — chemin par frame : un RealtimeController ne
-    // sert qu'une connexion WebSocket ; la vérifier ici coûterait à chaque frame.
-    const ctx = this.context as WebsocketContext | undefined;
-    if (!ctx) return;
+    const ctx = this.#connection;
+    if (ctx === null) throw this.outsideWebsocketError();
     if (message == null) {
       // Fire-and-forget — l'auth WS peut être async (cookie JWT → vérif sig…).
       // `onHandshake` ne rattrape que les refus ATTENDUS (Origin 4003, auth 4001).
@@ -369,11 +352,9 @@ export abstract class RealtimeController<
       });
       return;
     }
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
-    // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    // L'état vit sur la CONNEXION, pas sur l'instance : un forward en fait
+    // construire une neuve (cf realtimeScope.test.ts).
+    const state = ctx.__nfRealtime;
     // Chemin de CHAQUE frame : un `typeof` remplace l'ancien `toString()`, qui
     // DÉCODAIT le binaire en UTF-8 avant de le perdre au `JSON.parse` (#617).
     if (typeof message === "string") {
@@ -397,6 +378,21 @@ export abstract class RealtimeController<
    * @param data - les octets reçus.
    */
   protected onRealtimeBinary?(data: Buffer): void;
+
+  /**
+   * Faute de câblage : `handleRealtime` reçu par une instance qui ne sert pas
+   * une connexion WebSocket — route sans `methods: ["WEBSOCKET"]`, ou faux
+   * contexte de test sans `type`. Levée plutôt que passée sous silence : le
+   * client attendrait un welcome qui ne vient jamais. Chemin froid.
+   */
+  private outsideWebsocketError(): TypeError {
+    return new TypeError(
+      `${this.constructor.name}.handleRealtime : cette instance ne sert pas ` +
+        `une connexion WebSocket (contexte de type « ${String(this.context?.type)} »). ` +
+        `La route doit déclarer requirements: { methods: ["WEBSOCKET"] } ; ` +
+        `un faux contexte de test déclare type: "websocket".`,
+    );
+  }
 
   private receiveBinary(transport: WsConnectionTransport, data: Buffer): void {
     if (this.onRealtimeBinary !== undefined) {
@@ -440,7 +436,9 @@ export abstract class RealtimeController<
         ),
       );
     }
-    return state.peer.request(method, params, timeoutMs);
+    // Le pair est rangé sous son contrat effacé : CE contrôleur le relit sous
+    // le sien.
+    return state.peer.requestAs<Actions, K>(method, params, timeoutMs);
   }
 
   /**
@@ -453,13 +451,7 @@ export abstract class RealtimeController<
     method: K,
     params?: EventPayload<Emit, K>,
   ): void {
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
-    // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    const state = (this.context as unknown as RealtimeHolder<Emit, Actions>)
-      .__nfRealtime;
-    state?.peer.notify(method, params);
+    this.#connection?.__nfRealtime?.peer.notify(method, params);
   }
 
   /**
@@ -480,12 +472,8 @@ export abstract class RealtimeController<
    * chemins FROIDS (requête sortante, binaire). `notifyClient` et la réception
    * gardent leur lecture en ligne : ils sont sur le chemin de chaque frame.
    */
-  private coldConnState(): RealtimeConnState<Emit, Actions> | undefined {
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts).
-    return (this.context as unknown as RealtimeHolder<Emit, Actions>)
-      .__nfRealtime;
+  private coldConnState(): IRealtimeConnectionState | undefined {
+    return this.#connection?.__nfRealtime;
   }
 
   /**
@@ -504,12 +492,7 @@ export abstract class RealtimeController<
    *  - `authenticate` throw → code 4001 (`unauthorized`).
    */
   private async onHandshake(ctx: WebsocketContext): Promise<void> {
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
-    // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    const holder = ctx as unknown as RealtimeHolder;
-    if (holder.__nfRealtime?.welcomed) return;
+    if (ctx.__nfRealtime?.welcomed) return;
     const conn = ctx.connection as RawWsConnection | null;
     if (!conn) return;
 
@@ -822,14 +805,14 @@ export abstract class RealtimeController<
     }
     const inbound = Object.keys(inboundMap).length > 0 ? inboundMap : null;
 
-    const state: RealtimeConnState = {
+    const state: IRealtimeConnectionState = {
       welcomed: true,
       peer,
       transport,
       channels: new Map(),
       inbound,
     };
-    holder.__nfRealtime = state;
+    ctx.__nfRealtime = state;
 
     ctx.once("onFinish", () => {
       // Désabonne CETTE connexion de tous ses canaux : le hub dispose le provider
@@ -917,11 +900,7 @@ export abstract class RealtimeController<
       return;
     }
     // Full-duplex : `method` == nom du canal entrant déclaré → handler (per-connexion).
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
-    // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    const state = ctx.__nfRealtime;
     const handler = state?.inbound?.[method];
     if (handler) {
       getRealtimeHub().recordInbound(); // sonde : frame full-duplex entrante
@@ -939,7 +918,7 @@ export abstract class RealtimeController<
    * par connexion).
    */
   private acknowledgeSubscription(
-    state: RealtimeConnState,
+    state: IRealtimeConnectionState,
     channel: string,
   ): void {
     // Écrite d'un bloc, sans enveloppe ni sérialisation générique : même voie
@@ -950,11 +929,7 @@ export abstract class RealtimeController<
   /** Abonne la connexion à un canal via le hub partagé (idempotent par connexion). */
   private startChannel(ctx: WebsocketContext, channel?: string): void {
     if (!channel) return;
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
-    // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    const state = ctx.__nfRealtime;
     if (!state) return;
     // Déjà suivi : rien à rouvrir, mais l'acquittement est dû — un client qui
     // réémet son `subscribe` attendrait sinon une réponse qui ne vient jamais.
@@ -1111,10 +1086,7 @@ export abstract class RealtimeController<
           method(
             ...buildContextParamArgs(
               metas,
-              // Conversion ASSUMÉE (#573) — `getRequestCookies` diverge entre le
-              // Context de http et `IParamArgSource` de framework : à aligner
-              // au sous-ticket framework. Une fois par appel d'action décorée.
-              ctx as unknown as IParamArgSource,
+              ctx,
               NO_ROUTE_PARAMS,
               // Une action n'a pas d'URL : `@Query` y lit un objet vide,
               // jamais la query du handshake.
@@ -1193,13 +1165,10 @@ export abstract class RealtimeController<
     }
     // `ctx.router` est typé par le contrat de `@nodefony/http` ; le service est
     // le Router de `@nodefony/framework`, dont on lit ici des membres propres.
-    // Conversion ASSUMÉE (#573) — `ctx.router` est typé par le contrat de
-    // `@nodefony/http` ; le pont lit des membres propres au Router de
-    // `@nodefony/framework` (`methodOverride`, `queryOverride`). Un
-    // `instanceof Router` échouerait en silence si deux copies du framework
-    // sont installées (api.request → 500) : la conversion reste.
-    const router = ctx.router as Router | null;
-    if (!router) {
+    // La garde rétrécit sans conversion ; un routeur absent ou étranger au
+    // framework rend la même erreur, au lieu d'échouer plus loin.
+    const router = ctx.router;
+    if (!isFrameworkRouter(router)) {
       throw new RpcError(
         "api.request: router indisponible",
         JsonRpcServerError.DEFAULT,
@@ -1242,11 +1211,7 @@ export abstract class RealtimeController<
         );
       }
       // Route / controller / action du profil — lus par le Profiler au retour.
-      // Conversion ASSUMÉE (#573) — `ProfiledResolver` (@nodefony/http) déclare
-      // `actionName?: string` là où le Resolver porte `string | undefined` :
-      // l'écart est dans le type de http (exactOptionalPropertyTypes), à
-      // corriger au sous-ticket http. Chemin de profilage seul (développement).
-      if (frame) frame.resolver = resolver as unknown as ProfiledResolver;
+      if (frame) frame.resolver = resolver;
       if (qIdx !== -1 && qIdx < path.length - 1) {
         const sp = new URLSearchParams(path.slice(qIdx + 1));
         const query: Record<string, string | string[]> = {};
@@ -1422,11 +1387,7 @@ export abstract class RealtimeController<
   /** Désabonne la connexion d'un canal (le hub dispose le provider au dernier abonné). */
   private stopChannel(ctx: WebsocketContext, channel?: string): void {
     if (!channel) return;
-    // Conversion ASSUMÉE (#573) — l'état du protocole vit sur le CONTEXTE de la
-    // connexion, pas sur l'instance (un forward en fait construire une neuve,
-    // cf realtimeScope.test.ts). Une WeakMap typée coûte +11 à 13 ns par frame
-    // (micro-realtime-state.mjs) : refusée sur ce chemin.
-    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    const state = ctx.__nfRealtime;
     if (!state) return;
     const sink = state.channels.get(channel);
     if (sink) {

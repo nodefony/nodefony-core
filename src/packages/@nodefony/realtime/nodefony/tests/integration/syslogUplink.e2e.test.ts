@@ -140,6 +140,7 @@ async function connectPair(): Promise<{
     },
   };
   const ctx = {
+    type: "websocket",
     connection: conn,
     once: () => {},
     request: { headers: {}, url: "/realtime" },

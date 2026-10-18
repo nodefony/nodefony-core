@@ -4,6 +4,10 @@ import type {
   PhaseName,
   PhaseTiming,
 } from "../../interfaces/IContext.js";
+import type {
+  IResolvedRoute,
+  IRouteResolver,
+} from "../../interfaces/IRouting.js";
 import { thrownMessage } from "../errors/thrownMessage";
 
 /**
@@ -17,11 +21,15 @@ export interface ProfiledArea {
   authenticators?: readonly string[];
 }
 
-/** Ce que le Profiler lit d'un Resolver (route/controller/action). */
+/**
+ * Ce que le Profiler lit d'un Resolver (route/controller/action) — dérivé de
+ * {@link IRouteResolver}, en lecture seule : tout résolveur du contrat s'y range
+ * sans conversion, et les deux types ne peuvent plus diverger.
+ */
 export interface ProfiledResolver {
-  route?: { name?: string } | null;
-  controller?: { name?: string } | null;
-  actionName?: string;
+  readonly route?: Pick<IResolvedRoute, "name"> | null | undefined;
+  readonly controller?: IRouteResolver["controller"];
+  readonly actionName?: string | undefined;
 }
 
 /** Descripteur d'ouverture d'une invocation (ce que le pont connaît d'entrée). */

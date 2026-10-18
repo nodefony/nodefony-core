@@ -53,8 +53,20 @@ import type {
   ContractResult,
 } from "./RealtimeEventMap";
 
-/** Handler d'un canal pub/sub — reçoit le `params` de la notification (ou `(method, params)` sur `"*"`). */
-export type RealtimeHandler = (...args: unknown[]) => void;
+/**
+ * Handler d'un canal pub/sub — reçoit le `params` de la notification (ou
+ * `(method, params)` sur `"*"`).
+ *
+ * C'est LA frontière où une donnée réseau rencontre le contrat déclaré
+ * (`Listen`), écrite une fois pour le client comme pour le serveur. Un handler
+ * typé par le contrat s'y range sans conversion : le paramètre est déclaré en
+ * position de MÉTHODE, donc comparé de façon bivariante (l'idiome des
+ * gestionnaires d'événements de React). Le contrat décrit la charge sans la
+ * valider — la seule confiance du typage temps réel est ici.
+ */
+export type RealtimeHandler = {
+  handle(...args: unknown[]): void;
+}["handle"];
 
 /**
  * Compteurs d'un canal — **génériques**, calculés au point d'arrivée des frames donc

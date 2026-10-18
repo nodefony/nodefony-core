@@ -34,7 +34,10 @@ import {
   type RedisIdempotencyClientLike,
 } from "./nodefony/src/RedisIdempotencyStore";
 import { scheduleIdempotencyGc } from "./nodefony/src/idempotencyGc";
-import Router from "./nodefony/service/router";
+import Router, {
+  FRAMEWORK_ROUTER,
+  isFrameworkRouter,
+} from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
 import ResourceController from "./nodefony/src/ResourceController";
@@ -510,6 +513,8 @@ export {
   ResourceController,
   Route,
   Router,
+  FRAMEWORK_ROUTER,
+  isFrameworkRouter,
   Resolver,
   AdminBroker,
   MemoryIdempotencyStore,

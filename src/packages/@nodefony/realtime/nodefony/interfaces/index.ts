@@ -23,6 +23,8 @@ export type {
 
 export type { IChannelPolicy } from "./IChannelPolicy";
 
+export type { IRealtimeConnectionState } from "./IRealtimeConnectionState";
+
 export type {
   IRealtimeProbe,
   IRealtimeHealth,

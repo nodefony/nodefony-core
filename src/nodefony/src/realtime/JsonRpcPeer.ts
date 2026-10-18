@@ -356,6 +356,33 @@ export class JsonRpcPeer<
   }
 
   /**
+   * Requête SORTANTE typée par un contrat que l'APPELANT déclare — pour qui tient
+   * ce pair sous son contrat effacé et connaît celui de son interlocuteur.
+   *
+   * Cas d'usage : l'état d'une connexion vit sur la connexion, et plusieurs
+   * contrôleurs peuvent la servir. Le pair y est donc rangé sans contrat, et
+   * chaque contrôleur le relit avec le sien.
+   *
+   * Même garantie que {@link request}, dont c'est la forme où le contrat vient de
+   * l'appel au lieu de la classe : la réponse est une donnée réseau, et le
+   * contrat la décrit sans la valider.
+   *
+   * @typeParam A - le contrat RPC de l'interlocuteur.
+   * @param method - action exposée par l'interlocuteur.
+   * @param params - ses paramètres, typés par le contrat.
+   * @param timeoutMs - délai avant rejet (défaut 30 s).
+   * @returns le `result` de l'interlocuteur ; rejette sur `error`, timeout ou
+   *   pair disposé.
+   */
+  requestAs<A extends ActionsMap, K extends ActionNames<A>>(
+    method: K,
+    params?: ActionParams<A, K>,
+    timeoutMs = 30000,
+  ): Promise<ActionResult<A, K>> {
+    return this.startCall<ActionResult<A, K>>(method, params, timeoutMs);
+  }
+
+  /**
    * Requête SORTANTE **tracée** — rend `{ result, meta }` au lieu du `result` nu.
    *
    * Même appel que {@link request} : la seule différence est que l'appelant

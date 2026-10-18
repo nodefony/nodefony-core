@@ -30,6 +30,7 @@ function makeCtx() {
     close: () => {},
   };
   const ctx = {
+    type: "websocket",
     connection: conn,
     once: () => {},
     request: { headers: {}, url: "/" },

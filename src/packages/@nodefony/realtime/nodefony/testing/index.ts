@@ -30,6 +30,9 @@
  * @packageDocumentation
  */
 import { RequestContext, type IRealtimeDenied } from "nodefony";
+
+/** Motif d'un refus, lu sur le contrat du protocole lui-même. */
+type DeniedReason = IRealtimeDenied["reason"];
 import type { ContextType } from "@nodefony/http";
 import type { RealtimeController } from "../src/server/RealtimeController";
 import { isRecord } from "../src/guards";
@@ -192,6 +195,89 @@ async function waitFor(
   return predicate();
 }
 
+/**
+ * Motifs de refus du protocole, rendus exhaustifs par le compilateur : un motif
+ * ajouté à `IRealtimeDenied.reason` casse la compilation ICI, au lieu de faire
+ * lever le harnais sur un refus légitime.
+ */
+const DENIED_REASONS = {
+  forbidden: true,
+  limit: true,
+  unknown: true,
+} as const satisfies Record<DeniedReason, true>;
+
+function isDeniedReason(reason: string): reason is DeniedReason {
+  return Object.hasOwn(DENIED_REASONS, reason);
+}
+
+/** Erreur JSON-RPC 2.0 (§5.1) d'une trame, ou `null` si sa forme est fausse. */
+function readRpcError(error: unknown): IRealtimeFrame["error"] | null {
+  if (
+    !isRecord(error) ||
+    typeof error.code !== "number" ||
+    typeof error.message !== "string"
+  ) {
+    return null;
+  }
+  return Object.hasOwn(error, "data")
+    ? { code: error.code, message: error.message, data: error.data }
+    : { code: error.code, message: error.message };
+}
+
+/**
+ * Lit une trame émise par le contrôleur sous test. Une trame dont un champ a
+ * la mauvaise forme LÈVE : c'est un défaut du contrôleur, que le test doit
+ * voir, pas une donnée à écarter.
+ */
+function readFrame(data: string): IRealtimeFrame {
+  const value: unknown = JSON.parse(data);
+  const fault = (): Error =>
+    new Error(
+      `createRealtimeHarness: trame JSON-RPC malformée émise — ${data}`,
+    );
+  if (!isRecord(value)) throw fault();
+  const { jsonrpc, id, method } = value;
+  if (jsonrpc !== undefined && typeof jsonrpc !== "string") throw fault();
+  if (id !== undefined && typeof id !== "number" && typeof id !== "string") {
+    throw fault();
+  }
+  if (method !== undefined && typeof method !== "string") throw fault();
+  const error = Object.hasOwn(value, "error")
+    ? readRpcError(value.error)
+    : undefined;
+  if (error === null) throw fault();
+  return {
+    ...(jsonrpc === undefined ? {} : { jsonrpc }),
+    ...(id === undefined ? {} : { id }),
+    ...(method === undefined ? {} : { method }),
+    ...(Object.hasOwn(value, "params") ? { params: value.params } : {}),
+    ...(Object.hasOwn(value, "result") ? { result: value.result } : {}),
+    ...(error === undefined ? {} : { error }),
+  };
+}
+
+/** Lit le `params` d'un `realtime:denied` — lève si le contrôleur l'a mal formé. */
+function readDenied(params: unknown): IHarnessDenied {
+  if (
+    isRecord(params) &&
+    typeof params.channel === "string" &&
+    typeof params.reason === "string" &&
+    isDeniedReason(params.reason) &&
+    (params.detail === undefined || typeof params.detail === "string")
+  ) {
+    return params.detail === undefined
+      ? { channel: params.channel, reason: params.reason }
+      : {
+          channel: params.channel,
+          reason: params.reason,
+          detail: params.detail,
+        };
+  }
+  throw new Error(
+    `createRealtimeHarness: realtime:denied malformé — ${JSON.stringify(params)}`,
+  );
+}
+
 /** Le point d'entrée du protocole, que la base garde `protected`. */
 interface IRealtimeControllerBridge {
   handleRealtime(message: string | Buffer | null): void;
@@ -242,8 +328,7 @@ export function createRealtimeHarness<C extends RealtimeController>(
   const connection = {
     readyState: OPEN,
     send: (data: string, cb?: (err?: Error) => void): void => {
-      // Conversion ASSUMÉE (#573) — harnais de test : les frames viennent du contrôleur sous test.
-      received.push(JSON.parse(data) as IRealtimeFrame);
+      received.push(readFrame(data));
       cb?.();
     },
     close: (code?: number, reason?: string): void => {
@@ -251,6 +336,7 @@ export function createRealtimeHarness<C extends RealtimeController>(
     },
   };
   const context = {
+    type: "websocket",
     connection,
     once: (event: string, fn: () => void): void => {
       if (event === "onFinish") onFinish = fn;
@@ -407,12 +493,9 @@ export function createRealtimeHarness<C extends RealtimeController>(
     },
 
     denials(): readonly IHarnessDenied[] {
-      return (
-        received
-          .filter((f) => f.method === "realtime:denied")
-          // Conversion ASSUMÉE (#573) — harnais de test : refus émis par le contrôleur sous test.
-          .map((f) => f.params as IHarnessDenied)
-      );
+      return received
+        .filter((f) => f.method === "realtime:denied")
+        .map((f) => readDenied(f.params));
     },
 
     close(): void {

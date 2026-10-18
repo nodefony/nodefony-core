@@ -483,6 +483,9 @@ export type {
   RealtimeInboundHandler,
 } from "./nodefony/interfaces/IRealtimeController";
 export type { IChannelPolicy } from "./nodefony/interfaces/IChannelPolicy";
+// Porte aussi l'augmentation de `IWebsocketConnectionState` (@nodefony/http) :
+// sans cet export, le .d.ts publié ne l'importerait jamais.
+export type { IRealtimeConnectionState } from "./nodefony/interfaces/IRealtimeConnectionState";
 export type { IClientLogsLimits } from "./nodefony/interfaces/IClientLogsLimits";
 // Réception des journaux du navigateur (#35). La plateforme déclare le canal
 // elle-même quand la config l'ouvre ; la fabrique reste exportée pour qu'une

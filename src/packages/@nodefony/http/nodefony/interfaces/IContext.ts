@@ -217,7 +217,32 @@ export interface IHttpContext extends IContext {
   getUserAgent(): string | undefined;
 }
 
-export interface IWebsocketContext extends IContext {
+/**
+ * Ce qu'un module attache à une connexion WebSocket pour toute sa durée — interface
+ * VIDE par construction, qu'un module AUGMENTE par fusion de déclarations.
+ *
+ * `@nodefony/http` ignore les protocoles bâtis au-dessus de la socket (le JSON-RPC
+ * de `@nodefony/realtime`, par exemple) et ne peut pas les importer. Le module qui
+ * en porte un déclare son champ ici : {@link IWebsocketContext} et `WebsocketContext`
+ * le reçoivent typé, sans conversion chez le lecteur et sans rien coûter à
+ * l'exécution — la lecture reste un accès de champ ordinaire.
+ *
+ * Chaque champ se déclare OPTIONNEL : il n'existe qu'une fois posé par son module
+ * (à la poignée de main, en général), et vaut `undefined` avant, comme sur toute
+ * connexion que ce module ne sert pas.
+ *
+ * @example
+ * ```ts
+ * declare module "@nodefony/http" {
+ *   interface IWebsocketConnectionState {
+ *     myProtocol?: IMyProtocolState;
+ *   }
+ * }
+ * ```
+ */
+export interface IWebsocketConnectionState {}
+
+export interface IWebsocketContext extends IContext, IWebsocketConnectionState {
   acceptedProtocol?: string | undefined;
   connection: unknown;
   rejected: boolean;

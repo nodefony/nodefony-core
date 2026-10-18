@@ -144,8 +144,6 @@ export interface NodefonySocketOptions {
   banner?: boolean | undefined;
 }
 
-type EventHandler = (...args: unknown[]) => void;
-
 /**
  * Sonde d'un échec d'ouverture : rend le statut HTTP de l'adresse de la socket
  * (`http:`/`https:`), ou `null` quand le serveur ne répond pas.
@@ -512,7 +510,7 @@ export class NodefonySocket<
     onNotification: (method, params) =>
       this.dispatchNotification(method, params),
   });
-  private readonly handlers = new Map<string, Set<EventHandler>>();
+  private readonly handlers = new Map<string, Set<RealtimeHandler>>();
   // Abonnements pub/sub ref-comptés (canal → nb de consommateurs). Le subscribe/
   // unsubscribe RÉSEAU n'est émis qu'aux transitions 0↔1 → N consommateurs (hooks
   // React `nodefony/react` + store MobX Studio) partagent UN seul abonnement
@@ -768,7 +766,7 @@ export class NodefonySocket<
       set = new Set();
       this.handlers.set(event, set);
     }
-    set.add(handler as EventHandler);
+    set.add(handler);
     return () => this.off(event, handler);
   }
 
@@ -778,7 +776,7 @@ export class NodefonySocket<
       ? (payload: EventPayload<Listen, K>) => void
       : RealtimeHandler,
   ): void {
-    this.handlers.get(event)?.delete(handler as EventHandler);
+    this.handlers.get(event)?.delete(handler);
   }
 
   /**
@@ -827,7 +825,7 @@ export class NodefonySocket<
   onSubscribed(handler: (ack: IRealtimeSubscribed) => void): () => void {
     // Une garde plutôt qu'une conversion : la table locale porte des charges
     // `unknown`, et la forme se VÉRIFIE avant d'atteindre le handler.
-    const wrapped: EventHandler = (ack) => {
+    const wrapped: RealtimeHandler = (ack) => {
       if (isSubscribedAck(ack)) handler(ack);
     };
     let set = this.handlers.get(LOCAL_EVENTS.subscribed);

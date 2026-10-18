@@ -191,6 +191,7 @@ function makeServer(wire: Wire): WiredRt {
     },
   };
   const ctx = {
+    type: "websocket",
     connection: conn,
     once: () => {},
     request: { headers: { host: "localhost" }, url: "/realtime" },

@@ -214,6 +214,7 @@ function makeServer(
     },
   };
   const ctx = {
+    type: "websocket",
     connection: conn,
     once: (event: string, fn: () => void) => {
       if (event === "onFinish") onFinish = fn;

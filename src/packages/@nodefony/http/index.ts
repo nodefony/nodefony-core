@@ -206,6 +206,9 @@ export {
   type IBackpressureTarget,
 } from "./nodefony/src/context/websocket/wsBackpressure";
 
+// Rétrécit `ContextType` à `WebsocketContext` sans conversion ni `instanceof`.
+export { isWebsocketContext } from "./nodefony/src/context/websocket/isWebsocketContext";
+
 // Matching de domaine (Host) — fonctions pures réutilisées par @nodefony/framework
 // (Route.matchHostname / @Domain) pour la cohérence kernel ↔ route.
 export {
@@ -327,6 +330,7 @@ export type {
   IContext,
   IHttpContext,
   IWebsocketContext,
+  IWebsocketConnectionState,
   ServerType,
   SchemeType,
   WebSocketStateType,
