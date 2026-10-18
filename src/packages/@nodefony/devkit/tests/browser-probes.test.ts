@@ -72,6 +72,16 @@ const parseColorScheme = fonctionDe<
     invalid: string | null;
   }
 >(probes, "parseColorScheme");
+const parseCut = fonctionDe<
+  (raw: string | undefined) => {
+    cut: { at: number; duration: number } | null;
+    invalid: string | null;
+  }
+>(probes, "parseCut");
+const sendableCloseCode = fonctionDe<(code: number) => number>(
+  probes,
+  "sendableCloseCode",
+);
 const parseStorage = fonctionDe<
   (raw: string | undefined) => {
     entries: { key: string; value: string }[];
@@ -235,6 +245,43 @@ describe("parseColorScheme — demander un thème, ou refuser", () => {
   it("le vocabulaire d'une bibliothèque n'est pas celui de la norme", () => {
     // « auto » est courant dans les trousses d'interface, absent de la norme.
     expect(parseColorScheme("auto").invalid).toBe("auto");
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : une coupure malformée est REFUSÉE. Avalée, elle
+ * ferait observer une page jamais coupée en croyant avoir éprouvé sa reprise.
+ */
+describe("parseCut — une coupure réseau demandée, ou refusée", () => {
+  it("rien de demandé ne coupe rien", () => {
+    expect(parseCut(undefined)).toEqual({ cut: null, invalid: null });
+    expect(parseCut(" ")).toEqual({ cut: null, invalid: null });
+  });
+
+  it("début et durée en millisecondes", () => {
+    expect(parseCut("4000:3000").cut).toEqual({ at: 4000, duration: 3000 });
+    expect(parseCut("0:500").cut).toEqual({ at: 0, duration: 500 });
+  });
+
+  it("sens négatif : forme inconnue, durée nulle ou négative → rendue", () => {
+    for (const raw of ["4000", "4s:3s", "-1:300", "4000:0", "4000:3000:1"])
+      expect(parseCut(raw)).toEqual({ cut: null, invalid: raw });
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : la sonde ne demande jamais au navigateur une
+ * fermeture qu'il refuserait EN SILENCE — la connexion réelle resterait ouverte.
+ */
+describe("sendableCloseCode — un navigateur ne ferme pas avec n'importe quel code", () => {
+  it("garde 1000 et la plage applicative 3000-4999", () => {
+    for (const c of [1000, 3000, 4001, 4999])
+      expect(sendableCloseCode(c)).toBe(c);
+  });
+
+  it("sens négatif : codes réservés au protocole → 1000", () => {
+    for (const c of [1001, 1005, 1006, 1011, 2999, 5000])
+      expect(sendableCloseCode(c)).toBe(1000);
   });
 });
 

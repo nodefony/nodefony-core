@@ -241,6 +241,44 @@ export function parseColorScheme(raw) {
 }
 
 /**
+ * Analyse une coupure réseau demandée (`NF_BROWSER_CUT`), au format
+ * `<début>:<durée>` en millisecondes — `4000:3000` coupe le réseau 4 s après
+ * l'ouverture de la page et le rétablit 3 s plus tard.
+ *
+ * La coupure existe pour éprouver une REPRISE : un flux temps réel qui revient
+ * après une perte de réseau ne se constate sur aucune capture. Une valeur
+ * malformée est REFUSÉE : ignorée, elle ferait observer une page jamais coupée
+ * en croyant avoir éprouvé sa reprise.
+ *
+ * @param {string|undefined} raw - valeur brute (`"4000:3000"`, vide).
+ * @returns {{ cut: { at: number, duration: number }|null, invalid: string|null }}
+ *   `cut` à null quand rien n'est demandé.
+ */
+export function parseCut(raw) {
+  const v = (raw ?? "").trim();
+  if (!v) return { cut: null, invalid: null };
+  const m = /^(\d+):(\d+)$/.exec(v);
+  if (!m || Number(m[2]) === 0) return { cut: null, invalid: v };
+  return { cut: { at: Number(m[1]), duration: Number(m[2]) }, invalid: null };
+}
+
+/**
+ * Ramène un code de fermeture WebSocket à un code qu'un NAVIGATEUR peut
+ * émettre : 1000, ou 3000 à 4999 — tout autre lève `InvalidAccessError`.
+ *
+ * 🔴 Le côté serveur d'une route Playwright est un vrai WebSocket de page.
+ * Fermé avec 1001 ou 1006, il refuse, Playwright avale l'erreur et rend « ok » :
+ * la connexion réelle reste ouverte et le serveur continue de pousser vers un
+ * socket que la sonde dit fermé. Mesuré : 47 s sans fermeture côté serveur.
+ *
+ * @param {number} code - le code voulu.
+ * @returns {number} ce code s'il est émissible, 1000 sinon.
+ */
+export function sendableCloseCode(code) {
+  return code === 1000 || (code >= 3000 && code <= 4999) ? code : 1000;
+}
+
+/**
  * Arguments de lancement qui imposent le schéma de couleurs AU MOTEUR.
  *
  * L'émulation du pilote (`colorScheme` d'un contexte) ne vaut que pour les

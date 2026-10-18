@@ -15,7 +15,7 @@
 | Infrastructure | 13 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 38 |
-| Runtime produit | 84 |
+| Runtime produit | 85 |
 
 ## Décor de banc
 
@@ -152,7 +152,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (84)
+## Runtime produit (85)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -166,8 +166,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:822` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:113` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3023` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3035` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3027` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3039` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:93` |
@@ -177,13 +177,14 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_CATEGORIES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:164` |
 | `NF_BROWSER_CHANNEL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:57` |
 | `NF_BROWSER_COLOR_SCHEME` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:183` |
+| `NF_BROWSER_CUT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:28` |
 | `NF_BROWSER_ENGINE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:107` |
 | `NF_BROWSER_EXPECT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:57` |
 | `NF_BROWSER_FAMILIES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:95` |
 | `NF_BROWSER_FORMFACTOR` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:52` |
 | `NF_BROWSER_FULLPAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:962` |
 | `NF_BROWSER_LOGIN` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:125` |
-| `NF_BROWSER_MAXFRAMES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:25` |
+| `NF_BROWSER_MAXFRAMES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:27` |
 | `NF_BROWSER_OUT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:84` |
 | `NF_BROWSER_PAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:50` |
 | `NF_BROWSER_PASSWORD` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:115` |
@@ -196,7 +197,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_SOCKET` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:32` |
 | `NF_BROWSER_SOCKET_WAIT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:61` |
 | `NF_BROWSER_STORAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:195` |
-| `NF_BROWSER_UNTIL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:24` |
+| `NF_BROWSER_UNTIL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:26` |
 | `NF_BROWSER_USER` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:114` |
 | `NF_BROWSER_VIEWPORT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:92` |
 | `NF_BROWSER_WHOAMI` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:142` |
@@ -219,7 +220,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:65` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:51` |
 | `NF_JWT_KEYSET` | `src/packages/@nodefony/security/tests/support/keystoreProcess.ts:18` |
-| `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:745` |
+| `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:749` |
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:65` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:177` |
 | `NF_NO_TTY` | `src/nodefony/src/cli/scaffold/interactive.ts:84` |
@@ -239,7 +240,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:23` |
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
-| `NF_START` | `src/nodefony/src/kernel/Kernel.ts:572` |
+| `NF_START` | `src/nodefony/src/kernel/Kernel.ts:576` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/devkit/tests/integration/mcp-http.test.ts:68` |
 | `NF_TLS_CA_FILE` | `src/packages/@nodefony/http/nodefony/tests/unit/httpRegisterTrust.test.ts:62` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |

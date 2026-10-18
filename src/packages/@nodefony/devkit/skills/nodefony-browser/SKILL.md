@@ -381,6 +381,26 @@ en bout : le message part-il, revient-il, et l'écran le reçoit-il ?
 > lui, vaut pour toute attente que tu écriras : tant qu'elle n'a pas échoué une fois, elle ne
 > discrimine rien.
 
+### Éprouver la REPRISE après une coupure réseau — `NF_BROWSER_CUT`
+
+```bash
+docker exec -e NF_BROWSER_CUT=5000:4000 mon-app-browser node /app/see-screen/watch.mjs /tableau-de-bord 25000
+```
+
+`<début>:<durée>` en millisecondes : le réseau tombe 5 s après l'ouverture de la page, revient 4 s
+plus tard. Chaque socket coupé sort avec `closedAt` et `closeCode` (1006, ce que voit un client
+qui perd le réseau), le bloc `cut` compte les réouvertures refusées pendant la coupure, et le
+socket rouvert montre ses frames : l'accueil, les abonnements rejoués, leur acquittement, puis le
+flux. C'est la seule preuve qu'une page qui perd le réseau **retrouve** ses données.
+
+- **Le serveur est prévenu** (fermeture 1000) : la connexion coupée ne reste pas à demi ouverte
+  chez lui. Une vraie perte de réseau, elle, ne le prévient pas. La sonde éprouve la reprise du
+  client, pas la détection d'un pair mort.
+- **Le relais Vite (`/_vite/`) n'est pas coupé** : son client de rechargement à chaud recharge la
+  page quand il retrouve le serveur. Vous observeriez une page neuve, pas sa reprise.
+- **Les `ERR_INTERNET_DISCONNECTED` de la console pendant la coupure sont attendus.**
+- Une valeur malformée est refusée (code 64), jamais ignorée.
+
 ## Piloter le socket de bout en bout — `socket.mjs`
 
 `watch.mjs` regarde le trafic d'une page ; celui-ci **conduit** : il ouvre un socket temps réel
