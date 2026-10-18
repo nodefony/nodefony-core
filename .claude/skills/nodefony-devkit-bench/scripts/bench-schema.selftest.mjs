@@ -52,7 +52,7 @@ function findRepoRoot(from) {
 }
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
-const CACHE = path.join(REPO, "tmp", "devkit-schema", ".sources");
+const CACHE = path.join(REPO, "tmp", "bench", "devkit-schema", ".sources");
 
 let failures = 0;
 const check = (name, actual, expected, detail = "") => {

@@ -148,7 +148,7 @@ function findRepoRoot(from) {
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
-const CACHE = path.join(REPO, "tmp", "devkit-schema", ".sources");
+const CACHE = path.join(REPO, "tmp", "bench", "devkit-schema", ".sources");
 
 /**
  * Mode d'installation des paquets du framework dans l'application témoin.
@@ -169,7 +169,7 @@ const LINKED = process.argv.includes("--link");
  * l'exposition y est assumée.
  */
 const RUN_ROOT = LINKED
-  ? path.join(REPO, "tmp", "devkit-schema")
+  ? path.join(REPO, "tmp", "bench", "devkit-schema")
   : path.join(os.tmpdir(), "nodefony-devkit-schema");
 const AGENT = process.env.NF_DEVKIT_BENCH_AGENT ?? "claude";
 const MODEL = process.env.NF_DEVKIT_BENCH_MODEL ?? "haiku";
