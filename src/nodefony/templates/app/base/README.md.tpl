@@ -52,7 +52,7 @@ npm run dev
 - `http://127.0.0.1:5151/` — ton application <%= it.frontend %>, rechargée à chaud pendant que tu écris.<% } %><% if (it.complete) { %>
 - `http://127.0.0.1:5151/nodefony` — **Studio**, la console d'administration.<% } %>
 
-<% if (it.complete) { %>> **Le compte d'administration existe déjà** : `admin` / `nodefony-dev-42`. Il
+<% if (it.complete) { %>> **Le compte d'administration existe déjà** : `admin` / `<%= it.devAdminPassword %>`. Il
 > est semé au PREMIER démarrage, et le journal te le redit alors en clair. Pour
 > en changer, décommente `NF_ADMIN_PASSWORD` dans `.env`.
 >

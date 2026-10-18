@@ -44,6 +44,18 @@ const ETA_OPTIONS = {
  * application qui ne compile pas.
  */
 const EXAMPLE_SERVICE = "Greeting";
+
+/**
+ * Mot de passe du compte `admin` qu'une application générée sème en développement.
+ *
+ * Seule source : chaque gabarit le rend par `<%= it.devAdminPassword %>` (injecté
+ * par `renderLayer`), et `create app` l'annonce depuis cette constante. Recopiée
+ * dans quinze gabarits, la valeur changeait dans le semis et restait l'ancienne
+ * dans l'annonce, et l'utilisateur prenait un 401 dès sa première connexion.
+ * Jamais « admin » : la politique de mots de passe refuse un mot de passe qui
+ * contient l'identifiant.
+ */
+export const DEV_ADMIN_PASSWORD = "nodefony-dev-42";
 import { findProjectRoot } from "../projectRoot";
 import {
   hasWorkspaceRun,
@@ -830,6 +842,9 @@ function renderLayer(
   tokens?: Record<string, string>,
 ): void {
   const entries = readdirSync(srcDir, { withFileTypes: true, recursive: true });
+  // Les constantes du scaffold d'abord : le contexte d'un générateur ne peut pas
+  // les masquer par oubli, seulement les surcharger exprès.
+  const scope = { devAdminPassword: DEV_ADMIN_PASSWORD, ...data };
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".tpl")) {
       continue;
@@ -847,7 +862,7 @@ function renderLayer(
     for (const [token, value] of Object.entries(tokens ?? {})) {
       rel = rel.replaceAll(token, value);
     }
-    const rendered = eta.renderString(readFileSync(abs, "utf8"), data);
+    const rendered = eta.renderString(readFileSync(abs, "utf8"), scope);
     // Garantie zéro résidu : un tag eta non fermé/écrit à la main qui survit au
     // rendu = template cassé, on refuse d'écrire un projet corrompu.
     if (rendered.includes("<%")) {

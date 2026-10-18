@@ -34,7 +34,7 @@ export const ADMIN_ROLES = ["ROLE_ADMIN", "ROLE_NODEFONY_ADMIN"];
  * sinon AUCUNE application générée ne sème son propre compte : c'est arrivé
  * avec `admin`, refusé parce qu'il contient l'identifiant du compte.
  */
-export const DEV_ADMIN_PASSWORD = "nodefony-dev-42";
+export const DEV_ADMIN_PASSWORD = "<%= it.devAdminPassword %>";
 
 /**
  * Pose le service applicatif `"users"` (la source d'identité du firewall) au
@@ -52,7 +52,7 @@ export const DEV_ADMIN_PASSWORD = "nodefony-dev-42";
  * survivent pas au redémarrage.
  *
  * Mot de passe admin :
- * - DÉVELOPPEMENT : `admin` / `nodefony-dev-42` par défaut (local uniquement —
+ * - DÉVELOPPEMENT : `admin` / `<%= it.devAdminPassword %>` par défaut (local uniquement —
  *   même esprit que Grafana). Surcharge : `NF_ADMIN_PASSWORD` dans `.env`.
  * - PRODUCTION : `NF_ADMIN_PASSWORD` OBLIGATOIRE (secret-manager) — sans lui,
  *   AUCUN compte n'est créé (jamais de mot de passe par défaut en prod) et un

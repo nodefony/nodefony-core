@@ -20,6 +20,7 @@ import { startFreshnessCheck } from "./cliFreshness";
 // l'aide les DÉRIVE désormais de la spec (`scaffold/help.ts`).
 import { capAllows, FRONTEND_CHOICES, getScaffoldSpec } from "./scaffold/spec";
 import {
+  DEV_ADMIN_PASSWORD,
   findProjectRoot,
   listTargets,
   getScaffoldContext,
@@ -1811,10 +1812,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         : "") +
       `  ${cmd.run("dev")}        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
       (answers.preset === "complete"
-        ? // Le mot de passe que `provisionUsers.ts.tpl` SÈME (`DEV_ADMIN_PASSWORD`),
-          // jamais « admin » : la politique le refuse, il contient l'identifiant.
-          // `devAdminPasswordParity.test.ts` garde les deux en accord.
-          `                     # console d'administration : /nodefony — admin / nodefony-dev-42 en dev (NF_ADMIN_PASSWORD)\n`
+        ? // La constante que `provisionUsers.ts.tpl` SÈME : jamais une copie.
+          `                     # console d'administration : /nodefony — admin / ${DEV_ADMIN_PASSWORD} en dev (NF_ADMIN_PASSWORD)\n`
         : "") +
       // Le geste n'est PAS perdu quand il n'a pas été proposé (forge, --yes) ou
       // qu'il a été décliné : il se nomme. Une capacité qu'on n'atteint pas

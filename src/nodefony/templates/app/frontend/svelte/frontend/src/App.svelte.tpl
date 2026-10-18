@@ -286,7 +286,7 @@
         pattern plus spécifique, il gagne le match ; sans session le
         firewall répond 401). « Se connecter » mène à la page de connexion du
         framework, qui te ramène ici (<code>?from=</code>) : le compte
-        <code>admin</code> a pour mot de passe <code>nodefony-dev-42</code> en
+        <code>admin</code> a pour mot de passe <code><%= it.devAdminPassword %></code> en
         développement, et celui de <code>NF_ADMIN_PASSWORD</code> en production —
         où il est EXIGÉ, car une application ne naît jamais en ligne avec un
         secret connu. Alors la carte 1 bascule sur

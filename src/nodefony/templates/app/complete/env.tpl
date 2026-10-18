@@ -99,7 +99,7 @@ NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 # NF_KEYCLOAK_ADMIN_PASSWORD=<%= it.appName %>-dev
 
 # ─── Compte administrateur de l'application ─────────────────────────────────
-# Créé au PREMIER démarrage : admin / nodefony-dev-42 si tu ne mets rien.
+# Créé au PREMIER démarrage : admin / <%= it.devAdminPassword %> si tu ne mets rien.
 # Change-le avant ce premier démarrage — ensuite la variable ne sert plus.
 # Choix : un texte libre (en production, aucun défaut : pas de compte créé).
 # NF_ADMIN_PASSWORD=a-changer-avant-la-mise-en-ligne
