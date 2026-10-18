@@ -47,6 +47,7 @@ const median = fonctionDe<(values: number[]) => number | null>(
   probes,
   "median",
 );
+const roundMs = fonctionDe<(ms: number) => number>(probes, "roundMs");
 const browserOrder = fonctionDe<(explicit: string | undefined) => string[]>(
   probes,
   "browserOrder",
@@ -187,6 +188,20 @@ describe("median — la statistique d'un RTT", () => {
     const serie = [3, 1, 2];
     median(serie);
     expect(serie).toEqual([3, 1, 2]);
+  });
+});
+
+describe("roundMs — un RTT local n'est pas nul", () => {
+  it("🔴 un aller-retour sous 0,5 ms reste POSITIF (vécu CI : médiane 0)", () => {
+    const serie = [0.31, 0.27, 0.42, 0.29, 0.35].map(roundMs);
+    expect(serie.every((ms) => ms > 0)).toBe(true);
+    expect(median(serie)).toBe(0.31);
+  });
+
+  it("arrondit au centième, sans inventer de précision", () => {
+    expect(roundMs(0.123456)).toBe(0.12);
+    expect(roundMs(12.345678)).toBe(12.35);
+    expect(roundMs(0)).toBe(0);
   });
 });
 

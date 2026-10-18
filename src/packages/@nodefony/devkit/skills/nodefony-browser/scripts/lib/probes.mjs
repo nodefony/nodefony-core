@@ -483,6 +483,21 @@ export function median(values) {
   const m = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
 }
+
+/**
+ * Arrondit une durée au centième de milliseconde — la précision d'un RTT local.
+ *
+ * Un arrondi à la milliseconde entière rend 0 pour tout aller-retour sous
+ * 0,5 ms : sur une même machine, la sonde annonçait une latence nulle. Le
+ * centième reste sous la résolution de `performance.now()` côté navigateur
+ * (~0,1 ms hors isolation), donc ne fabrique aucune précision qui n'existe pas.
+ *
+ * @param {number} ms - durée brute en millisecondes.
+ * @returns {number} la durée arrondie à 0,01 ms.
+ */
+export function roundMs(ms) {
+  return Math.round(ms * 100) / 100;
+}
 /**
  * Résume un rapport axe-core en un bloc lisible — le tri éditorial, pas la mesure.
  *

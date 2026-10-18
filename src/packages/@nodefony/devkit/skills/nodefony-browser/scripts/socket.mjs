@@ -27,7 +27,7 @@
  * `@exit` 0 scénario joué (les verdicts sont des DONNÉES) · 64 usage (endpoint manquant, params illisibles) · 65 accueil jamais reçu (refus au handshake : JSON sur stdout, statut nommé)
  */
 import { open, goTo } from "./lib/browser.mjs";
-import { median } from "./lib/probes.mjs";
+import { median, roundMs } from "./lib/probes.mjs";
 
 const ENDPOINT = process.argv[2] ?? process.env.NF_BROWSER_SOCKET ?? "";
 if (!ENDPOINT.startsWith("/")) {
@@ -181,7 +181,8 @@ async function scenarioSocket(conf) {
       const settle = (value) => {
         if (settled) return;
         settled = true;
-        resolve({ ...value, ms: Math.round(performance.now() - start) });
+        // Durée BRUTE : l'arrondi se fait côté Node (`roundMs`), où il s'éprouve.
+        resolve({ ...value, ms: performance.now() - start });
       };
       const guard = setTimeout(() => {
         pending.delete(id);
@@ -410,8 +411,10 @@ if (result.welcome?.verdict === "REFUSÉ AU HANDSHAKE") {
 // La médiane se calcule ici, avec la fonction que les tests éprouvent — la
 // moyenne serait déplacée par un seul aller-retour aberrant.
 if (Array.isArray(result.latency?.measuresMs)) {
+  result.latency.measuresMs = result.latency.measuresMs.map(roundMs);
   result.latency.medianMs = median(result.latency.measuresMs);
 }
+if (typeof result.api?.ms === "number") result.api.ms = roundMs(result.api.ms);
 
 console.log(JSON.stringify(result, null, 2));
 await browser.close();
