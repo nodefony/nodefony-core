@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T09:06:29.127Z",
+  "generatedAt": "2026-10-18T10:32:19.363Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 141,
+      "closed": 142,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 34,
+      "open": 33,
       "title": "10.0.0-beta"
     },
     {
@@ -3174,8 +3174,8 @@
       "number": 139,
       "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
       "url": "https://github.com/nodefony/nodefony-core/issues/139",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
