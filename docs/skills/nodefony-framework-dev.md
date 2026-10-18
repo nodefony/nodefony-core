@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-17
+updated: 2026-10-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -76,7 +76,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 694 |
 | `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 468 |
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 147 |
-| `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 623 |
+| `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 625 |
 | `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 69 |
 | `references/typage-strict.md` | Durcir le typage par cliquet — options du compilateur et codemods | 68 |
 

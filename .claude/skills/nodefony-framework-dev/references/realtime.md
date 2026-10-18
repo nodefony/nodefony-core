@@ -406,7 +406,7 @@ Types : `ChannelSink = (payload: unknown) => void` · `ChannelFactory = (channel
 
 ### 2.3 `RealtimeController` — base endpoint WS
 
-`rt/nodefony/src/server/RealtimeController.ts#RealtimeHolder`. `abstract RealtimeController<Emit extends EventsMap = Default, Actions extends ActionsMap = Default> extends Controller implements IRealtimeController`. Factorise TOUT le protocole ; une sous-classe garde sa route WS et délègue à `handleRealtime(message)`.
+`rt/nodefony/src/server/RealtimeController.ts#RealtimeController`. `abstract RealtimeController<Emit extends EventsMap = Default, Actions extends ActionsMap = Default> extends Controller implements IRealtimeController`. Factorise TOUT le protocole ; une sous-classe garde sa route WS et délègue à `handleRealtime(message)`.
 
 **Override seams** (tous `protected`, défauts vides/sûrs) :
 
@@ -420,7 +420,9 @@ Types : `ChannelSink = (payload: unknown) => void` · `ChannelFactory = (channel
 | `realtimeInbound` | `(): Record<string, RealtimeInboundHandler>` | Canaux **full-duplex entrants** (client→serveur). Défaut vide = aucun (sûr). |
 | `realtimeApiRequest` | `(): boolean` | Opt-in du pont `api.request {path}` (« API souveraine »). Défaut `false`. |
 
-**Duplex serveur→client (par connexion)** : `requestClient<K>(method, params?, timeoutMs?): Promise<ActionResult>` (RPC vers une action que le client a `register`) · `notifyClient<K>(method, params?): void` (notification ciblée). `handleRealtime(message: string|Buffer|null)` : `null` = handshake (fire-and-forget `onHandshake` async), sinon `transport.feed(message)`.
+**Duplex serveur→client (par connexion)** : `requestClient<K>(method, params?, timeoutMs?): Promise<ActionResult>` (RPC vers une action que le client a `register`) · `notifyClient<K>(method, params?): void` (notification ciblée). `handleRealtime(message: string|Buffer|null)` : `null` = handshake (fire-and-forget `onHandshake` async), sinon `transport.feed(message)` ; sur une instance qui ne sert pas une WebSocket → `TypeError` qui nomme la faute (un faux contexte de test déclare `type: "websocket"`).
+
+**État de connexion — typé SANS conversion** : `ctx.__nfRealtime?: IRealtimeConnectionState` (`rt/nodefony/interfaces/IRealtimeConnectionState.ts#IRealtimeConnectionState`) augmente l'interface vide `IWebsocketConnectionState` de `@nodefony/http` (fusion de déclarations, le JS reste un accès de champ). Il vit sur la CONNEXION, pas l'instance (un `forward` construit une instance neuve). Le pair y est rangé sous son contrat EFFACÉ ; `requestClient` le relit par `JsonRpcPeer.requestAs<Actions, K>`. Le contexte est rétréci UNE fois au constructeur (`isWebsocketContext`, test du `type`, jamais `instanceof`) dans le champ privé `#connection`, que lit le chemin par frame. Un module qui attache son propre état à une connexion suit le même patron : `declare module "@nodefony/http" { interface IWebsocketConnectionState { myState?: IMyState } }`, champ OPTIONNEL.
 
 Types : `RealtimePublish = (channel: string, payload: unknown) => void` · `RealtimeInboundHandler = (params: unknown, reply: (payload: unknown) => void) => void` (`rt/nodefony/interfaces/IRealtimeController.ts#RealtimeInboundHandler/:16` ; `params` **NON FIABLE** → valider).
 
