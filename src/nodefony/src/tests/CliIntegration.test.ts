@@ -2475,5 +2475,62 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
       },
       SCREEN_READY_TIMEOUT_MS + 60_000,
     );
+
+    it(
+      "base injoignable (#313) : UN boot, la cause nommée — ni relance, ni procès des modules",
+      async () => {
+        // Vécu : base absente → trois relances, puis un écran final tiré de la
+        // DERNIÈRE tentative qui accusait un manifeste `modules: []`. Une erreur
+        // de CONFIGURATION (78) ne se relance pas : relancer ne la corrige pas,
+        // et chaque essai recouvre l'écran de la cause par un autre diagnostic.
+        // La base n'est rendue injoignable que dans le SEUL serveur enfant.
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-devscreen-"));
+        let s: IPtySession | null = null;
+        try {
+          const unreachable = path.join(dir, "unreachable-db.mjs");
+          fs.writeFileSync(
+            unreachable,
+            'if (process.env.NF_DEV_CHILD === "1") ' +
+              'process.env.NF_DATABASE_URL = "postgres://nf:nf@127.0.0.1:1/nf";\n',
+          );
+          s = startPty(flavor, ["development"], {
+            ...process.env,
+            NODE_OPTIONS:
+              `${process.env.NODE_OPTIONS ?? ""} --import="${pathToFileURL(unreachable).href}"`.trim(),
+          });
+          await waitFor(s, /configuration invalide, code 78/);
+          const sc = await snap(s);
+          const text = screenText(sc);
+          // Le terminal coupe les lignes longues en plein mot : la cause se lit
+          // sur le texte recousu.
+          const unwrapped = text.replace(/\n/g, "");
+          assert.match(
+            unwrapped,
+            /"drizzle"/,
+            `le module en cause est nommé\n${text}`,
+          );
+          assert.match(
+            unwrapped,
+            /n'a pas pu se connecter/,
+            `la cause (connexion) est à l'écran\n${text}`,
+          );
+          assert.doesNotMatch(
+            text,
+            /crash rapide/,
+            `une erreur de configuration ne se relance pas\n${text}`,
+          );
+          assert.doesNotMatch(
+            text,
+            /manifeste|aucun module/i,
+            `le diagnostic n'accuse pas les modules\n${text}`,
+          );
+          assert.strictEqual(await ctrlC(s), 0, "arrêt propre");
+        } finally {
+          await cleanup(s);
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      },
+      SCREEN_READY_TIMEOUT_MS + 60_000,
+    );
   },
 );
