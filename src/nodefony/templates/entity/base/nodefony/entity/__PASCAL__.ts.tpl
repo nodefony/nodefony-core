@@ -155,6 +155,6 @@ export const <%= it.pascal %>Entity = defineEntity({
  * retombe sur une valeur inventée, qui suffit au seul contrat de validation.
 <% } %><% } %> */
 export const <%= it.camel %>Sample = (
-  n: number,<% if (it.sampleReadsRefs) { %>
+  <%= it.sampleCounter %>: number,<% if (it.sampleReadsRefs) { %>
   refs: Partial<Record<string, string | number>> = {},<% } %>
 ): Partial<<%= it.pascal %>Row> => (<%= it.sampleFactory %>);

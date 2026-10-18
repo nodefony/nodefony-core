@@ -2617,6 +2617,30 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.notMatch(notes, perimee);
       }
     });
+
+    it("l'échantillon d'une entité ne déclare `n` que s'il le lit (lint de l'app)", () => {
+      const dest = path.join(tmp, "sample-counter");
+      scaffold(dest, { name: "demo", preset: "complete", frontend: "none" });
+      const entete = (name: string, fields: string): string => {
+        runScaffold(
+          {
+            type: "entity",
+            answers: { name, fields },
+            dir: dest,
+            force: false,
+          },
+          version,
+        );
+        const src = readFileSync(
+          path.join(dest, "nodefony", "entity", `${name}.ts`),
+          "utf8",
+        );
+        return /Sample = \(\n {2}(\w+): number/u.exec(src)?.[1] ?? "";
+      };
+      // Booléen + JSON : aucune valeur ne varie, `n` ne serait jamais lu.
+      assert.strictEqual(entete("Flag", "active:bool payload:json"), "_n");
+      assert.strictEqual(entete("Post", "title:string active:bool"), "n");
+    });
   });
 
   describe("moteur — socle @nodefony/ai (deux presets)", () => {

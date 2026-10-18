@@ -5536,6 +5536,10 @@ function runEntityScaffold(
   // trois types différents, chacun ajouté après coup.
   const sample: Record<string, unknown> = {};
   const factory: string[] = [];
+  // La fabrique lit-elle son entier ? Une entité faite de booléens, de JSON et
+  // d'énumérations ne le lit jamais, et un paramètre déclaré sans être lu est
+  // refusé par le lint de l'application générée : il se rend alors `_n`.
+  let sampleReadsCounter = false;
   // La fabrique vit dans l'ENTITÉ, pas dans les tests : ses deux tests, la
   // documentation et toute amorce de données parlent du même échantillon. Trois
   // copies divergeraient au premier champ ajouté, chacune passant ses propres
@@ -5563,6 +5567,10 @@ function runEntityScaffold(
     const { fixed, expr } =
       mongo && f.type === "ref" ? objectIdSample() : sampleValue(f, id);
     sample[f.name] = fixed;
+    // Lu HORS d'un littéral : la valeur d'énumération « n » n'est pas une lecture.
+    sampleReadsCounter ||= /\bn\b/u.test(
+      expr.replace(/"(?:[^"\\]|\\.)*"/gu, `""`),
+    );
     factory.push(
       f.type === "ref" && f.target
         ? // `String(…)` / `Number(…)` et non une conversion de type : `refs`
@@ -5622,6 +5630,7 @@ function runEntityScaffold(
     moduleName: target.kind === "app" ? "app" : target.name,
     curlBody: JSON.stringify(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
+    sampleCounter: sampleReadsCounter ? "n" : "_n",
     // La fabrique déclare `refs` dès qu'elle le LIT — toute référence, y compris
     // vers soi. Le dériver des parents que les tests créent (`relationParents`,
     // qui exclut l'entité elle-même) laissait `refs` lu et jamais déclaré.
