@@ -33,6 +33,52 @@ interface ServiceLookupLike {
   get(name: string): unknown;
 }
 
+/** Vue minimale du kernel pour journaliser — résolu par nom au runtime. */
+interface KernelLoggerLike {
+  log(pci: string, severity?: string, msgid?: string): unknown;
+}
+
+/** Garde : la valeur sait-elle journaliser (`log` est une fonction) ? */
+function isKernelLogger(value: unknown): value is KernelLoggerLike {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "log" in value &&
+    typeof value.log === "function"
+  );
+}
+
+/**
+ * Journalise l'échec d'une brique de la cascade. Le geste reste best-effort —
+ * une brique en panne n'empêche pas les autres — mais il ne peut plus échouer
+ * EN SILENCE : un accès qui survit à sa révocation (session encore ouverte
+ * après un changement de mot de passe) doit laisser une trace qui dit laquelle.
+ *
+ * @param container - container du kernel (service `kernel`).
+ * @param brick - brique en échec (`sessions`, `tokenStore`, `totp`, `webauthn`).
+ * @param identifier - compte visé par la cascade.
+ * @param error - erreur levée par la brique.
+ */
+function reportCascadeFailure(
+  container: ServiceLookupLike,
+  brick: string,
+  identifier: string,
+  error: unknown,
+): void {
+  try {
+    const kernel: unknown = container.get("kernel");
+    if (!isKernelLogger(kernel)) return;
+    kernel.log(
+      `révocation de "${identifier}" incomplète : la brique ${brick} a échoué — ` +
+        (error instanceof Error ? error.message : String(error)),
+      "ERROR",
+      "SECURITY",
+    );
+  } catch {
+    /* le signalement ne doit jamais faire échouer la cascade */
+  }
+}
+
 /** Bus d'événements minimal (kernel) capable d'abonner un handler. */
 interface KernelListenerLike {
   on(event: string, handler: (...args: unknown[]) => unknown): unknown;
@@ -89,15 +135,16 @@ async function revokeAccessArtifacts(
   try {
     const sessions = container.get("sessions") as SessionsLike | undefined;
     await sessions?.destroyByUser?.(identifier);
-  } catch {
-    /* best-effort : l'indispo d'une brique ne bloque pas les autres */
+  } catch (error) {
+    // Best-effort : l'indispo d'une brique ne bloque pas les autres — mais se DIT.
+    reportCascadeFailure(container, "sessions", identifier, error);
   }
   // Tokens / PAT (security) — invalidation en masse par seuil `invalidBefore`.
   try {
     const tokenStore = container.get("tokenStore") as ITokenStore | undefined;
     await tokenStore?.revokeAllForSubject(identifier, invalidBefore);
-  } catch {
-    /* best-effort */
+  } catch (error) {
+    reportCascadeFailure(container, "tokenStore", identifier, error);
   }
 }
 
@@ -149,8 +196,8 @@ export async function removeAccountFactors(
   try {
     const totp = container.get("totp") as TotpLike | undefined;
     if (totp?.isEnabled?.() !== false) await totp?.disable?.(identifier);
-  } catch {
-    /* best-effort */
+  } catch (error) {
+    reportCascadeFailure(container, "totp", identifier, error);
   }
   // Passkeys — une par une, par la porte owner-scopée du service.
   try {
@@ -161,8 +208,8 @@ export async function removeAccountFactors(
         await webauthn?.removeUserCredential?.(identifier, cred.id);
       }
     }
-  } catch {
-    /* best-effort */
+  } catch (error) {
+    reportCascadeFailure(container, "webauthn", identifier, error);
   }
 }
 

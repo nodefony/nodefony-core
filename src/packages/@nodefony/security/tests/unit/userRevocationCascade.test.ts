@@ -82,6 +82,28 @@ describe("cascadeUserRevocation (user révoqué → sessions + tokens)", () => {
     );
     assert.deepEqual(revoked, ["bob@x"]);
   });
+
+  // Vécu sous `test:all` : une session a survécu à `security:user:password`
+  // sans laisser AUCUNE trace — la brique avait échoué dans un `catch` muet.
+  it("🔴 une brique qui throw est JOURNALISÉE (ERROR, brique et compte nommés)", async () => {
+    const logs: Array<[string, string | undefined]> = [];
+    const base = ctn({
+      destroyByUser: async () => {
+        throw new Error("sessions down");
+      },
+      revokeAllForSubject: async () => {},
+    });
+    const kernel = {
+      log: (pci: string, severity?: string) => logs.push([pci, severity]),
+    };
+    const container = {
+      get: (n: string) => (n === "kernel" ? kernel : base.get(n)),
+    } as unknown as Container;
+    await cascadeUserRevocation(container, evt(), 1000);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]![1], "ERROR");
+    assert.match(logs[0]![0], /bob@x.*sessions.*sessions down/);
+  });
 });
 
 /** Container portant les facteurs d'un compte (TOTP + passkeys) sous son identifier. */
