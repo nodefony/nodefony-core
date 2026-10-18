@@ -76,6 +76,22 @@ t PASSE 'npm run build'
 t PASSE 'rg --replace x toto src/'
 t PASSE 'cd /Users/cci/repository/nodefony-core && ls'
 
+echo "=== règle 5 — timeout ABSENT (verdict injecté) : refusé ==="
+export NF_GUARD_HAS_TIMEOUT=0
+for c in 'timeout 300 npm test' 'cd /tmp && timeout 5 ls' 'gtimeout 10s sleep 1' \
+  '(timeout 300 npm run test:memory > x.log; echo $?)' 'for i in 1; do timeout 2 ls; done'; do
+  t deny "$c"
+done
+echo "=== règle 5 — le MOT timeout ailleurs qu'en commande : doit PASSER ==="
+for c in 'npx vitest run --testTimeout 60000' 'grep timeout file.ts' \
+  'jq ".timeout" settings.json' 'echo "timeout 300 dans un texte"' 'node -e "setTimeout(()=>{},1)"'; do
+  t PASSE "$c"
+done
+echo "=== règle 5 — timeout PRÉSENT (verdict injecté) : doit PASSER ==="
+export NF_GUARD_HAS_TIMEOUT=1
+t PASSE 'timeout 300 npm test'
+unset NF_GUARD_HAS_TIMEOUT
+
 echo
 if [ "$ko" -eq 0 ]; then
   echo "BANC VERT — 0 écart"

@@ -93,4 +93,16 @@ if printf '%s' "$cmd" | grep -qE '(^|[;&|(]|do)[[:space:]]*gh[[:space:]]+(run[[:
   deny "REFUS — un agent n'arrête, ne supprime ni ne désactive JAMAIS une exécution de CI. Elle tourne sous le jeton de l'utilisateur (« canceled by @… ») : des jobs qui s'arrêtent d'un coup, et un commit qui perd son verdict — la garde de publication compte un \`cancelled\` ROUGE. La CI est gratuite : laisser finir. Pour attendre : \`gh run watch\` ; pour rejouer : \`gh run rerun\`. Un job réellement figé s'arrête À LA MAIN, par l'utilisateur, dans l'interface GitHub."
 fi
 
+# 5. `timeout` (GNU coreutils) n'existe PAS sur macOS : la commande part, rend 127
+#    (« command not found ») et le travail qu'elle encadrait n'a JAMAIS tourné — un `; echo
+#    exit=$?` affiche alors 127 au milieu d'une sortie qu'on croit être celle du banc. Réflexe
+#    récidivant malgré la règle écrite. La capacité se CONSTATE (`command -v`), elle ne se
+#    déduit pas de la plateforme ; `NF_GUARD_HAS_TIMEOUT` injecte le verdict pour le banc.
+if printf '%s' "$cmd" | grep -qE '(^|[;&|(`]|do|then|\$\()[[:space:]]*g?timeout[[:space:]]+[-0-9]'; then
+  has_timeout=${NF_GUARD_HAS_TIMEOUT:-$(command -v timeout >/dev/null 2>&1 && echo 1 || echo 0)}
+  if [ "$has_timeout" != "1" ]; then
+    deny "\`timeout\` n'existe pas sur cette machine (GNU coreutils, absent de macOS) : la commande rendrait 127 sans avoir rien exécuté. Borner autrement : vitest a son propre délai (\`--testTimeout\`, et le délai par test) ; une attente longue passe en \`run_in_background\` ; sinon \`perl -e 'alarm shift; exec @ARGV' 300 <commande>\`, portable, présent partout."
+  fi
+fi
+
 exit 0
