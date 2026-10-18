@@ -212,11 +212,60 @@ const DIALECT = (() => {
   return i === -1 ? "postgres" : process.argv[i + 1];
 })();
 
+/**
+ * Base DÉDIÉE au banc, recréée VIDE à chaque run (`recreateDatabase`).
+ *
+ * La base de développement `nodefony` est partagée : d'autres suites y laissent
+ * leurs tables, et un run y laissait les siennes. Vécu : un compte `admin`
+ * créé par le run précédent, mot de passe inconnu, que l'application ne
+ * recréait pas puisqu'il existait — la session du juge tombait en 401 et les
+ * sondes authentifiées n'étaient jamais jouées. Nettoyer par contenu ne
+ * suffisait pas : on ne retire que ce qu'on pense à viser.
+ */
+const BENCH_DB = "nf_bench_schema";
+
+/**
+ * L'URL de la base dédiée, sur le même serveur et avec les mêmes accès.
+ *
+ * @param serverUrl - une URL du serveur (sa base est remplacée).
+ * @param name - nom de la base dédiée.
+ * @returns l'URL de la base dédiée.
+ */
+export function benchDatabaseUrl(serverUrl, name = BENCH_DB) {
+  const u = new URL(serverUrl);
+  u.pathname = `/${name}`;
+  return u.toString();
+}
+
+/**
+ * Supprime puis recrée la base que vise l'URL — elle repart VIDE.
+ *
+ * @param url - URL de la base dédiée ; on se connecte à `postgres` pour agir.
+ * @throws si le nom n'est pas un identifiant simple (il entre dans le SQL).
+ */
+export async function recreateDatabase(url) {
+  const admin = new URL(url);
+  const name = admin.pathname.slice(1);
+  if (!/^[a-z_][a-z0-9_]*$/.test(name))
+    throw new Error(`nom de base refusé : « ${name} »`);
+  admin.pathname = "/postgres";
+  const { Client } = await import("pg");
+  const client = new Client({ connectionString: admin.toString() });
+  await client.connect();
+  try {
+    await client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+    await client.query(`CREATE DATABASE "${name}"`);
+  } finally {
+    await client.end();
+  }
+}
+
 /** Chaînes de connexion des moteurs de développement (docker du dépôt). */
 const DB_URL = {
-  postgres:
+  postgres: benchDatabaseUrl(
     process.env.NF_PG_URL ??
-    "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony",
+      "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony",
+  ),
   mysql:
     process.env.NF_MYSQL_URL ??
     "mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony",
@@ -942,50 +991,6 @@ export function engineMismatch(dialect, pkgJson, userSource) {
 }
 
 /**
- * Supprime les tables du sous-ensemble AVANT le run — par CONTENU, pas par nom.
- *
- * Sans ce nettoyage, les tables laissées par le run précédent seraient comptées
- * comme des réussites de celui-ci — le juge lirait un état, pas un résultat.
- *
- * La première version visait les noms ATTENDUS (`account`, `visit`) alors que le
- * générateur crée `accounts`, `visits` : **elle ne supprimait donc jamais rien**,
- * et le juge relisait le run précédent. Un correctif du générateur a ainsi paru
- * sans effet, ses chiffres étant ceux d'avant. Un nettoyage se fait sur ce qui
- * EXISTE, jamais sur ce qu'on espère trouver.
- *
- * Le seuil est plus exigeant que celui du rapport (70 % contre 50 %) : se
- * tromper coûte ici une table détruite, là une ligne de rapport.
- *
- * @returns les noms des tables effectivement supprimées.
- */
-async function dropExpected(url, tables) {
-  const actual = await readPostgres(url);
-  const { Client } = await import("pg");
-  const client = new Client({ connectionString: url });
-  await client.connect();
-  const dropped = [];
-  try {
-    for (const t of tables) {
-      const wanted = t.columns.map((c) => c.column.toLowerCase());
-      for (const [name, got] of actual) {
-        if (FRAMEWORK_TABLES.has(name) || dropped.includes(name)) continue;
-        const have = new Set(got.columns.map((c) => c.name.toLowerCase()));
-        const hits = wanted.filter((w) => have.has(w)).length;
-        const isTarget =
-          name === t.table.toLowerCase() ||
-          (wanted.length > 0 && hits / wanted.length >= 0.7);
-        if (!isTarget) continue;
-        await client.query(`DROP TABLE IF EXISTS "${name}" CASCADE`);
-        dropped.push(name);
-      }
-    }
-  } finally {
-    await client.end();
-  }
-  return dropped;
-}
-
-/**
  * Le type PostgreSQL obtenu correspond-il au type attendu — TAILLE COMPRISE ?
  *
  * C'est ici que le banc gagne sa raison d'être : sur SQLite, `varchar(255)` et
@@ -1635,11 +1640,15 @@ async function judgeHttp(app, runDir, table, chain) {
   const raw = login.headers.getSetCookie?.() ?? [];
   const cookie = raw.map((c) => c.split(";")[0]).join("; ");
   if (login.status >= 300 || !cookie) {
-    add(
-      "session admin ouverte (décor)",
-      false,
-      `login → ${login.status} — sondes authentifiées NON exécutées`,
-    );
+    // `decor` : ce n'est pas l'application qui échoue, c'est la mesure qui
+    // n'a pas lieu — la sortie le dit par 2, jamais par un 0.
+    probes.push({
+      name: "session admin ouverte (décor)",
+      ok: false,
+      detail: `login → ${login.status} — sondes authentifiées NON exécutées`,
+      observe: false,
+      decor: true,
+    });
     writeFileSync(
       path.join(runDir, "http-trace.json"),
       JSON.stringify(trace, null, 2),
@@ -1767,7 +1776,7 @@ async function judgeHttp(app, runDir, table, chain) {
  * porte la moitié des colonnes attendues est la même table. Sauf une table du
  * FRAMEWORK, que l'agent n'a pas créée : `schedule` (id, userId, name,
  * timeZone) était appariée à `access_token`, qui en porte `id` et `name` — le
- * rapport annonçait une table jamais écrite. Même liste que `dropExpected`.
+ * rapport annonçait une table jamais écrite.
  *
  * @returns `{name, got}` ou `null`.
  */
@@ -1781,6 +1790,26 @@ function findRenamed(expected, actual) {
     if (hits / wanted.length >= 0.5) return { name, got };
   }
   return null;
+}
+
+/**
+ * Le code de sortie d'un run : il dit aussi ce qui n'a PAS été vérifié.
+ *
+ * 1 si le schéma est faux ou si une sonde HTTP échoue ; 2 si rien n'est faux
+ * mais qu'une partie de la chaîne demandée n'a pas été jouée (serveur absent,
+ * session admin refusée) ; 0 sinon. Un vert incomplet lu comme un vert complet
+ * est le piège maison n°1 — vécu : sondes authentifiées sautées, sortie 0.
+ *
+ * @param r - `{ schemaOk, chain, http }` ; `http` = `{ started, probes }` ou `null`.
+ * @returns 0, 1 ou 2.
+ */
+export function exitCodeOf({ schemaOk, chain, http }) {
+  if (!schemaOk) return 1;
+  const probes = http?.probes ?? [];
+  if (probes.some((p) => !p.ok && !p.observe && !p.decor)) return 1;
+  if (chain && (!http?.started || probes.some((p) => p.decor && !p.ok)))
+    return 2;
+  return 0;
 }
 
 /** Confronte le schéma attendu au schéma réellement créé. */
@@ -2114,7 +2143,7 @@ async function main() {
       "  --link         décor lié au dépôt : boucle courte, verdict AMPUTÉ",
       "  --repack       refabrique les tarballs même s'ils paraissent à jour",
       "",
-      "Sorties : 0 rien à signaler · 1 des sondes ont échoué · 64 usage",
+      "Sorties : 0 rien à signaler · 1 des sondes ont échoué · 2 une partie n'a PAS été vérifiée · 3 décor refusé · 64 usage",
     ].join("\n"),
     avertissement:
       "Rien n'a été lancé — ce banc monte une application et interroge un moteur.",
@@ -2184,18 +2213,11 @@ async function main() {
   }
 
   if (!analyzeOnly) {
-    // La base de développement est PARTAGÉE : sans ce nettoyage, les tables
-    // laissées par le run précédent compteraient comme des réussites de
-    // celui-ci — le juge lirait un état, pas un résultat.
+    // Sans base vierge, le juge lirait un ÉTAT (tables et comptes laissés par
+    // un run précédent ou une autre suite), pas le résultat de CE run.
     if (DIALECT === "postgres") {
-      // Un tableau VIDE est truthy : tester la longueur, sinon le banc annonce
-      // « 0 table retirée » à chaque run et l'on croit le nettoyage actif.
-      const dropped = await dropExpected(DB_URL.postgres, expected);
-      if (dropped.length) {
-        console.log(
-          `• ${dropped.length} table(s) du run précédent retirée(s) : ${dropped.join(", ")}`,
-        );
-      }
+      await recreateDatabase(DB_URL.postgres);
+      console.log(`• base dédiée recréée vide : ${BENCH_DB}`);
     }
     setup(runDir, target);
 
@@ -2307,7 +2329,7 @@ async function main() {
     isolation,
     http,
   });
-  process.exit(ok ? 0 : 1);
+  process.exit(exitCodeOf({ schemaOk: ok, chain: chainOn, http }));
 }
 
 // Ce fichier est AUSSI importé par son auto-contrôle (`bench-schema.selftest.mjs`),

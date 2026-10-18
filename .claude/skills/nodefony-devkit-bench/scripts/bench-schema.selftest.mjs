@@ -25,9 +25,12 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  benchDatabaseUrl,
   compare,
   countWork,
   engineMismatch,
+  exitCodeOf,
+  recreateDatabase,
   pgMismatch,
   readKnex,
   readPostgres,
@@ -672,6 +675,135 @@ function verifyEngine() {
   );
 }
 
+/**
+ * Le code de sortie dit ce qui n'a PAS été vérifié.
+ *
+ * Le cas vécu : la session admin du juge tombait en 401, les sondes
+ * authentifiées n'étaient pas jouées — et le banc sortait en 0. Pire, aucune
+ * sonde HTTP ne pesait sur la sortie, contrairement à ce qu'annonce l'aide.
+ */
+function verifyExitCode() {
+  console.log(`\n━━ code de sortie`);
+  const probe = (ok, extra = {}) => ({ name: "p", ok, detail: "", ...extra });
+  const http = (probes, started = true) => ({ started, probes });
+  const cas = [
+    ["schéma faux → 1", { schemaOk: false, chain: false, http: null }, 1],
+    [
+      "schéma juste, sans chaîne → 0",
+      { schemaOk: true, chain: false, http: null },
+      0,
+    ],
+    [
+      "chaîne entièrement verte → 0",
+      { schemaOk: true, chain: true, http: http([probe(true)]) },
+      0,
+    ],
+    [
+      "une sonde HTTP échoue → 1",
+      { schemaOk: true, chain: true, http: http([probe(true), probe(false)]) },
+      1,
+    ],
+    [
+      "session admin refusée (décor) → 2",
+      {
+        schemaOk: true,
+        chain: true,
+        http: http([probe(true), probe(false, { decor: true })]),
+      },
+      2,
+    ],
+    [
+      "serveur jamais démarré → 2",
+      { schemaOk: true, chain: true, http: http([], false) },
+      2,
+    ],
+    [
+      "chaîne demandée, jamais jouée → 2",
+      { schemaOk: true, chain: true, http: null },
+      2,
+    ],
+    [
+      "une observation ne compte pas → 0",
+      {
+        schemaOk: true,
+        chain: true,
+        http: http([probe(false, { observe: true })]),
+      },
+      0,
+    ],
+  ];
+  for (const [name, input, attendu] of cas)
+    check(name, exitCodeOf(input), attendu);
+}
+
+/**
+ * La base du banc est DÉDIÉE et repart VIDE : rien d'un run précédent, rien
+ * d'une autre suite. Le cas vécu : un compte `admin` laissé par le run
+ * précédent, mot de passe inconnu, que l'application ne recréait pas — la
+ * session du juge tombait en 401.
+ *
+ * Éprouvé sur une base JETABLE distincte : jamais celle d'un run en vol.
+ */
+async function verifyBenchDatabase() {
+  console.log(`\n━━ base dédiée du banc`);
+  const server =
+    process.env.NF_PG_URL ??
+    "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony";
+  const url = benchDatabaseUrl(server, "nf_bench_schema_selftest");
+  check(
+    "l'URL vise la base dédiée, mêmes accès",
+    url.replace(/\/[^/]*$/, ""),
+    server.replace(/\/[^/]*$/, ""),
+  );
+  check(
+    "nom de base dédié",
+    new URL(url).pathname,
+    "/nf_bench_schema_selftest",
+  );
+  const { Client } = await import("pg");
+  try {
+    await recreateDatabase(url);
+    let c = new Client({ connectionString: url });
+    await c.connect();
+    await c.query('CREATE TABLE "User" (id int)');
+    await c.end();
+    await recreateDatabase(url);
+    c = new Client({ connectionString: url });
+    await c.connect();
+    const n = (
+      await c.query(
+        "select count(*)::int as n from information_schema.tables where table_schema = 'public'",
+      )
+    ).rows[0].n;
+    await c.end();
+    check(
+      "recréée, elle ne porte plus rien",
+      n,
+      0,
+      "une table du run précédent a survécu",
+    );
+  } catch (e) {
+    // Seule une base INJOIGNABLE vaut « non éprouvée » ; toute autre erreur est
+    // un défaut de la recréation, et compte rouge.
+    if (e.code !== "ECONNREFUSED") {
+      check("recréation sans erreur", e.message, "aucune erreur");
+      return true;
+    }
+    console.log(`  ⚠️  base dédiée NON éprouvée : ${e.message}`);
+    return false;
+  } finally {
+    const admin = new URL(url);
+    admin.pathname = "/postgres";
+    const c = new Client({ connectionString: admin.toString() });
+    await c.connect().catch(() => {});
+    await c
+      .query('DROP DATABASE IF EXISTS "nf_bench_schema_selftest" WITH (FORCE)')
+      .catch(() => {});
+    await c.end().catch(() => {});
+  }
+  return true;
+}
+
 const prove = process.argv.includes("--prove");
 
 console.log(
@@ -686,7 +818,10 @@ if (!prove) verifyShape();
 if (!prove) verifyCountWork();
 if (!prove) verifyRenamed();
 if (!prove) verifyEngine();
-const judgeExercised = await verifyPostgresJudge({ prove });
+if (!prove) verifyExitCode();
+const judgeExercised =
+  (await verifyPostgresJudge({ prove })) &&
+  (prove || (await verifyBenchDatabase()));
 
 console.log(
   `\n${failures === 0 ? "✅ tous les contrôles passent" : `❌ ${failures} contrôle(s) en échec`}`,
