@@ -373,11 +373,23 @@ export abstract class RealtimeController<
    * Le protocole temps réel est du JSON-RPC texte : il ne sait pas à quel canal
    * une trame binaire appartient. Sans cette méthode, une trame binaire est
    * écartée, comptée (`binaryDiscarded` de la sonde de connexion) et journalisée
-   * une fois par connexion. La surcharger la reçoit telle quelle, octets exacts.
+   * une fois par connexion. La surcharger la reçoit telle quelle, octets exacts,
+   * en `Uint8Array` — le type que livre aussi `NodefonySocket.onBinary` dans le
+   * navigateur : un décodeur s'écrit une fois pour les deux côtés. À l'exécution
+   * c'est un `Buffer` de `ws`, qui en est un.
+   *
+   * ⚠️ Hors du verrou de trame, et pour toute la série 10 : la trame brute ne
+   * passe ni par l'autorisation `beforeDispatch` ni par les gardes d'action et de
+   * canal du JSON-RPC. La connexion, elle, a déjà franchi Origin, l'authentificateur
+   * et le pare-feu. L'identité se lit par `RequestContext.getAuthenticatedUser()`,
+   * et toute décision d'accès sur une trame binaire appartient à l'application.
+   *
+   * ⚠️ Un `DataView` se construit sur `data.buffer` AVEC `data.byteOffset` et
+   * `data.byteLength` : un `Buffer` issu du pool de Node ne commence pas à 0.
    *
    * @param data - les octets reçus.
    */
-  protected onRealtimeBinary?(data: Buffer): void;
+  protected onRealtimeBinary?(data: Uint8Array): void;
 
   /**
    * Faute de câblage : `handleRealtime` reçu par une instance qui ne sert pas
@@ -394,7 +406,10 @@ export abstract class RealtimeController<
     );
   }
 
-  private receiveBinary(transport: WsConnectionTransport, data: Buffer): void {
+  private receiveBinary(
+    transport: WsConnectionTransport,
+    data: Uint8Array,
+  ): void {
     if (this.onRealtimeBinary !== undefined) {
       this.onRealtimeBinary(data);
       return;
@@ -459,11 +474,11 @@ export abstract class RealtimeController<
    * sortant de {@link onRealtimeBinary}, et de `NodefonySocket.sendBinary` côté
    * client. Même contre-pression que les frames JSON-RPC.
    *
-   * @param data - les octets à émettre.
+   * @param data - les octets à émettre (`Uint8Array`, donc un `Buffer` aussi).
    * @returns `false` si le handshake n'est pas terminé, la connexion fermée ou
    *   la trame jetée par la contre-pression.
    */
-  protected sendBinaryToClient(data: ArrayBuffer | ArrayBufferView): boolean {
+  protected sendBinaryToClient(data: Uint8Array): boolean {
     return this.coldConnState()?.transport.sendBinary(data) ?? false;
   }
 

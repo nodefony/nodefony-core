@@ -5,8 +5,15 @@
  * qui a une **existence identique côté back et côté front** (fusionnel), dont le **plan de
  * contrôle parle JSON-RPC 2.0** ({@link IRealtimePeer}) et qui **multiplexe N canaux** par
  * souscription. Un consommateur — page front OU service back — tient **UN handle**
- * (`subscribe / on / publish / request`) : c'est SA socket. Il ignore quel transport porte
+ * (`subscribe / on / publish`) : c'est SA socket. Il ignore quel transport porte
  * les octets, si le pair est local ou distant, et comment chaque canal est servi.
+ *
+ * ── Le RPC corrélé n'est PAS au contrat commun ──
+ *  Une requête attend la réponse d'UN pair. Le navigateur en a un (le serveur) :
+ *  `NodefonySocket.request`. Un handle serveur au-dessus du hub en a N, et ne sait
+ *  donc pas qui répondrait : la requête vers un client précis passe par
+ *  `RealtimeController.requestClient`. Le contrat commun ne promet que ce que les
+ *  deux côtés tiennent.
  *
  * Vocabulaire : la **socket** est la prise (ce qu'on tient) ; derrière elle, côté serveur,
  * un **hub** ({@link RealtimeHub}) aiguille entre les N sockets des clients et, à terme,
@@ -29,7 +36,6 @@
  *  - `subscribe` / `unsubscribe` : DEMANDE / arrête un flux (ref-compté).
  *  - `on` / `off` : REÇOIT (`on` ≠ `subscribe` : l'un branche le handler local, l'autre
  *    demande au pair de pousser).
- *  - `request(method, params?)` : RPC corrélé (`Promise` du `result`).
  *  - `channel(name)` : renvoie un {@link IRealtimeChannel} (objet par canal) — forme
  *    naturelle des canaux à état (SIP, bridge) et point d'accroche des futures couches
  *    (codec, cadence AIMD, politique drop/coalesce/batch par canal).
@@ -43,14 +49,10 @@
  */
 
 import type {
-  ActionsMap,
-  DefaultActionsMap,
   DefaultEventsMap,
   EventNames,
   EventPayload,
   EventsMap,
-  ContractParams,
-  ContractResult,
 } from "./RealtimeEventMap";
 
 /**
@@ -119,13 +121,16 @@ export interface IRealtimeChannel {
  *
  * @typeParam Emit    — canaux pub/sub SORTANTS (typage de `publish`).
  * @typeParam Listen  — canaux pub/sub RÉCEPTIONNÉS (typage de `subscribe`/`on`/`off`).
- * @typeParam Actions — contrat RPC bidirectionnel (typage de `request`).
  *
- * Défauts permissifs sur les 3 → rétro-compat 100% pour le code non paramétré.
+ * Pas de paramètre `Actions` : le contrat RPC type `NodefonySocket.request` et
+ * `RealtimeController.requestClient`, pas ce contrat commun (cf « Le RPC corrélé
+ * n'est PAS au contrat commun »).
+ *
+ * Défauts permissifs sur les 2 → rétro-compat 100% pour le code non paramétré.
  *
  * **Pattern « type conditionnel inline »** : chaque méthode a UNE signature unique
  * paramétrée par un `K extends string`. Si `K` matche la map (`EventNames<Listen>`,
- * `EventNames<Emit>`, `ActionNames<Actions>`) → typage strict ; sinon → fallback
+ * `EventNames<Emit>`) → typage strict ; sinon → fallback
  * permissif (`unknown`/`RealtimeHandler`). Permet les noms système (`__notice__`,
  * `*`, `subscribe`/`unsubscribe` internes) à côté du contrat applicatif typé sans
  * 2 overloads incompatibles en variance.
@@ -133,7 +138,6 @@ export interface IRealtimeChannel {
 export interface IRealtimeSocket<
   Emit extends EventsMap = DefaultEventsMap,
   Listen extends EventsMap = DefaultEventsMap,
-  Actions extends ActionsMap = DefaultActionsMap,
 > {
   /**
    * S'abonne à un canal (ref-compté) : émet la demande au pair UNIQUEMENT au 1ᵉʳ
@@ -172,13 +176,6 @@ export interface IRealtimeSocket<
     channel: K,
     payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
   ): void;
-
-  /** RPC corrélé — `Promise` résolue avec le `result` (rejette sur `error`/timeout). */
-  request<K extends string, T = unknown>(
-    method: K,
-    params?: ContractParams<Actions, K>,
-    timeoutMs?: number,
-  ): Promise<ContractResult<Actions, K, T>>;
 
   /**
    * Vue par-canal — voir {@link IRealtimeChannel}. Fine liaison sur les primitives

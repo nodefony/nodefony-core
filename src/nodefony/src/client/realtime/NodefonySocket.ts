@@ -40,7 +40,6 @@ import {
   type IRealtimeTransport,
   type RealtimeTransportFactory,
   type RealtimeFrameData,
-  type RealtimeOutboundData,
 } from "../../realtime/IRealtimeTransport";
 import type {
   IRealtimeSocket,
@@ -485,9 +484,7 @@ export class NodefonySocket<
   Listen extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
 >
-  implements
-    IRealtimeSocket<Emit, Listen, Actions>,
-    IRealtimePeer<Emit, Actions>
+  implements IRealtimeSocket<Emit, Listen>, IRealtimePeer<Emit, Actions>
 {
   // Transport courant ({@link IRealtimeTransport}) — recréé à chaque (re)connexion.
   // L'orchestration (reconnect/heartbeat/state) vit ici ; le transport reste « bête ».
@@ -554,7 +551,7 @@ export class NodefonySocket<
   private _malformedFramesDiscarded = 0;
   // Lecteurs du flux binaire (`onBinary`) — alloué au premier abonné seulement :
   // la très grande majorité des sockets ne reçoit jamais de binaire.
-  private _binaryHandlers: Set<(data: ArrayBuffer | Blob) => void> | null =
+  private _binaryHandlers: Set<(data: Uint8Array<ArrayBuffer>) => void> | null =
     null;
   // Vaut `true` tant qu'on ne s'est jamais connecté : une frame émise avant la
   // première connexion est un séquencement d'application, pas une coupure — la
@@ -1101,14 +1098,20 @@ export class NodefonySocket<
    * quel canal une trame binaire appartient, et ne la route donc pas. Sans
    * lecteur, une trame binaire est écartée, comptée
    * ({@link binaryFramesDiscarded}) et signalée une fois par notice. Avec un
-   * lecteur, elle lui est remise telle quelle — `ArrayBuffer` avec le transport
-   * du navigateur — dans l'ordre des trames texte, et aucune notice ne part :
-   * la corrélation (canal, requête) appartient alors à l'application.
+   * lecteur, elle lui est remise telle quelle, en `Uint8Array` — le type que
+   * reçoit aussi `RealtimeController.onRealtimeBinary` côté serveur —, dans
+   * l'ordre des trames texte, et aucune notice ne part : la corrélation (canal,
+   * requête) appartient alors à l'application.
+   *
+   * ⚠️ La vue porte sur la trame entière, mais un `DataView` se construit sur
+   * `data.buffer` AVEC `data.byteOffset` et `data.byteLength` : un code écrit
+   * pour les deux côtés reçoit aussi des `Buffer` de Node, qui ne commencent pas
+   * à 0 dans leur tampon.
    *
    * @param handler - appelé pour chaque trame binaire reçue.
    * @returns dispose (désabonnement).
    */
-  onBinary(handler: (data: ArrayBuffer | Blob) => void): () => void {
+  onBinary(handler: (data: Uint8Array<ArrayBuffer>) => void): () => void {
     (this._binaryHandlers ??= new Set()).add(handler);
     return () => {
       this._binaryHandlers?.delete(handler);
@@ -1122,10 +1125,11 @@ export class NodefonySocket<
    * file d'attente, un transport fermé rend `false` et compte la trame dans
    * {@link framesUnsent}.
    *
-   * @param data - les octets à émettre.
+   * @param data - les octets à émettre, sur un `ArrayBuffer` non partagé —
+   *   `WebSocket.send` refuse une vue sur un `SharedArrayBuffer`.
    * @returns `true` si la trame est partie, `false` si le transport était fermé.
    */
-  sendBinary(data: Exclude<RealtimeOutboundData, string>): boolean {
+  sendBinary(data: Uint8Array<ArrayBuffer>): boolean {
     if (this.transport?.readyState !== TransportState.OPEN) {
       this._framesUnsent++;
       return false;

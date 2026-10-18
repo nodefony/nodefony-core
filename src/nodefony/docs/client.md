@@ -468,16 +468,23 @@ qu'un tri à cet étage rendait l'écart invisible pour tout ce qui est au-dessu
 Le protocole temps réel est du **JSON-RPC texte** : il ne sait pas à quel canal une trame binaire
 appartient, et ne la route donc pas. Ce qui se passe à la réception, selon le cas :
 
-| Trame reçue                 | Sans lecteur                                                           | Avec `onBinary(handler)`                      |
-| --------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
-| Binaire                     | écartée, comptée (`binaryFramesDiscarded`), **une** notice `-32700`    | remise telle quelle (`ArrayBuffer`), en ordre |
-| Texte qui n'est pas du JSON | écartée, comptée (`malformedFramesDiscarded`), **une** notice `-32700` | idem — `onBinary` ne lit que le binaire       |
+| Trame reçue                 | Sans lecteur                                                           | Avec `onBinary(handler)`                     |
+| --------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
+| Binaire                     | écartée, comptée (`binaryFramesDiscarded`), **une** notice `-32700`    | remise telle quelle (`Uint8Array`), en ordre |
+| Texte qui n'est pas du JSON | écartée, comptée (`malformedFramesDiscarded`), **une** notice `-32700` | idem — `onBinary` ne lit que le binaire      |
 
 La notice part à la PREMIÈRE trame de chaque nature, jamais à chaque trame : un flux à 60 Hz ne
 devient pas soixante notices par seconde. En sortie, `sendBinary(octets)` émet sans sérialiser
-(`ArrayBuffer`, vue typée ou `Blob`) et suit la règle de `send` : transport fermé → `false`, compté
-dans `framesUnsent` (`client/realtime/NodefonySocket.ts#NodefonySocket.onBinary`,
+(un `Uint8Array`) et suit la règle de `send` : transport fermé → `false`, compté dans
+`framesUnsent` (`client/realtime/NodefonySocket.ts#NodefonySocket.onBinary`,
 `client/realtime/NodefonySocket.ts#NodefonySocket.sendBinary`).
+
+Les octets ont le **même type des deux côtés** : `onBinary` livre un `Uint8Array`, comme
+`RealtimeController.onRealtimeBinary` côté serveur (où c'est un `Buffer`, qui en est un). Un
+décodeur s'écrit donc une fois. Le transport du navigateur pose une vue sur l'`ArrayBuffer` reçu,
+sans copier les octets. Pour un `DataView`, passer la tranche entière —
+`new DataView(data.buffer, data.byteOffset, data.byteLength)` — car un `Buffer` de Node ne
+commence pas à 0 dans son tampon.
 
 `onBinary` est un **point d'extension**, pas un protocole : la corrélation d'une trame (quel canal,
 quelle requête) appartient alors à l'application, par exemple par un en-tête qu'elle définit.

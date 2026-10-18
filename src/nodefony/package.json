@@ -92,7 +92,7 @@
     "build": "rolldown -c rolldown.config.ts && npm run build:types",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "node --eval \"for (const p of ['dist','tsconfig.tsbuildinfo']) require('node:fs').rmSync(p,{recursive:true,force:true})\"",
-    "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.src.json && tsgo --noEmit -p tsconfigClient.json",
+    "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.src.json && tsgo --noEmit -p tsconfigClient.json && tsgo --noEmit -p tsconfig.shared.json",
     "start": "node ./bin/nodefony",
     "test": "vitest run",
     "test:watch": "vitest",

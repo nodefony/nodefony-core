@@ -261,7 +261,10 @@ client, la charge part vers le serveur (un seul pair) ; depuis le serveur, elle 
 
 L'appel qui **attend une réponse** : une `Promise` résolue avec le `result`, rejetée sur `error` ou
 sur expiration. Déclarée côté serveur par `@RealtimeAction` (`realtimeDecorators.ts#RealtimeAction`), appelée
-côté client par `request()` (`IRealtimeSocket.ts#IRealtimeSocket.request`).
+côté client par `request()` (`NodefonySocket.ts#NodefonySocket.request`), côté serveur vers UN
+client par `requestClient()` (`RealtimeController.ts#RealtimeController.requestClient`). Elle
+n'appartient pas au contrat commun `IRealtimeSocket` : une requête attend UN pair, et un handle
+serveur au-dessus du hub en a N.
 
 Un handler qui lève une erreur rend un `-32603` **générique** ; seule une `RpcError`
 (`JsonRpcPeer.ts#RpcError`) choisit ce qu'elle expose au pair.

@@ -122,7 +122,7 @@ export class WsConnectionTransport
    * @returns `true` si la trame est partie, `false` si la connexion était
    *   fermée ou la contre-pression l'a jetée.
    */
-  sendBinary(data: ArrayBuffer | ArrayBufferView): boolean {
+  sendBinary(data: Uint8Array): boolean {
     if (this.conn.readyState !== TransportState.OPEN) return false;
     if (
       decideSend(this.conn, this._max, this._policy, this._closeAfterDrops) !==

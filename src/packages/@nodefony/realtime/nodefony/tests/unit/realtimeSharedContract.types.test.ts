@@ -4,6 +4,9 @@ import { RealtimeController } from "../../src/server/RealtimeController.js";
 import type { ContextType } from "@nodefony/http";
 import { expectType, type EventsMap, type ActionsMap } from "nodefony";
 import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
+// Par la SOURCE, comme `NodefonySocket` : via `"nodefony"`, le contrat serait lu
+// dans `dist/types`, et la garde `@ts-expect-error` ci-dessous jugerait un build.
+import type { IRealtimeSocket } from "../../../../../../nodefony/src/realtime/IRealtimeSocket.js";
 
 /**
  * Test d'INFÉRENCE de TYPES (compile-only) — le « contrat de canaux typé partagé »
@@ -38,6 +41,9 @@ declare const client: NodefonySocket<
   ServerToClient,
   AppActions
 >;
+
+// Le contrat COMMUN, tel qu'un code isomorphe le tient (navigateur OU serveur).
+declare const shared: IRealtimeSocket<ClientToServer, ServerToClient>;
 
 function _typeOnly(): void {
   client.on("nodefony:dashboard", (p) => {
@@ -85,6 +91,17 @@ function _typeOnly(): void {
     }
   }
   void RawRt;
+
+  // ── CONTRAT COMMUN : le RPC corrélé n'y est PAS (#630). Le navigateur a un pair
+  //    unique (`NodefonySocket.request`), un handle serveur en a N : la promesse ne
+  //    tenait que d'un côté.
+  shared.publish("client:cmd", { action: "go" });
+  // @ts-expect-error `request` n'appartient plus à IRealtimeSocket
+  void shared.request("client:confirm", { id: "42" });
+  // …mais reste sur la socket du navigateur, typée par le contrat d'actions.
+  expectType<Promise<{ ok: boolean }>>(
+    client.request("client:confirm", { id: "42" }),
+  );
 }
 
 describe("Realtime — contrat de canaux typé partagé (L3, compile-only)", () => {

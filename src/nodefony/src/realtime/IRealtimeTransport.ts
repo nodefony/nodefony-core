@@ -32,21 +32,27 @@ export type TransportStateValue =
   (typeof TransportState)[keyof typeof TransportState];
 
 /**
- * Une frame brute telle que le transport la reçoit : du texte, ou du binaire.
+ * Une frame brute telle que le transport la reçoit : du texte, ou des octets.
+ *
+ * Les octets sont un `Uint8Array` des deux côtés, navigateur comme serveur : un
+ * code de traitement binaire s'écrit une fois. Chaque transport adapte à SA
+ * frontière — le navigateur pose une vue sur l'`ArrayBuffer` reçu, sans copie ;
+ * un `Buffer` de Node en est déjà un. Le tampon est un `ArrayBuffer`, jamais
+ * partagé : c'est ce que `WebSocket.send` exige, et l'écho d'une trame reçue
+ * compile donc sans conversion.
  *
  * Le transport relaie TOUT ce qui arrive, sans trier : c'est l'endpoint qui
  * décide de ce qu'il lit et qui rend visible ce qu'il écarte. Un transport qui
  * filtrait lui-même faisait disparaître une trame binaire sans que personne,
  * au-dessus, ne puisse le savoir (#451).
  */
-export type RealtimeFrameData = string | ArrayBuffer | Blob;
+export type RealtimeFrameData = string | Uint8Array<ArrayBuffer>;
 
 /**
  * Ce qu'un transport accepte d'émettre : une frame texte déjà sérialisée, ou des
- * octets tels quels — vue typée comprise, pour ne pas imposer de copie.
+ * octets tels quels — le même type qu'en réception (cf {@link RealtimeFrameData}).
  */
-export type RealtimeOutboundData =
-  RealtimeFrameData | ArrayBufferView<ArrayBuffer>;
+export type RealtimeOutboundData = RealtimeFrameData;
 
 export interface IRealtimeTransport {
   /** Ouvre le transport (asynchrone — l'ouverture effective est signalée par `onOpen`). */

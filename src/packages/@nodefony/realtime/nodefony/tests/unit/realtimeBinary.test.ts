@@ -53,12 +53,14 @@ class PlainRt extends RealtimeController {
   feed(message: string | Buffer | null): void {
     this.handleRealtime(message);
   }
-  emitBinary(data: ArrayBuffer | ArrayBufferView): boolean {
+  emitBinary(data: Uint8Array): boolean {
     return this.sendBinaryToClient(data);
   }
 }
 
 class ReaderRt extends PlainRt {
+  // Surcharge écrite en `Buffer`, comme avant #630 : le contrat dit `Uint8Array`,
+  // et une surcharge plus étroite compile encore — côté serveur, rien ne casse.
   received: Buffer[] = [];
   protected override onRealtimeBinary(data: Buffer): void {
     this.received.push(data);

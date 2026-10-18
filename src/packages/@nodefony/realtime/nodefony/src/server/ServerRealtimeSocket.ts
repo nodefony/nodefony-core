@@ -31,8 +31,9 @@ import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
  *    l'état créé est passif, et c'est la fabrique du controller qui tranchera quand
  *    une connexion cliente le demandera. Un service n'invente donc jamais un canal
  *    pour les autres.
- *  - `request` : **non supporté** — un handle au-dessus du hub n'a PAS de pair unique
- *    (le hub est multi-clients). Pour un RPC serveur→client 1-1, utiliser
+ *  - `request` : **non supporté, et déprécié** — un handle au-dessus du hub n'a PAS de
+ *    pair unique (le hub est multi-clients), et le contrat commun `IRealtimeSocket` ne
+ *    le promet plus. Pour un RPC serveur→client 1-1, utiliser
  *    `RealtimeController.requestClient` (par connexion, L1).
  *
  * Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish` pas.
@@ -44,7 +45,7 @@ export class ServerRealtimeSocket<
   Emit extends EventsMap = DefaultEventsMap,
   Listen extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
-> implements IRealtimeSocket<Emit, Listen, Actions> {
+> implements IRealtimeSocket<Emit, Listen> {
   #handlers: Map<string, Set<RealtimeHandler>> | null = null;
   #sinks: Map<string, ChannelSink> | null = null;
   #subs: Map<string, number> | null = null;
@@ -143,9 +144,12 @@ export class ServerRealtimeSocket<
   }
 
   /**
-   * **Non supporté.** Un handle au-dessus du hub n'a pas de pair unique
-   * (multi-clients). Pour un RPC serveur→client 1-1, utiliser
-   * `RealtimeController.requestClient` (par connexion, L1).
+   * **Non supporté** : rejette toujours. Un handle au-dessus du hub n'a pas de pair
+   * unique (multi-clients), et le contrat commun `IRealtimeSocket` ne promet plus
+   * `request`. Comportement inchangé pour toute la série 10.
+   *
+   * @deprecated Retrait en 11.0. Pour un RPC serveur→client 1-1, utiliser
+   *   `RealtimeController.requestClient` (par connexion, L1).
    */
   request<K extends string, T = unknown>(
     _method: K,

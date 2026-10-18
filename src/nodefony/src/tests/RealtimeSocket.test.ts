@@ -83,7 +83,8 @@ describe("NodefonySocket — conformité IRealtimeSocket (la socket Nodefony)", 
     const socket: IRealtimeSocket = client; // compile-time : conformité structurelle
     expect(socket.subscribedChannels).to.deep.equal([]);
     expect(typeof socket.publish).to.equal("function");
-    expect(typeof socket.request).to.equal("function");
+    // `request` est propre au navigateur (un seul pair) : hors du contrat commun.
+    expect(typeof client.request).to.equal("function");
     expect(typeof socket.channel).to.equal("function");
     expect(typeof socket.getStats).to.equal("function");
     client.disconnect();

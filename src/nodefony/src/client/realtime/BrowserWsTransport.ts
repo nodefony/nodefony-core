@@ -35,10 +35,13 @@ export class BrowserWsTransport implements IRealtimeTransport {
     this.ws = ws;
     ws.addEventListener("open", () => this._onOpen?.());
     // Tout est relayé, binaire compris : trier ici rendait l'écart invisible.
-    // C'est l'endpoint qui écarte, et qui le dit (#451).
-    ws.addEventListener("message", (ev: MessageEvent<RealtimeFrameData>) =>
-      this._onMessage?.(ev.data),
-    );
+    // C'est l'endpoint qui écarte, et qui le dit (#451). Les octets sortent en
+    // `Uint8Array`, le type du contrat des deux côtés : une vue sur l'`ArrayBuffer`
+    // reçu, sans copie.
+    ws.addEventListener("message", (ev: MessageEvent<string | ArrayBuffer>) => {
+      const data = ev.data;
+      this._onMessage?.(typeof data === "string" ? data : new Uint8Array(data));
+    });
     ws.addEventListener("close", (ev: CloseEvent) => {
       this.ws = null;
       this._onClose?.(ev.code, ev.reason);

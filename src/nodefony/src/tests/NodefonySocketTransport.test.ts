@@ -223,8 +223,8 @@ describe("NodefonySocket — trames binaires et illisibles (#451)", () => {
 
   it("binaire sans lecteur → compté, UNE notice nommée, pas une par trame", async () => {
     const { client, transport, notices } = await connected();
-    transport.fireMessage(new Uint8Array([1, 2, 3]).buffer);
-    transport.fireMessage(new Uint8Array([4]).buffer);
+    transport.fireMessage(new Uint8Array([1, 2, 3]));
+    transport.fireMessage(new Uint8Array([4]));
     expect(client.binaryFramesDiscarded).to.equal(2);
     const binaires = notices.filter((n) => n.message.includes("binaire"));
     expect(binaires).to.have.length(1);
@@ -247,9 +247,9 @@ describe("NodefonySocket — trames binaires et illisibles (#451)", () => {
 
   it("onBinary → la trame est remise intacte, ni comptée ni signalée ; dispose → de nouveau écartée", async () => {
     const { client, transport, notices } = await connected();
-    const recues: (ArrayBuffer | Blob)[] = [];
+    const recues: Uint8Array[] = [];
     const dispose = client.onBinary((d) => recues.push(d));
-    const octets = new Uint8Array([0xca, 0xfe]).buffer;
+    const octets = new Uint8Array([0xca, 0xfe]);
     transport.fireMessage(octets);
     expect(recues).to.have.length(1);
     expect(recues[0]).to.equal(octets);
@@ -300,6 +300,14 @@ describe("BrowserWsTransport — relaie le binaire (#451)", () => {
     const octets = new Uint8Array([9]).buffer;
     ws.dispatchEvent(new MessageEvent("message", { data: "{}" }));
     ws.dispatchEvent(new MessageEvent("message", { data: octets }));
-    expect(recues).to.deep.equal(["{}", octets]);
+    expect(recues).to.have.length(2);
+    expect(recues[0]).to.equal("{}");
+    // Le binaire sort en `Uint8Array`, une vue sur l'`ArrayBuffer` reçu — sans copie.
+    const vue = recues[1];
+    expect(vue).to.be.instanceOf(Uint8Array);
+    if (!(vue instanceof Uint8Array)) return;
+    expect(vue.buffer).to.equal(octets);
+    expect(vue.byteOffset).to.equal(0);
+    expect(Array.from(vue)).to.deep.equal([9]);
   });
 });
