@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T07:05:32.319Z",
+  "generatedAt": "2026-10-18T08:24:39.732Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 4,
+      "closed": 5,
       "dueOn": null,
       "number": 8,
-      "open": 3,
+      "open": 2,
       "title": "outillage-agents"
     },
     {
@@ -302,8 +302,8 @@
       "number": 613,
       "title": "docs(ancres): ancrer sur le symbole, pas sur la ligne",
       "url": "https://github.com/nodefony/nodefony-core/issues/613",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "outillage-agents",
       "priorite": "P1 — figé à la création",
       "jours": 2,
