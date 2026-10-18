@@ -4687,8 +4687,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 486,
-        "approxTokens": 9333
+        "bodyLines": 483,
+        "approxTokens": 8816
       },
       "requires": [
         "base de données"
@@ -4754,60 +4754,9 @@
           },
           {
             "path": "scripts/anchor-context.mjs",
-            "purpose": "Règles de CONTEXTE d'une ancre, partagées par anchor-check (qui juge) et anchor-fix (qui recale). Écrites deux fois, elles divergeaient : le juge découpait une ligne là où le réparateur ne la découpait pas, et recalait une ancre juste sur le symbole de sa voisine.",
+            "purpose": "Règles de CONTEXTE d'une ancre, partagées par anchor-check (qui juge) et anchor-migrate (qui convertit). Écrites deux fois, elles divergeaient : le juge découpait une ligne là où le réparateur ne la découpait pas, et recalait une ancre juste sur le symbole de sa voisine.",
             "usage": [],
             "options": [],
-            "env": [],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
-            "path": "scripts/anchor-fix.mjs",
-            "purpose": "Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. Entrée : la sortie d'anchor-check.mjs (stdin). Sortie : édite les .md en place. Règle : on ne déplace une ancre que si UNE seule ligne de définition plausible est trouvée pour les symboles cités — sinon on laisse et on le signale.",
-            "usage": [],
-            "options": [
-              {
-                "flag": "--apply",
-                "help": ""
-              },
-              {
-                "flag": "--occurrences",
-                "help": ""
-              },
-              {
-                "flag": "--suggest",
-                "help": ""
-              }
-            ],
-            "env": [
-              {
-                "name": "APPLY",
-                "help": ""
-              },
-              {
-                "name": "NF_BOOT_TIMEOUT_MS",
-                "help": ""
-              }
-            ],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
-            "path": "scripts/anchor-fix.selftest.mjs",
-            "purpose": "Éprouve `anchor-fix.mjs` sur un dépôt JETABLE : chaque ancre SUSPECTE doit être recalée sur la déclaration du symbole qu'ELLE prouve — jamais sur celui d'une ancre voisine. Un outil qui corrige qu'on n'a jamais vu se tromper n'est pas un outil, c'est un pari.",
-            "usage": [
-              "`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-fix.selftest.mjs"
-            ],
-            "options": [
-              {
-                "flag": "--apply",
-                "help": ""
-              },
-              {
-                "flag": "--lines",
-                "help": ""
-              }
-            ],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -4864,88 +4813,6 @@
               },
               {
                 "flag": "--report",
-                "help": ""
-              }
-            ],
-            "env": [],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
-            "path": "scripts/anchor-pair-check.mjs",
-            "purpose": "anchor-pair-check.mjs — après un refactor, confronte chaque ancre `<Fichier>.ts:N` RECALÉE dans l'arbre de travail : le texte de la ligne visée AVANT (à la révision de base) doit être identique au texte de la ligne visée APRÈS (dans l'arbre). Déterministe, exhaustif sur le diff.",
-            "usage": [
-              "node .claude/skills/nodefony-documentation/scripts/anchor-pair-check.mjs src/nodefony/src/kernel/Kernel.ts",
-              "node .claude/skills/nodefony-documentation/scripts/anchor-pair-check.mjs src/nodefony/src/kernel/Kernel.ts --base origin/dev"
-            ],
-            "options": [
-              {
-                "flag": "--base",
-                "help": "révision où les ancres étaient justes (défaut : HEAD)"
-              }
-            ],
-            "env": [],
-            "output": "« identiques: N · écarts: M » puis chaque écart (avant/après) ; exit 1 s'il y a un écart",
-            "selfDocumented": true
-          },
-          {
-            "path": "scripts/anchor-remap.mjs",
-            "purpose": "Recale les ancres `fichier.ts:N` d'une page de doc par le GIT DIFF, pas par symbole : une ancre juste à la révision `--base` est décalée d'exactement le nombre de lignes que le code a gagné ou perdu AVANT elle. Déterministe — là où `anchor-fix.mjs` doit deviner une ligne à partir des mots qui l'entourent (un en-tête `Retry-After`, un `try`, un littéral ne se retrouvent pas).",
-            "usage": [
-              "node anchor-check.mjs --all <pages…> | node anchor-remap.mjs <repo> --base <rév> [--apply]"
-            ],
-            "options": [
-              {
-                "flag": "--all",
-                "help": ""
-              },
-              {
-                "flag": "--apply",
-                "help": ""
-              },
-              {
-                "flag": "--base",
-                "help": ""
-              },
-              {
-                "flag": "--name-status",
-                "help": ""
-              },
-              {
-                "flag": "--no-ext-diff",
-                "help": ""
-              },
-              {
-                "flag": "--quiet",
-                "help": ""
-              }
-            ],
-            "env": [
-              {
-                "name": "APPLY",
-                "help": ""
-              },
-              {
-                "name": "BASE",
-                "help": ""
-              }
-            ],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
-            "path": "scripts/anchor-remap.selftest.mjs",
-            "purpose": "Éprouve `anchor-remap.mjs` sur un dépôt JETABLE : une ancre juste à la base doit glisser d'EXACTEMENT ce que le code a gagné avant elle — ni plus, ni deux fois.",
-            "usage": [
-              "`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-remap.selftest.mjs"
-            ],
-            "options": [
-              {
-                "flag": "--apply",
-                "help": ""
-              },
-              {
-                "flag": "--base",
                 "help": ""
               }
             ],
@@ -5232,7 +5099,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "486",
+            "detail": "483",
             "advisory": true
           }
         ]

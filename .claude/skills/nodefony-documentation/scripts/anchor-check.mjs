@@ -14,7 +14,7 @@
  *
  * SUSPECT bloque, INDÉCIS non. Un SUSPECT est actionnable — un des symboles cités
  * existe ailleurs dans le fichier, l'ancre vise la bonne cible à la mauvaise ligne,
- * et `anchor-fix.mjs` la recale par symbole. Rapporté sans échouer, il s'accumulait :
+ * et `anchor-migrate.mjs` la convertit en ancre par symbole. Rapporté sans échouer, il s'accumulait :
  * 91 dérives recalées d'un bloc, et huit de retour au premier refactor suivant.
  * INDÉCIS veut dire que le gate ne sait pas quoi chercher : bloquer dessus serait
  * crier faux.
@@ -39,7 +39,7 @@ const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
 }).trim();
 // `--all` : liste AUSSI les ancres jugées justes (`[ANCHOR] l.N ref → fichier`),
-// pour `anchor-remap.mjs` — une ancre décalée qui tombe par hasard sur une
+// pour un outil de recalage — une ancre décalée qui tombe par hasard sur une
 // ligne plausible n'est pas SUSPECTE, et resterait fausse sans le dire.
 const ALL = process.argv.includes("--all");
 // `--json` : une ligne JSON par ancre, verdict compris, sur stdout — le bilan
@@ -195,7 +195,7 @@ const ANCHOR_RE =
  * Une ancre courte `` `:N` `` reprend le fichier de l'ancre longue qui la
  * précède (sur la ligne, ou sur celle du dessus qu'elle continue). Sans parent,
  * elle ne désigne rien qu'on sache ouvrir : elle est laissée de côté. Son
- * `label` est l'ancre RÉSOLUE (`f.ts:N`), que lit anchor-fix.
+ * `label` est l'ancre RÉSOLUE (`f.ts:N`), que lit anchor-migrate.
  */
 function anchorsOfLine(line, mdLine, decalage) {
   const full = [...mdLine.matchAll(ANCHOR_RE)];
@@ -295,7 +295,7 @@ function segmentDeLAncre(mdLine, offset, longueur) {
   let suivante = false;
   // La forme COURTE `:N` (même fichier que l'ancre d'avant) est une ancre à
   // part entière : l'ignorer ici donnait son symbole à l'ancre longue qui la
-  // précède — SUSPECT à tort, puis recalée dessus par anchor-fix.
+  // précède — SUSPECT à tort, puis recalée dessus par l'ancien réparateur.
   for (const m of [
     ...mdLine.matchAll(ANCHOR_RE),
     ...mdLine.matchAll(SHORT_ANCHOR_RE),
@@ -720,8 +720,8 @@ if (orphans) {
 }
 if (su) {
   bilan(
-    `   (SUSPECT = l'ancre a dérivé. Recaler : \`npm run doc:anchors:fix\` pour le corpus,\n` +
-      `    ou \`node anchor-check.mjs <pages> | node anchor-fix.mjs . --apply\` ; le reste se relit à la main.)`,
+    `   (SUSPECT = l'ancre a dérivé. Convertir : \`npm run doc:anchors:fix\` pour le corpus,\n` +
+      `    ou \`node anchor-migrate.mjs <pages> --apply\`, qui la convertit en ancre par symbole.)`,
   );
 }
 if (lines) {

@@ -1,5 +1,5 @@
 // Règles de CONTEXTE d'une ancre, partagées par anchor-check (qui juge) et
-// anchor-fix (qui recale). Écrites deux fois, elles divergeaient : le juge
+// anchor-migrate (qui convertit). Écrites deux fois, elles divergeaient : le juge
 // découpait une ligne là où le réparateur ne la découpait pas, et recalait une
 // ancre juste sur le symbole de sa voisine.
 
