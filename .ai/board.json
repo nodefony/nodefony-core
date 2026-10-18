@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T20:26:07.540Z",
+  "generatedAt": "2026-10-18T20:57:03.825Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7,7 +7,7 @@
       "closed": 1,
       "dueOn": null,
       "number": 3,
-      "open": 37,
+      "open": 44,
       "title": "10.2.0"
     },
     {
@@ -49,7 +49,7 @@
       "closed": 147,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 29,
+      "open": 23,
       "title": "10.0.0-beta"
     },
     {
@@ -4819,108 +4819,6 @@
       "labels": []
     },
     {
-      "number": 445,
-      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/445",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 7,
-      "ordre": 6.01,
-      "debut": "2026-11-09",
-      "cible": "2026-11-17",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 446,
-      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
-      "url": "https://github.com/nodefony/nodefony-core/issues/446",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.02,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 447,
-      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/447",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.03,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 448,
-      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/448",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 6.04,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 449,
-      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
-      "url": "https://github.com/nodefony/nodefony-core/issues/449",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 6.05,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 450,
-      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
-      "url": "https://github.com/nodefony/nodefony-core/issues/450",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 3,
-      "ordre": 6.06,
-      "debut": "2026-11-13",
-      "cible": "2026-11-17",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
       "number": 479,
       "title": "ci: empêcher un process détaché de figer les jobs Windows après leur succès",
       "url": "https://github.com/nodefony/nodefony-core/issues/479",
@@ -8206,20 +8104,6 @@
       ]
     },
     {
-      "number": 239,
-      "title": "feat(realtime): declarer un canal parametre par un motif",
-      "url": "https://github.com/nodefony/nodefony-core/issues/239",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.2.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 159,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
       "number": 458,
       "title": "docs(readme): orienter l'évaluateur vers une application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/458",
@@ -8306,6 +8190,20 @@
       "labels": []
     },
     {
+      "number": 624,
+      "title": "docs(adr): figer le contrat du modèle média partagé et de la capture",
+      "url": "https://github.com/nodefony/nodefony-core/issues/624",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1.5,
+      "ordre": 162.6,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 628,
       "title": "feat(realtime): tenir le serveur au même contrat que le client",
       "url": "https://github.com/nodefony/nodefony-core/issues/628",
@@ -8315,20 +8213,6 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 162.8,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 629,
-      "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/629",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.2.0",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 162.9,
       "debut": null,
       "cible": null,
       "labels": []
@@ -8378,6 +8262,20 @@
       ]
     },
     {
+      "number": 239,
+      "title": "feat(realtime): declarer un canal parametre par un motif",
+      "url": "https://github.com/nodefony/nodefony-core/issues/239",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 163.05,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 622,
       "title": "feat(realtime): admettre un abonné de canal par son identité",
       "url": "https://github.com/nodefony/nodefony-core/issues/622",
@@ -8404,6 +8302,158 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 625,
+      "title": "feat(media): livrer le modèle média partagé, sans dépendance au navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/625",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 163.3,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 631,
+      "title": "test(media): lancer les tests audio dans un vrai navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/631",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 163.4,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 629,
+      "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/629",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 163.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 626,
+      "title": "feat(realtime): transcrire la voix du navigateur sur la socket",
+      "url": "https://github.com/nodefony/nodefony-core/issues/626",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 163.6,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 445,
+      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/445",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 7,
+      "ordre": 163.7,
+      "debut": "2026-11-09",
+      "cible": "2026-11-17",
+      "labels": [
+        "reportable"
+      ]
+    },
+    {
+      "number": 446,
+      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/446",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 163.71,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
+      "labels": [
+        "reportable"
+      ]
+    },
+    {
+      "number": 447,
+      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/447",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 163.72,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
+      "labels": [
+        "reportable"
+      ]
+    },
+    {
+      "number": 448,
+      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/448",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 163.73,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
+      "labels": [
+        "reportable"
+      ]
+    },
+    {
+      "number": 449,
+      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/449",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 163.74,
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
+      "labels": [
+        "reportable"
+      ]
+    },
+    {
+      "number": 450,
+      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/450",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 163.75,
+      "debut": "2026-11-13",
+      "cible": "2026-11-17",
+      "labels": [
+        "reportable"
+      ]
     },
     {
       "number": 244,
@@ -8448,48 +8498,6 @@
       "labels": [
         "Librairie Cliente"
       ]
-    },
-    {
-      "number": 624,
-      "title": "docs(adr): figer le contrat du modèle média partagé et de la capture",
-      "url": "https://github.com/nodefony/nodefony-core/issues/624",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.2.0",
-      "priorite": "P2 — décision",
-      "jours": 1.5,
-      "ordre": 165.1,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 625,
-      "title": "feat(media): livrer le modèle média partagé, sans dépendance au navigateur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/625",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.2.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 165.2,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 626,
-      "title": "feat(realtime): transcrire la voix du navigateur sur la socket",
-      "url": "https://github.com/nodefony/nodefony-core/issues/626",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.2.0",
-      "priorite": "P2 — décision",
-      "jours": 3,
-      "ordre": 165.3,
-      "debut": null,
-      "cible": null,
-      "labels": []
     },
     {
       "number": 246,

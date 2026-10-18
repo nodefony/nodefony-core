@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-18 20:26** (UTC).
+> Empreinte prise le **2026-10-18 20:57** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,10 +21,10 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████████░░` 84% | 147 | 29 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 86% | 147 | 23 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
-| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 37 | — |
+| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 2% | 1 | 44 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 5 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
@@ -36,7 +36,7 @@
 
 Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 29 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,7 +105,7 @@ Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 29 ouverts
+## Jalon 10.0.0-beta — 23 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -130,12 +130,6 @@ Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 5.09 | P2 — décision | 0.5 | — | #600 | feat(devkit): lire le journal d'une session Codex interactive au banc |
 | 5.1 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
 | 5.11 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
-| 6.01 | P2 — décision | 7 | 2026-11-09 → 11-17 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 6.02 | P2 — décision | 1 | 2026-11-09 → 11-09 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 6.03 | P2 — décision | 1 | 2026-11-10 → 11-10 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 6.04 | P1 — figé à la création | 1 | 2026-11-11 → 11-11 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 6.05 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 6.06 | P1 — figé à la création | 3 | 2026-11-13 → 11-17 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 6.09 | P2 — décision | 1 | — | #585 | feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire |
 | 6.1 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 
@@ -166,7 +160,7 @@ Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 918 | P2 — décision | 2 | — | #615 | feat(cli): ajouter un type de champ chiffré au repos à create entity |
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
 
-## Jalon 10.2.0 — 37 ouverts
+## Jalon 10.2.0 — 44 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -194,19 +188,26 @@ Ordre 4.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 153 | P2 — décision | 1 | — | #233 | feat(kernel): faire tourner un travail batch et periodique sans serveur |
 | 156 | P2 — décision | 1 | — | #236 | feat(studio): livrer la vue Services et l'audit en direct |
 | 157 | P2 — décision | 1 | — | #237 | test(studio): eprouver la console d'administration de bout en bout |
-| 159 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
 | 161 | P2 — décision | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
 | 162 | P2 — décision | 2 | — | #502 | feat(orm): propager la transaction en cours sans la passer à chaque dépôt |
 | 162.5 | P2 — décision | 2 | — | #627 | docs(adr): figer l'architecture de la socket temps réel |
+| 162.6 | P2 — décision | 1.5 | — | #624 | docs(adr): figer le contrat du modèle média partagé et de la capture |
 | 162.8 | P2 — décision | 2 | — | #628 | feat(realtime): tenir le serveur au même contrat que le client |
-| 162.9 | P2 — décision | 2 | — | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
 | 163 | P2 — décision | 3 | — | #618 | feat(realtime): router les trames binaires vers leur canal |
+| 163.05 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
 | 163.1 | P2 — décision | 1 | — | #622 | feat(realtime): admettre un abonné de canal par son identité |
 | 163.2 | P2 — décision | 2 | — | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
-| 165.1 | P2 — décision | 1.5 | — | #624 | docs(adr): figer le contrat du modèle média partagé et de la capture |
-| 165.2 | P2 — décision | 1 | — | #625 | feat(media): livrer le modèle média partagé, sans dépendance au navigateur |
-| 165.3 | P2 — décision | 3 | — | #626 | feat(realtime): transcrire la voix du navigateur sur la socket |
+| 163.3 | P2 — décision | 1 | — | #625 | feat(media): livrer le modèle média partagé, sans dépendance au navigateur |
+| 163.4 | P2 — décision | 1 | — | #631 | test(media): lancer les tests audio dans un vrai navigateur |
+| 163.5 | P2 — décision | 2 | — | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
+| 163.6 | P2 — décision | 3 | — | #626 | feat(realtime): transcrire la voix du navigateur sur la socket |
+| 163.7 | P2 — décision | 7 | 2026-11-09 → 11-17 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 163.71 | P2 — décision | 1 | 2026-11-09 → 11-09 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 163.72 | P2 — décision | 1 | 2026-11-10 → 11-10 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 163.73 | P1 — figé à la création | 1 | 2026-11-11 → 11-11 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 163.74 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 163.75 | P1 — figé à la création | 3 | 2026-11-13 → 11-17 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 
 ## Jalon 10.0.0 — 2 ouverts
 
