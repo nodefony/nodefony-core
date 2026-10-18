@@ -333,13 +333,16 @@ export const request = (method, path, jar, opts = {}) =>
  * @param {string} route - la route à visiter d'abord ; le cookie vaut pour tout
  *   le site (`Path=/`), n'importe quelle route protégée suffit à se munir.
  * @param {string} [perimetre] - préfixe des routes du repli (défaut : `route`).
+ * @param {{port?: string|number}} [opts] - transmis à {@link request} : un banc
+ *   qui écoute sur ses propres ports (banc de schéma) le donne, sinon le jeton
+ *   serait demandé à une autre application.
  * @returns {Promise<void>}
  */
-export const semerJeton = async (jar, route, perimetre = route) => {
-  await request("GET", route, jar);
+export const semerJeton = async (jar, route, perimetre = route, opts = {}) => {
+  await request("GET", route, jar, opts);
   if (jar.csrfToken()) return;
   for (const chemin of routesSuresDuPerimetre(perimetre, route)) {
-    const r = await request("GET", chemin, jar);
+    const r = await request("GET", chemin, jar, opts);
     if (r.error) continue;
     if (jar.csrfToken()) return;
   }

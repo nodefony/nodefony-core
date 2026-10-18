@@ -3927,6 +3927,10 @@
                 "help": ""
               },
               {
+                "name": "MOI",
+                "help": ""
+              },
+              {
                 "name": "NF_DEVKIT_BENCH_AGENT",
                 "help": ""
               },

@@ -132,6 +132,8 @@ import {
   packTarballs,
 } from "./lib/isolation.mjs";
 import { envAgent, envDecor } from "./lib/env-decor.mjs";
+import { CookieJar, semerJeton } from "./lib/http-probe.mjs";
+import { MOI } from "./lib/identites.mjs";
 import { DatabaseSync } from "node:sqlite";
 
 /** Racine du dépôt, trouvée en REMONTANT — un skill se déplace, un `..` non. */
@@ -1666,9 +1668,9 @@ async function judgeHttp(app, runDir, table, chain) {
   const login = await call("POST", "/nodefony/security/api/auth/login", {
     body: { username: "admin", password: BENCH_ADMIN_PASSWORD },
   });
-  const raw = login.headers.getSetCookie?.() ?? [];
-  const cookie = raw.map((c) => c.split(";")[0]).join("; ");
-  if (login.status >= 300 || !cookie) {
+  const jar = new CookieJar();
+  jar.absorb(login.headers.getSetCookie?.() ?? []);
+  if (login.status >= 300 || !jar.header()) {
     // `decor` : ce n'est pas l'application qui échoue, c'est la mesure qui
     // n'a pas lieu — la sortie le dit par 2, jamais par un 0.
     probes.push({
@@ -1684,6 +1686,28 @@ async function judgeHttp(app, runDir, table, chain) {
     );
     return probes;
   }
+
+  // ── 3bis. Se munir du jeton anti-CSRF, comme un vrai client — décor, pas
+  //    exigence. Le pare-feu le réclame sur toute écriture de la zone : sans
+  //    lui, chaque POST rendait 403 (« Missing or invalid CSRF token ») et le
+  //    juge accusait l'agent d'une création qu'il n'avait jamais pu tenter.
+  //    D'abord la ressource, puis la route que les tests générés emploient.
+  await semerJeton(jar, chain.route, chain.route, { port: PORTS.NF_PORT });
+  if (!jar.csrfToken()) {
+    await semerJeton(jar, MOI, MOI, { port: PORTS.NF_PORT });
+  }
+  const cookie = jar.header();
+  const csrf = jar.csrfToken();
+  if (!csrf) {
+    probes.push({
+      name: "jeton anti-CSRF obtenu (décor)",
+      ok: false,
+      detail: `ni GET ${chain.route} ni GET ${MOI} n'ont semé « csrf-token » — écritures NON jugées`,
+      observe: false,
+      decor: true,
+    });
+  }
+  const writeHeaders = csrf ? { "x-csrf-token": csrf } : {};
 
   // ── 4. Sécurité, versant positif : sans lui, « tout casser » passerait.
   const authed = await call("GET", chain.route, { cookie });
@@ -1704,9 +1728,21 @@ async function judgeHttp(app, runDir, table, chain) {
       : `réponse non JSON (${page.status})`,
   );
 
+  if (!csrf) {
+    writeFileSync(
+      path.join(runDir, "http-trace.json"),
+      JSON.stringify(trace, null, 2),
+    );
+    return probes;
+  }
+
   // ── 6. Création.
   const { body, skipped } = sampleBody(table);
-  const created = await call("POST", chain.route, { cookie, body });
+  const created = await call("POST", chain.route, {
+    cookie,
+    body,
+    headers: writeHeaders,
+  });
   add(
     "création → 201 avec un en-tête Location",
     created.status === 201 && Boolean(created.headers.get("location")),
@@ -1720,6 +1756,7 @@ async function judgeHttp(app, runDir, table, chain) {
   // ── 7. Validation : une entrée absurde ne doit pas entrer.
   const bad = await call("POST", chain.route, {
     cookie,
+    headers: writeHeaders,
     body: {
       ...body,
       ...Object.fromEntries(Object.keys(body).map((k) => [k, 42])),
@@ -1742,6 +1779,7 @@ async function judgeHttp(app, runDir, table, chain) {
     );
     const patched = await call("PATCH", loc, {
       cookie,
+      headers: writeHeaders,
       body: Object.fromEntries(Object.entries(body).slice(0, 1)),
     });
     add(
@@ -1749,7 +1787,7 @@ async function judgeHttp(app, runDir, table, chain) {
       patched.status >= 200 && patched.status < 300,
       `PATCH → ${patched.status}`,
     );
-    const del = await call("DELETE", loc, { cookie });
+    const del = await call("DELETE", loc, { cookie, headers: writeHeaders });
     add("suppression → 204", del.status === 204, `DELETE → ${del.status}`);
     const gone = await call("GET", loc, { cookie });
     add(
@@ -1766,12 +1804,12 @@ async function judgeHttp(app, runDir, table, chain) {
   const first = await call("POST", chain.route, {
     cookie,
     body,
-    headers: { "idempotency-key": key },
+    headers: { ...writeHeaders, "idempotency-key": key },
   });
   const again = await call("POST", chain.route, {
     cookie,
     body,
-    headers: { "idempotency-key": key },
+    headers: { ...writeHeaders, "idempotency-key": key },
   });
   add(
     "clé d'idempotence honorée (rejeu = même réponse)",
