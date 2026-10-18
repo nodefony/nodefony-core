@@ -41,7 +41,12 @@ fi
 #    tombe dans un autre workspace. Le symptôme ne dit jamais son nom (« describe is not
 #    defined », TS5058, « 0 test », les tests d'un autre module).
 #    Formes tolérées : /absolu, ~, "$VAR", `cd -`. Seul le chemin relatif nu est refusé.
-if printf '%s' "$cmd" | grep -qE '(^|[;&|][[:space:]]*)cd[[:space:]]+[^/~$"'"'"'-]'; then
+#    Sans objet quand Claude Code RAMÈNE le shell à la racine du projet après chaque commande
+#    (`CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1`, posé dans `.claude/settings.json`) : un
+#    `cd` relatif part alors toujours de la racine, il n'y a plus de dérive à craindre. Cette
+#    règle pesait les deux tiers des refus mesurés — autant de tours perdus.
+if [ "${CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR:-}" != "1" ] &&
+  printf '%s' "$cmd" | grep -qE '(^|[;&|][[:space:]]*)cd[[:space:]]+[^/~$"'"'"'-]'; then
   deny "\`cd\` relatif : le cwd persiste entre les appels Bash et dérive — la commande suivante s'exécutera peut-être ailleurs, et l'erreur ne le dira pas. Utiliser un chemin ABSOLU dans le MÊME appel : \`cd /Users/cci/repository/nodefony-core/<...> && <commande>\`."
 fi
 
@@ -60,11 +65,14 @@ fi
 #    rien et passent ; sur un arbre SALE ils emportent du travail, et le remède est une
 #    action légitime — commiter — jamais une échappatoire à retenir.
 DESTRUCTIF='(^|[;&|(])[[:space:]]*git([[:space:]]+(-C[[:space:]]+[^[:space:]]+|-c[[:space:]]+[^[:space:]]+|--no-pager|--git-dir=[^[:space:]]+|--work-tree=[^[:space:]]+))*[[:space:]]+(checkout|restore|reset|clean|rebase|stash)([[:space:]]|$)'
-# Les formes de LECTURE de stash ne peuvent rien perdre — mais seules, sans rien enchaîner.
-STASH_LECTURE='^[[:space:]]*git([[:space:]]+-[^[:space:]]+)*[[:space:]]+stash[[:space:]]+(list|show)[^;&|`]*$'
+# Les formes de LECTURE de stash ne peuvent rien perdre : on les RETIRE de la commande avant
+# de chercher un geste destructif. `git stash list | head` passe alors ; `git stash list &&
+# git reset --hard` garde son `reset` et mord. Les exiger seules refusait la première —
+# un tour perdu pour une lecture.
+STASH_LECTURE='git([[:space:]]+-[^[:space:]]+)*[[:space:]]+stash[[:space:]]+(list|show)[^;&|`]*'
+sans_lecture=$(printf '%s' "$cmd" | sed -E "s/$STASH_LECTURE//g")
 
-if printf '%s' "$cmd" | grep -qE "$DESTRUCTIF" &&
-  ! printf '%s' "$cmd" | grep -qE "$STASH_LECTURE"; then
+if printf '%s' "$sans_lecture" | grep -qE "$DESTRUCTIF"; then
   sale=$(git -C "${cwd:-.}" status --porcelain 2>/dev/null | head -20)
   if [ -n "$sale" ]; then
     n=$(git -C "${cwd:-.}" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
@@ -133,6 +141,13 @@ if [[ $cmd =~ $re_cat ]]; then
   case $f in /*) p=$f ;; *) p="${cwd:-.}/$f" ;; esac
   n=$( [ -f "$p" ] && wc -l <"$p" | tr -d ' ' || echo 0)
   if [ "$n" -gt 150 ]; then lecture_refusee "fichier entier, $n lignes" "$f"; fi
+fi
+
+# 7. Pas de Python dans l'outillage : Node (`.mjs`/`.ts`) ou rien. La règle était écrite et
+#    n'a pas tenu — 3 993 appels `python3` mesurés, dont 167 en échec. Un script Python ne
+#    part dans aucun gate, n'est lu par aucun autotest, et se réécrit à chaque session.
+if printf '%s' "$cmd" | grep -qE '(^|[;&|(`]|do|then|\$\()[[:space:]]*python3?([[:space:]]|$)'; then
+  deny "REFUS — pas de Python dans l'outillage de ce dépôt : Node ou rien. Un calcul ponctuel : \`node -e '…'\` ; un script qui resservira : un \`.mjs\` dans les \`scripts/\` du skill concerné, avec son autotest. Une modification de texte : l'outil Edit."
 fi
 
 exit 0

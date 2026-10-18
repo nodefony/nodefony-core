@@ -96,6 +96,8 @@
   "env": {
     "NO_COLOR": "1",
     "FORCE_COLOR": "0",
-    "TURBO_UI": "false"
+    "TURBO_UI": "false",
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1",
+    "NPM_CONFIG_LOGLEVEL": "warn"
   }
 }

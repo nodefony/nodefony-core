@@ -13,6 +13,9 @@
 set -uo pipefail
 
 H="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guard-bash.sh"
+# Le banc hérite de l'environnement de qui le lance — dont, sous Claude Code, le retour
+# à la racine que `.claude/settings.json` pose. La règle 2 en dépend : on part SANS.
+unset CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR
 R=$(mktemp -d)
 trap 'rm -rf "$R"' EXIT
 
@@ -50,7 +53,7 @@ for c in 'git reset --hard' 'git clean -fd' 'git stash' 'git stash push -m x' \
 echo "=== ARBRE SALE — doivent PASSER (lecture seule, ou geste qui ne perd rien) ==="
 for c in 'git stash list' 'git stash show -p' 'git status --short' 'git log -6' \
   'git add -A' 'git commit -m x' 'git diff --stat' 'git push origin main' \
-  'echo "ne jamais git reset"'; do t PASSE "$c"; done
+  'echo "ne jamais git reset"' 'git stash list | head -1' 'git stash show -p | wc -l'; do t PASSE "$c"; done
 
 echo "=== push --force — refus inconditionnel (l'historique distant, lui, n'a pas d'état local) ==="
 for c in 'git push --force origin main' 'git push -f' 'git push --force-with-lease'; do t deny "$c"; done
@@ -105,6 +108,19 @@ for c in "sed -n '100,140p' src/x.ts" 'sed -n 1,500p notes.md' 'cat petit.ts' \
   "sed -i 's/a/b/' x.ts"; do
   t PASSE "$c"
 done
+
+echo "=== règle 2 — retour à la racine ACTIF (verdict injecté) : cd relatif doit PASSER ==="
+export CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1
+t PASSE 'cd src/packages && ls'
+t PASSE 'rg -n "cd relatif\|cd ok" x.sh'
+unset CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR
+
+echo "=== règle 7 — Python : doit REFUSER ==="
+for c in 'python3 x.py' 'python -c "print(1)"' 'ls && python3 -I a.py' '$(python3 -V)'; do
+  t deny "$c"
+done
+echo "=== règle 7 — mention, recherche, Node : doivent PASSER ==="
+for c in 'echo python3' 'rg -n python3 docs/' 'node -e 1' 'ls pythonic/'; do t PASSE "$c"; done
 
 echo
 if [ "$ko" -eq 0 ]; then
