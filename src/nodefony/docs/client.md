@@ -460,6 +460,28 @@ transport** injectée en second argument de son constructeur
 la machine à états **sans ouvrir une seule socket**. C'est ce qui rend les 177 cas de test de cette
 page possibles hors navigateur.
 
+Le transport relaie **tout**, binaire compris (`binaryType = "arraybuffer"`) : il ne trie pas, parce
+qu'un tri à cet étage rendait l'écart invisible pour tout ce qui est au-dessus.
+
+### Le binaire — écarté bruyamment, ou lu par toi
+
+Le protocole temps réel est du **JSON-RPC texte** : il ne sait pas à quel canal une trame binaire
+appartient, et ne la route donc pas. Ce qui se passe à la réception, selon le cas :
+
+| Trame reçue                 | Sans lecteur                                                           | Avec `onBinary(handler)`                      |
+| --------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
+| Binaire                     | écartée, comptée (`binaryFramesDiscarded`), **une** notice `-32700`    | remise telle quelle (`ArrayBuffer`), en ordre |
+| Texte qui n'est pas du JSON | écartée, comptée (`malformedFramesDiscarded`), **une** notice `-32700` | idem — `onBinary` ne lit que le binaire       |
+
+La notice part à la PREMIÈRE trame de chaque nature, jamais à chaque trame : un flux à 60 Hz ne
+devient pas soixante notices par seconde. En sortie, `sendBinary(octets)` émet sans sérialiser
+(`ArrayBuffer`, vue typée ou `Blob`) et suit la règle de `send` : transport fermé → `false`, compté
+dans `framesUnsent` (`client/realtime/NodefonySocket.ts#NodefonySocket.onBinary`,
+`client/realtime/NodefonySocket.ts#NodefonySocket.sendBinary`).
+
+`onBinary` est un **point d'extension**, pas un protocole : la corrélation d'une trame (quel canal,
+quelle requête) appartient alors à l'application, par exemple par un en-tête qu'elle définit.
+
 ### Ce que le client alloue — et ce qu'il n'alloue pas
 
 Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choix visibles au code :
@@ -872,22 +894,23 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                        | Cause (dans le code)                                                                                                         | Correction                                                                                                       |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                                              | Importer depuis `nodefony/client`                                                                                |
-| `has no exported member 'NodefonySocket'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                                   | Importer explicitement depuis `nodefony/client`                                                                  |
-| `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`                              | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)                        |
-| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                                | Appeler les deux (`client/realtime/NodefonySocket.ts#NodefonySocket.subscribe`)                                  |
-| Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                                | Ne pas contourner l'API en émettant `unsubscribe` à la main                                                      |
-| Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                                         | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                                      |
-| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/NodefonySocket.ts#NodefonySocket.retryNow`) |
-| Deux connexions WebSocket pour la même page                     | Deux `new NodefonySocket(…)` au lieu de l'instance partagée                                                                  | `NodefonySocket.shared()` (`client/realtime/NodefonySocket.ts#NodefonySocket.shared`)                            |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts#NodefonySocket.send`) | Émettre après la résolution de `connect()`                                                                       |
-| La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                                     | La réserver aux canaux d'état, ou passer `enabled: false`                                                        |
-| `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts#hasAnyRole`)                                                 | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                                               |
-| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts#RoleRegistry`)                                                  | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                                           |
-| Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                                           | Protéger la route côté serveur — c'est lui l'autorité                                                            |
-| Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                                       | Déjà traité au build (`rolldown.config.ts#browserShim`) ; vérifier ses propres alias                             |
+| Symptôme                                                        | Cause (dans le code)                                                                                                                          | Correction                                                                                                       |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                                                               | Importer depuis `nodefony/client`                                                                                |
+| `has no exported member 'NodefonySocket'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                                                    | Importer explicitement depuis `nodefony/client`                                                                  |
+| `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`                                               | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)                        |
+| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                                                 | Appeler les deux (`client/realtime/NodefonySocket.ts#NodefonySocket.subscribe`)                                  |
+| Notice « Trame binaire reçue et écartée »                       | Le serveur émet du binaire, que le protocole JSON-RPC ne route pas (`client/realtime/NodefonySocket.ts#NodefonySocket.binaryFramesDiscarded`) | Le lire par `onBinary(handler)`, ou ne pas en émettre sur cette socket                                           |
+| Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                                                 | Ne pas contourner l'API en émettant `unsubscribe` à la main                                                      |
+| Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                                                          | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                                      |
+| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                                                          | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/NodefonySocket.ts#NodefonySocket.retryNow`) |
+| Deux connexions WebSocket pour la même page                     | Deux `new NodefonySocket(…)` au lieu de l'instance partagée                                                                                   | `NodefonySocket.shared()` (`client/realtime/NodefonySocket.ts#NodefonySocket.shared`)                            |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts#NodefonySocket.send`)                  | Émettre après la résolution de `connect()`                                                                       |
+| La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                                                      | La réserver aux canaux d'état, ou passer `enabled: false`                                                        |
+| `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts#hasAnyRole`)                                                                  | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                                               |
+| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts#RoleRegistry`)                                                                   | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                                           |
+| Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                                                            | Protéger la route côté serveur — c'est lui l'autorité                                                            |
+| Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                                                        | Déjà traité au build (`rolldown.config.ts#browserShim`) ; vérifier ses propres alias                             |
 
 ## 🧪 Tests & couverture
 

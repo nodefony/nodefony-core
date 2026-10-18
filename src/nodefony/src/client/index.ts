@@ -93,6 +93,8 @@ export type {
   IRealtimeTransport,
   TransportStateValue,
   RealtimeTransportFactory,
+  RealtimeFrameData,
+  RealtimeOutboundData,
 } from "../realtime/IRealtimeTransport";
 export type {
   IRealtimeSocket,

@@ -31,19 +31,39 @@ export const TransportState = {
 export type TransportStateValue =
   (typeof TransportState)[keyof typeof TransportState];
 
+/**
+ * Une frame brute telle que le transport la reçoit : du texte, ou du binaire.
+ *
+ * Le transport relaie TOUT ce qui arrive, sans trier : c'est l'endpoint qui
+ * décide de ce qu'il lit et qui rend visible ce qu'il écarte. Un transport qui
+ * filtrait lui-même faisait disparaître une trame binaire sans que personne,
+ * au-dessus, ne puisse le savoir (#451).
+ */
+export type RealtimeFrameData = string | ArrayBuffer | Blob;
+
+/**
+ * Ce qu'un transport accepte d'émettre : une frame texte déjà sérialisée, ou des
+ * octets tels quels — vue typée comprise, pour ne pas imposer de copie.
+ */
+export type RealtimeOutboundData =
+  RealtimeFrameData | ArrayBufferView<ArrayBuffer>;
+
 export interface IRealtimeTransport {
   /** Ouvre le transport (asynchrone — l'ouverture effective est signalée par `onOpen`). */
   connect(): void;
-  /** Envoie une frame brute (déjà sérialisée). No-op si non ouvert. */
-  send(raw: string): void;
+  /** Envoie une frame brute (texte sérialisé ou octets). No-op si non ouvert. */
+  send(raw: RealtimeOutboundData): void;
   /** Ferme le transport (déclenche `onClose`). */
   close(code?: number, reason?: string): void;
   /** État courant (0..3, cf {@link TransportState}). */
   readonly readyState: number;
   /** Branche le handler d'ouverture (le owner relance subscribe/heartbeat). */
   onOpen(cb: () => void): void;
-  /** Branche le pump entrant : appelé pour chaque frame brute reçue. */
-  onMessage(cb: (raw: string) => void): void;
+  /**
+   * Branche le pump entrant : appelé pour CHAQUE frame brute reçue, texte ou
+   * binaire — jamais filtrée ici (cf {@link RealtimeFrameData}).
+   */
+  onMessage(cb: (raw: RealtimeFrameData) => void): void;
   /** Branche la fermeture (le owner relance le backoff ou nettoie). */
   onClose(cb: (code: number, reason: string) => void): void;
   /** Branche les erreurs transport (la fermeture qui suit gère le reconnect). */

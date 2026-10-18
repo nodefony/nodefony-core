@@ -1,4 +1,8 @@
-import type { IRealtimeTransport } from "../../realtime/IRealtimeTransport";
+import type {
+  IRealtimeTransport,
+  RealtimeFrameData,
+  RealtimeOutboundData,
+} from "../../realtime/IRealtimeTransport";
 import { TransportState } from "../../realtime/IRealtimeTransport";
 
 /**
@@ -12,7 +16,7 @@ import { TransportState } from "../../realtime/IRealtimeTransport";
 export class BrowserWsTransport implements IRealtimeTransport {
   private ws: WebSocket | null = null;
   private _onOpen: (() => void) | null = null;
-  private _onMessage: ((raw: string) => void) | null = null;
+  private _onMessage: ((raw: RealtimeFrameData) => void) | null = null;
   private _onClose: ((code: number, reason: string) => void) | null = null;
   private _onError: ((err: unknown) => void) | null = null;
 
@@ -25,12 +29,16 @@ export class BrowserWsTransport implements IRealtimeTransport {
     // encore écrasé — mais la forme qui ne peut pas voler un gestionnaire est
     // celle qu'on veut voir recopiée.
     const ws = new WebSocket(this.url);
+    // `arraybuffer` plutôt que le défaut `blob` : la taille se lit sans attendre,
+    // et une trame binaire reste à sa place dans l'ordre des trames texte.
+    ws.binaryType = "arraybuffer";
     this.ws = ws;
     ws.addEventListener("open", () => this._onOpen?.());
-    ws.addEventListener("message", (ev: MessageEvent) => {
-      // On ne traite que le texte (frames JSON-RPC) ; le binaire est ignoré ici.
-      if (typeof ev.data === "string") this._onMessage?.(ev.data);
-    });
+    // Tout est relayé, binaire compris : trier ici rendait l'écart invisible.
+    // C'est l'endpoint qui écarte, et qui le dit (#451).
+    ws.addEventListener("message", (ev: MessageEvent<RealtimeFrameData>) =>
+      this._onMessage?.(ev.data),
+    );
     ws.addEventListener("close", (ev: CloseEvent) => {
       this.ws = null;
       this._onClose?.(ev.code, ev.reason);
@@ -40,7 +48,7 @@ export class BrowserWsTransport implements IRealtimeTransport {
     );
   }
 
-  send(raw: string): void {
+  send(raw: RealtimeOutboundData): void {
     if (this.ws?.readyState === TransportState.OPEN) this.ws.send(raw);
   }
 
@@ -55,7 +63,7 @@ export class BrowserWsTransport implements IRealtimeTransport {
   onOpen(cb: () => void): void {
     this._onOpen = cb;
   }
-  onMessage(cb: (raw: string) => void): void {
+  onMessage(cb: (raw: RealtimeFrameData) => void): void {
     this._onMessage = cb;
   }
   onClose(cb: (code: number, reason: string) => void): void {

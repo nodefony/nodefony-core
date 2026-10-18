@@ -9,6 +9,7 @@
 
 import type { IRealtimeDenied } from "../../realtime/RealtimeEventMap";
 import { IDENTITY_REFRESH_CLOSE_CODE } from "../../realtime/closeCodes";
+import { JsonRpcError } from "../../jsonrpc/index";
 
 // Contrat de protocole isomorphe (le serveur émet `realtime:denied` avec CE type).
 // Re-exporté ici pour la DX client (consommé par `deniedToNotice` + `onDenied`).
@@ -238,6 +239,36 @@ export function probeRefusalNotice(status: number): NodefonyNotice {
     message,
     source: "realtime",
     code: status,
+    ts: Date.now(),
+  };
+}
+
+/** Nature d'une trame entrante que le client écarte, faute de savoir la lire. */
+export type DiscardedFrameKind = "binary" | "malformed";
+
+/**
+ * Notice d'une trame entrante ÉCARTÉE — émise une fois par nature, jamais par
+ * trame : un flux binaire à 60 Hz ne doit pas devenir 60 notices par seconde.
+ *
+ * Le message nomme le GESTE, parce que les deux causes n'appellent pas le même :
+ * une trame binaire n'est pas une faute — le protocole temps réel est du
+ * JSON-RPC texte, et un flux binaire se lit par `onBinary()` ; une trame texte
+ * illisible, elle, est un défaut du pair. Code `-32700` (JSON-RPC 2.0 §5.1,
+ * « Parse error ») : dans les deux cas, ce qui est arrivé n'est pas du JSON.
+ *
+ * @param kind - `binary` (trame binaire sans lecteur) ou `malformed` (texte non JSON)
+ * @returns la notice à afficher
+ */
+export function discardedFrameNotice(kind: DiscardedFrameKind): NodefonyNotice {
+  return {
+    level: "warning",
+    title: "Temps réel",
+    message:
+      kind === "binary"
+        ? "Trame binaire reçue et écartée : le protocole temps réel est du JSON-RPC texte. Pour lire un flux binaire, s'y abonner avec onBinary()"
+        : "Trame texte illisible reçue et écartée : ce n'est pas du JSON (pair défaillant ?)",
+    source: "realtime",
+    code: JsonRpcError.PARSE_ERROR,
     ts: Date.now(),
   };
 }

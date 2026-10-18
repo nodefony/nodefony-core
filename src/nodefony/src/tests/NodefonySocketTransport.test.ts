@@ -1,9 +1,13 @@
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
+  type RealtimeFrameData,
+  type RealtimeOutboundData,
 } from "../realtime/IRealtimeTransport";
+import { BrowserWsTransport } from "../client/realtime/BrowserWsTransport";
+import type { NodefonyNotice } from "../client/realtime/notice";
 
 /**
  * Vérifie que l'extraction du transport ({@link IRealtimeTransport}) préserve
@@ -12,6 +16,7 @@ import {
  */
 class MockTransport implements IRealtimeTransport {
   sent: string[] = [];
+  sentBinary: RealtimeOutboundData[] = [];
   connectCalls = 0;
   closedWith: {
     code?: number | undefined;
@@ -19,15 +24,16 @@ class MockTransport implements IRealtimeTransport {
   } | null = null;
   readyState: number = TransportState.CONNECTING;
   private _onOpen: (() => void) | null = null;
-  private _onMessage: ((raw: string) => void) | null = null;
+  private _onMessage: ((raw: RealtimeFrameData) => void) | null = null;
   private _onClose: ((code: number, reason: string) => void) | null = null;
   private _onError: ((err: unknown) => void) | null = null;
 
   connect(): void {
     this.connectCalls++;
   }
-  send(raw: string): void {
-    this.sent.push(raw);
+  send(raw: RealtimeOutboundData): void {
+    if (typeof raw === "string") this.sent.push(raw);
+    else this.sentBinary.push(raw);
   }
   close(code?: number, reason?: string): void {
     this.closedWith = { code, reason };
@@ -37,7 +43,7 @@ class MockTransport implements IRealtimeTransport {
   onOpen(cb: () => void): void {
     this._onOpen = cb;
   }
-  onMessage(cb: (raw: string) => void): void {
+  onMessage(cb: (raw: RealtimeFrameData) => void): void {
     this._onMessage = cb;
   }
   onClose(cb: (code: number, reason: string) => void): void {
@@ -59,7 +65,7 @@ class MockTransport implements IRealtimeTransport {
       JSON.stringify({ jsonrpc: "2.0", method: "realtime:welcome" }),
     );
   }
-  fireMessage(raw: string): void {
+  fireMessage(raw: RealtimeFrameData): void {
     this._onMessage?.(raw);
   }
   fireClose(code = 1006, reason = ""): void {
@@ -196,5 +202,104 @@ describe("NodefonySocket — extraction transport (IRealtimeTransport)", () => {
     client.emit("evt", { x: 1 });
     expect(transports[0]!.sent).to.have.length(0);
     client.disconnect();
+  });
+});
+
+/**
+ * #451 — une trame que le client ne sait pas lire n'est plus jetée EN SILENCE.
+ * Le binaire était écarté deux fois sans un mot : par le transport du navigateur
+ * (filtre `typeof === "string"`), puis par `handleMessage`.
+ */
+describe("NodefonySocket — trames binaires et illisibles (#451)", () => {
+  async function connected() {
+    const { client, transports } = setup();
+    const notices: NodefonyNotice[] = [];
+    client.onNotice((n) => notices.push(n));
+    const p = client.connect();
+    transports[0]!.fireOpen();
+    await p;
+    return { client, transport: transports[0]!, notices };
+  }
+
+  it("binaire sans lecteur → compté, UNE notice nommée, pas une par trame", async () => {
+    const { client, transport, notices } = await connected();
+    transport.fireMessage(new Uint8Array([1, 2, 3]).buffer);
+    transport.fireMessage(new Uint8Array([4]).buffer);
+    expect(client.binaryFramesDiscarded).to.equal(2);
+    const binaires = notices.filter((n) => n.message.includes("binaire"));
+    expect(binaires).to.have.length(1);
+    expect(binaires[0]!.code).to.equal(-32700);
+    expect(binaires[0]!.message).to.include("onBinary()");
+    client.disconnect();
+  });
+
+  it("texte non JSON → compté, UNE notice, distinct du binaire", async () => {
+    const { client, transport, notices } = await connected();
+    transport.fireMessage("pas du json");
+    transport.fireMessage("{tronqué");
+    expect(client.malformedFramesDiscarded).to.equal(2);
+    expect(client.binaryFramesDiscarded).to.equal(0);
+    expect(
+      notices.filter((n) => n.message.includes("illisible")),
+    ).to.have.length(1);
+    client.disconnect();
+  });
+
+  it("onBinary → la trame est remise intacte, ni comptée ni signalée ; dispose → de nouveau écartée", async () => {
+    const { client, transport, notices } = await connected();
+    const recues: (ArrayBuffer | Blob)[] = [];
+    const dispose = client.onBinary((d) => recues.push(d));
+    const octets = new Uint8Array([0xca, 0xfe]).buffer;
+    transport.fireMessage(octets);
+    expect(recues).to.have.length(1);
+    expect(recues[0]).to.equal(octets);
+    expect(client.binaryFramesDiscarded).to.equal(0);
+    expect(notices).to.have.length(0);
+    dispose();
+    transport.fireMessage(octets);
+    expect(client.binaryFramesDiscarded).to.equal(1);
+    client.disconnect();
+  });
+
+  it("sendBinary → octets émis tels quels ; transport fermé → false et compté", async () => {
+    const { client, transport } = await connected();
+    const vue = new Uint8Array([7, 8]);
+    expect(client.sendBinary(vue)).to.equal(true);
+    expect(transport.sentBinary).to.deep.equal([vue]);
+    expect(transport.sent.filter((s) => s.includes("7"))).to.have.length(0);
+    client.disconnect();
+    const avant = client.framesUnsent;
+    expect(client.sendBinary(vue)).to.equal(false);
+    expect(client.framesUnsent).to.equal(avant + 1);
+  });
+});
+
+describe("BrowserWsTransport — relaie le binaire (#451)", () => {
+  class FakeWebSocket extends EventTarget {
+    static last: FakeWebSocket | null = null;
+    binaryType: BinaryType = "blob";
+    readyState = TransportState.OPEN;
+    constructor(readonly url: string) {
+      super();
+      FakeWebSocket.last = this;
+    }
+    send(): void {}
+    close(): void {}
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("pose binaryType=arraybuffer et relaie texte ET binaire, sans trier", () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const t = new BrowserWsTransport("ws://x");
+    const recues: RealtimeFrameData[] = [];
+    t.onMessage((raw) => recues.push(raw));
+    t.connect();
+    const ws = FakeWebSocket.last!;
+    expect(ws.binaryType).to.equal("arraybuffer");
+    const octets = new Uint8Array([9]).buffer;
+    ws.dispatchEvent(new MessageEvent("message", { data: "{}" }));
+    ws.dispatchEvent(new MessageEvent("message", { data: octets }));
+    expect(recues).to.deep.equal(["{}", octets]);
   });
 });

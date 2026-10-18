@@ -14,6 +14,7 @@ import {
   type IRealtimeDenied,
   isProbeRefusal,
   probeRefusalNotice,
+  discardedFrameNotice,
 } from "./notice";
 import {
   JsonRpcPeer,
@@ -38,6 +39,8 @@ import {
   TransportState,
   type IRealtimeTransport,
   type RealtimeTransportFactory,
+  type RealtimeFrameData,
+  type RealtimeOutboundData,
 } from "../../realtime/IRealtimeTransport";
 import type {
   IRealtimeSocket,
@@ -547,6 +550,14 @@ export class NodefonySocket<
   // Frames qui n'ont pas pu partir (transport fermé) — pendant sortant de
   // `_framesReceived`, lu par la debug bar et les bancs.
   private _framesUnsent = 0;
+  // Trames entrantes ÉCARTÉES (#451) — jamais en silence : la première de chaque
+  // nature émet une notice, les suivantes se comptent.
+  private _binaryFramesDiscarded = 0;
+  private _malformedFramesDiscarded = 0;
+  // Lecteurs du flux binaire (`onBinary`) — alloué au premier abonné seulement :
+  // la très grande majorité des sockets ne reçoit jamais de binaire.
+  private _binaryHandlers: Set<(data: ArrayBuffer | Blob) => void> | null =
+    null;
   // Vaut `true` tant qu'on ne s'est jamais connecté : une frame émise avant la
   // première connexion est un séquencement d'application, pas une coupure — la
   // signaler comme telle serait un faux avertissement. Remis à `false` à chaque
@@ -1085,6 +1096,47 @@ export class NodefonySocket<
   }
 
   /**
+   * Lit les trames BINAIRES reçues sur la socket — le point d'extension d'un
+   * protocole binaire écrit par l'application, à côté du JSON-RPC.
+   *
+   * Le protocole temps réel de Nodefony est du JSON-RPC texte : il ne sait pas à
+   * quel canal une trame binaire appartient, et ne la route donc pas. Sans
+   * lecteur, une trame binaire est écartée, comptée
+   * ({@link binaryFramesDiscarded}) et signalée une fois par notice. Avec un
+   * lecteur, elle lui est remise telle quelle — `ArrayBuffer` avec le transport
+   * du navigateur — dans l'ordre des trames texte, et aucune notice ne part :
+   * la corrélation (canal, requête) appartient alors à l'application.
+   *
+   * @param handler - appelé pour chaque trame binaire reçue.
+   * @returns dispose (désabonnement).
+   */
+  onBinary(handler: (data: ArrayBuffer | Blob) => void): () => void {
+    (this._binaryHandlers ??= new Set()).add(handler);
+    return () => {
+      this._binaryHandlers?.delete(handler);
+      if (this._binaryHandlers?.size === 0) this._binaryHandlers = null;
+    };
+  }
+
+  /**
+   * Émet une trame BINAIRE, sans la sérialiser — le pendant sortant de
+   * {@link onBinary}. Même règle que les frames JSON-RPC : rien n'est mis en
+   * file d'attente, un transport fermé rend `false` et compte la trame dans
+   * {@link framesUnsent}.
+   *
+   * @param data - les octets à émettre.
+   * @returns `true` si la trame est partie, `false` si le transport était fermé.
+   */
+  sendBinary(data: Exclude<RealtimeOutboundData, string>): boolean {
+    if (this.transport?.readyState !== TransportState.OPEN) {
+      this._framesUnsent++;
+      return false;
+    }
+    this.transport.send(data);
+    return true;
+  }
+
+  /**
    * S'abonne aux **tentatives de reconnexion programmées** (event LOCAL
    * `__reconnect__`, jamais réseau) : numéro d'essai, délai retenu par le
    * back-off, et échéance absolue. De quoi afficher un compte à rebours plutôt
@@ -1414,6 +1466,23 @@ export class NodefonySocket<
    */
   get framesUnsent(): number {
     return this._framesUnsent;
+  }
+
+  /**
+   * Total de trames BINAIRES reçues puis écartées, faute de lecteur
+   * ({@link onBinary}). Reste à `0` tant que le pair ne parle que JSON-RPC ;
+   * la première écartée émet une notice (`-32700`), les suivantes se comptent ici.
+   */
+  get binaryFramesDiscarded(): number {
+    return this._binaryFramesDiscarded;
+  }
+
+  /**
+   * Total de trames TEXTE reçues puis écartées parce qu'elles ne sont pas du
+   * JSON. Reste à `0` face à un pair sain ; la première émet une notice.
+   */
+  get malformedFramesDiscarded(): number {
+    return this._malformedFramesDiscarded;
   }
 
   /** Timestamp (ms) de la dernière notification reçue. */
@@ -2017,12 +2086,29 @@ export class NodefonySocket<
     });
   }
 
-  private handleMessage(raw: string | ArrayBuffer | Blob): void {
-    if (typeof raw !== "string") return; // ignore binary for now
+  private handleMessage(raw: RealtimeFrameData): void {
+    if (typeof raw !== "string") {
+      if (this._binaryHandlers !== null) {
+        for (const h of this._binaryHandlers) {
+          try {
+            h(raw);
+          } catch {
+            /* un lecteur fautif ne coupe pas les autres */
+          }
+        }
+        return;
+      }
+      // Jamais en silence (#451) : une notice à la PREMIÈRE, un compteur ensuite.
+      if (++this._binaryFramesDiscarded === 1)
+        this.fireNotice(discardedFrameNotice("binary"));
+      return;
+    }
     let msg: unknown;
     try {
       msg = JSON.parse(raw);
     } catch {
+      if (++this._malformedFramesDiscarded === 1)
+        this.fireNotice(discardedFrameNotice("malformed"));
       return;
     }
     // Discrimination (request/notification/response), routage et corrélation d'id
