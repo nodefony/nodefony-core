@@ -101,6 +101,8 @@ async function sign(
   key: CryptoKey = signing.key,
 ): Promise<string> {
   const body = { ...legit(), ...claims };
+  // Liaison au compte (#139) : le compte porte l'id `u-<identifiant>`.
+  if (!("uid" in claims)) body.uid = `u-${String(body.sub)}`;
   for (const [k, v] of Object.entries(body))
     if (v === undefined) delete body[k];
   const protectedHeader: jose.JWTHeaderParameters = {

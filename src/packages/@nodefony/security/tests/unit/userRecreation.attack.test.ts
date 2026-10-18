@@ -78,8 +78,9 @@ let signing: { key: CryptoKey; kid: string };
 let sessions: ReturnType<typeof sessionsStore>;
 let kernel: EventEmitter;
 
-async function mint(sub: string, iat: number): Promise<string> {
+async function mint(sub: string, iat: number, uid: string): Promise<string> {
   return new jose.SignJWT({
+    uid,
     iss: RT.issuer,
     aud: RT.audiences[0]!,
     sub,
@@ -122,7 +123,7 @@ beforeEach(async () => {
 describe("compte supprimé en SQL puis recréé — l'ancien accès ne passe pas (#139)", () => {
   it("🔴 le jeton de l'ancien titulaire n'ouvre pas le compte recréé", async () => {
     // Émis à l'ancien `bob`, encore dans sa durée de vie.
-    const stale = await mint("bob", nowS() - 60);
+    const stale = await mint("bob", nowS() - 60, "u-bob-1");
     // `DELETE FROM "User"` à la main : aucun événement. Puis le compte renaît.
     await emitCreated("bob");
     await assert.rejects(
@@ -142,14 +143,14 @@ describe("compte supprimé en SQL puis recréé — l'ancien accès ne passe pas
     // seuil posé à la milliseconde rejetterait le jeton légitime du nouveau
     // titulaire, dont l'`iat` est tronqué à la seconde.
     await emitCreated("bob");
-    const fresh = await mint("bob", nowS());
+    const fresh = await mint("bob", nowS(), "u-bob-2");
     const t = await auth.authenticate(new UserToken("jwt", fresh));
     assert.equal(t.getUser()?.identifier, "bob");
   });
 
   it("les artefacts d'un AUTRE identifiant ne sont pas touchés", async () => {
     sessions.byUser.set("alice", 1);
-    const aliceToken = await mint("alice", nowS() - 60);
+    const aliceToken = await mint("alice", nowS() - 60, "u-alice-2");
     await emitCreated("bob");
     assert.equal(sessions.byUser.get("alice"), 1);
     const t = await auth.authenticate(new UserToken("jwt", aliceToken));

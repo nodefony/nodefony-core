@@ -17,6 +17,9 @@ import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
  *   reste lié au principal courant (`saveSession`).
  */
 
+/** Identifiant immuable des comptes du décor — la session y est liée (#139). */
+const ACCOUNT_ID = "00000000-0000-4000-8000-000000000002";
+
 const fakeUser = (
   identifier: string,
   {
@@ -24,7 +27,7 @@ const fakeUser = (
     locked = false,
   }: { active?: boolean; locked?: boolean } = {},
 ): IUser => ({
-  id: "00000000-0000-4000-8000-000000000002",
+  id: ACCOUNT_ID,
   identifier,
   roles: ["ROLE_USER"],
   hasRole: (r: string) => r === "ROLE_USER",
@@ -43,9 +46,19 @@ const providerOf = (users: Record<string, IUser>): IUserProvider =>
     },
   }) as unknown as IUserProvider;
 
-const sessionContext = (user?: string): ContextType =>
+const sessionContext = (
+  user?: string,
+  bound: { accountId?: unknown } = { accountId: ACCOUNT_ID },
+): ContextType =>
   ({
-    session: user === undefined ? null : { user },
+    session:
+      user === undefined
+        ? null
+        : {
+            user,
+            getMetaBag: (key: string): unknown =>
+              key === "accountId" ? bound.accountId : undefined,
+          },
     user: null,
   }) as unknown as ContextType;
 
@@ -78,6 +91,27 @@ describe("SessionAuthenticator (P6 J3)", () => {
       return true;
     });
   });
+
+  // #139 — l'identifiant est un nom qu'un compte recréé peut reprendre : la
+  // session dit pour QUEL compte elle a été ouverte, par son `id` immuable.
+  for (const [label, bound] of [
+    [
+      "ouverte pour un ANCIEN titulaire du même identifiant",
+      { accountId: "u-admin-previous" },
+    ],
+    ["sans liaison au compte (antérieure à la règle)", {}],
+  ] as const) {
+    it(`🔴 session ${label} → même 401 uniforme`, async () => {
+      const admin = fakeUser("admin");
+      const auth = new SessionAuthenticator(() => providerOf({ admin }));
+      const token = await auth.createToken(sessionContext("admin", bound));
+      await assert.rejects(auth.authenticate(token), (e: unknown) => {
+        assert.ok(e instanceof AuthenticationError);
+        assert.equal(e.message, "Invalid session");
+        return true;
+      });
+    });
+  }
 
   it("compte verrouillé OU désactivé → même 401 uniforme (révocation immédiate)", async () => {
     for (const flags of [{ locked: true }, { active: false }]) {

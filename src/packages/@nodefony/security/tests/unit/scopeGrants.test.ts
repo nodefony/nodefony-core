@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { accountDirectory } from "../support/accountDirectory";
 import { Container, extend } from "nodefony";
 import type { Module } from "nodefony";
 import type { IUser } from "@nodefony/user";
@@ -164,6 +165,7 @@ function bootWith<T>(
     },
     registerStoreResolution() {},
   });
+  container.set("users", accountDirectory());
   setup(container);
   const svc = new Ctor({
     container,

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { accountDirectory } from "../support/accountDirectory";
 import { Container } from "nodefony";
 import type { Module } from "nodefony";
 import { ApiKeyService } from "../../nodefony/service/apiKeys";
@@ -18,6 +19,7 @@ const MS_PER_DAY = 86_400_000;
 function buildService(
   apiKeys: Record<string, unknown>,
   withStore = true,
+  withUsers = true,
 ): { svc: ApiKeyService; store: MemoryTokenStore } {
   const container = new Container();
   const handlers: Record<string, (...a: unknown[]) => void> = {};
@@ -28,6 +30,7 @@ function buildService(
     },
   };
   container.set("kernel", kernel);
+  if (withUsers) container.set("users", accountDirectory());
   const store = new MemoryTokenStore();
   if (withStore) container.set("tokenStore", store);
   const module = {
@@ -104,6 +107,23 @@ describe("ApiKeyService — création", () => {
     assert.equal(record.secretHash, hashApiKey(created.token));
     // le secret n'est jamais stocké en clair
     assert.notEqual(record.secretHash, created.token);
+  });
+
+  // #139 — la clé est liée au compte qui existe MAINTENANT sous cet identifiant.
+  it("lie la clé à l'`id` immuable du compte, lu dans l'annuaire", async () => {
+    const { svc, store } = buildService({ enabled: true });
+    const created = await svc.createForSubject("alice", "user", { name: "k" });
+    const record = await store.findById(created.id);
+    assert.equal(record!.metadata.accountId, "u-alice");
+  });
+
+  it("annuaire `users` absent → 503 (jamais une clé sans liaison)", async () => {
+    const { svc, store } = buildService({ enabled: true }, true, false);
+    await assert.rejects(
+      () => svc.createForSubject("alice", "user", { name: "k" }),
+      (e: unknown) => e instanceof ApiKeyError && e.code === 503,
+    );
+    assert.equal((await store.findBySubject("alice")).length, 0);
   });
 
   it("expiration : défaut 90 j / null / custom / invalide", async () => {

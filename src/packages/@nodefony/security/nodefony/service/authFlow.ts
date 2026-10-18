@@ -16,7 +16,11 @@ import { ThrottledError } from "../errors/ThrottledError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
 import type { CredentialTransportPolicy } from "../src/transport/CredentialTransportPolicy";
 import { InsecureTransportError } from "../errors/InsecureTransportError";
-import { resolveSessionIdentity } from "../src/sessionIdentity";
+import {
+  resolveBoundSessionIdentity,
+  resolveSessionIdentity,
+} from "../src/sessionIdentity";
+import { ACCOUNT_ID_KEY } from "../src/accountBinding";
 import { recordAudit } from "../src/audit/recordAudit";
 import {
   readAuditContext,
@@ -228,7 +232,7 @@ class AuthFlow extends Service {
 
     // La session retient son principal (`Session.save(identifier)`) : rien à
     // reposer sur le contexte ni dans l'ALS, qu'aucun lecteur ne consulte ici.
-    await this.#openSession(context, user.identifier, "password");
+    await this.#openSession(context, user, "password");
     recordAudit(this.container, {
       category: "auth",
       action: "login.success",
@@ -264,7 +268,7 @@ class AuthFlow extends Service {
     const user = await resolveSessionIdentity(this.#resolveUsers(), identifier);
     // La session retient son principal (`Session.save(identifier)`), comme
     // pour `login` : la sauvegarde de fin de requête le garde.
-    await this.#openSession(context, user.identifier, reason);
+    await this.#openSession(context, user, reason);
     // Ouverture de session sur preuve EXTERNE (passkey/OAuth/2FA/magic link).
     // Le facteur vient de l'appelant : `webauthn` (WebAuthnController) et `oauth`
     // (OAuth2Controller) le passent ; un appelant qui l'omet est journalisé
@@ -442,9 +446,10 @@ class AuthFlow extends Service {
       return toSafeUser(current);
     }
     try {
-      const user = await resolveSessionIdentity(
+      const user = await resolveBoundSessionIdentity(
         this.#resolveUsers(),
         identifier,
+        context.session?.getMetaBag(ACCOUNT_ID_KEY),
       );
       return toSafeUser(user);
     } catch (error) {
@@ -527,7 +532,7 @@ class AuthFlow extends Service {
   // par quelles méthodes elle a été ouverte (`readSessionAuthentication`).
   async #openSession(
     context: ContextType,
-    identifier: string,
+    user: IUser,
     factor: string,
   ): Promise<void> {
     const session: ISession | null =
@@ -567,7 +572,11 @@ class AuthFlow extends Service {
     // Hors du best-effort : ce sont des faits de sécurité, pas de la provenance.
     session.setMetaBag(SESSION_AUTH_AT_KEY, Date.now());
     session.setMetaBag(SESSION_AMR_KEY, amrForFactor(factor));
-    await session.save(identifier);
+    // Liaison au compte (#139) : relue à chaque requête par
+    // `resolveBoundSessionIdentity`, elle refuse la session d'un ancien
+    // titulaire du même identifiant.
+    session.setMetaBag(ACCOUNT_ID_KEY, user.id);
+    await session.save(user.identifier);
   }
 
   #resolveSessions(): SessionsService {

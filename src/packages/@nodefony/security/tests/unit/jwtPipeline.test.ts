@@ -114,6 +114,8 @@ async function bearer(
     iat: nowS(),
     exp: nowS() + 900,
     scope: "orders:read",
+    // Liaison au compte (#139) : `fakeUser` porte l'id `u-<identifiant>`.
+    uid: `u-${typeof over.claims?.sub === "string" ? over.claims.sub : "alice"}`,
     ...over.claims,
   })
     .setProtectedHeader({ alg: "EdDSA", kid: signing.kid, typ: "at+jwt" })

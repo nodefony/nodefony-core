@@ -190,6 +190,25 @@ describe("TokenService — rotation & détection de rejeu (RFC 9700 §4.14)", ()
     await assert.rejects(() => svc.refresh("nfr_unknown"), AuthenticationError);
     await assert.rejects(() => svc.refresh(""), AuthenticationError);
   });
+
+  // #139 — `alice` est un nom qu'un compte recréé peut reprendre : le couple
+  // émis dit pour QUEL compte, par son `id` immuable, et le refresh le relit.
+  it("liaison : l'access porte `uid`, le refresh stocké porte `accountId`", async () => {
+    const r = await svc.issueTokens(fakeUser("alice"));
+    assert.equal(jose.decodeJwt(r.access_token).uid, "u-alice");
+    const store = container.get<ITokenStore>("tokenStore")!;
+    const rec = await store.findByHash(sha256(r.refresh_token));
+    assert.equal(rec!.metadata.accountId, "u-alice");
+  });
+
+  it("🔴 refresh émis pour un ANCIEN titulaire du même identifiant → 401", async () => {
+    const previous: IUser = { ...fakeUser("alice"), id: "u-alice-previous" };
+    const r = await svc.issueTokens(previous);
+    await assert.rejects(
+      () => svc.refresh(r.refresh_token),
+      AuthenticationError,
+    );
+  });
 });
 
 describe("TokenService — gc (orchestration du seam ITokenStore.gc)", () => {

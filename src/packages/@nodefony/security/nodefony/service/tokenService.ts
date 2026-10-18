@@ -40,6 +40,11 @@ import {
   listTokenStores,
 } from "../src/token/tokenStoreRegistry";
 import { recordAudit } from "../src/audit/recordAudit";
+import {
+  ACCOUNT_ID_CLAIM,
+  ACCOUNT_ID_KEY,
+  isBoundToAccount,
+} from "../src/accountBinding";
 import { JwtKeystore } from "../src/token/JwtKeystore";
 import { ScopeGrantPolicy, refusedScopes } from "../src/token/scopeGrants";
 import type { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
@@ -616,14 +621,9 @@ class TokenService extends Service {
     // agent porte dans son `.mcp.json` et que rien ne renouvelle. La durée
     // devient alors un choix qui s'ÉCRIT à l'émission, plutôt qu'un réglage
     // global qu'on relèverait pour TOUS les jetons de l'application.
-    const access = await this.#signAccess(
-      user.identifier,
-      scopes,
-      audience,
-      accessTtlS,
-    );
+    const access = await this.#signAccess(user, scopes, audience, accessTtlS);
     const { record, raw } = this.#buildRefresh(
-      user.identifier,
+      user,
       scopes,
       this.#randomId(),
       audience,
@@ -699,6 +699,10 @@ class TokenService extends Service {
     }
     // Sujet revérifié — révocation sans attendre l'exp (ban, compte supprimé).
     const user = await this.#resolveUserForRefresh(record.subjectId);
+    // Émis pour CE compte, pas pour un ancien titulaire du même identifiant.
+    if (!isBoundToAccount(user, record.metadata[ACCOUNT_ID_KEY])) {
+      throw new AuthenticationError("Invalid token");
+    }
     // Downscoping : les scopes ne montent JAMAIS sur la chaîne de refresh. Et
     // ils se REJUGENT sur les rôles du compte relu : un rôle retiré retire le
     // scope qu'il ouvrait au prochain renouvellement, pas à la reconnexion.
@@ -722,7 +726,7 @@ class TokenService extends Service {
         typeof resource === "string" ? resource : undefined,
       );
     }
-    const access = await this.#signAccess(user.identifier, scopes, audience);
+    const access = await this.#signAccess(user, scopes, audience);
 
     if (!runtime.rotateRefresh) {
       // Rotation désactivée : on réémet l'access, le refresh courant reste valide.
@@ -736,7 +740,7 @@ class TokenService extends Service {
     }
     // Rotation : nouveau refresh (même famille), ancien chaîné + révoqué.
     const family = record.family ?? this.#randomId();
-    const next = this.#buildRefresh(user.identifier, scopes, family, audience);
+    const next = this.#buildRefresh(user, scopes, family, audience);
     await store.put(next.record);
     record.replacedBy = next.record.id;
     record.revokedAt = now;
@@ -754,7 +758,7 @@ class TokenService extends Service {
   // ── Internes ─────────────────────────────────────────────────────────────────
 
   async #signAccess(
-    subject: string,
+    user: IUser,
     scopes: string[],
     audience: string,
     ttlS?: number,
@@ -763,11 +767,16 @@ class TokenService extends Service {
     const jose = await this.#ensureJose();
     const { key, kid } = await keystore.getSigningKey();
     return (
-      new jose.SignJWT({ scope: scopes.join(" ") })
+      new jose.SignJWT({
+        scope: scopes.join(" "),
+        // Liaison au compte (#139) : `sub` est un nom qu'un compte recréé peut
+        // reprendre, l'`id` immuable ne l'est jamais.
+        [ACCOUNT_ID_CLAIM]: user.id,
+      })
         .setProtectedHeader({ alg: "EdDSA", kid, typ: "at+jwt" })
         .setIssuedAt()
         .setIssuer(rt.issuer)
-        .setSubject(subject)
+        .setSubject(user.identifier)
         // L'audience est celle qui a été ACCORDÉE — la ressource demandée, ou le
         // défaut. Reprendre `audiences[0]` ici annulerait la demande sans un mot.
         .setAudience(audience)
@@ -786,7 +795,7 @@ class TokenService extends Service {
    *          qui s'annule au bout de quelques minutes n'en est pas un.
    */
   #buildRefresh(
-    subject: string,
+    user: IUser,
     scopes: string[],
     family: string,
     audience: string,
@@ -798,7 +807,7 @@ class TokenService extends Service {
       kind: "refresh",
       name: "refresh token",
       prefix: null,
-      subjectId: subject,
+      subjectId: user.identifier,
       subjectType: "user",
       tenantId: null,
       scopes: [...scopes],
@@ -817,7 +826,7 @@ class TokenService extends Service {
       lastUsedUserAgent: null,
       revokedAt: null,
       revokedReason: null,
-      metadata: {},
+      metadata: { [ACCOUNT_ID_KEY]: user.id },
     };
     return { record, raw };
   }

@@ -4,12 +4,15 @@ import type { IAuthenticator } from "../../contracts/IAuthenticator";
 import type { ISecuredArea } from "../../contracts/ISecuredArea";
 import type { IToken } from "../../contracts/IToken";
 import { AuthenticationError } from "../../errors/AuthenticationError";
-import { resolveSessionIdentity } from "../sessionIdentity";
+import { resolveBoundSessionIdentity } from "../sessionIdentity";
+import { ACCOUNT_ID_KEY } from "../accountBinding";
 import { UserToken } from "../token/UserToken";
 
 /** Credential extrait de la session — un identifiant, jamais un secret. */
 interface ISessionCredentials {
   identifier: string;
+  /** Identifiant immuable du compte inscrit à l'ouverture (liaison, #139). */
+  accountId: unknown;
 }
 
 /**
@@ -83,6 +86,7 @@ export class SessionAuthenticator implements IAuthenticator {
   createToken(context: ContextType): Promise<IToken> {
     const credentials: ISessionCredentials = {
       identifier: context.session?.user ?? "",
+      accountId: context.session?.getMetaBag(ACCOUNT_ID_KEY),
     };
     return Promise.resolve(new UserToken(this.name, credentials));
   }
@@ -101,7 +105,11 @@ export class SessionAuthenticator implements IAuthenticator {
       throw new AuthenticationError("Invalid session");
     }
     const provider = (this.#provider ??= this.#resolveProvider());
-    const user = await resolveSessionIdentity(provider, credentials.identifier);
+    const user = await resolveBoundSessionIdentity(
+      provider,
+      credentials.identifier,
+      credentials.accountId,
+    );
     return (token as UserToken).promote(user);
   }
 

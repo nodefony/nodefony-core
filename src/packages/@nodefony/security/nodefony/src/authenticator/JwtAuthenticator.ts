@@ -12,6 +12,7 @@ import { UserToken } from "../token/UserToken";
 import type { IJwtRuntime } from "../token/jwtRuntime";
 import { bearerToken } from "./bearer";
 import { peekIssuer } from "./peekIssuer";
+import { ACCOUNT_ID_CLAIM, isBoundToAccount } from "../accountBinding";
 
 // Scheme Bearer (RFC 6750 §2.1), case-insensitive, capture le token.
 
@@ -218,6 +219,11 @@ export class JwtAuthenticator implements IAuthenticator {
 
     // Sujet valide à la réception (RFC 8725 §3.10) — disparu/inactif/verrouillé = rejet.
     const user = await this.#resolveUserOrReject(sub);
+    // Émis pour CE compte : un compte recréé sous le même `sub` (suppression
+    // hors framework) porte un autre `id` — le jeton de l'ancien est refusé.
+    if (!isBoundToAccount(user, payload[ACCOUNT_ID_CLAIM])) {
+      throw new AuthenticationError(INVALID_TOKEN);
+    }
     return { user, payload };
   }
 

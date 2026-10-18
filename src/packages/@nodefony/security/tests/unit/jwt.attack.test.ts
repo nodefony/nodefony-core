@@ -104,6 +104,8 @@ async function mint(
     iat: nowS(),
     exp: nowS() + 900,
     scope: "orders:read",
+    // Liaison au compte (#139) : `fakeUser` porte l'id `u-<identifiant>`.
+    uid: `u-${typeof over.claims?.sub === "string" ? over.claims.sub : "alice"}`,
     ...over.claims,
   };
   return new jose.SignJWT(claims)
@@ -261,6 +263,12 @@ describe("JwtAuthenticator — matrice d'attaques (RFC 8725)", () => {
     reject(await mint({ claims: { sub: "banned" } })));
   it("sujet inactif", async () =>
     reject(await mint({ claims: { sub: "inactive" } })));
+  // #139 — `sub` est un nom qu'un compte recréé peut reprendre ; seul l'`id`
+  // immuable dit pour QUEL compte le jeton a été émis.
+  it("🔴 émis pour un ANCIEN titulaire du même `sub` (uid d'un autre compte)", async () =>
+    reject(await mint({ claims: { uid: "u-alice-previous" } })));
+  it("🔴 sans liaison au compte (uid absent — jeton antérieur à la règle)", async () =>
+    reject(await mint({ claims: { uid: undefined } })));
 });
 
 describe("JwtAuthenticator — câblage manquant = Error (loggée, pas 401 masqué)", () => {

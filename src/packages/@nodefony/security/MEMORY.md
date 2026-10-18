@@ -641,10 +641,25 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   `locked:true` → `locked`, `password` → `password_changed`), `changePassword`. Aucun transport
   (plan d'admin, CLI, contrôleur) n'émet : en ajouter un = double cascade. Security s'abonne UNE
   fois au kernel à `onKernelBoot` (`registerUserRevocationCascade`), avant tout compte — semés au
-  boot (`onKernelReady` de l'app) compris. La cascade éjecte sessions + jetons et, pour `deleted`
-  SEULEMENT, retire TOTP + passkeys (`removeAccountFactors`, seule implémentation, partagée avec la
-  purge à la création : un compte neuf n'a rien enrôlé, tout facteur sous son identifier est
-  hérité). Jamais de tri par `createdAt` (un import le remet à zéro).
+  boot (`onKernelReady` de l'app) compris. La cascade éjecte sessions + jetons
+  (`revokeAccessArtifacts`, seule implémentation) et, pour `deleted` SEULEMENT, retire TOTP +
+  passkeys (`removeAccountFactors`). La CRÉATION purge les trois (`purgeInheritedAccess`) : un
+  compte neuf n'a rien émis ni enrôlé, tout artefact sous son identifier est hérité. Seuil de
+  création tronqué à la SECONDE (`iat` JWT en secondes : à la ms, le premier jeton du nouveau
+  titulaire tombait). Jamais de tri par `createdAt` (un import le remet à zéro).
+- **Tout artefact d'accès est LIÉ à l'`id` immuable du compte** (`src/accountBinding.ts` :
+  `isBoundToAccount`, seule règle de comparaison) — l'`identifier` est un nom qu'un compte recréé
+  HORS framework (`DELETE` SQL, restauration, import) reprend sans émettre aucun événement. Où vit
+  la liaison : access JWT = claim `uid` (`ACCOUNT_ID_CLAIM`) ; refresh + clé d'API =
+  `record.metadata.accountId` (aucun schéma touché, `metadata` round-trip prouvé par le contrat
+  des 4 stores) ; session = `metaBag.accountId` (`ACCOUNT_ID_KEY`, posé par `#openSession`). Relue
+  par `JwtAuthenticator.#verify` (zone ET `verifyForResource`), `ApiKeyAuthenticator`,
+  `TokenService.refresh`, `resolveBoundSessionIdentity` (SessionAuthenticator + `me()`). Artefact
+  SANS liaison = refusé (message uniforme). `ApiKeyService.createForSubject` lit l'`id` dans
+  l'annuaire `users` (jamais reçu de l'appelant) → 503 sans annuaire, 403 sujet inconnu. Pas de
+  clé étrangère : `User` appartient à l'app, sessions/jetons vivent aussi hors SQL, un JWT n'est
+  pas une ligne. Bancs : `userRecreation.attack.test.ts` + vecteurs 🔴 de `jwt.attack`,
+  `apiKeyAuthenticator`, `sessionAuthenticator`, `tokenService`.
 - **`users` construit SANS container n'atteint pas le kernel** : ses événements partent sur son
   propre bus, personne n'écoute → avis de boot `USERS_SERVICE_WITHOUT_KERNEL`
   (`usersEventBusNotice`, à `onPostReady`). `provisionUsers` (app + gabarit) passe le container.

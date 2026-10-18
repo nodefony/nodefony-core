@@ -22,6 +22,8 @@ import { generateApiKey } from "../src/apikey/apiKeyFormat";
 import { ScopeGrantPolicy, refusedScopes } from "../src/token/scopeGrants";
 import type { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { recordAudit } from "../src/audit/recordAudit";
+import { ACCOUNT_ID_KEY } from "../src/accountBinding";
+import type { IUserProvider } from "@nodefony/user";
 
 const serviceName = "apiKeys";
 const MAX_NAME_LEN = 100;
@@ -130,7 +132,9 @@ class ApiKeyService extends Service {
    * @throws ApiKeyError 400 — nom vide/trop long, scope hors catalogue, expiry invalide.
    * @throws ApiKeyError 403 — scope réservé à des rôles que le porteur n'a pas.
    * @throws ApiKeyError 409 — plafond `maxPerSubject` atteint.
-   * @throws ApiKeyError 503 — store indisponible.
+   * @throws ApiKeyError 403 — aucun compte sous cet identifiant (la clé est liée
+   *   à l'`id` immuable du compte, lu dans l'annuaire).
+   * @throws ApiKeyError 503 — store ou annuaire `users` indisponible.
    */
   async createForSubject(
     subjectId: string,
@@ -167,6 +171,7 @@ class ApiKeyService extends Service {
       );
     }
 
+    const accountId = await this.#resolveAccountId(subjectId);
     const generated = generateApiKey(this.#prefix);
     const record: IAccessTokenRecord = {
       id: randomUUID(),
@@ -192,7 +197,7 @@ class ApiKeyService extends Service {
       lastUsedUserAgent: null,
       revokedAt: null,
       revokedReason: null,
-      metadata: {},
+      metadata: { [ACCOUNT_ID_KEY]: accountId },
     };
     await store.put(record);
     // Audit (P6.14 lot 2b) — JAMAIS le secret, seulement l'id public.
@@ -340,6 +345,27 @@ class ApiKeyService extends Service {
   }
 
   // ── Internes ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Identifiant IMMUABLE du compte qui reçoit la clé — la liaison qu'elle
+   * portera, contrôlée à chaque présentation (`isBoundToAccount`). Lu dans
+   * l'annuaire, jamais reçu de l'appelant : la clé appartient au compte qui
+   * existe MAINTENANT sous cet identifiant.
+   *
+   * @throws ApiKeyError 503 — annuaire `users` absent (câblage).
+   * @throws ApiKeyError 403 — aucun compte sous cet identifiant.
+   */
+  async #resolveAccountId(subjectId: string): Promise<string> {
+    const users = this.get<IUserProvider>("users");
+    if (!users) {
+      throw new ApiKeyError("user directory unavailable", 503);
+    }
+    try {
+      return (await users.loadUserByIdentifier(subjectId)).id;
+    } catch {
+      throw new ApiKeyError("API key holder unknown", 403);
+    }
+  }
 
   #resolveStore(): ITokenStore {
     if (this.#store === null) {

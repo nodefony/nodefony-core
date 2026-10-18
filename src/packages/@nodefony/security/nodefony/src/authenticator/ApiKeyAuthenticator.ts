@@ -5,6 +5,7 @@ import type { IAuthenticator } from "../../contracts/IAuthenticator";
 import type { IToken } from "../../contracts/IToken";
 import type { ITokenStore } from "../../contracts/ITokenStore";
 import { AuthenticationError } from "../../errors/AuthenticationError";
+import { ACCOUNT_ID_KEY, isBoundToAccount } from "../accountBinding";
 import { UserToken } from "../token/UserToken";
 import { looksLikeApiKey, parseApiKey } from "../apikey/apiKeyFormat";
 import { bearerToken } from "./bearer";
@@ -124,6 +125,10 @@ export class ApiKeyAuthenticator implements IAuthenticator {
 
     // Sujet revérifié (rôles frais) — disparu/inactif/verrouillé = rejet.
     const user = await this.#resolveUserOrReject(record.subjectId);
+    // Émise pour CE compte, pas pour un ancien titulaire du même identifiant.
+    if (!isBoundToAccount(user, record.metadata[ACCOUNT_ID_KEY])) {
+      throw new AuthenticationError(INVALID_TOKEN);
+    }
 
     // « Last used » throttlé : aucune écriture sur le hot path tant que la fenêtre
     // n'est pas dépassée. La DÉCISION se prend ici (c'est ici qu'on tient le

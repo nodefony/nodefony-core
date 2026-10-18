@@ -79,7 +79,8 @@ function patRecord(
     lastUsedUserAgent: null,
     revokedAt: null,
     revokedReason: null,
-    metadata: {},
+    // Liaison au compte (#139) : `fakeUser` porte l'id `u-<identifiant>`.
+    metadata: { accountId: `u-${over.subjectId ?? "alice"}` },
     ...over,
   };
 }
@@ -295,6 +296,14 @@ describe("ApiKeyAuthenticator — attaques sur l'ÉTAT (message uniforme)", () =
     expectInvalid(await seedKey({ subjectId: "banned" })));
   it("sujet inactif → 401", async () =>
     expectInvalid(await seedKey({ subjectId: "inactive" })));
+  // #139 — l'identifiant est un nom qu'un compte recréé peut reprendre ; la clé
+  // dit pour QUEL compte elle a été émise, par son `id` immuable.
+  it("🔴 émise pour un ANCIEN titulaire du même identifiant → 401", async () =>
+    expectInvalid(
+      await seedKey({ metadata: { accountId: "u-alice-previous" } }),
+    ));
+  it("🔴 sans liaison au compte (antérieure à la règle) → 401", async () =>
+    expectInvalid(await seedKey({ metadata: {} })));
 });
 
 describe("ApiKeyAuthenticator — câblage manquant = Error (pas 401 masqué)", () => {

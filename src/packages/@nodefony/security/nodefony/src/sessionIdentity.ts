@@ -1,6 +1,7 @@
 import { UserNotFoundError } from "@nodefony/user";
 import type { IUser, IUserProvider } from "@nodefony/user";
 import { AuthenticationError } from "../errors/AuthenticationError";
+import { isBoundToAccount } from "./accountBinding";
 
 // Message UNIFORME quelle que soit la cause (identifiant disparu, compte
 // désactivé/verrouillé) — une session périmée ne doit pas révéler POURQUOI.
@@ -38,6 +39,36 @@ export async function resolveSessionIdentity(
     throw error;
   }
   if (user.isLocked() || !user.isActive()) {
+    throw new AuthenticationError(INVALID_SESSION);
+  }
+  return user;
+}
+
+/**
+ * Résout l'identité d'une session DÉJÀ ouverte, en exigeant qu'elle ait été
+ * ouverte pour CE compte — {@link resolveSessionIdentity} plus la liaison à
+ * l'identifiant immuable (`isBoundToAccount`).
+ *
+ * La session range son principal sous l'`identifier`, qu'un compte recréé
+ * (suppression hors framework, restauration, import) peut reprendre : sans la
+ * liaison, la session de l'ancien titulaire ouvrirait le compte du nouveau.
+ * Une session sans liaison est refusée au même titre.
+ *
+ * @param provider - source d'identité (`UserService` via le container).
+ * @param identifier - identifiant fonctionnel stocké en session.
+ * @param boundAccountId - identifiant immuable inscrit à l'ouverture
+ *   (`metaBag`, clé `ACCOUNT_ID_KEY`).
+ * @returns l'utilisateur actif, titulaire de la session.
+ * @throws AuthenticationError (401, message uniforme) — identifiant inconnu,
+ *   compte verrouillé ou désactivé, session ouverte pour un autre compte.
+ */
+export async function resolveBoundSessionIdentity(
+  provider: IUserProvider,
+  identifier: string,
+  boundAccountId: unknown,
+): Promise<IUser> {
+  const user = await resolveSessionIdentity(provider, identifier);
+  if (!isBoundToAccount(user, boundAccountId)) {
     throw new AuthenticationError(INVALID_SESSION);
   }
   return user;

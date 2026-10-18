@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { accountDirectory } from "../support/accountDirectory";
 import { describe, it } from "vitest";
 import { Container, Event, RequestContext } from "nodefony";
 import type { Module } from "nodefony";
@@ -515,6 +516,7 @@ describe("TokenService — émission audit", () => {
 
 function setupApiKeys(): { keys: ApiKeyService; audit: AuditService } {
   const container = new Container();
+  container.set("users", accountDirectory());
   const { boot } = makeKernel(container);
   const audit = new AuditService(
     makeModule(container, { audit: { enabled: true } }),
