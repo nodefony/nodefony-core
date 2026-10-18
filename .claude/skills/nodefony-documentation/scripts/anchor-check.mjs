@@ -187,7 +187,7 @@ function contextTokens(mdLine, anchorRaw, base, voisins = []) {
 }
 
 const ANCHOR_RE =
-  /`?([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx)):(\d+)(?:-(\d+))?`?/g;
+  /`?([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)*\.(?:ts|mjs|tsx)):(\d+)(?:-(\d+))?`?/g;
 
 /**
  * Les ancres d'une ligne, longues ET courtes, dans l'ordre.

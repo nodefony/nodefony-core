@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-18 12:04** (UTC).
+> Empreinte prise le **2026-10-18 12:12** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -197,10 +197,11 @@ Ordre 4.008 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |
 | 175 | P2 — décision | 2 | — | #550 | feat(mcp): rendre un serveur MCP publiable au registre officiel |
 
-## Backlog — aucune date promise · 17 ouverts
+## Backlog — aucune date promise · 18 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
+| 900 | P2 — décision | 1 | — | #614 | chore(pilotage): convertir les ancres par ligne des tickets en symboles |
 | 901 | P2 — décision | 0.5 | — | #387 | fix(test): sonder les deux ports avant de lancer le banc de démarrage |
 | 902 | P2 — décision | 1 | — | #422 | feat(ci): regarder l'écran d'une application générée à chaque publication |
 | 903 | P2 — décision | 1 | — | #423 | test(release): éprouver la surface npm telle que le registre la sert |

@@ -27,7 +27,7 @@ Donc, avant de fermer, trois recalages — dans cet ordre, parce que chacun rév
 # Les tickets qui parlent de ce qu'on vient de changer (sélection MÉCANIQUE, verdict humain)
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by HEAD
 
-# Les ancres `fichier:ligne` de TOUS les tickets ouverts, résolues contre le code
+# Les ancres de TOUS les tickets ouverts, résolues contre le code (une `fichier:ligne` y est refusée)
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs 34 54    # ceux-là seulement
 ```

@@ -91,7 +91,129 @@ const cas = [
     "reste lisible",
     "un retrait en tête de ligne ne laisse pas d'espace",
   ],
+  [
+    "`Q` (`src/@s/q.ts:1`) puis `:1`",
+    "`Q` (`src/@s/q.ts#Q`) puis `src/@s/q.ts#Q`",
+    "un chemin à `@` (paquet à portée) se lit en entier, ancre courte comprise",
+  ],
 ];
+
+// `--history` : le code a bougé ENTRE l'écriture de l'ancre et aujourd'hui.
+// En A, `h.ts:2` est dans `Old` ; B insère `New` au-dessus et retire `Gone`.
+// Lue dans le code d'aujourd'hui, l'ancre viserait `New` — le piège de #614.
+const histoireA = [
+  "export function Old(): void {", //  1
+  "  const a = 1;", //                 2
+  "}", //                              3
+  "export function Gone(): void {", // 4
+  "  const g = 1;", //                 5
+  "}", //                              6
+];
+const histoireB = [
+  "export function New(): void {", //  1
+  "  const b = 2;", //                 2
+  "}", //                              3
+  ...histoireA.slice(0, 3), //         4-6
+];
+
+/** @type {Array<[string, string, string, "A" | "AB" | null]>} [avant, après, pourquoi, version] */
+const casHistoire = [
+  [
+    "le calcul (`h.ts:2`)",
+    "le calcul (`h.ts#Old`)",
+    "une ancre datée se résout dans le code de SA date, pas d'aujourd'hui",
+    "A",
+  ],
+  [
+    "le départ (`h.ts:1`)",
+    "le départ (`h.ts:1`)",
+    "deux révisions qui divergent laissent l'ancre telle quelle",
+    "AB",
+  ],
+  [
+    "le retrait (`h.ts:5`)",
+    "le retrait (`h.ts:5`)",
+    "un symbole disparu depuis laisse l'ancre telle quelle",
+    "A",
+  ],
+  [
+    "le reste (`h.ts:4`)",
+    "le reste (`h.ts:4`)",
+    "une ancre qu'aucune version ne porte n'est pas datée",
+    null,
+  ],
+  [
+    "la valeur est à `:2` et `:5`.",
+    "la valeur est à `:2` et `:5`.",
+    "--keep-orphans laisse une ancre courte sans fichier, la phrase reste entière",
+    null,
+  ],
+];
+
+/** Joue les cas `--history` dans le dépôt jetable ; rend le nombre d'échecs. */
+function casDates(racine) {
+  const git = (...args) =>
+    execFileSync(
+      "git",
+      ["-c", "user.name=t", "-c", "user.email=t@t", ...args],
+      { cwd: racine, encoding: "utf8" },
+    ).trim();
+  const h = path.join(racine, "src", "h.ts");
+  fs.writeFileSync(h, histoireA.join("\n") + "\n");
+  git("add", "src/h.ts");
+  git("commit", "-q", "-m", "A");
+  const A = git("rev-parse", "HEAD");
+  fs.writeFileSync(h, histoireB.join("\n") + "\n");
+  git("commit", "-q", "-am", "B");
+  const B = git("rev-parse", "HEAD");
+
+  const page = path.join(racine, "docs", "dated.md");
+  fs.writeFileSync(page, casHistoire.map((c) => c[0]).join("\n\n") + "\n");
+  const versions = ["A", "AB"].map((v) => ({
+    text: casHistoire
+      .filter((c) => c[3] === v)
+      .map((c) => c[0])
+      .join("\n"),
+    revs: v === "A" ? [A] : [A, B],
+  }));
+  const historyPath = path.join(racine, "history.json");
+  fs.writeFileSync(
+    historyPath,
+    JSON.stringify({ "docs/dated.md": versions }, null, 1),
+  );
+  const migre = spawnSync(
+    process.execPath,
+    [
+      path.join(ICI, "anchor-migrate.mjs"),
+      page,
+      "--apply",
+      "--history",
+      historyPath,
+      "--keep-orphans",
+      "--report",
+      path.join(racine, "rapport-date.json"),
+    ],
+    { cwd: racine, encoding: "utf8" },
+  );
+  let echecs = 0;
+  const obtenu = fs.readFileSync(page, "utf8").split("\n\n");
+  casHistoire.forEach(([, attendu, pourquoi], k) => {
+    const ligne = obtenu[k]?.replace(/\n$/, "");
+    const ok = ligne === attendu;
+    if (!ok) echecs++;
+    console.log(
+      `${ok ? "✓" : "✗"} ${pourquoi}${ok ? "" : `\n    attendu ${JSON.stringify(attendu)}\n    obtenu  ${JSON.stringify(ligne)}\n${migre.stdout}${migre.stderr}`}`,
+    );
+  });
+  // Trois ancres laissées : la migration le DIT par son code de sortie.
+  if (migre.status !== 1) {
+    echecs++;
+    console.log(
+      `✗ des ancres laissées font sortir en 1, obtenu ${migre.status}\n${migre.stdout}${migre.stderr}`,
+    );
+  }
+  return echecs;
+}
 
 const racine = fs.mkdtempSync(path.join(os.tmpdir(), "anchor-migrate-"));
 let echecs = 0;
@@ -99,6 +221,11 @@ try {
   execFileSync("git", ["init", "-q"], { cwd: racine });
   for (const d of ["src", "docs"]) fs.mkdirSync(path.join(racine, d));
   fs.writeFileSync(path.join(racine, "src", "m.ts"), code.join("\n"));
+  fs.mkdirSync(path.join(racine, "src", "@s"));
+  fs.writeFileSync(
+    path.join(racine, "src", "@s", "q.ts"),
+    "export function Q(): void {}\n",
+  );
   const page = path.join(racine, "docs", "page.md");
   // Une ligne vide entre les cas : une ligne qui en continue une autre en
   // hérite le contexte, et les cas se jugeraient l'un l'autre.
@@ -139,8 +266,11 @@ try {
   console.log(
     `${gateOk ? "✓" : "✗"} la page convertie passe le gate${gateOk ? "" : `\n${gate.stdout}`}`,
   );
+  echecs += casDates(racine);
   console.log(
-    echecs ? `\n${echecs} cas en échec` : `\n${cas.length + 1} cas conformes`,
+    echecs
+      ? `\n${echecs} cas en échec`
+      : `\n${cas.length + 1 + casHistoire.length} cas conformes`,
   );
   process.exitCode = echecs ? 1 : 0;
 } finally {

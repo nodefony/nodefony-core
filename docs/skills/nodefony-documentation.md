@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | Version | `3.1.0` |
 | Famille | Développer le framework |
 | Corps | 483 lignes |
-| Coût d'activation | ~8 816 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 917 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
@@ -91,8 +91,8 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre qui a DÉRIVÉ loin de la déclaration qu'elle prouve, et se taire sur une ancre juste — posée sur la déclaration, dans son TSDoc, ou sur un site d'usage. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | `--lines` | — |
 | `scripts/anchor-context.mjs` | Règles de CONTEXTE d'une ancre, partagées par anchor-check (qui juge) et anchor-migrate (qui convertit). Écrites deux fois, elles divergeaient : le juge découpait une ligne là où le réparateur ne la découpait pas, et recalait une ancre juste sur le symbole de sa voisine. | — | — |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
-| `scripts/anchor-migrate.mjs` | anchor-migrate.mjs — convertit les ancres `fichier:ligne` d'une page en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`). | `--apply` `--json` `--report` `--show-toplevel` | — |
-| `scripts/anchor-migrate.selftest.mjs` | Éprouve `anchor-migrate.mjs --apply` sur un dépôt JETABLE : chaque règle de conversion a son cas, la page convertie doit être EXACTEMENT celle attendue, puis passer le gate (`anchor-check` sans option, qui refuse toute ligne). | `--apply` `--report` | — |
+| `scripts/anchor-migrate.mjs` | anchor-migrate.mjs — convertit les ancres `fichier:ligne` d'une page en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`). | `--apply` `--history` `--json` `--keep-orphans` `--name-only` `--report` `--show-toplevel` | — |
+| `scripts/anchor-migrate.selftest.mjs` | Éprouve `anchor-migrate.mjs --apply` sur un dépôt JETABLE : chaque règle de conversion a son cas, la page convertie doit être EXACTEMENT celle attendue, puis passer le gate (`anchor-check` sans option, qui refuse toute ligne). | `--apply` `--history` `--keep-orphans` `--report` | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/corpus.mjs` | Dossiers qu'on ne descend jamais. | — | — |
 | `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. Une page ne peut être marquée ✅ que si elle PASSE ce linter. Usage : node doc-lint.mjs /tmp/corpus/*.md | `--instructions` `--list` `--published` `--show-toplevel` | `COVERAGE` `NAV_MAX` |
@@ -113,7 +113,6 @@ script, donc toujours à jour après régénération.
 Usage : node anchor-check.mjs [--all|--json] <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
 Usage : node anchor-inpage.mjs <page.md ...>
-Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--apply] [--report <f.json>]
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-migrate.selftest.mjs
 Usage : node code-check.mjs <page.md ...>
 Usage : node doc-lint.mjs /tmp/corpus/*.md

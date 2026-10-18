@@ -80,6 +80,7 @@
     ".claude/skills/nodefony-session/scripts/session-cost.mjs",
     ".claude/skills/nodefony-start-server/stop.sh",
     ".claude/skills/nodefony-ticket/scripts/francise.mjs",
+    ".claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs",
     ".claude/skills/nodefony-ticket/scripts/pose-lexique.mjs",
     "scripts/generate/brand-assets.mjs",
     "scripts/repo/safe-commit.sh",

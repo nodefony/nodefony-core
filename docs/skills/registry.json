@@ -4688,7 +4688,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 483,
-        "approxTokens": 8816
+        "approxTokens": 8917
       },
       "requires": [
         "base de données"
@@ -4775,16 +4775,26 @@
           {
             "path": "scripts/anchor-migrate.mjs",
             "purpose": "anchor-migrate.mjs — convertit les ancres `fichier:ligne` d'une page en ancres par SYMBOLE (`<fichier>.ts#<Symbole>`, `<fichier>.ts#<Classe.membre>`).",
-            "usage": [
-              "Usage : node anchor-migrate.mjs <page.md|dossier> [...] [--apply] [--report <f.json>]"
-            ],
+            "usage": [],
             "options": [
               {
                 "flag": "--apply",
                 "help": ""
               },
               {
+                "flag": "--history",
+                "help": ""
+              },
+              {
                 "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--keep-orphans",
+                "help": ""
+              },
+              {
+                "flag": "--name-only",
                 "help": ""
               },
               {
@@ -4809,6 +4819,14 @@
             "options": [
               {
                 "flag": "--apply",
+                "help": ""
+              },
+              {
+                "flag": "--history",
+                "help": ""
+              },
+              {
+                "flag": "--keep-orphans",
                 "help": ""
               },
               {
@@ -10486,11 +10504,11 @@
     },
     {
       "name": "nodefony-ticket",
-      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus.",
+      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus.",
       "family": "Autres",
       "version": "1.9.0",
       "keywords": [
-        "fichier:ligne"
+        "<fichier>.ts#<Symbole>"
       ],
       "triggers": [
         "crée un ticket",
@@ -10513,10 +10531,10 @@
         "explique le ticket",
         "pour les nuls"
       ],
-      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
       "cost": {
-        "bodyLines": 474,
-        "approxTokens": 9159
+        "bodyLines": 475,
+        "approxTokens": 9341
       },
       "requires": [
         "redis"
@@ -10687,6 +10705,32 @@
               }
             ],
             "env": [],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/ticket-anchor-migrate.mjs",
+            "purpose": "ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`).",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>…]",
+              "node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs --apply [<numéro>…]"
+            ],
+            "options": [
+              {
+                "flag": "--apply",
+                "help": "réécrit les corps convertis sur GitHub (sans : bilan seul)"
+              }
+            ],
+            "env": [
+              {
+                "name": "APPLY",
+                "help": ""
+              },
+              {
+                "name": "QUERY",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": true
           },
@@ -10952,7 +10996,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1014",
+            "detail": "1023",
             "advisory": false
           },
           {
@@ -10994,7 +11038,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "474",
+            "detail": "475",
             "advisory": true
           }
         ]

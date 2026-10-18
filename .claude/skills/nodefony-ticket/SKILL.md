@@ -5,7 +5,7 @@ metadata:
 description: >
   Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et
   compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une
-  preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau
+  preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du tableau
   dont les DATES qui recalent les estimations, le moment où un ticket se fait
   dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes,
   pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée un ticket", "ouvre une
@@ -376,7 +376,7 @@ source avant. En prose normale (le style télégraphique est suspendu ici), ~10-
    fichiers au plus).
 5. **Fini quand** — le critère observable du ticket, reformulé.
 
-Pourquoi : un ticket se lit en numéros, en noms de fonctions et en ancrages `fichier:ligne`.
+Pourquoi : un ticket se lit en numéros, en noms de fonctions et en ancres `<fichier>.ts#<Symbole>`.
 L'auteur y voit le QUOI, pas le POURQUOI, et approuve un travail qu'il ne suit plus. Le dire
 simplement l'oblige aussi à être compris par celui qui le rédige : un ticket qu'on ne sait pas
 expliquer en mots simples est un ticket qu'on n'a pas encore compris.
@@ -445,16 +445,17 @@ réécrire ; un écart estimé/constaté ne veut rien dire sans savoir ce qu'on 
 d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot` vit dans
 `nodefony-session` et est appelé par npm).
 
-| Script                                                       | Ce qu'il fait                                                                                          | Appelé par                                 |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)         | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                       | `npm run ticket:open`                      |
-| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs) | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                   | `.githooks/post-commit`                    |
-| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai            | à la main, au END de session               |
-| [`scripts/board-lint.mjs`](scripts/board-lint.mjs)           | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit      | `npm run ticket:lint`, au RESUME et au END |
-| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)     | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                             | à la main, au END de session               |
-| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)       | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur) | à la main, avant `gh issue close`          |
-| [`scripts/francise.mjs`](scripts/francise.mjs)               | repère les tournures à franciser dans un corps de ticket                                               | à la main                                  |
-| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)       | insère le bloc **Lexique** des abréviations détectées                                                  | à la main                                  |
+| Script                                                                   | Ce qu'il fait                                                                                                              | Appelé par                                              |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)                     | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                                           | `npm run ticket:open`                                   |
+| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)             | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                                       | `.githooks/post-commit`                                 |
+| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)                 | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai                                | à la main, au END de session                            |
+| [`scripts/board-lint.mjs`](scripts/board-lint.mjs)                       | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit                          | `npm run ticket:lint`, au RESUME et au END              |
+| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)                 | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                                                 | à la main, au END de session                            |
+| [`scripts/ticket-anchor-migrate.mjs`](scripts/ticket-anchor-migrate.mjs) | convertit les ancres `fichier:ligne` des tickets ouverts en symboles, chacune lue dans le code de SA date ; liste le reste | à la main, quand `ANCRE-LIGNE` sonne ; `--apply` envoie |
+| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)                   | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur)                     | à la main, avant `gh issue close`                       |
+| [`scripts/francise.mjs`](scripts/francise.mjs)                           | repère les tournures à franciser dans un corps de ticket                                                                   | à la main                                               |
+| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)                   | insère le bloc **Lexique** des abréviations détectées                                                                      | à la main                                               |
 
 Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un sous-ticket) et
 `parseTargets` (les tickets qu'un message de commit cite) — sont éprouvées par

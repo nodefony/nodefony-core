@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T12:04:48.884Z",
+  "generatedAt": "2026-10-18T12:12:37.596Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4937,7 +4937,7 @@
       "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/541",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -8463,6 +8463,22 @@
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
+      "ordre": 900,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 614,
+      "title": "chore(pilotage): convertir les ancres par ligne des tickets en symboles",
+      "url": "https://github.com/nodefony/nodefony-core/issues/614",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
       "ordre": 900,
       "debut": null,
       "cible": null,
