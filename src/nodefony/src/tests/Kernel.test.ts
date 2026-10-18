@@ -636,75 +636,9 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
     assert.deepStrictEqual(result, k.interfaces);
   });
 
-  it("interfacesFilter({ type: 'local' }) → uniquement interfaces internes", () => {
-    const k = mkKernel();
-    const result = k.interfacesFilter({ type: "local" });
-    for (const name of Object.keys(result)) {
-      for (const info of result[name]!) {
-        assert.strictEqual(info.internal, true);
-      }
-    }
-  });
-
-  it("interfacesFilter({ type: 'external' }) → uniquement interfaces non-internes", () => {
-    const k = mkKernel();
-    const result = k.interfacesFilter({ type: "external" });
-    for (const name of Object.keys(result)) {
-      for (const info of result[name]!) {
-        assert.strictEqual(info.internal, false);
-      }
-    }
-  });
-
-  it("interfacesFilter({ family: 'IPv4' }) → uniquement IPv4", () => {
-    const k = mkKernel();
-    const result = k.interfacesFilter({ family: "IPv4" });
-    for (const name of Object.keys(result)) {
-      for (const info of result[name]!) {
-        assert.strictEqual(info.family, "IPv4");
-      }
-    }
-  });
-
-  it("interfacesFilter({ family: 'IPv6' }) → uniquement IPv6", () => {
-    const k = mkKernel();
-    const result = k.interfacesFilter({ family: "IPv6" });
-    for (const name of Object.keys(result)) {
-      for (const info of result[name]!) {
-        assert.strictEqual(info.family, "IPv6");
-      }
-    }
-  });
-
-  it("interfacesFilter avec condition '||' — combine type et family", () => {
-    const k = mkKernel();
-    const result = k.interfacesFilter({
-      type: "local",
-      family: "IPv4",
-      condition: "||",
-    });
-    // Chaque entrée doit vérifier (internal || family=IPv4)
-    for (const name of Object.keys(result)) {
-      for (const info of result[name]!) {
-        assert.ok(info.internal || info.family === "IPv4");
-      }
-    }
-  });
-
-  it("interfacesFilter({ type: 'external', family: 'IPv4', condition: '&&' }) → IPv4 externe seulement", () => {
-    const k = mkKernel();
-    const result = k.interfacesFilter({
-      type: "external",
-      family: "IPv4",
-      condition: "&&",
-    });
-    for (const name of Object.keys(result)) {
-      for (const info of result[name]!) {
-        assert.strictEqual(info.internal, false);
-        assert.strictEqual(info.family, "IPv4");
-      }
-    }
-  });
+  // Le FILTRE (type, famille, `&&`/`||`, `{}`) est éprouvé sur une machine
+  // FICTIVE dans `kernelNetwork.test.ts` : lancé ici sur la carte réseau du poste,
+  // il bouclait sur des résultats vides sans exécuter une assertion.
 
   it("getNetwork() retourne les 5 clés attendues", () => {
     const k = mkKernel();
@@ -1199,12 +1133,8 @@ describe("Kernel — edge cases", () => {
 
   it("interfacesFilter avec objet filtre vide → même comportement que sans filtre", () => {
     const k = mkKernel();
-    const withEmpty = k.interfacesFilter({});
-    // Sans type ni family, matchType=false, matchFamily=false → aucun résultat
-    // (les deux matchs sont false, condition && → false → aucune entrée poussée)
-    for (const name of Object.keys(withEmpty)) {
-      assert.strictEqual(withEmpty[name]!.length, 0);
-    }
+    // Sans critère posé, rien à filtrer : l'instantané lui-même (#611).
+    assert.strictEqual(k.interfacesFilter({}), k.interfaces);
   });
 
   it("setCommandComplete → progress est cumulatif (idempotent sur le même bit)", () => {

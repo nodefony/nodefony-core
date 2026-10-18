@@ -155,13 +155,28 @@ describe("Kernel — réseau : interfacesFilter", () => {
     assert.equal(injected.en0!.length, 2);
   });
 
-  it("PIÈGE d'origine conservé : UN SEUL critère sous le '&&' par défaut ne garde RIEN (le critère absent vaut faux)", () => {
+  it("UN SEUL critère sous le '&&' par défaut : le critère absent ne participe pas (#611)", () => {
     const k = kernelOn(machine());
-    const nothing = { lo0: [], en0: [], utun0: [] };
-    assert.deepEqual(k.interfacesFilter({ type: "external" }), nothing);
-    assert.deepEqual(k.interfacesFilter({ type: "local" }), nothing);
-    assert.deepEqual(k.interfacesFilter({ family: "IPv4" }), nothing);
-    assert.deepEqual(k.interfacesFilter({ family: "IPv6" }), nothing);
+    assert.deepEqual(k.interfacesFilter({ type: "external" }), {
+      lo0: [],
+      en0: [ipv4("192.168.1.10", false), ipv6("fe80::1", false)],
+      utun0: [ipv4("10.0.0.5", false)],
+    });
+    assert.deepEqual(k.interfacesFilter({ type: "local" }), {
+      lo0: [ipv4("127.0.0.1", true), ipv6("::1", true)],
+      en0: [],
+      utun0: [],
+    });
+    assert.deepEqual(k.interfacesFilter({ family: "IPv4" }), {
+      lo0: [ipv4("127.0.0.1", true)],
+      en0: [ipv4("192.168.1.10", false)],
+      utun0: [ipv4("10.0.0.5", false)],
+    });
+    assert.deepEqual(k.interfacesFilter({ family: "IPv6", condition: "==" }), {
+      lo0: [ipv6("::1", true)],
+      en0: [ipv6("fe80::1", false)],
+      utun0: [],
+    });
   });
 
   it("type 'external' / 'local' seul tranche sur `internal` — en '||'", () => {
@@ -237,14 +252,11 @@ describe("Kernel — réseau : interfacesFilter", () => {
     });
   });
 
-  it("filtre vide {} ou sans critère → toutes les interfaces, toutes VIDES", () => {
+  it("filtre vide {} ou sans critère → l'instantané lui-même, comme sans filtre", () => {
     const k = kernelOn(machine());
-    assert.deepEqual(k.interfacesFilter({}), { lo0: [], en0: [], utun0: [] });
-    assert.deepEqual(k.interfacesFilter({ condition: "||" }), {
-      lo0: [],
-      en0: [],
-      utun0: [],
-    });
+    assert.equal(k.interfacesFilter({}), k.interfaces);
+    assert.equal(k.interfacesFilter({ condition: "||" }), k.interfaces);
+    assert.equal(k.interfacesFilter({ condition: "&&" }), k.interfaces);
   });
 });
 
@@ -267,14 +279,29 @@ describe("Kernel — réseau : getNetwork", () => {
     assert.deepEqual(net.ipv6, k.interfacesFilter({ family: "IPv6" }));
   });
 
-  it("PIÈGE d'origine conservé : external/local/ipv4/ipv6 sont tous VIDES (un critère chacun, sous '&&' — '==' compris)", () => {
+  it("external/local/ipv4/ipv6 rendent ce qu'ils annoncent (#611)", () => {
     const k = kernelOn(machine());
     const net = k.getNetwork();
-    const nothing = { lo0: [], en0: [], utun0: [] };
-    assert.deepEqual(net.external, nothing);
-    assert.deepEqual(net.local, nothing);
-    assert.deepEqual(net.ipv4, nothing);
-    assert.deepEqual(net.ipv6, nothing);
+    assert.deepEqual(net.external, {
+      lo0: [],
+      en0: [ipv4("192.168.1.10", false), ipv6("fe80::1", false)],
+      utun0: [ipv4("10.0.0.5", false)],
+    });
+    assert.deepEqual(net.local, {
+      lo0: [ipv4("127.0.0.1", true), ipv6("::1", true)],
+      en0: [],
+      utun0: [],
+    });
+    assert.deepEqual(net.ipv4, {
+      lo0: [ipv4("127.0.0.1", true)],
+      en0: [ipv4("192.168.1.10", false)],
+      utun0: [ipv4("10.0.0.5", false)],
+    });
+    assert.deepEqual(net.ipv6, {
+      lo0: [ipv6("::1", true)],
+      en0: [ipv6("fe80::1", false)],
+      utun0: [],
+    });
   });
 });
 

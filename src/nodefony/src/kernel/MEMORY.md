@@ -292,16 +292,15 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **interfacesFilter(filters?)** (délégué à `KernelNetwork`) :
 
-- Sans filtre → retourne `this.interfaces` brut (MÊME référence). Avec filtre → objet NEUF, TOUTES les
-  interfaces présentes (tableaux vides compris), tableaux neufs.
-- Chaque critère (`type` : `internal` ; `family`) vaut FAUX tant qu'il n'est pas posé. `condition` :
-  `"&&"` (défaut), `"||"`. `"=="` → traité comme `"&&"`.
-- ⚠️ PIÈGE (conservé tel quel, verrouillé par `kernelNetwork.test.ts`) : UN SEUL critère sous `&&` ne
-  garde RIEN — `{ type: "external" }` seul ⇒ tout vide ; sélectionner par type ou famille seuls exige
-  `condition: "||"`. Conséquence : `getNetwork().external/local/ipv4/ipv6` sont TOUJOURS vides (un
-  critère chacun, `local` en `"=="`) ; seul `interfaces` y porte quelque chose.
-  `getFirstExternalInterface` pose les deux critères en `&&` → correct.
-- Filtre vide `{}` → tous tableaux vides.
+- Sans filtre, ou sans critère posé (`{}`, `{ condition: "||" }`) → `this.interfaces` brut (MÊME
+  référence). Avec un critère → objet NEUF, TOUTES les interfaces présentes (tableaux vides compris),
+  tableaux neufs.
+- Seuls les critères POSÉS participent (`type` : `local` = `internal`, `external` sinon ; `family`).
+  `condition` : `"&&"` (défaut, `"=="` en est l'alias) → chaque critère posé vrai ; `"||"` → un seul suffit.
+- `getNetwork().external/local/ipv4/ipv6` = un critère chacun → garnis. `getFirstExternalInterface` =
+  `external` + famille (défaut IPv4) en `&&`, première entrée dans l'ordre des interfaces.
+- Bancs sur machine FICTIVE (`kernelNetwork.test.ts`) : jamais la carte réseau du poste (vert ou vide
+  selon la machine).
 
 **isConsole()**: `!runProfile.servers` (défensif : `false` si `runProfile` indéfini).
 **isModule(cls)**: `isSubclassOf(cls, Module)`. **Throws TypeError** si `cls === null`.
@@ -618,7 +617,7 @@ Redéfini localement — import circulaire `IKernel→Kernel→Command→IKernel
 - `isModule(null)` → TypeError (pas false)
 - Module hooks : prototype method obligatoire, pas arrow/property
 - `setCommandComplete` sans `this.command` → toujours false
-- `interfacesFilter({})` → tous vides (ni type ni family spécifiés → matchs false, condition && → false)
+- `interfacesFilter({})` → l'instantané lui-même (aucun critère posé = rien à filtrer)
 - `getDependencies()` : devDependencies exclus, doublons possibles si dep dans deux sections
 - `Command.setEvents()` : `eventsRegistered` guard ajouté — idempotent
 - `nodeSecurity` (`checks/nodeSecurity.ts`) : Node de CE poste en retard d'une publication de

@@ -69,50 +69,41 @@ export class KernelNetwork {
     this.interfaces = this.getNetworkInterfaces();
   }
 
+  /**
+   * Filtre l'instantané des interfaces par type (`local` = `internal`,
+   * `external` sinon) et par famille (`IPv4`/`IPv6`).
+   *
+   * Seuls les critères POSÉS participent : sous `&&` (défaut, `"=="` en est
+   * l'alias), chacun doit être vrai ; sous `||`, un seul suffit. Un filtre sans
+   * critère (`{}`, `{ condition: "||" }`) rend l'instantané lui-même, comme
+   * l'absence de filtre.
+   *
+   * @param filters - critères ; absent ou sans critère → tout l'instantané
+   * @returns un objet neuf qui garde TOUTES les interfaces (vides comprises)
+   *   quand un critère est posé ; l'instantané lui-même sinon
+   */
   interfacesFilter(filters?: FilterInterface): NetworkInterface {
-    if (filters) {
-      let condition = (ele: boolean, ele2: boolean): boolean => {
-        return ele && ele2;
-      };
-      if (filters.condition && filters.condition === "||") {
-        condition = (ele: boolean, ele2: boolean): boolean => {
-          return ele || ele2;
-        };
+    const type = filters?.type;
+    const family = filters?.family;
+    if (type === undefined && family === undefined) return this.interfaces;
+    const anyOf = filters?.condition === "||";
+    const interfaces: NetworkInterface = {};
+    for (const [name, list] of Object.entries(this.interfaces)) {
+      const kept: os.NetworkInterfaceInfo[] = [];
+      interfaces[name] = kept;
+      for (const infos of list) {
+        // `null` = critère absent : il ne fait ni réussir ni échouer.
+        const matchType =
+          type === undefined ? null : infos.internal === (type === "local");
+        const matchFamily =
+          family === undefined ? null : infos.family === family;
+        const keep = anyOf
+          ? matchType === true || matchFamily === true
+          : matchType !== false && matchFamily !== false;
+        if (keep) kept.push(infos);
       }
-      const interfaces: NetworkInterface = {};
-      for (const [myinterface, list] of Object.entries(this.interfaces)) {
-        const kept: os.NetworkInterfaceInfo[] = [];
-        interfaces[myinterface] = kept;
-        for (const infos of list) {
-          let matchType = false;
-          let matchFamily = false;
-          for (const filter in filters) {
-            switch (filter) {
-              case "type":
-                if (filters["type"] === "external") {
-                  if (!infos.internal) {
-                    matchType = true;
-                  }
-                }
-                if (filters["type"] === "local") {
-                  if (infos.internal) {
-                    matchType = true;
-                  }
-                }
-                break;
-              case "family":
-                if (filters["family"] === infos.family) {
-                  matchFamily = true;
-                }
-                break;
-            }
-          }
-          if (condition(matchType, matchFamily)) kept.push(infos);
-        }
-      }
-      return interfaces;
     }
-    return this.interfaces;
+    return interfaces;
   }
 
   /** Relit les interfaces à chaque appel (un appel système) et écarte les entrées vides. */
