@@ -1,6 +1,7 @@
 import type { OAuth2Tokens } from "../oauth2Client";
 import { OAuth2Client, OAuth2RequestError } from "../oauth2Client";
-import { readJsonBounded } from "../httpJson";
+import { isPlainObject } from "nodefony";
+import { readJsonBounded, readJsonObjectBounded } from "../httpJson";
 import type { IOAuthProfile } from "@nodefony/user";
 import type { IOAuthProvider } from "../../../contracts/IOAuthProvider";
 import type { IOAuthProviderContext } from "../oauthProviderRegistry";
@@ -30,7 +31,7 @@ function ghHeaders(accessToken: string): Record<string, string> {
   };
 }
 
-async function ghGet(url: string, accessToken: string): Promise<unknown> {
+async function ghGet(url: string, accessToken: string): Promise<Response> {
   const res = await fetch(url, {
     headers: ghHeaders(accessToken),
     // Mêmes gardes que l'échange du code : ni redirection suivie, ni attente
@@ -41,7 +42,28 @@ async function ghGet(url: string, accessToken: string): Promise<unknown> {
   if (!res.ok) {
     throw new Error(`GitHub API ${url} → ${res.status}`);
   }
-  return readJsonBounded(res, MAX_PROFILE_BYTES, `GitHub API ${url}`);
+  return res;
+}
+
+/**
+ * Les adresses que rend `GET /user/emails` — un tableau, sinon une erreur qui
+ * nomme l'appel ; une entrée qui n'est pas un objet est écartée.
+ */
+async function ghEmails(
+  accessToken: string,
+): Promise<Record<string, unknown>[]> {
+  const url = `${API}/user/emails`;
+  const list = await readJsonBounded(
+    await ghGet(url, accessToken),
+    MAX_PROFILE_BYTES,
+    `GitHub API ${url}`,
+  );
+  if (!Array.isArray(list)) {
+    throw new Error(
+      `GitHub API ${url} → corps inattendu (tableau JSON attendu)`,
+    );
+  }
+  return list.filter(isPlainObject);
 }
 
 /**
@@ -110,10 +132,11 @@ export function createGithubProvider(
     },
     async fetchProfile(tokens: OAuth2Tokens): Promise<IOAuthProfile> {
       const accessToken = tokens.accessToken();
-      const user = (await ghGet(`${API}/user`, accessToken)) as Record<
-        string,
-        unknown
-      >;
+      const user = await readJsonObjectBounded(
+        await ghGet(`${API}/user`, accessToken),
+        MAX_PROFILE_BYTES,
+        `GitHub API ${API}/user`,
+      );
       const id = user.id;
       if (typeof id !== "number" && typeof id !== "string") {
         throw new Error("GitHub /user sans identifiant.");
@@ -125,9 +148,7 @@ export function createGithubProvider(
       let email = typeof user.email === "string" ? user.email : null;
       let emailVerified = email !== null;
       if (email === null) {
-        const list = (await ghGet(`${API}/user/emails`, accessToken)) as Array<
-          Record<string, unknown>
-        >;
+        const list = await ghEmails(accessToken);
         const primary =
           list.find((e) => e.primary === true) ?? list.at(0) ?? null;
         if (primary && typeof primary.email === "string") {

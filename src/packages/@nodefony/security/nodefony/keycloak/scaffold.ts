@@ -62,10 +62,15 @@ function packageRoot(): string {
   for (;;) {
     const manifest = path.join(dir, "package.json");
     if (existsSync(manifest)) {
-      const name = (
-        JSON.parse(readFileSync(manifest, "utf8")) as { name?: unknown }
-      ).name;
-      if (name === PACKAGE_NAME) return dir;
+      const parsed: unknown = JSON.parse(readFileSync(manifest, "utf8"));
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "name" in parsed &&
+        parsed.name === PACKAGE_NAME
+      ) {
+        return dir;
+      }
     }
     const parent = path.dirname(dir);
     if (parent === dir) {

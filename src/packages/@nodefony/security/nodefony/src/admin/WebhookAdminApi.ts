@@ -1,4 +1,4 @@
-import { parsePageQuery, parseFilters } from "nodefony";
+import { isPlainObject, parsePageQuery, parseFilters } from "nodefony";
 import type {
   Container,
   IAdminEndpoint,
@@ -131,10 +131,27 @@ function bodyString(v: unknown): string | undefined {
 /** Array de strings non vides (≥ 1 élément), ou `undefined` si invalide. */
 function bodyStringArray(v: unknown): string[] | undefined {
   if (!Array.isArray(v) || v.length === 0) return undefined;
-  return v.every((x) => typeof x === "string" && x.length > 0)
-    ? (v as string[])
+  return v.every((x): x is string => typeof x === "string" && x.length > 0)
+    ? v
     : undefined;
 }
+
+/**
+ * Le corps d'une requête d'écriture : un objet JSON, ou rien (lu comme `{}`).
+ * Un tableau ou un scalaire rend `null` — l'appelant répond 400 au lieu de
+ * laisser un `in` lever sur une chaîne.
+ */
+function bodyObject(request: IAdminRequest): Record<string, unknown> | null {
+  const body = request.body;
+  if (body === undefined || body === null) return {};
+  return isPlainObject(body) ? body : null;
+}
+
+/** Réponse au corps qui n'est pas un objet JSON. */
+const BODY_NOT_OBJECT: IAdminResponse<{ error: string }> = {
+  status: 400,
+  body: { error: "JSON object body required" },
+};
 
 /** Page par défaut du listing d'endpoints (registre de config, volume modeste). */
 const ENDPOINTS_DEFAULT_LIMIT = 50;
@@ -189,9 +206,9 @@ export function parseWebhookListQuery(
  * fail-closed, et logge).
  */
 function mapWebhookError(e: unknown): IAdminResponse<{ error: string }> {
-  const code = (e as { code?: unknown }).code;
-  if (code === 422) {
-    const message = (e as { message?: unknown }).message;
+  // `throw null` ou un scalaire : rien à lire, l'erreur remonte telle quelle.
+  if (typeof e === "object" && e !== null && "code" in e && e.code === 422) {
+    const message = "message" in e ? e.message : undefined;
     return {
       status: 422,
       body: { error: typeof message === "string" ? message : "invalid url" },
@@ -346,7 +363,8 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
       > => {
         const s = svc();
         if (!ready(s)) return UNAVAILABLE;
-        const body = (request.body ?? {}) as Record<string, unknown>;
+        const body = bodyObject(request);
+        if (body === null) return BODY_NOT_OBJECT;
         const url = bodyString(body.url);
         if (!url) return { status: 400, body: { error: "url required" } };
         const events = bodyStringArray(body.events);
@@ -449,7 +467,8 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         if (!ready(s)) return UNAVAILABLE;
         const id = pathId(request);
         if (!id) return NOT_FOUND;
-        const body = (request.body ?? {}) as Record<string, unknown>;
+        const body = bodyObject(request);
+        if (body === null) return BODY_NOT_OBJECT;
         const patch: IWebhookUpdateAdminPatch = {};
         const fields: string[] = [];
         if ("url" in body) {

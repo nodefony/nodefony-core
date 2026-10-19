@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { isPlainObject } from "nodefony";
 import type * as Jose from "jose";
 import type { JSONWebKeySet, JWK } from "jose";
 import type {
@@ -103,18 +104,27 @@ export function parseKeySet(json: string): IStoredKeySet {
   } catch {
     throw new Error("JwtKeystore: keyset JSON invalide");
   }
-  const keyset = parsed as IStoredKeySet | null; // `JSON.parse("null")`
-  if (
-    !keyset ||
-    !Array.isArray(keyset.keys) ||
-    keyset.keys.length === 0 ||
-    keyset.keys.some((k) => typeof k.kid !== "string")
-  ) {
+  if (!isStoredKeySet(parsed)) {
     throw new Error(
       "JwtKeystore: keyset malformé (champ `keys` non vide avec `kid` requis)",
     );
   }
-  return keyset;
+  return parsed;
+}
+
+/**
+ * Forme minimale d'un jeu de clés relu : un objet dont `keys` est un tableau non
+ * vide d'objets portant chacun un `kid` textuel. Le reste de chaque JWK est
+ * éprouvé par `jose` à l'import de la clé.
+ */
+function isStoredKeySet(value: unknown): value is IStoredKeySet {
+  if (!isPlainObject(value)) return false;
+  const keys = value.keys;
+  return (
+    Array.isArray(keys) &&
+    keys.length > 0 &&
+    keys.every((k) => isPlainObject(k) && typeof k.kid === "string")
+  );
 }
 
 /** Génère une nouvelle paire Ed25519 (extractable pour persistance JWK). */

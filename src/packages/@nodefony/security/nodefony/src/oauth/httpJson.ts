@@ -6,6 +6,7 @@
  * Elle existe parce qu'une borne posée APRÈS `response.text()` ne protège plus
  * rien : le corps est déjà entièrement en mémoire quand on mesure sa longueur.
  */
+import { isPlainObject } from "nodefony";
 
 /**
  * Lit un corps JSON en refusant de dépasser une taille — la borne est vérifiée
@@ -74,12 +75,8 @@ export async function readJsonObjectBounded(
   subject: string,
 ): Promise<Record<string, unknown>> {
   const payload = await readJsonBounded(response, maxBytes, subject);
-  if (
-    payload === null ||
-    typeof payload !== "object" ||
-    Array.isArray(payload)
-  ) {
+  if (!isPlainObject(payload)) {
     throw new Error(`${subject} → corps inattendu (objet JSON attendu)`);
   }
-  return payload as Record<string, unknown>;
+  return payload;
 }

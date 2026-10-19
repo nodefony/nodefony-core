@@ -1,3 +1,4 @@
+import { isPlainObject } from "nodefony";
 import type { IOAuthProfile } from "@nodefony/user";
 import type {
   ILogoutTokenClaims,
@@ -98,10 +99,10 @@ export function readLogoutTokenClaims(
   const sid = typeof payload.sid === "string" ? payload.sid : null;
   if ((sub === null || sub === "") && (sid === null || sid === "")) return null;
   const events = payload.events;
-  if (typeof events !== "object" || events === null || Array.isArray(events)) {
+  if (!isPlainObject(events)) {
     return null;
   }
-  const event = (events as Record<string, unknown>)[BACKCHANNEL_LOGOUT_EVENT];
+  const event = events[BACKCHANNEL_LOGOUT_EVENT];
   if (typeof event !== "object" || event === null || Array.isArray(event)) {
     return null;
   }
@@ -140,13 +141,15 @@ async function decodeIdTokenClaims(idToken: string): Promise<object> {
  * écarts : un jeton d'un autre émetteur (point 2), délivré à une autre
  * application (point 3), ou périmé (point 9), n'a rien à faire ici.
  *
+ * @returns le `sub` du jeton, éprouvé non vide.
  * @throws Error - un claim obligatoire est absent, discordant ou périmé.
  */
 function assertIdTokenClaims(
   claims: Record<string, unknown>,
   opts: IOidcProviderOptions,
-): void {
-  if (typeof claims.sub !== "string" || claims.sub.length === 0) {
+): string {
+  const sub = claims.sub;
+  if (typeof sub !== "string" || sub.length === 0) {
     throw new Error(`${opts.name}: ID token sans claim 'sub'.`);
   }
   if (claims.iss !== opts.issuer) {
@@ -164,6 +167,7 @@ function assertIdTokenClaims(
   if (typeof claims.exp !== "number" || claims.exp * 1000 <= Date.now()) {
     throw new Error(`${opts.name}: ID token périmé ou sans 'exp'.`);
   }
+  return sub;
 }
 
 /**
@@ -203,12 +207,11 @@ export function createOidcProvider(opts: IOidcProviderOptions): IOAuthProvider {
       });
     },
     async fetchProfile(tokens: OAuth2Tokens): Promise<IOAuthProfile> {
-      const claims = (await opts.decodeIdToken(tokens.idToken())) as Record<
-        string,
-        unknown
-      >;
-      assertIdTokenClaims(claims, opts);
-      const sub = claims.sub as string;
+      const claims = await opts.decodeIdToken(tokens.idToken());
+      if (!isPlainObject(claims)) {
+        throw new Error(`${opts.name}: ID token sans charge utile objet.`);
+      }
+      const sub = assertIdTokenClaims(claims, opts);
       return {
         provider: opts.name,
         providerId: sub,

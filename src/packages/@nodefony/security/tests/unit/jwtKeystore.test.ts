@@ -197,6 +197,19 @@ describe("JwtKeystore — env (keySetJson) + erreurs", () => {
       /malformé/,
     );
   });
+
+  // #572 — une entrée `null` faisait lever un TypeError nu au démarrage.
+  it("keyset d'une autre forme → refus nommé, jamais un TypeError", () => {
+    for (const json of [
+      "null",
+      "[]",
+      JSON.stringify({ keys: [null] }),
+      JSON.stringify({ keys: [{ kid: "a" }, "b"] }),
+      JSON.stringify({ keys: { kid: "a" } }),
+    ]) {
+      assert.throws(() => parseKeySet(json), /malformé/, json);
+    }
+  });
 });
 
 /**

@@ -147,6 +147,14 @@ describe("createOidcProvider (helper générique OIDC)", () => {
     await assert.rejects(() => p.fetchProfile(fakeTokens({ id_token: "jwt" })));
   });
 
+  it("charge utile qui n'est pas un objet → erreur nommée (#572)", async () => {
+    const p = make(() => ["sub"]);
+    await assert.rejects(
+      () => p.fetchProfile(fakeTokens({ id_token: "jwt" })),
+      /google: ID token sans charge utile objet\./,
+    );
+  });
+
   // OpenID Connect Core §3.1.3.7 — la signature n'est pas vérifiée (canal TLS
   // direct), mais les autres exigences du même paragraphe ne coûtent rien et
   // ferment de vrais écarts.
@@ -290,6 +298,44 @@ describe("createGithubProvider (non-OIDC, profil via API)", () => {
     await assert.rejects(() =>
       p.fetchProfile(fakeTokens({ access_token: "gh-token" })),
     );
+  });
+
+  // #572 — une réponse d'une autre forme levait un TypeError nu (500 au rappel).
+  it("/user qui n'est pas un objet → erreur qui nomme l'appel", async () => {
+    mockFetch({ "https://api.github.com/user": null });
+    const p = createGithubProvider(ctx);
+    await assert.rejects(
+      () => p.fetchProfile(fakeTokens({ access_token: "gh-token" })),
+      /GitHub API https:\/\/api\.github\.com\/user → corps inattendu/,
+    );
+  });
+
+  it("/user/emails qui n'est pas un tableau → erreur qui nomme l'appel", async () => {
+    mockFetch({
+      "https://api.github.com/user": { id: 7, login: "carol", email: null },
+      "https://api.github.com/user/emails": { message: "Bad credentials" },
+    });
+    const p = createGithubProvider(ctx);
+    await assert.rejects(
+      () => p.fetchProfile(fakeTokens({ access_token: "gh-token" })),
+      /user\/emails → corps inattendu \(tableau JSON attendu\)/,
+    );
+  });
+
+  it("/user/emails : une entrée qui n'est pas un objet est écartée", async () => {
+    mockFetch({
+      "https://api.github.com/user": { id: 7, login: "carol", email: null },
+      "https://api.github.com/user/emails": [
+        null,
+        "x",
+        { email: "carol@priv.io", primary: true, verified: true },
+      ],
+    });
+    const p = createGithubProvider(ctx);
+    const profile = await p.fetchProfile(
+      fakeTokens({ access_token: "gh-token" }),
+    );
+    assert.equal(profile.email, "carol@priv.io");
   });
 
   // Codes relevés sur le point de jeton RÉEL de GitHub (200 + `error`) : un

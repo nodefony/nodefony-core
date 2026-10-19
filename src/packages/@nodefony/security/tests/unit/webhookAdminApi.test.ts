@@ -475,6 +475,26 @@ describe("PATCH webhooks/{id}", () => {
     }
   });
 
+  // #572 — `"url" in body` levait sur une chaîne : 500 au lieu d'un 400.
+  it("400 sur un corps qui n'est pas un objet JSON (PATCH et POST)", async () => {
+    const { container } = bootWebhooks();
+    const id = await seed(container);
+    const patch = endpoint(container, "webhooks/{id}", "PATCH");
+    const create = endpoint(container, "webhooks", "POST");
+    for (const body of ["url=x", 42, ["url"]]) {
+      for (const res of [
+        await patch.handler(req({ id }, body)),
+        await create.handler(req({}, body)),
+      ]) {
+        assert.deepEqual(
+          res,
+          { status: 400, body: { error: "JSON object body required" } },
+          JSON.stringify(body),
+        );
+      }
+    }
+  });
+
   it("422 si la nouvelle url est refusée anti-SSRF", async () => {
     const { container } = bootWebhooks({ ssrfUpdate: true });
     const id = await seed(container, "https://ok.example.com");
