@@ -81,17 +81,17 @@ describe("P2.9 — @Body({ stream }) (briques framework)", () => {
     const rawStream: NodeJS.ReadableStream = Readable.from(["chunk"]);
     const ctx: IParamArgContext = {
       paramsMap: {},
-      request: { request: rawStream, queryPost: { a: 1 } },
+      request: { request: rawStream, body: { a: 1 } },
       getRequestCookies() {},
     };
     const meta: ParamMeta = { source: "body", index: 0, stream: true };
     expect(resolveParamArg(meta, ctx)).to.equal(rawStream);
   });
 
-  it("resolveParamArg body SANS stream → queryPost inchangé", () => {
+  it("resolveParamArg body SANS stream → request.body inchangé", () => {
     const ctx: IParamArgContext = {
       paramsMap: {},
-      request: { request: Readable.from(["chunk"]), queryPost: { a: 1 } },
+      request: { request: Readable.from(["chunk"]), body: { a: 1 } },
       getRequestCookies() {},
     };
     const meta: ParamMeta = { source: "body", index: 0 };

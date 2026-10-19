@@ -25,7 +25,7 @@ export interface IRequest {
 export interface IHttpRequest extends IRequest {
   url: URL;
   query: Record<string, unknown>;
-  queryPost: Record<string, unknown>;
+  body: Record<string, unknown>;
   queryFile: unknown[];
   remoteAddress: string | null | undefined;
   acceptHtml: boolean;

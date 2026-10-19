@@ -1309,7 +1309,7 @@ export abstract class RealtimeController<
         scope: ctx.container instanceof Scope ? ctx.container : undefined,
         // Mutation : corps + clé d'idempotence portés par l'ALS (pas de corps
         // HTTP parsé en WS) → lus par `AdminApiController.buildRequest`. Absents
-        // pour un GET (`p?.body === undefined` → fallback queryPost vide).
+        // pour un GET (`p?.body === undefined` → fallback sur le corps HTTP, vide).
         body: p?.body,
         idempotencyKey:
           typeof p?.idempotencyKey === "string" ? p.idempotencyKey : undefined,

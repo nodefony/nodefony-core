@@ -70,7 +70,7 @@ class TokenAuthController extends SecurityApiController {
     if (!svc || !svc.isEnabled()) {
       return this.renderJson({ error: "Token issuance unavailable" }, 503);
     }
-    const post = this.queryPost as Record<string, unknown> | undefined;
+    const post = this.body as Record<string, unknown> | undefined;
     const body = (post ?? {}) as {
       username?: unknown;
       password?: unknown;
@@ -101,7 +101,7 @@ class TokenAuthController extends SecurityApiController {
     if (!svc || !svc.isEnabled()) {
       return this.renderJson({ error: "Token issuance unavailable" }, 503);
     }
-    const post = this.queryPost as Record<string, unknown> | undefined;
+    const post = this.body as Record<string, unknown> | undefined;
     const body = (post ?? {}) as {
       refresh_token?: unknown;
       resource?: unknown;

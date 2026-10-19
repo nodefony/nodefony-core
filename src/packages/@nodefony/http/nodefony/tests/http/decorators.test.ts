@@ -148,7 +148,6 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
       ]) {
         expect(r[source], source).to.deep.equal({ msg: "hello" });
       }
-      expect(r.queryPost).to.deep.equal({ msg: "hello" });
       // Contrôle : `query` porte l'URL SEULE — jamais le corps.
       expect(r.query).to.deep.equal({ v: "fromUrl" });
       expect(r.fromController).to.not.have.property("v");
@@ -205,14 +204,14 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
   // Les paramètres d'URL et le corps sont deux sources distinctes : le corps
   // n'écrase ni n'enrichit `query` (défaut du `$_REQUEST` de PHP, où un
   // paramètre pensé pour un POST se satisfait par l'URL d'un GET).
-  describe("query (URL) et queryPost (corps) ne fusionnent jamais", () => {
+  describe("query (URL) et body (corps) ne fusionnent jamais", () => {
     const PATH = "/nodefony/test/decorators/query-and-body?a=url&only=url";
 
     function expectSeparated(b: Record<string, unknown>, post: unknown) {
       for (const source of ["query", "fromDecoratorQuery"]) {
         expect(b[source], source).to.deep.equal({ a: "url", only: "url" });
       }
-      for (const source of ["queryPost", "fromDecoratorBody"]) {
+      for (const source of ["body", "fromDecoratorBody"]) {
         expect(b[source], source).to.deep.equal(post);
       }
     }
@@ -252,7 +251,7 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
       expectSeparated(body as Record<string, unknown>, ["x", "y"]);
     });
 
-    it("corps multipart : les champs restent dans queryPost", async () => {
+    it("corps multipart : les champs restent dans body", async () => {
       const boundary = "nfQueryBodyBoundary";
       const payload =
         `--${boundary}\r\nContent-Disposition: form-data; name="a"\r\n\r\nbody\r\n` +

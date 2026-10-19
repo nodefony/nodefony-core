@@ -297,7 +297,7 @@ Helper pur exporté : `toWsCloseCode(code): number` (`WebsocketContext.ts#toWsCl
 ### Request / Response
 
 - `HttpRequest` / `Http2Request` (`src/context/http/Request.ts`, `http2/Request.ts`) : parse du corps
-  (busboy/JSON/QS/XML) ; remplit `request.queryPost` (le corps — `request.query` reste l'URL seule, jamais fusionnée). **Drain obligatoire** avant lecture
+  (busboy/JSON/QS/XML) ; remplit `request.body` (le corps — `request.query` reste l'URL seule, jamais fusionnée). **Drain obligatoire** avant lecture
   (`Parser.parse()` `await this.ended()`).
 - `Response` (= `HttpResponse`, `src/context/http/Response.ts`) : `setStatusCode(...)`,
   `setBody(ele, encoding?)`, `setLength(...)`, `setHeader(...)`, `getHeader(...)`,
@@ -586,7 +586,7 @@ section (un `.default({})` plat ne ré-applique pas les sous-défauts).
   pas `"a"` → 1002. `protocol: ""` → accepte tout.
 - **`WebsocketResponse.connection` assignée dans le ctor** (pas seulement dans `connect()`) → `onError` peut
   fermer 1002 **avant** l'accept. `acceptedProtocol` = header `Sec-WebSocket-Protocol` brut (string).
-- **Body parsing : drain OBLIGATOIRE avant lecture** — `@Body`/`@Query`(POST) lisent `request.queryPost`
+- **Body parsing : drain OBLIGATOIRE avant lecture** — `@Body` lit `request.body`
   rempli par les parsers, qui doivent attendre `end` (`await this.ended()` + `Buffer.concat`) sinon chunks
   partiels/vides. Ne jamais attacher `on("data")` au ctor de `Request` (flowing mode → chunks écoulés avant
   le parser).

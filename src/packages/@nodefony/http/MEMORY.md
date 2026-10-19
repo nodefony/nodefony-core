@@ -501,11 +501,11 @@ Extension de l'`AuditErrorEntry` :
 
 ## Body parsing — drain OBLIGATOIRE avant lecture
 
-- `@Body`/`@Query`(POST) lisent `request.queryPost`, rempli par les parsers (`ParserJson`/`ParserQs`/`ParserXml`).
-- **`body` = alias de `queryPost`**, UN seul sens dans tout le framework (celui d'`IAdminRequest` et de l'écosystème) : le CORPS, jamais la query string. 3 chemins, même valeur — `controller.body`, `request.body` (getter, `Request.ts#HttpRequest.body`), `request.request.body` (posé sur la requête Node à `fireRequestEnd`). ⚠️ Ne PAS confondre avec `query`, qui FUSIONNE GET+POST (`Request.ts#HttpRequest.query`). Banc : `decorators.test.ts` « body-alias ».
-- **Le corps DOIT être entièrement reçu avant de parser** : `Parser.parse()` (base) fait `await this.ended()` (attend `end`) PUIS `Buffer.concat(chunks)`. `initialize()` fait `await parser.parse()` AVANT de fire `onRequestEnd` → le controller lit un `queryPost` complet.
+- `@Body` lit `request.body`, rempli par les parsers (`ParserJson`/`ParserQs`/`ParserXml`).
+- **`body` = LE corps parsé** (champ de `HttpRequest`, aucun alias), UN seul sens dans tout le framework (celui d'`IAdminRequest` et de l'écosystème) : le CORPS, jamais un paramètre d'URL. 3 chemins, même valeur — `controller.body`, `request.body` (`Request.ts#HttpRequest.body`), `request.request.body` (posé sur la requête Node à `fireRequestEnd`). `query` = paramètres d'URL SEULS (`Request.ts#HttpRequest.query`) : URL et corps ne fusionnent jamais. Banc : `decorators.test.ts` « body-alias ».
+- **Le corps DOIT être entièrement reçu avant de parser** : `Parser.parse()` (base) fait `await this.ended()` (attend `end`) PUIS `Buffer.concat(chunks)`. `initialize()` fait `await parser.parse()` AVANT de fire `onRequestEnd` → le controller lit un `body` complet.
 - 🐛 **2 bugs corrigés** (révélés par `decorators-response.test.ts`/`body-content-types.test.ts`) :
-  1. **`Request` ctor attachait `on("data")` (compteur `dataSize` MORT, jamais lu)** → flux en flowing mode dès la construction → les chunks s'écoulaient AVANT que le parser (attaché tard dans `parseRequest`) ne les voie → `queryPost` vide. **Listener + champ supprimés.**
+  1. **`Request` ctor attachait `on("data")` (compteur `dataSize` MORT, jamais lu)** → flux en flowing mode dès la construction → les chunks s'écoulaient AVANT que le parser (attaché tard dans `parseRequest`) ne les voie → `body` vide. **Listener + champ supprimés.**
   2. **base `Parser.parse()` ne drainait pas + `initialize` n'`await`ait pas `parser.parse()`** → Qs/Xml lisaient des chunks partiels/vides (JSON marchait déjà : drain+await présents). Drain mutualisé dans la base + `await` ajouté.
 - ⚠️ **Couvert par les UNIT tests** (`unit/parser.test.ts`) ET intégration — l'intégration seule ne voyait pas le bug Qs/Xml (aucun test n'envoyait d'urlencoded). Le mock unit marque `stream.readableEnded=true` (corps livré en synchrone).
 

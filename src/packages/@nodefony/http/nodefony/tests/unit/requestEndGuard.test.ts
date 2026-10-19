@@ -18,7 +18,7 @@ import HttpRequest from "../../src/context/http/Request.js";
 
 type FireRequestEnd = {
   request: { body: unknown };
-  queryPost: Record<string, unknown>;
+  body: Record<string, unknown>;
   context: Event;
   fireRequestEnd(): Promise<unknown> | false;
 };
@@ -26,7 +26,7 @@ type FireRequestEnd = {
 function makeRequest(context: Event): FireRequestEnd {
   const req = Object.create(HttpRequest.prototype) as FireRequestEnd;
   req.request = { body: null };
-  req.queryPost = { parsed: true };
+  req.body = { parsed: true };
   req.context = context;
   return req;
 }
@@ -37,7 +37,7 @@ describe("Request.fireRequestEnd — garde zéro-listener (lot C)", () => {
     const req = makeRequest(context);
     const result = req.fireRequestEnd();
     expect(result).to.equal(false);
-    expect(req.request.body).to.equal(req.queryPost);
+    expect(req.request.body).to.equal(req.body);
   });
 
   it("avec listener : le hook FIRE (le listener reçoit la request)", async () => {
@@ -55,6 +55,6 @@ describe("Request.fireRequestEnd — garde zéro-listener (lot C)", () => {
     await result;
     expect(seen).to.have.length(1);
     expect(seen[0]).to.equal(req);
-    expect(req.request.body).to.equal(req.queryPost);
+    expect(req.request.body).to.equal(req.body);
   });
 });

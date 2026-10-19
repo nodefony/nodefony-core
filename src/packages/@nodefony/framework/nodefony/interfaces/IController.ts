@@ -21,7 +21,7 @@ export interface IController {
   method?: HTTPMethod | undefined;
   query: Record<string, unknown>;
   queryFile: unknown[];
-  queryPost: Record<string, unknown>;
+  body: Record<string, unknown>;
   module?: Module | undefined;
 
   setContext(context: ContextType): void;

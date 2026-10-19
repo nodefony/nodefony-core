@@ -339,8 +339,7 @@ sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ 
 | `this.response`  | La réponse du transport                            | `Controller.ts#Controller.response`  |
 | `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts#Controller.method`    |
 | `this.query`     | Les paramètres d'URL — **jamais** le corps         | `Controller.ts#Controller.query`     |
-| `this.queryPost` | Le corps parsé                                     | `Controller.ts#Controller.queryPost` |
-| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts#Controller.body`      |
+| `this.body`      | Le corps parsé — **jamais** un paramètre d'URL     | `Controller.ts#Controller.body`      |
 | `this.queryFile` | Les fichiers uploadés                              | `Controller.ts#Controller.queryFile` |
 | `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts#Controller.session`   |
 

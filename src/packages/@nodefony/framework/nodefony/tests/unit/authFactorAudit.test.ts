@@ -73,7 +73,7 @@ function makeContext(
     request: {
       headers: { origin: "https://example.test" },
       query: query.get ?? {},
-      queryPost: query.post ?? {},
+      body: query.post ?? {},
     },
   } as unknown as ContextType;
 }
@@ -114,7 +114,7 @@ describe("Facteur d'authentification externe → audit", () => {
     );
     const ctrl = new WebAuthnController(context);
     captureOutput(ctrl);
-    Object.defineProperty(ctrl, "queryPost", {
+    Object.defineProperty(ctrl, "body", {
       value: { response: { id: "cred-1" } },
       configurable: true,
     });

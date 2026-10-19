@@ -280,7 +280,7 @@ class WebAuthnController extends SecurityApiController {
    * cérémonie est découvrable (cf {@link WebAuthnController.loginOptions}).
    */
   #body(): { response?: unknown } {
-    const post = this.queryPost as Record<string, unknown> | undefined;
+    const post = this.body as Record<string, unknown> | undefined;
     return post ?? {};
   }
 

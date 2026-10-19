@@ -57,7 +57,7 @@ async function run(opts: {
     notificationsCenter: false,
     scheme: opts.scheme,
     type: "http",
-    request: { headers: {}, queryPost: {} },
+    request: { headers: {}, body: {} },
   } as unknown as ContextType;
   const ctrl = new AdminApiController(context);
   let rendered: { status: unknown; body: unknown } | null = null;
@@ -65,7 +65,7 @@ async function run(opts: {
     value: { name: "admin.user.me.password", variables: [] },
     configurable: true,
   });
-  Object.defineProperty(ctrl, "queryPost", {
+  Object.defineProperty(ctrl, "body", {
     value: { currentPassword: "a", newPassword: "b" },
     configurable: true,
   });

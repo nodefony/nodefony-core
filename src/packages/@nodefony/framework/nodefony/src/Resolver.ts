@@ -747,9 +747,8 @@ class Resolver implements IResolver {
     const httpReq = paramCtx.request;
     // Params de route (noms → valeurs) pour le fingerprint du payload.
     const params = this._zipRouteParams();
-    // Corps : posé dans l'ALS par le pont WS, sinon body HTTP parsé (queryPost).
-    const body =
-      als?.body !== undefined ? als.body : (httpReq?.queryPost ?? null);
+    // Corps : posé dans l'ALS par le pont WS, sinon corps HTTP parsé.
+    const body = als?.body !== undefined ? als.body : (httpReq?.body ?? null);
     const store = context.container?.get("idempotencyStore") as
       IIdempotencyStore | undefined;
     const verdict = await evaluateIdempotency({

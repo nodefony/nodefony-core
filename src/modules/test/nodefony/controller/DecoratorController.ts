@@ -69,7 +69,6 @@ class DecoratorController extends Controller {
   postBodyAlias() {
     const req = this.context?.request as {
       body?: Record<string, unknown>;
-      queryPost?: Record<string, unknown>;
       query?: Record<string, unknown>;
       request?: { body?: unknown };
     } | null;
@@ -80,7 +79,6 @@ class DecoratorController extends Controller {
       fromRequest: req?.body ?? null,
       fromNodeRequest:
         (req?.request?.body as Record<string, unknown> | undefined) ?? null,
-      queryPost: req?.queryPost ?? null,
       query: req?.query ?? null,
     });
   }
@@ -95,7 +93,7 @@ class DecoratorController extends Controller {
   ) {
     return this.renderJson({
       query: this.query,
-      queryPost: this.queryPost,
+      body: this.body,
       fromDecoratorQuery: fromDecoratorQuery ?? null,
       fromDecoratorBody: fromDecoratorBody ?? null,
     });
@@ -103,7 +101,7 @@ class DecoratorController extends Controller {
 
   // P2.9 — `@Body({ stream:true })` : le pipeline saute le parse busboy/JSON et
   // injecte le flux brut (Readable). On le consomme en comptant les octets, et on
-  // prouve que le body n'a PAS été parsé (`queryPost` vide).
+  // prouve que le body n'a PAS été parsé (`request.body` vide).
   @Post("/body-stream")
   async postBodyStream(
     @Body({ stream: true }) body?: NodeJS.ReadableStream | null,
@@ -121,8 +119,8 @@ class DecoratorController extends Controller {
       });
     }
     const req = this.context?.request as
-      { queryPost?: Record<string, unknown> } | undefined;
-    const parsedKeys = Object.keys(req?.queryPost ?? {}).length;
+      { body?: Record<string, unknown> } | undefined;
+    const parsedKeys = Object.keys(req?.body ?? {}).length;
     return this.renderJson({ isReadable, bytes, parsedKeys });
   }
 

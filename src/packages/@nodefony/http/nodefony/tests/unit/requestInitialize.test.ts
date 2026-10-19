@@ -32,7 +32,7 @@ type FakeContext = Event & {
 type Initializable = {
   method: string;
   request: { body: unknown };
-  queryPost: Record<string, unknown>;
+  body: Record<string, unknown>;
   context: FakeContext;
   parseRequest: () => Promise<unknown>;
   initialize(): Promise<unknown> | undefined;
@@ -45,7 +45,7 @@ function makeRequest(method: string): Initializable {
   const req = Object.create(HttpRequest.prototype) as Initializable;
   req.method = method;
   req.request = { body: null };
-  req.queryPost = { parsed: true };
+  req.body = { parsed: true };
   req.context = context;
   return req;
 }
@@ -58,7 +58,7 @@ describe("HttpRequest.initialize — rien à attendre ⇒ `undefined`, synchrone
       expect(result).to.equal(undefined);
       expect(req.context.requestEnded, "requestEnded posé avant le retour").to
         .be.true;
-      expect(req.request.body, "alias body posé").to.equal(req.queryPost);
+      expect(req.request.body, "alias body posé").to.equal(req.body);
     });
   }
 

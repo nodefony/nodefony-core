@@ -24,7 +24,7 @@ function makeReq(): { req: HttpRequest; stream: EventEmitter } {
     request: stream,
     data: Buffer.alloc(0),
     query: {},
-    queryPost: {},
+    body: {},
     queryStringOptions: {},
     charset: "utf8",
     context: { requestEnded: false },
@@ -184,7 +184,7 @@ describe("Parser.ended() — cleanup des listeners jumeaux end/error", () => {
       request: stream,
       data: Buffer.alloc(0),
       query: {},
-      queryPost: {},
+      body: {},
       queryStringOptions: {},
       charset: "utf8",
       context: { requestEnded: false },
@@ -226,14 +226,14 @@ describe("Parser.ended() — cleanup des listeners jumeaux end/error", () => {
 });
 
 describe("ParserQs — corps application/x-www-form-urlencoded", () => {
-  it("parse le corps urlencoded dans queryPost, sans toucher à query (paramètres d'URL)", async () => {
+  it("parse le corps urlencoded dans body, sans toucher à query (paramètres d'URL)", async () => {
     const { req, stream } = makeReq();
     const url = { a: "url" };
     req.query = url;
     const p = new ParserQs(req);
     stream.emit("data", Buffer.from("a=1&b=2"));
     await p.parse();
-    expect(req.queryPost).to.deep.equal({ a: "1", b: "2" });
+    expect(req.body).to.deep.equal({ a: "1", b: "2" });
     // Même objet, même contenu : le corps n'écrase ni n'enrichit l'URL.
     expect(req.query).to.equal(url);
     expect(req.query).to.deep.equal({ a: "url" });
@@ -245,7 +245,7 @@ describe("ParserQs — corps application/x-www-form-urlencoded", () => {
     const p = new ParserQs(req);
     stream.emit("data", Buffer.from("user[name]=bob&user[age]=3"));
     await p.parse();
-    expect(req.queryPost).to.deep.equal({
+    expect(req.body).to.deep.equal({
       user: { name: "bob", age: "3" },
     });
   });
@@ -264,17 +264,17 @@ describe("ParserQs — corps application/x-www-form-urlencoded", () => {
     // "name=" + 0xE9 (é en latin1) — en utf8 ce serait un caractère de remplacement.
     stream.emit("data", Buffer.from([0x6e, 0x61, 0x6d, 0x65, 0x3d, 0xe9]));
     await p.parse();
-    expect((req.queryPost as { name?: string }).name).to.equal("é");
+    expect((req.body as { name?: string }).name).to.equal("é");
   });
 });
 
 describe("ParserXml — corps application/xml", () => {
-  it("parse le XML dans queryPost", async () => {
+  it("parse le XML dans body", async () => {
     const { req, stream } = makeReq();
     const p = new ParserXml(req);
     stream.emit("data", Buffer.from("<root><a>1</a></root>"));
     await p.parse();
-    expect(req.queryPost).to.have.property("root");
+    expect(req.body).to.have.property("root");
     expect(req.context.requestEnded).to.equal(true);
   });
 
@@ -300,7 +300,7 @@ describe("ParserXml — corps application/xml", () => {
 });
 
 // Frontière réseau (#572) : `JSON.parse` rend n'importe quelle valeur, alors que
-// `queryPost` est lu comme un objet (`this.queryPost.nom`). Un corps `null` ou
+// `body` est lu comme un objet (`this.body.nom`). Un corps `null` ou
 // scalaire y laissait `null`/`42` → TypeError → 500 dans le contrôleur.
 describe("ParserJson — corps application/json", () => {
   async function parseJson(
@@ -315,23 +315,23 @@ describe("ParserJson — corps application/json", () => {
     return req;
   }
 
-  it("parse un objet dans queryPost, sans toucher à query (paramètres d'URL)", async () => {
+  it("parse un objet dans body, sans toucher à query (paramètres d'URL)", async () => {
     const req = await parseJson('{"a":1}', { a: "url" });
-    expect(req.queryPost).to.deep.equal({ a: 1 });
+    expect(req.body).to.deep.equal({ a: 1 });
     expect(req.query).to.deep.equal({ a: "url" });
     expect(req.context.requestEnded).to.equal(true);
   });
 
   it("garde un tableau tel quel (envoi en lot lu par @Body), jamais étalé dans query", async () => {
     const req = await parseJson("[1,2]");
-    expect(req.queryPost).to.deep.equal([1, 2]);
+    expect(req.body).to.deep.equal([1, 2]);
     expect(req.query).to.deep.equal({});
   });
 
   for (const body of ["null", "42", '"texte"', "true"]) {
-    it(`ignore un corps ${body} : queryPost reste un objet`, async () => {
+    it(`ignore un corps ${body} : request.body reste un objet`, async () => {
       const req = await parseJson(body);
-      expect(req.queryPost).to.deep.equal({});
+      expect(req.body).to.deep.equal({});
       expect(req.query).to.deep.equal({});
       expect(req.data.toString()).to.equal(body);
       expect(req.context.requestEnded).to.equal(true);

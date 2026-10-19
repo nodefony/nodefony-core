@@ -210,7 +210,7 @@ class Controller extends Service implements IController {
   #method: HTTPMethod | null = null;
   #query: Record<string, unknown> | null = null;
   #queryFile: unknown[] | null = null;
-  #queryPost: Record<string, unknown> | null = null;
+  #body: Record<string, unknown> | null = null;
   //metaData: Data;
   module?: Module | undefined;
   template?: Eta | null | undefined;
@@ -308,7 +308,7 @@ class Controller extends Service implements IController {
 
   /**
    * Paramètres d'URL de l'appel en cours — jamais le corps, qui reste dans
-   * {@link queryPost}. Pour un singleton invoqué par le pont `api.request`,
+   * {@link body}. Pour un singleton invoqué par le pont `api.request`,
    * ceux du chemin INVOQUÉ (résolveur d'appel dans l'ALS), pas ceux du
    * handshake de la connexion. Une seule lecture de l'ALS.
    */
@@ -341,31 +341,20 @@ class Controller extends Service implements IController {
     this.#queryFile = value;
   }
 
-  get queryPost(): Record<string, unknown> {
-    return (this.#queryPost ??
-      (this.context?.request as HttpRequest | Http2Request | null)
-        ?.queryPost) as Record<string, unknown>;
-  }
-  set queryPost(value: Record<string, unknown>) {
-    this.#assertPerRequest("queryPost");
-    this.#queryPost = value;
-  }
-
   /**
    * Le CORPS de la requête, parsé — nom universel de l'écosystème (Express,
-   * Fastify, NestJS), alias de {@link queryPost}.
-   *
-   * Ne pas confondre avec {@link query}, qui FUSIONNE la query string et le
-   * corps. Pour une action typée, préférer le décorateur `@Body()`.
-   *
-   * Getter (aucune allocation) : `queryPost` reste la source unique.
+   * Fastify, NestJS). Jamais un paramètre d'URL : ceux-là sont dans
+   * {@link query}, et les deux ne fusionnent pas. Pour une action typée,
+   * préférer le décorateur `@Body()`.
    */
   get body(): Record<string, unknown> {
-    return this.queryPost;
+    return (this.#body ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.body) as Record<string, unknown>;
   }
   set body(value: Record<string, unknown>) {
     this.#assertPerRequest("body");
-    this.queryPost = value;
+    this.#body = value;
   }
 
   /**

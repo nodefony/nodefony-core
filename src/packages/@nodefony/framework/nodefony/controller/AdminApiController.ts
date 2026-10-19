@@ -250,14 +250,14 @@ class AdminApiController extends Controller {
     const als = RequestContext.get();
     const user = als?.user ?? null;
     // Getter typé `Record`, mais `undefined` hors requête HTTP (WebSocket).
-    const post = this.queryPost as Record<string, unknown> | undefined;
+    const post = this.body as Record<string, unknown> | undefined;
     return {
       params,
       // Paramètres d'URL SEULS : le corps n'y entre jamais (il est dans `body`).
       query: toAdminQuery(this.query),
       // WS : le corps de la mutation est porté par l'ALS (le pont `api.request`
-      // le pose — pas de corps HTTP parsé en WebSocket). HTTP : `queryPost`.
-      // `als.body === undefined` (cas GET/handshake) → on retombe sur queryPost.
+      // le pose — pas de corps HTTP parsé en WebSocket). HTTP : le corps parsé.
+      // `als.body === undefined` (cas GET/handshake) → on retombe sur le corps HTTP.
       body: als?.body !== undefined ? als.body : (post ?? null),
       user,
       roles: this.extractRoles(user),

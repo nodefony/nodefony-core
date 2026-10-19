@@ -1331,7 +1331,7 @@ export interface IParamArgContext {
   request?:
     | {
         query?: Record<string, unknown> | undefined;
-        queryPost?: Record<string, unknown> | undefined;
+        body?: Record<string, unknown> | undefined;
         queryFile?: unknown[] | undefined;
         headers?: Record<string, unknown> | undefined;
         /**
@@ -1373,7 +1373,7 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
       // Pont `api.request` (WS) : le corps d'une mutation voyage dans l'ALS
       // (aucun corps HTTP parsé sur une frame — posé per-invocation par
       // `RealtimeController.invokeApiRequest`, zéro bleed) et PRIME sur
-      // `queryPost` (vide en WS) — même priorité que `AdminApiController.
+      // `request.body` (vide en WS) — même priorité que `AdminApiController.
       // buildRequest`. En HTTP le payload ALS ne porte jamais `body` → fallback.
       const alsBody = RequestContext.get()?.body;
       if (alsBody !== undefined) {
@@ -1381,8 +1381,8 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
           ? (alsBody as Record<string, unknown> | null)?.[meta.key]
           : alsBody;
       }
-      const qp = ctx.request?.queryPost;
-      return meta.key !== undefined ? qp?.[meta.key] : qp;
+      const body = ctx.request?.body;
+      return meta.key !== undefined ? body?.[meta.key] : body;
     }
     case "headers": {
       // Node lowercase les clés de IncomingHttpHeaders → normaliser la lookup.

@@ -20,7 +20,7 @@ import {
 const cookies = { sid: "abc" };
 const request = {
   query: { q: "url" },
-  queryPost: { title: "corps" },
+  body: { title: "corps" },
   queryFile: [{ name: "f" }],
   headers: { "x-trace": "t1" },
   request: { stream: true },

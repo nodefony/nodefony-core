@@ -29,7 +29,7 @@ function makeCtx(tag: string) {
       url: new URL(`http://127.0.0.1/${tag}`),
       query: { q: tag },
       queryFile: [],
-      queryPost: {},
+      body: {},
       headers: {},
     },
     method: "GET",

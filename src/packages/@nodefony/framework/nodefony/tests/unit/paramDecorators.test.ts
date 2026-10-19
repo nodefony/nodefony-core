@@ -82,7 +82,7 @@ function fakeCtx(over: Partial<IParamArgContext> = {}): IParamArgContext {
     paramsMap: { id: "42", slug: "hello" },
     request: {
       query: { q: "search", page: "2" },
-      queryPost: { name: "john" },
+      body: { name: "john" },
       queryFile: ["FILE_A", "FILE_B"],
       headers: { "content-type": "application/json", host: "localhost" },
     },
@@ -116,7 +116,7 @@ describe("resolveParamArg — résolution par source", () => {
     expect(r({ source: "body", key: "name" })).to.equal("john");
     expect(r({ source: "body" })).to.deep.equal({ name: "john" });
   });
-  it("body — pont api.request : le corps ALS PRIME sur queryPost (mutation WS)", () => {
+  it("body — pont api.request : le corps ALS PRIME sur request.body (mutation WS)", () => {
     // Le pont pose le corps de la frame dans l'ALS (aucun corps HTTP parsé en
     // WS) ; @Body doit le lire là, sinon une mutation socket.mutate reçoit
     // undefined alors que la MÊME action marche en HTTP (dégradation silencieuse).
@@ -129,10 +129,10 @@ describe("resolveParamArg — résolution par source", () => {
     );
     expect(fromAls.full).to.deep.equal({ name: "ws-body", extra: 1 });
     expect(fromAls.keyed).to.equal("ws-body");
-    // Hors bulle ALS (HTTP classique) → fallback queryPost, inchangé.
+    // Hors bulle ALS (HTTP classique) → fallback request.body, inchangé.
     expect(r({ source: "body" })).to.deep.equal({ name: "john" });
   });
-  it("body — payload ALS SANS body (HTTP dans la bulle requestId) → queryPost", () => {
+  it("body — payload ALS SANS body (HTTP dans la bulle requestId) → request.body", () => {
     const val = RequestContext.run({ requestId: "t-http" }, () =>
       r({ source: "body", key: "name" }),
     );

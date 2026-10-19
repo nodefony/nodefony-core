@@ -113,7 +113,7 @@ class Parser {
     // les chunks sont arrivés (le listener `on("data")` du constructeur les
     // accumule). Sans ça, `Buffer.concat(this.chunks)` lisait un corps partiel/
     // vide (les Parser Qs/Xml/brut étaient invoqués sans attendre la fin du flux)
-    // → `queryPost` vide pour urlencoded/xml. (ParserJson drainait déjà ; le
+    // → `body` vide pour urlencoded/xml. (ParserJson drainait déjà ; le
     // drain est désormais mutualisé ici pour tous les parsers.)
     await this.ended();
     this.request.data = Buffer.concat(this.chunks);
@@ -139,7 +139,7 @@ class ParserQs extends Parser {
 
   override async parse() {
     await super.parse();
-    this.request.queryPost = QS.parse(
+    this.request.body = QS.parse(
       this.request.data.toString(this.charset),
       this.parserOptions,
     );
@@ -171,7 +171,7 @@ class ParserXml extends Parser {
             return reject(err);
           }
           // Arbre XML rendu par xml2js (objet racine).
-          this.request.queryPost = result as Record<string, unknown>;
+          this.request.body = result as Record<string, unknown>;
           this.request.context.requestEnded = true;
           return resolve(this);
         },
@@ -181,7 +181,7 @@ class ParserXml extends Parser {
 }
 
 /**
- * Vrai pour un objet ou un tableau JSON — ce que `queryPost` peut porter.
+ * Vrai pour un objet ou un tableau JSON — ce que `body` peut porter.
  * Un tableau passe : `@Body()` le rend tel quel (envoi en lot).
  */
 function isJsonContainer(value: unknown): value is Record<string, unknown> {
@@ -189,7 +189,7 @@ function isJsonContainer(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Parse un corps `application/json` (ou `*+json`) en objet → `queryPost`
+ * Parse un corps `application/json` (ou `*+json`) en objet → `body`
  * (source lue par le décorateur `@Body`). Reprend le rôle de l'ancien plugin
  * `json` de formidable, supprimé avec le passage à busboy (multipart seul).
  * Lenient : un corps JSON malformé est ignoré (pas de throw — `parse()` est
@@ -211,9 +211,9 @@ class ParserJson extends Parser {
       try {
         const parsed: unknown = JSON.parse(text);
         if (isJsonContainer(parsed)) {
-          this.request.queryPost = parsed;
+          this.request.body = parsed;
         }
-        /* scalaire ou `null` : ignoré comme un JSON malformé — `queryPost`
+        /* scalaire ou `null` : ignoré comme un JSON malformé — `body`
            reste un objet (brut conservé dans request.data) */
       } catch {
         /* JSON malformé : ignoré (brut conservé dans request.data) */

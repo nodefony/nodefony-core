@@ -374,7 +374,7 @@ class OAuth2Controller extends SecurityApiController {
     if (!svc.backchannelLogout) {
       return this.renderJson({ error: "Not implemented" }, 501, noStore);
     }
-    const token = (this.queryPost as Record<string, unknown> | undefined)
+    const token = (this.body as Record<string, unknown> | undefined)
       ?.logout_token;
     if (typeof token !== "string" || token.length === 0) {
       return this.renderJson({ error: "invalid_request" }, 400, noStore);

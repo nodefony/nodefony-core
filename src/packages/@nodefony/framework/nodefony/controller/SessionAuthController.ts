@@ -92,7 +92,7 @@ class SessionAuthController extends SecurityApiController {
     if (!flow) {
       return this.renderJson({ error: "Authentication unavailable" }, 503);
     }
-    const post = this.queryPost as Record<string, unknown> | undefined;
+    const post = this.body as Record<string, unknown> | undefined;
     const body = (post ?? {}) as {
       username?: unknown;
       password?: unknown;
@@ -127,7 +127,7 @@ class SessionAuthController extends SecurityApiController {
     if (!flow) {
       return this.renderJson({ error: "Authentication unavailable" }, 503);
     }
-    const post = this.queryPost as Record<string, unknown> | undefined;
+    const post = this.body as Record<string, unknown> | undefined;
     const body = (post ?? {}) as { code?: unknown };
     try {
       const user = await flow.completeMfaLogin(

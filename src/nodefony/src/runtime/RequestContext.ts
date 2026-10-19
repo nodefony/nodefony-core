@@ -115,8 +115,8 @@ export interface RequestContextPayload {
    * en WebSocket il n'existe aucun corps HTTP parsé, donc le pont transporte la
    * charge utile de la frame ici (per-invocation via `RequestContext.run` → zéro
    * bleed entre frames concurrentes de la même socket). Lu par
-   * `AdminApiController.buildRequest` en priorité sur `queryPost` (vide en WS).
-   * Absent en HTTP (le corps vient du pipeline → `queryPost`).
+   * `AdminApiController.buildRequest` en priorité sur `request.body` (vide en WS).
+   * Absent en HTTP (le corps vient du pipeline → `request.body`).
    */
   body?: unknown;
   /**

@@ -32,7 +32,7 @@ function makeContext(services: Record<string, unknown>): ContextType {
     container,
     notificationsCenter: false,
     scheme: "http",
-    request: { headers: {}, queryPost: {} },
+    request: { headers: {}, body: {} },
   } as unknown as ContextType;
 }
 
@@ -50,7 +50,7 @@ function captureRender(
     },
     configurable: true,
   });
-  Object.defineProperty(ctrl, "queryPost", {
+  Object.defineProperty(ctrl, "body", {
     value: body,
     configurable: true,
   });

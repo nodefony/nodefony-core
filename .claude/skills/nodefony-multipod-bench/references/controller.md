@@ -43,7 +43,7 @@ class ChatController extends RealtimeController {
   /** Publication légitime depuis l'extérieur : `curl -X POST …/api/chat/say`. */
   @route("chat-say", { path: "/say", requirements: { methods: ["POST"] } })
   async say(): Promise<unknown> {
-    // Le corps se lit par `this.body` (alias de `queryPost`) — PAS par
+    // Le corps se lit par `this.body` (le corps parsé) — PAS par
     // `context.request.body`, qui n'existait pas et rendait `undefined` en
     // silence : le banc publiait toujours "hello" sans que rien ne le dise.
     const body = (this.body ?? {}) as { msg?: string };
@@ -62,7 +62,7 @@ class ChatController extends RealtimeController {
     // La query vit sur la REQUÊTE, exposée par le controller (`this.query`) :
     // un `context.query` inexistant retombe silencieusement sur la valeur par
     // défaut — la rafale paraît lancée, elle ne publie que 100 messages.
-    // `this.query` = paramètres d'URL seuls (le corps reste dans `queryPost`).
+    // `this.query` = paramètres d'URL seuls (le corps reste dans `this.body`).
     const q = this.query as Record<string, unknown> | undefined;
     const n = Number(q?.n ?? 100);
     // Taille de charge (octets de remplissage). Un message de banc minuscule

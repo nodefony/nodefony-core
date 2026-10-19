@@ -86,7 +86,7 @@ const CHARSET_ALIASES: Record<string, BufferEncoding> = {
 // `replace()` ignore/réinitialise lastIndex → partage sûr d'une regex /g.
 const QUOTE_TRIM = /^["']|["']$/gu;
 
-// Méthodes dont le corps est parsé (→ `queryPost`, lu par `@Body`). PATCH (RFC
+// Méthodes dont le corps est parsé (→ `body`, lu par `@Body`). PATCH (RFC
 // 5789) porte un corps comme POST/PUT → il DOIT y figurer ; son absence laissait
 // `request.body` vide sur tout PATCH (data plane admin → UPDATE vide = 500).
 const parse = {
@@ -209,24 +209,16 @@ class HttpRequest {
     this.#url = u;
   }
   parser: ParserType | null = null;
-  queryPost: Record<string, unknown> = {};
-  queryFile: UploadedFile[] = [];
-  query: Record<string, unknown> = {};
-
   /**
-   * Le CORPS de la requête, parsé — nom universel de l'écosystème (Express,
-   * Fastify, NestJS), alias de {@link queryPost}.
-   *
-   * Ne pas confondre avec {@link query}, qui FUSIONNE la query string et le
-   * corps : `body` ne rend jamais un paramètre d'URL. Le data plane admin
-   * expose déjà cette sémantique (`IAdminRequest.body`) ; ce getter la rend
-   * disponible partout.
-   *
-   * Getter (aucune allocation) : `queryPost` reste la source unique.
+   * Le CORPS de la requête, parsé (JSON, urlencoded, XML, champs multipart) —
+   * nom universel de l'écosystème (Express, Fastify, NestJS) et celui
+   * d'`IAdminRequest.body`. Jamais un paramètre d'URL : ceux-là sont dans
+   * {@link query}, et les deux ne fusionnent pas.
    */
-  get body(): Record<string, unknown> {
-    return this.queryPost;
-  }
+  body: Record<string, unknown> = {};
+  queryFile: UploadedFile[] = [];
+  /** Les paramètres d'URL, seuls — jamais un champ du corps ({@link body}). */
+  query: Record<string, unknown> = {};
   queryStringOptions:
     | (QS.IParseOptions & {
         decoder?: undefined;
@@ -330,7 +322,7 @@ class HttpRequest {
       this.#url.query = query;
     }
     // `query` = les paramètres d'URL SEULS (aussi exposés en `url.query`) ;
-    // le corps vit dans `queryPost`, jamais fusionné : un lecteur de `query`
+    // le corps vit dans `body`, jamais fusionné : un lecteur de `query`
     // sait d'où vient chaque valeur.
     this.query = query;
     if (PERF_PROBE_SUB) perfMark("reqQueryNs");
@@ -353,11 +345,11 @@ class HttpRequest {
    * remplace le `once("onRequestEnd")` du ctor qui allouait 1 onceWrapper +
    * 1 closure à CHAQUE requête.
    *
-   * Il porte le CORPS (`queryPost`), pas la fusion `query` : un seul sens de
+   * Il porte le CORPS (`body`), jamais les paramètres d'URL : un seul sens de
    * `body` dans tout le framework, celui de l'écosystème et d'`IAdminRequest`.
    */
   private fireRequestEnd(): Promise<unknown> | false {
-    this.request.body = this.queryPost;
+    this.request.body = this.body;
     // Hook utilisateur (le pipeline kernel appelle sa MÉTHODE `onRequestEnd`
     // directement, pas cet événement) : 0 listener nominal → le check évite
     // l'appel async (2 Promises/req). `false` = contrat « aucun listener »
@@ -409,7 +401,7 @@ class HttpRequest {
           if (this.context.finished) {
             return;
           }
-          // AWAIT : le corps doit être ENTIÈREMENT parsé (queryPost rempli)
+          // AWAIT : le corps doit être ENTIÈREMENT parsé (body rempli)
           // AVANT onRequestEnd → avant que le controller ne lise @Body. Sans
           // await, onRequestEnd partait sur un parse encore en cours → body vide.
           await parser.parse();
@@ -519,10 +511,10 @@ class HttpRequest {
       case null:
       default:
         // formidable parsait le JSON via son plugin `json` interne ; busboy ne
-        // gère QUE le multipart → on parse le JSON nous-mêmes (→ queryPost, lu
+        // gère QUE le multipart → on parse le JSON nous-mêmes (→ body, lu
         // par @Body). `*+json` (ex: application/vnd.api+json) inclus.
         // AWAIT ici (comme l'ancien `await form.parse()`) : ParserJson draine le
-        // corps puis remplit queryPost AVANT que initialize ne résolve, donc
+        // corps puis remplit body AVANT que initialize ne résolve, donc
         // avant que le controller ne lise @Body. On fire onRequestEnd ici et on
         // renvoie la sentinelle → initialize ne re-parse pas.
         if (
@@ -536,7 +528,7 @@ class HttpRequest {
           return BODY_DONE;
         }
         // text/plain, octet-stream, inconnu, ou sans corps : bufferise le brut
-        // dans request.data (le framework décidera) ; pas de queryPost.
+        // dans request.data (le framework décidera) ; pas de body.
         this.parser = new Parser(this);
         return this.parser;
     }
@@ -588,7 +580,7 @@ class HttpRequest {
     }
 
     const { fields, files } = await this.streamMultipart(bb);
-    this.queryPost = fields;
+    this.body = fields;
     for (const pf of files) {
       await this.createFileUpload(pf.field, pf.file);
     }

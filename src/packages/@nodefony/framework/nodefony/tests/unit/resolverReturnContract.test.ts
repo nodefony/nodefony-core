@@ -108,7 +108,7 @@ function makeResolver(
     kernel: undefined,
     security: null,
     response: { setStatusCode() {}, setHeader() {} },
-    request: { headers: {}, queryPost: null },
+    request: { headers: {}, body: null },
     send: vi.fn(() => SENT),
     redirect: vi.fn(),
     phaseStart: vi.fn(),

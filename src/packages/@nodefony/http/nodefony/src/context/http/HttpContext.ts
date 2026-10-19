@@ -336,7 +336,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       return thenMaybe(this.send(), () => this);
     }
     // NB perf : pas de copie des paramètres de requête dans le scope DI. Les décorateurs
-    // @Query/@Param/@Body lisent `ctx.request.query/queryPost/queryFile`
+    // @Query/@Param/@Body lisent `ctx.request.query/body/queryFile`
     // DIRECTEMENT (cf framework routerDecorators) ; peupler le scope DI avec
     // ces clés (4 parses + insertions/req) n'était lu par PERSONNE — héritage
     // JS mort, retiré (~+3 % RPS sur route sans query). Cf metaData per-requête.

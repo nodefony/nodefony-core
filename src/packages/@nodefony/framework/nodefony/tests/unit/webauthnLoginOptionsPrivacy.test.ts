@@ -76,7 +76,7 @@ function makeContext(
     request: {
       headers: { origin: "https://example.test" },
       query: {},
-      queryPost: post,
+      body: post,
     },
   } as unknown as ContextType;
 }
@@ -98,7 +98,7 @@ function makeController(
     value: (body: unknown) => body,
     configurable: true,
   });
-  Object.defineProperty(ctrl, "queryPost", { value: post, configurable: true });
+  Object.defineProperty(ctrl, "body", { value: post, configurable: true });
   return ctrl;
 }
 

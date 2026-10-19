@@ -2,11 +2,11 @@
 import { expect } from "vitest";
 import https from "node:https";
 
-// Régression — parsing du corps selon le Content-Type, lu par @Body (queryPost).
+// Régression — parsing du corps selon le Content-Type, lu par @Body (body).
 //
 // Bug corrigé : la base `Parser.parse()` ne drainait pas le flux (`await
 // ended()`) et `initialize` n'attendait pas `parser.parse()` → pour
-// urlencoded / xml, le controller lisait `queryPost` AVANT la fin du parse →
+// urlencoded / xml, le controller lisait `body` AVANT la fin du parse →
 // corps vide. JSON marchait (drain + await déjà présents). Couvre les trois.
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
@@ -51,7 +51,7 @@ function post(
 const BODY = "/nodefony/test/decorators/body";
 const FIELD = "/nodefony/test/decorators/body-field";
 
-describe("Body parsing par Content-Type — @Body / queryPost (requires server)", () => {
+describe("Body parsing par Content-Type — @Body / body (requires server)", () => {
   it("application/json — @Body() reçoit l'objet complet", async () => {
     const res = await post(
       BODY,

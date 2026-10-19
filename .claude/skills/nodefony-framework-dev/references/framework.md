@@ -198,8 +198,8 @@ n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le single
 
 **Getters/setters per-request (V4.1)** — dérivent du `context` LIVE (`shadow ?? context.x`), 0 alloc :
 `context` (`Controller.ts#Controller.context`, retombe sur `RequestContext.getContext()` pour un singleton), `route`
-(via `context.resolver`), `request`, `response`, `method`, `query` (URL seule), `queryFile`,
-`queryPost`, **`session`** (getter direct `context.session ?? null`, `Controller.ts#Controller.#assertPerRequest` — **plus de
+(via `context.resolver`), `request`, `response`, `method`, `query` (URL seule), `body` (corps parsé), `queryFile`,
+**`session`** (getter direct `context.session ?? null`, `Controller.ts#Controller.#assertPerRequest` — **plus de
 `startSession()`** ; activation par `@UseSession`/`@Session`/cookie). `module`, `template` (Eta).
 
 | Méthode | Signature | Rôle |
@@ -315,7 +315,7 @@ Nom de route = `admin.<ns>.<method>.<path>`. `Router.setController(AdminApiContr
 **`AdminApiController.dispatch(...args)`** (`nodefony/controller/AdminApiController.ts#AdminApiController.dispatch`) — 1 controller
 pour N endpoints. `runAdmin()` (`nodefony/controller/AdminApiController.ts#AdminApiController.runAdmin`) transport-agnostique : `broker.resolve(route.name)` → `buildRequest`
 (Context→`IAdminRequest`, params zippés depuis `route.variables`, body via ALS du pont WS sinon
-`queryPost`) → **RBAC** `isAdminGranted(roles, role)` (`src/adminRbac.ts`, fail-closed, 403 si rôle
+`request.body`) → **RBAC** `isAdminGranted(roles, role)` (`src/adminRbac.ts`, fail-closed, 403 si rôle
 absent ; `role===""`=public) → **idempotencyGate** → `handler` → `normalize`. Rendu : **HTTP** =
 `renderJson(body,status,{…,"x-nodefony-instance":pid})` ; **WS** = body NU, status≥400 → `RpcError(-32000,
 {status,body})`.

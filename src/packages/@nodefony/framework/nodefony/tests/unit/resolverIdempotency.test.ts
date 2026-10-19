@@ -112,7 +112,7 @@ function makeResolver(opts: {
     method: opts.method ?? "POST",
     container,
     response,
-    request: { headers: {}, queryPost: null },
+    request: { headers: {}, body: null },
   } as unknown as ContextType;
   r.route = {
     variables: [],

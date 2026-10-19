@@ -526,7 +526,7 @@ class DangerController extends Controller {
   @Post("/delete")
   async remove() {
     const totp = this.get<TotpService>("totp");
-    const code = (this.queryPost as { code?: unknown }).code;
+    const code = (this.body as { code?: unknown }).code;
     // Zone protégée : le firewall a déjà authentifié. On exige la PREUVE FRAÎCHE.
     if (!totp?.isEnabled() || typeof code !== "string") {
       return this.renderJson({ error: "2FA required" }, 403);
