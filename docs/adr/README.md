@@ -33,3 +33,4 @@ status: stable
 | [0015](0015-page-de-connexion-servie-par-le-framework.md)     | Page de connexion — servie par le framework, un balisage, un moteur partagé                   | proposed | 2026-10-10 |
 | [0016](0016-noms-courts-variables-modules.md)                 | Variables d'environnement des modules — le nom court se déclare sur son champ                 | accepted | 2026-10-12 |
 | [0017](0017-ai-mecanique-mcp-hors-du-coeur.md)                | @nodefony/ai — la mécanique MCP hors du cœur, une porte se déclare                            | accepted | 2026-10-16 |
+| [0018](0018-decorateurs-sans-metadonnees-de-type.md)          | Décorateurs — plus aucune métadonnée de type, routes typées par schéma                        | accepted | 2026-10-19 |
