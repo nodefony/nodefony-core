@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T19:18:28.451Z",
+  "generatedAt": "2026-10-19T20:14:55.756Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -14,7 +14,7 @@
       "closed": 0,
       "dueOn": null,
       "number": 4,
-      "open": 5,
+      "open": 6,
       "title": "11.0.0"
     },
     {
@@ -8529,6 +8529,20 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 164,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 637,
+      "title": "feat(framework): servir une API GraphQL dérivée des services CRUD",
+      "url": "https://github.com/nodefony/nodefony-core/issues/637",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": null,
+      "ordre": 164.5,
       "debut": null,
       "cible": null,
       "labels": []
