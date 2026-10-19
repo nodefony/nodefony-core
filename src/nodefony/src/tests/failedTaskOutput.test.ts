@@ -114,28 +114,35 @@ describe("runCapturedCommand — borne d'inactivité", () => {
   // à son réveil, le minuteur passe AVANT la lecture des données en attente,
   // et une horloge périmée déclarait calée une commande qui n'avait cessé de
   // parler. Le blocage est posé sur le parent APRÈS le premier mot de
-  // l'enfant — le démarrage de `node` reste ainsi hors de la mesure.
+  // l'enfant — le démarrage de `node` reste ainsi hors de la mesure. Un enfant
+  // tué AVANT ce mot (démarrage > borne, vu en passe complète) laissait le test
+  // attendre un mot qui ne viendrait jamais, jusqu'à son plafond : l'essai se
+  // rejoue, borne doublée, et le blocage la dépasse toujours d'une seconde.
   it("superviseur bloqué : ce qui attend dans le tube est lu AVANT tout verdict", async () => {
-    let heardFirst = (): void => {};
-    const first = new Promise<void>((resolve) => {
-      heardFirst = resolve;
-    });
-    const pending = runCapturedCommand(
-      process.execPath,
-      [
-        "-e",
-        "let n = 0; process.stdout.write('départ\\n'); const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 60) { clearInterval(t); process.exit(0); } }, 100);",
-      ],
-      process.cwd(),
-      3_000,
-      { onSpawn: (p: ChildProcess) => p.stdout?.once("data", heardFirst) },
-    );
-    await first;
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 4_000);
-    const r = await pending;
+    const r = await afterStartup(async (idleMs) => {
+      const blockMs = idleMs + 1_000;
+      let heardFirst = (): void => {};
+      const first = new Promise<boolean>((resolve) => {
+        heardFirst = () => resolve(true);
+      });
+      const pending = runCapturedCommand(
+        process.execPath,
+        [
+          "-e",
+          `${SAY_SPOKE} let n = 0; const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === ${Math.ceil((blockMs + 2_000) / 100)}) { clearInterval(t); process.exit(0); } }, 100);`,
+        ],
+        process.cwd(),
+        idleMs,
+        { onSpawn: (p: ChildProcess) => p.stdout?.once("data", heardFirst) },
+      );
+      if (await Promise.race([first, pending.then(() => false)])) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, blockMs);
+      }
+      return pending;
+    }, 3_000);
     expect(r.output).not.toContain("déclaré calé");
     expect(r.ok).toBe(true);
-  }, 60_000);
+  }, 120_000);
 
   // Ce cas ne porte pas sur la borne : il la prend large, sinon le démarrage
   // de `node` sous la suite entière (vu > 3 s) le fait déclarer calé.
