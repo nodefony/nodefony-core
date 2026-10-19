@@ -101,7 +101,7 @@ check-script-descriptions — chaque script `npm` dit ce qu'il fait.
 
 ## [`check-type-assertions.mjs`](check-type-assertions.mjs)
 
-check-type-assertions — PROVISOIRE : le total des conversions de type qui RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne monte pas, paquet par paquet, d'ici à leur correction.
+check-type-assertions — cliquet : le total des conversions de type qui RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne monte jamais, paquet par paquet.
 
 - **Usage** : `node scripts/gates/check-type-assertions.mjs            # contrôle`
 - **Usage** : `node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)`
