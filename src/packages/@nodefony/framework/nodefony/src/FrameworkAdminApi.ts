@@ -1,4 +1,4 @@
-import { parsePageQuery, parseFilters } from "nodefony";
+import { parsePageQuery, parseFilters, PageQueryError } from "nodefony";
 import type {
   IAdminApi,
   IAdminEndpoint,
@@ -59,6 +59,56 @@ export interface FrameworkAdminApiOptions {
    * endpoints n'existent pas (404) → la page Studio affiche « dev uniquement ».
    */
   playground?: boolean;
+}
+
+/** Un filtre de colonne de `routes/page`, tel que la vue Routes le sérialise. */
+interface IRouteFilter {
+  key: string;
+  op: string;
+  value: unknown;
+}
+
+/**
+ * Lit le paramètre `filters` de `routes/page` : un tableau JSON de
+ * `{ key, op, value }`. Absent → aucun filtre.
+ *
+ * @throws PageQueryError (400) si le JSON est cassé ou d'une autre forme — un
+ *   filtre ignoré rendrait TOUTES les routes, lues comme son résultat.
+ */
+function parseRouteFilters(raw: string | undefined): IRouteFilter[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new PageQueryError(`Invalid "filters": not JSON.`);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new PageQueryError(`Invalid "filters": expected a JSON array.`);
+  }
+  // `Array.isArray` rétrécit `unknown` en `any[]` : on reprend `unknown`.
+  const entries: readonly unknown[] = parsed;
+  const filters: IRouteFilter[] = [];
+  for (const item of entries) {
+    if (
+      typeof item !== "object" ||
+      item === null ||
+      !("key" in item) ||
+      !("op" in item) ||
+      typeof item.key !== "string" ||
+      typeof item.op !== "string"
+    ) {
+      throw new PageQueryError(
+        `Invalid "filters": each entry needs a string "key" and "op".`,
+      );
+    }
+    filters.push({
+      key: item.key,
+      op: item.op,
+      value: "value" in item ? item.value : undefined,
+    });
+  }
+  return filters;
 }
 
 /**
@@ -326,13 +376,7 @@ export function createFrameworkAdminApi(
         // que l'administrateur lit comme « aucune route ne contourne le firewall ».
         parseFilters(request.query, {}, { accepts: ["filters"] });
         const search = query.q?.toLowerCase() ?? "";
-        let filters: { key: string; op: string; value: unknown }[] = [];
-        try {
-          const raw = one(request.query.filters);
-          if (raw) filters = JSON.parse(raw) as typeof filters;
-        } catch {
-          filters = [];
-        }
+        const filters = parseRouteFilters(one(request.query.filters));
 
         let rows = Router.routes.map(serializeRoute);
         if (search) rows = rows.filter((r) => matchesSearch(r, search));

@@ -19,6 +19,7 @@ import Controller from "../../src/Controller.js";
 import { Scope } from "../../decorators/routerDecorators.js";
 import type Route from "../../src/Route.js";
 import { createFrameworkAdminApi } from "../../src/FrameworkAdminApi.js";
+import { PageQueryError } from "nodefony";
 import type { IAdminEndpoint, IAdminRequest } from "nodefony";
 import type { IAdminBroker } from "../../interfaces/IAdminBroker";
 
@@ -180,4 +181,66 @@ describe("framework/routes — le dump plat est restreint par ?q=", () => {
     const rows = await dump(avecFiltre("zzz-aucune-route-ne-porte-ceci"));
     expect(rows).to.deep.equal([]);
   });
+});
+
+// Frontière (#572) : `?filters=` est du JSON reçu du réseau. `null` ou un objet
+// faisaient lever un TypeError hors du `try` → 500 ; un JSON cassé était ignoré
+// en silence → TOUTES les routes, lues comme le résultat du filtre.
+describe("framework/routes/page — le paramètre filters est validé", () => {
+  function endpointPage(): IAdminEndpoint {
+    return createFrameworkAdminApi(broker)
+      .adminEndpoints()
+      .find((e) => e.path === "routes/page") as IAdminEndpoint;
+  }
+  const avecFilters = (filters: string): IAdminRequest =>
+    ({
+      params: {},
+      query: { filters },
+      body: null,
+      roles: [],
+    }) as unknown as IAdminRequest;
+
+  beforeEach(() => {
+    poseRoute("rf.login", {
+      path: "/rf/login",
+      classMethod: "login",
+      ctor: AuthCtrl,
+      methods: ["POST"],
+    });
+    poseRoute("rf.invoices", {
+      path: "/rf/invoices",
+      classMethod: "invoices",
+      ctor: BillingCtrl,
+    });
+  });
+  afterEach(nettoie);
+
+  it("applique un filtre bien formé", async () => {
+    const page = (await endpointPage().handler(
+      avecFilters(
+        JSON.stringify([{ key: "methods", op: "in", value: "POST" }]),
+      ),
+    )) as { items: { name: string }[] };
+    expect(aNous(page.items)).to.deep.equal(["rf.login"]);
+  });
+
+  for (const raw of [
+    "null",
+    "{}",
+    "42",
+    "[null]",
+    '[{"key":1,"op":"in","value":"POST"}]',
+    '[{"key":"methods","value":"POST"}]',
+    "[{cassé",
+  ]) {
+    it(`refuse filters=${raw} en 400 (PageQueryError), jamais un 500 ni un filtre ignoré`, async () => {
+      let err: unknown = null;
+      try {
+        await endpointPage().handler(avecFilters(raw));
+      } catch (e) {
+        err = e;
+      }
+      expect(err).to.be.instanceOf(PageQueryError);
+    });
+  }
 });

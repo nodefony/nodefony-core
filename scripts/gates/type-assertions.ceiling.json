@@ -1,6 +1,6 @@
 {
-  "_provisoire": "supprimer avec check-type-assertions.mjs une fois les sites corrigés",
-  "total": 1844,
+  "_note": "cliquet — plafonds abaissés par --update, jamais montés (#572)",
+  "total": 1841,
   "ceilings": {
     "modules/mediasoup": 2,
     "modules/test": 55,
@@ -13,7 +13,7 @@
     "packages/@nodefony/devkit": 7,
     "packages/@nodefony/documentation": 6,
     "packages/@nodefony/drizzle": 203,
-    "packages/@nodefony/framework": 239,
+    "packages/@nodefony/framework": 236,
     "packages/@nodefony/frontend": 21,
     "packages/@nodefony/http": 285,
     "packages/@nodefony/mongoose": 18,

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * check-type-assertions — PROVISOIRE : le total des conversions de type qui
+ * check-type-assertions — cliquet : le total des conversions de type qui
  * RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne
- * monte pas, paquet par paquet, d'ici à leur correction.
+ * monte jamais, paquet par paquet.
  *
- * ⚠️ À SUPPRIMER avec son fichier de plafonds dès que les sites sont corrigés :
- * la règle `typescript/no-unsafe-type-assertion` passe alors en `"error"` dans
- * `.oxlintrc.json` et mord partout, comme les autres. Ce garde-fou n'existe que
- * parce que 2 151 sites ne se corrigent pas en un commit — et le dépôt refuse
- * les listes de FICHIERS dans sa configuration (`fb1169479`) : il compte donc
- * par PAQUET, une douzaine de nombres, jamais par fichier.
+ * Il RESTE (décision de #572) : seules les conversions de FRONTIÈRE (valeur
+ * venue du réseau, d'un store, d'un IPC) se corrigent par un geste dédié ; les
+ * conversions INTERNES se résorbent au fil des retouches, le cliquet figeant
+ * chaque baisse. La règle `typescript/no-unsafe-type-assertion` ne passera donc
+ * pas en `"error"` : le dépôt refuse les listes de FICHIERS dans sa
+ * configuration (`fb1169479`), il compte par PAQUET, une douzaine de nombres.
  *
  * Deux refus :
  * - un paquet dépasse son plafond (une conversion de plus, ou un paquet neuf
@@ -308,7 +308,7 @@ if (UPDATE) {
   const total = Object.values(next).reduce((a, b) => a + b, 0);
   fs.writeFileSync(
     CEILINGS,
-    `${JSON.stringify({ _provisoire: "supprimer avec check-type-assertions.mjs une fois les sites corrigés", total, ceilings: next }, null, 2)}\n`,
+    `${JSON.stringify({ _note: "cliquet — plafonds abaissés par --update, jamais montés (#572)", total, ceilings: next }, null, 2)}\n`,
   );
   console.log(`✓ plafonds abaissés — total ${total}`);
   process.exit(0);

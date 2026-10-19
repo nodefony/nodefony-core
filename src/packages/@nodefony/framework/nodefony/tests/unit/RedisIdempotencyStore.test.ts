@@ -202,6 +202,55 @@ describe("Redis RedisIdempotencyStore — IIdempotencyStore distribué (SET NX +
     });
   });
 
+  // Frontière (#572) : une valeur relue du store n'est pas crue sur parole. Une
+  // entrée « terminée » sans réponse rejouait `undefined` comme une réponse.
+  describe("entrée de forme inattendue relue du store", () => {
+    const corrupt = [
+      ['{"s":"d","f":"fingerprint-A"}', "terminée sans réponse"],
+      ['{"s":"d","f":"fingerprint-A","r":null}', "réponse null"],
+      ['{"s":"d","f":"fingerprint-A","r":"x"}', "réponse scalaire"],
+      ['{"s":"if"}', "réservation sans empreinte"],
+      [
+        '{"s":"d","f":7,"r":{"status":200,"body":1}}',
+        "empreinte non textuelle",
+      ],
+    ] as const;
+    for (const [raw, label] of corrupt) {
+      it(`${label} → jamais rejouée (in-flight jusqu'à expiration)`, async () => {
+        await fake.set("nf:idem:k", raw, { PX: LEASE });
+        const o = await store.begin("k", FP);
+        assert.equal(o.state, "in-flight");
+      });
+    }
+
+    it("réponse avec en-têtes → rejouée à l'identique", async () => {
+      await store.begin("k", FP);
+      const r = { status: 201, headers: { Location: "/x/7" }, body: { id: 7 } };
+      await store.complete("k", r);
+      const o = await store.begin("k", FP);
+      assert.equal(o.state, "replayed");
+      if (o.state === "replayed") assert.deepEqual(o.response, r);
+    });
+
+    it("en-tête non textuel → jamais rejouée", async () => {
+      await fake.set(
+        "nf:idem:k",
+        '{"s":"d","f":"fingerprint-A","r":{"status":200,"headers":{"x":1},"body":1}}',
+        { PX: LEASE },
+      );
+      const o = await store.begin("k", FP);
+      assert.equal(o.state, "in-flight");
+    });
+
+    it("entrée corrompue absente de listPage", async () => {
+      await fake.set("nf:idem:k", '{"s":"d","f":"fingerprint-A"}', {
+        PX: LEASE,
+      });
+      const page = await store.listPage({ limit: 10 });
+      assert.equal(page.items.length, 0);
+    });
+  });
+
   describe("race SET NX puis GET vide", () => {
     it("clé expirée entre le SET NX échoué et le GET → re-réservation (fresh)", async () => {
       // begin réserve, puis on simule l'expiration juste avant le GET en

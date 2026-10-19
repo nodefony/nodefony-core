@@ -84,6 +84,56 @@ type Entry =
   { s: "if"; f: string } | { s: "d"; f: string; r: IdempotentResponse };
 
 /**
+ * Reconstruit une entrée relue du store, ou `null` si sa forme est inattendue.
+ * La valeur vient de Redis, pas de ce processus : une entrée « terminée » sans
+ * réponse rejouerait `undefined` comme une réponse HTTP.
+ */
+function toEntry(v: unknown): Entry | null {
+  if (typeof v !== "object" || v === null || !("s" in v) || !("f" in v)) {
+    return null;
+  }
+  const f = v.f;
+  if (typeof f !== "string") {
+    return null;
+  }
+  if (v.s === "if") {
+    return { s: "if", f };
+  }
+  if (v.s !== "d" || !("r" in v)) {
+    return null;
+  }
+  const r = toResponse(v.r);
+  return r === null ? null : { s: "d", f, r };
+}
+
+/** Reconstruit une réponse mémorisée, ou `null` si sa forme est inattendue. */
+function toResponse(v: unknown): IdempotentResponse | null {
+  if (typeof v !== "object" || v === null || !("status" in v)) {
+    return null;
+  }
+  const status = v.status;
+  if (typeof status !== "number") {
+    return null;
+  }
+  const body = "body" in v ? v.body : undefined;
+  if (!("headers" in v) || v.headers === undefined) {
+    return { status, body };
+  }
+  const headers = v.headers;
+  if (typeof headers !== "object" || headers === null) {
+    return null;
+  }
+  const copy: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (typeof value !== "string") {
+      return null;
+    }
+    copy[name] = value;
+  }
+  return { status, headers: copy, body };
+}
+
+/**
  * Store d'idempotence **Redis** (node-redis v6) — implémentation distribuée
  * d'{@link IIdempotencyStore} pour le cluster (dédup des mutations rejouées
  * PARTAGÉE cross-pod, là où l'impl mémoire par défaut reste affine à un pod).
@@ -249,8 +299,7 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
       return null;
     }
     try {
-      const v = JSON.parse(raw) as { s?: unknown } | null;
-      return v && (v.s === "if" || v.s === "d") ? (v as Entry) : null;
+      return toEntry(JSON.parse(raw));
     } catch {
       return null;
     }
