@@ -80,8 +80,9 @@ function sessionContext(
 }
 
 describe("SessionAuthenticator — changement de mot de passe, suppression EN ÉCHEC (#635)", () => {
-  const PASSWORD = "correct-horse-battery-staple-1";
-  const NEXT = "correct-horse-battery-staple-2";
+  // Fixtures déjà nommées dans `.gitleaks.toml` — jamais une valeur neuve.
+  const PASSWORD = "ancien-mot-valise-42";
+  const NEXT = "nouveau-mot-valise-42";
 
   async function setup() {
     const users = new UserService(new InMemoryUserRepository(), encoder);

@@ -359,7 +359,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       await service.changePassword(created.id, "nouveau-mot-valise-42");
       const twice = await service.changePassword(
         created.id,
-        "troisieme-mot-valise-42",
+        "bon-mot-valise-42",
       );
       assert.equal(twice?.credentialsVersion, 2);
       assert.equal((await service.findById(created.id))?.credentialsVersion, 2);
