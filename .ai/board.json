@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T16:34:16.974Z",
+  "generatedAt": "2026-10-19T17:25:15.261Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 151,
+      "closed": 153,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 22,
+      "open": 21,
       "title": "10.0.0-beta"
     },
     {
@@ -3397,14 +3397,30 @@
       "number": 500,
       "title": "refactor(core): sortir des types émis, typer les routes",
       "url": "https://github.com/nodefony/nodefony-core/issues/500",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 4.75,
       "ordre": 4.03,
       "debut": "2026-11-17",
       "cible": "2026-11-18",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 635,
+      "title": "fix(security)!: couper les sessions au changement de mot de passe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/635",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 4.03,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-4"
       ]
@@ -3429,8 +3445,8 @@
       "number": 634,
       "title": "feat(framework): valider et typer une route par un schéma déclaré",
       "url": "https://github.com/nodefony/nodefony-core/issues/634",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 3,
@@ -3462,7 +3478,7 @@
       "title": "test(ci): stabiliser trois suites qui rougissent en passe complète",
       "url": "https://github.com/nodefony/nodefony-core/issues/472",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
