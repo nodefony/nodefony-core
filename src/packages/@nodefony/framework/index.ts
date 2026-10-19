@@ -83,8 +83,6 @@ import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { buildPlaygroundSnapshot } from "./nodefony/src/PlaygroundAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
 import Eta from "./nodefony/service/Eta";
-import { mergeResolvers, mergeTypeDefs } from "@graphql-tools/merge";
-import { mergeSchemas, makeExecutableSchema } from "@graphql-tools/schema";
 
 import {
   controllers,
@@ -512,14 +510,6 @@ class Framework extends Module<IFrameworkConfig> {
   }
 }
 
-const graphql = {
-  //graphql: mygraphql,
-  mergeSchemas,
-  makeExecutableSchema,
-  mergeResolvers,
-  mergeTypeDefs,
-};
-
 export default Framework;
 export {
   Controller,
@@ -599,7 +589,6 @@ export {
   routeExpectsBodyStream,
   buildContextParamArgs,
   getParamArgsMeta,
-  graphql,
   registerIdempotencyStore,
   getIdempotencyStoreFactory,
   listIdempotencyStores,

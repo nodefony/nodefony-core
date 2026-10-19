@@ -322,7 +322,6 @@ export {
 };
 // types only
 export type { IController, IRoute, IResolver };
-export { graphql };
 ```
 
 ## Tests
