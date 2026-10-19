@@ -22,10 +22,18 @@ export interface IRequest {
   getHeaders(): Record<string, string | string[] | undefined>;
 }
 
+/**
+ * Le corps DÉCODÉ d'une requête : un objet (JSON, formulaire, champs
+ * multipart, XML), une chaîne (`text/*`), ou des octets (`Uint8Array` — tout
+ * autre type, et un corps sans `Content-Type`). Le même type d'octets que la
+ * socket temps réel : un schéma de route valide l'un comme l'autre.
+ */
+export type RequestBody = Record<string, unknown> | string | Uint8Array;
+
 export interface IHttpRequest extends IRequest {
   url: URL;
   query: Record<string, unknown>;
-  body: Record<string, unknown>;
+  body: RequestBody;
   files: readonly unknown[];
   remoteAddress: string | null | undefined;
   acceptHtml: boolean;

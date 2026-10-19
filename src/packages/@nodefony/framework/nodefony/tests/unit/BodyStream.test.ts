@@ -76,9 +76,9 @@ describe("P2.9 — @Body({ stream }) (briques framework)", () => {
 
   it("resolveParamArg body+stream → flux brut (ctx.request.request)", () => {
     // Vrai `Readable` (= ce que le pipeline injecte : l'`IncomingMessage` non
-    // consommé), pas un objet cast en `NodeJS.ReadableStream` : la fixture porte
+    // consommé), pas un objet converti : la fixture porte
     // le contrat réel de `IParamArgContext.request.request`.
-    const rawStream: NodeJS.ReadableStream = Readable.from(["chunk"]);
+    const rawStream: Readable = Readable.from(["chunk"]);
     const ctx: IParamArgContext = {
       paramsMap: {},
       request: { request: rawStream, body: { a: 1 } },

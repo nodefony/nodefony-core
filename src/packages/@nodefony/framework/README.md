@@ -18,6 +18,10 @@ sert **HTTP et WebSocket dans le même contexte**, nativement.
   instance par requête (par connexion en WebSocket). `RealtimeController` est par connexion.
 - **Décorateurs** : `@controller`, `@route`, `@Get/@Post/...`, `@Param/@Body/@Query/@Headers`,
   `@Domain`, etc.
+- **Routes à schéma** : `@Post("/posts", { schema: { body } })` — l'entrée est validée avant
+  l'action (422 qui nomme chaque champ, sur HTTP comme par la socket) et reçue typée en un seul
+  argument, `input: RouteInput<S>`. Zod, Valibot, ArkType : tout Standard Schema. Détail :
+  [`docs/decorateurs.md`](docs/decorateurs.md).
 - **Data plane admin** : `AdminApiController` + `IAdminBroker` (surface `/nodefony/<module>/api/*`).
 
 ## Exemple

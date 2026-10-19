@@ -402,13 +402,16 @@ Voici **tout** ce que le moteur produit. Les codes de la plage `-32000`…`-3209
 la norme aux erreurs applicatives serveur ; Nodefony y place son refus d'autorisation et le défaut
 de `RpcError`.
 
-| Code     | Émis par                                                                                     | Déclencheur                                         | Ce que voit le pair                            |
-| -------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------- |
-| `-32601` | `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts#JsonRpcPeer.handleRequest`)                   | requête vers une action non enregistrée             | `method not found: <nom>`                      |
-| `-32603` | même méthode (`JsonRpcPeer.ts#JsonRpcPeer.handleRequest`)                                    | le handler a levé une exception **ordinaire**       | `internal error` — générique, rien d'autre     |
-| `-32001` | le refus du verrou de frame (`JsonRpcPeer.ts#JsonRpcPeer.receive`)                           | `beforeDispatch` a dit non **sur une requête**      | `unauthorized`, sans jamais dire pourquoi      |
-| `-32000` | défaut du constructeur de `RpcError` (`JsonRpcPeer.ts#RpcError`)                             | le handler expose volontairement son refus          | le message ET le `data` choisis par le handler |
-| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts#RealtimeController.actionParamsWrapper`) | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
+| Code     | Émis par                                                                                     | Déclencheur                                            | Ce que voit le pair                                     |
+| -------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
+| `-32601` | `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts#JsonRpcPeer.handleRequest`)                   | requête vers une action non enregistrée                | `method not found: <nom>`                               |
+| `-32603` | même méthode (`JsonRpcPeer.ts#JsonRpcPeer.handleRequest`)                                    | le handler a levé une exception **ordinaire**          | `internal error` — générique, rien d'autre              |
+| `-32001` | le refus du verrou de frame (`JsonRpcPeer.ts#JsonRpcPeer.receive`)                           | `beforeDispatch` a dit non **sur une requête**         | `unauthorized`, sans jamais dire pourquoi               |
+| `-32000` | défaut du constructeur de `RpcError` (`JsonRpcPeer.ts#RpcError`)                             | le handler expose volontairement son refus             | le message ET le `data` choisis par le handler          |
+| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts#RealtimeController.actionParamsWrapper`) | `api.request` appelé avec un `params.path` invalide    | message explicite (l'appel est malformé)                |
+| `-32000` | le pont API (`RealtimeController.ts#RealtimeController.invokeApiRequest`)                    | la route invoquée REFUSE : 401, 403, 404, 405, **422** | le message, `data.status` — et `data.fields` sur un 422 |
+
+Un refus de la route invoquée par le pont garde la forme d'un `fetch` dont `ok` est faux : le statut HTTP voyage dans `data.status`. Une erreur de validation — `ZodError` levée par l'action, ou entrée refusée par le `schema` de la route — est un **422** dont `data.fields` nomme chaque champ et sa partie (`{ field, message, in }`), exactement le `error.fields` du même appel en HTTP. Tout autre `throw` reste opaque (`-32603`).
 
 Et un échec qui n'est **pas** une frame : l'expiration. `startCall()` ne reçoit rien dans le délai
 imparti, supprime l'entrée en attente et rejette localement avec `RPC timeout: <méthode>`

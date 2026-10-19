@@ -1,4 +1,9 @@
-import { PageQueryError, PAGE_QUERY_KEYS, singleValue } from "./pageQuery";
+import {
+  PageQueryError,
+  PAGE_QUERY_KEYS,
+  notPlainValue,
+  singleValue,
+} from "./pageQuery";
 import type { PageQuerySource } from "./pageQuery";
 
 /**
@@ -265,7 +270,13 @@ export function parseFilters<const S extends IFilterSpec>(
     if (isEach(def)) {
       const raw = source[name];
       if (raw === undefined) continue;
-      const values = (Array.isArray(raw) ? raw : [raw]).filter((v) => v !== "");
+      const values: string[] = [];
+      for (const v of Array.isArray(raw) ? raw : [raw]) {
+        // Un objet imbriqué ou un nombre n'est pas une valeur de filtre :
+        // refusé, jamais converti — même règle que `singleValue`.
+        if (typeof v !== "string") throw notPlainValue(name);
+        if (v !== "") values.push(v);
+      }
       // Tout vide = aucune intention : la clé n'est pas posée, comme pour un
       // filtre simple à valeur vide.
       if (values.length === 0) continue;

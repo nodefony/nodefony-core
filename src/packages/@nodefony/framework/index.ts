@@ -128,6 +128,19 @@ import {
   buildContextParamArgs,
   getParamArgsMeta,
 } from "./nodefony/decorators/routerDecorators";
+export type { IHttpMethodDecorator } from "./nodefony/decorators/routerDecorators";
+// Routes typées et validées par un schéma (ADR-0018) : la validation est
+// publiée seule pour être rejouée hors du Resolver (actions temps réel).
+export { validateRouteInput } from "./nodefony/src/routeSchema";
+export type {
+  IRouteSchema,
+  RouteInput,
+  RoutePart,
+  RawRouteInput,
+  RawRouteParams,
+  RawRouteQuery,
+  RawRouteHeaders,
+} from "./nodefony/src/routeSchema";
 
 // ── Driver d'idempotence DISTRIBUÉ `redis` (builtin) ─────────────────────────
 // Enregistré AU CHARGEMENT du module framework (toujours présent), calqué sur la

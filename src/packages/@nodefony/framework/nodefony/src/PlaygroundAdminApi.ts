@@ -1,4 +1,6 @@
-import type { IAdminEndpoint } from "nodefony";
+import { standardJsonSchemaOf } from "nodefony";
+import type { IAdminEndpoint, IStandardSchemaV1 } from "nodefony";
+import type { IRouteSchema, RoutePart } from "./routeSchema";
 import Router from "../service/router";
 import type Route from "./Route";
 import {
@@ -71,7 +73,18 @@ export interface PlaygroundAction {
   variables: string[];
   /** Défauts de variables (hors clé interne `controller`). */
   defaults: Record<string, unknown>;
+  /**
+   * Entrées de l'action. Pour une action à schéma, déduites du schéma (une
+   * entrée par champ de `query`/`headers`/`params`, une pour `body`) : le
+   * formulaire se construit pareil, quelle que soit la forme de l'action.
+   */
   params: PlaygroundParam[];
+  /**
+   * Le contrat d'une action à schéma — JSON Schema d'entrée de chaque partie
+   * déclarée (`null` quand la bibliothèque ne sait pas le décrire). `null`
+   * pour une action sans schéma.
+   */
+  schema: Partial<Record<RoutePart, Record<string, unknown> | null>> | null;
   guards: PlaygroundGuards;
 }
 
@@ -106,6 +119,70 @@ function publicDefaults(route: Route): Record<string, unknown> {
   return out;
 }
 
+/** Source du formulaire pour chaque partie d'un schéma de route. */
+const PART_SOURCE: Readonly<Record<RoutePart, string>> = {
+  params: "param",
+  query: "query",
+  body: "body",
+  headers: "headers",
+};
+
+/** JSON Schema d'entrée d'un schéma, ou `null` s'il ne sait pas se décrire. */
+function describeSchema(
+  schema: IStandardSchemaV1,
+): Record<string, unknown> | null {
+  const converter = standardJsonSchemaOf(schema);
+  if (converter === null) return null;
+  try {
+    return converter.input({ target: "draft-2020-12" });
+  } catch {
+    // Une conversion impossible (transformation opaque) n'empêche pas
+    // d'afficher la route : le contrat reste simplement non décrit.
+    return null;
+  }
+}
+
+/** Les champs de premier niveau d'un JSON Schema objet. */
+function propertiesOf(json: Record<string, unknown> | null): string[] {
+  const properties = json?.properties;
+  return typeof properties === "object" && properties !== null
+    ? Object.keys(properties)
+    : [];
+}
+
+/**
+ * Les entrées d'une action à schéma, au format des paramètres décorés, et le
+ * contrat décrit partie par partie.
+ */
+function schemaParams(
+  schema: IRouteSchema,
+  bodyStream: boolean,
+): {
+  params: PlaygroundParam[];
+  described: NonNullable<PlaygroundAction["schema"]>;
+} {
+  const params: PlaygroundParam[] = [];
+  const described: NonNullable<PlaygroundAction["schema"]> = {};
+  for (const part of ["params", "query", "body", "headers"] as const) {
+    const partSchema = schema[part];
+    if (partSchema === undefined) continue;
+    const json = describeSchema(partSchema);
+    described[part] = json;
+    const source = PART_SOURCE[part];
+    if (part === "body") {
+      params.push({ source, key: null, index: 0, stream: false });
+      continue;
+    }
+    for (const key of propertiesOf(json)) {
+      params.push({ source, key, index: 0, stream: false });
+    }
+  }
+  if (bodyStream) {
+    params.push({ source: "body", key: null, index: 0, stream: true });
+  }
+  return { params, described };
+}
+
 /** Sérialise une route en action playground (métadonnées figées, JSON-safe). */
 function serializeAction(route: Route): PlaygroundAction {
   const meta = resolveActionMeta(route);
@@ -114,6 +191,8 @@ function serializeAction(route: Route): PlaygroundAction {
     route.controller && route.classMethod
       ? extractActionScopes(route.controller, route.classMethod)
       : [];
+  const fromSchema =
+    meta.schema !== null ? schemaParams(meta.schema, meta.bodyStream) : null;
   return {
     route: route.name,
     path: route.path ?? null,
@@ -125,6 +204,7 @@ function serializeAction(route: Route): PlaygroundAction {
     // Les décorateurs TS s'évaluent droite→gauche → la metadata n'est pas
     // ordonnée ; le formulaire veut l'ordre de la signature (index croissant).
     params:
+      fromSchema?.params ??
       meta.paramsMeta
         ?.map((p) => ({
           source: p.source,
@@ -132,7 +212,9 @@ function serializeAction(route: Route): PlaygroundAction {
           index: p.index,
           stream: p.stream === true,
         }))
-        .sort((a, b) => a.index - b.index) ?? [],
+        .sort((a, b) => a.index - b.index) ??
+      [],
+    schema: fromSchema?.described ?? null,
     guards: {
       security: meta.security
         ? {

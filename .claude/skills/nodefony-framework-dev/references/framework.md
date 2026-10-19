@@ -262,6 +262,13 @@ lookup lowercase) · `@Cookie(key?)` · `@Session(key?)` (active la session) · 
 user ALS, jamais le credential) · `@Req()`/`@Res()` · `@UploadedFile()` (1er fichier) /
 `@UploadedFiles()` (tous).
 
+**Routes à schéma** (ADR-0018, `src/routeSchema.ts`) : option `schema: { params, query, body, headers }`
+(+ `bodyStream`) de `@route`/`@Get`… — Standard Schema par partie, validé APRÈS les gardes et AVANT
+l'instanciation, 422 `SchemaValidationError` (`issues[].in`) ; action `(input: RouteInput<S, Stream>)`,
+signature vérifiée à la compilation (`IHttpMethodDecorator`). Exclusif des décorateurs de paramètre
+(refus au boot, `assertRouteSchemaDeclaration` dans `Router.setController`). Rangé par MÉTHODE
+(Reflect), refusé par `Router.createRoute`.
+
 **Sécurité** (déclaratif ; décision rendue par voter `authorization` par nom au runtime) :
 `@IsGranted(attr|attr[], {subject?})` ( — clause `anyOf` en OR ; empilage = AND ; `subject`=nom
 de param de route) · `@RequireScope(scope|scope[])` ( — axe scopes `api:action`, metadata
@@ -533,7 +540,7 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
 ## Internals — `RouteActionMeta` (memo)
 
 `RouteActionMeta` (`routerDecorators.ts#RouteActionMeta`) gèle par route : `paramsMeta`, `redirectMeta`, `httpCode`,
-`headerEntries` (`Object.entries` 1×), `sessionIntent`, `security`, `cspDirectives`, `csrfProtect`,
+`schema` (`null` = 1 comparaison), `bodyStream`, `headerEntries` (`Object.entries` 1×), `sessionIntent`, `security`, `cspDirectives`, `csrfProtect`,
 `csrfExempt`, `idempotent`. **Mémoïsé** au 1er hit sur `route.actionMeta` via `resolveActionMeta(route)`
 → **0 `Reflect.getMetadata` par requête** (avant ~6/req). `computeActionMeta(ctor, method)`
 = calcul pur (chemin froid forward sans route). Objet **PARTAGÉ entre requêtes — ne JAMAIS
@@ -543,7 +550,8 @@ de route stable.
 Fonctions pures exportées (testables sans serveur) : `buildParamArgs(metas, IParamArgContext)` /
 `resolveParamArg(meta, ctx)` · `routeExpectsBodyStream(route)` (, memo
 `route.bodyStream`, lu **en amont** par `handleHttp` pour sauter le parse) · `resolveSessionIntent`
-· `extractActionScopes`.
+· `extractActionScopes` · `validateRouteInput(schema, raw)` (0 alloc nominale, async seulement si un
+validateur rend une `Promise`) · `readRouteInput` (mêmes sources que `@Body`/`@Query`, pont WS compris).
 
 ---
 

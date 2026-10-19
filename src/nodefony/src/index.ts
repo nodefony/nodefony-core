@@ -664,6 +664,26 @@ export {
 } from "./runtime/pageGuard";
 export type { PaginationMode } from "./runtime/pageGuard";
 export {
+  isStandardSchema,
+  standardJsonSchemaOf,
+  SchemaValidationError,
+  toSchemaValidationIssues,
+} from "./runtime/standardSchema";
+export type {
+  IStandardSchemaV1,
+  IStandardSchemaProps,
+  IStandardSchemaTypes,
+  IStandardSchemaIssue,
+  IStandardSchemaPathSegment,
+  IStandardSchemaSuccess,
+  IStandardSchemaFailure,
+  IStandardJsonSchemaConverter,
+  ISchemaValidationIssue,
+  StandardSchemaResult,
+  InferSchemaInput,
+  InferSchemaOutput,
+} from "./runtime/standardSchema";
+export {
   parsePageQuery,
   PageQueryError,
   PAGE_QUERY_KEYS,

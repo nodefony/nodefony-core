@@ -25,11 +25,14 @@ import {
   Get,
   Post,
   Param,
-  Body,
   Query,
   HttpCode,
   Header,
 } from "@nodefony/framework";
+import type { RouteInput } from "@nodefony/framework";
+import { z } from "zod";
+
+const createThing = z.object({ name: z.string().min(1) });
 
 @controller("/api/things")
 export class ThingsController extends Controller {
@@ -43,15 +46,20 @@ export class ThingsController extends Controller {
     return this.renderJson({ id });
   }
 
-  @Post("/")
+  // Forme à préférer (ADR-0018) : l'entrée DÉCLARÉE par un schéma, validée
+  // avant l'action (422 qui nomme chaque champ), reçue typée en un argument.
+  @Post("/", { schema: { body: createThing } })
   @HttpCode(201)
-  create(@Body() dto: ICreateThing) {
-    return this.renderJson(dto);
+  create(input: RouteInput<{ body: typeof createThing }>) {
+    return this.renderJson(input.body);
   }
 }
 ```
 
-- **Lire la requête par décorateurs** : `@Body()`/`@Body("f")`, `@Param("x")`, `@Query("x")`, `@Header("x")`.
+- **Lire la requête** : par **schéma** (`schema: { params, query, body, headers }`, Standard Schema —
+  Zod… ; une action à schéma ne prend AUCUN décorateur de paramètre, mélange refusé au boot), ou par
+  décorateurs `@Body()`/`@Body("f")`, `@Param("x")`, `@Query("x")`, `@Header("x")` (non validés).
+  Détail : `framework/docs/decorateurs.md` § Routes à schéma.
   ⚠️ **`this.context.body` est VIDE/non parsé** → un POST lu ainsi tombe sur le défaut en silence.
 - En-têtes bruts : `this.context.request.headers.authorization` (clé **minuscule**, peut être `string|string[]`).
 - `@Redirect("/url", 302)`. `redirect()` : whitelist RFC 9110 §15.4 `{301,302,303,307,308}`, **défaut = 302** (Found) ; code hors liste → fallback 302 + WARNING. 307/308 **préservent** méthode+corps, 303 force GET ; 301/302 peuvent muter POST→GET. Réponses : `renderJson` / `renderView` (moteur **Eta** — `renderTwig`/`renderEjs` n'existent plus) / `forward("mod:ctrl:action")`.
@@ -297,7 +305,9 @@ Helper pur exporté : `toWsCloseCode(code): number` (`WebsocketContext.ts#toWsCl
 ### Request / Response
 
 - `HttpRequest` / `Http2Request` (`src/context/http/Request.ts`, `http2/Request.ts`) : parse du corps
-  (busboy/JSON/QS/XML) ; remplit `request.body` (le corps — `request.query` reste l'URL seule, jamais fusionnée). **Drain obligatoire** avant lecture
+  (busboy/JSON/QS/XML, `ParserRaw` pour le reste) ; remplit `request.body` (`RequestBody` : objet, chaîne
+  pour `text/*`, octets `Uint8Array` pour un type non décodé ou absent ; vide → inchangé). `request.query`
+  reste l'URL seule, jamais fusionnée. **Drain obligatoire** avant lecture
   (`Parser.parse()` `await this.ended()`).
 - `Response` (= `HttpResponse`, `src/context/http/Response.ts`) : `setStatusCode(...)`,
   `setBody(ele, encoding?)`, `setLength(...)`, `setHeader(...)`, `getHeader(...)`,
@@ -397,7 +407,7 @@ Barrel `index.ts`. Interfaces : `IContext`/`IHttpContext`/`IWebsocketContext`, `
 1. `enterScope("request")` (DI scope par requête).
 2. `createHttpContext()` + hook `onCreateContext`.
 3. `RequestContext.run({requestId, scheme}, …)` (bulle ALS) — englobe tout le reste.
-4. **phase `parse`** : `request.initialize()` (await parser ; corps drainé). Sauté si l'action déclare `@Body({stream:true})` (flag booléen lu du framework, **pas** d'import).
+4. **phase `parse`** : `request.initialize()` (await parser ; corps drainé). Sauté si l'action déclare `@Body({stream:true})` ou l'option de route `bodyStream: true` (flag booléen lu du framework, **pas** d'import).
 5. route-match HISSÉ (pur : method+URL) — sert au choix stream/parse.
 6. **phase `resolve`** : `handleFrontController` → `Router.resolve`.
 7. **phase `firewall`** : `firewall.handleSecurity` (via `onRequestEnd`).

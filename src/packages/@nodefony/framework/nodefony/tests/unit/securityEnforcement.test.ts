@@ -25,6 +25,8 @@ const ROLE_CLAUSE: SecurityRequirement = {
 function metaWith(security: SecurityRequirement | null): RouteActionMeta {
   return {
     paramsMeta: null,
+    schema: null,
+    bodyStream: false,
     redirectMeta: null,
     httpCode: null,
     headerEntries: null,

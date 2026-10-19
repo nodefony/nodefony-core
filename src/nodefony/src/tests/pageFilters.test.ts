@@ -302,3 +302,14 @@ describe("parseFilters — la nature MULTI-valeurs (`{ each }`)", () => {
     });
   });
 });
+
+describe("parseFilters — une valeur qui n'est pas un texte est REFUSÉE", () => {
+  it("filtre simple ou répétable : un objet imbriqué rend 400", () => {
+    expect(() =>
+      parseFilters({ status: { a: "1" } }, { status: ["draft", "live"] }),
+    ).to.throw(PageQueryError, /plain text value/u);
+    expect(() =>
+      parseFilters({ tag: [{ a: 1 }] }, { tag: { each: "string" } }),
+    ).to.throw(PageQueryError, /plain text value/u);
+  });
+});

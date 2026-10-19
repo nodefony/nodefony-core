@@ -23,6 +23,7 @@ import WebsocketController from "./nodefony/controller/WebSocketController";
 import FrameworkController from "./nodefony/controller/FrameworkController";
 import SessionRuntimeController from "./nodefony/controller/SessionRuntimeController";
 import DecoratorController from "./nodefony/controller/DecoratorController";
+import SchemaRouteController from "./nodefony/controller/SchemaRouteController";
 import AlsController from "./nodefony/controller/AlsController";
 import DiController from "./nodefony/controller/DiController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
@@ -141,6 +142,7 @@ function overlayProbe(context: unknown): void {
   FrameworkController,
   SessionRuntimeController,
   DecoratorController,
+  SchemaRouteController,
   AlsController,
   DiController,
   LifecycleController,

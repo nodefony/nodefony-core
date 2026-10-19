@@ -395,61 +395,107 @@ async upload(@Body({ stream: true }) stream: NodeJS.ReadableStream) {
 > **index déclaré** par `buildParamArgs()` (`routerDecorators.ts#buildParamArgs`), et les trous restent
 > `undefined`. Tu peux mélanger décorés et non décorés — les non décorés reçoivent `undefined`.
 
-#### Le corps n'est pas validé — et c'est un choix
+### Routes à schéma — l'entrée validée ET typée
 
-`@Body()` injecte le corps **tel qu'il a été parsé**. Le type écrit à côté n'est pas vérifié à
-l'exécution : `@Body() dto: CreateOrder` compile, et un client peut très bien envoyer autre chose.
-
-Ce n'est pas un oubli. Valider ici ne garderait que la porte **HTTP** — la même écriture arrivant
-par WebSocket ou par une commande CLI passerait à côté — et la validation devrait rester
-**synchrone**, puisque `resolveParamArg()` l'est ; la rendre asynchrone coûterait une microtâche à
-toute requête à paramètres décorés, y compris celles qui ne valident rien.
-
-La validation vit donc **plus bas**, là où tous les chemins se rejoignent.
-
-**Une entité → les hooks du service.** `AbstractCrudService` appelle `beforeCreate` et
-`beforeUpdate` en `await` (`orm-core/nodefony/src/AbstractCrudService.ts#AbstractCrudService.create` et `orm-core/nodefony/src/AbstractCrudService.ts#AbstractCrudService.updateOne`) : une règle
-asynchrone — vérifier qu'un courriel est libre — y est donc possible, et le contrôle s'applique à
-REST, à la socket et à la CLI d'un seul geste. C'est exactement ce que `nodefony create entity`
-génère :
+Un décorateur de paramètre **affirme** un type sans le vérifier : `@Body() dto: CreateOrder` compile,
+et un client peut envoyer autre chose. L'option `schema` des décorateurs de route (`@route`, `@Get`,
+`@Post`…) **déclare** le contrat de l'action, partie par partie, et le framework le fait respecter
+avant de l'exécuter (ADR-0018) :
 
 ```typescript
-protected override beforeCreate(data: Partial<PostRow>): Partial<PostRow> {
-  return createPostSchema.parse(data) as Partial<PostRow>;
+import { Post, type RouteInput } from "@nodefony/framework";
+import { z } from "zod";
+
+const postParams = z.object({ id: z.coerce.number().int().positive() });
+const postBody = z.object({ title: z.string().min(3) });
+
+@Post("/posts/{id}", { schema: { params: postParams, body: postBody } })
+update(input: RouteInput<{ params: typeof postParams; body: typeof postBody }>) {
+  return { id: input.params.id, title: input.body.title }; // id : number
 }
 ```
 
-**Un cas isolé → le schéma en tête d'action.** Même geste qu'`assertPageQuery()`, la garde de
-pagination du cœur : une fonction appelée en première ligne, qui lève. Rien d'autre à écrire — une
-`ZodError` qui remonte devient un **422** portant `error.fields` :
+| Partie    | Ce qu'elle valide                                                                        |
+| --------- | ---------------------------------------------------------------------------------------- |
+| `params`  | les variables de l'URL (`/posts/{id}`)                                                   |
+| `query`   | la query — sur le pont WebSocket, celle du chemin **invoqué**                            |
+| `body`    | le corps **décodé** (JSON, formulaire) — sur le pont WebSocket, celui porté par la trame |
+| `headers` | les en-têtes, clés en minuscules — sur WebSocket, ceux de la poignée de main             |
+
+**Ce que fait le framework, dans l'ordre :**
+
+- chaque partie déclarée est un [Standard Schema](https://standardschema.dev) — Zod, Valibot,
+  ArkType… ; l'interface est recopiée au cœur (`runtime/standardSchema.ts#IStandardSchemaV1`), aucune
+  dépendance n'est imposée ;
+- la validation a lieu **après** les gardes (`@IsGranted` : un 403 ne révèle pas le contrat) et
+  **avant** l'instanciation du contrôleur : une entrée invalide ne construit rien
+  (`Resolver.ts#Resolver.executeAction`) ;
+- elle est **synchrone** tant que chaque validateur l'est ; un raffinement asynchrone (« ce slug
+  est-il libre ? ») la fait attendre, et seulement lui (`routeSchema.ts#validateRouteInput`) ;
+- les quatre parties sont jugées ensemble : un échec rend **toutes** les anomalies en une fois, dans
+  une `SchemaValidationError` (`runtime/standardSchema.ts#SchemaValidationError`) — **422**, la même
+  forme qu'une `ZodError`, sur HTTP (`error.fields`) comme sur le pont WebSocket (`data.fields`).
+  Chaque champ porte sa partie : `{ "field": "title", "in": "body", "message": "…" }` ;
+- l'action reçoit **un seul argument**, `input`, qui porte toujours les quatre parties : la
+  **sortie** du schéma (coercitions, valeurs par défaut) pour une partie déclarée, la valeur brute
+  pour les autres.
+
+**La signature est vérifiée à la compilation.** Un `input` dont un champ diverge du schéma, ou un
+second argument, ne compile pas (`routerDecorators.ts#IHttpMethodDecorator`). L'identité se lit par
+`this.user`, pas par `@CurrentUser`.
+
+**Exclusif des décorateurs de paramètre.** Une action à schéma reçoit un argument unique : la mêler de
+`@Body`, `@Query`… est refusé **au démarrage**, par une erreur qui nomme la route
+(`routerDecorators.ts#assertRouteSchemaDeclaration`, appelé par `Router.setController`). Même refus pour
+une partie inconnue (`bodies`) et pour une valeur qui n'est pas un Standard Schema.
+
+**Un gros corps en flux : `bodyStream: true`.** Il remplace `@Body({ stream: true })` : `input.body`
+est alors le flux brut, jamais lu en mémoire. `bodyStream` et `schema.body` s'excluent — un flux non
+lu ne se valide pas —, et `bodyStream` **exige** un schéma : sans `input`, le flux ne serait livré à
+personne. La compilation refuse les deux fautes, le démarrage aussi ; une action sans schéma demande
+son flux par `@Body({ stream: true })`.
+
+```typescript
+const uploadQuery = z.object({ name: z.string() });
+
+@Post("/upload", { schema: { query: uploadQuery }, bodyStream: true })
+async upload(input: RouteInput<{ query: typeof uploadQuery }, true>) {
+  await pipeline(input.body, createWriteStream(`/data/${input.query.name}`));
+}
+```
+
+**Des octets se valident tels quels.** La valeur passée au schéma est celle que le transport a
+**décodée** — ni recopiée, ni re-sérialisée : `z.instanceof(Uint8Array)` valide un corps binaire
+sans copie, ce qui tiendra quand la socket portera du binaire.
+
+**Sans schéma, rien ne change** — et rien n'est alloué de plus : la route garde ses décorateurs de
+paramètre, et le Resolver ne paie qu'une comparaison.
+
+**Une route créée par programme** (`Router.createRoute`) n'accepte ni `schema` ni `bodyStream` : ils
+se rangent sur la méthode par un décorateur, et les ignorer en silence mentirait — l'appel est refusé.
+
+#### Et une entité ?
+
+`nodefony create entity` génère les deux étages : la route déclare `createPostSchema` /
+`updatePostSchema` (422 à la porte, avant tout appel au service), et le service les revalide dans
+`beforeCreate` / `beforeUpdate` (`orm-core/nodefony/src/AbstractCrudService.ts#AbstractCrudService.create`)
+pour ses autres portes — CLI, actions temps réel —, où une règle asynchrone (unicité en base) reste
+possible. Le schéma d'entrée ne décrit pas la table : ni `id` ni horodatages n'y figurent, et les
+champs inconnus sont **retirés** — un client qui glisserait `{ "role": "admin" }` ne s'auto-promeut pas.
+
+#### Sans schéma, le corps n'est pas validé
+
+`@Body()` injecte le corps **tel qu'il a été lu**. Pour un cas isolé hors route à schéma, le geste
+reste le schéma en tête d'action — une `ZodError` qui remonte devient le même **422**, reconnu par sa
+forme (`http/nodefony/service/error-renderer.ts#toValidationFields`) et non par `instanceof` :
 
 ```typescript
 @Post("/subscribe")
 subscribe(@Body() body: unknown) {
   const dto = subscribeSchema.parse(body); // lève → 422 + fields
-  return this.renderJson({ ok: true, email: dto.email });
+  return { ok: true, email: dto.email };
 }
 ```
-
-Le rendu est assuré par `toValidationFields()` (`http/nodefony/service/error-renderer.ts#toValidationFields`), qui
-reconnaît l'erreur **par sa forme** (`name` + `issues`) et non par `instanceof` — une application
-qui embarque sa propre copie de zod est donc servie pareil. Le client reçoit **422** (RFC 9110
-§15.5.21 : le corps est lisible, c'est son contenu qui viole le contrat) et la liste des champs
-fautifs, avec pour chacun son message et la règle qui a échoué.
-
-**Comment typer le paramètre**, puisque le décorateur ne promet rien :
-
-| Écriture                      | Ce que ça annonce                                   | Verdict                 |
-| ----------------------------- | --------------------------------------------------- | ----------------------- |
-| `@Body() b: Partial<PostRow>` | la ligne de **table** — `id` et horodatages compris | promet trop             |
-| `@Body() b: unknown`          | rien, honnêtement                                   | juste, mais peu commode |
-| `@Body() b: CreatePost`       | le contrat d'**entrée**, `z.infer` du schéma        | ✅ à préférer           |
-
-`CreatePost` et `UpdatePost` sont générés à côté du schéma (`nodefony/entity/Post.schema.ts`) : le
-type et la validation dérivent de la même source, ils ne peuvent donc pas diverger. Un schéma
-d'entrée ne décrit d'ailleurs pas la table — ni `id` ni horodatages n'y figurent, ils sont posés par
-le serveur —, et zod **retire** les champs inconnus : un client qui glisserait `{ "role": "admin" }`
-ne s'auto-promeut pas.
 
 ### Réponse — statut, en-têtes, redirection
 

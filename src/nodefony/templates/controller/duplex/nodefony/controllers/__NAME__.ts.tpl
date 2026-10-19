@@ -2,19 +2,27 @@ import { randomUUID } from "node:crypto";
 import {
   route,
   controller,
-  Param,
-  Body,
-  Query,
   HttpCode,
   Idempotent,
-  CurrentUser,
 <% if (it.hasSecurity) { %>  IsGranted,
 <% } %>} from "@nodefony/framework";
+import type { RouteInput } from "@nodefony/framework";
 import { RealtimeController } from "@nodefony/realtime";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
-<% if (it.hasSecurity) { %>import type { IUser } from "@nodefony/user";
-<% } %>
+import { z } from "zod";
+
+/**
+ * Le CONTRAT d'entrée de chaque route, VALIDÉ par le framework avant l'action —
+ * par les DEUX portes : le corps et la query d'un `socket.mutate` /
+ * `socket.request` passent le même schéma qu'un appel HTTP, et un échec est le
+ * même 422 (`data.status` et `data.fields` côté socket).
+ */
+const idParams = z.object({ id: z.string().min(1) });
+const listQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+const itemBody = z.object({ name: z.string().min(1) });
 
 /** Forme d'un item — remplace par ton entité (`nodefony create entity`). */
 interface IItem {
@@ -110,18 +118,20 @@ interface IItem {
   @route("<%= it.kebab %>-list", {
     path: "",
     requirements: { methods: ["GET", "WEBSOCKET"] },
+    schema: { query: listQuery },
   })
-  list(@Query("limit") limit?: string) {
-    const max = Math.min(Number(limit) || 50, 200);
-    return [...<%= it.nameClass %>.items.values()].slice(0, max);
+  list(input: RouteInput<{ query: typeof listQuery }>) {
+    return [...<%= it.nameClass %>.items.values()].slice(0, input.query.limit);
   }
 
   /** Détail — 404 typée si inconnu (RpcError `data.status: 404` côté socket). */
   @route("<%= it.kebab %>-get", {
     path: "/{id}",
     requirements: { methods: ["GET", "WEBSOCKET"] },
+    schema: { params: idParams },
   })
-  detail(@Param("id") id: string) {
+  detail(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     const item = <%= it.nameClass %>.items.get(id);
     if (!item) {
       throw new HttpError(`item ${id} introuvable`, 404);
@@ -138,18 +148,17 @@ interface IItem {
   @route("<%= it.kebab %>-create", {
     path: "",
     requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { body: itemBody },
   })
   @HttpCode(201)
   @Idempotent()
-  create(
-    @Body() payload: { name?: string },
-    @CurrentUser() user?: <% if (it.hasSecurity) { %>IUser<% } else { %>{ identifier?: string }<% } %>,
-  ) {
+  create(input: RouteInput<{ body: typeof itemBody }>) {
     const item: IItem = {
       id: randomUUID(),
-      name: payload?.name ?? "sans nom",
+      name: input.body.name,
       createdAt: Date.now(),
-      createdBy: user?.identifier ?? "anon.",
+      // L'identité posée par le pare-feu — par la socket, celle du handshake.
+      createdBy: this.user?.identifier ?? "anon.",
     };
     <%= it.nameClass %>.items.set(item.id, item);
     return item;
@@ -164,20 +173,24 @@ interface IItem {
   @route("<%= it.kebab %>-delete", {
     path: "/{id}",
     requirements: { methods: ["DELETE", "WEBSOCKET"] },
+    schema: { params: idParams },
   })
   @IsGranted("ROLE_ADMIN")
-  destroy(@Param("id") id: string, @CurrentUser() user: IUser) {
+  destroy(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     if (!<%= it.nameClass %>.items.delete(id)) {
       throw new HttpError(`item ${id} introuvable`, 404);
     }
-    return { deleted: id, by: user.identifier };
+    return { deleted: id, by: this.user?.identifier ?? null };
   }
 <% } else { %>  /** Suppression — `DELETE` HTTP ou `socket.mutate(path, { method: "DELETE", … })`. */
   @route("<%= it.kebab %>-delete", {
     path: "/{id}",
     requirements: { methods: ["DELETE", "WEBSOCKET"] },
+    schema: { params: idParams },
   })
-  destroy(@Param("id") id: string) {
+  destroy(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     if (!<%= it.nameClass %>.items.delete(id)) {
       throw new HttpError(`item ${id} introuvable`, 404);
     }

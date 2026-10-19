@@ -21,7 +21,7 @@ import { z } from "zod";
 
 /**
  * Schéma de démonstration du trajet documenté dans `framework/docs/decorateurs.md`
- * (« Le corps n'est pas validé — et c'est un choix ») : le décorateur `@Body` livre
+ * (« Sans schéma, le corps n'est pas validé ») : le décorateur `@Body` livre
  * le corps brut, l'action le confronte au schéma, et le pipeline transforme le rejet
  * en 422. Le contrat public tient à ce que ces trois maillons restent branchés.
  */

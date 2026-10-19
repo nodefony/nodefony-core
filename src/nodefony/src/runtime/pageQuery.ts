@@ -6,13 +6,16 @@ import type { IPageQuery } from "../types/IPage";
  * une query string déjà parsée (`?limit=20&offset=40`), le corps JSON d'une
  * requête `QUERY` (RFC 10008), ou tout autre porteur clé→valeur.
  *
+ * Les valeurs sont `unknown` : une query parsée peut porter un objet imbriqué
+ * (`?limit[a]=1`) ou un nombre (corps JSON). Les lecteurs le VÉRIFIENT
+ * ({@link singleValue}) et refusent en 400 ce qui n'est pas un texte — plutôt
+ * que de le supposer par une conversion de type.
+ *
  * C'est le point de toute la conception : {@link parsePageQuery} ne connaît pas
  * HTTP. Le jour où le transport change, seul l'appelant change — pas le contrat,
  * pas les stores.
  */
-export type PageQuerySource = Readonly<
-  Record<string, string | string[] | undefined>
->;
+export type PageQuerySource = Readonly<Record<string, unknown>>;
 
 /**
  * Réglages d'un point d'entrée paginé : ses bornes et ce qu'il accepte de trier.
@@ -113,22 +116,36 @@ export const PAGE_QUERY_KEYS: ReadonlySet<string> = new Set([
  * ce sera une nature de filtre déclarée (`["in", …]`), pas une tolérance
  * implicite du lecteur.
  *
- * @throws {@link PageQueryError} (`400`) si la clé porte plus d'une valeur.
+ * @throws {@link PageQueryError} (`400`) si la clé porte plus d'une valeur, ou
+ *   une valeur qui n'est pas un texte (objet imbriqué, nombre).
  */
 export const singleValue = (
   source: PageQuerySource,
   key: string,
 ): string | undefined => {
   const value = source[key];
-  if (value === undefined) return undefined;
-  if (!Array.isArray(value)) return value;
-  if (value.length > 1) {
-    throw new PageQueryError(
-      `Parameter "${key}" was given ${value.length} values; this endpoint reads a single value per parameter.`,
-    );
+  if (value === undefined || typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    if (value.length > 1) {
+      throw new PageQueryError(
+        `Parameter "${key}" was given ${value.length} values; this endpoint reads a single value per parameter.`,
+      );
+    }
+    const first: unknown = value[0];
+    if (first === undefined || typeof first === "string") return first;
   }
-  return value[0];
+  throw notPlainValue(key);
 };
+
+/**
+ * La valeur de `key` n'est pas un texte : un objet imbriqué (`?limit[a]=1`)
+ * ou un nombre n'est pas un paramètre de page — refusé, jamais converti.
+ *
+ * @param key - le paramètre fautif, nommé dans l'erreur.
+ */
+export function notPlainValue(key: string): PageQueryError {
+  return new PageQueryError(`Parameter "${key}" must be a plain text value.`);
+}
 
 /** Alias interne — la lecture unique, sous le nom court du fichier. */
 const one = singleValue;

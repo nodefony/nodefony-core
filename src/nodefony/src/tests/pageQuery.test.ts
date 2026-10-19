@@ -193,3 +193,24 @@ describe("parsePageQuery — pureté", () => {
     expect(source).to.deep.equal({ limit: "10", q: "  x  " });
   });
 });
+
+describe("parsePageQuery — une valeur qui n'est pas un texte est REFUSÉE", () => {
+  it("objet imbriqué (`?limit[a]=1`) : 400, jamais converti", () => {
+    expect(() => parsePageQuery({ limit: { a: "1" } })).to.throw(
+      PageQueryError,
+      /plain text value/u,
+    );
+  });
+
+  it("nombre (corps JSON) ou tableau d'objets : 400", () => {
+    expect(() => parsePageQuery({ offset: 3 })).to.throw(PageQueryError);
+    expect(() => parsePageQuery({ q: [{ x: 1 }] })).to.throw(PageQueryError);
+  });
+
+  it("le texte et le tableau d'un seul texte passent comme avant", () => {
+    expect(parsePageQuery({ limit: "5", offset: ["10"] })).to.include({
+      limit: 5,
+      offset: 10,
+    });
+  });
+});

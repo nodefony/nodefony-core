@@ -359,6 +359,14 @@ ont leur skill, qui part du symptôme : **`nodefony-troubleshoot`**.
   huit, `redis` quatre (`session`, `tokens`, `passkeys`, `idempotency`) : un cache ne garde ni
   comptes ni journal d'audit. Ne promets jamais une parité qui n'existe pas — lis ce champ, et
   `npx nodefony inspect stores` dit où atterrit chaque donnée.
+- **L'entrée d'une route se DÉCLARE — ne la valide pas à la main.** L'option `schema` d'un
+  décorateur de route (`@Post("/posts", { schema: { params, query, body, headers } })`, un schéma Zod
+  par partie) fait valider l'entrée AVANT l'action — **422** qui nomme chaque champ et sa partie, sur
+  HTTP comme par la socket (`api.request`) — et l'action la reçoit typée en UN argument,
+  `input: RouteInput<…>`. Une action à schéma ne prend **aucun** décorateur de paramètre (`@Body`,
+  `@Query`…) : le mélange est refusé au démarrage, qui nomme la route. L'identité se lit par
+  `this.user`. Un corps binaire arrive en octets (`Uint8Array`), un `text/*` en chaîne : un même
+  `z.instanceof(Uint8Array)` vaut pour les deux portes. Doc : `node_modules/@nodefony/framework/docs/decorateurs.md`.
 - **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.** Un doublon
   sur une colonne unique ressort en **409**, une donnée qui viole le schéma Zod en **422**, chacun
   avec son corps JSON : le rendu d'erreur lit le code du pilote (`23505`, `ER_DUP_ENTRY`,

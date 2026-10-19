@@ -5124,7 +5124,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le controller SERT la porte, il ne la définit pas : aucune ligne de
       // protocole, aucun contrôle d'accès dans la classe.
       assert.include(ctrl, '@controller("/api/mcp")');
-      assert.include(ctrl, "mcpGate.serve(this, body)");
+      assert.include(ctrl, "mcpGate.serve(this, input.body)");
+      // Schéma VIDE : entrée brute, la porte valide sa trame dans SON protocole.
+      assert.include(ctrl, "schema: {},");
       assert.include(ctrl, 'methods: ["POST", "GET", "DELETE"]');
       const gate = readFileSync(at("nodefony", "mcp", "mcp-gate.ts"), "utf8");
       assert.include(gate, 'import { defineMcpGate } from "@nodefony/ai"');
@@ -5410,21 +5412,26 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       for (const marker of [
         '@controller("/api/items")',
-        '@Get("")',
-        '@Get("/{id}")',
-        '@Post("")',
-        '@Put("/{id}")',
-        '@Patch("/{id}")',
-        '@Delete("/{id}")',
+        // ADR-0018 : chaque route DÉCLARE son entrée par un schéma, et l'action
+        // la reçoit en un argument typé — plus aucun décorateur de paramètre.
+        '@Get("", { schema: { query: listQuery } })',
+        '@Get("/{id}", { schema: { params: idParams } })',
+        '@Post("", { schema: { body: itemBody } })',
+        '@Put("/{id}", { schema: { params: idParams, body: itemBody } })',
+        '@Patch("/{id}", { schema: { params: idParams, body: itemPatch } })',
+        '@Delete("/{id}", { schema: { params: idParams } })',
+        "input: RouteInput<",
         "@HttpCode(201)",
         "@Idempotent()",
-        "@CurrentUser()",
+        // L'identité par l'accesseur du contrôleur, pas par décorateur.
+        "this.user?.identifier",
         // complete → security : delete protégée par rôle.
         '@IsGranted("ROLE_ADMIN")',
         "HttpError",
       ]) {
         assert.include(src, marker, `manque ${marker}`);
       }
+      assert.notMatch(src, /@(Body|Query|Param|CurrentUser)\(/u);
       // REST pur : aucun transport WS, aucun décorateur de la vitrine.
       assert.notInclude(src, "WEBSOCKET");
       assert.notInclude(src, "@UseSession");
@@ -5440,7 +5447,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.notInclude(srcMin, "@IsGranted");
       assert.notInclude(srcMin, "@nodefony/user");
-      assert.include(srcMin, '@Delete("/{id}")');
+      assert.include(
+        srcMin,
+        '@Delete("/{id}", { schema: { params: idParams } })',
+      );
     });
 
     it("duplex : mêmes actions REST + socket (pont api.request) ; garde dep realtime", () => {
@@ -5460,7 +5470,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         'methods: ["POST", "WEBSOCKET"]',
         'methods: ["DELETE", "WEBSOCKET"]',
         "@Idempotent()",
-        "@CurrentUser()",
+        // Entrée validée par schéma par les DEUX portes, identité par accesseur.
+        "schema: { body: itemBody }",
+        "input: RouteInput<",
+        "this.user?.identifier",
         // Le TSDoc client montre les DEUX portes.
         "socket.request(",
         "socket.mutate(",
@@ -5468,10 +5481,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // Variante sécurisée (complete) : la MÊME garde par rôle pour les
         // DEUX portes — HTTP direct et pont api.request (ALS au handshake).
         '@IsGranted("ROLE_ADMIN")',
-        'import type { IUser } from "@nodefony/user";',
       ]) {
         assert.include(src, marker, `manque ${marker}`);
       }
+      // L'identité par `this.user` : plus aucun décorateur de paramètre, ni la
+      // dépendance `@nodefony/user` qu'imposait le type de `@CurrentUser`.
+      assert.notMatch(src, /@(Body|Query|Param|CurrentUser)\(/u);
+      assert.notInclude(src, "@nodefony/user");
       // minimal sans @nodefony/realtime → garde actionnable (comme realtime).
       const mini = path.join(tmp, "duplexmin");
       scaffold(mini, { name: "duplexmin", preset: "minimal" });
@@ -7264,9 +7280,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           read(mod, "nodefony", "controllers", "CatalogController.ts"),
           "IsGranted",
         );
-        // Ce que le controller importe parce que l'APP porte la sécurité
-        // (`IUser`), le MODULE doit le déclarer : jugé par la règle même de
-        // `nodefony doctor`, pas par une liste recopiée ici.
+        // Ce que le controller importe, le MODULE doit le déclarer : jugé par
+        // la règle même de `nodefony doctor`, pas par une liste recopiée ici.
         const { findings } = checkPackageDeps({
           roots: [path.join(dest, "modules")],
           cwd: dest,
@@ -7276,13 +7291,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           [],
           "le module généré doit déclarer chaque paquet qu'il importe",
         );
-        assert.equal(
-          (
-            JSON.parse(read(mod, "package.json")) as {
-              peerDependencies: Record<string, string>;
-            }
-          ).peerDependencies["@nodefony/user"],
-          frameworkPeerRange(version),
+        // L'identité se lit par `this.user` (ADR-0018) : plus aucun import de
+        // `@nodefony/user`, donc plus de dépendance que le module paierait.
+        assert.notInclude(
+          read(mod, "nodefony", "controllers", "CatalogController.ts"),
+          "@nodefony/user",
         );
       });
 
@@ -8443,12 +8456,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "service", "PostService.ts"),
         "utf8",
       );
-      assert.include(ctrl, '@Patch("/{id}")');
-      assert.include(ctrl, '@Put("/{id}")');
-      // Le PUT passe par le service (schéma de CRÉATION = corps complet exigé),
-      // le PATCH par le helper générique (schéma partiel).
-      assert.include(ctrl, "getPostService().replace(id, payload)");
-      assert.include(ctrl, "this.updateResource({ id }, payload)");
+      // Le PUT déclare le schéma de CRÉATION (corps complet exigé), le PATCH le
+      // schéma partiel — validés à la porte, puis le service les revalide.
+      assert.include(
+        ctrl,
+        "schema: { params: idParams, body: createPostSchema }",
+      );
+      assert.include(
+        ctrl,
+        "schema: { params: idParams, body: updatePostSchema }",
+      );
+      assert.include(ctrl, "getPostService().replace(id, input.body)");
+      assert.include(ctrl, "this.updateResource({ id }, input.body)");
       assert.include(service, "async replace(");
       assert.include(service, "createPostSchema.parse(");
     });

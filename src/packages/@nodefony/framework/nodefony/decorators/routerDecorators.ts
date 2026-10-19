@@ -7,14 +7,22 @@
    `MethodDecorator`) — son `target`, lui, est un `object`. Un `any` AUTRE que ces
    deux formes n'a rien à faire ici. */
 import "reflect-metadata";
+import type { Readable } from "node:stream";
 //import { fileURLToPath } from "url";
 import Router, { TypeController } from "../service/router";
 import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
 import type { ControllerScope } from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
-import { Module, RequestContext } from "nodefony";
+import { BootConfigurationError, Module, RequestContext } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
+import { assertRouteSchemaShape } from "../src/routeSchema";
+import type {
+  IRouteSchema,
+  IRouteSchemaOptions,
+  RawRouteInput,
+  RouteInput,
+} from "../src/routeSchema";
 import type { HTTPMethod, SessionIntent } from "@nodefony/http";
 
 // Idiome TS officiel des mixins de constructeur — `any[]` requis (un `unknown[]`
@@ -284,13 +292,91 @@ function controller(prefix: string) {
  *   return this.renderJson({ name });
  * }
  */
-function route(name: string, options: RouteOptions) {
+function route(
+  name: string,
+  options: RouteOptions & { schema?: undefined; bodyStream?: false },
+): RouteMethodDecorator;
+function route<S extends IRouteSchema>(
+  name: string,
+  options: RouteOptionsWithSchema<S> & { bodyStream?: false },
+): SchemaRouteMethodDecorator<S, false>;
+function route<S extends IRouteSchema & { readonly body?: undefined }>(
+  name: string,
+  options: RouteOptionsWithSchema<S> & { bodyStream: true },
+): SchemaRouteMethodDecorator<S, true>;
+function route(
+  name: string,
+  options: RouteDecoratorOptions,
+): RouteMethodDecorator {
+  return defineRoute(name, options);
+}
+
+/** Options d'un décorateur de route : celles de la route, plus l'entrée de l'action. */
+type RouteDecoratorOptions = RouteOptions & IRouteSchemaOptions;
+
+/** Options d'une route qui déclare un schéma. */
+type RouteOptionsWithSchema<S extends IRouteSchema> = RouteOptions & {
+  schema: S;
+};
+
+/** Décorateur de méthode d'une route sans schéma : la signature de l'action est libre. */
+type RouteMethodDecorator = (
+  target: object,
+  propertyKey: string,
+  descriptor: PropertyDescriptor,
+) => PropertyDescriptor;
+
+/**
+ * Décorateur d'une action à schéma : la compilation refuse une action dont
+ * l'argument ne reçoit pas `RouteInput<S, Stream>` (champ absent du schéma,
+ * type divergent, second argument).
+ */
+type SchemaRouteMethodDecorator<
+  S extends IRouteSchema,
+  Stream extends boolean,
+> = <T extends (input: RouteInput<S, Stream>) => unknown>(
+  target: object,
+  propertyKey: string,
+  descriptor: TypedPropertyDescriptor<T>,
+) => TypedPropertyDescriptor<T>;
+
+/** L'implémentation de {@link route}, sans les surcharges de typage. */
+function defineRoute(
+  name: string,
+  options: RouteDecoratorOptions,
+): RouteMethodDecorator {
   return function (
     target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
     assertActionNameFree(target, propertyKey);
+    // Le schéma décrit l'entrée de l'ACTION : rangé sur la méthode, comme
+    // `@HttpCode`, jamais sur la route — `Route.generateId` sérialise la
+    // route entière, un schéma n'a rien à y faire.
+    if (options.schema !== undefined) {
+      const previous: unknown = Reflect.getOwnMetadata(
+        ROUTE_SCHEMA_METADATA,
+        target,
+        propertyKey,
+      );
+      if (previous !== undefined && previous !== options.schema) {
+        throw new BootConfigurationError(
+          `${target.constructor.name}.${propertyKey} : deux routes de la même ` +
+            `action déclarent des schémas différents — une action n'a qu'une ` +
+            `entrée, déclarer le schéma une seule fois.`,
+        );
+      }
+      Reflect.defineMetadata(
+        ROUTE_SCHEMA_METADATA,
+        options.schema,
+        target,
+        propertyKey,
+      );
+    }
+    if (options.bodyStream === true) {
+      Reflect.defineMetadata(BODY_STREAM_METADATA, true, target, propertyKey);
+    }
     const className = target.constructor.name;
     const classMethod = propertyKey;
     const prefix = options.prefix || null;
@@ -359,6 +445,10 @@ function extractControllerFilePath(stackTrace: string[]): string | undefined {
 export const HTTP_CODE_METADATA = "route:httpCode";
 export const HEADERS_METADATA = "route:responseHeaders";
 export const REDIRECT_METADATA = "route:redirect";
+/** Schéma d'entrée d'une action (`schema` d'une option de route) — par méthode. */
+const ROUTE_SCHEMA_METADATA = "route:schema";
+/** `bodyStream: true` d'une option de route — par méthode. */
+const BODY_STREAM_METADATA = "route:bodyStream";
 export const PARAM_ARGS_METADATA = "route:paramArgs";
 export const DOMAIN_CLASS_METADATA = "route:domainClass";
 export const DOMAIN_METHOD_METADATA = "route:domainMethod";
@@ -491,15 +581,40 @@ export interface IdempotentMeta {
 // ── HTTP method decorator factory ───────────────────────────────────────────
 type MethodDecoratorOptions = Omit<RouteOptions, "path" | "method">;
 
-function httpMethodDecorator(methods: HTTPMethod[]) {
-  return function (path: string = "", options: MethodDecoratorOptions = {}) {
+/**
+ * Un décorateur de méthode HTTP (`@Get`, `@Post`…). Sans schéma, la signature
+ * de l'action est libre (décorateurs de paramètre) ; avec `schema`, l'action
+ * reçoit un argument unique `RouteInput<S>`, vérifié à la compilation.
+ */
+export interface IHttpMethodDecorator {
+  (
+    path?: string,
+    options?: MethodDecoratorOptions & {
+      schema?: undefined;
+      bodyStream?: false;
+    },
+  ): RouteMethodDecorator;
+  <S extends IRouteSchema>(
+    path: string,
+    options: MethodDecoratorOptions & { schema: S; bodyStream?: false },
+  ): SchemaRouteMethodDecorator<S, false>;
+  <S extends IRouteSchema & { readonly body?: undefined }>(
+    path: string,
+    options: MethodDecoratorOptions & { schema: S; bodyStream: true },
+  ): SchemaRouteMethodDecorator<S, true>;
+}
+
+/** Options reçues par l'implémentation des décorateurs de méthode. */
+type MethodDecoratorInput = MethodDecoratorOptions & IRouteSchemaOptions;
+
+function httpMethodDecorator(methods: HTTPMethod[]): IHttpMethodDecorator {
+  return function (path: string = "", options: MethodDecoratorInput = {}) {
     return function (
       target: object,
       propertyKey: string,
       descriptor: PropertyDescriptor,
     ): PropertyDescriptor {
-      const proto = target as Record<string, unknown>;
-      const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
+      const name = `${target.constructor.name}::${propertyKey}`;
       // Les transports déclarés par l'appelant s'AJOUTENT à celui du décorateur,
       // ils ne le remplacent pas — et l'écrasement silencieux qui précédait était
       // pire qu'un refus : `@Get(p, { requirements: { methods: ["WEBSOCKET"] } })`
@@ -525,7 +640,7 @@ function httpMethodDecorator(methods: HTTPMethod[]) {
         added.length > 0
           ? [...new Set<HTTPMethod>([...methods, ...added])]
           : methods;
-      return route(name, {
+      return defineRoute(name, {
         ...options,
         path,
         requirements: {
@@ -550,17 +665,23 @@ const Head = httpMethodDecorator(["HEAD"]);
  * HTTP (équivalent NestJS `@All()`). N'émet aucun requirement `methods`, donc
  * `Route.matchRequirements` ne lève jamais 405 sur la méthode.
  */
-function All(path: string = "", options: MethodDecoratorOptions = {}) {
+const All: IHttpMethodDecorator = function (
+  path: string = "",
+  options: MethodDecoratorInput = {},
+) {
   return function (
     target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ): PropertyDescriptor {
-    const proto = target as Record<string, unknown>;
-    const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
-    return route(name, { ...options, path })(target, propertyKey, descriptor);
+    const name = `${target.constructor.name}::${propertyKey}`;
+    return defineRoute(name, { ...options, path })(
+      target,
+      propertyKey,
+      descriptor,
+    );
   };
-}
+};
 
 // ── Response decorators ─────────────────────────────────────────────────────
 /**
@@ -1247,26 +1368,18 @@ const Query = paramDecoratorFactory("query");
  *
  * ## Le corps n'est PAS validé — le type écrit ici ne promet rien
  *
- * `@Body()` injecte le corps **tel qu'il a été parsé** : `@Body() dto: CreateOrder`
- * compile, mais rien ne garantit qu'un `CreateOrder` soit arrivé. C'est un choix
- * assumé, pas un oubli — valider ici ne garderait que la porte HTTP, et devrait
- * rester **synchrone** ({@link resolveParamArg} l'est, et le rendre asynchrone
- * taxerait toute requête à paramètres décorés).
+ * `@Body()` injecte le corps **tel qu'il a été décodé** (objet JSON ou de
+ * formulaire, chaîne pour `text/*`, octets `Uint8Array` pour tout autre type) :
+ * `@Body() dto: CreateOrder` compile, mais rien ne garantit qu'un `CreateOrder`
+ * soit arrivé.
  *
- * Où valider, donc :
+ * Pour un contrat vérifié, déclarer l'option de route `schema` (ADR-0018) : le
+ * corps est validé AVANT l'action — 422 qui nomme chaque champ —, sur HTTP comme
+ * sur le pont WebSocket, et l'action le reçoit typé dans `input.body`. Une action
+ * à schéma ne prend aucun décorateur de paramètre.
  *
- * - **Une entité** → les hooks `beforeCreate` / `beforeUpdate` d'
- *   `AbstractCrudService` : ils sont `await`és — donc une règle asynchrone
- *   (unicité en base) y est possible — et ils gardent REST, WebSocket **et** la
- *   CLI d'un seul geste. C'est ce que génère `nodefony create entity`.
- * - **Un cas isolé** → `schema.parse(body)` en première ligne de l'action, sur le
- *   modèle d'`assertPageQuery`. Rien d'autre à écrire : une `ZodError` qui remonte
- *   devient un **422** (RFC 9110 §15.5.21) portant `error.fields` — quel champ,
- *   quel message, quelle règle.
- *
- * Et typer le paramètre avec `z.infer<typeof createXSchema>` plutôt qu'avec
- * `Partial<XRow>` : le premier décrit le contrat d'**entrée**, le second promet la
- * ligne de **table** (`id`, horodatages) que le schéma effacera de toute façon.
+ * Sans schéma, `schema.parse(body)` en première ligne de l'action reste le geste
+ * d'un cas isolé : une `ZodError` qui remonte devient le même **422**.
  *
  * @example
  * ```ts
@@ -1331,7 +1444,8 @@ export interface IParamArgContext {
   request?:
     | {
         query?: Record<string, unknown> | undefined;
-        body?: Record<string, unknown> | undefined;
+        /** Corps décodé : objet JSON, champs de formulaire, octets… */
+        body?: unknown;
         files?: readonly unknown[] | undefined;
         headers?: Record<string, unknown> | undefined;
         /**
@@ -1339,13 +1453,100 @@ export interface IParamArgContext {
          * `HttpRequest`. Injecté tel quel par `@Body({ stream: true })` (le pipeline
          * n'a pas consommé/parsé ce flux). `undefined` pour les contextes WS.
          */
-        request?: NodeJS.ReadableStream | undefined;
+        request?: Readable | undefined;
       }
     | null
     | undefined;
   response?: unknown;
   session?: { get(key: string): unknown } | null | undefined;
   getRequestCookies(name?: string): unknown;
+}
+
+/**
+ * La query de l'invocation : celle du chemin INVOQUÉ par le pont WebSocket
+ * (`queryOverride`), sinon celle de l'URL. Source UNIQUE de `@Query` et de
+ * `input.query` d'une route à schéma.
+ */
+function readQuery(ctx: IParamArgContext): Record<string, unknown> | undefined {
+  return readQueryOf(ctx.queryOverride, ctx.request);
+}
+
+/** {@link readQuery}, depuis ses deux sources. */
+function readQueryOf(
+  queryOverride: Record<string, unknown> | undefined,
+  request: IParamArgContext["request"],
+): Record<string, unknown> | undefined {
+  return queryOverride ?? request?.query;
+}
+
+/**
+ * Le corps DÉCODÉ de l'invocation — source UNIQUE de `@Body` et de
+ * `input.body` d'une route à schéma, pour qu'un corps ne puisse pas prendre
+ * deux sens selon la forme de l'action.
+ *
+ * Pont `api.request` (WS) : le corps d'une mutation voyage dans l'ALS (aucun
+ * corps HTTP parsé sur une frame — posé par appel par
+ * `RealtimeController.invokeApiRequest`, zéro fuite entre appels) et PRIME sur
+ * `request.body` (vide en WS) — même priorité que
+ * `AdminApiController.buildRequest`. En HTTP, le magasin ALS ne porte jamais
+ * `body`. Aucune forme n'est supposée : un codec binaire y posera des octets.
+ */
+function readBody(ctx: IParamArgContext): unknown {
+  return readInvocationBody(ctx.request);
+}
+
+/**
+ * Le corps DÉCODÉ d'une invocation, depuis la requête seule — la règle de
+ * {@link readBody}, pour qui n'a pas de contexte de paramètres (porte
+ * d'idempotence).
+ *
+ * @param request - la requête du contexte.
+ * @returns le corps posé par le pont WebSocket, sinon le corps HTTP lu.
+ */
+export function readInvocationBody(
+  request: IParamArgContext["request"],
+): unknown {
+  const alsBody = RequestContext.get()?.body;
+  return alsBody !== undefined ? alsBody : request?.body;
+}
+
+/** Un champ d'une valeur décodée ; `undefined` si elle n'est pas un objet. */
+function readField(value: unknown, key: string): unknown {
+  if (typeof value !== "object" || value === null) return undefined;
+  const field: unknown = Reflect.get(value, key);
+  return field;
+}
+
+/** Objet vide partagé : une partie absente n'alloue rien. Gelé, jamais muté. */
+const EMPTY_PART: Readonly<Record<string, never>> = Object.freeze({});
+
+/**
+ * L'entrée BRUTE d'une action à schéma, lue aux MÊMES sources que les
+ * décorateurs de paramètre ({@link readQuery}, {@link readBody}) : pont
+ * WebSocket compris. Seule allocation de la voie à schéma : cet objet, propre
+ * à l'invocation, que la validation complète en place et que l'action reçoit.
+ *
+ * Arguments POSITIONNELS, pas un objet de contexte : la voie à schéma n'en
+ * alloue aucun de plus.
+ *
+ * @param paramsMap - variables de route nommées.
+ * @param request - la requête du contexte.
+ * @param queryOverride - query du chemin invoqué (pont WebSocket), sinon rien.
+ * @param bodyStream - `true` : `body` est le flux brut, jamais lu.
+ * @returns les quatre parties, brutes.
+ */
+export function readRouteInput(
+  paramsMap: Record<string, unknown>,
+  request: IParamArgContext["request"],
+  queryOverride: Record<string, unknown> | undefined,
+  bodyStream: boolean,
+): RawRouteInput {
+  return {
+    params: paramsMap,
+    query: readQueryOf(queryOverride, request) ?? EMPTY_PART,
+    body: bodyStream ? request?.request : readInvocationBody(request),
+    headers: request?.headers ?? EMPTY_PART,
+  };
 }
 
 /**
@@ -1360,7 +1561,7 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
     case "param":
       return meta.key !== undefined ? ctx.paramsMap[meta.key] : ctx.paramsMap;
     case "query": {
-      const q = ctx.queryOverride ?? ctx.request?.query;
+      const q = readQuery(ctx);
       return meta.key !== undefined ? q?.[meta.key] : q;
     }
     case "body": {
@@ -1370,19 +1571,8 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
       if (meta.stream) {
         return ctx.request?.request;
       }
-      // Pont `api.request` (WS) : le corps d'une mutation voyage dans l'ALS
-      // (aucun corps HTTP parsé sur une frame — posé per-invocation par
-      // `RealtimeController.invokeApiRequest`, zéro bleed) et PRIME sur
-      // `request.body` (vide en WS) — même priorité que `AdminApiController.
-      // buildRequest`. En HTTP le payload ALS ne porte jamais `body` → fallback.
-      const alsBody = RequestContext.get()?.body;
-      if (alsBody !== undefined) {
-        return meta.key !== undefined
-          ? (alsBody as Record<string, unknown> | null)?.[meta.key]
-          : alsBody;
-      }
-      const body = ctx.request?.body;
-      return meta.key !== undefined ? body?.[meta.key] : body;
+      const body = readBody(ctx);
+      return meta.key !== undefined ? readField(body, meta.key) : body;
     }
     case "headers": {
       // Node lowercase les clés de IncomingHttpHeaders → normaliser la lookup.
@@ -1500,6 +1690,88 @@ export function getParamArgsMeta(
 }
 
 /**
+ * Le schéma d'entrée d'une méthode (option de route `schema`), ou `null`.
+ * Lecture `Reflect` : à faire une fois, hors du chemin de chaque requête.
+ *
+ * @param proto - le prototype de la classe.
+ * @param method - le nom de la méthode.
+ * @returns le schéma, ou `null` — une action sans schéma ne paie rien.
+ * @throws BootConfigurationError si le schéma rangé est mal formé.
+ */
+export function getRouteSchema(
+  proto: object,
+  method: string,
+): IRouteSchema | null {
+  const schema: unknown = Reflect.getMetadata(
+    ROUTE_SCHEMA_METADATA,
+    proto,
+    method,
+  );
+  if (schema === undefined) return null;
+  assertRouteSchemaShape(schema, `${proto.constructor.name}.${method}`);
+  return schema;
+}
+
+/**
+ * Refuse, au DÉMARRAGE, une action à schéma mal déclarée — appelé par
+ * `Router.setController` pour chaque route du contrôleur, pour qu'une faute
+ * ne se révèle pas à la première requête :
+ *
+ * - schéma mal formé (partie inconnue, valeur qui n'est pas un Standard Schema) ;
+ * - schéma ET décorateurs de paramètre (`@Body`…) : une action à schéma reçoit
+ *   un argument UNIQUE, les deux formes ne se combinent pas ;
+ * - `bodyStream: true` ET `schema.body` : un flux ne se valide pas.
+ *
+ * @param routeDef - la route (nom, contrôleur, méthode).
+ * @throws BootConfigurationError qui nomme la route.
+ */
+export function assertRouteSchemaDeclaration(routeDef: {
+  name: string;
+  controller?: { prototype: object } | null | undefined;
+  classMethod?: string | undefined;
+}): void {
+  const ctor = routeDef.controller;
+  const method = routeDef.classMethod;
+  if (!ctor || !method) return;
+  const proto = ctor.prototype;
+  const raw: unknown = Reflect.getMetadata(
+    ROUTE_SCHEMA_METADATA,
+    proto,
+    method,
+  );
+  if (raw === undefined) {
+    // Sans schéma, `bodyStream` ne livrerait le flux à personne (aucun
+    // `input`) et laisserait un `@Body()` voisin recevoir `{}` en silence :
+    // le flux d'une action sans schéma se demande par `@Body({ stream: true })`.
+    if (Reflect.getMetadata(BODY_STREAM_METADATA, proto, method) === true) {
+      throw new BootConfigurationError(
+        `Route "${routeDef.name}" : « bodyStream: true » exige un « schema » — ` +
+          `sans schéma, demander le flux par @Body({ stream: true }).`,
+      );
+    }
+    return;
+  }
+  assertRouteSchemaShape(raw, routeDef.name);
+  if (getParamArgsMeta(proto, method) !== null) {
+    throw new BootConfigurationError(
+      `Route "${routeDef.name}" : une action à schéma reçoit un argument ` +
+        `unique (input) — retirer les décorateurs de paramètre (@Body, ` +
+        `@Query, @Param…) de ${proto.constructor.name}.${method}, ou ` +
+        `retirer l'option « schema ».`,
+    );
+  }
+  if (
+    raw.body !== undefined &&
+    Reflect.getMetadata(BODY_STREAM_METADATA, proto, method) === true
+  ) {
+    throw new BootConfigurationError(
+      `Route "${routeDef.name}" : « bodyStream: true » et « schema.body » ` +
+        `s'excluent — un flux n'est pas lu, il ne peut pas être validé.`,
+    );
+  }
+}
+
+/**
  * P2.9 — Indique si l'action d'une route attend le **flux brut** du body
  * (un paramètre `@Body({ stream:true })`). Le résultat est **mémoïsé** sur
  * `route.bodyStream` : lecture `Reflect` au 1er appel, O(1) ensuite → 0 coût
@@ -1519,10 +1791,15 @@ function routeExpectsBodyStream(routeDef: {
     const ctor = routeDef.controller;
     const method = routeDef.classMethod;
     if (ctor && method) {
-      const metas =
-        (Reflect.getMetadata(PARAM_ARGS_METADATA, ctor.prototype, method) as
-          ParamMeta[] | undefined) ?? [];
-      flag = metas.some((m) => m.source === "body" && m.stream === true);
+      // L'option de route `bodyStream: true` (action à schéma), ou un
+      // `@Body({ stream: true })`.
+      flag =
+        Reflect.getMetadata(BODY_STREAM_METADATA, ctor.prototype, method) ===
+          true ||
+        (getParamArgsMeta(ctor.prototype, method)?.some(
+          (m) => m.source === "body" && m.stream === true,
+        ) ??
+          false);
     }
     routeDef.bodyStream = flag;
   }
@@ -1540,6 +1817,13 @@ function routeExpectsBodyStream(routeDef: {
 export interface RouteActionMeta {
   /** Paramètres décorés (`@Param`/`@Body`/`@Query`…) — `null` si aucun. */
   paramsMeta: readonly ParamMeta[] | null;
+  /**
+   * Schéma d'entrée (`schema` de l'option de route) — `null` si l'action n'en
+   * déclare pas (cas courant → une comparaison, aucune allocation).
+   */
+  schema: IRouteSchema | null;
+  /** `bodyStream: true` déclaré en option de route. */
+  bodyStream: boolean;
   /** `@Redirect` de l'action — `null` si absent. */
   redirectMeta: RedirectMeta | null;
   /** `@HttpCode` de l'action — `null` si absent. */
@@ -1575,6 +1859,8 @@ export interface RouteActionMeta {
 
 const EMPTY_ACTION_META: RouteActionMeta = {
   paramsMeta: null,
+  schema: null,
+  bodyStream: false,
   redirectMeta: null,
   httpCode: null,
   headerEntries: null,
@@ -1745,6 +2031,9 @@ function computeActionMeta(
     Record<string, string> | undefined;
   return {
     paramsMeta: getParamArgsMeta(proto, method),
+    schema: getRouteSchema(proto, method),
+    bodyStream:
+      Reflect.getMetadata(BODY_STREAM_METADATA, proto, method) === true,
     redirectMeta: redirect ?? null,
     httpCode: httpCode ?? null,
     headerEntries: headers ? Object.entries(headers) : null,

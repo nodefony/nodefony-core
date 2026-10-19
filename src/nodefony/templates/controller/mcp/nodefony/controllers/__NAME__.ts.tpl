@@ -1,4 +1,5 @@
-import { route, controller, Controller, Body } from "@nodefony/framework";
+import { route, controller, Controller } from "@nodefony/framework";
+import type { RouteInput } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import { <%= it.camel %>Gate } from "../mcp/<%= it.kebab %>-gate";
 
@@ -40,9 +41,12 @@ class <%= it.nameClass %> extends Controller {
   @route("<%= it.kebab %>-mcp", {
     path: "",
     requirements: { methods: ["POST", "GET", "DELETE"] },
+    // Schéma VIDE : l'action reçoit l'entrée brute — la porte MCP valide
+    // elle-même la trame JSON-RPC et répond dans SON protocole, pas en 422.
+    schema: {},
   })
-  mcp(@Body() body: unknown) {
-    return <%= it.camel %>Gate.serve(this, body);
+  mcp(input: RouteInput) {
+    return <%= it.camel %>Gate.serve(this, input.body);
   }
 }
 

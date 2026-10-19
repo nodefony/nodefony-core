@@ -1,4 +1,5 @@
 import {
+  BootConfigurationError,
   Service,
   Module,
   Container,
@@ -14,7 +15,10 @@ import { ContextType, HttpError, isDomainAllowed } from "@nodefony/http";
 import type { IRequestRouter } from "@nodefony/http";
 import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
-import { routeExpectsBodyStream } from "../decorators/routerDecorators";
+import {
+  assertRouteSchemaDeclaration,
+  routeExpectsBodyStream,
+} from "../decorators/routerDecorators";
 
 // 🚦 PERF : « route trouvée » monte à NOTICE (jalon visible sans DEBUG) HORS
 // production seulement. En prod → DEBUG → 0 log de routage supplémentaire émis
@@ -553,6 +557,15 @@ class Router extends Service implements IRequestRouter {
   }
 
   static createRoute(name: string, obj: RouteOptions): Route {
+    // `schema` et `bodyStream` décrivent l'entrée d'une ACTION et se rangent
+    // sur sa méthode par un décorateur : une route créée par programme ne
+    // saurait pas les appliquer, et les ignorer en silence mentirait.
+    if ("schema" in obj || "bodyStream" in obj) {
+      throw new BootConfigurationError(
+        `Route "${name}" : « schema » et « bodyStream » se déclarent par un ` +
+          `décorateur de route (@Get, @Post, @route…), pas par createRoute.`,
+      );
+    }
     const routenew = new Route(name, obj);
     routes.push(routenew);
     invalidateRouteIndex();
@@ -606,6 +619,9 @@ class Router extends Service implements IRequestRouter {
     // d'override Module.log → Service.log.
     for (const r of routes) {
       if (r.controller === myconstructor) {
+        // Une action à schéma mal déclarée (mêlée de `@Body`, flux + corps
+        // validé, partie inconnue) est refusée ICI, pas à sa 1ʳᵉ requête.
+        assertRouteSchemaDeclaration(r);
         r.module = { name: module.name };
       }
     }

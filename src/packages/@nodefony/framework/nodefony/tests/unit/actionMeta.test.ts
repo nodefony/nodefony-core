@@ -104,6 +104,8 @@ describe("routerDecorators — computeActionMeta()", () => {
     const meta = computeActionMeta(DecoratedCtrl, "bare");
     expect(meta).to.deep.equal({
       paramsMeta: null,
+      schema: null,
+      bodyStream: false,
       redirectMeta: null,
       httpCode: null,
       headerEntries: null,

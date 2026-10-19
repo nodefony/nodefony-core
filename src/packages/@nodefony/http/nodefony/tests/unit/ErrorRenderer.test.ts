@@ -1,8 +1,9 @@
 /// <reference types="node" />
 import { expect } from "vitest";
-import { Nodefony } from "nodefony";
+import { Nodefony, SchemaValidationError } from "nodefony";
 import DefaultErrorRenderer, {
   schemaMismatchOf,
+  toValidationFields,
 } from "../../service/error-renderer.js";
 import HttpError from "../../src/errors/httpError.js";
 
@@ -211,6 +212,26 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
         ctx as never,
       );
       expect(r.message).to.contain("slug: déjà pris");
+    });
+
+    it("l'erreur d'une route à schéma est reconnue comme une ZodError, avec la partie de chaque champ", () => {
+      // Le chemin 422 du rendu (`toHttpError`) est celui de la ZodError
+      // ci-dessus : seule la reconnaissance diffère, c'est elle qu'on prouve.
+      const fields = toValidationFields(
+        new SchemaValidationError([
+          { message: "trop court", path: ["title"], in: "body" },
+          { message: "entier attendu", path: ["limit"], in: "query" },
+        ]),
+      );
+      expect(fields).to.deep.equal([
+        { field: "title", message: "trop court", rule: undefined, in: "body" },
+        {
+          field: "limit",
+          message: "entier attendu",
+          rule: undefined,
+          in: "query",
+        },
+      ]);
     });
 
     it("une erreur ordinaire reste 500 — la détection ne déborde pas", () => {

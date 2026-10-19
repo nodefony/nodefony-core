@@ -36,6 +36,8 @@ export interface PlaygroundAction {
   variables: string[];
   defaults: Record<string, unknown>;
   params: PlaygroundParam[];
+  /** Contrat d'une action à schéma : JSON Schema par partie (`null` sans schéma). */
+  schema?: Record<string, Record<string, unknown> | null> | null;
   guards: PlaygroundGuards;
 }
 

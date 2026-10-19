@@ -20,10 +20,12 @@ import {
   ParserXml,
   ParserQs,
   ParserJson,
+  ParserRaw,
   Parser,
   acceptParser,
 } from "./parser";
 import { splitTarget, isCanonicalAuthority } from "./urlFastPath";
+import type { RequestBody } from "../../../interfaces/IRequest";
 import { UploadedFile } from "../../../service/upload/upload-service";
 import type {
   IParsedUploadFile,
@@ -220,7 +222,7 @@ class HttpRequest {
    * d'`IAdminRequest.body`. Jamais un paramètre d'URL : ceux-là sont dans
    * {@link query}, et les deux ne fusionnent pas.
    */
-  body: Record<string, unknown> = {};
+  body: RequestBody = {};
   /** Fichiers reçus, alloués au PREMIER fichier seulement (cf {@link files}). */
   #uploads: UploadedFile[] | null = null;
   /**
@@ -544,9 +546,10 @@ class HttpRequest {
           await this.fireRequestEnd();
           return BODY_DONE;
         }
-        // text/plain, octet-stream, inconnu, ou sans corps : bufferise le brut
-        // dans request.data (le framework décidera) ; pas de body.
-        this.parser = new Parser(this);
+        // text/plain, octet-stream, inconnu, ou sans Content-Type : le corps
+        // est livré tel qu'il est reçu — chaîne pour `text/*`, OCTETS sinon
+        // (cf `ParserRaw`). Jamais un `{}` qui mentirait.
+        this.parser = new ParserRaw(this);
         return this.parser;
     }
   }

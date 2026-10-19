@@ -7,13 +7,12 @@ import {
   Patch,
   Delete,
   HttpCode,
-  Param,
-  Body,
-  Query,
   Idempotent,
 <% if (it.hasSecurity) { %>  IsGranted,
 <% } %>} from "@nodefony/framework";
+import type { RouteInput } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
+import { z } from "zod";
 import type { ContextType } from "@nodefony/http";
 // LES deux lecteurs de requête du framework — jamais un parseur maison : deux
 // dialectes de pagination dans une même application finissent par diverger, et
@@ -23,14 +22,21 @@ import type { IFilterSpec } from "nodefony";
 import type { <%= it.pascal %>Row } from "../entity/<%= it.pascal %>";
 // Le CONTRAT D'ENTRÉE, pas la ligne de table : `<%= it.pascal %>Row` porte `id` et
 // les horodatages, que le client n'a pas le droit d'envoyer et que le schéma
-// retire. Typer le corps avec ces types-là, c'est promettre exactement ce qui
-// est validé — les deux dérivent du même schéma, ils ne peuvent pas diverger.
-import type {
-  Create<%= it.pascal %>,
-  Update<%= it.pascal %>,
+// retire. Les routes le DÉCLARENT (`schema: { body }`) : le corps est validé à la
+// porte — 422 qui nomme les champs, avant tout appel au service — et l'action le
+// reçoit typé. Le service le revalide pour ses autres portes (CLI, socket).
+import {
+  create<%= it.pascal %>Schema,
+  update<%= it.pascal %>Schema,
 } from "../entity/<%= it.pascal %>.schema";
 import { get<%= it.pascal %>Service } from "../service/<%= it.pascal %>Service";
 
+/** L'identifiant de l'URL (`/{id}`) — une chaîne non vide, le service le résout. */
+const idParams = z.object({ id: z.string().min(1) });
+<% if (it.relations.length) { %>
+/** `?include=` — UNE valeur, la liste des relations séparées par des virgules. */
+const detailQuery = z.object({ include: z.string().optional() });
+<% } %>
 /** Taille de page par défaut, et plafond au-delà duquel on refuse d'aller. */
 const PAGE_SIZE = 25;
 const PAGE_MAX = 100;
@@ -173,6 +179,10 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * accepté puis ignoré. `?withTotal=false` économise le `COUNT(*)` quand le client
    * n'affiche pas de numéros de page.
    *
+   * La query n'a pas de schéma de route, et c'est voulu : `parsePageQuery` et
+   * `parseFilters` SONT sa validation (400 qui nomme le paramètre) — un schéma
+   * de plus la ferait juger deux fois. Elle se lit par `this.query`.
+   *
    * Deux lecteurs, deux domaines qui ne se recouvrent pas : `parsePageQuery` lit le
    * contrat de page (`limit`, `offset`, `order`, `withTotal`, `q`), `parseFilters` lit
    * ce que `FILTERS` déclare — et refuse tout le reste. N'écris jamais un troisième
@@ -196,7 +206,8 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
     path: "",
     requirements: { methods: ["GET", "WEBSOCKET"] },
   })
-  list(@Query() query: Record<string, string | string[] | undefined> = {}) {
+  list() {
+    const query = this.query;
     const page = parsePageQuery(query, {
       defaultLimit: PAGE_SIZE,
       maxLimit: PAGE_MAX,
@@ -229,20 +240,27 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * curl -k "https://127.0.0.1:5152<%= it.route %>/<id>?include=<%= it.relations[0].field %>"
    * ```
 <% } %>   */
-  @route("<%= it.kebab %>-get", {
+<% if (it.relations.length) { %>  @route("<%= it.kebab %>-get", {
     path: "/{id}",
     requirements: { methods: ["GET", "WEBSOCKET"] },
+    schema: { params: idParams, query: detailQuery },
   })
-<% if (it.relations.length) { %>  async detail(
-    @Param("id") id: string,
-    @Query("include") include?: string,
+  async detail(
+    input: RouteInput<{ params: typeof idParams; query: typeof detailQuery }>,
   ) {
-    const relations = parseInclude(include);
+    const { id } = input.params;
+    const relations = parseInclude(input.query.include);
     const found = await this.getResource(
       id,
       relations.length > 0 ? { relations } : undefined,
     );
-<% } else { %>  async detail(@Param("id") id: string) {
+<% } else { %>  @route("<%= it.kebab %>-get", {
+    path: "/{id}",
+    requirements: { methods: ["GET", "WEBSOCKET"] },
+    schema: { params: idParams },
+  })
+  async detail(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     const found = await this.getResource(id);
 <% } %>    if (!found) {
       throw new HttpError(`<%= it.pascal %> ${id} introuvable`, 404);
@@ -265,11 +283,13 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * La ressource créée n'est diffusée à personne : pour la pousser aux clients de la
    * socket, voir la publication décrite en tête de cette classe.
    */
-  @Post("")
+  @Post("", { schema: { body: create<%= it.pascal %>Schema } })
   @HttpCode(201)
   @Idempotent({ required: false })
-  async create(@Body() payload: Create<%= it.pascal %>) {
-    const created = await this.createResource(payload);
+  async create(
+    input: RouteInput<{ body: typeof create<%= it.pascal %>Schema }>,
+  ) {
+    const created = await this.createResource(input.body);
     this.context?.response?.setHeader(
       "Location",
       `<%= it.route %>/${encodeURIComponent(<%= it.idType === "string" ? "created.id" : "String(created.id)" %>)}`,
@@ -288,12 +308,17 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * que la distinction remplacer/retoucher est une règle MÉTIER : elle vit dans
    * le service (qui choisit le schéma de validation), pas dans la porte.
    */
-  @Put("/{id}")
+  @Put("/{id}", {
+    schema: { params: idParams, body: create<%= it.pascal %>Schema },
+  })
   async replace(
-    @Param("id") id: string,
-    @Body() payload: Create<%= it.pascal %>,
+    input: RouteInput<{
+      params: typeof idParams;
+      body: typeof create<%= it.pascal %>Schema;
+    }>,
   ) {
-    const updated = await get<%= it.pascal %>Service().replace(id, payload);
+    const { id } = input.params;
+    const updated = await get<%= it.pascal %>Service().replace(id, input.body);
     if (!updated) {
       throw new HttpError(`<%= it.pascal %> ${id} introuvable`, 404);
     }
@@ -308,12 +333,17 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * un corps `{ "<%= it.sortable[1] ?? "champ" %>": … }` suffit. Les champs absents
    * ne sont pas touchés.
    */
-  @Patch("/{id}")
+  @Patch("/{id}", {
+    schema: { params: idParams, body: update<%= it.pascal %>Schema },
+  })
   async patch(
-    @Param("id") id: string,
-    @Body() payload: Update<%= it.pascal %>,
+    input: RouteInput<{
+      params: typeof idParams;
+      body: typeof update<%= it.pascal %>Schema;
+    }>,
   ) {
-    const updated = await this.updateResource({ id }, payload);
+    const { id } = input.params;
+    const updated = await this.updateResource({ id }, input.body);
     if (!updated) {
       throw new HttpError(`<%= it.pascal %> ${id} introuvable`, 404);
     }
@@ -340,10 +370,11 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * puis un `@IsGranted("ROLE_ADMIN")` juste au-dessus de `@Delete` — ou une
    * zone dans `security.areas` qui couvre `<%= it.route %>`.
 <% } %>   */
-  @Delete("/{id}")
+  @Delete("/{id}", { schema: { params: idParams } })
 <% if (it.hasSecurity) { %>  @IsGranted("ROLE_ADMIN")
 <% } %>  @HttpCode(204)
-  async destroy(@Param("id") id: string) {
+  async destroy(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     const removed = await this.removeResource({ id });
     if (removed === 0) {
       throw new HttpError(`<%= it.pascal %> ${id} introuvable`, 404);

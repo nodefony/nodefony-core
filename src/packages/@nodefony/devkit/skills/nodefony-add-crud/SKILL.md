@@ -42,6 +42,11 @@ gabarit porte des détails qui ne se devinent pas : le repository résolu au pre
 se connecte qu'au démarrage), la pagination bornée **et son tri déclaré**, les codes
 201/204/404/409/422, et l'en-tête `Location`.
 
+Le controller généré **déclare** ses entrées : chaque route porte un `schema` (`idParams`, le schéma
+de création ou de retouche de l'entité), et l'action reçoit `input` — validé à la porte (422) avant
+tout appel au service, qui revalide pour ses autres portes (CLI, socket). Pour ajouter une action,
+**garde cette forme** : un `@Body` ou un `@Param` sur une action à schéma est refusé au démarrage.
+
 ## La grammaire de champs
 
 `nom:type[?][=défaut][:index|:unique]` — **non-null par défaut**, `?` rend facultatif, `=valeur`

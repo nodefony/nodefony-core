@@ -24,6 +24,8 @@ import {
   IsGranted,
   CurrentUser,
 } from "../../decorators/routerDecorators.js";
+import { z } from "zod";
+import type { RouteInput } from "../../src/routeSchema.js";
 
 // Controller de démo — mêmes décorateurs que le runtime (saveur duplex).
 class PlaygroundDemoCtrl {
@@ -135,6 +137,47 @@ describe("PlaygroundAdminApi — buildPlaygroundSnapshot()", () => {
     expect(action.params).to.deep.equal([
       { source: "param", key: "id", index: 0, stream: false },
     ]);
+  });
+
+  it("une action à schéma affiche ses entrées déduites du schéma, et son contrat", () => {
+    const search = z.object({ q: z.string(), page: z.coerce.number() });
+    const payload = z.object({ title: z.string() });
+    class SchemaCtrl {
+      @Post("/", { schema: { query: search, body: payload } })
+      create(
+        input: RouteInput<{ query: typeof search; body: typeof payload }>,
+      ) {
+        return input;
+      }
+    }
+    makeRoute("pg.schema", {
+      path: "/api/posts",
+      classMethod: "create",
+      methods: ["POST"],
+      ctor: SchemaCtrl,
+    });
+    const action = buildPlaygroundSnapshot()
+      .controllers.find((c) => c.name === "SchemaCtrl")!
+      .actions.find((a) => a.route === "pg.schema")!;
+    expect(action.params).to.deep.equal([
+      { source: "query", key: "q", index: 0, stream: false },
+      { source: "query", key: "page", index: 0, stream: false },
+      { source: "body", key: null, index: 0, stream: false },
+    ]);
+    expect(action.schema?.body).to.include({ type: "object" });
+    expect(action.schema).to.not.have.property("headers");
+  });
+
+  it("une action sans schéma n'expose aucun contrat", () => {
+    makeRoute("pg.list2", {
+      path: "/api/items",
+      classMethod: "list",
+      methods: ["GET"],
+    });
+    const action = buildPlaygroundSnapshot()
+      .controllers.find((c) => c.name === "PlaygroundDemoCtrl")!
+      .actions.find((a) => a.route === "pg.list2")!;
+    expect(action.schema).to.equal(null);
   });
 
   it("excludes AdminApiController (data plane bridge) and controller-less routes", () => {

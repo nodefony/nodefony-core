@@ -126,6 +126,32 @@ class Parser {
   }
 }
 
+/**
+ * Corps d'un type que le framework ne décode pas : livré TEL QU'IL EST REÇU,
+ * jamais remplacé par un objet vide qui mentirait.
+ *
+ * - `text/*` → une chaîne, décodée au `charset` du `Content-Type` (UTF-8 par
+ *   défaut) — comme une trame texte RFC 6455 ;
+ * - tout autre type, et un corps sans `Content-Type` (RFC 9110 §8.3 : supposé
+ *   `application/octet-stream`) → les OCTETS : le `Buffer` déjà assemblé dans
+ *   `request.data`, sans copie — donc un `Uint8Array`, le type d'octets que
+ *   la socket livrera aussi (#618). Un même schéma passe par les deux portes.
+ *
+ * Un corps VIDE laisse `body` tel quel : une requête sans charge ne change pas.
+ */
+class ParserRaw extends Parser {
+  override async parse() {
+    await super.parse();
+    const data = this.request.data;
+    if (data.length > 0) {
+      this.request.body = this.request.contentType?.startsWith("text/")
+        ? data.toString(this.request.charset)
+        : data;
+    }
+    return this;
+  }
+}
+
 class ParserQs extends Parser {
   parserOptions: QS.IParseOptions;
   charset: BufferEncoding = "utf8";
@@ -369,4 +395,4 @@ const acceptParser = function (acc?: string): AcceptEntry[] {
   }
 };
 
-export { Parser, ParserXml, ParserQs, ParserJson, acceptParser };
+export { Parser, ParserRaw, ParserXml, ParserQs, ParserJson, acceptParser };

@@ -8,17 +8,14 @@ import {
   Patch,
   Delete,
   HttpCode,
-  Param,
-  Body,
-  Query,
   Idempotent,
-  CurrentUser,
 <% if (it.hasSecurity) { %>  IsGranted,
 <% } %>} from "@nodefony/framework";
+import type { RouteInput } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
-<% if (it.hasSecurity) { %>import type { IUser } from "@nodefony/user";
-<% } %>
+import { z } from "zod";
+
 /** Forme d'un item — remplace par ton entité (`nodefony create entity`). */
 interface IItem {
   id: string;
@@ -26,6 +23,19 @@ interface IItem {
   createdAt: number;
   createdBy: string;
 }
+
+/**
+ * Le CONTRAT d'entrée de chaque route — un schéma Zod par partie (`params`,
+ * `query`, `body`). Le framework valide AVANT l'action : une entrée invalide
+ * est un **422** qui nomme le champ et sa partie, et l'action reçoit UN
+ * argument, `input`, typé par le schéma. Aucun `schema.parse` à écrire.
+ */
+const idParams = z.object({ id: z.string().min(1) });
+const listQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+const itemBody = z.object({ name: z.string().min(1) });
+const itemPatch = itemBody.partial();
 
 /**
  * <%= it.nameClass %> — resource **REST pure** (squelette de production) :
@@ -69,16 +79,16 @@ interface IItem {
     super("<%= it.kebab %>", context);
   }
 
-  /** `GET <%= it.route %>?limit=N` — liste (borne `limit`, défaut 50). */
-  @Get("")
-  list(@Query("limit") limit?: string) {
-    const max = Math.min(Number(limit) || 50, 200);
-    return [...<%= it.nameClass %>.items.values()].slice(0, max);
+  /** `GET <%= it.route %>?limit=N` — liste (`limit` de 1 à 200, défaut 50). */
+  @Get("", { schema: { query: listQuery } })
+  list(input: RouteInput<{ query: typeof listQuery }>) {
+    return [...<%= it.nameClass %>.items.values()].slice(0, input.query.limit);
   }
 
   /** `GET <%= it.route %>/{id}` — 404 typée si inconnu. */
-  @Get("/{id}")
-  detail(@Param("id") id: string) {
+  @Get("/{id}", { schema: { params: idParams } })
+  detail(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     const item = <%= it.nameClass %>.items.get(id);
     if (!item) {
       throw new HttpError(`item ${id} introuvable`, 404);
@@ -90,46 +100,51 @@ interface IItem {
    * `POST <%= it.route %>` — création idempotente (header `Idempotency-Key`) :
    * un client qui rejoue (retry réseau) reçoit la réponse MÉMORISÉE, aucun
    * doublon. ⚠ Une action `@Idempotent` doit RETOURNER son payload BRUT :
-   * c'est LUI qui est mémorisé puis rejoué.
+   * c'est LUI qui est mémorisé puis rejoué. `this.user` est l'identité posée
+   * par le pare-feu (`null` hors zone ou pour un anonyme), sans appel de plus.
    */
-  @Post("")
+  @Post("", { schema: { body: itemBody } })
   @HttpCode(201)
   @Idempotent()
-  create(
-    @Body() payload?: { name?: string },
-    @CurrentUser() user?: <% if (it.hasSecurity) { %>IUser<% } else { %>{ identifier?: string }<% } %>,
-  ) {
+  create(input: RouteInput<{ body: typeof itemBody }>) {
     const item: IItem = {
       id: randomUUID(),
-      name: payload?.name ?? "sans nom",
+      name: input.body.name,
       createdAt: Date.now(),
-      createdBy: user?.identifier ?? "anon.",
+      createdBy: this.user?.identifier ?? "anon.",
     };
     <%= it.nameClass %>.items.set(item.id, item);
     return item;
   }
 
   /** `PUT <%= it.route %>/{id}` — remplacement COMPLET de la ressource. */
-  @Put("/{id}")
-  replace(@Param("id") id: string, @Body() payload?: { name?: string }) {
+  @Put("/{id}", { schema: { params: idParams, body: itemBody } })
+  replace(
+    input: RouteInput<{ params: typeof idParams; body: typeof itemBody }>,
+  ) {
+    const { id } = input.params;
     const current = <%= it.nameClass %>.items.get(id);
     if (!current) {
       throw new HttpError(`item ${id} introuvable`, 404);
     }
-    const item: IItem = { ...current, name: payload?.name ?? "sans nom" };
+    const item: IItem = { ...current, name: input.body.name };
     <%= it.nameClass %>.items.set(id, item);
     return item;
   }
 
   /** `PATCH <%= it.route %>/{id}` — mise à jour PARTIELLE (merge). */
-  @Patch("/{id}")
-  update(@Param("id") id: string, @Body() payload?: Partial<IItem>) {
+  @Patch("/{id}", { schema: { params: idParams, body: itemPatch } })
+  update(
+    input: RouteInput<{ params: typeof idParams; body: typeof itemPatch }>,
+  ) {
+    const { id } = input.params;
     const current = <%= it.nameClass %>.items.get(id);
     if (!current) {
       throw new HttpError(`item ${id} introuvable`, 404);
     }
-    // Deny-by-default : seuls les champs ÉDITABLES passent (jamais id/createdBy).
-    const item: IItem = { ...current, name: payload?.name ?? current.name };
+    // Deny-by-default : le schéma ne connaît que les champs ÉDITABLES — un `id`
+    // ou un `createdBy` envoyé est retiré avant d'arriver ici.
+    const item: IItem = { ...current, name: input.body.name ?? current.name };
     <%= it.nameClass %>.items.set(id, item);
     return item;
   }
@@ -138,17 +153,19 @@ interface IItem {
    * `DELETE <%= it.route %>/{id}` — protégée par rôle : `@IsGranted` refuse
    * (403) AVANT d'entrer dans l'action. En dev, `admin/<%= it.devAdminPassword %>` a le rôle.
    */
-  @Delete("/{id}")
+  @Delete("/{id}", { schema: { params: idParams } })
   @IsGranted("ROLE_ADMIN")
-  destroy(@Param("id") id: string, @CurrentUser() user: IUser) {
+  destroy(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     if (!<%= it.nameClass %>.items.delete(id)) {
       throw new HttpError(`item ${id} introuvable`, 404);
     }
-    return { deleted: id, by: user.identifier };
+    return { deleted: id, by: this.user?.identifier ?? null };
   }
 <% } else { %>  /** `DELETE <%= it.route %>/{id}` (ajoute `@nodefony/security` pour la protéger par rôle). */
-  @Delete("/{id}")
-  destroy(@Param("id") id: string) {
+  @Delete("/{id}", { schema: { params: idParams } })
+  destroy(input: RouteInput<{ params: typeof idParams }>) {
+    const { id } = input.params;
     if (!<%= it.nameClass %>.items.delete(id)) {
       throw new HttpError(`item ${id} introuvable`, 404);
     }

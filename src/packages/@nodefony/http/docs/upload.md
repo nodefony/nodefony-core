@@ -51,19 +51,23 @@ flowchart TD
   RT -->|"x-www-form-urlencoded"| Q["ParserQs"]
   RT -->|"application/xml · text/xml"| X["ParserXml"]
   RT -->|"multipart/form-data"| M["busboy → disque (temp)"]
-  RT -->|"autre / brut"| B["Parser brut"]
+  RT -->|"text/* · autre · sans Content-Type"| B["ParserRaw"]
   J --> QP["body<br/>@Body() · this.body"]
   Q --> QP
   X --> QP
   M --> QF["files<br/>@UploadedFiles() · this.files"]
   M --> QP
-  B --> DATA["request.data (Buffer)"]
+  B --> RAW["body : chaîne (text/*)<br/>ou octets Uint8Array (le reste)"]
 ```
 
 Trois idées portent tout le reste :
 
 1. **Le `Content-Type` décide, pas la méthode.** `parseRequest()` (`context/http/Request.ts#HttpRequest.parseRequest`)
-   aiguille vers `ParserJson` / `ParserQs` / `ParserXml` / **busboy** / parser brut selon l'en-tête.
+   aiguille vers `ParserJson` / `ParserQs` / `ParserXml` / **busboy** / `ParserRaw` selon l'en-tête.
+   Ce dernier livre un corps qu'il ne décode pas **tel qu'il est reçu** : une chaîne pour `text/*`
+   (au `charset` déclaré), des **octets** (`Uint8Array`, sans copie) pour tout autre type et pour un
+   corps sans `Content-Type` (RFC 9110 §8.3 → `application/octet-stream`) — jamais un `{}` qui
+   mentirait. Un corps vide laisse `body` inchangé (`context/http/parser.ts#ParserRaw`).
 2. **Seul le multipart écrit sur disque.** Les fichiers sont **streamés** au fil de l'eau vers un
    fichier temporaire (`parseMultipart()`, `context/http/Request.ts#HttpRequest.parseMultipart`) — jamais bufferisés en RAM.
    JSON / urlencoded / XML restent en mémoire (petits corps).

@@ -13,6 +13,7 @@ import type { RouteActionMeta } from "../decorators/routerDecorators.js";
 import { createHash } from "node:crypto";
 import { typeOf, stripTrailingSlashes, escapeRegExp } from "nodefony";
 import Controller from "./Controller";
+import type { ControllerScope } from "./Controller";
 
 /**
  * Motif d'un segment variable : `{id}`, `/{slug}?`, `.{format}`, `{id}(\d+)`.
@@ -91,6 +92,8 @@ export interface ControllerConstructor {
   new (...args: any[]): Controller;
   /** Prototype de la classe — porte les métadonnées des actions (`@Param`…). */
   readonly prototype: Controller;
+  /** Portée de l'instance (`Controller.scope`, statique hérité). */
+  readonly scope?: ControllerScope;
 }
 
 /**

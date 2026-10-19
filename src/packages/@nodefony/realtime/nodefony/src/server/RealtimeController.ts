@@ -28,7 +28,11 @@ import {
   jsonRpcFailure,
 } from "nodefony";
 import type { ContextType, WebsocketContext } from "@nodefony/http";
-import { isWebsocketContext, readBackpressureOptions } from "@nodefony/http";
+import {
+  isWebsocketContext,
+  readBackpressureOptions,
+  toValidationFields,
+} from "@nodefony/http";
 import {
   Controller,
   buildContextParamArgs,
@@ -93,6 +97,9 @@ function httpStatusOfFrameError(e: unknown): number | null {
     // Params invalides (JSON-RPC 2.0 §5.1 `-32602`) = requête malformée.
     return e.code === JsonRpcError.INVALID_PARAMS ? 400 : null;
   }
+  // Une erreur de validation (`ZodError` levée par l'action, ou celle d'une
+  // route à schéma) est un 422 — le même que sur HTTP, jamais un `-32603`.
+  if (e instanceof Error && toValidationFields(e) !== null) return 422;
   const code = isRecord(e) ? e.code : undefined;
   return typeof code === "number" && code >= 400 && code <= 599 ? code : null;
 }
@@ -118,6 +125,12 @@ function toFrameRpcError(
   if (status !== null) {
     const data: Record<string, unknown> = { status };
     if (requestId) data.requestId = requestId;
+    // Les champs fautifs voyagent comme sur HTTP (`error.fields`) : un client
+    // du pont sait QUEL champ corriger, pas seulement que l'appel a échoué.
+    if (status === 422 && e instanceof Error) {
+      const fields = toValidationFields(e);
+      if (fields !== null) data.fields = fields;
+    }
     return new RpcError(
       e instanceof Error ? e.message : String(e),
       JsonRpcServerError.DEFAULT,

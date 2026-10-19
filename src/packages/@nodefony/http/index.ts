@@ -276,6 +276,13 @@ export {
   type SchemaMismatchConfidence,
 } from "./nodefony/service/error-renderer";
 
+// Lecture UNIQUE d'une erreur de validation en champs fautifs : le rendu HTTP
+// et le pont WebSocket `api.request` (realtime) servent ainsi le même 422.
+export {
+  toValidationFields,
+  type IValidationField,
+} from "./nodefony/service/error-renderer";
+
 export type {
   ProfileEntry,
   ProfileSummary,
@@ -369,6 +376,7 @@ export {
 } from "./nodefony/src/session/storage/sessionSort";
 export type {
   IHttpRequest,
+  RequestBody,
   IHttp2Request,
   IWsRequest,
   HTTPMethodType,

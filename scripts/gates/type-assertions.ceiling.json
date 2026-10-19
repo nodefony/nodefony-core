@@ -1,6 +1,6 @@
 {
   "_note": "cliquet — plafonds abaissés par --update, jamais montés (#572)",
-  "total": 1753,
+  "total": 1739,
   "ceilings": {
     "modules/mediasoup": 2,
     "modules/test": 55,
@@ -13,9 +13,9 @@
     "packages/@nodefony/devkit": 7,
     "packages/@nodefony/documentation": 6,
     "packages/@nodefony/drizzle": 195,
-    "packages/@nodefony/framework": 230,
+    "packages/@nodefony/framework": 217,
     "packages/@nodefony/frontend": 21,
-    "packages/@nodefony/http": 282,
+    "packages/@nodefony/http": 281,
     "packages/@nodefony/mongoose": 18,
     "packages/@nodefony/orm-core": 9,
     "packages/@nodefony/realtime": 3,

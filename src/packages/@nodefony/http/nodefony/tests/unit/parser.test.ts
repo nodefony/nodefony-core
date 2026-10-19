@@ -5,6 +5,7 @@ import {
   Parser,
   ParserJson,
   ParserQs,
+  ParserRaw,
   ParserXml,
   acceptParser,
 } from "../../src/context/http/parser.js";
@@ -222,6 +223,46 @@ describe("Parser.ended() — cleanup des listeners jumeaux end/error", () => {
     expect(threw).to.equal(true);
     expect(stream.listenerCount("end")).to.equal(0); // jumeau retiré (fix)
     expect(stream.listenerCount("error")).to.equal(0);
+  });
+});
+
+describe("ParserRaw — corps d'un type non décodé : livré tel qu'il est reçu", () => {
+  it("octet-stream : les OCTETS, le Buffer assemblé lui-même (sans copie)", async () => {
+    const { req, stream } = makeReq();
+    req.contentType = "application/octet-stream";
+    const p = new ParserRaw(req);
+    stream.emit("data", Buffer.from([0, 255, 7]));
+    await p.parse();
+    expect(req.body).to.be.instanceOf(Uint8Array);
+    expect(req.body).to.equal(req.data);
+    expect([...req.data]).to.deep.equal([0, 255, 7]);
+  });
+
+  it("sans Content-Type : des octets aussi (RFC 9110 §8.3 → octet-stream)", async () => {
+    const { req, stream } = makeReq();
+    req.contentType = null;
+    const p = new ParserRaw(req);
+    stream.emit("data", Buffer.from("brut"));
+    await p.parse();
+    expect(req.body).to.be.instanceOf(Uint8Array);
+  });
+
+  it("text/* : une chaîne, décodée au charset déclaré", async () => {
+    const { req, stream } = makeReq();
+    req.contentType = "text/plain";
+    req.charset = "latin1";
+    const p = new ParserRaw(req);
+    stream.emit("data", Buffer.from([0x63, 0x61, 0x66, 0xe9]));
+    await p.parse();
+    expect(req.body).to.equal("café");
+  });
+
+  it("corps VIDE : body inchangé (une requête sans charge ne change pas)", async () => {
+    const { req } = makeReq();
+    req.contentType = "application/octet-stream";
+    const before = req.body;
+    await new ParserRaw(req).parse();
+    expect(req.body).to.equal(before);
   });
 });
 

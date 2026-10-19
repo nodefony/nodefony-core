@@ -28,8 +28,12 @@ import {
 import Route, { ControllerConstructor } from "./Route.js";
 import Controller from "./Controller";
 import { guardSingletonState, isDevelopment } from "./singletonGuard";
+import { validateRouteInput } from "./routeSchema.js";
+import type { IRouteSchema, RawRouteInput } from "./routeSchema.js";
 import {
   buildParamArgs,
+  readRouteInput,
+  readInvocationBody,
   resolveSessionIntent,
   resolveActionMeta,
   computeActionMeta,
@@ -191,7 +195,7 @@ class Resolver implements IResolver {
     if (match) {
       this.variables = match;
       this.route = route;
-      this.controller = route.controller as ControllerConstructor;
+      this.controller = route.controller ?? null;
       this.actionName = route.classMethod;
       this.resolve = true;
       this.bypassFirewall = this.route.bypassFirewall;
@@ -330,9 +334,7 @@ class Resolver implements IResolver {
     // depuis le cache kernel-scoped du Router (la promesse est cachée AVANT le
     // 1er await : les requêtes concurrentes de la création n'instancient pas).
     let created: MaybePromise<Controller>;
-    if (
-      (this.controller as unknown as typeof Controller).scope === "singleton"
-    ) {
+    if (this.controller.scope === "singleton") {
       const router = this.context.router;
       created = router
         ? router.getSingletonController(this.controller, () =>
@@ -437,7 +439,7 @@ class Resolver implements IResolver {
     ctx: ContextType,
   ): Controller {
     if (
-      (this.controller as unknown as typeof Controller).scope === "singleton" &&
+      this.controller?.scope === "singleton" &&
       isDevelopment(ctx.kernel?.environment)
     ) {
       guardSingletonState(controller, controller.constructor.name);
@@ -485,10 +487,55 @@ class Resolver implements IResolver {
     let guarded: Promise<void> | undefined;
     if (this.preAuthorized) this.preAuthorized = false;
     else guarded = this._enforceActionSecurity(meta);
-    if (guarded !== undefined) {
-      return guarded.then(() => this._acquireAndInvoke(meta, data, reload));
+    // Action à schéma : l'entrée est validée APRÈS la garde (un 403 ne révèle
+    // pas le contrat) et AVANT l'instanciation (une entrée invalide ne
+    // construit aucun contrôleur). `schema === null` (cas courant) → une
+    // comparaison, aucune allocation.
+    const schema = meta.schema;
+    if (schema !== null) {
+      if (guarded !== undefined) {
+        return guarded.then(() =>
+          this._validateAndInvoke(schema, meta, data, reload),
+        );
+      }
+      return this._validateAndInvoke(schema, meta, data, reload);
     }
-    return this._acquireAndInvoke(meta, data, reload);
+    if (guarded !== undefined) {
+      return guarded.then(() =>
+        this._acquireAndInvoke(meta, data, reload, null),
+      );
+    }
+    return this._acquireAndInvoke(meta, data, reload, null);
+  }
+
+  /**
+   * Valide l'entrée d'une action à schéma, puis l'exécute avec cette entrée
+   * pour argument unique. Synchrone tant que le validateur l'est.
+   *
+   * @throws SchemaValidationError (422) quand l'entrée viole le schéma.
+   */
+  private _validateAndInvoke(
+    schema: IRouteSchema,
+    meta: RouteActionMeta,
+    data: unknown[] | undefined,
+    reload: boolean,
+  ): MaybePromise<ActionOutcome> {
+    const validated = validateRouteInput(
+      schema,
+      readRouteInput(
+        this._zipRouteParams(),
+        this.context.request,
+        this.queryOverride ?? undefined,
+        meta.bodyStream,
+      ),
+    );
+    // Validateur synchrone (cas courant) : appel direct, aucune fermeture.
+    if (validated instanceof Promise) {
+      return validated.then((input) =>
+        this._acquireAndInvoke(meta, data, reload, input),
+      );
+    }
+    return this._acquireAndInvoke(meta, data, reload, validated);
   }
 
   /**
@@ -568,6 +615,7 @@ class Resolver implements IResolver {
     meta: RouteActionMeta,
     data: unknown[] | undefined,
     reload: boolean,
+    input: RawRouteInput | null,
   ): MaybePromise<ActionOutcome> {
     const pinned = this.context.container?.get("controller") as
       Controller | undefined;
@@ -583,10 +631,10 @@ class Resolver implements IResolver {
       (this.controller && !(pinned instanceof this.controller))
     ) {
       return thenMaybe(this.newController(), (controller) =>
-        this._invokeAction(controller, meta, data),
+        this._invokeAction(controller, meta, data, input),
       );
     }
-    return this._invokeAction(pinned, meta, data);
+    return this._invokeAction(pinned, meta, data, input);
   }
 
   /**
@@ -600,15 +648,13 @@ class Resolver implements IResolver {
     controller: Controller,
     meta: RouteActionMeta,
     data: unknown[] | undefined,
+    input: RawRouteInput | null,
   ): ActionOutcome {
     // V4.3 — `module` est posé à la création (`_createController`), plus par
     // requête. `setRoute` (write per-request sur l'instance) est SKIPPÉ pour
     // un singleton — data race sinon ; son getter `route` dérive du Resolver
     // de la requête courante (`context.resolver.route`, V4.1).
-    if (
-      (this.controller as unknown as typeof Controller | null)?.scope !==
-      "singleton"
-    ) {
+    if (this.controller?.scope !== "singleton") {
       controller.setRoute(this.route);
       // Pont WS-RPC : la query du path invoqué remplace celle du handshake
       // pour le getter d'instance `this.query` (ex.
@@ -621,7 +667,10 @@ class Resolver implements IResolver {
     const methodKey = this.actionName as keyof typeof controller;
     // `meta` résolu en tête de méthode (hoisté pour la garde @IsGranted) — réutilisé.
     let args: unknown[];
-    if (meta.paramsMeta) {
+    if (input !== null) {
+      // Action à schéma : un argument unique, l'entrée validée.
+      args = [input];
+    } else if (meta.paramsMeta) {
       args = this._buildParamArgs(meta.paramsMeta);
     } else if (data) {
       args = [...this.variables, ...data];
@@ -743,12 +792,11 @@ class Resolver implements IResolver {
       return this.executeAction(data, reload, meta);
     }
     const als = RequestContext.get();
-    const paramCtx = context as unknown as IParamArgContext;
-    const httpReq = paramCtx.request;
+    const httpReq: IParamArgContext["request"] = context.request;
     // Params de route (noms → valeurs) pour le fingerprint du payload.
     const params = this._zipRouteParams();
-    // Corps : posé dans l'ALS par le pont WS, sinon corps HTTP parsé.
-    const body = als?.body !== undefined ? als.body : (httpReq?.body ?? null);
+    // Corps : la MÊME lecture que `@Body` et `input.body` (pont WS d'abord).
+    const body = readInvocationBody(httpReq) ?? null;
     const store = context.container?.get("idempotencyStore") as
       IIdempotencyStore | undefined;
     const verdict = await evaluateIdempotency({
@@ -973,25 +1021,23 @@ class Resolver implements IResolver {
   }
 
   private _buildParamArgs(metas: readonly ParamMeta[]): unknown[] {
-    const httpCtx = this.context as HttpContext;
-    const paramsMap = this._zipRouteParams();
-    // Le `Context` (HTTP comme WS) satisfait la forme `IParamArgContext`
-    // (request/response/session/getRequestCookies). La résolution elle-même est
-    // une fonction pure testée en unit (voir paramDecorators.test.ts).
+    // La résolution elle-même est une fonction pure testée en unit (voir
+    // paramDecorators.test.ts).
     // ⚠️ Même mise en forme que `buildContextParamArgs` (actions
-    // `@RealtimeAction`), gardée EN LIGNE ici : l'appel de plus coûtait ~4 ns
-    // sur chaque requête à paramètres décorés. L'équivalence des deux est
-    // tenue par un test (`contextParamArgs.test.ts`).
-    const ctx = this.context as unknown as IParamArgContext;
+    // `@RealtimeAction`) et que `_paramArgContext` (actions à schéma), gardée
+    // EN LIGNE ici : l'appel de plus coûtait ~4 ns sur chaque requête à
+    // paramètres décorés. L'équivalence est tenue par un test
+    // (`contextParamArgs.test.ts`).
+    const context = this.context;
     return buildParamArgs(metas, {
-      paramsMap,
-      request: httpCtx.request as IParamArgContext["request"],
-      response: httpCtx.response,
-      session: ctx.session,
+      paramsMap: this._zipRouteParams(),
+      request: context.request,
+      response: context.response,
+      session: context.session,
       // Pont WS-RPC : query du path INVOQUÉ (jamais celle du handshake).
       // `?? undefined` : null (hot path) → clé absente pour `resolveParamArg`.
       queryOverride: this.queryOverride ?? undefined,
-      getRequestCookies: (name?: string) => ctx.getRequestCookies(name),
+      getRequestCookies: (name?: string) => context.getRequestCookies(name),
     });
   }
 

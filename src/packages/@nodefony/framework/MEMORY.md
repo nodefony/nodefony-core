@@ -170,6 +170,17 @@ Auto-name : `ClassName::methodName` — déterministe, unique par (classe, méth
 
 **Activation** : dès qu'au moins 1 décorateur est présent sur la méthode → `Resolver._buildParamArgs()` remplace les args positionnels.
 
+### Routes à schéma — option `schema` (ADR-0018, `src/routeSchema.ts`)
+
+- `@Get/@Post/…/@route(path, { schema: { params, query, body, headers }, bodyStream? })` : Standard Schema par partie (types recopiés au cœur, `runtime/standardSchema.ts`, NEUTRES). Action = `(input: RouteInput<S, Stream>)`, signature vérifiée à la compilation (`IHttpMethodDecorator`, surcharges).
+- Rangé PAR MÉTHODE (`route:schema`, `route:bodyStream` Reflect), jamais sur `Route` (`generateId` = `JSON.stringify(this)`). Options de DÉCORATEUR seulement (`IRouteSchemaOptions`) : `Router.createRoute` les REFUSE.
+- `RouteActionMeta.schema` (`null` = 1 comparaison) + `bodyStream`. `Resolver.executeAction` : garde → `_validateAndInvoke` (validation AVANT instanciation) ; synchrone = appel direct sans fermeture ; asynchrone seulement si un validateur rend une `Promise`.
+- Sources = celles des décorateurs : `readRouteInput(paramsMap, request, queryOverride, bodyStream)` → `readQueryOf` / `readInvocationBody` (ALS du pont WS d'abord). Idempotence lit le MÊME corps.
+- `validateRouteInput` : 0 alloc nominale (résultat appliqué sur place), anomalies rangées par partie, UNE `SchemaValidationError` (422, `issues[].in`) → `toValidationFields` (http) → `error.fields` HTTP / `data.fields` WS.
+- Boot (`Router.setController` → `assertRouteSchemaDeclaration`) : schéma + `@Body…` refusé, `bodyStream` + `schema.body` refusé, `bodyStream` SANS schéma refusé (aussi à la compilation), partie inconnue / non-Standard refusée. Même schéma différent sur 2 routes d'une action → refus à la déclaration.
+- Corps décodé (http `ParserRaw`) : `text/*` → string (charset), type non décodé ou absent → `Buffer` (= `Uint8Array`) ; vide → inchangé. `z.instanceof(Uint8Array)` passe HTTP ET socket binaire (#618).
+- Console : `PlaygroundAction.params` déduits du JSON Schema (`standardJsonSchemaOf`), `schema` = contrat par partie.
+
 ### `@UseSession` (classe + méthode, dual — activation de session)
 
 ```typescript

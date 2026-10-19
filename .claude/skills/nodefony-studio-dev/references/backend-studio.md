@@ -45,7 +45,8 @@ Le front consomme via `store.api.getAbsolute<T>("/nodefony/<module>/api/things")
 - `@Body() body: T` (corps parsé), `@Param("x")`, `@Query("x")`, `@Header("x")`.
   ⚠️ **`this.context.body` est vide/non parsé** → un POST lu ainsi tombe sur le défaut silencieusement
   (bug vécu sur un handler de login : renvoyait toujours le compte par défaut, jamais le username envoyé).
-  Toujours `@Body()`.
+  Toujours `@Body()` — ou, mieux, l'option de route `schema: { body }` : le corps est alors VALIDÉ
+  (422) et reçu typé dans `input.body` (`framework/docs/decorateurs.md` § Routes à schéma).
 - En-têtes bruts (ex. `Authorization`) : `this.context.request.headers.authorization` (clé **minuscule**,
   Node lowercase ; peut être `string | string[]`).
 - Réponses : `this.renderJson(obj)` (API), `this.setContextHtml()` + `this.render(html)` (page).

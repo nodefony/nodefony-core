@@ -27,6 +27,7 @@ export type {
 export type {
   IRequest,
   IHttpRequest,
+  RequestBody,
   IHttp2Request,
   IWsRequest,
   HTTPMethodType,

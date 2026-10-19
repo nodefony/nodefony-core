@@ -91,28 +91,39 @@ const INTERNAL_ERROR_KEYS = [
 const isProduction = (): boolean =>
   Nodefony.getKernel()?.environment === "production";
 
-/** Une anomalie de champ, telle qu'elle sort d'un schéma Zod. */
-interface IValidationIssue {
-  /** Chemin du champ fautif (`["author", "email"]`). */
-  path?: unknown[];
-  /** Message lisible. */
-  message?: string;
-  /** Code du contrôle qui a échoué (`too_small`, `invalid_type`…). */
-  code?: string;
-}
-
 /** Champ fautif, tel qu'exposé au client dans le corps JSON (`error.fields`). */
-interface IValidationField {
+export interface IValidationField {
   /** Chemin pointé du champ (`"author.email"`). */
   field: string;
   /** Message lisible. */
   message: string;
   /** Contrôle qui a échoué (`too_small`…) — utile au client pour réagir finement. */
   rule?: string | undefined;
+  /**
+   * Partie de l'entrée qui porte le champ (`body`, `query`, `params`,
+   * `headers`) — présente pour une route à schéma, où deux parties peuvent
+   * porter le même nom. `field` reste relatif à sa partie : un formulaire le
+   * relie à son champ de saisie sans rien retirer.
+   */
+  in?: string | undefined;
 }
 
+/** Une propriété d'une anomalie de forme inconnue, lue sans rien supposer. */
+function readIssueProperty(issue: unknown, key: string): unknown {
+  return typeof issue === "object" && issue !== null
+    ? Reflect.get(issue, key)
+    : undefined;
+}
+
+/** Erreurs de validation reconnues : Zod, et celle des routes à schéma (cœur). */
+const VALIDATION_ERROR_NAMES: ReadonlySet<string> = new Set([
+  "ZodError",
+  "SchemaValidationError",
+]);
+
 /**
- * Reconnaît une erreur de validation Zod et en extrait les champs fautifs.
+ * Reconnaît une erreur de validation — `ZodError`, ou `SchemaValidationError`
+ * d'une route à schéma — et en extrait les champs fautifs.
  *
  * Reconnaissance **structurelle** (`name` + `issues`), pas `instanceof ZodError` :
  * une application peut embarquer sa propre copie de zod (résolutions npm multiples),
@@ -124,16 +135,28 @@ interface IValidationField {
  * @param error - erreur remontée par le pipeline.
  * @returns les champs fautifs, ou `null` si ce n'est pas une erreur de validation.
  */
-function toValidationFields(error: Error): IValidationField[] | null {
-  const candidate = error as Error & { issues?: unknown };
-  if (error.name !== "ZodError" || !Array.isArray(candidate.issues)) {
+export function toValidationFields(error: Error): IValidationField[] | null {
+  // Lu en `unknown` : la forme de chaque anomalie se VÉRIFIE, elle ne se suppose pas.
+  const issues: unknown = Reflect.get(error, "issues");
+  if (!VALIDATION_ERROR_NAMES.has(error.name) || !Array.isArray(issues)) {
     return null;
   }
-  return (candidate.issues as IValidationIssue[]).map((issue) => ({
-    field: Array.isArray(issue.path) ? issue.path.join(".") : "",
-    message: issue.message ?? "invalide",
-    rule: issue.code,
-  }));
+  return issues.map((issue: unknown) => {
+    const path: unknown = readIssueProperty(issue, "path");
+    const message: unknown = readIssueProperty(issue, "message");
+    const code: unknown = readIssueProperty(issue, "code");
+    const part: unknown = readIssueProperty(issue, "in");
+    const field: IValidationField = {
+      // `String` : une clé `Symbol` ferait lever `join`.
+      field: Array.isArray(path) ? path.map(String).join(".") : "",
+      message: typeof message === "string" ? message : "invalide",
+      rule: typeof code === "string" ? code : undefined,
+    };
+    // Posé seulement quand l'anomalie le porte : le 422 d'une `ZodError`
+    // garde exactement sa forme.
+    if (typeof part === "string") field.in = part;
+    return field;
+  });
 }
 
 /**
@@ -153,7 +176,10 @@ function toValidationError(
   fields: IValidationField[],
 ): nodefonyError {
   const summary = fields
-    .map((f) => (f.field ? `${f.field}: ${f.message}` : f.message))
+    .map((f) => {
+      const where = f.in && f.field ? `${f.in}.${f.field}` : f.in || f.field;
+      return where ? `${where}: ${f.message}` : f.message;
+    })
     .join(" · ");
   const validation = new nodefonyError(
     `Validation failed — ${summary}`,
