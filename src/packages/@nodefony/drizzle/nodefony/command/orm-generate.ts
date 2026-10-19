@@ -29,7 +29,11 @@ import { checkMigrationName } from "../src/migrator/name";
 import type { IDiscoveryFacts } from "../src/migrator/refusals";
 import { gapAgainstDeclared } from "../src/migrator/divergence";
 import { repairRebuildCopy } from "../src/migrator/rebuildCopy";
-import { readJournal, tablesPresentIn } from "../src/migrator/adopt";
+import {
+  readJournal,
+  readSnapshot,
+  tablesPresentIn,
+} from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
 import {
   appMigrationsDir,
@@ -856,26 +860,18 @@ class OrmGenerate extends OrmMigrateCommand {
       "meta",
       `${String(index - 1).padStart(4, "0")}_snapshot.json`,
     );
-    // Lu sur disque : rien ne garantit la forme, d'où les `null` admis.
-    let snapshot: {
-      tables?: Record<string, { columns?: object | null } | null> | null;
-    };
-    try {
-      snapshot = JSON.parse(await fs.readFile(file, "utf8")) as typeof snapshot;
-    } catch {
-      // Cliché absent ou illisible : on ne sait pas, donc on ne touche à rien.
-      return () => null;
-    }
-    const tables = snapshot.tables;
-    if (tables === undefined || tables === null) {
+    // Cliché absent ou illisible : on ne sait pas, donc on ne touche à rien.
+    const snapshot = await readSnapshot(file).catch(() => null);
+    const tables = snapshot?.tables;
+    if (tables === undefined) {
       return () => null;
     }
     // Le nom peut être qualifié par son schéma (`public.User` en PostgreSQL) :
     // on indexe sur le dernier segment, seul nom que le SQL emploie.
     const byName = new Map<string, readonly string[]>();
     for (const [key, table] of Object.entries(tables)) {
-      const columns = table?.columns;
-      if (columns === undefined || columns === null) continue;
+      const columns = table.columns;
+      if (columns === undefined) continue;
       byName.set(key.split(".").pop() as string, Object.keys(columns));
     }
     return (name: string) => byName.get(name) ?? null;

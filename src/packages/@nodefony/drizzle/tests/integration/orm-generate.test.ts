@@ -376,7 +376,11 @@ export const postTable = sqliteTable("post", { id: id() });
           }),
         // En repartir d'un neuf ferait rejouer toutes les migrations sur une
         // base qui les a déjà reçues.
-        /illisible/,
+        /n'est pas lisible/,
+      );
+      assert.equal(
+        await fs.readFile(path.join(OUT, "meta", "_journal.json"), "utf8"),
+        "{ ceci n'est pas",
       );
     });
   });

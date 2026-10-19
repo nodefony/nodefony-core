@@ -50,7 +50,13 @@ export async function frameworkMigrationsDir(): Promise<string> {
     const manifest = path.join(dir, "package.json");
     try {
       const raw = await fs.readFile(manifest, "utf8");
-      if ((JSON.parse(raw) as { name?: string }).name === "@nodefony/drizzle") {
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "name" in parsed &&
+        parsed.name === "@nodefony/drizzle"
+      ) {
         cachedDir = path.join(dir, "migrations");
         return cachedDir;
       }

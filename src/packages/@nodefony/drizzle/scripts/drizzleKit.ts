@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SqlDialect } from "../nodefony/interfaces/IDrizzleConfig";
 import { runGenerate as runGenerateAt } from "../nodefony/src/migrator/kit";
+import { parseJournal } from "../nodefony/src/migrator/sources";
 
 export {
   FORMAT_MARKER,
@@ -66,10 +67,13 @@ export function readTags(dialect: SqlDialect): string[] {
   if (!fs.existsSync(file)) {
     return [];
   }
-  const journal = JSON.parse(fs.readFileSync(file, "utf8")) as {
-    entries?: Array<{ tag: string }>;
-  };
-  return (journal.entries ?? []).map((entry) => entry.tag);
+  // Même validation que l'applicateur : un journal abîmé se nomme, au lieu
+  // d'un `TypeError` au milieu d'une génération.
+  return parseJournal(
+    fs.readFileSync(file, "utf8"),
+    file,
+    "@nodefony/drizzle",
+  ).entries.map((entry) => entry.tag);
 }
 
 /**

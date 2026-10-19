@@ -5,6 +5,8 @@ import { postgresSchemaOf, writeKitConfig } from "./appSchema";
 import { runIntrospect } from "./kit";
 import { openMigrationDriver, type IMigrationTarget } from "./drivers/index";
 import type { ISchemaReader } from "./catalog";
+import { APP_SOURCE } from "./paths";
+import { readJournal as readSourceJournal, type IJournal } from "./sources";
 
 /**
  * L'adoption d'une base qui EXISTAIT avant les migrations.
@@ -116,43 +118,24 @@ export function uncommentIntrospection(sql: string): string | null {
   return `${body.trim()}\n`;
 }
 
-/** Une entrée du journal des fichiers, telle que l'outil l'écrit. */
-interface IJournalEntry {
-  idx: number;
-  version: string;
-  when: number;
-  tag: string;
-  breakpoints: boolean;
-}
-
-/** Le journal des fichiers d'un dossier de migrations. */
-interface IJournal {
-  version: string;
-  dialect: string;
-  entries: IJournalEntry[];
-}
-
 /**
- * Lit le journal des FICHIERS d'un dossier de migrations.
+ * Lit le journal des FICHIERS d'un dossier de migrations de l'application.
  *
  * ⚠️ Ce journal n'est pas l'historique. Il vit dans le dépôt, il est versionné,
  * et il dit ce que le code CONNAÎT. L'historique, lui, vit dans la base et dit
  * ce qu'ELLE a reçu. Les confondre fait conclure « tout est appliqué » sur une
  * base qui n'a rien vu.
  *
+ * Un journal ABÎMÉ n'est pas un journal absent : pris pour `null`, il laissait
+ * `orm:migrate:baseline` poser un second historique par-dessus le premier.
+ *
  * @param outDir - dossier `<migrations>/<dialecte>`.
  * @returns le journal, ou `null` s'il n'y en a pas encore.
+ * @throws MigrationVerdictError si le journal est illisible ou d'un format
+ *   inconnu.
  */
 export async function readJournal(outDir: string): Promise<IJournal | null> {
-  try {
-    const raw = await fs.readFile(
-      path.join(outDir, "meta", "_journal.json"),
-      "utf8",
-    );
-    return JSON.parse(raw) as IJournal;
-  } catch {
-    return null;
-  }
+  return readSourceJournal(outDir, APP_SOURCE);
 }
 
 /**
@@ -219,23 +202,16 @@ export async function dropIntrospectionModules(outDir: string): Promise<void> {
  * fichier `.sql`, lui, n'est qu'un rendu.
  *
  * @param outDir - dossier `<migrations>/<dialecte>`.
- * @returns les noms de tables, ou `[]` si l'instantané est illisible.
+ * @returns les noms de tables, ou `[]` si l'instantané est absent.
+ * @throws Error si l'instantané est illisible (cf {@link readSnapshot}).
  */
 export async function snapshotTables(outDir: string): Promise<string[]> {
-  try {
-    const raw = await fs.readFile(
-      path.join(outDir, "meta", "0000_snapshot.json"),
-      "utf8",
-    );
-    const snapshot = JSON.parse(raw) as {
-      tables?: Record<string, { name?: string }>;
-    };
-    return Object.entries(snapshot.tables ?? {}).map(
-      ([key, t]) => t.name ?? key,
-    );
-  } catch {
-    return [];
-  }
+  const snapshot = await readSnapshot(
+    path.join(outDir, "meta", "0000_snapshot.json"),
+  );
+  return Object.entries(snapshot?.tables ?? {}).map(
+    ([key, t]) => t.name ?? key,
+  );
 }
 
 /** Une colonne d'index, telle que l'instantané de l'outil la décrit. */
@@ -245,14 +221,18 @@ interface ISnapshotIndexColumn {
   opclass?: string;
 }
 
-/** Un index, tel que l'instantané de l'outil le décrit. */
+/**
+ * Un index, tel que l'instantané de l'outil le décrit. Ses colonnes sont des
+ * OBJETS en PostgreSQL, de simples NOMS en SQLite et MySQL.
+ */
 interface ISnapshotIndex {
   name?: string;
-  columns?: ISnapshotIndexColumn[];
+  columns?: Array<ISnapshotIndexColumn | string>;
 }
 
 /** Une table, telle que l'instantané de l'outil la décrit. */
 interface ISnapshotTable {
+  name?: string;
   schema?: string;
   indexes?: Record<string, ISnapshotIndex>;
   columns?: Record<string, ISnapshotColumn>;
@@ -279,6 +259,141 @@ interface ISnapshotDocument {
   tables?: Record<string, ISnapshotTable>;
   sequences?: Record<string, ISnapshotSequence>;
   schemas?: Record<string, string>;
+}
+
+/** Un objet JSON — ni `null`, ni tableau. */
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Un champ facultatif est-il absent, ou du type attendu ? */
+function isOptional(value: unknown, type: "string" | "boolean"): boolean {
+  return value === undefined || typeof value === type;
+}
+
+/** Un objet dont chaque valeur passe la garde, ou un champ absent. */
+function isOptionalRecordOf<T>(
+  value: unknown,
+  item: (v: unknown) => v is T,
+): value is Record<string, T> | undefined {
+  return (
+    value === undefined || (isObject(value) && Object.values(value).every(item))
+  );
+}
+
+/** Une colonne d'index : un nom (SQLite, MySQL) ou un objet (PostgreSQL). */
+function isIndexColumn(value: unknown): value is ISnapshotIndexColumn | string {
+  return (
+    typeof value === "string" ||
+    (isObject(value) &&
+      isOptional(value.expression, "string") &&
+      isOptional(value.isExpression, "boolean") &&
+      isOptional(value.opclass, "string"))
+  );
+}
+
+/** Un index de l'instantané. */
+function isIndex(value: unknown): value is ISnapshotIndex {
+  if (!isObject(value) || !isOptional(value.name, "string")) {
+    return false;
+  }
+  if (value.columns === undefined) {
+    return true;
+  }
+  if (!Array.isArray(value.columns)) {
+    return false;
+  }
+  const columns: readonly unknown[] = value.columns;
+  return columns.every(isIndexColumn);
+}
+
+/** Une colonne de table de l'instantané. */
+function isColumn(value: unknown): value is ISnapshotColumn {
+  return isObject(value) && isOptional(value.type, "string");
+}
+
+/** Une table de l'instantané. */
+function isTable(value: unknown): value is ISnapshotTable {
+  return (
+    isObject(value) &&
+    isOptional(value.name, "string") &&
+    isOptional(value.schema, "string") &&
+    isOptionalRecordOf(value.indexes, isIndex) &&
+    isOptionalRecordOf(value.columns, isColumn)
+  );
+}
+
+/** Une séquence de l'instantané (PostgreSQL). */
+function isSequence(value: unknown): value is ISnapshotSequence {
+  return (
+    isObject(value) &&
+    isOptional(value.name, "string") &&
+    isOptional(value.schema, "string")
+  );
+}
+
+/** Une chaîne. */
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+/**
+ * L'instantané porte-t-il, là où on le relit, la forme que l'outil écrit ?
+ *
+ * Seuls les champs relus sont contrôlés : le reste du format tiers traverse
+ * la sérialisation sans qu'on le redécrive.
+ */
+function isSnapshotDocument(value: unknown): value is ISnapshotDocument {
+  return (
+    isObject(value) &&
+    isOptionalRecordOf(value.tables, isTable) &&
+    isOptionalRecordOf(value.sequences, isSequence) &&
+    isOptionalRecordOf(value.schemas, isString)
+  );
+}
+
+/**
+ * Lit un instantané de l'outil (`meta/<NNNN>_snapshot.json`), validé.
+ *
+ * Seul lecteur d'instantané du paquet : un fichier abîmé se NOMME, au lieu de
+ * lever une `SyntaxError` ou un `TypeError` sans contexte au milieu d'une
+ * adoption ou d'une génération.
+ *
+ * @param file - chemin de l'instantané.
+ * @returns l'instantané, ou `null` s'il n'existe pas.
+ * @throws Error si le JSON est cassé ou si sa forme n'est pas celle de l'outil.
+ */
+export async function readSnapshot(
+  file: string,
+): Promise<ISnapshotDocument | null> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw e;
+  }
+  let doc: unknown;
+  try {
+    doc = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(
+      `L'instantané « ${file} » n'est pas lisible : ${
+        e instanceof Error ? e.message : String(e)
+      }. La cause la plus fréquente est un conflit de fusion non résolu.`,
+      { cause: e },
+    );
+  }
+  if (!isSnapshotDocument(doc)) {
+    throw new Error(
+      `L'instantané « ${file} » n'a pas la forme qu'écrit drizzle-kit ` +
+        `(tables, index, colonnes, séquences) : il a été modifié à la main, ou ` +
+        `écrit par une version de l'outil que ce framework ne connaît pas.`,
+    );
+  }
+  return doc;
 }
 
 /**
@@ -365,16 +480,11 @@ export async function normalizeIntrospection(
   const removedSequences: string[] = [];
   /** Colonnes booléennes rendues à leur forme déclarée (MySQL). */
   let booleans = 0;
-  let brut: string | null = null;
-  try {
-    brut = await fs.readFile(snapshotFile, "utf8");
-  } catch {
-    // Pas d'instantané lisible : on normalise ce qu'on peut (le SQL), plutôt
-    // que d'échouer sur un fichier dont l'absence ne change rien au reste.
-    brut = null;
-  }
-  if (brut !== null) {
-    const doc = JSON.parse(brut) as ISnapshotDocument;
+  // Pas d'instantané : on normalise ce qu'on peut (le SQL), plutôt que
+  // d'échouer sur un fichier dont l'absence ne change rien au reste. Un
+  // instantané ABÎMÉ, lui, se refuse : c'est la référence du prochain diff.
+  const doc = await readSnapshot(snapshotFile);
+  if (doc !== null) {
     let changed = false;
 
     // 🔴 On ne CRÉE aucun champ : un instantané sqlite n'a pas de séquences, et
@@ -744,9 +854,10 @@ async function rewriteCompositeIndexes(
 
   const snapshotFile = path.join(outDir, "meta", "0000_snapshot.json");
   try {
-    const doc = JSON.parse(
-      await fs.readFile(snapshotFile, "utf8"),
-    ) as ISnapshotDocument;
+    const doc = await readSnapshot(snapshotFile);
+    if (doc === null) {
+      return fixed;
+    }
     let changed = false;
     for (const table of Object.values(doc.tables ?? {})) {
       for (const [key, index] of Object.entries(table.indexes ?? {})) {
@@ -758,6 +869,10 @@ async function rewriteCompositeIndexes(
         // tait celles qui sont le défaut du type, et c'est exactement le
         // partage qu'on veut refaire ici.
         for (const column of index.columns ?? []) {
+          // Un simple nom (SQLite, MySQL) ne porte pas de classe d'opérateur.
+          if (typeof column === "string") {
+            continue;
+          }
           const columnName = column.expression;
           const named =
             columnName === undefined || column.isExpression === true

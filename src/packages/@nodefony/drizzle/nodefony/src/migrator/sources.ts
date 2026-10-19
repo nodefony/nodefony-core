@@ -20,14 +20,20 @@ import {
  */
 export const SUPPORTED_JOURNAL_VERSIONS: readonly string[] = ["7"];
 
-/** Entrée du journal `_journal.json` produit par drizzle-kit. */
-interface IJournalEntry {
+/**
+ * Entrée du journal `_journal.json` produit par drizzle-kit, réduite à ce qu'on
+ * relit. Les autres champs (`when`, `breakpoints`…) restent sur l'objet.
+ */
+export interface IJournalEntry {
   idx: number;
   tag: string;
 }
 
-/** Journal `_journal.json` produit par drizzle-kit. */
-interface IJournal {
+/**
+ * Journal `_journal.json` produit par drizzle-kit, validé. Les champs qu'on ne
+ * relit pas (`dialect`) traversent tels quels : un journal réécrit les garde.
+ */
+export interface IJournal {
   version: string;
   entries: IJournalEntry[];
 }
@@ -113,12 +119,18 @@ export async function loadSources(
 /**
  * Lit le journal d'une source, ou `null` si la source n'est pas installée.
  *
+ * Seul lecteur de `_journal.json` du paquet : l'applicateur, l'adoption, la
+ * génération et la migration libre passent tous par lui, pour qu'un journal
+ * abîmé soit refusé de la même façon partout — jamais pris pour un journal
+ * absent, ce qui ferait réécrire l'historique d'une base qui l'a déjà reçu.
+ *
  * @param dir - dossier `<source>/<dialecte>`.
  * @param source - nom logique de la source, pour nommer un refus.
- * @returns le journal validé, ou `null` si le dossier n'existe pas.
- * @throws MigrationVerdictError si la version du journal n'est pas reconnue.
+ * @returns le journal validé, ou `null` si le fichier n'existe pas.
+ * @throws MigrationVerdictError si le journal est illisible ou d'un format
+ *   inconnu (cf {@link parseJournal}).
  */
-async function readJournal(
+export async function readJournal(
   dir: string,
   source: string,
 ): Promise<IJournal | null> {
@@ -132,6 +144,28 @@ async function readJournal(
     }
     throw e;
   }
+  return parseJournal(raw, file, source);
+}
+
+/**
+ * Valide le contenu d'un `_journal.json` déjà lu.
+ *
+ * Pur et synchrone, pour que les scripts du paquet (qui lisent en synchrone)
+ * appliquent la MÊME validation que l'applicateur.
+ *
+ * @param raw - contenu du fichier.
+ * @param file - chemin du fichier, cité dans un refus.
+ * @param source - nom logique de la source, pour nommer un refus.
+ * @returns le journal validé ; ses champs non relus sont conservés.
+ * @throws MigrationVerdictError (`NF_MIGRATE_UNKNOWN_FORMAT`) si le JSON est
+ *   cassé, si `entries` manque, si une entrée n'a pas `idx` entier et `tag`
+ *   textuel, ou si la version n'est pas reconnue.
+ */
+export function parseJournal(
+  raw: string,
+  file: string,
+  source: string,
+): IJournal {
   // 🔴 Un journal illisible se NOMME. `JSON.parse` levait une `SyntaxError`
   // nue, que le fourre-tout des pannes habillait en « base injoignable » — avec
   // un geste qui interroge une base qui n'y est pour rien. La cause la plus
@@ -200,9 +234,44 @@ async function readJournal(
         `(reconnue : ${SUPPORTED_JOURNAL_VERSIONS.join(", ")}).`,
     );
   }
-  // Les entrées gardent la forme drizzle-kit : `idx`/`tag` sont lus plus loin
-  // tels que le journal les porte, comme avant cette validation.
-  return { version, entries: journal.entries as IJournalEntry[] };
+  // Une entrée sans `idx` entier donnait un tri `NaN` et un tag `NaN_x` ; sans
+  // `tag` textuel, un chemin `undefined.sql`. Refusée en la nommant.
+  const entries: readonly unknown[] = journal.entries;
+  const bad = entries.findIndex((entry) => !isJournalEntry(entry));
+  if (bad !== -1) {
+    throw new MigrationVerdictError(
+      {
+        code: "NF_MIGRATE_UNKNOWN_FORMAT",
+        connector: "",
+        source,
+        facts: { file, entry: bad },
+        nextActions: [],
+      },
+      `Le journal des migrations « ${file} » porte une entrée n° ${bad} sans ` +
+        `« idx » entier ni « tag » textuel : ce n'est pas un journal que ce ` +
+        `format sait lire.`,
+    );
+  }
+  // Les objets d'entrée sont gardés tels quels (`when`, `breakpoints`…), comme
+  // les champs du journal qu'on ne relit pas : un journal réécrit les conserve.
+  return { ...journal, version, entries: entries.filter(isJournalEntry) };
+}
+
+/**
+ * Une entrée de journal porte-t-elle ce qu'on relit ?
+ *
+ * @param entry - entrée brute.
+ * @returns `true` si `idx` est un entier et `tag` une chaîne.
+ */
+function isJournalEntry(entry: unknown): entry is IJournalEntry {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "idx" in entry &&
+    Number.isInteger(entry.idx) &&
+    "tag" in entry &&
+    typeof entry.tag === "string"
+  );
 }
 
 /**

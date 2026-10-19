@@ -39,6 +39,8 @@ import { MySqlTable } from "drizzle-orm/mysql-core";
 import { PgTable } from "drizzle-orm/pg-core";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { FORMAT_MARKER } from "./kit";
+import { APP_SOURCE } from "./paths";
+import { readJournal } from "./sources";
 import { ownsSharedMigrations } from "../frameworkConnector";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 
@@ -456,14 +458,6 @@ interface IJournalEntry {
   breakpoints: boolean;
 }
 
-/** Le journal d'un dossier de migrations. */
-interface IJournal {
-  version: string;
-  dialect: string;
-  /** Absent d'un journal écrit à la main : il est relu tel quel du disque. */
-  entries?: IJournalEntry[];
-}
-
 /**
  * Écrit une migration LIBRE et son entrée de journal, sans `drizzle-kit`.
  *
@@ -478,8 +472,9 @@ interface IJournal {
  *
  * @param options - dossier de sortie, dialecte, nom de la migration.
  * @returns le tag attribué et le chemin du fichier écrit.
- * @throws Error si le journal existant est illisible — on n'en réécrit JAMAIS
- *   un par-dessus : il porte l'historique déjà appliqué en production.
+ * @throws MigrationVerdictError si le journal existant est illisible — on n'en
+ *   réécrit JAMAIS un par-dessus : il porte l'historique déjà appliqué en
+ *   production.
  */
 export async function writeCustomMigration({
   outDir,
@@ -493,32 +488,18 @@ export async function writeCustomMigration({
   now?: number;
 }): Promise<{ tag: string; file: string }> {
   const journalFile = path.join(outDir, "meta", "_journal.json");
-  let journal: IJournal = {
+  // Le lecteur PARTAGÉ distingue l'absence (première migration de
+  // l'application) d'un journal abîmé, refusé AVANT toute écriture : en
+  // réécrire un neuf ferait rejouer toutes les migrations sur une base qui les
+  // a déjà reçues. Une erreur de lecture autre que l'absence (droits, dossier)
+  // n'est pas une absence non plus : elle se propage avant toute écriture.
+  const none: IJournalEntry[] = [];
+  const journal = (await readJournal(outDir, APP_SOURCE)) ?? {
     version: "7",
     dialect: KIT_DIALECT[dialect],
-    entries: [],
+    entries: none,
   };
-  let raw: string | null = null;
-  try {
-    raw = await fs.readFile(journalFile, "utf8");
-  } catch {
-    // Pas de journal : c'est la première migration de cette application.
-  }
-  if (raw !== null) {
-    try {
-      journal = JSON.parse(raw) as IJournal;
-    } catch (e) {
-      throw new Error(
-        `Le journal « ${journalFile} » est illisible (${
-          e instanceof Error ? e.message : String(e)
-        }). Rien n'a été écrit : ce fichier porte la liste de ce qui a DÉJÀ été ` +
-          `appliqué en production, et en réécrire un neuf ferait rejouer toutes ` +
-          `les migrations sur une base qui les a déjà reçues.`,
-        { cause: e },
-      );
-    }
-  }
-  const entries = [...(journal.entries ?? [])];
+  const entries = [...journal.entries];
   const idx = entries.reduce((max, e) => Math.max(max, e.idx + 1), 0);
   const tag = `${String(idx).padStart(4, "0")}_${name}`;
   const file = path.join(outDir, `${tag}.sql`);
@@ -535,13 +516,14 @@ export async function writeCustomMigration({
       `-- Séparer les instructions par « --> statement-breakpoint ».\n`,
     "utf8",
   );
-  entries.push({
+  const entry: IJournalEntry = {
     idx,
     version: ENTRY_VERSION[dialect],
     when: now,
     tag,
     breakpoints: true,
-  });
+  };
+  entries.push(entry);
   await fs.writeFile(
     journalFile,
     `${JSON.stringify({ ...journal, entries }, null, 2)}\n`,
