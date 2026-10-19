@@ -83,7 +83,7 @@ function fakeCtx(over: Partial<IParamArgContext> = {}): IParamArgContext {
     request: {
       query: { q: "search", page: "2" },
       body: { name: "john" },
-      queryFile: ["FILE_A", "FILE_B"],
+      files: ["FILE_A", "FILE_B"],
       headers: { "content-type": "application/json", host: "localhost" },
     },
     response: { __res: true },

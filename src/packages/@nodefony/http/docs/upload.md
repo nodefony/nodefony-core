@@ -42,7 +42,7 @@ coverageFiles: context/http/Request.ts,context/http/parser.ts,service/upload/upl
 
 Le corps d'une requête n'est **jamais** interprété par le serveur ni par le routeur : c'est
 `HttpRequest` qui, selon le `Content-Type`, choisit **un** parser et remplit deux emplacements que ton
-contrôleur consomme — `body` (les champs) et `queryFile` (les fichiers).
+contrôleur consomme — `body` (les champs) et `files` (les fichiers).
 
 ```mermaid
 flowchart TD
@@ -55,7 +55,7 @@ flowchart TD
   J --> QP["body<br/>@Body() · this.body"]
   Q --> QP
   X --> QP
-  M --> QF["queryFile<br/>@UploadedFiles() · this.queryFile"]
+  M --> QF["files<br/>@UploadedFiles() · this.files"]
   M --> QP
   B --> DATA["request.data (Buffer)"]
 ```
@@ -80,7 +80,7 @@ Trois idées portent tout le reste :
 | `multipart/form-data`       | Format d'un formulaire qui contient des **fichiers** : le corps est découpé en _parts_ séparées (RFC 7578).        |
 | Boundary                    | Chaîne-séparateur (`--…`) qui délimite chaque _part_ d'un corps multipart.                                         |
 | Part                        | Un bloc d'un corps multipart : soit un **champ texte** (`field`), soit un **fichier** (`file`).                    |
-| Field / File                | Champ texte (→ `body`) vs fichier uploadé (→ `queryFile`), les deux issus du même corps multipart.                 |
+| Field / File                | Champ texte (→ `body`) vs fichier uploadé (→ `files`), les deux issus du même corps multipart.                     |
 | busboy                      | La bibliothèque de parsing multipart **en flux** (`@fastify/busboy`) : elle lit le corps sans le charger en RAM.   |
 | Streaming (au fil de l'eau) | Écrire le fichier sur disque **pendant** sa réception, octet par octet — au lieu d'attendre le corps entier.       |
 | Fichier temporaire (temp)   | Le fichier écrit par busboy dans `uploadDir`, nommé par un UUID. Le contrôleur le déplace ou le laisse expirer.    |
@@ -99,13 +99,13 @@ Imagine un **guichet de dépôt**. Le client arrive avec une enveloppe (`Content
 formulaire à plat (JSON, urlencodé, XML) que le guichetier **recopie sur une fiche** en mémoire, soit un
 **colis** (multipart) qu'il pose **directement dans une consigne** (le disque) sans jamais le tenir à
 bout de bras. Dans les deux cas, ton contrôleur ne voit pas l'enveloppe : il reçoit la fiche
-(`body`) et le bordereau de consigne (`queryFile`).
+(`body`) et le bordereau de consigne (`files`).
 
 Concrètement, la couche a quatre responsabilités, et rien d'autre :
 
 1. **Choisir le parser** d'après le `Content-Type`.
 2. **Décoder les champs** (JSON, urlencoded, XML) → `body`, lus par `@Body()`.
-3. **Streamer les fichiers** multipart vers le disque, sans pic RAM → `queryFile`, lus par
+3. **Streamer les fichiers** multipart vers le disque, sans pic RAM → `files`, lus par
    `@UploadedFiles()`.
 4. **Borner la taille** — rejeter en `413` un corps qui menace la mémoire ou le disque.
 
@@ -133,7 +133,7 @@ nettoient les temporaires déjà posés au moindre dépassement (`context/http/R
 > [!IMPORTANT]
 > `@nodefony/http` ne peut pas importer `@nodefony/framework` (cycle). Les **décorateurs**
 > (`@Body`, `@UploadedFiles`…) vivent donc dans `@nodefony/framework`, mais ils lisent les emplacements
-> (`body`, `queryFile`) remplis par `@nodefony/http`. Une page, deux modules — c'est le prix du
+> (`body`, `files`) remplis par `@nodefony/http`. Une page, deux modules — c'est le prix du
 > découplage.
 
 ## 🚀 Démarrage rapide
@@ -231,7 +231,7 @@ curl -k -X POST -H "content-type: application/json" \
 ## 🏗️ Architecture interne — le trajet d'un corps multipart
 
 Une requête multipart traverse `HttpRequest` → busboy → disque → `UploadService`, puis atterrit dans le
-contrôleur avec `queryFile`/`body` déjà remplis.
+contrôleur avec `files`/`body` déjà remplis.
 
 ```mermaid
 sequenceDiagram
@@ -249,7 +249,7 @@ sequenceDiagram
   Note over B,D: limites fileSize / total / files → 413 + cleanup des temp
   B->>R: finish
   R->>U: createUploadFile() → UploadedFile (stat async)
-  R->>Ctrl: onRequestEnd — queryFile / body prêts
+  R->>Ctrl: onRequestEnd — files / body prêts
   Ctrl->>D: file.moveAsync(dest)
 ```
 
@@ -319,15 +319,15 @@ Depuis un contrôleur, deux surfaces équivalentes : les **décorateurs de param
 recommandé) et les **getters** de `Controller` (impératif). Les signatures exactes vivent dans
 `.ai/symbols.json` — jamais recopiées ici.
 
-| Accès                                              | Source lue                        | Ancrage                                                                              |
-| -------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
-| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)   | `resolveParamArg` `"files"` (`routerDecorators.ts#UploadedFiles`)                    |
-| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier            | `resolveParamArg` `"file"` (`routerDecorators.ts#UploadedFile`)                      |
-| `@Body() body`                                     | tous les champs parsés (`body`)   | `resolveParamArg` `"body"` (`routerDecorators.ts#Body`)                              |
-| `@Body("label") v`                                 | un seul champ du body             | même source, clé (`routerDecorators.ts#Body`)                                        |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté** | `resolveParamArg` stream (`routerDecorators.ts#resolveParamArg`)                     |
-| `this.queryFile`                                   | équivalent getter des fichiers    | `Controller.queryFile` (`framework/nodefony/src/Controller.ts#Controller.queryFile`) |
-| `this.body`                                        | équivalent getter des champs      | `Controller.body` (`framework/nodefony/src/Controller.ts#Controller.body`)           |
+| Accès                                              | Source lue                        | Ancrage                                                                      |
+| -------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------- |
+| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`files`)       | `resolveParamArg` `"files"` (`routerDecorators.ts#UploadedFiles`)            |
+| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier            | `resolveParamArg` `"file"` (`routerDecorators.ts#UploadedFile`)              |
+| `@Body() body`                                     | tous les champs parsés (`body`)   | `resolveParamArg` `"body"` (`routerDecorators.ts#Body`)                      |
+| `@Body("label") v`                                 | un seul champ du body             | même source, clé (`routerDecorators.ts#Body`)                                |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté** | `resolveParamArg` stream (`routerDecorators.ts#resolveParamArg`)             |
+| `this.files`                                       | équivalent getter des fichiers    | `Controller.files` (`framework/nodefony/src/Controller.ts#Controller.files`) |
+| `this.body`                                        | équivalent getter des champs      | `Controller.body` (`framework/nodefony/src/Controller.ts#Controller.body`)   |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
 (`routerDecorators.ts#UploadedFiles`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
@@ -335,7 +335,7 @@ Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de param�
 
 ### Un fichier uploadé — `UploadedFile`
 
-Chaque entrée de `queryFile` est un `UploadedFile` (`service/upload/upload-service.ts#UploadedFile`), déjà écrit
+Chaque entrée de `files` est un `UploadedFile` (`service/upload/upload-service.ts#UploadedFile`), déjà écrit
 sur disque. Ses membres utiles :
 
 | Membre                   | Ce qu'il donne                                                          | Ancrage                                                                           |
@@ -422,7 +422,7 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 
 | Symptôme                                                | Cause                                                                             | Correction                                                                                                                  |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `@Body()` est vide sur un upload de fichier             | Les fichiers vont dans `queryFile`, **pas** dans `body`                           | Lire les fichiers avec `@UploadedFiles()` / `this.queryFile` ; `@Body()` = champs texte                                     |
+| `@Body()` est vide sur un upload de fichier             | Les fichiers vont dans `files`, **pas** dans `body`                               | Lire les fichiers avec `@UploadedFiles()` / `this.files` ; `@Body()` = champs texte                                         |
 | Un `POST` JSON de 1,5 Mo est refusé en `413`            | `maxBodySize` vaut **1 MiB** par défaut                                           | Augmenter `maxBodySize` (pas `upload.maxFileSize`)                                                                          |
 | Un gros fichier passe alors que `maxBodySize` est petit | Le multipart **n'écoute pas** `maxBodySize`                                       | Régler `upload.maxFileSize` / `maxTotalFileSize`                                                                            |
 | `413` sur upload sans message clair                     | Une borne busboy atteinte en streaming (fichier, cumul, nombre)                   | Vérifier les bornes `upload.*` — 413 émis sur `stream.on("limit")` (`context/http/Request.ts#HttpRequest.enforceBodyLimit`) |

@@ -331,17 +331,17 @@ appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession(
 Ton contrôleur expose des raccourcis vers le transport. Ils ne sont **pas** des copies figées : ce
 sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ ?? dérivation`.
 
-| Raccourci        | Ce que tu obtiens                                  | Ancre                                |
-| ---------------- | -------------------------------------------------- | ------------------------------------ |
-| `this.context`   | Le contexte transport de la requête courante       | `Controller.ts#Controller.context`   |
-| `this.route`     | La route matchée                                   | `Controller.ts#Controller.route`     |
-| `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts#Controller.request`   |
-| `this.response`  | La réponse du transport                            | `Controller.ts#Controller.response`  |
-| `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts#Controller.method`    |
-| `this.query`     | Les paramètres d'URL — **jamais** le corps         | `Controller.ts#Controller.query`     |
-| `this.body`      | Le corps parsé — **jamais** un paramètre d'URL     | `Controller.ts#Controller.body`      |
-| `this.queryFile` | Les fichiers uploadés                              | `Controller.ts#Controller.queryFile` |
-| `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts#Controller.session`   |
+| Raccourci       | Ce que tu obtiens                                  | Ancre                               |
+| --------------- | -------------------------------------------------- | ----------------------------------- |
+| `this.context`  | Le contexte transport de la requête courante       | `Controller.ts#Controller.context`  |
+| `this.route`    | La route matchée                                   | `Controller.ts#Controller.route`    |
+| `this.request`  | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts#Controller.request`  |
+| `this.response` | La réponse du transport                            | `Controller.ts#Controller.response` |
+| `this.method`   | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts#Controller.method`   |
+| `this.query`    | Les paramètres d'URL — **jamais** le corps         | `Controller.ts#Controller.query`    |
+| `this.body`     | Le corps parsé — **jamais** un paramètre d'URL     | `Controller.ts#Controller.body`     |
+| `this.files`    | Les fichiers uploadés                              | `Controller.ts#Controller.files`    |
+| `this.session`  | La session **ou `null`** si elle n'est pas activée | `Controller.ts#Controller.session`  |
 
 Pourquoi des accesseurs plutôt que des champs recopiés au constructeur : **la fraîcheur et le coût**.
 Une valeur recopiée vieillit dès que le pipeline modifie le contexte, et recopier quatre structures

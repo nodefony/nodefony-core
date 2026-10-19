@@ -198,7 +198,7 @@ n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le single
 
 **Getters/setters per-request (V4.1)** — dérivent du `context` LIVE (`shadow ?? context.x`), 0 alloc :
 `context` (`Controller.ts#Controller.context`, retombe sur `RequestContext.getContext()` pour un singleton), `route`
-(via `context.resolver`), `request`, `response`, `method`, `query` (URL seule), `body` (corps parsé), `queryFile`,
+(via `context.resolver`), `request`, `response`, `method`, `query` (URL seule), `body` (corps parsé), `files`,
 **`session`** (getter direct `context.session ?? null`, `Controller.ts#Controller.#assertPerRequest` — **plus de
 `startSession()`** ; activation par `@UseSession`/`@Session`/cookie). `module`, `template` (Eta).
 

@@ -344,7 +344,7 @@ export function ActionPanel({ action }: ActionPanelProps) {
         }
         // Upload → FormData (le navigateur pose le Content-Type + boundary) ;
         // sinon body JSON string. Clé de champ = celle du décorateur, à défaut
-        // `file`/`files` (le serveur lit `queryFile` quel que soit le nom).
+        // `file`/`files` (le serveur lit `files` quel que soit le nom).
         let body: string | FormData | undefined;
         if (uploadParam) {
           const fd = new FormData();

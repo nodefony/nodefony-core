@@ -216,7 +216,12 @@ class HttpRequest {
    * {@link query}, et les deux ne fusionnent pas.
    */
   body: Record<string, unknown> = {};
-  queryFile: UploadedFile[] = [];
+  /**
+   * Les fichiers reçus dans un corps multipart, déjà écrits dans le répertoire
+   * temporaire — lus par `@UploadedFile()` / `@UploadedFiles()`. Les champs
+   * texte du même corps sont dans {@link body}.
+   */
+  files: UploadedFile[] = [];
   /** Les paramètres d'URL, seuls — jamais un champ du corps ({@link body}). */
   query: Record<string, unknown> = {};
   queryStringOptions:
@@ -816,7 +821,7 @@ class HttpRequest {
       name,
     );
     if (fileUpload) {
-      this.queryFile.push(fileUpload);
+      this.files.push(fileUpload);
     }
     return fileUpload;
   }

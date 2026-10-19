@@ -8,8 +8,8 @@
  * résolvent bien end-to-end. C'est le gap que l'unit ne peut pas couvrir.
  *
  * Couvre : @Headers, @Cookie, @Req, @Res, @Session (objet + clé).
- * (@UploadedFile / @UploadedFiles : résolution triviale `queryFile[0]`/`queryFile`
- * couverte en unit ; le remplissage de `queryFile` est testé par upload.test.ts.)
+ * (@UploadedFile / @UploadedFiles : résolution triviale `files[0]`/`files`
+ * couverte en unit ; le remplissage de `files` est testé par upload.test.ts.)
  *
  * Live server: 127.0.0.1:5152 (HTTPS / HTTP/2).
  */

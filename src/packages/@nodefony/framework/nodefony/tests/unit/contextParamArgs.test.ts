@@ -21,7 +21,7 @@ const cookies = { sid: "abc" };
 const request = {
   query: { q: "url" },
   body: { title: "corps" },
-  queryFile: [{ name: "f" }],
+  files: [{ name: "f" }],
   headers: { "x-trace": "t1" },
   request: { stream: true },
 };

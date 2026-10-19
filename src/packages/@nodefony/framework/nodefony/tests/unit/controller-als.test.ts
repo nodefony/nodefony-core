@@ -26,7 +26,7 @@ function makeContext(tag: string) {
     request: {
       url: new URL(`http://127.0.0.1/${tag}`),
       query: { q: tag },
-      queryFile: [tag],
+      files: [tag],
       body: { p: tag },
       headers: {},
     },
@@ -72,7 +72,7 @@ describe("Controller — ALS fallback (V4.1)", () => {
       expect(c.response).to.equal(ctx.response);
       expect(c.method).to.equal("GET");
       expect(c.query).to.deep.equal({ q: "als" });
-      expect(c.queryFile).to.deep.equal(["als"]);
+      expect(c.files).to.deep.equal(["als"]);
       expect(c.body).to.deep.equal({ p: "als" });
       expect(c.session).to.deep.equal({ id: "session-als" });
       expect(c.route).to.equal(route);

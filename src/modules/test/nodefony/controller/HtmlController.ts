@@ -85,7 +85,7 @@ class HtmlController extends Controller {
     requirements: { methods: ["POST", "PUT"] },
   })
   upload() {
-    return this.renderJson(this.queryFile);
+    return this.renderJson(this.files);
   }
 
   @route("index-upload-error", {
@@ -93,9 +93,9 @@ class HtmlController extends Controller {
     requirements: { methods: ["POST", "PUT"] },
   })
   upload2() {
-    // console.log(this.queryFile);
+    // console.log(this.files);
     // console.log({
-    //   result: this.queryFile,
+    //   result: this.files,
     //   ...this.context?.metaData,
     // });
     throw new HttpError(undefined, 400, this.context);

@@ -209,7 +209,7 @@ class Controller extends Service implements IController {
   #response: HttpResponse | Http2Response | WebsocketResponse | null = null;
   #method: HTTPMethod | null = null;
   #query: Record<string, unknown> | null = null;
-  #queryFile: unknown[] | null = null;
+  #files: unknown[] | null = null;
   #body: Record<string, unknown> | null = null;
   //metaData: Data;
   module?: Module | undefined;
@@ -331,14 +331,19 @@ class Controller extends Service implements IController {
     this.#query = value;
   }
 
-  get queryFile(): unknown[] {
-    return (this.#queryFile ??
+  /**
+   * Les fichiers reçus dans un corps multipart (`UploadedFile`) ; les champs
+   * texte du même corps sont dans {@link body}. Pour une action typée,
+   * préférer `@UploadedFiles()`.
+   */
+  get files(): unknown[] {
+    return (this.#files ??
       (this.context?.request as HttpRequest | Http2Request | null)
-        ?.queryFile) as unknown[];
+        ?.files) as unknown[];
   }
-  set queryFile(value: unknown[]) {
-    this.#assertPerRequest("queryFile");
-    this.#queryFile = value;
+  set files(value: unknown[]) {
+    this.#assertPerRequest("files");
+    this.#files = value;
   }
 
   /**

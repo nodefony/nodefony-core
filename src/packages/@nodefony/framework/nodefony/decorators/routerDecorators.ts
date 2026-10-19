@@ -1332,7 +1332,7 @@ export interface IParamArgContext {
     | {
         query?: Record<string, unknown> | undefined;
         body?: Record<string, unknown> | undefined;
-        queryFile?: unknown[] | undefined;
+        files?: unknown[] | undefined;
         headers?: Record<string, unknown> | undefined;
         /**
          * P2.9 — `IncomingMessage` brut (un `Readable`) sous-jacent au wrapper
@@ -1398,9 +1398,9 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
     case "res":
       return ctx.response;
     case "file":
-      return ctx.request?.queryFile?.[0];
+      return ctx.request?.files?.[0];
     case "files":
-      return ctx.request?.queryFile;
+      return ctx.request?.files;
     case "user":
       // @CurrentUser — utilisateur posé par le firewall dans l'ALS (jamais le
       // credential). O(1), 0 alloc. `undefined` si aucune zone n'a authentifié

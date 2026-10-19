@@ -92,7 +92,7 @@ function makeController(opts: HarnessOptions = {}) {
     request: {
       url: new URL("http://127.0.0.1/test"),
       query: { a: "1" },
-      queryFile: [],
+      files: [],
       body: { c: "3" },
       headers: opts.range ? { range: opts.range } : {},
     },
@@ -144,7 +144,7 @@ describe("Controller — setContext()", () => {
     const { c } = makeController();
     expect(c.query).to.deep.equal({ a: "1" });
     expect(c.body).to.deep.equal({ c: "3" });
-    expect(c.queryFile).to.deep.equal([]);
+    expect(c.files).to.deep.equal([]);
     expect(c.method).to.equal("GET");
   });
 

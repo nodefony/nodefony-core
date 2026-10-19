@@ -28,7 +28,7 @@ function makeCtx(tag: string) {
     request: {
       url: new URL(`http://127.0.0.1/${tag}`),
       query: { q: tag },
-      queryFile: [],
+      files: [],
       body: {},
       headers: {},
     },
