@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "build": "rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json",
     "test": "vitest run"
   },
@@ -31,6 +32,7 @@
   "types": "./index.ts",
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run"
   },

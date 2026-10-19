@@ -6119,6 +6119,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const r = mod(dest, { name: "blog", controller: "none" });
       const pkg = readJson(path.join(r.dest, "package.json"));
       assert.equal(pkg["name"] as unknown as string, "@mapp/blog");
+      // Qui bâtit sait se nettoyer — le `clean` de l'app le délègue ici.
+      assert.include(pkg["scripts"]!["clean"], "rmSync('dist'");
       assert.equal(pkg["main"] as unknown as string, "dist/index.js");
       // Le Kernel importe le module PAR SON NOM → le nom du paquet et l'entrée
       // du manifeste doivent être le MÊME identifiant.
@@ -6140,6 +6142,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(pkg.scripts["build"], "--workspaces");
       assert.include(pkg.scripts["typecheck"], "--workspaces");
       assert.include(pkg.scripts["test"], "--workspaces");
+      // Sans lui, `npm run clean` de l'app laisse le dist de chaque module.
+      assert.include(pkg.scripts["clean"], "--workspaces");
       // Le build des modules passe AVANT celui de l'app.
       assert.isTrue(
         pkg.scripts["build"]!.indexOf("--workspaces") <
@@ -6323,6 +6327,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // avancent ensemble, ils ne démarrent pas chacun à 0.1.0.
         assert.equal(pkg["version"] as unknown as string, "7.3.1");
         assert.include(pkg["scripts"]!["build"], "tsconfig.declarations.json");
+        // Son dist PART sur npm : sans `clean`, un fichier dont la source a
+        // disparu y survit à chaque « clean && build » et se publie.
+        assert.include(pkg["scripts"]!["clean"], "rmSync('dist'");
         for (const f of [
           "tsconfig.declarations.json",
           "tsconfig.tests.json",

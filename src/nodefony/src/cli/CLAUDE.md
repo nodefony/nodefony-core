@@ -688,7 +688,7 @@ catalogue aux manifests du monorepo (même MAJEURE exigée).
 **workspace npm** (package + `rolldown.config.ts` via `nodefony/bundler` + schéma Zod
 `config/config.ts` + builder `defineModuleConfig.ts` + `docs/` + tests vitest ;
 `AGENTS.md` local **toujours rendu** — précédence « le plus proche gagne »). Câble l'app :
-`workspaces: ["modules/*"]` + scripts `build`/`typecheck`/`test` chaînés
+`workspaces: ["modules/*"]` + scripts `build`/`typecheck`/`test`/`clean` chaînés
 (forme du gestionnaire du projet — `packageManagerWorkspaceRun` : `npm run X --workspaces
 --if-present`, `pnpm -r --if-present run X`, `yarn workspaces run X`, `bun run --filter
 './modules/*' X` ; bun réécrit `npm run` et ignore `--workspaces` → boucle infinie ; build des

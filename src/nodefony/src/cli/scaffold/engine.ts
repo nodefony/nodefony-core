@@ -2361,6 +2361,7 @@ export function ensureWorkspaces(
     build: "before", // les modules d'abord : l'app peut dépendre de leur dist
     typecheck: "after",
     test: "after",
+    clean: "after", // sans lui, le clean de l'app laisse le dist de chaque module
   };
   for (const [name, when] of Object.entries(CHAIN)) {
     const script = scripts[name];
@@ -3295,7 +3296,7 @@ function runModuleScaffold(
     ensureWorkspaces(projectRoot, writer, packageManager)
   ) {
     notes.push(
-      "package.json de l'app : workspaces modules/* + scripts build/typecheck/test chaînés",
+      "package.json de l'app : workspaces modules/* + scripts build/typecheck/test/clean chaînés",
     );
   }
   // pnpm et bun ne lient un module du workspace à la racine que si elle le
