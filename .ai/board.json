@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T12:03:01.327Z",
+  "generatedAt": "2026-10-19T13:33:58.305Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 150,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 21,
+      "open": 23,
       "title": "10.0.0-beta"
     },
     {
@@ -3395,16 +3395,48 @@
     },
     {
       "number": 500,
-      "title": "refactor(core): préparer la sortie des décorateurs historiques de TypeScript",
+      "title": "refactor(core): sortir des types émis, typer les routes",
       "url": "https://github.com/nodefony/nodefony-core/issues/500",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 2,
+      "jours": 4.75,
       "ordre": 4.03,
       "debut": "2026-11-17",
       "cible": "2026-11-18",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 633,
+      "title": "refactor(core)!: ne plus deviner les dépendances d'un service par son type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/633",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1.75,
+      "ordre": 4.031,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 634,
+      "title": "feat(framework): valider et typer une route par un schéma déclaré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/634",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 4.032,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-4"
       ]
@@ -3546,7 +3578,7 @@
       "title": "feat(devkit): contrôler la dérive du corpus du skill de déploiement",
       "url": "https://github.com/nodefony/nodefony-core/issues/428",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
