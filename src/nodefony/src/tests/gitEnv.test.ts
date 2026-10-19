@@ -42,7 +42,10 @@ function decor(): { callerIndex: string; fresh: string } {
 const gitIn = (cwd: string, env: NodeJS.ProcessEnv, ...args: string[]) =>
   execFileSync("git", args, { cwd, env, stdio: "ignore" });
 
-describe("isolatedGitEnv", () => {
+// Les témoins lancent de vrais `git` : plus de 30 s pour deux d'entre eux sous
+// la passe complète, sans rien de faux. Le plafond garde contre un blocage,
+// il ne mesure pas la machine.
+describe("isolatedGitEnv", { timeout: 120_000 }, () => {
   it("retire les variables de redirection, garde le reste, ne mute rien", () => {
     const env = {
       PATH: "/bin",

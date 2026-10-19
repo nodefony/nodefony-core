@@ -68,38 +68,74 @@ describe("runCapturedCommand — borne d'inactivité", () => {
     expect(alive(pid)).toBe(false);
   }, 20_000);
 
-  // La borne court dès le lancement, démarrage de `node` compris : sous la
-  // suite entière, ce démarrage a dépassé 3 s (vu en local). Le cas muet n'y
-  // est pas sensible — muet, il est calé quoi qu'il arrive ; le cas bavard,
-  // si. Il parle donc aussitôt, et dure PLUS que sa borne (10 s > 8 s) : c'est
-  // la propriété prouvée — la borne porte sur l'inactivité, pas la durée.
+  // La borne court dès le lancement, démarrage de `node` compris — et sous la
+  // passe complète, ce démarrage a dépassé 8 s. Le cas muet n'y est pas
+  // sensible (muet, il est calé quoi qu'il arrive) ; un cas qui doit SURVIVRE,
+  // si. Un enfant tué avant d'avoir parlé ne dit rien de la règle : l'essai se
+  // rejoue, borne doublée. Le marqueur s'assemble à l'exécution — écrit en
+  // clair, il figurerait dans la ligne de commande que le rapport de calage
+  // recopie, et le contrôle se tromperait (vu).
+  const SPOKE = "PRÊT";
+  const SAY_SPOKE = "process.stdout.write(['PR', 'ÊT'].join('') + '\\n');";
+  const spokeFirst = (output: string): boolean => {
+    const at = output.indexOf(SPOKE);
+    const stalled = output.indexOf("déclaré calé");
+    return at !== -1 && (stalled === -1 || at < stalled);
+  };
+  const afterStartup = async (
+    run: (idleMs: number) => Promise<{ ok: boolean; output: string }>,
+    idleMs: number,
+  ): Promise<{ ok: boolean; output: string }> => {
+    for (let attempt = 0; attempt < 3; attempt++, idleMs *= 2) {
+      const r = await run(idleMs);
+      if (spokeFirst(r.output)) return r;
+    }
+    throw new Error(
+      "node n'a jamais parlé dans sa borne, même doublée deux fois",
+    );
+  };
+
+  // Il dure PLUS que sa borne (1,25 ×) en parlant toutes les 250 ms : c'est la
+  // propriété prouvée — la borne porte sur l'inactivité, pas sur la durée.
   it("long mais BAVARD : rien n'est interrompu", async () => {
-    const r = await node(
-      "let n = 0; process.stdout.write('départ\\n'); const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 40) { clearInterval(t); process.exit(0); } }, 250);",
+    const r = await afterStartup(
+      (idleMs) =>
+        node(
+          `${SAY_SPOKE} let n = 0; const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === ${Math.ceil((idleMs * 1.25) / 250)}) { clearInterval(t); process.exit(0); } }, 250);`,
+          idleMs,
+        ),
       8_000,
     );
-    expect(
-      r.output,
-      "tué avant d'avoir parlé : c'est le DÉMARRAGE de node qui a dépassé la borne, pas la règle",
-    ).toContain("départ");
     expect(r.output).not.toContain("déclaré calé");
     expect(r.ok).toBe(true);
-  }, 30_000);
+  }, 180_000);
 
   // Le superviseur bloqué (GC, disque, machine saturée) ne lit plus le tube :
   // à son réveil, le minuteur passe AVANT la lecture des données en attente,
   // et une horloge périmée déclarait calée une commande qui n'avait cessé de
-  // parler. Le blocage est posé ici sur le parent, sans rien d'aléatoire.
+  // parler. Le blocage est posé sur le parent APRÈS le premier mot de
+  // l'enfant — le démarrage de `node` reste ainsi hors de la mesure.
   it("superviseur bloqué : ce qui attend dans le tube est lu AVANT tout verdict", async () => {
-    const pending = node(
-      "let n = 0; const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 40) { clearInterval(t); process.exit(0); } }, 100);",
-      1_500,
+    let heardFirst = (): void => {};
+    const first = new Promise<void>((resolve) => {
+      heardFirst = resolve;
+    });
+    const pending = runCapturedCommand(
+      process.execPath,
+      [
+        "-e",
+        "let n = 0; process.stdout.write('départ\\n'); const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 60) { clearInterval(t); process.exit(0); } }, 100);",
+      ],
+      process.cwd(),
+      3_000,
+      { onSpawn: (p: ChildProcess) => p.stdout?.once("data", heardFirst) },
     );
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2_500);
+    await first;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 4_000);
     const r = await pending;
     expect(r.output).not.toContain("déclaré calé");
     expect(r.ok).toBe(true);
-  }, 30_000);
+  }, 60_000);
 
   // Ce cas ne porte pas sur la borne : il la prend large, sinon le démarrage
   // de `node` sous la suite entière (vu > 3 s) le fait déclarer calé.
