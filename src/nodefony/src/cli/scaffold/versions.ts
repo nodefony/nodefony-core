@@ -75,7 +75,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@node-rs/argon2": "^2.2.2",
   "@types/node": "^26.6.5",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-  oxlint: "^1.88.0",
+  oxlint: "^1.89.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2004",
@@ -110,7 +110,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.2.3",
   "@angular/common": "~22.2.3",
   "@angular/platform-browser": "~22.2.3",
-  "@analogjs/vite-plugin-angular": "^2.8.1",
+  "@analogjs/vite-plugin-angular": "^2.9.0",
   "@angular/build": "~22.2.3",
   "@angular/compiler-cli": "~22.2.3",
 };
