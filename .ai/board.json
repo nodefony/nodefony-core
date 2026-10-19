@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T11:01:49.421Z",
+  "generatedAt": "2026-10-19T12:03:01.327Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 149,
+      "closed": 150,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 22,
+      "open": 21,
       "title": "10.0.0-beta"
     },
     {
@@ -3381,8 +3381,8 @@
       "number": 632,
       "title": "refactor(http)!: séparer les paramètres d'URL et le corps de la requête",
       "url": "https://github.com/nodefony/nodefony-core/issues/632",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
