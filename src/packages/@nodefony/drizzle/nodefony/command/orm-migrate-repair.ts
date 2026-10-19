@@ -120,7 +120,7 @@ class OrmMigrateRepair extends OrmMigrateCommand {
         forget,
       });
       const plan = await migrator.status();
-      const report = await this.report(plan, resolution, config);
+      const report = await this.report(plan, resolution, config, migrator);
       const payload = { ...report, repaired: done };
       let human = "";
       if (

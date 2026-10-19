@@ -15,6 +15,12 @@ import { APP_SOURCE } from "./paths";
 import { MIGRATE_URL_ENV } from "./types";
 import { createdTables, loadSources } from "./sources";
 import { alreadyInTargetState } from "./explain";
+import { schemaReader, type SqlQuery } from "./catalog";
+import {
+  compareSchema,
+  type IExpectedTable,
+  type ISchemaComparison,
+} from "./schemaDiff";
 import {
   HISTORY_TABLE,
   MigrationLockTimeoutError,
@@ -188,6 +194,37 @@ export class DrizzleMigrator {
         loaded.files,
         history,
         loaded.absent,
+      );
+    } finally {
+      await driver.close();
+    }
+  }
+
+  /**
+   * Compare la base que VISE cet applicateur aux tables que le code déclare —
+   * lecture seule, sans verrou.
+   *
+   * Existe pour la cible détournée (`NF_MIGRATE_DATABASE_URL`) : l'ORM enregistré
+   * reste connecté à la base de la configuration, et c'est l'applicateur seul
+   * qui tient la base d'essai ou le compte de déploiement. Comparer par l'ORM
+   * croisait alors l'historique d'une base avec le schéma d'une autre — et
+   * publiait un `divergent` sur une base pourtant conforme.
+   *
+   * @param expected - les tables déclarées par le code (`describeTables` de l'ORM).
+   * @returns les écarts, séparés selon qu'ils se rattrapent ou non.
+   */
+  async compareToDeclared(
+    expected: readonly IExpectedTable[],
+  ): Promise<ISchemaComparison> {
+    const driver = await openMigrationDriver(this.#options);
+    try {
+      const query: SqlQuery = <T extends Record<string, unknown>>(
+        sql: string,
+        params?: readonly unknown[],
+      ) => driver.query<T>(sql, params);
+      return await compareSchema(
+        schemaReader(this.#options.dialect, query),
+        expected,
       );
     } finally {
       await driver.close();

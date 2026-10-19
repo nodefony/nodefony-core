@@ -328,7 +328,7 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
 
       const adopted = await migrator.baseline(opts.upTo);
       const plan = await migrator.status();
-      const report = await this.report(plan, resolution, config);
+      const report = await this.report(plan, resolution, config, migrator);
       const payload = {
         ...report,
         adopted: adopted.map((a) => ({ source: a.source, tag: a.tag })),

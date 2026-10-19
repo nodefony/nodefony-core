@@ -2,7 +2,7 @@ import type { Kernel } from "nodefony";
 import type { IDrizzleConfig } from "../../interfaces/IDrizzleConfig";
 import { action, buildReport, MIGRATION_FORMAT_VERSION } from "./explain";
 import type { IMigrationReport } from "./explain";
-import { describeDivergence } from "./divergence";
+import { describeDivergence, type IDivergenceTarget } from "./divergence";
 import { MigrationVerdictError } from "./types";
 import type { IMigrationPlan } from "./types";
 import {
@@ -99,6 +99,9 @@ export function failureFrom(
  * @param resolution - connecteur prêt (porte le mode de schéma effectif).
  * @param config - configuration validée du module.
  * @param kernel - kernel courant, pour constater l'environnement.
+ * @param migrator - l'applicateur qui a calculé le plan : quand
+ *   `NF_MIGRATE_DATABASE_URL` le détourne, c'est SA base que la divergence
+ *   compare au code — l'ORM enregistré, lui, reste sur la base configurée.
  * @returns la charge utile, prête pour `--json` comme pour l'écran.
  */
 export async function composeReport(
@@ -106,15 +109,17 @@ export async function composeReport(
   resolution: Extract<IConnectorResolution, { kind: "ready" }>,
   config: IDrizzleConfig,
   kernel: Kernel | null,
+  migrator: IDivergenceTarget,
 ): Promise<IMigrationReport> {
   const mode = config.migrations.divergence;
+  const target = resolution.fromMigrateUrl ? migrator : null;
   return buildReport(plan, {
     ddl: resolution.ddl,
     // `off` veut dire « rien » : on ne la CALCULE même pas. La comparer puis
     // taire le résultat coûterait une requête par table pour une réponse que
     // personne ne lira — et c'était le comportement, la clé n'ayant aucun
     // lecteur.
-    divergence: mode === "off" ? null : await describeDivergence(plan),
+    divergence: mode === "off" ? null : await describeDivergence(plan, target),
     divergenceMode: mode,
     canReset: resetAllowed(readMigrationEnv(kernel)),
     // La base RÉELLEMENT visée, et d'où elle vient. La résolution le sait
@@ -248,6 +253,7 @@ export async function migrationStatusFor(
         prepared.resolution,
         prepared.config,
         kernel,
+        migrator,
       ),
     };
   } catch (e) {

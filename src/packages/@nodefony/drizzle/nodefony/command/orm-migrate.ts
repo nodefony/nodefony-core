@@ -186,7 +186,7 @@ class OrmMigrate extends OrmMigrateCommand {
         ignoreMissing: opts.ignoreMissing === true,
       });
       const plan = await migrator.status();
-      const report = await this.report(plan, resolution, config);
+      const report = await this.report(plan, resolution, config, migrator);
 
       if (opts.dryRun === true) {
         const pending = plan.pending;

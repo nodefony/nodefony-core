@@ -66,7 +66,7 @@ class OrmMigrateStatus extends OrmMigrateCommand {
     try {
       const migrator = await this.migrator(resolution, config);
       const plan = await migrator.status();
-      const report = await this.report(plan, resolution, config);
+      const report = await this.report(plan, resolution, config, migrator);
       this.emitReport(report, renderStatus(report, this.style), opts.json);
     } catch (e) {
       this.failFrom(e, resolution.connector, opts.json, resolution.ddl);

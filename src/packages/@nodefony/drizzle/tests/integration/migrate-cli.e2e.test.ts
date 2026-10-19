@@ -10,6 +10,7 @@ import {
   MIGRATIONS,
   DECOR_MIGRATIONS,
   dossierMigrations,
+  execSur,
   assertDialecte,
   parse,
   surBaseNeuve,
@@ -455,6 +456,64 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
       await fs.rm(dir, { recursive: true, force: true });
     }
   }, 180_000);
+
+  it("🔴 sous la variable, la DIVERGENCE se mesure sur la base visée — dans les deux sens", async () => {
+    // Le défaut : l'historique se lisait sur la base d'essai, le schéma sur la
+    // base de la configuration (l'ORM de la commande ne lit pas la variable).
+    // Une copie conforme sortait « colonne manquante » ; pire, une base visée
+    // FAUSSE sortait « à jour » dès que la base configurée était conforme.
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cible-div-"));
+    const config = path.join(dir, "config.sqlite");
+    const essai = path.join(dir, "essai.sqlite");
+    const surConfig = {
+      ...DECOR_MIGRATIONS,
+      NF_DATABASE_URL: `sqlite:${config}`,
+    };
+    const surEssai = {
+      ...surConfig,
+      NF_MIGRATE_DATABASE_URL: `sqlite:${essai}`,
+    };
+    const retirer = (filename: string) =>
+      execSur({ dialect: "sqlite", filename }, [
+        'ALTER TABLE "User" DROP COLUMN "credentialsVersion"',
+      ]);
+    const etat = async (env: NodeJS.ProcessEnv) => {
+      const r = await cli(["orm:migrate:status", "--json"], env);
+      const doc = parse(r.stdout);
+      const ecart = doc.divergence as
+        { additive?: { table: string; column: string }[] } | null | undefined;
+      return {
+        code: r.code,
+        verdict: doc.verdict,
+        colonnes: (ecart?.additive ?? []).map((g) => `${g.table}.${g.column}`),
+        brut: r.stdout.slice(0, 600),
+      };
+    };
+    try {
+      for (const env of [surConfig, surEssai]) {
+        const r = await cli(["orm:migrate", "--json"], env);
+        assert.equal(r.code, 0, r.stderr.slice(-800));
+      }
+
+      // 1. Base configurée en retard, base visée conforme → « à jour ».
+      await retirer(config);
+      const copieConforme = await etat(surEssai);
+      assert.equal(copieConforme.verdict, "up-to-date", copieConforme.brut);
+      assert.equal(copieConforme.code, 0);
+      // Contrôle : la base configurée est bien fausse, et vue telle quelle.
+      const configFausse = await etat(surConfig);
+      assert.equal(configFausse.verdict, "divergent", configFausse.brut);
+      assert.deepEqual(configFausse.colonnes, ["User.credentialsVersion"]);
+
+      // 2. Base visée fausse → la divergence est VUE, nommée.
+      await retirer(essai);
+      const visee = await etat(surEssai);
+      assert.equal(visee.verdict, "divergent", visee.brut);
+      assert.deepEqual(visee.colonnes, ["User.credentialsVersion"]);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 300_000);
 
   it("🔴 `orm:reset` refuse hors développement — liste BLANCHE, pas liste noire", async () => {
     // `staging` n'est pas `production` : une garde écrite « si production »

@@ -352,18 +352,22 @@ export abstract class OrmMigrateCommand extends Command {
    * @param plan - plan calculé par l'applicateur, en lecture seule.
    * @param resolution - connecteur prêt (porte le mode de schéma effectif).
    * @param config - configuration validée du module.
+   * @param migrator - l'applicateur qui a calculé le plan (sa base fait foi
+   *   quand `NF_MIGRATE_DATABASE_URL` la détourne).
    * @returns la charge utile, prête pour `--json` comme pour l'écran.
    */
   protected async report(
     plan: IMigrationPlan,
     resolution: Extract<IConnectorResolution, { kind: "ready" }>,
     config: IDrizzleConfig,
+    migrator: DrizzleMigrator,
   ): Promise<IMigrationReport> {
     return composeReport(
       plan,
       resolution,
       config,
       this.kernel as Kernel | null,
+      migrator,
     );
   }
 
