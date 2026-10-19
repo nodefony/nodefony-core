@@ -172,7 +172,7 @@ services:
       retries: 10
       start_period: 10s
 
-<% } %><% if (it.db && it.db.choice === "mongodb") { %>  # --- MongoDB 8 — LA base de l'app (documents, via @nodefony/mongoose) ---
+<% } %><% if (it.db && it.db.choice === "mongodb") { %>  # --- MongoDB 9.0 — LA base de l'app (documents, via @nodefony/mongoose) ---
   # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
   # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
   #

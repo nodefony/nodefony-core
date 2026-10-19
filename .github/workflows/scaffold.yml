@@ -459,7 +459,7 @@ jobs:
         if: matrix.database == 'mongodb'
         uses: ./.github/actions/mongo
         with:
-          image: mongo:8
+          image: mongo:9.0
 
       - name: Bases de la suite e2e
         if: matrix.database != 'mongodb'

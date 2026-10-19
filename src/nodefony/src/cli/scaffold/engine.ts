@@ -440,12 +440,16 @@ export const DATABASE_PARAMS: Record<
   },
   // Même image que `docker/docker-compose.yml` du dépôt : c'est celle contre
   // laquelle `@nodefony/mongoose` est éprouvé.
+  // Ligne 9.0 ÉPINGLÉE, pas `mongo:8` : la série 8 refuse de démarrer sur un
+  // noyau Ubuntu `7.0.0-NN-generic` (runners GitHub, Ubuntu 26.04) — son
+  // contrôle anti-6.19 ignore le niveau de correctif (SERVER-136848) ; 9.0.4 le
+  // lit. Et une ligne mineure épinglée ne glisse pas vers une version rapide.
   mongodb: {
     service: "mongo",
-    label: "MongoDB 8",
+    label: "MongoDB 9.0",
     scheme: "mongodb",
     port: 27017,
-    image: "mongo:8",
+    image: "mongo:9.0",
   },
 };
 

@@ -346,7 +346,7 @@ const APP_SPEC: IScaffoldTypeSpec = {
           hint: "service docker + NF_DATABASE_URL posée",
         },
         mongodb: {
-          label: "MongoDB 8",
+          label: "MongoDB 9.0",
           hint: "documents, sans SQL — Mongoose à la place de Drizzle",
         },
       }),

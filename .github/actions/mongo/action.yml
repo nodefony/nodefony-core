@@ -14,7 +14,7 @@ inputs:
       code contre une AUTRE version que celle de développement ferait de chaque
       divergence un mystère.
     required: false
-    default: mongo:8
+    default: mongo:9.0
   replset:
     description: Nom du jeu de réplicas, tel qu'attendu dans l'URI de connexion.
     required: false

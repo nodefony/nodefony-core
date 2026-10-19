@@ -115,8 +115,14 @@ services:
   # bancs sans rien casser : 146 tests peuvent rester muets en affichant du vert.
   # Démarrage :
   #   `docker compose -f docker/docker-compose.yml --profile mongo up -d mongo`
+  #
+  # Ligne 9.0 épinglée : la série 8 refuse de démarrer sur un noyau Ubuntu
+  # `7.0.0-NN` (SERVER-136848). ⚠️ Un volume écrit par `mongo:8` (FCV 8.1-8.3)
+  # est REFUSÉ par 9.0 (« featureCompatibilityVersion is below 8.0 », exit 62).
+  # Avant de recréer le conteneur, sous l'ancienne image :
+  #   `docker exec nodefony-mongo mongosh --eval 'db.adminCommand({setFeatureCompatibilityVersion:"8.0",confirm:true})'`
   mongo:
-    image: mongo:8
+    image: mongo:9.0
     container_name: nodefony-mongo
     restart: unless-stopped
     networks: [nodefony]
