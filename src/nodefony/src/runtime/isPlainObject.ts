@@ -27,7 +27,10 @@ const getProto = Object.getPrototypeOf;
  *   ses propriétés se lisent alors typées `unknown`, chacune à vérifier avant usage.
  */
 export const isPlainObject = (obj: unknown): obj is Record<string, unknown> => {
-  if (!obj || _toString(obj) !== "[object Object]") return false;
+  // Primitive ou fonction : écartée AVANT `toString.call`, qui emballerait
+  // une primitive en objet pour rien.
+  if (typeof obj !== "object" || obj === null) return false;
+  if (_toString(obj) !== "[object Object]") return false;
   const proto = getProto(obj) as object | null;
   if (!proto) return true; // Object.create(null)
   // Raccourci du cas courant — un littéral du realm courant : son constructeur
