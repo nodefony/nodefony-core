@@ -12,6 +12,7 @@ import {
   duty,
   LICENSE_DUTY,
   normalizeLicense,
+  publishableWorkspaces,
   refusalReason,
   renderNotices,
   renderReport,
@@ -416,5 +417,27 @@ describe("licences — un refus qui EXPLIQUE, pour les familles qui reviendront"
     assert.strictEqual(refusalReason("Licence-Maison-2.0"), null);
     // Et une licence ACCEPTÉE ne passe jamais par la table des refus.
     assert.strictEqual(refusalReason("MIT"), null);
+  });
+});
+
+describe("manifestes relus — une autre forme ne fait pas tomber l'inventaire", () => {
+  it("espaces de travail : forme yarn comprise, manifeste illisible ou mal typé écarté", () => {
+    const racine = fs.mkdtempSync(path.join(os.tmpdir(), "nf-licenses-forme-"));
+    try {
+      fs.writeFileSync(
+        path.join(racine, "package.json"),
+        JSON.stringify({ workspaces: { packages: ["pk/*"] } }),
+      );
+      const poser = (nom: string, contenu: string): void => {
+        fs.mkdirSync(path.join(racine, "pk", nom), { recursive: true });
+        fs.writeFileSync(path.join(racine, "pk", nom, "package.json"), contenu);
+      };
+      poser("bon", JSON.stringify({ name: "bon", license: null }));
+      poser("nul", "null");
+      poser("nomNum", JSON.stringify({ name: 7 }));
+      assert.deepStrictEqual(publishableWorkspaces(racine).names, ["bon"]);
+    } finally {
+      fs.rmSync(racine, { recursive: true, force: true });
+    }
   });
 });

@@ -11,6 +11,7 @@ import {
   aggregateOutdated,
   formatDependents,
   formatHeadline,
+  parseNpmOutdatedReport,
   toTableRows,
   type IOutdatedSummary,
   type NpmOutdatedReport,
@@ -167,8 +168,7 @@ class Outdated extends Command {
       }
       stdout = failure.stdout;
     }
-    const trimmed = stdout.trim();
-    return trimmed ? (JSON.parse(trimmed) as NpmOutdatedReport) : {};
+    return parseNpmOutdatedReport(stdout);
   }
 
   /**

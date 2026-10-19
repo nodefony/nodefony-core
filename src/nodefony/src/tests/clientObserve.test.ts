@@ -543,6 +543,19 @@ describe("observeSyslog — le format du serveur décodé UNE fois", () => {
     expect(emissions).toEqual([0, 1]);
   });
 
+  it("une entrée null ou sans sévérité textuelle ne fait pas tomber le filtre", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    let vues: unknown[] = [];
+    observeSyslog(client, (e) => (vues = e), { severities: ["ERROR"] });
+    expect(() =>
+      t.push(PLATFORM_CHANNELS.syslog, {
+        logs: [null, 3, { severity: 3 }, { severity: "ERROR", msg: "!" }],
+      }),
+    ).not.toThrow();
+    expect(vues).toEqual([{ severity: "ERROR", msg: "!" }]);
+  });
+
   it("borne l'anneau : les plus anciennes lignes sont évincées", async () => {
     const client = newClient();
     const t = await connected(client);

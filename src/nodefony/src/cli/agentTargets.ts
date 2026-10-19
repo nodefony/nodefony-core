@@ -23,6 +23,7 @@
 import path from "node:path";
 import { homedir } from "node:os";
 import { MCP_SERVER_KEY, MCP_TOKEN_ENV, MCP_CONFIG_FILE } from "./aiMcpReport";
+import { isPlainObject } from "../runtime/isPlainObject";
 
 /**
  * Comment la porte MCP se déclare chez un agent.
@@ -662,6 +663,38 @@ export function agentsPresents(ctx: {
  * `trimEnd()` ne convient pas : il emporterait aussi espaces et tabulations,
  * alors qu'on ne veut normaliser QUE la fin de ligne avant d'ajouter la nôtre.
  */
+/**
+ * Lit un fichier de réglages JSON d'agent et sa section `env`.
+ *
+ * Un fichier qui n'a pas la forme attendue ne se réécrit pas en silence : il
+ * porte les réglages de quelqu'un, et les remplacer par les nôtres serait pire
+ * que ne rien faire. Avant, une racine `null` ou une `env` non objet levait un
+ * TypeError, et une racine TABLEAU était réécrite sans la clé — perdue sans un mot.
+ *
+ * @param content - contenu du fichier ; vide = fichier absent
+ * @returns le document et sa section `env` (créée si absente), ou l'erreur à afficher
+ */
+function parseAgentSettings(
+  content: string,
+): { doc: Record<string, unknown>; env: Record<string, unknown> } | Error {
+  let doc: unknown;
+  try {
+    doc = content.trim() === "" ? {} : JSON.parse(content);
+  } catch {
+    return new Error("le fichier existe mais n'est pas du JSON valide");
+  }
+  if (!isPlainObject(doc)) {
+    return new Error(
+      "le fichier existe mais sa racine n'est pas un objet JSON",
+    );
+  }
+  const env = doc.env ?? {};
+  if (!isPlainObject(env)) {
+    return new Error("la clé « env » du fichier n'est pas un objet JSON");
+  }
+  return { doc, env };
+}
+
 function withoutTrailingNewlines(text: string): string {
   let fin = text.length;
   while (fin > 0 && text.charCodeAt(fin - 1) === 10) fin -= 1;
@@ -682,21 +715,11 @@ export function poseVariable(
       ? `${line}\n`
       : `${withoutTrailingNewlines(current)}\n${line}\n`;
   }
-  let doc: Record<string, unknown>;
-  try {
-    doc =
-      current.trim() === ""
-        ? {}
-        : (JSON.parse(current) as Record<string, unknown>);
-  } catch {
-    // Un fichier corrompu ne se réécrit pas en silence : il porte les réglages
-    // de quelqu'un, et les remplacer par les nôtres serait pire que ne rien faire.
-    return new Error("le fichier existe mais n'est pas du JSON valide");
-  }
-  const env = (doc.env ?? {}) as Record<string, unknown>;
-  env[key] = value;
-  doc.env = env;
-  return `${JSON.stringify(doc, null, 2)}\n`;
+  const settings = parseAgentSettings(current);
+  if (settings instanceof Error) return settings;
+  settings.env[key] = value;
+  settings.doc.env = settings.env;
+  return `${JSON.stringify(settings.doc, null, 2)}\n`;
 }
 
 /**
@@ -738,13 +761,10 @@ export function litVariable(
     const brut = found[1].trim().replace(/^["']|["']$/gu, "");
     return brut === "" ? null : brut;
   }
-  try {
-    const doc = JSON.parse(content) as { env?: Record<string, unknown> };
-    const value = doc.env?.[key];
-    return typeof value === "string" && value !== "" ? value : null;
-  } catch {
-    return null;
-  }
+  const settings = parseAgentSettings(content);
+  if (settings instanceof Error) return null;
+  const value = settings.env[key];
+  return typeof value === "string" && value !== "" ? value : null;
 }
 
 export function alreadyHasKey(
@@ -756,12 +776,10 @@ export function alreadyHasKey(
   if (forme === "dotenv") {
     return new RegExp(`^\\s*${key}\\s*=`, "m").test(content);
   }
-  try {
-    const doc = JSON.parse(content) as { env?: Record<string, unknown> };
-    return typeof doc.env?.[key] === "string" && doc.env[key] !== "";
-  } catch {
-    return false;
-  }
+  const settings = parseAgentSettings(content);
+  if (settings instanceof Error) return false;
+  const value = settings.env[key];
+  return typeof value === "string" && value !== "";
 }
 
 /**

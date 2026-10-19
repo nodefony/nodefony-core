@@ -59,8 +59,8 @@ class Pdu {
   //   capturé via `Pdu.requestIdProvider` (provider injectable,
   //   branché par `src/index.ts` côté Node UNIQUEMENT).
   //   Browser/debugbar : provider reste `null` → 0 lecture, 0 alloc.
-  //   Slot toujours créé (`= undefined` hors bulle) pour que
-  //   `parseJson` réhydrate correctement (`"requestId" in this`).
+  //   `parseJson` ne réhydrate que les champs de données
+  //   (`Pdu.ts#PDU_DATA_FIELDS`) — jamais une méthode ni `__proto__`.
   //   JSON.stringify ignore `undefined` → 0 verbosité côté wire.
 }
 

@@ -15,7 +15,7 @@ import { BootConfigurationError } from "./BootConfigurationError";
 import Container from "../Container";
 import * as fs from "node:fs/promises";
 import CliKernel from "./CliKernel";
-import { extend } from "../Tools";
+import { extend, isPlainObject } from "../Tools";
 import { findOverwrittenLeaves } from "../config/configProvenance";
 import { pathLooksSecret } from "../config/envOverride";
 import { tagListener } from "./lifecycleTags";
@@ -712,6 +712,15 @@ class Module<TConfig = Record<string, unknown>>
     throw new Error(`Package Manager not found`);
   }
 
+  /**
+   * Lit un fichier JSON dont la racine doit être un objet.
+   *
+   * @param url - chemin absolu, ou relatif à `cwd`
+   * @param cwd - base d'un chemin relatif
+   * @returns l'objet lu ; ses valeurs restent à vérifier par qui les lit
+   * @throws SyntaxError si le contenu n'est pas du JSON ; Error nommant le
+   *   fichier si la racine n'est pas un objet ; l'erreur de lecture sinon
+   */
   async loadJson(
     url: string,
     cwd: string = process.cwd(),
@@ -719,8 +728,14 @@ class Module<TConfig = Record<string, unknown>>
     try {
       const detectpath = isAbsolute(url) ? url : resolve(cwd, url);
       const fileContent = await fs.readFile(detectpath, "utf-8");
-      // Contenu NON validé : la forme JSON est supposée.
-      return JSON.parse(fileContent) as JSONObject;
+      const json: unknown = JSON.parse(fileContent);
+      // Seule la RACINE est vérifiée : un tableau ou un scalaire levait un
+      // TypeError plus loin, chez l'appelant, sans nommer le fichier. Les
+      // valeurs restent à vérifier par qui les lit.
+      if (!isPlainObject(json)) {
+        throw new Error(`${detectpath} : un objet JSON est attendu`);
+      }
+      return json as JSONObject;
     } catch (error) {
       this.log(error, "ERROR");
       throw error;

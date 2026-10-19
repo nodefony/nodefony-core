@@ -44,6 +44,7 @@ import type {
 } from "./AdaptiveRate";
 import { socketSnapshot, type SocketSnapshot } from "./snapshot";
 import { PLATFORM_CHANNELS } from "../../realtime/platformChannels";
+import { isPlainObject } from "../../runtime/isPlainObject";
 import type {
   NodefonyKernelIdentity,
   NodefonyKernelEvent,
@@ -456,12 +457,18 @@ export function observeSyslog(
   let entries: unknown[] = [];
   emit(entries);
   return observeChannel(client, channel, (payload) => {
-    const record = payload as { logs?: unknown[] } | null;
-    const incoming =
-      record && Array.isArray(record.logs) ? record.logs : [payload];
+    const incoming: unknown[] =
+      isPlainObject(payload) && Array.isArray(payload.logs)
+        ? payload.logs
+        : [payload];
+    // Une entrée sans sévérité textuelle (`null` compris) ne passe pas un
+    // filtre de sévérité — avant, un `null` dans le lot levait un TypeError.
     const kept = severities
-      ? incoming.filter((entry) =>
-          severities.includes((entry as { severity?: string }).severity ?? ""),
+      ? incoming.filter(
+          (entry) =>
+            isPlainObject(entry) &&
+            typeof entry.severity === "string" &&
+            severities.includes(entry.severity),
         )
       : incoming;
     if (kept.length === 0) return;

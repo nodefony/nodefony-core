@@ -7,6 +7,7 @@ import {
   planAgentDeclaration,
   poseVariable,
   alreadyHasKey,
+  litVariable,
   agentRoot,
   renderPlanShell,
   type IAgentTarget,
@@ -507,5 +508,37 @@ describe("ai:mcp --agent — ce que l'exécution garantit", () => {
     const rendu = renderDeclarations([], false);
     expect(rendu).toContain("tu codes seul");
     expect(rendu).toContain("--agent all");
+  });
+});
+
+describe("réglages JSON d'agent — une autre forme n'est jamais réécrite en silence", () => {
+  const K = "NF_TEST_KEY";
+  for (const [cas, contenu] of [
+    ["racine null", "null"],
+    ["racine tableau", "[]"],
+    ["racine scalaire", "3"],
+    ["env non objet", '{"env":"x"}'],
+    ["env tableau", '{"env":[]}'],
+  ] as const) {
+    it(`${cas} → erreur nommée, lecture vide`, () => {
+      expect(poseVariable("json-env", contenu, K, "v")).toBeInstanceOf(Error);
+      expect(litVariable("json-env", contenu, K)).toBeNull();
+      expect(alreadyHasKey("json-env", contenu, K)).toBe(false);
+    });
+  }
+
+  it("un document bien formé garde ses autres réglages", () => {
+    const out = poseVariable(
+      "json-env",
+      '{"model":"m","env":{"A":"1"}}',
+      K,
+      "v",
+    );
+    expect(typeof out).toBe("string");
+    expect(JSON.parse(out as string)).toEqual({
+      model: "m",
+      env: { A: "1", [K]: "v" },
+    });
+    expect(litVariable("json-env", out as string, K)).toBe("v");
   });
 });

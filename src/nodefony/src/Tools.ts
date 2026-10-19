@@ -1,16 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Container from "./Container";
-
-// ─── Cached references (évite les lookups prototypiques répétés) ─────────────
-
-const ObjProto = Object.prototype;
-const FnProto = Function.prototype;
-// Appels par `.call` sur les références natives : aucune méthode n'est détachée
-// de son objet (explicite — ne dépend plus du global toString).
-const _toString = (value: unknown): string => ObjProto.toString.call(value);
-const fnToString = (fn: unknown): string => FnProto.toString.call(fn);
-const ObjectFunctionString = fnToString(Object);
-const getProto = Object.getPrototypeOf;
+import { isPlainObject } from "./runtime/isPlainObject";
 
 // ─── Natif — suppression des dépendances lodash-es ───────────────────────────
 
@@ -31,34 +21,6 @@ const isFunction = (value: unknown): value is (...args: unknown[]) => unknown =>
  * @param value - valeur inconnue à tester.
  */
 const isRegExp = (value: unknown): value is RegExp => value instanceof RegExp;
-
-// ─── isPlainObject ────────────────────────────────────────────────────────────
-
-/**
- * Vérifie qu'un objet est un "plain object" — `{}` ou `Object.create(null)`.
- *
- * Rejette les instances de classes, les `Array`, `Date`, `RegExp`, etc.
- * Implémentation alignée sur jQuery.isPlainObject (compatible cross-realm).
- *
- * @param obj - valeur à tester.
- * @returns `true` si l'objet vient directement de `Object` ou n'a pas de prototype —
- *   ses propriétés se lisent alors typées `unknown`, chacune à vérifier avant usage.
- */
-const isPlainObject = (obj: unknown): obj is Record<string, unknown> => {
-  if (!obj || _toString(obj) !== "[object Object]") return false;
-  const proto = getProto(obj) as object | null;
-  if (!proto) return true; // Object.create(null)
-  // Raccourci du cas courant — un littéral du realm courant : son constructeur
-  // EST `Object`, la comparaison de source ci-dessous rendrait `true`. Elle
-  // reste pour les autres realms (`vm`, iframe), et elle coûtait ~240 ns.
-  if (proto === ObjProto) return true;
-  const Ctor =
-    Object.hasOwn(proto, "constructor") &&
-    (proto as { constructor?: unknown }).constructor;
-  return (
-    typeof Ctor === "function" && fnToString(Ctor) === ObjectFunctionString
-  );
-};
 
 // ─── isUndefined / isEmptyObject ─────────────────────────────────────────────
 

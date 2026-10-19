@@ -1,6 +1,7 @@
 import { inspect } from "node:util";
 
 import { extend } from "../Tools";
+import { isPlainObject } from "../runtime/isPlainObject";
 import Pdu, { Severity, ModuleName, Msgid, Message, Pci } from "./Pdu";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Event from "../Event";
@@ -593,6 +594,28 @@ const createPDU = function (
     msg,
   );
 };
+
+const optional = (v: unknown, type: "string" | "number"): boolean =>
+  v === undefined || typeof v === type;
+
+/**
+ * Entrée de pile relue d'un JSON (`loadStack(string)`) — vérifie les seuls
+ * champs que `loadStack` lit pour reconstruire un `Pdu`.
+ *
+ * Un objet relu n'a pas les méthodes d'un `Pdu` : `beforeConditions` reçoit,
+ * comme avant, l'enregistrement brut en second argument.
+ */
+function isStackRecord(v: unknown): v is Pdu {
+  if (!isPlainObject(v)) return false;
+  const { severity, moduleName, msgid, msg, timeStamp } = v;
+  return (
+    (optional(severity, "number") || typeof severity === "string") &&
+    optional(moduleName, "string") &&
+    optional(msgid, "string") &&
+    optional(msg, "string") &&
+    (optional(timeStamp, "number") || typeof timeStamp === "string")
+  );
+}
 
 /**
  * Hub central de logs structurés de Nodefony — conforme RFC 5424.
@@ -1336,8 +1359,14 @@ class Syslog extends Event implements ISyslog {
       throw new Error("syslog loadStack : not stack in arguments ");
     }
     if (typeof stack === "string") {
+      const parsed: unknown = JSON.parse(stack);
+      if (!Array.isArray(parsed)) {
+        throw new Error("syslog loadStack : la pile JSON n'est pas un tableau");
+      }
+      // Une entrée d'une autre forme (`null`, scalaire, champ mal typé) est
+      // écartée : elle levait un TypeError à la lecture de son premier champ.
       return this.loadStack(
-        JSON.parse(stack) as Pdu[],
+        parsed.filter(isStackRecord),
         doEvent,
         beforeConditions,
       );

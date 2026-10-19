@@ -51,6 +51,7 @@ import path from "node:path";
 
 import { portableSpawn } from "./execPortable";
 import { spawnedOutput } from "../runtime/spawnedOutput";
+import { isPlainObject } from "../runtime/isPlainObject";
 
 /**
  * Licences acceptées dans l'arbre de production, par famille.
@@ -314,7 +315,58 @@ interface IManifest {
   license?: string | { type?: string };
   licenses?: Array<string | { type?: string }>;
   workspaces?: string[];
+  dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+}
+
+type LicenseTerm = string | { type?: string };
+
+const isStringRecord = (v: unknown): v is Record<string, string> =>
+  isPlainObject(v) && Object.values(v).every((x) => typeof x === "string");
+
+const isString = (v: unknown): v is string => typeof v === "string";
+
+/** Un terme de licence reconnu (`"MIT"` ou `{ type: "MIT" }`), ou `null`. */
+function toLicenseTerm(v: unknown): LicenseTerm | null {
+  if (typeof v === "string") return v;
+  if (!isPlainObject(v)) return null;
+  return typeof v.type === "string" ? { type: v.type } : {};
+}
+
+/**
+ * Reconstruit un manifeste lu (fichier ou nœud rendu par npm) champ par champ.
+ *
+ * Un champ d'une autre forme est abandonné. Avant, `license: null` levait un
+ * TypeError dans {@link normalizeLicense} (`typeof null === "object"`), et un
+ * tableau `licenses` portant un `null` aussi : l'inventaire tombait sans
+ * nommer le paquet fautif.
+ *
+ * @param v - contenu décodé
+ * @returns le manifeste, ou `null` si la racine n'est pas un objet
+ */
+function toManifest(v: unknown): IManifest | null {
+  if (!isPlainObject(v)) return null;
+  const m: IManifest = {};
+  if (typeof v.name === "string") m.name = v.name;
+  if (typeof v.version === "string") m.version = v.version;
+  if (typeof v.private === "boolean") m.private = v.private;
+  const license = toLicenseTerm(v.license);
+  if (license !== null) m.license = license;
+  if (Array.isArray(v.licenses)) {
+    m.licenses = v.licenses
+      .map(toLicenseTerm)
+      .filter((t): t is LicenseTerm => t !== null);
+  }
+  // Forme yarn `{ packages: [...] }` comprise : c'est la même liste.
+  const workspaces = isPlainObject(v.workspaces)
+    ? v.workspaces.packages
+    : v.workspaces;
+  if (Array.isArray(workspaces)) m.workspaces = workspaces.filter(isString);
+  if (isStringRecord(v.dependencies)) m.dependencies = v.dependencies;
+  if (isStringRecord(v.peerDependencies)) {
+    m.peerDependencies = v.peerDependencies;
+  }
+  return m;
 }
 
 /**
@@ -326,7 +378,7 @@ interface IManifest {
 function readManifest(file: string): IManifest | null {
   if (!fs.existsSync(file)) return null;
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8")) as IManifest;
+    return toManifest(JSON.parse(fs.readFileSync(file, "utf8")));
   } catch {
     return null;
   }
@@ -546,7 +598,15 @@ export function collect(root: string): ILicensedPackage[] {
   }
   // Chaque nœud porte son manifeste : `license` peut donc être une chaîne, un
   // objet ou absent, exactement comme dans un `package.json`.
-  const nodes = JSON.parse(run.stdout) as IManifest[];
+  const parsed: unknown = JSON.parse(run.stdout);
+  if (!Array.isArray(parsed)) {
+    throw new LicenseInventoryError(
+      `npm query n'a pas rendu une liste de paquets pour ${root} — sortie illisible.`,
+    );
+  }
+  const nodes = parsed
+    .map(toManifest)
+    .filter((node): node is IManifest => node !== null);
   const seen = new Map<string, ILicensedPackage>();
   for (const node of nodes) {
     // Un paquet `private` n'est JAMAIS redistribué — npm refuse de le publier.
@@ -590,10 +650,7 @@ function assertInventoryPlausible(
   packages: readonly ILicensedPackage[],
 ): void {
   const manifest = readManifest(path.join(root, "package.json"));
-  const declared = Object.keys(
-    (manifest as { dependencies?: Record<string, string> } | null)
-      ?.dependencies ?? {},
-  );
+  const declared = Object.keys(manifest?.dependencies ?? {});
   if (declared.length === 0) return;
   const inventoried = new Set(packages.map((pkg) => pkg.name));
   const missing = declared.filter((name) => !inventoried.has(name));

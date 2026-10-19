@@ -2389,3 +2389,43 @@ describe("SEVERITY_NAMES — le vocabulaire des sévérités", () => {
     expect(SEVERITY_NAMES[2]).to.equal("CRITIC");
   });
 });
+
+describe("Relecture JSON — Pdu.parseJson et Syslog.loadStack", () => {
+  it("parseJson ne touche ni aux méthodes ni au prototype", () => {
+    const pdu = new Pdu("p", "INFO");
+    const out = pdu.parseJson(
+      '{"toString":1,"__proto__":{"x":1},"msgid":"RELU","uid":42}',
+    );
+    assert.ok(out);
+    assert.strictEqual(typeof pdu.toString, "function");
+    assert.strictEqual(Object.getPrototypeOf(pdu), Pdu.prototype);
+    assert.strictEqual(pdu.msgid, "RELU");
+    assert.strictEqual(pdu.uid, 42);
+  });
+
+  it("parseJson d'une racine non objet ne mute rien et rend null", () => {
+    const pdu = new Pdu("p", "INFO", "M", "AVANT");
+    assert.strictEqual(pdu.parseJson("null"), null);
+    assert.strictEqual(pdu.parseJson('["msgid"]'), null);
+    assert.strictEqual(pdu.msgid, "AVANT");
+  });
+
+  it("loadStack refuse une pile JSON qui n'est pas un tableau, en le disant", () => {
+    const inst = new Syslog();
+    assert.throws(() => inst.loadStack('{"msgid":"X"}'), /pas un tableau/);
+  });
+
+  it("loadStack écarte les entrées d'une autre forme, charge les autres", () => {
+    const inst = new Syslog();
+    const loaded = inst.loadStack(
+      JSON.stringify([
+        null,
+        3,
+        { msgid: 5, payload: "type faux" },
+        { msgid: "OK", payload: "garde", severity: "INFO" },
+      ]),
+    );
+    assert.strictEqual(loaded.length, 1);
+    assert.strictEqual(inst.ringStack.at(-1)?.msgid, "OK");
+  });
+});

@@ -13,20 +13,10 @@
  * Répond à « d'où vient cette valeur ? » (la douleur « je vois rien ») sans coût au
  * boot (calcul à la demande, côté data plane admin).
  */
+import { isPlainObject } from "../runtime/isPlainObject";
 
 /** Origine d'une valeur de configuration résolue. */
 export type ConfigOrigin = "default" | "app" | "env";
-
-/** Objet « simple » (pas null, pas tableau, pas instance exotique). */
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    !Array.isArray(v) &&
-    (Object.getPrototypeOf(v) === Object.prototype ||
-      Object.getPrototypeOf(v) === null)
-  );
-}
 
 /** Égalité structurelle suffisante pour des valeurs de config (JSON-sérialisables). */
 function valueEquals(a: unknown, b: unknown): boolean {

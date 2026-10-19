@@ -5,6 +5,7 @@ import {
   classifySeverity,
   formatDependents,
   formatHeadline,
+  parseNpmOutdatedReport,
   toTableRows,
   type NpmOutdatedReport,
 } from "../cli/outdated";
@@ -218,5 +219,40 @@ describe("cli/outdated — agrégation du rapport npm", () => {
       );
       expect(headline).to.not.contain("npm en affiche");
     });
+  });
+});
+
+describe("parseNpmOutdatedReport — la sortie de npm relue sans être présumée", () => {
+  it("une sortie vide veut dire « rien en retard »", () => {
+    expect(parseNpmOutdatedReport("  \n")).to.deep.equal({});
+  });
+
+  it("une racine qui n'est pas un objet est refusée en le disant", () => {
+    expect(() => parseNpmOutdatedReport("[]")).to.throw(
+      /objet JSON est attendu/,
+    );
+    expect(() => parseNpmOutdatedReport("null")).to.throw(
+      /objet JSON est attendu/,
+    );
+  });
+
+  it("écarte les entrées d'une autre forme, garde les autres — current null vaut absent", () => {
+    const report = parseNpmOutdatedReport(
+      JSON.stringify({
+        ok: { current: null, wanted: "1.0.0", latest: "2.0.0" },
+        casse: null,
+        sansLatest: { wanted: "1.0.0" },
+        lot: [
+          { wanted: "1.0.0", latest: "1.1.0", dependent: "a" },
+          { wanted: 3, latest: "1.1.0" },
+        ],
+        lotVide: [null],
+      }),
+    );
+    expect(report).to.deep.equal({
+      ok: { wanted: "1.0.0", latest: "2.0.0" },
+      lot: [{ wanted: "1.0.0", latest: "1.1.0", dependent: "a" }],
+    });
+    expect(() => aggregateOutdated(report)).not.to.throw();
   });
 });

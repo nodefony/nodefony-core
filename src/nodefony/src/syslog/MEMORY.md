@@ -46,7 +46,7 @@ déclaration dériverait, et un écran qui ne reconnaît plus l'origine ne se pl
   requestId, jamais deviné ; le `pageId` du lot (`getPageId()`) corrèle alors les lignes d'un onglet.
 - Browser/debugbar sans branchement : reste `null` → 0 lecture ALS, 0 alloc (provider null → 1 test de référence ~5 ns)
 - Coût ajouté par Pdu côté Node : ~50-100 ns (ALS lookup + access)
-- Slot toujours créé (`this.requestId = undefined` hors bulle) pour `parseJson` réhydratation ; JSON.stringify ignore `undefined` (0 verbosité)
+- `parseJson` : réhydrate SEULEMENT `PDU_DATA_FIELDS` (liste fermée ; `key in this` laissait écraser méthodes et `__proto__`) ; racine non objet → `null`, rien muté. JSON.stringify ignore `requestId` `undefined` (0 verbosité)
 
 **Sévérités** (`SysLogSeverity` enum)
 

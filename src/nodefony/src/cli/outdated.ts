@@ -1,4 +1,5 @@
 import semver from "semver";
+import { isPlainObject } from "../runtime/isPlainObject";
 
 /**
  * Une entrée telle que `npm outdated --json` la rend, pour UN couple paquet/dépendant.
@@ -24,6 +25,65 @@ export type NpmOutdatedReport = Record<
   string,
   INpmOutdatedEntry | INpmOutdatedEntry[]
 >;
+
+// `null` vaut absence : selon sa version, npm omet le champ ou le pose à `null`.
+const optionalString = (v: unknown): v is string | null | undefined =>
+  v === undefined || v === null || typeof v === "string";
+
+/** Une entrée reconnue, ou `null` — `wanted` et `latest` textuels, le reste textuel ou absent. */
+function toOutdatedEntry(v: unknown): INpmOutdatedEntry | null {
+  if (!isPlainObject(v)) return null;
+  const { current, wanted, latest, dependent, location, type } = v;
+  if (typeof wanted !== "string" || typeof latest !== "string") return null;
+  if (
+    !optionalString(current) ||
+    !optionalString(dependent) ||
+    !optionalString(location) ||
+    !optionalString(type)
+  ) {
+    return null;
+  }
+  const entry: INpmOutdatedEntry = { wanted, latest };
+  if (typeof current === "string") entry.current = current;
+  if (typeof dependent === "string") entry.dependent = dependent;
+  if (typeof location === "string") entry.location = location;
+  if (typeof type === "string") entry.type = type;
+  return entry;
+}
+
+/**
+ * Lit la sortie de `npm outdated --json` sans en présumer la forme.
+ *
+ * Une entrée d'une autre forme (version d'npm qui change un champ, avertissement
+ * mêlé à la sortie) est écartée au lieu de faire tomber l'agrégation sur un
+ * `TypeError` qui ne nomme rien.
+ *
+ * @param text - sortie standard de npm ; vide quand rien n'est en retard
+ * @returns le rapport, entrées reconnues seules
+ * @throws SyntaxError si la sortie n'est pas du JSON ; Error si sa racine n'est
+ *   pas un objet
+ */
+export function parseNpmOutdatedReport(text: string): NpmOutdatedReport {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  const parsed: unknown = JSON.parse(trimmed);
+  if (!isPlainObject(parsed)) {
+    throw new Error("npm outdated --json : un objet JSON est attendu");
+  }
+  const report: NpmOutdatedReport = {};
+  for (const [name, value] of Object.entries(parsed)) {
+    if (Array.isArray(value)) {
+      const entries = value
+        .map(toOutdatedEntry)
+        .filter((e): e is INpmOutdatedEntry => e !== null);
+      if (entries.length) report[name] = entries;
+    } else {
+      const entry = toOutdatedEntry(value);
+      if (entry) report[name] = entry;
+    }
+  }
+  return report;
+}
 
 /** Nature du saut de version qui sépare la version installée de la dernière publiée. */
 export type OutdatedSeverity = "major" | "minor" | "patch" | "missing";

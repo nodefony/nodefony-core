@@ -1,3 +1,5 @@
+import { isPlainObject } from "../runtime/isPlainObject";
+
 // Pci est unknown : le payload d'un log peut être n'importe quoi (Error, string, object…).
 // Les lecteurs de pdu.payload doivent narrower le type explicitement.
 export type Pci = unknown;
@@ -167,6 +169,22 @@ const fastTypeOf = (value: unknown): string | null => {
  *   `pdu.severityName` est la string (`"INFO"`, `"CRITIC"` — pas `"CRITICAL"`).
  */
 let guid = 0;
+/** Champs de données d'un Pdu — les seuls que {@link Pdu.parseJson} réhydrate. */
+const PDU_DATA_FIELDS: ReadonlySet<string> = new Set<keyof Pdu>([
+  "payload",
+  "uid",
+  "severity",
+  "timeStamp",
+  "severityName",
+  "typePayload",
+  "moduleName",
+  "msgid",
+  "msg",
+  "status",
+  "pid",
+  "requestId",
+]);
+
 class Pdu {
   public payload: Pci;
   public uid: number;
@@ -313,19 +331,23 @@ class Pdu {
   }
 
   /**
-   * Réhydrate un Pdu existant à partir d'une string JSON — mute uniquement les
-   * clés déjà présentes sur l'instance (filtre `key in this`).
+   * Réhydrate un Pdu existant à partir d'une string JSON — mute uniquement ses
+   * champs de DONNÉES ({@link PDU_DATA_FIELDS}).
+   *
+   * Le filtre était `key in this`, vrai aussi pour les méthodes et pour
+   * `__proto__` : un JSON reçu d'un autre process pouvait remplacer `toString`
+   * par un nombre, ou le prototype de l'instance.
    *
    * @param str - JSON sérialisé d'un Pdu.
-   * @returns objet parsé (ou `null` si JSON vide). Mute l'instance courante au passage.
+   * @returns objet parsé, ou `null` si le JSON n'est pas un objet (rien n'est
+   *   alors muté). Mute l'instance courante au passage.
    */
   parseJson(str: string): Record<string, unknown> | null {
-    const json = JSON.parse(str) as Record<string, unknown>;
-    Object.entries(json).forEach(([key, value]) => {
-      if (key in this) {
-        (this as Record<string, unknown>)[key] = value;
-      }
-    });
+    const json: unknown = JSON.parse(str);
+    if (!isPlainObject(json)) return null;
+    for (const [key, value] of Object.entries(json)) {
+      if (PDU_DATA_FIELDS.has(key)) Reflect.set(this, key, value);
+    }
     return json;
   }
 }

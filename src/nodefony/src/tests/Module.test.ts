@@ -515,6 +515,20 @@ describe("Module — loadJson()", () => {
       await fs.unlink(tmpFile).catch(() => {});
     }
   });
+
+  it("racine JSON qui n'est pas un objet → erreur qui NOMME le fichier", async () => {
+    const tmpFile = resolve(os.tmpdir(), `array-${Date.now()}.json`);
+    await fs.writeFile(tmpFile, "[1, 2]", "utf-8");
+    try {
+      await assert.rejects(
+        () => mod.loadJson(tmpFile),
+        (err: Error) =>
+          !(err instanceof SyntaxError) && err.message.includes(tmpFile),
+      );
+    } finally {
+      await fs.unlink(tmpFile).catch(() => {});
+    }
+  });
 });
 
 // ─── 8. install() & outdated() ───────────────────────────────────────────────
