@@ -9,6 +9,7 @@ import {
 } from "./FileLogDriver";
 import {
   createClusterFileLogDriver,
+  pruneOrphanLogFiles,
   type ClusterFileLogDriverOptions,
 } from "./ClusterFileLogDriver";
 import { createLokiLogDriver } from "./LokiLogDriver";
@@ -80,6 +81,8 @@ let registered = false;
  * - `memory` : relit le ring buffer (aucun transport — alimenté par `Syslog`).
  * - `file` / `cluster-file` : relisent un/des JSONL ; écrivent via un `FileTransport`
  *   partagé (même `writeKey` = chemin → branché 1× même si les deux sont montés).
+ *   À l'ouverture, élaguent en tâche de fond les JSONL des workers morts hors de la
+ *   fenêtre du lecteur ({@link pruneOrphanLogFiles}).
  * - `loki` / `opensearch` : push HTTP batché (transport) + relecture via leur API
  *   (driver) ; `null` si l'URL n'est pas configurée (→ fallback `memory` côté Kernel).
  */
@@ -93,6 +96,7 @@ export function registerBuiltinLogDrivers(): void {
 
   registerLogDriverFactory("file", (ctx) => {
     const p = jsonlPath(ctx);
+    void pruneOrphanLogFiles(path.dirname(p));
     const opts: FileLogDriverOptions = { path: p };
     const scan = ctx.logCfg?.queryFile?.maxScanBytes;
     if (scan !== undefined) opts.maxScanBytes = scan;
@@ -105,6 +109,7 @@ export function registerBuiltinLogDrivers(): void {
 
   registerLogDriverFactory("cluster-file", (ctx) => {
     const p = jsonlPath(ctx);
+    void pruneOrphanLogFiles(path.dirname(p));
     const opts: ClusterFileLogDriverOptions = { dir: path.dirname(p) };
     const scan = ctx.logCfg?.queryFile?.maxScanBytes;
     if (scan !== undefined) opts.maxScanBytes = scan;

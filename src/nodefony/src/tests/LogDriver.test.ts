@@ -9,7 +9,14 @@
  */
 import assert from "node:assert";
 import { tmpdir } from "node:os";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import Pdu from "../syslog/Pdu";
 import { filterPdus } from "../syslog/drivers/filterPdus";
@@ -18,14 +25,21 @@ import { pduFlowStep, FLOW_STEPS } from "../syslog/drivers/pduFlow";
 import { pduToRecord } from "../syslog/drivers/ILogDriver";
 import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
 import { createFileLogDriver } from "../syslog/drivers/FileLogDriver";
-import { createClusterFileLogDriver } from "../syslog/drivers/ClusterFileLogDriver";
-import { resolveQueryDriver } from "../syslog/drivers/builtinLogDrivers";
+import {
+  createClusterFileLogDriver,
+  pruneOrphanLogFiles,
+} from "../syslog/drivers/ClusterFileLogDriver";
+import {
+  registerBuiltinLogDrivers,
+  resolveQueryDriver,
+} from "../syslog/drivers/builtinLogDrivers";
 import {
   registerLogDriver,
   setActiveLogDriver,
   getActiveLogDriver,
   listLogDrivers,
   _resetLogDriverRegistry,
+  getLogDriverFactory,
 } from "../syslog/drivers/logDriverRegistry";
 
 /** Fabrique un Pdu daté (timeStamp explicite pour les tests de plage/ordre). */
@@ -701,5 +715,85 @@ describe("Log Backplane (LB.5) — agrégation cluster (cluster-file)", () => {
       2,
       `maxFiles=2 → 2 fichiers scannés, reçu total=${r.total}`,
     );
+  });
+});
+
+describe("Log Backplane — élagage des JSONL de workers morts (pruneOrphanLogFiles)", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "nf-lbprune-"));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  // Pid 9 000 000 + i : au-delà de `pid_max` Linux (4 194 304) et de macOS
+  // (99 998), et non multiple de 4 (Windows) — mort sur les trois plateformes.
+  const DEAD = 9_000_001;
+
+  /** Pose `nodefony-<pid>.jsonl` avec un mtime ancien de `ageSec` secondes. */
+  const put = (pid: number | string, ageSec: number): string => {
+    const f = join(dir, `nodefony-${pid}.jsonl`);
+    writeFileSync(f, "{}\n");
+    const t = Date.now() / 1000 - ageSec;
+    utimesSync(f, t, t);
+    return f;
+  };
+
+  it("dans la fenêtre du lecteur : rien n'est supprimé, même mort", async () => {
+    for (let i = 0; i < 3; i++) put(DEAD + i * 2, i);
+    const removed = await pruneOrphanLogFiles(dir, {
+      keep: 3,
+      isAlive: () => false,
+    });
+    assert.deepStrictEqual(removed, []);
+    assert.strictEqual(readdirSync(dir).length, 3);
+  });
+
+  it("hors fenêtre : les morts partent, les vivants et les récents restent", async () => {
+    const recent = put(DEAD, 1);
+    const oldAlive = put(4242, 100);
+    const oldDead = put(DEAD + 2, 200);
+    const olderDead = put(DEAD + 4, 300);
+    const removed = await pruneOrphanLogFiles(dir, {
+      keep: 1,
+      isAlive: (pid) => pid === 4242,
+    });
+    assert.deepStrictEqual(removed.sort(), [oldDead, olderDead].sort());
+    assert.ok(existsSync(recent), "le plus récent reste visible au lecteur");
+    assert.ok(existsSync(oldAlive), "un worker vivant garde son journal");
+  });
+
+  it("un nom hors motif n'est pas à nous : jamais touché", async () => {
+    const foreign = put("abc", 500);
+    const other = join(dir, "app.log");
+    writeFileSync(other, "x");
+    put(DEAD, 1);
+    put(DEAD + 2, 600);
+    const removed = await pruneOrphanLogFiles(dir, {
+      keep: 1,
+      isAlive: () => false,
+    });
+    assert.strictEqual(removed.length, 1);
+    assert.ok(existsSync(foreign) && existsSync(other));
+  });
+
+  it("dossier absent : aucune erreur", async () => {
+    assert.deepStrictEqual(await pruneOrphanLogFiles(join(dir, "nope")), []);
+  });
+
+  it("câblage : ouvrir le driver cluster-file élague le dossier", async () => {
+    for (let i = 0; i < 66; i++) put(DEAD + i * 2, i + 1);
+    registerBuiltinLogDrivers();
+    const factory = getLogDriverFactory("cluster-file");
+    assert.ok(factory, "fabrique cluster-file absente");
+    factory({
+      logCfg: undefined,
+      environment: "test",
+      logDir: dir,
+      pid: process.pid,
+      getRingStack: () => [],
+    });
+    // Élagage en tâche de fond : on attend la CONDITION, jamais un délai.
+    await vi.waitFor(() => assert.strictEqual(readdirSync(dir).length, 64));
   });
 });

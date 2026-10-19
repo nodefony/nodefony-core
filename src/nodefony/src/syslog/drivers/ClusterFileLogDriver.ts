@@ -1,5 +1,6 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { isPidAlive } from "../../service/dev/devProcess";
 import type { ILogDriver, ILogQueryCriteria, IPduLike } from "./ILogDriver";
 import { filterPdus } from "./filterPdus";
 import { DEFAULT_MAX_SCAN_BYTES, scanJsonlTail } from "./FileLogDriver";
@@ -126,6 +127,80 @@ async function listLogFiles(
   );
   withMtime.sort((a, b) => b.mtime - a.mtime);
   return withMtime.slice(0, maxFiles).map((e) => e.full);
+}
+
+/** Options de {@link pruneOrphanLogFiles}. */
+export interface IPruneOrphanLogFilesOptions {
+  /** Préfixe des fichiers par worker (défaut `"nodefony-"`). */
+  prefix?: string;
+  /** Suffixe des fichiers par worker (défaut `".jsonl"`). */
+  suffix?: string;
+  /** Fichiers les plus RÉCENTS conservés quoi qu'il arrive (défaut 64 = la fenêtre du lecteur). */
+  keep?: number;
+  /** Constat de vivacité d'un pid — injecté par les tests. */
+  isAlive?: (pid: number) => boolean;
+}
+
+/**
+ * Supprime les journaux `nodefony-<pid>.jsonl` des workers MORTS que la relecture
+ * ne verra plus jamais : ceux qui sortent de la fenêtre des `keep` plus récents.
+ *
+ * Chaque worker écrit son propre fichier et aucun ne le retire en mourant : sans
+ * élagage le dossier ne fait que croître (mesuré : 5 592 fichiers, 16 Go). La
+ * borne est celle du LECTEUR (`maxFiles`) — ce qu'il ne lit pas n'a pas de raison
+ * d'être gardé, et le journal d'un worker qui vient de tomber reste visible.
+ * Un fichier d'un pid VIVANT n'est jamais supprimé, quel que soit son rang ; un
+ * nom hors motif (pid non numérique) n'est pas à nous et n'est pas touché.
+ * Ne lève jamais : un fichier déjà retiré par un worker voisin est ignoré.
+ *
+ * @param dir - dossier des journaux par worker
+ * @param options - motif, fenêtre conservée, constat de vivacité
+ * @returns les chemins supprimés
+ */
+export async function pruneOrphanLogFiles(
+  dir: string,
+  options: IPruneOrphanLogFilesOptions = {},
+): Promise<string[]> {
+  const prefix = options.prefix ?? DEFAULT_PREFIX;
+  const suffix = options.suffix ?? DEFAULT_SUFFIX;
+  const keep = options.keep ?? DEFAULT_MAX_FILES;
+  const isAlive = options.isAlive ?? isPidAlive;
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const owned: { full: string; pid: number; mtime: number }[] = [];
+  for (const n of names) {
+    if (!n.startsWith(prefix) || !n.endsWith(suffix)) continue;
+    const id = n.slice(prefix.length, n.length - suffix.length);
+    if (!/^\d+$/u.test(id)) continue;
+    owned.push({ full: join(dir, n), pid: Number(id), mtime: 0 });
+  }
+  // Chemin nominal : un cluster sain tient dans la fenêtre → aucun stat.
+  if (owned.length <= keep) return [];
+  await Promise.all(
+    owned.map(async (e) => {
+      try {
+        e.mtime = (await stat(e.full)).mtimeMs;
+      } catch {
+        // disparu entre readdir et stat : mtime 0, classé le plus ancien
+      }
+    }),
+  );
+  owned.sort((a, b) => b.mtime - a.mtime);
+  const removed: string[] = [];
+  for (const e of owned.slice(keep)) {
+    if (isAlive(e.pid)) continue;
+    try {
+      await unlink(e.full);
+      removed.push(e.full);
+    } catch {
+      // déjà retiré (worker voisin) ou illisible : rien à faire
+    }
+  }
+  return removed;
 }
 
 /**
