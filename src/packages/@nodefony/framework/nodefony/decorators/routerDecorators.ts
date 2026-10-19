@@ -1332,7 +1332,7 @@ export interface IParamArgContext {
     | {
         query?: Record<string, unknown> | undefined;
         body?: Record<string, unknown> | undefined;
-        files?: unknown[] | undefined;
+        files?: readonly unknown[] | undefined;
         headers?: Record<string, unknown> | undefined;
         /**
          * P2.9 — `IncomingMessage` brut (un `Readable`) sous-jacent au wrapper

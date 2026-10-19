@@ -209,7 +209,7 @@ class Controller extends Service implements IController {
   #response: HttpResponse | Http2Response | WebsocketResponse | null = null;
   #method: HTTPMethod | null = null;
   #query: Record<string, unknown> | null = null;
-  #files: unknown[] | null = null;
+  #files: readonly unknown[] | null = null;
   #body: Record<string, unknown> | null = null;
   //metaData: Data;
   module?: Module | undefined;
@@ -336,12 +336,12 @@ class Controller extends Service implements IController {
    * texte du même corps sont dans {@link body}. Pour une action typée,
    * préférer `@UploadedFiles()`.
    */
-  get files(): unknown[] {
+  get files(): readonly unknown[] {
     return (this.#files ??
       (this.context?.request as HttpRequest | Http2Request | null)
-        ?.files) as unknown[];
+        ?.files) as readonly unknown[];
   }
-  set files(value: unknown[]) {
+  set files(value: readonly unknown[]) {
     this.#assertPerRequest("files");
     this.#files = value;
   }

@@ -86,6 +86,11 @@ const CHARSET_ALIASES: Record<string, BufferEncoding> = {
 // `replace()` ignore/réinitialise lastIndex → partage sûr d'une regex /g.
 const QUOTE_TRIM = /^["']|["']$/gu;
 
+// Les fichiers d'une requête SANS upload — l'immense majorité : un seul vide,
+// partagé et gelé, plutôt qu'un tableau alloué par requête (règle lazy alloc).
+// Gelé, il ne peut pas porter le fichier d'une requête vers la suivante.
+const NO_FILES: readonly UploadedFile[] = Object.freeze([]);
+
 // Méthodes dont le corps est parsé (→ `body`, lu par `@Body`). PATCH (RFC
 // 5789) porte un corps comme POST/PUT → il DOIT y figurer ; son absence laissait
 // `request.body` vide sur tout PATCH (data plane admin → UPDATE vide = 500).
@@ -216,12 +221,19 @@ class HttpRequest {
    * {@link query}, et les deux ne fusionnent pas.
    */
   body: Record<string, unknown> = {};
+  /** Fichiers reçus, alloués au PREMIER fichier seulement (cf {@link files}). */
+  #uploads: UploadedFile[] | null = null;
   /**
    * Les fichiers reçus dans un corps multipart, déjà écrits dans le répertoire
    * temporaire — lus par `@UploadedFile()` / `@UploadedFiles()`. Les champs
    * texte du même corps sont dans {@link body}.
+   *
+   * Lecture seule : une requête sans upload rend un vide partagé et gelé,
+   * aucune allocation.
    */
-  files: UploadedFile[] = [];
+  get files(): readonly UploadedFile[] {
+    return this.#uploads ?? NO_FILES;
+  }
   /** Les paramètres d'URL, seuls — jamais un champ du corps ({@link body}). */
   query: Record<string, unknown> = {};
   queryStringOptions:
@@ -821,7 +833,7 @@ class HttpRequest {
       name,
     );
     if (fileUpload) {
-      this.files.push(fileUpload);
+      (this.#uploads ??= []).push(fileUpload);
     }
     return fileUpload;
   }

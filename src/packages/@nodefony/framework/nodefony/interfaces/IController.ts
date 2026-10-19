@@ -20,7 +20,7 @@ export interface IController {
   session?: Session | null;
   method?: HTTPMethod | undefined;
   query: Record<string, unknown>;
-  files: unknown[];
+  files: readonly unknown[];
   body: Record<string, unknown>;
   module?: Module | undefined;
 
