@@ -1028,11 +1028,14 @@ déclenche la cascade, quel que soit le chemin qui l'a porté. `@nodefony/securi
 fois, au démarrage, pour éjecter sessions et jetons, et retirer les facteurs (TOTP, passkeys) d'un
 compte supprimé.
 
-Pour une suppression, une désactivation ou un verrouillage, c'est de la défense en profondeur : les
-authenticators rechargent l'utilisateur à chaque requête et rejettent déjà un compte disparu,
-inactif ou verrouillé. Pour un **changement de mot de passe**, c'est la SEULE barrière — le compte
-reste actif, et sans la cascade la session volée survivrait au reset. Changer son propre mot de
-passe ferme donc aussi la session qui l'a fait : le service ne connaît pas le transport.
+Dans tous les cas, c'est de la défense en profondeur : les authenticators rechargent l'utilisateur
+à chaque requête et rejettent déjà un compte disparu, inactif ou verrouillé. Le **changement de mot
+de passe** a sa propre garantie, qui ne dépend pas de la cascade : il incrémente
+`credentialsVersion` dans la même écriture que le hash, et une session, une clé d'API ou un jeton
+émis à l'ancienne version est refusé à sa présentation suivante — même si la suppression des
+sessions a échoué, même si une requête en vol a réécrit la sienne. Le re-hachage transparent de
+`authenticate` ne touche pas la version. Changer son propre mot de passe ferme donc aussi la
+session qui l'a fait : le service ne connaît pas le transport.
 
 L'émission est **gardée** : un abonné qui lève est journalisé, les suivants sont appelés quand même,
 et le geste — déjà écrit en base — n'échoue pas. C'est un **point d'extension** : un module qui

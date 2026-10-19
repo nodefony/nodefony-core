@@ -655,7 +655,15 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   des 4 stores) ; session = `metaBag.accountId` (`ACCOUNT_ID_KEY`, posé par `#openSession`). Relue
   par `JwtAuthenticator.#verify` (zone ET `verifyForResource`), `ApiKeyAuthenticator`,
   `TokenService.refresh`, `resolveBoundSessionIdentity` (SessionAuthenticator + `me()`). Artefact
-  SANS liaison = refusé (message uniforme). `ApiKeyService.createForSubject` lit l'`id` dans
+  SANS liaison = refusé (message uniforme). **Même règle, même passe : la VERSION des
+  identifiants** (`IUser.credentialsVersion`, `null` ≡ 0, incrémentée par `changePassword` et
+  `updateOne({ password })`, jamais par le re-hachage) — claim `cv` (`CREDENTIALS_VERSION_CLAIM`),
+  `metadata`/`metaBag.credentialsVersion` (`CREDENTIALS_VERSION_KEY`), écrite par
+  `credentialsVersionOf(user)` à l'émission ; 3ᵉ paramètre OBLIGATOIRE de `isBoundToAccount`
+  (aucune porte ne l'oublie). Artefact sans version ≡ 0 (déploiement sans déconnexion) ; type
+  autre qu'un nombre = refusé. C'est ELLE qui garantit la coupure au changement de mot de passe —
+  la cascade (`destroyByUser`, `revokeAllForSubject`) n'est qu'un nettoyage best-effort. Coût :
+  une lecture de metaBag + une comparaison d'entiers, 0 alloc. `ApiKeyService.createForSubject` lit l'`id` dans
   l'annuaire `users` (jamais reçu de l'appelant) → 503 sans annuaire, 403 sujet inconnu. Pas de
   clé étrangère : `User` appartient à l'app, sessions/jetons vivent aussi hors SQL, un JWT n'est
   pas une ligne. Socket WS : identité figée au handshake (liaison contrôlée là) ; ensuite

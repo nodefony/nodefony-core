@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T17:28:00.953Z",
+  "generatedAt": "2026-10-19T18:30:14.233Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 153,
+      "closed": 154,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 21,
+      "open": 20,
       "title": "10.0.0-beta"
     },
     {
@@ -3413,8 +3413,8 @@
       "number": 635,
       "title": "fix(security)!: couper les sessions au changement de mot de passe",
       "url": "https://github.com/nodefony/nodefony-core/issues/635",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
