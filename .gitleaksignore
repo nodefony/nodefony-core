@@ -35,3 +35,11 @@
 # une valeur inventée.
 3b97fed95b815a607d5fd8193adc087d9dd15d7c:src/packages/@nodefony/user/tests/unit/UserAdminApi.test.ts:generic-api-key:681
 3b97fed95b815a607d5fd8193adc087d9dd15d7c:src/packages/@nodefony/user/tests/unit/UserAdminApi.test.ts:generic-api-key:696
+
+# Le mot de passe du banc #635 (`credentialsVersion.attack.test.ts`), écrit au
+# commit qui l'a introduit (`285111041`) : « correct-horse-battery-staple-1 »,
+# fixture d'un dépôt en mémoire détruit à la fin du cas — il n'ouvre rien.
+# Le commit `da052d9a6` le remplace par une fixture déjà nommée dans
+# `.gitleaks.toml`. Même motif que ci-dessus : l'historique publié ne se
+# réécrit pas pour une valeur inventée.
+2851110416041b9280c5bfbf9821e1f53425b8e1:src/packages/@nodefony/security/tests/unit/credentialsVersion.attack.test.ts:generic-api-key:83
