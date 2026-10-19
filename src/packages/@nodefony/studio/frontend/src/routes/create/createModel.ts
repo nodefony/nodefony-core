@@ -12,6 +12,9 @@
  * clés, ni les défauts, ni les expressions de validation.
  */
 
+import { isPlainObject } from "nodefony";
+import { arrayOf, isFiniteNumber, isOneOf, isString } from "../../utils/guards";
+
 /** Nature d'une question — décide du contrôle rendu. */
 export type ScaffoldQuestionType = "string" | "boolean" | "choice" | "list";
 
@@ -138,6 +141,61 @@ export interface IScaffoldJobState {
  * dans le même objet obligerait à recopier tout le terminal à chaque relecture d'état.
  */
 export type IScaffoldJobMeta = Omit<IScaffoldJobState, "lines">;
+
+const isStream = isOneOf<ScaffoldStream>(["info", "out", "err", "ok", "fail"]);
+const isJobStatus = isOneOf<ScaffoldJobStatus>(["running", "done", "failed"]);
+
+const isScaffoldLine = (v: unknown): v is IScaffoldLine =>
+  isPlainObject(v) &&
+  isFiniteNumber(v.seq) &&
+  isFiniteNumber(v.ts) &&
+  isStream(v.stream) &&
+  isString(v.text);
+
+/**
+ * Reconnaît une charge du canal `nodefony:scaffold:job@<id>`.
+ *
+ * Le canal est le nôtre, mais la charge arrive d'une socket : un serveur d'une
+ * autre version (console rechargée pendant une mise à jour) peut pousser une
+ * autre forme. Une ligne mal formée est ignorée ; un état dont l'identité ou le
+ * statut manque est ignoré ENTIER — l'afficher à moitié ferait croire à un job
+ * qu'on ne suit plus. Les listes (fichiers, notes, lignes) gardent leurs seuls
+ * éléments reconnus.
+ *
+ * @param payload - charge reçue du canal
+ * @returns l'événement reconnu, ou `null`
+ */
+export function toScaffoldEvent(payload: unknown): IScaffoldEvent | null {
+  if (!isPlainObject(payload)) return null;
+  if (payload.kind === "line") {
+    return isScaffoldLine(payload.line)
+      ? { kind: "line", line: payload.line }
+      : null;
+  }
+  if (payload.kind !== "state" || !isPlainObject(payload.state)) return null;
+  const st = payload.state;
+  if (
+    !isString(st.id) ||
+    !isString(st.type) ||
+    !isJobStatus(st.status) ||
+    !isFiniteNumber(st.startedAt)
+  ) {
+    return null;
+  }
+  return {
+    kind: "state",
+    state: {
+      id: st.id,
+      type: st.type,
+      status: st.status,
+      startedAt: st.startedAt,
+      endedAt: isFiniteNumber(st.endedAt) ? st.endedAt : null,
+      files: arrayOf(st.files, isString),
+      notes: arrayOf(st.notes, isString),
+      lines: arrayOf(st.lines, isScaffoldLine),
+    },
+  };
+}
 
 /**
  * Capacités de l'environnement, telles que le SERVEUR les constate (contrat `askIf`).

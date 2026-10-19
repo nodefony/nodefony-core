@@ -1,4 +1,7 @@
 import { makeAutoObservable } from "mobx";
+import { isPlainObject } from "nodefony";
+import { recordOf } from "../utils/guards";
+import { browserStorage, readStoredJson } from "../utils/storedJson";
 import type { WidgetInstance, WorkspaceLayout, WorkspacePreset } from "./types";
 import { MIN_H, MIN_W, REF_COLS, ROW_PX, SNAP_X, SNAP_Y } from "./types";
 import { DEFAULT_WORKSPACE_ID, WORKSPACE_PRESETS } from "./presets";
@@ -63,9 +66,9 @@ function normInstance(i: WidgetInstance): WidgetInstance {
 /** Une fenêtre persistée est-elle au format v2 (fraction + z) ? */
 function isInstance(i: unknown): i is WidgetInstance {
   // Relu du stockage local : peut être `null` ou un scalaire.
-  const o = i as Record<string, unknown> | null;
+  if (!isPlainObject(i)) return false;
+  const o = i;
   return (
-    !!o &&
     typeof o.widgetId === "string" &&
     typeof o.x === "number" &&
     typeof o.y === "number" &&
@@ -73,6 +76,15 @@ function isInstance(i: unknown): i is WidgetInstance {
     typeof o.h === "number" &&
     typeof o.z === "number"
   );
+}
+
+/** Bureau actif relu — une chaîne brute, pas du JSON ; `null` si absent ou stockage injoignable. */
+function readActiveId(): string | null {
+  try {
+    return browserStorage("local")?.getItem(ACTIVE_KEY) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -341,36 +353,24 @@ export class WorkspaceStore {
     // Persistance AUTORITAIRE : si l'utilisateur a déjà des bureaux (v2), ils
     // font foi (création/suppression/renommage collent). Les presets ne sont que
     // des MODÈLES pour le « + » — ils ne sont semés qu'au tout premier lancement.
-    try {
-      if (typeof localStorage !== "undefined") {
-        const raw = localStorage.getItem(LAYOUTS_KEY);
-        if (raw) {
-          const parsed: unknown = JSON.parse(raw);
-          if (parsed && typeof parsed === "object") {
-            const out: Partial<Record<string, WorkspaceLayout>> = {};
-            for (const [id, layout] of Object.entries(
-              // Relu du stockage local : chaque bureau peut être tronqué.
-              parsed as Record<string, Partial<WorkspaceLayout> | null>,
-            )) {
-              if (!layout || !Array.isArray(layout.items)) continue;
-              out[id] = {
-                id,
-                label: layout.label ?? id,
-                items: layout.items.filter(isInstance).map(normInstance),
-              };
-            }
-            const [first] = Object.keys(out);
-            if (first !== undefined) {
-              this.layouts = out;
-              const a = localStorage.getItem(ACTIVE_KEY);
-              this.activeId = a && out[a] ? a : first;
-              return;
-            }
-          }
-        }
-      }
-    } catch {
-      /* storage illisible — on repart sur les presets */
+    const out: Partial<Record<string, WorkspaceLayout>> = {};
+    // Relu du stockage local : chaque bureau peut être tronqué ou d'une autre forme.
+    for (const [id, layout] of Object.entries(
+      recordOf(readStoredJson("local", LAYOUTS_KEY), isPlainObject),
+    )) {
+      if (!Array.isArray(layout.items)) continue;
+      out[id] = {
+        id,
+        label: typeof layout.label === "string" ? layout.label : id,
+        items: layout.items.filter(isInstance).map(normInstance),
+      };
+    }
+    const [first] = Object.keys(out);
+    if (first !== undefined) {
+      this.layouts = out;
+      const a = readActiveId();
+      this.activeId = a && out[a] ? a : first;
+      return;
     }
     // Premier lancement : semer depuis les presets (migrés cols→px).
     const seeded: Partial<Record<string, WorkspaceLayout>> = {};

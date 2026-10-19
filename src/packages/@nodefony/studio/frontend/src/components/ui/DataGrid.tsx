@@ -65,6 +65,8 @@ import {
 import { DataState } from "./DataState";
 import { InfoHint } from "./StatCard";
 import { valueText } from "./json/jsonFormat";
+import { parsePersistedState, type PersistedState } from "./dataGridPersist";
+import { browserStorage, readStoredJson } from "../../utils/storedJson";
 
 /**
  * Noms accessibles des quatre contrôles de BORD de la pagination.
@@ -253,40 +255,16 @@ interface ServerProps<T> extends BaseProps<T> {
 export type DataGridProps<T> = ClientProps<T> | ServerProps<T>;
 
 // ── Persistance (storage navigateur) ────────────────────────────────────────
-interface PersistedState {
-  sorting: SortingState;
-  columnFilters: ColumnFiltersState;
-  globalFilter: string;
-  columnVisibility: ColumnVisibilityState;
-  columnSizing: ColumnSizingState;
-  pageIndex: number;
-  pageSize: number;
-}
-
 /** Préfixe de namespace → indexe le storage par grille (clé unique par DataGrid). */
 const STORAGE_PREFIX = "nf.datagrid:";
 const storageKey = (p: DataGridPersist) => STORAGE_PREFIX + p.key;
 
-function getStore(kind: "session" | "local"): Storage | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return kind === "local" ? window.localStorage : window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
 /** Lit l'état persisté (SYNCHRONE → utilisable dans un initialiseur `useState`). */
 function loadPersisted(p?: DataGridPersist): Partial<PersistedState> | null {
   if (!p) return null;
-  const s = getStore(p.storage ?? "session");
-  if (!s) return null;
-  try {
-    const raw = s.getItem(storageKey(p));
-    return raw ? (JSON.parse(raw) as Partial<PersistedState>) : null;
-  } catch {
-    return null;
-  }
+  return parsePersistedState(
+    readStoredJson(p.storage ?? "session", storageKey(p)),
+  );
 }
 
 /**
@@ -731,7 +709,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
   // Persiste l'état (tri/filtres/recherche/colonnes/pagination) à chaque changement.
   useEffect(() => {
     if (!props.persist) return;
-    const s = getStore(props.persist.storage ?? "session");
+    const s = browserStorage(props.persist.storage ?? "session");
     if (!s) return;
     const snap: PersistedState = {
       sorting,
@@ -905,7 +883,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
   // Efface la sauvegarde storage ET remet l'état par défaut (tri/colonnes inclus).
   const clearStorage = () => {
     if (props.persist) {
-      getStore(props.persist.storage ?? "session")?.removeItem(
+      browserStorage(props.persist.storage ?? "session")?.removeItem(
         storageKey(props.persist),
       );
     }

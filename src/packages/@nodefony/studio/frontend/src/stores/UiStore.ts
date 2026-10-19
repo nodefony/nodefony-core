@@ -1,4 +1,6 @@
 import { makeAutoObservable } from "mobx";
+import { arrayOf, isBoolean, isString, recordOf } from "../utils/guards";
+import { readStoredJson } from "../utils/storedJson";
 
 const THEME_KEY = "nodefony.studio.theme";
 const RAIL_KEY = "nodefony.studio.sidebar.rail";
@@ -193,22 +195,11 @@ export class UiStore {
       this.realtimeLive = localStorage.getItem(LIVE_KEY) === "1";
       // Défaut ON : seul un "0" explicite (coupé à la main) désactive le pont.
       this.apiViaSocket = localStorage.getItem(API_SOCKET_KEY) !== "0";
-      const g = localStorage.getItem(GROUPS_KEY);
-      if (g) {
-        const parsed: unknown = JSON.parse(g);
-        if (parsed && typeof parsed === "object") {
-          this.collapsedGroups = parsed as Record<string, boolean>;
-        }
-      }
-      const p2 = localStorage.getItem(PINNED_KEY);
-      if (p2) {
-        const parsed: unknown = JSON.parse(p2);
-        if (Array.isArray(parsed)) {
-          this.pinned = parsed.filter(
-            (x): x is string => typeof x === "string",
-          );
-        }
-      }
+      this.collapsedGroups = recordOf(
+        readStoredJson("local", GROUPS_KEY),
+        isBoolean,
+      );
+      this.pinned = arrayOf(readStoredJson("local", PINNED_KEY), isString);
     } catch {
       /* ignore */
     }

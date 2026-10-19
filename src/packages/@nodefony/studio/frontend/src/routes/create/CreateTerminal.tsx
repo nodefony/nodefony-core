@@ -36,6 +36,7 @@ import { DocHint } from "../../components/ui";
 import {
   MAX_TERMINAL_LINES,
   STREAM_COLORS,
+  toScaffoldEvent,
   type IScaffoldEvent,
   type IScaffoldJobMeta,
   type IScaffoldLine,
@@ -62,7 +63,8 @@ export function JobStream({
   onEvent: (event: IScaffoldEvent) => void;
 }) {
   useNodefonyChannel(`${PLATFORM_CHANNELS.scaffoldJob}@${jobId}`, (payload) => {
-    onEvent(payload as IScaffoldEvent);
+    const event = toScaffoldEvent(payload);
+    if (event) onEvent(event);
   });
   return null;
 }

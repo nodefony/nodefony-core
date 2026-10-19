@@ -8,6 +8,9 @@
  * `nf.supervision.weights`) → la spec de pondération vaut pour les DEUX vues.
  */
 
+import { isFiniteNumber, recordOf } from "./guards";
+import { readStoredJson } from "./storedJson";
+
 /** Clé de persistance des poids (réglés par les sliders de la page Supervision). */
 export const HEALTH_WEIGHTS_KEY = "nf.supervision.weights";
 
@@ -155,19 +158,11 @@ export function buildHealth(inputs: HealthInput[]): HealthResult {
  * → la santé pod (accueil) applique EXACTEMENT la pondération réglée sur la page détail.
  */
 export function loadHealthWeights(): Record<string, number> {
-  try {
-    const raw =
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem(HEALTH_WEIGHTS_KEY)
-        : null;
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        return { ...DEFAULT_WEIGHTS, ...(parsed as Record<string, number>) };
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return { ...DEFAULT_WEIGHTS };
+  // Un poids relu sous une autre forme (chaîne, négatif) faisait sortir un
+  // score `NaN` sans un mot : il est abandonné, la sonde reprend son défaut.
+  const stored = recordOf(
+    readStoredJson("local", HEALTH_WEIGHTS_KEY),
+    (v): v is number => isFiniteNumber(v) && v >= 0,
+  );
+  return { ...DEFAULT_WEIGHTS, ...stored };
 }

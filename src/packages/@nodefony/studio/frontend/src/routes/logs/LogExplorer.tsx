@@ -62,7 +62,8 @@ import type {
   LogRecord,
   Severity,
 } from "./logsTypes";
-import { SEVERITIES } from "./logsTypes";
+import { parseSavedFilters, SEVERITIES, type SavedFilters } from "./logsTypes";
+import { readStoredJson } from "../../utils/storedJson";
 import { BROWSER_ORIGIN } from "nodefony";
 import {
   LOGS_DOC,
@@ -88,17 +89,6 @@ import {
 
 /** Clé de persistance (sessionStorage) des filtres explicites de l'Explorer. */
 const FILTERS_KEY = "nf.logs.explorer.filters.v1";
-
-/** Forme persistée des filtres explicites (sérialisable — Set → tableau). */
-interface SavedFilters {
-  requestId?: string;
-  order?: "asc" | "desc";
-  protocol?: "all" | "ws" | "http";
-  flows?: FlowStepId[];
-  severities?: Severity[];
-  moduleF?: string;
-  msgidF?: string;
-}
 
 export interface LogExplorerProps {
   /** Capacités du driver actif (garde `query`). `null` = méta pas encore chargée. */
@@ -129,15 +119,10 @@ export const LogExplorer = observer(
     // Filtres explicites PERSISTÉS (sessionStorage) → naviguer vers le Suivi de
     // requête puis revenir ne perd ni les filtres ni le requestId tracé. Lu une
     // fois (lazy) au montage ; ré-écrit à chaque changement (effet plus bas).
-    const saved = useMemo<SavedFilters>(() => {
-      try {
-        return JSON.parse(
-          sessionStorage.getItem(FILTERS_KEY) ?? "{}",
-        ) as SavedFilters;
-      } catch {
-        return {};
-      }
-    }, []);
+    const saved = useMemo(
+      () => parseSavedFilters(readStoredJson("session", FILTERS_KEY)),
+      [],
+    );
 
     const [requestId, setRequestId] = useState(
       traceRequestId || saved.requestId || "",

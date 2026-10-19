@@ -10,8 +10,9 @@
  * de l'endpoint `backplane`. Toute évolution du contrat back → mettre à jour ici.
  */
 
-import { SEVERITY_NAMES } from "nodefony";
-import type { SeverityName } from "nodefony";
+import { FLOW_STEPS, isPlainObject, SEVERITY_NAMES } from "nodefony";
+import type { FlowStepId, SeverityName } from "nodefony";
+import { arrayOf, isOneOf, isString } from "../../utils/guards";
 
 /**
  * Noms de sévérité RFC 5424, du moins au plus grave — l'ordre d'AFFICHAGE du
@@ -193,4 +194,47 @@ export interface LogQueryResult {
 export interface NotQueryable {
   queryable: false;
   driver: string | null;
+}
+
+/** Filtres de l'explorateur de logs, persistés le temps de l'onglet. */
+export interface SavedFilters {
+  requestId?: string;
+  order?: "asc" | "desc";
+  protocol?: "all" | "ws" | "http";
+  flows?: FlowStepId[];
+  severities?: Severity[];
+  moduleF?: string;
+  msgidF?: string;
+}
+
+const isOrder = isOneOf(["asc", "desc"] as const);
+const isProtocol = isOneOf(["all", "ws", "http"] as const);
+const isSeverity = isOneOf(SEVERITIES);
+const isFlowStep = (v: unknown): v is FlowStepId =>
+  typeof v === "string" && Object.hasOwn(FLOW_STEPS, v);
+
+/**
+ * Reconstruit les filtres relus du stockage, champ par champ.
+ *
+ * Un champ d'une autre forme est abandonné, les autres sont gardés. Sans
+ * cela, un `null` relu faisait tomber l'explorateur à chaque montage, et une
+ * étape de flux inconnue d'une version antérieure restait cochée sans
+ * contrôle pour la décocher.
+ *
+ * @param value - valeur relue (`readStoredJson`)
+ * @returns les filtres reconnus ; `{}` si la valeur n'est pas un objet
+ */
+export function parseSavedFilters(value: unknown): SavedFilters {
+  if (!isPlainObject(value)) return {};
+  const out: SavedFilters = {};
+  if (isString(value.requestId)) out.requestId = value.requestId;
+  if (isOrder(value.order)) out.order = value.order;
+  if (isProtocol(value.protocol)) out.protocol = value.protocol;
+  if (Array.isArray(value.flows)) out.flows = arrayOf(value.flows, isFlowStep);
+  if (Array.isArray(value.severities)) {
+    out.severities = arrayOf(value.severities, isSeverity);
+  }
+  if (isString(value.moduleF)) out.moduleF = value.moduleF;
+  if (isString(value.msgidF)) out.msgidF = value.msgidF;
+  return out;
 }
