@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import { EventEmitter } from "node:events";
 import {
   Parser,
+  ParserJson,
   ParserQs,
   ParserXml,
   acceptParser,
@@ -292,4 +293,39 @@ describe("ParserXml — corps application/xml", () => {
     const p = new ParserXml(req);
     expect(p.charset).to.equal("latin1");
   });
+});
+
+// Frontière réseau (#572) : `JSON.parse` rend n'importe quelle valeur, alors que
+// `queryPost` est lu comme un objet (`this.queryPost.nom`). Un corps `null` ou
+// scalaire y laissait `null`/`42` → TypeError → 500 dans le contrôleur.
+describe("ParserJson — corps application/json", () => {
+  async function parseJson(body: string): Promise<HttpRequest> {
+    const { req, stream } = makeReq();
+    const p = new ParserJson(req);
+    stream.emit("data", Buffer.from(body));
+    await p.parse();
+    return req;
+  }
+
+  it("parse un objet dans queryPost + fusionne dans query", async () => {
+    const req = await parseJson('{"a":1}');
+    expect(req.queryPost).to.deep.equal({ a: 1 });
+    expect(req.query).to.deep.equal({ a: 1 });
+    expect(req.context.requestEnded).to.equal(true);
+  });
+
+  it("garde un tableau tel quel (envoi en lot lu par @Body)", async () => {
+    const req = await parseJson("[1,2]");
+    expect(req.queryPost).to.deep.equal([1, 2]);
+  });
+
+  for (const body of ["null", "42", '"texte"', "true"]) {
+    it(`ignore un corps ${body} : queryPost reste un objet`, async () => {
+      const req = await parseJson(body);
+      expect(req.queryPost).to.deep.equal({});
+      expect(req.query).to.deep.equal({});
+      expect(req.data.toString()).to.equal(body);
+      expect(req.context.requestEnded).to.equal(true);
+    });
+  }
 });

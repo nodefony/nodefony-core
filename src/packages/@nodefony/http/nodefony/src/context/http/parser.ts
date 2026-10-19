@@ -186,6 +186,14 @@ class ParserXml extends Parser {
 }
 
 /**
+ * Vrai pour un objet ou un tableau JSON — ce que `queryPost` peut porter.
+ * Un tableau passe : `@Body()` le rend tel quel (envoi en lot).
+ */
+function isJsonContainer(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
  * Parse un corps `application/json` (ou `*+json`) en objet → `queryPost`
  * (source lue par le décorateur `@Body`). Reprend le rôle de l'ancien plugin
  * `json` de formidable, supprimé avec le passage à busboy (multipart seul).
@@ -206,12 +214,17 @@ class ParserJson extends Parser {
     const text = this.request.data.toString(this.charset).trim();
     if (text) {
       try {
-        this.request.queryPost = JSON.parse(text) as Record<string, unknown>;
-        this.request.query = extend(
-          {},
-          this.request.query,
-          this.request.queryPost,
-        ) as Record<string, unknown>;
+        const parsed: unknown = JSON.parse(text);
+        if (isJsonContainer(parsed)) {
+          this.request.queryPost = parsed;
+          this.request.query = extend(
+            {},
+            this.request.query,
+            this.request.queryPost,
+          ) as Record<string, unknown>;
+        }
+        /* scalaire ou `null` : ignoré comme un JSON malformé — `queryPost`
+           reste un objet (brut conservé dans request.data) */
       } catch {
         /* JSON malformé : ignoré (brut conservé dans request.data) */
       }
