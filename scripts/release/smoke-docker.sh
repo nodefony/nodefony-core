@@ -1695,7 +1695,7 @@ fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
   GDEV_SELF=$(grep -c "soi-même — already-delegated" "$GDEV_LOG" || true)
   [[ "$GDEV_SELF" -ge 2 ]] \
     || { tail -40 "$GDEV_LOG"; stop_global_dev; fail "le serveur enfant n'a pas tracé sa décision ($GDEV_SELF trace(s))"; }
-  if grep "already-delegated" "$GDEV_LOG" | grep -q "$GPREFIX"; then
+  if grep "already-delegated" "$GDEV_LOG" | grep -qF "$GPREFIX/"; then
     grep "already-delegated" "$GDEV_LOG"; stop_global_dev
     fail "le serveur enfant s'exécute depuis le paquet GLOBAL — argv non réaligné"
   fi
