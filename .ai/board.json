@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T10:49:34.587Z",
+  "generatedAt": "2026-10-19T11:01:49.421Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 148,
+      "closed": 149,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 23,
+      "open": 22,
       "title": "10.0.0-beta"
     },
     {
@@ -3364,8 +3364,8 @@
       "number": 572,
       "title": "refactor(types): remplacer les conversions de type qui resserrent un type",
       "url": "https://github.com/nodefony/nodefony-core/issues/572",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
