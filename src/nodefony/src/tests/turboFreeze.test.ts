@@ -159,11 +159,12 @@ describe("runCapturedCommand — turbo figé après son bilan", () => {
   };
 
   it("bilan vert puis gel : rend la main bien avant la borne, ok, NOMMÉ, arbre tué", async () => {
-    const t0 = Date.now();
+    // « Avant la borne » se lit dans la SORTIE, pas au chronomètre : un rapport
+    // de gel sans « déclaré calé » ne peut venir que du délai de grâce. Le
+    // chronomètre mesurait aussi le démarrage de `node` — 13 s sous la passe.
     const r = await fake(
       `process.stdout.write(process.pid + ' pid\\n Tasks:    3 successful, 3 total\\n'); ${HANG}`,
     );
-    expect(Date.now() - t0).toBeLessThan(IDLE_MS / 2);
     expect(r.ok).toBe(true);
     expect(r.output).toContain("[turbo] bilan affiché (3/3 réussies)");
     expect(r.output).toContain("code 0 rendu d'après le bilan");

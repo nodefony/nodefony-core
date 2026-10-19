@@ -590,6 +590,7 @@ export function runCapturedCommand(
     let stalled = false;
     let frozen: ITurboFreezeVerdict | null = null;
     let idle: ReturnType<typeof setTimeout> | null = null;
+    let confirm: ReturnType<typeof setImmediate> | null = null;
     let lastOutputAt = Date.now();
     const turboWatch = options.turbo
       ? new TurboFreezeWatch(lastOutputAt, options.turboGraceMs)
@@ -614,9 +615,19 @@ export function runCapturedCommand(
     };
     // Une seule horloge pour les deux bornes : le gel (bilan + silence court)
     // et l'inactivité (silence long, sans bilan).
-    function check(): void {
+    function check(confirmed = false): void {
       const now = Date.now();
       const verdict = turboWatch?.verdict(now) ?? null;
+      // Un silence se CONSTATE : au réveil d'un superviseur bloqué, les minuteurs
+      // passent avant la lecture du tube — ce qui y attend est lu d'abord
+      // (`setImmediate` suit la phase d'entrées-sorties), puis on retranche.
+      if (!confirmed && (verdict || now - lastOutputAt >= idleMs)) {
+        confirm = setImmediate(() => {
+          confirm = null;
+          check(true);
+        });
+        return;
+      }
       if (verdict) {
         frozen = verdict;
         output += describeTurboFreeze(verdict, turboWatch?.logTail ?? []);
@@ -645,6 +656,7 @@ export function runCapturedCommand(
     };
     const settle = (ok: boolean): void => {
       if (idle) clearTimeout(idle);
+      if (confirm) clearImmediate(confirm);
       if (turboWatch) {
         output += turboWatch.flush();
         // Turbo en échec sous `CI` : la fin de son journal détaillé dit où.

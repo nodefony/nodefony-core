@@ -78,8 +78,27 @@ describe("runCapturedCommand — borne d'inactivité", () => {
       "let n = 0; process.stdout.write('départ\\n'); const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 40) { clearInterval(t); process.exit(0); } }, 250);",
       8_000,
     );
-    expect(r.ok).toBe(true);
+    expect(
+      r.output,
+      "tué avant d'avoir parlé : c'est le DÉMARRAGE de node qui a dépassé la borne, pas la règle",
+    ).toContain("départ");
     expect(r.output).not.toContain("déclaré calé");
+    expect(r.ok).toBe(true);
+  }, 30_000);
+
+  // Le superviseur bloqué (GC, disque, machine saturée) ne lit plus le tube :
+  // à son réveil, le minuteur passe AVANT la lecture des données en attente,
+  // et une horloge périmée déclarait calée une commande qui n'avait cessé de
+  // parler. Le blocage est posé ici sur le parent, sans rien d'aléatoire.
+  it("superviseur bloqué : ce qui attend dans le tube est lu AVANT tout verdict", async () => {
+    const pending = node(
+      "let n = 0; const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 40) { clearInterval(t); process.exit(0); } }, 100);",
+      1_500,
+    );
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2_500);
+    const r = await pending;
+    expect(r.output).not.toContain("déclaré calé");
+    expect(r.ok).toBe(true);
   }, 30_000);
 
   // Ce cas ne porte pas sur la borne : il la prend large, sinon le démarrage
