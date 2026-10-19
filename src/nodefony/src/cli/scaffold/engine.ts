@@ -72,6 +72,7 @@ import type { PackageManagerName } from "../../Cli";
 // seconde lecture divergerait au premier alias ou au premier fichier ajouté.
 import { resolveInfra } from "../../config/infra";
 import { envFileOrder } from "../../runtime/loadEnv";
+import { isPlainObject } from "../../runtime/isPlainObject";
 import { resolveModuleLayout, type IRootManifest } from "./moduleLayout";
 import {
   parseEntityFields,
@@ -108,6 +109,15 @@ import {
 } from "./versions";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
+import {
+  dependencyNames,
+  ensureObjectField,
+  manifestString,
+  parsePackageManifest,
+  readPackageManifest,
+  writePackageManifest,
+  type IPackageManifest,
+} from "./packageManifest";
 import { writeBrandAssets } from "./brandAssets";
 import {
   manifestFileWith,
@@ -632,10 +642,11 @@ export function findPackageRoot(): string {
     const manifest = path.join(dir, "package.json");
     if (existsSync(manifest)) {
       try {
-        const pkg = JSON.parse(readFileSync(manifest, "utf8")) as {
-          name?: string;
-        };
-        if (pkg.name === "nodefony") {
+        const pkg = parsePackageManifest(
+          readFileSync(manifest, "utf8"),
+          manifest,
+        );
+        if (manifestString(pkg, "name") === "nodefony") {
           return dir;
         }
       } catch {
@@ -686,16 +697,16 @@ export function linkLocalDeps(
   workspaces: Record<string, string>,
   writer: ScaffoldWriter,
 ): string[] {
-  const manifestPath = path.join(destDir, "package.json");
-  const manifest = JSON.parse(writer.read(manifestPath)) as Partial<
-    Record<string, Record<string, string>>
-  >;
+  const manifest = readPackageManifest(
+    path.join(destDir, "package.json"),
+    writer,
+  );
   const linked: string[] = [];
   for (const block of ["dependencies", "devDependencies"]) {
-    const deps = manifest[block];
-    if (!deps) {
+    if (manifest.data[block] === undefined) {
       continue;
     }
+    const deps = ensureObjectField(manifest, block);
     for (const name of Object.keys(deps)) {
       if (name !== "nodefony" && !name.startsWith("@nodefony/")) {
         continue;
@@ -712,7 +723,7 @@ export function linkLocalDeps(
       linked.push(name);
     }
   }
-  writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  writePackageManifest(manifest, writer);
   return linked.sort();
 }
 
@@ -797,18 +808,14 @@ export function resolveAnswers(
  */
 function declareImportedPeers(
   dir: string,
-  manifest: Record<string, Record<string, string>>,
+  manifest: IPackageManifest,
   files: readonly string[],
   writer: ScaffoldWriter,
   peerRange: string,
   required: readonly string[] = [],
 ): boolean {
-  const own = (manifest["name"] as unknown as string | undefined) ?? "";
-  const declared = new Set(
-    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-      Object.keys(manifest[b] ?? {}),
-    ),
-  );
+  const own = manifestString(manifest, "name") ?? "";
+  const declared = dependencyNames(manifest);
   const missing = new Set(required.filter((dep) => !declared.has(dep)));
   for (const rel of files) {
     if (!rel.endsWith(".ts")) continue;
@@ -817,12 +824,9 @@ function declareImportedPeers(
     }
   }
   if (missing.size === 0) return false;
-  const peer = (manifest["peerDependencies"] ??= {});
+  const peer = ensureObjectField(manifest, "peerDependencies");
   for (const dep of [...missing].sort()) peer[dep] = peerRange;
-  writer.write(
-    path.join(dir, "package.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-  );
+  writePackageManifest(manifest, writer);
   return true;
 }
 
@@ -1289,18 +1293,30 @@ function projectOrm(dir: string): TEntityOrm | null {
  * Paquets que déclare le `package.json` d'un projet, tous blocs confondus —
  * vide si le manifeste est absent ou illisible.
  */
+/**
+ * Paquets que déclare le `package.json` d'un dossier, lu par la transaction du
+ * scaffold — vide si le manifeste est absent.
+ *
+ * @param dir - dossier du `package.json` (app ou module).
+ * @param writer - transaction du scaffold.
+ * @returns les noms déclarés, tous blocs confondus.
+ * @throws si le manifeste existe mais est illisible ou mal formé.
+ */
+function declaredDependencies(
+  dir: string,
+  writer: ScaffoldWriter,
+): Set<string> {
+  const file = path.join(dir, "package.json");
+  if (!writer.exists(file)) return new Set();
+  return dependencyNames(readPackageManifest(file, writer));
+}
+
 function projectDependencies(root: string): Set<string> {
   const file = path.join(root, "package.json");
   if (!existsSync(file)) return new Set();
   try {
-    const pkg = JSON.parse(readFileSync(file, "utf8")) as Record<
-      string,
-      Record<string, string> | undefined
-    >;
-    return new Set(
-      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-        Object.keys(pkg[b] ?? {}),
-      ),
+    return dependencyNames(
+      parsePackageManifest(readFileSync(file, "utf8"), file),
     );
   } catch {
     return new Set();
@@ -1468,19 +1484,31 @@ function readRootManifest(
   projectRoot: string,
   writer: ScaffoldWriter,
 ): IRootManifest {
-  let parsed: unknown;
+  let parsed: IPackageManifest;
   try {
-    parsed = JSON.parse(writer.read(path.join(projectRoot, "package.json")));
+    parsed = readPackageManifest(
+      path.join(projectRoot, "package.json"),
+      writer,
+    );
   } catch {
     return {};
   }
-  if (typeof parsed !== "object" || parsed === null) return {};
+  return toRootManifest(parsed);
+}
+
+/**
+ * Le nom et les workspaces d'un manifeste relu, ceux qui sont bien formés.
+ *
+ * @param parsed - manifeste relu.
+ * @returns les deux champs dont dépend le layout des modules.
+ */
+function toRootManifest(parsed: IPackageManifest): IRootManifest {
   const manifest: IRootManifest = {};
-  if ("name" in parsed && typeof parsed.name === "string") {
-    manifest.name = parsed.name;
-  }
-  if ("workspaces" in parsed && Array.isArray(parsed.workspaces)) {
-    manifest.workspaces = parsed.workspaces.filter(
+  const name = manifestString(parsed, "name");
+  if (name !== undefined) manifest.name = name;
+  const workspaces = parsed.data["workspaces"];
+  if (Array.isArray(workspaces)) {
+    manifest.workspaces = workspaces.filter(
       (w): w is string => typeof w === "string",
     );
   }
@@ -1493,10 +1521,8 @@ export function listTargets(
 ): [IScaffoldTarget, ...IScaffoldTarget[]] {
   const readName = (dir: string): string | null => {
     try {
-      const pkg = JSON.parse(writer.read(path.join(dir, "package.json"))) as {
-        name?: string;
-      };
-      return pkg.name ?? null;
+      const pkg = readPackageManifest(path.join(dir, "package.json"), writer);
+      return manifestString(pkg, "name") ?? null;
     } catch {
       return null;
     }
@@ -2310,18 +2336,25 @@ export function ensureWorkspaces(
   writer: ScaffoldWriter,
   packageManager: PackageManagerName = "npm",
 ): boolean {
-  const manifestPath = path.join(projectRoot, "package.json");
-  const manifest = JSON.parse(writer.read(manifestPath)) as {
-    workspaces?: string[];
-    scripts?: Record<string, string>;
-  };
+  const manifest = readPackageManifest(
+    path.join(projectRoot, "package.json"),
+    writer,
+  );
   let changed = false;
-  const workspaces = manifest.workspaces ?? [];
+  const declared = manifest.data["workspaces"];
+  // Seule la forme TABLEAU est complétée : la forme objet (`{ packages }`, Yarn)
+  // se réécrirait en perdant ses autres clés.
+  if (declared !== undefined && !Array.isArray(declared)) {
+    throw new Error(
+      `${manifest.file} : « workspaces » n'est pas un tableau — ajoute "modules/*" à la main`,
+    );
+  }
+  const workspaces: unknown[] = declared ?? [];
   if (!workspaces.includes("modules/*")) {
-    manifest.workspaces = [...workspaces, "modules/*"];
+    manifest.data["workspaces"] = [...workspaces, "modules/*"];
     changed = true;
   }
-  const scripts = (manifest.scripts ??= {});
+  const scripts = ensureObjectField(manifest, "scripts");
   // Chaînage des scripts de l'app vers ses workspaces. `--if-present` : un module
   // sans script `test` ne casse pas la commande de l'app.
   const CHAIN: Record<string, "before" | "after"> = {
@@ -2331,7 +2364,7 @@ export function ensureWorkspaces(
   };
   for (const [name, when] of Object.entries(CHAIN)) {
     const script = scripts[name];
-    if (!script || hasWorkspaceRun(script)) {
+    if (typeof script !== "string" || !script || hasWorkspaceRun(script)) {
       continue;
     }
     const delegated = packageManagerWorkspaceRun(packageManager, name);
@@ -2342,7 +2375,7 @@ export function ensureWorkspaces(
     changed = true;
   }
   if (changed) {
-    writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    writePackageManifest(manifest, writer);
   }
   return changed;
 }
@@ -2364,22 +2397,17 @@ export function declareWorkspaceDependency(
   pkgName: string,
   writer: ScaffoldWriter,
 ): boolean {
-  const manifestPath = path.join(projectRoot, "package.json");
-  const manifest = JSON.parse(writer.read(manifestPath)) as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
+  const manifest = readPackageManifest(
+    path.join(projectRoot, "package.json"),
+    writer,
+  );
   if (
-    manifest.dependencies?.[pkgName] !== undefined ||
-    manifest.devDependencies?.[pkgName] !== undefined
+    dependencyNames(manifest, ["dependencies", "devDependencies"]).has(pkgName)
   ) {
     return false;
   }
-  manifest.dependencies = {
-    ...manifest.dependencies,
-    [pkgName]: "workspace:*",
-  };
-  writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  ensureObjectField(manifest, "dependencies")[pkgName] = "workspace:*";
+  writePackageManifest(manifest, writer);
   return true;
 }
 
@@ -2717,13 +2745,10 @@ function readAppDependencyNames(
   projectRoot: string,
   writer: ScaffoldWriter,
 ): Set<string> {
-  const manifest = JSON.parse(
-    writer.read(path.join(projectRoot, "package.json")),
-  ) as Record<string, Record<string, string> | undefined>;
-  return new Set([
-    ...Object.keys(manifest.dependencies ?? {}),
-    ...Object.keys(manifest.devDependencies ?? {}),
-  ]);
+  return dependencyNames(
+    readPackageManifest(path.join(projectRoot, "package.json"), writer),
+    ["dependencies", "devDependencies"],
+  );
 }
 
 /**
@@ -2830,19 +2855,53 @@ export interface IAgentsGuideRefresh {
   file: string;
 }
 
-/** Ce qu'un scaffold de module lit du manifeste à la racine du dépôt ou de l'app. */
-interface IRepositoryManifest {
-  name?: string;
+/**
+ * Ce qu'un scaffold de module lit du manifeste à la racine du dépôt ou de l'app.
+ *
+ * Les métadonnées héritées par un paquet publiable restent `unknown` : elles sont
+ * RECOPIÉES telles quelles, jamais interprétées — une licence écrite en objet
+ * (forme historique de npm) passe comme la racine la porte.
+ */
+interface IRepositoryManifest extends IRootManifest {
   version?: string;
-  workspaces?: string[];
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  license?: string;
+  license?: unknown;
   author?: unknown;
-  engines?: Record<string, string>;
+  engines?: unknown;
   repository?: unknown;
-  homepage?: string;
+  homepage?: unknown;
   bugs?: unknown;
+}
+
+/** Champs du manifeste racine recopiés dans un paquet publiable. */
+const INHERITED_FIELDS = [
+  "license",
+  "author",
+  "engines",
+  "repository",
+  "homepage",
+  "bugs",
+] as const;
+
+/**
+ * Le manifeste de la racine, lu pour le scaffold d'un module.
+ *
+ * @param file - chemin du `package.json` racine.
+ * @param writer - transaction du scaffold.
+ * @returns nom, workspaces et version bien formés, métadonnées à recopier.
+ * @throws si le manifeste est illisible ou si sa racine n'est pas un objet.
+ */
+function readRepositoryManifest(
+  file: string,
+  writer: ScaffoldWriter,
+): IRepositoryManifest {
+  const parsed = readPackageManifest(file, writer);
+  const manifest: IRepositoryManifest = toRootManifest(parsed);
+  const version = manifestString(parsed, "version");
+  if (version !== undefined) manifest.version = version;
+  for (const key of INHERITED_FIELDS) {
+    if (parsed.data[key] !== undefined) manifest[key] = parsed.data[key];
+  }
+  return manifest;
 }
 
 /**
@@ -2873,12 +2932,11 @@ function siblingPackageVersion(
       if (!entry.isDirectory || entry.name === name) continue;
       const manifest = path.join(packagesDir, entry.name, "package.json");
       if (!writer.exists(manifest)) continue;
-      const parsed: unknown = JSON.parse(writer.read(manifest));
-      const version =
-        typeof parsed === "object" && parsed !== null && "version" in parsed
-          ? parsed.version
-          : undefined;
-      if (typeof version === "string" && version.length > 0) {
+      const version = manifestString(
+        readPackageManifest(manifest, writer),
+        "version",
+      );
+      if (version !== undefined && version.length > 0) {
         counts.set(version, (counts.get(version) ?? 0) + 1);
       }
     }
@@ -2915,16 +2973,8 @@ function inheritRepositoryMetadata(
   writer: ScaffoldWriter,
   written: string[],
 ): void {
-  const manifestPath = path.join(dest, "package.json");
-  const parsed: unknown = JSON.parse(writer.read(manifestPath));
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(
-      `${manifestPath} : le manifeste rendu n'est pas un objet JSON`,
-    );
-  }
-  const manifest: Record<string, unknown> = Object.fromEntries(
-    Object.entries(parsed),
-  );
+  const rendered = readPackageManifest(path.join(dest, "package.json"), writer);
+  const manifest = rendered.data;
   if (root.license !== undefined) manifest["license"] = root.license;
   if (root.author !== undefined) manifest["author"] = root.author;
   if (root.engines !== undefined) manifest["engines"] = root.engines;
@@ -2934,7 +2984,7 @@ function inheritRepositoryMetadata(
   if (root.homepage !== undefined) manifest["homepage"] = root.homepage;
   if (root.bugs !== undefined) manifest["bugs"] = root.bugs;
   manifest["publishConfig"] = { access: "public" };
-  writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  writePackageManifest(rendered, writer);
   const license = path.join(projectRoot, "LICENSE");
   if (writer.exists(license)) {
     const target = path.join(dest, "LICENSE");
@@ -3012,10 +3062,10 @@ function runModuleScaffold(
     );
   }
   const name = toKebabCase(String(answers.name));
-  const appManifestPath = path.join(projectRoot, "package.json");
-  const appManifest = JSON.parse(
-    writer.read(appManifestPath),
-  ) as IRepositoryManifest;
+  const appManifest = readRepositoryManifest(
+    path.join(projectRoot, "package.json"),
+    writer,
+  );
   const appName = appManifest.name ?? path.basename(projectRoot);
   // OÙ le module naît et sous quel NOM : constaté dans les workspaces du dépôt,
   // jamais supposé. Une app génère `modules/<nom>` ; un monorepo qui déclare un
@@ -3523,9 +3573,10 @@ function runControllerScaffold(
   // Capacités de la CIBLE (deps de son package.json) : les templates dégradent
   // proprement — la vitrine example ne montre les gardes sécurité que si la brique
   // est là ; la saveur realtime, elle, n'a AUCUNE version dégradée → throw.
-  const manifest = JSON.parse(
-    writer.read(path.join(target.dir, "package.json")),
-  ) as Record<string, Record<string, string>>;
+  const manifest = readPackageManifest(
+    path.join(target.dir, "package.json"),
+    writer,
+  );
   // Les briques se cherchent dans l'APP autant que dans la cible : un module
   // est un workspace qui déclare les paquets Nodefony en peerDependencies,
   // c'est l'app qui les installe. Ne lire que le module faisait naître son
@@ -3534,16 +3585,11 @@ function runControllerScaffold(
   const appManifest =
     target.dir === projectRoot
       ? manifest
-      : (JSON.parse(
-          writer.read(path.join(projectRoot, "package.json")),
-        ) as Record<string, Record<string, string>>);
-  const targetDeps = new Set(
-    [manifest, appManifest].flatMap((m) =>
-      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-        Object.keys(m[b] ?? {}),
-      ),
-    ),
-  );
+      : readPackageManifest(path.join(projectRoot, "package.json"), writer);
+  const targetDeps = new Set([
+    ...dependencyNames(manifest),
+    ...dependencyNames(appManifest),
+  ]);
   if (!CONTROLLER_KIND_CHOICES.includes(kind)) {
     throw new Error(
       `saveur « ${kind} » inconnue — choix : ${CONTROLLER_KIND_CHOICES.join(" | ")}`,
@@ -3953,26 +3999,13 @@ function runDataServiceScaffold(
   writer: ScaffoldWriter,
 ): IScaffoldResult {
   const { projectRoot, target, camel, nameClass } = context;
-  const depsOf = (dir: string): Set<string> => {
-    const file = path.join(dir, "package.json");
-    if (!writer.exists(file)) return new Set();
-    const pkg = JSON.parse(writer.read(file)) as Record<
-      string,
-      Record<string, string>
-    >;
-    return new Set(
-      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-        Object.keys(pkg[b] ?? {}),
-      ),
-    );
-  };
   // Même garde que `create entity`, et pour la même raison : la brique se
   // cherche dans l'APP autant que dans la cible — un module est un workspace
   // qui déclare les paquets Nodefony en peerDependencies, c'est l'app qui les
   // installe.
   const orm = resolveEntityOrm(
-    depsOf(target.dir),
-    depsOf(projectRoot),
+    declaredDependencies(target.dir, writer),
+    declaredDependencies(projectRoot, writer),
     target.name,
     "--entity : ",
   );
@@ -5002,26 +5035,12 @@ function runEntityScaffold(
   // workspace de l'app et déclare les paquets Nodefony en `peerDependencies` —
   // c'est l'app qui les installe et qui charge le module ORM (manifeste `modules`).
   // Exiger la dep dans le module rendait `--module` inutilisable (vécu).
-  const manifestPath = path.join(target.dir, "package.json");
-  const manifest = JSON.parse(writer.read(manifestPath)) as Record<
-    string,
-    Record<string, string>
-  >;
-  const depsOf = (dir: string): Set<string> => {
-    const file = path.join(dir, "package.json");
-    if (!writer.exists(file)) return new Set();
-    const pkg = JSON.parse(writer.read(file)) as Record<
-      string,
-      Record<string, string>
-    >;
-    return new Set(
-      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-        Object.keys(pkg[b] ?? {}),
-      ),
-    );
-  };
-  const targetDeps = depsOf(target.dir);
-  const projectDeps = depsOf(projectRoot);
+  const manifest = readPackageManifest(
+    path.join(target.dir, "package.json"),
+    writer,
+  );
+  const targetDeps = dependencyNames(manifest);
+  const projectDeps = declaredDependencies(projectRoot, writer);
   const found = resolveEntityOrm(targetDeps, projectDeps, target.name);
   // Une application qui porte les DEUX ORM choisit par le CONNECTEUR : celui
   // de Mongoose (`nodefony`) désigne une entité document — sauf si la
@@ -5053,7 +5072,7 @@ function runEntityScaffold(
     const rootManifestPath = path.join(projectRoot, "package.json");
     // Élargi à la déclaration : `ensure` l'assigne dans une fermeture, que le
     // rétrécissement de TypeScript ne suit pas.
-    let rootManifest = null as Record<string, Record<string, string>> | null;
+    let rootManifest = null as IPackageManifest | null;
     const ensure = (
       section: "dependencies" | "devDependencies",
       dep: "drizzle-orm" | "drizzle-kit",
@@ -5062,12 +5081,8 @@ function runEntityScaffold(
       if (projectDeps.has(dep)) {
         return;
       }
-      rootManifest ??= JSON.parse(writer.read(rootManifestPath)) as Record<
-        string,
-        Record<string, string>
-      >;
-      rootManifest[section] ??= {};
-      rootManifest[section][dep] = versionOf(dep);
+      rootManifest ??= readPackageManifest(rootManifestPath, writer);
+      ensureObjectField(rootManifest, section)[dep] = versionOf(dep);
       depsAdded.push(dep);
       ormRuntimeNote.push(
         `dépendance manquante ajoutée au package.json : ${dep}@${SCAFFOLD_VERSIONS[dep]} ` +
@@ -5091,10 +5106,7 @@ function runEntityScaffold(
       );
     }
     if (rootManifest !== null) {
-      writer.write(
-        rootManifestPath,
-        `${JSON.stringify(rootManifest, null, 2)}\n`,
-      );
+      writePackageManifest(rootManifest, writer);
     }
   }
 
@@ -6287,15 +6299,11 @@ function runFrontScaffold(
         `une entry au registerEntry existant et un controller de page`,
     );
   }
-  const manifestPath = path.join(target.dir, "package.json");
-  const manifest = JSON.parse(writer.read(manifestPath)) as Partial<
-    Record<string, Record<string, string>>
-  >;
-  const targetDeps = new Set(
-    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-      Object.keys(manifest[b] ?? {}),
-    ),
+  const manifest = readPackageManifest(
+    path.join(target.dir, "package.json"),
+    writer,
   );
+  const targetDeps = dependencyNames(manifest);
   // `@nodefony/frontend` absent de la CIBLE n'est un refus que si l'APP ne l'a
   // pas non plus : un module local est un workspace, il résout depuis l'arbre de
   // l'application et rien ne s'y installe séparément. Refuser dans ce cas
@@ -6490,7 +6498,7 @@ function runFrontScaffold(
     // Rien à poser : ne pas créer un bloc vide dans le manifeste de la cible
     // (`deps` l'est pour les trois frameworks — cf FRONTEND_PARAMS).
     if (Object.keys(entries).length === 0) return;
-    const deps = (manifest[block] ??= {});
+    const deps = ensureObjectField(manifest, block);
     for (const [name, version] of Object.entries(entries)) {
       if (!targetDeps.has(name)) {
         deps[name] = version;
@@ -6516,12 +6524,11 @@ function runFrontScaffold(
   // qu'en production, là où il n'y a plus de serveur de développement pour
   // rattraper. Le script n'est touché que s'il lui manque l'étape, et la
   // commande y est ajoutée à la FIN : ce que l'utilisateur a écrit avant reste.
-  const scripts = manifest["scripts"];
-  // Annoté : un manifeste écrit à la main peut ne pas porter de `build`.
-  const buildScript: string | undefined = scripts?.["build"];
+  const scripts = manifest.data["scripts"];
+  const buildScript = isPlainObject(scripts) ? scripts["build"] : undefined;
   let buildWired = false;
   if (
-    scripts !== undefined &&
+    isPlainObject(scripts) &&
     typeof buildScript === "string" &&
     !buildScript.includes("frontend:build")
   ) {
@@ -6529,7 +6536,7 @@ function runFrontScaffold(
     buildWired = true;
   }
   if (added.length > 0 || buildWired) {
-    writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    writePackageManifest(manifest, writer);
     written.push("package.json");
   }
   // Le typecheck et le lint typé doivent VOIR le front ajouté, comme si la
