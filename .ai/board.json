@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T07:06:02.188Z",
+  "generatedAt": "2026-10-19T07:30:30.788Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -8878,7 +8878,7 @@
       "title": "feat(cli): ajouter barre figée et invite au serveur de développement",
       "url": "https://github.com/nodefony/nodefony-core/issues/534",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 11,
