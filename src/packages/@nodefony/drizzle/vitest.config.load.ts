@@ -26,6 +26,10 @@ import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
 export default defineConfig({
   test: {
     globals: true,
+    // Écrit, jamais laissé au défaut : vitest 5 ACTIVE ce cache, à la RACINE
+    // (`node_modules/.vitest-cache`), partagé avec les suites lancées en même
+    // temps — un nettoyage concurrent y a fait échouer un démarrage (ENOTEMPTY).
+    fsModuleCache: false,
     include: ["tests/load/**/*.test.ts"],
     testTimeout: 180000,
     hookTimeout: 180000,

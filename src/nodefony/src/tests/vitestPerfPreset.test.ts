@@ -185,6 +185,27 @@ describe("vitest.perf — le cache de transformation reste hors de la forge", ()
       [],
       `configuration(s) qui n'étalent pas le socle : ${sans.join(", ")}`,
     );
+
+    // Écarté du socle ne veut pas dire laissé au DÉFAUT : vitest 5 active ce
+    // cache dans le `node_modules` de la racine, partagé par toutes les suites
+    // lancées ensemble — une suite de charge y a échoué au démarrage
+    // (ENOTEMPTY). Un décor constant est donc un cache ÉCRIT éteint. La config
+    // d'outillage de la racine, hors relevé (pas de `package.json` à côté),
+    // partage le même dossier.
+    const muettes = [
+      ...bancs,
+      "scripts/test/vitest/vitest.tooling.config.ts",
+    ].filter(
+      (rel) =>
+        !/^\s*fsModuleCache:\s*false,/mu.test(
+          readFileSync(path.join(ROOT, rel), "utf8"),
+        ),
+    );
+    assert.deepEqual(
+      muettes,
+      [],
+      `configuration(s) qui laissent le cache au défaut de vitest : ${muettes.join(", ")}`,
+    );
   });
 
   it("aucun gabarit d'application n'impose ce cache", () => {

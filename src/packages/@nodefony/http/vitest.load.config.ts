@@ -22,6 +22,10 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
+    // Écrit, jamais laissé au défaut : vitest 5 ACTIVE ce cache, à la RACINE
+    // (`node_modules/.vitest-cache`), partagé avec les suites lancées en même
+    // temps — un nettoyage concurrent y a fait échouer un démarrage (ENOTEMPTY).
+    fsModuleCache: false,
     // Aucune cible d'infra ici (le décor est un serveur, pas une base), mais
     // `NF_GATES_EXPECT` permet à la PASSE d'exiger que le gate mémoire ait
     // réellement tourné. Un serveur injoignable, un fichier renommé, et cette
