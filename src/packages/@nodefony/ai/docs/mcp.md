@@ -194,6 +194,11 @@ main au lot suivant.
 | `requiresAuth` | exige une identité prouvée, sans scope particulier                                                                                                            |
 | `handler`      | `(args, caller, run?) => IMcpToolResult` — synchrone ou promesse                                                                                              |
 
+Un module écrit en JavaScript n'est contrôlé par aucun compilateur : un champ de mauvaise forme
+(`requiresAuth: "oui"`, `scopes: "shop:read"`, `description` absente) fait **écarter l'outil à la
+déclaration**, motif dit au journal : elle n'est jamais interprétée. Côté appel, des `arguments` qui ne sont
+pas un objet sont refusés en `-32602`.
+
 Trois règles qui évitent les défauts les plus coûteux :
 
 - **Un échec métier se rend en `isError`, jamais en exception.** `mcpText(message, true)`
