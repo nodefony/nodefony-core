@@ -69,7 +69,7 @@ naîtront, pas dans des paquets séparés — les anciennes esquisses
 ### Invariants de design (ne pas dévier)
 
 1. **Générique** — aucun module IA ne connaît le métier.
-2. **Injectable** — tout via `@injectable` / `@inject`.
+2. **Injectable** — tout via `@injectable` / `@Inject`.
 3. **Streaming natif** — `AsyncGenerator<string>` serveur, WS Nodefony client.
 4. **Validation humaine** — approval obligatoire sur les zones `restricted`.
 5. **Mode souverain** — tout doit tourner local (Ollama + pgvector), air-gap OK.

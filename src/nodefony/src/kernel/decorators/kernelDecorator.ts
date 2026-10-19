@@ -7,11 +7,7 @@ import "reflect-metadata";
 import Module from "../Module";
 import { ServiceConstructor } from "../Kernel";
 import Service from "../../Service";
-import Injector, {
-  DIScope,
-  InjectableOptions,
-  PropertyInjectMeta,
-} from "../injector/injector";
+import Injector, { DIScope, InjectableOptions } from "../injector/injector";
 import {
   orderServicesByDependencies,
   registeredNameOf,
@@ -37,7 +33,7 @@ type Injectable<T = { service: Service }> = new (...args: any[]) => T;
  *
  * Décorateur de **classe de module**. Les services sont instanciés au hook
  * `onPreBoot`, et **l'ordre écrit ici n'a aucune importance** : il est recalculé
- * depuis les dépendances déclarées (`@inject`), de sorte qu'un service réclamé
+ * depuis les dépendances déclarées (`@Inject`), de sorte qu'un service réclamé
  * soit présent avant son consommateur. Le hook est tagué au nom du module : un
  * service qui échoue suit la politique de criticité de SON module — fatal en
  * production, dégradation annoncée ailleurs — au lieu de faire tomber le boot
@@ -76,7 +72,7 @@ function services(
       // BootReport : un boot amputé d'un service critique se déclarait « UP ».
       private async initDecoratorServices(): Promise<void> {
         // L'ordre d'instanciation se CALCULE depuis les dépendances déclarées
-        // (@inject / design:paramtypes) — il ne se lit plus dans la liste. Un
+        // (@Inject("nom")) — il ne se lit plus dans la liste. Un
         // service réclamé doit être au container avant son consommateur ;
         // faire reposer ça sur l'ordre écrit à la main était un piège (déplacer
         // `HttpKernel` de 3 lignes → 499 sur chaque requête). Tri STABLE : une
@@ -128,7 +124,7 @@ function services(
  * Décorateur de **classe**. Il inscrit la classe à l'annuaire d'injection sous
  * un nom — celui de la classe par défaut — et fige sa portée. Sans lui, la
  * classe reste une classe ordinaire : elle ne peut être ni découverte, ni
- * injectée, et un `@inject("…")` qui la réclame échouera à la résolution.
+ * injectée, et un `@Inject("…")` qui la réclame échouera à la résolution.
  *
  * @param nameOrOptions - Le nom d'enregistrement, ou `{ name?, scope? }`. La
  *   portée vaut `"singleton"` par défaut — une seule instance pour le
@@ -177,16 +173,27 @@ function injectable(
 }
 
 /**
- * Injecter une Service avec son nom dans le constructeur.
+ * Nomme le service qu'un paramètre de constructeur doit recevoir.
  *
- * @param serviceName - Le nom du service à injecter (doit correspondre à un @injectable)
+ * Décorateur de **paramètre**. Une dépendance se NOMME : l'injecteur ne lit
+ * jamais le type d'un paramètre (ADR-0018). Un paramètre sans `@Inject` reçoit
+ * l'argument positionnel suivant passé à l'instanciation, ou `undefined`.
  *
+ * @param serviceName - Le nom sous lequel le service est inscrit (`@injectable`)
+ *   ou posé au conteneur du kernel.
+ * @returns Le décorateur de paramètre.
+ * @throws Error Si le nom est vide.
  * @example
- *  class MyService extends Service {
- *    constructor(@inject("Fetch") private fetch: Fetch) { super("my", ...) }
- *  }
+ * ```typescript
+ * @injectable()
+ * class Mailer extends Service {
+ *   constructor(@Inject("Fetch") private readonly fetch: Fetch) {
+ *     super("mailer");
+ *   }
+ * }
+ * ```
  */
-function inject(serviceName: string): ParameterDecorator {
+function Inject(serviceName: string): ParameterDecorator {
   return function (
     target: object,
     _propertyKey: string | symbol | undefined,
@@ -205,36 +212,4 @@ function inject(serviceName: string): ParameterDecorator {
   };
 }
 
-/**
- * Injecter une Service sur une propriété de classe (property injection).
- * Distinct de @inject (minuscule) qui cible les paramètres de constructeur.
- *
- * Le nom est obligatoire si emitDecoratorMetadata n'est pas actif (tests tsx).
- *
- * @example
- *  class MyService extends Service {
- *    @Inject("Fetch") private fetch!: Fetch;
- *  }
- */
-function Inject(name?: string): PropertyDecorator {
-  return function (target: object, propertyKey: string | symbol): void {
-    const resolvedName =
-      name ||
-      (
-        Reflect.getMetadata("design:type", target, propertyKey) as
-          { name?: string } | undefined
-      )?.name;
-    if (!resolvedName) {
-      throw new Error(
-        `@Inject requires an explicit name on property "${String(propertyKey)}" (emitDecoratorMetadata not active)`,
-      );
-    }
-    const existing: PropertyInjectMeta[] =
-      (Reflect.getMetadata("inject:properties", target) as
-        PropertyInjectMeta[] | undefined) ?? [];
-    existing.push({ key: propertyKey, name: resolvedName });
-    Reflect.defineMetadata("inject:properties", existing, target);
-  };
-}
-
-export { injectable, inject, Inject, services };
+export { injectable, Inject, services };

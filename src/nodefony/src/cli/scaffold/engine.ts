@@ -3925,7 +3925,7 @@ function runServiceScaffold(
   written.push("index.ts");
   const notes = [
     `DI   container.get("${camel}")  — clé du conteneur (super("${camel}", …))`,
-    `DI   @inject("${nameClass}")    — nom de classe (@injectable)`,
+    `DI   @Inject("${nameClass}")    — nom de classe (@injectable)`,
   ];
   if (inject) {
     notes.push(
@@ -3934,7 +3934,7 @@ function runServiceScaffold(
   } else if (existing[0] !== undefined) {
     // La note APPREND le geste, au seul moment où il est applicable : la cible
     // porte déjà un service, donc l'injection a un sens ici et maintenant.
-    // Mesuré au banc : `@inject` n'existait qu'en commentaire dans les gabarits,
+    // Mesuré au banc : `@Inject` n'existait qu'en commentaire dans les gabarits,
     // et l'agent passait exclusivement par `container.get` — on ne prend que la
     // voie qu'on a VUE, jamais celle qu'on a lue.
     notes.push(

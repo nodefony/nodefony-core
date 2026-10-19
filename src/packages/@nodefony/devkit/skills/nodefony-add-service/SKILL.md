@@ -4,7 +4,7 @@ description: >
   Crée un service injectable dans une application Nodefony par `nodefony create service`, et le
   fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la
   CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre
-  (`@inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie
+  (`@Inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie
   (un exemplaire pour l'application, ou un par requête), et le défaut mesuré qu'un service
   écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur
   ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre.
@@ -63,7 +63,7 @@ et à l'introspection, et n'est construit qu'à la première requête qui le ré
 C'est le piège n°1, et il ne produit aucune erreur — juste un `null` :
 
 ```ts
-@injectable()                            // ← nomme la CLASSE : @inject("BillingService")
+@injectable()                            // ← nomme la CLASSE : @Inject("BillingService")
 export class BillingService extends Service {
   constructor() {
     super("billing", ...);               // ← nomme l'INSTANCE : container.get("billing")
@@ -103,7 +103,7 @@ Détail : `node_modules/nodefony/docs/request-context.md`.
 
 | Voie                           | Quand                                                                         |
 | ------------------------------ | ----------------------------------------------------------------------------- |
-| `@inject("X")` au constructeur | **par défaut** — la dépendance est déclarée, l'ordre de démarrage la respecte |
+| `@Inject("X")` au constructeur | **par défaut** — la dépendance est déclarée, l'ordre de démarrage la respecte |
 | `container.get("x")` à l'usage | quand la dépendance est facultative, tardive, ou choisie à l'exécution        |
 
 `create service --inject` pose la première. Le second est visible partout dans les exemples, et

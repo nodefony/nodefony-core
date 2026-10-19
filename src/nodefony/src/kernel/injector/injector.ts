@@ -40,11 +40,6 @@ const DI_SCOPES: ReadonlySet<string> = new Set<DIScope>([
 const namesOf = (stack: readonly ServiceConstructor[]): string =>
   stack.map((ctor) => ctor.name).join(" → ");
 
-export interface PropertyInjectMeta {
-  key: string | symbol;
-  name: string;
-}
-
 // Dictionnaire SANS prototype : un objet littéral hériterait de `Object.prototype`,
 // dont les membres (`toString`, `constructor`, `valueOf`…) répondraient alors à
 // `isRegistered()` comme autant de services fantômes que personne n'a enregistrés —
@@ -63,7 +58,7 @@ const injectables = Object.create(null) as Partial<
 // D'où l'apprentissage : au moment où un service est POSÉ au container
 // (`Module.addService` / `Kernel.addKernelService`), on connaît enfin le couple
 // (classe, clé). On s'en souvient, et toute résolution ultérieure passe par la
-// CLASSE — le nom écrit dans `@inject` ne sert plus qu'à la retrouver.
+// CLASSE — le nom écrit dans `@Inject` ne sert plus qu'à la retrouver.
 //
 // Map (clés = constructeurs) et non objet : la clé est une référence, pas un nom
 // — c'est précisément le but. Alimentée au boot (une poignée d'entrées).
@@ -79,7 +74,7 @@ class Injector extends Service {
       kernel.notificationsCenter,
     );
     // `Fetch` est le service « batteries incluses » du core : injectable partout
-    // via `@inject("Fetch")` sans qu'aucune app ait à le déclarer. On le DÉCLARE
+    // via `@Inject("Fetch")` sans qu'aucune app ait à le déclarer. On le DÉCLARE
     // (registre) *et* on le POSE (container) ici : déclarer sans poser laissait
     // `kernel.get("Fetch")` vide, donc un `new Fetch(...)` à CHAQUE résolution —
     // un service par requête, là où le scope en promet un seul.
@@ -107,7 +102,7 @@ class Injector extends Service {
    * Mémorise la clé sous laquelle une classe de service vit RÉELLEMENT dans le
    * container — apprise au moment où l'instance y est posée.
    *
-   * @remarks Sans elle, `@inject("Router")` interrogeait le container avec
+   * @remarks Sans elle, `@Inject("Router")` interrogeait le container avec
    *   `"Router"` alors que l'instance y est rangée sous `"router"` (le nom de son
    *   `super()`) : le container répondait `null` et le service était RECONSTRUIT,
    *   son cache vide, silencieusement. Un seul des 7 `@injectable` échappait au
@@ -141,6 +136,25 @@ class Injector extends Service {
   }
 
   /**
+   * Noms des services dont un constructeur dépend : ceux déclarés par
+   * `@Inject("nom")`, dans l'ordre des paramètres. Le TYPE d'un paramètre n'en
+   * fait jamais une dépendance (ADR-0018) — un type élidé par le bundler
+   * devenait `Object`, et le service recevait un argument faux sans un mot.
+   * Lecture des déclarations seule — rien n'est instancié.
+   *
+   * @param service - le constructeur
+   * @returns les noms déclarés, dans l'ordre des paramètres
+   */
+  static dependencyNamesOf(service: ServiceConstructor): string[] {
+    const declared: (string | undefined)[] =
+      (Reflect.getMetadata("inject:services", service) as
+        (string | undefined)[] | undefined) ?? [];
+    const names: string[] = [];
+    for (const name of declared) if (name) names.push(name);
+    return names;
+  }
+
+  /**
    * Portée DÉCLARÉE d'une classe par `@injectable({ scope })` — `"singleton"`
    * si elle n'en déclare aucune. C'est elle qui décide comment l'injecteur
    * résout la classe quand on la réclame par son nom.
@@ -148,34 +162,6 @@ class Injector extends Service {
    * @param service - le constructeur
    * @returns sa portée déclarée
    */
-  /**
-   * Noms des services dont un constructeur dépend, tels que l'injecteur les
-   * résoudra : `@inject("nom")` (priorité) puis l'auto-injection par type
-   * (`design:paramtypes`, résolue sur le nom de classe). Lecture des
-   * déclarations seule — rien n'est instancié.
-   *
-   * @param service - le constructeur
-   * @returns les noms, dans l'ordre des paramètres (sans l'injection de propriété)
-   */
-  static dependencyNamesOf(service: ServiceConstructor): string[] {
-    const explicit: (string | undefined)[] =
-      (Reflect.getMetadata("inject:services", service) as
-        (string | undefined)[] | undefined) ?? [];
-    const paramTypes: unknown[] =
-      (Reflect.getMetadata("design:paramtypes", service) as
-        unknown[] | undefined) ?? [];
-
-    const names: string[] = [];
-    for (const name of explicit) if (name) names.push(name);
-    for (const type of paramTypes) {
-      const name = (type as { name?: string } | undefined)?.name;
-      // Un paramètre n'est auto-injecté que si son type est ENREGISTRÉ — sinon il
-      // reçoit un argument positionnel et ne crée aucune dépendance.
-      if (name && Injector.isRegistered(name)) names.push(name);
-    }
-    return names;
-  }
-
   static scopeOf(service: ServiceConstructor): DIScope {
     return (
       (Reflect.getMetadata("di:scope", service) as DIScope | undefined) ??
@@ -269,7 +255,7 @@ class Injector extends Service {
         return Injector._resolveRequestScoped(serviceName, Ctor, stack);
       }
 
-      // Le nom écrit dans `@inject` sert à retrouver la CLASSE ; c'est ELLE qui
+      // Le nom écrit dans `@Inject` sert à retrouver la CLASSE ; c'est ELLE qui
       // dit où l'instance vit (clé apprise quand le service a été posé). Sans ce
       // relais, on interrogeait le container avec le nom DEMANDÉ — `"Router"` —
       // là où l'instance est rangée sous `"router"` : réponse `null`, service
@@ -309,7 +295,7 @@ class Injector extends Service {
         );
       }
       // On range sous la clé CANONIQUE du service (le nom de son `super()`), pas
-      // sous le nom qu'on nous a demandé : sinon un `@inject("Router")` créerait
+      // sous le nom qu'on nous a demandé : sinon un `@Inject("Router")` créerait
       // au container un second `"Router"` à côté du `"router"` légitime — deux
       // entrées, deux instances, le doublon qu'on cherche justement à tuer.
       // Et on APPREND le couple (classe, clé) au passage : la prochaine
@@ -460,7 +446,7 @@ class Injector extends Service {
    *   singleton est construit : pour un singleton paresseux ou un contrôleur
    *   `@Scope("singleton")`, c'est la première requête qui l'atteint — un
    *   démarrage vert, puis une erreur 500. Cette analyse lit les déclarations
-   *   (`@inject`, types des paramètres, `@Inject`) sans rien instancier, pour
+   *   (`@Inject("nom")`) sans rien instancier, pour
    *   que la faute arrête le démarrage. Chemin froid : appelée à
    *   l'enregistrement d'un contrôleur et d'un service déclaré.
    *
@@ -483,7 +469,7 @@ class Injector extends Service {
           );
         }
       }
-      for (const name of Injector._declaredDependencies(ctor)) {
+      for (const name of Injector.dependencyNamesOf(ctor)) {
         if (!Injector.isRegistered(name)) continue;
         const dep = Injector.get(name);
         // Une dépendance est résolue par son nom : sa portée DÉCLARÉE fait foi.
@@ -503,7 +489,7 @@ class Injector extends Service {
       ctor: ServiceConstructor,
       path: string[],
     ): string[] | null => {
-      for (const name of Injector._declaredDependencies(ctor)) {
+      for (const name of Injector.dependencyNamesOf(ctor)) {
         if (!Injector.isRegistered(name)) continue;
         const dep = Injector.get(name);
         const scope = Injector.scopeOf(dep);
@@ -519,34 +505,6 @@ class Injector extends Service {
     return walk(holder, [holder.name]);
   }
 
-  /** Dépendances déclarées, injection de propriété comprise. */
-  private static _declaredDependencies(ctor: ServiceConstructor): string[] {
-    const names = Injector.dependencyNamesOf(ctor);
-    const props: PropertyInjectMeta[] =
-      (Reflect.getMetadata("inject:properties", ctor.prototype as object) as
-        PropertyInjectMeta[] | undefined) ?? [];
-    for (const { name } of props) names.push(name);
-    return names;
-  }
-
-  // ─── Property injection post-construction ─────────────────────────────────────
-  private static _applyPropertyInjection(
-    constructor: ServiceConstructor,
-    instance: unknown,
-    stack: ServiceConstructor[],
-  ): unknown {
-    const propMetas: PropertyInjectMeta[] =
-      (Reflect.getMetadata(
-        "inject:properties",
-        constructor.prototype as object,
-      ) as PropertyInjectMeta[] | undefined) ?? [];
-    for (const { key, name } of propMetas) {
-      (instance as Record<string, unknown>)[key as string] =
-        Injector._resolveWithStack(name, stack);
-    }
-    return instance;
-  }
-
   // ─── Instantiation avec injection + détection circulaire ─────────────────────
   //
   // `stack` : chemin de résolution courant — les CONSTRUCTEURS, propres à chaque
@@ -556,18 +514,14 @@ class Injector extends Service {
   // relit sur lui — sans rien calculer tant qu'aucun service `request` n'est
   // résolu.
   //
-  // Deux sources de métadonnées :
-  //   1. inject:services    — stocké par @inject("name"). Tableau sparse par position.
-  //                           Prend la priorité sur design:paramtypes.
-  //   2. design:paramtypes  — émis par TypeScript (emitDecoratorMetadata).
-  //                           Permet l'auto-injection par type sans @inject explicite.
+  // Une seule source : `inject:services`, tableau sparse par position posé par
+  // @Inject("nom"). Le type d'un paramètre n'est JAMAIS lu (ADR-0018).
   //
   // Algorithme :
   //   Pour chaque position i :
-  //     - @inject[i] défini → résoudre par nom (priorité absolue)
-  //     - paramTypes[i] enregistré → auto-injection par type
+  //     - @Inject[i] défini → résoudre par nom
   //     - sinon → arg explicite (argsClass[explicitIdx++])
-  //   Appliquer la property injection post-construction.
+  //   Les args explicites restants sont transmis à la suite.
   private static _instantiateWithStack(
     constructor: ServiceConstructor,
     stack: ServiceConstructor[],
@@ -585,26 +539,15 @@ class Injector extends Service {
     const injectExplicit: (string | undefined)[] =
       (Reflect.getMetadata("inject:services", constructor) as
         (string | undefined)[] | undefined) ?? [];
-    const paramTypes: unknown[] =
-      (Reflect.getMetadata("design:paramtypes", constructor) as
-        unknown[] | undefined) ?? [];
 
-    const hasInjectInfo = injectExplicit.some(Boolean) || paramTypes.length > 0;
-
-    if (!hasInjectInfo) {
-      const instance = Reflect.construct(constructor, argsClass);
-      return Injector._applyPropertyInjection(
-        constructor,
-        instance,
-        nextStack,
-      ) as Service;
+    if (!injectExplicit.some(Boolean)) {
+      return Reflect.construct(constructor, argsClass);
     }
 
-    const totalParams = Math.max(paramTypes.length, injectExplicit.length);
     const resolvedArgs: unknown[] = [];
     let explicitIdx = 0;
 
-    for (let i = 0; i < totalParams; i++) {
+    for (let i = 0; i < injectExplicit.length; i++) {
       const explicitName = injectExplicit[i];
 
       // `argsClass` appartient à la classe qu'on construit, PAS à ses dépendances :
@@ -616,13 +559,6 @@ class Injector extends Service {
         resolvedArgs.push(Injector._resolveWithStack(explicitName, nextStack));
         continue;
       }
-
-      const type = paramTypes[i] as { name?: string } | undefined;
-      if (type?.name && Injector.isRegistered(type.name)) {
-        resolvedArgs.push(Injector._resolveWithStack(type.name, nextStack));
-        continue;
-      }
-
       resolvedArgs.push(argsClass[explicitIdx++]);
     }
 
@@ -630,12 +566,7 @@ class Injector extends Service {
       resolvedArgs.push(argsClass[explicitIdx++]);
     }
 
-    const instance = Reflect.construct(constructor, resolvedArgs);
-    return Injector._applyPropertyInjection(
-      constructor,
-      instance,
-      nextStack,
-    ) as Service;
+    return Reflect.construct(constructor, resolvedArgs);
   }
 
   // Générique de RETOUR voulu : l'appelant nomme le type de l'instance qu'il

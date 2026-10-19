@@ -1,27 +1,31 @@
 # INJECTION_PLAN.md — Plan d'amélioration du système DI
 
 > État actuel : `injector.ts` + `kernelDecorator.ts`.
-> Ce document est un plan de travail pour les sessions futures.
+> Ce document est un plan de travail ANCIEN : il ne fait pas foi. La référence est
+> [`docs/architecture/injection-portees.md`](../../docs/architecture/injection-portees.md), les
+> décisions vivent en `docs/adr/`. ⚠️ L'injection par type et l'injection de propriété (Phase A)
+> sont RETIRÉES par l'[ADR-0018](../../docs/adr/0018-decorateurs-sans-metadonnees-de-type.md) :
+> une dépendance se nomme par `@Inject("nom")`.
 
 ---
 
 ## État actuel ✅ (implémenté)
 
-| Feature                                | Fichier              | Statut |
-| -------------------------------------- | -------------------- | ------ |
-| `@injectable(name?)`                   | `kernelDecorator.ts` | ✅     |
-| `@injectable({ name?, scope? })`       | `kernelDecorator.ts` | ✅     |
-| `@inject("name")` parameter decorator  | `kernelDecorator.ts` | ✅     |
-| Auto-injection via `design:paramtypes` | `injector.ts`        | ✅     |
-| Scope `singleton` (défaut)             | `injector.ts`        | ✅     |
-| Scope `transient` (toujours new)       | `injector.ts`        | ✅     |
-| `Injector.getScope(name)`              | `injector.ts`        | ✅     |
-| Résolution depuis container kernel     | `injector.ts`        | ✅     |
-| `@modules / @services / @entities`     | `kernelDecorator.ts` | ✅     |
+| Feature                               | Fichier              | Statut                |
+| ------------------------------------- | -------------------- | --------------------- |
+| `@injectable(name?)`                  | `kernelDecorator.ts` | ✅                    |
+| `@injectable({ name?, scope? })`      | `kernelDecorator.ts` | ✅                    |
+| `@Inject("name")` parameter decorator | `kernelDecorator.ts` | ✅                    |
+| Auto-injection par type               | —                    | ❌ retirée (ADR-0018) |
+| Scope `singleton` (défaut)            | `injector.ts`        | ✅                    |
+| Scope `transient` (toujours new)      | `injector.ts`        | ✅                    |
+| `Injector.getScope(name)`             | `injector.ts`        | ✅                    |
+| Résolution depuis container kernel    | `injector.ts`        | ✅                    |
+| `@modules / @services / @entities`    | `kernelDecorator.ts` | ✅                    |
 
 ---
 
-## Phase A — Property Injection (priorité haute)
+## Phase A — Property Injection — ❌ RETIRÉE (ADR-0018)
 
 ### Objectif
 
@@ -39,7 +43,7 @@ class MyController extends Service {
 
 ### Implémentation
 
-1. Nouveau decorator `@Inject(name?)` (majuscule — distinct de `@inject` param).
+1. Nouveau decorator `@Inject(name?)` (propriété — distinct du décorateur de paramètre).
 2. Stocker en metadata : `Reflect.defineMetadata("inject:properties", [{key, name}], target)`.
 3. Dans `Injector.instantiate` : après `Reflect.construct`, itérer les property metas et assigner.
 
@@ -130,8 +134,7 @@ if (scope === "scoped") {
 > ✅ **LIVRÉE** (vérif 2026-05-29) — implémentée dans `injector.ts`
 > (`_instantiateWithStack`, stack passée **par valeur** `[...stack, ctorName]` async-safe,
 > l.157-170). Durcie par 6 tests `Injector.test.ts` § « Circular dependency detection » :
-> direct (A→A), indirect (A→B→A), **property injection** (`@Inject` A↔B), **mixte** ctor↔property,
-> message de chemin avec `→`, et **diamant** (A→B, A→C, B→D, C→D = anti-faux-positif).
+> direct (A→A), indirect (A→B→A), message de chemin avec `→`, et **diamant** (A→B, A→C, B→D, C→D = anti-faux-positif).
 
 ### Objectif
 
@@ -243,7 +246,6 @@ Utile pour les services coûteux (connexions DB, clients HTTP) qui ne sont pas t
 ## Ordre recommandé des phases
 
 ```
-Phase A — Property Injection   → 1 session, impact pratique immédiat
 Phase C — Circular detection   → 0.5 session, debuggabilité
 Phase B — Scoped lifetime      → 1.5 sessions, dépend du handler HTTP (Phase 4)
 Phase D — Registry par module  → 2 sessions, après Phase B
@@ -257,4 +259,4 @@ Phase E — Lazy injection       → optionnel, après Phase D
 - `DIScope = "singleton" | "transient" | "scoped"` — pas d'autres scopes.
 - Pas de XML/JSON config — tout par decorators TypeScript.
 - `Injector` reste statique + une instance kernel — pas de conteneur d'injection dédié.
-- Property injection via `@Inject` (majuscule) distinct de `@inject` param (minuscule).
+- Une dépendance se nomme : `@Inject("nom")` sur un paramètre de constructeur, jamais par son type (ADR-0018).

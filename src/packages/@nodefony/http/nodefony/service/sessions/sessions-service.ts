@@ -7,7 +7,7 @@ import {
   Module,
   // FamilyType,
   //DynamicService,
-  inject,
+  Inject,
   injectable,
   GcScheduler,
   AUTO_STORE,
@@ -232,7 +232,7 @@ class SessionsService extends Service {
   private gcScheduler: GcScheduler | null = null;
   constructor(
     module: Module,
-    @inject("HttpKernel") public httpKernel: HttpKernel,
+    @Inject("HttpKernel") public httpKernel: HttpKernel,
   ) {
     super(
       "sessions",

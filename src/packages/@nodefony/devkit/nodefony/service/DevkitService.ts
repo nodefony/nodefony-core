@@ -40,7 +40,7 @@ const DEV_OPERATOR_ROLES: readonly string[] = [ADMIN_DEFAULT_ROLE];
  *
  * Un service porte DEUX noms, et c'est normal :
  *   `@injectable()`             → nomme la CLASSE (`DevkitService`),
- *                                 c'est ce qu'on écrit dans `@inject("…")`
+ *                                 c'est ce qu'on écrit dans `@Inject("…")`
  *   `super("devkit", …)` → nomme l'INSTANCE, sa clé dans le conteneur,
  *                                 c'est ce qu'on écrit dans `kernel.get("…")`
  * Les deux mènent à la MÊME instance : le conteneur les réconcilie via la classe.
@@ -56,13 +56,13 @@ const DEV_OPERATOR_ROLES: readonly string[] = [ADMIN_DEFAULT_ROLE];
  * ```ts
  * // 1. INJECTION par le constructeur — la dépendance est DÉCLARÉE, donc le
  * //    conteneur l'ordonnance et elle se voit dans la signature (nom de CLASSE).
- * import { inject, injectable, Service, Module } from "nodefony";
+ * import { Inject, injectable, Service, Module } from "nodefony";
  *
  * @injectable()
  * class ReportService extends Service {
  *   constructor(
  *     module: Module,
- *     @inject("DevkitService") private devkit: DevkitService,
+ *     @Inject("DevkitService") private devkit: DevkitService,
  *   ) {
  *     super("report", module.container, module.notificationsCenter);
  *   }

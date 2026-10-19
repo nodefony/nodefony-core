@@ -430,7 +430,7 @@ C'est exactement le correctif qui empêche une fuite d'écouteurs par instance s
 | Décorateur          | Ancre                           | Rôle                                                               |
 | ------------------- | ------------------------------- | ------------------------------------------------------------------ |
 | `@injectable(nom?)` | `kernelDecorator.ts#injectable` | inscrit la **classe** au registre DI (défaut : `constructor.name`) |
-| `@inject("nom")`    | `kernelDecorator.ts#inject`     | injecte un service par nom sur un **paramètre** de constructeur    |
+| `@Inject("nom")`    | `kernelDecorator.ts#Inject`     | injecte un service par nom sur un **paramètre** de constructeur    |
 | `@services([…])`    | `kernelDecorator.ts#services`   | déclare les services d'un module — instanciés à `onPreBoot`        |
 
 `@injectable` accepte aussi un objet `{ name?, scope? }` où `scope` (`DIScope`, `injector.ts#DIScope`)
@@ -444,7 +444,7 @@ l'atteindre depuis n'importe quel code :
 > [!CAUTION]
 > Le décorateur de **propriété** `@Inject` existe dans le code (`kernelDecorator.ts#Inject`) mais n'est
 > **pas ré-exporté** par le paquet `nodefony` : une app ne peut pas l'importer. Injecte par
-> **constructeur** (`@inject`), qui est le chemin supporté.
+> **constructeur** (`@Inject`), qui est le chemin supporté.
 
 ### L'ordre d'écriture ne décide plus du boot
 
@@ -452,7 +452,7 @@ Historiquement, un service devait être listé **avant** ses consommateurs dans 
 déplacer une classe de trois lignes suffisait à casser le serveur au runtime. Aujourd'hui, l'ordre se
 **calcule** — `orderServicesByDependencies()` (`serviceOrder.ts#orderServicesByDependencies`), appelé par le décorateur
 (`kernelDecorator.ts#services`), fait un tri topologique **stable** depuis les dépendances déclarées
-(`@inject` puis `design:paramtypes`). Une liste déjà correcte ressort inchangée.
+(les noms `@Inject("nom")` ; le type d'un paramètre n'en crée aucune). Une liste déjà correcte ressort inchangée.
 
 ```typescript ignore
 @services([Consumer, Dependency]) // ✅ l'ordre écrit n'a plus d'importance

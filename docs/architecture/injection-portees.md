@@ -83,9 +83,9 @@ Une « portée » répond à quatre questions. Les voici pour chaque durée de v
 
 | Durée de vie                      | Combien d'instances ?                 | Qui la voit ?            | Quand meurt-elle ?                        | Comment je l'obtiens ?                                     |
 | --------------------------------- | ------------------------------------- | ------------------------ | ----------------------------------------- | ---------------------------------------------------------- |
-| service `singleton` (défaut)      | **une** pour toute l'application      | toutes les requêtes      | à l'arrêt de l'application                | `@inject("nom")`                                           |
-| service `transient`               | **une par résolution**                | celui qui l'a demandée   | quand plus rien ne la référence           | `@inject("nom")`                                           |
-| service `request`                 | **une par requête** (créée si besoin) | la requête qui l'a créée | à la fin de la requête (`clean()` appelé) | `@inject("nom")`, ou `RequestContext.getScope()?.get(nom)` |
+| service `singleton` (défaut)      | **une** pour toute l'application      | toutes les requêtes      | à l'arrêt de l'application                | `@Inject("nom")`                                           |
+| service `transient`               | **une par résolution**                | celui qui l'a demandée   | quand plus rien ne la référence           | `@Inject("nom")`                                           |
+| service `request`                 | **une par requête** (créée si besoin) | la requête qui l'a créée | à la fin de la requête (`clean()` appelé) | `@Inject("nom")`, ou `RequestContext.getScope()?.get(nom)` |
 | objet posé à la main sur le scope | une, posée par ton code               | la requête qui l'a posée | à la fin de la requête (sans `clean()`)   | `RequestContext.getScope()?.get(nom)`                      |
 | contrôleur (défaut, singleton)    | **un** pour toute l'application       | toutes les requêtes      | à l'arrêt de l'application                | construit par le routeur à sa 1re requête, mis en cache    |
 | contrôleur `@Scope("request")`    | **un par requête** (par connexion WS) | la requête qu'il sert    | à la fin de la requête                    | construit par le routeur                                   |
@@ -122,7 +122,7 @@ La réponse : un service de portée `request` — un exemplaire par requête, po
 le contrôleur qui l'injecte **et** par une fonction qui ne reçoit rien.
 
 ```typescript
-import { Service, injectable, inject, RequestContext } from "nodefony";
+import { Service, injectable, Inject, RequestContext } from "nodefony";
 import type { Scope as DiScope } from "nodefony";
 import { Controller, controller, Get, Scope } from "@nodefony/framework";
 import type { Context, HttpContext } from "@nodefony/http";
@@ -165,7 +165,7 @@ function currentTenantLabel(): string {
 class MeController extends Controller {
   constructor(
     context: Context,
-    @inject("tenantContext") private tenant: TenantContext,
+    @Inject("tenantContext") private tenant: TenantContext,
   ) {
     super("MeController", context);
   }
@@ -311,7 +311,7 @@ qu'unique : un cache, un compteur, une connexion, un pool.
 
 La résolution suit un ordre précis (`Injector._resolveWithStack()`, `injector.ts#Injector._resolveWithStack`) :
 
-1. le nom écrit dans `@inject` retrouve la **classe** au registre ;
+1. le nom écrit dans `@Inject` retrouve la **classe** au registre ;
 2. la classe dit **où** son instance vit — clé apprise à la pose
    (`Injector.containerKeyOf()`, `injector.ts#Injector.containerKeyOf`) ;
 3. si le conteneur du kernel la porte, elle est **rendue telle quelle** ;
@@ -362,7 +362,7 @@ WebSocket. Le contrat, tel que l'injecteur l'applique (`Injector._resolveRequest
 > le reste. Le message propose trois remèdes : passer le détenteur en `request`, en `transient`, ou
 > lire le service à l'appel par `RequestContext.getScope()`.
 >
-> La garde voit le graphe **déclaré** — les `@inject` et la pile de résolution. Un
+> La garde voit le graphe **déclaré** — les `@Inject` et la pile de résolution. Un
 > `Injector.instantiate()` écrit à la main repart d'une pile vide (`injector.ts#Injector.instantiate`) : appelé depuis
 > le constructeur d'un singleton pendant une requête, il rend l'exemplaire de CETTE requête sans que
 > la garde connaisse le détenteur, et le singleton qui le garde l'a capturé. Passer par l'injection
@@ -486,10 +486,9 @@ class AppModule extends Module {}
 | après la fin d'une requête        | la **même** instance — elle vit dans le conteneur du kernel |
 
 > [!WARNING]
-> Le nom du `@inject` doit être celui du **registre** (`@injectable("catalog")`), pas celui de la
-> classe. L'injection automatique par type ne s'applique que si le **nom de la classe** est inscrit —
-> ce qui n'est pas le cas dès qu'on écrit `@injectable("catalog")` sur `CatalogService`. Nommer
-> explicitement marche dans tous les cas.
+> Le nom du `@Inject` doit être celui du **registre** (`@injectable("catalog")`), pas celui de la
+> classe. Le type du paramètre ne résout rien : sans `@Inject("catalog")`, le constructeur reçoit
+> l'argument positionnel suivant, ou `undefined`.
 
 ### Situation 2 — « je veux un état propre à CHAQUE requête »
 
@@ -559,7 +558,7 @@ la même clé est refusé, en le disant. Et un faux posé ainsi n'est pas rattac
 
 > [!NOTE]
 > Poser un objet sur le scope sous le nom d'un service **singleton** ne change pas ce que reçoit un
-> `@inject` : un singleton se résout dans le conteneur du kernel. Seul le code qui lit le scope
+> `@Inject` : un singleton se résout dans le conteneur du kernel. Seul le code qui lit le scope
 > (`RequestContext.getScope()?.get(nom)`) voit la surcharge.
 
 ## 🧭 Atteindre le calque de sa requête — `RequestContext.getScope()`
@@ -597,7 +596,7 @@ concurrentes de la même socket.
 
 ```mermaid
 flowchart TD
-  START["@inject('nom') sur un paramètre"] --> REG{"nom inscrit<br/>au registre @injectable ?"}
+  START["@Inject('nom') sur un paramètre"] --> REG{"nom inscrit<br/>au registre @injectable ?"}
   REG -->|non| CONT{"le conteneur du kernel<br/>connaît ce nom ?"}
   CONT -->|oui| RET1["rend son instance"]
   CONT -->|non| THROW["lève : not found or not injectable"]
@@ -622,26 +621,25 @@ Le décorateur ne **peut pas** connaître le second nom : il s'exécute au **cha
 `super()` seulement à la **construction**. La solution est un apprentissage : au moment où le
 service est posé, le couple (classe, clé) est mémorisé (`Injector.rememberContainerKey()`,
 `injector.ts#Injector.rememberContainerKey`), et toute résolution ultérieure passe par la **classe**. Sans ce relais,
-`@inject("Router")` interrogeait le conteneur avec `"Router"` là où l'instance est rangée sous
+`@Inject("Router")` interrogeait le conteneur avec `"Router"` là où l'instance est rangée sous
 `"router"` : réponse `null`, service **reconstruit en silence avec un cache vide**.
 
-### Deux sources de dépendances, une priorité
+### Une dépendance se nomme
 
-L'injecteur lit deux métadonnées (`Injector._instantiateWithStack()`, `injector.ts#Injector._instantiateWithStack`) :
+L'injecteur ne lit qu'une métadonnée (`Injector._instantiateWithStack()`, `injector.ts#Injector._instantiateWithStack`) :
+**`inject:services`**, posée par `@Inject("nom")` et indexée par position. Un paramètre sans
+`@Inject` reçoit l'argument positionnel passé à la construction, ou `undefined`. C'est ce qui
+permet à un contrôleur de recevoir son `context` en premier argument, et ses `@Inject` ensuite.
 
-1. **`inject:services`** — posé par `@inject("nom")`. **Prioritaire**, indexé par position.
-2. **`design:paramtypes`** — émis par TypeScript (`emitDecoratorMetadata`), pour l'**injection
-   automatique par type**, sans `@inject`.
-
-Un paramètre n'est injecté automatiquement que si son type est **inscrit** au registre ; sinon il
-reçoit l'argument positionnel passé à la construction. C'est ce qui permet à un contrôleur de
-recevoir son `context` en premier argument, et ses `@inject` ensuite.
-
-### L'injection par propriété — présente dans le moteur, pas dans la surface publique
-
-Le moteur applique une injection après construction (`Injector._applyPropertyInjection()`,
-`injector.ts#Injector._applyPropertyInjection`), alimentée par le décorateur `Inject` majuscule. **Préférer l'injection par
-constructeur** : elle est explicite, couverte, et c'est elle que le tri des services sait ordonner.
+Le **type** d'un paramètre ne résout jamais rien, même quand il désigne un service inscrit
+([ADR-0018](../adr/0018-decorateurs-sans-metadonnees-de-type.md)). Les métadonnées émises par le
+compilateur (`emitDecoratorMetadata`, clés `design:*`) ne sont plus produites ni lues : un type
+importé par `import type`, ou dont le bundler avait élidé l'import, y devenait `Object`, et le
+service recevait un argument faux sans un mot. Une garde du dépôt
+(`src/nodefony/src/tests/noTypeMetadata.test.ts`) refuse le retour d'une telle lecture.
+L'injection par propriété est retirée elle aussi : interne, jamais exportée par `nodefony`, sans
+usage, elle lisait `design:type` quand on omettait le nom. L'injection par constructeur, nommée,
+est la seule voie — explicite, couverte, et c'est elle que le tri des services sait ordonner.
 
 ### Garde-fous du moteur
 
@@ -664,9 +662,9 @@ sequenceDiagram
 
   B->>K: @services → pose "catalog" (singleton)
   R->>S: enterScope("request") — le calque est posé
-  R->>K: @inject("catalog") — lu à travers le calque
+  R->>K: @Inject("catalog") — lu à travers le calque
   K-->>R: la MÊME instance pour toutes les requêtes
-  R->>S: @inject("tenantContext") — créé, posé sur le calque
+  R->>S: @Inject("tenantContext") — créé, posé sur le calque
   R->>S: leaveScope — clean() de tenantContext, calque jeté
   Note over K: le singleton survit, son cache aussi
 ```
@@ -743,7 +741,7 @@ pour voir une fuite venir.
 
 | Symptôme                                                      | Cause                                                                                                            | Correction                                                                          |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| service reconstruit, cache vide, **aucun plantage**           | nom `@inject` ≠ clé du conteneur, résolution avant apprentissage                                                 | vérifier le `super(nom)` réel ; déclarer le service par `@services`                 |
+| service reconstruit, cache vide, **aucun plantage**           | nom `@Inject` ≠ clé du conteneur, résolution avant apprentissage                                                 | vérifier le `super(nom)` réel ; déclarer le service par `@services`                 |
 | deux instances d'un `singleton` en test                       | pas de kernel, donc nulle part où mémoriser                                                                      | attendu hors kernel ; monter un kernel de test si l'unicité est testée              |
 | état d'une requête visible dans une autre                     | écriture sur le conteneur du kernel au lieu du scope, ou variable de module                                      | `RequestContext.requireScope().set(…)`, ou un service `request`                     |
 | « dépendance captive » au démarrage                           | un singleton — service, ou contrôleur sans `@Scope("request")` — dépend d'un service `request`                   | passer le détenteur en `request` ou `transient`, ou lire à l'appel par `getScope()` |
@@ -758,7 +756,7 @@ pour voir une fuite venir.
 | fuite mémoire, `scopeCount` qui monte                         | `leaveScope` jamais appelé (pipeline court-circuité)                                                             | le kernel le fait à toutes les sorties — ne pas contourner le démontage             |
 | `Circular dependency detected: A → B → A`                     | cycle de résolution                                                                                              | casser le cycle, ou résoudre à l'appel                                              |
 | deux utilisateurs voient les données de l'autre               | état muté sur un contrôleur singleton que les filets ne voient pas (`#privé`, objet muté)                        | retirer l'état de `this`, ou déclarer `@Scope("request")`                           |
-| `@inject()` sans nom ne résout rien                           | `design:paramtypes` absent selon le mode d'exécution                                                             | toujours nommer : `@inject("catalog")`                                              |
+| un paramètre de constructeur reçoit `undefined`               | pas de `@Inject("nom")` : le type d'un paramètre ne résout rien                                                  | nommer la dépendance : `@Inject("catalog")`                                         |
 
 ## 📡 Observabilité
 

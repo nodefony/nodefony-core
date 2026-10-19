@@ -2656,7 +2656,7 @@ export const TASKS = [
    *   un module, réellement construit par le conteneur. Il ne dit rien du geste
    *   suivant, qui est celui de tous les jours : un composant OBTIENT un
    *   service que quelqu'un d'autre a écrit. C'est là que se joue le double
-   *   nommage — le décorateur nomme la CLASSE (`@inject("VatService")`), le
+   *   nommage — le décorateur nomme la CLASSE (`@Inject("VatService")`), le
    *   `super("vat", …)` nomme l'INSTANCE (`container.get("vat")`) — et c'est
    *   exactement ce qu'une application fraîche ne MONTRE nulle part : ni le
    *   gabarit de service, ni celui de controller ne portent une dépendance
@@ -2730,8 +2730,8 @@ export const TASKS = [
         // instance et les deux sont documentées — exiger la première seule
         // mesurerait un style, pas une découvrabilité.
         kind: "code",
-        name: "la dépendance vient du conteneur (@inject ou container.get)",
-        pattern: /@inject\(|(?:container|kernel|this)\.get\(\s*["'`]/u,
+        name: "la dépendance vient du conteneur (@Inject ou container.get)",
+        pattern: /@Inject\(|(?:container|kernel|this)\.get\(\s*["'`]/u,
         where: "content",
       },
       {
@@ -2756,7 +2756,7 @@ export const TASKS = [
         // donc la seule que le conteneur peut ordonnancer — a été trouvée.
         kind: "code",
         name: "voie déclarative trouvée (injection par constructeur)",
-        pattern: /@inject\(/u,
+        pattern: /@Inject\(/u,
         where: "content",
         observe: true,
       },

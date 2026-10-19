@@ -177,7 +177,7 @@ export default defineConfig({
     hookTimeout: ${etage.timeout},
   },
   oxc: {
-    decorator: { legacy: true, emitDecoratorMetadata: true },
+    decorator: { legacy: true, emitDecoratorMetadata: false },
   },
 });
 `,

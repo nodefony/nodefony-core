@@ -9,13 +9,12 @@ Résolution automatique des dépendances entre services via decorators TypeScrip
 | Decorator                     | Cible                  | Rôle                                          |
 | ----------------------------- | ---------------------- | --------------------------------------------- |
 | `@injectable(nameOrOptions?)` | Classe                 | Enregistre le service dans le registre global |
-| `@inject("name")`             | Paramètre constructeur | Injection explicite par nom                   |
-| `@Inject("name")`             | Propriété de classe    | Injection post-construction par nom           |
+| `@Inject("name")`             | Paramètre constructeur | Injection explicite par nom                   |
 
 Deux fichiers :
 
 - `injector/injector.ts` — moteur (`Injector`, algorithme, circular detection)
-- `kernel/decorators/kernelDecorator.ts` — decorators (`@injectable`, `@inject`, `@Inject`)
+- `kernel/decorators/kernelDecorator.ts` — decorators (`@injectable`, `@Inject`)
 
 ---
 
@@ -104,16 +103,16 @@ export class Tenant extends Service {
 
 ---
 
-## 2. Injection dans le constructeur — `@inject`
+## 2. Injection dans le constructeur — `@Inject`
 
-Injection explicite par nom à une position donnée dans le constructeur.
+Une dépendance se **nomme** : `@Inject("nom")` à la position du paramètre.
 
 ```typescript
 @injectable()
 class UserService extends Service {
   private auth: AuthService;
 
-  constructor(@inject("AuthService") auth: AuthService) {
+  constructor(@Inject("AuthService") auth: AuthService) {
     super("UserService", new Container());
     this.auth = auth;
   }
@@ -127,81 +126,21 @@ const user = Injector.instantiate(UserService);
 user.login("secret"); // true
 ```
 
-> **Tests tsx** — `emitDecoratorMetadata` inactif dans tsx/esbuild.
-> Appeler `inject()` comme fonction :
+> **Le type d'un paramètre ne résout rien** (ADR-0018). Un paramètre sans `@Inject` reçoit
+> l'argument positionnel suivant passé à `instantiate()`, ou `undefined` — même si son type
+> est un service inscrit. Le framework ne lit aucune métadonnée émise par le compilateur
+> (`emitDecoratorMetadata: false`) : un type importé par `import type`, ou dont le bundler a
+> élidé l'import, y devenait `Object`, et le service recevait un argument faux sans un mot.
+>
+> Sans syntaxe de décorateur (test, fabrique), l'appel direct pose la même métadonnée :
 >
 > ```typescript
-> (inject("AuthService") as Function)(UserService, undefined, 0);
+> Inject("AuthService")(UserService, undefined, 0);
 > ```
 
 ---
 
-## 3. Injection sur une propriété — `@Inject`
-
-Injecte après la construction — utile quand le constructeur ne doit pas être surchargé.
-
-```typescript
-@injectable()
-class OrderService extends Service {
-  @Inject("AuthService")
-  private auth!: AuthService;
-
-  @Inject("UserService")
-  private users!: UserService;
-
-  constructor() {
-    super("OrderService", new Container());
-    // this.auth est undefined ICI — l'injection arrive après Reflect.construct
-  }
-
-  createOrder(token: string): string {
-    if (!this.auth.verify(token)) throw new Error("Unauthorized");
-    return "order-123";
-  }
-}
-
-const order = Injector.instantiate(OrderService);
-order.createOrder("secret"); // "order-123"
-```
-
-Séquence interne :
-
-```
-1. Reflect.construct(OrderService, [])   ← constructeur
-2. order.auth  = resolve("AuthService")  ← property injection
-3. order.users = resolve("UserService")  ← property injection
-```
-
-> **Nom obligatoire** si `emitDecoratorMetadata` est inactif.
-> `@Inject()` sans nom et sans `design:type` → throw immédiat.
-
----
-
-## 4. Auto-injection par type (build rolldown/prod uniquement)
-
-Quand `emitDecoratorMetadata: true`, TypeScript émet les types des paramètres.
-Injector les lit via `design:paramtypes` — aucun `@inject` nécessaire.
-
-```typescript
-@injectable()
-class ReportService extends Service {
-  constructor(
-    private auth: AuthService, // auto-injecté si AuthService est @injectable
-    private users: UserService, // idem
-  ) {
-    super("ReportService", auth.container as Container);
-  }
-}
-```
-
-| Environnement                       | `design:paramtypes` | Auto-injection                  |
-| ----------------------------------- | ------------------- | ------------------------------- |
-| Rolldown (prod, rolldown.config.ts) | ✅ émis             | ✅ fonctionne                   |
-| tsx (tests)                         | ❌ absent           | ❌ utiliser `@inject` explicite |
-
----
-
-## 5. Exemple bout en bout — 3 services chaînés
+## 3. Exemple bout en bout — 3 services chaînés
 
 ```typescript
 // ── Couche données ─────────────────────────────────────────────
@@ -219,10 +158,7 @@ class TokenRepository extends Service {
 // ── Couche métier ──────────────────────────────────────────────
 @injectable()
 class AuthService extends Service {
-  @Inject("TokenRepository")
-  private repo!: TokenRepository;
-
-  constructor() {
+  constructor(@Inject("TokenRepository") private repo: TokenRepository) {
     super("AuthService", new Container());
   }
   verify(token: string): boolean {
@@ -233,8 +169,8 @@ class AuthService extends Service {
 // ── Couche applicative ─────────────────────────────────────────
 @injectable()
 class ApiGateway extends Service {
-  constructor(@inject("AuthService") private auth: AuthService) {
-    super("ApiGateway", auth.container as Container);
+  constructor(@Inject("AuthService") private auth: AuthService) {
+    super("ApiGateway", new Container());
   }
 
   handle(token: string): string {
@@ -255,47 +191,39 @@ Ordre de résolution interne :
 instantiate(ApiGateway)
   → resolve("AuthService")
       → instantiate(AuthService)
-          → Reflect.construct(AuthService, [])
-          → property: resolve("TokenRepository")
+          → resolve("TokenRepository")
               → instantiate(TokenRepository)
+          → Reflect.construct(AuthService, [repo])
   → Reflect.construct(ApiGateway, [authInstance])
 ```
 
 ---
 
-## 6. Algorithme de résolution
+## 4. Algorithme de résolution
 
 Pour chaque paramètre du constructeur à la position `i` :
 
 ```
-@inject:services[i] défini ?
-  → oui → resolve par nom (priorité absolue)
-  → non → design:paramtypes[i] enregistré dans injectables ?
-      → oui → auto-injection par type
-      → non → argsClass[explicitIdx++]  (arg explicite passé à instantiate())
-```
-
-Après construction :
-
-```
-Pour chaque entrée dans inject:properties du prototype :
-  → instance[key] = resolve(name)
+@Inject("nom") à la position i ?
+  → oui → resolve par nom
+  → non → argsClass[explicitIdx++]  (arg explicite passé à instantiate(), ou undefined)
+Les arguments explicites restants sont transmis à la suite.
 ```
 
 ---
 
-## 7. Détection de dépendances circulaires
+## 5. Détection de dépendances circulaires
 
 ```typescript
 @injectable()
 class A extends Service {
-  constructor(@inject("B") b: B) {
+  constructor(@Inject("B") b: B) {
     super("A", new Container());
   }
 }
 @injectable()
 class B extends Service {
-  constructor(@inject("A") a: A) {
+  constructor(@Inject("A") a: A) {
     super("B", new Container());
   }
 }
@@ -304,7 +232,7 @@ Injector.instantiate(A);
 // → Error: Circular dependency detected: A → B → A
 ```
 
-La stack de résolution est propagée **par valeur** à chaque niveau (`[...stack, name]`).
+La stack de résolution est propagée **par valeur** à chaque niveau (`[...stack, Ctor]`).
 Deux résolutions en parallèle ne se polluent jamais — async-safe.
 
 Les singletons déjà présents dans le container kernel court-circuitent la résolution
@@ -312,7 +240,7 @@ avant la vérification circulaire — pas de faux positif.
 
 ---
 
-## 8. API statique — `Injector`
+## 6. API statique — `Injector`
 
 ```typescript
 Injector.register("MyService", MyService); // enregistre manuellement
@@ -320,6 +248,7 @@ Injector.isRegistered("MyService"); // boolean
 Injector.get("MyService"); // retourne le constructeur, throw si absent
 Injector.getScope("MyService"); // "singleton" | "transient" | "request"
 Injector.scopeOf(MyService); // idem, depuis la classe
+Injector.dependencyNamesOf(MyService); // noms déclarés par @Inject, dans l'ordre
 Injector.instantiate(MyService, ...args); // instancie avec injection
 Injector.inject(MyService, ...args); // alias de instantiate
 Injector.injectables; // Partial<Record<string, ServiceConstructor>> — une clé absente vaut undefined
@@ -327,24 +256,23 @@ Injector.injectables; // Partial<Record<string, ServiceConstructor>> — une cl�
 
 ---
 
-## 9. Roadmap
+## 7. Roadmap
 
-| Phase | Feature                                                  | Statut        | Prérequis |
-| ----- | -------------------------------------------------------- | ------------- | --------- |
-| A     | Property injection `@Inject`                             | ✅ 2026-05-14 | —         |
-| C     | Circular dependency detection                            | ✅ 2026-05-14 | —         |
-| B     | Portée `request` (1 instance/requête, AsyncLocalStorage) | ✅            | —         |
-| D     | Registry par module (isolation namespace)                | ⬜            | Après B   |
-| E     | `@InjectLazy` (factory, instanciation différée)          | ⬜            | Après D   |
+| Phase | Feature                                                  | Statut | Prérequis |
+| ----- | -------------------------------------------------------- | ------ | --------- |
+| C     | Circular dependency detection                            | ✅     | —         |
+| B     | Portée `request` (1 instance/requête, AsyncLocalStorage) | ✅     | —         |
+| D     | Registry par module (isolation namespace)                | ⬜     | Après B   |
+| E     | `@InjectLazy` (factory, instanciation différée)          | ⬜     | Après D   |
+
+L'injection de propriété et l'injection par type sont retirées (ADR-0018).
 
 ---
 
-## 10. Gotchas
+## 8. Gotchas
 
-- `@inject` (paramètre) ≠ `@Inject` (propriété) — ne pas confondre la casse
-- `@Inject()` sans nom et sans `design:type` → throw au moment du decorator, pas à l'instantiation
-- `design:paramtypes` nécessite `emitDecoratorMetadata: true` + au moins un decorator sur la classe
+- Un paramètre reçu `undefined` = un paramètre sans `@Inject("nom")` : le type ne résout rien
+- `@Inject("")` → throw au moment du decorator, pas à l'instantiation
 - `Injector.get("X")` throw si `X` absent — uncaught dans `_resolveWithStack` → propagé à `instantiate`
 - `Fetch` est auto-enregistré dans `new Injector(kernel)` — pas avant
-- Les champs `!` (definite assignment assertion) sont nécessaires sur les propriétés injectées — TypeScript ne sait pas qu'elles seront assignées post-construction
 - `Injector.injectables` est un Record statique global — isolation entre tests nécessaire si on teste l'enregistrement

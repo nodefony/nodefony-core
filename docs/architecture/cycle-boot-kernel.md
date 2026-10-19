@@ -136,15 +136,15 @@ import {
   Event,
   services,
   injectable,
-  inject,
+  Inject,
 } from "nodefony";
 
-// Un service du module : sa dépendance est DÉCLARÉE (@inject), pas cherchée.
+// Un service du module : sa dépendance est DÉCLARÉE (@Inject), pas cherchée.
 @injectable()
 class InvoiceService extends Service {
   constructor(
     module: Module,
-    @inject("sessions") private sessions: Service,
+    @Inject("sessions") private sessions: Service,
   ) {
     super(
       "invoices",
@@ -238,7 +238,7 @@ Choisir en cinq secondes :
 | `onKernelRegister()` | `onRegister` | tous les modules sont **instanciés** ; overrides posés         | valider sa config, déclarer entités et routes |
 | `onKernelBoot()`     | `onBoot`     | les services `@services([…])` sont **construits**              | ouvrir ses connexions, armer ses timers       |
 | `onKernelReady()`    | `onReady`    | **tous** les modules sont bootés ; serveurs pas encore ouverts | se câbler aux autres modules                  |
-| `init()` (service)   | `onPreBoot`  | le service est construit, ses `@inject` résolus                | connexion, chargement de clés, warm-up        |
+| `init()` (service)   | `onPreBoot`  | le service est construit, ses `@Inject` résolus                | connexion, chargement de clés, warm-up        |
 | `onTerminate`        | arrêt        | le drain commence                                              | fermer proprement, stopper ses timers         |
 
 ### `init(kernel?)` — le constructeur asynchrone d'un module
@@ -300,7 +300,7 @@ chercher dans le container au bon moment. **Ne le fais pas** : déclare la dépe
 class InvoiceService extends Service {
   constructor(
     module: Module,
-    @inject("sessions") private sessions: Service, // déclaré, pas cherché
+    @Inject("sessions") private sessions: Service, // déclaré, pas cherché
   ) {
     super("invoices", module.container as Container);
   }
@@ -315,7 +315,7 @@ déjà correcte sort inchangée ; une liste mal ordonnée est corrigée toute se
 | Ce que tu écris                                 | Ce qui se passe                                                  |
 | ----------------------------------------------- | ---------------------------------------------------------------- |
 | `@services([A, B])` où `B` a besoin de `A`      | ordre respecté (il l'était déjà)                                 |
-| `@services([B, A])` où `B` a besoin de `A`      | **`A` est construit d'abord** — le tri le déduit de `@inject`    |
+| `@services([B, A])` où `B` a besoin de `A`      | **`A` est construit d'abord** — le tri le déduit de `@Inject`    |
 | dépendance sur un service d'un **autre** module | le prendre à `onKernelBoot`/`onKernelReady`, pas au constructeur |
 
 ### Situation 2 — « je veux migrer la base avant d'accepter du trafic »
@@ -675,7 +675,7 @@ Voir [Docker & cloud-native](../guides/docker-cloud-native.md).
 | Mon hook n'est jamais appelé (bis)           | Nom approximatif (`onBoot`, `onKernelBooted`…)                       | Exactement `onKernelRegister` / `onKernelBoot` / `onKernelReady`    |
 | Un module n'est pas chargé                   | `policy: "dev"` hors dev, ou `when(config)` faux                     | Lire la ligne « ignoré(s) (policy/when) » du verdict de boot        |
 | `Cannot find package` sur un module          | `dist/` périmé après un `git pull`                                   | `npm run clean && npm run build` (la remédiation le dit déjà)       |
-| Ordre de service inattendu                   | On croyait que l'ordre de `@services([…])` décidait                  | Il est recalculé depuis les `@inject` — déclarer la dépendance      |
+| Ordre de service inattendu                   | On croyait que l'ordre de `@services([…])` décidait                  | Il est recalculé depuis les `@Inject` — déclarer la dépendance      |
 | Service d'un autre module introuvable        | Récupéré dans le constructeur, trop tôt                              | Le prendre à `onKernelBoot` / `onKernelReady`                       |
 | Boot figé, puis `SIGKILL` de l'orchestrateur | Un `init` qui pend au-delà du timeout                                | Vérifier l'infra ; ajuster `NF_BOOT_TIMEOUT_MS` si justifié         |
 | Pod qui redémarre en boucle en production    | Module **critique** en échec → boot fatal (voulu)                    | Corriger la cause ; en dernier recours revoir `static critical`     |

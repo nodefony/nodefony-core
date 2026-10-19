@@ -34,7 +34,7 @@ import { Service, Module, injectable } from "nodefony";
  *   `extends Service`        il reçoit `this.log`, les événements, le conteneur
  *   `super("appInfo", …)`    sa clé d'instance — `container.get("appInfo")`
  *
- * Le décorateur nomme la CLASSE (ce qu'on écrit dans `@inject("AppInfoService")`),
+ * Le décorateur nomme la CLASSE (ce qu'on écrit dans `@Inject("AppInfoService")`),
  * le `super()` nomme l'INSTANCE. Les deux mènent au même exemplaire.
  *
  * ⚠️ Écrire cette classe ne suffit PAS : un service doit être DÉCLARÉ sur le

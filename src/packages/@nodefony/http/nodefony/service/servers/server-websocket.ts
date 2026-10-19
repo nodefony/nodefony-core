@@ -1,5 +1,5 @@
 import Ws, { WebSocketServer, ServerOptions } from "ws";
-import { Service, Container, Module, FamilyType, inject } from "nodefony";
+import { Service, Container, Module, FamilyType, Inject } from "nodefony";
 import type { DefaultOptionsService } from "nodefony";
 import type { IHttpConfig } from "../../config/config";
 import {
@@ -37,7 +37,7 @@ class Websocket extends Service {
   heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   constructor(
     module: Module,
-    @inject("HttpKernel") private readonly httpKernel: HttpKernel,
+    @Inject("HttpKernel") private readonly httpKernel: HttpKernel,
   ) {
     super(
       "server-websocket",

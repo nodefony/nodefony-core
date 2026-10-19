@@ -31,7 +31,7 @@ export const registeredNameOf = (ctor: ServiceConstructor): string | null => {
  * reconstruit sans argument et son constructeur casse. Faire reposer ça sur
  * l'ordre d'une liste écrite à la main est un piège : déplacer `HttpKernel` de
  * trois lignes dans `@nodefony/http` suffisait à rendre 499 sur chaque requête.
- * Les dépendances étant déjà déclarées (`@inject` / `design:paramtypes`), l'ordre
+ * Les dépendances étant déjà déclarées (`@Inject("nom")`), l'ordre
  * correct se **calcule** — c'est ce que font Symfony (container compilé) et
  * NestJS (résolution du graphe).
  *

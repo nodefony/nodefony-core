@@ -91,7 +91,7 @@ console.log(res.status);
 ### `createTestModule()` — et ce qu'il ne fait pas
 
 Il ne démarre aucun kernel, n'ouvre aucun port, ne lit aucune configuration. Conséquence directe,
-et qui surprend : **la résolution par le conteneur n'est pas de la partie**. `@inject("XService")`
+et qui surprend : **la résolution par le conteneur n'est pas de la partie**. `@Inject("XService")`
 passe par le singleton du kernel, qui n'existe pas ici.
 
 ```ts ignore

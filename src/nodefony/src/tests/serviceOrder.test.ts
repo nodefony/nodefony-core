@@ -7,12 +7,12 @@ import assert from "node:assert";
 import Injector from "../kernel/injector/injector";
 import Service from "../Service";
 import Container from "../Container";
-import { injectable, inject } from "../kernel/decorators/kernelDecorator";
+import { injectable, Inject } from "../kernel/decorators/kernelDecorator";
 import { orderServicesByDependencies } from "../kernel/injector/serviceOrder";
 
-/** Applique `@inject(name)` au paramètre `index` (tsx n'a pas les param decorators). */
+/** Applique `@Inject(name)` au paramètre `index` (tsx n'a pas les param decorators). */
 const injectParam = (ctor: any, name: string, index: number) =>
-  (inject(name) as unknown as (t: any, k: undefined, i: number) => void)(
+  (Inject(name) as unknown as (t: any, k: undefined, i: number) => void)(
     ctor,
     undefined,
     index,
@@ -76,15 +76,16 @@ describe("orderServicesByDependencies", () => {
     for (const e of input) assert.ok(out.includes(e));
   });
 
-  it("auto-injection par TYPE : la dépendance est vue aussi sans @inject", () => {
+  it("un type ENREGISTRÉ sans @Inject ne crée pas de dépendance (ADR-0018)", () => {
     class ByType extends Service {
       constructor(_a: Alpha) {
         super("byTypeSvc", new Container());
       }
     }
+    // La métadonnée qu'un émetteur poserait est IGNORÉE : seul un nom compte.
     Reflect.defineMetadata("design:paramtypes", [Alpha], ByType);
     const out = orderServicesByDependencies([ByType, Alpha]);
-    assert.deepStrictEqual(out.map(nameOf), ["Alpha", "ByType"]);
+    assert.deepStrictEqual(out.map(nameOf), ["ByType", "Alpha"]);
   });
 
   it("un type NON enregistré ne crée pas de dépendance (arg positionnel)", () => {

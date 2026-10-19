@@ -4,10 +4,10 @@ import {
   Service,
   //Kernel,
   Container,
-  Module,
+  type Module,
   FamilyType,
   //DefaultOptionsService,
-  inject,
+  Inject,
 } from "nodefony";
 import HttpKernel, {
   ProtocolType,
@@ -55,12 +55,8 @@ class ServerHttps extends Service {
 
   constructor(
     module: Module,
-    @inject("HttpKernel") private readonly httpKernel: HttpKernel,
+    @Inject("HttpKernel") private readonly httpKernel: HttpKernel,
   ) {
-    // NE PAS SUPPRIMER — cf `server-http.ts` : seul usage de `Module` comme
-    // VALEUR ici ; l'élider ferait retomber `design:paramtypes` sur `Object`.
-    // oxlint-disable-next-line no-unused-expressions
-    Module;
     super(
       "server-https",
       module.container as Container,

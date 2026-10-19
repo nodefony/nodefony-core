@@ -41,7 +41,7 @@ flowchart LR
   CT -->|"return valeur"| RC["returnController<br/>traduit le retour"]
   RC --> OUT["réponse HTTP<br/>ou frame WS"]
   CTX["Context HTTP / WS"] -.->|"request · response · session"| CT
-  DI["Container DI<br/>tes services"] -.->|"this.get() · @inject"| CT
+  DI["Container DI<br/>tes services"] -.->|"this.get() · @Inject"| CT
 ```
 
 Trois idées à retenir :
@@ -542,23 +542,23 @@ const catalog = this.get<CatalogService>("catalog"); // null si absent ou contai
 `Service.get()` (`Service.ts#Service.get`) est une **façade sûre** : elle retourne `null` au lieu de lever si
 le container a déjà été détaché. C'est le style à privilégier dans `initialize()`.
 
-### 2. Injection par le constructeur — `@inject`
+### 2. Injection par le constructeur — `@Inject`
 
 ```typescript
-import { inject, Fetch } from "nodefony";
+import { Inject, Fetch } from "nodefony";
 
 @controller("/demo")
 class DemoController extends Controller {
   constructor(
     context: ContextType,
-    @inject("Fetch") private fetchService: Fetch,
+    @Inject("Fetch") private fetchService: Fetch,
   ) {
     super("DemoController", context);
   }
 }
 ```
 
-L'injecteur lit les noms déclarés par `@inject` et résout chaque dépendance dans le container avant
+L'injecteur lit les noms déclarés par `@Inject` et résout chaque dépendance dans le container avant
 de construire (`Injector._instantiateWithStack()`, `injector.ts#Injector._instantiateWithStack`). Le **contexte n'est pas une
 dépendance** : il est passé en argument par le Resolver, et les paramètres non annotés le reçoivent
 dans l'ordre (`injector.ts#Injector._resolveWithStack`). Les **dépendances circulaires sont détectées** et signalées avec le

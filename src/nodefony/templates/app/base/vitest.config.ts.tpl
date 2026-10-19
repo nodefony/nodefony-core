@@ -54,8 +54,8 @@ const direCeQuiNaPasTourné = {
  * ⚠️ Le bloc `oxc` est OBLIGATOIRE : Vitest transforme les tests via oxc/rolldown,
  * qui ne lit PAS le `experimentalDecorators` du tsconfig. Sans lui, les décorateurs
  * (@controller, @route, DI) sortiraient bruts et Node lèverait `SyntaxError` au
- * chargement. `emitDecoratorMetadata` est requis par l'injection de dépendances
- * (résolution des types constructeur via `design:paramtypes`).
+ * chargement. Aucun type émis
+ * n'est lu (`emitDecoratorMetadata: false`) : une dépendance se nomme par `@Inject`.
  *
  * Deux suites, deux configs :
  *   npm test          → tests unitaires (rapides, zéro serveur) — CETTE config
@@ -83,6 +83,6 @@ export default defineConfig({
     ],
   },
   oxc: {
-    decorator: { legacy: true, emitDecoratorMetadata: true },
+    decorator: { legacy: true, emitDecoratorMetadata: false },
   },
 });

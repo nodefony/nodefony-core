@@ -18,8 +18,8 @@
  *   chunks internes sont nommés par chemin relatif (`nodefony/service/…`) et un match
  *   par préfixe les externaliserait à tort.
  *
- * Les décorateurs legacy (`experimentalDecorators` + `emitDecoratorMetadata`) sont lus
- * par rolldown depuis le `tsconfig.json` du package — rien à passer ici. Les `.d.ts`
+ * Les décorateurs legacy (`experimentalDecorators`) sont lus par rolldown depuis le
+ * `tsconfig.json` du package — rien à passer ici. Les `.d.ts`
  * ne sont PAS générés par le bundler : `tsgo --emitDeclarationOnly` (hors bundler).
  */
 import { readFileSync, globSync } from "node:fs";

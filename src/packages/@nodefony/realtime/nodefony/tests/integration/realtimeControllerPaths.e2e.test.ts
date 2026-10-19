@@ -10,7 +10,7 @@ import {
   Injector,
   Service,
   injectable,
-  inject,
+  Inject,
   type Scope,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
@@ -144,7 +144,7 @@ class SharedProbeReader extends Service {
     super("rtSharedProbeReader", probe.container as Container, false);
   }
 }
-inject("RtSharedProbe")(SharedProbeReader, undefined, 0);
+Inject("RtSharedProbe")(SharedProbeReader, undefined, 0);
 injectable({ name: "RtSharedProbeReader", scope: "transient" })(
   SharedProbeReader,
 );

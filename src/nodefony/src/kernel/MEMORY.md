@@ -488,17 +488,16 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
 **Résumé clés** :
 
 - Registre statique `injectables: Record<string, Ctor>` — global, partagé
-- `@injectable` → register + scope. `@inject` → param ctor. `@Inject` → propriété post-ctor.
-- `instantiate` → `_instantiateWithStack(Ctor, [], args)` — circular detection + property injection
+- `@injectable` → register + scope. `@Inject("nom")` → param ctor. Le TYPE ne résout rien (ADR-0018).
+- `instantiate` → `_instantiateWithStack(Ctor, [], args)` — circular detection ; paramètre non nommé = arg positionnel
 - Stack par valeur `[...stack, name]` — async-safe. Singleton dans kernel.get() → court-circuit.
-- `inject:services` sur **constructeur**. `inject:properties` sur **prototype**. Confusion = bug silencieux.
-- tsx : pas de `design:paramtypes` → appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)`.
+- `inject:services` sur **constructeur**, sparse par position. Sans syntaxe de décorateur : `Inject("X")(Cls, undefined, 0)`.
 
 **Chargement modules** : `config.modules` (manifeste ordonné) → Kernel `resolveModules()`/`loadModulesFromManifest()` à `onPreRegister` (décorateur `@modules` RETIRÉ). Cf `project_module_loading_architecture`.
 
 **Decorators module** (`@services`/`@entities`) :
 
-- `@services` → `onPreBoot` → addService|loadService (ordre de la liste = ordre d'instanciation)
+- `@services` → `onPreBoot` → addService|loadService (ordre RECALCULÉ, cf ci-dessous)
   - **Échec d'un service → politique de criticité du boot** (`Module.handleServiceBootError` →
     `Kernel.serviceBootErrorFatal` → `isBootErrorFatal`) : **fatal en production** (ou
     `BootConfigurationError`), **fail-soft ANNONCÉ** ailleurs (agrégé au BootReport → « boot
@@ -507,7 +506,7 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
     cassé affiché « UP »). Un service qu'on ne peut pas CONSTRUIRE suit la règle de celui qu'on ne
     peut pas INITIALISER — on gardait `init`, pas le `new`.
   - ✅ **L'ordre de la liste NE COMPTE PLUS** : `orderServicesByDependencies` (`injector/serviceOrder.ts`)
-    trie par dépendances déclarées (`inject:services` + `design:paramtypes`) AVANT d'instancier.
+    trie par dépendances déclarées (`inject:services`, noms `@Inject` seuls) AVANT d'instancier.
     Tri **STABLE** → une liste déjà correcte sort inchangée ; cycle → erreur qui NOMME le cycle ;
     les chemins `string` (deps inconnaissables sans charger) et les ctors hors registre gardent leur
     position. Avant : `HttpKernel` descendu de 3 lignes dans `http/index.ts#nodefony` → 499

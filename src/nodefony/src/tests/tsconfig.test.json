@@ -1,7 +1,7 @@
 {
   //"extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "emitDecoratorMetadata": true,
+    "emitDecoratorMetadata": false,
     "experimentalDecorators": true,
     "target": "ES2020",
     "rootDir": "../",

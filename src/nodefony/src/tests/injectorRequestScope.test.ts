@@ -23,7 +23,6 @@ import { BootConfigurationError } from "../kernel/BootConfigurationError";
 import {
   services,
   injectable,
-  inject,
   Inject,
 } from "../kernel/decorators/kernelDecorator";
 
@@ -85,7 +84,7 @@ class Audit extends Service {
     super.clean(syslog);
   }
 }
-inject("RsTenant")(Audit, undefined, 1);
+Inject("RsTenant")(Audit, undefined, 1);
 injectable({ name: "RsAudit", scope: "request" })(Audit);
 
 /** Consommateur de portée request — un contrôleur, par son statique. */
@@ -98,7 +97,7 @@ class RequestConsumer extends Service {
     super("rsConsumer", root, false);
   }
 }
-inject("RsTenant")(RequestConsumer, undefined, 1);
+Inject("RsTenant")(RequestConsumer, undefined, 1);
 
 // ─── 1. Un exemplaire par requête ─────────────────────────────────────────────
 // Débrancher : retirer la branche `request` de `_resolveWithStack`.
@@ -215,7 +214,7 @@ class RequestAuditConsumer extends Service {
     super("rsAuditConsumer", root, false);
   }
 }
-inject("RsAudit")(RequestAuditConsumer, undefined, 1);
+Inject("RsAudit")(RequestAuditConsumer, undefined, 1);
 
 describe("Portée request — nettoyage à la fermeture du scope", () => {
   beforeEach(() => {
@@ -314,7 +313,7 @@ class Captor extends Service {
     super("rsCaptor", root, false);
   }
 }
-inject("RsTenant")(Captor, undefined, 0);
+Inject("RsTenant")(Captor, undefined, 0);
 injectable({ name: "RsCaptor" })(Captor);
 
 class TransientBridge extends Service {
@@ -322,7 +321,7 @@ class TransientBridge extends Service {
     super("rsBridge", root, false);
   }
 }
-inject("RsTenant")(TransientBridge, undefined, 0);
+Inject("RsTenant")(TransientBridge, undefined, 0);
 injectable({ name: "RsBridge", scope: "transient" })(TransientBridge);
 
 class CaptorThroughTransient extends Service {
@@ -330,7 +329,7 @@ class CaptorThroughTransient extends Service {
     super("rsCaptorT", root, false);
   }
 }
-inject("RsBridge")(CaptorThroughTransient, undefined, 0);
+Inject("RsBridge")(CaptorThroughTransient, undefined, 0);
 injectable({ name: "RsCaptorT" })(CaptorThroughTransient);
 
 class SingletonController extends Service {
@@ -342,7 +341,7 @@ class SingletonController extends Service {
     super("rsSingletonController", root, false);
   }
 }
-inject("RsTenant")(SingletonController, undefined, 1);
+Inject("RsTenant")(SingletonController, undefined, 1);
 
 describe("Portée request — dépendance captive refusée", () => {
   it("refuse un singleton qui en dépend, MÊME pendant une requête, en nommant les deux", async () => {
@@ -405,17 +404,7 @@ class LazyReachController extends Service {
     super("rsLazyReach", root, false);
   }
 }
-inject("RsCaptor")(LazyReachController, undefined, 1);
-
-/** Singleton captif par INJECTION DE PROPRIÉTÉ. */
-class PropertyCaptor extends Service {
-  declare tenant: Tenant;
-  constructor() {
-    super("rsPropertyCaptor", root, false);
-  }
-}
-Inject("RsTenant")(PropertyCaptor.prototype, "tenant");
-injectable({ name: "RsPropertyCaptor" })(PropertyCaptor);
+Inject("RsCaptor")(LazyReachController, undefined, 1);
 
 describe("Portée request — dépendance captive refusée AU DÉMARRAGE", () => {
   const refusal = (root: ServiceConstructor): unknown => {
@@ -442,12 +431,9 @@ describe("Portée request — dépendance captive refusée AU DÉMARRAGE", () =>
     );
   });
 
-  it("voit la captive à travers un transient, et par injection de propriété", () => {
+  it("voit la captive à travers un transient", () => {
     expect((refusal(CaptorThroughTransient) as Error | null)?.message).to.match(
       /chemin CaptorThroughTransient → TransientBridge → RsTenant/,
-    );
-    expect((refusal(PropertyCaptor) as Error | null)?.message).to.match(
-      /« PropertyCaptor » \(singleton\) dépend de « RsTenant »/,
     );
   });
 
@@ -481,7 +467,7 @@ class BootCaptor extends Service {
     super("rsBootCaptor", root, false);
   }
 }
-inject("RsBootTenant")(BootCaptor, undefined, 0);
+Inject("RsBootTenant")(BootCaptor, undefined, 0);
 injectable({ name: "RsBootCaptor" })(BootCaptor);
 
 @services([BootTenant])
@@ -521,7 +507,7 @@ class ReachesCaptor extends Service {
     super("rsReachesCaptor", scope, false);
   }
 }
-inject("RsCaptor")(ReachesCaptor, undefined, 1);
+Inject("RsCaptor")(ReachesCaptor, undefined, 1);
 injectable({ name: "RsReachesCaptor", scope: "request" })(ReachesCaptor);
 
 @services([ReachesCaptor])
@@ -615,7 +601,7 @@ class ShadowConsumer extends Service {
     super("rsShadowConsumer", root, false);
   }
 }
-inject("RsContextShadow")(ShadowConsumer, undefined, 1);
+Inject("RsContextShadow")(ShadowConsumer, undefined, 1);
 
 describe("Portée request — clé du scope déjà occupée", () => {
   it("refuse d'écraser un objet du pipeline, et le laisse intact", async () => {

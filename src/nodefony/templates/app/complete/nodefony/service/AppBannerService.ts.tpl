@@ -1,4 +1,4 @@
-import { Service, Module, injectable, inject } from "nodefony";
+import { Service, Module, injectable, Inject } from "nodefony";
 
 import AppInfoService from "./AppInfoService";
 
@@ -32,9 +32,9 @@ import AppInfoService from "./AppInfoService";
  *
  * La bonne voie est ci-dessous, et il y en a deux :
  *
- * 1. **Par le CONSTRUCTEUR** (`@inject`) — la dépendance est DÉCLARÉE, donc le
+ * 1. **Par le CONSTRUCTEUR** (`@Inject`) — la dépendance est DÉCLARÉE, donc le
  *    conteneur construit `AppInfoService` AVANT celui-ci et passe l'exemplaire
- *    unique. C'est la voie par défaut. `@inject` prend le nom de la **CLASSE**
+ *    unique. C'est la voie par défaut. `@Inject` prend le nom de la **CLASSE**
  *    (`AppInfoService`), jamais la clé d'instance.
  * 2. **Par le CONTENEUR** (`this.container.get("appInfo")`) — utile quand la
  *    dépendance est tardive ou optionnelle. Ici c'est la clé d'**INSTANCE**,
@@ -52,9 +52,9 @@ class AppBannerService extends Service {
   constructor(
     module: Module,
     // La dépendance passe par le CONSTRUCTEUR : le conteneur la construit avant
-    // celui-ci et l'ordonnance. `@inject` prend le nom de la CLASSE — la clé
+    // celui-ci et l'ordonnance. `@Inject` prend le nom de la CLASSE — la clé
     // d'instance (`"appInfo"`) ne sert qu'à `container.get`.
-    @inject("AppInfoService") private readonly appInfo: AppInfoService,
+    @Inject("AppInfoService") private readonly appInfo: AppInfoService,
   ) {
     super(
       "appBanner",

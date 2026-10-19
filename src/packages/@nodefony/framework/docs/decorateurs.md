@@ -100,18 +100,20 @@ décorateur supprime la double vérité** : la déclaration vit sur l'action qu'
 
 ### Le contrat TypeScript — décorateurs _legacy_, et pourquoi ça compte
 
-Nodefony utilise le format **legacy** de TypeScript : `experimentalDecorators: true` **et**
-`emitDecoratorMetadata: true` (`tsconfig.json:5-6`, repris par le module —
-`framework/tsconfig.json:5-6`). Ce n'est pas un détail historique, c'est ce qui rend possible :
+Nodefony utilise le format **legacy** de TypeScript : `experimentalDecorators: true` (dans le
+`tsconfig.json` racine, repris par le module — `framework/tsconfig.json`). Ce n'est pas un détail
+historique : c'est ce qui rend possibles les **décorateurs de paramètre** (`@Param`, `@Body`…, et
+`@Inject("nom")` côté conteneur) — le format standard ES ne les propose pas.
 
-- les **décorateurs de paramètre** (`@Param`, `@Body`…) — le format standard ES ne les propose pas ;
-- l'**injection par type** du conteneur : `emitDecoratorMetadata` fait émettre au compilateur la
-  liste des types du constructeur sous la clé `design:paramtypes`, que l'injecteur relit pour
-  résoudre les dépendances sans les nommer (cf `injectable()`, `kernelDecorator.ts#injectable`).
+`emitDecoratorMetadata`, en revanche, vaut **`false`** : Nodefony ne lit aucun type émis par le
+compilateur. Une dépendance de constructeur se **nomme** par `@Inject("nom")`
+(`kernelDecorator.ts#Inject`) ; un paramètre non nommé reçoit l'argument positionnel, ou
+`undefined`, quel que soit son type ([ADR-0018](../../../../../docs/adr/0018-decorateurs-sans-metadonnees-de-type.md)).
+Ne le repasser à `true` que pour une bibliothèque tierce qui lit les métadonnées `design:*`.
 
-Concrètement, dans une app générée par `nodefony create app`, ces deux options sont **déjà** dans le
-`tsconfig.json`. Tu n'as rien à faire — sauf si tu pars d'un `tsconfig` à toi : sans elles, les
-décorateurs ne compilent pas.
+Concrètement, dans une app générée par `nodefony create app`, ces options sont **déjà** dans le
+`tsconfig.json`. Tu n'as rien à faire — sauf si tu pars d'un `tsconfig` à toi : sans
+`experimentalDecorators`, les décorateurs ne compilent pas.
 
 > [!WARNING]
 > `reflect-metadata` doit être chargé **avant** tout décorateur. `routerDecorators.ts` l'importe
@@ -571,8 +573,7 @@ recherches inutiles.
 | ----------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `@services([…])`                    | `nodefony`           | Déclare les services d'un module (`services()`, `kernelDecorator.ts#services`)                             |
 | `@injectable()`                     | `nodefony`           | Rend une classe résoluble par le conteneur (`injectable()`, `kernelDecorator.ts#injectable`)               |
-| `@inject("nom")`                    | `nodefony`           | Injecte un service à une position de constructeur (`inject()`, `kernelDecorator.ts#inject`)                |
-| `@Inject("nom")`                    | `nodefony`           | Idem, sur une propriété (`Inject()`, `kernelDecorator.ts#Inject`)                                          |
+| `@Inject("nom")`                    | `nodefony`           | Injecte un service à une position de constructeur (`kernelDecorator.ts#Inject`)                            |
 | `@RealtimeAction("méthode")`        | `@nodefony/realtime` | Expose une action JSON-RPC sur socket (`RealtimeAction()`, `realtimeDecorators.ts#RealtimeAction`)         |
 | `@RealtimeChannel("canal", policy)` | `@nodefony/realtime` | Déclare un canal temps réel et sa politique (`RealtimeChannel()`, `realtimeDecorators.ts#RealtimeChannel`) |
 | `@RealtimeInbound("méthode")`       | `@nodefony/realtime` | Traite un message entrant typé (`RealtimeInbound()`, `realtimeDecorators.ts#RealtimeInbound`)              |

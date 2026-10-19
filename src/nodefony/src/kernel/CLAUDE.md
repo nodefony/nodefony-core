@@ -28,7 +28,7 @@ src/nodefony/src/kernel/
 │   └── CreateCommand.ts     ← scaffold projet/module/entité (standalone)
 ├── adminPlane/              ← porte UNIQUE d'exécution du plan d'administration (RBAC + handler + normalisation, sans transport)
 ├── inspect/                 ← sujets inspectables + résolution par namespace/chemin (consomme adminPlane)
-├── injector/                ← DI decorators (@injectable, @inject, ...)
+├── injector/                ← DI decorators (@injectable, @Inject, ...)
 └── MEMORY.md / README.md / CLAUDE.md
 ```
 
@@ -64,7 +64,7 @@ Flags chronologiques:
 ```typescript
 import { Module, services } from "nodefony";
 
-// ⚠️ `@Service({ … })` N'EXISTE PAS (le barrel exporte `injectable`, `inject`, `services`).
+// ⚠️ `@Service({ … })` N'EXISTE PAS (le barrel exporte `injectable`, `Inject`, `services`).
 // Un Module ne se décore pas pour « être un singleton » : il l'est par construction.
 // Le seul décorateur utile ici = `@services([...])`, qui déclare SES services.
 @services([MyService])
@@ -224,8 +224,7 @@ Cf [`injector/CLAUDE.md`](injector/CLAUDE.md) pour le détail.
 | `@services([...])` | `onPreBoot` | Services à enregistrer dans le module |
 | `@entities([...])` | `onRegister` | Entités ORM à enregistrer — **fourni par `@nodefony/orm-core`**, pas par le core (`import { entities } from "@nodefony/orm-core"`). `onRegister` et non `onBoot` : les connecteurs créent les tables à `onBoot`. |
 | `@injectable()` | runtime | Marque classe injectable |
-| `@inject("name")` | runtime | Injection paramètre constructeur |
-| `@Inject("name")` | runtime | Injection propriété — **interne** : défini (`kernelDecorator.ts#Inject`) mais PAS exporté par le barrel (`src/nodefony/src/index.ts` n'expose que `injectable`, `inject`, `services`) → indisponible pour une app. Utiliser l'injection par constructeur. |
+| `@Inject("name")` | runtime | Injection paramètre constructeur, PAR NOM — le type d'un paramètre ne résout rien (ADR-0018) |
 
 ## Gotchas critiques
 

@@ -153,7 +153,7 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 - **Port Vite réel ≠ port configuré** : si 5173 occupé, Vite incrémente. Le superviseur parse `Local:` pour récupérer le port réel.
 - **`@vitejs/plugin-react` paresseux** : chargé via `await import()` dans le preset → pas d'erreur si pas installé tant qu'aucun module ne déclare `type: "react19"`.
 - **PathRoot vs entryFile** : `entryFile` est relatif au root du module (ex: `./frontend/src/main.tsx`), `root` est la racine front (ex: `./frontend`). Le TemplateHelper retire le root pour produire l'URL Vite (`/src/main.tsx`).
-- **`emitDecoratorMetadata` requis** : Service injectable via `@injectable()` — sans `experimentalDecorators` + `emitDecoratorMetadata`, la DI ne résout pas.
+- **`experimentalDecorators` requis** : Service injectable via `@injectable()` — sans lui les décorateurs ne compilent pas. `emitDecoratorMetadata` reste à `false` : une dépendance se nomme par `@Inject("nom")` (ADR-0018).
 - **Pas de `@nodefony/framework` en dep dure** : framework dépend de http qui peut dépendre de frontend → on garde frontend en bout de chaîne, sans import framework.
 
 ## Ce qu'il ne faut JAMAIS faire sans accord

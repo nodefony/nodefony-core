@@ -57,8 +57,8 @@ export interface RepositoryMetadata {
  * Stockage des métadonnées de décorateurs SANS `reflect-metadata`.
  *
  * orm-core est une lib pure : aucune dépendance runtime hors `nodefony`. Les
- * décorateurs `@entity`/`@repository` ne lisent jamais les types émis par TS
- * (`design:paramtypes`), donc un `WeakMap<classe, métadonnée>` process-wide
+ * décorateurs `@entity`/`@repository` ne lisent jamais les métadonnées de type
+ * émises par le compilateur, donc un `WeakMap<classe, métadonnée>` process-wide
  * suffit — clé = constructeur, GC-friendly (pas de fuite si la classe est
  * déréférencée). Aucun polyfill Reflect requis.
  */

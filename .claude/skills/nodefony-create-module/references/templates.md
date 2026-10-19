@@ -6,7 +6,7 @@
 
 > ⚠️ Tous les templates suivent les conventions figées dans `CLAUDE.md` racine du projet
 > (TypeScript strict, ESM-only, named exports, `node:` prefix, interfaces préfixées `I`,
-> emitDecoratorMetadata + experimentalDecorators, declarationDir = `./dist/types`).
+> experimentalDecorators — emitDecoratorMetadata `false`, ADR-0018 —, declarationDir = `./dist/types`).
 
 ### `package.json`
 
@@ -131,7 +131,7 @@ export default defineConfig({
   "compilerOptions": {
     "rootDir": "./",
     "outDir": "./dist",
-    "emitDecoratorMetadata": true,
+    "emitDecoratorMetadata": false,
     "experimentalDecorators": true,
     "target": "ES2024",
     "module": "ESNext",
@@ -473,10 +473,10 @@ import defaultConfig, { type {{NameClass}}Config } from "../config/config";
  *  3. méthodes métier
  *
  * DEUX noms, et c'est NORMAL :
- *  - `@injectable()`        → la CLASSE, sous `{{NameClass}}Service` (sert à `@inject("…")`)
+ *  - `@injectable()`        → la CLASSE, sous `{{NameClass}}Service` (sert à `@Inject("…")`)
  *  - `super("{{name}}", …)` → l'INSTANCE, clé du container (sert à `kernel.get("{{name}}")`)
  * Le DI les réconcilie via la classe (la clé est apprise quand `@services` pose l'instance) :
- * `@inject("{{NameClass}}Service")` et `kernel.get("{{name}}")` rendent la MÊME instance.
+ * `@Inject("{{NameClass}}Service")` et `kernel.get("{{name}}")` rendent la MÊME instance.
  *
  * ⚠️ NE JAMAIS redéclarer `options: {{NameClass}}Config;` comme propriété — le parent
  * Service l'assigne déjà via le 4ème argument du super(). Utiliser `cfg` pour

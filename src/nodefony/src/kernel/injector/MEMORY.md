@@ -13,10 +13,10 @@
 
 ## Fichiers
 
-| Fichier                                | Rôle                                                                                                                                             |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `injector/injector.ts`                 | Moteur DI — registre, résolution, circular detection                                                                                             |
-| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@inject`, `@Inject`, `@services` (`@modules` RETIRÉ → `config.modules` ; `@entities` vit dans `@nodefony/orm-core`) |
+| Fichier                                | Rôle                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `injector/injector.ts`                 | Moteur DI — registre, résolution, circular detection                                                                                              |
+| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@Inject` (paramètre), `@services` (`@modules` RETIRÉ → `config.modules` ; `@entities` vit dans `@nodefony/orm-core`) |
 
 ---
 
@@ -94,7 +94,7 @@ posé avant `RequestContext.run`) ; WS : dedans (`AsyncResource.bind`) → lire 
 ### Barrière AU DÉMARRAGE — `Injector.assertNoCaptiveDependency(root)`
 
 Même règle, même message (`_captiveError`) que la résolution, lue sur les DÉCLARATIONS
-(`dependencyNamesOf` = `@inject` + paramtypes enregistrés, + `@Inject` propriétés), rien
+(`dependencyNamesOf` = noms `@Inject` seuls, jamais les types), rien
 d'instancié : parcours du graphe depuis `root` (visited), chaque nœud singleton (racine :
 `_lifetimeOf`, nœuds : `scopeOf`) → `_requestPathFrom` (descend les transients) → throw.
 Appelée : `@controllers` à `onBoot` (framework, chaque contrôleur) · `@services` pour chaque
@@ -116,14 +116,10 @@ endroit où ranger) → deux résolutions = deux instances.
 
 ## Metadata keys (Reflect)
 
-| Clé                   | Cible                            | Contenu                                       | Posé par                             |
-| --------------------- | -------------------------------- | --------------------------------------------- | ------------------------------------ |
-| `"inject:services"`   | constructeur (class-level)       | `(string\|undefined)[]` sparse par paramIndex | `@inject`                            |
-| `"inject:properties"` | **prototype** (pas constructeur) | `PropertyInjectMeta[]`                        | `@Inject`                            |
-| `"design:paramtypes"` | constructeur                     | `unknown[]` types TS                          | TypeScript (`emitDecoratorMetadata`) |
-| `"di:scope"`          | constructeur                     | `DIScope`                                     | `@injectable`                        |
-
-`PropertyInjectMeta = { key: string | symbol; name: string }`
+| Clé                 | Cible                      | Contenu                                       | Posé par      |
+| ------------------- | -------------------------- | --------------------------------------------- | ------------- |
+| `"inject:services"` | constructeur (class-level) | `(string\|undefined)[]` sparse par paramIndex | `@Inject`     |
+| `"di:scope"`        | constructeur               | `DIScope`                                     | `@injectable` |
 
 ---
 
@@ -135,18 +131,18 @@ endroit où ranger) → deux résolutions = deux instances.
     nextStack = [...stack, Ctor]                ← CONSTRUCTEURS (pas des noms), copie par valeur
 
     injectExplicit = Reflect.getMetadata("inject:services", Ctor) || []
-    paramTypes     = Reflect.getMetadata("design:paramtypes", Ctor) || []
 
-    si aucune metadata → Reflect.construct(Ctor, argsClass)  ← backward compat
-    sinon pour i in 0..max(len(paramTypes), len(injectExplicit)):
-      injectExplicit[i] → _resolveWithStack(name, nextStack)  ← priorité, SANS args
-      paramTypes[i].name in injectables → _resolveWithStack(type, nextStack)  ← SANS args
+    aucun nom → Reflect.construct(Ctor, argsClass)
+    sinon pour i in 0..len(injectExplicit):
+      injectExplicit[i] → _resolveWithStack(name, nextStack)  ← SANS args
       sinon → argsClass[explicitIdx++]
     append argsClass restants
-
     → Reflect.construct(Ctor, resolvedArgs)
-    → _applyPropertyInjection(Ctor, instance, nextStack)
 ```
+
+🔑 **Une dépendance se NOMME (ADR-0018)** : le TYPE d'un paramètre n'est jamais lu (`design:*`
+absent du code, garde `src/tests/noTypeMetadata.test.ts`). Un type élidé par le bundler devenait
+`Object` → argument faux, sans erreur. Paramètre sans `@Inject` = argument positionnel ou `undefined`.
 
 🔑 **`argsClass` appartient à la classe construite, JAMAIS à ses dépendances** : une dépendance se
 RÉSOUT (container/registre), elle ne s'HÉRITE pas. Les propager donnait à une dépendance les args de
@@ -175,18 +171,8 @@ sinon:
   sinon → throw "not found or not injectable" (message actionnable si le ctor casse)
 ```
 
-**Le container est interrogé avec la clé de la CLASSE**, pas avec le nom écrit dans `@inject` —
-c'est ce qui réconcilie `@inject("Router")` et l'instance rangée sous `"router"`.
-
----
-
-## `_applyPropertyInjection(Ctor, instance, stack)`
-
-```
-metas = Reflect.getMetadata("inject:properties", Ctor.prototype) || []
-pour { key, name } in metas:
-  (instance as Record<string,unknown>)[key] = _resolveWithStack(name, [], stack)
-```
+**Le container est interrogé avec la clé de la CLASSE**, pas avec le nom écrit dans `@Inject` —
+c'est ce qui réconcilie `@Inject("Router")` et l'instance rangée sous `"router"`.
 
 ---
 
@@ -202,27 +188,16 @@ pour { key, name } in metas:
 
 → `Injector.register(name, Ctor)` + `Reflect.defineMetadata("di:scope", scope, Ctor)`
 
-### `@inject("name")` — paramètre constructeur (minuscule)
+### `@Inject("name")` — paramètre constructeur
 
 ```typescript
-constructor(@inject("AuthService") auth: AuthService) {}
-// ou en test tsx :
-(inject("AuthService") as Function)(MyClass, undefined, 0);
+constructor(@Inject("AuthService") auth: AuthService) {}
+// ou par appel (tests) :
+Inject("AuthService")(MyClass, undefined, 0);
 ```
 
 → stocke sur **constructeur** (class-level, pas propertyKey) :
 `inject:services[paramIndex] = "name"`
-
-### `@Inject("name")` — propriété (MAJUSCULE)
-
-```typescript
-@Inject("AuthService") private auth!: AuthService;
-// ou en test tsx :
-(Inject("AuthService") as Function)(MyClass.prototype, "auth");
-```
-
-→ stocke sur **prototype** : `inject:properties.push({ key: "auth", name: "AuthService" })`
-→ appliqué POST-construction (this.auth === undefined pendant super())
 
 ### `@services` / `@entities` — sur Module
 
@@ -244,12 +219,9 @@ les tables — inscrire plus tard serait une course), idempotent par (nom, conne
 ## Résolution priorité
 
 ```
-1. @inject explicite (inject:services[i])     ← priorité absolue
-2. Auto-injection design:paramtypes[i]        ← si type enregistré
-3. Arg explicite argsClass[explicitIdx++]     ← fallback
+1. @Inject("nom") (inject:services[i])        ← résolu par nom
+2. Arg explicite argsClass[explicitIdx++]     ← sinon (le type ne résout rien)
 ```
-
-Property injection : toujours après construction, indépendante des paramètres.
 
 ---
 
@@ -269,17 +241,11 @@ au lieu de chaînes, plus de lecture de `constructor.name`).
 
 ---
 
-## Patterns tests (tsx — pas d'emitDecoratorMetadata)
+## Patterns tests
 
 ```typescript
-// @inject sur paramètre — appel fonctionnel
-(inject("ServiceName") as Function)(MyClass, undefined, 0);
-
-// @Inject sur propriété — appel fonctionnel
-(Inject("ServiceName") as Function)(MyClass.prototype, "propName");
-
-// design:paramtypes manuel
-Reflect.defineMetadata("design:paramtypes", [TypeA, TypeB], MyClass);
+// @Inject sur paramètre — appel fonctionnel
+Inject("ServiceName")(MyClass, undefined, 0);
 
 // Fake kernel pour _resolveWithStack
 const orig = Nodefony.getKernel;
@@ -291,15 +257,12 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
 
 ## Gotchas
 
-- `@inject` (param) ≠ `@Inject` (property) — casse différente, métadonnées différentes
-- `inject:services` → sur constructeur. `inject:properties` → sur **prototype**. Confusion = bug silencieux.
-- `@Inject()` sans nom + sans `design:type` → throw au moment du decorator
-- `design:paramtypes` : tsx/esbuild → absent. build rolldown (oxc) → présent si ≥ 1 decorator sur la classe.
-  ⚠️ **Le runtime buildé l'ÉMET** (`emitDecoratorMetadata: true` partout) → l'auto-injection par TYPE
-  est vivante en prod, même si 0 usage aujourd'hui dans le repo.
+- `@Inject("")` → throw au moment du decorator (nom obligatoire)
+- `emitDecoratorMetadata: false` partout (oxc des vitest compris) sauf tsconfig Angular : rien ne lit
+  les types émis. Un service qui reçoit `undefined` = paramètre non nommé.
 - `Fetch` est **DÉCLARÉ ET POSÉ** dans `new Injector(kernel)` : `register("Fetch")` +
   `kernel.set("Fetch", new Fetch(kernel))`. Déclarer sans poser laissait `kernel.get("Fetch")` vide
-  → `new Fetch()` à CHAQUE `@inject("Fetch")` (mesuré : 10 requêtes = 10 instances). Son ctor prend
+  → `new Fetch()` à CHAQUE `@Inject("Fetch")` (mesuré : 10 requêtes = 10 instances). Son ctor prend
   `owner: Module | Kernel` — seul `.container` est utilisé.
 - 🔑 **DEUX annuaires, réconciliés par la CLASSE** : `@injectable(nom)` → clé du **registre**
   (classes) ; `super(nom, container)` → `inst.name` → clé du **container** (instances, posée par
@@ -311,14 +274,13 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
   **Le token EST la classe** : `rememberContainerKey(Ctor, inst.name)` est appelé quand le service
   est POSÉ (`Module.addService` / `Kernel.addKernelService`) — le seul instant où le couple est
   connu. `_resolveWithStack` fait `containerKeyOf(Ctor) ?? serviceName` : le nom écrit dans
-  `@inject` ne sert QU'À retrouver la classe ; c'est elle qui dit où l'instance vit. 7/7 round-trip.
+  `@Inject` ne sert QU'À retrouver la classe ; c'est elle qui dit où l'instance vit. 7/7 round-trip.
   ⚠️ Clé inconnue = service jamais posé via `addService` (ex. `kernel.set()` manuel) → repli sur le
   nom demandé (comportement historique). Le tri de `@services` garantit que la dépendance est posée
   AVANT d'être réclamée → la clé est apprise à temps : les deux mécaniques se complètent.
   Mémoïsation sous la clé **canonique** (`instance.name`), jamais sous le nom demandé — sinon on crée
   le doublon qu'on veut tuer (`"Router"` à côté de `"router"`).
 - `Injector.injectables` global → isolation entre tests si on teste register/doublon
-- Property `!` (definite assignment) obligatoire — TS ne sait pas qu'elle sera assignée post-ctor
 - Stack `[...stack, name]` → jamais muter le tableau parent
 
 ---
@@ -329,7 +291,7 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
   concurrentes d'une socket partagent l'instance — non éprouvé par un banc à 2 `api.request`
   en vol).
 - `Injector.instantiate(ClasseRequest)` DIRECT construit hors du scope (ni `set`, ni `own` →
-  jamais nettoyé, doublon d'un `@inject` suivant). Pas de garde dans `instantiate()` : ce serait
+  jamais nettoyé, doublon d'un `@Inject` suivant). Pas de garde dans `instantiate()` : ce serait
   un `Reflect.getMetadata` par requête (instanciation de CHAQUE contrôleur). Toujours injecter.
 - Scope IMBRIQUÉ : `hasOwn` sur l'enfant ignore le parent → un service request résolu depuis un
   scope enfant serait dupliqué. Aucun consommateur (`subRequest` inactif) ; le jour venu,

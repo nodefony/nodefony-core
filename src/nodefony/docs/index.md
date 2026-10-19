@@ -167,7 +167,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 
 > [!NOTE]
 > **L'injection de dépendances n'a pas de page ici, et c'est voulu.** Le conteneur, les portées et
-> les décorateurs `@injectable` / `@inject` / `@services` sont documentés une seule fois, au niveau
+> les décorateurs `@injectable` / `@Inject` / `@services` sont documentés une seule fois, au niveau
 > transverse : [Injection et portées](../../../docs/architecture/injection-portees.md). Le sujet
 > traverse tous les modules — le confiner dans la doc du cœur obligerait chaque autre module à le
 > répéter, et trois vérités valent moins qu'une.

@@ -33,7 +33,7 @@ import {
   Module,
   RequestContext,
   Service,
-  inject,
+  Inject,
   injectable,
 } from "nodefony";
 import type { Injector, Scope as DIScope } from "nodefony";
@@ -273,7 +273,7 @@ class DirectCaptive extends Controller {
     super("DirectCaptive", context);
   }
 }
-inject("SingletonDefaultTenant")(DirectCaptive, undefined, 1);
+Inject("SingletonDefaultTenant")(DirectCaptive, undefined, 1);
 
 /** Même dépendance, portée par requête déclarée : légitime. */
 class DirectPerRequest extends Controller {
@@ -285,7 +285,7 @@ class DirectPerRequest extends Controller {
   }
 }
 Scope("request")(DirectPerRequest);
-inject("SingletonDefaultTenant")(DirectPerRequest, undefined, 1);
+Inject("SingletonDefaultTenant")(DirectPerRequest, undefined, 1);
 
 describe("Router.setController — dépendance captive refusée", () => {
   const fakeModule = {

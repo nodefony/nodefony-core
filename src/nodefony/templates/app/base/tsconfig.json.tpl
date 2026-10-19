@@ -22,7 +22,10 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    // Nodefony ne lit aucun type émis : une dépendance se nomme par
+    // `@Inject("nom")`. Repasser à `true` seulement si une bibliothèque tierce
+    // lit les métadonnées `design:*` (class-validator, TypeORM…).
+    "emitDecoratorMetadata": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

@@ -7,7 +7,7 @@
     "resolveJsonModule": true,
     "lib": ["ESNext", "DOM"],
     "stripInternal": true,
-    "emitDecoratorMetadata": true,
+    "emitDecoratorMetadata": false,
     "experimentalDecorators": true,
     "target": "ES2024",
     "module": "ESNext",

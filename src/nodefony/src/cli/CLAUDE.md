@@ -743,7 +743,7 @@ expositions et les frappe en production.
 **IN-PROJECT** d'un service injectable dans `<cible>/nodefony/service/<Nom>Service.ts`,
 accompagné de son interface (`nodefony/interfaces/I<Nom>Service.ts`). Classe
 `@injectable()` `extends Service`, avec les DEUX noms explicités en TSDoc : le décorateur
-nomme la CLASSE (`@inject("…")`), le `super("nom", …)` nomme l'INSTANCE
+nomme la CLASSE (`@Inject("…")`), le `super("nom", …)` nomme l'INSTANCE
 (`container.get("…")`). Gabarit `templates/service/` **autonome** — aucune dépendance à un
 `config/config.ts`, contrairement au service rendu par `create module`
 (`templates/module/service/`), qui lui vit toujours à côté de son schéma Zod : une cible

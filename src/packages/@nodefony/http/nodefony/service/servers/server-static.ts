@@ -21,7 +21,7 @@ import {
   Module,
   //FamilyType,
   //DefaultOptionsService,
-  //inject,
+  //Inject,
 } from "nodefony";
 
 type serveStaticType = serveStatic.RequestHandler<http.ServerResponse>;
@@ -68,7 +68,7 @@ class Statics extends Service {
   defaultOptions: serveStatic.ServeStaticOptions = defaultOptions;
   constructor(
     module: Module,
-    //@inject("HttpKernel") private httpKernel: HttpKernel
+    //@Inject("HttpKernel") private httpKernel: HttpKernel
   ) {
     const container = module.container ?? undefined;
     const options = (module.options.statics ||

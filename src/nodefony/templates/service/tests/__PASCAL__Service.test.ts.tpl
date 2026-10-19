@@ -22,7 +22,7 @@ import <%= it.pascal %>Service from "../nodefony/service/<%= it.pascal %>Service
  * Construit le service sur un module neuf.
 <% if (it.inject) { %> *
  * La dépendance est passée À LA MAIN : la résolution par le conteneur
- * (`@inject`) réclame un kernel vivant, absent d'un test unitaire. C'est tout
+ * (`@Inject`) réclame un kernel vivant, absent d'un test unitaire. C'est tout
  * l'intérêt de l'injection par constructeur — et c'est ce qui te permettra d'y
  * glisser un objet qui joue le rôle du vrai service pour éprouver un cas limite.
 <% } %> */

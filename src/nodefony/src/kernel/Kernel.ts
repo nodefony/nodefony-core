@@ -1504,7 +1504,7 @@ class Kernel extends Service implements IKernel {
    * Stocke directement dans le container kernel.
    *
    * @param ctor - constructeur du service (typiquement décoré `@injectable`).
-   * @param args - args additionnels après les `@inject` resolved.
+   * @param args - args additionnels après les `@Inject` resolved.
    * @returns instance du service prête à l'usage.
    */
   async addKernelService(

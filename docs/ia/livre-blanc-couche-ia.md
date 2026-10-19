@@ -125,7 +125,7 @@ Capacités de la couche IA (le _quoi_, stable) :
 ├═════════════════════════════════════════════════════════════┤
 │  CŒUR NODEFONY (le COMMENT — déjà migré, opérationnel)        │
 │  • HTTP + WebSocket co-citoyens  → transport du streaming LLM │
-│  • DI Container (@injectable/@inject) → orchestration         │
+│  • DI Container (@injectable/@Inject) → orchestration         │
 │  • ALS requestId → corrélation log ↔ requête ↔ appel modèle   │
 │  • syslog transports → audit IA tracé                         │
 └─────────────────────────────────────────────────────────────┘

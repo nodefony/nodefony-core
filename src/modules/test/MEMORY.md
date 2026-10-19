@@ -82,7 +82,7 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 ## Session
 
 DefaultController + RestController : session par `@UseSession()` sur la classe (aucun `initialize()`).
-RestController injecte `@inject("session")`.
+RestController injecte `@Inject("session")`.
 
 ## Sécurité (banc P6)
 

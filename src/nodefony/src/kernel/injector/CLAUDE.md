@@ -12,30 +12,24 @@ Système d'injection de dépendances décorateur-driven de Nodefony. Stocke les 
 ### Constructor parameter
 
 ```typescript
-import { injectable, inject } from "nodefony";
+import { injectable, Inject } from "nodefony";
 
 @injectable("user-service") // ⚠️ `singleton: true` N'EXISTE PAS (ignoré) — options = { name?, scope? }
 export class UserService {
   constructor(
-    @inject("database") private db: Database,
-    @inject("syslog") private log: Syslog,
+    @Inject("database") private db: Database,
+    @Inject("syslog") private log: Syslog,
   ) {}
 }
 ```
 
-### Property — INTERNE, non exporté
-
-```typescript
-@injectable()
-export class ReportService {
-  @Inject("database") private db!: Database; // ! definite assignment
-  @Inject("syslog") private log!: Syslog;
-}
-```
-
-🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts#Inject`) mais **absent du
-barrel** : `src/nodefony/src/index.ts` n'exporte que `injectable`, `inject`, `services`. Une app qui
-l'importe reçoit `undefined`. Utiliser l'injection **par constructeur** (`@inject`).
+🔴 **Une dépendance se NOMME** (ADR-0018). L'injecteur ne lit aucun type émis par le
+compilateur (`design:*`) : un paramètre sans `@Inject("nom")` reçoit l'argument positionnel
+suivant passé à `instantiate`, ou `undefined` — même si son type est un service inscrit.
+Raison : un type importé par `import type`, ou élidé par le bundler, devenait `Object` et le
+service recevait un argument faux sans un mot. `emitDecoratorMetadata` vaut `false` partout
+sauf les tsconfig Angular. Garde : `src/tests/noTypeMetadata.test.ts` refuse toute clé
+`"design:…"` dans le code du dépôt.
 
 ### Module-level (auto-discovery)
 
@@ -56,20 +50,17 @@ class MyOrmModule extends Module {}
 
 ⚠️ **`@entities` n'appartient PAS au core** : il vit dans `@nodefony/orm-core`
 (`nodefony/src/decorators/entitiesDecorator.ts`, exporté par son `index.ts#adminLogin`).
-`kernelDecorator.ts#injectable` n'exporte que `injectable`, `inject`, `Inject`, `services`.
+`kernelDecorator.ts#injectable` n'exporte que `injectable`, `Inject`, `services`.
 Sa phase est **`onRegister`, jamais `onBoot`** : les connecteurs se branchent à
 `onBoot` et y créent les tables — inscrire les entités à `onBoot` en ferait une
 course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
 
 ## Métadonnées stockées (`Reflect.metadata`)
 
-| Clé                 | Cible               | Posée par                 | Contenu                                       |
-| ------------------- | ------------------- | ------------------------- | --------------------------------------------- |
-| `inject:services`   | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]`                           |
-| `inject:properties` | Prototype classe    | `@Inject(name)` propriété | `{ key: name }`                               |
-| `di:scope`          | Classe              | `@injectable(opts)`       | `"singleton"` \| `"transient"` \| `"request"` |
-
-⚠️ **CRITIQUE** : `inject:services` sur le **constructeur**, `inject:properties` sur le **prototype**. Confondre = bug silencieux (résolution échoue, classe instanciée avec `undefined`).
+| Clé               | Cible               | Posée par                 | Contenu                                       |
+| ----------------- | ------------------- | ------------------------- | --------------------------------------------- |
+| `inject:services` | Constructeur classe | `@Inject(name)` paramètre | `(string \| undefined)[]` sparse par position |
+| `di:scope`        | Classe              | `@injectable(opts)`       | `"singleton"` \| `"transient"` \| `"request"` |
 
 ## Résolution au boot
 
@@ -83,9 +74,8 @@ course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
    │   ├── Détecte circular dans `stack` (Phase C ✅)
    │   ├── Si singleton + déjà dans Container → court-circuit
    │   ├── Lire Reflect.metadata("inject:services", Ctor)
-   │   ├── Pour chaque param @inject : récupérer du container
-   │   ├── new Ctor(...resolvedArgs, ...args)
-   │   └── Property injection (Phase A) : lire metadata sur prototype, set props
+   │   ├── Pour chaque position : @Inject → résolu par nom ; sinon → arg positionnel
+   │   └── new Ctor(...resolvedArgs, ...args restants)
    └── Container.set(name, instance)
 
    ⚠️ L'injecteur CONSTRUIT, il n'initialise pas : `injector.ts` n'appelle
@@ -112,28 +102,15 @@ Spread `[...stack, name]` (pas mutation) → safe pour async parallel resolution
 
 ## Singleton — résolution par la CLASSE
 
-Scope `"singleton"` (défaut) : le nom écrit dans `@inject` retrouve la **CLASSE**, et c'est elle qui
+Scope `"singleton"` (défaut) : le nom écrit dans `@Inject` retrouve la **CLASSE**, et c'est elle qui
 dit où l'instance vit — `containerKeyOf(Ctor) ?? nom` → `kernel.get(clé)`. Absent du container →
 instancié **sans argument**, mémoïsé sous sa clé **canonique** (`instance.name`), et la clé est
 apprise pour la suite.
 
 ⚠️ **Deux annuaires** : `@injectable(nom)` indexe des CLASSES, `super(nom, …)` indexe des INSTANCES
 — le décorateur ne peut pas connaître la seconde (chargement vs construction). D'où l'apprentissage
-dans `addService` (`rememberContainerKey`). Sans lui, `@inject("Router")` cherchait `"Router"` dans
+dans `addService` (`rememberContainerKey`). Sans lui, `@Inject("Router")` cherchait `"Router"` dans
 un container qui ne connaît que `"router"` → service reconstruit, cache vide, en silence.
-
-## tsx — pas de `design:paramtypes`
-
-⚠️ Quand on tourne avec `tsx` (ts-node alternative), TypeScript émet PAS `design:paramtypes` (metadata auto sur types des params). Donc le pattern habituel `@inject()` sans nom (auto-discovery par type) NE MARCHE PAS sous tsx.
-
-**Workaround** : toujours passer le nom explicite :
-
-```typescript
-constructor(@inject("database") db: Database) {}    // ✅ marche partout
-constructor(@inject() db: Database) {}              // ❌ ne marche pas sous tsx
-```
-
-C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté injector pour contourner.
 
 ## Decorators module — ordre des listeners
 
@@ -193,7 +170,7 @@ Détail et algorithme : [`MEMORY.md`](./MEMORY.md) § Portée `request`.
 
 ## Ce qui est en place côté DI
 
-Circular detection (pile passée par valeur), tri topologique des `@services` (`serviceOrder.ts`) et **token = la classe** (clé container apprise à la pose, section « Singleton — résolution par la CLASSE » ci-dessus) sont **livrés**. Property injection (`@Inject`) reste **interne au core** (non exportée) — l'injection par constructeur est la seule voie publique. Avancement détaillé : `MIGRATION_STATUS.md`.
+Circular detection (pile passée par valeur), tri topologique des `@services` (`serviceOrder.ts`) et **token = la classe** (clé container apprise à la pose, section « Singleton — résolution par la CLASSE » ci-dessus) sont **livrés**. L'injection de propriété et l'injection par type sont **retirées** (ADR-0018) : l'injection par constructeur, nommée, est la seule voie.
 
 ## ⚠️ Gotchas
 
@@ -201,8 +178,8 @@ Circular detection (pile passée par valeur), tri topologique des `@services` (`
 | -------------------------------------- | -------------------------------------------------- | ------------------------------------------------ |
 | `Service not found in container`       | `@injectable` oublié OR nom incorrect              | Vérifier metadata + Container.has()              |
 | `Cannot read 'X' of undefined` au boot | Cycle non détecté (avant Phase C)                  | Avec Phase C → erreur explicite avec stack       |
-| `@inject()` sans nom ne marche pas     | Sous tsx — pas de `design:paramtypes`              | Toujours passer le nom explicite                 |
-| `Inject` introuvable à l'import        | Non exporté par le barrel du core (interne)        | Injection par constructeur (`@inject`)           |
+| Paramètre reçu `undefined`             | Pas de `@Inject("nom")` — le type ne résout rien   | Nommer la dépendance                             |
+| `inject` introuvable à l'import        | Renommé `Inject` (ADR-0018)                        | `import { Inject } from "nodefony"`              |
 | Service tiré dans le mauvais scope     | Container hiérarchique remonte au parent           | Vérifier que le scope est ouvert avant injection |
 | Service absent après un `@services` KO | Échec passé à `handleServiceBootError` (non fatal) | Lire le BootReport (« boot DÉGRADÉ ») + logs     |
 | Decorator handler appelé 2×            | `setEvents()` appelé 2×                            | Guard `eventsRegistered` ajouté                  |
@@ -210,13 +187,13 @@ Circular detection (pile passée par valeur), tri topologique des `@services` (`
 ## Pattern type — service avec dépendances
 
 ```typescript
-import { injectable, inject } from "nodefony";
+import { injectable, Inject } from "nodefony";
 
 @injectable("user-service") // ⚠️ `singleton: true` N'EXISTE PAS (ignoré) — options = { name?, scope? }
 export class UserService {
   constructor(
-    @inject("database") private db: Database,
-    @inject("syslog") private log: Syslog,
+    @Inject("database") private db: Database,
+    @Inject("syslog") private log: Syslog,
   ) {}
 
   async findById(id: string): Promise<User | null> {
@@ -242,7 +219,7 @@ await userService.findById("123");
 cd src/nodefony && npm run test 2>&1 | grep -A 3 "injectable\|inject\|injector"
 ```
 
-Tests existants couvrent : property injection, circular detection, singleton, scopes. Mais Phase B/D/E à venir → tests futurs aussi.
+Tests existants couvrent : dépendances nommées (le type ignoré), circular detection, singleton, scopes.
 
 ## Liens
 

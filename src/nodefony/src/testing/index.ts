@@ -43,7 +43,7 @@ import { AUTH_LOGIN_PATH, AUTH_ME_PATH } from "../runtime/authRoutes";
  * d'un test d'intégration, et cette porte ne prétend pas le remplacer.
  *
  * ⚠️ **La résolution PAR LE CONTENEUR n'est pas de la partie**, et c'est
- * structurel : `@inject("XService")` passe par le singleton `Nodefony.getKernel()`
+ * structurel : `@Inject("XService")` passe par le singleton `Nodefony.getKernel()`
  * (`injector.ts:169`), qui n'existe pas ici — l'injecteur fabriquerait alors un
  * second exemplaire sans argument, et le constructeur casserait sur
  * `module.container`. Ce n'est pas une limite gênante : **un test unitaire

@@ -1,6 +1,6 @@
 import { Controller, route, Get, controller, Scope } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import { Injector, RequestContext, inject } from "nodefony";
+import { Injector, RequestContext, Inject } from "nodefony";
 import {
   RequestProbe,
   RequestProbeConsumer,
@@ -20,8 +20,8 @@ import {
 class RequestScopeController extends Controller {
   constructor(
     context: Context,
-    @inject("RequestProbe") private readonly probe: RequestProbe,
-    @inject("RequestProbeConsumer")
+    @Inject("RequestProbe") private readonly probe: RequestProbe,
+    @Inject("RequestProbeConsumer")
     private readonly consumer: RequestProbeConsumer,
   ) {
     super("RequestScopeController", context);

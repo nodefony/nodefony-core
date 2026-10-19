@@ -352,9 +352,9 @@ connu de personne.
 > [!CAUTION]
 > `@injectable({ singleton: true })` **n'existe pas**. Les options acceptées sont `{ name?, scope? }`
 > où `scope` vaut `singleton` (défaut), `transient` ou `request` ; TypeScript refuse la clé
-> `singleton` (`TS2353`), et en JavaScript elle est **ignorée en silence**. De même, `@Inject` (injection de propriété) existe dans le moteur mais
-> **n'est pas ré-exporté** par le paquet `nodefony` : `import { Inject } from "nodefony"` échoue.
-> Injecte par **constructeur**, avec `@inject("nom")`.
+> `singleton` (`TS2353`), et en JavaScript elle est **ignorée en silence**. L'injection de propriété
+> n'existe pas : injecte par **constructeur**, avec `@Inject("nom")` — le type d'un paramètre ne
+> résout rien.
 
 ### Ajouter une commande CLI
 
@@ -612,7 +612,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | Journal de boot : échec de `"(anonyme)"`                  | Même cause : aucun propriétaire à nommer (`Kernel.ts#Kernel.isBootErrorFatal`)            | Idem — le hook porte l'identité                                         |
 | `Error("Kernel not ready")` sur `addCommand`              | `kernel.cli` absent — module hors invocation CLI (`Module.ts#Module.install`)             | N'appeler `addCommand` que dans un module chargé par le CLI             |
 | Ma commande de module n'apparaît pas                      | `addCommand` appelé dans un hook, trop tard                                               | La poser dans le **constructeur**, comme les modules du framework       |
-| `import { Inject } from "nodefony"` échoue                | Le décorateur de propriété n'est pas ré-exporté par le paquet                             | Injection par constructeur : `@inject("nom")`                           |
+| `import { inject } from "nodefony"` échoue                | Le décorateur a été renommé `Inject` (ADR-0018)                                           | `import { Inject } from "nodefony"`, puis `@Inject("nom")`              |
 | `@injectable({ singleton: true })` sans effet             | La clé n'existe pas — elle est acceptée puis **ignorée**                                  | `{ scope: "singleton" }` (défaut) ou `{ scope: "transient" }`           |
 | `@services()` refuse ma classe : « not assignable »       | Config déclarée en `interface` — pas d'index signature (`kernelDecorator.ts#Constructor`) | Déclarer le type de config avec `type`, pas `interface`                 |
 | `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts#Kernel.getModule`)                                | Tester ; un module gaté par le manifeste est légitimement absent        |

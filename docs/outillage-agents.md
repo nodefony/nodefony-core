@@ -207,7 +207,7 @@ serait sans effet à la régénération suivante.
     "desc": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main.",
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "add-service", "href": "skills/nodefony-add-service.md",
-    "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au…",
+    "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au…",
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "authentication", "href": "skills/nodefony-authentication.md",
     "desc": "Établit QUI est l'utilisateur d'une application Nodefony par ce que le framework sert déjà — page /login et son habillage, client NodefonyLogin, route me, second facteur, connexion récente, retour sûr après connexion, fournisseurs (Keycloak, GitHub), jeton d'un programme — au lieu de le réécrire.",

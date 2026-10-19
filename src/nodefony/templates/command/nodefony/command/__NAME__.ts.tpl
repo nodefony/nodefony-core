@@ -74,7 +74,7 @@ class <%= it.nameClass %> extends Command {
     opts: { json?: boolean },
   ): Promise<this> {
 <% if (it.service) { %>    // On demande le service par sa CLÉ de conteneur — celle du `super("<%= it.service.key %>", …)`
-    // du service, pas le nom de sa classe. (Depuis le DI, `@inject("<%= it.service.pascal %>")`
+    // du service, pas le nom de sa classe. (Depuis le DI, `@Inject("<%= it.service.pascal %>")`
     // mènerait à la même instance ; mais hors injection, c'est la clé qui sert.)
     // `instanceof` plutôt qu'une conversion : le conteneur rend `unknown`, et la
     // garde VÉRIFIE ce que la conversion ne ferait que déclarer.

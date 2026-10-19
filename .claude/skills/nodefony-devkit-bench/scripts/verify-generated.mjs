@@ -869,7 +869,7 @@ step(
       path.join(APP, "nodefony", "service", `${INJECTED_SERVICE}Service.ts`),
       "utf8",
     );
-    if (!injected.includes(`@inject("${SERVICE}Service")`)) {
+    if (!injected.includes(`@Inject("${SERVICE}Service")`)) {
       throw new Error(
         "le service généré n'injecte rien par le constructeur — `--inject` a-t-il été honoré ?",
       );

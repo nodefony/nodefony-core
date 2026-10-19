@@ -36,7 +36,7 @@ import {
   RequestContext,
   Scope,
   Service,
-  inject,
+  Inject,
   injectable,
 } from "nodefony";
 
@@ -75,7 +75,7 @@ class CtrlSingletonDep {
     this.d = d;
   }
 }
-inject("MicroDep")(CtrlSingletonDep, undefined, 1);
+Inject("MicroDep")(CtrlSingletonDep, undefined, 1);
 
 let created = 0;
 let cleaned = 0;
@@ -118,8 +118,8 @@ class CtrlService {
 if (supportsRequest) {
   injectable({ name: "MicroPlainTenant", scope: "request" })(PlainTenant);
   injectable({ name: "MicroServiceTenant", scope: "request" })(ServiceTenant);
-  inject("MicroPlainTenant")(CtrlPlain, undefined, 1);
-  inject("MicroServiceTenant")(CtrlService, undefined, 1);
+  Inject("MicroPlainTenant")(CtrlPlain, undefined, 1);
+  Inject("MicroServiceTenant")(CtrlService, undefined, 1);
 }
 
 /** Une requête : bulle ouverte sur un scope neuf, contrôleur, fermeture. */

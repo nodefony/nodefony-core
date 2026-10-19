@@ -168,14 +168,14 @@ s'enrichit, ta mémoire non.
   de là que lui viennent sa config fusionnée, son journal (`this.log`), les
   événements, et sa place dans le conteneur. Il porte DEUX noms sans que ce soit
   une redondance : le décorateur nomme la CLASSE (ce qu'on écrit dans
-  `@inject("…")`), le `super("nom", …)` nomme l'INSTANCE (sa clé pour
+  `@Inject("…")`), le `super("nom", …)` nomme l'INSTANCE (sa clé pour
   `container.get("…")`). Ne l'écris pas de mémoire :
   `npx nodefony create service <Nom>` en pose un complet, commenté, à imiter ;
   la référence est dans
   `node_modules/nodefony/docs/service.md`.
   **Un service qui en appelle un autre le déclare au CONSTRUCTEUR** :
   `npx nodefony create service <Nom> --inject <AutreService>` écrit le
-  `@inject("AutreService")` et l'appel qui va avec. La dépendance est alors
+  `@Inject("AutreService")` et l'appel qui va avec. La dépendance est alors
   ordonnée par le conteneur et visible dans la signature — là où
   `container.get("…")` cherche à l'exécution et rend `null` en silence si
   le service n'est pas enregistré.

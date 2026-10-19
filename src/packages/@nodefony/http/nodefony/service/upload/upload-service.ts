@@ -8,7 +8,7 @@ import {
   Message,
   Pci,
   Cli,
-  inject,
+  Inject,
   Module,
 } from "nodefony";
 import HttpKernel from "../http-kernel";
@@ -32,7 +32,7 @@ export class upload extends Service {
   module: Module;
   constructor(
     module: Module,
-    @inject("HttpKernel") public httpKernel: HttpKernel,
+    @Inject("HttpKernel") public httpKernel: HttpKernel,
   ) {
     super(
       "upload",

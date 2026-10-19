@@ -90,7 +90,7 @@ src/nodefony/
     ├── config/               ← config par défaut framework
     ├── finder/               ← FileClass + Finder (MEMORY.md, README.md)
     ├── kernel/               ← Kernel + Module + CliKernel (MEMORY.md, README.md)
-    │   └── injector/         ← @injectable @inject décorateurs (MEMORY.md, README.md)
+    │   └── injector/         ← @injectable @Inject décorateurs (MEMORY.md, README.md)
     ├── runtime/              ← RequestContext (ALS façade)
     ├── service/              ← services internes
     ├── client/               ← browser-compat stubs (P14.11 futur)
@@ -129,7 +129,7 @@ Chacun porte les trois fichiers (`CLAUDE.md` instructions · `MEMORY.md` interna
 | ---------------------- | ---------------------------------------------------- |
 | `src/syslog/`          | Syslog/Pdu, ring buffer, transports                  |
 | `src/kernel/`          | Kernel lifecycle, Module hooks, CliKernel            |
-| `src/kernel/injector/` | `@injectable`, `@inject`, scopes, circular detection |
+| `src/kernel/injector/` | `@injectable`, `@Inject`, scopes, circular detection |
 | `src/cli/`             | Cli, Command, Commander, niceBytes, timers           |
 | `src/finder/`          | FileClass, File, FileResult, Result, Finder          |
 
@@ -162,7 +162,7 @@ Tout listener EventEmitter attaché _dans_ le contexte async mais qui fire plus 
 `undefined`. Deux points d'ancrage l'appliquent : les listeners `close`/`message` de
 `WebsocketContext.connect()`, et l'enregistrement dans `Context.onAfterResponse` (HTTP + WS).
 
-### Pattern `@injectable` + `@inject` (DI)
+### Pattern `@injectable` + `@Inject` (DI)
 
 Décorateurs dans `src/kernel/injector/`. Cf [`src/kernel/injector/MEMORY.md`](src/kernel/injector/MEMORY.md) pour internals (algorithme topologique, détection de cycles, scopes).
 

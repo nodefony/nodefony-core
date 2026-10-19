@@ -1,4 +1,4 @@
-import { Service, injectable, inject, RequestContext } from "nodefony";
+import { Service, injectable, Inject, RequestContext } from "nodefony";
 import type { Container, Scope } from "nodefony";
 
 /**
@@ -89,7 +89,7 @@ export class RequestProbe extends Service {
 export class RequestProbeConsumer extends Service {
   constructor(
     scope: Scope,
-    @inject("RequestProbe") readonly probe: RequestProbe,
+    @Inject("RequestProbe") readonly probe: RequestProbe,
   ) {
     super("requestProbeConsumer", scope, false);
   }
@@ -108,7 +108,7 @@ export class RequestProbeConsumer extends Service {
  */
 @injectable({ name: "RequestProbeReader", scope: "transient" })
 export class RequestProbeReader extends Service {
-  constructor(@inject("RequestProbe") readonly probe: RequestProbe) {
+  constructor(@Inject("RequestProbe") readonly probe: RequestProbe) {
     super("requestProbeReader", probe.container as Container, false);
   }
 }

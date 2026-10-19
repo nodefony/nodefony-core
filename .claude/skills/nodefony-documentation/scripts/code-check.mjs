@@ -92,7 +92,7 @@ writeFileSync(
         noEmit: true,
         skipLibCheck: true,
         experimentalDecorators: true,
-        emitDecoratorMetadata: true,
+        emitDecoratorMetadata: false,
         esModuleInterop: true,
         types: ["node"],
       },

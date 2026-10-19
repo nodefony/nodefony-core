@@ -10,7 +10,7 @@ import {
   identityHint,
   thenMaybe,
   finallyMaybe,
-  //inject,
+  //Inject,
 } from "nodefony";
 import type { IIdempotencyStore, MaybePromise } from "nodefony";
 import type { IResolver } from "../interfaces/index.js";

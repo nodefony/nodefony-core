@@ -3,7 +3,7 @@ import {
   Module,
   Container,
   Injector,
-  //inject,
+  //Inject,
   injectable,
   isPromise,
   stripTrailingSlashes,
@@ -217,7 +217,7 @@ class Router extends Service implements IRequestRouter {
   > | null = null;
   constructor(
     module: Module,
-    //@inject("HttpKernel") private httpKernel: HttpKernel
+    //@Inject("HttpKernel") private httpKernel: HttpKernel
   ) {
     super(
       serviceName,

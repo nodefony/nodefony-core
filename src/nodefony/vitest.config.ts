@@ -27,7 +27,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *  - reflect-metadata (decorators), alias `before`/`after`→`beforeAll`/`afterAll` et
  *    le perf-skip OPT-IN (`NF_RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
  *
- * Decorators : requis pour le DI (`@injectable`/`@inject`) — cf `scripts/test/vitest/oxc.ts` (racine)
+ * Decorators : requis pour le DI (`@injectable`/`@Inject`) — cf `scripts/test/vitest/oxc.ts` (racine)
  * pour le pourquoi du bloc `oxc` ci-dessous.
  */
 export default defineConfig({

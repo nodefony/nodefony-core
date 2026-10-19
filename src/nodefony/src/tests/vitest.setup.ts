@@ -1,5 +1,5 @@
 // Setup vitest du workspace core — porte ce que `.mocharc.cjs` faisait via mocha :
-//   1. reflect-metadata (decorators DI : @injectable / @inject).
+//   1. reflect-metadata (decorators DI : @injectable / @Inject).
 //   2. perf-skip OPT-IN : port fidèle du root hook `perf-skip.cjs`.
 //   3. filet anti-fuite : les listeners `process` d'un test meurent avec lui.
 import "reflect-metadata";

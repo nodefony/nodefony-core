@@ -7,8 +7,7 @@
 //
 // Actifs   : le registre `injectables` · l'identité/l'état des instances ·
 //            le container kernel · les métadonnées Reflect (`di:scope`).
-// Chemins  : @injectable (register) · @inject (par nom) · auto-injection par
-//            TYPE (`design:paramtypes`) · @Inject (propriété) · Module.addService.
+// Chemins  : @injectable (register) · @Inject (par nom) · Module.addService.
 //
 // Invariant central du scope `singleton` : **deux résolutions du même service
 // rendent la MÊME instance**. C'est ce que le nom promet à l'appelant.
@@ -19,7 +18,7 @@ import Injector from "../kernel/injector/injector";
 import Service from "../Service";
 import Container from "../Container";
 import Event from "../Event";
-import { injectable } from "../kernel/decorators/kernelDecorator";
+import { injectable, Inject } from "../kernel/decorators/kernelDecorator";
 import { Nodefony } from "../Nodefony";
 
 /** Accès au registre interne — c'est l'actif qu'on attaque. */
@@ -180,7 +179,7 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
     }
   }
 
-  const consumerOf = (dep: any, label: string) => {
+  const consumerOf = (dep: { readonly name: string }, label: string) => {
     class Consumer extends Service {
       public dep: any;
       constructor(d: any) {
@@ -188,7 +187,7 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
         this.dep = d;
       }
     }
-    Reflect.defineMetadata("design:paramtypes", [dep], Consumer);
+    Inject(dep.name)(Consumer, undefined, 0);
     return Consumer;
   };
 
@@ -257,7 +256,7 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
         this.dep = d;
       }
     }
-    Reflect.defineMetadata("design:paramtypes", [DivergentSvc], ConsumerByType);
+    Inject("DivergentSvc")(ConsumerByType, undefined, 0);
 
     try {
       // Ce que fait `Module.addService` en posant l'instance : il apprend le
@@ -286,7 +285,7 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
 describe("RED-TEAM Injector — E. Fetch est un vrai singleton", () => {
   it("E1 — construire l'Injector POSE une instance de Fetch au container du kernel", () => {
     // Déclarer sans poser laissait `kernel.get("Fetch")` vide → un `new Fetch()`
-    // à chaque `@inject("Fetch")`, donc un service par requête (mesuré : 10
+    // à chaque `@Inject("Fetch")`, donc un service par requête (mesuré : 10
     // requêtes = 10 instances), construit avec le Context du controller au lieu
     // d'un Module. Poser l'instance ici est ce qui rend la branche container
     // atteignable — et donc le scope honnête.
@@ -331,7 +330,7 @@ describe("RED-TEAM Injector — D. propagation d'argsClass aux dépendances", ()
         this.dep = d;
       }
     }
-    Reflect.defineMetadata("design:paramtypes", [LeafSvc], ParentSvc);
+    Inject("LeafSvc")(ParentSvc, undefined, 0);
 
     const secret = { iAmTheParentsArgument: true };
     try {

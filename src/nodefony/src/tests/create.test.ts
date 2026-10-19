@@ -5796,7 +5796,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
 
     it("--inject : la dépendance est DÉCLARÉE au constructeur, et APPELÉE", () => {
-      // Le geste mesuré ROUGE au banc de découvrabilité : `@inject` n'existait
+      // Le geste mesuré ROUGE au banc de découvrabilité : `@Inject` n'existait
       // en code ACTIF dans AUCUN gabarit (uniquement des commentaires), et
       // l'agent passait exclusivement par `container.get`. On ne prend que la
       // voie qu'on a VUE.
@@ -5808,12 +5808,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "service", "InvoiceService.ts"),
         "utf8",
       );
-      // L'import est une VALEUR : `@inject` nomme la classe, et le paramètre
-      // décoré porte son type — un `import type` effacerait la métadonnée.
-      assert.include(src, 'import BillingService from "./BillingService";');
+      // La dépendance se résout par son NOM (`@Inject`), jamais par son type
+      // (ADR-0018) : la classe n'est importée que pour le typage.
       assert.include(
         src,
-        '@inject("BillingService") private readonly billing: BillingService,',
+        'import type BillingService from "./BillingService";',
+      );
+      // Le décorateur employé doit être importé — sans quoi l'application
+      // générée compile en mode isolé puis lève « Inject is not defined » au
+      // chargement de son `dist`.
+      assert.match(src, /^import \{[^}]*\bInject\b[^}]*\} from "nodefony";$/mu);
+      assert.include(
+        src,
+        '@Inject("BillingService") private readonly billing: BillingService,',
       );
       // Une dépendance déclarée et jamais lue ne compile pas (`noUnusedLocals`)
       // — et ne montrerait rien. L'appel porte sur une méthode CHERCHÉE dans le

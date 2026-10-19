@@ -9,7 +9,7 @@ import {
 } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
 import {
-  inject,
+  Inject,
   Fetch,
   nodefonyError as Error,
   RequestContext,
@@ -96,7 +96,7 @@ const contextHooksState = {
 class DefaultController extends Controller {
   constructor(
     context: Context,
-    @inject("Fetch") private readonly fetchService: Fetch,
+    @Inject("Fetch") private readonly fetchService: Fetch,
   ) {
     super("DefaultController", context);
   }

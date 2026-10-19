@@ -154,7 +154,7 @@ import {
   Syslog,
   Pdu,
   nodefonyError,
-  inject,
+  Inject,
   injectable,
   services,
   extend,

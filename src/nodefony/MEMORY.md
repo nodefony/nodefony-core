@@ -210,7 +210,7 @@ nodefonyError; // ← anciennement exporté comme "Error" (cassant)
 // ORM
 (Orm, Entity, Connector);
 // DI
-(inject, injectable, services, entities, modules);
+(Inject, injectable, services);
 // Utils
 (extend, typeOf, isArray, isPromise, isPlainObject, isFunction, isContainer);
 // Types (import type)
@@ -395,7 +395,7 @@ Sous-chemin exporté, importé par les tests de **toute application générée**
   🔴 Jamais de repli `?? 5151` : un port de repli fait interroger le premier serveur venu, et le
   verdict porte alors sur LUI (vécu : superviseur orphelin → 404 sur toute une suite).
 - `createTestModule(opts?)` — module jetable portant conteneur + bus, pour éprouver un service SEUL.
-  ⚠️ Pas de résolution par conteneur (`@inject` passe par `Nodefony.getKernel()`, absent ici) : un
+  ⚠️ Pas de résolution par conteneur (`@Inject` passe par `Nodefony.getKernel()`, absent ici) : un
   test unitaire DONNE la dépendance au constructeur.
 - `startSpareApp({port, httpsPort?, env?, root?, timeoutMs?})` → `{port, output(), stop()}` —
   exemplaire JETABLE dans un état choisi (schéma en retard, dépendance absente). Attend `/livez`,

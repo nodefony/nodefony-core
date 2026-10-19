@@ -275,7 +275,7 @@ await repo.count({ published: true });
 
 ```typescript
 import { AbstractCrudService, type ServiceWiring } from "@nodefony/orm-core";
-import { injectable, inject } from "nodefony";
+import { injectable, Inject } from "nodefony";
 
 @injectable() // token = la CLASSE ; scope "singleton" par défaut
 // ⚠️ `singleton: true` N'EXISTE PAS dans `InjectableOptions` (= `{ name?, scope? }`) :
@@ -285,7 +285,7 @@ export class ArticleService extends AbstractCrudService<
   IArticleRepository
 > {
   constructor(
-    @inject("repository.article") repository: IArticleRepository,
+    @Inject("repository.article") repository: IArticleRepository,
     ...wiring: ServiceWiring
   ) {
     super("articles", repository, ...wiring); // ServiceWiring = [container?, nc?, options?] forwardé (fin du tunneling)
@@ -303,7 +303,7 @@ export class ArticleService extends AbstractCrudService<
   un champ du service. Service = transport-agnostique → REST/WS/GraphQL/CLI = adaptateurs minces qui l'appellent.
 - `findById(id)` suppose **PK `id` string** (override sinon). 2ᵉ générique `R` = garde les finders métier
   (ex. `UserService extends AbstractCrudService<IUser, IUserRepository>`, `super("users", repository, ...wiring)`).
-- **DI** : `@inject("repository.<entity>")` (le binding repo↔ORM est fait par l'adapter) — JAMAIS l'ORM en dur.
+- **DI** : `@Inject("repository.<entity>")` (le binding repo↔ORM est fait par l'adapter) — JAMAIS l'ORM en dur.
   `@repository(name, {entity, connector?})` = tag pur lien repo↔entity.
 
 ### E. Transactions (une tx = un ORM ; 2PC cross-ORM NON garanti)
@@ -690,4 +690,4 @@ les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne pass
   la prod SQL → factory par dialecte dès le départ (cf §2.8). C'est le **bloqueur release** côté `user`/
   `token`/`session`/`webauthn`.
 - **orm-core = décorateurs SANS reflect-metadata** (WeakMap maison) → 0 dep runtime ; ne pas y réintroduire
-  `reflect-metadata`/`design:paramtypes` (diverge volontairement du DI core/framework).
+  `reflect-metadata`. Aucun type émis n'est lu nulle part (ADR-0018, `emitDecoratorMetadata: false`).

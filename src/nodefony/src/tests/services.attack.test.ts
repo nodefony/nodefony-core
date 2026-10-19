@@ -29,7 +29,7 @@ import Container from "../Container";
 import {
   services,
   injectable,
-  inject,
+  Inject,
 } from "../kernel/decorators/kernelDecorator";
 
 const makeKernel = (env: "development" | "production"): Kernel =>
@@ -164,7 +164,7 @@ describe("RED-TEAM @services — intégrité du boot", () => {
         void dep;
       }
     }
-    Reflect.defineMetadata("design:paramtypes", [NeedsItsModule], Consumer);
+    Inject("NeedsItsModule")(Consumer, undefined, 0);
 
     try {
       assert.throws(
@@ -219,8 +219,8 @@ describe("RED-TEAM @services — l'ordre écrit ne décide plus du boot", () => 
    * ALIGNÉ sur son nom `@injectable` (le nom de classe).
    *
    * L'alignement n'est pas un détail de mise en scène : c'est la seule raison
-   * pour laquelle `@inject("HttpKernel")` trouve quoi que ce soit au container
-   * (`kernel.get` interroge avec le nom ÉCRIT dans `@inject`). Un `super("probeDep")`
+   * pour laquelle `@Inject("HttpKernel")` trouve quoi que ce soit au container
+   * (`kernel.get` interroge avec le nom ÉCRIT dans `@Inject`). Un `super("probeDep")`
    * ici ferait échouer ce test pour la DETTE DES NOMS, pas pour l'ordre — et
    * masquerait ce qu'on veut prouver. Cf. `injector.attack.test.ts` C3.
    */
@@ -232,7 +232,7 @@ describe("RED-TEAM @services — l'ordre écrit ne décide plus du boot", () => 
     }
   }
 
-  /** Consommateur : le pendant de `SessionsService` (`@inject("HttpKernel")`). */
+  /** Consommateur : le pendant de `SessionsService` (`@Inject("HttpKernel")`). */
   class ProbeConsumer extends Service {
     public dep: ProbeDep;
     constructor(module: Module, dep: ProbeDep) {
@@ -240,8 +240,8 @@ describe("RED-TEAM @services — l'ordre écrit ne décide plus du boot", () => 
       this.dep = dep;
     }
   }
-  // `@inject("ProbeDep")` en position 1 (tsx n'applique pas les param decorators).
-  (inject("ProbeDep") as unknown as (t: any, k: undefined, i: number) => void)(
+  // `@Inject("ProbeDep")` en position 1 (tsx n'applique pas les param decorators).
+  (Inject("ProbeDep") as unknown as (t: any, k: undefined, i: number) => void)(
     ProbeConsumer,
     undefined,
     1,
@@ -326,7 +326,7 @@ describe("RED-TEAM DI — nom de classe divergent de la clé container", () => {
       this.dep = dep;
     }
   }
-  (inject("Divergent") as unknown as (t: any, k: undefined, i: number) => void)(
+  (Inject("Divergent") as unknown as (t: any, k: undefined, i: number) => void)(
     ByClassName,
     undefined,
     1,
@@ -339,7 +339,7 @@ describe("RED-TEAM DI — nom de classe divergent de la clé container", () => {
     }
   }
 
-  it("H1 — @inject(NomDeClasse) retrouve l'instance rangée sous une AUTRE clé", async () => {
+  it("H1 — @Inject(NomDeClasse) retrouve l'instance rangée sous une AUTRE clé", async () => {
     const k = makeKernel("development");
     await k.addModule(DivergentModule);
     await firePreBoot(k);
@@ -351,7 +351,7 @@ describe("RED-TEAM DI — nom de classe divergent de la clé container", () => {
     assert.strictEqual(
       consumer.dep,
       posed,
-      'le consommateur tient une COPIE : `@inject("Divergent")` n\'a pas retrouvé ' +
+      'le consommateur tient une COPIE : `@Inject("Divergent")` n\'a pas retrouvé ' +
         'l\'instance rangée sous `"divergent"` — cache vide, état perdu, en silence',
     );
   });

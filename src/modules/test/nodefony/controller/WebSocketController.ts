@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { WebsocketContext } from "@nodefony/http";
-//import { inject, Fetch, Error } from "nodefony";
+//import { Inject, Fetch, Error } from "nodefony";
 
 @controller("/nodefony/test/ws")
 class WebsocketController extends Controller {

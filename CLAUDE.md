@@ -882,7 +882,7 @@ Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 | Workspace `nodefony` | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                         | Service, Container, Event, Nodefony singleton |
 | Syslog / Pdu         | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                   | Syslog, Pdu, CircularBuffer, transports       |
 | Kernel / Module      | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                   | Kernel lifecycle, Module hooks, CliKernel     |
-| Injector / DI        | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md) | @injectable, @inject, @Inject, scopes, algo   |
+| Injector / DI        | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md) | @injectable, @Inject (nom), scopes, algo      |
 | Cli / Command        | [`src/nodefony/src/cli/MEMORY.md`](src/nodefony/src/cli/MEMORY.md)                         | Cli, Command, Commander, niceBytes, timers    |
 | FileClass / Finder   | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                   | FileClass, File, FileResult, Result, Finder   |
 

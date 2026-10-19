@@ -20,7 +20,7 @@ import Injector from "../kernel/injector/injector";
 import Service from "../Service";
 import Container, { Scope } from "../Container";
 import RequestContext from "../runtime/RequestContext";
-import { injectable, inject } from "../kernel/decorators/kernelDecorator";
+import { injectable, Inject } from "../kernel/decorators/kernelDecorator";
 
 const root = new Container();
 root.set("syslog", { log: () => undefined });
@@ -96,7 +96,7 @@ class TenantReader extends Service {
     super("isoTenantReader", root, false);
   }
 }
-inject("isoTenant")(TenantReader, undefined, 0);
+Inject("isoTenant")(TenantReader, undefined, 0);
 injectable({ name: "isoTenantReader", scope: "transient" })(TenantReader);
 
 describe("Isolation par requête — un faux service pour UNE requête", () => {

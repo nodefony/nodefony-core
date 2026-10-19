@@ -1,6 +1,6 @@
 import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-//import { inject, Error } from "nodefony";
+//import { Inject, Error } from "nodefony";
 
 @controller("/nodefony/test/openapi")
 @UseSession()

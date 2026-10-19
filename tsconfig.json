@@ -2,7 +2,7 @@
   "compilerOptions": {
     "rootDir": "./",
     "outDir": "./dist",
-    "emitDecoratorMetadata": true,
+    "emitDecoratorMetadata": false,
     "experimentalDecorators": true,
     "target": "ES2024",
     "module": "ESNext",

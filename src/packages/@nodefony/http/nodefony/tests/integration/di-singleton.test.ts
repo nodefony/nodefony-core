@@ -86,7 +86,7 @@ describe("DI — intégrité du container (serveur réel)", () => {
 
   it("Fetch est posé au container : une instance par kernel, pas une par requête", async () => {
     // Avant, `Fetch` n'était que DÉCLARÉ au registre : `kernel.get("Fetch")`
-    // rendait null → un `new Fetch(...)` à CHAQUE `@inject("Fetch")`, construit
+    // rendait null → un `new Fetch(...)` à CHAQUE `@Inject("Fetch")`, construit
     // avec le Context du controller là où son ctor attend un Module.
     const { body } = await get("/nodefony/test/di/probe");
     expect(body.fetchPresent, "Fetch n'est pas au container").to.be.true;

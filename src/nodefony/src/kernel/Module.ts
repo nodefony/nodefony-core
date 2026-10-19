@@ -451,7 +451,7 @@ class Module<TConfig = Record<string, unknown>>
    * déjà (override).
    *
    * @param service - constructeur du service (typiquement décoré `@injectable`).
-   * @param args - arguments additionnels passés au constructeur (après les `@inject` resolved).
+   * @param args - arguments additionnels passés au constructeur (après les `@Inject` resolved).
    * @returns instance du service prête à l'usage.
    */
   async addService(
@@ -495,7 +495,7 @@ class Module<TConfig = Record<string, unknown>>
     // Le seul instant où le couple (classe, clé container) est connu : le
     // décorateur `@injectable` indexe la CLASSE, `super(nom, …)` la clé — et il
     // ne s'exécute qu'ici. On l'apprend pour que toute résolution ultérieure
-    // (`@inject("Router")`, injection par type) retrouve CETTE instance au lieu
+    // (`@Inject("Router")`) retrouve CETTE instance au lieu
     // d'en fabriquer une seconde sous un nom qui ne round-trippe pas.
     Injector.rememberContainerKey(service, inst.name);
     this.set(inst.name, inst);

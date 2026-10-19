@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-12
+updated: 2026-10-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-add-service/SKILL.md"
 ---
@@ -38,7 +38,7 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-service/SKILL.md"
 
 ## Ce qu'il fait
 
-Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie (un exemplaire pour l'application, ou un par requête), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre.
+Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie (un exemplaire pour l'application, ou un par requête), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre.
 
 ## Quand il se déclenche
 

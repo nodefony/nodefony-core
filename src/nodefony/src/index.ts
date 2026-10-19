@@ -441,7 +441,7 @@ export type {
 // ─── Decorators ───────────────────────────────────────────────────────────────
 export {
   injectable,
-  inject,
+  Inject,
   services,
 } from "./kernel/decorators/kernelDecorator";
 export type { DIScope, InjectableOptions } from "./kernel/injector/injector";

@@ -2243,9 +2243,9 @@ const SAMPLES = {
       },
     ],
   },
-  "13 :: la dépendance vient du conteneur (@inject ou container.get)": {
+  "13 :: la dépendance vient du conteneur (@Inject ou container.get)": {
     pass: {
-      content: `  constructor(module: Module, @inject("VatService") private vat: VatService) {}`,
+      content: `  constructor(module: Module, @Inject("VatService") private vat: VatService) {}`,
     },
     fail: { content: `  private vat = new VatService();` },
   },
@@ -2256,15 +2256,15 @@ const SAMPLES = {
     fail: { addedTs: `    const vat = new VatService();` },
   },
   "13 :: voie déclarative trouvée (injection par constructeur)": {
-    pass: { content: `    @inject("VatService") private vat: VatService,` },
+    pass: { content: `    @Inject("VatService") private vat: VatService,` },
     fail: { content: `    this.vat = this.container.get("vat");` },
   },
   // L'AUTRE voie légitime doit rester acceptée par la sonde de consommation :
   // c'est elle que l'`AGENTS.md` nomme en premier, et la recaler ferait
   // dégrader une réponse juste pour plaire à l'instrument.
-  "13 :: la dépendance vient du conteneur (@inject ou container.get) — par résolution":
+  "13 :: la dépendance vient du conteneur (@Inject ou container.get) — par résolution":
     {
-      of: "13 :: la dépendance vient du conteneur (@inject ou container.get)",
+      of: "13 :: la dépendance vient du conteneur (@Inject ou container.get)",
       pass: { content: `    const vat = this.container.get("vat");` },
     },
 

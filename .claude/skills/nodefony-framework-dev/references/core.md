@@ -9,7 +9,7 @@
 
 ## Sommaire
 
-- Service injectable (DI) + `@inject` vs `@Inject`
+- Service injectable (DI) + `@Inject` vs `@Inject`
 - Logging (`Service.log`)
 - Module (hooks lifecycle)
 - Commande CLI + exécution
@@ -33,15 +33,15 @@
 > que personne ne déclare).
 
 ```typescript
-import { injectable, inject, Module, Service, Container } from "nodefony";
+import { injectable, Inject, Module, Service, Container } from "nodefony";
 
 @injectable() // token = la CLASSE ; scope "singleton" par défaut
 export class UserService extends Service {
   // 1er param = le MODULE porteur (tout service en a besoin : il y prend son container).
-  // ⚠️ tsx (tests) n'émet PAS design:paramtypes → TOUJOURS nommer @inject explicitement.
+  // 🔴 Une dépendance se NOMME (@Inject("…")) : le type d'un paramètre ne résout rien (ADR-0018).
   constructor(
     module: Module,
-    @inject("DrizzleService") private db: DrizzleService,
+    @Inject("DrizzleService") private db: DrizzleService,
   ) {
     super("userService", module.container as Container); // ← LA clé du container
   }
@@ -56,18 +56,18 @@ export class UserService extends Service {
 
 | Ce que tu écris             | Ce que ça nomme                            | Sert à                      |
 | --------------------------- | ------------------------------------------ | --------------------------- |
-| `@injectable()` / `("Foo")` | la **CLASSE**, au registre des injectables | `@inject("…")`, le type     |
+| `@injectable()` / `("Foo")` | la **CLASSE**, au registre des injectables | `@Inject("…")`              |
 | `super("userService", …)`   | l'**INSTANCE**, sa clé dans le container   | `kernel.get("userService")` |
 
 Ils n'ont **aucune raison** d'être égaux, et le décorateur ne peut pas connaître le second (il
 s'exécute au _chargement_ de la classe ; `super()` à la _construction_). Le DI les réconcilie via la
-CLASSE : la clé container est **apprise** quand `addService` pose l'instance, donc `@inject("UserService")`
+CLASSE : la clé container est **apprise** quand `addService` pose l'instance, donc `@Inject("UserService")`
 (nom de classe) **et** `kernel.get("userService")` (clé) rendent la MÊME instance.
 → Reste libre de les aligner (`HttpKernel`/`"HttpKernel"`) ou non (`Router`/`"router"`) : les deux marchent.
 
-- `@inject("x")` (minuscule) = **paramètre ctor** (`inject:services` sur le constructeur).
-- `@Inject("x")` (Majuscule) = **propriété** post-ctor (`inject:properties` sur le **prototype**),
-  `private x!: T` (definite assignment ; `undefined` pendant `super()`). Confondre les deux = bug silencieux.
+- `@Inject("x")` = **paramètre ctor** (`inject:services` sur le constructeur, sparse par position). Un paramètre
+  sans `@Inject` reçoit l'argument positionnel, ou `undefined` — son TYPE ne résout rien, même inscrit
+  (`emitDecoratorMetadata: false`, garde `src/nodefony/src/tests/noTypeMetadata.test.ts`). Pas d'injection de propriété.
 - **`singleton` (défaut) = UNE instance**, mémoïsée au container. `"transient"` → toujours un new.
   `"request"` → UNE instance par requête (par CONNEXION en WS), rangée sur le scope DI de la
   requête, ctor `(scope, ...deps)`, `clean()` LIFO à la fermeture. Un détenteur singleton
@@ -84,7 +84,7 @@ CLASSE : la clé container est **apprise** quand `addService` pose l'instance, d
 export class OrderService extends Service {
   constructor(
     module: Module,
-    @inject("UserService") private users: UserService,
+    @Inject("UserService") private users: UserService,
   ) {
     super("orderService", module.container as Container);
   }
@@ -147,7 +147,7 @@ export class MyModule extends Module {
   ⚠️ `@modules` et `@entities` N'EXISTENT PLUS (retirés — la liste des modules vit dans le manifeste
   `config.modules` de `nodefony.config.ts`, cf chantier defineConfig).
 - **L'ORDRE de la liste ne compte pas** : il est recalculé depuis les dépendances déclarées
-  (`@inject` + types) — tri topologique **stable** (une liste déjà correcte sort inchangée). Un cycle
+  (`@Inject` + types) — tri topologique **stable** (une liste déjà correcte sort inchangée). Un cycle
   lève une erreur qui NOMME le cycle. → Écris la liste dans l'ordre qui te parle.
 - **Un service qui échoue suit la politique de boot** (jamais un skip silencieux) :
   **fatal en production** (ou sur erreur de config) → le boot s'interrompt ; **fail-soft ailleurs**,
@@ -386,7 +386,7 @@ try {
   - [`Event` (+ `emitAsyncGuarded`)](#event--emitasyncguarded)
   - [`Kernel` / `CliKernel`](#kernel--clikernel)
   - [`Module`](#module)
-  - [DI : `Injector` + `@injectable`/`@inject`/`@Inject`](#di--injector--injectableinjectinject)
+  - [DI : `Injector` + `@injectable`/`@Inject`/`@Inject`](#di--injector--injectableinjectinject)
   - [`Syslog` / `Pdu`](#syslog--pdu)
   - [`Cli` / `Command`](#cli--command)
   - [`FileClass` / `Finder`](#fileclass--finder)
@@ -425,11 +425,8 @@ et expose un sous-ensemble (NodefonySocket, Pdu, Syslog, Tools…) ⇒ le même 
 
 ## Surface API publique
 
-> Tout est re-exporté par le barrel `index.ts`. ⚠️ **2 symboles du décorateur DI NE sont PAS dans le barrel** :
-> `Inject` (propriété, Majuscule) et `entities` (ce dernier n'existe d'ailleurs plus). Un consumer ne peut donc
-> faire que `@inject` (paramètre ctor), PAS `@Inject` (injection de propriété) via `import { … } from "nodefony"`.
-> `kernelDecorator.ts#injectable` exporte `{ injectable, inject, Inject, services }` mais `index.ts#useNodefony` ne ré-exporte
-> que `{ injectable, inject, services }`.
+> Tout est re-exporté par le barrel `index.ts`, décorateurs DI compris : `kernelDecorator.ts#injectable` exporte
+> `{ injectable, Inject, services }`, tous trois ré-exportés par `nodefony`. `entities` vit dans `@nodefony/orm-core`.
 
 ### Façade `Nodefony`
 
@@ -543,7 +540,7 @@ onBoot onReady onServersReady onPostReady onTerminate=1<<10`.
 - **Hooks lifecycle** (optionnels, **méthodes prototype obligatoires**) : `onKernelRegister`/`onKernelBoot`/`onKernelReady`
   (`async (): Promise<this>`) + `initialize?(kernel?)`. Le ctor attache **toujours** 1 listener (`onPreBoot` → `getPackageJson`).
 
-### DI : `Injector` + `@injectable`/`@inject`/`@Inject`
+### DI : `Injector` + `@injectable`/`@Inject`/`@Inject`
 
 `kernel/injector/injector.ts` — `class Injector extends Service`. **Deux** registres statiques (globaux) :
 `Injector.injectables` (nom → CLASSE, `Object.create(null)` — un objet littéral ferait répondre
@@ -571,9 +568,8 @@ erreur **actionnable** (nomme le service, son demandeur, et le remède), `cause`
 les **dépendances**.
 
 Types exportés : `DIScope = "singleton" \| "transient" \| "request"`, `InjectableOptions`. Décorateurs (`kernelDecorator.ts#injectable`) :
-`@injectable(nameOrOptions?)` (register + pose `di:scope`), `@inject("name")` (paramètre ctor → metadata `inject:services`
-sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties` sur le **prototype** — **absent du barrel public**),
-`@services([...])` (sur Module → `onPreBoot`).
+`@injectable(nameOrOptions?)` (register + pose `di:scope`), `@Inject("name")` (paramètre ctor → metadata `inject:services`
+sur le **constructeur**), `@services([...])` (sur Module → `onPreBoot`).
 
 ### `Syslog` / `Pdu`
 
@@ -650,16 +646,15 @@ l'ancien export `Error` a été renommé, cassant). Ctor `(message?: string | Er
 
 `Injector.instantiate(Ctor, ...args)` → `_instantiateWithStack(Ctor, [], args)`. Par arbre d'appel :
 
-1. **Détection de cycle** : `if (stack.includes(Ctor.name)) throw "Circular dependency detected: A → B → A"`. `nextStack = [...stack, name]`
-   — **copie par valeur** (jamais de mutation du parent) → async-safe.
-2. **Sources metadata** : `inject:services` (sur le constructeur, posé par `@inject`, sparse par position, **priorité**) +
-   `design:paramtypes` (émis par TS si `emitDecoratorMetadata`). Si aucune → `Reflect.construct(Ctor, args)` (rétro-compat) puis property injection.
-3. Pour chaque position `i` : `@inject[i]` défini → `_resolveWithStack(name)` ; sinon `paramTypes[i].name` enregistré → auto-injection
-   par type ; sinon → arg explicite `argsClass[explicitIdx++]`. Args restants appendés.
-4. `_applyPropertyInjection` : lit `inject:properties` sur le **prototype** → set les props post-construction.
+1. **Détection de cycle** : `if (stack.includes(Ctor)) throw "Circular dependency detected: A → B → A"`. `nextStack = [...stack, Ctor]`
+   — des CONSTRUCTEURS, **copie par valeur** (jamais de mutation du parent) → async-safe.
+2. **Une seule source** : `inject:services` (sur le constructeur, posé par `@Inject`, sparse par position). Aucun nom →
+   `Reflect.construct(Ctor, args)`. Le type d'un paramètre n'est jamais lu (ADR-0018).
+3. Pour chaque position `i` : `@Inject[i]` défini → `_resolveWithStack(name)` ; sinon → arg explicite `argsClass[explicitIdx++]`
+   (ou `undefined`). Args restants appendés.
 
-`_resolveWithStack(name, args, stack)` : si `@injectable` → `scope==="transient"` → toujours `new` ; `"singleton"` →
-**court-circuit** `kernel.get(name)` si présent (= le cache singleton), sinon `new`. Si non-`@injectable` → fallback `kernel.get(name)`,
+`_resolveWithStack(name, stack)` (jamais d'`args` : une dépendance se résout, elle n'hérite pas) : si `@injectable` → `scope==="transient"` → toujours `new` ; `"singleton"` →
+**court-circuit** `kernel.get(containerKeyOf(Ctor) ?? name)` si présent (= le cache singleton, clé apprise par la CLASSE), sinon `new`. Si non-`@injectable` → fallback `kernel.get(name)`,
 sinon throw. `"request"` → `_resolveRequestScoped` : refus d'un détenteur singleton, scope lu par
 `RequestContext.requireScope()`, lecture sur les propriétés PROPRES du scope, création paresseuse
 puis `scope.set` + `scope.own`. La pile porte des CONSTRUCTEURS (détenteur relu sans coût tant
@@ -720,8 +715,8 @@ chaque `Pdu` via `Pdu.requestIdProvider` (branché Node-only dans `index.ts#useN
 
 - **Imports cassants (héritage JS)** : `import nodefony from "nodefony"` ❌ (0 default → `import { Nodefony }`) ·
   `import { Error }` ❌ → `import { nodefonyError }` · `import { kernel }` ❌ (singleton supprimé) → `Nodefony.getKernel()`.
-- **`@Inject` (propriété) et `entities` ABSENTS du barrel** : un consumer npm ne peut faire que `@inject` (paramètre ctor).
-  L'injection de propriété (`@Inject`) existe dans le code mais n'est pas exportée par `nodefony` → utiliser l'injection ctor.
+- **`inject` (minuscule) n'existe plus** : renommé `Inject` (ADR-0018). Pas d'injection de propriété ; `entities` vient de
+  `@nodefony/orm-core`.
 - **`Service` n'étend PAS EventEmitter** (composition `#nc`) : `new Service(name, ct, false)` → tout `on/emit/fire` throw
   `notificationsCenter not initialized`. `notificationsCenter` partagé (Event passé) ≠ auto-créé (cleanup par-service traçé).
 - **`new Kernel()` pollue le singleton global** (`Nodefony.setKernel(this)` dans le ctor) → isoler les tests Kernel (mock minimal).
@@ -729,8 +724,8 @@ chaque `Pdu` via `Pdu.requestIdProvider` (branché Node-only dans `index.ts#useN
   `onKernelStart()` (hook command), jamais dans le ctor. Ne pas rappeler `setCommandVersion()` (le ctor `Cli` ajoute déjà `-v`).
 - **Hooks de module = méthodes PROTOTYPE** (jamais arrow/property : `super()` tourne AVANT les initializers). Le ctor `Module`
   attache toujours ≥1 listener même sans hook. **`Module.critical` est STATIC** (lue avant les initializers de sous-classe).
-- **DI sous `tsx`/esbuild = pas de `design:paramtypes`** → toujours nommer `@inject("x")` explicitement (l'auto-injection par
-  type ne marche qu'avec le build Rollup prod qui émet la metadata).
+- **Paramètre de service reçu `undefined`** = paramètre non nommé : le type ne résout rien, partout (build, vitest, prod)
+  → nommer `@Inject("x")`.
 - **`pdu.severity` est un NUMBER, `pdu.severityName` une STRING** — ne pas comparer `severity === "INFO"`. Le nom est **`CRITIC`,
   jamais `CRITICAL`**.
 - **`Container.set()` après `clean()`** → throw `Container bad argument name` (message trompeur ; vraie cause : `services===null`).

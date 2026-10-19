@@ -4,9 +4,9 @@ import {
   Service,
   //Kernel,
   Container,
-  Module,
+  type Module,
   FamilyType,
-  inject,
+  Inject,
 } from "nodefony";
 import HttpKernel, {
   ProtocolType,
@@ -50,15 +50,8 @@ class ServerHttp extends Service {
 
   constructor(
     module: Module,
-    @inject("HttpKernel") private readonly httpKernel: HttpKernel,
+    @Inject("HttpKernel") private readonly httpKernel: HttpKernel,
   ) {
-    // NE PAS SUPPRIMER — cette expression est le seul usage de `Module` EN TANT
-    // QUE VALEUR dans ce fichier. Sans elle le bundler élide l'import, et
-    // `emitDecoratorMetadata` a déjà écrit `design:paramtypes` avec
-    // `typeof Module === "undefined" ? Object : Module` : l'injection recevrait
-    // `Object` à la place du type réel, sans une erreur.
-    // oxlint-disable-next-line no-unused-expressions
-    Module;
     super(
       "server-http",
       module.container as Container,

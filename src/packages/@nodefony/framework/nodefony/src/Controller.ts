@@ -6,7 +6,7 @@ import {
   //typeOf,
   //EnvironmentType,
   //DebugType,
-  //inject,
+  //Inject,
   FileClass,
 } from "nodefony";
 import type { IRequestUser, MaybePromise } from "nodefony";
@@ -375,7 +375,7 @@ class Controller extends Service implements IController {
   constructor(
     name: string,
     context: ContextType,
-    //@inject("HttpKernel") private httpKernel?: HttpKernel
+    //@Inject("HttpKernel") private httpKernel?: HttpKernel
   ) {
     // `new.target` lit le statique `scope` de la classe la plus dérivée (posé
     // par `@Scope`, hérité sinon — singleton par défaut). Singleton : lié au

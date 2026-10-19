@@ -45,7 +45,7 @@ Les mots qui reviennent (le vocabulaire complet est dans le [lexique général](
 | ------------------- | ------------------------------------------------------------------------------------------------- |
 | **générateur**      | Une commande `nodefony create …` qui écrit le code pour toi, déjà branché.                        |
 | **contrôleur**      | La classe qui répond à une route. Chez Nodefony, une seule classe répond en HTTP **et** en WS.    |
-| **service**         | Une classe de logique réutilisable, que le framework construit et te donne (`@inject`).           |
+| **service**         | Une classe de logique réutilisable, que le framework construit et te donne (`@Inject`).           |
 | **entité**          | Une table de base de données décrite en TypeScript, avec son service et son API.                  |
 | **migration**       | Le fichier SQL qui fait évoluer la base ; il s'écrit et s'applique par une commande.              |
 | **superviseur**     | Le processus de développement qui reconstruit ton code et relance le serveur à chaque sauvegarde. |
@@ -183,13 +183,13 @@ du fichier, remplace le constructeur, et ajoute une route qui attend un peu — 
 vraie requête SQL :
 
 ```ts
-import { inject } from "nodefony";
+import { Inject } from "nodefony";
 import RequestStampService from "../service/RequestStampService";
 
 // … le constructeur de la classe, qui reçoit maintenant le service :
   constructor(
     context: ContextType,
-    @inject("RequestStampService") private stamp: RequestStampService,
+    @Inject("RequestStampService") private stamp: RequestStampService,
   ) {
     super("hello", context);
   }

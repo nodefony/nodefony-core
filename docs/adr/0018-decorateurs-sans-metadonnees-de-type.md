@@ -27,7 +27,7 @@ Nodefony compile en décorateurs **historiques** de TypeScript (`experimentalDec
 - les **décorateurs de paramètre** — `@Body`, `@Query`, `@Param`, `@Headers`, `@Cookie`,
   `@Session`, `@CurrentUser`, `@Req`, `@Res`, `@UploadedFile(s)` côté routeur
   (`routerDecorators.ts#paramDecoratorFactory`), `@inject("nom")` côté injection
-  (`kernelDecorator.ts#inject`) ;
+  (`kernelDecorator.ts#Inject`, renommé `@Inject` par cette décision) ;
 - les **types émis** (`design:paramtypes`, `design:type`), lus par l'injecteur pour
   l'auto-injection par type (`injector.ts#Injector.dependencyNamesOf`,
   `injector.ts#Injector._instantiateWithStack`) et par `@Inject` de propriété

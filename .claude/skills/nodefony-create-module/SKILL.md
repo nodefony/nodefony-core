@@ -250,7 +250,7 @@ Module @nodefony/{{name}} créé.
 > controller, CLAUDE.md, MEMORY.md, README.md) sont dans
 > **[`references/templates.md`](references/templates.md)** — les charger au moment de l'étape 3.
 > Conventions figées : TS strict, ESM-only, named exports, préfixe `node:`, interfaces `I*`,
-> emitDecoratorMetadata + experimentalDecorators, declarationDir `./dist/types`.
+> experimentalDecorators (emitDecoratorMetadata `false` : une dépendance se nomme, ADR-0018), declarationDir `./dist/types`.
 
 ---
 

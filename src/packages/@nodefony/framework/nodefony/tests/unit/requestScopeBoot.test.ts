@@ -20,7 +20,7 @@ import {
   Kernel,
   Module,
   Service,
-  inject,
+  Inject,
   injectable,
 } from "nodefony";
 import type { Scope } from "nodefony";
@@ -54,7 +54,7 @@ class CaptiveController extends Controller {
   }
 }
 ControllerLifetime("singleton")(CaptiveController);
-inject("FwTenant")(CaptiveController, undefined, 1);
+Inject("FwTenant")(CaptiveController, undefined, 1);
 
 /** Portée par requête DÉCLARÉE : il PEUT recevoir un service request. */
 class RequestController extends Controller {
@@ -66,7 +66,7 @@ class RequestController extends Controller {
   }
 }
 ControllerLifetime("request")(RequestController);
-inject("FwTenant")(RequestController, undefined, 1);
+Inject("FwTenant")(RequestController, undefined, 1);
 
 @controllers([CaptiveController])
 class CaptiveModule extends Module {

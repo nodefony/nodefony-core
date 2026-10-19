@@ -33,6 +33,6 @@ export default defineConfig({
     testTimeout: 180_000,
   },
   oxc: {
-    decorator: { legacy: true, emitDecoratorMetadata: true },
+    decorator: { legacy: true, emitDecoratorMetadata: false },
   },
 });

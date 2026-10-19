@@ -8,7 +8,7 @@ import Container from "../Container";
  *
  * Depuis Node 21, `fetch`, `Response`, `Request` et `Headers` sont des globaux
  * stables (implémentation undici intégrée). Ce service les expose via le
- * conteneur d'injection (`@inject("Fetch")`) — la dépendance `node-fetch` n'est
+ * conteneur d'injection (`@Inject("Fetch")`) — la dépendance `node-fetch` n'est
  * donc plus nécessaire (un appel réseau de moins à bundler, perfs undici natives).
  *
  * `fetch` est lié à `globalThis` pour éviter le `TypeError: Illegal invocation`

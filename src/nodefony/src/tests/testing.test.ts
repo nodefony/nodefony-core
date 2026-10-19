@@ -1,6 +1,6 @@
 import { describe, it } from "vitest";
 import { assert } from "vitest";
-import { inject, injectable } from "../kernel/decorators/kernelDecorator";
+import { Inject, injectable } from "../kernel/decorators/kernelDecorator";
 import Service from "../Service";
 import Container from "../Container";
 import type Module from "../kernel/Module";
@@ -48,7 +48,7 @@ class InvoiceService extends Service {
     module: Module,
     // La forme que `create service --inject` écrit : le décorateur nomme la
     // CLASSE, le conteneur la réconcilie avec la clé d'instance.
-    @inject("TaxService") private readonly tax: TaxService,
+    @Inject("TaxService") private readonly tax: TaxService,
   ) {
     super("invoice", module.container as Container, module.notificationsCenter);
   }
