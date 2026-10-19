@@ -67,9 +67,42 @@ const REDIS_UP = await redisReachable();
 const wait = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Attend qu'une condition devienne vraie. Jamais un délai fixe : la livraison
+ * pub/sub n'a aucune borne sous charge (passe complète, VM Docker saturée) — un
+ * `wait(150)` y rougit au hasard, et rend VERTE toute assertion « rien reçu ».
+ */
+async function until(
+  cond: () => boolean,
+  what: string,
+  everyMs = 10,
+  timeoutMs = 5000,
+): Promise<void> {
+  const end = Date.now() + timeoutMs;
+  while (!cond()) {
+    if (Date.now() > end) {
+      throw new Error(`délai dépassé (${timeoutMs} ms) : ${what}`);
+    }
+    await wait(everyMs);
+  }
+}
+
+/**
+ * Attend que Redis ait TRAITÉ les publications du backplane : la file bornée ne
+ * rend ses octets qu'à l'acquittement du `PUBLISH`. Après, tout abonné que ce
+ * `PUBLISH` visait a déjà le message dans sa connexion.
+ */
+function published(bp: RedisBackplane): Promise<void> {
+  return until(
+    () => bp.describe().queue?.bytes === 0,
+    `acquittement Redis des publications de ${bp.originId}`,
+  );
+}
+
 describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () => {
   const clients: RedisClientType[] = [];
   const backplanes: RedisBackplane[] = [];
+  const subscribers = new Map<RedisBackplane, RedisClientType>();
   // canal Redis unique par run (évite la diaphonie entre exécutions parallèles)
   const channel = `nodefony:rt:test:${Date.now()}`;
 
@@ -86,12 +119,14 @@ describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () =
       channel,
     );
     backplanes.push(bp);
+    subscribers.set(bp, sub);
     return bp;
   }
 
   afterEach(async () => {
     await Promise.allSettled(backplanes.map((b) => b.stop()));
     backplanes.length = 0;
+    subscribers.clear();
     await Promise.allSettled(
       clients.map(async (c) => {
         if (c.isOpen) await c.quit();
@@ -107,18 +142,27 @@ describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () =
     const gotB: IBackplaneMessage[] = [];
     a.onMessage((m) => gotA.push(m));
     b.onMessage((m) => gotB.push(m));
+    // start() rend la main sur l'accusé du SUBSCRIBE : abonnement effectif.
     await a.start();
     await b.start();
-    await wait(80); // garantit l'abonnement effectif avant publication
 
     a.publish("nodefony:syslog", { line: "hello" });
+    await until(() => gotB.length > 0, "B reçoit la publication de A");
 
-    // pub/sub Redis = best-effort async → on attend la livraison
-    await wait(150);
+    // Sentinelle : Redis sert chaque abonné dans l'ordre des PUBLISH. Quand A
+    // reçoit le message de B, publié APRÈS le sien, son propre écho est passé.
+    b.publish("nodefony:syslog", { line: "sentinelle" });
+    await until(() => gotA.length > 0, "A reçoit la sentinelle de B");
     expect(
       gotA,
       "anti-echo : l'émetteur ignore son propre message",
-    ).to.have.lengthOf(0);
+    ).to.deep.equal([
+      {
+        channel: "nodefony:syslog",
+        payload: { line: "sentinelle" },
+        originId: "pod-B",
+      },
+    ]);
     expect(gotB).to.deep.equal([
       {
         channel: "nodefony:syslog",
@@ -135,12 +179,13 @@ describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () =
     b.onMessage(() => (fired += 1));
     await a.start();
     await b.start();
-    await wait(80);
     await b.stop();
-    await wait(30);
 
     a.publish("c", 1);
-    await wait(120);
+    await published(a);
+    // Le PING répond APRÈS tout ce que Redis a écrit avant sur la connexion de
+    // B : si le PUBLISH l'y avait routé, le message serait déjà lu.
+    await subscribers.get(b)?.ping();
     expect(fired).to.equal(0);
   });
 });
@@ -212,7 +257,6 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
     const got: unknown[] = [];
     hub.subscribe("chat:room1", (p) => got.push(p), factory);
     const evil = await mkAttacker();
-    await wait(80);
 
     await evil.publish(
       channel,
@@ -222,7 +266,7 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
         originId: "evil",
       }),
     );
-    await wait(150);
+    await until(() => got.length > 0, "l'injection non scellée arrive");
 
     expect(got).to.deep.equal([{ msg: "je suis l'admin" }]);
   });
@@ -233,7 +277,6 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
     const got: unknown[] = [];
     hub.subscribe("chat:room1", (p) => got.push(p), factory);
     const evil = await mkAttacker();
-    await wait(80);
 
     await evil.publish(
       channel,
@@ -243,9 +286,22 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
         originId: "evil",
       }),
     );
-    await wait(150);
+    // Sentinelle SCELLÉE, publiée après : quand elle arrive, l'injection est
+    // passée par le pod — et n'a rien livré.
+    await evil.publish(
+      channel,
+      sealBackplaneEnvelope(
+        {
+          channel: "chat:room1",
+          payload: { msg: "sentinelle" },
+          originId: "evil",
+        },
+        SECRET,
+      ),
+    );
+    await until(() => got.length > 0, "la sentinelle scellée arrive");
 
-    expect(got).to.deep.equal([]);
+    expect(got).to.deep.equal([{ msg: "sentinelle" }]);
   });
 
   it("secret VOLÉ : le canal système reste hors d'atteinte (admission du hub)", async () => {
@@ -254,8 +310,10 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
     const { hub } = await mkHubPod("pod-victime", SECRET);
     const got: unknown[] = [];
     hub.subscribe("nodefony:audit", (p) => got.push(p), factory);
+    hub.markBroadcastChannel("chat:");
+    const sentinel: unknown[] = [];
+    hub.subscribe("chat:room1", (p) => sentinel.push(p), factory);
     const evil = await mkAttacker();
-    await wait(80);
 
     await evil.publish(
       channel,
@@ -268,7 +326,20 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
         SECRET,
       ),
     );
-    await wait(150);
+    // Sentinelle sur un canal broadcast, publiée après : quand elle arrive,
+    // le faux évènement d'audit a été jugé par le hub.
+    await evil.publish(
+      channel,
+      sealBackplaneEnvelope(
+        {
+          channel: "chat:room1",
+          payload: { msg: "sentinelle" },
+          originId: "evil",
+        },
+        SECRET,
+      ),
+    );
+    await until(() => sentinel.length > 0, "la sentinelle broadcast arrive");
 
     expect(got).to.deep.equal([]);
     expect(hub.probe().ingressRejectedTotal).to.equal(1);
@@ -281,10 +352,9 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
     b.hub.markBroadcastChannel("chat:");
     const got: unknown[] = [];
     b.hub.subscribe("chat:room1", (p) => got.push(p), factory);
-    await wait(80);
 
     a.hub.publish("chat:room1", { msg: "vrai message" });
-    await wait(150);
+    await until(() => got.length > 0, "B reçoit le message de A");
 
     expect(got).to.deep.equal([{ msg: "vrai message" }]);
     expect(b.hub.probe().ingressRejectedTotal).to.equal(0);
@@ -351,7 +421,6 @@ describe.skipIf(!REDIS_UP)(
       b.onMessage((m) => got.push(m));
       await a.start();
       await b.start();
-      await wait(80);
 
       a.publish("chat:room", KB); // file vide → admis
       a.publish("chat:room", KB); // file < seuil → admis
@@ -362,7 +431,8 @@ describe.skipIf(!REDIS_UP)(
         "la file bornée doit jeter la 3e publication AVANT même l'acquittement réseau",
       ).to.equal(1);
 
-      await wait(200); // laisse Redis acquitter + livrer les 2 publications admises
+      await published(a);
+      await until(() => got.length >= 2, "B reçoit les 2 publications admises");
       expect(
         got,
         "B ne reçoit que les 2 publications réellement parties",
@@ -382,33 +452,49 @@ describe.skipIf(!REDIS_UP)(
       b.onMessage((m) => got.push(m));
       await a.start();
       await b.start();
-      await wait(80);
 
       a.publish("chat:room", "message namespace A");
-      await wait(150);
+      await published(a);
+      // Sentinelle sur le namespace de B, publiée après le traitement du
+      // PUBLISH de A : quand elle arrive, un cross-talk serait déjà là.
+      const raw = mkClient();
+      await raw.connect();
+      clients.push(raw);
+      await raw.publish(
+        chanB,
+        JSON.stringify({
+          channel: "chat:room",
+          payload: "sentinelle",
+          originId: "pod-témoin",
+        }),
+      );
+      await until(
+        () => got.length > 0,
+        "B reçoit la sentinelle de son namespace",
+      );
 
       expect(
         got,
         "aucun cross-talk entre namespaces sur le même serveur Redis",
-      ).to.have.lengthOf(0);
+      ).to.deep.equal([
+        { channel: "chat:room", payload: "sentinelle", originId: "pod-témoin" },
+      ]);
     });
 
     it("abonnement tardif : un pod qui s'abonne APRÈS une publication ne reçoit pas le message passé, mais reçoit bien les suivants", async () => {
       const a = await mkPod("pod-A");
       await a.start();
-      await wait(50);
 
       a.publish("chat:room", "avant abonnement"); // personne n'écoute encore sur ce canal
-      await wait(150);
+      await published(a);
 
       const b = await mkPod("pod-B"); // s'abonne APRÈS la publication passée
       const got: IBackplaneMessage[] = [];
       b.onMessage((m) => got.push(m));
       await b.start();
-      await wait(80);
 
       a.publish("chat:room", "après abonnement");
-      await wait(150);
+      await until(() => got.length > 0, "B reçoit la publication postérieure");
 
       expect(
         got,
@@ -429,11 +515,10 @@ describe.skipIf(!REDIS_UP)(
       b.onMessage((m) => got.push(m));
       await a.start();
       await b.start();
-      await wait(80);
 
       const N = 30;
       for (let i = 0; i < N; i += 1) a.publish("chat:room", i);
-      await wait(300);
+      await until(() => got.length >= N, `B reçoit les ${N} messages`);
 
       expect(got.map((m) => m.payload)).to.deep.equal(
         Array.from({ length: N }, (_, i) => i),
@@ -519,10 +604,12 @@ describe.skipIf(!REDIS_UP)(
       b.onMessage((m) => got.push(m));
       await a.start();
       await b.start();
-      await wait(80);
 
       a.publish("chat:room", "avant coupure");
-      await wait(150);
+      await until(
+        () => got.length > 0,
+        "la liaison fonctionne avant la coupure",
+      );
       expect(
         got,
         "sanity : la liaison fonctionne avant la coupure",
@@ -534,15 +621,17 @@ describe.skipIf(!REDIS_UP)(
       clients.push(admin);
       await admin.clientKill({ filter: "ID", id: subBId });
 
-      await wait(800); // laisse le client se reconnecter puis se ré-abonner
-
-      a.publish("chat:room", "après reconnexion");
-      await wait(300);
-
-      expect(
-        got,
+      // Sonde répétée : ce qui est publié pendant la coupure est perdu (pub/sub
+      // ne rejoue rien), et la fin du ré-abonnement n'est pas observable.
+      await until(
+        () => {
+          if (got.length >= 2) return true;
+          a.publish("chat:room", "après reconnexion");
+          return false;
+        },
         "le backplane doit avoir repris la réception après la coupure",
-      ).to.have.lengthOf(2);
+        100,
+      );
       expect(got[1]).to.deep.equal({
         channel: "chat:room",
         payload: "après reconnexion",
