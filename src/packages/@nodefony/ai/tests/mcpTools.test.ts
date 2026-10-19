@@ -115,3 +115,59 @@ describe("préfixe réservé — `nodefony_` n'appartient qu'aux modules @nodefo
     expect(tools.map((t) => t.name)).toEqual(["shop_stock"]);
   });
 });
+
+describe("forme reçue — un module JavaScript ne garantit rien de ce qu'il déclare", () => {
+  /** Déclare UN outil de forme libre et rend ce que la collecte en retient. */
+  function collectOne(raw: Record<string, unknown>) {
+    const skips: string[] = [];
+    const tools = collectMcpTools({
+      modules: { libre: { getMcpTools: () => [raw] } },
+      onSkip: (reason) => skips.push(reason),
+    });
+    return { tools, skips };
+  }
+
+  const base = {
+    name: "shop_secret",
+    description: "outil réservé",
+    inputSchema: { type: "object" },
+    handler: () => mcpText("secret"),
+  };
+
+  it("🔴 `requiresAuth` non booléen est REFUSÉ — « oui » ne vaut pas `true`, l'anonyme l'aurait reçu", () => {
+    const { tools, skips } = collectOne({ ...base, requiresAuth: "oui" });
+    expect(tools.map((t) => t.name)).not.toContain("shop_secret");
+    expect(skips[0]).toMatch(/requiresAuth/u);
+  });
+
+  it("🔴 `scopes` qui n'est pas un tableau de chaînes est REFUSÉ, sans faire tomber la collecte", () => {
+    const { tools, skips } = collectOne({ ...base, scopes: "shop:write" });
+    expect(tools).toEqual([]);
+    expect(skips[0]).toMatch(/scopes/u);
+  });
+
+  it("une `description` ou un `inputSchema` absents sont refusés — le catalogue publié reste conforme", () => {
+    const { description: _d, ...withoutDescription } = base;
+    expect(collectOne(withoutDescription).skips[0]).toMatch(/description/u);
+    expect(collectOne({ ...base, inputSchema: [] }).skips[0]).toMatch(
+      /inputSchema/u,
+    );
+  });
+
+  it("un `getMcpTools()` qui lève une non-Error est dit, sans planter la déclaration", () => {
+    const skips: string[] = [];
+    const tools = declareMcpTools({
+      modules: {
+        casse: {
+          getMcpTools: () => {
+            // oxlint-disable-next-line typescript/only-throw-error -- le banc éprouve précisément un module JavaScript qui lève une non-Error
+            throw "panne";
+          },
+        },
+      },
+      onSkip: (reason) => skips.push(reason),
+    });
+    expect(tools).toEqual([]);
+    expect(skips[0]).toMatch(/panne/u);
+  });
+});

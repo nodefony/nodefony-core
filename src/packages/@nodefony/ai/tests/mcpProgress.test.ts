@@ -241,3 +241,44 @@ describe("handleMcpMessage — `subscriptions/listen` refusé en le disant", () 
     expect(error.message).toContain("tools/list");
   });
 });
+
+describe("handleMcpMessage — `arguments` reçus du réseau", () => {
+  const tools: IMcpTool[] = [
+    {
+      name: "echo",
+      description: "d",
+      inputSchema: { type: "object" },
+      handler: (args) => mcpText(JSON.stringify(args)),
+    },
+  ];
+  const send = (args: unknown) =>
+    handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name: "echo",
+          ...(args === undefined ? {} : { arguments: args }),
+        },
+      },
+      { tools, serverInfo: { name: "t", version: "0" } },
+    );
+
+  it("🔴 un tableau ou un scalaire est REFUSÉ en -32602 — jamais passé à l'outil ni remplacé par `{}`", async () => {
+    for (const bad of [["a"], "a", 3, null]) {
+      const reply = await send(bad);
+      expect(reply.status).toBe(400);
+      expect(reply.body).toMatchObject({ error: { code: -32602 } });
+    }
+  });
+
+  it("absents, ils valent `{}` ; un objet passe tel quel", async () => {
+    expect((await send(undefined)).body).toMatchObject({
+      result: { content: [{ text: "{}" }] },
+    });
+    expect((await send({ k: 1 })).body).toMatchObject({
+      result: { content: [{ text: '{"k":1}' }] },
+    });
+  });
+});

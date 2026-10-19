@@ -14,6 +14,7 @@ import {
 } from "./protocol";
 import {
   classifyJsonRpcFrame,
+  isPlainObject,
   type IJsonRpcNotification,
   type IJsonRpcRequest,
 } from "nodefony";
@@ -155,8 +156,8 @@ export interface IMcpHeaders {
  */
 function metaVersion(params: Record<string, unknown>): string | undefined {
   const meta = params._meta;
-  if (typeof meta !== "object" || meta === null) return undefined;
-  const value = (meta as Record<string, unknown>)[META_PROTOCOL_VERSION];
+  if (!isPlainObject(meta)) return undefined;
+  const value = meta[META_PROTOCOL_VERSION];
   return typeof value === "string" ? value : undefined;
 }
 
@@ -202,7 +203,7 @@ function eraResult(
     ...result,
     resultType: "complete",
     _meta: {
-      ...(result._meta as Record<string, unknown> | undefined),
+      ...(isPlainObject(result._meta) ? result._meta : undefined),
       [META_SERVER_INFO]: serverInfo,
     },
   };
@@ -410,13 +411,8 @@ export async function handleMcpMessage(
   // OBJET nommé — jamais remplacé en silence par `{}`, ce qui ferait servir
   // une requête que le client n'a pas écrite.
   const rawParams = frame.params;
+  let params: Record<string, unknown> = {};
   if (rawParams !== undefined) {
-    if (rawParams === null || typeof rawParams !== "object") {
-      return invalidRequest(
-        replyId,
-        "`params` doit être une valeur structurée (JSON-RPC 2.0 §4.2)",
-      );
-    }
     if (Array.isArray(rawParams)) {
       return {
         status: 400,
@@ -427,6 +423,13 @@ export async function handleMcpMessage(
         ),
       };
     }
+    if (!isPlainObject(rawParams)) {
+      return invalidRequest(
+        replyId,
+        "`params` doit être une valeur structurée (JSON-RPC 2.0 §4.2)",
+      );
+    }
+    params = rawParams;
   }
 
   // Une NOTIFICATION n'attend aucune réponse. La spec impose `202 Accepted`
@@ -437,7 +440,6 @@ export async function handleMcpMessage(
   }
 
   const id = (frame as IJsonRpcRequest).id;
-  const params = (rawParams ?? {}) as Record<string, unknown>;
 
   const versions = context.versions ?? MCP_SUPPORTED_VERSIONS;
   const refusal = checkProtocolVersion(id, params, headers, versions);
@@ -509,11 +511,21 @@ export async function handleMcpMessage(
 
     case "tools/call": {
       const name = typeof params.name === "string" ? params.name : "";
-      const args = (
-        typeof params.arguments === "object" && params.arguments !== null
-          ? params.arguments
-          : {}
-      ) as Record<string, unknown>;
+      // Absents, les arguments valent `{}` ; présents, un objet nommé — un
+      // tableau ou un scalaire n'est jamais remplacé en silence, l'outil
+      // servirait un appel que le client n'a pas écrit.
+      const rawArgs = params.arguments;
+      if (rawArgs !== undefined && !isPlainObject(rawArgs)) {
+        return {
+          status: 400,
+          body: jsonRpcFailure(
+            id,
+            JsonRpcError.INVALID_PARAMS,
+            "`arguments` doit être un objet nommé pour `tools/call`",
+          ),
+        };
+      }
+      const args = rawArgs ?? {};
 
       if (!name) {
         return {

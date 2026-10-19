@@ -346,11 +346,80 @@ function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
 }
 
 /**
+ * Motif pour lequel une valeur rendue par `getMcpTools()` n'est pas un outil
+ * servable, ou `null` si elle en est un.
+ *
+ * Un module peut être écrit en JavaScript : le contrat `IMcpTool` n'y est
+ * vérifié par personne. `scopes` et `requiresAuth` portent l'autorisation —
+ * `requiresAuth: "oui"` ne vaut pas `true` et servirait l'outil à un anonyme.
+ * Une forme fausse se REFUSE à la déclaration, elle ne s'interprète jamais.
+ *
+ * @param tool - valeur déclarée par un module
+ * @returns le motif du refus, ou `null`
+ */
+function mcpToolFault(tool: unknown): string | null {
+  if (typeof tool !== "object" || tool === null) return "pas un objet";
+  if (
+    !("name" in tool) ||
+    typeof tool.name !== "string" ||
+    !NAME_PATTERN.test(tool.name)
+  ) {
+    return `nom absent ou hors forme — attendu ${NAME_PATTERN.source}`;
+  }
+  if (!("handler" in tool) || typeof tool.handler !== "function") {
+    return "sans handler";
+  }
+  if (!("description" in tool) || typeof tool.description !== "string") {
+    return "`description` n'est pas une chaîne";
+  }
+  if (
+    !("inputSchema" in tool) ||
+    typeof tool.inputSchema !== "object" ||
+    tool.inputSchema === null ||
+    Array.isArray(tool.inputSchema)
+  ) {
+    return "`inputSchema` n'est pas un objet";
+  }
+  if (
+    "annotations" in tool &&
+    tool.annotations !== undefined &&
+    (typeof tool.annotations !== "object" || tool.annotations === null)
+  ) {
+    return "`annotations` n'est pas un objet";
+  }
+  if (
+    "scopes" in tool &&
+    tool.scopes !== undefined &&
+    !(
+      Array.isArray(tool.scopes) &&
+      tool.scopes.every((scope: unknown) => typeof scope === "string")
+    )
+  ) {
+    return "`scopes` n'est pas un tableau de chaînes";
+  }
+  if (
+    "requiresAuth" in tool &&
+    tool.requiresAuth !== undefined &&
+    typeof tool.requiresAuth !== "boolean"
+  ) {
+    return "`requiresAuth` n'est pas un booléen";
+  }
+  return null;
+}
+
+/** La valeur déclarée a la forme d'un outil servable (cf {@link mcpToolFault}). */
+function isMcpTool(tool: unknown): tool is IMcpTool {
+  return mcpToolFault(tool) === null;
+}
+
+/**
  * Énumère ce que cette application DÉCLARE — les outils de ses modules, lus
  * par `getMcpTools()` — sans rien retenir sur l'identité de qui que ce soit.
  *
- * Quatre refus, tous énoncés par `onSkip` plutôt que silencieux :
+ * Cinq refus, tous énoncés par `onSkip` plutôt que silencieux :
  *  - **nom hors forme** ({@link NAME_PATTERN}) — il ne serait pas appelable ;
+ *  - **forme fausse** ({@link mcpToolFault}) — handler, description, schéma ou
+ *    autorisation qui ne respectent pas `IMcpTool` ;
  *  - **préfixe réservé** ({@link MCP_RESERVED_PREFIX}) pris par un module hors de
  *    `@nodefony/` — un module d'application ne peut donc pas se substituer à
  *    `nodefony_inspect` et répondre à sa place ;
@@ -372,12 +441,12 @@ export function declareMcpTools(options: IMcpDeclareOptions): IMcpTool[] {
   const seen = new Set<string>();
 
   // Un module peut être écrit en JavaScript : rien ne garantit la forme reçue.
-  const add = (
-    tool: IMcpTool | null | undefined,
-    origin: string,
-    ownsPrefix: boolean,
-  ): void => {
-    if (typeof tool?.name !== "string" || !NAME_PATTERN.test(tool.name)) {
+  const add = (tool: unknown, origin: string, ownsPrefix: boolean): void => {
+    const name =
+      typeof tool === "object" && tool !== null && "name" in tool
+        ? tool.name
+        : undefined;
+    if (typeof name !== "string" || !NAME_PATTERN.test(name)) {
       options.onSkip?.(
         `outil écarté (${origin}) : nom absent ou hors forme — attendu ${NAME_PATTERN.source}`,
       );
@@ -385,15 +454,15 @@ export function declareMcpTools(options: IMcpDeclareOptions): IMcpTool[] {
     }
     // AVANT la réservation du nom : un outil refusé ne doit pas priver le
     // module du framework qui viendrait après lui de son propre nom.
-    if (!ownsPrefix && tool.name.startsWith(MCP_RESERVED_PREFIX)) {
+    if (!ownsPrefix && name.startsWith(MCP_RESERVED_PREFIX)) {
       options.onSkip?.(
-        `outil « ${tool.name} » écarté (${origin}) : le préfixe « ${MCP_RESERVED_PREFIX} » est réservé aux modules ${FRAMEWORK_SCOPE}*`,
+        `outil « ${name} » écarté (${origin}) : le préfixe « ${MCP_RESERVED_PREFIX} » est réservé aux modules ${FRAMEWORK_SCOPE}*`,
       );
       return;
     }
-    if (typeof tool.handler !== "function") {
+    if (!isMcpTool(tool)) {
       options.onSkip?.(
-        `outil « ${tool.name} » écarté (${origin}) : sans handler`,
+        `outil « ${name} » écarté (${origin}) : ${mcpToolFault(tool)}`,
       );
       return;
     }
@@ -412,14 +481,21 @@ export function declareMcpTools(options: IMcpDeclareOptions): IMcpTool[] {
   };
 
   for (const [name, module] of Object.entries(options.modules ?? {})) {
-    const declare = (module as { getMcpTools?: unknown } | null)?.getMcpTools;
+    if (
+      typeof module !== "object" ||
+      module === null ||
+      !("getMcpTools" in module)
+    ) {
+      continue;
+    }
+    const declare = module.getMcpTools;
     if (typeof declare !== "function") continue;
     let tools: unknown;
     try {
-      tools = (declare as () => unknown).call(module);
+      tools = declare.call(module);
     } catch (error) {
       options.onSkip?.(
-        `module « ${name} » : getMcpTools() a échoué — ${(error as Error).message}`,
+        `module « ${name} » : getMcpTools() a échoué — ${error instanceof Error ? error.message : String(error)}`,
       );
       continue;
     }
@@ -431,7 +507,7 @@ export function declareMcpTools(options: IMcpDeclareOptions): IMcpTool[] {
     }
     const ownsPrefix = ownsReservedPrefix(module);
     for (const tool of tools) {
-      add(tool as IMcpTool, `module ${name}`, ownsPrefix);
+      add(tool, `module ${name}`, ownsPrefix);
     }
   }
 
