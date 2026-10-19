@@ -100,27 +100,33 @@ describe("les scripts des skills lisent la racine par le sous-chemin LÉGER", ()
   });
 });
 
-describe("les scripts des skills répondent lancés par un lien symbolique", () => {
-  // Vécu : sous macOS, `/var` est un lien vers `/private/var`. Un script lancé
-  // par `/var/…/docs.mjs` comparait ce chemin à `import.meta.url`, que Node
-  // résout en chemin RÉEL : la garde « lancé directement » échouait, et le
-  // script ne faisait RIEN, sans un mot. Un dépôt rangé derrière un lien
-  // (`~/dev` → ailleurs) déclenche la même chose.
-  for (const [skill, file] of SCRIPTS) {
-    it(`${skill}/${file} --help parle, lancé par un lien`, async () => {
-      const { spawnSync } = await import("node:child_process");
-      const { symlinkSync } = await import("node:fs");
-      const link = path.join(app, `lien-${skill}`);
-      symlinkSync(path.join(SKILLS, skill), link, "junction");
-      const r = spawnSync(
-        process.execPath,
-        [path.join(link, "scripts", file), "--help"],
-        { cwd: app, encoding: "utf8" },
-      );
-      expect(
-        `${r.stdout}${r.stderr}`.trim().length,
-        `${skill}/${file}`,
-      ).toBeGreaterThan(0);
-    });
-  }
-});
+// Chaque cas lance un `node` : 0,1 à 0,4 s isolé, plus de 5 s sous la passe
+// complète. Le plafond garde contre un blocage, il ne mesure pas la machine.
+describe(
+  "les scripts des skills répondent lancés par un lien symbolique",
+  { timeout: 60_000 },
+  () => {
+    // Vécu : sous macOS, `/var` est un lien vers `/private/var`. Un script lancé
+    // par `/var/…/docs.mjs` comparait ce chemin à `import.meta.url`, que Node
+    // résout en chemin RÉEL : la garde « lancé directement » échouait, et le
+    // script ne faisait RIEN, sans un mot. Un dépôt rangé derrière un lien
+    // (`~/dev` → ailleurs) déclenche la même chose.
+    for (const [skill, file] of SCRIPTS) {
+      it(`${skill}/${file} --help parle, lancé par un lien`, async () => {
+        const { spawnSync } = await import("node:child_process");
+        const { symlinkSync } = await import("node:fs");
+        const link = path.join(app, `lien-${skill}`);
+        symlinkSync(path.join(SKILLS, skill), link, "junction");
+        const r = spawnSync(
+          process.execPath,
+          [path.join(link, "scripts", file), "--help"],
+          { cwd: app, encoding: "utf8" },
+        );
+        expect(
+          `${r.stdout}${r.stderr}`.trim().length,
+          `${skill}/${file}`,
+        ).toBeGreaterThan(0);
+      });
+    }
+  },
+);

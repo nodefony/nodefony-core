@@ -60,6 +60,9 @@ describe("docsReader — portée des pages (publish)", () => {
     expect(slugs.sort()).to.deep.equal(["couverture-bancs", "index"]);
   });
 
+  // Une page servie porte sa date git : un `git log` par lecture. Sous la
+  // passe complète, ce lancement passe les 5 s par défaut sans rien de faux —
+  // le plafond garde contre un blocage, il ne mesure pas la machine.
   it("🔴 le lien direct ne contourne pas la portée", async () => {
     expect(await readModuleDoc(mod(), "couverture-bancs", false)).to.equal(
       null,
@@ -68,7 +71,7 @@ describe("docsReader — portée des pages (publish)", () => {
       null,
     );
     expect(await readModuleDoc(mod(), "brouillon", true)).to.equal(null);
-  });
+  }, 60_000);
 
   it("🔴 le compte du module (KPI) suit la même portée que la liste", async () => {
     expect(await countModuleDocs(mod(), false)).to.equal(1);

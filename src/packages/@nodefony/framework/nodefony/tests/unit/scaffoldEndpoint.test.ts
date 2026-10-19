@@ -70,7 +70,10 @@ beforeAll(async () => {
     };
     return { plan: find("scaffold"), sync: find("scaffold/sync") };
   };
-});
+  // `resetModules` puis l'import de `KernelAdminApi` retransforment tout son
+  // graphe : 10 s dépassées sous la passe complète, sans rien de faux. Plafond
+  // contre un blocage, pas une mesure.
+}, 60_000);
 
 afterAll(() => {
   vi.restoreAllMocks();

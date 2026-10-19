@@ -679,10 +679,12 @@ const commiter = (racine: string, fichiers: Record<string, string>) => {
 
 // Ces tests créent de VRAIS dépôts et lancent git plusieurs fois chacun : sous
 // la charge d'une suite complète (ou d'un exécuteur Windows lent), ils passent
-// les 5 s par défaut sans rien avoir de faux. Le délai suit ce qu'ils lancent.
+// les 5 s par défaut sans rien avoir de faux — et même 30 s, vu en passe
+// complète (4 s isolés). Le plafond garde contre un blocage, il ne mesure pas
+// la machine.
 describe(
   "skill nodefony-security-review — la commande",
-  { timeout: 30_000 },
+  { timeout: 120_000 },
   () => {
     const sortie: string[] = [];
     afterEach(() => {
