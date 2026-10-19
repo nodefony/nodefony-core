@@ -85,13 +85,15 @@ export function parseArgs(argv) {
 /**
  * Dérive l'ordre d'un sous-ticket depuis celui de son parent.
  *
- * Le parent garde son cran entier, chaque enfant prend un dixième dans l'ordre où
- * il DOIT être fait — jamais dans l'ordre où il a été créé. `rang` est le nombre
- * de frères déjà inscrits : le nouvel enfant se range derrière eux.
+ * Chaque enfant prend une décimale de PLUS que son parent (`50` → `50.1`, `4.03` →
+ * `4.031`), dans l'ordre où il DOIT être fait — jamais dans l'ordre où il a été
+ * créé. Un pas fixe d'un dixième posait les enfants d'un parent `N.xx` sur le cran
+ * de tickets voisins. `rang` est le nombre de frères déjà inscrits : le nouvel
+ * enfant se range derrière eux.
  *
  * @param parentOrdre - ordre du parent, tel qu'il est au tableau de bord
  * @param rang - nombre de frères DÉJÀ présents (0 pour le premier enfant)
- * @returns l'ordre à poser, arrondi au dixième
+ * @returns l'ordre à poser, arrondi à la décimale de l'enfant
  * @throws Si le parent n'a pas d'ordre, ou si la grappe dépasse neuf enfants —
  *   au-delà, un dixième mordrait sur le cran suivant et l'ordre deviendrait faux.
  */
@@ -108,7 +110,15 @@ export function deriveOrdre(parentOrdre, rang) {
         "sur le cran suivant — réordonner la grappe à la main",
     );
   }
-  return Math.round((parentOrdre + (rang + 1) / 10) * 10) / 10;
+  const scale = 10 ** (decimalsOf(parentOrdre) + 1);
+  return Math.round(parentOrdre * scale + (rang + 1)) / scale;
+}
+
+/** Nombre de décimales d'un ordre tel qu'il s'écrit (`4.03` → 2, `50` → 0). */
+function decimalsOf(value) {
+  const text = String(value);
+  const dot = text.indexOf(".");
+  return dot === -1 ? 0 : text.length - dot - 1;
 }
 
 /** Convention du dépôt (cf `ticket-progress.mjs`) : rien ne s'exécute à l'import,

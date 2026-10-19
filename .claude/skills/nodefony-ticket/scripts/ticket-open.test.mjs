@@ -30,14 +30,21 @@ describe("ordre dérivé d'un sous-ticket", () => {
     expect(deriveOrdre(50, 2)).to.equal(50.3);
   });
 
-  // PIÈGE : `1.1 + 0.1` vaut 1.2000000000000002 en binaire — un cas parmi 1 608 sur
-  // la plage d'ordres du tableau. Sans arrondi, l'ordre POSÉ n'est pas celui qu'on
-  // lit, et la valeur remonte telle quelle dans l'empreinte commitée.
-  // Les deux cas propres sont là pour que l'arrondi ne DÉPLACE rien par ailleurs.
-  it("arrondit au dixième — un parent décimal ne dérive pas de flottant sale", () => {
-    expect(deriveOrdre(1.1, 0)).to.equal(1.2);
-    expect(deriveOrdre(8.1, 5)).to.equal(8.7);
-    expect(deriveOrdre(1.5, 0)).to.equal(1.6);
+  // PIÈGE VÉCU (#500) : un jalon découpé en lots ordonne en `N.xx`. Un parent à 4.03
+  // dont les enfants prenaient +0,1 les posait à 4.1 et 4.2 — l'ordre de tickets
+  // VOISINS, sans une erreur. L'enfant prend donc une décimale de PLUS que son parent.
+  it("prend une décimale de plus que le parent — jamais le cran d'un voisin", () => {
+    expect(deriveOrdre(4.03, 0)).to.equal(4.031);
+    expect(deriveOrdre(4.03, 1)).to.equal(4.032);
+    expect(deriveOrdre(8.1, 5)).to.equal(8.16);
+  });
+
+  // PIÈGE : `1.1 + 0.01` vaut 1.1100000000000001 en binaire. Sans arrondi, l'ordre
+  // POSÉ n'est pas celui qu'on lit, et la valeur remonte telle quelle dans
+  // l'empreinte commitée. Le cas propre est là pour que l'arrondi ne DÉPLACE rien.
+  it("arrondit à la décimale de l'enfant — un parent décimal ne dérive pas de flottant sale", () => {
+    expect(deriveOrdre(1.1, 0)).to.equal(1.11);
+    expect(deriveOrdre(1.5, 0)).to.equal(1.51);
   });
 
   // PIÈGE : c'est le cas VÉCU. Toute la grappe #83 est sortie sans ordre parce que
