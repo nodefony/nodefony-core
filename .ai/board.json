@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T14:59:20.067Z",
+  "generatedAt": "2026-10-19T16:34:16.974Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -8284,7 +8284,7 @@
       "title": "feat(realtime): router les trames binaires vers leur canal",
       "url": "https://github.com/nodefony/nodefony-core/issues/618",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 3,
