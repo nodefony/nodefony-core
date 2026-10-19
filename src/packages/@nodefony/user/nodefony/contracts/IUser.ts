@@ -59,6 +59,18 @@ export interface IUser {
    * @returns `true` empêche l'authentification même avec des credentials valides.
    */
   isLocked(): boolean;
+
+  /**
+   * Version des identifiants du compte, incrémentée à chaque changement de mot
+   * de passe — absente ou `null` vaut 0.
+   *
+   * Ce n'est pas un credential : c'est l'ÉTAT qui coupe les accès. Une session
+   * ou un jeton retient la version lue à son émission ; dès que le compte change
+   * de version, l'artefact est refusé à sa prochaine présentation, même si sa
+   * suppression a échoué ou s'il a été réécrit par une requête en vol. Un
+   * fournisseur d'identité qui ne la porte pas vaut 0 en permanence.
+   */
+  readonly credentialsVersion?: number | null;
 }
 
 /**

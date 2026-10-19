@@ -11,7 +11,14 @@ import { BootConfigurationError } from "nodefony";
  * troisième adaptateur ne demande pas de le rouvrir.
  */
 export type UserColumnType =
-  "uuid" | "string" | "string[]" | "boolean" | "object" | "object[]" | "date";
+  | "uuid"
+  | "string"
+  | "string[]"
+  | "integer"
+  | "boolean"
+  | "object"
+  | "object[]"
+  | "date";
 
 /**
  * D'où vient la valeur d'une colonne — ce qui décide si un adaptateur doit la
@@ -207,6 +214,18 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
       "Dictionnaire libre du compte, dont le profil public — sans schéma, donc sans migration.",
   },
   {
+    name: "credentialsVersion",
+    type: "integer",
+    nullable: true,
+    origin: "column",
+    readers: [
+      "UserService.changePassword",
+      "isBoundToAccount (chaque requête authentifiée)",
+    ],
+    description:
+      "Version des identifiants, incrémentée à chaque changement de mot de passe (absente vaut 0) — une session ou un jeton émis à une autre version est refusé.",
+  },
+  {
     name: "createdAt",
     type: "date",
     nullable: false,
@@ -244,6 +263,7 @@ export interface IUserRow {
   currentRole: string | null;
   socialProviders: ISocialProvider[];
   metadata: Record<string, unknown>;
+  credentialsVersion: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

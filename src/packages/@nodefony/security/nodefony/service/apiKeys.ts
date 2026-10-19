@@ -22,8 +22,12 @@ import { generateApiKey } from "../src/apikey/apiKeyFormat";
 import { ScopeGrantPolicy, refusedScopes } from "../src/token/scopeGrants";
 import type { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { recordAudit } from "../src/audit/recordAudit";
-import { ACCOUNT_ID_KEY } from "../src/accountBinding";
-import type { IUserProvider } from "@nodefony/user";
+import {
+  ACCOUNT_ID_KEY,
+  CREDENTIALS_VERSION_KEY,
+  credentialsVersionOf,
+} from "../src/accountBinding";
+import type { IUser, IUserProvider } from "@nodefony/user";
 
 const serviceName = "apiKeys";
 const MAX_NAME_LEN = 100;
@@ -171,7 +175,7 @@ class ApiKeyService extends Service {
       );
     }
 
-    const accountId = await this.#resolveAccountId(subjectId);
+    const holder = await this.#resolveHolder(subjectId);
     const generated = generateApiKey(this.#prefix);
     const record: IAccessTokenRecord = {
       id: randomUUID(),
@@ -197,7 +201,10 @@ class ApiKeyService extends Service {
       lastUsedUserAgent: null,
       revokedAt: null,
       revokedReason: null,
-      metadata: { [ACCOUNT_ID_KEY]: accountId },
+      metadata: {
+        [ACCOUNT_ID_KEY]: holder.id,
+        [CREDENTIALS_VERSION_KEY]: credentialsVersionOf(holder),
+      },
     };
     await store.put(record);
     // Audit (P6.14 lot 2b) — JAMAIS le secret, seulement l'id public.
@@ -347,21 +354,22 @@ class ApiKeyService extends Service {
   // ── Internes ─────────────────────────────────────────────────────────────────
 
   /**
-   * Identifiant IMMUABLE du compte qui reçoit la clé — la liaison qu'elle
-   * portera, contrôlée à chaque présentation (`isBoundToAccount`). Lu dans
+   * Le compte qui reçoit la clé — son identifiant IMMUABLE et sa version
+   * d'identifiants sont la liaison qu'elle portera, contrôlée à chaque
+   * présentation (`isBoundToAccount`). Lu dans
    * l'annuaire, jamais reçu de l'appelant : la clé appartient au compte qui
    * existe MAINTENANT sous cet identifiant.
    *
    * @throws ApiKeyError 503 — annuaire `users` absent (câblage).
    * @throws ApiKeyError 403 — aucun compte sous cet identifiant.
    */
-  async #resolveAccountId(subjectId: string): Promise<string> {
+  async #resolveHolder(subjectId: string): Promise<IUser> {
     const users = this.get<IUserProvider>("users");
     if (!users) {
       throw new ApiKeyError("user directory unavailable", 503);
     }
     try {
-      return (await users.loadUserByIdentifier(subjectId)).id;
+      return await users.loadUserByIdentifier(subjectId);
     } catch {
       throw new ApiKeyError("API key holder unknown", 403);
     }

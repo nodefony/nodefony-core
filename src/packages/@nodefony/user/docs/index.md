@@ -854,19 +854,20 @@ Le module ne persiste **rien** par lui-même : il définit la forme, les adapter
 
 ### Les colonnes attendues
 
-| Champ             | Type logique     | Drizzle (SQL)         | Mongoose                 | Rôle                                |
-| ----------------- | ---------------- | --------------------- | ------------------------ | ----------------------------------- |
-| `id`              | UUID (`string`)  | `text` clé primaire   | `_id` + virtuel `id`     | identifiant interne                 |
-| `identifier`      | `string`         | `text` unique         | `String` unique+index    | email ou login                      |
-| `password`        | `string \| null` | `text` nullable       | `String` défaut `null`   | hash — `null` = compte externe      |
-| `roles`           | `string[]`       | `json` non nul        | `[String]`               | rôles **plats**                     |
-| `enabled`         | `boolean`        | `bool` non nul        | `Boolean` défaut `true`  | `isActive()`                        |
-| `locked`          | `boolean`        | `bool` non nul        | `Boolean` défaut `false` | `isLocked()`                        |
-| `currentRole`     | `string \| null` | `text` nullable       | `String` défaut `null`   | profil de rôle actif en session     |
-| `socialProviders` | tableau JSON     | `json` non nul        | `Array`                  | liens externes — **anti-migration** |
-| `metadata`        | objet JSON       | `json` non nul        | `Object`                 | extras applicatifs + `profile`      |
-| `createdAt`       | date             | `dateMs` non nul      | `timestamps: true`       | création                            |
-| `updatedAt`       | date             | `dateMs` + `onUpdate` | `timestamps: true`       | dernière modification               |
+| Champ                | Type logique     | Drizzle (SQL)         | Mongoose                 | Rôle                                                                                              |
+| -------------------- | ---------------- | --------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `id`                 | UUID (`string`)  | `text` clé primaire   | `_id` + virtuel `id`     | identifiant interne                                                                               |
+| `identifier`         | `string`         | `text` unique         | `String` unique+index    | email ou login                                                                                    |
+| `password`           | `string \| null` | `text` nullable       | `String` défaut `null`   | hash — `null` = compte externe                                                                    |
+| `roles`              | `string[]`       | `json` non nul        | `[String]`               | rôles **plats**                                                                                   |
+| `enabled`            | `boolean`        | `bool` non nul        | `Boolean` défaut `true`  | `isActive()`                                                                                      |
+| `locked`             | `boolean`        | `bool` non nul        | `Boolean` défaut `false` | `isLocked()`                                                                                      |
+| `currentRole`        | `string \| null` | `text` nullable       | `String` défaut `null`   | profil de rôle actif en session                                                                   |
+| `socialProviders`    | tableau JSON     | `json` non nul        | `Array`                  | liens externes — **anti-migration**                                                               |
+| `metadata`           | objet JSON       | `json` non nul        | `Object`                 | extras applicatifs + `profile`                                                                    |
+| `credentialsVersion` | `number \| null` | `int` nullable        | `Number` défaut `null`   | version des identifiants (≡ 0 si `null`) — coupe sessions et jetons au changement de mot de passe |
+| `createdAt`          | date             | `dateMs` non nul      | `timestamps: true`       | création                                                                                          |
+| `updatedAt`          | date             | `dateMs` + `onUpdate` | `timestamps: true`       | dernière modification                                                                             |
 
 **Source unique** : `USER_COLUMNS` (`user/nodefony/src/userContract.ts#USER_COLUMNS`). Les deux adapters en
 **dérivent** leur définition — `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts#USER_TABLE_SPEC`) et

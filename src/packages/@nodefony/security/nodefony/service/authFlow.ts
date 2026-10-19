@@ -20,7 +20,11 @@ import {
   resolveBoundSessionIdentity,
   resolveSessionIdentity,
 } from "../src/sessionIdentity";
-import { ACCOUNT_ID_KEY } from "../src/accountBinding";
+import {
+  ACCOUNT_ID_KEY,
+  CREDENTIALS_VERSION_KEY,
+  credentialsVersionOf,
+} from "../src/accountBinding";
 import { recordAudit } from "../src/audit/recordAudit";
 import {
   readAuditContext,
@@ -450,6 +454,7 @@ class AuthFlow extends Service {
         this.#resolveUsers(),
         identifier,
         context.session?.getMetaBag(ACCOUNT_ID_KEY),
+        context.session?.getMetaBag(CREDENTIALS_VERSION_KEY),
       );
       return toSafeUser(user);
     } catch (error) {
@@ -576,6 +581,9 @@ class AuthFlow extends Service {
     // `resolveBoundSessionIdentity`, elle refuse la session d'un ancien
     // titulaire du même identifiant.
     session.setMetaBag(ACCOUNT_ID_KEY, user.id);
+    // Version des identifiants (#635) : un changement de mot de passe la fait
+    // avancer, et la session ouverte avant tombe à sa requête suivante.
+    session.setMetaBag(CREDENTIALS_VERSION_KEY, credentialsVersionOf(user));
     await session.save(user.identifier);
   }
 

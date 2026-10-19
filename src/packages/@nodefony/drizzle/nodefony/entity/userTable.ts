@@ -30,6 +30,7 @@ const KIND_BY_TYPE: Record<
   uuid: "text",
   string: "text",
   "string[]": "json",
+  integer: "int",
   boolean: "bool",
   object: "json",
   "object[]": "json",

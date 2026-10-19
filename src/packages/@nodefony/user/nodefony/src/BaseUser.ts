@@ -25,6 +25,8 @@ export interface IBaseUserOptions {
   socialProviders?: ISocialProvider[] | undefined;
   /** Métadonnées applicatives libres. Défaut : `{}`. */
   metadata?: Record<string, unknown>;
+  /** Version des identifiants (cf `IUser.credentialsVersion`). Défaut : `null` (≡ 0). */
+  credentialsVersion?: number | null;
 }
 
 /**
@@ -50,6 +52,8 @@ export class BaseUser implements IPasswordAuthenticatedUser {
   currentRole: string | null;
   socialProviders: ISocialProvider[];
   metadata: Record<string, unknown>;
+  /** Version des identifiants — cf `IUser.credentialsVersion`. */
+  credentialsVersion: number | null;
 
   protected enabled: boolean;
   protected locked: boolean;
@@ -66,6 +70,7 @@ export class BaseUser implements IPasswordAuthenticatedUser {
       ? [...options.socialProviders]
       : [];
     this.metadata = options.metadata ?? {};
+    this.credentialsVersion = options.credentialsVersion ?? null;
   }
 
   hasRole(role: string): boolean {
@@ -81,7 +86,9 @@ export class BaseUser implements IPasswordAuthenticatedUser {
   }
 
   /**
-   * Forme sérialisée de l'utilisateur, SANS le hash du mot de passe.
+   * Forme sérialisée de l'utilisateur, SANS le hash du mot de passe ni la
+   * version des identifiants (état interne de révocation, utile à personne
+   * hors du pare-feu).
    *
    * L'objet est celui que le pare-feu pose pour la requête et qu'un contrôleur
    * lit par `this.user` : un `renderJson({ user: this.user })` ou une vue qui
@@ -90,7 +97,7 @@ export class BaseUser implements IPasswordAuthenticatedUser {
    *
    * @returns les champs publics du compte
    */
-  toJSON(): Omit<IBaseUserOptions, "password"> {
+  toJSON(): Omit<IBaseUserOptions, "password" | "credentialsVersion"> {
     return {
       id: this.id,
       identifier: this.identifier,

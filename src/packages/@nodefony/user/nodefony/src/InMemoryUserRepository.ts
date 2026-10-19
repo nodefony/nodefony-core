@@ -107,6 +107,7 @@ export class InMemoryUserRepository implements IUserRepository {
       socialProviders: d.socialProviders,
       enabled: d.enabled,
       locked: d.locked,
+      credentialsVersion: d.credentialsVersion ?? null,
       // Colonne reconstruite par `BaseUser` : `attachExtraColumns` ne la
       // reporte donc pas — l'omettre ici la perdait à la création.
       ...(d.metadata ? { metadata: { ...d.metadata } } : {}),
@@ -164,6 +165,9 @@ export class InMemoryUserRepository implements IUserRepository {
     if (d.socialProviders) user.socialProviders = [...d.socialProviders];
     if (d.metadata) user.metadata = { ...d.metadata };
     if ("currentRole" in d) user.currentRole = d.currentRole ?? null;
+    if ("credentialsVersion" in d) {
+      user.credentialsVersion = d.credentialsVersion ?? null;
+    }
     if (d.enabled !== undefined) {
       if (d.enabled) user.enable();
       else user.disable();

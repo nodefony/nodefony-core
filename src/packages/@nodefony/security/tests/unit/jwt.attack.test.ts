@@ -60,6 +60,9 @@ const provider = {
     if (id === "ghost") throw new Error("not found");
     if (id === "banned") return fakeUser("banned", { locked: true });
     if (id === "inactive") return fakeUser("inactive", { active: false });
+    // #635 — compte dont le mot de passe a changé deux fois.
+    if (id === "rotated")
+      return { ...fakeUser("rotated"), credentialsVersion: 2 };
     return fakeUser(id);
   },
   async loadUserByOAuth(): Promise<IUser> {
@@ -269,6 +272,20 @@ describe("JwtAuthenticator — matrice d'attaques (RFC 8725)", () => {
     reject(await mint({ claims: { uid: "u-alice-previous" } })));
   it("🔴 sans liaison au compte (uid absent — jeton antérieur à la règle)", async () =>
     reject(await mint({ claims: { uid: undefined } })));
+  // #635 — la coupure au changement de mot de passe est un ÉTAT du compte :
+  // un jeton émis à l'ancienne version tombe sans attendre son expiration.
+  it("🔴 émis AVANT le dernier changement de mot de passe (cv ancien)", async () =>
+    reject(await mint({ claims: { sub: "rotated", cv: 1 } })));
+  it("🔴 cv absent sur un compte qui a changé de mot de passe", async () =>
+    reject(await mint({ claims: { sub: "rotated" } })));
+  it("🔴 cv d'un autre type que l'entier (« 2 ») → refusé", async () =>
+    reject(await mint({ claims: { sub: "rotated", cv: "2" } })));
+  it("cv courant → accepté", async () => {
+    const t = await auth.authenticate(
+      new UserToken("jwt", await mint({ claims: { sub: "rotated", cv: 2 } })),
+    );
+    assert.equal(t.getUser().identifier, "rotated");
+  });
 });
 
 describe("JwtAuthenticator — câblage manquant = Error (loggée, pas 401 masqué)", () => {

@@ -5,7 +5,7 @@ import type { ISecuredArea } from "../../contracts/ISecuredArea";
 import type { IToken } from "../../contracts/IToken";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { resolveBoundSessionIdentity } from "../sessionIdentity";
-import { ACCOUNT_ID_KEY } from "../accountBinding";
+import { ACCOUNT_ID_KEY, CREDENTIALS_VERSION_KEY } from "../accountBinding";
 import { UserToken } from "../token/UserToken";
 
 /** Credential extrait de la session — un identifiant, jamais un secret. */
@@ -13,6 +13,8 @@ interface ISessionCredentials {
   identifier: string;
   /** Identifiant immuable du compte inscrit à l'ouverture (liaison, #139). */
   accountId: unknown;
+  /** Version des identifiants du compte lue à l'ouverture. */
+  credentialsVersion: unknown;
 }
 
 /**
@@ -87,6 +89,7 @@ export class SessionAuthenticator implements IAuthenticator {
     const credentials: ISessionCredentials = {
       identifier: context.session?.user ?? "",
       accountId: context.session?.getMetaBag(ACCOUNT_ID_KEY),
+      credentialsVersion: context.session?.getMetaBag(CREDENTIALS_VERSION_KEY),
     };
     return Promise.resolve(new UserToken(this.name, credentials));
   }
@@ -109,6 +112,7 @@ export class SessionAuthenticator implements IAuthenticator {
       provider,
       credentials.identifier,
       credentials.accountId,
+      credentials.credentialsVersion,
     );
     return (token as UserToken).promote(user);
   }

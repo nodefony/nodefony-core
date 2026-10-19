@@ -8,6 +8,7 @@ import {
   BaseUser,
   BcryptEncoder,
   IdentifierImmutableError,
+  InMemoryUserRepository,
   MigratingEncoder,
   UserService,
   USER_CREATED_EVENT,
@@ -329,6 +330,79 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       assert.notEqual(updated?.password, oldHash);
       assert.equal(pwdFired, true);
       assert.equal(updFired, false);
+    });
+  });
+
+  // #635 — la coupure des accès au changement de mot de passe est un ÉTAT du
+  // compte : la version avance dans la MÊME écriture que le hash.
+  describe("credentialsVersion (version des identifiants)", () => {
+    function onRealRepo(rounds = FAST) {
+      const repo = new InMemoryUserRepository();
+      return {
+        repo,
+        service: new UserService(repo, new BcryptEncoder(rounds)),
+      };
+    }
+
+    it("compte neuf → version absente (vaut 0)", async () => {
+      const { service } = onRealRepo();
+      const created = await service.createUser({ identifier: "a@x.io" });
+      assert.equal(created.credentialsVersion ?? 0, 0);
+    });
+
+    it("🔴 changePassword incrémente la version, à chaque changement", async () => {
+      const { service } = onRealRepo();
+      const created = await service.createUser({
+        identifier: "a@x.io",
+        plainPassword: "ancien-mot-valise-42",
+      });
+      await service.changePassword(created.id, "nouveau-mot-valise-42");
+      const twice = await service.changePassword(
+        created.id,
+        "troisieme-mot-valise-42",
+      );
+      assert.equal(twice?.credentialsVersion, 2);
+      assert.equal((await service.findById(created.id))?.credentialsVersion, 2);
+    });
+
+    it("🔴 `updateOne({ password })` direct incrémente aussi", async () => {
+      const { service } = onRealRepo();
+      const created = await service.createUser({ identifier: "a@x.io" });
+      const updated = await service.updateOne(
+        { id: created.id },
+        { password: "hash-écrit-à-la-main" },
+      );
+      assert.equal(updated?.credentialsVersion, 1);
+    });
+
+    it("une mise à jour SANS mot de passe ne touche pas la version", async () => {
+      const { service } = onRealRepo();
+      const created = await service.createUser({ identifier: "a@x.io" });
+      const updated = await service.updateOne(
+        { id: created.id },
+        { roles: ["ROLE_EDITOR"] },
+      );
+      assert.equal(updated?.credentialsVersion ?? 0, 0);
+    });
+
+    it("🔴 le re-hachage de `authenticate` NE change PAS la version", async () => {
+      // Sinon chaque montée du coût de hachage déconnecterait tous les comptes.
+      const { repo, service: weak } = onRealRepo(4);
+      const created = await weak.createUser({
+        identifier: "a@x.io",
+        plainPassword: "s3cret-valise-42",
+      });
+      const oldHash = created.password;
+      const strong = new UserService(repo, new BcryptEncoder(6));
+      const user = await strong.authenticate("a@x.io", "s3cret-valise-42");
+      assert.equal(user?.id, created.id);
+      const stored = await repo.findOne({ id: created.id });
+      assert.notEqual(
+        stored?.password,
+        oldHash,
+        "le re-hachage a bien eu lieu",
+      );
+      assert.equal(stored?.credentialsVersion ?? 0, 0);
     });
   });
 

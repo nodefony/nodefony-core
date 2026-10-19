@@ -16,6 +16,7 @@ const TYPE_BY_COLUMN: Record<UserColumnType, unknown> = {
   uuid: String,
   string: String,
   "string[]": [String],
+  integer: Number,
   boolean: Boolean,
   object: Object,
   "object[]": Array,

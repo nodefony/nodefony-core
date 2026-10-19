@@ -207,16 +207,26 @@ async function openAccess(probe: string): Promise<IAccess> {
   return { id, cookie, bearer };
 }
 
-/** Constate que la session ET la clé du porteur sont refusées. */
-async function expectAccessCut(access: IAccess, what: string): Promise<void> {
+/**
+ * Constate que la session ET la clé du porteur sont refusées.
+ *
+ * `detail` (la sortie de la commande, quand le geste en est une) est joint au
+ * message : un rouge nomme alors sa cause au lieu d'un seul `200 ≠ 401`.
+ */
+async function expectAccessCut(
+  access: IAccess,
+  what: string,
+  detail = "",
+): Promise<void> {
+  const suffix = detail === "" ? "" : `\n${detail}`;
   expect(
     (await req("GET", ME, { cookie: access.cookie })).status,
-    `${what} : l'ancienne session est refusée`,
+    `${what} : l'ancienne session est refusée${suffix}`,
   ).to.equal(401);
   expect(
     (await req("GET", WHOAMI, { authorization: `Bearer ${access.bearer}` }))
       .status,
-    `${what} : la clé d'API est refusée`,
+    `${what} : la clé d'API est refusée${suffix}`,
   ).to.equal(401);
 }
 
@@ -286,7 +296,11 @@ describe("Cycle de vie du compte — les accès en cours suivent le geste (#589)
         r.code,
         `sortie de la commande\n${r.stdout}\n${r.stderr}`,
       ).to.equal(0);
-      await expectAccessCut(access, "CLI password");
+      await expectAccessCut(
+        access,
+        "CLI password",
+        `sortie de la commande\n${r.stdout}\n${r.stderr}`,
+      );
     },
   );
 

@@ -131,6 +131,7 @@ export class DrizzleUserRepository implements IUserRepository {
       currentRole: row.currentRole,
       socialProviders: row.socialProviders,
       metadata: row.metadata,
+      credentialsVersion: row.credentialsVersion,
     });
     // Tout ce que `BaseUser` ne reconstruit pas est reporté sur l'objet rendu :
     // les horodatages de la ligne (sans quoi les DTO admin les verraient `null`)

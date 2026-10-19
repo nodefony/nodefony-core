@@ -176,7 +176,7 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
       return (
         current.isActive() &&
         !current.isLocked() &&
-        isBoundToAccount(current, user.id)
+        isBoundToAccount(current, user.id, user.credentialsVersion)
       );
     };
   }

@@ -8,6 +8,13 @@
       "when": 1788281372005,
       "tag": "0000_app_user",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1792432370009,
+      "tag": "0001_user_credentials_version",
+      "breakpoints": true
     }
   ]
 }

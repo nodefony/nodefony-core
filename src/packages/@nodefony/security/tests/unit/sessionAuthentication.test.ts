@@ -9,6 +9,7 @@ import {
 import type { Module } from "nodefony";
 import { AuthFlow } from "../../nodefony/service/authFlow";
 import { amrForFactor } from "../../nodefony/src/sessionAuthentication";
+import { CREDENTIALS_VERSION_KEY } from "../../nodefony/src/accountBinding";
 
 /**
  * La session retient QUAND et PAR QUELLES MÉTHODES elle a été ouverte
@@ -23,6 +24,8 @@ function fakeUser(identifier = "alice") {
     roles: ["ROLE_USER"],
     isLocked: () => false,
     isActive: () => true,
+    // #635 — `rotated` a changé quatre fois de mot de passe.
+    ...(identifier === "rotated" ? { credentialsVersion: 4 } : {}),
   };
 }
 
@@ -164,6 +167,19 @@ describe("AuthFlow — la session retient son authentification", () => {
       await flow.completeMfaLogin(ctx, "recovery-1");
     });
     assert.deepEqual(readSessionAuthentication(session)?.amr, ["pwd", "otp"]);
+  });
+
+  // #635 — la version lue à l'ouverture est celle que `isBoundToAccount`
+  // comparera à chaque requête suivante.
+  it("retient la version des identifiants du compte (0 s'il n'en porte pas)", async () => {
+    const { flow, ctx, session } = setup(false);
+    await inRequest(() => flow.login(ctx, "alice", "pw"));
+    assert.equal(session.getMetaBag(CREDENTIALS_VERSION_KEY), 0);
+    const other = setup(false);
+    await inRequest(() =>
+      other.flow.establishSessionFor(other.ctx, "rotated", "webauthn"),
+    );
+    assert.equal(other.session.getMetaBag(CREDENTIALS_VERSION_KEY), 4);
   });
 
   it("passkey → amr [pop]", async () => {

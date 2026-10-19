@@ -58,17 +58,21 @@ export async function resolveSessionIdentity(
  * @param identifier - identifiant fonctionnel stocké en session.
  * @param boundAccountId - identifiant immuable inscrit à l'ouverture
  *   (`metaBag`, clé `ACCOUNT_ID_KEY`).
+ * @param boundCredentialsVersion - version des identifiants inscrite à
+ *   l'ouverture (`metaBag`, clé `CREDENTIALS_VERSION_KEY`).
  * @returns l'utilisateur actif, titulaire de la session.
  * @throws AuthenticationError (401, message uniforme) — identifiant inconnu,
- *   compte verrouillé ou désactivé, session ouverte pour un autre compte.
+ *   compte verrouillé ou désactivé, session ouverte pour un autre compte ou
+ *   avant le dernier changement de mot de passe.
  */
 export async function resolveBoundSessionIdentity(
   provider: IUserProvider,
   identifier: string,
   boundAccountId: unknown,
+  boundCredentialsVersion: unknown,
 ): Promise<IUser> {
   const user = await resolveSessionIdentity(provider, identifier);
-  if (!isBoundToAccount(user, boundAccountId)) {
+  if (!isBoundToAccount(user, boundAccountId, boundCredentialsVersion)) {
     throw new AuthenticationError(INVALID_SESSION);
   }
   return user;

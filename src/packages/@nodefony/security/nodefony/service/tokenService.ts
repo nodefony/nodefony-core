@@ -43,6 +43,9 @@ import { recordAudit } from "../src/audit/recordAudit";
 import {
   ACCOUNT_ID_CLAIM,
   ACCOUNT_ID_KEY,
+  CREDENTIALS_VERSION_CLAIM,
+  CREDENTIALS_VERSION_KEY,
+  credentialsVersionOf,
   isBoundToAccount,
 } from "../src/accountBinding";
 import { JwtKeystore } from "../src/token/JwtKeystore";
@@ -700,7 +703,13 @@ class TokenService extends Service {
     // Sujet revérifié — révocation sans attendre l'exp (ban, compte supprimé).
     const user = await this.#resolveUserForRefresh(record.subjectId);
     // Émis pour CE compte, pas pour un ancien titulaire du même identifiant.
-    if (!isBoundToAccount(user, record.metadata[ACCOUNT_ID_KEY])) {
+    if (
+      !isBoundToAccount(
+        user,
+        record.metadata[ACCOUNT_ID_KEY],
+        record.metadata[CREDENTIALS_VERSION_KEY],
+      )
+    ) {
       throw new AuthenticationError("Invalid token");
     }
     // Downscoping : les scopes ne montent JAMAIS sur la chaîne de refresh. Et
@@ -772,6 +781,9 @@ class TokenService extends Service {
         // Liaison au compte (#139) : `sub` est un nom qu'un compte recréé peut
         // reprendre, l'`id` immuable ne l'est jamais.
         [ACCOUNT_ID_CLAIM]: user.id,
+        // Version des identifiants (#635) : un jeton émis avant un changement
+        // de mot de passe est refusé sans attendre son expiration.
+        [CREDENTIALS_VERSION_CLAIM]: credentialsVersionOf(user),
       })
         .setProtectedHeader({ alg: "EdDSA", kid, typ: "at+jwt" })
         .setIssuedAt()
@@ -826,7 +838,10 @@ class TokenService extends Service {
       lastUsedUserAgent: null,
       revokedAt: null,
       revokedReason: null,
-      metadata: { [ACCOUNT_ID_KEY]: user.id },
+      metadata: {
+        [ACCOUNT_ID_KEY]: user.id,
+        [CREDENTIALS_VERSION_KEY]: credentialsVersionOf(user),
+      },
     };
     return { record, raw };
   }

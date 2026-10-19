@@ -110,6 +110,7 @@ export class MongooseUserRepository implements IUserRepository {
       currentRole: row.currentRole,
       socialProviders: row.socialProviders,
       metadata: row.metadata,
+      credentialsVersion: row.credentialsVersion,
     });
     // Même report que le dépôt SQL, par la MÊME fonction : horodatages de la
     // ligne et champs métier ajoutés par l'application. `_id` et `__v` sont de

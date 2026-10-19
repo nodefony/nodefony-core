@@ -201,6 +201,31 @@ describe("TokenService — rotation & détection de rejeu (RFC 9700 §4.14)", ()
     assert.equal(rec!.metadata.accountId, "u-alice");
   });
 
+  // #635 — le couple émis retient la version des identifiants du compte.
+  it("version : l'access porte `cv`, le refresh stocké porte `credentialsVersion`", async () => {
+    const r = await svc.issueTokens({
+      ...fakeUser("alice"),
+      credentialsVersion: 3,
+    });
+    assert.equal(jose.decodeJwt(r.access_token).cv, 3);
+    const store = container.get<ITokenStore>("tokenStore")!;
+    const rec = await store.findByHash(sha256(r.refresh_token));
+    assert.equal(rec!.metadata.credentialsVersion, 3);
+  });
+
+  it("🔴 refresh émis avant un changement de mot de passe → 401", async () => {
+    // Émis à la version 0 ; l'annuaire rend `alice` à la version 0 aussi —
+    // on fabrique donc un refresh à une version que le compte n'a plus.
+    const r = await svc.issueTokens({
+      ...fakeUser("alice"),
+      credentialsVersion: 1,
+    });
+    await assert.rejects(
+      () => svc.refresh(r.refresh_token),
+      AuthenticationError,
+    );
+  });
+
   it("🔴 refresh émis pour un ANCIEN titulaire du même identifiant → 401", async () => {
     const previous: IUser = { ...fakeUser("alice"), id: "u-alice-previous" };
     const r = await svc.issueTokens(previous);

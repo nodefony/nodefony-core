@@ -157,6 +157,19 @@ function revocationReason(
   return null;
 }
 
+/**
+ * La version des identifiants qui suit celle du compte — écrite dans la MÊME
+ * écriture que le nouveau hash, jamais à part : deux écritures pourraient
+ * laisser le hash changé et la version intacte, donc les sessions ouvertes.
+ *
+ * Lire puis écrire laisse une course étroite (deux changements simultanés du
+ * même compte écrivent la même version) ; elle reste sûre — l'une comme
+ * l'autre coupe tout ce qui a été émis avant elles.
+ */
+function nextCredentialsVersion(user: IUser): number {
+  return (user.credentialsVersion ?? 0) + 1;
+}
+
 export class UserService
   extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>
   implements IUserProvider, IPasswordVerifier, IOAuthUserProvisioner
@@ -234,10 +247,20 @@ export class UserService
     // lecture de plus, seulement quand la mise à jour porte `roles`.
     // COPIE, jamais une référence : un dépôt qui met à jour SUR PLACE (le dépôt
     // en mémoire) rendrait l'avant identique à l'après.
+    // Hash écrit directement : l'AVANT donne aussi la version à incrémenter.
     const before =
-      data.roles !== undefined ? await this.findOne(criteria) : null;
-    const rolesBefore = before === null ? null : [...before.roles];
-    const updated = await super.updateOne(criteria, data);
+      data.roles !== undefined || data.password !== undefined
+        ? await this.findOne(criteria)
+        : null;
+    const rolesBefore =
+      before === null || data.roles === undefined ? null : [...before.roles];
+    const write =
+      data.password !== undefined &&
+      data.credentialsVersion === undefined &&
+      before !== null
+        ? { ...data, credentialsVersion: nextCredentialsVersion(before) }
+        : data;
+    const updated = await super.updateOne(criteria, write);
     if (updated === null) return null;
     const reason = revocationReason(data);
     if (reason !== null) {
@@ -427,7 +450,12 @@ export class UserService
     if (target === null) return null;
     await this.#assertNotBlocked(plainPassword, target.identifier);
     const password = await this.encoder.hash(plainPassword);
-    const updated = await this.repository.updateOne({ id }, { password });
+    // La coupure des accès est un ÉTAT du compte, pas une suppression : la
+    // cascade de révocation peut échouer, la version, elle, est déjà écrite.
+    const updated = await this.repository.updateOne(
+      { id },
+      { password, credentialsVersion: nextCredentialsVersion(target) },
+    );
     if (updated !== null) {
       this.fire("onPasswordChanged", updated);
       await this.#revoke(updated, "password_changed");
@@ -530,6 +558,9 @@ export class UserService
 
     if (this.encoder.needsRehash(hash)) {
       const fresh = await this.encoder.hash(plain);
+      // 🔴 Même mot de passe, autre empreinte : la version des identifiants ne
+      // bouge PAS — sinon chaque montée du coût de hachage déconnecterait tous
+      // les comptes. D'où le dépôt appelé en direct, hors `updateOne`.
       const rehashed = await this.repository.updateOne(
         { id: user.id },
         { password: fresh },

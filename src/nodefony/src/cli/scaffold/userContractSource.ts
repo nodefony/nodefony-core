@@ -119,6 +119,7 @@ const FIELD_TYPE_BY_CONTRACT: Partial<Record<string, TEntityFieldType>> = {
   uuid: "uuid",
   string: "string",
   "string[]": "json",
+  integer: "int",
   boolean: "bool",
   object: "json",
   "object[]": "json",
