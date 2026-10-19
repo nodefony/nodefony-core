@@ -32,6 +32,7 @@
  * npm run test:all -- --load       # + charge, gate mémoire et cluster e2e
  * npm run test:all -- --no-infra   # n'utilise que ce qui tourne déjà
  * npm run test:all -- --unit       # la suite unitaire seule
+ * npm run test:all -- --fresh      # rejoue les suites unitaires sans le cache de turbo
  * npm run test:all -- --json       # sortie machine (CI)
  * npm run test:all -- --infra      # état de l'infra seul, ne lance aucun test
  * npm run test:all -- --dialects   # + rejoue les suites ORM sur MySQL Community
@@ -54,6 +55,7 @@
  * @option --mongo        rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration
  * @option --unit         la suite unitaire SEULE (avec --integration : les deux)
  * @option --integration  la suite d'intégration SEULE (avec --unit : les deux)
+ * @option --fresh        EXÉCUTE les suites unitaires au lieu de rejouer leur journal en cache
  * @option --no-infra     n'utilise que l'infra qui tourne déjà, n'en démarre aucune
  * @option --infra        rend l'état de l'infra, ne lance AUCUN test
  * @option --json         sortie machine (CI)
@@ -83,6 +85,7 @@ import {
   type EnvGate,
 } from "./vitest/gates";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import { replayedTasks } from "../lib/turbo-replay.mjs";
 
 // Loki et OpenSearch sont ici pour la même raison que les bases : le cœur
 // DÉCLARE désormais les attendre (`src/nodefony/vitest.config.ts`), donc une
@@ -122,6 +125,8 @@ interface Options {
   unit: boolean;
   integration: boolean;
   load: boolean;
+  /** Exécute les tâches `test` même quand turbo en a le journal en cache. */
+  fresh: boolean;
   json: boolean;
 }
 
@@ -140,6 +145,7 @@ function parseArgs(argv: string[]): Options {
     unit: picked ? has("--unit") : true,
     integration: picked ? has("--integration") : true,
     load: has("--load"),
+    fresh: has("--fresh"),
     json: has("--json"),
   };
 }
@@ -272,6 +278,8 @@ interface PhaseResult {
   durationMs: number;
   /** Totaux agrégés depuis la sortie vitest, quand ils sont lisibles. */
   tests?: { passed: number; failed: number; skipped: number };
+  /** Paquets dont turbo a REJOUÉ le journal au lieu d'exécuter la suite. */
+  replayed?: string[];
 }
 
 /** Lance une commande en héritant du terminal, et rend son code de sortie. */
@@ -326,6 +334,7 @@ async function phase(
     ok: code === 0,
     durationMs: Date.now() - started,
     tests: tally(output),
+    replayed: replayedTasks(output, /turbo run (\S+)/.exec(cmd)?.[1] ?? ""),
   };
   results.push(result);
   return result.ok;
@@ -406,6 +415,7 @@ function report(
             skipped: p.skipped ?? null,
             durationMs: p.durationMs,
             tests: p.tests ?? null,
+            replayed: p.replayed ?? [],
           })),
           outOfScope: standaloneBenches(),
         },
@@ -457,6 +467,13 @@ function report(
     console.log(
       `  ${mark} ${p.name.padEnd(26)} ${detail.padEnd(40)} ${C.dim(secs)}`,
     );
+    // Un journal rejoué compte ses tests comme passés : le DIRE, sinon le total
+    // annonce joué ce qui ne l'a pas été — et une suite intermittente « verte ».
+    if (p.replayed && p.replayed.length > 0) {
+      console.log(
+        `      ${C.yellow(`↺ ${p.replayed.length} suite(s) REJOUÉE(S) du cache, non exécutée(s)`)} ${C.dim(`— --fresh pour les lancer : ${p.replayed.join(", ")}`)}`,
+      );
+    }
     if (t) {
       totals.passed += t.passed;
       totals.failed += t.failed;
@@ -594,9 +611,18 @@ async function main(): Promise<void> {
   // le point d'entrée, aucun module ne se charge, et un banc CLI se plaint qu'une
   // commande manque — un symptôme qui ne parle jamais de la vraie cause.
   let ok = await phase("Build", "npm run build", phases);
+  // `--fresh` : `--force` ignore le cache, `--only` borne la passe aux tâches
+  // `test` — sans lui, `--force` rebâtirait le graphe des builds PENDANT que les
+  // suites bootent l'application (le piège décrit ci-dessus). Le build vient
+  // d'être fait, une fois.
+  const fresh = options.fresh ? " --only --force" : "";
 
   if (ok && options.unit) {
-    ok = await phase("Suite unitaire", "npx turbo run test --continue", phases);
+    ok = await phase(
+      "Suite unitaire",
+      `npx turbo run test --continue${fresh}`,
+      phases,
+    );
   } else if (options.unit) {
     phases.push({
       name: "Suite unitaire",
@@ -618,7 +644,7 @@ async function main(): Promise<void> {
       Object.assign(process.env, MYSQL_COMMUNITY_GATE.values());
       await phase(
         "Suites ORM — MySQL Community",
-        "npx turbo run test --filter=@nodefony/drizzle --filter=@nodefony/orm-core --continue",
+        `npx turbo run test --filter=@nodefony/drizzle --filter=@nodefony/orm-core --continue${fresh}`,
         phases,
       );
       if (saved !== undefined) process.env.NF_MYSQL_URL = saved;

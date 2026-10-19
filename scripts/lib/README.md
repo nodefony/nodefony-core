@@ -40,6 +40,21 @@ Copie publiée du graphe symbolique — module d'un fichier, modules publiés, f
 - **Lancé par** : `node.js.yml` · `npm run test:tooling`
 - **Utilise** : `lib/symbols-publish.mjs`
 
+## [`turbo-replay.mjs`](turbo-replay.mjs)
+
+Ce que turbo a REJOUÉ du cache au lieu de l'exécuter — seule implémentation.
+
+- **Usage** : `import { replayedTasks } from "../lib/turbo-replay.mjs"`
+- **Appelé par** : `test/test-all.ts`
+- **Testé par** : `lib/turbo-replay.test.mjs`
+
+## [`turbo-replay.test.mjs`](turbo-replay.test.mjs)
+
+Lignes RÉELLES d'une passe `test:all` (#472), couleurs comprises.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/turbo-replay.mjs`
+
 ## [`workspaces.mjs`](workspaces.mjs)
 
 Les workspaces du dépôt, résolus par npm — seule implémentation pour scripts/.

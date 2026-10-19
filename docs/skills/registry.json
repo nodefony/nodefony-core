@@ -90,6 +90,36 @@
       "testedBy": []
     },
     {
+      "path": "scripts/lib/turbo-replay.mjs",
+      "test": false,
+      "purpose": "Ce que turbo a REJOUÉ du cache au lieu de l'exécuter — seule implémentation.",
+      "usage": [
+        "import { replayedTasks } from \"../lib/turbo-replay.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/test/test-all.ts"
+      ],
+      "testedBy": [
+        "scripts/lib/turbo-replay.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/turbo-replay.test.mjs",
+      "test": true,
+      "purpose": "Lignes RÉELLES d'une passe `test:all` (#472), couleurs comprises.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/lib/workspaces.mjs",
       "test": false,
       "purpose": "Les workspaces du dépôt, résolus par npm — seule implémentation pour scripts/.",
@@ -610,6 +640,10 @@
           "help": "la suite d'intégration SEULE (avec --unit : les deux)"
         },
         {
+          "flag": "--fresh",
+          "help": "EXÉCUTE les suites unitaires au lieu de rejouer leur journal en cache"
+        },
+        {
           "flag": "--no-infra",
           "help": "n'utilise que l'infra qui tourne déjà, n'en démarre aucune"
         },
@@ -808,7 +842,7 @@
     {
       "path": "scripts/test/vitest/vitest.tooling.config.ts",
       "test": false,
-      "purpose": "Config des suites lancées depuis la RACINE (`test:tooling`, `test:release`, `test:pilotage`…) : les réglages par défaut de vitest, plus la garde des dossiers temporaires — rien d'autre.",
+      "purpose": "Config des suites lancées depuis la RACINE (`test:tooling`, `test:release`, `test:pilotage`…) : les réglages par défaut de vitest, plus la garde des dossiers temporaires et le cache de transformation ÉTEINT — rien d'autre.",
       "usage": [
         "npm run test:tooling             // et les six autres scripts test:* lancés depuis la racine"
       ],
@@ -824,7 +858,9 @@
         "npm run test:pilotage",
         "npm run test:release"
       ],
-      "testedBy": []
+      "testedBy": [
+        "src/nodefony/src/tests/vitestPerfPreset.test.ts"
+      ]
     },
     {
       "path": "scripts/generate/brand-assets.mjs",

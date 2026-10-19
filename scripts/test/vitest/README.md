@@ -64,8 +64,9 @@ Garde des dossiers temporaires d'une passe vitest — le jetable d'un test, le t
 
 ## [`vitest.tooling.config.ts`](vitest.tooling.config.ts)
 
-Config des suites lancées depuis la RACINE (`test:tooling`, `test:release`, `test:pilotage`…) : les réglages par défaut de vitest, plus la garde des dossiers temporaires — rien d'autre.
+Config des suites lancées depuis la RACINE (`test:tooling`, `test:release`, `test:pilotage`…) : les réglages par défaut de vitest, plus la garde des dossiers temporaires et le cache de transformation ÉTEINT — rien d'autre.
 
 - **Usage** : `npm run test:tooling             // et les six autres scripts test:* lancés depuis la racine`
 - **Appelé par** : `npm run test:externals` · `npm run test:deps-gate` · `npm run test:site-plan` · `npm run test:dev-credentials` · `npm run test:tooling` · `npm run test:pilotage` · `npm run test:release`
+- **Testé par** : `src/nodefony/src/tests/vitestPerfPreset.test.ts`
 - **Utilise** : `test/vitest/tmp-guard.ts`
