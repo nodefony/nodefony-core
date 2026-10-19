@@ -226,13 +226,17 @@ describe("Parser.ended() — cleanup des listeners jumeaux end/error", () => {
 });
 
 describe("ParserQs — corps application/x-www-form-urlencoded", () => {
-  it("parse le corps urlencoded dans queryPost + fusionne dans query", async () => {
+  it("parse le corps urlencoded dans queryPost, sans toucher à query (paramètres d'URL)", async () => {
     const { req, stream } = makeReq();
+    const url = { a: "url" };
+    req.query = url;
     const p = new ParserQs(req);
     stream.emit("data", Buffer.from("a=1&b=2"));
     await p.parse();
     expect(req.queryPost).to.deep.equal({ a: "1", b: "2" });
-    expect(req.query).to.deep.equal({ a: "1", b: "2" });
+    // Même objet, même contenu : le corps n'écrase ni n'enrichit l'URL.
+    expect(req.query).to.equal(url);
+    expect(req.query).to.deep.equal({ a: "url" });
     expect(req.context.requestEnded).to.equal(true);
   });
 
@@ -299,24 +303,29 @@ describe("ParserXml — corps application/xml", () => {
 // `queryPost` est lu comme un objet (`this.queryPost.nom`). Un corps `null` ou
 // scalaire y laissait `null`/`42` → TypeError → 500 dans le contrôleur.
 describe("ParserJson — corps application/json", () => {
-  async function parseJson(body: string): Promise<HttpRequest> {
+  async function parseJson(
+    body: string,
+    query: Record<string, unknown> = {},
+  ): Promise<HttpRequest> {
     const { req, stream } = makeReq();
+    req.query = query;
     const p = new ParserJson(req);
     stream.emit("data", Buffer.from(body));
     await p.parse();
     return req;
   }
 
-  it("parse un objet dans queryPost + fusionne dans query", async () => {
-    const req = await parseJson('{"a":1}');
+  it("parse un objet dans queryPost, sans toucher à query (paramètres d'URL)", async () => {
+    const req = await parseJson('{"a":1}', { a: "url" });
     expect(req.queryPost).to.deep.equal({ a: 1 });
-    expect(req.query).to.deep.equal({ a: 1 });
+    expect(req.query).to.deep.equal({ a: "url" });
     expect(req.context.requestEnded).to.equal(true);
   });
 
-  it("garde un tableau tel quel (envoi en lot lu par @Body)", async () => {
+  it("garde un tableau tel quel (envoi en lot lu par @Body), jamais étalé dans query", async () => {
     const req = await parseJson("[1,2]");
     expect(req.queryPost).to.deep.equal([1, 2]);
+    expect(req.query).to.deep.equal({});
   });
 
   for (const body of ["null", "42", '"texte"', "true"]) {

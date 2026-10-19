@@ -91,8 +91,7 @@ function makeController(opts: HarnessOptions = {}) {
     phaseEnd() {},
     request: {
       url: new URL("http://127.0.0.1/test"),
-      queryGet: { a: "1" },
-      query: { b: "2" },
+      query: { a: "1" },
       queryFile: [],
       queryPost: { c: "3" },
       headers: opts.range ? { range: opts.range } : {},
@@ -143,8 +142,7 @@ function makeController(opts: HarnessOptions = {}) {
 describe("Controller — setContext()", () => {
   it("populates query fields, method and response from the context", () => {
     const { c } = makeController();
-    expect(c.queryGet).to.deep.equal({ a: "1" });
-    expect(c.query).to.deep.equal({ b: "2" });
+    expect(c.query).to.deep.equal({ a: "1" });
     expect(c.queryPost).to.deep.equal({ c: "3" });
     expect(c.queryFile).to.deep.equal([]);
     expect(c.method).to.equal("GET");

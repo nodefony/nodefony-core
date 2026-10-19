@@ -577,7 +577,7 @@ d'event de la garde doit rester EXACT (une typo éteint le hook en silence ; ver
 `unit/requestEndGuard`, `integration/context-hooks`). `#doSend` saute aussi `saveSession()`
 sans session démarrée. `acceptParser` sans en-tête → singleton `ACCEPT_ANY` (lecture seule).
 
-**IWsRequestExtension** : `IncomingMessage.url` = string. `Route.match()` fait `.pathname`. Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; queryGet; path }` — assigné dans `WebsocketContext` constructor.
+**IWsRequestExtension** : `IncomingMessage.url` = string. `Route.match()` fait `.pathname`. Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; path }` — assigné dans `WebsocketContext` constructor.
 
 **ERR_INVALID_CHAR** : Node.js set `ServerResponse.statusMessage` natif AVANT validation → char invalide persiste même si `writeHead()` throw. Tous les writes suivants échouent en cascade (y compris timeout 30s). Fix : `safeMsg = statusMessage.replace(/[^\x20-\x7E]/g, "")` juste avant `ServerResponse.writeHead()` dans `Response.ts`.
 

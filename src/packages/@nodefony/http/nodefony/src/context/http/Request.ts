@@ -30,7 +30,6 @@ import type {
   IUploadOptions,
 } from "../../../interfaces/IUpload";
 import {
-  extend,
   Pci,
   Pdu,
   Message,
@@ -201,7 +200,7 @@ class HttpRequest {
     let u = this.#url;
     if (u === null) {
       u = this.getUrl(this.sUrl);
-      u.query = this.queryGet as QS.ParsedQs;
+      u.query = this.query as QS.ParsedQs;
       this.#url = u;
     }
     return u;
@@ -211,7 +210,6 @@ class HttpRequest {
   }
   parser: ParserType | null = null;
   queryPost: Record<string, unknown> = {};
-  queryGet: Record<string, unknown> = {};
   queryFile: UploadedFile[] = [];
   query: Record<string, unknown> = {};
 
@@ -331,12 +329,9 @@ class HttpRequest {
     if (this.#url !== null) {
       this.#url.query = query;
     }
-    // ALIASING : `queryGet` et `query` pointent d'abord le MÊME objet
-    // (le GET parsé — exposé aussi en `url.query`). Sur POST/PUT/DELETE,
-    // `query` est RÉASSIGNÉ par `extend({}, query, queryPost)` (nouvel objet)
-    // — `queryGet` reste le GET seul. `request.body` est ensuite aliasé sur
-    // `query` final (onRequestEnd).
-    this.queryGet = query;
+    // `query` = les paramètres d'URL SEULS (aussi exposés en `url.query`) ;
+    // le corps vit dans `queryPost`, jamais fusionné : un lecteur de `query`
+    // sait d'où vient chaque valeur.
     this.query = query;
     if (PERF_PROBE_SUB) perfMark("reqQueryNs");
     // ORDRE CRITIQUE : getContentType() remplit this.rawContentType (dont
@@ -594,10 +589,6 @@ class HttpRequest {
 
     const { fields, files } = await this.streamMultipart(bb);
     this.queryPost = fields;
-    this.query = extend({}, this.query, this.queryPost) as Record<
-      string,
-      unknown
-    >;
     for (const pf of files) {
       await this.createFileUpload(pf.field, pf.file);
     }

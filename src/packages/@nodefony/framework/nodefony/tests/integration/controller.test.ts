@@ -234,9 +234,9 @@ describe("Controller — error handling (HTTP)", () => {
   });
 });
 
-// ── queryGet ─────────────────────────────────────────────────────────────────
+// ── query ────────────────────────────────────────────────────────────────────
 
-describe("Controller — queryGet params (HTTP)", () => {
+describe("Controller — query params (HTTP)", () => {
   it("GET /fw/echo?name=foo&page=2 → les deux params correctement parsés (fix Request.ts slice(1))", async () => {
     const { status, body } = await httpReq(
       "GET",

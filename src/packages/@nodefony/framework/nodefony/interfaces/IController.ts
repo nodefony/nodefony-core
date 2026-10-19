@@ -19,7 +19,6 @@ export interface IController {
   context?: ContextType | undefined;
   session?: Session | null;
   method?: HTTPMethod | undefined;
-  queryGet: Record<string, unknown>;
   query: Record<string, unknown>;
   queryFile: unknown[];
   queryPost: Record<string, unknown>;

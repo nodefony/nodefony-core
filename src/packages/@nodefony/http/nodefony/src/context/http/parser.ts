@@ -1,7 +1,7 @@
 import HttpRequest from "./Request";
 import Http2Request from "../http2/Request";
 import QS from "qs";
-import { extend, escapeRegExp } from "nodefony";
+import { escapeRegExp } from "nodefony";
 import xml2js from "xml2js";
 import HttpError from "../../errors/httpError";
 
@@ -143,11 +143,6 @@ class ParserQs extends Parser {
       this.request.data.toString(this.charset),
       this.parserOptions,
     );
-    this.request.query = extend(
-      {},
-      this.request.query,
-      this.request.queryPost,
-    ) as Record<string, unknown>;
     this.request.context.requestEnded = true;
     return this;
   }
@@ -217,11 +212,6 @@ class ParserJson extends Parser {
         const parsed: unknown = JSON.parse(text);
         if (isJsonContainer(parsed)) {
           this.request.queryPost = parsed;
-          this.request.query = extend(
-            {},
-            this.request.query,
-            this.request.queryPost,
-          ) as Record<string, unknown>;
         }
         /* scalaire ou `null` : ignoré comme un JSON malformé — `queryPost`
            reste un objet (brut conservé dans request.data) */

@@ -81,7 +81,7 @@ function fakeCtx(over: Partial<IParamArgContext> = {}): IParamArgContext {
   return {
     paramsMap: { id: "42", slug: "hello" },
     request: {
-      queryGet: { q: "search", page: "2" },
+      query: { q: "search", page: "2" },
       queryPost: { name: "john" },
       queryFile: ["FILE_A", "FILE_B"],
       headers: { "content-type": "application/json", host: "localhost" },

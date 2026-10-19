@@ -82,7 +82,7 @@ class SseController extends Controller {
   @route("sse-echo", { path: "/echo" })
   async echo() {
     // Les paramètres se LISENT comme des chaînes, jamais par conversion de type.
-    const query = this.queryGet;
+    const query = this.query;
     const param = (name: string): string | undefined => {
       const value = query[name];
       return typeof value === "string" ? value : undefined;
@@ -141,7 +141,7 @@ class SseController extends Controller {
    */
   @route("sse-limits", { path: "/limits" })
   async limits() {
-    const query = this.queryGet;
+    const query = this.query;
     const num = (name: string): number | undefined => {
       const value = query[name];
       return typeof value === "string" ? Number(value) : undefined;

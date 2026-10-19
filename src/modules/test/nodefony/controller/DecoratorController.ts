@@ -63,8 +63,8 @@ class DecoratorController extends Controller {
 
   // Alias `body` — nom universel de l'écosystème. Trois chemins doivent livrer
   // LE MÊME corps parsé : le getter du controller, celui de la requête, et
-  // l'alias posé sur la requête Node brute. `query` est cité en contrôle : lui
-  // fusionne la query string, donc il porte `v` que les trois autres ignorent.
+  // l'alias posé sur la requête Node brute. `query` est cité en contrôle : il
+  // ne porte que les paramètres d'URL (`v`), jamais le corps.
   @Post("/body-alias")
   postBodyAlias() {
     const req = this.context?.request as {
@@ -82,6 +82,22 @@ class DecoratorController extends Controller {
         (req?.request?.body as Record<string, unknown> | undefined) ?? null,
       queryPost: req?.queryPost ?? null,
       query: req?.query ?? null,
+    });
+  }
+
+  // Paramètres d'URL et corps ne se mélangent jamais : chaque source est lue
+  // par ses DEUX voies (accesseur du controller, décorateur) pour qu'aucune ne
+  // réintroduise la fusion en douce.
+  @Post("/query-and-body")
+  postQueryAndBody(
+    @Query() fromDecoratorQuery?: Record<string, unknown>,
+    @Body() fromDecoratorBody?: unknown,
+  ) {
+    return this.renderJson({
+      query: this.query,
+      queryPost: this.queryPost,
+      fromDecoratorQuery: fromDecoratorQuery ?? null,
+      fromDecoratorBody: fromDecoratorBody ?? null,
     });
   }
 

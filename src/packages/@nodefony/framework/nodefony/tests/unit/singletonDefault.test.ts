@@ -20,7 +20,7 @@
 // (3) la garde des accesseurs de `Controller` ; (4) l'appel de
 // `Injector.assertNoCaptiveDependency` dans `Router.setController` ; (5) la
 // lecture du résolveur d'appel (`RequestContext` clé `resolver`) dans les
-// accesseurs `route`/`query`/`queryGet` ; (6) la capture du contexte en tête
+// accesseurs `route`/`query` ; (6) la capture du contexte en tête
 // de `streamFile`.
 //
 import { expect } from "vitest";
@@ -68,7 +68,6 @@ function makeCtx(tag: string, environment = "development") {
     request: {
       url: new URL(`http://127.0.0.1/${tag}`),
       query: { q: tag },
-      queryGet: { q: tag },
       queryFile: [],
       queryPost: {},
       headers: {},
@@ -321,7 +320,6 @@ describe("Contrôleur singleton — pont api.request", () => {
       return {
         route: this.route?.name ?? null,
         q: (this.query as Record<string, unknown> | undefined)?.q ?? null,
-        qg: (this.queryGet as Record<string, unknown> | undefined)?.q ?? null,
       };
     }
   }
@@ -349,8 +347,8 @@ describe("Contrôleur singleton — pont api.request", () => {
       invoke("route-a", "qa"),
       invoke("route-b", "qb"),
     ]);
-    expect(a).to.deep.equal({ route: "route-a", q: "qa", qg: "qa" });
-    expect(b).to.deep.equal({ route: "route-b", q: "qb", qg: "qb" });
+    expect(a).to.deep.equal({ route: "route-a", q: "qa" });
+    expect(b).to.deep.equal({ route: "route-b", q: "qb" });
   });
 
   it("un api.request ne remplace pas le contrôleur de la connexion : le hub n'est pas réinstancié au message suivant", async () => {
@@ -459,7 +457,6 @@ describe("Contrôleur singleton — pont api.request", () => {
     expect(await (result as Promise<unknown>)).to.deep.equal({
       route: "route-http",
       q: "http",
-      qg: "http",
     });
   });
 });

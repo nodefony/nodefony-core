@@ -1,6 +1,6 @@
 /// <reference types="node" />
 /**
- * Integration tests — @Param / @Body / @Query + queryGet fix
+ * Integration tests — @Param / @Body / @Query + premier paramètre d'URL
  * Requires: server on 5151/5152
  */
 import { expect } from "vitest";
@@ -117,9 +117,9 @@ describe("Framework — @Query (integration)", () => {
   });
 });
 
-// ── queryGet fix (url.search.slice(1)) ───────────────────────────────────────
+// ── query fix (url.search.slice(1)) ──────────────────────────────────────────
 
-describe("Framework — queryGet premier param (fix Request.ts)", () => {
+describe("Framework — query premier param (fix Request.ts)", () => {
   it("GET /fw/qs?first=aaa&second=bbb — premier param maintenant correct", async () => {
     const { status, body } = await req("GET", `${FW}/qs?first=aaa&second=bbb`);
     expect(status).to.equal(200);

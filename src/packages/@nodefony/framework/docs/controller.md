@@ -335,14 +335,14 @@ sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ 
 | ---------------- | -------------------------------------------------- | ------------------------------------ |
 | `this.context`   | Le contexte transport de la requête courante       | `Controller.ts#Controller.context`   |
 | `this.route`     | La route matchée                                   | `Controller.ts#Controller.route`     |
-| `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts#Controller.route`     |
-| `this.response`  | La réponse du transport                            | `Controller.ts#Controller.request`   |
-| `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts#Controller.#query`    |
-| `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts#Controller.queryGet`  |
+| `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts#Controller.request`   |
+| `this.response`  | La réponse du transport                            | `Controller.ts#Controller.response`  |
+| `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts#Controller.method`    |
+| `this.query`     | Les paramètres d'URL — **jamais** le corps         | `Controller.ts#Controller.query`     |
 | `this.queryPost` | Le corps parsé                                     | `Controller.ts#Controller.queryPost` |
-| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts#Controller.queryPost` |
+| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts#Controller.body`      |
 | `this.queryFile` | Les fichiers uploadés                              | `Controller.ts#Controller.queryFile` |
-| `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts#Controller.body`      |
+| `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts#Controller.session`   |
 
 Pourquoi des accesseurs plutôt que des champs recopiés au constructeur : **la fraîcheur et le coût**.
 Une valeur recopiée vieillit dès que le pipeline modifie le contexte, et recopier quatre structures

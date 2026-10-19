@@ -231,9 +231,9 @@ class DefaultController extends Controller {
     // Sonde de décor : `qs` peut rendre un objet (`?x-val[a]=b`), converti en
     // `[object Object]` comme depuis toujours — la réponse ne doit pas bouger.
     // Getter typé `Record` : `undefined` hors requête HTTP.
-    const queryGet = this.queryGet as Record<string, unknown> | undefined;
+    const query = this.query as Record<string, unknown> | undefined;
     // oxlint-disable-next-line typescript/no-base-to-string
-    const val = String(queryGet?.["x-val"] ?? "none");
+    const val = String(query?.["x-val"] ?? "none");
     (this.context as HttpContext).response.setHeader("x-echoed", val);
     return this.renderJson({ echoed: val });
   }

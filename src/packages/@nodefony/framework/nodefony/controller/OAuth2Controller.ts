@@ -420,7 +420,7 @@ class OAuth2Controller extends SecurityApiController {
 
   /** Lit un paramètre de query string (GET), ou `null`. */
   #queryString(key: string): string | null {
-    const v = (this.queryGet as Record<string, unknown> | undefined)?.[key];
+    const v = (this.query as Record<string, unknown> | undefined)?.[key];
     return typeof v === "string" && v.length > 0 ? v : null;
   }
 }

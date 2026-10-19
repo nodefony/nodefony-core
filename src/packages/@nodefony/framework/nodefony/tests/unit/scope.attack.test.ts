@@ -19,7 +19,7 @@ import type { ContextType } from "@nodefony/http";
 // (escalade verticale silencieuse, le pire cas).
 //
 // INVARIANT à prouver : « singleton = stateless ; contexte via ALS uniquement ».
-// Chaque getter (`context`/`session`/`route`/`query`/`queryGet`) doit retrouver LA
+// Chaque getter (`context`/`session`/`route`/`query`) doit retrouver LA
 // requête EN COURS via l'ALS `RequestContext`, jamais une concurrente, même quand
 // l'instance a été créée dans le contexte d'un PREMIER utilisateur.
 //
@@ -45,7 +45,6 @@ function makeCtx(tag: string, session?: Sess) {
     request: {
       url: new URL(`http://127.0.0.1/${tag}`),
       query: { q: tag },
-      queryGet: { g: tag },
       queryFile: [],
       queryPost: {},
       headers: {},
@@ -219,7 +218,7 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
     expect(instance.session).to.equal(null);
   });
 
-  it("A5 — query/queryGet (WS-RPC params) never bleed", async () => {
+  it("A5 — query (WS-RPC params) never bleed", async () => {
     const router = makeRouter();
     const alice = makeResolver(VictimSingleton, "alice", router);
     const bob = makeResolver(VictimSingleton, "bob", router);
@@ -228,11 +227,9 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
 
     inRun(alice.ctx, () => {
       expect(instance.query).to.deep.equal({ q: "alice" });
-      expect(instance.queryGet).to.deep.equal({ g: "alice" });
     });
     inRun(bob.ctx, () => {
       expect(instance.query).to.deep.equal({ q: "bob" });
-      expect(instance.queryGet).to.deep.equal({ g: "bob" });
     });
   });
 

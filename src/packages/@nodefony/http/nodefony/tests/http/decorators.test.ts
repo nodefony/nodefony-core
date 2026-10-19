@@ -149,8 +149,8 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
         expect(r[source], source).to.deep.equal({ msg: "hello" });
       }
       expect(r.queryPost).to.deep.equal({ msg: "hello" });
-      // Contrôle : `query` FUSIONNE l'URL — c'est ce qui le distingue de `body`.
-      expect(r.query).to.have.property("v", "fromUrl");
+      // Contrôle : `query` porte l'URL SEULE — jamais le corps.
+      expect(r.query).to.deep.equal({ v: "fromUrl" });
       expect(r.fromController).to.not.have.property("v");
     });
 
@@ -199,6 +199,73 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
       expect(b.id).to.equal("7");
       expect(b.name).to.be.null;
       expect(b.v).to.be.null;
+    });
+  });
+
+  // Les paramètres d'URL et le corps sont deux sources distinctes : le corps
+  // n'écrase ni n'enrichit `query` (défaut du `$_REQUEST` de PHP, où un
+  // paramètre pensé pour un POST se satisfait par l'URL d'un GET).
+  describe("query (URL) et queryPost (corps) ne fusionnent jamais", () => {
+    const PATH = "/nodefony/test/decorators/query-and-body?a=url&only=url";
+
+    function expectSeparated(b: Record<string, unknown>, post: unknown) {
+      for (const source of ["query", "fromDecoratorQuery"]) {
+        expect(b[source], source).to.deep.equal({ a: "url", only: "url" });
+      }
+      for (const source of ["queryPost", "fromDecoratorBody"]) {
+        expect(b[source], source).to.deep.equal(post);
+      }
+    }
+
+    it("corps urlencoded : même clé dans l'URL et le corps → chacune garde la sienne", async () => {
+      const { status, body } = await req("POST", PATH, "a=body&extra=body", {
+        "Content-Type": "application/x-www-form-urlencoded",
+      });
+      expect(status).to.equal(200);
+      expectSeparated(body as Record<string, unknown>, {
+        a: "body",
+        extra: "body",
+      });
+    });
+
+    it("corps JSON objet : même clé dans l'URL et le corps → chacune garde la sienne", async () => {
+      const { status, body } = await req(
+        "POST",
+        PATH,
+        JSON.stringify({ a: "body", n: 7 }),
+        { "Content-Type": "application/json" },
+      );
+      expect(status).to.equal(200);
+      expectSeparated(body as Record<string, unknown>, { a: "body", n: 7 });
+    });
+
+    it('corps JSON tableau : jamais étalé dans query sous les clés "0", "1"', async () => {
+      const { status, body } = await req(
+        "POST",
+        PATH,
+        JSON.stringify(["x", "y"]),
+        {
+          "Content-Type": "application/json",
+        },
+      );
+      expect(status).to.equal(200);
+      expectSeparated(body as Record<string, unknown>, ["x", "y"]);
+    });
+
+    it("corps multipart : les champs restent dans queryPost", async () => {
+      const boundary = "nfQueryBodyBoundary";
+      const payload =
+        `--${boundary}\r\nContent-Disposition: form-data; name="a"\r\n\r\nbody\r\n` +
+        `--${boundary}\r\nContent-Disposition: form-data; name="extra"\r\n\r\nbody\r\n` +
+        `--${boundary}--\r\n`;
+      const { status, body } = await req("POST", PATH, payload, {
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      });
+      expect(status).to.equal(200);
+      expectSeparated(body as Record<string, unknown>, {
+        a: "body",
+        extra: "body",
+      });
     });
   });
 });

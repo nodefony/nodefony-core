@@ -116,14 +116,14 @@ class FrameworkController extends Controller {
     throw new HttpError({ reason: "bad request" }, 400, this.context);
   }
 
-  // ── queryGet echo ───────────────────────────────────────────────────────────
+  // ── query echo ─────────────────────────────────────────────────────────────
   @Get("/echo")
   echo() {
     // Getter typé `Record` : `undefined` hors requête HTTP.
-    const queryGet = this.queryGet as Record<string, unknown> | undefined;
+    const query = this.query as Record<string, unknown> | undefined;
     return this.renderJson({
-      name: queryGet?.["name"] ?? null,
-      page: queryGet?.["page"] ?? null,
+      name: query?.["name"] ?? null,
+      page: query?.["page"] ?? null,
     });
   }
 
@@ -231,14 +231,14 @@ class FrameworkController extends Controller {
     return this.renderJson({ type, value: value ?? null });
   }
 
-  // ── queryGet (first param, bug fixé slice(1)) ─────────────────────────────
+  // ── query (first param, bug fixé slice(1)) ───────────────────────────────
   @Get("/qs")
   queryStringTest() {
     // Getter typé `Record` : `undefined` hors requête HTTP.
-    const queryGet = this.queryGet as Record<string, unknown> | undefined;
+    const query = this.query as Record<string, unknown> | undefined;
     return this.renderJson({
-      first: queryGet?.["first"] ?? null,
-      second: queryGet?.["second"] ?? null,
+      first: query?.["first"] ?? null,
+      second: query?.["second"] ?? null,
     });
   }
 

@@ -208,7 +208,6 @@ class Controller extends Service implements IController {
   #request: contextRequest = null;
   #response: HttpResponse | Http2Response | WebsocketResponse | null = null;
   #method: HTTPMethod | null = null;
-  #queryGet: Record<string, unknown> | null = null;
   #query: Record<string, unknown> | null = null;
   #queryFile: unknown[] | null = null;
   #queryPost: Record<string, unknown> | null = null;
@@ -308,30 +307,11 @@ class Controller extends Service implements IController {
   }
 
   /**
-   * Query string de l'appel en cours — pour un singleton invoqué par le pont
-   * `api.request`, celle du chemin INVOQUÉ (résolveur d'appel dans l'ALS), pas
-   * celle du handshake de la connexion. Une seule lecture de l'ALS.
+   * Paramètres d'URL de l'appel en cours — jamais le corps, qui reste dans
+   * {@link queryPost}. Pour un singleton invoqué par le pont `api.request`,
+   * ceux du chemin INVOQUÉ (résolveur d'appel dans l'ALS), pas ceux du
+   * handshake de la connexion. Une seule lecture de l'ALS.
    */
-  get queryGet(): Record<string, unknown> {
-    if (this.#queryGet !== null) return this.#queryGet;
-    if (this.#context !== null) {
-      return (this.#context.request as HttpRequest | Http2Request | null)
-        ?.queryGet as Record<string, unknown>;
-    }
-    const store = RequestContext.get();
-    return ((store?.resolver as IInvocationResolver | undefined)
-      ?.queryOverride ??
-      (
-        (store?.context as ContextType | undefined)?.request as
-          HttpRequest | Http2Request | null | undefined
-      )?.queryGet) as Record<string, unknown>;
-  }
-  set queryGet(value: Record<string, unknown>) {
-    this.#assertPerRequest("queryGet");
-    this.#queryGet = value;
-  }
-
-  /** Comme {@link queryGet}, pour la query fusionnée (`query`). */
   get query(): Record<string, unknown> {
     if (this.#query !== null) return this.#query;
     if (this.#context !== null) {

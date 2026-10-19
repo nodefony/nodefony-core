@@ -125,7 +125,7 @@ class LoginPageController extends Controller {
     if (page === null) {
       return this.renderJson({ error: "Not Found" }, 404, NO_STORE);
     }
-    const query = this.queryGet as Record<string, unknown> | undefined;
+    const query = this.query as Record<string, unknown> | undefined;
     const view = buildLoginPageView(page, {
       from: query?.from,
       reason: query?.reason,

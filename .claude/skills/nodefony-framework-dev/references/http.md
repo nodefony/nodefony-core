@@ -297,7 +297,7 @@ Helper pur exporté : `toWsCloseCode(code): number` (`WebsocketContext.ts#toWsCl
 ### Request / Response
 
 - `HttpRequest` / `Http2Request` (`src/context/http/Request.ts`, `http2/Request.ts`) : parse du corps
-  (busboy/JSON/QS/XML) ; remplit `request.queryPost`/`queryGet`. **Drain obligatoire** avant lecture
+  (busboy/JSON/QS/XML) ; remplit `request.queryPost` (le corps — `request.query` reste l'URL seule, jamais fusionnée). **Drain obligatoire** avant lecture
   (`Parser.parse()` `await this.ended()`).
 - `Response` (= `HttpResponse`, `src/context/http/Response.ts`) : `setStatusCode(...)`,
   `setBody(ele, encoding?)`, `setLength(...)`, `setHeader(...)`, `getHeader(...)`,
@@ -575,7 +575,7 @@ section (un `.default({})` plat ne ré-applique pas les sous-défauts).
 ## Gotchas spécifiques http
 
 - **`IWsRequestExtension`** : `IncomingMessage.url` est une `string`, mais `Route.match()` lit `.pathname`.
-  Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; queryGet; path }` assigné dans le ctor
+  Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; path }` assigné dans le ctor
   `WebsocketContext`. Toujours passer par lui (`SecuredArea.match()` exige un `URL`).
 - **`ERR_INVALID_CHAR`** : Node pose `ServerResponse.statusMessage` natif AVANT validation → un char invalide
   persiste même si `writeHead()` throw, et **tous** les writes suivants échouent en cascade (jusqu'au timeout).

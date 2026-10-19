@@ -72,7 +72,6 @@ function makeContext(
     session,
     request: {
       headers: { origin: "https://example.test" },
-      queryGet: query.get ?? {},
       query: query.get ?? {},
       queryPost: query.post ?? {},
     },
@@ -153,7 +152,7 @@ describe("Facteur d'authentification externe → audit", () => {
     );
     const ctrl = new OAuth2Controller(context);
     const output = captureOutput(ctrl);
-    Object.defineProperty(ctrl, "queryGet", {
+    Object.defineProperty(ctrl, "query", {
       value: { code: "c-1", state: "st-1" },
       configurable: true,
     });

@@ -248,7 +248,7 @@ export interface IWebsocketContext extends IContext, IWebsocketConnectionState {
   rejected: boolean;
   port: number | string;
   wsUrl: URL | null;
-  queryGet: Record<string, string>;
+  query: Record<string, string>;
 
   connect(): Promise<unknown>;
   handle(data?: unknown[]): Promise<object>;

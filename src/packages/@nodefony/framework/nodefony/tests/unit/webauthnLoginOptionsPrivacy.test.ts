@@ -75,7 +75,6 @@ function makeContext(
     session: null,
     request: {
       headers: { origin: "https://example.test" },
-      queryGet: {},
       query: {},
       queryPost: post,
     },

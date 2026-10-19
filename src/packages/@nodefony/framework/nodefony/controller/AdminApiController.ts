@@ -28,6 +28,44 @@ import {
   computeFingerprint,
 } from "../src/idempotency";
 
+type AdminQuery = Record<string, string | string[]>;
+
+/** Vrai pour une chaîne ou un tableau de chaînes — ce que porte {@link IAdminRequest.query}. */
+function isAdminQueryValue(value: unknown): value is string | string[] {
+  if (typeof value === "string") return true;
+  if (!Array.isArray(value)) return false;
+  for (const item of value) if (typeof item !== "string") return false;
+  return true;
+}
+
+/**
+ * Ramène les paramètres d'URL au contrat {@link IAdminRequest.query} : seules
+ * les chaînes et les tableaux de chaînes passent. `qs` produit des objets pour
+ * `a[b]=1` ; les laisser passer sous un type qui les nie tromperait chaque
+ * producteur du plan d'administration.
+ *
+ * @param source - paramètres d'URL de la requête (`Controller.query`)
+ * @returns `source` lui-même quand il respecte déjà le contrat (aucune
+ *   allocation), sinon une copie sans les valeurs imbriquées
+ */
+function toAdminQuery(source: Record<string, unknown> | undefined): AdminQuery {
+  if (source === undefined) return {};
+  let conforms = true;
+  for (const key of Object.keys(source)) {
+    if (!isAdminQueryValue(source[key])) {
+      conforms = false;
+      break;
+    }
+  }
+  if (conforms) return source as AdminQuery;
+  const flat: AdminQuery = {};
+  for (const key of Object.keys(source)) {
+    const value = source[key];
+    if (isAdminQueryValue(value)) flat[key] = value;
+  }
+  return flat;
+}
+
 /**
  * Controller pont unique du data plane admin (Studio).
  *
@@ -215,8 +253,8 @@ class AdminApiController extends Controller {
     const post = this.queryPost as Record<string, unknown> | undefined;
     return {
       params,
-      query: ((this.query as Record<string, unknown> | undefined) ??
-        {}) as Record<string, string | string[]>,
+      // Paramètres d'URL SEULS : le corps n'y entre jamais (il est dans `body`).
+      query: toAdminQuery(this.query),
       // WS : le corps de la mutation est porté par l'ALS (le pont `api.request`
       // le pose — pas de corps HTTP parsé en WebSocket). HTTP : `queryPost`.
       // `als.body === undefined` (cas GET/handshake) → on retombe sur queryPost.

@@ -198,7 +198,7 @@ n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le single
 
 **Getters/setters per-request (V4.1)** — dérivent du `context` LIVE (`shadow ?? context.x`), 0 alloc :
 `context` (`Controller.ts#Controller.context`, retombe sur `RequestContext.getContext()` pour un singleton), `route`
-(via `context.resolver`), `request`, `response`, `method`, `queryGet`, `query`, `queryFile`,
+(via `context.resolver`), `request`, `response`, `method`, `query` (URL seule), `queryFile`,
 `queryPost`, **`session`** (getter direct `context.session ?? null`, `Controller.ts#Controller.#assertPerRequest` — **plus de
 `startSession()`** ; activation par `@UseSession`/`@Session`/cookie). `module`, `template` (Eta).
 
@@ -221,7 +221,7 @@ n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le single
 requis ; `create`/`updateOne`/`delete` optionnels). Helpers `protected` retournant la **valeur brute**
 (seam multi-transport) : `listResource(criteria?)`, `getResource(id)`, `createResource(data)` (501 si
 read-only), `updateResource(criteria, data)`, `removeResource(criteria)`. **Aucun critère implicite**
-(pas de `find(this.queryGet)` → deny-by-default).
+(pas de `find(this.query)` → deny-by-default).
 
 **Controllers concrets** (montés conditionnellement par `Framework.onKernelReady`, cf
 [exports](#exports-publics-indexts)) :

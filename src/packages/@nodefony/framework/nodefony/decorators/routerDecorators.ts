@@ -1325,12 +1325,12 @@ export interface IParamArgContext {
   /**
    * Query de l'invocation courante quand elle ne vient PAS de l'URL du
    * transport — pont WS-RPC `api.request` (`Resolver.queryOverride`). Prime
-   * sur `request.queryGet` pour `@Query` uniquement (`@Req` reste le brut).
+   * sur `request.query` pour `@Query` uniquement (`@Req` reste le brut).
    */
   queryOverride?: Record<string, unknown> | undefined;
   request?:
     | {
-        queryGet?: Record<string, unknown> | undefined;
+        query?: Record<string, unknown> | undefined;
         queryPost?: Record<string, unknown> | undefined;
         queryFile?: unknown[] | undefined;
         headers?: Record<string, unknown> | undefined;
@@ -1360,8 +1360,8 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
     case "param":
       return meta.key !== undefined ? ctx.paramsMap[meta.key] : ctx.paramsMap;
     case "query": {
-      const qg = ctx.queryOverride ?? ctx.request?.queryGet;
-      return meta.key !== undefined ? qg?.[meta.key] : qg;
+      const q = ctx.queryOverride ?? ctx.request?.query;
+      return meta.key !== undefined ? q?.[meta.key] : q;
     }
     case "body": {
       // P2.9 — `@Body({ stream:true })` → flux brut (Readable), jamais parsé.

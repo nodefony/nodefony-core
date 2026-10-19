@@ -278,6 +278,23 @@ describe("Admin data plane — RBAC : authentifié NON-admin REJETÉ (403)", () 
 
 // ── kernel (authentifié) ─────────────────────────────────────────────────────
 
+describe("Admin data plane — query (URL) séparée du corps", () => {
+  it("POST avec corps : IAdminRequest.query ne porte que l'URL, plate", async () => {
+    const r = await req(
+      "POST",
+      "/nodefony/test/api/idem-probe?a=url&nested[x]=1&list=1&list=2",
+      auth(),
+      { a: "body", extra: "body" },
+    );
+    expect(r.status).to.equal(200);
+    const b = r.body as Record<string, unknown>;
+    expect(b.echo).to.deep.equal({ a: "body", extra: "body" });
+    // Aucun champ du corps, et la valeur imbriquée de `qs` écartée : le
+    // contrat `Record<string, string | string[]>` est tenu à l'exécution.
+    expect(b.query).to.deep.equal({ a: "url", list: ["1", "2"] });
+  });
+});
+
 describe("Admin data plane — kernel", () => {
   it("GET /nodefony/kernel/api/health → 200 liveness", async () => {
     const r = await req("GET", "/nodefony/kernel/api/health", auth());

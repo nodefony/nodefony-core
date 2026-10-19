@@ -25,7 +25,6 @@ function makeContext(tag: string) {
     notificationsCenter: new Event(),
     request: {
       url: new URL(`http://127.0.0.1/${tag}`),
-      queryGet: { from: tag },
       query: { q: tag },
       queryFile: [tag],
       queryPost: { p: tag },
@@ -72,7 +71,6 @@ describe("Controller — ALS fallback (V4.1)", () => {
       expect(c.request).to.equal(ctx.request);
       expect(c.response).to.equal(ctx.response);
       expect(c.method).to.equal("GET");
-      expect(c.queryGet).to.deep.equal({ from: "als" });
       expect(c.query).to.deep.equal({ q: "als" });
       expect(c.queryFile).to.deep.equal(["als"]);
       expect(c.queryPost).to.deep.equal({ p: "als" });

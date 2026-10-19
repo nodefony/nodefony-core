@@ -28,7 +28,7 @@ export function createTestAdminApi(): IAdminApi {
         method: "POST",
         public: true,
         summary:
-          "Banc idempotence : incrémente un compteur et renvoie {count, echo, identity}.",
+          "Banc idempotence : incrémente un compteur et renvoie {count, echo, query, identity}.",
         // `body.delayMs` (borné 2 s) ouvre une fenêtre asynchrone → permet de
         // prouver le verrou *in-flight* (409) avec deux requêtes concurrentes.
         handler: async (req: IAdminRequest) => {
@@ -43,6 +43,9 @@ export function createTestAdminApi(): IAdminApi {
           return {
             count: (counter += 1),
             echo: req.body ?? null,
+            // Paramètres d'URL tels que le producteur les reçoit : le banc
+            // prouve qu'aucun champ du corps n'y entre.
+            query: req.query,
             identity: identifierOf(req.user),
           };
         },

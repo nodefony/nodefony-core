@@ -25,7 +25,6 @@ export interface IRequest {
 export interface IHttpRequest extends IRequest {
   url: URL;
   query: Record<string, unknown>;
-  queryGet: Record<string, unknown>;
   queryPost: Record<string, unknown>;
   queryFile: unknown[];
   remoteAddress: string | null | undefined;
@@ -48,7 +47,6 @@ export interface IHttp2Request extends IHttpRequest {
 export interface IWsRequest extends IRequest {
   url: URL;
   query: Record<string, string>;
-  queryGet: Record<string, string>;
   path: string;
   cookies?: Record<string, ICookie>;
 }

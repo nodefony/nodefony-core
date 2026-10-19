@@ -138,7 +138,7 @@ class Resolver implements IResolver {
   /**
    * Query d'une invocation **par message** (pont WS-RPC `api.request`) — pendant
    * de `cleanPathOverride` pour le `?…` du path invoqué. Le contexte WS étant
-   * PARTAGÉ par la connexion (sa `queryGet` = celle du handshake), la query
+   * PARTAGÉ par la connexion (sa `query` = celle du handshake), la query
    * per-invocation vit ici (le Resolver est per-invocation → zéro bleed entre
    * requêtes concurrentes d'une même socket). `null` (hot path HTTP) = ignoré.
    * Consommé par `@Query` (`_buildParamArgs`) et copié sur le controller
@@ -611,11 +611,10 @@ class Resolver implements IResolver {
     ) {
       controller.setRoute(this.route);
       // Pont WS-RPC : la query du path invoqué remplace celle du handshake
-      // pour les getters d'instance (`this.query`/`this.queryGet` — ex.
+      // pour le getter d'instance `this.query` (ex.
       // `AdminApiController.buildRequest`). Per-instance → zéro bleed. Les
       // singletons n'ont pas ce shadow (stateless : `@Query` seul, via le bag).
       if (this.queryOverride !== null) {
-        controller.queryGet = this.queryOverride;
         controller.query = this.queryOverride;
       }
     }

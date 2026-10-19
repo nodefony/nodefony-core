@@ -30,7 +30,6 @@ import {
 export interface IWsRequestExtension {
   url: URL;
   query: Record<string, string>;
-  queryGet: Record<string, string>;
   path: string;
 }
 
@@ -173,8 +172,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
   // `null` = connexion directe / proxy non fiable (0 allocation hot path).
   forwarded: ResolvedProxy | null = null;
   wsUrl: URL | null = null;
-  queryGet: Record<string, string> = {};
-  queryRequest: Record<string, string> = {};
+  query: Record<string, string> = {};
   wsPath: string = "";
   // Numéro de la prochaine invocation du pont sur CETTE connexion — donne au
   // profil de chaque frame un identifiant stable et ordonné. Un compteur (8
@@ -221,8 +219,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     }
     // Parse URL from IncomingMessage
     this.wsUrl = parseWebsocketUrl(this.scheme, req.headers.host, req.url);
-    this.queryGet = Object.fromEntries(this.wsUrl.searchParams.entries());
-    this.queryRequest = { ...this.queryGet };
+    this.query = Object.fromEntries(this.wsUrl.searchParams.entries());
     this.wsPath = this.wsUrl.pathname + this.wsUrl.search;
     this.url = url.format(this.wsUrl);
     this.port =
@@ -231,8 +228,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     // Extend request with URL object so the router can use request.url.pathname
     // Cast needed: IncomingMessage.url is string, IWsRequestExtension.url is URL → intersection string & URL
     this.request.url = this.wsUrl as unknown as string & URL;
-    this.request.queryGet = this.queryGet;
-    this.request.query = this.queryRequest;
+    this.request.query = this.query;
     this.request.path = this.wsPath;
 
     try {
@@ -397,7 +393,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
       }
     }
     // Pas de copie des paramètres de requête dans le scope DI : les décorateurs lisent
-    // `request.queryGet/query` directement (cf HttpContext) — scope DI jamais lu.
+    // `request.query` directement (cf HttpContext) — scope DI jamais lu.
     await this.fireAsync("onRequest", this, this.resolver);
     await this.kernel?.fireAsync("onRequest", this, this.resolver);
     if (this.resolver?.resolve) {

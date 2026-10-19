@@ -101,7 +101,7 @@ export interface IResourceService<T = unknown> {
  *   sur `this` doit rétrograder : `static scope = "request"`.
  *
  * Sécurité : aucun critère de requête n'est passé AUTOMATIQUEMENT au service
- * (pas de `find(this.queryGet)` implicite) — exposer un filtrage est une
+ * (pas de `find(this.query)` implicite) — exposer un filtrage est une
  * décision EXPLICITE de la sous-classe (deny-by-default ; le scope de
  * sécurité des données se branche au niveau service/criteria, P6).
  *

@@ -62,7 +62,7 @@ class ChatController extends RealtimeController {
     // La query vit sur la REQUÊTE, exposée par le controller (`this.query`) :
     // un `context.query` inexistant retombe silencieusement sur la valeur par
     // défaut — la rafale paraît lancée, elle ne publie que 100 messages.
-    // `this.queryGet` si l'on veut EXCLURE le corps ; ici GET seul, c'est égal.
+    // `this.query` = paramètres d'URL seuls (le corps reste dans `queryPost`).
     const q = this.query as Record<string, unknown> | undefined;
     const n = Number(q?.n ?? 100);
     // Taille de charge (octets de remplissage). Un message de banc minuscule
