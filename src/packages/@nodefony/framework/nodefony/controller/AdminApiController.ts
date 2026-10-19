@@ -48,7 +48,9 @@ function isAdminQueryValue(value: unknown): value is string | string[] {
  * @returns `source` lui-même quand il respecte déjà le contrat (aucune
  *   allocation), sinon une copie sans les valeurs imbriquées
  */
-function toAdminQuery(source: Record<string, unknown> | undefined): AdminQuery {
+export function toAdminQuery(
+  source: Record<string, unknown> | undefined,
+): AdminQuery {
   if (source === undefined) return {};
   let conforms = true;
   for (const key of Object.keys(source)) {
@@ -58,12 +60,15 @@ function toAdminQuery(source: Record<string, unknown> | undefined): AdminQuery {
     }
   }
   if (conforms) return source as AdminQuery;
-  const flat: AdminQuery = {};
+  // `Object.fromEntries` crée des propriétés PROPRES : une clé `__proto__`
+  // (qs avec `allowPrototypes`) reste une donnée, là où `flat[key] = …` sur
+  // un `{}` remplacerait le prototype de la copie.
+  const kept: [string, string | string[]][] = [];
   for (const key of Object.keys(source)) {
     const value = source[key];
-    if (isAdminQueryValue(value)) flat[key] = value;
+    if (isAdminQueryValue(value)) kept.push([key, value]);
   }
-  return flat;
+  return Object.fromEntries(kept);
 }
 
 /**
