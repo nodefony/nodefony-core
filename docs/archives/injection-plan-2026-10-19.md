@@ -2,9 +2,9 @@
 
 > État actuel : `injector.ts` + `kernelDecorator.ts`.
 > Ce document est un plan de travail ANCIEN : il ne fait pas foi. La référence est
-> [`docs/architecture/injection-portees.md`](../../docs/architecture/injection-portees.md), les
+> [`docs/architecture/injection-portees.md`](../architecture/injection-portees.md), les
 > décisions vivent en `docs/adr/`. ⚠️ L'injection par type et l'injection de propriété (Phase A)
-> sont RETIRÉES par l'[ADR-0018](../../docs/adr/0018-decorateurs-sans-metadonnees-de-type.md) :
+> sont RETIRÉES par l'[ADR-0018](../adr/0018-decorateurs-sans-metadonnees-de-type.md) :
 > une dépendance se nomme par `@Inject("nom")`.
 
 ---
