@@ -257,7 +257,7 @@ function controller(prefix: string) {
             options.bypassFirewall = true;
           }
         }
-        if (options.path == "*") {
+        if (options.path === "*") {
           hasMagic = { options, name };
           continue;
         }

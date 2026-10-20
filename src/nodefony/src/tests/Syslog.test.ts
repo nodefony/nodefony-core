@@ -49,7 +49,7 @@ class TestPdu extends Pdu {
 
 declare let global: typeof globalThis & {
   syslog: TestSyslog;
-  logger: Function;
+  logger: () => void;
   Pdu: TestPdu;
 };
 

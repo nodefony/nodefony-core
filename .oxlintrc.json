@@ -345,6 +345,29 @@
     // rien protéger. Le défaut qu'elle visait — une promesse oubliée — est déjà
     // attrapé par `no-floating-promises` et `no-misused-promises`.
     "typescript/require-await": "off",
+    // Sonde des règles de correction hors catégories (#638). Allumées, parce
+    // qu'elles attrapent un défaut réel : `eqeqeq` exempte `== null`, l'idiome
+    // « null OU undefined » (191 des 194 sites) ; `array-callback-return` refuse
+    // un `map()` dont le tableau est jeté ; `no-unsafe-function-type` refuse le
+    // type `Function`, qui accepte tout appel sans rien vérifier.
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "array-callback-return": "error",
+    "typescript/no-unsafe-function-type": "error",
+    // Écartées par la même sonde — aucune n'a trouvé de défaut :
+    // - `no-promise-executor-return` (450) : `return resolve()`,
+    //   `r => setTimeout(r)`, `(release = r)`, `r => server.close(r)` — les
+    //   idiomes que `strict-void-return` exempte déjà, plus haut.
+    // - `no-loop-func` (62) : écouteurs et rappels posés dans une boucle qui
+    //   lisent un compteur ou un collecteur extérieur, exprès.
+    // - `promise/catch-or-return` (20) : `.then(ok, ko)` et `.finally()` ; la
+    //   promesse oubliée est déjà attrapée, TYPÉE, par `no-floating-promises`.
+    // - `no-sequences` (10) : `(push(x), x)` dans des tests.
+    // - `no-redeclare` (4) : fusion de déclarations TypeScript (classe + interface).
+    // - `no-throw-literal` (3) : la sentinelle de routage de `Route.ts`, sans pile
+    //   par candidate écartée ; `only-throw-error`, typée, la porte déjà.
+    // - `oxc/bad-bitwise-operator` (2) : masques de bits (`|=`), voulus.
+    // - `no-self-compare` (1) : contrôle de déterminisme d'une empreinte.
+    // - `no-fallthrough` (1) : `case "string":` qui rejoint `instanceof String`.
     "no-console": "off",
     "no-eval": "error",
     "no-new-func": "error",

@@ -359,6 +359,7 @@ const operators: Operators = {
   ">": (ele1, ele2) => ele1 > ele2,
   "<=": (ele1, ele2) => ele1 <= ele2,
   ">=": (ele1, ele2) => ele1 >= ele2,
+  // oxlint-disable-next-line eqeqeq -- l'opérateur `==` d'une condition est l'égalité LÂCHE, par contrat : `===` a sa propre entrée
   "==": (ele1, ele2) => ele1 == ele2,
   "===": (ele1, ele2) => ele1 === ele2,
   "!=": (ele1, ele2) => ele1 !== ele2,

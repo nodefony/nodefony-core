@@ -56,7 +56,7 @@ class ExplicitConsumer extends Service {
   }
 }
 // Équivalent de @Inject("AutoA") à la position 0
-(Inject("AutoA") as Function)(ExplicitConsumer, undefined, 0);
+Inject("AutoA")(ExplicitConsumer, undefined, 0);
 
 // Consommateur SANS @Inject, typé par des services inscrits : le type ne résout
 // rien (ADR-0018), chaque paramètre reçoit l'argument positionnel.
@@ -95,7 +95,7 @@ class PriorityConsumer extends Service {
   }
 }
 // @Inject explicite position 0
-(Inject("AutoA") as Function)(PriorityConsumer, undefined, 0);
+Inject("AutoA")(PriorityConsumer, undefined, 0);
 
 // Consommateur dont les DEUX dépendances sont nommées.
 @injectable()
@@ -251,7 +251,7 @@ describe("@Inject — métadonnées Reflect", () => {
         super("test", a.container as Container);
       }
     }
-    (Inject("AutoA") as Function)(TestTarget, undefined, 0);
+    Inject("AutoA")(TestTarget, undefined, 0);
     const meta: string[] =
       Reflect.getMetadata("inject:services", TestTarget) || [];
     assert.strictEqual(meta[0], "AutoA");
@@ -263,8 +263,8 @@ describe("@Inject — métadonnées Reflect", () => {
         super("twopos", a.container as Container);
       }
     }
-    (Inject("AutoA") as Function)(TwoPosTarget, undefined, 0);
-    (Inject("AutoB") as Function)(TwoPosTarget, undefined, 2);
+    Inject("AutoA")(TwoPosTarget, undefined, 0);
+    Inject("AutoB")(TwoPosTarget, undefined, 2);
     const meta: string[] =
       Reflect.getMetadata("inject:services", TwoPosTarget) || [];
     assert.strictEqual(meta[0], "AutoA");
@@ -275,7 +275,7 @@ describe("@Inject — métadonnées Reflect", () => {
   it("Inject('') → throw 'requires a valid service name'", () => {
     assert.throws(
       () =>
-        (Inject("") as Function)(
+        Inject("")(
           class T extends Service {
             constructor() {
               super("t", new Container());
@@ -361,7 +361,7 @@ describe("Injector.instantiate — une dépendance se nomme, le type ne résout 
         seen.push(...rest);
       }
     }
-    (Inject("AutoA") as Function)(Tail, undefined, 0);
+    Inject("AutoA")(Tail, undefined, 0);
     Injector.instantiate(Tail, "x", 42);
     assert.deepStrictEqual(seen, ["x", 42]);
   });
@@ -523,7 +523,7 @@ describe("Injector — cas limites", () => {
         super("unknownref", new Container());
       }
     }
-    (Inject("NoSuchService") as Function)(UnknownRef, undefined, 0);
+    Inject("NoSuchService")(UnknownRef, undefined, 0);
     assert.throws(
       () => Injector.instantiate(UnknownRef),
       /not found or not injectable/,
@@ -840,7 +840,7 @@ describe("Injector — fallback kernel container (non @injectable)", () => {
           this.dep = dep;
         }
       }
-      (Inject("firewall") as Function)(Consumer, undefined, 0);
+      Inject("firewall")(Consumer, undefined, 0);
       const inst = Injector.instantiate(Consumer);
       assert.strictEqual((inst as any).dep, fakeService);
     } finally {
@@ -858,7 +858,7 @@ describe("Injector — fallback kernel container (non @injectable)", () => {
           void dep;
         }
       }
-      (Inject("nonexistent") as Function)(Consumer2, undefined, 0);
+      Inject("nonexistent")(Consumer2, undefined, 0);
       assert.throws(
         () => Injector.instantiate(Consumer2),
         /not found or not injectable/,
@@ -899,7 +899,7 @@ describe("Circular dependency detection", () => {
         void dep;
       }
     }
-    (Inject("CircSelf") as Function)(CircSelf, undefined, 0);
+    Inject("CircSelf")(CircSelf, undefined, 0);
     assert.throws(
       () => Injector.instantiate(CircSelf),
       /Circular dependency detected/,
@@ -921,8 +921,8 @@ describe("Circular dependency detection", () => {
         void dep;
       }
     }
-    (Inject("CircB") as Function)(CircA, undefined, 0);
-    (Inject("CircA") as Function)(CircB, undefined, 0);
+    Inject("CircB")(CircA, undefined, 0);
+    Inject("CircA")(CircB, undefined, 0);
     assert.throws(
       () => Injector.instantiate(CircA),
       /Circular dependency detected/,
@@ -944,8 +944,8 @@ describe("Circular dependency detection", () => {
         void dep;
       }
     }
-    (Inject("ChainB") as Function)(ChainA, undefined, 0);
-    (Inject("ChainA") as Function)(ChainB, undefined, 0);
+    Inject("ChainB")(ChainA, undefined, 0);
+    Inject("ChainA")(ChainB, undefined, 0);
     let msg = "";
     try {
       Injector.instantiate(ChainA);
@@ -978,8 +978,8 @@ describe("Circular dependency detection", () => {
         void b;
       }
     }
-    (Inject("DeepC") as Function)(DeepB, undefined, 0);
-    (Inject("DeepB") as Function)(DeepA, undefined, 0);
+    Inject("DeepC")(DeepB, undefined, 0);
+    Inject("DeepB")(DeepA, undefined, 0);
     assert.doesNotThrow(() => Injector.instantiate(DeepA));
     const inst = Injector.instantiate(DeepA);
     assert.ok(inst instanceof DeepA);
@@ -1027,10 +1027,10 @@ describe("Circular dependency detection", () => {
         void c;
       }
     }
-    (Inject("DiaD") as Function)(DiaB, undefined, 0);
-    (Inject("DiaD") as Function)(DiaC, undefined, 0);
-    (Inject("DiaB") as Function)(DiaA, undefined, 0);
-    (Inject("DiaC") as Function)(DiaA, undefined, 1);
+    Inject("DiaD")(DiaB, undefined, 0);
+    Inject("DiaD")(DiaC, undefined, 0);
+    Inject("DiaB")(DiaA, undefined, 0);
+    Inject("DiaC")(DiaA, undefined, 1);
     // D est atteint par 2 chemins distincts ([A,B] et [A,C]) mais jamais dans sa
     // propre lignée → stack-par-valeur ne doit PAS produire de faux positif.
     assert.doesNotThrow(() => Injector.instantiate(DiaA));

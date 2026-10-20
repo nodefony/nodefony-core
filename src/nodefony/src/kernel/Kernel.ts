@@ -1317,9 +1317,7 @@ class Kernel extends Service implements IKernel {
               // animé (le bloc « ✓ Prêt » liste déjà les URLs). Affichées sinon
               // (prod / CI / --debug).
               if (!this.suppressBootBanners) {
-                servers.map((server) => {
-                  server.showBanner();
-                });
+                for (const server of servers) server.showBanner();
               }
               // GARDE-FOU 0-serveur : profil serveur attendu mais rien n'écoute →
               // boot raté. On NE laisse PAS le process s'éteindre en exit 0
@@ -1475,7 +1473,7 @@ class Kernel extends Service implements IKernel {
   }
 
   setDomain(): string {
-    if (this.options.domain == "selectAuto") {
+    if (this.options.domain === "selectAuto") {
       return this.getFirstExternalInterface()?.address || "localhost";
     } else {
       return this.options.domain || "localhost";
