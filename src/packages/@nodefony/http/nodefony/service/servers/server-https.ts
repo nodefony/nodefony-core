@@ -19,7 +19,10 @@ import http from "node:http";
 import https from "node:https";
 import http2 from "node:http2";
 import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
-import { http2ServerLimits } from "../../src/servers/http2Limits";
+import {
+  http2ServerLimits,
+  setHttp2SessionTimeout,
+} from "../../src/servers/http2Limits";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
@@ -193,13 +196,11 @@ class ServerHttps extends Service {
         this.server = http2.createSecureServer(opt);
         this.httpTerminator = this.terminator();
         // Timeout HTTP/2 — sur Http2Server le timeout d'inactivité par défaut
-        // est 0 (désactivé) → sessions lentes/idle non bornées. setTimeout()
-        // borne l'inactivité de session (keepAliveTimeout est un concept HTTP/1).
-        if (this.options.timeout) {
-          this.server.setTimeout(this.options.timeout, () => {
-            this.fire("onTimeout", this);
-          });
-        }
+        // est 0 (désactivé) → sessions lentes/idle non bornées. Il borne
+        // l'inactivité de session (keepAliveTimeout est un concept HTTP/1).
+        setHttp2SessionTimeout(this.server, this.options.timeout, () => {
+          this.fire("onTimeout", this);
+        });
         // const buf = http2.getPackedSettings(this.options);
         // const defaultSetting2 = extend(
         //   {},

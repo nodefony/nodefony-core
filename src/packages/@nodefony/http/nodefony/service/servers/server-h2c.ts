@@ -15,7 +15,10 @@ import HttpKernel, {
 import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
-import { http2ServerLimits } from "../../src/servers/http2Limits";
+import {
+  http2ServerLimits,
+  setHttp2SessionTimeout,
+} from "../../src/servers/http2Limits";
 import {
   bindWithFallback,
   buildBindPlan,
@@ -134,11 +137,9 @@ class ServerH2c extends Service {
         );
         // HTTP/2 n'a pas de délai d'inactivité par défaut : sans lui, une
         // session muette du proxy reste ouverte indéfiniment.
-        if (this.options.timeout) {
-          server.setTimeout(this.options.timeout, () => {
-            this.fire("onTimeout", this);
-          });
-        }
+        setHttp2SessionTimeout(server, this.options.timeout, () => {
+          this.fire("onTimeout", this);
+        });
         // `onHttpRequest` ne lève ni ne rejette jamais : rien à rattraper ici.
         server.on("request", (request, response) => {
           void this.httpKernel.onHttpRequest(request, response, this.type);

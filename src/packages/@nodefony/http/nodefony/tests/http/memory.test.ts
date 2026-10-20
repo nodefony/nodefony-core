@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import https from "node:https";
+import http2 from "node:http2";
 import WebSocket from "ws";
 import {
   snapshotUploadDirs,
@@ -335,6 +336,42 @@ const MIXED_ROUTES = [
 ];
 
 /** Une itération par scénario — partagées par l'échauffement et les mesures. */
+// HTTP/2 en clair (servers.h2c) — le port d'un proxy inverse. `https.request`
+// parle HTTP/1.1, même sur 5152 : sans ces scénarios, aucun chemin HTTP/2 du
+// pipeline n'est mesuré.
+const H2C = "http://localhost:5153";
+
+/** Un GET h2c sur une session ouverte ; résout à la fin du flux. */
+function h2cGet(
+  session: http2.ClientHttp2Session,
+  path: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const stream = session.request({ ":path": path });
+    stream.on("error", reject);
+    stream.on("end", () => resolve());
+    stream.resume();
+    stream.end();
+  });
+}
+
+/** Session NEUVE par requête, fermée et attendue : son suivi par le drain se libère. */
+async function h2cSessionGet(path: string): Promise<void> {
+  const session = http2.connect(H2C);
+  try {
+    await h2cGet(session, path);
+  } finally {
+    await new Promise<void>((resolve) => session.close(() => resolve()));
+  }
+}
+
+// Session PARTAGÉE, ouverte au premier usage et fermée en fin de fichier.
+let h2cShared: http2.ClientHttp2Session | null = null;
+function h2cSharedGet(path: string): Promise<void> {
+  if (h2cShared === null || h2cShared.destroyed) h2cShared = http2.connect(H2C);
+  return h2cGet(h2cShared, path);
+}
+
 const ACTIONS = {
   get: () => get("/nodefony/test/index"),
   crashSync: () => get("/nodefony/test/crash/sync"),
@@ -354,6 +391,8 @@ const ACTIONS = {
     }),
   // Deux services `request` résolus par requête (contrôleur + consommateur).
   requestService: () => get(`${REQUEST_SCOPE}/probe`),
+  h2cSession: () => h2cSessionGet("/nodefony/test/index"),
+  h2cStream: () => h2cSharedGet("/nodefony/test/index"),
   // Le service `request` d'une connexion, résolu au handshake puis à un message.
   wsRequestService: () =>
     new Promise<void>((resolve, reject) => {
@@ -470,6 +509,8 @@ const WARMUP = {
   proxyWs: 300,
   sseServerClose: 400,
   sseClientLeave: 300,
+  h2cSession: 450,
+  h2cStream: 1500,
   wsRefused: 400,
   // Chemin HTTP complet (session, pare-feu, audit du refus) : même plateau
   // que `get`. Mesuré hors gate, échauffement 1 500 / paliers de 300 :
@@ -521,6 +562,7 @@ beforeAll(async () => {
   }
 }, 120_000);
 afterAll(async () => {
+  h2cShared?.close();
   await setSyslogRing(true);
   const removed = await purgeUploadResidue(snapshot);
   expect(
@@ -637,6 +679,24 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "SSE streams left by the client",
       plan("sseClientLeave", 100),
       THRESHOLDS.sseClientLeave,
+    );
+  });
+
+  it("h2c GET on a fresh session — retains nothing per session", async () => {
+    // Session ouverte puis fermée à chaque requête : le pipeline, ET le suivi
+    // des sessions par le drain (`serverShutdown.ts`), qui doit l'oublier.
+    await httpLoop(
+      "h2c GET on a fresh session",
+      plan("h2cSession", 150),
+      THRESHOLDS.h2cSession,
+    );
+  });
+
+  it("h2c GET streams on a shared session — retains nothing per stream", async () => {
+    await httpLoop(
+      "h2c GET streams on a shared session",
+      plan("h2cStream", 250),
+      THRESHOLDS.h2cStream,
     );
   });
 
