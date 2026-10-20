@@ -2070,8 +2070,14 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           s.child.stdin?.write("\x1b[5~");
           await new Promise((r) => setTimeout(r, 500));
           const up = await snap(s);
+          // Les colonnes 1 à 10 doivent porter du texte : une ligne de
+          // continuation (indentée) donnerait une sélection blanche, que
+          // l'écran ne copie pas — le test dépendrait alors de la mise en page.
           const row = up.screen.findIndex(
-            (l, i) => i < ROWS - 10 && l.trim().length >= 12,
+            (l, i) =>
+              i < ROWS - 10 &&
+              l.trim().length >= 12 &&
+              l.slice(0, 10).trim().length > 0,
           );
           assert.ok(row !== -1, `une ligne à sélectionner\n${screenText(up)}`);
           const expected = (up.screen[row] ?? "").slice(0, 10).trimEnd();
