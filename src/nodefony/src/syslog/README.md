@@ -127,7 +127,8 @@ syslog.listenWithConditions(
 | Opérateur         | Description              |
 | ----------------- | ------------------------ |
 | `<` `>` `<=` `>=` | Comparaison numérique    |
-| `==` `===` `!=`   | Égalité                  |
+| `==` `!=`         | Égalité lâche            |
+| `===` `!==`       | Égalité stricte          |
 | `RegExp`          | Test regex (sur `msgid`) |
 
 ---

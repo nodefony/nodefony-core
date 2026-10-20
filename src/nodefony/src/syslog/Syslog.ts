@@ -226,7 +226,8 @@ if (_proc?.on) {
   _proc.on("beforeExit", _onExit);
 }
 
-type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp";
+type Operator =
+  "<" | ">" | "<=" | ">=" | "==" | "!=" | "===" | "!==" | "RegExp";
 type Condition = "&&" | "||";
 
 // Data est intentionnellement hétérogène : severity (number|string|array),
@@ -290,6 +291,7 @@ interface Operators {
   "==": ComparisonOperator;
   "===": ComparisonOperator;
   "!=": ComparisonOperator;
+  "!==": ComparisonOperator;
   RegExp: ComparisonOperator;
 }
 
@@ -359,10 +361,14 @@ const operators: Operators = {
   ">": (ele1, ele2) => ele1 > ele2,
   "<=": (ele1, ele2) => ele1 <= ele2,
   ">=": (ele1, ele2) => ele1 >= ele2,
+  // Les paires de JavaScript, chacune le contraire exact de l'autre : `==`/`!=`
+  // lâches, `===`/`!==` strictes.
   // oxlint-disable-next-line eqeqeq -- l'opérateur `==` d'une condition est l'égalité LÂCHE, par contrat : `===` a sa propre entrée
   "==": (ele1, ele2) => ele1 == ele2,
+  // oxlint-disable-next-line eqeqeq -- contraire exact de `==`, donc lâche lui aussi : `!==` a sa propre entrée
+  "!=": (ele1, ele2) => ele1 != ele2,
   "===": (ele1, ele2) => ele1 === ele2,
-  "!=": (ele1, ele2) => ele1 !== ele2,
+  "!==": (ele1, ele2) => ele1 !== ele2,
   RegExp: (ele1, ele2) => (ele2 as RegExp).test(ele1 as string),
 };
 
