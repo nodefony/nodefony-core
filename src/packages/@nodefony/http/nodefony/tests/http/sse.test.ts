@@ -3,10 +3,12 @@ import { expect } from "vitest";
 import http from "node:http";
 import http2 from "node:http2";
 import { NodefonySse, SseParser, type ISseEvent } from "nodefony/client";
+import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 /**
- * Flux d'événements serveur (SSE) sur le serveur RÉEL — HTTP/1.1 (5151) et
- * HTTP/2 (5152). Routes : `src/modules/test/nodefony/controller/SseController.ts`.
+ * Flux d'événements serveur (SSE) sur le serveur RÉEL — HTTP/1.1 (5151),
+ * HTTP/2 (5152) et HTTP/2 en clair (h2c, 5153 : la forme d'un proxy inverse ;
+ * actif sur l'app de dev seulement, d'où le saut en production). Routes : `src/modules/test/nodefony/controller/SseController.ts`.
  *
  * Le flux est relu par `SseParser`, l'analyseur UNIQUE du dépôt — celui du
  * client : un second analyseur écrit ici validerait le serveur contre sa propre
@@ -15,6 +17,7 @@ import { NodefonySse, SseParser, type ISseEvent } from "nodefony/client";
 
 const H1 = "http://localhost:5151";
 const H2 = "https://localhost:5152";
+const H2C = "http://localhost:5153";
 const SSE = "/nodefony/test/sse";
 const EXPECTED: ISseEvent[] = [
   { type: "message", data: "un", lastEventId: "1" },
@@ -79,9 +82,10 @@ function readH2(
     body?: string;
   } = {},
   stop?: (events: ISseEvent[], raw: string) => boolean,
+  origin: string = H2,
 ): Promise<IRead & { session: http2.ClientHttp2Session }> {
   return new Promise((resolve, reject) => {
-    const session = http2.connect(H2, { rejectUnauthorized: false });
+    const session = http2.connect(origin, { rejectUnauthorized: false });
     session.on("error", reject);
     const req = session.request({
       ":path": path,
@@ -113,6 +117,10 @@ function readH2(
     req.end(init.body);
   });
 }
+
+/** La même lecture HTTP/2, en clair sur le port h2c. */
+const readH2c: typeof readH2 = (path, init, stop) =>
+  readH2(path, init, stop, H2C);
 
 async function getJson(path: string): Promise<Record<string, unknown>> {
   const res = await fetch(`${H1}${path}`);
@@ -156,9 +164,24 @@ describe("SSE — renderSse() sur le serveur réel (requires server)", () => {
     expect(r.events).to.deep.equal(EXPECTED);
   });
 
+  it.skipIf(IS_PROD_TARGET)(
+    "h2c : mêmes trois événements, en clair, sans Transfer-Encoding",
+    async () => {
+      const r = await readH2c(`${SSE}/three`);
+      r.session.close();
+      expect(r.status).to.equal(200);
+      expect(r.headers["content-type"]).to.equal(
+        "text/event-stream; charset=utf-8",
+      );
+      expect(r.headers["transfer-encoding"]).to.equal(undefined);
+      expect(r.events).to.deep.equal(EXPECTED);
+    },
+  );
+
   for (const [name, read, init] of [
     ["HTTP/1.1 GET", readH1, {}],
     ["HTTP/2 GET", readH2, {}],
+    ["h2c GET", readH2c, {}],
     // Le cas qui départage : en HTTP/1.1 la REQUÊTE a déjà émis `close` (corps
     // lu, Node ≥ 16) quand l'action ouvre le flux — écoutée là, la fermeture ne
     // serait jamais vue. Vu rouge en branchant l'écoute sur la requête. C'est le
@@ -181,31 +204,45 @@ describe("SSE — renderSse() sur le serveur réel (requires server)", () => {
         body: '{"q":1}',
       },
     ],
+    [
+      "h2c POST avec corps",
+      readH2c,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: '{"q":1}',
+      },
+    ],
   ] as const) {
-    it(`${name} : le départ du client ferme le flux côté serveur — et pas AVANT`, async () => {
-      await getJson(`${SSE}/reset`);
-      const r: IRead & { session?: http2.ClientHttp2Session } = await read(
-        `${SSE}/hold`,
-        init,
-        ready,
-      );
-      // Le client est encore là : rien ne doit être fermé.
-      await new Promise((res) => setTimeout(res, 200));
-      const during = await getJson(`${SSE}/state`);
-      expect(during.opened).to.equal(1);
-      expect(during.closed).to.equal(0);
-      // Le client s'en va — en HTTP/2, le FLUX seul : la session reste ouverte.
-      r.leave();
-      await until(async () => (await getJson(`${SSE}/state`)).closed === 1);
-      r.session?.close();
-      const after = await getJson(`${SSE}/state`);
-      // L'écouteur de fermeture voit encore la requête dans l'ALS.
-      const seen = after.closeSawRequestId as Array<string | null>;
-      expect(seen).to.have.length(1);
-      expect(seen[0]).to.be.a("string");
-    });
+    // h2c n'existe que sur l'app de dev (servers.h2c, éteint en production).
+    const skip = IS_PROD_TARGET && name.startsWith("h2c");
+    it.skipIf(skip)(
+      `${name} : le départ du client ferme le flux côté serveur — et pas AVANT`,
+      async () => {
+        await getJson(`${SSE}/reset`);
+        const r: IRead & { session?: http2.ClientHttp2Session } = await read(
+          `${SSE}/hold`,
+          init,
+          ready,
+        );
+        // Le client est encore là : rien ne doit être fermé.
+        await new Promise((res) => setTimeout(res, 200));
+        const during = await getJson(`${SSE}/state`);
+        expect(during.opened).to.equal(1);
+        expect(during.closed).to.equal(0);
+        // Le client s'en va — en HTTP/2, le FLUX seul : la session reste ouverte.
+        r.leave();
+        await until(async () => (await getJson(`${SSE}/state`)).closed === 1);
+        r.session?.close();
+        const after = await getJson(`${SSE}/state`);
+        // L'écouteur de fermeture voit encore la requête dans l'ALS.
+        const seen = after.closeSawRequestId as Array<string | null>;
+        expect(seen).to.have.length(1);
+        expect(seen[0]).to.be.a("string");
+      },
+    );
 
-    it.skipIf(init !== undefined && "method" in init)(
+    it.skipIf(skip || (init !== undefined && "method" in init))(
       `${name} : battement de cœur — un commentaire, ignoré par le client`,
       async () => {
         // `/hold` bat toutes les 50 ms : on lit jusqu'au premier battement.
