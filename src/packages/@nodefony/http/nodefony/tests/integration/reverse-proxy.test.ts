@@ -12,7 +12,7 @@
  *     PRÉSERVE la chaîne forgée par le client, `$remote_addr` l'écrase — même
  *     parser, même test unitaire vert, et une usurpation d'adresse au bout) ;
  *  2. le `proto` annoncé décrit-il le scheme du CLIENT, et non le chiffrement du
- *     lien interne ? (haproxy re-chiffre vers le backend : `type` https, tandis
+ *     lien interne ? (haproxy re-chiffre vers le backend : `serverType` https, tandis
  *     que le client arrive en clair — le serveur doit voir `scheme` http) ;
  *  3. le TLS de bout en bout tient-il, chaîne validée, sans `-k` ?
  *  4. une WebSocket franchit-elle le proxy ? (l'argument central du framework, et
@@ -75,6 +75,7 @@ function benchCa(): Buffer {
 /** Ce que le serveur a compris de la requête, vu par la route de diagnostic. */
 type SeenContext = {
   type: string;
+  serverType: string;
   scheme: string;
   host: string;
   remoteAddress: string;
@@ -148,7 +149,8 @@ describe.skipIf(!HAS_DECOR)(
       const { status, seen } = await through(HAPROXY);
       expect(status, "réponse à travers haproxy").to.equal(200);
       expect(seen.scheme, "scheme vu du CLIENT").to.equal("http");
-      expect(seen.type, "transport du lien interne").to.equal("https");
+      expect(seen.serverType, "TLS du lien interne").to.equal("https");
+      expect(seen.type, "protocole de la requête").to.equal("http");
     });
 
     it("haproxy en TLS : scheme https de bout en bout, chaîne validée", async () => {
