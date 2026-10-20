@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T13:00:27.645Z",
+  "generatedAt": "2026-10-20T13:10:48.395Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 156,
+      "closed": 157,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 18,
+      "open": 17,
       "title": "10.0.0-beta"
     },
     {
@@ -3511,8 +3511,8 @@
       "number": 400,
       "title": "docs(tests): sortir les boots CLI du lot dit non disruptif",
       "url": "https://github.com/nodefony/nodefony-core/issues/400",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
