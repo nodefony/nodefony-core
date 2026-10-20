@@ -383,12 +383,12 @@ describe("serveur relayé — un vrai processus en tube (#536)", () => {
   it.skipIf(GRANDCHILD_PIPE === "closed")(
     "un petit-enfant qui garde le tube ne tait pas le verdict : il part après le délai de grâce",
     async () => {
-      const t0 = Date.now();
       // La pile arrive dans 5 s ; le verdict, lui, n'attend que 200 ms après `exit`.
+      // Son absence prouve que le verdict n'a pas attendu le tube : un
+      // chronomètre compterait aussi le démarrage de `node`, 4,5 s sous charge.
       const { order } = await crash(1, 5_000, 200);
       expect(order.at(-1)).to.equal("[dev] serveur arrêté (code 1)");
       expect(order.some((t) => t.includes("Error: boom"))).to.equal(false);
-      expect(Date.now() - t0).to.be.below(4_000);
     },
     30_000,
   );
