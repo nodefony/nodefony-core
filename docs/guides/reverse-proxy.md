@@ -14,12 +14,16 @@ tags:
     websocket,
     forwarded,
     rfc7239,
+    h2c,
+    http2,
+    envoy,
+    istio,
     production,
     exploitation,
   ]
 version: "doc"
 status: stable
-updated: 2026-10-12
+updated: 2026-10-21
 source: "docs/guides/reverse-proxy.md"
 ---
 
@@ -208,6 +212,129 @@ Traefik pose `X-Forwarded-*` de lui-même et **ne fait confiance qu'aux adresses
 relayé sans rien demander, mais un Traefik derrière un autre proxy (un équilibreur de charge
 d'hébergeur) ne transmettra la bonne IP que si cet amont est déclaré.
 
+## HTTP/2 jusqu'à l'application — le port h2c
+
+Par défaut, le proxy parle HTTP/1.1 à Nodefony. Un proxy qui termine le TLS peut aussi lui parler
+HTTP/2 **en clair** (h2c) sur un port dédié, `servers.h2c` (5153), désactivé par défaut. Quand ça
+vaut la peine — gRPC, flux SSE nombreux, en-têtes lourds — et ce que ça coûte, mesuré :
+[servers › Faut-il l'activer ?](../../src/packages/@nodefony/http/docs/servers.md#faut-il-lactiver---h2c-nest-pas--plus-rapide--par-principe).
+
+```typescript
+// nodefony.config.ts — ou NF__APP__SERVERS__H2C__ENABLED=true au déploiement
+servers: { h2c: { enabled: true } },
+```
+
+Trois règles valent pour **tous** les proxys :
+
+| Règle                                                                 | Pourquoi                                                                                                                                                              |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| les requêtes vont au port **h2c**, les **WebSocket** au port **HTTP** | le port h2c n'annonce pas le CONNECT étendu (RFC 8441), seul chemin d'une WebSocket sur HTTP/2 ; il ne sert pas non plus `Upgrade` (HTTP/1.1)                         |
+| les **sondes** (`/livez`, `/readyz`) visent le port **HTTP**          | le port h2c refuse HTTP/1.1, et une sonde de kubelet ou de proxy parle HTTP/1.1                                                                                       |
+| le schéma passe par `X-Forwarded-Proto` **et** `trustProxy`           | en clair, le serveur ne croit jamais le `:scheme` que le proxy écrit : seul un proxy de confiance dit `https` — l'[autre moitié](#et-côté-application--lautre-moitié) |
+
+### HAProxy — généré
+
+`proxy:generate haproxy` lit la configuration de l'application : si `servers.h2c` y est actif, il
+envoie le trafic au port h2c en `proto h2` et garde les WebSocket sur le port HTTP
+(`generateProxyConfig.ts#generateHaproxyConfig`). Rien à écrire à la main :
+
+```text
+  use_backend be_nodefony if { hdr(upgrade) -i websocket }
+  default_backend be_nodefony_h2c
+
+backend be_nodefony_h2c
+  server nodefony_h2c 10.0.0.12:5153 check proto h2
+```
+
+La commande lit la configuration **de l'environnement où elle tourne** : lancez-la avec h2c activé
+comme en production, sinon elle produit la variante HTTP/1.1. Avec `--reencrypt`, h2c est ignoré —
+le port TLS négocie déjà HTTP/2.
+
+### nginx — HTTP/1.1 vers l'application
+
+nginx ne parle pas HTTP/2 à ses amonts (hors gRPC, par `grpc_pass`) : `proxy_http_version`
+s'arrête à 1.1. Gardez le port HTTP ; `proxy:generate nginx` ignore h2c.
+
+### Envoy
+
+Un cluster h2c (`http2_protocol_options`) pour les requêtes, un cluster HTTP/1.1 pour les WebSocket :
+
+```yaml
+# extrait — route_config et clusters
+virtual_hosts:
+  - name: app
+    domains: ["app.example.com"]
+    routes:
+      # WebSocket : HTTP/1.1, vers le port HTTP
+      - match:
+          prefix: "/"
+          headers:
+            - name: upgrade
+              string_match: { exact: websocket, ignore_case: true }
+        route:
+          {
+            cluster: nodefony_http,
+            upgrade_configs: [{ upgrade_type: websocket }],
+          }
+      - match: { prefix: "/" }
+        route: { cluster: nodefony_h2c }
+clusters:
+  - name: nodefony_h2c # port 5153
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http2_protocol_options: {}
+  - name: nodefony_http # port 5151, HTTP/1.1 par défaut
+```
+
+### Istio et Gateway API — par le protocole du port du Service
+
+Sous Kubernetes, c'est le **Service** qui déclare le protocole de chaque port :
+
+```yaml
+apiVersion: v1
+kind: Service
+spec:
+  ports:
+    - name: http # sondes, WebSocket
+      port: 5151
+      appProtocol: http
+    - name: h2c
+      port: 5153
+      # Istio : `http2` (ou un nom de port préfixé `http2-`)
+      appProtocol: http2
+      # Gateway API (GEP-1911) : `kubernetes.io/h2c` à la place
+```
+
+Puis la route envoie les requêtes au port 5153 et `Upgrade: websocket` au port 5151 — un
+`VirtualService` (Istio) ou une `HTTPRoute` (Gateway API) avec une règle sur l'en-tête `upgrade`.
+Le Service des WebSocket peut déclarer `appProtocol: kubernetes.io/ws` sous Gateway API.
+
+### Traefik
+
+Un service au schéma `h2c`, et un routeur prioritaire qui garde les WebSocket sur le port HTTP :
+
+```yaml
+labels:
+  - "traefik.http.routers.app.rule=Host(`app.example.com`)"
+  - "traefik.http.routers.app.service=app-h2c"
+  - "traefik.http.services.app-h2c.loadbalancer.server.port=5153"
+  - "traefik.http.services.app-h2c.loadbalancer.server.scheme=h2c"
+  - "traefik.http.routers.app-ws.rule=Host(`app.example.com`) && HeaderRegexp(`Upgrade`, `(?i)^websocket$`)"
+  - "traefik.http.routers.app-ws.priority=100"
+  - "traefik.http.routers.app-ws.service=app-http"
+  - "traefik.http.services.app-http.loadbalancer.server.port=5151"
+```
+
+> **Ce qui a été joué contre un proxy réel** : HAProxy 3.0, avec la configuration **générée** —
+> requête servie en h2c, WebSocket ouverte sur le port HTTP. C'est ce banc qui a trouvé le défaut
+> suivant, invisible aux tests directs : HAProxy, comme le veut RFC 9113 §8.3.1, convertit une
+> requête HTTP/1.1 sans fabriquer `:authority` — il ne garde que `Host`, et le serveur, qui ne lisait
+> que `:authority`, répondait `421`. Il lit désormais `Host` en repli
+> (`transport.ts#requestAuthority`). Envoy, Istio et Traefik : recettes tirées de leur documentation,
+> pas encore jouées par le banc.
+
 ## ⚠️ Pièges (symptôme → cause → correction)
 
 | Symptôme                                                                  | Cause                                                                                                              | Correction                                                                                       |
@@ -221,6 +348,8 @@ d'hébergeur) ne transmettra la bonne IP que si cet amont est déclaré.
 | Le déploiement coupe des requêtes en cours                                | le proxy interroge `/livez` au lieu de `/readyz`                                                                   | `/readyz` bascule en `503` **dès le début de l'arrêt** ; `/livez` reste à `200` pendant le drain |
 | Un flux SSE n'arrive qu'en bloc, ou à la fin                              | le proxy met la réponse en tampon                                                                                  | ne pas filtrer `X-Accel-Buffering` ; sur un ingress, `proxy-buffering: "off"`                    |
 | Les cookies de session ne reviennent jamais                               | `X-Forwarded-Proto` annonce `http` alors que le client est en `https`, donc le cookie `Secure` est refusé          | le schéma se **constate** sur la connexion entrante, il ne se suppose pas                        |
+| Derrière un proxy en h2c, la WebSocket ne s'ouvre plus                    | le proxy l'envoie au port h2c, qui ne sert ni `Upgrade` ni le CONNECT étendu                                       | router `Upgrade: websocket` vers le port HTTP — `proxy:generate haproxy` le fait                 |
+| Le pod n'est jamais prêt depuis l'activation de h2c                       | la sonde vise le port h2c, qui refuse HTTP/1.1                                                                     | sonder `/readyz` sur le port HTTP                                                                |
 | Keycloak affiche `Invalid parameter: redirect_uri` en ligne, pas en local | `NF_OAUTH_REDIRECT_BASE` absente : l'adresse de retour vaut encore `https://localhost:<port>`                      | la poser à l'URL publique de l'application                                                       |
 | Retour de connexion refusé, WARNING `OAuth issuer mismatch`               | le Keycloak, derrière son propre proxy, prend son nom de l'hôte demandé                                            | `KC_HOSTNAME` = l'URL publique complète                                                          |
 
@@ -239,6 +368,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 | Unitaires — générateur | `unit/generateProxyConfig.test.ts` | ce que produisent les deux cibles, à partir d'une introspection donnée |
 | Unitaires — confiance | `unit/trustProxy.test.ts` | CIDR, préréglages, listes — quelle socket a le droit d'être crue |
 | Unitaires — résolution | `unit/forwarded.test.ts`, `unit/forwardedWiring.test.ts` | la remontée RFC 7239, et son câblage dans le pipeline |
+| Intégration — h2c | `http/h2c.test.ts` | le port h2c tel qu'un proxy le voit : `Host` sans `:authority`, flux multiplexés, WebSocket et HTTP/1.1 refusés, relais interne |
 | Intégration — proxys RÉELS | `integration/reverse-proxy.test.ts` | les raccords contre nginx **et** HAProxy en marche, derrière `PROXY_GATE` (`scripts/test/vitest/gates.ts#PROXY_GATE`) |
 
 > **Ce qui a été attrapé par le banc réel, et par rien d'autre** : `proxy:generate` annonçait
