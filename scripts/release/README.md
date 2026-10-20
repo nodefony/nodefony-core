@@ -241,6 +241,9 @@ Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.
 - **Variable** `QAPP_NAME`
 - **Variable** `REDIS_PORT`
 - **Variable** `SERVICE`
+- **Variable** `SSE_COUNT`
+- **Variable** `SSE_REL`
+- **Variable** `SSE_SPREAD`
 - **Appelé par** : `npm run release:smoke` · `release-preflight.yml`
 - **Utilise** : `release/image-gate.mjs` · `release/pack-all.mjs`
 

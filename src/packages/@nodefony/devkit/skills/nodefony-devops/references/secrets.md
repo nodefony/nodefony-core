@@ -66,6 +66,16 @@ npx nodefony security:secrets --jwt-keyset   # la valeur de NF_JWT_KEYSET — un
 Une valeur par ENVIRONNEMENT (staging ≠ production), générée une fois, rangée dans le
 gestionnaire de secrets ; ne laisse traîner aucun fichier qui la contient.
 
+**En intégration continue**, la CI générée (preset `complete`) tire ces clés à CHAQUE exécution,
+juste avant `test:e2e` : `security:secrets --env >> "$GITHUB_ENV"` sous GitHub, une boucle
+`export "$ligne"` sous GitLab. Tirées pour un run, elles ne protègent rien — elles n'ont rien à
+faire dans les `secrets` du dépôt. Un `CRITIC … AUCUNE clé de chiffrement` dans le journal de
+l'e2e veut dire que l'étape a sauté : la suite est verte sur une production amputée.
+
+> 🔴 **Ne jamais charger ces lignes par `set -a && . fichier`.** Le shell interprète les
+> guillemets du JSON de `NF_JWT_KEYSET` et le rend illisible. `docker run --env-file`, un
+> `env_file:` de compose ou `export "$ligne"` ligne à ligne gardent la valeur telle quelle.
+
 `NF_ADMIN_PASSWORD` a un défaut en développement, aucun en production : sans lui, le premier
 démarrage ne crée **aucun** compte d'administration — plutôt qu'un compte au mot de passe connu de
 tout le monde. Il ne sert qu'à ce premier démarrage ; `npx nodefony security:user:add <id> --admin`

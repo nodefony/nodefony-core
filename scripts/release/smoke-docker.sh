@@ -22,7 +22,9 @@
 #   edge   — la TOPOLOGIE de production, montée par `docker compose --profile
 #            edge up -d --build` : l'app derrière son frontal nginx, jointe par
 #            son NOM de service, `trustProxy: uniquelocal` éprouvé pour de vrai,
-#            et les statiques servis sans que Node soit joint
+#            les statiques servis sans que Node soit joint, un flux SSE reçu AU
+#            FIL de son émission (pas groupé par le tampon de nginx), et aucune
+#            brique de sécurité désactivée faute de clé de production
 #   sql    — les TROIS moteurs serveurs (`--database postgres|mariadb|mysql`)
 #            sous musl : la base jointe par son NOM de service — la seule chose
 #            qu'Alpine pouvait casser —, les migrations appliquées, et la suite
@@ -45,19 +47,6 @@
 #
 # @usage npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|global|pm]
 set -euo pipefail
-
-# Secret jetable des scénarios qui démarrent une app du preset complet : le
-# framework en EXIGE en production, et un banc qui ne les pose pas accuse le
-# produit d'un défaut qui est le sien. 32 hexadécimaux — la forme attendue.
-#
-# 🔴 TIRÉ, jamais littéralisé. Écrite en clair, cette valeur est un secret
-# d'APPARENCE dans un dépôt public : le gate `Secrets` la refuse (règle
-# `generic-api-key`), et il a raison — aucun relecteur, humain ou automate, ne
-# distingue un faux secret d'un vrai. L'exclure par une exception aurait appris
-# au gate à se taire sur cette forme partout ailleurs.
-SMOKE_SECRET="$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-[[ ${#SMOKE_SECRET} -eq 32 ]] ||
-  { echo "✗ impossible de tirer le secret jetable (openssl et /dev/urandom muets)" >&2; exit 1; }
 
 SCENARIO="all"
 while [[ $# -gt 0 ]]; do
@@ -85,13 +74,37 @@ runs() { [[ "$SCENARIO" == "all" || "$SCENARIO" == "$1" || "${SCENARIO%%:*}" == 
 # (`.claude/skills/.claude/skills/…`) au premier `node`.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Clé de SIGNATURE des jetons, jetable elle aussi, par la commande du PRODUIT :
-# une paire Ed25519 en JSON, pas 32 hexadécimaux — la recopier ici en ferait une
-# seconde définition du format. Sans elle, une application du preset complet
-# REFUSE de démarrer en production (jwt.keystore), et c'est voulu.
-SMOKE_JWT_KEYSET="$(cd "$ROOT" && node node_modules/nodefony/bin/nodefony security:secrets --jwt-keyset 2>/dev/null)"
-[[ "$SMOKE_JWT_KEYSET" == '{"active":'* ]] ||
-  { echo "✗ impossible de générer la clé de signature (npm run build fait ?)" >&2; exit 1; }
+# Les clés de PRODUCTION des scénarios qui démarrent une app du preset complet,
+# jetables, tirées par la commande du PRODUIT. Elle seule sait quelles clés
+# existent et sous quelle forme (la clé de signature est une paire Ed25519 en
+# JSON) : une liste recopiée ici avait déjà oublié celles du second facteur et
+# des webhooks — la production démarrait ces briques DÉSACTIVÉES, et le banc
+# restait vert. Sans clé de signature, elle REFUSE même de démarrer.
+#
+# 🔴 TIRÉES, jamais littéralisées. Écrite en clair, une clé est un secret
+# d'APPARENCE dans un dépôt public : le gate `Secrets` la refuse, et il a
+# raison — aucun relecteur ne distingue un faux secret d'un vrai.
+#
+# Deux formes, d'une seule source : `SMOKE_ENV_ARGS` pour `docker run`,
+# `SMOKE_ENV_YAML` pour un `environment:` de compose (6 espaces, entre
+# apostrophes : le jeu de clés JSON porte des guillemets). `SMOKE_JWT_KEYSET`
+# reste nommé pour la garde `cluster` qui retire exprès NF_CSRF_SECRET.
+SMOKE_ENV_ARGS=()
+SMOKE_ENV_YAML=""
+SMOKE_SECRET=""
+SMOKE_JWT_KEYSET=""
+while IFS= read -r ligne; do
+  [[ "$ligne" =~ ^NF_[A-Z0-9_]+= ]] ||
+    { echo "✗ security:secrets --env : ligne inattendue « ${ligne%%=*} »" >&2; exit 1; }
+  cle="${ligne%%=*}"
+  valeur="${ligne#*=}"
+  SMOKE_ENV_ARGS+=(-e "$ligne")
+  SMOKE_ENV_YAML+="      $cle: '$valeur'"$'\n'
+  if [[ "$cle" == "NF_CSRF_SECRET" ]]; then SMOKE_SECRET="$valeur"; fi
+  if [[ "$cle" == "NF_JWT_KEYSET" ]]; then SMOKE_JWT_KEYSET="$valeur"; fi
+done < <(cd "$ROOT" && node node_modules/nodefony/bin/nodefony security:secrets --env 2>/dev/null)
+[[ -n "$SMOKE_SECRET" && "$SMOKE_JWT_KEYSET" == '{"active":'* ]] ||
+  { echo "✗ impossible de tirer les clés de production (npm run build fait ?)" >&2; exit 1; }
 [[ -f "$ROOT/package.json" && -d "$ROOT/scripts/release" ]] ||
   { echo "✗ racine du dépôt introuvable depuis ${BASH_SOURCE[0]} (ROOT=$ROOT)" >&2; exit 1; }
 
@@ -794,8 +807,7 @@ process.stdout.write("studio: policy mandatory constatée dans le gabarit\n");
   # Valeurs jetables et LISIBLES comme telles : ce banc ne protège rien, il
   # éprouve un démarrage.
   docker run -d --name "$SCTN" -p "$SPORT:5151" \
-    -e NF_CSRF_SECRET="$SMOKE_SECRET" \
-    -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" \
+    "${SMOKE_ENV_ARGS[@]}" \
     "$SIMG" >/dev/null
   migrate_in "$SCTN"
   wait_ready "$SCTN" "$SPORT"
@@ -899,11 +911,26 @@ class WhoamiController extends Controller {
       ip: this.context.remoteAddress ?? null,
     });
   }
+
+  /**
+   * Un flux SSE CADENCÉ : 5 événements à 500 ms d'écart, puis fermeture. Le
+   * client horodate leur arrivée ; groupés à la fin, c'est que le frontal les
+   * a gardés en tampon.
+   */
+  @route("whoami-ticks", { path: "/ticks", method: "GET" })
+  async ticks() {
+    const sse = await this.renderSse();
+    for (let i = 0; i < 5; i++) {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, 500));
+      await sse.send({ tick: i }, { event: "tick" });
+    }
+    return sse.close();
+  }
 }
 
 export default WhoamiController;
 TS
-  ok "route /api/whoami posée et câblée"
+  ok "routes /api/whoami et /api/ticks posées et câblées"
 
 
   step "[edge] deps + migration initiale (installe et bâtit côté hôte)"
@@ -951,12 +978,9 @@ TS
 services:
   migrate:
     environment:
-      NF_CSRF_SECRET: "$SMOKE_SECRET"
-  app-edge:
+${SMOKE_ENV_YAML}  app-edge:
     environment:
-      NF_CSRF_SECRET: "$SMOKE_SECRET"
-      NF_ADMIN_PASSWORD: "$EDGE_ADMIN_PASSWORD"
-      NF_JWT_KEYSET: '$SMOKE_JWT_KEYSET'
+${SMOKE_ENV_YAML}      NF_ADMIN_PASSWORD: "$EDGE_ADMIN_PASSWORD"
 YML
 
   step "[edge] docker compose --profile edge up -d --build (le geste de l'utilisateur)"
@@ -999,6 +1023,17 @@ YML
   fi
   ok "$EDGE_URL/livez → 200 (l'app est jointe par son NOM de service, app-edge)"
 
+  # Une clé de production absente ne fait PAS échouer le démarrage : la brique
+  # démarre désactivée et le journal le dit, c'est tout. Le seul témoin est donc
+  # ce journal — vu rouge sur ce scénario, quand il ne posait que deux clés.
+  step "[edge] aucune brique de sécurité désactivée faute de clé"
+  EDGE_LOGS=$(cd "$EAPP" && docker compose --profile edge logs migrate app-edge 2>&1 || true)
+  if grep -q "AUCUNE clé de chiffrement" <<< "$EDGE_LOGS"; then
+    grep "AUCUNE clé de chiffrement" <<< "$EDGE_LOGS" | cut -c1-200
+    fail "production AMPUTÉE : une clé manque à compose.override.yaml"
+  fi
+  ok "second facteur et webhooks chiffrés — toutes les clés de production posées"
+
   step "[edge] trustProxy: uniquelocal SEUL — le frontal est-il cru ?"
   WHO=$(curl -sk "$EDGE_URL/api/whoami")
   contient "$WHO" '"scheme":"https"' \
@@ -1016,6 +1051,38 @@ YML
     || { echo "$LOGIN_HDRS" | grep -i "set-cookie" || echo "(aucun Set-Cookie)"; \
          fail "aucun cookie __Host- — l'app ne se sait pas servie en TLS"; }
   ok "cookie __Host- posé (le préfixe dérive du schéma constaté)"
+
+  # nginx met en tampon les réponses de son backend : un flux SSE y arrive
+  # GROUPÉ à la fermeture, sans aucune erreur. `X-Accel-Buffering: no`, posé par
+  # `renderSse()`, désarme ce tampon pour le seul flux — un en-tête présent ne
+  # prouve rien du proxy, donc on mesure. Émission : 5 événements sur 2 s.
+  # L'arrivée de chacun est horodatée par le CLIENT, sur une seule horloge ;
+  # étalée sur moins de 1 s, c'est que le frontal les a retenus.
+  #
+  # Mesuré : en-tête RETIRÉ du paquet installé, nginx 1.30 et cette
+  # configuration relaient AUSSI au fil de l'eau (0, 498, 998, 1499, 2001 ms).
+  # L'étape garde donc la TOPOLOGIE — une configuration de frontal qui se
+  # mettrait à grouper —, pas l'en-tête seul.
+  step "[edge] un flux SSE traverse le frontal AU FIL de l'eau, pas groupé"
+  SSE_OUT=$(NODE_EXTRA_CA_CERTS="$EAPP/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem" \
+    node --input-type=module -e '
+      const res = await fetch(process.argv[1], { headers: { accept: "text/event-stream" } });
+      if (res.status !== 200) throw new Error(`statut ${res.status}`);
+      const decoder = new TextDecoder();
+      const arrivals = [];
+      for await (const chunk of res.body) {
+        const now = performance.now();
+        for (const _ of decoder.decode(chunk, { stream: true }).matchAll(/^event: tick$/gmu)) arrivals.push(now);
+      }
+      const spread = arrivals.length > 0 ? arrivals.at(-1) - arrivals[0] : 0;
+      const rel = arrivals.map((t) => Math.round(t - arrivals[0])).join(",");
+      console.log(`${arrivals.length} ${Math.round(spread)} ${rel}`);
+    ' "$EDGE_URL/api/ticks" 2>&1) || { echo "$SSE_OUT"; fail "flux SSE à travers le frontal illisible"; }
+  read -r SSE_COUNT SSE_SPREAD SSE_REL <<< "$SSE_OUT"
+  [ "$SSE_COUNT" = "5" ] || { echo "$SSE_OUT"; fail "flux SSE : $SSE_COUNT événement(s) reçu(s) sur 5"; }
+  [ "$SSE_SPREAD" -ge 1000 ] \
+    || fail "flux SSE GROUPÉ par le frontal : 5 événements émis sur 2 s, reçus en $SSE_SPREAD ms (arrivées : $SSE_REL ms) — le frontal les retient"
+  ok "5 événements reçus étalés sur $SSE_SPREAD ms (arrivées : $SSE_REL ms) — le frontal ne les retient pas"
 
   step "[edge] la suite de bout en bout générée, JOUÉE À TRAVERS le frontal"
   # `NF_E2E_BASE_URL` : la suite ne démarre alors rien et ne touche aucune base —
@@ -1261,12 +1328,9 @@ if runs sql; then
 services:
   migrate:
     environment:
-      NF_CSRF_SECRET: "$SMOKE_SECRET"
-  app:
+${SMOKE_ENV_YAML}  app:
     environment:
-      NF_CSRF_SECRET: "$SMOKE_SECRET"
-      NF_ADMIN_PASSWORD: "$SQL_ADMIN_PASSWORD"
-      NF_JWT_KEYSET: '$SMOKE_JWT_KEYSET'
+${SMOKE_ENV_YAML}      NF_ADMIN_PASSWORD: "$SQL_ADMIN_PASSWORD"
       # Connexion en HTTP direct au conteneur (aucun frontal TLS dans ce
       # scénario) : la production refuserait ce mot de passe en clair. Le
       # scénario edge, lui, se connecte à travers TLS, sans échappement.
@@ -1512,10 +1576,10 @@ if runs cluster; then
   step "[cluster] run — NF_WORKERS=$CWORKERS sur la base neuve de l'image"
   docker rm -f "$CCTN" >/dev/null 2>&1 || true
   # Les secrets que la production exige, partagés par les N workers (hérités au
-  # fork) : NF_CSRF_SECRET (requiredIn) et la clé de signature des jetons.
+  # fork) : NF_CSRF_SECRET (requiredIn), la clé de signature des jetons, et les
+  # clés de chiffrement du second facteur et des webhooks.
   docker run -d --name "$CCTN" -e NF_WORKERS="$CWORKERS" \
-    -e NF_CSRF_SECRET="$SMOKE_SECRET" \
-    -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" -p "$CPORT:5151" "$CIMG" >/dev/null
+    "${SMOKE_ENV_ARGS[@]}" -p "$CPORT:5151" "$CIMG" >/dev/null
   # Chaque worker annonce son écoute HTTP : on attend les N, pas le premier.
   listening=0
   for _ in $(seq 1 90); do
@@ -1816,8 +1880,7 @@ if runs pm; then
     # exemplaire qui sert refuse de démarrer — NF_CSRF_SECRET (requiredIn) et
     # la clé de signature des jetons (jwt.keystore).
     docker run -d --name "$PCTN" -p "$PM_PORT:5151" \
-      -e NF_CSRF_SECRET="$SMOKE_SECRET" \
-      -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" "$PIMG" >/dev/null
+      "${SMOKE_ENV_ARGS[@]}" "$PIMG" >/dev/null
     migrate_in "$PCTN"
     wait_ready "$PCTN" "$PM_PORT"
     ok "readyz → 200 (application $PM, module local compris)"

@@ -152,6 +152,8 @@ function posterTexte(
 interface IFlux {
   status: number;
   contentType: string;
+  /** `X-Accel-Buffering` de la réponse, absent = `undefined`. */
+  accelBuffering: string | undefined;
   events: Record<string, unknown>[];
   raw: string;
 }
@@ -191,6 +193,7 @@ function posterFlux(
           resoudre({
             status: res.statusCode ?? 0,
             contentType: res.headers["content-type"] ?? "",
+            accelBuffering: [res.headers["x-accel-buffering"]].flat()[0],
             events,
             raw,
           });
@@ -1060,6 +1063,10 @@ describe.skipIf(raison !== null)(
         );
         expect(flux.status).toBe(200);
         expect(flux.contentType).toContain("text/event-stream");
+        // MCP 2026-07-28, Streamable HTTP : « servers SHOULD include the
+        // `X-Accel-Buffering: no` header » sur un flux SSE — sinon un proxy
+        // inverse peut retenir les notifications de progression.
+        expect(flux.accelBuffering).toBe("no");
         const progres = flux.events.filter(
           (e) => e.method === "notifications/progress",
         );

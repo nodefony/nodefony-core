@@ -142,7 +142,11 @@ data: {"step":"écriture"}
 
 - Les en-têtes partent dès `renderSse()` : `Content-Type: text/event-stream; charset=utf-8`,
   `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no` (`openSseStream()`,
-  `SseStream.ts#openSseStream`).
+  `SseStream.ts#openSseStream`). Ce dernier demande à un proxy de type nginx de ne pas garder le
+  flux en tampon. À travers le frontal que génère `nodefony proxy:generate nginx`, chaque
+  événement arrive à son émission — mesuré par le scénario `edge` du banc de publication. La même
+  mesure, en-tête retiré, reste étalée sur nginx 1.30 : l'en-tête n'y est pas ce qui tient le
+  flux, il protège les proxys qui retiennent.
 - `await sse.send()` freine l'action si le client lit lentement — c'est la contre-pression.
 
 ## ⚙️ Les deux bouts de l'API
