@@ -328,7 +328,7 @@ class Finder extends Event {
     Path: string | FileClass | string[],
     settings = {},
   ): Promise<Result> {
-    let result = null;
+    let result;
     try {
       result = await this.checkPathAsync(Path);
       this.settingsToListen(settings);

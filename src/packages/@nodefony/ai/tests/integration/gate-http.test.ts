@@ -43,7 +43,7 @@ async function post(
     signal: AbortSignal.timeout(8000),
   });
   const text = await res.text();
-  let body: unknown = null;
+  let body: unknown;
   try {
     body = text === "" ? null : JSON.parse(text);
   } catch {

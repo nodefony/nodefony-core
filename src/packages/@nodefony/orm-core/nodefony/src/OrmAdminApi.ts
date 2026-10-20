@@ -174,7 +174,7 @@ function buildOrmSummaries(): IOrmSummary[] {
     names,
   );
   return names.map((name) => {
-    let connected = false;
+    let connected;
     let vendor = "";
     let connection: IOrmSummary["connection"];
     try {
@@ -202,7 +202,7 @@ function buildOrmSummaries(): IOrmSummary[] {
  */
 function buildEntityNode(connector: string, name: string): IEntityGraphNode {
   const entity = entityRegistry.get(name, connector);
-  let columns: IEntityGraphNode["columns"] = [];
+  let columns: IEntityGraphNode["columns"];
   try {
     const ormInstance = ormRegistry.get(connector);
     columns = ormInstance.describeEntity?.(name) ?? [];
@@ -361,7 +361,7 @@ export async function buildConnectionHealth(
 export function buildOrmFlow(filter?: string): IOrmFlowReport {
   const names = ormRegistry.list().filter((n) => !filter || n === filter);
   const connectors = names.map((name) => {
-    let vendor = "";
+    let vendor;
     try {
       vendor = vendorOf(ormRegistry.get(name));
     } catch {

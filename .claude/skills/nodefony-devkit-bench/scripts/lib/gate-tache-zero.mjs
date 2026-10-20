@@ -405,7 +405,7 @@ async function main() {
 
   // Les tests LIVRÉS — issue C. Lancés SÉPARÉMENT de ceux de l'agent.
   const livres = testsLivresDuPremierCommit(appDir);
-  let testsLivres = null;
+  let testsLivres;
   if (livres.ok && livres.fichiers.length > 0) {
     // 🔴 Chaque fichier avec LA configuration que l'application lui destine.
     //

@@ -43,7 +43,7 @@ describe("TOOLS extend", () => {
         assert(res === myobj);
         assert.equal(res.foo, "bar1");
         obj = {};
-        res = extend(obj, myobj, {
+        extend(obj, myobj, {
           foo: "bar2",
         });
         assert.equal(myobj.foo, "bar1");
@@ -62,12 +62,12 @@ describe("TOOLS extend", () => {
             },
           },
         };
-        let res = extend(myobj, {
+        extend(myobj, {
           bar: "foo",
         });
         assert(myobj.bar, "foo");
         let obj: any = {};
-        res = extend(obj, myobj, {
+        let res = extend(obj, myobj, {
           bar: "foo1",
         });
         assert(res, obj);

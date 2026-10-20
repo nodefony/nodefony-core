@@ -287,7 +287,7 @@ for (const [relFile, table] of Object.entries(plan)) {
       const withName = locations.map((l) => ({ ...l, newName: effectiveName }));
       if (dryRun) {
         for (const l of locations) touchedFiles.add(normalize(l.fileName));
-        remaining = 0; // à blanc, rien n'est édité : une passe suffit à décrire
+        // À blanc, rien n'est édité : une passe suffit à décrire.
         renamed += positions.length;
         sites += locations.length;
         break;

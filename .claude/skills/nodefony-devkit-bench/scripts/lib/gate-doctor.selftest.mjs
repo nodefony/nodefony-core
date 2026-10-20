@@ -205,7 +205,7 @@ const verifier = (label, ok) => {
 {
   const cyclique = { findings: [] };
   cyclique.self = cyclique;
-  let fini = false;
+  let fini;
   try {
     tousLesConstats(cyclique);
     fini = true;

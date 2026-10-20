@@ -86,7 +86,7 @@ function parser(strToParse: string) {
 
 function cookiesParser(context: ContextType) {
   let cookies = null;
-  let co = null;
+  let co;
   switch (context.type) {
     case "http":
     case "https":

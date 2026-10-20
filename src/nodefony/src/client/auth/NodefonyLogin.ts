@@ -557,7 +557,7 @@ export class NodefonyLogin {
         error instanceof Error ? error.message : String(error),
       );
     }
-    let parsed: unknown = null;
+    let parsed: unknown;
     try {
       parsed = unwrap(await response.json());
     } catch {

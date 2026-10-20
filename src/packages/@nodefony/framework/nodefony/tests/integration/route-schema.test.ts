@@ -64,7 +64,7 @@ function http(
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
-          let body: Record<string, unknown> = {};
+          let body: Record<string, unknown>;
           try {
             const parsed: unknown = text ? JSON.parse(text) : {};
             body = isRecord(parsed) ? parsed : { raw: parsed };

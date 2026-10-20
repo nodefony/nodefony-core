@@ -2522,7 +2522,7 @@ class Kernel extends Service implements IKernel {
     // (merge défauts + validation Zod). App legacy / vide : merge sous les défauts
     // framework (config toujours complète). Échec ici = config invalide → diagnostic
     // explicite (incluant les valeurs par défaut) + fail-fast propre.
-    let wasDescriptor = false;
+    let wasDescriptor: boolean;
     try {
       const resolved = this.resolveAppOptions(this.app.options, ctx);
       this.app.options = resolved.options;

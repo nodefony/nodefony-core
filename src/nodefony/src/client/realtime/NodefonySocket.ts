@@ -1909,7 +1909,7 @@ export class NodefonySocket<
     reason: string,
   ): Promise<void> {
     const probe = this.opts.probe || fetchProbe;
-    let status: number | null = null;
+    let status: number | null;
     try {
       status = await probe(toProbeUrl(url), this.opts.token ?? null);
     } catch {

@@ -118,7 +118,7 @@ describe("Drizzle adapter — jointure très complexe via trappe native (P7.4)",
     await messages.create({
       channelId: ch1.id,
       authorId: memberB.id,
-      createdAt: ts++,
+      createdAt: ts,
     });
   });
 

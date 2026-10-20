@@ -515,7 +515,7 @@ export function readZones(src) {
     const authenticators = auth
       ? [...auth[1].matchAll(/["']([^"']+)["']/gu)].map((a) => a[1])
       : [];
-    let regex = null;
+    let regex;
     try {
       regex = new RegExp(m[2].replace(/\\\\/gu, "\\"), "u");
     } catch {
@@ -544,7 +544,7 @@ export function readZones(src) {
 export function appZones(root) {
   const files = [];
   const walk = (dir) => {
-    let entries = [];
+    let entries;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
     } catch {
@@ -673,8 +673,8 @@ export function controllerRoutes(lines) {
     const group = decoratorGroup(lines, i);
     if (seen.has(group.to)) continue;
     seen.add(group.to);
-    let routePath = "";
-    let methods = [];
+    let routePath;
+    let methods;
     if (verbDeco) {
       routePath =
         new RegExp(

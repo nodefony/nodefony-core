@@ -375,7 +375,7 @@ describe("NODEFONY Notifications Center", () => {
       );
       assert.strictEqual(res[0], obj);
       res = results(
-        await global.notificationsCenter.emitAsync("myEvent", ++i, obj),
+        await global.notificationsCenter.emitAsync("myEvent", i + 1, obj),
       );
       assert.strictEqual(res[0], 1);
     });
@@ -398,7 +398,7 @@ describe("NODEFONY Notifications Center", () => {
         await global.notificationsCenter.fireAsync("myEvent", i, obj),
       );
       const res1 = results(
-        await global.notificationsCenter.emitAsync("myEvent", ++i, obj),
+        await global.notificationsCenter.emitAsync("myEvent", i + 1, obj),
       );
       assert.strictEqual(res.length, 2);
       assert.strictEqual(res[0], obj);

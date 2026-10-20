@@ -529,7 +529,7 @@ function FieldEditor({
     void commit(next);
   };
 
-  let control: ReactNode = null;
+  let control: ReactNode;
   if (ctrl.kind === "switch") {
     control = (
       <Switch

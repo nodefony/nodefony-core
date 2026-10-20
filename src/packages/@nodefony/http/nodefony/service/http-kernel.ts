@@ -701,7 +701,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (!origin) {
       return true;
     }
-    let originHost: string | null = null;
+    let originHost: string | null;
     try {
       originHost = new URL(origin).hostname;
     } catch {

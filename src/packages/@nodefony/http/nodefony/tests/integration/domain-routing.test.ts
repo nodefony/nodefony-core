@@ -32,7 +32,7 @@ function get(
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
           const raw = Buffer.concat(chunks).toString("utf-8");
-          let body: Record<string, unknown> = {};
+          let body: Record<string, unknown>;
           try {
             body = raw ? JSON.parse(raw) : {};
           } catch {

@@ -408,7 +408,7 @@ class DocumentationService extends Service {
     // Le cœur du framework, publié sous le nom `nodefony`.
     add("nodefony", join(root, "node_modules/nodefony/docs"));
     const scope = join(root, "node_modules/@nodefony");
-    let entries: string[] = [];
+    let entries: string[];
     try {
       entries = readdirSync(scope);
     } catch {

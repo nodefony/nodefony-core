@@ -82,7 +82,7 @@ export function jeton({ compte = "admin", ressource, scope } = {}) {
     env: { ...process.env, NODE_ENV: "development" },
     timeout: 120_000,
   });
-  let valeur = "";
+  let valeur;
   try {
     valeur = JSON.parse(r.stdout).access_token ?? "";
   } catch {
@@ -868,7 +868,7 @@ export const VECTEURS = [
       if (!meta) return "défi sans resource_metadata";
       const doc = await httpsGet(meta);
       if (doc.status !== 200) return `document ${meta} → ${doc.status}`;
-      let j = null;
+      let j;
       try {
         j = JSON.parse(doc.body);
       } catch {

@@ -129,6 +129,9 @@
     "typescript/no-unsafe-argument": "warn",
     "typescript/no-unsafe-return": "warn",
     "typescript/no-unsafe-call": "warn",
+    // Le type `Function` accepte tout appel sans rien vérifier : on nomme la
+    // signature (`(x: T) => U`), ou `ParameterDecorator` pour un décorateur.
+    "typescript/no-unsafe-function-type": "error",
     "typescript/no-unnecessary-type-assertion": "warn",
     "typescript/no-non-null-assertion": "warn",
     // Les règles qui attrapent des DÉFAUTS : promesse lancée sans être

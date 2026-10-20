@@ -53,7 +53,7 @@ const STALE_MS = 24 * 60 * 60 * 1000;
  * @param tmp - le dossier temporaire du système.
  */
 function sweepStaleRunDirs(tmp: string): void {
-  let entries: string[] = [];
+  let entries: string[];
   try {
     entries = readdirSync(tmp);
   } catch {
@@ -98,7 +98,7 @@ export default function setup(): () => void {
       if (value === undefined) delete process.env[v];
       else process.env[v] = value;
     }
-    let left: string[] = [];
+    let left: string[];
     try {
       left = readdirSync(runDir)
         .filter((e) => !TOOL_CACHES.test(e))

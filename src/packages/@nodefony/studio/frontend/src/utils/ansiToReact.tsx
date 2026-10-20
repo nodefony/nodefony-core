@@ -118,7 +118,7 @@ export function ansiToReact(input: string): ReactNode {
     last = m.index + m[0].length;
   }
   if (last < input.length) {
-    parts.push(renderSpan(input.slice(last), cur, key++));
+    parts.push(renderSpan(input.slice(last), cur, key));
   }
   return parts;
 }

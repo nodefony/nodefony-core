@@ -1168,7 +1168,7 @@ etape = "changelog";
 // Le rejouer ici n'aurait rien à dire de juste — `git describe` rendrait le tag
 // COURANT, donc zéro commit, et l'avertissement « majeure sans rupture »
 // partirait à tort sur un intervalle vide.
-let ruptures = [];
+let ruptures;
 let section = "";
 if (!(PUBLIER && !ECRIRE)) {
   const dernierTag =

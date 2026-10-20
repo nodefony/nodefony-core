@@ -153,7 +153,7 @@ class Outdated extends Command {
    * @throws Si npm est introuvable, ou si sa sortie n'est pas du JSON.
    */
   private async readNpmReport(root: string): Promise<NpmOutdatedReport> {
-    let stdout = "";
+    let stdout;
     try {
       ({ stdout } = await run("npm", ["outdated", "--json", "--long"], {
         cwd: root,

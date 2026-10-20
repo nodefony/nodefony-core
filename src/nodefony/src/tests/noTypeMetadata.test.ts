@@ -52,7 +52,7 @@ function collectSources(dir: string, out: string[] = []): string[] {
       continue;
     }
     const full = path.join(dir, entry);
-    let isDir = false;
+    let isDir;
     try {
       isDir = statSync(full).isDirectory();
     } catch {

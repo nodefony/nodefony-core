@@ -620,8 +620,8 @@ class ScaffoldService extends Service {
     // serveur, et le voir mourir en cours de route serait tout aussi fatal.
     suspendSupervisor(root, "génération de code", `${type} ${job.id}`);
     // Dossier où tourneront les étapes npm — connu seulement après l'écriture (le moteur
-    // rend sa destination réelle). Défaut prudent : le projet courant.
-    let stepCwd = root;
+    // rend sa destination réelle) ; un échec de l'écriture sort avant toute étape.
+    let stepCwd: string;
     // Mode « je télécharge » : l'app naît dans un temporaire jetable, personne n'écrit
     // dans l'espace de travail. Réservé au type `app` (une app est AUTONOME ; un module,
     // lui, recâble le projet — l'extraire de son projet n'aurait aucun sens).

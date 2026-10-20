@@ -188,7 +188,7 @@ ${tags}
       const cached = this.indexCache.get(root);
       if (cached !== undefined) return cached;
     }
-    let html: string | null = null;
+    let html: string | null;
     try {
       html = fs.readFileSync(path.join(root, "index.html"), "utf8");
     } catch {

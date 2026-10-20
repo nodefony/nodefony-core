@@ -155,7 +155,7 @@ function reqJson(
         res.on("data", (d) => c.push(d));
         res.on("end", () => {
           const raw = Buffer.concat(c).toString();
-          let body = null;
+          let body;
           try {
             body = raw ? JSON.parse(raw) : null;
           } catch {

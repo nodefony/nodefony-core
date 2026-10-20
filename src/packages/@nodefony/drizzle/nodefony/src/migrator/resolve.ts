@@ -315,7 +315,7 @@ function describeOwner(name: string): { label: string; driver: string } {
     return { label: "un ORM inconnu", driver: "" };
   }
   const klass = (orm as { constructor?: { name?: string } }).constructor?.name;
-  let driver = "";
+  let driver;
   try {
     driver = orm.describeConnection?.().driver ?? "";
   } catch {

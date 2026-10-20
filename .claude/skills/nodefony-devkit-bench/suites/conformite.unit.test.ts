@@ -97,8 +97,8 @@ describe("unit — le diagnostic du framework, sur l'application produite", () =
     // sans que le log dise POURQUOI — il fallait reproduire à la main ce que
     // la commande avait déjà écrit.
     const bin = path.resolve("node_modules/nodefony/bin/nodefony");
-    let rapport = "";
-    let code: number | null = null;
+    let rapport;
+    let code: number | null;
     try {
       rapport = execFileSync(process.execPath, [bin, "doctor"], {
         encoding: "utf8",

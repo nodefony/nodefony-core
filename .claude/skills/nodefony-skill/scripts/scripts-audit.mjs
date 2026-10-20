@@ -109,7 +109,7 @@ function collectDocs(dir, acc = "") {
  * alors 1 à chaque passe : rouge en permanence, donc ne gardant plus rien.
  */
 function protocolSignals(path) {
-  let src = "";
+  let src;
   try {
     src = readFileSync(path, "utf8");
   } catch {

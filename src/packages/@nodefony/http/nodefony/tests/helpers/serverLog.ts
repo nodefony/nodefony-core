@@ -76,7 +76,7 @@ function candidats(racine: string | null): string[] {
   };
   /** Les journaux d'un dossier, sans descendre : un journal n'est pas rangé. */
   const balayer = (dossier: string): void => {
-    let noms: string[] = [];
+    let noms: string[];
     try {
       noms = fs.readdirSync(dossier);
     } catch {

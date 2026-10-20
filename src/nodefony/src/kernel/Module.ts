@@ -388,7 +388,7 @@ class Module<TConfig = Record<string, unknown>>
     // devrait avoir à connaître.
     const consumed: string[] = [];
     for (const ele in this.options) {
-      let index: RegExpExecArray | null = null;
+      let index: RegExpExecArray | null;
       const override = this.options[ele] as DefaultOptionsService;
       index = regModuleName.exec(ele);
       if (index?.[1]) {

@@ -401,7 +401,7 @@ class SessionsService extends Service {
           return resolve(context.session);
         }
       }
-      let inst = null;
+      let inst;
       try {
         context.sessionStarting = true;
         // GC retiré du hot-path (était un tirage probabiliste PHP + scan

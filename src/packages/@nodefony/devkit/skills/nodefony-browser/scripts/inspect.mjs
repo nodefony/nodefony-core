@@ -789,7 +789,7 @@ if (active.has("reseau")) {
   const slowThreshold = Number(process.env.NF_BROWSER_SEUIL_LENT ?? 1000);
   const items = await Promise.all(
     finishedRequests.map(async (rq) => {
-      let bytes = null;
+      let bytes;
       try {
         // `sizes()` rend la taille RÉELLEMENT transférée ; l'en-tête
         // content-length manque sur les réponses en flux.

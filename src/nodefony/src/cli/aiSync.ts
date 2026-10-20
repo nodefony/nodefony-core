@@ -96,7 +96,7 @@ export function discoverSkills(projectRoot: string): IDiscoveredSkill[] {
     for (const entry of listDir(skillsDir)) {
       const md = path.join(skillsDir, entry, "SKILL.md");
       if (!existsSync(md)) continue;
-      let header: { name: string; summary: string } | null = null;
+      let header: { name: string; summary: string } | null;
       try {
         header = readSkillHeader(readFileSync(md, "utf8"));
       } catch {

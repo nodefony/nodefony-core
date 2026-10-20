@@ -49,7 +49,7 @@ const run = (source, plan) => {
     path.join(dir, "plan.json"),
     JSON.stringify({ "src/a.ts": plan }),
   );
-  let output = "";
+  let output;
   try {
     output = execFileSync(
       process.execPath,

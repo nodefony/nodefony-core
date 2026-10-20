@@ -102,7 +102,7 @@ export async function enrolerTotp(jar) {
   });
   if (r.error) return { injoignable: r.error };
   if (r.status === 404 || r.status === 503) return { indisponible: r.status };
-  let secret = null;
+  let secret;
   try {
     secret = JSON.parse(r.body).secretBase32 ?? null;
   } catch {

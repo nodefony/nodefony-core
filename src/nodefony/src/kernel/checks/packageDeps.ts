@@ -460,7 +460,7 @@ export function checkPackageDeps(
     // cassé trois, la garde n'en a signalé aucun).
     const imported = new Set<string>();
     for (const f of shippedSources(pkg.dir)) {
-      let text = "";
+      let text;
       try {
         text = readFileSync(f, "utf8");
       } catch {

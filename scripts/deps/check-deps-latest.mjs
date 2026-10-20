@@ -534,7 +534,7 @@ if (majeurs.length) {
   const cibles = new Set(majeurs.map((r) => r.name));
   const racines = [path.join(ROOT, "node_modules")];
   for (const racine of racines) {
-    let entrees = [];
+    let entrees;
     try {
       entrees = fs.readdirSync(racine, { withFileTypes: true });
     } catch {

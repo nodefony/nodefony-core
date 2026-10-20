@@ -48,7 +48,7 @@ if (r.status !== 200) {
     `CAUSE=reponse-inattendue — GET ${ROUTE_EN_PANNE} rend ${r.status} : ${r.body.slice(0, 160)}`,
   );
 }
-let corps = null;
+let corps;
 try {
   corps = JSON.parse(r.body);
 } catch {

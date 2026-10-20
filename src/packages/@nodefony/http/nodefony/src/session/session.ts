@@ -393,7 +393,7 @@ class Session implements ISession {
     // Chaque contrôle peut REFUSER, aucun ne peut valider seul : un referer
     // correct ne dispense pas des expirations ci-dessous.
     if (this.options.refererCheck) {
-      let sameHost = false;
+      let sameHost;
       try {
         sameHost = this.checkSecureReferer(context);
       } catch {

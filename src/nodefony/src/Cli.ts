@@ -82,7 +82,7 @@ const { green } = clc;
 const magenta = clc.magenta.bold;
 const { reset } = clc; // '\x1b[0m';
 
-let processName: string | null = null;
+let processName: string | null;
 if (process.argv[1]) {
   processName = path.basename(process.argv[1]);
 } else {
@@ -1200,7 +1200,7 @@ class Cli extends Service {
     close: ((code: number) => void) | null = null,
   ) {
     return new Promise((resolve, reject) => {
-      let cmd = null;
+      let cmd;
       try {
         args ??= [];
         this.log(`Spawn : ${command} ${args.join(" ")}`, "INFO");
@@ -1264,7 +1264,7 @@ class Cli extends Service {
     args: readonly string[],
     options: SpawnSyncOptionsWithStringEncoding,
   ): SpawnSyncReturns<string> {
-    let cmd = null;
+    let cmd;
     try {
       cmd = spawnSync(command, args, options);
       if (cmd.error) {

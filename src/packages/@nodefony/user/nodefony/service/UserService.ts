@@ -548,7 +548,7 @@ export class UserService
       return this.fail(identifier, "no_password");
     }
 
-    let ok = false;
+    let ok;
     try {
       ok = await this.encoder.verify(plain, hash);
     } catch {

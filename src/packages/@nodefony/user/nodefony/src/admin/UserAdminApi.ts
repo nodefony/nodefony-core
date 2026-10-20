@@ -439,7 +439,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
         }
         // `count()` peut throw selon le backend (réseau, schéma) → on n'expose
         // jamais d'erreur : un compte indénombrable reste `null`.
-        let count: number | null = null;
+        let count: number | null;
         try {
           count = await users.count();
         } catch {

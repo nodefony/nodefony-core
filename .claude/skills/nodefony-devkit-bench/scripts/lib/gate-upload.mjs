@@ -277,7 +277,7 @@ function depotNonVide(racine) {
 function fichiersDeposes(racine, depuis) {
   const depot = path.resolve(racine, DOSSIER_DEPOT);
   if (!existsSync(depot)) return [];
-  let tous = [];
+  let tous;
   try {
     tous = readdirSync(depot)
       .map((nom) => ({ nom, st: statSync(path.join(depot, nom)) }))

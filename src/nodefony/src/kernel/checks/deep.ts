@@ -174,7 +174,7 @@ export function declaredSteps(
 ): { present: string[]; missing: string[] } {
   const manifeste = path.join(projectRoot, "package.json");
   if (!existsSync(manifeste)) return { present: [], missing: [...steps] };
-  let scripts: Record<string, unknown> = {};
+  let scripts: Record<string, unknown>;
   try {
     const pkg = JSON.parse(readFileSync(manifeste, "utf8")) as {
       scripts?: Record<string, unknown>;
@@ -225,7 +225,7 @@ export function verifyChainSteps(projectRoot: string): {
 } {
   const manifeste = path.join(projectRoot, "package.json");
   if (!existsSync(manifeste)) return { steps: [], unhandled: [] };
-  let chain = "";
+  let chain;
   try {
     const pkg = JSON.parse(readFileSync(manifeste, "utf8")) as {
       scripts?: Record<string, unknown>;

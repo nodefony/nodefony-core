@@ -5894,7 +5894,7 @@ function monterDecor(runDir, app) {
       ? [path.join(app, FOYERS_JETABLES[foyer])]
       : [path.join(app, ".gemini"), app];
     const trace = ouChercher.some((dossier) => {
-      let noms = [];
+      let noms;
       try {
         noms = readdirSync(dossier);
       } catch {

@@ -796,7 +796,7 @@ class HttpRequest {
     // `parts`, pas `parse` : le module déclare déjà un `parse` (la table des
     // analyseurs de corps) que ce nom masquait sur toute la méthode.
     let parts: string[] = [];
-    let subtype = "*";
+    let subtype;
     let type = "*";
     if (Type) {
       parts = Type.split("/");

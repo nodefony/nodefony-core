@@ -124,7 +124,7 @@ function posterTexte(
         res.setEncoding("utf8");
         res.on("data", (morceau: string) => (texte += morceau));
         res.on("end", () => {
-          let body: unknown = null;
+          let body: unknown;
           try {
             body = texte === "" ? null : JSON.parse(texte);
           } catch {
@@ -289,7 +289,7 @@ function lireDocument(chemin: string): Promise<IReponse> {
         res.setEncoding("utf8");
         res.on("data", (morceau: string) => (texte += morceau));
         res.on("end", () => {
-          let body: unknown = null;
+          let body: unknown;
           try {
             body = texte === "" ? null : JSON.parse(texte);
           } catch {
@@ -323,7 +323,7 @@ function lire(chemin: string): Promise<IReponse> {
         res.setEncoding("utf8");
         res.on("data", (morceau: string) => (texte += morceau));
         res.on("end", () => {
-          let body: unknown = null;
+          let body: unknown;
           try {
             body = texte === "" ? null : JSON.parse(texte);
           } catch {

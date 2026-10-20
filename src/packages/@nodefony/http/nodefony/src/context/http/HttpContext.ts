@@ -296,7 +296,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     // controller stops producing a response the client will never receive.
     // No-op if nobody read `signal` (cold path, zero overhead otherwise).
     this._abortIfPending("Request timeout");
-    let error = null;
+    let error;
     if ((this.response as Http2Response).stream) {
       // traff 408 reload page htpp2 loop
       error = new HttpError("Gateway Timeout", 504, this);

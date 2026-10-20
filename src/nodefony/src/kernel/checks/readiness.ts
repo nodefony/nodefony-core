@@ -446,7 +446,7 @@ export async function checkReadiness(input: {
     let pkg: {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
-    } = {};
+    };
     try {
       pkg = JSON.parse(readFileSync(pkgFile, "utf8")) as typeof pkg;
     } catch {

@@ -448,7 +448,7 @@ class Route implements IRoute {
         // Requirement par variable de route = RegExp | string (au-delà des clés
         // typées de RouteRequirements) → `unknown` + narrowing instanceof/typeof.
         const req: unknown = this.getRequirement(k as keyof RouteRequirements);
-        let result = null;
+        let result;
         if (req) {
           // P3a : RegExp pré-compilée au boot (varRegexp, lookup O(1)).
           // Chemin froid (clé réservée homonyme, jamais en pratique) : legacy.

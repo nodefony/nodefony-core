@@ -652,7 +652,7 @@ async function main(): Promise<void> {
   // ET l'application racine (`dist/index.js`). Sans elle, le kernel ne trouve pas
   // le point d'entrée, aucun module ne se charge, et un banc CLI se plaint qu'une
   // commande manque — un symptôme qui ne parle jamais de la vraie cause.
-  let ok = await phase("Build", "npm run build", phases);
+  const ok = await phase("Build", "npm run build", phases);
   // `--fresh` : `--force` ignore le cache, `--only` borne la passe aux tâches
   // `test` — sans lui, `--force` rebâtirait le graphe des builds PENDANT que les
   // suites bootent l'application (le piège décrit ci-dessus). Le build vient
@@ -660,7 +660,7 @@ async function main(): Promise<void> {
   const fresh = options.fresh ? " --only --force" : "";
 
   if (ok && options.unit) {
-    ok = await phase(
+    await phase(
       "Suite unitaire",
       `npx turbo run test --continue${fresh}`,
       phases,

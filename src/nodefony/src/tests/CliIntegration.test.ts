@@ -2229,7 +2229,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           status: number | null;
           stdout: string;
           stderr: string;
-        } | null = null;
+        } | null;
         // En mode brut, Ctrl+C est une TOUCHE : aucun SIGINT n'atteint le
         // groupe du terminal. Seul le superviseur peut tuer turbo — laissé
         // vivant, il écrirait `dist/` pendant que le développeur relance.

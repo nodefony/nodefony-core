@@ -136,7 +136,7 @@ export function docDirectories(root) {
   };
   push(path.join(modules, "nodefony"));
   const scope = path.join(modules, "@nodefony");
-  let entries = [];
+  let entries;
   try {
     entries = readdirSync(scope);
   } catch {
@@ -155,7 +155,7 @@ export function docDirectories(root) {
 function markdownFiles(dir) {
   const out = [];
   const walk = (current) => {
-    let entries = [];
+    let entries;
     try {
       entries = readdirSync(current, { withFileTypes: true });
     } catch {
@@ -300,7 +300,7 @@ export function index(root) {
   const pages = [];
   for (const dir of docDirectories(root)) {
     for (const file of markdownFiles(dir)) {
-      let source = "";
+      let source;
       try {
         source = readFileSync(file, "utf8");
       } catch {

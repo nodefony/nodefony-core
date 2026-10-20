@@ -148,13 +148,9 @@ function parseReplayLine(line: string, index: number): ReplayLine | null {
   if (m) {
     const [, hh = "", mm = "", ss = "", ms = "", sev = "", tail = ""] = m;
     const ts = clockToTs(+hh, +mm, +ss, +ms);
-    let rest = tail;
     let msgid = "";
-    const sep = rest.indexOf(" : ");
-    if (sep !== -1) {
-      msgid = rest.slice(0, sep).trim();
-      rest = rest.slice(sep + 3);
-    }
+    const sep = tail.indexOf(" : ");
+    if (sep !== -1) msgid = tail.slice(0, sep).trim();
     // requestId si présent dans le texte (ex. ligne `req … [615dad21]`). Le
     // format pretty ne l'expose que sur certaines lignes → suivi best-effort
     // en texte (complet en JSON où chaque Pdu porte son requestId).

@@ -349,10 +349,14 @@
     // qu'elles attrapent un défaut réel : `eqeqeq` exempte `== null`, l'idiome
     // « null OU undefined » (191 des 194 sites) ; `array-callback-return` refuse
     // un `map()` dont le tableau est jeté ; `no-unsafe-function-type` refuse le
-    // type `Function`, qui accepte tout appel sans rien vérifier.
+    // type `Function`, qui accepte tout appel sans rien vérifier ;
+    // `no-useless-assignment` refuse une valeur que chaque chemin réécrit avant
+    // de la lire — un `| null` qui n'existe pas, un tableau alloué pour rien, un
+    // résultat calculé puis jeté.
     "eqeqeq": ["error", "always", { "null": "ignore" }],
     "array-callback-return": "error",
     "typescript/no-unsafe-function-type": "error",
+    "no-useless-assignment": "error",
     // Écartées par la même sonde — aucune n'a trouvé de défaut :
     // - `no-promise-executor-return` (450) : `return resolve()`,
     //   `r => setTimeout(r)`, `(release = r)`, `r => server.close(r)` — les

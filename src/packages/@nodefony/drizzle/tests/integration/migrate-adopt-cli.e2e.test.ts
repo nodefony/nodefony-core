@@ -220,7 +220,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
        */
       const tablesEcrites = async (): Promise<string[]> => {
         const noms = new Set<string>();
-        let fichiers: string[] = [];
+        let fichiers: string[];
         try {
           fichiers = (await fs.readdir(outDir)).filter((f) =>
             f.endsWith(".sql"),

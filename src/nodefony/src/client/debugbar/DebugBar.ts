@@ -2693,7 +2693,7 @@ export class DebugBar {
         ? kv("erreur", `<span class="crit">${escapeHtml(p.error)}</span>`)
         : "") +
       `</div>`;
-    let wf = "";
+    let wf;
     if (bars.length === 0) {
       wf = `<div class="empty">aucune phase mesurée (timing désactivé ?).</div>`;
     } else {

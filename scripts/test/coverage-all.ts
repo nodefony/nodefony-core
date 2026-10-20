@@ -146,7 +146,7 @@ const NATURES = [
 
 function ventilerTests(dossier: string): Record<string, number> {
   const compte: Record<string, number> = {};
-  let fichiers: string[] = [];
+  let fichiers: string[];
   try {
     fichiers = execFileSync(
       "git",

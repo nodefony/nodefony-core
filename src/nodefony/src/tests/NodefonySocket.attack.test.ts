@@ -306,7 +306,7 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     await wait(700);
     // Ce que le client retient de l'attaquant (journal de protocole) doit être borné :
     // 40 x 2 Mo = 80 Mo. Un journal qui garde les 300 dernières charges brutes gonfle sans borne.
-    let retained = 0;
+    let retained;
     try {
       retained = JSON.stringify(c.frameLog).length;
     } catch {
