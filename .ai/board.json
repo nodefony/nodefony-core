@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T15:45:19.981Z",
+  "generatedAt": "2026-10-20T16:56:18.964Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 158,
+      "closed": 159,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 16,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -3545,8 +3545,8 @@
       "number": 352,
       "title": "test(release): éprouver un flux SSE à travers le frontal généré",
       "url": "https://github.com/nodefony/nodefony-core/issues/352",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
