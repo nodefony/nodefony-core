@@ -227,6 +227,7 @@
       "esbuild": ">=0.25.0"
     },
     "@angular/build": {
+      "vite": "$vite",
       "vitest": "$vitest"
     },
     "lodash-es": "^4.18.1"
