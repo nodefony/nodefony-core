@@ -7673,6 +7673,10 @@
                 "help": ""
               },
               {
+                "flag": "--http2-prior-knowledge",
+                "help": ""
+              },
+              {
                 "flag": "--max-time",
                 "help": ""
               }
@@ -7692,6 +7696,14 @@
               },
               {
                 "name": "BENCH_PATH",
+                "help": ""
+              },
+              {
+                "name": "BENCH_PROTO",
+                "help": ""
+              },
+              {
+                "name": "BENCH_STREAMS",
                 "help": ""
               },
               {

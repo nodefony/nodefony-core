@@ -16,7 +16,10 @@
 #   connexion après le boot, puis le cookie de session porté par CHAQUE requête,
 #   contrôle et wrk compris. C'est le seul moyen de profiler la session, le
 #   pare-feu et le rechargement de l'utilisateur ; sans lui, une route protégée
-#   répond 401 et le contrôle refuse de mesurer).
+#   répond 401 et le contrôle refuse de mesurer),
+#   BENCH_PROTO=h2c (charge HTTP/2 en clair par h2load : BENCH_CONN connexions ×
+#   BENCH_STREAMS flux, 4 × 16 par défaut, la forme d'un proxy ; <port> est alors
+#   celui de servers.h2c, activé par XENV=NF__APP__SERVERS__H2C__ENABLED=true).
 # ⚠️ Toujours en production : `phaseStart/phaseEnd` ne sont actifs qu'ailleurs,
 #   et un profil pris en développement surestime le coût du pipeline.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -25,30 +28,50 @@ LABEL=$1; PORT=$2; shift 2
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 OUT="${NF_PROFILE_DIR:-$ROOT/tmp/profiles}/$LABEL"
 URL="http://127.0.0.1:$PORT${BENCH_PATH:-/nodefony/test/als-test/state}"
+# h2c refuse HTTP/1.1 : sans connaissance préalable, curl échoue sur un port
+# qui écoute, et la garde ci-dessous croirait le port libre.
+CURL_PROTO=()
+[ "${BENCH_PROTO:-h1}" = h2c ] && CURL_PROTO=(--http2-prior-knowledge)
 # Un serveur DÉJÀ à l'écoute répondrait à la charge à la place de celui qu'on
 # profile : profil vide, débit d'un autre code, et aucune erreur (vécu : un
 # serveur de diagnostic oublié a été « mesuré » à 1 441 req/s).
-if curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$PORT/"; then
+if curl -s ${CURL_PROTO[@]+"${CURL_PROTO[@]}"} -o /dev/null --max-time 1 "http://127.0.0.1:$PORT/"; then
   echo "❌ le port $PORT répond déjà — arrêter ce serveur avant de profiler"; exit 1
 fi
 rm -rf "$OUT"; mkdir -p "$OUT"
 cd "$ROOT"
-env NODE_ENV=production NF_LOG_DRIVER=null NF_BENCH_ROUTE=1 ${XENV:-} PORT=$PORT \
+# `PORT` fixe le port HTTP de l'app : en h2c, <port> est celui de servers.h2c, et
+# le poser ici mettrait HTTP sur le même port — démarrage refusé (h2cPortConflict),
+# en silence puisque les journaux sont coupés.
+SERVER_PORT=(PORT=$PORT)
+[ "${BENCH_PROTO:-h1}" = h2c ] && SERVER_PORT=()
+env NODE_ENV=production NF_LOG_DRIVER=null NF_BENCH_ROUTE=1 ${XENV:-} ${SERVER_PORT[@]+"${SERVER_PORT[@]}"} \
   node --cpu-prof --cpu-prof-dir="$OUT" --cpu-prof-interval 200 "$@" >"$OUT/server.log" 2>&1 &
 PID=$!
-for _ in $(seq 1 150); do curl -s -o /dev/null "$URL" && break; sleep 0.2; done
+for _ in $(seq 1 150); do curl -s ${CURL_PROTO[@]+"${CURL_PROTO[@]}"} -o /dev/null "$URL" && break; sleep 0.2; done
 HDR=()
 if [ -n "${BENCH_LOGIN:-}" ]; then
   # Un seul cookie par nom, attributs retirés : ce que le navigateur renverrait.
-  COOKIE=$(curl -s -D - -o /dev/null -H 'content-type: application/json' \
+  COOKIE=$(curl -s ${CURL_PROTO[@]+"${CURL_PROTO[@]}"} -D - -o /dev/null -H 'content-type: application/json' \
     -d "{\"username\":\"${BENCH_LOGIN%%:*}\",\"password\":\"${BENCH_LOGIN#*:}\"}" \
     "http://127.0.0.1:$PORT/nodefony/security/api/auth/login" |
     awk 'tolower($1)=="set-cookie:" { split($2, a, ";"); printf "%s; ", a[1] }')
   [ -n "$COOKIE" ] || { echo "❌ connexion ${BENCH_LOGIN%%:*} refusée — aucun cookie de session"; kill -INT $PID; exit 1; }
   HDR=(-H "Cookie: $COOKIE")
 fi
-CODE=$(curl -s -o /dev/null -w '%{http_code}' ${HDR[@]+"${HDR[@]}"} "$URL")
+CODE=$(curl -s ${CURL_PROTO[@]+"${CURL_PROTO[@]}"} -o /dev/null -w '%{http_code}' ${HDR[@]+"${HDR[@]}"} "$URL")
 [ "$CODE" = "200" ] || { echo "❌ $URL répond $CODE — rien ne serait valide"; kill -INT $PID; exit 1; }
+if [ "${BENCH_PROTO:-h1}" = h2c ]; then
+  # wrk ne parle que HTTP/1.1 ; h2load mesure h2c. Mêmes sorties : rps, refus du non-2xx.
+  H2=(-t4 -c"${BENCH_CONN:-4}" -m"${BENCH_STREAMS:-16}" ${HDR[@]+"${HDR[@]}"} "$URL")
+  h2load -D 10 "${H2[@]}" >/dev/null 2>&1
+  h2load -D "${BENCH_DUR:-20}" "${H2[@]}" > "$OUT/h2load.txt" 2>&1
+  grep -E "^finished|^status codes|^time for request" "$OUT/h2load.txt"
+  if ! grep -qE "^status codes: [0-9]+ 2xx, 0 3xx, 0 4xx, 0 5xx" "$OUT/h2load.txt"; then
+    echo "❌ réponses non-2xx sous charge — profil invalide"; kill -INT $PID; exit 1
+  fi
+  sed -n 's/^finished in [^,]*, \([0-9.]*\) req\/s.*/\1/p' "$OUT/h2load.txt" > "$OUT/rps"
+else
 wrk -t4 -c"${BENCH_CONN:-128}" -d10s ${HDR[@]+"${HDR[@]}"} "$URL" >/dev/null
 wrk -t4 -c"${BENCH_CONN:-128}" -d"${BENCH_DUR:-20}"s ${HDR[@]+"${HDR[@]}"} "$URL" > "$OUT/wrk.txt"
 grep -E "Requests/sec|Latency|Non-2xx" "$OUT/wrk.txt"
@@ -58,6 +81,7 @@ if grep -q "Non-2xx" "$OUT/wrk.txt"; then
   echo "❌ réponses non-2xx sous charge — profil invalide"; kill -INT $PID; exit 1
 fi
 awk '/Requests\/sec/ {print $2}' "$OUT/wrk.txt" > "$OUT/rps"
+fi
 kill -INT $PID; for _ in $(seq 1 50); do kill -0 $PID 2>/dev/null || break; sleep 0.2; done
 kill -0 $PID 2>/dev/null && { echo "pas arrêté, SIGTERM"; kill -TERM $PID; sleep 2; }
 ls "$OUT"/*.cpuprofile
