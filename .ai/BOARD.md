@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-20 13:10** (UTC).
+> Empreinte prise le **2026-10-20 13:23** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -106,7 +106,7 @@ Ordre 4.07 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 22 ouverts
+## Backlog — aucune date promise · 23 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -132,6 +132,7 @@ Ordre 4.07 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 917 | P3 — fin de cycle | 6 | — | #612 | refactor(core): finir le découpage du noyau, une famille à la fois |
 | 918 | P2 — décision | 2 | — | #615 | feat(cli): ajouter un type de champ chiffré au repos à create entity |
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
+| 920 | P3 — fin de cycle | 0.5 | — | #638 | chore(lint): retirer les initialisations jamais lues et l'interdire |
 
 ## Jalon 10.0.0-beta — 17 ouverts
 
