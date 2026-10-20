@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T14:45:07.167Z",
+  "generatedAt": "2026-10-20T15:45:19.981Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 157,
+      "closed": 158,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 17,
+      "open": 16,
       "title": "10.0.0-beta"
     },
     {
@@ -3528,8 +3528,8 @@
       "number": 595,
       "title": "feat(scaffold): générer les secrets de production dans la CI de l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/595",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3546,7 +3546,7 @@
       "title": "test(release): éprouver un flux SSE à travers le frontal généré",
       "url": "https://github.com/nodefony/nodefony-core/issues/352",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
