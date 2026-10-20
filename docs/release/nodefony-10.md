@@ -216,7 +216,7 @@ publiés**, ce qu'aucun test du dépôt ne peut voir. Reste : le câbler en CI (
 
 ### Taille — démystifiée
 
-Dist embarqué (subpaths released, IA/média exclus) ≈ **6-7 Mo** (petit ; **serveur**, jamais navigateur). **Vrai gras** = le **toolchain de build** (`rollup`/`terser`/`chokidar`/`figlet`/`lodash`) en `dependencies` runtime du core → **rendre lazy/optional** (chargé par `build`/`dev` seulement) ⇒ install prod lean. Adapters lourds (pg/mysql2/mongoose/redis/mediasoup) = **`peer`**. 🔑 **Install serveur ≠ bundle navigateur** (Vite, tree-shaké depuis l'app).
+Dist embarqué (subpaths released, IA/média exclus) ≈ **6-7 Mo** (petit ; **serveur**, jamais navigateur). **Vrai gras** = le **toolchain de build** (`rollup`/`terser`/`figlet`/`lodash` ; `chokidar` retiré au profit de `fs.watch`) en `dependencies` runtime du core → **rendre lazy/optional** (chargé par `build`/`dev` seulement) ⇒ install prod lean. Adapters lourds (pg/mysql2/mongoose/redis/mediasoup) = **`peer`**. 🔑 **Install serveur ≠ bundle navigateur** (Vite, tree-shaké depuis l'app).
 
 ---
 

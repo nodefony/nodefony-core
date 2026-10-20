@@ -11,7 +11,7 @@ applicatif et une console d'administration** — engendrée par
 [`nodefony create app`](https://github.com/nodefony/nodefony-core), minimale et saine, à faire grandir.
 <% } %>
 [![Nodefony](https://img.shields.io/badge/Nodefony-<%= it.nodefonyVersion.replace(/-/g, "--") %>-1f6feb?style=flat-square)](https://github.com/nodefony/nodefony-core)
-[![Node ≥ 24](https://img.shields.io/badge/Node.js-%E2%89%A5%2024-green?style=flat-square)](package.json)
+[![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 
 </div>

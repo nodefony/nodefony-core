@@ -34,7 +34,6 @@ const external: string[] = [
   "semver",
   "reflect-metadata",
   "eta",
-  "chokidar",
   "tslib",
   "zod",
 ];

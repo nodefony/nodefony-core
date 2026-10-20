@@ -104,7 +104,7 @@ ne se devine pas, elle se demande : `npm query .workspace`.
 ## Six commandes
 
 ```bash
-npm install            # Node ≥ 24 requis
+npm install            # Node ≥ 24.14 requis
 npm run build          # compile les workspaces modifiés (cache turbo)
 npm run dev            # reconstruit le cœur à chaud (rolldown --watch)
 npm test               # construit, puis lance TOUTES les suites du dépôt

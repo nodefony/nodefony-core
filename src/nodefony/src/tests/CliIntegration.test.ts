@@ -1122,7 +1122,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         assert.strictEqual(await isPortOpen(HTTP_PORT), true);
 
         // Touche un fichier SURVEILLÉ sans écrire dedans : `utimesSync` ne change que
-        // les dates, donc l'arbre git reste identique — alors que chokidar, lui, voit
+        // les dates, donc l'arbre git reste identique — alors que le watch, lui, voit
         // bien un changement. Modifier le contenu pour déclencher un watcher est un
         // piège : le test laisserait un diff derrière lui s'il échoue avant sa
         // restauration.

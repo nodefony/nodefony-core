@@ -187,7 +187,7 @@ Nodefony.generateV5Id(name, ns?) // uuidv5 string
 
 - `getKernel()` retourne `null` avant `Kernel.start()` — toujours utiliser `?.`
 - Ancienne API supprimée : `nodefony.kernel`, `nodefony.generateId()`, default export
-- **UUIDv7 = `crypto.randomUUIDv7()` NATIF** (Node ≥ 24 = `engines` min) → 0 dep, pas de générateur maison.
+- **UUIDv7 = `crypto.randomUUIDv7()` NATIF quand présent** (Node ≥ 24.16), repli conforme sinon (`runtime/uuidV7.ts#randomUuidV7`) → 0 dep.
   ⚠️ `randomUUID({version: 7})` **ne fait PAS un v7** : option ignorée en silence → v4 (nibble `4`).
 - **v7 : PAS de monotonie intra-ms** (Node n'a pas le compteur RFC §6.2 ; mesuré ~50 % d'inversions sur
   20 000 tirages, 0 collision). Localité d'index acquise (préfixe 48 bits) mais **jamais trier par id**

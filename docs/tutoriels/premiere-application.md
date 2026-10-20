@@ -34,7 +34,7 @@ Une petite application `mon-app`, du dossier vide jusqu'à :
    mélangent pas ;
 5. une **entité** `Article` enregistrée en base, avec son API REST générée.
 
-**Prérequis** : Node.js 24 ou plus, et `npm`. Rien d'autre : la base de données est un fichier SQLite
+**Prérequis** : Node.js 24.14 ou plus, et `npm`. Rien d'autre : la base de données est un fichier SQLite
 créé pour toi. Compte un quart d'heure.
 
 ## 📖 Lexique

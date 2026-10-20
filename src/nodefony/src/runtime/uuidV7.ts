@@ -3,7 +3,7 @@
  *
  * `crypto.randomUUIDv7()` n'est arrivé qu'en **Node 24.16.0** — mesuré sur six
  * versions : absent en 24.0, 24.8, 24.12 et 24.14, présent en 24.16 et 24.21.
- * Or le framework déclare `engines: ">=24.0.0"`, et un `import` NOMMÉ de ce
+ * Or le framework déclare `engines: ">=24.14.0"`, et un `import` NOMMÉ de ce
  * symbole est résolu à l'instanciation du module ESM : sur un Node 24 antérieur,
  * l'application meurt **avant d'exécuter une seule ligne**, sur
  * « does not provide an export named 'randomUUIDv7' ». npm n'avertit de rien —
@@ -11,6 +11,10 @@
  *
  * Constaté en vrai sur l'image `gcr.io/distroless/nodejs24-debian12`, dont le
  * Node est en 24.14.0 : l'image se construit, se lance, et meurt au démarrage.
+ *
+ * C'est aussi pourquoi le plancher `engines` s'arrête à 24.14 et non 24.16 :
+ * relever d'un cran supprimerait ce repli, mais exclurait distroless, qui suit
+ * Node avec retard. Revérifier son Node avant de relever le plancher.
  *
  * 🔴 **Le repli produit un vrai UUID v7, jamais un v4.** Remplacer l'un par
  * l'autre « en attendant » changerait la SÉMANTIQUE sans rien casser de visible :

@@ -6,14 +6,14 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  watch,
   writeFileSync,
-  type Stats,
+  type WatchEventType,
 } from "node:fs";
-import type { EventEmitter } from "node:events";
+import { EventEmitter } from "node:events";
 import net from "node:net";
 import { Nodefony } from "../../Nodefony";
 import path from "node:path";
-import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
 import { portableSpawn } from "../../cli/execPortable";
 import {
@@ -217,7 +217,7 @@ const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "�
  * tout ce paquet : on l'éditait, il ne se passait rien, jamais. On n'exclut donc
  * le dossier `frontend` que lorsqu'il n'est PAS le paquet `@nodefony/frontend`.
  *
- * Fonction PURE (pas de fs) → testable sans chokidar ni serveur.
+ * Fonction PURE (pas de fs) → testable sans watcher ni serveur.
  *
  * @param p - chemin du fichier ou dossier (relatif au projet, ou absolu).
  * @param isFile - `true` si l'entrée est un fichier (un non-`.ts` est alors ignoré).
@@ -236,8 +236,8 @@ export function isIgnoredWatchPath(p: string, isFile = false): boolean {
 }
 
 /**
- * Applique {@link isIgnoredWatchPath} à une entrée telle que chokidar la fournit —
- * c'est-à-dire en chemin **absolu**.
+ * Applique {@link isIgnoredWatchPath} à une entrée relative au projet ou absolue —
+ * la règle doit tenir dans les deux formes.
  *
  * ⚠️ Le piège que cette fonction referme : les segments qui désignent un dossier de
  * travail (`tmp`, `var`) sont des noms ORDINAIRES ailleurs. Sur macOS, `TMPDIR` vaut
@@ -269,19 +269,15 @@ export function shouldIgnoreWatchEntry(
  * convertit l'événement en exception non rattrapée — et le serveur de développement
  * entier meurt d'un incident d'observation.
  *
- * ⚠️ **Portée exacte** : ce garde ne couvre que ce que chokidar émet LUI-MÊME
- * (`_handleError`, dont l'`EPERM` de Windows). Une erreur levée par le flux de
- * parcours interne ne passe PAS par le watcher — chokidar branche `close` et `end`
- * sur ses streams, jamais `error` — et reste donc fatale. C'est pourquoi le cas vécu
- * en intégration continue (la suite de tests supprimait `src/nodefony/tmp/copied`
- * pendant qu'un serveur détaché tournait ; le parcours rendait `EBUSY` et le process
- * sortait en 1) se referme en amont, en ne DESCENDANT pas dans les dossiers de
- * travail — cf {@link isIgnoredWatchPath}, et non ici.
+ * Vécu en intégration continue : la suite de tests supprimait
+ * `src/nodefony/tmp/copied` pendant qu'un serveur détaché tournait ; le parcours
+ * rendait `EBUSY` et le process sortait en 1. Le garde en fait un avertissement, et
+ * {@link isIgnoredWatchPath} évite d'abord de DESCENDRE dans les dossiers de travail.
  *
  * Le prix d'une erreur avalée est réel — le watch peut avoir perdu une branche —
  * donc on la DIT : un rechargement qui ne part plus sans un mot est un mystère.
  *
- * @param watcher - l'émetteur à protéger (le `FSWatcher` de chokidar en production).
+ * @param watcher - l'émetteur à protéger ({@link watchSources} en production).
  * @param log - reçoit le message à journaliser.
  */
 export function attachWatcherErrorGuard(
@@ -297,6 +293,119 @@ export function attachWatcherErrorGuard(
       `watch : ${code}${err?.message ?? String(error)}${where} — ignoré, surveillance maintenue`,
     );
   });
+}
+
+/** Surveillance des sources rendue par {@link watchSources}. */
+export interface ISourceWatcher extends EventEmitter {
+  /** Ferme tous les watchers sous-jacents. Idempotent. */
+  close(): void;
+}
+
+/** Ce que {@link watchSources} attend d'un watcher ouvert. */
+export interface IWatchHandle {
+  on(event: "error", listener: (error: Error) => void): unknown;
+  close(): void;
+}
+
+/**
+ * Signature de `fs.watch` réduite à ce que {@link watchSources} utilise —
+ * injectable pour éprouver ce que le disque local ne reproduit pas (un Node
+ * sans l'option `ignore`, une ouverture qui lève).
+ */
+export type WatchFunction = (
+  target: string,
+  options: { recursive: boolean; ignore?: (filename: string) => boolean },
+  listener: (event: WatchEventType, filename: string | null) => void,
+) => IWatchHandle;
+
+/**
+ * Surveille les sources backend avec le `fs.watch` de Node, sans dépendance :
+ * chaque dossier en récursif, les fichiers isolés par leur dossier parent.
+ *
+ * Un fichier isolé (`index.ts`, `nodefony.config.ts`…) se surveille par son
+ * DOSSIER : un éditeur qui enregistre par renommage (écriture atomique) remplace
+ * le fichier, et un watch posé sur l'ancien fichier deviendrait sourd sans un mot.
+ *
+ * {@link shouldIgnoreWatchEntry} s'applique deux fois. En option `ignore`, il
+ * ÉLAGUE le parcours là où Node le fait lui-même dossier par dossier (Linux) :
+ * `node_modules` et les dossiers de travail ne sont jamais lus. Sur l'événement,
+ * il fait FOI : `ignore` n'existe que depuis Node 24.14, un Node plus ancien
+ * l'ignore sans un mot — le parcours est alors plus large, le résultat identique.
+ *
+ * Les erreurs de chaque watcher, y compris celles levées à l'ouverture, sont
+ * relayées en `error` sur l'émetteur rendu, au tick suivant : le brancher à
+ * {@link attachWatcherErrorGuard} dans le même tick.
+ *
+ * @param cwd - racine du projet.
+ * @param entries - dossiers et fichiers à surveiller, relatifs à `cwd`.
+ * @param onChange - reçoit chaque fichier `.ts` modifié, relatif à `cwd`.
+ * @param watchFn - l'ouverture d'un watcher ; `fs.watch` hors tests.
+ * @returns l'émetteur des erreurs, qui ferme la surveillance par `close()`.
+ */
+export function watchSources(
+  cwd: string,
+  entries: readonly string[],
+  onChange: (file: string) => void,
+  watchFn: WatchFunction = watch,
+): ISourceWatcher {
+  const watchers: IWatchHandle[] = [];
+  const hub: ISourceWatcher = Object.assign(new EventEmitter(), {
+    close(): void {
+      for (const w of watchers.splice(0)) w.close();
+    },
+  });
+  const open = (
+    target: string,
+    recursive: boolean,
+    listener: (filename: string | null) => void,
+    ignore?: (filename: string) => boolean,
+  ): void => {
+    try {
+      const w = watchFn(
+        path.resolve(cwd, target),
+        ignore ? { recursive, ignore } : { recursive },
+        (_event, filename) => listener(filename),
+      );
+      w.on("error", (error: unknown) => hub.emit("error", error));
+      watchers.push(w);
+    } catch (error) {
+      process.nextTick(() => hub.emit("error", error));
+    }
+  };
+  // Fichiers isolés, regroupés par dossier parent.
+  const files = new Map<string, Set<string>>();
+  for (const entry of entries) {
+    let isDir: boolean;
+    try {
+      isDir = statSync(path.resolve(cwd, entry)).isDirectory();
+    } catch (error) {
+      process.nextTick(() => hub.emit("error", error));
+      continue;
+    }
+    if (isDir) {
+      open(
+        entry,
+        true,
+        (filename) => {
+          if (!filename) return;
+          const file = path.join(entry, filename);
+          if (!shouldIgnoreWatchEntry(cwd, file, true)) onChange(file);
+        },
+        (filename) => shouldIgnoreWatchEntry(cwd, path.join(entry, filename)),
+      );
+      continue;
+    }
+    const dir = path.dirname(entry);
+    let names = files.get(dir);
+    if (names === undefined) files.set(dir, (names = new Set()));
+    names.add(path.basename(entry));
+  }
+  for (const [dir, names] of files) {
+    open(dir, false, (filename) => {
+      if (filename && names.has(filename)) onChange(path.join(dir, filename));
+    });
+  }
+  return hub;
 }
 
 /**
@@ -832,7 +941,7 @@ export class DevSupervisor {
   #dyingChild: ChildProcess | null = null;
   #childSpawnedAt = 0;
   #spawnRetries = 0;
-  #watcher: FSWatcher | null = null;
+  #watcher: ISourceWatcher | null = null;
   #timer: ReturnType<typeof setTimeout> | null = null;
   #building = false;
   #pending = false;
@@ -2026,24 +2135,17 @@ export class DevSupervisor {
   }
 
   /**
-   * Surveillance chokidar des sources backend (sources client / dist / tests
-   * exclus — cf {@link isIgnoredWatchPath}, la règle EXACTE, testée à part).
+   * Surveillance des sources backend (sources client / dist / tests exclus —
+   * cf {@link isIgnoredWatchPath}, la règle EXACTE, testée à part).
    */
   #startWatch(): void {
-    this.#watcher = watch(this.#paths as string[], {
-      cwd: this.#cwd,
-      ignoreInitial: true,
-      ignored: (p: string, stats?: Stats) =>
-        shouldIgnoreWatchEntry(this.#cwd, p, stats?.isFile() ?? false),
+    this.#watcher = watchSources(this.#cwd, this.#paths, (file) => {
+      this.#dirty.add(file);
+      this.#scheduleRestart(file);
     });
     attachWatcherErrorGuard(this.#watcher, (message) =>
       this.#log(message, "yellow"),
     );
-    this.#watcher.on("all", (_event, file: string) => {
-      if (!file.endsWith(".ts")) return;
-      this.#dirty.add(file);
-      this.#scheduleRestart(file);
-    });
   }
 
   /** Anti-rebond : regroupe plusieurs sauvegardes rapprochées en un restart. */
@@ -2363,7 +2465,7 @@ export class DevSupervisor {
     // l'écran normal, pas dans un écran alternatif qui va disparaître.
     this.#terminal?.leaveFullscreen();
     if (this.#timer) clearTimeout(this.#timer);
-    await this.#watcher?.close();
+    this.#watcher?.close();
     this.#terminal?.setPhase("restarting");
     await this.#killBuild();
     await this.#killChild();

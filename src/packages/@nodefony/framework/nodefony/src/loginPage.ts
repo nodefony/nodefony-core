@@ -364,7 +364,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
           </p>
           <ul class="badges">
             <li class="agentic">Agentic ready</li>
-            <li>Node.js ≥ 24</li>
+            <li>Node.js ≥ 24.14</li>
             <li>TypeScript strict</li>
             <li>ESM only</li>
             <li>Licence Apache 2.0</li>

@@ -278,8 +278,8 @@ class Dev extends Command {
       // redémarrage d'un développeur, pour rien.
       externalServices: false,
     });
-    // DevSupervisor (→ chokidar) chargé à la demande : seul le superviseur parent du
-    // mode dev en a besoin — le boot prod/enfant ne paie pas le watcher au chargement.
+    // DevSupervisor chargé à la demande : seul le superviseur parent du mode dev
+    // en a besoin — le boot prod/enfant ne paie pas son chargement.
     const { default: DevSupervisor } =
       await import("../../service/dev/DevSupervisor");
     const supervisor = new DevSupervisor({

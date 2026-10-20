@@ -33,7 +33,7 @@
     "vite": ">=8.2.0"
   },
   "devDependencies": {
-    "@analogjs/vite-plugin-angular": "2.9.0",
+    "@analogjs/vite-plugin-angular": "2.9.1",
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",

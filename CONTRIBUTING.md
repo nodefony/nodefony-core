@@ -24,7 +24,7 @@ quelles : ouvrez d'abord une issue pour en parler.
 
 ## Prérequis
 
-- **Node.js ≥ 24** (`engines` du dépôt — aucune rétrocompatibilité n'est prévue)
+- **Node.js ≥ 24.14** (`engines` du dépôt — aucune rétrocompatibilité n'est prévue)
 - **npm** (le dépôt est un monorepo de workspaces npm + turbo)
 - **Docker**, uniquement pour les suites qui touchent une base réelle (PostgreSQL, MySQL, MongoDB,
   Redis) — le reste tourne sans
