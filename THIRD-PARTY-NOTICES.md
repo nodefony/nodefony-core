@@ -3,7 +3,7 @@
 > Fichier **généré** — ne pas l'éditer à la main : `npx nodefony licenses --write`.
 > Un inventaire écrit à la main se périme au premier `npm install`.
 
-Ce dépôt redistribue 550 paquets tiers. Les licences
+Ce dépôt redistribue 540 paquets tiers. Les licences
 permissives qu'ils emploient imposent de conserver leur notice de copyright et le
 texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`.
 
@@ -11,10 +11,10 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 
 | Licence | Paquets | Ce qu'elle impose |
 | --- | ---: | --- |
-| MIT | 428 | garder la notice et le texte de la licence |
+| MIT | 421 | garder la notice et le texte de la licence |
 | Apache-2.0 | 60 | garder la notice et le fichier NOTICE ; signaler les fichiers modifiés (brevets concédés) |
 | ISC | 21 | garder la notice et le texte de la licence |
-| BSD-3-Clause | 16 | garder la notice ; ne pas invoquer le nom des auteurs pour promouvoir |
+| BSD-3-Clause | 13 | garder la notice ; ne pas invoquer le nom des auteurs pour promouvoir |
 | BSD-2-Clause | 13 | garder la notice et le texte de la licence |
 | MPL-2.0 | 3 | copyleft de FICHIER : un fichier MPL modifié reste MPL ; le reste du produit est libre |
 | MIT-0 | 2 | rien — attribution non exigée |
@@ -274,7 +274,6 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `debug` | 4.4.3 | MIT |
 | `decimal.js` | 10.6.0 | MIT |
 | `define-lazy-prop` | 2.0.0 | MIT |
-| `delay` | 5.0.0 | MIT |
 | `depd` | 2.0.0 | MIT |
 | `detect-libc` | 2.1.2 | Apache-2.0 |
 | `devalue` | 5.9.4 | MIT |
@@ -316,7 +315,6 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `etag` | 1.8.1 | MIT |
 | `expect-type` | 1.4.0 | Apache-2.0 |
 | `fast-deep-equal` | 3.1.3 | MIT |
-| `fast-printf` | 1.6.10 | BSD-3-Clause |
 | `fast-string-truncated-width` | 3.0.3 | MIT |
 | `fast-string-width` | 3.0.2 | MIT |
 | `fast-uri` | 3.1.8 | BSD-3-Clause |
@@ -342,7 +340,6 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `htmlparser2` | 12.0.0 | MIT |
 | `http-errors` | 2.0.1 | MIT |
 | `http-link-header` | 1.1.4 | MIT |
-| `http-terminator` | 3.2.0 | BSD-3-Clause |
 | `https-proxy-agent` | 9.1.0 | MIT |
 | `iconv-lite` | 0.7.3 | MIT |
 | `image-ssim` | 0.2.0 | MIT |
@@ -430,9 +427,6 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `ordered-binary` | 1.6.1 | MIT |
 | `oxc-parser` | 0.150.0 | MIT |
 | `oxc-parser` | 0.121.0 | MIT |
-| `p-finally` | 1.0.0 | MIT |
-| `p-timeout` | 3.2.0 | MIT |
-| `p-wait-for` | 3.2.0 | MIT |
 | `parse5` | 8.0.1 | MIT |
 | `parse5-html-rewriting-stream` | 8.0.1 | MIT |
 | `parse5-sax-parser` | 8.0.0 | MIT |
@@ -474,12 +468,10 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `require-from-string` | 2.0.2 | MIT |
 | `require-in-the-middle` | 8.0.1 | MIT |
 | `restore-cursor` | 5.1.0 | MIT |
-| `roarr` | 7.21.7 | BSD-3-Clause |
 | `robots-parser` | 3.0.1 | MIT |
 | `rolldown` | 1.2.8 | MIT |
 | `rolldown` | 1.2.14 | MIT |
 | `rxjs` | 7.8.2 | Apache-2.0 |
-| `safe-stable-stringify` | 2.5.0 | MIT |
 | `safer-buffer` | 2.1.2 | MIT |
 | `sass` | 1.104.1 | MIT |
 | `sass-embedded` | 1.104.1 | MIT |
@@ -489,7 +481,6 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `scheduler` | 0.28.0 | MIT |
 | `semifies` | 1.0.0 | Apache-2.0 |
 | `semver` | 7.8.5 | ISC |
-| `semver-compare` | 1.0.0 | MIT |
 | `send` | 1.2.1 | MIT |
 | `serve-static` | 2.2.1 | MIT |
 | `setprototypeof` | 1.2.0 | ISC |
@@ -537,7 +528,6 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `tslib` | 1.14.1 | 0BSD |
 | `tsx` | 4.23.15 | MIT |
 | `tsyringe` | 4.10.0 | MIT |
-| `type-fest` | 2.19.0 | (MIT OR CC0-1.0) |
 | `type-fest` | 4.41.0 | (MIT OR CC0-1.0) |
 | `typed-query-selector` | 2.12.2 | MIT |
 | `typescript` | 6.0.3 | Apache-2.0 |
