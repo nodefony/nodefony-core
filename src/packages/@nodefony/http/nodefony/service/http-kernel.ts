@@ -205,11 +205,10 @@ export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
 // partagée avec le timeout par flux de `HttpContext`.
 export { responseEnded } from "../src/context/responseEnded";
 export type ContextType = WebsocketContext | HttpContext | Context;
-export type ServerType =
-  "http" | "https" | "http2" | "http3" | "websocket" | "websocket-secure";
-
-export type responseTimeoutType = "http" | "https" | "http2" | "http3";
-export type SchemeType = "http" | "https" | "ws" | "wss";
+// Une seule définition : le contrat (`IContext`) ; réexportée pour les
+// importeurs historiques de ce fichier.
+export type { ServerType, SchemeType } from "../interfaces/IContext";
+import type { ServerType, SchemeType } from "../interfaces/IContext";
 
 export interface WsMetaData {
   type?: "message" | "handshake" | undefined;
@@ -323,11 +322,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     const server = this.get<httpServer | httpsServer>(name);
     return server?.active === true && server.port > 0 ? server.port : undefined;
   }
+  // Délai de réponse par SERVEUR qui écoute (section de config `http` / `https`),
+  // indexé par `context.serverType` — jamais par le schéma du client.
   responseTimeout: {
     http: number;
     https: number;
-    http2: number;
-    http3: number;
   };
   closeTimeOutWs: {
     ws: number;
@@ -389,8 +388,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     this.responseTimeout = {
       http: this.options.http.responseTimeout,
       https: this.options.https.responseTimeout,
-      http2: this.options.https.responseTimeout,
-      http3: this.options.https.responseTimeout,
     };
     this.closeTimeOutWs = {
       ws: this.options.websocket.closeTimeout,
@@ -738,7 +735,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * @throws {HttpError} code WS 1008 (Policy Violation) si l'Origin est refusée.
    */
   checkWebsocketOrigin(context: WebsocketContext): void {
-    const secure = context.type === "websocket-secure";
+    // Politique de la section du SERVEUR qui écoute (`websocket` / `websocketSecure`).
+    const secure = context.serverType === "wss";
     const raw = context.origin;
     if (this.isWebsocketOriginAllowed(raw, context.domain, secure)) {
       return;
@@ -1168,13 +1166,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     // Security headers OWASP — defaults secure-by-default (cf config.securityHeaders).
     // HSTS gated TLS-only : poser sur HTTP plain n'a aucun effet RFC 6797 et pollue.
+    // `type` est ici l'identité du serveur : HSTS part du serveur TLS local, h2 ou
+    // HTTP/1.1 — derrière un proxy TLS, c'est au terminateur TLS de le poser.
     if (this.secContentTypeOptions !== null) {
       response.setHeader("X-Content-Type-Options", this.secContentTypeOptions);
     }
     if (this.secFrameOptions !== null) {
       response.setHeader("X-Frame-Options", this.secFrameOptions);
     }
-    if (this.secHsts !== null && (type === "https" || type === "http2")) {
+    if (this.secHsts !== null && type === "https") {
       response.setHeader("Strict-Transport-Security", this.secHsts);
     }
     // Probes de santé /livez + /readyz (0.7) — AVANT le rate-limit : un kubelet

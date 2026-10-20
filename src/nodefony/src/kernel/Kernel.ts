@@ -111,14 +111,6 @@ import { KernelCluster, type ClusterType } from "./kernelCluster";
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
 
-// Nom de service serveur → scheme d'URL conventionnel (pour le BootReport).
-const SERVER_SCHEME: Readonly<Record<string, string>> = {
-  http: "http",
-  https: "https",
-  websocket: "ws",
-  "websocket-secure": "wss",
-};
-
 export interface TypeKernelOptions extends DefaultOptionsService {
   node_start?: NodefonyStartType;
   /** Domaine public du kernel ; `"selectAuto"` = première interface externe. */
@@ -3271,7 +3263,8 @@ class Kernel extends Service implements IKernel {
       const type = typeof s?.type === "string" ? s.type : "server";
       const port = Number(s?.port ?? 0);
       const address = typeof s?.address === "string" ? s.address : undefined;
-      const scheme = SERVER_SCHEME[type] ?? type;
+      // L'identité d'un serveur EST son schéma d'URI (`http`, `https`, `ws`, `wss`).
+      const scheme = type;
       // host : adresse de bind résolue (IPv6 entre crochets pour une URL valide).
       const host = address
         ? address.includes(":")

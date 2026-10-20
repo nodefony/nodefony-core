@@ -6,10 +6,26 @@ import type {
   IRequestLogEntry,
 } from "../interfaces/IRequestLogger";
 import type {
+  IContext,
   IHttpContext,
   IWebsocketContext,
   PhaseTiming,
 } from "../interfaces/IContext";
+
+// Le contrat ne type `response` et `request` qu'en `object` : deux annotations
+// (vérifiées, pas des assertions) les lisent, tout le reste passe par le contrat, que le compilateur surveille.
+const statusOf = (context: IContext): number | null => {
+  const response: { statusCode?: number } | null = context.response;
+  return response?.statusCode ?? null;
+};
+const headersOf = (
+  context: IContext,
+): Record<string, string | string[] | undefined> => {
+  const request: {
+    headers?: Record<string, string | string[] | undefined>;
+  } | null = context.request;
+  return request?.headers ?? {};
+};
 
 /**
  * Canonical audit log entry — 1 JSON PDU per request (P3.1).
@@ -168,21 +184,18 @@ class JsonAuditLogger implements IRequestLogger {
    * @returns `true` to render+log the entry, `false` to skip it
    */
   shouldSample(context: IHttpContext, error?: Error | null): boolean {
-    const ctx = context as unknown as {
-      response: { statusCode?: number } | null;
-      error?: Error | null;
-    };
+    const ctx = context;
     // T1 — audit nominal gaté (résolu au boot → 1 test booléen/req) : les
     // erreurs + status >= 400 passent TOUJOURS, le 2xx/3xx est skippé AVANT
     // renderHttp (0 objet, 0 toISOString, 0 stringify, 0 Pdu au ring).
     if (!this.nominalEnabled) {
       if (error ?? ctx.error) return true;
-      const status = ctx.response?.statusCode ?? null;
+      const status = statusOf(ctx);
       return status !== null && status >= 400;
     }
     if (this.sampleRate <= 1) return true;
     if (error ?? ctx.error) return true;
-    const status = ctx.response?.statusCode ?? null;
+    const status = statusOf(ctx);
     if (status !== null && status >= 400) return true;
     // 2xx/3xx nominal path → keep 1 every `sampleRate` (deterministic).
     this.sampleCounter = (this.sampleCounter + 1) % this.sampleRate;
@@ -190,25 +203,9 @@ class JsonAuditLogger implements IRequestLogger {
   }
 
   renderHttp(context: IHttpContext, error?: Error | null): IRequestLogEntry {
-    const ctx = context as unknown as {
-      url: string;
-      remoteAddress: string | null;
-      requestId: string;
-      userIdentifier?: string | null;
-      method: string | null;
-      type: string;
-      scheme: string;
-      response: { statusCode?: number } | null;
-      request: {
-        headers?: Record<string, string | string[] | undefined>;
-      } | null;
-      error?: Error | null;
-      phases: PhaseTiming[];
-      getHost?: () => string | undefined;
-      getUserAgent?: () => string | undefined;
-    };
-    const status = ctx.response?.statusCode ?? null;
-    const headers = ctx.request?.headers ?? {};
+    const ctx = context;
+    const status = statusOf(ctx);
+    const headers = headersOf(ctx);
     const err = error ?? ctx.error ?? null;
     const entry: AuditLogEntry = {
       ts: new Date().toISOString(),
@@ -221,8 +218,8 @@ class JsonAuditLogger implements IRequestLogger {
       status,
       durationMs: computeDurationMs(ctx.phases),
       remoteAddress: ctx.remoteAddress ?? null,
-      host: ctx.getHost?.() ?? null,
-      userAgent: ctx.getUserAgent?.() ?? null,
+      host: ctx.getHost() ?? null,
+      userAgent: ctx.getUserAgent() ?? null,
       hasAuthorization: Boolean(headers["authorization"]),
       hasCookie: Boolean(headers["cookie"]),
       phases: ctx.phases.length
@@ -245,23 +242,9 @@ class JsonAuditLogger implements IRequestLogger {
     error?: Error | null,
     acceptedProtocol?: string | null,
   ): IRequestLogEntry {
-    const ctx = context as unknown as {
-      url: string;
-      remoteAddress: string | null;
-      requestId: string;
-      userIdentifier?: string | null;
-      method: string | null;
-      scheme: string;
-      response: { statusCode?: number } | null;
-      request: {
-        headers?: Record<string, string | string[] | undefined>;
-      } | null;
-      phases: PhaseTiming[];
-      getHost?: () => string | undefined;
-      getUserAgent?: () => string | undefined;
-    };
-    const status = ctx.response?.statusCode ?? null;
-    const headers = ctx.request?.headers ?? {};
+    const ctx = context;
+    const status = statusOf(ctx);
+    const headers = headersOf(ctx);
     const entry: AuditLogEntry = {
       ts: new Date().toISOString(),
       requestId: ctx.requestId,
@@ -273,8 +256,8 @@ class JsonAuditLogger implements IRequestLogger {
       status,
       durationMs: computeDurationMs(ctx.phases),
       remoteAddress: ctx.remoteAddress ?? null,
-      host: ctx.getHost?.() ?? null,
-      userAgent: ctx.getUserAgent?.() ?? null,
+      host: ctx.getHost() ?? null,
+      userAgent: ctx.getUserAgent() ?? null,
       hasAuthorization: Boolean(headers["authorization"]),
       hasCookie: Boolean(headers["cookie"]),
       phases: ctx.phases.length

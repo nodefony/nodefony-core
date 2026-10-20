@@ -183,9 +183,9 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     scope: Scope,
     req: IncomingMessage,
     ws: Ws | null,
-    type: ServerType,
+    serverType: ServerType,
   ) {
-    super(scope, type);
+    super(scope, serverType);
     this.webSocketState = "handshake";
     this.request = req as WsIncomingMessage;
     this.connection = ws;
@@ -208,7 +208,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     // dépouille la chaîne forwarded derrière les proxies de confiance.
     this.remoteAddress = this.getRemoteAddress();
     this.acceptedProtocol = req.headers["sec-websocket-protocol"];
-    this.scheme = type === "websocket-secure" ? "wss" : "ws";
+    this.scheme = serverType === "wss" ? "wss" : "ws";
 
     // Zero Trust : même validation que HttpContext (réflexion + logs + ALS).
     const incomingId = sanitizeRequestId(
@@ -223,7 +223,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     this.wsPath = this.wsUrl.pathname + this.wsUrl.search;
     this.url = url.format(this.wsUrl);
     this.port =
-      parseInt(this.wsUrl.port, 10) || (type === "websocket-secure" ? 443 : 80);
+      parseInt(this.wsUrl.port, 10) || (serverType === "wss" ? 443 : 80);
 
     // Extend request with URL object so the router can use request.url.pathname
     // Cast needed: IncomingMessage.url is string, IWsRequestExtension.url is URL → intersection string & URL
@@ -630,7 +630,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     this.log(
       `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ORIGIN")} : ${this.originUrl?.host} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("Description")} : ${description}`,
       "INFO",
-      `${this.type} ${logColor.magenta(code)} CLOSE ${this.method}`,
+      `${this.serverType} ${logColor.magenta(code)} CLOSE ${this.method}`,
     );
     if (this.connection?.readyState !== Ws.CLOSED) {
       try {
@@ -639,7 +639,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
         this.log(
           `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ORIGIN")} : ${this.originUrl?.host} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("error")} : ${(e as Error).message}`,
           "ERROR",
-          `${this.type} CLOSE ${logColor.red(this.method ?? "")}`,
+          `${this.serverType} CLOSE ${logColor.red(this.method ?? "")}`,
         );
       }
       this.fire("onClose", code, description, this.connection);
@@ -663,7 +663,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     this.log(
       `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("error")} : ${error.message}`,
       "ERROR",
-      `${this.type} ${logColor.red("SOCKET ERROR")} ${this.method}`,
+      `${this.serverType} ${logColor.red("SOCKET ERROR")} ${this.method}`,
     );
     this.fire("onError", error, this);
   }

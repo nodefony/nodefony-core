@@ -40,6 +40,8 @@ export type {
   IHttpContext,
   IWebsocketContext,
   ServerType,
+  ProtocolName,
+  AlpnProtocol,
   SchemeType,
   WebSocketStateType,
   CookiesMap,

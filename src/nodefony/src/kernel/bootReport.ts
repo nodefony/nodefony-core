@@ -45,7 +45,7 @@ export interface IBootModuleGated {
 
 /** Un serveur réseau réellement en écoute à la fin du boot. */
 export interface IBootServerInfo {
-  /** Nom de service interne (`http` | `https` | `websocket` | `websocket-secure`). */
+  /** Identité du serveur — son schéma d'URI (`http` | `https` | `ws` | `wss`). */
   type: string;
   /** Scheme d'URL court et conventionnel (`http` | `https` | `ws` | `wss`). */
   scheme: string;

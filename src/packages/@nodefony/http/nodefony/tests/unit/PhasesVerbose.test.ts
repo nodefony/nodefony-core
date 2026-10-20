@@ -23,6 +23,7 @@ function makeStub(opts: { verbose: boolean; phases: PhaseTiming[] }): {
     _timingVerbose: opts.verbose,
     phases: opts.phases,
     type: "http",
+    serverType: "http",
     log: (pci: unknown, severity?: unknown, msgid?: unknown) => {
       calls.push([pci, severity, msgid]);
     },

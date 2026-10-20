@@ -44,6 +44,35 @@ function get(
   });
 }
 
+/** GET en HTTP/2 (ALPN h2) — rend aussi l'ALPN négocié côté client. */
+function getH2(path: string): Promise<Res & { alpn: string | undefined }> {
+  return new Promise((resolve, reject) => {
+    const session = http2.connect("https://localhost:5152", {
+      rejectUnauthorized: false,
+    });
+    session.on("error", reject);
+    const req = session.request({ ":path": path });
+    const chunks: Buffer[] = [];
+    let headers: Record<string, unknown> = {};
+    req.on("response", (h) => (headers = h));
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      const alpn = session.alpnProtocol;
+      session.close();
+      const raw = Buffer.concat(chunks).toString();
+      let body: unknown = raw;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        /* corps non JSON : rendu brut */
+      }
+      resolve({ status: Number(headers[":status"]), headers, body, alpn });
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 function tlsConnect(): Promise<tls.TLSSocket> {
   return new Promise((resolve, reject) => {
     const s = tls.connect(
@@ -173,12 +202,31 @@ describe("HTTPS/TLS — port 5152 (requires server)", function () {
       expect(headers["content-type"]).to.include("application/json");
     });
 
-    it("GET /nodefony/test/context → scheme is 'https'", async () => {
+    it("GET /nodefony/test/context en HTTP/1.1 sur TLS → http · https · http/1.1 · serveur https", async () => {
       const { status, body } = await get("/nodefony/test/context");
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
+      expect(b.type).to.equal("http");
       expect(b.scheme).to.equal("https");
-      expect(b.type).to.equal("https");
+      expect(b.alpnProtocol).to.equal("http/1.1");
+      expect(b.serverType).to.equal("https");
+    });
+
+    it("GET /nodefony/test/context en h2 → http · https · h2 · serveur https", async () => {
+      const { status, body, alpn } = await getH2("/nodefony/test/context");
+      expect(alpn).to.equal("h2");
+      expect(status).to.equal(200);
+      const b = body as Record<string, unknown>;
+      expect(b.type).to.equal("http");
+      expect(b.scheme).to.equal("https");
+      expect(b.alpnProtocol).to.equal("h2");
+      expect(b.serverType).to.equal("https");
+    });
+
+    it("h2 → HSTS posé, comme en HTTP/1.1 sur TLS (même serveur TLS local)", async () => {
+      const { headers, alpn } = await getH2("/nodefony/test/index");
+      expect(alpn).to.equal("h2");
+      expect(headers["strict-transport-security"]).to.include("max-age=");
     });
   });
 

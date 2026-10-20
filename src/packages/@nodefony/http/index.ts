@@ -339,6 +339,8 @@ export type {
   IWebsocketContext,
   IWebsocketConnectionState,
   ServerType,
+  ProtocolName,
+  AlpnProtocol,
   SchemeType,
   WebSocketStateType,
   CookiesMap,

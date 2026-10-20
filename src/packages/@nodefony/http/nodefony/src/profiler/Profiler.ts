@@ -20,6 +20,7 @@
  */
 
 import type { ProfiledResolver } from "./FrameProfile.js";
+import type { ProtocolName } from "../../interfaces/IContext.js";
 
 /** Une phase du pipeline, projetée pour le transport (durée résolue). */
 export interface ProfilePhase {
@@ -125,7 +126,7 @@ export interface ProfileSummary {
 interface ProfilableContext {
   requestId?: string | undefined;
   userIdentifier?: string | null | undefined;
-  type?: string | undefined;
+  type?: ProtocolName | undefined;
   scheme?: string | undefined;
   method?: string | null | undefined;
   url?: string | undefined;
@@ -213,10 +214,7 @@ export class Profiler {
     const entry: ProfileEntry = {
       requestId,
       ts: Date.now(),
-      kind:
-        ctx.type === "websocket" || ctx.type === "websocket-secure"
-          ? "ws"
-          : "http",
+      kind: ctx.type === "websocket" ? "ws" : "http",
       method: ctx.method ?? null,
       url: ctx.url ?? "",
       scheme: ctx.scheme ?? "",

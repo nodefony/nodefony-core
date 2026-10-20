@@ -225,8 +225,9 @@ class PingController extends Controller {
   @Get("/")
   async ping() {
     return this.renderJson({
-      scheme: this.context?.scheme, // "http" | "https"
-      type: this.context?.type, // "http" | "http2" | "websocket"
+      type: this.context?.type, // "http" | "websocket" — la famille
+      scheme: this.context?.scheme, // "http" | "https" — vu par le client
+      alpnProtocol: this.context?.alpnProtocol, // "http/1.1" | "h2" | "h2c"
     });
   }
 
@@ -284,15 +285,15 @@ Server Listen on http://127.0.0.1:5151 Family: IPv4 Protocol : 1.1
 ```bash
 # HTTP/1.1 en clair
 curl -s http://127.0.0.1:5151/ping
-# {"scheme":"http","type":"http"}
+# {"type":"http","scheme":"http","alpnProtocol":"http/1.1"}
 
 # HTTP/2 sur le port TLS (-k : le certificat de dev n'est pas dans le trust store)
 curl -sk --http2 https://127.0.0.1:5152/ping
-# {"scheme":"https","type":"http2"}
+# {"type":"http","scheme":"https","alpnProtocol":"h2"}
 
 # Le même port TLS sert encore HTTP/1.1 (allowHTTP1) — repli négocié par ALPN
 curl -sk --http1.1 https://127.0.0.1:5152/ping
-# {"scheme":"https","type":"https"}
+# {"type":"http","scheme":"https","alpnProtocol":"http/1.1"}
 
 # Probes cloud-native, servies par les DEUX serveurs
 curl -si http://127.0.0.1:5151/livez  | head -1   # HTTP/1.1 200 OK
@@ -380,9 +381,10 @@ Le certificat vient du service `certificates`, lu au moment de la création via
 `serviceCerticats` (`server-https.ts#ServerHttps.createServer`) — voir la section dédiée.
 
 > [!IMPORTANT]
-> Sur la branche HTTP/2, le protocole **effectif** est relu par requête via l'ALPN de la socket TLS
-> (`server-https.ts#ServerHttps.createServerH2`) : un client `h2` produit un contexte de type `http2`, un client HTTP/1.1 sur
-> le même port produit un contexte `https`. C'est ce qui rend le port TLS universel.
+> Sur la branche HTTP/2, le protocole **effectif** se constate par requête (`transport.ts#alpnProtocolOf`) :
+> un client `h2` produit un contexte `alpnProtocol: "h2"`, un client HTTP/1.1 sur le même port
+> `alpnProtocol: "http/1.1"` — les deux avec `type: "http"` et `serverType: "https"`. C'est ce qui rend
+> le port TLS universel.
 
 ### `server-websocket` — WebSocket en clair
 

@@ -21,7 +21,6 @@ import http2 from "node:http2";
 import { createDrainTerminator, HttpTerminator } from "./serverShutdown";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
-import { TLSSocket } from "node:tls";
 import { handleClientError } from "./clientError";
 import {
   bindWithFallback,
@@ -226,23 +225,10 @@ class ServerHttps extends Service {
         //   http2.getUnpackedSettings(buf) || {}
         // );
         this.server.on("request", (request, response) => {
-          let alpnProtocol: string | false | null = false;
-          // `allowHTTP1` : une requête HTTP/1.1 arrive ici SANS `stream` — le
-          // type `Http2ServerRequest` ne le dit pas, la garde reste.
-          const stream = request.stream as http2.ServerHttp2Stream | undefined;
-          const sessionSocket = stream?.session?.socket;
-          if (sessionSocket instanceof TLSSocket) {
-            alpnProtocol = sessionSocket.alpnProtocol;
-          }
-          if (request.socket instanceof TLSSocket) {
-            alpnProtocol = request.socket.alpnProtocol;
-          }
+          // h2 et HTTP/1.1 (`allowHTTP1`) arrivent par le même serveur : le
+          // protocole du saut se lit sur la requête (`alpnProtocolOf`), pas ici.
           // `onHttpRequest` ne lève ni ne rejette jamais : rien à rattraper ici.
-          if (alpnProtocol === "h2") {
-            void this.httpKernel.onHttpRequest(request, response, "http2");
-          } else {
-            void this.httpKernel.onHttpRequest(request, response, "https");
-          }
+          void this.httpKernel.onHttpRequest(request, response, this.type);
         });
         // LISTEN — repli de port en `auto` (défaut dev), même politique que la
         // branche HTTP/1.1 ci-dessus. Le `throw` qui vivait ICI dans le handler

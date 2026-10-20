@@ -93,7 +93,7 @@ const servers = [
     url: "http://127.0.0.1:5151",
   },
   {
-    type: "websocket",
+    type: "ws",
     scheme: "ws",
     port: 5151,
     address: "127.0.0.1",
@@ -107,7 +107,7 @@ const servers = [
     url: "https://127.0.0.1:5152",
   },
   {
-    type: "websocket-secure",
+    type: "wss",
     scheme: "wss",
     port: 5152,
     address: "127.0.0.1",

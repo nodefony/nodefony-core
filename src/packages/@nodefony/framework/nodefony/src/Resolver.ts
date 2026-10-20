@@ -811,9 +811,7 @@ class Resolver implements IResolver {
         params,
         body,
       ]),
-      isWs: Boolean(
-        (context.type as string | undefined)?.startsWith("websocket"),
-      ),
+      isWs: context.type === "websocket",
       required: meta.idempotent?.required ?? true,
     });
     if (verdict.kind === "reject") {
@@ -1207,13 +1205,9 @@ class Resolver implements IResolver {
         // lieu d'un timeout muet. (WS : pas de teardown → no-op.)
         switch (this.context.type) {
           case "http":
-          case "http2":
-          case "http3":
-          case "https":
             this.context.waitAsync = true;
             break;
           case "websocket":
-          case "websocket-secure":
             // WS : pas de teardown qui surveille un hang → rien à poser.
             break;
         }
@@ -1222,9 +1216,6 @@ class Resolver implements IResolver {
       default:
         switch (this.context.type) {
           case "http":
-          case "http2":
-          case "http3":
-          case "https":
             if ((this.context as HttpContext).sended) {
               return;
             }
@@ -1243,7 +1234,6 @@ class Resolver implements IResolver {
             this.context.waitAsync = true;
             break;
           case "websocket":
-          case "websocket-secure":
             // WS : l'action répond par message, ou ne répond pas — pas de hang.
             break;
         }

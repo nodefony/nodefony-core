@@ -4,7 +4,21 @@ import type {
   IRequestLogger,
   IRequestLogEntry,
 } from "../interfaces/IRequestLogger";
-import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
+import type {
+  IContext,
+  IHttpContext,
+  IWebsocketContext,
+} from "../interfaces/IContext";
+
+/**
+ * Statut de la réponse : le contrat ne type `response` qu'en `object` ; une
+ * annotation (vérifiée, pas une assertion) le lit — le reste passe par le contrat, que le
+ * compilateur surveille.
+ */
+const statusOf = (context: IContext): number | undefined => {
+  const response: { statusCode?: number } | null = context.response;
+  return response?.statusCode;
+};
 
 /**
  * Default Nodefony per-request logger — preserves the legacy colored format.
@@ -19,33 +33,25 @@ import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
  */
 class DefaultRequestLogger implements IRequestLogger {
   renderHttp(context: IHttpContext, error?: Error | null): IRequestLogEntry {
-    const ctx = context as unknown as {
-      url: string;
-      remoteAddress: string | null;
-      originUrl: { host?: string } | null | undefined;
-      requestId: string;
-      method: string | null;
-      type: string;
-      response: { statusCode?: number } | null;
-      kernel?: { environment?: string };
-      error?: unknown;
-    };
     const txt =
-      `${logColor.cyan("URL")} : ${ctx.url} ` +
-      `${logColor.cyan("FROM")} : ${ctx.remoteAddress} ` +
-      `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
-      `${logColor.cyan("ID")} : ${ctx.requestId}`;
+      `${logColor.cyan("URL")} : ${context.url} ` +
+      `${logColor.cyan("FROM")} : ${context.remoteAddress} ` +
+      `${logColor.cyan("ORIGIN")} : ${context.originUrl?.host} ` +
+      `${logColor.cyan("ID")} : ${context.requestId}`;
 
-    const err = error ?? (ctx.error as Error | null | undefined);
+    const err = error ?? context.error;
     if (err) {
       const errCode =
-        (err as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
-      const msgid = `${ctx.type} ${logColor.magenta(errCode)} ${logColor.red(ctx.method ?? "")}`;
-      const isProd = ctx.kernel?.environment === "production";
+        (err as { code?: number }).code ?? statusOf(context) ?? 500;
+      const msgid = `${context.serverType} ${logColor.magenta(errCode)} ${logColor.red(context.method ?? "")}`;
+      // `kernel` n'est pas au contrat : projection étroite, comme `statusOf`.
+      const isProd =
+        (context as { kernel?: { environment?: string } }).kernel
+          ?.environment === "production";
       const text = isProd ? `${txt} ${err}` : `${txt}\n          ${err}`;
       return { text, severity: "ERROR", msgid };
     }
-    const msgid = `${ctx.type} ${logColor.magenta(ctx.response?.statusCode ?? "")} ${ctx.method}`;
+    const msgid = `${context.serverType} ${logColor.magenta(statusOf(context) ?? "")} ${context.method}`;
     return { text: txt, severity: "INFO", msgid };
   }
 
@@ -54,37 +60,28 @@ class DefaultRequestLogger implements IRequestLogger {
     error?: Error | null,
     acceptedProtocol?: string | null,
   ): IRequestLogEntry {
-    const ctx = context as unknown as {
-      url: string;
-      remoteAddress: string | null;
-      originUrl: { host?: string } | null | undefined;
-      requestId: string;
-      method: string | null;
-      type: string;
-      response: { statusCode?: number } | null;
-    };
     // `ID` = wsId : le requestId du contexte WS, stable sur toute la durée de
     // la socket (handshake → messages → close), corrèle les logs de la même
     // connexion. Parité avec renderHttp qui expose déjà `ID : <uuid>`.
     if (error) {
       const errCode =
-        (error as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
-      const msgid = `${ctx.type} ${logColor.magenta(errCode)} ${logColor.red(ctx.method ?? "")}`;
+        (error as { code?: number }).code ?? statusOf(context) ?? 500;
+      const msgid = `${context.serverType} ${logColor.magenta(errCode)} ${logColor.red(context.method ?? "")}`;
       const text =
-        `${logColor.cyan("URL")} : ${ctx.url}  ` +
-        `${logColor.cyan("FROM")} : ${ctx.remoteAddress} ` +
-        `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
-        `${logColor.cyan("ID")} : ${ctx.requestId}\n        ` +
+        `${logColor.cyan("URL")} : ${context.url}  ` +
+        `${logColor.cyan("FROM")} : ${context.remoteAddress} ` +
+        `${logColor.cyan("ORIGIN")} : ${context.originUrl?.host} ` +
+        `${logColor.cyan("ID")} : ${context.requestId}\n        ` +
         error.toString();
       return { text, severity: "ERROR", msgid };
     }
-    const msgid = `${ctx.type} ${logColor.magenta(ctx.response?.statusCode ?? "")} ${ctx.method}`;
+    const msgid = `${context.serverType} ${logColor.magenta(statusOf(context) ?? "")} ${context.method}`;
     const text =
-      `${logColor.cyan("URL")} : ${ctx.url} ` +
+      `${logColor.cyan("URL")} : ${context.url} ` +
       `${logColor.cyan("Accept-Protocol")} : ${acceptedProtocol || "*"} ` +
-      `${logColor.cyan("FROM")} : ${ctx.remoteAddress} ` +
-      `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
-      `${logColor.cyan("ID")} : ${ctx.requestId}`;
+      `${logColor.cyan("FROM")} : ${context.remoteAddress} ` +
+      `${logColor.cyan("ORIGIN")} : ${context.originUrl?.host} ` +
+      `${logColor.cyan("ID")} : ${context.requestId}`;
     return { text, severity: "INFO", msgid };
   }
 }

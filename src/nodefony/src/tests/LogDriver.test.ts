@@ -189,12 +189,12 @@ describe("Log Backplane (LB.0/LB.1)", () => {
   describe("pduFlowStep — classification d'étape", () => {
     it("events HTTP → étapes structurées", () => {
       assert.strictEqual(
-        pduFlowStep(mk("EVENT CONTEXT onRequest", "DEBUG", "@http", "http2")),
+        pduFlowStep(mk("EVENT CONTEXT onRequest", "DEBUG", "@http", "https")),
         "request-in",
       );
       assert.strictEqual(
         pduFlowStep(
-          mk("EVENT CONTEXT onRequestEnd", "DEBUG", "@http", "http2"),
+          mk("EVENT CONTEXT onRequestEnd", "DEBUG", "@http", "https"),
         ),
         "body-received",
       );
@@ -264,7 +264,7 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     it("toutes les étapes sont dans FLOW_STEPS", () => {
       // garde-fou : pas d'id renvoyé hors table (sinon select front incohérent)
       for (const sample of [
-        mk("onRequest", "DEBUG", "@http", "http2"),
+        mk("onRequest", "DEBUG", "@http", "https"),
         mk("onConnect", "DEBUG", "@http", "WEBSOCKET CONTEXT"),
         mk("SAVE SESSION", "DEBUG", "session", "session"),
       ]) {

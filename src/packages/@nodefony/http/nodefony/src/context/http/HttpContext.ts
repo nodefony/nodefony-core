@@ -138,6 +138,7 @@ type PerfSubMarks = { t0: bigint; uploadNs: number; reqResNs: number };
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
 import { describeSessionStoreFailure } from "../../session/sessionStoreFailure";
 import { responseEnded } from "../responseEnded";
+import { alpnProtocolOf } from "../transport";
 import {
   openSseStream,
   type ISseStreamOptions,
@@ -162,9 +163,10 @@ class HttpContext extends Context implements IHttpContextInterface {
     container: Container | Scope,
     request: http.IncomingMessage | http2.Http2ServerRequest,
     response: http.ServerResponse | http2.Http2ServerResponse,
-    type: ServerType,
+    serverType: ServerType,
   ) {
-    super(container, type);
+    super(container, serverType);
+    this.alpnProtocol = alpnProtocolOf(request);
     this.uploadService = this.get<uploadService>("upload");
     // Sous-marque sonde perf : t0 → après le lookup DI "upload".
     const perfSub = PERF_PROBE_SUB
@@ -174,7 +176,8 @@ class HttpContext extends Context implements IHttpContextInterface {
     if (perfSub && perfSub.t0 !== 0n) {
       perfSub.uploadNs += Number(process.hrtime.bigint() - perfSub.t0);
     }
-    if (this.type === "http2") {
+    // Mécanique de trame : h2 et h2c partagent les classes HTTP/2.
+    if (this.alpnProtocol === "h2" || this.alpnProtocol === "h2c") {
       this.request = new Http2Request(
         request as http2.Http2ServerRequest,
         this,
@@ -214,12 +217,11 @@ class HttpContext extends Context implements IHttpContextInterface {
     // client) ni exposées en metaData. Usage INTERNE seul : log DEBUG + prédicat
     // « derrière un proxy ? » (redirectHttp/redirectHttps).
     //
-    // On ne détourne PAS `this.type` (le TRANSPORT réel) avec X-Forwarded-Proto :
+    // On ne détourne PAS l'identité du transport (`serverType`, `alpnProtocol`) avec X-Forwarded-Proto :
     // le scheme client effectif est déjà porté par `this.scheme` (setScheme ←
     // request.url.protocol ← getFullUrl, qui honore X-Forwarded-Proto si trusted).
-    // L'écraser corrompait l'identité du transport (this.type ≠ this.server) et
-    // pouvait casser les `switch (context.type)` (cookie/Resolver) sur une valeur
-    // client arbitraire.
+    // L'écraser corromprait l'identité du transport (`serverType` ≠ `server`) sur une
+    // valeur client arbitraire.
     this.proxy = null;
     // Résolution forwarded canonique calculée par Request (RFC 7239 `Forwarded`
     // prioritaire, repli `X-Forwarded-*`) — déjà gated proxy de confiance.

@@ -257,7 +257,7 @@ Exports config : `defineHttpConfig`, `httpConfigSchema`, `httpConfigJsonSchema`,
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle |
 | --- | --- | --- |
-| `handle` | `(request, response, type: ServerType): Promise<HttpContext>` | Entrée HTTP : ouvre un scope DI `request`, délègue à `handleHttp`. |
+| `handle` | `(request, response, serverType: ServerType): Promise<HttpContext>` | Entrée HTTP : ouvre un scope DI `request`, délègue à `handleHttp`. |
 | `handleHttp` | `(scope, request, response, type): Promise<…>` | Crée le contexte, wrap ALS, parse, route, firewall, action, teardown. |
 | `handleWebsocket` | `(req, ws, type): Promise<…>` | Entrée WS : crée le contexte, résout la route **avant accept**, connect, dispatch. |
 | `handleFrontController` | `(context, checkFirewall = true): Promise<Controller \| number>` | Router.resolve → firewall → controller (HTTP **et** WS). Réutilise `context.resolver` si déjà matché. |
@@ -276,21 +276,22 @@ Champs publics : `requestLogger: IRequestLogger` (défaut `DefaultRequestLogger`
 Base `Context extends Service` (`src/context/Context.ts`). Sous-classes : `HttpContext` (HTTP/HTTPS/HTTP2),
 `WebsocketContext`. Props et méthodes héritées par les deux :
 
-| Membre                                           | Ancre | Note                                                                      |
-| ------------------------------------------------ | ----- | ------------------------------------------------------------------------- |
-| `requestId: string`                              |       | `randomUUID()` au ctor ; override par header `X-Request-Id` entrant.      |
-| `type: ServerType`, `scheme: SchemeType`         |       | `http`/`https`/`ws`/`wss`.                                                |
-| `method: HTTPMethod \| null`, `url: string`      |       | WS : `method` = `"WEBSOCKET"`.                                            |
-| `session: Session \| null \| undefined`          |       | `null` tant que pas activée (lazy).                                       |
-| `sessionIntent: SessionIntent \| null`           |       | Posé par `Resolver.match` (`@UseSession`/`@Session`).                     |
-| `cookies: Cookies`, `resolver: Resolver \| null` |       | `resolver` = seul lien vers framework (cast `any`).                       |
-| `metaData: Data`                                 |       | `setMetaData()` (inclut `nodefony.requestId`).                            |
-| `webSocketState`                                 |       | État WS (null en HTTP).                                                   |
-| `get signal(): AbortSignal`                      |       | **Lazy** : alloue `AbortController` au 1er accès seulement.               |
-| `phaseStart(name)` / `phaseEnd(name)`            |       | Instrumentation ; noop si timing off (`EMPTY_PHASES`).                    |
-| `onAfterResponse(fn)`                            |       | Hook post-réponse, fire-once, dédup finish/close.                         |
-| `logRequest(error?)`                             |       | Délègue au `requestLogger` ; gère le sampling (`shouldSample`).           |
-| `hasSession()` / `getSessionCookieName()`        |       | Reprise de session L1 / nom cookie (`__Host-` selon `cookie.hostPrefix`). |
+| Membre                                                 | Ancre | Note                                                                                        |
+| ------------------------------------------------------ | ----- | ------------------------------------------------------------------------------------------- |
+| `requestId: string`                                    |       | `randomUUID()` au ctor ; override par header `X-Request-Id` entrant.                        |
+| `type: ProtocolName`, `scheme: SchemeType`             |       | `type` = `http`/`websocket` ; `scheme` = vu par le client (`http`/`https`/`ws`/`wss`).      |
+| `alpnProtocol: AlpnProtocol`, `serverType: ServerType` |       | saut local `http/1.1`/`h2`/`h2c` (constaté) ; serveur qui écoute `http`/`https`/`ws`/`wss`. |
+| `method: HTTPMethod \| null`, `url: string`            |       | WS : `method` = `"WEBSOCKET"`.                                                              |
+| `session: Session \| null \| undefined`                |       | `null` tant que pas activée (lazy).                                                         |
+| `sessionIntent: SessionIntent \| null`                 |       | Posé par `Resolver.match` (`@UseSession`/`@Session`).                                       |
+| `cookies: Cookies`, `resolver: Resolver \| null`       |       | `resolver` = seul lien vers framework (cast `any`).                                         |
+| `metaData: Data`                                       |       | `setMetaData()` (inclut `nodefony.requestId`).                                              |
+| `webSocketState`                                       |       | État WS (null en HTTP).                                                                     |
+| `get signal(): AbortSignal`                            |       | **Lazy** : alloue `AbortController` au 1er accès seulement.                                 |
+| `phaseStart(name)` / `phaseEnd(name)`                  |       | Instrumentation ; noop si timing off (`EMPTY_PHASES`).                                      |
+| `onAfterResponse(fn)`                                  |       | Hook post-réponse, fire-once, dédup finish/close.                                           |
+| `logRequest(error?)`                                   |       | Délègue au `requestLogger` ; gère le sampling (`shouldSample`).                             |
+| `hasSession()` / `getSessionCookieName()`              |       | Reprise de session L1 / nom cookie (`__Host-` selon `cookie.hostPrefix`).                   |
 
 `HttpContext` ajoute : `handle(): Promise<this>` (exécute l'action), `render(...)`,
 `redirect(...)`, `setTimeout()` (couche pipeline `responseTimeout`).

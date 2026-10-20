@@ -31,7 +31,7 @@ class Websocket extends Service {
   family: FamilyType | null = null;
   scheme: SchemeType = "ws";
   address: string | null = null;
-  type: ServerType = "websocket";
+  type: ServerType = "ws";
   infos: AddressInfo | null = null;
   /** Timer keep-alive (UN par serveur). `null` si désactivé ou pas démarré. */
   heartbeatTimer: ReturnType<typeof setInterval> | null = null;

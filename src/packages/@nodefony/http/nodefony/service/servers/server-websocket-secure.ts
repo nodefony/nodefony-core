@@ -32,7 +32,7 @@ class WebsocketSecure extends Service {
   family: FamilyType | null = null;
   scheme: SchemeType = "wss";
   address: string | null = null;
-  type: ServerType = "websocket-secure";
+  type: ServerType = "wss";
   infos: AddressInfo | null = null;
   /** Timer keep-alive (UN par serveur). `null` si désactivé ou pas démarré. */
   heartbeatTimer: ReturnType<typeof setInterval> | null = null;

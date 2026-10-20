@@ -12,7 +12,6 @@ import {
 } from "nodefony";
 import type { MaybePromise } from "nodefony";
 import mime from "mime-types";
-import { responseTimeoutType } from "../../../service/http-kernel";
 import Cookie from "../../cookies/cookie";
 
 // P8 — RegExp ANSI compilée UNE fois (avant : factory recompilant à chaque
@@ -114,10 +113,12 @@ class HttpResponse {
   ) {
     this.context = context;
     this.response = response;
+    // Délai du SERVEUR qui a reçu la requête (section de config `http` / `https`).
+    const responseTimeout = this.context.httpKernel?.responseTimeout;
     this.timeout =
-      this.context.httpKernel?.responseTimeout[
-        this.context.type as responseTimeoutType
-      ];
+      this.context.serverType === "https"
+        ? responseTimeout?.https
+        : responseTimeout?.http;
     // Pas de `setHeader("Content-Type", "application/octet-stream")` ici : le
     // chemin nominal (JSON/HTML) le remplacerait aussitôt (1 set + 2 remove
     // gaspillés par requête). Le défaut vit dans `this.contentType` et n'est
@@ -797,7 +798,7 @@ class HttpResponse {
 
   log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
     if (!msgid) {
-      msgid = `${this.context.type} RESPONSE `;
+      msgid = `${this.context.serverType} RESPONSE `;
     }
     return this.context.log(pci, severity, msgid, msg);
   }

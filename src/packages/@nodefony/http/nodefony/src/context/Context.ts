@@ -31,6 +31,8 @@ import HttpKernel, {
   Data,
   SchemeType,
 } from "../../service/http-kernel";
+import type { AlpnProtocol, ProtocolName } from "../../interfaces/IContext";
+import { protocolNameOf } from "./transport";
 import HttpResponse from "./http/Response";
 import Http2Response from "./http2/Response";
 import WebsocketResponse from "./websocket/Response";
@@ -166,7 +168,15 @@ class Context extends Service implements IContextInterface {
   requested: boolean = false;
   sessionStarting: boolean = false;
   domain: string = "";
-  type: ServerType;
+  /** Famille traitée (`network.protocol.name` d'OpenTelemetry) — union ouverte. */
+  type: ProtocolName;
+  /** Serveur qui a reçu la requête — choisit la configuration par serveur. */
+  serverType: ServerType;
+  /**
+   * Protocole du saut local (registre IANA ALPN) — union ouverte. Une connexion
+   * WebSocket naît d'un upgrade HTTP/1.1 ; `HttpContext` le constate sur la requête.
+   */
+  alpnProtocol: AlpnProtocol = "http/1.1";
   server?:
     | WebSocketServer
     | http.Server
@@ -306,8 +316,8 @@ class Context extends Service implements IContextInterface {
   };
   scheme: SchemeType;
   webSocketState: WebSocketState = null;
-  constructor(container: Container | Scope, type: ServerType) {
-    super(type, container);
+  constructor(container: Container | Scope, serverType: ServerType) {
+    super(serverType, container);
     // Sous-marque de la sonde perf in-situ (NF_PERF_PROBE=1) : t0 → fin du
     // ctor Service. Guard t0 ≠ 0n : seul le chemin HTTP instrumenté compte.
     if (PERF_PROBE_SUB) {
@@ -317,7 +327,8 @@ class Context extends Service implements IContextInterface {
         p.svcNs += Number(process.hrtime.bigint() - p.t0);
       }
     }
-    this.type = type;
+    this.serverType = serverType;
+    this.type = protocolNameOf(serverType);
     this.set("context", this);
     this.httpKernel = this.get("HttpKernel");
     this.sessionService = this.get<SessionsService>("sessions");
@@ -351,37 +362,26 @@ class Context extends Service implements IContextInterface {
       )?.timing?.verbose;
       this._timingVerbose = verbose === true;
     }
-    this.scheme = "https";
-    switch (this.type) {
+    // Schéma du saut LOCAL (l'identité du serveur en est un) ; les contextes
+    // HTTP et WS le remplacent par le schéma effectif du client (`setScheme`).
+    this.scheme = serverType;
+    switch (serverType) {
       case "http": {
-        this.scheme = "http";
         const server = this.get<ServerHttp>("server-http");
         this.server = server?.server as http.Server;
         break;
       }
-      case "http2":
       case "https": {
-        this.scheme = "https";
         const server = this.get<ServerHttps>("server-https");
         this.server = server?.server as https.Server;
         break;
       }
-      case "http3": {
-        this.scheme = "https";
-        const server = this.get<{ server?: http2.Http2SecureServer }>(
-          "server-http3",
-        );
-        this.server = server?.server ?? null;
-        break;
-      }
-      case "websocket": {
-        this.scheme = "ws";
+      case "ws": {
         const server = this.get<Websocket>("server-websocket");
         this.server = server?.server as WebSocketServer;
         break;
       }
-      case "websocket-secure": {
-        this.scheme = "wss";
+      case "wss": {
         const server = this.get<WebsocketSecure>("server-websocket-secure");
         this.server = server?.server as WebSocketServer;
         break;
@@ -549,7 +549,7 @@ class Context extends Service implements IContextInterface {
     msg?: Message,
   ): Pdu {
     if (!msgid) {
-      msgid = this.type;
+      msgid = this.serverType;
     }
     // Les logs émis au TEARDOWN (onFinish « Requête terminée », onClose, bilan
     // `req`) sont HORS de la bulle `RequestContext.run` (déjà refermée) → un Pdu
@@ -689,7 +689,7 @@ class Context extends Service implements IContextInterface {
     this.log(
       `TRACE phases [Σ ${total.toFixed(2)}ms] ${line}`,
       "DEBUG",
-      `${this.type} TIMING`,
+      `${this.serverType} TIMING`,
     );
   }
 

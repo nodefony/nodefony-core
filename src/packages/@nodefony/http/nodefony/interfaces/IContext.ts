@@ -4,9 +4,38 @@ import type { ICookie } from "./ICookie";
 import type { ISession } from "./ISession";
 import type { HTTPMethodType } from "./IRequest";
 
-export type ServerType =
-  "http" | "https" | "http2" | "http3" | "websocket" | "websocket-secure";
+/**
+ * Identité du serveur qui a reçu la requête, nommée par le schéma d'URI qu'il
+ * sert en LOCAL (RFC 9110 §4.2, RFC 6455 §3) : elle choisit la section de
+ * configuration du serveur (`http`, `https`, `websocket`, `websocketSecure`).
+ * Ce n'est PAS un protocole — `https` sert HTTP/1.1 et h2 sur le même port ;
+ * le protocole du saut se lit dans {@link AlpnProtocol}.
+ */
+export type ServerType = "http" | "https" | "ws" | "wss";
 
+/**
+ * Famille du protocole que le contrôleur traite, nommée comme l'attribut
+ * OpenTelemetry `network.protocol.name`.
+ *
+ * Union OUVERTE : une valeur peut apparaître en version mineure
+ * (`"webtransport"` sur HTTP/3) — pas de `switch` exhaustif sans `default`.
+ */
+export type ProtocolName = "http" | "websocket";
+
+/**
+ * Protocole du saut qui atteint CE processus, nommé par le registre IANA des
+ * identifiants ALPN — la valeur même que Node expose (`TLSSocket.alpnProtocol`,
+ * `Http2Session.alpnProtocol`, qui vaut `"h2c"` sur une session en clair).
+ *
+ * Union OUVERTE : `"h3"` s'ajoutera en version mineure, sans rupture.
+ */
+export type AlpnProtocol = "http/1.1" | "h2" | "h2c";
+
+/**
+ * Schéma d'URI vu par le CLIENT (RFC 9110 §4.2, RFC 6455 §3) : derrière un
+ * proxy de confiance, c'est le schéma qu'il a annoncé (`Forwarded`), pas
+ * celui du saut local. Toute décision de sécurité lit ce champ.
+ */
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
 export type WebSocketStateType =
@@ -94,8 +123,14 @@ export interface IContext {
   csrfProtect: boolean;
   csrfExempt: boolean;
   csrfToken: string | null;
-  type: ServerType;
+  /** Famille traitée : `"http"` ou `"websocket"` (union ouverte). */
+  type: ProtocolName;
+  /** Schéma vu par le client — seul champ que lit une décision de sécurité. */
   scheme: SchemeType;
+  /** Protocole du saut local : `"http/1.1"`, `"h2"`, `"h2c"` (union ouverte). */
+  alpnProtocol: AlpnProtocol;
+  /** Serveur qui a reçu la requête — choisit la configuration par serveur. */
+  serverType: ServerType;
   method: HTTPMethodType | null;
   url: string;
   domain: string;

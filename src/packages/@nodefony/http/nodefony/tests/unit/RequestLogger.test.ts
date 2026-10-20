@@ -17,7 +17,8 @@ function fakeHttpContext(
     originUrl: { host: "localhost:5152" },
     requestId: "uuid-1234",
     method: opts.method ?? "GET",
-    type: "https",
+    type: "http",
+    serverType: "https",
     response: { statusCode: opts.status ?? 200 },
     kernel: { environment: opts.env ?? "development" },
     error: opts.error ?? null,
@@ -34,6 +35,7 @@ function fakeWsContext(
     requestId: "ws-uuid-9876",
     method: opts.method ?? "WEBSOCKET",
     type: "websocket",
+    serverType: "ws",
     response: { statusCode: opts.status ?? 101 },
   };
 }
@@ -85,7 +87,7 @@ describe("DefaultRequestLogger — unit tests (P1.6)", () => {
       expect(e.text).to.include("\n");
     });
 
-    it("msgid contains type, status code and method", () => {
+    it("msgid contains server type, status code and method", () => {
       const e = logger.renderHttp(
         fakeHttpContext({ status: 404, method: "POST" }) as never,
       );

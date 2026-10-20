@@ -93,11 +93,12 @@ La reconnaissance « table absente » couvre les trois dialectes (aucun code d'e
 | --- | --- | --- |
 | `Http` | `index.ts` | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])` |
 | `HttpKernel` | `service/http-kernel.ts` | Orchestrateur. `handle()` → pipeline HTTP. `onWebsocketUpgrade(req, admission)` → pipeline WS AVANT le 101 (#596). `prepareFrontController()` → route + zone (sans instance, HTTP) ; `handleFrontController()` = prepare + `newController` (WS, avant l'acceptation). `onError()` → avant acceptation : statut HTTP (`refuseHandshake`) ; après : 1002/1011 WS |
-| `Context` | `src/context/Context.ts` | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`** |
+| `Context` | `src/context/Context.ts` | Base extends `Service`. Props: `type`, `scheme`, `alpnProtocol`, `serverType`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`** |
 | `HttpContext` | `src/context/http/HttpContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2. |
 | `WebsocketContext` | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage` |
 | `IWebsocketConnectionState` | `interfaces/IContext.ts` | Interface VIDE, à AUGMENTER (`declare module "@nodefony/http"`) par un module qui attache un état à la connexion — `WebsocketContext` la reçoit par fusion de déclarations (classe locale + `export { WebsocketContext as default }`, TS2652 sinon). Champs OPTIONNELS. Réalisé par realtime (`__nfRealtime`). |
-| `isWebsocketContext` | `src/context/websocket/isWebsocketContext.ts` | Garde `ContextType → WebsocketContext` par `type` (`websocket`/`websocket-secure`), jamais `instanceof` (deux copies installées). Un faux contexte de test déclare `type`. |
+| `isWebsocketContext` | `src/context/websocket/isWebsocketContext.ts` | Garde `ContextType → WebsocketContext` par `type === "websocket"`, jamais `instanceof` (deux copies installées). Un faux contexte de test déclare `type`. |
+| `protocolNameOf` / `alpnProtocolOf` | `src/context/transport.ts` | Règles UNIQUES du vocabulaire du transport. `type` (`http`|`websocket`, OTel `network.protocol.name`) ← identité du serveur ; `alpnProtocol` (`http/1.1`|`h2`|`h2c`, IANA ALPN) CONSTATÉ sur la requête (`httpVersionMajor`, puis `Http2Session.alpnProtocol`), jamais déduit du serveur. Unions OUVERTES. |
 | `HttpResponse` | `src/context/http/Response.ts` | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`. |
 | `WebsocketResponse` | `src/context/websocket/Response.ts` | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)` |
 | `HttpError` | `src/errors/httpError.ts` | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `context.resolver`, typé `IRouteResolver` (contrat de http, évite l'import circulaire avec `@nodefony/framework`) |
@@ -566,6 +567,16 @@ corriger. Message = résumé lisible (le message zod natif est un JSON verbeux) 
 - **0 coût hot path** : ne s'exécute que sur une erreur déjà levée (vs un `try/catch` dans le Resolver).
 
 ## Gotchas critiques
+
+**Vocabulaire du transport — QUATRE champs, TROIS lectures** (`IContext.ts#ProtocolName`) :
+`type` (`http`|`websocket`) = la famille que traite le contrôleur ; `scheme` = schéma VU PAR LE
+CLIENT ; `alpnProtocol` = protocole du saut local ; `serverType` (`http`|`https`|`ws`|`wss`) =
+serveur qui écoute. Config PAR SERVEUR (délai de réponse, politique d'origine WS, HSTS du TLS
+local) → `serverType`. Sécurité vue du client (`__Host-`, transport des secrets) → `scheme`.
+Mécanique de trame (classes HTTP/2) → `alpnProtocol`, en nommant `h2`/`h2c` (union ouverte :
+un `h3` futur ne doit pas tomber dans la branche HTTP/2). ⚠️ Pour un WebSocket, `scheme` reste
+celui du saut LOCAL (`wsUrl` bâti dessus, `Forwarded` non appliqué). Comparer un littéral est
+gratuit (chaînes internées = égalité de pointeurs) — ne pas le « remplacer » par une table.
 
 **`originUrl` = ACCESSOR, pas un champ** : backing `_originUrl` dans `Context`, getter PARESSEUX
 dans `HttpContext` (construit à la 1ʳᵉ lecture — loggers ; `Origin: null`/malformé → repli

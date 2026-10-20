@@ -115,7 +115,7 @@ class AdminApiController extends Controller {
    */
   async dispatch(...args: unknown[]) {
     const { status, headers, body } = await this.runAdmin(args);
-    if (this.context?.type.startsWith("websocket")) {
+    if (this.context?.type === "websocket") {
       if (status >= 400) {
         const message =
           (body as { error?: string } | null)?.error ?? "admin error";
@@ -210,9 +210,7 @@ class AdminApiController extends Controller {
         request.params,
         request.body ?? null,
       ]),
-      isWs: Boolean(
-        (this.context?.type as string | undefined)?.startsWith("websocket"),
-      ),
+      isWs: this.context?.type === "websocket",
       required: false,
     });
     switch (verdict.kind) {

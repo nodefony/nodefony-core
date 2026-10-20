@@ -194,6 +194,8 @@ class FrameworkController extends Controller {
       type: ctx.type,
       method: this.method,
       scheme: ctx.scheme,
+      alpnProtocol: ctx.alpnProtocol,
+      serverType: ctx.serverType,
     });
   }
 

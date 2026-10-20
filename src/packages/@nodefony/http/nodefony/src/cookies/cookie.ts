@@ -58,39 +58,11 @@ function parser(strToParse: string) {
 //   return ele;
 // }
 
-// function getRequestcookies(context: ContextType) {
-//   let cookies = null;
-//   switch (context.type) {
-//     case "http":
-//     case "https":
-//     case "http2":
-//       if (
-//         (context as HttpContext).request.request &&
-//         (context as HttpContext).request.request.headers.cookie
-//       ) {
-//         cookies = (context as HttpContext).request.request.headers.cookie;
-//       }
-//       if (cookies) return parser(cookies);
-//       break;
-//     case "websocket":
-//     case "websocket-secure":
-//       if ((context as WebsocketContext).request?.cookies) {
-//         cookies = (context as WebsocketContext).request?.cookies;
-//       }
-//       if (cookies) return parserWs(cookies);
-//       break;
-//     default:
-//       throw new Error("getRequestcookies Bad Type");
-//   }
-// }
-
 function cookiesParser(context: ContextType) {
   let cookies = null;
   let co;
   switch (context.type) {
     case "http":
-    case "https":
-    case "http2":
       if ((context as HttpContext).request.request.headers.cookie) {
         cookies = (context as HttpContext).request.request.headers.cookie;
       }
@@ -106,8 +78,7 @@ function cookiesParser(context: ContextType) {
         }
       }
       break;
-    case "websocket":
-    case "websocket-secure": {
+    case "websocket": {
       const wsReq = (context as WebsocketContext).request;
       const cookieHeader = wsReq?.headers.cookie;
       if (cookieHeader) {
@@ -119,8 +90,7 @@ function cookiesParser(context: ContextType) {
       }
       break;
     }
-    // HTTP/3 réservé (aucun serveur) : même refus que tout type inconnu.
-    case "http3":
+    // Union ouverte (`ProtocolName`) : une famille encore inconnue est refusée.
     default:
       throw new Error("cookiesParser Bad Type");
   }

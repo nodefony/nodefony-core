@@ -987,7 +987,7 @@ class HttpRequest {
 
   log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
     if (!msgid) {
-      msgid = `${this.context.type} REQUEST `;
+      msgid = `${this.context.serverType} REQUEST `;
     }
     return this.context.log(pci, severity, msgid, msg);
   }

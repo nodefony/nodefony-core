@@ -3,6 +3,7 @@ import type {
   ISecurityTrace,
   PhaseName,
   PhaseTiming,
+  ProtocolName,
 } from "../../interfaces/IContext.js";
 import type {
   IResolvedRoute,
@@ -36,8 +37,8 @@ export interface ProfiledResolver {
 export interface FrameProfileInit {
   /** Identifiant du profil — `<requestId de la connexion>.<n° de frame>`. */
   requestId: string;
-  /** Type de transport du contexte porteur (`websocket` / `websocket-secure`). */
-  type: string;
+  /** Famille du contexte porteur (`context.type` : `websocket`). */
+  type: ProtocolName;
   scheme: string;
   /** Méthode LOGIQUE de l'invocation (`GET`, `POST`…), pas le transport. */
   method: string;
@@ -76,7 +77,7 @@ export interface FrameProfileInit {
  */
 export class FrameProfile {
   readonly requestId: string;
-  readonly type: string;
+  readonly type: ProtocolName;
   readonly scheme: string;
   readonly method: string;
   readonly url: string;

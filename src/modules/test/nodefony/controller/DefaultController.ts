@@ -216,6 +216,8 @@ class DefaultController extends Controller {
     return this.renderJson({
       type: ctx.type,
       scheme: ctx.scheme,
+      alpnProtocol: ctx.alpnProtocol,
+      serverType: ctx.serverType,
       method: this.method,
       host: ctx.getHost(),
       remoteAddress: ctx.getRemoteAddress(),

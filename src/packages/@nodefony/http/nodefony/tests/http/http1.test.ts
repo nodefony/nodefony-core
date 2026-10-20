@@ -63,13 +63,26 @@ describe("HTTP/1.1 — port 5151 (plain HTTP, requires server)", function () {
       expect(headers["content-type"]).to.include("application/json");
     });
 
-    it("GET /nodefony/test/context → scheme is 'http'", async () => {
+    it("GET /nodefony/test/context → http · http · http/1.1 · serveur http", async () => {
       const { status, body } = await req("GET", "/nodefony/test/context");
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
-      expect(b.scheme).to.equal("http");
       expect(b.type).to.equal("http");
+      expect(b.scheme).to.equal("http");
+      expect(b.alpnProtocol).to.equal("http/1.1");
+      expect(b.serverType).to.equal("http");
       expect(b.method).to.equal("GET");
+    });
+
+    it("HTTP en clair → JAMAIS de HSTS (RFC 6797 §7.2), y compris sur le front controller", async () => {
+      for (const path of [
+        "/",
+        "/nodefony/test/index",
+        "/nodefony/test/context",
+      ]) {
+        const { headers } = await req("GET", path);
+        expect(headers["strict-transport-security"], path).to.equal(undefined);
+      }
     });
 
     it("GET unknown path → 404", async () => {
