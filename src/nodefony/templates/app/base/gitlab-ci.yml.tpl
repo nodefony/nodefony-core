@@ -81,7 +81,16 @@ verify:
       JS
 <% } %>    # typecheck, lint, format:check, env:check, test, build, `nodefony doctor` — l'ordre du script.
     - <%= it.pmRun %> verify
-    # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
+<% if (it.hasSecurity) { %>    # Les clés de PRODUCTION que la suite e2e exige (second facteur, webhooks,
+    # signature des jetons) : sans elles, ces briques démarrent DÉSACTIVÉES.
+    # GitLab n'a pas de `$GITHUB_ENV` — les lignes du script partagent un même
+    # shell, l'export y vaut donc pour la suite. 🔴 Jamais `set -a && . fichier` :
+    # le shell interpréterait les guillemets du jeu de clés JSON et le rendrait
+    # illisible. `export "$ligne"` garde la valeur telle quelle. Le fichier est
+    # retiré aussitôt : il ne doit finir dans aucun artefact.
+    - <%= it.pmExec("nodefony") %> security:secrets --env > .ci-secrets.env
+    - while IFS= read -r ligne; do export "$ligne"; done < .ci-secrets.env; rm -f .ci-secrets.env
+<% } %>    # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
     - <%= it.pmRun %> test:e2e
 
 # 🔴 L'IMAGE est l'artefact qu'on PUBLIE, et le seul que rien ne regardait.

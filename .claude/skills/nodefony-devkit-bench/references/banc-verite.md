@@ -150,7 +150,11 @@ Les étapes, dans l'ordre, et ce que chacune protège :
     PATCH, 204 puis 404 ; et, pour la liste, les deux faces de chaque
     capacité : le **refus** (tri hors allowlist, paramètre inconnu, valeur mal
     formée) **et l'effet** (le tri ordonne, le filtre filtre) — voir l'encadré
-    ci-dessous, un `ORDER BY` mort passait les refus sans broncher ;
+    ci-dessous, un `ORDER BY` mort passait les refus sans broncher. La suite
+    se joue sans le `.env`, comme dans un clone, avec les clés de production
+    que tire l'étape du `ci.yml` RENDU, rejouée telle qu'elle est écrite. Si le
+    journal porte encore `AUCUNE clé de chiffrement`, l'étape rougit : sans ces
+    clés, l'e2e sort en 0 avec le second facteur et les webhooks désactivés ;
 15. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce,
     et sert DEUX routes : celle de l'application et celle d'un MODULE — un module
     qui se charge sans monter ses routes rendait 404 sans un mot ;

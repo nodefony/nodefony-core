@@ -1839,6 +1839,60 @@ export const UserEntity = defineEntity({
   },
 );
 
+/**
+ * Ce que le noyau journalise quand une brique de sécurité démarre sans sa clé
+ * en production (`totp.ts`, `webhooks.ts` de `@nodefony/security`).
+ */
+const BRIQUE_DESACTIVEE = /(?:totp|webhooks): AUCUNE clé de chiffrement[^\n]*/u;
+
+/**
+ * Rejoue l'étape « clés de production » du `ci.yml` rendu, comme la forge.
+ *
+ * La commande est lue dans le fichier, exécutée sous bash (l'étape déclare
+ * `shell: bash`) avec un `GITHUB_ENV` à nous — jamais celui du lanceur, qui en
+ * CI est le vrai fichier de la forge. Chaque ligne doit être une `NF_…=valeur` :
+ * une ligne de journal glissée sur la sortie standard serait lue par la forge
+ * comme une affectation, et c'est ce que ce contrôle refuse.
+ *
+ * @returns {Record<string, string>} les clés, à poser sur l'environnement de l'e2e
+ * @throws {Error} quand le `ci.yml` n'a pas l'étape, ou qu'elle rend autre chose
+ */
+function clesDeProductionDeLaCi() {
+  const ci = readFileSync(
+    path.join(APP, ".github", "workflows", "ci.yml"),
+    "utf8",
+  );
+  const etape = ci.match(
+    /^\s+run: (.*security:secrets --env >> "\$GITHUB_ENV")$/mu,
+  );
+  if (etape === null) {
+    throw new Error(
+      "le ci.yml rendu n'a plus l'étape des clés de production : " +
+        "sa suite e2e éprouverait une production amputée.",
+    );
+  }
+  const fichier = path.join(ROOT, "github-env");
+  writeFileSync(fichier, "");
+  run("bash", ["-c", etape[1]], APP, { GITHUB_ENV: fichier });
+  const cles = {};
+  for (const ligne of readFileSync(fichier, "utf8").split(/\r?\n/u)) {
+    if (ligne === "") continue;
+    const affectation = ligne.match(/^(NF_[A-Z0-9_]+)=(.+)$/u);
+    if (affectation === null) {
+      // Seul ce qui précède le `=` est cité : la ligne peut porter une clé.
+      throw new Error(
+        "l'étape des clés a écrit une ligne qui n'est pas une affectation " +
+          `NF_… : « ${ligne.split("=")[0].slice(0, 40)}… »`,
+      );
+    }
+    cles[affectation[1]] = affectation[2];
+  }
+  if (Object.keys(cles).length === 0) {
+    throw new Error("l'étape des clés de production n'a rien écrit.");
+  }
+  return cles;
+}
+
 if (withE2e) {
   // Sur MongoDB, la même suite éprouve AUSSI le démarrage en production, la
   // session et le temps réel sur Mongoose — la base e2e vidée par le pilote
@@ -1860,7 +1914,21 @@ if (withE2e) {
       const present = existsSync(envFile);
       if (present) renameSync(envFile, aside);
       try {
-        run("npm", ["run", "test:e2e"]);
+        // Les clés de production, par l'étape TELLE QU'ÉCRITE dans le `ci.yml`
+        // rendu — pas par une commande recopiée ici, qui resterait verte le jour
+        // où le gabarit perdrait l'étape. Sans elles, la production démarre avec
+        // le second facteur et les webhooks DÉSACTIVÉS, et l'e2e passe quand
+        // même : seul le journal le dit.
+        const cles = clesDeProductionDeLaCi();
+        run("npm", ["run", "test:e2e"], APP, cles);
+        const journal = readFileSync(stepCommands.at(-1).log, "utf8");
+        const amputee = journal.match(BRIQUE_DESACTIVEE);
+        if (amputee !== null) {
+          throw new Error(
+            `e2e verte sur une production AMPUTÉE — « ${amputee[0]} » : ` +
+              "une clé de production manque à l'étape du ci.yml rendu.",
+          );
+        }
       } finally {
         if (present) renameSync(aside, envFile);
       }

@@ -1197,6 +1197,75 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  /**
+   * Les clés de production que la suite e2e exige, tirées par la CI elle-même.
+   *
+   * Sans elles, la production démarre avec le second facteur et les webhooks
+   * DÉSACTIVÉS, et l'e2e reste verte : la CI éprouvait une production amputée
+   * sans le dire (`CRITIC totp`/`webhooks` au journal de la vitrine).
+   */
+  describe("CI générée : clés de production de la suite e2e", () => {
+    it("🔴 preset complete : l'étape tire les clés ENTRE verify et test:e2e, sur les deux forges", () => {
+      const dest = path.join(tmp, "ci-secrets-complete");
+      scaffold(dest, {
+        name: "cisecrets",
+        preset: "complete",
+        frontend: "none",
+      });
+      const ci = readFileSync(
+        path.join(dest, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      const etape =
+        'run: npm exec -- nodefony security:secrets --env >> "$GITHUB_ENV"';
+      assert.include(ci, etape);
+      // `>> "$GITHUB_ENV"` est du bash : PowerShell ne le lit pas ainsi.
+      assert.match(
+        ci,
+        /shell: bash\n {8}run: npm exec -- nodefony security:secrets/u,
+      );
+      // La commande démarre le noyau : il faut le code bâti par `verify`, et
+      // les clés doivent être posées AVANT que l'e2e démarre la production.
+      assert.isBelow(ci.indexOf("run: npm run verify"), ci.indexOf(etape));
+      assert.isBelow(ci.indexOf(etape), ci.indexOf("run: npm run test:e2e"));
+
+      const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
+      const ecriture =
+        "- npm exec -- nodefony security:secrets --env > .ci-secrets.env";
+      const export_ =
+        '- while IFS= read -r ligne; do export "$ligne"; done < .ci-secrets.env; rm -f .ci-secrets.env';
+      assert.include(gitlab, ecriture);
+      assert.include(gitlab, export_);
+      // `set -a && . fichier` retirerait les guillemets du jeu de clés JSON.
+      assert.notInclude(gitlab, ". ./.ci-secrets.env");
+      assert.isBelow(
+        gitlab.indexOf("- npm run verify"),
+        gitlab.indexOf(ecriture),
+      );
+      assert.isBelow(
+        gitlab.indexOf(export_),
+        gitlab.indexOf("- npm run test:e2e"),
+      );
+    });
+
+    it("preset minimal : aucune étape — la commande n'existe pas sans @nodefony/security", () => {
+      const dest = path.join(tmp, "ci-secrets-minimal");
+      scaffold(dest, {
+        name: "cisecretsmin",
+        preset: "minimal",
+        frontend: "none",
+      });
+      const ci = readFileSync(
+        path.join(dest, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
+      assert.notInclude(ci, "security:secrets");
+      assert.notInclude(gitlab, "security:secrets");
+      assert.include(ci, "npm run test:e2e");
+    });
+  });
+
   describe(".prettierrc + CI générée (le filet complet vit en forge)", () => {
     it("🔴 l'app naît avec .prettierrc.json et un workflow CI qui joue verify + e2e", () => {
       const dest = path.join(tmp, "ci-sqlite");

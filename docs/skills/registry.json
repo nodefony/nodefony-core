@@ -4287,6 +4287,10 @@
                 "help": ""
               },
               {
+                "flag": "--env",
+                "help": ""
+              },
+              {
                 "flag": "--exact",
                 "help": ""
               },

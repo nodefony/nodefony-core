@@ -140,7 +140,18 @@ jobs:
       # typecheck, lint, format:check, env:check, test, build, `nodefony doctor` — l'ordre du script.
       - run: <%= it.pmRun %> verify
 
-      # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
+<% if (it.hasSecurity) { %>      # Les clés de PRODUCTION que la suite e2e exige — chiffrement du second
+      # facteur et des webhooks, signature des jetons. Sans elles, la production
+      # démarre quand même, mais avec ces briques DÉSACTIVÉES : la CI serait verte
+      # sur une production amputée. Tirées à chaque exécution, elles ne protègent
+      # rien et n'ont donc pas leur place dans les `secrets` du dépôt. La commande
+      # démarre le noyau : elle vient APRÈS `verify`, qui construit. Une ligne
+      # `CLÉ=valeur` par clé, sans journal — le format que lit `$GITHUB_ENV`.
+      - name: Clés de production (tirées pour cette exécution)
+        shell: bash
+        run: <%= it.pmExec("nodefony") %> security:secrets --env >> "$GITHUB_ENV"
+
+<% } %>      # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
       - run: <%= it.pmRun %> test:e2e
 
       # 🔴 L'IMAGE est le seul artefact que rien ne regardait, et c'est celui
