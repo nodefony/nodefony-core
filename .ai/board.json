@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T13:23:34.905Z",
+  "generatedAt": "2026-10-20T13:43:21.318Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -9115,8 +9115,8 @@
       "number": 638,
       "title": "chore(lint): retirer les initialisations jamais lues et l'interdire",
       "url": "https://github.com/nodefony/nodefony-core/issues/638",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
