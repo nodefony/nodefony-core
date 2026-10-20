@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T20:36:55.960Z",
+  "generatedAt": "2026-10-20T22:28:10.508Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 160,
+      "closed": 161,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 14,
       "title": "10.0.0-beta"
     },
     {
@@ -3579,8 +3579,8 @@
       "number": 570,
       "title": "feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent",
       "url": "https://github.com/nodefony/nodefony-core/issues/570",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
