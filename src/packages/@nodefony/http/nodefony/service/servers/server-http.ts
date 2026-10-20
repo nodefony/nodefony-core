@@ -19,11 +19,7 @@ import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
 import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
-import {
-  bindWithFallback,
-  buildBindPlan,
-  type Listenable,
-} from "../../src/servers/portBinder";
+import { bindWithFallback, buildBindPlan } from "../../src/servers/portBinder";
 import {
   asServersConfig,
   configuredServerPort,
@@ -110,7 +106,7 @@ class ServerHttp extends Service {
         // handler d'erreur DURABLE n'est posé qu'APRÈS : sinon il verrait passer
         // les EADDRINUSE de repli et terminerait le kernel en croyant à une panne.
         bindWithFallback(
-          this.server as unknown as Listenable,
+          this.server,
           this.domain,
           buildBindPlan(
             "http",

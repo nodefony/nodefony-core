@@ -155,6 +155,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
   const serverServices = [
     "server-http",
     "server-https",
+    "server-h2c",
     "server-websocket",
     "server-websocket-secure",
     "server-static",

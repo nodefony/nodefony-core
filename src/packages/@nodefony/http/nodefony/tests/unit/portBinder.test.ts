@@ -8,6 +8,7 @@ import {
   buildBindPlan,
   conflictProbeTargets,
   detectPortConflict,
+  h2cPortConflict,
   resolvePortPolicy,
   DEFAULT_PORT_RETRY_ATTEMPTS,
   type Listenable,
@@ -154,6 +155,50 @@ describe("buildBindPlan — ce que chaque serveur a le droit de prendre", () => 
       "development",
     );
     expect(plan.attempts).to.equal(3);
+  });
+});
+
+describe("buildBindPlan + h2cPortConflict — le troisième port (h2c)", () => {
+  const three = {
+    http: { port: 5151 },
+    https: { port: 5152 },
+    h2c: { enabled: true, port: 5153 },
+  };
+
+  it("h2c actif : HTTP et HTTPS réservent 5153, h2c réserve les deux autres", () => {
+    expect(buildBindPlan("http", three, "development").reserved).to.deep.equal([
+      5152, 5153,
+    ]);
+    expect(buildBindPlan("https", three, "development").reserved).to.deep.equal(
+      [5151, 5153],
+    );
+    const plan = buildBindPlan("h2c", three, "development");
+    expect(plan.desired).to.equal(5153);
+    expect(plan.reserved).to.deep.equal([5151, 5152]);
+  });
+
+  it("h2c présent mais non activé : son port n'est réservé par personne", () => {
+    const off = { ...three, h2c: { enabled: false, port: 5153 } };
+    expect(buildBindPlan("http", off, "development").reserved).to.deep.equal([
+      5152,
+    ]);
+    expect(h2cPortConflict(off)).to.equal(null);
+  });
+
+  it("h2c sur le port HTTP ou HTTPS : conflit nommé (refus au boot)", () => {
+    expect(
+      h2cPortConflict({ ...three, h2c: { enabled: true, port: 5151 } }),
+    ).to.equal("http");
+    expect(
+      h2cPortConflict({ ...three, h2c: { enabled: true, port: 5152 } }),
+    ).to.equal("https");
+    expect(h2cPortConflict(three)).to.equal(null);
+  });
+
+  it("port 0 (choix du noyau) : jamais en conflit", () => {
+    expect(
+      h2cPortConflict({ http: { port: 0 }, h2c: { enabled: true, port: 0 } }),
+    ).to.equal(null);
   });
 });
 

@@ -335,7 +335,7 @@ export const httpConfig = (ctx: ConfigContext<typeof env>) =>
   }) satisfies IHttpConfigInput;
 ```
 
-## 🔌 Les quatre serveurs (et le cinquième service)
+## 🔌 Les serveurs — quatre par défaut, h2c en option
 
 Choisir en cinq secondes :
 
@@ -345,11 +345,13 @@ Choisir en cinq secondes :
 | `server-https`            | `https://` — 5152   | `servers.https !== false` | TLS : HTTP/2 (défaut) ou HTTP/1.1.                 |
 | `server-websocket`        | `ws://` — 5151      | `server-http` actif       | WebSocket adossé au serveur HTTP.                  |
 | `server-websocket-secure` | `wss://` — 5152     | `server-https` actif      | WebSocket adossé au serveur TLS.                   |
+| `server-h2c`              | h2c — 5153          | `servers.h2c.enabled`     | HTTP/2 en clair, pour un proxy inverse (option).   |
 | `server-static`           | (aucun port propre) | toujours enregistré       | Fichiers statiques, en **repli** après le routing. |
 
 L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts#HttpKernel.initServers`) : chaque serveur est
 consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts#HttpKernel.initServers`).
-Les serveurs WebSocket ne sont montés que si leur porteur l'a été.
+Les serveurs WebSocket ne sont montés que si leur porteur l'a été. `server-h2c` n'a pas de WebSocket
+adossé (voir sa section).
 
 ### `server-http` — HTTP/1.1 en clair
 
@@ -385,6 +387,66 @@ Le certificat vient du service `certificates`, lu au moment de la création via
 > un client `h2` produit un contexte `alpnProtocol: "h2"`, un client HTTP/1.1 sur le même port
 > `alpnProtocol: "http/1.1"` — les deux avec `type: "http"` et `serverType: "https"`. C'est ce qui rend
 > le port TLS universel.
+
+### `server-h2c` — HTTP/2 en clair, pour un proxy inverse
+
+Un proxy inverse qui termine le TLS (Envoy et Istio, HAProxy, Traefik) peut parler HTTP/2 **en clair** à
+ses amonts : c'est h2c, en connaissance préalable (RFC 9113 §3.3) — le client envoie directement la préface
+HTTP/2, sans négociation. `ServerH2c.createServer()` (`server-h2c.ts#ServerH2c.createServer`) le sert sur un
+port **dédié**, désactivé par défaut :
+
+```ts
+// nodefony.config.ts
+servers: { h2c: { enabled: true } }, // port 5153 par défaut — ou NF__APP__SERVERS__H2C__ENABLED=true
+```
+
+Il emprunte le chemin HTTP/2 du port TLS — même pipeline, mêmes limites anti-DoS
+(`http2Limits.ts#http2ServerLimits`), même arrêt par GOAWAY — sans TLS : le contexte porte
+`alpnProtocol: "h2c"`, `serverType: "http"`, et son `scheme` vient du transport ou d'un proxy de confiance
+(`trustProxy`), **jamais** du pseudo-en-tête `:scheme`, que le client écrit lui-même.
+
+**Ce qu'il ne fait pas, délibérément :**
+
+- **HTTP/1.1** : un client HTTP/1.1 échoue sur la préface et la session est fermée. Les sondes de santé et
+  les clients HTTP/1.1 restent sur le port HTTP — d'où l'avertissement au boot si `servers.http` vaut
+  `false` alors que h2c est actif.
+- **WebSocket** : WebSocket sur HTTP/2 passe par le CONNECT étendu (RFC 8441), que ce serveur ne sert pas.
+  Le proxy route `Upgrade: websocket` vers le port HTTP.
+- **La bascule `Upgrade: h2c`** depuis HTTP/1.1 : retirée par RFC 9113 §3.1 (contrebande h2c), refusée
+  en 400 sur le port HTTP.
+- **Partager un port** : `servers.h2c.port` égal à `servers.http.port` ou `servers.https.port` est refusé
+  au boot (`portBinder.ts#h2cPortConflict`).
+
+#### Faut-il l'activer ? — h2c n'est pas « plus rapide » par principe
+
+Le gain classique de HTTP/2 est le multiplexage : plusieurs requêtes sur une connexion, sans blocage en tête
+de file. Il sert surtout un **navigateur**, limité à quelques connexions sur un réseau lent. Entre un proxy et
+un pod, sur un réseau local, le proxy garde déjà un **pool** de connexions HTTP/1.1 ouvertes qui masque ce
+blocage ; et côté Node, HTTP/2 ajoute du travail par requête (trames, compression HPACK des en-têtes,
+contrôle de flux) que le parseur HTTP/1.1 n'a pas. Sur de petites requêtes, un serveur Node en HTTP/2 sert
+souvent **moins** de requêtes par seconde qu'en HTTP/1.1. Le choix se fait sur la **forme du trafic** :
+
+| Forme du trafic                              | h2c ?         | Pourquoi                                                                                                                                                                          |
+| -------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| gRPC                                         | **requis**    | gRPC n'existe qu'en HTTP/2.                                                                                                                                                       |
+| Beaucoup de flux longs (SSE) par pod         | **oui**       | En HTTP/1.1, chaque flux occupe une connexion du proxy ; en h2c, ils partagent quelques connexions.                                                                               |
+| En-têtes lourds et répétés (cookies, jetons) | probable      | HPACK les compresse d'une requête à l'autre.                                                                                                                                      |
+| REST classique, petites réponses             | **mesurer**   | Souvent neutre, parfois perdant.                                                                                                                                                  |
+| WebSocket                                    | **non**       | Reste sur le port HTTP, en HTTP/1.1.                                                                                                                                              |
+| Plusieurs workers (`nodefony cluster -w N`)  | **attention** | Le cluster Node répartit des **connexions**, pas des requêtes : avec les rares connexions h2c d'un proxy, un seul worker peut tout recevoir. Un process par pod n'a pas ce biais. |
+
+**Mesurer avant de décider** : même pod, même route, en ne changeant que le protocole amont du proxy.
+`wrk` ne parle que HTTP/1.1 ; `h2load` (nghttp2) parle les deux, ce qui garde le même instrument des deux
+côtés. Comparer le débit, le p99 et le **CPU par requête** — côté pod **et** côté proxy, qui paie aussi
+HPACK — en paires alternées, sur la médiane de plusieurs runs.
+
+```bash
+# vérifier le port : la préface HTTP/2 directe, sans TLS
+curl --http2-prior-knowledge http://127.0.0.1:5153/readyz
+# même route, même instrument, deux protocoles
+h2load --h1 -n 100000 -c 64 http://127.0.0.1:5151/readyz   # HTTP/1.1
+h2load      -n 100000 -c 64 http://127.0.0.1:5153/readyz   # h2c
+```
 
 ### `server-websocket` — WebSocket en clair
 
@@ -434,6 +496,7 @@ la CI et le cluster) ; le **réglage** est une propriété de l'application.
 | `servers.http` | `{ port }` \| `false` | `{ port: 5151 }` | Serveur en clair. `false` = TLS-only (le WS tombe avec). |
 | `servers.https` | `{ port, protocol }` \| `false` | `{ port: 5152, protocol: "2.0" }` | Serveur TLS. `false` = nominal cloud-native (le WSS tombe). |
 | `servers.https.protocol` | `"1.1"` \| `"2.0"` | `"2.0"` | HTTP/2 (h2) avec repli HTTP/1.1 par ALPN, ou HTTP/1.1 seul. |
+| `servers.h2c` | `{ enabled, port }` | `{ enabled: false, port: 5153 }` | HTTP/2 en clair pour un proxy inverse — section `server-h2c`. |
 | `servers.statics` | bool | `true` | Monte le service de fichiers statiques. |
 | `servers.portPolicy` | `"auto"` \| `"strict"` | `auto` en dev, `strict` en prod **et** test | Que faire si le port est occupé (section suivante). |
 | `servers.portRetryAttempts` | int ≥ 0 | `20` | En `auto`, nombre de ports essayés après le port désiré. |

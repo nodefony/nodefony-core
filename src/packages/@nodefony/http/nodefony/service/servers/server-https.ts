@@ -19,14 +19,11 @@ import http from "node:http";
 import https from "node:https";
 import http2 from "node:http2";
 import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
+import { http2ServerLimits } from "../../src/servers/http2Limits";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
-import {
-  bindWithFallback,
-  buildBindPlan,
-  type Listenable,
-} from "../../src/servers/portBinder";
+import { bindWithFallback, buildBindPlan } from "../../src/servers/portBinder";
 import {
   asServersConfig,
   configuredServerPort,
@@ -179,15 +176,6 @@ class ServerHttps extends Service {
   createServerH2(): Promise<http2.Http2SecureServer> {
     return new Promise((resolve, reject) => {
       try {
-        const h2Cfg =
-          (
-            this.module.options as {
-              http2?: {
-                maxConcurrentStreams?: number;
-                maxSessionMemory?: number;
-              };
-            }
-          ).http2 ?? {};
         const opt = extend({
           allowHTTP1: true,
           rejectUnauthorized: this.options.rejectUnauthorized,
@@ -197,17 +185,11 @@ class ServerHttps extends Service {
             ? this.httpKernel.serviceCerticats.ca
             : undefined,
         }) as http2.SecureServerOptions;
-        // Limites anti-DoS HTTP/2 (cf config http2). Appliquées seulement si
-        // définies → sinon défauts Node conservés (pas de régression).
-        if (h2Cfg.maxSessionMemory) {
-          opt.maxSessionMemory = h2Cfg.maxSessionMemory;
-        }
-        if (h2Cfg.maxConcurrentStreams) {
-          opt.settings = {
-            ...opt.settings,
-            maxConcurrentStreams: h2Cfg.maxConcurrentStreams,
-          };
-        }
+        // Limites anti-DoS HTTP/2 (cf config http2), règle partagée avec h2c.
+        Object.assign(
+          opt,
+          http2ServerLimits((this.module.options as IHttpConfig).http2),
+        );
         this.server = http2.createSecureServer(opt);
         this.httpTerminator = this.terminator();
         // Timeout HTTP/2 — sur Http2Server le timeout d'inactivité par défaut
@@ -284,8 +266,9 @@ class ServerHttps extends Service {
    * `EADDRINUSE` de repli, qui ne sont pas des pannes).
    */
   private async listenWithPolicy(): Promise<void> {
+    if (this.server === null) throw new Error("Server https not created");
     const { address, shiftedFrom } = await bindWithFallback(
-      this.server as unknown as Listenable,
+      this.server,
       this.domain,
       buildBindPlan(
         "https",

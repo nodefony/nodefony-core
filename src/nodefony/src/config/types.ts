@@ -100,6 +100,28 @@ export interface HttpsServerConfig {
   protocol?: "1.1" | "2.0";
 }
 
+/**
+ * Serveur HTTP/2 en clair (h2c, connaissance préalable — RFC 9113 §3.3), pour un
+ * proxy inverse qui parle HTTP/2 à ses amonts (Envoy/Istio, HAProxy, Traefik).
+ * Port DÉDIÉ : un client HTTP/1.1 y est refusé, les WebSocket restent sur le port
+ * HTTP. N'est pas « plus rapide » par principe : à activer pour gRPC, pour de
+ * nombreux flux longs, ou après mesure.
+ */
+export interface H2cServerConfig {
+  /**
+   * Démarre le serveur h2c.
+   * @default false
+   * @reactivity boot
+   */
+  enabled?: boolean;
+  /**
+   * Port d'écoute h2c — distinct de `http.port` et de `https.port`.
+   * @default 5153
+   * @reactivity boot
+   */
+  port?: number;
+}
+
 /** Serveurs réseau HTTP/HTTPS/WS/WSS (un seul domaine, pas de vhost). */
 export interface ServersConfig {
   /**
@@ -115,6 +137,8 @@ export interface ServersConfig {
    * cloud-native : TLS terminé à l'ingress/LB, le pod sert en clair.
    */
   https?: HttpsServerConfig | false;
+  /** Serveur HTTP/2 en clair (h2c) pour un proxy inverse — désactivé par défaut. */
+  h2c?: H2cServerConfig;
   /** Serveur WebSocket (hérite du HTTP associé). */
   ws?: Record<string, unknown>;
   /** Serveur WebSocket Secure (hérite du HTTPS associé). */

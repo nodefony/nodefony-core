@@ -43,6 +43,7 @@
  * Un décalage est TOUJOURS annoncé (`onShift`) : une app qui écoute ailleurs que
  * là où on l'attend sans le dire est une dégradation silencieuse.
  */
+import { isH2cEnabled } from "./kernelServers";
 import cluster from "node:cluster";
 import type { AddressInfo } from "node:net";
 import { isPortListening, resolvePortPolicy } from "nodefony";
@@ -54,12 +55,25 @@ import type { PortPolicy } from "nodefony";
 export { resolvePortPolicy };
 export type { PortPolicy };
 
-/** Serveur écoutable (surface minimale commune `http`/`https`/`http2`). */
+/**
+ * Serveur écoutable (surface minimale commune `http`/`https`/`http2`).
+ *
+ * Les écouteurs sont typés événement par événement : c'est la forme que les
+ * surcharges de Node acceptent telle quelle, sans conversion chez l'appelant.
+ */
 export interface Listenable {
   listen(port: number, host?: string): unknown;
   address(): AddressInfo | string | null;
-  once(event: string, listener: (...args: never[]) => void): unknown;
-  removeListener(event: string, listener: (...args: never[]) => void): unknown;
+  once(
+    event: "error",
+    listener: (error: NodeJS.ErrnoException) => void,
+  ): unknown;
+  once(event: "listening", listener: () => void): unknown;
+  removeListener(
+    event: "error",
+    listener: (error: NodeJS.ErrnoException) => void,
+  ): unknown;
+  removeListener(event: "listening", listener: () => void): unknown;
 }
 
 /** Nombre de ports essayés après le désiré, en `auto`. */
@@ -85,38 +99,75 @@ export interface BindResult {
 export interface ServersPortConfig {
   http?: { port?: number | undefined } | false;
   https?: { port?: number | undefined } | false;
+  h2c?: { enabled?: boolean | undefined; port?: number | undefined };
   portPolicy?: PortPolicy;
   portRetryAttempts?: number;
 }
 
+/** Serveur dont `buildBindPlan` compose le plan. */
+export type BoundServer = "http" | "https" | "h2c";
+
+const BOUND_SERVERS: readonly BoundServer[] = ["http", "https", "h2c"];
+
 /** Port configuré d'un serveur, ou `0` (désactivé / non précisé → choix noyau). */
 function configuredPort(
-  entry: { port?: number | undefined } | false | undefined,
+  servers: ServersPortConfig | undefined,
+  which: BoundServer,
 ): number {
+  if (which === "h2c") {
+    const entry = servers?.h2c;
+    return isH2cEnabled(entry) ? (entry?.port ?? 0) : 0;
+  }
+  const entry = servers?.[which];
   if (!entry) return 0;
   return entry.port ?? 0;
 }
 
 /**
+ * Serveur actif qui convoite le MÊME port que h2c, ou `null`.
+ *
+ * Un port partagé avec h2c n'est pas un conflit à contourner : sur ce port, le
+ * client HTTP/1.1 et le proxy h2c se marchent dessus, et le repli `auto` ferait
+ * glisser l'un des deux là où personne ne l'attend. Le boot le refuse.
+ *
+ * @param servers - `kernel.options.servers`.
+ * @returns `"http"` ou `"https"` en conflit, sinon `null` (h2c inactif, port 0).
+ */
+export function h2cPortConflict(
+  servers: ServersPortConfig | undefined,
+): "http" | "https" | null {
+  const port = configuredPort(servers, "h2c");
+  if (port === 0) return null;
+  if (configuredPort(servers, "http") === port) return "http";
+  if (configuredPort(servers, "https") === port) return "https";
+  return null;
+}
+
+/**
  * Compose le plan de bind d'un serveur depuis la config du kernel — source UNIQUE
- * (les deux serveurs l'appellent ; la politique n'est décidée qu'ici).
+ * (les serveurs l'appellent ; la politique n'est décidée qu'ici).
  *
  * @param which - le serveur qu'on borne.
  * @param servers - `kernel.options.servers`.
  * @param environment - `kernel.environment` (arbitre le défaut de la politique).
  */
 export function buildBindPlan(
-  which: "http" | "https",
+  which: BoundServer,
   servers: ServersPortConfig | undefined,
   environment: string | undefined,
 ): BindPlan {
-  const desired = configuredPort(servers?.[which]);
-  // L'AUTRE serveur convoite son port : ne jamais le lui prendre au passage.
-  const other = configuredPort(servers?.[which === "http" ? "https" : "http"]);
+  const desired = configuredPort(servers, which);
+  // Les AUTRES serveurs convoitent leur port : ne jamais le leur prendre au passage.
+  const reserved: number[] = [];
+  for (const other of BOUND_SERVERS) {
+    if (other === which) continue;
+    const port = configuredPort(servers, other);
+    if (port > 0 && port !== desired) reserved.push(port);
+  }
   const policy = resolvePortPolicy(environment, servers?.portPolicy);
   return {
     desired,
-    reserved: other > 0 && other !== desired ? [other] : [],
+    reserved,
     attempts:
       policy === "auto"
         ? (servers?.portRetryAttempts ?? DEFAULT_PORT_RETRY_ATTEMPTS)

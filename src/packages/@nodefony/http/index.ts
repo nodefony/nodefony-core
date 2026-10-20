@@ -18,6 +18,7 @@ import { Profiler } from "./nodefony/src/profiler/Profiler";
 import HttpKernel from "./nodefony/service/http-kernel";
 import HttpServer from "./nodefony/service/servers/server-http";
 import HttpsServer from "./nodefony/service/servers/server-https";
+import H2cServer from "./nodefony/service/servers/server-h2c";
 import WebsocketServer from "./nodefony/service/servers/server-websocket";
 import WebsocketSecureServer from "./nodefony/service/servers/server-websocket-secure";
 import StaticServer from "./nodefony/service/servers/server-static";
@@ -66,6 +67,7 @@ declare module "nodefony" {
   ReverseProxy,
   HttpServer,
   HttpsServer,
+  H2cServer,
   WebsocketServer,
   WebsocketSecureServer,
   UploadService,

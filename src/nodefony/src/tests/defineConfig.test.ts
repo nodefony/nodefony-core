@@ -54,6 +54,7 @@ const GOLDEN_DEFAULTS = {
     statics: true,
     http: { port: 5151 },
     https: { port: 5152, protocol: "2.0" },
+    h2c: { enabled: false, port: 5153 },
     ws: {},
     wss: {},
   },

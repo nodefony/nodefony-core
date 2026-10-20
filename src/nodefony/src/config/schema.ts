@@ -183,6 +183,26 @@ const serversSchema = z
           "— cas NOMINAL cloud-native (TLS terminé à l'ingress/LB, le pod sert en " +
           "clair) ; le WSS tombe avec.",
       ),
+    h2c: z
+      .strictObject({
+        enabled: z
+          .boolean()
+          .optional()
+          .describe("Démarre le serveur h2c. Défaut : false."),
+        port: portSchema
+          .optional()
+          .describe(
+            "Port d'écoute h2c, distinct de `http.port` et de `https.port` " +
+              "(sinon refus au boot). Défaut : 5153.",
+          ),
+      })
+      .optional()
+      .describe(
+        "Serveur HTTP/2 en clair (h2c, connaissance préalable) pour un proxy " +
+          "inverse qui parle HTTP/2 à ses amonts. Port dédié : HTTP/1.1 y est " +
+          "refusé, les WebSocket restent sur le port HTTP. Pas « plus rapide » " +
+          "par principe : gRPC, nombreux flux longs, ou après mesure.",
+      ),
     ws: z
       .object({})
       .optional()

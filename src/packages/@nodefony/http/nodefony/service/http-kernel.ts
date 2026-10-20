@@ -52,6 +52,7 @@ import type { SseStream } from "../src/context/http/SseStream";
 import Ws from "ws";
 import httpServer from "../service/servers/server-http";
 import httpsServer from "../service/servers/server-https";
+import h2cServer from "../service/servers/server-h2c";
 import websocketServer from "../service/servers/server-websocket";
 import websocketSecureServer from "../service/servers/server-websocket-secure";
 import Statics from "./servers/server-static";
@@ -1251,10 +1252,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   async initServers(): Promise<
-    (httpServer | httpsServer | websocketServer | websocketSecureServer)[]
+    (
+      | httpServer
+      | httpsServer
+      | h2cServer
+      | websocketServer
+      | websocketSecureServer
+    )[]
   > {
     const servers: (
-      httpServer | httpsServer | websocketServer | websocketSecureServer
+      | httpServer
+      | httpsServer
+      | h2cServer
+      | websocketServer
+      | websocketSecureServer
     )[] = [];
     // Guards `.active` : un serveur désactivé par config (`servers.http|https:
     // false` — ex. TLS terminé à l'ingress, cas nominal k8s) est SAUTÉ, pas
@@ -1270,6 +1281,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       await serverHttps.createServer();
       servers.push(serverHttps);
     }
+    // h2c : port dédié, sans WebSocket adossé (pas de CONNECT étendu, RFC 8441).
+    const serverH2c = this.get<h2cServer>("server-h2c");
+    if (serverH2c?.active) {
+      await serverH2c.createServer();
+      servers.push(serverH2c);
+    }
     const serverWebsocket = this.get<websocketServer>("server-websocket");
     if (serverWebsocket && serverHttp?.active) {
       await serverWebsocket.createServer(serverHttp);
@@ -1282,7 +1299,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       await serverWebsocketSecure.createServer(serverHttps);
       servers.push(serverWebsocketSecure);
     }
-    this.publishRuntimePorts(serverHttp, serverHttps);
+    this.publishRuntimePorts(serverHttp, serverHttps, serverH2c);
     return servers;
   }
 
@@ -1320,6 +1337,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private publishRuntimePorts(
     serverHttp: httpServer | null,
     serverHttps: httpsServer | null,
+    serverH2c: h2cServer | null,
   ): void {
     const ports: number[] = [];
     const desired: number[] = [];
@@ -1339,6 +1357,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       const port = configuredServerPort(
         asServersConfig(this.kernel?.options.servers),
         "https",
+      );
+      if (port) desired.push(port);
+    }
+    // Port publié (status/stop/readiness sondent en TCP), URL non : aucun schéma
+    // d'URL ne dit h2c, et un `http://` mentirait à qui l'ouvre dans un navigateur.
+    if (serverH2c?.active && serverH2c.port > 0) {
+      ports.push(serverH2c.port);
+      const port = configuredServerPort(
+        asServersConfig(this.kernel?.options.servers),
+        "h2c",
       );
       if (port) desired.push(port);
     }

@@ -15,6 +15,18 @@ export function asServersConfig(servers: unknown): ServersConfig | undefined {
 }
 
 /**
+ * Le serveur h2c démarre-t-il ? Seul un `enabled: true` EXPLICITE l'allume : la
+ * section existe toujours (défauts), un port seul ne vaut pas activation.
+ *
+ * @param entry - `servers.h2c`.
+ */
+export function isH2cEnabled(
+  entry: { enabled?: boolean | undefined } | undefined,
+): boolean {
+  return entry?.enabled === true;
+}
+
+/**
  * Port DEMANDÉ pour un serveur (`servers.<type>.port`), ou `undefined` si le
  * serveur est désactivé, absent, ou sans port numérique.
  *
@@ -23,10 +35,11 @@ export function asServersConfig(servers: unknown): ServersConfig | undefined {
  */
 export function configuredServerPort(
   servers: ServersConfig | undefined,
-  type: "http" | "https",
+  type: "http" | "https" | "h2c",
 ): number | undefined {
   const entry = servers?.[type];
   if (!entry) return undefined;
+  if (type === "h2c" && !isH2cEnabled(servers.h2c)) return undefined;
   const port: unknown = entry.port;
   return typeof port === "number" ? port : undefined;
 }

@@ -62,6 +62,9 @@ export const defaultAppConfig: ResolvedAppConfig = {
     statics: true,
     http: { port: 5151 },
     https: { port: 5152, protocol: "2.0" },
+    // Présent dans les défauts pour que `NF__APP__SERVERS__H2C__ENABLED` existe :
+    // un override d'environnement n'écrit que sur un chemin déjà déclaré.
+    h2c: { enabled: false, port: 5153 },
     ws: {},
     wss: {},
   },

@@ -109,6 +109,10 @@ export default defineConfig<Env>((ctx) => ({
     ...(ctx.env.NF_PORT_HTTPS
       ? { https: { port: ctx.env.NF_PORT_HTTPS } }
       : {}),
+    // HTTP/2 en clair (5153) hors production : le dépôt éprouve le chemin que
+    // prend un proxy inverse HTTP/2 (`curl --http2-prior-knowledge`). En
+    // production, c'est le déploiement qui l'active, derrière son proxy.
+    ...(ctx.isProd ? {} : { h2c: { enabled: true } }),
   },
 
   // ── Observabilité ─────────────────────────────────────────────────────────
