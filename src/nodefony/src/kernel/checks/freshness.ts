@@ -22,6 +22,7 @@
  * sens, et le dit dans son message.
  */
 import path from "node:path";
+import semver from "semver";
 import {
   existsSync,
   lstatSync,
@@ -122,13 +123,30 @@ function newestUnder(
   return found;
 }
 
-/** La version majeure exigée par `engines.node`, ou `null` si non déclarée. */
-export function requiredNodeMajor(engines: unknown): number | null {
+/**
+ * La plage `engines.node` que ce Node ne satisfait PAS, ou `null` s'il la
+ * satisfait (ou si aucune plage lisible n'est déclarée).
+ *
+ * La comparaison porte sur la plage ENTIÈRE, pas sur la seule majeure : un
+ * plancher `>=24.14.0` existe pour une capacité apparue en cours de série
+ * (l'option `ignore` de `fs.watch`), et un Node 24.10 le viole autant qu'un
+ * Node 22.
+ *
+ * @param engines - le champ `engines` du manifeste, tel quel.
+ * @param nodeVersion - la version examinée (`v24.10.0` ou `24.10.0`).
+ */
+export function nodeBelowEngines(
+  engines: unknown,
+  nodeVersion: string,
+): string | null {
   if (typeof engines !== "object" || engines === null) return null;
-  const brut = (engines as { node?: unknown }).node;
-  if (typeof brut !== "string") return null;
-  const m = /(\d+)/u.exec(brut);
-  return m?.[1] === undefined ? null : Number.parseInt(m[1], 10);
+  const range = (engines as { node?: unknown }).node;
+  if (typeof range !== "string" || semver.validRange(range) === null) {
+    return null;
+  }
+  const current = semver.coerce(nodeVersion);
+  if (current === null) return null;
+  return semver.satisfies(current, range) ? null : range;
 }
 
 /**
@@ -353,17 +371,16 @@ export function checkFreshness(
       const pkg = JSON.parse(readFileSync(manifeste, "utf8")) as {
         engines?: unknown;
       };
-      const exige = requiredNodeMajor(pkg.engines);
-      const current = Number.parseInt(nodeVersion.replace(/^v/u, ""), 10);
-      if (exige !== null && Number.isFinite(current) && current < exige) {
+      const exige = nodeBelowEngines(pkg.engines, nodeVersion);
+      if (exige !== null) {
         findings.push({
           kind: "node-below-engines",
           message:
             `Node ${nodeVersion} est en deçà du plancher déclaré par cette ` +
-            `application (\`engines.node\` exige ${exige} ou plus) : l'échec ` +
-            "arrivera sur une syntaxe non reconnue, loin de sa cause. " +
-            "→ installer Node " +
-            `${exige}, ou relever \`engines.node\` en connaissance de cause`,
+            `application (\`engines.node\` exige \`${exige}\`) : l'échec ` +
+            "arrivera loin de sa cause — une syntaxe non reconnue, une API " +
+            "absente, une option ignorée sans un mot. → installer un Node qui " +
+            `satisfait \`${exige}\`, ou relever \`engines.node\` en connaissance de cause`,
           file: "package.json",
         });
       }

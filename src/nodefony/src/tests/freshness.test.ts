@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkFreshness, requiredNodeMajor } from "../kernel/checks/freshness";
+import { checkFreshness, nodeBelowEngines } from "../kernel/checks/freshness";
 
 // Le jetable du test, le test le supprime : scripts/test/vitest/tmp-guard.ts fait échouer
 // la passe sur tout dossier laissé dans le dossier temporaire.
@@ -128,12 +128,31 @@ describe("doctor — fraîcheur du build et plancher de Node", () => {
   it("la version se lit sur la GRAMMAIRE, pas sur un format supposé", () => {
     // Le plancher s'écrit de plusieurs façons ; aucune ne doit faire taire
     // le contrôle en silence.
-    assert.equal(requiredNodeMajor({ node: ">=24" }), 24);
-    assert.equal(requiredNodeMajor({ node: "^24.1.0" }), 24);
-    assert.equal(requiredNodeMajor({ node: "24.x" }), 24);
-    assert.equal(requiredNodeMajor({ node: "récent" }), null);
-    assert.equal(requiredNodeMajor(undefined), null);
-    assert.equal(requiredNodeMajor(null), null);
+    assert.equal(nodeBelowEngines({ node: ">=24" }, "v22.12.0"), ">=24");
+    assert.equal(nodeBelowEngines({ node: "^24.1.0" }, "v24.0.0"), "^24.1.0");
+    assert.equal(nodeBelowEngines({ node: "24.x" }, "v26.1.0"), "24.x");
+    assert.equal(nodeBelowEngines({ node: ">=24" }, "v26.11.1"), null);
+    assert.equal(nodeBelowEngines({ node: "récent" }, "v20.0.0"), null);
+    assert.equal(nodeBelowEngines(undefined, "v20.0.0"), null);
+    assert.equal(nodeBelowEngines(null, "v20.0.0"), null);
+  });
+
+  it("🔴 un plancher en COURS de série (>=24.14.0) se lit en entier, pas sur la majeure", () => {
+    // Le cas qui a motivé la comparaison complète : le watch du superviseur
+    // exige l'option `ignore` de `fs.watch`, apparue en 24.14.
+    const engines = { node: ">=24.14.0" };
+    assert.equal(nodeBelowEngines(engines, "v24.10.0"), ">=24.14.0");
+    assert.equal(nodeBelowEngines(engines, "v24.14.0"), null);
+    assert.equal(nodeBelowEngines(engines, "v26.0.0"), null);
+    const racine = app();
+    writeFileSync(
+      path.join(racine, "package.json"),
+      JSON.stringify({ engines }),
+    );
+    const r = checkFreshness(racine, "v24.13.1");
+    const f = r.findings.find((x) => x.kind === "node-below-engines");
+    assert.ok(f, "un Node 24.13 doit être signalé sous un plancher 24.14");
+    assert.match(f.message, />=24\.14\.0/);
   });
 });
 
