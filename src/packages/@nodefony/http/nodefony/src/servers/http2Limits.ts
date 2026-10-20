@@ -40,7 +40,7 @@ export function http2ServerLimits(
  * session détruite PUIS appelle `session.setTimeout(0)` ; or `setStreamTimeout`
  * sort aussitôt sur un objet détruit. Le minuteur n'est jamais désarmé et retient
  * la session (~2,4 Ko) pendant `timeoutMs` : sous un flux de connexions neuves,
- * connexions/s × délai × 2,4 Ko.
+ * connexions/s × délai × 2,4 Ko. Signalé à Node : https://github.com/nodejs/node/issues/66885
  *
  * Le contournement : désarmer à la réception du GOAWAY, AVANT la destruction —
  * c'est ainsi que ferment un proxy et un client Node, même par `destroy()`. Rien

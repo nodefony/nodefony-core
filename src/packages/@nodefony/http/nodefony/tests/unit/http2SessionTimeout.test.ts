@@ -8,9 +8,9 @@
  * session, vu au gate mémoire). `session.timeout` le rend observable :
  * `setTimeout(0)` effectif le remet à 0, l'appel avorté le laisse au délai.
  *
- * Le témoin sans contournement fige le défaut de Node : le jour où il rougit,
- * Node est corrigé et `setHttp2SessionTimeout` peut redevenir un simple
- * `server.setTimeout`.
+ * Le témoin sans contournement fige le défaut de Node (nodejs/node#66885) : le
+ * jour où il rougit, Node est corrigé et `setHttp2SessionTimeout` peut
+ * redevenir un simple `server.setTimeout`.
  */
 import { expect } from "vitest";
 import http2 from "node:http2";
