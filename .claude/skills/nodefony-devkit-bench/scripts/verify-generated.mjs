@@ -1848,11 +1848,16 @@ const BRIQUE_DESACTIVEE = /(?:totp|webhooks): AUCUNE clé de chiffrement[^\n]*/u
 /**
  * Rejoue l'étape « clés de production » du `ci.yml` rendu, comme la forge.
  *
- * La commande est lue dans le fichier, exécutée sous bash (l'étape déclare
- * `shell: bash`) avec un `GITHUB_ENV` à nous — jamais celui du lanceur, qui en
- * CI est le vrai fichier de la forge. Chaque ligne doit être une `NF_…=valeur` :
- * une ligne de journal glissée sur la sortie standard serait lue par la forge
- * comme une affectation, et c'est ce que ce contrôle refuse.
+ * La commande est lue dans le fichier et lancée telle quelle ; la redirection
+ * `>> "$GITHUB_ENV"`, elle, est faite ici. Pas par `bash -c` : sous Windows, le
+ * `bash` du PATH est le lanceur WSL de `System32`, qui sort en 1 sans un mot
+ * faute de distribution — la forge, elle, prend Git Bash pour `shell: bash`.
+ * Vécu au premier passage en CI. Sa sortie n'entre dans aucun journal : elle
+ * porte les clés.
+ *
+ * Chaque ligne doit être une `NF_…=valeur` : une ligne de journal glissée sur la
+ * sortie standard serait lue par la forge comme une affectation, et c'est ce
+ * que ce contrôle refuse.
  *
  * @returns {Record<string, string>} les clés, à poser sur l'environnement de l'e2e
  * @throws {Error} quand le `ci.yml` n'a pas l'étape, ou qu'elle rend autre chose
@@ -1863,7 +1868,7 @@ function clesDeProductionDeLaCi() {
     "utf8",
   );
   const etape = ci.match(
-    /^\s+run: (.*security:secrets --env >> "\$GITHUB_ENV")$/mu,
+    /^\s+run: (.*security:secrets --env) >> "\$GITHUB_ENV"$/mu,
   );
   if (etape === null) {
     throw new Error(
@@ -1871,11 +1876,23 @@ function clesDeProductionDeLaCi() {
         "sa suite e2e éprouverait une production amputée.",
     );
   }
-  const fichier = path.join(ROOT, "github-env");
-  writeFileSync(fichier, "");
-  run("bash", ["-c", etape[1]], APP, { GITHUB_ENV: fichier });
+  // Aucun guillemet dans la commande du gabarit : un découpage aux espaces suffit.
+  const [cmd, ...args] = etape[1].trim().split(/\s+/u);
+  const res = spawnSync(cmd, args, {
+    cwd: APP,
+    encoding: "utf8",
+    timeout: 120_000,
+    env: envDecor(PORTS, {}),
+    shell: needsShell(cmd),
+  });
+  process.stdout.write(`   · $ ${etape[1]} → code ${res.status}\n`);
+  if (res.status !== 0) {
+    throw new Error(
+      `${etape[1]} → code ${res.status}\n${res.stderr ?? ""}${res.error?.message ?? ""}`,
+    );
+  }
   const cles = {};
-  for (const ligne of readFileSync(fichier, "utf8").split(/\r?\n/u)) {
+  for (const ligne of (res.stdout ?? "").split(/\r?\n/u)) {
     if (ligne === "") continue;
     const affectation = ligne.match(/^(NF_[A-Z0-9_]+)=(.+)$/u);
     if (affectation === null) {
