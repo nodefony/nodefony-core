@@ -28,17 +28,10 @@ class Http2Request extends HttpRequest {
     return this.headers[":path"] as string | undefined;
   }
 
-  // Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
-  // canonique (this.forwarded, gated proxy de confiance) ; sinon le pseudo-header.
-  protected override resolveScheme(): string {
-    if (this.forwarded?.proto) {
-      return this.forwarded.proto;
-    }
-    if (this.headers[":scheme"] === "https") {
-      return "https";
-    }
-    return "http";
-  }
+  // PAS d'override de `resolveScheme` : le pseudo-en-tête `:scheme` est écrit
+  // par le CLIENT, et Node le transmet tel quel, h2c compris. Le schéma vient du
+  // transport (`socket.encrypted`, que le socket d'un flux HTTP/2 expose) ou d'un
+  // proxy de confiance (`this.forwarded`) — la règle héritée, seule source.
 }
 
 export default Http2Request;

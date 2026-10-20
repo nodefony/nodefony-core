@@ -937,7 +937,9 @@ class HttpRequest {
   /**
    * Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
    * canonique (this.forwarded, gated proxy de confiance) ; sinon le transport
-   * réel. HTTP/2 remplace la lecture du socket par le pseudo-header `:scheme`.
+   * réel. Vaut pour HTTP/2 aussi : le pseudo-en-tête `:scheme` vient du client
+   * (RFC 9113 §8.3.1) et n'est jamais cru — sur h2c, `:scheme: https` ferait
+   * passer une connexion claire pour chiffrée.
    */
   protected resolveScheme(
     request: http.IncomingMessage | http2.Http2ServerRequest,

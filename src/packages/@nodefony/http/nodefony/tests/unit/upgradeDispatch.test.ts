@@ -195,6 +195,36 @@ describe("attachUpgradeDispatch — admission asynchrone (#596)", () => {
     expect(admitted).toBe(0);
   });
 
+  // RFC 9113 §3.1 a RETIRÉ la bascule `Upgrade: h2c`. L'accepter ouvrirait la
+  // contrebande h2c : un proxy frontal qui relaie l'`Upgrade` sans le
+  // comprendre perd la vue sur tout ce qui suit, contrôles d'accès compris.
+  // Le pire cas est un chemin qui POSSÈDE une route WebSocket (`refusal` rend
+  // `null`) : seule la forme du handshake peut encore refuser.
+  it("ATTAQUE contrebande h2c : `Upgrade: h2c` reçoit 400, jamais de 101 ni de trame HTTP/2", async () => {
+    let admitted = 0;
+    const srv = await serveAdmit(() => admitted++);
+    const socket = await new Promise<net.Socket>((resolve) => {
+      const s = net.connect(srv.port, "127.0.0.1", () => {
+        s.write(
+          `GET /x HTTP/1.1\r\nHost: 127.0.0.1:${srv.port}\r\n` +
+            `Connection: Upgrade, HTTP2-Settings\r\nUpgrade: h2c\r\n` +
+            `HTTP2-Settings: AAMAAABkAAQAAP__\r\n\r\n`,
+        );
+        resolve(s);
+      });
+      s.on("error", () => {});
+      closers.push(async () => {
+        s.destroy();
+      });
+    });
+    const reply = await new Promise<string>((resolve) =>
+      socket.once("data", (d: Buffer) => resolve(String(d))),
+    );
+    expect(reply).toMatch(/^HTTP\/1\.1 400 /);
+    expect(reply).not.toMatch(/101 Switching Protocols/);
+    expect(admitted).toBe(0);
+  });
+
   it.each([
     ["ferme proprement", (s: net.Socket) => s.end()],
     ["coupe brutalement (RST)", (s: net.Socket) => s.resetAndDestroy()],

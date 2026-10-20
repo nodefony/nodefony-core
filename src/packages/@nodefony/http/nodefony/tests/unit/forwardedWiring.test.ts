@@ -90,13 +90,31 @@ describe("Http2Request.getFullUrl — scheme effectif ← forwarded", () => {
     expect(req.getFullUrl()).to.equal("https://example.com/p");
   });
 
-  it("sans forwarded → pseudo-header :scheme", () => {
+  // `:scheme` est écrit par le CLIENT (RFC 9113 §8.3.1) et Node le transmet
+  // tel quel, même sur h2c — constaté : `:scheme: https` arrive intact sur un
+  // `http2.createServer` en clair. Le croire ferait passer une connexion claire
+  // pour chiffrée (cookies `Secure`, garde « secret en clair refusé »). Seuls
+  // le transport local et un proxy de CONFIANCE disent le schéma.
+  it("ATTAQUE h2c : `:scheme: https` sur un transport clair → http", () => {
     const req = stub<Http2Request>(Http2Request.prototype, {
       host: "example.com",
       forwarded: null,
       headers: { ":path": "/p", ":scheme": "https" },
+      request: { socket: { encrypted: undefined } },
+    });
+    expect(req.getFullUrl()).to.equal("http://example.com/p");
+    expect(req.scheme).to.equal("http");
+  });
+
+  it("TLS local : `:scheme: http` ne rétrograde pas → https", () => {
+    const req = stub<Http2Request>(Http2Request.prototype, {
+      host: "example.com",
+      forwarded: null,
+      headers: { ":path": "/p", ":scheme": "http" },
+      request: { socket: { encrypted: true } },
     });
     expect(req.getFullUrl()).to.equal("https://example.com/p");
+    expect(req.scheme).to.equal("https");
   });
 });
 
