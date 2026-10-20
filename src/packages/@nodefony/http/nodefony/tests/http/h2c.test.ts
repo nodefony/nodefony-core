@@ -115,6 +115,19 @@ describe.skipIf(IS_PROD_TARGET)(
       expect(r.headers["strict-transport-security"]).to.equal(undefined);
     });
 
+    it("Host sans :authority (requête convertie par un proxy) : l'hôte est lu sur Host, pas de 421", async () => {
+      // RFC 9113 §8.3.1 : un intermédiaire qui convertit une requête HTTP/1.1 de
+      // forme origine ne DOIT PAS fabriquer `:authority` — HAProxy `proto h2`
+      // envoie `host` seul. Le client Node fait de même quand on lui donne `host`.
+      const r = await request(session, {
+        ":path": CONTEXT,
+        host: "localhost:5153",
+      });
+      expect(r.status, r.body.slice(0, 200)).to.equal(200);
+      const ctx = JSON.parse(r.body) as Record<string, unknown>;
+      expect(ctx.host).to.equal("localhost:5153");
+    });
+
     it("forme proxy : 32 flux simultanés sur UNE session, tous servis", async () => {
       const replies = await Promise.all(
         Array.from({ length: 32 }, () =>

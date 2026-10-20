@@ -50,3 +50,23 @@ export function alpnProtocolOf(request: IAlpnSource): AlpnProtocol {
   const session = request.stream?.session;
   return session?.alpnProtocol === "h2c" ? "h2c" : "h2";
 }
+
+/**
+ * Autorité (hôte et port) d'une requête, HTTP/1.1 comme HTTP/2. Règle UNIQUE
+ * des lecteurs du serveur.
+ *
+ * `:authority` d'abord, puis `Host` (RFC 9113 §8.3.1). Le repli n'est pas un
+ * confort : un intermédiaire qui convertit une requête HTTP/1.1 de forme origine
+ * (`GET /chemin`) en HTTP/2 ne DOIT PAS fabriquer `:authority` — il garde
+ * `Host`. C'est ce que fait HAProxy `proto h2` vers un port h2c : sans ce repli,
+ * l'hôte est introuvable et la requête part en 421.
+ *
+ * @param headers - en-têtes de la requête Node (`IncomingMessage` ou `Http2ServerRequest`).
+ * @returns l'autorité, ou `undefined` si la requête n'en porte aucune.
+ */
+export function requestAuthority(headers: {
+  host?: string | undefined;
+  ":authority"?: string | undefined;
+}): string | undefined {
+  return headers[":authority"] ?? headers.host;
+}

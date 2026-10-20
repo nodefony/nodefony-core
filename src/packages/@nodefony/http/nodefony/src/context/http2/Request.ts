@@ -2,6 +2,7 @@ import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
 import HttpRequest from "../http/Request";
 import { HTTPMethod } from "../Context";
+import { requestAuthority } from "../transport";
 
 class Http2Request extends HttpRequest {
   //context: HttpContext;
@@ -12,8 +13,9 @@ class Http2Request extends HttpRequest {
     this.request = request;
   }
 
+  /** `:authority`, sinon `Host` — cf `requestAuthority` (RFC 9113 §8.3.1). */
   override getHost(): string | undefined {
-    return this.headers[":authority"] as string;
+    return requestAuthority(this.request.headers);
   }
 
   override getUserAgent(): string | undefined {

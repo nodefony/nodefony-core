@@ -23,6 +23,7 @@ import {
   //DefaultOptionsService,
   //Inject,
 } from "nodefony";
+import { requestAuthority } from "../../src/context/transport";
 
 type serveStaticType = serveStatic.RequestHandler<http.ServerResponse>;
 
@@ -262,7 +263,7 @@ class Statics extends Service {
     } else if (request instanceof http2.Http2ServerRequest) {
       // Pour http2.Http2ServerRequest
       scheme = request.socket instanceof tls.TLSSocket ? "https" : "http";
-      host = request.headers[":authority"];
+      host = requestAuthority(request.headers);
       return scheme + "://" + host;
     }
     throw new Error(`Bad request type`);

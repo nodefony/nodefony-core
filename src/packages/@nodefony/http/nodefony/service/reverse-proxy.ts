@@ -25,6 +25,7 @@ import {
   websocketHandshakeProblem,
 } from "../src/proxy/rules";
 import type { IHttpConfig } from "../config/config";
+import { requestAuthority } from "../src/context/transport";
 
 /** Replis si la section `proxy` manque (module construit hors configuration). */
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -353,8 +354,7 @@ class ReverseProxy extends Service {
     if (isAmbiguousPath(req.url ?? "/")) {
       return answerPlain(res, 400, "Bad Request");
     }
-    const host =
-      req.headers.host ?? (req.headers[":authority"] as string | undefined);
+    const host = requestAuthority(req.headers);
     return forwardRequest(
       req,
       res,
