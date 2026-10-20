@@ -77,7 +77,7 @@ source: "docs/skills/index.md"
 [
   { "icon": "🧠", "title": "check-memory-health", "href": "nodefony-check-memory-health.md",
     "desc": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter,…",
-    "meta": "🟢 conforme v2.0.0" },
+    "meta": "🟢 conforme v2.0.1" },
   { "icon": "🩺", "title": "debug", "href": "nodefony-debug.md",
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
     "meta": "🟢 conforme v1.1.0" },
@@ -156,7 +156,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
   { "icon": "🔧", "title": "test-campaign", "href": "nodefony-test-campaign.md",
     "desc": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
-    "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
+    "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du…",
     "meta": "🟢 conforme v1.9.0 · ⚙️ 19 scripts · 📎 7 réf" },
@@ -193,7 +193,7 @@ source: "docs/skills/index.md"
 | --- | --- | ---: | ---: | ---: | :---: |
 | [`nodefony-browser`](nodefony-browser.md) | 1.2.0 | 454 | 1 | 0 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 116 | 0 | 0 | ✅ |
-| [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.0 | 113 | 0 | 0 | ✅ |
+| [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.1 | 114 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
@@ -217,7 +217,7 @@ source: "docs/skills/index.md"
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 209 | 1 | 0 | ✅ |
+| [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.9.0 | 476 | 7 | 19 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 238 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |

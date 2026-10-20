@@ -1,7 +1,7 @@
 ---
 name: nodefony-check-memory-health
 metadata:
-  version: 2.0.0
+  version: 2.0.1
 description: >
   Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads,
   connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les
@@ -108,8 +108,9 @@ Chaque précaution ci-dessous corrige un faux verdict déjà publié.
 
 - **Ne pas éditer sous `src/` pendant un run** : le superviseur de développement redémarre le
   serveur à chaque sauvegarde — `ECONNREFUSED` au milieu du banc.
-- **Ne pas enchaîner avec le filet CLI** (`NF_RUN_CLI_BOOT=1`) : il lance `production`/`cluster` sur
-  les mêmes ports. Séquencer.
+- **Ne pas jouer le filet CLI en même temps** (`NF_RUN_CLI_BOOT=1`) : il lance `production`/`cluster`
+  sur les mêmes ports. Séquencer — l'ordre et la raison vivent au lot C1c du skill
+  `nodefony-test-campaign`.
 - **Un serveur lancé autrement que par `start.sh`** n'a pas `--expose-gc` : `gcForced: false`,
   mesures fausses.
 - **La journalisation retient en vol.** Hors production, le contenu des trames WS est journalisé en

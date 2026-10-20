@@ -2572,7 +2572,7 @@
       "name": "nodefony-check-memory-health",
       "summary": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter, distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher).",
       "family": "Exécuter, diagnostiquer, mesurer",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "keywords": [],
       "triggers": [
         "vérifier la mémoire",
@@ -2590,8 +2590,8 @@
       ],
       "description": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter, distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher). Porte le décor exigé et les pièges de mesure. À charger AVANT de lancer la commande, pas après un résultat rouge. Symptôme runtime plus large → nodefony-debug ; fuite lente sur la durée → nodefony-load-test. Déclencheurs : \"vérifier la mémoire\", \"memory leak\", \"test mémoire\", \"heap delta\", \"fuite mémoire\", \"gate mémoire\", \"j'ai touché au pipeline\", \"j'ai modifié le Kernel ou le Container\", \"je vais commiter une modif http/framework\", \"le seuil mémoire a sauté\", \"heap qui monte\", \"octets retenus par requête\".",
       "cost": {
-        "bodyLines": 113,
-        "approxTokens": 2035
+        "bodyLines": 114,
+        "approxTokens": 2055
       },
       "requires": [],
       "resources": {
@@ -2602,7 +2602,8 @@
       "related": [
         "nodefony-debug",
         "nodefony-load-test",
-        "nodefony-start-server"
+        "nodefony-start-server",
+        "nodefony-test-campaign"
       ],
       "conformance": {
         "ok": true,
@@ -2664,7 +2665,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "113",
+            "detail": "114",
             "advisory": true
           }
         ]
@@ -10497,7 +10498,7 @@
       "name": "nodefony-test-campaign",
       "summary": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [],
       "triggers": [
         "campagne de test",
@@ -10513,8 +10514,8 @@
       ],
       "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"campagne de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"on teste tout\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"rapport de la campagne de test\".",
       "cost": {
-        "bodyLines": 209,
-        "approxTokens": 4008
+        "bodyLines": 227,
+        "approxTokens": 4331
       },
       "requires": [],
       "resources": {
@@ -10592,7 +10593,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "209",
+            "detail": "227",
             "advisory": true
           }
         ]

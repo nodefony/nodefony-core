@@ -114,7 +114,7 @@ serait sans effet à la régénération suivante.
 [
   { "icon": "🧠", "title": "check-memory-health", "href": "skills/nodefony-check-memory-health.md",
     "desc": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter,…",
-    "meta": "🟢 conforme v2.0.0" },
+    "meta": "🟢 conforme v2.0.1" },
   { "icon": "🩺", "title": "debug", "href": "skills/nodefony-debug.md",
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
     "meta": "🟢 conforme v1.1.0" },
@@ -196,7 +196,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
   { "icon": "🔧", "title": "test-campaign", "href": "skills/nodefony-test-campaign.md",
     "desc": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
-    "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
+    "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du…",
     "meta": "🟢 conforme v1.9.0 · ⚙️ 19 scripts · 📎 7 réf" },

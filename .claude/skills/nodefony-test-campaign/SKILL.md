@@ -1,7 +1,7 @@
 ---
 name: nodefony-test-campaign
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 description: >
   Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les
   interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un
@@ -115,8 +115,9 @@ mélangées est ininterprétable.
 
 | Lot | Variables                                                        | Pourquoi séparé                                                                |
 | --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| C1  | `NF_RUN_PERF=1 NF_RUN_CLI_BOOT=1`                                | non disruptifs — se jouent dans `test:all`                                     |
+| C1  | `NF_RUN_PERF=1`                                                  | non disruptif — se joue avec le socle                                          |
 | C1b | `NF_RUN_CLUSTER_E2E=1` + `npm run test:cluster`                  | fork de VRAIS process — exige la machine pour lui (voir ci-dessous)            |
+| C1c | `npm run test:boot` (`NF_RUN_CLI_BOOT=1`)                        | démarre de VRAIS serveurs sur 5151/5152 — serveur de dev ÉTEINT, après B       |
 | C2  | `NF_RUN_WS_RUPTURE=1`                                            | épuise les ports éphémères — isolé, via `run.sh load --rupture`                |
 | C3  | `NF_RUN_DB_OUTAGE=1` + `NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER` | **arrête et relance des conteneurs** — annoncer avant, contrôler l'infra après |
 
@@ -138,6 +139,23 @@ Sans l'interrupteur, les deux bancs se sautent — et `gateReporter` refuse ce s
 la cible et **fait échouer la passe** en intégration continue. C'est ce qui empêche le lot de
 disparaître sans bruit. `npm run test:all -- --load` le joue aussi, sous le nom de phase
 « Socket distribuée (cluster e2e) », et l'ANNONCE comme non lancé sans ce drapeau.
+
+**C1c a deux façons de mentir, une par état du serveur de dev — d'où son lot.** Le boot réel
+(`CliIntegration.test.ts`) lance `production`, `cluster` et `--detach` sur les ports du serveur
+de dev, et ces serveurs créent leurs propres sessions :
+
+- **serveur de dev levé** : chaque cas du bloc se saute (`skipIfDevServerUp`) — le child
+  tomberait sur `EADDRINUSE` et le `stop` de son nettoyage arrêterait le serveur du
+  développeur. La passe rend un vert sans avoir booté quoi que ce soit ;
+- **joué en même temps que l'étage B** : ses serveurs prennent 5151/5152 et ajoutent leurs
+  sessions à celles que les tests comptent. Vécu : quatre tests de session et de révocation
+  rouges, dont `expected 2 to equal 1` (une session attendue, celle du boot en plus) — 7/7
+  verts rejoués seuls.
+
+Donc : étage B terminé, serveur arrêté (`npx nodefony stop`, port 5151 libre), puis
+`npm run test:boot` seul. Le bloc `gateReporter` exige alors « Écran de développement sous
+pseudo-terminal » : s'il le nomme comme non exercé, le lot s'est sauté, il n'a rien prouvé.
+C'est ce découpage que suit le job « Filet CLI » de la forge (`node.js.yml`).
 
 C3 vise le conteneur qui sert la variable d'infra, pas celui qui porte le nom attendu : `NF_MYSQL_URL`
 peut pointer MariaDB pendant qu'un conteneur nommé `mysql` sert un autre port.
