@@ -372,6 +372,35 @@ function h2cSharedGet(path: string): Promise<void> {
   return h2cGet(h2cShared, path);
 }
 
+// HTTP/2 sur TLS (5152, `createSecureServer` + `allowHTTP1`) — ce que parle un
+// navigateur. Même pipeline que h2c une fois la session ouverte ; ce qui diffère
+// est l'établissement : poignée de main TLS, choix du protocole par ALPN.
+const H2 = "https://localhost:5152";
+const H2_TLS = { rejectUnauthorized: false } as const;
+
+/** Session TLS NEUVE par requête : une poignée de main et une négociation ALPN par itération. */
+async function h2SessionGet(path: string): Promise<void> {
+  const session = http2.connect(H2, H2_TLS);
+  try {
+    await h2cGet(session, path);
+    // Sans `h2` négocié, le scénario ne mesurerait pas HTTP/2.
+    if (session.alpnProtocol !== "h2") {
+      throw new Error(
+        `ALPN ${String(session.alpnProtocol)} négocié sur ${H2}, h2 attendu`,
+      );
+    }
+  } finally {
+    await new Promise<void>((resolve) => session.close(() => resolve()));
+  }
+}
+
+let h2Shared: http2.ClientHttp2Session | null = null;
+function h2SharedGet(path: string): Promise<void> {
+  if (h2Shared === null || h2Shared.destroyed)
+    h2Shared = http2.connect(H2, H2_TLS);
+  return h2cGet(h2Shared, path);
+}
+
 /** GET relayé par le proxy interne, reçu en h2c : 200 et `via` exigés, comme `relayedGet`. */
 function h2cRelayedGet(path: string): Promise<void> {
   if (h2cShared === null || h2cShared.destroyed) h2cShared = http2.connect(H2C);
@@ -420,6 +449,8 @@ const ACTIONS = {
   requestService: () => get(`${REQUEST_SCOPE}/probe`),
   h2cSession: () => h2cSessionGet("/nodefony/test/index"),
   h2cStream: () => h2cSharedGet("/nodefony/test/index"),
+  h2Session: () => h2SessionGet("/nodefony/test/index"),
+  h2Stream: () => h2SharedGet("/nodefony/test/index"),
   // Le service `request` d'une connexion, résolu au handshake puis à un message.
   wsRequestService: () =>
     new Promise<void>((resolve, reject) => {
@@ -539,8 +570,16 @@ const WARMUP = {
   proxyWs: 300,
   sseServerClose: 400,
   sseClientLeave: 300,
-  h2cSession: 450,
+  // Sessions HTTP/2 neuves : échauffées DANS leur test (`SESSION_WARMUP`), pas
+  // ici. Une rétention bornée au délai de session (30 s, cf `http2Limits.ts`)
+  // ne se voit que si tout le scénario tient dans ce délai : échauffées en tête
+  // de suite, ces sessions expiraient PENDANT la mesure, ~30 s plus tard, et
+  // leur libération retranchait la pente — 0,99 Ko au lieu de 2,50 Ko, vert
+  // avec le contournement retiré.
+  h2cSession: 0,
   h2cStream: 1500,
+  h2Session: 0,
+  h2Stream: 1500,
   wsRefused: 400,
   // Chemin HTTP complet (session, pare-feu, audit du refus) : même plateau
   // que `get`. Mesuré hors gate, échauffement 1 500 / paliers de 300 :
@@ -549,20 +588,24 @@ const WARMUP = {
   wsProbe: 1500,
 } satisfies Record<keyof typeof ACTIONS, number>;
 
+/** Itérations jetées en tête des scénarios de session HTTP/2 neuve, absents de `WARMUP`. */
+const SESSION_WARMUP = 450;
+
 /**
  * Plan de mesure d'un scénario : un palier jeté (reprise après le scénario
- * précédent), puis `batches` paliers de `batch` itérations.
+ * précédent, `warmup` itérations), puis `batches` paliers de `batch` itérations.
  */
 const plan = (
   key: keyof typeof ACTIONS,
   batch: number,
   batches = 6,
+  warmup = batch,
 ): IRetentionPlan => ({
   probe: serverHeap,
   act: async (i) => {
     await ACTIONS[key](i);
   },
-  warmup: batch,
+  warmup,
   batch,
   batches,
 });
@@ -593,6 +636,7 @@ beforeAll(async () => {
 }, 120_000);
 afterAll(async () => {
   h2cShared?.close();
+  h2Shared?.close();
   await setSyslogRing(true);
   const removed = await purgeUploadResidue(snapshot);
   expect(
@@ -727,7 +771,7 @@ describe("Memory leaks — HTTP (requires server)", function () {
     // des sessions par le drain (`serverShutdown.ts`), qui doit l'oublier.
     await httpLoop(
       "h2c GET on a fresh session",
-      plan("h2cSession", 150),
+      plan("h2cSession", 150, 6, SESSION_WARMUP),
       THRESHOLDS.h2cSession,
     );
   });
@@ -737,6 +781,24 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "h2c GET streams on a shared session",
       plan("h2cStream", 250),
       THRESHOLDS.h2cStream,
+    );
+  });
+
+  it("HTTP/2 TLS GET on a fresh session — retains nothing per session", async () => {
+    // Une poignée de main TLS + ALPN par itération : `TLSSocket`, session et
+    // son suivi par le drain doivent tous être réclamés.
+    await httpLoop(
+      "HTTP/2 TLS GET on a fresh session",
+      plan("h2Session", 150, 6, SESSION_WARMUP),
+      THRESHOLDS.h2Session,
+    );
+  });
+
+  it("HTTP/2 TLS GET streams on a shared session — retains nothing per stream", async () => {
+    await httpLoop(
+      "HTTP/2 TLS GET streams on a shared session",
+      plan("h2Stream", 250),
+      THRESHOLDS.h2Stream,
     );
   });
 
