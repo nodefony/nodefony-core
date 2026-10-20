@@ -9,6 +9,10 @@ import {
 } from "../src/proxy/generateProxyConfig";
 import { planAssetPublish } from "../src/assets/collectAssets";
 import {
+  asServersConfig,
+  configuredServerPort,
+} from "../src/servers/kernelServers";
+import {
   resolveTrustedHostNames,
   type ITrustedHostsConfig,
 } from "../src/context/domainMatcher";
@@ -200,6 +204,12 @@ class ProxyGenerate extends Command {
       backendHost: opts.backend ?? "127.0.0.1",
       httpPort: Number(servers?.http?.port) || defaultIntrospection.httpPort,
       httpsPort: Number(servers?.https?.port) || defaultIntrospection.httpsPort,
+      // Règle unique : `undefined` tant que servers.h2c n'est pas activé.
+      h2cPort:
+        configuredServerPort(
+          asServersConfig(this.kernel?.options.servers),
+          "h2c",
+        ) ?? null,
       staticRoots,
       mounts,
       listen: opts.listen ? Number(opts.listen) : defaultIntrospection.listen,

@@ -45,6 +45,12 @@ export interface ProxyIntrospection {
   httpPort: number;
   /** Port HTTPS/2 du backend (re-encrypt). */
   httpsPort: number;
+  /**
+   * Port h2c du backend (`servers.h2c`), ou `null` s'il n'est pas activé. Le
+   * générateur haproxy y envoie le trafic en HTTP/2 (`proto h2`) ; nginx, qui
+   * ne parle pas HTTP/2 à ses amonts, l'ignore.
+   */
+  h2cPort?: number | null;
   /** Dossiers statiques servis à la racine `/` (ordre = priorité). */
   staticRoots: string[];
   /** Montages statiques préfixés (servis tels quels). */
@@ -90,6 +96,7 @@ export const defaultIntrospection: ProxyIntrospection = {
   backendHost: "127.0.0.1",
   httpPort: 5151,
   httpsPort: 5152,
+  h2cPort: null,
   staticRoots: [],
   mounts: [],
   listen: 80,
@@ -403,6 +410,9 @@ function nginxServerBlock(
  */
 export function generateHaproxyConfig(intro: ProxyIntrospection): string {
   const backendPort = intro.reencrypt ? intro.httpsPort : intro.httpPort;
+  // h2c : seulement vers un backend en clair — le re-chiffrement vise le port
+  // TLS, qui négocie déjà HTTP/2 par ALPN.
+  const h2cPort = intro.reencrypt ? null : (intro.h2cPort ?? null);
   const idleSeconds = idleTimeoutSeconds(intro);
   const serverSsl = intro.reencrypt
     ? " ssl ca-file /etc/haproxy/certs/ca.pem verify required" +
@@ -455,11 +465,22 @@ frontend fe_nodefony
   http-request set-header Forwarded "for=%[src];proto=https;host=%[req.hdr(host)]" if { ssl_fc }
   http-request set-header Forwarded "for=%[src];proto=http;host=%[req.hdr(host)]" unless { ssl_fc }
 
-  default_backend be_nodefony
-
+${
+  h2cPort === null
+    ? "  default_backend be_nodefony\n"
+    : "  # h2c (servers.h2c) : HTTP/2 en clair vers le backend, plusieurs flux par\n" +
+      "  # connexion. WebSocket reste en HTTP/1.1 sur le port HTTP : le port h2c\n" +
+      "  # n'annonce pas le CONNECT étendu (RFC 8441).\n" +
+      "  use_backend be_nodefony if { hdr(upgrade) -i websocket }\n" +
+      "  default_backend be_nodefony_h2c\n"
+}
 backend be_nodefony
 ${staticNote}  server nodefony ${intro.backendHost}:${backendPort} check${serverSsl}
-`;
+${
+  h2cPort === null
+    ? ""
+    : `\nbackend be_nodefony_h2c\n  server nodefony_h2c ${intro.backendHost}:${h2cPort} check proto h2\n`
+}`;
 }
 
 /** Premier domaine non-IP (pour verifyhost/sni), défaut `localhost`. */

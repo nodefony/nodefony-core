@@ -342,3 +342,37 @@ describe("generateProxyConfig — flux SSE", () => {
     });
   }
 });
+
+describe("generateProxyConfig — haproxy vers h2c (servers.h2c)", () => {
+  it("sans h2c : un seul backend HTTP/1.1, aucun `proto h2`", () => {
+    const c = generateHaproxyConfig(intro());
+    expect(c).to.include("default_backend be_nodefony\n");
+    expect(c).not.to.include("be_nodefony_h2c");
+    expect(c).not.to.include("proto h2");
+  });
+
+  it("h2c actif : trafic en HTTP/2 vers le port h2c, WebSocket vers le port HTTP", () => {
+    const c = generateHaproxyConfig(
+      intro({ backendHost: "app", httpPort: 5151, h2cPort: 5153 }),
+    );
+    expect(c).to.include("default_backend be_nodefony_h2c");
+    expect(c).to.include("server nodefony_h2c app:5153 check proto h2");
+    // Le port h2c n'annonce pas le CONNECT étendu (RFC 8441) : une WebSocket
+    // qui y partirait échouerait. Elle doit garder le port HTTP/1.1.
+    expect(c).to.include(
+      "use_backend be_nodefony if { hdr(upgrade) -i websocket }",
+    );
+    expect(c).to.include("server nodefony app:5151 check");
+    // La règle WebSocket précède le défaut : haproxy évalue use_backend d'abord,
+    // mais un lecteur lit de haut en bas.
+    expect(c.indexOf("use_backend be_nodefony if")).to.be.lessThan(
+      c.indexOf("default_backend be_nodefony_h2c"),
+    );
+  });
+
+  it("re-chiffrement : le port TLS négocie déjà HTTP/2, h2c est ignoré", () => {
+    const c = generateHaproxyConfig(intro({ reencrypt: true, h2cPort: 5153 }));
+    expect(c).not.to.include("be_nodefony_h2c");
+    expect(c).to.include("default_backend be_nodefony\n");
+  });
+});
