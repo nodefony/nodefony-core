@@ -412,8 +412,8 @@ Il emprunte le chemin HTTP/2 du port TLS — même pipeline, mêmes limites anti
   `false` alors que h2c est actif.
 - **WebSocket** : WebSocket sur HTTP/2 passe par le CONNECT étendu (RFC 8441), que ce serveur ne sert pas.
   Le proxy route `Upgrade: websocket` vers le port HTTP.
-- **La bascule `Upgrade: h2c`** depuis HTTP/1.1 : retirée par RFC 9113 §3.1 (contrebande h2c), refusée
-  en 400 sur le port HTTP.
+- **La bascule `Upgrade: h2c`** depuis HTTP/1.1 : retirée par RFC 9113 §3.1 (contrebande h2c). Le port
+  HTTP la refuse — 404 sur un chemin sans route WebSocket, 400 sinon — et ne répond jamais `101`.
 - **Partager un port** : `servers.h2c.port` égal à `servers.http.port` ou `servers.https.port` est refusé
   au boot (`portBinder.ts#h2cPortConflict`).
 
@@ -434,6 +434,20 @@ souvent **moins** de requêtes par seconde qu'en HTTP/1.1. Le choix se fait sur 
 | REST classique, petites réponses             | **mesurer**   | Souvent neutre, parfois perdant.                                                                                                                                                  |
 | WebSocket                                    | **non**       | Reste sur le port HTTP, en HTTP/1.1.                                                                                                                                              |
 | Plusieurs workers (`nodefony cluster -w N`)  | **attention** | Le cluster Node répartit des **connexions**, pas des requêtes : avec les rares connexions h2c d'un proxy, un seul worker peut tout recevoir. Un process par pod n'a pas ce biais. |
+
+**Ce que coûte h2c, mesuré** — production en un seul process, même route triviale, même instrument
+(`h2load`), médiane de paires alternées ; débit de h2c rapporté à HTTP/1.1 sur la même machine, et le même
+écart pour Node seul, sans framework :
+
+| Forme (`h2load`)                                | Node seul | Nodefony |
+| ----------------------------------------------- | --------- | -------- |
+| 64 connexions × 1 flux — forme égale à HTTP/1.1 | −60 %     | −48 %    |
+| 4 connexions × 16 flux — la forme d'un proxy    | −14 %     | −18 %    |
+
+L'écart est d'abord celui de HTTP/2 dans Node : à forme égale, Node seul perd davantage que Nodefony, dont
+le travail par requête dilue le coût du protocole. En forme proxy, le multiplexage regagne presque tout, et
+Nodefony reste dans la même zone. Sur une route triviale, h2c ne fait donc pas gagner de débit ; il se choisit
+pour ce que le tableau ci-dessus nomme — gRPC, flux longs, en-têtes lourds.
 
 **Mesurer avant de décider** : même pod, même route, en ne changeant que le protocole amont du proxy.
 `wrk` ne parle que HTTP/1.1 ; `h2load` (nghttp2) parle les deux, ce qui garde le même instrument des deux
