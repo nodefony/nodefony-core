@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T11:51:52.306Z",
+  "generatedAt": "2026-10-20T12:27:57.105Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 154,
+      "closed": 155,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 20,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -3477,8 +3477,8 @@
       "number": 472,
       "title": "test(ci): stabiliser trois suites qui rougissent en passe complète",
       "url": "https://github.com/nodefony/nodefony-core/issues/472",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,

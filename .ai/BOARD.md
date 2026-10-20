@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-20 11:51** (UTC).
+> Empreinte prise le **2026-10-20 12:27** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 89% | 154 | 20 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 89% | 155 | 19 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 2% | 1 | 44 | — |
@@ -32,11 +32,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#472 — test(ci): stabiliser trois suites qui rougissent en passe complète**
+**#399 — test(http): rendre la base Redis dans l'état où la suite l'a trouvée**
 
-Ordre 4.04 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-23 → 10-23
+Ordre 4.05 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-10-30 → 10-30
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 20 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -133,11 +133,10 @@ Ordre 4.04 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-23 �
 | 918 | P2 — décision | 2 | — | #615 | feat(cli): ajouter un type de champ chiffré au repos à create entity |
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
 
-## Jalon 10.0.0-beta — 20 ouverts
+## Jalon 10.0.0-beta — 19 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.04 | P2 — décision | 1 | 2026-10-23 → 10-23 | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
 | 4.05 | P2 — décision | 0.5 | 2026-10-30 → 10-30 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
 | 4.06 | P2 — décision | 0.5 | 2026-11-02 → 11-02 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
 | 4.07 | P2 — décision | 0.5 | — | #595 | feat(scaffold): générer les secrets de production dans la CI de l'application |
