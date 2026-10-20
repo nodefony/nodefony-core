@@ -235,6 +235,17 @@ function isPortOpen(port: number, timeoutMs = 500): Promise<boolean> {
   });
 }
 
+/**
+ * Saute le cas quand le serveur de dev du dépôt tourne déjà : le child
+ * échouerait sur EADDRINUSE, et le `stop` de son nettoyage arrêterait le
+ * serveur du développeur — vécu, un serveur profilé tué en pleine passe.
+ */
+async function skipIfDevServerUp(ctx: {
+  skip(note?: string): void;
+}): Promise<void> {
+  if (await isPortOpen(HTTP_PORT)) ctx.skip("serveur de dev déjà levé");
+}
+
 /** Compte les lignes non vides du trace file (1 ligne = 1 `new Kernel()`). */
 function countKernelBoots(traceFile: string): number {
   if (!fs.existsSync(traceFile)) return 0;
@@ -915,10 +926,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       testTimeout: BOOT_TEST_TIMEOUT_MS,
       hookTimeout: BOOT_TEST_TIMEOUT_MS,
     });
-    beforeEach(async (ctx) => {
-      // Un serveur tourne déjà (dev) → le child échouerait EADDRINUSE → skip soft.
-      if (await isPortOpen(HTTP_PORT)) ctx.skip();
-    });
+    beforeEach(skipIfDevServerUp);
 
     // ─── Anti-dérive : la liste des noms d'entités réservés dit-elle encore vrai ? ──
     // `create entity` refuse les noms que les modules du framework occupent, sur la
@@ -1901,6 +1909,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
   "écran de développement sous pseudo-terminal",
   () => {
     const flavor = FLAVOR as ScriptFlavor;
+    beforeEach(skipIfDevServerUp);
 
     it(
       "prêt, rechargé puis arrêté : une seule barre, en bas, jamais figée dans l'historique",
