@@ -6995,6 +6995,48 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/h2c-vs-h1-bare.mjs",
+            "purpose": "Témoin du banc h2c-vs-h1.sh : Node NU, sans framework — le coût de HTTP/2 lui-même. HTTP/1.1 et h2c sur deux ports, même réponse triviale. Usage : node h2c-vs-h1-bare.mjs [port HTTP/1.1=5161] [port h2c=5163]",
+            "usage": [
+              "Usage : node h2c-vs-h1-bare.mjs [port HTTP/1.1=5161] [port h2c=5163]"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/h2c-vs-h1.sh",
+            "purpose": "HTTP/1.1 contre HTTP/2 en clair (h2c) — « h2c est-il plus rapide derrière mon proxy ? », et surtout : le surcoût de h2c est-il celui de HTTP/2, ou le nôtre ?",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--h1",
+                "help": ""
+              },
+              {
+                "flag": "--http2-prior-knowledge",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "DUR",
+                "help": ""
+              },
+              {
+                "name": "PAIRS",
+                "help": ""
+              },
+              {
+                "name": "ROUTE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/heap-at-exit.mjs",
             "purpose": "Crochet de banc (`console-boot-bench.mjs`) — chargé par `NODE_OPTIONS=--import=<ce fichier>` dans un processus `nodefony` en boot CONSOLE. À la sortie du processus, force deux collectes (exige `--expose-gc`) puis consigne le tas RETENU et la durée de vie du processus (UNE horloge : `process.uptime()`), une ligne JSON par processus, dans le fichier `NF_BENCH_HEAP_FILE`.",
             "usage": [],
