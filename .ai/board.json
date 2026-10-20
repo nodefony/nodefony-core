@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T16:56:18.964Z",
+  "generatedAt": "2026-10-20T17:31:23.775Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 159,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 16,
       "title": "10.0.0-beta"
     },
     {
@@ -3556,6 +3556,23 @@
       "labels": [
         "beta-4",
         "reportable"
+      ]
+    },
+    {
+      "number": 639,
+      "title": "refactor(http)!: nommer le transport d'une requête par les mots des normes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/639",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.085,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "irrattrapable",
+        "beta-4"
       ]
     },
     {
@@ -7736,7 +7753,7 @@
       "title": "feat(studio): éditer la configuration d'un module à chaud",
       "url": "https://github.com/nodefony/nodefony-core/issues/74",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
