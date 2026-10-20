@@ -804,15 +804,22 @@ envoie un message applicatif puis une **frame Close 1001 « Going Away »** (`se
 Sans elle, la coupure TCP ferait voir un **1006** au client — code réservé, jamais émis sur le fil,
 indiscernable d'une panne réseau. Avec 1001, le client sait qu'il doit simplement se reconnecter.
 
-**Étape 3 — les requêtes HTTP se terminent.** Le drain est délégué à `http-terminator`
-(`createDrainTerminator()`, `serverShutdown.ts#createDrainTerminator`) : en-tête `connection: close` injecté sur les
-réponses en cours, sockets inactives fermées, destruction forcée au-delà de `shutdownTimeout` (défaut
-`5000` ms, `serverShutdown.ts#DEFAULT_SHUTDOWN_TIMEOUT`).
+**Étape 3 — les requêtes HTTP se terminent.** Le drain (`createDrainTerminator()`,
+`serverShutdown.ts#createDrainTerminator`) cesse d'accepter, puis traite chaque connexion selon son protocole :
+
+- **HTTP/2** (5152, et h2c) : chaque session reçoit un **GOAWAY** — les flux en vol se terminent, les
+  nouveaux sont refusés, et le client (navigateur, proxy) rouvre ailleurs au lieu de constater une
+  coupure ;
+- **HTTP/1.1** : en-tête `connection: close` injecté sur les réponses en cours, sockets inactives
+  fermées.
+
+Ce qui reste au-delà de `shutdownTimeout` (défaut `5000` ms, `serverShutdown.ts#DEFAULT_SHUTDOWN_TIMEOUT`)
+est détruit.
 
 > [!IMPORTANT]
 > L'ordre WS-avant-HTTP n'est pas cosmétique. Les serveurs WebSocket s'inscrivent en
 > `prependOnceListener` (`server-websocket.ts#Websocket.createServer`), les serveurs HTTP en `once`
-> (`server-http.ts#ServerHttp.createServer`). Inversé, le terminator détruirait les sockets déjà upgradées **sans** frame
+> (`server-http.ts#ServerHttp.createServer`). Inversé, le drain détruirait les sockets déjà upgradées **sans** frame
 > Close : retour du 1006 pour tous les clients temps réel.
 
 Deux garde-fous encadrent la séquence : `shutdownTimeout` **par serveur** (le drain nominal) et

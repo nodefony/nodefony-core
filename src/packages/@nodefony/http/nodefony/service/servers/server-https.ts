@@ -18,7 +18,7 @@ import HttpKernel, {
 import http from "node:http";
 import https from "node:https";
 import http2 from "node:http2";
-import { createDrainTerminator, HttpTerminator } from "./serverShutdown";
+import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
@@ -38,7 +38,7 @@ class ServerHttps extends Service {
   // Section `https` de la config du module (schéma Zod, défauts appliqués).
   declare public options: IHttpConfig["https"] & DefaultOptionsService;
   //httpKernel: HttpKernel | null = null;
-  httpTerminator: HttpTerminator | null = null;
+  httpTerminator: IDrainTerminator | null = null;
   module: Module;
   server: https.Server | http2.Http2SecureServer | null = null;
   port: number;
@@ -68,7 +68,7 @@ class ServerHttps extends Service {
     this.domain = this.kernel?.domain as string;
   }
 
-  terminator(): HttpTerminator {
+  terminator(): IDrainTerminator {
     if (this.server) {
       return createDrainTerminator(this.server, this.options.shutdownTimeout);
     }

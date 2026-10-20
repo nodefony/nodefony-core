@@ -18,7 +18,7 @@ import http from "node:http";
 import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
-import { createDrainTerminator, HttpTerminator } from "./serverShutdown";
+import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
 import {
   bindWithFallback,
   buildBindPlan,
@@ -36,7 +36,7 @@ class ServerHttp extends Service {
   declare public options: IHttpConfig["http"] & DefaultOptionsService;
   module: Module;
   server: http.Server | http2.Http2Server | null = null;
-  httpTerminator: HttpTerminator | null = null;
+  httpTerminator: IDrainTerminator | null = null;
   port: number;
   protocol: ProtocolType = "1.1";
   ready: boolean = false;
