@@ -162,6 +162,25 @@ describe.skipIf(IS_PROD_TARGET)(
       });
     }
 
+    it("le proxy interne relaie en h2c comme en HTTP/1.1 (traduction h2 → HTTP/1.1 vers l'amont)", async () => {
+      // L'amont (Vite) répond en HTTP/1.1, avec `connection`/`keep-alive` :
+      // en-têtes INTERDITS en HTTP/2 (RFC 9113 §8.2.2). Relayés tels quels, Node
+      // refuserait la réponse ; le relais doit les retirer, sans rien changer d'autre.
+      const path = "/_vite/default/@vite/client";
+      const h1 = await fetch(`http://127.0.0.1:5151${path}`);
+      const h1Body = await h1.text();
+      const h2 = await request(session, { ":path": path });
+      expect(h2.status).to.equal(h1.status);
+      expect(h2.headers.via, "réponse passée par le relais").to.be.a("string");
+      expect(h2.headers["content-type"]).to.equal(
+        h1.headers.get("content-type"),
+      );
+      expect(h2.body).to.equal(h1Body);
+      for (const name of ["connection", "keep-alive", "transfer-encoding"]) {
+        expect(h2.headers, name).not.to.have.property(name);
+      }
+    });
+
     it("CONNECT ne tunnelise rien : 405", async () => {
       const r = await request(session, {
         ":method": "CONNECT",

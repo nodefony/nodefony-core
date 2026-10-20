@@ -372,6 +372,33 @@ function h2cSharedGet(path: string): Promise<void> {
   return h2cGet(h2cShared, path);
 }
 
+/** GET relayé par le proxy interne, reçu en h2c : 200 et `via` exigés, comme `relayedGet`. */
+function h2cRelayedGet(path: string): Promise<void> {
+  if (h2cShared === null || h2cShared.destroyed) h2cShared = http2.connect(H2C);
+  const session = h2cShared;
+  return new Promise((resolve, reject) => {
+    const stream = session.request({ ":path": path });
+    let status = 0;
+    let via: string | string[] | undefined;
+    stream.on("response", (h) => {
+      status = Number(h[":status"]);
+      via = h.via;
+    });
+    stream.on("error", reject);
+    stream.on("end", () => {
+      if (status === 200 && via) resolve();
+      else
+        reject(
+          new Error(
+            `${path} non relayé en h2c (HTTP ${status}, via=${String(via)})`,
+          ),
+        );
+    });
+    stream.resume();
+    stream.end();
+  });
+}
+
 const ACTIONS = {
   get: () => get("/nodefony/test/index"),
   crashSync: () => get("/nodefony/test/crash/sync"),
@@ -439,6 +466,8 @@ const ACTIONS = {
     }),
   // Proxy inverse (#528) : relayés AVANT le routage, vers le Vite de la console.
   proxyGet: () => relayedGet(`${VITE}/@vite/env`),
+  // Le même relais, reçu en HTTP/2 : traduction h2 → HTTP/1.1 vers l'amont.
+  h2cProxyGet: () => h2cRelayedGet(`${VITE}/@vite/env`),
   proxyWs: () => relayedHmr(),
   // Flux d'événements serveur (#559) : fermé par le serveur, puis abandonné
   // par le client — minuteur de battement, écouteurs et attente de `drain`
@@ -506,6 +535,7 @@ const WARMUP = {
   wsRequestService: 400,
   wsJsonRpc: 400,
   proxyGet: 450,
+  h2cProxyGet: 450,
   proxyWs: 300,
   sseServerClose: 400,
   sseClientLeave: 300,
@@ -679,6 +709,16 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "SSE streams left by the client",
       plan("sseClientLeave", 100),
       THRESHOLDS.sseClientLeave,
+    );
+  });
+
+  it("h2c GET relayed by the reverse proxy — retains nothing per request", async () => {
+    // Le proxy interne reçoit une requête HTTP/2 et parle HTTP/1.1 à l'amont :
+    // sans ce scénario, seule sa forme HTTP/1.1 était mesurée.
+    await httpLoop(
+      "h2c GET relayed by the reverse proxy",
+      plan("h2cProxyGet", 150),
+      THRESHOLDS.h2cProxyGet,
     );
   });
 

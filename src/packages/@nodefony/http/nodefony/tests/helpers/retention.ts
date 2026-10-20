@@ -126,6 +126,8 @@ export const THRESHOLDS = {
   h2cSession: 1024,
   /** GET h2c sur une session PARTAGÉE, la forme d'un proxy */
   h2cStream: 1024,
+  /** GET relayé vers Vite par le proxy interne, reçu en h2c */
+  h2cProxyGet: 1024,
   // Refus d'un handshake AVANT le 101 (#596) — seuil commun appliqué, pas
   // encore re-mesuré sur 10 passages.
   /** handshake anonyme refusé en 401 sur la zone protégée, aucune socket ouverte */
