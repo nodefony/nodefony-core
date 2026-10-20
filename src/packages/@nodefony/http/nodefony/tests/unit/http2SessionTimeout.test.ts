@@ -19,6 +19,9 @@ import { setHttp2SessionTimeout } from "../../src/servers/http2Limits";
 
 const TIMEOUT = 30_000;
 
+/** `timeout` existe à l'exécution sur la session et le serveur HTTP/2, pas dans leurs types. */
+const timeoutOf = (target: object): unknown => Reflect.get(target, "timeout");
+
 /** Une requête, fermeture par le client, puis la session serveur une fois fermée. */
 async function closedServerSession(
   arm: (server: http2.Http2Server) => void,
@@ -53,7 +56,7 @@ describe("setHttp2SessionTimeout — le minuteur ne survit pas à la session", (
       (client) => client.close(),
     );
     expect(session.destroyed).to.equal(true);
-    expect(session.timeout, "Node n'a pas désarmé").to.equal(TIMEOUT);
+    expect(timeoutOf(session), "Node n'a pas désarmé").to.equal(TIMEOUT);
   });
 
   for (const [name, close] of [
@@ -66,7 +69,7 @@ describe("setHttp2SessionTimeout — le minuteur ne survit pas à la session", (
         close,
       );
       expect(session.destroyed).to.equal(true);
-      expect(session.timeout).to.equal(0);
+      expect(timeoutOf(session)).to.equal(0);
     });
   }
 
@@ -74,7 +77,7 @@ describe("setHttp2SessionTimeout — le minuteur ne survit pas à la session", (
     const server = http2.createServer();
     setHttp2SessionTimeout(server, 0, () => {});
     setHttp2SessionTimeout(server, undefined, () => {});
-    expect(server.timeout).to.equal(0);
+    expect(timeoutOf(server)).to.equal(0);
     expect(server.listenerCount("session")).to.equal(0);
   });
 });
