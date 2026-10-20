@@ -86,6 +86,10 @@ import {
 } from "./vitest/gates";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { replayedTasks } from "../lib/turbo-replay.mjs";
+import {
+  purgeTestSessions,
+  redisDatabase,
+} from "../lib/redis-session-purge.mjs";
 
 // Loki et OpenSearch sont ici pour la même raison que les bases : le cœur
 // DÉCLARE désormais les attendre (`src/nodefony/vitest.config.ts`), donc une
@@ -356,6 +360,42 @@ function serverRunning(): boolean {
   );
 }
 
+/**
+ * Purge les sessions que le serveur de test laisse dans sa base Redis (#399).
+ *
+ * Avant les suites, la passe part d'un tas vide quelle que soit la précédente :
+ * le listing des sessions pagine sur toute la base, et ~9 000 sessions laissées
+ * par la charge le faisaient sortir en délai. Après, la base est rendue sans
+ * elles. Une purge impossible se DIT, sans faire échouer la passe.
+ *
+ * @param infra - l'état des cibles, pour l'URL Redis réellement posée.
+ * @param moment - « avant » ou « après », pour la ligne affichée.
+ */
+async function purgeRedisSessions(
+  infra: InfraState[],
+  moment: string,
+): Promise<void> {
+  const redis = infra.find((s) => s.gate === REDIS_GATE);
+  const url = redis?.ready ? redis.used?.NF_REDIS_URL : undefined;
+  if (!url) return;
+  try {
+    if (redisDatabase(url) === 0) {
+      console.log(
+        `  ${C.yellow("○")} sessions Redis non purgées (${moment}) — NF_REDIS_URL vise la base 0, celle du développement`,
+      );
+      return;
+    }
+    const removed = await purgeTestSessions(url, ROOT);
+    console.log(
+      `  ${C.dim("→")} sessions Redis purgées (${moment}) : ${removed} clé(s), base ${redisDatabase(url)}`,
+    );
+  } catch (e) {
+    console.log(
+      `  ${C.yellow("○")} purge des sessions Redis impossible (${moment}) — ${(e as Error).message}`,
+    );
+  }
+}
+
 // ── Rapport ─────────────────────────────────────────────────────────────────
 
 /**
@@ -592,6 +632,8 @@ async function main(): Promise<void> {
     report(infra, phases, options);
     process.exit(infra.every((i) => i.ready) ? 0 : 1);
   }
+
+  await purgeRedisSessions(infra, "avant");
 
   // `--continue`, jamais `--force`. Deux pièges appris à la dure :
   //
@@ -833,6 +875,7 @@ async function main(): Promise<void> {
     });
   }
 
+  await purgeRedisSessions(infra, "après");
   report(infra, phases, options);
 
   const failed = phases.some((p) => !p.ok && !p.skipped);

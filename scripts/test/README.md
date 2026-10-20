@@ -56,4 +56,4 @@ Carte de couverture du temps réel — quel étage de test EXERCE quel fichier s
 - **Variable** `NF_MYSQL_URL`
 - **Variable** `NF_RUN_CLUSTER_E2E`
 - **Appelé par** : `npm run test:all`
-- **Utilise** : `lib/repo-root.mjs` · `lib/turbo-replay.mjs` · `test/lib/docker.ts` · `test/lib/mongoReset.ts` · `repo/long-run-lock.mjs`
+- **Utilise** : `lib/redis-session-purge.mjs` · `lib/repo-root.mjs` · `lib/turbo-replay.mjs` · `test/lib/docker.ts` · `test/lib/mongoReset.ts` · `repo/long-run-lock.mjs`

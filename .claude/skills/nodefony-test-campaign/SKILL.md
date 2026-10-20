@@ -95,7 +95,9 @@ rouges ne lui appartiennent pas. L'ordre des questions, du moins cher au plus ch
    avec le nombre de runs et finit par franchir un seuil un jour donné. Cas vécu : des milliers de
    sessions résiduelles dans Redis faisaient sauter le garde-fou de pagination d'un test — dont le
    commentaire annonçait pourtant la dépendance au keyspace entier. Le compte se demande
-   (`redis-cli INFO keyspace`), il ne se devine pas.
+   (`redis-cli INFO keyspace`), il ne se devine pas. `test:all` écarte ce cas-là : son serveur
+   écrit en base 14, purgée avant et après la passe (« sessions Redis purgées ») ; un serveur
+   levé à la main sur la base 0 y reste exposé.
 4. **L'instrument dit-il vrai ?** Un banc périmé (symbole ou méthode disparue), un classement de
    décor faux, un défaut d'URL. Signe distinctif : l'échec est immédiat et structurel, pas une
    assertion métier.

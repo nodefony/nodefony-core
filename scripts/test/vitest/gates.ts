@@ -355,7 +355,10 @@ export const REDIS_GATE: EnvGate = {
     const pass = fromCompose("REDIS_PASSWORD", "nodefony-dev");
     const port = fromCompose("REDIS_PORT", "6379");
     return {
-      NF_REDIS_URL: `redis://:${pass}@127.0.0.1:${port}`,
+      // Index 14 : le serveur que lève `test:all` y écrit ses sessions (~9 000
+      // par passe), jamais dans la base 0 du développeur — `test:all` les
+      // y purge (`scripts/lib/redis-session-purge.mjs`, #399).
+      NF_REDIS_URL: `redis://:${pass}@127.0.0.1:${port}/14`,
       // Index dédié : le banc comportemental purge sa base, il ne doit pas
       // emporter celle des bancs de pagination.
       NF_REDIS_TEST_URL: `redis://:${pass}@127.0.0.1:${port}/15`,

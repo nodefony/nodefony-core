@@ -2,9 +2,48 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-19",
+  "generatedAt": "2026-10-20",
   "count": 40,
   "repoScripts": [
+    {
+      "path": "scripts/lib/redis-session-purge.mjs",
+      "test": false,
+      "purpose": "Purge les sessions qu'un serveur de test laisse dans SA base Redis — seule implémentation.",
+      "usage": [
+        "import { purgeTestSessions } from \"../lib/redis-session-purge.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/test/test-all.ts"
+      ],
+      "testedBy": [
+        "scripts/lib/redis-session-purge.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/redis-session-purge.test.mjs",
+      "test": true,
+      "purpose": "Port fermé : une connexion tentée échouerait autrement qu'avec ce message.",
+      "usage": [],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_REDIS_TEST_URL",
+          "help": ""
+        },
+        {
+          "name": "OTHER",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
     {
       "path": "scripts/lib/repo-root.mjs",
       "test": false,
@@ -50,6 +89,7 @@
       "testedBy": [
         "scripts/gates/dev-credentials.test.mjs",
         "scripts/gates/vitest-tmp-guard.test.mjs",
+        "scripts/lib/redis-session-purge.test.mjs",
         "scripts/site/schemas-organigramme.test.mjs",
         "scripts/site/schemas-sequence.test.mjs",
         "scripts/site/site-plan.test.mjs",
@@ -10473,8 +10513,8 @@
       ],
       "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"campagne de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"on teste tout\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"rapport de la campagne de test\".",
       "cost": {
-        "bodyLines": 207,
-        "approxTokens": 3962
+        "bodyLines": 209,
+        "approxTokens": 4008
       },
       "requires": [],
       "resources": {
@@ -10552,7 +10592,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "207",
+            "detail": "209",
             "advisory": true
           }
         ]

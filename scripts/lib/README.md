@@ -14,6 +14,23 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../README.md).
 
+## [`redis-session-purge.mjs`](redis-session-purge.mjs)
+
+Purge les sessions qu'un serveur de test laisse dans SA base Redis — seule implémentation.
+
+- **Usage** : `import { purgeTestSessions } from "../lib/redis-session-purge.mjs"`
+- **Appelé par** : `test/test-all.ts`
+- **Testé par** : `lib/redis-session-purge.test.mjs`
+
+## [`redis-session-purge.test.mjs`](redis-session-purge.test.mjs)
+
+Port fermé : une connexion tentée échouerait autrement qu'avec ce message.
+
+- **Variable** `NF_REDIS_TEST_URL`
+- **Variable** `OTHER`
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/redis-session-purge.mjs` · `lib/repo-root.mjs`
+
 ## [`repo-root.mjs`](repo-root.mjs)
 
 Racine du dépôt — seule implémentation pour les scripts de `scripts/`.
@@ -22,7 +39,7 @@ Racine du dépôt — seule implémentation pour les scripts de `scripts/`.
 - **Variable** `REPO_ROOT`
 - **Variable** `ROOT_PACKAGE_NAME`
 - **Appelé par** : `deps/check-deps-latest.mjs` · `gates/check-licenses.mjs` · `gates/check-package-deps.mjs` · `gates/size-check.mjs` · `generate/brand-assets.mjs` · `generate/env-snapshot.ts` · `generate/generate-man.mjs` · `generate/generate-symbols.ts` · `repo/long-run-lock.mjs` · `repo/tmp-layout.mjs` · `scaffold/check-scaffold-format.mjs` · `scaffold/check-scaffold-frontends.mjs` · `scaffold/format-templates.mjs` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/build-site.mjs` · `site/readme-html.mjs` · `test/test-all.ts`
-- **Testé par** : `gates/dev-credentials.test.mjs` · `gates/vitest-tmp-guard.test.mjs` · `site/schemas-organigramme.test.mjs` · `site/schemas-sequence.test.mjs` · `site/site-plan.test.mjs` · `site/site-versions.test.mjs`
+- **Testé par** : `gates/dev-credentials.test.mjs` · `gates/vitest-tmp-guard.test.mjs` · `lib/redis-session-purge.test.mjs` · `site/schemas-organigramme.test.mjs` · `site/schemas-sequence.test.mjs` · `site/site-plan.test.mjs` · `site/site-versions.test.mjs`
 
 ## [`symbols-publish.mjs`](symbols-publish.mjs)
 
