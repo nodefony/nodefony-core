@@ -87,10 +87,12 @@ export const THRESHOLDS = {
   requestService: 1024,
   /** connexion WS résolvant un service `request` à chaque message — (0,14 Ko) */
   wsRequestService: 1024,
+  // Scénarios suivants du gate : 10 passages sur serveur neuf, maximum observé
+  // entre parenthèses — le seuil commun s'y applique, il ne s'y resserre pas.
   /**
    * connexion temps réel servie par le pair JSON-RPC (`JsonRpcPeer`) : accueil,
-   * requête refusée en `-32601`, notification entrante — seuil commun appliqué,
-   * pas encore re-mesuré sur 10 passages.
+   * requête refusée en `-32601`, notification entrante — (0,52 Ko, le plus
+   * proche du seuil : ×1,97)
    */
   wsJsonRpc: 1024,
   // Bancs de charge (`npm run test:load`, 10 passages sur serveur neuf), par
@@ -107,36 +109,34 @@ export const THRESHOLDS = {
   wsFrame: 1024,
   /** par stream servi (`stream-load`) — (0,02 Ko) */
   stream: 1024,
-  // Proxy inverse (#528) — seuil commun appliqué, pas encore re-mesuré sur
-  // 10 passages : le relais tient un pool de sockets amont par montage, borné,
-  // dont le remplissage est absorbé par l'échauffement.
-  /** GET relayé vers Vite par le proxy inverse */
+  // Proxy inverse (#528) : le relais tient un pool de sockets amont par
+  // montage, borné, dont le remplissage est absorbé par l'échauffement.
+  /** GET relayé vers Vite par le proxy inverse — (0,01 Ko) */
   proxyGet: 1024,
-  /** socket du rechargement à chaud relayée, ouverte puis fermée */
+  /** socket du rechargement à chaud relayée, ouverte puis fermée — (0,23 Ko) */
   proxyWs: 1024,
-  // Flux d'événements serveur (#559) — seuil commun appliqué, pas encore
-  // re-mesuré sur 10 passages.
-  /** flux SSE ouvert, trois événements, fermé par le serveur */
+  // Flux d'événements serveur (#559).
+  /** flux SSE ouvert, trois événements, fermé par le serveur — (0,12 Ko) */
   sseServerClose: 1024,
-  /** flux SSE tenu (battement de cœur), abandonné par le client */
+  /** flux SSE tenu (battement de cœur), abandonné par le client — (0,17 Ko) */
   sseClientLeave: 1024,
-  // HTTP/2 en clair (#570) — seuil commun appliqué, pas encore re-mesuré sur
-  // 10 passages.
-  /** GET h2c sur une session NEUVE, fermée ensuite (suivie par le drain) */
+  // HTTP/2, en clair (h2c, 5153) et sur TLS (5152). Fuite témoin : le défaut de
+  // Node contourné par `setHttp2SessionTimeout`, rétabli sur 5152, fait tomber
+  // la session TLS neuve entre 2,48 et 2,55 Ko.
+  /** GET h2c sur une session NEUVE, fermée ensuite (suivie par le drain) — (0,07 Ko) */
   h2cSession: 1024,
-  /** GET h2c sur une session PARTAGÉE, la forme d'un proxy */
+  /** GET h2c sur une session PARTAGÉE, la forme d'un proxy — (0,06 Ko) */
   h2cStream: 1024,
-  /** GET HTTP/2 TLS (5152) sur une session NEUVE : poignée de main + ALPN par itération */
+  /** GET HTTP/2 TLS sur une session NEUVE : poignée de main + ALPN par itération — (0,12 Ko) */
   h2Session: 1024,
-  /** GET HTTP/2 TLS (5152) sur une session PARTAGÉE */
+  /** GET HTTP/2 TLS sur une session PARTAGÉE — (0,08 Ko) */
   h2Stream: 1024,
-  /** GET relayé vers Vite par le proxy interne, reçu en h2c */
+  /** GET relayé vers Vite par le proxy interne, reçu en h2c — (0,08 Ko) */
   h2cProxyGet: 1024,
-  // Refus d'un handshake AVANT le 101 (#596) — seuil commun appliqué, pas
-  // encore re-mesuré sur 10 passages.
-  /** handshake anonyme refusé en 401 sur la zone protégée, aucune socket ouverte */
+  // Refus d'un handshake AVANT le 101 (#596).
+  /** handshake anonyme refusé en 401 sur la zone protégée, aucune socket ouverte — (0,16 Ko) */
   wsRefused: 1024,
-  /** sonde HTTP d'un handshake refusé (GET anonyme → 401 avant le 426 différé) */
+  /** sonde HTTP d'un handshake refusé (GET anonyme → 401 avant le 426 différé) — (0,03 Ko) */
   wsProbe: 1024,
   /**
    * COÛT d'une connexion WS TENUE ouverte (`ws-connections-load`) — pas une
