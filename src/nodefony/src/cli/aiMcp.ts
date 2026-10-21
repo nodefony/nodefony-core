@@ -132,7 +132,7 @@ export const AI_MCP_USAGE: IUsagePage = {
     { term: "nodefony ai:mcp", text: "déclare la porte dans le projet" },
     {
       term: "nodefony ai:mcp --auth",
-      text: "en mode authentifié — le jeton s'obtient par `nodefony security:token --write`",
+      text: "en mode authentifié — le jeton s'obtient par `nodefony security:mcp:token --write`",
     },
     {
       term: "nodefony ai:mcp --agent all",
@@ -170,10 +170,10 @@ interface IAiMcpRequest {
    */
   global: boolean;
   /**
-   * Enchaîner sur l'émission du jeton (`security:token --write`) après le
+   * Enchaîner sur l'émission du jeton (`security:mcp:token --write`) après le
    * câblage. `false` (`--no-token`) quand l'appelant SAIT que l'émission
    * échouerait : `create app` vient de constater que la base ne répond pas, et
-   * `security:token` a besoin d'elle — la porte se câble, le jeton est nommé
+   * `security:mcp:token` a besoin d'elle — la porte se câble, le jeton est nommé
    * comme geste suivant au lieu d'être tenté sur une base morte.
    */
   token: boolean;
@@ -263,7 +263,7 @@ export function guessOrigin(cwd: string): string {
 }
 
 /**
- * Ce qu'on dit quand `security:token`, enchaîné, n'a pas rendu 0 — ou `null`
+ * Ce qu'on dit quand `security:mcp:token`, enchaîné, n'a pas rendu 0 — ou `null`
  * s'il a réussi.
  *
  * PURE : c'est la phrase que l'utilisateur lit à la place d'une stack trace.
@@ -271,14 +271,14 @@ export function guessOrigin(cwd: string): string {
  * retient que le geste reste à faire, et lequel. Un `null` de statut est un
  * process tué par un signal : il n'a pas réussi non plus.
  *
- * @param status - code de sortie de `security:token`, `null` si tué.
+ * @param status - code de sortie de `security:mcp:token`, `null` si tué.
  * @returns la note à afficher, ou `null` si le jeton est posé.
  */
 export function chainedTokenNote(status: number | null): string | null {
   if (status === 0) return null;
   return (
-    `jeton NON posé — security:token a rendu le code ${String(status)} ; ` +
-    `à rejouer quand la cause est levée : nodefony security:token --write`
+    `jeton NON posé — security:mcp:token a rendu le code ${String(status)} ; ` +
+    `à rejouer quand la cause est levée : nodefony security:mcp:token --write`
   );
 }
 
@@ -293,7 +293,7 @@ export interface IChainedToken {
 }
 
 /**
- * Décide s'il faut enchaîner sur `security:token`, et avec quoi.
+ * Décide s'il faut enchaîner sur `security:mcp:token`, et avec quoi.
  *
  * PURE — le `spawn` est de la plomberie, la DÉCISION est ce qui peut être faux.
  * Trois choses ne « suivent » pas toutes seules d'un process à l'autre, et
@@ -535,7 +535,7 @@ export function planTokenChaining(
   // question romprait.
   if (request.dryRun || request.json) return null;
   if (!context.isTTY) return null;
-  const argv = ["security:token", "--write"];
+  const argv = ["security:mcp:token", "--write"];
   if (context.ttlMinutes !== undefined) {
     argv.push("--ttl", String(context.ttlMinutes));
   }
@@ -1354,7 +1354,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           env: chainage.env,
         },
       );
-      // 🔴 Le verdict de l'enfant se LIT. Ignoré, `security:token` mourait sur
+      // 🔴 Le verdict de l'enfant se LIT. Ignoré, `security:mcp:token` mourait sur
       // une base injoignable en trois stacks, et cette commande rendait OK —
       // l'appelant (`create app`) concluait « jeton posé ».
       const note = chainedTokenNote(r.status);

@@ -468,15 +468,15 @@ use("@nodefony/security", {
 Un seul juge pour les deux émetteurs de l'application, et pour les deux familles de scopes
 (`refusedScopes()`, `scopeGrants.ts#refusedScopes`) :
 
-| Émetteur                                   | Scope refusé                                                                                                              | Pourquoi cette forme                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Jeton d'accès (`/token`, `security:token`) | retiré ; le jeton est émis avec le reste, le refus est nommé au journal (`tokenService.ts#TokenService.#grantableScopes`) | RFC 6749 §3.3 : le serveur accorde moins que demandé et le dit dans `scope` |
-| Renouvellement d'un jeton                  | rejugé sur les rôles du compte relu (`tokenService.ts#TokenService.refresh`)                                              | un rôle retiré retire son scope au prochain renouvellement                  |
-| Clé API                                    | création refusée, **403** qui nomme le scope (`apiKeys.ts#ApiKeyService.createForSubject`)                                | une clé créée avec moins que demandé surprendrait sans rien dire            |
+| Émetteur                                       | Scope refusé                                                                                                              | Pourquoi cette forme                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Jeton d'accès (`/token`, `security:mcp:token`) | retiré ; le jeton est émis avec le reste, le refus est nommé au journal (`tokenService.ts#TokenService.#grantableScopes`) | RFC 6749 §3.3 : le serveur accorde moins que demandé et le dit dans `scope` |
+| Renouvellement d'un jeton                      | rejugé sur les rôles du compte relu (`tokenService.ts#TokenService.refresh`)                                              | un rôle retiré retire son scope au prochain renouvellement                  |
+| Clé API                                        | création refusée, **403** qui nomme le scope (`apiKeys.ts#ApiKeyService.createForSubject`)                                | une clé créée avec moins que demandé surprendrait sans rien dire            |
 
 `grantableScopes` ne borne **pas** un jeton signé par un émetteur tiers (Keycloak…) : celui-ci
 accorde selon sa propre politique. Et ce n'est pas une règle de zone : un jeton ne sait pas quelle
-zone le lira, et `security:token` signe sans aucune requête.
+zone le lira, et `security:mcp:token` signe sans aucune requête.
 
 **Depuis un module.** Un module complète la section par `module-security` dans sa configuration
 (voir [configuration](../../../../../docs/guides/configuration.md)). Un préfixe = un propriétaire :

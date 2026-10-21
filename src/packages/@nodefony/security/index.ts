@@ -20,7 +20,7 @@ import SecurityUserList from "./nodefony/command/security-user-list";
 import SecurityUserDelete from "./nodefony/command/security-user-delete";
 import SecurityUserPassword from "./nodefony/command/security-user-password";
 import { publicRoutesNotice } from "./nodefony/src/boot/publicRoutesNotice";
-import SecurityToken from "./nodefony/command/security-token";
+import SecurityMcpToken from "./nodefony/command/security-mcp-token";
 import SecurityKeycloakRealm from "./nodefony/keycloak/security-keycloak-realm";
 import SecurityOAuthDoctor from "./nodefony/command/security-oauth-doctor";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
@@ -84,7 +84,7 @@ class Security extends Module {
     this.addCommand(SecurityUserList);
     this.addCommand(SecurityUserDelete);
     this.addCommand(SecurityUserPassword);
-    this.addCommand(SecurityToken);
+    this.addCommand(SecurityMcpToken);
     this.addCommand(SecurityKeycloakRealm);
     this.addCommand(SecurityOAuthDoctor);
   }

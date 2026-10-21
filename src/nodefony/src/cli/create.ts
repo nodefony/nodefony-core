@@ -1122,7 +1122,7 @@ export function mcpWiringPlan(ctx: {
   built: boolean;
   /**
    * `true` quand `orm:generate` vient de CONSTATER que la base ne répond pas.
-   * `security:token` a besoin d'elle (il liste les comptes) : la porte se
+   * `security:mcp:token` a besoin d'elle (il liste les comptes) : la porte se
    * câble, le jeton n'est pas tenté, et le geste est nommé — au lieu de trois
    * stacks pour une cause qu'on venait d'afficher.
    */
@@ -1148,8 +1148,8 @@ export function mcpWiringPlan(ctx: {
       propose: true,
       token: false,
       pattern:
-        "jeton MCP NON émis : la base ne répond pas, et security:token en a " +
-        `besoin — après infra:up : ${nodefonyBinLine(ctx.manager)} security:token --write`,
+        "jeton MCP NON émis : la base ne répond pas, et security:mcp:token en a " +
+        `besoin — après infra:up : ${nodefonyBinLine(ctx.manager)} security:mcp:token --write`,
     };
   }
   return { propose: true, token: true };
@@ -1735,7 +1735,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         tokenNote = wiring.pattern ?? "";
       } else if (code !== (SysExit.OK as number)) {
         // `ai:mcp` a déjà dit pourquoi ; ici on retient que le geste reste à faire.
-        tokenNote = `jeton MCP NON posé — relance : ${cmd.exec("nodefony")} security:token --write`;
+        tokenNote = `jeton MCP NON posé — relance : ${cmd.exec("nodefony")} security:mcp:token --write`;
       }
     }
   }
@@ -1824,7 +1824,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // Porte câblée, jeton NON posé : la commande qui l'émet, et sa condition
       // — elle démarre l'application, donc ouvre la connexion à la base.
       (tokenNote !== ""
-        ? `  ${cmd.exec("nodefony")} security:token --write   # jeton MCP — la base doit répondre (après infra:up)\n`
+        ? `  ${cmd.exec("nodefony")} security:mcp:token --write   # jeton MCP — la base doit répondre (après infra:up)\n`
         : ""),
   );
   // ⭐ Ce qu'un AGENT emporte, placé LÀ OÙ IL PASSE — la sortie de la commande

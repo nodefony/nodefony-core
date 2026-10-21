@@ -553,7 +553,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
             log?.(
               "MCP — l'en-tête `Authorization` porte un GABARIT non substitué : " +
                 "la variable d'environnement du jeton n'est pas posée dans le " +
-                "process du client. Émettre le jeton (`nodefony security:token`) " +
+                "process du client. Émettre le jeton (`nodefony security:mcp:token`) " +
                 "et le poser, ou rendre la porte anonyme pour ce client " +
                 "(`nodefony ai:mcp --no-auth`) — sans en-tête, les outils " +
                 "publics sont servis.",
@@ -591,7 +591,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
               "MCP — jeton REJETÉ (expiré, mauvaise audience ou signature " +
                 "invalide) : la requête est servie en ANONYME, les outils " +
                 "réservés restent retenus. Renouveler le jeton " +
-                "(`nodefony security:token`) pour les retrouver.",
+                "(`nodefony security:mcp:token`) pour les retrouver.",
               "WARNING",
             );
           }

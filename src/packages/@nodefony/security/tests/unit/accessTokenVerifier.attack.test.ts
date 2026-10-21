@@ -20,7 +20,7 @@ import type { IJwtRuntime } from "../../nodefony/src/token/jwtRuntime";
  *
  * Le défaut qui a fait écrire ce banc : le vérificateur ne connaissait que les
  * émetteurs TIERS déclarés. Une application qui émettait un jeton pour sa propre
- * porte (`security:token --resource …`) le voyait refusé, jeton valide compris.
+ * porte (`security:mcp:token --resource …`) le voyait refusé, jeton valide compris.
  * Le corriger en reconnaissant le seul jeu de clés publiques aurait ouvert un
  * second trou : un jeton RÉVOQUÉ, ou celui d'un compte désactivé, aurait ouvert
  * la porte jusqu'à son expiration. D'où la moitié de la matrice ci-dessous.

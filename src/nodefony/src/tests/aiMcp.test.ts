@@ -293,14 +293,14 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
 });
 
 /**
- * L'ENCHAÎNEMENT de commandes — `ai:mcp` appelle `security:token`.
+ * L'ENCHAÎNEMENT de commandes — `ai:mcp` appelle `security:mcp:token`.
  *
  * Le `spawn` lui-même est de la plomberie Node ; ce qui peut être FAUX, c'est
  * la décision : quand enchaîner, et avec quoi. Trois choses ne suivent pas
  * toutes seules d'un process à l'autre — l'environnement, le répertoire, le
  * terminal — et chacune a déjà produit un échec quand elle manquait.
  */
-describe("ai:mcp — l'enchaînement vers security:token", () => {
+describe("ai:mcp — l'enchaînement vers security:mcp:token", () => {
   const contexte = { projectRoot: "/projets/mon-app", isTTY: true };
 
   it("enchaîne quand l'en-tête est posé et qu'un terminal répond", () => {
@@ -308,7 +308,7 @@ describe("ai:mcp — l'enchaînement vers security:token", () => {
       { auth: true, dryRun: false, json: false },
       contexte,
     );
-    expect(plan?.argv).toEqual(["security:token", "--write"]);
+    expect(plan?.argv).toEqual(["security:mcp:token", "--write"]);
   });
 
   it("🔴 la DURÉE demandée voyage jusqu'à l'émetteur", () => {
@@ -320,7 +320,12 @@ describe("ai:mcp — l'enchaînement vers security:token", () => {
       { auth: true, dryRun: false, json: false },
       { ...contexte, ttlMinutes: 10080 },
     );
-    expect(plan?.argv).toEqual(["security:token", "--write", "--ttl", "10080"]);
+    expect(plan?.argv).toEqual([
+      "security:mcp:token",
+      "--write",
+      "--ttl",
+      "10080",
+    ]);
   });
 
   it("sans durée demandée, l'émetteur garde son défaut", () => {
@@ -466,7 +471,7 @@ describe("ai:mcp — le RÔLE du jeton se choisit", () => {
       { projectRoot: "/x", isTTY: true, scopes: "admin:read admin:write" },
     );
     expect(plan?.argv).to.deep.equal([
-      "security:token",
+      "security:mcp:token",
       "--write",
       "--scope",
       "admin:read admin:write",
@@ -478,7 +483,7 @@ describe("ai:mcp — le RÔLE du jeton se choisit", () => {
       { auth: true, dryRun: false, json: false },
       { projectRoot: "/x", isTTY: true },
     );
-    expect(plan?.argv).to.deep.equal(["security:token", "--write"]);
+    expect(plan?.argv).to.deep.equal(["security:mcp:token", "--write"]);
   });
 });
 
@@ -611,12 +616,12 @@ describe("ai:mcp — ce que l'écran dit des agents et de leurs jetons (#303)", 
     expect("error" in defaut ? undefined : defaut.token).toBe(true);
   });
 
-  it("🔴 l'échec de security:token se DIT, il ne se lit pas dans une stack", () => {
+  it("🔴 l'échec de security:mcp:token se DIT, il ne se lit pas dans une stack", () => {
     expect(chainedTokenNote(0)).to.equal(null);
     const note = chainedTokenNote(70);
     expect(note).to.contain("NON posé");
     expect(note).to.contain("70");
-    expect(note).to.contain("security:token --write");
+    expect(note).to.contain("security:mcp:token --write");
     expect(chainedTokenNote(null)).to.contain("NON posé");
   });
 });

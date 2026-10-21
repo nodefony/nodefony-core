@@ -10807,7 +10807,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
   });
 
   it("🔴 base INJOIGNABLE : la porte se câble, le jeton NON — et le geste est nommé", () => {
-    // `security:token` a besoin de la base (il liste les comptes) : le lancer
+    // `security:mcp:token` a besoin de la base (il liste les comptes) : le lancer
     // quand `orm:generate` vient de prouver qu'elle ne répond pas, c'est offrir
     // une stack trace à qui vient de lire « base injoignable ».
     const plan = mcpWiringPlan({
@@ -10819,7 +10819,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     assert.isTrue(plan.propose);
     if (!plan.propose) return;
     assert.isFalse(plan.token);
-    assert.include(plan.pattern ?? "", "security:token --write");
+    assert.include(plan.pattern ?? "", "security:mcp:token --write");
     assert.include(plan.pattern ?? "", "infra:up");
   });
 
@@ -11135,7 +11135,7 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
               `boot fatal journalisé dans ${log}`,
             );
             // 4. le jeton est nommé comme geste suivant, avec sa condition.
-            assert.include(out, "security:token --write");
+            assert.include(out, "security:mcp:token --write");
             // 5. le doctor ne déclare pas illisible un catalogue qu'il peut lire.
             assert.notInclude(out, "catalogue illisible");
             // 6. la porte est bien écrite.

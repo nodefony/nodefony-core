@@ -3513,7 +3513,7 @@ function mcpGateNotes(
   }
   // Le scope de l'outil réservé de l'exemple : un jeton émis SANS lui est
   // accepté par la porte et ne voit toujours que les outils publics — le
-  // défaut de `security:token` (`admin:read`) ne l'ouvre pas.
+  // défaut de `security:mcp:token` (`admin:read`) ne l'ouvre pas.
   const scope = mcp.anonymous ? ` --scope ${kebab}:write` : "";
   return [
     ...common,
@@ -3524,7 +3524,7 @@ function mcpGateNotes(
       : `PORTE PROTÉGÉE : jeton exigé (401 sans), document RFC 9728 publié par ${pascal}GateService`,
     `⚠ pour qu'un jeton de CETTE application l'ouvre, ajoute \`\`\${publicBaseUrl(ctx.env)}${route}\`\` ` +
       `à \`jwt.audiences\` (nodefony/config/security.ts — écrite sur place, sans importer la porte : cycle), puis ` +
-      `\`npx nodefony security:token --resource <URL de la porte>${scope}\` — sans elle : invalid_target`,
+      `\`npx nodefony security:mcp:token --resource <URL de la porte>${scope}\` — sans elle : invalid_target`,
     ...(mcp.anonymous
       ? [
           scopeNote === null

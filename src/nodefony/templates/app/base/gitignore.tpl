@@ -48,7 +48,7 @@ tmp/
 privkey*.pem
 *-key.pem
 
-# Secrets posés chez les agents de développement (nodefony security:token --write).
+# Secrets posés chez les agents de développement (nodefony security:mcp:token --write).
 # 🔴 `.gemini/.env` porte un JETON PORTEUR : la déclaration de la porte MCP,
 # elle, reste versionnable (.gemini/settings.json, .mcp.json) — c'est la CLÉ qui
 # ne se commite pas. Un jeton commité est un jeton publié.

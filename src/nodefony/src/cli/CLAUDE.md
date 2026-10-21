@@ -580,7 +580,7 @@ commande ouvre celle du paquet du projet. La présence de `man` se CONSTATE (éc
 `.mcp.json`, la commande déclare la porte chez chaque agent demandé **en appelant sa ligne de
 commande** — jamais en écrivant son fichier de configuration. Frontière : _Nodefony possède le
 JETON et l'URL, l'agent possède le format de sa déclaration._ La table unique vit dans
-`cli/agentTargets.ts` (cœur), consommée AUSSI par `security:token` (module `security`) qui y pose
+`cli/agentTargets.ts` (cœur), consommée AUSSI par `security:mcp:token` (module `security`) qui y pose
 le secret : deux tables auraient divergé au premier agent ajouté d'un seul côté.
 
 **Aucun agent est un CHOIX, pas un oubli.** Sans `--agent`, en terminal, une case à cocher propose

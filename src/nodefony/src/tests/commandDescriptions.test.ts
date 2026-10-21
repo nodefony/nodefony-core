@@ -102,7 +102,7 @@ function fichiersDeCommande(dir: string, acc: string[] = []): string[] {
  *
  * Accepte les deux écritures du dépôt — guillemets et accents graves — parce
  * qu'une description qui porte une apostrophe française est écrite en accents
- * graves, et qu'un motif qui l'ignore rendrait `security:token` invisible sans
+ * graves, et qu'un motif qui l'ignore rendrait `security:mcp:token` invisible sans
  * le dire. Une description INTERPOLÉE n'est pas mesurable statiquement : elle
  * rend `null`, et l'appelant en fait un échec plutôt qu'un silence.
  */

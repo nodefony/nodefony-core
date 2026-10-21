@@ -11638,7 +11638,7 @@
       "description": "Établit QUI est l'utilisateur d'une application Nodefony par ce que le framework sert déjà — page /login et son habillage, client NodefonyLogin, route me, second facteur, connexion récente, retour sûr après connexion, fournisseurs (Keycloak, GitHub), jeton d'un programme — au lieu de le réécrire. À charger AVANT d'écrire un formulaire de connexion, une redirection après login, une lecture de session ou un appel d'API depuis un script. Ce qu'un utilisateur connecté a le DROIT de faire → nodefony-protect-route. Déclencheurs : \"ajoute une page de connexion\", \"formulaire de login\", \"se connecter\", \"second facteur\", \"TOTP\", \"MFA\", \"exiger une connexion récente\", \"ramener l'utilisateur après la connexion\", \"?from=\", \"qui est connecté\", \"déconnexion\", \"Keycloak\", \"se connecter avec GitHub\", \"mon script doit appeler l'API sans formulaire\", \"jeton d'accès\", \"202 au login\".",
       "cost": {
         "bodyLines": 220,
-        "approxTokens": 3421
+        "approxTokens": 3426
       },
       "requires": [],
       "resources": {

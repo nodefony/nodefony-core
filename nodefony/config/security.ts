@@ -255,7 +255,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       // Clés de signature PERSISTANTES (dossier gitignoré, chmod 600).
       //
       // 🔴 Sans elles, chaque process génère la sienne au démarrage : un
-      // jeton émis par la CLI (`nodefony security:token`) porte un `kid`
+      // jeton émis par la CLI (`nodefony security:mcp:token`) porte un `kid`
       // que le serveur en marche ne connaît pas, et il est refusé en
       // « autorisation requise ». Mesuré : trois `kid` distincts pour la
       // même application, un par process et un de plus après redémarrage.

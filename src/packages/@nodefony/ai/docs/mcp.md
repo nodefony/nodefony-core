@@ -446,7 +446,7 @@ Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts#IMcpGate.respond
   les scopes publiés sont ceux que le défi exige.
 - **Le jeton est jugé par le vérificateur de l'application** (`accessTokenVerifier`, posé par
   `@nodefony/security`), avec l'URI de la porte comme audience. Un jeton que l'application signe
-  elle-même (`npx nodefony security:token --resource <URI de la porte>`) y est **toujours**
+  elle-même (`npx nodefony security:mcp:token --resource <URI de la porte>`) y est **toujours**
   reconnu — sans rien déclarer dans `resourceServer.issuers` — et jugé par les règles de sa zone
   `jwt` : un jeton révoqué, ou celui d'un compte désactivé, est refusé avant son expiration. Les
   neuf contrôles, leur ordre et la réponse de la porte à chaque verdict :

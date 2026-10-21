@@ -2452,7 +2452,15 @@ step(
     // et une étape qui l'EXÉCUTE est la seule preuve qui vaille.
     const out = run(
       process.execPath,
-      [BIN, "security:token", "--json", "--ttl", "15", "--scope", "admin:read"],
+      [
+        BIN,
+        "security:mcp:token",
+        "--json",
+        "--ttl",
+        "15",
+        "--scope",
+        "admin:read",
+      ],
       APP,
       // La porte MCP est servie par un module de DÉVELOPPEMENT : sans cet
       // environnement, le CLI démarre en production et la porte n'existe pas.
@@ -2507,7 +2515,7 @@ function jetonPour(resource, scope) {
     process.execPath,
     [
       BIN,
-      "security:token",
+      "security:mcp:token",
       "--json",
       "--ttl",
       "15",

@@ -14,7 +14,7 @@ import { publicBaseUrl } from "../config/security";
  * quoi la porte annonce l'adresse de développement.
  *
  * Pour qu'un jeton émis par CETTE application l'ouvre en développement
- * (`npx nodefony security:token`), ajoute-la à `jwt.audiences` dans
+ * (`npx nodefony security:mcp:token`), ajoute-la à `jwt.audiences` dans
  * `nodefony/config/security.ts`, écrite sur place :
  * `` `${publicBaseUrl(ctx.env)}<%= it.route %>` ``. Sans elle, l'émetteur refuse de
  * signer (`invalid_target`) — et à juste titre. ⚠️ N'y importe PAS cette

@@ -772,7 +772,7 @@ class ScaffoldService extends Service {
       job,
       "info",
       "Jeton non émis (aucun terminal ici pour en choisir la durée) : " +
-        "dans l'app, `npx nodefony security:token --write`.",
+        "dans l'app, `npx nodefony security:mcp:token --write`.",
     );
   }
 

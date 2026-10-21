@@ -143,13 +143,13 @@ Trois choses à savoir avant de s'étonner d'un refus :
 
 Les outils intégrés sont en lecture seule, et `mcp.tools` est une allowlist.
 
-### Obtenir le porteur — `security:token`
+### Obtenir le porteur — `security:mcp:token`
 
 Dès que la porte demande un jeton, il faut en produire un. L'application **le signe elle-même**, en
 ligne de commande, sans qu'aucun serveur n'écoute :
 
 ```bash
-npx nodefony security:token --write   # pose NF_MCP_TOKEN chez les agents présents
+npx nodefony security:mcp:token --write   # pose NF_MCP_TOKEN chez les agents présents
 npx nodefony ai:mcp --auth            # l'en-tête porte ${NF_MCP_TOKEN}, jamais le jeton
 ```
 

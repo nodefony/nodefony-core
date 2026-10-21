@@ -3,7 +3,7 @@
  *
  * Deux gestes distincts vivent ici, et il ne faut pas les confondre :
  *
- *  1. **poser le SECRET** là où l'agent lit ses variables (`security:token`) ;
+ *  1. **poser le SECRET** là où l'agent lit ses variables (`security:mcp:token`) ;
  *  2. **déclarer la PORTE** — l'URL du serveur MCP — dans sa configuration
  *     (`ai:mcp --agent`).
  *

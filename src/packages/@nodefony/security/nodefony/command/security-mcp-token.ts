@@ -128,7 +128,7 @@ const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 /**
- * `nodefony security:token` — émet un jeton d'accès pour une porte de cette
+ * `nodefony security:mcp:token` — émet un jeton d'accès pour une porte de cette
  * application (la porte MCP par défaut).
  *
  * **Pourquoi une commande, et pas un `curl`.** Le jeton s'obtenait par un appel
@@ -142,20 +142,26 @@ const RESET = "\x1b[0m";
  * raison d'être de la liaison d'audience. La commande la vise d'elle-même,
  * `--resource` ne sert qu'à en viser une autre.
  *
- * Suit `security:secrets` : `--write` pose la valeur là où l'AGENT la lit
- * (gitignoré), jamais dans le `.env` commité, et ne remplace jamais une valeur
- * existante — une rotation est un geste explicite.
+ * `--write` pose la valeur là où l'AGENT la lit (gitignoré), jamais dans le
+ * `.env` de l'application. Relancée, elle REMPLACE le jeton chez les agents qui
+ * le portent déjà — la rotation est le geste le plus fréquent — et n'en câble
+ * aucun nouveau sans le proposer.
  */
-class SecurityToken extends Command {
+class SecurityMcpToken extends Command {
   constructor(cli: CliKernel) {
-    super("security:token", `émet un jeton d'accès pour la porte MCP`, cli, {
-      ...options,
-      examples: [
-        "nodefony security:token",
-        "nodefony security:token --write",
-        "nodefony security:token alice --scope admin:read --ttl 60",
-      ],
-    });
+    super(
+      "security:mcp:token",
+      `émet un jeton d'accès pour la porte MCP`,
+      cli,
+      {
+        ...options,
+        examples: [
+          "nodefony security:mcp:token",
+          "nodefony security:mcp:token --write",
+          "nodefony security:mcp:token alice --scope admin:read --ttl 60",
+        ],
+      },
+    );
     this.addArgument(
       "[identifier]",
       "compte porteur du jeton (défaut : admin)",
@@ -530,7 +536,7 @@ class SecurityToken extends Command {
                 `  « ${env} » : un jeton pour une porte absente n'aurait personne\n` +
                 `  pour l'accepter.\n` +
                 `\n` +
-                `  → NODE_ENV=development nodefony security:token${opts.write ? " --write" : ""}\n`) +
+                `  → NODE_ENV=development nodefony security:mcp:token${opts.write ? " --write" : ""}\n`) +
             `  → ou vise une autre porte : --resource <uri>`,
           "ERROR",
         );
@@ -675,4 +681,4 @@ class SecurityToken extends Command {
   }
 }
 
-export default SecurityToken;
+export default SecurityMcpToken;

@@ -340,13 +340,13 @@ export function renderMcpPlan(
       // plus : il va là où l'AGENT le lit, et nulle part ailleurs. Un texte
       // périmé envoie chercher un secret dans un fichier qui ne le porte pas —
       // c'est exactement le diagnostic d'une heure qui a mené à ce changement.
-      `       nodefony security:token --write     ${"→ pose " + MCP_TOKEN_ENV + " chez tes agents"}`,
-      "       nodefony security:token             (l'affiche, pour un export manuel)",
+      `       nodefony security:mcp:token --write     ${"→ pose " + MCP_TOKEN_ENV + " chez tes agents"}`,
+      "       nodefony security:mcp:token             (l'affiche, pour un export manuel)",
       "     Elle vise l'audience de la porte d'elle-même (RFC 8707) : un jeton",
       "     d'audience différente serait refusé, à juste titre ;",
       `  3. ou exporte-le à la main :             export ${MCP_TOKEN_ENV}=<access_token>`,
       "  4. un jeton d'accès EXPIRE — pose une durée qui tienne la journée :",
-      "       nodefony security:token --write --ttl 10080   (7 jours)",
+      "       nodefony security:mcp:token --write --ttl 10080   (7 jours)",
       "",
       "Sans jeton, la porte sert quand même ses outils publics — l'authentification",
       "ajoute les outils réservés, elle n'est pas un péage.",

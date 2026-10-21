@@ -47,7 +47,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     /**
      * Jetons signés par CETTE application — le décor de DÉVELOPPEMENT.
      *
-     * 🔴 Deux réglages sans lesquels `nodefony security:token` produit un
+     * 🔴 Deux réglages sans lesquels `nodefony security:mcp:token` produit un
      * jeton inutilisable, chacun pour une raison différente :
      *
      * - **`audiences`** est une liste BLANCHE de ressources qu'un client peut

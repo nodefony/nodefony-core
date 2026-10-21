@@ -1397,7 +1397,7 @@ const oauth2Schema = z
 /**
  * Qui peut OBTENIR un scope d'application — appliqué par CHAQUE émetteur de
  * l'application (jeton d'accès, clé API), jamais par une zone : un jeton ne
- * sait pas quelle zone le lira, et `security:token` signe sans requête.
+ * sait pas quelle zone le lira, et `security:mcp:token` signe sans requête.
  */
 const grantableScopesSchema = z
   .record(

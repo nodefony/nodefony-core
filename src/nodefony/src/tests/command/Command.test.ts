@@ -131,7 +131,7 @@ describe("Command — le code de sortie d'un ÉCHEC survit", () => {
   });
 
   /**
-   * 🔴 Signalé sur `security:token` : la commande écrivait son erreur, posait
+   * 🔴 Signalé sur `security:mcp:token` : la commande écrivait son erreur, posait
    * `process.exitCode = 1`… et le journal affichait « terminate : 0 ». Le
    * process sortait en 0. Un script, un CI, un `&&` en shell ne voyaient RIEN.
    *

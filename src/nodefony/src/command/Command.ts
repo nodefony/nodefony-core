@@ -679,7 +679,7 @@ class Command extends Service {
     // normale en Node ; puis le cadre appelle `terminate()` SANS argument pour
     // clore le kernel. Le `|| 0` en faisait un succès : « terminate : 0 »,
     // process sorti en 0, et ni un script, ni un `&&` en shell, ni une CI ne
-    // voyaient quoi que ce soit. Signalé sur `security:token`, présent sur cinq
+    // voyaient quoi que ce soit. Signalé sur `security:mcp:token`, présent sur cinq
     // commandes. `undefined` doit VOYAGER : c'est le Kernel qui résout alors le
     // code réel (`process.exitCode`, sinon 0).
     //

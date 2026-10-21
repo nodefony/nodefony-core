@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { Cli } from "nodefony";
 import SecurityUserList from "../../nodefony/command/security-user-list";
-import SecurityToken, {
+import SecurityMcpToken, {
   tokenTtlSeconds,
   ttlSeconds,
-} from "../../nodefony/command/security-token";
+} from "../../nodefony/command/security-mcp-token";
 import SecuritySecrets from "../../nodefony/command/security-secrets";
 import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -128,7 +128,7 @@ describe("security:user:list — lister ne doit RIEN publier de secret", () => {
   });
 });
 
-describe("security:token — un jeton mort-né doit s'ANNONCER", () => {
+describe("security:mcp:token — un jeton mort-né doit s'ANNONCER", () => {
   const emetteur = {
     // Réponse COMPLÈTE : `ITokenResponse` porte toujours `scope` (vide = aucun).
     issueTokens: async () => ({
@@ -149,7 +149,7 @@ describe("security:token — un jeton mort-né doit s'ANNONCER", () => {
     // par personne. Sans cet avertissement, on le copie et on cherche l'erreur
     // ailleurs pendant une heure.
     const cmd = commandeAvecKernel(
-      SecurityToken,
+      SecurityMcpToken,
       { tokenService: emetteur, users: annuaire },
       { security: { options: { jwt: {} } } },
     );
@@ -165,7 +165,7 @@ describe("security:token — un jeton mort-né doit s'ANNONCER", () => {
   it("avec une source de clés déclarée, aucun avertissement", async () => {
     for (const keystore of [{ dir: "var/keys" }, { keySetJson: "{}" }]) {
       const cmd = commandeAvecKernel(
-        SecurityToken,
+        SecurityMcpToken,
         { tokenService: emetteur, users: annuaire },
         { security: { options: { jwt: { keystore } } } },
       );
@@ -182,7 +182,7 @@ describe("security:token — un jeton mort-né doit s'ANNONCER", () => {
  * défaut de configuration (15 min), les outils réservés répondaient 401 au
  * bout d'un quart d'heure, sans que le refus accuse l'expiration.
  */
-describe("security:token --write — 8 h par défaut pour un agent", () => {
+describe("security:mcp:token --write — 8 h par défaut pour un agent", () => {
   it("--ttl explicite > 8 h si --write > défaut de configuration", () => {
     expect(tokenTtlSeconds(undefined, true)).toBe(8 * 3600);
     expect(tokenTtlSeconds("30", true)).toBe(1800);
@@ -221,7 +221,7 @@ describe("security:token --write — 8 h par défaut pour un agent", () => {
   it("🔴 --write sans --ttl demande 8 h à l'émetteur, et annonce l'expiration", async () => {
     const { tokenService, ttls } = emetteurQuiNote();
     const cmd = commandeAvecKernel(
-      SecurityToken,
+      SecurityMcpToken,
       { tokenService, users: annuaire },
       config,
     );
@@ -238,7 +238,7 @@ describe("security:token --write — 8 h par défaut pour un agent", () => {
     const sans = emetteurQuiNote();
     const sortie = await sortieDe(() =>
       commandeAvecKernel(
-        SecurityToken,
+        SecurityMcpToken,
         { tokenService: sans.tokenService, users: annuaire },
         config,
       ).generate(undefined, { json: true }),
@@ -248,7 +248,7 @@ describe("security:token --write — 8 h par défaut pour un agent", () => {
     const explicite = emetteurQuiNote();
     await sortieDe(() =>
       commandeAvecKernel(
-        SecurityToken,
+        SecurityMcpToken,
         { tokenService: explicite.tokenService, users: annuaire },
         config,
       ).generate(undefined, { write: true, agent: "none", ttl: "30" }),
@@ -351,7 +351,7 @@ describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
  * que rien ne renouvelle. Ouvrir cette porte sans borne ferait des jetons
  * éternels posés dans des fichiers — la borne EST la fonctionnalité.
  */
-describe("security:token --ttl — une durée qui s'écrit, et qui se borne", () => {
+describe("security:mcp:token --ttl — une durée qui s'écrit, et qui se borne", () => {
   it("sans option, ne décide rien : la configuration garde la main", () => {
     expect(ttlSeconds(undefined)).toBe(undefined);
   });

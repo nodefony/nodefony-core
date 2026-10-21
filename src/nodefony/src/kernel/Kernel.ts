@@ -3166,7 +3166,7 @@ class Kernel extends Service implements IKernel {
     // 🔴 Journalisée ICI, une fois — avec le module, la phase et la sanction.
     // L'erreur remonte ensuite jusqu'au `catch` de `start()` puis à celui de
     // la CLI : marquée `presented`, ils ne la re-journalisent pas (même
-    // marqueur que `bootConfigError`). Vécu sous `security:token` : la même
+    // marqueur que `bootConfigError`). Vécu sous `security:mcp:token` : la même
     // BootConfigurationError imprimée TROIS fois, dont deux avec sa stack —
     // par le service, par ce handler, puis en CRITIC.
     if (fatal && error instanceof Error) {

@@ -106,7 +106,7 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "le jeton d'accès à cette porte, quand l'application a pu être " +
         "installée et construite — son émission démarre l'application, donc " +
         "elle exige une base joignable. Sinon la commande le DIT, et le geste " +
-        "reste `nodefony ai:mcp` puis `nodefony security:token --write`.",
+        "reste `nodefony ai:mcp` puis `nodefony security:mcp:token --write`.",
       "la migration initiale du schéma, écrite ET appliquée, quand " +
         "l'installation et la construction ont pu avoir lieu.",
     ],

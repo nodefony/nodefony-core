@@ -1043,7 +1043,7 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
   });
 
   it("🔴 une BootConfigurationError fatale est journalisée UNE fois, et marquée `presented` pour les catch suivants (#306)", async () => {
-    // Vécu sous `security:token` : la même erreur imprimée TROIS fois — par le
+    // Vécu sous `security:mcp:token` : la même erreur imprimée TROIS fois — par le
     // service (log + throw), par le cycle de vie, puis en CRITIC avec sa stack
     // par le catch de `start()`. Le cycle de vie journalise (module, phase,
     // sanction) ; les catch d'aval relisent le marqueur, comme pour

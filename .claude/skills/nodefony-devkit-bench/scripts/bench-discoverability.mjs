@@ -6008,7 +6008,7 @@ function emettreJetonMcp(app, envMcp, ttlMin) {
     [
       "--no-install",
       "nodefony",
-      "security:token",
+      "security:mcp:token",
       "--json",
       "--ttl",
       String(ttlMin),

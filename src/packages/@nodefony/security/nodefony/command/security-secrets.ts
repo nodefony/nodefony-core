@@ -259,7 +259,7 @@ class SecuritySecrets extends Command {
       `\n${DIM}  · NF_MCP_TOKEN n'est PAS un secret de cette application, et n'a rien à\n` +
         `    faire dans cette liste : c'est un jeton qu'elle ÉMET, présenté par un\n` +
         `    agent pour entrer. Aucun code d'ici ne le lit. Il se pose chez l'agent\n` +
-        `    qui le porte — nodefony security:token --write.${RESET}\n`,
+        `    qui le porte — nodefony security:mcp:token --write.${RESET}\n`,
     );
     if (tokenStillThere) {
       // Une ligne héritée du temps où `--write` écrivait ici : un secret sans

@@ -28,7 +28,7 @@ const serviceName = ACCESS_TOKEN_VERIFIER;
  * ⭐ **Un jeton signé par cette application est TOUJOURS vérifiable**, dès que
  * sa capacité JWT est active (`security.jwt.enabled`, le défaut) — sans rien
  * déclarer dans `resourceServer.issuers`. Une application qui émet un jeton
- * pour sa propre porte (`nodefony security:token --resource …`) doit pouvoir
+ * pour sa propre porte (`nodefony security:mcp:token --resource …`) doit pouvoir
  * le lire : sans cette règle, la porte refusait un jeton parfaitement valide,
  * et l'application était un serveur d'autorisation dont aucune ressource ne
  * reconnaissait la signature. Rien de nouveau ne devient valide : l'audience

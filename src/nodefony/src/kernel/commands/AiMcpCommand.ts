@@ -52,7 +52,7 @@ class AiMcp extends Command {
     );
     this.addOption(
       "--no-token",
-      "Câble la porte sans enchaîner sur l'émission du jeton (security:token)",
+      "Câble la porte sans enchaîner sur l'émission du jeton (security:mcp:token)",
     );
     this.addOption(
       "--url <origine>",

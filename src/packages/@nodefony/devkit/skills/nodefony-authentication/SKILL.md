@@ -207,11 +207,11 @@ l'audience absente : `--write`, puis réimport. Détail :
 Un script, une tâche planifiée, un agent n'ont ni navigateur ni cookie : ils présentent une
 preuve à chaque appel, `Authorization: Bearer …`.
 
-| Preuve                          | L'obtenir                                                       |
-| ------------------------------- | --------------------------------------------------------------- |
-| clé d'API opaque (`nf_…`)       | `POST /nodefony/security/api/keys` (session d'administration)   |
-| jeton signé par l'application   | `npx nodefony security:token [compte] --scope … --ttl … --json` |
-| jeton Keycloak (client machine) | `requestClientCredentialsToken` de `@nodefony/security`         |
+| Preuve                          | L'obtenir                                                           |
+| ------------------------------- | ------------------------------------------------------------------- |
+| clé d'API opaque (`nf_…`)       | `POST /nodefony/security/api/keys` (session d'administration)       |
+| jeton signé par l'application   | `npx nodefony security:mcp:token [compte] --scope … --ttl … --json` |
+| jeton Keycloak (client machine) | `requestClientCredentialsToken` de `@nodefony/security`             |
 
 ❌ Un `POST` vers la route de login depuis un script, ou un cookie de session recopié dans sa
 configuration : le premier fait stocker un mot de passe au programme, le second expire et casse

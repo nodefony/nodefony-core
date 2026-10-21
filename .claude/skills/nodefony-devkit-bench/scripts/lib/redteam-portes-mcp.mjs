@@ -7,7 +7,7 @@
  * Lancé DANS l'application témoin du banc de vérité, serveur démarré : il ne
  * lit aucun fichier de la porte, il la frappe comme le ferait un attaquant —
  * depuis la machine, en posant les en-têtes qu'il veut, avec des jetons émis
- * par l'application (`security:token`) ou forgés à la main.
+ * par l'application (`security:mcp:token`) ou forgés à la main.
  *
  * La matrice a été conçue SANS lire la mécanique (`@nodefony/ai`), depuis la
  * spec MCP et les RFC 6750 / 8707 / 9728 / 8725 : chaque vecteur dit ce que la
@@ -68,7 +68,7 @@ export function jeton({ compte = "admin", ressource, scope } = {}) {
   if (jetons.has(cle)) return jetons.get(cle);
   const args = [
     BIN,
-    "security:token",
+    "security:mcp:token",
     compte,
     "--json",
     "--ttl",
@@ -101,7 +101,7 @@ export function jeton({ compte = "admin", ressource, scope } = {}) {
 export function scopesAccordes({ compte = "admin", ressource, scope }) {
   const args = [
     BIN,
-    "security:token",
+    "security:mcp:token",
     compte,
     "--json",
     "--ttl",
