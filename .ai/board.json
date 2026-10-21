@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T10:09:16.177Z",
+  "generatedAt": "2026-10-21T12:34:07.812Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 162,
+      "closed": 163,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 13,
       "title": "10.0.0-beta"
     },
     {
@@ -3837,8 +3837,8 @@
       "number": 641,
       "title": "perf(http): alléger la construction du contexte de chaque requête",
       "url": "https://github.com/nodefony/nodefony-core/issues/641",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
