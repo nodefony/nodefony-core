@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import {
   aggregateProfiles,
   createProfileAggregator,
+  isFailedProfile,
   sqlShape,
   urlPath,
   ACTION_SELF_PHASE,
@@ -308,5 +309,36 @@ describe("urlPath — le chemin d'une URL de profil", () => {
     expect(urlPath("https://h:5152/a/b?c=1")).to.equal("/a/b?c=1");
     expect(urlPath("http://h:5151")).to.equal("/");
     expect(urlPath("/deja/un/chemin")).to.equal("/deja/un/chemin");
+  });
+});
+
+describe("isFailedProfile — une erreur du SERVEUR, pas un verdict client", () => {
+  it("5xx : erreur, avec ou sans exception", () => {
+    expect(isFailedProfile({ status: 500, error: null })).to.equal(true);
+    expect(isFailedProfile({ status: 503, error: "boom" })).to.equal(true);
+  });
+
+  it("refus 401/403 porteurs d'une exception d'authentification : PAS une erreur", () => {
+    expect(
+      isFailedProfile({ status: 401, error: "Authentication required" }),
+    ).to.equal(false);
+    expect(isFailedProfile({ status: 403, error: "Access denied" })).to.equal(
+      false,
+    );
+    expect(isFailedProfile({ status: 404, error: "Not Found" })).to.equal(
+      false,
+    );
+  });
+
+  it("exception sans statut, ou levée sur une réponse 2xx/3xx : erreur", () => {
+    expect(isFailedProfile({ status: null, error: "crash" })).to.equal(true);
+    expect(isFailedProfile({ status: 200, error: "after send" })).to.equal(
+      true,
+    );
+  });
+
+  it("succès sans exception : pas une erreur", () => {
+    expect(isFailedProfile({ status: 200, error: null })).to.equal(false);
+    expect(isFailedProfile({ status: null, error: null })).to.equal(false);
   });
 });

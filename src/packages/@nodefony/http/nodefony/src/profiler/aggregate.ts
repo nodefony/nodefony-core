@@ -251,15 +251,23 @@ function actionSelfMs(entry: ProfileEntry): number | null {
 }
 
 /**
- * Une requête en ERREUR : statut ≥ 500, ou exception levée. Règle unique — le
- * rapport, ses exemples et la lecture de leurs journaux en dépendent.
+ * Une requête en ERREUR du serveur : statut ≥ 500, ou exception levée sans
+ * verdict client. Règle unique — le rapport, ses exemples et la lecture de leurs
+ * journaux en dépendent.
+ *
+ * Un statut 4xx n'en est JAMAIS une, même porteur d'une exception : un refus
+ * 401/403 (l'authentification lève une `AuthenticationError`) ou une ressource
+ * absente est le verdict rendu au client, compté à part — le lister parmi les
+ * erreurs ferait chercher une panne là où il manque une identité.
  *
  * @param entry - le profil (seuls statut et erreur sont lus).
  */
 export function isFailedProfile(
   entry: Pick<ProfileEntry, "status" | "error">,
 ): boolean {
-  return (entry.status !== null && entry.status >= 500) || entry.error !== null;
+  if (entry.status === null) return entry.error !== null;
+  if (entry.status >= 500) return true;
+  return entry.status < 400 && entry.error !== null;
 }
 
 /**
