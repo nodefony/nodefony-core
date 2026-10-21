@@ -15,8 +15,16 @@
 # `BENCH_PROTO=h2c profile-cpu.sh`.
 #
 # Usage : h2c-vs-h1.sh [nodefony|nu|both=both]
-# Env   : DUR (10 s par run), PAIRS (3), ROUTE (/nodefony/kernel/bench)
-# Sortie : tmp/bench/h2c-vs-h1.log (runs) + médianes sur la sortie standard.
+# Env   : DUR (10 s par run), PAIRS (3), ROUTE (/nodefony/kernel/bench),
+#         PROBE=1 — sonde in-situ (`NF_PERF_PROBE=1`) remise à zéro AVANT chaque
+#         run Nodefony et relevée APRÈS : la fabrique du contexte décomposée PAR
+#         FORME. Ses compteurs sont cumulés et le serveur sert les trois formes,
+#         d'où le reset par run. Les horodatages de la sonde ralentissent le
+#         serveur : les débits d'une passe PROBE=1 ne se comparent qu'entre eux.
+#         BARE=headers — le témoin nu émet les dix en-têtes de la route de banc
+#         (camp « nu-headers ») : ce que ces en-têtes coûtent à HTTP/2 sans framework.
+# Sortie : tmp/bench/h2c-vs-h1.log (runs) + médianes sur la sortie standard ;
+#          avec PROBE=1, tmp/bench/h2c-vs-h1-probe.log (un relevé JSON par run).
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 CAMPS=${1:-both}
@@ -29,6 +37,12 @@ LOG="$OUT/h2c-vs-h1.log"
 ROUTE=${ROUTE:-/nodefony/kernel/bench}
 DUR=${DUR:-10}
 PAIRS=${PAIRS:-3}
+BARE=${BARE:-plain}
+BARE_CAMP=$([ "$BARE" = headers ] && echo nu-headers || echo nu)
+PROBE=${PROBE:-0}
+PROBE_LOG="$OUT/h2c-vs-h1-probe.log"
+PROBE_URL="http://127.0.0.1:5151${ROUTE%/}/probe"
+[ "$PROBE" = 1 ] && : > "$PROBE_LOG"
 command -v h2load >/dev/null || { echo "❌ h2load absent (nghttp2) — wrk ne parle pas h2c"; exit 1; }
 . "$HERE/kill-guard.sh"
 
@@ -41,6 +55,19 @@ run() {
   ok=$(printf '%s\n' "$res" | grep -cE "^status codes: [0-9]+ 2xx, 0 3xx, 0 4xx, 0 5xx")
   [ "$ok" = 1 ] || { echo "❌ $camp $shape : réponses non-2xx — mesure invalide"; printf '%s\n' "$res" | grep "^status codes"; return 1; }
   echo "$camp $shape $rps" | tee -a "$LOG"
+  if [ "$PROBE" = 1 ] && [ "$camp" = nodefony ]; then
+    local dump
+    dump=$(curl -sf "$PROBE_URL?reset=1") || { echo "❌ sonde illisible ($PROBE_URL)"; return 1; }
+    case "$dump" in *'"enabled":true'*) ;; *) echo "❌ sonde ÉTEINTE côté serveur"; return 1 ;; esac
+    echo "$shape $dump" >> "$PROBE_LOG"
+  fi
+}
+
+# Remet la sonde à zéro : la chauffe, ou la forme précédente, ne doit pas entrer
+# dans le relevé du run suivant.
+probe_reset() {
+  [ "$PROBE" = 1 ] || return 0
+  curl -sf -o /dev/null "$PROBE_URL?reset=1" || { echo "❌ sonde illisible ($PROBE_URL)"; return 1; }
 }
 
 # campaign <camp> <url h1> <url h2c>
@@ -48,6 +75,7 @@ campaign() {
   local camp=$1 h1=$2 h2c=$3
   h2load --h1 -D 5 -c 64 -t 4 "$h1" >/dev/null 2>&1 # chauffe JIT, non comptée
   h2load -D 5 -c 64 -m 1 -t 4 "$h2c" >/dev/null 2>&1
+  [ "$camp" = nodefony ] && { probe_reset || return 1; }
   for _ in $(seq 1 "$PAIRS"); do
     run "$camp" h1-c64 --h1 -c 64 -t 4 "$h1" || return 1; sleep 5
     run "$camp" h2c-c64-m1 -c 64 -m 1 -t 4 "$h2c" || return 1; sleep 5
@@ -65,6 +93,7 @@ if [ "$CAMPS" != nu ]; then
   stop_nodefony; sleep 2
   cd "$ROOT" || exit 1
   NODE_ENV=production NF_LOG_DRIVER=null NF_BENCH_ROUTE=1 NF__APP__SERVERS__H2C__ENABLED=true \
+    NF_PERF_PROBE=$([ "$PROBE" = 1 ] && echo 1 || echo 0) \
     node src/nodefony/bin/nodefony production >"$OUT/h2c-vs-h1-server.log" 2>&1 &
   PID=$!
   for _ in $(seq 1 60); do
@@ -85,12 +114,12 @@ fi
 
 if [ "$CAMPS" != nodefony ]; then
   kill_listeners 5161 5163
-  node "$HERE/h2c-vs-h1-bare.mjs" 5161 5163 &
-  BARE=$!
+  node "$HERE/h2c-vs-h1-bare.mjs" 5161 5163 "$BARE" &
+  BARE_PID=$!
   sleep 1
-  campaign nu http://127.0.0.1:5161/ http://127.0.0.1:5163/
+  campaign "$BARE_CAMP" http://127.0.0.1:5161/ http://127.0.0.1:5163/
   STATUS=$?
-  kill "$BARE" 2>/dev/null
+  kill "$BARE_PID" 2>/dev/null
   [ $STATUS = 0 ] || exit 1
 fi
 
@@ -110,3 +139,28 @@ for (const [camp, shapes] of Object.entries(by)) {
     console.log(`  ${shape.padEnd(11)} ${m.toFixed(0).padStart(7)} req/s (écart ${spread} %)${delta}`);
   }
 }' "$LOG"
+
+# Sonde : médiane par forme de chaque tranche de la fabrique (µs/req). L'écart
+# h2c − h1 d'une tranche dit ce que la fabrique HTTP/2 coûte EN PROPRE ; ce que
+# l'écart de débit ne retrouve pas ici vit HORS de la fabrique.
+[ "$PROBE" = 1 ] && node -e '
+const by = {};
+for (const l of require("node:fs").readFileSync(process.argv[1], "utf8").trim().split("\n")) {
+  const i = l.indexOf(" "); (by[l.slice(0, i)] ??= []).push(JSON.parse(l.slice(i + 1)));
+}
+const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[(s.length - 1) >> 1]; };
+const pick = (p) => ({ ...p.avgUs, ...Object.fromEntries(Object.entries(p.ctxSlicesUs).map(([k, v]) => ["ctx." + k, v])),
+  ...Object.fromEntries(Object.entries(p.svcSlicesUs).map(([k, v]) => ["svc." + k, v])),
+  ...Object.fromEntries(Object.entries(p.reqSlicesUs).map(([k, v]) => ["req." + k, v])) });
+const rows = {};
+for (const [shape, dumps] of Object.entries(by)) {
+  const picked = dumps.map(pick);
+  for (const k of Object.keys(picked[0])) (rows[k] ??= {})[shape] = med(picked.map((p) => p[k]));
+}
+const shapes = Object.keys(by);
+console.log("sonde (µs/req, médiane de " + by[shapes[0]].length + " runs) — " + shapes.join(" · ") + (shapes.includes("h1-c64") ? "  | Δ h2c-c4-m16 − h1" : ""));
+for (const [k, v] of Object.entries(rows)) {
+  const d = v["h2c-c4-m16"] !== undefined && v["h1-c64"] !== undefined ? (v["h2c-c4-m16"] - v["h1-c64"]).toFixed(3) : "";
+  console.log("  " + k.padEnd(14) + shapes.map((s) => v[s].toFixed(3).padStart(8)).join(" ") + "  " + d);
+}' "$PROBE_LOG"
+exit 0
