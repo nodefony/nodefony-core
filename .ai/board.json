@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T09:40:16.717Z",
+  "generatedAt": "2026-10-21T09:45:41.957Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 161,
+      "closed": 162,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 14,
       "title": "10.0.0-beta"
     },
     {
@@ -3610,8 +3610,8 @@
       "number": 428,
       "title": "feat(devkit): contrôler la dérive du corpus du skill de déploiement",
       "url": "https://github.com/nodefony/nodefony-core/issues/428",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,

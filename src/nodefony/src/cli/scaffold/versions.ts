@@ -89,7 +89,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
   "@vitest/coverage-v8": "^5.0.5",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
-  vite: "^8.3.4",
+  vite: "^8.3.5",
   react: "^19.3.1",
   "react-dom": "^19.3.1",
   "@vitejs/plugin-react": "^6.1.2",
