@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T17:29:06.158Z",
+  "generatedAt": "2026-10-21T20:44:08.569Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 165,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 17,
       "title": "10.0.0-beta"
     },
     {
@@ -63,7 +63,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 37,
+      "open": 36,
       "title": "10.1.0"
     }
   ],
@@ -3917,11 +3917,27 @@
       "title": "feat(devkit): observer l'application qui tourne depuis l'agent de code",
       "url": "https://github.com/nodefony/nodefony-core/issues/643",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.231,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 644,
+      "title": "feat(devkit): profiler une route en lui envoyant N requêtes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/644",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.232,
       "debut": null,
       "cible": null,
       "labels": [
@@ -4049,20 +4065,6 @@
       "labels": [
         "alpha-9"
       ]
-    },
-    {
-      "number": 644,
-      "title": "feat(devkit): profiler une route en lui envoyant N requêtes",
-      "url": "https://github.com/nodefony/nodefony-core/issues/644",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 1,
-      "ordre": 4.5,
-      "debut": null,
-      "cible": null,
-      "labels": []
     },
     {
       "number": 207,
@@ -4667,6 +4669,38 @@
       "labels": [
         "beta-5",
         "reportable"
+      ]
+    },
+    {
+      "number": 645,
+      "title": "fix(http): ne plus journaliser la valeur des cookies posés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/645",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.12,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 646,
+      "title": "fix(http): profiler une réponse en flux que le client abandonne",
+      "url": "https://github.com/nodefony/nodefony-core/issues/646",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.13,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
       ]
     },
     {
