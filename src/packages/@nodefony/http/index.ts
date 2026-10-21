@@ -293,6 +293,29 @@ export type {
   ProfileSecurity,
 } from "./nodefony/src/profiler/Profiler";
 
+// Agrégation des profils (route, phases, SQL, N+1) — règle unique, partagée
+// par les outils de l'agent de code et, demain, la console d'administration.
+export {
+  aggregateProfiles,
+  createProfileAggregator,
+  sqlShape,
+  N_PLUS_ONE_MIN_REPEATS,
+  ACTION_SELF_PHASE,
+  NO_ROUTE,
+  TOOLING_URL_PREFIX,
+} from "./nodefony/src/profiler/aggregate";
+export type {
+  IProfileAggregator,
+  IProfileAggregatorOptions,
+  IProfileReport,
+  IRouteStats,
+  IStatusBreakdown,
+  IPhaseTotal,
+  INPlusOne,
+  ISqlShapeStats,
+  IErrorSample,
+} from "./nodefony/src/profiler/aggregate";
+
 // Profil d'UNE invocation du pont RPC (une frame WebSocket) — le contexte WS
 // vit pour la connexion, la frame a donc son propre porteur de phases/SQL.
 export { FrameProfile } from "./nodefony/src/profiler/FrameProfile";
