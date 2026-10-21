@@ -13,6 +13,45 @@ import v8 from "node:v8";
 // `heapUsed/HEAP_LIMIT` est actionnable (= % avant OOM). Même métrique que `providers.ts`.
 const HEAP_LIMIT = v8.getHeapStatistics().heap_size_limit;
 
+/** Période d'échantillonnage des histogrammes de retard de la boucle (ms). */
+export const EVENT_LOOP_RESOLUTION_MS = 20;
+
+/** Retard de la boucle d'événements sur un intervalle, en ms. */
+export interface IEventLoopDelay {
+  /** Retard moyen : ce qu'un minuteur attend en plus de son échéance, en moyenne. */
+  meanMs: number;
+  /** Pire retard : le plus long blocage de la boucle sur l'intervalle. */
+  maxMs: number;
+}
+
+/**
+ * Lit le retard RÉEL de la boucle sur un histogramme `monitorEventLoopDelay`.
+ *
+ * Chaque échantillon de l'histogramme est l'intervalle entre deux réveils de
+ * son minuteur interne — période d'échantillonnage COMPRISE : au repos, la
+ * moyenne vaut la résolution (≈ 20 ms), pas zéro. Lue telle quelle, elle
+ * annonçait 20 ms de retard sur une boucle libre. On la retranche ici, seul
+ * endroit où cette lecture se fait.
+ *
+ * Le pire retard compte autant que la moyenne : un gel unique de 200 ms dans
+ * un intervalle de 2 s ne déplace la moyenne que de quelques millisecondes.
+ *
+ * @param histogram - l'histogramme, lu AVANT son `reset()`.
+ * @param resolutionMs - la résolution passée à `monitorEventLoopDelay`.
+ * @returns retards moyen et maximal, bornés à 0 ; `0` sans échantillon.
+ */
+export function readEventLoopDelay(
+  histogram: Pick<ELDHistogram, "mean" | "max" | "count">,
+  resolutionMs: number = EVENT_LOOP_RESOLUTION_MS,
+): IEventLoopDelay {
+  if (histogram.count === 0 || !Number.isFinite(histogram.mean)) {
+    return { meanMs: 0, maxMs: 0 };
+  }
+  const lag = (ns: number): number =>
+    Math.max(0, Math.round((ns / 1e6 - resolutionMs) * 100) / 100);
+  return { meanMs: lag(histogram.mean), maxMs: lag(histogram.max) };
+}
+
 /**
  * Santé PROCESS d'un worker — lue par {@link ProcessProbe}, agrégée par worker dans le
  * snapshot pod (cf `ClusterProbeAggregator`). Volontairement **lean** (sérialisée par
@@ -27,8 +66,13 @@ export interface IProcessHealth {
   uptime: number;
   /** % d'UN cœur sur l'intervalle (comme `top` : un Node mono-thread sature ~100). */
   cpuPercent: number;
-  /** Lag moyen de l'event-loop sur l'intervalle (ms) — blocage synchrone. */
+  /**
+   * Retard moyen de la boucle sur l'intervalle (ms), période d'échantillonnage
+   * retranchée : 0 sur une boucle libre.
+   */
   eventLoopMs: number;
+  /** Pire retard de la boucle sur l'intervalle (ms) : le plus long blocage. */
+  eventLoopMaxMs: number;
   /** Saturation de la boucle (ELU) sur l'intervalle, 0–1 (~1 = thread saturé). */
   eluUtilization: number;
   /** Resident Set Size (octets). */
@@ -59,7 +103,9 @@ export class ProcessProbe {
   #prevCpu: NodeJS.CpuUsage = process.cpuUsage();
   #prevTs: number = Date.now();
   #prevElu: EventLoopUtilization = performance.eventLoopUtilization();
-  readonly #eld: ELDHistogram = monitorEventLoopDelay({ resolution: 20 });
+  readonly #eld: ELDHistogram = monitorEventLoopDelay({
+    resolution: EVENT_LOOP_RESOLUTION_MS,
+  });
   #enabled = false;
 
   /**
@@ -84,12 +130,8 @@ export class ProcessProbe {
       100,
       Math.round(((userDelta + sysDelta) / 1000 / elapsedMs) * 100),
     );
-    // 1ᵉʳ read() : histogramme encore vide → `mean` NaN (de même l'ELU si active+idle=0).
-    // Garde-fou → 0 (pas de NaN qui polluerait la grille / le calcul de moyenne front).
-    const mean = this.#eld.mean;
-    const eventLoopMs = Number.isFinite(mean)
-      ? Math.round((mean / 1e6) * 100) / 100
-      : 0;
+    // 1ᵉʳ read() : histogramme encore vide → 0 (jamais de NaN dans la grille).
+    const loop = readEventLoopDelay(this.#eld);
     this.#eld.reset();
     const curElu = performance.eventLoopUtilization();
     const eluDelta = performance.eventLoopUtilization(curElu, this.#prevElu);
@@ -102,7 +144,8 @@ export class ProcessProbe {
       pid: process.pid,
       uptime: Math.round(process.uptime()),
       cpuPercent,
-      eventLoopMs,
+      eventLoopMs: loop.meanMs,
+      eventLoopMaxMs: loop.maxMs,
       eluUtilization: elu,
       rss: mem.rss,
       heapUsed: mem.heapUsed,

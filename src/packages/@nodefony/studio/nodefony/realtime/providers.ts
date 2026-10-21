@@ -19,7 +19,11 @@ import {
   performance,
   constants as perfConstants,
 } from "node:perf_hooks";
-import { PLATFORM_CHANNELS } from "nodefony";
+import {
+  PLATFORM_CHANNELS,
+  readEventLoopDelay,
+  EVENT_LOOP_RESOLUTION_MS,
+} from "nodefony";
 
 export type Publish = (channel: string, payload: unknown) => void;
 
@@ -250,7 +254,7 @@ export function createStatsTicker(
   let prevRu = process.resourceUsage();
   // Event-loop lag : métrique dev clé (détecte le blocage synchrone). Histogramme
   // natif, mean lu + reset à chaque tick → lag moyen sur l'intervalle.
-  const eld = monitorEventLoopDelay({ resolution: 20 });
+  const eld = monitorEventLoopDelay({ resolution: EVENT_LOOP_RESOLUTION_MS });
   eld.enable();
 
   // Pression GC accumulée sur l'intervalle (reset à chaque tick). 1 observer,
@@ -289,7 +293,8 @@ export function createStatsTicker(
       100,
       Math.round(((userDelta + sysDelta) / 1000 / elapsedMs) * 100),
     );
-    const eventLoopMs = Math.round((eld.mean / 1e6) * 100) / 100;
+    const loop = readEventLoopDelay(eld);
+    const eventLoopMs = loop.meanMs;
     eld.reset();
     const mem = process.memoryUsage();
 
@@ -343,6 +348,7 @@ export function createStatsTicker(
       cpuPercent,
       cpuCount: cores,
       eventLoopMs,
+      eventLoopMaxMs: loop.maxMs,
       elu,
       ctx,
       loadavg: os.loadavg(),
@@ -392,7 +398,7 @@ export async function readStatsSnapshot(
   const c0 = process.cpuUsage();
   const elu0 = performance.eventLoopUtilization();
   const t0 = Date.now();
-  const eld = monitorEventLoopDelay({ resolution: 20 });
+  const eld = monitorEventLoopDelay({ resolution: EVENT_LOOP_RESOLUTION_MS });
   eld.enable();
   await new Promise<void>((resolve) => {
     const t = setTimeout(resolve, sampleMs);
@@ -406,7 +412,8 @@ export async function readStatsSnapshot(
     100,
     Math.round(((d.user + d.system) / 1000 / elapsedMs) * 100),
   );
-  const eventLoopMs = Math.round((eld.mean / 1e6) * 100) / 100 || 0;
+  const loop = readEventLoopDelay(eld);
+  const eventLoopMs = loop.meanMs;
   const mem = process.memoryUsage();
   const heapSpaces = v8.getHeapSpaceStatistics().map((s) => ({
     name: s.space_name,
@@ -426,6 +433,7 @@ export async function readStatsSnapshot(
     cpuPercent,
     cpuCount: cores,
     eventLoopMs,
+    eventLoopMaxMs: loop.maxMs,
     // ELU mesurée sur la fenêtre d'échantillon (réelle). Les changements de
     // contexte (ctx) restent live-only (delta sur intervalle) → null en snapshot.
     elu: {

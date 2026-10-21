@@ -300,8 +300,15 @@ export type {
   FileReader,
 } from "./service/cluster/cpuQuota";
 export { resolveTopology, loadClusterConfig } from "./service/cluster/topology";
-export { ProcessProbe } from "./service/cluster/processProbe";
-export type { IProcessHealth } from "./service/cluster/processProbe";
+export {
+  ProcessProbe,
+  readEventLoopDelay,
+  EVENT_LOOP_RESOLUTION_MS,
+} from "./service/cluster/processProbe";
+export type {
+  IProcessHealth,
+  IEventLoopDelay,
+} from "./service/cluster/processProbe";
 export { RichProcessProbe } from "./service/cluster/richProcessProbe";
 export type { IProcessRich } from "./service/cluster/richProcessProbe";
 export {
