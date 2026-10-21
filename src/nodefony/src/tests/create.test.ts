@@ -5208,8 +5208,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(tools, '"mcp_echo"');
       assert.include(tools, '"mcp_batch"');
       assert.include(tools, "run?.progress(");
+      // Chaque exemple DIT ce qu'il fait : sans annotation, la spec MCP le
+      // tient pour destructif, et c'est l'exemple qu'un agent recopie.
+      assert.match(tools, /readOnlyHint: true,\s+openWorldHint: false/u);
+      assert.match(
+        tools,
+        /readOnlyHint: false,\s+destructiveHint: false,\s+idempotentHint: false,\s+openWorldHint: false/u,
+      );
       const test = readFileSync(at("tests", "mcp-gate.test.ts"), "utf8");
       assert.include(test, "status: 403");
+      // Le test généré refuse un outil ajouté sans annotation.
+      assert.include(test, "mcpTools) {");
+      assert.include(test, "typeof hints?.readOnlyHint");
       assert.isFalse(
         existsSync(at("nodefony", "service", "McpGateService.ts")),
       );

@@ -102,8 +102,10 @@ npx nodefony create controller mcp --kind mcp --expose mixte   # outils publics 
 ```
 
 Tu ajoutes ensuite tes outils à la liste de `nodefony/mcp/mcp-tools.ts` ; la porte
-(`nodefony/mcp/mcp-gate.ts`) publie cette liste, et rien d'autre. Détail des deux expositions :
-[Monter une porte](#-monter-une-porte).
+(`nodefony/mcp/mcp-gate.ts`) publie cette liste, et rien d'autre. Chaque outil y porte ses
+`annotations` — dit s'il lit ou s'il modifie — et le test généré (`tests/mcp-gate.test.ts`)
+refuse celui qui les omet : [Dire ce que fait l'outil](#dire-ce-que-fait-loutil--les-annotations).
+Détail des deux expositions : [Monter une porte](#-monter-une-porte).
 
 **Offrir des outils sans ouvrir de porte** — un module les DÉCLARE par `getMcpTools()`, et toute
 porte en `tools: "modules"` les ramasse : c'est le cas de la porte de développement de
@@ -134,6 +136,8 @@ export class ShopModule extends Module {
           properties: { sku: { type: "string", description: "Référence" } },
           required: ["sku"],
         },
+        // Lecture dans la base de l'application : rien n'est modifié.
+        annotations: { readOnlyHint: true, openWorldHint: false },
         handler: (args) => {
           const sku = typeof args.sku === "string" ? args.sku : "";
           if (sku === "") return mcpText("`sku` est requis", true);
@@ -146,6 +150,14 @@ export class ShopModule extends Module {
           "Réindexe le catalogue, lot par lot. Long : signale chaque lot, et " +
           "s'arrête proprement si l'appel est abandonné.",
         inputSchema: { type: "object", properties: {} },
+        // Une écriture qui reconstruit l'index sans rien perdre, et que
+        // rejouer laisse dans le même état.
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
         handler: async (_args, _caller, run) => {
           const lots = 5;
           for (let i = 1; i <= lots; i++) {
@@ -185,14 +197,15 @@ main au lot suivant.
 
 ### Le contrat
 
-| Champ          | Rôle                                                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | identifiant d'appel, forme `[a-zA-Z0-9_-]{1,64}` (`NAME_PATTERN`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts#NAME_PATTERN`) ; préfixe-le par ton module |
-| `description`  | **le premier critère de déclenchement** : ce que l'outil REND et QUAND s'en servir                                                                            |
-| `inputSchema`  | schéma JSON des arguments ; tout argument non déclaré est REFUSÉ, jamais ignoré                                                                               |
-| `scopes`       | scopes OAuth exigés — tous ; absent = outil public                                                                                                            |
-| `requiresAuth` | exige une identité prouvée, sans scope particulier                                                                                                            |
-| `handler`      | `(args, caller, run?) => IMcpToolResult` — synchrone ou promesse                                                                                              |
+| Champ          | Rôle                                                                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`         | identifiant d'appel, forme `[a-zA-Z0-9_-]{1,64}` (`NAME_PATTERN`, `src/packages/@nodefony/ai/nodefony/mcp/tools.ts#NAME_PATTERN`) ; préfixe-le par ton module                  |
+| `description`  | **le premier critère de déclenchement** : ce que l'outil REND et QUAND s'en servir                                                                                             |
+| `inputSchema`  | schéma JSON des arguments ; tout argument non déclaré est REFUSÉ, jamais ignoré                                                                                                |
+| `annotations`  | ce que l'outil FAIT (lit ou modifie, efface ou ajoute, sort ou non de l'application) — à poser sur chaque outil : [les annotations](#dire-ce-que-fait-loutil--les-annotations) |
+| `scopes`       | scopes OAuth exigés — tous ; absent = outil public                                                                                                                             |
+| `requiresAuth` | exige une identité prouvée, sans scope particulier                                                                                                                             |
+| `handler`      | `(args, caller, run?) => IMcpToolResult` — synchrone ou promesse                                                                                                               |
 
 Un module écrit en JavaScript n'est contrôlé par aucun compilateur : un champ de mauvaise forme
 (`requiresAuth: "oui"`, `scopes: "shop:read"`, `description` absente) fait **écarter l'outil à la
@@ -244,6 +257,41 @@ jamais, ce qui le rend dangereux. Deux règles en découlent :
   `idempotentHint` selon ce qu'il fait vraiment (un remboursement : `destructiveHint: false`,
   `idempotentHint: false` — l'appeler deux fois rembourse deux fois).
 
+**Choisir les indices — partir de ce que fait le handler, jamais de son nom.** Une seule question
+par indice, posée sur le CODE de l'outil :
+
+| Le handler…                                                  | `readOnlyHint` | `destructiveHint` | `idempotentHint` | `openWorldHint` |
+| ------------------------------------------------------------ | -------------- | ----------------- | ---------------- | --------------- |
+| lit la base ou un service de l'application, calcule, formate | `true`         | —                 | —                | `false`         |
+| lit une API tierce ou le web (météo, cours de bourse)        | `true`         | —                 | —                | `true`          |
+| crée une ligne, envoie un courriel, rembourse, met en file   | `false`        | `false`           | `false`          | selon la cible  |
+| remplace une valeur par une autre (`set`, `upsert`, `PUT`)   | `false`        | `true`            | `true`           | selon la cible  |
+| supprime (`delete`, purge, révocation)                       | `false`        | `true`            | `true`           | selon la cible  |
+| reconstruit un dérivé sans perte (index, cache, vue)         | `false`        | `false`           | `true`           | `false`         |
+
+`openWorldHint` vaut `true` dès qu'un appel quitte l'application vers un monde qu'elle ne
+maîtrise pas : envoyer un courriel, appeler une API de paiement, publier un message. Une écriture
+dans sa propre base reste `false`. Un « — » : l'indice n'a pas de sens pour une lecture, le
+client l'ignore ; ne pas le poser.
+
+Les erreurs qui coûtent, de la plus grave à la plus bénigne :
+
+1. **`readOnlyHint: true` sur un outil qui écrit**, même un peu (un compteur de consultation, un
+   horodatage « vu le ») : le client exécute sans confirmation ce que l'humain aurait voulu
+   valider. C'est un mensonge au client — l'annotation doit décrire le pire de ce que fait le
+   handler, pas son intention principale.
+2. **`destructiveHint: false` sur un outil qui écrase** : « mettre à jour l'adresse » détruit
+   l'ancienne adresse. Remplacer, c'est effacer.
+3. **Aucune annotation** : le client tient l'outil pour le pire cas — exactement le problème que
+   les annotations résolvent. Le test généré par `nodefony create controller … --kind mcp`
+   (`tests/<nom>-gate.test.ts`) refuse un outil sans `readOnlyHint` ni `openWorldHint`, et un
+   outil qui écrit sans `destructiveHint` : la question se pose à l'ajout, pas en production.
+4. **Recopier les annotations d'un outil voisin** : elles décrivent CE handler. Un outil copié
+   puis modifié garde des promesses qui ne sont plus vraies.
+
+Un outil qui change de nature (une lecture qui se met à écrire) change d'annotations dans le même
+commit : c'est un changement de comportement que l'agent ne peut voir que par elles.
+
 ```ts
 const refund: IMcpTool = {
   name: "shop_refund",
@@ -283,6 +331,7 @@ const invoice: IMcpTool = {
   description: "Facture d'une commande du client authentifié.",
   inputSchema: { type: "object", properties: { id: { type: "string" } } },
   scopes: ["shop:billing"],
+  annotations: { readOnlyHint: true, openWorldHint: false },
   handler: (args, caller) =>
     mcpText({ id: args.id, owner: caller.subject ?? null }),
 };
@@ -470,6 +519,8 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 | la progression s'arrête alors que l'outil avance            | des valeurs qui ne croissent pas, ou plus d'une par 100 ms                                    | passer une valeur strictement croissante ; regrouper les étapes rapprochées                 |
 | un argument passé « ne fait rien »                          | il n'est pas déclaré dans `inputSchema` — l'appel est refusé en `isError`                     | le déclarer, ou `additionalProperties: true` si l'outil prend des arguments libres          |
 | un échec métier apparaît comme une panne serveur (`-32603`) | le handler a levé une exception                                                               | rendre `mcpText(message, true)`                                                             |
+| le client demande confirmation pour une simple lecture      | l'outil ne porte pas `annotations` : la spec le tient pour une écriture destructive           | poser `readOnlyHint: true` (et `openWorldHint: false` s'il reste dans l'application)        |
+| le client exécute sans confirmation un outil qui écrit      | `readOnlyHint: true` posé sur un handler qui modifie quelque chose                            | `readOnlyHint: false`, puis `destructiveHint` selon ce qu'il efface                         |
 | l'outil continue de tourner après l'abandon de l'agent      | il ne consulte pas `run.signal`                                                               | le tester entre deux étapes, ou le passer aux appels qui l'acceptent                        |
 
 ## 🧪 Tests & couverture

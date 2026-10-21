@@ -103,7 +103,6 @@ export interface IMcpToolRun {
   progress(progress: number, total?: number, message?: string): void;
 }
 
-/** Un outil tel que `tools/list` le publie — sans son implémentation. */
 /**
  * Ce qu'un outil promet de son effet — les indices `ToolAnnotations` de la spec
  * MCP (révision 2026-07-28, `schema.ts`), publiés dans `tools/list`.
@@ -115,26 +114,47 @@ export interface IMcpToolRun {
  * tient l'outil pour destructif et ouvert sur le monde : un outil qui ne fait
  * que lire DOIT le dire, et un outil qui modifie DOIT se déclarer
  * `readOnlyHint: false`.
+ *
+ * Chaque indice se choisit sur ce que fait le HANDLER, jamais sur le nom de
+ * l'outil, et décrit le PIRE de ce qu'il fait. Grille de choix par cas :
+ * `@nodefony/ai/docs/mcp.md`, « Dire ce que fait l'outil — les annotations ».
+ *
+ * @example
+ * // Lecture dans la base de l'application
+ * { readOnlyHint: true, openWorldHint: false }
+ * // Remboursement : ajoute une écriture, et deux appels remboursent deux fois
+ * { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
  */
 export interface IMcpToolAnnotations {
   /** Titre lisible, préféré au nom par les interfaces. */
   title?: string | undefined;
-  /** L'outil ne modifie rien de son environnement (défaut de la spec : `false`). */
+  /**
+   * L'outil ne modifie RIEN de son environnement (défaut de la spec : `false`).
+   * Une écriture accessoire compte — un compteur de consultation, un
+   * horodatage « vu le » : `true` ferait exécuter sans confirmation ce que
+   * l'humain aurait voulu valider.
+   */
   readOnlyHint?: boolean | undefined;
   /**
    * Une écriture peut détruire (défaut : `true`) — `false` : n'ajoute que.
+   * Remplacer une valeur, c'est effacer l'ancienne : `true`.
    * N'a de sens que si `readOnlyHint` vaut `false`.
    */
   destructiveHint?: boolean | undefined;
   /**
    * Rappeler l'outil avec les mêmes arguments n'a pas d'effet de plus (défaut :
-   * `false`). N'a de sens que si `readOnlyHint` vaut `false`.
+   * `false`) — vrai d'un remplacement ou d'une suppression, faux d'une
+   * création ou d'un envoi. N'a de sens que si `readOnlyHint` vaut `false`.
    */
   idempotentHint?: boolean | undefined;
-  /** L'outil touche un monde extérieur ouvert (défaut : `true`). */
+  /**
+   * L'outil touche un monde extérieur ouvert — web, API tierce, courriel
+   * (défaut : `true`). Une écriture dans la base de l'application : `false`.
+   */
   openWorldHint?: boolean | undefined;
 }
 
+/** Un outil tel que `tools/list` le publie — sans son implémentation. */
 export interface IMcpToolDefinition {
   /**
    * Identifiant d'appel. Forme admise : `[a-zA-Z0-9_-]{1,64}`.
@@ -152,7 +172,11 @@ export interface IMcpToolDefinition {
   description: string;
   /** Schéma JSON des arguments attendus. */
   inputSchema: Record<string, unknown>;
-  /** Ce que l'outil promet de son effet ; absent = rien n'est publié. */
+  /**
+   * Ce que l'outil promet de son effet — à poser sur CHAQUE outil. Absent, rien
+   * n'est publié et le client tient l'outil pour une écriture destructive : il
+   * demande confirmation à chaque lecture, ou n'en demande jamais.
+   */
   annotations?: IMcpToolAnnotations | undefined;
 }
 

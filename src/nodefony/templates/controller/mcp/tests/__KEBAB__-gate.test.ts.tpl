@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { IMcpGateRequest, IMcpGateResponse } from "@nodefony/ai";
 import { <%= it.camel %>Gate } from "../nodefony/mcp/<%= it.kebab %>-gate";
+import { <%= it.camel %>Tools } from "../nodefony/mcp/<%= it.kebab %>-tools";
 
 /**
  * La porte MCP `<%= it.route %>`, éprouvée SANS serveur : `gate.respond()` est la
@@ -110,4 +111,27 @@ describe("porte MCP <%= it.route %>", () => {
     );
     expect(response).toMatchObject({ kind: "json", status: 403 });
   });
-<% } %>});
+<% } %>
+  // Sans annotation, la spec MCP tient un outil pour une écriture destructive
+  // vers l'extérieur : le client de l'agent demande confirmation à chaque
+  // lecture, ou n'en demande jamais. Ce test refuse l'outil ajouté sans y
+  // avoir réfléchi — guide : node_modules/@nodefony/ai/docs/mcp.md.
+  it("chaque outil dit s'il lit ou s'il modifie (annotations MCP)", () => {
+    for (const tool of <%= it.camel %>Tools) {
+      const hints = tool.annotations;
+      expect(typeof hints?.readOnlyHint, `${tool.name} : readOnlyHint`).toBe(
+        "boolean",
+      );
+      expect(typeof hints?.openWorldHint, `${tool.name} : openWorldHint`).toBe(
+        "boolean",
+      );
+      // Un outil qui écrit dit en plus s'il peut effacer ou écraser.
+      if (hints?.readOnlyHint === false) {
+        expect(
+          typeof hints.destructiveHint,
+          `${tool.name} : destructiveHint`,
+        ).toBe("boolean");
+      }
+    }
+  });
+});

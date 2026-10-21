@@ -186,6 +186,8 @@ class Shop extends Module {
           properties: { sku: { type: "string" } },
           required: ["sku"],
         },
+        // Lecture dans la base de l'application : rien n'est modifié.
+        annotations: { readOnlyHint: true, openWorldHint: false },
         handler: async (args) => mcpText(await this.stock(String(args.sku))),
       },
     ];
@@ -197,6 +199,15 @@ Rien ne s'enregistre au démarrage : la liste est relue à chaque requête, et
 `mcp.tools` ne filtre que les outils **intégrés** — le vôtre est publié dès qu'il
 est déclaré. Un outil écarté (nom hors forme, nom déjà pris, handler absent) le
 dit en `WARNING`, jamais en silence.
+
+Chaque outil **dit ce qu'il fait** par ses `annotations` : `readOnlyHint: true`
+pour une lecture, et un outil qui modifie quoi que ce soit DOIT se déclarer
+`readOnlyHint: false`, avec `destructiveHint` (`true` s'il efface ou écrase).
+Sans annotation, la spécification MCP tient l'outil pour une écriture
+destructive : l'agent de code demande alors confirmation pour la moindre
+lecture. Les sept outils intégrés se publient `readOnlyHint: true`,
+`openWorldHint: false`. Grille de choix et erreurs à éviter :
+`node_modules/@nodefony/ai/docs/mcp.md`, « Dire ce que fait l'outil ».
 
 Un outil peut aussi se **réserver** — `scopes: ["shop:read"]` (tous exigés) ou
 `requiresAuth: true` — et son handler reçoit alors l'appelant en second

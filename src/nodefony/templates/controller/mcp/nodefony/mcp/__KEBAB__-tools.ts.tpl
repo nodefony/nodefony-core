@@ -11,7 +11,23 @@ import { mcpText, type IMcpTool } from "@nodefony/ai";
  *  • un `name` stable, en `[a-zA-Z0-9_-]` (64 caractères au plus) — jamais
  *    préfixé `nodefony_`, réservé aux outils du framework ;
  *  • une `description` qui dit QUAND s'en servir, pas seulement ce qu'il fait ;
- *  • un `inputSchema` (JSON Schema) qui borne les arguments.
+ *  • un `inputSchema` (JSON Schema) qui borne les arguments ;
+ *  • des `annotations` qui disent ce que l'outil FAIT — c'est sur elles que
+ *    le client de l'agent décide s'il demande confirmation à l'humain.
+ *
+ * Les annotations, à poser sur CHAQUE outil (le test de la porte le vérifie) :
+ *  • `readOnlyHint` — `true` si l'outil ne modifie RIEN (lecture, calcul) ;
+ *    `false` dès qu'il écrit, envoie, déclenche ou supprime quoi que ce soit ;
+ *  • `openWorldHint` — `false` s'il reste dans l'application (sa base, ses
+ *    services) ; `true` s'il sort vers le web ou une API tierce ;
+ *  • pour un outil qui écrit, `destructiveHint` — `true` s'il peut effacer ou
+ *    écraser, `false` s'il ne fait qu'ajouter ; et `idempotentHint` — `true` si
+ *    le rappeler avec les mêmes arguments ne change plus rien.
+ * Sans annotation, la spécification MCP tient l'outil pour une écriture
+ * destructive vers l'extérieur : le pire cas. Et une annotation n'autorise
+ * jamais rien — l'accès se décide par `scopes`, ci-dessous.
+ * Guide complet : node_modules/@nodefony/ai/docs/mcp.md, « Dire ce que fait
+ * l'outil — les annotations ».
  *
  * Un échec MÉTIER se rend par `mcpText(message, true)` : l'agent lit le message
  * et peut corriger son appel. Une exception, elle, devient une erreur opaque.
@@ -42,6 +58,12 @@ export const <%= it.camel %>Tools: IMcpTool[] = [
       },
       required: ["text"],
     },
+    // Lecture pure, sans sortir de l'application : aucune confirmation utile.
+    annotations: {
+      title: "Écho",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
     handler: (args) => {
       const text = typeof args.text === "string" ? args.text : "";
       if (text === "") return mcpText("`text` est requis", true);
@@ -58,6 +80,15 @@ export const <%= it.camel %>Tools: IMcpTool[] = [
       properties: {
         batches: { type: "integer", minimum: 1, maximum: 10 },
       },
+    },
+    // Une ÉCRITURE : déclare-la telle quelle. Ajuste chaque indice à TON
+    // travail — ce lot ajoute sans effacer, et le rejouer refait le travail.
+    annotations: {
+      title: "Traitement par lots",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
     },
 <% if (it.anonymous) { %>    // Réservé : ni listé ni appelable sans un jeton qui porte ce scope.
     scopes: ["<%= it.writeScope %>"],
