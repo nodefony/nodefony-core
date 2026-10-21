@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runSymbolsCli } from "../../cli/symbols";
+import { runSymbolsCli, SYMBOLS_USAGE } from "../../cli/symbols";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -34,12 +35,10 @@ const options: OptionsCommandInterface = {
  */
 class Symbols extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "symbols",
-      "où un symbole est défini, et de qui il hérite",
-      cli,
-      options,
-    );
+    super("symbols", "où un symbole est défini, et de qui il hérite", cli, {
+      ...options,
+      examples: () => usageExamples(SYMBOLS_USAGE),
+    });
     this.addOption("-j, --json", "sortie JSON (scriptable)");
     this.addOption(
       "--cwd <path>",

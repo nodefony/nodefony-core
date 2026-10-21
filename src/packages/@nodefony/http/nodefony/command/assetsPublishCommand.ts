@@ -56,7 +56,13 @@ class AssetsPublish extends Command {
       "assets:publish",
       "rassemble les fichiers statiques pour un CDN",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony assets:publish",
+          "nodefony assets:publish --out dist-assets --clean",
+        ],
+      },
     );
     this.addOption(
       "-o, --out <dir>",

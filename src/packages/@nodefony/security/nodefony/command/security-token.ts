@@ -148,12 +148,14 @@ const RESET = "\x1b[0m";
  */
 class SecurityToken extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "security:token",
-      `émet un jeton d'accès pour la porte MCP`,
-      cli,
-      options,
-    );
+    super("security:token", `émet un jeton d'accès pour la porte MCP`, cli, {
+      ...options,
+      examples: [
+        "nodefony security:token",
+        "nodefony security:token --write",
+        "nodefony security:token alice --scope admin:read --ttl 60",
+      ],
+    });
     this.addArgument(
       "[identifier]",
       "compte porteur du jeton (défaut : admin)",

@@ -99,6 +99,36 @@ const CANDIDATE_ROOTS = [
  * être vert — et un contrôle qu'on ne peut pas satisfaire est un contrôle qu'on
  * apprend à ignorer.
  */
+/**
+ * Les exemples de `doctor` : la commande, puis ce qu'elle répond.
+ *
+ * Une seule liste pour ses deux lecteurs : l'aide de la commande (`usage`) et
+ * l'extrait écrit sous une erreur d'usage (`DoctorCommand`, `cli/usageHint.ts`).
+ */
+export const DOCTOR_EXAMPLES: ReadonlyArray<readonly [string, string]> = [
+  [
+    "nodefony doctor",
+    "l'état d'ici : build, installation, dépendances, câblage",
+  ],
+  [
+    "nodefony doctor --live",
+    "et en plus ce que seule l'application démarrée sait : migrations, zones",
+  ],
+  [
+    "nodefony doctor --env production",
+    "ce qui manquera dans cet environnement — variables requises en " +
+      "production, secrets versionnés",
+  ],
+  [
+    "nodefony doctor --json | jq .",
+    "le même document, pour un script ou un agent",
+  ],
+  [
+    "nodefony doctor --cwd modules/blog",
+    "depuis un sous-dossier : la racine de l'application est retrouvée seule",
+  ],
+];
+
 function readExceptions(cwd: string): {
   typeCycles?: Record<string, string[]>;
   typesUnreachable?: string[];
@@ -402,35 +432,9 @@ export function usage(p: IPalette, width: number = usableWidth(80)): string {
     const { title, divider } = sectionTitle(name, width);
     return `\n${p.strong(title)}${p.dim(divider)}\n\n`;
   };
-  /**
-   * Les exemples : la commande, puis ce qu'elle répond.
-   *
-   * La colonne se DÉRIVE du plus long : figée, elle saute dès qu'un exemple
-   * la dépasse, et l'aide se met à ressembler à une sortie cassée.
-   */
-  const examples: ReadonlyArray<readonly [string, string]> = [
-    [
-      "nodefony doctor",
-      "l'état d'ici : build, installation, dépendances, câblage",
-    ],
-    [
-      "nodefony doctor --live",
-      "et en plus ce que seule l'application démarrée sait : migrations, zones",
-    ],
-    [
-      "nodefony doctor --env production",
-      "ce qui manquera dans cet environnement — variables requises en " +
-        "production, secrets versionnés",
-    ],
-    [
-      "nodefony doctor --json | jq .",
-      "le même document, pour un script ou un agent",
-    ],
-    [
-      "nodefony doctor --cwd modules/blog",
-      "depuis un sous-dossier : la racine de l'application est retrouvée seule",
-    ],
-  ];
+  // La colonne se DÉRIVE du plus long : figée, elle saute dès qu'un exemple
+  // la dépasse, et l'aide se met à ressembler à une sortie cassée.
+  const examples = DOCTOR_EXAMPLES;
   const exampleWidth = Math.max(...examples.map(([c]) => c.length));
   const renderExamples = (): string => {
     // Une glose qui n'a plus la place de tenir passe SOUS sa commande : deux

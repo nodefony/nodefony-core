@@ -559,7 +559,7 @@ export function renderScaffoldSync(
 }
 
 /** La page d'aide — `nodefony scaffold:sync --help`. */
-const PAGE: IUsagePage = {
+export const SCAFFOLD_SYNC_USAGE: IUsagePage = {
   command: "nodefony scaffold:sync",
   tagline:
     "pose dans ce projet les fichiers que livrent les paquets installés " +
@@ -659,8 +659,9 @@ export function parseScaffoldSyncArgv(argv: string[]):
  */
 export async function runScaffoldSyncCommand(argv: string[]): Promise<number> {
   const parsed = parseScaffoldSyncArgv(argv);
-  if ("error" in parsed) return printUsageError(PAGE, parsed.error);
-  if (parsed.help) return printUsage(PAGE);
+  if ("error" in parsed)
+    return printUsageError(SCAFFOLD_SYNC_USAGE, parsed.error);
+  if (parsed.help) return printUsage(SCAFFOLD_SYNC_USAGE);
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {
     process.stderr.write(

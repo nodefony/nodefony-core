@@ -32,7 +32,7 @@ export {
   type IImageContents,
 } from "./tarLayers";
 
-const PAGE: IUsagePage = {
+export const IMAGE_CHECK_USAGE: IUsagePage = {
   command: "nodefony image:check",
   tagline:
     "refuse une image de conteneur qui embarque une clé, un secret ou un " +
@@ -180,10 +180,10 @@ function pathsFromInventory(file: string): string[] {
 export async function runImageCheckCommand(argv: string[]): Promise<number> {
   const parsed = parseImageCheckArgv(argv);
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(IMAGE_CHECK_USAGE, parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(IMAGE_CHECK_USAGE);
   }
 
   let paths: string[];
@@ -202,7 +202,10 @@ export async function runImageCheckCommand(argv: string[]): Promise<number> {
         fs.rmSync(saved.dir, { recursive: true, force: true });
       }
     } else {
-      return printUsageError(PAGE, "une image ou --files est requis");
+      return printUsageError(
+        IMAGE_CHECK_USAGE,
+        "une image ou --files est requis",
+      );
     }
   } catch (error) {
     // Ne pas savoir regarder se DISTINGUE d'un verdict favorable, et le message

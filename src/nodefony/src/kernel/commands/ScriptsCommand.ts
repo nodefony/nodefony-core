@@ -7,6 +7,7 @@ import {
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
+  examples: ["nodefony scripts", "nodefony scripts --json"],
   quietBoot: true,
   showBanner: false,
   kernelEvent: "onRegister",

@@ -195,7 +195,7 @@ interface ISymbolsRequest {
 }
 
 /** La page d'aide — `nodefony symbols --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const SYMBOLS_USAGE: IUsagePage = {
   command: "nodefony symbols",
   tagline:
     "interroge le graphe symbolique : où un symbole est défini, ce qu'il " +
@@ -346,16 +346,16 @@ function renderSymbol(sym: ISymbolEntry): string {
 export function runSymbolsCommand(argv: string[]): number {
   const parsed = parseSymbolsArgv(argv);
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(SYMBOLS_USAGE, parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(SYMBOLS_USAGE);
   }
   if (parsed.generate) {
     // La génération charge le compilateur : elle est asynchrone. Ne jamais
     // l'ignorer en silence — rendre un résumé ferait croire à une écriture.
     return printUsageError(
-      PAGE,
+      SYMBOLS_USAGE,
       "--generate passe par runSymbolsCli (asynchrone), pas par runSymbolsCommand",
     );
   }

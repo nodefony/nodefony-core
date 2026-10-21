@@ -65,7 +65,7 @@ import { isTerminal } from "../runtime/isTerminal";
  */
 
 /** La page d'aide — `nodefony ai:mcp --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const AI_MCP_USAGE: IUsagePage = {
   command: "nodefony ai:mcp",
   tagline:
     "déclare le serveur MCP de cette application à ton agent, et si tu veux " +
@@ -1031,10 +1031,10 @@ export function readMcpConfig(file: string): IMcpConfigDocument | null {
 export async function runAiMcpCommand(argv: string[]): Promise<number> {
   const parsed = parseAiMcpArgv(argv);
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(AI_MCP_USAGE, parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(AI_MCP_USAGE);
   }
 
   const projectRoot = findProjectRoot(parsed.cwd);

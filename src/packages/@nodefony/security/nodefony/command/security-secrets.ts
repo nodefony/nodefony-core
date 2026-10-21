@@ -86,7 +86,14 @@ class SecuritySecrets extends Command {
       "security:secrets",
       "engendre les clés de chiffrement du module security",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony security:secrets",
+          "nodefony security:secrets --write",
+          "nodefony security:secrets --jwt-keyset",
+        ],
+      },
     );
     this.addOption("-j, --json", "sortie JSON (scripts/CI)");
     this.addOption(

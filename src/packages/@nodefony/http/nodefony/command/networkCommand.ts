@@ -20,7 +20,13 @@ class Network extends Command {
       "http:network",
       "les interfaces réseau et adresses de cette machine",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony http:network",
+          "nodefony http:network eth0 --json",
+        ],
+      },
     );
     this.addArgument("[interface]", "Selection interface example eth0 ");
     this.addOption("-j, --json", "get json");

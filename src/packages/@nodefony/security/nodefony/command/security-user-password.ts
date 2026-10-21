@@ -53,12 +53,10 @@ const RESET = "\x1b[0m";
  */
 class SecurityUserPassword extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "security:user:password",
-      "change le mot de passe d'un compte",
-      cli,
-      options,
-    );
+    super("security:user:password", "change le mot de passe d'un compte", cli, {
+      ...options,
+      examples: ["nodefony security:user:password alice"],
+    });
     // Optionnel : réclamé en terminal, refusé proprement hors terminal — même
     // raison que `user:add`, la commande est proposée au menu où personne ne
     // peut taper d'argument.

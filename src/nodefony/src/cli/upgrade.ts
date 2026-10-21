@@ -16,7 +16,7 @@ import {
 } from "./scaffold/engine";
 
 /** La page d'aide — `nodefony upgrade --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const UPGRADE_USAGE: IUsagePage = {
   command: "nodefony upgrade",
   tagline:
     "remet l'application au niveau de la version de Nodefony installée, " +
@@ -268,8 +268,8 @@ export function parseUpgradeArgv(argv: string[]):
  */
 export async function runUpgradeCommand(argv: string[]): Promise<number> {
   const parsed = parseUpgradeArgv(argv);
-  if ("error" in parsed) return printUsageError(PAGE, parsed.error);
-  if (parsed.help) return printUsage(PAGE);
+  if ("error" in parsed) return printUsageError(UPGRADE_USAGE, parsed.error);
+  if (parsed.help) return printUsage(UPGRADE_USAGE);
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {
     process.stderr.write(

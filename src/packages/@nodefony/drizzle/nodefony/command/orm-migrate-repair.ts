@@ -74,7 +74,13 @@ class OrmMigrateRepair extends OrmMigrateCommand {
       "orm:migrate:repair",
       "lève un marqueur d'échec, sans toucher à la base",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony orm:migrate:repair",
+          "nodefony orm:migrate:repair --source app",
+        ],
+      },
     );
     this.addSharedOptions();
     this.addOption(

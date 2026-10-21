@@ -62,7 +62,14 @@ class SecurityUserAdd extends Command {
       "security:user:add",
       "crée un compte (mot de passe demandé masqué)",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony security:user:add alice",
+          "nodefony security:user:add admin --admin",
+          "nodefony security:user:add bob --roles ROLE_USER,ROLE_DEV",
+        ],
+      },
     );
     // OPTIONNEL, et c'est le point : déclaré `<identifier>`, commander refusait
     // la commande AVANT qu'elle existe — « missing required argument » puis

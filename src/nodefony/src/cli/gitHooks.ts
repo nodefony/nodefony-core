@@ -20,7 +20,7 @@ import {
 } from "./gitHooksReport";
 
 /** La page d'aide — `nodefony git:hooks --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const GIT_HOOKS_USAGE: IUsagePage = {
   command: "nodefony git:hooks",
   tagline:
     "pose les hooks git de ce projet : contrôles au commit, vérification " +
@@ -210,10 +210,10 @@ export function installGitHooks(
 export function runGitHooksCommand(argv: string[]): number {
   const parsed = parseGitHooksArgv(argv);
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(GIT_HOOKS_USAGE, parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(GIT_HOOKS_USAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {

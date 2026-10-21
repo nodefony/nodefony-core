@@ -115,7 +115,13 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
       "orm:migrate:baseline",
       "déclare une base déjà peuplée comme à niveau",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony orm:migrate:baseline",
+          "nodefony orm:migrate:baseline --from-database",
+        ],
+      },
     );
     this.addSharedOptions();
     this.addOption(

@@ -46,7 +46,13 @@ class SecurityUserList extends Command {
       "security:user:list",
       "liste les comptes : identifiant, rôles, état",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony security:user:list",
+          "nodefony security:user:list --role ROLE_ADMIN --json",
+        ],
+      },
     );
     this.addOption(
       "-q, --query <texte>",

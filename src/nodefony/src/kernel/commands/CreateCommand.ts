@@ -9,6 +9,8 @@ import {
   LICENSE_CHOICES,
   PRESET_CHOICES,
 } from "../../cli/scaffold/spec";
+import { usageCatalog } from "../../cli/scaffold/help";
+import { usageExamples } from "../../cli/usageReport";
 
 /** « none (default) | react | … » — le défaut annoncé sur le premier choix. */
 const choices = (values: readonly string[]): string =>
@@ -31,12 +33,10 @@ const options: OptionsCommandInterface = {
  */
 class Create extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "create",
-      "engendre une application, un module, une entité…",
-      cli,
-      options,
-    );
+    super("create", "engendre une application, un module, une entité…", cli, {
+      ...options,
+      examples: () => usageExamples(usageCatalog()),
+    });
     // `.choices()` : validation commander + candidats du TAB (le manifest de
     // complétion extrait `argChoices` — sans lui, `create <TAB>` ne proposait
     // jamais `app`).

@@ -1,6 +1,10 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runScaffoldSyncCommand } from "../../cli/contributions";
+import {
+  runScaffoldSyncCommand,
+  SCAFFOLD_SYNC_USAGE,
+} from "../../cli/contributions";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "AGENTS ET OUTILLAGE",
@@ -33,7 +37,7 @@ class ScaffoldSync extends Command {
       "scaffold:sync",
       "pose les fichiers livrés par les paquets installés",
       cli,
-      options,
+      { ...options, examples: () => usageExamples(SCAFFOLD_SYNC_USAGE) },
     );
     this.addOption("--update", "Rafraîchit les copies intactes en retard");
     this.addOption("--dry-run", "Le plan, sans rien écrire");

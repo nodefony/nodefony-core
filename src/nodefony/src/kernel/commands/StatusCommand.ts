@@ -1,6 +1,10 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runStatusReport } from "../../service/dev/devStatusReport";
+import {
+  runStatusReport,
+  STATUS_PAGE,
+} from "../../service/dev/devStatusReport";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "LANCER",
@@ -20,12 +24,10 @@ const options: OptionsCommandInterface = {
  */
 class Status extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "status",
-      "dit quels processus de ce projet tournent, et où",
-      cli,
-      options,
-    );
+    super("status", "dit quels processus de ce projet tournent, et où", cli, {
+      ...options,
+      examples: () => usageExamples(STATUS_PAGE),
+    });
   }
 
   override async generate(): Promise<this> {

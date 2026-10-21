@@ -5,6 +5,7 @@ import CliKernel from "../CliKernel";
 
 const options: OptionsCommandInterface = {
   helpGroup: "GÉNÉRER ET CONSTRUIRE",
+  examples: ["nodefony build", "nodefony build --force"],
   showBanner: false,
   kernelEvent: "onRegister",
 };

@@ -51,7 +51,13 @@ class SecurityUserDelete extends Command {
       "security:user:delete",
       "supprime un compte, après confirmation",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony security:user:delete alice",
+          "nodefony security:user:delete alice --yes",
+        ],
+      },
     );
     // Optionnel : réclamé en terminal, refusé proprement hors terminal.
     this.addArgument("[identifier]", "identifiant (login) du compte à retirer");

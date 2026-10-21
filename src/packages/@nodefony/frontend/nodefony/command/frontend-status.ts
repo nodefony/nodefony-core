@@ -15,7 +15,10 @@ const options: OptionsCommandInterface = {
  */
 class FrontendStatus extends Command {
   constructor(cli: CliKernel) {
-    super("frontend:status", "l'état du superviseur des fronts", cli, options);
+    super("frontend:status", "l'état du superviseur des fronts", cli, {
+      ...options,
+      examples: ["nodefony frontend:status", "nodefony frontend:status --json"],
+    });
     this.addOption("-j, --json", "output as JSON");
   }
 

@@ -26,6 +26,7 @@ const run = promisify(execFile);
  */
 const optionsCommand: OptionsCommandInterface = {
   helpGroup: "GÉNÉRER ET CONSTRUIRE",
+  examples: ["nodefony outdated", "nodefony outdated --all"],
   // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
   // un état et le rend. Appliqué par le CLI à la commande demandée SEULE — un
   // `cli.quietBoot` posé dans un constructeur vaudrait pour toutes.

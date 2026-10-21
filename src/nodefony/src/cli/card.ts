@@ -42,7 +42,7 @@ import {
  */
 
 /** La page d'aide — `nodefony card --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const CARD_USAGE: IUsagePage = {
   command: "nodefony card",
   tagline:
     "la carte de visite de cette application : où l'on est, ce qu'elle " +
@@ -237,10 +237,10 @@ export function runCardCommand(
 ): number {
   const parsed = parseCardArgv(argv);
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(CARD_USAGE, parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(CARD_USAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {

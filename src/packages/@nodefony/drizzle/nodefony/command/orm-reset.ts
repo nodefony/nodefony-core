@@ -108,12 +108,10 @@ function quoteIdent(name: string, dialect: SqlDialect): string {
  */
 class OrmReset extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
-    super(
-      "orm:reset",
-      "vide la base de développement d'un connecteur",
-      cli,
-      options,
-    );
+    super("orm:reset", "vide la base de développement d'un connecteur", cli, {
+      ...options,
+      examples: ["nodefony orm:reset", "nodefony orm:reset --yes"],
+    });
     this.addSharedOptions();
     this.addOption(
       "-y, --yes",

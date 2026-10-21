@@ -175,7 +175,13 @@ class OrmGenerate extends OrmMigrateCommand {
       "orm:generate",
       "écrit la migration alignant la base sur les entités",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony orm:generate --name ajout_du_titre",
+          "nodefony orm:generate --name ajout_du_titre --apply",
+        ],
+      },
     );
     this.addSharedOptions();
     this.addOption(

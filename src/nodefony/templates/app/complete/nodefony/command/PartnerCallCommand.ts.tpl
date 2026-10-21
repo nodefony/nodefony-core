@@ -30,6 +30,10 @@ const options: OptionsCommandInterface = {
   // qui tourne déjà (`npm run dev`), elle n'en démarre pas une seconde.
   kernelEvent: "onReady",
   quietBoot: true,
+  examples: [
+    "nodefony app:partner:call",
+    "nodefony app:partner:call --issuer keycloak --json",
+  ],
 };
 
 /** Les deux émetteurs que la zone `partner` accepte. */

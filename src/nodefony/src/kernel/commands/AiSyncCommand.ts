@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runAiSyncCommand } from "../../cli/aiSync";
+import { runAiSyncCommand, AI_SYNC_USAGE } from "../../cli/aiSync";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "AGENTS ET OUTILLAGE",
@@ -31,12 +32,10 @@ const options: OptionsCommandInterface = {
  */
 class AiSync extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "ai:sync",
-      "installe les skills d'agent des paquets présents",
-      cli,
-      options,
-    );
+    super("ai:sync", "installe les skills d'agent des paquets présents", cli, {
+      ...options,
+      examples: () => usageExamples(AI_SYNC_USAGE),
+    });
     this.addOption("--dry-run", "Le plan, sans rien écrire");
     this.addOption("--json", "Sortie exploitable par un script");
     this.addOption(

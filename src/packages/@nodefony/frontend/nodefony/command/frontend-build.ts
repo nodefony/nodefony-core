@@ -22,12 +22,10 @@ const options: OptionsCommandInterface = {
  */
 class FrontendBuild extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "frontend:build",
-      "construit les fronts pour la production",
-      cli,
-      options,
-    );
+    super("frontend:build", "construit les fronts pour la production", cli, {
+      ...options,
+      examples: ["nodefony frontend:build", "nodefony frontend:build --force"],
+    });
     this.addOption("-f, --force", "rebuild even if the manifest is up-to-date");
   }
 

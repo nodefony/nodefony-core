@@ -10,7 +10,7 @@ import { resolvePackageManager } from "../cli/packageManager";
 import Kernel, { TypeKernelOptions } from "./Kernel";
 import type { IRunProfile } from "./runProfile";
 import { CONSOLE_RUN_PROFILE } from "./runProfile";
-import Command from "../command/Command";
+import Command, { commandExamples } from "../command/Command";
 import Menu from "./commands/MenuCommand";
 import Dev from "./commands/DevCommand";
 import Debug from "./commands/DebugCommand";
@@ -80,7 +80,7 @@ import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
-import { unknownOptionHint } from "../cli/unknownOption";
+import { USAGE_ERROR_CODES, usageHint } from "../cli/usageHint";
 import { HelpContext, Command as commanderCommand } from "commander";
 import { version } from "../../package.json";
 
@@ -545,11 +545,12 @@ class CliKernel extends Cli {
             // code de sortie est celui porté par l'erreur (EX_CONFIG) sinon 1.
             const err = e as { presented?: boolean; exitCode?: number };
 
-            // Option refusée : Commander a écrit l'erreur, l'indice suit. La
+            // Mauvais usage (option inconnue, argument manquant ou en trop…) :
+            // Commander a écrit l'erreur, l'extrait de doc suit. La
             // rejournaliser ajouterait une pile pour un simple mauvais usage —
             // et le code est EX_USAGE, comme pour une commande de module.
-            if (code === "commander.unknownOption") {
-              this.writeUnknownOptionHint(e, requested);
+            if (code !== undefined && USAGE_ERROR_CODES.has(code)) {
+              this.writeUsageHint(e, requested);
               return this.kernel?.terminate(SysExit.USAGE) as Promise<Kernel>;
             }
 
@@ -754,33 +755,34 @@ class CliKernel extends Cli {
   }
 
   /**
-   * Après une option refusée par Commander, écrit ce que la commande accepte.
+   * Après un refus d'usage de Commander, écrit l'extrait de doc de la commande.
    *
-   * Commander n'écrit qu'une ligne (`error: unknown option '-y'`) ; l'appelant,
-   * souvent un agent, devinait la suite à l'aveugle. Appelée depuis les DEUX
-   * chemins d'analyse — commande intégrée et commande de module.
+   * Commander n'écrit qu'une ligne (`error: missing required argument 'type'`) ;
+   * l'appelant, souvent un agent, devinait la suite à l'aveugle. L'extrait —
+   * usage, options, exemple, chemin de l'aide — est lu sur la déclaration de
+   * la commande (`cli/usageHint.ts`). Appelée depuis les DEUX chemins
+   * d'analyse — commande intégrée et commande de module.
    *
    * @param e - l'erreur levée par Commander.
    * @param requested - nom de la commande tapée, ou `null`.
    */
-  private writeUnknownOptionHint(e: unknown, requested: string | null): void {
-    if (
-      (e as { code?: string } | null | undefined)?.code !==
-      "commander.unknownOption"
-    )
-      return;
+  private writeUsageHint(e: unknown, requested: string | null): void {
+    const code = (e as { code?: string } | null | undefined)?.code ?? "";
     const target =
       requested === null
         ? undefined
         : this.commander?.commands.find(
             (c) => c.name() === requested || c.aliases().includes(requested),
           );
-    const hint = unknownOptionHint(
+    const hint = usageHint(
+      code,
       e instanceof Error ? e.message : String(e),
       target
         ? {
             name: target.name(),
+            usage: target.usage(),
             flags: target.options.filter((o) => !o.hidden).map((o) => o.flags),
+            examples: commandExamples(target),
           }
         : null,
     );
@@ -822,11 +824,11 @@ class CliKernel extends Cli {
             await this.kernel?.terminate(SysExit.OK);
             return;
           }
-          // Mauvais usage → EX_USAGE (sysexits.h). Une option refusée n'est
-          // PAS une commande introuvable : le dire enverrait chercher une
-          // faute de frappe dans le nom d'une commande qui existe.
-          if (code === "commander.unknownOption") {
-            this.writeUnknownOptionHint(e, requested);
+          // Mauvais usage → EX_USAGE (sysexits.h). Une invocation refusée
+          // n'est PAS une commande introuvable : le dire enverrait chercher
+          // une faute de frappe dans le nom d'une commande qui existe.
+          if (code !== undefined && USAGE_ERROR_CODES.has(code)) {
+            this.writeUsageHint(e, requested);
           } else {
             this.log(`command not found: ${requested}`, "ERROR");
           }

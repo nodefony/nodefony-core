@@ -57,7 +57,13 @@ class SecurityKeycloakRealm extends Command {
       "security:keycloak:realm",
       "écrit le realm Keycloak déduit de la configuration",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony security:keycloak:realm --check",
+          "nodefony security:keycloak:realm --write",
+        ],
+      },
     );
     this.addOption(
       "-w, --write [fichier]",

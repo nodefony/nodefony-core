@@ -16,7 +16,11 @@ import type { IDevInspectRequest } from "../../service/dev/devInspector";
  */
 class Debug extends Dev {
   constructor(cli: CliKernel) {
-    super(cli, "debug", "développement, débogueur ouvert dans le serveur");
+    super(cli, "debug", "développement, débogueur ouvert dans le serveur", [
+      "nodefony debug",
+      "nodefony debug --inspect-brk",
+      "nodefony debug --inspect 127.0.0.1:9230",
+    ]);
   }
 
   protected override defaultInspect(): IDevInspectRequest {

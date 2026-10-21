@@ -22,6 +22,7 @@ import { terminalSize } from "../../runtime/isTerminal";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
+  examples: ["nodefony menu"],
   // L'en-tête du menu est la bannière de la marque (posée par interaction),
   // précalculée — pas l'ascii-art figlet du nom de l'application.
   showBanner: false,

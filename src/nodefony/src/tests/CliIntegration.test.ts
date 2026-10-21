@@ -970,6 +970,56 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       );
     });
 
+    // ─── #480 — un refus d'usage écrit l'extrait de doc de la commande ────────
+    // Option inconnue, argument manquant, argument en trop : sur une commande
+    // INTÉGRÉE comme sur une commande de MODULE (dispatch différé), Commander
+    // écrit l'erreur, l'extrait suit (usage · options · exemple · détail), et le
+    // code est 64. Avant : un argument en trop sur une intégrée sortait en 1
+    // avec une pile, et sur une commande de module affichait « command not
+    // found » — qui envoyait chercher une faute dans un nom pourtant juste.
+    for (const [famille, argv, commande, erreur] of [
+      ["intégrée", ["build", "--nope"], "build", "unknown option"],
+      ["intégrée", ["build", "extra"], "build", "too many arguments"],
+      [
+        "module",
+        ["security:user:list", "--nope"],
+        "security:user:list",
+        "unknown option",
+      ],
+      [
+        "module",
+        ["proxy:generate"],
+        "proxy:generate",
+        "missing required argument",
+      ],
+      [
+        "module",
+        ["http:network", "a", "b"],
+        "http:network",
+        "too many arguments",
+      ],
+    ] as const) {
+      it(`commande ${famille} « ${argv.join(" ")} » → 64, l'erreur PUIS l'extrait de doc`, async () => {
+        const r = await runCli([...argv], CLI_TIMEOUT_MS);
+        assert.strictEqual(r.code, 64, `reçu ${r.code}\n${r.stderr}`);
+        assert.ok(r.stderr.includes(erreur), r.stderr);
+        assert.ok(
+          r.stderr.includes(`usage   : nodefony ${commande}`),
+          r.stderr,
+        );
+        assert.ok(
+          r.stderr.includes(`exemple : nodefony ${commande}`),
+          r.stderr,
+        );
+        assert.ok(
+          r.stderr.includes(`détail  : nodefony ${commande} --help`),
+          r.stderr,
+        );
+        assert.ok(!r.stderr.includes("command not found"), r.stderr);
+        assert.ok(!READY_RE.test(r.stdout + r.stderr), r.stdout);
+      });
+    }
+
     // ─── `doctor --live` sur une app qui NE DÉMARRE PAS ───────────────────────
     // La BRIQUE (`runDoctorWithoutLive`) est éprouvée à part ; ici la CHAÎNE —
     // le binaire réel, un boot qui meurt pour de bon, et ce que l'utilisateur

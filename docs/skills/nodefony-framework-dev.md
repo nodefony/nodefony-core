@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-20
+updated: 2026-10-21
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -69,7 +69,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/conventions.md` | Conventions de structure — modules, types, configuration | 215 |
-| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 755 |
+| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 761 |
 | `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 612 |
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 95 |
 | `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 615 |

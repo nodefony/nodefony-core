@@ -39,6 +39,15 @@ const options: OptionsCommandInterface = {
   // À RETIRER si ta commande LANCE quelque chose dont le journal EST la sortie
   // (un serveur, une migration qu'on regarde se dérouler).
   quietBoot: true,
+  // Des invocations COMPLÈTES qui marchent. Sous une erreur d'usage (option
+  // inconnue, argument en trop), le CLI écrit les deux premières avec la ligne
+  // d'usage — c'est ce qui remet sur la voie celui qui vient de se tromper, un
+  // agent surtout. `--help` les montre toutes. Garde-les VRAIES : à chaque
+  // option ou argument ajouté, ajoute l'exemple qui l'emploie.
+  examples: [
+    "nodefony <%= it.commandName %>",
+    "nodefony <%= it.commandName %> Alice --json",
+  ],
 };
 
 /**

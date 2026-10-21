@@ -148,7 +148,11 @@ await cmd.done;
 
 **kernelEvent**: `"onRegister"` par défaut. Détermine quand `action()` est appelé en mode kernel.
 
-**OptionsCommandInterface**: `{ progress?, sizeProgress?, showBanner?, kernelEvent? }`. Défauts: `progress:false, sizeProgress:100, showBanner:true, kernelEvent:"onRegister"`.
+**OptionsCommandInterface**: `{ showBanner?, kernelEvent?, lifetime?, runProfile?, servesTraffic?, quietBoot?, helpGroup?, examples? }`. Défauts (`defaultCommandOptions`) : `showBanner:true, kernelEvent:"onRegister", lifetime:"oneshot"`.
+
+**examples** : `readonly string[] | () => readonly string[]` (fonction = paresseux, ctor exécuté à CHAQUE lancement). Rangés par `Cmd` Commander (`WeakMap`, `commandExamples(cmd)` — une commande de module n'est dans aucun registre du CLI). Rendus sous `--help` (`addHelpText` à fonction) + 2 premiers sous une erreur d'usage. Gate `tests/commandDescriptions.test.ts` : ≥ 1, chacun `nodefony <nom>` (alias refusé). Commande autonome : `examples: () => usageExamples(<PAGE>)` (`cli/usageReport.ts`, garde les invocations directes seules).
+
+**Erreur d'usage** (`cli/usageHint.ts`) : `USAGE_ERROR_CODES` (unknownOption, missingArgument, excessArguments, optionMissingArgument, missingMandatoryOptionValue, invalidArgument, conflictingOption ; PAS unknownCommand) → `CliKernel.writeUsageHint` sur les DEUX chemins (intégrée + dispatch module) → `usageHint()` PUR : `usage` (`cmd.usage()`), `options`, `exemple` (≤ 2), `détail` → exit 64. Commandes autonomes : leur parseur rend `{error}` → `printUsageError(PAGE)` (page entière, EXEMPLES compris). Surcoût mesuré : ~46 µs/lancement pour 50 commandes (écouteur `addHelpText`).
 
 ---
 

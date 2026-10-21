@@ -165,6 +165,12 @@ import CliKernel from "../CliKernel";
 const options: OptionsCommandInterface = {
   showBanner: true,
   kernelEvent: "onReady",
+  // OBLIGATOIRE (gate tests/commandDescriptions.test.ts) : invocations COMPLÈTES qui marchent,
+  // chacune commence par `nodefony <nom>` (pas un alias). Les 2 premières sont écrites sous
+  // toute erreur d'usage (cli/usageHint.ts → usage · options · exemple · détail, exit 64),
+  // toutes sous --help. Liste DÉRIVÉE d'une page/catalogue → la passer en fonction
+  // (`examples: () => usageExamples(PAGE)`) : le ctor tourne à CHAQUE lancement du CLI.
+  examples: ["nodefony http:routes:list", "nodefony http:routes:list --json"],
 };
 // kernelEvent = phase attendue avant generate() : onPostReady(serveurs prêts) | onReady(services) |
 //               onBoot(modules) | onPreStart(quasi rien). Défaut "onPostReady".

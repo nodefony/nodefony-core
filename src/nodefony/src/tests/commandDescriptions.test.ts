@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import CliKernel from "../kernel/CliKernel";
+import { commandExamples } from "../command/Command";
 import { descriptionWidth, type IHelpCommand } from "../cli/helpReport";
 
 /**
@@ -171,6 +172,87 @@ describe("descriptions des commandes — un index, pas un pavé", () => {
  * amputée — un fichier de commande dont la description ne se lit pas est un ÉCHEC,
  * jamais une ligne sautée.
  */
+/**
+ * 🔴 Une commande sans EXEMPLE laisse deviner celui qui vient de se tromper.
+ *
+ * Sous toute erreur d'usage, le CLI écrit un extrait de la doc de la commande
+ * (`cli/usageHint.ts`) — et la ligne qui remet sur la voie est l'exemple.
+ * Vécu (banc devkit) : 4 gestes perdus sur 6 sur un refus qui disait ce qui
+ * était faux sans dire la bonne forme. Un exemple est une chaîne passée à un
+ * constructeur : son absence compile, donc ce gate la constate.
+ *
+ * Même population que les descriptions, même lecture : les intégrées par leur
+ * instance, celles des modules par leur source.
+ */
+describe("exemples des commandes — ce qui remet sur la voie après un refus", () => {
+  /** Un exemple doit commencer par l'invocation de SA commande. */
+  const wrongPrefix = (name: string, examples: readonly string[]): string[] =>
+    examples.filter(
+      (e) => e !== `nodefony ${name}` && !e.startsWith(`nodefony ${name} `),
+    );
+
+  it("chaque commande intégrée déclare au moins un exemple, qui l'invoque", () => {
+    // Lus par Commander, comme l'extrait les lira sous une erreur d'usage.
+    const cli = new CliKernel("development");
+    cli.registerBuiltinCommands();
+    const commandes = cli.commander?.commands ?? [];
+    expect(commandes.length).toBeGreaterThan(20);
+    const fautes = commandes
+      .map((c) => {
+        const examples = commandExamples(c);
+        if (examples.length === 0) return `${c.name()} : aucun exemple`;
+        const faux = wrongPrefix(c.name(), examples);
+        return faux.length > 0
+          ? `${c.name()} : n'invoque pas la commande — ${faux.join(" · ")}`
+          : null;
+      })
+      .filter((f): f is string => f !== null)
+      .sort();
+    expect(fautes, fautes.join("\n")).toEqual([]);
+  });
+
+  it("chaque commande de module déclare au moins un exemple, qui l'invoque", () => {
+    const racines = [
+      path.join(REPO, "src", "packages"),
+      path.join(REPO, "src", "modules"),
+    ];
+    const fautes: string[] = [];
+    let lues = 0;
+    for (const fichier of racines.flatMap((r) => fichiersDeCommande(r))) {
+      const commande = litCommande(fichier);
+      if (commande === null || commande === "delegue") continue;
+      lues += 1;
+      const examples = litExemples(fs.readFileSync(fichier, "utf8"));
+      const ici = path.relative(REPO, fichier);
+      if (examples.length === 0) {
+        fautes.push(`${commande.name} (${ici}) : aucun exemple`);
+        continue;
+      }
+      const faux = wrongPrefix(commande.name, examples);
+      if (faux.length > 0) {
+        fautes.push(`${commande.name} (${ici}) : ${faux.join(" · ")}`);
+      }
+    }
+    // Population amputée = faux vert (vécu sur les descriptions).
+    expect(lues).toBeGreaterThan(18);
+    expect(fautes.sort(), fautes.join("\n")).toEqual([]);
+  });
+});
+
+/**
+ * Les exemples déclarés dans une source de commande (`examples: [ … ]`).
+ *
+ * Un exemple interpolé ne se lit pas statiquement : il n'est pas rendu, et
+ * l'absence d'exemple littéral fait échouer le gate plutôt que de le taire.
+ */
+function litExemples(code: string): string[] {
+  const bloc = /\bexamples:\s*\[([^\]]*)\]/su.exec(code);
+  if (bloc === null) return [];
+  return [...(bloc[1] ?? "").matchAll(/"((?:[^"\\]|\\.)*)"|`([^`$]*)`/gu)].map(
+    (m) => m[1] ?? m[2] ?? "",
+  );
+}
+
 describe("descriptions des commandes de MODULES — même colonne, même règle", () => {
   const racines = [
     path.join(REPO, "src", "packages"),

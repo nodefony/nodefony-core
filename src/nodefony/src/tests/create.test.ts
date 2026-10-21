@@ -9580,6 +9580,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // second qui préfixe la commande, parce que c'est lui qui existe au runtime.
       assert.include(src, 'super("blog:publish"');
       assert.include(src, 'kernelEvent: "onReady"');
+      // Ses exemples invoquent SA commande : c'est ce que le CLI écrit sous
+      // une erreur d'usage, et le premier qu'un agent recopie.
+      assert.include(src, '"nodefony blog:publish",');
+      assert.include(src, '"nodefony blog:publish Alice --json",');
       assert.notMatch(src, /<%|%>/u, "balise de template non rendue");
       assert.deepInclude(
         r.notes ?? [],

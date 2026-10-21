@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runSeeCommand } from "../../cli/see";
+import { runSeeCommand, SEE_USAGE } from "../../cli/see";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -31,12 +32,10 @@ const options: OptionsCommandInterface = {
  */
 class See extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "see",
-      "ouvre une page dans un navigateur piloté et la MESURE",
-      cli,
-      options,
-    );
+    super("see", "ouvre une page dans un navigateur piloté et la MESURE", cli, {
+      ...options,
+      examples: () => usageExamples(SEE_USAGE),
+    });
     this.addOption(
       "--watch",
       "surveille l'écran en continu, signale ce qui change",

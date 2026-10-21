@@ -66,7 +66,7 @@ const ANSI = {
 const STANDALONE_DEV_COMMANDS = new Set<string>(["status", "stop"]);
 
 /** La page d'aide de `nodefony status`. */
-const STATUS_PAGE: IUsagePage = {
+export const STATUS_PAGE: IUsagePage = {
   command: "nodefony status",
   tagline:
     "dit quels processus Nodefony de ce projet tournent, dans quel mode, et " +
@@ -124,7 +124,7 @@ const STATUS_PAGE: IUsagePage = {
 };
 
 /** La page d'aide de `nodefony stop`. */
-const STOP_PAGE: IUsagePage = {
+export const STOP_PAGE: IUsagePage = {
   command: "nodefony stop",
   tagline: "arrête proprement les processus Nodefony de ce projet",
   synopsis: ["nodefony stop [projet] [--all]"],

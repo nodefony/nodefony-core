@@ -159,6 +159,7 @@ import CliKernel from "../CliKernel";
 const options: OptionsCommandInterface = {
   showBanner: true,
   kernelEvent: "onPostReady", // ← attend cette phase avant generate()
+  examples: ["nodefony mycommand", "nodefony mycommand --verbose"], // obligatoire — cf ../cli/CLAUDE.md
 };
 
 class MyCommand extends Command {

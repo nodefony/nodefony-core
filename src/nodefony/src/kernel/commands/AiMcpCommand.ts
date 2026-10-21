@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runAiMcpCommand } from "../../cli/aiMcp";
+import { runAiMcpCommand, AI_MCP_USAGE } from "../../cli/aiMcp";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "AGENTS ET OUTILLAGE",
@@ -37,12 +38,10 @@ const options: OptionsCommandInterface = {
  */
 class AiMcp extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "ai:mcp",
-      "déclare le serveur MCP de l'app à ton agent",
-      cli,
-      options,
-    );
+    super("ai:mcp", "déclare le serveur MCP de l'app à ton agent", cli, {
+      ...options,
+      examples: () => usageExamples(AI_MCP_USAGE),
+    });
     this.addOption(
       "-a, --auth",
       "Mode authentifié : l'en-tête porte ${NF_MCP_TOKEN}, jamais le jeton",

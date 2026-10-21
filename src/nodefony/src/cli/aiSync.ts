@@ -9,7 +9,7 @@ import type { IAiSyncPlan, IDiscoveredSkill } from "./aiSyncReport";
 import { stripGlobalCliFlags } from "./globalFlags";
 
 /** La page d'aide — `nodefony ai:sync --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const AI_SYNC_USAGE: IUsagePage = {
   command: "nodefony ai:sync",
   tagline:
     "installe dans ce projet les pointeurs vers les skills d'agent que " +
@@ -282,10 +282,10 @@ export function syncSkillPointers(
 export function runAiSyncCommand(argv: string[]): number {
   const parsed = parseAiSyncArgv(argv);
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(AI_SYNC_USAGE, parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(AI_SYNC_USAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {

@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runGitHooksCommand } from "../../cli/gitHooks";
+import { runGitHooksCommand, GIT_HOOKS_USAGE } from "../../cli/gitHooks";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "AGENTS ET OUTILLAGE",
@@ -34,7 +35,7 @@ class GitHooks extends Command {
       "git:hooks",
       "pose les hooks git : contrôles au commit et au push",
       cli,
-      options,
+      { ...options, examples: () => usageExamples(GIT_HOOKS_USAGE) },
     );
     this.addOption("--dry-run", "Le plan, sans rien écrire ni configurer");
     this.addOption("--json", "Sortie exploitable par un script");

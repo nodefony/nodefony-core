@@ -16,12 +16,10 @@ const options: OptionsCommandInterface = {
  */
 class BatchTest extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "test:batch",
-      "tâche ponctuelle en console, sans serveur",
-      cli,
-      options,
-    );
+    super("test:batch", "tâche ponctuelle en console, sans serveur", cli, {
+      ...options,
+      examples: ["nodefony test:batch"],
+    });
   }
 
   override async generate(): Promise<void> {

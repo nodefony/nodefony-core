@@ -25,7 +25,13 @@ class Certificates extends Command {
       "http:certificates",
       "engendre ou inspecte le certificat TLS de dev",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony http:certificates",
+          "nodefony http:certificates --force",
+        ],
+      },
     );
     this.addOption(
       "-f, --force",

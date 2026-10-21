@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runEnvCommand } from "../../cli/env";
+import { runEnvCommand, ENV_USAGE } from "../../cli/env";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -40,12 +41,10 @@ const options: OptionsCommandInterface = {
  */
 class Env extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "env",
-      "les variables d'environnement et leur provenance",
-      cli,
-      options,
-    );
+    super("env", "les variables d'environnement et leur provenance", cli, {
+      ...options,
+      examples: () => usageExamples(ENV_USAGE),
+    });
     this.addOption("-j, --json", "sortie JSON (scriptable)");
     this.addOption(
       "--example",

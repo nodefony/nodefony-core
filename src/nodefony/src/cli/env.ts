@@ -128,7 +128,7 @@ export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
 }
 
 /** La page d'aide — `nodefony env --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const ENV_USAGE: IUsagePage = {
   command: "nodefony env",
   tagline:
     "le fichier .env lu, la valeur effective de chaque variable, " +
@@ -615,10 +615,10 @@ export function applyEnvExample(
 export async function runEnvCommand(argv: string[]): Promise<number> {
   const parsed = parseEnvArgv(argv);
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(ENV_USAGE, parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(ENV_USAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
 

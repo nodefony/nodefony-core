@@ -6,7 +6,7 @@ import { stripGlobalCliFlags } from "./globalFlags";
 import { findPackageRoot } from "./scaffold/engine";
 
 /** La page d'aide — `nodefony man --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const MAN_USAGE: IUsagePage = {
   command: "nodefony man",
   tagline:
     "ouvre la page de manuel livrée avec le paquet nodefony de ce projet",
@@ -82,8 +82,8 @@ export function manPagePath(): string {
  */
 export function runManCommand(argv: string[]): number {
   const parsed = parseManArgv(argv);
-  if ("error" in parsed) return printUsageError(PAGE, parsed.error);
-  if (parsed.help) return printUsage(PAGE);
+  if ("error" in parsed) return printUsageError(MAN_USAGE, parsed.error);
+  if (parsed.help) return printUsage(MAN_USAGE);
   const page = manPagePath();
   if (parsed.path) {
     process.stdout.write(`${page}\n`);

@@ -21,6 +21,7 @@ import {
  */
 const options: OptionsCommandInterface = {
   helpGroup: "GÉNÉRER ET CONSTRUIRE",
+  examples: ["nodefony licenses", "nodefony licenses --json"],
   // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
   // un état et le rend.
   quietBoot: true,

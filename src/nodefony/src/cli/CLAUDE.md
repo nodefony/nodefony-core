@@ -115,8 +115,26 @@ interface OptionsCommandInterface {
   helpGroup?: string; // l'INTENTION sous laquelle l'aide et le menu la rangent
   // valeurs : cf HELP_GROUPS (cli/helpReport.ts). Absent → la commande tombe
   // sous son MODULE, ce qui reste vrai pour un module tiers.
+  examples?: readonly string[] | (() => readonly string[]); // OBLIGATOIRE au dépôt
+  // invocations COMPLÈTES (`nodefony <nom> …`) — `--help` + extrait d'erreur d'usage
 }
 ```
+
+### 🔴 Toute commande déclare des `examples` — c'est ce qui remet sur la voie
+
+Sous une erreur d'usage (option inconnue, argument manquant ou en trop, valeur
+refusée), Commander écrit UNE ligne. `CliKernel.writeUsageHint` y ajoute l'extrait
+de la commande (`cli/usageHint.ts`, pur) — usage, options, deux exemples, chemin de
+l'aide — et sort en **64**, sur les deux chemins (intégrée, commande de module). Une
+commande autonome rend sa page entière par `printUsageError`.
+
+- Chaque exemple commence par `nodefony <nom>` — **pas un alias** — et doit MARCHER :
+  il est recopié tel quel par un agent. Gate : `tests/commandDescriptions.test.ts`
+  (intégrées lues par Commander, modules lus dans leur source → **littéral** exigé).
+- Liste dérivée d'une page ou d'un catalogue → **fonction** (`() => usageExamples(PAGE)`) :
+  le constructeur de CHAQUE commande tourne à chaque lancement du CLI.
+- Une commande autonome refuse elle-même ses options inconnues (`{ error }` →
+  `printUsageError`), AVANT tout décor ; `tests/standaloneHelp.test.ts` éprouve les 16.
 
 **Choix de `kernelEvent`** (= point d'arrêt du boot — le kernel s'ARRÊTE à cette phase) :
 

@@ -87,9 +87,58 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * porte, ce qui reste vrai pour un module tiers.
    */
   helpGroup?: string;
+  /**
+   * Des invocations COMPLÈTES qui marchent, telles qu'on les tape
+   * (`"nodefony orm:generate --name ajout_du_titre"`).
+   *
+   * 🔴 C'est ce qui remet sur la voie après un refus d'usage. Vécu (banc
+   * devkit) : sur 36 tours, 4 gestes perdus sur un refus qui disait ce qui
+   * était faux sans dire la bonne forme — et le seul refus qui nommait le
+   * geste exact a remis l'agent sur la voie en un tour. Les deux premiers
+   * sont écrits sous toute erreur d'usage (`cli/usageHint.ts`), tous sous
+   * `--help`. Une seule source : aucun texte n'est recopié ailleurs.
+   *
+   * Chaque commande du dépôt en déclare au moins un, qui commence par
+   * `nodefony <nom>` — gate `tests/commandDescriptions.test.ts`.
+   *
+   * ⚡ Une liste DÉRIVÉE (d'une page d'usage, d'un catalogue) se passe en
+   * FONCTION : le constructeur de chaque commande tourne à CHAQUE lancement du
+   * CLI, et les exemples ne servent que sous un refus ou un `--help`.
+   */
+  examples?: readonly string[] | (() => readonly string[]);
 }
 
 export type CommandArgs = unknown[];
+
+/** Les exemples tels que déclarés : liste, ou fonction pas encore appelée. */
+type ExamplesSource = readonly string[] | (() => readonly string[]);
+
+/**
+ * Les exemples déclarés, rangés par commande Commander — le seul objet que
+ * le CLI tient en main quand l'analyse refuse une invocation. Une commande de
+ * module n'est rangée dans aucun registre du CLI (`Module.commands`) : c'est
+ * par Commander qu'on la retrouve.
+ */
+const EXAMPLES = new WeakMap<Cmd, ExamplesSource>();
+
+/**
+ * Les exemples qu'une commande Commander a déclarés (`examples`).
+ *
+ * Une déclaration en fonction n'est appelée qu'ici, au premier besoin, puis
+ * retenue.
+ *
+ * @param cmd - la commande telle que Commander la tient.
+ * @returns ses exemples, ou une liste vide si elle n'en déclare pas (commande
+ *   d'un module tiers, ou posée hors de `Command`).
+ */
+export function commandExamples(cmd: Cmd): readonly string[] {
+  const source = EXAMPLES.get(cmd);
+  if (source === undefined) return [];
+  if (typeof source !== "function") return source;
+  const resolved = source();
+  EXAMPLES.set(cmd, resolved);
+  return resolved;
+}
 
 const defaultCommandOptions: OptionsCommandInterface = {
   showBanner: true,
@@ -473,6 +522,17 @@ class Command extends Service {
     // celles des modules — ces dernières ne sont pas dans `cli.commands`.
     if (this.options.helpGroup) {
       cmd.helpGroup(this.options.helpGroup);
+    }
+    const examples = this.options.examples;
+    if (examples !== undefined) {
+      EXAMPLES.set(cmd, examples);
+      // Rendu à l'affichage de l'aide seulement — jamais au lancement.
+      cmd.addHelpText("after", () => {
+        const lines = commandExamples(cmd);
+        return lines.length === 0
+          ? ""
+          : `\nExemples :\n${lines.map((e) => `  ${e}`).join("\n")}\n`;
+      });
     }
     this.program.addCommand(cmd);
     return cmd;

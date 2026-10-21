@@ -45,7 +45,13 @@ class ProxyGenerate extends Command {
       "proxy:generate",
       "engendre une configuration nginx ou haproxy",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony proxy:generate nginx",
+          "nodefony proxy:generate haproxy --out haproxy.cfg",
+        ],
+      },
     );
     this.addArgument("<target>", "nginx | haproxy");
     this.addOption("-o, --out <file>", "write to file instead of stdout");

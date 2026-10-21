@@ -8,6 +8,7 @@ import {
   pickMode,
   resolveBrowserScript,
   scriptArguments,
+  seeUsageError,
 } from "../cli/see";
 
 /** Racine du dépôt, depuis ce fichier de test. */
@@ -42,6 +43,31 @@ describe("commande see — lecture de la ligne de commande", () => {
 
   it("ne rend rien quand la commande n'est pas là", () => {
     expect(scriptArguments(["node", "nodefony", "doctor"])).toEqual([]);
+  });
+
+  it("🔴 refuse une option inconnue au lieu de la passer pour une URL", () => {
+    // Vécu : `see --nope` partait vers la sonde, le navigateur échouait sur
+    // « invalid URL » — pile brute et code 1 au lieu de l'usage et de 64.
+    expect(seeUsageError(["node", "nodefony", "see", "--nope"])).toBe(
+      "option inconnue : --nope",
+    );
+  });
+
+  it("refuse plus de deux positionnels — la page, puis le texte ou la durée", () => {
+    expect(
+      seeUsageError(["node", "nodefony", "see", "/", "Accueil", "x"]),
+    ).toBe("trop d'arguments : x");
+  });
+
+  it("accepte ses modes, ses positionnels et les drapeaux globaux", () => {
+    for (const argv of [
+      ["node", "nodefony", "see"],
+      ["node", "nodefony", "see", "/connexion", "Connexion"],
+      ["node", "nodefony", "see", "--watch", "/", "8000"],
+      ["node", "nodefony", "see", "--audit", "--install", "/", "-d"],
+    ]) {
+      expect(seeUsageError(argv), argv.join(" ")).toBeNull();
+    }
   });
 });
 

@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runUpgradeCommand } from "../../cli/upgrade";
+import { runUpgradeCommand, UPGRADE_USAGE } from "../../cli/upgrade";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   // Rangée à côté d'`outdated` et d'`install` : c'est la suite du même geste —
@@ -33,12 +34,10 @@ const options: OptionsCommandInterface = {
  */
 class Upgrade extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "upgrade",
-      "aligne l'app sur la version de Nodefony installée",
-      cli,
-      options,
-    );
+    super("upgrade", "aligne l'app sur la version de Nodefony installée", cli, {
+      ...options,
+      examples: () => usageExamples(UPGRADE_USAGE),
+    });
     this.addOption("--check", "Dit ce qui est en retard, sort en 1 si oui");
     this.addOption("--dry-run", "Le plan, sans rien écrire");
     this.addOption("--json", "Sortie exploitable par un script");

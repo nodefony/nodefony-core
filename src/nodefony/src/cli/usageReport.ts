@@ -257,6 +257,24 @@ export function printUsage(page: IUsagePage): number {
 }
 
 /**
+ * Les invocations d'exemple d'une page, sans leur glose.
+ *
+ * C'est ce que la commande Commander déclare (`examples`) : une page et sa
+ * commande partagent ainsi leurs exemples, jamais recopiés. Seules les
+ * invocations DIRECTES de la commande sont gardées — un exemple composé
+ * (`docker build … && nodefony image:check …`) enseigne un enchaînement, pas
+ * la forme de la commande, qui est ce qu'on cherche après un refus d'usage.
+ *
+ * @param page - la page d'usage d'une commande autonome.
+ * @returns les lignes de commande de ses exemples qui l'invoquent directement.
+ */
+export function usageExamples(page: IUsagePage): string[] {
+  return page.examples
+    .map((e) => e.term)
+    .filter((t) => t === page.command || t.startsWith(`${page.command} `));
+}
+
+/**
  * Écrit un refus PUIS la page, sur la sortie d'erreur.
  *
  * La page suit le refus parce que les deux questions arrivent ensemble : on

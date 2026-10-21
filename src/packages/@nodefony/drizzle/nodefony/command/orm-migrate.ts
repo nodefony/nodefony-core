@@ -106,7 +106,14 @@ interface IDryRunReport {
  */
 class OrmMigrate extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
-    super("orm:migrate", "applique les migrations en attente", cli, options);
+    super("orm:migrate", "applique les migrations en attente", cli, {
+      ...options,
+      examples: [
+        "nodefony orm:migrate",
+        "nodefony orm:migrate --dry-run",
+        "nodefony orm:migrate --connector analytics",
+      ],
+    });
     this.addSharedOptions();
     this.addOption(
       "-n, --dry-run",

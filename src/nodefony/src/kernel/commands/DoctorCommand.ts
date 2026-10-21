@@ -14,6 +14,7 @@ import type { GateConfig } from "../moduleGating";
 import type Kernel from "../Kernel";
 import type { IAdminBrokerLike } from "../inspect/adminSubjects";
 import { localOperatorCaller } from "../adminPlane/adminCaller";
+import { DOCTOR_EXAMPLES } from "../checks/runDoctor";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -62,7 +63,10 @@ const options: OptionsCommandInterface = {
  */
 class Check extends Command {
   constructor(cli: CliKernel) {
-    super("doctor", "ce qui ne va pas dans cette application", cli, options);
+    super("doctor", "ce qui ne va pas dans cette application", cli, {
+      ...options,
+      examples: () => DOCTOR_EXAMPLES.map(([command]) => command),
+    });
     // `doctor` est le SEUL nom : c'est le mot qu'on tape quand quelque chose ne
     // va pas, celui que les autres écosystèmes ont installé (`brew doctor`,
     // `flutter doctor`), et celui qu'un agent trouve en cherchant à

@@ -12,6 +12,7 @@ import path from "node:path";
 import { SysExit } from "./sysexits";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { OPTION_SUGGESTIONS } from "../command/Command";
+import { stripGlobalCliFlags } from "./globalFlags";
 import type { Command as CommanderCommand } from "commander";
 
 /**
@@ -307,7 +308,7 @@ export const COMPLETION_SHELLS = ["bash", "zsh", "fish"] as const;
 export type CompletionShell = (typeof COMPLETION_SHELLS)[number];
 
 /** La page d'aide — `nodefony completion --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
+export const COMPLETION_USAGE: IUsagePage = {
   command: "nodefony completion",
   tagline:
     "le script de complétion à sourcer, ou son installation dans le fichier " +
@@ -563,7 +564,16 @@ export function runCompletionCommand(argv: string[]): number {
     at !== -1 &&
     argv.slice(at + 1).some((a) => a === "--help" || a === "-h")
   ) {
-    return printUsage(PAGE);
+    return printUsage(COMPLETION_USAGE);
+  }
+  // 🔴 La commande n'a AUCUNE option : en filtrant les tirets plus bas, elle
+  // imprimait le script et sortait en 0 sur `completion --nope` — un mauvais
+  // usage déguisé en succès, que rien ne signalait.
+  const unknown = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1)).find(
+    (a) => a.startsWith("-"),
+  );
+  if (unknown !== undefined) {
+    return printUsageError(COMPLETION_USAGE, `option inconnue : ${unknown}`);
   }
   const positionals = argv.slice(2).filter((a) => !a.startsWith("-"));
   // positionals[0] = "completion" ; ensuite [action] [shell] ou [shell].
@@ -581,7 +591,7 @@ export function runCompletionCommand(argv: string[]): number {
     (arg && !(COMPLETION_SHELLS as readonly string[]).includes(arg))
   ) {
     return printUsageError(
-      PAGE,
+      COMPLETION_USAGE,
       arg
         ? `shell inconnu : ${arg}`
         : "shell indétectable — nommez-le (ex. nodefony completion zsh)",

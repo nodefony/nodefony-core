@@ -52,7 +52,13 @@ class OrmMigrateStatus extends OrmMigrateCommand {
       "orm:migrate:status",
       "l'état des migrations d'un connecteur, sans écrire",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony orm:migrate:status",
+          "nodefony orm:migrate:status --json",
+        ],
+      },
     );
     this.addSharedOptions();
   }

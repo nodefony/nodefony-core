@@ -1,6 +1,8 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import { runImageCheckCommand } from "../../cli/image";
+import { IMAGE_CHECK_USAGE } from "../../cli/image/index";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "GÉNÉRER ET CONSTRUIRE",
@@ -30,7 +32,7 @@ class Image extends Command {
       "image:check",
       "refuse une image de conteneur qui embarque un secret",
       cli,
-      options,
+      { ...options, examples: () => usageExamples(IMAGE_CHECK_USAGE) },
     );
     this.addOption(
       "--files <path>",

@@ -70,7 +70,13 @@ class SecurityOAuthDoctor extends Command {
       "security:oauth:doctor",
       "diagnostique le branchement des fournisseurs OAuth",
       cli,
-      options,
+      {
+        ...options,
+        examples: [
+          "nodefony security:oauth:doctor",
+          "nodefony security:oauth:doctor --provider github --json",
+        ],
+      },
     );
     this.addOption(
       "-p, --provider <nom>",

@@ -130,6 +130,21 @@ describe("commandes standalone — `--help` tient la promesse du pied de l'aide"
     }
   }
 
+  // #480 — un refus d'usage remet sur la voie : la page (usage, options,
+  // EXEMPLES) suit l'erreur, sur la sortie d'erreur, et le code dit « mauvais
+  // usage ». Vécu : `completion --nope` imprimait le script et sortait en 0,
+  // `see --nope` passait l'option pour une URL et plantait le navigateur.
+  for (const [nom, run] of STANDALONE) {
+    it(`${nom} --option-inconnue : refus en 64, la page et ses exemples sur stderr`, async () => {
+      const { code, err } = await avecHelp(nom, run, "--option-inconnue");
+      expect(code, `${nom} --option-inconnue n'a pas rendu 64\n${err}`).toBe(
+        64,
+      );
+      expect(err).toContain(`nodefony ${nom}`);
+      expect(err, `${nom} : pas d'exemple sous le refus`).toMatch(/EXEMPLES/u);
+    });
+  }
+
   it("aucun fast-path de CliKernel n'échappe à cette liste", () => {
     // 🔴 Une liste écrite ici se périme au prochain fast-path ajouté, et le
     // gate resterait vert sur une commande qui ne répond pas. On la confronte

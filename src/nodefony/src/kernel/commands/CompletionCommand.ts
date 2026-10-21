@@ -1,6 +1,11 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { COMPLETION_SHELLS, runCompletionCommand } from "../../cli/completion";
+import {
+  COMPLETION_SHELLS,
+  runCompletionCommand,
+  COMPLETION_USAGE,
+} from "../../cli/completion";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "AGENTS ET OUTILLAGE",
@@ -24,7 +29,7 @@ class Completion extends Command {
       "completion",
       `script de complétion du shell (${COMPLETION_SHELLS.join(" | ")})`,
       cli,
-      options,
+      { ...options, examples: () => usageExamples(COMPLETION_USAGE) },
     );
     this.addArgument("[action]", "install | uninstall (default: print script)");
     this.addArgument(

@@ -35,7 +35,7 @@ class DaemonTest extends Command {
       "test:daemon",
       "démon en console, sans serveur, jusqu'au signal",
       cli,
-      options,
+      { ...options, examples: ["nodefony test:daemon"] },
     );
   }
 }

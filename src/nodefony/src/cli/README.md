@@ -221,12 +221,13 @@ new Command(name: string, description: string, cli: Cli | CliKernel, options?: O
 
 #### Options (`OptionsCommandInterface`)
 
-| Option        | Type                           | Défaut         | Description                                                       |
-| ------------- | ------------------------------ | -------------- | ----------------------------------------------------------------- |
-| `showBanner`  | `boolean`                      | `true`         | Affiche ASCII art au démarrage                                    |
-| `kernelEvent` | `KernelEventKey`               | `"onRegister"` | Événement kernel déclencheur                                      |
-| `lifetime`    | `"oneshot"` \| `"longrunning"` | `"oneshot"`    | `longrunning` = daemon console : le Kernel parke au lieu de finir |
-| `runProfile`  | `IRunProfile`                  | —              | Profil d'exécution déclaré (serveurs, boot silencieux…)           |
+| Option        | Type                           | Défaut         | Description                                                             |
+| ------------- | ------------------------------ | -------------- | ----------------------------------------------------------------------- |
+| `showBanner`  | `boolean`                      | `true`         | Affiche ASCII art au démarrage                                          |
+| `kernelEvent` | `KernelEventKey`               | `"onRegister"` | Événement kernel déclencheur                                            |
+| `lifetime`    | `"oneshot"` \| `"longrunning"` | `"oneshot"`    | `longrunning` = daemon console : le Kernel parke au lieu de finir       |
+| `runProfile`  | `IRunProfile`                  | —              | Profil d'exécution déclaré (serveurs, boot silencieux…)                 |
+| `examples`    | `string[]` \| `() => string[]` | —              | Invocations complètes (`nodefony <nom> …`) : `--help` + erreurs d'usage |
 
 #### Méthodes à override
 

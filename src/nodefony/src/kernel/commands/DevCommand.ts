@@ -70,13 +70,19 @@ class Dev extends Command {
    * @param name - nom de la commande ; une sous-classe ({@link Debug}) en change
    *   l'intention sans dupliquer le pipeline.
    * @param description - ligne d'aide.
+   * @param examples - invocations d'exemple (`OptionsCommandInterface.examples`).
    */
   constructor(
     cli: CliKernel,
     name = "development",
     description = "démarre en développement, rechargement automatique",
+    examples: readonly string[] = [
+      "nodefony development",
+      "nodefony development --detach --wait 60",
+      "nodefony development --no-ui",
+    ],
   ) {
-    super(name, description, cli, options);
+    super(name, description, cli, { ...options, examples });
     if (name === "development") this.alias("dev");
     // Options du lancement DÉTACHÉ — consommées par le fast-path standalone de
     // CliKernel.start (detachedStart.ts), déclarées ici pour le help + pour que

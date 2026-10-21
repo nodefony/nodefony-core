@@ -10,6 +10,7 @@ import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
   helpGroup: "LANCER",
+  examples: ["nodefony production", "nodefony production --workers 4"],
   showBanner: true,
   // onPostReady (comme `development`) : l'UNIQUE Kernel boote complètement (serveurs
   // inclus) puis cette commande conclut. La décision mono/cluster est prise plus tôt,

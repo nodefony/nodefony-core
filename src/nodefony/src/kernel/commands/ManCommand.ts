@@ -1,6 +1,7 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runManCommand } from "../../cli/man";
+import { runManCommand, MAN_USAGE } from "../../cli/man";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -31,7 +32,10 @@ const options: OptionsCommandInterface = {
  */
 class Man extends Command {
   constructor(cli: CliKernel) {
-    super("man", "la page de manuel de la version du projet", cli, options);
+    super("man", "la page de manuel de la version du projet", cli, {
+      ...options,
+      examples: () => usageExamples(MAN_USAGE),
+    });
     this.addOption("--path", "Écrit le chemin de la page, sans l'ouvrir");
   }
 

@@ -15,7 +15,10 @@ const options: OptionsCommandInterface = {
  */
 class FrontendDev extends Command {
   constructor(cli: CliKernel) {
-    super("frontend:dev", "démarre le serveur Vite à la main", cli, options);
+    super("frontend:dev", "démarre le serveur Vite à la main", cli, {
+      ...options,
+      examples: ["nodefony frontend:dev"],
+    });
   }
 
   override async generate(): Promise<this> {

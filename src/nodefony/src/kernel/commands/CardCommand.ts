@@ -1,7 +1,8 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runCardCommand } from "../../cli/card";
+import { runCardCommand, CARD_USAGE } from "../../cli/card";
 import { version } from "../../../package.json";
+import { usageExamples } from "../../cli/usageReport";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -40,7 +41,10 @@ const options: OptionsCommandInterface = {
  */
 class Card extends Command {
   constructor(cli: CliKernel) {
-    super("card", "carte de visite : où l'on est, quoi lancer", cli, options);
+    super("card", "carte de visite : où l'on est, quoi lancer", cli, {
+      ...options,
+      examples: () => usageExamples(CARD_USAGE),
+    });
     this.alias("devkit:card");
     this.addOption("-j, --json", "sortie JSON (scriptable)");
     this.addOption(

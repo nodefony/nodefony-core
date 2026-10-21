@@ -25,6 +25,11 @@ import { shouldColorize, usableWidth } from "../checks/report";
  */
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
+  examples: [
+    "nodefony inspect routes",
+    "nodefony inspect module http",
+    "nodefony inspect config --json",
+  ],
   // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
   // un état et le rend. Appliqué par le CLI à la commande demandée SEULE.
   quietBoot: true,

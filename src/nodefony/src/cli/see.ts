@@ -3,7 +3,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { findProjectRoot } from "./projectRoot";
 import { portableSpawn } from "./execPortable";
-import { printUsage, type IUsagePage } from "./usageReport";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
+import { stripGlobalCliFlags } from "./globalFlags";
 
 /**
  * Les trois façons de regarder un écran, et ce que chacune exige.
@@ -60,10 +61,53 @@ export function pickMode(argv: readonly string[]): SeeMode {
  * @returns ce qui suit `see`, sans les drapeaux de mode.
  */
 export function scriptArguments(argv: readonly string[]): string[] {
+  return scriptArgumentsAfterSee(argv);
+}
+
+/** Les options que `see` connaît — les sondes, elles, ne lisent que des positionnels. */
+const SEE_FLAGS = new Set(["--audit", "--watch", "--install", "--help", "-h"]);
+
+/** Une page, puis le texte attendu (inspection) ou la durée (observation). */
+const SEE_MAX_POSITIONALS = 2;
+
+/**
+ * Le motif du refus d'une invocation de `see`, ou `null` si elle est bien formée.
+ *
+ * 🔴 Sans lui, une option inconnue partait vers la sonde, qui la prenait pour
+ * une URL : le navigateur échouait sur « invalid URL », pile brute et code 1,
+ * au lieu de la page d'usage et du code 64. Jugé AVANT tout décor : une faute
+ * de frappe n'a pas à attendre qu'on trouve l'application.
+ *
+ * @param argv - la ligne de commande complète.
+ * @returns le message du refus, ou `null`.
+ */
+export function seeUsageError(argv: readonly string[]): string | null {
+  const rest = stripGlobalCliFlags(scriptArgumentsAfterSee(argv, false));
+  const unknown = rest.find((a) => a.startsWith("-") && !SEE_FLAGS.has(a));
+  if (unknown !== undefined) return `option inconnue : ${unknown}`;
+  const positionals = rest.filter((a) => !a.startsWith("-"));
+  return positionals.length > SEE_MAX_POSITIONALS
+    ? `trop d'arguments : ${positionals.slice(SEE_MAX_POSITIONALS).join(" ")}`
+    : null;
+}
+
+/**
+ * Ce qui suit `see` sur la ligne de commande.
+ *
+ * @param argv - la ligne de commande complète.
+ * @param forScript - retire les options propres à `see`, que la sonde ignore.
+ */
+function scriptArgumentsAfterSee(
+  argv: readonly string[],
+  forScript = true,
+): string[] {
   const start = argv.findIndex((a) => a === "see");
-  return (start === -1 ? [] : argv.slice(start + 1)).filter(
-    (a) => a !== "--audit" && a !== "--watch" && a !== "--install",
-  );
+  const after = start === -1 ? [] : argv.slice(start + 1);
+  return forScript
+    ? after.filter(
+        (a) => a !== "--audit" && a !== "--watch" && a !== "--install",
+      )
+    : after;
 }
 
 /**
@@ -115,7 +159,7 @@ export function resolveBrowserScript(
  * « --help » — `https://127.0.0.1:5152--help`, plantage du pilote. Une commande
  * qui ne tient pas cette promesse apprend au lecteur à ne plus la croire.
  */
-const PAGE: IUsagePage = {
+export const SEE_USAGE: IUsagePage = {
   command: "nodefony see",
   tagline:
     "Ouvre une page de l'application dans un navigateur piloté, et la MESURE.",
@@ -201,7 +245,10 @@ export async function runSeeCommand(argv: readonly string[]): Promise<number> {
   // contrôle passe même hors d'une application — une page d'aide ne dépend pas
   // d'un décor, et la refuser ici renverrait l'erreur de décor à qui demandait
   // simplement ce que fait la commande.
-  if (argv.includes("--help") || argv.includes("-h")) return printUsage(PAGE);
+  if (argv.includes("--help") || argv.includes("-h"))
+    return printUsage(SEE_USAGE);
+  const refused = seeUsageError(argv);
+  if (refused !== null) return printUsageError(SEE_USAGE, refused);
 
   const root = findProjectRoot(process.cwd());
   if (!root) {
