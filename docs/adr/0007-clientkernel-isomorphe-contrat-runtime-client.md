@@ -446,7 +446,17 @@ tarball existe et la tentation de « voir plus tard » gagne.
 > (12,3 KB, dont 1,2 KB de hooks). Une application React charge les deux ; ce qui compte est ce
 > que `react` AJOUTE à la page. Le fichier de budgets déclare donc `base: "nodefony/client"` et
 > le gate mesure gzip(client + react) − gzip(client) : **0,8 KB**. Le budget est **resserré à
-> 3 KB** (référence 0,8) — laissé à 10 KB, il ne mordrait qu'après un décuplement des hooks. Un dépassement de budget = blocker de release, pas un warning.
+> 3 KB** (référence 0,8) — laissé à 10 KB, il ne mordrait qu'après un décuplement des hooks.
+>
+> **Révisé le 2026-10-21 — `nodefony/debugbar` relevé à 40 KB** (référence 36,1). La barre est
+> servie en script AUTONOME (`AppController`) : elle embarque sa propre copie de
+> `NodefonySocket`, qui a gagné l'acquittement des abonnements, la sonde d'échec d'ouverture et
+> l'alignement navigateur ↔ serveur avant la 10.0 — 36,1 KB mesurés, le code de la barre
+> elle-même inchangé. Compacter son CSS embarqué ne rend que 0,57 KB ; amputer la socket pour
+> une brique **dev-only**, qu'aucun utilisateur ne télécharge en production, serait un mauvais
+> échange. Le budget qui protège l'utilisateur reste celui de `nodefony/client`, inchangé.
+>
+> Un dépassement de budget = blocker de release, pas un warning.
 > L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
 > définitif (garde-fou déjà acté dans la vision).
 

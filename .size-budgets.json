@@ -18,8 +18,8 @@
     {
       "subpath": "nodefony/debugbar",
       "file": "src/nodefony/dist/client/client/debugbar/index.js",
-      "budgetKB": 35,
-      "referenceKB": 26.4
+      "budgetKB": 40,
+      "referenceKB": 36.1
     },
     {
       "subpath": "nodefony/roles",
