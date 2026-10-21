@@ -36,6 +36,7 @@ describe("studio / clusterSupervision.mapInstanceToSupervision", () => {
     uptime: 10,
     cpuPercent: 5,
     eventLoopMs: 1,
+    eventLoopMaxMs: 3,
     eluUtilization: 0.2,
     rss: 100,
     heapUsed: 50,

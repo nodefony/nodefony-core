@@ -75,7 +75,11 @@ function text(result: IMcpToolResult): string {
 /** Un appel « par la porte » : progression enregistrée, annulation pilotable. */
 function gate() {
   const controller = new AbortController();
-  const progress: { value: number; total?: number; message?: string }[] = [];
+  const progress: {
+    value: number;
+    total?: number | undefined;
+    message?: string | undefined;
+  }[] = [];
   return {
     controller,
     progress,
@@ -472,12 +476,12 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
     });
     const order: string[] = [];
     const started = performance.now();
-    const pending = tool
-      .handler({ durationSec: 30 }, CALLER, gate().run)
-      .then((r) => {
-        order.push("rapport");
-        return r;
-      });
+    const pending = Promise.resolve(
+      tool.handler({ durationSec: 30 }, CALLER, gate().run),
+    ).then((r) => {
+      order.push("rapport");
+      return r;
+    });
     setTimeout(() => collect(profiler, { status: 500 }), 20);
     let stopping: Promise<void> | undefined;
     setTimeout(() => {
@@ -527,7 +531,7 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
           adminEndpoints: () => [
             {
               path: "logs",
-              handler: (req: { query?: Record<string, string | undefined> }) =>
+              handler: (req) =>
                 rows.filter((r) => r.requestId === req.query?.requestId),
             },
           ],
