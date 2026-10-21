@@ -25,6 +25,11 @@
  */
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import {
+  DATABASE_URL_VARIABLES,
+  type IInfraVariable,
+  readInfraVariable,
+} from "../../config/infra";
 import { collectSources } from "./walk";
 import {
   balancedBlock,
@@ -270,8 +275,16 @@ export function connectorDialect(
   // La provenance nomme la variable RÉELLEMENT lue : annoncer
   // `NF_DATABASE_URL` alors que la valeur venait de l'alias de plateforme
   // envoyait corriger une variable qui n'existe pas sur ce poste.
-  const from = env.NF_DATABASE_URL ? "NF_DATABASE_URL" : "DATABASE_URL";
-  const url = env.NF_DATABASE_URL || env.DATABASE_URL;
+  // `_FILE` compris : une URL montée en secret dit aussi son dialecte. Un
+  // fichier illisible n'est pas à ce diagnostic de le dire — le boot le nomme.
+  let read: IInfraVariable | null;
+  try {
+    read = readInfraVariable(env, DATABASE_URL_VARIABLES);
+  } catch {
+    read = null;
+  }
+  const from = read?.name ?? "DATABASE_URL";
+  const url = read?.value;
   if (url) {
     const scheme = /^([a-z0-9+]+):/iu.exec(url)?.[1]?.toLowerCase() ?? "";
     if (scheme.startsWith("postgres")) return { dialect: "postgres", from };

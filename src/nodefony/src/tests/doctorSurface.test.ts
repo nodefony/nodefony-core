@@ -134,6 +134,21 @@ describe("connectorDialect — d'où vient le dialecte, et on le DIT", () => {
     assert.equal(r.from, "NF_DATABASE_URL");
   });
 
+  it("une URL montée en secret (`_FILE`) dit son dialecte, et la provenance la nomme", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "nf-dialect-file-"));
+    try {
+      const file = path.join(dir, "db-url");
+      writeFileSync(file, "postgres://app@base/app\n");
+      const r = connectorDialect('dialect: "sqlite"', {
+        NF_DATABASE_URL_FILE: file,
+      });
+      assert.equal(r.dialect, "postgres");
+      assert.equal(r.from, "NF_DATABASE_URL_FILE");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("à défaut, ce que le manifeste écrit", () => {
     const r = connectorDialect(
       'connectors: { default: { dialect: "mysql" } }',

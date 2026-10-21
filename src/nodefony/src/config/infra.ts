@@ -11,7 +11,22 @@
  * ({@link resolveAutoStore}) ; une valeur explicite gagne toujours (moindre
  * surprise, 12-factor). Aucune cascade runtime implicite : charger un module
  * ne déplace jamais une brique — seule la déclaration d'infra le fait.
+ *
+ * Chaque URL accepte la forme montée `<NOM>_FILE` (secret Docker ou Kubernetes),
+ * par la MÊME règle que le catalogue d'`env.ts` ({@link resolveFileEnv}) : une
+ * URL de base porte un mot de passe, c'est elle qu'on monte en premier.
  */
+
+import { resolveFileEnv } from "./defineEnv";
+
+/** Variables candidates de l'infra `database`, dans l'ordre de priorité. */
+export const DATABASE_URL_VARIABLES = [
+  "NF_DATABASE_URL",
+  "DATABASE_URL",
+] as const;
+
+/** Variables candidates de l'infra `cache`, dans l'ordre de priorité. */
+export const CACHE_URL_VARIABLES = ["NF_REDIS_URL", "REDIS_URL"] as const;
 
 /** Dialecte SQL déduit du scheme de l'URL du infra `database`. */
 export type InfraSqlDialect = "sqlite" | "postgres" | "mysql";
@@ -73,18 +88,46 @@ const SQL_SCHEMES: Record<string, InfraSqlDialect> = Object.assign(
 
 const MONGO_SCHEMES = new Set(["mongodb", "mongodb+srv"]);
 
-/** Première valeur non vide parmi les clés candidates (préfixe `NF_` prioritaire). */
+/** Une variable d'infra lue, et le nom RÉELLEMENT lu (`X` ou `X_FILE`). */
+export interface IInfraVariable {
+  /** Nom de la variable qui a fourni la valeur — la provenance à afficher. */
+  name: string;
+  /** Valeur non vide. */
+  value: string;
+}
+
+/**
+ * Lit la première variable non vide parmi les candidates, en honorant `<NOM>_FILE`.
+ *
+ * L'ordre des candidates est la priorité (`NF_` d'abord, alias de plateforme
+ * ensuite) ; pour chacune, la forme directe et la forme montée sont arbitrées par
+ * {@link resolveFileEnv} — seule implémentation de la règle `_FILE`.
+ *
+ * @param env - source d'environnement.
+ * @param keys - variables candidates, par priorité décroissante.
+ * @returns la valeur et son nom, ou `null` si aucune n'est posée.
+ * @throws Error si `NOM` et `NOM_FILE` sont posés ensemble, ou si le fichier est illisible.
+ */
+export function readInfraVariable(
+  env: InfraEnvSource,
+  keys: readonly string[],
+): IInfraVariable | null {
+  for (const key of keys) {
+    const value = resolveFileEnv(key, env);
+    if (typeof value === "string" && value.length > 0) {
+      const mounted = env[key] === undefined || env[key] === "";
+      return { name: mounted ? `${key}_FILE` : key, value };
+    }
+  }
+  return null;
+}
+
+/** Valeur seule de {@link readInfraVariable}. */
 function pick(
   env: InfraEnvSource,
   keys: readonly string[],
 ): string | undefined {
-  for (const key of keys) {
-    const value = env[key];
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-  return undefined;
+  return readInfraVariable(env, keys)?.value;
 }
 
 /**
@@ -129,11 +172,12 @@ export function sqliteFilenameFromUrl(url: string): string {
  * adapters (drizzle/mongoose/redis) dans leur couche env.
  *
  * @param env - source d'environnement (défaut `process.env`).
- * @throws Error si l'URL du infra `database` a un scheme non supporté.
+ * @throws Error si l'URL du infra `database` a un scheme non supporté, ou si une
+ *   variable et sa forme `_FILE` sont posées ensemble, ou si ce fichier est illisible.
  */
 export function resolveInfra(env: InfraEnvSource = process.env): IInfra {
-  const databaseUrl = pick(env, ["NF_DATABASE_URL", "DATABASE_URL"]);
-  const cacheUrl = pick(env, ["NF_REDIS_URL", "REDIS_URL"]);
+  const databaseUrl = pick(env, DATABASE_URL_VARIABLES);
+  const cacheUrl = pick(env, CACHE_URL_VARIABLES);
   const lokiUrl = pick(env, ["NF_LOKI_URL"]);
   const opensearchUrl = pick(env, ["NF_OPENSEARCH_URL"]);
   let logs: IInfraLogs | null = null;

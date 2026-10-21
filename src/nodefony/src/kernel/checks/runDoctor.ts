@@ -13,7 +13,12 @@
 import path from "node:path";
 import { ENV_FILE } from "../../runtime/loadEnv";
 import net from "node:net";
-import { resolveInfra } from "../../config/infra";
+import {
+  CACHE_URL_VARIABLES,
+  DATABASE_URL_VARIABLES,
+  readInfraVariable,
+  resolveInfra,
+} from "../../config/infra";
 import { Spinner } from "../../cli/progress";
 import { readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -231,14 +236,15 @@ async function probeDeclaredInfra(
       port,
     });
   };
+  // La provenance nomme la variable RÉELLEMENT lue — `_FILE` compris.
   push(
     "database",
-    env.NF_DATABASE_URL ? "NF_DATABASE_URL" : "DATABASE_URL",
+    readInfraVariable(env, DATABASE_URL_VARIABLES)?.name ?? "NF_DATABASE_URL",
     infra.database?.url,
   );
   push(
     "cache",
-    env.NF_REDIS_URL ? "NF_REDIS_URL" : "REDIS_URL",
+    readInfraVariable(env, CACHE_URL_VARIABLES)?.name ?? "NF_REDIS_URL",
     infra.cache?.url,
   );
 

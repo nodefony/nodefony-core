@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   defineDrizzleConfig,
   drizzleConfigJsonSchema,
@@ -73,6 +76,24 @@ describe("@nodefony/drizzle — config (Zod, alignement ORM 2026-06)", () => {
         assert.equal(c.connectors.default!.url, "postgres://u:p@h:5432/db");
         assert.equal(c.connectors.default!.filename, undefined);
       });
+    });
+
+    it("NF_DATABASE_URL_FILE (Secret monté) → dialect + url du fichier, PAS le repli SQLite", () => {
+      // Le montage que recommande le skill de déploiement. Avant la lecture
+      // `_FILE` de l'infra, le connecteur restait sur SQLite sans un mot.
+      const dir = mkdtempSync(path.join(tmpdir(), "nf-drizzle-file-"));
+      try {
+        const file = path.join(dir, "db-url");
+        writeFileSync(file, "postgres://u:p@db:5432/app\n");
+        withEnv({ NF_DATABASE_URL_FILE: file }, () => {
+          const c = defineDrizzleConfig();
+          assert.equal(c.connectors.default!.dialect, "postgres");
+          assert.equal(c.connectors.default!.url, "postgres://u:p@db:5432/app");
+          assert.equal(c.connectors.default!.filename, undefined);
+        });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     it("alias plateforme DATABASE_URL honoré (NF_ absent)", () => {

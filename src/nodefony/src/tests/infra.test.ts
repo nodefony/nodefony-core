@@ -1,4 +1,7 @@
 import assert from "node:assert";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import {
   resolveInfra,
@@ -9,6 +12,11 @@ import {
   sqliteFilenameFromUrl,
   type IInfra,
 } from "../config/index";
+import {
+  CACHE_URL_VARIABLES,
+  DATABASE_URL_VARIABLES,
+  readInfraVariable,
+} from "../config/infra";
 import { resolveQueryDriver } from "../syslog/drivers/builtinLogDrivers";
 
 const NO_ROLES: IInfra = {
@@ -481,5 +489,102 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
       assert.strictEqual(resolveQueryDriver("auto", false), "memory");
       assert.strictEqual(resolveQueryDriver(undefined, true), "cluster-file");
     });
+  });
+});
+
+describe("config — infra : URL montées en secret (`<NOM>_FILE`)", () => {
+  // Un Secret Kubernetes ou Docker se monte en FICHIER. Sans cette lecture,
+  // `NF_DATABASE_URL_FILE` seul laissait l'infra vide : l'application démarrait
+  // sur SQLite, avec un simple avertissement, en production.
+  let dir: string;
+  const secret = (name: string, content: string): string => {
+    const file = path.join(dir, name);
+    writeFileSync(file, content);
+    return file;
+  };
+
+  beforeAll(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "nf-infra-file-"));
+  });
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("NF_DATABASE_URL_FILE seul → l'infra database vient du fichier", () => {
+    const roles = resolveInfra({
+      NF_DATABASE_URL_FILE: secret("db", "postgres://u:p@db:5432/app"),
+    });
+    assert.strictEqual(roles.database?.url, "postgres://u:p@db:5432/app");
+    assert.strictEqual(roles.database?.dialect, "postgres");
+  });
+
+  it("le saut de ligne final du fichier est retiré (`echo` en pose un)", () => {
+    const roles = resolveInfra({
+      NF_DATABASE_URL_FILE: secret("db-nl", "mysql://u:p@db:3306/app\n"),
+    });
+    assert.strictEqual(roles.database?.url, "mysql://u:p@db:3306/app");
+  });
+
+  it("NF_REDIS_URL_FILE seul → l'infra cache vient du fichier", () => {
+    const roles = resolveInfra({
+      NF_REDIS_URL_FILE: secret("redis", "redis://:p@cache:6379/0"),
+    });
+    assert.strictEqual(roles.cache?.url, "redis://:p@cache:6379/0");
+  });
+
+  it("la forme NF_ montée gagne sur l'alias de plateforme posé en clair", () => {
+    const roles = resolveInfra({
+      NF_DATABASE_URL_FILE: secret("db-nf", "postgres://nf@db/app"),
+      DATABASE_URL: "mysql://platform@db/app",
+    });
+    assert.strictEqual(roles.database?.url, "postgres://nf@db/app");
+  });
+
+  it("l'alias de plateforme accepte aussi sa forme montée", () => {
+    const roles = resolveInfra({
+      DATABASE_URL_FILE: secret("db-alias", "postgres://alias@db/app"),
+    });
+    assert.strictEqual(roles.database?.url, "postgres://alias@db/app");
+  });
+
+  it("NF_DATABASE_URL ET NF_DATABASE_URL_FILE → le démarrage échoue, sans arbitrer", () => {
+    assert.throws(
+      () =>
+        resolveInfra({
+          NF_DATABASE_URL: "postgres://direct@db/app",
+          NF_DATABASE_URL_FILE: secret("db-both", "postgres://file@db/app"),
+        }),
+      /NF_DATABASE_URL ET NF_DATABASE_URL_FILE/,
+    );
+  });
+
+  it("un fichier illisible → le démarrage échoue en nommant la variable", () => {
+    assert.throws(
+      () =>
+        resolveInfra({
+          NF_REDIS_URL_FILE: path.join(dir, "absent"),
+        }),
+      /NF_REDIS_URL_FILE : lecture de/,
+    );
+  });
+
+  it("readInfraVariable nomme la variable RÉELLEMENT lue — provenance juste", () => {
+    const mounted = readInfraVariable(
+      { NF_DATABASE_URL_FILE: secret("db-name", "postgres://x@db/app") },
+      DATABASE_URL_VARIABLES,
+    );
+    assert.deepStrictEqual(mounted, {
+      name: "NF_DATABASE_URL_FILE",
+      value: "postgres://x@db/app",
+    });
+    const direct = readInfraVariable(
+      { DATABASE_URL: "postgres://y@db/app" },
+      DATABASE_URL_VARIABLES,
+    );
+    assert.deepStrictEqual(direct, {
+      name: "DATABASE_URL",
+      value: "postgres://y@db/app",
+    });
+    assert.strictEqual(readInfraVariable({}, CACHE_URL_VARIABLES), null);
   });
 });
