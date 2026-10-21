@@ -193,6 +193,13 @@ curl -skN https://localhost:5152/nodefony/mcp -H 'content-type: application/json
 Interrompre le second `curl` (Ctrl+C) ferme le flux : `run.signal` est abattu, et l'outil rend la
 main au lot suivant.
 
+**Sans jeton de progression, un outil long répond quand même en flux.** Au-delà du délai de grâce
+(`MCP_STREAM_GRACE_MS`, 5 s), la porte ouvre le flux sans rien y écrire — le flux bat de lui-même
+— et la réponse finale y part. Ce n'est pas une option : la norme (`transports/streamable-http`)
+oblige le client à accepter une réponse en flux, et seul un flux ouvert désarme le délai
+d'inactivité de la requête (30 s par défaut). Une réponse JSON qui tarde tomberait en `408`, quel
+que soit le travail en cours. Un outil qui répond avant le délai de grâce reste en JSON.
+
 ## ✍️ Écrire un outil
 
 ### Le contrat
@@ -511,17 +518,18 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
 
 ## ⚠️ Pièges
 
-| Symptôme                                                    | Cause                                                                                         | Correction                                                                                  |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| mon outil n'apparaît pas dans `tools/list`                  | il exige des scopes, et la porte n'authentifie pas — ou son nom est hors forme                | lire le journal : `WARNING` (écarté) ou `DEBUG` (retenu, avec la raison)                    |
-| l'agent reçoit « outil inconnu » sur un outil existant      | même cause : un outil retenu est inconnu pour cet appelant, c'est voulu                       | présenter un jeton portant les scopes déclarés                                              |
-| aucune notification de progression n'arrive                 | la requête ne porte pas `_meta.progressToken`, ou le client n'accepte pas `text/event-stream` | les deux sont nécessaires ; sans eux la réponse reste du JSON, c'est le comportement normal |
-| la progression s'arrête alors que l'outil avance            | des valeurs qui ne croissent pas, ou plus d'une par 100 ms                                    | passer une valeur strictement croissante ; regrouper les étapes rapprochées                 |
-| un argument passé « ne fait rien »                          | il n'est pas déclaré dans `inputSchema` — l'appel est refusé en `isError`                     | le déclarer, ou `additionalProperties: true` si l'outil prend des arguments libres          |
-| un échec métier apparaît comme une panne serveur (`-32603`) | le handler a levé une exception                                                               | rendre `mcpText(message, true)`                                                             |
-| le client demande confirmation pour une simple lecture      | l'outil ne porte pas `annotations` : la spec le tient pour une écriture destructive           | poser `readOnlyHint: true` (et `openWorldHint: false` s'il reste dans l'application)        |
-| le client exécute sans confirmation un outil qui écrit      | `readOnlyHint: true` posé sur un handler qui modifie quelque chose                            | `readOnlyHint: false`, puis `destructiveHint` selon ce qu'il efface                         |
-| l'outil continue de tourner après l'abandon de l'agent      | il ne consulte pas `run.signal`                                                               | le tester entre deux étapes, ou le passer aux appels qui l'acceptent                        |
+| Symptôme                                                    | Cause                                                                                                                               | Correction                                                                                                                                        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| mon outil n'apparaît pas dans `tools/list`                  | il exige des scopes, et la porte n'authentifie pas — ou son nom est hors forme                                                      | lire le journal : `WARNING` (écarté) ou `DEBUG` (retenu, avec la raison)                                                                          |
+| l'agent reçoit « outil inconnu » sur un outil existant      | même cause : un outil retenu est inconnu pour cet appelant, c'est voulu                                                             | présenter un jeton portant les scopes déclarés                                                                                                    |
+| aucune notification de progression n'arrive                 | la requête ne porte pas `_meta.progressToken`, ou le client n'accepte pas `text/event-stream`                                       | les deux sont nécessaires ; sans jeton, un outil de plus de 5 s répond quand même en flux, mais sans notifications — c'est le comportement normal |
+| un outil long reçoit `408` au bout de 30 s                  | le client n'accepte pas `text/event-stream` : la porte ne peut pas ouvrir de flux, la réponse JSON tombe sous le délai d'inactivité | un client conforme l'accepte toujours ; sinon, borner l'outil sous le délai (`http.timeout`)                                                      |
+| la progression s'arrête alors que l'outil avance            | des valeurs qui ne croissent pas, ou plus d'une par 100 ms                                                                          | passer une valeur strictement croissante ; regrouper les étapes rapprochées                                                                       |
+| un argument passé « ne fait rien »                          | il n'est pas déclaré dans `inputSchema` — l'appel est refusé en `isError`                                                           | le déclarer, ou `additionalProperties: true` si l'outil prend des arguments libres                                                                |
+| un échec métier apparaît comme une panne serveur (`-32603`) | le handler a levé une exception                                                                                                     | rendre `mcpText(message, true)`                                                                                                                   |
+| le client demande confirmation pour une simple lecture      | l'outil ne porte pas `annotations` : la spec le tient pour une écriture destructive                                                 | poser `readOnlyHint: true` (et `openWorldHint: false` s'il reste dans l'application)                                                              |
+| le client exécute sans confirmation un outil qui écrit      | `readOnlyHint: true` posé sur un handler qui modifie quelque chose                                                                  | `readOnlyHint: false`, puis `destructiveHint` selon ce qu'il efface                                                                               |
+| l'outil continue de tourner après l'abandon de l'agent      | il ne consulte pas `run.signal`                                                                                                     | le tester entre deux étapes, ou le passer aux appels qui l'acceptent                                                                              |
 
 ## 🧪 Tests & couverture
 

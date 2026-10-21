@@ -75,13 +75,65 @@ navigateur — d'où la commande, qui reste la porte utile.
 npx nodefony ai:mcp        # écrit .mcp.json ; --dry-run pour voir sans écrire
 ```
 
-Sept outils : **`nodefony_inspect`** (ce qui est monté), **`nodefony_check`**
+Huit outils : **`nodefony_inspect`** (ce qui est monté), **`nodefony_check`**
 (ce qui manque — la commande s'appelle `doctor`), **`nodefony_symbols`** (ce qu'une
 API du framework signifie), **`nodefony_card`** (par où commencer),
 **`nodefony_docs`** (la documentation des modules installés), **`nodefony_admin_list`**
 et **`nodefony_admin_call`** (lectures du data plane d'administration, jeton porteur
-du scope `admin:read` exigé). Ce sont les mêmes briques que les commandes — une
-source, plusieurs portes.
+du scope `admin:read` exigé), et **`nodefony_observe`** (ce que l'application fait
+réellement de ses requêtes, mesuré pendant qu'elle tourne). Ce sont les mêmes
+briques que les commandes — une source, plusieurs portes.
+
+### Mesurer l'application qui tourne — `nodefony_observe`
+
+L'outil observe l'application pendant une fenêtre de 1 à 50 secondes (10 par
+défaut) et rend ce que son profileur de développement a mesuré : où part le
+temps de chaque route, les requêtes SQL répétées dans une boucle (N+1), les
+erreurs `5xx` avec leurs lignes de journal, et les blocages de la boucle
+d'événements. **Il ne génère aucun trafic** : on ouvre la page, on joue les
+tests ou on envoie des requêtes pendant que la fenêtre court.
+
+```jsonc
+// tools/call
+{ "name": "nodefony_observe", "arguments": { "durationSec": 10 } }
+// optionnel : "route": "<nom de la route>", "includeTooling": true
+```
+
+Extrait d'un rapport réel (une route qui plante, sur une application démarrée
+depuis dix secondes) :
+
+```text
+Verdict : anomalies (2) — observation complète
+Fenêtre : 6.0 s sur 6.0 s · 3 relevé(s) · 39 requête(s) (39 HTTP, 0 WebSocket) · 0 perdue(s) · 0 de l'outillage écartée(s)
+Process : pid 46402, démarré il y a 10 s · boucle d'événements : retard moyen 4.0 ms, pire blocage 665 ms · tas -10.0 Mo (indicatif, sans GC)
+
+Anomalies (les plus coûteuses d'abord) :
+1. Erreurs — route `crash-sync` (DefaultController.crashSync) : 13 sur 13 — « simulated sync crash ». requestId : d706bfef-…, 577adac2-…, 207f8121-… — journal ci-dessous.
+2. Boucle d'événements bloquée — jusqu'à 665 ms d'un tenant (retard moyen 4.0 ms) : […] Le process a démarré il y a 10 s : ce blocage peut venir du démarrage […]
+
+Journal des requêtes en erreur (syslog de l'application, lu au relevé qui les a vues) :
+- requestId d706bfef-… — route `crash-sync`, statut 500 :
+    ERROR [req] GET 500 http://127.0.0.1:5151/nodefony/test/crash/sync 1.4ms 127.0.0.1 [d706bfef] simulated sync crash
+```
+
+C'est un outil **long** : un instantané part en progression toutes les deux
+secondes, l'agent qui abandonne l'appel l'arrête au relevé suivant, et un
+rechargement du serveur pendant la fenêtre rend un rapport partiel qui le dit.
+Ce qu'il faut savoir pour s'en servir sans conclure à tort :
+
+- les durées et le temps « par requête » portent sur les requêtes **servies** ;
+  les refus `401`/`403` sont comptés à part ;
+- `action.self` est le temps de l'action et des services qu'elle appelle, une
+  fois retirés le rendu, l'initialisation et le SQL ; « SQL (cumul) » additionne
+  les requêtes, même lancées en parallèle ;
+- les valeurs SQL sont masquées (`?`) : le rapport montre la forme d'une requête,
+  jamais une donnée ; le journal n'en garde que les lignes WARNING et plus graves ;
+- le journal des erreurs n'est lu que pour un appel **authentifié** (scope
+  `admin:read`) ; les routes `/nodefony/…` (outillage) sont écartées, sauf
+  `includeTooling`.
+
+La façon de lire chaque anomalie et le geste qui la corrige sont dans le skill
+d'agent `nodefony-troubleshoot` (§ « Mesurer l'application qui tourne »).
 
 **Ce n'est pas un process de plus.** Depuis la révision `2026-07-28` du transport
 « Streamable HTTP », un serveur MCP est un simple endpoint `POST` sans session :

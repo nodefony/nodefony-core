@@ -106,13 +106,15 @@ la rend éprouvable sans serveur, et ce qui l'empêche d'inventer quoi que ce so
 npx nodefony ai:mcp        # écrit .mcp.json ; --dry-run pour voir sans écrire
 ```
 
-Sept outils. Quatre sont les commandes que vous connaissez déjà :
+Huit outils. Quatre sont les commandes que vous connaissez déjà :
 `nodefony_inspect` (ce qui est monté), `nodefony_check` (ce qui manque),
 `nodefony_symbols` (ce qu'une API signifie), `nodefony_card` (par où commencer).
 `nodefony_docs` sert la documentation des modules. `nodefony_admin_list` et
 `nodefony_admin_call` ouvrent les lectures du data plane d'administration — le
 catalogue, puis l'appel — et exigent un jeton porteur du scope `admin:read` :
-sans lui, ils n'apparaissent pas dans la liste.
+sans lui, ils n'apparaissent pas dans la liste. `nodefony_observe` mesure ce que
+l'application fait réellement de ses requêtes, pendant qu'elle tourne (section
+suivante).
 
 **Il n'y a pas de process à lancer.** Depuis la révision `2026-07-28` du
 transport, un serveur MCP est un endpoint `POST` sans session : c'est donc une
@@ -142,6 +144,70 @@ Trois choses à savoir avant de s'étonner d'un refus :
 - le module étant `policy: "dev"`, **la route n'existe pas en production**.
 
 Les outils intégrés sont en lecture seule, et `mcp.tools` est une allowlist.
+
+### Mesurer l'application qui tourne — `nodefony_observe`
+
+Un agent de code qui vient de modifier un contrôleur ne voit pas l'effet de son
+changement : la barre de debug et la console d'administration affichent les
+mesures du profileur, mais il ne les lit pas. `nodefony_observe` les lui rend.
+Pendant une fenêtre de 1 à 50 secondes (10 par défaut), l'outil relève le
+profileur de développement toutes les deux secondes et rend un rapport :
+
+1. un **verdict** — `ok`, `anomalies (N)`, et `INCOMPLÈTE` quand les chiffres ne
+   portent pas sur tout (profils perdus, aucun trafic, appel interrompu), avec
+   la raison ;
+2. les **anomalies**, nommées par route et par contrôleur : une requête SQL
+   répétée dans une boucle (« N+1 »), les erreurs `5xx` avec leur `requestId` et
+   leurs lignes de journal, les routes dont le p95 dépasse 500 ms avec ce qui
+   coûte par requête, un blocage de la boucle d'événements de 100 ms ou plus ;
+3. un tableau par route, les requêtes SQL les plus coûteuses, et un bloc JSON
+   pour comparer deux appels — avant et après une correction.
+
+```jsonc
+{ "name": "nodefony_observe", "arguments": { "durationSec": 10 } }
+// "route": "<nom de route>" pour n'en observer qu'une ; "includeTooling": true
+// pour compter aussi les routes /nodefony/… de l'outillage
+```
+
+**L'outil ne génère aucun trafic.** On ouvre la page, on joue les tests ou on
+envoie des requêtes pendant que la fenêtre court ; sans trafic, il n'a rien à
+juger, et il le dit.
+
+Ce que les chiffres veulent dire :
+
+- **durées et temps « par requête »** portent sur les requêtes **servies**
+  (statut inférieur à 400, sans exception). Un refus `401`/`403` rendu en
+  quelques millisecondes ne mesure pas la route : il est compté à part ;
+- **`action.self`** est le temps de l'action et des services qu'elle appelle,
+  une fois retirés les phases imbriquées (initialisation, rendu, envoi) et le
+  SQL — les intervalles sont fusionnés, une requête lancée pendant le rendu
+  n'est pas comptée deux fois. **« SQL (cumul) »** additionne les durées des
+  requêtes, même lancées en parallèle ;
+- **la boucle d'événements** est rapportée en retard moyen et en **pire
+  blocage** : un gel unique de 200 ms ne déplace la moyenne d'un intervalle de
+  deux secondes que de quelques millisecondes ;
+- **la forme d'une requête SQL** remplace chaque valeur par `?` : le rapport ne
+  contient jamais une donnée. Le journal d'une erreur n'en garde que les lignes
+  WARNING et plus graves ;
+- la **variation du tas** est mesurée sans GC forcé : elle est indicative,
+  jamais une anomalie.
+
+Ce qui encadre l'outil :
+
+- c'est un **outil long** : chaque relevé part en progression, et l'agent qui
+  abandonne l'appel l'arrête au relevé suivant ;
+- un **rechargement du serveur** pendant la fenêtre (un fichier modifié) ne fait
+  pas perdre l'observation : l'outil rend un rapport partiel qui le dit, avant
+  que le serveur ne ferme ses connexions ;
+- le **journal des erreurs** est lu au relevé qui voit la requête — le syslog de
+  développement ne garde que ses dernières lignes — et seulement pour un appel
+  **authentifié** (scope `admin:read`), par la même voie que
+  `nodefony_admin_call` ;
+- le profileur garde les 500 dernières requêtes : au-delà de ce débit entre deux
+  relevés, les profils perdus sont comptés, et le verdict le dit.
+
+La lecture de chaque anomalie et le geste qui la corrige sont dans le skill
+d'agent `nodefony-troubleshoot`, section « Mesurer l'application qui tourne ».
 
 ### Obtenir le porteur — `security:mcp:token`
 
@@ -314,10 +380,14 @@ Un outil court l'ignore ; un appel direct (un test) ne le fournit pas, d'où le
 
 Ce que la porte fait du reste :
 
-- **le flux ne s'ouvre qu'à la première progression.** Un agent qui envoie un
-  `progressToken` et accepte `text/event-stream` reçoit des
-  `notifications/progress`, puis la réponse, qui clôt le flux. Sans jeton, ou
-  pour un outil qui ne signale rien, la réponse reste du JSON ;
+- **le flux s'ouvre à la première progression, ou au bout de cinq secondes.**
+  Un agent qui envoie un `progressToken` et accepte `text/event-stream` reçoit
+  des `notifications/progress`, puis la réponse, qui clôt le flux. Un outil
+  encore en cours après le délai de grâce (`MCP_STREAM_GRACE_MS`, 5 s) ouvre le
+  flux même sans jeton : la norme oblige le client à accepter une réponse en
+  flux, et c'est ce qui désarme le délai d'inactivité de la requête (30 s par
+  défaut) — sans cela, un outil long répondant en JSON recevrait un `408`. Un
+  outil qui répond avant reste en JSON ;
 - **la norme est tenue pour vous** : une valeur qui ne croît pas est ignorée, la
   cadence est bornée (une notification par 100 ms au plus), et plus rien ne
   part une fois l'outil terminé ;

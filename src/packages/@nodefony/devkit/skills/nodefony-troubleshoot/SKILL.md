@@ -1,17 +1,18 @@
 ---
 name: nodefony-troubleshoot
 description: >
-  Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue,
-  route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges
-  d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill
-  qui porte le détail. Extrait les erreurs du journal par un script (regroupées, datées, avec
-  leur piste) au lieu de le lire en entier. À charger DÈS qu'une chose qui marchait ne marche
-  plus, AVANT de lire les sources ou de contourner la panne. Coder une fonctionnalité →
-  `nodefony-dev`.
+  Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route
+  en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup,
+  page lente — et donne pour chacun le premier geste, la commande qui le constate et le skill qui
+  porte le détail. Extrait les erreurs du journal par un script ; mesure l'application qui tourne
+  par l'outil MCP `nodefony_observe` (où part le temps, N+1, 5xx avec leur journal). À charger
+  DÈS qu'une chose qui marchait ne marche plus, AVANT de lire les sources ou de contourner la
+  panne. Coder une fonctionnalité → `nodefony-dev`.
   Déclencheurs : "l'application ne démarre plus", "le serveur plante au démarrage", "ma route
-  répond 404", "ça marchait hier", "j'ai une erreur dans le journal", "erreur dans les logs",
-  "plus rien ne répond", "tous mes tests sont rouges", "pourquoi ça plante", "dépanner",
-  "diagnostiquer une panne", "stack trace", "EADDRINUSE", "ECONNREFUSED".
+  répond 404", "ça marchait hier", "dépanner",
+  "erreur dans les logs", "plus rien ne répond", "tous mes tests sont rouges", "pourquoi ça
+  plante", "cette page est lente", "trop de requêtes SQL", "problème de N+1", "erreur 500 intermittente",
+  "stack trace", "EADDRINUSE", "ECONNREFUSED".
 metadata:
   version: 1.0.0
 ---
@@ -60,6 +61,7 @@ cause t'échappe, dis-le, avec ce que tu as constaté.
 | Une erreur dans le journal                                            | le script du §3                                                        | la piste qu'il donne, sinon le message lui-même                                                           |
 | « colonne inexistante », « no such table », migrations à appliquer    | `npx nodefony doctor --live`                                           | `nodefony-migrate-schema`                                                                                 |
 | Des dizaines de tests d'intégration rouges d'un coup (`ECONNREFUSED`) | `npx nodefony status`                                                  | ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint. En e2e, laisse la commande gérer le cycle |
+| Une page est lente, trop de requêtes SQL, des `500` par intermittence | l'outil MCP `nodefony_observe` PENDANT qu'on sollicite la page         | §5 : le rapport nomme la route, la cause et le geste                                                      |
 | `nodefony <commande>` échoue là où `npm run dev` réussit              | `npm ls nodefony`                                                      | deux copies du framework dans le processus (§4)                                                           |
 
 **Lis toute la réponse d'une commande de diagnostic.** Ne la tronque jamais (`| head`, une
@@ -141,7 +143,51 @@ Chacune a déjà coûté au moins une heure à quelqu'un.
   anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur
   redis pour la charge.
 
-## 5. Avant de dire « réparé »
+## 5. Mesurer l'application qui tourne — `nodefony_observe`
+
+Le profileur de développement mesure chaque requête : temps de chaque phase, chaque requête SQL,
+décision du pare-feu. `nodefony_observe` te rend ces mesures pendant une fenêtre de quelques
+secondes. C'est la seule façon de SAVOIR qu'une page est lente ou qu'elle interroge la base dans
+une boucle — ni le code ni les tests ne le montrent.
+
+**Le protocole — mesurer, corriger, re-mesurer :**
+
+1. Appelle `nodefony_observe { "durationSec": 10 }` (1 à 50 s). Pour une seule route, ajoute
+   `"route"` : son NOM, tel que le rend `nodefony_inspect` sujet `routes` (`blog-index`,
+   `OrdersController::list`), jamais son chemin.
+2. **PENDANT la fenêtre, sollicite le code** : ouvre la page, joue les tests d'intégration, envoie
+   des requêtes. L'outil n'en génère AUCUNE — sans trafic, son verdict est « rien à juger ».
+3. Lis le rapport (ci-dessous), corrige la cause nommée.
+4. **Rappelle l'outil sur le même trafic** et compare le bloc `Données (JSON…)` des deux appels :
+   un correctif qu'on n'a pas vu changer le chiffre est une hypothèse.
+
+**Lire le rapport, dans l'ordre où il s'écrit :**
+
+| Ligne                               | Ce qu'elle dit                                                                     | Le geste                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `Verdict : … INCOMPLÈTE` + `⚠️`     | les chiffres ne portent pas sur tout : pertes, aucun trafic, appel interrompu      | lever la cause nommée, rappeler l'outil                                                                       |
+| `N+1 — route … ×N dans une requête` | la même requête SQL répétée N fois dans UNE requête HTTP : une boucle sur la base  | charger d'un coup : `relations` du dépôt, ou `$in` sur les identifiants                                       |
+| `Erreurs — route …` + `Journal …`   | les `5xx` et les lignes WARNING/ERROR de leur journal, par `requestId`             | corriger d'après le message ; `nodefony_admin_call` syslog `logs` pour la suite du journal                    |
+| `Lente — route … p95 …`             | p95 ≥ 500 ms, avec ce qui coûte par requête                                        | `action.self` domine → le code de l'action ou d'un service ; `SQL (cumul)` → les requêtes ; `render` → la vue |
+| `Boucle d'événements bloquée`       | un traitement SYNCHRONE a gelé le process ≥ 100 ms : toutes les routes ont attendu | chercher la boucle lourde, l'API `*Sync`, le gros `JSON.parse` ; juste après un démarrage, rappeler plus tard |
+| `Refus (hors percentiles)`          | des `401`/`403` : la route est protégée, ces requêtes ne mesurent rien             | appeler avec une session ou un jeton, pas conclure sur ces durées                                             |
+
+**Pièges :**
+
+- **Ne modifie AUCUN fichier pendant la fenêtre** : le serveur de développement redémarre, l'outil
+  rend un rapport partiel marqué « interrompue ». Rappelle-le une fois le serveur relancé.
+- **Le journal d'une `5xx` n'est lu que par un appelant authentifié** (scope `admin:read`). Sans
+  jeton, le rapport le dit et nomme le geste : `npx nodefony security:mcp:token --write`.
+- **Les routes de l'outillage (`/nodefony/…`) sont écartées** — console, API d'administration,
+  porte MCP. `"includeTooling": true` les compte, pour mesurer l'outillage lui-même.
+- **Les valeurs SQL sont masquées** (`?`) : le rapport montre la FORME d'une requête, jamais une
+  donnée.
+- **« profils perdus »** : plus de 500 requêtes entre deux relevés ; le rapport le dit et ses
+  chiffres portent sur un échantillon. Réduis le trafic ou la fenêtre.
+- L'outil n'existe qu'en **développement** (`@nodefony/devkit`) ; ailleurs, il répond qu'il n'y a
+  aucun profileur.
+
+## 6. Avant de dire « réparé »
 
 1. **Rejoue le symptôme d'origine** — la même requête, la même commande — et constate qu'il a
    disparu. Un correctif qu'on n'a pas vu agir sur le symptôme est une hypothèse.

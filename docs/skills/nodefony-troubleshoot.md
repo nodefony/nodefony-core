@@ -5,14 +5,14 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-12
+updated: 2026-10-21
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-troubleshoot/SKILL.md"
 ---
 
 # `nodefony-troubleshoot`
 
-> Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.
+> Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup, page lente — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-troubleshoot**
 
@@ -28,17 +28,17 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-troubleshoot/SKILL.md"
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Autres |
-| Corps | 135 lignes |
-| Coût d'activation | ~3 145 tokens (le corps est chargé à l'invocation) |
-| Description | 899 / 1024 caractères |
-| Déclencheurs | 14 |
+| Corps | 180 lignes |
+| Coût d'activation | ~4 236 tokens (le corps est chargé à l'invocation) |
+| Description | 993 / 1024 caractères |
+| Déclencheurs | 16 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 1 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail. Extrait les erreurs du journal par un script (regroupées, datées, avec leur piste) au lieu de le lire en entier. À charger DÈS qu'une chose qui marchait ne marche plus, AVANT de lire les sources ou de contourner la panne. Coder une fonctionnalité → `nodefony-dev`.
+Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup, page lente — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail. Extrait les erreurs du journal par un script ; mesure l'application qui tourne par l'outil MCP `nodefony_observe` (où part le temps, N+1, 5xx avec leur journal). À charger DÈS qu'une chose qui marchait ne marche plus, AVANT de lire les sources ou de contourner la panne. Coder une fonctionnalité → `nodefony-dev`.
 
 ## Skills voisins
 
@@ -50,7 +50,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`l'application ne démarre plus` · `le serveur plante au démarrage` · `ma route répond 404` · `ça marchait hier` · `j'ai une erreur dans le journal` · `erreur dans les logs` · `plus rien ne répond` · `tous mes tests sont rouges` · `pourquoi ça plante` · `dépanner` · `diagnostiquer une panne` · `stack trace` · `EADDRINUSE` · `ECONNREFUSED`
+`l'application ne démarre plus` · `le serveur plante au démarrage` · `ma route répond 404` · `ça marchait hier` · `dépanner` · `erreur dans les logs` · `plus rien ne répond` · `tous mes tests sont rouges` · `pourquoi ça plante` · `cette page est lente` · `trop de requêtes SQL` · `problème de N+1` · `erreur 500 intermittente` · `stack trace` · `EADDRINUSE` · `ECONNREFUSED`
 
 ## Ce que contient le corps
 
@@ -59,7 +59,8 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 2. Le symptôme → le premier geste
 - 3. Le journal — extraire, pas lire
 - 4. Les pannes qui trompent
-- 5. Avant de dire « réparé »
+- 5. Mesurer l'application qui tourne — `nodefony_observe`
+- 6. Avant de dire « réparé »
 
 ## Scripts embarqués
 
@@ -84,14 +85,14 @@ script, donc toujours à jour après régénération.
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 899 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 993 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 135 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 180 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
