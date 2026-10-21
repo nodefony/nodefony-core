@@ -113,6 +113,8 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
 
 ## Gotchas
 
+- **Délai de grâce du flux** (`stream.ts#MCP_STREAM_GRACE_MS`, 5 s) : un appel encore en cours ouvre le flux SANS rien y écrire (le flux bat seul), même sans `progressToken`. Sinon la réponse JSON d'un outil long tombe en `408` (délai d'inactivité 30 s), et le SDK n'ajoute `progressToken` que si l'appelant passe `onprogress`. Minuteur `unref`, libéré dans `finish`, rien d'ouvert si le client est parti.
+
 - `@nodefony/devkit` étend `mcpConfigSchema` de `tools` (son allowlist) : le schéma de la porte n'existe qu'ici.
 - Ne jamais déréférencer le Kernel au top-level d'un fichier chargé à l'import
   (`Nodefony.getKernel()` rend `null` avant le boot) — passer par un getter.

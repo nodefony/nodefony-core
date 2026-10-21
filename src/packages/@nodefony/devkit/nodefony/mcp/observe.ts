@@ -10,11 +10,14 @@ import { mcpText, MCP_RESERVED_PREFIX } from "@nodefony/ai";
 import {
   createProfileAggregator,
   isFailedProfile,
+  N_PLUS_ONE_MIN_REPEATS,
   type IProfilerReader,
 } from "@nodefony/http";
 import {
+  EVENT_LOOP_BLOCK_MS,
   progressLine,
   renderProfileReport,
+  SLOW_ROUTE_P95_MS,
   type RequestLogs,
 } from "./profileReport";
 
@@ -46,6 +49,43 @@ const SHUTDOWN_REPORT_MAX_MS = 1000;
 
 /** Marge, en ms, laissée à la porte pour écrire le rapport une fois rendu. */
 const SHUTDOWN_REPORT_FLUSH_MS = 100;
+
+/**
+ * Le contrat de l'outil tel que l'agent le lit dans `tools/list` — le seul
+ * texte qu'il voit à coup sûr. Les seuils cités sont les constantes du code :
+ * la description ne peut pas promettre autre chose que ce que l'outil fait.
+ * Composée une fois, au chargement du module.
+ */
+const OBSERVE_DESCRIPTION =
+  "Mesure l'application Nodefony qui tourne, pendant une fenêtre de quelques " +
+  "secondes, à partir de son profileur de développement : où part le temps de " +
+  "chaque route, les requêtes SQL, les erreurs et la charge du process. C'est la " +
+  "seule façon de SAVOIR qu'une page est lente ou interroge la base dans une " +
+  "boucle — ni le code ni les tests ne le montrent.\n\n" +
+  "QUAND : après avoir modifié un contrôleur, un service ou une requête ; face à " +
+  "« c'est lent », « trop de requêtes SQL », « une erreur 500 de temps en temps ».\n\n" +
+  "COMMENT :\n" +
+  `1. Appeler avec durationSec (défaut ${OBSERVE_DEFAULT_SEC}, max ${OBSERVE_MAX_SEC}).\n` +
+  "2. PENDANT la fenêtre, solliciter le code : ouvrir la page, jouer les tests, " +
+  "envoyer des requêtes. L'outil n'en génère AUCUNE : sans trafic, il n'a rien à juger.\n" +
+  "3. Corriger la cause nommée, puis rappeler l'outil sur le même trafic et " +
+  "comparer le bloc « Données (JSON) » des deux rapports.\n" +
+  "Ne modifier AUCUN fichier pendant la fenêtre : le serveur redémarre et le " +
+  "rapport rendu est partiel (il le dit).\n\n" +
+  "LE RAPPORT, dans l'ordre : un verdict (ok, anomalies, INCOMPLÈTE avec la " +
+  "raison) ; les anomalies, nommées par route et contrôleur — " +
+  `« N+1 » (même requête SQL répétée au moins ${N_PLUS_ONE_MIN_REPEATS} fois dans une requête ` +
+  "HTTP : charger d'un coup, `relations` ou `$in`), « Erreurs » (5xx avec leur " +
+  `requestId et leurs lignes de journal WARNING/ERROR), « Lente » (p95 ≥ ${SLOW_ROUTE_P95_MS} ms, ` +
+  "avec ce qui coûte par requête : action.self = le code de l'action et de ses " +
+  "services, SQL (cumul), render, firewall), « Boucle d'événements bloquée » " +
+  `(un traitement synchrone de ${EVENT_LOOP_BLOCK_MS} ms ou plus) ; puis un tableau par route, ` +
+  "les requêtes SQL les plus coûteuses (valeurs masquées par ?), et les données " +
+  "JSON. Les refus 401/403 sont comptés à part, hors des durées.\n\n" +
+  "LIMITES : développement seulement. Le journal des erreurs exige un appel " +
+  "authentifié (scope admin:read) ; sans jeton le rapport le dit. Les routes " +
+  "/nodefony/… (outillage) sont écartées sauf includeTooling. Un instantané est " +
+  `envoyé en progression à chaque relevé (toutes les ${OBSERVE_TICK_MS / 1000} s).`;
 
 /** La sonde du process : ce que l'outil lit du process à chaque relevé. */
 export interface IObserveProbe {
@@ -139,21 +179,7 @@ export function observeTool(deps: IObserveDeps): IMcpTool {
   return {
     name: `${MCP_RESERVED_PREFIX}observe`,
     annotations: { readOnlyHint: true, openWorldHint: false },
-    description:
-      "Observe l'application Nodefony qui tourne pendant une fenêtre de " +
-      `quelques secondes (défaut ${OBSERVE_DEFAULT_SEC}, max ${OBSERVE_MAX_SEC}) et rend ce que ` +
-      "son profileur de développement a mesuré sur les requêtes reçues : " +
-      "les routes lentes et OÙ part leur temps (code de l'action, rendu, SQL, " +
-      "pare-feu), les N+1 (même requête SQL répétée dans une requête HTTP), les " +
-      "requêtes SQL les plus coûteuses (valeurs masquées), les erreurs 5xx avec " +
-      "leur requestId, et la charge de la boucle d'événements.\n\n" +
-      "À utiliser APRÈS avoir modifié un contrôleur, un service ou une requête, " +
-      "pour vérifier l'effet sur l'application réelle. L'outil ne génère AUCUN " +
-      "trafic : lancer pendant la fenêtre ce qui sollicite le code (ouvrir la " +
-      "page, jouer les tests, une charge). Ne pas modifier de fichier pendant la " +
-      "fenêtre — le serveur de développement redémarrerait : l'outil rend alors un " +
-      "rapport partiel qui le dit. Les erreurs 5xx arrivent avec leurs lignes de " +
-      "journal. Un instantané est envoyé en progression à chaque relevé.",
+    description: OBSERVE_DESCRIPTION,
     inputSchema: {
       type: "object",
       properties: {
@@ -161,12 +187,15 @@ export function observeTool(deps: IObserveDeps): IMcpTool {
           type: "integer",
           minimum: 1,
           maximum: OBSERVE_MAX_SEC,
-          description: `Durée de l'observation en secondes (défaut ${OBSERVE_DEFAULT_SEC})`,
+          description:
+            `Durée de la fenêtre, en secondes (défaut ${OBSERVE_DEFAULT_SEC}, max ${OBSERVE_MAX_SEC}) : ` +
+            "assez pour solliciter le code pendant qu'elle court",
         },
         route: {
           type: "string",
           description:
-            "Restreindre à une route, par son NOM (celui que rend `nodefony_inspect` sujet `routes`)",
+            "Restreindre à UNE route, par son NOM — celui que rend `nodefony_inspect` " +
+            "sujet `routes` (ex. `blog-index`, `OrdersController::list`), jamais son chemin",
         },
         includeTooling: {
           type: "boolean",

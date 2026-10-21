@@ -26,6 +26,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
 | `buildCard` | `nodefony/src/card.ts` | ré-export du cœur (`nodefony` → `cli/cardReport.ts`) |
 | `DevkitService` | `nodefony/service/DevkitService.ts` | `getCard()` — dérive du Kernel, `source: "runtime"` |
 | `DevkitController` | `nodefony/controllers/DevkitController` | `GET /nodefony/devkit/api/card` — mince, délègue |
+| `nodefony_observe` | `nodefony/mcp/observe.ts` + `mcp/profileReport.ts` | outil LONG : relève le profileur par curseur (`IProfilerReader`, dep `getProfiler`) toutes les 2 s, progression par relevé, arrêt sur `run.signal`, rapport (verdict → anomalies → tableaux → JSON). Journal des 5xx lu AU RELEVÉ via `findAdminReadEntry`+`callAdminEndpoint` (même autorisation que `admin_call`, lignes ≤ WARNING seulement). Arrêt du kernel : écouteur `onTerminate` en TÊTE (dep `onShutdown`), le temps de l'appel → rapport partiel. Rendu partagé avec `nodefony_profile_route` (#644) |
 | `McpController` | `nodefony/controllers/McpController.ts` | `POST /nodefony/mcp` — la porte : traduit HTTP ↔ JSON-RPC, ramasse les outils (`collectMcpTools`, sans cas particulier pour le catalogue). Le protocole vient de `@nodefony/ai`. Corps : texte illisible → `-32700` (le parseur HTTP le TAIT et rend `{}` : relecture de `request.data` sur ce seul chemin froid), JSON non-objet (`null`) → `-32600` |
 | `devkitConfigSchema` | `nodefony/config/config.ts` | `{ enabled, mcp }` — source unique des défauts |
 | `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot |
@@ -77,6 +78,8 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   controller. Banc : outil `test_crash` du module `test`.
 
 ## Gotchas
+
+- **`nodefony_observe` : la description publiée cite les CONSTANTES** (`N_PLUS_ONE_MIN_REPEATS`, `SLOW_ROUTE_P95_MS`, `EVENT_LOOP_BLOCK_MS`) — un test le verrouille. Le DEBUG du syslog peut porter la valeur d'un cookie de session : jamais dans le rapport (filtre ≤ WARNING). Sans jeton, le journal est fermé et le rapport le dit UNE fois.
 
 - **La CLI ne passe PAS par ce module** : `nodefony card` (alias `devkit:card`)
   est un fast-path standalone du cœur (`CliKernel.start`), 0 boot. Motif : porté

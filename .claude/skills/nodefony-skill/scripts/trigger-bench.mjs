@@ -183,6 +183,11 @@ const CASES = [
     "package",
   ],
   ["le serveur plante au démarrage", "nodefony-troubleshoot", "package"],
+  [
+    "cette page est lente, elle fait trop de requêtes SQL",
+    "nodefony-troubleshoot",
+    "package",
+  ],
   // La montée de version : le MOMENT (une version est sortie), jamais la
   // commande — qui la connaît n'a pas besoin du skill pour la taper.
   ["mettre à jour nodefony", "nodefony-upgrade", "package"],

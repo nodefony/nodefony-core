@@ -6,14 +6,21 @@ import {
   type IMcpCaller,
   type IMcpToolResult,
 } from "nodefony";
-import { Profiler, type ProfileQuery } from "@nodefony/http";
+import {
+  N_PLUS_ONE_MIN_REPEATS,
+  Profiler,
+  type ProfileQuery,
+} from "@nodefony/http";
 import {
   observeTool,
   asProfilerReader,
+  OBSERVE_MAX_SEC,
   type IObserveProbe,
 } from "../nodefony/mcp/observe";
 import {
+  EVENT_LOOP_BLOCK_MS,
   renderProfileReport,
+  SLOW_ROUTE_P95_MS,
   type RequestLogs,
 } from "../nodefony/mcp/profileReport";
 import { builtinMcpTools } from "../nodefony/mcp/tools";
@@ -713,5 +720,19 @@ describe("nodefony_observe — lisibilité du journal", () => {
     }, 50);
     const out = text(await pending);
     expect(out.match(/ERROR \[req\] boom/g)).toHaveLength(3);
+  });
+});
+
+describe("nodefony_observe — la description publiée", () => {
+  it("cite les seuils RÉELS du code, et le protocole complet", () => {
+    const d = observeTool({ getProfiler: () => undefined }).description;
+    expect(d).toContain(`au moins ${N_PLUS_ONE_MIN_REPEATS} fois`);
+    expect(d).toContain(`p95 ≥ ${SLOW_ROUTE_P95_MS} ms`);
+    expect(d).toContain(`synchrone de ${EVENT_LOOP_BLOCK_MS} ms`);
+    expect(d).toContain(`max ${OBSERVE_MAX_SEC}`);
+    // Les trois gestes que l'agent ne devinerait pas.
+    expect(d).toContain("n'en génère AUCUNE");
+    expect(d).toContain("Ne modifier AUCUN fichier pendant la fenêtre");
+    expect(d).toContain("comparer le bloc « Données (JSON) »");
   });
 });
