@@ -25,6 +25,7 @@ import type {
 import { mcpText, MCP_TEXT_MAX_CHARS, MCP_RESERVED_PREFIX } from "@nodefony/ai";
 import type { IProfilerReader } from "@nodefony/http";
 import { observeTool } from "./observe";
+import type { RequestLogs } from "./profileReport";
 
 /**
  * Outils MCP du framework : le catalogue `nodefony_*`, que `@nodefony/devkit`
@@ -330,6 +331,80 @@ export interface IMcpToolDeps {
    * hors développement : `nodefony_observe` le dit au lieu de planter.
    */
   getProfiler: () => IProfilerReader | undefined;
+  /**
+   * S'abonne à l'arrêt du serveur pour la durée d'un appel (rapport partiel de
+   * `nodefony_observe`) ; absent hors application.
+   */
+  onShutdown?: ((listener: () => Promise<void>) => () => void) | undefined;
+}
+
+/** Lignes de journal rapportées par requête en erreur. */
+const LOG_LINES_PER_REQUEST = 8;
+
+/** Longueur maximale d'une ligne de journal rapportée. */
+const LOG_LINE_MAX = 300;
+
+/**
+ * Lit le journal d'UNE requête dans le syslog de l'application, par le plan
+ * d'administration — la même voie, et la même autorisation, que
+ * `nodefony_admin_call { namespace: "syslog", path: "logs" }`. Le driver de
+ * relecture actif répond (mémoire par défaut, fichier ou Redis si configuré).
+ *
+ * @returns les lignes, de la plus ancienne à la plus récente, ou la raison
+ *   pour laquelle elles ne sont pas lisibles ici.
+ */
+async function readRequestLogs(
+  broker: IAdminBrokerLike | undefined,
+  requestId: string,
+  caller: IMcpCaller,
+): Promise<RequestLogs> {
+  const admin = adminCallerFromMcp(caller);
+  if (findAdminReadEntry(broker, admin, "syslog", "logs") === null) {
+    return {
+      kind: "unavailable",
+      reason:
+        "journal non lisible ici (module syslog non chargé, ou fermé à cet appelant)",
+    };
+  }
+  const read = await callAdminEndpoint(
+    broker,
+    {
+      namespace: "syslog",
+      path: "logs",
+      method: "GET",
+      params: {},
+      query: { requestId, limit: String(LOG_LINES_PER_REQUEST) },
+      label: "syslog/logs",
+    },
+    admin,
+  );
+  if (!read.ok) return { kind: "unavailable", reason: read.message };
+  const lines: string[] = [];
+  const rows: unknown[] = Array.isArray(read.data) ? read.data : [];
+  for (const row of rows) {
+    if (
+      typeof row === "object" &&
+      row !== null &&
+      "msg" in row &&
+      typeof row.msg === "string"
+    ) {
+      const severity =
+        "severityName" in row && typeof row.severityName === "string"
+          ? row.severityName
+          : "?";
+      const module =
+        "moduleName" in row && typeof row.moduleName === "string"
+          ? row.moduleName
+          : "?";
+      const line = `${severity} [${module}] ${row.msg.replace(/\s+/g, " ")}`;
+      lines.push(
+        line.length > LOG_LINE_MAX ? `${line.slice(0, LOG_LINE_MAX)}…` : line,
+      );
+    }
+  }
+  // Le driver rend les plus récentes d'abord : on raconte dans l'ordre.
+  lines.reverse();
+  return { kind: "lines", lines };
 }
 
 /**
@@ -873,7 +948,12 @@ export function builtinMcpTools(
         return read.ok ? mcpText(read.data) : mcpAdminFailure(read);
       },
     },
-    observe: observeTool({ getProfiler: deps.getProfiler }),
+    observe: observeTool({
+      getProfiler: deps.getProfiler,
+      readRequestLogs: (requestId, caller) =>
+        readRequestLogs(deps.broker, requestId, caller),
+      onShutdown: deps.onShutdown,
+    }),
   };
 }
 

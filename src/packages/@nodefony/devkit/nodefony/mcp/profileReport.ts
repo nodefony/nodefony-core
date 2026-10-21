@@ -32,6 +32,10 @@ const MAX_SLOW_QUERIES = 10;
 /** Longueur maximale d'une forme SQL citée. */
 const SHAPE_MAX = 300;
 
+/** Les lignes de journal d'une requête, ou la raison pour laquelle on ne les a pas. */
+export type RequestLogs =
+  { kind: "lines"; lines: string[] } | { kind: "unavailable"; reason: string };
+
 /** Le déroulé de l'observation : ce que le rapport doit dire de sa propre fiabilité. */
 export interface IObservationContext {
   /** Fenêtre demandée, en ms. */
@@ -44,6 +48,13 @@ export interface IObservationContext {
   lost: number;
   /** L'agent a abandonné l'appel avant la fin de la fenêtre. */
   cancelled: boolean;
+  /** Le serveur s'est arrêté pendant la fenêtre (rechargement, arrêt). */
+  interrupted: boolean;
+  /**
+   * Journal des requêtes en erreur, lu au relevé qui les a vues ; `null` quand
+   * l'outil n'a pas de quoi le lire.
+   */
+  errorLogs: ReadonlyMap<string, RequestLogs> | null;
   /** Route à laquelle l'observation était restreinte, s'il y en avait une. */
   route: string | null;
   /** Requêtes écartées par ce filtre de route. */
@@ -129,10 +140,12 @@ function anomalies(report: IProfileReport, ctx: IObservationContext): string[] {
     lines.push(
       `Erreurs — route ${routeLabel(r)} : ${r.errors} sur ${r.count}` +
         (message === undefined ? "" : ` — « ${message} »`) +
-        (ids.length > 0
-          ? `. requestId : ${ids.map((e) => e.requestId).join(", ")}. Journal d'une requête : ` +
-            '`nodefony_admin_call { namespace: "syslog", path: "logs", query: { requestId } }`.'
-          : "."),
+        (ids.length === 0
+          ? "."
+          : `. requestId : ${ids.map((e) => e.requestId).join(", ")}` +
+            (ctx.errorLogs === null
+              ? '. Journal d\'une requête : `nodefony_admin_call { namespace: "syslog", path: "logs", query: { requestId } }`.'
+              : " — journal ci-dessous.")),
     );
   }
   for (const r of report.routes) {
@@ -169,6 +182,13 @@ function gaps(report: IProfileReport, ctx: IObservationContext): string[] {
   if (report.untimed > 0) {
     out.push(
       `${report.untimed} requête(s) sans durée (mesure des phases désactivée, ou requête interrompue)`,
+    );
+  }
+  if (ctx.interrupted) {
+    out.push(
+      `observation interrompue après ${ms(ctx.elapsedMs / 1000)} s : le serveur s'arrête ` +
+        "(rechargement après une modification de fichier ?) — rappeler nodefony_observe " +
+        "une fois le serveur redémarré, sans modifier de fichier pendant la fenêtre",
     );
   }
   if (ctx.cancelled) {
@@ -258,6 +278,29 @@ export function renderProfileReport(
       out.push(
         `… et ${found.length - MAX_ANOMALIES} autre(s), dans les données ci-dessous.`,
       );
+    }
+  }
+
+  if (ctx.errorLogs !== null && ctx.errorLogs.size > 0) {
+    out.push(
+      "",
+      "Journal des requêtes en erreur (syslog de l'application, lu au relevé qui les a vues) :",
+    );
+    for (const e of report.errors) {
+      const logs = ctx.errorLogs.get(e.requestId);
+      if (logs === undefined) continue;
+      out.push(
+        `- requestId ${e.requestId} — route \`${e.route}\`, statut ${e.status ?? "—"} :`,
+      );
+      if (logs.kind === "unavailable") {
+        out.push(`    (journal non lu : ${logs.reason})`);
+      } else if (logs.lines.length === 0) {
+        out.push(
+          "    (aucune ligne retrouvée : déjà évincée du tampon de relecture du syslog, ou rien journalisé)",
+        );
+      } else {
+        for (const line of logs.lines) out.push(`    ${line}`);
+      }
     }
   }
 

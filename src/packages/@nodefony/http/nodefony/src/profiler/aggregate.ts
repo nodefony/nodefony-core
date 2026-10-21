@@ -157,7 +157,8 @@ export interface IProfileAggregatorOptions {
 
 /** Accumulateur : on lui donne les profils un à un, il rend le rapport. */
 export interface IProfileAggregator {
-  add(entry: ProfileEntry): void;
+  /** Ajoute un profil ; `false` s'il a été écarté (outillage). */
+  add(entry: ProfileEntry): boolean;
   /** Le rapport à cet instant ; l'accumulateur continue d'accepter des profils. */
   result(): IProfileReport;
 }
@@ -247,6 +248,18 @@ function actionSelfMs(entry: ProfileEntry): number | null {
   }
   if (curEnd > curStart) covered += curEnd - curStart;
   return Math.max(0, action.durationMs - covered);
+}
+
+/**
+ * Une requête en ERREUR : statut ≥ 500, ou exception levée. Règle unique — le
+ * rapport, ses exemples et la lecture de leurs journaux en dépendent.
+ *
+ * @param entry - le profil (seuls statut et erreur sont lus).
+ */
+export function isFailedProfile(
+  entry: Pick<ProfileEntry, "status" | "error">,
+): boolean {
+  return (entry.status !== null && entry.status >= 500) || entry.error !== null;
 }
 
 /** Percentile au rang le plus proche, sur un tableau TRIÉ non vide. */
@@ -442,7 +455,7 @@ export function createProfileAggregator(
     add(entry) {
       if (!includeTooling && entry.url.startsWith(TOOLING_URL_PREFIX)) {
         filteredTooling += 1;
-        return;
+        return false;
       }
       requests += 1;
       if (entry.kind === "ws") ws += 1;
@@ -452,8 +465,7 @@ export function createProfileAggregator(
       const stats = acc.stats;
       stats.count += 1;
       countStatus(stats.status, entry.status);
-      const failed =
-        (entry.status !== null && entry.status >= 500) || entry.error !== null;
+      const failed = isFailedProfile(entry);
       if (failed) {
         stats.errors += 1;
         if (errors.length < ERROR_SAMPLE_CAP) {
@@ -495,6 +507,7 @@ export function createProfileAggregator(
       // base est un N+1 aussi.
       addQueries(entry, route);
       sqlShapesDropped = droppedShapes.size;
+      return true;
     },
 
     result() {

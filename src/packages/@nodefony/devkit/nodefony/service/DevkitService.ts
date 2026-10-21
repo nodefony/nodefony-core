@@ -179,6 +179,16 @@ class DevkitService extends Service implements IDevkitService {
       getCard: () => this.getCard(),
       projectRoot: kernel?.path ?? process.cwd(),
       getProfiler: () => asProfilerReader(this.get("profiler")),
+      // En TÊTE de la file d'arrêt : l'arrêt est séquentiel (`fireAsync`),
+      // les serveurs ne ferment leurs connexions qu'après que le rapport
+      // partiel est parti.
+      onShutdown: (listener) => {
+        if (kernel === null) return () => {};
+        kernel.prependOnceListener("onTerminate", listener);
+        return () => {
+          kernel.removeListener("onTerminate", listener);
+        };
+      },
     };
   }
 

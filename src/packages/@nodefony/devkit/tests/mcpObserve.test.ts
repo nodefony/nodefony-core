@@ -1,13 +1,22 @@
 /// <reference types="node" />
 import { describe, it, expect } from "vitest";
-import type { IMcpCaller, IMcpToolResult } from "nodefony";
+import {
+  ADMIN_DEFAULT_ROLE,
+  type IAdminApi,
+  type IMcpCaller,
+  type IMcpToolResult,
+} from "nodefony";
 import { Profiler, type ProfileQuery } from "@nodefony/http";
 import {
   observeTool,
   asProfilerReader,
   type IObserveProbe,
 } from "../nodefony/mcp/observe";
-import { renderProfileReport } from "../nodefony/mcp/profileReport";
+import {
+  renderProfileReport,
+  type RequestLogs,
+} from "../nodefony/mcp/profileReport";
+import { builtinMcpTools } from "../nodefony/mcp/tools";
 
 const CALLER: IMcpCaller = { authenticated: false, scopes: [], roles: [] };
 
@@ -27,7 +36,12 @@ let seq = 0;
 /** Ce que le pipeline remet au profileur en fin de requête. */
 function collect(
   profiler: Profiler,
-  over: { route?: string; status?: number; queries?: ProfileQuery[] } = {},
+  over: {
+    route?: string;
+    status?: number;
+    url?: string;
+    queries?: ProfileQuery[];
+  } = {},
 ): void {
   seq += 1;
   profiler.collect({
@@ -35,7 +49,7 @@ function collect(
     type: "http",
     scheme: "http",
     method: "GET",
-    url: "/orders",
+    url: over.url ?? "/orders",
     response: { statusCode: over.status ?? 200 },
     phases: [{ name: "action", startMs: 0, durationMs: 12 }],
     resolver: {
@@ -303,6 +317,8 @@ describe("renderProfileReport — ce qui se dit « par requête »", () => {
         ticks: 1,
         lost: 0,
         cancelled: false,
+        interrupted: false,
+        errorLogs: null,
         route: null,
         filteredRoute: 0,
         pid: 1,
@@ -315,5 +331,272 @@ describe("renderProfileReport — ce qui se dit « par requête »", () => {
     expect(text).toContain("| 2.0/2 |");
     expect(text).toContain('"sqlPerReq":2');
     expect(text).toContain('"actionSelfMs":90');
+  });
+});
+
+describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () => {
+  /** Lecteur factice : note QUAND et pour QUI il a été appelé. */
+  function fakeReader(
+    answer: (id: string) => RequestLogs = () => ({
+      kind: "lines",
+      lines: ["ERROR [http] boom"],
+    }),
+  ) {
+    const calls: { id: string; at: number }[] = [];
+    const t0 = performance.now();
+    return {
+      calls,
+      read: async (id: string) => {
+        calls.push({ id, at: performance.now() - t0 });
+        return answer(id);
+      },
+    };
+  }
+
+  it("lit le journal d'une 5xx AU RELEVÉ qui la voit, et le joint au rapport", async () => {
+    const profiler = new Profiler();
+    const reader = fakeReader();
+    const tool = observeTool({
+      getProfiler: () => profiler,
+      tickMs: 100,
+      createProbe: fakeProbe,
+      readRequestLogs: reader.read,
+    });
+    const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
+    setTimeout(() => collect(profiler, { status: 500 }), 50);
+    const out = text(await pending);
+    expect(reader.calls).toHaveLength(1);
+    // Lu au premier relevé après l'erreur, pas en fin de fenêtre.
+    expect(reader.calls[0]!.at).toBeLessThan(500);
+    expect(out).toContain("journal ci-dessous");
+    expect(out).toContain("Journal des requêtes en erreur");
+    expect(out).toContain(`requestId ${reader.calls[0]!.id}`);
+    expect(out).toContain("    ERROR [http] boom");
+    expect(out).not.toContain("nodefony_admin_call");
+  });
+
+  it("dit qu'une ligne a été évincée, au lieu d'une liste vide muette", async () => {
+    const profiler = new Profiler();
+    const tool = observeTool({
+      getProfiler: () => profiler,
+      tickMs: 100,
+      createProbe: fakeProbe,
+      readRequestLogs: fakeReader(() => ({ kind: "lines", lines: [] })).read,
+    });
+    const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
+    setTimeout(() => collect(profiler, { status: 500 }), 50);
+    expect(text(await pending)).toContain(
+      "aucune ligne retrouvée : déjà évincée",
+    );
+  });
+
+  it("borne la lecture à dix erreurs, et ignore l'outillage écarté", async () => {
+    const profiler = new Profiler();
+    const reader = fakeReader();
+    const tool = observeTool({
+      getProfiler: () => profiler,
+      tickMs: 100,
+      createProbe: fakeProbe,
+      readRequestLogs: reader.read,
+    });
+    const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
+    setTimeout(() => {
+      collect(profiler, { status: 500, url: "/nodefony/profiler/api/recent" });
+      for (let i = 0; i < 15; i++) collect(profiler, { status: 500 });
+    }, 50);
+    await pending;
+    expect(reader.calls).toHaveLength(10);
+  });
+
+  it("ne lit pas le journal d'une erreur de l'outillage écartée", async () => {
+    const profiler = new Profiler();
+    const reader = fakeReader();
+    const tool = observeTool({
+      getProfiler: () => profiler,
+      tickMs: 100,
+      createProbe: fakeProbe,
+      readRequestLogs: reader.read,
+    });
+    const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
+    setTimeout(
+      () =>
+        collect(profiler, {
+          status: 500,
+          url: "/nodefony/profiler/api/recent",
+        }),
+      50,
+    );
+    await pending;
+    expect(reader.calls).toHaveLength(0);
+  });
+
+  it("sans lecteur, renvoie à nodefony_admin_call", async () => {
+    const profiler = new Profiler();
+    const tool = observeTool({
+      getProfiler: () => profiler,
+      tickMs: 100,
+      createProbe: fakeProbe,
+    });
+    const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
+    setTimeout(() => collect(profiler, { status: 500 }), 50);
+    expect(text(await pending)).toContain("nodefony_admin_call");
+  });
+
+  it("le serveur s'arrête : rapport partiel, et l'arrêt attend qu'il soit rendu", async () => {
+    const profiler = new Profiler();
+    let listener: (() => Promise<void>) | null = null;
+    let unsubscribed = 0;
+    // Un journal lent : le rapport ne peut partir qu'après lui — l'arrêt doit
+    // donc ATTENDRE le rapport, et non un délai fixe.
+    const tool = observeTool({
+      getProfiler: () => profiler,
+      tickMs: 50,
+      createProbe: fakeProbe,
+      readRequestLogs: async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        return { kind: "lines", lines: ["ERROR [http] boom"] };
+      },
+      onShutdown: (l) => {
+        listener = l;
+        return () => {
+          unsubscribed += 1;
+        };
+      },
+    });
+    const order: string[] = [];
+    const started = performance.now();
+    const pending = tool
+      .handler({ durationSec: 30 }, CALLER, gate().run)
+      .then((r) => {
+        order.push("rapport");
+        return r;
+      });
+    setTimeout(() => collect(profiler, { status: 500 }), 20);
+    let stopping: Promise<void> | undefined;
+    setTimeout(() => {
+      stopping = listener!().then(() => {
+        order.push("arrêt repris");
+      });
+    }, 100);
+    const out = text(await pending);
+    await stopping;
+    expect(performance.now() - started).toBeLessThan(1500);
+    expect(out).toContain("observation interrompue");
+    expect(out).toContain("le serveur s'arrête");
+    expect(out).not.toContain("observation abandonnée");
+    expect(order).toEqual(["rapport", "arrêt repris"]);
+    expect(unsubscribed).toBe(1);
+  });
+
+  it("se désabonne de l'arrêt en fin d'appel normal", async () => {
+    let unsubscribed = 0;
+    const tool = observeTool({
+      getProfiler: () => new Profiler(),
+      tickMs: 100,
+      createProbe: fakeProbe,
+      onShutdown: () => () => {
+        unsubscribed += 1;
+      },
+    });
+    await tool.handler({ durationSec: 1 }, CALLER);
+    expect(unsubscribed).toBe(1);
+  });
+});
+
+describe("nodefony_observe — le journal lu par le plan d'administration", () => {
+  const ADMIN: IMcpCaller = {
+    authenticated: false,
+    scopes: [],
+    roles: [ADMIN_DEFAULT_ROLE],
+  };
+
+  /** Un syslog d'administration minimal, filtré par requestId comme le vrai. */
+  function syslogBroker(rows: Record<string, unknown>[]) {
+    return {
+      list: (): readonly IAdminApi[] => [
+        {
+          adminNamespace: "syslog",
+          adminDescriptor: () => ({ label: "Syslog" }),
+          adminEndpoints: () => [
+            {
+              path: "logs",
+              handler: (req: { query?: Record<string, string | undefined> }) =>
+                rows.filter((r) => r.requestId === req.query?.requestId),
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  it("rend les lignes de la requête, dans l'ordre, par la même voie que admin_call", async () => {
+    const profiler = new Profiler();
+    const broker = syslogBroker([
+      // Le driver rend les plus récentes d'abord.
+      {
+        requestId: "obs-err",
+        severityName: "ERROR",
+        moduleName: "http",
+        msg: "Cannot read 'total'",
+      },
+      {
+        requestId: "obs-err",
+        severityName: "INFO",
+        moduleName: "http",
+        msg: "GET /orders",
+      },
+      {
+        requestId: "autre",
+        severityName: "INFO",
+        moduleName: "http",
+        msg: "bruit",
+      },
+    ]);
+    const tool = builtinMcpTools({
+      broker,
+      getCard: () => ({}),
+      projectRoot: process.cwd(),
+      getProfiler: () => profiler,
+    }).observe;
+    const pending = tool.handler({ durationSec: 1 }, ADMIN);
+    setTimeout(() => {
+      profiler.collect({
+        requestId: "obs-err",
+        type: "http",
+        url: "/orders",
+        response: { statusCode: 500 },
+        phases: [],
+        resolver: { route: { name: "orders.list" } },
+      });
+    }, 50);
+    const out = text(await pending);
+    expect(out).toContain(
+      "    INFO [http] GET /orders\n    ERROR [http] Cannot read 'total'",
+    );
+    expect(out).not.toContain("bruit");
+  });
+
+  it("un appelant à qui le journal est fermé : la raison, pas une liste vide", async () => {
+    const profiler = new Profiler();
+    const tool = builtinMcpTools({
+      broker: syslogBroker([]),
+      getCard: () => ({}),
+      projectRoot: process.cwd(),
+      getProfiler: () => profiler,
+    }).observe;
+    const pending = tool.handler({ durationSec: 1 }, CALLER);
+    setTimeout(() => {
+      profiler.collect({
+        requestId: "obs-closed",
+        type: "http",
+        url: "/orders",
+        response: { statusCode: 500 },
+        phases: [],
+        resolver: { route: { name: "orders.list" } },
+      });
+    }, 50);
+    expect(text(await pending)).toContain(
+      "journal non lu : journal non lisible ici",
+    );
   });
 });

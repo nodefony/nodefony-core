@@ -300,6 +300,7 @@ export type {
 export {
   aggregateProfiles,
   createProfileAggregator,
+  isFailedProfile,
   sqlShape,
   N_PLUS_ONE_MIN_REPEATS,
   ACTION_SELF_PHASE,

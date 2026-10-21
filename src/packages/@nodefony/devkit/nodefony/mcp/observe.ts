@@ -1,13 +1,22 @@
 import { setTimeout as delay } from "node:timers/promises";
 import {
   ProcessProbe,
+  type IMcpCaller,
   type IMcpTool,
   type IMcpToolResult,
   type IMcpToolRun,
 } from "nodefony";
 import { mcpText, MCP_RESERVED_PREFIX } from "@nodefony/ai";
-import { createProfileAggregator, type IProfilerReader } from "@nodefony/http";
-import { progressLine, renderProfileReport } from "./profileReport";
+import {
+  createProfileAggregator,
+  isFailedProfile,
+  type IProfilerReader,
+} from "@nodefony/http";
+import {
+  progressLine,
+  renderProfileReport,
+  type RequestLogs,
+} from "./profileReport";
 
 /** Fenêtre d'observation par défaut, en secondes. */
 export const OBSERVE_DEFAULT_SEC = 10;
@@ -21,6 +30,22 @@ export const OBSERVE_MAX_SEC = 50;
 
 /** Intervalle entre deux relevés, en ms : un instantané de progression par relevé. */
 export const OBSERVE_TICK_MS = 2000;
+
+/**
+ * Requêtes en erreur dont on lit le journal, au plus — les mêmes que les
+ * exemples d'erreurs du rapport, dans le même ordre.
+ */
+export const OBSERVE_ERROR_LOGS_MAX = 10;
+
+/**
+ * Délai maximal, en ms, pendant lequel l'arrêt du serveur attend que le
+ * rapport parte : le superviseur de développement tue le process 4 s après
+ * le lui avoir demandé.
+ */
+const SHUTDOWN_REPORT_MAX_MS = 1000;
+
+/** Marge, en ms, laissée à la porte pour écrire le rapport une fois rendu. */
+const SHUTDOWN_REPORT_FLUSH_MS = 100;
 
 /** La sonde du process : ce que l'outil lit du process à chaque relevé. */
 export interface IObserveProbe {
@@ -36,6 +61,19 @@ export interface IObserveDeps {
   tickMs?: number | undefined;
   /** Fabrique de la sonde du process (défaut : `ProcessProbe` du cœur). */
   createProbe?: (() => IObserveProbe) | undefined;
+  /**
+   * Lit les lignes de journal d'une requête (syslog de l'application, par
+   * `requestId`). Absent : le rapport renvoie à `nodefony_admin_call`.
+   */
+  readRequestLogs?:
+    | ((requestId: string, caller: IMcpCaller) => Promise<RequestLogs>)
+    | undefined;
+  /**
+   * S'abonne à l'arrêt du serveur pour la durée d'UN appel, et rend de quoi
+   * se désabonner. L'arrêt attend la promesse de l'écouteur (bornée) : le
+   * temps que le rapport partiel parte.
+   */
+  onShutdown?: ((listener: () => Promise<void>) => () => void) | undefined;
 }
 
 /**
@@ -113,8 +151,9 @@ export function observeTool(deps: IObserveDeps): IMcpTool {
       "pour vérifier l'effet sur l'application réelle. L'outil ne génère AUCUN " +
       "trafic : lancer pendant la fenêtre ce qui sollicite le code (ouvrir la " +
       "page, jouer les tests, une charge). Ne pas modifier de fichier pendant la " +
-      "fenêtre — le serveur de développement redémarrerait et l'observation serait " +
-      "perdue. Un instantané est envoyé en progression à chaque relevé.",
+      "fenêtre — le serveur de développement redémarrerait : l'outil rend alors un " +
+      "rapport partiel qui le dit. Les erreurs 5xx arrivent avec leurs lignes de " +
+      "journal. Un instantané est envoyé en progression à chaque relevé.",
     inputSchema: {
       type: "object",
       properties: {
@@ -136,7 +175,7 @@ export function observeTool(deps: IObserveDeps): IMcpTool {
         },
       },
     },
-    handler: async (args, _caller, run) => {
+    handler: async (args, caller, run) => {
       const profiler = deps.getProfiler();
       if (profiler === undefined) {
         return mcpText(
@@ -159,6 +198,9 @@ export function observeTool(deps: IObserveDeps): IMcpTool {
         createProbe,
         run,
         note,
+        caller,
+        readRequestLogs: deps.readRequestLogs,
+        onShutdown: deps.onShutdown,
       });
     },
   };
@@ -172,6 +214,9 @@ interface IObserveRun {
   createProbe: () => IObserveProbe;
   run: IMcpToolRun | undefined;
   note: string | null;
+  caller: IMcpCaller;
+  readRequestLogs: IObserveDeps["readRequestLogs"];
+  onShutdown: IObserveDeps["onShutdown"];
 }
 
 async function observe(
@@ -181,13 +226,21 @@ async function observe(
   const aggregator = createProfileAggregator({
     includeTooling: opts.includeTooling,
   });
-  const signal = opts.run?.signal;
+  const read = opts.readRequestLogs;
+  const logs = new Map<string, Promise<RequestLogs>>();
+  // Deux raisons d'arrêter la fenêtre : l'agent part, ou le serveur s'arrête.
+  const stop = new AbortController();
+  const signal =
+    opts.run === undefined
+      ? stop.signal
+      : AbortSignal.any([opts.run.signal, stop.signal]);
   const windowSec = opts.windowMs / 1000;
   let cursor = profiler.cursor;
   let lost = 0;
   let filteredRoute = 0;
   let ticks = 0;
   let cancelled = false;
+  let interrupted = false;
   let loopSum = 0;
   let loopMax = 0;
   let loopReads = 0;
@@ -201,9 +254,40 @@ async function observe(
         filteredRoute += 1;
         continue;
       }
-      aggregator.add(entry);
+      const counted = aggregator.add(entry);
+      // Journal lu AU RELEVÉ : le syslog ne garde que ses dernières lignes, et
+      // celles d'une erreur seraient évincées avant la fin de la fenêtre.
+      if (
+        counted &&
+        read !== undefined &&
+        logs.size < OBSERVE_ERROR_LOGS_MAX &&
+        isFailedProfile(entry)
+      ) {
+        logs.set(
+          entry.requestId,
+          read(entry.requestId, opts.caller).catch((): RequestLogs => ({
+            kind: "unavailable",
+            reason: "la lecture du journal a échoué",
+          })),
+        );
+      }
     }
   };
+
+  // L'arrêt du serveur (rechargement après une modification de fichier) clôt
+  // la fenêtre tout de suite, et attend que le rapport partiel soit parti.
+  const delivered = Promise.withResolvers<void>();
+  const unsubscribe =
+    opts.onShutdown?.(async () => {
+      interrupted = true;
+      stop.abort();
+      await Promise.race([
+        delivered.promise.then(() =>
+          delay(SHUTDOWN_REPORT_FLUSH_MS, undefined, { ref: false }),
+        ),
+        delay(SHUTDOWN_REPORT_MAX_MS, undefined, { ref: false }),
+      ]);
+    }) ?? null;
 
   const probe = opts.createProbe();
   const started = performance.now();
@@ -222,15 +306,16 @@ async function observe(
     for (;;) {
       const remaining = deadline - performance.now();
       if (remaining <= 0) break;
-      if (signal?.aborted === true) {
-        cancelled = true;
+      if (signal.aborted) {
+        cancelled = !interrupted;
         break;
       }
       try {
         await delay(Math.min(opts.tickMs, remaining), undefined, { signal });
       } catch {
-        // Seule l'annulation rejette ce minuteur : l'agent est parti.
-        cancelled = true;
+        // Seule l'abandon rejette ce minuteur : l'agent est parti, ou le
+        // serveur s'arrête.
+        cancelled = !interrupted;
         break;
       }
       drain();
@@ -248,8 +333,20 @@ async function observe(
       );
     }
     drain();
+  } catch (error) {
+    delivered.resolve();
+    unsubscribe?.();
+    throw error;
   } finally {
     probe.dispose();
+  }
+
+  let errorLogs: Map<string, RequestLogs> | null = null;
+  if (read !== undefined) {
+    errorLogs = new Map();
+    for (const [requestId, pending] of logs) {
+      errorLogs.set(requestId, await pending);
+    }
   }
 
   const text = renderProfileReport(aggregator.result(), {
@@ -258,6 +355,8 @@ async function observe(
     ticks,
     lost,
     cancelled,
+    interrupted,
+    errorLogs,
     route: opts.route,
     filteredRoute,
     pid: process.pid,
@@ -266,5 +365,9 @@ async function observe(
       loopReads === 0 ? null : { meanMs: loopSum / loopReads, maxMs: loopMax },
     heapDeltaBytes: heapEnd === null ? null : heapEnd - heapStart,
   });
+  // Le rapport est rendu : l'arrêt éventuel peut reprendre, et l'écouteur
+  // n'a plus rien à faire sur le kernel.
+  delivered.resolve();
+  unsubscribe?.();
   return mcpText(opts.note === null ? text : `ℹ️ ${opts.note}.\n${text}`);
 }
