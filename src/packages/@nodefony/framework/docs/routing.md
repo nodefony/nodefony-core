@@ -561,9 +561,10 @@ alloué par requête.
   séquence de candidats (`buildRouteIndex()`, `router.ts#buildRouteIndex`). L'index est invalidé par toute mutation
   de la table, avec un garde-fou sur une photo `longueur/première/dernière` qui rattrape même les
   mutations directes de la liste (`routeIndex`, `router.ts#invalidateRouteIndex`).
-- **Zéro journalisation en production** : le log « route trouvée » est promu au niveau NOTICE hors
-  production seulement, et le test est résolu une fois puis mémoïsé — en production, aucune chaîne
-  n'est même construite (`routeNoticePromoted`, `router.ts#routeNoticePromoted`).
+- **Zéro journalisation en production** : le log « route trouvée » est émis en DEBUG hors
+  production seulement — imprimé avec `-d`, toujours lu par le suivi de requête de Studio — et le
+  test est résolu une fois puis mémoïsé : en production, aucune chaîne n'est même construite
+  (`routeMatchLogged`, `router.ts#routeMatchLogged`).
 - **Métadonnées d'action mémoïsées par route** au premier passage (`@HttpCode`, `@Header`, `@Redirect`,
   paramètres, intention de session) : plus aucune lecture `Reflect` par requête
   (`resolveActionMeta`, `Resolver.ts#Resolver.executeAction`).

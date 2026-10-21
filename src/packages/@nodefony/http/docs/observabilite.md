@@ -372,7 +372,7 @@ Les choix visibles dans le code :
 - **Audit nominal coupable** — l'option `nominal` coupe le log des 2xx/3xx si le sink texte est `null`
   (l'entrée n'atteindrait aucune destination) — ~5,9 % du profil CPU récupérés (`audit-logger.ts#JsonAuditLoggerOptions.sampleRate`).
 - **Trace des frames WS gatée en prod** — `logMessageContent()` court-circuite avant toute construction
-  de chaîne hors dev (`WebsocketContext.ts#WebsocketContext.logMessageContent`) ; les events lifecycle ne créent aucun `Pdu` en production (`Context.ts#EVENT_SEVERITY`).
+  de chaîne hors dev (`WebsocketContext.ts#WebsocketContext.logMessageContent`) ; les events lifecycle ne créent aucun `Pdu` en production, et ne sont que DEBUG hors production (`Context.ts#lifecycleEventLogging`).
 
 Gate mémoire avant tout commit touchant le pipeline : `npm run test:memory` (skill
 `nodefony-check-memory-health`). Rejouer les chiffres de charge : skill `nodefony-load-test`.
