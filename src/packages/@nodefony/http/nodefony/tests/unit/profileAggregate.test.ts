@@ -4,6 +4,7 @@ import {
   aggregateProfiles,
   createProfileAggregator,
   sqlShape,
+  urlPath,
   ACTION_SELF_PHASE,
   NO_ROUTE,
   ROUTE_SAMPLE_CAP,
@@ -194,14 +195,15 @@ describe("createProfileAggregator — rapport", () => {
   it("écarte l'outillage par défaut, et le compte", () => {
     const entries = [
       entry(),
+      entry({ url: "http://127.0.0.1:5151/nodefony/mcp", route: "devkit-mcp" }),
       entry({ url: "/nodefony/mcp", route: "devkit-mcp" }),
       entry({ url: "/nodefony/profiler/api/recent" }),
     ];
     const report = aggregateProfiles(entries);
     expect(report.requests).to.equal(1);
-    expect(report.filteredTooling).to.equal(2);
+    expect(report.filteredTooling).to.equal(3);
     const all = aggregateProfiles(entries, { includeTooling: true });
-    expect(all.requests).to.equal(3);
+    expect(all.requests).to.equal(4);
   });
 
   it("regroupe les requêtes sans route, et sépare HTTP et WebSocket", () => {
@@ -295,5 +297,16 @@ describe("createProfileAggregator — rapport", () => {
     agg.add(entry());
     expect(first.requests).to.equal(1);
     expect(agg.result().requests).to.equal(2);
+  });
+});
+
+describe("urlPath — le chemin d'une URL de profil", () => {
+  it("rend le chemin d'une URL absolue, telle que le profileur l'enregistre", () => {
+    expect(urlPath("http://127.0.0.1:5151/nodefony/mcp")).to.equal(
+      "/nodefony/mcp",
+    );
+    expect(urlPath("https://h:5152/a/b?c=1")).to.equal("/a/b?c=1");
+    expect(urlPath("http://h:5151")).to.equal("/");
+    expect(urlPath("/deja/un/chemin")).to.equal("/deja/un/chemin");
   });
 });

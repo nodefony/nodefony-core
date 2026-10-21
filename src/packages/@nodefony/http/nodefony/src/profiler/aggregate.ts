@@ -262,6 +262,19 @@ export function isFailedProfile(
   return (entry.status !== null && entry.status >= 500) || entry.error !== null;
 }
 
+/**
+ * Le chemin d'une URL de profil. Le profileur enregistre l'URL ABSOLUE
+ * (`http://hôte:port/chemin`) : un filtre écrit sur le chemin ne mordrait
+ * jamais dessus. Sans `URL` à construire — appelée sur chaque profil lu.
+ */
+export function urlPath(url: string): string {
+  if (url.startsWith("/")) return url;
+  const scheme = url.indexOf("://");
+  if (scheme === -1) return url;
+  const slash = url.indexOf("/", scheme + 3);
+  return slash === -1 ? "/" : url.slice(slash);
+}
+
 /** Percentile au rang le plus proche, sur un tableau TRIÉ non vide. */
 function percentile(sorted: number[], p: number): number | null {
   if (sorted.length === 0) return null;
@@ -453,7 +466,10 @@ export function createProfileAggregator(
 
   return {
     add(entry) {
-      if (!includeTooling && entry.url.startsWith(TOOLING_URL_PREFIX)) {
+      if (
+        !includeTooling &&
+        urlPath(entry.url).startsWith(TOOLING_URL_PREFIX)
+      ) {
         filteredTooling += 1;
         return false;
       }

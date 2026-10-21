@@ -341,8 +341,56 @@ export interface IMcpToolDeps {
 /** Lignes de journal rapportées par requête en erreur. */
 const LOG_LINES_PER_REQUEST = 8;
 
+/** Lignes lues par requête avant filtrage par sévérité. */
+const LOG_SCAN_PER_REQUEST = 50;
+
 /** Longueur maximale d'une ligne de journal rapportée. */
 const LOG_LINE_MAX = 300;
+
+/**
+ * Sévérité la plus faible rapportée (RFC 5424 : 4 = WARNING). Le DEBUG d'une
+ * requête n'aide pas l'agent à trouver une erreur — et il peut porter ce qui
+ * ne doit pas entrer dans son contexte : la valeur d'un cookie de session
+ * posé par la réponse, par exemple.
+ */
+const LOG_MAX_SEVERITY = 4;
+
+/**
+ * Une ligne de journal lisible pour l'agent, ou `null` si elle est sous le
+ * seuil de sévérité ou illisible. Le texte vit dans `payload` (chaîne, ou
+ * erreur) ; `msg` est souvent vide, `msgid` dit le contexte.
+ */
+function logLine(row: unknown): string | null {
+  if (typeof row !== "object" || row === null) return null;
+  const severity =
+    "severity" in row && typeof row.severity === "number" ? row.severity : 7;
+  if (severity > LOG_MAX_SEVERITY) return null;
+  const name =
+    "severityName" in row && typeof row.severityName === "string"
+      ? row.severityName
+      : String(severity);
+  const where =
+    "msgid" in row && typeof row.msgid === "string" && row.msgid.trim() !== ""
+      ? row.msgid.trim()
+      : "moduleName" in row && typeof row.moduleName === "string"
+        ? row.moduleName
+        : "?";
+  const payload = "payload" in row ? row.payload : undefined;
+  const msg = "msg" in row && typeof row.msg === "string" ? row.msg : "";
+  let text = msg;
+  if (typeof payload === "string" && payload !== "") text = payload;
+  else if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "message" in payload &&
+    typeof payload.message === "string"
+  ) {
+    text = payload.message;
+  }
+  if (text === "") return null;
+  const line = `${name} [${where}] ${text.replace(/\s+/g, " ")}`;
+  return line.length > LOG_LINE_MAX ? `${line.slice(0, LOG_LINE_MAX)}…` : line;
+}
 
 /**
  * Lit le journal d'UNE requête dans le syslog de l'application, par le plan
@@ -360,10 +408,17 @@ async function readRequestLogs(
 ): Promise<RequestLogs> {
   const admin = adminCallerFromMcp(caller);
   if (findAdminReadEntry(broker, admin, "syslog", "logs") === null) {
+    // Deux causes, deux gestes : le producteur manque, ou il est FERMÉ à cet
+    // appelant (porte protégée, appel sans jeton).
+    const present =
+      broker?.list().some((api) => api.adminNamespace === "syslog") === true;
     return {
       kind: "unavailable",
-      reason:
-        "journal non lisible ici (module syslog non chargé, ou fermé à cet appelant)",
+      reason: present
+        ? "journal réservé aux appelants authentifiés (scope admin:read) — " +
+          "présenter un jeton MCP : `npx nodefony security:mcp:token --write`"
+        : "aucun journal lisible : le producteur `syslog` du plan d'administration " +
+          "n'est pas chargé (`@nodefony/framework` absent ?)",
     };
   }
   const read = await callAdminEndpoint(
@@ -373,7 +428,7 @@ async function readRequestLogs(
       path: "logs",
       method: "GET",
       params: {},
-      query: { requestId, limit: String(LOG_LINES_PER_REQUEST) },
+      query: { requestId, limit: String(LOG_SCAN_PER_REQUEST) },
       label: "syslog/logs",
     },
     admin,
@@ -382,29 +437,13 @@ async function readRequestLogs(
   const lines: string[] = [];
   const rows: unknown[] = Array.isArray(read.data) ? read.data : [];
   for (const row of rows) {
-    if (
-      typeof row === "object" &&
-      row !== null &&
-      "msg" in row &&
-      typeof row.msg === "string"
-    ) {
-      const severity =
-        "severityName" in row && typeof row.severityName === "string"
-          ? row.severityName
-          : "?";
-      const module =
-        "moduleName" in row && typeof row.moduleName === "string"
-          ? row.moduleName
-          : "?";
-      const line = `${severity} [${module}] ${row.msg.replace(/\s+/g, " ")}`;
-      lines.push(
-        line.length > LOG_LINE_MAX ? `${line.slice(0, LOG_LINE_MAX)}…` : line,
-      );
-    }
+    const line = logLine(row);
+    if (line !== null && lines.length < LOG_LINES_PER_REQUEST) lines.push(line);
   }
+  const hidden = rows.length - lines.length;
   // Le driver rend les plus récentes d'abord : on raconte dans l'ordre.
   lines.reverse();
-  return { kind: "lines", lines };
+  return { kind: "lines", lines, hidden };
 }
 
 /**

@@ -531,25 +531,44 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
 
   it("rend les lignes de la requête, dans l'ordre, par la même voie que admin_call", async () => {
     const profiler = new Profiler();
+    // Forme RELEVÉE sur l'application : le texte vit dans `payload`, `msg` est
+    // vide, `msgid` dit le contexte. Le driver rend les plus récentes d'abord.
     const broker = syslogBroker([
-      // Le driver rend les plus récentes d'abord.
       {
         requestId: "obs-err",
+        severity: 3,
         severityName: "ERROR",
-        moduleName: "http",
-        msg: "Cannot read 'total'",
+        moduleName: "NODEFONY",
+        msgid: "req",
+        msg: "",
+        payload: "GET 500 /orders 1.4ms [obs-err] Cannot read 'total'",
       },
       {
         requestId: "obs-err",
-        severityName: "INFO",
-        moduleName: "http",
-        msg: "GET /orders",
+        severity: 7,
+        severityName: "DEBUG",
+        moduleName: "NODEFONY",
+        msgid: "http RESPONSE ",
+        msg: "",
+        payload: "ADD COOKIE ==> nodefony=SECRET-DE-SESSION; Path=/",
+      },
+      {
+        requestId: "obs-err",
+        severity: 4,
+        severityName: "WARNING",
+        moduleName: "NODEFONY",
+        msgid: "orm",
+        msg: "",
+        payload: { message: "requête lente sur orders" },
       },
       {
         requestId: "autre",
-        severityName: "INFO",
-        moduleName: "http",
-        msg: "bruit",
+        severity: 3,
+        severityName: "ERROR",
+        moduleName: "NODEFONY",
+        msgid: "req",
+        msg: "",
+        payload: "bruit",
       },
     ]);
     const tool = builtinMcpTools({
@@ -571,9 +590,50 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
     }, 50);
     const out = text(await pending);
     expect(out).toContain(
-      "    INFO [http] GET /orders\n    ERROR [http] Cannot read 'total'",
+      "    WARNING [orm] requête lente sur orders\n" +
+        "    ERROR [req] GET 500 /orders 1.4ms [obs-err] Cannot read 'total'",
     );
     expect(out).not.toContain("bruit");
+    // Le détail DEBUG — et la valeur de cookie qu'il porte — n'entre jamais
+    // dans le contexte de l'agent.
+    expect(out).not.toContain("SECRET-DE-SESSION");
+    expect(out).not.toContain("DEBUG");
+  });
+
+  it("dit qu'une requête n'a que du détail, au lieu de « évincée »", async () => {
+    const profiler = new Profiler();
+    const tool = builtinMcpTools({
+      broker: syslogBroker([
+        {
+          requestId: "obs-detail",
+          severity: 7,
+          severityName: "DEBUG",
+          moduleName: "NODEFONY",
+          msgid: "http",
+          msg: "",
+          payload: "EVENT CONTEXT onSaveSession",
+        },
+      ]),
+      getCard: () => ({}),
+      projectRoot: process.cwd(),
+      getProfiler: () => profiler,
+    }).observe;
+    const pending = tool.handler({ durationSec: 1 }, ADMIN);
+    setTimeout(() => {
+      profiler.collect({
+        requestId: "obs-detail",
+        type: "http",
+        url: "/orders",
+        response: { statusCode: 500 },
+        phases: [],
+        resolver: { route: { name: "orders.list" } },
+      });
+    }, 50);
+    const out = text(await pending);
+    expect(out).toContain(
+      "1 ligne(s) de détail écartée(s), aucune de niveau WARNING ou plus grave",
+    );
+    expect(out).not.toContain("évincée");
   });
 
   it("un appelant à qui le journal est fermé : la raison, pas une liste vide", async () => {
@@ -586,8 +646,40 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
     }).observe;
     const pending = tool.handler({ durationSec: 1 }, CALLER);
     setTimeout(() => {
+      for (const requestId of ["obs-closed-1", "obs-closed-2"]) {
+        profiler.collect({
+          requestId,
+          type: "http",
+          url: "/orders",
+          response: { statusCode: 500 },
+          phases: [],
+          resolver: { route: { name: "orders.list" } },
+        });
+      }
+    }, 50);
+    const out = text(await pending);
+    expect(out).toContain(
+      "Journal des requêtes en erreur : non lu — journal réservé aux appelants authentifiés",
+    );
+    expect(out).toContain("security:mcp:token --write");
+    // Dite UNE fois, pas une par requête.
+    expect(out.match(/réservé aux appelants/g)).toHaveLength(1);
+  });
+});
+
+describe("nodefony_observe — producteur syslog absent", () => {
+  it("dit que le producteur manque, pas qu'il est fermé", async () => {
+    const profiler = new Profiler();
+    const tool = builtinMcpTools({
+      broker: { list: () => [] },
+      getCard: () => ({}),
+      projectRoot: process.cwd(),
+      getProfiler: () => profiler,
+    }).observe;
+    const pending = tool.handler({ durationSec: 1 }, CALLER);
+    setTimeout(() => {
       profiler.collect({
-        requestId: "obs-closed",
+        requestId: "obs-nosyslog",
         type: "http",
         url: "/orders",
         response: { statusCode: 500 },
@@ -595,8 +687,31 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
         resolver: { route: { name: "orders.list" } },
       });
     }, 50);
-    expect(text(await pending)).toContain(
-      "journal non lu : journal non lisible ici",
+    const out = text(await pending);
+    expect(out).toContain(
+      "le producteur `syslog` du plan d'administration n'est pas chargé",
     );
+    expect(out).not.toContain("réservé aux appelants");
+  });
+});
+
+describe("nodefony_observe — lisibilité du journal", () => {
+  it("montre le journal de trois requêtes par route, pas plus", async () => {
+    const profiler = new Profiler();
+    const tool = observeTool({
+      getProfiler: () => profiler,
+      tickMs: 100,
+      createProbe: fakeProbe,
+      readRequestLogs: async () => ({
+        kind: "lines",
+        lines: ["ERROR [req] boom"],
+      }),
+    });
+    const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
+    setTimeout(() => {
+      for (let i = 0; i < 6; i++) collect(profiler, { status: 500 });
+    }, 50);
+    const out = text(await pending);
+    expect(out.match(/ERROR \[req\] boom/g)).toHaveLength(3);
   });
 });

@@ -29,12 +29,21 @@ const MAX_ANOMALIES = 10;
 const MAX_ROUTES = 20;
 const MAX_SLOW_QUERIES = 10;
 
+/** Requêtes en erreur dont le journal est montré, par route. */
+const LOGS_PER_ROUTE = 3;
+
 /** Longueur maximale d'une forme SQL citée. */
 const SHAPE_MAX = 300;
 
 /** Les lignes de journal d'une requête, ou la raison pour laquelle on ne les a pas. */
 export type RequestLogs =
-  { kind: "lines"; lines: string[] } | { kind: "unavailable"; reason: string };
+  | {
+      kind: "lines";
+      lines: string[];
+      /** Lignes lues mais écartées (détail sous WARNING, ou au-delà du plafond). */
+      hidden?: number | undefined;
+    }
+  | { kind: "unavailable"; reason: string };
 
 /** Le déroulé de l'observation : ce que le rapport doit dire de sa propre fiabilité. */
 export interface IObservationContext {
@@ -158,7 +167,11 @@ function anomalies(report: IProfileReport, ctx: IObservationContext): string[] {
     lines.push(
       `Boucle d'événements bloquée — jusqu'à ${ms(ctx.eventLoop.maxMs)} ms d'un tenant ` +
         `(retard moyen ${ms(ctx.eventLoop.meanMs)} ms) : un traitement synchrone a gelé ` +
-        "le process, et toutes les requêtes en cours ont attendu, quelle que soit leur route.",
+        "le process, et toutes les requêtes en cours ont attendu, quelle que soit leur route." +
+        (ctx.uptimeSec < 60
+          ? ` Le process a démarré il y a ${Math.round(ctx.uptimeSec)} s : ce blocage peut ` +
+            "venir du démarrage (compilation, préparation du front) — rappeler l'outil plus tard pour trancher."
+          : ""),
     );
   }
   return lines;
@@ -197,6 +210,20 @@ function gaps(report: IProfileReport, ctx: IObservationContext): string[] {
     );
   }
   return out;
+}
+
+/** La raison commune quand TOUTES les lectures de journal ont échoué, sinon `null`. */
+function sameUnavailableReason(
+  logs: ReadonlyMap<string, RequestLogs> | null,
+): string | null {
+  if (logs === null || logs.size === 0) return null;
+  let reason: string | null = null;
+  for (const one of logs.values()) {
+    if (one.kind !== "unavailable") return null;
+    if (reason !== null && one.reason !== reason) return null;
+    reason = one.reason;
+  }
+  return reason;
 }
 
 /**
@@ -281,14 +308,24 @@ export function renderProfileReport(
     }
   }
 
-  if (ctx.errorLogs !== null && ctx.errorLogs.size > 0) {
+  const closed = sameUnavailableReason(ctx.errorLogs);
+  if (closed !== null) {
+    // Toutes les lectures ont échoué pour la MÊME raison : la dire une fois.
+    out.push("", `Journal des requêtes en erreur : non lu — ${closed}.`);
+  } else if (ctx.errorLogs !== null && ctx.errorLogs.size > 0) {
     out.push(
       "",
       "Journal des requêtes en erreur (syslog de l'application, lu au relevé qui les a vues) :",
     );
+    // Trois requêtes par route suffisent à montrer l'erreur : la dixième
+    // occurrence du même plantage n'apprend rien à l'agent.
+    const shown = new Map<string, number>();
     for (const e of report.errors) {
       const logs = ctx.errorLogs.get(e.requestId);
       if (logs === undefined) continue;
+      const already = shown.get(e.route) ?? 0;
+      if (already >= LOGS_PER_ROUTE) continue;
+      shown.set(e.route, already + 1);
       out.push(
         `- requestId ${e.requestId} — route \`${e.route}\`, statut ${e.status ?? "—"} :`,
       );
@@ -296,7 +333,9 @@ export function renderProfileReport(
         out.push(`    (journal non lu : ${logs.reason})`);
       } else if (logs.lines.length === 0) {
         out.push(
-          "    (aucune ligne retrouvée : déjà évincée du tampon de relecture du syslog, ou rien journalisé)",
+          (logs.hidden ?? 0) > 0
+            ? `    (${logs.hidden} ligne(s) de détail écartée(s), aucune de niveau WARNING ou plus grave)`
+            : "    (aucune ligne retrouvée : déjà évincée du tampon de relecture du syslog, ou rien journalisé)",
         );
       } else {
         for (const line of logs.lines) out.push(`    ${line}`);
