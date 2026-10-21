@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-21 12:34** (UTC).
+> Empreinte prise le **2026-10-21 12:46** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 93% | 163 | 13 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 163 | 14 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 2% | 1 | 44 | — |
@@ -32,11 +32,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#605 — feat(site): versionner le site de documentation par release**
+**#540 — feat(mcp): publier quels outils lisent et lesquels modifient**
 
-Ordre 5.01 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
+Ordre 4.21 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 13 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 14 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -106,7 +106,7 @@ Ordre 5.01 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 22 ouverts
+## Backlog — aucune date promise · 21 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -124,7 +124,6 @@ Ordre 5.01 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 912 | P2 — décision | 2 | — | #532 | chore(scripts): fiabiliser et alléger l'outillage du dépôt |
 | 913 | P3 — fin de cycle | 11 | — | #534 | feat(cli): ajouter barre figée et invite au serveur de développement |
 | 913.4 | P2 — décision | 2 | — | #538 | feat(cli): ajouter une invite de commandes sous la barre d'état |
-| 913.45 | P2 — décision | 0.5 | — | #540 | feat(mcp): publier quels outils lisent et lesquels modifient |
 | 913.5 | P3 — fin de cycle | 3 | — | #539 | feat(cli): brancher un assistant à modèle local sur l'invite |
 | 914 | P2 — décision | 2 | — | #558 | docs: rendre lisibles les schémas verticaux trop hauts de la doc |
 | 915 | P3 — fin de cycle | 2 | — | #567 | feat(realtime): ajouter WebTransport comme second transport temps réel |
@@ -133,15 +132,16 @@ Ordre 5.01 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 918 | P2 — décision | 2 | — | #615 | feat(cli): ajouter un type de champ chiffré au repos à create entity |
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
 
-## Jalon 10.0.0-beta — 13 ouverts
+## Jalon 10.0.0-beta — 14 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
+| 4.21 | P2 — décision | 0.5 | — | #540 | feat(mcp): publier quels outils lisent et lesquels modifient |
+| 4.22 | P2 — décision | 1 | 2026-10-20 → 10-20 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
 | 5.01 | P2 — décision | 0.5 | — | #605 | feat(site): versionner le site de documentation par release |
 | 5.02 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 5.03 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
 | 5.04 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
-| 5.05 | P2 — décision | 1 | 2026-10-20 → 10-20 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
 | 5.06 | P0 — bloque le reste | 1 | 2026-11-04 → 11-04 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
 | 5.07 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
 | 5.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |

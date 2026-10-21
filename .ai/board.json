@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T12:34:07.812Z",
+  "generatedAt": "2026-10-21T12:46:40.324Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 163,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 13,
+      "open": 14,
       "title": "10.0.0-beta"
     },
     {
@@ -3864,6 +3864,39 @@
       "labels": []
     },
     {
+      "number": 540,
+      "title": "feat(mcp): publier quels outils lisent et lesquels modifient",
+      "url": "https://github.com/nodefony/nodefony-core/issues/540",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.21,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 480,
+      "title": "feat(cli): afficher la doc de la commande sous toute erreur d'usage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/480",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.22,
+      "debut": "2026-10-20",
+      "cible": "2026-10-20",
+      "labels": [
+        "beta-4",
+        "reportable"
+      ]
+    },
+    {
       "number": 271,
       "title": "feat(studio): afficher tout fournisseur de connexion configuré, pas seulement les marques connues",
       "url": "https://github.com/nodefony/nodefony-core/issues/271",
@@ -4442,23 +4475,6 @@
       "cible": "2026-11-12",
       "labels": [
         "beta-5"
-      ]
-    },
-    {
-      "number": 480,
-      "title": "feat(cli): afficher la doc de la commande sous toute erreur d'usage",
-      "url": "https://github.com/nodefony/nodefony-core/issues/480",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.05,
-      "debut": "2026-10-20",
-      "cible": "2026-10-20",
-      "labels": [
-        "beta-5",
-        "reportable"
       ]
     },
     {
@@ -9010,22 +9026,6 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 913.4,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 540,
-      "title": "feat(mcp): publier quels outils lisent et lesquels modifient",
-      "url": "https://github.com/nodefony/nodefony-core/issues/540",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 913.45,
       "debut": null,
       "cible": null,
       "labels": [
