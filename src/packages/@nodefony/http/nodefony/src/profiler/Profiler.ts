@@ -84,6 +84,11 @@ export interface ProfileSecurity {
 /** Profil complet d'une requête (HTTP ou message WS), exposé par `get`. */
 export interface ProfileEntry {
   requestId: string;
+  /**
+   * Numéro d'ordre de collecte, croissant sur la vie du profileur. Un profil
+   * réinséré (identifiant réutilisé) reçoit un numéro neuf.
+   */
+  seq: number;
   /** Horodatage de la collecte (`Date.now()`), pour le tri client. */
   ts: number;
   kind: "http" | "ws";
@@ -193,9 +198,39 @@ function totalDuration(
 /** Capacité par défaut du ring buffer (assez pour une session de debug). */
 const DEFAULT_CAP = 500;
 
-export class Profiler {
+/** Les profils collectés depuis un curseur. */
+export interface IProfileBatch {
+  /** Profils de numéro supérieur au curseur, du plus ancien au plus récent. */
+  entries: ProfileEntry[];
+  /** Curseur à repasser au prochain appel : le dernier numéro attribué. */
+  cursor: number;
+  /**
+   * Profils collectés depuis le curseur mais disparus avant d'être lus —
+   * évincés par le tampon, ou écrasés par un identifiant réutilisé. Exact.
+   */
+  lost: number;
+}
+
+/**
+ * Ce qu'un lecteur extérieur (outil de l'agent de code, banc) attend du
+ * profileur : suivre les profils au fil de l'eau, ou en retrouver un par son
+ * identifiant. Contrat structurel — on le résout par NOM dans le conteneur
+ * (`"profiler"`), sans dépendre de la classe.
+ */
+export interface IProfilerReader {
+  /** Curseur courant : le passer à {@link since} pour ne lire que la suite. */
+  readonly cursor: number;
+  /** Profils collectés depuis `cursor`, et le compte de ceux qui ont été perdus. */
+  since(cursor: number): IProfileBatch;
+  /** Profil complet d'une requête, ou `undefined` si évincé/inconnu. */
+  get(requestId: string): ProfileEntry | undefined;
+}
+
+export class Profiler implements IProfilerReader {
   private readonly _buf = new Map<string, ProfileEntry>();
   private readonly _cap: number;
+  /** Dernier numéro d'ordre attribué (0 = aucun profil collecté). */
+  private _seq = 0;
 
   constructor(cap: number = DEFAULT_CAP) {
     this._cap = cap > 0 ? cap : DEFAULT_CAP;
@@ -213,6 +248,7 @@ export class Profiler {
     const phases = ctx.phases ?? [];
     const entry: ProfileEntry = {
       requestId,
+      seq: ++this._seq,
       ts: Date.now(),
       kind: ctx.type === "websocket" ? "ws" : "http",
       method: ctx.method ?? null,
@@ -277,6 +313,36 @@ export class Profiler {
       });
     }
     return out;
+  }
+
+  /** Dernier numéro d'ordre attribué : le point de départ d'une lecture suivie. */
+  get cursor(): number {
+    return this._seq;
+  }
+
+  /**
+   * Profils collectés après `cursor`, sans copier le tampon : un parcours de
+   * la `Map` (ordre d'insertion = ordre des numéros), qui n'alloue que le
+   * tableau rendu.
+   *
+   * Les pertes se comptent sans estimation : chaque numéro attribué est un
+   * profil collecté, donc ce qui manque entre le curseur et le dernier numéro
+   * a disparu avant d'être lu. Un curseur venu d'ailleurs (supérieur au
+   * dernier numéro) repart de zéro.
+   *
+   * @param cursor - le `cursor` rendu par l'appel précédent, ou {@link cursor}.
+   */
+  since(cursor: number): IProfileBatch {
+    const from = cursor >= 0 && cursor <= this._seq ? cursor : 0;
+    const entries: ProfileEntry[] = [];
+    for (const e of this._buf.values()) {
+      if (e.seq > from) entries.push(e);
+    }
+    return {
+      entries,
+      cursor: this._seq,
+      lost: this._seq - from - entries.length,
+    };
   }
 
   /** Nombre de profils en mémoire. */

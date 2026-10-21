@@ -255,3 +255,79 @@ describe("Profiler — unit", () => {
     });
   });
 });
+
+describe("Profiler — lecture suivie (curseur)", () => {
+  /** Collecte `n` requêtes d'identifiants `<prefix>-1…n`. */
+  function feed(p: Profiler, n: number, prefix = "r"): void {
+    for (let i = 1; i <= n; i++)
+      p.collect(ctx({ requestId: `${prefix}-${i}` }));
+  }
+
+  it("numérote les profils dans l'ordre de collecte", () => {
+    const p = new Profiler();
+    expect(p.cursor).to.equal(0);
+    feed(p, 3);
+    expect(p.cursor).to.equal(3);
+    expect(p.get("r-1")!.seq).to.equal(1);
+    expect(p.get("r-3")!.seq).to.equal(3);
+  });
+
+  it("ne rend que les profils collectés après le curseur", () => {
+    const p = new Profiler();
+    feed(p, 3);
+    const start = p.cursor;
+    feed(p, 2, "s");
+    const batch = p.since(start);
+    expect(batch.entries.map((e) => e.requestId)).to.deep.equal(["s-1", "s-2"]);
+    expect(batch.cursor).to.equal(5);
+    expect(batch.lost).to.equal(0);
+    expect(p.since(batch.cursor).entries).to.have.length(0);
+  });
+
+  it("compte exactement les profils évincés avant d'être lus", () => {
+    const p = new Profiler(4);
+    const start = p.cursor;
+    feed(p, 10);
+    const batch = p.since(start);
+    expect(batch.entries.map((e) => e.requestId)).to.deep.equal([
+      "r-7",
+      "r-8",
+      "r-9",
+      "r-10",
+    ]);
+    expect(batch.lost).to.equal(6);
+  });
+
+  it("compte comme perdu un profil écrasé par un identifiant réutilisé", () => {
+    const p = new Profiler();
+    const start = p.cursor;
+    p.collect(ctx({ requestId: "dup", url: "/a" }));
+    p.collect(ctx({ requestId: "dup", url: "/b" }));
+    const batch = p.since(start);
+    expect(batch.entries.map((e) => e.url)).to.deep.equal(["/b"]);
+    expect(batch.lost).to.equal(1);
+  });
+
+  it("ne compte pas comme perdu ce qui avait déjà été lu", () => {
+    const p = new Profiler(4);
+    feed(p, 4);
+    const read = p.since(0);
+    expect(read.lost).to.equal(0);
+    feed(p, 3, "s");
+    const next = p.since(read.cursor);
+    expect(next.entries.map((e) => e.requestId)).to.deep.equal([
+      "s-1",
+      "s-2",
+      "s-3",
+    ]);
+    expect(next.lost).to.equal(0);
+  });
+
+  it("repart de zéro sur un curseur inconnu", () => {
+    const p = new Profiler();
+    feed(p, 2);
+    const batch = p.since(99);
+    expect(batch.entries).to.have.length(2);
+    expect(batch.lost).to.equal(0);
+  });
+});

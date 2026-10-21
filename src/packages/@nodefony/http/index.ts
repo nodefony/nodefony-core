@@ -291,6 +291,8 @@ export type {
   ProfilePhase,
   ProfileQuery,
   ProfileSecurity,
+  IProfileBatch,
+  IProfilerReader,
 } from "./nodefony/src/profiler/Profiler";
 
 // Agrégation des profils (route, phases, SQL, N+1) — règle unique, partagée

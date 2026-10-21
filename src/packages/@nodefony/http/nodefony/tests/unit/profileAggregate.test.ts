@@ -20,6 +20,7 @@ function entry(over: Partial<ProfileEntry> = {}): ProfileEntry {
   seq += 1;
   return {
     requestId: `req-${seq}`,
+    seq,
     ts: 0,
     kind: "http",
     method: "GET",
