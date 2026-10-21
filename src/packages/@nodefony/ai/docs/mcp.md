@@ -353,7 +353,9 @@ avant de chercher une panne.
 
 Le troisième paramètre, `run` (`IMcpToolRun`, `IMcpTool.ts#IMcpToolRun`), sert l'outil qui dure :
 
-- **`run.signal`** est abattu quand l'agent abandonne l'appel. Le consulter entre deux étapes, ou le
+- **`run.signal`** est abattu quand le client ferme le flux de la réponse — l'annulation selon la
+  révision courante de MCP. Une annulation par `notifications/cancelled` (révision précédente, que le
+  SDK officiel emploie encore) n'est pas encore entendue : l'outil va alors au bout. Le consulter entre deux étapes, ou le
   passer à ce qu'on attend (`fetch`, une requête de base) ;
 - **`run.progress(progress, total?, message?)`** donne signe de vie. Il est sans effet quand
   l'agent n'en a pas demandé, quand la porte ne sait pas tenir de flux, ou une fois l'outil

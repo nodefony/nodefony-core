@@ -3,7 +3,7 @@ name: nodefony-load-test
 description: >
   Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées
   (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes
-  (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).
+  (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster).
   **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole
   qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des
   chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien).
@@ -11,10 +11,19 @@ description: >
   rupture", "RPS", "latence p99", "est-ce que ça tient la charge ?", "combien de pods ?",
   "c'est plus rapide ?", "impact perf de ce changement ?", "mesurer avant/après",
   "dimensionner", "pourquoi plus lent que X", "où part le CPU d'une requête", "profiler" —
-  ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.
+  ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code. Profil
+  d'une route → outil MCP `nodefony_profile_route`.
 ---
 
 # load-test
+
+> **Avant tout script : la question est-elle un PROFIL ou une CHARGE ?** « Cette route est-elle
+> lente, combien de SQL, y a-t-il un N+1, ma modification a-t-elle changé quelque chose ? » sur
+> l'application de dev → outil MCP **`nodefony_profile_route { "path": "/la/route" }`** (skill
+> `nodefony-troubleshoot` §5) : il tire lui-même les requêtes, au nom d'un compte s'il le faut, et
+> rend phases, SQL et anomalies en un appel. Ce skill sert ce que l'outil NE fait PAS — débit, RPS,
+> percentiles sous charge, capacité d'un pod, rupture : le serveur de dev tourne avec son
+> profileur, en un seul process, et l'outil plafonne à 200 requêtes.
 
 Deux niveaux complémentaires. **Toujours s'assurer que le serveur dev tourne d'abord**
 (`bash .claude/skills/nodefony-start-server/start.sh`). Le serveur écoute 5151 (http/ws)

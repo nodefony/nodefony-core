@@ -188,6 +188,16 @@ const CASES = [
     "nodefony-troubleshoot",
     "package",
   ],
+  [
+    "mesure cette route, y a-t-il un problème de N+1 ?",
+    "nodefony-troubleshoot",
+    "package",
+  ],
+  [
+    "est-ce plus rapide après ma modification de ce contrôleur ?",
+    "nodefony-troubleshoot",
+    "package",
+  ],
   // La montée de version : le MOMENT (une version est sortie), jamais la
   // commande — qui la connaît n'a pas besoin du skill pour la taper.
   ["mettre à jour nodefony", "nodefony-upgrade", "package"],
@@ -265,6 +275,10 @@ const NEGATIVE_CASES = [
   ["crée un module @nodefony neuf", "nodefony-inspect"], // création ≠ inspection
   ["où est défini ce symbole ?", "nodefony-create-module"], // lookup ≠ scaffold
   ["lance un test de charge", "nodefony-check-memory-health"], // charge ≠ gate mémoire
+  [
+    "lance un test de charge à 10 000 requêtes par seconde",
+    "nodefony-troubleshoot",
+  ], // charge ≠ profil d'une route
   ["écris une page de doc de référence", "nodefony-studio-dev"], // doc ≠ écran générique
   ["démarre le serveur de dev", "nodefony-debug"], // démarrer ≠ diagnostiquer
   ["réserver cette page aux administrateurs", "nodefony-authentication"], // autoriser ≠ connecter

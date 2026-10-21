@@ -75,13 +75,12 @@ navigateur — d'où la commande, qui reste la porte utile.
 npx nodefony ai:mcp        # écrit .mcp.json ; --dry-run pour voir sans écrire
 ```
 
-Huit outils : **`nodefony_inspect`** (ce qui est monté), **`nodefony_check`**
+Neuf outils : **`nodefony_inspect`** (ce qui est monté), **`nodefony_check`**
 (ce qui manque — la commande s'appelle `doctor`), **`nodefony_symbols`** (ce qu'une
 API du framework signifie), **`nodefony_card`** (par où commencer),
 **`nodefony_docs`** (la documentation des modules installés), **`nodefony_admin_list`**
 et **`nodefony_admin_call`** (lectures du data plane d'administration, jeton porteur
-du scope `admin:read` exigé), et **`nodefony_observe`** (ce que l'application fait
-réellement de ses requêtes, mesuré pendant qu'elle tourne). Ce sont les mêmes
+du scope `admin:read` exigé), **`nodefony_observe`** (ce que l'application fait réellement de ses requêtes, mesuré pendant qu'elle tourne) et **`nodefony_profile_route`** (une route mesurée par l'outil lui-même, au nom d'un compte s'il le faut). Ce sont les mêmes
 briques que les commandes — une source, plusieurs portes.
 
 ### Mesurer l'application qui tourne — `nodefony_observe`
@@ -117,7 +116,7 @@ Journal des requêtes en erreur (syslog de l'application, lu au relevé qui les 
 ```
 
 C'est un outil **long** : un instantané part en progression toutes les deux
-secondes, l'agent qui abandonne l'appel l'arrête au relevé suivant, et un
+secondes, un client qui ferme le flux de la réponse (l'annulation selon la révision courante de MCP) l'arrête au relevé suivant — un client qui annule par notification sans fermer le flux ne l'arrête pas encore, et un
 rechargement du serveur pendant la fenêtre rend un rapport partiel qui le dit.
 Ce qu'il faut savoir pour s'en servir sans conclure à tort :
 
@@ -151,6 +150,75 @@ tourne, suit chaque rechargement du serveur de développement, et n'a aucun cach
 - le module étant `policy: "dev"`, **la route n'existe pas en production** ;
 - les outils sont en **lecture seule**, et la liste est une allowlist
   (`mcp.tools`).
+
+### Mesurer une route — `nodefony_profile_route`
+
+Là où `nodefony_observe` attend le trafic, `nodefony_profile_route` le **produit** :
+il envoie lui-même N requêtes `GET` (ou `HEAD`) sur un chemin de l'application,
+retrouve leurs profils par l'identifiant qu'il pose (`x-request-id`) et rend le
+même rapport. C'est la boucle « je modifie → je mesure » en un appel.
+
+```jsonc
+// tools/call
+{
+  "name": "nodefony_profile_route",
+  "arguments": { "path": "/orders?page=2", "count": 50 },
+}
+// optionnel : "concurrency" (défaut 4, max 8), "warmup" (défaut 3, hors mesures),
+//             "method": "HEAD", "as": "<identifiant>", "anonymous": true
+```
+
+`path` est un **chemin**, jamais une URL : hôte, schéma et `//` sont refusés,
+l'outil ne vise que l'application elle-même. Au plus 200 requêtes par appel —
+sous les 500 profils que garde le profileur — et 45 secondes de tir.
+
+**Au nom de qui.** Une page protégée vue sans compte ne rend que des refus.
+Quand le jeton MCP porte le scope `admin:write`, l'outil joue son
+**propriétaire** : il ouvre une vraie session à son nom par le flux de connexion
+de l'application (un ticket à usage unique, présenté en boucle locale à
+`POST /nodefony/devkit/profile-session`), tire avec, puis la détruit — l'audit
+l'écrit sous la raison `devkit`. `as` joue un autre compte, à condition que ses
+rôles soient inclus dans ceux du propriétaire, hiérarchie comprise : jouer un
+compte ne monte jamais en droits. Sans ce scope, l'outil joue l'anonyme et le
+rapport donne la commande :
+
+```bash
+npx nodefony security:mcp:token --scope "admin:read admin:write" --write
+```
+
+Extrait de deux appels réels, avant puis après la correction d'un N+1 (la même
+lecture, une requête par compte, puis une seule requête `$in`) :
+
+```text
+Verdict : anomalies (1) — observation complète
+Tir : 30/30 requête(s) GET /nodefony/test/db/n-plus-one · concurrence 4 · 106 ms · chauffe de 3 requête(s) hors mesures (p50 1.5 ms, max 2.5 ms)
+Joué en tant que : `admin` (ROLE_ADMIN, ROLE_NODEFONY_ADMIN, ROLE_DEV, ROLE_SUPERVISOR)
+Reçu par le client : 2xx 30 · 3xx 0 · 401 0 · 403 0 · autres 4xx 0 · 5xx 0 · sans réponse 0
+
+Anomalies (les plus coûteuses d'abord) :
+1. N+1 — route `DbController::nPlusOne` (DbController.nPlusOne) : `select … from "User" where "User"."id" = ? …` répétée ×16 dans une requête (30 requête(s) touchée(s), 14 ms cumulés). […] Remède habituel : charger la relation en une requête (`relations`, `$in`).
+
+route | type | n | p50 | p95 | max | 2xx/3xx/4xx/5xx | SQL par requête moy/max | temps par requête
+`DbController::nPlusOne` (DbController.nPlusOne) | http | 30 | 1.2 ms | 1.7 ms | 1.7 ms | 30/0/0/0 | 18.0/18 | SQL (cumul) 0.7 ms · action.self 0.2 ms · send 0.1 ms
+
+— après correction —
+Verdict : ok — observation complète
+`DbController::nPlusOneFixed` (DbController.nPlusOneFixed) | http | 30 | 0.7 ms | 0.9 ms | 2.1 ms | 30/0/0/0 | 3.0/3 | SQL (cumul) 0.4 ms · send 0.1 ms · action.self 0.1 ms
+```
+
+Ce que le rapport dit **en tête**, avant tout chiffre : les requêtes refusées
+(`401`/`403` — verdict « rien à juger »), redirigées (vers la page de
+connexion), restées sans réponse, et les profils non retrouvés. Une mesure qui ne
+porte pas sur ce qui était demandé le dit d'abord.
+
+À savoir :
+
+- ce sont de **vraies requêtes** : une page qui écrit en `GET` écrit N fois — un
+  compteur, ou une session créée pour chaque visiteur anonyme ;
+- les zones à jeton (`jwt`, `external-jwt`) ne sont pas jouées : leurs requêtes
+  rendent `401`, et le rapport le dit ;
+- un tir plus court que cinq périodes de la sonde laisse la boucle d'événements
+  « non mesurée » plutôt que d'afficher un zéro trompeur.
 
 ### Protéger la porte par OAuth 2.1
 

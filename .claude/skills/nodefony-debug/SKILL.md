@@ -33,7 +33,8 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 | --- | --- |
 | Crash boot serveur, stack trace dans logs | `nodefony-tail-error-logs` (parse `/tmp/nodefony-server.log`) |
 | Fuite mémoire suspectée (HTTP/WS heap delta) | `nodefony-check-memory-health` (run `npm run test:memory`, vitest) |
-| Lenteur, charge, p99 | `nodefony-load-test` (k6/autocannon orchestré) |
+| Une route lente, trop de SQL, un N+1, l'effet d'une modif (app de dev) | outil MCP `nodefony_profile_route` (`nodefony_observe` pour un trafic qu'on génère) — AVANT tout script |
+| Charge, débit, p99 sous charge, capacité | `nodefony-load-test` (k6/autocannon orchestré) |
 | Modif front .tsx ne passe pas | `nodefony-frontend-dev` §4 (curl `/@fs/` + purge `.vite`) |
 | Boot enfant direct, arrêt qui pend, reproduction d'un crash au boot | `NF_DEV_CHILD=1` + `nodefony-start-server` (voir plus bas) |
 | RETEX bugs réels par symptôme | `nodefony-framework-dev` §11 (kit vivant) |

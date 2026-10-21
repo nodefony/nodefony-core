@@ -82,7 +82,7 @@ source: "docs/skills/index.md"
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
-    "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
+    "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster).",
     "meta": "🟢 conforme · ⚙️ 75 scripts · 📎 5 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
@@ -180,7 +180,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "troubleshoot", "href": "nodefony-troubleshoot.md",
     "desc": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup, page lente — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le…",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "upgrade", "href": "nodefony-upgrade.md",
     "desc": "Monte une application Nodefony vers une nouvelle version du framework sans rien laisser derrière : tous les paquets ensemble et sous le bon canal, puis `nodefony upgrade` pour la documentation des agents, les skills et les fichiers livrés qu'un `npm install` ne refait pas, puis les ruptures…",
     "meta": "🟢 conforme v1.0.0" }
@@ -196,7 +196,7 @@ source: "docs/skills/index.md"
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.1 | 114 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
-| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
+| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 256 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.4.0 | 412 | 9 | 15 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 483 | 2 | 19 | ✅ |
@@ -205,7 +205,7 @@ source: "docs/skills/index.md"
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.1.0 | 314 | 0 | 2 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 535 | 5 | 75 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 543 | 5 | 75 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.3.0 | 403 | 0 | 2 | ✅ |
@@ -225,7 +225,7 @@ source: "docs/skills/index.md"
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
 | [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 479 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 362 | 0 | 0 | ✅ |
-| [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.0.0 | 180 | 0 | 1 | ✅ |
+| [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.1.0 | 208 | 0 | 1 | ✅ |
 | [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 116 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin

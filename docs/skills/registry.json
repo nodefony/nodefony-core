@@ -2933,8 +2933,8 @@
       ],
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 255,
-        "approxTokens": 4040
+        "bodyLines": 256,
+        "approxTokens": 4090
       },
       "requires": [],
       "resources": {
@@ -3012,7 +3012,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "255",
+            "detail": "256",
             "advisory": true
           }
         ]
@@ -6268,7 +6268,7 @@
     },
     {
       "name": "nodefony-load-test",
-      "summary": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
+      "summary": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster).",
       "family": "Exécuter, diagnostiquer, mesurer",
       "version": null,
       "keywords": [],
@@ -6290,10 +6290,10 @@
         "où part le CPU d'une requête",
         "profiler"
       ],
-      "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.",
+      "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code. Profil d'une route → outil MCP `nodefony_profile_route`.",
       "cost": {
-        "bodyLines": 535,
-        "approxTokens": 10294
+        "bodyLines": 543,
+        "approxTokens": 10465
       },
       "requires": [
         "serveur UP",
@@ -8567,7 +8567,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "986",
+            "detail": "1023",
             "advisory": false
           },
           {
@@ -8609,7 +8609,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "535",
+            "detail": "543",
             "advisory": true
           }
         ]
@@ -12713,8 +12713,9 @@
       "name": "nodefony-troubleshoot",
       "summary": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup, page lente — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail.",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [
+        "nodefony_profile_route",
         "nodefony_observe",
         "nodefony-dev"
       ],
@@ -12725,21 +12726,20 @@
         "ça marchait hier",
         "dépanner",
         "erreur dans les logs",
-        "plus rien ne répond",
         "tous mes tests sont rouges",
-        "pourquoi ça plante",
         "cette page est lente",
         "trop de requêtes SQL",
         "problème de N+1",
+        "mesure cette route",
+        "est-ce plus rapide après ma modification",
         "erreur 500 intermittente",
-        "stack trace",
         "EADDRINUSE",
         "ECONNREFUSED"
       ],
-      "description": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup, page lente — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail. Extrait les erreurs du journal par un script ; mesure l'application qui tourne par l'outil MCP `nodefony_observe` (où part le temps, N+1, 5xx avec leur journal). À charger DÈS qu'une chose qui marchait ne marche plus, AVANT de lire les sources ou de contourner la panne. Coder une fonctionnalité → `nodefony-dev`. Déclencheurs : \"l'application ne démarre plus\", \"le serveur plante au démarrage\", \"ma route répond 404\", \"ça marchait hier\", \"dépanner\", \"erreur dans les logs\", \"plus rien ne répond\", \"tous mes tests sont rouges\", \"pourquoi ça plante\", \"cette page est lente\", \"trop de requêtes SQL\", \"problème de N+1\", \"erreur 500 intermittente\", \"stack trace\", \"EADDRINUSE\", \"ECONNREFUSED\".",
+      "description": "Dépanne une application Nodefony en partant du SYMPTÔME constaté — démarrage qui échoue, route en 404, refus 401 ou 403 inattendu, erreur au journal, colonne absente, tests rouges d'un coup, page lente — et donne pour chacun le premier geste, la commande qui le constate et le skill qui porte le détail. Extrait les erreurs du journal par un script ; mesure une route par l'outil MCP `nodefony_profile_route` (il tire lui-même les requêtes), le trafic qu'on génère par `nodefony_observe`. À charger DÈS qu'une chose qui marchait ne marche plus, AVANT de lire les sources ou de contourner la panne. Coder une fonctionnalité → `nodefony-dev`. Déclencheurs : \"l'application ne démarre plus\", \"le serveur plante au démarrage\", \"ma route répond 404\", \"ça marchait hier\", \"dépanner\", \"erreur dans les logs\", \"tous mes tests sont rouges\", \"cette page est lente\", \"trop de requêtes SQL\", \"problème de N+1\", \"mesure cette route\", \"est-ce plus rapide après ma modification\", \"erreur 500 intermittente\", \"EADDRINUSE\", \"ECONNREFUSED\".",
       "cost": {
-        "bodyLines": 180,
-        "approxTokens": 4236
+        "bodyLines": 208,
+        "approxTokens": 4968
       },
       "requires": [],
       "resources": {
@@ -12814,7 +12814,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "993",
+            "detail": "1022",
             "advisory": false
           },
           {
@@ -12856,7 +12856,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "180",
+            "detail": "208",
             "advisory": true
           }
         ]
