@@ -1,138 +1,202 @@
 #!/usr/bin/env node
 /**
- * Dit si une spec VIVANTE figée sous `references/` a dérivé de son amont.
+ * Dit si une référence figée sous le `references/` d'un skill a dérivé de son amont.
  *
  * Le problème qu'il ferme : une RFC ne change jamais, mais une spec vivante
- * (MCP, AGENTS.md, Fetch) bouge — et une copie figée se périme EN SILENCE. On
- * continue de la citer, on croit tenir la norme, et l'écart ne se voit nulle
- * part. Ancrer la copie à un SHA rend la dérive CONSTATABLE en une commande.
+ * (MCP, AGENTS.md) ou une documentation (Docker, Kubernetes) bouge — et une
+ * copie figée se périme EN SILENCE. On continue de la citer, on croit tenir la
+ * référence, et l'écart ne se voit nulle part. Ancrer la copie rend la dérive
+ * CONSTATABLE en une commande.
  *
- * Ce script ne met JAMAIS à jour : il NOMME les fichiers suivis qui ont changé.
- * Une spec se relit avant d'être remplacée — un remplacement automatique ferait
- * entrer du texte que personne n'a lu dans la référence qui fait foi.
+ * Ce script ne met JAMAIS à jour le contenu : il NOMME ce qui a changé. Une
+ * référence se relit avant d'être remplacée — un remplacement automatique ferait
+ * entrer du texte que personne n'a lu dans ce qui fait foi.
  *
- * Décor : chaque dossier de `references/` porte un `AMONT.json`
- * (`repo`, `ref`, `sha`, `fichiers`). Un dossier sans `AMONT.json` est ignoré —
- * c'est le cas d'une spec figée à la main, et son absence est DITE.
+ * Décor : chaque sous-dossier d'un `references/` de `.claude/skills/*` peut
+ * porter un `AMONT.json`, sous l'une des deux formes décrites dans
+ * `amont-lib.mjs`. Un dossier sans `AMONT.json` est signalé — sa dérive est
+ * invérifiable, et cela se DIT.
  *
- * Codes de sortie : `0` tout à jour · `3` de la dérive à instruire ·
- * `78` impossible de savoir (réseau, quota). Le 3 n'est pas une erreur : une
- * spec qui avance est la normale, c'est de l'ignorer qui coûte.
+ *   node check-amont.mjs                      # le contrôle
+ *   node check-amont.mjs --pin <copie>...     # re-figer des copies RELUES
+ *   node check-amont.mjs --pin <copie> --until 2026-09-10T23:59:59Z
+ *
+ * Codes de sortie : `0` tout à jour · `3` de la dérive ou une copie touchée à
+ * instruire · `78` impossible de savoir (réseau, quota). Le
+ * 3 n'est pas une erreur : une référence qui avance est la normale, c'est de
+ * l'ignorer qui coûte.
  *
  * @module
  */
 
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  anchorDrift,
+  checkLocalCopies,
+  copyDrift,
+  createGithubApi,
+  findFrozenDirs,
+  isPerPage,
+  pinCopy,
+  readManifest,
+  writeManifest,
+} from "./amont-lib.mjs";
 
-const ICI = path.dirname(fileURLToPath(import.meta.url));
-const REFERENCES = path.join(ICI, "..", "references");
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SKILLS_ROOT = path.join(HERE, "..", "..");
 
-/** Interroge l'API GitHub en JSON, ou rend `null` si elle n'a pas répondu. */
-async function api(chemin) {
-  const entetes = { Accept: "application/vnd.github+json" };
-  // Un jeton n'est pas requis (dépôts publics) mais desserre le quota anonyme,
-  // qui suffit rarement à une passe d'intégration continue.
-  if (process.env.GITHUB_TOKEN) {
-    entetes.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  }
-  try {
-    const reponse = await fetch(`https://api.github.com/${chemin}`, {
-      headers: entetes,
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!reponse.ok) return null;
-    return await reponse.json();
-  } catch {
-    return null;
-  }
+/**
+ * Le jeton GitHub : `GITHUB_TOKEN`, sinon celui de `gh` s'il est installé et connecté.
+ *
+ * Non requis (dépôts publics), mais le quota anonyme (60 requêtes/h) ne couvre
+ * pas une passe qui compare des fichiers un par un — sans jeton, le verdict
+ * risque de finir en 78. Que `gh` soit là se CONSTATE en l'appelant.
+ */
+function githubToken() {
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  const gh = spawnSync("gh", ["auth", "token"], { encoding: "utf8" });
+  return gh.status === 0 ? gh.stdout.trim() || undefined : undefined;
 }
 
-/** Les dossiers de `references/` qui déclarent un amont. */
-function sourcesFigees() {
-  if (!existsSync(REFERENCES)) return [];
-  const sources = [];
-  for (const entree of readdirSync(REFERENCES, { withFileTypes: true })) {
-    if (!entree.isDirectory()) continue;
-    const manifeste = path.join(REFERENCES, entree.name, "AMONT.json");
-    if (!existsSync(manifeste)) {
-      sources.push({ nom: entree.name, amont: null });
-      continue;
+const get = createGithubApi(fetch, githubToken());
+
+const LOCAL_FAULTS = {
+  modified: "contenu modifié depuis qu'elle a été figée — relire, puis --pin",
+  unpinned: "déclarée mais jamais figée — relire, puis --pin",
+  missing: "déclarée dans AMONT.json, absente du dossier",
+  undeclared: "ni copie suivie ni déclarée hors amont (`untracked`)",
+};
+
+/** Re-fige les copies nommées, puis sort. */
+async function pin(argv) {
+  const untilAt = argv.indexOf("--until");
+  const until = untilAt === -1 ? undefined : argv[untilAt + 1];
+  const files = argv.filter(
+    (arg, i) =>
+      arg !== "--pin" &&
+      (untilAt === -1 || (i !== untilAt && i !== untilAt + 1)),
+  );
+  for (const file of files) {
+    const dir = path.dirname(path.resolve(file));
+    const name = path.basename(file);
+    const manifest = readManifest(dir);
+    const source = manifest?.sources?.find((s) => s.copies?.[name]);
+    if (!source) {
+      console.error(`✗  ${file} — aucune copie de ce nom dans AMONT.json`);
+      process.exit(1);
     }
-    sources.push({
-      nom: entree.name,
-      amont: JSON.parse(readFileSync(manifeste, "utf8")),
-    });
-  }
-  return sources;
-}
-
-let derive = 0;
-let inconnu = 0;
-let sansAmont = 0;
-
-for (const { nom, amont } of sourcesFigees()) {
-  if (amont === null) {
-    sansAmont += 1;
-    console.log(`⚠️  ${nom} — aucun AMONT.json : la dérive est INVÉRIFIABLE`);
-    continue;
-  }
-
-  const tete = await api(`repos/${amont.repo}/commits/${amont.ref}`);
-  if (tete === null) {
-    inconnu += 1;
-    console.log(`🔌 ${nom} — ${amont.repo} injoignable : on ne SAIT pas`);
-    continue;
-  }
-
-  if (tete.sha === amont.sha) {
-    console.log(`✅ ${nom} — à jour (${amont.sha.slice(0, 8)})`);
-    continue;
-  }
-
-  // La comparaison porte sur les fichiers SUIVIS : un amont qui avance de
-  // quarante commits sans toucher à ce qu'on a figé ne demande aucun geste.
-  const ecart = await api(
-    `repos/${amont.repo}/compare/${amont.sha}...${tete.sha}`,
-  );
-  if (ecart === null) {
-    inconnu += 1;
-    console.log(`🔌 ${nom} — comparaison indisponible : on ne SAIT pas`);
-    continue;
-  }
-
-  const suivis = new Set(amont.fichiers);
-  const touches = (ecart.files ?? [])
-    .map((f) => f.filename)
-    .filter((f) => suivis.has(f));
-
-  if (touches.length === 0) {
-    console.log(
-      `✅ ${nom} — ${ecart.ahead_by} commit(s) d'avance, aucun fichier suivi touché`,
+    source.copies[name] = await pinCopy(
+      source,
+      source.copies[name],
+      path.join(dir, name),
+      get,
+      until,
     );
-    continue;
+    writeManifest(dir, manifest);
+    const { commit, date } = source.copies[name];
+    console.log(`📌 ${name} — ${source.repo}@${commit.slice(0, 8)} (${date})`);
   }
+}
 
-  derive += 1;
+if (process.argv.includes("--pin")) {
+  await pin(process.argv.slice(2));
+  process.exit(0);
+}
+
+let drift = 0;
+let unknown = 0;
+let withoutManifest = 0;
+
+/** Contrôle d'un dossier ancré page par page. */
+async function checkPerPage(label, dir, manifest) {
+  for (const { file, problem } of checkLocalCopies(dir, manifest)) {
+    drift += 1;
+    console.log(`🔴 ${label}/${file} — ${LOCAL_FAULTS[problem]}`);
+  }
+  let fresh = 0;
+  for (const source of manifest.sources) {
+    for (const [file, copy] of Object.entries(source.copies ?? {})) {
+      if (!copy.blob) continue;
+      const verdict = await copyDrift(source, copy, get);
+      if (verdict.state === "fresh") {
+        fresh += 1;
+      } else if (verdict.state === "unknown") {
+        unknown += 1;
+        console.log(
+          `🔌 ${label}/${file} — ${source.repo} injoignable : on ne SAIT pas`,
+        );
+      } else if (verdict.state === "removed") {
+        drift += 1;
+        console.log(
+          `🔴 ${label}/${file} — ${source.repo}:${copy.path} introuvable en amont (supprimé, déplacé ou ref erronée)`,
+        );
+      } else {
+        drift += 1;
+        console.log(
+          `🔴 ${label}/${file} — a changé en amont le ${verdict.since ?? "?"} (figée au ${copy.date})`,
+        );
+        console.log(
+          `      relire : https://github.com/${source.repo}/commits/${source.ref}/${copy.path}`,
+        );
+        console.log(
+          `      puis figer : node ${path.relative(process.cwd(), fileURLToPath(import.meta.url))} --pin ${path.relative(process.cwd(), path.join(dir, file))}`,
+        );
+      }
+    }
+  }
+  console.log(`✅ ${label} — ${fresh} page(s) à jour de leur amont`);
+  for (const [file, reason] of Object.entries(manifest.untracked ?? {})) {
+    console.log(`⚪ ${label}/${file} — hors amont : ${reason}`);
+  }
+}
+
+/** Contrôle d'un dossier ancré à un SHA unique. */
+async function checkAnchor(label, manifest) {
+  const verdict = await anchorDrift(manifest, get);
+  if (verdict.state === "unknown") {
+    unknown += 1;
+    console.log(`🔌 ${label} — ${manifest.repo} injoignable : on ne SAIT pas`);
+  } else if (verdict.state === "fresh") {
+    const ahead =
+      verdict.ahead > 0
+        ? `${verdict.ahead} commit(s) d'avance, aucun fichier suivi touché`
+        : `à jour (${manifest.sha.slice(0, 8)})`;
+    console.log(`✅ ${label} — ${ahead}`);
+  } else {
+    drift += 1;
+    console.log(
+      `🔴 ${label} — ${verdict.touched.length} fichier(s) suivi(s) ont changé depuis ${manifest.sha.slice(0, 8)} :`,
+    );
+    for (const f of verdict.touched) console.log(`      ${f}`);
+    console.log(`      relire : ${verdict.url}`);
+    console.log(
+      `      puis figer : mettre à jour les fichiers ET le sha dans ${label}/AMONT.json`,
+    );
+  }
+}
+
+for (const { label, dir } of findFrozenDirs(SKILLS_ROOT)) {
+  const manifest = readManifest(dir);
+  if (manifest === null) {
+    withoutManifest += 1;
+    console.log(`⚠️  ${label} — aucun AMONT.json : la dérive est INVÉRIFIABLE`);
+  } else if (isPerPage(manifest)) {
+    await checkPerPage(label, dir, manifest);
+  } else {
+    await checkAnchor(label, manifest);
+  }
+}
+
+if (withoutManifest > 0) {
   console.log(
-    `🔴 ${nom} — ${touches.length} fichier(s) suivi(s) ont changé depuis ${amont.sha.slice(0, 8)} :`,
-  );
-  for (const f of touches) console.log(`      ${f}`);
-  console.log(`      relire : ${ecart.html_url}`);
-  console.log(
-    `      puis figer : mettre à jour les fichiers ET le sha dans references/${nom}/AMONT.json`,
+    `\n${withoutManifest} référence(s) sans AMONT.json — leur dérive ne sera jamais vue.`,
   );
 }
 
-if (sansAmont > 0) {
-  console.log(
-    `\n${sansAmont} référence(s) sans AMONT.json — leur dérive ne sera jamais vue.`,
-  );
-}
-
-if (inconnu > 0) {
+if (unknown > 0) {
   console.log("\n⚠️  Verdict PARTIEL : au moins une source n'a pas répondu.");
   process.exit(78);
 }
-process.exit(derive > 0 ? 3 : 0);
+process.exit(drift > 0 ? 3 : 0);

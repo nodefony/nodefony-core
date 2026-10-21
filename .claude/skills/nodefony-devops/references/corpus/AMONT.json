@@ -1,0 +1,207 @@
+{
+  "note": "Chaque page rendue d'un site (docs.docker.com, kubernetes.io, docs.podman.io) sort d'un fichier de dépôt : c'est lui qu'on suit. Correspondance prouvée au relevé : la date « Published Time » de chaque page = la date du dernier commit de son fichier source. Les trois guides Node.js de Docker (containerize, deploy, develop) ont fusionné en une page unique le 2026-07-01 : leurs trois copies sont la même page, servie sous trois URL.",
+  "sources": [
+    {
+      "repo": "docker/docs",
+      "ref": "main",
+      "site": "https://docs.docker.com",
+      "copies": {
+        "A-compose-reference.md": {
+          "path": "_vendor/github.com/docker/compose/v5/docs/reference/compose.md",
+          "commit": "90bbaacaa57f3541e0b433b9242934cf92d9c9dd",
+          "date": "2025-12-03T13:25:29Z",
+          "blob": "d80bb86ec62676a3ea37107fbc8583f6c65f7240",
+          "sha256": "52a8e6368ef7a30aed16895dc892060ac7dbab2c699faf98aef53db86f435f86"
+        },
+        "A-docker-build-best-practices.md": {
+          "path": "content/manuals/build/building/best-practices.md",
+          "commit": "c6a3a67f8bf67c2361740a18a60c7181135e99d8",
+          "date": "2026-09-04T09:06:02Z",
+          "blob": "3418b0c1058aed8774f977380b05733611ac4239",
+          "sha256": "92589aae971b3e2ebd7bc2982d541f214ed97c39e6d56bf820be530dd151c982"
+        },
+        "A-docker-daemon-reference.md": {
+          "path": "_vendor/github.com/docker/cli/docs/reference/dockerd.md",
+          "commit": "4168f0b101bd7e6d1bcaa9e754afa111bdb06a77",
+          "date": "2026-06-09T15:27:09Z",
+          "blob": "1dcb19162654760fae588d867a87aebd0d53297b",
+          "sha256": "0969bc1b6a49cf756128ab7addab9faa1a76d20e93d40df9f095d2c1ddf9ba1a"
+        },
+        "A-docker-multistage.md": {
+          "path": "content/manuals/build/building/multi-stage.md",
+          "commit": "6e4790e2912429d3e06e461d60732a7a5dba3c2a",
+          "date": "2024-09-10T14:54:06Z",
+          "blob": "04ac6ec2a5a641463af28f53e33cc7e866d68fca",
+          "sha256": "5b6b1ed60987c9a9ae40ece3083aef425a98ef612a8f932ee9a707d8ede30657"
+        },
+        "A-docker-nodejs-containerize.md": {
+          "path": "content/guides/nodejs.md",
+          "commit": "b98c400647c70f3e2177d513802d5d785aef232e",
+          "date": "2026-09-07T11:38:47Z",
+          "blob": "a847ec162607b1568b66de5d236830302021e71d",
+          "sha256": "f47156ac296287329036c9773b8f8509a5502db429fcaa2f974811791e983aae"
+        },
+        "A-docker-nodejs-deploy.md": {
+          "path": "content/guides/nodejs.md",
+          "commit": "b98c400647c70f3e2177d513802d5d785aef232e",
+          "date": "2026-09-07T11:38:47Z",
+          "blob": "a847ec162607b1568b66de5d236830302021e71d",
+          "sha256": "5c93c0732701dd6c73763d1da000b48eb2ca44bfcfc2882db327c3bf70323390"
+        },
+        "A-docker-nodejs-develop.md": {
+          "path": "content/guides/nodejs.md",
+          "commit": "b98c400647c70f3e2177d513802d5d785aef232e",
+          "date": "2026-09-07T11:38:47Z",
+          "blob": "a847ec162607b1568b66de5d236830302021e71d",
+          "sha256": "da4e5872327f417bad756003a3196c57669a3f932efff5f0db99b8fd4d89b9a2"
+        },
+        "A-docker-run-reference.md": {
+          "path": "_vendor/github.com/docker/cli/docs/reference/run.md",
+          "commit": "d4470c401535e54d223ad92941754d13cb022d3b",
+          "date": "2026-05-13T14:54:03Z",
+          "blob": "4824233685c94bfe92e337ceb3c0615ad1c7e9ce",
+          "sha256": "e720b7d02cd61ec69aa10a4da82af101388efd2d889ac4dbf5fbf4ea9d421799"
+        },
+        "A-docker-security-engine.md": {
+          "path": "content/manuals/engine/security/_index.md",
+          "commit": "b398f346a7e38451cacda1cfe54f1697d2685cdc",
+          "date": "2025-07-25T17:17:37Z",
+          "blob": "2c949d2ffd9ee2bbf8a3baa024a5157e523f87ea",
+          "sha256": "a3bab69b57d4cdcf83abf9e13c3ee9b03061b173b8b6ae312fad212c565430d4"
+        }
+      }
+    },
+    {
+      "repo": "nodejs/docker-node",
+      "ref": "main",
+      "copies": {
+        "B-nodejs-best-practices.md": {
+          "path": "docs/BestPractices.md",
+          "commit": "b466ecf3a58cf09a484e80fd4cb51a9cb8ee8aa2",
+          "date": "2026-08-05T14:05:41Z",
+          "blob": "58217745fed21ef52d47a8afa5c4c78d50738a61",
+          "sha256": "3a8a688242e255677654949243c0bd48ef0eaa3bb30a86d077b58e79dbe5a45b"
+        },
+        "B-nodejs-docker-node-readme.md": {
+          "path": "README.md",
+          "commit": "3e2bc46e191355404fcbdb62cee1477b78536e2c",
+          "date": "2026-08-31T13:31:26Z",
+          "blob": "6ee23ca6da978ec656c991a0087322f62b8d29c3",
+          "sha256": "bbb56ce62bd248263c9fae0464bc88a6883411c9e5bbca26d57a988f8eee6ad2"
+        }
+      }
+    },
+    {
+      "repo": "GoogleContainerTools/distroless",
+      "ref": "main",
+      "copies": {
+        "C-distroless-readme.md": {
+          "path": "README.md",
+          "commit": "3833bee1afb3a82bd54d4e579ec17e52afb9b65b",
+          "date": "2026-09-10T15:51:15Z",
+          "blob": "1d98d2aed292ea11ef702ee8aa5e21f1918b05e1",
+          "sha256": "a290490698c99fb81faa3f82143ac6db3a9f6ba1157c1d9f9e6648a1ad0f7d42"
+        }
+      }
+    },
+    {
+      "repo": "kubernetes/website",
+      "ref": "main",
+      "site": "https://kubernetes.io",
+      "copies": {
+        "D-k8s-pod-lifecycle.md": {
+          "path": "content/en/docs/concepts/workloads/pods/pod-lifecycle.md",
+          "commit": "9ee3db7e0a32777936d52ef8d00f4b720c437318",
+          "date": "2026-09-10T11:49:59Z",
+          "blob": "5fe94b97771bb851e93433cf58ebfc52c631f7a1",
+          "sha256": "43294a4210ea9d3f0d7233631901ec497e6a892aff52a04a4a9c6f1bd5c42404"
+        },
+        "D-k8s-pod-security-standards.md": {
+          "path": "content/en/docs/concepts/security/pod-security-standards.md",
+          "commit": "2c1aa11ce24c0b3e8ab81a04bc4ac088a5fae5e4",
+          "date": "2026-08-02T20:18:44Z",
+          "blob": "092e25d7b47a7171d378684d3f3319b4cbe19ff7",
+          "sha256": "308e00fc2883d9b06dc34908c46a8a4d1d6feb5ea6bcb71b55e89a204f6102e4"
+        },
+        "D-k8s-probes.md": {
+          "path": "content/en/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes.md",
+          "commit": "6a20979cf474462be672e7387c37dfb0f5f285a4",
+          "date": "2026-08-04T18:46:30Z",
+          "blob": "82fb8b2984920b3ea212eeb68b5990f3955eb08e",
+          "sha256": "ff39df5a48006957ee44c9e5e78a4625f1d1a322c6b0e3f68a68cb4dffa48753"
+        },
+        "D-k8s-resources.md": {
+          "path": "content/en/docs/concepts/configuration/manage-resources-containers.md",
+          "commit": "d96f81aa02691e1ecd67d4be4d129852a2ba60be",
+          "date": "2026-08-26T18:08:36Z",
+          "blob": "cbd80b3d4d61f92226570516bac9f94ceb9155a3",
+          "sha256": "d900778242959de3e0448c9bb17f3259162cd408773f463a1b25ed148a298baf"
+        },
+        "D-k8s-security-context.md": {
+          "path": "content/en/docs/tasks/configure-pod-container/security-context.md",
+          "commit": "2dd40a7547d4774dc9de7896f77752c31154e535",
+          "date": "2026-07-28T13:57:50Z",
+          "blob": "36c05cb0e2c45353594ebe631c6b3e9c67f61b73",
+          "sha256": "8bc1a1ae00fae6f07811c21914227de157bc653155f977a206fdb706e0ab8e45"
+        }
+      }
+    },
+    {
+      "repo": "containers/buildah",
+      "ref": "main",
+      "copies": {
+        "E-buildah-readme.md": {
+          "path": "README.md",
+          "commit": "eee1f2102a290a8d8080a97cabf81357de25bc87",
+          "date": "2025-05-21T14:50:49Z",
+          "blob": "04c7930792383de8d34fe034f950fae2d73dd9b4",
+          "sha256": "19524367fe6df9aa10c51da6caebb4917c75a6f3cfc2a75610b7700782c076dc"
+        }
+      }
+    },
+    {
+      "repo": "containers/podman",
+      "ref": "main",
+      "site": "https://docs.podman.io",
+      "copies": {
+        "E-podman-docs.md": {
+          "path": "docs/source/markdown/podman.1.md",
+          "commit": "65a33be7eddc24b28f613499f1133bbac384022f",
+          "date": "2026-08-18T14:20:32Z",
+          "blob": "703bd8fcf5063e69eb59089b7f43f973c480b9ef",
+          "sha256": "24b2877e51e2b176f0f24ad7f9ae1669415ed08937d126ee93a2a3cc6a7e402c"
+        },
+        "E-podman-run-docs.md": {
+          "path": "docs/source/markdown/podman-run.1.md.in",
+          "commit": "bd8de9f7aa8855fafc781a11057c30e8435d7eee",
+          "date": "2026-08-27T13:46:30Z",
+          "blob": "2d227cd80da91ce539b6e46ce34f555b2d1b28db",
+          "sha256": "6fc36a373233d0d8722cfe3b6f4e3c045675d72b52adf3a2cc572282966af648"
+        }
+      }
+    },
+    {
+      "repo": "opencontainers/image-spec",
+      "ref": "main",
+      "copies": {
+        "F-oci-annotations.md": {
+          "path": "annotations.md",
+          "commit": "16101e2a9f3235647b527234c3a3357c4eb0247d",
+          "date": "2024-08-19T20:55:37Z",
+          "blob": "96f5abfd87a63dde371a6fc1a528cea53c54e805",
+          "sha256": "c42d1fa9af3e0b40bd28f5802c6200550d4638cf47e39b95fbfb34f1e1e4aeb3"
+        },
+        "F-oci-image-spec.md": {
+          "path": "spec.md",
+          "commit": "76b8bae5ddf58550c02bf3fdae5e5a8c28b16e14",
+          "date": "2024-10-13T01:06:54Z",
+          "blob": "162350c7e1a18212dbb345543e0435950c69c326",
+          "sha256": "d0aceadacc2c2950a25743c3599d62639bb6b1884e44c98f6e026d72b2370c69"
+        }
+      }
+    }
+  ],
+  "untracked": {
+    "INDEX.md": "rédigé ici : l'index du corpus, pas une copie"
+  }
+}

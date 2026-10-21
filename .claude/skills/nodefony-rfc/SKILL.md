@@ -1,7 +1,7 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.8.0
+  version: 1.9.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
   depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md,
@@ -191,8 +191,17 @@ node .claude/skills/nodefony-rfc/scripts/check-amont.mjs
 
 Il ne met **jamais** à jour tout seul : une spec se relit avant d'être remplacée. Quand il signale
 une dérive, on relit le comparatif qu'il donne, on remplace les fichiers **et** le `sha` de
-`AMONT.json`. Toute référence ajoutée ici sans `AMONT.json` est signalée comme invérifiable — c'est
-le cas de `mcp-2026-07-28`, figé à la main.
+`AMONT.json`. Il balaye le `references/` de **tous** les skills : un sous-dossier sans `AMONT.json`
+est signalé comme invérifiable, nommément.
+
+Deux formes de manifeste (`scripts/amont-lib.mjs`) : l'**ancrage de dossier** ci-dessus (un dépôt,
+un SHA, des `fichiers`) et l'**ancrage par page** (`sources[].copies` : chaque copie nomme son
+fichier source, son `blob` et l'empreinte `sha256` de son contenu ; `untracked` déclare, motif à
+l'appui, ce qui n'a pas d'amont). Le second sert un corpus tiré de plusieurs dépôts — celui de
+`nodefony-devops` — et attrape aussi une copie retouchée sans être re-figée. Re-figer une page
+RELUE : `check-amont.mjs --pin <page> [--until <date ISO>]`. Un comparatif GitHub plafonne à 300
+fichiers sans le dire : plein, il est relu blob par blob, jamais pris pour « à jour ». Le jeton :
+`GITHUB_TOKEN`, sinon celui de `gh` — le quota anonyme ne tient pas une passe blob par blob.
 
 ### 9. Keycloak 26.8 — l'IdP de référence du social login et du serveur de ressources — **HORS LIGNE**
 

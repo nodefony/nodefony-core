@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-16
+updated: 2026-10-21
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-rfc/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.8.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.9.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,25 +26,29 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.8.0` |
+| Version | `1.9.0` |
 | Famille | Références et livrables |
-| Corps | 311 lignes |
-| Coût d'activation | ~5 817 tokens (le corps est chargé à l'invocation) |
+| Corps | 320 lignes |
+| Coût d'activation | ~6 009 tokens (le corps est chargé à l'invocation) |
 | Description | 1005 / 1024 caractères |
 | Déclencheurs | 35 |
 | Ressources `references/` | 0 page(s), 215 fichiers au total |
-| Scripts | 3 |
+| Scripts | 5 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
 Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
 
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **docker**.
+
 ## Skills voisins
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`framework-dev`](nodefony-framework-dev.md)
+[`devops`](nodefony-devops.md) · [`framework-dev`](nodefony-framework-dev.md)
 
 ## Quand il se déclenche
 
@@ -66,9 +70,17 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/check-amont.mjs` | Dit si une spec VIVANTE figée sous `references/` a dérivé de son amont. | — | `GITHUB_TOKEN` |
+| `scripts/amont-lib.mjs` | Les règles du contrôle de dérive des corpus figés, sans effet de bord. | — | — |
+| `scripts/amont-lib.test.mjs` | Les règles du contrôle de dérive, sans réseau : l'accès GitHub est un faux qui rend ce que chaque cas exige, le système de fichiers un dossier jetable. | — | — |
+| `scripts/check-amont.mjs` | Dit si une référence figée sous le `references/` d'un skill a dérivé de son amont. | `--pin` `--until` | `GITHUB_TOKEN` |
 | `scripts/check-refs.mjs` | Joue les deux contrôles de fraîcheur du corpus des normes et rend UN verdict. | — | — |
 | `scripts/check-rfc-status.mjs` | Dit si une RFC (ou un brouillon IETF) du corpus hors ligne est DÉPASSÉE. | — | — |
+
+**Invocation telle que documentée dans chaque script :**
+
+```bash
+node check-amont.mjs                      # le contrôle
+```
 
 **Toutes les variables lues par ce skill** : `GITHUB_TOKEN`
 
@@ -91,7 +103,7 @@ script, donc toujours à jour après régénération.
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 311 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 320 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

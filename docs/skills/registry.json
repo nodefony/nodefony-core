@@ -4665,7 +4665,7 @@
       "name": "nodefony-devops",
       "summary": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [],
       "triggers": [
         "gabarit de déploiement",
@@ -4684,8 +4684,8 @@
       ],
       "description": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit. Déclencheurs : \"gabarit de déploiement\", \"Dockerfile généré\", \"manifeste Kubernetes du scaffold\", \"politique Restricted\", \"readOnlyRootFilesystem\", \"sondes liveness et readiness\", \"arrêt gracieux d'un pod\", \"Podman\", \"corpus docker\", \"corpus kubernetes\", \"la CI de l'application générée\", \"GitLab CI\", \"scanner l'image\".",
       "cost": {
-        "bodyLines": 134,
-        "approxTokens": 3032
+        "bodyLines": 136,
+        "approxTokens": 3053
       },
       "requires": [],
       "resources": {
@@ -4699,8 +4699,7 @@
         "nodefony-framework-dev",
         "nodefony-load-test",
         "nodefony-multipod-bench",
-        "nodefony-release",
-        "nodefony-rfc"
+        "nodefony-release"
       ],
       "conformance": {
         "ok": true,
@@ -4762,7 +4761,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "134",
+            "detail": "136",
             "advisory": true
           }
         ]
@@ -9245,7 +9244,7 @@
       "name": "nodefony-rfc",
       "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML.",
       "family": "Références et livrables",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "keywords": [],
       "triggers": [
         "RFC",
@@ -9286,19 +9285,50 @@
       ],
       "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"importer un realm\", \"audience Keycloak\", \"hostname Keycloak\", \"thème Keycloak\", \"courriel Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\".",
       "cost": {
-        "bodyLines": 311,
-        "approxTokens": 5817
+        "bodyLines": 320,
+        "approxTokens": 6009
       },
-      "requires": [],
+      "requires": [
+        "docker"
+      ],
       "resources": {
         "references": [],
         "referenceFilesTotal": 215,
         "scripts": [
           {
-            "path": "scripts/check-amont.mjs",
-            "purpose": "Dit si une spec VIVANTE figée sous `references/` a dérivé de son amont.",
+            "path": "scripts/amont-lib.mjs",
+            "purpose": "Les règles du contrôle de dérive des corpus figés, sans effet de bord.",
             "usage": [],
             "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/amont-lib.test.mjs",
+            "purpose": "Les règles du contrôle de dérive, sans réseau : l'accès GitHub est un faux qui rend ce que chaque cas exige, le système de fichiers un dossier jetable.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/check-amont.mjs",
+            "purpose": "Dit si une référence figée sous le `references/` d'un skill a dérivé de son amont.",
+            "usage": [
+              "node check-amont.mjs                      # le contrôle"
+            ],
+            "options": [
+              {
+                "flag": "--pin",
+                "help": ""
+              },
+              {
+                "flag": "--until",
+                "help": ""
+              }
+            ],
             "env": [
               {
                 "name": "GITHUB_TOKEN",
@@ -9329,6 +9359,7 @@
         ]
       },
       "related": [
+        "nodefony-devops",
         "nodefony-framework-dev"
       ],
       "conformance": {
@@ -9391,7 +9422,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "311",
+            "detail": "320",
             "advisory": true
           }
         ]

@@ -1,7 +1,7 @@
 ---
 name: nodefony-devops
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 description: >
   Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son
   image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la
@@ -82,7 +82,7 @@ Pages publiques associées : `docs/guides/docker-cloud-native.md`, `docs/guides/
 
 ## 4. Le corpus de référence — `references/corpus/`
 
-24 pages figées hors ligne, ~1,3 Mo : Docker (construction, multi-étages, sécurité du moteur,
+22 pages figées hors ligne, ~1,1 Mo : Docker (construction, multi-étages, sécurité du moteur,
 compose, Node.js en conteneur), Kubernetes (**sondes**, **ressources**, **Pod Security
 Standards**, **contexte de sécurité**, **cycle de vie d'un pod**), Podman et Buildah, distroless,
 OCI. L'index complet, avec l'URL d'origine et la couverture de chaque page, vit dans
@@ -93,14 +93,16 @@ où l'intuition se trompe — qu'une limite CPU se paie en throttling, qu'un `em
 compte dans la limite du conteneur, que l'**absence** d'un profil seccomp est elle-même prohibée
 par la politique Restricted, qu'une sonde de démarrage se dimensionne sur le pire cas.
 
-> ⚠️ **La dérive de ce corpus n'est PAS contrôlée aujourd'hui, et il faut le savoir avant de
-> citer.** `npm run refs:check` (son volet `nodefony-rfc/scripts/check-amont.mjs`) ne balaye que le dossier
-> `references/` de `nodefony-rfc`, et son manifeste `AMONT.json` n'accepte qu'**un seul** dépôt
-> GitHub. Or 15 des 24 pages viennent de sites rendus en Markdown par un proxy (docs.docker.com,
-> kubernetes.io, docs.podman.io) et les 9 autres de **cinq** dépôts distincts. Conséquence à
-> assumer : une page du corpus peut avoir vieilli sans que rien ne le dise. Pour une affirmation
-> qui engage — une politique de sécurité, un comportement d'orchestrateur — **relire l'amont**
-> plutôt que de s'appuyer sur la copie seule.
+**Avant de citer une page, savoir si elle a vieilli** : `npm run refs:check`. Chaque page nomme
+dans `references/corpus/AMONT.json` le fichier de dépôt dont elle sort — y compris celles des sites
+(docs.docker.com, kubernetes.io, docs.podman.io), rendus depuis `docker/docs`,
+`kubernetes/website`, `containers/podman` —, le blob Git qu'elle reflète et l'empreinte de son
+contenu. La commande nomme la page dont la source a changé (avec la date), et celle retouchée ici
+sans être re-figée. Une page signalée se **relit à l'amont** avant d'être citée pour une
+affirmation qui engage ; une fois remplacée et relue :
+`node .claude/skills/nodefony-rfc/scripts/check-amont.mjs --pin <page>`. Les trois
+`A-docker-nodejs-*` sont une seule page (le guide Node.js de Docker est d'un seul tenant), servie
+sous trois URL.
 
 ## 5. Le décor local — ce qui est installé, et ce qui ne l'est pas
 

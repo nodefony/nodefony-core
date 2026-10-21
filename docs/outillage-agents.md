@@ -171,7 +171,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "skills/nodefony-rfc.md",
     "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de…",
-    "meta": "🟢 conforme v1.8.0 · ⚙️ 3 scripts" },
+    "meta": "🟢 conforme v1.9.0 · ⚙️ 5 scripts" },
   { "icon": "🗓️", "title": "roadmap", "href": "skills/nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode…",
     "meta": "🟢 conforme v2.1.0" }
@@ -190,7 +190,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.4.0 · ⚙️ 15 scripts · 📎 9 réf" },
   { "icon": "🔧", "title": "devops", "href": "skills/nodefony-devops.md",
     "desc": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
-    "meta": "🟢 conforme v1.0.0" },
+    "meta": "🟢 conforme v1.1.0" },
   { "icon": "🔧", "title": "identifiers", "href": "skills/nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },

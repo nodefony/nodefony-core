@@ -1,6 +1,6 @@
 # Docker Corpus — Référence hors ligne pour audit du Dockerfile généré
 
-Date: 2026-09-10 | Taille totale: ~1.6 MB | Fichiers: 23
+Date: 2026-09-10 | Taille totale: ~1.1 MB | Fichiers: 22
 
 ## Index des pages récupérées
 
@@ -10,7 +10,6 @@ Date: 2026-09-10 | Taille totale: ~1.6 MB | Fichiers: 23
 | A-compose-reference.md           | 17K    | github:docker/docs/_vendor/.../docker/compose/.../compose.md                                          | Référence Docker Compose v5                                              |
 | A-docker-daemon-reference.md     | 58K    | github:docker/docs/_vendor/.../docker/cli/.../dockerd.md                                              | Référence daemon Docker, options runtime                                 |
 | A-docker-multistage.md           | 103K   | https://docs.docker.com/build/building/multi-stage/                                                   | Builds multi-étages, optimisation légèreté image                         |
-| A-docker-nodejs-ci-cd.md         | 191K   | https://docs.docker.com/guides/nodejs/configure-ci-cd/                                                | CI/CD Node.js, tests conteneurisés, registres                            |
 | A-docker-nodejs-containerize.md  | 26K    | https://docs.docker.com/guides/nodejs/containerize/                                                   | Containeriser une app Node.js, Dockerfile template                       |
 | A-docker-nodejs-deploy.md        | 26K    | https://docs.docker.com/guides/nodejs/deploy/                                                         | Déploiement Node.js, préparation production                              |
 | A-docker-nodejs-develop.md       | 26K    | https://docs.docker.com/guides/nodejs/develop/                                                        | Développement local avec Docker, HMR/watch                               |
@@ -32,7 +31,7 @@ Date: 2026-09-10 | Taille totale: ~1.6 MB | Fichiers: 23
 
 ## Sommaire par source
 
-### A. Docker (8 fichiers, ~620 KB)
+### A. Docker (9 fichiers, ~450 KB)
 
 Référence officielle Docker: Dockerfile, build, Node.js, sécurité.
 
@@ -58,9 +57,10 @@ Spécification OCI: format image, annotations.
 
 ## Non récupérés
 
-| URL                                                                                | Motif                                                             | Statut |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------ |
-| https://raw.githubusercontent.com/docker/docs/main/content/reference/dockerfile.md | Chemin supprimé dans docker/docs (structure migrée vers _vendor/) | 404    |
+| URL                                                                                | Motif                                                                                  | Statut  |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------- |
+| https://raw.githubusercontent.com/docker/docs/main/content/reference/dockerfile.md | Chemin supprimé dans docker/docs (structure migrée vers _vendor/)                      | 404     |
+| https://docs.docker.com/guides/nodejs/configure-ci-cd/                             | Le relevé avait figé la page 404 ; le guide a fusionné dans `content/guides/nodejs.md` | retirée |
 
 ## Notes
 
@@ -68,4 +68,5 @@ Spécification OCI: format image, annotations.
 - **GitHub raw**: URLs raw.githubusercontent.com pour Markdown natif (docker-node, distroless, OCI)
 - **Vendored docs**: Docker utilise structure _vendor/ pour bundler les docs de CLI/Compose/Buildx
 - **Encodage**: UTF-8, pas de truncation
+- **Dérive**: chaque page nomme son fichier source dans `AMONT.json` (blob Git + empreinte locale) ; `npm run refs:check` dit laquelle a changé en amont ou a été retouchée ici. Les trois `A-docker-nodejs-*` sont la même page (guide unique depuis le 2026-07-01), servie sous trois URL
 - **Mise en place**: 2026-09-10 pour audit générateur Dockerfile Nodefony

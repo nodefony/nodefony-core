@@ -131,7 +131,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "nodefony-rfc.md",
     "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de…",
-    "meta": "🟢 conforme v1.8.0 · ⚙️ 3 scripts" },
+    "meta": "🟢 conforme v1.9.0 · ⚙️ 5 scripts" },
   { "icon": "🗓️", "title": "roadmap", "href": "nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : capacités à venir du module socle `@nodefony/ai` (modèles, RAG, mémoire, agents, garde-fous), invariants de design (générique, injectable, streaming natif, validation humaine, mode…",
     "meta": "🟢 conforme v2.1.0" }
@@ -150,7 +150,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.4.0 · ⚙️ 15 scripts · 📎 9 réf" },
   { "icon": "🔧", "title": "devops", "href": "nodefony-devops.md",
     "desc": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
-    "meta": "🟢 conforme v1.0.0" },
+    "meta": "🟢 conforme v1.1.0" },
   { "icon": "🔧", "title": "identifiers", "href": "nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
@@ -198,7 +198,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.4.0 | 412 | 9 | 15 | ✅ |
-| [`nodefony-devops`](nodefony-devops.md) | 1.0.0 | 134 | 0 | 0 | ✅ |
+| [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 483 | 2 | 19 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.1.0 | 410 | 11 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 116 | 6 | 0 | ✅ |
@@ -209,7 +209,7 @@ source: "docs/skills/index.md"
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.3.0 | 403 | 0 | 2 | ✅ |
-| [`nodefony-rfc`](nodefony-rfc.md) | 1.8.0 | 311 | 0 | 3 | ✅ |
+| [`nodefony-rfc`](nodefony-rfc.md) | 1.9.0 | 320 | 0 | 5 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 399 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 12 | ✅ |
