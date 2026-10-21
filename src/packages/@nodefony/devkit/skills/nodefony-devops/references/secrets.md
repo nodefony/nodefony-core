@@ -83,10 +83,9 @@ fait le même geste à la main.
 
 ## 5. Les monter, pas les poser en clair
 
-Le suffixe `_FILE` marche sur les variables du catalogue — **sauf** `NF_DATABASE_URL` et
-`NF_REDIS_URL`, qui l'ignorent (l'application repart alors sur SQLite) : ces deux URL s'injectent
-depuis un Secret en variable. Détail complet dans [`variables.md`](variables.md). Ce qu'il faut
-retenir ici :
+Le suffixe `_FILE` marche sur les variables du catalogue, URL de base et de cache comprises —
+l'URL d'une base porte un mot de passe, c'est elle qu'on monte en premier. Détail complet dans
+[`variables.md`](variables.md). Ce qu'il faut retenir ici :
 
 ```yaml
 # Kubernetes

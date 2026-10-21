@@ -40,6 +40,7 @@ elle ne le dit pas : elle sert un 404 ou un 413 que personne ne rattache au fron
 | une chaîne de `try_files` sur **toutes** les racines statiques                    | les fichiers d'un module en `404` alors qu'ils sont bien montés                                                                     |
 | HAProxy : `Forwarded` entrant **effacé** avant le nôtre                           | un en-tête forgé conservé à côté du vrai                                                                                            |
 | HAProxy : le schéma **constaté** sur la connexion entrante (`ssl_fc`)             | annoncer `https` pour un client venu en clair — cookies `Secure` posés sur du clair                                                 |
+| HAProxy : `option httpchk GET /readyz` dans chaque backend                        | un exemplaire qui draine gardé dans la table — un contrôle TCP le croit sain tant que son port accepte (§6)                         |
 | nginx avec TLS : HTTP/2 côté navigateur (`http2 on`), HTTP/1.1 vers l'application | le plafond d'environ six connexions par origine est celui du navigateur envers le **frontal** : c'est là que le multiplexage compte |
 
 ## 3. Le point qui casse tout si on l'oublie — `NF__HTTP__TRUSTPROXY`
@@ -118,29 +119,18 @@ sur une sonde veut dire que tu n'interroges pas le chemin nu (une réécriture a
 🔴 **Ce que les configurations générées font réellement** — à savoir dès que tu mets
 **plusieurs** exemplaires derrière un même frontal :
 
-| Frontal généré | Contrôle de santé                                                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HAProxy        | `check` **sans** `option httpchk` : un contrôle de **connexion TCP**, qui ne lit pas `/readyz`. Un exemplaire qui draine garde son port ouvert pendant le délai avant drain, et reçoit encore du trafic |
-| nginx          | nginx libre n'a **pas** de contrôle actif : il retire un amont après des échecs constatés, jamais sur `/readyz`                                                                                         |
+| Frontal généré | Contrôle de santé                                                                                                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HAProxy        | `option httpchk GET /readyz` dans **chaque** backend : l'exemplaire est retiré dès que `/readyz` répond `503`, alors que son port accepte encore. En h2c, la sonde part sur le port HTTP en HTTP/1.1 (`check port 5151 check-proto h1`) |
+| nginx          | nginx libre n'a **pas** de contrôle actif : il retire un amont après des échecs constatés, jamais sur `/readyz`                                                                                                                         |
 
-Avec un seul exemplaire (le cas du compose), c'est sans conséquence. Avec plusieurs, sous HAProxy,
-ajoute dans **chaque** `backend` :
+Le chemin vient de la configuration (`health.readinessPath`) ; sondes désactivées, le générateur
+retombe sur un contrôle de connexion, plutôt que d'interroger un chemin que plus rien ne sert.
+Éprouvé par un HAProxy 3.0 réel sur la configuration générée : un exemplaire dont la sonde ne
+répond pas `200` sort du répartiteur alors que son port accepte.
 
-```text
-backend be_nodefony
-  option httpchk GET /readyz
-  http-check expect status 200
-  server nodefony 10.0.0.12:5151 check
-
-# avec h2c : le trafic va au port 5153, mais la sonde doit viser 5151 en HTTP/1.1
-backend be_nodefony_h2c
-  option httpchk GET /readyz
-  http-check expect status 200
-  server nodefony_h2c 10.0.0.12:5153 check port 5151 check-proto h1 proto h2
-```
-
-C'est une retouche à la main d'un fichier généré : note-la, elle disparaît à la prochaine
-génération. Et pose un **délai avant drain** (`shutdownDelay`, en millisecondes) au moins égal à deux
+Ce que la sonde ne règle pas seule : le frontal ne la lit que toutes les deux secondes. Pose un
+**délai avant drain** (`shutdownDelay`, en millisecondes) au moins égal à deux
 intervalles de contrôle, pour que le frontal ait vu le `503` avant que l'exemplaire cesse
 d'accepter.
 
@@ -207,12 +197,15 @@ garde les WebSocket sur le port HTTP. Rien à écrire :
   default_backend be_nodefony_h2c
 
 backend be_nodefony_h2c
-  server nodefony_h2c 10.0.0.12:5153 check proto h2
+  option httpchk GET /readyz
+  http-check expect status 200
+  # la sonde vise le port HTTP en HTTP/1.1 : le port h2c refuse HTTP/1.1
+  server nodefony_h2c 10.0.0.12:5153 check port 5151 check-proto h1 proto h2
 ```
 
 Avec `--reencrypt`, h2c est ignoré : le port TLS négocie déjà HTTP/2. **C'est la seule cible jouée
-contre un frontal réel** (HAProxy 3.0, configuration générée) : requête servie en h2c, WebSocket
-ouverte sur le port HTTP.
+contre un frontal réel** (HAProxy 3.0, configuration générée) : requête servie en h2c, sonde lue
+sur le port HTTP, WebSocket ouverte sur le port HTTP.
 
 ### nginx — reste en HTTP/1.1 vers l'application
 
@@ -353,7 +346,7 @@ ton audit et ta limitation par adresse sont faux, sans aucune erreur pour le sig
 | Un flux SSE n'arrive qu'en bloc, ou à la fin             | le frontal met la réponse en tampon                                  | ne pas filtrer `X-Accel-Buffering` ; sur ingress-nginx, `proxy-buffering: "off"` |
 | `413` sur un envoi que l'application accepte             | limite de corps du frontal plus basse                                | régénérer ; sur un contrôleur d'entrée, `proxy-body-size`                        |
 | Les statiques d'un module en `404` derrière nginx        | une seule racine statique déclarée                                   | régénérer : la chaîne de `try_files` vient des montages réels                    |
-| Des `5xx` à chaque déploiement, plusieurs exemplaires    | le frontal ne lit pas `/readyz` (§6), ou pas de délai avant drain    | `option httpchk GET /readyz` + `shutdownDelay`                                   |
+| Des `5xx` à chaque déploiement, plusieurs exemplaires    | le frontal ne lit pas `/readyz` (§6), ou pas de délai avant drain    | régénérer le frontal (sonde `/readyz`) + `shutdownDelay`                         |
 | `429` en rafale juste après un déploiement               | reconnexions comptées sur la seule adresse du frontal                | `NF__HTTP__TRUSTPROXY`                                                           |
 | Toutes les adresses des journaux sont celles du frontal  | `NF__HTTP__TRUSTPROXY` absent — le défaut sûr                        | déclarer l'adresse ou le CIDR du frontal                                         |
 | Une adresse cliente **forgée** apparaît dans l'audit     | confiance accordée alors que l'application est joignable directement | fermer l'accès direct, ne jamais poser `true` dans ce cas                        |

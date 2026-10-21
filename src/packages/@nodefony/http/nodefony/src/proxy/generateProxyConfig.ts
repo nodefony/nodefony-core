@@ -81,6 +81,16 @@ export interface ProxyIntrospection {
    */
   keepaliveIntervalMs: number;
   /**
+   * Chemin de la sonde de disponibilité (`health.readinessPath`), ou `null`
+   * si les sondes sont désactivées.
+   *
+   * HAProxy la sonde (`option httpchk`) au lieu d'un simple contrôle de
+   * connexion : un exemplaire qui draine garde son port ouvert, mais `/readyz`
+   * répond déjà `503` — c'est ce qui le retire du répartiteur AVANT qu'il
+   * cesse d'accepter. Un contrôle TCP le garderait jusqu'à la fermeture du port.
+   */
+  readinessPath?: string | null;
+  /**
    * Terminaison TLS au frontal, ou `null` pour n'écouter qu'en clair.
    *
    * **nginx seulement** : haproxy exige un PEM COMBINÉ (certificat + clé dans
@@ -103,6 +113,7 @@ export const defaultIntrospection: ProxyIntrospection = {
   reencrypt: false,
   maxBodyBytes: 0,
   keepaliveIntervalMs: 0,
+  readinessPath: "/readyz",
   tls: null,
 };
 
@@ -418,6 +429,21 @@ export function generateHaproxyConfig(intro: ProxyIntrospection): string {
     ? " ssl ca-file /etc/haproxy/certs/ca.pem verify required" +
       ` verifyhost ${firstDomain(intro)} sni str(${firstDomain(intro)})`
     : "";
+  // Sonde de disponibilité : le port h2c refuse HTTP/1.1, la sonde y vise donc
+  // le port HTTP (`check port`) en HTTP/1.1 (`check-proto h1`).
+  const readiness = intro.readinessPath ?? null;
+  const healthCheck =
+    readiness === null
+      ? ""
+      : `  # Retire l'exemplaire dès que ${readiness} répond 503 (début de l'arrêt),
+  # pas seulement quand son port se ferme.
+  option httpchk GET ${readiness}
+  http-check expect status 200
+`;
+  const h2cCheck =
+    readiness === null
+      ? "check"
+      : `check port ${intro.httpPort} check-proto h1`;
   const staticNote =
     intro.staticRoots.length > 0 || intro.mounts.length > 0
       ? "  # NB : haproxy ne sert pas de fichiers — les statiques sont proxifiés au\n" +
@@ -475,11 +501,11 @@ ${
       "  default_backend be_nodefony_h2c\n"
 }
 backend be_nodefony
-${staticNote}  server nodefony ${intro.backendHost}:${backendPort} check${serverSsl}
+${healthCheck}${staticNote}  server nodefony ${intro.backendHost}:${backendPort} check${serverSsl}
 ${
   h2cPort === null
     ? ""
-    : `\nbackend be_nodefony_h2c\n  server nodefony_h2c ${intro.backendHost}:${h2cPort} check proto h2\n`
+    : `\nbackend be_nodefony_h2c\n${healthCheck}  server nodefony_h2c ${intro.backendHost}:${h2cPort} ${h2cCheck} proto h2\n`
 }`;
 }
 

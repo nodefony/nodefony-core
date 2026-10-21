@@ -356,7 +356,8 @@ describe("generateProxyConfig — haproxy vers h2c (servers.h2c)", () => {
       intro({ backendHost: "app", httpPort: 5151, h2cPort: 5153 }),
     );
     expect(c).to.include("default_backend be_nodefony_h2c");
-    expect(c).to.include("server nodefony_h2c app:5153 check proto h2");
+    expect(c).to.include("server nodefony_h2c app:5153 ");
+    expect(c).to.include(" proto h2\n");
     // Le port h2c n'annonce pas le CONNECT étendu (RFC 8441) : une WebSocket
     // qui y partirait échouerait. Elle doit garder le port HTTP/1.1.
     expect(c).to.include(
@@ -374,5 +375,67 @@ describe("generateProxyConfig — haproxy vers h2c (servers.h2c)", () => {
     const c = generateHaproxyConfig(intro({ reencrypt: true, h2cPort: 5153 }));
     expect(c).not.to.include("be_nodefony_h2c");
     expect(c).to.include("default_backend be_nodefony\n");
+  });
+});
+
+describe("generateProxyConfig — haproxy sonde /readyz, pas une connexion TCP", () => {
+  // Un exemplaire qui draine garde son port ouvert pendant le délai avant drain :
+  // un `check` nu (connexion TCP) le croit sain et lui envoie encore du trafic.
+  // `/readyz` répond 503 dès le SIGTERM — c'est elle que le frontal doit lire.
+  const block = (cfg: string, name: string): string => {
+    // `\nbackend` : `default_backend be_nodefony` porte le même nom.
+    const start = cfg.indexOf(`\nbackend ${name}\n`);
+    expect(start, `backend ${name} absent`).to.be.greaterThan(-1);
+    const next = cfg.indexOf("\nbackend ", start + 1);
+    return cfg.slice(start, next === -1 ? undefined : next);
+  };
+
+  it("le backend HTTP sonde /readyz et exige un 200, AVANT sa ligne server", () => {
+    const b = block(generateHaproxyConfig(intro({})), "be_nodefony");
+    expect(b).to.include("option httpchk GET /readyz");
+    expect(b).to.include("http-check expect status 200");
+    expect(b.indexOf("option httpchk")).to.be.lessThan(b.indexOf("  server "));
+  });
+
+  it("le chemin vient de la configuration (`health.readinessPath`), jamais d'un littéral", () => {
+    const b = block(
+      generateHaproxyConfig(intro({ readinessPath: "/ops/ready" })),
+      "be_nodefony",
+    );
+    expect(b).to.include("option httpchk GET /ops/ready");
+    expect(b).not.to.include("/readyz");
+  });
+
+  it("sondes désactivées → contrôle de connexion seul (un httpchk viserait un chemin mort)", () => {
+    const c = generateHaproxyConfig(
+      intro({ readinessPath: null, h2cPort: 5153 }),
+    );
+    expect(c).not.to.include("httpchk");
+    expect(c).not.to.include("check-proto");
+    expect(block(c, "be_nodefony_h2c")).to.include(
+      "server nodefony_h2c 127.0.0.1:5153 check proto h2",
+    );
+  });
+
+  it("h2c : la sonde vise le port HTTP en HTTP/1.1 — le port h2c refuse HTTP/1.1", () => {
+    const c = generateHaproxyConfig(
+      intro({ backendHost: "app", httpPort: 6001, h2cPort: 6003 }),
+    );
+    const h2c = block(c, "be_nodefony_h2c");
+    expect(h2c).to.include("option httpchk GET /readyz");
+    expect(h2c).to.include(
+      "server nodefony_h2c app:6003 check port 6001 check-proto h1 proto h2",
+    );
+    // Le backend des WebSocket garde lui aussi sa sonde.
+    expect(block(c, "be_nodefony")).to.include("option httpchk GET /readyz");
+  });
+
+  it("re-chiffrement : la sonde passe par le même TLS que le trafic", () => {
+    const b = block(
+      generateHaproxyConfig(intro({ reencrypt: true })),
+      "be_nodefony",
+    );
+    expect(b).to.include("option httpchk GET /readyz");
+    expect(b).to.match(/server nodefony \S+:5152 check ssl /);
   });
 });

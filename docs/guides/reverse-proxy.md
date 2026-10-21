@@ -108,6 +108,7 @@ battement du WebSocket.
 | une chaîne de `try_files` sur les racines statiques                                                                                         | les statiques d'un module en `404`, alors qu'ils sont bien montés (`generateProxyConfig.ts#nginxServerBlock`)               |
 | HAProxy : `Forwarded` entrant **effacé** avant le nôtre                                                                                     | un en-tête forgé conservé à côté du vrai (RFC 7239 §8.1)                                                                    |
 | HAProxy : le schéma **constaté** sur `ssl_fc`                                                                                               | annoncer `proto=https` à un client venu en clair — le défaut a existé, il a été corrigé par le banc contre proxy réel       |
+| HAProxy : `option httpchk GET /readyz` dans chaque backend (`generateProxyConfig.ts#generateHaproxyConfig`)                                 | un exemplaire qui draine gardé dans la table : un contrôle TCP le croit sain tant que son port accepte                      |
 
 ### Les flux SSE derrière le proxy
 
@@ -243,7 +244,10 @@ envoie le trafic au port h2c en `proto h2` et garde les WebSocket sur le port HT
   default_backend be_nodefony_h2c
 
 backend be_nodefony_h2c
-  server nodefony_h2c 10.0.0.12:5153 check proto h2
+  option httpchk GET /readyz
+  http-check expect status 200
+  # la sonde vise le port HTTP en HTTP/1.1 : le port h2c refuse HTTP/1.1
+  server nodefony_h2c 10.0.0.12:5153 check port 5151 check-proto h1 proto h2
 ```
 
 La commande lit la configuration **de l'environnement où elle tourne** : lancez-la avec h2c activé
@@ -328,7 +332,8 @@ labels:
 ```
 
 > **Ce qui a été joué contre un proxy réel** : HAProxy 3.0, avec la configuration **générée** —
-> requête servie en h2c, WebSocket ouverte sur le port HTTP. C'est ce banc qui a trouvé le défaut
+> requête servie en h2c, sonde `/readyz` lue sur le port HTTP, et un exemplaire dont la sonde ne
+> répond pas `200` retiré alors que son port accepte. C'est ce banc qui a trouvé le défaut
 > suivant, invisible aux tests directs : HAProxy, comme le veut RFC 9113 §8.3.1, convertit une
 > requête HTTP/1.1 sans fabriquer `:authority` — il ne garde que `Host`, et le serveur, qui ne lisait
 > que `:authority`, répondait `421`. Il lit désormais `Host` en repli
@@ -369,7 +374,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 | Unitaires — confiance | `unit/trustProxy.test.ts` | CIDR, préréglages, listes — quelle socket a le droit d'être crue |
 | Unitaires — résolution | `unit/forwarded.test.ts`, `unit/forwardedWiring.test.ts` | la remontée RFC 7239, et son câblage dans le pipeline |
 | Intégration — h2c | `http/h2c.test.ts` | le port h2c tel qu'un proxy le voit : `Host` sans `:authority`, flux multiplexés, WebSocket et HTTP/1.1 refusés, relais interne |
-| Intégration — proxys RÉELS | `integration/reverse-proxy.test.ts` | les raccords contre nginx **et** HAProxy en marche, derrière `PROXY_GATE` (`scripts/test/vitest/gates.ts#PROXY_GATE`) |
+| Intégration — proxys RÉELS | `integration/reverse-proxy.test.ts` | les raccords contre nginx **et** HAProxy en marche, derrière `PROXY_GATE` (`scripts/test/vitest/gates.ts#PROXY_GATE`) ; et un HAProxy 3.0 lancé sur la configuration **générée** : sonde `/readyz`, retrait sur `503`, h2c, syntaxe des variantes |
 
 > **Ce qui a été attrapé par le banc réel, et par rien d'autre** : `proxy:generate` annonçait
 > `proto=https` à un client venu en clair. Aucun test unitaire ne pouvait le voir — il fallait un

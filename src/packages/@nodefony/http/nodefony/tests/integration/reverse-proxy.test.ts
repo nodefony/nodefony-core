@@ -25,11 +25,19 @@
  */
 import { expect } from "vitest";
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import http from "node:http";
 import https from "node:https";
+import os from "node:os";
 import path from "node:path";
+import tls from "node:tls";
 import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
+import {
+  defaultIntrospection,
+  generateHaproxyConfig,
+  type ProxyIntrospection,
+} from "../../src/proxy/generateProxyConfig";
 import { asError } from "../helpers/wsText";
 
 const NGINX = process.env.NF_PROXY_NGINX_URL ?? "";
@@ -188,5 +196,209 @@ describe.skipIf(!HAS_DECOR)(
       ws.close();
       expect(opened, "handshake WebSocket à travers nginx").to.equal("open");
     });
+  },
+);
+
+/**
+ * La configuration HAProxy GÉNÉRÉE, jouée par un vrai HAProxy contre le serveur.
+ *
+ * Le banc ci-dessus tourne sur un `haproxy.cfg` écrit à la main
+ * (`docker/haproxy/`) : il ne dit rien de ce que `proxy:generate` produit. Ici,
+ * le générateur écrit la configuration et HAProxy l'exécute. La question posée :
+ * le frontal retire-t-il l'exemplaire sur la RÉPONSE de la sonde, ou seulement
+ * quand le port se ferme ? Un contrôle TCP garde l'exemplaire tant que le port
+ * accepte — c'est-à-dire pendant tout le délai avant drain.
+ */
+describe.skipIf(!HAS_DECOR)(
+  "Integration — HAProxy RÉEL sur la configuration GÉNÉRÉE (sonde /readyz)",
+  () => {
+    const IMAGE = "haproxy:3.0-alpine";
+    const started: string[] = [];
+    let dir = "";
+
+    beforeAll(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-haproxy-gen-"));
+    });
+    afterAll(() => {
+      for (const id of started) {
+        spawnSync("docker", ["rm", "-f", id], { stdio: "ignore" });
+      }
+      if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    /** Lance HAProxy sur la sortie du générateur ; rend l'URL publiée. */
+    function runGenerated(
+      name: string,
+      over: Partial<ProxyIntrospection>,
+    ): string {
+      const sub = path.join(dir, name);
+      fs.mkdirSync(sub);
+      const cfg = generateHaproxyConfig({
+        ...defaultIntrospection,
+        backendHost: "host.docker.internal",
+        listen: 8080,
+        ...over,
+      });
+      fs.writeFileSync(path.join(sub, "haproxy.cfg"), cfg);
+      const run = spawnSync(
+        "docker",
+        [
+          "run",
+          "-d",
+          "--rm",
+          "--add-host=host.docker.internal:host-gateway",
+          "-p",
+          "127.0.0.1::8080",
+          "-v",
+          `${sub}:/usr/local/etc/haproxy:ro`,
+          IMAGE,
+        ],
+        { encoding: "utf8" },
+      );
+      expect(run.status, `docker run : ${run.stderr}`).to.equal(0);
+      const id = run.stdout.trim();
+      started.push(id);
+      const port = spawnSync("docker", ["port", id, "8080/tcp"], {
+        encoding: "utf8",
+      })
+        .stdout.trim()
+        .split(":")
+        .pop();
+      return `http://127.0.0.1:${port}`;
+    }
+
+    /** Statut d'un GET à travers le frontal (0 si la connexion échoue). */
+    function statusOf(base: string): Promise<number> {
+      return new Promise((resolve) => {
+        const req = http.get(new URL(CONTEXT, base), (res) => {
+          res.resume();
+          res.on("end", () => resolve(res.statusCode ?? 0));
+        });
+        req.on("error", () => resolve(0));
+        req.setTimeout(5_000, () => req.destroy());
+      });
+    }
+
+    /** Relève le statut jusqu'à `want` ou l'échéance ; rend le dernier vu. */
+    async function settle(
+      base: string,
+      want: number,
+      ms: number,
+    ): Promise<number> {
+      const deadline = Date.now() + ms;
+      let last = 0;
+      while (Date.now() < deadline) {
+        last = await statusOf(base);
+        if (last === want) return last;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      return last;
+    }
+
+    it("sonde /readyz qui répond 200 → l'exemplaire reste servi au-delà de la fenêtre de chute", async () => {
+      const base = runGenerated("ready", {});
+      expect(
+        await settle(base, 200, 15_000),
+        "servi à travers HAProxy",
+      ).to.equal(200);
+      // `fall 3` × `inter 2s` : un exemplaire jugé malade serait retiré en ~6 s.
+      await new Promise((r) => setTimeout(r, 8_000));
+      expect(await statusOf(base), "toujours servi après 8 s").to.equal(200);
+    }, 40_000);
+
+    it("sonde qui ne répond pas 200 → HAProxy retire l'exemplaire alors que son port ACCEPTE", async () => {
+      // Un chemin sans route rend 404 : le port est ouvert, la sonde dit « pas
+      // prêt ». C'est exactement l'état d'un exemplaire qui draine. Un contrôle
+      // TCP le garderait ; la sonde HTTP le retire → 503 du frontal lui-même.
+      const base = runGenerated("not-ready", {
+        readinessPath: "/nodefony/test/__pas-de-route-ici__",
+      });
+      expect(
+        await settle(base, 503, 20_000),
+        "l'exemplaire doit sortir du répartiteur",
+      ).to.equal(503);
+    }, 40_000);
+
+    it("h2c : servi en HTTP/2 en clair, et la sonde passe par le port HTTP en HTTP/1.1", async () => {
+      // L'application du dépôt active h2c hors production (`nodefony.config.ts`).
+      // Le port h2c refuse HTTP/1.1 : une sonde qui y partirait mettrait
+      // l'exemplaire DOWN. `check port <http> check-proto h1` l'envoie ailleurs.
+      const base = runGenerated("h2c", { h2cPort: 5153 });
+      const alpn = async (): Promise<string> =>
+        new Promise((resolve) => {
+          const req = http.get(new URL(CONTEXT, base), (res) => {
+            const chunks: Buffer[] = [];
+            res.on("data", (c: Buffer) => chunks.push(c));
+            res.on("end", () => {
+              try {
+                const seen = JSON.parse(Buffer.concat(chunks).toString()) as {
+                  alpnProtocol?: string;
+                };
+                resolve(`${res.statusCode} ${seen.alpnProtocol ?? "?"}`);
+              } catch {
+                resolve(`${res.statusCode} illisible`);
+              }
+            });
+          });
+          req.on("error", (e: Error) => resolve(`error ${e.message}`));
+          req.setTimeout(5_000, () => req.destroy(new Error("timeout")));
+        });
+      expect(
+        await settle(base, 200, 15_000),
+        "servi à travers HAProxy",
+      ).to.equal(200);
+      expect(await alpn(), "le lien HAProxy → Nodefony est en h2c").to.equal(
+        "200 h2c",
+      );
+      // Au-delà de la fenêtre de chute : la sonde a réussi, l'exemplaire reste.
+      await new Promise((r) => setTimeout(r, 8_000));
+      expect(await alpn(), "toujours servi en h2c après 8 s").to.equal(
+        "200 h2c",
+      );
+    }, 40_000);
+
+    it("les variantes h2c et re-chiffrement passent le contrôle de syntaxe de HAProxy", () => {
+      const variants: [string, Partial<ProxyIntrospection>][] = [
+        ["h2c", { h2cPort: 5153 }],
+        ["reencrypt", { reencrypt: true, domains: ["nodefony.com"] }],
+      ];
+      for (const [name, over] of variants) {
+        const sub = path.join(dir, `check-${name}`);
+        fs.mkdirSync(sub);
+        fs.writeFileSync(
+          path.join(sub, "haproxy.cfg"),
+          generateHaproxyConfig({ ...defaultIntrospection, ...over }),
+        );
+        // Le re-chiffrement lit une autorité au chemin du gabarit : n'importe
+        // quel certificat racine valide suffit à un contrôle de syntaxe.
+        const certs = path.join(sub, "certs");
+        fs.mkdirSync(certs);
+        fs.writeFileSync(
+          path.join(certs, "ca.pem"),
+          tls.rootCertificates[0] ?? "",
+        );
+        const check = spawnSync(
+          "docker",
+          [
+            "run",
+            "--rm",
+            "-v",
+            `${sub}:/usr/local/etc/haproxy:ro`,
+            "-v",
+            `${certs}:/etc/haproxy/certs:ro`,
+            IMAGE,
+            "haproxy",
+            "-c",
+            "-f",
+            "/usr/local/etc/haproxy/haproxy.cfg",
+          ],
+          { encoding: "utf8" },
+        );
+        expect(
+          check.status,
+          `${name} : ${check.stdout}${check.stderr}`,
+        ).to.equal(0);
+      }
+    }, 60_000);
   },
 );

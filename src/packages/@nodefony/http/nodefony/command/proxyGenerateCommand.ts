@@ -146,6 +146,7 @@ class ProxyGenerate extends Command {
       trustedHosts?: ITrustedHostsConfig;
       maxBodySize?: number;
       websocket?: { keepaliveInterval?: number };
+      health?: { enabled?: boolean; readinessPath?: string };
     };
     const servers = (
       this.kernel?.options as
@@ -216,6 +217,12 @@ class ProxyGenerate extends Command {
       reencrypt: Boolean(opts.reencrypt),
       maxBodyBytes: Number(httpOpts.maxBodySize) || 0,
       keepaliveIntervalMs: Number(httpOpts.websocket?.keepaliveInterval) || 0,
+      // Sondes désactivées → pas de `httpchk` : il interrogerait un chemin
+      // que plus rien ne sert, et retirerait l'exemplaire pour toujours.
+      readinessPath:
+        httpOpts.health?.enabled === false
+          ? null
+          : (httpOpts.health?.readinessPath ?? "/readyz"),
       // Chemins tels que le PROXY les verra à l'exécution — pas ceux de cette
       // machine : la clé se monte au déploiement, elle n'entre dans aucune image.
       tls:

@@ -155,11 +155,10 @@ C'est la différence la plus structurante avec le compose de développement.
 2. **Ne reporte jamais l'hôte du compose.** `compose.yaml` pointe un **service du compose** ; le
    même nom dans un cluster désigne un Service qui n'existe pas. Rien ne casse au déploiement, tout
    casse au premier accès.
-3. **L'URL passe par un Secret, en `valueFrom.secretKeyRef`** — elle porte un mot de passe, elle
-   n'a rien à faire dans un ConfigMap. C'est ce que fait `deploy/migrate-job.yaml`. 🔴 **Pas en
-   `_FILE`** : `NF_DATABASE_URL_FILE` et `NF_REDIS_URL_FILE` ne sont pas lus par la résolution de
-   l'infrastructure — l'application démarre alors **sur SQLite**, avec un simple avertissement
-   `DB_SQLITE_FALLBACK` au bilan de démarrage.
+3. **L'URL passe par un Secret** — elle porte un mot de passe, elle n'a rien à faire dans un
+   ConfigMap. Deux formes, au choix : `valueFrom.secretKeyRef` (ce que fait
+   `deploy/migrate-job.yaml`) ou le Secret monté en fichier et `NF_DATABASE_URL_FILE`. Ne pose
+   jamais les deux : `NF_DATABASE_URL` et `NF_DATABASE_URL_FILE` ensemble arrêtent le démarrage.
 4. **Le plafond de connexions.** Une base administrée les compte strictement. N exemplaires × le
    pool de chacun peuvent la saturer, et l'erreur sort de **son** côté, pas du tien. Reste prudent
    sur le nombre d'exemplaires.
@@ -181,7 +180,7 @@ env:
   - { name: NF_POD_NAME, valueFrom: { fieldRef: { fieldPath: metadata.name } } }
   - { name: NF__HTTP__TRUSTPROXY, value: uniquelocal }
   - { name: NF_CSRF_SECRET_FILE, value: /run/secrets/csrf }
-  - name: NF_DATABASE_URL # jamais _FILE pour une URL d'infrastructure (§6)
+  - name: NF_DATABASE_URL # ou NF_DATABASE_URL_FILE vers un Secret monté (§6)
     valueFrom: { secretKeyRef: { name: <app>-db, key: url } }
   # plusieurs exemplaires + temps réel : un bus partagé, sinon chaque pod parle seul
   - { name: NF_REALTIME_DRIVER, value: redis }

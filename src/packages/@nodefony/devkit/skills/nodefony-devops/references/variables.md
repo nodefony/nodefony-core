@@ -80,14 +80,10 @@ production : `platform` (variables du déploiement), `secrets` (gestionnaire de 
 
 ## 3. Le suffixe `_FILE` — les secrets montés
 
-Les variables du catalogue de `env.ts` acceptent un `_FILE`. Le contenu du fichier est lu, retour
-à la ligne final retiré.
-
-> 🔴 **Exception : les URL d'infrastructure.** `NF_DATABASE_URL` et `NF_REDIS_URL` sont lues
-> directement par la résolution de l'infrastructure, qui **ignore** `_FILE`. Un
-> `NF_DATABASE_URL_FILE` seul fait démarrer l'application **sur SQLite**, avec un simple
-> avertissement. Ces deux-là s'injectent comme variables, depuis un Secret
-> (`valueFrom.secretKeyRef` en Kubernetes, `environment` lu d'un fichier non versionné en compose).
+Les variables du catalogue acceptent un `_FILE`, **URL d'infrastructure comprises**
+(`NF_DATABASE_URL_FILE`, `NF_REDIS_URL_FILE`, et leurs alias de plateforme). Le contenu du fichier
+est lu, retour à la ligne final retiré. Une seule règle les tranche toutes : le tableau ci-dessous
+vaut pour l'URL de la base comme pour un secret de session.
 
 ```yaml
 env:

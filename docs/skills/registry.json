@@ -12169,8 +12169,8 @@
       ],
       "description": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal (nginx, HAProxy, h2c, Ingress), secrets, variables, Kubernetes, Podman, nombre de pods. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : sondes, durée du drain, code de sortie, identifiant, dossiers écrits, ce qui casse quand une variable manque. À charger AVANT d'écrire un manifeste, un compose, une configuration de frontal, de dimensionner les pods, ou de diagnostiquer un conteneur qui redémarre. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"docker compose\", \"derrière nginx\", \"derrière HAProxy\", \"Ingress\", \"h2c\", \"ma WebSocket se coupe derrière le proxy\", \"SSE derrière un proxy\", \"combien de pods ?\", \"dimensionner un pod\", \"plusieurs pods en temps réel\", \"Kubernetes\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"arrêt gracieux\", \"politique Restricted\", \"secrets\", \"variables d'environnement\", \"Podman\".",
       "cost": {
-        "bodyLines": 208,
-        "approxTokens": 6327
+        "bodyLines": 206,
+        "approxTokens": 6330
       },
       "requires": [],
       "resources": {
@@ -12251,7 +12251,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "208",
+            "detail": "206",
             "advisory": true
           }
         ]
