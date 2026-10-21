@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T20:44:08.569Z",
+  "generatedAt": "2026-10-21T22:09:31.420Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 165,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 17,
+      "open": 18,
       "title": "10.0.0-beta"
     },
     {
@@ -3938,6 +3938,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.232,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 647,
+      "title": "fix(ai): honorer l'annulation MCP envoyée par notification",
+      "url": "https://github.com/nodefony/nodefony-core/issues/647",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.233,
       "debut": null,
       "cible": null,
       "labels": [
