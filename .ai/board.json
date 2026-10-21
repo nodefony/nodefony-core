@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T12:46:40.324Z",
+  "generatedAt": "2026-10-21T13:18:34.222Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 163,
+      "closed": 164,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -63,7 +63,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 36,
+      "open": 37,
       "title": "10.1.0"
     }
   ],
@@ -3867,8 +3867,8 @@
       "number": 540,
       "title": "feat(mcp): publier quels outils lisent et lesquels modifient",
       "url": "https://github.com/nodefony/nodefony-core/issues/540",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3894,6 +3894,38 @@
       "labels": [
         "beta-4",
         "reportable"
+      ]
+    },
+    {
+      "number": 642,
+      "title": "feat(devkit): donner à l'agent de code les mesures du profileur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/642",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 4.23,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 643,
+      "title": "feat(devkit): observer l'application qui tourne depuis l'agent de code",
+      "url": "https://github.com/nodefony/nodefony-core/issues/643",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.231,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
       ]
     },
     {
@@ -4017,6 +4049,20 @@
       "labels": [
         "alpha-9"
       ]
+    },
+    {
+      "number": 644,
+      "title": "feat(devkit): profiler une route en lui envoyant N requêtes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/644",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 4.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 207,
