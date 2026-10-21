@@ -15,6 +15,7 @@ import HttpKernel, {
 import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
+import { handleSessionError } from "./clientError";
 import {
   http2ServerLimits,
   setHttp2SessionTimeout,
@@ -147,7 +148,9 @@ class ServerH2c extends Service {
         // Un client HTTP/1.1 (sonde mal routée) échoue sur la préface : session
         // détruite par Node. Bruit attendu, pas une panne → DEBUG.
         server.on("sessionError", (error) => {
-          this.log(error, "DEBUG", "H2C sessionError");
+          handleSessionError(error, (e) =>
+            this.log(e, "DEBUG", "H2C sessionError"),
+          );
         });
         server.on("streamError", (error) => {
           this.log(error, "ERROR", "H2C streamError");

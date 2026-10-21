@@ -1,4 +1,5 @@
 import type { Duplex } from "node:stream";
+import { isPeerGoneError } from "../../src/context/websocket/Response";
 
 /**
  * Gère l'event `clientError` d'un `http.Server` / `https.Server`.
@@ -26,4 +27,27 @@ export function handleClientError(
       ? "431 Request Header Fields Too Large"
       : "400 Bad Request";
   socket.end(`HTTP/1.1 ${statusLine}\r\nConnection: close\r\n\r\n`);
+}
+
+/**
+ * Gère l'event `sessionError` d'un serveur HTTP/2 (h2c ou TLS) : un pair PARTI
+ * se tait, toute autre erreur est rapportée.
+ *
+ * Une session réinitialisée par le pair n'a rien à diagnostiquer. C'est la
+ * signature d'une sonde de port — `nodefony status`, `doctor`, le superviseur
+ * de développement, la sonde `tcpSocket` d'un orchestrateur — qui se connecte
+ * puis ferme sans lire le `SETTINGS` que le serveur envoie dès l'ouverture : le
+ * système ferme alors par un RST plutôt qu'un FIN, et Node lève `ECONNRESET`.
+ * La rapporter imprimait une pile entière par sonde. La règle « client parti »
+ * est celle des frames WebSocket ({@link isPeerGoneError}), pas une copie.
+ *
+ * @param error - erreur de session émise par `node:http2`
+ * @param report - rapporte une erreur réelle, à la sévérité choisie par le serveur
+ */
+export function handleSessionError(
+  error: Error,
+  report: (error: Error) => void,
+): void {
+  if (isPeerGoneError(error)) return;
+  report(error);
 }

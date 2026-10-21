@@ -25,7 +25,7 @@ import {
 } from "../../src/servers/http2Limits";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
-import { handleClientError } from "./clientError";
+import { handleClientError, handleSessionError } from "./clientError";
 import { bindWithFallback, buildBindPlan } from "../../src/servers/portBinder";
 import {
   asServersConfig,
@@ -248,7 +248,9 @@ class ServerHttps extends Service {
         });
 
         this.server.on("sessionError", (error) => {
-          this.log(error, "ERROR", "HTTP2 Server sessionError");
+          handleSessionError(error, (e) =>
+            this.log(e, "ERROR", "HTTP2 Server sessionError"),
+          );
         });
         this.server.on("streamError", (error) => {
           this.log(error, "ERROR", "HTTP2 Server streamError");

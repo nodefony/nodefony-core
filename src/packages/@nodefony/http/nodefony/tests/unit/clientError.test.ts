@@ -1,7 +1,13 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import type { Socket } from "node:net";
-import { handleClientError } from "../../service/servers/clientError.js";
+import http2 from "node:http2";
+import net from "node:net";
+import type { AddressInfo } from "node:net";
+import {
+  handleClientError,
+  handleSessionError,
+} from "../../service/servers/clientError.js";
 
 // Stub minimal d'un socket : capture l'argument passé à end() + writable.
 function makeSocket(writable = true): {
@@ -57,5 +63,55 @@ describe("handleClientError — fermeture du socket malformé", () => {
       socket,
     );
     expect(ended).to.have.length(0);
+  });
+});
+
+// handleSessionError : une sonde de port (status, doctor, superviseur, sonde
+// tcpSocket d'un orchestrateur) faisait imprimer une pile ECONNRESET au serveur
+// HTTP/2 — en DEBUG sur h2c, en ERROR sur TLS.
+describe("handleSessionError — un pair parti se tait", () => {
+  const errno = (code: string): Error =>
+    Object.assign(new Error(code), { code });
+
+  it("ECONNRESET / EPIPE → rien n'est rapporté", () => {
+    const reported: Error[] = [];
+    handleSessionError(errno("ECONNRESET"), (e) => reported.push(e));
+    handleSessionError(errno("EPIPE"), (e) => reported.push(e));
+    expect(reported).toHaveLength(0);
+  });
+
+  it("toute autre erreur de session → rapportée telle quelle", () => {
+    const reported: Error[] = [];
+    const preface = errno("ERR_HTTP2_ERROR");
+    handleSessionError(preface, (e) => reported.push(e));
+    expect(reported).toEqual([preface]);
+  });
+
+  it("la sonde réelle : connexion fermée sans lire le SETTINGS → ECONNRESET, tu", async () => {
+    const server = http2.createServer();
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const { port } = server.address() as AddressInfo;
+    const sessionError = new Promise<Error>((resolve) =>
+      server.once("sessionError", resolve),
+    );
+    try {
+      // Comme `isPortListening` : se connecter, ne rien lire, détruire. Le
+      // SETTINGS du serveur reste non lu dans le tampon → le système ferme
+      // par un RST.
+      const probe = net.connect({ host: "127.0.0.1", port });
+      probe.pause();
+      await new Promise<void>((resolve) => probe.once("connect", resolve));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      probe.destroy();
+      const error = await sessionError;
+      expect((error as NodeJS.ErrnoException).code).toBe("ECONNRESET");
+      const reported: Error[] = [];
+      handleSessionError(error, (e) => reported.push(e));
+      expect(reported).toHaveLength(0);
+    } finally {
+      server.close();
+    }
   });
 });
