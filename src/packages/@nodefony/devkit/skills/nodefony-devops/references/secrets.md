@@ -59,7 +59,7 @@ dès que l'application émet des jetons. Sans `NF_TOTP_KEY` ou `NF_WEBHOOK_KEY`,
 démarre mais la brique se désactive (double authentification, webhooks), avec un journal CRITIC.
 
 ```bash
-npx nodefony security:secrets --env          # les secrets, en lignes CLÉ=valeur (--env-file, gestionnaire)
+npx nodefony security:secrets --env          # les secrets, en lignes CLÉ=valeur — pour un `docker --env-file` ou un gestionnaire
 npx nodefony security:secrets --jwt-keyset   # la valeur de NF_JWT_KEYSET — une ligne JSON, clé PRIVÉE
 ```
 
@@ -83,8 +83,10 @@ fait le même geste à la main.
 
 ## 5. Les monter, pas les poser en clair
 
-Le suffixe `_FILE` marche sur **toute** variable — détail complet dans
-[`variables.md`](variables.md). Ce qu'il faut retenir ici :
+Le suffixe `_FILE` marche sur les variables du catalogue — **sauf** `NF_DATABASE_URL` et
+`NF_REDIS_URL`, qui l'ignorent (l'application repart alors sur SQLite) : ces deux URL s'injectent
+depuis un Secret en variable. Détail complet dans [`variables.md`](variables.md). Ce qu'il faut
+retenir ici :
 
 ```yaml
 # Kubernetes

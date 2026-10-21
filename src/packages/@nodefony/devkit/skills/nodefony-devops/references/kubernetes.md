@@ -21,14 +21,19 @@ qui n'existent pas.
 
 ## 2. Le contexte de sécurité — politique Restricted
 
-**Commence par lire `deploy/migrate-job.yaml` : son contexte de sécurité est déjà conforme.** Il
-est le seul modèle juste que tu aies sous la main, et il a été écrit pour être recopié.
+**Commence par lire `deploy/migrate-job.yaml` : il passe la politique Restricted.** Recopie-en le
+contexte de sécurité — mais pas son `readOnlyRootFilesystem: false`, qui convient à un travail
+éphémère et pas à un exemplaire qui sert du trafic.
 
-Six exigences, toutes portées par le **manifeste** — aucune n'est « héritée de l'image ». Ce que
-l'image apporte, c'est de les rendre satisfaisables sans contorsion : elle déclare
+Restricted exige **quatre** champs, tous portés par le **manifeste** — aucun n'est « hérité de
+l'image » : `runAsNonRoot: true` (et un `runAsUser`, s'il est posé, différent de 0),
+`allowPrivilegeEscalation: false`, `capabilities.drop: ["ALL"]`, `seccompProfile` `RuntimeDefault`.
+Ce que l'image apporte, c'est de les rendre satisfaisables sans contorsion : elle déclare
 `USER 1000:1000`, donc l'identifiant numérique existe ; elle n'écoute qu'au-dessus de 1024, donc
-aucune capacité n'est nécessaire. Cinq ne coûtent rien à poser. **La sixième —
-`readOnlyRootFilesystem` — demande les deux volumes**, et c'est la seule qui se travaille.
+aucune capacité n'est nécessaire. Aucun ne coûte rien.
+
+**`readOnlyRootFilesystem: true` n'est PAS exigé par Restricted** : c'est un durcissement en plus,
+recommandé, et le seul qui se travaille — il demande les deux volumes.
 
 ```yaml
 spec:
@@ -69,8 +74,10 @@ kubectl label ns <ns> pod-security.kubernetes.io/enforce=restricted
 kubectl apply -f <ton-deployment>.yaml       # doit passer SANS avertissement
 ```
 
-Puis **débranche** : retire un `emptyDir`, réapplique. Le pod ne doit plus démarrer. Une politique
-qu'on n'a jamais vue refuser quelque chose n'est pas une politique.
+Puis **débranche** : retire `seccompProfile`, réapplique. L'admission doit **refuser** le pod. Une
+politique qu'on n'a jamais vue refuser quelque chose n'est pas une politique. (Retirer un
+`emptyDir` fait échouer le **démarrage**, pas l'admission : c'est une autre preuve, celle des
+volumes.)
 
 ## 3. Les sondes
 
@@ -93,6 +100,8 @@ livenessProbe: { httpGet: { path: /livez, port: 5151 }, periodSeconds: 10 }
   son arrêt propre — exactement ce qu'on cherche à éviter.
 - Les deux répondent **avant la limitation de débit** : un kubelet limité recevrait `429` et
   conclurait à un échec.
+- **Toujours le port HTTP (5151)**, même si h2c est actif : le port h2c (5153) refuse HTTP/1.1,
+  la langue d'une sonde de kubelet. Un pod qui sonde 5153 n'est jamais prêt.
 
 ## 4. L'arrêt — ne perdre aucune requête
 
@@ -130,6 +139,11 @@ resources:
 processeur ne tue pas — elle **ralentit en permanence**, et ça ne ressemble pas à une limite, ça
 ressemble à une application lente. Les demandes suffisent à garantir la part.
 
+Ces valeurs sont un **départ** pour un trafic modeste. Un pod qui doit tenir son plein débit
+demande environ **un cœur** (`requests.cpu: "1"`) : ton code tourne sur une seule boucle. Combien
+de pods, quelle mémoire par pod, et pourquoi c'est souvent le temps réel qui décide →
+[`dimensionnement.md`](dimensionnement.md).
+
 Si tu bornes le tas de la machine virtuelle JavaScript face à une limite mémoire de cgroup,
 dimensionne-le avec une mesure, pas au jugé.
 
@@ -141,8 +155,11 @@ C'est la différence la plus structurante avec le compose de développement.
 2. **Ne reporte jamais l'hôte du compose.** `compose.yaml` pointe un **service du compose** ; le
    même nom dans un cluster désigne un Service qui n'existe pas. Rien ne casse au déploiement, tout
    casse au premier accès.
-3. **L'URL passe par un Secret, en `_FILE`** — elle porte un mot de passe, elle n'a rien à faire
-   dans un ConfigMap.
+3. **L'URL passe par un Secret, en `valueFrom.secretKeyRef`** — elle porte un mot de passe, elle
+   n'a rien à faire dans un ConfigMap. C'est ce que fait `deploy/migrate-job.yaml`. 🔴 **Pas en
+   `_FILE`** : `NF_DATABASE_URL_FILE` et `NF_REDIS_URL_FILE` ne sont pas lus par la résolution de
+   l'infrastructure — l'application démarre alors **sur SQLite**, avec un simple avertissement
+   `DB_SQLITE_FALLBACK` au bilan de démarrage.
 4. **Le plafond de connexions.** Une base administrée les compte strictement. N exemplaires × le
    pool de chacun peuvent la saturer, et l'erreur sort de **son** côté, pas du tien. Reste prudent
    sur le nombre d'exemplaires.
@@ -164,14 +181,25 @@ env:
   - { name: NF_POD_NAME, valueFrom: { fieldRef: { fieldPath: metadata.name } } }
   - { name: NF__HTTP__TRUSTPROXY, value: uniquelocal }
   - { name: NF_CSRF_SECRET_FILE, value: /run/secrets/csrf }
-  - { name: NF_DATABASE_URL_FILE, value: /run/secrets/db-url }
+  - name: NF_DATABASE_URL # jamais _FILE pour une URL d'infrastructure (§6)
+    valueFrom: { secretKeyRef: { name: <app>-db, key: url } }
+  # plusieurs exemplaires + temps réel : un bus partagé, sinon chaque pod parle seul
+  - { name: NF_REALTIME_DRIVER, value: redis }
+  - name: NF_REDIS_URL
+    valueFrom: { secretKeyRef: { name: <app>-redis, key: url } }
 ```
 
 `NF_POD_NAME` vient de l'API descendante. Elle dérive l'identité d'origine du bus temps réel : sans
 elle, plusieurs exemplaires se confondent et les messages s'écoutent eux-mêmes.
 
-`NF__HTTP__TRUSTPROXY` est **obligatoire** dès qu'un Ingress termine le TLS —
-[`frontal.md`](frontal.md) dit ce qui tombe sans lui, et comment le voir tomber.
+`NF_REALTIME_DRIVER=redis` n'est utile qu'à partir de **deux** exemplaires : avec un seul, le bus
+local suffit. Sans lui à deux exemplaires, un message n'atteint que les clients du pod qui l'émet,
+**sans erreur** — détail dans [`dimensionnement.md`](dimensionnement.md) §4.
+
+`NF__HTTP__TRUSTPROXY` est **obligatoire** dès qu'un contrôleur d'entrée termine le TLS —
+[`frontal.md`](frontal.md) dit ce qui tombe sans lui, et comment le voir tomber. L'Ingress ou la
+Gateway API, les annotations d'inactivité qui gardent les WebSocket, et le `Service` à deux ports
+pour h2c : [`frontal.md`](frontal.md) §10.
 
 ## 8. Éprouver sans cluster de production
 

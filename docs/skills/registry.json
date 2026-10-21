@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-20",
+  "generatedAt": "2026-10-21",
   "count": 40,
   "repoScripts": [
     {
@@ -4684,8 +4684,8 @@
       ],
       "description": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit. Déclencheurs : \"gabarit de déploiement\", \"Dockerfile généré\", \"manifeste Kubernetes du scaffold\", \"politique Restricted\", \"readOnlyRootFilesystem\", \"sondes liveness et readiness\", \"arrêt gracieux d'un pod\", \"Podman\", \"corpus docker\", \"corpus kubernetes\", \"la CI de l'application générée\", \"GitLab CI\", \"scanner l'image\".",
       "cost": {
-        "bodyLines": 131,
-        "approxTokens": 2758
+        "bodyLines": 134,
+        "approxTokens": 3032
       },
       "requires": [],
       "resources": {
@@ -4762,7 +4762,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "131",
+            "detail": "134",
             "advisory": true
           }
         ]
@@ -12141,38 +12141,42 @@
     },
     {
       "name": "nodefony-devops",
-      "summary": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman.",
+      "summary": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal (nginx, HAProxy, h2c, Ingress), secrets, variables, Kubernetes, Podman, nombre de pods.",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [],
       "triggers": [
         "déployer mon application en production",
         "mettre mon app en production",
-        "construire et vérifier l'image",
         "docker compose",
         "derrière nginx",
+        "derrière HAProxy",
+        "Ingress",
+        "h2c",
+        "ma WebSocket se coupe derrière le proxy",
+        "SSE derrière un proxy",
+        "combien de pods ?",
+        "dimensionner un pod",
+        "plusieurs pods en temps réel",
         "Kubernetes",
         "mon pod redémarre",
         "mon pod perd des requêtes",
-        "redéploiement sans coupure",
         "arrêt gracieux",
-        "readOnlyRootFilesystem",
         "politique Restricted",
         "secrets",
-        "mot de passe en production",
         "variables d'environnement",
-        "Podman",
-        "GitLab CI"
+        "Podman"
       ],
-      "description": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : quelles sondes elle expose, combien de temps elle draine, quel code de sortie elle rend, sous quel identifiant elle tourne, où elle écrit, ce qui casse quand une variable manque. Sert d'abord à savoir ce qu'il ne faut PAS réécrire. À charger AVANT d'écrire un manifeste, un compose, une étape de déploiement, ou de diagnostiquer un conteneur qui redémarre. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"construire et vérifier l'image\", \"docker compose\", \"derrière nginx\", \"Kubernetes\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"redéploiement sans coupure\", \"arrêt gracieux\", \"readOnlyRootFilesystem\", \"politique Restricted\", \"secrets\", \"mot de passe en production\", \"variables d'environnement\", \"Podman\", \"GitLab CI\".",
+      "description": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal (nginx, HAProxy, h2c, Ingress), secrets, variables, Kubernetes, Podman, nombre de pods. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : sondes, durée du drain, code de sortie, identifiant, dossiers écrits, ce qui casse quand une variable manque. À charger AVANT d'écrire un manifeste, un compose, une configuration de frontal, de dimensionner les pods, ou de diagnostiquer un conteneur qui redémarre. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"docker compose\", \"derrière nginx\", \"derrière HAProxy\", \"Ingress\", \"h2c\", \"ma WebSocket se coupe derrière le proxy\", \"SSE derrière un proxy\", \"combien de pods ?\", \"dimensionner un pod\", \"plusieurs pods en temps réel\", \"Kubernetes\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"arrêt gracieux\", \"politique Restricted\", \"secrets\", \"variables d'environnement\", \"Podman\".",
       "cost": {
-        "bodyLines": 185,
-        "approxTokens": 5156
+        "bodyLines": 208,
+        "approxTokens": 6327
       },
       "requires": [],
       "resources": {
         "references": [
           "compose.md",
+          "dimensionnement.md",
           "frontal.md",
           "image.md",
           "kubernetes.md",
@@ -12180,7 +12184,7 @@
           "secrets.md",
           "variables.md"
         ],
-        "referenceFilesTotal": 7,
+        "referenceFilesTotal": 8,
         "scripts": []
       },
       "related": [
@@ -12205,7 +12209,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "957",
+            "detail": "961",
             "advisory": false
           },
           {
@@ -12247,7 +12251,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "185",
+            "detail": "208",
             "advisory": true
           }
         ]

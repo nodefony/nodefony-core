@@ -80,8 +80,14 @@ production : `platform` (variables du déploiement), `secrets` (gestionnaire de 
 
 ## 3. Le suffixe `_FILE` — les secrets montés
 
-**Toute** variable du catalogue accepte un `_FILE`. Le contenu du fichier est lu, retour à la ligne
-final retiré.
+Les variables du catalogue de `env.ts` acceptent un `_FILE`. Le contenu du fichier est lu, retour
+à la ligne final retiré.
+
+> 🔴 **Exception : les URL d'infrastructure.** `NF_DATABASE_URL` et `NF_REDIS_URL` sont lues
+> directement par la résolution de l'infrastructure, qui **ignore** `_FILE`. Un
+> `NF_DATABASE_URL_FILE` seul fait démarrer l'application **sur SQLite**, avec un simple
+> avertissement. Ces deux-là s'injectent comme variables, depuis un Secret
+> (`valueFrom.secretKeyRef` en Kubernetes, `environment` lu d'un fichier non versionné en compose).
 
 ```yaml
 env:
@@ -117,12 +123,12 @@ Les seules qui te concernent au déploiement. Le catalogue complet, c'est `npx n
 
 ### Derrière un frontal — **les plus importantes**
 
-| Variable                     | Rôle                                              | Absente ⇒                                                                            |
-| ---------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `NF__HTTP__TRUSTPROXY`       | Quels intermédiaires sont crus sur leurs en-têtes | **Le schéma constaté est `http`** → cookie `__Host-` non émis, adresse client fausse |
-| `NF__HTTP__TRUSTEDHOSTS`     | Les hôtes servis                                  | Un `Host` étranger n'est pas refusé                                                  |
-| `NF__APP__DOMAINCHECK`       | Contrôle du domaine                               | Pas de contrôle                                                                      |
-| `NF__HTTP__STATICS__ENABLED` | L'application sert-elle les fichiers statiques    | Elle les sert — donc en double avec ton frontal                                      |
+| Variable                     | Rôle                                              | Absente ⇒                                                                                                              |
+| ---------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `NF__HTTP__TRUSTPROXY`       | Quels intermédiaires sont crus sur leurs en-têtes | **Le schéma constaté est `http`** → cookie de session sans `__Host-`, mot de passe refusé `403`, adresse client fausse |
+| `NF__HTTP__TRUSTEDHOSTS`     | Les hôtes servis                                  | Un `Host` étranger n'est pas refusé                                                                                    |
+| `NF__APP__DOMAINCHECK`       | Contrôle du domaine                               | Pas de contrôle                                                                                                        |
+| `NF__HTTP__STATICS__ENABLED` | L'application sert-elle les fichiers statiques    | Elle les sert — donc en double avec ton frontal                                                                        |
 
 ### Données
 
@@ -170,10 +176,10 @@ Tous en `_FILE` en production. Détail et rotation → [`secrets.md`](secrets.md
 
 ### Multi-process sur une seule machine
 
-| Variable     | Rôle                                                     |
-| ------------ | -------------------------------------------------------- |
-| `NF_CLUSTER` | Active le mode multi-process                             |
-| `NF_WORKERS` | Nombre d'exécutants — sinon dérivé des limites du cgroup |
+| Variable     | Rôle                                                                           |
+| ------------ | ------------------------------------------------------------------------------ |
+| `NF_CLUSTER` | Posée par `nodefony cluster` dans chaque worker — **ne pas la poser soi-même** |
+| `NF_WORKERS` | Nombre d'exécutants — sinon dérivé des limites du cgroup                       |
 
 En Kubernetes, **laisse ça tranquille** : un exemplaire = un processus = un pod, et c'est
 l'ordonnanceur qui multiplie. Le mode multi-process sert sur une machine nue.
