@@ -46,6 +46,9 @@ export default {
         pattern:
           "^/(login$|nodefony/security/login/|nodefony/test/login-guarded$)",
         authenticators: ["session"],
+        // Comptes OAuth créés à la volée (`oauth2.allowSignup`) : le rôle écrit
+        // l'intention — tout compte le reçoit, la garde du firewall se tait.
+        roles: ["ROLE_USER"],
       },
       // #548 — une PAGE protégée qui conduit le visiteur anonyme à la page de
       // connexion (`entryPoint`) quand il navigue ; 401 pour tout autre client.
@@ -53,6 +56,7 @@ export default {
       "test-pages": {
         pattern: "^/nodefony/test/page-guarded$",
         authenticators: ["session"],
+        roles: ["ROLE_USER"],
         entryPoint: "/login",
       },
       // dossier = préfixe = nom de zone : capture les routes de `secure/`.
@@ -62,6 +66,7 @@ export default {
       "test-secure": {
         pattern: "^/nodefony/test/secure",
         authenticators: ["session", "userpassword"],
+        roles: ["ROLE_USER"],
         // défauts : security: true (Zero Trust), mode: "first",
         // stateless: false (session BFF).
       },
