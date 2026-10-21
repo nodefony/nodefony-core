@@ -15,6 +15,7 @@ import type {
 import { defineMcpGate, mcpDeclaredScopes, type IMcpGate } from "@nodefony/ai";
 import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
 import { asProfilerReader } from "../mcp/observe";
+import { ProfileTicketStore } from "../src/profileTicket";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type IDevkitConfig } from "../config/config";
@@ -80,6 +81,8 @@ class DevkitService extends Service implements IDevkitService {
   private readonly cfg: IDevkitConfig;
   /** La porte MCP de développement — définie au premier usage (`mcpGate()`). */
   #mcpGate: IMcpGate | null = null;
+  /** Tickets de profilage — créés au premier émis (`profileTickets()`). */
+  #profileTickets: ProfileTicketStore | null = null;
 
   constructor(module: Module) {
     // Sans config déclarée, le module peut n'avoir reçu aucune section.
@@ -278,6 +281,15 @@ class DevkitService extends Service implements IDevkitService {
       });
     }
     return this.#mcpGate;
+  }
+
+  profileTickets(): ProfileTicketStore {
+    this.#profileTickets ??= new ProfileTicketStore();
+    return this.#profileTickets;
+  }
+
+  issuedProfileTickets(): ProfileTicketStore | null {
+    return this.#profileTickets;
   }
 
   status(): { ready: boolean } {

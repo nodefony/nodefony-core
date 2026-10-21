@@ -6,6 +6,7 @@ import { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 import DevkitService from "./nodefony/service/DevkitService";
 import DevkitController from "./nodefony/controllers/DevkitController";
 import McpController from "./nodefony/controllers/McpController";
+import ProfileSessionController from "./nodefony/controllers/ProfileSessionController";
 import type { IDevkitService } from "./nodefony/interfaces/IDevkitService";
 /**
  * @nodefony/devkit — Outillage de developpement d une application Nodefony : carte de visite et portes de decouverte pour un agent
@@ -29,7 +30,7 @@ declare module "nodefony" {
 
 // Les controllers du module se déclarent ici — `nodefony create controller <nom>
 // --module devkit` les ajoute à cette liste (et à ce dossier) tout seul.
-@controllers([DevkitController, McpController])
+@controllers([DevkitController, McpController, ProfileSessionController])
 @services([DevkitService])
 class DevkitModule extends Module {
   /**
@@ -78,7 +79,12 @@ class DevkitModule extends Module {
 }
 
 export default DevkitModule;
-export { DevkitService, DevkitController, McpController };
+export {
+  DevkitService,
+  DevkitController,
+  McpController,
+  ProfileSessionController,
+};
 
 // Serveur MCP — ce module expose la porte (`McpController`, ci-dessus) et le
 // catalogue `nodefony_*`. Le protocole, les gardes et la collecte des outils

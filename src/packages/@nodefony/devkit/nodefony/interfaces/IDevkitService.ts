@@ -9,6 +9,7 @@ import type {
 } from "nodefony";
 import type { IMcpToolDeps } from "../mcp/tools";
 import type { IDevkitConfig } from "../config/config";
+import type { ProfileTicketStore } from "../src/profileTicket";
 
 /**
  * Le contrat de la carte est celui du CŒUR — ces noms n'en sont que les alias,
@@ -91,4 +92,18 @@ export interface IDevkitService {
    * `defineMcpGate` à partir de `devkit.mcp.*` — définie une fois, au premier usage.
    */
   mcpGate(): IMcpGate;
+
+  /**
+   * Magasin des tickets de profilage, créé au premier ticket émis.
+   *
+   * L'outil de profilage y émet le ticket qui ouvrira SA session ; la route de
+   * connexion du profilage le rachète.
+   */
+  profileTickets(): ProfileTicketStore;
+
+  /**
+   * Le même magasin, sans le créer : `null` tant qu'aucun ticket n'a été émis.
+   * La route de connexion le lit ainsi — une requête reçue n'alloue rien.
+   */
+  issuedProfileTickets(): ProfileTicketStore | null;
 }
