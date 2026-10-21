@@ -1270,8 +1270,9 @@ const oauthProviderSchema = z
           "(`ROLE_NODEFONY_*` : console d'administration, génération de code, " +
           "secrets). OMIS = refusé au démarrage. L'ouvrir fait de " +
           "l'administrateur de l'annuaire un administrateur de l'instance, et " +
-          "d'un annuaire compromis une prise de contrôle complète — un " +
-          "avertissement le rappelle à chaque démarrage.",
+          "d'un annuaire compromis une prise de contrôle complète — rappelé à " +
+          "chaque démarrage, en avertissement en production, en information " +
+          "ailleurs.",
       ),
     rolesSource: z
       .array(z.enum(["client", "realm", "groups"]))

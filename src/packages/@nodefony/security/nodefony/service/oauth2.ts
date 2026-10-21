@@ -239,6 +239,40 @@ export function checkProviderIssuer(
 }
 
 /**
+ * Annonce qu'un annuaire accorde des rôles de PLATEFORME, à la sévérité de
+ * l'environnement — ou `null` quand il n'y a rien à dire.
+ *
+ * L'ouverture est ÉCRITE (`allowPlatformRoles`), donc voulue : l'annonce ne
+ * la conteste pas, elle la rappelle. Le risque — un annuaire compromis
+ * administre l'instance — n'est réel qu'en production : là, `WARNING` ;
+ * ailleurs le même fait est dit en `INFO`, sans sonner une alarme à chaque
+ * démarrage d'un décor de développement.
+ *
+ * @param name - nom du fournisseur (`oauth2.providers.<name>`).
+ * @param allowed - `allowPlatformRoles` tel que déclaré.
+ * @param granted - rôles de l'application que la table accorde.
+ * @param production - l'application tourne en production.
+ * @returns le message et sa sévérité, ou `null`.
+ */
+export function platformRolesNotice(
+  name: string,
+  allowed: boolean | undefined,
+  granted: readonly string[],
+  production: boolean,
+): { message: string; severity: "WARNING" | "INFO" } | null {
+  if (allowed !== true) return null;
+  const platform = [...new Set(granted.filter(isPlatformRole))];
+  if (platform.length === 0) return null;
+  return {
+    message:
+      `oauth2 "${name}" : l'annuaire accorde des rôles de PLATEFORME ` +
+      `(${platform.join(", ")}) — son administrateur administre cette ` +
+      `instance (allowPlatformRoles)`,
+    severity: production ? "WARNING" : "INFO",
+  };
+}
+
+/**
  * Claims du jeton d'ACCÈS, quand c'est un JWT — `null` sinon (jeton opaque).
  *
  * Keycloak pose les rôles dans le jeton d'accès, et seulement là par défaut
@@ -346,17 +380,13 @@ class OAuth2Service extends Service {
       const mapping =
         provider === undefined ? null : compileProviderRoleMapping(provider);
       if (mapping !== null) {
-        if (provider?.allowPlatformRoles === true) {
-          const platform = Object.values(mapping.table).filter(isPlatformRole);
-          if (platform.length > 0) {
-            this.log(
-              `oauth2 "${name}" : l'annuaire accorde des rôles de PLATEFORME ` +
-                `(${[...new Set(platform)].join(", ")}) — son administrateur ` +
-                `administre cette instance (allowPlatformRoles)`,
-              "WARNING",
-            );
-          }
-        }
+        const notice = platformRolesNotice(
+          name,
+          provider?.allowPlatformRoles,
+          Object.values(mapping.table),
+          this.kernel?.environment === "production",
+        );
+        if (notice !== null) this.log(notice.message, notice.severity);
         this.#roleMappings ??= Object.create(null) as Record<
           string,
           IProviderRoleMapping
