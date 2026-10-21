@@ -209,7 +209,9 @@ describe("x509 — encodage pur", () => {
     });
     const x = new X509Certificate(pem);
     expect(x.verify(x.publicKey)).to.equal(true);
-    expect(x.subject).to.equal(undefined);
+    // Sujet VIDE : Node le rend `undefined` jusqu'à la 26.11, `""` depuis la
+    // 26.12 — c'est le vide qu'on affirme, pas sa représentation.
+    expect(x.subject ?? "").to.equal("");
     // Lu POSITIF : sans le 0x00 de tête, le même DER serait un entier négatif.
     expect(x.serialNumber).to.equal("FF00");
     expect(x.validToDate.toISOString()).to.equal("2050-01-01T00:00:01.000Z");
