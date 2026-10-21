@@ -45,15 +45,37 @@ function occupy(port = 0): Promise<number> {
 }
 
 /**
- * Occupe un port libre qui laisse `room` ports au-dessus de lui : un cas qui
- * explore `port + k` échouait en `RangeError` quand le noyau tirait un port
- * éphémère au plafond (65535).
+ * Fenêtre où ce banc tire ses ports : SOUS toutes les plages éphémères (linux
+ * 32768+, macOS et Windows 49152+) et hors des curseurs fixes d'autres bancs
+ * (`detachedStart.test.ts` : 21000+). Un port éphémère est distribué par le
+ * noyau à TOUT `listen(0)` et à toute connexion sortante du runner : un voisin
+ * `port + k` qu'on croyait libre y est pris, ou relâché, par un autre process
+ * entre deux lignes du test. Vécu en CI macOS, trois cas différents : un
+ * glissement « fantôme » (49395, conflit réel d'un tiers), un repli qui
+ * aboutit alors que tous les essais devaient être pris, un port d'arrivée
+ * sous celui attendu.
+ */
+const PORT_FLOOR = 12000;
+const PORT_CEIL = 19000;
+
+/**
+ * Occupe un port libre de la fenêtre, qui laisse `room` ports au-dessus de lui
+ * (un cas qui explore `port + k` échouait en `RangeError` au plafond, 65535).
+ * Tirage au hasard : deux workers du banc ne partent pas du même port.
  */
 async function occupyWithRoom(room: number): Promise<number> {
-  for (;;) {
-    const port = await occupy(0);
-    if (port + room <= 65535) return port;
+  for (let essai = 0; essai < 50; essai += 1) {
+    const port =
+      PORT_FLOOR + Math.floor(Math.random() * (PORT_CEIL - PORT_FLOOR - room));
+    try {
+      return await occupy(port);
+    } catch {
+      // Pris, ou réservé (plages exclues de Windows) : on en tire un autre.
+    }
   }
+  throw new Error(
+    `aucun port libre entre ${PORT_FLOOR} et ${PORT_CEIL} en 50 tirages`,
+  );
 }
 
 /** Un serveur HTTP neuf, prêt à binder (jamais écouté). */
