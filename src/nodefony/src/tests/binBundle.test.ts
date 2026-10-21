@@ -39,9 +39,21 @@ describe("binaire `nodefony` — ce que le bundle embarque", () => {
       `${BUNDLE} absent — construire le cœur d'abord (npm run build)`,
     );
     const bundle = readFileSync(BUNDLE, "utf8");
+    // rolldown ouvre chaque module recopié par un commentaire `// <id>`
+    // (`//#region <id>` jusqu'à 1.2.14). Le format a déjà changé une fois sous
+    // une montée de patch : sans aucun marqueur lu, la garde ne verrait plus
+    // rien et resterait verte — on exige donc d'en voir.
+    const modules = [...bundle.matchAll(/^\/\/ (src\/\S+\.ts)$/gmu)].map(
+      (m) => m[1],
+    );
+    assert.isNotEmpty(
+      modules,
+      "aucun marqueur de module dans le binaire : le format de rolldown a " +
+        "changé, la garde est aveugle — adapter l'expression ci-dessus",
+    );
     assert.notInclude(
-      bundle,
-      "//#region src/Nodefony.ts",
+      modules,
+      "src/Nodefony.ts",
       "le binaire recopie Nodefony.ts : un import de VALEUR, depuis un module " +
         "du binaire, mène au cœur — le passer en `import type`, ou déplacer la " +
         "valeur dans un module sans import à effet de bord",

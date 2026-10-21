@@ -80,7 +80,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2004",
   prettier: "^3.9.10",
-  rolldown: "^1.2.14",
+  rolldown: "^1.2.15",
   typescript: "^6.0.3",
   vitest: "^5.0.5",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
