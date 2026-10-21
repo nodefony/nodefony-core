@@ -81,6 +81,7 @@ import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { USAGE_ERROR_CODES, usageHint } from "../cli/usageHint";
+import { isVersionRequest } from "../cli/versionRequest";
 import { HelpContext, Command as commanderCommand } from "commander";
 import { version } from "../../package.json";
 
@@ -249,7 +250,7 @@ class CliKernel extends Cli {
     // ligne écrite (`VERSION=$(nodefony -v)` est un usage légitime). Passer par
     // commander construisait un Kernel dont le `terminate(0)` loggait une ligne
     // INFO par-dessus le numéro de version.
-    if (this.isVersionRequested()) {
+    if (isVersionRequest(process.argv.slice(2))) {
       process.stdout.write(`${version}\n`);
       return process.exit(0);
     }
@@ -678,29 +679,10 @@ class CliKernel extends Cli {
   }
 
   /**
-   * `true` si l'invocation demande la **version globale** : `nodefony -v` ou
-   * `nodefony --version` (que des options, aucun positionnel).
-   *
-   * Un positionnel présent → la commande décide (`nodefony dev --version` n'est pas
-   * une demande de version du CLI) : on laisse commander trancher.
-   *
-   * @returns `true` si la version du CLI est demandée.
-   */
-  private isVersionRequested(): boolean {
-    const args = process.argv.slice(2);
-    for (const arg of args) {
-      if (!arg.startsWith("-")) {
-        return false;
-      }
-    }
-    return args.includes("-v") || args.includes("--version");
-  }
-
-  /**
    * `true` si l'invocation demande le **help global** : `nodefony` nu,
    * `nodefony --help` ou `nodefony -h` (que des options, aucun positionnel).
    *
-   * Exclut volontairement `--version` (fast-path standalone, cf `isVersionRequested`)
+   * Exclut volontairement `--version` (fast-path standalone, cf `isVersionRequest`)
    * et `nodefony <cmd> --help` (help d'une sous-commande, laissé à commander / au
    * dispatch de module — il y a un positionnel).
    *

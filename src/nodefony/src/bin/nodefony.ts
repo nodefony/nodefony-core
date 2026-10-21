@@ -15,7 +15,9 @@ import {
 // fonctions ne tirent que `node:fs`/`node:path` — le coût est nul, et le TAB
 // répond sans jamais charger le core.
 import { readCliManifest, computeCompletions } from "../cli/completion";
+import { isVersionRequest } from "../cli/versionRequest";
 import { detectEnvironmentFromArgv } from "../runtime/engineEnvironment";
+import { version } from "../../package.json";
 
 /**
  * Résout le **mode runtime** (dev/prod) AVANT le kernel : `NODE_ENV` (ambiant)
@@ -84,6 +86,14 @@ async function runSelf(): Promise<unknown> {
     } catch {
       // On retombe sur le chemin normal — il sait faire sans cache.
     }
+  }
+
+  // ─── Version : une donnée, pas une exécution ───────────────────────────────
+  // Même raisonnement que le TAB : importer le cœur pour imprimer une chaîne
+  // coûtait ~320 ms au-dessus du démarrage de Node.
+  if (isVersionRequest(process.argv.slice(2))) {
+    process.stdout.write(`${version}\n`);
+    return exit(0);
   }
 
   const { CliKernel, loadEnv, findLegacyEnvFiles, legacyEnvMessage } =
