@@ -20,10 +20,11 @@ import {
   routeExpectsBodyStream,
 } from "../decorators/routerDecorators";
 
-// 🚦 PERF : « route trouvée » monte à NOTICE (jalon visible sans DEBUG) HORS
-// production seulement. En prod → DEBUG → 0 log de routage supplémentaire émis
-// par requête. Résolu 1× (1ʳᵉ requête, kernel présent), puis caché.
-let routeNoticePromoted: boolean | null = null;
+// 🚦 « route trouvée » est un détail de DÉBOGAGE, une ligne par requête : en
+// développement il part en DEBUG — dans le tampon (Studio, flux d'événements),
+// à la console seulement avec `-d`. En production, AUCUN appel : pas même la
+// chaîne construite. Résolu 1× (1ʳᵉ requête, kernel présent), puis caché.
+let routeMatchLogged: boolean | null = null;
 
 /**
  * Décore une erreur 405 avec l'en-tête `Allow` (RFC 9110 §15.5.6) et le type de
@@ -408,15 +409,12 @@ class Router extends Service implements IRequestRouter {
       }
       try {
         if (resolver.match(route, context, cleanPath, fromLiterals)) {
-          // « route trouvée » = jalon notable (NOTICE hors prod). En prod :
-          // AUCUN appel — le Pdu DEBUG était gaté par le seuil Syslog (T2) mais
-          // la template string était quand même construite par requête (L1 :
-          // ne jamais formater au-dessus du niveau actif).
-          // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
-          // le check "prod" était mort.
-          routeNoticePromoted ??= this.kernel?.environment !== "production";
-          if (routeNoticePromoted) {
-            this.log(`Match route : ${route.name}`, "NOTICE");
+          // En prod : AUCUN appel — le Pdu DEBUG serait gaté par le seuil
+          // Syslog (T2), mais la template string serait quand même construite
+          // par requête (L1 : ne jamais formater au-dessus du niveau actif).
+          routeMatchLogged ??= this.kernel?.environment !== "production";
+          if (routeMatchLogged) {
+            this.log(`Match route : ${route.name}`, "DEBUG");
           }
           resolver.exception = undefined;
           // P2.9 — pré-calcule (memo) le flag body-stream sur la route matchée :

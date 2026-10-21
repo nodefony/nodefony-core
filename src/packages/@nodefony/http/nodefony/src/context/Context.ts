@@ -58,21 +58,11 @@ const colorLogEvent = (): string => logColor.cyanBgBlack("EVENT CONTEXT");
 // sous-marques de ce fichier ne coûtent rien (branche morte).
 const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
 
-// Sévérité de log par **jalon notable** du cycle de vie. Les events techniques
-// (tout le reste) restent DEBUG ; les jalons de session — requête entrante,
-// réponse envoyée, connexion WS ouverte/fermée — montent à INFO pour être
-// visibles SANS activer DEBUG (symétrie avec le bilan `req`). Table figée
-// module-level → lookup O(1), 0 alloc/req.
-const EVENT_SEVERITY: Record<string, Severity> = {
-  onRequest: "INFO", // requête entrante (contexte) — HTTP
-  onSend: "INFO", // réponse envoyée — HTTP
-  onConnect: "INFO", // connexion WebSocket ouverte
-  onClose: "INFO", // connexion WebSocket fermée
-};
-
 // 🚦 PERF (V2.1) : gate BOOT-TIME des logs d'events lifecycle. Hors production,
-// chaque event émet 1 Pdu (jalons EVENT_SEVERITY promus INFO, le reste DEBUG) —
-// la matière du Suivi de requête Studio (pduFlow, dev-only). En PROD le gate
+// chaque event émet 1 Pdu DEBUG — la matière du Suivi de requête Studio
+// (pduFlow, dev-only), lue dans le tampon ; la console ne l'imprime qu'avec
+// `-d`. Le bilan d'une requête, c'est la ligne `req` : en promouvoir les
+// étapes en INFO doublait chaque requête de trois lignes. En PROD le gate
 // court-circuite AVANT toute allocation (template + couleur + Pdu + push ring) :
 // ~5 Pdu/req HTTP et ~3 Pdu/frame WS supprimés, le ring Syslog ne retient que
 // les logs utiles. Les EVENTS eux-mêmes (super.fire/emit) ne sont JAMAIS gatés :
@@ -600,15 +590,15 @@ class Context extends Service implements IContextInterface {
 
   /**
    * Log d'un event du cycle de vie — gate boot-time (V2.1) : en production le
-   * Pdu n'est PAS construit (return avant toute allocation). Hors prod, jalon
-   * notable → INFO (EVENT_SEVERITY), event technique → DEBUG.
+   * Pdu n'est PAS construit (return avant toute allocation). Hors prod : DEBUG,
+   * pour le Suivi de requête de Studio — la ligne `req` porte le bilan.
    */
   private logEvent(event: KernelEventsType): void {
     // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
     // le check "prod" était mort.
     lifecycleEventLogging ??= this.kernel?.environment !== "production";
     if (!lifecycleEventLogging) return;
-    this.log(`${colorLogEvent()} ${event}`, EVENT_SEVERITY[event] || "DEBUG");
+    this.log(`${colorLogEvent()} ${event}`, "DEBUG");
   }
 
   override fire(event: KernelEventsType, ...args: unknown[]): boolean {
