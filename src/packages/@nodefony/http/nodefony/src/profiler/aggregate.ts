@@ -68,18 +68,24 @@ export interface IRouteStats {
   /** Requêtes sans durée mesurée (mesure des phases désactivée, erreur précoce). */
   untimed: number;
   /**
-   * Percentiles et maximum sur les requêtes SERVIES (statut < 400, sans
-   * exception) : refus et erreurs se lisent dans `status` et `errors`.
+   * Requêtes SERVIES et chronométrées (statut < 400, sans exception) : la
+   * population de tout ce qui se dit « par requête » ci-dessous. Refus et
+   * erreurs se lisent dans `status` et `errors`.
    */
+  served: number;
+  /** Percentiles et maximum, sur les requêtes servies. */
   p50Ms: number | null;
   p95Ms: number | null;
   maxMs: number | null;
   status: IStatusBreakdown;
   /** Requêtes en erreur : statut ≥ 500 ou exception levée. */
   errors: number;
-  /** Requêtes SQL/NoSQL : total, maximum dans une requête, temps cumulé. */
+  /**
+   * Requêtes SQL/NoSQL des requêtes servies : total, maximum dans une
+   * requête, temps CUMULÉ (des requêtes parallèles s'y additionnent).
+   */
   queries: { total: number; perRequestMax: number; totalMs: number };
-  /** Temps par phase, `action.self` compris. */
+  /** Temps par phase des requêtes servies, `action.self` compris. */
   phases: Record<string, IPhaseTotal>;
 }
 
@@ -333,6 +339,7 @@ export function createProfileAggregator(
           action: entry.action,
           count: 0,
           untimed: 0,
+          served: 0,
           p50Ms: null,
           p95Ms: null,
           maxMs: null,
@@ -361,21 +368,20 @@ export function createProfileAggregator(
     if (slot < ROUTE_SAMPLE_CAP) acc.samples[slot] = ms;
   }
 
-  function addQueries(
-    entry: ProfileEntry,
-    route: string,
-    acc: IRouteAcc,
-  ): void {
+  function countQueries(entry: ProfileEntry, stats: IRouteStats): void {
     const queries = entry.queries;
     if (queries === undefined || queries.length === 0) return;
-    const stats = acc.stats.queries;
-    stats.total += queries.length;
-    if (queries.length > stats.perRequestMax) {
-      stats.perRequestMax = queries.length;
-    }
+    const q = stats.queries;
+    q.total += queries.length;
+    if (queries.length > q.perRequestMax) q.perRequestMax = queries.length;
+    for (const one of queries) q.totalMs += one.durationMs;
+  }
+
+  function addQueries(entry: ProfileEntry, route: string): void {
+    const queries = entry.queries;
+    if (queries === undefined || queries.length === 0) return;
     const perShape = new Map<string, { n: number; ms: number }>();
     for (const q of queries) {
-      stats.totalMs += q.durationMs;
       const shape = sqlShape(q.sql);
       const local = perShape.get(shape);
       if (local === undefined) perShape.set(shape, { n: 1, ms: q.durationMs });
@@ -462,23 +468,32 @@ export function createProfileAggregator(
           });
         }
       }
+      // UNE population pour tout ce qui se dit « par requête » : les requêtes
+      // servies et chronométrées. Un refus (401/403, rendu en quelques ms) ou
+      // une erreur ne mesurent pas la route : mêlés aux autres, ils feraient
+      // tomber p50 et diluer le temps des phases et du SQL.
+      const served = !failed && (entry.status === null || entry.status < 400);
       if (entry.durationMs === null) {
         stats.untimed += 1;
         untimed += 1;
-      } else if (!failed && (entry.status === null || entry.status < 400)) {
-        // Un refus (401/403, rendu en quelques ms) ou une erreur ne mesurent
-        // pas la route : mêlés aux requêtes servies, ils feraient tomber p50.
+      } else if (served) {
+        stats.served += 1;
         sample(acc, entry.durationMs);
         if (stats.maxMs === null || entry.durationMs > stats.maxMs) {
           stats.maxMs = entry.durationMs;
         }
+        for (const p of entry.phases) {
+          if (p.durationMs !== null) {
+            addPhase(stats.phases, p.name, p.durationMs);
+          }
+        }
+        const self = actionSelfMs(entry);
+        if (self !== null) addPhase(stats.phases, ACTION_SELF_PHASE, self);
+        countQueries(entry, stats);
       }
-      for (const p of entry.phases) {
-        if (p.durationMs !== null) addPhase(stats.phases, p.name, p.durationMs);
-      }
-      const self = actionSelfMs(entry);
-      if (self !== null) addPhase(stats.phases, ACTION_SELF_PHASE, self);
-      addQueries(entry, route, acc);
+      // N+1 et formes SQL : TOUTES les requêtes — une 500 qui boucle sur la
+      // base est un N+1 aussi.
+      addQueries(entry, route);
       sqlShapesDropped = droppedShapes.size;
     },
 

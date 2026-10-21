@@ -230,6 +230,46 @@ describe("createProfileAggregator — rapport", () => {
     expect(r.maxMs).to.equal(40);
   });
 
+  it("rapporte phases et SQL sur les seules requêtes servies (aucune dilution par les refus)", () => {
+    const served = entry({
+      phases: [{ name: "action", startMs: 0, durationMs: 100 }],
+      queries: [query("select a", 10, 4), query("select b", 20, 6)],
+    });
+    const refusals = Array.from({ length: 9 }, () =>
+      entry({
+        status: 401,
+        durationMs: 1,
+        phases: [{ name: "firewall", startMs: 0, durationMs: 1 }],
+        queries: [query("select s", 0, 0.5)],
+      }),
+    );
+    const r = aggregateProfiles([served, ...refusals]).routes[0]!;
+    expect(r.count).to.equal(10);
+    expect(r.served).to.equal(1);
+    expect(r.phases.action).to.deep.equal({ totalMs: 100, count: 1 });
+    expect(r.phases[ACTION_SELF_PHASE]).to.deep.equal({
+      totalMs: 90,
+      count: 1,
+    });
+    expect(r.phases.firewall).to.equal(undefined);
+    expect(r.queries).to.deep.equal({
+      total: 2,
+      perRequestMax: 2,
+      totalMs: 10,
+    });
+  });
+
+  it("compte le N+1 d'une requête en erreur aussi", () => {
+    const queries = Array.from({ length: 6 }, (_, i) =>
+      query(`select * from t where id = ${i}`, i, 0.1),
+    );
+    const report = aggregateProfiles([
+      entry({ status: 500, error: "boom", queries }),
+    ]);
+    expect(report.nPlusOne).to.have.length(1);
+    expect(report.routes[0]!.queries.total).to.equal(0);
+  });
+
   it("dit les requêtes sans durée au lieu d'en faire des 0 ms", () => {
     const report = aggregateProfiles([entry({ durationMs: null })]);
     expect(report.untimed).to.equal(1);

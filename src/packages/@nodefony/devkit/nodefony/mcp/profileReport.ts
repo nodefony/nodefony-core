@@ -18,8 +18,11 @@ import {
 /** p95 à partir duquel une route est signalée lente (développement, machine locale). */
 export const SLOW_ROUTE_P95_MS = 500;
 
-/** Retard moyen de la boucle d'événements à partir duquel le process est jugé chargé. */
-export const EVENT_LOOP_BUSY_MS = 50;
+/**
+ * Pire blocage de la boucle d'événements à partir duquel on le signale : au-delà,
+ * TOUTES les requêtes en cours ont attendu, quelle que soit leur route.
+ */
+export const EVENT_LOOP_BLOCK_MS = 100;
 
 /** Lignes maximales par section. */
 const MAX_ANOMALIES = 10;
@@ -47,9 +50,15 @@ export interface IObservationContext {
   filteredRoute: number;
   pid: number;
   uptimeSec: number;
-  /** Retard de la boucle d'événements sur la fenêtre (ms), si mesuré. */
+  /**
+   * Retard de la boucle d'événements sur la fenêtre (ms), si mesuré : moyen,
+   * et pire blocage (qu'une moyenne noie).
+   */
   eventLoop: { meanMs: number; maxMs: number } | null;
-  /** Variation du tas sur la fenêtre (octets), si mesurée. */
+  /**
+   * Variation du tas sur la fenêtre (octets), si mesurée — sans GC forcé : du
+   * déchet en attente autant que de la rétention, donc indicative.
+   */
   heapDeltaBytes: number | null;
 }
 
@@ -74,9 +83,12 @@ function routeLabel(r: {
   return `\`${r.route}\`${target}`;
 }
 
-/** Requêtes chronométrées d'une route (dénominateur des moyennes par requête). */
-function timed(r: IRouteStats): number {
-  return Math.max(1, r.count - r.untimed);
+/**
+ * Dénominateur de tout ce qui se dit « par requête » : les requêtes servies,
+ * la population sur laquelle l'agrégation a cumulé phases et SQL.
+ */
+function served(r: IRouteStats): number {
+  return Math.max(1, r.served);
 }
 
 /**
@@ -88,9 +100,10 @@ function topPhases(r: IRouteStats): string {
   const parts: [string, number][] = [];
   for (const [name, total] of Object.entries(r.phases)) {
     if (name === "action") continue;
-    parts.push([name, total.totalMs / timed(r)]);
+    parts.push([name, total.totalMs / served(r)]);
   }
-  if (r.queries.totalMs > 0) parts.push(["SQL", r.queries.totalMs / timed(r)]);
+  if (r.queries.totalMs > 0)
+    parts.push(["SQL (cumul)", r.queries.totalMs / served(r)]);
   parts.sort((a, b) => b[1] - a[1]);
   return parts
     .slice(0, 3)
@@ -128,11 +141,11 @@ function anomalies(report: IProfileReport, ctx: IObservationContext): string[] {
       `Lente — route ${routeLabel(r)} : p95 ${ms(r.p95Ms)} ms ; par requête : ${topPhases(r)}.`,
     );
   }
-  if (ctx.eventLoop !== null && ctx.eventLoop.maxMs >= EVENT_LOOP_BUSY_MS) {
+  if (ctx.eventLoop !== null && ctx.eventLoop.maxMs >= EVENT_LOOP_BLOCK_MS) {
     lines.push(
-      `Boucle d'événements chargée — retard jusqu'à ${ms(ctx.eventLoop.maxMs)} ms ` +
-        `(moyenne ${ms(ctx.eventLoop.meanMs)} ms) : un traitement synchrone bloque ` +
-        "le process, et toutes les routes en pâtissent.",
+      `Boucle d'événements bloquée — jusqu'à ${ms(ctx.eventLoop.maxMs)} ms d'un tenant ` +
+        `(retard moyen ${ms(ctx.eventLoop.meanMs)} ms) : un traitement synchrone a gelé ` +
+        "le process, et toutes les requêtes en cours ont attendu, quelle que soit leur route.",
     );
   }
   return lines;
@@ -208,12 +221,14 @@ export function renderProfileReport(
   ];
   if (ctx.eventLoop !== null) {
     process.push(
-      `boucle d'événements : retard moyen ${ms(ctx.eventLoop.meanMs)} ms, max ${ms(ctx.eventLoop.maxMs)} ms`,
+      `boucle d'événements : retard moyen ${ms(ctx.eventLoop.meanMs)} ms, pire blocage ${ms(ctx.eventLoop.maxMs)} ms`,
     );
   }
   if (ctx.heapDeltaBytes !== null) {
     const mo = ctx.heapDeltaBytes / (1024 * 1024);
-    process.push(`tas ${mo >= 0 ? "+" : ""}${mo.toFixed(1)} Mo`);
+    process.push(
+      `tas ${mo >= 0 ? "+" : ""}${mo.toFixed(1)} Mo (indicatif, sans GC)`,
+    );
   }
   out.push(`Process : ${process.join(" · ")}`);
 
@@ -254,7 +269,7 @@ export function renderProfileReport(
     );
     for (const r of report.routes.slice(0, MAX_ROUTES)) {
       const s = r.status;
-      const sqlAvg = r.queries.total / r.count;
+      const sqlAvg = r.queries.total / served(r);
       out.push(
         [
           routeLabel(r),
@@ -305,12 +320,12 @@ export function renderProfileReport(
         p50: r.p50Ms,
         p95: r.p95Ms,
         s5xx: r.status.s5xx,
-        sqlPerReq: Math.round((r.queries.total / r.count) * 10) / 10,
+        sqlPerReq: Math.round((r.queries.total / served(r)) * 10) / 10,
         actionSelfMs:
           r.phases[ACTION_SELF_PHASE] === undefined
             ? null
             : Math.round(
-                (r.phases[ACTION_SELF_PHASE].totalMs / timed(r)) * 100,
+                (r.phases[ACTION_SELF_PHASE].totalMs / served(r)) * 100,
               ) / 100,
       })),
       nPlusOne: report.nPlusOne.slice(0, MAX_ANOMALIES).map((n) => ({

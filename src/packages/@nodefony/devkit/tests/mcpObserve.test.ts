@@ -7,6 +7,7 @@ import {
   asProfilerReader,
   type IObserveProbe,
 } from "../nodefony/mcp/observe";
+import { renderProfileReport } from "../nodefony/mcp/profileReport";
 
 const CALLER: IMcpCaller = { authenticated: false, scopes: [], roles: [] };
 
@@ -14,7 +15,7 @@ const CALLER: IMcpCaller = { authenticated: false, scopes: [], roles: [] };
 function fakeProbe(): IObserveProbe & { disposed: number } {
   return {
     disposed: 0,
-    read: () => ({ eventLoopMs: 1, heapUsed: 1_000_000 }),
+    read: () => ({ eventLoopMs: 1, eventLoopMaxMs: 2, heapUsed: 1_000_000 }),
     dispose() {
       this.disposed += 1;
     },
@@ -212,6 +213,33 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
     expect(out).toContain("durationSec ramenée à 50 s");
   });
 
+  it("signale un blocage de la boucle que la moyenne noierait", async () => {
+    const tool = observeTool({
+      getProfiler: () => new Profiler(),
+      tickMs: 100,
+      createProbe: () => ({
+        read: () => ({ eventLoopMs: 2, eventLoopMaxMs: 150, heapUsed: 1 }),
+        dispose() {},
+      }),
+    });
+    const out = text(await tool.handler({ durationSec: 1 }, CALLER));
+    expect(out).toContain("pire blocage 150 ms");
+    expect(out).toContain(
+      "Boucle d'événements bloquée — jusqu'à 150 ms d'un tenant",
+    );
+  });
+
+  it("ne signale pas une boucle dont le pire blocage reste sous le seuil", async () => {
+    const tool = observeTool({
+      getProfiler: () => new Profiler(),
+      tickMs: 100,
+      createProbe: fakeProbe,
+    });
+    const out = text(await tool.handler({ durationSec: 1 }, CALLER));
+    expect(out).toContain("retard moyen 1.0 ms, pire blocage 2.0 ms");
+    expect(out).not.toContain("bloquée");
+  });
+
   it("répond en isError quand l'application n'a pas de profileur", async () => {
     const tool = observeTool({ getProfiler: () => undefined });
     const result = await tool.handler({}, CALLER);
@@ -224,5 +252,68 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
     expect(asProfilerReader(profiler)).toBe(profiler);
     expect(asProfilerReader({ cursor: 0 })).toBeUndefined();
     expect(asProfilerReader(null)).toBeUndefined();
+  });
+});
+
+describe("renderProfileReport — ce qui se dit « par requête »", () => {
+  it("divise par les requêtes SERVIES, jamais par les refus", () => {
+    const text = renderProfileReport(
+      {
+        requests: 10,
+        http: 10,
+        ws: 0,
+        filteredTooling: 0,
+        untimed: 0,
+        routes: [
+          {
+            route: "orders.list",
+            kind: "http",
+            controller: "OrdersController",
+            action: "list",
+            count: 10,
+            untimed: 0,
+            served: 1,
+            p50Ms: 100,
+            p95Ms: 100,
+            maxMs: 100,
+            status: {
+              s2xx: 1,
+              s3xx: 0,
+              s4xx: 9,
+              s5xx: 0,
+              unauthorized: 9,
+              forbidden: 0,
+            },
+            errors: 0,
+            queries: { total: 2, perRequestMax: 2, totalMs: 10 },
+            phases: {
+              action: { totalMs: 100, count: 1 },
+              "action.self": { totalMs: 90, count: 1 },
+            },
+          },
+        ],
+        nPlusOne: [],
+        slowQueries: [],
+        sqlShapesDropped: 0,
+        errors: [],
+      },
+      {
+        windowMs: 1000,
+        elapsedMs: 1000,
+        ticks: 1,
+        lost: 0,
+        cancelled: false,
+        route: null,
+        filteredRoute: 0,
+        pid: 1,
+        uptimeSec: 1,
+        eventLoop: null,
+        heapDeltaBytes: null,
+      },
+    );
+    expect(text).toContain("action.self 90 ms · SQL (cumul) 10 ms");
+    expect(text).toContain("| 2.0/2 |");
+    expect(text).toContain('"sqlPerReq":2');
+    expect(text).toContain('"actionSelfMs":90');
   });
 });

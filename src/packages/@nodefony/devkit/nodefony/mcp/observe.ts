@@ -24,7 +24,7 @@ export const OBSERVE_TICK_MS = 2000;
 
 /** La sonde du process : ce que l'outil lit du process à chaque relevé. */
 export interface IObserveProbe {
-  read(): { eventLoopMs: number; heapUsed: number };
+  read(): { eventLoopMs: number; eventLoopMaxMs: number; heapUsed: number };
   dispose(): void;
 }
 
@@ -239,7 +239,7 @@ async function observe(
       heapEnd = health.heapUsed;
       loopSum += health.eventLoopMs;
       loopReads += 1;
-      if (health.eventLoopMs > loopMax) loopMax = health.eventLoopMs;
+      if (health.eventLoopMaxMs > loopMax) loopMax = health.eventLoopMaxMs;
       const elapsedSec = (performance.now() - started) / 1000;
       opts.run?.progress(
         Math.min(elapsedSec, windowSec),
