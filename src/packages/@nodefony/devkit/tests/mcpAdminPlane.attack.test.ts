@@ -132,6 +132,7 @@ function outils(options: { hostile?: boolean } = {}) {
     broker: broker(options),
     getCard: () => ({ app: "banc" }),
     projectRoot: REPO_ROOT,
+    getProfiler: () => undefined,
   });
 }
 
@@ -152,6 +153,7 @@ describe("RED-TEAM — pont `tools/list` → `tools/call`", () => {
     broker: broker(),
     getCard: () => ({}),
     projectRoot: REPO_ROOT,
+    getProfiler: () => undefined,
   };
 
   it("CONTRÔLE POSITIF — le porteur légitime obtient les deux outils et une donnée", async () => {
@@ -392,6 +394,7 @@ describe("RED-TEAM — passe 2 : les branches que la menace générique ne touch
       broker: undefined,
       getCard: () => ({}),
       projectRoot: REPO_ROOT,
+      getProfiler: () => undefined,
     });
     expect(texte(await orphelin.admin_list.handler({}, admin))).toContain(
       "0 lectures appelables",
@@ -423,6 +426,7 @@ describe("RED-TEAM — passe 2 : les branches que la menace générique ne touch
         broker: enorme,
         getCard: () => ({}),
         projectRoot: REPO_ROOT,
+        getProfiler: () => undefined,
       }).admin_list.handler({}, admin),
     );
     // Des entrées RESTENT (le résumé générique de `mcpText` n'en garderait
@@ -484,6 +488,7 @@ describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () =
     broker: broker(),
     getCard: () => ({}),
     projectRoot: REPO_ROOT,
+    getProfiler: () => undefined,
   };
 
   it("l'OPÉRATEUR d'une porte non protégée les obtient — comme il obtient inspect", () => {
@@ -570,6 +575,7 @@ describe("CONTRAT D'ENTRÉE — un argument inconnu est REFUSÉ, jamais avalé",
     broker: broker(),
     getCard: () => ({}),
     projectRoot: REPO_ROOT,
+    getProfiler: () => undefined,
   };
   const admin = porteur([ADMIN_SCOPE_READ]);
 

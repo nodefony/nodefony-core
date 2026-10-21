@@ -14,6 +14,7 @@ import type {
 } from "nodefony";
 import { defineMcpGate, mcpDeclaredScopes, type IMcpGate } from "@nodefony/ai";
 import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
+import { asProfilerReader } from "../mcp/observe";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type IDevkitConfig } from "../config/config";
@@ -177,6 +178,7 @@ class DevkitService extends Service implements IDevkitService {
       broker: this.get<IAdminBrokerLike>("adminBroker") ?? undefined,
       getCard: () => this.getCard(),
       projectRoot: kernel?.path ?? process.cwd(),
+      getProfiler: () => asProfilerReader(this.get("profiler")),
     };
   }
 

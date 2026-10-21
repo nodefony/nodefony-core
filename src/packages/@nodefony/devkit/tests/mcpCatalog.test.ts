@@ -98,6 +98,7 @@ function deps() {
     broker: fakeBroker(),
     getCard: () => ({ app: "banc" }),
     projectRoot: REPO_ROOT,
+    getProfiler: () => undefined,
   };
 }
 

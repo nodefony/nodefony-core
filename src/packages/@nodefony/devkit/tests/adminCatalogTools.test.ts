@@ -140,6 +140,7 @@ function outils() {
     broker: broker(),
     getCard: () => ({ app: "banc" }),
     projectRoot: REPO_ROOT,
+    getProfiler: () => undefined,
   });
 }
 
@@ -268,6 +269,7 @@ describe("les deux outils sont RETENUS sans le scope de lecture", () => {
     broker: broker(),
     getCard: () => ({ app: "banc" }),
     projectRoot: REPO_ROOT,
+    getProfiler: () => undefined,
   };
   const noms = (caller?: IMcpCaller) =>
     collectMcpTools({

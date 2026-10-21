@@ -48,6 +48,7 @@ const deps = {
   broker: undefined,
   getCard: () => ({}),
   projectRoot: process.cwd(),
+  getProfiler: () => undefined,
 };
 
 describe("devkit — la configuration du serveur MCP", () => {

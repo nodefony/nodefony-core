@@ -23,6 +23,8 @@ import type {
   IMcpCaller,
 } from "nodefony";
 import { mcpText, MCP_TEXT_MAX_CHARS, MCP_RESERVED_PREFIX } from "@nodefony/ai";
+import type { IProfilerReader } from "@nodefony/http";
+import { observeTool } from "./observe";
 
 /**
  * Outils MCP du framework : le catalogue `nodefony_*`, que `@nodefony/devkit`
@@ -323,6 +325,11 @@ export interface IMcpToolDeps {
    * conclurait « rien à signaler » avec aplomb.
    */
   projectRoot: string;
+  /**
+   * Le profileur de développement (`"profiler"` du conteneur), ou `undefined`
+   * hors développement : `nodefony_observe` le dit au lieu de planter.
+   */
+  getProfiler: () => IProfilerReader | undefined;
 }
 
 /**
@@ -332,7 +339,7 @@ export interface IMcpToolDeps {
 const PREFIX = MCP_RESERVED_PREFIX;
 
 /**
- * Ce que promettent les sept outils intégrés : ils ne font que LIRE l'état de
+ * Ce que promettent les outils intégrés : ils ne font que LIRE l'état de
  * l'application (même `admin_call`, qui n'atteint que le catalogue de lecture),
  * et ne sortent pas de l'application. Partagé : un objet figé ne retient rien.
  */
@@ -356,6 +363,7 @@ export const BUILTIN_MCP_TOOL_KEYS = [
   "docs",
   "admin_list",
   "admin_call",
+  "observe",
 ] as const;
 
 /** Clé d'un outil intégré. */
@@ -865,6 +873,7 @@ export function builtinMcpTools(
         return read.ok ? mcpText(read.data) : mcpAdminFailure(read);
       },
     },
+    observe: observeTool({ getProfiler: deps.getProfiler }),
   };
 }
 
