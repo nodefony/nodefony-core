@@ -12,7 +12,6 @@
  */
 import path from "node:path";
 import { ENV_FILE } from "../../runtime/loadEnv";
-import net from "node:net";
 import {
   CACHE_URL_VARIABLES,
   DATABASE_URL_VARIABLES,
@@ -56,6 +55,7 @@ import { liveNotRun, LIVE_FAMILIES, type ILiveResult } from "./live";
 import {
   defaultDevPorts,
   probePorts,
+  probePort,
   readRuntimeState,
 } from "../../service/dev/devProcess";
 import {
@@ -280,26 +280,21 @@ async function probeDeclaredInfra(
 
   const unreachable: { target: IInfraTarget; cause: string }[] = [];
   await Promise.all(
-    targets.map(
-      (target) =>
-        new Promise<void>((resolve) => {
-          const socket = net.connect({ host: target.host, port: target.port });
-          const fin = (cause?: string): void => {
-            socket.removeAllListeners();
-            socket.destroy();
-            if (cause) unreachable.push({ target, cause });
-            resolve();
-          };
-          socket.setTimeout(INFRA_PROBE_TIMEOUT_MS);
-          socket.once("connect", () => fin());
-          socket.once("timeout", () =>
-            fin(`pas de réponse en ${INFRA_PROBE_TIMEOUT_MS} ms`),
-          );
-          socket.once("error", (e: NodeJS.ErrnoException) =>
-            fin(e.code ?? e.message),
-          );
-        }),
-    ),
+    targets.map(async (target) => {
+      const { cause } = await probePort(
+        target.port,
+        target.host,
+        INFRA_PROBE_TIMEOUT_MS,
+      );
+      if (cause === null) return;
+      unreachable.push({
+        target,
+        cause:
+          cause === "timeout"
+            ? `pas de réponse en ${INFRA_PROBE_TIMEOUT_MS} ms`
+            : cause,
+      });
+    }),
   );
   return { targets, unreachable };
 }

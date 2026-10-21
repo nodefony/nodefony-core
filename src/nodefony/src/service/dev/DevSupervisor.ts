@@ -11,7 +11,6 @@ import {
   type WatchEventType,
 } from "node:fs";
 import { EventEmitter } from "node:events";
-import net from "node:net";
 import { Nodefony } from "../../Nodefony";
 import path from "node:path";
 import { SysExit } from "../../cli/sysexits";
@@ -68,6 +67,7 @@ import {
   readSupervisorSuspension,
   missingWorkspaceDists,
   probePorts,
+  isPortListening,
   readRuntimeState,
   readyAnnouncement,
   splitByProject,
@@ -2415,19 +2415,12 @@ export class DevSupervisor {
     await waitGroupDead(b.pid, 1000);
   }
 
-  /** `true` si rien n'écoute sur `port` en loopback (connexion refusée). */
-  #isPortFree(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const socket = net.connect({ host: "127.0.0.1", port });
-      const settle = (free: boolean): void => {
-        socket.removeAllListeners();
-        socket.destroy();
-        resolve(free);
-      };
-      socket.once("connect", () => settle(false)); // quelqu'un écoute → occupé
-      socket.once("error", () => settle(true)); // refusé/injoignable → libre
-      socket.setTimeout(400, () => settle(true));
-    });
+  /**
+   * `true` si rien n'écoute sur `port` en loopback — le contraire de
+   * {@link isPortListening}, dont il hérite la garde « boucle bloquée ».
+   */
+  async #isPortFree(port: number): Promise<boolean> {
+    return !(await isPortListening(port));
   }
 
   /** Attend que tous les ports surveillés soient libres (ou expire). */

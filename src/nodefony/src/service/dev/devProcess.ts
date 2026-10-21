@@ -1441,9 +1441,23 @@ export function formatForeignRuntimes(
   return lines;
 }
 
+/** Verdict d'une sonde de port : à l'écoute, ou la raison du silence. */
+export interface IPortProbeResult {
+  /** Une connexion a été acceptée. */
+  listening: boolean;
+  /**
+   * Pourquoi rien n'a répondu — code d'erreur du système (`ECONNREFUSED`,
+   * `EHOSTUNREACH`…) ou `"timeout"` ; `null` quand le port répond.
+   */
+  cause: string | null;
+}
+
 /**
- * `true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de
- * la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND.
+ * Sonde un port par une connexion TCP, et dit pourquoi il est muet.
+ *
+ * SEULE implémentation de la sonde de port du cœur : {@link isPortListening},
+ * le superviseur de développement et `doctor` (infrastructure déclarée) la
+ * partagent — trois copies avaient divergé, deux sans la garde ci-dessous.
  *
  * 🔴 Le délai ne conclut « muet » qu'APRÈS la phase d'entrées/sorties. Une boucle
  * d'événements bloquée plus longtemps que `timeoutMs` (machine chargée, `spawnSync`
@@ -1458,24 +1472,32 @@ export function formatForeignRuntimes(
  * création, est déjà échu (mesuré : 59 ports occupés sur 300 déclarés libres, CPU
  * saturé). Le délai mesure donc le temps réellement OFFERT : un minuteur qui se
  * déclenche avec plus d'un délai de retard rouvre une fenêtre complète, une fois.
+ *
+ * @param port - port sondé
+ * @param host - hôte sondé (boucle locale par défaut)
+ * @param timeoutMs - temps offert à la connexion
+ * @returns le verdict et, s'il est muet, sa cause
  */
-export function isPortListening(
+export function probePort(
   port: number,
   host = "127.0.0.1",
   timeoutMs = 400,
-): Promise<boolean> {
+): Promise<IPortProbeResult> {
   return new Promise((resolve) => {
     const socket = net.connect({ host, port });
     let settled = false;
-    const settle = (listening: boolean): void => {
+    const settle = (cause: string | null): void => {
       if (settled) return;
       settled = true;
       socket.removeAllListeners();
       socket.destroy();
-      resolve(listening);
+      resolve({ listening: cause === null, cause });
     };
-    socket.once("connect", () => settle(true)); // quelqu'un répond → à l'écoute
-    socket.once("error", () => settle(false)); // refusé / injoignable → muet
+    socket.once("connect", () => settle(null)); // quelqu'un répond → à l'écoute
+    // refusé / injoignable → muet, et le système dit pourquoi
+    socket.once("error", (e: NodeJS.ErrnoException) =>
+      settle(e.code ?? e.message),
+    );
     const armedAt = Date.now();
     let rearmed = false;
     // `setTimeout(ms, cb)` pose `cb` en `once` : le réarmement le repasse.
@@ -1485,10 +1507,23 @@ export function isPortListening(
         socket.setTimeout(timeoutMs, onTimeout);
         return;
       }
-      setImmediate(() => settle(false));
+      setImmediate(() => settle("timeout"));
     };
     socket.setTimeout(timeoutMs, onTimeout);
   });
+}
+
+/**
+ * `true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de
+ * la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND.
+ * Le verdict de {@link probePort}, sans sa cause.
+ */
+export async function isPortListening(
+  port: number,
+  host = "127.0.0.1",
+  timeoutMs = 400,
+): Promise<boolean> {
+  return (await probePort(port, host, timeoutMs)).listening;
 }
 
 /** Sonde TCP de plusieurs ports en parallèle. */

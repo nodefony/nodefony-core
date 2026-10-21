@@ -12,7 +12,10 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
+  readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import net from "node:net";
@@ -20,6 +23,7 @@ import {
   clearRuntimeState,
   defaultDevPorts,
   isPortListening,
+  probePort,
   formatForeignRuntimes,
   discoverDevProcessesDetailed,
   discoverFromRuntimeState,
@@ -272,6 +276,74 @@ describe("devProcess — isPortListening sous boucle d'événements BLOQUÉE", (
     const { port } = server.address() as net.AddressInfo;
     await new Promise((r) => server.close(r));
     assert.strictEqual(await isPortListening(port, "127.0.0.1", 50), false);
+  });
+});
+
+describe("devProcess — probePort, SEULE sonde de port du cœur", () => {
+  it("port à l'écoute → `cause` nulle", async () => {
+    const server = net.createServer();
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address() as net.AddressInfo;
+    try {
+      assert.deepStrictEqual(await probePort(port, "127.0.0.1", 200), {
+        listening: true,
+        cause: null,
+      });
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  });
+
+  it("port refusé → le code du système, que `doctor` affiche", async () => {
+    const server = net.createServer();
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address() as net.AddressInfo;
+    await new Promise((r) => server.close(r));
+    assert.deepStrictEqual(await probePort(port, "127.0.0.1", 200), {
+      listening: false,
+      cause: "ECONNREFUSED",
+    });
+  });
+
+  // Trois copies avaient divergé (superviseur, `doctor`, `status`) : deux sans
+  // la garde « boucle bloquée ». Une quatrième ne doit pas renaître en silence.
+  it("aucun autre `net.connect` dans le code de production", () => {
+    const root = path.resolve(import.meta.dirname, "../../../..");
+    const scanned = [
+      path.join(root, "src", "nodefony", "src"),
+      ...readdirSync(path.join(root, "src", "packages", "@nodefony")).map((m) =>
+        path.join(root, "src", "packages", "@nodefony", m, "nodefony"),
+      ),
+    ];
+    const offenders: string[] = [];
+    const walk = (dir: string): void => {
+      let entries: string[];
+      try {
+        entries = readdirSync(dir);
+      } catch {
+        return;
+      }
+      for (const name of entries) {
+        const full = path.join(dir, name);
+        if (name === "tests" || name === "node_modules" || name === "dist") {
+          continue;
+        }
+        if (statSync(full).isDirectory()) walk(full);
+        else if (
+          name.endsWith(".ts") &&
+          name !== "devProcess.ts" &&
+          /\bnet\.connect\(/u.test(readFileSync(full, "utf8"))
+        ) {
+          offenders.push(path.relative(root, full));
+        }
+      }
+    };
+    for (const dir of scanned) walk(dir);
+    assert.deepStrictEqual(
+      offenders,
+      [],
+      "passer par probePort / isPortListening",
+    );
   });
 });
 
