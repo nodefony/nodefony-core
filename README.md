@@ -72,16 +72,20 @@ services**, posé comme un **calque** sur celui de l'application.
 - **Ce qu'on y fait.** On lit toute la carte à travers le calque (les services de l'application
   s'héritent) ; on n'écrit que sur son calque. Deux requêtes concurrentes ont deux calques et ne se
   voient jamais ; rien de ce qui est posé sur un calque ne survit à la requête.
+- **Le fil qui relie tout : `AsyncLocalStorage`.** Chaque requête s'exécute dans une bulle ALS de
+  Node (`RequestContext`) : son identifiant, l'utilisateur, la trace W3C et le calque suivent chaque
+  `await`, jusque dans un service ou un adaptateur ORM, sans qu'on les passe d'appel en appel.
 - **Comment on l'atteint.** Depuis n'importe quel code de la requête, sans passer le contexte :
   `RequestContext.getScope()` rend le calque courant (ou `undefined`), `requireScope()` lève en
-  nommant la cause. Le contexte asynchrone de la requête dit **lequel** est le tien. Un hook
+  nommant la cause. La bulle ALS de la requête dit **lequel** est le tien. Un hook
   `onAfterResponse` le voit encore ouvert ; une promesse non attendue qui continue après la réponse,
   non.
 - **HTTP et WebSocket.** Une requête HTTP = un calque. Une connexion WebSocket = un calque, partagé
   par tous ses messages, concurrents compris.
 - **Des services par requête.** `@injectable({ scope: "request" })` donne un exemplaire par requête,
   créé seulement si la requête le demande, et nettoyé (`clean()`, dans l'ordre inverse des
-  créations) à sa fermeture. Un singleton qui en dépendrait est refusé dès le démarrage.
+  créations) à sa fermeture. Un singleton qui en dépendrait est refusé dès le démarrage,
+  plutôt que de devenir lui-même, sans qu'on l'ait écrit, un service par requête.
 - **Le coût, avec son décor.** Poser puis jeter un calque ≈ 1,43 µs (sonde dans le serveur, un
   processus en production, paires alternées) ; une requête qui ne résout aucun service par requête
   ne paie rien de plus.

@@ -163,6 +163,8 @@ class GreetCommand extends Command {
     // Le kernel sera prêt (onReady) avant que generate() ne tourne.
     super("app:greet", "Saluer depuis la ligne de commande", cli, {
       kernelEvent: "onReady",
+      // Écrits sous toute erreur d'usage et sous --help : la bonne forme, prête à copier.
+      examples: ["nodefony app:greet Ada"],
     });
     this.addArgument("<name>", "qui saluer");
   }
@@ -383,6 +385,13 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 - `onBoot` — les services du kernel existent (ex. certificats).
 - `onRegister` (défaut) — les modules sont enregistrés (ex. build, install).
 - `onStart` — rien n'est chargé : pour le vrai standalone.
+
+**`examples` = la bonne forme, montrée au bon moment.** Des invocations complètes, telles qu'on les
+tape (`command/Command.ts#OptionsCommandInterface`). Sous une erreur d'usage — option inconnue,
+argument manquant —, la CLI écrit l'usage, les options et les deux premiers exemples, puis sort en
+`64` ; `--help` les montre tous. Une liste calculée (lue dans une page, un catalogue) se passe en
+**fonction** : le constructeur de chaque commande tourne à chaque lancement de la CLI, alors que les
+exemples ne servent que sous un refus ou un `--help`.
 
 **Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts#Module.addCommand`) —
 il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts#Module.loadService`). Hors module, un
