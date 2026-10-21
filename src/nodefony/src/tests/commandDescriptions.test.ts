@@ -57,7 +57,21 @@ const REPO = path.resolve(
 );
 
 /**
+ * Une classe qui hérite d'une commande — `Command` ou une base intermédiaire
+ * (`OrmMigrateCommand`) : le nom du parent finit par `Command`.
+ */
+const HERITE_COMMANDE = /\bclass\s+\w+\s+extends\s+\w*Command\b/;
+
+/**
  * Les fichiers de commande des modules du dépôt.
+ *
+ * Deux portes, cumulées : le dossier `nodefony/command/`, où le gabarit range
+ * les commandes, et le CONTENU — une classe qui étend une commande, où qu'elle
+ * soit rangée. Le dossier seul laissait `security:keycloak:realm`
+ * (`nodefony/keycloak/`) hors de toutes les gardes de ce banc. Le dossier reste
+ * une porte parce qu'il retient aussi un fichier dont la forme surprend le
+ * motif : celui-là doit échouer au test des descriptions muettes, pas
+ * disparaître du parcours.
  *
  * Parcours en `fs`, jamais un `find` : la commande n'existe pas sous Windows, et
  * ce banc doit tourner sur les trois plateformes. Le filtre se compose avec
@@ -73,7 +87,9 @@ function fichiersDeCommande(dir: string, acc: string[] = []): string[] {
     } else if (
       e.name.endsWith(".ts") &&
       !e.name.endsWith(".test.ts") &&
-      complet.includes(path.join("nodefony", "command") + path.sep)
+      !e.name.endsWith(".d.ts") &&
+      (complet.includes(path.join("nodefony", "command") + path.sep) ||
+        HERITE_COMMANDE.test(fs.readFileSync(complet, "utf8")))
     ) {
       acc.push(complet);
     }
