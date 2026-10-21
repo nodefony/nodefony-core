@@ -33,7 +33,11 @@ import defaultConfig, { type IDevkitConfig } from "../config/config";
 const DEVKIT_MCP_INSTRUCTIONS =
   "Outils d'introspection d'une application Nodefony — ils répondent depuis " +
   "l'application qui TOURNE, pas depuis une lecture des sources. Commence " +
-  "par la carte de visite si tu arrives sur cette application.";
+  "par la carte de visite si tu arrives sur cette application. Pour MESURER " +
+  "plutôt que lire le code — une page lente, trop de requêtes SQL, l'effet " +
+  "d'une modification — nodefony_profile_route tire lui-même N requêtes sur " +
+  "un chemin et rend son profil ; nodefony_observe mesure le trafic que tu " +
+  "génères (tests, navigation). Avant d'écrire un script de banc.";
 
 /** Ce qu'accorde la porte de développement à qui l'atteint sans jeton. */
 const DEV_OPERATOR_ROLES: readonly string[] = [ADMIN_DEFAULT_ROLE];
