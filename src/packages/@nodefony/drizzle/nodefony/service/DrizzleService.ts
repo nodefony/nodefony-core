@@ -6,6 +6,7 @@ import {
   projectEntityDialectMismatches,
   runNeedsExternalServices,
   runWorksOnSchema,
+  redactUrlCredentials,
 } from "nodefony";
 import type { Container, Kernel, Module } from "nodefony";
 import {
@@ -105,15 +106,11 @@ function redactUrl(url?: string): string {
   if (!url) {
     return "no url";
   }
-  try {
-    const parsed = new URL(url);
-    if (parsed.password) {
-      parsed.password = "***";
-    }
-    return parsed.toString();
-  } catch {
+  // Une URL illisible ne se masque pas par sa forme : elle ne s'affiche pas.
+  if (!URL.canParse(url)) {
     return "invalid url";
   }
+  return redactUrlCredentials(url);
 }
 
 /**

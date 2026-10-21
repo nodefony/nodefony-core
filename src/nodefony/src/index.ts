@@ -365,7 +365,7 @@ export type {
   IProfilerQuery,
   IRequestUser,
 } from "./runtime/RequestContext";
-export { redactSecrets } from "./runtime/redact";
+export { redactSecrets, redactUrlCredentials } from "./runtime/redact";
 export { identityHint } from "./runtime/identityHint";
 export {
   AUTH_API_BASE,

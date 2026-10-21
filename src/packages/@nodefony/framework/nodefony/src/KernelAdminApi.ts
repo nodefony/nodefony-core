@@ -24,6 +24,7 @@ import {
   suspendSupervisor,
   resumeSupervisor,
   isFrameworkRepository,
+  redactUrlCredentials,
 } from "nodefony";
 import type {
   IKernel,
@@ -178,7 +179,9 @@ export function safeConfig(
 ): unknown {
   if (typeof value === "function") return "[Function]";
   if (typeof value === "bigint") return value.toString();
-  if (typeof value === "string") return stripAbs(value);
+  // Une URL porte le mot de passe de son compte sous n'importe quel nom de
+  // clé (`url`, `uri`, `dsn`) : la valeur se juge sur sa FORME.
+  if (typeof value === "string") return stripAbs(redactUrlCredentials(value));
   if (value === null || typeof value !== "object") return value;
   if (depth > 5) return "[depth limit]";
   if (seen.has(value)) return "[Circular]";
@@ -752,11 +755,6 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       ? p.slice(repoRoot.length).replace(/^[/\\]+/, "") || "."
       : (p ?? null);
 
-  // Masque les credentials (`user:pass@`) d'une URL d'infra avant de la renvoyer :
-  // une URL de base/cache peut porter un mot de passe — jamais exposé au client.
-  const redactInfraUrl = (url: string): string =>
-    url.replace(/\/\/[^/@]*@/, "//***@");
-
   // Entrées config agrégées (valeurs redactées + provenance par champ) — partagé
   // par l'endpoint `config` (page globale) et `stores` (source d'un store explicite).
   const buildConfigEntries = (): IConfigEntry[] => {
@@ -1243,9 +1241,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // URLs d'infra REDACTÉES (credentials masqués) — calculées une seule fois,
         // réutilisées par le bloc `infra` ET par la cible réseau (`endpoint`) des stores.
         const dbUrl = infra.database
-          ? redactInfraUrl(infra.database.url)
+          ? redactUrlCredentials(infra.database.url)
           : null;
-        const cacheUrl = infra.cache ? redactInfraUrl(infra.cache.url) : null;
+        const cacheUrl = infra.cache
+          ? redactUrlCredentials(infra.cache.url)
+          : null;
         // Cible RÉSEAU (redactée) d'UN store, par store — répond à « à quelle base ce
         // store est-il connecté ? ». Axiome du modèle « infra déclarée » : un backend
         // réseau vit à l'infra déclarée (database pour drizzle/mongoose, cache pour
@@ -1324,10 +1324,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             logs: infra.logs
               ? {
                   lokiUrl: infra.logs.lokiUrl
-                    ? redactInfraUrl(infra.logs.lokiUrl)
+                    ? redactUrlCredentials(infra.logs.lokiUrl)
                     : null,
                   opensearchUrl: infra.logs.opensearchUrl
-                    ? redactInfraUrl(infra.logs.opensearchUrl)
+                    ? redactUrlCredentials(infra.logs.opensearchUrl)
                     : null,
                 }
               : null,

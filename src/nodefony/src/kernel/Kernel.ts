@@ -71,6 +71,7 @@ import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { isTerminal } from "../runtime/isTerminal";
+import { redactUrlCredentials } from "../runtime/redact";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
@@ -1955,7 +1956,7 @@ class Kernel extends Service implements IKernel {
         const appliedValue = readResolvedPath(mod.options, ov.path);
         const shown = pathLooksSecret(ov.path)
           ? "«***»"
-          : JSON.stringify(appliedValue);
+          : redactUrlCredentials(JSON.stringify(appliedValue));
         this.log(
           `Override env: ${mod.name}.${ov.path.join(".")} = ${shown}`,
           "INFO",

@@ -108,3 +108,35 @@ describe("safeConfig — ce qui ne DOIT PAS l'être", () => {
     );
   });
 });
+
+describe("safeConfig — une URL porte son mot de passe sous n'importe quelle clé", () => {
+  // Mesuré sur l'application du dépôt : `nodefony inspect config --json`
+  // affichait `connectors.default.url = postgres://u:motdepasse@…`. La clé
+  // `url` n'a rien de secret ; c'est la VALEUR qui porte le compte.
+  it("🔴 l'URL du connecteur — le cas qui fuyait", () => {
+    const out = safeConfig({
+      connectors: { default: { url: "postgres://app:s3cret@db:5432/app" } },
+    }) as { connectors: { default: { url: string } } };
+    expect(out.connectors.default.url).toBe("postgres://app:***@db:5432/app");
+  });
+
+  it("même sous `uri`, `dsn`, ou dans une liste", () => {
+    const out = JSON.stringify(
+      safeConfig({
+        mongo: { uri: "mongodb://root:pw@m:27017/x" },
+        dsn: "mysql://u:pw@h/db",
+        mirrors: ["redis://:pw@c:6379"],
+      }),
+    );
+    expect(out).not.toContain(":pw@");
+    expect(out).toContain("mongodb://root:***@m:27017/x");
+  });
+
+  it("une URL sans mot de passe reste lisible", () => {
+    expect(
+      safeConfig({ issuer: "https://sso.example.com/realms/app" }),
+    ).toEqual({
+      issuer: "https://sso.example.com/realms/app",
+    });
+  });
+});

@@ -1,4 +1,5 @@
 import type { CliKernel, Kernel, OptionsCommandInterface } from "nodefony";
+import { redactUrlCredentials } from "nodefony";
 import type { SqlDialect } from "../config/config";
 import { openMigrationDriver } from "../src/migrator/drivers/index";
 import type { IMigrationDriver } from "../src/migrator/types";
@@ -387,15 +388,8 @@ class OrmReset extends OrmMigrateCommand {
 
 /** Retire le secret d'une URL de connexion avant de l'afficher. */
 function redact(url: string): string {
-  try {
-    const u = new URL(url);
-    if (u.password) {
-      u.password = "***";
-    }
-    return u.toString();
-  } catch {
-    return url.replace(/\/\/[^@]*@/, "//***@");
-  }
+  // Illisible → rien n'est affiché : le masquage reconnaît une URL par sa forme.
+  return URL.canParse(url) ? redactUrlCredentials(url) : "invalid url";
 }
 
 export default OrmReset;
