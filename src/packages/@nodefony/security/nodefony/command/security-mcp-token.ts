@@ -179,7 +179,7 @@ class SecurityMcpToken extends Command {
       "agents à servir, séparés par des virgules (défaut : ceux détectés ; « none » pour aucun)",
     );
     this.addOption(
-      "-t, --ttl <duree>",
+      "-t, --ttl <minutes>",
       "durée de validité, en minutes (défaut : 8 h avec --write, sinon celle de la config, 15 min)",
     );
     this.addOption(
