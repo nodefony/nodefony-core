@@ -571,7 +571,7 @@ describe("ai:mcp — ce que l'écran dit des agents et de leurs jetons (#303)", 
       const ctx = { home, env: {}, expectedAudience: PORTE };
       // Sans déclaration dans le projet : le foyer parle, et il dit « autre audience ».
       expect(
-        agentTokenStates([parCli], root, now, ctx).get(parCli.key),
+        agentTokenStates([parCli], root, now, ctx).get(parCli.key)?.phrase,
       ).to.contain("autre");
       // Déclaré dans le projet : c'est CE jeton qui compte.
       const auProjet = path.join(root, parCli.marker, parCli.file);
@@ -585,7 +585,9 @@ describe("ai:mcp — ce que l'écran dit des agents et de leurs jetons (#303)", 
           jeton({ exp: now + 10 * 86_400, aud: PORTE }),
         ) as string,
       );
-      const etat = agentTokenStates([parCli], root, now, ctx).get(parCli.key);
+      const etat = agentTokenStates([parCli], root, now, ctx).get(
+        parCli.key,
+      )?.phrase;
       expect(etat).to.contain("10 jours");
       expect(etat).to.not.contain("autre");
     } finally {

@@ -257,14 +257,20 @@ démarrage.
 ## 🔄 Renouveler — c'est réémettre, pas rafraîchir
 
 Il n'y a pas de refresh token ici : ce jeton est signé hors bande, pour une porte, avec une durée
-courte. Le renouveler, c'est **relancer la commande**. Et comme `--write` ne remplace jamais une
-valeur en place, une rotation se demande :
+courte. Le renouveler, c'est **relancer la commande** : `--write` **remplace** le jeton chez les
+agents qui le portent déjà, sans reposer de question, et ne câble aucun agent nouveau sans le
+proposer (`agentTargets.ts#poseVariable`). Puis relancer l'agent, qui lit sa configuration au
+démarrage.
 
 ```bash
-# 1) retirer l'ancienne valeur là où elle est posée (le fichier est nommé par la commande)
-# 2) réémettre
 npx nodefony security:mcp:token --write --ttl 1440
 ```
+
+Un jeton expiré ne casse rien de visible chez l'agent : la porte le sert en **anonyme** et retient
+les outils réservés. `nodefony doctor` le signale dans sa famille « Fraîcheur du build », avec
+cette commande pour geste (`freshness.ts#checkAgentTokens`) — pour les fichiers du projet
+seulement : le dossier de l'utilisateur est partagé entre applications, et `nodefony ai:mcp` en
+rend compte.
 
 Le flux de rotation **avec détection de rejeu** est celui des refresh tokens de la porte HTTP — il
 est décrit dans [tokens](tokens.md), pas ici.

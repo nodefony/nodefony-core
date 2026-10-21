@@ -9,7 +9,11 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkFreshness, nodeBelowEngines } from "../kernel/checks/freshness";
+import {
+  checkAgentTokens,
+  checkFreshness,
+  nodeBelowEngines,
+} from "../kernel/checks/freshness";
 
 // Le jetable du test, le test le supprime : scripts/test/vitest/tmp-guard.ts fait échouer
 // la passe sur tout dossier laissé dans le dossier temporaire.
@@ -235,5 +239,71 @@ describe("doctor — la fraîcheur désigne un FICHIER, et ignore ce qui n'est p
       ["dist-stale"],
     );
     assert.equal(r.findings[0]!.file, "nodefony/Widget.ts");
+  });
+});
+
+/**
+ * Un jeton MCP périmé chez un agent ne casse rien qu'on voie : la porte sert
+ * l'agent en anonyme. `doctor` le dit, et donne la commande qui le renouvelle.
+ */
+describe("checkAgentTokens — le jeton MCP posé chez un agent", () => {
+  const NOW = 1_000_000;
+  const PORTE = "http://localhost:5151/nodefony/mcp";
+  const jeton = (charge: Record<string, unknown>): string =>
+    `x.${Buffer.from(JSON.stringify(charge)).toString("base64url")}.y`;
+  // Un projet où Claude Code porte `token` ; un foyer VIDE, pour ne jamais
+  // lire la configuration de l'agent de la machine qui lance le test.
+  const decor = (token: string | null) => {
+    const root = temporaire(mkdtempSync(path.join(os.tmpdir(), "nf-jeton-")));
+    const home = temporaire(mkdtempSync(path.join(os.tmpdir(), "nf-foyer-")));
+    mkdirSync(path.join(root, ".claude"), { recursive: true });
+    writeFileSync(
+      path.join(root, ".claude", "settings.local.json"),
+      JSON.stringify({ env: token === null ? {} : { NF_MCP_TOKEN: token } }),
+    );
+    return { root, ctx: { home, env: {} } };
+  };
+
+  it("jeton EXPIRÉ → constat, avec la commande qui le renouvelle", () => {
+    const { root, ctx } = decor(jeton({ exp: NOW - 600, aud: PORTE }));
+    const findings = checkAgentTokens(root, NOW, ctx);
+    assert.deepEqual(
+      findings.map((f) => f.kind),
+      ["agent-token-stale"],
+    );
+    assert.match(findings[0]!.message, /EXPIRÉ/u);
+    assert.match(findings[0]!.message, /nodefony security:mcp:token --write/u);
+    assert.equal(
+      findings[0]!.file,
+      path.posix.join(".claude", "settings.local.json"),
+    );
+  });
+
+  it("jeton d'une AUTRE porte → constat, même loin de son échéance", () => {
+    const autre = "http://localhost:6161/nodefony/mcp";
+    const { root, ctx } = decor(jeton({ exp: NOW + 86_400, aud: autre }));
+    const findings = checkAgentTokens(root, NOW, ctx);
+    assert.equal(findings.length, 1);
+    assert.match(findings[0]!.message, /autre audience/u);
+  });
+
+  it("jeton valide pour cette porte → rien", () => {
+    const { root, ctx } = decor(jeton({ exp: NOW + 86_400, aud: PORTE }));
+    assert.deepEqual(checkAgentTokens(root, NOW, ctx), []);
+  });
+
+  it("aucun jeton posé → rien : une porte anonyme est un choix", () => {
+    const { root, ctx } = decor(null);
+    assert.deepEqual(checkAgentTokens(root, NOW, ctx), []);
+  });
+
+  it("jeton du DOSSIER de l'utilisateur → rien : il peut servir une autre application", () => {
+    const { root, ctx } = decor(null);
+    mkdirSync(path.join(ctx.home, ".codex"), { recursive: true });
+    writeFileSync(
+      path.join(ctx.home, ".codex", ".env"),
+      `NF_MCP_TOKEN=${jeton({ exp: NOW - 600, aud: PORTE })}\n`,
+    );
+    assert.deepEqual(checkAgentTokens(root, NOW, ctx), []);
   });
 });

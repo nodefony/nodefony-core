@@ -37,6 +37,9 @@ import { withoutComments } from "./sourceText";
 import { version as frameworkVersion } from "../../../package.json";
 import { refreshAgentsGuide } from "../../cli/scaffold/engine";
 import { syncSkillPointers } from "../../cli/aiSync";
+import { agentsPresents } from "../../cli/agentTargets";
+import { agentTokenStates, guessOrigin } from "../../cli/aiMcp";
+import { buildMcpUrl, MCP_ENDPOINT_PATH } from "../../cli/aiMcpReport";
 
 /** Un écart entre ce qui est écrit et ce qui s'exécutera. */
 export interface IFreshnessFinding {
@@ -49,7 +52,8 @@ export interface IFreshnessFinding {
     | "frontend-stale"
     | "frontend-missing"
     | "agents-guide-stale"
-    | "skill-pointers-stale";
+    | "skill-pointers-stale"
+    | "agent-token-stale";
   /** Phrase actionnable : le constat, et le geste qui le répare. */
   message: string;
   /** Fichier qui porte le constat, relatif à la racine (si pertinent). */
@@ -397,12 +401,75 @@ export function checkFreshness(
   // La documentation des agents est une TROISIÈME sortie qui suit les paquets :
   // après une montée de version, un agent lit sinon la porte de l'ancienne.
   findings.push(...checkAgentsGuide(projectRoot));
+  // Le jeton posé chez un agent suit la même pente : il vieillit sans rien
+  // casser à la compilation, et l'agent est servi en anonyme sans le savoir.
+  findings.push(...checkAgentTokens(projectRoot));
 
   // Les paquets `@nodefony/*` LIÉS ont leur propre build : une application
   // liée à un checkout du framework exécute leur `dist/`, pas leurs sources.
   findings.push(...checkFrameworkBuild(projectRoot));
 
   return { findings, notComparable: plusRecente === 0 && !distStat };
+}
+
+/**
+ * Le jeton MCP posé chez chaque agent sert-il encore la porte d'ici ?
+ *
+ * Un jeton expiré, ou émis pour une autre application, ne casse rien qu'on
+ * voie : la porte sert l'agent en ANONYME et retient les outils réservés, et
+ * le symptôme se lit dans le journal du serveur, pas chez l'agent. Le jugement
+ * est celui d'`ai:mcp` (`agentTokenStates`), pas une copie.
+ *
+ * Seuls les jetons POSÉS sont jugés : un agent qui n'en porte aucun parle à
+ * une porte anonyme par choix, ce n'est pas un manquement. Et seulement ceux
+ * du PROJET : le dossier de l'utilisateur est partagé entre applications, un
+ * jeton d'une autre y est juste — `ai:mcp` en rend compte, pas `doctor`.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param nowSeconds - instant de référence (injecté pour le test).
+ * @param ctx - dossier et environnement de l'utilisateur (injectés pour le test).
+ * @returns un constat par agent dont le jeton ne sert plus, chacun avec
+ *   `security:mcp:token --write` pour geste.
+ */
+export function checkAgentTokens(
+  projectRoot: string,
+  nowSeconds: number = Math.floor(Date.now() / 1000),
+  ctx: { home?: string; env?: Record<string, string | undefined> } = {},
+): IFreshnessFinding[] {
+  const findings: IFreshnessFinding[] = [];
+  try {
+    const targets = agentsPresents({ projectRoot, ...ctx, exists: existsSync });
+    const states = agentTokenStates(targets, projectRoot, nowSeconds, {
+      ...ctx,
+      expectedAudience: buildMcpUrl(
+        guessOrigin(projectRoot),
+        MCP_ENDPOINT_PATH,
+      ),
+      projectOnly: true,
+    });
+    for (const target of targets) {
+      const state = states.get(target.key);
+      if (
+        state === undefined ||
+        (state.problem !== "expired" && state.problem !== "foreignAudience")
+      ) {
+        continue;
+      }
+      findings.push({
+        kind: "agent-token-stale",
+        message:
+          `jeton MCP de ${target.name} : ${state.phrase} — l'agent est servi ` +
+          "en anonyme. → `nodefony security:mcp:token --write`, puis relancer " +
+          "l'agent",
+        // Un chemin AFFICHÉ voyage : séparateur `/` sur les trois plateformes.
+        file: path.relative(projectRoot, state.file).split(path.sep).join("/"),
+      });
+    }
+  } catch {
+    // Configuration d'agent illisible : ce contrôle n'a rien constaté, et le
+    // rapport doit sortir quand même.
+  }
+  return findings;
 }
 
 /**

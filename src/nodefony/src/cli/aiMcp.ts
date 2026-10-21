@@ -380,6 +380,44 @@ export function tokenState(
 }
 
 /**
+ * Ce qui empêche le jeton posé chez un agent de servir à la porte d'ici.
+ *
+ * - `missing` — aucun jeton posé ;
+ * - `foreignAudience` — émis pour une AUTRE porte (RFC 8707) : refusé ici ;
+ * - `expired` — échéance passée.
+ */
+export type AgentTokenProblem = "missing" | "foreignAudience" | "expired";
+
+/**
+ * Le défaut d'un jeton LISIBLE, ou `null` s'il servira à la porte d'ici.
+ *
+ * SEULE implémentation du jugement : la phrase de {@link renderTokenState},
+ * la décision « réémettre ? » d'`ai:mcp` et le constat de `doctor` en
+ * dérivent. L'audience passe AVANT l'échéance — un jeton d'une autre porte
+ * est refusé, même valide trois semaines.
+ *
+ * @param state - ce que {@link tokenState} a lu.
+ * @param expectedAudience - audience de la porte d'ici, si elle est connue.
+ * @returns le défaut, ou `null`.
+ */
+export function tokenProblem(
+  state: ITokenState,
+  expectedAudience?: string,
+): Exclude<AgentTokenProblem, "missing"> | null {
+  if (
+    expectedAudience !== undefined &&
+    state.audience !== null &&
+    !state.audience.some((a) => sameAudience(a, expectedAudience))
+  ) {
+    return "foreignAudience";
+  }
+  if (state.remainingSeconds !== null && state.remainingSeconds <= 0) {
+    return "expired";
+  }
+  return null;
+}
+
+/**
  * Phrase d'état d'un jeton, pour un humain devant une question.
  *
  * @param state - ce que {@link tokenState} a lu, ou `null` s'il n'y en a pas.
@@ -394,20 +432,17 @@ export function renderTokenState(
   // par une AUTRE application (autre port, donc autre porte), était annoncé
   // « valide encore 22 jours » : la porte d'ici le refuse (RFC 8707), et
   // l'écran disait l'inverse de la vérité.
-  if (
-    expectedAudience !== undefined &&
-    state.audience !== null &&
-    !state.audience.some((a) => sameAudience(a, expectedAudience))
-  ) {
+  const problem = tokenProblem(state, expectedAudience);
+  if (problem === "foreignAudience" && state.audience !== null) {
     return (
       `jeton émis pour une autre audience (${state.audience.join(", ")}) — ` +
-      `la porte déclarée ici est ${expectedAudience} ; il y sera refusé`
+      `la porte déclarée ici est ${expectedAudience ?? "?"} ; il y sera refusé`
     );
   }
   const scopes =
     state.scopes.length > 0 ? state.scopes.join(" ") : "aucun scope déclaré";
   if (state.remainingSeconds === null) return `jeton sans échéance (${scopes})`;
-  if (state.remainingSeconds <= 0) {
+  if (problem === "expired") {
     const since = Math.round(-state.remainingSeconds / 60);
     return `jeton EXPIRÉ depuis ${since} min (${scopes}) — c'est lui qui provoque les 401`;
   }
@@ -433,6 +468,16 @@ function trimTrailingSlashes(s: string): string {
   return s.slice(0, end);
 }
 
+/** État du jeton posé chez UN agent : ce qu'on en dit, et ce qui l'empêche de servir. */
+export interface IAgentTokenState {
+  /** La phrase affichée — échéance et portée, jamais le secret. */
+  phrase: string;
+  /** Le défaut qui le rend inutilisable ici, ou `null`. */
+  problem: AgentTokenProblem | null;
+  /** Le fichier lu (chemin natif, absolu). */
+  file: string;
+}
+
 /**
  * État du jeton posé chez CHAQUE agent détecté — l'échéance et la portée, pas
  * le secret.
@@ -445,7 +490,7 @@ function trimTrailingSlashes(s: string): string {
  * @param targets - agents détectés sur ce poste.
  * @param projectRoot - racine du projet, pour résoudre leurs fichiers.
  * @param nowSeconds - instant de référence, injecté pour le banc.
- * @returns pour chaque agent, sa phrase d'état.
+ * @returns pour chaque agent, sa phrase d'état et son défaut.
  */
 export function agentTokenStates(
   targets: readonly IAgentTarget[],
@@ -458,9 +503,15 @@ export function agentTokenStates(
     env?: Record<string, string | undefined>;
     /** Audience de la porte d'ICI : un jeton d'une autre porte n'est pas « valide ». */
     expectedAudience?: string;
+    /**
+     * Ne lire QUE les fichiers du projet. Le dossier de l'utilisateur est
+     * partagé entre applications : un jeton émis pour une autre y est juste,
+     * et le juger ici serait accuser du correct.
+     */
+    projectOnly?: boolean;
   } = {},
-): Map<string, string> {
-  const states = new Map<string, string>();
+): Map<string, IAgentTokenState> {
+  const states = new Map<string, IAgentTokenState>();
   for (const target of targets) {
     // 🔴 Lire LÀ où `declareToAgents` ÉCRIT. Pour les agents à dossier maison
     // (Vibe, Codex), la déclaration dans le projet vit sous
@@ -469,8 +520,16 @@ export function agentTokenStates(
     const inProject = target.home
       ? path.join(projectRoot, target.marker, target.file)
       : null;
+    const projectDeclared = inProject !== null && existsSync(inProject);
+    if (
+      ctx.projectOnly === true &&
+      target.scope !== "projet" &&
+      !projectDeclared
+    ) {
+      continue;
+    }
     const file =
-      inProject !== null && existsSync(inProject)
+      inProject !== null && projectDeclared
         ? inProject
         : path.resolve(
             agentRoot(target, { projectRoot, home: ctx.home, env: ctx.env }),
@@ -487,17 +546,32 @@ export function agentTokenStates(
       if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
         // Un fichier illisible n'est pas une panne de cette commande : on se tait
         // sur cet agent plutôt que d'affirmer qu'il n'a pas de jeton.
-        states.set(target.key, "état du jeton illisible");
+        states.set(target.key, {
+          phrase: "état du jeton illisible",
+          problem: null,
+          file,
+        });
         continue;
       }
     }
     const token = litVariable(target.forme, content, MCP_TOKEN_ENV);
-    states.set(
-      target.key,
-      token === null
-        ? "pas de jeton posé"
-        : renderTokenState(tokenState(token, nowSeconds), ctx.expectedAudience),
-    );
+    if (token === null) {
+      states.set(target.key, {
+        phrase: "pas de jeton posé",
+        problem: "missing",
+        file,
+      });
+      continue;
+    }
+    const state = tokenState(token, nowSeconds);
+    states.set(target.key, {
+      phrase: renderTokenState(state, ctx.expectedAudience),
+      // Un jeton qu'on ne sait pas lire n'est pas déclaré fautif : la porte
+      // tranchera, ceci n'est qu'un renseignement.
+      problem:
+        state === null ? null : tokenProblem(state, ctx.expectedAudience),
+      file,
+    });
   }
   return states;
 }
@@ -1281,19 +1355,16 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       { expectedAudience: mcpUrl },
     );
     for (const target of detectedForToken) {
-      process.stdout.write(`  ${target.name} : ${states.get(target.key)}\n`);
+      process.stdout.write(
+        `  ${target.name} : ${states.get(target.key)?.phrase ?? ""}\n`,
+      );
     }
     // « Périmé » vaut pour l'ENSEMBLE : si un seul agent porte un jeton mort,
     // proposer par défaut de réémettre est le bon service — c'est lui qui
     // rendra des 401 sans qu'on sache lequel.
     const perime =
       detectedForToken.length === 0 ||
-      [...states.values()].some(
-        (phrase) =>
-          phrase.includes("EXPIRÉ") ||
-          phrase.includes("pas de jeton") ||
-          phrase.includes("autre audience"),
-      );
+      [...states.values()].some((s) => s.problem !== null);
     const now = await confirm({
       message: `${perime ? "Obtenir" : "Réémettre"} un jeton maintenant (${MCP_TOKEN_ENV}) ?`,
       default: perime,
