@@ -123,7 +123,10 @@ export type {
   IMcpProgressReporter,
   McpProgressToken,
 } from "./nodefony/mcp/progress";
-export { createMcpResponseStream } from "./nodefony/mcp/stream";
+export {
+  createMcpResponseStream,
+  MCP_STREAM_GRACE_MS,
+} from "./nodefony/mcp/stream";
 export type {
   IMcpEventSink,
   IMcpResponseStream,

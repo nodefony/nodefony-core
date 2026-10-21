@@ -26,7 +26,11 @@ import {
 } from "./protocol";
 import { handleMcpMessage } from "./server";
 import type { IMcpCacheHints, IServerInfo } from "./server";
-import { createMcpResponseStream, type IMcpEventSink } from "./stream";
+import {
+  createMcpResponseStream,
+  MCP_STREAM_GRACE_MS,
+  type IMcpEventSink,
+} from "./stream";
 import { collectMcpTools, declareMcpTools, mcpDeclaredScopes } from "./tools";
 
 /**
@@ -630,6 +634,9 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
     const stream = createMcpResponseStream<S>({
       signal: request.signal,
       open: request.openStream,
+      // Un outil long sans `progressToken` ouvrirait sinon jamais son flux,
+      // et sa réponse JSON tomberait sous le délai d'inactivité (408).
+      graceMs: MCP_STREAM_GRACE_MS,
       onError: (error, final) =>
         log?.(
           `MCP — ${final ? "réponse finale" : "notification"} perdue sur le flux : ${

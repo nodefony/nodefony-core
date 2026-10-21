@@ -103,3 +103,73 @@ describe("createMcpResponseStream", () => {
     ).toBe(abort.signal);
   });
 });
+
+describe("createMcpResponseStream — délai de grâce (outil long sans `progressToken`)", () => {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it("un appel qui tarde ouvre le flux sans rien y écrire ; la réponse finale y part", async () => {
+    let opened = 0;
+    const sink = new FakeSink();
+    const stream = createMcpResponseStream({
+      graceMs: 20,
+      open: () => {
+        opened++;
+        return sink;
+      },
+    });
+    await wait(60);
+    expect(opened).toBe(1);
+    expect(sink.sent).toEqual([]);
+    const final = { jsonrpc: "2.0", id: 1, result: {} };
+    expect(await stream.finish(final)).toBe(sink);
+    expect(sink.sent).toEqual([final]);
+  });
+
+  it("un appel qui répond dans le délai reste en JSON : le flux ne s'ouvre jamais", async () => {
+    let opened = 0;
+    const stream = createMcpResponseStream({
+      graceMs: 50,
+      open: () => {
+        opened++;
+        return new FakeSink();
+      },
+    });
+    expect(await stream.finish({ id: 1 })).toBeNull();
+    await wait(80);
+    expect(opened).toBe(0);
+  });
+
+  it("client déjà parti : le délai échu n'ouvre rien", async () => {
+    let opened = 0;
+    const controller = new AbortController();
+    const stream = createMcpResponseStream({
+      graceMs: 20,
+      signal: controller.signal,
+      open: () => {
+        opened++;
+        return new FakeSink();
+      },
+    });
+    controller.abort();
+    await wait(60);
+    expect(opened).toBe(0);
+    expect(await stream.finish({ id: 1 })).toBeNull();
+  });
+
+  it("le flux ouvert par le délai sert ensuite les notifications, UNE seule ouverture", async () => {
+    let opened = 0;
+    const sink = new FakeSink();
+    const stream = createMcpResponseStream({
+      graceMs: 20,
+      open: () => {
+        opened++;
+        return sink;
+      },
+    });
+    await wait(60);
+    stream.transport.notify?.(note(1));
+    await stream.finish({ id: 1 });
+    expect(opened).toBe(1);
+    expect(sink.sent).toEqual([note(1), { id: 1 }]);
+  });
+});

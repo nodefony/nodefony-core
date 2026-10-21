@@ -11,9 +11,23 @@ import type { IMcpTransport } from "./server";
  * réponse finale clôt le flux. Un appel qui ne dit rien en route n'ouvre rien —
  * la porte répond alors comme avant.
  *
+ * Exception : un appel encore en cours au bout du délai de grâce
+ * ({@link MCP_STREAM_GRACE_MS}) ouvre le flux sans rien y écrire. La norme
+ * oblige le client à accepter une réponse SSE (`transports/streamable-http`),
+ * avec ou sans `progressToken` ; or une réponse JSON qui tarde tombe sous le
+ * délai d'inactivité de la requête (408), quand un flux ouvert le désarme et
+ * bat de lui-même. Un outil court n'y voit rien : il a répondu avant.
+ *
  * La porte ne fournit que ce qu'elle seule sait faire : OUVRIR son flux
  * (`renderSse()` pour une route HTTP).
  */
+
+/**
+ * Délai de grâce, en ms : au-delà, un appel sans réponse ouvre le flux. Très en
+ * deçà du délai d'inactivité d'une requête (30 s par défaut), assez long pour
+ * qu'un outil ordinaire réponde en JSON comme avant.
+ */
+export const MCP_STREAM_GRACE_MS = 5000;
 
 /** Ce qu'une porte sait ouvrir : un puits d'événements, ordonné. */
 export interface IMcpEventSink {
@@ -50,6 +64,11 @@ export interface IMcpResponseStreamOptions<S extends IMcpEventSink> {
    * progression devient alors muette, jamais refusée.
    */
   open?: (() => S | Promise<S>) | undefined;
+  /**
+   * Ouvre le flux si l'appel n'a pas répondu dans ce délai (ms) ; absent ou 0 :
+   * le flux ne s'ouvre qu'au premier envoi.
+   */
+  graceMs?: number | undefined;
   /** Un envoi perdu (client parti, événement refusé) : à journaliser. */
   onError?: ((error: unknown, final: boolean) => void) | undefined;
 }
@@ -63,11 +82,26 @@ export interface IMcpResponseStreamOptions<S extends IMcpEventSink> {
 export function createMcpResponseStream<S extends IMcpEventSink>(
   options: IMcpResponseStreamOptions<S>,
 ): IMcpResponseStream<S> {
-  const { signal, open, onError } = options;
+  const { signal, open, onError, graceMs } = options;
   let sink: S | null = null;
   let pending: Promise<void> = Promise.resolve();
+  let grace: ReturnType<typeof setTimeout> | null = null;
   const transport: IMcpTransport = {};
   if (signal) transport.signal = signal;
+  if (open && graceMs !== undefined && graceMs > 0) {
+    grace = setTimeout(() => {
+      grace = null;
+      // Client parti : ouvrir un flux vers personne n'apprendrait rien.
+      if (sink !== null || signal?.aborted === true) return;
+      const previous = pending;
+      pending = (async () => {
+        await previous;
+        sink ??= await open();
+      })().catch((error: unknown) => onError?.(error, false));
+    }, graceMs);
+    // Le minuteur d'une requête ne retient jamais le process.
+    grace.unref();
+  }
   if (open) {
     transport.notify = (notification) => {
       const previous = pending;
@@ -81,6 +115,10 @@ export function createMcpResponseStream<S extends IMcpEventSink>(
   return {
     transport,
     async finish(body) {
+      if (grace !== null) {
+        clearTimeout(grace);
+        grace = null;
+      }
       await pending;
       if (sink === null) return null;
       if (!sink.closed) {
