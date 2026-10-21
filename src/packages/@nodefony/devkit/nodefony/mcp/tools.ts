@@ -25,6 +25,7 @@ import type {
 import { mcpText, MCP_TEXT_MAX_CHARS, MCP_RESERVED_PREFIX } from "@nodefony/ai";
 import type { IProfilerReader } from "@nodefony/http";
 import { observeTool } from "./observe";
+import { profileRouteTool, type IProfileRouteDeps } from "./profileRoute";
 import type { RequestLogs } from "./profileReport";
 
 /**
@@ -336,6 +337,18 @@ export interface IMcpToolDeps {
    * `nodefony_observe`) ; absent hors application.
    */
   onShutdown?: ((listener: () => Promise<void>) => () => void) | undefined;
+  /**
+   * Ce que `nodefony_profile_route` demande à l'application : son adresse
+   * d'écoute, l'ouverture et la fermeture de la session de profilage, la
+   * comparaison des rôles de deux comptes. Absent hors application : l'outil
+   * dit qu'il n'a rien à viser.
+   */
+  profileRoute?:
+    | Pick<
+        IProfileRouteDeps,
+        "getTarget" | "issueTicket" | "closeSession" | "rolesWithin"
+      >
+    | undefined;
 }
 
 /** Lignes de journal rapportées par requête en erreur. */
@@ -478,6 +491,7 @@ export const BUILTIN_MCP_TOOL_KEYS = [
   "admin_list",
   "admin_call",
   "observe",
+  "profile_route",
 ] as const;
 
 /** Clé d'un outil intégré. */
@@ -989,6 +1003,16 @@ export function builtinMcpTools(
     },
     observe: observeTool({
       getProfiler: deps.getProfiler,
+      readRequestLogs: (requestId, caller) =>
+        readRequestLogs(deps.broker, requestId, caller),
+      onShutdown: deps.onShutdown,
+    }),
+    profile_route: profileRouteTool({
+      getProfiler: deps.getProfiler,
+      getTarget: deps.profileRoute?.getTarget ?? (() => null),
+      issueTicket: deps.profileRoute?.issueTicket,
+      closeSession: deps.profileRoute?.closeSession,
+      rolesWithin: deps.profileRoute?.rolesWithin,
       readRequestLogs: (requestId, caller) =>
         readRequestLogs(deps.broker, requestId, caller),
       onShutdown: deps.onShutdown,

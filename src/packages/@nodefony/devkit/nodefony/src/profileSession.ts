@@ -9,6 +9,13 @@ import type { ProfileTicketStore } from "./profileTicket";
  */
 export const PROFILE_SESSION_FACTOR = "devkit";
 
+/**
+ * Chemin de la route de connexion du profilage, que l'outil appelle. Hors du
+ * motif de la zone d'administration (`^/nodefony/[^/]+/api`). Le contrôleur
+ * l'écrit en littéraux ; un test tient l'égalité.
+ */
+export const PROFILE_SESSION_PATH = "/nodefony/devkit/profile-session";
+
 /** Message unique de tout refus : la cause fine ne sort jamais vers l'appelant. */
 export const PROFILE_SESSION_REFUSED = "ticket de profilage refusé";
 

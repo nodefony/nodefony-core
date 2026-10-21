@@ -16,6 +16,12 @@ import { defineMcpGate, mcpDeclaredScopes, type IMcpGate } from "@nodefony/ai";
 import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
 import { asProfilerReader } from "../mcp/observe";
 import { ProfileTicketStore } from "../src/profileTicket";
+import {
+  isProfileSessionStore,
+  PROFILE_SESSION_FACTOR,
+} from "../src/profileSession";
+import { compareAccountRoles } from "../src/accountRoles";
+import { readShotTarget } from "../mcp/shotClient";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type IDevkitConfig } from "../config/config";
@@ -191,6 +197,23 @@ class DevkitService extends Service implements IDevkitService {
         return () => {
           kernel.removeListener("onTerminate", listener);
         };
+      },
+      profileRoute: {
+        getTarget: () => readShotTarget(this.get("server-http")),
+        issueTicket: (identifier) => this.profileTickets().issue(identifier),
+        closeSession: async (ref) => {
+          const sessions: unknown = this.get("sessions");
+          return isProfileSessionStore(sessions)
+            ? sessions.destroyByRef(ref, PROFILE_SESSION_FACTOR)
+            : false;
+        },
+        rolesWithin: (owner, target) =>
+          compareAccountRoles(
+            this.get("users"),
+            this.get("firewall"),
+            owner,
+            target,
+          ),
       },
     };
   }

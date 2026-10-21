@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   fingerprintTicket,
@@ -12,6 +13,7 @@ import {
   isProfileSessionStore,
   openProfileSession,
   PROFILE_SESSION_FACTOR,
+  PROFILE_SESSION_PATH,
   PROFILE_SESSION_REFUSED,
   toProfileSessionUser,
   type IProfileSessionDeps,
@@ -309,5 +311,26 @@ describe("vues minimales des services résolus au conteneur", () => {
       identifier: "alice",
       roles: [],
     });
+  });
+});
+
+describe("le chemin de la route, une seule vérité", () => {
+  it("le contrôleur sert EXACTEMENT le chemin que l'outil appelle", () => {
+    const source = readFileSync(
+      new URL(
+        "../nodefony/controllers/ProfileSessionController.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const prefix = /@controller\("([^"]+)"\)/u.exec(source)?.[1];
+    const route = /path: "([^"]+)"/u.exec(source)?.[1];
+    expect(`${prefix}${route}`).toBe(PROFILE_SESSION_PATH);
+  });
+
+  it("hors de la zone d'administration, qui exigerait une session déjà ouverte", () => {
+    expect(/^\/nodefony\/[^/]+\/api(\/|$)/u.test(PROFILE_SESSION_PATH)).toBe(
+      false,
+    );
   });
 });

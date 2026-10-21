@@ -20,6 +20,7 @@ import {
   SLOW_ROUTE_P95_MS,
   type RequestLogs,
 } from "./profileReport";
+import { watchToolStop, type OnShutdown } from "./shutdown";
 
 /** Fenêtre d'observation par défaut, en secondes. */
 export const OBSERVE_DEFAULT_SEC = 10;
@@ -39,16 +40,6 @@ export const OBSERVE_TICK_MS = 2000;
  * exemples d'erreurs du rapport, dans le même ordre.
  */
 export const OBSERVE_ERROR_LOGS_MAX = 10;
-
-/**
- * Délai maximal, en ms, pendant lequel l'arrêt du serveur attend que le
- * rapport parte : le superviseur de développement tue le process 4 s après
- * le lui avoir demandé.
- */
-const SHUTDOWN_REPORT_MAX_MS = 1000;
-
-/** Marge, en ms, laissée à la porte pour écrire le rapport une fois rendu. */
-const SHUTDOWN_REPORT_FLUSH_MS = 100;
 
 /**
  * Le contrat de l'outil tel que l'agent le lit dans `tools/list` — le seul
@@ -113,7 +104,7 @@ export interface IObserveDeps {
    * se désabonner. L'arrêt attend la promesse de l'écouteur (bornée) : le
    * temps que le rapport partiel parte.
    */
-  onShutdown?: ((listener: () => Promise<void>) => () => void) | undefined;
+  onShutdown?: OnShutdown | undefined;
 }
 
 /**
@@ -257,19 +248,16 @@ async function observe(
   });
   const read = opts.readRequestLogs;
   const logs = new Map<string, Promise<RequestLogs>>();
-  // Deux raisons d'arrêter la fenêtre : l'agent part, ou le serveur s'arrête.
-  const stop = new AbortController();
-  const signal =
-    opts.run === undefined
-      ? stop.signal
-      : AbortSignal.any([opts.run.signal, stop.signal]);
+  // Deux raisons d'arrêter la fenêtre : l'agent part, ou le serveur s'arrête
+  // (qui attend alors, borné, que le rapport partiel parte).
+  const stop = watchToolStop(opts.run, opts.onShutdown);
+  const signal = stop.signal;
   const windowSec = opts.windowMs / 1000;
   let cursor = profiler.cursor;
   let lost = 0;
   let filteredRoute = 0;
   let ticks = 0;
   let cancelled = false;
-  let interrupted = false;
   let loopSum = 0;
   let loopMax = 0;
   let loopReads = 0;
@@ -303,21 +291,6 @@ async function observe(
     }
   };
 
-  // L'arrêt du serveur (rechargement après une modification de fichier) clôt
-  // la fenêtre tout de suite, et attend que le rapport partiel soit parti.
-  const delivered = Promise.withResolvers<void>();
-  const unsubscribe =
-    opts.onShutdown?.(async () => {
-      interrupted = true;
-      stop.abort();
-      await Promise.race([
-        delivered.promise.then(() =>
-          delay(SHUTDOWN_REPORT_FLUSH_MS, undefined, { ref: false }),
-        ),
-        delay(SHUTDOWN_REPORT_MAX_MS, undefined, { ref: false }),
-      ]);
-    }) ?? null;
-
   const probe = opts.createProbe();
   const started = performance.now();
   const deadline = started + opts.windowMs;
@@ -336,7 +309,7 @@ async function observe(
       const remaining = deadline - performance.now();
       if (remaining <= 0) break;
       if (signal.aborted) {
-        cancelled = !interrupted;
+        cancelled = !stop.interrupted;
         break;
       }
       try {
@@ -344,7 +317,7 @@ async function observe(
       } catch {
         // Seule l'abandon rejette ce minuteur : l'agent est parti, ou le
         // serveur s'arrête.
-        cancelled = !interrupted;
+        cancelled = !stop.interrupted;
         break;
       }
       drain();
@@ -363,8 +336,7 @@ async function observe(
     }
     drain();
   } catch (error) {
-    delivered.resolve();
-    unsubscribe?.();
+    stop.release();
     throw error;
   } finally {
     probe.dispose();
@@ -384,7 +356,7 @@ async function observe(
     ticks,
     lost,
     cancelled,
-    interrupted,
+    interrupted: stop.interrupted,
     errorLogs,
     route: opts.route,
     filteredRoute,
@@ -396,7 +368,6 @@ async function observe(
   });
   // Le rapport est rendu : l'arrêt éventuel peut reprendre, et l'écouteur
   // n'a plus rien à faire sur le kernel.
-  delivered.resolve();
-  unsubscribe?.();
+  stop.release();
   return mcpText(opts.note === null ? text : `ℹ️ ${opts.note}.\n${text}`);
 }

@@ -34,6 +34,9 @@ import {
  * Elle vit sous `/nodefony/devkit/`, hors du motif de la zone d'administration
  * (`^/nodefony/[^/]+/api`), qui exigerait une session déjà ouverte.
  */
+// Littéraux, et non les constantes : les outils qui lisent le source sans
+// l'exécuter (revue de sécurité, inventaire des routes) doivent voir le chemin.
+// L'égalité avec PROFILE_SESSION_PATH est tenue par un test.
 @controller("/nodefony/devkit")
 class ProfileSessionController extends Controller {
   constructor(context: ContextType) {

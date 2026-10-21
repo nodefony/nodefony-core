@@ -3,6 +3,7 @@ import {
   type IProfileReport,
   type IRouteStats,
 } from "@nodefony/http";
+import { EVENT_LOOP_RESOLUTION_MS } from "nodefony";
 
 /**
  * Le rapport de profil tel qu'un AGENT de code le lit — rendu partagé par les
@@ -45,6 +46,59 @@ export type RequestLogs =
     }
   | { kind: "unavailable"; reason: string };
 
+/** Au nom de qui les requêtes d'un tir ont été jouées. */
+export type ShotIdentity =
+  | {
+      kind: "anonymous";
+      /** Pourquoi aucun compte n'a été joué ; `null` quand l'appelant l'a demandé. */
+      why: string | null;
+    }
+  | {
+      kind: "account";
+      identifier: string;
+      roles: readonly string[];
+      /** Un autre compte que le propriétaire du jeton (`as`). */
+      impersonated: boolean;
+    };
+
+/** Ce que le client du tir a reçu, statut par statut. */
+export interface IShotClientStatus {
+  ok: number;
+  redirected: number;
+  unauthorized: number;
+  forbidden: number;
+  clientError: number;
+  serverError: number;
+  /** Requêtes sans réponse (connexion refusée, délai dépassé). */
+  failed: number;
+  /** Première destination de redirection reçue. */
+  location: string | null;
+  /** Première erreur réseau reçue. */
+  failure: string | null;
+}
+
+/**
+ * Le tir de `nodefony_profile_route` : ce que l'outil a envoyé, au nom de qui,
+ * et ce que son client a reçu. Absent pour `nodefony_observe`, qui n'envoie rien.
+ */
+export interface IShotSummary {
+  method: "GET" | "HEAD";
+  path: string;
+  requested: number;
+  sent: number;
+  concurrency: number;
+  identity: ShotIdentity;
+  /** Lot de chauffe, tiré AVANT et hors des mesures. */
+  warmup: { count: number; p50Ms: number | null; maxMs: number | null };
+  client: IShotClientStatus;
+  /** Réponses reçues dont le profil n'a pas été retrouvé. */
+  missing: number;
+  /** Tir arrêté faute de temps, avant d'avoir tout envoyé. */
+  truncated: boolean;
+  /** Budget de temps du tir, en ms. */
+  budgetMs: number;
+}
+
 /** Le déroulé de l'observation : ce que le rapport doit dire de sa propre fiabilité. */
 export interface IObservationContext {
   /** Fenêtre demandée, en ms. */
@@ -80,6 +134,8 @@ export interface IObservationContext {
    * déchet en attente autant que de la rétention, donc indicative.
    */
   heapDeltaBytes: number | null;
+  /** Le tir, quand c'est l'outil qui a envoyé les requêtes. */
+  shot?: IShotSummary | undefined;
 }
 
 /** Nombre lisible : une décimale sous 10, entier au-delà. */
@@ -177,10 +233,84 @@ function anomalies(report: IProfileReport, ctx: IObservationContext): string[] {
   return lines;
 }
 
+/** Durée lisible : en ms sous la seconde, en secondes au-delà. */
+function duration(valueMs: number): string {
+  return valueMs < 1000
+    ? `${Math.round(valueMs)} ms`
+    : `${ms(valueMs / 1000)} s`;
+}
+
+/** Nom d'une identité de tir, tel que le rapport le cite. */
+function identityLabel(identity: ShotIdentity): string {
+  if (identity.kind === "anonymous") {
+    return identity.why === null ? "anonyme" : `anonyme (${identity.why})`;
+  }
+  const roles =
+    identity.roles.length === 0 ? "aucun rôle" : identity.roles.join(", ");
+  return (
+    `\`${identity.identifier}\` (${roles})` +
+    (identity.impersonated ? ", à la place du propriétaire du jeton" : "")
+  );
+}
+
+/**
+ * Ce qui fait qu'un tir ne mesure pas ce qui était demandé : refus, redirections,
+ * profils non retrouvés, budget épuisé. Dit EN TÊTE, avant les chiffres.
+ */
+function shotGaps(shot: IShotSummary, ctx: IObservationContext): string[] {
+  const out: string[] = [];
+  const c = shot.client;
+  const refused = c.unauthorized + c.forbidden;
+  if (refused > 0) {
+    out.push(
+      `${refused}/${shot.sent} requête(s) REFUSÉE(S) (401×${c.unauthorized}, 403×${c.forbidden}) ` +
+        `en tant que ${identityLabel(shot.identity)} — un refus n'est pas une mesure : ` +
+        (shot.identity.kind === "anonymous"
+          ? "jouer un compte exige un jeton MCP portant le scope admin:write " +
+            '(`npx nodefony security:mcp:token --scope "admin:read admin:write" --write`)'
+          : "ce compte n'a pas les rôles exigés, ou la zone de ce chemin n'accepte pas " +
+            "la session (zone à jeton) — essayer `as` avec un compte autorisé"),
+    );
+  }
+  if (c.redirected > 0) {
+    out.push(
+      `${c.redirected}/${shot.sent} requête(s) REDIRIGÉE(S)` +
+        (c.location === null ? "" : ` vers ${c.location}`) +
+        " — les durées mesurent la redirection, pas la page (page protégée vue sans session ?)",
+    );
+  }
+  if (c.failed > 0) {
+    out.push(
+      `${c.failed} requête(s) sans réponse` +
+        (c.failure === null ? "" : ` (${c.failure})`),
+    );
+  }
+  if (shot.missing > 0) {
+    out.push(
+      `${shot.missing} réponse(s) reçue(s) dont le profil n'a pas été retrouvé : ` +
+        "les chiffres portent sur les autres",
+    );
+  }
+  if (shot.truncated && !ctx.cancelled && !ctx.interrupted) {
+    out.push(
+      `tir arrêté au bout de ${ms(shot.budgetMs / 1000)} s : ${shot.sent} requête(s) ` +
+        `envoyée(s) sur ${shot.requested} — réduire count, ou la route est trop lente pour ce volume`,
+    );
+  }
+  return out;
+}
+
 /** Ce qui rend l'observation incomplète — à dire avant toute conclusion. */
 function gaps(report: IProfileReport, ctx: IObservationContext): string[] {
   const out: string[] = [];
-  if (report.requests === 0) {
+  const shot = ctx.shot;
+  if (shot !== undefined) out.push(...shotGaps(shot, ctx));
+  if (report.requests === 0 && shot !== undefined) {
+    out.push(
+      "aucune réponse profilée" +
+        (shot.client.failure === null ? "" : ` : ${shot.client.failure}`),
+    );
+  } else if (report.requests === 0) {
     out.push(
       "aucune requête observée : l'application n'a reçu aucun trafic pendant la " +
         "fenêtre (cet outil n'en génère pas — lancer la page, les tests ou une charge pendant l'observation)",
@@ -200,13 +330,16 @@ function gaps(report: IProfileReport, ctx: IObservationContext): string[] {
   if (ctx.interrupted) {
     out.push(
       `observation interrompue après ${ms(ctx.elapsedMs / 1000)} s : le serveur s'arrête ` +
-        "(rechargement après une modification de fichier ?) — rappeler nodefony_observe " +
-        "une fois le serveur redémarré, sans modifier de fichier pendant la fenêtre",
+        "(rechargement après une modification de fichier ?) — rappeler " +
+        (shot === undefined ? "nodefony_observe" : "nodefony_profile_route") +
+        " une fois le serveur redémarré, sans modifier de fichier pendant la mesure",
     );
   }
   if (ctx.cancelled) {
     out.push(
-      `observation abandonnée après ${ms(ctx.elapsedMs / 1000)} s sur ${ms(ctx.windowMs / 1000)} s`,
+      shot === undefined
+        ? `observation abandonnée après ${ms(ctx.elapsedMs / 1000)} s sur ${ms(ctx.windowMs / 1000)} s`
+        : `tir abandonné après ${ms(ctx.elapsedMs / 1000)} s : ${shot.sent} requête(s) envoyée(s) sur ${shot.requested}`,
     );
   }
   return out;
@@ -241,10 +374,13 @@ export function renderProfileReport(
   const missing = gaps(report, ctx);
   const out: string[] = [];
 
+  // « ok » se mérite sur des requêtes SERVIES : des refus seuls ne disent
+  // rien du temps de réponse.
+  const servedTotal = report.routes.reduce((n, r) => n + r.served, 0);
   const verdict =
     found.length > 0
       ? `anomalies (${found.length})`
-      : report.requests > 0
+      : servedTotal > 0
         ? "ok"
         : "rien à juger";
   out.push(
@@ -255,18 +391,37 @@ export function renderProfileReport(
   );
   for (const m of missing) out.push(`⚠️ ${m}.`);
 
-  out.push(
-    `Fenêtre : ${ms(ctx.elapsedMs / 1000)} s sur ${ms(ctx.windowMs / 1000)} s · ` +
-      `${ctx.ticks} relevé(s) · ${report.requests} requête(s) (${report.http} HTTP, ${report.ws} WebSocket) · ` +
-      `${ctx.lost} perdue(s) · ${report.filteredTooling} de l'outillage écartée(s)` +
-      (ctx.route === null
-        ? ""
-        : ` · restreinte à la route \`${ctx.route}\` (${ctx.filteredRoute} autre(s) écartée(s))`),
-  );
+  const shot = ctx.shot;
+  if (shot !== undefined) {
+    const w = shot.warmup;
+    const c = shot.client;
+    out.push(
+      `Tir : ${shot.sent}/${shot.requested} requête(s) ${shot.method} ${shot.path} · ` +
+        `concurrence ${shot.concurrency} · ${duration(ctx.elapsedMs)} · ` +
+        (w.count === 0
+          ? "sans chauffe"
+          : `chauffe de ${w.count} requête(s) hors mesures (p50 ${w.p50Ms === null ? "—" : ms(w.p50Ms)} ms, max ${w.maxMs === null ? "—" : ms(w.maxMs)} ms)`),
+      `Joué en tant que : ${identityLabel(shot.identity)}`,
+      `Reçu par le client : 2xx ${c.ok} · 3xx ${c.redirected} · 401 ${c.unauthorized} · ` +
+        `403 ${c.forbidden} · autres 4xx ${c.clientError} · 5xx ${c.serverError} · sans réponse ${c.failed}`,
+    );
+  } else
+    out.push(
+      `Fenêtre : ${ms(ctx.elapsedMs / 1000)} s sur ${ms(ctx.windowMs / 1000)} s · ` +
+        `${ctx.ticks} relevé(s) · ${report.requests} requête(s) (${report.http} HTTP, ${report.ws} WebSocket) · ` +
+        `${ctx.lost} perdue(s) · ${report.filteredTooling} de l'outillage écartée(s)` +
+        (ctx.route === null
+          ? ""
+          : ` · restreinte à la route \`${ctx.route}\` (${ctx.filteredRoute} autre(s) écartée(s))`),
+    );
   const process: string[] = [
     `pid ${ctx.pid}, démarré il y a ${Math.round(ctx.uptimeSec)} s`,
   ];
-  if (ctx.eventLoop !== null) {
+  if (ctx.eventLoop === null && ctx.shot !== undefined) {
+    process.push(
+      `boucle d'événements : non mesurée (tir trop court pour la sonde, qui échantillonne toutes les ${EVENT_LOOP_RESOLUTION_MS} ms)`,
+    );
+  } else if (ctx.eventLoop !== null) {
     process.push(
       `boucle d'événements : retard moyen ${ms(ctx.eventLoop.meanMs)} ms, pire blocage ${ms(ctx.eventLoop.maxMs)} ms`,
     );
@@ -282,7 +437,7 @@ export function renderProfileReport(
   const refused = report.routes.filter(
     (r) => r.status.unauthorized + r.status.forbidden > 0,
   );
-  if (refused.length > 0) {
+  if (refused.length > 0 && shot === undefined) {
     out.push(
       "Refus (hors percentiles) : " +
         refused

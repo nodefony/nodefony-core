@@ -514,10 +514,21 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
     );
     expect(published).toHaveLength(BUILTIN_MCP_TOOL_KEYS.length);
     for (const tool of published) {
-      expect(tool.annotations, tool.name).toEqual({
-        readOnlyHint: true,
-        openWorldHint: false,
-      });
+      // Seule exception, et elle se FIXE au lieu de se tolérer :
+      // `nodefony_profile_route` ÉMET des requêtes vers l'application — une
+      // application mal écrite peut traiter un GET comme une écriture. GET et
+      // HEAD restent sûrs et idempotents (RFC 9110), d'où ni destructif ni
+      // ouvert sur le monde.
+      expect(tool.annotations, tool.name).toEqual(
+        tool.name === "nodefony_profile_route"
+          ? {
+              readOnlyHint: false,
+              destructiveHint: false,
+              idempotentHint: true,
+              openWorldHint: false,
+            }
+          : { readOnlyHint: true, openWorldHint: false },
+      );
     }
   });
 
