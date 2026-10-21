@@ -568,6 +568,7 @@ describe("nodefony_profile_route — arrêt", () => {
     await shutdown;
     expect(out).toMatch(/le serveur s'arrête/u);
     expect(out).toMatch(/rappeler nodefony_profile_route/u);
+    expect(out).toMatch(/tir interrompu après/u);
     expect(unsubscribed).toBe(true);
   });
 });

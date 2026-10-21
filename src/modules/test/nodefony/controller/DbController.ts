@@ -1,7 +1,23 @@
 import { randomUUID } from "node:crypto";
-import { Controller, controller, Get, Param, Post } from "@nodefony/framework";
+import {
+  Controller,
+  controller,
+  Get,
+  Param,
+  Post,
+  Query,
+} from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
+
+/** Identifiant d'une entité lue, sans lui faire confiance. */
+function idOf(entity: unknown): string | number | null {
+  if (typeof entity !== "object" || entity === null || !("id" in entity)) {
+    return null;
+  }
+  const id = entity.id;
+  return typeof id === "string" || typeof id === "number" ? id : null;
+}
 
 /**
  * Controller de **démonstration de la trace full-stack** du Log Backplane.
@@ -50,6 +66,52 @@ class DbController extends Controller {
 
     this.log("Trace DB — fin", "INFO", "DB-DEMO");
     return this.renderJson({ requestId, users });
+  }
+
+  // ── Démonstration du N+1 (banc de nodefony_profile_route) ─────────────────
+  //
+  // Le défaut que le profilage doit faire VOIR, et sa correction : la même
+  // lecture, une fois requête par requête, une fois en une seule. Les deux
+  // routes rendent la même chose ; seul le nombre de requêtes SQL change.
+
+  /**
+   * N+1 délibéré : la liste des comptes, puis UNE requête par compte pour le
+   * relire. Sert de cible à `nodefony_profile_route` — jamais un exemple.
+   */
+  @Get("/n-plus-one")
+  async nPlusOne() {
+    const repo = ormRegistry.get("default").getRepository("User");
+    const users = await repo.find(undefined, { limit: 20 });
+    const reloaded: unknown[] = [];
+    for (const user of users) {
+      const id = idOf(user);
+      if (id !== null) reloaded.push(await repo.findOne({ id }));
+    }
+    return this.renderJson({ users: reloaded.length });
+  }
+
+  /** La même lecture que `/n-plus-one`, corrigée : une requête `$in`. */
+  @Get("/n-plus-one/fixed")
+  async nPlusOneFixed() {
+    const repo = ormRegistry.get("default").getRepository("User");
+    const users = await repo.find(undefined, { limit: 20 });
+    const ids = users
+      .map((u) => idOf(u))
+      .filter((id): id is string | number => id !== null);
+    const reloaded = await repo.find({ id: { $in: ids } });
+    return this.renderJson({ users: reloaded.length });
+  }
+
+  /**
+   * Route LENTE à volonté : attend `?ms` (défaut 600, borné à 2 000) avant de
+   * répondre. Cible de `nodefony_profile_route` pour l'anomalie « Lente », et
+   * d'un tir assez long pour être annulé ou interrompu en cours de route.
+   */
+  @Get("/slow")
+  async slow(@Query("ms") ms?: string) {
+    const wait = Math.min(Math.max(Number(ms) || 600, 0), 2000);
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    return this.renderJson({ waitedMs: wait });
   }
 
   // ── Sonde de PERSISTANCE (banc e2e système) ───────────────────────────────

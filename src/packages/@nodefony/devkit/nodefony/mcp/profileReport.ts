@@ -329,7 +329,7 @@ function gaps(report: IProfileReport, ctx: IObservationContext): string[] {
   }
   if (ctx.interrupted) {
     out.push(
-      `observation interrompue après ${ms(ctx.elapsedMs / 1000)} s : le serveur s'arrête ` +
+      `${shot === undefined ? "observation interrompue" : "tir interrompu"} après ${ms(ctx.elapsedMs / 1000)} s : le serveur s'arrête ` +
         "(rechargement après une modification de fichier ?) — rappeler " +
         (shot === undefined ? "nodefony_observe" : "nodefony_profile_route") +
         " une fois le serveur redémarré, sans modifier de fichier pendant la mesure",
