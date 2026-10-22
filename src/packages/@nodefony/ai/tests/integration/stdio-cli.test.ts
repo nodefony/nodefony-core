@@ -88,6 +88,14 @@ describe("nodefony ai:stdio — le protocole à la lettre", () => {
         method: "tools/call",
         params: { name: "test_noise", arguments: {} },
       }),
+      // La lecture d'administration — refusée sans la posture de l'opérateur
+      // local, alors que `nodefony inspect` la rend dans le même terminal.
+      message({
+        jsonrpc: "2.0",
+        id: 5,
+        method: "tools/call",
+        params: { name: "nodefony_inspect", arguments: { subject: "routes" } },
+      }),
     ]);
     expect(run.code, run.stderr).toBe(0);
 
@@ -100,8 +108,10 @@ describe("nodefony ai:stdio — le protocole à la lettre", () => {
     });
     expect(run.stderr).toContain("test_noise — bruit sur la sortie standard");
 
-    // La notification ne reçoit rien : 1, 2, 3, 4 et le refus `-32700`.
-    expect(parsed.map((m) => m.id).sort()).toEqual([1, 2, 3, 4, null].sort());
+    // La notification ne reçoit rien : 1 à 5 et le refus `-32700`.
+    expect(parsed.map((m) => m.id).sort()).toEqual(
+      [1, 2, 3, 4, 5, null].sort(),
+    );
     expect(parsed.find((m) => m.id === null)).toMatchObject({
       error: { code: -32700 },
     });
@@ -117,14 +127,28 @@ describe("nodefony ai:stdio — le protocole à la lettre", () => {
         "test_probe",
       ]),
     );
-    // Option B : aucun rôle accordé — l'outil réservé reste retenu.
+    // L'opérateur local n'ouvre que l'administration du framework : un outil
+    // à scope APPLICATIF reste retenu — il exige un jeton.
     expect(names).not.toContain("test_probe_secret");
+    // Et l'annonce ne renvoie à aucun document RFC 9728 qu'une porte stdio
+    // ne publie pas.
+    const handshake = parsed.find((m) => m.id === 1)?.result as
+      { instructions?: string } | undefined;
+    const instructions = handshake?.instructions;
+    expect(instructions).toContain("porte HTTP protégée");
+    expect(instructions).not.toContain("RFC 9728");
 
     const card = parsed.find((m) => m.id === 3);
     expect(card).toMatchObject({
       result: { content: [{ type: "text" }] },
     });
     expect(card?.result).not.toMatchObject({ isError: true });
+
+    const routes = parsed.find((m) => m.id === 5);
+    expect(routes, JSON.stringify(routes)).toMatchObject({
+      result: { content: [{ type: "text" }] },
+    });
+    expect(routes?.result).not.toMatchObject({ isError: true });
   }, 60_000);
 
   it("les outils de MESURE disent qu'il n'y a pas de trafic ici", async () => {

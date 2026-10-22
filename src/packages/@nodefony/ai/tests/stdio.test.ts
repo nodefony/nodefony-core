@@ -2,7 +2,13 @@ import { describe, it, expect } from "vitest";
 import { PassThrough } from "node:stream";
 import { ADMIN_DEFAULT_ROLE, ADMIN_SCOPE_READ } from "nodefony";
 import type { IMcpTool } from "nodefony";
-import { defineMcpGate, mcpText, serveMcpStdio, JsonRpcError } from "../index";
+import {
+  defineMcpGate,
+  handleMcpMessage,
+  mcpText,
+  serveMcpStdio,
+  JsonRpcError,
+} from "../index";
 import type { IMcpGate } from "../index";
 
 /**
@@ -297,5 +303,60 @@ describe("gate.respondStdio — la posture d'une porte non protégée", () => {
     s.send({ jsonrpc: "2.0", id: 1, method: "tools/list" });
     await s.close();
     expect(s.received[0]).toMatchObject({ jsonrpc: "2.0", id: null });
+  });
+});
+
+describe("annonce des outils réservés — ne renvoyer qu'à ce que la porte publie", () => {
+  const initialize = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "t", version: "0" },
+    },
+  };
+  const instructionsOf = async (
+    authorizable: boolean | undefined,
+  ): Promise<string> => {
+    const reply = await handleMcpMessage(initialize, {
+      tools: [tool("public")],
+      serverInfo: { name: "t", version: "0" },
+      withheldCount: 2,
+      ...(authorizable === undefined ? {} : { authorizable }),
+    });
+    return (reply.body as { result: { instructions: string } }).result
+      .instructions;
+  };
+
+  it("porte protégée : renvoie au document RFC 9728 et au défi", async () => {
+    const text = await instructionsOf(true);
+    expect(text).toContain("2 outil(s) supplémentaire(s) sont RÉSERVÉS");
+    expect(text).toContain("RFC 9728");
+  });
+
+  it("porte qui ne reçoit aucun jeton (stdio, HTTP non protégée) : ne promet ni document ni défi", async () => {
+    for (const authorizable of [false, undefined]) {
+      const text = await instructionsOf(authorizable);
+      expect(text).toContain("RÉSERVÉS");
+      expect(text).not.toContain("RFC 9728");
+      expect(text).toContain("porte HTTP protégée");
+    }
+  });
+
+  it("serveMcpStdio : l'annonce de la porte stdio ne cite pas RFC 9728", async () => {
+    const s = session(
+      defineMcpGate({
+        tools: [tool("public"), tool("secret", { scopes: ["x:y"] })],
+      }),
+    );
+    s.send(INITIALIZE);
+    await s.close();
+    const handshake = s.received[0]?.result as
+      { instructions?: string } | undefined;
+    const text = handshake?.instructions;
+    expect(text).toContain("RÉSERVÉS");
+    expect(text).not.toContain("RFC 9728");
   });
 });

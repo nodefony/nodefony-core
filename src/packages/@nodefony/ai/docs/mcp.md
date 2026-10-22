@@ -618,10 +618,14 @@ les mêmes `args`.)
 
 **Ce que stdio sert, et ce qu'il ne sert pas** :
 
-- **Les outils des modules chargés, dans TOUS les environnements**, avec la posture d'une porte non
-  protégée : aucun rôle accordé, les outils réservés (`scopes`, `requiresAuth`) restent retenus. La
-  frontière est celle du terminal — qui lance la commande a déjà la main sur l'application. Les
-  outils `nodefony_*` n'y paraissent que lorsque `@nodefony/devkit` est chargé (développement).
+- **Les outils des modules chargés, dans TOUS les environnements**, avec la posture de
+  l'**opérateur local** — celle de toute commande du CLI (`adminCaller.ts#localOperatorCaller`) :
+  qui lance la commande a déjà un terminal dans l'application, et `nodefony inspect` lui rend
+  les mêmes données. Ce rôle n'ouvre que l'**administration du framework** (lecture des routes,
+  de la configuration, de la documentation, des symboles ; secrets masqués). Un outil à scope
+  **applicatif** (`orders:write`), un outil `requiresAuth` ou `actsForUser` reste **retenu** : il
+  exige un jeton, donc une porte HTTP protégée. Les outils `nodefony_*` n'y paraissent que
+  lorsque `@nodefony/devkit` est chargé (développement).
 - **Le code du démarrage, sans rechargement à chaud** : une modification des sources ne se voit
   qu'au lancement suivant. La porte HTTP, elle, suit les sources.
 - **Aucun trafic** : ce process ne sert aucune requête. Les outils de MESURE

@@ -3,6 +3,7 @@ import {
   CliKernel,
   Syslog,
   STDERR_LOG_SINK,
+  localOperatorCaller,
   type OptionsCommandInterface,
 } from "nodefony";
 import { defineMcpGate } from "../mcp/gate";
@@ -44,10 +45,14 @@ const STDIO_INSTRUCTIONS =
  * d'atteinte.
  *
  * Servi dans TOUS les environnements : les outils des modules chargés, avec la
- * posture d'une porte non protégée — AUCUN rôle accordé, les outils réservés
- * restent retenus. La frontière est celle du CLI : qui lance la commande a déjà
- * un terminal dans l'application. Les outils `nodefony_*` n'y paraissent que
- * lorsque `@nodefony/devkit` est chargé (développement).
+ * posture de l'OPÉRATEUR LOCAL — celle de toute commande du CLI
+ * (`localOperatorCaller`, qui dit pourquoi). Qui lance la commande a déjà un
+ * terminal dans l'application : `nodefony inspect` lui rend les mêmes données.
+ * Ce rôle n'ouvre que l'administration du framework (`admin:read`/`admin:write`
+ * se traduisent en lui, `rolesFromScopes`) ; un outil à scope APPLICATIF, un
+ * outil `requiresAuth` ou `actsForUser` reste retenu — il exige un jeton, donc
+ * une porte HTTP protégée. Les outils `nodefony_*` n'y paraissent que lorsque
+ * `@nodefony/devkit` est chargé (développement).
  *
  * Limite : le code servi est celui du boot, sans rechargement à chaud — la
  * porte HTTP de développement reste celle qui suit les sources.
@@ -85,7 +90,12 @@ class StdioCommand extends Command {
 
     try {
       await serveMcpStdio(
-        defineMcpGate({ tools: "modules", instructions: STDIO_INSTRUCTIONS }),
+        defineMcpGate({
+          tools: "modules",
+          instructions: STDIO_INSTRUCTIONS,
+          // La MÊME règle que toute commande locale — jamais un rôle recopié.
+          unprotectedRoles: [...localOperatorCaller().roles],
+        }),
         {
           input: process.stdin,
           write: (line) => {

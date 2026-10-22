@@ -1001,6 +1001,9 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
         tools: served,
         caller,
         withheldCount,
+        // Seule une porte qui DÉFIE sait recevoir un jeton — la même condition
+        // que le `401` de l'élévation ci-dessus.
+        authorizable: admitted.challenge,
         transport: stream.transport,
         cancellation: trackCancellation(
           cancellationFor(admitted.callerKey, log),

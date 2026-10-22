@@ -81,6 +81,13 @@ export interface IMcpServerContext {
    */
   withheldCount?: number;
   /**
+   * Cette porte sait-elle RECEVOIR une autorisation (porte HTTP protégée, qui
+   * publie son document RFC 9728 et défie par `401`) ? Absent ou `false` : les
+   * outils retenus ne s'ouvrent pas ici, et l'annonce ne renvoie à aucun
+   * document ni défi qui n'existent pas.
+   */
+  authorizable?: boolean;
+  /**
    * Ce que la porte sait faire PENDANT un appel — absent, l'appel est servi
    * comme une lecture courte : jamais annulé, sans progression.
    */
@@ -280,14 +287,20 @@ function discoverInstructions(context: IMcpServerContext): string {
   if (withheld <= 0) {
     return base;
   }
-  return (
+  const reserved =
     `${base} ${withheld} outil(s) supplémentaire(s) sont RÉSERVÉS et ne ` +
     "figurent pas dans `tools/list` : ils exigent une autorisation que cette " +
     "requête ne présente pas. Ce n'est pas une panne, et rien ne sert de les " +
-    "deviner — le document de ressource protégée de cette porte (RFC 9728) " +
-    "nomme les scopes à demander, et le défi du refus dit où le lire. Ce sont " +
-    "eux qu'il faut faire porter au jeton, pas un contournement."
-  );
+    "deviner — ";
+  // 🔴 Renvoyer à un document et à un défi que la porte ne publie pas (porte
+  // non protégée, transport stdio) enverrait l'agent chercher un jeton qu'il
+  // ne pourra présenter nulle part.
+  return context.authorizable === true
+    ? `${reserved}le document de ressource protégée de cette porte (RFC 9728) ` +
+        "nomme les scopes à demander, et le défi du refus dit où le lire. Ce " +
+        "sont eux qu'il faut faire porter au jeton, pas un contournement."
+    : `${reserved}cette porte n'en reçoit aucune : ils ne sont servis que par ` +
+        "une porte HTTP protégée de l'application, à qui l'on présente un jeton.";
 }
 
 /**
