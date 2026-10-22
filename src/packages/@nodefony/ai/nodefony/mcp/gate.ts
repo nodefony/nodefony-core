@@ -218,6 +218,22 @@ export interface IMcpGateRequest<S extends IMcpEventSink = IMcpEventSink> {
   onAccount?: ((identifier: string) => void) | undefined;
 }
 
+/**
+ * Ce qu'un transport de process (stdio) a reçu : une ligne, sans en-tête ni
+ * adresse.
+ */
+export interface IMcpStdioRequest {
+  /** La ligne reçue, telle quelle — un message JSON-RPC, en principe. */
+  line: string;
+  /** Abattu quand le client s'en va (entrée standard fermée). */
+  signal?: AbortSignal | undefined;
+  /**
+   * Ouvre le puits où écrire les notifications de l'appel, puis sa réponse
+   * finale — absent, la progression devient muette.
+   */
+  openStream?: (() => IMcpEventSink | Promise<IMcpEventSink>) | undefined;
+}
+
 /** Ce que l'environnement fournit à une réponse — `serve()` le lit seul. */
 export interface IMcpGateRuntime {
   /** Les modules chargés, pour une porte `tools: "modules"`. */
@@ -318,6 +334,27 @@ export interface IMcpGate {
     runtime?: IMcpGateRuntime,
   ): Promise<IMcpGateResponse<S>>;
   /**
+   * Répond à UNE ligne reçue sur l'entrée standard — le pendant de
+   * {@link IMcpGate.respond} pour un client qui lance lui-même son serveur.
+   *
+   * Ni origine, ni adresse, ni jeton : la frontière est celle du process.
+   * L'appelant est anonyme et porte les rôles d'une porte non protégée
+   * (`unprotectedRoles`, aucun par défaut) ; les outils réservés restent
+   * retenus. Les annulations (`notifications/cancelled`) visent l'unique
+   * appelant du process ; un appel annulé ne produit PLUS RIEN — ni
+   * progression, ni réponse (`empty`), comme la spec l'exige en stdio. Le
+   * statut de la réponse décrite n'a pas de sens hors HTTP : seul son corps
+   * s'écrit.
+   *
+   * @param request - la ligne reçue, et le puits où écrire.
+   * @param runtime - modules, identité, journal.
+   * @returns la réponse à écrire ; `stream` quand le puits a déjà tout reçu.
+   */
+  respondStdio(
+    request: IMcpStdioRequest,
+    runtime?: IMcpGateRuntime,
+  ): Promise<IMcpGateResponse>;
+  /**
    * Ce que la porte protège, à publier en RFC 9728 — une entrée, ou rien.
    *
    * Un service qui expose `publishedProtectedResources()` voit
@@ -365,6 +402,71 @@ function failure(
   if (headers) response.headers = headers;
   return response;
 }
+
+/** JSON-RPC 2.0 §5.1 : `-32700`, un texte qui ne se PARSE pas. */
+function parseFailure(): IMcpGateResponse<never> {
+  return failure(
+    400,
+    JsonRpcError.PARSE_ERROR,
+    "corps illisible : JSON invalide",
+  );
+}
+
+/** JSON-RPC 2.0 §5.1 : `-32600`, un JSON lisible qui n'est pas un message. */
+function notAMessage(): IMcpGateResponse<never> {
+  return failure(
+    400,
+    JsonRpcError.INVALID_REQUEST,
+    "corps attendu : un message JSON-RPC (objet)",
+  );
+}
+
+/** Clé d'annulation de l'unique appelant d'un transport de process. */
+const STDIO_CALLER_KEY = "stdio";
+
+/** L'appelant qu'un transport a établi, et ce qu'il lui doit. */
+interface IAdmittedCaller {
+  readonly caller: IMcpCaller;
+  /** À qui appartiennent les appels que ce message peut annuler. */
+  readonly callerKey: string;
+  /** Ce que le vérificateur a établi — relu par un outil `actsForUser`. */
+  readonly principal: IAccessPrincipal | null;
+  /** Un scope manquant se dit-il par un défi `WWW-Authenticate` ? */
+  readonly challenge: boolean;
+  /** Prévenu quand le client annule l'appel de ce message. */
+  readonly onCancelled?: (() => void) | undefined;
+}
+
+/** Ce qu'une porte stdio répond à un appel annulé : rien. */
+const CANCELLED_SILENCE: IMcpGateResponse<never> = Object.freeze({
+  kind: "empty",
+  status: 202,
+});
+
+/**
+ * Branche un témoin sur la table d'annulation : il est prévenu quand le client
+ * annule l'appel inscrit. Sans témoin, la table est rendue telle quelle.
+ */
+function trackCancellation(
+  cancellation: IMcpCancellation,
+  onCancelled: (() => void) | undefined,
+): IMcpCancellation {
+  if (onCancelled === undefined) return cancellation;
+  return {
+    open(id) {
+      const handle = cancellation.open(id);
+      handle.signal.addEventListener("abort", onCancelled, { once: true });
+      return handle;
+    },
+    cancel: (id, reason) => cancellation.cancel(id, reason),
+  };
+}
+
+/** Ce que le tronc commun lit de l'échange, quel que soit le transport. */
+type IMcpExchange<S extends IMcpEventSink> = Pick<
+  IMcpGateRequest<S>,
+  "signal" | "openStream" | "onAccount" | "protocolVersion"
+>;
 
 /**
  * L'en-tête porte-t-il un gabarit d'interpolation jamais substitué ?
@@ -589,20 +691,8 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
     // JSON-RPC 2.0 §5.1 distingue `-32700` (texte qui ne se PARSE pas) de
     // `-32600` (JSON lisible qui n'est pas un message).
     const { body } = request;
-    if (unparsableBody(body, request.rawBody)) {
-      return failure(
-        400,
-        JsonRpcError.PARSE_ERROR,
-        "corps illisible : JSON invalide",
-      );
-    }
-    if (body === null || typeof body !== "object") {
-      return failure(
-        400,
-        JsonRpcError.INVALID_REQUEST,
-        "corps attendu : un message JSON-RPC (objet)",
-      );
-    }
+    if (unparsableBody(body, request.rawBody)) return parseFailure();
+    if (body === null || typeof body !== "object") return notAMessage();
 
     const modules = servedModules(runtime);
 
@@ -731,6 +821,101 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
       }
     }
 
+    return dispatch(
+      body,
+      { caller, callerKey, principal, challenge: gateProtected },
+      request,
+      modules,
+      runtime,
+    );
+  }
+
+  /**
+   * Répond à UNE ligne reçue sur l'entrée standard.
+   *
+   * La frontière d'un transport de process est celle du process : qui a lancé
+   * la commande a déjà un terminal dans l'application. Aucune origine, aucune
+   * adresse, aucun jeton n'y voyage — les gardes de transport HTTP n'y ont rien
+   * à juger. L'appelant reste donc anonyme et ne reçoit que les rôles d'une
+   * porte NON protégée (aucun par défaut). Une porte protégée ne s'ouvre pas
+   * davantage : sans jeton, ses outils réservés restent retenus.
+   */
+  async function respondStdio(
+    request: IMcpStdioRequest,
+    runtime?: IMcpGateRuntime,
+  ): Promise<IMcpGateResponse> {
+    if (!settings.enabled) {
+      return failure(404, JsonRpcError.INVALID_REQUEST, "MCP désactivé");
+    }
+    let body: unknown;
+    try {
+      body = JSON.parse(request.line);
+    } catch {
+      return parseFailure();
+    }
+    if (body === null || typeof body !== "object") return notAMessage();
+    // 🔴 Spec MCP, stdio § Cancellation : après `notifications/cancelled`, le
+    // serveur ne doit PLUS RIEN envoyer pour cet appel — ni progression, ni
+    // réponse. En HTTP la réponse part quand même (le `POST` doit se clore) ;
+    // sur le canal unique de stdio, elle serait une faute de protocole.
+    // Un objet, pas un `let` : l'analyse de flux ne voit pas l'écriture faite
+    // par le rappel, et tiendrait le drapeau pour toujours faux.
+    const call = { cancelled: false };
+    const open = request.openStream;
+    const exchange: IMcpExchange<IMcpEventSink> = {
+      signal: request.signal,
+      openStream:
+        open &&
+        (async () => {
+          const sink = await open();
+          return {
+            get closed() {
+              return call.cancelled || sink.closed;
+            },
+            send: (data: unknown) => sink.send(data),
+          };
+        }),
+    };
+    const reply = await dispatch(
+      body,
+      {
+        caller: {
+          authenticated: false,
+          scopes: [],
+          roles: mcpCallerRoles(
+            { protected: gateProtected, authenticated: false, scopes: [] },
+            settings.unprotectedRoles,
+          ),
+        },
+        // Un seul appelant : le process qui a lancé la commande.
+        callerKey: STDIO_CALLER_KEY,
+        principal: null,
+        // Aucun jeton à élargir : `callMcpTool` rend l'`isError`.
+        challenge: false,
+        onCancelled: () => {
+          call.cancelled = true;
+        },
+      },
+      exchange,
+      servedModules(runtime),
+      runtime,
+    );
+    return call.cancelled ? CANCELLED_SILENCE : reply;
+  }
+
+  /**
+   * Le tronc commun à tous les transports, une fois l'appelant établi :
+   * collecte, élévation, flux, moteur.
+   */
+  async function dispatch<S extends IMcpEventSink>(
+    body: object,
+    admitted: IAdmittedCaller,
+    exchange: IMcpExchange<S>,
+    modules: Readonly<Record<string, unknown>> | undefined,
+    runtime: IMcpGateRuntime | undefined,
+  ): Promise<IMcpGateResponse<S>> {
+    const log = runtime?.log;
+    const { caller, principal } = admitted;
     // Ramassés À CHAQUE requête, jamais mémorisés : un module ajouté — ou
     // rechargé par le superviseur de développement — apparaît sans cache à
     // invalider. Le nombre d'outils retenus est annoncé, pour qu'un agent
@@ -754,10 +939,12 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
     // Le défi nomme TOUS les scopes de l'opération en une fois (spec MCP,
     // « Runtime Insufficient Scope Errors »). Porte non protégée : aucun jeton
     // à élargir, `callMcpTool` rend l'`isError` — la même règle, `mcpCallScopes`.
-    if (gateProtected) {
+    if (admitted.challenge) {
       const elevation = requiredElevation(body, tools, caller);
       if (elevation !== null) {
-        const metadataUrl = protectedResourceMetadataUrl(authz.resource);
+        const metadataUrl = protectedResourceMetadataUrl(
+          settings.authorization.resource,
+        );
         return failure(
           caller.authenticated ? 403 : 401,
           JsonRpcError.INVALID_REQUEST,
@@ -782,8 +969,8 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
     }
 
     const stream = createMcpResponseStream<S>({
-      signal: request.signal,
-      open: request.openStream,
+      signal: exchange.signal,
+      open: exchange.openStream,
       // Un outil long sans `progressToken` ouvrirait sinon jamais son flux,
       // et sa réponse JSON tomberait sous le délai d'inactivité (408).
       graceMs: MCP_STREAM_GRACE_MS,
@@ -804,7 +991,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
         ? actingTools(tools, {
             principal,
             resolver: runtime?.accountResolver,
-            onAccount: request.onAccount,
+            onAccount: exchange.onAccount,
             log,
           })
         : tools;
@@ -815,7 +1002,10 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
         caller,
         withheldCount,
         transport: stream.transport,
-        cancellation: cancellationFor(callerKey, log),
+        cancellation: trackCancellation(
+          cancellationFor(admitted.callerKey, log),
+          admitted.onCancelled,
+        ),
         serverInfo: runtime?.serverInfo ?? serverInfo(),
         versions,
         cache,
@@ -826,7 +1016,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
       // L'en-tête de révision voyage jusqu'au protocole : face au `_meta` du
       // corps, il permet de refuser une requête que deux intermédiaires
       // liraient à des versions différentes.
-      { protocolVersion: request.protocolVersion },
+      { protocolVersion: exchange.protocolVersion },
     );
 
     // L'agent n'a reçu qu'un message générique : le détail de l'exception
@@ -855,6 +1045,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
   return Object.freeze({
     settings,
     respond,
+    respondStdio,
 
     async serve(controller: Controller, body: unknown): Promise<unknown> {
       const context = controller.context;

@@ -85,10 +85,28 @@ export interface IObserveProbe {
   dispose(): void;
 }
 
+/**
+ * Ce que rend un outil de MESURE dans un process qui ne sert aucune requête —
+ * l'application démarrée en console, sous la porte stdio (`nodefony ai:stdio`).
+ * Sans ce refus, `nodefony_observe` y attendrait un trafic qui n'arrive jamais
+ * et rendrait « aucune requête » avec aplomb.
+ */
+export const NOT_SERVING_MESSAGE =
+  "Ce process ne sert aucune requête : l'application y est démarrée en " +
+  "console (porte stdio `nodefony ai:stdio`), sans serveur HTTP — rien à " +
+  "mesurer ici. Pour observer ou profiler le trafic réel : démarrer " +
+  "l'application (`nodefony dev`) et passer par sa porte HTTP " +
+  "(`/nodefony/mcp`, déclarée à l'agent par `nodefony ai:mcp`).";
+
 /** Ce dont l'outil a besoin — injecté, pour l'éprouver sans application. */
 export interface IObserveDeps {
   /** Le profileur de l'application, ou `undefined` (production, `@nodefony/http` absent). */
   getProfiler: () => IProfilerReader | undefined;
+  /**
+   * Ce process sert-il des requêtes ? Rend `false` sous la porte stdio :
+   * l'outil le dit ({@link NOT_SERVING_MESSAGE}). Absent : supposé servir.
+   */
+  servesTraffic?: (() => boolean) | undefined;
   /** Intervalle entre deux relevés (défaut {@link OBSERVE_TICK_MS}). */
   tickMs?: number | undefined;
   /** Fabrique de la sonde du process (défaut : `ProcessProbe` du cœur). */
@@ -198,6 +216,9 @@ export function observeTool(deps: IObserveDeps): IMcpTool {
       },
     },
     handler: async (args, caller, run) => {
+      if (deps.servesTraffic?.() === false) {
+        return mcpText(NOT_SERVING_MESSAGE, true);
+      }
       const profiler = deps.getProfiler();
       if (profiler === undefined) {
         return mcpText(

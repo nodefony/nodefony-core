@@ -26,6 +26,7 @@ import {
   SessionTicketStore,
 } from "@nodefony/ai";
 import { PROFILE_SESSION_PATH } from "../nodefony/src/profileSession";
+import { NOT_SERVING_MESSAGE } from "../nodefony/mcp/observe";
 
 const TARGET: IShotTarget = {
   host: "127.0.0.1",
@@ -352,6 +353,16 @@ describe("nodefony_profile_route — le tir", () => {
     expect(
       (await call(app.deps({ getTarget: () => null }), { path: "/" })).isError,
     ).toBe(true);
+    expect(app.sent).toHaveLength(0);
+  });
+
+  it("process qui ne sert aucune requête (porte stdio) : le dit, rien d'envoyé", async () => {
+    const app = fakeApp();
+    const result = await call(app.deps({ servesTraffic: () => false }), {
+      path: "/",
+    });
+    expect(result.isError).toBe(true);
+    expect(text(result)).toBe(NOT_SERVING_MESSAGE);
     expect(app.sent).toHaveLength(0);
   });
 });

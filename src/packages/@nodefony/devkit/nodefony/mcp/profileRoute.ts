@@ -24,7 +24,11 @@ import {
   type IProfilerReader,
   type ProfileEntry,
 } from "@nodefony/http";
-import { OBSERVE_ERROR_LOGS_MAX, type IObserveProbe } from "./observe";
+import {
+  NOT_SERVING_MESSAGE,
+  OBSERVE_ERROR_LOGS_MAX,
+  type IObserveProbe,
+} from "./observe";
 import {
   renderProfileReport,
   SLOW_ROUTE_P95_MS,
@@ -138,6 +142,11 @@ const PROFILE_ROUTE_DESCRIPTION =
 export interface IProfileRouteDeps {
   /** Le profileur de l'application, ou `undefined` hors développement. */
   getProfiler: () => IProfilerReader | undefined;
+  /**
+   * Ce process sert-il des requêtes ? Rend `false` sous la porte stdio :
+   * l'outil le dit ({@link NOT_SERVING_MESSAGE}). Absent : supposé servir.
+   */
+  servesTraffic?: (() => boolean) | undefined;
   /** L'adresse d'écoute HTTP en clair de l'application, ou `null`. */
   getTarget: () => IShotTarget | null;
   /** Fabrique du client du tir (défaut : `node:http`, cf {@link createShotClient}). */
@@ -568,6 +577,9 @@ export function profileRouteTool(deps: IProfileRouteDeps): IMcpTool {
         ? [ADMIN_SCOPE_WRITE]
         : [],
     handler: async (args, caller, run) => {
+      if (deps.servesTraffic?.() === false) {
+        return mcpText(NOT_SERVING_MESSAGE, true);
+      }
       const profiler = deps.getProfiler();
       if (profiler === undefined) {
         return mcpText(

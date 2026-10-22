@@ -195,6 +195,9 @@ class DevkitService extends Service implements IDevkitService {
       getCard: () => this.getCard(),
       projectRoot: kernel?.path ?? process.cwd(),
       getProfiler: () => asProfilerReader(this.get("profiler")),
+      // Le profil du RUN, pas l'environnement : en développement aussi, la
+      // porte stdio boote en console et ne sert aucune requête.
+      servesTraffic: () => kernel?.runProfile.servers === true,
       // En TÊTE de la file d'arrêt : l'arrêt est séquentiel (`fireAsync`),
       // les serveurs ne ferment leurs connexions qu'après que le rapport
       // partiel est parti.

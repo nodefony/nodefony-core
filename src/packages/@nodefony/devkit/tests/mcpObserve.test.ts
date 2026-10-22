@@ -14,6 +14,7 @@ import {
 import {
   observeTool,
   asProfilerReader,
+  NOT_SERVING_MESSAGE,
   OBSERVE_MAX_SEC,
   type IObserveProbe,
 } from "../nodefony/mcp/observe";
@@ -263,6 +264,17 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
     const out = text(await tool.handler({ durationSec: 1 }, CALLER));
     expect(out).toContain("retard moyen 1.0 ms, pire blocage 2.0 ms");
     expect(out).not.toContain("bloquée");
+  });
+
+  it("process qui ne sert aucune requête (porte stdio) : le dit, sans attendre", async () => {
+    const profiler = new Profiler();
+    const tool = observeTool({
+      getProfiler: () => asProfilerReader(profiler),
+      servesTraffic: () => false,
+    });
+    const result = await tool.handler({ durationSec: 30 }, CALLER);
+    expect(result.isError).toBe(true);
+    expect(text(result)).toBe(NOT_SERVING_MESSAGE);
   });
 
   it("répond en isError quand l'application n'a pas de profileur", async () => {

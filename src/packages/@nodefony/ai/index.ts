@@ -2,6 +2,7 @@ import { Kernel, Module } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config, { type IAiConfigInput } from "./nodefony/config/config";
 import { defineAiConfig } from "./nodefony/config/defineModuleConfig";
+import StdioCommand from "./nodefony/command/StdioCommand";
 
 /**
  * @nodefony/ai — La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique.
@@ -29,6 +30,7 @@ declare module "nodefony" {
 class AiModule extends Module {
   constructor(kernel: Kernel) {
     super("ai", kernel, import.meta.url, config);
+    this.addCommand(StdioCommand);
   }
 
   /**
@@ -111,8 +113,12 @@ export type {
   IMcpGateRequest,
   IMcpGateRuntime,
   IMcpGateResponse,
+  IMcpStdioRequest,
   McpGateSeverity,
 } from "./nodefony/mcp/gate";
+// Le transport stdio — un client qui lance lui-même son serveur MCP.
+export { serveMcpStdio } from "./nodefony/mcp/stdio";
+export type { IMcpStdioOptions } from "./nodefony/mcp/stdio";
 export {
   createProgressReporter,
   readProgressToken,

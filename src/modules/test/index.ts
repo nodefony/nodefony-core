@@ -333,6 +333,21 @@ class Test extends Module {
         },
       },
       {
+        // Décor de la PURETÉ du protocole stdio : un outil qui écrit sur la
+        // sortie standard, comme le `console.log` oublié d'un module tiers.
+        // Sous `nodefony ai:stdio`, cette ligne doit partir sur la sortie
+        // d'erreur — jamais au milieu des messages JSON-RPC.
+        name: "test_noise",
+        description:
+          "Sonde du module de test : écrit une ligne sur la sortie standard " +
+          "puis répond. Sert au banc de la porte stdio.",
+        inputSchema: { type: "object", properties: {} },
+        handler: () => {
+          console.log("test_noise — bruit sur la sortie standard");
+          return mcpText({ noisy: true });
+        },
+      },
+      {
         name: "test_progress_last",
         description:
           "Sonde du module de test : rend le dernier passage de " +

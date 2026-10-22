@@ -175,7 +175,9 @@ tube, puis remets ton filtre.
 (`npx nodefony ai:mcp` écrit `.mcp.json`) — mêmes réponses, et tes propres modules peuvent publier
 les leurs. La porte est une ROUTE : elle n'existe que serveur démarré, et un client qui la trouve
 éteinte la marque en échec pour toute sa session — démarre l'application D'ABORD, ta session
-ENSUITE. Tout le reste (déclarer un outil métier, le réserver à des scopes, l'autorisation OAuth) :
+ENSUITE. Aucun serveur ne peut tourner (CI, agent dans un runner) ? Ton client lance lui-même
+`npx nodefony ai:stdio` et lui parle sur l'entrée et la sortie standard : mêmes outils, mais le
+code du démarrage, sans rechargement à chaud ni trafic réel à mesurer. Tout le reste (déclarer un outil métier, le réserver à des scopes, l'autorisation OAuth) :
 `node_modules/@nodefony/devkit/docs/index.md`.
 
 **Ta tâche est d'OFFRIR les outils de l'application à un agent** (« expose ceci par MCP ») ? Ce

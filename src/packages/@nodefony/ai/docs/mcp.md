@@ -5,7 +5,7 @@ lang: fr
 module: "@nodefony/ai"
 topic: mcp
 coverageModule: ai
-coverageFiles: "ai/nodefony/mcp/server.ts, ai/nodefony/mcp/tools.ts, ai/nodefony/mcp/progress.ts, ai/nodefony/mcp/stream.ts, ai/nodefony/mcp/guard.ts, ai/nodefony/mcp/caller.ts, ai/nodefony/mcp/gate.ts, ai/nodefony/mcp/ticketSession.ts, ai/nodefony/mcp/sessionTicket.ts, devkit/nodefony/mcp/tools.ts"
+coverageFiles: "ai/nodefony/mcp/server.ts, ai/nodefony/mcp/tools.ts, ai/nodefony/mcp/progress.ts, ai/nodefony/mcp/stream.ts, ai/nodefony/mcp/guard.ts, ai/nodefony/mcp/caller.ts, ai/nodefony/mcp/gate.ts, ai/nodefony/mcp/ticketSession.ts, ai/nodefony/mcp/sessionTicket.ts, ai/nodefony/mcp/stdio.ts, devkit/nodefony/mcp/tools.ts"
 section: "Intelligence artificielle"
 audience: [developer]
 tags: [mcp, agent, ia, json-rpc, sse, outils, progression, annulation, oauth]
@@ -586,6 +586,60 @@ détruit la session (`replayGate.close(sessions, ref)`). La réponse se lit par
   (`nodefony_profile_route`) joue le propriétaire du jeton, ou un autre compte avec `as` — scope
   d'écriture exigé par `scopesFor`, et rôles visés inclus dans ceux du propriétaire (règle
   `rolesWithin`, portée par `@nodefony/security`).
+
+## 🔌 Deux transports — HTTP ou stdio
+
+La norme MCP définit deux façons de joindre un serveur, et **le client ne choisit pas : sa
+configuration le dit**. Une entrée qui porte une `url` se joint en HTTP ; une entrée qui porte une
+`command` est un programme que le client LANCE lui-même, et auquel il parle sur l'entrée et la
+sortie standard (stdio).
+
+| L'agent travaille…                                                                | Transport                                     | Ce qu'on écrit                                          |
+| --------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------- |
+| sur ta machine, application démarrée (`nodefony dev`)                             | **HTTP** — la porte `/nodefony/mcp` de devkit | `npx nodefony ai:mcp` écrit `.mcp.json`, rien à choisir |
+| là où aucun serveur ne tourne : CI, agent cloud dans un runner, client stdio seul | **stdio** — `npx nodefony ai:stdio`           | la commande, dans la configuration MCP de l'agent       |
+
+**Pour qui stdio ?** Un agent qui code dans une machine virtuelle — l'agent de GitHub qu'on assigne
+à une issue, un agent de relecture lancé en CI — n'a pas de `nodefony dev` derrière lui :
+`localhost` n'y répond pas, et sans stdio il travaille sans aucun outil de l'application. Avec
+stdio, il lance la commande, l'application démarre en console (aucun port ouvert), et il retrouve
+les mêmes outils :
+
+```json
+{
+  "mcpServers": {
+    "nodefony": { "command": "npx", "args": ["nodefony", "ai:stdio"] }
+  }
+}
+```
+
+(Un client qui type ses entrées — `"type": "local"`, `"type": "stdio"` — prend la même `command` et
+les mêmes `args`.)
+
+**Ce que stdio sert, et ce qu'il ne sert pas** :
+
+- **Les outils des modules chargés, dans TOUS les environnements**, avec la posture d'une porte non
+  protégée : aucun rôle accordé, les outils réservés (`scopes`, `requiresAuth`) restent retenus. La
+  frontière est celle du terminal — qui lance la commande a déjà la main sur l'application. Les
+  outils `nodefony_*` n'y paraissent que lorsque `@nodefony/devkit` est chargé (développement).
+- **Le code du démarrage, sans rechargement à chaud** : une modification des sources ne se voit
+  qu'au lancement suivant. La porte HTTP, elle, suit les sources.
+- **Aucun trafic** : ce process ne sert aucune requête. Les outils de MESURE
+  (`nodefony_observe`, `nodefony_profile_route`) le disent et renvoient à la porte HTTP, au lieu de
+  rendre « aucune requête » avec aplomb. Lire le code, la configuration, les routes, la base, la
+  documentation marche à l'identique.
+- **La sortie standard EST le protocole** (norme MCP : rien d'autre qu'un message n'y passe). Le
+  journal part sur la sortie d'erreur, et tout `console.log` d'un outil y est détourné : son auteur
+  le voit encore, le client n'en sait rien.
+- **L'annulation** passe par `notifications/cancelled` — il n'y a pas de flux par requête à fermer.
+  Un appel annulé ne reçoit plus RIEN : ni progression, ni réponse.
+- **La fin** : le client ferme l'entrée standard ; les appels en cours sont abattus, la commande
+  sort en `0`.
+
+Une application qui veut SA commande stdio, sur sa propre porte, n'a qu'une ligne à écrire —
+`serveMcpStdio(gate, { input: process.stdin, write })` (`stdio.ts#serveMcpStdio`) ; la règle vit
+dans la porte (`gate.respondStdio`, `gate.ts#defineMcpGate`), la boucle ne fait que lire et écrire
+des lignes.
 
 ## 📏 Normes appliquées — ce que la boîte à outils tient pour toi
 

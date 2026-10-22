@@ -334,6 +334,11 @@ export interface IMcpToolDeps {
    */
   getProfiler: () => IProfilerReader | undefined;
   /**
+   * Ce process sert-il des requêtes ? `false` sous la porte stdio, où les
+   * outils de MESURE refusent en le disant ; absent : supposé servir.
+   */
+  servesTraffic?: (() => boolean) | undefined;
+  /**
    * S'abonne à l'arrêt du serveur pour la durée d'un appel (rapport partiel de
    * `nodefony_observe`) ; absent hors application.
    */
@@ -1059,12 +1064,14 @@ export function builtinMcpTools(
     },
     observe: observeTool({
       getProfiler: deps.getProfiler,
+      servesTraffic: deps.servesTraffic,
       readRequestLogs: (requestId, caller) =>
         readRequestLogs(deps.broker, requestId, caller),
       onShutdown: deps.onShutdown,
     }),
     profile_route: profileRouteTool({
       getProfiler: deps.getProfiler,
+      servesTraffic: deps.servesTraffic,
       getTarget: deps.profileRoute?.getTarget ?? (() => null),
       issueTicket: deps.profileRoute?.issueTicket,
       closeSession: deps.profileRoute?.closeSession,

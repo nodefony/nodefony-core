@@ -29,6 +29,13 @@ export default defineConfig({
           label: "porte MCP d'application protégée — identité de l'appelant",
           proof: ["sous jeton, la porte établit l'appelant"],
         },
+        {
+          label: "porte stdio — `nodefony ai:stdio` lancée pour de vrai",
+          proof: [
+            "sert la porte stdio : outils listés, appel, -32700, notification muette, code 0",
+            "se connecte, liste, appelle, et annule un outil long",
+          ],
+        },
       ]),
     ],
     include: ["tests/integration/**/*.test.ts"],
