@@ -253,7 +253,7 @@ class HttpResponse {
     const serialized: string[] = [];
     for (const cookie of cookies) {
       const s = cookie.serialize();
-      this.log(`ADD COOKIE ==> ${s}`, "DEBUG");
+      this.logCookie(cookie, s);
       serialized.push(s);
     }
     return this.setHeader("Set-Cookie", serialized);
@@ -261,8 +261,34 @@ class HttpResponse {
 
   setCookie(cookie: Cookie) {
     const serialize = cookie.serialize();
-    this.log(`ADD COOKIE ==> ${serialize}`, "DEBUG");
+    this.logCookie(cookie, serialize);
     return this.setHeader("Set-Cookie", serialize);
+  }
+
+  /**
+   * Journalise en DEBUG un cookie posé, sa VALEUR MASQUÉE : nom et attributs
+   * seulement. Le journal de développement se lit par le plan d'administration
+   * — un identifiant de session y entrerait chez quiconque le consulte.
+   * La ligne n'est construite que si DEBUG passe le gate du syslog pour ce
+   * `msgid` (debug ciblé compris) : rien n'est alloué en production.
+   *
+   * @param cookie - le cookie posé.
+   * @param serialized - sa forme `Set-Cookie`, déjà calculée pour l'en-tête.
+   */
+  private logCookie(cookie: Cookie, serialized: string): void {
+    const msgid = `${this.context.serverType} RESPONSE `;
+    const syslog = this.context.syslog;
+    if (syslog && !syslog.severityEnabled("DEBUG", msgid)) {
+      return;
+    }
+    // La valeur est encodée (`encodeURIComponent`) : aucun `;` ne peut y
+    // figurer, le premier `; ` après `nom=` ouvre donc les attributs.
+    const attrs = serialized.indexOf("; ", cookie.name.length + 1);
+    this.log(
+      `ADD COOKIE ==> ${cookie.name}=<masqué>${attrs === -1 ? "" : serialized.slice(attrs)}`,
+      "DEBUG",
+      msgid,
+    );
   }
 
   // ADD INPLICIT HEADER

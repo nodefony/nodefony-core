@@ -1973,6 +1973,25 @@ describe("SYSLOG — severity entry gate (T2)", () => {
     assert.strictEqual(sl.severityEnabled("DEBUG"), true);
   });
 
+  it("severityEnabled(sev, msgid) répond comme log() pour ce msgid — debug ciblé compris", () => {
+    // Un call site qui se garde sur le seul seuil global se tairait alors que
+    // `setDebugOverride` a rallumé son module : la garde doit suivre le gate.
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    sl.setDebugOverride("CIBLE", "DEBUG");
+    assert.strictEqual(sl.severityEnabled("DEBUG", "CIBLE"), true);
+    assert.strictEqual(sl.log("d", "DEBUG", "CIBLE").status, "ACCEPTED");
+    assert.strictEqual(sl.severityEnabled("DEBUG", "AUTRE"), false);
+    assert.strictEqual(sl.log("d", "DEBUG", "AUTRE").status, "DROPPED");
+    // Sans msgid : seuil GLOBAL seul, comme avant (lu par `globalDebug`).
+    assert.strictEqual(sl.severityEnabled("DEBUG"), false);
+    sl.setDebugOverride("*", "DEBUG");
+    assert.strictEqual(sl.severityEnabled("DEBUG", "AUTRE"), true);
+    assert.strictEqual(sl.severityEnabled("DEBUG"), false);
+    sl.clearDebugOverride("*");
+    sl.clearDebugOverride("CIBLE");
+  });
+
   it("Pdu pré-construit gaté par sa propre sévérité", () => {
     const sl = new Syslog({ moduleName: "T2" });
     sl.setSeverityThreshold("INFO");

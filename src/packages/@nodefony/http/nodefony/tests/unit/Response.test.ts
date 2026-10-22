@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import http from "node:http";
 import mime from "mime-types";
+import { Syslog } from "nodefony";
 import HttpResponse from "../../src/context/http/Response.js";
 import Cookie from "../../src/cookies/cookie.js";
 import type HttpContext from "../../src/context/http/HttpContext.js";
@@ -342,6 +343,81 @@ describe("HttpResponse — unit tests", () => {
       const r = makeResponse();
       r.setCookies();
       expect((r as any).response.getHeader("set-cookie")).to.equal(undefined);
+    });
+  });
+
+  // #645 — le journal de dev se lit par le plan d'administration : la ligne
+  // `ADD COOKIE` ne doit JAMAIS porter la valeur (identifiant de session), et
+  // ne doit pas être construite quand DEBUG ne passe pas le gate.
+  describe("journal ADD COOKIE — valeur masquée (#645)", () => {
+    const SECRET = "s3cr3t-session-id";
+    function makeLoggedResponse(syslog: Syslog | null): {
+      r: HttpResponse;
+      lines: string[];
+    } {
+      const r = makeResponse();
+      const lines: string[] = [];
+      Object.assign(r.context, {
+        serverType: "HTTP",
+        syslog,
+        log: (pci: unknown) => {
+          lines.push(String(pci));
+        },
+      });
+      return { r, lines };
+    }
+
+    it("1 cookie de session : nom et attributs journalisés, valeur absente", () => {
+      const { r, lines } = makeLoggedResponse(null);
+      r.addCookie(
+        new Cookie("nodefony", SECRET, { path: "/", httpOnly: true }),
+      );
+      r.setCookies();
+      expect(lines).to.have.lengthOf(1);
+      expect(lines[0]).to.equal(
+        "ADD COOKIE ==> nodefony=<masqué>; Path=/; SameSite=Lax; HttpOnly; Secure",
+      );
+      // L'en-tête, lui, porte bien la valeur.
+      expect((r as any).response.getHeader("set-cookie")).to.contain(SECRET);
+    });
+
+    it("2 cookies : aucune ligne ne porte de valeur", () => {
+      const { r, lines } = makeLoggedResponse(null);
+      r.addCookie(new Cookie("nodefony", SECRET, { path: "/" }));
+      r.addCookie(new Cookie("csrf-token", "T2-secret", { path: "/" }));
+      r.setCookies();
+      expect(lines).to.have.lengthOf(2);
+      for (const line of lines) {
+        expect(line).to.not.contain(SECRET);
+        expect(line).to.not.contain("T2-secret");
+        expect(line).to.match(/^ADD COOKIE ==> [\w-]+=<masqué>; Path=\/; /);
+      }
+    });
+
+    it("valeur encodée contenant `; ` : masquée en entier, attributs intacts", () => {
+      const { r, lines } = makeLoggedResponse(null);
+      r.setCookie(new Cookie("nodefony", `${SECRET}; Path=/x`, { path: "/" }));
+      expect(lines[0]).to.not.contain(SECRET);
+      expect(lines[0]).to.match(/^ADD COOKIE ==> nodefony=<masqué>; Path=\/; /);
+    });
+
+    it("DEBUG sous le gate du syslog → aucune ligne construite", () => {
+      const syslog = new Syslog({ moduleName: "T645" });
+      syslog.setSeverityThreshold("INFO");
+      const { r, lines } = makeLoggedResponse(syslog);
+      r.setCookie(new Cookie("nodefony", SECRET, { path: "/" }));
+      expect(lines).to.have.lengthOf(0);
+    });
+
+    it("debug ciblé sur le msgid de la réponse → la ligne revient, masquée", () => {
+      const syslog = new Syslog({ moduleName: "T645" });
+      syslog.setSeverityThreshold("INFO");
+      syslog.setDebugOverride("HTTP RESPONSE ", "DEBUG");
+      const { r, lines } = makeLoggedResponse(syslog);
+      r.setCookie(new Cookie("nodefony", SECRET, { path: "/" }));
+      expect(lines).to.have.lengthOf(1);
+      expect(lines[0]).to.not.contain(SECRET);
+      syslog.clearDebugOverride("HTTP RESPONSE ");
     });
   });
 });

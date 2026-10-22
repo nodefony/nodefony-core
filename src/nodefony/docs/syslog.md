@@ -178,7 +178,7 @@ export class InvoiceService extends Service {
   audit(rows: unknown[]): void {
     // Pattern « ne jamais FORMATER au-dessus du niveau actif » : la gate coupe
     // déjà le log, mais pas le `JSON.stringify` qui le précède. On le teste.
-    if (this.syslog?.severityEnabled("DEBUG")) {
+    if (this.syslog?.severityEnabled("DEBUG", this.name)) {
       this.log(JSON.stringify(rows), "DEBUG");
     }
   }
@@ -616,7 +616,9 @@ syslog.logMultiple("ERROR", a, b); // idem, sévérité explicite
 this.log(JSON.stringify(hugePayload), "DEBUG");
 
 // ✅ on demande d'abord si ça passerait — `severityEnabled` (Syslog.ts#Syslog.severityEnabled)
-if (this.syslog?.severityEnabled("DEBUG")) {
+//    Le msgid (`this.name`, celui que `log()` emploie par défaut) fait honorer
+//    le debug ciblé de ce module ; sans lui, seul le seuil global répond.
+if (this.syslog?.severityEnabled("DEBUG", this.name)) {
   this.log(JSON.stringify(hugePayload), "DEBUG");
 }
 ```

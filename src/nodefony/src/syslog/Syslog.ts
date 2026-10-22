@@ -978,14 +978,39 @@ class Syslog extends Event implements ISyslog {
    * (template string, JSON) — pattern L1 « ne jamais formater au-dessus du
    * niveau actif ».
    *
+   * Sans `msgid`, ne répond que du seuil GLOBAL (les overrides de debug ciblé
+   * sont ignorés). Avec `msgid`, répond exactement comme {@link log} le ferait
+   * pour ce `msgid` : override du module, sinon override global `*`.
+   *
    * @param severity - sévérité à tester (nom ou numérique).
+   * @param msgid - `msgid` du log à venir, pour honorer {@link setDebugOverride}.
    * @returns `true` si un log de cette sévérité serait accepté.
    */
-  severityEnabled(severity: number | Exclude<Severity, number>): boolean {
+  severityEnabled(
+    severity: number | Exclude<Severity, number>,
+    msgid?: ModuleName,
+  ): boolean {
     if (this._severityThreshold === null) {
       return true;
     }
-    return Syslog.toSeverityNumber(severity) <= this._severityThreshold;
+    let threshold = this._severityThreshold;
+    if (msgid !== undefined && this._debugOverrides !== null) {
+      threshold = this.overrideThreshold(msgid) ?? threshold;
+    }
+    return Syslog.toSeverityNumber(severity) <= threshold;
+  }
+
+  /**
+   * Seuil d'un override de debug ciblé pour ce `msgid` : celui du module, sinon
+   * l'override global `*`. Seule règle, partagée par {@link log} et
+   * {@link severityEnabled}. À n'appeler que si `_debugOverrides !== null`.
+   */
+  private overrideThreshold(key: ModuleName): number | undefined {
+    const overrides = this._debugOverrides;
+    if (overrides === null) {
+      return undefined;
+    }
+    return overrides.get(key) ?? overrides.get("*");
   }
 
   /**
@@ -1212,9 +1237,7 @@ class Syslog extends Event implements ISyslog {
           payload instanceof Pdu ? payload.msgid : msgid || this.settings.msgid;
         // Override spécifique au module, sinon override GLOBAL `*` (« debug
         // tout » — réutilise le TTL/auto-extinction des overrides par-module).
-        const eff =
-          this._debugOverrides.get(key as string) ??
-          this._debugOverrides.get("*");
+        const eff = this.overrideThreshold(key as ModuleName);
         if (eff !== undefined) {
           threshold = eff;
         }

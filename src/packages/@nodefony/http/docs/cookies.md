@@ -333,8 +333,12 @@ Le nom effectif du cookie de session (avec ou sans `__Host-` selon le transport)
 
 Il n'y a pas d'écran Studio dédié aux cookies applicatifs (le cookie **de session** est surfacé dans
 l'écran **Sessions**). En développement, chaque écriture de cookie est journalisée en `DEBUG` par la
-réponse HTTP (`ADD COOKIE ==> …`, `setCookie()` `http/Response.ts#HttpResponse.setCookie`) — visible via le skill
-`nodefony-tail-error-logs` ou le Suivi de requête. Sur le fil, un `curl -i` montre les lignes `Set-Cookie`.
+réponse HTTP — nom et attributs, **valeur masquée** (`ADD COOKIE ==> nodefony=<masqué>; Path=/; …`,
+`http/Response.ts#HttpResponse.setCookie`) — visible via le skill `nodefony-tail-error-logs` ou le Suivi
+de requête. La valeur n'y figure jamais : ce journal se lit par le plan d'administration, et un
+identifiant de session y passerait à quiconque le consulte, agent de code compris. La ligne n'est
+construite que si `DEBUG` passe le seuil du journal (debug ciblé compris) : en production, rien n'est
+alloué. La valeur se lit sur le fil : un `curl -i` montre les lignes `Set-Cookie`.
 
 ## 🧪 Tests & couverture
 
