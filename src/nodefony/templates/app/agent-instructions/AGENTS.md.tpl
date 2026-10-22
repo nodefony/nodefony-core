@@ -292,11 +292,6 @@ un module qui implémente `getMcpTools()` expose son métier, pas la plomberie (
 scopes : `node_modules/@nodefony/ai/docs/mcp.md`). C'est une ROUTE : démarre l'app
 D'ABORD, ta session ENSUITE.
 
-**`rg` ou outil MCP ?** Question étroite (un motif, un fichier) → `rg`, bien moins cher.
-Question ouverte sur l'app qui TOURNE (démarrage sain ? quelle route casse ou ralentit ?)
-→ `nodefony_check`, `nodefony_observe` : un appel au lieu de plusieurs `rg`, et des faits
-qu'aucun journal ne porte.
-
 <% if (it.hasSecurity) { %>🔴 **La connexion est DÉJÀ servie — n'écris ni page de login, ni controller de compte.**
 `/login` (mot de passe, second facteur, fournisseurs), `POST /nodefony/security/api/auth/login`
 (`202` = second facteur requis, PAS encore connecté), `GET /nodefony/security/api/auth/me`

@@ -550,7 +550,7 @@ export function groupSkippedChecks(
 /**
  * Taille le rapport de diagnostic pour un AGENT : les mêmes faits, sans redite.
  *
- * Le `--json` de `nodefony check` reste complet ; seule la porte MCP taille,
+ * Le `--json` de `nodefony doctor` reste complet ; seule la porte MCP taille,
  * parce que ce qu'elle rend se relit à chaque tour suivant de l'agent. Trois
  * coupes : `execution` (que `skipped` résume déjà), les raisons de `skipped`
  * regroupées ({@link groupSkippedChecks}), les liens `open` des derniers

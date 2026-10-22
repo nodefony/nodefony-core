@@ -128,6 +128,11 @@ Elle répond **toujours** — application pas encore construite, terminal sans a
 d'environnement : elle ne lit que des fichiers. Elle le DIT alors (« modules installés », pas
 « chargés ») et renvoie à `inspect modules` pour ce qui est vraiment monté.
 
+**`rg` ou outil MCP ?** Question étroite, format connu (un motif, un fichier) → `rg`, bien moins
+cher. Question ouverte sur l'application qui TOURNE (démarrage sain ? quelle route casse ?) →
+`nodefony_check` (= `nodefony doctor`), `nodefony_observe` : un appel au lieu de plusieurs `rg`,
+et des faits qu'aucun fichier ne porte.
+
 ```bash
 npx nodefony inspect routes --json     # routes réelles (chemin MONTÉ, méthodes, controller)
 npx nodefony inspect services --json   # services enregistrés, et le module qui les porte
