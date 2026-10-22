@@ -57,6 +57,15 @@ if (!SHA) {
   );
   process.exit(2);
 }
+// L'API ne filtre `head_sha` que sur le sha COMPLET : un sha court ne trouve
+// aucune exécution, et l'attente ne voyait « rien » sur un commit qui tournait.
+if (!/^[0-9a-f]{40}$/.test(SHA)) {
+  process.stderr.write(
+    `attendre-ci : « ${SHA} » n'est pas un sha complet (40 caractères) — ` +
+      "la forge n'y trouverait aucune exécution. Passer `$(git rev-parse <sha>)`.\n",
+  );
+  process.exit(2);
+}
 
 /** Les exécutions du même commit, telles que la forge les rapporte. */
 const lireRuns = () => {
