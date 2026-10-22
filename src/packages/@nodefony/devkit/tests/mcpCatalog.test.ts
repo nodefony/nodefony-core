@@ -20,7 +20,9 @@ import {
   builtinMcpTools,
   BUILTIN_MCP_TOOL_KEYS,
   selectBuiltinMcpTools,
+  groupSkippedChecks,
   type IMcpToolDeps,
+  type ISkippedCheckGroup,
 } from "../nodefony/mcp/tools";
 import {
   type IMcpCaller,
@@ -1076,10 +1078,23 @@ describe("MCP — les outils de diagnostic", () => {
       const report = JSON.parse(text) as {
         verdict: string;
         total: number;
-        skipped: string[];
+        skipped: ISkippedCheckGroup[];
         root: string;
         scanned: number;
+        lastBoots: Record<string, unknown>[];
       };
+      // Taillé pour un agent, qui relit chaque caractère à chaque tour : ni
+      // indentation, ni `execution` (que `skipped` résume), ni raison
+      // répétée, ni lien `open` fait pour un humain qui clique.
+      expect(text).not.toContain("\n");
+      expect(report).not.toHaveProperty("execution");
+      const said = report.skipped.map(({ families: _f, ...rest }) =>
+        JSON.stringify(rest),
+      );
+      expect(new Set(said).size).toBe(said.length);
+      for (const boot of report.lastBoots) {
+        expect(boot).not.toHaveProperty("open");
+      }
       // Le verdict et son compte doivent être cohérents entre eux — c'est ce
       // qu'un agent lit en premier pour décider s'il continue.
       //
@@ -1100,6 +1115,49 @@ describe("MCP — les outils de diagnostic", () => {
       expect(report.root).toBeTypeOf("string");
     },
   );
+
+  it("`check` dit une raison de saut UNE fois, avec ses familles", () => {
+    const groups = groupSkippedChecks([
+      {
+        family: "migrations",
+        title: "Migrations",
+        reason: "à chaud",
+        unlock: "--live",
+        onDemand: true,
+      },
+      {
+        family: "verify",
+        title: "Gardes",
+        reason: "non demandé",
+        unlock: "--deep",
+        onDemand: true,
+      },
+      {
+        family: "firewall",
+        title: "Firewall",
+        reason: "à chaud",
+        unlock: "--live",
+        onDemand: true,
+      },
+      // Même raison, mais nature différente : ne fusionne PAS.
+      { family: "oauth", title: "OAuth", reason: "à chaud", unlock: "--live" },
+    ]);
+    expect(groups).toEqual([
+      {
+        families: { migrations: "Migrations", firewall: "Firewall" },
+        reason: "à chaud",
+        unlock: "--live",
+        onDemand: true,
+      },
+      {
+        families: { verify: "Gardes" },
+        reason: "non demandé",
+        unlock: "--deep",
+        onDemand: true,
+      },
+      { families: { oauth: "OAuth" }, reason: "à chaud", unlock: "--live" },
+    ]);
+  });
 
   it("`symbols` sans argument rend le résumé du graphe", async () => {
     const reply = await handleMcpMessage(

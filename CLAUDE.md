@@ -315,6 +315,10 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    comptage exact) il est à la fois **plus cher ET moins fiable**. Vécu : « quel modèle pour relire
    2 739 fichiers à la recherche de secrets ? » — aucun, `gitleaks` le fait en secondes ; le modèle
    ne sert qu'à TRIER les 40 résultats qu'il rend. **L'automate produit, le modèle juge.**
+   **App qui TOURNE : `rg` ou MCP ?** Question étroite, format connu → `rg` (5 à 25× moins cher
+   par appel, mesuré). Question ouverte sur l'état réel (boot sain ? quelle route casse ?) →
+   `nodefony_check` / `nodefony_observe` : un appel au lieu de plusieurs `rg`, et des faits que le
+   journal ne porte pas (hors `-d`, le grep « boot sain ? » n'a rendu que `health 200`).
 
    **Ensuite** : **le modèle se choisit sur la NATURE de la tâche — c'est LÀ que les tokens fuient
    pour rien.** Un sous-agent lancé sans réfléchir à son modèle est la dépense la plus facile à

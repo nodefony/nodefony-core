@@ -166,7 +166,11 @@ function summarize(value: unknown, size: number): string {
 }
 
 /**
- * Rend un résultat d'outil — les données partent en JSON indenté, lisible.
+ * Rend un résultat d'outil — les données partent en JSON COMPACT.
+ *
+ * Le lecteur est un agent : il relit le JSON compact sans peine, et chaque
+ * caractère rendu se repaie à chaque tour suivant de sa conversation.
+ * L'indentation représentait ~25 % d'un rapport `nodefony_check`.
  *
  * Exporté parce qu'une application qui déclare un outil en a besoin : sans lui,
  * chacune réinventerait l'enveloppe `content[]`, et une enveloppe mal formée
@@ -185,8 +189,7 @@ function summarize(value: unknown, size: number): string {
  * @param isError - marque un échec MÉTIER (pas une faute de protocole)
  */
 export function mcpText(value: unknown, isError = false): IMcpToolResult {
-  const rendered =
-    typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  const rendered = typeof value === "string" ? value : JSON.stringify(value);
   // Un message d'erreur est déjà rédigé, et court : le résumer n'apporterait
   // rien et pourrait effacer la seule phrase que l'agent doit lire.
   const text =

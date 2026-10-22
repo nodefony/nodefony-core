@@ -13,6 +13,7 @@ import {
   skippedChecks,
 } from "nodefony";
 import type {
+  IDoctorReport,
   IAdminBrokerLike,
   InspectResult,
   IAdminCaller,
@@ -510,6 +511,80 @@ function subjectLines(): string {
     .join("\n");
 }
 
+/** Contrôles sautés pour la MÊME raison : la raison une fois, ses familles ensuite. */
+export interface ISkippedCheckGroup {
+  /** Famille → titre, dans l'ordre de lecture du rapport. */
+  families: Record<string, string>;
+  reason: string;
+  unlock?: string | undefined;
+  onDemand?: boolean | undefined;
+  notApplicable?: boolean | undefined;
+  advisory?: boolean | undefined;
+}
+
+/**
+ * Regroupe les contrôles sautés qui disent exactement la même chose.
+ *
+ * Sur l'application de développement, sept familles sautées partagent trois
+ * raisons : les répéter famille par famille coûtait ~1 800 caractères à chaque
+ * appel, relus ensuite à chaque tour de l'agent.
+ *
+ * @param skipped - les contrôles sautés, dans l'ordre du rapport
+ * @returns un groupe par raison distincte, dans l'ordre de première apparition
+ */
+export function groupSkippedChecks(
+  skipped: ReturnType<typeof skippedChecks>,
+): ISkippedCheckGroup[] {
+  const groups = new Map<string, ISkippedCheckGroup>();
+  for (const { family, title, ...said } of skipped) {
+    // La clé porte TOUT sauf la famille : deux contrôles ne fusionnent que si
+    // raison, levier ET nature du saut sont identiques.
+    const key = JSON.stringify(said);
+    const group = groups.get(key);
+    if (group) group.families[family] = title;
+    else groups.set(key, { families: { [family]: title }, ...said });
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Taille le rapport de diagnostic pour un AGENT : les mêmes faits, sans redite.
+ *
+ * Le `--json` de `nodefony check` reste complet ; seule la porte MCP taille,
+ * parce que ce qu'elle rend se relit à chaque tour suivant de l'agent. Trois
+ * coupes : `execution` (que `skipped` résume déjà), les raisons de `skipped`
+ * regroupées ({@link groupSkippedChecks}), les liens `open` des derniers
+ * démarrages (faits pour un humain qui clique).
+ *
+ * @param report - le rapport de `collectDoctorReport`
+ * @returns le verdict, son compte, puis le rapport sans redite
+ */
+export function compactDoctorReport(
+  report: IDoctorReport,
+): Record<string, unknown> {
+  const total = countCheckFindings(report);
+  // ⚠️ Un verdict « ok » sur un contrôle qui n'a rien pu regarder est le pire
+  // message qu'on puisse rendre à un agent : il ne relira pas, et conclura que
+  // la voie est libre. Le troisième mot existe pour ça — et il ne se confond
+  // avec « ok » dans aucune comparaison.
+  const skipped = skippedChecks(report.execution);
+  const { execution: _execution, lastBoots, ...rest } = report;
+  return {
+    // Le VERDICT accompagne le rapport : sans lui, un agent devrait recompter
+    // trois listes pour savoir s'il peut passer à la suite.
+    verdict:
+      total > 0
+        ? "manquements"
+        : skipped.length > 0
+          ? "ok-mais-incomplet"
+          : "ok",
+    total,
+    skipped: groupSkippedChecks(skipped),
+    ...rest,
+    lastBoots: lastBoots.map(({ open: _open, ...boot }) => boot),
+  };
+}
+
 /**
  * Catalogue intégré du framework, indexé par clé d'allowlist.
  *
@@ -589,29 +664,10 @@ export function builtinMcpTools(
         "code, avant de conclure que c'est fini : ni la compilation ni les " +
         "tests ne voient qu'une classe n'est branchée à rien.",
       inputSchema: { type: "object", properties: {} },
-      handler: async () => {
-        const report = await collectDoctorReport(deps.projectRoot);
-        // Le VERDICT accompagne le rapport : sans lui, un agent devrait
-        // recompter trois listes pour savoir s'il peut passer à la suite — et
-        // c'est exactement le genre de calcul qu'on lui fait rater.
-        const total = countCheckFindings(report);
-        // ⚠️ Un verdict « ok » sur un contrôle qui n'a rien pu regarder est le
-        // pire message qu'on puisse rendre à un agent : il ne relira pas, et
-        // conclura que la voie est libre. Le troisième mot existe pour ça — et
-        // il ne se confond avec « ok » dans aucune comparaison.
-        const skipped = skippedChecks(report.execution);
-        return mcpText({
-          verdict:
-            total > 0
-              ? "manquements"
-              : skipped.length > 0
-                ? "ok-mais-incomplet"
-                : "ok",
-          total,
-          skipped,
-          ...report,
-        });
-      },
+      handler: async () =>
+        mcpText(
+          compactDoctorReport(await collectDoctorReport(deps.projectRoot)),
+        ),
     },
 
     docs: {
