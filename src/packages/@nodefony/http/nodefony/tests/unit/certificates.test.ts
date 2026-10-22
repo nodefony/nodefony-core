@@ -42,6 +42,19 @@ function makeCert(certOpts: Record<string, unknown> = {}): Certificate {
   return new Certificate(fakeModule as unknown as Module);
 }
 
+/**
+ * Une paire RSA 2048 pour tout le fichier, engendrée une seule fois. La
+ * génération est probabiliste (recherche de premiers) : sa durée varie d'un
+ * tirage et d'un runner à l'autre — vécu, un cas à UNE génération a dépassé
+ * le délai par défaut sur un runner macOS. Le budget est donc porté ici,
+ * explicite, et les cas restent rapides. Les certificats qui partagent la
+ * paire restent distincts : chacun reçoit un numéro de série aléatoire.
+ */
+let filePair: IRsaKeyPair;
+beforeAll(async () => {
+  filePair = await makeCert().generateKeys();
+}, 60_000);
+
 /** Redirige toutes les sorties disque du service vers un dossier temporaire. */
 function setPaths(c: Certificate, dir: string): void {
   c.path = dir;
@@ -54,7 +67,7 @@ function setPaths(c: Certificate, dir: string): void {
 }
 
 describe("certificates — conformité crypto de l'auto-signé", () => {
-  // Une seule paire de clés (keygen RSA coûteux) réutilisée par les assertions.
+  // La paire du fichier (keygen RSA coûteux), réutilisée par les assertions.
   let sharedKeys: IRsaKeyPair;
   let pem: Buffer;
   let parsed: X509Certificate;
@@ -64,7 +77,7 @@ describe("certificates — conformité crypto de l'auto-signé", () => {
       selfSigned: { attrs: [{ name: "commonName", value: "nodefony.com" }] },
       san: { dns: ["nodefony.com", "localhost"], ip: ["127.0.0.1", "::1"] },
     });
-    sharedKeys = await c.generateKeys();
+    sharedKeys = filePair;
     c.keysPair = sharedKeys;
     pem = await c.createCertificate();
     parsed = new X509Certificate(pem);
@@ -529,7 +542,7 @@ describe("certificates — la CA de développement devient une ancre du processu
   // d'un Keycloak qui sert le certificat de l'application.
   it("rend joignable par `fetch` un serveur qui sert le certificat de développement", async () => {
     const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
-    const keys = await c.generateKeys();
+    const keys = filePair;
     c.keysPair = keys;
     const pem = (await c.createCertificate()).toString();
     const https = await import("node:https");
@@ -579,7 +592,7 @@ describe("certificates — autorités sortantes déclarées (`extraCaFiles`)", (
   /** Un certificat auto-signé réel, PEM, et sa clé — de quoi servir en https. */
   async function selfSigned(): Promise<{ pem: string; key: string }> {
     const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
-    const keys = await c.generateKeys();
+    const keys = filePair;
     c.keysPair = keys;
     return {
       pem: (await c.createCertificate()).toString(),
@@ -704,7 +717,7 @@ describe("certificates — autorités sortantes : chaque cas passe, ou dit comme
   }
   async function pem(): Promise<string> {
     const c = makeCert({ san: { dns: ["localhost"], ip: [] } });
-    c.keysPair = await c.generateKeys();
+    c.keysPair = filePair;
     return (await c.createCertificate()).toString();
   }
 
