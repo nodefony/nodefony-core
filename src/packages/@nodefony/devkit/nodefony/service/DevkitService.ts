@@ -14,14 +14,16 @@ import type {
   IProtectedResourceInput,
   IRolesWithin,
 } from "nodefony";
-import { defineMcpGate, mcpDeclaredScopes, type IMcpGate } from "@nodefony/ai";
+import {
+  defineMcpGate,
+  defineTicketSessionGate,
+  mcpDeclaredScopes,
+  type IMcpGate,
+  type ITicketSessionGate,
+} from "@nodefony/ai";
 import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
 import { asProfilerReader } from "../mcp/observe";
-import { ProfileTicketStore } from "../src/profileTicket";
-import {
-  isProfileSessionStore,
-  PROFILE_SESSION_FACTOR,
-} from "../src/profileSession";
+import { PROFILE_SESSION_FACTOR } from "../src/profileSession";
 import { readShotTarget } from "../mcp/shotClient";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
@@ -92,8 +94,8 @@ class DevkitService extends Service implements IDevkitService {
   private readonly cfg: IDevkitConfig;
   /** La porte MCP de développement — définie au premier usage (`mcpGate()`). */
   #mcpGate: IMcpGate | null = null;
-  /** Tickets de profilage — créés au premier émis (`profileTickets()`). */
-  #profileTickets: ProfileTicketStore | null = null;
+  /** La porte de session du profilage — définie au premier usage (`profileSessionGate()`). */
+  #profileSessionGate: ITicketSessionGate | null = null;
 
   constructor(module: Module) {
     // Sans config déclarée, le module peut n'avoir reçu aucune section.
@@ -205,13 +207,10 @@ class DevkitService extends Service implements IDevkitService {
       },
       profileRoute: {
         getTarget: () => readShotTarget(this.get("server-http")),
-        issueTicket: (identifier) => this.profileTickets().issue(identifier),
-        closeSession: async (ref) => {
-          const sessions: unknown = this.get("sessions");
-          return isProfileSessionStore(sessions)
-            ? sessions.destroyByRef(ref, PROFILE_SESSION_FACTOR)
-            : false;
-        },
+        issueTicket: (identifier) =>
+          this.profileSessionGate().issue(identifier),
+        closeSession: async (ref) =>
+          this.profileSessionGate().close(this.get("sessions"), ref),
         // La règle vit dans `@nodefony/security`, qui porte comptes et
         // hiérarchie ; absente, l'outil refuse `as` (fail-closed).
         rolesWithin: this.get<IRolesWithin>(ROLES_WITHIN) ?? undefined,
@@ -307,13 +306,20 @@ class DevkitService extends Service implements IDevkitService {
     return this.#mcpGate;
   }
 
-  profileTickets(): ProfileTicketStore {
-    this.#profileTickets ??= new ProfileTicketStore();
-    return this.#profileTickets;
-  }
-
-  issuedProfileTickets(): ProfileTicketStore | null {
-    return this.#profileTickets;
+  /**
+   * La porte de session du profilage — définie au premier usage, une fois.
+   *
+   * Bâtie sur `defineTicketSessionGate` comme le ferait une application pour
+   * ses propres outils : locale seulement (défaut de la porte), facteur d'audit
+   * {@link PROFILE_SESSION_FACTOR}.
+   *
+   * @returns la porte, prête à émettre et à servir.
+   */
+  profileSessionGate(): ITicketSessionGate {
+    this.#profileSessionGate ??= defineTicketSessionGate({
+      factor: PROFILE_SESSION_FACTOR,
+    });
+    return this.#profileSessionGate;
   }
 
   status(): { ready: boolean } {

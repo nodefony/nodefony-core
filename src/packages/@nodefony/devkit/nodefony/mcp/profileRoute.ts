@@ -11,7 +11,12 @@ import {
   type IRolesWithin,
   type RolesWithinVerdict,
 } from "nodefony";
-import { mcpText, MCP_RESERVED_PREFIX } from "@nodefony/ai";
+import {
+  mcpText,
+  MCP_RESERVED_PREFIX,
+  readTicketSessionVerdict,
+  SESSION_TICKET_HEADER,
+} from "@nodefony/ai";
 import {
   aggregateProfiles,
   isFailedProfile,
@@ -34,7 +39,6 @@ import {
   type IShotTarget,
 } from "./shotClient";
 import { watchToolStop, type OnShutdown } from "./shutdown";
-import { PROFILE_TICKET_HEADER } from "../src/profileTicket";
 import { PROFILE_SESSION_PATH } from "../src/profileSession";
 
 /** Requêtes mesurées par défaut. */
@@ -304,45 +308,6 @@ interface IShotSession {
   roles: readonly string[];
 }
 
-/** Lit la réponse de la route de connexion du profilage, sans lui faire confiance. */
-function readSessionBody(body: string | null):
-  | {
-      identifier: string;
-      roles: readonly string[];
-      ref: string;
-    }
-  | { message: string } {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(body ?? "");
-  } catch {
-    return { message: "réponse illisible" };
-  }
-  if (typeof parsed !== "object" || parsed === null) {
-    return { message: "réponse illisible" };
-  }
-  if (
-    "identifier" in parsed &&
-    typeof parsed.identifier === "string" &&
-    "ref" in parsed &&
-    typeof parsed.ref === "string"
-  ) {
-    const roles =
-      "roles" in parsed && Array.isArray(parsed.roles)
-        ? parsed.roles.filter(
-            (r: unknown): r is string => typeof r === "string",
-          )
-        : [];
-    return { identifier: parsed.identifier, roles, ref: parsed.ref };
-  }
-  return {
-    message:
-      "message" in parsed && typeof parsed.message === "string"
-        ? parsed.message
-        : "réponse sans compte",
-  };
-}
-
 /** Ouvre la session du tir par la route de connexion du profilage. */
 async function openShotSession(
   client: IShotClient,
@@ -365,12 +330,12 @@ async function openShotSession(
     {
       method: "POST",
       path: PROFILE_SESSION_PATH,
-      headers: { [PROFILE_TICKET_HEADER]: ticket },
+      headers: { [SESSION_TICKET_HEADER]: ticket },
       readBody: true,
     },
     signal,
   );
-  const read = readSessionBody(res.body);
+  const read = readTicketSessionVerdict(res.body);
   if (res.status !== 200 || "message" in read) {
     const why = "message" in read ? read.message : `statut ${res.status}`;
     return {

@@ -138,6 +138,38 @@ export type {
   IGuardInput,
   IGuardPolicy,
 } from "./nodefony/mcp/guard";
+// Niveau 2 : la session par ticket, au nom de laquelle un outil tire de vraies
+// requêtes HTTP vers l'application.
+export {
+  SESSION_TICKET_HEADER,
+  SESSION_TICKET_LENGTH,
+  SESSION_TICKET_MAX_PENDING,
+  SESSION_TICKET_TTL_MS,
+  SessionTicketStore,
+  fingerprintSessionTicket,
+} from "./nodefony/mcp/sessionTicket";
+export type { ISessionTicketStoreOptions } from "./nodefony/mcp/sessionTicket";
+export {
+  TICKET_SESSION_REFUSED,
+  defineTicketSessionGate,
+  isSessionFlowView,
+  isSessionServiceView,
+  openTicketSession,
+  readTicketSessionVerdict,
+  ticketSessionGateSchema,
+  toTicketSessionUser,
+} from "./nodefony/mcp/ticketSession";
+export type {
+  ISessionFlowView,
+  ISessionServiceView,
+  ITicketSessionDeps,
+  ITicketSessionGate,
+  ITicketSessionGateDefinition,
+  ITicketSessionGateSettings,
+  ITicketSessionRequest,
+  ITicketSessionUser,
+  TicketSessionVerdict,
+} from "./nodefony/mcp/ticketSession";
 // La règle « que vaut un appelant sur une porte MCP » — UNE implémentation,
 // partagée par toutes les portes.
 export { mcpCallerRoles } from "./nodefony/mcp/caller";

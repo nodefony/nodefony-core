@@ -1,4 +1,4 @@
-import type { IMcpGate } from "@nodefony/ai";
+import type { IMcpGate, ITicketSessionGate } from "@nodefony/ai";
 import type {
   ICard,
   ICardAppInfo,
@@ -9,7 +9,6 @@ import type {
 } from "nodefony";
 import type { IMcpToolDeps } from "../mcp/tools";
 import type { IDevkitConfig } from "../config/config";
-import type { ProfileTicketStore } from "../src/profileTicket";
 
 /**
  * Le contrat de la carte est celui du CŒUR — ces noms n'en sont que les alias,
@@ -94,16 +93,12 @@ export interface IDevkitService {
   mcpGate(): IMcpGate;
 
   /**
-   * Magasin des tickets de profilage, créé au premier ticket émis.
+   * La porte de session du profilage (`POST /nodefony/devkit/profile-session`),
+   * bâtie sur `defineTicketSessionGate` — définie une fois, au premier usage.
    *
-   * L'outil de profilage y émet le ticket qui ouvrira SA session ; la route de
-   * connexion du profilage le rachète.
+   * L'outil de profilage y émet le ticket qui ouvrira SA session ; la route la
+   * sert. Le magasin de tickets n'est alloué qu'au premier ticket émis : une
+   * requête reçue n'alloue rien.
    */
-  profileTickets(): ProfileTicketStore;
-
-  /**
-   * Le même magasin, sans le créer : `null` tant qu'aucun ticket n'a été émis.
-   * La route de connexion le lit ainsi — une requête reçue n'alloue rien.
-   */
-  issuedProfileTickets(): ProfileTicketStore | null;
+  profileSessionGate(): ITicketSessionGate;
 }

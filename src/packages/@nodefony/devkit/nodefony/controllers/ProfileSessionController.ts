@@ -1,35 +1,20 @@
 import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import type { IDevkitService } from "../interfaces/IDevkitService";
-import { PROFILE_TICKET_HEADER } from "../src/profileTicket";
-import {
-  isProfileSessionFlow,
-  isProfileSessionStore,
-  openProfileSession,
-  PROFILE_SESSION_FACTOR,
-  toProfileSessionUser,
-} from "../src/profileSession";
 
 /**
  * Ouvre la session au nom de laquelle `nodefony_profile_route` tire ses
  * requêtes.
  *
- * ## Pourquoi une route, et pas un cookie fabriqué à côté
+ * **Mince par design** : la mécanique (ticket à usage unique, localité,
+ * ouverture par le flux de session de l'application, verdict uniforme) est la
+ * porte `defineTicketSessionGate` de `@nodefony/ai`, définie dans
+ * `DevkitService.profileSessionGate()`. Ce controller ne fait que DÉCLARER la
+ * route, comme le ferait une application pour ses propres outils.
  *
- * Une session ne s'ouvre que par le flux de session de l'application
- * (`authFlow.establishSessionFor`) : il revérifie le compte (actif, non
- * verrouillé), régénère l'identifiant et écrit l'audit. Ce flux exige une
- * requête en cours ; l'outil lui en envoie donc une, en boucle locale, et
- * récupère le cookie que la réponse pose. Fabriquer la session sans requête
- * aurait recopié la règle de connexion — deux copies divergent.
- *
- * ## Ce qui protège cette route
- *
- * - **Un ticket à usage unique** (`x-nodefony-profile-ticket`), émis dans le
- *   process par l'outil, valable dix secondes, jamais affiché ni journalisé.
- *   L'identité est fixée à l'émission : la requête n'en porte aucune.
- * - **La localité de l'appelant**, contrôlée avant tout.
- * - **La `policy: "dev"`** du module : la route n'existe pas en production.
+ * Ce qui protège cette route : le ticket (émis dans le process, valable dix
+ * secondes, jamais affiché ni journalisé, identité fixée à l'émission), la
+ * localité de l'appelant (défaut de la porte), et la `policy: "dev"` du module.
  *
  * Elle vit sous `/nodefony/devkit/`, hors du motif de la zone d'administration
  * (`^/nodefony/[^/]+/api`), qui exigerait une session déjà ouverte.
@@ -63,39 +48,7 @@ class ProfileSessionController extends Controller {
     requirements: { methods: ["POST"] },
   })
   async profileSession() {
-    const context = this.context;
-    if (!context?.request) {
-      throw new Error("profile-session : aucun contexte de requête");
-    }
-    const flow: unknown = this.get("authFlow");
-    const sessions: unknown = this.get("sessions");
-    const verdict = await openProfileSession(
-      {
-        ticket: context.request.headers[PROFILE_TICKET_HEADER],
-        remoteAddress: context.remoteAddress ?? undefined,
-      },
-      {
-        tickets: this.#service().issuedProfileTickets(),
-        establish: isProfileSessionFlow(flow)
-          ? async (identifier) =>
-              toProfileSessionUser(
-                await flow.establishSessionFor(
-                  context,
-                  identifier,
-                  PROFILE_SESSION_FACTOR,
-                ),
-                identifier,
-              )
-          : null,
-        sessionRef: () => {
-          const id = context.session?.id;
-          return typeof id === "string" && isProfileSessionStore(sessions)
-            ? sessions.sessionRef(id)
-            : null;
-        },
-      },
-    );
-    return this.renderJson(verdict, verdict.status);
+    return this.#service().profileSessionGate().serve(this);
   }
 }
 

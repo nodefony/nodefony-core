@@ -1,24 +1,24 @@
 import { createHash, randomBytes } from "node:crypto";
 
 /** Durée de vie d'un ticket : le temps d'une requête de connexion en boucle locale. */
-export const PROFILE_TICKET_TTL_MS = 10_000;
+export const SESSION_TICKET_TTL_MS = 10_000;
 
 /**
- * Tickets en attente au plus. Un profilage en émet UN et le rachète aussitôt :
+ * Tickets en attente au plus. Un outil en émet UN et le rachète aussitôt :
  * en atteindre huit signale un usage anormal, refusé plutôt qu'accumulé.
  */
-export const PROFILE_TICKET_MAX_PENDING = 8;
+export const SESSION_TICKET_MAX_PENDING = 8;
 
 /** Longueur d'un ticket : 32 octets d'aléa en base64url, sans remplissage. */
-export const PROFILE_TICKET_LENGTH = 43;
+export const SESSION_TICKET_LENGTH = 43;
 
-/** En-tête qui porte le ticket vers la route de connexion du profilage. */
-export const PROFILE_TICKET_HEADER = "x-nodefony-profile-ticket";
+/** En-tête qui porte le ticket vers la route de connexion par ticket. */
+export const SESSION_TICKET_HEADER = "x-nodefony-session-ticket";
 
 const TICKET_SHAPE = /^[A-Za-z0-9_-]+$/u;
 
 /** Réglages du magasin — injectés par les tests, défauts en production. */
-export interface IProfileTicketStoreOptions {
+export interface ISessionTicketStoreOptions {
   /** Horloge, en millisecondes. */
   readonly now?: () => number;
   /** Empreinte d'un ticket (instrumentée pour compter les hachages). */
@@ -31,23 +31,24 @@ interface IPendingTicket {
 }
 
 /** Empreinte sous laquelle un ticket est rangé : le ticket brut n'est jamais gardé. */
-export function fingerprintTicket(ticket: string): string {
+export function fingerprintSessionTicket(ticket: string): string {
   return createHash("sha256").update(ticket).digest("hex");
 }
 
 /**
- * Tickets à usage unique qui autorisent l'ouverture d'UNE session de profilage
- * pour une identité donnée.
+ * Tickets à usage unique qui autorisent l'ouverture d'UNE session pour une
+ * identité donnée — celle au nom de laquelle un outil MCP tire de vraies
+ * requêtes HTTP vers l'application.
  *
  * Le ticket ne quitte jamais le process : l'outil qui l'émet est celui qui le
- * présente, en boucle locale, à la route `POST /nodefony/devkit/profile-session`.
- * L'identité est fixée à l'émission — la requête de rachat n'en porte aucune,
- * donc ne peut pas en choisir une autre.
+ * présente, en boucle locale, à la route de connexion de sa porte
+ * (`defineTicketSessionGate`). L'identité est fixée à l'émission — la
+ * requête de rachat n'en porte aucune, donc ne peut pas en choisir une autre.
  *
  * Aucune minuterie : les tickets expirés sont purgés à chaque émission et à
- * chaque rachat, sur au plus {@link PROFILE_TICKET_MAX_PENDING} entrées.
+ * chaque rachat, sur au plus {@link SESSION_TICKET_MAX_PENDING} entrées.
  */
-export class ProfileTicketStore {
+export class SessionTicketStore {
   readonly #now: () => number;
   readonly #fingerprint: (ticket: string) => string;
   readonly #pending = new Map<string, IPendingTicket>();
@@ -55,9 +56,9 @@ export class ProfileTicketStore {
   /**
    * @param options - horloge et empreinte, injectées par les tests.
    */
-  constructor(options: IProfileTicketStoreOptions = {}) {
+  constructor(options: ISessionTicketStoreOptions = {}) {
     this.#now = options.now ?? Date.now;
-    this.#fingerprint = options.fingerprint ?? fingerprintTicket;
+    this.#fingerprint = options.fingerprint ?? fingerprintSessionTicket;
   }
 
   /** Nombre de tickets émis, ni rachetés ni expirés. */
@@ -67,26 +68,26 @@ export class ProfileTicketStore {
   }
 
   /**
-   * Émet un ticket pour `identifier`, valable {@link PROFILE_TICKET_TTL_MS} ms.
+   * Émet un ticket pour `identifier`, valable {@link SESSION_TICKET_TTL_MS} ms.
    *
    * @param identifier - identifiant du compte pour lequel la session s'ouvrira.
-   * @returns le ticket, à présenter dans {@link PROFILE_TICKET_HEADER}.
+   * @returns le ticket, à présenter dans {@link SESSION_TICKET_HEADER}.
    * @throws Error - identifiant vide, ou plafond de tickets en attente atteint.
    */
   issue(identifier: string): string {
     if (identifier.length === 0) {
-      throw new Error("ticket de profilage : identifiant vide");
+      throw new Error("ticket de session : identifiant vide");
     }
     this.#purge();
-    if (this.#pending.size >= PROFILE_TICKET_MAX_PENDING) {
+    if (this.#pending.size >= SESSION_TICKET_MAX_PENDING) {
       throw new Error(
-        `ticket de profilage : ${PROFILE_TICKET_MAX_PENDING} tickets déjà en attente`,
+        `ticket de session : ${SESSION_TICKET_MAX_PENDING} tickets déjà en attente`,
       );
     }
     const ticket = randomBytes(32).toString("base64url");
     this.#pending.set(this.#fingerprint(ticket), {
       identifier,
-      expiresAt: this.#now() + PROFILE_TICKET_TTL_MS,
+      expiresAt: this.#now() + SESSION_TICKET_TTL_MS,
     });
     return ticket;
   }
@@ -103,7 +104,7 @@ export class ProfileTicketStore {
   redeem(ticket: unknown): string | null {
     if (
       typeof ticket !== "string" ||
-      ticket.length !== PROFILE_TICKET_LENGTH ||
+      ticket.length !== SESSION_TICKET_LENGTH ||
       !TICKET_SHAPE.test(ticket)
     ) {
       return null;

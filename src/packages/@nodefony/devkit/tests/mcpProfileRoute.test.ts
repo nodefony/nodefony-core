@@ -21,13 +21,11 @@ import {
   type IShotTarget,
 } from "../nodefony/mcp/shotClient";
 import {
-  PROFILE_TICKET_HEADER,
-  ProfileTicketStore,
-} from "../nodefony/src/profileTicket";
-import {
-  openProfileSession,
-  PROFILE_SESSION_PATH,
-} from "../nodefony/src/profileSession";
+  openTicketSession,
+  SESSION_TICKET_HEADER,
+  SessionTicketStore,
+} from "@nodefony/ai";
+import { PROFILE_SESSION_PATH } from "../nodefony/src/profileSession";
 
 const TARGET: IShotTarget = {
   host: "127.0.0.1",
@@ -68,7 +66,7 @@ function fakeApp(
   } = {},
 ) {
   const profiler = new Profiler();
-  const tickets = new ProfileTicketStore();
+  const tickets = new SessionTicketStore();
   const sent: IShotRequest[] = [];
   const closedSessions: string[] = [];
   const state = { inFlight: 0, maxInFlight: 0, closed: false };
@@ -99,9 +97,9 @@ function fakeApp(
           await delay(opts.slowMs, undefined, { signal });
         else await delay(0);
         if (req.method === "POST") {
-          const verdict = await openProfileSession(
+          const verdict = await openTicketSession(
             {
-              ticket: req.headers[PROFILE_TICKET_HEADER],
+              ticket: req.headers[SESSION_TICKET_HEADER],
               remoteAddress: "127.0.0.1",
             },
             {
