@@ -147,7 +147,7 @@ lui parle sur l'entrée et la sortie standard : mêmes outils, mais le code du
 démarrage, sans rechargement à chaud, et aucun trafic à mesurer —
 `nodefony_observe` et `nodefony_profile_route` le disent et renvoient ici. En
 local, la route reste le bon choix. Les deux transports, côte à côte :
-[`@nodefony/ai` — Deux transports](../ai/docs/mcp.md#-deux-transports--http-ou-stdio).
+[`@nodefony/ai` — Deux transports](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/ai/docs/mcp.md#-deux-transports--http-ou-stdio).
 
 **Ce qui la protège**, et il faut le savoir avant de s'étonner d'un `403` :
 
