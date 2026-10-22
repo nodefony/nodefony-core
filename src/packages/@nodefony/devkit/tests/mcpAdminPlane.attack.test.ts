@@ -557,6 +557,9 @@ describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () =
         tools: [],
         serverInfo: { name: "banc", version: "0" },
         withheldCount: 2,
+        // Porte HTTP protégée : la seule qui publie son document RFC 9728.
+        // Ailleurs (stdio, porte ouverte), l'annonce n'y renvoie pas.
+        authorizable: true,
       },
     );
     const instructions = (

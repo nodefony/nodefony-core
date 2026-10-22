@@ -171,7 +171,9 @@ describe("nodefony ai:stdio — le protocole à la lettre", () => {
   it("hors développement : servie, avec les seuls outils des modules chargés", async () => {
     const run = await runStdio(
       [message({ jsonrpc: "2.0", id: 1, method: "tools/list" })],
-      { NODE_ENV: "production" },
+      // La CI pose `NF_WITH_DEV_MODULES=1` pour son serveur : hérité, il
+      // rechargerait devkit et `test` en production et le cas ne prouverait rien.
+      { NODE_ENV: "production", NF_WITH_DEV_MODULES: undefined },
     );
     expect(run.code, run.stderr).toBe(0);
     const reply = JSON.parse(run.lines[0] ?? "null") as {
