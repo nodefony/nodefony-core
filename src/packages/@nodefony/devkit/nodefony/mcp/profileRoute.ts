@@ -560,6 +560,13 @@ export function profileRouteTool(deps: IProfileRouteDeps): IMcpTool {
         },
       },
     },
+    // Jouer un AUTRE compte, c'est agir en son nom : `admin:write`, exigé à
+    // l'appel et non à la collecte — un jeton de lecture voit toujours l'outil,
+    // et une porte protégée lui répond par un défi `insufficient_scope`.
+    scopesFor: (args) =>
+      args.anonymous !== true && typeof args.as === "string" && args.as !== ""
+        ? [ADMIN_SCOPE_WRITE]
+        : [],
     handler: async (args, caller, run) => {
       const profiler = deps.getProfiler();
       if (profiler === undefined) {

@@ -5,10 +5,14 @@ import {
   ACCESS_TOKEN_VERIFIER,
   RequestContext,
   authorizeProtectedResource,
+  BearerError,
+  buildBearerChallenge,
+  missingScopes,
   parseModuleConfig,
   protectedResourceMetadataUrl,
   readBearerHeader,
   BootConfigurationError,
+  isPlainObject,
 } from "nodefony";
 import type {
   IAccessAccountResolver,
@@ -41,6 +45,8 @@ import {
 import {
   collectMcpTools,
   declareMcpTools,
+  insufficientScopeMessage,
+  mcpCallScopes,
   mcpDeclaredScopes,
   mcpText,
 } from "./tools";
@@ -243,6 +249,48 @@ export type IMcpGateResponse<S extends IMcpEventSink = IMcpEventSink> =
       headers?: Readonly<Record<string, string>>;
     }
   | { kind: "stream"; stream: S };
+
+/**
+ * Un `tools/call` exige-t-il, par ses ARGUMENTS, des scopes que l'appelant n'a
+ * pas ? Seul un outil SERVI est jugé : un nom retenu reste « inconnu », son
+ * existence n'est pas révélée par un défi.
+ *
+ * @param body - message JSON-RPC reçu (objet)
+ * @param tools - outils servis à cet appelant
+ * @param caller - appelant établi
+ * @returns les scopes de l'opération et le message, ou `null` si rien ne manque
+ *   (ou si l'appel n'est pas jugeable ici — le moteur le refusera lui-même)
+ */
+function requiredElevation(
+  body: object,
+  tools: readonly IMcpTool[],
+  caller: IMcpCaller,
+): {
+  scopes: readonly string[];
+  missing: readonly string[];
+  message: string;
+} | null {
+  if (!("method" in body) || body.method !== "tools/call") return null;
+  if (!("params" in body) || typeof body.params !== "object") return null;
+  const params = body.params;
+  if (params === null || !("name" in params)) return null;
+  const tool = tools.find((candidate) => candidate.name === params.name);
+  if (tool?.scopesFor === undefined) return null;
+  const args =
+    "arguments" in params && isPlainObject(params.arguments)
+      ? params.arguments
+      : {};
+  const scopes = mcpCallScopes(tool, args);
+  if (scopes === null) return null;
+  const missing = missingScopes(caller.scopes, scopes);
+  return missing.length === 0
+    ? null
+    : {
+        scopes,
+        missing,
+        message: insufficientScopeMessage(tool.name, missing),
+      };
+}
 
 /** Une porte MCP définie — à servir depuis une action de controller. */
 export interface IMcpGate {
@@ -711,6 +759,38 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
         log?.(`MCP — outil « ${name} » retenu : ${why}`, "DEBUG");
       },
     });
+
+    // ─── Ce que CES arguments exigent (élévation à la demande) ──────────────
+    // Jugé AVANT tout flux : un `403` ne s'écrit plus une fois le flux ouvert.
+    // Le défi nomme TOUS les scopes de l'opération en une fois (spec MCP,
+    // « Runtime Insufficient Scope Errors »). Porte non protégée : aucun jeton
+    // à élargir, `callMcpTool` rend l'`isError` — la même règle, `mcpCallScopes`.
+    if (gateProtected) {
+      const elevation = requiredElevation(body, tools, caller);
+      if (elevation !== null) {
+        const metadataUrl = protectedResourceMetadataUrl(authz.resource);
+        return failure(
+          caller.authenticated ? 403 : 401,
+          JsonRpcError.INVALID_REQUEST,
+          elevation.message,
+          {
+            "WWW-Authenticate": buildBearerChallenge({
+              resourceMetadataUrl: metadataUrl,
+              scopes: elevation.scopes,
+              // RFC 6750 §3 : sans jeton présenté, aucun code d'erreur.
+              ...(caller.authenticated
+                ? {
+                    error: BearerError.INSUFFICIENT_SCOPE,
+                    // RFC 6750 §3 : ASCII seul — le message français, accentué,
+                    // y serait mutilé ; il part entier dans le corps.
+                    description: `missing scope: ${elevation.missing.join(" ")}`,
+                  }
+                : {}),
+            }),
+          },
+        );
+      }
+    }
 
     const stream = createMcpResponseStream<S>({
       signal: request.signal,

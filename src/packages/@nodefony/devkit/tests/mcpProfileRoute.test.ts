@@ -610,3 +610,28 @@ describe("readShotTarget — où viser", () => {
     expect(readShotTarget(server)).toBeNull();
   });
 });
+
+describe("profile_route — le scope d'écriture se DÉCLARE à l'appel (#650)", () => {
+  const tool = profileRouteTool({
+    getProfiler: () => undefined,
+    getTarget: () => null,
+  });
+
+  it("aucun scope à la collecte : un jeton de lecture voit l'outil", () => {
+    expect(tool.scopes).toBeUndefined();
+  });
+
+  it("`as` exige admin:write — l'élévation que la porte demande par un défi", () => {
+    expect(tool.scopesFor?.({ path: "/", as: "bob" })).toEqual([
+      ADMIN_SCOPE_WRITE,
+    ]);
+  });
+
+  it("sans `as`, ou en anonyme, rien de plus", () => {
+    expect(tool.scopesFor?.({ path: "/" })).toEqual([]);
+    expect(tool.scopesFor?.({ path: "/", as: "" })).toEqual([]);
+    expect(tool.scopesFor?.({ path: "/", as: "bob", anonymous: true })).toEqual(
+      [],
+    );
+  });
+});

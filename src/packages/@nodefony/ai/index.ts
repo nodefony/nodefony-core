@@ -179,6 +179,8 @@ export {
   declareMcpTools,
   collectMcpTools,
   mcpDeclaredScopes,
+  mcpCallScopes,
+  insufficientScopeMessage,
   publishMcpTools,
   callMcpTool,
   MCP_TEXT_MAX_CHARS,

@@ -229,6 +229,29 @@ export interface IMcpTool extends IMcpToolDefinition {
    */
   scopes?: readonly string[] | undefined;
   /**
+   * Scopes que CES arguments exigent, en plus de {@link IMcpTool.scopes} — un
+   * paramètre qui élargit ce que l'outil fait (agir au nom d'un autre compte,
+   * écrire) sans conditionner sa visibilité.
+   *
+   * Lu AVANT le handler, sur chaque appel ; jamais à la collecte : un jeton qui
+   * n'a que {@link IMcpTool.scopes} voit toujours l'outil. Il manque un scope ?
+   * Une porte protégée répond `403` `insufficient_scope` avec un défi qui nomme
+   * TOUS les scopes de l'opération, et le client redemande un jeton élargi (spec
+   * MCP, « Runtime Insufficient Scope Errors » / « Step-Up Authorization
+   * Flow ») ; sans porte, l'appel rend un résultat `isError`. Ces scopes
+   * n'entrent PAS dans `scopes_supported` : la spec le veut minimal, « the
+   * minimal set of scopes necessary for basic functionality ».
+   *
+   * Fonction pure et synchrone. Elle lève, ou rend autre chose qu'un tableau de
+   * chaînes ⇒ l'appel est refusé, jamais servi sans borne.
+   *
+   * @param args - arguments de l'appel, non encore validés par le handler.
+   * @returns les scopes que l'opération exige en plus ; `[]` si aucun.
+   */
+  scopesFor?:
+    | ((args: Readonly<Record<string, unknown>>) => readonly string[])
+    | undefined;
+  /**
    * Exige une identité prouvée, sans scope particulier.
    *
    * Utile quand l'outil filtre lui-même ce qu'il rend selon

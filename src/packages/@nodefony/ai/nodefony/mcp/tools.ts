@@ -1,4 +1,4 @@
-import { rolesFromScopes } from "nodefony";
+import { missingScopes, rolesFromScopes } from "nodefony";
 import type {
   IMcpTool,
   IMcpToolAnnotations,
@@ -404,6 +404,13 @@ function mcpToolFault(tool: unknown): string | null {
     return "`scopes` n'est pas un tableau de chaînes";
   }
   if (
+    "scopesFor" in tool &&
+    tool.scopesFor !== undefined &&
+    typeof tool.scopesFor !== "function"
+  ) {
+    return "`scopesFor` n'est pas une fonction";
+  }
+  if (
     "requiresAuth" in tool &&
     tool.requiresAuth !== undefined &&
     typeof tool.requiresAuth !== "boolean"
@@ -655,7 +662,67 @@ export async function callMcpTool(
   if (refusal !== null) {
     return mcpText(refusal, true);
   }
+  // Seule exception à « aucun contrôle ici » : ce que les ARGUMENTS exigent ne
+  // se sait qu'à l'appel. Une porte protégée l'a déjà jugé (403 + défi) ; ce
+  // contrôle couvre l'appel en process et la porte non protégée.
+  const scopes = mcpCallScopes(tool, args);
+  if (scopes === null) {
+    return mcpText(
+      `« ${tool.name} » : les scopes de cet appel sont indéterminables (\`scopesFor\` a levé ou rendu une forme fausse) — appel refusé`,
+      true,
+    );
+  }
+  const missing = missingScopes(caller.scopes, scopes);
+  if (missing.length > 0) {
+    return mcpText(insufficientScopeMessage(tool.name, missing), true);
+  }
   return tool.handler(args, caller, run);
+}
+
+/**
+ * Tous les scopes qu'exige UN appel : ceux de l'outil, puis ceux que ses
+ * arguments ajoutent ({@link IMcpTool.scopesFor}). Seule source de la règle,
+ * lue par l'appel en process ET par le défi `insufficient_scope` d'une porte.
+ *
+ * @param tool - outil servi
+ * @param args - arguments de l'appel
+ * @returns les scopes exigés, sans doublon ; `null` si `scopesFor` lève ou rend
+ *   une forme fausse (l'appel est alors refusé, jamais servi sans borne)
+ */
+export function mcpCallScopes(
+  tool: IMcpTool,
+  args: Readonly<Record<string, unknown>>,
+): readonly string[] | null {
+  const base = tool.scopes ?? [];
+  if (tool.scopesFor === undefined) return base;
+  let extra: unknown;
+  try {
+    extra = tool.scopesFor(args);
+  } catch {
+    return null;
+  }
+  if (
+    !Array.isArray(extra) ||
+    !extra.every((scope: unknown) => typeof scope === "string")
+  ) {
+    return null;
+  }
+  return extra.length === 0 ? base : [...new Set([...base, ...extra])];
+}
+
+/**
+ * Le message d'un appel refusé faute de scope — le même pour le résultat
+ * `isError` et la description du défi `403`.
+ *
+ * @param name - nom de l'outil
+ * @param missing - scopes absents du jeton
+ * @returns l'explication, qui nomme les scopes à demander
+ */
+export function insufficientScopeMessage(
+  name: string,
+  missing: readonly string[],
+): string {
+  return `« ${name} » avec ces arguments exige le(s) scope(s) ${missing.join(" ")}, absent(s) du jeton présenté — redemander un jeton qui les porte`;
 }
 
 /**
