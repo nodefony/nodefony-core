@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T14:41:54.899Z",
+  "generatedAt": "2026-10-22T17:42:04.036Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 172,
+      "closed": 174,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 13,
       "title": "10.0.0-beta"
     },
     {
@@ -4012,8 +4012,8 @@
       "number": 645,
       "title": "fix(http): ne plus journaliser la valeur des cookies posés",
       "url": "https://github.com/nodefony/nodefony-core/issues/645",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -4028,8 +4028,8 @@
       "number": 646,
       "title": "fix(http): profiler une réponse en flux que le client abandonne",
       "url": "https://github.com/nodefony/nodefony-core/issues/646",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
