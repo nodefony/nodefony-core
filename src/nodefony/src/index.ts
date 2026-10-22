@@ -979,6 +979,7 @@ export {
   missingScopes,
   BearerError,
   ACCESS_TOKEN_VERIFIER,
+  ACCESS_ACCOUNT_RESOLVER,
 } from "./oauth/protectedResource";
 export type {
   IProtectedResourceMetadata,
@@ -986,6 +987,8 @@ export type {
   IProtectedResourcePolicy,
   IAccessPrincipal,
   IAccessTokenVerifier,
+  IAccessAccount,
+  IAccessAccountResolver,
   ProtectedResourceOutcome,
   IBearerChallenge,
   BearerErrorCode,

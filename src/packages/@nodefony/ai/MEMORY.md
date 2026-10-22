@@ -36,6 +36,7 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
 | `mcpDeclaredScopes(opts)` | `nodefony/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
 | `publishMcpTools`/`callMcpTool` | `nodefony/mcp/tools.ts` | projection sans `handler` / exécution par nom |
 | `defineMcpGate` | `nodefony/mcp/gate.ts` | la PORTE sans la route. Définition validée (`mcpGateSchema` strict → `BootConfigurationError`), figée ; outils d'une liste vérifiés UNE fois (forme, doublon, `nodefony_` refusé). `gate.respond(req, runtime)` PUR : garde → corps → appelant (jeton, 401 `resource_metadata`, 503 sans vérificateur) → collecte → flux/JSON, réponse DÉCRITE (`json`/`empty`/`stream`). `gate.serve(controller, body)` : GET/DELETE → 405, sinon lit la requête, résout le vérificateur PAR NOM (porte protégée seulement), écrit. `gate.protectedResources()` → entrée RFC 9728. `protocol.versions` → liste passée au moteur (-32022 avec LA liste de la porte) ; `cache` → `ttlMs`/`cacheScope` sur `tools/list` MODERNE seulement ; `instructions` → ouverture du texte (défaut NEUTRE) |
+| `actingTools`/`runAsAccount` | `nodefony/mcp/gate.ts` | outil `actsForUser` : compte retrouvé AVANT le handler par `accessAccountResolver` (par NOM, porte protégée seulement), bulle `RequestContext.run({...parent, token, user})` + `release` en `finally`, `onAccount` → `context.userIdentifier`, signal abattu à `expiresAt`. Enveloppé pour tout message SAUF `tools/list`. Sans résolveur → `isError` + CRITIC ; compte `null` → `isError` uniforme ; panne → `-32603` opaque. En process (sans porte) : AUCUNE bulle |
 | `mcpText` | `nodefony/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils. **BORNÉ** (voir ci-dessous) |
 | `IMcpTool` | cœur `types/IMcpTool.ts` (ré-exporté) | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()` |
 
@@ -71,7 +72,9 @@ stdio, appel en process) n'apporte que le transport. Imports du cœur : barrel
   reçoit que les outils servis, un outil retenu lui est « inconnu » (son
   existence n'est pas révélée). Filtrer la liste sans filtrer l'appel = rideau.
   Le nom d'un outil retenu reste RÉSERVÉ (sinon un homonyme public le double).
-  `caller` absent = `{authenticated:false, scopes:[]}` — **fail-closed**. Le
+  `caller` absent = `{authenticated:false, scopes:[]}` — **fail-closed**.
+  `actsForUser` EXIGE des `scopes` (refus à la déclaration : dans la bulle, les rôles du compte ne
+  sont pas bornés par le jeton) ET un appelant authentifié — le rôle d'opérateur ne s'y substitue pas. Le
   handler reçoit `(args, caller)` pour borner ce qu'il REND. Rétention →
   `onWithheld` (DEBUG, c'est normal), distinct d'`onSkip` (WARNING, c'est une
   faute d'auteur).

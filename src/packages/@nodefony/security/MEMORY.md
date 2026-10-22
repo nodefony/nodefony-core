@@ -52,6 +52,14 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   inconnu → `null` sans requête. `issuers` invalide ⇒ AUCUN vérificateur (locaux compris).
   Contrat : refus = `null` ; panne store/keystore = throw (503) ; panne annuaire = `null` (lue comme
   compte absent — fail-closed). Banc : `tests/unit/accessTokenVerifier.attack.test.ts`.
+  ⭐ **Résolveur de compte** posé À CÔTÉ, sous **`accessAccountResolver`** (`ACCESS_ACCOUNT_RESOLVER`,
+  contrat cœur `IAccessAccountResolver`) — principal → `{ token, user }` pour un outil MCP `actsForUser`.
+  Local → `JwtAuthenticator.resolveAccount` (émetteur canonique exact, `loadBoundAccount` sur `claims.uid`/`cv`) ;
+  tiers → `ExternalSubjectResolver.resolve` (politique GLOBALE, pas de zone). Refus = `null`, panne = throw.
+  Jeton = `UserToken("mcp")` SCOPABLE (hors `NON_SCOPABLE_TOKEN_TYPES`) : rôles = compte entier, scopes
+  du jeton = attribut `scopes`. Banc : `tests/unit/accessAccountResolver.attack.test.ts`.
+  - 🔴 **`loadBoundAccount`** (`accountBinding.ts`) = SEULE règle « ce jeton maison ouvre-t-il encore ce
+    compte ? » (actif, non verrouillé, `isBoundToAccount`) — zone `jwt` ET résolveur. Jamais recopiée.
   - `iss` NON VÉRIFIÉ lu par `decodeJwt` → sert UNIQUEMENT à indexer une allowlist FERMÉE → émetteur
     inconnu = refus **sans aucune requête sortante** (pas de SSRF déclenchable par un anonyme).
   - Clés par `createRemoteJWKSet` (jamais `jku`/`jwk` d'en-tête, RFC 8725 §3.5) ; `fetch` INJECTABLE
@@ -64,7 +72,8 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     retirée en cas d'échec (une panne passagère ne condamne pas l'émetteur pour la vie du process).
 - **`ExternalJwtAuthenticator`** (nom de zone `external-jwt`) = le chaînon vérificateur → FIREWALL.
   Le vérificateur s'arrête à `{subject, scopes}` ; rattacher ce sujet à un `IUser` est une décision
-  d'APPLICATION, portée ici seule.
+  d'APPLICATION, portée par **`ExternalSubjectResolver`** (`recognizes` / `resolve`, options lues par
+  `externalSubjectOptions(config)`) — partagé avec le résolveur de compte, jamais recopié.
   - **Audience = celle de la ZONE** (`area.resource`), transportée par `createToken` → attribut du token
     (`authenticate(token)` ne reçoit PAS le contexte). `validateArea` refuse au BOOT une zone sans
     `resource` ; zone sans resource au runtime ⇒ 503 (jamais une vérif sans audience).

@@ -95,15 +95,24 @@ function describeUser(
 async function serviceView(): Promise<{
   user: { identifier: string; roles: readonly string[] } | null;
   adminGranted: boolean | null;
+  scopeGranted: boolean | null;
+  writeGranted: boolean | null;
 }> {
   const user = describeUser(RequestContext.getAuthenticatedUser());
   const authorization = Nodefony.getKernel()?.container?.get("authorization");
   const token = RequestContext.get()?.token;
-  const adminGranted =
+  const decide = (attribute: string): Promise<boolean | null> =>
     isAuthorizer(authorization) && token !== undefined
-      ? await authorization.decide(token, "ROLE_ADMIN")
-      : null;
-  return { user, adminGranted };
+      ? authorization.decide(token, attribute)
+      : Promise.resolve(null);
+  // Un RÔLE du compte, le scope que le jeton porte, et celui qu'il ne porte
+  // pas : les rôles viennent du compte, les scopes bornent `api:action`.
+  return {
+    user,
+    adminGranted: await decide("ROLE_ADMIN"),
+    scopeGranted: await decide(ADMIN_SCOPE_READ),
+    writeGranted: await decide("admin:write"),
+  };
 }
 
 /**
@@ -135,6 +144,7 @@ const SECURE_GATE = defineMcpGate({
         "Rend l'utilisateur vu par l'outil ET par un service qu'il appelle.",
       inputSchema: { type: "object", properties: {} },
       scopes: [ADMIN_SCOPE_READ],
+      actsForUser: true,
       handler: async (_args, caller) =>
         mcpText(
           JSON.stringify({

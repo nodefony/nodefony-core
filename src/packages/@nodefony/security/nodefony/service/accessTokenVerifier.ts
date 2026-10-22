@@ -1,5 +1,17 @@
-import { Service, Module, Container, ACCESS_TOKEN_VERIFIER } from "nodefony";
-import type { IAccessPrincipal, IAccessTokenVerifier } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  ACCESS_ACCOUNT_RESOLVER,
+  ACCESS_TOKEN_VERIFIER,
+} from "nodefony";
+import type {
+  IAccessAccount,
+  IAccessAccountResolver,
+  IAccessPrincipal,
+  IAccessTokenVerifier,
+} from "nodefony";
+import type { IUser } from "@nodefony/user";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
@@ -9,6 +21,12 @@ import { RemoteJwtVerifier } from "../src/token/RemoteJwtVerifier";
 import { JwtAuthenticator } from "../src/authenticator/JwtAuthenticator";
 import { peekIssuer } from "../src/authenticator/peekIssuer";
 import { resolveJwtRuntime } from "../src/token/jwtRuntime";
+import { UserToken } from "../src/token/UserToken";
+import {
+  ExternalSubjectResolver,
+  externalSubjectOptions,
+} from "../src/authenticator/ExternalSubjectResolver";
+import { AuthenticationError } from "../errors/AuthenticationError";
 
 // Le nom du SERVICE Nodefony (journaux, introspection) et le nom du point de
 // rendez-vous dans le conteneur sont un seul et même identifiant, importé du
@@ -144,6 +162,18 @@ class AccessTokenVerifierService extends Service {
     };
     this.#verifier = verify;
     this.container?.set(serviceName, verify);
+    this.container?.set(
+      ACCESS_ACCOUNT_RESOLVER,
+      accountResolver(
+        local,
+        issuers.length > 0
+          ? new ExternalSubjectResolver(
+              this.container,
+              externalSubjectOptions(config),
+            )
+          : null,
+      ),
+    );
     const trusted = [
       ...(localIssuer === null ? [] : [`${localIssuer} (cette application)`]),
       ...issuers.map((i) => i.issuer),
@@ -154,6 +184,58 @@ class AccessTokenVerifierService extends Service {
       "INFO",
     );
   }
+}
+
+/**
+ * Le résolveur de compte posé à côté du vérificateur : il retrouve, pour un
+ * principal que celui-ci vient d'établir, le compte de l'application qui agit.
+ *
+ * Aiguillé par l'émetteur, comme le vérificateur : un jeton maison rejoue la
+ * règle de la zone `jwt` (`JwtAuthenticator.resolveAccount`), un jeton tiers
+ * celle de la zone `external-jwt` (`ExternalSubjectResolver`). Aucune n'est
+ * recopiée ici. Un refus rend `null` ; une panne (annuaire non câblé,
+ * émetteur absent de la table de rattachement) traverse.
+ *
+ * Le jeton rendu est un `UserToken` de type `"mcp"` — hors des types humains
+ * que le voteur de scopes laisse passer : les scopes du jeton bornent les
+ * attributs `api:action`, et les rôles restent ceux du compte, comme dans une
+ * zone `jwt`.
+ */
+function accountResolver(
+  local: JwtAuthenticator | null,
+  external: ExternalSubjectResolver | null,
+): IAccessAccountResolver {
+  return async (
+    principal: IAccessPrincipal,
+  ): Promise<IAccessAccount | null> => {
+    let user: IUser | null = null;
+    if (local !== null) user = await local.resolveAccount(principal);
+    if (user === null && external !== null && principal.subject) {
+      if (!external.recognizes(principal.issuer)) return null;
+      try {
+        user = await external.resolve(
+          principal.issuer,
+          principal.subject,
+          principal.claims,
+        );
+      } catch (error) {
+        if (error instanceof AuthenticationError) return null;
+        throw error;
+      }
+    }
+    if (user === null) return null;
+    const token = new UserToken("mcp").promote(user);
+    token.setAttribute("scopes", [...principal.scopes]);
+    token.setAttribute("issuer", principal.issuer);
+    token.setAttribute("subject", principal.subject);
+    if (principal.tokenId !== undefined) {
+      token.setAttribute("jti", principal.tokenId);
+    }
+    if (principal.claims !== undefined) {
+      token.setAttribute("claims", principal.claims);
+    }
+    return { token, user };
+  };
 }
 
 export default AccessTokenVerifierService;

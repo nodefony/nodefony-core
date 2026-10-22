@@ -312,6 +312,12 @@ function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
     return null;
   }
   if (!caller.authenticated) {
+    // 🔴 Un outil qui agit AU NOM d'un compte exige le compte : le rôle
+    // d'opérateur d'une porte non protégée n'en désigne aucun, et ne s'y
+    // substitue donc pas.
+    if (tool.actsForUser === true) {
+      return "agit au nom d'un compte, l'appelant est anonyme";
+    }
     // ⭐ On retient sur ce que l'appelant PEUT, pas sur la façon dont il l'a
     // prouvé. Une porte NON protégée n'a personne à authentifier et pose
     // pourtant des rôles — ceux de l'opérateur, dont la protection est son
@@ -403,6 +409,24 @@ function mcpToolFault(tool: unknown): string | null {
     typeof tool.requiresAuth !== "boolean"
   ) {
     return "`requiresAuth` n'est pas un booléen";
+  }
+  if ("actsForUser" in tool && tool.actsForUser !== undefined) {
+    if (typeof tool.actsForUser !== "boolean") {
+      return "`actsForUser` n'est pas un booléen";
+    }
+    // Dans la bulle, les rôles du compte sont ENTIERS : le jeton ne les borne
+    // pas. Le scope exigé est donc la seule borne entre un jeton étroit et les
+    // droits d'un compte large — sans lui, l'outil n'est pas servable.
+    if (
+      tool.actsForUser &&
+      !(
+        "scopes" in tool &&
+        Array.isArray(tool.scopes) &&
+        tool.scopes.length > 0
+      )
+    ) {
+      return "`actsForUser` exige des `scopes` : les rôles du compte ne sont pas bornés par le jeton";
+    }
   }
   return null;
 }

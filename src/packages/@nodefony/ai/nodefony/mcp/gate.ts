@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
   Nodefony,
+  ACCESS_ACCOUNT_RESOLVER,
   ACCESS_TOKEN_VERIFIER,
+  RequestContext,
   authorizeProtectedResource,
   parseModuleConfig,
   protectedResourceMetadataUrl,
@@ -9,10 +11,15 @@ import {
   BootConfigurationError,
 } from "nodefony";
 import type {
+  IAccessAccountResolver,
+  IAccessPrincipal,
   IAccessTokenVerifier,
   IProtectedResourceInput,
   IMcpCaller,
   IMcpTool,
+  IMcpToolResult,
+  IMcpToolRun,
+  RequestContextPayload,
 } from "nodefony";
 import type { Controller } from "@nodefony/framework";
 import { mcpConfigSchema } from "../config/config";
@@ -31,7 +38,12 @@ import {
   MCP_STREAM_GRACE_MS,
   type IMcpEventSink,
 } from "./stream";
-import { collectMcpTools, declareMcpTools, mcpDeclaredScopes } from "./tools";
+import {
+  collectMcpTools,
+  declareMcpTools,
+  mcpDeclaredScopes,
+  mcpText,
+} from "./tools";
 
 /**
  * Une porte MCP sur HTTP — la mécanique, sans la route.
@@ -193,6 +205,11 @@ export interface IMcpGateRequest<S extends IMcpEventSink = IMcpEventSink> {
    * progression devient alors muette, jamais refusée.
    */
   openStream?: (() => S | Promise<S>) | undefined;
+  /**
+   * Prévenu de l'identifiant du compte au nom duquel un outil agit — pour le
+   * journal de la requête, qui le lit au démontage, hors de la bulle.
+   */
+  onAccount?: ((identifier: string) => void) | undefined;
 }
 
 /** Ce que l'environnement fournit à une réponse — `serve()` le lit seul. */
@@ -201,6 +218,11 @@ export interface IMcpGateRuntime {
   modules?: Readonly<Record<string, unknown>> | undefined;
   /** Qui sait valider un jeton — requis dès qu'un serveur d'autorisation est déclaré. */
   verifier?: IAccessTokenVerifier | undefined;
+  /**
+   * Qui retrouve le compte qu'un jeton désigne — requis par un outil
+   * `actsForUser` ; absent, un tel outil refuse de s'exécuter.
+   */
+  accountResolver?: IAccessAccountResolver | undefined;
   /** Identité annoncée ; défaut : `name`/`version` de la porte, sinon le projet. */
   serverInfo?: IServerInfo | undefined;
   /** Journal de la porte ; muet si absent. */
@@ -563,6 +585,9 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
     // du jeton (émetteur + sujet) s'il en présente un valide, sinon l'adresse
     // distante. Jamais l'identifiant JSON-RPC seul, que le client choisit.
     let callerKey = `addr\u0000${request.remoteAddress ?? ""}`;
+    // Ce que le vérificateur a établi — seul un outil `actsForUser` le relit,
+    // pour retrouver le compte.
+    let principal: IAccessPrincipal | null = null;
 
     if (gateProtected) {
       const authVerdict = await authorizeProtectedResource(
@@ -640,6 +665,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
           // L'émetteur compte : deux serveurs d'autorisation peuvent délivrer
           // le même sujet à deux comptes distincts.
           callerKey = `sub\u0000${authVerdict.principal.issuer}\u0000${authVerdict.principal.subject}`;
+          principal = authVerdict.principal;
           break;
         case "anonymous":
           // 🔴 Un jeton PRÉSENTÉ et rejeté est servi en anonyme — jamais en
@@ -700,10 +726,23 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
           final ? "WARNING" : "DEBUG",
         ),
     });
+    // Un outil qui agit au nom du compte s'enveloppe pour tout message, SAUF
+    // la liste, qui n'exécute rien : la règle « quelle méthode appelle un
+    // outil » appartient au moteur — la relire ici en liste blanche laisserait
+    // une méthode future exécuter l'outil hors de la bulle.
+    const served =
+      principal !== null && !("method" in body && body.method === "tools/list")
+        ? actingTools(tools, {
+            principal,
+            resolver: runtime?.accountResolver,
+            onAccount: request.onAccount,
+            log,
+          })
+        : tools;
     const reply = await handleMcpMessage(
       body,
       {
-        tools,
+        tools: served,
         caller,
         withheldCount,
         transport: stream.transport,
@@ -778,6 +817,13 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
             (name) => (firstHeader(headers[name]) ?? "") !== "",
           ),
           signal: context?.signal,
+          // Le journal de requête nomme qui a agi, comme sous une zone.
+          onAccount:
+            gateProtected && context
+              ? (identifier: string) => {
+                  context.userIdentifier = identifier;
+                }
+              : undefined,
           // La réponse finale peut dépasser le plafond d'un événement
           // ordinaire : un résultat d'outil n'a pas de borne en JSON, il n'en
           // reçoit pas une plus basse en flux.
@@ -799,6 +845,12 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
           verifier: gateProtected
             ? (controller.get<IAccessTokenVerifier>(ACCESS_TOKEN_VERIFIER) ??
               undefined)
+            : undefined,
+          // Même rendez-vous par NOM, posé par le même module.
+          accountResolver: gateProtected
+            ? (controller.get<IAccessAccountResolver>(
+                ACCESS_ACCOUNT_RESOLVER,
+              ) ?? undefined)
             : undefined,
           log: (message, severity) => controller.log(message, severity),
         },
@@ -851,4 +903,153 @@ function write(
         response.headers,
       );
   }
+}
+
+/** Ce qu'il faut à un outil `actsForUser` pour s'exécuter au nom du compte. */
+interface IActingContext {
+  readonly principal: IAccessPrincipal;
+  readonly resolver: IAccessAccountResolver | undefined;
+  readonly onAccount: ((identifier: string) => void) | undefined;
+  readonly log: IMcpGateRuntime["log"];
+}
+
+/**
+ * Message UNIFORME d'un compte inutilisable — la cause (introuvable,
+ * verrouillé, sujet externe sans rattachement) part au journal, jamais à
+ * l'agent : un refus détaillé dirait quels comptes existent.
+ */
+const ACCOUNT_UNAVAILABLE =
+  "le compte désigné par le jeton n'est pas utilisable : l'outil ne s'exécute pas";
+
+/** Plus long délai qu'un minuteur accepte (2³¹ − 1 ms, ~24,8 jours). */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/**
+ * Les outils servis, ceux qui agissent au nom du compte enveloppés : leur
+ * handler s'exécute dans une bulle de requête où le compte est posé.
+ *
+ * Aucune allocation tant qu'aucun outil ne le déclare : la liste servie est
+ * rendue telle quelle.
+ */
+function actingTools(
+  tools: readonly IMcpTool[],
+  acting: IActingContext,
+): readonly IMcpTool[] {
+  let wrapped: IMcpTool[] | null = null;
+  for (const [index, tool] of tools.entries()) {
+    if (tool.actsForUser !== true) continue;
+    wrapped ??= tools.slice();
+    wrapped[index] = {
+      ...tool,
+      handler: (args, caller, run) =>
+        runAsAccount(tool, args, caller, run, acting),
+    };
+  }
+  return wrapped ?? tools;
+}
+
+/**
+ * Exécute un outil au nom du compte que désigne le jeton.
+ *
+ * Le compte est retrouvé AVANT le handler : les lecteurs de l'identité
+ * (`RequestContext.getAuthenticatedUser()`, le voteur de rôles) sont
+ * synchrones, une résolution paresseuse ne les atteindrait jamais. La bulle est
+ * un NOUVEL objet — elle hérite de la corrélation et du scope de la requête,
+ * deux appels concurrents ne se voient pas — vidée en `finally`. Le handler
+ * meurt avec le jeton : son signal s'abat à l'expiration.
+ *
+ * Fail-closed : sans résolveur (CRITIC) ou sans compte utilisable, l'appel rend
+ * `isError` — jamais une exécution en anonyme. Une PANNE du résolveur lève, et
+ * la porte la traite comme l'exception d'un outil (journal, `-32603` opaque).
+ */
+async function runAsAccount(
+  tool: IMcpTool,
+  args: Record<string, unknown>,
+  caller: IMcpCaller,
+  run: IMcpToolRun | undefined,
+  acting: IActingContext,
+): Promise<IMcpToolResult> {
+  const { principal, resolver, log } = acting;
+  if (resolver === undefined) {
+    log?.(
+      `MCP — l'outil « ${tool.name} » agit au nom d'un compte, mais aucun ` +
+        `résolveur de compte n'est posé (\`${ACCESS_ACCOUNT_RESOLVER}\`, ` +
+        "module `@nodefony/security`) : l'appel est refusé plutôt que servi " +
+        "en anonyme.",
+      "CRITIC",
+    );
+    return mcpText(ACCOUNT_UNAVAILABLE, true);
+  }
+  const account = await resolver(principal);
+  if (account === null) {
+    log?.(
+      `MCP — l'outil « ${tool.name} » : aucun compte utilisable pour le sujet ` +
+        `du jeton (émetteur ${principal.issuer}) — introuvable, inactif, ` +
+        "verrouillé ou sans rattachement. Appel refusé.",
+      "WARNING",
+    );
+    return mcpText(ACCOUNT_UNAVAILABLE, true);
+  }
+  const remainingMs =
+    principal.expiresAt === undefined
+      ? null
+      : principal.expiresAt * 1000 - Date.now();
+  if (remainingMs !== null && remainingMs <= 0) {
+    return mcpText("le jeton a expiré : l'outil ne s'exécute pas", true);
+  }
+  acting.onAccount?.(account.user.identifier);
+  const store: RequestContextPayload = {
+    ...(RequestContext.get() ?? { requestId: "" }),
+    token: account.token,
+    user: account.user,
+  };
+  const bounded = boundedRun(run, remainingMs);
+  try {
+    return await RequestContext.run(store, () =>
+      tool.handler(args, caller, bounded.run),
+    );
+  } finally {
+    bounded.dispose();
+    RequestContext.release(store);
+  }
+}
+
+/** Rien à faire : ni minuteur à couper, ni écouteur à retirer, ni progression à porter. */
+const NOOP = (): void => {};
+
+/**
+ * L'exécution prêtée au handler, bornée par l'expiration du jeton : son signal
+ * s'abat quand l'agent abandonne OU quand le jeton expire.
+ *
+ * Minuteur `unref` et écouteur retirés par `dispose` — rien ne survit à
+ * l'appel. Sans expiration connue (ou au-delà de ce qu'un minuteur accepte),
+ * l'exécution d'origine est rendue telle quelle.
+ */
+function boundedRun(
+  run: IMcpToolRun | undefined,
+  remainingMs: number | null,
+): { run: IMcpToolRun | undefined; dispose: () => void } {
+  if (remainingMs === null || remainingMs > MAX_TIMER_MS) {
+    return { run, dispose: NOOP };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new Error("jeton expiré")),
+    remainingMs,
+  );
+  timer.unref();
+  const parent = run?.signal;
+  const onAbort = (): void => controller.abort(parent?.reason);
+  if (parent?.aborted) controller.abort(parent.reason);
+  else parent?.addEventListener("abort", onAbort, { once: true });
+  return {
+    run: {
+      signal: controller.signal,
+      progress: run ? run.progress.bind(run) : NOOP,
+    },
+    dispose: () => {
+      clearTimeout(timer);
+      parent?.removeEventListener("abort", onAbort);
+    },
+  };
 }

@@ -237,6 +237,31 @@ export interface IMcpTool extends IMcpToolDefinition {
    */
   requiresAuth?: boolean | undefined;
   /**
+   * L'outil agit AU NOM du propriétaire du jeton : son handler s'exécute dans
+   * une bulle de requête où `RequestContext.getAuthenticatedUser()`, les
+   * services qu'il appelle et l'autorisation (`authorization.decide`) voient le
+   * COMPTE de l'application que le jeton désigne.
+   *
+   * La porte retrouve ce compte AVANT le handler, et seulement pour un outil qui
+   * le déclare : un outil qui ne déclare rien ne paie rien.
+   *
+   * Deux exigences, vérifiées par la porte :
+   *  - **des {@link IMcpTool.scopes} déclarés** — sans eux, l'outil est REFUSÉ à
+   *    la déclaration. Dans la bulle, les rôles du compte sont entiers, ils ne
+   *    sont pas bornés par le jeton : la seule borne est le scope exigé ici. Un
+   *    jeton `shop:read` d'un compte administrateur verrait sinon `ROLE_ADMIN`.
+   *  - **une identité PROUVÉE** — un anonyme, ou l'opérateur d'une porte non
+   *    protégée, ne voit pas l'outil.
+   *
+   * Compte introuvable, verrouillé, ou sujet externe sans rattachement : l'appel
+   * rend `isError`, l'outil ne s'exécute jamais en anonyme. Le handler meurt avec
+   * le jeton : `run.signal` s'abat à son expiration.
+   *
+   * Appelé en process, sans porte (agent de l'application), aucune bulle n'est
+   * ouverte : l'appelant passe un `caller` authentifié et porte sa propre bulle.
+   */
+  actsForUser?: boolean | undefined;
+  /**
    * Implémentation. Un échec métier se rend en `isError`, pas en exception.
    *
    * ⚠️ **Une exception est OPAQUE pour l'agent** : il ne reçoit qu'un

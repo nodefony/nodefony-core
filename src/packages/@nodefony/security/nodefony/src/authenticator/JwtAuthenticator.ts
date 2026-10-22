@@ -15,7 +15,7 @@ import { peekIssuer } from "./peekIssuer";
 import {
   ACCOUNT_ID_CLAIM,
   CREDENTIALS_VERSION_CLAIM,
-  isBoundToAccount,
+  loadBoundAccount,
 } from "../accountBinding";
 
 // Scheme Bearer (RFC 6750 §2.1), case-insensitive, capture le token.
@@ -151,16 +151,8 @@ export class JwtAuthenticator implements IAuthenticator {
     }
     const { payload } = verified;
     const scope = payload.scope;
-    let issuer = this.#runtime.issuer;
-    try {
-      issuer = canonicalIssuer(issuer);
-    } catch {
-      // Émetteur par défaut (`"nodefony"`) : pas une URL, donc pas de forme
-      // canonique — il reste l'identifiant contre lequel la signature a été
-      // vérifiée, ce que le contrat exige.
-    }
     return {
-      issuer,
+      issuer: this.#resourceIssuer(),
       subject: payload.sub,
       scopes:
         typeof scope === "string" && scope.length > 0 ? scope.split(" ") : [],
@@ -221,20 +213,47 @@ export class JwtAuthenticator implements IAuthenticator {
       }
     }
 
-    // Sujet valide à la réception (RFC 8725 §3.10) — disparu/inactif/verrouillé = rejet.
-    const user = await this.#resolveUserOrReject(sub);
-    // Émis pour CE compte : un compte recréé sous le même `sub` (suppression
-    // hors framework) porte un autre `id` — le jeton de l'ancien est refusé.
-    if (
-      !isBoundToAccount(
-        user,
-        payload[ACCOUNT_ID_CLAIM],
-        payload[CREDENTIALS_VERSION_CLAIM],
-      )
-    ) {
-      throw new AuthenticationError(INVALID_TOKEN);
-    }
+    // Sujet valide à la réception (RFC 8725 §3.10) — disparu, inactif,
+    // verrouillé, ou jeton émis pour un autre compte du même nom = rejet.
+    const user = await loadBoundAccount(
+      this.#resolveUserProvider(),
+      sub,
+      payload[ACCOUNT_ID_CLAIM],
+      payload[CREDENTIALS_VERSION_CLAIM],
+    );
+    if (user === null) throw new AuthenticationError(INVALID_TOKEN);
     return { user, payload };
+  }
+
+  /**
+   * Recharge le compte que désigne un principal établi par
+   * {@link verifyForResource} — pour une ressource protégée qui fait agir un
+   * outil au nom du propriétaire du jeton.
+   *
+   * La MÊME règle que la zone ({@link loadBoundAccount}), rejouée sur les
+   * revendications du principal : le vérificateur ne garde pas le compte qu'il
+   * a lu, et une seconde lecture de l'annuaire est le coût accepté d'un outil
+   * qui la demande — les autres ne la paient pas.
+   *
+   * @param principal - principal d'un jeton émis par CETTE application
+   * @returns le compte, ou `null` s'il n'est pas (ou plus) celui du jeton
+   * @throws Error si l'annuaire des comptes n'est pas câblé
+   */
+  resolveAccount(principal: IAccessPrincipal): Promise<IUser | null> {
+    const subject = principal.subject;
+    if (
+      principal.issuer !== this.#resourceIssuer() ||
+      typeof subject !== "string" ||
+      subject.length === 0
+    ) {
+      return Promise.resolve(null);
+    }
+    return loadBoundAccount(
+      this.#resolveUserProvider(),
+      subject,
+      principal.claims?.[ACCOUNT_ID_CLAIM],
+      principal.claims?.[CREDENTIALS_VERSION_CLAIM],
+    );
   }
 
   /** Slot audit (J4b). */
@@ -250,6 +269,21 @@ export class JwtAuthenticator implements IAuthenticator {
   /** Challenge RFC 6750/7235 posé par le firewall sur les 401 de la zone. */
   challenge(): string {
     return "Bearer";
+  }
+
+  /**
+   * L'émetteur que portent les principaux de {@link verifyForResource} — et
+   * donc celui qu'un principal doit porter pour être un jeton maison.
+   */
+  #resourceIssuer(): string {
+    try {
+      return canonicalIssuer(this.#runtime.issuer);
+    } catch {
+      // Émetteur par défaut (`"nodefony"`) : pas une URL, donc pas de forme
+      // canonique — il reste l'identifiant contre lequel la signature a été
+      // vérifiée, ce que le contrat exige.
+      return this.#runtime.issuer;
+    }
   }
 
   /** Construit (une fois) le résolveur de clé par `kid` depuis le JWKS public. */
@@ -273,21 +307,6 @@ export class JwtAuthenticator implements IAuthenticator {
     // zone `["jwt", "external-jwt"]` lit `issuer` sans savoir lequel a parlé.
     ut.setAttribute("issuer", payload.iss);
     return ut;
-  }
-
-  async #resolveUserOrReject(sub: string): Promise<IUser> {
-    const provider = this.#resolveUserProvider();
-    let user: IUser;
-    try {
-      user = await provider.loadUserByIdentifier(sub);
-    } catch {
-      // Sujet inexistant : échec d'authentification (jamais une 500/fuite).
-      throw new AuthenticationError(INVALID_TOKEN);
-    }
-    if (!user.isActive() || user.isLocked()) {
-      throw new AuthenticationError(INVALID_TOKEN);
-    }
-    return user;
   }
 
   #resolveKeystore(): IJwtKeystore {

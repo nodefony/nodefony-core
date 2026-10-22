@@ -1,4 +1,4 @@
-import type { IUser } from "@nodefony/user";
+import type { IUser, IUserProvider } from "@nodefony/user";
 
 /**
  * Claim d'un jeton d'accès émis par l'application qui porte l'identifiant
@@ -80,4 +80,42 @@ export function isBoundToAccount(
     boundAccountId === user.id &&
     (boundCredentialsVersion ?? 0) === (user.credentialsVersion ?? 0)
   );
+}
+
+/**
+ * Recharge le compte qu'un jeton d'accès de CETTE application désigne, ou
+ * `null` : sujet inconnu, compte inactif ou verrouillé, jeton émis pour un
+ * autre compte du même nom ou avant un changement de mot de passe.
+ *
+ * SEULE implémentation de la règle « ce jeton ouvre-t-il encore ce compte ? »
+ * pour un jeton maison : la zone `jwt` (`JwtAuthenticator`) et le résolveur de
+ * compte d'une ressource protégée l'appellent, aucun ne la recopie. Un refus
+ * est `null`, jamais une exception : chaque appelant le traduit dans son
+ * propre contrat (401 uniforme, outil en `isError`).
+ *
+ * @param provider - annuaire des comptes de l'application.
+ * @param identifier - identifiant fonctionnel porté par le jeton (`sub`).
+ * @param boundAccountId - identifiant immuable inscrit dans le jeton ({@link ACCOUNT_ID_CLAIM}).
+ * @param boundCredentialsVersion - version des identifiants inscrite ({@link CREDENTIALS_VERSION_CLAIM}).
+ * @returns le compte, ou `null` s'il n'est pas (ou plus) celui du jeton.
+ */
+export async function loadBoundAccount(
+  provider: IUserProvider,
+  identifier: string,
+  boundAccountId: unknown,
+  boundCredentialsVersion: unknown,
+): Promise<IUser | null> {
+  let user: IUser;
+  try {
+    user = await provider.loadUserByIdentifier(identifier);
+  } catch {
+    // Sujet inexistant : un refus, jamais une 500 ni une fuite.
+    return null;
+  }
+  if (!user.isActive() || user.isLocked()) return null;
+  // Émis pour CE compte : un compte recréé sous le même `sub` (suppression
+  // hors framework) porte un autre `id` — le jeton de l'ancien est refusé.
+  return isBoundToAccount(user, boundAccountId, boundCredentialsVersion)
+    ? user
+    : null;
 }

@@ -8,8 +8,8 @@ import { UserPasswordAuthenticator } from "./UserPasswordAuthenticator";
 import { JwtAuthenticator } from "./JwtAuthenticator";
 import { ApiKeyAuthenticator } from "./ApiKeyAuthenticator";
 import { ExternalJwtAuthenticator } from "./ExternalJwtAuthenticator";
+import { externalSubjectOptions } from "./ExternalSubjectResolver";
 import { resolveJwtRuntime } from "../token/jwtRuntime";
-import { compileProviderRoleMapping } from "../oauth/providerRoles";
 import type { CredentialTransportPolicy } from "../transport/CredentialTransportPolicy";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
 
@@ -132,29 +132,10 @@ registerAuthenticatorFactory("external-jwt", ({ container, config }) => {
   // relèvent de cet authenticator (elle n'accorde rien, le vérificateur refait
   // le contrôle sur sa propre liste), et dire dans quel espace de noms lire le
   // sujet de chaque émetteur — un `sub` n'est unique que chez le sien.
-  const rs = config.resourceServer;
-  return new ExternalJwtAuthenticator(container, {
-    issuers: rs.issuers.map((i) => ({
-      issuer: i.issuer,
-      subjectMapping: i.subjectMapping,
-    })),
-    subjectPolicy: rs.subjectPolicy,
-    ephemeralRoles: rs.ephemeralRoles,
-    // Seuls les fournisseurs qui DÉCLARENT leur émetteur peuvent être liés :
-    // c'est l'émetteur, pas le nom, qui fait l'identité d'un `sub`.
-    oauthProviders: Object.entries(config.oauth2.providers).flatMap(
-      ([name, p]) =>
-        p.issuer
-          ? [
-              {
-                name,
-                issuer: p.issuer,
-                roleMapping: compileProviderRoleMapping(p),
-              },
-            ]
-          : [],
-    ),
-  });
+  return new ExternalJwtAuthenticator(
+    container,
+    externalSubjectOptions(config),
+  );
 });
 
 registerAuthenticatorFactory("apikey", ({ container, config }) => {

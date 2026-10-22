@@ -1,4 +1,5 @@
 import { readBearerHeader } from "../runtime/bearer";
+import type { IRequestUser } from "../runtime/RequestContext";
 
 /**
  * Rôle **serveur de ressource** OAuth 2.1 — publier ce qu'on protège, et refuser
@@ -420,6 +421,51 @@ export type IAccessTokenVerifier = (
  * que l'application en publie (RFC 9728 §3.1).
  */
 export const ACCESS_TOKEN_VERIFIER = "accessTokenVerifier";
+
+/**
+ * Le compte de l'application qu'un principal désigne, prêt à être posé dans la
+ * bulle de requête (`RequestContext.run`).
+ *
+ * Le principal dit ce que la PORTE a prouvé (un sujet, des scopes) ; le compte
+ * dit QUI agit chez nous. Les deux ne se confondent pas : les rôles du compte
+ * sont entiers, ils ne sont PAS bornés par les scopes du jeton — comme dans une
+ * zone `jwt`, où les scopes ne bornent que les attributs `api:action`.
+ */
+export interface IAccessAccount {
+  /**
+   * Jeton d'authentification du compte — celui que le pare-feu poserait dans
+   * une zone (`RequestContext.token`). Typé `unknown` : le cœur ne connaît pas
+   * le module de sécurité qui le fabrique.
+   */
+  readonly token: unknown;
+  /** L'utilisateur du compte, au contrat de `RequestContext.getAuthenticatedUser()`. */
+  readonly user: IRequestUser;
+}
+
+/**
+ * Ce qui retrouve le compte qu'un principal désigne — implémenté par le module
+ * de sécurité, qui porte les comptes, leur liaison et le rattachement des
+ * sujets externes.
+ *
+ * Les MÊMES règles que l'authentification d'une zone : compte actif et non
+ * verrouillé, jeton émis pour CE compte (un compte recréé sous le même nom
+ * n'hérite pas des jetons de l'ancien), sujet externe lu dans l'espace de noms
+ * de son émetteur.
+ *
+ * @param principal - ce qu'un {@link IAccessTokenVerifier} vient d'établir
+ * @returns le compte, ou `null` quand aucun compte utilisable ne correspond —
+ *   jamais une exception pour un refus ; une exception dit une PANNE
+ */
+export type IAccessAccountResolver = (
+  principal: IAccessPrincipal,
+) => Promise<IAccessAccount | null>;
+
+/**
+ * Nom sous lequel un {@link IAccessAccountResolver} se pose dans le conteneur —
+ * même règle que {@link ACCESS_TOKEN_VERIFIER} : importé des deux côtés, jamais
+ * recopié.
+ */
+export const ACCESS_ACCOUNT_RESOLVER = "accessAccountResolver";
 
 /** Politique appliquée à une requête vers une ressource protégée. */
 export interface IProtectedResourcePolicy {

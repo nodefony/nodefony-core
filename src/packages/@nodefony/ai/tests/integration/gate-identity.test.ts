@@ -89,6 +89,8 @@ interface IWhoAmI {
   service: {
     user: { identifier: string; roles: string[] } | null;
     adminGranted: boolean | null;
+    scopeGranted: boolean | null;
+    writeGranted: boolean | null;
   };
 }
 
@@ -129,28 +131,25 @@ describe.skipIf(reason !== null)(
       expect(seen.caller.scopes).toContain("admin:read");
     });
 
-    // 🔴 CONSTAT #648 — aujourd'hui le handler NE VOIT PAS l'utilisateur :
-    // aucune zone du pare-feu ne couvre la porte, et la porte ne pose rien
-    // dans `RequestContext`. `it.fails` garde la CI verte tant que le trou
-    // existe, et devient ROUGE le jour où il est fermé — le lot 2 de #648
-    // doit alors retirer `.fails`.
-    it.fails(
-      "sous jeton, le handler voit le compte du propriétaire du jeton",
-      async () => {
-        const seen = await whoAmI();
-        expect(seen.handler?.identifier).toBe("admin");
-        expect(seen.handler?.roles).toContain("ROLE_ADMIN");
-      },
-    );
+    // Aucune zone du pare-feu ne couvre la porte : c'est l'outil `actsForUser`
+    // qui fait poser le compte du jeton dans la bulle de la requête.
+    it("sous jeton, le handler voit le compte du propriétaire du jeton", async () => {
+      const seen = await whoAmI();
+      expect(seen.handler?.identifier).toBe("admin");
+      expect(seen.handler?.roles).toContain("ROLE_ADMIN");
+    });
 
-    it.fails(
-      "un service appelé par l'outil lit le même utilisateur, et l'autorisation le reconnaît",
-      async () => {
-        const seen = await whoAmI();
-        expect(seen.service.user).toEqual(seen.handler);
-        expect(seen.service.user?.identifier).toBe("admin");
-        expect(seen.service.adminGranted).toBe(true);
-      },
-    );
+    it("un service appelé par l'outil lit le même utilisateur, et l'autorisation le reconnaît", async () => {
+      const seen = await whoAmI();
+      expect(seen.service.user).toEqual(seen.handler);
+      expect(seen.service.user?.identifier).toBe("admin");
+      expect(seen.service.adminGranted).toBe(true);
+    });
+
+    it("l'autorisation borne les attributs `api:action` au scope du jeton", async () => {
+      const seen = await whoAmI();
+      expect(seen.service.scopeGranted).toBe(true);
+      expect(seen.service.writeGranted).toBe(false);
+    });
   },
 );
