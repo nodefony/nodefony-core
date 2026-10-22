@@ -3642,6 +3642,7 @@ function runControllerScaffold(
     oauth: mcp?.oauth === true,
     anonymous: mcp?.anonymous === true,
     writeScope: `${kebab}:write`,
+    readScope: `${kebab}:read`,
     reservedRole: MCP_RESERVED_TOOL_ROLE,
     routeRegex: route.replace(/[.*+?^${}()|[\]\\/]/gu, "\\$&"),
     channel: kebab,

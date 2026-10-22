@@ -5208,6 +5208,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(tools, '"mcp_echo"');
       assert.include(tools, '"mcp_batch"');
       assert.include(tools, "run?.progress(");
+      // Porte LOCALE, sans jeton : aucun compte à représenter, donc pas d'outil
+      // `actsForUser` — il y serait retenu à chaque appel.
+      assert.notInclude(tools, '"mcp_me"');
+      assert.notInclude(tools, "RequestContext");
       // Chaque exemple DIT ce qu'il fait : sans annotation, la spec MCP le
       // tient pour destructif, et c'est l'exemple qu'un agent recopie.
       assert.match(tools, /readOnlyHint: true,\s+openWorldHint: false/u);
@@ -5263,6 +5267,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const test = readFileSync(at("tests", "agent-gate.test.ts"), "utf8");
       assert.include(test, "status: 401");
       assert.include(test, "\\/api\\/mcp$/u");
+      // Porte protégée : l'exemple d'un outil qui agit au nom du compte.
+      const agentTools = codeOnly(
+        readFileSync(at("nodefony", "mcp", "agent-tools.ts"), "utf8"),
+      );
+      assert.include(agentTools, '"agent_me"');
+      assert.include(agentTools, "actsForUser: true");
+      assert.include(agentTools, 'scopes: ["agent:read"]');
+      assert.include(agentTools, 'import { RequestContext } from "nodefony"');
       const notes = (r.notes ?? []).join("\n");
       // Écrite SUR PLACE : importer la fonction de la porte dans security.ts
       // ferait un cycle, et `publicBaseUrl` serait lu avant sa définition.
@@ -5292,13 +5304,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const tools = codeOnly(
         readFileSync(at("nodefony", "mcp", "vitrine-tools.ts"), "utf8"),
       );
-      // L'outil long est réservé, l'outil court reste public : UN scope, posé
-      // sur `_batch` seul.
-      assert.equal(tools.match(/scopes: \[/gu)?.length, 1);
+      // L'outil long est réservé, l'outil court reste public : DEUX scopes,
+      // l'écriture sur `_batch`, la lecture sur `_me` (qui agit pour le compte).
+      assert.equal(tools.match(/scopes: \[/gu)?.length, 2);
       assert.isBelow(
         tools.indexOf('"vitrine_batch"'),
         tools.indexOf('scopes: ["vitrine:write"]'),
       );
+      assert.isBelow(
+        tools.indexOf('"vitrine_me"'),
+        tools.indexOf('scopes: ["vitrine:read"]'),
+      );
+      assert.include(tools, "actsForUser: true");
       // Le document RFC 9728 est publié comme pour `oauth`.
       const index = readFileSync(at("index.ts"), "utf8");
       assert.match(index, /@services\(\[[^\]]*VitrineGateService\]\)/u);
@@ -5306,6 +5323,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(test, "status: 401");
       assert.include(test, 'not.toContain("vitrine_batch")');
       assert.include(test, '.toContain("vitrine:write")');
+      assert.include(test, 'not.toContain("vitrine_me")');
+      assert.include(test, "un outil actsForUser agit au nom du propriétaire");
       const notes = (r.notes ?? []).join("\n");
       assert.include(notes, "PORTE MIXTE");
       // Sans le scope, le jeton est accepté et l'outil reste invisible : la

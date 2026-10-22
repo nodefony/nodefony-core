@@ -2644,6 +2644,24 @@ step(
         throw new Error(
           `porte mixte : jeton au scope ${MCP_MIXTE}:write REFUSÉ → ${avecScope.status} ${avecScope.body.slice(0, 300)}`,
         );
+      // `actsForUser` (#648) : `_me` agit AU NOM du propriétaire du jeton — son
+      // compte retrouvé par le VRAI résolveur de @nodefony/security, posé dans
+      // la requête avant le handler. Le test généré l'éprouve sur des doubles ;
+      // seul ce tir prouve le câblage de l'application installée.
+      const moi = appelMcp(
+        `/api/${MCP_MIXTE}`,
+        `${MCP_MIXTE}_me`,
+        jetonPour(mixte, `${MCP_MIXTE}:read`),
+        {},
+      );
+      if (
+        moi.status !== 200 ||
+        moi.body.includes('"isError":true') ||
+        !moi.body.includes("admin")
+      )
+        throw new Error(
+          `porte mixte : l'outil actsForUser n'a pas agi au nom du propriétaire du jeton → ${moi.status} ${moi.body.slice(0, 300)}`,
+        );
       const revoque = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
       if (revoque.status !== 401)
         throw new Error(

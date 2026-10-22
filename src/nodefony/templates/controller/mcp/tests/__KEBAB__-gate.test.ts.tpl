@@ -30,6 +30,35 @@ const CALL_ECHO = {
 };
 
 describe("porte MCP <%= it.route %>", () => {
+<% if (it.oauth) { %>  it("un outil actsForUser agit au nom du propriétaire du jeton", async () => {
+    const response = await <%= it.camel %>Gate.respond(
+      local(
+        {
+          jsonrpc: "2.0",
+          id: 9,
+          method: "tools/call",
+          params: { name: "<%= it.toolPrefix %>_me", arguments: {} },
+        },
+        { authorization: "Bearer jeton-de-test" },
+      ),
+      {
+        // Doubles : en vrai, @nodefony/security vérifie le jeton et retrouve
+        // le compte ; ici, on éprouve ce que la PORTE en fait.
+        verifier: async () => ({
+          issuer: "https://auth.example",
+          subject: "alice",
+          scopes: ["<%= it.readScope %>"],
+        }),
+        accountResolver: async () => ({
+          token: {},
+          user: { id: "1", identifier: "alice", roles: ["ROLE_USER"] },
+        }),
+      },
+    );
+    expect(JSON.stringify(json(response))).toContain("alice");
+  });
+
+<% } %>
 <% if (it.anonymous) { %>  it("sans jeton : liste l'outil public, et retient l'outil réservé", async () => {
     const response = await <%= it.camel %>Gate.respond(
       local({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
@@ -37,6 +66,7 @@ describe("porte MCP <%= it.route %>", () => {
     expect(response).toMatchObject({ kind: "json", status: 200 });
     expect(JSON.stringify(json(response))).toContain("<%= it.toolPrefix %>_echo");
     expect(JSON.stringify(json(response))).not.toContain("<%= it.toolPrefix %>_batch");
+    expect(JSON.stringify(json(response))).not.toContain("<%= it.toolPrefix %>_me");
   });
 
   it("sans jeton : sert l'outil public, même à un appelant distant", async () => {

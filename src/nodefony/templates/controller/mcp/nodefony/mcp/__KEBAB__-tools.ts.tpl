@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { mcpText, type IMcpTool } from "@nodefony/ai";
+<% if (it.oauth) { %>import { RequestContext } from "nodefony";
+<% } %>import { mcpText, type IMcpTool } from "@nodefony/ai";
 
 /**
  * Les outils que la porte MCP `<%= it.route %>` offre à un agent IA — et eux seuls.
@@ -40,6 +41,17 @@ import { mcpText, type IMcpTool } from "@nodefony/ai";
  * Qui peut OBTENIR ce scope se décide dans `grantableScopes`
  * (nodefony/config/security.ts), où la génération l'a réservé à
  * `<%= it.reservedRole %>` : un autre compte reçoit un jeton sans lui.
+<% } %> *
+ * Un PARAMÈTRE qui élargit ce que fait l'outil (agir pour un autre compte,
+ * écrire au lieu de lire) exige son scope à l'APPEL, pas à la liste :
+ * `scopesFor: (args) => (args.force === true ? ["…:write"] : [])`. L'outil reste
+ * visible ; sans le scope, une porte protégée répond par un défi
+ * `insufficient_scope` qui dit à l'agent quel jeton redemander.
+<% if (it.oauth) { %> *
+ * `<%= it.toolPrefix %>_me` montre un outil qui agit AU NOM du propriétaire du jeton
+ * (`actsForUser`) : la porte retrouve son compte AVANT le handler et le pose dans
+ * la requête — `RequestContext.getAuthenticatedUser()`, et tout service appelé
+ * d'ici, le voient comme sous une route protégée.
 <% } %> *
  * Ces outils sont aussi visibles par l'agent de code du développeur, sur la
  * porte de développement de `@nodefony/devkit`, si le module de l'application
@@ -111,4 +123,27 @@ export const <%= it.camel %>Tools: IMcpTool[] = [
       return mcpText(`${batches} lots traités`);
     },
   },
-];
+<% if (it.oauth) { %>  {
+    name: "<%= it.toolPrefix %>_me",
+    description:
+      "Rend le compte au nom duquel l'outil agit : identifiant et rôles. À " +
+      "utiliser pour savoir qui l'agent représente avant d'appeler un outil " +
+      "qui lit ou modifie « mes » données.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: {
+      title: "Qui suis-je",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    // Agit au nom du propriétaire du jeton : ses rôles ENTIERS s'appliquent,
+    // le jeton ne les borne pas. D'où le scope exigé — la seule borne entre un
+    // jeton étroit et un compte large ; sans lui, l'outil est refusé au démarrage.
+    actsForUser: true,
+    scopes: ["<%= it.readScope %>"],
+    handler: () => {
+      const user = RequestContext.getAuthenticatedUser();
+      if (user === null) return mcpText("aucun compte connecté", true);
+      return mcpText({ identifier: user.identifier, roles: user.roles });
+    },
+  },
+<% } %>];
