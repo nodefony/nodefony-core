@@ -700,12 +700,19 @@ async function main(): Promise<void> {
     }
   }
 
+  // 🔴 Le serveur que CETTE passe démarre, elle l'arrête en sortant. Laissé
+  // levé, il faisait sauter en silence les boots réels de `test:boot` lancé
+  // ensuite (`skipIfDevServerUp`) : un vert sans un seul démarrage. Un serveur
+  // que le développeur avait déjà levé, lui, est réutilisé et laissé en place.
+  let startedHere = false;
+
   if (options.integration) {
     if (!serverRunning()) {
       console.log(`\n${C.cyan("▸")} ${C.bold("Serveur de développement")}`);
       const started = await run(
         "bash .claude/skills/nodefony-start-server/start.sh",
       );
+      startedHere = started.code === 0;
       if (started.code !== 0) {
         // Demandée et impossible : un ÉCHEC, pas un saut — un saut compte vert.
         phases.push({
@@ -730,7 +737,10 @@ async function main(): Promise<void> {
   if (options.load) {
     if (!serverRunning()) {
       console.log(`\n${C.cyan("▸")} ${C.bold("Serveur de développement")}`);
-      await run("bash .claude/skills/nodefony-start-server/start.sh");
+      const started = await run(
+        "bash .claude/skills/nodefony-start-server/start.sh",
+      );
+      startedHere ||= started.code === 0;
     }
     if (serverRunning()) {
       await phase(
@@ -873,6 +883,13 @@ async function main(): Promise<void> {
       skipped: "non lancée — `npm run test:all -- --mongo`",
       durationMs: 0,
     });
+  }
+
+  if (startedHere && serverRunning()) {
+    console.log(
+      `\n${C.cyan("▸")} ${C.bold("Serveur de développement")} ${C.dim("— démarré par cette passe, arrêté")}`,
+    );
+    await run("npx nodefony stop");
   }
 
   await purgeRedisSessions(infra, "après");
