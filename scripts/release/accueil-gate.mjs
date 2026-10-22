@@ -63,9 +63,10 @@
  * node scripts/release/accueil-gate.mjs --json              # sortie machine
  * node scripts/release/accueil-gate.mjs --dist-tags '{"alpha":"10.0.0-alpha.6"}'
  * node scripts/release/accueil-gate.mjs --basculer          # réécrit les versions, puis contrôle
+ * node scripts/release/accueil-gate.mjs --en-cours 10.0.0-beta.4  # tolère la reprise de CETTE version
  * ```
  *
- * @usage node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>]
+ * @usage node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>] [--en-cours <version>]
  * @usage node scripts/release/accueil-gate.mjs --basculer
  */
 import fs from "node:fs";
@@ -206,9 +207,13 @@ const dansUneZone = (zones, index) =>
  *
  * @param options.surfaces - `[{ chemin, contenu, exigeVersion }]`.
  * @param options.distTags - `{ alpha, beta, latest, … }` tels que npm les sert.
+ * @param options.enCours - la version que la passe PUBLIE. Un canal qui la sert
+ *   déjà est une REPRISE (lot coupé en route, premiers paquets en ligne) : la
+ *   bascule n'a pas été oubliée, elle n'a simplement pas encore eu lieu — elle
+ *   suit la publication complète. Sans cette tolérance, aucune reprise ne passait.
  * @returns la liste des écarts, vide quand l'accueil dit vrai.
  */
-function confronterAccueil({ surfaces, distTags }) {
+function confronterAccueil({ surfaces, distTags, enCours = null }) {
   const ecarts = [];
   const latestEstLa10 = (distTags.latest ?? "").startsWith("10.");
 
@@ -234,6 +239,7 @@ function confronterAccueil({ surfaces, distTags }) {
         continue;
       }
       const ordre = comparer(citee, servie);
+      if (ordre < 0 && servie === enCours) continue;
       if (ordre < 0) {
         ecarts.push({
           genre: "VERSION-PERIMEE",
@@ -447,7 +453,9 @@ async function principal(argv) {
     // n'est pas basculable — il doit rester un refus.
   }
 
-  const ecarts = confronterAccueil({ surfaces, distTags });
+  const iEnCours = argv.indexOf("--en-cours");
+  const enCours = iEnCours === -1 ? null : (argv[iEnCours + 1] ?? null);
+  const ecarts = confronterAccueil({ surfaces, distTags, enCours });
 
   if (asJson) {
     console.log(JSON.stringify({ distTags, ecarts }, null, 2));

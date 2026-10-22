@@ -30,6 +30,8 @@ import {
   paquetsNonServis,
   planDeReprise,
   verdictPaquetsNeufs,
+  verdictVersionsOccupees,
+  verdictPublieurDeConfiance,
   validerOtp,
   estRefusOtp,
   trierPourRecalage,
@@ -1954,6 +1956,72 @@ describe("planDeReprise — un lot interrompu se reprend à la MÊME version", (
 // Vécu : `@nodefony/ai`, module neuf du lot. Le publieur de confiance ne se
 // déclare que sur un paquet qui EXISTE ; lancé de la forge, le lot serait parti
 // dans l'ordre et aurait cassé sur lui, ceux d'avant déjà en ligne.
+describe("verdictPublieurDeConfiance — un paquet né du poste se signale AVANT le tag", () => {
+  const FORGE = "GitHub Actions <npm-oidc-no-reply@github.com>";
+
+  it("rien à dire quand la forge a publié chaque paquet du canal", () => {
+    expect(
+      verdictPublieurDeConfiance([
+        { nom: "nodefony", auteur: FORGE },
+        { nom: "@nodefony/http", auteur: FORGE },
+      ]),
+    ).toBeNull();
+  });
+
+  it("🔴 nomme le paquet dont la dernière version vient du poste — le cas de @nodefony/ai", () => {
+    const v = verdictPublieurDeConfiance([
+      { nom: "nodefony", auteur: FORGE },
+      { nom: "@nodefony/ai", auteur: "ccamensuli <ccamensuli@gmail.com>" },
+    ]);
+    expect(v?.fatal).toBe(false);
+    expect(v?.message).toContain("@nodefony/ai");
+    expect(v?.message).not.toContain("• nodefony —");
+    expect(v?.message).toContain("Trusted Publisher");
+  });
+
+  it("un paquet sans version sur le canal n'est pas un suspect", () => {
+    expect(
+      verdictPublieurDeConfiance([{ nom: "@nodefony/neuf", auteur: null }]),
+    ).toBeNull();
+  });
+});
+
+describe("verdictVersionsOccupees — une reprise passe la répétition", () => {
+  it("rien à dire quand la version est libre partout", () => {
+    expect(
+      verdictVersionsOccupees([], { publier: false, total: 16 }),
+    ).toBeNull();
+  });
+
+  it("🔴 un lot PARTIELLEMENT en ligne n'arrête pas la répétition — c'est une reprise", () => {
+    // Vécu (10.0.0-beta.4) : trois paquets en ligne, le quatrième refusé ; la
+    // répétition du job relancé refusait les trois, et la forge ne pouvait plus
+    // reprendre. Le plan de reprise, lui, compare les empreintes plus loin.
+    const v = verdictVersionsOccupees(
+      ["nodefony@10.0.0-beta.4", "@nodefony/http@10.0.0-beta.4"],
+      { publier: false, total: 16 },
+    );
+    expect(v?.fatal).toBe(false);
+    expect(v?.message).toContain("reprise");
+    expect(v?.message).toContain("nodefony@10.0.0-beta.4");
+  });
+
+  it("un lot ENTIÈREMENT en ligne est refusé en répétition — version suivante", () => {
+    const deja = ["a@1.0.0", "b@1.0.0"];
+    const v = verdictVersionsOccupees(deja, { publier: false, total: 2 });
+    expect(v?.fatal).toBe(true);
+    expect(v?.message).toContain("version suivante");
+  });
+
+  it("en publication, une version occupée n'est jamais fatale ici — le plan de reprise juge", () => {
+    const v = verdictVersionsOccupees(["a@1.0.0", "b@1.0.0"], {
+      publier: true,
+      total: 2,
+    });
+    expect(v?.fatal).toBe(false);
+  });
+});
+
 describe("verdictPaquetsNeufs — un paquet ne NAÎT pas de la forge", () => {
   it("rien à dire quand tous les paquets existent", () => {
     expect(

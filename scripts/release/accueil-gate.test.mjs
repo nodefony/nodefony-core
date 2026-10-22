@@ -57,6 +57,31 @@ describe("confronterAccueil — les versions citées", () => {
     expect(ecarts[0].ligne).toBe(1);
   });
 
+  it("🔴 laisse passer une REPRISE : le canal sert déjà la version qu'on publie", () => {
+    // Vécu (10.0.0-beta.4) : trois paquets en ligne, la suite refusée ; le
+    // canal servait la beta.4, l'accueil la beta.3 — et la relance était
+    // refusée ici, alors que la bascule suit la publication COMPLÈTE.
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface("préversion `10.0.0-alpha.4` en ligne, canal `alpha`"),
+      ],
+      distTags: TAGS,
+      enCours: "10.0.0-alpha.5",
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("…mais pas une bascule OUBLIÉE : le canal sert une version qu'on ne publie pas", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface("préversion `10.0.0-alpha.4` en ligne, canal `alpha`"),
+      ],
+      distTags: TAGS,
+      enCours: "10.0.0-alpha.6",
+    });
+    expect(genres(ecarts)).toEqual(["VERSION-PERIMEE"]);
+  });
+
   it("refuse une version que le canal NE SERT PAS — annoncer avant de publier", () => {
     const ecarts = confronterAccueil({
       surfaces: [surface("préversion `10.0.0-alpha.6` en ligne")],

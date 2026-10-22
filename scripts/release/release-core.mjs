@@ -1679,6 +1679,82 @@ export function planDeReprise(ordre, locales, enLigne) {
   return { aPublier, dejaEnLigne, divergents };
 }
 
+/** L'auteur que npm inscrit sur une version publiée par la forge (OIDC). */
+export const AUTEUR_FORGE = /npm-oidc-no-reply@github\.com/;
+
+/**
+ * Le verdict sur les paquets que la forge n'a JAMAIS publiés sur ce canal.
+ *
+ * Le publieur de confiance se déclare à la main, paquet par paquet, sur
+ * npmjs.com — et npm ne permet pas de lire cette déclaration sans y être
+ * connecté. Un `--dry-run` ne la vérifie pas non plus : il passe, puis le
+ * `publish` réel rend `E404` au milieu du lot. L'auteur de la dernière version
+ * du canal (`_npmUser`) est le seul indice LISIBLE : publiée depuis le poste,
+ * elle dit que la forge n'a peut-être jamais reçu le droit. Vécu
+ * (10.0.0-beta.4) : `@nodefony/ai`, né du poste, a cassé le lot au 4ᵉ paquet.
+ * Un indice, pas une preuve — d'où une alerte, jamais un refus.
+ *
+ * @param auteurs - `[{ nom, auteur }]`, `auteur` = `_npmUser` lu sur le canal
+ *   (`null` si le paquet n'y a aucune version)
+ * @returns `null` si la forge a publié chacun, sinon `{ fatal: false, message }`
+ */
+export function verdictPublieurDeConfiance(auteurs) {
+  const suspects = auteurs.filter(
+    (a) => a.auteur !== null && !AUTEUR_FORGE.test(a.auteur),
+  );
+  if (suspects.length === 0) return null;
+  return {
+    fatal: false,
+    message:
+      `${suspects.length} paquet(s) dont la dernière version du canal ne vient PAS de la forge :\n` +
+      suspects
+        .map((s) => `    • ${s.nom} — publié par ${s.auteur}`)
+        .join("\n") +
+      "\n\n  Leur publieur de confiance n'est peut-être pas déclaré : la forge y rendrait\n" +
+      "  E404 au milieu du lot. Vérifier AVANT le tag, sur npmjs.com → Settings →\n" +
+      "  Trusted Publisher (GitHub Actions) : dépôt et workflow `release.yml`,\n" +
+      "  environnement VIDE, publication directe autorisée.",
+  };
+}
+
+/**
+ * Le verdict sur les paquets dont la version visée est DÉJÀ en ligne.
+ *
+ * Un lot ENTIÈREMENT en ligne ne se republie pas : la répétition le refuse, et
+ * la seule issue est la version suivante. Un lot PARTIELLEMENT en ligne est
+ * une REPRISE — la publication précédente a été coupée en route —, et la
+ * répétition doit la laisser passer : sur la forge, elle précède l'étape de
+ * publication dans le MÊME job, si bien qu'un refus ici rendait toute reprise
+ * impossible. Rien n'est relâché pour autant : avant le premier `publish`,
+ * `planDeReprise` compare l'empreinte de chaque paquet en ligne à celle du
+ * tarball local, et refuse tout le lot à la moindre divergence.
+ *
+ * @param deja - `nom@version` déjà en ligne
+ * @param contexte - `publier` : la passe publie ; `total` : taille du lot
+ * @returns `null` si aucune version n'est occupée, sinon `{ fatal, message }`
+ */
+export function verdictVersionsOccupees(deja, { publier, total }) {
+  if (deja.length === 0) return null;
+  const liste = deja.map((d) => `    • ${d}`).join("\n");
+  if (!publier && deja.length >= total) {
+    return {
+      fatal: true,
+      message:
+        `${deja.length} version(s) DÉJÀ publiée(s) sur le registre — le lot entier :\n` +
+        liste +
+        "\n\n  Une version publiée ne se réécrit pas. Passer à la version suivante.",
+    };
+  }
+  return {
+    fatal: false,
+    message:
+      `${deja.length} version(s) déjà en ligne sur ${total} — reprise d'un lot interrompu ?\n` +
+      liste +
+      "\n  Leur contenu sera comparé aux tarballs avant toute publication ; " +
+      "la moindre divergence refuse tout le lot.",
+  };
+}
+
 /**
  * Le verdict sur les paquets JAMAIS publiés, selon le chemin de publication.
  *

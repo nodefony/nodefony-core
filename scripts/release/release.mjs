@@ -99,6 +99,8 @@ import process from "node:process";
 import {
   planDeReprise,
   verdictPaquetsNeufs,
+  verdictVersionsOccupees,
+  verdictPublieurDeConfiance,
   alignerReferencesInternes,
   analyserCommits,
   perimetrePublie,
@@ -355,6 +357,20 @@ const listerPubliables = () => {
 //
 // Ce mode n'a besoin NI de version, NI de tarballs : il court-circuite donc
 // tout le reste du fichier. Sans `--publish`, il ne touche pas au registre.
+//
+// Les deux modes du POSTE (`--deprecate`, `--dist-tags`) réclament une session
+// npm : on la CONSTATE avant le premier geste. Une session expirée sortait
+// sinon en E401 au milieu du lot, sur un message qui parle de jeton invalide.
+if ((drapeau("deprecate") || drapeau("dist-tags")) && PUBLIER) {
+  const qui = npm(["whoami"]);
+  if (qui.status !== 0 || !qui.stdout.trim()) {
+    echouer(
+      "aucune session npm sur ce poste — absente ou expirée (`npm whoami` refuse).\n" +
+        "  Ces modes agissent depuis le poste, pas par la forge : `npm login`, puis relancer.",
+    );
+  }
+  dire(`✓ session npm — ${qui.stdout.trim()}`);
+}
 if (drapeau("deprecate")) {
   etape = "dépréciation";
   const depot = `https://${DEPOT_ATTENDU.replace(/^https?:\/\//, "")}`;
@@ -827,10 +843,14 @@ if (!prerelease && TAG_NPM && TAG_NPM !== "latest") {
 // Hors publication, un registre muet n'est qu'un avertissement : bloquer une
 // répétition parce que le réseau manque ferait crier la garde sur ce qui va bien.
 {
-  const r = spawnSync("node", ["scripts/release/accueil-gate.mjs"], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
+  const r = spawnSync(
+    "node",
+    ["scripts/release/accueil-gate.mjs", "--en-cours", VERSION],
+    {
+      cwd: ROOT,
+      stdio: "inherit",
+    },
+  );
   if (r.status === 1) {
     echouer(
       "l'accueil du dépôt n'annonce pas ce que npm sert — voir les écarts ci-dessus.\n" +
@@ -1109,6 +1129,29 @@ if (HORS_LIGNE) {
         inconnus.add(p.nom);
     }
   }
+  // Qui a publié la dernière version du canal ? Seul indice lisible d'un
+  // publieur de confiance non déclaré (cf `verdictPublieurDeConfiance`).
+  const auteurs = paquets
+    .filter((p) => !inconnus.has(p.nom))
+    .map((p) => {
+      const r = npm([
+        "view",
+        `${p.nom}@${TAG_NPM ?? "latest"}`,
+        "_npmUser",
+        "--json",
+      ]);
+      let auteur;
+      try {
+        const lu =
+          r.status === 0 && r.stdout.trim() ? JSON.parse(r.stdout) : null;
+        auteur = Array.isArray(lu) ? (lu.at(-1) ?? null) : lu;
+      } catch {
+        auteur = null;
+      }
+      return { nom: p.nom, auteur: typeof auteur === "string" ? auteur : null };
+    });
+  const publieurs = verdictPublieurDeConfiance(auteurs);
+  if (publieurs) alerter(publieurs.message);
   const neufs = verdictPaquetsNeufs(
     ordre.filter((n) => inconnus.has(n)),
     {
@@ -1119,23 +1162,15 @@ if (HORS_LIGNE) {
   );
   if (neufs?.fatal) echouer(neufs.message);
   else if (neufs) alerter(neufs.message);
-  if (deja.length && !PHASES.publier) {
-    echouer(
-      `${deja.length} version(s) DÉJÀ publiée(s) sur le registre :\n` +
-        deja.map((d) => `    • ${d}`).join("\n") +
-        "\n\n  Une version publiée ne se réécrit pas. Passer à la version suivante.",
-    );
-  }
-  // En publication, une version déjà occupée est le cas d'une REPRISE : le lot
-  // précédent a été coupé en route. Elle n'est pas jugée ici, faute de tarball :
-  // l'étape « plan de reprise » compare son empreinte à celle du tarball local
-  // AVANT le premier `publish`, et refuse tout le lot sur la moindre divergence.
-  if (deja.length)
-    alerter(
-      `${deja.length} version(s) déjà en ligne — reprise d'un lot interrompu ?\n` +
-        deja.map((d) => `    • ${d}`).join("\n") +
-        "\n  Leur contenu sera comparé aux tarballs avant toute publication.",
-    );
+  // Une version occupée sur PARTIE du lot est une REPRISE : elle n'est pas
+  // jugée ici, faute de tarball — l'étape « plan de reprise » compare les
+  // empreintes AVANT le premier `publish`. Cf `verdictVersionsOccupees`.
+  const occupees = verdictVersionsOccupees(deja, {
+    publier: PHASES.publier,
+    total: paquets.length,
+  });
+  if (occupees?.fatal) echouer(occupees.message);
+  else if (occupees) alerter(occupees.message);
   else dire(`✓ registre — ${VERSION} libre sur les ${paquets.length} paquets`);
 }
 
