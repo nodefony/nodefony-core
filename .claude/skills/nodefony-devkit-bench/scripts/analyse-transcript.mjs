@@ -207,6 +207,10 @@ console.log(`  appels MCP   ${ou(releve?.mcpCalls)}`);
 console.log(
   `  gestes       ${tl.pas.length}${rx ? ` (${pas.length} retenus)` : ""}`,
 );
+// Une attente relève la sortie d'un process sans rien faire : comptée DANS les
+// gestes (elle coûte un tour), mais nommée, sinon un agent qui interroge souvent
+// paraîtrait travailler plus. Absente pour qui n'en émet pas.
+if (releve?.attentes != null) console.log(`  dont attentes ${releve.attentes}`);
 console.log(`  échecs       ${echecs.length}`);
 
 if (

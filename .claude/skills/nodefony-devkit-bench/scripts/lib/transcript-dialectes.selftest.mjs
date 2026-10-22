@@ -159,6 +159,82 @@ const CODEX = [
   JSON.stringify({ type: "turn.completed" }),
 ].join("\n");
 
+/**
+ * Forme RÉELLE — `~/.codex/sessions/…/rollout-*.jsonl`, sessions des 13/10 et
+ * 23/10 (CLI 0.162.1, 0.163.0), réduite : un appel qui échoue, un process
+ * laissé en vol puis relevé par une ATTENTE, un patch, et les deux injections
+ * du harness en rôle `user`.
+ */
+const exec = (id, script) =>
+  JSON.stringify({
+    timestamp: "2026-10-22T22:40:00.000Z",
+    type: "response_item",
+    payload: {
+      type: "custom_tool_call",
+      call_id: id,
+      name: "exec",
+      input: script,
+    },
+  });
+const sortie = (id, corps) =>
+  JSON.stringify({
+    timestamp: "2026-10-22T22:40:01.000Z",
+    type: "response_item",
+    payload: {
+      type: "custom_tool_call_output",
+      call_id: id,
+      output: [
+        {
+          type: "input_text",
+          text: "Script completed\nWall time 0.1 seconds\nOutput:\n",
+        },
+        { type: "input_text", text: JSON.stringify(corps) },
+      ],
+    },
+  });
+const message = (role, text) =>
+  JSON.stringify({
+    type: "response_item",
+    payload: { type: "message", role, content: [{ type: "input_text", text }] },
+  });
+const evt = (payload) => JSON.stringify({ type: "event_msg", payload });
+const CODEX_SESSION = [
+  JSON.stringify({
+    type: "session_meta",
+    payload: { cwd: "/x/testharness-codex", cli_version: "0.163.0" },
+  }),
+  message(
+    "user",
+    "<environment_context>\n  <cwd>/x</cwd>\n</environment_context>",
+  ),
+  message("user", "# AGENTS.md instructions for /x\n\n<INSTRUCTIONS>…"),
+  message("user", "Ce dossier est vide. Crée une application Nodefony."),
+  message("assistant", "Je lance le générateur."),
+  exec(
+    "c1",
+    'const r = await tools.exec_command({cmd:"npm create nodefony@beta ."}); text(r.output);\n',
+  ),
+  sortie("c1", { exit_code: 64, output: "create: name invalide « . »" }),
+  exec(
+    "c2",
+    'const r = await tools.exec_command({cmd:"npm test","yield_time_ms":10000});\n',
+  ),
+  sortie("c2", { session_id: 71437, output: "RUN v4\n" }),
+  exec(
+    "c3",
+    'const r = await tools.write_stdin({session_id:71437,chars:"",yield_time_ms:1000});\n',
+  ),
+  sortie("c3", { exit_code: 0, output: "Tests 19 passed" }),
+  exec(
+    "c4",
+    'const patch = "*** Begin Patch\\n*** Update File: /x/nodefony/config/security.ts\\n@@"; await tools.apply_patch(patch);\n',
+  ),
+  evt({ type: "token_count", info: { total_token_usage: {} } }),
+  evt({ type: "token_count", info: { total_token_usage: {} } }),
+  evt({ type: "token_count", info: { total_token_usage: {} } }),
+  evt({ type: "task_complete", duration_ms: 5000 }),
+].join("\n");
+
 const GEMINI = [
   JSON.stringify({
     type: "tool_use",
@@ -181,6 +257,7 @@ const ECHANTILLONS = {
   copilot: COPILOT,
   vibe: VIBE,
   codex: CODEX,
+  "codex-session": CODEX_SESSION,
   gemini: GEMINI,
   agy: AGY,
 };
@@ -258,6 +335,33 @@ dire(
   rCodex?.mcpCalls === 1,
   "codex : appel MCP compté une SEULE fois",
   `${rCodex?.mcpCalls}`,
+);
+
+const rSession = lireReleve(CODEX_SESSION);
+dire(
+  rSession?.tours === 3,
+  "codex-session : tours = réponses du modèle",
+  `${rSession?.tours}`,
+);
+dire(
+  rSession?.dureeMs === 5000,
+  "codex-session : durée = somme des tâches qu'il mesure",
+  `${rSession?.dureeMs} ms`,
+);
+dire(
+  rSession?.attentes === 1,
+  "codex-session : attentes comptées À PART",
+  `${rSession?.attentes}`,
+);
+dire(
+  rSession?.coutUsd === null,
+  "codex-session : coût NULL, jamais 0",
+  `${rSession?.coutUsd}`,
+);
+dire(
+  rClaude?.attentes === null,
+  "claude : attentes NULL (n'en émet pas)",
+  `${rClaude?.attentes}`,
 );
 
 const rGemini = lireReleve(GEMINI);
@@ -386,6 +490,40 @@ dire(
   tlVibe?.pas[0].ok === false,
   "vibe : <tool_error> vaut échec",
   `${tlVibe?.pas[0].ok}`,
+);
+
+const tlSession = lireTimeline(CODEX_SESSION);
+const pasDe = (outil) => tlSession?.pas.filter((p) => p.outil === outil) ?? [];
+dire(
+  pasDe("exec_command")[0]?.exit === 64,
+  "codex-session : exit lu dans le JSON imbriqué",
+  `${pasDe("exec_command")[0]?.exit}`,
+);
+dire(
+  pasDe("exec_command")[1]?.exit === null,
+  "codex-session : process EN VOL → exit null, jamais 0",
+  `${pasDe("exec_command")[1]?.exit}`,
+);
+dire(
+  pasDe("attente")[0]?.arg === "↳ npm test",
+  "codex-session : l'attente hérite de la commande qu'elle relève",
+  `« ${pasDe("attente")[0]?.arg} »`,
+);
+dire(
+  pasDe("attente")[0]?.exit === 0 &&
+    pasDe("attente")[0]?.sortie === "Tests 19 passed",
+  "codex-session : l'attente porte la fin du process",
+);
+dire(
+  pasDe("apply_patch")[0]?.arg === "/x/nodefony/config/security.ts",
+  "codex-session : un patch se lit par ses fichiers",
+  `« ${pasDe("apply_patch")[0]?.arg} »`,
+);
+const humains = tlSession?.paroles.filter((g) => g.nature === "user") ?? [];
+dire(
+  humains.length === 1 && humains[0].texte.startsWith("Ce dossier est vide"),
+  "codex-session : contexte et AGENTS.md injectés ≠ messages humains",
+  `${humains.length} message(s)`,
 );
 
 console.log("\n— Limites DÉCLARÉES (ce qu'on ne sait pas lire, on le dit) —");

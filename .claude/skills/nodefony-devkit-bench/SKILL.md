@@ -14,7 +14,7 @@ description: >
   "un agent recommanderait-il ce framework ?", "que conclut un agent en lisant le dépôt ?",
   "notre accueil dit-il vrai ?".
 metadata:
-  version: 1.4.0
+  version: 1.5.0
 ---
 
 # nodefony-devkit-bench — prouver ce que le scaffold produit
@@ -37,7 +37,7 @@ métrique de confort, c'est **le même défaut vu par l'autre bout** : ce que l'
 ne trouve pas du premier coup, il le cherche — ou il l'invente.
 
 Chaque tâche le mesure déjà, sans rien à instrumenter — et la même commande lit
-le transcript de **n'importe lequel** des six agents, pas seulement celui du CLI
+le transcript de **n'importe lequel** des agents, pas seulement celui du CLI
 de Claude :
 
 ```bash
@@ -93,7 +93,7 @@ rien :
 
 Ce qu'un appel affiche de lui-même (sa commande, son fichier, **le skill qu'il
 charge**) est choisi par `argSaillant()` dans `scripts/lib/transcript-dialectes.mjs` —
-**une seule fois pour les six grammaires et pour les deux lecteurs**. Une clé qui
+**une seule fois pour toutes les grammaires et pour les deux lecteurs**. Une clé qui
 manque là manque partout, et se rattrape en un mot ; la rajouter dans un lecteur
 seul rendrait l'autre aveugle sans que rien ne le dise.
 
@@ -105,10 +105,15 @@ découvrir qu'il rate), trancher un geste au moment où il tombe — « il vient
 d'effacer la base » : destruction, ou déplacement avec retour ? —, et voir tôt
 qu'un run part de travers avant d'en payer trois.
 
-> 🔴 **Elle vaut aussi pour une session que le banc n'a PAS lancée.** Copilot et
-> vibe écrivent leur journal chez l'utilisateur (`~/.copilot/session-state/…`,
-> `~/.vibe/logs/session/…`) : un essai réel du framework se dépouille donc en une
-> commande, là où il fallait une heure de `jq`. C'est le matériau le plus
+> 🔴 **Elle vaut aussi pour une session que le banc n'a PAS lancée.** Copilot,
+> vibe et Codex piloté à la main écrivent leur journal chez l'utilisateur
+> (`~/.copilot/session-state/…`, `~/.vibe/logs/session/…`,
+> `~/.codex/sessions/…/rollout-*.jsonl`) : un essai réel du framework se dépouille
+> donc en une commande, là où il fallait une heure de `jq`. Une session Codex se
+> suit même EN DIRECT, lancée avant l'agent :
+> `node scripts/suivre-run.mjs --session <dossier-de-l-agent>` — reconnue au
+> `cwd` qu'elle déclare, ses attentes (`write_stdin` vides) comptées à part et
+> reliées à la commande qu'elles relèvent. C'est le matériau le plus
 > instructif du dispositif, et il était le seul à n'être pas outillé. Les
 > grammaires vivent dans
 > [`scripts/lib/transcript-dialectes.mjs`](scripts/lib/transcript-dialectes.mjs),

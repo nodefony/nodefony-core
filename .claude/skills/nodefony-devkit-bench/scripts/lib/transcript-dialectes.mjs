@@ -55,6 +55,10 @@ export const MCP_SERVEUR_DEFAUT = "nodefony";
  * @property {string} arg - l'argument saillant (la commande, le chemin, le motif).
  * @property {string} texte - la sortie, ou la parole.
  * @property {boolean|null} ok - succès déclaré par le harness, `null` si muet.
+ * @property {number|null} [exit] - code de sortie STRUCTURÉ, quand le harness
+ *   le publie hors du texte (Codex interactif) ; sinon lu dans la sortie.
+ * @property {number|null} [session] - process que l'appel relève, ou qu'un
+ *   retour laisse en vol (Codex interactif) : relie une attente à sa commande.
  */
 
 /**
@@ -79,6 +83,8 @@ export const MCP_SERVEUR_DEFAUT = "nodefony";
  * @property {number|null} dureeMs
  * @property {number|null} coutUsd
  * @property {number} mcpCalls
+ * @property {number|null} attentes - relevés de sortie sans geste (Codex
+ *   interactif) ; `null` pour qui n'en émet pas.
  * @property {boolean} vu - au moins une observation ; sinon le relevé ne vaut rien.
  */
 
@@ -140,6 +146,7 @@ export function argSaillant(args) {
   for (const cle of [
     "command",
     "cmd",
+    "skill",
     "file_path",
     "path",
     "filePath",
@@ -170,6 +177,99 @@ export function exitDansTexte(sortie) {
       sortie ?? "",
     );
   return m ? Number(m[1]) : null;
+}
+
+/**
+ * Le nom d'outil d'une ATTENTE Codex — un `write_stdin` sans caractère, qui
+ * relève la sortie d'un process en cours sans rien lui envoyer.
+ *
+ * Ce n'est pas un geste : un agent qui interroge souvent paraîtrait travailler
+ * davantage (55 attentes sur 130 appels, session du 13/10). On les compte À
+ * PART, sous ce nom, pour que la répartition des outils les sépare d'elle-même.
+ */
+export const ATTENTE = "attente";
+
+/** Ce que le TUI Codex injecte en rôle `user` et qu'aucun humain n'a tapé. */
+const INJECTION_CODEX =
+  /^\s*(?:<environment_context>|<user_instructions>|# AGENTS\.md instructions)/u;
+
+/** Une chaîne littérale `cle: "…"` (clé nue ou entre guillemets) d'un script. */
+function litteralDe(script, cle) {
+  const m = new RegExp(
+    `["']?${cle}["']?\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`,
+    "u",
+  ).exec(script);
+  if (!m) return null;
+  try {
+    return JSON.parse(`"${m[1]}"`);
+  } catch {
+    return m[1];
+  }
+}
+
+/**
+ * L'outil et l'argument saillant d'un appel Codex interactif.
+ *
+ * L'appel est un SCRIPT : l'outil réel est celui qu'il invoque
+ * (`tools.exec_command(…)`), pas `exec` qui le porte. Un `apply_patch` rend les
+ * fichiers qu'il touche — c'est ce qu'on lit d'un patch, pas son contenu.
+ *
+ * @param {string} script - l'`input` du `custom_tool_call`.
+ * @returns {{outil: string, arg: string, session?: number}}
+ */
+export function appelCodex(script) {
+  const outil = /tools\.([A-Za-z_]\w*)\s*\(/u.exec(script)?.[1] ?? null;
+  if (outil === "exec_command")
+    return { outil, arg: litteralDe(script, "cmd") ?? txt(script) };
+  if (outil === "write_stdin") {
+    const chars = litteralDe(script, "chars");
+    const s = /["']?session_id["']?\s*:\s*(\d+)/u.exec(script)?.[1];
+    const session = s === undefined ? undefined : Number(s);
+    return chars
+      ? { outil, arg: chars, session }
+      : { outil: ATTENTE, arg: "", session };
+  }
+  if (outil === "apply_patch") {
+    const fichiers = [
+      ...script.matchAll(/\*\*\* (?:Add|Update|Delete) File: ([^\\\n"]+)/gu),
+    ].map((m) => m[1].trim());
+    return { outil, arg: fichiers.join(" ") };
+  }
+  return { outil: outil ?? "exec", arg: txt(script) };
+}
+
+/**
+ * Le texte et le code de sortie d'un retour Codex interactif.
+ *
+ * Le retour est une liste de blocs `input_text` : un en-tête du harness
+ * (`Script completed…`), puis, pour un process, un JSON dont `exit_code` n'est
+ * présent QUE si le process a fini — une commande encore en vol rend `null`,
+ * jamais 0. Une attente qui voit le process finir porte donc le code de sortie
+ * de la commande qu'elle relève.
+ *
+ * @param {unknown} sortie - le champ `output` du `custom_tool_call_output`.
+ * @returns {{texte: string, exit: number|null, session?: number}}
+ */
+export function sortieCodex(sortie) {
+  const blocs = Array.isArray(sortie)
+    ? sortie.map((b) => String(b?.text ?? ""))
+    : [txt(sortie)];
+  const utiles = blocs.filter((b) => !b.startsWith("Script completed"));
+  for (const b of utiles) {
+    try {
+      const o = JSON.parse(b);
+      if (o && typeof o === "object" && "output" in o)
+        return {
+          texte: txt(o.output),
+          exit: typeof o.exit_code === "number" ? o.exit_code : null,
+          session: typeof o.session_id === "number" ? o.session_id : undefined,
+        };
+    } catch {
+      /* bloc de texte libre */
+    }
+  }
+  const texte = utiles.join("\n");
+  return { texte, exit: exitDansTexte(texte) };
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -469,6 +569,122 @@ export const DIALECTES = [
   },
 
   {
+    // Codex PILOTÉ par un humain (TUI) — `~/.codex/sessions/AAAA/MM/JJ/
+    // rollout-*.jsonl`. Une AUTRE grammaire que `codex exec --json` : des
+    // enveloppes `{timestamp, type, payload}`, relevée sur deux sessions RÉELLES
+    // (CLI 0.162.1 et 0.163.0). Chaque appel est un SCRIPT passé à l'outil
+    // `exec` — `tools.exec_command({cmd:"…"})`, `tools.write_stdin({…})`,
+    // `tools.apply_patch(…)` — et son retour, `custom_tool_call_output`, porte
+    // le code de sortie dans un JSON imbriqué.
+    nom: "codex-session",
+    cli: "codex (interactif) — ~/.codex/sessions/…/rollout-*.jsonl",
+    timeline: "complete",
+    reconnait: (o) =>
+      (o.type === "session_meta" && typeof o.payload?.cwd === "string") ||
+      (o.type === "response_item" &&
+        (o.payload?.type === "custom_tool_call" ||
+          o.payload?.type === "custom_tool_call_output")),
+    releve: (o, acc, { mcp }) => {
+      const p = o.payload ?? {};
+      // Un `token_count` par réponse du modèle — appels ET réponses finales
+      // (130 + 10 = 140 sur la session du 13/10). C'est le tour au sens de
+      // `num_turns` : une requête au modèle, attentes comprises.
+      if (o.type === "event_msg" && p.type === "token_count" && p.info) {
+        acc.tours = (acc.tours ?? 0) + 1;
+        acc.vu = true;
+      }
+      // La durée qu'IL mesure, par tâche : la somme exclut le temps où la
+      // session attend l'humain — des bornes de journal le compteraient.
+      if (
+        o.type === "event_msg" &&
+        p.type === "task_complete" &&
+        typeof p.duration_ms === "number"
+      )
+        acc.dureeMs = (acc.dureeMs ?? 0) + p.duration_ms;
+      if (o.type === "response_item" && p.type === "custom_tool_call") {
+        const { outil } = appelCodex(String(p.input ?? ""));
+        if (outil === ATTENTE) acc.attentes = (acc.attentes ?? 0) + 1;
+        // Non observé sur une session réelle : un outil MCP s'appellerait
+        // par son serveur. Le compte reste à 0 tant qu'aucun n'apparaît.
+        else if (outil?.startsWith(mcp)) acc.mcpCalls += 1;
+      }
+    },
+    gestes: (o, seq) => {
+      const p = o.payload ?? {};
+      const t = typeof o.timestamp === "string" ? o.timestamp : null;
+      if (o.type !== "response_item") return [];
+      if (p.type === "custom_tool_call") {
+        const { outil, arg, session } = appelCodex(String(p.input ?? ""));
+        return [
+          {
+            seq,
+            t,
+            nature: "appel",
+            id: p.call_id ?? null,
+            outil,
+            arg,
+            texte: "",
+            ok: null,
+            session: session ?? null,
+          },
+        ];
+      }
+      if (p.type === "custom_tool_call_output") {
+        const { texte, exit, session } = sortieCodex(p.output);
+        return [
+          {
+            seq,
+            t,
+            nature: "retour",
+            id: p.call_id ?? null,
+            outil: null,
+            arg: "",
+            texte,
+            ok: exit === null ? null : exit === 0,
+            exit,
+            session: session ?? null,
+          },
+        ];
+      }
+      if (p.type === "message") {
+        const texte = txt(
+          (p.content ?? []).map((c) => c?.text ?? "").join("\n"),
+        );
+        if (p.role === "assistant")
+          return [
+            {
+              seq,
+              t,
+              nature: "parole",
+              id: null,
+              outil: null,
+              arg: "",
+              texte,
+              ok: null,
+            },
+          ];
+        // Le harness injecte en rôle `user` son contexte et l'AGENTS.md du
+        // projet : les compter ferait d'une session à un message une session
+        // « assistée » (vécu : six messages humains pour un).
+        if (p.role === "user" && !INJECTION_CODEX.test(texte))
+          return [
+            {
+              seq,
+              t,
+              nature: "user",
+              id: null,
+              outil: null,
+              arg: "",
+              texte,
+              ok: null,
+            },
+          ];
+      }
+      return [];
+    },
+  },
+
+  {
     nom: "gemini",
     cli: "gemini --skip-trust -y -o stream-json -p",
     // Ses appels sont lisibles, leurs retours ne l'ont pas été : la timeline
@@ -607,6 +823,7 @@ export function lireReleve(texte, opts = {}) {
     dureeMs: null,
     coutUsd: null,
     mcpCalls: 0,
+    attentes: null,
     vu: false,
   };
   for (const { o } of objetsJsonl(texte)) {
@@ -667,19 +884,33 @@ export function lireTimeline(texte, opts = {}) {
   const retours = new Map();
   for (const g of gestes)
     if (g.nature === "retour" && g.id) retours.set(g.id, g);
+  // Un process laissé EN VOL (Codex : son retour porte un `session_id`) est
+  // relevé plus tard par des attentes qui ne nomment que ce numéro. Sans ce
+  // lien, l'échec qu'une attente constate s'afficherait sans sa commande.
+  /** @type {Map<number, string>} */
+  const commandeDeSession = new Map();
+  for (const g of gestes) {
+    if (g.nature !== "appel" || !g.id) continue;
+    const s = retours.get(g.id)?.session;
+    if (s != null && !commandeDeSession.has(s)) commandeDeSession.set(s, g.arg);
+  }
   /** @type {Pas[]} */
   const pas = [];
   for (const g of gestes) {
     if (g.nature !== "appel") continue;
     const r = g.id ? retours.get(g.id) : undefined;
     const sortie = r?.texte ?? "";
+    const relevee =
+      !g.arg && g.session != null
+        ? commandeDeSession.get(g.session)
+        : undefined;
     pas.push({
       seq: g.seq,
       t: g.t,
       outil: g.outil,
-      arg: g.arg,
+      arg: relevee ? `↳ ${relevee}` : g.arg,
       sortie,
-      exit: exitDansTexte(sortie),
+      exit: r?.exit ?? exitDansTexte(sortie),
       ok: r?.ok ?? null,
     });
   }
