@@ -1,7 +1,7 @@
 ---
 name: nodefony-release
 metadata:
-  version: 2.3.0
+  version: 2.4.0
 description: >
   Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle
   commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne
@@ -80,7 +80,13 @@ transaction**. Un échec au huitième laisse sept paquets en ligne qui référen
 avant le premier `publish`, l'empreinte `dist.integrity` de chaque paquet en ligne à celle du tarball
 local (`planDeReprise`) — identique, il est sauté ; différente, TOUT le lot est refusé. Une version
 n'est brûlée que si un paquet déjà en ligne doit CHANGER : la reprise se fait alors en version
-suivante **pour tout le lot**. D'où la règle qui structure toute la chaîne : _tout ce qui peut être
+suivante **pour tout le lot**. Sur la forge, relancer = `gh run rerun <id> --failed` (même tag,
+même commit) : la répétition du job tient un lot PARTIELLEMENT en ligne pour une reprise
+(`verdictVersionsOccupees`), et la garde d'accueil tolère un canal qui sert déjà la version en
+cours (`--en-cours`). Si la cause exige un correctif de la chaîne, le tag se DÉPLACE sur le commit
+corrigé (`git tag -f` + `git push -f`, CI verte d'abord) : le build est déterministe, les paquets
+en ligne restent identiques à l'octet et sont sautés — le constater avant de déplacer
+(`release:pack`, empreinte `sha512` locale contre `npm view <p>@<v> dist.integrity`). D'où la règle qui structure toute la chaîne : _tout ce qui peut être
 vérifié l'est AVANT le premier `publish`, jamais entre deux._
 
 **La mise en attente npm (_staged publishing_) est ÉCARTÉE** (#312) — ne pas la reproposer sans fait
@@ -236,6 +242,13 @@ publier toute la version d'ici (`--publish`). Puis npmjs.com → Trusted Publish
 `release.yml`, environnement VIDE (le workflow n'en déclare aucun), publication directe autorisée,
 dist-tags NON (ils se recalent du poste) ; Publishing access → 2FA, jetons refusés.
 
+**Un paquet NÉ DU POSTE a le même défaut, et lui EXISTE** : publié une fois à la main, il passe
+`verdictPaquetsNeufs`, et la forge rend `E404` sur son `PUT` au milieu du lot si son publieur de
+confiance n'a jamais été déclaré. Un `--dry-run` ne vérifie PAS le droit de publier.
+`verdictPublieurDeConfiance` l'annonce en répétition : auteur (`_npmUser`) de la dernière version
+du canal ≠ `GitHub Actions <npm-oidc-no-reply@github.com>`. C'est un indice, pas une preuve (npm
+ne laisse pas lire la déclaration sans connexion) : à l'alerte, déclarer AVANT le tag.
+
 **Le raisonnement est PUR, et c'est ce qui le rend éprouvable.** Une release ne se répète pas : ce
 qui DÉCIDE vit donc hors des entrées-sorties, dans `scripts/release/release-core.mjs` — validation
 de version, analyse des messages de commit, ordre topologique, audit des métadonnées, rendu et
@@ -390,6 +403,13 @@ par un sous-shell.
 - **Le tag ne se pousse pas avec le commit.** Une poussée de branche réveille toute l'intégration
   continue ; la publication attend alors derrière les bancs. Le script le dit à la fin de
   `--write` — le suivre plutôt que d'enchaîner les deux poussées.
+- **Un geste du poste qui réclame le second facteur se lance dans le terminal de l'auteur**, jamais
+  par l'agent (`! npm dist-tag …`) : npm y affiche l'URL de validation puis sort en `EOTP`, sans
+  attendre le navigateur. `--deprecate` et `--dist-tags --publish` constatent d'abord la session
+  (`npm whoami`) ; une session expirée se rouvre par `npm login`.
+- **`attendre-ci.mjs --sha` exige le sha COMPLET** : l'API ne filtre `head_sha` que sur 40
+  caractères, et un sha court ne trouvait « aucune exécution » sur un commit qui tournait. Le
+  script le refuse désormais ; lui passer `$(git rev-parse <sha>)`.
 
 ## 6. Gate
 

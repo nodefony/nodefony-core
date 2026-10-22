@@ -118,7 +118,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.3.0 · ⚙️ 2 scripts" }
+    "meta": "🟢 conforme v2.4.0 · ⚙️ 2 scripts" }
 ]
 ```
 
@@ -208,7 +208,7 @@ source: "docs/skills/index.md"
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 544 | 5 | 75 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 2.3.0 | 403 | 0 | 2 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 2.4.0 | 423 | 0 | 2 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.9.0 | 320 | 0 | 5 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 399 | 0 | 0 | ✅ |
