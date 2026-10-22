@@ -331,3 +331,93 @@ describe("Profiler — lecture suivie (curseur)", () => {
     expect(batch.lost).to.equal(0);
   });
 });
+
+describe("Profiler — un anneau par provenance (#649)", () => {
+  const app = (id: string) => ctx({ requestId: id, url: "/api/users" });
+  const asset = (id: string) =>
+    ctx({
+      requestId: id,
+      url: "https://127.0.0.1:5152/_vite/studio/src/x.tsx",
+    });
+  const console_ = (id: string) =>
+    ctx({ requestId: id, type: "websocket", url: "/nodefony/kernel/api/info" });
+
+  it("un flot d'assets relayés et d'appels de la console ne chasse pas un profil de l'application", () => {
+    const p = new Profiler(3, 2);
+    p.collect(app("app-1"));
+    for (let i = 0; i < 50; i += 1) {
+      p.collect(asset(`vite-${i}`));
+      p.collect(console_(`conn.${i}`));
+    }
+    expect(p.get("app-1"), "profil de l'application gardé").to.exist;
+    // Outillage et assets tournent chacun dans LEURS 2 places.
+    expect(p.get("conn.49")).to.exist;
+    expect(p.get("vite-49")).to.exist;
+    expect(p.get("vite-47")).to.equal(undefined);
+    expect(p.size).to.equal(5);
+  });
+
+  it("les assets relayés ne chassent pas les appels de la console", () => {
+    const p = new Profiler(3, 2);
+    p.collect(console_("conn.1"));
+    for (let i = 0; i < 400; i += 1) p.collect(asset(`vite-${i}`));
+    expect(p.get("conn.1"), "profil de la trame gardé").to.exist;
+  });
+
+  it("l'anneau de l'application évince toujours SES plus anciens", () => {
+    const p = new Profiler(2, 2);
+    p.collect(app("a"));
+    p.collect(app("b"));
+    p.collect(app("c"));
+    expect(p.get("a")).to.equal(undefined);
+    expect(p.get("c")).to.exist;
+  });
+
+  it("recent() et since() remettent les deux anneaux dans l'ordre de collecte", () => {
+    const p = new Profiler();
+    p.collect(app("a"));
+    p.collect(asset("v"));
+    p.collect(app("b"));
+    p.collect(console_("w"));
+    expect(p.recent().map((e) => e.requestId)).to.deep.equal([
+      "w",
+      "b",
+      "v",
+      "a",
+    ]);
+    const batch = p.since(1);
+    expect(batch.entries.map((e) => e.requestId)).to.deep.equal([
+      "v",
+      "b",
+      "w",
+    ]);
+    expect(batch.lost).to.equal(0);
+  });
+
+  it("compte exactement les pertes de l'anneau de l'outillage", () => {
+    const p = new Profiler(10, 1);
+    const from = p.cursor;
+    p.collect(asset("v1"));
+    p.collect(asset("v2"));
+    p.collect(app("a"));
+    const batch = p.since(from);
+    expect(batch.entries.map((e) => e.requestId)).to.deep.equal(["v2", "a"]);
+    expect(batch.lost).to.equal(1);
+  });
+
+  it("un identifiant réutilisé sur une autre URL change d'anneau sans doublon", () => {
+    const p = new Profiler();
+    p.collect(app("same"));
+    p.collect(asset("same"));
+    expect(p.size).to.equal(1);
+    expect(p.get("same")!.url).to.contain("/_vite/");
+  });
+
+  it("clear() vide les deux anneaux", () => {
+    const p = new Profiler();
+    p.collect(app("a"));
+    p.collect(asset("v"));
+    p.clear();
+    expect(p.size).to.equal(0);
+  });
+});

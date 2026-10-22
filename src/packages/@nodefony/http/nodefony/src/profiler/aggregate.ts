@@ -1,4 +1,5 @@
 import type { ProfileEntry, ProfilePhase } from "./Profiler";
+import { MODULE_PROXY_PREFIXES } from "../proxy/rules";
 
 /**
  * Agrégation des profils de requêtes — règle PURE, sans horloge ni I/O.
@@ -29,6 +30,39 @@ export const ERROR_SAMPLE_CAP = 10;
 
 /** Préfixe des routes de l'outillage (console, API d'administration, porte MCP). */
 export const TOOLING_URL_PREFIX = "/nodefony/";
+
+/**
+ * Provenance d'un profil : l'application, l'outillage (`/nodefony/…` :
+ * console, API d'administration, porte MCP), ou un asset relayé sous un
+ * préfixe de module (`/_vite/`).
+ */
+export type ProfileLane = "app" | "tooling" | "asset";
+
+/**
+ * Range un profil par provenance, d'après son URL. Seule règle du partage —
+ * les anneaux du profileur et le filtre de l'agrégation la lisent tous deux.
+ *
+ * @param url - URL du profil, absolue ou chemin.
+ * @returns la provenance du profil.
+ */
+export function profileLane(url: string): ProfileLane {
+  const path = urlPath(url);
+  if (path.startsWith(TOOLING_URL_PREFIX)) return "tooling";
+  for (const prefix of MODULE_PROXY_PREFIXES) {
+    if (path.startsWith(prefix)) return "asset";
+  }
+  return "app";
+}
+
+/**
+ * Le profil vient-il de l'outillage (routes `/nodefony/…` ou assets relayés)
+ * plutôt que de l'application.
+ *
+ * @param url - URL du profil, absolue ou chemin.
+ */
+export function isToolingUrl(url: string): boolean {
+  return profileLane(url) !== "app";
+}
 
 /** Groupe des requêtes qu'aucune route n'a servies (404, statique, sondes). */
 export const NO_ROUTE = "(aucune route)";
@@ -130,7 +164,7 @@ export interface IProfileReport {
   requests: number;
   http: number;
   ws: number;
-  /** Requêtes de l'outillage écartées (`/nodefony/…`). */
+  /** Requêtes de l'outillage écartées (`/nodefony/…`, `/_vite/…`). */
   filteredTooling: number;
   /** Requêtes sans durée mesurée. */
   untimed: number;
@@ -149,7 +183,7 @@ export interface IProfileReport {
 export interface IProfileAggregatorOptions {
   /** Répétitions à partir desquelles une forme SQL est un N+1. */
   nPlusOneMinRepeats?: number | undefined;
-  /** Agréger aussi les requêtes de l'outillage (`/nodefony/…`). */
+  /** Agréger aussi les requêtes de l'outillage (`/nodefony/…`, `/_vite/…`). */
   includeTooling?: boolean | undefined;
   /** Source d'aléa de l'échantillonnage — injectée par les tests. */
   random?: (() => number) | undefined;
@@ -474,10 +508,7 @@ export function createProfileAggregator(
 
   return {
     add(entry) {
-      if (
-        !includeTooling &&
-        urlPath(entry.url).startsWith(TOOLING_URL_PREFIX)
-      ) {
+      if (!includeTooling && isToolingUrl(entry.url)) {
         filteredTooling += 1;
         return false;
       }

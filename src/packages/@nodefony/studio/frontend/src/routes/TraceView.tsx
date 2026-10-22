@@ -124,6 +124,24 @@ function parseReqLine(line: string): ReqInfo {
   return out;
 }
 
+/**
+ * Infos de requête lues dans le PROFIL, quand aucune ligne-bilan `req` n'a été
+ * journalisée — le cas d'une trame WS (`api.request`), qui n'en écrit pas.
+ */
+function reqFromProfile(profile: ProfileEntry): ReqInfo {
+  const out: ReqInfo = { url: profile.url };
+  try {
+    out.path = new URL(profile.url, "http://localhost").pathname;
+  } catch {
+    /* url non parsable — on garde l'URL brute */
+  }
+  if (profile.method) out.method = profile.method;
+  if (profile.status !== null) out.status = profile.status;
+  if (profile.durationMs !== null) out.durationMs = fmtMs(profile.durationMs);
+  if (profile.remoteAddress) out.ip = profile.remoteAddress;
+  return out;
+}
+
 /** Couleur de statut HTTP (2xx ok, 3xx info, 4xx warn, 5xx danger). */
 function statusColor(status?: number): string {
   if (!status) return "gray";
@@ -279,9 +297,17 @@ export const TraceView = observer(() => {
     const [first] = logs;
     const last = logs.at(-1);
     if (!first || !last) return null;
-    const isWs = logs.some((l) => pduProtocol(l) === "ws");
+    // Le profil, quand il existe, fait foi sur le protocole : une trame WS ne
+    // porte que des lignes dont le protocole ne se lit pas (#649).
+    const isWs = profile
+      ? profile.kind === "ws"
+      : logs.some((l) => pduProtocol(l) === "ws");
     const reqLog = logs.find((l) => l.msgid === "req");
-    const req = reqLog ? parseReqLine(recordMessage(reqLog)) : {};
+    const req = reqLog
+      ? parseReqLine(recordMessage(reqLog))
+      : profile
+        ? reqFromProfile(profile)
+        : {};
     const milestones = logs.filter((l) => describeFlow(l) !== null);
     return {
       baseTs: first.timeStamp,
@@ -291,7 +317,7 @@ export const TraceView = observer(() => {
       milestones,
       pid: first.pid,
     };
-  }, [logs]);
+  }, [logs, profile]);
 
   // Logs corrélés se rapportant à l'ORM / la sécurité (heuristique — vision).
   const ormLogs = useMemo(

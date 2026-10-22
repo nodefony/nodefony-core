@@ -21,6 +21,7 @@
 
 import type { ProfiledResolver } from "./FrameProfile.js";
 import type { ProtocolName } from "../../interfaces/IContext.js";
+import { profileLane, type ProfileLane } from "./aggregate.js";
 
 /** Une phase du pipeline, projetée pour le transport (durée résolue). */
 export interface ProfilePhase {
@@ -198,6 +199,15 @@ function totalDuration(
 /** Capacité par défaut du ring buffer (assez pour une session de debug). */
 const DEFAULT_CAP = 500;
 
+/**
+ * Capacité par défaut des deux anneaux annexes : l'OUTILLAGE (console, API
+ * d'administration, porte MCP) et les ASSETS relayés de Vite. Un chargement
+ * de la console relaie à lui seul quelques centaines de modules : dans un
+ * tampon commun, il chassait en quelques secondes les profils de
+ * l'application, puis ceux des appels de la console elle-même.
+ */
+const DEFAULT_SIDE_CAP = 100;
+
 /** Les profils collectés depuis un curseur. */
 export interface IProfileBatch {
   /** Profils de numéro supérieur au curseur, du plus ancien au plus récent. */
@@ -226,14 +236,34 @@ export interface IProfilerReader {
   get(requestId: string): ProfileEntry | undefined;
 }
 
+/**
+ * Collecteur des profils de requête, en un anneau par provenance
+ * ({@link profileLane}) : l'application, l'outillage, les assets relayés.
+ * Chacun évince ses propres profils — ouvrir la console ne chasse plus celui
+ * qu'on y consulte.
+ */
 export class Profiler implements IProfilerReader {
-  private readonly _buf = new Map<string, ProfileEntry>();
-  private readonly _cap: number;
+  private readonly _lanes: Record<ProfileLane, Map<string, ProfileEntry>> = {
+    app: new Map(),
+    tooling: new Map(),
+    asset: new Map(),
+  };
+  private readonly _caps: Record<ProfileLane, number>;
   /** Dernier numéro d'ordre attribué (0 = aucun profil collecté). */
   private _seq = 0;
 
-  constructor(cap: number = DEFAULT_CAP) {
-    this._cap = cap > 0 ? cap : DEFAULT_CAP;
+  /**
+   * @param cap - capacité de l'anneau de l'application.
+   * @param sideCap - capacité de chacun des anneaux de l'outillage et des
+   *          assets relayés.
+   */
+  constructor(cap: number = DEFAULT_CAP, sideCap: number = DEFAULT_SIDE_CAP) {
+    const side = sideCap > 0 ? sideCap : DEFAULT_SIDE_CAP;
+    this._caps = {
+      app: cap > 0 ? cap : DEFAULT_CAP,
+      tooling: side,
+      asset: side,
+    };
   }
 
   /**
@@ -277,18 +307,26 @@ export class Profiler implements IProfilerReader {
           : undefined,
       security: readSecurity(ctx),
     };
+    // Un identifiant vit dans UN seul anneau : un `X-Request-Id` réutilisé
+    // sur une autre URL change d'anneau sans y laisser de doublon.
+    const { app, tooling, asset } = this._lanes;
+    app.delete(requestId);
+    tooling.delete(requestId);
+    asset.delete(requestId);
+    const lane = profileLane(entry.url);
+    const buf = this._lanes[lane];
     // Ré-insertion = la clé repasse en queue (entrée la plus récente).
-    this._buf.delete(requestId);
-    this._buf.set(requestId, entry);
-    if (this._buf.size > this._cap) {
-      const oldest = this._buf.keys().next().value;
-      if (oldest !== undefined) this._buf.delete(oldest);
+    buf.set(requestId, entry);
+    if (buf.size > this._caps[lane]) {
+      const oldest = buf.keys().next().value;
+      if (oldest !== undefined) buf.delete(oldest);
     }
   }
 
   /** Profil complet d'une requête, ou `undefined` si évincé/inconnu. */
   get(requestId: string): ProfileEntry | undefined {
-    return this._buf.get(requestId);
+    const { app, tooling, asset } = this._lanes;
+    return app.get(requestId) ?? tooling.get(requestId) ?? asset.get(requestId);
   }
 
   /**
@@ -296,9 +334,9 @@ export class Profiler implements IProfilerReader {
    */
   recent(limit = 60): ProfileSummary[] {
     const out: ProfileSummary[] = [];
-    const entries = [...this._buf.values()];
-    // `entries` est une copie : l'inverser sur place ne touche pas au tampon.
-    for (const e of entries.reverse()) {
+    // Les anneaux, remis dans l'ordre de collecte (récent → ancien).
+    const entries = this.#collectAfter(0).reverse();
+    for (const e of entries) {
       if (out.length >= limit) break;
       out.push({
         requestId: e.requestId,
@@ -321,9 +359,8 @@ export class Profiler implements IProfilerReader {
   }
 
   /**
-   * Profils collectés après `cursor`, sans copier le tampon : un parcours de
-   * la `Map` (ordre d'insertion = ordre des numéros), qui n'alloue que le
-   * tableau rendu.
+   * Profils collectés après `cursor`, tous anneaux confondus, dans l'ordre
+   * des numéros.
    *
    * Les pertes se comptent sans estimation : chaque numéro attribué est un
    * profil collecté, donc ce qui manque entre le curseur et le dernier numéro
@@ -334,10 +371,7 @@ export class Profiler implements IProfilerReader {
    */
   since(cursor: number): IProfileBatch {
     const from = cursor >= 0 && cursor <= this._seq ? cursor : 0;
-    const entries: ProfileEntry[] = [];
-    for (const e of this._buf.values()) {
-      if (e.seq > from) entries.push(e);
-    }
+    const entries = this.#collectAfter(from);
     return {
       entries,
       cursor: this._seq,
@@ -347,12 +381,29 @@ export class Profiler implements IProfilerReader {
 
   /** Nombre de profils en mémoire. */
   get size(): number {
-    return this._buf.size;
+    const { app, tooling, asset } = this._lanes;
+    return app.size + tooling.size + asset.size;
   }
 
-  /** Vide le ring buffer. */
+  /** Vide les anneaux. */
   clear(): void {
-    this._buf.clear();
+    const { app, tooling, asset } = this._lanes;
+    app.clear();
+    tooling.clear();
+    asset.clear();
+  }
+
+  /**
+   * Profils de numéro supérieur à `from`, tous anneaux confondus, du plus
+   * ancien au plus récent. Lecture à la demande (console, outil de l'agent) :
+   * jamais sur le chemin d'une requête.
+   */
+  #collectAfter(from: number): ProfileEntry[] {
+    const out: ProfileEntry[] = [];
+    for (const lane of Object.values(this._lanes)) {
+      for (const e of lane.values()) if (e.seq > from) out.push(e);
+    }
+    return out.sort((a, b) => a.seq - b.seq);
   }
 }
 

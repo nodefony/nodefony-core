@@ -75,7 +75,8 @@ const OBSERVE_DESCRIPTION =
   "JSON. Les refus 401/403 sont comptés à part, hors des durées.\n\n" +
   "LIMITES : développement seulement. Le journal des erreurs exige un appel " +
   "authentifié (scope admin:read) ; sans jeton le rapport le dit. Les routes " +
-  "/nodefony/… (outillage) sont écartées sauf includeTooling. Un instantané est " +
+  "/nodefony/… et les assets relayés /_vite/… (outillage) sont écartés sauf " +
+  "includeTooling. Un instantané est " +
   `envoyé en progression à chaque relevé (toutes les ${OBSERVE_TICK_MS / 1000} s).`;
 
 /** La sonde du process : ce que l'outil lit du process à chaque relevé. */
@@ -192,7 +193,7 @@ export function observeTool(deps: IObserveDeps): IMcpTool {
         includeTooling: {
           type: "boolean",
           description:
-            "Inclure les requêtes de l'outillage (`/nodefony/…` : console, API d'administration, porte MCP). Défaut : non",
+            "Inclure les requêtes de l'outillage (`/nodefony/…` : console, API d'administration, porte MCP ; `/_vite/…` : assets relayés). Défaut : non",
         },
       },
     },

@@ -199,12 +199,14 @@ describe("createProfileAggregator — rapport", () => {
       entry({ url: "http://127.0.0.1:5151/nodefony/mcp", route: "devkit-mcp" }),
       entry({ url: "/nodefony/mcp", route: "devkit-mcp" }),
       entry({ url: "/nodefony/profiler/api/recent" }),
+      // Un module relayé par le proxy de développement (#649).
+      entry({ url: "https://127.0.0.1:5152/_vite/studio/src/main.tsx" }),
     ];
     const report = aggregateProfiles(entries);
     expect(report.requests).to.equal(1);
-    expect(report.filteredTooling).to.equal(3);
+    expect(report.filteredTooling).to.equal(4);
     const all = aggregateProfiles(entries, { includeTooling: true });
-    expect(all.requests).to.equal(4);
+    expect(all.requests).to.equal(5);
   });
 
   it("regroupe les requêtes sans route, et sépare HTTP et WebSocket", () => {
