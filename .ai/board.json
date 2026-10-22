@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T13:37:41.788Z",
+  "generatedAt": "2026-10-22T14:32:12.851Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 171,
+      "closed": 172,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 16,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -3996,8 +3996,8 @@
       "number": 649,
       "title": "fix(studio): afficher la trace d'un appel WebSocket et garder les profils récents",
       "url": "https://github.com/nodefony/nodefony-core/issues/649",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
