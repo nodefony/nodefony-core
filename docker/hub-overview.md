@@ -76,7 +76,7 @@ exemplaires.
 
 | Étiquette       | Ce qu'elle désigne                                             |
 | --------------- | -------------------------------------------------------------- |
-| `10.0.0-beta.3` | une publication précise — c'est celle à figer en CI            |
+| `10.0.0-beta.4` | une publication précise — c'est celle à figer en CI            |
 | `beta`          | la dernière préversion du canal `beta` (mobile)                |
 | `alpha`         | l'ancien canal, figé sur `10.0.0-alpha.9` — ne plus l'employer |
 
