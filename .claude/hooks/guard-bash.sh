@@ -127,13 +127,41 @@ SHOW=".claude/skills/nodefony-inspect/scripts/show-symbol.mjs"
 lecture_refusee() {
   deny "REFUS — lire du code par tranche ($1) : on imprime tout pour en lire quelques lignes, et la sortie se repaie à CHAQUE tour suivant (premier poste de dépense mesuré). Plan du fichier : \`node $SHOW --outline $2\` ; puis une déclaration entière, TSDoc compris : \`node $SHOW '$2#Classe.methode'\` (ou \`#fonction\`), plusieurs d'un coup si besoin — rien n'est tronqué. Une tranche courte (≤ 60 lignes) reste permise ; s'il faut VRAIMENT le fichier entier (refactor global, code de haut niveau d'un script), l'outil Read le lit, sciemment."
 }
+# 6bis. La tranche COURTE qui coupe une déclaration. Le plafond de 60 lignes se contournait
+#       en multipliant les tranches courtes : mesuré par `session:end`, neuf sessions de
+#       suite à 10-70 tranches contre 2-19 `show-symbol` — deviner les bornes d'une méthode
+#       au lieu de lire la déclaration. La question « est-ce une déclaration ? » se tranche
+#       ici par l'AST (le plan de `show-symbol`), pas par l'agent. Une déclaration de moins
+#       de 3 lignes ne compte pas (une constante se lit en passant) ; une tranche qui ne coupe
+#       AUCUNE déclaration (en-tête d'imports, corps d'un `describe`, littéral) passe.
+#       Fichier illisible par l'outil (non suivi, absent) → on laisse passer : la garde ne
+#       refuse que ce qu'elle sait remplacer.
+SHOW_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/nodefony-inspect/scripts/show-symbol.mjs"
+tranche_coupe_declaration() { # $1 début, $2 fin, $3 fichier → noms coupés (vide = rien)
+  local f=$3 p
+  case $f in /*) p=$f ;; *) p="${cwd:-.}/$f" ;; esac
+  [ -f "$p" ] && [ -f "$SHOW_ABS" ] || return 0
+  node "$SHOW_ABS" --outline "$p" 2>/dev/null | awk -v a="$1" -v b="$2" '
+    match($0, /^ +[0-9]+-[0-9]+ +[^ ]/) {
+      split($1, r, "-"); s = r[1] + 0; e = r[2] + 0
+      if (e - s >= 2 && s <= b && e >= a) print (e - s) " " $2
+    }' | sort -n | head -3 | cut -d' ' -f2-
+}
 re_sed="sed[[:space:]]+-n[[:space:]]+['\"]?([0-9]+),([0-9]+)p['\"]?[[:space:]]+['\"]?([^[:space:];|&'\"]+\.(ts|tsx|mts|mjs))"
 reste=$cmd
 while [[ $reste =~ $re_sed ]]; do
-  if ((BASH_REMATCH[2] - BASH_REMATCH[1] + 1 > 60)); then
-    lecture_refusee "$((BASH_REMATCH[2] - BASH_REMATCH[1] + 1)) lignes" "${BASH_REMATCH[3]}"
+  debut=${BASH_REMATCH[1]} fin=${BASH_REMATCH[2]} fichier=${BASH_REMATCH[3]} motif=${BASH_REMATCH[0]}
+  if ((fin - debut + 1 > 60)); then
+    lecture_refusee "$((fin - debut + 1)) lignes" "$fichier"
   fi
-  reste=${reste#*"${BASH_REMATCH[0]}"}
+  coupes=$(tranche_coupe_declaration "$debut" "$fin" "$fichier")
+  if [ -n "$coupes" ]; then
+    cmds=$(printf '%s\n' "$coupes" | sed "s|.*|  node $SHOW '$fichier#&'|")
+    deny "REFUS — la tranche $debut-$fin de $fichier coupe une déclaration : ses bornes sont devinées, la déclaration se lit ENTIÈRE, TSDoc compris (plusieurs d'un coup si besoin) :
+$cmds
+Plan du fichier : \`node $SHOW --outline $fichier\`. Une tranche qui ne coupe AUCUNE déclaration (en-tête d'imports, corps de test, littéral) reste permise ; le fichier entier, c'est l'outil Read."
+  fi
+  reste=${reste#*"$motif"}
 done
 re_cat="(^|[;&(])[[:space:]]*cat[[:space:]]+['\"]?([^[:space:];|&<>'\"]+\.(ts|tsx|mts|mjs))['\"]?[[:space:]]*(;|&&|$)"
 if [[ $cmd =~ $re_cat ]]; then

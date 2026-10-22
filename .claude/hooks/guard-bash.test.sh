@@ -109,6 +109,26 @@ for c in "sed -n '100,140p' src/x.ts" 'sed -n 1,500p notes.md' 'cat petit.ts' \
   t PASSE "$c"
 done
 
+echo "=== règle 6bis — tranche COURTE qui coupe une déclaration : doit REFUSER ==="
+# Un vrai fichier TypeScript : l'AST décide, pas un motif de texte.
+{
+  printf 'import { a } from "./a";\nimport { b } from "./b";\n\n'
+  printf '/** Doc. */\nexport function longue(x: number): number {\n'
+  seq 12 | sed 's/^/  x += 1;/'
+  printf '  return x;\n}\n\nconst court = 1;\n\n'
+  printf 'export class Boite {\n  methode(): number {\n'
+  seq 6 | sed 's/^/    void 0;/'
+  printf '    return 1;\n  }\n}\n'
+} >"$R/code.ts"
+for c in "sed -n '8,12p' code.ts" "sed -n 1,10p code.ts" "sed -n '27,29p' code.ts" \
+  "ls; sed -n '1,2p' code.ts && sed -n '24,25p' code.ts"; do
+  t deny "$c"
+done
+echo "=== règle 6bis — en-tête d'imports, constante d'une ligne, fichier inconnu : doivent PASSER ==="
+for c in "sed -n '1,3p' code.ts" "sed -n '21,21p' code.ts" "sed -n '5,9p' absent.ts"; do
+  t PASSE "$c"
+done
+
 echo "=== règle 2 — retour à la racine ACTIF (verdict injecté) : cd relatif doit PASSER ==="
 export CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1
 t PASSE 'cd src/packages && ls'
