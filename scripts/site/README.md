@@ -88,6 +88,7 @@ Rend UN site complet — accueil, documentation, mesures, qualité, plan — dan
 - **Variable** `CHANNEL`
 - **Variable** `NEXT_DIR`
 - **Appelé par** : `pages.yml` · `release.yml`
+- **Testé par** : `site/site-versions.test.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/readme-html.mjs`
 
 ## [`check-site-links.mjs`](check-site-links.mjs)
@@ -152,4 +153,4 @@ Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS r
 Éprouve l'agencement des versions du site et le dossier de sortie neuf.
 
 - **Lancé par** : `npm run test:tooling`
-- **Utilise** : `lib/repo-root.mjs` · `site/assemble-site.mjs` · `site/check-site-links.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/assemble-site.mjs` · `site/build-site.mjs` · `site/check-site-links.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `release/accueil-gate.mjs`

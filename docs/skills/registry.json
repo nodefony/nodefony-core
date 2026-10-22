@@ -1231,7 +1231,9 @@
         "pages.yml",
         "release.yml"
       ],
-      "testedBy": []
+      "testedBy": [
+        "scripts/site/site-versions.test.mjs"
+      ]
     },
     {
       "path": "scripts/site/check-site-links.mjs",
@@ -1783,7 +1785,8 @@
         "scripts/release/release.mjs"
       ],
       "testedBy": [
-        "scripts/release/accueil-gate.test.mjs"
+        "scripts/release/accueil-gate.test.mjs",
+        "scripts/site/site-versions.test.mjs"
       ]
     },
     {

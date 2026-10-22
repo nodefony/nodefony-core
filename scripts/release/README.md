@@ -26,7 +26,7 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 - **Variable** `PAQUET`
 - **Variable** `REGISTRY`
 - **Appelé par** : `release-preflight.yml` · `release.yml` · `release/readme-gate.mjs` · `release/release.mjs`
-- **Testé par** : `release/accueil-gate.test.mjs`
+- **Testé par** : `release/accueil-gate.test.mjs` · `site/site-versions.test.mjs`
 
 ## [`accueil-gate.test.mjs`](accueil-gate.test.mjs)
 
