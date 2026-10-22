@@ -180,7 +180,13 @@ interface ProfilableContext {
     | undefined;
 }
 
-/** Durée totale = (fin de la dernière phase terminée) − (début de la 1ère). */
+/**
+ * Durée totale = (fin de la dernière phase) − (début de la 1ère).
+ *
+ * Une phase encore OUVERTE à la collecte (action interrompue par le départ du
+ * client : flux SSE, outil MCP annulé) court jusqu'à la collecte — la compter
+ * pour zéro publiait 0,3 ms pour un appel coupé à 3 s.
+ */
 function totalDuration(
   phases: ReadonlyArray<{ startMs: number; durationMs?: number | undefined }>,
 ): number | null {
@@ -188,8 +194,12 @@ function totalDuration(
   const first = phases.at(0);
   if (first === undefined || typeof first.startMs !== "number") return null;
   let end = first.startMs;
+  let now: number | null = null;
   for (const p of phases) {
-    const e = p.startMs + (p.durationMs ?? 0);
+    const e =
+      p.durationMs === undefined
+        ? (now ??= performance.now())
+        : p.startMs + p.durationMs;
     if (e > end) end = e;
   }
   const d = end - first.startMs;

@@ -1577,13 +1577,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         if (!responseEnded(response)) {
           // Close sans end() préalable = client parti avant la réponse complète.
           context._abortIfPending("Connection closed before response finished");
-          // P2.3 — record an internal 499 ("client closed request", nginx-style)
-          // when the client vanished before ANY response byte was produced.
-          // NEVER written to the wire (socket already dead) — observability only
-          // (request log + profiler). If the controller already started sending
-          // (`sended`) or an error set a code, the logger prefers those, so 499
-          // surfaces solely on a genuine pre-response client abort.
-          if (!context.sended) {
+          // Statut INTERNE 499 (« client closed request ») : client parti avant
+          // la fin de la réponse — avant tout octet, OU au milieu d'un flux déjà
+          // ouvert (SSE abandonné, outil MCP annulé : la spec MCP Streamable
+          // HTTP fait de cette fermeture l'annulation même). Jamais écrit sur le
+          // fil (champ du wrapper, socket déjà morte) — journal `req` et
+          // profileur seulement : sans lui, un flux abandonné se lisait 200,
+          // comme un flux mené à terme. Un statut d'ERREUR déjà posé (≥ 400)
+          // reste : c'est le fait le plus utile à observer.
+          if (context.response.statusCode < 400) {
             context.response.statusCode = 499;
           }
         }

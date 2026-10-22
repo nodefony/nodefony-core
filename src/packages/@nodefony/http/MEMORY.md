@@ -459,9 +459,10 @@ Extension de l'`AuditErrorEntry` :
 
 ## Aborted requests + 499 interne
 
-- Client part avant TOUT envoi → `http-kernel.onClose` (`!didFinish`) : `_abortIfPending` + si `!sended` → `response.statusCode = 499` (nginx-style "client closed request").
-- **499 = observabilité PURE** : reflété dans request-log + profiler, **JAMAIS écrit sur le socket** (déjà mort). Le logger préfère `error.code` → 499 ne surface que sur un abort sans erreur ni envoi.
-- Test : `nodefony/tests/http/client-abort-499.test.ts` (assert via log `GET  499 …/abort/wait`).
+- Client parti avant la FIN de la réponse (`!responseEnded`, écouteur `close` de `createHttpContext`) : `_abortIfPending` + `response.statusCode = 499` (« client closed request ») — avant tout octet OU en plein flux (SSE abandonné, outil MCP annulé : la spec MCP Streamable HTTP fait de cette fermeture l'annulation). Statut d'erreur déjà posé (≥ 400) conservé.
+- **499 = observabilité PURE** : reflété dans request-log + profiler, **JAMAIS écrit sur le socket** (déjà mort). `statusCode` = champ du wrapper `HttpResponse`, jamais celui de Node.
+- Profil : une phase encore OUVERTE à la collecte (action interrompue) court jusqu'à la collecte (`Profiler.ts#totalDuration`) — sinon durée ≈ 0 pour un appel coupé.
+- Test : `nodefony/tests/http/client-abort-499.test.ts` (journal `GET  499 …/abort/wait` + profileur : SSE abandonné → 499, durée ≥ délai de départ).
 
 ## Request timeout — 2 couches distinctes
 

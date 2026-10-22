@@ -12,9 +12,10 @@ import {
 
 // P2.3 — internal 499 ("client closed request").
 //
-// When a client disconnects before ANY response byte is produced, the kernel
-// records an internal 499 on the response so the request log + profiler reflect
-// the abort instead of a misleading default 200. The 499 is NEVER written to
+// When a client disconnects before the response ENDS — before any byte, or in
+// the middle of a stream (#646) — the kernel records an internal 499 on the
+// response so the request log + profiler reflect the abort instead of a
+// misleading 200. The 499 is NEVER written to
 // the wire (the socket is already dead) — it is observability only, asserted
 // here via the server-side request log line ("http 499 GET ...").
 
@@ -68,6 +69,99 @@ function h2Request(
       client.close();
       resolve(status);
     });
+    req.end();
+  });
+}
+
+/** Fixture dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN) — cf provisionUsers. */
+async function loginAsAdmin(): Promise<string> {
+  const payload = JSON.stringify({
+    username: "admin",
+    password: "secret-de-dev-42",
+  });
+  return new Promise<string>((resolve, reject) => {
+    const r = https.request(
+      {
+        ...BASE,
+        method: "POST",
+        path: "/nodefony/security/api/auth/login",
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(Buffer.byteLength(payload)),
+        },
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () => {
+          const setCookie = res.headers["set-cookie"];
+          const first = Array.isArray(setCookie) ? setCookie[0] : setCookie;
+          if (typeof first !== "string") {
+            reject(new Error(`login admin KO (status ${res.statusCode})`));
+            return;
+          }
+          resolve(first.split(";")[0]!);
+        });
+      },
+    );
+    r.on("error", reject);
+    r.write(payload);
+    r.end();
+  });
+}
+
+interface IProfil {
+  status: number | null;
+  durationMs: number | null;
+}
+
+/** Profil d'une requête par son identifiant — course avec le teardown. */
+async function profilDe(requestId: string, cookie: string): Promise<IProfil> {
+  for (let i = 0; i < 20; i++) {
+    const res = await new Promise<{ status: number; body: string }>(
+      (resolve, reject) => {
+        const r = https.request(
+          {
+            ...BASE,
+            method: "GET",
+            path: `/nodefony/profiler/api/${encodeURIComponent(requestId)}`,
+            headers: { cookie },
+          },
+          (rs) => {
+            let body = "";
+            rs.setEncoding("utf8");
+            rs.on("data", (c: string) => (body += c));
+            rs.on("end", () => resolve({ status: rs.statusCode!, body }));
+          },
+        );
+        r.on("error", reject);
+        r.end();
+      },
+    );
+    if (res.status === 200) return JSON.parse(res.body) as IProfil;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error(`profil introuvable pour ${requestId}`);
+}
+
+/**
+ * Ouvre un flux SSE, attend son PREMIER octet (en-têtes partis : `sended`),
+ * puis coupe — le client abandonne un flux en cours.
+ */
+function abandonnerFluxSse(path: string, requestId: string): Promise<void> {
+  return new Promise((resolve) => {
+    const req = https.request(
+      {
+        ...BASE,
+        path,
+        method: "GET",
+        headers: { accept: "text/event-stream", "x-request-id": requestId },
+      },
+      (res) => {
+        res.once("data", () => req.destroy());
+      },
+    );
+    req.on("error", () => resolve());
+    req.on("close", () => resolve());
     req.end();
   });
 }
@@ -194,6 +288,45 @@ describe.skipIf(IS_PROD_TARGET)(
         "client h2 parti : 499 attendu au journal",
       ).to.equal(1);
       expect(lignes(new RegExp(`GET\\s+200\\s\\S*m=${marque}`))).to.equal(0);
+    });
+
+    // #646 — un flux SSE abandonné APRÈS ses en-têtes se lisait 200, comme un
+    // flux mené à terme. La spec MCP (Streamable HTTP, « Cancellation ») fait
+    // de cette fermeture l'annulation même de la requête : le profileur doit
+    // la distinguer.
+    it("un flux SSE abandonné par le client se profile en 499, pas 200", async () => {
+      const id = `nf646-sse-${randomUUID()}`;
+      await abandonnerFluxSse("/nodefony/test/sse/hold", id);
+      const profil = await profilDe(id, await loginAsAdmin());
+      expect(profil.status, "flux abandonné : 499 attendu").to.equal(499);
+    });
+
+    // #646 — l'action encore en cours quand le client part (outil MCP annulé)
+    // laissait sa phase OUVERTE, comptée pour zéro : 0,3 ms publié pour un
+    // appel coupé à 3 s. La durée court jusqu'à la collecte.
+    it("la durée profilée d'une requête abandonnée court jusqu'au départ du client", async () => {
+      const id = `nf646-wait-${randomUUID()}`;
+      await new Promise<void>((resolve) => {
+        const req = https.request(
+          {
+            ...BASE,
+            path: "/nodefony/test/abort/wait",
+            method: "GET",
+            headers: { "x-request-id": id },
+          },
+          (res) => res.resume(),
+        );
+        req.on("error", () => resolve());
+        req.on("close", () => resolve());
+        req.end();
+        setTimeout(() => req.destroy(), 150);
+      });
+      const profil = await profilDe(id, await loginAsAdmin());
+      expect(profil.status).to.equal(499);
+      expect(
+        profil.durationMs,
+        "durée profilée : au moins le délai avant le départ du client",
+      ).to.be.at.least(140);
     });
   },
 );
