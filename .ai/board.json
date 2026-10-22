@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T22:09:31.420Z",
+  "generatedAt": "2026-10-22T06:21:58.839Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 165,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 18,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -3949,11 +3949,27 @@
       "title": "fix(ai): honorer l'annulation MCP envoyée par notification",
       "url": "https://github.com/nodefony/nodefony-core/issues/647",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.233,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 648,
+      "title": "feat(ai): faire agir tout outil MCP au nom de l'utilisateur qui l'appelle",
+      "url": "https://github.com/nodefony/nodefony-core/issues/648",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 4.234,
       "debut": null,
       "cible": null,
       "labels": [
