@@ -874,6 +874,15 @@ jobs:
           npm ci --ignore-scripts
           npx turbo run build --filter=@nodefony/documentation
           npm run generate-symbols
+          # 🔴 L'ARCHIVE PORTE L'ACCUEIL BASCULÉ, pas celui du tag. Le tag est
+          # posé AVANT la publication : son README annonce encore la version
+          # précédente, et le job `accueil` ne la bascule que sur `main`, en
+          # parallèle de celui-ci. Sans ce pas, l'archive de la beta.4 disait
+          # « préversion 10.0.0-beta.3 en ligne » pour toujours. Même commande
+          # que le job `accueil` — une seule implémentation de la bascule. Un
+          # refus de PROSE n'arrête pas l'archive : le job `accueil` le porte.
+          node scripts/release/accueil-gate.mjs --basculer \
+            || echo "::warning::accueil-gate refuse la prose de l'accueil — l'archive porte les versions basculées, le job « accueil » dira le reste"
           # Un tag se bâtit en HEAD détaché : le canal se DIT, il ne se déduit
           # d'aucune branche.
           node scripts/site/build-site.mjs --out dist-site --channel published

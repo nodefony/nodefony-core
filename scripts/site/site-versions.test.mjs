@@ -222,3 +222,23 @@ describe("assemblage", () => {
     ).toThrow(/nom invalide/);
   });
 });
+
+describe("archive de release", () => {
+  // Le tag précède la publication : son README annonce la version d'avant.
+  // L'archive doit passer par la bascule de l'accueil AVANT d'être rendue,
+  // sinon elle cite pour toujours la version précédente (vécu : beta.4).
+  it("bascule l'accueil avant de rendre le site archivé", () => {
+    const yml = fs.readFileSync(
+      path.join(REPO_ROOT, ".github", "workflows", "release.yml"),
+      "utf8",
+    );
+    const debut = yml.indexOf("- name: Archiver le site de cette version");
+    expect(debut).toBeGreaterThan(-1);
+    const fin = yml.indexOf("- name:", debut + 1);
+    const pas = yml.slice(debut, fin === -1 ? undefined : fin);
+    const bascule = pas.indexOf("accueil-gate.mjs --basculer");
+    const rendu = pas.indexOf("build-site.mjs");
+    expect(bascule).toBeGreaterThan(-1);
+    expect(rendu).toBeGreaterThan(bascule);
+  });
+});
