@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T17:42:04.036Z",
+  "generatedAt": "2026-10-22T19:21:09.757Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 174,
+      "closed": 175,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 13,
+      "open": 12,
       "title": "10.0.0-beta"
     },
     {
@@ -4044,8 +4044,8 @@
       "number": 462,
       "title": "feat(ai): ajouter ai:stdio pour les agents qui lancent leur serveur MCP",
       "url": "https://github.com/nodefony/nodefony-core/issues/462",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
