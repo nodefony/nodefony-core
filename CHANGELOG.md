@@ -8,6 +8,108 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.4 - 2026-10-22
+
+_La ligne bêta casse encore : chaque rupture ouvre sa catégorie et porte son geste de migration — et toutes les sessions sont à rouvrir après la mise à jour._
+
+### Changed
+
+- **http (breaking):** Séparer les paramètres d'URL du corps de la requête : `query` ne porte plus les champs du corps, `queryGet` devient `query`, `queryPost` devient `body` et `queryFile` devient `files`, sur la requête, le contrôleur et leurs interfaces, sans alias ; `@Body()` et `@UploadedFile(s)()` sont inchangés (#632) (2dbc7ad0a, fb5652b87, bc0f106f7)
+- **http (breaking):** Réduire `context.type` à `http` ou `websocket` : lire le chiffrement sur `scheme` (`https`, `wss`) et HTTP/2 sur `alpnProtocol === "h2"` ; `ServerType` vaut `http`, `https`, `ws` ou `wss` (#639) (b1e835da1)
+- **http (breaking):** Refuser un handshake WebSocket par un statut HTTP (401, 403, 421, 400, 429) avant le 101, au lieu d'ouvrir puis de fermer en 1008 ou 1002 ; `HttpKernel.onWebsocketRequest` devient `onWebsocketUpgrade` et `IRouteResolver` exige `authorizeAction` (bd101c6d0)
+- **http (breaking):** Livrer à `@Body()` un corps non décodé tel qu'il est reçu — chaîne pour `text/*`, `Uint8Array` pour le reste — au lieu de `{}` (908dba525)
+- **realtime (breaking):** Échanger des `Uint8Array` des deux côtés de la socket : `onBinary` en livre un, `sendBinary` l'exige, `RealtimeFrameData` perd `Blob` et `IRealtimeSocket` ne déclare plus `request` (#630) (1df6614c1)
+- **core (breaking):** Ne plus résoudre un paramètre de constructeur par son type — le nommer par `@Inject("nom")` ; l'export `inject` disparaît de `nodefony` (94a41a0bd)
+- **ai (breaking):** Déplacer le moteur MCP du cœur dans `@nodefony/ai` (`declareMcpTools`, `collectMcpTools`, `handleMcpMessage`, flux, progression, gardes) et le catalogue `nodefony_*` dans `@nodefony/devkit` ; le préfixe `nodefony_` est réservé aux modules `@nodefony/*` (fe3f75fd0, 09be9c873)
+- **security (breaking):** Lier sessions, jetons et clés d'API à l'identifiant immuable du compte : ceux émis avant cette version sont refusés, chaque utilisateur se reconnecte et chaque clé d'API se réémet (#139) (f1f98bf8a, 21a558d6c)
+- **security (breaking):** Couper les sessions et les jetons d'un compte au changement de son mot de passe ; une table `User` possédée par l'application gagne la colonne `credentialsVersion` (`orm:generate` puis `orm:migrate`) (285111041)
+- **security (breaking):** Renommer la commande `security:token` en `security:mcp:token`, sans alias (31b80b4df)
+- **scaffold (breaking):** Faire de `@nodefony/ai` un module obligatoire des applications générées : une application existante ajoute la dépendance et l'entrée `use("@nodefony/ai")` avant devkit (ada2a0d57)
+- **nodefony (breaking):** Ajouter des membres requis aux interfaces publiques `IContext`, `IWebsocketContext`, `IHttpRequest`, `IController`, `IRouteResolver`, `IProcessHealth`, `IUserRow`, `IDevkitService`, `ProfileEntry`, `PlaygroundAction` et `IRealtimeHarness` — une implémentation maison doit les fournir (mesuré par release:api-diff)
+- **http:** Répondre en HTTP/2 par un seul `end(corps)`, sans copier les en-têtes (#570) (106b9e1b9)
+- **http:** Ne plus allouer de tableau de fichiers pour une requête sans envoi de fichier (e36a06ff2)
+- **core:** Accélérer la fusion profonde d'`extend`, à résultat identique (06acbcaf7)
+- **cli:** Répondre à `--version` avant de charger le cœur (b03a3bef3)
+- **devkit:** Alléger les résultats MCP que relit l'agent de code (eb44e6750)
+
+### Added
+
+- **ai:** Ouvrir une porte MCP d'application sans recoder le protocole — la définir une fois, la servir d'une ligne, la générer par `create controller --kind mcp`, outils publics sans jeton et outils réservés à un scope (#602) (fe390f7da, feca58f2d, 4a202f783, 1d1da5790)
+- **ai:** Servir les outils MCP en stdio par `nodefony ai:stdio`, pour les agents qui lancent eux-mêmes leur serveur, avec la posture de l'opérateur local (#462) (466dd8e45, ef960a896)
+- **ai:** Faire agir un outil MCP au nom du compte du jeton, et le générer ainsi (#648) (ad824af55, 31dbcfed7)
+- **ai:** Exiger un scope par argument d'outil MCP, demandé par un défi `insufficient_scope` (#650) (f56a8e94c)
+- **ai:** Ouvrir le flux d'un appel MCP qui tarde, même sans `progressToken` (94d82930e)
+- **ai:** Publier quels outils MCP lisent et lesquels modifient, et guider ces annotations à la génération (e0076add5, e28712713)
+- **ai:** Poser le module `@nodefony/ai` par `nodefony create module` (c34f369b7)
+- **devkit:** Observer l'application qui tourne depuis l'agent de code (`nodefony_observe`), journal des 5xx joint et rapport partiel si le serveur s'arrête (65499da81, 20f7f4734, 24aaaae64)
+- **devkit:** Profiler une route en lui envoyant N requêtes au nom d'un compte (`nodefony_profile_route`), par une session à ticket à usage unique (#644) (2e27e5b4d, 9df7d82b1)
+- **http:** Servir HTTP/2 en clair (h2c) derrière un proxy inverse (`servers.h2c`), et y diriger le HAProxy que génère `proxy:generate` (#570) (1fcea6afb, cf615a979)
+- **http:** Agréger les profils de requêtes par route, phase et forme SQL, et les lire au fil de l'eau en comptant ce qui a été perdu (eb441be8b, 7eea3d333)
+- **framework:** Valider et typer une route par un schéma déclaré (908dba525)
+- **realtime:** Acquitter les abonnements pour dire quand le flux arrive (71055b999)
+- **client:** Distinguer un refus d'une panne quand l'ouverture d'une socket échoue (c41a1e804)
+- **security:** Borner les scopes d'une application aux rôles du compte (#604) (1d1f30f68)
+- **cli:** Afficher la documentation d'une commande sous toute erreur d'usage (a1518519d)
+- **doctor:** Signaler le jeton MCP expiré d'un agent, avec la commande qui le renouvelle (b0d361927)
+- **scaffold:** Tirer les clés de production dans la CI de l'application générée (6348ac17a)
+
+### Removed
+
+- **framework (breaking):** Retirer le ré-export `graphql` et ses trois dépendances — importer directement `@graphql-tools/merge` et `@graphql-tools/schema` (e652fe3f7)
+- **devkit (breaking):** Retirer `McpController.unsupported` (mesuré par release:api-diff)
+- **http (breaking):** Retirer `Http2Request.resolveScheme` (mesuré par release:api-diff)
+- **core:** Retirer la dépendance `chokidar` : les sources de développement sont surveillées par `fs.watch` natif (4a6bd3d87)
+
+### Fixed
+
+- **ai:** Refuser un appel relayé sur une porte MCP locale, même arrivé du loopback, et sur la porte de session par ticket (#648) (4a961fac8, bc2e1538d)
+- **ai:** Honorer l'annulation MCP envoyée par notification (#647) (c2138c460)
+- **security:** Purger les sessions et jetons hérités à la création d'un compte, et journaliser la brique en échec de la cascade de révocation (#139) (36f6d9423, 9013d7609)
+- **security:** Reconnaître les jetons que l'application signe elle-même, révocation comprise (649d28143)
+- **security:** Masquer le mot de passe d'une URL dans la configuration exposée, quelle que soit sa clé (44960db06)
+- **security:** Nommer `NF_TLS_CA_FILE` quand l'autorité d'un serveur n'est pas reconnue (af8ed2c8d)
+- **security:** Dire que `--ttl` de `security:mcp:token` se compte en minutes, et rappeler les rôles de plateforme en INFO hors production (98d631744, 6ad55f91e)
+- **http:** Ne plus journaliser la valeur des cookies posés (#645) (77e4cf1a8)
+- **http:** Drainer HTTP/2 par GOAWAY au lieu de couper les flux en vol, et ne plus retenir chaque session fermée jusqu'à son délai (#570) (c7bfb348e, 33cea43d8)
+- **http:** Ne plus croire le pseudo-en-tête `:scheme` d'une requête HTTP/2, et lire `Host` en l'absence de `:authority` (241728efa, e557e180b)
+- **http:** Faire sonder `/readyz` au HAProxy généré au lieu d'un simple contrôle TCP (c7a913974)
+- **http:** Ne plus bloquer le démarrage sur une autorité de développement déclarée mais absente (#608) (9b462aaba)
+- **http:** Terminer par un saut de ligne le `fullchain.pem` auto-signé (fc27048a8)
+- **http:** Journaliser un handshake WebSocket refusé en WARNING avec son statut, et taire les frames destinées à un client parti ou les sessions HTTP/2 qu'une sonde a réinitialisées (b39c214c5, 70058ea23, 5a4c9876a)
+- **http:** Ramener en DEBUG les étapes de requête que le développement imprimait (dc227e37a)
+- **http:** Compter au profileur une réponse en flux abandonnée en 499, un refus 401/403 hors des erreurs serveur, et ne rapporter que les requêtes servies, dans un anneau par provenance (#646, #649) (457b7389b, 71f828096, 556627c8f, 44599f982, 62e61d3ff)
+- **framework:** Empêcher une clé de query d'atteindre le prototype de sa copie (#632) (c8d9618a5)
+- **framework:** Ne plus poser `Upgrade` et `Connection` sur un 426 en HTTP/2 (47713b59a)
+- **realtime:** Ne plus lire en texte les trames binaires reçues, ni écarter en silence côté client une trame illisible (392c9e09e, e01078216)
+- **realtime:** Ouvrir le contexte d'une trame dès sa réception pour corréler ses journaux, et ne plus signaler un canal de plateforme comme « sans règle » (#649) (31e154f81, 325fb7709)
+- Valider la forme des JSON relus — PDU, journal, manifestes, réglages d'agent, réponses OAuth, jeu de clés JWT, préférences de Studio, idempotence, journal de migrations, outils MCP déclarés — au lieu de les croire (#572) (abf6f7bff, 3148ac407, 3aa7e990c, 6dbb01a54, 6fe1d5245, 1dc1ddcb9, 156b346fc, 2d8afa8b1)
+- **core:** Déclarer un service transient sans le construire au démarrage (3474ea138)
+- **core:** Mesurer le vrai retard de la boucle d'événements, et son pire blocage (df09ddd68)
+- **core:** Lire `NF_DATABASE_URL_FILE` et `NF_REDIS_URL_FILE` dans la résolution de l'infrastructure (a14dfa0e0)
+- **core:** Comparer la plage `engines.node` entière, pas sa seule majeure (c6c6352ae)
+- **core:** Lire la forme objet `{ name, policy }` du manifeste des modules (d339650dc)
+- **core:** Ne plus transmettre le `.env` du projet courant à l'application que crée `create app` (acf4d7257)
+- **core:** Élaguer les journaux des workers morts à l'ouverture du driver fichier (82a9b56a4)
+- **core:** Afficher au format console l'erreur d'un démarrage interrompu (339a60178)
+- **core:** Faire rendre au filtre réseau les interfaces qu'il annonce (#611) (24d4d2a4f)
+- **core:** Aligner les opérateurs des conditions du journal sur ceux de JavaScript (8d84a5efd)
+- **dev:** Libérer les ports au Ctrl-C de `npm run dev`, et arrêter tout l'arbre lancé quand un démarrage détaché échoue (#598) (83c240e26, ccb4ac0ce)
+- **doctor:** Supprimer trois faux signalements — sources d'un paquet imbriqué, manquement de câblage compté deux fois, frontière de segment prise pour une zone (05754c18b, ccc166853, 485ec885c)
+- **cli:** Annoncer le vrai mot de passe admin de développement, tiré d'une seule source (9a52180c0, acdb7a688)
+- **cli:** Juger l'application visée par `--cwd` avec son propre environnement, et écrire l'URL de son port pour `ai:mcp` (#62) (ab558c8ea, 5ceeaefda)
+- **cli:** Annoncer la migration requise après `create entity` (#606) (bd90f4df9)
+- **cli:** Constater le silence d'une commande avant de la déclarer calée (#472) (9ff05688d)
+- **orm:** Écrire la première migration d'une application neuve, et dire quelle base manque et comment la créer (#566, #609) (6b2304229, 09653e2f1)
+- **drizzle:** Mesurer la divergence sur la base visée par `NF_MIGRATE_DATABASE_URL`, et n'annoncer « schéma à jour » qu'une fois (749b4bdf9, 26668d2cb)
+- **scaffold:** Engendrer du code qui passe le lint de l'application, sans conversion ni affirmation de type, et des modules nés paquets complets avec leur `clean` (8d9040524, 569242f91, 226baa910, e2a2555b9)
+- **scaffold:** Corriger les tests e2e générés, qui punissaient leurs propres gardes, et l'`AGENTS.md`, qui induisait l'agent en erreur sur la socket (#597, #599) (895c9c3b2, a78721b59)
+- **scaffold:** Ne plus déclarer dans l'échantillon d'une entité un entier qu'il ne lit pas (923314da0)
+- **upgrade:** Juger le front d'une application sur son moteur, comme `create app` (cce4a1124)
+- **studio:** Recharger une fois l'onglet périmé au lieu de casser au changement d'écran (aea3f92fd)
+- **studio:** Ne plus proposer le portail de documentation sans son module, et l'installer par défaut (35541da6d)
+- **devkit:** Ne plus arrondir à 0 ms la latence d'un socket local, et nommer un refus au handshake au lieu d'attendre (#596) (98cec3982, cbf5f8682)
+- **portabilité:** Importer par URL ce qui levait sous Windows (#401) (f6016e8e6)
+
 ## 10.0.0-beta.3 - 2026-10-13
 
 ### Changed
