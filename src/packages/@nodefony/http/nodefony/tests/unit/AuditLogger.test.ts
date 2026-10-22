@@ -177,6 +177,18 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
       );
       expect(e.severity).to.equal("ERROR");
     });
+
+    it("handshake refusé → statut 400 et WARNING, comme un 4xx HTTP", () => {
+      const refused = Object.assign(new Error("Protocol x Not Supported"), {
+        code: 1002,
+      });
+      const ctx = Object.assign({}, fakeHttpContext(), {
+        webSocketState: "handshake",
+      });
+      const e = logger.renderWebsocket(ctx as never, refused, null);
+      expect(e.severity).to.equal("WARNING");
+      expect(JSON.parse(e.text).status).to.equal(400);
+    });
   });
 
   describe("P3.5 — enriched error (cause chain + stack)", () => {

@@ -10,6 +10,7 @@ import type {
   PhaseTiming,
 } from "../interfaces/IContext";
 import { computeDurationMs, severityFromStatus } from "./audit-logger";
+import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContext";
 
 /**
  * Pretty single-line logger for dev (P3.2) — the biggest gain for humans.
@@ -74,7 +75,10 @@ class PrettyRequestLogger implements IRequestLogger {
       response: { statusCode?: number } | null;
       phases: PhaseTiming[];
     };
-    const status = ctx.response?.statusCode ?? (error ? 500 : null);
+    // Handshake refusé : le statut HTTP que le client reçoit, pas le code de
+    // fermeture par défaut. Une connexion saine ne paie que ce test.
+    const refused = error ? handshakeRefusalStatus(context, error) : null;
+    const status = refused ?? ctx.response?.statusCode ?? (error ? 500 : null);
     const duration = computeDurationMs(ctx.phases);
     const proto = acceptedProtocol ? `[${acceptedProtocol}]` : "";
 
@@ -89,7 +93,13 @@ class PrettyRequestLogger implements IRequestLogger {
 
     return {
       text,
-      severity: error ? "ERROR" : "INFO",
+      // Refus : la règle du HTTP (4xx → WARNING, faute du client).
+      severity:
+        refused !== null
+          ? severityFromStatus(refused)
+          : error
+            ? "ERROR"
+            : "INFO",
       msgid: "req",
     };
   }

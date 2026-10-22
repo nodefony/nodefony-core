@@ -18,7 +18,10 @@ import { sanitizeRequestId } from "../requestId.js";
 import { FrameProfile } from "../../profiler/FrameProfile.js";
 import type { ProfiledArea } from "../../profiler/FrameProfile.js";
 import type { Profiler } from "../../profiler/Profiler.js";
-import type { PhaseName } from "../../../interfaces/IContext.js";
+import type {
+  PhaseName,
+  IWebsocketContext,
+} from "../../../interfaces/IContext.js";
 import { ProxyType } from "../http/HttpContext.js";
 import { formatWsLogContent } from "./wsLogContent.js";
 import {
@@ -132,6 +135,29 @@ export function toHandshakeStatus(code: number | undefined | null): number {
     default:
       return 500;
   }
+}
+
+/**
+ * Statut HTTP que reçoit le client d'un handshake refusé — ou `null` si la
+ * connexion était déjà acceptée.
+ *
+ * La ligne de journal d'un refus s'écrit AVANT `refuseHandshake` : sans ce
+ * calcul, elle affichait le code de fermeture par défaut (`1000`) en ERROR,
+ * pour un `400` que le client reçoit. Même conversion que le refus
+ * ({@link toHandshakeStatus}), donc même chiffre. Chemin d'ERREUR seulement :
+ * 1 comparaison et 1 `typeof`, aucune allocation.
+ *
+ * @param context - le contexte WS de la ligne
+ * @param error - l'erreur qui a interrompu le handshake
+ * @returns le statut HTTP du refus, ou `null` après l'acceptation
+ */
+export function handshakeRefusalStatus(
+  context: IWebsocketContext,
+  error: Error,
+): number | null {
+  if (context.webSocketState !== "handshake") return null;
+  const code = (error as { code?: unknown }).code;
+  return toHandshakeStatus(typeof code === "number" ? code : undefined);
 }
 
 /**

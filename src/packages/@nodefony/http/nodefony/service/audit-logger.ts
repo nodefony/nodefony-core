@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import type { Severity } from "nodefony";
 import { performance } from "node:perf_hooks";
+import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContext";
 import type {
   IRequestLogger,
   IRequestLogEntry,
@@ -243,7 +244,9 @@ class JsonAuditLogger implements IRequestLogger {
     acceptedProtocol?: string | null,
   ): IRequestLogEntry {
     const ctx = context;
-    const status = statusOf(ctx);
+    // Handshake refusé : le statut HTTP que le client reçoit.
+    const refused = error ? handshakeRefusalStatus(ctx, error) : null;
+    const status = refused ?? statusOf(ctx);
     const headers = headersOf(ctx);
     const entry: AuditLogEntry = {
       ts: new Date().toISOString(),
@@ -271,7 +274,12 @@ class JsonAuditLogger implements IRequestLogger {
     };
     return {
       text: JSON.stringify(entry),
-      severity: error ? "ERROR" : "INFO",
+      severity:
+        refused !== null
+          ? severityFromStatus(refused)
+          : error
+            ? "ERROR"
+            : "INFO",
       msgid: "audit",
     };
   }

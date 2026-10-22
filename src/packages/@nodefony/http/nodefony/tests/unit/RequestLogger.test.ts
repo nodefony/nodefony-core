@@ -142,5 +142,18 @@ describe("DefaultRequestLogger — unit tests (P1.6)", () => {
       expect(e.severity).to.equal("ERROR");
       expect(e.text).to.include("ws-fail");
     });
+
+    it("handshake refusé → statut 400 (pas le code WS 1002) en WARNING", () => {
+      const refused = Object.assign(new Error("Protocol x Not Supported"), {
+        code: 1002,
+      });
+      const ctx = Object.assign({}, fakeWsContext(), {
+        webSocketState: "handshake",
+      });
+      const e = logger.renderWebsocket(ctx as never, refused, null);
+      expect(e.severity).to.equal("WARNING");
+      expect(e.msgid).to.include("400");
+      expect(e.msgid).not.to.include("1002");
+    });
   });
 });

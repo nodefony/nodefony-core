@@ -130,5 +130,24 @@ describe("PrettyRequestLogger — unit tests (P3.2)", () => {
       expect(e.severity).to.equal("ERROR");
       expect(noColor(e.text)).to.include("ws-fail");
     });
+
+    // Débrancher : `handshakeRefusalStatus` → la ligne redevient « 1000 » en ERROR.
+    it("handshake refusé → le statut que reçoit le client (400) en WARNING", () => {
+      const refused = Object.assign(new Error("Protocol x Not Supported"), {
+        code: 1002,
+      });
+      const ctx = Object.assign({}, fakeHttpContext(), {
+        webSocketState: "handshake",
+      });
+      const e = logger.renderWebsocket(ctx as never, refused, null);
+      expect(e.severity).to.equal("WARNING");
+      expect(noColor(e.text)).to.match(/^WS\s+400 /);
+      const open = Object.assign({}, fakeHttpContext(), {
+        webSocketState: "connected",
+      });
+      expect(
+        logger.renderWebsocket(open as never, refused, null).severity,
+      ).to.equal("ERROR");
+    });
   });
 });

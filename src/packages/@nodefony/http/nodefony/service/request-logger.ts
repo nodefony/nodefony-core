@@ -9,6 +9,8 @@ import type {
   IHttpContext,
   IWebsocketContext,
 } from "../interfaces/IContext";
+import { severityFromStatus } from "./audit-logger";
+import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContext";
 
 /**
  * Statut de la réponse : le contrat ne type `response` qu'en `object` ; une
@@ -64,8 +66,14 @@ class DefaultRequestLogger implements IRequestLogger {
     // la socket (handshake → messages → close), corrèle les logs de la même
     // connexion. Parité avec renderHttp qui expose déjà `ID : <uuid>`.
     if (error) {
+      // Handshake refusé : le statut HTTP que le client reçoit (400…), pas
+      // le code WS porté par l'erreur (1002…).
+      const refused = handshakeRefusalStatus(context, error);
       const errCode =
-        (error as { code?: number }).code ?? statusOf(context) ?? 500;
+        refused ??
+        (error as { code?: number }).code ??
+        statusOf(context) ??
+        500;
       const msgid = `${context.serverType} ${logColor.magenta(errCode)} ${logColor.red(context.method ?? "")}`;
       const text =
         `${logColor.cyan("URL")} : ${context.url}  ` +
@@ -73,7 +81,11 @@ class DefaultRequestLogger implements IRequestLogger {
         `${logColor.cyan("ORIGIN")} : ${context.originUrl?.host} ` +
         `${logColor.cyan("ID")} : ${context.requestId}\n        ` +
         error.toString();
-      return { text, severity: "ERROR", msgid };
+      return {
+        text,
+        severity: refused !== null ? severityFromStatus(refused) : "ERROR",
+        msgid,
+      };
     }
     const msgid = `${context.serverType} ${logColor.magenta(statusOf(context) ?? "")} ${context.method}`;
     const text =
