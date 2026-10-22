@@ -109,11 +109,16 @@ qu'un run part de travers avant d'en payer trois.
 > vibe et Codex piloté à la main écrivent leur journal chez l'utilisateur
 > (`~/.copilot/session-state/…`, `~/.vibe/logs/session/…`,
 > `~/.codex/sessions/…/rollout-*.jsonl`) : un essai réel du framework se dépouille
-> donc en une commande, là où il fallait une heure de `jq`. Une session Codex se
-> suit même EN DIRECT, lancée avant l'agent :
-> `node scripts/suivre-run.mjs --session <dossier-de-l-agent>` — reconnue au
-> `cwd` qu'elle déclare, ses attentes (`write_stdin` vides) comptées à part et
-> reliées à la commande qu'elles relèvent. C'est le matériau le plus
+> donc en une commande, là où il fallait une heure de `jq`. Une session Codex ou
+> Copilot se suit même EN DIRECT, lancée avant l'agent :
+> `node scripts/suivre-run.mjs --session <dossier-de-l-agent>` (Codex par défaut,
+> `NF_DEVKIT_BENCH_AGENT=copilot` pour le compagnon VS Code ; `--depuis <min>`
+> si l'agent est déjà ouvert) — reconnue au `cwd` ET à l'heure de démarrage
+> qu'elle déclare : plusieurs sessions partagent souvent le même dossier. Ses
+> attentes (`write_stdin` vide, `read_bash`) sont comptées à part. ⚠️ Le
+> compagnon VS Code lancé depuis le Dock n'a pas le PATH de nvm (`npm: command
+not found`) : l'ouvrir par `code <dossier>` depuis un terminal ; et il injecte
+> `~/.claude/CLAUDE.md` — un run qui le porte est « assisté par le profil ». C'est le matériau le plus
 > instructif du dispositif, et il était le seul à n'être pas outillé. Les
 > grammaires vivent dans
 > [`scripts/lib/transcript-dialectes.mjs`](scripts/lib/transcript-dialectes.mjs),

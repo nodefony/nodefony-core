@@ -127,6 +127,32 @@ const COPILOT = [
   }),
 ].join("\n");
 
+/**
+ * RÉEL — compagnon VS Code, session du 23/10 : un patch (argument = le patch
+ * en CHAÎNE, retours à la ligne réels) et une attente `read_bash`, qui relève
+ * un shell sans agir.
+ */
+const COPILOT_OUTILS = [
+  JSON.stringify({
+    type: "tool.execution_start",
+    data: {
+      toolCallId: "call_P",
+      toolName: "apply_patch",
+      arguments:
+        '*** Begin Patch\n*** Add File: nodefony/entity/Message.ts\n+import { randomUUID } from "node:crypto";\n*** Update File: index.ts\n@@\n',
+    },
+  }),
+  JSON.stringify({
+    type: "tool.execution_start",
+    data: {
+      toolCallId: "call_R",
+      toolName: "read_bash",
+      arguments: { shellId: "31", delay: 8 },
+    },
+  }),
+  JSON.stringify({ type: "assistant.turn_end" }),
+].join("\n");
+
 /** RÉEL — `~/.vibe/logs/session/<id>/messages.jsonl`, session du 09-13. */
 const VIBE = [
   JSON.stringify({
@@ -477,6 +503,24 @@ dire(
 dire(
   tlCop?.paroles.some((g) => g.texte === "moi rien ne marche"),
   "copilot : les messages du user ressortent",
+);
+
+const tlCopOutils = lireTimeline(COPILOT_OUTILS, { dialecte: "copilot" });
+dire(
+  tlCopOutils?.pas.find((p) => p.outil === "apply_patch")?.arg ===
+    "nodefony/entity/Message.ts index.ts",
+  "copilot : un patch se lit par ses fichiers",
+  `« ${tlCopOutils?.pas.find((p) => p.outil === "apply_patch")?.arg?.slice(0, 60)} »`,
+);
+dire(
+  tlCopOutils?.pas.some((p) => p.outil === "attente") &&
+    !tlCopOutils.pas.some((p) => p.outil === "read_bash"),
+  "copilot : read_bash est une ATTENTE, pas un geste",
+);
+dire(
+  lireReleve(COPILOT_OUTILS, { dialecte: "copilot" })?.attentes === 1,
+  "copilot : attentes comptées À PART",
+  `${lireReleve(COPILOT_OUTILS, { dialecte: "copilot" })?.attentes}`,
 );
 
 const tlVibe = lireTimeline(VIBE);

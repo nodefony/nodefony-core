@@ -24,14 +24,18 @@
  *   node suivre-run.mjs --session <dossier>  # une session INTERACTIVE (Codex)
  *   node suivre-run.mjs --tout             # sans filtre (déluge : tout outil, tout tour)
  *
- * `--session` suit un agent qu'un HUMAIN pilote dans `<dossier>`, hors du banc :
+^ * `--session` suit un agent qu'un HUMAIN pilote dans `<dossier>`, hors du banc :
  * son journal est reconnu par le répertoire de travail qu'il déclare, et l'on
  * attend qu'il apparaisse — le suivi se lance avant l'agent.
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ATTENTE, PAR_NOM } from "./lib/transcript-dialectes.mjs";
+import {
+  ATTENTE,
+  PAR_NOM,
+  exitDansTexte,
+} from "./lib/transcript-dialectes.mjs";
 
 const ARGV = process.argv.slice(2);
 const TOUT = ARGV.includes("--tout");
@@ -71,6 +75,19 @@ const SESSIONS_INTERACTIVES = {
     motif: /^rollout-.*\.jsonl$/,
     dialecte: "codex-session",
     cwdDe: (premiere) => JSON.parse(premiere)?.payload?.cwd,
+    debutDe: (premiere) => JSON.parse(premiere)?.timestamp,
+  },
+  // Le compagnon de VS Code (`vscode-agent-host`) : une session par dossier
+  // `<id>/events.jsonl`, ouverte par `session.start`. 🔴 Plusieurs sessions
+  // déclarent souvent le MÊME dossier (vécu : quatre pour `testharness`) — et
+  // une ancienne reprise est réécrite, donc récente au disque. Seule l'heure
+  // de DÉMARRAGE qu'elle déclare la départage.
+  copilot: {
+    dossier: [".copilot", "session-state"],
+    motif: /^events\.jsonl$/,
+    dialecte: "copilot",
+    cwdDe: (premiere) => JSON.parse(premiere)?.data?.context?.cwd,
+    debutDe: (premiere) => JSON.parse(premiere)?.data?.startTime,
   },
 };
 
@@ -86,7 +103,13 @@ function journauxSous(racine, motif) {
   }
 }
 
-/** Le journal le plus récent dont la session travaille dans `dossier`. */
+/**
+ * Le journal de la session OUVERTE après `depuisMs` dans `dossier`.
+ *
+ * Deux filtres, et le second est celui qui compte : la date du fichier écarte
+ * le gros des vieux journaux sans les ouvrir, l'heure de démarrage déclarée
+ * écarte une ancienne session du même dossier que l'on aurait reprise.
+ */
 function journalDeSession(spec, dossier, depuisMs) {
   const cible = path.resolve(dossier);
   const racine = path.join(os.homedir(), ...spec.dossier);
@@ -98,7 +121,10 @@ function journalDeSession(spec, dossier, depuisMs) {
     .find((f) => {
       try {
         const premiere = fs.readFileSync(f, "utf8").split("\n", 1)[0];
-        return path.resolve(String(spec.cwdDe(premiere) ?? "")) === cible;
+        if (path.resolve(String(spec.cwdDe(premiere) ?? "")) !== cible)
+          return false;
+        const debut = Date.parse(String(spec.debutDe(premiere) ?? ""));
+        return Number.isFinite(debut) && debut >= depuisMs;
       } catch {
         return false;
       }
@@ -107,7 +133,9 @@ function journalDeSession(spec, dossier, depuisMs) {
 
 /** Le run le plus récent, ou celui qu'on nomme. */
 function resoudreRun() {
-  const nomme = ARGV.find((a) => !a.startsWith("--") && a !== SESSION);
+  const nomme = ARGV.find(
+    (a) => !a.startsWith("--") && a !== SESSION && !/^\d+$/.test(a),
+  );
   if (nomme) return nomme;
   try {
     const runs = fs
@@ -186,7 +214,10 @@ function gestes(ligne, dialecte) {
   const out = [];
   for (const g of PAR_NOM[dialecte].gestes(evenement, 0)) {
     if (g.nature === "retour") {
-      const exit = g.exit ?? null;
+      // Structuré quand le harness le publie (Codex), sinon écrit dans la
+      // sortie (Copilot : `completed with exit code 127`) — la règle de
+      // `lireTimeline`, appelée et non recopiée.
+      const exit = g.exit ?? exitDansTexte(g.texte);
       if (exit !== null && exit !== 0) out.push(`    ✗ exit ${exit}`);
       continue;
     }
@@ -232,9 +263,12 @@ if (SESSION !== null) {
     );
     process.exit(64);
   }
-  // Seules les sessions ouvertes À PARTIR d'ici (une minute de marge) : une
-  // session plus ancienne dans le même dossier n'est pas celle qu'on attend.
-  const depuis = Date.now() - 60_000;
+  // Seules les sessions ouvertes À PARTIR d'ici (une minute de marge, ou
+  // `--depuis <minutes>` quand l'agent est déjà ouvert) : une session plus
+  // ancienne dans le même dossier n'est pas celle qu'on attend.
+  const iDepuis = ARGV.indexOf("--depuis");
+  const minutes = iDepuis === -1 ? 1 : Number(ARGV[iDepuis + 1] ?? 1);
+  const depuis = Date.now() - minutes * 60_000;
   process.stdout.write(
     `┌ session ${path.resolve(SESSION)}\n` +
       `│ agent   ${agent} · en attente de son journal…\n` +

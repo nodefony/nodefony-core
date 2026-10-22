@@ -208,6 +208,40 @@ function litteralDe(script, cle) {
 }
 
 /**
+ * Les fichiers qu'un patch touche (`*** Add|Update|Delete File: …`).
+ *
+ * Codex et Copilot écrivent le même format : on lit d'un patch ce qu'il TOUCHE,
+ * jamais son contenu, qui noierait le déroulé. Les retours à la ligne sont
+ * réels (Copilot) ou échappés dans un littéral JS (Codex) : les deux arrêtent
+ * le nom.
+ *
+ * @param {string} patch
+ * @returns {string} les chemins, séparés par une espace.
+ */
+export function fichiersDuPatch(patch) {
+  return [...patch.matchAll(/\*\*\* (?:Add|Update|Delete) File: ([^\\\n"]+)/gu)]
+    .map((m) => m[1].trim())
+    .join(" ");
+}
+
+/** Les outils Copilot qui RELÈVENT un shell au lieu d'agir — des attentes. */
+const ATTENTES_COPILOT = new Set(["read_bash"]);
+
+/**
+ * L'outil et l'argument saillant d'un appel Copilot.
+ *
+ * @param {string|null} outil - `data.toolName`.
+ * @param {unknown} args - `data.arguments`, objet ou chaîne.
+ * @returns {{outil: string|null, arg: string}}
+ */
+function appelCopilot(outil, args) {
+  if (outil && ATTENTES_COPILOT.has(outil)) return { outil: ATTENTE, arg: "" };
+  if (outil === "apply_patch" && typeof args === "string")
+    return { outil, arg: fichiersDuPatch(args) };
+  return { outil, arg: argSaillant(args) };
+}
+
+/**
  * L'outil et l'argument saillant d'un appel Codex interactif.
  *
  * L'appel est un SCRIPT : l'outil réel est celui qu'il invoque
@@ -229,12 +263,7 @@ export function appelCodex(script) {
       ? { outil, arg: chars, session }
       : { outil: ATTENTE, arg: "", session };
   }
-  if (outil === "apply_patch") {
-    const fichiers = [
-      ...script.matchAll(/\*\*\* (?:Add|Update|Delete) File: ([^\\\n"]+)/gu),
-    ].map((m) => m[1].trim());
-    return { outil, arg: fichiers.join(" ") };
-  }
+  if (outil === "apply_patch") return { outil, arg: fichiersDuPatch(script) };
   return { outil: outil ?? "exec", arg: txt(script) };
 }
 
@@ -419,22 +448,32 @@ export const DIALECTES = [
         String(o.data?.toolName ?? "").startsWith(`${mcp}-`)
       )
         acc.mcpCalls += 1;
+      if (
+        o.type === "tool.execution_start" &&
+        ATTENTES_COPILOT.has(String(o.data?.toolName ?? ""))
+      )
+        acc.attentes = (acc.attentes ?? 0) + 1;
     },
     gestes: (o, seq) => {
       const t = typeof o.timestamp === "string" ? o.timestamp : null;
-      if (o.type === "tool.execution_start")
+      if (o.type === "tool.execution_start") {
+        const { outil, arg } = appelCopilot(
+          o.data?.toolName ?? null,
+          o.data?.arguments,
+        );
         return [
           {
             seq,
             t,
             nature: "appel",
             id: o.data?.toolCallId ?? null,
-            outil: o.data?.toolName ?? null,
-            arg: argSaillant(o.data?.arguments),
+            outil,
+            arg,
             texte: "",
             ok: null,
           },
         ];
+      }
       if (o.type === "tool.execution_complete")
         return [
           {

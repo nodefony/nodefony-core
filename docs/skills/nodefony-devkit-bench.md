@@ -28,8 +28,8 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.5.0` |
 | Famille | Autres |
-| Corps | 417 lignes |
-| Coût d'activation | ~7 577 tokens (le corps est chargé à l'invocation) |
+| Corps | 422 lignes |
+| Coût d'activation | ~7 686 tokens (le corps est chargé à l'invocation) |
 | Description | 1014 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 9 page(s) |
@@ -98,7 +98,7 @@ script, donc toujours à jour après régénération.
 | `scripts/memoires-agent.selftest.mjs` | Auto-contrôle de la purge du cahier de mémoire que l'agent tient HORS du décor. | `--prove` | — |
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir. | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
-| `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--session` `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` `RACINE_RUNS` |
+| `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--depuis` `--session` `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` `RACINE_RUNS` |
 | `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--admin` `--app` `--auth` `--ca` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--env` `--exact` `--force` `--format` `--from-database` `--frontend` `--index` `--inject` `--input-type` `--issuer` `--json` `--jwt-keyset` `--keep` `--kind` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--password` `--preset` `--profile` `--repack` `--resource` `--role` `--scope` `--service` `--ttl` `--unique` `--use-system-ca` `--username` `--wait` `--workspace` `--workspaces` `--write` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `KEYCLOAK_PORT` `MCP_LOCAL` `MCP_MIXTE` `MCP_OAUTH` `MODULE` `MODULE_PKG` `NF_DEVKIT_REQUIRE_DOCKER` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
 | `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il les promesses du framework ? » | `--config` `--etage` `--keep` `--link` `--reporter` | `APP` |
 
@@ -155,7 +155,7 @@ node keycloak-login-probe.mjs --app <origine https> --username <u> --password <p
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 417 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 422 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
