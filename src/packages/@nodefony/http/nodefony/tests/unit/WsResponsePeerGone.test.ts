@@ -88,6 +88,27 @@ describe("WS Response — client parti pendant l'écriture (EPIPE et famille)", 
     expect(logged[0]!.severity).toBe("ERROR");
   });
 
+  it("client parti AVANT l'écriture (CLOSING/CLOSED) → RÉSOLU + DEBUG, rien d'écrit", async () => {
+    for (const readyState of [Ws.CLOSING, Ws.CLOSED]) {
+      const logged: ILogged[] = [];
+      let written = 0;
+      const connection = {
+        readyState,
+        bufferedAmount: 0,
+        send: () => (written += 1),
+      } as unknown as Ws;
+      const res = new WebsocketResponse(connection, makeContext(logged));
+      await expect(res.send("vue"), String(readyState)).resolves.toBe(res);
+      expect(written).toBe(0);
+      expect(logged.map((l) => l.severity)).toEqual(["DEBUG"]);
+    }
+  });
+
+  it("connexion pas encore acceptée → reject (verdict du handshake, inchangé)", async () => {
+    const res = new WebsocketResponse(null, makeContext([]));
+    await expect(res.send("x")).rejects.toThrow("WebSocket not open");
+  });
+
   it("send sans erreur → résolu, aucun log", async () => {
     const logged: ILogged[] = [];
     const res = new WebsocketResponse(

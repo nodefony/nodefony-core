@@ -106,8 +106,18 @@ class WebsocketResponse {
     if (payload == null) throw new Error("no data");
 
     return new Promise((resolve, reject) => {
-      if (!this.connection || this.connection.readyState !== Ws.OPEN) {
+      // Connexion absente = handshake pas encore accepté : le rejet est le
+      // verdict que `onError` traduit en statut HTTP. Il reste une erreur.
+      if (!this.connection || this.connection.readyState === Ws.CONNECTING) {
         return reject(new Error("WebSocket not open"));
+      }
+      // Client parti AVANT l'écriture (CLOSING/CLOSED) : même famille que
+      // l'EPIPE du callback plus bas — frame perdue, pas une erreur. Vécu :
+      // une action de handshake qui rend une vue asynchrone pour un client
+      // qui ouvre et referme aussitôt journalisait un ERROR par connexion.
+      if (this.connection.readyState !== Ws.OPEN) {
+        this.log("WS send: client déjà déconnecté — frame perdue", "DEBUG");
+        return resolve(this);
       }
       // Backpressure SORTANTE (G1) : si le client est lent à recevoir, on ne gonfle
       // pas la RAM d'envoi sans borne. Sous le seuil = chemin nominal (0 alloc).
