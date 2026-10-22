@@ -1,7 +1,7 @@
 import { Controller, route, controller, Body } from "@nodefony/framework";
 import type { Context } from "@nodefony/http";
-import { ADMIN_SCOPE_READ } from "nodefony";
-import type { IMcpTool } from "nodefony";
+import { ADMIN_SCOPE_READ, Nodefony, RequestContext } from "nodefony";
+import type { IMcpTool, IRequestUser } from "nodefony";
 import {
   defineMcpGate,
   mcpText,
@@ -65,6 +65,88 @@ const GATE = defineMcpGate({
   tools: GATE_TOOLS,
 });
 
+/** Vue minimale du service `authorization` (`@nodefony/security`). */
+interface IAuthorizerLike {
+  decide(token: unknown, attribute: string): Promise<boolean>;
+}
+
+function isAuthorizer(value: unknown): value is IAuthorizerLike {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "decide" in value &&
+    typeof value.decide === "function"
+  );
+}
+
+function describeUser(
+  user: IRequestUser | null,
+): { identifier: string; roles: readonly string[] } | null {
+  return user === null
+    ? null
+    : { identifier: user.identifier, roles: user.roles };
+}
+
+/**
+ * Ce qu'un SERVICE appelé par l'outil voit de l'utilisateur — il ne reçoit
+ * rien de l'outil, il lit la requête courante comme le ferait un service de
+ * l'application.
+ */
+async function serviceView(): Promise<{
+  user: { identifier: string; roles: readonly string[] } | null;
+  adminGranted: boolean | null;
+}> {
+  const user = describeUser(RequestContext.getAuthenticatedUser());
+  const authorization = Nodefony.getKernel()?.container?.get("authorization");
+  const token = RequestContext.get()?.token;
+  const adminGranted =
+    isAuthorizer(authorization) && token !== undefined
+      ? await authorization.decide(token, "ROLE_ADMIN")
+      : null;
+  return { user, adminGranted };
+}
+
+/**
+ * La porte PROTÉGÉE : celle d'une application qui exige un jeton. Elle sert
+ * l'outil qui doit voir l'utilisateur de l'appel (#648).
+ *
+ * `authorizationServers` n'est que PUBLIÉ (RFC 9728) — la vérification du jeton
+ * appartient au service `accessTokenVerifier`, dont l'allowlist d'émetteurs vit
+ * dans `security`. Même défaut que la porte de devkit (`nodefony/config/devkit.ts`).
+ * `resource` s'écrit, jamais ne se dérive du `Host`, et figure dans
+ * `security.jwt.audiences` (`nodefony/config/security.ts`) : sans elle, aucun
+ * jeton ne pourrait être demandé pour cette porte.
+ */
+const SECURE_GATE = defineMcpGate({
+  name: "test-gate-secure",
+  version: "0.0.0",
+  instructions: "Porte témoin PROTÉGÉE du module de test — qui suis-je ?",
+  authorization: {
+    authorizationServers: ["https://localhost:5152"],
+    resource: "http://localhost:5151/nodefony/test/mcp-gate/secure",
+    additionalResources: [
+      "https://localhost:5152/nodefony/test/mcp-gate/secure",
+    ],
+  },
+  tools: [
+    {
+      name: "gate_whoami",
+      description:
+        "Rend l'utilisateur vu par l'outil ET par un service qu'il appelle.",
+      inputSchema: { type: "object", properties: {} },
+      scopes: [ADMIN_SCOPE_READ],
+      handler: async (_args, caller) =>
+        mcpText(
+          JSON.stringify({
+            caller: { subject: caller.subject ?? null, scopes: caller.scopes },
+            handler: describeUser(RequestContext.getAuthenticatedUser()),
+            service: await serviceView(),
+          }),
+        ),
+    },
+  ],
+});
+
 /**
  * Porte MCP TÉMOIN — celle qu'une application écrit pour exposer SES outils.
  *
@@ -87,6 +169,15 @@ class McpGateController extends Controller {
   })
   mcp(@Body() body: unknown) {
     return GATE.serve(this, body);
+  }
+
+  /** La même porte, protégée par un jeton — `/nodefony/test/mcp-gate/secure`. */
+  @route("test-mcp-gate-secure", {
+    path: "/secure",
+    requirements: { methods: ["POST", "GET", "DELETE"] },
+  })
+  secure(@Body() body: unknown) {
+    return SECURE_GATE.serve(this, body);
   }
 }
 

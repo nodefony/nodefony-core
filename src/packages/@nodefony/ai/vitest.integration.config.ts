@@ -25,6 +25,10 @@ export default defineConfig({
             "la progression traverse le flux SSE d'une porte d'application",
           ],
         },
+        {
+          label: "porte MCP d'application protégée — identité de l'appelant",
+          proof: ["sous jeton, la porte établit l'appelant"],
+        },
       ]),
     ],
     include: ["tests/integration/**/*.test.ts"],

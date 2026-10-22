@@ -308,6 +308,10 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
             // `Host`.
             "http://localhost:5151/nodefony/mcp",
             "https://localhost:5152/nodefony/mcp",
+            // La porte MCP PROTÉGÉE du module `test` (#648) : une porte
+            // d'APPLICATION qui exige un jeton, distincte de celle de devkit.
+            "http://localhost:5151/nodefony/test/mcp-gate/secure",
+            "https://localhost:5152/nodefony/test/mcp-gate/secure",
             // L'API partenaire (zone `partner`) : sans elle,
             // `app:partner:call --issuer nodefony` se voit refuser son jeton
             // (`invalid_target`).
