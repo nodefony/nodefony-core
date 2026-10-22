@@ -1502,14 +1502,15 @@ class Kernel extends Service implements IKernel {
     service: ServiceConstructor,
     ...args: unknown[]
   ): Promise<Service | null> {
-    if (Injector.scopeOf(service) === "request") {
-      // Même refus que `Module.addService` : un service `request` n'a pas
-      // d'exemplaire au démarrage, et un exemplaire posé ici serait un
-      // singleton de fait.
+    const scope = Injector.scopeOf(service);
+    if (scope !== "singleton") {
+      // Même refus que `Module.addService` : un service `request` ou
+      // `transient` n'a pas d'exemplaire au démarrage, et un exemplaire posé
+      // ici serait un singleton de fait.
       throw new BootConfigurationError(
-        `Service « ${service.name} » (portée request) ajouté par ` +
+        `Service « ${service.name} » (portée ${scope}) ajouté par ` +
           `addKernelService() : il n'a pas d'exemplaire au démarrage, chaque ` +
-          `requête crée le sien à sa première résolution.`,
+          `résolution crée le sien.`,
       );
     }
     const inst: Service = Injector.instantiate(service, this, ...args);

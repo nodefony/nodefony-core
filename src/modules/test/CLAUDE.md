@@ -96,9 +96,9 @@ Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterRes
 
 ### RequestScopeController (`/nodefony/test/request-scope`) — portée `request` de l'injecteur
 
-Sondes `RequestProbe` / `RequestProbeConsumer` (portée `request`, **déclarées** par
-`@services([...])` sans être instanciées au démarrage) et `RequestProbeReader` (transient, qui
-RÉSOUT à nouveau le service) — `nodefony/controller/requestProbe.ts`, état module-level
+Sondes `RequestProbe` / `RequestProbeConsumer` (portée `request`) et `RequestProbeReader`
+(transient, qui RÉSOUT à nouveau le service) — toutes **déclarées** par `@services([...])`, aucune
+instanciée au démarrage — `nodefony/controller/requestProbe.ts`, état module-level
 `requestProbeState` et traceur `probeTracker` (`FinalizationRegistry` par époque, services ET
 scopes). Chaque requête sur ce contrôleur crée un `RequestProbe` : son constructeur l'injecte.
 

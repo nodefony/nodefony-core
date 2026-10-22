@@ -85,31 +85,37 @@ function services(
             await this.loadService(entry).catch((e: unknown) => {
               this.handleServiceBootError(e, entry);
             });
-          } else if (Injector.scopeOf(entry) === "request") {
-            // Portée `request` : la DÉCLARER suffit (`@injectable` l'a
-            // inscrite à l'import) — chaque requête créera son exemplaire à
-            // sa première résolution. Rien à instancier au démarrage, mais
-            // tout à VÉRIFIER : personne ne la construira avant une requête.
+          } else {
+            const scope = Injector.scopeOf(entry);
+            if (scope === "singleton") {
+              await this.addService(entry).catch((e: unknown) => {
+                this.handleServiceBootError(e, entry);
+              });
+              continue;
+            }
+            // Portée `request` ou `transient` : la DÉCLARER suffit
+            // (`@injectable` l'a inscrite à l'import) — chaque résolution
+            // créera son exemplaire. En construire un au démarrage le
+            // partagerait comme un singleton (et un transient qui résout un
+            // service request y lèverait, hors de toute requête). Rien à
+            // instancier, mais tout à VÉRIFIER : personne ne la construira
+            // avant sa première résolution.
             try {
               // Portée HÉRITÉE d'une classe parente sans inscription propre :
               // aucune résolution ne la trouverait jamais.
               if (registeredNameOf(entry) === null) {
                 throw new BootConfigurationError(
                   `Service « ${entry.name} » listé dans @services([...]) : sa ` +
-                    `portée request est héritée d'une classe parente, mais lui ` +
+                    `portée ${scope} est héritée d'une classe parente, mais lui ` +
                     `n'est pas inscrit — aucune résolution ne le trouverait. ` +
-                    `Le déclarer par @injectable({ scope: "request" }).`,
+                    `Le déclarer par @injectable({ scope: "${scope}" }).`,
                 );
               }
               Injector.assertNoCaptiveDependency(entry);
-              this.log(`SERVICE DECLARED (request) : ${entry.name}`, "DEBUG");
+              this.log(`SERVICE DECLARED (${scope}) : ${entry.name}`, "DEBUG");
             } catch (e) {
               this.handleServiceBootError(e, entry);
             }
-          } else {
-            await this.addService(entry).catch((e: unknown) => {
-              this.handleServiceBootError(e, entry);
-            });
           }
         }
       }

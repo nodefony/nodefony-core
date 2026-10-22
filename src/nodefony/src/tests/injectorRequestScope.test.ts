@@ -518,6 +518,47 @@ class DeclaredReachModule extends Module {
   }
 }
 
+let bootTransients = 0;
+class BootTransient extends Service {
+  constructor() {
+    super("rsBootTransient", root, false);
+    bootTransients++;
+  }
+}
+injectable({ name: "RsBootTransient", scope: "transient" })(BootTransient);
+
+@services([BootTransient])
+class TransientModule extends Module {
+  constructor(kernel: Kernel) {
+    super("@nodefony/rs-transient", kernel, MODULE_PATH, {});
+  }
+}
+
+// Débrancher : `scope === "singleton"` → `scope !== "request"` dans @services.
+describe("Portée transient — au démarrage", () => {
+  it("@services DÉCLARE un transient sans l'instancier (sinon : singleton de fait)", async () => {
+    const k = makeKernel();
+    await k.addModule(TransientModule);
+    await firePreBoot(k);
+    expect(bootTransients, "aucun exemplaire au démarrage").to.equal(0);
+    expect(k.get("rsBootTransient")).to.equal(null);
+    expect(k.getBootReport().modulesSkipped).to.have.length(0);
+  });
+
+  it("addService() et addKernelService() refusent un transient, en disant quoi faire", async () => {
+    const k = makeKernel();
+    const mod = await k.addModule(TransientModule);
+    let caught: unknown = null;
+    await mod.addService(BootTransient).catch((e: unknown) => (caught = e));
+    expect(BootConfigurationError.is(caught)).to.equal(true);
+    expect((caught as Error).message).to.match(/portée transient.*@services/su);
+    caught = null;
+    await k.addKernelService(BootTransient).catch((e: unknown) => (caught = e));
+    expect(BootConfigurationError.is(caught)).to.equal(true);
+    expect(bootTransients).to.equal(0);
+  });
+});
+
 describe("Portée request — au démarrage", () => {
   it("@services DÉCLARE un service request sans l'instancier", async () => {
     const k = makeKernel();

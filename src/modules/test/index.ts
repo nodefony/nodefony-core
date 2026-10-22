@@ -56,6 +56,7 @@ import LiveSyslogController from "./nodefony/controller/LiveSyslogController";
 import {
   RequestProbe,
   RequestProbeConsumer,
+  RequestProbeReader,
 } from "./nodefony/controller/requestProbe";
 import { RequestScopeController } from "./nodefony/controller/RequestScopeController";
 
@@ -128,9 +129,9 @@ function overlayProbe(context: unknown): void {
   }
 }
 
-// Services de portée `request` : DÉCLARÉS ici, jamais instanciés au démarrage —
-// chaque requête crée les siens à leur première résolution.
-@services([RequestProbe, RequestProbeConsumer])
+// Services de portée `request` (et le transient qui les relit) : DÉCLARÉS ici,
+// jamais instanciés au démarrage — chaque résolution crée son exemplaire.
+@services([RequestProbe, RequestProbeConsumer, RequestProbeReader])
 @controllers([
   DefaultController,
   HtmlController,

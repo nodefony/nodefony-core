@@ -458,15 +458,16 @@ class Module<TConfig = Record<string, unknown>>
     service: ServiceConstructor,
     ...args: unknown[]
   ): Promise<Service> {
-    if (Injector.scopeOf(service) === "request") {
-      // Un service `request` n'a pas d'exemplaire au démarrage : chaque requête
-      // crée le sien à sa première résolution. L'instancier ici en ferait un
+    const scope = Injector.scopeOf(service);
+    if (scope !== "singleton") {
+      // Un service `request` ou `transient` n'a pas d'exemplaire au démarrage :
+      // chaque résolution crée le sien. L'instancier ici en ferait un
       // singleton de fait — celui dont la portée protège justement.
       throw new BootConfigurationError(
-        `Service « ${service.name} » (portée request) ajouté par addService() : ` +
-          `il n'a pas d'exemplaire au démarrage, chaque requête crée le sien à ` +
-          `sa première résolution. Le lister dans @services([...]) le déclare ` +
-          `sans l'instancier ; l'injecter suffit ensuite.`,
+        `Service « ${service.name} » (portée ${scope}) ajouté par addService() : ` +
+          `il n'a pas d'exemplaire au démarrage, chaque résolution crée le ` +
+          `sien. Le lister dans @services([...]) le déclare sans ` +
+          `l'instancier ; l'injecter suffit ensuite.`,
       );
     }
     const inst = Injector.instantiate(service, this, ...args);
