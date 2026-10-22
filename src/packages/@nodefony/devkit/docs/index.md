@@ -192,7 +192,7 @@ Ce que les chiffres veulent dire :
 
 Ce qui encadre l'outil :
 
-- c'est un **outil long** : chaque relevé part en progression, et un client qui ferme le flux de la réponse (l'annulation selon la révision courante de MCP) l'arrête au relevé suivant — un client qui annule par notification sans fermer le flux ne l'arrête pas encore ;
+- c'est un **outil long** : chaque relevé part en progression, et un client qui l'annule l'arrête au relevé suivant, qu'il ferme le flux de la réponse (révision courante de MCP) ou envoie une notification d'annulation (révision précédente, celle du SDK officiel) ;
 - un **rechargement du serveur** pendant la fenêtre (un fichier modifié) ne fait
   pas perdre l'observation : l'outil rend un rapport partiel qui le dit, avant
   que le serveur ne ferme ses connexions ;
@@ -423,8 +423,8 @@ est absent de `tools/list` **et** inappelable en le nommant, et le refus dit
 ### Un outil LONG — progression et annulation
 
 Le troisième paramètre du handler sert l'outil qui dure : `run.signal` est
-abattu quand le client ferme le flux de la réponse — l'annulation selon la révision
-courante de MCP ; une annulation par notification n'est pas encore entendue —,
+abattu quand le client annule — qu'il ferme le flux de la réponse (révision courante
+de MCP) ou envoie `notifications/cancelled` (révision précédente) —,
 `run.progress()` lui donne signe de vie.
 Un outil court l'ignore ; un appel direct (un test) ne le fournit pas, d'où le
 `run?.` :

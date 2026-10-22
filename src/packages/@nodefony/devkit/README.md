@@ -116,7 +116,7 @@ Journal des requêtes en erreur (syslog de l'application, lu au relevé qui les 
 ```
 
 C'est un outil **long** : un instantané part en progression toutes les deux
-secondes, un client qui ferme le flux de la réponse (l'annulation selon la révision courante de MCP) l'arrête au relevé suivant — un client qui annule par notification sans fermer le flux ne l'arrête pas encore, et un
+secondes, un client qui l'annule l'arrête au relevé suivant — qu'il ferme le flux de la réponse (révision courante de MCP) ou envoie une notification d'annulation (révision précédente, celle du SDK officiel) —, et un
 rechargement du serveur pendant la fenêtre rend un rapport partiel qui le dit.
 Ce qu'il faut savoir pour s'en servir sans conclure à tort :
 
