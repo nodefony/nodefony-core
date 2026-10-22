@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-22 08:21** (UTC).
+> Empreinte prise le **2026-10-22 08:31** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,9 +21,9 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 91% | 168 | 17 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 91% | 169 | 17 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 5 | 35 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 2% | 1 | 44 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 6 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -32,16 +32,16 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#647 — fix(ai): honorer l'annulation MCP envoyée par notification**
+**#648 — feat(ai): faire agir tout outil MCP au nom de l'utilisateur qui l'appelle**
 
-Ordre 4.233 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · frise —
+Ordre 4.234 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise —
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 17 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 36 ouverts
+## Jalon 10.1.0 — 35 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -58,7 +58,6 @@ Ordre 4.233 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fri
 | 20 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
 | 21 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #88 | docs(mail): documenter la configuration et le premier envoi |
 | 46 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #349 | feat(cli): ajouter une brique à une application déjà générée |
-| 46.5 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #462 | feat(cli): ajouter mcp:stdio pour les agents qui lancent leur serveur |
 | 100 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 110 | P2 — décision | 3 | 2026-11-16 → 12-15 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 113 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #78 | test(core): remplacer les seuils absolus des tests de performance |
@@ -136,11 +135,11 @@ Ordre 4.233 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fri
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.233 | P1 — figé à la création | 0.5 | — | #647 | fix(ai): honorer l'annulation MCP envoyée par notification |
 | 4.234 | P1 — figé à la création | 2 | — | #648 | feat(ai): faire agir tout outil MCP au nom de l'utilisateur qui l'appelle |
 | 4.235 | P2 — décision | 1 | — | #649 | fix(studio): afficher la trace d'un appel WebSocket et garder les profils récents |
 | 4.236 | P1 — figé à la création | 0.5 | — | #645 | fix(http): ne plus journaliser la valeur des cookies posés |
 | 4.237 | P2 — décision | 0.5 | — | #646 | fix(http): profiler une réponse en flux que le client abandonne |
+| 4.238 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #462 | feat(ai): ajouter ai:stdio pour les agents qui lancent leur serveur MCP |
 | 5.01 | P2 — décision | 0.5 | — | #605 | feat(site): versionner le site de documentation par release |
 | 5.02 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 5.03 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |

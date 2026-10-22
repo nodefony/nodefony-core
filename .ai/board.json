@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T08:21:25.022Z",
+  "generatedAt": "2026-10-22T08:31:54.121Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,7 +46,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 168,
+      "closed": 169,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 17,
@@ -63,7 +63,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 36,
+      "open": 35,
       "title": "10.1.0"
     }
   ],
@@ -3948,8 +3948,8 @@
       "number": 647,
       "title": "fix(ai): honorer l'annulation MCP envoyée par notification",
       "url": "https://github.com/nodefony/nodefony-core/issues/647",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -4020,6 +4020,22 @@
       "ordre": 4.237,
       "debut": null,
       "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 462,
+      "title": "feat(ai): ajouter ai:stdio pour les agents qui lancent leur serveur MCP",
+      "url": "https://github.com/nodefony/nodefony-core/issues/462",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.238,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "beta-4"
       ]
@@ -7298,20 +7314,6 @@
       "ordre": 46.4,
       "debut": null,
       "cible": null,
-      "labels": []
-    },
-    {
-      "number": 462,
-      "title": "feat(cli): ajouter mcp:stdio pour les agents qui lancent leur serveur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/462",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.1.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 46.5,
-      "debut": "2026-11-16",
-      "cible": "2026-12-15",
       "labels": []
     },
     {
