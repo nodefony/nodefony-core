@@ -2460,6 +2460,43 @@ const SAMPLES = {
         },
         expect: false,
       },
+      {
+        // 🔴 LE cas du terrain (run 2026-09-12, 3/3 FAIL) : `create app` range la
+        // sécurité dans un FRAGMENT, et l'agent y écrit la zone — là où le
+        // gabarit porte l'exemple. Le manifeste, lui, ne contient aucun pattern.
+        label: "zone déclarée dans le fragment nodefony/config/security.ts",
+        matter: {
+          contentByFile: {
+            "nodefony.config.ts": `  use("@nodefony/security", security),`,
+            "nodefony/config/security.ts": `    areas: {\n      main: { pattern: "^/api", authenticators: ["session"] },\n      compte: {\n        pattern: "^/api/account",\n        authenticators: ["session"],\n      },\n    },`,
+          },
+        },
+        expect: true,
+      },
+      {
+        // Ce que la liste ne doit PAS rouvrir : la concaténation. Le `pattern`
+        // dans un fichier, les `authenticators` dans l'autre — aucune zone.
+        label: "pattern dans un fichier, authenticators dans l'autre",
+        matter: {
+          contentByFile: {
+            "nodefony.config.ts": `  const prefixe = { pattern: "^/api/account" };`,
+            "nodefony/config/security.ts": `      main: { authenticators: ["session"] },`,
+          },
+        },
+        expect: false,
+      },
+      {
+        // L'autre sens de la garde : les deux domiciles touchés, aucun ne
+        // porte la zone du compte — rouge, où qu'on ait regardé.
+        label: "zone absente du manifeste ET du fragment",
+        matter: {
+          contentByFile: {
+            "nodefony.config.ts": `  use("@nodefony/security", security),`,
+            "nodefony/config/security.ts": `    areas: {\n      main: { pattern: "^/api", authenticators: ["session"] },\n      secure: { pattern: "^/api/secure", authenticators: ["session"] },\n    },`,
+          },
+        },
+        expect: false,
+      },
     ],
   },
   "17 :: la ressource du décor n'a pas été retouchée": {
@@ -3353,14 +3390,17 @@ const key = (task, probe) => `${task.id} :: ${probe.name}`;
  * éprouve le faux positif que `file` existe pour refuser : du contenu présent
  * ailleurs (un manifeste), et rien dans le fichier de réponse.
  *
+ * Une sonde à PLUSIEURS cibles reçoit le `content` sous la PREMIÈRE ; les
+ * autres domiciles s'éprouvent par un `contentByFile` explicite.
+ *
  * @param {object} sample - les matières que le cas déclare.
- * @param {{file?: string}} [probe] - la sonde jugée, pour connaître sa cible.
+ * @param {{file?: string | string[]}} [probe] - la sonde jugée, pour connaître sa cible.
  * @returns {object} la matière complète.
  */
 const matter = (sample, probe) => {
   const m = { ...EMPTY, ...sample };
   if (probe?.file && m.contentByFile === null) {
-    m.contentByFile = { [probe.file]: m.content };
+    m.contentByFile = { [[probe.file].flat()[0]]: m.content };
   }
   return m;
 };

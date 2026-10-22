@@ -3179,17 +3179,23 @@ export const TASKS = [
         // gabarit l'invite à écrire. Mesuré sur deux passes du MÊME run, zone
         // identique : distance 1 251 → rouge, distance 145 → verte.
         //
-        // La fenêtre est remplacée par un ancrage sur le FICHIER : une zone de
-        // firewall vit dans le manifeste, et nulle part ailleurs. Deux
-        // approximations tombent d'un coup — la distance, et le fait que
-        // `content` concatène TOUS les fichiers touchés (l'`areas` pouvait
-        // donc venir d'un fichier et le `pattern` d'un autre). Fichier non
-        // touché ⇒ matière vide ⇒ rouge, ce qui est bien le verdict voulu.
+        // La fenêtre est remplacée par un ancrage sur les FICHIERS où une zone
+        // peut vivre, chacun lu seul (`file` en liste). Deux approximations
+        // tombent d'un coup — la distance, et le fait que `content` concatène
+        // TOUS les fichiers touchés (le `pattern` pouvait venir d'un fichier et
+        // les `authenticators` d'un autre). Aucun des deux touché ⇒ matière
+        // vide ⇒ rouge, ce qui est bien le verdict voulu.
+        //
+        // 🔴 DEUX domiciles, pas un : le manifeste, et le fragment
+        // `nodefony/config/security.ts` où `create app` range la configuration
+        // de sécurité — c'est là que le gabarit porte l'exemple de zone. Ne
+        // regarder que le manifeste a recalé 3/3 un agent qui écrivait au bon
+        // endroit, et ce faux FAIL avait été gravé dans la référence.
         kind: "code",
         name: "zone de firewall déclarée sur le préfixe du compte",
         pattern:
           /pattern\s*:\s*["'][^"']*\/api\/account[^"']*["'][\s\S]{0,300}?authenticators\s*:/u,
-        file: "nodefony.config.ts",
+        file: ["nodefony.config.ts", "nodefony/config/security.ts"],
       },
       {
         // Ce que l'attaque ne peut PAS voir : un agent qui décore route par
@@ -5279,9 +5285,13 @@ export function evaluateProbe(probe, matter) {
   // un fichier nommé, c'est ce fichier-là qui fait foi — et lui seul.
   // Fichier absent → chaîne vide, donc une sonde positive tombe : ne pas écrire
   // la réponse n'est pas une façon de la donner.
-  const ciblé =
+  // Une LISTE de fichiers quand le même geste a plusieurs domiciles légitimes
+  // (une zone de firewall : manifeste OU fragment `nodefony/config/`). Chacun
+  // est lu SEUL — le motif doit mordre dans UN fichier, jamais à cheval sur
+  // deux, sinon la concaténation reviendrait par la bande.
+  const ciblés =
     probe.kind !== "transcript" && probe.file
-      ? (contentByFile?.[probe.file] ?? "")
+      ? [probe.file].flat().map((f) => contentByFile?.[f] ?? "")
       : null;
   if (probe.kind === "transcript") {
     // La MATIÈRE dépend de ce qu'on juge : un interdit se lit dans la parole de
@@ -5318,8 +5328,8 @@ export function evaluateProbe(probe, matter) {
   // sans ajouter une ligne suspecte. C'est le symétrique exact de la famille
   // « ne pas affaiblir », construite pour la sécurité et qui manquait ici.
   const haystack =
-    ciblé !== null
-      ? ciblé
+    ciblés !== null
+      ? ""
       : probe.where === "files"
         ? files.join("\n")
         : probe.where === "added"
@@ -5351,7 +5361,10 @@ export function evaluateProbe(probe, matter) {
   // ce serait une échappatoire, pas une garde.
   const waived =
     probe.invert && probe.unless ? probe.unless.test(matiereWaiver) : false;
-  const hit = probe.pattern.test(haystack);
+  const hit =
+    ciblés !== null
+      ? ciblés.some((c) => probe.pattern.test(c))
+      : probe.pattern.test(haystack);
   return {
     pass: waived ? true : probe.invert ? !hit : hit,
     evidence: waived
