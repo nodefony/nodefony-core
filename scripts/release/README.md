@@ -18,7 +18,7 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 
 **Refuse de publier quand l'accueil du dépôt n'annonce pas ce que npm sert.**
 
-- **Usage** : `node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>]`
+- **Usage** : `node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>] [--en-cours <version>]`
 - **Usage** : `node scripts/release/accueil-gate.mjs --basculer`
 - **Variable** `NF_ACCUEIL_PAQUET`
 - **Variable** `NF_ACCUEIL_REGISTRY`

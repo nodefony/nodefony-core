@@ -1749,7 +1749,7 @@
       "test": false,
       "purpose": "**Refuse de publier quand l'accueil du dépôt n'annonce pas ce que npm sert.**",
       "usage": [
-        "node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>]",
+        "node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>] [--en-cours <version>]",
         "node scripts/release/accueil-gate.mjs --basculer"
       ],
       "options": [],
