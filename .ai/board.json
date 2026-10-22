@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T13:29:47.502Z",
+  "generatedAt": "2026-10-22T13:37:41.788Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -9215,7 +9215,7 @@
       "title": "feat(realtime): ajouter WebTransport comme second transport temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/567",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 2,
