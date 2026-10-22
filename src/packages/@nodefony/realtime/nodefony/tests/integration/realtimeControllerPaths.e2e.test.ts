@@ -162,11 +162,15 @@ const resetBarrier = (): void => {
 };
 resetBarrier();
 
+/** Corrélation lue par le routeur au moment de la RÉSOLUTION (avant l'action). */
+let resolvedUnder: string | undefined;
+
 function makeRouter() {
   return {
     // Le pont n'accepte que le Router du framework : ce faux s'en réclame.
     [FRAMEWORK_ROUTER]: true,
     resolve(_ctx: unknown, pathname: string) {
+      resolvedUnder = RequestContext.getRequestId();
       if (routerMode === "throw405") {
         throw Object.assign(new Error("method not allowed"), { code: 405 });
       }
@@ -934,6 +938,35 @@ describe("RealtimeController E2E — pont api.request : identité après l'appel
       // La corrélation survit : les journaux tardifs restent rattachés.
       requestId: "rid-test",
     });
+    client.disconnect();
+  });
+});
+
+describe("RealtimeController E2E — pont api.request : corrélation des journaux par frame (#649)", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    routerMode = "detached";
+    lastFinish = null;
+  });
+
+  it("profiler actif : l'action voit l'identifiant de SA frame, celui que la page de trace cherche", async () => {
+    const { client } = await connect({ profiling: true });
+    const first = await client.request<"api.request", IAlsReading>(
+      "api.request",
+      { path: "/detached" },
+    );
+    // Les journaux de l'action prennent l'ALS : ils portent `<connexion>.<n>`,
+    // l'identifiant du profil — pas celui de la connexion, partagé par N frames.
+    expect(first.requestId).to.equal("rid-test.1");
+    // Le travail détaché de l'action reste rattaché à la même frame.
+    expect((await detachedRead).requestId).to.equal("rid-test.1");
+    const second = await client.request<"api.request", IAlsReading>(
+      "api.request",
+      { path: "/detached" },
+    );
+    expect(second.requestId).to.equal("rid-test.2");
+    // La correspondance de route journalise déjà sous la frame, pas la connexion.
+    expect(resolvedUnder).to.equal("rid-test.2");
     client.disconnect();
   });
 });

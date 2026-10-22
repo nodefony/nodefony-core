@@ -1215,85 +1215,22 @@ export abstract class RealtimeController<
     // controller et les adapters ORM) et se collecte au retour. `null` en prod
     // (ni profiler ni timing) → zéro allocation sur le hot path realtime.
     const frame = ctx.beginFrame(method, path);
+    // Le magasin de CETTE invocation, relâché à la sortie quelle qu'elle soit.
+    let store: RequestContextPayload | null = null;
     try {
-      frame?.phaseStart("resolve");
-      let resolver: ReturnType<typeof router.resolve>;
-      try {
-        // GET → resolve historique (le transport WEBSOCKET matche `context.method`).
-        // Mutation → `methodOverride` (méthode logique) exigé en plus du transport.
-        resolver = router.resolve(
-          ctx,
-          pathname,
-          method === "GET" ? undefined : method,
-        );
-      } finally {
-        frame?.phaseEnd("resolve");
-      }
-      if (!resolver.resolve) {
-        throw new RpcError(
-          `api.request: not found ${pathname}`,
-          JsonRpcServerError.DEFAULT,
-          {
-            status: 404,
-          },
-        );
-      }
-      // Route / controller / action du profil — lus par le Profiler au retour.
-      if (frame) frame.resolver = resolver;
-      if (qIdx !== -1 && qIdx < path.length - 1) {
-        const sp = new URLSearchParams(path.slice(qIdx + 1));
-        const query: Record<string, string | string[]> = {};
-        for (const [k, v] of sp) {
-          const prev = query[k];
-          if (prev === undefined) query[k] = v;
-          else if (Array.isArray(prev)) prev.push(v);
-          else query[k] = [prev, v];
-        }
-        resolver.queryOverride = query;
-      }
-      // J8 — établir le contexte de requête (ALS) AVANT d'exécuter l'action. Le
-      // pont api.request est l'équivalent WS du pipeline HTTP : le peer reçoit ses
-      // frames via le transport (HORS de la bulle ALS du handshake), donc SANS ce
-      // `run` la garde @IsGranted (Resolver) lirait `token = undefined` → 403, même
-      // pour un client légitime. On pose le token DU PEER (résolu au handshake,
-      // figé O(1) via WeakMap, lié à CETTE connexion → zéro confusion d'identité)
-      // + l'IUser (seam neutre `getAttribute("user")`) pour @CurrentUser. Coût : 1
-      // `run` (~50-100 ns) + 1 objet littéral, UNIQUEMENT sur api.request (jamais
-      // sur publish/subscribe/notify → le hot-path temps réel reste intact).
+      // J8 — le contexte de requête (ALS) de l'invocation. Le peer reçoit ses
+      // frames via le transport (HORS de la bulle ALS du handshake), donc SANS
+      // ce `run` la garde @IsGranted (Resolver) lirait `token = undefined` →
+      // 403, même pour un client légitime. On pose le token DU PEER (résolu au
+      // handshake, figé O(1) via WeakMap, lié à CETTE connexion → zéro
+      // confusion d'identité) + l'IUser (seam neutre `getAttribute("user")`)
+      // pour @CurrentUser. La bulle s'ouvre dès la frame, AVANT la résolution :
+      // la correspondance de route et la re-validation d'identité journalisent
+      // ainsi sous l'identifiant de la frame, celui que la page de trace
+      // cherche (#649). Coût : 1 `run` (~50-100 ns) + 1 objet littéral,
+      // UNIQUEMENT sur api.request (jamais sur publish/subscribe/notify → le
+      // hot-path temps réel reste intact).
       const token = getRealtimeHub().getTokenForPeer(peer);
-      // 🔒 ZERO TRUST — re-valider l'identité figée au handshake AVANT l'action
-      // data plane. Une WebSocket est un SINGLETON partagé qui SURVIT à sa session :
-      // après une déconnexion admin puis la connexion d'un autre compte sur le même
-      // navigateur, le token resterait « admin » → un GET data plane rejouerait avec
-      // l'identité périmée (élévation de privilège). `isValid()` re-lit la source
-      // (session BFF) ; périmée/changée → 401. Le client (ApiClient) bascule alors
-      // en fetch HTTP (cookie courant) = réponse de référence. Optionnel (anonyme/
-      // JWT n'en ont pas) ; payé SEULEMENT ici, jamais sur publish/subscribe.
-      // Phase `identity` : c'est une LECTURE DE STORE (session BFF) — la sonde la
-      // montre pour ce qu'elle est, un vrai coût de la porte socket.
-      if (token.isValid) {
-        let valid: boolean;
-        frame?.phaseStart("identity");
-        try {
-          valid = await token.isValid();
-          // Le compte lui-même, relu seulement ici : une action data plane
-          // vaut une requête HTTP, qui relit le compte à chaque appel.
-          if (valid && token.confirmAccount) {
-            valid = await token.confirmAccount();
-          }
-        } catch {
-          valid = false; // fail-closed : une re-validation qui throw = refus
-        } finally {
-          frame?.phaseEnd("identity");
-        }
-        if (!valid) {
-          throw new RpcError(
-            "api.request: identité de session expirée ou invalide",
-            JsonRpcServerError.DEFAULT,
-            { status: 401 },
-          );
-        }
-      }
       // Capture de rendu per-invocation : une action user peut répondre par un
       // RENDU (`renderJson`/`renderView`) au lieu d'une valeur nue. Sans le sink,
       // `context.send()` écrirait une frame NUE hors protocole ET le retour
@@ -1302,19 +1239,24 @@ export abstract class RealtimeController<
       // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
       // concurrentes de la même socket.
       const renderSink: { body?: string | Buffer; status?: number } = {};
-      const store: RequestContextPayload = {
-        requestId: ctx.requestId,
+      const frameStore: RequestContextPayload = {
+        // L'identifiant du PROFIL de cette frame (`<connexion>.<n>`) quand il
+        // existe : c'est lui que les journaux de l'invocation portent, donc lui
+        // que la page de trace retrouve. Sans profil (prod), celui de la
+        // connexion — aucune chaîne de plus sur le chemin temps réel.
+        requestId: frame?.requestId ?? ctx.requestId,
         scheme: ctx.scheme,
         token,
         user: token.getAttribute("user"),
         // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
         context: ctx,
-        // Le résolveur de CET appel : un contrôleur singleton y lit la route
-        // et la query du chemin INVOQUÉ. `ctx.resolver`, lui, reste celui de
-        // la connexion — partagé par tous ses messages. Posé dans cette charge
-        // (une bulle par appel), jamais par `RequestContext.set` : deux
-        // appels concurrents de la même socket ne se voient pas.
-        resolver,
+        // Le résolveur de CET appel, posé dès qu'il est connu : un contrôleur
+        // singleton y lit la route et la query du chemin INVOQUÉ.
+        // `ctx.resolver`, lui, reste celui de la connexion — partagé par tous
+        // ses messages. Posé dans cette charge (une bulle par appel), jamais
+        // par `RequestContext.set` : deux appels concurrents de la même socket
+        // ne se voient pas.
+        resolver: undefined,
         // Le scope de la CONNEXION, pour `RequestContext.getScope()`. Un
         // `instanceof` et non un cast : sans conteneur de kernel,
         // `ctx.container` est un Container RACINE, que getScope() ne doit
@@ -1333,64 +1275,129 @@ export abstract class RealtimeController<
         invocation: frame ?? undefined,
         queries: frame?.profilerQueries ?? undefined,
       };
-      let result: unknown;
-      try {
-        result = await RequestContext.run(store, async () => {
-          frame?.phaseStart("action");
-          try {
-            // `reload = true` : le container de la connexion porte CE hub sous
-            // "controller" — sans reload, l'action serait cherchée sur la mauvaise
-            // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
-            // `executeActionGuarded` (PAS `executeAction` nu) : il porte la porte
-            // d'idempotence `@Idempotent` (mutations — la méthode logique voyage
-            // dans `resolver.methodOverride`) SANS rendre sur le transport ;
-            // l'appel nu la court-circuitait → un rejeu `socket.mutate` créait un
-            // DOUBLON, et `callController` enverrait la réponse une 2ᵉ fois.
-            const { result: actionResult } =
-              await resolver.executeActionGuarded(undefined, true);
-            // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
-            const raw = await Promise.resolve(actionResult);
-            // L'action a RENDU (sink alimenté) → le rendu EST la réponse : on le
-            // sert en `result` (re-parsé si JSON — `renderJson` a déjà stringifié,
-            // le peer re-stringifie l'enveloppe). Le retour de `renderJson` (la
-            // `WebsocketResponse`) est ignoré : non sérialisable par construction.
-            if (renderSink.body !== undefined) {
-              const text = Buffer.isBuffer(renderSink.body)
-                ? renderSink.body.toString("utf8")
-                : renderSink.body;
-              let body: unknown;
-              try {
-                body = JSON.parse(text) as unknown;
-              } catch {
-                body = text; // rendu non-JSON (HTML/texte) → servi brut
-              }
-              // Un rendu en échec (`renderJson(corps, 404)`) est un REFUS, pas un
-              // succès : exposé comme une erreur à statut, symétrie d'un `fetch`
-              // dont `ok` est faux. Même forme que le data plane d'admin
-              // (`AdminApiController.dispatch`) : `data.status` + `data.body`.
-              const status = renderSink.status;
-              if (status !== undefined && status >= 400) {
-                const error = isRecord(body) ? body.error : undefined;
-                throw new RpcError(
-                  typeof error === "string"
-                    ? error
-                    : `api.request: HTTP ${status}`,
-                  JsonRpcServerError.DEFAULT,
-                  { status, body },
-                );
-              }
-              return body;
-            }
-            return raw;
-          } finally {
-            frame?.phaseEnd("action");
+      store = frameStore;
+      const result = await RequestContext.run(frameStore, async () => {
+        frame?.phaseStart("resolve");
+        let resolver: ReturnType<typeof router.resolve>;
+        try {
+          // GET → resolve historique (le transport WEBSOCKET matche `context.method`).
+          // Mutation → `methodOverride` (méthode logique) exigé en plus du transport.
+          resolver = router.resolve(
+            ctx,
+            pathname,
+            method === "GET" ? undefined : method,
+          );
+        } finally {
+          frame?.phaseEnd("resolve");
+        }
+        if (!resolver.resolve) {
+          throw new RpcError(
+            `api.request: not found ${pathname}`,
+            JsonRpcServerError.DEFAULT,
+            {
+              status: 404,
+            },
+          );
+        }
+        // Route / controller / action du profil — lus par le Profiler au retour.
+        if (frame) frame.resolver = resolver;
+        frameStore.resolver = resolver;
+        if (qIdx !== -1 && qIdx < path.length - 1) {
+          const sp = new URLSearchParams(path.slice(qIdx + 1));
+          const query: Record<string, string | string[]> = {};
+          for (const [k, v] of sp) {
+            const prev = query[k];
+            if (prev === undefined) query[k] = v;
+            else if (Array.isArray(prev)) prev.push(v);
+            else query[k] = [prev, v];
           }
-        });
-      } finally {
-        // L'appel est fini : son magasin porte encore le jeton, l'identité et
-        // le corps — un travail détaché de l'action les garderait (#571).
-        RequestContext.release(store);
-      }
+          resolver.queryOverride = query;
+        }
+        // 🔒 ZERO TRUST — re-valider l'identité figée au handshake AVANT l'action
+        // data plane. Une WebSocket est un SINGLETON partagé qui SURVIT à sa session :
+        // après une déconnexion admin puis la connexion d'un autre compte sur le même
+        // navigateur, le token resterait « admin » → un GET data plane rejouerait avec
+        // l'identité périmée (élévation de privilège). `isValid()` re-lit la source
+        // (session BFF) ; périmée/changée → 401. Le client (ApiClient) bascule alors
+        // en fetch HTTP (cookie courant) = réponse de référence. Optionnel (anonyme/
+        // JWT n'en ont pas) ; payé SEULEMENT ici, jamais sur publish/subscribe.
+        // Phase `identity` : c'est une LECTURE DE STORE (session BFF) — la sonde la
+        // montre pour ce qu'elle est, un vrai coût de la porte socket.
+        if (token.isValid) {
+          let valid: boolean;
+          frame?.phaseStart("identity");
+          try {
+            valid = await token.isValid();
+            // Le compte lui-même, relu seulement ici : une action data plane
+            // vaut une requête HTTP, qui relit le compte à chaque appel.
+            if (valid && token.confirmAccount) {
+              valid = await token.confirmAccount();
+            }
+          } catch {
+            valid = false; // fail-closed : une re-validation qui throw = refus
+          } finally {
+            frame?.phaseEnd("identity");
+          }
+          if (!valid) {
+            throw new RpcError(
+              "api.request: identité de session expirée ou invalide",
+              JsonRpcServerError.DEFAULT,
+              { status: 401 },
+            );
+          }
+        }
+        frame?.phaseStart("action");
+        try {
+          // `reload = true` : le container de la connexion porte CE hub sous
+          // "controller" — sans reload, l'action serait cherchée sur la mauvaise
+          // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
+          // `executeActionGuarded` (PAS `executeAction` nu) : il porte la porte
+          // d'idempotence `@Idempotent` (mutations — la méthode logique voyage
+          // dans `resolver.methodOverride`) SANS rendre sur le transport ;
+          // l'appel nu la court-circuitait → un rejeu `socket.mutate` créait un
+          // DOUBLON, et `callController` enverrait la réponse une 2ᵉ fois.
+          const { result: actionResult } = await resolver.executeActionGuarded(
+            undefined,
+            true,
+          );
+          // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
+          const raw = await Promise.resolve(actionResult);
+          // L'action a RENDU (sink alimenté) → le rendu EST la réponse : on le
+          // sert en `result` (re-parsé si JSON — `renderJson` a déjà stringifié,
+          // le peer re-stringifie l'enveloppe). Le retour de `renderJson` (la
+          // `WebsocketResponse`) est ignoré : non sérialisable par construction.
+          if (renderSink.body !== undefined) {
+            const text = Buffer.isBuffer(renderSink.body)
+              ? renderSink.body.toString("utf8")
+              : renderSink.body;
+            let body: unknown;
+            try {
+              body = JSON.parse(text) as unknown;
+            } catch {
+              body = text; // rendu non-JSON (HTML/texte) → servi brut
+            }
+            // Un rendu en échec (`renderJson(corps, 404)`) est un REFUS, pas un
+            // succès : exposé comme une erreur à statut, symétrie d'un `fetch`
+            // dont `ok` est faux. Même forme que le data plane d'admin
+            // (`AdminApiController.dispatch`) : `data.status` + `data.body`.
+            const status = renderSink.status;
+            if (status !== undefined && status >= 400) {
+              const error = isRecord(body) ? body.error : undefined;
+              throw new RpcError(
+                typeof error === "string"
+                  ? error
+                  : `api.request: HTTP ${status}`,
+                JsonRpcServerError.DEFAULT,
+                { status, body },
+              );
+            }
+            return body;
+          }
+          return raw;
+        } finally {
+          frame?.phaseEnd("action");
+        }
+      });
       frame?.finish(200);
       // Le client repart avec l'identifiant du profil de SA frame (dev) — le
       // `result` reste la valeur nue (snapshot ≡ GET REST). Hors profiling :
@@ -1408,6 +1415,9 @@ export abstract class RealtimeController<
       frame?.finish(status ?? 500, e);
       throw toFrameRpcError(e, status, frame?.requestId);
     } finally {
+      // L'appel est fini : son magasin porte encore le jeton, l'identité et
+      // le corps — un travail détaché de l'action les garderait (#571).
+      if (store !== null) RequestContext.release(store);
       ctx.collectFrame(frame);
     }
   }
