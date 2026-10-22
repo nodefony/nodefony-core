@@ -157,8 +157,9 @@ function readDuration(raw: unknown): { sec: number; note: string | null } {
  * charge du process.
  *
  * C'est un outil LONG : un relevé toutes les deux secondes, chacun envoyé à
- * l'agent en progression ; un client qui ferme le flux de la réponse l'arrête au
- * relevé suivant (une annulation par notification n'est pas encore entendue). Rien n'est armé en dehors d'un appel : un minuteur par relevé,
+ * l'agent en progression ; un client qui l'annule l'arrête au relevé suivant,
+ * qu'il ferme le flux de la réponse ou envoie `notifications/cancelled`. Rien
+ * n'est armé en dehors d'un appel : un minuteur par relevé,
  * libéré par l'annulation elle-même, et la sonde du process libérée en sortie.
  *
  * @param deps - le profileur et, pour les tests, la cadence et la sonde.

@@ -86,6 +86,11 @@ export interface IMcpServerContext {
    */
   transport?: IMcpTransport;
   /**
+   * Les appels en cours de CET appelant, que `notifications/cancelled` abat —
+   * absent, seule la fermeture du flux annule un appel.
+   */
+  cancellation?: IMcpCancellation;
+  /**
    * Révisions du protocole que CETTE porte accepte, la préférée en tête.
    * Absent = toutes celles que le moteur sait servir ({@link MCP_SUPPORTED_VERSIONS}).
    */
@@ -136,6 +141,37 @@ export interface IMcpTransport {
   signal?: AbortSignal;
   /** Émet une notification liée à la requête, AVANT la réponse finale. */
   notify?: (notification: IJsonRpcNotification) => void;
+}
+
+/**
+ * Les appels en cours d'UN appelant, annulables par `notifications/cancelled`.
+ *
+ * Deux voies d'annulation coexistent. La révision `2026-07-28` fait de la
+ * fermeture du flux LA seule annulation en Streamable HTTP ; la révision
+ * `2025-11-25`, celle du SDK officiel, envoie à la place une notification dans
+ * un AUTRE `POST`, sans rien fermer. Cette table sert la seconde voie.
+ *
+ * La porte la fournit déjà LIÉE à l'appelant qu'elle a reconnu : l'identifiant
+ * JSON-RPC est choisi par le CLIENT, deux appelants peuvent donc envoyer le
+ * même, et une annulation ne doit jamais atteindre l'appel d'un autre.
+ */
+export interface IMcpCancellation {
+  /**
+   * Inscrit l'appel `id` le temps de son exécution.
+   *
+   * @param id - identifiant JSON-RPC de l'appel
+   * @returns le signal que la notification abat, et `close()`, à appeler
+   *   quand l'appel est fini (il le désinscrit)
+   */
+  open(id: JsonRpcId): { readonly signal: AbortSignal; close(): void };
+  /**
+   * Abat l'appel `id` s'il est en cours ; inconnu ou déjà fini, ne fait rien
+   * (la spec permet d'ignorer une telle annulation).
+   *
+   * @param id - identifiant JSON-RPC de l'appel visé
+   * @param reason - motif donné par le client, à journaliser seulement
+   */
+  cancel(id: JsonRpcId, reason: string | undefined): void;
 }
 
 /** Signal des appels sans transport qui annule : jamais abattu, partagé. */
@@ -363,6 +399,31 @@ function invalidRequest(id: JsonRpcId | null, message: string): IMcpHttpReply {
 }
 
 /**
+ * Transmet une `notifications/cancelled` à la table des appels en cours.
+ *
+ * Une annulation mal formée s'IGNORE, comme celle qui ne trouve rien : la spec
+ * permet d'ignorer une annulation, et une notification n'a pas de réponse où
+ * dire la faute. Le motif n'est jamais renvoyé, seulement journalisé.
+ *
+ * @param params - paramètres de la notification
+ * @param context - porte qui tient la table, liée à l'appelant
+ */
+function cancelRequest(
+  params: Record<string, unknown>,
+  context: IMcpServerContext,
+): void {
+  const requestId = params.requestId;
+  if (
+    typeof requestId !== "string" &&
+    !(typeof requestId === "number" && Number.isInteger(requestId))
+  ) {
+    return;
+  }
+  const reason = typeof params.reason === "string" ? params.reason : undefined;
+  context.cancellation?.cancel(requestId, reason);
+}
+
+/**
  * Traite UN message JSON-RPC.
  *
  * @param message - corps du `POST`, déjà parsé
@@ -436,6 +497,7 @@ export async function handleMcpMessage(
   // sans corps quand on l'accepte — répondre un objet JSON ici ferait échouer
   // un client conforme, qui n'attend rien à lire.
   if (kind === "notification") {
+    if (method === "notifications/cancelled") cancelRequest(params, context);
     return { status: 202, body: null };
   }
 
@@ -544,10 +606,19 @@ export async function handleMcpMessage(
         readProgressToken(params),
         context.transport?.notify,
       );
+      // Deux voies d'annulation, un seul signal pour l'outil : la fermeture du
+      // flux (2026-07-28) OU la notification (2025-11-25, cf `IMcpCancellation`).
+      const call = context.cancellation?.open(id);
+      const closed = context.transport?.signal;
+      const signal = call
+        ? closed
+          ? AbortSignal.any([closed, call.signal])
+          : call.signal
+        : (closed ?? NEVER_ABORTED);
       let result;
       try {
         result = await callMcpTool(name, args, context.tools, context.caller, {
-          signal: context.transport?.signal ?? NEVER_ABORTED,
+          signal,
           progress: (value, total, text) =>
             reporter.progress(value, total, text),
         });
@@ -566,6 +637,9 @@ export async function handleMcpMessage(
         };
       } finally {
         reporter.end();
+        // Aucune entrée ne survit à son appel : une annulation tardive ne
+        // trouve plus rien, et la table reste vide hors appel.
+        call?.close();
       }
 
       if (result === null) {

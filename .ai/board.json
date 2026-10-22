@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T08:02:38.508Z",
+  "generatedAt": "2026-10-22T08:07:21.566Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 167,
+      "closed": 168,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 18,
+      "open": 17,
       "title": "10.0.0-beta"
     },
     {
@@ -3900,8 +3900,8 @@
       "number": 642,
       "title": "feat(devkit): donner à l'agent de code les mesures du profileur",
       "url": "https://github.com/nodefony/nodefony-core/issues/642",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -3981,7 +3981,7 @@
       "title": "fix(studio): afficher la trace d'un appel WebSocket et garder les profils récents",
       "url": "https://github.com/nodefony/nodefony-core/issues/649",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -3997,7 +3997,7 @@
       "title": "fix(http): ne plus journaliser la valeur des cookies posés",
       "url": "https://github.com/nodefony/nodefony-core/issues/645",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -4013,7 +4013,7 @@
       "title": "fix(http): profiler une réponse en flux que le client abandonne",
       "url": "https://github.com/nodefony/nodefony-core/issues/646",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,

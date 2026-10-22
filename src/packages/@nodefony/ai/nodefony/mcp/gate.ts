@@ -25,7 +25,7 @@ import {
   type McpProtocolVersion,
 } from "./protocol";
 import { handleMcpMessage } from "./server";
-import type { IMcpCacheHints, IServerInfo } from "./server";
+import type { IMcpCacheHints, IMcpCancellation, IServerInfo } from "./server";
 import {
   createMcpResponseStream,
   MCP_STREAM_GRACE_MS,
@@ -444,6 +444,54 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
     return fixedModules ?? runtime?.modules;
   }
 
+  // Appels en cours, annulables par `notifications/cancelled` — clé = appelant
+  // + identifiant JSON-RPC. Allouée au premier appel d'outil, jamais avant ;
+  // chaque entrée meurt avec son appel (`close`).
+  let inflight: Map<string, AbortController> | null = null;
+
+  /**
+   * La table des appels en cours, vue d'UN appelant : il n'atteint que les
+   * appels qu'il a lui-même émis.
+   */
+  function cancellationFor(
+    callerKey: string,
+    log: IMcpGateRuntime["log"],
+  ): IMcpCancellation {
+    // `1` et `"1"` sont deux identifiants JSON-RPC distincts.
+    const keyOf = (id: string | number) =>
+      `${callerKey}\u0000${typeof id === "number" ? "n" : "s"}${id}`;
+    return {
+      open(id) {
+        const key = keyOf(id);
+        const controller = new AbortController();
+        inflight ??= new Map();
+        // Un identifiant déjà en cours pour CET appelant enfreint l'unicité que
+        // le protocole impose au client : le premier garde sa place, le second
+        // reste annulable par la fermeture de son flux.
+        const owned = !inflight.has(key);
+        if (owned) inflight.set(key, controller);
+        return {
+          signal: controller.signal,
+          close() {
+            if (owned && inflight?.get(key) === controller)
+              inflight.delete(key);
+          },
+        };
+      },
+      cancel(id, reason) {
+        const controller = inflight?.get(keyOf(id));
+        if (controller === undefined) return;
+        log?.(
+          `MCP — appel ${JSON.stringify(id)} annulé par le client${
+            reason ? ` : ${reason}` : ""
+          }`,
+          "DEBUG",
+        );
+        controller.abort();
+      },
+    };
+  }
+
   let defaultServerInfo: IServerInfo | null = null;
   /** Identité annoncée — résolue au premier usage, le kernel existant alors. */
   function serverInfo(): IServerInfo {
@@ -511,6 +559,10 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
         settings.unprotectedRoles,
       ),
     };
+    // À qui appartiennent les appels que cette requête peut annuler : le titulaire
+    // du jeton (émetteur + sujet) s'il en présente un valide, sinon l'adresse
+    // distante. Jamais l'identifiant JSON-RPC seul, que le client choisit.
+    let callerKey = `addr\u0000${request.remoteAddress ?? ""}`;
 
     if (gateProtected) {
       const authVerdict = await authorizeProtectedResource(
@@ -585,6 +637,9 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
               scopes: authVerdict.principal.scopes,
             }),
           };
+          // L'émetteur compte : deux serveurs d'autorisation peuvent délivrer
+          // le même sujet à deux comptes distincts.
+          callerKey = `sub\u0000${authVerdict.principal.issuer}\u0000${authVerdict.principal.subject}`;
           break;
         case "anonymous":
           // 🔴 Un jeton PRÉSENTÉ et rejeté est servi en anonyme — jamais en
@@ -652,6 +707,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
         caller,
         withheldCount,
         transport: stream.transport,
+        cancellation: cancellationFor(callerKey, log),
         serverInfo: runtime?.serverInfo ?? serverInfo(),
         versions,
         cache,

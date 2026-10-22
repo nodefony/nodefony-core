@@ -394,6 +394,181 @@ describe("gate.respond — flux", () => {
   });
 });
 
+/**
+ * Un outil qui attend d'être annulé (au plus 1 s). `started` rend le signal
+ * que l'outil a reçu, une fois l'appel inscrit.
+ */
+function waitingTool() {
+  let resolveStarted: (signal: AbortSignal) => void = () => undefined;
+  const started = new Promise<AbortSignal>((resolve) => {
+    resolveStarted = resolve;
+  });
+  const waiting = tool("shop_wait", {
+    handler: async (_args, _caller, run) => {
+      const signal = run?.signal ?? new AbortController().signal;
+      resolveStarted(signal);
+      const aborted = await new Promise<boolean>((resolve) => {
+        if (signal.aborted) return resolve(true);
+        const timer = setTimeout(() => resolve(false), 1000);
+        signal.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            resolve(true);
+          },
+          { once: true },
+        );
+      });
+      return mcpText(aborted ? "annulé" : "fini");
+    },
+  });
+  return { waiting, started };
+}
+
+function callWait(id: number | string, extra: Partial<IMcpGateRequest> = {}) {
+  return request({
+    body: {
+      jsonrpc: "2.0",
+      id,
+      method: "tools/call",
+      params: { name: "shop_wait" },
+    },
+    ...extra,
+  });
+}
+
+function cancelOf(
+  requestId: unknown,
+  extra: Partial<IMcpGateRequest> = {},
+): IMcpGateRequest {
+  return request({
+    body: {
+      jsonrpc: "2.0",
+      method: "notifications/cancelled",
+      params: { requestId, reason: "l'agent abandonne" },
+    },
+    ...extra,
+  });
+}
+
+function text(response: IMcpGateResponse): string | undefined {
+  const content = result(response).content as { text: string }[] | undefined;
+  return content?.[0]?.text;
+}
+
+describe("gate.respond — annulation par `notifications/cancelled` (SDK 2025-11-25)", () => {
+  it("la notification du MÊME appelant abat l'appel en cours", async () => {
+    const { waiting, started } = waitingTool();
+    const cancelGate = defineMcpGate({ tools: [waiting] });
+    const call = cancelGate.respond(callWait(9), RUNTIME);
+    const signal = await started;
+    const ack = await cancelGate.respond(cancelOf(9), RUNTIME);
+    expect(ack).toEqual({ kind: "empty", status: 202 });
+    expect(signal.aborted).toBe(true);
+    expect(text(await call)).toBe("annulé");
+  });
+
+  it("🔴 attaque : un AUTRE titulaire de jeton, même `id`, n'abat rien", async () => {
+    const verifier: IAccessTokenVerifier = async (token) => ({
+      issuer: "https://auth.example",
+      subject: token === "alice" ? "alice" : "mallory",
+      scopes: [],
+    });
+    const runtime = { ...RUNTIME, verifier };
+    const { waiting, started } = waitingTool();
+    const cancelGate = defineMcpGate({ tools: [waiting], ...PROTECTED });
+    const call = cancelGate.respond(
+      callWait(9, { authorization: "Bearer alice" }),
+      runtime,
+    );
+    const signal = await started;
+
+    // Même adresse, même identifiant : seul le jeton les distingue.
+    await cancelGate.respond(
+      cancelOf(9, { authorization: "Bearer mallory" }),
+      runtime,
+    );
+    expect(signal.aborted).toBe(false);
+    // Un anonyme (jeton absent → défi) n'atteint pas davantage l'appel.
+    await cancelGate.respond(cancelOf(9), runtime);
+    expect(signal.aborted).toBe(false);
+
+    // Le titulaire, lui, l'abat : la voie existe bien, seul l'intrus est refusé.
+    await cancelGate.respond(
+      cancelOf(9, { authorization: "Bearer alice" }),
+      runtime,
+    );
+    expect(signal.aborted).toBe(true);
+    expect(text(await call)).toBe("annulé");
+  });
+
+  it("🔴 attaque : porte anonyme, une AUTRE adresse, même `id`, n'abat rien", async () => {
+    const { waiting, started } = waitingTool();
+    const cancelGate = defineMcpGate({ tools: [waiting], allowRemote: true });
+    const call = cancelGate.respond(
+      callWait(9, { remoteAddress: "203.0.113.9" }),
+      RUNTIME,
+    );
+    const signal = await started;
+    await cancelGate.respond(
+      cancelOf(9, { remoteAddress: "203.0.113.66" }),
+      RUNTIME,
+    );
+    expect(signal.aborted).toBe(false);
+    // `"9"` n'est pas `9` : un identifiant ne se confond pas avec sa chaîne.
+    await cancelGate.respond(
+      cancelOf("9", { remoteAddress: "203.0.113.9" }),
+      RUNTIME,
+    );
+    expect(signal.aborted).toBe(false);
+    await cancelGate.respond(
+      cancelOf(9, { remoteAddress: "203.0.113.9" }),
+      RUNTIME,
+    );
+    expect(text(await call)).toBe("annulé");
+  });
+
+  it("une annulation sans appel en cours, tardive ou mal formée s'ignore : 202, rien d'autre", async () => {
+    const quickGate = defineMcpGate({ tools: [tool("shop_quick")] });
+    for (const requestId of [42, 1.5, null, { id: 1 }]) {
+      expect(await quickGate.respond(cancelOf(requestId), RUNTIME)).toEqual({
+        kind: "empty",
+        status: 202,
+      });
+    }
+    const done = await quickGate.respond(
+      request({
+        body: {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: { name: "shop_quick" },
+        },
+      }),
+      RUNTIME,
+    );
+    expect(text(done)).toBe("réponse de shop_quick");
+    expect(await quickGate.respond(cancelOf(3), RUNTIME)).toEqual({
+      kind: "empty",
+      status: 202,
+    });
+  });
+
+  it("la fermeture du flux (2026-07-28) annule TOUJOURS l'appel", async () => {
+    const { waiting, started } = waitingTool();
+    const cancelGate = defineMcpGate({ tools: [waiting] });
+    const closed = new AbortController();
+    const call = cancelGate.respond(
+      callWait(9, { signal: closed.signal }),
+      RUNTIME,
+    );
+    const signal = await started;
+    closed.abort();
+    expect(signal.aborted).toBe(true);
+    await call;
+  });
+});
+
 describe("gate.protectedResources — publication RFC 9728", () => {
   it("rien sans serveur d'autorisation ; sinon les scopes EXIGÉS par les outils", () => {
     expect(gate().protectedResources()).toEqual([]);
