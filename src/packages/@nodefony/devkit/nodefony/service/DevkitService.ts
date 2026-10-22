@@ -6,11 +6,13 @@ import {
   extend,
   injectable,
   ADMIN_DEFAULT_ROLE,
+  ROLES_WITHIN,
 } from "nodefony";
 import type {
   IAdminBrokerLike,
   IMcpTool,
   IProtectedResourceInput,
+  IRolesWithin,
 } from "nodefony";
 import { defineMcpGate, mcpDeclaredScopes, type IMcpGate } from "@nodefony/ai";
 import { selectBuiltinMcpTools, type IMcpToolDeps } from "../mcp/tools";
@@ -20,7 +22,6 @@ import {
   isProfileSessionStore,
   PROFILE_SESSION_FACTOR,
 } from "../src/profileSession";
-import { compareAccountRoles } from "../src/accountRoles";
 import { readShotTarget } from "../mcp/shotClient";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
@@ -211,13 +212,9 @@ class DevkitService extends Service implements IDevkitService {
             ? sessions.destroyByRef(ref, PROFILE_SESSION_FACTOR)
             : false;
         },
-        rolesWithin: (owner, target) =>
-          compareAccountRoles(
-            this.get("users"),
-            this.get("firewall"),
-            owner,
-            target,
-          ),
+        // La règle vit dans `@nodefony/security`, qui porte comptes et
+        // hiérarchie ; absente, l'outil refuse `as` (fail-closed).
+        rolesWithin: this.get<IRolesWithin>(ROLES_WITHIN) ?? undefined,
       },
     };
   }

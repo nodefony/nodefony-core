@@ -467,6 +467,33 @@ export type IAccessAccountResolver = (
  */
 export const ACCESS_ACCOUNT_RESOLVER = "accessAccountResolver";
 
+/** Verdict d'un {@link IRolesWithin} : l'accord, ou la raison du refus. */
+export type RolesWithinVerdict = { ok: true } | { ok: false; reason: string };
+
+/**
+ * La règle qui autorise un compte à en JOUER un autre : les rôles de `target`,
+ * hiérarchie comprise, doivent tous être atteints par ceux de `owner` — jouer
+ * un compte ne monte jamais en droits. Implémentée par le module de sécurité,
+ * qui porte les comptes et la hiérarchie des rôles.
+ *
+ * Fermée en cas de doute : un annuaire absent, un compte introuvable ou une
+ * lecture qui lève rendent un refus, jamais un accord.
+ *
+ * @param owner - identifiant du compte qui agit (propriétaire du jeton)
+ * @param target - identifiant du compte à jouer
+ * @returns l'accord, ou la raison du refus (rôles en trop nommés)
+ */
+export type IRolesWithin = (
+  owner: string,
+  target: string,
+) => Promise<RolesWithinVerdict>;
+
+/**
+ * Nom sous lequel un {@link IRolesWithin} se pose dans le conteneur — importé
+ * des deux côtés, jamais recopié.
+ */
+export const ROLES_WITHIN = "rolesWithin";
+
 /** Politique appliquée à une requête vers une ressource protégée. */
 export interface IProtectedResourcePolicy {
   /** URI canonique de la ressource — l'audience PUBLIÉE, et la première essayée. */

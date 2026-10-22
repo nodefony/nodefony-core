@@ -8,6 +8,8 @@ import {
   type IMcpTool,
   type IMcpToolResult,
   type IMcpToolRun,
+  type IRolesWithin,
+  type RolesWithinVerdict,
 } from "nodefony";
 import { mcpText, MCP_RESERVED_PREFIX } from "@nodefony/ai";
 import {
@@ -128,9 +130,6 @@ const PROFILE_ROUTE_DESCRIPTION =
   `jouées : leurs requêtes rendent 401, et le rapport le dit. Tir borné à ${PROFILE_ROUTE_BUDGET_MS / 1000} s, ` +
   `${SHOT_REQUEST_TIMEOUT_MS / 1000} s par requête. Un instantané de progression par lot.`;
 
-/** Verdict de la comparaison des rôles de deux comptes. */
-export type RolesVerdict = { ok: true } | { ok: false; reason: string };
-
 /** Ce dont l'outil a besoin — injecté, pour l'éprouver sans application. */
 export interface IProfileRouteDeps {
   /** Le profileur de l'application, ou `undefined` hors développement. */
@@ -147,8 +146,7 @@ export interface IProfileRouteDeps {
   /** Détruit la session de profilage désignée par son pseudonyme. */
   closeSession?: ((ref: string) => Promise<unknown>) | undefined;
   /** Les rôles de `target` sont-ils inclus dans ceux de `owner` (hiérarchie comprise) ? */
-  rolesWithin?:
-    ((owner: string, target: string) => Promise<RolesVerdict>) | undefined;
+  rolesWithin?: IRolesWithin | undefined;
   /** Lit les lignes de journal d'une requête en erreur. */
   readRequestLogs?:
     | ((requestId: string, caller: IMcpCaller) => Promise<RequestLogs>)
@@ -259,7 +257,7 @@ async function resolveIdentity(
       };
     }
     if (as !== owner) {
-      const verdict: RolesVerdict =
+      const verdict: RolesWithinVerdict =
         deps.rolesWithin === undefined
           ? { ok: false, reason: "comparaison des rôles indisponible" }
           : await deps.rolesWithin(owner, as);

@@ -980,6 +980,7 @@ export {
   BearerError,
   ACCESS_TOKEN_VERIFIER,
   ACCESS_ACCOUNT_RESOLVER,
+  ROLES_WITHIN,
 } from "./oauth/protectedResource";
 export type {
   IProtectedResourceMetadata,
@@ -989,6 +990,8 @@ export type {
   IAccessTokenVerifier,
   IAccessAccount,
   IAccessAccountResolver,
+  IRolesWithin,
+  RolesWithinVerdict,
   ProtectedResourceOutcome,
   IBearerChallenge,
   BearerErrorCode,

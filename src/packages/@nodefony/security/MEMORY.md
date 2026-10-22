@@ -60,6 +60,11 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   du jeton = attribut `scopes`. Banc : `tests/unit/accessAccountResolver.attack.test.ts`.
   - 🔴 **`loadBoundAccount`** (`accountBinding.ts`) = SEULE règle « ce jeton maison ouvre-t-il encore ce
     compte ? » (actif, non verrouillé, `isBoundToAccount`) — zone `jwt` ET résolveur. Jamais recopiée.
+  - 🔴 **`rolesWithin`** (`src/rolesWithin.ts`) = SEULE règle « jouer un autre compte » : rôles de `target`
+    (hiérarchie) ⊆ ceux de `owner`. Posée par le FIREWALL au boot sous **`ROLES_WITHIN`** (contrat cœur
+    `IRolesWithin`), indépendante du vérificateur ; annuaire `users` résolu À L'APPEL. Fail-closed : annuaire
+    absent, compte qui lève OU rend `null`, propriétaire sans compte local (sujet éphémère) → refus.
+    Consommée par devkit (`nodefony_profile_route`, `as`). Banc : `tests/unit/rolesWithin.attack.test.ts`.
   - `iss` NON VÉRIFIÉ lu par `decodeJwt` → sert UNIQUEMENT à indexer une allowlist FERMÉE → émetteur
     inconnu = refus **sans aucune requête sortante** (pas de SSRF déclenchable par un anonyme).
   - Clés par `createRemoteJWKSet` (jamais `jku`/`jwk` d'en-tête, RFC 8725 §3.5) ; `fetch` INJECTABLE

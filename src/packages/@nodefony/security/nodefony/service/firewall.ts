@@ -8,6 +8,7 @@ import {
   Message,
   Pdu,
   logColor,
+  ROLES_WITHIN,
 } from "nodefony";
 import type { IProtectedResourceInput } from "nodefony";
 import type { ContextType, ISecurityTrace } from "@nodefony/http";
@@ -22,6 +23,7 @@ import {
   shouldEnforceCredentialTransport,
 } from "../src/transport/CredentialTransportPolicy";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
+import { rolesWithin } from "../src/rolesWithin";
 import { randomBytes } from "node:crypto";
 import { mergeCspFragments, type CspFragment } from "../src/csp";
 import { CsrfTokenManager } from "../src/csrfToken";
@@ -229,6 +231,16 @@ class Firewall extends Service implements IFirewall {
     // Niveau A de l'autorisation partagé au container : le RoleVoter
     // (AuthorizationService) le lit pour résoudre `ROLE_*`. Source unique.
     this.container?.set("roleHierarchy", this.#roleHierarchy);
+    // La règle « jouer un autre compte » lit la MÊME hiérarchie ; une porte qui
+    // joue un compte (outil MCP `as`) la résout par nom, sans dépendre de ce
+    // module.
+    this.container?.set(
+      ROLES_WITHIN,
+      rolesWithin(
+        () => this.container?.get<IUserProvider>("users") ?? null,
+        this.#roleHierarchy,
+      ),
+    );
     this.#provisionSharedServices(this.#config);
 
     // Défense CSRF : globale (pas liée aux zones — toute mutation cross-site est

@@ -28,7 +28,6 @@ import {
   openProfileSession,
   PROFILE_SESSION_PATH,
 } from "../nodefony/src/profileSession";
-import { compareAccountRoles } from "../nodefony/src/accountRoles";
 
 const TARGET: IShotTarget = {
   host: "127.0.0.1",
@@ -453,6 +452,19 @@ describe("nodefony_profile_route — au nom de qui", () => {
     expect(app.tickets.pending).toBe(0);
   });
 
+  it("🔴 `as` sans règle de comparaison (pas de @nodefony/security) : refusé", async () => {
+    const app = fakeApp();
+    const result = await call(
+      app.deps({ rolesWithin: undefined }),
+      { path: "/orders", as: "root" },
+      WRITER,
+    );
+    expect(result.isError).toBe(true);
+    expect(text(result)).toMatch(/comparaison des rôles indisponible/u);
+    expect(app.sent).toHaveLength(0);
+    expect(app.tickets.pending).toBe(0);
+  });
+
   it("`as` autorisé : le compte joué est dit, « à la place du propriétaire »", async () => {
     const app = fakeApp();
     const result = await call(
@@ -598,70 +610,5 @@ describe("readShotTarget — où viser", () => {
     [{ ready: true }],
   ])("pas de cible : %o", (server) => {
     expect(readShotTarget(server)).toBeNull();
-  });
-});
-
-describe("compareAccountRoles — jouer un compte ne monte jamais en droits", () => {
-  const hierarchy: Record<string, string[]> = { ROLE_ADMIN: ["ROLE_USER"] };
-  const firewall = {
-    roleHierarchy: {
-      reachableRoles(roles: readonly string[]): Set<string> {
-        const out = new Set<string>();
-        for (const r of roles) {
-          out.add(r);
-          for (const i of hierarchy[r] ?? []) out.add(i);
-        }
-        return out;
-      },
-    },
-  };
-  const accounts: Record<string, { roles: string[] }> = {
-    admin: { roles: ["ROLE_ADMIN"] },
-    alice: { roles: ["ROLE_USER"] },
-    bob: { roles: ["ROLE_USER"] },
-  };
-  const users = {
-    async loadUserByIdentifier(id: string) {
-      const user = accounts[id];
-      if (!user) throw new Error("introuvable");
-      return user;
-    },
-  };
-
-  it("contrôle positif : un admin joue un utilisateur (hiérarchie comprise)", async () => {
-    expect(
-      await compareAccountRoles(users, firewall, "admin", "alice"),
-    ).toEqual({ ok: true });
-  });
-
-  it("à rôles égaux, accordé", async () => {
-    expect(await compareAccountRoles(users, firewall, "alice", "bob")).toEqual({
-      ok: true,
-    });
-  });
-
-  it("🔴 un utilisateur ne joue pas un admin : les rôles en trop sont nommés", async () => {
-    const verdict = await compareAccountRoles(
-      users,
-      firewall,
-      "alice",
-      "admin",
-    );
-    expect(verdict).toEqual({
-      ok: false,
-      reason: "`admin` a des rôles que `alice` n'a pas : ROLE_ADMIN",
-    });
-  });
-
-  it("fail-closed : compte introuvable, services absents", async () => {
-    expect(
-      (await compareAccountRoles(users, firewall, "alice", "ghost")).ok,
-    ).toBe(false);
-    expect(
-      (await compareAccountRoles(null, firewall, "admin", "alice")).ok,
-    ).toBe(false);
-    expect((await compareAccountRoles(users, {}, "admin", "alice")).ok).toBe(
-      false,
-    );
   });
 });
