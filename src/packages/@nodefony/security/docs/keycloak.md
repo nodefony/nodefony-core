@@ -638,7 +638,7 @@ export const securityConfig = () =>
 
 **Le même compte, pas un second.** Quand l'émetteur d'un jeton est celui d'un fournisseur de
 connexion déclaré (`oauth2.providers.keycloak.issuer`), l'authenticator cherche d'abord le compte lié
-à `(keycloak, sub)` — celui que le login par navigateur a créé (`ExternalJwtAuthenticator.ts#IExternalIssuerBinding.issuer`).
+à `(keycloak, sub)` — celui que le login par navigateur a créé (`ExternalSubjectResolver.ts#IExternalIssuerBinding.issuer`).
 Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<émetteur>#<sub>`.
 
 ## ☸️ En cluster — joindre Keycloak par son adresse interne

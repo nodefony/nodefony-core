@@ -81,7 +81,7 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     **`prefixed`** (défaut) ⇒ identifiant local = `` `${issuer}#${sub}` `` · **`subject`** ⇒ `sub` nu.
     Un `sub` n'est unique QUE chez son émetteur (OIDC Core §2) : l'identité est la paire `(iss, sub)`.
     🔴 **Lien de connexion AVANT l'espace de noms** : si l'émetteur (canonique) est celui d'un
-    fournisseur `oauth2.providers.<nom>.issuer`, `#resolveUser` cherche d'abord
+    fournisseur `oauth2.providers.<nom>.issuer`, `ExternalSubjectResolver.resolve` cherche d'abord
     `loadUserByOAuth(<nom>, sub)` — le compte créé au login BFF — puis retombe sur la règle ci-dessous.
     Sans lui : login → `alice@…`, API → `<iss>#<sub>` (deux identités, ou 401). Émetteur revendiqué
     par DEUX fournisseurs ⇒ aucun lien (`linkProviders`). Fournisseur sans `issuer` (google/github) ⇒
@@ -105,7 +105,7 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     exige `external-jwt` dans la zone ; `ephemeralRoles` exige `ephemeral` écrit dans la MÊME zone).
     `SecuredArea` résout les rôles au boot (zone `ephemeral` muette ⇒ `[]`, jamais les globaux).
     Transport : `createToken` pose la zone sous l'attribut `subjectArea` SEULEMENT si elle surcharge
-    (0 coût ailleurs) ; `#resolveUser` lit `area?.subjectPolicy ?? global`.
+    (0 coût ailleurs) ; `ExternalSubjectResolver.resolve` lit `area?.subjectPolicy ?? global`.
   - 🔴 **La BORNE du jeton voyage avec l'identité** : `IAccessPrincipal` porte `expiresAt`/`issuedAt`
     (**secondes** epoch, comme les claims) + `tokenId`, que `RemoteJwtVerifier` remonte du payload
     vérifié et que l'authenticator repose sous les MÊMES noms que `JwtAuthenticator` (`claims`,
