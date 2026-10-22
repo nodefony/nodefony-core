@@ -49,6 +49,38 @@ export interface IGuardPolicy {
  * @param address - `socket.remoteAddress`, éventuellement absent
  * @returns `true` si l'appel vient de cette machine
  */
+/**
+ * Les en-têtes qu'un relais pose — leur présence suffit à dire que la requête
+ * n'est pas arrivée directement, quelle que soit l'adresse de la connexion.
+ */
+export const RELAY_HEADERS = [
+  "forwarded",
+  "x-forwarded-for",
+  "x-real-ip",
+  "via",
+] as const;
+
+/**
+ * La requête a-t-elle traversé un relais (proxy inverse, répartiteur) ?
+ *
+ * Un relais posé sur la MÊME machine fait arriver un client distant depuis la
+ * boucle locale : l'adresse de la connexion ne prouve alors plus rien. Toute
+ * porte qui exige la localité refuse donc aussi l'appel relayé — la porte MCP
+ * comme la porte de session par ticket, une seule règle.
+ *
+ * @param headers - en-têtes reçus (`request.headers` de Node)
+ * @returns `true` si un en-tête de relais non vide est présent
+ */
+export function isRelayedRequest(
+  headers: Readonly<Record<string, string | string[] | undefined>>,
+): boolean {
+  return RELAY_HEADERS.some((name) => {
+    const value = headers[name];
+    const first = Array.isArray(value) ? value[0] : value;
+    return first !== undefined && first !== "";
+  });
+}
+
 export function isLocalAddress(address?: string): boolean {
   if (!address) {
     // Pas d'adresse = pas de preuve de localité. Le doute ne vaut pas un OUI.

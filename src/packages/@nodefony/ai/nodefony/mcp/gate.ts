@@ -28,7 +28,7 @@ import type {
 import type { Controller } from "@nodefony/framework";
 import { mcpConfigSchema } from "../config/config";
 import { mcpCallerRoles } from "./caller";
-import { checkMcpAccess } from "./guard";
+import { checkMcpAccess, isRelayedRequest } from "./guard";
 import {
   JsonRpcError,
   jsonRpcFailure,
@@ -412,17 +412,6 @@ function unparsableBody(
     return true;
   }
 }
-
-/**
- * Les en-têtes qu'un relais pose — leur présence suffit à dire que la requête
- * n'est pas arrivée directement, quelle que soit l'adresse de la connexion.
- */
-const RELAY_HEADERS = [
-  "forwarded",
-  "x-forwarded-for",
-  "x-real-ip",
-  "via",
-] as const;
 
 /** Première valeur d'un en-tête HTTP, ou rien. */
 function firstHeader(value: string | string[] | undefined): string | undefined {
@@ -893,9 +882,7 @@ export function defineMcpGate(definition: IMcpGateDefinition): IMcpGate {
           protocolVersion: firstHeader(headers["mcp-protocol-version"]),
           authorization: firstHeader(headers.authorization),
           remoteAddress: context?.remoteAddress ?? undefined,
-          relayed: RELAY_HEADERS.some(
-            (name) => (firstHeader(headers[name]) ?? "") !== "",
-          ),
+          relayed: isRelayedRequest(headers),
           signal: context?.signal,
           // Le journal de requête nomme qui a agi, comme sous une zone.
           onAccount:

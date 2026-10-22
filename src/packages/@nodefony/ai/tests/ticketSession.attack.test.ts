@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { describe, it, expect } from "vitest";
 import { BootConfigurationError } from "nodefony";
+import { isRelayedRequest } from "../nodefony/mcp/guard";
 import {
   fingerprintSessionTicket,
   SESSION_TICKET_LENGTH,
@@ -322,6 +323,28 @@ describe("localOnly — la boucle locale est le défaut, une porte distante l'é
     expect(verdict).toEqual({ status: 403, message: TICKET_SESSION_REFUSED });
     expect(store.pending).toBe(1);
     expect(f.opened).toEqual([]);
+  });
+
+  it("🔴 relayé par un proxy de la même machine : refusé malgré l'adresse locale, le ticket survit", async () => {
+    const store = new SessionTicketStore();
+    const ticket = store.issue("alice");
+    const f = flow();
+    const verdict = await openTicketSession(
+      { ticket, remoteAddress: LOCAL, relayed: true },
+      f.deps(store),
+    );
+    expect(verdict).toEqual({ status: 403, message: TICKET_SESSION_REFUSED });
+    expect(store.pending).toBe(1);
+    expect(f.opened).toEqual([]);
+  });
+
+  it("la règle du relais est celle de la porte MCP : un en-tête de relais non vide suffit", () => {
+    expect(isRelayedRequest({})).toBe(false);
+    expect(isRelayedRequest({ "x-forwarded-for": "" })).toBe(false);
+    for (const name of ["forwarded", "x-forwarded-for", "x-real-ip", "via"]) {
+      expect(isRelayedRequest({ [name]: "203.0.113.7" })).toBe(true);
+    }
+    expect(isRelayedRequest({ via: ["1.1 proxy"] })).toBe(true);
   });
 
   it("localOnly: false : l'appel distant passe, le ticket seul protège", async () => {

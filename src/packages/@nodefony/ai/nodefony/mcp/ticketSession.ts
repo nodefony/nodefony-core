@@ -2,7 +2,7 @@ import { z } from "zod";
 import { parseModuleConfig } from "nodefony";
 import type { Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-import { isLocalAddress } from "./guard";
+import { isLocalAddress, isRelayedRequest } from "./guard";
 import { SESSION_TICKET_HEADER, SessionTicketStore } from "./sessionTicket";
 
 /** Message unique de tout refus : la cause fine ne sort jamais vers l'appelant. */
@@ -14,6 +14,11 @@ export interface ITicketSessionRequest {
   readonly ticket: unknown;
   /** Adresse distante de la connexion. */
   readonly remoteAddress: string | undefined;
+  /**
+   * La requête a traversé un relais (`isRelayedRequest`) : sur une porte
+   * locale, l'adresse ne prouve alors plus la localité.
+   */
+  readonly relayed?: boolean | undefined;
 }
 
 /** Compte pour lequel la session vient d'être ouverte. */
@@ -69,7 +74,10 @@ export async function openTicketSession(
   request: ITicketSessionRequest,
   deps: ITicketSessionDeps,
 ): Promise<TicketSessionVerdict> {
-  if (deps.localOnly !== false && !isLocalAddress(request.remoteAddress)) {
+  if (
+    deps.localOnly !== false &&
+    (request.relayed === true || !isLocalAddress(request.remoteAddress))
+  ) {
     return REFUSED;
   }
   if (deps.establish === null) {
@@ -330,6 +338,7 @@ export function defineTicketSessionGate(
         {
           ticket: context.request.headers[SESSION_TICKET_HEADER],
           remoteAddress: context.remoteAddress ?? undefined,
+          relayed: isRelayedRequest(context.request.headers),
         },
         {
           tickets,

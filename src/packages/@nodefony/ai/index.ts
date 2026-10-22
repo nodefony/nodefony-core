@@ -132,7 +132,12 @@ export type {
   IMcpResponseStream,
   IMcpResponseStreamOptions,
 } from "./nodefony/mcp/stream";
-export { checkMcpAccess, isLocalAddress } from "./nodefony/mcp/guard";
+export {
+  checkMcpAccess,
+  isLocalAddress,
+  isRelayedRequest,
+  RELAY_HEADERS,
+} from "./nodefony/mcp/guard";
 export type {
   GuardVerdict,
   IGuardInput,
