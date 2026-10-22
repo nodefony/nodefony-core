@@ -223,6 +223,31 @@ describe("doctor — la fraîcheur désigne un FICHIER, et ignore ce qui n'est p
     assert.deepEqual(checkFreshness(racine).findings, []);
   });
 
+  it("🔴 un paquet IMBRIQUÉ qui se bâtit seul ne périme pas le build de l'application", () => {
+    // Ce dépôt porte ses paquets sous `src/` : `http` signalé contre le
+    // `dist/` de l'application, alors que son propre `dist/` était à jour.
+    const racine = app();
+    posterApresLeBuild(racine, "src/packages/http/nodefony/Context.ts");
+    writeFileSync(
+      path.join(racine, "src", "packages", "http", "package.json"),
+      JSON.stringify({ scripts: { build: "rolldown -c" } }),
+    );
+    assert.deepEqual(checkFreshness(racine).findings, []);
+  });
+
+  it("🔴 un module local SANS script build, compilé par la racine, reste compté", () => {
+    const racine = app();
+    posterApresLeBuild(racine, "src/modules/blog/nodefony/Post.ts");
+    writeFileSync(
+      path.join(racine, "src", "modules", "blog", "package.json"),
+      JSON.stringify({ name: "blog" }),
+    );
+    assert.deepEqual(
+      checkFreshness(racine).findings.map((f) => f.file),
+      ["src/modules/blog/nodefony/Post.ts"],
+    );
+  });
+
   it("🔴 ni un fichier sous `tests/`", () => {
     const racine = app();
     posterApresLeBuild(racine, "src/tests/decor.ts");

@@ -107,16 +107,29 @@ function newestUnder(
   if (!stat) return rien;
   if (stat.isFile())
     return isBuiltSource(rel) ? { mtime: stat.mtimeMs, file: rel } : rien;
+  // Normaliser AVANT de filtrer : `readdirSync` rend `a\b` sous Windows, et
+  // un filtre écrit en `/` n'y mordrait pas.
+  const files = readdirSync(target, { recursive: true, encoding: "utf8" }).map(
+    (entry) => entry.split(path.sep).join("/"),
+  );
+  // Une unité de build IMBRIQUÉE (son `package.json` ET son script `build`)
+  // a son propre `dist/`, que {@link checkFrameworkBuild} juge : ses sources
+  // ne périment pas celui-ci. Vécu : dans un dépôt qui porte ses paquets sous
+  // `src/`, chaque source de `src/packages/@nodefony/http` était comparée au
+  // `dist/` de l'APPLICATION. Un module local sans script `build`, compilé par
+  // la racine, reste compté.
+  const nested: string[] = [];
+  for (const filePath of files) {
+    if (!filePath.endsWith("/package.json")) continue;
+    const dir = filePath.slice(0, -"/package.json".length);
+    if (dir.split("/").some((segment) => isSkippedDir(segment))) continue;
+    if (hasBuildScript(path.join(target, dir))) nested.push(`${dir}/`);
+  }
   let found = rien;
-  for (const entry of readdirSync(target, {
-    recursive: true,
-    encoding: "utf8",
-  })) {
-    // Normaliser AVANT de filtrer : `readdirSync` rend `a\b` sous Windows, et
-    // un filtre écrit en `/` n'y mordrait pas.
-    const filePath = entry.split(path.sep).join("/");
+  for (const filePath of files) {
     if (!isBuiltSource(filePath)) continue;
-    const s = statSync(path.join(target, entry), { throwIfNoEntry: false });
+    if (nested.some((d) => filePath.startsWith(d))) continue;
+    const s = statSync(path.join(target, filePath), { throwIfNoEntry: false });
     if (s?.isFile() && s.mtimeMs > found.mtime) {
       // Le FICHIER, pas la racine qui le contient : « `src` est plus récent
       // que le build » n'apprend rien, et n'aide personne à comprendre
