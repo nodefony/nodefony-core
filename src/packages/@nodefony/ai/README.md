@@ -59,6 +59,14 @@ demander confirmation. La boîte à outils MCP vit dans ce paquet, qui en est la
 de `@nodefony/devkit` (`/nodefony/mcp`) est bâtie sur la même mécanique que celle que vous
 ouvrirez pour vos propres outils.
 
+Un outil peut **agir au nom de l'utilisateur** qui l'appelle (`actsForUser`) : la porte retrouve
+son compte avant le handler, et les services qu'il appelle le voient comme sous une route
+protégée ([#648](https://github.com/nodefony/nodefony-core/issues/648)). Un paramètre qui élargit ce
+que fait un outil exige son scope à l'appel (`scopesFor`) : l'outil reste visible, et l'agent
+reçoit un défi `insufficient_scope` qui lui dit quel jeton demander
+([#650](https://github.com/nodefony/nodefony-core/issues/650)). Le détail :
+[la boîte à outils MCP](./docs/mcp.md).
+
 ### Prévu
 
 | Capacité                      | Ce qu'elle apporte                                                                 | Version visée | Suivi                                                        |

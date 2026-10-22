@@ -179,8 +179,9 @@ de l'application (un ticket à usage unique, présenté en boucle locale à
 `POST /nodefony/devkit/profile-session`), tire avec, puis la détruit — l'audit
 l'écrit sous la raison `devkit`. `as` joue un autre compte, à condition que ses
 rôles soient inclus dans ceux du propriétaire, hiérarchie comprise : jouer un
-compte ne monte jamais en droits. Sans ce scope, l'outil joue l'anonyme et le
-rapport donne la commande :
+compte ne monte jamais en droits ; sans `admin:write`, `as` reçoit sur une porte
+protégée un défi `403 insufficient_scope` qui nomme le scope à demander. Sans ce
+scope, l'outil joue l'anonyme et le rapport donne la commande :
 
 ```bash
 npx nodefony security:mcp:token --scope "admin:read admin:write" --write

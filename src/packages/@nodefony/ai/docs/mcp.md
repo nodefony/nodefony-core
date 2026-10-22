@@ -5,13 +5,13 @@ lang: fr
 module: "@nodefony/ai"
 topic: mcp
 coverageModule: ai
-coverageFiles: "ai/nodefony/mcp/server.ts, ai/nodefony/mcp/tools.ts, ai/nodefony/mcp/progress.ts, ai/nodefony/mcp/stream.ts, ai/nodefony/mcp/guard.ts, ai/nodefony/mcp/caller.ts, devkit/nodefony/mcp/tools.ts"
+coverageFiles: "ai/nodefony/mcp/server.ts, ai/nodefony/mcp/tools.ts, ai/nodefony/mcp/progress.ts, ai/nodefony/mcp/stream.ts, ai/nodefony/mcp/guard.ts, ai/nodefony/mcp/caller.ts, ai/nodefony/mcp/gate.ts, ai/nodefony/mcp/ticketSession.ts, ai/nodefony/mcp/sessionTicket.ts, devkit/nodefony/mcp/tools.ts"
 section: "Intelligence artificielle"
 audience: [developer]
 tags: [mcp, agent, ia, json-rpc, sse, outils, progression, annulation, oauth]
 version: "doc"
 status: stable
-updated: 2026-10-16
+updated: 2026-10-22
 source: "src/packages/@nodefony/ai/docs/mcp.md"
 ---
 
@@ -349,6 +349,82 @@ requête prétend : `authenticated`, `scopes`, `roles`, `subject`. Une porte qui
 rend un appelant anonyme, et un outil à scopes n'y sort jamais : fermé par défaut — à savoir
 avant de chercher une panne.
 
+### Agir au nom de l'utilisateur — `actsForUser`
+
+`caller` dit ce que la PORTE a prouvé : un sujet et des scopes. Presque toute logique métier veut
+davantage — le COMPTE, ses vrais rôles, et des services qui le voient (« mes commandes », un droit,
+une donnée filtrée par propriétaire). Un outil le demande en une ligne :
+
+```ts
+import { RequestContext } from "nodefony";
+
+const myOrders: IMcpTool = {
+  name: "shop_my_orders",
+  description: "Commandes du client au nom duquel l'agent agit.",
+  inputSchema: { type: "object", properties: {} },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  actsForUser: true, // le compte du propriétaire du jeton, posé AVANT le handler
+  scopes: ["shop:read"], // OBLIGATOIRE avec actsForUser — voir ci-dessous
+  handler: async () => {
+    const user = RequestContext.getAuthenticatedUser(); // le compte, rôles compris
+    return mcpText(await orders.listFor(user)); // le service le voit aussi
+  },
+};
+```
+
+Ce que la porte fait pour un tel outil (`gate.ts#runAsAccount`) :
+
+- **Elle retrouve le compte avant le handler**, par le résolveur de l'application
+  (`accessAccountResolver`, posé par `@nodefony/security` : compte lié au jeton, actif, non
+  verrouillé ; sujet d'un émetteur externe rattaché à son compte). Puis elle exécute le handler
+  dans une **requête à lui** : `RequestContext.getAuthenticatedUser()`, tout service appelé et
+  `authorization.decide()` y voient ce compte, comme sous une route protégée. Le journal de requête
+  nomme qui a agi.
+- **Les rôles sont ceux du COMPTE, entiers** — c'est la sémantique d'une zone `jwt` : le jeton ne
+  borne pas `ROLE_*`, ses scopes ne mordent que sur les attributs de scope (`@RequireScope`).
+  C'est pourquoi **`actsForUser` exige des `scopes`** : sans eux, un jeton étroit d'un compte
+  administrateur verrait tout ce que l'administrateur voit. L'outil est refusé au démarrage s'il
+  n'en déclare pas.
+- **Une identité PROUVÉE, sinon l'outil n'existe pas** : un appelant anonyme, un jeton rejeté servi
+  en anonyme, l'opérateur d'une porte non protégée — l'outil reste retenu (absent de `tools/list`,
+  « outil inconnu » à l'appel).
+- **Fermé à l'échec** : compte introuvable ou verrouillé → `isError` au message uniforme ;
+  résolveur absent → `isError` et journal `CRITIC`. Jamais une exécution en anonyme.
+- **L'outil meurt avec son jeton** : son `run.signal` s'abat à l'expiration du jeton. Un jeton
+  RÉVOQUÉ pendant l'appel n'interrompt pas l'appel en cours — la même fenêtre qu'une socket ouverte.
+- **Appel en process** (un agent de l'application, sans porte) : aucune requête n'est ouverte pour
+  lui ; l'appelant passe un `caller` authentifié explicite, ou l'outil est retenu.
+
+### Un paramètre qui élargit l'outil — `scopesFor`
+
+Un outil qu'un jeton de LECTURE doit voir peut avoir un paramètre qui fait davantage : agir pour un
+autre compte, écrire au lieu de lire. Le mettre dans `scopes` le cacherait à ce jeton. Le scope se
+déclare alors à l'APPEL, selon les arguments :
+
+```ts
+const report: IMcpTool = {
+  name: "shop_report",
+  // …
+  scopes: ["shop:read"], // pour voir l'outil
+  scopesFor: (args) => (args.publish === true ? ["shop:write"] : []), // pour CET appel
+  handler: (args) => mcpText(args.publish === true ? publish() : preview()),
+};
+```
+
+- **Porte protégée** : il manque un scope → `403` et
+  `WWW-Authenticate: Bearer error="insufficient_scope", scope="shop:read shop:write"` — TOUS les
+  scopes de l'opération en un seul défi, comme la spécification le demande (« Runtime Insufficient
+  Scope Errors »). Un client qui sait s'élever redemande un jeton et rejoue ; un client à jeton fixe
+  reçoit le message entier, qui nomme le scope à demander. Sans jeton sur une porte mixte : `401`,
+  sans code d'erreur.
+- **Sans porte protégée, ou en process** : la même règle (`mcpCallScopes`, `tools.ts#mcpCallScopes`)
+  rend un résultat `isError`, et le handler ne s'exécute pas.
+- **Ces scopes n'entrent pas dans `scopes_supported`** : la spécification veut ce document
+  minimal (« the minimal set of scopes necessary for basic functionality »). Un client sans défi en
+  demanderait sinon tout, écriture comprise.
+- **`scopesFor` est une fonction pure et synchrone.** Elle lève, ou rend autre chose qu'un tableau
+  de chaînes : l'appel est refusé, jamais servi sans borne.
+
 ### Un outil LONG — progression et annulation
 
 Le troisième paramètre, `run` (`IMcpToolRun`, `IMcpTool.ts#IMcpToolRun`), sert l'outil qui dure :
@@ -380,11 +456,11 @@ temps : la porte se **définit une fois** (`defineMcpGate()`, `gate.ts#defineMcp
 ligne depuis une action de controller. `npx nodefony create controller <nom> --kind mcp` écrit les
 deux, avec ses outils d'exemple et son test ; `--expose` choisit qui peut frapper :
 
-| `--expose`       | Qui passe                                                                                | Ce qui est écrit en plus                                                                                                               |
-| ---------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `local` (défaut) | la machine seulement, sans jeton ; page web → `403`                                      | rien : en production derrière un relais, tout appelant est distant, donc refusé                                                        |
-| `oauth`          | quiconque présente un jeton émis pour la porte                                           | l'émetteur et l'URI publique (`publicBaseUrl`), `allowRemote`, et le service qui publie le document RFC 9728 du défi `401`             |
-| `mixte`          | tout le monde pour les outils publics ; un jeton porteur de leurs scopes pour les autres | ce qu'écrit `oauth`, plus `anonymous: true` et `scopes: ["<nom>:write"]` sur l'outil long — le jeton s'émet avec `--scope <nom>:write` |
+| `--expose`       | Qui passe                                                                                | Ce qui est écrit en plus                                                                                                                                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `local` (défaut) | la machine seulement, sans jeton ; page web → `403`                                      | rien : en production derrière un relais, tout appelant est distant, donc refusé                                                                                                                              |
+| `oauth`          | quiconque présente un jeton émis pour la porte                                           | l'émetteur et l'URI publique (`publicBaseUrl`), `allowRemote`, le service qui publie le document RFC 9728 du défi `401`, et l'outil `<nom>_me` qui agit au nom du compte (`actsForUser`, scope `<nom>:read`) |
+| `mixte`          | tout le monde pour les outils publics ; un jeton porteur de leurs scopes pour les autres | ce qu'écrit `oauth`, plus `anonymous: true` et `scopes: ["<nom>:write"]` sur l'outil long — le jeton s'émet avec `--scope <nom>:write`                                                                       |
 
 **Une porte publie ce qu'elle CHOISIT** : une liste d'outils importée, comme ci-dessous. `tools:
 "modules"` servirait en plus tout outil qu'un module installé déclare, aujourd'hui ou demain — à
@@ -466,6 +542,51 @@ Ce que la mécanique tient pour toi (`gate.respond()`, `gate.ts#IMcpGate.respond
   outil se réserve par ses `scopes` (absent du catalogue de qui ne les porte pas). Un jeton rejeté
   est alors servi comme un inconnu — jamais mieux —, et le refus part au journal.
 
+### Niveau 2 — de vraies requêtes HTTP au nom d'un compte
+
+`actsForUser` suffit tant que l'outil appelle des services. Un outil qui doit TIRER de vraies
+requêtes vers l'application (profiler une page protégée, rejouer un parcours) a besoin d'une
+**session** : celle que le pare-feu reconnaît, ouverte par le flux de connexion de l'application,
+qui revérifie le compte et écrit l'audit. `defineTicketSessionGate` (`ticketSession.ts#defineTicketSessionGate`)
+en est la mécanique, sans route — comme `defineMcpGate` :
+
+```ts
+import { defineTicketSessionGate } from "@nodefony/ai";
+
+// Le facteur nomme la connexion dans l'audit (`login.success`, raison « replay »).
+export const replayGate = defineTicketSessionGate({ factor: "replay" });
+
+@controller("/api/replay")
+class ReplaySessionController extends Controller {
+  // Chemin LITTÉRAL : un inventaire des routes doit le voir sans exécuter.
+  @route("replay-session", {
+    path: "/session",
+    requirements: { methods: ["POST"] },
+  })
+  session() {
+    return replayGate.serve(this);
+  }
+}
+```
+
+L'outil émet un ticket (`replayGate.issue(identifiant)`), le présente en boucle locale dans
+l'en-tête `x-nodefony-session-ticket`, récupère le cookie de la réponse, tire ses requêtes, puis
+détruit la session (`replayGate.close(sessions, ref)`). La réponse se lit par
+`readTicketSessionVerdict`, écrit à côté de qui la produit.
+
+- **Le ticket est la garde** : 256 bits d'aléa, usage unique, dix secondes, huit en attente au
+  plus, rangé par empreinte — jamais affiché ni journalisé. L'identité est fixée à l'émission : la
+  requête de rachat n'en porte aucune, donc n'en choisit aucune.
+- **Locale par défaut** (`localOnly: true`) : un appel distant, ou RELAYÉ par un proxy de la même
+  machine, est refusé avant que le ticket ne soit consommé — la même règle que la porte MCP
+  (`guard.ts#isRelayedRequest`). Une porte distante doit écrire `localOnly: false`.
+- **Un refus dit la même chose quelle qu'en soit la cause** (`403`, `TICKET_SESSION_REFUSED`) ;
+  `503` quand l'application n'a pas de flux de session (`@nodefony/security` absent).
+- **Qui a droit à quel compte n'est PAS décidé ici** : c'est à l'outil. Celui de devkit
+  (`nodefony_profile_route`) joue le propriétaire du jeton, ou un autre compte avec `as` — scope
+  d'écriture exigé par `scopesFor`, et rôles visés inclus dans ceux du propriétaire (règle
+  `rolesWithin`, portée par `@nodefony/security`).
+
 ## 📏 Normes appliquées — ce que la boîte à outils tient pour toi
 
 Révision de référence : `2026-07-28` (`MCP_PROTOCOL_VERSION`, `protocol.ts#MCP_PROTOCOL_VERSION`), servie avec les
@@ -505,6 +626,10 @@ révisions antérieures que les clients déployés emploient encore (`MCP_SUPPOR
   un agent, sans nommer ce qu'on protège.
 - **Un outil lit ce que l'appelant peut lire.** Les outils d'administration intégrés exigent
   `admin:read` et rendent les réponses du plan d'administration, redaction des secrets comprise.
+- **En production, le jeton vient d'un serveur d'autorisation EXTERNE** (`authorizationServers`,
+  document RFC 9728 publié). `security:mcp:token` est un outil de poste et d'exploitation : qui
+  détient `NF_JWT_KEYSET` émet un jeton pour N'IMPORTE QUEL compte — avec `actsForUser`, c'est agir
+  en son nom.
 - **Avant d'exposer une donnée**, se demander si elle supporterait d'être lue par qui atteint la
   porte. En développement, la porte est bornée par sa garde de transport et par la politique
   `dev` de son module.
