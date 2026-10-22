@@ -617,6 +617,33 @@ class App extends Module {}`,
     assert.match(service[0]!.message, /@services\(\[DiscountService\]\)/u);
   });
 
+  it("module rangé sous `src/modules/` → UN manquement, pas un par cible qui le voit", () => {
+    // La racine parcourt `src/`, où le module est aussi sa propre cible : lu
+    // deux fois, il sortait en double (vécu sur l'application du dépôt).
+    const dir = make({
+      "index.ts": `class App extends Module {}`,
+      "nodefony/services/.keep": "",
+      "src/modules/shop/index.ts": `class Shop extends Module {}`,
+      "src/modules/shop/nodefony/services/DiscountService.ts": SERVICE,
+    });
+    const shop = path.join(dir, "src", "modules", "shop");
+    const r = checkWiring({ roots: [dir, shop], cwd: dir });
+    const service = r.findings.filter((f) => f.kind === "orphan-service");
+    assert.strictEqual(service.length, 1, JSON.stringify(r.findings));
+    assert.strictEqual(
+      service[0]!.file,
+      path.join(
+        "src",
+        "modules",
+        "shop",
+        "nodefony",
+        "services",
+        "DiscountService.ts",
+      ),
+    );
+    assert.strictEqual(r.scanned, 1);
+  });
+
   it("enregistré à la MAIN → rien à signaler", () => {
     // La règle est « quelqu'un te déclare », pas « tu passes par le décorateur ».
     // Les modules du framework posent une partie de leurs services en impératif ;

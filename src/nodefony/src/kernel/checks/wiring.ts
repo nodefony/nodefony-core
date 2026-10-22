@@ -20,6 +20,7 @@
  */
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { isInsideRoot } from "../../cli/scaffold/destination";
 import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 import { ROUTE_PATH_RE } from "../../cli/scaffold/routePaths";
 import { collectSources } from "./walk";
@@ -765,8 +766,15 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     // documentation : le contrôleur du générateur, qui commente `@IsGranted`
     // sans jamais l'employer, faisait sortir `npm run verify` en 1 sur une
     // application qui venait de naître.
+    //
+    // Un fichier n'appartient qu'à UNE cible : la racine parcourt `src/`, où
+    // vivent aussi des modules qui sont leurs propres cibles. Sans cette
+    // exclusion, chacun était lu deux fois — chaque manquement sortait en
+    // double, et une déclaration d'un module couvrait l'oubli d'un autre.
+    const nested = roots.filter((r) => isInsideRoot(root, r));
     const sources = new Map<string, string>();
     for (const file of wiringSources(root)) {
+      if (nested.some((n) => isInsideRoot(n, file))) continue;
       sources.set(file, withoutComments(read(file)));
     }
     const rel = (f: string): string => path.relative(cwd, f);
