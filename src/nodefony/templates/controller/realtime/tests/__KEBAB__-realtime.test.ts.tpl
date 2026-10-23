@@ -1,8 +1,11 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { getRealtimeHub } from "@nodefony/realtime";
-<% if (it.hasSecurity) { %>import type { IRealtimeToken } from "@nodefony/realtime";
-<% } %>import { createRealtimeHarness } from "@nodefony/realtime/testing";
-import <%= it.nameClass %> from "../nodefony/controllers/<%= it.nameClass %>";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+<% if (it.hasSecurity) { %>import {
+  createTestFrameAuthorizer,
+  createTestIdentity,
+} from "@nodefony/security/testing";
+<% } %>import <%= it.nameClass %> from "../nodefony/controllers/<%= it.nameClass %>";
 
 /** Lit un champ d'une valeur reçue du réseau, sans présumer de sa forme. */
 function field(value: unknown, key: string): unknown {
@@ -11,35 +14,7 @@ function field(value: unknown, key: string): unknown {
     : undefined;
 }
 
-<% if (it.hasSecurity) { %>/**
- * Jeton de session factice : celui que le pare-feu aurait résolu au handshake.
- *
- * `getAttribute` est une signature à surcharge : le contrat `IRealtimeToken` la
- * veut typée par l'APPELANT (`getAttribute<IUser>("user")`), ce qu'aucune
- * implémentation ne peut vérifier — la surcharge le dit, au lieu de le cacher
- * derrière une conversion.
- */
-class SessionStubToken implements IRealtimeToken {
-  readonly type = "session";
-
-  constructor(
-    private readonly identifier: string,
-    private readonly attributes: ReadonlyMap<string, unknown>,
-  ) {}
-
-  getUserIdentifier = (): string => this.identifier;
-  isAuthenticated = (): boolean => true;
-  getRoles = (): string[] => ["ROLE_USER"];
-  getScopes = (): string[] => [];
-
-  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- forme imposée par IRealtimeToken
-  getAttribute<T = unknown>(key: string): T | undefined;
-  getAttribute(key: string): unknown {
-    return this.attributes.get(key);
-  }
-}
-
-<% } %>/**
+/**
  * Tests de la socket de <%= it.nameClass %>, sans serveur ni navigateur.
  *
  * `createRealtimeHarness` monte le controller sur une fausse connexion et
@@ -48,18 +23,22 @@ class SessionStubToken implements IRealtimeToken {
  * du hub, pose d'une identité) vit dans `@nodefony/realtime/testing` — il n'y a
  * rien à recopier ici.
  *
- * Pour éprouver un canal PROTÉGÉ (`@RealtimeChannel(nom, { roles })`), passer
- * au harnais l'identité ET le verrou de frame :
+ * Pour éprouver un canal ou une action PROTÉGÉS (`{ roles }`), passer au
+ * harnais l'identité ET le verrou de frame, tous deux fournis par
+ * `@nodefony/security/testing` — le verrou est celui du pare-feu, jamais une
+ * copie :
  *
  * ```ts
  * const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx), {
- *   identity: monToken,                 // ce que l'authenticator aurait résolu
- *   frameAuthorizer: monVerrou,         // buildFrameAuthorizer de @nodefony/security
+ *   identity: createTestIdentity({ roles: ["ROLE_USER"] }),
+ *   frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
  * });
  * ```
  *
  * Sans verrou, une politique déclarée n'est appliquée par personne — c'est
  * aussi vrai au runtime : c'est `@nodefony/security` qui la fait respecter.
+ * Un verrou écrit à la main qui ne regarde que « connecté ou non » laisse
+ * passer un canal mal protégé : le test reste vert, et ne prouve rien.
  */
 describe("<%= it.nameClass %> — socket", () => {
   afterEach(() => getRealtimeHub().clear());
@@ -120,17 +99,38 @@ describe("<%= it.nameClass %> — socket", () => {
     // L'identité qu'aurait posée le pare-feu au handshake. Une action qui
     // écrit au nom de quelqu'un doit avoir CE test : sans lui, un appelant
     // introuvable ne se voit qu'en production.
-    const alice = { identifier: "alice" };
-    const identity = new SessionStubToken(
-      alice.identifier,
-      new Map<string, unknown>([["user", alice]]),
-    );
     const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx), {
-      identity,
+      identity: createTestIdentity({ identifier: "alice" }),
     });
     await h.connect();
     const me = await h.call<{ identifier: string }>("<%= it.channel %>:whoami");
     expect(me.identifier).toBe("alice");
+    h.dispose();
+  });
+
+  // L'action `<%= it.channel %>:snapshot` est réservée à ROLE_ADMIN. Les deux
+  // cas vont ENSEMBLE : le refus seul passerait aussi avec une action fermée à
+  // tous, l'accord seul avec une action ouverte à tous. C'est leur paire qui
+  // prouve que la politique de rôles est appliquée — retirer `roles` du
+  // décorateur fait tomber le premier.
+  it("action réservée à ROLE_ADMIN : refusée à un compte ROLE_USER", async () => {
+    const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx), {
+      identity: createTestIdentity({ roles: ["ROLE_USER"] }),
+      frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
+    });
+    await h.connect();
+    await expect(h.call("<%= it.channel %>:snapshot")).rejects.toThrow();
+    h.dispose();
+  });
+
+  it("action réservée à ROLE_ADMIN : accordée à un compte ROLE_ADMIN", async () => {
+    const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx), {
+      identity: createTestIdentity({ roles: ["ROLE_ADMIN"] }),
+      frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
+    });
+    await h.connect();
+    const snapshot = await h.call<{ pid: number }>("<%= it.channel %>:snapshot");
+    expect(snapshot.pid).toBe(process.pid);
     h.dispose();
   });
 <% } %>});

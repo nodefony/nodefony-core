@@ -5172,6 +5172,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(rtTest, "createRealtimeHarness");
       assert.include(rtTest, '"pulse:ping"');
       assert.notInclude(rtTest, "__KEBAB__");
+      // L'action protégée s'éprouve avec l'identité et le VRAI verrou du
+      // pare-feu (#654) — jamais un jeton recopié : deux agents sur deux
+      // l'avaient repris d'ici, avec un verrou qui ne lisait que « connecté ».
+      assert.include(rtTest, '"@nodefony/security/testing"');
+      assert.include(rtTest, "createTestFrameAuthorizer(getRealtimeHub())");
+      assert.include(rtTest, '"pulse:snapshot"');
+      assert.notInclude(rtTest, "implements IRealtimeToken");
 
       const mini = path.join(tmp, "rtmini");
       scaffold(mini, { name: "rtmini", preset: "minimal" });

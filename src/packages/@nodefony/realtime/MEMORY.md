@@ -210,6 +210,8 @@ denials, close, dispose }`. Options : `url` · `origin` · `headers` · `cookies
 - **`frameAuthorizer` est le seul moyen d'éprouver une `policy`** : `realtime` ⊥ `security`
   au runtime — sans verrou, une politique déclarée n'est appliquée par personne, en test
   comme en production. Éprouvé contre le VRAI `buildFrameAuthorizer` dans
-  `tests/integration/realtimeHarness.e2e.test.ts`.
+  `tests/integration/realtimeHarness.e2e.test.ts`. Une APPLICATION l'obtient par
+  `@nodefony/security/testing` (`createTestFrameAuthorizer(getRealtimeHub())` +
+  `createTestIdentity({ roles })`) — `buildFrameAuthorizer` n'est pas dans les `exports`.
 - Le gabarit `create controller --kind realtime` pose `tests/<kebab>-realtime.test.ts`
   par-dessus (core : `templates/controller/realtime/tests/`).

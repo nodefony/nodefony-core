@@ -98,9 +98,11 @@ export interface IRealtimeHarnessOptions {
   /**
    * Verrou de frame (seam #1). Neutre par construction : `@nodefony/realtime`
    * ne connaît pas `@nodefony/security`. Une application qui charge la sécurité
-   * passe ici son `buildFrameAuthorizer(...)` pour éprouver une politique de
-   * canal ou une action gardée par rôle — sans lui, une `policy` déclarée n'est
-   * appliquée par personne, exactement comme au runtime.
+   * passe ici `createTestFrameAuthorizer(getRealtimeHub())` de
+   * `@nodefony/security/testing` — le verrou du pare-feu, jamais une copie —
+   * pour éprouver une politique de canal ou une action gardée par rôle. Sans
+   * lui, une `policy` déclarée n'est appliquée par personne, exactement comme
+   * au runtime.
    */
   readonly frameAuthorizer?: FrameAuthorizer;
   /**
