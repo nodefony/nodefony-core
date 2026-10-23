@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, type ExecFileSyncOptions } from "node:child_process";
 import { randomBytes } from "node:crypto";
 <% if (!it.db) { %>import { rmSync } from "node:fs";
 import path from "node:path";
@@ -43,6 +43,41 @@ import path from "node:path";
  * Le résultat se donne à `node`, jamais au système : c'est un script.
  */
 const bin = nodefonyBin();
+
+/**
+ * Lance une commande du framework pour le décor, et dit laquelle a échoué.
+ *
+ * Une étape qui échoue le fait dans un AUTRE processus : sa sortie, affichée
+ * au-dessus, porte la cause (table absente, secret manquant, port pris). La
+ * pile JavaScript de `execFileSync` n'en apprend rien — et la lire fait
+ * planter le module-runner de Vite (`code.charCodeAt is not a function`), dont
+ * l'erreur prend alors la place de la vraie, en dernier à l'écran. L'échec est
+ * donc imprimé ICI, en clair, et relevé avec une pile déjà posée, que personne
+ * n'a plus à reconstruire.
+ *
+ * @param args - la commande et ses arguments, sans le lanceur.
+ * @param options - les options de `execFileSync` (sortie, délai, environnement).
+ * @throws Une erreur qui nomme l'étape et son code de sortie.
+ */
+function runNodefony(args: string[], options: ExecFileSyncOptions): void {
+  try {
+    execFileSync(process.execPath, [bin, ...args], options);
+  } catch (cause) {
+    const status =
+      typeof cause === "object" && cause !== null && "status" in cause
+        ? String(cause.status)
+        : "inconnu";
+    const message =
+      `e2e : « nodefony ${args.join(" ")} » a échoué (code ${status}) — ` +
+      "la cause est dans sa sortie, juste au-dessus.";
+    process.stderr.write(`\n✖ ${message}\n\n`);
+    // Ni `cause` ni pile d'origine : Vitest lit la pile de la cause aussi, et
+    // c'est en la lisant que le module-runner plante.
+    const error = new Error(message);
+    error.stack = message;
+    throw error;
+  }
+}
 
 /**
  * Les secrets qu'un exemplaire de PRODUCTION du décor exige pour servir.
@@ -223,7 +258,7 @@ export async function setup(): Promise<void> {
   // `--drop-accounts` est délibéré : la commande refuse d'effacer des comptes,
   // des passkeys ou des seconds facteurs sur un simple `--yes`. Ici ils
   // appartiennent à la suite et à personne d'autre — le drapeau dit qu'on l'a vu.
-  execFileSync(process.execPath, [bin, "orm:reset", "--yes", "--drop-accounts"], {
+  runNodefony(["orm:reset", "--yes", "--drop-accounts"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {
@@ -249,7 +284,7 @@ export async function setup(): Promise<void> {
   // qui passe AVANT. Sans cette étape, la base qu'on vient d'effacer reste vide,
   // la mise en service est retenue (`/readyz` rend 503), et `--wait` attend une
   // disponibilité qui ne viendra jamais.
-  execFileSync(process.execPath, [bin, "orm:migrate"], {
+  runNodefony(["orm:migrate"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {
@@ -258,7 +293,7 @@ export async function setup(): Promise<void> {
       NF_DATABASE_URL: E2E_BASE_URL,
     },
   });
-<% } %>  execFileSync(process.execPath, [bin, "production", "--detach", "--wait"], {
+<% } %>  runNodefony(["production", "--detach", "--wait"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {
@@ -304,15 +339,8 @@ export async function setup(): Promise<void> {
   // APRÈS le démarrage, par la commande du framework : le schéma est alors en
   // place quel que soit le moteur, et le hash passe par le même `UserService`
   // que l'application.
-  execFileSync(
-    process.execPath,
-    [
-      bin,
-      "security:user:add",
-      E2E_USER_IDENTIFIER,
-      "--password",
-      E2E_USER_PASSWORD,
-    ],
+  runNodefony(
+    ["security:user:add", E2E_USER_IDENTIFIER, "--password", E2E_USER_PASSWORD],
     {
       stdio: "inherit",
       timeout: 120_000,
@@ -333,7 +361,7 @@ export async function teardown(): Promise<void> {
   if (EXTERNAL_BASE_URL || !started) return;
   // Jamais de serveur laissé derrière : un runtime orphelin tient les ports et
   // fait échouer le run suivant sur une erreur qui ne parle pas de lui.
-  execFileSync(process.execPath, [bin, "stop"], {
+  runNodefony(["stop"], {
     stdio: "inherit",
     timeout: 30_000,
   });

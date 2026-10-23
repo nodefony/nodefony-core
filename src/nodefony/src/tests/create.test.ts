@@ -4902,6 +4902,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le serveur de test doit recevoir une base dédiée, jamais celle du développement",
       );
       assert.include(e2eSetup, "NF_E2E_DATABASE_URL");
+      // Une étape du décor qui échoue se dit par SON nom (#656). L'erreur brute
+      // d'`execFileSync`, rendue par Vitest, faisait planter le module-runner
+      // de Vite (`code.charCodeAt is not a function`), dont l'erreur masquait
+      // la vraie — « table absente » — en dernier à l'écran. Toutes les étapes
+      // passent donc par `runNodefony`, qui lève une erreur à pile POSÉE et
+      // sans `cause` (Vitest lit aussi la pile de la cause).
+      assert.lengthOf(
+        e2eSetup.match(/execFileSync\(/gu) ?? [],
+        1,
+        "une étape du décor appelle execFileSync en direct",
+      );
+      assert.include(e2eSetup, "error.stack = message;");
+      assert.notInclude(e2eSetup, "{ cause }");
       // Le serveur de test prend un port ATTRIBUÉ PAR LE NOYAU, jamais la
       // convention. Sur un poste où un autre projet tient déjà `127.0.0.1:5151`,
       // cette application (qui écoute sur `0.0.0.0` en production) peut s'y lier
