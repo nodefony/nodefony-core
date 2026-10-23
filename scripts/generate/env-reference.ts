@@ -175,13 +175,22 @@ async function readRepositoryShortcuts(): Promise<IModuleShortcut[]> {
  * Une cellule de tableau Markdown : sur une ligne, sans barre verticale nue,
  * et sans `<…>` qu'un moteur prendrait pour une balise — hors des segments de
  * code, où l'échappement s'afficherait tel quel.
+ *
+ * Hors code, l'antislash s'échappe AVEC la barre et le chevron, dans la même
+ * passe : échapper la barre seule laisserait `a\|b` devenir `a\\|b`, où la
+ * barre redevient nue et coupe la cellule. Dans un segment de code, Markdown
+ * ne lit aucun échappement — sauf `\|`, que le tableau GFM résout avant tout ;
+ * doubler l'antislash y afficherait `\\`.
  */
-function cell(text: string): string {
+export function markdownTableCell(text: string): string {
   return text
     .replace(/\s*\n\s*/gu, " ")
-    .replace(/\|/gu, "\\|")
     .split("`")
-    .map((part, i) => (i % 2 === 0 ? part.replace(/</gu, "\\<") : part))
+    .map((part, i) =>
+      i % 2 === 0
+        ? part.replace(/[\\|<]/gu, "\\$&")
+        : part.replace(/\|/gu, "\\|"),
+    )
     .join("`");
 }
 
@@ -196,7 +205,7 @@ function requirementOf(v: NamedEnvVarMeta): string {
   const when: string[] = [];
   if (v.requiredIn?.length) when.push(`en ${v.requiredIn.join(", ")}`);
   if (v.requiredWhen) when.push(v.requiredWhen);
-  return when.length > 0 ? cell(when.join(" ; ")) : "non";
+  return when.length > 0 ? markdownTableCell(when.join(" ; ")) : "non";
 }
 
 /** Le tableau des réglages du framework d'une section. */
@@ -206,7 +215,7 @@ function frameworkTable(vars: readonly NamedEnvVarMeta[]): string[] {
     "| --- | --- | --- | --- |",
     ...vars.map(
       (v) =>
-        `| \`${v.name}\` | ${cell(v.description ?? v.title ?? "")} | ${cell(envVarDefaultText(v))} | ${placementOf(v)} |`,
+        `| \`${v.name}\` | ${markdownTableCell(v.description ?? v.title ?? "")} | ${markdownTableCell(envVarDefaultText(v))} | ${placementOf(v)} |`,
     ),
   ];
 }
@@ -225,7 +234,7 @@ function appTables(vars: readonly NamedEnvVarMeta[]): string[] {
     for (const v of vars) {
       if ((v.section ?? "Divers") !== section) continue;
       out.push(
-        `| \`${v.name}\` | ${cell(v.description ?? v.title ?? "")} | ${requirementOf(v)} | ${cell(envVarDefaultText(v))} | ${placementOf(v)} |`,
+        `| \`${v.name}\` | ${markdownTableCell(v.description ?? v.title ?? "")} | ${requirementOf(v)} | ${markdownTableCell(envVarDefaultText(v))} | ${placementOf(v)} |`,
       );
     }
     out.push("");
@@ -354,7 +363,7 @@ export async function renderEnvReference(generatedBy: string): Promise<string> {
       if (s.module !== name) return;
       const v = fromModules[i] as NamedEnvVarMeta;
       L.push(
-        `| \`${v.name}\` | \`${s.path.join(".")}\` | ${cell(v.description ?? "")} | ${cell(envVarDefaultText(v))} | ${placementOf(v)} |`,
+        `| \`${v.name}\` | \`${s.path.join(".")}\` | ${markdownTableCell(v.description ?? "")} | ${markdownTableCell(envVarDefaultText(v))} | ${placementOf(v)} |`,
       );
     });
     L.push("");
