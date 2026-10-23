@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T14:48:54.756Z",
+  "generatedAt": "2026-10-23T14:58:49.882Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4802,22 +4802,6 @@
       ]
     },
     {
-      "number": 655,
-      "title": "docs(orm): présenter le générateur avant l'écriture à la main",
-      "url": "https://github.com/nodefony/nodefony-core/issues/655",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 5.14,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
       "number": 227,
       "title": "docs(site): publier la liste des variables d'environnement",
       "url": "https://github.com/nodefony/nodefony-core/issues/227",
@@ -4847,6 +4831,40 @@
       "cible": null,
       "labels": [
         "beta-5"
+      ]
+    },
+    {
+      "number": 406,
+      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/406",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.16,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 407,
+      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/407",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.17,
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
+      "labels": [
+        "beta-5",
+        "reportable"
       ]
     },
     {
@@ -5158,6 +5176,22 @@
       "labels": []
     },
     {
+      "number": 655,
+      "title": "docs(orm): présenter le générateur avant l'écriture à la main",
+      "url": "https://github.com/nodefony/nodefony-core/issues/655",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 631,
       "title": "test(media): lancer les tests audio dans un vrai navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/631",
@@ -5457,40 +5491,6 @@
       "ordre": 6.13,
       "debut": "2026-10-26",
       "cible": "2026-10-26",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 406,
-      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/406",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.14,
-      "debut": "2026-10-28",
-      "cible": "2026-10-28",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 407,
-      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/407",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.15,
-      "debut": "2026-10-29",
-      "cible": "2026-10-29",
       "labels": [
         "beta-6",
         "reportable"
@@ -8853,7 +8853,7 @@
       "title": "chore(ia): refaire l'etat de l'art avant de coder la couche IA",
       "url": "https://github.com/nodefony/nodefony-core/issues/245",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "12.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -8883,7 +8883,7 @@
       "title": "feat(llm): brancher un fournisseur de modele reel",
       "url": "https://github.com/nodefony/nodefony-core/issues/246",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "12.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
