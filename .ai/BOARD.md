@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-23 15:00** (UTC).
+> Empreinte prise le **2026-10-23 15:04** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -31,9 +31,9 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
+**#585 — feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire**
 
-Ordre 5.025 · P2 — décision · 27 j · jalon 10.0.0-beta · frise —
+Ordre 5.2 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -109,26 +109,26 @@ Ordre 5.025 · P2 — décision · 27 j · jalon 10.0.0-beta · frise —
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 5.025 | P2 — décision | 27 | — | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 5.03 | P2 — décision | 2 | — | #627 | docs(adr): figer l'architecture de la socket temps réel |
-| 5.04 | P2 — décision | 2 | — | #628 | feat(realtime): tenir le serveur au même contrat que le client |
-| 5.05 | P2 — décision | 3 | — | #618 | feat(realtime): router les trames binaires vers leur canal |
-| 5.06 | P2 — décision | 1 | — | #622 | feat(realtime): admettre un abonné de canal par son identité |
-| 5.07 | P2 — décision | 2 | — | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
-| 5.08 | P2 — décision | 1 | — | #585 | feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire |
-| 5.155 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
-| 5.16 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
-| 5.17 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
+| 5.2 | P2 — décision | 1 | — | #585 | feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire |
+| 5.21 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
+| 5.22 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
+| 5.23 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
+| 5.24 | P2 — décision | 1 | — | #631 | test(media): lancer les tests audio dans un vrai navigateur |
+| 5.3 | P2 — décision | 27 | — | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 5.31 | P2 — décision | 2 | — | #627 | docs(adr): figer l'architecture de la socket temps réel |
+| 5.32 | P2 — décision | 2 | — | #628 | feat(realtime): tenir le serveur au même contrat que le client |
+| 5.33 | P2 — décision | 3 | — | #618 | feat(realtime): router les trames binaires vers leur canal |
+| 5.34 | P2 — décision | 1 | — | #622 | feat(realtime): admettre un abonné de canal par son identité |
+| 5.35 | P2 — décision | 2 | — | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
+| 5.36 | P2 — décision | 2 | — | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
+| 5.37 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
+| 5.4 | P2 — décision | 7 | 2026-11-09 → 11-17 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 5.41 | P2 — décision | 1 | 2026-11-09 → 11-09 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 5.42 | P2 — décision | 1 | 2026-11-10 → 11-10 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 5.43 | P1 — figé à la création | 1 | 2026-11-11 → 11-11 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 5.44 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 5.45 | P1 — figé à la création | 3 | 2026-11-13 → 11-17 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 6.005 | P1 — figé à la création | 0.5 | — | #655 | docs(orm): présenter le générateur avant l'écriture à la main |
-| 6.01 | P2 — décision | 1 | — | #631 | test(media): lancer les tests audio dans un vrai navigateur |
-| 6.02 | P2 — décision | 2 | — | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
-| 6.03 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
-| 6.04 | P2 — décision | 7 | 2026-11-09 → 11-17 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 6.05 | P2 — décision | 1 | 2026-11-09 → 11-09 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 6.06 | P2 — décision | 1 | 2026-11-10 → 11-10 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 6.07 | P1 — figé à la création | 1 | 2026-11-11 → 11-11 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 6.08 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 6.09 | P1 — figé à la création | 3 | 2026-11-13 → 11-17 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 6.1 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 6.11 | P2 — décision | 0.5 | — | #605 | feat(site): versionner le site de documentation par release |
 | 6.12 | P2 — décision | 1 | 2026-11-16 → 12-15 | #89 | docs(notification): faire la veille des canaux de communication attendus |

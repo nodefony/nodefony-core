@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T15:00:26.019Z",
+  "generatedAt": "2026-10-23T15:04:27.260Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4564,54 +4564,6 @@
       ]
     },
     {
-      "number": 621,
-      "title": "feat(realtime): compléter le temps réel : binaire, canaux privés, voix",
-      "url": "https://github.com/nodefony/nodefony-core/issues/621",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 27,
-      "ordre": 5.025,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 627,
-      "title": "docs(adr): figer l'architecture de la socket temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/627",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 5.03,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 628,
-      "title": "feat(realtime): tenir le serveur au même contrat que le client",
-      "url": "https://github.com/nodefony/nodefony-core/issues/628",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 5.04,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
       "number": 213,
       "title": "build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig",
       "url": "https://github.com/nodefony/nodefony-core/issues/213",
@@ -4625,71 +4577,6 @@
       "cible": "2026-11-12",
       "labels": [
         "beta-5"
-      ]
-    },
-    {
-      "number": 618,
-      "title": "feat(realtime): router les trames binaires vers leur canal",
-      "url": "https://github.com/nodefony/nodefony-core/issues/618",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 3,
-      "ordre": 5.05,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 622,
-      "title": "feat(realtime): admettre un abonné de canal par son identité",
-      "url": "https://github.com/nodefony/nodefony-core/issues/622",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.06,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 623,
-      "title": "feat(realtime): identifier les abonnés d'un canal côté serveur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/623",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 5.07,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 585,
-      "title": "feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire",
-      "url": "https://github.com/nodefony/nodefony-core/issues/585",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.08,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5",
-        "reportable"
       ]
     },
     {
@@ -4834,57 +4721,6 @@
       ]
     },
     {
-      "number": 159,
-      "title": "docs(api): publier une référence d'API générée par paquet",
-      "url": "https://github.com/nodefony/nodefony-core/issues/159",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.155,
-      "debut": "2026-10-26",
-      "cible": "2026-10-26",
-      "labels": [
-        "beta-5",
-        "reportable"
-      ]
-    },
-    {
-      "number": 406,
-      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/406",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.16,
-      "debut": "2026-10-28",
-      "cible": "2026-10-28",
-      "labels": [
-        "beta-5",
-        "reportable"
-      ]
-    },
-    {
-      "number": 407,
-      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/407",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.17,
-      "debut": "2026-10-29",
-      "cible": "2026-10-29",
-      "labels": [
-        "beta-5",
-        "reportable"
-      ]
-    },
-    {
       "number": 35,
       "title": "feat(client): faire remonter les journaux du navigateur au serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/35",
@@ -4927,6 +4763,90 @@
       "labels": []
     },
     {
+      "number": 585,
+      "title": "feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/585",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 159,
+      "title": "docs(api): publier une référence d'API générée par paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/159",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.21,
+      "debut": "2026-10-26",
+      "cible": "2026-10-26",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 406,
+      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/406",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.22,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 407,
+      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/407",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.23,
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 631,
+      "title": "test(media): lancer les tests audio dans un vrai navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/631",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.24,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
       "number": 34,
       "title": "feat(client): implémenter le noyau applicatif côté navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/34",
@@ -4955,6 +4875,135 @@
       "labels": []
     },
     {
+      "number": 621,
+      "title": "feat(realtime): compléter le temps réel : binaire, canaux privés, voix",
+      "url": "https://github.com/nodefony/nodefony-core/issues/621",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 27,
+      "ordre": 5.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 627,
+      "title": "docs(adr): figer l'architecture de la socket temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/627",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 5.31,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 628,
+      "title": "feat(realtime): tenir le serveur au même contrat que le client",
+      "url": "https://github.com/nodefony/nodefony-core/issues/628",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 5.32,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 618,
+      "title": "feat(realtime): router les trames binaires vers leur canal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/618",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 5.33,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 622,
+      "title": "feat(realtime): admettre un abonné de canal par son identité",
+      "url": "https://github.com/nodefony/nodefony-core/issues/622",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.34,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 623,
+      "title": "feat(realtime): identifier les abonnés d'un canal côté serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/623",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 5.35,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 629,
+      "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/629",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 5.36,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 555,
+      "title": "feat(studio): montrer en direct la contre-pression du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/555",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.37,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
       "number": 91,
       "title": "feat(studio): porter la console d'administration sur le noyau client",
       "url": "https://github.com/nodefony/nodefony-core/issues/91",
@@ -4981,6 +5030,108 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 445,
+      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/445",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 7,
+      "ordre": 5.4,
+      "debut": "2026-11-09",
+      "cible": "2026-11-17",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 446,
+      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/446",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.41,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 447,
+      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/447",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.42,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 448,
+      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/448",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.43,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 449,
+      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/449",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.44,
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
+      "number": 450,
+      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/450",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 5.45,
+      "debut": "2026-11-13",
+      "cible": "2026-11-17",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
     },
     {
       "number": 132,
@@ -5209,123 +5360,6 @@
       ]
     },
     {
-      "number": 631,
-      "title": "test(media): lancer les tests audio dans un vrai navigateur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/631",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.01,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 629,
-      "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/629",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 6.02,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 555,
-      "title": "feat(studio): montrer en direct la contre-pression du temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/555",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.03,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 445,
-      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/445",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 7,
-      "ordre": 6.04,
-      "debut": "2026-11-09",
-      "cible": "2026-11-17",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 446,
-      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
-      "url": "https://github.com/nodefony/nodefony-core/issues/446",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.05,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 447,
-      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/447",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.06,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 448,
-      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/448",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 6.07,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
       "number": 479,
       "title": "ci: empêcher un process détaché de figer les jobs Windows après leur succès",
       "url": "https://github.com/nodefony/nodefony-core/issues/479",
@@ -5339,40 +5373,6 @@
       "cible": "2026-11-16",
       "labels": [
         "beta-6"
-      ]
-    },
-    {
-      "number": 449,
-      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
-      "url": "https://github.com/nodefony/nodefony-core/issues/449",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 6.08,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 450,
-      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
-      "url": "https://github.com/nodefony/nodefony-core/issues/450",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 3,
-      "ordre": 6.09,
-      "debut": "2026-11-13",
-      "cible": "2026-11-17",
-      "labels": [
-        "beta-6",
-        "reportable"
       ]
     },
     {
