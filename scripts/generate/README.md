@@ -30,6 +30,16 @@ Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate 
 - **Usage** : `import { BENCH_DECOR, type IEnvDeclaration } from "./env-catalog"`
 - **Appelé par** : `generate/env-snapshot.ts`
 
+## [`env-reference.ts`](env-reference.ts)
+
+La page PUBLIQUE des variables d'environnement, rendue depuis les registres du produit — jamais écrite à la main.
+
+- **Usage** : `import { renderEnvReference } from "./env-reference"`
+- **Variable** `SAMPLE_APP`
+- **Produit** : docs/guides/variables-environnement.md (écrit par son appelant)
+- **Appelé par** : `generate/env-snapshot.ts`
+- **Utilise** : `lib/repo-root.mjs`
+
 ## [`env-snapshot.ts`](env-snapshot.ts)
 
 Catalogue des variables d'environnement — projection DÉRIVÉE, jamais saisie.
@@ -38,7 +48,7 @@ Catalogue des variables d'environnement — projection DÉRIVÉE, jamais saisie.
 - **Usage** : `tsx scripts/generate/env-snapshot.ts --check`
 - **Variable** `NF_X`
 - **Appelé par** : `npm run env:snapshot` · `.githooks/pre-commit`
-- **Utilise** : `lib/repo-root.mjs` · `test/vitest/gates.ts` · `generate/env-catalog.ts`
+- **Utilise** : `lib/repo-root.mjs` · `test/vitest/gates.ts` · `generate/env-catalog.ts` · `generate/env-reference.ts`
 
 ## [`generate-man.mjs`](generate-man.mjs)
 

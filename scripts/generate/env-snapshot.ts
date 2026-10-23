@@ -29,6 +29,11 @@
  * - **runtime produit** : lue par le produit. Relevée pour mémoire, sans
  *   description exigée — sa vérité est son TSDoc, au site de lecture.
  *
+ * Il écrit AUSSI la page publique des variables du framework
+ * (`docs/guides/variables-environnement.md`, rendue par `env-reference.ts`
+ * depuis les registres du produit) : un seul geste, un seul déclencheur au
+ * pré-commit, et `--check` refuse une page en retard sur le code.
+ *
  * ## Ce qui rend l'instrument fiable
  *
  * Le **refus**, pas le document. Le script sort non nul dans les deux sens de
@@ -38,7 +43,7 @@
  *
  * @example
  * ```bash
- * tsx scripts/generate/env-snapshot.ts          # écrit .ai/env.json + .ai/ENV.md
+ * tsx scripts/generate/env-snapshot.ts          # écrit .ai/env.json + .ai/ENV.md + la page publique
  * tsx scripts/generate/env-snapshot.ts --check  # ne rien écrire : juste le verdict
  * ```
  *
@@ -63,6 +68,7 @@ import {
   type EnvGate,
 } from "../test/vitest/gates";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import { ENV_REFERENCE_PAGE, renderEnvReference } from "./env-reference.ts";
 
 /** Dossiers balayés — les seuls qui portent du code exécuté. */
 const SCANNED = ["src", "scripts"];
@@ -420,13 +426,30 @@ async function main(): Promise<void> {
     variables: entries,
   };
 
+  const pageName = ENV_REFERENCE_PAGE;
+  const pagePath = path.join(ROOT, ...pageName.split("/"));
+  const page = await renderEnvReference(json.generatedBy);
+
   if (check) {
+    // La page est PUBLIÉE : en retard sur le code, elle dit à l'exploitant un
+    // défaut qui n'est plus celui qu'il obtiendra.
+    const current = await fs.readFile(pagePath, "utf8").catch(() => null);
+    if (current !== page) {
+      process.stderr.write(
+        `\n❌ ${pageName} est en retard sur les registres du code.\n` +
+          `   Régénérer : npm run env:snapshot\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
     process.stdout.write(
       `✓ catalogue cohérent — ${entries.length} variables ` +
         `(${json.counts.decor} de décor décrites, ${json.counts.runtime} de runtime relevées)\n`,
     );
     return;
   }
+
+  await fs.writeFile(pagePath, page, "utf8");
 
   await fs.writeFile(
     path.join(ROOT, ".ai", "env.json"),
@@ -439,7 +462,7 @@ async function main(): Promise<void> {
     "utf8",
   );
   process.stdout.write(
-    `✓ .ai/env.json + .ai/ENV.md — ${entries.length} variables ` +
+    `✓ .ai/env.json + .ai/ENV.md + ${pageName} — ${entries.length} variables ` +
       `(${json.counts.decor} de décor, ${json.counts.runtime} de runtime)\n`,
   );
 }

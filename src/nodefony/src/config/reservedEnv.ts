@@ -226,6 +226,15 @@ export const RESERVED_ENV = Object.freeze({
       placement: "workstation",
     },
   },
+  NF__DEBUG: {
+    name: "NF__DEBUG",
+    role: "rallume au démarrage le débogage de modules nommés (`FIREWALL,SESSION:NOTICE`, `*` pour tous)",
+    tunable: {
+      title: "Débogage ciblé par module",
+      defaultNote: "aucun débogage ciblé (un redémarrage remet à zéro)",
+      placement: "workstation",
+    },
+  },
   NF_PERF_PROBE: {
     name: "NF_PERF_PROBE",
     role: "arme la sonde de performance du pipeline HTTP",

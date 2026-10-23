@@ -161,9 +161,9 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | Variable | Premier site |
 | --- | --- |
 | `NF__DEBUG` | `src/nodefony/src/kernel/kernelLog.ts:252` |
-| `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:90` |
-| `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:86` |
-| `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:83` |
+| `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:91` |
+| `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
+| `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:821` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:115` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3019` |

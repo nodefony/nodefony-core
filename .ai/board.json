@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T08:33:51.866Z",
+  "generatedAt": "2026-10-23T11:22:02.622Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4790,7 +4790,7 @@
       "title": "docs(orm): présenter le générateur avant l'écriture à la main",
       "url": "https://github.com/nodefony/nodefony-core/issues/655",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

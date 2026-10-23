@@ -29,6 +29,37 @@ function stringifyDefault(v: unknown): string {
 }
 
 /**
+ * La variable est-elle exigée PARTOUT — sans défaut déclaré, ni marquée facultative ?
+ *
+ * Une exigence limitée à un environnement (`requiredIn`) ou à une condition
+ * (`requiredWhen`) n'en fait pas une variable requise ici : elle se dit à part.
+ * Partagée par la notice `.env.example` et la page publique des variables.
+ *
+ * @param v - la variable du catalogue.
+ * @returns `true` si l'absence de la variable est toujours une erreur.
+ */
+export function isEnvVarRequired(v: NamedEnvVarMeta): boolean {
+  return v.default === undefined && !v.optional;
+}
+
+/**
+ * Ce qu'une variable vaut quand elle est absente, tel que la notice l'annonce.
+ *
+ * Le défaut déclaré, sinon `defaultNote` (le défaut que le CODE applique),
+ * sinon `aucun`. Partagée par la notice `.env.example` et la page publique des
+ * variables d'environnement : les deux ne peuvent pas annoncer deux défauts
+ * différents pour la même variable.
+ *
+ * @param v - la variable du catalogue.
+ * @returns le défaut, en texte.
+ */
+export function envVarDefaultText(v: NamedEnvVarMeta): string {
+  return v.default !== undefined
+    ? stringifyDefault(v.default)
+    : (v.defaultNote ?? "aucun");
+}
+
+/**
  * Valeur d'un décorateur : nue si elle ne contient ni espace ni guillemet,
  * sinon entre guillemets doubles (échappés) — une ligne se lit alors d'une seule
  * expression régulière, `^# @(\w+)(?:=(.*))?$`.
@@ -109,9 +140,7 @@ function renderVar(v: NamedEnvVarMeta): string[] {
     });
     out.push("#");
   }
-  out.push(
-    v.default !== undefined || v.optional ? "# @optional" : "# @required",
-  );
+  out.push(isEnvVarRequired(v) ? "# @required" : "# @optional");
   for (const env of v.requiredIn ?? []) {
     out.push(`# @required=forEnv(${env})`);
   }
@@ -121,11 +150,7 @@ function renderVar(v: NamedEnvVarMeta): string[] {
   if (secret) out.push("# @sensitive");
   out.push(`# @placement=${envVarPlacement(v)}`);
   if (v.values?.length) out.push(`# @type=enum(${v.values.join(", ")})`);
-  const fallback =
-    v.default !== undefined
-      ? stringifyDefault(v.default)
-      : (v.defaultNote ?? "aucun");
-  out.push(`# @default=${decoratorValue(fallback)}`);
+  out.push(`# @default=${decoratorValue(envVarDefaultText(v))}`);
   if (v.example !== undefined) {
     out.push(`# @example=${decoratorValue(v.example)}`);
   }

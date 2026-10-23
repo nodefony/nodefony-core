@@ -44,9 +44,9 @@
 #        NF_BOOT_WARN_MS
 #   4. Framework : poste et diagnostic
 #        NF_CLI_DEBUG, NF_NO_UPDATE_CHECK, NF_DEV_UI, NF_DEV_MOUSE,
-#        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE,
-#        NF_OUTPUT, NF_NO_PROGRESS, NF_BANNER_ASCII, NF_NODE_DIST_URL,
-#        NF_WITH_DEV_MODULES, NF_WITH_DEV_MODULES_TTL_MIN
+#        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF__DEBUG,
+#        NF_PERF_PROBE, NF_OUTPUT, NF_NO_PROGRESS, NF_BANNER_ASCII,
+#        NF_NODE_DIST_URL, NF_WITH_DEV_MODULES, NF_WITH_DEV_MODULES_TTL_MIN
 
 
 # ============================================================================
@@ -344,6 +344,17 @@
 # @placement=workstation
 # @default="déduit du terminal"
 # NF_NO_TTY=
+
+
+# ─── Débogage ciblé par module ──────────────────────────────────────────────
+#
+# Rallume au démarrage le débogage de modules nommés
+# (`FIREWALL,SESSION:NOTICE`, `*` pour tous).
+#
+# @optional
+# @placement=workstation
+# @default="aucun débogage ciblé (un redémarrage remet à zéro)"
+# NF__DEBUG=
 
 
 # ─── Sonde de performance HTTP ──────────────────────────────────────────────

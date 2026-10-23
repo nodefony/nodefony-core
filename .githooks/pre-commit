@@ -191,21 +191,28 @@ fi
 # de code, et seulement s'il contient la chaîne « NF_ ». Sur la grande majorité
 # des commits, rien ne démarre. Sans ce filtre, on paierait 2 s de scan pour
 # corriger une faute de frappe dans un markdown.
+#
+# Second déclencheur, sans filtre de contenu : les REGISTRES dont naît la page
+# publique docs/guides/variables-environnement.md. Retoucher le seul défaut
+# d'un réglage ne fait apparaître aucun « NF_ » dans le diff — la page publiée
+# garderait l'ancien défaut sans que rien ne le dise.
 ENV_FILES=$(git diff --cached --name-only --diff-filter=ACMR \
   | grep -E '^(src|scripts)/.*\.(ts|tsx|mts|mjs|js)$' || true)
-if [ -n "$ENV_FILES" ] && git diff --cached -U0 -- $ENV_FILES | grep -q 'NF_'; then
+ENV_REGISTRIES=$(git diff --cached --name-only --diff-filter=ACMR \
+  | grep -E '^(src/nodefony/src/config/(reservedEnv|envExample)\.ts|src/nodefony/templates/app/base/env\.ts\.tpl|src/packages/@nodefony/[^/]+/nodefony/config/[^/]+\.ts|scripts/generate/env-(reference|snapshot)\.ts)$' || true)
+if [ -n "$ENV_REGISTRIES" ] || { [ -n "$ENV_FILES" ] && git diff --cached -U0 -- $ENV_FILES | grep -q 'NF_'; }; then
   if ! npx tsx scripts/generate/env-snapshot.ts; then
     echo "❌ pre-commit REFUSÉ : catalogue des variables d'environnement (variable citée ci-dessus)." >&2
     echo "   Pourquoi : une variable NF_ lue sans description fait sauter un banc sans un mot — et un" >&2
     echo "   banc sauté compte comme vert ; une description sans lecture ment sur ce qui est lu." >&2
     echo "   Faire : le geste et le fichier du catalogue sont ci-dessus — décrire la variable de banc," >&2
     echo "   ou retirer la description orpheline." >&2
-    echo "   Puis  : git add .ai/env.json .ai/ENV.md <fichier> && git commit" >&2
+    echo "   Puis  : git add .ai/env.json .ai/ENV.md docs/guides/variables-environnement.md <fichier> && git commit" >&2
     exit 1
   fi
-  if ! git diff --quiet .ai/env.json .ai/ENV.md 2>/dev/null; then
-    git add .ai/env.json .ai/ENV.md
-    echo "✅ .ai/env.json + .ai/ENV.md mis à jour et stagés"
+  if ! git diff --quiet .ai/env.json .ai/ENV.md docs/guides/variables-environnement.md 2>/dev/null; then
+    git add .ai/env.json .ai/ENV.md docs/guides/variables-environnement.md
+    echo "✅ .ai/env.json + .ai/ENV.md + docs/guides/variables-environnement.md mis à jour et stagés"
   fi
 fi
 

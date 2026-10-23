@@ -489,47 +489,61 @@ export function composeEnvExample(
   const framework = frameworkEnvCatalog(modules).filter(
     (v) => !names.has(v.name),
   );
-  // Les réglages que les schémas des modules déclarent (`.meta({ env })`) :
-  // leur titre, leur défaut et leur description viennent du schéma, aucune
-  // copie n'est tenue ici.
-  const fromModules = moduleSettings
-    .filter((m) => !names.has(m.env))
-    // oxlint-disable-next-line no-map-spread -- objet CONSTRUIT champ par champ ; le seul spread est un littéral conditionnel, forme imposée par `exactOptionalPropertyTypes`
-    .map((m): NamedEnvVarMeta => ({
-      name: m.env,
-      kind:
-        m.kind === "enum"
-          ? "enum"
-          : m.kind === "integer" || m.kind === "number"
-            ? "number"
-            : m.kind === "boolean"
-              ? "boolean"
-              : "string",
-      ...(m.values ? { values: m.values } : {}),
-      optional: true,
-      section: `Module ${m.module}`,
-      title: `${m.module} — ${m.path.join(".")}`,
-      ...(m.description ? { description: m.description } : {}),
-      defaultNote:
-        m.default === undefined
-          ? "aucun"
-          : m.secret
-            ? "défini par le module"
-            : typeof m.default === "string"
-              ? m.default
-              : JSON.stringify(m.default),
-      // La règle de l'application (`envVarPlacement`) : le schéma décide,
-      // sinon un secret va au gestionnaire de secrets, le reste à la plateforme.
-      placement: envVarPlacement({
-        name: m.env,
-        sensitive: m.secret,
-        ...(m.placement ? { placement: m.placement } : {}),
-      }),
-      sensitive: m.secret,
-    }));
+  const fromModules = moduleShortcutsCatalog(
+    moduleSettings.filter((m) => !names.has(m.env)),
+  );
   return renderEnvExample([...catalog, ...framework, ...fromModules], {
     header: customHeader ?? EXAMPLE_HEADER,
   });
+}
+
+/**
+ * Les noms courts que déclarent les schémas des modules, au format du
+ * catalogue d'une application — la section « Module … » de la notice.
+ *
+ * Leur titre, leur défaut et leur description viennent du schéma
+ * (`.meta({ env })`), aucune copie n'est tenue ici. Partagée par la notice
+ * `.env.example` et la page publique des variables d'environnement, qui ne
+ * peuvent donc pas dire deux choses différentes d'un même réglage.
+ *
+ * @param moduleSettings - les raccourcis lus (cf {@link readModuleShortcuts}).
+ * @returns une entrée de catalogue par raccourci, dans le même ordre.
+ */
+export function moduleShortcutsCatalog(
+  moduleSettings: readonly IModuleShortcut[],
+): NamedEnvVarMeta[] {
+  return moduleSettings.map((m): NamedEnvVarMeta => ({
+    name: m.env,
+    kind:
+      m.kind === "enum"
+        ? "enum"
+        : m.kind === "integer" || m.kind === "number"
+          ? "number"
+          : m.kind === "boolean"
+            ? "boolean"
+            : "string",
+    ...(m.values ? { values: m.values } : {}),
+    optional: true,
+    section: `Module ${m.module}`,
+    title: `${m.module} — ${m.path.join(".")}`,
+    ...(m.description ? { description: m.description } : {}),
+    defaultNote:
+      m.default === undefined
+        ? "aucun"
+        : m.secret
+          ? "défini par le module"
+          : typeof m.default === "string"
+            ? m.default
+            : JSON.stringify(m.default),
+    // La règle de l'application (`envVarPlacement`) : le schéma décide,
+    // sinon un secret va au gestionnaire de secrets, le reste à la plateforme.
+    placement: envVarPlacement({
+      name: m.env,
+      sensitive: m.secret,
+      ...(m.placement ? { placement: m.placement } : {}),
+    }),
+    sensitive: m.secret,
+  }));
 }
 
 /**

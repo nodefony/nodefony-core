@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-22",
+  "generatedAt": "2026-10-23",
   "count": 40,
   "repoScripts": [
     {
@@ -69,6 +69,7 @@
         "scripts/gates/check-package-deps.mjs",
         "scripts/gates/size-check.mjs",
         "scripts/generate/brand-assets.mjs",
+        "scripts/generate/env-reference.ts",
         "scripts/generate/env-snapshot.ts",
         "scripts/generate/generate-man.mjs",
         "scripts/generate/generate-symbols.ts",
@@ -930,6 +931,26 @@
       "options": [],
       "env": [],
       "output": "",
+      "calledBy": [
+        "scripts/generate/env-snapshot.ts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/generate/env-reference.ts",
+      "test": false,
+      "purpose": "La page PUBLIQUE des variables d'environnement, rendue depuis les registres du produit — jamais écrite à la main.",
+      "usage": [
+        "import { renderEnvReference } from \"./env-reference\""
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "SAMPLE_APP",
+          "help": ""
+        }
+      ],
+      "output": "docs/guides/variables-environnement.md (écrit par son appelant)",
       "calledBy": [
         "scripts/generate/env-snapshot.ts"
       ],

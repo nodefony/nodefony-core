@@ -106,6 +106,8 @@ Ce qui compte quand ça tourne pour de vrai.
     "desc": "nginx, HAProxy, Traefik — et la configuration qui se dérive de l'app au lieu de dériver." },
   { "icon": "☸️", "title": "Kubernetes", "href": "guides/kubernetes.md",
     "desc": "Les manifests, l'identité du pod, et les migrations qui passent avant les exemplaires." },
+  { "icon": "🔧", "title": "Variables d'environnement", "href": "guides/variables-environnement.md",
+    "desc": "Ce que le framework lit, et ce qui se passe quand une variable manque." },
   { "icon": "🗝️", "title": "Stockage de session", "href": "guides/session-storage.md",
     "desc": "Le choix qui décide de ton scaling horizontal." },
   { "icon": "🛠️", "title": "Studio", "href": "../src/packages/@nodefony/studio/docs/index.md",

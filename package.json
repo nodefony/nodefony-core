@@ -168,7 +168,7 @@
       "doc:anchors": "Vérifie que chaque ancre « fichier:ligne » du corpus de documentation pointe encore où elle le dit.",
       "doc:anchors:fix": "Convertit les ancres « fichier:ligne » en ancres par symbole, et édite les pages en place.",
       "doc:lint": "Definition of Done mécanique des pages PUBLIÉES (le périmètre de la CI) : frontmatter, sections, ancres, liens, zéro HTML brut.",
-      "env:snapshot": "Régénère .ai/ENV.md : quelle variable pose quel décor, et ce qui se passe si elle manque.",
+      "env:snapshot": "Régénère .ai/ENV.md et la page publique des variables : ce que chaque variable règle, et ce qui se passe si elle manque.",
       "externals:check": "Audite la dérive entre les listes « external » du bundler et les peerDependencies. Échoue sur un défaut.",
       "format": "Réécrit tout le dépôt au format Prettier.",
       "format:check": "Contrôle le format sans rien réécrire. C'est la version de la forge.",
