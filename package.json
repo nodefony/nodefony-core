@@ -75,7 +75,7 @@
     "test:deps-gate": "vitest run --config scripts/test/vitest/vitest.tooling.config.ts scripts/deps/reconcile-versions.test.mjs scripts/deps/deps-gate.test.mjs",
     "test:site-plan": "vitest run --config scripts/test/vitest/vitest.tooling.config.ts scripts/site/site-plan.test.mjs",
     "test:dev-credentials": "vitest run --config scripts/test/vitest/vitest.tooling.config.ts scripts/gates/dev-credentials.test.mjs",
-    "test:tooling": "vitest run --config scripts/test/vitest/vitest.tooling.config.ts scripts/repo scripts/ci scripts/gates scripts/deps scripts/site scripts/lib .claude/skills/nodefony-load-test/scripts/bench-out.test.mjs .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs .claude/skills/nodefony-rfc/scripts/amont-lib.test.mjs",
+    "test:tooling": "vitest run --config scripts/test/vitest/vitest.tooling.config.ts scripts/repo scripts/ci scripts/gates scripts/deps scripts/site scripts/lib scripts/generate .claude/skills/nodefony-load-test/scripts/bench-out.test.mjs .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs .claude/skills/nodefony-rfc/scripts/amont-lib.test.mjs",
     "test:integration": "node scripts/repo/turbo.mjs run build && node scripts/repo/turbo.mjs run test:integration --continue",
     "test:load": "node scripts/repo/turbo.mjs run build && node scripts/repo/turbo.mjs run test:load",
     "test:memory": "node scripts/repo/turbo.mjs run build && node scripts/repo/turbo.mjs run test:memory",
