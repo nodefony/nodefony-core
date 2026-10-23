@@ -78,6 +78,7 @@ import {
 } from "./logFormat";
 import { ClusterScopeNotice, SeverityBadge, OriginBadge } from "./LogVisuals";
 import { SourceBanner } from "./SourceBanner";
+import { RequestLines } from "./RequestLines";
 import {
   describeFlow,
   flowSelectGroups,
@@ -491,6 +492,20 @@ export const LogExplorer = observer(
                 ))}
               </Group>
             </Chip.Group>
+            {/* Raccourci vers l'origine NAVIGATEUR. Il ne crée pas un second
+            état de filtre : il pilote le champ « Module » (sous « Plus de filtres »), que le
+            data plane applique déjà en égalité. Sa raison d'être est la
+            DÉCOUVRABILITÉ — personne ne tape « browser » dans un champ libre
+            s'il ignore que ces lignes existent. */}
+            <Chip
+              size="xs"
+              color="grape"
+              checked={moduleF === BROWSER_ORIGIN}
+              onChange={(on) => setModuleF(on ? BROWSER_ORIGIN : "")}
+              aria-label="ne montrer que les journaux remontés par les navigateurs"
+            >
+              Navigateur
+            </Chip>
             <Button
               size="compact-xs"
               variant="subtle"
@@ -548,9 +563,9 @@ export const LogExplorer = observer(
               size="sm"
               checked={hideConsole}
               onChange={(e) => setHideConsole(e.currentTarget.checked)}
-              label="Masquer les requêtes de cette console"
+              label="Masquer le trafic de cette console"
             />
-            <InfoHint text="Les pages de la console d'administration, son rechargement à chaud (/_vite/) et ses appels de données (/nodefony/…/api/) écrivent chacun une ligne d'accès. Masquées, il ne reste que les requêtes de l'application." />
+            <InfoHint text="Les pages de la console d'administration, ses appels de données (/nodefony/…/api/) et le rechargement à chaud (/_vite/, « hmr update ») écrivent chacun une ligne. Masquées, il ne reste que l'application. Les erreurs relayées depuis le navigateur restent visibles." />
             <Text size="sm">
               {severities.size === 0 || severities.has("DEBUG") ? (
                 <>
@@ -733,20 +748,6 @@ export const LogExplorer = observer(
                   comboboxProps={{ withinPortal: true }}
                   aria-label="filtrer par étape du cycle de vie"
                 />
-                {/* Raccourci vers l'origine NAVIGATEUR. Il ne crée pas un second
-                état de filtre : il pilote le champ « Module » ci-contre, que le
-                data plane applique déjà en égalité. Sa raison d'être est la
-                DÉCOUVRABILITÉ — personne ne tape « browser » dans un champ libre
-                s'il ignore que ces lignes existent. */}
-                <Chip
-                  size="xs"
-                  color="grape"
-                  checked={moduleF === BROWSER_ORIGIN}
-                  onChange={(on) => setModuleF(on ? BROWSER_ORIGIN : "")}
-                  aria-label="ne montrer que les journaux remontés par les navigateurs"
-                >
-                  Navigateur
-                </Chip>
                 <TextInput
                   size="xs"
                   w={150}
@@ -773,6 +774,16 @@ export const LogExplorer = observer(
             columns={columns}
             getRowId={(r) => `${r.uid}-${r.timeStamp}`}
             onRowClick={onSelect}
+            // Une ligne de requête se déplie sur toutes ses lignes (même
+            // requestId) — inutile quand on trace déjà une seule requête.
+            rowHasDetail={(r) =>
+              r.msgid === "req" && Boolean(r.requestId) && !requestId.trim()
+            }
+            renderRowDetail={(r) =>
+              r.requestId ? (
+                <RequestLines requestId={r.requestId} onSelect={onSelect} />
+              ) : null
+            }
             pageSize={50}
             resetPageSignal={filterSignal}
             searchPlaceholder="Recherche : URL/route (ex. GET /api/x), payload, module, msgid…"

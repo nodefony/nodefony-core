@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  ActionIcon,
   Button,
   Checkbox,
   Group,
@@ -16,9 +25,11 @@ import {
   Text,
   TextInput,
   UnstyledButton,
+  VisuallyHidden,
 } from "@mantine/core";
 import {
   IconChevronDown,
+  IconChevronRight,
   IconChevronUp,
   IconColumns3,
   IconFilter,
@@ -236,6 +247,15 @@ interface BaseProps<T> {
    */
   renderBulkActions?:
     ((selectedRows: T[], clearSelection: () => void) => ReactNode) | undefined;
+  /**
+   * Détail **dépliable** sous une ligne : chevron en 1ʳᵉ colonne, contenu rendu
+   * sur toute la largeur, seulement quand la ligne est dépliée (un détail qui
+   * charge des données ne charge donc qu'à l'ouverture). Sans cette prop, le
+   * rendu est INCHANGÉ (opt-in).
+   */
+  renderRowDetail?: ((row: T) => ReactNode) | undefined;
+  /** Lignes qui ont un détail (défaut : toutes, si `renderRowDetail` est posé). */
+  rowHasDetail?: ((row: T) => boolean) | undefined;
 }
 
 /** Mode CLIENT : `data` complet → TanStack trie/filtre/pagine en mémoire. */
@@ -898,6 +918,18 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
 
   // Sélection multiple — lignes cochées (page courante en mode serveur).
   const selectable = props.selectable ?? false;
+  // Lignes dépliées — `null` tant qu'aucune ne l'a été (alloc paresseuse).
+  const { renderRowDetail, rowHasDetail } = props;
+  const expandable = renderRowDetail !== undefined;
+  const [expanded, setExpanded] = useState<ReadonlySet<string> | null>(null);
+  const toggleExpanded = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }, []);
+  const extraCols = (selectable ? 1 : 0) + (expandable ? 1 : 0);
   const selectedRows = selectable
     ? table.getSelectedRowModel().rows.map((r) => r.original)
     : [];
@@ -1080,6 +1112,11 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
               <Table.Thead>
                 {table.getHeaderGroups().map((hg) => (
                   <Table.Tr key={hg.id}>
+                    {expandable && (
+                      <Table.Th style={{ width: 32 }}>
+                        <VisuallyHidden>Détail</VisuallyHidden>
+                      </Table.Th>
+                    )}
                     {selectable && (
                       <Table.Th
                         style={{ width: 36, textAlign: "center" }}
@@ -1226,10 +1263,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
                 {rows.length === 0 && !loading && (
                   <Table.Tr>
                     <Table.Td
-                      colSpan={
-                        table.getVisibleLeafColumns().length +
-                        (selectable ? 1 : 0)
-                      }
+                      colSpan={table.getVisibleLeafColumns().length + extraCols}
                       style={{ textAlign: "center", padding: 24 }}
                     >
                       {hasActive ? (
@@ -1257,61 +1291,108 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
                     </Table.Td>
                   </Table.Tr>
                 )}
-                {rows.map((row) => (
-                  <Table.Tr
-                    key={row.id}
-                    onClick={
-                      onRowClick ? () => onRowClick(row.original) : undefined
-                    }
-                    onKeyDown={
-                      onRowClick
-                        ? (e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              onRowClick(row.original);
-                            }
-                          }
-                        : undefined
-                    }
-                    tabIndex={onRowClick ? 0 : undefined}
-                    style={{
-                      ...(onRowClick ? { cursor: "pointer" } : null),
-                      // Ligne inactive (désactivée/révoquée/verrouillée) → atténuée.
-                      ...(dimRow?.(row.original) ? { opacity: 0.5 } : null),
-                    }}
-                  >
-                    {selectable && (
-                      <Table.Td
-                        style={{ width: 36, textAlign: "center" }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Checkbox
-                          size="xs"
-                          aria-label="Sélectionner la ligne"
-                          checked={row.getIsSelected()}
-                          onChange={row.getToggleSelectedHandler()}
-                        />
-                      </Table.Td>
-                    )}
-                    {row.getVisibleCells().map((cell) => (
-                      <Table.Td
-                        key={cell.id}
+                {rows.map((row) => {
+                  const hasDetail =
+                    expandable && (rowHasDetail?.(row.original) ?? true);
+                  const isOpen = hasDetail && expanded?.has(row.id) === true;
+                  return (
+                    <Fragment key={row.id}>
+                      <Table.Tr
+                        onClick={
+                          onRowClick
+                            ? () => onRowClick(row.original)
+                            : undefined
+                        }
+                        onKeyDown={
+                          onRowClick
+                            ? (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  onRowClick(row.original);
+                                }
+                              }
+                            : undefined
+                        }
+                        tabIndex={onRowClick ? 0 : undefined}
                         style={{
-                          textAlign:
-                            cell.column.columnDef.meta?.align ?? "left",
-                          width: cell.column.getSize(),
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          ...(onRowClick ? { cursor: "pointer" } : null),
+                          // Ligne inactive (désactivée/révoquée/verrouillée) → atténuée.
+                          ...(dimRow?.(row.original) ? { opacity: 0.5 } : null),
                         }}
                       >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
+                        {expandable && (
+                          <Table.Td
+                            style={{ width: 32, textAlign: "center" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {hasDetail && (
+                              <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="gray"
+                                aria-expanded={isOpen}
+                                aria-label={
+                                  isOpen
+                                    ? "Masquer le détail"
+                                    : "Afficher le détail"
+                                }
+                                onClick={() => toggleExpanded(row.id)}
+                              >
+                                {isOpen ? (
+                                  <IconChevronDown size={14} />
+                                ) : (
+                                  <IconChevronRight size={14} />
+                                )}
+                              </ActionIcon>
+                            )}
+                          </Table.Td>
                         )}
-                      </Table.Td>
-                    ))}
-                  </Table.Tr>
-                ))}
+                        {selectable && (
+                          <Table.Td
+                            style={{ width: 36, textAlign: "center" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Checkbox
+                              size="xs"
+                              aria-label="Sélectionner la ligne"
+                              checked={row.getIsSelected()}
+                              onChange={row.getToggleSelectedHandler()}
+                            />
+                          </Table.Td>
+                        )}
+                        {row.getVisibleCells().map((cell) => (
+                          <Table.Td
+                            key={cell.id}
+                            style={{
+                              textAlign:
+                                cell.column.columnDef.meta?.align ?? "left",
+                              width: cell.column.getSize(),
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </Table.Td>
+                        ))}
+                      </Table.Tr>
+                      {isOpen && (
+                        <Table.Tr>
+                          <Table.Td
+                            colSpan={
+                              table.getVisibleLeafColumns().length + extraCols
+                            }
+                            style={{ padding: 0 }}
+                          >
+                            {renderRowDetail(row.original)}
+                          </Table.Td>
+                        </Table.Tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </Table.Tbody>
             </Table>
           </DataState>

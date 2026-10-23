@@ -144,7 +144,8 @@ export function SyslogStatusBar({
       icon: <IconStack2 size={18} />,
       tone: freshness.stale ? "warn" : "active",
       value: (
-        <Text size="sm">
+        // `span` : la valeur d'un segment est déjà rendue dans un paragraphe.
+        <Text span size="sm">
           <Text span size="sm" fw={700}>
             {source.label}
           </Text>
