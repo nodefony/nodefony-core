@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T15:20:10.269Z",
+  "generatedAt": "2026-10-23T15:28:42.829Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4851,7 +4851,7 @@
       "title": "docs(site): orienter l'accueil selon le profil du lecteur",
       "url": "https://github.com/nodefony/nodefony-core/issues/660",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
