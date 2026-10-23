@@ -27,6 +27,7 @@ import {
   MONGOOSE_CONNECTOR,
   runScaffold,
   scaffoldCaps,
+  toKebabCase,
   type TScaffoldAnswers,
 } from "./scaffold/engine";
 import { formatFilesOnDisk } from "./scaffold/format";
@@ -1326,6 +1327,36 @@ export function commandWithName(
   return ["nodefony", "create", ...quoted].join(" ");
 }
 
+/**
+ * Le nom d'application que porte un dossier, pour `create app .`.
+ *
+ * Nom de base ramené au kebab-case (`MonApp` → `mon-app`), puis jugé par le
+ * motif de la question `name` de la spec — jamais par une seconde règle. Un
+ * dossier qui ne s'y ramène pas est refusé en NOMMANT le geste qui marche,
+ * pas en répétant la règle du nom : celui qui tape `.` n'a pas choisi ce nom.
+ *
+ * @param directory - dossier visé (chemin natif).
+ * @returns le nom dérivé, ou l'erreur d'usage à afficher.
+ */
+export function nameFromDirectory(
+  directory: string,
+): { name: string } | { error: string } {
+  const base = path.basename(path.resolve(directory));
+  const name = toKebabCase(base);
+  const pattern = getScaffoldSpec("app")[0]?.questions.find(
+    (q) => q.key === "name",
+  )?.pattern;
+  if (pattern === undefined || new RegExp(pattern, "u").test(name)) {
+    return { name };
+  }
+  return {
+    error:
+      `le dossier « ${base} » ne donne pas un nom d'application valide ` +
+      `(minuscules, chiffres, tirets) — nomme-la : ` +
+      `npm create nodefony -- <nom> --dir .`,
+  };
+}
+
 export async function runCreateCommand(argv: string[]): Promise<number> {
   let parsed = parseCreateArgv(argv);
   // 🔴 Choisie au MENU, la commande n'a reçu AUCUN argument : personne n'a pu
@@ -1382,6 +1413,27 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       process.stderr.write(`create: ${(e as Error).message}\n`);
       return SysExit.USAGE;
     }
+  }
+  // `create app .` — « ici » : le nom vient du dossier courant, qui devient la
+  // cible (et doit être vide, comme pour `--dir .`). C'est la forme que tapent
+  // d'abord les générateurs courants, et deux agents sur deux l'ont essayée
+  // avant `-- <nom> --dir .` (#653). Résolu AVANT le dialogue : le nom est
+  // alors une réponse donnée, il ne se redemande pas.
+  let hereDir: string | undefined;
+  if (type === "app" && answers.name === ".") {
+    if (parsed.dir !== undefined) {
+      return printUsageError(
+        pageFor(type),
+        "« . » désigne déjà le dossier courant — retire --dir, ou nomme " +
+          "l'application : nodefony create app <nom> --dir <dossier>",
+      );
+    }
+    const here = nameFromDirectory(process.cwd());
+    if ("error" in here) {
+      return printUsageError(pageFor(type), here.error);
+    }
+    answers = { ...answers, name: here.name };
+    hereDir = process.cwd();
   }
   // Le gestionnaire PROPOSÉ à `create app` est celui qui a lancé la commande
   // (`pnpm create nodefony` → pnpm) — la même décision que partout ailleurs,
@@ -1486,7 +1538,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   }
   // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.
   const dir =
-    parsed.dir ?? (type === "app" ? String(answers.name) : process.cwd());
+    hereDir ??
+    parsed.dir ??
+    (type === "app" ? String(answers.name) : process.cwd());
   let result;
   try {
     result = runScaffold(
@@ -1496,12 +1550,14 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     );
   } catch (e) {
     const message = (e as Error).message;
+    // Une réponse invalide est une faute d'USAGE : la page la dit, une fois.
+    // Écrite aussi en `create: …` avant, elle sortait deux fois de suite.
+    if (message.includes("invalide")) {
+      return printUsageError(pageFor(type), message);
+    }
     process.stderr.write(`create: ${message}\n`);
     if (message.includes("n'est pas vide")) {
       return SysExit.CANTCREAT;
-    }
-    if (message.includes("invalide")) {
-      return printUsageError(pageFor(type), message);
     }
     return SysExit.SOFTWARE;
   }

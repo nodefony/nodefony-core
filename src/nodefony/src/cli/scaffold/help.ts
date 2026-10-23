@@ -91,6 +91,8 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       // préversion n'est pas taguée ainsi, et `npm create nodefony` seul
       // ramènerait alors une autre version que celle dont on lit l'aide.
       `npm create nodefony@${version} -- <nom> [options]`,
+      // « Ici » : le nom vient du dossier courant, qui doit être vide.
+      `npm create nodefony@${version} . [options]`,
       "nodefony create app <nom> --preset minimal --no-install",
     ],
     writes: [
