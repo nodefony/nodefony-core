@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T11:22:02.622Z",
+  "generatedAt": "2026-10-23T13:09:20.668Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4806,7 +4806,7 @@
       "title": "docs(site): publier la liste des variables d'environnement",
       "url": "https://github.com/nodefony/nodefony-core/issues/227",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
