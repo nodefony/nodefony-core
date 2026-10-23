@@ -82,6 +82,29 @@ export const CREATE_TYPES = [
 ] as const;
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
+/**
+ * Le mot est-il un type de `create` ? — une garde, pour que le type se
+ * VÉRIFIE au lieu de s'affirmer (`as TCreateType`).
+ *
+ * @param word - le mot lu sur la ligne de commande.
+ * @returns `true` si c'est l'un des {@link CREATE_TYPES}.
+ */
+export function isCreateType(word: string | undefined): word is TCreateType {
+  return CREATE_TYPES.some((t) => t === word);
+}
+
+/**
+ * Le message d'une erreur attrapée, quelle que soit sa nature — `throw` ne
+ * jette pas toujours une `Error`, et `errorText(e)` rendait alors
+ * `undefined` dans la phrase affichée.
+ *
+ * @param e - la valeur attrapée.
+ * @returns son message.
+ */
+function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 export interface ICreateRequest {
   /** `true` si l'on veut seulement la page d'aide. */
   help: boolean;
@@ -325,9 +348,7 @@ export function parseCreateArgv(
       // court-circuit existe pour répondre à qui ne sait pas encore quels types
       // existent — donc un mot inconnu retombe sur le catalogue, qui est
       // exactement la bonne réponse dans ce cas.
-      type: (CREATE_TYPES as readonly string[]).includes(type ?? "")
-        ? (type as TCreateType)
-        : undefined,
+      type: isCreateType(type) ? type : undefined,
       answers,
       force,
       yes,
@@ -341,10 +362,7 @@ export function parseCreateArgv(
   // Le type est obligatoire pour AGIR, facultatif pour se DÉCRIRE : un agent
   // qui découvre l'outil demande le catalogue entier avant de savoir quel type
   // il veut.
-  if (
-    type !== undefined &&
-    !(CREATE_TYPES as readonly string[]).includes(type)
-  ) {
+  if (type !== undefined && !isCreateType(type)) {
     return {
       error: `type requis : ${CREATE_TYPES.join(" | ")} (reçu : ${type})`,
     };
@@ -370,7 +388,7 @@ export function parseCreateArgv(
   }
   return {
     help,
-    type: type as TCreateType | undefined,
+    type: isCreateType(type) ? type : undefined,
     answers,
     dir,
     force,
@@ -406,10 +424,7 @@ function nodefonyBinLine(manager: PackageManagerName = "npm"): string {
 function typeFromArgv(argv: readonly string[]): TCreateType | undefined {
   const at = argv.indexOf("create");
   if (at === -1) return undefined;
-  return argv
-    .slice(at + 1)
-    .find((w) => (CREATE_TYPES as readonly string[]).includes(w)) as
-    TCreateType | undefined;
+  return argv.slice(at + 1).find(isCreateType);
 }
 
 /**
@@ -493,10 +508,9 @@ function readAnswersJson(source: string, type: TCreateType): TScaffoldAnswers {
   try {
     parsed = JSON.parse(raw);
   } catch (e) {
-    throw new Error(
-      `--answers-json : JSON invalide (${(e as Error).message})`,
-      { cause: e },
-    );
+    throw new Error(`--answers-json : JSON invalide (${errorText(e)})`, {
+      cause: e,
+    });
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("--answers-json : un objet de réponses est attendu");
@@ -620,7 +634,7 @@ function poseThirdPartyNotices(
     const cause =
       e instanceof LicenseInventoryError
         ? "npm n'a pas pu inventorier l'arbre"
-        : (e as Error).message;
+        : errorText(e);
     return `non écrit (${cause}) → ${cmd.run("licenses:write")}`;
   }
 }
@@ -766,10 +780,14 @@ const ORM_PACKAGE = "@nodefony/drizzle";
  */
 function appDeclareUnOrm(dest: string): boolean {
   try {
-    const pkg = JSON.parse(
+    const pkg: unknown = JSON.parse(
       readFileSync(path.join(dest, "package.json"), "utf8"),
-    ) as { dependencies?: Record<string, string> };
-    return pkg.dependencies?.[ORM_PACKAGE] !== undefined;
+    );
+    const deps =
+      typeof pkg === "object" && pkg !== null && "dependencies" in pkg
+        ? pkg.dependencies
+        : undefined;
+    return typeof deps === "object" && deps !== null && ORM_PACKAGE in deps;
   } catch {
     // Un manifeste illisible n'est pas une application sans ORM : c'est une
     // application cassée, que les gardes amont ont déjà signalée. Ne rien
@@ -1161,7 +1179,7 @@ async function poseContributions(
     const failed = reports.some((r) => r.error !== null);
     return summarizeContributions(reports) + (failed ? ` → ${again}` : "");
   } catch (e) {
-    return `non posés (${(e as Error).message}) → ${again}`;
+    return `non posés (${errorText(e)}) → ${again}`;
   }
 }
 
@@ -1254,7 +1272,7 @@ function poseSkillPointers(dest: string, cmd: TCommandLines): string {
       `(${plan.skills.map((s) => s.name).join(", ")}) — commite-les`
     );
   } catch (e) {
-    return `non posés (${(e as Error).message}) → ${cmd.exec("nodefony")} ai:sync`;
+    return `non posés (${errorText(e)}) → ${cmd.exec("nodefony")} ai:sync`;
   }
 }
 
@@ -1427,7 +1445,7 @@ function runGitInit(
         ? ` · hooks REFUSÉS (existant préservé — ${cmd.exec("nodefony")} git:hooks pour le détail)`
         : ` · hooks natifs posés (${GIT_HOOKS_DIR}/ + core.hooksPath)`;
     } catch (e) {
-      return ` · hooks non posés (${(e as Error).message})`;
+      return ` · hooks non posés (${errorText(e)})`;
     }
   };
   if (spawnSync("git", ["--version"], { stdio: "ignore" }).error) {
@@ -1586,7 +1604,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     process.stdout.write(describeScaffold(parsed.type));
     return SysExit.OK;
   }
-  const type = parsed.type as TCreateType;
+  const type = parsed.type;
+  // L'analyseur ne laisse passer un type absent qu'avec `--describe-json`,
+  // traité juste au-dessus : la garde le vérifie au lieu de l'affirmer.
+  if (type === undefined) return printUsage(pageFor(undefined));
   const caps = scaffoldCaps();
   let answers = parsed.answers;
   if (parsed.answersJson !== undefined) {
@@ -1596,7 +1617,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // explicite silencieusement inopérant.
       answers = { ...readAnswersJson(parsed.answersJson, type), ...answers };
     } catch (e) {
-      process.stderr.write(`create: ${(e as Error).message}\n`);
+      process.stderr.write(`create: ${errorText(e)}\n`);
       return SysExit.USAGE;
     }
   }
@@ -1735,7 +1756,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       { dryRun: parsed.dryRun },
     );
   } catch (e) {
-    const message = (e as Error).message;
+    const message = errorText(e);
     // Une réponse invalide est une faute d'USAGE : la page la dit, une fois.
     // Écrite aussi en `create: …` avant, elle sortait deux fois de suite.
     if (message.includes("invalide")) {
