@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T14:58:49.882Z",
+  "generatedAt": "2026-10-23T15:00:26.019Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4834,11 +4834,28 @@
       ]
     },
     {
+      "number": 159,
+      "title": "docs(api): publier une référence d'API générée par paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/159",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.155,
+      "debut": "2026-10-26",
+      "cible": "2026-10-26",
+      "labels": [
+        "beta-5",
+        "reportable"
+      ]
+    },
+    {
       "number": 406,
       "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
       "url": "https://github.com/nodefony/nodefony-core/issues/406",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -4855,7 +4872,7 @@
       "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
       "url": "https://github.com/nodefony/nodefony-core/issues/407",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -5477,23 +5494,6 @@
       "labels": [
         "arbitrage",
         "beta-6"
-      ]
-    },
-    {
-      "number": 159,
-      "title": "docs(api): publier une référence d'API générée par paquet",
-      "url": "https://github.com/nodefony/nodefony-core/issues/159",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.13,
-      "debut": "2026-10-26",
-      "cible": "2026-10-26",
-      "labels": [
-        "beta-6",
-        "reportable"
       ]
     },
     {

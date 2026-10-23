@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-23 14:58** (UTC).
+> Empreinte prise le **2026-10-23 15:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -116,6 +116,7 @@ Ordre 5.025 · P2 — décision · 27 j · jalon 10.0.0-beta · frise —
 | 5.06 | P2 — décision | 1 | — | #622 | feat(realtime): admettre un abonné de canal par son identité |
 | 5.07 | P2 — décision | 2 | — | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
 | 5.08 | P2 — décision | 1 | — | #585 | feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire |
+| 5.155 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 5.16 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
 | 5.17 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
 | 6.005 | P1 — figé à la création | 0.5 | — | #655 | docs(orm): présenter le générateur avant l'écriture à la main |
@@ -131,7 +132,6 @@ Ordre 5.025 · P2 — décision · 27 j · jalon 10.0.0-beta · frise —
 | 6.1 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 6.11 | P2 — décision | 0.5 | — | #605 | feat(site): versionner le site de documentation par release |
 | 6.12 | P2 — décision | 1 | 2026-11-16 → 12-15 | #89 | docs(notification): faire la veille des canaux de communication attendus |
-| 6.13 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
 
 ## Backlog — aucune date promise · 21 ouverts
 
