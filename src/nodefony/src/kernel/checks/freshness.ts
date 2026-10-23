@@ -512,10 +512,14 @@ export function checkAgentsGuide(
     if (refreshAgentsGuide(projectRoot, version, true).status === "updated") {
       findings.push({
         kind: "agents-guide-stale",
+        // Le bloc se juge sur son RENDU, qui dépend de la version ET de
+        // l'inventaire du projet : nommer la seule version envoyait chercher
+        // une montée de version qui n'avait pas eu lieu (#652).
         message:
-          "le bloc framework d'`AGENTS.md` ne décrit pas la version de " +
-          `Nodefony installée (${version}) : un agent y lit des commandes et ` +
-          "des règles d'une autre version. → `nodefony upgrade`",
+          "le bloc framework d'`AGENTS.md` ne correspond plus à cette " +
+          `application : la version de Nodefony installée (${version}) ou ` +
+          "ses modules, dépendances et moteur front ont changé depuis qu'il " +
+          "a été écrit, et un agent y lit une porte périmée. → `nodefony upgrade`",
         file: "AGENTS.md",
       });
     }

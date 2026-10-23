@@ -680,7 +680,12 @@ que `create app`, zéro dérive), entry minimale du framework, controller de pag
 registrar `register<Name>Entry` (fichier dédié documenté) ; wiring AUTO
 `@controllers` + hook `onKernelBoot` (inséré si absent — un hook EXISTANT n'est
 jamais édité : note actionnable) ; deps du framework ajoutées au package.json si
-absentes ; **`tsconfig.json` de la cible complété comme si elle était née avec ce
+absentes **et remontées en `depsAdded`**, donc INSTALLÉES par la commande (même chemin
+que `create entity` ; `--no-install` nomme la commande à lancer) — déclarées sans être
+installées, elles cassaient le premier `verify` au typecheck (#652) ; bloc d'`AGENTS.md`
+régénéré par `refreshProjectAgents`, qui lit LUI-MÊME le nom de l'app (`name` du
+manifeste, sinon le dossier) — passé par chaque appelant, il divergeait de celui de
+`doctor` dès que le dossier ne portait pas le nom ; **`tsconfig.json` de la cible complété comme si elle était née avec ce
 front** (`wireFrontTsconfig` : entrée `include`, `jsx` du moteur, `vite/client` pour
 une app — règle portée par `FRONTEND_PARAMS.tsInclude/tsJsx`, éprouvée contre une
 app NÉE avec le moteur). Sans lui, le typecheck ne lisait pas le front et le lint

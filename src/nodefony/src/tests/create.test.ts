@@ -6823,7 +6823,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(pkg["devDependencies"], "react");
       assert.notProperty(pkg["dependencies"], "react");
       assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
-      assert.include((r.notes ?? []).join("\n"), "npm install");
+      // Le fait REMONTE à la commande, qui installe (#652) : laissé dans une
+      // note, React restait déclaré et absent, et `verify` échouait au
+      // typecheck sur `Cannot find module 'react'`.
+      assert.includeMembers(r.depsAdded ?? [], [
+        "react",
+        "@vitejs/plugin-react",
+      ]);
       // Le controller de page rend l'entry du BON nom.
       const ctrl = readFileSync(
         path.join(dest, "nodefony", "controllers", "DashboardController.ts"),

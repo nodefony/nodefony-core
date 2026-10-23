@@ -2790,8 +2790,14 @@ function readAppDependencyNames(
  *
  * @param eta - moteur de rendu des gabarits.
  * @param packageRoot - racine du paquet qui porte les gabarits.
+ * Le nom de l'application est lu ICI, et nulle part ailleurs : `name` du
+ * `package.json`, sinon le nom du dossier. Passé en argument, il était dérivé
+ * par chaque appelant — et `create front` prenait le DOSSIER quand `doctor`
+ * prenait le manifeste. Une application créée par `--dir .` dans un dossier
+ * d'un autre nom voyait alors son bloc déclaré périmé juste après `create
+ * front`, sans un geste de l'utilisateur (#652).
+ *
  * @param projectRoot - racine de l'application.
- * @param appName - nom de l'application, tel que la porte l'annonce.
  * @param nodefonyVersion - version du paquet qui scaffolde.
  * @param written - liste des fichiers écrits, enrichie en place.
  * @param writer - transaction d'écriture.
@@ -2800,11 +2806,12 @@ function refreshProjectAgents(
   eta: Eta,
   packageRoot: string,
   projectRoot: string,
-  appName: string,
   nodefonyVersion: string,
   written: string[],
   writer: ScaffoldWriter,
 ): void {
+  const appName =
+    readRootManifest(projectRoot, writer).name ?? path.basename(projectRoot);
   const appDeps = readAppDependencyNames(projectRoot, writer);
   // « A un front » = un MOTEUR front est installé — la règle de `create app`
   // (`front !== null`), jamais la seule présence de `@nodefony/frontend` : le
@@ -3040,7 +3047,6 @@ export function refreshAgentsGuide(
     new Eta(ETA_OPTIONS),
     findPackageRoot(),
     projectRoot,
-    manifest.name ?? path.basename(projectRoot),
     version,
     [],
     writer,
@@ -3341,7 +3347,6 @@ function runModuleScaffold(
       eta,
       packageRoot,
       projectRoot,
-      appName,
       version,
       written,
       writer,
@@ -6587,7 +6592,6 @@ function runFrontScaffold(
       eta,
       packageRoot,
       projectRoot,
-      path.basename(projectRoot),
       nodefonyVersion,
       written,
       writer,
@@ -6596,12 +6600,22 @@ function runFrontScaffold(
   const notes = [
     `page ${route} (GET — controller ${nameClass}, entry Vite « ${kebab} »)`,
     ...(added.length > 0
-      ? [`deps ajoutées : ${added.join(", ")} → lance npm install`]
+      ? [`dépendances ajoutées au package.json : ${added.join(", ")}`]
       : []),
     ...(wireNote ? [wireNote] : []),
     ...(tsWire.note ? [tsWire.note] : []),
   ];
-  return { dest: target.dir, files: written.sort(), linked: [], notes };
+  // Les dépendances ajoutées REMONTENT (`depsAdded`), comme pour `create
+  // entity` : c'est ce fait qui fait installer la commande. Laissées dans une
+  // note, React et Vite restaient déclarés et absents — et le premier `verify`
+  // échouait au typecheck sur `Cannot find module 'react'` (#652).
+  return {
+    dest: target.dir,
+    files: written.sort(),
+    linked: [],
+    notes,
+    depsAdded: added,
+  };
 }
 
 /**

@@ -93,6 +93,46 @@ describe("refreshAgentsGuide — le bloc framework d'AGENTS.md", () => {
     },
   );
 
+  /*
+   *   `npm create nodefony -- chat --dir .` : l'application s'appelle `chat`,
+   *   son dossier non. `create front` rendait le bloc avec le nom du DOSSIER,
+   *   `doctor` le jugeait avec le nom du MANIFESTE — et déclarait périmé, juste
+   *   après le générateur, un bloc que personne n'avait touché (#652, tâche 0
+   *   jouée par Codex sur 10.0.0-beta.4).
+   */
+  it("app dont le dossier ne porte pas le nom, puis create front → bloc inchangé", () => {
+    const racine = mkdtempSync(path.join(tmpdir(), "nf-upgrade-front-"));
+    aSupprimer.push(racine);
+    const dest = path.join(racine, "dossier-du-poste");
+    runScaffold(
+      {
+        type: "app",
+        answers: { name: "chat", preset: "complete", frontend: "none" },
+        dir: dest,
+        force: false,
+      },
+      version,
+    );
+    runScaffold(
+      {
+        type: "front",
+        answers: { name: "chat", frontend: "react", route: "/demo" },
+        dir: dest,
+        force: false,
+      },
+      version,
+    );
+    assert.ok(
+      lire(dest).includes("nodefony/react"),
+      "le bloc ne nomme pas le moteur front ajouté",
+    );
+    assert.strictEqual(
+      refreshAgentsGuide(dest, version, true).status,
+      "unchanged",
+    );
+    assert.deepStrictEqual(checkAgentsGuide(dest, version), []);
+  });
+
   it("réécrit le bloc périmé, et lui seul", () => {
     const racine = appPerimee();
     assert.strictEqual(refreshAgentsGuide(racine, version).status, "updated");
