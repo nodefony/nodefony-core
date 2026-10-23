@@ -36,6 +36,17 @@
  * |    `9` | identite-temoin-indisponible | INDÉTERMINÉ                             |
  * |   `10` | reponse-inattendue (+ var.)  | l'AGENT                                 |
  * |   `11` | prefixe-elargi-hors-cible    | l'AGENT — a fermé au-delà du besoin     |
+ * |   `12` | repere-exempte-du-prefixe    | l'AGENT — une zone, mais une exception  |
+ *
+ * **`2` et `12` rendent le même constat HTTP** — le repère ouvert à l'anonyme —
+ * et ne disent pas la même chose. `2` : aucune zone ne couvre le préfixe, les
+ * routes de l'énoncé ont été gardées une par une. `12` : une zone couvre bien
+ * le préfixe, et le repère en a été EXCLU (un motif qui l'écarte, ou une zone
+ * plus longue qui le rend à l'anonyme). Vécu : un agent a posé `^/api/account`
+ * puis taillé une exception pour `/notes`, « URL déjà publiée » — et la cause
+ * `2` l'accusait d'avoir décoré route par route, ce qui envoyait instruire à
+ * côté. Le verdict reste rendu sur HTTP ; la lecture des motifs déclarés ne
+ * sert qu'à NOMMER la cause.
  *
  * **Une zone taillée au plus juste sur les deux chemins de l'énoncé rougit ICI,
  * et c'est voulu.** L'énoncé parle d'un espace, pas de deux routes isolées ; une
@@ -46,6 +57,8 @@
  *
  * @module
  */
+import fs from "node:fs";
+import path from "node:path";
 import {
   REPERE_PREFIXE_COMPTE,
   ROUTE_COMPTE_FACTURES,
@@ -63,6 +76,55 @@ import {
 
 /** Les deux routes que l'énoncé nomme — mesurées ensemble, jamais l'une seule. */
 const ROUTES_ENONCE = [ROUTE_COMPTE_PROFIL, ROUTE_COMPTE_FACTURES];
+
+/**
+ * Où une zone peut être déclarée — les mêmes fichiers que la sonde de contenu de
+ * la tâche (manifeste OU fragment), relatifs à l'application (le juge y tourne).
+ */
+const FICHIERS_ZONES = [
+  "nodefony.config.ts",
+  path.join("nodefony", "config", "security.ts"),
+];
+
+/**
+ * Les `pattern` déclarés, compilés comme le produit les compile
+ * (`SecuredArea.ts#SecuredArea`, drapeaux `iu`). Chaque fichier est lu SEUL ; un
+ * fichier absent ou un motif illisible est ignoré — ce relevé ne sert qu'à
+ * nommer une cause, jamais à rendre un verdict.
+ *
+ * @returns {Array<{fichier: string, source: string, re: RegExp}>}
+ */
+const motifsDeclares = () => {
+  const motifs = [];
+  for (const fichier of FICHIERS_ZONES) {
+    let texte;
+    try {
+      texte = fs.readFileSync(fichier, "utf8");
+    } catch {
+      continue;
+    }
+    for (const m of texte.matchAll(
+      /pattern:\s*(["'`])((?:\\.|(?!\1).)*)\1/gu,
+    )) {
+      const source = m[2].replace(/\\\\/gu, "\\");
+      try {
+        motifs.push({ fichier, source, re: new RegExp(source, "iu") });
+      } catch {
+        // motif illisible : il ne nommera rien
+      }
+    }
+  }
+  return motifs;
+};
+
+/**
+ * Un motif couvre le PRÉFIXE s'il atteint les deux routes de l'énoncé sans
+ * atteindre la route publique hors préfixe — `^/api` (zone livrée, anonyme
+ * admis) n'en est donc pas un.
+ */
+const couvreLePrefixe = ({ re }) =>
+  ROUTES_ENONCE.every((route) => re.test(route)) &&
+  !re.test(ROUTE_PUBLIQUE_HORS_PREFIXE);
 
 repondreArgsTemoin();
 await ensurePortFree();
@@ -141,6 +203,35 @@ if (repere.status === 404) {
   );
 }
 if (estSucces(repere.status)) {
+  const motifs = motifsDeclares();
+  const prefixe = motifs.filter(couvreLePrefixe);
+  if (prefixe.length > 0) {
+    const nommer = (liste) =>
+      liste
+        .map(({ source, fichier }) => `« ${source} » (${fichier})`)
+        .join(", ");
+    const exclu = prefixe.filter(({ re }) => !re.test(REPERE_PREFIXE_COMPTE));
+    const rendu = motifs.filter(
+      ({ re }) =>
+        re.test(REPERE_PREFIXE_COMPTE) && !prefixe.some((p) => p.re === re),
+    );
+    const comment = [
+      exclu.length > 0
+        ? `le motif du préfixe l'écarte lui-même : ${nommer(exclu)}`
+        : "",
+      rendu.length > 0 ? `une autre zone l'atteint : ${nommer(rendu)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" ; ");
+    exit(
+      12,
+      `CAUSE=repere-exempte-du-prefixe — GET ${REPERE_PREFIXE_COMPTE} rend ${repere.status} à un ` +
+        `ANONYME, alors qu'une zone couvre bien le préfixe : ${nommer(prefixe)}. Le repère n'a ` +
+        `pas été oublié, il a été EXCLU${comment ? ` — ${comment}` : ""}. L'énoncé réserve TOUT ` +
+        `ce qui vit sous /api/account aux personnes connectées, ce qui y existe déjà compris : ` +
+        `une exception taillée pour une route existante la laisse publique sous un espace privé.`,
+    );
+  }
   exit(
     2,
     `CAUSE=repere-de-prefixe-ouvert — GET ${REPERE_PREFIXE_COMPTE} rend ${repere.status} à un ` +

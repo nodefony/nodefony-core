@@ -21,7 +21,9 @@
  *
  * @module
  */
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -58,9 +60,27 @@ const PORT = String(await portLibre());
 const LOGIN = "/nodefony/security/api/auth/login";
 const MOI = "/nodefony/security/api/auth/me";
 
+/**
+ * Le dossier où le juge tourne — il y lit les zones déclarées. Jetable, et
+ * jamais le répertoire courant : à la racine du dépôt, une vraie
+ * `nodefony/config/security.ts` changerait la cause rendue.
+ */
+const APP = fs.mkdtempSync(path.join(os.tmpdir(), "nf-gate-prefixe-"));
+process.on("exit", () => fs.rmSync(APP, { recursive: true, force: true }));
+
+/** Pose (ou retire) le fragment de sécurité que le juge lira. */
+const poserZones = (contenu) => {
+  const fichier = path.join(APP, "nodefony", "config", "security.ts");
+  fs.rmSync(fichier, { force: true });
+  if (contenu === undefined) return;
+  fs.mkdirSync(path.dirname(fichier), { recursive: true });
+  fs.writeFileSync(fichier, contenu);
+};
+
 const run = (args) =>
   new Promise((resolve) => {
     const p = spawn("node", args, {
+      cwd: APP,
       env: {
         ...process.env,
         NF_PORT: PORT,
@@ -168,6 +188,26 @@ const CAS = {
   // 🔴 LE cas qui justifie le repère : les deux routes de l'énoncé sont gardées
   // (décorateur par décorateur), le repère du MÊME préfixe reste ouvert.
   decoreRouteParRoute: [2, app({ enonce: zoneFermee, repere: () => 200 })],
+  // Même constat HTTP, mais la seule zone déclarée est la `^/api` livrée : elle
+  // ne couvre pas LE préfixe, la cause reste « une par une ».
+  decoreSousZoneLivree: [
+    2,
+    app({ enonce: zoneFermee, repere: () => 200 }),
+    `areas: { api: { pattern: "^/api", authenticators: ["anonymous"] } }`,
+  ],
+  // Une zone couvre le préfixe, et son motif écarte lui-même le repère.
+  prefixeAvecExclusion: [
+    12,
+    app({ enonce: zoneFermee, repere: () => 200 }),
+    `account: { pattern: "^/api/account(?!/notes(/|$))", authenticators: ["session"] }`,
+  ],
+  // Une zone couvre le préfixe, une zone plus longue rend le repère à l'anonyme.
+  prefixeAvecZoneExemptee: [
+    12,
+    app({ enonce: zoneFermee, repere: () => 200 }),
+    `account: { pattern: "^/api/account", authenticators: ["session"] },\n` +
+      `account_notes: { pattern: "^/api/account/notes(/|$)", authenticators: ["session", "anonymous"] }`,
+  ],
   // Plus strict que demandé sur les routes de l'énoncé : un rôle exigé là où
   // l'énoncé n'attend qu'une identité. Le service décrit n'est pas rendu.
   prefixeInaccessible: [
@@ -224,7 +264,8 @@ const dire = (ok, nom, attendu, obtenu, cause = "") => {
   );
 };
 
-for (const [nom, [attendu, handler]] of Object.entries(CAS)) {
+for (const [nom, [attendu, handler, zones]] of Object.entries(CAS)) {
+  poserZones(zones);
   const srv = http.createServer(detach(handler));
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE]);
@@ -232,6 +273,8 @@ for (const [nom, [attendu, handler]] of Object.entries(CAS)) {
   const cause = (res.stderr || res.stdout).trim().split("\n")[0] ?? "";
   dire(res.status === attendu, nom, attendu, res.status, cause);
 }
+
+poserZones(undefined);
 
 // ── les drapeaux d'INSTRUMENT ──────────────────────────────────────────────
 {

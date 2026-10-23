@@ -3154,13 +3154,14 @@ export const TASKS = [
       `--route ${REPERE_PREFIXE_COMPTE} --yes >/dev/null 2>&1 && ` +
       `npm run build >/dev/null 2>&1`,
     prompt:
-      `Ajoute un espace « mon compte » à cette application, réservé aux personnes connectées : ` +
-      `GET ${ROUTE_COMPTE_PROFIL} rend un profil { "profile": "ok" }, et GET ` +
-      `${ROUTE_COMPTE_FACTURES} rend une liste { "invoices": [] }. Un visiteur non connecté doit ` +
-      "recevoir un refus du framework sur cet espace, jamais un contrôle écrit à la main dans " +
-      "chaque action — et le reste de l'application, qui n'a rien à voir avec ce compte, doit " +
-      "continuer de répondre normalement aux visiteurs anonymes. Termine en prouvant que les " +
-      "tests de l'app passent.",
+      `Ajoute un espace « mon compte » à cette application : tout ce qui vit sous ` +
+      `/api/account — ce qui y existe déjà comme ce qui s'y ajoutera — est réservé aux ` +
+      `personnes connectées. GET ${ROUTE_COMPTE_PROFIL} rend un profil { "profile": "ok" }, et ` +
+      `GET ${ROUTE_COMPTE_FACTURES} rend une liste { "invoices": [] }. Un visiteur non connecté ` +
+      "doit recevoir un refus du framework sur cet espace, jamais un contrôle écrit à la main " +
+      "dans chaque action — et le reste de l'application, hors de /api/account, doit continuer " +
+      "de répondre normalement aux visiteurs anonymes. Termine en prouvant que les tests de " +
+      "l'app passent.",
     probes: [
       sondeLecture(
         "a lu AGENTS.md ou la doc security",

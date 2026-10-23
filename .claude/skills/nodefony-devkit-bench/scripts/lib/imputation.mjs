@@ -276,6 +276,9 @@ export const IMPUTATIONS = Object.freeze({
   // Des décorateurs recopiés au lieu d'une zone : le repère du même préfixe,
   // que l'agent n'a aucune raison de toucher, est resté ouvert.
   "repere-de-prefixe-ouvert": AGENT,
+  // Une zone couvre le préfixe, mais le repère en a été exclu (motif qui
+  // l'écarte, ou zone plus longue qui le rend à l'anonyme).
+  "repere-exempte-du-prefixe": AGENT,
   // La garde refuse aussi son destinataire légitime — service non rendu.
   "prefixe-inaccessible": AGENT,
   // La protection a débordé du préfixe demandé sur le reste de l'application.
