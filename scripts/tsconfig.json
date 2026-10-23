@@ -11,6 +11,10 @@
     "noEmit": true,
     // Les scripts s'exécutent sous Node sans build : il exige l'extension `.ts`.
     "allowImportingTsExtensions": true,
+    // Le lib du CŒUR : un script qui importe une source du cœur (générateurs
+    // de `generate/`) la type comme le cœur la compile. Sans lui, la racine
+    // (ES2024) refuse ce que le cœur emploie — `static override isError`.
+    "lib": ["ESNext"],
     "types": ["node"]
   },
   "include": ["**/*.mjs", "**/*.js", "**/*.ts"],
