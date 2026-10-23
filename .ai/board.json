@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T15:04:27.260Z",
+  "generatedAt": "2026-10-23T15:09:03.862Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 183,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 23,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -4879,7 +4879,7 @@
       "title": "feat(realtime): compléter le temps réel : binaire, canaux privés, voix",
       "url": "https://github.com/nodefony/nodefony-core/issues/621",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 27,
@@ -5551,6 +5551,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 659,
+      "title": "docs(performance): remesurer les pages de performance avant la release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/659",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 6.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
     },
     {
       "number": 182,
@@ -8911,7 +8927,7 @@
       "title": "feat(rag): eprouver la recherche augmentee de bout en bout",
       "url": "https://github.com/nodefony/nodefony-core/issues/248",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "12.0.0",
       "priorite": "P2 — décision",
       "jours": 1,
