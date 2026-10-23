@@ -276,7 +276,10 @@ async function principal(argv) {
     );
     return 1;
   }
-  const servie = String(apres.full_description ?? "");
+  // Une valeur qui n'est pas une chaîne n'est pas la page envoyée : la
+  // comparer vide plutôt que par sa conversion « [object Object] ».
+  const servie =
+    typeof apres.full_description === "string" ? apres.full_description : "";
   if (servie !== page) {
     console.error(
       `✗ la page servie n'est pas celle envoyée — ${servie.length} caractères servis ` +
