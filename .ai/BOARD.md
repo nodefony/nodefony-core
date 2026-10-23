@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-23 13:26** (UTC).
+> Empreinte prise le **2026-10-23 14:34** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 88% | 181 | 24 | 2026-11-12 |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 135 | 2 | 2026-11-15 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 89% | 183 | 23 | 2026-11-12 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 6 | — |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#372 — fix(devkit-bench): chercher la zone de firewall où elle vit vraiment**
+**#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
 
-Ordre 5.01 · P0 — bloque le reste · 1 j · jalon 10.0.0-beta · frise 2026-11-04 → 11-04
+Ordre 5.025 · P2 — décision · 27 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 24 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,11 +105,10 @@ Ordre 5.01 · P0 — bloque le reste · 1 j · jalon 10.0.0-beta · frise 2026-1
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 24 ouverts
+## Jalon 10.0.0-beta — 23 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 5.01 | P0 — bloque le reste | 1 | 2026-11-04 → 11-04 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
 | 5.025 | P2 — décision | 27 | — | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 5.03 | P2 — décision | 2 | — | #627 | docs(adr): figer l'architecture de la socket temps réel |
 | 5.04 | P2 — décision | 2 | — | #628 | feat(realtime): tenir le serveur au même contrat que le client |
@@ -196,10 +195,11 @@ Ordre 5.01 · P0 — bloque le reste · 1 j · jalon 10.0.0-beta · frise 2026-1
 | 163.3 | P2 — décision | 1 | — | #625 | feat(media): livrer le modèle média partagé, sans dépendance au navigateur |
 | 163.6 | P2 — décision | 3 | — | #626 | feat(realtime): transcrire la voix du navigateur sur la socket |
 
-## Jalon 10.0.0 — 2 ouverts
+## Jalon 10.0.0 — 3 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
+| 58.5 | P1 — figé à la création | 1 | 2026-11-17 → 11-17 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
 | 59 | P1 — figé à la création | 1 | 2026-11-18 → 11-18 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1 | 2026-11-19 → 11-19 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
