@@ -69,4 +69,5 @@ export type {
   LogConfig,
   LogFileConfig,
   LogDestinationConfig,
+  LokiDestinationConfig,
 } from "./types";

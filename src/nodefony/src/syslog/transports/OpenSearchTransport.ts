@@ -1,6 +1,6 @@
 import { BatchingHttpTransport } from "./BatchingHttpTransport";
 import type { BatchTransportOptions } from "./BatchingHttpTransport";
-import { pduToRecord } from "../drivers/ILogDriver";
+import { pduToRecord, stringifyLogRecord } from "../drivers/ILogDriver";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
 import {
@@ -122,7 +122,7 @@ export class OpenSearchTransport extends BatchingHttpTransport {
       body +=
         action +
         "\n" +
-        JSON.stringify(toOpenSearchDocument(pduToRecord(pdu))) +
+        stringifyLogRecord(toOpenSearchDocument(pduToRecord(pdu))) +
         "\n";
     }
 

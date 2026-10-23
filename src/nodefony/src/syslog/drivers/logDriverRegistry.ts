@@ -92,6 +92,8 @@ export interface ILogConfigLike {
   queryFile?: { path?: string; maxScanBytes?: number };
   loki?: {
     url: string;
+    /** `false` = relecture seule : aucun transport d'envoi monté. Défaut `true`. */
+    write?: boolean;
     labels?: Record<string, string>;
     tenantId?: string;
     batchSize?: number;
@@ -101,6 +103,8 @@ export interface ILogConfigLike {
   };
   opensearch?: {
     url: string;
+    /** `false` = relecture seule : aucun transport d'envoi monté. Défaut `true`. */
+    write?: boolean;
     index?: string;
     username?: string;
     password?: string;
@@ -121,6 +125,12 @@ export interface ILogDriverContext {
   logDir: string;
   /** PID du process courant (nom de fichier par worker). */
   pid: number;
+  /**
+   * Nom de l'application (nom de son paquet), quand elle est chargée — étiquette
+   * par défaut des destinations distantes, pour que deux applications d'un même
+   * Loki ne se confondent pas.
+   */
+  appName?: string | undefined;
   /** Fournit le ring buffer courant à la demande (driver `memory`, lazy). */
   getRingStack: () => IPduLike[];
 }

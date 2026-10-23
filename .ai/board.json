@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T15:28:42.829Z",
+  "generatedAt": "2026-10-23T15:47:17.080Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -8885,7 +8885,7 @@
       "title": "chore(ia): refaire l'etat de l'art avant de coder la couche IA",
       "url": "https://github.com/nodefony/nodefony-core/issues/245",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "12.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -8915,7 +8915,7 @@
       "title": "feat(llm): brancher un fournisseur de modele reel",
       "url": "https://github.com/nodefony/nodefony-core/issues/246",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "12.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -8943,7 +8943,7 @@
       "title": "feat(rag): eprouver la recherche augmentee de bout en bout",
       "url": "https://github.com/nodefony/nodefony-core/issues/248",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "12.0.0",
       "priorite": "P2 — décision",
       "jours": 1,

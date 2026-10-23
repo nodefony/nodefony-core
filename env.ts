@@ -227,6 +227,31 @@ export const env = defineEnv({
   }),
 
   /**
+   * Forme des lignes du sink (`log.format`). `json` = l'enregistrement wire
+   * (pduToRecord) sur une ligne : ce qu'un collecteur transporte vers
+   * Loki/OpenSearch, et la seule forme que leur relecture sait relire.
+   */
+  NF_LOG_FORMAT: envEnum(["text", "json"] as const, {
+    default: "text",
+    section: "Journaux",
+    title: "Forme des lignes de journal",
+    description:
+      "text : une ligne lisible par un humain. json : un enregistrement complet par ligne (date, module, identifiant de requête) — ce qu'un collecteur (Alloy, Fluent Bit, Vector) transporte vers Loki ou OpenSearch, et la seule forme que la console d'administration sait y relire. En production derrière un collecteur, choisis json.",
+  }),
+
+  /**
+   * `false` = relecture SEULE des destinations distantes (`log.loki.write`,
+   * `log.opensearch.write`) : un collecteur pousse, l'application relit.
+   */
+  NF_LOG_PUSH: envBoolean({
+    default: true,
+    section: "Journaux",
+    title: "Envoi direct des journaux à Loki ou OpenSearch",
+    description:
+      "true : l'application envoie elle-même ses journaux à NF_LOKI_URL ou NF_OPENSEARCH_URL. false : elle ne fait que les y relire — un collecteur de l'hébergeur les y a mis (avec NF_LOG_FORMAT=json). Sans adresse posée, sans effet.",
+  }),
+
+  /**
    * Avec `NF_LOG_DRIVER=file`, écrit en `writeSync` direct par worker au lieu du
    * buffer async (fichier local rapide). Défaut `false` (ne bloque jamais l'event
    * loop). Recommandation prod : `false` (laisser le buffer absorber les pics).
@@ -265,7 +290,7 @@ export const env = defineEnv({
     section: "Journaux",
     title: "Loki (journaux centralisés)",
     description:
-      "L'adresse d'un serveur Grafana Loki. Posée, l'application y envoie ses journaux et la console d'administration les y relit. Si Loki ne répond pas, rien ne plante : la relecture repasse en mémoire.\nNe pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
+      "L'adresse d'un serveur Grafana Loki. Posée, la console d'administration y relit les journaux, et l'application y envoie les siens — sauf NF_LOG_PUSH=false, quand un collecteur s'en charge. Si Loki ne répond pas, rien ne plante : la relecture repasse en mémoire.\nNe pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
     example: "http://localhost:3100",
   }),
 
@@ -278,7 +303,7 @@ export const env = defineEnv({
     section: "Journaux",
     title: "OpenSearch (journaux centralisés)",
     description:
-      "L'adresse d'un serveur OpenSearch. Posée, l'application y envoie ses journaux et la console d'administration les y relit.\nNe pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
+      "L'adresse d'un serveur OpenSearch. Posée, la console d'administration y relit les journaux, et l'application y envoie les siens — sauf NF_LOG_PUSH=false, quand un collecteur s'en charge.\nNe pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
     example: "http://localhost:9200",
   }),
 

@@ -74,6 +74,14 @@ const logSchema = z
         "Transport de log principal. `stdout` (cloud-native, collecteur externe), " +
           "`file`, ou `null` (jeté). Override env : `NF_LOG_DRIVER`. Défaut : `stdout`.",
       ),
+    format: z
+      .enum(["text", "json"])
+      .optional()
+      .describe(
+        "Forme des lignes : `text` (lisible) ou `json` (un enregistrement par ligne, " +
+          "ce qu'un collecteur transporte et que la relecture Loki/OpenSearch relit). " +
+          "Override env : `NF_LOG_FORMAT`. Défaut : `text`.",
+      ),
     dir: z
       .string()
       .optional()
@@ -134,12 +142,30 @@ const logSchema = z
     loki: z
       .object({
         url: z.string().describe("URL d'ingestion Grafana Loki."),
+        write: z
+          .boolean()
+          .optional()
+          .describe(
+            "`false` = relecture seule : un collecteur envoie, l'application relit. Défaut : true.",
+          ),
+        labels: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe(
+            "Étiquettes de flux (envoi) et sélecteur (relecture). Défaut : `{ app: <nom de l'app> }`.",
+          ),
       })
       .optional()
       .describe("Cible Grafana Loki (si driver/superposition Loki actif)."),
     opensearch: z
       .object({
         url: z.string().describe("URL du cluster OpenSearch."),
+        write: z
+          .boolean()
+          .optional()
+          .describe(
+            "`false` = relecture seule : un collecteur indexe, l'application relit. Défaut : true.",
+          ),
       })
       .optional()
       .describe("Cible OpenSearch (si superposition active)."),

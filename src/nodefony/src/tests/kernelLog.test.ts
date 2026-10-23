@@ -118,6 +118,14 @@ registerLogDriverFactory("kl-c", () => {
   };
 });
 
+// `kl-app` relève le nom d'application que le montage passe aux fabriques.
+let seenAppName: string | undefined | null = null;
+registerLogDriverFactory("kl-app", (ctx) => {
+  if (!plan.enabled) return null;
+  seenAppName = ctx.appName;
+  return { driver: stubDriver("kl-app") };
+});
+
 let dir = "";
 const savedEnv: Record<string, string | undefined> = {};
 const ENV_KEYS = ["NF__DEBUG", "NO_COLOR", "FORCE_COLOR"] as const;
@@ -151,6 +159,8 @@ afterEach(() => {
   }
   Syslog.setLogSink(null);
   Syslog.setOutputBuffering("auto");
+  Syslog.setLineFormat("text");
+  seenAppName = null;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -284,6 +294,39 @@ describe("Kernel — initializeLog (drivers montés selon la config)", () => {
     assert.strictEqual(getActiveLogDriver()?.name, "memory");
   });
 
+  // Port 9 (discard) en local : aucune requête ne part pendant ces tests — le
+  // transport n'est jamais vidé, il est retiré au passage suivant.
+  const LOKI = "http://127.0.0.1:9";
+
+  it("loki `write: false` → relecture active, AUCUN transport d'envoi monté", () => {
+    const k = mkKernel("production", { loki: { url: LOKI, write: false } });
+    k.initializeLog();
+    const active = getActiveLogDriver();
+    assert.strictEqual(active?.name, "loki");
+    assert.strictEqual(active?.capabilities.write, false);
+    assert.ok(!mountedNames(k).includes("loki"), mountedNames(k).join(","));
+  });
+
+  it("loki sans `write` → le transport d'envoi est monté, puis retiré en relecture seule", () => {
+    const k = mkKernel("production", { loki: { url: LOKI } });
+    k.initializeLog();
+    assert.ok(mountedNames(k).includes("loki"));
+    assert.strictEqual(getActiveLogDriver()?.capabilities.write, true);
+    k.options.log!.loki = { url: LOKI, write: false };
+    k.initializeLog();
+    assert.ok(!mountedNames(k).includes("loki"));
+  });
+
+  it("opensearch `write: false` → relecture active, AUCUN transport d'envoi monté", () => {
+    const k = mkKernel("production", {
+      opensearch: { url: "http://127.0.0.1:9", write: false },
+    });
+    k.initializeLog();
+    assert.strictEqual(getActiveLogDriver()?.name, "opensearch");
+    assert.strictEqual(getActiveLogDriver()?.capabilities.write, false);
+    assert.ok(!mountedNames(k).includes("opensearch"));
+  });
+
   it("development monte toutes les fabriques enregistrées (switch à chaud)", () => {
     plan.enabled = true;
     const k = mkKernel("development");
@@ -291,6 +334,15 @@ describe("Kernel — initializeLog (drivers montés selon la config)", () => {
     assert.ok(mountedNames(k).includes("kl-a"));
     assert.ok(mountedNames(k).includes("file"), "driver fichier natif monté");
     assert.strictEqual(getActiveLogDriver()?.name, "memory");
+  });
+});
+
+describe("Kernel — initializeLog (forme des lignes)", () => {
+  it("`log.format: json` → lignes JSON ; absent → texte", () => {
+    mkKernel("production", { format: "json" }).initializeLog();
+    assert.strictEqual(Syslog.lineFormat, "json");
+    mkKernel("production").initializeLog();
+    assert.strictEqual(Syslog.lineFormat, "text");
   });
 });
 
@@ -464,6 +516,7 @@ function mkHost(overrides: Partial<MutableHost> = {}): {
     syslog: new Syslog(),
     environment: "development",
     isTTY: false,
+    appName: undefined,
     debug: false,
     cli: null,
     initSyslog,
@@ -471,6 +524,19 @@ function mkHost(overrides: Partial<MutableHost> = {}): {
   };
   return { host, initSyslog };
 }
+
+describe("KernelLogSetup — nom de l'application", () => {
+  it("passe aux fabriques le nom du paquet de l'app, lu à l'appel", () => {
+    plan.enabled = true;
+    const { host } = mkHost();
+    const setup = new KernelLogSetup(host);
+    setup.initialize();
+    assert.strictEqual(seenAppName, undefined, "avant loadApp : pas de nom");
+    host.appName = "shop";
+    setup.initialize();
+    assert.strictEqual(seenAppName, "shop");
+  });
+});
 
 describe("KernelLogSetup — hôte lu À L'APPEL", () => {
   it("environment : le seuil et le ring suivent la valeur de CE passage", () => {

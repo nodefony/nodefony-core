@@ -54,6 +54,12 @@ export interface ILogHost {
   /** Verdict terminal du noyau (famille SUP) — base de la couleur ANSI. */
   readonly isTTY: boolean;
   /**
+   * Nom du paquet de l'application, `undefined` tant qu'il n'est pas lu — il
+   * étiquette les destinations distantes (deux applications d'un même Loki ne
+   * se confondent pas).
+   */
+  readonly appName: string | undefined;
+  /**
    * Verbosité du noyau. Écrite ICI une seule fois : la config `log.debug` ne la
    * pose que sans CLI et si rien ne l'a déjà posée (la CLI prime).
    */
@@ -119,6 +125,9 @@ export class KernelLogSetup {
     // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
     const logCfg = host.options.log;
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
+    // Forme des lignes (process-global, comme la bufférisation) : `json` = ce
+    // qu'un collecteur transporte vers Loki/OpenSearch, et ce que leur relecture lit.
+    Syslog.setLineFormat(logCfg?.format ?? "text");
     // Couleur ANSI des logs — résolue UNE fois ici (boot) à partir de `isTTY`
     // (déjà résolu, NF_NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
     // des conventions NO_COLOR (no-color.org) + FORCE_COLOR. pipe/fichier = brut →
@@ -183,6 +192,7 @@ export class KernelLogSetup {
       environment: host.environment,
       logDir: logDirAbs,
       pid: process.pid,
+      appName: host.appName,
       getRingStack: () => host.syslog?.ringStack ?? [],
     };
     // Drivers à monter : l'ACTIF demandé + `memory` (toujours présent = fallback sûr) +

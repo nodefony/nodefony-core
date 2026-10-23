@@ -187,8 +187,8 @@ export class InvoiceService extends Service {
 
 ### Ce qu'on observe
 
-Le format est fixe — `HH:MM:SS.mmm SÉVÉRITÉ MSGID : payload`, colonnes alignées, couleurs
-seulement sur un vrai terminal :
+Par défaut (`log.format: "text"`), la ligne s'écrit `HH:MM:SS.mmm SÉVÉRITÉ MSGID : payload`,
+colonnes alignées, couleurs seulement sur un vrai terminal :
 
 ```text
 14:32:01.247 INFO    invoice            : facture INV-42 payée (120 €)
@@ -314,21 +314,25 @@ les précédents (idempotence).
 Tout tient dans la clé `log` de `nodefony.config.ts`, typée par `LogConfig` (`types.ts#LogConfig.active`) et
 validée au boot par le schéma Zod de l'application (`schema.ts#portSchema`).
 
-| Option           | Type                                        | Défaut     | Effet                                                                 | Chaud ? |
-| ---------------- | ------------------------------------------- | ---------- | --------------------------------------------------------------------- | :-----: |
-| `active`         | `boolean`                                   | `true`     | Interrupteur général — `false` = silence total (bancs, tests).        |   oui   |
-| `debug`          | `string \| string[]`                        | `[]`       | `"*"` = tout ; `[]` = rien ; liste = modules ciblés.                  |   oui   |
-| `requestFormat`  | `"auto" \| "default" \| "pretty" \| "json"` | `"auto"`   | Format de la ligne de fin de requête HTTP (dev lisible / prod JSON).  |   oui   |
-| `buffered`       | `boolean \| "auto"`                         | `"auto"`   | Coalescing par tick. `"auto"` = actif **hors** terminal.              |  boot   |
-| `driver`         | `"stdout" \| "file" \| "null"`              | `"stdout"` | Sink d'écriture de la ligne de texte.                                 |  boot   |
-| `file.sync`      | `boolean`                                   | `false`    | Écriture directe au lieu du buffer asynchrone (fichier local rapide). |  boot   |
-| `queryDriver`    | `string`                                    | `"auto"`   | Destination **relisable**. `"auto"` s'adapte au mode de lancement.    |  boot   |
-| `loki.url`       | `string`                                    | —          | Base Loki. Déclarée seule, elle **impose** la relecture Loki.         |  boot   |
-| `opensearch.url` | `string`                                    | —          | Base OpenSearch. Même logique de bouton unique.                       |  boot   |
-| `dir`            | `string`                                    | `"logs"`   | Dossier des fichiers de log (texte + JSONL relisible), sous le cwd.   |  boot   |
-| `file.path`      | `string`                                    | —          | Chemin explicite du sink `file` ; sinon `<dir>/nodefony-<pid>.log`.   |  boot   |
-| `maxStack`       | `number`                                    | `100`      | Profondeur du ring de relecture (driver `memory`) — `2000` en dev.    |  boot   |
-| `queryFile`      | `{ path?, maxScanBytes? }`                  | —          | JSONL relu par le driver de relecture `file`, et son plafond de scan. |  boot   |
+| Option             | Type                                        | Défaut     | Effet                                                                 | Chaud ? |
+| ------------------ | ------------------------------------------- | ---------- | --------------------------------------------------------------------- | :-----: |
+| `active`           | `boolean`                                   | `true`     | Interrupteur général — `false` = silence total (bancs, tests).        |   oui   |
+| `debug`            | `string \| string[]`                        | `[]`       | `"*"` = tout ; `[]` = rien ; liste = modules ciblés.                  |   oui   |
+| `requestFormat`    | `"auto" \| "default" \| "pretty" \| "json"` | `"auto"`   | Format de la ligne de fin de requête HTTP (dev lisible / prod JSON).  |   oui   |
+| `buffered`         | `boolean \| "auto"`                         | `"auto"`   | Coalescing par tick. `"auto"` = actif **hors** terminal.              |  boot   |
+| `driver`           | `"stdout" \| "file" \| "null"`              | `"stdout"` | Sink d'écriture de la ligne de texte.                                 |  boot   |
+| `format`           | `"text" \| "json"`                          | `"text"`   | `"json"` = un enregistrement par ligne, pour un collecteur.           |  boot   |
+| `file.sync`        | `boolean`                                   | `false`    | Écriture directe au lieu du buffer asynchrone (fichier local rapide). |  boot   |
+| `queryDriver`      | `string`                                    | `"auto"`   | Destination **relisable**. `"auto"` s'adapte au mode de lancement.    |  boot   |
+| `loki.url`         | `string`                                    | —          | Base Loki. Déclarée seule, elle **impose** la relecture Loki.         |  boot   |
+| `opensearch.url`   | `string`                                    | —          | Base OpenSearch. Même logique de bouton unique.                       |  boot   |
+| `loki.write`       | `boolean`                                   | `true`     | `false` = relecture seule : un collecteur envoie, l'app relit.        |  boot   |
+| `loki.labels`      | `Record<string, string>`                    | `{ app }`  | Étiquettes d'envoi et sélecteur de relecture ; `app` = nom du paquet. |  boot   |
+| `opensearch.write` | `boolean`                                   | `true`     | `false` = relecture seule, comme pour Loki.                           |  boot   |
+| `dir`              | `string`                                    | `"logs"`   | Dossier des fichiers de log (texte + JSONL relisible), sous le cwd.   |  boot   |
+| `file.path`        | `string`                                    | —          | Chemin explicite du sink `file` ; sinon `<dir>/nodefony-<pid>.log`.   |  boot   |
+| `maxStack`         | `number`                                    | `100`      | Profondeur du ring de relecture (driver `memory`) — `2000` en dev.    |  boot   |
+| `queryFile`        | `{ path?, maxScanBytes? }`                  | —          | JSONL relu par le driver de relecture `file`, et son plafond de scan. |  boot   |
 
 ### Comment `queryDriver: "auto"` décide
 
@@ -464,11 +468,33 @@ requête.
 > - **aucun couplage** : changer d'outil, ou d'identifiants, ne touche pas au code.
 >
 > Les transports `loki` et `opensearch` restent une **option** : démo, poste de développement,
-> serveur sans collecteur. Aujourd'hui, une destination déclarée (`log.loki.url`,
-> `log.opensearch.url`) fait les deux à la fois : l'application y **envoie** ses journaux, et la
-> console d'administration les y **relit** (`capabilities: { write: true, query: true }`,
-> `LokiLogDriver.ts#createLokiLogDriver`). Il n'existe pas encore de mode « relecture seule » d'une destination
-> qu'un collecteur alimente.
+> serveur sans collecteur. Derrière un collecteur, la console d'administration relit quand même
+> les journaux là où il les a mis, sans que l'application n'envoie rien :
+>
+> ```ts
+> log: {
+>   format: "json", // une ligne = un enregistrement complet (NF_LOG_FORMAT=json)
+>   loki: {
+>     url: "http://loki:3100",
+>     write: false, // relecture seule (NF_LOG_PUSH=false)
+>     labels: { app: "shop" }, // les étiquettes que pose TON collecteur
+>   },
+> }
+> ```
+>
+> - **`format: "json"`** est indispensable : la ligne texte (`HH:MM:SS.mmm SEVERITY MSGID : …`)
+>   ne porte ni la date, ni le module, ni le `requestId`, et la relecture l'ignore.
+>   `Syslog.ts#Syslog.setLineFormat` écrit l'enregistrement par `ILogDriver.ts#stringifyLogRecord`, la
+>   même sérialisation que les transports `loki` et `opensearch` : la console relit pareil, quel
+>   que soit l'émetteur.
+> - **`write: false`** monte le pilote de relecture **sans** transport (`builtinLogDrivers.ts#registerBuiltinLogDrivers`) :
+>   aucune requête `/push` ni `_bulk` ne part du process.
+> - **`labels`** sert de sélecteur. Sans réglage, c'est `{ app: "<nom du paquet de l'application>" }`,
+>   à l'envoi comme à la relecture : deux applications d'un même Loki ne se confondent plus.
+>   Le collecteur ne pose pas d'étiquette `severity` : en relecture seule, la sévérité se cherche
+>   dans la ligne JSON (`LokiLogDriver.ts#createLokiLogDriver`).
+> - Côté OpenSearch, le collecteur doit indexer les champs de la ligne **à la racine** du document
+>   (analyse JSON de `log`), dans l'index que relit `log.opensearch.index`.
 
 Les quatre premiers sont directs : `ConsoleTransport` (`ConsoleTransport.ts#ConsoleTransport`) délègue l'impression
 à `Syslog.normalizeLog()` (`Syslog.ts#Syslog.normalizeLog`) ; `FileTransport` écrit **un

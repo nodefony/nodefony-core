@@ -121,13 +121,23 @@ export default defineConfig<Env>((ctx) => ({
     debug: ctx.isProd ? [] : "*",
     // Sink d'écriture + relecture du backplane — pilotés par l'environnement (./env).
     driver: ctx.env.NF_LOG_DRIVER,
+    // `json` : une ligne = un enregistrement, ce qu'un collecteur transporte.
+    format: ctx.env.NF_LOG_FORMAT,
     file: { sync: ctx.env.NF_LOG_FILE_SYNC },
     queryDriver: ctx.env.NF_LOG_QUERY_DRIVER,
     // Destinations PROD (LB.4) : montées seulement si l'URL est fournie ET que
     // `queryDriver` vaut leur nom (sinon fallback "memory" au boot, jamais de crash).
-    ...(ctx.env.NF_LOKI_URL ? { loki: { url: ctx.env.NF_LOKI_URL } } : {}),
+    // `NF_LOG_PUSH=false` : relecture seule, un collecteur y envoie à sa place.
+    ...(ctx.env.NF_LOKI_URL
+      ? { loki: { url: ctx.env.NF_LOKI_URL, write: ctx.env.NF_LOG_PUSH } }
+      : {}),
     ...(ctx.env.NF_OPENSEARCH_URL
-      ? { opensearch: { url: ctx.env.NF_OPENSEARCH_URL } }
+      ? {
+          opensearch: {
+            url: ctx.env.NF_OPENSEARCH_URL,
+            write: ctx.env.NF_LOG_PUSH,
+          },
+        }
       : {}),
   },
 

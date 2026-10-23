@@ -10,6 +10,7 @@ import type { ITransport } from "../types/ITransport";
 import { logColor, isLogColorEnabled } from "./logColor";
 import { CircularBuffer } from "../runtime/CircularBuffer";
 import { isTerminal } from "../runtime/isTerminal";
+import { pduToRecord, stringifyLogRecord } from "./drivers/ILogDriver";
 
 // Couleurs du préfixe console (timestamp/severity/msgid) — gatées au boot par
 // logColor (OFF hors TTY → stdout pipe/fichier propre). Indirection minime hors
@@ -153,6 +154,12 @@ let _sink: ILogSink = _stdoutSink;
 // `logSinkName` reste « stdout »/« file », seul `sinkEnabled` passe à false. Défaut
 // false → 0 surcoût (un test booléen par ligne, le sink écrit normalement).
 let _sinkMuted = false;
+
+// Forme d'une ligne d'écran (`log.format`) : `"text"` (défaut, lisible) ou
+// `"json"` (un enregistrement wire par ligne, que le collecteur de l'hébergeur
+// transporte tel quel et que les pilotes Loki/OpenSearch savent relire).
+// Process-global comme le sink : un seul `process.stdout`.
+let _lineFormat: "text" | "json" = "text";
 
 // Écriture immédiate (hors buffer / flush) — route vers le driver actif.
 const _writeStdoutNow = (s: string): void => {
@@ -1690,6 +1697,7 @@ class Syslog extends Event implements ISyslog {
       Syslog._nativeConsole.trace(pdu);
       return pdu;
     }
+    if (_lineFormat === "json") return Syslog.rawLog(pdu, pid);
     const message = pdu.payload;
     const wrap = Syslog.wrapper(pdu);
     // Préfixe pid seulement si fourni — en dev mono-process il est vide et un
@@ -1703,6 +1711,11 @@ class Syslog extends Event implements ISyslog {
   static rawLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) return pdu;
     const write = pdu.severity <= 3 ? writeErr : writeOut;
+    if (_lineFormat === "json") {
+      // Le pid voyage DANS l'enregistrement : aucun préfixe hors JSON.
+      write(stringifyLogRecord(pduToRecord(pdu)) + "\n");
+      return pdu;
+    }
     const { text } = Syslog.wrapper(pdu);
     const msg =
       typeof pdu.payload === "string" || typeof pdu.payload === "number"
@@ -1734,6 +1747,27 @@ class Syslog extends Event implements ISyslog {
    */
   static setOutputBuffering(mode: boolean | "auto"): void {
     _setBufferMode(mode);
+  }
+
+  /**
+   * Forme des lignes d'écran — **process-global**. Câblé par
+   * {@link Kernel.initializeLog} depuis `config.log.format`.
+   *
+   * - `"text"` (défaut) : `HH:MM:SS.mmm SEVERITY MSGID : payload`, pour un humain.
+   * - `"json"` : l'enregistrement wire ({@link pduToRecord}) sur UNE ligne — date
+   *   complète, module, pid et `requestId` compris. C'est la forme qu'un collecteur
+   *   (Alloy, Fluent Bit, Vector) transporte, et la seule que les pilotes de
+   *   relecture Loki/OpenSearch savent relire.
+   *
+   * @param format - `"text"` | `"json"`.
+   */
+  static setLineFormat(format: "text" | "json"): void {
+    _lineFormat = format;
+  }
+
+  /** Forme courante des lignes d'écran (cf {@link Syslog.setLineFormat}). */
+  static get lineFormat(): "text" | "json" {
+    return _lineFormat;
   }
 
   /** Vide immédiatement (synchrone) le buffer stdout en attente. Idempotent. */

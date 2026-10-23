@@ -12,7 +12,7 @@ import {
   pruneOrphanLogFiles,
   type ClusterFileLogDriverOptions,
 } from "./ClusterFileLogDriver";
-import { createLokiLogDriver } from "./LokiLogDriver";
+import { createLokiLogDriver, DEFAULT_LOKI_APP_LABEL } from "./LokiLogDriver";
 import { createOpenSearchLogDriver } from "./OpenSearchLogDriver";
 import {
   registerLogDriverFactory,
@@ -85,6 +85,8 @@ let registered = false;
  *   fenêtre du lecteur ({@link pruneOrphanLogFiles}).
  * - `loki` / `opensearch` : push HTTP batché (transport) + relecture via leur API
  *   (driver) ; `null` si l'URL n'est pas configurée (→ fallback `memory` côté Kernel).
+ *   `write: false` = relecture SEULE : le driver sans transport — un collecteur
+ *   de l'hébergeur pousse, rien ne part du process.
  */
 export function registerBuiltinLogDrivers(): void {
   if (registered) return;
@@ -123,9 +125,17 @@ export function registerBuiltinLogDrivers(): void {
   registerLogDriverFactory("loki", (ctx) => {
     const lk = ctx.logCfg?.loki;
     if (!lk?.url) return null;
+    // Une seule source pour l'envoi ET le sélecteur de relecture : sans étiquettes
+    // déclarées, le nom de l'application (deux apps d'un même Loki se distinguent).
+    const opts = {
+      ...lk,
+      labels: lk.labels ?? { app: ctx.appName ?? DEFAULT_LOKI_APP_LABEL },
+    };
+    const driver = createLokiLogDriver(opts);
+    if (lk.write === false) return { driver };
     return {
-      driver: createLokiLogDriver(lk),
-      transport: new LokiTransport(lk),
+      driver,
+      transport: new LokiTransport(opts),
       writeKey: `loki:${lk.url}`,
     };
   });
@@ -133,8 +143,10 @@ export function registerBuiltinLogDrivers(): void {
   registerLogDriverFactory("opensearch", (ctx) => {
     const os = ctx.logCfg?.opensearch;
     if (!os?.url) return null;
+    const driver = createOpenSearchLogDriver(os);
+    if (os.write === false) return { driver };
     return {
-      driver: createOpenSearchLogDriver(os),
+      driver,
       transport: new OpenSearchTransport(os),
       writeKey: `opensearch:${os.url}`,
     };

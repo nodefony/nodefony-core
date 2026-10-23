@@ -1,6 +1,7 @@
 import { BatchingHttpTransport } from "./BatchingHttpTransport";
 import type { BatchTransportOptions } from "./BatchingHttpTransport";
-import { pduToRecord } from "../drivers/ILogDriver";
+import { pduToRecord, stringifyLogRecord } from "../drivers/ILogDriver";
+import { DEFAULT_LOKI_APP_LABEL } from "../drivers/LokiLogDriver";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
 import { stripTrailingSlashes } from "../../Tools";
@@ -38,7 +39,7 @@ type LokiValue = [string, string];
  *
  * Modèle : 1 requête HTTP par lot (jamais par log). Les Pdu sont regroupés par jeu
  * de labels (`{...base, severity, module, pid}`), les valeurs triées par timestamp
- * croissant (exigence Loki), chaque ligne = le record wire `JSON.stringify(pduToRecord)`
+ * croissant (exigence Loki), chaque ligne = le record wire `stringifyLogRecord(pduToRecord)`
  * (timestamp en **nanosecondes** = `ms·10⁶`). Le `requestId` reste DANS la ligne JSON
  * (pas un label) → corrélation full-stack via `| json` côté LogQL, sans alourdir l'index.
  *
@@ -56,7 +57,7 @@ export class LokiTransport extends BatchingHttpTransport {
   constructor(options: LokiTransportOptions) {
     super(options);
     this.#pushUrl = stripTrailingSlashes(options.url) + "/loki/api/v1/push";
-    this.#baseLabels = options.labels ?? { app: "nodefony" };
+    this.#baseLabels = options.labels ?? { app: DEFAULT_LOKI_APP_LABEL };
     this.#headers = {
       "content-type": "application/json",
       ...(options.tenantId ? { "X-Scope-OrgID": options.tenantId } : {}),
@@ -96,7 +97,7 @@ export class LokiTransport extends BatchingHttpTransport {
       const values: LokiValue[] = g.pdus.map((p) => [
         // ms → ns : on suffixe "000000" (pas de ×1e6 qui dépasserait MAX_SAFE_INTEGER).
         `${p.timeStamp}000000`,
-        JSON.stringify(pduToRecord(p)),
+        stringifyLogRecord(pduToRecord(p)),
       ]);
       streams.push({ stream: g.stream, values });
     }

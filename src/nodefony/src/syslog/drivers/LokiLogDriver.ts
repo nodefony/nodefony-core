@@ -11,9 +11,18 @@ import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
 import { stripTrailingSlashes } from "../../Tools";
 
+/** Valeur de l'étiquette `app` quand ni la config ni le nom de l'application ne la donnent. */
+export const DEFAULT_LOKI_APP_LABEL = "nodefony";
+
 export interface LokiLogDriverOptions {
   /** Base URL de Loki, ex. `http://127.0.0.1:3100`. */
   url: string;
+  /**
+   * `false` = relecture SEULE : les flux sont poussés par un COLLECTEUR, qui ne
+   * pose pas l'étiquette `severity` → la sévérité se filtre sur la LIGNE JSON.
+   * Défaut `true` (nos propres flux, sévérité en étiquette indexée).
+   */
+  write?: boolean | undefined;
   /** Labels de sélecteur de base (mêmes que le transport). Défaut `{ app: "nodefony" }`. */
   labels?: Record<string, string>;
   /** Tenant multi-tenancy → header `X-Scope-OrgID`. */
@@ -85,7 +94,8 @@ function extractLokiLines(json: unknown): string[] {
  */
 export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
   const base = stripTrailingSlashes(options.url);
-  const baseLabels = options.labels ?? { app: "nodefony" };
+  const baseLabels = options.labels ?? { app: DEFAULT_LOKI_APP_LABEL };
+  const write = options.write !== false;
   const maxScanLines = options.maxScanLines ?? 1000;
   const defaultLookbackMs = options.defaultLookbackMs ?? 86_400_000;
   const timeoutMs = options.timeoutMs ?? 8000;
@@ -96,19 +106,30 @@ export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
   const fetchImpl = resolveFetch(options.fetchImpl);
 
   const buildQuery = (criteria: ILogQueryCriteria): string => {
-    // Sélecteur de labels : base (exact) + severity (label, basse cardinalité) si filtré.
+    // Sélecteur de labels : base (exact) + severity (label, basse cardinalité) si
+    // filtré ET si les flux sont les nôtres. En relecture seule, un collecteur ne
+    // pose pas `severity` : la filtrer en étiquette ne rendrait RIEN — on la
+    // cherche dans la ligne JSON (`"severityName":"ERROR"`). `filterPdus` reste
+    // l'autorité finale dans les deux cas.
     const sel: string[] = Object.entries(baseLabels).map(
       ([k, v]) => `${k}="${escapeLogQLString(v)}"`,
     );
+    let severityLineFilter = "";
     if (criteria.severity !== undefined) {
       const sevs = (
         Array.isArray(criteria.severity)
           ? criteria.severity
           : [criteria.severity]
-      ).map((s) => escapeLogQLString(s.toUpperCase()));
-      sel.push(`severity=~"${sevs.join("|")}"`);
+      ).map((s) => escapeRegex(s.toUpperCase()));
+      if (write) {
+        sel.push(`severity=~"${escapeLogQLString(sevs.join("|"))}"`);
+      } else {
+        severityLineFilter = ` |~ "${escapeLogQLString(
+          `"severityName"\\s*:\\s*"(${sevs.join("|")})"`,
+        )}"`;
+      }
     }
-    let q = `{${sel.join(",")}}`;
+    let q = `{${sel.join(",")}}${severityLineFilter}`;
     // Line filters : requestId = substring exact (`|=`), text = regex insensible casse.
     if (criteria.requestId !== undefined) {
       q += ` |= "${escapeLogQLString(criteria.requestId)}"`;
@@ -121,7 +142,7 @@ export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
 
   return {
     name: "loki",
-    capabilities: { write: true, query: true, stream: false },
+    capabilities: { write, query: true, stream: false },
     query: async (criteria: ILogQueryCriteria) => {
       const now = Date.now();
       const fromMs = criteria.from ?? now - defaultLookbackMs;

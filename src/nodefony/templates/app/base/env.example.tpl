@@ -38,7 +38,8 @@
 #   1. Réseau et processus
 #        NF_PORT, PORT, NF_PORT_HTTPS, NF_BIND_ALL, NF_TLS_CA_FILE, NF_WORKERS
 #   2. Journaux
-#        NF_LOG_DRIVER, NF_LOG_QUERY_DRIVER, NF_LOKI_URL, NF_OPENSEARCH_URL
+#        NF_LOG_DRIVER, NF_LOG_FORMAT, NF_LOG_PUSH, NF_LOG_QUERY_DRIVER,
+#        NF_LOKI_URL, NF_OPENSEARCH_URL
 #   3. Framework : déploiement
 #        NF_ENV, NF_CLUSTER_PROBE, NF_INSTANCE_ID, NF_BOOT_TIMEOUT_MS,
 #        NF_BOOT_WARN_MS
@@ -164,6 +165,34 @@
 # NF_LOG_DRIVER=stdout
 
 
+# ─── Forme des lignes de journal ────────────────────────────────────────────
+#
+# text : une ligne lisible par un humain. json : un enregistrement complet par
+# ligne (date, module, identifiant de requête) — ce qu'un collecteur (Alloy,
+# Fluent Bit, Vector) transporte vers Loki ou OpenSearch, et la seule forme
+# que la console d'administration sait y relire. En production derrière un
+# collecteur, choisis json.
+#
+# @optional
+# @placement=platform
+# @type=enum(text, json)
+# @default=text
+# NF_LOG_FORMAT=text
+
+
+# ─── Envoi direct des journaux à Loki ou OpenSearch ─────────────────────────
+#
+# true : l'application envoie elle-même ses journaux à NF_LOKI_URL ou
+# NF_OPENSEARCH_URL. false : elle ne fait que les y relire — un collecteur de
+# l'hébergeur les y a mis (avec NF_LOG_FORMAT=json). Sans adresse posée, sans
+# effet.
+#
+# @optional
+# @placement=platform
+# @default=true
+# NF_LOG_PUSH=true
+
+
 # ─── Relecture des journaux (console d'administration) ──────────────────────
 #
 # D'où la console d'administration relit les journaux. auto choisit seul :
@@ -179,8 +208,9 @@
 
 # ─── Loki (journaux centralisés) ────────────────────────────────────────────
 #
-# L'adresse d'un serveur Grafana Loki. Posée, l'application y envoie ses
-# journaux et la console d'administration les y relit. Si Loki ne répond pas,
+# L'adresse d'un serveur Grafana Loki. Posée, la console d'administration y
+# relit les journaux, et l'application y envoie les siens — sauf
+# NF_LOG_PUSH=false, quand un collecteur s'en charge. Si Loki ne répond pas,
 # rien ne plante : la relecture repasse en mémoire.
 #
 # Ne pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le
@@ -195,8 +225,9 @@
 
 # ─── OpenSearch (journaux centralisés) ──────────────────────────────────────
 #
-# L'adresse d'un serveur OpenSearch. Posée, l'application y envoie ses
-# journaux et la console d'administration les y relit.
+# L'adresse d'un serveur OpenSearch. Posée, la console d'administration y
+# relit les journaux, et l'application y envoie les siens — sauf
+# NF_LOG_PUSH=false, quand un collecteur s'en charge.
 #
 # Ne pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le
 # démarrage refuserait.

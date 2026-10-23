@@ -69,6 +69,7 @@ const GOLDEN_DEFAULTS = {
     requestFormat: "auto",
     buffered: "auto",
     driver: "stdout",
+    format: "text",
     file: { sync: false },
     queryDriver: "auto",
   },

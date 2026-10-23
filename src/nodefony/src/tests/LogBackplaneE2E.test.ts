@@ -7,6 +7,7 @@ import { createOpenSearchLogDriver } from "../syslog/drivers/OpenSearchLogDriver
 import { LokiTransport } from "../syslog/transports/LokiTransport";
 import { OpenSearchTransport } from "../syslog/transports/OpenSearchTransport";
 import type { ILogQueryResult } from "../syslog/drivers/ILogDriver";
+import { captureJsonLines } from "./logCapture";
 
 // ── E2E RÉEL — loki / opensearch contre un VRAI serveur (gated) ────────────────
 //
@@ -79,6 +80,55 @@ describe.skipIf(!LOKI_URL)("Log Backplane E2E — Loki réel", () => {
     // Récent d'abord, payload et requestId intacts après aller-retour Loki.
     assert.strictEqual(r.rows[0]!.payload, "loki-charlie");
     assert.strictEqual(r.rows[0]!.requestId, reqId);
+  });
+
+  describe("relecture seule — un collecteur pousse la sortie JSON", () => {
+    // Étiquettes d'un collecteur (les SIENNES, sans `severity`), uniques par run.
+    const container = `shop-${randomUUID()}`;
+    const t1 = Date.now();
+
+    beforeAll(async () => {
+      // Les lignes EXACTES de la sortie `log.format: "json"`, poussées comme un
+      // collecteur le ferait : rien de ce banc n'écrit le JSON à la main.
+      const lines = captureJsonLines([
+        mk("ro-alpha", "INFO", reqId, t1),
+        mk("ro-bravo", "ERROR", reqId, t1 + 1),
+      ]);
+      const res = await fetch(`${LOKI_URL!}/loki/api/v1/push`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          streams: [
+            {
+              stream: { container },
+              values: lines.map((l, i) => [`${t1 + i}000000`, l.trimEnd()]),
+            },
+          ],
+        }),
+      });
+      assert.ok(res.ok, `push collecteur refusé : HTTP ${res.status}`);
+    });
+
+    it("le driver en relecture seule relit, sélecteur et sévérité compris", async () => {
+      const driver = createLokiLogDriver({
+        url: LOKI_URL!,
+        write: false,
+        labels: { container },
+      });
+      const all = await poll(
+        () => driver.query!({ from: t1 - 5_000, to: t1 + 60_000 }),
+        (r) => r.total >= 2,
+      );
+      assert.strictEqual(all.total, 2);
+      assert.strictEqual(all.rows[0]!.requestId, reqId);
+      const errors = await driver.query!({
+        from: t1 - 5_000,
+        to: t1 + 60_000,
+        severity: "ERROR",
+      });
+      assert.strictEqual(errors.total, 1);
+      assert.strictEqual(errors.rows[0]!.payload, "ro-bravo");
+    });
   });
 
   it("le filtre severity est honoré sur le round-trip", async () => {

@@ -52,7 +52,7 @@ le **gestionnaire de secrets** (un `Secret` Kubernetes, un coffre), ou le
 **poste seulement** — un réglage de développement ou de diagnostic, qui n'a
 rien à faire dans un déploiement.
 
-## Ce que déclare une application générée (26)
+## Ce que déclare une application générée (28)
 
 Le nom de l'application (`mon-app`) paraît dans certains exemples : c'est le tien qui
 les remplace. La colonne « Exigée » dit quand l'absence arrête le démarrage.
@@ -73,9 +73,11 @@ les remplace. La colonne « Exigée » dit quand l'absence arrête le démarrage
 | Variable | Rôle | Exigée | Absente ⇒ | Où la poser |
 | --- | --- | --- | --- | --- |
 | `NF_LOG_DRIVER` | Où partent les journaux de l'application : stdout (la sortie standard — le bon choix dans un conteneur, l'hébergeur les collecte), file (des fichiers dans logs/), ou null (nulle part, pour un banc de mesure). | non | stdout | variables de la plateforme |
+| `NF_LOG_FORMAT` | text : une ligne lisible par un humain. json : un enregistrement complet par ligne (date, module, identifiant de requête) — ce qu'un collecteur (Alloy, Fluent Bit, Vector) transporte vers Loki ou OpenSearch, et la seule forme que la console d'administration sait y relire. En production derrière un collecteur, choisis json. | non | text | variables de la plateforme |
+| `NF_LOG_PUSH` | true : l'application envoie elle-même ses journaux à NF_LOKI_URL ou NF_OPENSEARCH_URL. false : elle ne fait que les y relire — un collecteur de l'hébergeur les y a mis (avec NF_LOG_FORMAT=json). Sans adresse posée, sans effet. | non | true | variables de la plateforme |
 | `NF_LOG_QUERY_DRIVER` | D'où la console d'administration relit les journaux. auto choisit seul : Loki ou OpenSearch si leur adresse est posée, sinon la mémoire (un process) ou des fichiers (cluster). Valeurs possibles : auto, memory, file, cluster-file, loki, opensearch. À ne changer qu'en connaissance de cause. | non | auto | variables de la plateforme |
-| `NF_LOKI_URL` | L'adresse d'un serveur Grafana Loki. Posée, l'application y envoie ses journaux et la console d'administration les y relit. Si Loki ne répond pas, rien ne plante : la relecture repasse en mémoire. Ne pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait. | non | aucun | variables de la plateforme |
-| `NF_OPENSEARCH_URL` | L'adresse d'un serveur OpenSearch. Posée, l'application y envoie ses journaux et la console d'administration les y relit. Ne pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait. | non | aucun | variables de la plateforme |
+| `NF_LOKI_URL` | L'adresse d'un serveur Grafana Loki. Posée, la console d'administration y relit les journaux, et l'application y envoie les siens — sauf NF_LOG_PUSH=false, quand un collecteur s'en charge. Si Loki ne répond pas, rien ne plante : la relecture repasse en mémoire. Ne pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait. | non | aucun | variables de la plateforme |
+| `NF_OPENSEARCH_URL` | L'adresse d'un serveur OpenSearch. Posée, la console d'administration y relit les journaux, et l'application y envoie les siens — sauf NF_LOG_PUSH=false, quand un collecteur s'en charge. Ne pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait. | non | aucun | variables de la plateforme |
 
 ### Base de données et cache
 

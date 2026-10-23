@@ -1500,6 +1500,20 @@ describe("Kernel — resolveAppEntry() / isTrunk()", () => {
     assert.strictEqual(await k.isTrunk(), "typescript");
   });
 
+  it("retient le nom du paquet dans la MÊME lecture (étiquette des journaux)", () => {
+    const k = fixture({
+      "package.json": JSON.stringify({
+        name: "shop",
+        main: "dist/index.js",
+        dependencies: { nodefony: "^10.0.0" },
+      }),
+      "dist/index.js": "export default class App {}",
+    });
+    assert.strictEqual(k.appName, undefined, "rien avant la résolution");
+    k.resolveAppEntry();
+    assert.strictEqual(k.appName, "shop");
+  });
+
   it("projet Node QUELCONQUE (main existant mais aucune trace de nodefony) → null", async () => {
     const k = fixture({
       "package.json": JSON.stringify({

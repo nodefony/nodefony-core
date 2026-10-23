@@ -17,7 +17,10 @@ import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
 import type Pdu from "../syslog/Pdu";
-import { getActiveLogDriver } from "../syslog/drivers/logDriverRegistry";
+import {
+  getActiveLogDriver,
+  type ILogConfigLike,
+} from "../syslog/drivers/logDriverRegistry";
 import {
   isInKubernetes,
   shouldWarnPerPodView,
@@ -147,6 +150,8 @@ export interface TypeKernelOptions extends DefaultOptionsService {
     buffered?: boolean | "auto";
     /** Driver de sink (LB.W) : "stdout" (défaut) | "file" (fd async/worker) | "null" (bench). */
     driver?: "stdout" | "file" | "null";
+    /** Forme des lignes du sink : "text" (défaut) | "json" (un enregistrement par ligne, pour un collecteur). */
+    format?: "text" | "json";
     /** Options du driver "file" (chemin du log ; défaut logs/nodefony-<pid>.log ; sync=write direct). */
     file?: { path?: string; sync?: boolean };
     /**
@@ -182,33 +187,17 @@ export interface TypeKernelOptions extends DefaultOptionsService {
      * `queryDriver === "loki"`. `url` = base Loki (ex. `http://127.0.0.1:3100`).
      * Quand actif, un {@link LokiTransport} batché est branché pour POUSSER les logs
      * (`/loki/api/v1/push`) et le driver les RELIT en LogQL (write↔read cohérents).
+     * `write: false` = relecture seule (un collecteur pousse, rien ne part d'ici).
      * Opt-in strict (jamais en dev « au cas où ») ; figé par config/env en prod.
      */
-    loki?: {
-      url: string;
-      labels?: Record<string, string>;
-      tenantId?: string;
-      batchSize?: number;
-      flushIntervalMs?: number;
-      maxQueue?: number;
-      maxScanLines?: number;
-    };
+    loki?: NonNullable<ILogConfigLike["loki"]>;
     /**
      * Options du driver de relecture `opensearch` (LB.4) — actif UNIQUEMENT si
      * `queryDriver === "opensearch"`. `url` = base OpenSearch (ex. `http://127.0.0.1:9200`),
      * `index` (défaut `nodefony-logs`), `username`/`password` (auth basic prod). Write
      * via `/_bulk`, read via `/_search`. Opt-in strict ; figé par config/env en prod.
      */
-    opensearch?: {
-      url: string;
-      index?: string;
-      username?: string;
-      password?: string;
-      batchSize?: number;
-      flushIntervalMs?: number;
-      maxQueue?: number;
-      maxHits?: number;
-    };
+    opensearch?: NonNullable<ILogConfigLike["opensearch"]>;
   };
 }
 
@@ -473,6 +462,12 @@ class Kernel extends Service implements IKernel {
   trunk: trunkType = null;
   // Entrée app résolue par resolveAppEntry() — undefined = pas encore résolue.
   private _appEntry: string | null | undefined = undefined;
+  /**
+   * Nom du paquet de l'application, lu par {@link resolveAppEntry} dans la même
+   * lecture de `package.json` — connu dès `loadApp`, avant que le module app ne
+   * charge le sien (`onPreBoot`). `undefined` hors projet ou sans `name`.
+   */
+  appName: string | undefined = undefined;
   core: boolean = false;
   command: Command | null = null;
   commandArgs: CommandArgs = [];
@@ -2613,6 +2608,7 @@ class Kernel extends Service implements IKernel {
       return this._appEntry;
     }
     let pkg: {
+      name?: unknown;
       main?: string;
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
@@ -2627,6 +2623,8 @@ class Kernel extends Service implements IKernel {
       this._appEntry = null;
       return null;
     }
+    if (typeof pkg.name === "string" && pkg.name !== "")
+      this.appName = pkg.name;
     const declaresNodefony = Boolean(
       pkg.dependencies?.nodefony ??
       pkg.devDependencies?.nodefony ??

@@ -206,6 +206,23 @@ export interface LogQueryFileConfig {
 export interface LogDestinationConfig {
   /** URL HTTP de la destination. */
   url: string;
+  /**
+   * `false` = relecture SEULE : l'application n'y envoie rien, un collecteur de
+   * l'hébergeur s'en charge (avec `log.format: "json"`), et la console
+   * d'administration relit ce qu'il a poussé.
+   * @default true
+   */
+  write?: boolean;
+}
+
+/** Destination Grafana Loki : une {@link LogDestinationConfig} plus son sélecteur. */
+export interface LokiDestinationConfig extends LogDestinationConfig {
+  /**
+   * Étiquettes de flux : posées à l'envoi, et sélecteur de la relecture. En
+   * relecture seule, ce sont celles que pose le COLLECTEUR.
+   * @default { app: "<nom du paquet de l'application>" }
+   */
+  labels?: Record<string, string>;
 }
 
 /** Observabilité — Syslog Nodefony + log backplane. */
@@ -242,6 +259,14 @@ export interface LogConfig {
    */
   driver?: "stdout" | "file" | "null";
   /**
+   * Forme des lignes écrites par le sink : `"text"` (lisible) ou `"json"` (un
+   * enregistrement par ligne — ce qu'un collecteur transporte, et ce que la
+   * relecture Loki/OpenSearch sait relire).
+   * @default "text"
+   * @reactivity boot
+   */
+  format?: "text" | "json";
+  /**
    * Répertoire des logs (fichiers `.log` + JSONL queryable + viewer Studio),
    * résolu sous `process.cwd()`.
    * @default "logs"
@@ -268,7 +293,7 @@ export interface LogConfig {
    */
   queryDriver?: string;
   /** Destination Loki (active si `queryDriver === "loki"`). @reactivity boot */
-  loki?: LogDestinationConfig;
+  loki?: LokiDestinationConfig;
   /** Destination OpenSearch (active si `queryDriver === "opensearch"`). @reactivity boot */
   opensearch?: LogDestinationConfig;
 }

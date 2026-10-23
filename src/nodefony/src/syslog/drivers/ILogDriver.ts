@@ -197,3 +197,28 @@ export function pduToRecord(pdu: IPduLike): ILogRecord {
   if (pdu.requestId !== undefined) rec.requestId = pdu.requestId;
   return rec;
 }
+
+/**
+ * Remplace une `Error` par ses champs lisibles : `JSON.stringify` d'une `Error`
+ * rend `{}`, ses propriétés n'étant pas énumérables — la ligne perdrait le message.
+ */
+function logJsonReplacer(_key: string, value: unknown): unknown {
+  if (value instanceof Error) {
+    return { name: value.name, message: value.message, stack: value.stack };
+  }
+  return value;
+}
+
+/**
+ * Sérialise une valeur de journal (enregistrement wire ou document dérivé) en
+ * JSON sur UNE ligne, sans perdre le message d'une `Error` du `payload`. Seule
+ * écriture de la ligne JSON : sortie standard (`log.format: "json"`), push Loki,
+ * documents OpenSearch — le collecteur et le pilote de relecture lisent donc la
+ * même forme, quel que soit l'émetteur.
+ *
+ * @param value - enregistrement {@link pduToRecord} (ou document qui l'enveloppe).
+ * @returns la ligne JSON, sans retour à la ligne final.
+ */
+export function stringifyLogRecord(value: unknown): string {
+  return JSON.stringify(value, logJsonReplacer);
+}

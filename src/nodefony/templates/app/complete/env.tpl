@@ -127,6 +127,13 @@ NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 #   null    nulle part (banc de mesure).
 # NF_LOG_DRIVER=file
 #
+# Forme des lignes. Choix :
+#   text  (défaut) lisible par un humain ;
+#   json  un enregistrement complet par ligne — ce qu'un collecteur
+#         transporte, et la seule forme que la console sait relire dans
+#         Loki ou OpenSearch.
+# NF_LOG_FORMAT=json
+#
 # Relecture (console d'administration). Choix :
 #   auto          (défaut) Loki ou OpenSearch si leur adresse est posée,
 #                 sinon la mémoire (un process) ou des fichiers (cluster) ;
@@ -141,10 +148,15 @@ NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 # 🧭 Recommandé en PRODUCTION : l'application écrit sur stdout, et un
 # COLLECTEUR de l'hébergeur (Alloy, Fluent Bit, Vector, agent Datadog…)
 # transporte les journaux. Il les a déjà pris si le process meurt, ne coûte
-# rien aux requêtes, et changer d'outil ne touche pas au code. L'envoi DIRECT
-# ci-dessous est une OPTION — démo, poste de dev, serveur sans collecteur.
-# Aujourd'hui, une adresse posée fait les deux : l'application y ENVOIE ses
-# journaux, et la console les y relit.
+# rien aux requêtes, et changer d'outil ne touche pas au code. La console les
+# relit alors là où le collecteur les a mis : NF_LOG_FORMAT=json,
+# NF_LOG_PUSH=false, et l'adresse ci-dessous.
+#
+# Envoi direct par l'application. Choix :
+#   true   (défaut) elle envoie elle-même à l'adresse posée ci-dessous —
+#          démo, poste de dev, serveur sans collecteur ;
+#   false  elle ne fait que relire : un collecteur envoie à sa place.
+# NF_LOG_PUSH=false
 #
 # Loki du compose : `docker compose --profile loki up -d` (+ Grafana). Loki
 # éteint : rien ne plante, la relecture repasse en mémoire.

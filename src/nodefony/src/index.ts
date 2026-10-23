@@ -566,6 +566,7 @@ export type {
   LogConfig,
   LogFileConfig,
   LogDestinationConfig,
+  LokiDestinationConfig,
 } from "./config/types";
 
 // ─── Types & Interfaces ───────────────────────────────────────────────────────

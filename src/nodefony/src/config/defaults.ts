@@ -85,6 +85,7 @@ export const defaultAppConfig: ResolvedAppConfig = {
     requestFormat: "auto",
     buffered: "auto",
     driver: "stdout",
+    format: "text",
     file: { sync: false },
     // `auto` : le driver de relecture s'adapte au mode de lancement au boot
     // (mono → `memory` ; worker de cluster → `cluster-file`, vue unifiée). Une

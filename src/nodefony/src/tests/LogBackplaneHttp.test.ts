@@ -15,6 +15,12 @@ import { createLokiLogDriver } from "../syslog/drivers/LokiLogDriver";
 import { createOpenSearchLogDriver } from "../syslog/drivers/OpenSearchLogDriver";
 import { LokiTransport } from "../syslog/transports/LokiTransport";
 import { OpenSearchTransport } from "../syslog/transports/OpenSearchTransport";
+import { captureJsonLines } from "./logCapture";
+import { registerBuiltinLogDrivers } from "../syslog/drivers/builtinLogDrivers";
+import {
+  getLogDriverFactory,
+  type ILogDriverContext,
+} from "../syslog/drivers/logDriverRegistry";
 import type {
   FetchLike,
   FetchInitLike,
@@ -123,6 +129,89 @@ describe("Log Backplane (LB.4) — driver loki (query LogQL)", () => {
     const { fn } = mockFetch(() => ({ status: 503 }));
     const d = createLokiLogDriver({ url: "http://loki:3100", fetchImpl: fn });
     await assert.rejects(() => d.query!({}), /query HTTP 503/);
+  });
+});
+
+describe("Log Backplane — relecture seule (un collecteur pousse, l'app relit)", () => {
+  // Flux tels qu'un collecteur les pousse : SES étiquettes, pas de `severity`.
+  const collectorBody = (lines: string[]): unknown => ({
+    status: "success",
+    data: {
+      resultType: "streams",
+      result: [
+        {
+          stream: { container: "shop" },
+          values: lines.map((l, i) => [`${1000 + i}000000`, l.trimEnd()]),
+        },
+      ],
+    },
+  });
+
+  const lines = (): string[] =>
+    captureJsonLines([
+      mk("login", "INFO", "AUTH", "LOGIN", 1000, "req-1"),
+      mk(new Error("boom"), "ERROR", "HTTP", "KERNEL", 2000, "req-2"),
+    ]);
+
+  it("la sortie JSON écrit UNE ligne par Pdu, sans préfixe, Error lisible", () => {
+    const out = lines();
+    assert.strictEqual(out.length, 2);
+    for (const l of out)
+      assert.ok(l.endsWith("}\n") && !l.slice(0, -1).includes("\n"));
+    const err = JSON.parse(out[1]!) as { payload: { message: string } };
+    assert.strictEqual(err.payload.message, "boom");
+  });
+
+  it("relit les lignes de la sortie JSON poussées par un tiers, sélecteur réglé", async () => {
+    const { fn, calls } = mockFetch(() => ({ body: collectorBody(lines()) }));
+    const d = createLokiLogDriver({
+      url: "http://loki:3100",
+      write: false,
+      labels: { container: "shop" },
+      fetchImpl: fn,
+    });
+    assert.strictEqual(d.capabilities.write, false);
+    const r = await d.query!({ requestId: "req-1" });
+    assert.strictEqual(r.total, 1);
+    assert.strictEqual(r.rows[0]!.moduleName, "AUTH");
+    assert.match(decodeURIComponent(calls[0]!.url), /\{container="shop"\}/);
+  });
+
+  it("sévérité filtrée sur la LIGNE (le collecteur ne pose pas l'étiquette)", async () => {
+    const { fn, calls } = mockFetch(() => ({ body: collectorBody(lines()) }));
+    const d = createLokiLogDriver({
+      url: "http://loki:3100",
+      write: false,
+      labels: { container: "shop" },
+      fetchImpl: fn,
+    });
+    const r = await d.query!({ severity: "ERROR" });
+    assert.strictEqual(r.total, 1);
+    const q = decodeURIComponent(calls[0]!.url).replace(/\+/g, " ");
+    assert.doesNotMatch(q, /severity=~/);
+    assert.match(q, /\|~ ".*severityName.*\(ERROR\)/);
+  });
+
+  it("fabrique : `write: false` → driver SANS transport ; étiquette = nom de l'app", async () => {
+    registerBuiltinLogDrivers();
+    const factory = getLogDriverFactory("loki")!;
+    const ctx: ILogDriverContext = {
+      logCfg: { loki: { url: "http://loki:3100", write: false } },
+      environment: "production",
+      logDir: "/nowhere",
+      pid: 1,
+      appName: "shop",
+      getRingStack: () => [],
+    };
+    const mount = factory(ctx)!;
+    assert.strictEqual(mount.transport, undefined);
+    assert.strictEqual(mount.driver.capabilities.write, false);
+    const written = factory({
+      ...ctx,
+      logCfg: { loki: { url: "http://loki:3100" } },
+    })!;
+    assert.ok(written.transport, "sans `write: false`, l'envoi est monté");
+    await written.transport!.close?.();
   });
 });
 
