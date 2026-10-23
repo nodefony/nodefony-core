@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T17:19:58.569Z",
+  "generatedAt": "2026-10-23T17:41:16.352Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4784,7 +4784,7 @@
       "title": "fix(studio): rendre la page des journaux lisible en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/661",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,

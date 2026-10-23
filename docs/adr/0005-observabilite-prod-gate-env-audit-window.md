@@ -19,6 +19,9 @@ Accepté (2026-06-01).
   « filtre protocole/étape + audit sévérités »).
 - **Partie 2 — fenêtre d'audit à chaud** : **spécification figée** ici, **à implémenter** en
   session dédiée (sécurité-sensible). Ce document EST la spécification protégée à respecter.
+- **Point 4 (« per-pod ») précisé par [ADR-0019](0019-studio-sur-un-deploiement-dedie.md)** :
+  en production, le Studio vit sur un déploiement dédié, donc une fenêtre ouverte depuis lui ne
+  vise que son propre processus.
 
 ## Contexte
 

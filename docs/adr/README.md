@@ -34,3 +34,4 @@ status: stable
 | [0016](0016-noms-courts-variables-modules.md)                 | Variables d'environnement des modules — le nom court se déclare sur son champ                 | accepted | 2026-10-12 |
 | [0017](0017-ai-mecanique-mcp-hors-du-coeur.md)                | @nodefony/ai — la mécanique MCP hors du cœur, une porte se déclare                            | accepted | 2026-10-16 |
 | [0018](0018-decorateurs-sans-metadonnees-de-type.md)          | Décorateurs — plus aucune métadonnée de type, routes typées par schéma                        | accepted | 2026-10-19 |
+| [0019](0019-studio-sur-un-deploiement-dedie.md)               | Studio — la console d'administration sur un déploiement dédié                                 | accepted | 2026-10-23 |
