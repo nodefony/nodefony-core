@@ -47,8 +47,28 @@ export function filterPdus(
   pdus: IPduLike[],
   criteria: ILogQueryCriteria = {},
 ): ILogQueryResult {
-  const { requestId, module, msgid, from, to, text, protocol, hideConsole } =
-    criteria;
+  const {
+    requestId,
+    module,
+    msgid,
+    from,
+    to,
+    text,
+    protocol,
+    hideConsole,
+    groupByRequest,
+  } = criteria;
+  // Une requête dont UNE ligne vise la console est écartée en ENTIER : ses
+  // autres lignes ne portent pas l'URL, seulement le requestId. Set alloué
+  // seulement si une telle ligne existe (chemin froid admin).
+  let consoleRequests: Set<string> | null = null;
+  if (hideConsole) {
+    for (const pdu of pdus) {
+      if (pdu.requestId !== undefined && pduIsConsoleTraffic(pdu)) {
+        (consoleRequests ??= new Set()).add(pdu.requestId);
+      }
+    }
+  }
 
   // Normalisation des critères string (1× hors boucle).
   const severities =
@@ -76,7 +96,14 @@ export function filterPdus(
     if (pdu === undefined) continue;
     if (requestId !== undefined && pdu.requestId !== requestId) continue;
     if (protocol && pduProtocol(pdu) !== protocol) continue;
-    if (hideConsole && pduIsConsoleTraffic(pdu)) continue;
+    if (
+      hideConsole &&
+      (pduIsConsoleTraffic(pdu) ||
+        (pdu.requestId !== undefined &&
+          consoleRequests?.has(pdu.requestId) === true))
+    ) {
+      continue;
+    }
     if (severities && !severities.includes(pdu.severityName.toUpperCase()))
       continue;
     if (moduleLc && !pdu.moduleName.toLowerCase().includes(moduleLc)) continue;
@@ -107,16 +134,59 @@ export function filterPdus(
   // (chronologique), on renverse AVANT de paginer → l'`uid` croît dans `rows`.
   if (criteria.order === "asc") matched.reverse();
 
-  const total = matched.length;
   const offset = criteria.offset && criteria.offset > 0 ? criteria.offset : 0;
   const limit = Math.min(
     criteria.limit && criteria.limit > 0 ? criteria.limit : DEFAULT_LIMIT,
     MAX_LIMIT,
   );
+  if (groupByRequest) {
+    const groups = groupMatchedByRequest(matched);
+    const total = groups.length;
+    return {
+      rows: groups.slice(offset, offset + limit).map((g) => {
+        const rec = pduToRecord(g.head);
+        if (g.head.requestId !== undefined) rec.lines = g.lines;
+        return rec;
+      }),
+      total,
+      truncated: offset + limit < total,
+    };
+  }
+  const total = matched.length;
   const window = matched.slice(offset, offset + limit);
   return {
     rows: window.map(pduToRecord),
     total,
     truncated: offset + limit < total,
   };
+}
+
+/** Une requête regroupée : la ligne qui la représente, et combien elle en compte. */
+interface IRequestGroup {
+  head: IPduLike;
+  lines: number;
+}
+
+/**
+ * Regroupe des lignes déjà triées par `requestId` : une entrée par requête, à
+ * la place de sa première ligne dans l'ordre demandé ; une ligne sans
+ * requestId reste seule. La tête est la ligne d'accès (`msgid "req"` : méthode,
+ * statut, URL, durée) quand elle est là, sinon la première rencontrée.
+ */
+function groupMatchedByRequest(matched: IPduLike[]): IRequestGroup[] {
+  const groups: IRequestGroup[] = [];
+  const at = new Map<string, number>();
+  for (const pdu of matched) {
+    const id = pdu.requestId;
+    const index = id === undefined ? undefined : at.get(id);
+    const group = index === undefined ? undefined : groups[index];
+    if (group === undefined) {
+      if (id !== undefined) at.set(id, groups.length);
+      groups.push({ head: pdu, lines: 1 });
+      continue;
+    }
+    group.lines++;
+    if (group.head.msgid !== "req" && pdu.msgid === "req") group.head = pdu;
+  }
+  return groups;
 }

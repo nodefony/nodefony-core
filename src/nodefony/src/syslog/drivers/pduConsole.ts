@@ -24,11 +24,14 @@ const ANSI = /\u001b\[[0-9;]*m/g;
 /**
  * Dit si un Pdu est du trafic de la console d'administration — ce que
  * l'exploitant ne cherche pas en lisant les journaux de son application : une
- * ligne d'accès (`msgid "req"`) vers un chemin de la console, ou un message de
- * rechargement à chaud de Vite (`msgid "frontend"`).
+ * ligne qui porte l'URL de la requête (ligne d'accès `msgid "req"`, ou ligne
+ * `URL : …` du journal de requête, ouverture et fermeture WebSocket comprises)
+ * vers un chemin de la console, ou un message de rechargement à chaud de Vite
+ * (`msgid "frontend"`).
  *
- * Pure et isomorphe. Seules les lignes d'accès sont classées par chemin : les
- * autres lignes d'une même requête ne portent pas son URL.
+ * Pure et isomorphe. Seules les lignes qui portent l'URL sont classées par
+ * chemin : les autres lignes d'une même requête se rattachent par leur
+ * `requestId` (`filterPdus` écarte alors la requête entière).
  *
  * @param pdu - tout objet portant `msgid` et `payload`.
  * @returns `true` pour une ligne de la console ou du rechargement à chaud.
@@ -38,8 +41,9 @@ export function pduIsConsoleTraffic(
 ): boolean {
   if (typeof pdu.payload !== "string") return false;
   if (pdu.msgid === "frontend") return HMR_MESSAGE.test(pdu.payload);
-  if (pdu.msgid !== "req") return false;
-  // Ligne d'accès : `METHODE STATUT schéma://hôte/chemin …`.
+  // Ligne d'accès `METHODE STATUT schéma://hôte/chemin …`, ou journal de
+  // requête `URL : schéma://hôte/chemin FROM : …`.
+  if (pdu.msgid !== "req" && !pdu.payload.startsWith("URL : ")) return false;
   const text = pdu.payload.replace(ANSI, "");
   const scheme = text.indexOf("://");
   if (scheme === -1) return false;

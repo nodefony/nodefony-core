@@ -173,6 +173,82 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     });
   });
 
+  describe("filterPdus — une requête de la console est écartée en entier", () => {
+    it("fermeture WS de la console : la ligne URL ET ses voisines du même requestId", () => {
+      const R = "eafac0be-f5c7-4925-abff-3a9d7787505f";
+      const pdus = [
+        mk(
+          "URL : wss://localhost:5152/nodefony/studio/api/realtime FROM : 127.0.0.1 ORIGIN : localhost:5152 ID : x Description : client disconnect",
+          "INFO",
+          "NODEFONY",
+          "wss 1000 CLOSE WEBSOCKET",
+          1000,
+          R,
+        ),
+        mk(
+          "WS realtime client disconnected — cleanup done",
+          "INFO",
+          "NODEFONY",
+          "StudioRealtimeController",
+          1001,
+          R,
+        ),
+        mk(
+          "GET  200 https://h/api/users 2ms",
+          "INFO",
+          "NODEFONY",
+          "req",
+          1002,
+          "app-1",
+        ),
+      ];
+      const r = filterPdus(pdus, { hideConsole: true });
+      assert.deepStrictEqual(
+        r.rows.map((x) => x.requestId),
+        ["app-1"],
+      );
+    });
+  });
+
+  describe("filterPdus — groupByRequest", () => {
+    const pdus = (): Pdu[] => [
+      mk("route trouvée", "INFO", "ROUTER", "MATCH", 1000, "A"),
+      mk("GET  200 https://h/api/a 3ms", "INFO", "NODEFONY", "req", 1001, "A"),
+      mk("ligne libre", "INFO", "app", "APP", 1002),
+      mk("ws ouverte", "INFO", "NODEFONY", "WEBSOCKET CONTEXT", 1003, "B"),
+      mk("db", "INFO", "app", "DB", 1004, "A"),
+      mk("ws fermée", "INFO", "NODEFONY", "WEBSOCKET CONTEXT", 1005, "B"),
+    ];
+
+    it("une ligne par requête, la ligne d'accès en tête, le compte des lignes", () => {
+      const r = filterPdus(pdus(), { groupByRequest: true });
+      assert.strictEqual(r.total, 3);
+      // Récent d'abord : B (1005), puis A (1004), la ligne libre entre les deux.
+      assert.deepStrictEqual(
+        r.rows.map((x) => [x.requestId ?? "-", x.msgid, x.lines]),
+        [
+          ["B", "WEBSOCKET CONTEXT", 2],
+          ["A", "req", 3],
+          ["-", "APP", undefined],
+        ],
+      );
+    });
+
+    it("la pagination compte des requêtes", () => {
+      const r = filterPdus(pdus(), {
+        groupByRequest: true,
+        limit: 1,
+        offset: 1,
+      });
+      assert.strictEqual(r.total, 3);
+      assert.strictEqual(r.rows[0]?.requestId, "A");
+    });
+
+    it("sans groupByRequest, les lignes restent séparées", () => {
+      assert.strictEqual(filterPdus(pdus(), {}).total, 6);
+    });
+  });
+
   describe("filterPdus — trafic de la console d'administration", () => {
     const H = "https://localhost:5152";
     const access = (path: string, ts: number): Pdu =>

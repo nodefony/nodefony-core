@@ -111,6 +111,12 @@ export interface ILogQueryCriteria {
    * (relais Vite, pages et data plane `/nodefony`), cf `pduIsConsoleTraffic`.
    */
   hideConsole?: boolean;
+  /**
+   * `true` = une ligne par requête (`requestId`) : sa ligne d'accès quand elle
+   * existe, sinon la première dans l'ordre demandé, avec `lines` = le nombre de
+   * lignes regroupées. `total` et la pagination comptent alors des requêtes.
+   */
+  groupByRequest?: boolean;
   /** Nombre max d'enregistrements renvoyés (le driver borne à un plafond sûr). */
   limit?: number;
   /** Décalage de pagination (depuis le plus récent). */
@@ -146,6 +152,8 @@ export interface ILogRecord {
   requestId?: string | undefined;
   /** Contenu brut (string/Error/objet). Narrower côté lecteur. */
   payload: unknown;
+  /** Lignes regroupées sous cette requête (`groupByRequest`), elle comprise. */
+  lines?: number;
 }
 
 /** Résultat d'une requête : enregistrements (récents d'abord) + méta de pagination. */

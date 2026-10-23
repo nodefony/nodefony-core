@@ -46,6 +46,8 @@ export const SYSLOG_FILTERS = {
   flow: { each: Object.keys(FLOW_STEPS) as FlowStepId[] },
   /** Écarte les lignes d'accès de la console d'administration elle-même. */
   hideConsole: "boolean",
+  /** Une ligne par requête (sa ligne d'accès), avec le nombre de lignes regroupées. */
+  groupByRequest: "boolean",
   /** Borne basse d'horodatage (epoch ms, incluse). */
   from: "int",
   /** Borne haute d'horodatage (epoch ms, incluse). */
