@@ -5,6 +5,7 @@ import {
   type IPduLike,
 } from "./ILogDriver";
 import { pduProtocol } from "./pduProtocol";
+import { pduIsConsoleTraffic } from "./pduConsole";
 import { pduFlowStep } from "./pduFlow";
 
 /** Plafond dur d'enregistrements renvoyés (anti-DoS mémoire/réseau). */
@@ -46,7 +47,8 @@ export function filterPdus(
   pdus: IPduLike[],
   criteria: ILogQueryCriteria = {},
 ): ILogQueryResult {
-  const { requestId, module, msgid, from, to, text, protocol } = criteria;
+  const { requestId, module, msgid, from, to, text, protocol, hideConsole } =
+    criteria;
 
   // Normalisation des critères string (1× hors boucle).
   const severities =
@@ -74,6 +76,7 @@ export function filterPdus(
     if (pdu === undefined) continue;
     if (requestId !== undefined && pdu.requestId !== requestId) continue;
     if (protocol && pduProtocol(pdu) !== protocol) continue;
+    if (hideConsole && pduIsConsoleTraffic(pdu)) continue;
     if (severities && !severities.includes(pdu.severityName.toUpperCase()))
       continue;
     if (moduleLc && !pdu.moduleName.toLowerCase().includes(moduleLc)) continue;

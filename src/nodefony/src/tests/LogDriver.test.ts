@@ -173,6 +173,75 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     });
   });
 
+  describe("filterPdus — trafic de la console d'administration", () => {
+    const H = "https://localhost:5152";
+    const access = (path: string, ts: number): Pdu =>
+      mk(
+        `GET  200 ${H}${path} 2ms 127.0.0.1 [0014be0c]`,
+        "INFO",
+        "NODEFONY",
+        "req",
+        ts,
+      );
+    const traffic = (): Pdu[] => [
+      access("/_vite/default/@fs/x/Logs.tsx", 1000),
+      access("/_assets/studio/index.js", 1100),
+      access("/nodefony", 1200),
+      access("/nodefony/logs?tab=live", 1300),
+      access("/nodefony/modules/http", 1400),
+      access("/nodefony/syslog/api/logs/search?limit=50", 1500),
+      mk(
+        `WS   101 wss://localhost:5152/nodefony/studio/api/realtime 1ms -`,
+        "INFO",
+        "NODEFONY",
+        "req",
+        1600,
+      ),
+      // Ce qui reste : l'application, et tout ce qui n'est pas une ligne d'accès.
+      access("/nodefony/test/index", 2000),
+      access("/api/users", 2100),
+      access("/", 2200),
+      mk(
+        `\u001b[36mGET \u001b[0m \u001b[32m200\u001b[0m ${H}/nodefony_like/x`,
+        "INFO",
+        "NODEFONY",
+        "req",
+        2300,
+      ),
+      mk(
+        "GET /_vite/default ignoré : pas une ligne d'accès",
+        "INFO",
+        "app",
+        "DB-DEMO",
+        2400,
+      ),
+    ];
+
+    it("hideConsole écarte relais Vite, pages et data plane de la console", () => {
+      const r = filterPdus(traffic(), { hideConsole: true });
+      assert.strictEqual(r.total, 5);
+      assert.ok(
+        r.rows.every((x) => x.timeStamp >= 2000),
+        r.rows.map((x) => String(x.payload)).join("\n"),
+      );
+    });
+
+    it("une ligne d'accès colorée (ANSI) est classée sur son chemin", () => {
+      const colored = mk(
+        `\u001b[36mGET \u001b[0m \u001b[32m200\u001b[0m ${H}/_vite/default/x.ts`,
+        "INFO",
+        "NODEFONY",
+        "req",
+        1,
+      );
+      assert.strictEqual(filterPdus([colored], { hideConsole: true }).total, 0);
+    });
+
+    it("sans hideConsole, rien n'est écarté", () => {
+      assert.strictEqual(filterPdus(traffic(), {}).total, traffic().length);
+    });
+  });
+
   describe("pduProtocol — classification pure", () => {
     it("WEBSOCKET CONTEXT → ws", () => {
       assert.strictEqual(

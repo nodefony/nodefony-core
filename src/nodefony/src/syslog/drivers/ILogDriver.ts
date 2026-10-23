@@ -106,6 +106,11 @@ export interface ILogQueryCriteria {
    * avec les autres critères. Absent = toutes les étapes.
    */
   flow?: FlowStepId | FlowStepId[];
+  /**
+   * `true` = écarte les lignes d'accès servies à la console d'administration
+   * (relais Vite, pages et data plane `/nodefony`), cf `pduIsConsoleTraffic`.
+   */
+  hideConsole?: boolean;
   /** Nombre max d'enregistrements renvoyés (le driver borne à un plafond sûr). */
   limit?: number;
   /** Décalage de pagination (depuis le plus récent). */

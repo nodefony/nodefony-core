@@ -131,6 +131,7 @@ export type {
 } from "./syslog/drivers/ILogDriver";
 export { filterPdus } from "./syslog/drivers/filterPdus";
 export { pduProtocol } from "./syslog/drivers/pduProtocol";
+export { pduIsConsoleTraffic } from "./syslog/drivers/pduConsole";
 export type { LogProtocol } from "./syslog/drivers/pduProtocol";
 export { pduFlowStep, FLOW_STEPS } from "./syslog/drivers/pduFlow";
 export type { FlowStepId, FlowStepMeta } from "./syslog/drivers/pduFlow";

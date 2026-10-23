@@ -44,6 +44,8 @@ export const SYSLOG_FILTERS = {
    * seconde liste ne peut se périmer.
    */
   flow: { each: Object.keys(FLOW_STEPS) as FlowStepId[] },
+  /** Écarte les lignes d'accès de la console d'administration elle-même. */
+  hideConsole: "boolean",
   /** Borne basse d'horodatage (epoch ms, incluse). */
   from: "int",
   /** Borne haute d'horodatage (epoch ms, incluse). */
