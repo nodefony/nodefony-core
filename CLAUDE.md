@@ -719,6 +719,16 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 **PENDANT :**
 
 - Un seul module par session
+- **🔴 Ce qu'on VOIT, on le CORRIGE — maintenant, pas plus tard.** Un défaut croisé en
+  travaillant — typage (`x as T`, `(e as Error).message`, `JSON.parse(…) as {…}`), perf
+  (allocation inutile, I/O synchrone, listener sans nettoyage), mauvais choix de conception, doc
+  qui ment, test rouge — se corrige dans la foulée, dans un commit séparé si le sujet diffère.
+  « Préexistant », « pas à moi », « hors périmètre » ne sont PAS des réponses : le contexte est
+  chargé maintenant, et plus tard il se repaie en entier. Un fichier touché ressort plus sûr qu'il
+  n'est entré ; le cliquet des conversions s'abaisse dans le même commit
+  (`node scripts/gates/check-type-assertions.mjs --update`). Seule exception : ce qui exige une
+  décision de l'auteur ou dépasse la session → un ticket, NOMMÉ dans la réponse.
+  Vécu : trois conversions laissées dans `cli/create.ts` comme « préexistantes » — il y en avait douze.
 - Écrire les tests dans la même session que le code
 - **Un test ou un gate NEUF doit être vu ROUGE une fois.** Débrancher le point de câblage
   (retirer le fix, couper le branchement) et vérifier que quelque chose tombe — en prouvant que
