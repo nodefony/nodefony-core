@@ -170,7 +170,8 @@ describe("Log Backplane — relecture seule (un collecteur pousse, l'app relit)"
       labels: { container: "shop" },
       fetchImpl: fn,
     });
-    assert.strictEqual(d.capabilities.write, false);
+    // Loki PERSISTE même quand l'app n'y envoie rien (Studio : « Persistant »).
+    assert.strictEqual(d.capabilities.write, true);
     const r = await d.query!({ requestId: "req-1" });
     assert.strictEqual(r.total, 1);
     assert.strictEqual(r.rows[0]!.moduleName, "AUTH");
@@ -205,7 +206,11 @@ describe("Log Backplane — relecture seule (un collecteur pousse, l'app relit)"
     };
     const mount = factory(ctx)!;
     assert.strictEqual(mount.transport, undefined);
-    assert.strictEqual(mount.driver.capabilities.write, false);
+    assert.strictEqual(
+      mount.driver.capabilities.write,
+      true,
+      "Loki reste persistant",
+    );
     const written = factory({
       ...ctx,
       logCfg: { loki: { url: "http://loki:3100" } },

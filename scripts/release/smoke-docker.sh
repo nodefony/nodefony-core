@@ -1800,10 +1800,11 @@ const b = JSON.parse(process.argv[1]);
 const d = b.activeDriver ?? b.data?.activeDriver;
 const w = b.write ?? b.data?.write;
 if (d?.name !== "loki") throw new Error("pilote actif : " + JSON.stringify(d));
-if (d.capabilities.write !== false) throw new Error("le pilote loki se dit écrivain : " + JSON.stringify(d.capabilities));
+// `write` = PERSISTANT (Studio) : Loki garde les journaux, que l'app y envoie ou non.
+if (d.capabilities.write !== true) throw new Error("Loki affiché non persistant : " + JSON.stringify(d.capabilities));
 if ((w?.transports ?? []).some((t) => t.name === "loki")) throw new Error("un transport loki est monté");
 ' "$LBACK" || { echo "$LBACK" | head -c 600; echo; fail "état du backplane inattendu"; }
-  ok "pilote actif loki, write: false, aucun transport loki monté"
+  ok "pilote actif loki (persistant), aucun transport loki monté"
   LTRACE=$(curl -s "${LFWD[@]}" -H "Cookie: $LCOOKIE" \
     "$LURL/nodefony/syslog/api/logs/search?requestId=$LRID")
   node -e '

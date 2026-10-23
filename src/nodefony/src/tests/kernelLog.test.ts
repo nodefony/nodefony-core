@@ -303,7 +303,11 @@ describe("Kernel — initializeLog (drivers montés selon la config)", () => {
     k.initializeLog();
     const active = getActiveLogDriver();
     assert.strictEqual(active?.name, "loki");
-    assert.strictEqual(active?.capabilities.write, false);
+    assert.strictEqual(
+      active?.capabilities.write,
+      true,
+      "Loki reste persistant",
+    );
     assert.ok(!mountedNames(k).includes("loki"), mountedNames(k).join(","));
   });
 
@@ -323,7 +327,7 @@ describe("Kernel — initializeLog (drivers montés selon la config)", () => {
     });
     k.initializeLog();
     assert.strictEqual(getActiveLogDriver()?.name, "opensearch");
-    assert.strictEqual(getActiveLogDriver()?.capabilities.write, false);
+    assert.strictEqual(getActiveLogDriver()?.capabilities.write, true);
     assert.ok(!mountedNames(k).includes("opensearch"));
   });
 

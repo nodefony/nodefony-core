@@ -20,7 +20,8 @@ export interface LokiLogDriverOptions {
   /**
    * `false` = relecture SEULE : les flux sont poussés par un COLLECTEUR, qui ne
    * pose pas l'étiquette `severity` → la sévérité se filtre sur la LIGNE JSON.
-   * Défaut `true` (nos propres flux, sévérité en étiquette indexée).
+   * Défaut `true` (nos propres flux, sévérité en étiquette indexée). Ne change
+   * PAS `capabilities.write` : Loki persiste dans les deux cas.
    */
   write?: boolean | undefined;
   /** Labels de sélecteur de base (mêmes que le transport). Défaut `{ app: "nodefony" }`. */
@@ -142,7 +143,10 @@ export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
 
   return {
     name: "loki",
-    capabilities: { write, query: true, stream: false },
+    // `write` = la destination PERSISTE (Studio : « Persistant ») — vrai pour Loki,
+    // que l'application y envoie ou non. Qui envoie se lit dans les transports
+    // montés : en relecture seule, aucun `loki` n'y figure.
+    capabilities: { write: true, query: true, stream: false },
     query: async (criteria: ILogQueryCriteria) => {
       const now = Date.now();
       const fromMs = criteria.from ?? now - defaultLookbackMs;

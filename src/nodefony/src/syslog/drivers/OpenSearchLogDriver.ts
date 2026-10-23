@@ -14,11 +14,6 @@ import { stripTrailingSlashes } from "../../Tools";
 export interface OpenSearchLogDriverOptions {
   /** Base URL d'OpenSearch, ex. `http://127.0.0.1:9200`. */
   url: string;
-  /**
-   * `false` = relecture SEULE : un collecteur indexe les lignes JSON de la sortie
-   * standard (champs de l'enregistrement à la racine du document). Défaut `true`.
-   */
-  write?: boolean | undefined;
   /** Index interrogé (défaut `nodefony-logs`). Doit matcher le transport. */
   index?: string;
   /** Utilisateur (auth basic) — prod avec plugin sécurité activé. */
@@ -109,11 +104,9 @@ export function createOpenSearchLogDriver(
 
   return {
     name: "opensearch",
-    capabilities: {
-      write: options.write !== false,
-      query: true,
-      stream: false,
-    },
+    // `write` = la destination PERSISTE, que l'application y indexe ou non (cf
+    // le pilote Loki) ; l'envoi se lit dans les transports montés.
+    capabilities: { write: true, query: true, stream: false },
     query: async (criteria: ILogQueryCriteria) => {
       // On délègue à OpenSearch UNIQUEMENT le bornage robuste (range temporel + tri +
       // budget). `timeStamp` est numérique → range/sort sans hypothèse de mapping. Les
