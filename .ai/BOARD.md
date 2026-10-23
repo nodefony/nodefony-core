@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-23 15:09** (UTC).
+> Empreinte prise le **2026-10-23 15:20** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 88% | 183 | 24 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 88% | 183 | 25 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 36 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
@@ -35,7 +35,7 @@
 
 Ordre 5.2 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 24 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 25 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -105,7 +105,7 @@ Ordre 5.2 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 24 ouverts
+## Jalon 10.0.0-beta — 25 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -114,6 +114,7 @@ Ordre 5.2 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 5.22 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
 | 5.23 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
 | 5.24 | P2 — décision | 1 | — | #631 | test(media): lancer les tests audio dans un vrai navigateur |
+| 5.25 | P1 — figé à la création | 1 | — | #660 | docs(site): orienter l'accueil selon le profil du lecteur |
 | 5.3 | P2 — décision | 27 | — | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 5.31 | P2 — décision | 2 | — | #627 | docs(adr): figer l'architecture de la socket temps réel |
 | 5.32 | P2 — décision | 2 | — | #628 | feat(realtime): tenir le serveur au même contrat que le client |
@@ -132,7 +133,7 @@ Ordre 5.2 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 6.1 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 6.11 | P2 — décision | 0.5 | — | #605 | feat(site): versionner le site de documentation par release |
 | 6.12 | P2 — décision | 1 | 2026-11-16 → 12-15 | #89 | docs(notification): faire la veille des canaux de communication attendus |
-| 6.2 | P1 — figé à la création | 2 | — | #659 | docs(performance): remesurer les pages de performance avant la release |
+| 6.2 | P1 — figé à la création | 3 | — | #659 | docs(performance): remesurer les pages de performance avant la release |
 
 ## Backlog — aucune date promise · 21 ouverts
 

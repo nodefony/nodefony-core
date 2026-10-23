@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T15:09:03.862Z",
+  "generatedAt": "2026-10-23T15:20:10.269Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 183,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 24,
+      "open": 25,
       "title": "10.0.0-beta"
     },
     {
@@ -4847,6 +4847,22 @@
       ]
     },
     {
+      "number": 660,
+      "title": "docs(site): orienter l'accueil selon le profil du lecteur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/660",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.25,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
       "number": 34,
       "title": "feat(client): implémenter le noyau applicatif côté navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/34",
@@ -5557,10 +5573,10 @@
       "title": "docs(performance): remesurer les pages de performance avant la release",
       "url": "https://github.com/nodefony/nodefony-core/issues/659",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 2,
+      "jours": 3,
       "ordre": 6.2,
       "debut": null,
       "cible": null,
