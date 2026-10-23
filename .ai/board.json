@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T15:47:17.080Z",
+  "generatedAt": "2026-10-23T17:19:58.569Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 183,
+      "closed": 184,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 25,
@@ -4766,8 +4766,8 @@
       "number": 585,
       "title": "feat(core): relire les journaux dans Loki ou OpenSearch sans y écrire",
       "url": "https://github.com/nodefony/nodefony-core/issues/585",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -4777,6 +4777,22 @@
       "labels": [
         "beta-5",
         "reportable"
+      ]
+    },
+    {
+      "number": 661,
+      "title": "fix(studio): rendre la page des journaux lisible en production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/661",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.205,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
       ]
     },
     {
