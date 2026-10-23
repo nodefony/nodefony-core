@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-23 14:39** (UTC).
+> Empreinte prise le **2026-10-23 14:45** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -95,7 +95,7 @@ Ordre 5.025 · P2 — décision · 27 j · jalon 10.0.0-beta · frise —
 | 162 | P3 — fin de cycle | 1 | — | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
 | 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
 | 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
-| 164.5 | P3 — fin de cycle | — | — | #637 | feat(framework): servir une API GraphQL dérivée des services CRUD |
+| 164.5 | P3 — fin de cycle | 5 | — | #637 | feat(framework): servir une API GraphQL dérivée des services CRUD |
 | 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
 
 ## Jalon outillage-agents — 2 ouverts
