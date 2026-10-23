@@ -11,6 +11,12 @@ npm create nodefony@beta mon-app
 > npm sert l'étiquette `latest`, qui pointe encore la lignée 7 en JavaScript — sans rapport avec ce
 > que cette page décrit.
 
+Dans un dossier vide déjà créé, `.` remplace le nom : l'application prend le nom du dossier.
+
+```bash
+npm create nodefony@beta .
+```
+
 Puis :
 
 ```bash

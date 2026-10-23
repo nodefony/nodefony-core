@@ -23,6 +23,25 @@ source: "src/packages/@nodefony/orm-core/docs/tutorial-entity.md"
 
 📍 [Documentation](../../../../../docs/index.md) › [ORM — le socle](index.md) › **Créer une entité**
 
+## ⚡ Le geste — une commande
+
+Dans une application, une entité ne s'écrit pas à la main : `create entity` pose tout ce que cette
+page construit pas à pas, câblé et testé.
+
+```bash
+npx nodefony create entity Post title:string content:text views:int --route /api/posts
+```
+
+Elle écrit la table (`nodefony/entity/Post.ts`), ses schémas de validation, un service CRUD, un
+contrôleur REST dont les lectures répondent aussi par la socket, un test unitaire et un test e2e,
+puis inscrit l'entité et le contrôleur dans `index.ts`. Sa sortie dit ensuite s'il faut générer la
+migration (`npx nodefony orm:generate --name posts --apply`) : une application qui versionne ses
+migrations ne crée pas la table au démarrage. Les options :
+[le raccourci](#le-raccourci--nodefony-create-entity).
+
+La suite de la page construit la même entité à la main : c'est ce qui permet de comprendre ce que
+la commande écrit, et de le retoucher.
+
 ## 🧠 Schéma général
 
 Trois objets s'emboîtent, toujours dans le même ordre. Le tutoriel les parcourt de gauche à

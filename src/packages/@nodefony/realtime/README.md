@@ -163,14 +163,18 @@ authenticator aurait résolue, et le verrou de frame que `@nodefony/security` po
 Sans verrou, une `policy` déclarée n'est appliquée par personne — c'est vrai en test comme
 en production, `@nodefony/realtime` ne connaissant pas `@nodefony/security`.
 
+Les deux sont fournis par `@nodefony/security/testing` — le verrou est celui du pare-feu, pas
+une copie :
+
 ```ts
+import {
+  createTestFrameAuthorizer,
+  createTestIdentity,
+} from "@nodefony/security/testing";
+
 const h = createRealtimeHarness((ctx) => new ChatController(ctx), {
-  identity: monToken, // IRealtimeToken
-  frameAuthorizer: buildFrameAuthorizer(firewall, {
-    // @nodefony/security
-    channelResolver: getRealtimeHub(),
-    systemRules: DEFAULT_SYSTEM_RULES,
-  }),
+  identity: createTestIdentity({ roles: ["ROLE_USER"] }),
+  frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
 });
 await h.connect();
 await h.subscribe("chat:admin");
