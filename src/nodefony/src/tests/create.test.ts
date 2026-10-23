@@ -5136,10 +5136,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
-    it("realtime : RealtimeController + canal ticker ; minimal sans la dep → garde", () => {
+    it("realtime : RealtimeController + canal events ; minimal sans la dep → garde", () => {
       const full = path.join(tmp, "rt");
       scaffold(full, { name: "rt", preset: "complete" });
-      controller(full, { name: "pulse", kind: "realtime" });
+      const pulse = controller(full, { name: "pulse", kind: "realtime" });
+      // La note annonce le canal que le gabarit POSE — elle annonçait
+      // `pulse:ticker`, que rien ne déclare : un abonnement refusé « unknown ».
+      assert.include((pulse.notes ?? []).join("\n"), "canal pulse:events");
       const src = readFileSync(
         path.join(full, "nodefony", "controllers", "PulseController.ts"),
         "utf8",

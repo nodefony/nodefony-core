@@ -3741,7 +3741,7 @@ function runControllerScaffold(
       `WS   ${route}/realtime (socket Nodefony — mêmes actions via socket.request/mutate)`,
     ],
     realtime: [
-      `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:ticker, action ${kebab}:ping)`,
+      `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:events, action ${kebab}:ping)`,
       `TEST tests/${kebab}-realtime.test.ts — \`npx vitest run\` (harnais @nodefony/realtime/testing, ni serveur ni navigateur)`,
     ],
     example: [

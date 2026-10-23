@@ -738,7 +738,7 @@ Une seule implémentation, `resolveScaffoldTarget`, appelée par les cinq scaffo
 in-project : la résolution y était recopiée à l'identique, donc corrigeable cinq
 fois. Saveurs : `hello` = GET + WS echo MÊME classe (défaut — le
 différenciateur) ; `realtime` = sous-classe `RealtimeController` (@nodefony/realtime :
-canal `<nom>:ticker` décoré `@RealtimeChannel` + action `<nom>:ping`, TSDoc = snippet
+canal `<nom>:events` décoré `@RealtimeChannel` + action `<nom>:ping`, TSDoc = snippet
 client `NodefonySocket`) — garde actionnable si la dep manque (preset minimal) ;
 `rest` = CRUD `@Get/@Post/@Put/@Delete` + `@Param/@Body` + echo WS. Wiring AUTO de
 l'`index.ts` cible (`wireDecoratorList` : import + insertion `@controllers([...])`,
