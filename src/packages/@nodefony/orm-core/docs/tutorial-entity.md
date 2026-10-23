@@ -34,9 +34,10 @@ npx nodefony create entity Post title:string content:text views:int --route /api
 
 Elle écrit la table (`nodefony/entity/Post.ts`), ses schémas de validation, un service CRUD, un
 contrôleur REST dont les lectures répondent aussi par la socket, un test unitaire et un test e2e,
-puis inscrit l'entité et le contrôleur dans `index.ts`. Sa sortie dit ensuite s'il faut générer la
-migration (`npx nodefony orm:generate --name posts --apply`) : une application qui versionne ses
-migrations ne crée pas la table au démarrage. Les options :
+puis inscrit l'entité et le contrôleur dans `index.ts`. Si l'application versionne ses migrations
+(toute application complète), elle écrit puis applique celle de la table à la base de
+développement ; sinon, la table naît au prochain démarrage. Si la base ne répond pas, sa sortie donne la commande à
+relancer (`npx nodefony orm:generate --name posts --apply`). Les options :
 [le raccourci](#le-raccourci--nodefony-create-entity).
 
 La suite de la page construit la même entité à la main : c'est ce qui permet de comprendre ce que
@@ -356,11 +357,14 @@ champs se déclarent en positionnels, façon Rails :
 nodefony create entity Post title:string content:text views:int
 # --id uuid7|uuid4|serial   --soft-delete   --no-timestamps
 # --module <nom>            --no-controller --connector <nom>
+# --no-migrate              (n'écrit pas la migration : la sortie la conseille)
 ```
 
 Elle écrit le fichier d'entité (`nodefony/entity/Post.ts`), les schémas de validation, un service
 CRUD, un controller REST + WebSocket et les tests — puis **câble elle-même** `@entities([...])` et
-`@controllers([...])`. Le schéma vit alors dans son propre fichier, et le point d'entrée ne garde
+`@controllers([...])`, et migre la table neuve quand l'application versionne son schéma — mais seulement si la migration ne touche
+qu'elle : une autre entité modifiée en attente laisse le fichier écrit, NON appliqué, et la sortie
+nomme les tables en trop. Le schéma vit alors dans son propre fichier, et le point d'entrée ne garde
 que l'import plus la ligne du décorateur.
 
 > [!WARNING]

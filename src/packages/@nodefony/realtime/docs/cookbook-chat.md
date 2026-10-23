@@ -35,22 +35,20 @@ coverageModule: realtime
 
 📍 [Documentation](../../../../../docs/index.md) › [@nodefony/realtime](index.md) › **Cookbook — un chat**
 
-## ⚡ Le geste — trois commandes avant d'écrire une ligne
+## ⚡ Le geste — deux commandes avant d'écrire une ligne
 
 Une ressource REST et un canal temps réel ne s'écrivent pas à la main : les générateurs de
 l'application les posent, câblés et testés. Depuis la racine de l'application :
 
 ```bash
 npx nodefony create entity Message body:text room:string:index --route /api/messages
-npx nodefony orm:generate --name messages --apply
 npx nodefony create controller room --kind realtime
 ```
 
-| Commande                            | Ce qu'elle pose                                                                                                                                                                                                                                        |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `create entity`                     | la table (`nodefony/entity/Message.ts`), ses schémas de validation, un service CRUD, `MessageController` — REST sur `/api/messages`, et ses lectures répondent aussi par la socket —, un test unitaire et un test e2e, le tout inscrit dans `index.ts` |
-| `orm:generate --apply`              | la migration de la table, appliquée à la base de développement. `create entity` dit s'il la faut : une application qui versionne ses migrations ne crée pas la table au démarrage, et ses routes répondraient 500                                      |
-| `create controller --kind realtime` | `RoomController` : la socket `/api/room/realtime`, le canal `room:events`, ses actions, et un test qui la pilote sans serveur ni navigateur                                                                                                            |
+| Commande                            | Ce qu'elle pose                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create entity`                     | la table (`nodefony/entity/Message.ts`), ses schémas de validation, un service CRUD, `MessageController` — REST sur `/api/messages`, et ses lectures répondent aussi par la socket —, un test unitaire et un test e2e, le tout inscrit dans `index.ts` — puis, si l'application versionne ses migrations (toute application complète), la migration de la table, écrite et appliquée à la base de développement ; sinon la table naît au prochain démarrage |
+| `create controller --kind realtime` | `RoomController` : la socket `/api/room/realtime`, le canal `room:events`, ses actions, et un test qui la pilote sans serveur ni navigateur                                                                                                                                                                                                                                                                                                                 |
 
 La suite de ce cookbook construit le même salon À LA MAIN, dans un seul contrôleur : c'est ce qui
 permet de comprendre ce que les générateurs écrivent, et de le retoucher. Pour avancer, partir des

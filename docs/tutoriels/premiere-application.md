@@ -231,11 +231,8 @@ npx nodefony create entity Article title:string body:text --route /api/articles
 ```
 
 Ton application **versionne son schéma** : une table nouvelle n'apparaît en base qu'avec sa
-migration. Écris-la et applique-la d'un seul geste :
-
-```bash
-npx nodefony orm:generate --name articles --apply
-```
+migration. Le générateur l'a écrite et appliquée dans la foulée — sa sortie le dit
+(`migration de la table articles`). Si la base ne répondait pas, elle donne la commande à relancer.
 
 Ton API REST répond maintenant sur `/api/articles` :
 
@@ -259,12 +256,12 @@ Le même contrôleur sert aussi ces lectures en **WebSocket** (les méthodes de 
 
 ## ⚠️ Pièges (les erreurs de début)
 
-| Symptôme                                                 | Cause                                       | Correction                                                                                             |
-| -------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| L'application créée ne ressemble en rien à cette page    | Créée sans `@beta` : npm a servi Nodefony 7 | Repars d'un dossier vide avec `npm create nodefony@beta mon-app`.                                      |
-| Une route ajoutée répond `404`                           | La reconstruction n'est pas finie           | Attends `BOOT ok` dans le journal du serveur (quelques secondes après la sauvegarde).                  |
-| `/api/articles` répond `500` : `no such table: articles` | L'entité est écrite, mais pas sa migration  | `npx nodefony orm:generate --name articles --apply`. Le journal du démarrage le dit aussi.             |
-| `500` : `Cannot resolve service "RequestStampService"`   | Classe écrite à la main, jamais déclarée    | Passe par `npx nodefony create service <Nom>`, ou ajoute la classe à `@services([…])` dans `index.ts`. |
+| Symptôme                                                 | Cause                                                                                          | Correction                                                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| L'application créée ne ressemble en rien à cette page    | Créée sans `@beta` : npm a servi Nodefony 7                                                    | Repars d'un dossier vide avec `npm create nodefony@beta mon-app`.                                      |
+| Une route ajoutée répond `404`                           | La reconstruction n'est pas finie                                                              | Attends `BOOT ok` dans le journal du serveur (quelques secondes après la sauvegarde).                  |
+| `/api/articles` répond `500` : `no such table: articles` | L'entité est écrite, mais pas sa migration (base injoignable à la création, ou `--no-migrate`) | `npx nodefony orm:generate --name articles --apply`. Le journal du démarrage le dit aussi.             |
+| `500` : `Cannot resolve service "RequestStampService"`   | Classe écrite à la main, jamais déclarée                                                       | Passe par `npx nodefony create service <Nom>`, ou ajoute la classe à `@services([…])` dans `index.ts`. |
 
 ## 🔗 Pour aller plus loin
 
