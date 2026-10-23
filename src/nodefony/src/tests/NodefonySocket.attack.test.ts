@@ -728,13 +728,14 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     });
     c.onReconnect((i) => delays.push(i.delay));
     c.connect().catch(() => {});
-    await wait(800);
+    // Attendre la 4ᵉ tentative, pas une durée : sous Windows, 800 ms n'en voyaient
+    // qu'une. Base 40 → tentatives 1 à 3 au plancher (100 ms, gigue comprise), la 4ᵉ
+    // tire dans [160, 320] — strictement au-dessus, sans dépendre du hasard.
+    await until(() => delays.length >= 4, 5000);
     // Un serveur qui accepte puis coupe sans cesse doit être ménagé de plus en plus (doublement),
     // pas sondé à délai constant parce que « la dernière connexion a réussi ».
-    expect(delays.length).to.be.above(1);
-    expect(delays.at(-1) ?? 0).to.be.above(
-      delays[0] ?? Number.POSITIVE_INFINITY,
-    );
+    expect(delays.length).to.be.at.least(4);
+    expect(delays[3] ?? 0).to.be.above(delays[0] ?? Number.POSITIVE_INFINITY);
     expect(decor.hits()).to.be.at.most(8);
   });
 

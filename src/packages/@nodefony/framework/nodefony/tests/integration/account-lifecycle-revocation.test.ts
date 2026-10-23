@@ -346,7 +346,9 @@ describe("Compte supprimé HORS du framework puis réinséré en SQL (#139)", ()
     const access = await openAccess(PROBES.sqlReinserted);
     let db: DatabaseSync | null = null;
     try {
-      db = new DatabaseSync(dbFile);
+      // Le serveur écrit dans le même fichier (sessions, dernière connexion) : sans
+      // délai d'attente, SQLite rend SQLITE_BUSY sur-le-champ — vécu sous Windows.
+      db = new DatabaseSync(dbFile, { timeout: 5_000 });
     } catch {
       // ouverture impossible : traité comme « compte hors de ce fichier »
     }
