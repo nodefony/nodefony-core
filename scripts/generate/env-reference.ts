@@ -180,17 +180,25 @@ async function readRepositoryShortcuts(): Promise<IModuleShortcut[]> {
  * passe : échapper la barre seule laisserait `a\|b` devenir `a\\|b`, où la
  * barre redevient nue et coupe la cellule. Dans un segment de code, Markdown
  * ne lit aucun échappement — sauf `\|`, que le tableau GFM résout avant tout ;
- * doubler l'antislash y afficherait `\\`.
+ * doubler l'antislash y afficherait `\\`. Un antislash suivi d'une barre n'y
+ * a donc AUCUNE écriture fidèle (échappée, la barre coupe la cellule ; doublée,
+ * elle s'affiche avec un antislash de trop) : la séquence est refusée.
+ *
+ * @throws Error quand un segment de code contient `\|`.
  */
 export function markdownTableCell(text: string): string {
   return text
     .replace(/\s*\n\s*/gu, " ")
     .split("`")
-    .map((part, i) =>
-      i % 2 === 0
-        ? part.replace(/[\\|<]/gu, "\\$&")
-        : part.replace(/\|/gu, "\\|"),
-    )
+    .map((part, i) => {
+      if (i % 2 === 0) return part.replace(/[\\|<]/gu, "\\$&");
+      if (part.includes("\\|")) {
+        throw new Error(
+          `segment de code « ${part} » : « \\| » ne s'écrit pas dans une cellule de tableau — reformuler la description`,
+        );
+      }
+      return part.replace(/\|/gu, "\\|");
+    })
     .join("`");
 }
 

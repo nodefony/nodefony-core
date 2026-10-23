@@ -18,6 +18,10 @@ describe("markdownTableCell — une cellule de tableau GFM qui ne se coupe pas",
     );
   });
 
+  it("refuse `\\|` dans un segment de code, qui n'a aucune écriture fidèle", () => {
+    expect(() => markdownTableCell("voir `a\\|b`")).toThrow(/reformuler/u);
+  });
+
   it("met la cellule sur une ligne", () => {
     expect(markdownTableCell("un\n  deux")).toBe("un deux");
   });
