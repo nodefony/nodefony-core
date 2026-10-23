@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T17:41:16.352Z",
+  "generatedAt": "2026-10-23T18:14:34.196Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 36,
+      "open": 37,
       "title": "10.1.0"
     }
   ],
@@ -8096,6 +8096,20 @@
       "ordre": 116,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
+      "labels": []
+    },
+    {
+      "number": 662,
+      "title": "feat(studio): réserver la console d'administration à un déploiement dédié",
+      "url": "https://github.com/nodefony/nodefony-core/issues/662",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 116.3,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {
