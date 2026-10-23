@@ -47,6 +47,7 @@ on:
             sql:mariadb,
             sql:mysql,
             cluster,
+            logs,
             global,
             pm:pnpm,
             pm:yarn,
@@ -108,7 +109,7 @@ jobs:
         scenario: >-
           ${{ fromJSON(
             (github.event.inputs.scenario == null || github.event.inputs.scenario == 'all')
-              && '["base","front","studio","edge","sql:postgres","sql:mariadb","sql:mysql","cluster","global","pm:pnpm","pm:yarn","pm:bun"]'
+              && '["base","front","studio","edge","sql:postgres","sql:mariadb","sql:mysql","cluster","logs","global","pm:pnpm","pm:yarn","pm:bun"]'
               || format('["{0}"]', github.event.inputs.scenario)
           ) }}
     steps:

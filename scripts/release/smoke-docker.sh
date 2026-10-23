@@ -11,7 +11,7 @@
 # `create-nodefony` installé depuis SON tarball. C'est le premier paquet qu'un
 # inconnu exécute (`npm create nodefony <app>`), et il n'était éprouvé par rien.
 #
-# HUIT scénarios, sélectionnables :
+# NEUF scénarios, sélectionnables :
 #
 #   base   — app minimale sans front : sondes, node PID 1, drain au SIGTERM
 #   front  — app à frontend React : tags `/_assets/…` servis, et les DEUX
@@ -32,6 +32,9 @@
 #   cluster — l'image lancée avec `NF_WORKERS=4` sur sa base SQLite NEUVE : les
 #            quatre workers démarrent ensemble (WAL et port partagé), aucun ne
 #            meurt, et le trafic les atteint TOUS
+#   logs   — l'image de production écrit du JSON sur stdout, Grafana Alloy le
+#            transporte vers Loki, et la console RELIT sans que l'app n'envoie
+#            rien (`NF_LOG_PUSH=false`) — la voie de production recommandée
 #   global — `npm i -g` du tarball, `create app` par ce global, puis le CLI
 #            de l'APPLICATION qui s'exécute dedans (délégation constatée, et
 #            l'écart de version annoncé quand global et projet divergent)
@@ -57,7 +60,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 case "$SCENARIO" in
-  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql|cluster|global|pm|pm:pnpm|pm:yarn|pm:bun) ;;
+  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql|cluster|logs|global|pm|pm:pnpm|pm:yarn|pm:bun) ;;
   *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;;
 esac
 # `sql` se DÉCOUPE par moteur, et ce n'est pas un raffinement : le job de forge
@@ -1653,6 +1656,167 @@ if runs cluster; then
   ok "worker $VICTIM tué, relancé, et le trafic atteint de nouveau $SERVED workers"
   docker rm -f "$CCTN" >/dev/null 2>&1 || true
   docker rmi -f "$CIMG" >/dev/null 2>&1 || true
+fi
+
+# ═══ SCÉNARIO « logs » — stdout JSON, un VRAI collecteur, relecture seule ═══
+#
+# La voie de production recommandée : l'application écrit sur la sortie
+# standard, un collecteur de l'hébergeur transporte, et la console
+# d'administration relit là où il a déposé — sans que l'application n'envoie
+# rien elle-même (`NF_LOG_PUSH=false`). Aucun banc du dépôt ne la voit : ils
+# poussent eux-mêmes leurs lignes. Ici, l'image de production tourne telle
+# quelle, et c'est Grafana Alloy qui lit son stdout PAR LE DÉMON DOCKER
+# (`loki.source.docker`), exactement comme sur un hôte.
+#
+# Ce qui se constate, et ce que chaque constat seul peut voir :
+#   · stdout est du JSON — sans lui, la console ne relirait rien ;
+#   · AUCUN flux porteur de l'étiquette `severity` — seul notre transport la
+#     pose, un collecteur jamais : sa présence trahirait un envoi de l'app ;
+#   · la console (API d'administration, connexion réelle) relit, en lecture
+#     seule, la TRACE d'une requête que le collecteur a déposée.
+#
+# Le banc JOUE le frontal TLS : la production refuse un mot de passe en clair
+# (403), et l'app ne croit `X-Forwarded-Proto` que d'une adresse privée
+# (`NF__HTTP__TRUSTPROXY=uniquelocal`) — celle de la passerelle Docker, d'où
+# part le `curl` de l'hôte. Même contrat que le scénario `edge`, sans nginx.
+if runs logs; then
+  LAPP="$WORK/logs"
+  LIMG="nodefony-smoke-logs:smoke"
+  LNET="nf-smoke-logs-net"
+  LLOKI="nf-smoke-logs-loki"
+  LALLOY="nf-smoke-logs-alloy"
+  LCTN="nf-smoke-logs-app"
+  CONTAINERS="$CONTAINERS $LALLOY $LCTN $LLOKI"
+  LPORT=15171
+  LLOKI_PORT=15172
+  LAPP_NAME="smokelogs"
+
+  step "[logs] create app — preset complet"
+  scaffold_app "$LAPP_NAME" "$LAPP" "complete" "none"
+  rewrite_deps "$LAPP"
+  write_initial_migration "$LAPP"
+  build_image "$LAPP" "$LIMG"
+  LADMIN_PASSWORD=$(e2e_admin_password "$LAPP")
+  [ -n "$LADMIN_PASSWORD" ] || fail "mot de passe admin e2e introuvable (nodefony/testing)"
+
+  step "[logs] Loki + application (NF_LOG_FORMAT=json, NF_LOG_PUSH=false)"
+  for c in $LALLOY $LCTN $LLOKI; do docker rm -f "$c" >/dev/null 2>&1 || true; done
+  docker network rm "$LNET" >/dev/null 2>&1 || true
+  docker network create "$LNET" >/dev/null || fail "réseau $LNET"
+  docker run -d --name "$LLOKI" --network "$LNET" -p "127.0.0.1:$LLOKI_PORT:3100" \
+    grafana/loki:3.7.2 -config.file=/etc/loki/local-config.yaml >/dev/null \
+    || fail "démarrage de Loki"
+  for _ in $(seq 1 60); do
+    [ "$(http_code "http://127.0.0.1:$LLOKI_PORT/ready")" = "200" ] && break
+    sleep 1
+  done
+  [ "$(http_code "http://127.0.0.1:$LLOKI_PORT/ready")" = "200" ] || fail "Loki jamais prêt"
+  docker run -d --name "$LCTN" --network "$LNET" -p "$LPORT:5151" \
+    "${SMOKE_ENV_ARGS[@]}" \
+    -e NF_ADMIN_PASSWORD="$LADMIN_PASSWORD" \
+    -e NF_LOG_FORMAT=json -e NF_LOG_PUSH=false \
+    -e NF_LOKI_URL="http://$LLOKI:3100" \
+    -e NF__HTTP__TRUSTPROXY=uniquelocal \
+    "$LIMG" >/dev/null
+  migrate_in "$LCTN"
+  # Le compte admin (NF_ADMIN_PASSWORD) se crée AU DÉMARRAGE : sur la base SQLite
+  # neuve du conteneur, la table n'existait pas encore (`no such table: User`,
+  # fail-soft). On redémarre une fois le schéma posé — le geste d'un exploitant
+  # qui déploie après sa migration.
+  docker restart "$LCTN" >/dev/null || fail "redémarrage de $LCTN"
+  wait_ready "$LCTN" "$LPORT"
+  ok "application prête, relecture Loki déclarée, envoi coupé"
+
+  step "[logs] la sortie standard est du JSON"
+  LJSON=$(docker logs "$LCTN" 2>&1 | grep -c '^{"uid":' || true)
+  [ "$LJSON" -gt 0 ] || { docker logs "$LCTN" 2>&1 | head -15; fail "aucune ligne JSON sur stdout (NF_LOG_FORMAT ignoré ?)"; }
+  ok "$LJSON ligne(s) JSON sur stdout"
+
+  step "[logs] collecteur réel — Grafana Alloy lit le stdout par le démon Docker"
+  LALLOY_CFG="$WORK/logs-alloy.alloy"
+  cat > "$LALLOY_CFG" <<ALLOY
+discovery.docker "app" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "name"
+    values = ["$LCTN"]
+  }
+}
+loki.source.docker "app" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.app.targets
+  labels     = {"app" = "$LAPP_NAME"}
+  forward_to = [loki.write.out.receiver]
+}
+loki.write "out" {
+  endpoint {
+    url = "http://$LLOKI:3100/loki/api/v1/push"
+  }
+}
+ALLOY
+  docker run -d --name "$LALLOY" --network "$LNET" \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    -v "$LALLOY_CFG:/etc/alloy/config.alloy:ro" \
+    grafana/alloy:v1.5.1 run /etc/alloy/config.alloy >/dev/null \
+    || fail "démarrage d'Alloy"
+
+  # Le banc joue le frontal TLS (cf en-tête) : chaque requête de la console
+  # porte `X-Forwarded-Proto: https`, et le cookie `Secure` est rejoué à la main.
+  LURL="http://127.0.0.1:$LPORT"
+  LFWD=(-H "X-Forwarded-Proto: https")
+  LRID=$(curl -s -D - -o /dev/null "${LFWD[@]}" "$LURL/" | tr -d '\r' \
+    | awk -F': ' 'tolower($1)=="x-request-id"{print $2}')
+  [ -n "$LRID" ] || fail "aucun x-request-id rendu par GET /"
+
+  lcount() { # requête LogQL → nombre de lignes depuis 10 min
+    curl -s -G "http://127.0.0.1:$LLOKI_PORT/loki/api/v1/query_range" \
+      --data-urlencode "query=$1" --data-urlencode "limit=5000" \
+      --data-urlencode "start=$(( $(date +%s) - 600 ))000000000" |
+      node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log((j.data?.result??[]).reduce((a,r)=>a+r.values.length,0))})'
+  }
+  LSHIPPED=0
+  for _ in $(seq 1 60); do
+    LSHIPPED=$(lcount "{app=\"$LAPP_NAME\"} |= \"$LRID\"")
+    [ "$LSHIPPED" -gt 0 ] && break
+    sleep 1
+  done
+  [ "$LSHIPPED" -gt 0 ] || { docker logs "$LALLOY" 2>&1 | tail -15; fail "la requête $LRID n'est jamais arrivée dans Loki par Alloy"; }
+  ok "Alloy a déposé la trace de la requête $LRID dans Loki"
+
+  step "[logs] l'application n'a RIEN envoyé elle-même"
+  LSELF=$(lcount "{app=\"$LAPP_NAME\", severity=~\".+\"}")
+  [ "$LSELF" = "0" ] || fail "$LSELF ligne(s) étiquetée(s) severity : l'application pousse malgré NF_LOG_PUSH=false"
+  ok "aucun flux étiqueté severity — seul le collecteur a écrit"
+
+  step "[logs] la console relit, en lecture seule, ce que le collecteur a déposé"
+  LCOOKIE=$(curl -s -D - -o /dev/null "${LFWD[@]}" -X POST "$LURL/nodefony/security/api/auth/login" \
+    -H "content-type: application/json" \
+    -d "{\"username\":\"admin\",\"password\":\"$LADMIN_PASSWORD\"}" | tr -d '\r' \
+    | awk 'tolower($1)=="set-cookie:"{split($2,c,";"); printf "%s; ", c[1]}')
+  [ -n "$LCOOKIE" ] || fail "connexion admin refusée (aucun cookie de session)"
+  LBACK=$(curl -s "${LFWD[@]}" -H "Cookie: $LCOOKIE" "$LURL/nodefony/syslog/api/backplane")
+  node -e '
+const b = JSON.parse(process.argv[1]);
+const d = b.activeDriver ?? b.data?.activeDriver;
+const w = b.write ?? b.data?.write;
+if (d?.name !== "loki") throw new Error("pilote actif : " + JSON.stringify(d));
+if (d.capabilities.write !== false) throw new Error("le pilote loki se dit écrivain : " + JSON.stringify(d.capabilities));
+if ((w?.transports ?? []).some((t) => t.name === "loki")) throw new Error("un transport loki est monté");
+' "$LBACK" || { echo "$LBACK" | head -c 600; echo; fail "état du backplane inattendu"; }
+  ok "pilote actif loki, write: false, aucun transport loki monté"
+  LTRACE=$(curl -s "${LFWD[@]}" -H "Cookie: $LCOOKIE" \
+    "$LURL/nodefony/syslog/api/logs/search?requestId=$LRID")
+  node -e '
+const r = JSON.parse(process.argv[1]);
+const page = r.rows ? r : r.data;
+if (!page || !(page.total > 0)) throw new Error("trace vide");
+if (!page.rows.every((x) => x.requestId === process.argv[2])) throw new Error("ligne étrangère à la requête");
+' "$LTRACE" "$LRID" || { echo "$LTRACE" | head -c 600; echo; fail "la console ne relit pas la trace $LRID"; }
+  ok "la console relit la trace $LRID depuis Loki (déposée par Alloy)"
+
+  for c in $LALLOY $LCTN $LLOKI; do docker rm -f "$c" >/dev/null 2>&1 || true; done
+  docker network rm "$LNET" >/dev/null 2>&1 || true
+  docker rmi -f "$LIMG" >/dev/null 2>&1 || true
 fi
 
 # ═══ SCÉNARIO « global » — `npm i -g nodefony`, puis le CLI de l'APPLICATION ══
