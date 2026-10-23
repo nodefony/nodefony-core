@@ -228,16 +228,17 @@ démarrage en la nommant (`proxySchema`, `config.ts#proxySchema`).
 
 Chaque montage (`proxyMountSchema`, `config.ts#proxyMountSchema`) :
 
-| Option         | Type       | Défaut            | Effet                                                                                                                        |
-| -------------- | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `target`       | `string`   | — (requis)        | Origine de l'amont, `http(s)://hôte[:port]`, **sans chemin**.                                                                |
-| `methods`      | `string[]` | toutes            | Méthodes relayées ; une autre méthode suit le routage de l'application.                                                      |
-| `websocket`    | `boolean`  | `false`           | Relaie aussi l'upgrade WebSocket du préfixe.                                                                                 |
-| `stripPrefix`  | `boolean`  | `false`           | Retire le préfixe du chemin transmis ; `Location` est alors ramené sous le préfixe.                                          |
-| `preserveHost` | `boolean`  | `false`           | Transmet le `Host` du client au lieu de celui de la cible.                                                                   |
-| `stripHeaders` | `string[]` | `[]`              | En-têtes de requête à ne pas transmettre (`cookie`, `authorization`…).                                                       |
-| `timeoutMs`    | entier     | `proxy.timeoutMs` | Délai d'inactivité propre au montage, handshake WebSocket compris (jusqu'au `101`). Ne s'applique pas à un WebSocket établi. |
-| `secure`       | `boolean`  | `true`            | Vérifie le certificat d'une cible `https`. `false` n'est accepté que vers la boucle locale.                                  |
+| Option         | Type                  | Défaut            | Effet                                                                                                                        |
+| -------------- | --------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `target`       | `string`              | — (requis)        | Origine de l'amont, `http(s)://hôte[:port]`, **sans chemin**.                                                                |
+| `methods`      | `string[]`            | toutes            | Méthodes relayées ; une autre méthode suit le routage de l'application.                                                      |
+| `websocket`    | `boolean`             | `false`           | Relaie aussi l'upgrade WebSocket du préfixe.                                                                                 |
+| `stripPrefix`  | `boolean`             | `false`           | Retire le préfixe du chemin transmis ; `Location` est alors ramené sous le préfixe.                                          |
+| `preserveHost` | `boolean`             | `false`           | Transmet le `Host` du client au lieu de celui de la cible.                                                                   |
+| `stripHeaders` | `string[]`            | `[]`              | En-têtes de requête à ne pas transmettre (`cookie`, `authorization`…).                                                       |
+| `timeoutMs`    | entier                | `proxy.timeoutMs` | Délai d'inactivité propre au montage, handshake WebSocket compris (jusqu'au `101`). Ne s'applique pas à un WebSocket établi. |
+| `secure`       | `boolean`             | `true`            | Vérifie le certificat d'une cible `https`. `false` n'est accepté que vers la boucle locale.                                  |
+| `accessLog`    | `"all"` \| `"errors"` | `"all"`           | Ligne d'accès des requêtes relayées : toutes, ou seulement celles en échec (statut ≥ 400), avec le statut rendu par l'amont. |
 
 **Refusés au démarrage**, avec le motif (`proxyMountProblems()`, `rules.ts#proxyMountProblems`) :
 
@@ -295,12 +296,13 @@ modules, ses images et le WebSocket du rechargement à chaud partagent alors l'o
 l'application — une IP de réseau local, un téléphone ou un conteneur fonctionnent en HTTPS sans
 réglage.
 
-| Ce qui est fixé par `@nodefony/frontend`        | Pourquoi                                                   |
-| ----------------------------------------------- | ---------------------------------------------------------- |
-| `methods: ["GET", "HEAD"]`                      | un serveur de sources ne sert que des lectures             |
-| `websocket: true`                               | le rechargement à chaud passe par un WebSocket             |
-| `stripHeaders: ["cookie", "authorization"]`     | Vite n'a pas à voir la session de l'application            |
-| cible = le Vite de CETTE application, s'il sert | un port repris par une autre application n'est jamais visé |
+| Ce qui est fixé par `@nodefony/frontend`        | Pourquoi                                                                                  |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `methods: ["GET", "HEAD"]`                      | un serveur de sources ne sert que des lectures                                            |
+| `websocket: true`                               | le rechargement à chaud passe par un WebSocket                                            |
+| `stripHeaders: ["cookie", "authorization"]`     | Vite n'a pas à voir la session de l'application                                           |
+| `accessLog: "errors"`                           | une page charge des centaines de modules ; seuls les échecs méritent une ligne au journal |
+| cible = le Vite de CETTE application, s'il sert | un port repris par une autre application n'est jamais visé                                |
 
 Ce qui se règle reste côté frontend, dans `use("@nodefony/frontend", { … })` : `devHost` (défaut
 `127.0.0.1`, à garder — le navigateur ne joint jamais Vite directement) et `devPort` (défaut `5173`,

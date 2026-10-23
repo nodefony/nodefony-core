@@ -24,6 +24,7 @@ import {
   //Message,
   //Pdu,
   //KernelEventsType,
+  nodefonyError,
 } from "nodefony";
 import type { MaybePromise } from "nodefony";
 import HttpRequest from "./Request";
@@ -154,6 +155,11 @@ class HttpContext extends Context implements IHttpContextInterface {
   private activeSocket: object | null = null;
   isRedirect: boolean = false;
   sended: boolean = false;
+  /**
+   * Requête relayée par le proxy inverse : la politique de ligne d'accès de
+   * son montage. `null` = servie par l'application (cas de toute requête).
+   */
+  relayAccessLog: "all" | "errors" | null = null;
   //isHtml: boolean = false;
   override request: HttpRequestType;
   override response: HttpRsponseType;
@@ -403,6 +409,29 @@ class HttpContext extends Context implements IHttpContextInterface {
       // vers le context ACTIF du socket.
       socket.on("timeout", idleSocketTimeoutHandler(socket));
     }
+  }
+
+  /**
+   * Ligne d'accès — pour une requête RELAYÉE, avec le statut que l'amont a
+   * réellement rendu (le relais écrit la réponse brute, pas celle du
+   * contexte) ; un montage `accessLog: "errors"` ne l'écrit qu'en échec.
+   *
+   * @param httpError - l'erreur de la requête, s'il y en a une
+   */
+  override logRequest(httpError?: Error | HttpError | nodefonyError | null) {
+    if (this.relayAccessLog !== null) {
+      const raw = this.response.response;
+      if (raw !== null) this.response.statusCode = raw.statusCode;
+      if (
+        this.relayAccessLog === "errors" &&
+        this.response.statusCode < 400 &&
+        !httpError &&
+        !this.error
+      ) {
+        return undefined;
+      }
+    }
+    return super.logRequest(httpError);
   }
 
   /**

@@ -1777,7 +1777,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         response,
         httpContext.scheme,
       );
-      if (relayed !== undefined) return relayed.then(() => httpContext);
+      if (relayed !== undefined) {
+        // La ligne d'accès dira le statut de l'AMONT, et le montage décide
+        // si une réussite mérite d'être écrite (`HttpContext.logRequest`).
+        httpContext.relayAccessLog =
+          this.reverseProxy.match(request.url)?.accessLog ?? "all";
+        return relayed.then(() => httpContext);
+      }
     }
     // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
     // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand

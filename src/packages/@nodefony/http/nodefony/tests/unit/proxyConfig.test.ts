@@ -64,6 +64,7 @@ describe("config `proxy` — défauts", () => {
       preserveHost: false,
       stripHeaders: ["Cookie"],
       secure: true,
+      accessLog: "all",
     });
   });
 });

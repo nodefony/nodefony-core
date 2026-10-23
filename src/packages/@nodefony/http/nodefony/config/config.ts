@@ -1077,6 +1077,14 @@ const proxyMountSchema = z
           "fournir l'autorité de l'amont (`certificates.extraCaFiles`, ou " +
           "`NODE_EXTRA_CA_CERTS`).",
       ),
+    accessLog: z
+      .enum(["all", "errors"])
+      .default("all")
+      .describe(
+        "Ligne d'accès des requêtes relayées : `all` (défaut) les écrit " +
+          "toutes, `errors` seulement celles en échec (statut ≥ 400) — pour un " +
+          "amont qui sert beaucoup de petits fichiers.",
+      ),
   })
   .describe(
     "Un montage du proxy inverse : un préfixe d'URL relayé vers un amont.",

@@ -59,6 +59,7 @@ interface IReverseProxyService {
       websocket: boolean;
       methods: string[];
       stripHeaders: string[];
+      accessLog?: "all" | "errors";
     },
   ): void;
   unmount?(prefix: string): void;
@@ -505,6 +506,9 @@ class FrontendService extends Service implements IFrontendService {
       websocket: true,
       methods: ["GET", "HEAD"],
       stripHeaders: ["cookie", "authorization"],
+      // Une page charge des centaines de modules : seuls les échecs méritent
+      // une ligne d'accès (Vite écrit lui-même ses erreurs de transformation).
+      accessLog: "errors",
     });
   }
 

@@ -60,6 +60,14 @@ export interface IProxyMountOptions {
    * ACCEPTÉ que vers la boucle locale (refus au montage sinon).
    */
   secure?: boolean | undefined;
+  /**
+   * Ligne d'accès des requêtes relayées : `"all"` (défaut) les écrit toutes,
+   * `"errors"` seulement celles en échec (statut ≥ 400). Pour un amont qui sert
+   * des centaines de fichiers par page (le relais de Vite) : un fichier bien
+   * servi n'apprend rien, et ses lignes chassaient les autres de la mémoire
+   * du journal.
+   */
+  accessLog?: "all" | "errors" | undefined;
 }
 
 /** Un montage tel que le proxy le garde : préfixe normalisé + réglages. */
