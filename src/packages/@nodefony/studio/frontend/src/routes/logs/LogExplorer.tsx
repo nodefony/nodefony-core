@@ -170,6 +170,12 @@ export const LogExplorer = observer(
     // Le trafic de la console elle-même (relais Vite, pages et data plane
     // /nodefony) noie les journaux de l'application : masqué par défaut.
     const [hideConsole, setHideConsole] = useState(saved.hideConsole ?? true);
+    // Une ligne par requête (sa ligne d'accès), ses autres lignes dépliées
+    // dessous — sauf quand on trace déjà UNE requête.
+    const [groupByRequest, setGroupByRequest] = useState(
+      saved.groupByRequest ?? true,
+    );
+    const grouped = groupByRequest && requestId.trim() === "";
 
     // Ré-écriture des filtres à chaque changement (source unique = sessionStorage).
     useEffect(() => {
@@ -185,6 +191,7 @@ export const LogExplorer = observer(
             moduleF,
             msgidF,
             hideConsole,
+            groupByRequest,
           } satisfies SavedFilters),
         );
       } catch {
@@ -199,6 +206,7 @@ export const LogExplorer = observer(
       moduleF,
       msgidF,
       hideConsole,
+      groupByRequest,
     ]);
     const filtersActive =
       protocol !== "all" ||
@@ -217,7 +225,7 @@ export const LogExplorer = observer(
       (msgidF.trim() !== "" ? 1 : 0);
     const [moreOpen, setMoreOpen] = useState(moreActive > 0);
     // Signal stable → le DataGrid repart page 1 quand un filtre change.
-    const filterSignal = `${hideConsole}|${protocol}|${[...flows].sort().join(",")}|${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
+    const filterSignal = `${grouped}|${hideConsole}|${protocol}|${[...flows].sort().join(",")}|${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
     const clearFilters = () => {
       setProtocol("all");
       setFlows([]);
@@ -277,6 +285,7 @@ export const LogExplorer = observer(
         if (moduleF.trim()) params.set("module", moduleF.trim());
         if (msgidF.trim()) params.set("msgid", msgidF.trim());
         if (hideConsole) params.set("hideConsole", "true");
+        if (grouped) params.set("groupByRequest", "true");
         const res = await store.api.getAbsolute<LogQueryResult>(
           `/nodefony/syslog/api/logs/search?${params.toString()}`,
         );
@@ -296,6 +305,7 @@ export const LogExplorer = observer(
         moduleF,
         msgidF,
         hideConsole,
+        grouped,
       ],
     );
 
@@ -370,28 +380,35 @@ export const LogExplorer = observer(
         {
           key: "requestId",
           header: "requestId",
-          size: 130,
+          size: 170,
           value: (r) => r.requestId ?? "",
           render: (r) =>
             r.requestId ? (
-              <Tooltip label="Tracer toute la requête">
-                <Badge
-                  component="button"
-                  type="button"
-                  variant="outline"
-                  color="grape"
-                  size="sm"
-                  style={{ cursor: "pointer", fontFamily: "monospace" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setRequestId(r.requestId ?? "");
-                    setOrder("asc"); // suivre la requête = lecture chronologique
-                    setMoreOpen(true);
-                  }}
-                >
-                  {r.requestId.slice(0, 8)}
-                </Badge>
-              </Tooltip>
+              <>
+                <Tooltip label="Tracer toute la requête">
+                  <Badge
+                    component="button"
+                    type="button"
+                    variant="outline"
+                    color="grape"
+                    size="sm"
+                    style={{ cursor: "pointer", fontFamily: "monospace" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRequestId(r.requestId ?? "");
+                      setOrder("asc"); // suivre la requête = lecture chronologique
+                      setMoreOpen(true);
+                    }}
+                  >
+                    {r.requestId.slice(0, 8)}
+                  </Badge>
+                </Tooltip>
+                {r.lines !== undefined && r.lines > 1 && (
+                  <Text span size="xs" c="dimmed" ml={4}>
+                    {r.lines} lignes
+                  </Text>
+                )}
+              </>
             ) : (
               <Text c="dimmed" size="xs">
                 —
@@ -425,6 +442,8 @@ export const LogExplorer = observer(
           render: (r) => (
             <Text
               size="xs"
+              // La ligne d'accès EST la requête (méthode, statut, URL, durée).
+              fw={r.msgid === "req" ? 700 : undefined}
               style={{
                 whiteSpace: "nowrap",
                 overflow: "hidden",
@@ -565,6 +584,13 @@ export const LogExplorer = observer(
               onChange={(e) => setHideConsole(e.currentTarget.checked)}
               label="Masquer le trafic de cette console"
             />
+            <Switch
+              size="sm"
+              checked={groupByRequest}
+              onChange={(e) => setGroupByRequest(e.currentTarget.checked)}
+              label="Une ligne par requête"
+            />
+            <InfoHint text="Chaque requête (ou connexion WebSocket) tient sur une ligne : sa ligne d'accès — méthode, statut, URL, durée — quand elle est là. Le chevron déplie toutes ses lignes, tous niveaux compris. Désactivé, chaque ligne du journal est affichée seule." />
             <InfoHint text="Les pages de la console d'administration, ses appels de données (/nodefony/…/api/) et le rechargement à chaud (/_vite/, « hmr update ») écrivent chacun une ligne. Masquées, il ne reste que l'application. Les erreurs relayées depuis le navigateur restent visibles." />
             <Text size="sm">
               {severities.size === 0 || severities.has("DEBUG") ? (
@@ -776,9 +802,7 @@ export const LogExplorer = observer(
             onRowClick={onSelect}
             // Une ligne de requête se déplie sur toutes ses lignes (même
             // requestId) — inutile quand on trace déjà une seule requête.
-            rowHasDetail={(r) =>
-              r.msgid === "req" && Boolean(r.requestId) && !requestId.trim()
-            }
+            rowHasDetail={(r) => Boolean(r.requestId) && !requestId.trim()}
             renderRowDetail={(r) =>
               r.requestId ? (
                 <RequestLines requestId={r.requestId} onSelect={onSelect} />

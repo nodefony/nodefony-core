@@ -64,6 +64,8 @@ export interface LogRecord {
   payload: unknown;
   /** Corrélation log↔requête (ALS) — la clé de la **trace full-stack**. */
   requestId?: string | undefined;
+  /** Lignes regroupées sous cette requête (`groupByRequest`), elle comprise. */
+  lines?: number | undefined;
 }
 
 /**
@@ -207,6 +209,8 @@ export interface SavedFilters {
   msgidF?: string;
   /** Masquer les lignes d'accès de la console d'administration (défaut : oui). */
   hideConsole?: boolean;
+  /** Une ligne par requête (défaut : oui). */
+  groupByRequest?: boolean;
 }
 
 const isOrder = isOneOf(["asc", "desc"] as const);
@@ -240,6 +244,9 @@ export function parseSavedFilters(value: unknown): SavedFilters {
   if (isString(value.msgidF)) out.msgidF = value.msgidF;
   if (typeof value.hideConsole === "boolean") {
     out.hideConsole = value.hideConsole;
+  }
+  if (typeof value.groupByRequest === "boolean") {
+    out.groupByRequest = value.groupByRequest;
   }
   return out;
 }
