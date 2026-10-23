@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T22:21:30.846Z",
+  "generatedAt": "2026-10-23T08:33:51.866Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 175,
+      "closed": 180,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 21,
+      "open": 25,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 41,
+      "open": 36,
       "title": "10.1.0"
     }
   ],
@@ -4519,7 +4519,7 @@
       "title": "fix(devkit-bench): chercher la zone de firewall où elle vit vraiment",
       "url": "https://github.com/nodefony/nodefony-core/issues/372",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -4543,22 +4543,6 @@
       "ordre": 5.02,
       "debut": "2026-10-27",
       "cible": "2026-10-27",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 605,
-      "title": "feat(site): versionner le site de documentation par release",
-      "url": "https://github.com/nodefony/nodefony-core/issues/605",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 5.02,
-      "debut": null,
-      "cible": null,
       "labels": [
         "beta-5"
       ]
@@ -4696,8 +4680,8 @@
       "number": 600,
       "title": "feat(devkit): lire le journal d'une session Codex interactive au banc",
       "url": "https://github.com/nodefony/nodefony-core/issues/600",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -4754,20 +4738,99 @@
       "labels": []
     },
     {
-      "number": 556,
-      "title": "feat(studio): suivre en direct le transcript d'un agent de code",
-      "url": "https://github.com/nodefony/nodefony-core/issues/556",
-      "state": "OPEN",
-      "status": "In Progress",
+      "number": 652,
+      "title": "fix(cli): garder l'application vérifiable après create front",
+      "url": "https://github.com/nodefony/nodefony-core/issues/652",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.1,
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.11,
       "debut": null,
       "cible": null,
       "labels": [
-        "beta-5",
-        "reportable"
+        "beta-5"
+      ]
+    },
+    {
+      "number": 653,
+      "title": "feat(cli): accepter « . » pour créer l'application dans le dossier courant",
+      "url": "https://github.com/nodefony/nodefony-core/issues/653",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.12,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 654,
+      "title": "feat(realtime): tester un canal protégé sans recopier le verrou du pare-feu",
+      "url": "https://github.com/nodefony/nodefony-core/issues/654",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.13,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 655,
+      "title": "docs(orm): présenter le générateur avant l'écriture à la main",
+      "url": "https://github.com/nodefony/nodefony-core/issues/655",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.14,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 227,
+      "title": "docs(site): publier la liste des variables d'environnement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/227",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.15,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 656,
+      "title": "fix(cli): montrer la vraie cause d'un démarrage e2e en échec",
+      "url": "https://github.com/nodefony/nodefony-core/issues/656",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.15,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
       ]
     },
     {
@@ -5331,6 +5394,90 @@
       "cible": null,
       "labels": [
         "backlog"
+      ]
+    },
+    {
+      "number": 605,
+      "title": "feat(site): versionner le site de documentation par release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/605",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.11,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 89,
+      "title": "docs(notification): faire la veille des canaux de communication attendus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/89",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.12,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
+      "labels": [
+        "arbitrage",
+        "beta-6"
+      ]
+    },
+    {
+      "number": 159,
+      "title": "docs(api): publier une référence d'API générée par paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/159",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.13,
+      "debut": "2026-10-26",
+      "cible": "2026-10-26",
+      "labels": [
+        "beta-6",
+        "reportable"
+      ]
+    },
+    {
+      "number": 406,
+      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/406",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.14,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
+      "labels": [
+        "beta-6",
+        "reportable"
+      ]
+    },
+    {
+      "number": 407,
+      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/407",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.15,
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
+      "labels": [
+        "beta-6",
+        "reportable"
       ]
     },
     {
@@ -7038,22 +7185,6 @@
       ]
     },
     {
-      "number": 89,
-      "title": "docs(notification): faire la veille des canaux de communication attendus",
-      "url": "https://github.com/nodefony/nodefony-core/issues/89",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 16,
-      "debut": "2026-11-16",
-      "cible": "2026-12-15",
-      "labels": [
-        "arbitrage"
-      ]
-    },
-    {
       "number": 284,
       "title": "refactor(kernel): lire le manifeste par une seule fonction partagée",
       "url": "https://github.com/nodefony/nodefony-core/issues/284",
@@ -8272,20 +8403,6 @@
       "labels": []
     },
     {
-      "number": 227,
-      "title": "docs(site): publier la liste des variables d'environnement",
-      "url": "https://github.com/nodefony/nodefony-core/issues/227",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 146,
-      "debut": "2026-11-16",
-      "cible": "2026-12-15",
-      "labels": []
-    },
-    {
       "number": 228,
       "title": "feat(observabilite): exposer les métriques au format Prometheus",
       "url": "https://github.com/nodefony/nodefony-core/issues/228",
@@ -8532,22 +8649,6 @@
       ]
     },
     {
-      "number": 159,
-      "title": "docs(api): publier une référence d'API générée par paquet",
-      "url": "https://github.com/nodefony/nodefony-core/issues/159",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 160,
-      "debut": "2026-10-26",
-      "cible": "2026-10-26",
-      "labels": [
-        "reportable"
-      ]
-    },
-    {
       "number": 240,
       "title": "chore(frontend): trancher si frontend:create doit exister",
       "url": "https://github.com/nodefony/nodefony-core/issues/240",
@@ -8576,22 +8677,6 @@
       "labels": []
     },
     {
-      "number": 406,
-      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/406",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 161,
-      "debut": "2026-10-28",
-      "cible": "2026-10-28",
-      "labels": [
-        "reportable"
-      ]
-    },
-    {
       "number": 242,
       "title": "feat(core): instruire le besoin de transports TCP, UDP et Unix",
       "url": "https://github.com/nodefony/nodefony-core/issues/242",
@@ -8604,22 +8689,6 @@
       "debut": null,
       "cible": null,
       "labels": []
-    },
-    {
-      "number": 407,
-      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/407",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 162,
-      "debut": "2026-10-29",
-      "cible": "2026-10-29",
-      "labels": [
-        "reportable"
-      ]
     },
     {
       "number": 502,
@@ -9311,6 +9380,39 @@
       "cible": null,
       "labels": [
         "backlog"
+      ]
+    },
+    {
+      "number": 651,
+      "title": "feat(ai): relayer ai:stdio vers le serveur de dev quand il tourne",
+      "url": "https://github.com/nodefony/nodefony-core/issues/651",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 921,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 556,
+      "title": "feat(studio): suivre en direct le transcript d'un agent de code",
+      "url": "https://github.com/nodefony/nodefony-core/issues/556",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 922,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog",
+        "reportable"
       ]
     },
     {
