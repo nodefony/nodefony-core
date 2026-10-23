@@ -85,4 +85,16 @@ describe("tickets mis en cours par un message de commit", () => {
       ),
     ).to.deep.equal(["583"]);
   });
+
+  // Vécu : des numéros d'alerte CodeQL ont passé #245, #246 et #248 en cours.
+  it("ne prend pas un numéro d'alerte CodeQL pour un ticket", () => {
+    expect(
+      parseTargets(
+        "fix(x): échapper l'antislash (#227)\n\n" +
+          "CodeQL js/incomplete-sanitization (#245, #246) : la barre…\n" +
+          "CodeQL #248 : dans un segment de code…\n" +
+          "alertes CodeQL #247 et #249 classées. CodeQL rouge, voir #12.\n",
+      ),
+    ).to.deep.equal(["227", "12"]);
+  });
 });

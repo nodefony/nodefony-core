@@ -937,6 +937,21 @@
       "testedBy": []
     },
     {
+      "path": "scripts/generate/env-reference.test.ts",
+      "test": true,
+      "purpose": "Éprouve les cellules du tableau des variables d'environnement : une valeur ne doit jamais couper sa cellule, ni s'afficher avec un échappement de trop.",
+      "usage": [
+        "npm run test:tooling"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/generate/env-reference.ts",
       "test": false,
       "purpose": "La page PUBLIQUE des variables d'environnement, rendue depuis les registres du produit — jamais écrite à la main.",
@@ -954,7 +969,9 @@
       "calledBy": [
         "scripts/generate/env-snapshot.ts"
       ],
-      "testedBy": []
+      "testedBy": [
+        "scripts/generate/env-reference.test.ts"
+      ]
     },
     {
       "path": "scripts/generate/env-snapshot.ts",

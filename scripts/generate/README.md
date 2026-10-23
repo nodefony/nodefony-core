@@ -30,6 +30,14 @@ Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate 
 - **Usage** : `import { BENCH_DECOR, type IEnvDeclaration } from "./env-catalog"`
 - **Appelé par** : `generate/env-snapshot.ts`
 
+## [`env-reference.test.ts`](env-reference.test.ts)
+
+Éprouve les cellules du tableau des variables d'environnement : une valeur ne doit jamais couper sa cellule, ni s'afficher avec un échappement de trop.
+
+- **Usage** : `npm run test:tooling`
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `generate/env-reference.ts`
+
 ## [`env-reference.ts`](env-reference.ts)
 
 La page PUBLIQUE des variables d'environnement, rendue depuis les registres du produit — jamais écrite à la main.
@@ -38,6 +46,7 @@ La page PUBLIQUE des variables d'environnement, rendue depuis les registres du p
 - **Variable** `SAMPLE_APP`
 - **Produit** : docs/guides/variables-environnement.md (écrit par son appelant)
 - **Appelé par** : `generate/env-snapshot.ts`
+- **Testé par** : `generate/env-reference.test.ts`
 - **Utilise** : `lib/repo-root.mjs`
 
 ## [`env-snapshot.ts`](env-snapshot.ts)

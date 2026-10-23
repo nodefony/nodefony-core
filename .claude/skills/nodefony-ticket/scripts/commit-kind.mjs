@@ -49,13 +49,26 @@ export function isPilotageCommit(message) {
  * source de la règle : le hook qui passe les tickets en cours, la préparation de
  * clôture et la lecture du `_state` l'appellent, aucun ne la recopie.
  *
+ * Un numéro d'ALERTE n'est pas un ticket non plus : la liste qui suit « CodeQL »
+ * ou « alerte(s) », éventuellement après l'identifiant de règle et une parenthèse
+ * (`CodeQL js/incomplete-sanitization (#245, #246)`, `alertes CodeQL #247 et
+ * #249`), est retirée avant la lecture. Vécu — ces numéros d'alerte ont passé
+ * trois tickets sans rapport en cours.
+ *
  * @param {string} text - message de commit, ligne de mémoire…
  * @returns {number[]} les numéros cités.
  */
 export function mentionedTickets(text) {
+  const withoutAlerts = text.replace(ALERT_LIST, "");
   return [
     ...new Set(
-      [...text.matchAll(/(?<![\w/])#(\d+)\b/gu)].map((m) => Number(m[1])),
+      [...withoutAlerts.matchAll(/(?<![\w/])#(\d+)\b/gu)].map((m) =>
+        Number(m[1]),
+      ),
     ),
   ];
 }
+
+/** « CodeQL » / « alerte(s) », règle facultative, puis une liste de `#N`. */
+const ALERT_LIST =
+  /\b(?:CodeQL|alertes?)(?:\s+CodeQL)?(?:\s+[\w-]+\/[\w-]+)?\s*\(?\s*#\d+(?:\s*(?:,|et)\s*#\d+)*/giu;

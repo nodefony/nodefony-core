@@ -1,3 +1,9 @@
+/**
+ * Éprouve les cellules du tableau des variables d'environnement : une valeur
+ * ne doit jamais couper sa cellule, ni s'afficher avec un échappement de trop.
+ *
+ * @usage npm run test:tooling
+ */
 import { describe, expect, it } from "vitest";
 import { markdownTableCell } from "./env-reference.ts";
 
