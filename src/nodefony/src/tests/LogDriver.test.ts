@@ -215,11 +215,33 @@ describe("Log Backplane (LB.0/LB.1)", () => {
         "DB-DEMO",
         2400,
       ),
+      // Rechargement à chaud : écarté ; une erreur relayée du navigateur : gardée.
+      mk(
+        "[default] [vite] (client) hmr update /@fs/x/Logs.tsx",
+        "INFO",
+        "NODEFONY",
+        "frontend",
+        1700,
+      ),
+      mk(
+        "[default] [vite] page reload src/main.tsx",
+        "INFO",
+        "NODEFONY",
+        "frontend",
+        1800,
+      ),
+      mk(
+        "[default] [vite] (client) [console.error] TypeError: x",
+        "ERROR",
+        "NODEFONY",
+        "frontend",
+        2500,
+      ),
     ];
 
     it("hideConsole écarte relais Vite, pages et data plane de la console", () => {
       const r = filterPdus(traffic(), { hideConsole: true });
-      assert.strictEqual(r.total, 5);
+      assert.strictEqual(r.total, 6);
       assert.ok(
         r.rows.every((x) => x.timeStamp >= 2000),
         r.rows.map((x) => String(x.payload)).join("\n"),
