@@ -872,9 +872,16 @@ jeton anti-CSRF (`csrfHeaders`, semé par `GET …/auth/me`) : ajouter `@CsrfPro
 ne casse aucun test généré. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
 DELETE anonyme** (banc de découvrabilité, tâche 20). **Dit la vérité** : la
 table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`) — SAUF si le connecteur versionne
-déjà une migration (cas de toute app `complete`) : le démarrage est alors en `migrate`, la note dit
-qu'il ne crée PAS la table et donne `orm:generate --name <table> --apply` puis `orm:migrate`
-(jugé par `connectorVersionsMigrations`, la règle du cœur que Drizzle lit aussi) ; un champ ajouté **qui accepte le
+déjà une migration (cas de toute app `complete`) : le démarrage est alors en `migrate`, et c'est
+la COMMANDE qui écrit puis applique la migration de la table neuve (`create.ts#runEntityMigration`,
+même doctrine que `runInitialMigration` ; `--no-migrate` s'en dispense, et rend le conseil
+`orm:generate --name <table> --apply`). Le moteur le signale par le champ structuré `migration`
+du résultat — absent pour une entité RÉGÉNÉRÉE (sa migration peut retirer une colonne : décision
+humaine), pour `User` et MongoDB. Garde : le SQL écrit ne doit toucher QUE la table neuve
+(`tablesTouchedBySql` — `ON` lu derrière un index seulement, `REFERENCES` ignoré) ; sinon des
+entités modifiées attendaient, la migration est écrite et NON appliquée, et les tables en trop
+sont nommées. Une migration tentée et ratée sort en 70 (`createExitCode`). Le versionnement est
+jugé par `connectorVersionsMigrations`, la règle du cœur que Drizzle lit aussi ; un champ ajouté **qui accepte le
 vide** est posé au boot suivant, un champ **obligatoire** ne l'est jamais (`orm:reset`, ou une
 migration), et la production s'applique par `orm:migrate`. Design + alternatives rejetées :
 `create-entity-design-2026-07` (mémoire IA `core-dev/audits/`).

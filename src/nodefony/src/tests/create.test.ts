@@ -26,6 +26,7 @@ import {
   mcpWiringPlan,
   renderDryRun,
   runCreateCommand,
+  tablesTouchedBySql,
   type ICreateRequest,
 } from "../cli/create";
 import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
@@ -327,6 +328,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         force: false,
         yes: false,
         install: true,
+        migrate: true,
         git: true,
         dryRun: false,
         describeJson: false,
@@ -366,6 +368,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         force: true,
         yes: true,
         install: false,
+        migrate: true,
         git: false,
         dryRun: false,
         describeJson: false,
@@ -421,6 +424,56 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Une option réellement inconnue garde son message court.
       const autre = parseCreateArgv(argv("create", "app", "ok", "--nope"));
       assert.notInclude((autre as { error: string }).error, "argument");
+    });
+  });
+
+  describe("migration de la table neuve — ne rien appliquer d'autre", () => {
+    it("SQLite : la table et son index → la seule table neuve", () => {
+      const sql =
+        "CREATE TABLE `gizmos` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`label` text NOT NULL\n);\n" +
+        "--> statement-breakpoint\n" +
+        "CREATE INDEX `gizmos_label_idx` ON `gizmos` (`label`);";
+      assert.deepEqual(tablesTouchedBySql(sql), ["gizmos"]);
+    });
+
+    it("PostgreSQL : la table VISÉE par une clé étrangère n'est pas touchée, ni « ON DELETE » une table", () => {
+      // Le piège : `ON` lu partout faisait de DELETE et UPDATE des tables, et
+      // une `REFERENCES "users"` comptait `users` comme modifiée — l'entité qui
+      // pointe vers un compte n'aurait jamais été migrée.
+      const sql =
+        'CREATE TABLE "orders" ("id" uuid PRIMARY KEY NOT NULL, "user_id" uuid NOT NULL);\n' +
+        "--> statement-breakpoint\n" +
+        'ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_users_id_fk" FOREIGN KEY ("user_id") ' +
+        'REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;\n' +
+        "--> statement-breakpoint\n" +
+        'CREATE UNIQUE INDEX "orders_user_id_idx" ON "orders" USING btree ("user_id");';
+      assert.deepEqual(tablesTouchedBySql(sql), ["orders"]);
+    });
+
+    it("🔴 une entité modifiée en attente entre dans le diff → nommée, donc pas appliquée", () => {
+      const sql =
+        "CREATE TABLE `gizmos` (`id` text PRIMARY KEY NOT NULL);\n" +
+        "--> statement-breakpoint\n" +
+        "ALTER TABLE `products` ADD `price` integer;";
+      assert.deepEqual(tablesTouchedBySql(sql), ["gizmos", "products"]);
+    });
+
+    it("une recréation SQLite (`__new_<table>`) compte comme une autre table", () => {
+      const sql =
+        "CREATE TABLE `__new_products` (`id` text PRIMARY KEY NOT NULL);\n" +
+        "DROP TABLE `products`;";
+      assert.deepEqual(tablesTouchedBySql(sql), ["__new_products", "products"]);
+    });
+
+    it("--no-migrate se lit ; sans lui, la migration est le défaut", () => {
+      const sans = parseCreateArgv(
+        argv("create", "entity", "Gizmo", "--no-migrate"),
+      ) as ICreateRequest;
+      const avec = parseCreateArgv(
+        argv("create", "entity", "Gizmo"),
+      ) as ICreateRequest;
+      assert.isFalse(sans.migrate);
+      assert.isTrue(avec.migrate);
     });
   });
 

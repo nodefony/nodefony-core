@@ -192,6 +192,27 @@ export interface IScaffoldResult {
    */
   depsAdded?: string[];
   /**
+   * La migration que cette génération RÉCLAME — une table NEUVE sur un
+   * connecteur qui versionne ses migrations, où le démarrage ne la crée pas.
+   *
+   * Absente quand il n'y a rien à migrer d'office : schéma dérivé au boot,
+   * MongoDB, mode de schéma écrit par l'application, et entité RÉGÉNÉRÉE — sa
+   * migration peut retirer une colonne, et cette décision appartient à
+   * l'utilisateur. Le fait remonte structuré, comme `depsAdded`, pour que
+   * l'appelant n'ait pas à le relire dans le texte d'une note.
+   */
+  migration?: {
+    table: string;
+    connector: string;
+    /**
+     * Les deux lignes de `notes` qui portent le geste en développement — à
+     * taire par l'appelant qui l'a fait lui-même, à garder sinon (Studio).
+     * `command` devient fausse dès que la migration est ÉCRITE (la relancer ne
+     * trouverait rien), `pending` dès qu'elle est APPLIQUÉE.
+     */
+    advice: { command: string; pending: string };
+  };
+  /**
    * Écritures PRÉVUES, avec l'ancien contenu quand il y en a un — présent
    * uniquement en dry-run (rien n'a touché le disque).
    */
@@ -5938,6 +5959,8 @@ function runEntityScaffold(
     connector === "default" ? "" : ` --connector ${connector}`;
   const schemaBuiltAtBoot =
     writtenMode !== "none" && writtenMode !== "migrate" && !versioned;
+  const devAdvice = `→ en développement : nodefony orm:generate --name ${table} --apply${connectorFlag}`;
+  const pendingWarning = `⚠ tant qu'elle n'est pas appliquée, la table n'existe pas en base — ses routes répondent 500`;
   const notes = mongo
     ? [
         // Rien à migrer, et le dire : c'est la question que pose quiconque
@@ -5962,9 +5985,9 @@ function runEntityScaffold(
             ]
           : versioned
             ? [
-                `→ en développement : nodefony orm:generate --name ${table} --apply${connectorFlag}`,
+                devAdvice,
                 `→ en production : nodefony orm:migrate${connectorFlag}, AVANT le déploiement`,
-                `⚠ tant qu'elle n'est pas appliquée, la table n'existe pas en base — ses routes répondent 500`,
+                pendingWarning,
               ]
             : [
                 // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
@@ -5992,6 +6015,15 @@ function runEntityScaffold(
     linked: [],
     notes,
     depsAdded,
+    ...(versioned && !entityExisted && !isUserEntity
+      ? {
+          migration: {
+            table,
+            connector,
+            advice: { command: devAdvice, pending: pendingWarning },
+          },
+        }
+      : {}),
   };
 }
 

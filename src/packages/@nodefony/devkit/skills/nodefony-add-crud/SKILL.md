@@ -195,7 +195,11 @@ refus tombe tout seul.
 
 ## Les trois vérités à savoir avant de livrer (SQL)
 
-1. **La table naît au prochain démarrage en développement** (`CREATE TABLE IF NOT EXISTS`).
+1. **La table existe dès la commande quand l'application versionne ses migrations** (toute
+   application `complete`) : `create entity` écrit ET applique la migration de la table neuve —
+   `--no-migrate` s'en dispense ; si des entités modifiées attendaient, la migration est écrite mais
+   PAS appliquée, et la sortie nomme les tables en trop. Sinon, la table naît au prochain démarrage
+   en développement (`CREATE TABLE IF NOT EXISTS`).
 2. **La modifier n'altère rien** — aucun `ALTER` n'est émis. Une colonne ajoutée à une entité déjà
    créée n'apparaîtra pas dans une base existante.
 3. **La production ne fabrique JAMAIS le schéma.** Elle l'applique par des migrations, écrites par

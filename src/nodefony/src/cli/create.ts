@@ -96,6 +96,11 @@ export interface ICreateRequest {
   yes: boolean;
   /** `--no-install` : ne pas lancer `npm install` après la génération. */
   install: boolean;
+  /**
+   * `--no-migrate` : `create entity` n'écrit ni n'applique la migration de sa
+   * table neuve — il la conseille seulement, comme avant.
+   */
+  migrate: boolean;
   /** `--no-git` : ne pas faire `git init` + first commit après la génération. */
   git: boolean;
   /** `--dry-run` : montrer ce qui serait écrit, ne rien écrire. */
@@ -126,6 +131,7 @@ export function parseCreateArgv(
   let force = false;
   let yes = false;
   let install = true;
+  let migrate = true;
   let git = true;
   let dryRun = false;
   let describeJson = false;
@@ -150,6 +156,8 @@ export function parseCreateArgv(
       answersJson = rest[++i];
     } else if (word === "--no-install") {
       install = false;
+    } else if (word === "--no-migrate") {
+      migrate = false;
     } else if (word === "--no-git") {
       git = false;
     } else if (word === "--git-hooks") {
@@ -324,6 +332,7 @@ export function parseCreateArgv(
       force,
       yes,
       install,
+      migrate,
       git,
       dryRun,
       describeJson,
@@ -367,6 +376,7 @@ export function parseCreateArgv(
     force,
     yes,
     install,
+    migrate,
     git,
     dryRun,
     describeJson,
@@ -695,8 +705,9 @@ function runFormat(dest: string, files: string[]): void {
  * où aucun paquet `@nodefony/*` n'est publié.
  *
  * @param install - l'installation des dépendances : sautée, réussie, échouée.
- * @param build - `npm run build` : sauté (l'install n'a pas eu lieu), réussi,
- *   échoué.
+ * @param build - l'étape qui suit l'installation — `npm run build` (app,
+ *   module) ou la migration de la table neuve (entity) : sautée, réussie,
+ *   échouée.
  * @returns `OK`, ou `SOFTWARE` dès qu'une étape TENTÉE a échoué.
  */
 export function createExitCode(
@@ -885,6 +896,181 @@ function runInitialMigration(
     note:
       `NON écrite (${cause.pattern}) — lance « nodefony orm:generate --name init » ` +
       `puis « nodefony orm:migrate » quand ta base répond`,
+  };
+}
+
+/**
+ * Les tables qu'une migration SQL crée, modifie, supprime ou indexe.
+ *
+ * Une table nommée dans une clause `REFERENCES` n'en fait pas partie : la
+ * migration d'une entité qui pointe vers `users` ne TOUCHE pas `users`. Une
+ * recréation de table (le `__new_<table>` de SQLite) compte comme une table à
+ * part — elle n'arrive que pour une table qui existait déjà, donc jamais pour
+ * une table neuve, et c'est précisément ce qu'on veut voir.
+ *
+ * @param sql - le contenu du fichier de migration.
+ * @returns les noms de tables, sans doublon.
+ */
+export function tablesTouchedBySql(sql: string): string[] {
+  // Un nom SQL, quoté ou non, éventuellement préfixé de son schéma.
+  const name = String.raw`(?:["\x60\[]?\w+["\x60\]]?\.)?["\x60\[]?(\w+)["\x60\]]?`;
+  // `ON` n'est lu QUE derrière un index : celui d'une clé étrangère
+  // (`ON DELETE restrict`) ferait une table de chaque mot-clé.
+  const statements = [
+    String.raw`\b(?:CREATE|ALTER|DROP)\s+TABLE(?:\s+IF\s+(?:NOT\s+)?EXISTS)?\s+${name}`,
+    String.raw`\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?\S+\s+ON\s+${name}`,
+  ];
+  const tables: string[] = [];
+  for (const statement of statements) {
+    for (const m of sql.matchAll(new RegExp(statement, "giu"))) {
+      const table = m[1];
+      if (table !== undefined && !tables.includes(table)) tables.push(table);
+    }
+  }
+  return tables;
+}
+
+/**
+ * Écrit puis applique la migration de la table qu'une entité NEUVE vient de
+ * déclarer — le geste que `create entity` se contentait de conseiller.
+ *
+ * ## Pourquoi le générateur le fait lui-même
+ *
+ * La migration d'une table neuve se déduit entièrement du code qu'il vient
+ * d'écrire : il n'y a aucune décision humaine entre les deux. La laisser à
+ * l'utilisateur, c'était livrer une ressource qui répond 500 et une suite e2e
+ * rouge, en comptant sur la lecture d'une ligne de conseil. Mesuré au banc de
+ * découvrabilité : un agent qui avait jeté la sortie est allé ouvrir le skill
+ * de migration avant de toucher à sa tâche. `create app` applique déjà sa
+ * migration initiale ({@link runInitialMigration}) : même doctrine.
+ *
+ * ## La garde — n'appliquer que ce qu'on a écrit
+ *
+ * La migration produite est le DIFF entre le schéma et la base, pas la seule
+ * table neuve. Si l'utilisateur avait une entité modifiée en attente, ce
+ * travail-là entrerait dans une migration nommée d'après la table neuve, et
+ * serait appliqué sans avoir été relu. On écrit donc SANS appliquer, on lit le
+ * SQL produit ({@link tablesTouchedBySql}), et on n'applique que s'il ne
+ * touche que la table neuve. Sinon le fichier reste écrit, NON appliqué, et
+ * les tables en trop sont nommées. Une migration destructrice, elle, est déjà
+ * refusée par `orm:generate` sans `--allow-destructive`.
+ *
+ * @param root - racine de l'application.
+ * @param pm - gestionnaire de paquets du projet.
+ * @param migration - la table neuve et son connecteur.
+ * @returns l'issue de l'étape et la ligne qui la dit.
+ */
+export function runEntityMigration(
+  root: string,
+  pm: PackageManagerName,
+  migration: { table: string; connector: string },
+): {
+  outcome: CreateStepOutcome;
+  note: string;
+  reached: "nothing" | "written" | "applied";
+} {
+  const connectorArgs =
+    migration.connector === "default"
+      ? []
+      : ["--connector", migration.connector];
+  const again =
+    `nodefony orm:generate --name ${migration.table} --apply` +
+    (connectorArgs.length > 0 ? ` ${connectorArgs.join(" ")}` : "");
+  const run = (args: string[]) => {
+    const spawn = portableSpawn(
+      pm,
+      packageManagerExecArgs(pm, "nodefony", args),
+    );
+    return spawnSync(spawn.file, spawn.args, {
+      cwd: root,
+      encoding: "utf8",
+      windowsVerbatimArguments: spawn.windowsVerbatimArguments,
+      env: envForOtherProject(),
+    });
+  };
+
+  process.stdout.write(`\n⏳ migration de la table ${migration.table}…\n`);
+  const generated = run([
+    "orm:generate",
+    "--name",
+    migration.table,
+    "--json",
+    ...connectorArgs,
+  ]);
+  const { stdout, stderr } = spawnedOutput(generated);
+  if (generated.status !== 0) {
+    const cause = migrationFailureCause(`${stdout}${stderr}`, generated.status);
+    return {
+      outcome: "failed",
+      reached: "nothing",
+      note: `NON écrite (${cause.pattern}) — lance « ${again} » quand ta base répond`,
+    };
+  }
+  let report: unknown = null;
+  try {
+    report = JSON.parse(stdout);
+  } catch {
+    // Laissé à `null` : le contrôle de forme ci-dessous le refuse.
+  }
+  // Le rapport se VÉRIFIE avant d'être lu : un document d'une autre forme
+  // (version de l'outil, sortie mélangée) ne doit pas passer pour « rien à
+  // écrire » et laisser la table absente sous un succès.
+  if (
+    typeof report !== "object" ||
+    report === null ||
+    !("generated" in report)
+  ) {
+    return {
+      outcome: "failed",
+      reached: "nothing",
+      note: `compte rendu illisible — vérifie avec « nodefony orm:migrate:status », puis « ${again} »`,
+    };
+  }
+  if (report.generated !== true) {
+    // Le schéma correspond déjà : rien à écrire, rien à appliquer.
+    return {
+      outcome: "succeeded",
+      reached: "applied",
+      note: "rien à écrire, le schéma est à jour",
+    };
+  }
+  const listed = "files" in report ? report.files : undefined;
+  const files = Array.isArray(listed)
+    ? listed.filter((f): f is string => typeof f === "string")
+    : [];
+  const sqlFile = files.find((f) => f.endsWith(".sql"));
+  const others =
+    sqlFile === undefined
+      ? []
+      : tablesTouchedBySql(
+          readFileSync(path.join(root, sqlFile), "utf8"),
+        ).filter((t) => t !== migration.table);
+  if (sqlFile === undefined || others.length > 0) {
+    return {
+      // Rien n'a échoué : on s'est ABSTENU, et c'est voulu.
+      outcome: "succeeded",
+      reached: "written",
+      note:
+        `écrite (${sqlFile ?? files.join(", ")}), NON appliquée — elle touche aussi ` +
+        `${others.length > 0 ? others.join(", ") : "des tables qu'on n'a pas pu lire"} : ` +
+        `des entités modifiées attendaient. Relis-la, puis « nodefony orm:migrate` +
+        `${connectorArgs.length > 0 ? ` ${connectorArgs.join(" ")}` : ""} »`,
+    };
+  }
+  const applied = run(["orm:migrate", ...connectorArgs]);
+  if (applied.status === 0) {
+    return {
+      outcome: "succeeded",
+      reached: "applied",
+      note: `écrite et appliquée (${sqlFile})`,
+    };
+  }
+  return {
+    outcome: "failed",
+    reached: "written",
+    note:
+      `écrite (${sqlFile}), NON appliquée — lance « nodefony orm:migrate` +
+      `${connectorArgs.length > 0 ? ` ${connectorArgs.join(" ")}` : ""} » quand ta base répond`,
   };
 }
 
@@ -1665,18 +1851,53 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
           }\`\n`,
       );
     }
+    // La table neuve d'une entité, sur un connecteur qui versionne ses
+    // migrations : écrite ET appliquée ici (cf {@link runEntityMigration}).
+    // Après une installation ratée, l'outil qui écrit les migrations manque
+    // peut-être : on ne tente pas, le conseil reste affiché.
+    let migrationStep: CreateStepOutcome = "skipped";
+    let migrationLine = "";
+    let silenced: readonly string[] = [];
+    const migration = result.migration;
+    if (
+      migration !== undefined &&
+      parsed.install &&
+      parsed.migrate &&
+      depsInstall !== "failed"
+    ) {
+      const root = findProjectRoot(process.cwd());
+      if (root !== null) {
+        const pm = resolvePackageManager({ dir: root }).name;
+        const step = runEntityMigration(root, pm, migration);
+        migrationStep = step.outcome;
+        migrationLine = `\n🗄️ migration : ${step.note}\n`;
+        // Le conseil ne se répète pas une fois le geste fait : la commande est
+        // fausse dès que la migration est écrite (relancée, elle ne
+        // trouverait rien), l'avertissement « 500 » dès qu'elle est appliquée.
+        if (step.reached === "written") silenced = [migration.advice.command];
+        if (step.reached === "applied") {
+          silenced = [migration.advice.command, migration.advice.pending];
+        }
+      }
+    }
     // In-project : pas de git — le projet existe. En dev, le superviseur
     // rebuild/relance tout seul au prochain tick de watch.
     process.stdout.write(
-      `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
+      migrationLine +
+        `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
         result.files.map((f) => `  ${f}`).join("\n") +
         // Une commande CLI n'expose aucune URL : annoncer « Endpoints » pour
         // elle serait un contresens (l'utilisateur chercherait une route).
         `\n\n${type === "command" ? "Câblage" : "Endpoints"} :\n` +
-        (result.notes ?? []).map((n) => `  ${n}`).join("\n") +
+        (result.notes ?? [])
+          .filter((n) => !silenced.includes(n))
+          .map((n) => `  ${n}`)
+          .join("\n") +
         `\n\nServeur dev lancé → rebuild automatique ; sinon : ${packageManagerCommandLines(resolvePackageManager({ dir: findProjectRoot(process.cwd()) ?? undefined }).name).run("build")}\n`,
     );
-    return createExitCode(depsInstall, "skipped");
+    // Une migration TENTÉE et ratée laisse la ressource en 500 : le code de
+    // sortie le dit, comme pour une installation ratée.
+    return createExitCode(depsInstall, migrationStep);
   }
   // Le CLI qui engendre l'application fixe sa version (`^<version>`). Un global
   // périmé engendrerait donc sur une ancienne version sans un mot : on demande

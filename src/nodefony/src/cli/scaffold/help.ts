@@ -268,8 +268,10 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "l'entité décorée et son repository, un service CRUD, un controller " +
         "REST et les tests qui l'interrogent par HTTP réel.",
       "l'entité seule avec `--no-service`, `--no-controller`, `--no-tests`.",
-      "⚠️ elle n'écrit AUCUNE migration : le schéma appartient aux migrations, " +
-        "et c'est `nodefony orm:generate` puis `orm:migrate` qui l'appliquent.",
+      "la migration de la table NEUVE, écrite et appliquée, quand l'application " +
+        "versionne ses migrations — sauf `--no-migrate`, et sauf si elle touche " +
+        "d'autres tables : elle est alors écrite, pas appliquée. Une entité " +
+        "régénérée n'est jamais migrée d'office : `nodefony orm:generate`.",
     ],
     before:
       "À lancer DANS une application Nodefony qui déclare un ORM. Les champs " +
@@ -419,7 +421,7 @@ export function optionsFor(type: TScaffoldType): IUsageEntry[] {
  */
 const INSTALL_OPTION: IUsageEntry = {
   term: "--no-install",
-  text: "n'installe pas les dépendances (et saute la construction qui suit)",
+  text: "n'installe pas les dépendances (et saute ce qui suit : construction, migration)",
 };
 
 // ⚠️ PAS `--git-hooks` : la spec le porte déjà (question `advanced`, jamais
@@ -429,8 +431,24 @@ const GIT_OPTIONS: readonly IUsageEntry[] = [
   { term: "--no-git", text: "ne crée pas de dépôt git ni de premier commit" },
 ];
 
-/** Les types dont la génération installe des dépendances. */
-const INSTALLS: ReadonlySet<TScaffoldType> = new Set(["app", "module"]);
+/**
+ * `create entity` écrit puis applique la migration de sa table neuve — le
+ * drapeau qui l'en dispense ne vaut que pour lui.
+ */
+const MIGRATE_OPTION: IUsageEntry = {
+  term: "--no-migrate",
+  text: "n'écrit ni n'applique la migration de la table neuve",
+};
+
+/**
+ * Les types dont la génération installe des dépendances — `entity` compris :
+ * il ajoute et installe l'ORM quand l'application ne le déclare pas.
+ */
+const INSTALLS: ReadonlySet<TScaffoldType> = new Set([
+  "app",
+  "module",
+  "entity",
+]);
 
 /** Les options COMMUNES à tous les types — celles que la spec ne porte pas. */
 const SHARED_OPTIONS: readonly IUsageEntry[] = [
@@ -482,6 +500,7 @@ export function usagePageFor(type: TScaffoldType): IUsagePage {
     options: [
       ...optionsFor(type),
       ...(INSTALLS.has(type) ? [INSTALL_OPTION] : []),
+      ...(type === "entity" ? [MIGRATE_OPTION] : []),
       ...(type === "app" ? GIT_OPTIONS : []),
       ...SHARED_OPTIONS,
     ],
