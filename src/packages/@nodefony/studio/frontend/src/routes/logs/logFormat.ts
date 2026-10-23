@@ -133,7 +133,7 @@ const DRIVER_META: Record<string, DriverMeta> = {
     description:
       "Agrégation de logs cloud-native (labels + LogQL), légère (indexe les labels, " +
       "pas un index full-text). Push HTTP batché + relecture LogQL, vue cluster native (LB.4). " +
-      'Activer : log.queryDriver="loki" + LOKI_URL (docker --profile loki).',
+      'Activer : log.queryDriver="loki" + NF_LOKI_URL (docker --profile loki).',
     icon: "search",
   },
   opensearch: {
@@ -141,10 +141,114 @@ const DRIVER_META: Record<string, DriverMeta> = {
     description:
       "Recherche plein-texte distribuée, rétention longue (fork Apache 2.0 d'Elasticsearch — " +
       "OSI, licence non-SSPL). Indexation _bulk + recherche _search (LB.4). " +
-      'Activer : log.queryDriver="opensearch" + OPENSEARCH_URL (docker --profile opensearch).',
+      'Activer : log.queryDriver="opensearch" + NF_OPENSEARCH_URL (docker --profile opensearch).',
     icon: "search",
   },
 };
+
+/**
+ * Qui alimente la source de lecture : ce processus (mémoire, fichier local),
+ * l'application elle-même (elle pousse vers Loki/OpenSearch), ou un collecteur
+ * externe (l'application ne fait que relire ce qu'un autre y a déposé).
+ */
+export type SourceFeeder = "process" | "app" | "collector";
+
+/** Ce que la page dit de la source de lecture, en mots d'exploitant. */
+export interface ISourceDescription {
+  /** Pilote de lecture actif (`null` = méta pas encore chargée). */
+  driverName: string | null;
+  /** Nom de la source, lisible seul : « Grafana Loki », « la mémoire de ce processus ». */
+  label: string;
+  feeder: SourceFeeder;
+  /** Une phrase : qui l'alimente et ce qu'elle garde. */
+  feederText: string;
+  /** La source vit hors de ce processus (Loki, OpenSearch…). */
+  remote: boolean;
+  /** Texte pendant la lecture. */
+  loadingMessage: string;
+  /** Texte quand la source ne rend aucune ligne (sans filtre). */
+  emptyMessage: string;
+}
+
+/** Pilotes dont la donnée vit DANS ce processus ou sur son disque. */
+const LOCAL_DRIVERS: ReadonlySet<string> = new Set([
+  "memory",
+  "file",
+  "cluster-file",
+]);
+
+/** Nom de la source, tel qu'il se lit dans une phrase. */
+const LOCAL_SOURCE_LABEL: Readonly<Record<string, string>> = {
+  memory: "la mémoire de ce processus",
+  file: "le fichier de journal de ce processus",
+  "cluster-file": "les fichiers de journal de tous les processus",
+};
+
+/**
+ * Décrit la source de lecture active pour un débutant : son nom, qui l'alimente,
+ * et les textes d'attente et de vide qui la nomment.
+ *
+ * Seule règle du « qui alimente » : un pilote distant est alimenté par
+ * l'application quand elle a un transport d'écriture homonyme actif, par un
+ * collecteur externe sinon (relecture seule, `NF_LOG_PUSH=false`).
+ *
+ * @param meta - réponse de `/nodefony/syslog/api/backplane`, `null` tant qu'elle n'est pas arrivée
+ * @returns la description, ou une description d'attente quand `meta` est `null`
+ */
+export function describeSource(meta: BackplaneMeta | null): ISourceDescription {
+  const driverName = meta?.activeDriver?.name ?? null;
+  if (meta === null || driverName === null) {
+    return {
+      driverName,
+      label: "la source des journaux",
+      feeder: "process",
+      feederText: "",
+      remote: false,
+      loadingMessage: "Lecture de la source des journaux…",
+      emptyMessage: "Aucune ligne.",
+    };
+  }
+  if (LOCAL_DRIVERS.has(driverName)) {
+    const label = LOCAL_SOURCE_LABEL[driverName] ?? driverName;
+    const { buffered, bufferCapacity } = meta.counters;
+    const s = buffered > 1 ? "s" : "";
+    const feederText =
+      driverName === "memory"
+        ? `${buffered} ligne${s} gardée${s} sur ${bufferCapacity}, effacée${s} au redémarrage`
+        : "écrites par cette application sur ce serveur";
+    return {
+      driverName,
+      label,
+      feeder: "process",
+      feederText,
+      remote: false,
+      loadingMessage: `Lecture de ${label}…`,
+      emptyMessage:
+        driverName === "memory"
+          ? "Aucune ligne pour l'instant : ce processus vient de démarrer, ou sa mémoire a été vidée."
+          : `Aucune ligne dans ${label}.`,
+    };
+  }
+  const label = driverMeta(driverName).label;
+  // `transports` absent = data plane plus ancien que ce front : on ne peut pas
+  // savoir, on suppose l'application (comportement d'avant).
+  const pushes =
+    meta.write.transports === undefined ||
+    meta.write.transports.some((t) => t.name === driverName && t.enabled);
+  return {
+    driverName,
+    label,
+    feeder: pushes ? "app" : "collector",
+    feederText: pushes
+      ? "alimenté par cette application"
+      : "alimenté par un collecteur externe (cette application n'y envoie rien)",
+    remote: true,
+    loadingMessage: `Lecture de ${label}…`,
+    emptyMessage: pushes
+      ? `${label} répond mais ne contient aucune ligne de cette application.`
+      : `${label} répond mais ne contient aucune ligne pour cette application. Vérifiez que le collecteur tourne et pointe sur cette adresse.`,
+  };
+}
 
 /** Méta d'affichage d'un driver (défaut générique si nom inconnu). */
 export function driverMeta(name: string): DriverMeta {

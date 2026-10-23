@@ -18,7 +18,7 @@
  * Live ↔ Explorer, et la trace qui bascule de Live vers l'Explorer filtré.
  */
 import { observer } from "mobx-react-lite";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button } from "@mantine/core";
 import {
   IconActivity,
@@ -52,6 +52,7 @@ import { PduDetailDrawer } from "./logs/PduDetailDrawer";
 import { ProfilingTab } from "./logs/ProfilingTab";
 import { DebugTab } from "./logs/DebugTab";
 import type { BackplaneMeta, LogRecord } from "./logs/logsTypes";
+import { describeSource } from "./logs/logFormat";
 
 type TabId =
   | "overview"
@@ -114,7 +115,7 @@ export const Logs = observer(() => {
     const q = searchParams.get("tab");
     if (q && TAB_IDS.has(q)) return q as TabId;
     const s = sessionStorage.getItem(TAB_KEY);
-    return s && TAB_IDS.has(s) ? (s as TabId) : "overview";
+    return s && TAB_IDS.has(s) ? (s as TabId) : "explorer";
   });
   const changeTab = useCallback((v: TabId) => {
     setTab(v);
@@ -156,6 +157,8 @@ export const Logs = observer(() => {
     [changeTab],
   );
 
+  // Une seule description de la source, partagée par tous les écrans qui la nomment.
+  const source = useMemo(() => describeSource(meta ?? null), [meta]);
   const capabilities = meta?.activeDriver?.capabilities ?? null;
   const driverName = meta?.activeDriver?.name ?? null;
 
@@ -167,22 +170,23 @@ export const Logs = observer(() => {
     ? !capabilities.query || (driverName === "memory" && ringOff)
     : false;
   const explorerReason = !capabilities?.query
-    ? `Le driver « ${driverName ?? "?"} » ne sait pas relire (pas de requête froide).`
-    : "Stockage mémoire coupé — rien à explorer via « mémoire ». Réactive le ring ou change de source.";
+    ? `La source « ${driverName ?? "?"} » ne sait pas relire les journaux passés. L'onglet Direct montre les lignes au fil de l'eau.`
+    : "La mémoire de ce processus est coupée : il n'y a rien à relire. La réactiver, ou choisir une autre source, dans l'onglet Source.";
   // Fichiers : pas de dossier de logs (prod cloud-native = stdout → collecteur).
   const filesDisabled = !meta?.write.logDir;
   // Live : diffusion temps réel coupée à chaud (tuile « Temps réel »).
   const liveDisabled = meta?.write.streamEnabled === false;
 
   // Si l'onglet ACTIF devient indisponible (ring coupé en plein Explorer mémoire,
-  // diffusion coupée en plein Live, etc.) → repli sur la Vue d'ensemble.
+  // diffusion coupée en plein Live, etc.) → repli sur des lignes encore
+  // lisibles : le Direct, sinon la Source qui dit pourquoi.
   useEffect(() => {
     if (
       (tab === "explorer" && explorerDisabled) ||
       (tab === "files" && filesDisabled) ||
       (tab === "live" && liveDisabled)
     ) {
-      changeTab("overview");
+      changeTab(liveDisabled ? "overview" : "live");
     }
   }, [tab, explorerDisabled, filesDisabled, liveDisabled, changeTab]);
 
@@ -191,7 +195,7 @@ export const Logs = observer(() => {
       <TabbedPage
         icon={<IconFileText size={24} />}
         title="Logs"
-        subtitle="Console du Log Backplane — flux live, exploration froide, contrôle de la destination"
+        subtitle="Ce que l'application a écrit, et d'où ces lignes sont lues"
         actions={
           <Button
             variant="default"
@@ -209,8 +213,35 @@ export const Logs = observer(() => {
         onChange={(v) => changeTab(v as TabId)}
         tabs={[
           {
+            value: "explorer",
+            label: "Journaux",
+            icon: <IconSearch size={16} />,
+            disabled: explorerDisabled,
+            disabledReason: explorerReason,
+            panel: (
+              <LogExplorer
+                capabilities={capabilities}
+                driverName={driverName}
+                traceRequestId={traceRequestId}
+                onSelect={setSelected}
+                refreshKey={refreshKey}
+                cluster={meta?.cluster}
+                source={source}
+              />
+            ),
+          },
+          {
+            value: "live",
+            label: "Direct",
+            icon: <IconBroadcast size={16} />,
+            disabled: liveDisabled,
+            disabledReason:
+              "La diffusion en direct est coupée. La réactiver dans l'onglet Source (tuile « Temps réel »).",
+            panel: <LiveLogs onSelect={setSelected} cluster={meta?.cluster} />,
+          },
+          {
             value: "overview",
-            label: "Vue d'ensemble",
+            label: "Source",
             icon: <IconLayoutDashboard size={16} />,
             panel: (
               <BackplanePanel
@@ -228,32 +259,6 @@ export const Logs = observer(() => {
             label: "Santé & compteurs",
             icon: <IconActivity size={16} />,
             panel: <SyslogHealthPanel meta={meta} />,
-          },
-          {
-            value: "live",
-            label: "Live",
-            icon: <IconBroadcast size={16} />,
-            disabled: liveDisabled,
-            disabledReason:
-              "Diffusion temps réel coupée — réactive-la dans la Vue d'ensemble (tuile « Temps réel »).",
-            panel: <LiveLogs onSelect={setSelected} cluster={meta?.cluster} />,
-          },
-          {
-            value: "explorer",
-            label: "Explorer",
-            icon: <IconSearch size={16} />,
-            disabled: explorerDisabled,
-            disabledReason: explorerReason,
-            panel: (
-              <LogExplorer
-                capabilities={capabilities}
-                driverName={driverName}
-                traceRequestId={traceRequestId}
-                onSelect={setSelected}
-                refreshKey={refreshKey}
-                cluster={meta?.cluster}
-              />
-            ),
           },
           {
             value: "profiling",

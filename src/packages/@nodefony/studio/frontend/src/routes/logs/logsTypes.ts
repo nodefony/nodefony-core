@@ -205,6 +205,8 @@ export interface SavedFilters {
   severities?: Severity[];
   moduleF?: string;
   msgidF?: string;
+  /** Masquer les lignes d'accès de la console d'administration (défaut : oui). */
+  hideConsole?: boolean;
 }
 
 const isOrder = isOneOf(["asc", "desc"] as const);
@@ -236,5 +238,8 @@ export function parseSavedFilters(value: unknown): SavedFilters {
   }
   if (isString(value.moduleF)) out.moduleF = value.moduleF;
   if (isString(value.msgidF)) out.msgidF = value.msgidF;
+  if (typeof value.hideConsole === "boolean") {
+    out.hideConsole = value.hideConsole;
+  }
   return out;
 }

@@ -18,21 +18,24 @@ import {
   ActionIcon,
   Alert,
   Badge,
-  Box,
   Button,
   Chip,
   Code,
+  Collapse,
   Group,
   MultiSelect,
   Paper,
   SegmentedControl,
   Stack,
+  Switch,
   Text,
   TextInput,
   Tooltip,
 } from "@mantine/core";
 import {
   IconArrowsLeftRight,
+  IconChevronDown,
+  IconChevronRight,
   IconFilter,
   IconFilterOff,
   IconInfoCircle,
@@ -67,19 +70,14 @@ import { readStoredJson } from "../../utils/storedJson";
 import { BROWSER_ORIGIN } from "nodefony";
 import {
   LOGS_DOC,
-  driverMeta,
   fmtClock,
   fmtMillis,
   recordMessage,
   severityColor,
+  type ISourceDescription,
 } from "./logFormat";
-import {
-  CapabilityBadges,
-  ClusterScopeNotice,
-  DriverIcon,
-  SeverityBadge,
-  OriginBadge,
-} from "./LogVisuals";
+import { ClusterScopeNotice, SeverityBadge, OriginBadge } from "./LogVisuals";
+import { SourceBanner } from "./SourceBanner";
 import {
   describeFlow,
   flowSelectGroups,
@@ -88,7 +86,20 @@ import {
 } from "./eventFlow";
 
 /** Clé de persistance (sessionStorage) des filtres explicites de l'Explorer. */
-const FILTERS_KEY = "nf.logs.explorer.filters.v1";
+// v2 : la vue d'ouverture est passée de « tout » à « INFO et plus grave » — une
+// sélection vide gardée par la v1 aurait masqué ce nouveau défaut.
+const FILTERS_KEY = "nf.logs.explorer.filters.v2";
+
+/**
+ * Vue d'ouverture : INFO et plus grave. Les jalons d'une requête (entrée, route,
+ * réponse) sont en INFO/NOTICE ; DEBUG ne porte que la mécanique interne.
+ */
+const DEFAULT_SEVERITIES: readonly Severity[] = SEVERITIES.filter(
+  (s) => s !== "DEBUG",
+);
+const isDefaultSeverities = (set: ReadonlySet<Severity>): boolean =>
+  set.size === DEFAULT_SEVERITIES.length &&
+  DEFAULT_SEVERITIES.every((s) => set.has(s));
 
 export interface LogExplorerProps {
   /** Capacités du driver actif (garde `query`). `null` = méta pas encore chargée. */
@@ -103,6 +114,8 @@ export interface LogExplorerProps {
   refreshKey?: number;
   /** Topologie cluster (méta backplane) → avertissement de vue partielle. */
   cluster?: ClusterTopology | null | undefined;
+  /** Source de lecture décrite pour l'exploitant (bandeau, attente, vide). */
+  source: ISourceDescription;
 }
 
 export const LogExplorer = observer(
@@ -113,6 +126,7 @@ export const LogExplorer = observer(
     onSelect,
     refreshKey = 0,
     cluster,
+    source,
   }: LogExplorerProps) => {
     const store = useStore();
 
@@ -148,10 +162,13 @@ export const LogExplorer = observer(
     // Étapes du cycle de vie — critère back STRUCTURÉ (pduFlowStep), multi-sélection.
     const [flows, setFlows] = useState<FlowStepId[]>(saved.flows ?? []);
     const [severities, setSeverities] = useState<Set<Severity>>(
-      new Set(saved.severities ?? []),
+      new Set(saved.severities ?? DEFAULT_SEVERITIES),
     );
     const [moduleF, setModuleF] = useState(saved.moduleF ?? "");
     const [msgidF, setMsgidF] = useState(saved.msgidF ?? "");
+    // Le trafic de la console elle-même (relais Vite, pages et data plane
+    // /nodefony) noie les journaux de l'application : masqué par défaut.
+    const [hideConsole, setHideConsole] = useState(saved.hideConsole ?? true);
 
     // Ré-écriture des filtres à chaque changement (source unique = sessionStorage).
     useEffect(() => {
@@ -166,24 +183,45 @@ export const LogExplorer = observer(
             severities: [...severities],
             moduleF,
             msgidF,
+            hideConsole,
           } satisfies SavedFilters),
         );
       } catch {
         /* quota / mode privé — non bloquant */
       }
-    }, [requestId, order, protocol, flows, severities, moduleF, msgidF]);
+    }, [
+      requestId,
+      order,
+      protocol,
+      flows,
+      severities,
+      moduleF,
+      msgidF,
+      hideConsole,
+    ]);
     const filtersActive =
       protocol !== "all" ||
       flows.length > 0 ||
-      severities.size > 0 ||
+      !isDefaultSeverities(severities) ||
       moduleF.trim() !== "" ||
       msgidF.trim() !== "";
+    // Filtres repliés sous « Plus de filtres » : le compte dit ce qui agit sans
+    // être vu, et le repli s'ouvre de lui-même quand l'un d'eux est posé.
+    const moreActive =
+      (requestId.trim() !== "" ? 1 : 0) +
+      (order === "asc" ? 1 : 0) +
+      (protocol !== "all" ? 1 : 0) +
+      (flows.length > 0 ? 1 : 0) +
+      (moduleF.trim() !== "" ? 1 : 0) +
+      (msgidF.trim() !== "" ? 1 : 0);
+    const [moreOpen, setMoreOpen] = useState(moreActive > 0);
     // Signal stable → le DataGrid repart page 1 quand un filtre change.
-    const filterSignal = `${protocol}|${[...flows].sort().join(",")}|${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
+    const filterSignal = `${hideConsole}|${protocol}|${[...flows].sort().join(",")}|${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
     const clearFilters = () => {
       setProtocol("all");
       setFlows([]);
-      setSeverities(new Set());
+      setSeverities(new Set(DEFAULT_SEVERITIES));
+      setHideConsole(true);
       setModuleF("");
       setMsgidF("");
     };
@@ -208,6 +246,7 @@ export const LogExplorer = observer(
       if (traceRequestId) {
         setRequestId(traceRequestId);
         setOrder("asc");
+        setMoreOpen(true);
       }
     }, [traceRequestId]);
 
@@ -236,6 +275,7 @@ export const LogExplorer = observer(
         for (const s of severities) params.append("severity", s);
         if (moduleF.trim()) params.set("module", moduleF.trim());
         if (msgidF.trim()) params.set("msgid", msgidF.trim());
+        if (hideConsole) params.set("hideConsole", "true");
         const res = await store.api.getAbsolute<LogQueryResult>(
           `/nodefony/syslog/api/logs/search?${params.toString()}`,
         );
@@ -254,6 +294,7 @@ export const LogExplorer = observer(
         severities,
         moduleF,
         msgidF,
+        hideConsole,
       ],
     );
 
@@ -344,6 +385,7 @@ export const LogExplorer = observer(
                     e.stopPropagation();
                     setRequestId(r.requestId ?? "");
                     setOrder("asc"); // suivre la requête = lecture chronologique
+                    setMoreOpen(true);
                   }}
                 >
                   {r.requestId.slice(0, 8)}
@@ -405,79 +447,21 @@ export const LogExplorer = observer(
           color="yellow"
           variant="light"
           icon={<IconInfoCircle size={16} />}
-          title={`Le driver « ${driverName ?? "?"} » ne permet pas la recherche`}
+          title={`La source « ${driverName ?? "?"} » ne garde pas les journaux`}
         >
-          Ce driver de logs ne sait pas <b>fouiller l'historique</b> : il
-          transmet les logs (ici, vers la console) sans les conserver d'une
-          façon interrogeable. Seul l'onglet <b>Live</b> reste disponible. Pour
-          explorer le passé, choisis un driver avec la capacité <b>Recherche</b>
-          (<Code>mémoire</Code>, <Code>fichier</Code>/<Code>cluster-file</Code>,
-          ou <Code>Loki</Code>/<Code>OpenSearch</Code> à venir) dans le
-          sélecteur du bandeau.
+          Cette source transmet les lignes (par exemple vers la console) sans
+          les conserver d'une façon qu'on puisse relire. L'onglet <b>Direct</b>{" "}
+          montre les lignes au fil de l'eau. Pour relire le passé, choisir dans
+          l'onglet <b>Source</b> une source qui les garde : <Code>memory</Code>,{" "}
+          <Code>file</Code>, <Code>cluster-file</Code>, <Code>loki</Code> ou{" "}
+          <Code>opensearch</Code>.
         </Alert>
       );
     }
 
-    const sourceLabel = driverName ? driverMeta(driverName).label : "—";
     return (
       <Stack gap="sm">
-        {/* CE QUE J'EXPLORE — la destination de lecture active (recherche froide). */}
-        <Paper
-          withBorder
-          radius="md"
-          p="sm"
-          bg="var(--mantine-color-default-hover)"
-        >
-          <Group justify="space-between" wrap="wrap" gap="sm">
-            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-              <DriverIcon name={driverName ?? "generic"} />
-              <Box style={{ minWidth: 0 }}>
-                <Text
-                  fz={10}
-                  fw={700}
-                  tt="uppercase"
-                  c="dimmed"
-                  style={{ letterSpacing: 0.4, lineHeight: 1.2 }}
-                >
-                  Tu explores
-                </Text>
-                <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-                  <Text fw={700} truncate>
-                    {sourceLabel}
-                  </Text>
-                  {driverName && (
-                    <Badge size="xs" variant="default" tt="none">
-                      {driverName}
-                    </Badge>
-                  )}
-                  <Badge size="xs" variant="light" color="blue" tt="none">
-                    recherche froide
-                  </Badge>
-                </Group>
-              </Box>
-            </Group>
-            <Group gap="xs" wrap="nowrap">
-              {capabilities && (
-                <CapabilityBadges capabilities={capabilities} size="xs" />
-              )}
-              <DocHint
-                title="Ce que tu explores"
-                version={LOGS_DOC}
-                summary="L'Explorer fouille la DESTINATION DE LECTURE active (le « fond de panier » sélectionné) — une recherche FROIDE dans l'historique déjà stocké, paginée côté serveur."
-                sections={[
-                  {
-                    label: "Quelle source ?",
-                    body: `Ici : « ${sourceLabel} »${driverName ? ` (${driverName})` : ""}. On la change dans l'onglet « Vue d'ensemble » (en dev). Ce choix n'affecte QUE l'Explorer — ni l'écriture (fan-out), ni le Live.`,
-                  },
-                  {
-                    label: "Froide ≠ live",
-                    body: "« Froide » = on interroge le passé déjà rangé dans cette source (≠ le flux temps réel de l'onglet Live, qui écoute à la source).",
-                  },
-                ]}
-              />
-            </Group>
-          </Group>
-        </Paper>
+        <SourceBanner source={source} />
 
         {/* Honnêteté cluster : la query froide ne voit qu'un worker sauf driver agrégateur. */}
         <ClusterScopeNotice
@@ -486,149 +470,8 @@ export const LogExplorer = observer(
           context="query"
         />
         <Paper withBorder radius="md" p="sm">
-          {/* Barre de trace full-stack. */}
-          <Group gap="xs" mb="xs" wrap="nowrap">
-            <TextInput
-              size="xs"
-              leftSection={<IconRoute2 size={14} />}
-              placeholder="requestId — trace full-stack d'une requête (tous modules)"
-              value={requestId}
-              onChange={(e) => setRequestId(e.currentTarget.value)}
-              style={{ flex: 1, maxWidth: 460, fontFamily: "monospace" }}
-              aria-label="tracer une requête par requestId"
-              rightSection={
-                requestId ? (
-                  <ActionIcon
-                    size="sm"
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => setRequestId("")}
-                    aria-label="effacer la trace"
-                  >
-                    <IconX size={14} />
-                  </ActionIcon>
-                ) : null
-              }
-            />
-            {requestId && (
-              <Badge variant="light" color="grape" size="sm">
-                trace active
-              </Badge>
-            )}
-            {/* Sens chronologique — s'appuie sur l'uid (séquence), pas l'horloge. */}
-            <Tooltip
-              label={
-                order === "desc"
-                  ? "Récent → ancien (défaut)"
-                  : "Ancien → récent (lecture chronologique)"
-              }
-            >
-              <SegmentedControl
-                size="xs"
-                value={order}
-                onChange={(v) => setOrder(v)}
-                data={[
-                  {
-                    value: "desc",
-                    label: (
-                      <Group gap={4} wrap="nowrap">
-                        <IconSortDescending size={14} />
-                        <Text size="xs">récent</Text>
-                      </Group>
-                    ),
-                  },
-                  {
-                    value: "asc",
-                    label: (
-                      <Group gap={4} wrap="nowrap">
-                        <IconSortAscending size={14} />
-                        <Text size="xs">chrono</Text>
-                      </Group>
-                    ),
-                  },
-                ]}
-                aria-label="ordre chronologique des logs"
-              />
-            </Tooltip>
-            <DocHint
-              title="Explorer (requête froide du backplane)"
-              version={LOGS_DOC}
-              summary="Interroge le driver de relecture actif. Pagination et filtres côté serveur — supporte des milliers de logs sans charger la page."
-              sections={[
-                {
-                  label: "Trace full-stack",
-                  body: "Un requestId corrèle tous les logs d'UNE requête (ALS) — appel base de données inclus. Clique un badge requestId ou colle-en un ici pour suivre une requête de bout en bout. Essaie GET /nodefony/test/db/trace.",
-                },
-                {
-                  label: "Trouver une requête par URL",
-                  body: "Tape l'URL ou la route dans la barre de RECHERCHE (ex. « GET /api/users ») : tu retrouves le bilan de la/les requête(s) correspondante(s) ; clique alors son requestId pour dérouler toute sa trace.",
-                },
-                {
-                  label: "Ordre & chronologie",
-                  body: "Bascule récent↔chrono. L'ordre s'appuie sur le # (uid, séquence d'émission monotone), pas sur l'horloge ms — donc l'ordre reste exact même quand plusieurs logs tombent dans la même milliseconde.",
-                },
-              ]}
-            />
-          </Group>
-
-          {/* Barre de FILTRES explicites — clairs, au-dessus de la grille.
-            Protocole EN TÊTE (vision « protocole d'abord, puis cycle de vie »). */}
-          <Group gap="sm" wrap="wrap" align="center">
-            <Group gap={6} wrap="nowrap">
-              <IconPlugConnected size={14} />
-              <Text size="xs" fw={600} c="dimmed">
-                Protocole
-              </Text>
-              <InfoHint text="WS = logs des connexions WebSocket (msgid « WEBSOCKET CONTEXT » : handshake, messages, fermeture). HTTP = tout le reste du pipeline (requête, routage, firewall, applicatif). Critère appliqué côté serveur (pduProtocol)." />
-            </Group>
-            <SegmentedControl
-              size="xs"
-              value={protocol}
-              onChange={(v) => setProtocol(v)}
-              data={[
-                { value: "all", label: "Tous" },
-                {
-                  value: "http",
-                  label: (
-                    <Group gap={4} wrap="nowrap">
-                      <IconWorld size={13} />
-                      <Text size="xs">HTTP</Text>
-                    </Group>
-                  ),
-                },
-                {
-                  value: "ws",
-                  label: (
-                    <Group gap={4} wrap="nowrap">
-                      <IconArrowsLeftRight size={13} />
-                      <Text size="xs">WS</Text>
-                    </Group>
-                  ),
-                },
-              ]}
-              aria-label="filtrer par protocole"
-            />
-            {/* Étape du cycle de vie — s'adapte au protocole (« protocole d'abord »). */}
-            <Group gap={6} wrap="nowrap">
-              <IconTimeline size={14} />
-              <Text size="xs" fw={600} c="dimmed">
-                Étape
-              </Text>
-              <InfoHint text="Étape du cycle de vie de la requête/connexion — critère structuré (≠ recherche texte). Les options s'adaptent au protocole choisi. Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse, ouverture/fermeture WS) ; les étapes techniques (message reçu, corps reçu, dispatch, fin) restent en DEBUG → si tu les filtres en cochant INFO+, elles seront masquées." />
-            </Group>
-            <MultiSelect
-              size="xs"
-              w={250}
-              data={flowData}
-              value={flows}
-              onChange={(v) => setFlows(v)}
-              placeholder={flows.length ? undefined : "Toutes les étapes"}
-              clearable
-              searchable
-              nothingFoundMessage="Aucune étape"
-              comboboxProps={{ withinPortal: true }}
-              aria-label="filtrer par étape du cycle de vie"
-            />
+          {/* Toujours visibles : les niveaux affichés, puis ce qui est masqué. */}
+          <Group gap="sm" wrap="wrap" align="center" mb="xs">
             <Group gap={6} wrap="nowrap">
               <IconFilter size={14} />
               <Text size="xs" fw={600} c="dimmed">
@@ -648,36 +491,25 @@ export const LogExplorer = observer(
                 ))}
               </Group>
             </Chip.Group>
-            {/* Raccourci vers l'origine NAVIGATEUR. Il ne crée pas un second
-                état de filtre : il pilote le champ « Module » ci-contre, que le
-                data plane applique déjà en égalité. Sa raison d'être est la
-                DÉCOUVRABILITÉ — personne ne tape « browser » dans un champ libre
-                s'il ignore que ces lignes existent. */}
-            <Chip
-              size="xs"
-              color="grape"
-              checked={moduleF === BROWSER_ORIGIN}
-              onChange={(on) => setModuleF(on ? BROWSER_ORIGIN : "")}
-              aria-label="ne montrer que les journaux remontés par les navigateurs"
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              leftSection={
+                moreOpen ? (
+                  <IconChevronDown size={14} />
+                ) : (
+                  <IconChevronRight size={14} />
+                )
+              }
+              onClick={() => setMoreOpen((o) => !o)}
+              aria-expanded={moreOpen}
+              aria-controls="logs-more-filters"
             >
-              Navigateur
-            </Chip>
-            <TextInput
-              size="xs"
-              w={150}
-              placeholder="Module…"
-              value={moduleF}
-              onChange={(e) => setModuleF(e.currentTarget.value)}
-              aria-label="filtrer par module"
-            />
-            <TextInput
-              size="xs"
-              w={150}
-              placeholder="msgid…"
-              value={msgidF}
-              onChange={(e) => setMsgidF(e.currentTarget.value)}
-              aria-label="filtrer par msgid"
-            />
+              Plus de filtres
+              {moreActive > 0
+                ? ` (${moreActive} actif${moreActive > 1 ? "s" : ""})`
+                : ""}
+            </Button>
             {filtersActive && (
               <Button
                 size="compact-xs"
@@ -710,22 +542,230 @@ export const LogExplorer = observer(
             />
           </Group>
 
-          {/* Sens de lecture explicite — répond à « je comprends pas la chronologie ». */}
-          <Text size="xs" c="dimmed" mb="xs">
-            {order === "asc" ? (
-              <>
-                <b>Ordre chronologique</b> : 1ʳᵉ étape en haut, réponse en bas —
-                on lit la requête du début à la fin.
-              </>
+          {/* Ce qui est affiché, dit en clair : par défaut INFO et plus grave. */}
+          <Group gap="xs" mb="xs" wrap="wrap">
+            <Switch
+              size="sm"
+              checked={hideConsole}
+              onChange={(e) => setHideConsole(e.currentTarget.checked)}
+              label="Masquer les requêtes de cette console"
+            />
+            <InfoHint text="Les pages de la console d'administration, son rechargement à chaud (/_vite/) et ses appels de données (/nodefony/…/api/) écrivent chacun une ligne d'accès. Masquées, il ne reste que les requêtes de l'application." />
+            <Text size="sm">
+              {severities.size === 0 || severities.has("DEBUG") ? (
+                <>
+                  Affiché : <b>toutes les lignes</b>, détails techniques (DEBUG)
+                  compris.
+                </>
+              ) : isDefaultSeverities(severities) ? (
+                <>
+                  Affiché : <b>INFO et plus grave</b> — l'arrivée de chaque
+                  requête, sa route, sa réponse, et les erreurs. Les détails
+                  techniques (DEBUG) sont masqués.
+                </>
+              ) : (
+                <>
+                  Affiché :{" "}
+                  <b>{[...severities].join(", ") || "aucun niveau"}</b>.
+                </>
+              )}
+            </Text>
+            {severities.size > 0 && !severities.has("DEBUG") ? (
+              <Button
+                size="compact-xs"
+                variant="light"
+                onClick={() => setSeverities(new Set(SEVERITIES))}
+              >
+                Afficher aussi DEBUG
+              </Button>
             ) : (
-              <>
-                <b>Plus récent en haut</b> : la dernière ligne émise est en tête
-                (on remonte le temps en descendant).
-              </>
-            )}{" "}
-            L'ordre exact est donné par le <b>#</b> (séquence d'émission), pas
-            par l'heure (plusieurs logs partagent souvent la même milliseconde).
-          </Text>
+              <Button
+                size="compact-xs"
+                variant="light"
+                onClick={() => setSeverities(new Set(DEFAULT_SEVERITIES))}
+              >
+                Masquer DEBUG
+              </Button>
+            )}
+          </Group>
+
+          <Collapse expanded={moreOpen} id="logs-more-filters">
+            <Stack gap="xs" mb="sm">
+              {/* Barre de trace full-stack. */}
+              <Group gap="xs" mb="xs" wrap="nowrap">
+                <TextInput
+                  size="xs"
+                  leftSection={<IconRoute2 size={14} />}
+                  placeholder="requestId — trace full-stack d'une requête (tous modules)"
+                  value={requestId}
+                  onChange={(e) => setRequestId(e.currentTarget.value)}
+                  style={{ flex: 1, maxWidth: 460, fontFamily: "monospace" }}
+                  aria-label="tracer une requête par requestId"
+                  rightSection={
+                    requestId ? (
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        color="gray"
+                        onClick={() => setRequestId("")}
+                        aria-label="effacer la trace"
+                      >
+                        <IconX size={14} />
+                      </ActionIcon>
+                    ) : null
+                  }
+                />
+                {requestId && (
+                  <Badge variant="light" color="grape" size="sm">
+                    trace active
+                  </Badge>
+                )}
+                {/* Sens chronologique — s'appuie sur l'uid (séquence), pas l'horloge. */}
+                <Tooltip
+                  label={
+                    order === "desc"
+                      ? "Récent → ancien (défaut)"
+                      : "Ancien → récent (lecture chronologique)"
+                  }
+                >
+                  <SegmentedControl
+                    size="xs"
+                    value={order}
+                    onChange={(v) => setOrder(v)}
+                    data={[
+                      {
+                        value: "desc",
+                        label: (
+                          <Group gap={4} wrap="nowrap">
+                            <IconSortDescending size={14} />
+                            <Text size="xs">récent</Text>
+                          </Group>
+                        ),
+                      },
+                      {
+                        value: "asc",
+                        label: (
+                          <Group gap={4} wrap="nowrap">
+                            <IconSortAscending size={14} />
+                            <Text size="xs">chrono</Text>
+                          </Group>
+                        ),
+                      },
+                    ]}
+                    aria-label="ordre chronologique des logs"
+                  />
+                </Tooltip>
+                <DocHint
+                  title="Explorer (requête froide du backplane)"
+                  version={LOGS_DOC}
+                  summary="Interroge le driver de relecture actif. Pagination et filtres côté serveur — supporte des milliers de logs sans charger la page."
+                  sections={[
+                    {
+                      label: "Trace full-stack",
+                      body: "Un requestId corrèle tous les logs d'UNE requête (ALS) — appel base de données inclus. Clique un badge requestId ou colle-en un ici pour suivre une requête de bout en bout. Essaie GET /nodefony/test/db/trace.",
+                    },
+                    {
+                      label: "Trouver une requête par URL",
+                      body: "Tape l'URL ou la route dans la barre de RECHERCHE (ex. « GET /api/users ») : tu retrouves le bilan de la/les requête(s) correspondante(s) ; clique alors son requestId pour dérouler toute sa trace.",
+                    },
+                    {
+                      label: "Ordre & chronologie",
+                      body: "Bascule récent↔chrono. L'ordre s'appuie sur le # (uid, séquence d'émission monotone), pas sur l'horloge ms — donc l'ordre reste exact même quand plusieurs logs tombent dans la même milliseconde.",
+                    },
+                  ]}
+                />
+              </Group>
+              {/* Barre de FILTRES explicites — clairs, au-dessus de la grille.
+            Protocole EN TÊTE (vision « protocole d'abord, puis cycle de vie »). */}
+              <Group gap="sm" wrap="wrap" align="center">
+                <Group gap={6} wrap="nowrap">
+                  <IconPlugConnected size={14} />
+                  <Text size="xs" fw={600} c="dimmed">
+                    Protocole
+                  </Text>
+                  <InfoHint text="WS = logs des connexions WebSocket (msgid « WEBSOCKET CONTEXT » : handshake, messages, fermeture). HTTP = tout le reste du pipeline (requête, routage, firewall, applicatif). Critère appliqué côté serveur (pduProtocol)." />
+                </Group>
+                <SegmentedControl
+                  size="xs"
+                  value={protocol}
+                  onChange={(v) => setProtocol(v)}
+                  data={[
+                    { value: "all", label: "Tous" },
+                    {
+                      value: "http",
+                      label: (
+                        <Group gap={4} wrap="nowrap">
+                          <IconWorld size={13} />
+                          <Text size="xs">HTTP</Text>
+                        </Group>
+                      ),
+                    },
+                    {
+                      value: "ws",
+                      label: (
+                        <Group gap={4} wrap="nowrap">
+                          <IconArrowsLeftRight size={13} />
+                          <Text size="xs">WS</Text>
+                        </Group>
+                      ),
+                    },
+                  ]}
+                  aria-label="filtrer par protocole"
+                />
+                {/* Étape du cycle de vie — s'adapte au protocole (« protocole d'abord »). */}
+                <Group gap={6} wrap="nowrap">
+                  <IconTimeline size={14} />
+                  <Text size="xs" fw={600} c="dimmed">
+                    Étape
+                  </Text>
+                  <InfoHint text="Étape du cycle de vie de la requête/connexion — critère structuré (≠ recherche texte). Les options s'adaptent au protocole choisi. Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse, ouverture/fermeture WS) ; les étapes techniques (message reçu, corps reçu, dispatch, fin) restent en DEBUG → si tu les filtres en cochant INFO+, elles seront masquées." />
+                </Group>
+                <MultiSelect
+                  size="xs"
+                  w={250}
+                  data={flowData}
+                  value={flows}
+                  onChange={(v) => setFlows(v)}
+                  placeholder={flows.length ? undefined : "Toutes les étapes"}
+                  clearable
+                  searchable
+                  nothingFoundMessage="Aucune étape"
+                  comboboxProps={{ withinPortal: true }}
+                  aria-label="filtrer par étape du cycle de vie"
+                />
+                {/* Raccourci vers l'origine NAVIGATEUR. Il ne crée pas un second
+                état de filtre : il pilote le champ « Module » ci-contre, que le
+                data plane applique déjà en égalité. Sa raison d'être est la
+                DÉCOUVRABILITÉ — personne ne tape « browser » dans un champ libre
+                s'il ignore que ces lignes existent. */}
+                <Chip
+                  size="xs"
+                  color="grape"
+                  checked={moduleF === BROWSER_ORIGIN}
+                  onChange={(on) => setModuleF(on ? BROWSER_ORIGIN : "")}
+                  aria-label="ne montrer que les journaux remontés par les navigateurs"
+                >
+                  Navigateur
+                </Chip>
+                <TextInput
+                  size="xs"
+                  w={150}
+                  placeholder="Module…"
+                  value={moduleF}
+                  onChange={(e) => setModuleF(e.currentTarget.value)}
+                  aria-label="filtrer par module"
+                />
+                <TextInput
+                  size="xs"
+                  w={150}
+                  placeholder="msgid…"
+                  value={msgidF}
+                  onChange={(e) => setMsgidF(e.currentTarget.value)}
+                  aria-label="filtrer par msgid"
+                />
+              </Group>
+            </Stack>
+          </Collapse>
 
           <DataGrid
             mode="server"
@@ -736,7 +776,12 @@ export const LogExplorer = observer(
             pageSize={50}
             resetPageSignal={filterSignal}
             searchPlaceholder="Recherche : URL/route (ex. GET /api/x), payload, module, msgid…"
-            emptyMessage="Aucun log ne correspond aux critères."
+            loadingMessage={source.loadingMessage}
+            emptyMessage={
+              filtersActive || requestId.trim() !== ""
+                ? "Aucune ligne ne correspond aux filtres."
+                : source.emptyMessage
+            }
             persist={{ key: "studio.logs.explorer.v2", storage: "session" }}
           />
         </Paper>
