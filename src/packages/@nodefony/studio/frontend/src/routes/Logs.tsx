@@ -21,8 +21,6 @@ import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button } from "@mantine/core";
 import {
-  IconActivity,
-  IconAdjustments,
   IconBolt,
   IconBook2,
   IconBroadcast,
@@ -48,6 +46,7 @@ import {
   SyslogHealthPanel,
 } from "./logs/BackplanePanel";
 import { SyslogConfigPanel } from "./logs/SyslogConfigPanel";
+import { SourceTab } from "./logs/SourceTab";
 import { PduDetailDrawer } from "./logs/PduDetailDrawer";
 import { ProfilingTab } from "./logs/ProfilingTab";
 import { DebugTab } from "./logs/DebugTab";
@@ -62,27 +61,17 @@ import { readStoredJson } from "../utils/storedJson";
 import { describeSource } from "./logs/logFormat";
 
 type TabId =
-  | "overview"
-  | "sante"
-  | "live"
-  | "explorer"
-  | "profiling"
-  | "files"
-  | "doc"
-  | "debug"
-  | "config";
+  "overview" | "live" | "explorer" | "profiling" | "files" | "doc" | "debug";
 
 /** Onglets valides — garde contre une valeur périmée en sessionStorage. */
 const TAB_IDS: ReadonlySet<string> = new Set<TabId>([
   "overview",
-  "sante",
   "live",
   "explorer",
   "profiling",
   "files",
   "doc",
   "debug",
-  "config",
 ]);
 const TAB_KEY = "nf.logs.tab";
 /** Filtres d'affichage communs (Journaux + Direct), persistés le temps de l'onglet. */
@@ -296,21 +285,25 @@ export const Logs = observer(() => {
             label: "Source",
             icon: <IconLayoutDashboard size={16} />,
             panel: (
-              <BackplanePanel
+              <SourceTab
                 meta={meta}
-                loading={loading}
-                error={error}
-                reload={reload}
-                onSwitched={() => setRefreshKey((k) => k + 1)}
-                realtimeState={realtimeState}
+                source={source}
+                details={
+                  <>
+                    <BackplanePanel
+                      meta={meta}
+                      loading={loading}
+                      error={error}
+                      reload={reload}
+                      onSwitched={() => setRefreshKey((k) => k + 1)}
+                      realtimeState={realtimeState}
+                    />
+                    <SyslogHealthPanel meta={meta} />
+                    <SyslogConfigPanel meta={meta} onChanged={reload} />
+                  </>
+                }
               />
             ),
-          },
-          {
-            value: "sante",
-            label: "Santé & compteurs",
-            icon: <IconActivity size={16} />,
-            panel: <SyslogHealthPanel meta={meta} />,
           },
           {
             value: "profiling",
@@ -344,12 +337,6 @@ export const Logs = observer(() => {
                 </Badge>
               ) : undefined,
             panel: <DebugTab onGoLive={() => changeTab("live")} />,
-          },
-          {
-            value: "config",
-            label: "Config",
-            icon: <IconAdjustments size={16} />,
-            panel: <SyslogConfigPanel meta={meta} onChanged={reload} />,
           },
         ]}
       />

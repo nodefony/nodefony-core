@@ -96,6 +96,20 @@ describe("applyViewFilters", () => {
     ]);
   });
 
+  it("Direct : une requête de la console reconnue dans un lot PRÉCÉDENT reste masquée", () => {
+    const later = [
+      rec("ligne tardive", "APP", "app", "C"),
+      rec("autre", "APP", "app", "A"),
+    ];
+    const f = { hideConsole: true, hideFramework: false };
+    expect(applyViewFilters(later, (r) => r, f).length).toBe(2);
+    expect(
+      applyViewFilters(later, (r) => r, f, new Set(["C"])).map(
+        (r) => r.payload,
+      ),
+    ).toEqual(["autre"]);
+  });
+
   it("framework : toutes les lignes du module NODEFONY", () => {
     expect(keep({ hideConsole: false, hideFramework: true })).toEqual([
       "route console",

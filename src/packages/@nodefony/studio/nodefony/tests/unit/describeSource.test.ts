@@ -87,6 +87,36 @@ describe("describeSource", () => {
     expect(d.feeder).toBe("collector");
   });
 
+  it("cartes de la Source : qui envoie, où c'est gardé, ce qui s'écrit d'autre", () => {
+    const mem = describeSource(
+      meta("memory", [
+        { name: "console", enabled: true },
+        { name: "file", enabled: false },
+      ]),
+    );
+    expect(mem.senderText).toBe("Ce processus lui-même.");
+    expect(mem.retentionText).toContain("effacées au redémarrage");
+    expect(mem.alsoWrites).toEqual(["Console (stdout)"]);
+
+    const pushed = describeSource(
+      meta("loki", [
+        { name: "console", enabled: true },
+        { name: "loki", enabled: true },
+      ]),
+    );
+    expect(pushed.senderText).toContain("NF_LOG_PUSH=true");
+    // La source elle-même n'est pas « écrite en plus ».
+    expect(pushed.alsoWrites).toEqual(["Console (stdout)"]);
+
+    const collected = describeSource(
+      meta("loki", [{ name: "console", enabled: true }]),
+    );
+    expect(collected.senderText).toContain("collecteur externe");
+    expect(collected.retentionText).toBe(
+      "Dans Grafana Loki, selon sa rétention. Rien n'est gardé sur ce serveur.",
+    );
+  });
+
   it("data plane plus ancien (sans transports) : on suppose l'application", () => {
     expect(describeSource(meta("opensearch", undefined)).feeder).toBe("app");
   });

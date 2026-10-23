@@ -256,6 +256,12 @@ interface BaseProps<T> {
   renderRowDetail?: ((row: T) => ReactNode) | undefined;
   /** Lignes qui ont un détail (défaut : toutes, si `renderRowDetail` est posé). */
   rowHasDetail?: ((row: T) => boolean) | undefined;
+  /**
+   * Mode serveur : chaque nouvelle valeur relit la page COURANTE en silence —
+   * sans voile de chargement, sans retour en page 1, lignes dépliées gardées.
+   * Pour suivre une source qui se remplit (journal).
+   */
+  refreshSignal?: number | undefined;
 }
 
 /** Mode CLIENT : `data` complet → TanStack trie/filtre/pagine en mémoire. */
@@ -679,12 +685,17 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
   const [totalIsLowerBound, setTotalIsLowerBound] = useState(false);
   const [serverLoading, setServerLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const refreshSignal = props.refreshSignal;
+  const lastRefresh = useRef(refreshSignal);
 
   // Mode serveur : (re)charge à chaque changement d'état.
   useEffect(() => {
     if (!loader) return;
     let cancelled = false;
-    setServerLoading(true);
+    // Relecture déclenchée par `refreshSignal` seul : silencieuse.
+    const silent = lastRefresh.current !== refreshSignal;
+    lastRefresh.current = refreshSignal;
+    if (!silent) setServerLoading(true);
     const sort: DataGridSort | null = sorting[0]
       ? { key: sorting[0].id, dir: sorting[0].desc ? "desc" : "asc" }
       : null;
@@ -724,6 +735,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
     globalFilter,
     pagination.pageIndex,
     pagination.pageSize,
+    refreshSignal,
   ]);
 
   // Persiste l'état (tri/filtres/recherche/colonnes/pagination) à chaque changement.

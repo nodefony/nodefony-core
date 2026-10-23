@@ -244,6 +244,22 @@ export interface ISourceDescription {
   loadingMessage: string;
   /** Texte quand la source ne rend aucune ligne (sans filtre). */
   emptyMessage: string;
+  /** Qui envoie les lignes à cette source, dit pour un débutant. */
+  senderText: string;
+  /** Où elles sont gardées, et combien de temps. */
+  retentionText: string;
+  /** Ce que l'application écrit en plus de la source (« Console (stdout) »…). */
+  alsoWrites: string[];
+}
+
+/**
+ * Transports d'écriture actifs, hors celui qui alimente la source elle-même :
+ * « cette application écrit aussi ». La mémoire n'en est pas un (tampon interne).
+ */
+function otherWrites(meta: BackplaneMeta, driverName: string): string[] {
+  return (meta.write.transports ?? [])
+    .filter((t) => t.enabled && t.name !== driverName)
+    .map((t) => transportMeta(t.name, meta.write.logDir).label);
 }
 
 /** Pilotes dont la donnée vit DANS ce processus ou sur son disque. */
@@ -282,6 +298,9 @@ export function describeSource(meta: BackplaneMeta | null): ISourceDescription {
       remote: false,
       loadingMessage: "Lecture de la source des journaux…",
       emptyMessage: "Aucune ligne.",
+      senderText: "",
+      retentionText: "",
+      alsoWrites: [],
     };
   }
   if (LOCAL_DRIVERS.has(driverName)) {
@@ -303,6 +322,12 @@ export function describeSource(meta: BackplaneMeta | null): ISourceDescription {
         driverName === "memory"
           ? "Aucune ligne pour l'instant : ce processus vient de démarrer, ou sa mémoire a été vidée."
           : `Aucune ligne dans ${label}.`,
+      senderText: "Ce processus lui-même.",
+      retentionText:
+        driverName === "memory"
+          ? "Nulle part de durable : les lignes sont effacées au redémarrage. Pour les garder, un collecteur doit lire la sortie standard."
+          : `Sur le disque de ce serveur${meta.write.logDir ? ` (${meta.write.logDir})` : ""}, tant que les fichiers y restent.`,
+      alsoWrites: otherWrites(meta, driverName),
     };
   }
   const label = driverMeta(driverName).label;
@@ -323,6 +348,11 @@ export function describeSource(meta: BackplaneMeta | null): ISourceDescription {
     emptyMessage: pushes
       ? `${label} répond mais ne contient aucune ligne de cette application.`
       : `${label} répond mais ne contient aucune ligne pour cette application. Vérifiez que le collecteur tourne et pointe sur cette adresse.`,
+    senderText: pushes
+      ? "Cette application, directement (NF_LOG_PUSH=true)."
+      : "Un collecteur externe (Alloy, Promtail, Fluent Bit…). Cette application n'y envoie rien (NF_LOG_PUSH=false) : elle relit seulement.",
+    retentionText: `Dans ${label}, selon sa rétention. Rien n'est gardé sur ce serveur.`,
+    alsoWrites: otherWrites(meta, driverName),
   };
 }
 
@@ -732,12 +762,15 @@ export const FRAMEWORK_MODULE = "NODEFONY";
  * @param items - le lot, dans son ordre
  * @param pick - lit l'enregistrement d'un élément
  * @param filters - les filtres d'affichage
+ * @param known - requestId de la console vus dans des lots PRÉCÉDENTS (le Direct
+ *   reçoit une requête en plusieurs lots : sa ligne d'accès arrive à la fin)
  * @returns le lot filtré (le MÊME tableau si aucun filtre n'agit)
  */
 export function applyViewFilters<T>(
   items: T[],
   pick: (item: T) => LogRecord,
   filters: ILogViewFilters,
+  known: ReadonlySet<string> | null = null,
 ): T[] {
   if (!filters.hideConsole && !filters.hideFramework) return items;
   const ids = filters.hideConsole ? consoleRequestIds(items.map(pick)) : null;
@@ -749,6 +782,8 @@ export function applyViewFilters<T>(
     ) {
       return false;
     }
-    return !(filters.hideConsole && pduIsConsoleRequest(rec, ids));
+    if (!filters.hideConsole) return true;
+    if (pduIsConsoleRequest(rec, ids)) return false;
+    return !(rec.requestId !== undefined && known?.has(rec.requestId) === true);
   });
 }

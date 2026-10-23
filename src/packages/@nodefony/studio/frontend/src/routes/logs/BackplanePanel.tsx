@@ -1152,7 +1152,7 @@ interface DriverProbe {
  * memory/file/cluster-file = local (toujours joignable, latence 0) ; loki/
  * opensearch = vraie requête réseau (`/ready`, `GET /`, `_count`).
  */
-function DestinationPing({ driverName }: { driverName: string | null }) {
+export function DestinationPing({ driverName }: { driverName: string | null }) {
   const store = useStore();
   const [probe, setProbe] = useState<DriverProbe | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1191,10 +1191,13 @@ function DestinationPing({ driverName }: { driverName: string | null }) {
         loading={loading}
         onClick={() => void ping()}
       >
-        Tester la destination
+        Tester
       </Button>
       {probe && (
         <>
+          {probe.info?.endpoint !== undefined && (
+            <Code style={{ fontSize: 11 }}>{String(probe.info.endpoint)}</Code>
+          )}
           <Badge
             color={probe.ok ? "teal" : "red"}
             variant="light"

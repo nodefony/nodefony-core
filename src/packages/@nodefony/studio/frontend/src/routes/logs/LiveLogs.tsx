@@ -59,7 +59,7 @@ import {
   SeverityBadge,
   SeverityCountChips,
 } from "./LogVisuals";
-import { PLATFORM_CHANNELS } from "nodefony";
+import { PLATFORM_CHANNELS, consoleRequestIds } from "nodefony";
 
 /** Plafond d'entrées conservées côté client (croissance bornée). */
 const MAX_ENTRIES = 500;
@@ -107,6 +107,31 @@ export const LiveLogs = observer(
     stickRef.current = stick;
     const keyCounter = useRef(0);
 
+    // Filtres d'affichage appliqués DÈS LA RÉCEPTION : une ligne masquée ne doit
+    // pas occuper l'une des MAX_ENTRIES places (une page de l'application charge
+    // des centaines de fichiers par /_vite/ — ils chassaient la requête qu'on
+    // cherche). Les requestId de la console sont retenus d'un lot à l'autre.
+    const viewRef = useRef(viewFilters);
+    viewRef.current = viewFilters;
+    const consoleIds = useRef<Set<string> | null>(null);
+    const admit = (views: Entry[]): Entry[] => {
+      const f = viewRef.current;
+      if (f.hideConsole) {
+        const seen = consoleRequestIds(views.map((v) => v.rec));
+        if (seen) {
+          // Borné : au-delà, on repart du lot courant (croissance bornée).
+          if (consoleIds.current === null || consoleIds.current.size > 2_000) {
+            consoleIds.current = seen;
+          } else {
+            for (const id of seen) consoleIds.current.add(id);
+          }
+        }
+      }
+      return applyViewFilters(views, (v) => v.rec, f, consoleIds.current);
+    };
+    const admitRef = useRef(admit);
+    admitRef.current = admit;
+
     // ── Snapshot initial (ring buffer) ──────────────────────────────────────
     useEffect(() => {
       let cancelled = false;
@@ -121,7 +146,8 @@ export const LiveLogs = observer(
             const rec = toRecord(d);
             if (rec) views.push({ rec, key: `snap-${keyCounter.current++}` });
           }
-          setEntries((prev) => (prev.length === 0 ? views : prev));
+          const kept = admitRef.current(views);
+          setEntries((prev) => (prev.length === 0 ? kept : prev));
         })
         .catch(() => {});
       return () => {
@@ -144,13 +170,14 @@ export const LiveLogs = observer(
           if (r)
             views.push({ rec: r, key: `${r.uid}-${keyCounter.current++}` });
         }
-        if (views.length === 0) return;
+        const kept = admitRef.current(views);
+        if (kept.length === 0) return;
         setEntries((prev) => {
-          const next = [...prev, ...views];
+          const next = [...prev, ...kept];
           return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
         });
         // Si on n'est pas collé en bas, compter les nouveaux non-lus.
-        if (!stickRef.current) setUnseen((n) => n + views.length);
+        if (!stickRef.current) setUnseen((n) => n + kept.length);
       };
       const dispose = conn.subscribe(PLATFORM_CHANNELS.syslog, handler);
       return () => dispose();
@@ -188,10 +215,17 @@ export const LiveLogs = observer(
         return next;
       });
 
-    // Filtres communs d'abord (console et Vite, framework) : la même règle que
-    // le serveur. Les compteurs portent sur ce qui reste.
+    // Filtres communs encore une fois à l'affichage : une requête de la console
+    // se reconnaît parfois APRÈS ses premières lignes (sa ligne d'accès arrive
+    // à la fin), et un filtre rallumé doit masquer ce qui est déjà là.
     const visible = useMemo(
-      () => applyViewFilters(entries, (e) => e.rec, viewFilters),
+      () =>
+        applyViewFilters(
+          entries,
+          (e) => e.rec,
+          viewFilters,
+          consoleIds.current,
+        ),
       [entries, viewFilters],
     );
     const counts = useMemo(

@@ -186,6 +186,17 @@ export const LogExplorer = observer(
       saved.groupByRequest ?? true,
     );
     const grouped = groupByRequest && requestId.trim() === "";
+    // Suivre : relire la page toutes les 5 s (la source se remplit pendant
+    // qu'on regarde). Rien ne bat quand l'onglet du navigateur est caché.
+    const [follow, setFollow] = useState(true);
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+      if (!follow) return;
+      const id = setInterval(() => {
+        if (document.visibilityState === "visible") setTick((t) => t + 1);
+      }, 5_000);
+      return () => clearInterval(id);
+    }, [follow]);
 
     // Ré-écriture des filtres à chaque changement (source unique = sessionStorage).
     useEffect(() => {
@@ -635,6 +646,12 @@ export const LogExplorer = observer(
 
           {/* Ce qui est affiché, dit en clair : par défaut INFO et plus grave. */}
           <Group gap="xs" mb="xs" wrap="wrap">
+            <Switch
+              size="sm"
+              checked={follow}
+              onChange={(e) => setFollow(e.currentTarget.checked)}
+              label="Suivre les nouvelles lignes"
+            />
             <ViewFilterSwitches
               value={viewFilters}
               onChange={onViewFiltersChange}
@@ -865,6 +882,7 @@ export const LogExplorer = observer(
             pageSize={50}
             resetPageSignal={filterSignal}
             searchPlaceholder="Recherche : URL/route (ex. GET /api/x), payload, module, msgid…"
+            refreshSignal={tick}
             loadingMessage={source.loadingMessage}
             emptyMessage={
               filtersActive || requestId.trim() !== ""
