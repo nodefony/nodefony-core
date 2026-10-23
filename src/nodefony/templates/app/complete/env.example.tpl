@@ -279,7 +279,7 @@
 # @optional
 # @sensitive
 # @placement=secrets
-# @default="nodefony-dev-42 en développement ; aucun en production"
+# @default="<%= it.devAdminPassword %> en développement ; aucun en production"
 # NF_ADMIN_PASSWORD=
 
 
