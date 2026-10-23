@@ -296,8 +296,21 @@ function lireJournalDeLAgent(agent, res, debutRunMs) {
  * léger ne réussit que si l'app le GUIDE (AGENTS.md, docs, générateurs). Le
  * test le plus défavorable est le seul qui prouve. NF_DEVKIT_BENCH_MODEL pour
  * comparer (le rapport enregistre toujours le modèle RELEVÉ au transcript).
+ *
+ * 🔴 Le défaut est le modèle que la RÉFÉRENCE de cet agent a enregistré, et
+ * `haiku` seulement quand il n'y en a pas. L'alias suit le CLI de l'agent :
+ * une mise à jour l'a fait passer de `claude-haiku-4-5` à `claude-haiku-5-5`,
+ * et chaque run lancé avec le défaut est devenu incomparable à la référence
+ * — refusé à l'enregistrement après trois passes payées. Changer de modèle de
+ * référence reste possible, mais comme un geste DÉLIBÉRÉ (variable posée,
+ * référence réenregistrée), jamais comme l'effet d'une mise à jour.
  */
-const MODEL = process.env.NF_DEVKIT_BENCH_MODEL ?? "haiku";
+const MODELE_DE_REFERENCE = lireReference(cheminReference(AGENT))?.model;
+const MODEL =
+  process.env.NF_DEVKIT_BENCH_MODEL ??
+  (typeof MODELE_DE_REFERENCE === "string" && MODELE_DE_REFERENCE !== ""
+    ? MODELE_DE_REFERENCE
+    : "haiku");
 /** Args du mode headless du CLI claude — transcript JSONL complet sur stdout. */
 const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
   ? process.env.NF_DEVKIT_BENCH_AGENT_ARGS.split(" ")
