@@ -172,14 +172,29 @@ import {
   createTestIdentity,
 } from "@nodefony/security/testing";
 
-const h = createRealtimeHarness((ctx) => new ChatController(ctx), {
-  identity: createTestIdentity({ roles: ["ROLE_USER"] }),
+// `chat:room` exige une connexion authentifiée. Sans `identity`, le harnais
+// pose le jeton anonyme, comme le repli du runtime : le canal est refusé.
+const anonyme = createRealtimeHarness((ctx) => new ChatController(ctx), {
   frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
 });
-await h.connect();
-await h.subscribe("chat:admin");
-expect(h.denials().map((d) => d.channel)).toEqual(["chat:admin"]); // refusé
+await anonyme.connect();
+await anonyme.subscribe("chat:room");
+expect(anonyme.denials().map((d) => d.channel)).toEqual(["chat:room"]);
+anonyme.dispose();
+
+// Avec une identité, le même canal est accordé.
+const alice = createRealtimeHarness((ctx) => new ChatController(ctx), {
+  identity: createTestIdentity({ identifier: "alice", roles: ["ROLE_USER"] }),
+  frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
+});
+await alice.connect();
+await alice.subscribe("chat:room");
+expect(alice.denials()).toHaveLength(0);
+alice.dispose();
 ```
+
+Les deux cas vont ensemble : le refus seul passerait aussi avec un canal fermé à tous, l'accord
+seul avec un canal ouvert à tous.
 
 | Membre                                      | Rôle                                                            |
 | ------------------------------------------- | --------------------------------------------------------------- |
