@@ -53,9 +53,12 @@ import { ProfilingTab } from "./logs/ProfilingTab";
 import { DebugTab } from "./logs/DebugTab";
 import type {
   BackplaneMeta,
+  ILogViewFilters,
   LogQueryResult,
   LogRecord,
 } from "./logs/logsTypes";
+import { parseViewFilters } from "./logs/logsTypes";
+import { readStoredJson } from "../utils/storedJson";
 import { describeSource } from "./logs/logFormat";
 
 type TabId =
@@ -82,6 +85,8 @@ const TAB_IDS: ReadonlySet<string> = new Set<TabId>([
   "config",
 ]);
 const TAB_KEY = "nf.logs.tab";
+/** Filtres d'affichage communs (Journaux + Direct), persistés le temps de l'onglet. */
+const VIEW_KEY = "nf.logs.view.v1";
 
 export const Logs = observer(() => {
   const store = useStore();
@@ -164,6 +169,17 @@ export const Logs = observer(() => {
       );
     }
   }, [searchParams, changeTab, setSearchParams]);
+  const [viewFilters, setViewFilters] = useState<ILogViewFilters>(() =>
+    parseViewFilters(readStoredJson("session", VIEW_KEY)),
+  );
+  const changeViewFilters = useCallback((next: ILogViewFilters) => {
+    setViewFilters(next);
+    try {
+      sessionStorage.setItem(VIEW_KEY, JSON.stringify(next));
+    } catch {
+      /* quota / mode privé — non bloquant */
+    }
+  }, []);
   const [selected, setSelected] = useState<LogRecord | null>(null);
   const [traceRequestId, setTraceRequestId] = useState<string>("");
   // Bumpé à chaque switch de driver → force l'Explorer à recharger.
@@ -254,6 +270,8 @@ export const Logs = observer(() => {
                 refreshKey={refreshKey}
                 cluster={meta?.cluster}
                 source={source}
+                viewFilters={viewFilters}
+                onViewFiltersChange={changeViewFilters}
               />
             ),
           },
@@ -264,7 +282,14 @@ export const Logs = observer(() => {
             disabled: liveDisabled,
             disabledReason:
               "La diffusion en direct est coupée. La réactiver dans l'onglet Source (tuile « Temps réel »).",
-            panel: <LiveLogs onSelect={setSelected} cluster={meta?.cluster} />,
+            panel: (
+              <LiveLogs
+                onSelect={setSelected}
+                cluster={meta?.cluster}
+                viewFilters={viewFilters}
+                onViewFiltersChange={changeViewFilters}
+              />
+            ),
           },
           {
             value: "overview",

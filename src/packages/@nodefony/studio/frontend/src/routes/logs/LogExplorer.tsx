@@ -60,6 +60,7 @@ import {
 import { ansiToReact } from "../../utils/ansiToReact";
 import type {
   ClusterTopology,
+  ILogViewFilters,
   LogDriverCapabilities,
   LogQueryResult,
   LogRecord,
@@ -70,15 +71,20 @@ import { readStoredJson } from "../../utils/storedJson";
 import { BROWSER_ORIGIN } from "nodefony";
 import {
   LOGS_DOC,
+  FRAMEWORK_MODULE,
   fmtClock,
   fmtMillis,
+  methodColor,
+  parseAccessLine,
   recordMessage,
+  statusColor,
   severityColor,
   type ISourceDescription,
 } from "./logFormat";
 import { ClusterScopeNotice, SeverityBadge, OriginBadge } from "./LogVisuals";
 import { SourceBanner } from "./SourceBanner";
 import { RequestLines } from "./RequestLines";
+import { ViewFilterSwitches } from "./ViewFilterSwitches";
 import {
   describeFlow,
   flowSelectGroups,
@@ -117,6 +123,9 @@ export interface LogExplorerProps {
   cluster?: ClusterTopology | null | undefined;
   /** Source de lecture décrite pour l'exploitant (bandeau, attente, vide). */
   source: ISourceDescription;
+  /** Filtres d'affichage communs avec le Direct. */
+  viewFilters: ILogViewFilters;
+  onViewFiltersChange: (next: ILogViewFilters) => void;
 }
 
 export const LogExplorer = observer(
@@ -128,6 +137,8 @@ export const LogExplorer = observer(
     refreshKey = 0,
     cluster,
     source,
+    viewFilters,
+    onViewFiltersChange,
   }: LogExplorerProps) => {
     const store = useStore();
 
@@ -167,9 +178,8 @@ export const LogExplorer = observer(
     );
     const [moduleF, setModuleF] = useState(saved.moduleF ?? "");
     const [msgidF, setMsgidF] = useState(saved.msgidF ?? "");
-    // Le trafic de la console elle-même (relais Vite, pages et data plane
-    // /nodefony) noie les journaux de l'application : masqué par défaut.
-    const [hideConsole, setHideConsole] = useState(saved.hideConsole ?? true);
+    // Filtres d'affichage communs avec le Direct : portés par la page.
+    const { hideConsole, hideFramework } = viewFilters;
     // Une ligne par requête (sa ligne d'accès), ses autres lignes dépliées
     // dessous — sauf quand on trace déjà UNE requête.
     const [groupByRequest, setGroupByRequest] = useState(
@@ -190,7 +200,6 @@ export const LogExplorer = observer(
             severities: [...severities],
             moduleF,
             msgidF,
-            hideConsole,
             groupByRequest,
           } satisfies SavedFilters),
         );
@@ -205,7 +214,6 @@ export const LogExplorer = observer(
       severities,
       moduleF,
       msgidF,
-      hideConsole,
       groupByRequest,
     ]);
     const filtersActive =
@@ -225,12 +233,11 @@ export const LogExplorer = observer(
       (msgidF.trim() !== "" ? 1 : 0);
     const [moreOpen, setMoreOpen] = useState(moreActive > 0);
     // Signal stable → le DataGrid repart page 1 quand un filtre change.
-    const filterSignal = `${grouped}|${hideConsole}|${protocol}|${[...flows].sort().join(",")}|${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
+    const filterSignal = `${hideFramework}|${grouped}|${hideConsole}|${protocol}|${[...flows].sort().join(",")}|${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
     const clearFilters = () => {
       setProtocol("all");
       setFlows([]);
       setSeverities(new Set(DEFAULT_SEVERITIES));
-      setHideConsole(true);
       setModuleF("");
       setMsgidF("");
     };
@@ -286,6 +293,7 @@ export const LogExplorer = observer(
         if (msgidF.trim()) params.set("msgid", msgidF.trim());
         if (hideConsole) params.set("hideConsole", "true");
         if (grouped) params.set("groupByRequest", "true");
+        if (hideFramework) params.set("excludeModule", FRAMEWORK_MODULE);
         const res = await store.api.getAbsolute<LogQueryResult>(
           `/nodefony/syslog/api/logs/search?${params.toString()}`,
         );
@@ -306,6 +314,7 @@ export const LogExplorer = observer(
         msgidF,
         hideConsole,
         grouped,
+        hideFramework,
       ],
     );
 
@@ -435,24 +444,72 @@ export const LogExplorer = observer(
           },
         },
         {
+          key: "method",
+          header: "Verbe",
+          size: 76,
+          hint: "Méthode HTTP de la requête (WS = connexion WebSocket). Vide pour une ligne qui n'est pas une ligne d'accès.",
+          value: (r) => parseAccessLine(r)?.method ?? "",
+          render: (r) => {
+            const a = parseAccessLine(r);
+            return a ? (
+              <Badge
+                size="sm"
+                variant="filled"
+                color={methodColor(a.method)}
+                tt="none"
+                ff="monospace"
+              >
+                {a.method}
+              </Badge>
+            ) : null;
+          },
+        },
+        {
           key: "message",
           header: "Message",
           size: 420,
           value: (r) => recordMessage(r),
-          render: (r) => (
-            <Text
-              size="xs"
-              // La ligne d'accès EST la requête (méthode, statut, URL, durée).
-              fw={r.msgid === "req" ? 700 : undefined}
-              style={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {ansiToReact(recordMessage(r))}
-            </Text>
-          ),
+          render: (r) => {
+            // Ligne d'accès : statut, chemin, durée — lus, pas un texte brut.
+            const a = parseAccessLine(r);
+            if (a) {
+              return (
+                <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={statusColor(a.status)}
+                    style={{
+                      fontVariantNumeric: "tabular-nums",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {a.status ?? "—"}
+                  </Badge>
+                  <Text size="sm" fw={700} ff="monospace" truncate>
+                    {a.path}
+                  </Text>
+                  {a.duration && (
+                    <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                      {a.duration}
+                    </Text>
+                  )}
+                </Group>
+              );
+            }
+            return (
+              <Text
+                size="xs"
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {ansiToReact(recordMessage(r))}
+              </Text>
+            );
+          },
         },
       ],
       [],
@@ -578,11 +635,9 @@ export const LogExplorer = observer(
 
           {/* Ce qui est affiché, dit en clair : par défaut INFO et plus grave. */}
           <Group gap="xs" mb="xs" wrap="wrap">
-            <Switch
-              size="sm"
-              checked={hideConsole}
-              onChange={(e) => setHideConsole(e.currentTarget.checked)}
-              label="Masquer le trafic de cette console"
+            <ViewFilterSwitches
+              value={viewFilters}
+              onChange={onViewFiltersChange}
             />
             <Switch
               size="sm"
@@ -591,7 +646,6 @@ export const LogExplorer = observer(
               label="Une ligne par requête"
             />
             <InfoHint text="Chaque requête (ou connexion WebSocket) tient sur une ligne : sa ligne d'accès — méthode, statut, URL, durée — quand elle est là. Le chevron déplie toutes ses lignes, tous niveaux compris. Désactivé, chaque ligne du journal est affichée seule." />
-            <InfoHint text="Les pages de la console d'administration, ses appels de données (/nodefony/…/api/) et le rechargement à chaud (/_vite/, « hmr update ») écrivent chacun une ligne. Masquées, il ne reste que l'application. Les erreurs relayées depuis le navigateur restent visibles." />
             <Text size="sm">
               {severities.size === 0 || severities.has("DEBUG") ? (
                 <>

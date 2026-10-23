@@ -207,10 +207,37 @@ export interface SavedFilters {
   severities?: Severity[];
   moduleF?: string;
   msgidF?: string;
-  /** Masquer les lignes d'accès de la console d'administration (défaut : oui). */
-  hideConsole?: boolean;
   /** Une ligne par requête (défaut : oui). */
   groupByRequest?: boolean;
+}
+
+/** Filtres d'affichage COMMUNS aux onglets Journaux et Direct. */
+export interface ILogViewFilters {
+  /** Masquer la console d'administration et le bavardage de Vite. */
+  hideConsole: boolean;
+  /** Masquer les lignes du framework (module `NODEFONY`). */
+  hideFramework: boolean;
+}
+
+/** Vue d'ouverture : console et Vite masqués, framework visible. */
+export const DEFAULT_VIEW_FILTERS: ILogViewFilters = {
+  hideConsole: true,
+  hideFramework: false,
+};
+
+/** Relit des filtres d'affichage persistés ; tout champ absent ou mal formé prend son défaut. */
+export function parseViewFilters(value: unknown): ILogViewFilters {
+  if (!isPlainObject(value)) return DEFAULT_VIEW_FILTERS;
+  return {
+    hideConsole:
+      typeof value.hideConsole === "boolean"
+        ? value.hideConsole
+        : DEFAULT_VIEW_FILTERS.hideConsole,
+    hideFramework:
+      typeof value.hideFramework === "boolean"
+        ? value.hideFramework
+        : DEFAULT_VIEW_FILTERS.hideFramework,
+  };
 }
 
 const isOrder = isOneOf(["asc", "desc"] as const);
@@ -242,9 +269,6 @@ export function parseSavedFilters(value: unknown): SavedFilters {
   }
   if (isString(value.moduleF)) out.moduleF = value.moduleF;
   if (isString(value.msgidF)) out.msgidF = value.msgidF;
-  if (typeof value.hideConsole === "boolean") {
-    out.hideConsole = value.hideConsole;
-  }
   if (typeof value.groupByRequest === "boolean") {
     out.groupByRequest = value.groupByRequest;
   }

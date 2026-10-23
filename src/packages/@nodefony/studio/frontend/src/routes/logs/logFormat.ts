@@ -5,7 +5,13 @@
  * pour être testables et partagés sans tirer de rendu.
  */
 import type { MantineColor } from "@mantine/core";
-import type { BackplaneMeta, LogRecord, Severity } from "./logsTypes";
+import type {
+  BackplaneMeta,
+  ILogViewFilters,
+  LogRecord,
+  Severity,
+} from "./logsTypes";
+import { consoleRequestIds, pduIsConsoleRequest } from "nodefony";
 import { SEVERITIES } from "./logsTypes";
 
 /** Version de la documentation embarquée (badges des fiches `DocHint`). */
@@ -145,6 +151,76 @@ const DRIVER_META: Record<string, DriverMeta> = {
     icon: "search",
   },
 };
+
+/** Une ligne d'accès lue : ce qu'il faut voir d'une requête d'un coup d'œil. */
+export interface IAccessLine {
+  /** `GET`, `POST`… ou `WS` pour une connexion WebSocket. */
+  method: string;
+  /** Statut HTTP ; `null` quand la ligne n'en porte pas (`---`). */
+  status: number | null;
+  /** Chemin et requête (`/api/users?page=2`), sans schéma ni hôte. */
+  path: string;
+  /** Durée telle qu'écrite (`3.21ms`), `null` si absente. */
+  duration: string | null;
+}
+
+const ANSI_SGR = /\u001b\[[0-9;]*m/g;
+/** `MÉTHODE STATUT URL DURÉE …` — format de `PrettyRequestLogger`. */
+const ACCESS_LINE = /^([A-Z]+)\s+(\d{3}|---)\s+(\S+)(?:\s+(\S+))?/;
+
+/**
+ * Lit une ligne d'accès (`msgid "req"`) : verbe, statut, chemin, durée.
+ *
+ * @param rec - une ligne du journal
+ * @returns la requête lue, ou `null` si ce n'est pas une ligne d'accès lisible
+ */
+export function parseAccessLine(rec: LogRecord): IAccessLine | null {
+  if (rec.msgid !== "req" || typeof rec.payload !== "string") return null;
+  const m = ACCESS_LINE.exec(rec.payload.replace(ANSI_SGR, ""));
+  if (m === null) return null;
+  const [, method = "", rawStatus = "", url = "", duration] = m;
+  let path = url;
+  const scheme = url.indexOf("://");
+  if (scheme !== -1) {
+    const slash = url.indexOf("/", scheme + 3);
+    path = slash === -1 ? "/" : url.slice(slash);
+  }
+  return {
+    method,
+    status: rawStatus === "---" ? null : Number(rawStatus),
+    path,
+    duration: duration !== undefined && /\d/.test(duration) ? duration : null,
+  };
+}
+
+/** Couleur d'un verbe : lecture, écriture, effacement, WebSocket. */
+export function methodColor(method: string): MantineColor {
+  switch (method) {
+    case "GET":
+    case "HEAD":
+      return "blue";
+    case "POST":
+      return "green";
+    case "PUT":
+    case "PATCH":
+      return "orange";
+    case "DELETE":
+      return "red";
+    case "WS":
+      return "grape";
+    default:
+      return "gray";
+  }
+}
+
+/** Couleur d'un statut HTTP par classe (2xx, 3xx, 4xx, 5xx). */
+export function statusColor(status: number | null): MantineColor {
+  if (status === null) return "gray";
+  if (status >= 500) return "red";
+  if (status >= 400) return "orange";
+  if (status >= 300) return "yellow";
+  return "teal";
+}
 
 /**
  * Qui alimente la source de lecture : ce processus (mémoire, fichier local),
@@ -643,4 +719,36 @@ export function countBySeverity(
     if (s in counts) counts[s] += 1;
   }
   return counts;
+}
+
+/** Module sous lequel le framework lui-même écrit (noyau, pipeline, lignes d'accès). */
+export const FRAMEWORK_MODULE = "NODEFONY";
+
+/**
+ * Applique les filtres d'affichage communs à un lot déjà en main (le flux du
+ * Direct) — les MÊMES règles que le serveur applique aux Journaux
+ * (`hideConsole`, `excludeModule`), importées du cœur, jamais recopiées.
+ *
+ * @param items - le lot, dans son ordre
+ * @param pick - lit l'enregistrement d'un élément
+ * @param filters - les filtres d'affichage
+ * @returns le lot filtré (le MÊME tableau si aucun filtre n'agit)
+ */
+export function applyViewFilters<T>(
+  items: T[],
+  pick: (item: T) => LogRecord,
+  filters: ILogViewFilters,
+): T[] {
+  if (!filters.hideConsole && !filters.hideFramework) return items;
+  const ids = filters.hideConsole ? consoleRequestIds(items.map(pick)) : null;
+  return items.filter((item) => {
+    const rec = pick(item);
+    if (
+      filters.hideFramework &&
+      rec.moduleName.toUpperCase() === FRAMEWORK_MODULE
+    ) {
+      return false;
+    }
+    return !(filters.hideConsole && pduIsConsoleRequest(rec, ids));
+  });
 }
