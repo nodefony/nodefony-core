@@ -5,7 +5,7 @@ import {
   type IPduLike,
 } from "./ILogDriver";
 import { pduProtocol } from "./pduProtocol";
-import { pduIsConsoleTraffic } from "./pduConsole";
+import { consoleRequestIds, pduIsConsoleRequest } from "./pduConsole";
 import { pduFlowStep } from "./pduFlow";
 
 /** Plafond dur d'enregistrements renvoyés (anti-DoS mémoire/réseau). */
@@ -57,18 +57,13 @@ export function filterPdus(
     protocol,
     hideConsole,
     groupByRequest,
+    excludeModule,
   } = criteria;
+  const excludeLc = excludeModule ? excludeModule.toLowerCase() : null;
   // Une requête dont UNE ligne vise la console est écartée en ENTIER : ses
   // autres lignes ne portent pas l'URL, seulement le requestId. Set alloué
   // seulement si une telle ligne existe (chemin froid admin).
-  let consoleRequests: Set<string> | null = null;
-  if (hideConsole) {
-    for (const pdu of pdus) {
-      if (pdu.requestId !== undefined && pduIsConsoleTraffic(pdu)) {
-        (consoleRequests ??= new Set()).add(pdu.requestId);
-      }
-    }
-  }
+  const consoleRequests = hideConsole ? consoleRequestIds(pdus) : null;
 
   // Normalisation des critères string (1× hors boucle).
   const severities =
@@ -96,17 +91,11 @@ export function filterPdus(
     if (pdu === undefined) continue;
     if (requestId !== undefined && pdu.requestId !== requestId) continue;
     if (protocol && pduProtocol(pdu) !== protocol) continue;
-    if (
-      hideConsole &&
-      (pduIsConsoleTraffic(pdu) ||
-        (pdu.requestId !== undefined &&
-          consoleRequests?.has(pdu.requestId) === true))
-    ) {
-      continue;
-    }
+    if (hideConsole && pduIsConsoleRequest(pdu, consoleRequests)) continue;
     if (severities && !severities.includes(pdu.severityName.toUpperCase()))
       continue;
     if (moduleLc && !pdu.moduleName.toLowerCase().includes(moduleLc)) continue;
+    if (excludeLc && pdu.moduleName.toLowerCase() === excludeLc) continue;
     if (msgidLc && !pdu.msgid.toLowerCase().includes(msgidLc)) continue;
     if (from !== undefined && pdu.timeStamp < from) continue;
     if (to !== undefined && pdu.timeStamp > to) continue;

@@ -85,6 +85,8 @@ export interface ILogQueryCriteria {
   module?: string;
   /** Catégorie de message (msgid) — inclusion insensible à la casse. */
   msgid?: string;
+  /** Nom de module EXCLU — égalité insensible à la casse (ex. `NODEFONY`, le framework). */
+  excludeModule?: string;
   /** Borne basse du `timeStamp` (epoch ms, inclus). */
   from?: number;
   /** Borne haute du `timeStamp` (epoch ms, inclus). */

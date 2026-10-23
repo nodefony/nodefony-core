@@ -31,6 +31,8 @@ export const SYSLOG_FILTERS = {
   module: "string",
   /** Catégorie de message (msgid) — inclusion insensible à la casse. */
   msgid: "string",
+  /** Module exclu — égalité insensible à la casse (`NODEFONY` = le framework). */
+  excludeModule: "string",
   /** Protocole d'origine ; absent = les deux. */
   protocol: ["ws", "http"],
   /**

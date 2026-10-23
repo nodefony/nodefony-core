@@ -210,6 +210,23 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     });
   });
 
+  describe("filterPdus — excludeModule", () => {
+    it("écarte un module par égalité insensible à la casse, pas par inclusion", () => {
+      const r = filterPdus(
+        [
+          mk("boot", "INFO", "NODEFONY", "KERNEL", 1),
+          mk("métier", "INFO", "app", "APP", 2),
+          mk("voisin", "INFO", "NODEFONY-EXT", "X", 3),
+        ],
+        { excludeModule: "nodefony" },
+      );
+      assert.deepStrictEqual(
+        r.rows.map((x) => x.moduleName),
+        ["NODEFONY-EXT", "app"],
+      );
+    });
+  });
+
   describe("filterPdus — groupByRequest", () => {
     const pdus = (): Pdu[] => [
       mk("route trouvée", "INFO", "ROUTER", "MATCH", 1000, "A"),
@@ -300,6 +317,20 @@ describe("Log Backplane (LB.0/LB.1)", () => {
         1700,
       ),
       mk(
+        "[vue] [vite] ➜ Local: http://127.0.0.1:5181/_vite/vue/",
+        "INFO",
+        "NODEFONY",
+        "frontend",
+        1750,
+      ),
+      mk(
+        "[default] [vite] (client) [vite] warning: x",
+        "WARNING",
+        "NODEFONY",
+        "frontend",
+        2600,
+      ),
+      mk(
         "[default] [vite] page reload src/main.tsx",
         "INFO",
         "NODEFONY",
@@ -317,7 +348,7 @@ describe("Log Backplane (LB.0/LB.1)", () => {
 
     it("hideConsole écarte relais Vite, pages et data plane de la console", () => {
       const r = filterPdus(traffic(), { hideConsole: true });
-      assert.strictEqual(r.total, 6);
+      assert.strictEqual(r.total, 7);
       assert.ok(
         r.rows.every((x) => x.timeStamp >= 2000),
         r.rows.map((x) => String(x.payload)).join("\n"),

@@ -26,6 +26,11 @@ import { BrowserWsTransport } from "./realtime/BrowserWsTransport";
 import { rateChannel, parseRate, isRateChannel } from "../realtime/channelRate";
 import { AdaptiveRate, bindAdaptiveChannel } from "./realtime/AdaptiveRate";
 import { pduProtocol } from "../syslog/drivers/pduProtocol";
+import {
+  consoleRequestIds,
+  pduIsConsoleRequest,
+  pduIsConsoleTraffic,
+} from "../syslog/drivers/pduConsole";
 import { pduFlowStep, FLOW_STEPS } from "../syslog/drivers/pduFlow";
 export type {
   RealtimeState,
@@ -172,6 +177,9 @@ export {
   pduProtocol,
   pduFlowStep,
   FLOW_STEPS,
+  consoleRequestIds,
+  pduIsConsoleRequest,
+  pduIsConsoleTraffic,
 };
 // Le contrat de pagination est ISOMORPHE : le serveur rend des `IPage`, le
 // navigateur les consomme. Types purs — zéro octet de runtime côté client, et
