@@ -332,23 +332,6 @@ export const LogExplorer = observer(
     const columns = useMemo<DataGridColumn<LogRecord>[]>(
       () => [
         {
-          key: "uid",
-          header: "#",
-          size: 76,
-          hint: "Numéro de séquence (uid) — compteur monotone d'émission. Garantit la chronologie EXACTE même quand l'horloge (ms) est identique.",
-          value: (r) => r.uid,
-          render: (r) => (
-            <Text
-              size="xs"
-              c="dimmed"
-              ff="monospace"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              #{r.uid}
-            </Text>
-          ),
-        },
-        {
           key: "time",
           header: "Heure",
           size: 118,
@@ -370,89 +353,6 @@ export const LogExplorer = observer(
               </Text>
             </Text>
           ),
-        },
-        {
-          key: "severity",
-          header: "Sévérité",
-          size: 120,
-          value: (r) => r.severityName,
-          render: (r) => <SeverityBadge severity={r.severityName} />,
-        },
-        {
-          key: "module",
-          header: "Module",
-          size: 130,
-          value: (r) => r.moduleName,
-          render: (r) => <OriginBadge moduleName={r.moduleName} />,
-        },
-        {
-          key: "msgid",
-          header: "msgid",
-          size: 120,
-          value: (r) => r.msgid,
-          render: (r) =>
-            r.msgid ? (
-              <Code style={{ fontSize: 11 }}>{r.msgid}</Code>
-            ) : (
-              <Text c="dimmed">—</Text>
-            ),
-        },
-        {
-          key: "requestId",
-          header: "requestId",
-          size: 170,
-          value: (r) => r.requestId ?? "",
-          render: (r) =>
-            r.requestId ? (
-              <>
-                <Tooltip label="Tracer toute la requête">
-                  <Badge
-                    component="button"
-                    type="button"
-                    variant="outline"
-                    color="grape"
-                    size="sm"
-                    style={{ cursor: "pointer", fontFamily: "monospace" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRequestId(r.requestId ?? "");
-                      setOrder("asc"); // suivre la requête = lecture chronologique
-                      setMoreOpen(true);
-                    }}
-                  >
-                    {r.requestId.slice(0, 8)}
-                  </Badge>
-                </Tooltip>
-                {r.lines !== undefined && r.lines > 1 && (
-                  <Text span size="xs" c="dimmed" ml={4}>
-                    {r.lines} lignes
-                  </Text>
-                )}
-              </>
-            ) : (
-              <Text c="dimmed" size="xs">
-                —
-              </Text>
-            ),
-        },
-        {
-          key: "flow",
-          header: "Étape",
-          size: 140,
-          hint: "Traduit l'event technique en étape logique du cycle de la requête (entrée → routage → session → réponse → fin). Vide (—) = log applicatif libre (ton métier). Légende complète dans l'onglet Backplane.",
-          value: (r) => describeFlow(r)?.label ?? "",
-          render: (r) => {
-            const f = describeFlow(r);
-            return f ? (
-              <Badge size="xs" variant="light" color={f.color}>
-                {f.label}
-              </Badge>
-            ) : (
-              <Text c="dimmed" size="xs">
-                —
-              </Text>
-            );
-          },
         },
         {
           key: "method",
@@ -521,6 +421,106 @@ export const LogExplorer = observer(
               </Text>
             );
           },
+        },
+        {
+          key: "severity",
+          header: "Sévérité",
+          size: 120,
+          value: (r) => r.severityName,
+          render: (r) => <SeverityBadge severity={r.severityName} />,
+        },
+        {
+          key: "module",
+          header: "Module",
+          size: 130,
+          value: (r) => r.moduleName,
+          render: (r) => <OriginBadge moduleName={r.moduleName} />,
+        },
+        {
+          key: "requestId",
+          header: "requestId",
+          size: 170,
+          value: (r) => r.requestId ?? "",
+          render: (r) =>
+            r.requestId ? (
+              <>
+                <Tooltip label="Tracer toute la requête">
+                  <Badge
+                    component="button"
+                    type="button"
+                    variant="outline"
+                    color="grape"
+                    size="sm"
+                    style={{ cursor: "pointer", fontFamily: "monospace" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRequestId(r.requestId ?? "");
+                      setOrder("asc"); // suivre la requête = lecture chronologique
+                      setMoreOpen(true);
+                    }}
+                  >
+                    {r.requestId.slice(0, 8)}
+                  </Badge>
+                </Tooltip>
+                {r.lines !== undefined && r.lines > 1 && (
+                  <Text span size="xs" c="dimmed" ml={4}>
+                    {r.lines} lignes
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Text c="dimmed" size="xs">
+                —
+              </Text>
+            ),
+        },
+        {
+          key: "flow",
+          header: "Étape",
+          size: 140,
+          hint: "Traduit l'event technique en étape logique du cycle de la requête (entrée → routage → session → réponse → fin). Vide (—) = log applicatif libre (ton métier). Légende complète dans l'onglet Backplane.",
+          value: (r) => describeFlow(r)?.label ?? "",
+          render: (r) => {
+            const f = describeFlow(r);
+            return f ? (
+              <Badge size="xs" variant="light" color={f.color}>
+                {f.label}
+              </Badge>
+            ) : (
+              <Text c="dimmed" size="xs">
+                —
+              </Text>
+            );
+          },
+        },
+        {
+          key: "msgid",
+          header: "msgid",
+          size: 120,
+          value: (r) => r.msgid,
+          render: (r) =>
+            r.msgid ? (
+              <Code style={{ fontSize: 11 }}>{r.msgid}</Code>
+            ) : (
+              <Text c="dimmed">—</Text>
+            ),
+        },
+        {
+          key: "uid",
+          header: "#",
+          size: 76,
+          hint: "Numéro de séquence (uid) — compteur monotone d'émission. Garantit la chronologie EXACTE même quand l'horloge (ms) est identique.",
+          value: (r) => r.uid,
+          render: (r) => (
+            <Text
+              size="xs"
+              c="dimmed"
+              ff="monospace"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              #{r.uid}
+            </Text>
+          ),
         },
       ],
       [],
@@ -889,7 +889,9 @@ export const LogExplorer = observer(
                 ? "Aucune ligne ne correspond aux filtres."
                 : source.emptyMessage
             }
-            persist={{ key: "studio.logs.explorer.v2", storage: "session" }}
+            // v3 : colonnes réordonnées (verbe et chemin d'abord) — l'ordre mémorisé
+            // par la v2 aurait gardé l'URI en dernier, coupée.
+            persist={{ key: "studio.logs.explorer.v3", storage: "session" }}
           />
         </Paper>
       </Stack>
