@@ -3659,19 +3659,11 @@
                 "help": ""
               },
               {
-                "name": "REPERE_PREFIXE_COMPTE",
-                "help": ""
-              },
-              {
                 "name": "ROLE_FACTURATION",
                 "help": ""
               },
               {
                 "name": "ROUTE_ARTICLES",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_CATALOGUE",
                 "help": ""
               },
               {

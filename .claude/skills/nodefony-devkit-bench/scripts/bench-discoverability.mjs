@@ -1650,6 +1650,30 @@ export const SONDES_QUALITE = [
 export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
 
 /**
+ * La prémisse d'une ressource posée par le décor : `create entity`, puis les
+ * gestes qu'un utilisateur fait ensuite — construire, générer la migration,
+ * l'appliquer.
+ *
+ * Sans les deux derniers, la base diverge du schéma déclaré :
+ * `orm:migrate:status` rend `divergent`, `npm run test:e2e` sort en 1 sur un
+ * décor que l'agent n'a pas encore touché, et il paie des tours à réparer ce
+ * qui ne relève pas de sa tâche. Vécu sur la tâche 17 : un agent chargé de
+ * protéger un préfixe a ouvert le skill de migration et généré la migration
+ * manquante avant de toucher au pare-feu.
+ *
+ * @param {string} entite - nom et champs, tels que `create entity` les lit.
+ * @param {string} route - préfixe de la ressource.
+ * @param {string} migration - nom de la migration générée.
+ * @returns {string} la chaîne shell de la prémisse.
+ */
+const prepareEntite = (entite, route, migration) =>
+  `npx --no-install nodefony create entity ${entite} ` +
+  `--route ${route} --yes >/dev/null 2>&1 && ` +
+  `npm run build >/dev/null 2>&1 && ` +
+  `npx --no-install nodefony orm:generate --name ${migration} >/dev/null 2>&1 && ` +
+  `npx --no-install nodefony orm:migrate >/dev/null 2>&1`;
+
+/**
  * Les tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  *
@@ -3149,10 +3173,11 @@ export const TASKS = [
     // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
     premisseIdentiteAdmin: true,
     name: "protéger un préfixe, pas des routes une par une",
-    prepare:
-      `npx --no-install nodefony create entity AccountNote title:string ` +
-      `--route ${REPERE_PREFIXE_COMPTE} --yes >/dev/null 2>&1 && ` +
-      `npm run build >/dev/null 2>&1`,
+    prepare: prepareEntite(
+      "AccountNote title:string",
+      REPERE_PREFIXE_COMPTE,
+      "account_notes",
+    ),
     prompt:
       `Ajoute un espace « mon compte » à cette application : tout ce qui vit sous ` +
       `/api/account — ce qui y existe déjà comme ce qui s'y ajoutera — est réservé aux ` +
@@ -3696,10 +3721,7 @@ export const TASKS = [
     // démonter la défense pour tout le monde.
     id: 25,
     name: "le partenaire poste sur une route qui existe déjà",
-    prepare:
-      `npx --no-install nodefony create entity Order reference:string ` +
-      `--route ${ROUTE_COMMANDES} --yes >/dev/null 2>&1 && ` +
-      `npm run build >/dev/null 2>&1`,
+    prepare: prepareEntite("Order reference:string", ROUTE_COMMANDES, "orders"),
     prompt:
       `Un partenaire héberge sur ${ORIGINE_PARTENAIRE} un formulaire qui envoie ses commandes ` +
       `à cette application par POST ${ROUTE_COMMANDES} (corps JSON { "reference": "..." }, ` +
@@ -3776,10 +3798,7 @@ export const TASKS = [
     // sans cela, déplacer la route sous le `^/api/machine` du gabarit serait une
     // réponse valable, le juge frapperait une URL devenue 404, et la tâche
     // mesurerait un déménagement plutôt qu'une zone.
-    prepare:
-      `npx --no-install nodefony create entity Ingest reference:string ` +
-      `--route ${ROUTE_MACHINE} --yes >/dev/null 2>&1 && ` +
-      `npm run build >/dev/null 2>&1`,
+    prepare: prepareEntite("Ingest reference:string", ROUTE_MACHINE, "ingests"),
     prompt:
       `Un service partenaire — un PROGRAMME, pas un navigateur : ni cookie, ni ` +
       `formulaire — doit déposer ses lots par POST ${ROUTE_MACHINE} en ` +
@@ -3985,10 +4004,11 @@ export const TASKS = [
     // lecture d'une consigne.
     id: 29,
     name: "la liste ne grossit pas avec la table",
-    prepare:
-      `npx --no-install nodefony create entity Product reference:string price:int ` +
-      `--route ${ROUTE_CATALOGUE} --yes >/dev/null 2>&1 && ` +
-      `npm run build >/dev/null 2>&1`,
+    prepare: prepareEntite(
+      "Product reference:string price:int",
+      ROUTE_CATALOGUE,
+      "products",
+    ),
     prompt:
       `Ajoute ${ROUTE_SYNTHESE} : la liste des produits destinée à l'écran ` +
       `d'accueil — référence et prix de chaque produit, du plus récent au plus ` +
