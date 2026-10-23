@@ -51,7 +51,11 @@ import { SyslogConfigPanel } from "./logs/SyslogConfigPanel";
 import { PduDetailDrawer } from "./logs/PduDetailDrawer";
 import { ProfilingTab } from "./logs/ProfilingTab";
 import { DebugTab } from "./logs/DebugTab";
-import type { BackplaneMeta, LogRecord } from "./logs/logsTypes";
+import type {
+  BackplaneMeta,
+  LogQueryResult,
+  LogRecord,
+} from "./logs/logsTypes";
 import { describeSource } from "./logs/logFormat";
 
 type TabId =
@@ -91,6 +95,24 @@ export const Logs = observer(() => {
     [store],
   );
   const { data: meta, loading, error, reload } = useResource(fetcher);
+
+  // Ligne la plus récente de la source (tout trafic compris) → fraîcheur dite
+  // dans la barre d'état. Une source distante qui ne reçoit plus rien répond
+  // encore : seule cette date le montre.
+  const latestFetcher = useCallback(
+    () =>
+      store.api.getAbsolute<LogQueryResult>(
+        "/nodefony/syslog/api/logs/search?limit=1",
+      ),
+    [store],
+  );
+  const { data: latestRes, reload: reloadLatest } = useResource(latestFetcher);
+  useEffect(() => {
+    const id = setInterval(reloadLatest, 30_000);
+    return () => clearInterval(id);
+  }, [reloadLatest]);
+  const latest =
+    latestRes === null ? undefined : (latestRes.rows[0]?.timeStamp ?? null);
 
   // État du debug runtime → pastille sur l'onglet « Debug » quand actif.
   const debugFetcher = useCallback(
@@ -207,7 +229,12 @@ export const Logs = observer(() => {
           </Button>
         }
         statusBar={
-          <SyslogStatusBar meta={meta} realtimeState={realtimeState} />
+          <SyslogStatusBar
+            meta={meta}
+            source={source}
+            latest={latest}
+            realtimeState={realtimeState}
+          />
         }
         value={tab}
         onChange={(v) => changeTab(v as TabId)}

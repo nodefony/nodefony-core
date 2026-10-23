@@ -6,7 +6,12 @@
  */
 import { describe, it } from "vitest";
 import { expect } from "vitest";
-import { describeSource } from "../../../frontend/src/routes/logs/logFormat";
+import {
+  STALE_AFTER_MS,
+  describeFreshness,
+  describeSource,
+  fmtAge,
+} from "../../../frontend/src/routes/logs/logFormat";
 import type {
   BackplaneMeta,
   TransportInfo,
@@ -84,5 +89,55 @@ describe("describeSource", () => {
 
   it("data plane plus ancien (sans transports) : on suppose l'application", () => {
     expect(describeSource(meta("opensearch", undefined)).feeder).toBe("app");
+  });
+});
+
+describe("describeFreshness", () => {
+  const NOW = 1_800_000_000_000;
+  const memory = describeSource(meta("memory", []));
+  const collected = describeSource(
+    meta("loki", [{ name: "file", enabled: true }]),
+  );
+
+  it("pas encore lu : rien à dire", () => {
+    expect(describeFreshness(collected, undefined, NOW)).toEqual({
+      text: "",
+      stale: false,
+    });
+  });
+
+  it("source distante muette depuis 6 h : signalée", () => {
+    const f = describeFreshness(collected, NOW - 6 * 3_600_000, NOW);
+    expect(f).toEqual({ text: "dernière ligne il y a 6 h", stale: true });
+  });
+
+  it("source distante récente : pas d'alerte, seuil compris", () => {
+    expect(describeFreshness(collected, NOW - STALE_AFTER_MS, NOW).stale).toBe(
+      false,
+    );
+    expect(
+      describeFreshness(collected, NOW - STALE_AFTER_MS - 1, NOW).stale,
+    ).toBe(true);
+  });
+
+  it("mémoire d'un processus calme : jamais périmée", () => {
+    expect(describeFreshness(memory, NOW - 6 * 3_600_000, NOW).stale).toBe(
+      false,
+    );
+  });
+
+  it("source distante vide : signalée", () => {
+    expect(describeFreshness(collected, null, NOW)).toEqual({
+      text: "aucune ligne reçue",
+      stale: true,
+    });
+  });
+
+  it("fmtAge : à l'instant, secondes, minutes, heures, jours", () => {
+    expect(fmtAge(2_000)).toBe("à l'instant");
+    expect(fmtAge(12_000)).toBe("il y a 12 s");
+    expect(fmtAge(6 * 60_000)).toBe("il y a 6 min");
+    expect(fmtAge(3 * 3_600_000)).toBe("il y a 3 h");
+    expect(fmtAge(3 * 86_400_000)).toBe("il y a 3 j");
   });
 });

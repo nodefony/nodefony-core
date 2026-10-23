@@ -250,6 +250,56 @@ export function describeSource(meta: BackplaneMeta | null): ISourceDescription {
   };
 }
 
+/**
+ * Au-delà, une source distante qui ne reçoit plus rien est signalée : un
+ * collecteur arrêté ne lève aucune erreur, Loki répond toujours.
+ */
+export const STALE_AFTER_MS = 5 * 60_000;
+
+/** Fraîcheur de la source, dite en mots. */
+export interface IFreshness {
+  /** « dernière ligne il y a 12 s » ; vide tant que rien n'est mesuré. */
+  text: string;
+  /** La source distante ne reçoit plus rien depuis {@link STALE_AFTER_MS}. */
+  stale: boolean;
+}
+
+/** Durée écoulée, en mots courts : « à l'instant », « 12 s », « 6 min », « 3 h », « 2 j ». */
+export function fmtAge(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 5) return "à l'instant";
+  if (s < 60) return `il y a ${s} s`;
+  const min = Math.floor(s / 60);
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return `il y a ${h} h`;
+  return `il y a ${Math.floor(h / 24)} j`;
+}
+
+/**
+ * Dit depuis quand la source n'a rien reçu. Seule une source distante peut être
+ * périmée : un processus calme n'écrit rien, sa mémoire n'en est pas fausse.
+ *
+ * @param source - la source décrite par {@link describeSource}
+ * @param latest - horodatage de la ligne la plus récente ; `undefined` = pas encore lu, `null` = aucune ligne
+ * @param now - l'instant de référence (epoch ms)
+ */
+export function describeFreshness(
+  source: ISourceDescription,
+  latest: number | null | undefined,
+  now: number,
+): IFreshness {
+  if (latest === undefined) return { text: "", stale: false };
+  if (latest === null) {
+    return { text: "aucune ligne reçue", stale: source.remote };
+  }
+  const age = now - latest;
+  return {
+    text: `dernière ligne ${fmtAge(age)}`,
+    stale: source.remote && age > STALE_AFTER_MS,
+  };
+}
+
 /** Méta d'affichage d'un driver (défaut générique si nom inconnu). */
 export function driverMeta(name: string): DriverMeta {
   return (
