@@ -4,6 +4,7 @@ import https from "node:https";
 import http2 from "node:http2";
 import { randomUUID } from "node:crypto";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
+import { drainTo } from "../helpers/scopeDrain";
 import {
   compteDansJournal,
   journalDuServeur,
@@ -250,6 +251,51 @@ describe.skipIf(IS_PROD_TARGET)(
         1,
       );
       expect(lignes(new RegExp(`GET\\s+302\\s\\S*m=${marque}`))).to.equal(1);
+    });
+
+    it("HTTP/2 : un HEAD est journalisé et son scope libéré", async (ctx) => {
+      // Pour un HEAD, Node clôt le flux dès `respond()` et la réponse de
+      // compatibilité n'émettait plus ni `finish` ni `close` : aucun démontage,
+      // donc ni ligne d'accès ni libération du scope — une fuite par requête.
+      const scopes = async (): Promise<number> => {
+        const body = await new Promise<string>((resolve, reject) => {
+          const r = https.request(
+            { ...BASE, path: "/nodefony/test/als-test/scopes", method: "GET" },
+            (res) => {
+              let s = "";
+              res.on("data", (c: Buffer) => (s += c.toString()));
+              res.on("end", () => resolve(s));
+            },
+          );
+          r.on("error", reject);
+          r.end();
+        });
+        return (JSON.parse(body) as { requestScopes: number }).requestScopes;
+      };
+      const base = await scopes();
+      const marque = randomUUID();
+      const N = 20;
+      const statuts: number[] = [];
+      for (let i = 0; i < N; i++) {
+        statuts.push(
+          await h2Request(`/nodefony/test/index?m=${marque}`, {
+            ":method": "HEAD",
+          }),
+        );
+      }
+      expect(statuts[0], "prémisse : le HEAD répond 200").to.equal(200);
+      const reste = await drainTo(scopes, base);
+      expect(reste, `${N} HEAD en HTTP/2 : scopes jamais libérés`).to.be.below(
+        5,
+      );
+      if (journal === null) {
+        ctx.skip("aucun journal alimenté par le serveur sous test");
+        return;
+      }
+      expect(
+        compteDansJournal(journal, new RegExp(`HEAD\\s+200\\s\\S*m=${marque}`)),
+        "chaque HEAD a sa ligne d'accès",
+      ).to.equal(N);
     });
 
     it("HTTP/2 : un client parti avant toute réponse reste un 499", async (ctx) => {

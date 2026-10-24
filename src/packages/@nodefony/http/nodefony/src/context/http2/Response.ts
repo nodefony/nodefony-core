@@ -166,6 +166,7 @@ class Http2Response extends HttpResponse {
     // Stream fermé/non-writable (client abandonné, write-after-end) :
     // résoudre sans écrire → évite ERR_STREAM_WRITE_AFTER_END (CRITIC).
     if (stream.destroyed || !stream.writable) {
+      this.settleHeadResponse();
       this.log("HTTP/2 stream not writable before send — skip", "DEBUG");
       return this;
     }
@@ -209,11 +210,35 @@ class Http2Response extends HttpResponse {
         this.stream.destroyed ||
         this.stream.closed
       ) {
+        this.settleHeadResponse();
         return this.stream;
       }
       return this.stream.end(chunk, encoding || this.encoding);
     }
     return super.end(chunk, encoding);
+  }
+
+  /**
+   * Termine la réponse de compatibilité d'un HEAD, dont Node a clos le flux de
+   * lui-même au `respond()`.
+   *
+   * Sans ce geste, `Http2ServerResponse` n'émet ni `finish` ni `close` : le
+   * démontage de la requête, branché sur ce `close` (ligne d'accès, profil,
+   * hooks d'après-réponse, libération du scope DI), n'a jamais lieu. Les statuts
+   * que Node termine aussi d'office (204, 205, 304) émettent leur `close` seuls,
+   * et un flux détruit (client parti) aussi : ils ne sont pas touchés. Hors du
+   * chemin servi — appelé seulement quand le flux est déjà clos.
+   */
+  private settleHeadResponse(): void {
+    const raw = this.response;
+    if (
+      raw !== null &&
+      this.context.method === "HEAD" &&
+      this.stream?.destroyed === false &&
+      !raw.writableEnded
+    ) {
+      raw.end();
+    }
   }
 
   override getStatusMessage(code?: number | string): string {
