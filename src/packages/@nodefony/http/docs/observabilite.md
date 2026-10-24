@@ -328,9 +328,11 @@ timing (`pretty-request-logger.ts#shortId`).
   drapeaux `hasAuthorization`/`hasCookie` le sont (`audit-logger.ts#AuditLogEntry.hasCookie`).
 - **Sampling déterministe** : `shouldSample()` (`audit-logger.ts#JsonAuditLogger.shouldSample`) garde 1 requête nominale sur N mais
   **jamais** une erreur ni un `status >= 400` — on ne perd aucun échec ; compteur, pas de RNG.
-- **Durée absente en production par défaut** : `durationMs` se calcule depuis les phases
-  (`audit-logger.ts#computeDurationMs`), et le chronométrage par phase est coupé en production pour ne
-  rien coûter à la requête. La ligne sort donc avec `durationMs: null`. `NF__APP__TIMING__ENABLED=true`
+- **Durée absente en production par défaut** : `durationMs` est la durée de la requête, de la
+  construction du contexte à la fin de la réponse (`close`, dernier octet remis), lue sur une horloge
+  unique que partagent le journal d'accès, le profileur et la trace verbose
+  (`Context.ts#Context.stopClock`). Le chronométrage est coupé en production pour ne rien coûter à la
+  requête. La ligne sort donc avec `durationMs: null`. `NF__APP__TIMING__ENABLED=true`
   l'allume (chronométrage complet) ; un réglage plus léger, une seule mesure par requête, est à l'étude.
 
 Destinée à une machine, cette ligne se lit dans un outil d'observabilité : une application générée
