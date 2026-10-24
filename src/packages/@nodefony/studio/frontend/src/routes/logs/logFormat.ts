@@ -185,14 +185,16 @@ export function methodColor(method: string): MantineColor {
 /**
  * Couleur d'un statut d'accès par famille (2xx, 3xx, 4xx, 5xx) — code de
  * fermeture WebSocket compris : `1000` est une fermeture normale, pas une
- * erreur (règle unique : `accessStatusFamily`, au cœur).
+ * erreur (règle unique : `accessStatusFamily`, au cœur). LA palette de la
+ * console : Journaux, Profiling et Suivi de requête l'appellent tous — une
+ * redirection est une information (bleu), pas un avertissement.
  */
 export function statusColor(status: number | null): MantineColor {
   const family = accessStatusFamily(status);
   if (family === null) return "gray";
   if (family >= 5) return "red";
   if (family === 4) return "orange";
-  if (family === 3) return "yellow";
+  if (family === 3) return "blue";
   return "teal";
 }
 

@@ -66,10 +66,13 @@ import {
   fmtClock,
   fmtDateTime,
   fmtMillis,
+  parseAccessLine,
   recordMessage,
+  statusColor,
 } from "./logs/logFormat";
 import { OriginBadge, SeverityBadge } from "./logs/LogVisuals";
 import { WsTracePanel } from "./logs/wsTrace";
+import { SocketCalls } from "./logs/socketCalls";
 import {
   PhaseWaterfall,
   ProfileMeta,
@@ -99,28 +102,22 @@ interface ReqInfo {
   ip?: string | undefined;
 }
 
-/** Parse défensif de la ligne `req` — chaque champ est best-effort. */
-function parseReqLine(line: string): ReqInfo {
-  const out: ReqInfo = {};
-  const method = line.match(/^\s*([A-Z]{3,7})\b/);
-  if (method) out.method = method[1];
-  // Statut = 1er nombre à 3 chiffres APRÈS la méthode (évite de matcher l'IP).
-  const status = line.match(/^\s*[A-Z]+\s+(\d{3})\b/);
-  if (status) out.status = Number(status[1]);
-  const url = line.match(/(https?:\/\/[^\s]+)/i);
-  const href = url?.[1];
-  if (href) {
-    out.url = href;
-    try {
-      out.path = new URL(href).pathname;
-    } catch {
-      /* url non parsable — on garde l'URL brute */
-    }
-  }
-  const dur = line.match(/(\d+(?:\.\d+)?\s?m?s)\b/);
-  if (dur) out.durationMs = dur[1];
-  const ip = line.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/);
-  if (ip) out.ip = ip[1];
+/**
+ * Infos de requête lues dans sa ligne d'accès — par la lecture du cœur
+ * (`parseAccessLine`), la même que les Journaux et la barre de débogage : une
+ * ligne `WS   1000 wss://…` se lit comme une ligne HTTP.
+ */
+function reqFromAccess(rec: LogRecord): ReqInfo {
+  const a = parseAccessLine(rec);
+  if (!a) return {};
+  const out: ReqInfo = {
+    method: a.method,
+    url: a.url,
+    path: a.path,
+    durationMs: a.duration ?? undefined,
+    ip: a.ip ?? undefined,
+  };
+  if (a.status !== null) out.status = a.status;
   return out;
 }
 
@@ -140,15 +137,6 @@ function reqFromProfile(profile: ProfileEntry): ReqInfo {
   if (profile.durationMs !== null) out.durationMs = fmtMs(profile.durationMs);
   if (profile.remoteAddress) out.ip = profile.remoteAddress;
   return out;
-}
-
-/** Couleur de statut HTTP (2xx ok, 3xx info, 4xx warn, 5xx danger). */
-function statusColor(status?: number): string {
-  if (!status) return "gray";
-  if (status < 300) return "teal";
-  if (status < 400) return "blue";
-  if (status < 500) return "yellow";
-  return "red";
 }
 
 /** Durée lisible entre deux timestamps (ms → ms/s). */
@@ -304,7 +292,7 @@ export const TraceView = observer(() => {
       : logs.some((l) => pduProtocol(l) === "ws");
     const reqLog = logs.find((l) => l.msgid === "req");
     const req = reqLog
-      ? parseReqLine(recordMessage(reqLog))
+      ? reqFromAccess(reqLog)
       : profile
         ? reqFromProfile(profile)
         : {};
@@ -391,7 +379,10 @@ export const TraceView = observer(() => {
           tone:
             summary.req.status && summary.req.status >= 400 ? "danger" : "ok",
           value: summary.req.status ? (
-            <Badge variant="light" color={statusColor(summary.req.status)}>
+            <Badge
+              variant="light"
+              color={statusColor(summary.req.status ?? null)}
+            >
               {summary.req.status}
             </Badge>
           ) : (
@@ -764,7 +755,13 @@ export const TraceView = observer(() => {
                 {wsMessageCount}
               </Badge>
             ) : undefined,
-            panel: <WsTracePanel logs={logs} baseTs={summary.baseTs} />,
+            panel: (
+              <Stack gap="lg">
+                <WsTracePanel logs={logs} baseTs={summary.baseTs} />
+                {/* Une connexion n'a pas de profil : ses appels, si. Une frame en a un. */}
+                {!profile && <SocketCalls requestId={requestId} />}
+              </Stack>
+            ),
           },
         ]
       : []),

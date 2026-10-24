@@ -17,13 +17,21 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  Tooltip,
 } from "@mantine/core";
-import { accessStatusFamily } from "nodefony";
+import { IconArrowsLeftRight, IconWorld } from "@tabler/icons-react";
 import { computeWaterfall } from "nodefony/debugbar";
 import { useMemo } from "react";
 import { DataGrid } from "../../components/ui/DataGrid";
 import type { DataGridColumn } from "../../components/ui/DataGrid";
-import type { ProfileEntry, ProfileQuery } from "../../stores/ProfilerStore";
+import type {
+  ProfileEntry,
+  ProfileQuery,
+  ProfileSummary,
+} from "../../stores/ProfilerStore";
+import { statusColor } from "./logFormat";
+
+export { statusColor };
 
 /** Couleur de badge par méthode HTTP. */
 export const METHOD_COLORS: Record<string, string> = {
@@ -50,22 +58,146 @@ const PHASE_COLORS: Record<string, string> = {
   other: "#8a9099",
 };
 
-/** Couleur de badge selon la famille du statut — HTTP, ou code de fermeture WebSocket. */
-export function statusColor(status: number | null | undefined): string {
-  const family = accessStatusFamily(status ?? null);
-  if (family === null) return "gray";
-  if (family >= 5) return "red";
-  if (family === 4) return "yellow";
-  if (family === 3) return "blue";
-  return "green";
-}
-
 /** Durée serveur lisible (sub-ms → ms → s). */
 export function fmtMs(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return "—";
   if (ms < 1) return `${ms.toFixed(2)}ms`;
   if (ms < 1000) return `${ms.toFixed(1)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+/** Chemin (pathname) d'une URL, ou l'URL brute si non parsable. */
+function pathOf(url: string): string {
+  try {
+    return new URL(url, "http://x").pathname;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Les colonnes d'une liste de profils (`recent`) — partagées par l'onglet
+ * Profiling et les appels d'une socket du Suivi de requête : une liste de
+ * profils se lit partout de la même façon.
+ */
+export function profileSummaryColumns(): DataGridColumn<ProfileSummary>[] {
+  return [
+    {
+      key: "kind",
+      header: "Protocole",
+      size: 116,
+      sortable: true,
+      filterable: true,
+      filterType: "select",
+      filterOptions: ["http", "ws"],
+      value: (r) => r.kind,
+      render: (r) => (
+        <Badge
+          size="sm"
+          variant="light"
+          color={r.kind === "ws" ? "cyan" : "blue"}
+          leftSection={
+            r.kind === "ws" ? (
+              <IconArrowsLeftRight size={11} />
+            ) : (
+              <IconWorld size={11} />
+            )
+          }
+        >
+          {r.kind === "ws" ? "WS" : "HTTP"}
+        </Badge>
+      ),
+    },
+    {
+      key: "method",
+      header: "Méthode",
+      size: 96,
+      sortable: true,
+      value: (r) => r.method ?? r.kind,
+      render: (r) => (
+        <Badge
+          size="sm"
+          variant="filled"
+          color={METHOD_COLORS[r.method ?? ""] ?? "grape"}
+        >
+          {r.method ?? r.kind}
+        </Badge>
+      ),
+    },
+    {
+      key: "path",
+      header: "Chemin",
+      size: 300,
+      sortable: true,
+      value: (r) => pathOf(r.url),
+      render: (r) => (
+        <Tooltip label={r.url} openDelay={400} multiline maw={460}>
+          <Text size="xs" lineClamp={1}>
+            {pathOf(r.url)}
+          </Text>
+        </Tooltip>
+      ),
+    },
+    {
+      key: "route",
+      header: "Route",
+      size: 180,
+      sortable: true,
+      value: (r) => r.route ?? "",
+      render: (r) => (
+        <Text size="xs" c="dimmed" lineClamp={1}>
+          {r.route ?? "—"}
+        </Text>
+      ),
+    },
+    {
+      key: "status",
+      header: "Statut",
+      size: 92,
+      sortable: true,
+      value: (r) => (r.error ? -1 : (r.status ?? 0)),
+      render: (r) => (
+        <Badge size="sm" variant="light" color={statusColor(r.status)}>
+          {r.error ? "ERR" : (r.status ?? "—")}
+        </Badge>
+      ),
+    },
+    {
+      key: "duration",
+      header: "Durée",
+      size: 92,
+      align: "right",
+      sortable: true,
+      value: (r) => r.durationMs ?? -1,
+      render: (r) => (
+        <Text size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {fmtMs(r.durationMs)}
+        </Text>
+      ),
+    },
+    {
+      key: "age",
+      header: "Âge",
+      size: 92,
+      align: "right",
+      sortable: true,
+      value: (r) => r.ts,
+      render: (r) => (
+        <Text size="xs" c="dimmed">
+          {ago(r.ts)}
+        </Text>
+      ),
+    },
+    {
+      key: "requestId",
+      header: "requestId",
+      size: 118,
+      value: (r) => r.requestId,
+      render: (r) => (
+        <Code style={{ fontSize: 11 }}>{r.requestId.slice(0, 8)}</Code>
+      ),
+    },
+  ];
 }
 
 /** Âge relatif compact d'un timestamp. */

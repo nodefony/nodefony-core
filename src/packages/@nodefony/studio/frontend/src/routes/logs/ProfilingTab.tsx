@@ -11,38 +11,17 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
-import {
-  Alert,
-  Badge,
-  Button,
-  Code,
-  Group,
-  Switch,
-  Text,
-  Tooltip,
-} from "@mantine/core";
+import { Alert, Badge, Button, Group, Switch, Text } from "@mantine/core";
 import {
   IconAlertTriangle,
-  IconArrowsLeftRight,
   IconBolt,
   IconInfoCircle,
   IconRefresh,
   IconTrash,
-  IconWorld,
 } from "@tabler/icons-react";
 import { useProfiler } from "../../stores";
-import type { ProfileSummary } from "../../stores/ProfilerStore";
-import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
-import { METHOD_COLORS, ago, fmtMs, statusColor } from "./profileVisuals";
-
-/** Chemin (pathname) d'une URL, ou l'URL brute si non parsable. */
-function pathOf(url: string): string {
-  try {
-    return new URL(url, "http://x").pathname;
-  } catch {
-    return url;
-  }
-}
+import { DataGrid, DocHint } from "../../components/ui";
+import { profileSummaryColumns } from "./profileVisuals";
 
 export const ProfilingTab = observer(
   ({ onGoDebug }: { onGoDebug?: () => void }) => {
@@ -54,131 +33,7 @@ export const ProfilingTab = observer(
       return () => store.dispose();
     }, [store]);
 
-    const columns = useMemo<DataGridColumn<ProfileSummary>[]>(
-      () => [
-        {
-          key: "kind",
-          header: "Protocole",
-          size: 116,
-          sortable: true,
-          filterable: true,
-          filterType: "select",
-          filterOptions: ["http", "ws"],
-          value: (r) => r.kind,
-          render: (r) => (
-            <Badge
-              size="sm"
-              variant="light"
-              color={r.kind === "ws" ? "cyan" : "blue"}
-              leftSection={
-                r.kind === "ws" ? (
-                  <IconArrowsLeftRight size={11} />
-                ) : (
-                  <IconWorld size={11} />
-                )
-              }
-            >
-              {r.kind === "ws" ? "WS" : "HTTP"}
-            </Badge>
-          ),
-        },
-        {
-          key: "method",
-          header: "Méthode",
-          size: 96,
-          sortable: true,
-          value: (r) => r.method ?? r.kind,
-          render: (r) => (
-            <Badge
-              size="sm"
-              variant="filled"
-              color={METHOD_COLORS[r.method ?? ""] ?? "grape"}
-            >
-              {r.method ?? r.kind}
-            </Badge>
-          ),
-        },
-        {
-          key: "path",
-          header: "Chemin",
-          size: 300,
-          sortable: true,
-          value: (r) => pathOf(r.url),
-          render: (r) => (
-            <Tooltip label={r.url} openDelay={400} multiline maw={460}>
-              <Text size="xs" lineClamp={1}>
-                {pathOf(r.url)}
-              </Text>
-            </Tooltip>
-          ),
-        },
-        {
-          key: "route",
-          header: "Route",
-          size: 180,
-          sortable: true,
-          value: (r) => r.route ?? "",
-          render: (r) =>
-            r.route ? (
-              <Text size="xs" c="dimmed" lineClamp={1}>
-                {r.route}
-              </Text>
-            ) : (
-              <Text size="xs" c="dimmed">
-                —
-              </Text>
-            ),
-        },
-        {
-          key: "status",
-          header: "Statut",
-          size: 92,
-          sortable: true,
-          value: (r) => (r.error ? -1 : (r.status ?? 0)),
-          render: (r) => (
-            <Badge size="sm" variant="light" color={statusColor(r.status)}>
-              {r.error ? "ERR" : (r.status ?? "—")}
-            </Badge>
-          ),
-        },
-        {
-          key: "duration",
-          header: "Durée",
-          size: 92,
-          align: "right",
-          sortable: true,
-          value: (r) => r.durationMs ?? -1,
-          render: (r) => (
-            <Text size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {fmtMs(r.durationMs)}
-            </Text>
-          ),
-        },
-        {
-          key: "age",
-          header: "Âge",
-          size: 92,
-          align: "right",
-          sortable: true,
-          value: (r) => r.ts,
-          render: (r) => (
-            <Text size="xs" c="dimmed">
-              {ago(r.ts)}
-            </Text>
-          ),
-        },
-        {
-          key: "requestId",
-          header: "requestId",
-          size: 118,
-          value: (r) => r.requestId,
-          render: (r) => (
-            <Code style={{ fontSize: 11 }}>{r.requestId.slice(0, 8)}</Code>
-          ),
-        },
-      ],
-      [],
-    );
+    const columns = useMemo(() => profileSummaryColumns(), []);
 
     // Prod : le data plane profiler renvoie 404 (dev-only, non monté). On n'affiche
     // PAS d'erreur brute → encart clair qui renvoie vers le debug runtime (onglet Debug),
