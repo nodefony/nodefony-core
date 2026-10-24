@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T21:33:36.654Z",
+  "generatedAt": "2026-10-24T22:30:55.318Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 188,
+      "closed": 189,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 25,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -4815,8 +4815,8 @@
       "number": 664,
       "title": "feat(core): publier chaque ligne du journal sur diagnostics_channel",
       "url": "https://github.com/nodefony/nodefony-core/issues/664",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -9581,6 +9581,150 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 923,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 668,
+      "title": "refactor(types): supprimer les conversions de type restantes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/668",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 9,
+      "ordre": 924,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 669,
+      "title": "refactor(core): typer la fusion d'objets extend, qui rend any",
+      "url": "https://github.com/nodefony/nodefony-core/issues/669",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 924.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 670,
+      "title": "refactor(core): typer les services du conteneur par leur nom",
+      "url": "https://github.com/nodefony/nodefony-core/issues/670",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 924.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 671,
+      "title": "refactor(core): vérifier les données reçues au lieu de forcer leur type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/671",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 924.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 672,
+      "title": "refactor(framework): vérifier les données reçues au lieu de forcer leur type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/672",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 924.4,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 673,
+      "title": "refactor(http): vérifier les données reçues au lieu de forcer leur type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/673",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 924.5,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 674,
+      "title": "refactor(drizzle): vérifier les lignes lues en base au lieu de forcer leur type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/674",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 924.6,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 675,
+      "title": "refactor(studio): vérifier les réponses du serveur au lieu de forcer leur type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/675",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 924.7,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 676,
+      "title": "refactor(types): vérifier les données reçues dans les petits paquets",
+      "url": "https://github.com/nodefony/nodefony-core/issues/676",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 924.8,
       "debut": null,
       "cible": null,
       "labels": [

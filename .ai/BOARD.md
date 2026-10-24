@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-24 21:33** (UTC).
+> Empreinte prise le **2026-10-24 22:30** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 88% | 188 | 25 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 89% | 189 | 24 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 37 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#664 — feat(core): publier chaque ligne du journal sur diagnostics_channel**
+**#159 — docs(api): publier une référence d'API générée par paquet**
 
-Ordre 5.207 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
+Ordre 5.21 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-26 → 10-26
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 25 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 24 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -106,11 +106,10 @@ Ordre 5.207 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 25 ouverts
+## Jalon 10.0.0-beta — 24 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 5.207 | P2 — décision | 0.5 | — | #664 | feat(core): publier chaque ligne du journal sur diagnostics_channel |
 | 5.21 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 5.22 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
 | 5.23 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
@@ -136,7 +135,7 @@ Ordre 5.207 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 6.12 | P2 — décision | 1 | 2026-11-16 → 12-15 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 6.2 | P1 — figé à la création | 3 | — | #659 | docs(performance): remesurer les pages de performance avant la release |
 
-## Backlog — aucune date promise · 21 ouverts
+## Backlog — aucune date promise · 30 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -161,6 +160,15 @@ Ordre 5.207 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise —
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
 | 921 | P3 — fin de cycle | 2 | — | #651 | feat(ai): relayer ai:stdio vers le serveur de dev quand il tourne |
 | 922 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
+| 924 | P3 — fin de cycle | 9 | — | #668 | refactor(types): supprimer les conversions de type restantes |
+| 924.1 | P3 — fin de cycle | 1 | — | #669 | refactor(core): typer la fusion d'objets extend, qui rend any |
+| 924.2 | P2 — décision | 2 | — | #670 | refactor(core): typer les services du conteneur par leur nom |
+| 924.3 | P3 — fin de cycle | 1 | — | #671 | refactor(core): vérifier les données reçues au lieu de forcer leur type |
+| 924.4 | P3 — fin de cycle | 1 | — | #672 | refactor(framework): vérifier les données reçues au lieu de forcer leur type |
+| 924.5 | P3 — fin de cycle | 1 | — | #673 | refactor(http): vérifier les données reçues au lieu de forcer leur type |
+| 924.6 | P3 — fin de cycle | 1 | — | #674 | refactor(drizzle): vérifier les lignes lues en base au lieu de forcer leur type |
+| 924.7 | P3 — fin de cycle | 1 | — | #675 | refactor(studio): vérifier les réponses du serveur au lieu de forcer leur type |
+| 924.8 | P3 — fin de cycle | 1 | — | #676 | refactor(types): vérifier les données reçues dans les petits paquets |
 
 ## Jalon 10.2.0 — 31 ouverts
 
