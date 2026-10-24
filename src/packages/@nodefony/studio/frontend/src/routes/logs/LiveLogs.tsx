@@ -7,14 +7,15 @@
  * n'est pas queryable.
  *
  * Ergonomie (« temps réel calme » + réflexes d'un tail moderne) :
- *  - **autoscroll intelligent** : suit le bas tant qu'on y est ; dès qu'on
- *    remonte lire, le suivi se suspend et un bouton « ↓ N nouveaux » apparaît ;
+ *  - **les plus récentes en haut** : la vue suit le haut tant qu'on y est ;
+ *    dès qu'on descend lire, elle ne bouge plus et un bouton « ↑ N nouveaux »
+ *    apparaît ;
  *  - **chips de sévérité cliquables** = filtre + santé en un coup d'œil ;
  *  - lignes ERROR/CRITIC **surlignées** ; clic sur une ligne → détail Pdu ;
  *  - `tabular-nums`, `contain`, badges à style stable → aucun clignotement.
  */
 import { observer } from "mobx-react-lite";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -28,7 +29,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
-  IconArrowDown,
+  IconArrowUp,
   IconBroadcast,
   IconPlayerPause,
   IconPlayerPlay,
@@ -62,7 +63,7 @@ import { PLATFORM_CHANNELS, consoleRequestIds } from "nodefony";
 
 /** Plafond d'entrées conservées côté client (croissance bornée). */
 const MAX_ENTRIES = 500;
-/** Distance au bas (px) en-dessous de laquelle on considère « collé en bas ». */
+/** Distance au haut (px) en dessous de laquelle on considère « collé en haut ». */
 const STICK_THRESHOLD = 48;
 
 /** Entrée affichée : enregistrement + clé React stable (uid peut se répéter). */
@@ -177,33 +178,42 @@ export const LiveLogs = observer(
           const next = [...prev, ...kept];
           return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
         });
-        // Si on n'est pas collé en bas, compter les nouveaux non-lus.
+        // Si on n'est pas collé en haut, compter les nouveaux non-lus.
         if (!stickRef.current) setUnseen((n) => n + kept.length);
       };
       const dispose = conn.subscribe(PLATFORM_CHANNELS.syslog, handler);
       return () => dispose();
     }, [conn]);
 
-    // ── Autoscroll : suit le bas uniquement si « collé » ────────────────────
-    useEffect(() => {
-      if (!stickRef.current) return;
+    // ── Les plus récentes EN HAUT ────────────────────────────────────────────
+    // Collée en haut, la vue montre chaque nouvelle ligne sans rien faire.
+    // Défilée plus bas pour lire, elle ne doit pas bouger sous l'œil : la
+    // hauteur ajoutée au-dessus est rendue au défilement, avant la peinture.
+    const prevHeightRef = useRef(0);
+    useLayoutEffect(() => {
       const v = viewportRef.current;
-      if (v) v.scrollTo({ top: v.scrollHeight });
+      if (!v) return;
+      const grown = v.scrollHeight - prevHeightRef.current;
+      prevHeightRef.current = v.scrollHeight;
+      if (stickRef.current) {
+        v.scrollTop = 0;
+      } else if (grown > 0) {
+        v.scrollTop += grown;
+      }
     }, [entries]);
 
-    // Met à jour « collé en bas » à chaque scroll utilisateur.
+    // Met à jour « collé en haut » à chaque scroll utilisateur.
     const onScrollPositionChange = () => {
       const v = viewportRef.current;
       if (!v) return;
-      const atBottom =
-        v.scrollHeight - v.scrollTop - v.clientHeight < STICK_THRESHOLD;
-      setStick(atBottom);
-      if (atBottom) setUnseen(0);
+      const atTop = v.scrollTop < STICK_THRESHOLD;
+      setStick(atTop);
+      if (atTop) setUnseen(0);
     };
 
-    const jumpToBottom = () => {
+    const jumpToTop = () => {
       const v = viewportRef.current;
-      if (v) v.scrollTo({ top: v.scrollHeight, behavior: "smooth" });
+      if (v) v.scrollTo({ top: 0, behavior: "smooth" });
       setStick(true);
       setUnseen(0);
     };
@@ -243,6 +253,8 @@ export const LiveLogs = observer(
         return true;
       });
     }, [visible, severityFilter, search]);
+    // Affichage : la plus récente en haut (le tampon, lui, reste chronologique).
+    const newestFirst = useMemo(() => [...filtered].reverse(), [filtered]);
 
     return (
       <Stack gap="sm">
@@ -383,7 +395,7 @@ export const LiveLogs = observer(
               </Text>
             ) : (
               <Stack gap={0} p="xs">
-                {filtered.map(({ rec, key }) => {
+                {newestFirst.map(({ rec, key }) => {
                   const alert = isAlertSeverity(rec.severityName);
                   return (
                     <Group
@@ -476,11 +488,11 @@ export const LiveLogs = observer(
               size="xs"
               radius="xl"
               color="brand"
-              leftSection={<IconArrowDown size={14} />}
-              onClick={jumpToBottom}
+              leftSection={<IconArrowUp size={14} />}
+              onClick={jumpToTop}
               style={{
                 position: "absolute",
-                bottom: 12,
+                top: 12,
                 left: "50%",
                 transform: "translateX(-50%)",
                 boxShadow: "var(--mantine-shadow-md)",
