@@ -86,6 +86,20 @@ describe("Profiler — unit", () => {
     expect((r[0] as unknown as Record<string, unknown>).phases).to.be.undefined;
   });
 
+  it("🔴 recent(limit, connection) : les SEULES frames de cette socket, pas une voisine qui lui ressemble", () => {
+    const p = new Profiler();
+    p.collect(ctx({ requestId: "sock" }));
+    p.collect(ctx({ requestId: "sock.1" }));
+    p.collect(ctx({ requestId: "autre.1" }));
+    p.collect(ctx({ requestId: "sock0.1" }));
+    p.collect(ctx({ requestId: "sock.2" }));
+    expect(p.recent(60, "sock").map((e) => e.requestId)).to.deep.equal([
+      "sock.2",
+      "sock.1",
+    ]);
+    expect(p.recent(60)).to.have.length(5);
+  });
+
   it("evicts the oldest entry past capacity (ring buffer)", () => {
     const p = new Profiler(3);
     for (let i = 0; i < 5; i++) p.collect(ctx({ requestId: `k${i}` }));

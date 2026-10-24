@@ -4,7 +4,7 @@ import { AsyncResource } from "node:async_hooks";
 import { logColor } from "nodefony";
 import { ServerType, SchemeType } from "../../../service/http-kernel.js";
 import { Severity, Msgid, Message, nodefonyError, Scope } from "nodefony";
-import { RequestContext } from "nodefony";
+import { RequestContext, frameRequestId } from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
@@ -564,7 +564,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     if (!this.profiling && !this.timingEnabled) return null;
     this.#frameSeq += 1;
     return new FrameProfile({
-      requestId: `${this.requestId}.${this.#frameSeq}`,
+      requestId: frameRequestId(this.requestId, this.#frameSeq),
       type: this.type,
       scheme: this.scheme,
       method,

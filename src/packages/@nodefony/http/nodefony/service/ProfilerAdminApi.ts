@@ -11,6 +11,7 @@ import type { Profiler } from "../src/profiler/Profiler";
  *
  * Endpoints :
  *  - `GET /nodefony/profiler/api/recent`  → derniers profils (résumés, récent → ancien)
+ *    `?connection=<requestId>` : les seules frames de cette socket WebSocket
  *  - `GET /nodefony/profiler/api/{id}`    → profil complet (phases) d'un requestId
  *  - `DELETE /nodefony/profiler/api/recent` → vide le ring buffer
  *
@@ -35,7 +36,18 @@ export function createProfilerAdminApi(profiler: Profiler): IAdminApi {
         const raw = query.limit;
         const n = typeof raw === "string" ? parseInt(raw, 10) : NaN;
         const limit = Number.isFinite(n) && n > 0 ? Math.min(n, 200) : 60;
-        return { count: profiler.size, entries: profiler.recent(limit) };
+        // `connection` : les seules frames de CETTE socket, cherchées sur tout
+        // l'anneau — filtrer côté client les 200 derniers profils transférait
+        // tout pour en garder quelques-uns, et ratait les plus anciens.
+        const of = query.connection;
+        const connection =
+          typeof of === "string" && of.length > 0 && of.length <= 200
+            ? of
+            : undefined;
+        return {
+          count: profiler.size,
+          entries: profiler.recent(limit, connection),
+        };
       },
     },
     {

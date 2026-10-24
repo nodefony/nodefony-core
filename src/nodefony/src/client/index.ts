@@ -332,6 +332,7 @@ export type {
   ILoginPageHero,
 } from "../runtime/authRoutes";
 export { safeRedirectPath } from "../runtime/safeRedirect";
+export { frameIndexOf } from "../runtime/frameRequestId";
 export {
   SESSION_AUTH_AT_KEY,
   SESSION_AMR_KEY,

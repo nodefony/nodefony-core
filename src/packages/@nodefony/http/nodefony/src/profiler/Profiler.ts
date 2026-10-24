@@ -21,6 +21,7 @@
 
 import type { ProfiledResolver } from "./FrameProfile.js";
 import type { ProtocolName } from "../../interfaces/IContext.js";
+import { frameIndexOf } from "nodefony";
 import { profileLane, type ProfileLane } from "./aggregate.js";
 
 /** Une phase du pipeline, projetée pour le transport (durée résolue). */
@@ -341,13 +342,19 @@ export class Profiler implements IProfilerReader {
 
   /**
    * Résumés des requêtes les plus récentes (récent → ancien), capés à `limit`.
+   *
+   * @param limit - nombre maximal de résumés
+   * @param connection - le requestId d'une connexion WebSocket : ses SEULES
+   *   frames du pont (`<connection>.<n>`, règle `frameIndexOf` du cœur)
    */
-  recent(limit = 60): ProfileSummary[] {
+  recent(limit = 60, connection?: string): ProfileSummary[] {
     const out: ProfileSummary[] = [];
     // Les anneaux, remis dans l'ordre de collecte (récent → ancien).
     const entries = this.#collectAfter(0).reverse();
     for (const e of entries) {
       if (out.length >= limit) break;
+      if (connection && frameIndexOf(e.requestId, connection) === null)
+        continue;
       out.push({
         requestId: e.requestId,
         ts: e.ts,

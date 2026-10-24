@@ -387,6 +387,7 @@ export type {
 } from "./runtime/RequestContext";
 export { redactSecrets, redactUrlCredentials } from "./runtime/redact";
 export { identityHint } from "./runtime/identityHint";
+export { frameIndexOf, frameRequestId } from "./runtime/frameRequestId";
 export {
   AUTH_API_BASE,
   WEBAUTHN_API_BASE,
