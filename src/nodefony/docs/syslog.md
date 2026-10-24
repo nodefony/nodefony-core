@@ -199,6 +199,38 @@ colonnes alignées, couleurs seulement sur un vrai terminal :
 Les sévérités `ERROR` et plus graves partent sur **stderr**, le reste sur **stdout** — un
 `2>/dev/null` ne masque donc jamais tes erreurs, et l'inverse non plus.
 
+### Qui signe une ligne — le module
+
+Chaque ligne porte un **module** (`moduleName`) : celui qui l'a émise, au sens d'APP-NAME
+dans la RFC 5424. Le `msgid` dit le composant à l'intérieur (`req`, `router`, le nom d'un
+contrôleur). C'est le module qu'on filtre pour séparer l'application du framework.
+
+| Ligne                                      | Module qui signe                                                           |
+| ------------------------------------------ | -------------------------------------------------------------------------- |
+| Ligne d'accès d'une requête (`msgid: req`) | le module de la route qui a répondu (`app`, `studio`…)                     |
+| Requête sans route (statique, 404)         | le journal du noyau (`NODEFONY`)                                           |
+| `this.log()` dans un contrôleur            | le module propriétaire du contrôleur                                       |
+| `this.log()` dans un service               | le journal auquel il est rattaché (celui du noyau pour un service partagé) |
+
+Un contrôleur impose un autre module, pour une ligne ou pour toute sa requête :
+
+```typescript
+import { Controller } from "@nodefony/framework";
+
+export class PaymentController extends Controller {
+  pay(): void {
+    // Une ligne : 5ᵉ argument de log (le 4ᵉ, `msg`, est un détail libre facultatif).
+    this.log("paiement accepté", "INFO", "BILLING", undefined, "billing");
+
+    // Toute la requête : ses lignes ET sa ligne d'accès.
+    if (this.context) this.context.logModule = "billing";
+  }
+}
+```
+
+Le module est posé à la **création** de la ligne : la mémoire, la console, les fichiers et
+Loki reçoivent tous le même nom. Le changer après coup ne toucherait que la mémoire.
+
 ### Passer les logs dans un fichier relisable
 
 Deux réglages, deux axes différents : `driver` dit où part la **ligne de texte**, `queryDriver` dit
