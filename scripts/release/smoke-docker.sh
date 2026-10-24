@@ -1800,7 +1800,7 @@ const b = JSON.parse(process.argv[1]);
 const d = b.activeDriver ?? b.data?.activeDriver;
 const w = b.write ?? b.data?.write;
 if (d?.name !== "loki") throw new Error("pilote actif : " + JSON.stringify(d));
-// `write` = PERSISTANT (Studio) : Loki garde les journaux, que l'app y envoie ou non.
+// `write` = PERSISTANT (Studio) : Loki garde les journaux, quel que soit leur émetteur.
 if (d.capabilities.write !== true) throw new Error("Loki affiché non persistant : " + JSON.stringify(d.capabilities));
 if ((w?.transports ?? []).some((t) => t.name === "loki")) throw new Error("un transport loki est monté");
 ' "$LBACK" || { echo "$LBACK" | head -c 600; echo; fail "état du backplane inattendu"; }

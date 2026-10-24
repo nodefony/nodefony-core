@@ -43,6 +43,13 @@ if ! node scripts/gates/check-no-nul-bytes.mjs --staged; then
   exit 1
 fi
 
+# Un script shell qui ne se PARSE pas meurt en cours d'exécution, jamais au
+# moment où on l'écrit. Vécu : une apostrophe dans un commentaire de `node -e '…'`
+# a coupé le smoke de release après seize tarballs bâtis. `bash -n` ne lance rien.
+if ! node scripts/gates/check-shell-syntax.mjs --staged; then
+  exit 1
+fi
+
 # Le code s'écrit en ANGLAIS — et c'est la règle qui se fautait le plus : écrite
 # dans le CLAUDE.md, relue le matin, enfreinte deux jours de suite dans l'après-
 # midi, jamais attrapée qu'après coup par `npm run check:lang`, que rien ne
