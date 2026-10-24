@@ -431,7 +431,7 @@ est un **BUG** (une donnée fausse trompe plus qu'elle n'informe). Détail : `tw
 après un `voir:` qui amène le panneau dans la vue. Même famille pour une `Checkbox` : cliquer son
 libellé la COCHE (cf skill `nodefony-browser`), donc `voir` pour observer, sélecteur pour agir.
 
-## Accessibilité : trois règles que le kit porte, ne pas les recopier
+## Accessibilité : les règles que le kit porte, ne pas les recopier
 
 - **Une carte cliquable n'est pas un bouton.** `role="button"` sur une `Card` qui contient une aide
   ⓘ imbrique deux contrôles (`axe` : `nested-interactive`). `KpiCard` pose un VRAI bouton sur le
@@ -444,6 +444,14 @@ libellé la COCHE (cf skill `nodefony-browser`), donc `voir` pour observer, sél
   Mantine le classe « foncé » et garde le blanc (3,35:1). Les aplats actifs (`NavLink`, `Tabs`
   `pills`) descendent à `brand.7` ; les liens en sombre montent à `brand.3`. Mesurer les DEUX thèmes
   — en sonde, basculer par `clic:[aria-label='Toggle theme']`.
+- **Les aplats `filled` et les contours `outline` sont réglés par famille, au résolveur de
+  variables** (`theme.ts#readableFilledColors`, `theme.ts#readableLightColors`) : chaque couleur
+  descend à la première teinte de SA famille où le blanc passe (puces de sévérité, badges ERROR,
+  badge `grape` du requestId). Ne JAMAIS corriger une puce au site d'appel — la règle vaut pour
+  tous les aplats, y compris les écrans à venir.
+- **Le nom accessible d'un bouton à texte visible vient de son CONTENU** (WCAG 2.5.3), complété
+  par un `VisuallyHidden` — pas d'un `aria-label` qui recompose le texte rendu : la casse du
+  `text-transform` et l'ordre d'un compteur l'ont fait échouer deux fois à l'audit.
 
 ## Un objet, une page — ailleurs, un LIEN
 

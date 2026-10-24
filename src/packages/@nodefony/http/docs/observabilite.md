@@ -328,6 +328,16 @@ timing (`pretty-request-logger.ts#shortId`).
   drapeaux `hasAuthorization`/`hasCookie` le sont (`audit-logger.ts#AuditLogEntry.hasCookie`).
 - **Sampling déterministe** : `shouldSample()` (`audit-logger.ts#JsonAuditLogger.shouldSample`) garde 1 requête nominale sur N mais
   **jamais** une erreur ni un `status >= 400` — on ne perd aucun échec ; compteur, pas de RNG.
+- **Durée absente en production par défaut** : `durationMs` se calcule depuis les phases
+  (`audit-logger.ts#computeDurationMs`), et le chronométrage par phase est coupé en production pour ne
+  rien coûter à la requête. La ligne sort donc avec `durationMs: null`. `NF__APP__TIMING__ENABLED=true`
+  l'allume (chronométrage complet) ; un réglage plus léger, une seule mesure par requête, est à l'étude.
+
+Destinée à une machine, cette ligne se lit dans un outil d'observabilité : une application générée
+livre deux **tableaux de bord d'exemple** (Grafana sur Loki, OpenSearch Dashboards) sous
+`docker/examples/dashboards/`, à importer. Côté OpenSearch, le transport range la ligne sous
+`http.*` (statut, famille, chemin, durée) par un pipeline d'ingestion — la page Syslog du cœur le
+détaille.
 
 ### `DefaultRequestLogger` — le format legacy
 
@@ -415,16 +425,17 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                            | Cause                                                               | Correction                                                                                |
-| --------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur        |
-| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts#Context.log`)          |
-| Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts#Http2Response.writeHead`) — le port 5152 réfléchit aussi    |
-| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts#HttpKernel.handleWebsocket`) |
-| Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts#formatWsLogContent`)                  |
-| Le format de log ne change pas malgré la config     | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler              |
-| Logs d'audit trop volumineux en prod                | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`                  |
-| `Authorization`/`Cookie` attendus dans le log JSON  | Redaction : jamais sérialisés                                       | Par conception — lire les drapeaux `hasAuthorization`/`hasCookie`                         |
+| Symptôme                                                   | Cause                                                               | Correction                                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Le `X-Request-Id` que j'envoie n'est pas réfléchi          | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur             |
+| Les logs de fin de requête n'ont pas de `requestId`        | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts#Context.log`)               |
+| Réponse HTTP/2 sans `x-request-id`                         | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts#Http2Response.writeHead`) — le port 5152 réfléchit aussi         |
+| `durationMs: null` dans chaque ligne d'accès de production | Chronométrage par phase coupé en production (coût par requête)      | `NF__APP__TIMING__ENABLED=true` pour mesurer ; sans lui, les panneaux de latence restent vides |
+| Pas de `traceparent` renvoyé sur un WebSocket              | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts#HttpKernel.handleWebsocket`)      |
+| Frame WS binaire loggée en `{"0":..,"1":..}`               | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts#formatWsLogContent`)                       |
+| Le format de log ne change pas malgré la config            | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler                   |
+| Logs d'audit trop volumineux en prod                       | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`                       |
+| `Authorization`/`Cookie` attendus dans le log JSON         | Redaction : jamais sérialisés                                       | Par conception — lire les drapeaux `hasAuthorization`/`hasCookie`                              |
 
 ## 🧪 Tests & couverture
 
