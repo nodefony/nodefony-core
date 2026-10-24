@@ -115,6 +115,21 @@ Bancs : `http/tests/integration/request-service.test.ts` et deux scénarios du g
 il empêcherait le serveur de DÉMARRER (refus au boot) — sa preuve vit dans
 `framework/tests/unit/requestScopeBoot.test.ts`.
 
+### TraceChannelController (`/nodefony/test/trace-channel`) — abonné RÉEL du canal `nodefony.http.request`
+
+Un abonné `diagnostics_channel` doit vivre dans le process du serveur : cette sonde s'abonne à la
+demande, garde au plus 128 requêtes (copies par événement + témoin « même objet qu'à `start` »).
+**Désarmée par défaut** — armée, chaque requête alloue un message : le banc DOIT désarmer (`afterAll`).
+
+| Route     | Méthode | Description                                         |
+| --------- | ------- | --------------------------------------------------- |
+| `/arm`    | GET     | s'abonne (idempotent) et vide l'état                |
+| `/disarm` | GET     | se désabonne et vide l'état                         |
+| `/events` | GET     | événements vus, par `requestId` (sans réarmer)      |
+| `/ok`     | GET     | route servie sans erreur — gabarit et module connus |
+
+Banc : `http/tests/integration/request-trace-channel.test.ts`.
+
 ### LifecycleController (`/nodefony/test/lifecycle`) — `initialize()` qui lève
 
 Son `initialize()` **lève toujours** : toute route posée dessus exerce la frontière d'erreur du hook.

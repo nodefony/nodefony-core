@@ -54,6 +54,7 @@ export type {
   IRequestRouter,
 } from "./IRouting";
 export type { ISecurityZone, IFirewallGate } from "./ISecurity";
+export type { IRequestTrace, RequestTraceProtocol } from "./IRequestTrace";
 
 export type {
   IProxyMount,

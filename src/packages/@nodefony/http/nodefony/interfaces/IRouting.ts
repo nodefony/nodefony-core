@@ -12,6 +12,11 @@ import type { ContextType } from "../service/http-kernel";
 export interface IResolvedRoute {
   /** Nom de la route (journalisation, diagnostic). */
   readonly name: string;
+  /**
+   * Gabarit de la route, préfixe compris (`/users/{id}`) — faible cardinalité,
+   * publié comme `routePath` sur le canal `nodefony.http.request`.
+   */
+  readonly path?: string | undefined;
   /** Module propriétaire — il signe la ligne d'accès de la requête. */
   readonly module?: { readonly name: string } | undefined;
   /** Corps laissé en flux (`@Body({ stream: true })`) : le parse est sauté. */

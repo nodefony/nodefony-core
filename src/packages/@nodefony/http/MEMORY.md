@@ -241,6 +241,18 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 - **`WebsocketContext.send()` — capture de rendu pont** : si `RequestContext.get()?.renderSink` présent (posé par le pont `api.request`, per-invocation), le payload est CAPTURÉ dans le sink et rien n'est émis (pas de frame nue hors protocole JSON-RPC, pas de `fire`). Hors pont : 1 lecture ALS par frame sortante (~30 ns, négligeable devant les 2 `fire()`). `WebsocketResponse.setStatusCode` suit la même règle : sous le pont le statut va à `sink.status`, la connexion garde son code de fermeture. Cf realtime MEMORY (pont — action rendue).
 - ⚠️ **HTTP/2 GOTCHA** : `http2/Response.writeHead` chemin `stream.respond()` **bypasse** `super.writeHead` → pose `x-request-id` + `traceparent` ICI aussi. Sinon réponses HTTP/2 (port 5152, dont Studio) **sans header** → corrélation profiler/debug bar impossible (symptôme : clic requête = « no requestId »).
 
+## Canal `diagnostics_channel` — `nodefony.http.request` (`src/context/requestTrace.ts`)
+
+- `TracingChannel` publié À LA MAIN : `start` sous `runStores` + `end` (`runTraced`) à l'entrée ; `error?` · `asyncStart` · `asyncEnd` au démontage (`closeRequestTrace`). Ordre de `tracePromise`. Doc : `docs/diagnostics-channel.md`.
+- Garde UNIQUE `hasRequestTraceSubscribers()` (= `tracing.hasSubscribers`, ~1,6 ns), lue UNE fois à l'entrée. JAMAIS `dc.hasSubscribers(nom)` (~41 ns). Sous-canaux tenus en module (accesseurs Node 26 + référence faible des canaux).
+- `Context.requestTrace: RequestTraceRecord | null` (`null` = personne n'écoutait au début). Fin = garde en ligne `!== null` → 0 appel sans abonné. `closeRequestTrace` remet `null` AVANT de publier → idempotent (WS = plusieurs sorties).
+- Abonné arrivé en cours de requête → RIEN de cette requête (règle Node). Ne jamais relire `hasSubscribers` à la fin.
+- Sorties : HTTP `teardownHttp` APRÈS `logRequest` (statut de l'amont recopié) · WS `connect` (101) · `refuseHandshake` (statut exact) · client parti (`null`) · `closeFailedWebsocketTrace` (`connection !== null` ⇒ 101, sinon 500).
+- `routePath` = `IResolvedRoute.path` (gabarit, préfixe compris) ; racine `""` du routeur → publiée `/`.
+- Durée = `stopClock()` (horloge unique), jamais mesurée par le canal. Pas d'option de config.
+- Faux contexte de test : poser `requestTrace: null`, sinon `undefined !== null` → fermeture sur un faux → `failTeardownHttp`.
+- Sonde : module `test`, `/nodefony/test/trace-channel/{arm,disarm,events,ok}` ; banc `tests/integration/request-trace-channel.test.ts`.
+
 ## Streaming backpressure + trace verbose
 
 - **Backpressure** `Response.send` : `ServerResponse.write()===false` (buffer > highWaterMark) → resolve sur `once("drain")`, pas avant (contrat Node `stream.Writable`). `flush()` chunké (RFC 9112 §7.1) → producteur freiné, RAM bornée si client lent ; `ok===true` → resolve immédiat. Listener `drain` attaché QUE sous pression (`once` + `removeListener` si erreur d'écriture). Content-Length ⊥ Transfer-Encoding (RFC 9112 §6.1) déjà géré par `setLength` (skip si chunked).

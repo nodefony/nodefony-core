@@ -49,6 +49,12 @@ import http from "node:http";
 import http2 from "node:http2";
 import { responseEnded } from "../src/context/responseEnded";
 import { unsentResponseWarning } from "../src/context/unsentResponse";
+import {
+  closeRequestTrace,
+  hasRequestTraceSubscribers,
+  openRequestTrace,
+  runTraced,
+} from "../src/context/requestTrace";
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import type { SseStream } from "../src/context/http/SseStream";
 import Ws from "ws";
@@ -1520,6 +1526,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // servie ne paie que cette lecture, comme avant (aucun appel).
       if (context.waitAsync) this.warnUnsentResponse(context);
       context.logRequest();
+      // Fin du canal `nodefony.http.request` — APRÈS la ligne d'accès, qui a
+      // recopié sur la réponse le statut de l'amont d'une requête relayée.
+      // Garde en ligne : sans abonné, une lecture de champ, aucun appel.
+      if (context.requestTrace !== null) {
+        closeRequestTrace(context, context.response.statusCode, context.error);
+      }
       // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
       context.logPhasesVerbose();
       // Snapshot dev-only AVANT clean() (la donnée disparaît après) — jamais
@@ -1663,20 +1675,52 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     try {
       context = this.createHttpContext(scope, request, response, type);
       const created = context;
-      // Hot path : `fireAsync` est une fonction async → 1 Promise + 1 microtask
-      // MÊME à 0 listener. En prod sans @nodefony/security ces seams
-      // (onCreateContext/beforeResolve/afterAuth) n'ont aucun listener →
-      // guard `listenerCount` (O(1), 0 alloc) pour ne RIEN scheduler.
-      const served = this.listenerCount("onCreateContext")
-        ? this.fireAsync("onCreateContext", created).then(() =>
-            this.serveHttpContext(created, scope, request, response),
+      // Canal `nodefony.http.request` : personne n'écoute → une lecture de
+      // booléen, rien d'alloué. Sinon la requête est servie sous
+      // `start.runStores` ; la fin est publiée au démontage (`teardownHttp`).
+      const served = hasRequestTraceSubscribers()
+        ? runTraced(
+            openRequestTrace(created, "http"),
+            // Receveur passé juste après (`thisArg` de `runStores`) : un
+            // `.bind(this)` allouerait une fonction par requête.
+            // oxlint-disable-next-line typescript/unbound-method
+            this.dispatchHttpContext,
+            this,
+            created,
+            scope,
+            request,
+            response,
           )
-        : this.serveHttpContext(created, scope, request, response);
+        : this.dispatchHttpContext(created, scope, request, response);
       if (!isPromise(served)) return served;
       return served.catch((e: unknown) => this.failHttp(e, created, scope));
     } catch (e) {
       return this.failHttp(e, context, scope);
     }
+  }
+
+  /**
+   * Sert un contexte HTTP fraîchement créé : le crochet `onCreateContext`
+   * s'il a des écouteurs, puis le pipeline.
+   *
+   * Hot path : `fireAsync` est une fonction async → 1 Promise + 1 microtask
+   * MÊME à 0 listener. En prod sans @nodefony/security ces seams
+   * (onCreateContext/beforeResolve/afterAuth) n'ont aucun listener → garde
+   * `listenerCount` (O(1), 0 alloc) pour ne RIEN planifier.
+   *
+   * @returns le contexte servi, ou sa promesse
+   */
+  private dispatchHttpContext(
+    context: HttpContext,
+    scope: Scope,
+    request: httpRequest,
+    response: httpResponse,
+  ): MaybePromise<HttpContext> {
+    return this.listenerCount("onCreateContext")
+      ? this.fireAsync("onCreateContext", context).then(() =>
+          this.serveHttpContext(context, scope, request, response),
+        )
+      : this.serveHttpContext(context, scope, request, response);
   }
 
   /**
@@ -2174,7 +2218,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // minuteur armé dans la bulle y garderait sinon l'identité et le jeton
       // posés par le pare-feu (#571).
       context?.holdRequestStore(store);
-      return await RequestContext.run(store, async () => {
+      const pipeline = async (): Promise<unknown> => {
         await this.onConnect(context, error);
         // FIREWALL
         if (this.firewall && context?.secure) {
@@ -2206,7 +2250,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         const accepted = admission.accept();
         const ws = accepted instanceof Promise ? await accepted : accepted;
         if (ws === null) {
-          // Le client est parti pendant la décision : rien à servir.
+          // Le client est parti pendant la décision : rien à servir, aucun
+          // statut rendu.
+          if (context.requestTrace !== null) {
+            closeRequestTrace(context, null, null);
+          }
           this.releaseOrphanWsScope(scope, context);
           return;
         }
@@ -2219,7 +2267,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         } finally {
           context.phaseEnd("action");
         }
-      });
+      };
+      // Canal `nodefony.http.request` : même garde que le HTTP. La fin du
+      // handshake se publie à l'une de ses sorties — accepté (`connect`),
+      // refusé (`refuseHandshake`), client parti, ou échec (ci-dessous).
+      return await (context !== null && hasRequestTraceSubscribers()
+        ? runTraced(
+            openRequestTrace(context, "websocket"),
+            // `run` lit `this.als` : son receveur est passé juste après.
+            // oxlint-disable-next-line typescript/unbound-method
+            RequestContext.run<Promise<unknown>>,
+            RequestContext,
+            store,
+            pipeline,
+          )
+        : RequestContext.run(store, pipeline));
     } catch (e) {
       try {
         await this.onError(e as Error, context as WebsocketContext);
@@ -2227,13 +2289,32 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // Filet : un handshake reçoit TOUJOURS un verdict (sans effet s'il
         // est déjà rendu) — sinon le client attendrait jusqu'à son délai.
         admission.refuse(500);
+        this.closeFailedWebsocketTrace(context, e);
         this.releaseOrphanWsScope(scope, context);
         throw errorHandlingError;
       }
       admission.refuse(500);
+      this.closeFailedWebsocketTrace(context, e);
       this.releaseOrphanWsScope(scope, context);
       throw e;
     }
+  }
+
+  /**
+   * Fin du canal `nodefony.http.request` pour un handshake interrompu par une
+   * exception — sans effet si un refus l'a déjà publiée (`refuseHandshake`).
+   * Le statut est un fait, pas une déduction : une socket rattachée dit que
+   * le `101` est parti ; sinon c'est le `500` du filet qui a été rendu.
+   *
+   * @param context - le contexte du handshake, `null` s'il n'a pu être construit
+   * @param error - l'exception qui a interrompu le pipeline
+   */
+  private closeFailedWebsocketTrace(
+    context: WebsocketContext | null,
+    error: unknown,
+  ): void {
+    if (!context?.requestTrace) return;
+    closeRequestTrace(context, context.connection !== null ? 101 : 500, error);
   }
 
   // BUG-003 — release a WebSocket request scope when the pipeline aborts

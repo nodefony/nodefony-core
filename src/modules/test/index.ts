@@ -27,6 +27,7 @@ import SchemaRouteController from "./nodefony/controller/SchemaRouteController";
 import AlsController from "./nodefony/controller/AlsController";
 import DiController from "./nodefony/controller/DiController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
+import TraceChannelController from "./nodefony/controller/TraceChannelController";
 import SseController, {
   SecureSseController,
 } from "./nodefony/controller/SseController";
@@ -147,6 +148,8 @@ function overlayProbe(context: unknown): void {
   AlsController,
   DiController,
   LifecycleController,
+  // Canal `nodefony.http.request` — abonné réel armé à la demande (#663)
+  TraceChannelController,
   // Flux d'événements serveur — /nodefony/test/sse/*, HTTP/1.1 et HTTP/2
   SseController,
   SecureSseController,

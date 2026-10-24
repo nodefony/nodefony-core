@@ -249,6 +249,9 @@ describe("HttpKernel.teardownHttp — ne lève jamais, libère TOUJOURS le scope
       waitAsync: false,
       sended: true,
       stopClock: vi.fn(() => null),
+      // Personne n'écoute le canal `nodefony.http.request` : `null`, comme
+      // le pose le constructeur de `Context`.
+      requestTrace: null,
       logRequest: vi.fn(),
       logPhasesVerbose: vi.fn(),
       _runAfterResponse: () => undefined,

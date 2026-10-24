@@ -34,6 +34,7 @@ import HttpKernel, {
 import type { AlpnProtocol, ProtocolName } from "../../interfaces/IContext";
 import { protocolNameOf } from "./transport";
 import { resolveTimingMode } from "./timingMode";
+import type { RequestTraceRecord } from "./requestTrace";
 import HttpResponse from "./http/Response";
 import Http2Response from "./http2/Response";
 import WebsocketResponse from "./websocket/Response";
@@ -288,6 +289,15 @@ class Context extends Service implements IContextInterface {
   // issue, motif d'un refus) — remplie par @nodefony/security, lue par
   // `Profiler.collect()`. `null` hors profiling ET hors zone → 0 alloc.
   securityTrace: ISecurityTrace | null = null;
+  /**
+   * Message du canal `nodefony.http.request` pour CETTE requête, ou `null` si
+   * personne n'écoutait à son début (le cas par défaut : un champ, aucune
+   * allocation). Posé par `openRequestTrace`, remis à `null` par
+   * `closeRequestTrace` — c'est ce `null` qui rend la fin idempotente.
+   *
+   * @internal
+   */
+  requestTrace: RequestTraceRecord | null = null;
   // Phase timing (`resolveTimingMode` → "phases"): off in production by
   // default, on elsewhere. When off: `phases` is a shared frozen empty array,
   // `phaseStart`/`phaseEnd` are noops, no Map is allocated.

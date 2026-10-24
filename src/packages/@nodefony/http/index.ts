@@ -211,6 +211,14 @@ export {
 // Rétrécit `ContextType` à `WebsocketContext` sans conversion ni `instanceof`.
 export { isWebsocketContext } from "./nodefony/src/context/websocket/isWebsocketContext";
 
+// Canal `diagnostics_channel` du cycle de chaque requête — à passer à
+// `tracingChannel()` côté abonné, plutôt que de recopier la chaîne.
+export { REQUEST_TRACE_CHANNEL } from "./nodefony/src/context/requestTrace";
+export type {
+  IRequestTrace,
+  RequestTraceProtocol,
+} from "./nodefony/interfaces/IRequestTrace";
+
 // Matching de domaine (Host) — fonctions pures réutilisées par @nodefony/framework
 // (Route.matchHostname / @Domain) pour la cohérence kernel ↔ route.
 export {

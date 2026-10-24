@@ -24,6 +24,7 @@ import type {
 } from "../../../interfaces/IContext.js";
 import { ProxyType } from "../http/HttpContext.js";
 import { formatWsLogContent } from "./wsLogContent.js";
+import { closeRequestTrace } from "../requestTrace.js";
 import {
   resolveForwarded,
   hasForwardingHeaders,
@@ -363,6 +364,11 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     this.rejected = true;
     this.webSocketState = "error";
     admission.refuse(status, this.response?.handshakeHeaders ?? null);
+    // Fin du canal `nodefony.http.request` : le statut du refus est connu ICI
+    // seulement. Garde en ligne, aucun appel sans abonné.
+    if (this.requestTrace !== null) {
+      closeRequestTrace(this, status, this.error);
+    }
     return true;
   }
 
@@ -402,6 +408,11 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
       AsyncResource.bind(this.handleMessage.bind(this)),
     );
     this.logRequest(null, this.acceptedProtocol ?? null);
+    // Handshake accepté : fin du canal `nodefony.http.request`, au même point
+    // que la ligne d'accès — donc sur la même durée.
+    if (this.requestTrace !== null) {
+      closeRequestTrace(this, 101, null);
+    }
     this.webSocketState = "connected";
     return this.connection;
   }
