@@ -102,6 +102,8 @@ export class FeedView<T> {
   /** Réservoir de lignes — alloué au fil du besoin, jamais au-delà de la fenêtre. */
   private readonly pool: HTMLDivElement[] = [];
   private entries: readonly T[] = [];
+  /** Liste lue à l'envers (la plus récente en DERNIER) : le tampon tel quel, sans copie. */
+  private reversed = false;
   private follow = true;
   private unseen = 0;
   private selectedKey: string | null = null;
@@ -233,8 +235,15 @@ export class FeedView<T> {
    *   flux. Sinon, hors du haut, la ligne lue reste à sa place et ce qui est
    *   arrivé au-dessus est compté.
    * @param emptyText - message quand la liste est vide
+   * @param reversed - la liste porte la plus récente en DERNIER (un tampon
+   *   qu'on remplit par la fin) : la vue la lit à l'envers, sans la copier
    */
-  setEntries(list: readonly T[], reset: boolean, emptyText: string): void {
+  setEntries(
+    list: readonly T[],
+    reset: boolean,
+    emptyText: string,
+    reversed = false,
+  ): void {
     // Ancre : la première ligne lue, et son décalage. Tant qu'on ne suit pas le
     // flux, elle reste à la même place à l'écran, quoi que la liste fasse —
     // des nouvelles au-dessus, des anciennes qui partent en dessous.
@@ -242,6 +251,7 @@ export class FeedView<T> {
     const anchorIndex = this.topIndex;
     const anchorOffset = this.topOffset;
     this.entries = list;
+    this.reversed = reversed;
     this.spacer.style.height = `${list.length * ROW_H}px`;
     this.empty.hidden = list.length > 0;
     this.empty.textContent = emptyText;
@@ -292,20 +302,28 @@ export class FeedView<T> {
     return row instanceof HTMLElement && this.layer.contains(row) ? row : null;
   }
 
+  /** La ligne affichée au rang `row` (0 = en haut). */
+  private item(row: number): T | undefined {
+    return this.reversed
+      ? this.entries[this.entries.length - 1 - row]
+      : this.entries[row];
+  }
+
   private indexOf(key: string): number {
-    return this.entries.findIndex((item) => this.host.keyOf(item) === key);
+    const i = this.entries.findIndex((item) => this.host.keyOf(item) === key);
+    return i < 0 || !this.reversed ? i : this.entries.length - 1 - i;
   }
 
   private find(key: string): T | undefined {
     const i = this.indexOf(key);
-    return i >= 0 ? this.entries[i] : undefined;
+    return i >= 0 ? this.item(i) : undefined;
   }
 
   /** Relève la ligne en haut de l'écran et son décalage — O(1). */
   private recordTop(): void {
     const top = this.scroller.scrollTop;
     const row = Math.floor(top / ROW_H);
-    const item = this.entries[row];
+    const item = this.item(row);
     this.topKey = item === undefined ? null : this.host.keyOf(item);
     this.topIndex = row;
     this.topOffset = top - row * ROW_H;
@@ -347,7 +365,7 @@ export class FeedView<T> {
       const row = this.pool[k];
       if (row === undefined) continue;
       const index = start + k;
-      const item = k < needed ? this.entries[index] : undefined;
+      const item = k < needed ? this.item(index) : undefined;
       if (item === undefined) {
         row.hidden = true;
         continue;

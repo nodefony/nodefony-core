@@ -44,13 +44,22 @@ import {
 import { observeViteHmr, type HmrEvent } from "./hmr";
 import { FeedView } from "./feedView";
 import {
-  flattenFlow,
-  joinRequests,
+  flowKey,
+  logMatchesQuery,
+  pageItems,
+  recordToLine,
+  serverItems,
   type FlowItem,
+  type FlowView,
   type IRequestItem,
+  type LinesState,
 } from "./requests";
+import type { ILogRecord } from "../../syslog/drivers/ILogDriver";
 import { SEVERITY_NAMES } from "../../syslog/Pdu";
-import { pduIsModuleExcluded } from "../../syslog/drivers/pduConsole";
+import {
+  parseAccessLine,
+  pduIsModuleExcluded,
+} from "../../syslog/drivers/pduConsole";
 import {
   exposedKernels,
   KERNEL_PROBE_EVENT,
@@ -60,7 +69,7 @@ import type {
   NodefonyKernelEvent,
   NodefonyKernelIdentity,
 } from "../INodefonyKernel";
-import { installNetworkInterceptor, type NetEntry } from "./network";
+import { installNetworkInterceptor, toPath, type NetEntry } from "./network";
 import {
   NetworkModel,
   computeWaterfall,
@@ -85,6 +94,8 @@ const CHANNELS = {
 const DEFAULT_PATH = "/nodefony/studio/api/realtime";
 /** Base du data-plane profiler (data-plane admin `IAdminApi` namespace `profiler`). */
 const DEFAULT_PROFILER_BASE = "/nodefony/profiler/api";
+/** La recherche des Journaux de la console — le back que la vue Journaux réutilise. */
+const SYSLOG_SEARCH = "/nodefony/syslog/api/logs/search";
 const HOST_ID = "nodefony-debugbar";
 
 /** Dimensions des sparklines (unités viewBox SVG). */
@@ -329,15 +340,6 @@ const STYLES =
 .nflogo { display:block; height:18px; width:auto; }
 .brand .name, .minbar .mname { background: linear-gradient(90deg,#5fa04e,#3aa0ff); -webkit-background-clip:text;
   background-clip:text; -webkit-text-fill-color:transparent; }
-.rt-pill { display:flex; align-items:center; gap:5px; padding:.2em .7em; border-radius:11px; flex:none;
-  font-size:.76em; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
-  color:var(--muted); background:#22262e; border:1px solid var(--line); }
-.rt-pill.connected { color:#fff; border-color:rgba(58,160,255,.5);
-  background: linear-gradient(90deg, rgba(0,103,186,.35), rgba(255,138,61,.25));
-  box-shadow: 0 0 14px rgba(58,160,255,.35); }
-.rt-pill .bolt { animation: bolt 1.6s ease-in-out infinite; }
-.rt-pill.connected .bolt { color: var(--orange); }
-@keyframes bolt { 0%,100%{opacity:.5;transform:scale(.9)} 50%{opacity:1;transform:scale(1.15)} }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; color: var(--muted); }
 .dot.connected { background: var(--ok); color: var(--ok); animation: pulse 2s infinite; }
@@ -461,6 +463,14 @@ const STYLES =
 .toolbtn.on, .toolbtn[aria-pressed="true"] { color:#7fd3ac; border-color:#5fbf93; background:rgba(54,179,126,.14); }
 @media (prefers-reduced-motion: reduce) { .chip.sevf, .toolbtn, .search { transition:none; } }
 .pane .counts .toolbtn[data-tip]::after { left:auto; right:0; }
+.vseg { display:flex; align-items:stretch; flex:none; border:1px solid var(--line); border-radius:8px; background:#1a1d23; overflow:hidden; }
+.vseg button { font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#b8bec8; background:transparent; border:0; margin:0;
+  height:28px; padding:0 12px; cursor:pointer; transition: background .12s, color .12s; }
+.vseg button + button { border-left:1px solid var(--line); }
+.vseg button:hover { background:#323844; color:#fff; }
+.vseg button[aria-pressed="true"] { color:#fff; background:rgba(58,160,255,.22); }
+.vseg button:focus-visible { outline:2px solid var(--ok); outline-offset:-2px; }
+.req.srv .path { color:#c4c9d1; }
 ` +
   // ── Flux fenêtré (feedView.ts) ───────────────────────────────────────────
   // Lignes de hauteur FIXE (24 px) : c'est ce qui rend le fenêtrage exact, et
@@ -707,7 +717,6 @@ const STYLES =
   `
 @media (max-width: 1100px) { .seg .lbl { display: none; } .strip .seg button { padding: 0 8px; } }
 @media (max-width: 1440px) { .strip .mini { display: none; } }
-.conn-refused { color: var(--crit); border-color: rgba(255,86,48,.5); }
 
 .minbar { position:fixed; z-index:2147483000; display:none; align-items:center; gap:9px;
   min-height:36px; padding:7px 9px 7px 14px; border-radius:22px; cursor:pointer; margin:0;
@@ -932,6 +941,8 @@ export class DebugBar {
   // Network — modèle + corrélation profiler serveur.
   private readonly networkEnabled: boolean;
   private readonly profilerBase: string;
+  /** Chemin de la socket de la barre — ses appels de diagnostic ne sont pas ceux de la page. */
+  private readonly socketPath: string;
   private readonly net = new NetworkModel();
   /** Observe la barre → publie sa hauteur (var CSS) pour l'app hôte. */
   private ro: ResizeObserver | null = null;
@@ -939,8 +950,22 @@ export class DebugBar {
   private selected: FlowItem | null = null;
   /** `requestId` de la requête choisie, quand elle en a un : clé de son profil serveur. */
   private selectedRid: string | null = null;
-  /** Ids locaux des requêtes dépliées — alloué au premier dépliage. */
-  private expanded: Set<number> | null = null;
+  /** Clés des requêtes dépliées — alloué au premier dépliage. */
+  private expanded: Set<string> | null = null;
+  /** Vue de l'onglet Requêtes : Page (défaut), Direct ou Journaux. */
+  private flowView: FlowView = "page";
+  /** Lignes relues des requêtes dépliées, par `requestId` (cache borné). */
+  private readonly lines = new Map<string, LinesState>();
+  /** Dernière réponse de la recherche des Journaux (`null` : jamais lue). */
+  private serverRows: ILogRecord[] | null = null;
+  private serverState: "idle" | "loading" | "error" | "denied" = "idle";
+  /** La recherche des Journaux est à refaire avant le prochain rendu de la vue. */
+  private serverStale = true;
+  private serverTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Horodatage à partir duquel les Journaux sont relus (« vider »). */
+  private serverFrom = 0;
+  /** Le requestId du document a-t-il déjà été cherché dans les Journaux ? */
+  private documentTried = false;
   /** Le flux fenêtré (null tant que la barre n'est pas montée). */
   private feedView: FeedView<FlowItem> | null = null;
   /** Dernière séquence remise à la vue — ce qui la dépasse est neuf. */
@@ -983,6 +1008,7 @@ export class DebugBar {
       /\/$/,
       "",
     );
+    this.socketPath = toPath(this.url);
     this.client = opts.client ?? NodefonySocket.shared({ url: this.url });
     // AVANT la première lecture : un état écrit par un format précédent est
     // jeté ici, pas interprété plus bas.
@@ -1562,16 +1588,29 @@ export class DebugBar {
         } else return;
         t.classList.toggle("on", on);
         t.setAttribute("aria-pressed", String(on));
+        this.markServerStale();
         this.feedDirty = true;
         this.render();
       };
       filters.addEventListener("click", onFilter);
       this.disposers.push(() => filters.removeEventListener("click", onFilter));
     }
+    const flowSeg = this.el.flowSeg;
+    if (flowSeg) {
+      const onFlow = (ev: Event): void => {
+        const v = closestFrom(ev.target, "[data-flow]")?.getAttribute(
+          "data-flow",
+        );
+        if (v === "page" || v === "live" || v === "server") this.setFlowView(v);
+      };
+      flowSeg.addEventListener("click", onFlow);
+      this.disposers.push(() => flowSeg.removeEventListener("click", onFlow));
+    }
     const search = this.el.logSearch;
     if (search instanceof HTMLInputElement) {
       const onSearch = (): void => {
         this.feedQuery = search.value.trim().toLowerCase();
+        this.markServerStale();
         this.feedDirty = true;
         this.render();
       };
@@ -1619,7 +1658,11 @@ export class DebugBar {
       const feed = this.model.view.feed;
       this.feedCleared = feed.at(-1)?.seq ?? 0;
       this.net.clear();
+      this.lines.clear();
       this.expanded = null;
+      this.serverFrom = Date.now();
+      this.serverRows = null;
+      this.markServerStale();
       this.feedView?.select(null);
       this.feedDirty = true;
       this.render();
@@ -1632,7 +1675,7 @@ export class DebugBar {
       const view = new FeedView<FlowItem>(
         feedBox,
         {
-          keyOf: (item) => item.key,
+          keyOf: flowKey,
           fill: (row, item) => fillFlowRow(row, item),
           onSelect: (item) => this.selectItem(item),
           onAction: (item, act) => this.toggleItem(item, act),
@@ -1814,6 +1857,11 @@ export class DebugBar {
     const net = this.networkEnabled ? "" : " hidden";
     return `<div class="pane logp" data-pane="requests">
       <div class="counts">
+        <div class="vseg" data-el="flowSeg" role="group" aria-label="Vue de l'onglet">
+          <button type="button" data-flow="page" aria-pressed="true" data-tip="Les requêtes de cette page et leurs lignes serveur">Page</button>
+          <button type="button" data-flow="live" aria-pressed="false" data-tip="Les lignes du serveur en temps réel">Direct</button>
+          <button type="button" data-flow="server" aria-pressed="false" data-tip="Les journaux du serveur, une ligne par requête">Journaux</button>
+        </div>
         <span class="chip"${net} data-tip="Requêtes observées par le navigateur depuis l'ouverture de la page"><span class="k">requêtes</span><span data-el="cReq">0</span></span>
         <span class="chip" data-el="cErrChip" data-tip="Requêtes en échec et lignes d'erreur du serveur"><span class="k">erreurs</span><span class="crit" data-el="cErr">0</span></span>
         <span class="chip"${net} data-tip="Requêtes envoyées dont la réponse n'est pas encore arrivée"><span class="k">en attente</span><span data-el="cPend">0</span></span>
@@ -1828,7 +1876,7 @@ export class DebugBar {
       </div>
       <div class="counts feedfilters" data-el="feedFilters">
         ${SEVERITY_NAMES.map((name, sev) => `<button type="button" class="chip sevf${this.feedSevs.has(sev) ? " on" : ""}" data-sevn="${sev}" aria-pressed="${this.feedSevs.has(sev)}" data-tip="Afficher ou masquer les lignes serveur ${name}">${name.toLowerCase()}</button>`).join("")}
-        <button type="button" class="chip sevf${this.feedHideConsole ? " on" : ""}" data-view="console" aria-pressed="${this.feedHideConsole}" data-tip="Masquer les requêtes de la console d'administration et du relais Vite, avec toutes leurs lignes — la même règle que la console">console et Vite masqués</button>
+        <button type="button" data-el="consoleChip" hidden class="chip sevf${this.feedHideConsole ? " on" : ""}" data-view="console" aria-pressed="${this.feedHideConsole}" data-tip="Masquer les requêtes de la console d'administration et du relais Vite, avec toutes leurs lignes — la même règle que la console">console et Vite masqués</button>
         <button type="button" class="chip sevf${this.feedHideFramework ? " on" : ""}" data-view="framework" aria-pressed="${this.feedHideFramework}" data-tip="Masquer ce que le framework écrit pour lui-même ; les lignes de requête restent">NODEFONY masqué</button>
         <span class="filterhint">les niveaux filtrent les lignes serveur</span>
       </div>
@@ -1999,6 +2047,7 @@ export class DebugBar {
     const offSyslog = this.client.on(CHANNELS.syslog, (...a) => {
       const p = a[0];
       if (p && typeof p === "object") this.model.ingestSyslog(p);
+      this.scheduleServer(1500);
       this.scheduleRender();
     });
     this.model.setState(this.client.state);
@@ -2176,6 +2225,11 @@ export class DebugBar {
       onChange: (e) => this.onNetEntry(e),
       ignore: (url) =>
         url.includes(this.profilerBase) ||
+        url.includes(SYSLOG_SEARCH) ||
+        // Le diagnostic de la socket de la barre (un GET sur son adresse quand
+        // la connexion échoue) : la plomberie de la barre, pas une requête de
+        // la page.
+        toPath(url) === this.socketPath ||
         url.includes("/@vite/") ||
         url.includes("/@fs/") ||
         url.includes("/node_modules/.vite/") ||
@@ -2224,35 +2278,36 @@ export class DebugBar {
   private onNetEntry(e: NetEntry): void {
     this.net.ingest(e);
     this.flowChanged = true;
-    // La requête choisie en attente vient de recevoir sa réponse : son
-    // `requestId` est enfin lisible, son profil peut se demander.
     const sel = this.selected;
     if (
-      sel?.kind === "request" &&
-      sel.row.net.id === e.id &&
-      e.requestId !== null &&
-      this.selectedRid === null
+      sel !== null &&
+      "kind" in sel &&
+      sel.kind === "request" &&
+      sel.net?.id === e.id
     ) {
-      this.selectedRid = e.requestId;
-      if (!this.net.profileState(e.requestId)) this.fetchProfile(e.requestId);
-    }
-    if (sel?.kind === "request" && sel.row.net.id === e.id)
+      // La requête choisie en attente vient de recevoir sa réponse : son
+      // `requestId` est enfin lisible, son profil peut se demander.
+      if (e.requestId !== null && this.selectedRid === null) {
+        this.selectedRid = e.requestId;
+        if (!this.net.profileState(e.requestId)) this.fetchProfile(e.requestId);
+      }
       this.detailVersion++;
+    }
+    if (!e.pending) this.scheduleServer(1500);
     this.scheduleRender();
   }
 
   /**
-   * Une ligne a été choisie dans le flux (`null` : la sélection est levée).
-   * Une requête ouvre son profil serveur dans le panneau latéral ; une ligne
-   * serveur, son détail. Un seul panneau pour les deux.
+   * Une ligne a été choisie (`null` : la sélection est levée). Une requête
+   * ouvre son profil serveur dans le panneau latéral ; une ligne serveur, son
+   * détail. Un seul panneau pour les trois vues.
    */
   private selectItem(item: FlowItem | null): void {
     this.selected = item;
-    this.selectedRid =
-      item?.kind === "request" ? (item.row.net.requestId ?? null) : null;
+    this.selectedRid = requestIdOf(item);
     this.detailVersion++;
     const rid = this.selectedRid;
-    if (rid) {
+    if (rid && item !== null && "kind" in item && item.kind === "request") {
       // Garantit une hauteur de panneau suffisante pour voir le waterfall.
       // Transitoire (non persisté → ne piétine pas la hauteur choisie par
       // l'utilisateur au resize).
@@ -2277,17 +2332,177 @@ export class DebugBar {
     this.scheduleRender();
   }
 
-  /** Déplie ou replie une requête — chevron, ou `→` / `←` au clavier. */
+  /**
+   * Déplie ou replie une requête — chevron, ou `→` / `←` au clavier. Déplier
+   * relit ses lignes au serveur (la recherche des Journaux, `scope=trace`) :
+   * à la demande, jamais en tâche de fond.
+   */
   private toggleItem(item: FlowItem, act: string): void {
-    if (item.kind !== "request") return;
-    const id = item.row.net.id;
+    if (!("kind" in item) || item.kind !== "request" || !item.requestId) return;
     const open =
       act === "expand" ? true : act === "collapse" ? false : !item.expanded;
     if (open === item.expanded) return;
-    if (open) (this.expanded ??= new Set()).add(id);
-    else this.expanded?.delete(id);
+    if (open) {
+      (this.expanded ??= new Set()).add(item.key);
+      this.fetchLines(item.requestId);
+    } else this.expanded?.delete(item.key);
     this.flowChanged = true;
     this.render();
+  }
+
+  /** Change de vue : Page, Direct ou Journaux. */
+  private setFlowView(view: FlowView): void {
+    this.flowView = view;
+    this.bar
+      ?.querySelectorAll("[data-flow]")
+      .forEach((b) =>
+        b.setAttribute(
+          "aria-pressed",
+          String(b.getAttribute("data-flow") === view),
+        ),
+      );
+    // Les requêtes de la page ne sont jamais masquées : le filtre console
+    // n'a de sens qu'en Direct et dans les Journaux.
+    this.el.consoleChip?.toggleAttribute("hidden", view === "page");
+    this.feedView?.select(null);
+    this.markServerStale();
+    this.feedDirty = true;
+    this.render();
+  }
+
+  /** La recherche des Journaux est à refaire (filtre, vue, vider). */
+  private markServerStale(): void {
+    this.serverStale = true;
+  }
+
+  /**
+   * Redemande la liste des Journaux après un délai — regroupe une rafale
+   * (lignes en direct, appels qui se terminent) en UNE requête. Rien tant que
+   * la vue n'est pas à l'écran.
+   */
+  private scheduleServer(delayMs: number): void {
+    this.serverStale = true;
+    if (this.serverTimer !== null || this.flowView !== "server") return;
+    this.serverTimer = setTimeout(() => {
+      this.serverTimer = null;
+      this.scheduleRender();
+    }, delayMs);
+  }
+
+  /**
+   * Lit la recherche des Journaux de la console (`/nodefony/syslog/api/logs/
+   * search`) — le back du Studio, mêmes paramètres. Rend les lignes, ou lève
+   * avec le statut HTTP en message.
+   */
+  private async searchLogs(params: URLSearchParams): Promise<ILogRecord[]> {
+    const res = await fetch(`${SYSLOG_SEARCH}?${params.toString()}`, {
+      headers: { accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const rows = logRows(await res.json());
+    if (rows === null) throw new Error("réponse illisible");
+    return rows;
+  }
+
+  /** Recherche groupée par requête, filtres de la barre — la vue Journaux. */
+  private fetchServer(): void {
+    if (typeof fetch === "undefined" || this.serverState === "loading") return;
+    this.serverStale = false;
+    this.serverState = "loading";
+    const p = new URLSearchParams({
+      groupByRequest: "true",
+      order: "timeStamp:DESC",
+      limit: "200",
+    });
+    if (this.feedSevs.size !== SEVERITY_NAMES.length)
+      for (const s of this.feedSevs)
+        p.append("severity", SEVERITY_NAMES[s] ?? "");
+    if (this.feedHideConsole) p.set("hideConsole", "true");
+    if (this.feedHideFramework) p.set("excludeModule", "nodefony");
+    if (this.feedQuery !== "") p.set("q", this.feedQuery);
+    if (this.serverFrom > 0) p.set("from", String(this.serverFrom));
+    this.searchLogs(p)
+      .then(
+        (rows) => {
+          this.serverRows = rows;
+          this.serverState = "idle";
+        },
+        (err: unknown) => {
+          const status = err instanceof Error ? err.message : "";
+          this.serverState =
+            status === "401" || status === "403" ? "denied" : "error";
+        },
+      )
+      .finally(() => {
+        this.flowChanged = true;
+        this.scheduleRender();
+      });
+  }
+
+  /** Relit les lignes d'une requête — la lecture du Suivi de requête du Studio. */
+  private fetchLines(rid: string): void {
+    if (typeof fetch === "undefined") return;
+    // Borné : un cache de dépliages, pas une copie des journaux.
+    if (this.lines.size >= 64) this.lines.clear();
+    this.lines.set(rid, "loading");
+    const p = new URLSearchParams({
+      requestId: rid,
+      order: "timeStamp:ASC",
+      limit: "300",
+      scope: "trace",
+    });
+    this.searchLogs(p)
+      .then(
+        (rows) => this.lines.set(rid, rows.map(recordToLine)),
+        () => this.lines.set(rid, "error"),
+      )
+      .finally(() => {
+        this.flowChanged = true;
+        this.scheduleRender();
+      });
+  }
+
+  /**
+   * Le document n'est ni `fetch` ni XHR : son `requestId` vient du serveur
+   * qui l'a rendu (option `page`), sinon de SA ligne d'accès dans les
+   * Journaux — même méthode, même chemin, au moment du chargement. Une seule
+   * tentative.
+   */
+  private resolveDocument(): void {
+    const doc = this.net.get(0);
+    if (
+      this.documentTried ||
+      doc === undefined ||
+      doc.requestId !== null ||
+      typeof fetch === "undefined" ||
+      typeof performance === "undefined"
+    )
+      return;
+    this.documentTried = true;
+    const t0 = Math.round(performance.timeOrigin);
+    const p = new URLSearchParams({
+      groupByRequest: "true",
+      order: "timeStamp:ASC",
+      limit: "50",
+      from: String(t0 - 2000),
+      to: String(t0 + 60000),
+    });
+    const path = location.pathname + location.search;
+    this.searchLogs(p).then(
+      (rows) => {
+        for (const rec of rows) {
+          const a = parseAccessLine(rec);
+          if (a?.method !== "GET" || a.path !== path || !rec.requestId)
+            continue;
+          this.net.ingest({ ...doc, requestId: rec.requestId });
+          this.flowChanged = true;
+          this.scheduleRender();
+          return;
+        }
+      },
+      () => {},
+    );
   }
 
   /** Fetch `/{profilerBase}/{requestId}` (ignoré par l'intercepteur). */
@@ -2550,37 +2765,31 @@ export class DebugBar {
   }
 
   /**
-   * La ligne serveur passe-t-elle les filtres en cours ? Les règles
-   * « console » et « module exclu » sont celles du cœur, partagées avec la
-   * console d'administration — jamais recopiées. La recherche, elle, porte
-   * aussi sur les requêtes : elle s'applique au flux joint (`flattenFlow`).
+   * La ligne serveur passe-t-elle les filtres en cours (vue Direct) ? Les
+   * règles « console » et « module exclu » sont celles du cœur, partagées
+   * avec la console d'administration — jamais recopiées.
    */
-  private feedMatch(
-    l: FeedLog,
-    consoleIds: ReadonlySet<string> | null,
-    keptIds: ReadonlySet<string> | null,
-  ): boolean {
+  private feedMatch(l: FeedLog): boolean {
     if (!this.feedSevs.has(l.severity)) return false;
-    // Une ligne d'une requête que la page garde (la page EST la console) reste,
-    // même si elle vise la console : c'est la requête qu'on inspecte.
-    const kept =
-      l.requestId !== undefined && keptIds?.has(l.requestId) === true;
     if (
       this.feedHideConsole &&
-      !kept &&
       (l.console ||
-        (l.requestId !== undefined && consoleIds?.has(l.requestId) === true))
+        (l.requestId !== undefined &&
+          this.model.consoleRequestIds?.has(l.requestId) === true))
     )
       return false;
-    if (
+    return !this.frameworkExcluded(l);
+  }
+
+  /** Ligne écrite par le framework pour lui-même, quand « NODEFONY masqué » est posé. */
+  private frameworkExcluded(l: FeedLog): boolean {
+    return (
       this.feedHideFramework &&
       pduIsModuleExcluded(
         { moduleName: l.module, msgid: l.msgid, payload: l.text },
         "nodefony",
       )
-    )
-      return false;
-    return true;
+    );
   }
 
   /** Le détail d'une ligne serveur — ce qu'on colle dans un ticket. */
@@ -2600,64 +2809,88 @@ export class DebugBar {
   }
 
   /**
-   * Rendu du flux — la vue fenêtrée reçoit le jeu, elle ne peint que l'écran.
+   * Rendu de l'onglet Requêtes — la vue fenêtrée reçoit le jeu, elle ne peint
+   * que l'écran. Rien n'est recalculé sans changement, et rien du tout panneau
+   * fermé ou onglet caché (`render`).
    *
-   * Le flux est recomposé (jointure par `requestId`, filtres, recherche,
-   * dépliage) seulement quand quelque chose a changé — ligne serveur reçue,
-   * requête mise à jour, filtre, dépliage — et seulement panneau ouvert sur
-   * cet onglet (`render`) : barre fermée, tout ne fait qu'entrer dans les
-   * modèles.
+   * - Direct : le tampon tel quel, lu à l'envers sans copie ; filtré seulement
+   *   quand un filtre ou une recherche est posé.
+   * - Page : les appels de la page (80 au plus), et les lignes relues des
+   *   requêtes dépliées.
+   * - Journaux : la dernière réponse du serveur ; redemandée quand elle est
+   *   périmée (filtre, vue, rafale regroupée par `scheduleServer`).
    */
   private renderFeed(feed: FeedLog[]): void {
     const view = this.feedView;
     if (!view || this.feedPaused) return;
-    const last = feed.at(-1)?.seq ?? 0;
     const reset = this.feedDirty;
-    if (!reset && !this.flowChanged && last === this.feedSeen) return;
-    this.feedSeen = last;
-    this.feedDirty = false;
-    this.flowChanged = false;
-    const net = this.net.entries();
-    // « console et Vite masqués » écarte le trafic de la console… sauf les
-    // requêtes que CETTE page a faites, et leurs lignes : la page est ce qu'on
-    // inspecte, ce qu'elle appelle n'est jamais du bruit — même un chemin de la
-    // console (`/nodefony/…`). Masquer ses propres requêtes faisait compter
-    // « 2 requêtes » sur une liste vide.
-    const seenIds = this.model.consoleRequestIds;
-    let consoleIds: Set<string> | null = null;
-    let kept: Set<string> | null = null;
-    for (const e of net)
-      if (e.requestId !== null) (kept ??= new Set()).add(e.requestId);
-    if (this.feedHideConsole && seenIds !== null)
-      for (const id of seenIds)
-        if (kept?.has(id) !== true) (consoleIds ??= new Set()).add(id);
-    const logs = feed.filter(
-      (l) => l.seq > this.feedCleared && this.feedMatch(l, consoleIds, kept),
-    );
-    const items = flattenFlow(joinRequests(net, logs), {
-      expanded: this.expanded,
-      query: this.feedQuery,
-    });
-    // La ligne choisie a pu changer (réponse arrivée, ligne serveur rattachée) :
-    // le détail se lit sur sa version courante.
-    const sel = this.selected;
-    if (sel !== null) {
-      const fresh = items.find((i) => i.key === sel.key);
-      if (fresh !== undefined) this.selected = fresh;
-    }
     const narrowing =
       this.feedSevs.size !== SEVERITY_NAMES.length ||
-      this.feedHideConsole ||
+      (this.feedHideConsole && this.flowView !== "page") ||
       this.feedHideFramework ||
       this.feedQuery !== "";
-    const emptyText =
-      feed.length === 0 && this.net.total === 0
-        ? this.networkEnabled
-          ? "en attente de requêtes (fetch / XHR) et de lignes du serveur…"
-          : "en attente de lignes du serveur…"
-        : this.feedCleared > 0 && !narrowing
-          ? "liste vidée — les nouvelles requêtes et lignes s'afficheront ici."
-          : "aucune requête ni ligne ne correspond au filtre.";
+    if (this.flowView === "live") {
+      const last = feed.at(-1)?.seq ?? 0;
+      if (!reset && last === this.feedSeen) return;
+      this.feedSeen = last;
+      this.feedDirty = false;
+      const q = this.feedQuery;
+      const list =
+        narrowing || this.feedCleared > 0
+          ? feed.filter(
+              (l) =>
+                l.seq > this.feedCleared &&
+                this.feedMatch(l) &&
+                (q === "" || logMatchesQuery(l, q)),
+            )
+          : feed;
+      view.setEntries(
+        list,
+        reset,
+        feed.length === 0
+          ? "en attente de lignes du serveur — démarrer le temps réel pour les recevoir."
+          : "aucune ligne ne correspond au filtre.",
+        true,
+      );
+      return;
+    }
+    if (this.flowView === "server" && this.serverStale) this.fetchServer();
+    if (!reset && !this.flowChanged) return;
+    this.feedDirty = false;
+    this.flowChanged = false;
+    const opts = {
+      expanded: this.expanded,
+      lines: this.lines,
+      keep: (l: FeedLog): boolean =>
+        this.feedSevs.has(l.severity) && !this.frameworkExcluded(l),
+    };
+    let items: FlowItem[];
+    let emptyText: string;
+    if (this.flowView === "page") {
+      this.resolveDocument();
+      items = pageItems(this.net.entries(), this.feedQuery, opts);
+      emptyText = this.networkEnabled
+        ? "en attente des requêtes de la page (fetch / XHR)…"
+        : "interception réseau désactivée (network: false).";
+    } else {
+      items = serverItems(this.serverRows ?? [], this.net.entries(), opts);
+      emptyText =
+        this.serverState === "loading" && this.serverRows === null
+          ? "lecture des journaux du serveur…"
+          : this.serverState === "denied"
+            ? "journaux du serveur réservés à une session administrateur."
+            : this.serverState === "error"
+              ? "journaux du serveur indisponibles."
+              : "aucune requête ne correspond au filtre.";
+    }
+    // La ligne choisie a pu changer (réponse arrivée, lignes relues) : le
+    // détail se lit sur sa version courante.
+    const sel = this.selected;
+    if (sel !== null) {
+      const key = flowKey(sel);
+      const fresh = items.find((i) => flowKey(i) === key);
+      if (fresh !== undefined) this.selected = fresh;
+    }
     view.setEntries(items, reset, emptyText);
   }
 
@@ -2670,46 +2903,54 @@ export class DebugBar {
     if (!(side instanceof HTMLElement)) return;
     const sel = this.selected;
     side.hidden = sel === null;
+    const req = sel !== null && "kind" in sel && sel.kind === "request";
     // Un profil (phases, requêtes SQL) se lit en largeur ; une ligne, non.
-    side.classList.toggle("wide", sel?.kind === "request");
+    side.classList.toggle("wide", req);
     if (sel === null) {
       side.innerHTML = "";
       return;
     }
-    const title = sel.kind === "request" ? "Requête" : "Ligne serveur";
-    const head = `<div class="sidehead"><span>${title}</span><button type="button" class="toolbtn" data-act="close" aria-label="Fermer le détail">✕</button></div>`;
+    const head = `<div class="sidehead"><span>${req ? "Requête" : "Ligne serveur"}</span><button type="button" class="toolbtn" data-act="close" aria-label="Fermer le détail">✕</button></div>`;
     side.innerHTML =
       head +
-      (sel.kind === "request"
-        ? this.requestDetail(sel)
-        : this.feedDetail(sel.log));
+      ("kind" in sel
+        ? sel.kind === "request"
+          ? this.requestDetail(sel)
+          : this.feedDetail(sel.log)
+        : this.feedDetail(sel));
   }
 
-  /** Le détail d'une requête : ce que le navigateur a vu, puis son profil serveur. */
+  /** Le détail d'une requête : ce que le navigateur ou le serveur en a vu, puis son profil. */
   private requestDetail(item: IRequestItem): string {
-    const e = this.net.get(item.row.net.id) ?? item.row.net;
-    const status = e.pending
+    const e =
+      item.net === null ? null : (this.net.get(item.net.id) ?? item.net);
+    const a = item.access;
+    const method = e?.method ?? a?.method ?? "—";
+    const url = e?.url ?? a?.path ?? "";
+    const status = e?.pending
       ? "en attente"
-      : e.error
+      : e?.error
         ? `échec réseau : ${e.error}`
-        : e.status === null
-          ? "—"
-          : String(e.status);
+        : String(e?.status ?? a?.status ?? "—");
+    const dur =
+      e && e.durationMs !== null
+        ? ` · ${e.durationMs} ms côté navigateur`
+        : a?.duration
+          ? ` · ${a.duration} côté serveur`
+          : "";
     // L'appel tient sur UNE ligne : la liste montre déjà méthode, chemin,
     // statut et durée ; le volet garde sa hauteur pour les phases et le SQL.
-    const dur =
-      e.durationMs === null ? "" : ` · ${e.durationMs} ms côté navigateur`;
-    const seen = `<div class="det-call" title="${escapeHtml(e.url)}"><b>${escapeHtml(e.method)}</b> ${escapeHtml(e.url)}<span class="det-callmeta"> · ${escapeHtml(status)}${dur} · ${item.row.logs.length} ligne${item.row.logs.length > 1 ? "s" : ""} serveur</span></div>`;
-    const rid = e.requestId;
+    const seen = `<div class="det-call" title="${escapeHtml(url)}"><b>${escapeHtml(method)}</b> ${escapeHtml(url)}<span class="det-callmeta"> · ${escapeHtml(status)}${dur}</span></div>`;
+    const rid = item.requestId ?? e?.requestId ?? null;
     let body: string;
-    if (e.pending) {
+    if (e?.pending) {
       body = `<div class="det-loading">réponse attendue — le profil serveur viendra avec elle.</div>`;
-    } else if (e.error) {
+    } else if (e?.error) {
       // Aucune réponse : pas d'en-tête à lire, et le serveur ne l'a peut-être
       // jamais reçue. Parler d'un en-tête manquant égarerait la recherche.
-      body = `<div class="det-err">aucune réponse reçue — le navigateur a abandonné l'appel (serveur injoignable, connexion coupée, appel annulé ou refusé par le navigateur). Pas de profil serveur à lire.</div>`;
+      body = `<div class="det-err">aucune réponse reçue (serveur injoignable, appel annulé ou refusé) : pas de profil serveur.</div>`;
     } else if (!rid) {
-      body = `<div class="det-err">cet appel n'a pas de requestId lisible — réponse sans en-tête <b>X-Request-Id</b> (autre origine sans Access-Control-Expose-Headers, ou appel hors Nodefony).</div>`;
+      body = `<div class="det-err">requestId inconnu : réponse sans en-tête <b>X-Request-Id</b>, ou ligne d'accès absente des journaux.</div>`;
     } else {
       const st = this.net.profileState(rid);
       if (!st || st.status === "loading") {
@@ -2828,9 +3069,35 @@ function statusText(e: NetEntry): string {
   return e.status === null ? "—" : String(e.status);
 }
 
+/** Le `requestId` d'une ligne du flux : celui de la requête, ou de la ligne serveur. */
+function requestIdOf(item: FlowItem | null): string | null {
+  if (item === null) return null;
+  if (!("kind" in item)) return item.requestId ?? null;
+  if (item.kind === "child") return item.log.requestId ?? null;
+  return item.requestId ?? item.net?.requestId ?? null;
+}
+
+/**
+ * Les lignes d'une réponse de la recherche des Journaux. Le noyau HTTP
+ * enveloppe parfois le JSON en `{ result }` — la même lecture que le client
+ * de la console.
+ */
+function logRows(body: unknown): ILogRecord[] | null {
+  const v =
+    body !== null && typeof body === "object" && "result" in body
+      ? body.result
+      : body;
+  return v !== null &&
+    typeof v === "object" &&
+    "rows" in v &&
+    Array.isArray(v.rows)
+    ? v.rows
+    : null;
+}
+
 /** Cellules d'une ligne de requête, puis d'une ligne serveur — dans l'ordre. */
-const REQUEST_CELLS = ["chev", "method", "path", "status", "dur", "count"];
-const LOG_CELLS = ["ts", "sev", "mod", "txt", "rid"];
+const REQUEST_CELLS = 6;
+const LOG_CELLS = 5;
 
 /** Écrit une cellule de ligne : texte et classe, jamais de HTML. */
 function setCell(row: HTMLElement, i: number, text: string, cls: string): void {
@@ -2840,56 +3107,78 @@ function setCell(row: HTMLElement, i: number, text: string, cls: string): void {
   cell.className = cls;
 }
 
+/** Recrée les cellules quand la ligne change de nature (requête ↔ ligne serveur). */
+function shapeRow(row: HTMLDivElement, kind: "request" | "log"): void {
+  if (row.dataset.kind === kind) return;
+  row.dataset.kind = kind;
+  const doc = row.ownerDocument;
+  const n = kind === "request" ? REQUEST_CELLS : LOG_CELLS;
+  const cells: HTMLSpanElement[] = [];
+  for (let i = 0; i < n; i++) cells.push(doc.createElement("span"));
+  row.replaceChildren(...cells);
+  if (kind === "request") {
+    cells[0]?.setAttribute("data-act", "toggle");
+    cells[0]?.setAttribute("aria-hidden", "true");
+  }
+}
+
 /**
- * Remplit une ligne recyclée du flux. Les cellules ne se recréent que quand la
- * ligne change de nature (requête ↔ ligne serveur) ; sinon on change leur
- * texte. Le chevron est un repère VISUEL (`aria-hidden`) : au clavier, `→` et
- * `←` déplient, et l'état se lit sur `aria-expanded`.
+ * Remplit une ligne recyclée du flux — texte et classes, jamais de HTML. Le
+ * chevron est un repère VISUEL (`aria-hidden`) : au clavier, `→` et `←`
+ * déplient, et l'état se lit sur `aria-expanded`.
  */
 function fillFlowRow(row: HTMLDivElement, item: FlowItem): void {
-  if (row.dataset.kind !== item.kind) {
-    row.dataset.kind = item.kind;
-    const doc = row.ownerDocument;
-    row.replaceChildren(
-      ...(item.kind === "request" ? REQUEST_CELLS : LOG_CELLS).map(() =>
-        doc.createElement("span"),
-      ),
-    );
-    if (item.kind === "request") {
-      row.firstElementChild?.setAttribute("data-act", "toggle");
-      row.firstElementChild?.setAttribute("aria-hidden", "true");
-    }
-  }
-  if (item.kind === "request") {
-    const e = item.row.net;
-    const n = item.logs.length;
-    row.className = `req${isNetError(e) ? " err" : ""}`;
+  if ("kind" in item && item.kind === "request") {
+    shapeRow(row, "request");
+    const e = item.net;
+    const a = item.access;
+    const open = item.requestId !== null && item.count !== 0;
+    row.className = `req${(e !== null && isNetError(e)) || (a?.status ?? 0) >= 400 ? " err" : ""}${e === null ? " srv" : ""}`;
     row.setAttribute("aria-level", "1");
-    if (n > 0) row.setAttribute("aria-expanded", String(item.expanded));
+    if (open) row.setAttribute("aria-expanded", String(item.expanded));
     else row.removeAttribute("aria-expanded");
     setCell(
       row,
       0,
-      n > 0 ? "›" : "",
-      `chev${item.expanded ? " open" : ""}${n > 0 ? "" : " none"}`,
+      open ? "›" : "",
+      `chev${item.expanded ? " open" : ""}${open ? "" : " none"}`,
     );
-    setCell(row, 1, e.method, `method ${methodClass(e.method)}`);
-    setCell(row, 2, e.path, "path");
-    row.children.item(2)?.setAttribute("title", e.url);
+    const method = e?.method ?? a?.method ?? "—";
+    setCell(row, 1, method, `method ${methodClass(method)}`);
+    setCell(
+      row,
+      2,
+      e?.path ??
+        a?.path ??
+        (item.requestId ? `requête ${shortId(item.requestId)}` : ""),
+      "path",
+    );
+    row.children.item(2)?.setAttribute("title", e?.url ?? a?.path ?? "");
+    const status = e?.status ?? a?.status ?? null;
     setCell(
       row,
       3,
-      statusText(e),
-      `status ${e.pending ? "sp" : e.error ? "s5" : `s${statusFamily(e.status)}`}`,
+      e !== null ? statusText(e) : status === null ? "—" : String(status),
+      `status ${e?.pending ? "sp" : e?.error ? "s5" : `s${statusFamily(status)}`}`,
     );
-    setCell(row, 4, e.durationMs === null ? "" : `${e.durationMs} ms`, "dur");
-    setCell(row, 5, n > 0 ? `${n} ligne${n > 1 ? "s" : ""}` : "", "count");
+    setCell(
+      row,
+      4,
+      e !== null && e.durationMs !== null
+        ? `${e.durationMs} ms`
+        : (a?.duration ?? ""),
+      "dur",
+    );
+    const n = item.count;
+    setCell(row, 5, n === null ? "" : `${n} ligne${n > 1 ? "s" : ""}`, "count");
     return;
   }
-  const l = item.log;
+  shapeRow(row, "log");
+  const child = "kind" in item;
+  const l = child ? item.log : item;
   const tier = severityTier(l.severity);
-  row.className = `log t-${tier}${item.child ? " child" : ""}`;
-  row.setAttribute("aria-level", item.child ? "2" : "1");
+  row.className = `log t-${tier}${child ? " child" : ""}`;
+  row.setAttribute("aria-level", child ? "2" : "1");
   row.removeAttribute("aria-expanded");
   setCell(row, 0, fmtClock(l.ts), "ts");
   setCell(row, 1, l.name, `sev ${tier}`);
@@ -2901,13 +3190,21 @@ function fillFlowRow(row: HTMLDivElement, item: FlowItem): void {
 
 /** Une ligne du flux telle qu'elle se colle dans un ticket. */
 function copyLine(item: FlowItem): string {
-  if (item.kind === "request") {
-    const e = item.row.net;
-    const dur = e.durationMs === null ? "" : ` ${e.durationMs}ms`;
-    return `${e.method} ${e.path} ${statusText(e)}${dur}${e.requestId ? ` [${e.requestId}]` : ""}`;
+  if ("kind" in item && item.kind === "request") {
+    const e = item.net;
+    const a = item.access;
+    const status = e !== null ? statusText(e) : String(a?.status ?? "—");
+    const dur =
+      e !== null && e.durationMs !== null
+        ? ` ${e.durationMs}ms`
+        : a?.duration
+          ? ` ${a.duration}`
+          : "";
+    return `${e?.method ?? a?.method ?? "—"} ${e?.path ?? a?.path ?? ""} ${status}${dur}${item.requestId ? ` [${item.requestId}]` : ""}`;
   }
-  const l = item.log;
-  return `${item.child ? "  " : ""}${fmtClock(l.ts)} ${l.name} ${l.module} ${l.text}${l.requestId ? ` [${l.requestId}]` : ""}`;
+  const child = "kind" in item;
+  const l = child ? item.log : item;
+  return `${child ? "  " : ""}${fmtClock(l.ts)} ${l.name} ${l.module} ${l.text}${l.requestId ? ` [${l.requestId}]` : ""}`;
 }
 
 /** Extrait le trace-id (2ᵉ segment) d'un `traceparent` W3C, raccourci. */

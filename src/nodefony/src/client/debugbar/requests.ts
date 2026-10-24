@@ -1,115 +1,87 @@
 /**
- * Jointure navigateur ↔ serveur de la debug bar : une ligne par requête que le
- * navigateur a VUE (méthode, chemin, statut, durée, échec réseau), avec dessous
- * les lignes que le serveur a écrites pour elle — même `requestId`. Les lignes
- * serveur qu'aucune requête du navigateur ne réclame (autres clients, tâches de
- * fond) restent dans le même flux, à leur rang.
+ * Les lignes de l'onglet « Requêtes » de la barre de débogage, mises à plat
+ * pour la liste fenêtrée. Trois vues, trois sources — aucune jointure
+ * recalculée sur le flux entier :
  *
- * Fonction PURE : l'onglet la rappelle à chaque rendu sur les deux listes déjà
- * bornées (`NetworkModel`, `FEED_MAX`) — rien n'est gardé entre deux appels.
+ * - **Page** : les requêtes que la page a faites (`NetEntry`, bornées par
+ *   `NetworkModel`) ; dépliée, une requête montre les lignes que le serveur a
+ *   écrites pour elle, relues À LA DEMANDE par son `requestId`.
+ * - **Direct** : le flux des lignes serveur reçues en temps réel — la ligne
+ *   EST l'objet du tampon, sans enveloppe.
+ * - **Journaux** : la recherche groupée par requête des Journaux de la console
+ *   (`groupByRequest`) ; l'appel du navigateur de même `requestId` n'enrichit
+ *   que la ligne.
+ *
+ * Fonctions PURES : rappelées seulement quand leur source change.
  */
 import type { FeedLog } from "./model";
 import type { NetEntry } from "./network";
+import type { ILogRecord } from "../../syslog/drivers/ILogDriver";
+import {
+  parseAccessLine,
+  type IAccessLine,
+} from "../../syslog/drivers/pduConsole";
 
-/** Une requête vue par le navigateur, et les lignes serveur qui la concernent. */
-export interface IRequestRow {
-  kind: "request";
-  net: NetEntry;
-  /** Lignes du serveur de même `requestId`, dans leur ordre d'arrivée. */
-  logs: FeedLog[];
-  /** Rang dans le flux : l'envoi par le navigateur (`performance.now()`). */
-  at: number;
-}
+/** Les trois vues de l'onglet. */
+export type FlowView = "page" | "live" | "server";
 
-/** Une ligne serveur qu'aucune requête du navigateur ne réclame. */
-export interface ILogRow {
-  kind: "log";
-  log: FeedLog;
-  /** Rang dans le flux : la réception par la page (`performance.now()`). */
-  at: number;
-}
-
-/** Ligne du flux « Requêtes ». */
-export type FlowRow = IRequestRow | ILogRow;
-
-/**
- * Rattache chaque ligne serveur à la requête du navigateur de même `requestId`,
- * et rend le flux trié du plus récent au plus ancien.
- *
- * Les deux rangs sont lus sur l'horloge de la PAGE (`NetEntry.startedAt`,
- * `FeedLog.at`) : l'horodatage du serveur ne sert jamais à ordonner. Une
- * requête sans `requestId` (en attente, échec réseau, réponse sans en-tête)
- * reste une ligne, sans lignes serveur.
- *
- * @param net - appels observés par le navigateur.
- * @param logs - lignes serveur reçues, dans leur ordre d'arrivée, déjà filtrées.
- * @returns le flux, le plus récent en tête.
- */
-export function joinRequests(
-  net: readonly NetEntry[],
-  logs: readonly FeedLog[],
-): FlowRow[] {
-  const rows: FlowRow[] = [];
-  let byRequestId: Map<string, IRequestRow> | null = null;
-  for (const entry of net) {
-    const row: IRequestRow = {
-      kind: "request",
-      net: entry,
-      logs: [],
-      at: entry.startedAt,
-    };
-    rows.push(row);
-    if (entry.requestId !== null) {
-      byRequestId ??= new Map();
-      byRequestId.set(entry.requestId, row);
-    }
-  }
-  for (const log of logs) {
-    const owner =
-      log.requestId === undefined ? undefined : byRequestId?.get(log.requestId);
-    if (owner) owner.logs.push(log);
-    else rows.push({ kind: "log", log, at: log.at });
-  }
-  rows.sort((a, b) => b.at - a.at);
-  return rows;
-}
-
-/** Une requête du navigateur, telle que la liste l'affiche. */
+/** Une requête : vue par le navigateur, relue du serveur, ou les deux. */
 export interface IRequestItem {
   kind: "request";
-  /** Clé stable de la ligne (`r` + l'id local de l'appel). */
+  /** Clé stable : `r<id local>` (navigateur) ou `q<requestId>` (serveur seul). */
   key: string;
-  row: IRequestRow;
-  /** Ses lignes serveur qui passent la recherche — toutes, si la requête la passe elle-même. */
-  logs: FeedLog[];
-  /** Ses lignes serveur suivent-elles, en retrait ? */
+  /** L'appel vu par le navigateur, s'il l'a vu. */
+  net: NetEntry | null;
+  /** La ligne d'accès écrite par le serveur, s'il l'a écrite. */
+  access: IAccessLine | null;
+  requestId: string | null;
+  /** Lignes serveur connues : le compte du groupe, ou les lignes relues. `null` : inconnu. */
+  count: number | null;
   expanded: boolean;
 }
 
-/** Une ligne serveur, telle que la liste l'affiche. */
-export interface ILogItem {
-  kind: "log";
-  /** Clé stable de la ligne (`l` + son rang d'arrivée `seq`). */
+/** Une ligne serveur affichée sous sa requête, en retrait. */
+export interface IChildItem {
+  kind: "child";
   key: string;
   log: FeedLog;
-  /** Sous sa requête (en retrait), ou orpheline dans le flux. */
-  child: boolean;
 }
 
-/** Ligne affichée, à plat : la vue fenêtrée ne connaît que des lignes de même hauteur. */
-export type FlowItem = IRequestItem | ILogItem;
+/** Ligne affichée. Une ligne serveur au premier niveau est l'objet du tampon lui-même. */
+export type FlowItem = IRequestItem | IChildItem | FeedLog;
 
-/** Ce qui façonne le flux affiché : le dépliage et la recherche. */
-export interface IFlowOptions {
-  /** Ids locaux (`NetEntry.id`) des requêtes dépliées. */
-  expanded: ReadonlySet<number> | null;
-  /** Recherche, déjà en minuscules ; vide : tout passe. */
-  query: string;
+/** Les lignes relues d'une requête : chargées, en cours, ou en échec. */
+export type LinesState = FeedLog[] | "loading" | "error";
+
+/** Clé stable d'une ligne affichée. */
+export function flowKey(item: FlowItem): string {
+  return "kind" in item ? item.key : `l${item.seq}`;
+}
+
+/**
+ * Une ligne serveur relue (`ILogRecord`) au format du flux. Rang `seq` : son
+ * `uid` — unique dans une réponse, et c'est tout ce que la clé exige.
+ */
+export function recordToLine(rec: ILogRecord): FeedLog {
+  return {
+    severity: rec.severity,
+    name: rec.severityName,
+    text: typeof rec.payload === "string" ? rec.payload : rec.msg,
+    module: rec.moduleName,
+    ts: rec.timeStamp,
+    uid: rec.uid,
+    msgid: rec.msgid,
+    pid: rec.pid,
+    requestId: rec.requestId,
+    console: false,
+    seq: rec.uid,
+    at: 0,
+  };
 }
 
 /**
  * Une ligne serveur passe-t-elle la recherche ? Texte, module, catégorie et
- * requête — la seule règle de recherche du flux.
+ * requête.
  *
  * @param query - recherche, déjà en minuscules
  */
@@ -122,62 +94,107 @@ export function logMatchesQuery(l: FeedLog, query: string): boolean {
   );
 }
 
-/**
- * Une requête du navigateur passe-t-elle la recherche par elle-même ?
- * Méthode, chemin, statut et `requestId`.
- *
- * @param query - recherche, déjà en minuscules
- */
-export function requestMatchesQuery(e: NetEntry, query: string): boolean {
-  return (
-    e.method.toLowerCase().includes(query) ||
-    e.path.toLowerCase().includes(query) ||
-    (e.status !== null && String(e.status).includes(query)) ||
-    (e.requestId ?? "").toLowerCase().includes(query)
-  );
+/** Ce qui déplie une requête et filtre ses lignes. */
+export interface IExpandOptions {
+  /** Clés des requêtes dépliées. */
+  expanded: ReadonlySet<string> | null;
+  /** Lignes relues, par `requestId`. */
+  lines: ReadonlyMap<string, LinesState>;
+  /** Filtre des lignes serveur (niveaux, module exclu). */
+  keep: (l: FeedLog) => boolean;
+}
+
+/** Pousse une requête puis, dépliée, ses lignes relues qui passent le filtre. */
+function pushRequest(
+  out: FlowItem[],
+  item: IRequestItem,
+  opts: IExpandOptions,
+): void {
+  const state =
+    item.requestId === null ? undefined : opts.lines.get(item.requestId);
+  const kept = Array.isArray(state) ? state.filter(opts.keep) : null;
+  if (kept !== null) item.count = kept.length;
+  out.push(item);
+  if (!item.expanded || kept === null) return;
+  for (const log of kept)
+    out.push({ kind: "child", key: `${item.key}.${log.seq}`, log });
 }
 
 /**
- * Met le flux à plat pour la liste : chaque requête, puis — dépliée — ses
- * lignes serveur dessous ; les orphelines à leur rang.
+ * Vue **Page** : les requêtes de la page, la plus récente en tête.
  *
- * La recherche garde une requête qui la passe elle-même (avec toutes ses
- * lignes), ou dont au moins une ligne la passe : celle-ci est alors DÉPLIÉE
- * sur ces seules lignes — chercher un message, c'est vouloir le voir.
- *
- * @param rows - le flux de {@link joinRequests}, le plus récent en tête
- * @param opts - dépliage et recherche
- * @returns les lignes dans l'ordre d'affichage
+ * @param net - les appels de la page, du plus récent au plus ancien
+ * @param query - recherche (méthode, chemin, statut, requête), en minuscules
  */
-export function flattenFlow(
-  rows: readonly FlowRow[],
-  opts: IFlowOptions,
+export function pageItems(
+  net: readonly NetEntry[],
+  query: string,
+  opts: IExpandOptions,
 ): FlowItem[] {
-  const { query, expanded } = opts;
   const out: FlowItem[] = [];
-  for (const row of rows) {
-    if (row.kind === "log") {
-      if (query === "" || logMatchesQuery(row.log, query))
-        out.push({
-          kind: "log",
-          key: `l${row.log.seq}`,
-          log: row.log,
-          child: false,
-        });
+  for (const e of net) {
+    if (
+      query !== "" &&
+      !`${e.method} ${e.path} ${e.status ?? ""} ${e.requestId ?? ""}`
+        .toLowerCase()
+        .includes(query)
+    )
+      continue;
+    const key = `r${e.id}`;
+    pushRequest(
+      out,
+      {
+        kind: "request",
+        key,
+        net: e,
+        access: null,
+        requestId: e.requestId,
+        count: null,
+        expanded: opts.expanded?.has(key) === true,
+      },
+      opts,
+    );
+  }
+  return out;
+}
+
+/**
+ * Vue **Journaux** : la réponse groupée du serveur, telle quelle. Une ligne de
+ * groupe porte une requête (sa ligne d'accès, son compte) ; l'appel du
+ * navigateur de même `requestId` l'enrichit (durée vue par le navigateur).
+ *
+ * @param rows - `ILogQueryResult.rows` d'une recherche `groupByRequest`
+ * @param net - les appels de la page
+ */
+export function serverItems(
+  rows: readonly ILogRecord[],
+  net: readonly NetEntry[],
+  opts: IExpandOptions,
+): FlowItem[] {
+  let byId: Map<string, NetEntry> | null = null;
+  for (const e of net)
+    if (e.requestId !== null) (byId ??= new Map()).set(e.requestId, e);
+  const out: FlowItem[] = [];
+  for (const rec of rows) {
+    const rid = rec.requestId;
+    if (rid === undefined) {
+      out.push(recordToLine(rec));
       continue;
     }
-    const { net } = row;
-    let logs = row.logs;
-    let open = expanded?.has(net.id) === true;
-    if (query !== "" && !requestMatchesQuery(net, query)) {
-      logs = logs.filter((l) => logMatchesQuery(l, query));
-      if (logs.length === 0) continue;
-      open = true;
-    }
-    out.push({ kind: "request", key: `r${net.id}`, row, logs, expanded: open });
-    if (!open) continue;
-    for (const log of logs)
-      out.push({ kind: "log", key: `l${log.seq}`, log, child: true });
+    const key = `q${rid}`;
+    pushRequest(
+      out,
+      {
+        kind: "request",
+        key,
+        net: byId?.get(rid) ?? null,
+        access: parseAccessLine(rec),
+        requestId: rid,
+        count: rec.lines ?? 1,
+        expanded: opts.expanded?.has(key) === true,
+      },
+      opts,
+    );
   }
   return out;
 }

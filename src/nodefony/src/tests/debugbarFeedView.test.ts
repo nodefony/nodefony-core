@@ -249,6 +249,21 @@ describe("FeedView — rien ne bouge sous l'œil", () => {
   });
 });
 
+describe("FeedView — un tampon lu à l'envers, sans copie", () => {
+  it("🔴 la plus récente en DERNIER dans le tampon s'affiche EN HAUT", () => {
+    const tampon = [entree(1), entree(2), entree(3)];
+    vue.setEntries(tampon, true, "", true);
+    const enTete = lignes().find((n) => n.style.transform.endsWith("(0px)"));
+    expect(enTete?.dataset.key).toBe("k3");
+  });
+
+  it("la sélection retrouve sa ligne dans un tampon lu à l'envers", () => {
+    vue.setEntries(serie(1, 30).reverse(), true, "", true);
+    ligneDe(25).click();
+    expect(choisies.at(-1)?.seq).toBe(25);
+  });
+});
+
 describe("FeedView — sélection, actions et état vide", () => {
   it("un clic sélectionne la ligne, un second la relâche", () => {
     vue.setEntries(serie(1, 30), true, "");

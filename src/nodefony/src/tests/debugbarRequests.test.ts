@@ -1,28 +1,35 @@
 /**
- * Jointure de l'onglet « Requêtes » de la debug bar (#665) : une requête vue
- * par le navigateur porte ses lignes serveur, une ligne orpheline reste dans le
- * flux, une requête sans réponse reste une ligne — et l'ordre se lit sur
- * l'horloge de la PAGE, jamais sur celle du serveur.
+ * Les lignes de l'onglet « Requêtes » de la debug bar (#665), mises à plat.
+ * Vue Page : les appels de la page, dépliés sur les lignes RELUES au serveur.
+ * Vue Journaux : la réponse groupée du serveur telle quelle, enrichie par
+ * l'appel du navigateur de même requestId. Aucune jointure sur le flux entier.
  */
 import { describe, expect, it } from "vitest";
 import type { FeedLog } from "../client/debugbar/model";
 import type { NetEntry } from "../client/debugbar/network";
-import { flattenFlow, joinRequests } from "../client/debugbar/requests";
+import type { ILogRecord } from "../syslog/drivers/ILogDriver";
+import {
+  flowKey,
+  pageItems,
+  recordToLine,
+  serverItems,
+  type LinesState,
+} from "../client/debugbar/requests";
 
 function appel(
   id: number,
-  startedAt: number,
   requestId: string | null,
+  path = `/api/${id}`,
 ): NetEntry {
   return {
     id,
     method: "GET",
-    url: `https://127.0.0.1/api/${id}`,
-    path: `/api/${id}`,
+    url: `https://127.0.0.1${path}`,
+    path,
     status: requestId === null ? null : 200,
     ok: requestId !== null,
     durationMs: requestId === null ? null : 4,
-    startedAt,
+    startedAt: id,
     requestId,
     traceparent: null,
     pending: requestId === null,
@@ -30,98 +37,109 @@ function appel(
   };
 }
 
-function ligne(seq: number, at: number, requestId?: string, ts = 0): FeedLog {
+function enregistrement(
+  uid: number,
+  payload: string,
+  requestId?: string,
+  extra: Partial<ILogRecord> = {},
+): ILogRecord {
   return {
-    seq,
-    at,
+    uid,
     severity: 6,
-    name: "INFO",
-    text: `ligne ${seq}`,
-    module: "app",
-    ts,
-    uid: seq,
+    severityName: "INFO",
+    moduleName: "app",
     msgid: "",
+    msg: "",
+    timeStamp: 1_700_000_000_000 + uid,
     pid: 1,
-    console: false,
-    requestId,
+    payload,
+    ...(requestId === undefined ? {} : { requestId }),
+    ...extra,
   };
 }
 
-describe("joinRequests", () => {
-  it("rattache les lignes serveur à la requête de même requestId, dans leur ordre d'arrivée", () => {
-    const rows = joinRequests(
-      [appel(1, 10, "r1")],
-      [ligne(1, 11, "r1"), ligne(2, 12, "r1")],
-    );
-    expect(rows).toHaveLength(1);
-    const [row] = rows;
-    expect(row?.kind).toBe("request");
-    expect(row?.kind === "request" && row.logs.map((l) => l.seq)).toEqual([
-      1, 2,
+const sans = {
+  expanded: null,
+  lines: new Map<string, LinesState>(),
+  keep: (): boolean => true,
+};
+
+describe("vue Page — les requêtes de la page", () => {
+  it("une ligne par appel, dans l'ordre reçu (le plus récent en tête)", () => {
+    const items = pageItems([appel(2, "r2"), appel(1, "r1")], "", sans);
+    expect(items.map(flowKey)).toEqual(["r2", "r1"]);
+  });
+
+  it("🔴 dépliée, une requête montre ses lignes RELUES, en retrait, filtrées", () => {
+    const lines = new Map<string, LinesState>([
+      [
+        "r1",
+        [
+          recordToLine(enregistrement(10, "lecture", "r1")),
+          recordToLine(enregistrement(11, "bavard", "r1", { severity: 7 })),
+        ],
+      ],
     ]);
+    const items = pageItems([appel(1, "r1")], "", {
+      expanded: new Set(["r1"]),
+      lines,
+      keep: (l: FeedLog) => l.severity <= 6,
+    });
+    expect(items.map(flowKey)).toEqual(["r1", "r1.10"]);
+    const req = items[0];
+    expect(req && "kind" in req && req.kind === "request" && req.count).toBe(1);
   });
 
-  it("garde dans le flux une ligne qu'aucune requête du navigateur ne réclame", () => {
-    const rows = joinRequests(
-      [appel(1, 10, "r1")],
-      [ligne(1, 11, "r1"), ligne(2, 20, "autre-client"), ligne(3, 30)],
-    );
-    expect(rows.map((r) => r.kind)).toEqual(["log", "log", "request"]);
-    expect(rows.filter((r) => r.kind === "log").map((r) => r.log.seq)).toEqual([
-      3, 2,
-    ]);
+  it("dépliée mais pas encore relue : la requête seule, compte inconnu", () => {
+    const items = pageItems([appel(1, "r1")], "", {
+      ...sans,
+      expanded: new Set(["r1"]),
+      lines: new Map<string, LinesState>([["r1", "loading"]]),
+    });
+    expect(items.map(flowKey)).toEqual(["r1"]);
   });
 
-  it("garde une requête sans réponse (pas encore de requestId), sans lignes", () => {
-    const rows = joinRequests([appel(1, 10, null)], [ligne(1, 11, "r1")]);
-    expect(rows.map((r) => r.kind)).toEqual(["log", "request"]);
-    const req = rows.find((r) => r.kind === "request");
-    expect(req?.kind === "request" && req.logs).toEqual([]);
-  });
-
-  it("ordonne sur l'horloge de la page, le plus récent en tête — jamais sur ts serveur", () => {
-    // ts serveur à rebours exprès : il ne doit rien décider.
-    const rows = joinRequests(
-      [appel(1, 10, "r1"), appel(2, 30, "r2")],
-      [ligne(1, 20, undefined, 9_999), ligne(2, 40, undefined, 1)],
-    );
-    expect(rows.map((r) => r.at)).toEqual([40, 30, 20, 10]);
+  it("la recherche porte sur la méthode, le chemin, le statut et le requestId", () => {
+    const net = [appel(1, "r1", "/api/articles"), appel(2, "r2", "/api/users")];
+    expect(pageItems(net, "articles", sans).map(flowKey)).toEqual(["r1"]);
+    expect(pageItems(net, "r2", sans).map(flowKey)).toEqual(["r2"]);
   });
 });
 
-describe("flattenFlow — la liste à plat", () => {
-  const sansRien = { expanded: null, query: "" };
-  const flux = () =>
-    joinRequests(
-      [appel(1, 10, "r1"), appel(2, 30, "r2")],
-      [ligne(1, 11, "r1"), ligne(2, 12, "r1"), ligne(3, 40)],
-    );
-
-  it("repliée, une requête est UNE ligne ; ses lignes serveur sont comptées, pas affichées", () => {
-    const items = flattenFlow(flux(), sansRien);
-    expect(items.map((i) => i.key)).toEqual(["l3", "r2", "r1"]);
-    const r1 = items.find((i) => i.key === "r1");
-    expect(r1?.kind === "request" && r1.logs.length).toBe(2);
+describe("vue Journaux — la recherche groupée du serveur", () => {
+  it("🔴 une ligne de groupe est une requête : sa ligne d'accès lue, son compte", () => {
+    const rows = [
+      enregistrement(5, "GET 200 https://h/logo.png 2.2ms", "rid-logo", {
+        msgid: "req",
+        lines: 3,
+      }),
+    ];
+    const [item] = serverItems(rows, [], sans);
+    if (!item || !("kind" in item) || item.kind !== "request")
+      throw new Error("une requête était attendue");
+    expect(item.access).toEqual({
+      method: "GET",
+      status: 200,
+      path: "/logo.png",
+      duration: "2.2ms",
+    });
+    expect(item.count).toBe(3);
+    expect(item.net).toBeNull();
   });
 
-  it("🔴 dépliée, ses lignes serveur la SUIVENT, en retrait, dans leur ordre d'arrivée", () => {
-    const items = flattenFlow(flux(), { ...sansRien, expanded: new Set([1]) });
-    expect(items.map((i) => i.key)).toEqual(["l3", "r2", "r1", "l1", "l2"]);
-    const enfants = items.filter((i) => i.kind === "log" && i.child);
-    expect(enfants.map((i) => i.key)).toEqual(["l1", "l2"]);
-    const orpheline = items.find((i) => i.key === "l3");
-    expect(orpheline?.kind === "log" && orpheline.child).toBe(false);
+  it("l'appel du navigateur de même requestId enrichit la ligne", () => {
+    const rows = [
+      enregistrement(5, "GET 200 https://h/api/1 3ms", "r1", { msgid: "req" }),
+    ];
+    const [item] = serverItems(rows, [appel(1, "r1")], sans);
+    if (!item || !("kind" in item) || item.kind !== "request")
+      throw new Error("une requête était attendue");
+    expect(item.net?.id).toBe(1);
   });
 
-  it("une recherche qui touche une ligne serveur DÉPLIE sa requête sur cette seule ligne", () => {
-    const items = flattenFlow(flux(), { ...sansRien, query: "ligne 2" });
-    expect(items.map((i) => i.key)).toEqual(["r1", "l2"]);
-  });
-
-  it("une requête qui passe la recherche elle-même garde toutes ses lignes", () => {
-    const items = flattenFlow(flux(), { ...sansRien, query: "/api/1" });
-    expect(items.map((i) => i.key)).toEqual(["r1"]);
-    const r1 = items[0];
-    expect(r1?.kind === "request" && r1.logs.length).toBe(2);
+  it("une ligne sans requestId reste une ligne serveur, au premier niveau", () => {
+    const [item] = serverItems([enregistrement(7, "tâche de fond")], [], sans);
+    if (!item || "kind" in item) throw new Error("une ligne était attendue");
+    expect(item.text).toBe("tâche de fond");
   });
 });

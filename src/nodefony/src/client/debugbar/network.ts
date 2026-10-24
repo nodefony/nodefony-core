@@ -59,8 +59,8 @@ export interface NetworkInterceptorOptions {
   ignore?: (url: string) => boolean;
 }
 
-/** Extrait le path d'une URL (absolue ou relative), tolérant. */
-function toPath(url: string): string {
+/** Extrait le path d'une URL (absolue ou relative), tolérant : ne lève jamais. */
+export function toPath(url: string): string {
   try {
     return new URL(url, location.href).pathname;
   } catch {
