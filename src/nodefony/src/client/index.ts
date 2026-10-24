@@ -197,6 +197,13 @@ export type {
   IProfileQuery,
   IProfileSecurity,
   IProfileSummary,
+  IStatusBreakdown,
+  IPhaseTotal,
+  IRouteStats,
+  INPlusOne,
+  ISqlShapeStats,
+  IErrorSample,
+  IProfileReport,
 } from "../types/IProfile";
 export type { LogProtocol } from "../syslog/drivers/pduProtocol";
 export type { IAccessLine } from "../syslog/drivers/pduConsole";

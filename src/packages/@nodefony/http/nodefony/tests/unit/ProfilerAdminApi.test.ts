@@ -50,3 +50,44 @@ describe("ProfilerAdminApi — recent", () => {
     expect(long.entries).toHaveLength(2);
   });
 });
+
+describe("ProfilerAdminApi — summary", () => {
+  function summary(p: Profiler) {
+    const ep = createProfilerAdminApi(p)
+      .adminEndpoints()
+      .find((e) => e.path === "summary");
+    if (!ep) throw new Error("endpoint summary absent");
+    return ep.handler({
+      params: {},
+      query: {},
+      body: null,
+      user: null,
+      roles: [],
+    });
+  }
+
+  it("🔴 l'anneau ENTIER passe à aggregateProfiles — la règle de l'outil MCP, pas une copie", async () => {
+    const p = new Profiler();
+    for (const id of ["a", "b", "c"]) collected(p, id);
+    const res = (await summary(p)) as {
+      requests: number;
+      ws: number;
+      routes: unknown[];
+    };
+    expect(res.requests).toBe(3);
+    expect(res.ws).toBe(3);
+    expect(res.routes).toHaveLength(1);
+  });
+
+  it("anneau vide : un rapport vide, pas une erreur", async () => {
+    const res = (await summary(new Profiler())) as { requests: number };
+    expect(res.requests).toBe(0);
+  });
+
+  it("déclaré AVANT {id} : `summary` n'est pas lu comme un requestId", () => {
+    const paths = createProfilerAdminApi(new Profiler())
+      .adminEndpoints()
+      .map((e) => e.path);
+    expect(paths.indexOf("summary")).toBeLessThan(paths.indexOf("{id}"));
+  });
+});

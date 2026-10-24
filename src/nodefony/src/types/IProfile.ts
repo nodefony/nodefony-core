@@ -105,3 +105,111 @@ export interface IProfileSummary {
   route: string | null;
   error: string | null;
 }
+
+// — Rapport agrégé des profils (`aggregateProfiles`, @nodefony/http) —
+
+/** Répartition des statuts HTTP d'une route. */
+export interface IStatusBreakdown {
+  s2xx: number;
+  s3xx: number;
+  s4xx: number;
+  s5xx: number;
+  /** Dont 401 : la route exige une authentification que la requête n'avait pas. */
+  unauthorized: number;
+  /** Dont 403 : authentifiée, mais refusée. */
+  forbidden: number;
+}
+
+/** Temps cumulé d'une phase sur les requêtes d'une route. */
+export interface IPhaseTotal {
+  totalMs: number;
+  /** Requêtes où la phase est apparue et s'est terminée. */
+  count: number;
+}
+
+/** Statistiques d'une route sur la fenêtre agrégée. */
+export interface IRouteStats {
+  route: string;
+  kind: "http" | "ws";
+  controller: string | null;
+  action: string | null;
+  count: number;
+  /** Requêtes sans durée mesurée (mesure des phases désactivée, erreur précoce). */
+  untimed: number;
+  /**
+   * Requêtes SERVIES et chronométrées (statut < 400, sans exception) : la
+   * population de tout ce qui se dit « par requête » ci-dessous. Refus et
+   * erreurs se lisent dans `status` et `errors`.
+   */
+  served: number;
+  /** Percentiles et maximum, sur les requêtes servies. */
+  p50Ms: number | null;
+  p95Ms: number | null;
+  maxMs: number | null;
+  status: IStatusBreakdown;
+  /** Requêtes en erreur : statut ≥ 500 ou exception levée. */
+  errors: number;
+  /**
+   * Requêtes SQL/NoSQL des requêtes servies : total, maximum dans une
+   * requête, temps CUMULÉ (des requêtes parallèles s'y additionnent).
+   */
+  queries: { total: number; perRequestMax: number; totalMs: number };
+  /** Temps par phase des requêtes servies, `action.self` compris. */
+  phases: Record<string, IPhaseTotal>;
+}
+
+/** Un N+1 : la même forme SQL répétée dans une requête. */
+export interface INPlusOne {
+  route: string;
+  controller: string | null;
+  action: string | null;
+  shape: string;
+  /** Plus grand nombre de répétitions vu dans une requête. */
+  maxRepeats: number;
+  /** Requêtes touchées. */
+  requests: number;
+  /** Temps cumulé de ces répétitions. */
+  totalMs: number;
+  /** Une requête touchée, pour aller voir son profil complet. */
+  sampleRequestId: string;
+}
+
+/** Une forme SQL et son coût sur la fenêtre. */
+export interface ISqlShapeStats {
+  shape: string;
+  connector: string | null;
+  count: number;
+  totalMs: number;
+  maxMs: number;
+  /** Routes qui l'ont émise (au plus cinq). */
+  routes: string[];
+}
+
+/** Un exemple d'erreur, de quoi la retrouver dans le journal. */
+export interface IErrorSample {
+  route: string;
+  status: number | null;
+  error: string | null;
+  requestId: string;
+}
+
+/** Le rapport agrégé. */
+export interface IProfileReport {
+  /** Requêtes agrégées (hors outillage filtré). */
+  requests: number;
+  http: number;
+  ws: number;
+  /** Requêtes de l'outillage écartées (`/nodefony/…`, `/_vite/…`). */
+  filteredTooling: number;
+  /** Requêtes sans durée mesurée. */
+  untimed: number;
+  /** Triées par p95 décroissant. */
+  routes: IRouteStats[];
+  /** Triés par temps cumulé décroissant. */
+  nPlusOne: INPlusOne[];
+  /** Les dix formes SQL les plus coûteuses (temps cumulé décroissant). */
+  slowQueries: ISqlShapeStats[];
+  /** Formes SQL distinctes vues au-delà de la capacité, comptées sans détail. */
+  sqlShapesDropped: number;
+  errors: IErrorSample[];
+}

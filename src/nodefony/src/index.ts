@@ -688,6 +688,13 @@ export type {
   IProfileQuery,
   IProfileSecurity,
   IProfileSummary,
+  IStatusBreakdown,
+  IPhaseTotal,
+  IRouteStats,
+  INPlusOne,
+  ISqlShapeStats,
+  IErrorSample,
+  IProfileReport,
 } from "./types/IProfile";
 export type { PartialInput } from "./types/PartialInput";
 export {

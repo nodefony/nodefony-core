@@ -1,5 +1,6 @@
 import type { IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
 import type { Profiler } from "../src/profiler/Profiler";
+import { aggregateProfiles } from "../src/profiler/aggregate";
 
 /**
  * Producteur `IAdminApi` du **profiler** — exposé sous `/nodefony/profiler/api/*`.
@@ -12,6 +13,8 @@ import type { Profiler } from "../src/profiler/Profiler";
  * Endpoints :
  *  - `GET /nodefony/profiler/api/recent`  → derniers profils (résumés, récent → ancien)
  *    `?connection=<requestId>` : les seules frames de cette socket WebSocket
+ *  - `GET /nodefony/profiler/api/summary` → les profils de l'anneau agrégés par
+ *    route (percentiles, phases, formes SQL, N+1, erreurs — `aggregateProfiles`)
  *  - `GET /nodefony/profiler/api/{id}`    → profil complet (phases) d'un requestId
  *  - `DELETE /nodefony/profiler/api/recent` → vide le ring buffer
  *
@@ -58,6 +61,13 @@ export function createProfilerAdminApi(profiler: Profiler): IAdminApi {
         profiler.clear();
         return { cleared: true };
       },
+    },
+    {
+      path: "summary",
+      summary: "Profiles aggregated by route: percentiles, SQL, N+1, errors",
+      // Calculé à la demande sur l'anneau entier — jamais par requête servie.
+      // Même règle que l'outil `nodefony_profile_route` : un seul calcul.
+      handler: () => aggregateProfiles(profiler.since(0).entries),
     },
     {
       path: "{id}",
