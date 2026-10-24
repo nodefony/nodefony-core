@@ -457,6 +457,7 @@ const STYLES =
 .toolbtn:active { background:#3b4250; }
 .toolbtn.on, .toolbtn[aria-pressed="true"] { color:#7fd3ac; border-color:#5fbf93; background:rgba(54,179,126,.14); }
 @media (prefers-reduced-motion: reduce) { .chip.sevf, .toolbtn, .search { transition:none; } }
+.pane .counts .toolbtn[data-tip]::after { left:auto; right:0; }
 ` +
   // ── Flux fenêtré (feedView.ts) ───────────────────────────────────────────
   // Lignes de hauteur FIXE (24 px) : c'est ce qui rend le fenêtrage exact, et
@@ -465,7 +466,7 @@ const STYLES =
   // de lignes serveur ; dépliée, ses lignes suivent EN RETRAIT, sous un filet
   // qui les rattache à elle. Une ligne orpheline garde le format du journal.
   `
-.pane.logp.active { display:flex; flex-direction:column; padding:10px 14px 12px; }
+.pane.logp.active { display:flex; flex-direction:column; padding:10px 14px 12px; overflow-x:hidden; }
 .logbody { flex:1; min-height:0; display:flex; gap:10px; }
 .feedbox { position:relative; flex:1; min-width:0;
   display:flex; flex-direction:column; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#111317; }
@@ -702,6 +703,7 @@ const STYLES =
   // Écran étroit : les libellés se replient, l'icône et le nom accessible restent.
   `
 @media (max-width: 1100px) { .seg .lbl { display: none; } .strip .seg button { padding: 0 8px; } }
+@media (max-width: 1440px) { .strip .mini { display: none; } }
 .conn-refused { color: var(--crit); border-color: rgba(255,86,48,.5); }
 
 .minbar { position:fixed; z-index:2147483000; display:none; align-items:center; gap:9px;
@@ -749,6 +751,8 @@ const STYLES =
 .wf-bar.identity { background:#ff5c8a; }
 .det-loading,.det-err { color:var(--muted); padding:6px 0; } .det-err { color:var(--crit); }
 .q-title { margin-top:12px; }
+.det-call { margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#e8eaed; }
+.det-callmeta { color:#a3aab4; }
 .q-list { display:flex; flex-direction:column; }
 .q-row { display:flex; align-items:center; gap:10px; min-height:24px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); }
 .q-sql { flex:1; min-width:0; color:#e8eaed; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; }
@@ -2667,12 +2671,11 @@ export class DebugBar {
         : e.status === null
           ? "—"
           : String(e.status);
-    const seen = `<div class="logdetail">
-      <div class="drow"><span class="dk">appel</span><span class="dv">${escapeHtml(e.method)} ${escapeHtml(e.url)}</span></div>
-      <div class="drow"><span class="dk">statut</span><span class="dv">${escapeHtml(status)}</span></div>
-      ${e.durationMs === null ? "" : `<div class="drow"><span class="dk">durée client</span><span class="dv">${e.durationMs} ms</span></div>`}
-      <div class="drow"><span class="dk">lignes serveur</span><span class="dv">${item.row.logs.length}</span></div>
-    </div>`;
+    // L'appel tient sur UNE ligne : la liste montre déjà méthode, chemin,
+    // statut et durée ; le volet garde sa hauteur pour les phases et le SQL.
+    const dur =
+      e.durationMs === null ? "" : ` · ${e.durationMs} ms côté navigateur`;
+    const seen = `<div class="det-call" title="${escapeHtml(e.url)}"><b>${escapeHtml(e.method)}</b> ${escapeHtml(e.url)}<span class="det-callmeta"> · ${escapeHtml(status)}${dur} · ${item.row.logs.length} ligne${item.row.logs.length > 1 ? "s" : ""} serveur</span></div>`;
     const rid = e.requestId;
     let body: string;
     if (e.pending) {

@@ -107,9 +107,16 @@ d'un `alt` restent un jugement humain.
 ## `rendu` — la page tient-elle dans son viewport, ses polices sont-elles là
 
 - `horizontalOverflow` : la page dépasse-t-elle la largeur de la fenêtre (le défilement
-  horizontal accidentel). C'est LUI qui porte le verdict.
+  horizontal accidentel). Il porte le verdict.
+- `horizontalScrollers` : les conteneurs défilants (`overflow-x: auto|scroll`) dont le contenu
+  déborde — une barre de défilement horizontale DANS la page, que `horizontalOverflow` ne voit
+  pas. Il porte AUSSI le verdict. Vécu : une barre de débogage en Shadow DOM débordait de 232 px
+  pendant que la page entière se déclarait saine. Cause fréquente : une infobulle invisible
+  (`visibility: hidden`) ancrée à gauche sur un bouton de droite — invisible, elle élargit quand
+  même la zone défilable.
 - `elementsOutsideViewport` : une **information**, pas un verdict — carrousels, tiroirs et textes
   destinés aux lecteurs d'écran sortent du viewport légitimement.
+- Les trois mesures descendent dans les **Shadow DOM ouverts**.
 - `fonts` : ce que `document.fonts` a RÉELLEMENT chargé (statut par famille + graisse). Une
   police en échec bascule le verdict — le texte s'affiche alors dans une police de repli, et toutes
   les mesures de taille en héritent.

@@ -558,18 +558,44 @@ function probeA11y() {
  * Famille rendu — la page tient-elle dans son viewport, ses polices sont-elles
  * VRAIMENT arrivées. Les éléments hors viewport sont une INFO, pas le verdict :
  * carrousels et textes pour lecteurs d'écran en produisent légitimement.
+ *
+ * Le débordement se cherche AUSSI dans les Shadow DOM ouverts, et dans chaque
+ * conteneur défilant : un widget isolé (une barre de débogage) peut porter sa
+ * propre barre de défilement horizontale sans que la page, elle, déborde d'un
+ * pixel — la mesure du document seul la déclarait saine.
  */
 function probeRendering() {
   const doc = document.scrollingElement ?? document.documentElement;
   const overflowPx = Math.max(0, doc.scrollWidth - window.innerWidth);
   const outsideViewport = [];
   let totalOutside = 0;
-  for (const el of document.querySelectorAll("body *")) {
+  const scrollersX = [];
+  let totalScrollersX = 0;
+  const all = (root, out) => {
+    for (const el of root.querySelectorAll("*")) {
+      out.push(el);
+      if (el.shadowRoot) all(el.shadowRoot, out);
+    }
+    return out;
+  };
+  for (const el of all(document.body, [])) {
     const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.right > window.innerWidth + 1) {
+    if (r.width === 0) continue;
+    if (r.right > window.innerWidth + 1 && totalOutside < 200) {
       totalOutside += 1;
       if (outsideViewport.length < 3) outsideViewport.push(describeElement(el));
-      if (totalOutside >= 200) break;
+    }
+    const ox = getComputedStyle(el).overflowX;
+    if (
+      (ox === "auto" || ox === "scroll") &&
+      el.scrollWidth > el.clientWidth + 1
+    ) {
+      totalScrollersX += 1;
+      if (scrollersX.length < 3)
+        scrollersX.push({
+          element: describeElement(el),
+          overflowPx: el.scrollWidth - el.clientWidth,
+        });
     }
   }
   const families = {};
@@ -579,8 +605,12 @@ function probeRendering() {
     if (f.status === "error") failedFonts += 1;
   }
   return {
-    verdict: overflowPx > 0 || failedFonts > 0 ? "ALERTE" : "OK",
+    verdict:
+      overflowPx > 0 || totalScrollersX > 0 || failedFonts > 0
+        ? "ALERTE"
+        : "OK",
     horizontalOverflow: { present: overflowPx > 0, overflowPx },
+    horizontalScrollers: { total: totalScrollersX, examples: scrollersX },
     elementsOutsideViewport: { total: totalOutside, examples: outsideViewport },
     fonts: {
       status: document.fonts.status,
