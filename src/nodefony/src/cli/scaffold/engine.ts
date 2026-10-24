@@ -906,7 +906,11 @@ function renderLayer(
       continue;
     }
     writer.write(path.join(destDir, rel), rendered);
-    written.push(rel);
+    // Un layer peut réécrire le fichier d'un précédent (`complete` remplace le
+    // `.env.example` de `base`) : un fichier, une ligne dans la liste annoncée.
+    if (!written.includes(rel)) {
+      written.push(rel);
+    }
   }
 }
 

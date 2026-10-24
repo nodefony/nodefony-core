@@ -547,6 +547,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("vitrine complète : infra docker + toutes les briques, zéro résidu", () => {
       const dest = path.join(tmp, "full");
       const r = scaffold(dest, { name: "full" });
+      // Un layer peut RÉÉCRIRE le fichier d'un layer précédent (`complete`
+      // remplace le `.env.example` de `base`) : le fichier n'existe qu'une
+      // fois, la liste annoncée à l'utilisateur aussi.
+      assert.deepEqual(
+        r.files.filter((f, i) => r.files.indexOf(f) !== i),
+        [],
+        "fichier annoncé deux fois",
+      );
       for (const f of [
         "package.json",
         "tsconfig.json",
