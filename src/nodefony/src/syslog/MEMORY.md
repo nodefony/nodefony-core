@@ -78,6 +78,14 @@ EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7
 **Étend** : `Event` (node:events)  
 **Implémente** : `ISyslog`
 
+**Canal `diagnostics_channel` `nodefony.syslog.log`** (`SYSLOG_LOG_CHANNEL`, message = le `Pdu`)
+
+- Publié aux DEUX sorties `ACCEPTED` de `log()` (avec et sans rate limit), après transports. Jamais : gated (`_gatedPdu` partagé), DROPPED (débit), INVALID.
+- `ILogChannel` structurel (`hasSubscribers` + `publish`) : `Syslog.ts` n'importe PAS `node:diagnostics_channel` (isomorphe). Barrel Node `src/index.ts` → `setLogChannel(dc.channel(...))`. Browser : `NO_LOG_CHANNEL` (sentinelle `hasSubscribers:false`).
+- Sentinelle plutôt que `null` : garde = 1 lecture de booléen, 0 test de nullité. `let` module-level comme `_sink` (process-global, réf FORTE — Node ne garde qu'une réf faible d'un canal sans abonné).
+- Coût sans abonné : garde isolée ~0 ns (getter inliné) ; `log()` A/B entrelacé ≈ 130 ns des deux côtés (bruit). Abonné SYNCHRONE sur le chemin de la ligne ; exception d'abonné → `uncaughtException` au tick suivant, la ligne n'est pas interrompue.
+- ≠ canal WS `nodefony:syslog` (Studio). Test : `src/tests/syslogDiagnosticsChannel.test.ts` (dont : aucun import du canal dans `dist/client`).
+
 **État**
 
 - `_ring: CircularBuffer<Pdu>` — buffer FIFO O(1), capacité = `maxStack` (défaut 100)

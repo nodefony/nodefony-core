@@ -106,8 +106,12 @@ export { default as Builder } from "./command/Builder";
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 export { default as Syslog } from "./syslog/Syslog";
-export { NULL_LOG_SINK, STDERR_LOG_SINK } from "./syslog/Syslog";
-export type { ILogSink } from "./syslog/Syslog";
+export {
+  NULL_LOG_SINK,
+  STDERR_LOG_SINK,
+  SYSLOG_LOG_CHANNEL,
+} from "./syslog/Syslog";
+export type { ILogSink, ILogChannel } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
 // Gate couleur ANSI des logs (résolue au boot) — payloads bruts hors TTY.
 export {
@@ -1201,3 +1205,18 @@ import _PduForBranching from "./syslog/Pdu";
 import _RequestContextForBranching from "./runtime/RequestContext";
 _PduForBranching.requestIdProvider = () =>
   _RequestContextForBranching.getRequestId();
+
+// ─── Branchement Node-only : journal → `diagnostics_channel` ──────────────────
+// Même frontière que ci-dessus : `node:diagnostics_channel` n'entre jamais dans
+// le bundle client, où le journal reste sur son canal muet. Coût sans abonné :
+// une lecture de booléen par ligne acceptée, aucune allocation.
+import _diagnosticsChannelForBranching from "node:diagnostics_channel";
+import {
+  setLogChannel as _setLogChannelForBranching,
+  SYSLOG_LOG_CHANNEL as _SYSLOG_LOG_CHANNEL_FOR_BRANCHING,
+} from "./syslog/Syslog";
+_setLogChannelForBranching(
+  _diagnosticsChannelForBranching.channel<_PduForBranching>(
+    _SYSLOG_LOG_CHANNEL_FOR_BRANCHING,
+  ),
+);

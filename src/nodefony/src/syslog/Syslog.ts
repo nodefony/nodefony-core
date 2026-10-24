@@ -161,6 +161,49 @@ let _sinkMuted = false;
 // Process-global comme le sink : un seul `process.stdout`.
 let _lineFormat: "text" | "json" = "text";
 
+/**
+ * Nom du canal `node:diagnostics_channel` sur lequel chaque ligne ACCEPTÉE du
+ * journal est publiée — forme `module.fonction` de la documentation de Node,
+ * comme `nodefony.http.request`. Le message est le {@link Pdu} lui-même.
+ */
+export const SYSLOG_LOG_CHANNEL = "nodefony.syslog.log";
+
+/**
+ * Le canal de publication vu par le journal : le sous-ensemble du `Channel` de
+ * `node:diagnostics_channel` qu'il emploie. Structurel, pour que ce fichier
+ * n'importe pas `node:diagnostics_channel` (il sert aussi le navigateur) : le
+ * barrel Node branche le vrai canal par {@link setLogChannel}.
+ */
+export interface ILogChannel {
+  /** `true` dès qu'un abonné écoute — LA garde du chemin chaud. */
+  readonly hasSubscribers: boolean;
+  /** Remet la ligne à chaque abonné, de façon synchrone. */
+  publish(message: Pdu): void;
+}
+
+// Canal muet : jamais d'abonné. Le défaut évite un test de nullité par ligne
+// — la garde se réduit à la lecture d'un booléen.
+const NO_LOG_CHANNEL: ILogChannel = {
+  hasSubscribers: false,
+  publish(): void {},
+};
+
+// Process-global comme le sink : un seul bus `diagnostics_channel` par process,
+// partagé par toutes les instances de Syslog. Référence FORTE : Node ne garde
+// qu'une référence faible à un canal sans abonné.
+let _logChannel: ILogChannel = NO_LOG_CHANNEL;
+
+/**
+ * Branche le canal sur lequel le journal publie ses lignes acceptées. Appelé
+ * par le barrel Node avec `diagnostics_channel.channel(SYSLOG_LOG_CHANNEL)` ;
+ * jamais par le bundle navigateur, où le journal reste sur le canal muet.
+ *
+ * @param channel - le canal, ou `null` pour revenir au canal muet
+ */
+export function setLogChannel(channel: ILogChannel | null): void {
+  _logChannel = channel ?? NO_LOG_CHANNEL;
+}
+
 // Écriture immédiate (hors buffer / flush) — route vers le driver actif.
 const _writeStdoutNow = (s: string): void => {
   if (!_sinkMuted) _sink.writeOut(s);
@@ -1307,6 +1350,7 @@ class Syslog extends Event implements ISyslog {
           this.fire("onLog", pdu);
         }
         if (this._transports.length > 0) this._fireTransports(pdu);
+        if (_logChannel.hasSubscribers) _logChannel.publish(pdu);
         this.burstPrinted++;
         return pdu;
       }
@@ -1341,6 +1385,9 @@ class Syslog extends Event implements ISyslog {
       this.fire("onLog", pdu);
     }
     if (this._transports.length > 0) this._fireTransports(pdu);
+    // Publication `diagnostics_channel` : une lecture de booléen sans abonné,
+    // aucune allocation — le message EST le Pdu déjà construit.
+    if (_logChannel.hasSubscribers) _logChannel.publish(pdu);
     return pdu;
   }
 
