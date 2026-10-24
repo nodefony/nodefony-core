@@ -930,6 +930,13 @@ export class DebugBar {
    * perdre ce qui s'est passé pendant, ce qui serait le pire des deux mondes.
    */
   private feedPaused = false;
+  /**
+   * Ce que la pause fige : les appels et le dernier rang des lignes reçues au
+   * moment de la pause. La pause gèle ce qui ARRIVE, jamais ce que l'on fait —
+   * déplier, vider, filtrer, chercher s'appliquent sur cet instantané. `null`
+   * hors pause (rien d'alloué).
+   */
+  private frozen: { net: NetEntry[]; seq: number } | null = null;
   /** Le jeu affiché est REMPLACÉ (filtre, recherche, vider) : la vue revient au flux. */
   private feedDirty = false;
   /** Le flux a changé sans être remplacé (requête mise à jour, ligne dépliée). */
@@ -1643,6 +1650,12 @@ export class DebugBar {
     }
     this.wireBtn("btnPause", () => {
       this.feedPaused = !this.feedPaused;
+      this.frozen = this.feedPaused
+        ? {
+            net: this.net.entries(),
+            seq: this.model.view.feed.at(-1)?.seq ?? 0,
+          }
+        : null;
       const b = this.el.btnPause;
       if (b) {
         b.setAttribute("aria-pressed", this.feedPaused ? "true" : "false");
@@ -1657,8 +1670,10 @@ export class DebugBar {
           this.feedPaused ? "Reprendre l'affichage" : "Suspendre l'affichage",
         );
       }
-      // À la reprise, on refait la liste : le tampon a bougé pendant la pause.
+      // À la reprise, on refait la liste : le tampon a bougé pendant la pause,
+      // et les Journaux qu'elle n'a pas relus le sont maintenant.
       if (!this.feedPaused) {
+        this.markServerStale();
         this.feedDirty = true;
         this.render();
       }
@@ -1682,6 +1697,9 @@ export class DebugBar {
       const feed = this.model.view.feed;
       this.feedCleared = feed.at(-1)?.seq ?? 0;
       this.net.clear();
+      // En pause, vider vide aussi ce que la pause montre — tout de suite.
+      if (this.frozen !== null)
+        this.frozen = { net: [], seq: this.feedCleared };
       this.streamLookups = null;
       this.lines.clear();
       this.frames = null;
@@ -2529,6 +2547,8 @@ export class DebugBar {
    * la vue n'est pas à l'écran.
    */
   private scheduleServer(delayMs: number): void {
+    // En pause, ce qui arrive n'est pas relu : la reprise relit les Journaux.
+    if (this.frozen !== null) return;
     this.serverStale = true;
     if (this.serverTimer !== null || this.flowView !== "server") return;
     this.serverTimer = setTimeout(() => {
@@ -3054,24 +3074,26 @@ export class DebugBar {
    */
   private renderFeed(feed: FeedLog[]): void {
     const view = this.feedView;
-    if (!view || this.feedPaused) return;
+    if (!view) return;
     const reset = this.feedDirty;
+    const frozen = this.frozen;
     const narrowing =
       this.feedSevs.size !== SEVERITY_NAMES.length ||
       (this.feedHideConsole && this.flowView !== "page") ||
       this.feedHideFramework ||
       this.feedQuery !== "";
     if (this.flowView === "live") {
-      const last = feed.at(-1)?.seq ?? 0;
+      const last = frozen?.seq ?? feed.at(-1)?.seq ?? 0;
       if (!reset && last === this.feedSeen) return;
       this.feedSeen = last;
       this.feedDirty = false;
       const q = this.feedQuery;
       const list =
-        narrowing || this.feedCleared > 0
+        narrowing || this.feedCleared > 0 || frozen !== null
           ? feed.filter(
               (l) =>
                 l.seq > this.feedCleared &&
+                (frozen === null || l.seq <= frozen.seq) &&
                 this.feedMatch(l) &&
                 (q === "" || logMatchesQuery(l, q)),
             )
@@ -3100,7 +3122,8 @@ export class DebugBar {
     let emptyText: string;
     if (this.flowView === "page") {
       this.resolveDocument();
-      const entries = this.net.entries();
+      // En pause, les appels figés — ceux qui arrivent attendent la reprise.
+      const entries = frozen?.net ?? this.net.entries();
       items = pageItems(entries, this.feedQuery, opts, this.feedHideConsole);
       const masked =
         items.length === 0 && this.feedHideConsole

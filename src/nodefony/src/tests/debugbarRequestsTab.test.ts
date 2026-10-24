@@ -484,6 +484,49 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
   });
 });
 
+describe("la pause — elle fige ce qui ARRIVE, jamais ce que l'on fait", () => {
+  const pause = (): void => q("[data-el='btnPause']").click();
+
+  it("🔴 en pause, une requête qui arrive attend la reprise", async () => {
+    await window.fetch("/api/items");
+    await image();
+    pause();
+    await window.fetch("/api/autre");
+    await image();
+    expect(chemins()).not.toContain("/api/autre");
+    pause();
+    await image();
+    expect(chemins()).toContain("/api/autre");
+  });
+
+  it("🔴 en pause, déplier une requête relit ses lignes et les montre", async () => {
+    await window.fetch("/api/items");
+    await image();
+    pause();
+    ligneReq("/api/items").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await image();
+    expect(ligneReq("/api/items").getAttribute("aria-expanded")).toBe("true");
+    expect(textes(".row.log.child")).toEqual(["lecture des articles"]);
+  });
+
+  it("🔴 en pause, vider vide tout de suite — la reprise montre ce qui est arrivé APRÈS", async () => {
+    await window.fetch("/api/items");
+    await image();
+    pause();
+    q("[data-el='btnClearFeed']").click();
+    await image();
+    expect(chemins()).toEqual([]);
+    await window.fetch("/api/apres");
+    await image();
+    expect(chemins()).toEqual([]);
+    pause();
+    await image();
+    expect(chemins()).toEqual(["/api/apres"]);
+  });
+});
+
 describe("vue Page — la plomberie de la barre n'y est pas", () => {
   it("🔴 le diagnostic de la socket de la barre (GET sur son adresse) n'est pas une requête de la page", async () => {
     // Vécu : une rafale de « GET /nodefony/studio/api/realtime ERR » dans la
