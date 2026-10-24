@@ -28,6 +28,7 @@ import { AdaptiveRate, bindAdaptiveChannel } from "./realtime/AdaptiveRate";
 import { pduProtocol } from "../syslog/drivers/pduProtocol";
 import {
   consoleRequestIds,
+  parseAccessLine,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
   pduIsModuleExcluded,
@@ -179,6 +180,7 @@ export {
   pduFlowStep,
   FLOW_STEPS,
   consoleRequestIds,
+  parseAccessLine,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
   pduIsModuleExcluded,
@@ -188,6 +190,7 @@ export {
 // une seule définition des deux côtés du fil (une copie front dériverait).
 export type { IPage, IPageQuery } from "../types/IPage";
 export type { LogProtocol } from "../syslog/drivers/pduProtocol";
+export type { IAccessLine } from "../syslog/drivers/pduConsole";
 export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
 export type { RateBounds } from "../realtime/channelRate";
 // Voie MONTANTE des journaux du navigateur (#35) : le transport, la capture des

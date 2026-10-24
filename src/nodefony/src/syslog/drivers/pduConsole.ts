@@ -171,3 +171,49 @@ export function pduIsConsoleRequest(
     (line.requestId !== undefined && ids?.has(line.requestId) === true)
   );
 }
+
+/** Une ligne d'accès lue : ce qu'il faut voir d'une requête d'un coup d'œil. */
+export interface IAccessLine {
+  /** `GET`, `POST`… ou `WS` pour une connexion WebSocket. */
+  method: string;
+  /** Statut HTTP ; `null` quand la ligne n'en porte pas (`---`). */
+  status: number | null;
+  /** Chemin et requête (`/api/users?page=2`), sans schéma ni hôte. */
+  path: string;
+  /** Durée telle qu'écrite (`3.21ms`), `null` si absente. */
+  duration: string | null;
+}
+
+/** Ligne d'accès : `MÉTHODE STATUT URL DURÉE …`. */
+const ACCESS_LINE = /^([A-Z]+)\s+(\d{3}|---)\s+(\S+)(?:\s+(\S+))?/;
+
+/**
+ * Lit une ligne d'accès (`msgid "req"`) : verbe, statut, chemin, durée — la
+ * seule lecture de ce format, que les Journaux de la console et la barre de
+ * débogage partagent.
+ *
+ * Pure et isomorphe.
+ *
+ * @param pdu - une ligne du journal (`payload` : le texte de la ligne)
+ * @returns la requête lue, ou `null` si ce n'est pas une ligne d'accès lisible
+ */
+export function parseAccessLine(
+  pdu: Pick<IPduLike, "msgid" | "payload">,
+): IAccessLine | null {
+  if (pdu.msgid !== "req" || typeof pdu.payload !== "string") return null;
+  const m = ACCESS_LINE.exec(pdu.payload.replace(ANSI, ""));
+  if (m === null) return null;
+  const [, method = "", rawStatus = "", url = "", duration] = m;
+  let path = url;
+  const scheme = url.indexOf("://");
+  if (scheme !== -1) {
+    const slash = url.indexOf("/", scheme + 3);
+    path = slash === -1 ? "/" : url.slice(slash);
+  }
+  return {
+    method,
+    status: rawStatus === "---" ? null : Number(rawStatus),
+    path,
+    duration: duration !== undefined && /\d/.test(duration) ? duration : null,
+  };
+}

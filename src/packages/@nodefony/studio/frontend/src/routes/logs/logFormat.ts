@@ -156,46 +156,10 @@ const DRIVER_META: Record<string, DriverMeta> = {
   },
 };
 
-/** Une ligne d'accès lue : ce qu'il faut voir d'une requête d'un coup d'œil. */
-export interface IAccessLine {
-  /** `GET`, `POST`… ou `WS` pour une connexion WebSocket. */
-  method: string;
-  /** Statut HTTP ; `null` quand la ligne n'en porte pas (`---`). */
-  status: number | null;
-  /** Chemin et requête (`/api/users?page=2`), sans schéma ni hôte. */
-  path: string;
-  /** Durée telle qu'écrite (`3.21ms`), `null` si absente. */
-  duration: string | null;
-}
-
-const ANSI_SGR = /\u001b\[[0-9;]*m/g;
-/** `MÉTHODE STATUT URL DURÉE …` — format de `PrettyRequestLogger`. */
-const ACCESS_LINE = /^([A-Z]+)\s+(\d{3}|---)\s+(\S+)(?:\s+(\S+))?/;
-
-/**
- * Lit une ligne d'accès (`msgid "req"`) : verbe, statut, chemin, durée.
- *
- * @param rec - une ligne du journal
- * @returns la requête lue, ou `null` si ce n'est pas une ligne d'accès lisible
- */
-export function parseAccessLine(rec: LogRecord): IAccessLine | null {
-  if (rec.msgid !== "req" || typeof rec.payload !== "string") return null;
-  const m = ACCESS_LINE.exec(rec.payload.replace(ANSI_SGR, ""));
-  if (m === null) return null;
-  const [, method = "", rawStatus = "", url = "", duration] = m;
-  let path = url;
-  const scheme = url.indexOf("://");
-  if (scheme !== -1) {
-    const slash = url.indexOf("/", scheme + 3);
-    path = slash === -1 ? "/" : url.slice(slash);
-  }
-  return {
-    method,
-    status: rawStatus === "---" ? null : Number(rawStatus),
-    path,
-    duration: duration !== undefined && /\d/.test(duration) ? duration : null,
-  };
-}
+// La lecture d'une ligne d'accès est une règle du CŒUR, partagée avec la barre
+// de débogage : une seule implémentation.
+export { parseAccessLine } from "nodefony";
+export type { IAccessLine } from "nodefony";
 
 /** Couleur d'un verbe : lecture, écriture, effacement, WebSocket. */
 export function methodColor(method: string): MantineColor {
