@@ -40,6 +40,9 @@ class PocController extends Controller {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <!-- Le fond du thème AVANT tout CSS : en dev, Vite charge les styles par
+         script ; sans ce méta, le navigateur peint du blanc d'ici là (flash). -->
+    <meta name="color-scheme" content="light dark" />
     <title>React 19 — vitrine temps réel Nodefony</title>
     ${viteTags}
   </head>
