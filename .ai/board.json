@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T08:45:44.492Z",
+  "generatedAt": "2026-10-24T11:37:14.558Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 184,
+      "closed": 185,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 28,
+      "open": 27,
       "title": "10.0.0-beta"
     },
     {
@@ -4783,8 +4783,8 @@
       "number": 661,
       "title": "fix(studio): rendre la page des journaux lisible en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/661",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -4832,7 +4832,7 @@
       "title": "feat(debugbar): fusionner Network et Logs en une vue par requête",
       "url": "https://github.com/nodefony/nodefony-core/issues/665",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -9553,6 +9553,22 @@
       "labels": [
         "backlog",
         "reportable"
+      ]
+    },
+    {
+      "number": 666,
+      "title": "feat(http): journaliser la durée des requêtes en production sur demande",
+      "url": "https://github.com/nodefony/nodefony-core/issues/666",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 923,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
       ]
     },
     {
