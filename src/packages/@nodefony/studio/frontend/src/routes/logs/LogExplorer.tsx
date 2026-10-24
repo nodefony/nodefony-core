@@ -36,7 +36,6 @@ import {
   IconArrowsLeftRight,
   IconChevronDown,
   IconChevronRight,
-  IconFilter,
   IconFilterOff,
   IconInfoCircle,
   IconPlugConnected,
@@ -83,12 +82,12 @@ import {
   parseAccessLine,
   recordMessage,
   statusColor,
-  severityColor,
   type ISourceDescription,
 } from "./logFormat";
 import { ClusterScopeNotice, SeverityBadge, OriginBadge } from "./LogVisuals";
 import { SourceBanner } from "./SourceBanner";
 import { RequestLines } from "./RequestLines";
+import { SeverityFilter } from "./SeverityFilter";
 import { ViewFilterSwitches } from "./ViewFilterSwitches";
 import {
   describeFlow,
@@ -558,25 +557,7 @@ export const LogExplorer = observer(
         <Paper withBorder radius="md" p="sm">
           {/* Toujours visibles : les niveaux affichés, puis ce qui est masqué. */}
           <Group gap="sm" wrap="wrap" align="center" mb="xs">
-            <Group gap={6} wrap="nowrap">
-              <IconFilter size={14} />
-              <Text size="xs" fw={600} c="dimmed">
-                Sévérité
-              </Text>
-            </Group>
-            <Chip.Group
-              multiple
-              value={[...severities]}
-              onChange={(vals) => setSeverities(new Set(vals))}
-            >
-              <Group gap={4} wrap="wrap">
-                {SEVERITIES.map((s) => (
-                  <Chip key={s} value={s} size="xs" color={severityColor(s)}>
-                    {s}
-                  </Chip>
-                ))}
-              </Group>
-            </Chip.Group>
+            <SeverityFilter value={severities} onChange={setSeverities} />
             {/* Raccourci vers l'origine NAVIGATEUR. Il ne crée pas un second
             état de filtre : il pilote le champ « Module » (sous « Plus de filtres »), que le
             data plane applique déjà en égalité. Sa raison d'être est la

@@ -45,6 +45,7 @@ import type {
   Severity,
 } from "./logsTypes";
 import { DEFAULT_SEVERITIES } from "./logsTypes";
+import { SeverityFilter } from "./SeverityFilter";
 import { ViewFilterSwitches } from "./ViewFilterSwitches";
 import {
   LOGS_DOC,
@@ -56,11 +57,7 @@ import {
   recordMessage,
   toRecord,
 } from "./logFormat";
-import {
-  ClusterScopeNotice,
-  SeverityBadge,
-  SeverityCountChips,
-} from "./LogVisuals";
+import { ClusterScopeNotice, SeverityBadge } from "./LogVisuals";
 import { PLATFORM_CHANNELS, consoleRequestIds } from "nodefony";
 
 /** Plafond d'entrées conservées côté client (croissance bornée). */
@@ -211,14 +208,6 @@ export const LiveLogs = observer(
       setUnseen(0);
     };
 
-    const toggleSeverity = (s: Severity) =>
-      setSeverityFilter((prev) => {
-        const next = new Set(prev);
-        if (next.has(s)) next.delete(s);
-        else next.add(s);
-        return next;
-      });
-
     // Filtres communs encore une fois à l'affichage : une requête de la console
     // se reconnaît parfois APRÈS ses premières lignes (sa ligne d'accès arrive
     // à la fin), et un filtre rallumé doit masquer ce qui est déjà là.
@@ -304,10 +293,10 @@ export const LiveLogs = observer(
                   </Badge>
                 </Tooltip>
               )}
-              <SeverityCountChips
+              <SeverityFilter
+                value={severityFilter}
+                onChange={setSeverityFilter}
                 counts={counts}
-                active={severityFilter}
-                onToggle={toggleSeverity}
               />
               <ViewFilterSwitches
                 value={viewFilters}
