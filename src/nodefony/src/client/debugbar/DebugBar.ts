@@ -2511,10 +2511,16 @@ export class DebugBar {
   private feedMatch(
     l: FeedLog,
     consoleIds: ReadonlySet<string> | null,
+    keptIds: ReadonlySet<string> | null,
   ): boolean {
     if (!this.feedSevs.has(l.severity)) return false;
+    // Une ligne d'une requête que la page garde (la page EST la console) reste,
+    // même si elle vise la console : c'est la requête qu'on inspecte.
+    const kept =
+      l.requestId !== undefined && keptIds?.has(l.requestId) === true;
     if (
       this.feedHideConsole &&
+      !kept &&
       (l.console ||
         (l.requestId !== undefined && consoleIds?.has(l.requestId) === true))
     )
@@ -2569,23 +2575,33 @@ export class DebugBar {
     // console (règle du cœur, tenue par le modèle)… ou à son CHEMIN, que le
     // navigateur voit : une requête réussie n'écrit plus de ligne d'accès.
     // Dans les deux cas, elle part avec toutes ses lignes.
+    //
+    // Sauf quand la page EST la console : ses propres requêtes sont alors ce
+    // qu'on inspecte, pas du bruit. Le filtre n'écarte plus que le trafic des
+    // AUTRES clients de la console (lignes sans requête de cette page).
     const seenIds = this.model.consoleRequestIds;
+    const ownRequests =
+      typeof location !== "undefined" && isConsolePath(location.pathname);
     let consoleIds: Set<string> | null = null;
     let hiddenRequests = 0;
+    let kept: Set<string> | null = null;
     const isConsole = (e: NetEntry): boolean =>
-      isConsolePath(e.path) ||
-      (e.requestId !== null && seenIds?.has(e.requestId) === true);
+      !ownRequests &&
+      (isConsolePath(e.path) ||
+        (e.requestId !== null && seenIds?.has(e.requestId) === true));
     if (this.feedHideConsole) {
       for (const e of net) {
-        if (!isConsole(e)) continue;
-        hiddenRequests++;
-        if (e.requestId !== null) (consoleIds ??= new Set()).add(e.requestId);
+        if (isConsole(e)) {
+          hiddenRequests++;
+          if (e.requestId !== null) (consoleIds ??= new Set()).add(e.requestId);
+        } else if (e.requestId !== null) (kept ??= new Set()).add(e.requestId);
       }
       if (seenIds !== null)
-        for (const id of seenIds) (consoleIds ??= new Set()).add(id);
+        for (const id of seenIds)
+          if (kept?.has(id) !== true) (consoleIds ??= new Set()).add(id);
     }
     const logs = feed.filter(
-      (l) => l.seq > this.feedCleared && this.feedMatch(l, consoleIds),
+      (l) => l.seq > this.feedCleared && this.feedMatch(l, consoleIds, kept),
     );
     const items = flattenFlow(joinRequests(net, logs), {
       expanded: this.expanded,

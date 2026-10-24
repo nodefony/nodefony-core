@@ -220,6 +220,25 @@ describe("onglet Requêtes — une requête et ses lignes serveur", () => {
     expect(chemins()).toEqual(["/api/items", "/nodefony/kernel/api/modules"]);
   });
 
+  it("🔴 sur une page de la CONSOLE, ses propres requêtes restent visibles — c'est elles qu'on inspecte", async () => {
+    // Vécu : dans Studio, quinze requêtes comptées, une seule affichée — le
+    // filtre prenait les requêtes de la page pour du bruit.
+    history.pushState({}, "", "/nodefony/supervision");
+    try {
+      await window.fetch("/nodefony/kernel/api/modules");
+      await scenario();
+      const chemins = visibles(".row.req").map(
+        (n) => n.querySelector(".path")?.textContent,
+      );
+      expect(chemins).toContain("/nodefony/kernel/api/modules");
+      expect(q(".sevf[data-view='console']").classList.contains("on")).toBe(
+        true,
+      );
+    } finally {
+      history.pushState({}, "", "/");
+    }
+  });
+
   it("les puces net, logs et err du bandeau mènent toutes à l'onglet Requêtes", () => {
     for (const chip of shadow().querySelectorAll(".chip.goto:not(.kchip)")) {
       const goto = chip.getAttribute("data-goto");
