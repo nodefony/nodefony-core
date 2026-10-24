@@ -70,4 +70,5 @@ export type {
   LogFileConfig,
   LogDestinationConfig,
   LokiDestinationConfig,
+  OpenSearchDestinationConfig,
 } from "./types";

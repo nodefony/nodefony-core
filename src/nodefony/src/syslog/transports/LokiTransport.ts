@@ -4,7 +4,7 @@ import { pduToRecord, stringifyLogRecord } from "../drivers/ILogDriver";
 import { DEFAULT_LOKI_APP_LABEL } from "../drivers/LokiLogDriver";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
-import { stripTrailingSlashes } from "../../Tools";
+import { resolveEndpoint } from "../drivers/endpoint";
 import type Pdu from "../Pdu";
 
 export interface LokiTransportOptions extends BatchTransportOptions {
@@ -20,6 +20,10 @@ export interface LokiTransportOptions extends BatchTransportOptions {
   labels?: Record<string, string>;
   /** Tenant multi-tenancy → header `X-Scope-OrgID`. Omis si absent. */
   tenantId?: string;
+  /** Utilisateur de l'authentification basique (Grafana Cloud : l'identifiant de l'instance). Peut aussi venir de l'URL. */
+  username?: string;
+  /** Mot de passe de l'authentification basique (Grafana Cloud : un jeton d'accès). Peut aussi venir de l'URL. */
+  password?: string;
   /** Headers HTTP additionnels (auth proxy, etc.). */
   headers?: Record<string, string>;
   /** Timeout du push (ms). Défaut 5000. */
@@ -56,11 +60,17 @@ export class LokiTransport extends BatchingHttpTransport {
 
   constructor(options: LokiTransportOptions) {
     super(options);
-    this.#pushUrl = stripTrailingSlashes(options.url) + "/loki/api/v1/push";
+    const { base, auth } = resolveEndpoint(
+      options.url,
+      options.username,
+      options.password,
+    );
+    this.#pushUrl = base + "/loki/api/v1/push";
     this.#baseLabels = options.labels ?? { app: DEFAULT_LOKI_APP_LABEL };
     this.#headers = {
       "content-type": "application/json",
       ...(options.tenantId ? { "X-Scope-OrgID": options.tenantId } : {}),
+      ...auth,
       ...options.headers,
     };
     this.#timeoutMs = options.timeoutMs ?? 5000;

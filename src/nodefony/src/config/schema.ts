@@ -140,13 +140,46 @@ const logSchema = z
           "`cluster-file`, vue unifiée). Valeur explicite (memory/file/loki/…) = surcharge.",
       ),
     loki: z
-      .object({
-        url: z.string().describe("URL d'ingestion Grafana Loki."),
+      .strictObject({
+        url: z
+          .string()
+          .describe(
+            "URL de la destination ; peut porter ses identifiants (`https://utilisateur:secret@hôte`).",
+          ),
         write: z
           .boolean()
           .optional()
           .describe(
             "`false` = relecture seule : un collecteur envoie, l'application relit. Défaut : true en développement, false en production (cf `resolveLogPush`).",
+          ),
+        username: z
+          .string()
+          .optional()
+          .describe(
+            "Utilisateur de l'authentification basique (l'emporte sur l'URL).",
+          ),
+        password: z
+          .string()
+          .optional()
+          .describe("Mot de passe de l'authentification basique (secret)."),
+        headers: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe("En-têtes HTTP ajoutés à l'envoi comme à la relecture."),
+        timeoutMs: z.number().optional().describe("Délai d'une requête (ms)."),
+        batchSize: z
+          .number()
+          .optional()
+          .describe("Lignes regroupées par envoi."),
+        flushIntervalMs: z
+          .number()
+          .optional()
+          .describe("Intervalle maximal entre deux envois (ms)."),
+        maxQueue: z
+          .number()
+          .optional()
+          .describe(
+            "Lignes en attente au plus ; au-delà, les plus anciennes partent.",
           ),
         labels: z
           .record(z.string(), z.string())
@@ -154,18 +187,71 @@ const logSchema = z
           .describe(
             "Étiquettes de flux (envoi) et sélecteur (relecture). Défaut : `{ app: <nom de l'app> }`.",
           ),
+        tenantId: z
+          .string()
+          .optional()
+          .describe(
+            "Locataire d'un Loki multi-tenant (en-tête `X-Scope-OrgID`).",
+          ),
+        maxScanLines: z
+          .number()
+          .optional()
+          .describe("Lignes rapatriées au plus par une relecture."),
       })
       .optional()
       .describe("Cible Grafana Loki (si driver/superposition Loki actif)."),
     opensearch: z
-      .object({
-        url: z.string().describe("URL du cluster OpenSearch."),
+      .strictObject({
+        url: z
+          .string()
+          .describe(
+            "URL de la destination ; peut porter ses identifiants (`https://utilisateur:secret@hôte`).",
+          ),
         write: z
           .boolean()
           .optional()
           .describe(
-            "`false` = relecture seule : un collecteur indexe, l'application relit. Défaut : true en développement, false en production (cf `resolveLogPush`).",
+            "`false` = relecture seule : un collecteur envoie, l'application relit. Défaut : true en développement, false en production (cf `resolveLogPush`).",
           ),
+        username: z
+          .string()
+          .optional()
+          .describe(
+            "Utilisateur de l'authentification basique (l'emporte sur l'URL).",
+          ),
+        password: z
+          .string()
+          .optional()
+          .describe("Mot de passe de l'authentification basique (secret)."),
+        headers: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe("En-têtes HTTP ajoutés à l'envoi comme à la relecture."),
+        timeoutMs: z.number().optional().describe("Délai d'une requête (ms)."),
+        batchSize: z
+          .number()
+          .optional()
+          .describe("Lignes regroupées par envoi."),
+        flushIntervalMs: z
+          .number()
+          .optional()
+          .describe("Intervalle maximal entre deux envois (ms)."),
+        maxQueue: z
+          .number()
+          .optional()
+          .describe(
+            "Lignes en attente au plus ; au-delà, les plus anciennes partent.",
+          ),
+        index: z
+          .string()
+          .optional()
+          .describe(
+            "Index écrit et relu (un par application sur un OpenSearch partagé). Défaut : `nodefony-logs`.",
+          ),
+        maxHits: z
+          .number()
+          .optional()
+          .describe("Documents rapatriés au plus par une relecture."),
       })
       .optional()
       .describe("Cible OpenSearch (si superposition active)."),

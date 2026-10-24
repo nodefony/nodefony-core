@@ -573,6 +573,7 @@ export type {
   LogFileConfig,
   LogDestinationConfig,
   LokiDestinationConfig,
+  OpenSearchDestinationConfig,
 } from "./config/types";
 
 // ─── Types & Interfaces ───────────────────────────────────────────────────────

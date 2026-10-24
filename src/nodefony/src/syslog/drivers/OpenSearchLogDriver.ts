@@ -6,10 +6,10 @@ import type {
 } from "./ILogDriver";
 import { filterPdus } from "./filterPdus";
 import { coerceRecord } from "./FileLogDriver";
-import { basicAuthHeader, DEFAULT_OPENSEARCH_INDEX } from "./opensearchShared";
+import { DEFAULT_OPENSEARCH_INDEX } from "./opensearchShared";
+import { resolveEndpoint } from "./endpoint";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
-import { stripTrailingSlashes } from "../../Tools";
 
 export interface OpenSearchLogDriverOptions {
   /** Base URL d'OpenSearch, ex. `http://127.0.0.1:9200`. */
@@ -91,13 +91,17 @@ function pickObj(o: unknown, key: string): unknown {
 export function createOpenSearchLogDriver(
   options: OpenSearchLogDriverOptions,
 ): ILogDriver {
-  const base = stripTrailingSlashes(options.url);
+  const { base, auth } = resolveEndpoint(
+    options.url,
+    options.username,
+    options.password,
+  );
   const index = options.index ?? DEFAULT_OPENSEARCH_INDEX;
   const maxHits = options.maxHits ?? 1000;
   const timeoutMs = options.timeoutMs ?? 8000;
   const headers: Record<string, string> = {
     "content-type": "application/json",
-    ...basicAuthHeader(options.username, options.password),
+    ...auth,
     ...options.headers,
   };
   const fetchImpl = resolveFetch(options.fetchImpl);

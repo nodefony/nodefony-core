@@ -214,6 +214,23 @@ export interface LogDestinationConfig {
    * @default true en développement, false en production
    */
   write?: boolean;
+  /**
+   * Utilisateur de l'authentification basique. Peut aussi venir de l'URL
+   * (`https://utilisateur:secret@hôte`) ; une valeur déclarée ici l'emporte.
+   */
+  username?: string;
+  /** Mot de passe de l'authentification basique (secret : jamais commité). */
+  password?: string;
+  /** En-têtes HTTP ajoutés à l'envoi comme à la relecture (proxy d'authentification…). */
+  headers?: Record<string, string>;
+  /** Délai d'une requête vers la destination, en millisecondes. */
+  timeoutMs?: number;
+  /** Lignes regroupées par envoi. */
+  batchSize?: number;
+  /** Intervalle maximal entre deux envois, en millisecondes. */
+  flushIntervalMs?: number;
+  /** Lignes gardées en attente au plus ; au-delà, les plus anciennes sont écartées. */
+  maxQueue?: number;
 }
 
 /** Destination Grafana Loki : une {@link LogDestinationConfig} plus son sélecteur. */
@@ -224,6 +241,23 @@ export interface LokiDestinationConfig extends LogDestinationConfig {
    * @default { app: "<nom du paquet de l'application>" }
    */
   labels?: Record<string, string>;
+  /** Locataire d'un Loki multi-tenant (en-tête `X-Scope-OrgID`). */
+  tenantId?: string;
+  /** Lignes rapatriées au plus par une relecture, avant filtrage. */
+  maxScanLines?: number;
+}
+
+/** Destination OpenSearch : une {@link LogDestinationConfig} plus son index. */
+export interface OpenSearchDestinationConfig extends LogDestinationConfig {
+  /**
+   * Index écrit à l'envoi et lu à la relecture. En relecture seule, celui où
+   * le COLLECTEUR indexe.
+   * Deux applications d'un même OpenSearch en déclarent chacune un.
+   * @default "nodefony-logs"
+   */
+  index?: string;
+  /** Documents rapatriés au plus par une relecture, avant filtrage. */
+  maxHits?: number;
 }
 
 /** Observabilité — Syslog Nodefony + log backplane. */
@@ -296,7 +330,7 @@ export interface LogConfig {
   /** Destination Loki (active si `queryDriver === "loki"`). @reactivity boot */
   loki?: LokiDestinationConfig;
   /** Destination OpenSearch (active si `queryDriver === "opensearch"`). @reactivity boot */
-  opensearch?: LogDestinationConfig;
+  opensearch?: OpenSearchDestinationConfig;
 }
 
 /**

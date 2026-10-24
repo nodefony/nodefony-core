@@ -4,13 +4,11 @@ import { pduToRecord, stringifyLogRecord } from "../drivers/ILogDriver";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
 import {
-  basicAuthHeader,
   buildIndexTemplate,
   DEFAULT_OPENSEARCH_INDEX,
-  OPENSEARCH_TEMPLATE_NAME,
   toOpenSearchDocument,
 } from "../drivers/opensearchShared";
-import { stripTrailingSlashes } from "../../Tools";
+import { resolveEndpoint } from "../drivers/endpoint";
 import type Pdu from "../Pdu";
 
 export interface OpenSearchTransportOptions extends BatchTransportOptions {
@@ -63,12 +61,17 @@ export class OpenSearchTransport extends BatchingHttpTransport {
 
   constructor(options: OpenSearchTransportOptions) {
     super(options);
-    this.#baseUrl = stripTrailingSlashes(options.url);
+    const { base, auth } = resolveEndpoint(
+      options.url,
+      options.username,
+      options.password,
+    );
+    this.#baseUrl = base;
     this.#bulkUrl = this.#baseUrl + "/_bulk";
     this.#index = options.index ?? DEFAULT_OPENSEARCH_INDEX;
     this.#headers = {
       "content-type": "application/x-ndjson",
-      ...basicAuthHeader(options.username, options.password),
+      ...auth,
       ...options.headers,
     };
     this.#timeoutMs = options.timeoutMs ?? 5000;
@@ -92,9 +95,11 @@ export class OpenSearchTransport extends BatchingHttpTransport {
   async #ensureIndexTemplate(): Promise<void> {
     this.#templatePosed ??= (async () => {
       try {
+        // Le modèle porte le nom de SON index : deux applications d'un même
+        // OpenSearch posent chacune le leur, sans écraser celui de l'autre.
         await fetchWithTimeout(
           this.#fetch,
-          `${this.#baseUrl}/_index_template/${OPENSEARCH_TEMPLATE_NAME}`,
+          `${this.#baseUrl}/_index_template/${encodeURIComponent(this.#index)}`,
           {
             method: "PUT",
             headers: {

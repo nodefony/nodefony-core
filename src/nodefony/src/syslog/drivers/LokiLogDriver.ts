@@ -9,7 +9,7 @@ import { coerceRecord } from "./FileLogDriver";
 import { escapeRegExp } from "../../Tools";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
-import { stripTrailingSlashes } from "../../Tools";
+import { resolveEndpoint } from "./endpoint";
 
 /** Valeur de l'étiquette `app` quand ni la config ni le nom de l'application ne la donnent. */
 export const DEFAULT_LOKI_APP_LABEL = "nodefony";
@@ -28,6 +28,10 @@ export interface LokiLogDriverOptions {
   labels?: Record<string, string>;
   /** Tenant multi-tenancy → header `X-Scope-OrgID`. */
   tenantId?: string;
+  /** Utilisateur de l'authentification basique (Grafana Cloud : l'identifiant de l'instance). Peut aussi venir de l'URL. */
+  username?: string;
+  /** Mot de passe de l'authentification basique (Grafana Cloud : un jeton d'accès). Peut aussi venir de l'URL. */
+  password?: string;
   /** Headers HTTP additionnels. */
   headers?: Record<string, string>;
   /**
@@ -94,7 +98,11 @@ function extractLokiLines(json: unknown): string[] {
  * @returns un `ILogDriver` `loki` queryable (Node-only).
  */
 export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
-  const base = stripTrailingSlashes(options.url);
+  const { base, auth } = resolveEndpoint(
+    options.url,
+    options.username,
+    options.password,
+  );
   const baseLabels = options.labels ?? { app: DEFAULT_LOKI_APP_LABEL };
   const write = options.write !== false;
   const maxScanLines = options.maxScanLines ?? 1000;
@@ -102,6 +110,7 @@ export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
   const timeoutMs = options.timeoutMs ?? 8000;
   const headers: Record<string, string> = {
     ...(options.tenantId ? { "X-Scope-OrgID": options.tenantId } : {}),
+    ...auth,
     ...options.headers,
   };
   const fetchImpl = resolveFetch(options.fetchImpl);

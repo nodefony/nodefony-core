@@ -212,8 +212,10 @@
 # L'adresse d'un serveur Grafana Loki. Posée, la console d'administration y
 # relit les journaux. L'application y envoie aussi les siens en développement
 # ; en production elle ne fait que relire (un collecteur s'en charge), sauf
-# NF_LOG_PUSH=true. Si Loki ne répond pas, rien ne plante : la relecture
-# repasse en mémoire.
+# NF_LOG_PUSH=true. Elle peut porter ses identifiants
+# (https://utilisateur:secret@hôte, comme pour Grafana Cloud) : elle devient
+# alors un secret, jamais commité. Si Loki ne répond pas, rien ne plante : la
+# relecture repasse en mémoire.
 #
 # Ne pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le
 # démarrage refuserait.
@@ -230,7 +232,9 @@
 # L'adresse d'un serveur OpenSearch. Posée, la console d'administration y
 # relit les journaux. L'application y envoie aussi les siens en développement
 # ; en production elle ne fait que relire (un collecteur s'en charge), sauf
-# NF_LOG_PUSH=true.
+# NF_LOG_PUSH=true. Elle peut porter ses identifiants
+# (https://utilisateur:secret@hôte, comme pour Grafana Cloud) : elle devient
+# alors un secret, jamais commité.
 #
 # Ne pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le
 # démarrage refuserait.

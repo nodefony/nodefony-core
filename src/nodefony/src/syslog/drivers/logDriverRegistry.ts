@@ -1,5 +1,9 @@
 import type { ILogDriver, IPduLike } from "./ILogDriver";
 import type { ITransport } from "../../types/ITransport";
+import type {
+  LokiDestinationConfig,
+  OpenSearchDestinationConfig,
+} from "../../config/types";
 
 /**
  * Registre des **drivers du Log Backplane** (axe DESTINATION queryable) — résout
@@ -90,29 +94,10 @@ export function listLogDrivers(): {
  */
 export interface ILogConfigLike {
   queryFile?: { path?: string; maxScanBytes?: number };
-  loki?: {
-    url: string;
-    /** `false` = relecture seule : aucun transport d'envoi monté. Absent : envoi en développement, pas en production (`resolveLogPush`). */
-    write?: boolean;
-    labels?: Record<string, string>;
-    tenantId?: string;
-    batchSize?: number;
-    flushIntervalMs?: number;
-    maxQueue?: number;
-    maxScanLines?: number;
-  };
-  opensearch?: {
-    url: string;
-    /** `false` = relecture seule : aucun transport d'envoi monté. Absent : envoi en développement, pas en production (`resolveLogPush`). */
-    write?: boolean;
-    index?: string;
-    username?: string;
-    password?: string;
-    batchSize?: number;
-    flushIntervalMs?: number;
-    maxQueue?: number;
-    maxHits?: number;
-  };
+  /** Même forme que la config publique : une seule déclaration, aucune dérive. */
+  loki?: LokiDestinationConfig;
+  /** Même forme que la config publique : une seule déclaration, aucune dérive. */
+  opensearch?: OpenSearchDestinationConfig;
 }
 
 /** Contexte passé à une fabrique de driver (tout ce qu'il faut pour se construire). */

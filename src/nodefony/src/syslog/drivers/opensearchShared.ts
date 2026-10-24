@@ -1,22 +1,8 @@
-/** Index OpenSearch par défaut des logs Nodefony (write transport ↔ read driver). */
-export const DEFAULT_OPENSEARCH_INDEX = "nodefony-logs";
-
 /**
- * Construit l'en-tête `Authorization: Basic …` si un utilisateur est fourni — sinon
- * objet vide (dev = plugin sécurité désactivé, HTTP sans auth). Node-only (`Buffer`).
- *
- * @param username - utilisateur (absent → pas d'auth).
- * @param password - mot de passe.
- * @returns en-tête prêt à étaler, ou `{}`.
+ * Index OpenSearch par défaut (write transport ↔ read driver). Deux applications
+ * d'un même OpenSearch se séparent en déclarant chacune `log.opensearch.index`.
  */
-export function basicAuthHeader(
-  username?: string,
-  password?: string,
-): Record<string, string> {
-  if (!username) return {};
-  const token = Buffer.from(`${username}:${password ?? ""}`).toString("base64");
-  return { authorization: `Basic ${token}` };
-}
+export const DEFAULT_OPENSEARCH_INDEX = "nodefony-logs";
 
 /**
  * Le champ temporel que TOUT l'écosystème attend — Grafana, les tableaux de bord
@@ -34,9 +20,6 @@ export function basicAuthHeader(
  * `-9223372036854775808` sur chaque document, sans une erreur.
  */
 export const OPENSEARCH_TIMESTAMP_FIELD = "@timestamp";
-
-/** Nom du modèle d'index posé par le transport. */
-export const OPENSEARCH_TEMPLATE_NAME = "nodefony-logs";
 
 /**
  * Le document indexé : l'enregistrement wire, plus `@timestamp` en ISO 8601.
