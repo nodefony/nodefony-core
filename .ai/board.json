@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T23:19:53.306Z",
+  "generatedAt": "2026-10-24T23:56:03.504Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 190,
+      "closed": 191,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 23,
+      "open": 22,
       "title": "10.0.0-beta"
     },
     {
@@ -4878,10 +4878,10 @@
     },
     {
       "number": 406,
-      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
+      "title": "docs(modules): publier les 6 règles de dev backend qu'aucune page ne porte",
       "url": "https://github.com/nodefony/nodefony-core/issues/406",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
