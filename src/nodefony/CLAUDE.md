@@ -65,7 +65,6 @@ src/nodefony/
 ├── tsconfig.json             ← config build
 ├── tsconfig.declarations.json← config types
 ├── tsconfigClient.json       ← config browser-compat (P14.11 isomorphe — futur)
-├── typedoc.json              ← config TypeDoc
 ├── CLAUDE.md                 ← ce fichier
 ├── MEMORY.md                 ← internals IA
 ├── README.md                 ← API publique humain

@@ -104,7 +104,6 @@
     "test:boot": "cross-env NF_RUN_CLI_BOOT=1 vitest run",
     "test:all": "cross-env NF_RUN_PERF=1 NF_RUN_CLI_BOOT=1 vitest run",
     "coverage": "vitest run --coverage",
-    "doc": "typedoc",
     "typecheck:tsc6": "tsc --noEmit",
     "build:types": "tsgo -p tsconfig.declarations.json && tsgo -p tsconfigClient.json --emitDeclarationOnly"
   },
@@ -165,8 +164,6 @@
     "rolldown": "1.2.15",
     "svelte": "^5.57.2",
     "tsx": "4.23.15",
-    "typedoc": "0.28.20",
-    "typedoc-plugin-markdown": "4.14.1",
     "vitest": "5.0.5",
     "vue": "^3.5.44",
     "ws": "8.22.0",
