@@ -20,6 +20,7 @@ import {
   TextInput,
   UnstyledButton,
   HoverCard,
+  VisuallyHidden,
   useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -411,25 +412,12 @@ export const AdminLayout = observer(() => {
                   onClick={() => void navigate("/nodefony/hub")}
                   // WCAG 2.5.3 (Label in Name) — le nom accessible doit CONTENIR
                   // le texte visible, sinon une commande vocale « clique sur
-                  // CONNECTED » ne trouve pas la cible. Le libellé visible est
-                  // l'état de connexion (dynamique) : on le compose dans le nom
-                  // au lieu de le remplacer par une formule fixe.
-                  // Le texte visible est l'état PUIS le compteur d'abonnements
-                  // (« CONNECTED 3 ») : le nom accessible doit le contenir DANS
-                  // CET ORDRE, pas seulement en contenir les morceaux. Première
-                  // tentative : le compteur était rejeté en fin de phrase
-                  // (« … hub temps réel (3 abonnements) ») — la séquence était
-                  // rompue et l'audit tombait encore.
-                  // `.toUpperCase()` : le Badge rend son libellé en capitales
-                  // (`text-transform`), donc le texte VISIBLE est « CONNECTED »
-                  // quand la donnée vaut « connected ». L'audit compare au texte
-                  // rendu, pas au contenu du DOM — un nom accessible en
-                  // minuscules ne correspondait toujours pas.
-                  aria-label={`${conn.state.toUpperCase()}${
-                    conn.subscriptionCount > 0
-                      ? ` ${conn.subscriptionCount}`
-                      : ""
-                  } — Realtime Hub, ouvrir le hub temps réel`}
+                  // CONNECTED » ne trouve pas la cible. Pas d'`aria-label` : le
+                  // nom vient du CONTENU (état, compteur), complété par un texte
+                  // masqué. Recomposer le texte rendu dans un `aria-label`
+                  // (casse du `text-transform`, ordre du compteur) a échoué
+                  // deux fois à l'audit ; un nom tiré du contenu le contient
+                  // par construction.
                 >
                   <Badge
                     leftSection={
@@ -461,6 +449,9 @@ export const AdminLayout = observer(() => {
                   >
                     {conn.state}
                   </Badge>
+                  <VisuallyHidden>
+                    — Realtime Hub, ouvrir le hub temps réel
+                  </VisuallyHidden>
                 </UnstyledButton>
               </HoverCard.Target>
               <HoverCard.Dropdown p="sm">
