@@ -2,7 +2,16 @@ import { inspect } from "node:util";
 
 import { extend } from "../Tools";
 import { isPlainObject } from "../runtime/isPlainObject";
-import Pdu, { Severity, ModuleName, Msgid, Message, Pci } from "./Pdu";
+import Pdu, {
+  Severity,
+  ModuleName,
+  Msgid,
+  Message,
+  Pci,
+  SeverityName,
+  invalidSeverity,
+  severityRank,
+} from "./Pdu";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Event from "../Event";
 import { ISyslog } from "../types/ISyslog";
@@ -281,21 +290,9 @@ type Operator =
 type Condition = "&&" | "||";
 
 // Data est intentionnellement hétérogène : severity (number|string|array),
-// msgid (string|RegExp|array), date (Date|string|number).
-// Lue par narrowing (ou cast documenté) dans les conditions ci-dessous.
+// msgid (string|RegExp|array), date (Date|string|number). Elle n'est lue
+// qu'une fois, par narrowing, quand les conditions se compilent.
 type Data = unknown;
-
-interface LogicCondition {
-  "&&": (myConditions: ConditionSetting, pdu: Pdu) => boolean;
-  "||": (myConditions: ConditionSetting, pdu: Pdu) => boolean;
-}
-
-interface Conditions {
-  severity: (pdu: Pdu, condition: ConditionSetting) => boolean;
-  msgid: (pdu: Pdu, condition: ConditionSetting) => boolean;
-  date: (pdu: Pdu, condition: ConditionSetting) => boolean;
-  [key: string]: (pdu: Pdu, condition: ConditionSetting) => boolean;
-}
 
 export interface ConditionSetting {
   operator?: Operator;
@@ -346,8 +343,6 @@ interface Operators {
 }
 
 export type CallbackFunction = (pdu: Pdu) => void;
-type CallbackArray = Pdu[];
-type Callback = CallbackFunction | CallbackArray | null;
 
 const formatDebug = function (debug: DebugType): DebugType {
   if (typeof debug === "boolean") return debug;
@@ -419,81 +414,25 @@ const operators: Operators = {
   "!=": (ele1, ele2) => ele1 != ele2,
   "===": (ele1, ele2) => ele1 === ele2,
   "!==": (ele1, ele2) => ele1 !== ele2,
-  RegExp: (ele1, ele2) => (ele2 as RegExp).test(ele1 as string),
+  // Ne mord que sur une expression : face à une chaîne, `test` n'existe pas
+  // (l'appel levait un TypeError à chaque ligne).
+  RegExp: (ele1, ele2) => ele2 instanceof RegExp && ele2.test(String(ele1)),
 };
 
-const conditionsObj: Conditions = {
-  severity: (pdu: Pdu, condition: ConditionSetting) => {
-    // Forme posée par `sanitizeConditions` : nom → valeur de sévérité.
-    const data = condition.data as Record<string, number | string>;
-    for (const sev in data) {
-      const value = data[sev];
-      if (
-        value !== undefined &&
-        condition.operator &&
-        operators[condition.operator](pdu.severity, value)
-      ) {
-        return true;
-      }
-    }
-    return false;
-  },
-  msgid: (pdu: Pdu, condition: ConditionSetting) => {
-    if (condition.data instanceof RegExp) {
-      return condition.data.test(pdu.msgid);
-    }
-    for (const sev in condition.data as object) {
-      if (condition.operator && operators[condition.operator](pdu.msgid, sev)) {
-        return true;
-      }
-    }
-    return false;
-  },
-  date: (pdu: Pdu, condition: ConditionSetting) =>
-    condition.operator
-      ? operators[condition.operator](pdu.timeStamp, condition.data as number)
-      : false,
-};
+// `Array.isArray` rend `any[]` : la garde garde les éléments en `unknown`.
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
 
-const logicCondition: LogicCondition = {
-  "&&": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
-    let res = false;
-    for (const ele in myConditions) {
-      const check = conditionsObj[ele];
-      // Une clé sans contrôle ne correspond à rien (jamais un appel sur `undefined`).
-      res = check ? check(pdu, myConditions[ele] as ConditionSetting) : false;
-      if (!res) break;
-    }
-    return res;
-  },
-  "||": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
-    let res = false;
-    for (const ele in myConditions) {
-      const check = conditionsObj[ele];
-      // Une clé sans contrôle ne correspond à rien (jamais un appel sur `undefined`).
-      res = check ? check(pdu, myConditions[ele] as ConditionSetting) : false;
-      if (res) break;
-    }
-    return res;
-  },
-};
-
-const checkFormatSeverity = (ele: unknown): string[] | number[] => {
-  let res: Array<string | number>;
+const checkFormatSeverity = (ele: unknown): readonly unknown[] => {
   switch (typeof ele) {
     case "object":
-      if (Array.isArray(ele)) {
-        res = ele as Array<string | number>;
-      } else {
-        throw new Error(`checkFormatSeverity bad format type: object`);
-      }
-      break;
+      if (isUnknownArray(ele)) return ele;
+      throw new Error(`checkFormatSeverity bad format type: object`);
     case "string":
-      res = ele.split(/,| /);
-      break;
+      return ele.split(/,| /);
     case "number":
-      res = [ele];
-      break;
+      return [ele];
     case "bigint":
     case "boolean":
     case "function":
@@ -502,138 +441,166 @@ const checkFormatSeverity = (ele: unknown): string[] | number[] => {
     default:
       throw new Error(`checkFormatSeverity bad format type : ${typeof ele}`);
   }
-  return res as string[] | number[];
 };
 
-const checkFormatDate = function (ele: Date | string): number {
+const checkFormatDate = function (ele: unknown): number {
   if (ele instanceof Date) return ele.getTime();
   if (typeof ele === "string") return new Date(ele).getTime();
   throw new Error(`checkFormatDate bad format : ${String(ele)}`);
 };
 
-const checkFormatMsgId = function (ele: unknown): RegExp | Array<unknown> {
+const checkFormatMsgId = function (ele: unknown): RegExp | readonly unknown[] {
   if (typeof ele === "string") return ele.split(/,| /);
   if (typeof ele === "number") return [ele];
   if (ele instanceof RegExp) return ele;
-  if (Array.isArray(ele)) return ele as unknown[];
+  if (isUnknownArray(ele)) return ele;
   throw new Error(`checkFormatMsgId bad format ${typeof ele} : ${String(ele)}`);
 };
 
-type ConditionFilter = ((pdu: Pdu) => void) | Pdu[];
+/** Un contrôle compilé : opérateur et données résolus une fois, à l'enregistrement. */
+type CompiledCheck = (pdu: Pdu) => boolean;
 
-const wrapperCondition = function (
-  this: Syslog,
-  conditions: conditionsInterface,
-  callback: Callback | CallbackArray,
-): ConditionFilter {
-  let myFuncCondition: (
-    conditions: ConditionSetting,
-    pdu: Pdu,
-  ) => boolean = () => false;
+/** Le contrôle d'une date sans opérateur : il ne retient rien. */
+const NEVER_MATCHES: CompiledCheck = () => false;
 
-  if (
-    conditions.checkConditions &&
-    conditions.checkConditions in logicCondition
-  ) {
-    myFuncCondition = logicCondition[conditions.checkConditions];
-    delete conditions.checkConditions;
-  } else if (this.settings.checkConditions) {
-    myFuncCondition = logicCondition[this.settings.checkConditions];
+function isOperator(value: unknown): value is Operator {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(operators, value)
+  );
+}
+
+function isLogic(value: unknown): value is Condition {
+  return value === "&&" || value === "||";
+}
+
+// Opérateur d'une condition : absent → `undefined` (chaque contrôle choisit
+// son défaut) ; présent mais inconnu → erreur, jamais ignoré. Une clé héritée
+// (`toString`) n'est pas un opérateur.
+function resolveOperator(operator: unknown): Operator | undefined {
+  if (!operator) return undefined;
+  if (!isOperator(operator)) {
+    throw new Error(
+      `Contitions bad operator : ${typeof operator === "string" ? operator : typeof operator}`,
+    );
   }
+  return operator;
+}
 
-  const Conditions = sanitizeConditions(conditions);
+// Une donnée absente ne retient rien. `0` est une donnée : le rang
+// d'EMERGENCY, que le test de vérité écartait.
+function isAbsent(data: unknown): boolean {
+  return !data && data !== 0;
+}
 
-  if (typeof callback === "function") {
-    return (pdu: Pdu) => {
-      const res = myFuncCondition(Conditions as ConditionSetting, pdu);
-      if (res) {
-        callback(pdu);
+function compileSeverity(setting: unknown): CompiledCheck | null {
+  if (!isPlainObject(setting)) return null;
+  const op = operators[resolveOperator(setting.operator) ?? "=="];
+  if (isAbsent(setting.data)) return null;
+  const ranks: number[] = [];
+  for (const severity of checkFormatSeverity(setting.data)) {
+    const rank =
+      typeof severity === "number" || typeof severity === "string"
+        ? severityRank(Pdu.severityToString(severity))
+        : undefined;
+    if (rank === undefined) return null;
+    ranks.push(rank);
+  }
+  const [only] = ranks;
+  if (ranks.length === 1 && only !== undefined) {
+    return (pdu) => op(pdu.severity, only);
+  }
+  return (pdu) => {
+    for (const rank of ranks) {
+      if (op(pdu.severity, rank)) return true;
+    }
+    return false;
+  };
+}
+
+function compileMsgid(setting: unknown): CompiledCheck | null {
+  if (!isPlainObject(setting)) return null;
+  const op = operators[resolveOperator(setting.operator) ?? "=="];
+  if (isAbsent(setting.data)) return null;
+  const format = checkFormatMsgId(setting.data);
+  if (format instanceof RegExp) {
+    return (pdu) => format.test(pdu.msgid);
+  }
+  const ids = format.map(String);
+  return (pdu) => {
+    for (const id of ids) {
+      if (op(pdu.msgid, id)) return true;
+    }
+    return false;
+  };
+}
+
+function compileDate(setting: unknown): CompiledCheck | null {
+  if (!isPlainObject(setting)) return null;
+  const operator = resolveOperator(setting.operator);
+  if (isAbsent(setting.data)) return null;
+  const time = checkFormatDate(setting.data);
+  if (!time) return null;
+  if (operator === undefined) return NEVER_MATCHES;
+  const op = operators[operator];
+  return (pdu) => op(pdu.timeStamp, time);
+}
+
+/**
+ * Compile des conditions de filtrage en UN prédicat, sans toucher à l'objet
+ * reçu : il peut resservir, pour un autre écouteur ou une autre relecture.
+ *
+ * @param conditions - clés `severity` / `msgid` / `date`, et `checkConditions`
+ * @param fallback - la logique du journal quand `checkConditions` est absent
+ * @returns le prédicat, ou `null` si ces conditions ne retiennent aucune ligne
+ *   (clé inconnue, donnée absente ou illisible, logique inconnue)
+ * @throws Si un opérateur est inconnu, ou une donnée d'un format refusé.
+ */
+function compileConditions(
+  conditions: conditionsInterface,
+  fallback: Condition | undefined,
+): CompiledCheck | null {
+  // Garde d'entrée publique : un appelant JavaScript peut passer autre chose.
+  // oxlint-disable-next-line typescript/no-unnecessary-condition
+  if (typeof conditions !== "object" || conditions === null) return null;
+  let logic = fallback;
+  const checks: CompiledCheck[] = [];
+  for (const key in conditions) {
+    const setting = conditions[key];
+    if (key === "checkConditions" && isLogic(setting)) {
+      logic = setting;
+      continue;
+    }
+    const check =
+      key === "severity"
+        ? compileSeverity(setting)
+        : key === "msgid"
+          ? compileMsgid(setting)
+          : key === "date"
+            ? compileDate(setting)
+            : null;
+    if (check === null) return null;
+    checks.push(check);
+  }
+  // Sans contrôle, aucune logique ne retient rien — `&&` comme `||`.
+  if (logic === undefined || checks.length === 0) return null;
+  const [only] = checks;
+  if (checks.length === 1 && only !== undefined) return only;
+  if (logic === "&&") {
+    return (pdu) => {
+      for (const check of checks) {
+        if (!check(pdu)) return false;
       }
+      return true;
     };
   }
-
-  if (Array.isArray(callback)) {
-    const tab: Pdu[] = [];
-    for (const pdu of callback) {
-      const res = myFuncCondition(Conditions as ConditionSetting, pdu);
-      if (res) {
-        tab.push(pdu);
-      }
+  return (pdu) => {
+    for (const check of checks) {
+      if (check(pdu)) return true;
     }
-    return tab;
-  }
-
-  throw new Error("Bad wrapper");
-};
-
-const sanitizeConditions = function (
-  settingsCondition: conditionsInterface,
-): boolean | ConditionSetting {
-  if (typeof settingsCondition !== "object") {
     return false;
-  }
-  for (const ele in settingsCondition) {
-    if (!(ele in conditionsObj)) {
-      return false;
-    }
-    const condi = settingsCondition[ele] as ConditionSetting;
-
-    if (condi.operator && !(condi.operator in operators)) {
-      throw new Error(`Contitions bad operator : ${condi.operator}`);
-    }
-    if (condi.data) {
-      switch (ele) {
-        case "severity": {
-          if (!condi.operator) {
-            condi.operator = "==";
-          }
-          const res = checkFormatSeverity(condi.data);
-          const bySeverity: Record<string, unknown> = {};
-          condi.data = bySeverity;
-          for (const severity of res) {
-            const mySeverity = Pdu.severityToString(severity);
-            if (mySeverity) {
-              bySeverity[mySeverity] = sysLogSeverity[mySeverity as Severity];
-            } else {
-              return false;
-            }
-          }
-          break;
-        }
-        case "msgid": {
-          if (!condi.operator) {
-            condi.operator = "==";
-          }
-          const res = checkFormatMsgId(condi.data);
-          if (Array.isArray(res)) {
-            const byMsgid: Record<string, string> = {};
-            condi.data = byMsgid;
-            for (let i = 0; i < res.length; i++) {
-              byMsgid[String(res[i])] = "||";
-            }
-          } else {
-            condi.data = res;
-          }
-          break;
-        }
-        case "date": {
-          const res = checkFormatDate(condi.data as Date | string);
-          if (res) {
-            condi.data = res;
-          } else {
-            return false;
-          }
-          break;
-        }
-        default:
-          return false;
-      }
-    } else {
-      return false;
-    }
-  }
-  return settingsCondition as unknown as ConditionSetting;
-};
+  };
+}
 
 const createPDU = function (
   this: Syslog,
@@ -654,6 +621,15 @@ const createPDU = function (
 
 const optional = (v: unknown, type: "string" | "number"): boolean =>
   v === undefined || typeof v === type;
+
+// Sévérité d'une entrée de pile : le rang OU le nom (`isStackRecord` admet les
+// deux, et l'absence). Absente → le défaut du Pdu ; hors échelle → le refus du Pdu.
+function readStackSeverity(
+  raw: number | string | undefined,
+): SeverityName | undefined {
+  if (raw === undefined) return undefined;
+  return Pdu.severityToString(raw) ?? invalidSeverity(raw);
+}
 
 /**
  * Entrée de pile relue d'un JSON (`loadStack(string)`) — vérifie les seuls
@@ -806,7 +782,7 @@ class Syslog extends Event implements ISyslog {
     this.errorTotal = 0;
     this.criticTotal = 0;
     this.start = 0;
-    this._async = (this.settings.async as boolean) || false;
+    this._async = Boolean(this.settings.async);
     if (this.settings.overrideConsole) {
       Syslog.overrideConsole(this);
     }
@@ -951,8 +927,7 @@ class Syslog extends Event implements ISyslog {
         const n = Number(level);
         return n >= 0 && n <= 7 ? n : null;
       }
-      const v = sysLogSeverity[level as Severity];
-      return typeof v === "number" ? v : null;
+      return severityRank(level) ?? null;
     }
     return null;
   }
@@ -1055,12 +1030,16 @@ class Syslog extends Event implements ISyslog {
    * l'override global `*`. Seule règle, partagée par {@link log} et
    * {@link severityEnabled}. À n'appeler que si `_debugOverrides !== null`.
    */
-  private overrideThreshold(key: ModuleName): number | undefined {
+  private overrideThreshold(key: ModuleName | undefined): number | undefined {
     const overrides = this._debugOverrides;
     if (overrides === null) {
       return undefined;
     }
-    return overrides.get(key) ?? overrides.get("*");
+    // Sans clé (journal construit avec `msgid: undefined`), seul l'override
+    // global `*` peut s'appliquer.
+    return (
+      (key === undefined ? undefined : overrides.get(key)) ?? overrides.get("*")
+    );
   }
 
   /**
@@ -1291,7 +1270,7 @@ class Syslog extends Event implements ISyslog {
           payload instanceof Pdu ? payload.msgid : msgid || this.settings.msgid;
         // Override spécifique au module, sinon override GLOBAL `*` (« debug
         // tout » — réutilise le TTL/auto-extinction des overrides par-module).
-        const eff = this.overrideThreshold(key as ModuleName);
+        const eff = this.overrideThreshold(key);
         if (eff !== undefined) {
           threshold = eff;
         }
@@ -1313,7 +1292,8 @@ class Syslog extends Event implements ISyslog {
     }
     let pdu: Pdu | undefined;
     if (this.settings.rateLimit !== false) {
-      const rate = this.settings.rateLimit as number;
+      // `true` vaut 1 ms, comme l'addition le faisait déjà ; un nombre reste lui-même.
+      const rate = Number(this.settings.rateLimit);
       const now = Date.now();
       this.start = this.start || now;
       if (now > this.start + rate) {
@@ -1395,10 +1375,10 @@ class Syslog extends Event implements ISyslog {
     start?: number,
     end?: number,
     condition?: conditionsInterface,
-  ): Pdu[] | Pdu {
+  ): Pdu[] | Pdu | undefined {
     // Fast path: no arguments → last entry without building full array
     if (arguments.length === 0) {
-      return this._ring.last() as Pdu;
+      return this._ring.last();
     }
     let stack: Pdu[];
     if (condition) {
@@ -1411,7 +1391,7 @@ class Syslog extends Event implements ISyslog {
     }
     if (start === end) {
       // Hors bornes : `undefined`, comme `last()` sur un tampon vide ci-dessus.
-      return stack[stack.length - start - 1] as Pdu;
+      return stack[stack.length - start - 1];
     }
     return stack.slice(start, end);
   }
@@ -1421,11 +1401,11 @@ class Syslog extends Event implements ISyslog {
     stack: Pdu[] | null = null,
   ): Pdu[] {
     if (conditions) {
-      return wrapperCondition.call(
-        this,
+      const matches = compileConditions(
         conditions,
-        stack ?? this.ringStack,
-      ) as Pdu[];
+        this.settings.checkConditions,
+      );
+      return matches === null ? [] : (stack ?? this.ringStack).filter(matches);
     }
     return this.ringStack;
   }
@@ -1463,7 +1443,7 @@ class Syslog extends Event implements ISyslog {
       for (const stackItem of stack) {
         const pdu = new Pdu(
           stackItem.payload,
-          stackItem.severity as Severity | undefined,
+          readStackSeverity(stackItem.severity),
           stackItem.moduleName || this.settings.moduleName,
           stackItem.msgid,
           stackItem.msg,
@@ -1488,9 +1468,20 @@ class Syslog extends Event implements ISyslog {
     if (!conditions) {
       throw new Error("filter conditions not found ");
     }
-    conditions = extend(true, {}, conditions) as conditionsInterface;
-    const wrapper = wrapperCondition.call(this, conditions, callback);
-    super.on("onLog", wrapper as CallbackFunction);
+    if (typeof callback !== "function") {
+      throw new Error("Bad wrapper");
+    }
+    // Compilées une fois, sans muter l'objet reçu : plus de copie profonde.
+    const matches = compileConditions(
+      conditions,
+      this.settings.checkConditions,
+    );
+    // Des conditions qui ne retiennent rien n'ajoutent pas d'écouteur : il
+    // coûterait un appel par ligne pour ne jamais rien rendre.
+    if (matches === null) return;
+    super.on("onLog", (pdu: Pdu) => {
+      if (matches(pdu)) callback(pdu);
+    });
   }
 
   listenWithConditions(
@@ -1516,8 +1507,8 @@ class Syslog extends Event implements ISyslog {
     return this.log(data, "DEBUG");
   }
 
-  trace(data: Pci, ...args: unknown[]): Pdu {
-    return this.log(data, "NOTICE", ...(args as [ModuleName?, Message?]));
+  trace(data: Pci, msgid?: ModuleName, msg?: Message): Pdu {
+    return this.log(data, "NOTICE", msgid, msg);
   }
 
   print(...args: Pci[]): Pdu {

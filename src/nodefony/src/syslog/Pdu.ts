@@ -76,6 +76,43 @@ export const SEVERITY_NAMES = [
 /** Un nom de sévérité RFC 5424. */
 export type SeverityName = (typeof SEVERITY_NAMES)[number];
 
+// Nom → rang, dérivé de SEVERITY_NAMES (l'index EST le rang). Une `Map` ne
+// connaît que ses propres clés : `toString`, hérité d'un objet, n'y est pas.
+const SEVERITY_RANK = new Map<string, number>(
+  SEVERITY_NAMES.map((name, rank) => [name, rank]),
+);
+
+/**
+ * Dit si une chaîne est un nom de sévérité RFC 5424 canonique.
+ *
+ * @param value - la chaîne à éprouver (`"INFO"`, jamais `"info"` ni `"6"`)
+ * @returns `true` si c'est l'un des huit noms de {@link SEVERITY_NAMES}
+ */
+export function isSeverityName(value: string): value is SeverityName {
+  return SEVERITY_RANK.has(value);
+}
+
+/**
+ * Rang RFC 5424 d'un nom de sévérité canonique.
+ *
+ * @param name - un nom (`"ERROR"`) ; `undefined` est admis pour chaîner sans test
+ * @returns le rang (`3`), ou `undefined` si ce n'est pas un nom canonique
+ */
+export function severityRank(name: string | undefined): number | undefined {
+  return name === undefined ? undefined : SEVERITY_RANK.get(name);
+}
+
+/**
+ * Lève l'erreur d'une sévérité hors échelle — un seul message, que la valeur
+ * arrive par le constructeur d'un `Pdu` ou par une pile relue.
+ *
+ * @param severity - la valeur refusée, citée telle quelle
+ * @throws Toujours.
+ */
+export function invalidSeverity(severity: unknown): never {
+  throw new Error(`Not a valid nodefony syslog severity: ${String(severity)}`);
+}
+
 /**
  * `moduleName` porté par une entrée de journal venue d'un NAVIGATEUR.
  *
@@ -102,7 +139,7 @@ const translateSeverity = function (severity: Severity = "INFO"): number {
   if (typeof value === "number") {
     return value;
   }
-  throw new Error(`Not a valid nodefony syslog severity: ${severity}`);
+  return invalidSeverity(severity);
 };
 
 const sysLogSeverityObj: Record<Severity, Severity> = Object.entries(
@@ -113,16 +150,6 @@ const sysLogSeverityObj: Record<Severity, Severity> = Object.entries(
     return acc;
   },
   {} as Record<Severity, Severity>,
-);
-
-// Pre-built reverse map: numeric severity → name key (O(1) lookup vs O(n) filter per PDU)
-const severityNameMap = new Map<number, keyof typeof SysLogSeverity>(
-  (
-    Object.entries(SysLogSeverity).filter(([, v]) => typeof v === "number") as [
-      string,
-      number,
-    ][]
-  ).map(([k, v]) => [v, k as keyof typeof SysLogSeverity]),
 );
 
 // `Buffer` n'existe pas en navigateur (Core isomorphe) — accès via globalThis
@@ -255,7 +282,8 @@ class Pdu {
     }
     this.uid = ++guid;
     this.severity = translateSeverity(severity);
-    const sName = severityNameMap.get(this.severity);
+    // Rang → nom : un accès indexé au tableau, l'index EST le rang.
+    const sName = SEVERITY_NAMES[this.severity];
     if (sName === undefined) {
       throw new Error(`Invalid severity value: ${this.severity}`);
     }
@@ -293,18 +321,18 @@ class Pdu {
    * @param severity - valeur numérique (`6`) ou string (`"INFO"` ou `"6"`).
    * @returns nom canonique (`"INFO"`) ou `undefined` si invalide.
    */
-  static severityToString(severity: number | string): string | undefined {
+  static severityToString(severity: number | string): SeverityName | undefined {
     const numericSeverity =
       typeof severity === "string" ? parseInt(severity, 10) : severity;
     if (!isNaN(numericSeverity)) {
-      // Recherche inverse de l'enum : un rang hors échelle n'y est pas.
-      return SysLogSeverity[numericSeverity];
+      // L'index EST le rang : un rang hors échelle (ou fractionnaire) n'y est pas.
+      return SEVERITY_NAMES[numericSeverity];
     }
-    // Un NOM : canonique s'il est une clé de l'enum. `typeof … === "number"`
-    // écarte ce qu'un objet hérite (`toString`) — et aucune récursion : sur une
-    // valeur inconnue, elle repartait sur `undefined` jusqu'au dépassement de pile.
-    return typeof SysLogSeverity[severity as SeverityKeys] === "number"
-      ? (severity as SeverityKeys)
+    // Un NOM : canonique s'il figure parmi les huit — `toString`, hérité d'un
+    // objet, n'y est pas. Aucune récursion : sur une valeur inconnue, elle
+    // repartait sur `undefined` jusqu'au dépassement de pile.
+    return typeof severity === "string" && isSeverityName(severity)
+      ? severity
       : undefined;
   }
 

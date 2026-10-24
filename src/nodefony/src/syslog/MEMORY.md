@@ -20,7 +20,7 @@
 - `payload: Pci` (`unknown`) — le message brut
 - `typePayload: string | null` — résultat de `fastTypeOf` (string/number/array/Error/Date/…)
 - `severity: number` — valeur numérique (0–7)
-- `severityName: keyof SysLogSeverity` — reverse lookup O(1) via `severityNameMap`
+- `severityName: keyof SysLogSeverity` — `SEVERITY_NAMES[severity]` (accès indexé, l'index EST le rang)
 - `timeStamp: number` — `Date.now()` par défaut (ms epoch)
 - `moduleName: string` — origine du log
 - `msgid: string` — identifiant du message
@@ -66,7 +66,8 @@ EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7
 **Gotchas**
 
 - `pdu.severity` est le number, `pdu.severityName` est la string — ne pas confondre
-- `severityNameMap` : Map précalculée `number → keyName` (O(1)) — utilisée dans le constructeur
+- Nom ↔ rang : `SEVERITY_NAMES[rank]` (rang → nom) · `severityRank(name)` / `isSeverityName(s)` (nom → rang, `Map` = clés propres, `toString` hérité exclu) · `invalidSeverity(v)` = SEUL message « Not a valid nodefony syslog severity » (ctor Pdu + `loadStack`)
+- `Pdu.sysLogSeverity()` (`Record<Severity,Severity>`, enum dans les deux sens, SANS clé `-1` malgré le type) garde 3 conversions : type public, lu par le chemin chaud `toSeverityNumber`
 - `sysLogSeverity` array : validator 0–7, l'index EST la valeur
 
 ---
@@ -122,15 +123,15 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 **Filtrage conditionnel**
 
 - `listenWithConditions(conditions, callback)` = `filter(conditions, callback)`
-- Attache un listener `onLog` wrappé par les conditions
-- Opérateurs : `< > <= >= == === != RegExp`
-- Conditions disponibles : `severity` | `msgid` | `date`
-- Logique : `checkConditions: "&&" | "||"` (défaut `"&&"`)
-
-**Condition `severity`** : après sanitize, `data` est `{ "INFO": 6, "WARNING": 4 }` (clé=nom, val=number)  
-**Condition `msgid`** : après sanitize, `data` est soit `{ "NODEFONY": "||" }` (keys=msgids) soit une `RegExp`
-
-- **⚠️ RegExp** : case spécial dans `conditionsObj.msgid` — `condition.data.test(pdu.msgid)` (pas de `for...in`)
+- `compileConditions(conditions, settings.checkConditions)` → UN prédicat `(pdu) => boolean` ou `null` ; lu par `filter()` (écouteur `onLog`) ET `getLogs()` (relecture) — seule implémentation
+- L'objet reçu n'est JAMAIS muté (réutilisable ; plus de copie profonde dans `filter`). `null` → `filter` n'ajoute AUCUN écouteur, `getLogs` rend `[]`
+- Opérateurs : `< > <= >= == === != !== RegExp` ; opérateur inconnu (ou hérité, `toString`) → throw `Contitions bad operator`
+- Conditions disponibles : `severity` | `msgid` | `date` ; toute autre clé → `null`
+- Logique : `checkConditions: "&&" | "||"` (défaut `settings.checkConditions` = `"&&"`) ; logique inconnue → `null`
+- Compilé : `severity` → rangs `number[]` (1 rang = closure spécialisée) ; `msgid` → `string[]` ou `RegExp` (opérateur ignoré) ; `date` → timestamp, sans opérateur = ne retient rien
+- Donnée absente = falsy SAUF `0` (= EMERGENCY / msgid `"0"`)
+- **⚠️ RegExp** : l'opérateur `RegExp` ne mord que sur une `RegExp` ; face à une chaîne → `false` (levait un TypeError par ligne)
+- Perf (A/B) : log + écouteur conditionné −13 % ; `getLogs(conditions)` −39 % vs l'ancien for-in + lookups dynamiques
 
 **Gate d'entrée par sévérité (T2) + debug runtime PAR MODULE**
 
@@ -141,6 +142,7 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 
 **`getLogStack(start?, end?, condition?)`**
 
+- Rend `Pdu[] | Pdu | undefined` — `undefined` : tampon vide, ou `(n, n)` hors bornes
 - Sans args → dernier Pdu (O(1) via `_ring.last()`)
 - `(0, 10)` → `slice(0, 10)` (index dans le buffer trié FIFO)
 - `(n, n)` → `stack[length - n - 1]` (indexation depuis la fin)
@@ -260,9 +262,10 @@ utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
 **Gotchas**
 
 - `warnning` (avec double n) supprimé — utiliser `warn`
-- `filter()` modifie `conditions` par référence via `extend(true, {}, conditions)` — deep clone
-- `loadStack(stack, doEvent, beforeConditions)` : `beforeConditions` appelé AVANT `fire("onLog")`
-- `logicCondition["&&"]` retourne `false` si l'objet de conditions est vide
+- `loadStack(stack, doEvent, beforeConditions)` : `beforeConditions` appelé AVANT `fire("onLog")` ; sévérité relue = rang OU nom (`"6"` admis), absente → défaut du Pdu, hors échelle → `invalidSeverity`
+- Conditions vides (`{}`) → ne retiennent rien, `&&` comme `||`
+- `trace(data, msgid?, msg?)` — signature typée (était `...args: unknown[]`)
+- Constructeur : `extend(...) as SyslogDefaultSettings` RESTE — `extend` (Tools) rend `any` ; le remède est de typer `extend` lui-même (65 appels prod)
 - DROPPED pdu → transports **non** appelés (seuls les ACCEPTED passent)
 
 ---

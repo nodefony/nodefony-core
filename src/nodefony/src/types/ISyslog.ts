@@ -50,7 +50,7 @@ export interface ISyslog {
   warn(data: Pci): Pdu;
   info(data: Pci): Pdu;
   debug(data: Pci): Pdu;
-  trace(data: Pci, ...args: unknown[]): Pdu;
+  trace(data: Pci, msgid?: Msgid, msg?: Message): Pdu;
   print(...args: Pci[]): Pdu;
   logMultiple(severity: Severity, ...args: Pci[]): Pdu;
 
@@ -60,7 +60,7 @@ export interface ISyslog {
     start?: number,
     end?: number,
     condition?: conditionsInterface,
-  ): Pdu[] | Pdu;
+  ): Pdu[] | Pdu | undefined;
   getLogs(conditions: conditionsInterface, stack?: Pdu[] | null): Pdu[];
   logToJson(conditions: conditionsInterface, stack?: Pdu[] | null): string;
   loadStack(

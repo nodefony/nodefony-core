@@ -204,7 +204,7 @@ describe("NODEFONY SYSLOG", () => {
   describe("getLogStack", () => {
     it("reload 1000  entries ", () =>
       new Promise<void>((done) => {
-        let res: Pdu | Pdu[] = <Pdu>global.syslog.getLogStack();
+        let res: Pdu | Pdu[] | undefined = <Pdu>global.syslog.getLogStack();
         assert.strict.equal(res.payload, 999);
         res = global.syslog.getLogStack(0, 10);
         //assert.strict.equal((res?[0] as Pdu[] ).payload, 900);
