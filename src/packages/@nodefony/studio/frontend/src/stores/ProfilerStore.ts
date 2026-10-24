@@ -2,79 +2,24 @@ import { makeAutoObservable, runInAction } from "mobx";
 import { ApiError } from "../services/ApiClient";
 import type { ApiClient } from "../services/ApiClient";
 
-// NOTE : on NE PAS importer de type depuis "nodefony/debugbar" ICI. Ce fichier
-// est un `.ts` → le plugin @analogjs/vite-plugin-angular (présent car un bundle
-// Angular partage la même instance Vite) tente de le compiler et trébuche sur
-// l'import de subpath ("contains Angular decorators but is not in the program").
-// Les `.tsx` (Profiler.tsx) sont pris par le plugin React, donc EUX peuvent
-// importer de "nodefony/debugbar". → on définit ici un miroir local des types.
+import type {
+  IProfileEntry,
+  IProfilePhase,
+  IProfileQuery,
+  IProfileSecurity,
+  IProfileSummary,
+} from "nodefony";
 
-/** Phase serveur (miroir de `@nodefony/http` `ProfilePhase`). */
-export interface ProfilePhase {
-  name: string;
-  startMs: number;
-  durationMs: number | null;
-}
-
-/** Requête ORM (miroir — SEAM futur). */
-export interface ProfileQuery {
-  sql: string;
-  /** Début relatif (même horloge que les phases) → placement dans le waterfall. */
-  startMs?: number;
-  durationMs: number;
-  rows?: number;
-  connector?: string;
-}
-
-/** Traversée du firewall (miroir de `@nodefony/http` `ProfileSecurity`). */
-export interface ProfileSecurity {
-  zone: string | null;
-  protected: boolean;
-  mode: string | null;
-  /** Authenticators acceptés par la zone (ce qui était POSSIBLE). */
-  candidates: string[];
-  /** Authenticator qui a RÉELLEMENT résolu l'identité. */
-  authenticator: string | null;
-  outcome: string | null;
-  reason: string | null;
-  roles: string[] | null;
-}
-
-/** Profil serveur complet (miroir de `@nodefony/http` `ProfileEntry`). */
-export interface ProfileEntry {
-  requestId: string;
-  ts: number;
-  kind: "http" | "ws";
-  method: string | null;
-  url: string;
-  scheme: string;
-  status: number | null;
-  durationMs: number | null;
-  route: string | null;
-  controller: string | null;
-  action: string | null;
-  remoteAddress: string | null;
-  user: string | null;
-  traceparent: string | null;
-  error: string | null;
-  phases: ProfilePhase[];
-  queries?: ProfileQuery[];
-  /** Zone firewall traversée + décision — `undefined` hors zone. */
-  security?: ProfileSecurity;
-}
-
-/** Résumé d'un profil (liste `recent`) — miroir de `@nodefony/http` `ProfileSummary`. */
-export interface ProfileSummary {
-  requestId: string;
-  ts: number;
-  kind: "http" | "ws";
-  method: string | null;
-  url: string;
-  status: number | null;
-  durationMs: number | null;
-  route: string | null;
-  error: string | null;
-}
+// Les types du profil viennent du cœur, par le point d'entrée PRINCIPAL
+// (`nodefony`) : UNE définition pour le serveur, la barre et la console. Pas
+// par le sous-chemin `nodefony/debugbar` — ce fichier est un `.ts`, et le
+// greffon Vite d'Angular (même instance Vite) trébuche sur un import de
+// sous-chemin. Import de types : zéro octet à l'exécution.
+export type ProfilePhase = IProfilePhase;
+export type ProfileQuery = IProfileQuery;
+export type ProfileSecurity = IProfileSecurity;
+export type ProfileEntry = IProfileEntry;
+export type ProfileSummary = IProfileSummary;
 
 const BASE = "/nodefony/profiler/api";
 

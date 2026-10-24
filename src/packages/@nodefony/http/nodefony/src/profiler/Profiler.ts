@@ -22,112 +22,23 @@
 import type { ProfiledResolver } from "./FrameProfile.js";
 import type { ProtocolName } from "../../interfaces/IContext.js";
 import { frameIndexOf } from "nodefony";
+import type {
+  IProfileEntry,
+  IProfilePhase,
+  IProfileQuery,
+  IProfileSecurity,
+  IProfileSummary,
+} from "nodefony";
 import { profileLane, type ProfileLane } from "./aggregate.js";
 
-/** Une phase du pipeline, projetée pour le transport (durée résolue). */
-export interface ProfilePhase {
-  name: string;
-  /** Début relatif `performance.now()` (ms) — sert au calcul du waterfall. */
-  startMs: number;
-  /** Durée en ms, `null` si la phase ne s'est pas terminée (erreur). */
-  durationMs: number | null;
-}
-
-/**
- * Une requête SQL/NoSQL exécutée pendant la requête HTTP (SEAM ORM — futur).
- *
- * Non collecté aujourd'hui : quand `@nodefony/orm-core` arrivera, les adapters
- * pousseront leurs requêtes dans un buffer per-request dev-only (via l'ALS
- * `RequestContext.getRequestId()`, déjà en place) que `collect()` lira ici.
- * Le champ `queries` reste donc `undefined` tant qu'aucun ORM ne pushe → 0 coût.
- */
-export interface ProfileQuery {
-  /** Requête (SQL ou commande NoSQL), tronquée si volumineuse. */
-  sql: string;
-  /** Début relatif (`performance.now()`) — même horloge que les phases. */
-  startMs?: number | undefined;
-  /** Durée d'exécution en ms. */
-  durationMs: number;
-  /** Lignes affectées/retournées, si connu. */
-  rows?: number | undefined;
-  /** Connecteur émetteur (`drizzle`, `mongoose`…). */
-  connector?: string | undefined;
-}
-
-/**
- * Traversée du firewall par cette requête — **ce qui était possible** (la zone :
- * son nom, si elle est protégée, quels authenticators elle accepte) croisé avec
- * **ce qui s'est passé** (quel maillon a résolu l'identité, l'issue, le motif
- * d'un refus).
- *
- * Sans cela, une requête qui PASSE est invisible côté sécurité : le chemin de
- * succès n'émet aucun événement d'audit (choix délibéré — le volume nominal
- * n'est pas un signal). `undefined` hors zone firewall.
- */
-export interface ProfileSecurity {
-  /** Nom de la zone traversée. */
-  zone: string | null;
-  /** La zone exige-t-elle une identité (`security: true`) ? */
-  protected: boolean;
-  /** Chaîne d'authenticators : `first` = le premier qui supporte, `all` = MFA. */
-  mode: string | null;
-  /** Authenticators que la zone accepte (ce qui était POSSIBLE). */
-  candidates: string[];
-  /** Authenticator qui a RÉELLEMENT résolu l'identité. */
-  authenticator: string | null;
-  /** `granted` · `anonymous` · `denied` · `failure` · `throttled` · `bypass` · `public`. */
-  outcome: string | null;
-  /** Motif du refus (`no_credentials`, `invalid_credentials`…). */
-  reason: string | null;
-  /** Rôles du token résolu (l'axe autorisation). */
-  roles: string[] | null;
-}
-
-/** Profil complet d'une requête (HTTP ou message WS), exposé par `get`. */
-export interface ProfileEntry {
-  requestId: string;
-  /**
-   * Numéro d'ordre de collecte, croissant sur la vie du profileur. Un profil
-   * réinséré (identifiant réutilisé) reçoit un numéro neuf.
-   */
-  seq: number;
-  /** Horodatage de la collecte (`Date.now()`), pour le tri client. */
-  ts: number;
-  kind: "http" | "ws";
-  method: string | null;
-  url: string;
-  scheme: string;
-  status: number | null;
-  /** Durée totale serveur (ms), dérivée des phases. */
-  durationMs: number | null;
-  route: string | null;
-  controller: string | null;
-  action: string | null;
-  remoteAddress: string | null;
-  /** Identité (username) si le firewall l'a injectée, sinon `null`. */
-  user: string | null;
-  /** `traceparent` W3C Trace Context (P2.7) — corrélation distribuée RFC-propre. */
-  traceparent: string | null;
-  error: string | null;
-  phases: ProfilePhase[];
-  /** Requêtes ORM (SEAM futur — `undefined` tant qu'aucun adapter ne pushe). */
-  queries?: ProfileQuery[] | undefined;
-  /** Traversée du firewall — `undefined` si la requête n'a croisé aucune zone. */
-  security?: ProfileSecurity | undefined;
-}
-
-/** Résumé léger d'un profil pour la liste `recent` (sans les phases). */
-export interface ProfileSummary {
-  requestId: string;
-  ts: number;
-  kind: "http" | "ws";
-  method: string | null;
-  url: string;
-  status: number | null;
-  durationMs: number | null;
-  route: string | null;
-  error: string | null;
-}
+// Les types du profil vivent au cœur (`nodefony`, `types/IProfile.ts`) : UNE
+// définition pour le serveur, la barre de débogage et la console. Les noms
+// publiés par ce paquet restent, en alias.
+export type ProfilePhase = IProfilePhase;
+export type ProfileQuery = IProfileQuery;
+export type ProfileSecurity = IProfileSecurity;
+export type ProfileEntry = IProfileEntry;
+export type ProfileSummary = IProfileSummary;
 
 /** Forme structurelle minimale lue sur un `Context` (lecture défensive). */
 interface ProfilableContext {

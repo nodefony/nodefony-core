@@ -14,57 +14,22 @@ import {
   isConsolePath,
 } from "../../syslog/drivers/pduConsole";
 import type { NetEntry } from "./network";
+import type {
+  IProfileEntry,
+  IProfilePhase,
+  IProfileQuery,
+  IProfileSecurity,
+  IProfileSummary,
+} from "../../types/IProfile";
 
-/** Phase serveur projetée (miroir client de `@nodefony/http` `ProfilePhase`). */
-export interface ProfilePhase {
-  name: string;
-  startMs: number;
-  durationMs: number | null;
-}
-
-/** Requête ORM (miroir client de `@nodefony/http` `ProfileQuery` — SEAM futur). */
-export interface ProfileQuery {
-  sql: string;
-  durationMs: number;
-  rows?: number;
-  connector?: string;
-}
-
-/** Résumé d'un profil, liste `recent` (miroir client de `@nodefony/http` `ProfileSummary`). */
-export interface ProfileSummary {
-  requestId: string;
-  ts: number;
-  kind: "http" | "ws";
-  method: string | null;
-  url: string;
-  status: number | null;
-  durationMs: number | null;
-  route: string | null;
-  error: string | null;
-}
-
-/** Profil serveur complet (miroir client de `@nodefony/http` `ProfileEntry`). */
-export interface ProfileEntry {
-  requestId: string;
-  ts: number;
-  kind: "http" | "ws";
-  method: string | null;
-  url: string;
-  scheme: string;
-  status: number | null;
-  durationMs: number | null;
-  route: string | null;
-  controller: string | null;
-  action: string | null;
-  remoteAddress: string | null;
-  user: string | null;
-  /** `traceparent` W3C (RFC-propre), si présent. */
-  traceparent: string | null;
-  error: string | null;
-  phases: ProfilePhase[];
-  /** Requêtes ORM (SEAM futur — `undefined` tant qu'aucun adapter ne pushe). */
-  queries?: ProfileQuery[];
-}
+// Les types du profil vivent au cœur (`types/IProfile.ts`) : UNE définition
+// pour le serveur, la barre et la console — le miroir d'ici avait perdu
+// `security`, `seq` et `startMs`. Les noms publiés par `nodefony/debugbar` restent.
+export type ProfilePhase = IProfilePhase;
+export type ProfileQuery = IProfileQuery;
+export type ProfileSecurity = IProfileSecurity;
+export type ProfileEntry = IProfileEntry;
+export type ProfileSummary = IProfileSummary;
 
 /** État de chargement d'un profil serveur dans le cache. */
 export type ProfileState =

@@ -680,6 +680,13 @@ export type {
   IdempotentResponse,
 } from "./types/IIdempotencyStore";
 export type { IPage, IPageQuery, ISortableSource } from "./types/IPage";
+export type {
+  IProfileEntry,
+  IProfilePhase,
+  IProfileQuery,
+  IProfileSecurity,
+  IProfileSummary,
+} from "./types/IProfile";
 export type { PartialInput } from "./types/PartialInput";
 export {
   assertPageQuery,

@@ -191,6 +191,13 @@ export {
 // navigateur les consomme. Types purs — zéro octet de runtime côté client, et
 // une seule définition des deux côtés du fil (une copie front dériverait).
 export type { IPage, IPageQuery } from "../types/IPage";
+export type {
+  IProfileEntry,
+  IProfilePhase,
+  IProfileQuery,
+  IProfileSecurity,
+  IProfileSummary,
+} from "../types/IProfile";
 export type { LogProtocol } from "../syslog/drivers/pduProtocol";
 export type { IAccessLine } from "../syslog/drivers/pduConsole";
 export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
