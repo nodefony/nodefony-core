@@ -12,6 +12,7 @@ import type {
   Severity,
 } from "./logsTypes";
 import {
+  accessStatusFamily,
   consoleRequestIds,
   pduIsConsoleRequest,
   pduIsModuleExcluded,
@@ -181,12 +182,17 @@ export function methodColor(method: string): MantineColor {
   }
 }
 
-/** Couleur d'un statut HTTP par classe (2xx, 3xx, 4xx, 5xx). */
+/**
+ * Couleur d'un statut d'accès par famille (2xx, 3xx, 4xx, 5xx) — code de
+ * fermeture WebSocket compris : `1000` est une fermeture normale, pas une
+ * erreur (règle unique : `accessStatusFamily`, au cœur).
+ */
 export function statusColor(status: number | null): MantineColor {
-  if (status === null) return "gray";
-  if (status >= 500) return "red";
-  if (status >= 400) return "orange";
-  if (status >= 300) return "yellow";
+  const family = accessStatusFamily(status);
+  if (family === null) return "gray";
+  if (family >= 5) return "red";
+  if (family === 4) return "orange";
+  if (family === 3) return "yellow";
   return "teal";
 }
 

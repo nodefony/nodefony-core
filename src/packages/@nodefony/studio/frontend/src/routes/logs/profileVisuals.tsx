@@ -18,6 +18,7 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
+import { accessStatusFamily } from "nodefony";
 import { computeWaterfall } from "nodefony/debugbar";
 import { useMemo } from "react";
 import { DataGrid } from "../../components/ui/DataGrid";
@@ -49,12 +50,13 @@ const PHASE_COLORS: Record<string, string> = {
   other: "#8a9099",
 };
 
-/** Couleur de badge selon la famille de status HTTP. */
+/** Couleur de badge selon la famille du statut — HTTP, ou code de fermeture WebSocket. */
 export function statusColor(status: number | null | undefined): string {
-  if (status === null || status === undefined) return "gray";
-  if (status >= 500) return "red";
-  if (status >= 400) return "yellow";
-  if (status >= 300) return "blue";
+  const family = accessStatusFamily(status ?? null);
+  if (family === null) return "gray";
+  if (family >= 5) return "red";
+  if (family === 4) return "yellow";
+  if (family === 3) return "blue";
   return "green";
 }
 

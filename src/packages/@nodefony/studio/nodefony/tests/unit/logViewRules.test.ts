@@ -9,6 +9,7 @@ import { expect } from "vitest";
 import {
   applyViewFilters,
   parseAccessLine,
+  statusColor,
 } from "../../../frontend/src/routes/logs/logFormat";
 import type { LogRecord } from "../../../frontend/src/routes/logs/logsTypes";
 
@@ -59,6 +60,24 @@ describe("parseAccessLine", () => {
       path: "/nodefony/studio/api/realtime",
       duration: null,
     });
+  });
+
+  it("🔴 WebSocket ouvert : le code à quatre chiffres se lit, et 1000 n'est pas une erreur", () => {
+    const a = parseAccessLine(
+      rec(
+        "\u001b[36mWS  \u001b[0m \u001b[32m1000\u001b[0m wss://localhost:5152/nodefony/studio/api/realtime \u001b[90m0.87ms\u001b[0m 127.0.0.1 [cbba72b5]",
+        "req",
+      ),
+    );
+    expect(a).toEqual({
+      method: "WS",
+      status: 1000,
+      path: "/nodefony/studio/api/realtime",
+      duration: "0.87ms",
+    });
+    expect(statusColor(a?.status ?? null)).toBe("teal");
+    expect(statusColor(1006)).toBe("red");
+    expect(statusColor(1008)).toBe("orange");
   });
 
   it("une ligne qui n'est pas une ligne d'accès : null", () => {

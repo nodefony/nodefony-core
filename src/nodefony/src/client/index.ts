@@ -27,6 +27,7 @@ import { rateChannel, parseRate, isRateChannel } from "../realtime/channelRate";
 import { AdaptiveRate, bindAdaptiveChannel } from "./realtime/AdaptiveRate";
 import { pduProtocol } from "../syslog/drivers/pduProtocol";
 import {
+  accessStatusFamily,
   consoleRequestIds,
   parseAccessLine,
   pduIsConsoleRequest,
@@ -179,6 +180,7 @@ export {
   pduProtocol,
   pduFlowStep,
   FLOW_STEPS,
+  accessStatusFamily,
   consoleRequestIds,
   parseAccessLine,
   pduIsConsoleRequest,

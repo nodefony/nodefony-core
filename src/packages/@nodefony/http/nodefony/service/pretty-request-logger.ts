@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { logColor } from "nodefony";
+import { accessStatusFamily, logColor } from "nodefony";
 import type {
   IRequestLogger,
   IRequestLogEntry,
@@ -105,12 +105,14 @@ class PrettyRequestLogger implements IRequestLogger {
   }
 }
 
+// Famille par la règle du cœur : le `1000` d'une connexion WS saine est vert.
 function colorizeStatus(status: number | null): string {
-  if (status === null) return logColor.blackBright("---");
+  const family = accessStatusFamily(status);
+  if (status === null || family === null) return logColor.blackBright("---");
   const s = String(status);
-  if (status >= 500) return logColor.red(s);
-  if (status >= 400) return logColor.yellowBold(s);
-  if (status >= 300) return logColor.yellow(s);
+  if (family >= 5) return logColor.red(s);
+  if (family === 4) return logColor.yellowBold(s);
+  if (family === 3) return logColor.yellow(s);
   return logColor.green(s);
 }
 

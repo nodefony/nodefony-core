@@ -176,7 +176,11 @@ export function pduIsConsoleRequest(
 export interface IAccessLine {
   /** `GET`, `POST`… ou `WS` pour une connexion WebSocket. */
   method: string;
-  /** Statut HTTP ; `null` quand la ligne n'en porte pas (`---`). */
+  /**
+   * Statut HTTP, ou code de fermeture WebSocket (`1000`…) sur une ligne `WS` ;
+   * `null` quand la ligne n'en porte pas (`---`). Se lit par
+   * {@link accessStatusFamily}, qui connaît les deux.
+   */
   status: number | null;
   /** Chemin et requête (`/api/users?page=2`), sans schéma ni hôte. */
   path: string;
@@ -184,8 +188,72 @@ export interface IAccessLine {
   duration: string | null;
 }
 
-/** Ligne d'accès : `MÉTHODE STATUT URL DURÉE …`. */
-const ACCESS_LINE = /^([A-Z]+)\s+(\d{3}|---)\s+(\S+)(?:\s+(\S+))?/;
+/** Ligne d'accès : `MÉTHODE STATUT URL DURÉE …` — le statut d'une ligne `WS` a quatre chiffres. */
+const ACCESS_LINE = /^([A-Z]+)\s+(\d{3,4}|---)\s+(\S+)(?:\s+(\S+))?/;
+
+/**
+ * La famille d'un statut d'accès, de 1 à 5 comme un statut HTTP — y compris
+ * pour un code de fermeture WebSocket (RFC 6455 §7.4), qui sinon passerait
+ * pour une erreur serveur à quatre chiffres.
+ *
+ * Fermeture normale (`1000`), départ (`1001`) ou sans code (`1005`) → 2 ;
+ * coupure anormale (`1006`) et défaillance du serveur (`1011` à `1014`) → 5 ;
+ * tout autre code (protocole, politique, taille, codes applicatifs) → 4.
+ * Pure et isomorphe : la seule lecture de ce statut, pour les Journaux de la
+ * console comme pour la barre de débogage.
+ *
+ * @param status - statut HTTP ou code de fermeture, `null` si inconnu
+ * @returns 1 à 5, ou `null` quand le statut est inconnu
+ */
+export function accessStatusFamily(status: number | null): number | null {
+  if (status === null) return null;
+  if (status < 1000) return Math.floor(status / 100);
+  if (status === 1000 || status === 1001 || status === 1005) return 2;
+  if (status === 1006 || (status >= 1011 && status <= 1014)) return 5;
+  return 4;
+}
+
+/** Une ligne relue qu'on peut rapprocher : sa ligne d'accès, son heure, sa requête. */
+export type AccessCandidate = Pick<
+  IPduLike,
+  "msgid" | "payload" | "timeStamp" | "requestId"
+>;
+
+/**
+ * Retrouve la ligne d'accès d'une requête vue d'ailleurs — le navigateur, qui
+ * n'a pas toujours lu son `X-Request-Id` (document, WebSocket, `EventSource`) :
+ * même verbe, même chemin, et la plus proche de l'instant donné quand
+ * plusieurs connexions ont visé le même chemin.
+ *
+ * Pure et isomorphe : une seule règle de rapprochement, quel que soit le
+ * consommateur.
+ *
+ * @param rows - lignes relues (une recherche groupée par requête rend la ligne d'accès en tête)
+ * @param method - `GET`, `WS`… tel que la ligne d'accès l'écrit
+ * @param path - chemin et requête (`/api/x?y=1`), comme {@link IAccessLine.path}
+ * @param at - instant attendu de la ligne, en ms epoch
+ * @returns la ligne retenue (avec un `requestId`), ou `null`
+ */
+export function findAccessLine<T extends AccessCandidate>(
+  rows: readonly T[],
+  method: string,
+  path: string,
+  at: number,
+): T | null {
+  let best: T | null = null;
+  let gap = Infinity;
+  for (const rec of rows) {
+    if (!rec.requestId) continue;
+    const a = parseAccessLine(rec);
+    if (a?.method !== method || a.path !== path) continue;
+    const d = Math.abs(rec.timeStamp - at);
+    if (d < gap) {
+      best = rec;
+      gap = d;
+    }
+  }
+  return best;
+}
 
 /**
  * Lit une ligne d'accès (`msgid "req"`) : verbe, statut, chemin, durée — la

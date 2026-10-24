@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { expect } from "vitest";
+import { logColor, setLogColor } from "nodefony";
 import PrettyRequestLogger from "../../service/pretty-request-logger.js";
 
 function fakeHttpContext(
@@ -107,6 +108,26 @@ describe("PrettyRequestLogger — unit tests (P3.2)", () => {
   });
 
   describe("renderWebsocket", () => {
+    // Le statut d'une connexion est un code de fermeture : 1000 est sain. La
+    // famille vient de la règle du cœur, partagée avec le Studio et la barre.
+    it("🔴 une connexion saine (1000) s'écrit en vert, une coupure (1006) en rouge", () => {
+      setLogColor(true);
+      expect(logColor.green("1000")).to.not.equal("1000");
+      const ok = logger.renderWebsocket(
+        fakeHttpContext({ status: 1000 }) as never,
+        null,
+        null,
+      );
+      expect(ok.text).to.include(logColor.green("1000"));
+      const cut = logger.renderWebsocket(
+        fakeHttpContext({ status: 1006 }) as never,
+        null,
+        null,
+      );
+      expect(cut.text).to.include(logColor.red("1006"));
+      setLogColor(false);
+    });
+
     it("prefix is 'WS  '", () => {
       const e = logger.renderWebsocket(fakeHttpContext() as never, null, null);
       expect(noColor(e.text)).to.match(/^WS\s+/);

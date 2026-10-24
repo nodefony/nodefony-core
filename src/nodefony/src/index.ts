@@ -132,7 +132,9 @@ export type {
 export { filterPdus } from "./syslog/drivers/filterPdus";
 export { pduProtocol } from "./syslog/drivers/pduProtocol";
 export {
+  accessStatusFamily,
   consoleRequestIds,
+  findAccessLine,
   parseAccessLine,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
