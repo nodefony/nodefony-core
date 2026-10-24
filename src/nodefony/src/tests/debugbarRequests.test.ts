@@ -90,7 +90,7 @@ describe("joinRequests", () => {
 });
 
 describe("flattenFlow — la liste à plat", () => {
-  const sansRien = { expanded: null, query: "", isHidden: null };
+  const sansRien = { expanded: null, query: "" };
   const flux = () =>
     joinRequests(
       [appel(1, 10, "r1"), appel(2, 30, "r2")],
@@ -123,14 +123,5 @@ describe("flattenFlow — la liste à plat", () => {
     expect(items.map((i) => i.key)).toEqual(["r1"]);
     const r1 = items[0];
     expect(r1?.kind === "request" && r1.logs.length).toBe(2);
-  });
-
-  it("une requête masquée (console) disparaît avec ses lignes", () => {
-    const items = flattenFlow(flux(), {
-      ...sansRien,
-      expanded: new Set([1]),
-      isHidden: (e) => e.requestId === "r1",
-    });
-    expect(items.map((i) => i.key)).toEqual(["l3", "r2"]);
   });
 });

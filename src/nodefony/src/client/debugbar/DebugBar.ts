@@ -50,10 +50,7 @@ import {
   type IRequestItem,
 } from "./requests";
 import { SEVERITY_NAMES } from "../../syslog/Pdu";
-import {
-  isConsolePath,
-  pduIsModuleExcluded,
-} from "../../syslog/drivers/pduConsole";
+import { pduIsModuleExcluded } from "../../syslog/drivers/pduConsole";
 import {
   exposedKernels,
   KERNEL_PROBE_EVENT,
@@ -182,6 +179,12 @@ export interface DebugBarOptions {
    * panneau. Les mesures du serveur le remplacent dès qu'elles arrivent.
    */
   env?: string;
+  /**
+   * La requête qui a rendu la page, quand le serveur la connaît. Sa navigation
+   * n'est ni `fetch` ni XHR : sans cet identifiant, la barre la liste sans
+   * pouvoir en ouvrir le profil serveur.
+   */
+  page?: { requestId?: string };
 }
 
 /**
@@ -959,6 +962,8 @@ export class DebugBar {
   private refused = false;
   /** Environnement transmis au montage — en attendant celui des mesures. */
   private readonly initialEnv: string;
+  /** `requestId` de la requête qui a rendu la page (option `page`). */
+  private readonly pageRequestId: string | null;
   private detailVersion = 0;
   private detailRendered = -1;
 
@@ -967,6 +972,7 @@ export class DebugBar {
     this.position = opts.position ?? "bottom";
     this.startOpen = opts.open ?? false;
     this.initialEnv = opts.env ?? "";
+    this.pageRequestId = opts.page?.requestId ?? null;
     // Client TOUJOURS partagé : `opts.client` explicite OU le singleton par URL
     // (`NodefonySocket.shared`) → mutualise la socket avec l'app hôte (Studio).
     // Jamais « possédé » → la barre ne déconnecte JAMAIS au démontage.
@@ -2176,6 +2182,43 @@ export class DebugBar {
         (viteOrigin !== "" && url.includes(viteOrigin)),
     });
     this.disposers.push(uninstall);
+    this.ingestDocument();
+  }
+
+  /**
+   * La page elle-même, en première requête du flux : sa navigation n'est ni
+   * `fetch` ni XHR, l'intercepteur ne la voit pas. Statut et durée viennent
+   * de la Navigation Timing (`responseStatus` manque à certains moteurs :
+   * le statut reste alors inconnu, jamais deviné) ; l'identifiant, du serveur
+   * qui a rendu la page.
+   */
+  private ingestDocument(): void {
+    if (typeof location === "undefined" || typeof performance === "undefined")
+      return;
+    const nav =
+      typeof performance.getEntriesByType === "function"
+        ? performance.getEntriesByType("navigation")[0]
+        : undefined;
+    const raw =
+      nav !== undefined && "responseStatus" in nav ? nav.responseStatus : 0;
+    const status = typeof raw === "number" && raw > 0 ? raw : null;
+    const end = nav !== undefined && "responseEnd" in nav ? nav.responseEnd : 0;
+    this.net.ingest({
+      id: 0,
+      method: "GET",
+      url: location.href,
+      path: location.pathname,
+      status,
+      ok: status === null || status < 400,
+      durationMs:
+        typeof end === "number" && end > 0 ? Math.round(end * 10) / 10 : null,
+      startedAt: 0,
+      requestId: this.pageRequestId,
+      traceparent: null,
+      pending: false,
+      error: null,
+    });
+    this.flowChanged = true;
   }
 
   private onNetEntry(e: NetEntry): void {
@@ -2575,42 +2618,25 @@ export class DebugBar {
     this.feedDirty = false;
     this.flowChanged = false;
     const net = this.net.entries();
-    // Une requête de la console se reconnaît à une ligne d'accès vers la
-    // console (règle du cœur, tenue par le modèle)… ou à son CHEMIN, que le
-    // navigateur voit : une requête réussie n'écrit plus de ligne d'accès.
-    // Dans les deux cas, elle part avec toutes ses lignes.
-    //
-    // Sauf quand la page EST la console : ses propres requêtes sont alors ce
-    // qu'on inspecte, pas du bruit. Le filtre n'écarte plus que le trafic des
-    // AUTRES clients de la console (lignes sans requête de cette page).
+    // « console et Vite masqués » écarte le trafic de la console… sauf les
+    // requêtes que CETTE page a faites, et leurs lignes : la page est ce qu'on
+    // inspecte, ce qu'elle appelle n'est jamais du bruit — même un chemin de la
+    // console (`/nodefony/…`). Masquer ses propres requêtes faisait compter
+    // « 2 requêtes » sur une liste vide.
     const seenIds = this.model.consoleRequestIds;
-    const ownRequests =
-      typeof location !== "undefined" && isConsolePath(location.pathname);
     let consoleIds: Set<string> | null = null;
-    let hiddenRequests = 0;
     let kept: Set<string> | null = null;
-    const isConsole = (e: NetEntry): boolean =>
-      !ownRequests &&
-      (isConsolePath(e.path) ||
-        (e.requestId !== null && seenIds?.has(e.requestId) === true));
-    if (this.feedHideConsole) {
-      for (const e of net) {
-        if (isConsole(e)) {
-          hiddenRequests++;
-          if (e.requestId !== null) (consoleIds ??= new Set()).add(e.requestId);
-        } else if (e.requestId !== null) (kept ??= new Set()).add(e.requestId);
-      }
-      if (seenIds !== null)
-        for (const id of seenIds)
-          if (kept?.has(id) !== true) (consoleIds ??= new Set()).add(id);
-    }
+    for (const e of net)
+      if (e.requestId !== null) (kept ??= new Set()).add(e.requestId);
+    if (this.feedHideConsole && seenIds !== null)
+      for (const id of seenIds)
+        if (kept?.has(id) !== true) (consoleIds ??= new Set()).add(id);
     const logs = feed.filter(
       (l) => l.seq > this.feedCleared && this.feedMatch(l, consoleIds, kept),
     );
     const items = flattenFlow(joinRequests(net, logs), {
       expanded: this.expanded,
       query: this.feedQuery,
-      isHidden: this.feedHideConsole ? isConsole : null,
     });
     // La ligne choisie a pu changer (réponse arrivée, ligne serveur rattachée) :
     // le détail se lit sur sa version courante.
@@ -2631,9 +2657,7 @@ export class DebugBar {
           : "en attente de lignes du serveur…"
         : this.feedCleared > 0 && !narrowing
           ? "liste vidée — les nouvelles requêtes et lignes s'afficheront ici."
-          : hiddenRequests > 0
-            ? `aucune requête ni ligne ne correspond au filtre — ${hiddenRequests} requête${hiddenRequests > 1 ? "s" : ""} de la console masquée${hiddenRequests > 1 ? "s" : ""} (« console et Vite masqués »).`
-            : "aucune requête ni ligne ne correspond au filtre.";
+          : "aucune requête ni ligne ne correspond au filtre.";
     view.setEntries(items, reset, emptyText);
   }
 

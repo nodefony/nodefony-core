@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import path from "node:path";
 import { expect } from "vitest";
+import { RequestContext } from "nodefony";
 import TemplateHelper from "../../src/template/TemplateHelper.js";
 import type {
   IViteSupervisor,
@@ -68,5 +69,25 @@ describe("TemplateHelper — aucune origine dans les balises", () => {
     expect(tags).to.not.include("127.0.0.1");
     // Quelle que soit la plateforme, aucune URL émise ne porte de backslash.
     expect(tags).to.not.include("\\");
+  });
+});
+
+describe("TemplateHelper — la barre de débogage connaît la requête qui rend la page", () => {
+  // La navigation du document n'est ni `fetch` ni XHR : sans son identifiant,
+  // la barre ne peut ni la rattacher à ses lignes serveur ni en ouvrir le profil.
+  it("🔴 rendu DANS une requête : son requestId part dans les options de montage", () => {
+    const helper = new TemplateHelper(supervisorWith({}), "development");
+    const tags = RequestContext.run({ requestId: "rid-de-la-page" }, () =>
+      helper.renderTags("studio"),
+    );
+    expect(tags).to.include("mountDebugBar(");
+    expect(tags).to.include('"page":{"requestId":"rid-de-la-page"}');
+  });
+
+  it("rendu hors de toute requête : aucune option page, rien d'inventé", () => {
+    const helper = new TemplateHelper(supervisorWith({}), "development");
+    const tags = helper.renderTags("studio");
+    expect(tags).to.include("mountDebugBar(");
+    expect(tags).to.not.include('"page"');
   });
 });

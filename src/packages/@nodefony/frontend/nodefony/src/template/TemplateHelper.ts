@@ -1,7 +1,12 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
-import { Nodefony, PLATFORM_EVENTS, escapeRegExp } from "nodefony";
+import {
+  Nodefony,
+  PLATFORM_EVENTS,
+  RequestContext,
+  escapeRegExp,
+} from "nodefony";
 import type {
   IViteSupervisor,
   IViteSupervisorStatus,
@@ -321,10 +326,15 @@ try {
     const norm = debugbarFile.replace(/\\/g, "/");
     const fsUrl = `${baseUrl}${norm.startsWith("/") ? `/@fs${norm}` : `/@fs/${norm}`}`;
     // L'environnement est connu ICI, au rendu : la barre l'affiche tout de
-    // suite, sans attendre une socket qui ne s'ouvre qu'avec son panneau.
+    // suite, sans attendre une socket qui ne s'ouvre qu'avec son panneau. Et
+    // la requête qui rend cette page aussi : sa navigation n'est ni `fetch` ni
+    // XHR, la barre ne la verrait pas — avec son identifiant, elle la liste et
+    // en ouvre le profil serveur.
+    const requestId = RequestContext.getRequestId();
     const opts = JSON.stringify({
       frontend: { framework, name: entryName, viteOrigin: baseUrl },
       env: Nodefony.getKernel()?.environment ?? "",
+      ...(requestId ? { page: { requestId } } : {}),
     });
     return `<script type="module"${nonceAttr}>
 import { mountDebugBar } from ${JSON.stringify(fsUrl)};

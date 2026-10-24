@@ -129,16 +129,25 @@ async function scenario(): Promise<void> {
   await image();
 }
 
+/** Chemins des requêtes affichées, dans l'ordre de la liste. */
+const chemins = (): Array<string | null | undefined> =>
+  visibles(".row.req").map((n) => n.querySelector(".path")?.textContent);
+/** La ligne de requête d'un chemin — l'élément attendu, ou le test le DIT. */
+const ligneReq = (chemin: string): HTMLElement => {
+  const row = visibles(".row.req").find(
+    (n) => n.querySelector(".path")?.textContent === chemin,
+  );
+  if (!row) throw new Error(`requête absente : ${chemin}`);
+  return row;
+};
+
 describe("onglet Requêtes — une requête et ses lignes serveur", () => {
   it("🔴 la requête du navigateur porte sa ligne serveur ; l'orpheline reste dans le flux", async () => {
     await scenario();
-    const reqs = visibles(".row.req");
-    expect(reqs).toHaveLength(1);
-    const req = reqs[0];
-    expect(req?.querySelector(".path")?.textContent).toBe("/api/items");
-    expect(req?.querySelector(".status")?.textContent).toBe("200");
-    expect(req?.querySelector(".count")?.textContent).toBe("1 ligne");
-    expect(req?.getAttribute("aria-expanded")).toBe("false");
+    const req = ligneReq("/api/items");
+    expect(req.querySelector(".status")?.textContent).toBe("200");
+    expect(req.querySelector(".count")?.textContent).toBe("1 ligne");
+    expect(req.getAttribute("aria-expanded")).toBe("false");
     // Repliée : seule l'orpheline est une ligne serveur affichée.
     const logs = visibles(".row.log");
     expect(logs.map((n) => n.querySelector(".txt")?.textContent)).toEqual([
@@ -149,12 +158,11 @@ describe("onglet Requêtes — une requête et ses lignes serveur", () => {
 
   it("→ déplie la requête : sa ligne serveur la suit, en retrait", async () => {
     await scenario();
-    const req = q(".row.req");
-    req.dispatchEvent(
+    ligneReq("/api/items").dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
     );
     await image();
-    expect(q(".row.req").getAttribute("aria-expanded")).toBe("true");
+    expect(ligneReq("/api/items").getAttribute("aria-expanded")).toBe("true");
     const enfants = visibles(".row.log.child");
     expect(enfants.map((n) => n.querySelector(".txt")?.textContent)).toEqual([
       "lecture des articles",
@@ -164,18 +172,23 @@ describe("onglet Requêtes — une requête et ses lignes serveur", () => {
 
   it("le chevron déplie et replie, sans choisir la ligne", async () => {
     await scenario();
-    q(".row.req .chev").click();
+    const chevron = (): HTMLElement => {
+      const c = ligneReq("/api/items").querySelector(".chev");
+      if (!(c instanceof HTMLElement)) throw new Error("pas de chevron");
+      return c;
+    };
+    chevron().click();
     await image();
     expect(visibles(".row.log.child")).toHaveLength(1);
     expect(q("[data-el='logSide']").hidden).toBe(true);
-    q(".row.req .chev").click();
+    chevron().click();
     await image();
     expect(visibles(".row.log.child")).toHaveLength(0);
   });
 
   it("UN panneau de détail : la requête, puis la ligne serveur", async () => {
     await scenario();
-    q(".row.req").click();
+    ligneReq("/api/items").click();
     await image();
     const side = q("[data-el='logSide']");
     expect(side.hidden).toBe(false);
@@ -201,42 +214,25 @@ describe("onglet Requêtes — une requête et ses lignes serveur", () => {
     search.value = "articles";
     search.dispatchEvent(new Event("input"));
     await image();
-    expect(visibles(".row.req")).toHaveLength(1);
+    expect(chemins()).toEqual(["/api/items"]);
     expect(
       visibles(".row.log").map((n) => n.querySelector(".txt")?.textContent),
     ).toEqual(["lecture des articles"]);
   });
 
-  it("🔴 une requête de la CONSOLE se masque par son chemin, même sans ligne d'accès", async () => {
-    // Une requête réussie n'écrit plus de ligne d'accès : seul le navigateur
-    // voit son chemin. Masquer la console doit l'emporter quand même.
-    await window.fetch("/nodefony/kernel/api/modules");
+  it("🔴 la page elle-même est une requête du flux — sa navigation n'est ni fetch ni XHR", async () => {
     await scenario();
-    const chemins = () =>
-      visibles(".row.req").map((n) => n.querySelector(".path")?.textContent);
-    expect(chemins()).toEqual(["/api/items"]);
-    q(".sevf[data-view='console']").click();
-    await image();
-    expect(chemins()).toEqual(["/api/items", "/nodefony/kernel/api/modules"]);
+    // La plus ancienne : en bas de la liste.
+    expect(chemins().at(-1)).toBe(location.pathname);
   });
 
-  it("🔴 sur une page de la CONSOLE, ses propres requêtes restent visibles — c'est elles qu'on inspecte", async () => {
-    // Vécu : dans Studio, quinze requêtes comptées, une seule affichée — le
-    // filtre prenait les requêtes de la page pour du bruit.
-    history.pushState({}, "", "/nodefony/supervision");
-    try {
-      await window.fetch("/nodefony/kernel/api/modules");
-      await scenario();
-      const chemins = visibles(".row.req").map(
-        (n) => n.querySelector(".path")?.textContent,
-      );
-      expect(chemins).toContain("/nodefony/kernel/api/modules");
-      expect(q(".sevf[data-view='console']").classList.contains("on")).toBe(
-        true,
-      );
-    } finally {
-      history.pushState({}, "", "/");
-    }
+  it("🔴 une requête faite PAR LA PAGE n'est jamais masquée, même vers la console", async () => {
+    // Vécu : « requêtes 2 » au compteur, une liste vide — le filtre console
+    // prenait les appels de la page vers /nodefony/… pour du bruit.
+    await window.fetch("/nodefony/kernel/api/modules");
+    await scenario();
+    expect(q(".sevf[data-view='console']").classList.contains("on")).toBe(true);
+    expect(chemins()).toContain("/nodefony/kernel/api/modules");
   });
 
   it("les puces net, logs et err du bandeau mènent toutes à l'onglet Requêtes", () => {
@@ -261,5 +257,28 @@ describe("onglet Requêtes — une requête et ses lignes serveur", () => {
     expect(q(".tab[data-tab='requests']").classList.contains("active")).toBe(
       true,
     );
+  });
+});
+
+describe("onglet Requêtes — la requête qui a rendu la page", () => {
+  it("🔴 avec le requestId transmis au rendu, la page porte SES lignes serveur", async () => {
+    bar?.unmount?.();
+    document.getElementById("nodefony-debugbar")?.remove();
+    bar = new DebugBar({
+      client: fakeClient(),
+      network: true,
+      open: true,
+      page: { requestId: "rid-page" },
+    });
+    bar.mount();
+    q(".tab[data-tab='requests']").click();
+    const publier = handlers.get(PLATFORM_CHANNELS.syslog);
+    if (!publier) throw new Error("la barre n'écoute pas le canal syslog");
+    publier({ logs: [ligne(7, "rendu de l'accueil", "rid-page")] });
+    await image();
+    const page = ligneReq(location.pathname);
+    expect(page.querySelector(".method")?.textContent).toBe("GET");
+    expect(page.querySelector(".count")?.textContent).toBe("1 ligne");
+    expect(visibles(".row.log")).toHaveLength(0);
   });
 });

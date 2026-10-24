@@ -99,14 +99,12 @@ export interface ILogItem {
 /** Ligne affichée, à plat : la vue fenêtrée ne connaît que des lignes de même hauteur. */
 export type FlowItem = IRequestItem | ILogItem;
 
-/** Ce qui façonne le flux affiché. */
+/** Ce qui façonne le flux affiché : le dépliage et la recherche. */
 export interface IFlowOptions {
   /** Ids locaux (`NetEntry.id`) des requêtes dépliées. */
   expanded: ReadonlySet<number> | null;
   /** Recherche, déjà en minuscules ; vide : tout passe. */
   query: string;
-  /** Requêtes masquées avec toutes leurs lignes (trafic de la console) ; `null` : aucune. */
-  isHidden: ((e: NetEntry) => boolean) | null;
 }
 
 /**
@@ -148,14 +146,14 @@ export function requestMatchesQuery(e: NetEntry, query: string): boolean {
  * sur ces seules lignes — chercher un message, c'est vouloir le voir.
  *
  * @param rows - le flux de {@link joinRequests}, le plus récent en tête
- * @param opts - dépliage, recherche, requêtes masquées
+ * @param opts - dépliage et recherche
  * @returns les lignes dans l'ordre d'affichage
  */
 export function flattenFlow(
   rows: readonly FlowRow[],
   opts: IFlowOptions,
 ): FlowItem[] {
-  const { query, expanded, isHidden } = opts;
+  const { query, expanded } = opts;
   const out: FlowItem[] = [];
   for (const row of rows) {
     if (row.kind === "log") {
@@ -169,7 +167,6 @@ export function flattenFlow(
       continue;
     }
     const { net } = row;
-    if (isHidden?.(net) === true) continue;
     let logs = row.logs;
     let open = expanded?.has(net.id) === true;
     if (query !== "" && !requestMatchesQuery(net, query)) {
