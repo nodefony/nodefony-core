@@ -32,6 +32,15 @@ export const SEVERITIES: readonly SeverityName[] = [
   ...SEVERITY_NAMES,
 ].reverse();
 
+/**
+ * Vue d'ouverture des Journaux ET du Direct : INFO et plus grave. Les jalons
+ * d'une requête (entrée, route, réponse) sont en INFO/NOTICE ; DEBUG ne porte
+ * que la mécanique interne.
+ */
+export const DEFAULT_SEVERITIES: readonly SeverityName[] = SEVERITIES.filter(
+  (s) => s !== "DEBUG",
+);
+
 /** Une sévérité RFC 5424. */
 export type Severity = SeverityName;
 

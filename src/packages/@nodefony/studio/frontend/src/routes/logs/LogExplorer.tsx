@@ -66,7 +66,12 @@ import type {
   LogRecord,
   Severity,
 } from "./logsTypes";
-import { parseSavedFilters, SEVERITIES, type SavedFilters } from "./logsTypes";
+import {
+  DEFAULT_SEVERITIES,
+  parseSavedFilters,
+  SEVERITIES,
+  type SavedFilters,
+} from "./logsTypes";
 import { readStoredJson } from "../../utils/storedJson";
 import { BROWSER_ORIGIN } from "nodefony";
 import {
@@ -97,13 +102,6 @@ import {
 // sélection vide gardée par la v1 aurait masqué ce nouveau défaut.
 const FILTERS_KEY = "nf.logs.explorer.filters.v2";
 
-/**
- * Vue d'ouverture : INFO et plus grave. Les jalons d'une requête (entrée, route,
- * réponse) sont en INFO/NOTICE ; DEBUG ne porte que la mécanique interne.
- */
-const DEFAULT_SEVERITIES: readonly Severity[] = SEVERITIES.filter(
-  (s) => s !== "DEBUG",
-);
 const isDefaultSeverities = (set: ReadonlySet<Severity>): boolean =>
   set.size === DEFAULT_SEVERITIES.length &&
   DEFAULT_SEVERITIES.every((s) => set.has(s));

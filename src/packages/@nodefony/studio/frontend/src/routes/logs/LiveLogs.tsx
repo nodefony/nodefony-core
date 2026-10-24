@@ -29,6 +29,7 @@ import {
 } from "@mantine/core";
 import {
   IconArrowDown,
+  IconBroadcast,
   IconPlayerPause,
   IconPlayerPlay,
   IconSearch,
@@ -43,6 +44,7 @@ import type {
   LogRecord,
   Severity,
 } from "./logsTypes";
+import { DEFAULT_SEVERITIES } from "./logsTypes";
 import { ViewFilterSwitches } from "./ViewFilterSwitches";
 import {
   LOGS_DOC,
@@ -90,8 +92,10 @@ export const LiveLogs = observer(
     const [entries, setEntries] = useState<Entry[]>([]);
     const [paused, setPaused] = useState(false);
     const [search, setSearch] = useState("");
+    // Même vue d'ouverture que les Journaux : INFO et plus grave, DEBUG à un
+    // clic (la puce DEBUG garde son compte).
     const [severityFilter, setSeverityFilter] = useState<Set<Severity>>(
-      () => new Set(),
+      () => new Set(DEFAULT_SEVERITIES),
     );
     const [dropped, setDropped] = useState(0);
 
@@ -259,6 +263,26 @@ export const LiveLogs = observer(
           driverName={null}
           context="live"
         />
+        {/* En-tête : ce que montre cet onglet, par opposition aux Journaux. */}
+        <Paper
+          withBorder
+          radius="md"
+          p="sm"
+          bg="var(--mantine-color-default-hover)"
+        >
+          <Group gap="sm" wrap="nowrap">
+            <IconBroadcast size={22} aria-hidden />
+            <div>
+              <Text fw={700}>Direct — ce processus</Text>
+              <Text size="sm" c="dimmed">
+                Les lignes de ce processus, au fil de l'eau : elles s'affichent
+                dès qu'elles sont écrites, rien n'est relu. Les {MAX_ENTRIES}{" "}
+                plus récentes restent à l'écran ; l'historique est dans l'onglet
+                Journaux.
+              </Text>
+            </div>
+          </Group>
+        </Paper>
         {/* Barre d'état + contrôles. */}
         <Paper p="xs" withBorder radius="md">
           <Group justify="space-between" wrap="wrap" gap="sm">
