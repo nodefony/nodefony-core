@@ -18,6 +18,8 @@ type Handler = (...args: unknown[]) => void;
 let handlers: Map<string, Handler>;
 /** Les recherches reçues par le faux back, dans l'ordre. */
 let recherches: URLSearchParams[];
+/** Le requestId posé par la barre sur chaque recherche, dans l'ordre. */
+let marques: Array<string | null>;
 /** Les profils demandés au profileur. */
 let profils: string[];
 
@@ -152,9 +154,13 @@ function monter(opts: { page?: { requestId: string } } = {}): void {
 beforeEach(() => {
   handlers = new Map();
   recherches = [];
+  marques = [];
   profils = [];
   fetchAvant = window.fetch;
-  window.fetch = (input: RequestInfo | URL): Promise<Response> => {
+  window.fetch = (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const url =
       typeof input === "string"
         ? input
@@ -238,6 +244,7 @@ beforeEach(() => {
     if (url.includes("/nodefony/syslog/api/logs/search")) {
       const p = new URL(url, "https://h").searchParams;
       recherches.push(p);
+      marques.push(new Headers(init?.headers).get("x-request-id"));
       return Promise.resolve(
         new Response(JSON.stringify(repondre(p)), {
           status: 200,
@@ -566,6 +573,63 @@ describe("vue Direct — les lignes en temps réel", () => {
     publier({ logs: [rec(1, "première"), rec(2, "seconde")] });
     await image();
     expect(textes(".row.log")).toEqual(["seconde", "première"]);
+  });
+});
+
+describe("la barre ne s'observe pas elle-même", () => {
+  const wait = (ms: number): Promise<void> =>
+    new Promise((r) => setTimeout(r, ms));
+  /** Les relectures de la vue Journaux (ni document, ni dépliage, ni socket). */
+  const relectures = (): number =>
+    recherches.filter(
+      (p) =>
+        p.get("groupByRequest") === "true" &&
+        !p.has("to") &&
+        !p.has("requestId"),
+    ).length;
+
+  it("🔴 les appels de la barre portent SON requestId — le serveur l'adopte", async () => {
+    q("[data-flow='server']").click();
+    await image();
+    expect(marques.length).toBeGreaterThan(0);
+    for (const m of marques) expect(m).toMatch(/^nf-tooling-[a-z0-9]+-\d+$/);
+  });
+
+  it("🔴 ses propres lignes ne relancent pas les Journaux (vécu : une relecture toutes les 1,5 s, sans fin) — celles de l'application, si", async () => {
+    q("[data-flow='server']").click();
+    await image();
+    const publier = handlers.get(PLATFORM_CHANNELS.syslog);
+    if (!publier) throw new Error("la barre n'écoute pas le canal syslog");
+    const avant = relectures();
+    publier({
+      logs: [
+        rec(
+          50,
+          "GET 200 /nodefony/syslog/api/logs/search",
+          "nf-tooling-ab12cd-3",
+        ),
+      ],
+    });
+    await wait(1700);
+    expect(relectures()).toBe(avant);
+    publier({ logs: [rec(51, "commande enregistrée", "rid-app")] });
+    await wait(1700);
+    expect(relectures()).toBe(avant + 1);
+  });
+
+  it("dans le Direct, ses propres lignes ne s'affichent pas, même l'outillage montré", async () => {
+    q("[data-flow='live']").click();
+    q("[data-el='consoleChip']").click();
+    const publier = handlers.get(PLATFORM_CHANNELS.syslog);
+    if (!publier) throw new Error("la barre n'écoute pas le canal syslog");
+    publier({
+      logs: [
+        rec(60, "relecture de la barre", "nf-tooling-ab12cd-4"),
+        rec(61, "ligne de l'application"),
+      ],
+    });
+    await image();
+    expect(textes(".row.log")).toEqual(["ligne de l'application"]);
   });
 });
 

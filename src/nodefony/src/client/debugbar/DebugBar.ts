@@ -59,7 +59,9 @@ import { SEVERITY_NAMES } from "../../syslog/Pdu";
 import {
   accessStatusFamily,
   findAccessLine,
+  isToolingRequestId,
   pduIsModuleExcluded,
+  TOOLING_REQUEST_ID_PREFIX,
 } from "../../syslog/drivers/pduConsole";
 import {
   exposedKernels,
@@ -930,6 +932,14 @@ export class DebugBar {
    * perdre ce qui s'est passé pendant, ce qui serait le pire des deux mondes.
    */
   private feedPaused = false;
+  /**
+   * Le requestId que la barre pose sur SES appels (`X-Request-Id`) : ses lignes
+   * se reconnaissent avant même que le serveur ne les écrive. Sans lui, chaque
+   * relecture des Journaux faisait écrire des lignes qui relançaient une
+   * relecture — toutes les 1,5 s, sans fin.
+   */
+  private readonly ownId = `${TOOLING_REQUEST_ID_PREFIX}${Math.random().toString(36).slice(2, 8)}-`;
+  private ownSeq = 0;
   /**
    * Ce que la pause fige : les appels et le dernier rang des lignes reçues au
    * moment de la pause. La pause gèle ce qui ARRIVE, jamais ce que l'on fait —
@@ -2092,8 +2102,10 @@ export class DebugBar {
     });
     const offSyslog = this.client.on(CHANNELS.syslog, (...a) => {
       const p = a[0];
-      if (p && typeof p === "object") this.model.ingestSyslog(p);
-      this.scheduleServer(1500);
+      // Seules les lignes de l'APPLICATION relancent les Journaux : celles des
+      // appels de la barre n'entrent pas (sinon elle se relirait sans fin).
+      if (!p || typeof p !== "object") return;
+      if (this.model.ingestSyslog(p) > 0) this.scheduleServer(1500);
       this.scheduleRender();
     });
     this.model.setState(this.client.state);
@@ -2397,9 +2409,8 @@ export class DebugBar {
       if (frames.size >= 32) frames.clear();
       frames.set(rid, "loading");
     }
-    fetch(
+    this.ownFetch(
       `${this.profilerBase}/recent?connection=${encodeURIComponent(rid)}&limit=200`,
-      { headers: { accept: "application/json" } },
     )
       .then((res) => {
         if (!res.ok) throw new Error(String(res.status));
@@ -2563,8 +2574,7 @@ export class DebugBar {
    * avec le statut HTTP en message.
    */
   private async searchLogs(params: URLSearchParams): Promise<ILogRecord[]> {
-    const res = await fetch(`${SYSLOG_SEARCH}?${params.toString()}`, {
-      headers: { accept: "application/json" },
+    const res = await this.ownFetch(`${SYSLOG_SEARCH}?${params.toString()}`, {
       credentials: "same-origin",
     });
     if (!res.ok) throw new Error(String(res.status));
@@ -2593,7 +2603,11 @@ export class DebugBar {
     this.searchLogs(p)
       .then(
         (rows) => {
-          this.serverRows = rows;
+          // Les relectures de la barre elle-même : jamais montrées, même
+          // l'outillage affiché — ce n'est pas ce que fait l'application.
+          this.serverRows = rows.filter(
+            (r) => !isToolingRequestId(r.requestId),
+          );
           this.serverState = "idle";
         },
         (err: unknown) => {
@@ -2743,13 +2757,25 @@ export class DebugBar {
     );
   }
 
+  /**
+   * Un appel de la barre elle-même : JSON, et marqué par son requestId (`ownId`)
+   * — le serveur l'adopte, et ses lignes ne relancent ni ne s'affichent.
+   */
+  private ownFetch(url: string, init: RequestInit = {}): Promise<Response> {
+    return fetch(url, {
+      ...init,
+      headers: {
+        accept: "application/json",
+        "x-request-id": `${this.ownId}${++this.ownSeq}`,
+      },
+    });
+  }
+
   /** Fetch `/{profilerBase}/{requestId}` (ignoré par l'intercepteur). */
   private fetchProfile(requestId: string): void {
     if (typeof fetch === "undefined") return;
     this.net.setProfileState(requestId, { status: "loading" });
-    fetch(`${this.profilerBase}/${encodeURIComponent(requestId)}`, {
-      headers: { accept: "application/json" },
-    })
+    this.ownFetch(`${this.profilerBase}/${encodeURIComponent(requestId)}`)
       .then(async (res) => {
         if (res.status === 404) {
           this.net.setProfileState(requestId, { status: "missing" });

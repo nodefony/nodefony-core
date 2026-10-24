@@ -11,7 +11,10 @@
 import type { RealtimeState } from "../realtime/NodefonySocket";
 import Pdu, { type Severity } from "../../syslog/Pdu";
 import { stripAnsi } from "./format";
-import { pduIsConsoleTraffic } from "../../syslog/drivers/pduConsole";
+import {
+  isToolingRequestId,
+  pduIsConsoleTraffic,
+} from "../../syslog/drivers/pduConsole";
 
 /** Métadonnées applicatives statiques (env, branche git, version) — bloc `app`. */
 export interface AppMeta {
@@ -251,15 +254,22 @@ export class DebugBarModel {
    * Comptabilise un batch de logs coalescés (compteurs cumulés + feed). Chaque
    * entrée est **réhydratée en {@link Pdu}** — la MÊME classe Core que côté
    * serveur (severityName/payload canoniques, pas de devinette de champ).
+   *
+   * @returns le nombre de lignes retenues — celles des appels de la barre
+   *   elle-même (`isToolingRequestId`) n'entrent jamais
    */
-  ingestSyslog(payload: SyslogPayload): void {
+  ingestSyslog(payload: SyslogPayload): number {
     const logs = payload.logs;
+    let taken = 0;
     if (logs) {
       // Une mesure par lot : ses lignes arrivent ensemble.
       const at = performance.now();
       for (let i = 0; i < logs.length; i++) {
         const entry = logs.at(i);
         if (typeof entry?.severity !== "number") continue;
+        // Les lignes des appels de la barre elle-même : ni comptées, ni montrées.
+        if (isToolingRequestId(entry.requestId)) continue;
+        taken++;
         let pdu: Pdu;
         try {
           pdu = new Pdu(
@@ -314,6 +324,7 @@ export class DebugBarModel {
         this._feed.splice(0, this._feed.length - FEED_MAX);
     }
     if (typeof payload.dropped === "number") this._dropped += payload.dropped;
+    return taken;
   }
 
   get view(): DebugBarView {

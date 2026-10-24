@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import {
   accessStatusFamily,
   findAccessLine,
+  isToolingRequestId,
+  pduIsConsoleRequest,
 } from "../syslog/drivers/pduConsole";
 
 describe("accessStatusFamily", () => {
@@ -71,5 +73,23 @@ describe("findAccessLine", () => {
   it("une ligne sans requestId ne se retient pas", () => {
     const rows = [line(1, "GET  200 https://h/ 2ms", 0)];
     expect(findAccessLine(rows, "GET", "/", 0)).toBe(null);
+  });
+});
+
+describe("isToolingRequestId — les appels marqués par l'outillage", () => {
+  it("🔴 une ligne d'un appel de la barre est du trafic de la console, quel que soit son texte", () => {
+    const line = {
+      msgid: "router",
+      payload: "Match route : x",
+      severity: 7,
+      requestId: "nf-tooling-ab12cd-1",
+    };
+    expect(isToolingRequestId(line.requestId)).toBe(true);
+    expect(pduIsConsoleRequest(line, null)).toBe(true);
+  });
+
+  it("un requestId ordinaire ne l'est pas", () => {
+    expect(isToolingRequestId("192c78c9-6c48")).toBe(false);
+    expect(isToolingRequestId(undefined)).toBe(false);
   });
 });

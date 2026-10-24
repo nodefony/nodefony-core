@@ -136,10 +136,12 @@ export {
   consoleRequestIds,
   findAccessLine,
   isConsolePath,
+  isToolingRequestId,
   parseAccessLine,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
   pduIsModuleExcluded,
+  TOOLING_REQUEST_ID_PREFIX,
 } from "./syslog/drivers/pduConsole";
 export type { IAccessLine } from "./syslog/drivers/pduConsole";
 export type { LogProtocol } from "./syslog/drivers/pduProtocol";

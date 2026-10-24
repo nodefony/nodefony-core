@@ -64,6 +64,30 @@ export function isConsolePath(path: string): boolean {
 }
 
 /**
+ * Préfixe des requestId que l'outillage pose LUI-MÊME sur ses appels (la barre
+ * de débogage, par `X-Request-Id` — que le serveur adopte tel quel). Ses
+ * lignes se reconnaissent ainsi avant même que le serveur ne les écrive, celles
+ * qui précèdent la ligne d'accès comprises : l'observation ne s'observe pas, et
+ * ne se relance pas sur ce qu'elle a elle-même fait écrire.
+ */
+export const TOOLING_REQUEST_ID_PREFIX = "nf-tooling-";
+
+/**
+ * Cette ligne (ou cette requête) vient-elle d'un appel de l'outillage, marqué
+ * par {@link TOOLING_REQUEST_ID_PREFIX} ? Pure et isomorphe.
+ *
+ * @param requestId - le requestId de la ligne, s'il y en a un
+ */
+export function isToolingRequestId(
+  requestId: string | null | undefined,
+): boolean {
+  return (
+    typeof requestId === "string" &&
+    requestId.startsWith(TOOLING_REQUEST_ID_PREFIX)
+  );
+}
+
+/**
  * Sévérité RFC 5424 de WARNING : au-dessus (NOTICE, INFO, DEBUG), ce que Vite
  * écrit est du bavardage d'outillage (démarrage, rechargement à chaud) ; ses
  * avertissements et les erreurs qu'il relaie du navigateur restent visibles.
@@ -166,7 +190,8 @@ export function consoleRequestIds(
 
 /**
  * Dit si une ligne appartient au trafic de la console : elle-même (cf
- * {@link pduIsConsoleTraffic}), ou une ligne d'une requête de la console.
+ * {@link pduIsConsoleTraffic}), une ligne d'un appel marqué par l'outillage
+ * ({@link isToolingRequestId}), ou une ligne d'une requête de la console.
  *
  * @param line - la ligne
  * @param ids - le résultat de {@link consoleRequestIds} sur le même lot
@@ -177,6 +202,7 @@ export function pduIsConsoleRequest(
 ): boolean {
   return (
     pduIsConsoleTraffic(line) ||
+    isToolingRequestId(line.requestId) ||
     (line.requestId !== undefined && ids?.has(line.requestId) === true)
   );
 }
