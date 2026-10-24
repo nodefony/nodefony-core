@@ -265,6 +265,58 @@ de bilan, au teardown, via `Context.logRequest()` (`Context.ts#Context.logReques
 - `shouldSample?(context, error?)` — **portillon** évalué AVANT le rendu : `false` = ligne sautée sans
   aucune allocation ni `JSON.stringify` (levier perf du logger d'audit).
 
+### La durée d'une requête — une horloge, mesurée partout
+
+`durationMs` est **une seule valeur**, que lisent la ligne d'accès JSON, la ligne lisible du
+développement, le profil du Studio et la trace verbose. Elle vient d'une horloge propre à chaque
+requête (`Context.ts#Context.stopClock`) :
+
+- **elle démarre** à la construction du contexte, dès que la requête atteint le noyau ;
+- **elle s'arrête** au démontage, sur l'événement `close` de la réponse : le dernier octet vient
+  d'être remis au système, ou le client est parti (`http-kernel.ts#HttpKernel.teardownHttp`).
+
+Aucun lecteur ne relit l'horloge pour son compte : le journal et le Studio affichent la même durée
+pour la même requête.
+
+| Compté dans la durée                                   | Hors de la durée                                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| routage, pare-feu, session, action, rendu              | l'acceptation TCP et la négociation TLS                                    |
+| l'écriture de la réponse, jusqu'au dernier octet remis | la lecture des en-têtes par Node, avant que la requête n'atteigne le noyau |
+| l'attente d'un client lent qui lit la réponse          | ce qui suit le `close` : hooks `onAfterResponse` et `onFinish`             |
+
+> [!NOTE]
+> **Pourquoi jusqu'au dernier octet, et pas jusqu'à la fin de l'action ?** Parce que c'est la
+> définition des outils qui liront cette ligne. OpenTelemetry ferme le span serveur sur `close`, et
+> la métrique `http.server.request.duration` doit valoir la durée de ce span. nginx mesure
+> `$request_time` jusqu'à l'écriture du journal, une fois les derniers octets envoyés. Un p99 de
+> l'application se compare ainsi directement à celui du proxy placé devant elle. Le travail du
+> serveur seul, hors réseau, se lit dans les **phases**.
+
+Trois cas à connaître :
+
+- **Un flux** (SSE, téléchargement long) dure ce que dure le flux, comme chez nginx.
+- **Un client parti avant la fin** (statut `499`) : la durée court jusqu'à son départ.
+- **WebSocket** : la ligne d'accès d'un handshake porte la durée du handshake, pas celle de la
+  connexion. Chaque invocation du pont RPC a sa propre horloge, dans son profil
+  (`FrameProfile.ts#FrameProfile.stopClock`).
+
+#### Deux niveaux de mesure : la durée, puis les phases
+
+| `timing.enabled` | Durée (`durationMs`)         | Phases (waterfall) | Pour quoi                                               |
+| ---------------- | ---------------------------- | ------------------ | ------------------------------------------------------- |
+| `null` (défaut)  | partout, production comprise | hors production    | le cas courant                                          |
+| `true`           | partout                      | partout            | un diagnostic à chaud en production                     |
+| `false`          | nulle part                   | nulle part         | un banc qui veut le coût du pipeline sans aucune mesure |
+
+La règle a une seule implémentation (`timingMode.ts#resolveTimingMode`). La durée coûte deux lectures
+d'horloge par requête ; les phases, une lecture par borne, un tableau et un index par requête. C'est
+pourquoi seules les phases restent coupées en production.
+
+La trace verbose (`timing.verbose`) nomme les deux grandeurs côte à côte :
+`TRACE phases [total 15.25ms · Σ 12.80ms] parse=0.50ms · action=12.30ms`. Le total est la durée de la
+requête, Σ la somme des phases : l'écart montre le temps passé hors de toute phase, envoi au client
+compris.
+
 ### La trace des frames WebSocket
 
 Chaque frame WS (RECEIVE / SEND / BROADCAST) peut être tracée pour le Suivi de requête (Studio). Le
@@ -281,11 +333,16 @@ chaîne quand l'env est `production` (`WebsocketContext.ts#WebsocketContext.broa
 
 ## ⚙️ Configuration
 
-Un seul réglage d'app, côté cœur (bloc `log`), pilote le format des lignes.
+Deux réglages d'app, côté cœur : le format des lignes (bloc `log`) et ce que le chronométrage mesure
+(bloc `timing`).
 
-| Option              | Type                                      | Défaut | Effet                                                                                          |
-| ------------------- | ----------------------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
-| `log.requestFormat` | `auto` \| `default` \| `pretty` \| `json` | `auto` | Format de la ligne de bilan. `auto` = pretty en dev / json en prod (`schema.ts#serverSchema`). |
+| Option              | Type                                      | Défaut | Effet                                                                                                                                                                          |
+| ------------------- | ----------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `log.requestFormat` | `auto` \| `default` \| `pretty` \| `json` | `auto` | Format de la ligne de bilan. `auto` = pretty en dev / json en prod (`schema.ts#serverSchema`).                                                                                 |
+| `timing.enabled`    | `boolean` \| `null`                       | `null` | `null` : durée partout, phases hors production. `true` : phases aussi en production. `false` : ni durée ni phases. Surchargeable sans redéployer : `NF__APP__TIMING__ENABLED`. |
+
+Une clé inconnue sous `timing` (`timing: { enable: false }`) arrête le démarrage en la nommant : retirée
+en silence, elle laisserait l'horloge allumée chez qui croit l'avoir coupée.
 
 `auto` est résolu au boot selon l'environnement (`applyRequestLoggerFromConfig`, `http-kernel.ts#HttpKernel.applyRequestLoggerFromConfig`) :
 
@@ -315,8 +372,9 @@ Choisir en cinq secondes :
 
 Le plus grand gain en dev : `méthode statut url durée remote [id]`, avec couleur du statut (vert 2xx,
 jaune 4xx, rouge 5xx — `colorizeStatus()`, `pretty-request-logger.ts#colorizeStatus`) et `requestId` tronqué aux 8
-premiers caractères (`shortId()`, `pretty-request-logger.ts#shortId`). La durée est dérivée des phases de
-timing (`pretty-request-logger.ts#shortId`).
+premiers caractères (`shortId()`, `pretty-request-logger.ts#shortId`). La durée est celle de l'horloge de
+la requête, la même que dans la ligne JSON (`pretty-request-logger.ts#formatDuration`) ; `---` quand
+`timing.enabled` vaut `false`.
 
 ### `JsonAuditLogger` — un PDU par requête, pour la machine
 
@@ -328,12 +386,10 @@ timing (`pretty-request-logger.ts#shortId`).
   drapeaux `hasAuthorization`/`hasCookie` le sont (`audit-logger.ts#AuditLogEntry.hasCookie`).
 - **Sampling déterministe** : `shouldSample()` (`audit-logger.ts#JsonAuditLogger.shouldSample`) garde 1 requête nominale sur N mais
   **jamais** une erreur ni un `status >= 400` — on ne perd aucun échec ; compteur, pas de RNG.
-- **Durée absente en production par défaut** : `durationMs` est la durée de la requête, de la
-  construction du contexte à la fin de la réponse (`close`, dernier octet remis), lue sur une horloge
-  unique que partagent le journal d'accès, le profileur et la trace verbose
-  (`Context.ts#Context.stopClock`). Le chronométrage est coupé en production pour ne rien coûter à la
-  requête. La ligne sort donc avec `durationMs: null`. `NF__APP__TIMING__ENABLED=true`
-  l'allume (chronométrage complet) ; un réglage plus léger, une seule mesure par requête, est à l'étude.
+- **Durée présente en production** : `durationMs` est la durée de la requête, de son arrivée au
+  dernier octet de la réponse, en millisecondes. C'est la même valeur que dans le Studio (voir
+  [La durée d'une requête](#la-durée-dune-requête--une-horloge-mesurée-partout)). Le détail par phase
+  (`phases`) reste réservé au développement, ou à `timing.enabled: true`.
 
 Destinée à une machine, cette ligne se lit dans un outil d'observabilité : une application générée
 livre deux **tableaux de bord d'exemple** (Grafana sur Loki, OpenSearch Dashboards) sous
@@ -383,6 +439,11 @@ Les choix visibles dans le code :
   `toISOString`, 0 `JSON.stringify`, 0 `Pdu` au ring (`audit-logger.ts#JsonAuditLogger.shouldSample`).
 - **Audit nominal coupable** — l'option `nominal` coupe le log des 2xx/3xx si le sink texte est `null`
   (l'entrée n'atteindrait aucune destination) — ~5,9 % du profil CPU récupérés (`audit-logger.ts#JsonAuditLoggerOptions.sampleRate`).
+- **Durée : deux lectures d'horloge, rien d'autre** — `performance.now()` à l'entrée et au `close`,
+  quelques dizaines de nanosecondes chacune, deux nombres sur le contexte, aucune structure allouée
+  (`Context.ts#Context.stopClock`). C'est un ordre de grandeur de moins que la date et la sérialisation
+  JSON de la ligne d'accès qu'elle complète, et c'est trop petit pour qu'un banc de débit le distingue
+  de son bruit. Les phases, elles, restent coupées en production.
 - **Trace des frames WS gatée en prod** — `logMessageContent()` court-circuite avant toute construction
   de chaîne hors dev (`WebsocketContext.ts#WebsocketContext.logMessageContent`) ; les events lifecycle ne créent aucun `Pdu` en production, et ne sont que DEBUG hors production (`Context.ts#lifecycleEventLogging`).
 
@@ -420,6 +481,7 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 | En-têtes trop volumineux / borne | anti-abus (log flooding) | `MAX_REQUEST_ID_LENGTH` (`requestId.ts#MAX_REQUEST_ID_LENGTH`) |
 | Log structuré (PDU, sévérités) | RFC 5424 | `Pdu` + `requestId`/`pid` (`Pdu.ts#Pdu.requestId`) |
 | Sévérité dérivée du statut HTTP | RFC 9110 (catégories) | `severityFromStatus()` (`audit-logger.ts#severityFromStatus`) |
+| Durée d'une requête serveur | OpenTelemetry, conventions sémantiques HTTP (`http.server.request.duration`, stable) | fin sur le `close` de la réponse (`Context.ts#Context.stopClock`) |
 | Non-journalisation des secrets | OWASP (logging) | redaction présence-only (`audit-logger.ts#JsonAuditLogger.renderHttp`) |
 
 > `X-Request-Id` n'est **pas** un en-tête normalisé (convention de-facto) ; c'est la **valeur** qu'il
@@ -427,17 +489,19 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                   | Cause                                                               | Correction                                                                                     |
-| ---------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Le `X-Request-Id` que j'envoie n'est pas réfléchi          | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur             |
-| Les logs de fin de requête n'ont pas de `requestId`        | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts#Context.log`)               |
-| Réponse HTTP/2 sans `x-request-id`                         | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts#Http2Response.writeHead`) — le port 5152 réfléchit aussi         |
-| `durationMs: null` dans chaque ligne d'accès de production | Chronométrage par phase coupé en production (coût par requête)      | `NF__APP__TIMING__ENABLED=true` pour mesurer ; sans lui, les panneaux de latence restent vides |
-| Pas de `traceparent` renvoyé sur un WebSocket              | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts#HttpKernel.handleWebsocket`)      |
-| Frame WS binaire loggée en `{"0":..,"1":..}`               | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts#formatWsLogContent`)                       |
-| Le format de log ne change pas malgré la config            | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler                   |
-| Logs d'audit trop volumineux en prod                       | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`                       |
-| `Authorization`/`Cookie` attendus dans le log JSON         | Redaction : jamais sérialisés                                       | Par conception — lire les drapeaux `hasAuthorization`/`hasCookie`                              |
+| Symptôme                                            | Cause                                                                              | Correction                                                                                        |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée**                | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur                |
+| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                                       | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts#Context.log`)                  |
+| Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                               | Déjà géré (`http2/Response.ts#Http2Response.writeHead`) — le port 5152 réfléchit aussi            |
+| `durationMs: null` dans chaque ligne d'accès        | L'application a posé `timing.enabled: false` (ou `NF__APP__TIMING__ENABLED=false`) | Retirer ce réglage : la durée est mesurée par défaut, production comprise                         |
+| La durée dépasse largement la somme des phases      | Temps passé hors de toute phase : envoi à un client lent, flux encore ouvert       | Attendu — la durée va jusqu'au dernier octet remis ; le travail du serveur se lit dans les phases |
+| `phases` absent des lignes de production            | Les phases sont réservées au développement (coût par borne)                        | `NF__APP__TIMING__ENABLED=true` le temps d'un diagnostic, puis le retirer                         |
+| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                                | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts#HttpKernel.handleWebsocket`)         |
+| Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                                    | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts#formatWsLogContent`)                          |
+| Le format de log ne change pas malgré la config     | Un `setRequestLogger(...)` programmatique gagne sur la config                      | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler                      |
+| Logs d'audit trop volumineux en prod                | `stack` sérialisée, ou 100 % des 2xx audités                                       | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`                          |
+| `Authorization`/`Cookie` attendus dans le log JSON  | Redaction : jamais sérialisés                                                      | Par conception — lire les drapeaux `hasAuthorization`/`hasCookie`                                 |
 
 ## 🧪 Tests & couverture
 

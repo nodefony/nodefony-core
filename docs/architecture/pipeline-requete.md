@@ -593,8 +593,10 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
 - **Allocation paresseuse systématique** : le nonce CSP n'est calculé qu'à la première lecture
   (`Context.ts#Context.originUrl`), le signal d'abandon qu'au premier accès (`Context.ts#Context.constructor`), la liste des hooks
   d'après-réponse qu'au premier enregistrement (`Context.ts#Context.constructor`).
-- **Chronométrage désactivé par défaut en production** : sans lui, `phases` est un tableau gelé
-  partagé et `phaseStart`/`phaseEnd` sont des no-ops (`Context.ts#Context.phaseEnd`).
+- **Phases coupées par défaut en production, durée mesurée partout** : sans les phases, `phases`
+  est un tableau gelé partagé et `phaseStart`/`phaseEnd` sont des no-ops (`Context.ts#Context.phaseEnd`) ;
+  la durée de la requête ne coûte que deux lectures d'horloge, à l'entrée et au `close`
+  (`Context.ts#Context.stopClock`, règle `timingMode.ts#resolveTimingMode`).
 - **Le délai d'inactivité est armé par socket, pas par requête** —
   `HttpContext.setTimeout()` (`HttpContext.ts#HttpContext.setTimeout`) : en keep-alive, ré-armer un minuteur à chaque
   requête coûtait pour une valeur constante.
