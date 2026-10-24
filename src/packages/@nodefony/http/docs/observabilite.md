@@ -530,6 +530,7 @@ Skills associés : `nodefony-check-memory-health`, `nodefony-load-test`, `nodefo
 
 - ⬆️ **Retour au hub** : [@nodefony/http — vue du module](index.md) · [Toute la documentation](../../../../../docs/index.md)
 - 🧭 **Pages sœurs** : [Serveurs](servers.md) · [Sessions](session.md)
+- Brancher un outil de traçage (OpenTelemetry, Datadog) sur le cycle de chaque requête → [Canal de diagnostic](diagnostics-channel.md)
 - Où partent les logs (stdout, fichier, Loki, OpenSearch) + format RFC 5424 → [Journalisation (Syslog)](../../../../nodefony/docs/syslog.md)
 - Le trajet complet d'une requête (où s'insèrent corrélation et trace) → [pipeline-requete](../../../../../docs/architecture/pipeline-requete.md)
 - Sondes de santé et arrêt gracieux → [Serveurs](servers.md)

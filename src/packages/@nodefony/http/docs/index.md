@@ -43,7 +43,8 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 3. [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) — où se branchent
    rate-limit, en-têtes et firewall.
 4. [Rate-limit](rate-limit.md) — plafonner le débit par client avant que la charge n'atteigne le contrôleur.
-5. [Observabilité](observabilite.md) — corréler les logs par `requestId` pour diagnostiquer à chaud.
+5. [Observabilité](observabilite.md) — corréler les logs par `requestId` pour diagnostiquer à chaud ;
+   [Canal de diagnostic](diagnostics-channel.md) pour brancher un outil de traçage.
 6. [Sécurité](../../security/docs/index.md) — le pare-feu applicatif se pose par-dessus ce module.
 
 **Je fais du temps réel** — WebSocket dans le même contexte que le web.
@@ -66,6 +67,7 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
 | [Upload & corps](upload.md) | parser le corps et recevoir des fichiers | formulaires, imports multipart, API JSON |
 | [Rate-limit](rate-limit.md) | plafonner le débit par client (429) | protéger une API d'un flood ou d'un abus |
 | [Observabilité](observabilite.md) | tracer et journaliser chaque requête | débugger en prod, corréler des logs |
+| [Canal de diagnostic](diagnostics-channel.md) | publier le cycle de chaque requête à un outil de traçage, sans monkey-patch | brancher OpenTelemetry, Datadog ou Sentry |
 | [Proxy inverse](reverse-proxy.md) | relayer un préfixe d'URL vers un autre serveur, sur la même origine | servir Vite en dev, adosser un service interne sans CORS |
 | [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS | tu débugges « pourquoi ça passe / ça bloque ici » |
 
@@ -89,6 +91,9 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
   { "icon": "📈", "title": "observabilite", "href": "observabilite.md",
     "desc": "Observer les requêtes : lignes de log (pretty ou JSON), requestId de corrélation, W3C Trace Context, trace des frames WebSocket, redaction et sampling d'audit. Où partent les logs est traité par la page Syslog du cœur.",
     "meta": "débugger en prod, corréler les logs par requête" },
+  { "icon": "📡", "title": "diagnostics-channel", "href": "diagnostics-channel.md",
+    "desc": "Le TracingChannel nodefony.http.request : chaque requête HTTP et chaque handshake WebSocket publiés avec route, gabarit, module, requestId, statut réel et durée. Zéro coût sans abonné ; correspondance avec les attributs OpenTelemetry.",
+    "meta": "brancher un APM sans patcher le framework" },
   { "icon": "↪️", "title": "reverse-proxy", "href": "reverse-proxy.md",
     "desc": "Relayer un préfixe d'URL vers un autre serveur sans quitter l'origine de la page : HTTP et WebSocket, en-têtes de connexion jamais transmis, X-Forwarded-* et Via posés, barrière d'hôte appliquée avant le relais. C'est par lui que Vite est servi en développement.",
     "meta": "une origine, un certificat — pas de CORS ni de contenu mixte" },

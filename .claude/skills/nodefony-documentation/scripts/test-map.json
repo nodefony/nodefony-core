@@ -458,6 +458,12 @@
       "src/packages/@nodefony/http/nodefony/tests/http/traceparent.test.ts"
     ]
   },
+  "diagnostics-channel": {
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/request-trace-channel.test.ts"
+    ],
+    "load": ["src/packages/@nodefony/http/nodefony/tests/http/memory.test.ts"]
+  },
   "obtenir-un-jeton": {
     "unit": [
       "src/packages/@nodefony/security/tests/unit/securityCommands.test.ts"
