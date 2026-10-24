@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-23",
+  "generatedAt": "2026-10-24",
   "count": 40,
   "repoScripts": [
     {
@@ -358,6 +358,37 @@
       "output": "la liste des manquants et des orphelines ; sortie 1 si l'une existe",
       "calledBy": [
         "npm run check:scripts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-shell-syntax.mjs",
+      "test": false,
+      "purpose": "check-shell-syntax — un script shell qui ne se PARSE pas meurt à l'exécution, au milieu de son travail, jamais au moment où on l'écrit.",
+      "usage": [
+        "node scripts/gates/check-shell-syntax.mjs           # tous les .sh SUIVIS",
+        "node scripts/gates/check-shell-syntax.mjs --staged  # ceux de l'index (pre-commit)"
+      ],
+      "options": [],
+      "env": [],
+      "output": "chaque script fautif avec l'erreur de bash ; sortie 1 si un seul l'est",
+      "calledBy": [
+        ".githooks/pre-commit"
+      ],
+      "testedBy": [
+        "scripts/gates/check-shell-syntax.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/gates/check-shell-syntax.test.mjs",
+      "test": true,
+      "purpose": "Suite du contrôle de syntaxe shell — écrite pour le faire ÉCHOUER.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
       ],
       "testedBy": []
     },

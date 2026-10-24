@@ -99,6 +99,23 @@ check-script-descriptions — chaque script `npm` dit ce qu'il fait.
 - **Produit** : la liste des manquants et des orphelines ; sortie 1 si l'une existe
 - **Appelé par** : `npm run check:scripts`
 
+## [`check-shell-syntax.mjs`](check-shell-syntax.mjs)
+
+check-shell-syntax — un script shell qui ne se PARSE pas meurt à l'exécution, au milieu de son travail, jamais au moment où on l'écrit.
+
+- **Usage** : `node scripts/gates/check-shell-syntax.mjs           # tous les .sh SUIVIS`
+- **Usage** : `node scripts/gates/check-shell-syntax.mjs --staged  # ceux de l'index (pre-commit)`
+- **Produit** : chaque script fautif avec l'erreur de bash ; sortie 1 si un seul l'est
+- **Appelé par** : `.githooks/pre-commit`
+- **Testé par** : `gates/check-shell-syntax.test.mjs`
+
+## [`check-shell-syntax.test.mjs`](check-shell-syntax.test.mjs)
+
+Suite du contrôle de syntaxe shell — écrite pour le faire ÉCHOUER.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `gates/check-shell-syntax.mjs`
+
 ## [`check-type-assertions.mjs`](check-type-assertions.mjs)
 
 check-type-assertions — cliquet : le total des conversions de type qui RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne monte jamais, paquet par paquet.
