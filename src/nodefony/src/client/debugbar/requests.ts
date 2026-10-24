@@ -17,6 +17,7 @@
 import type { FeedLog } from "./model";
 import type { NetEntry } from "./network";
 import type { ILogRecord } from "../../syslog/drivers/ILogDriver";
+import { isToolingCall } from "./profile";
 import {
   parseAccessLine,
   type IAccessLine,
@@ -130,9 +131,13 @@ export function pageItems(
   net: readonly NetEntry[],
   query: string,
   opts: IExpandOptions,
+  hideTooling = false,
 ): FlowItem[] {
   const out: FlowItem[] = [];
   for (const e of net) {
+    // L'outillage (console, Vite, la socket de la barre) n'est pas ce que fait
+    // l'application : masqué, sauf à le demander (puce « console et Vite »).
+    if (hideTooling && isToolingCall(e)) continue;
     if (
       query !== "" &&
       !`${e.method} ${e.path} ${e.status ?? ""} ${e.requestId ?? ""}`

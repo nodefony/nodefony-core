@@ -80,6 +80,7 @@ import {
   NetworkModel,
   computeWaterfall,
   isError as isNetError,
+  isToolingCall,
   type ProfileEntry,
   type ProfileSummary,
 } from "./profile";
@@ -1903,7 +1904,7 @@ export class DebugBar {
       </div>
       <div class="counts feedfilters" data-el="feedFilters">
         ${SEVERITY_NAMES.map((name, sev) => `<button type="button" class="chip sevf${this.feedSevs.has(sev) ? " on" : ""}" data-sevn="${sev}" aria-pressed="${this.feedSevs.has(sev)}" data-tip="Afficher ou masquer les lignes serveur ${name}">${name.toLowerCase()}</button>`).join("")}
-        <button type="button" data-el="consoleChip" hidden class="chip sevf${this.feedHideConsole ? " on" : ""}" data-view="console" aria-pressed="${this.feedHideConsole}" data-tip="Masquer les requêtes de la console d'administration et du relais Vite, avec toutes leurs lignes — la même règle que la console">console et Vite masqués</button>
+        <button type="button" data-el="consoleChip" class="chip sevf${this.feedHideConsole ? " on" : ""}" data-view="console" aria-pressed="${this.feedHideConsole}" data-tip="Masquer l'outillage — la console, ses données, le profileur, les journaux, Vite et la socket de la barre : ce qui sert à regarder l'application, pas l'application. La même règle partout.">console et Vite masqués<span data-el="consoleN"></span></button>
         <button type="button" class="chip sevf${this.feedHideFramework ? " on" : ""}" data-view="framework" aria-pressed="${this.feedHideFramework}" data-tip="Masquer ce que le framework écrit pour lui-même ; les lignes de requête restent">NODEFONY masqué</button>
         <span class="filterhint">les niveaux filtrent les lignes serveur</span>
       </div>
@@ -2424,13 +2425,21 @@ export class DebugBar {
       return out + `<div class="det-loading">lecture du profileur…</div>`;
     if (st === "error")
       return out + `<div class="det-err">profileur injoignable.</div>`;
-    if (st.length === 0)
+    // L'outillage passé par la socket (la console qui lit ses données) n'est
+    // pas l'application : masqué comme dans la liste.
+    const shown = this.feedHideConsole
+      ? st.filter((f) => !isToolingCall({ path: f.url }))
+      : st;
+    const masked = st.length - shown.length;
+    if (masked > 0)
+      out += `<div class="empty">${masked} appel${masked > 1 ? "s" : ""} de l'outillage masqué${masked > 1 ? "s" : ""}.</div>`;
+    if (shown.length === 0)
       return (
         out +
         `<div class="empty">aucun appel du pont (api.request) par cette socket — dépliez la ligne pour ses journaux.</div>`
       );
     out += `<div class="q-list">`;
-    for (const f of st) {
+    for (const f of shown) {
       out +=
         `<button type="button" class="q-row frame${f.requestId === this.selectedFrame ? " sel" : ""}" data-frame="${escapeHtml(f.requestId)}">` +
         `<span class="q-meta">#${frameIndexOf(f.requestId, rid) ?? "?"}</span>` +
@@ -2502,7 +2511,7 @@ export class DebugBar {
       );
     // Les requêtes de la page ne sont jamais masquées : le filtre console
     // n'a de sens qu'en Direct et dans les Journaux.
-    this.el.consoleChip?.toggleAttribute("hidden", view === "page");
+    this.el.consoleChip?.toggleAttribute("hidden", false);
     this.feedView?.select(null);
     this.markServerStale();
     this.feedDirty = true;
@@ -2886,20 +2895,24 @@ export class DebugBar {
     this.el.memMini?.setAttribute("class", `spark ${memT}`);
     // chips
     if (this.networkEnabled) {
-      this.text("netChip", String(this.net.total));
-      this.cls("netChip", this.net.errors > 0 ? "crit" : "blue");
+      const all = !this.feedHideConsole;
+      this.text("netChip", String(this.net.totalOf(all)));
+      this.cls("netChip", this.net.errorsOf(all) > 0 ? "crit" : "blue");
     }
     this.text("logs", String(v.logTotal));
     this.text("err", String(v.errorCount));
     // L'onglet compte ce qu'il liste en premier : les requêtes, ou à défaut
     // (intercepteur coupé) les lignes du serveur.
+    const tooling = !this.feedHideConsole;
     this.text(
       "reqTab",
-      String(this.networkEnabled ? this.net.total : v.logTotal),
+      String(this.networkEnabled ? this.net.totalOf(tooling) : v.logTotal),
     );
     this.cls(
       "reqTab",
-      this.net.errors > 0 || v.errorCount > 0 ? "tcount crit" : "tcount",
+      this.net.errorsOf(tooling) > 0 || v.errorCount > 0
+        ? "tcount crit"
+        : "tcount",
     );
   }
 
@@ -2958,13 +2971,22 @@ export class DebugBar {
   }
 
   private renderRequestsPane(v: DebugBarView): void {
-    this.text("cReq", String(this.net.total));
-    this.text("cErr", String(this.net.errors + v.errorCount));
+    // Les compteurs disent ce que la liste montre : l'outillage masqué n'y
+    // compte pas (vécu : « requêtes 2 » pour une liste vide).
+    const tooling = !this.feedHideConsole;
+    const errors = this.net.errorsOf(tooling);
+    this.text("cReq", String(this.net.totalOf(tooling)));
+    this.text("cErr", String(errors + v.errorCount));
     this.el.cErrChip?.setAttribute(
       "data-tip",
-      `${this.net.errors} requête${this.net.errors > 1 ? "s" : ""} en échec (réseau ou statut ≥ 400), ${v.errorCount} ligne${v.errorCount > 1 ? "s" : ""} d'erreur du serveur`,
+      `${errors} requête${errors > 1 ? "s" : ""} en échec (réseau ou statut ≥ 400), ${v.errorCount} ligne${v.errorCount > 1 ? "s" : ""} d'erreur du serveur`,
     );
-    this.text("cPend", String(this.net.pending));
+    this.text("cPend", String(this.net.pendingOf(tooling)));
+    // Jamais masqué en silence : la puce dit combien elle cache.
+    const masked = tooling
+      ? 0
+      : this.net.totalOf(true) - this.net.totalOf(false);
+    this.text("consoleN", masked > 0 ? ` · ${masked}` : "");
     this.text("cTotal", String(v.logTotal));
     this.text("cDrop", String(v.dropped));
     this.renderFeed(v.feed);
@@ -3078,10 +3100,17 @@ export class DebugBar {
     let emptyText: string;
     if (this.flowView === "page") {
       this.resolveDocument();
-      items = pageItems(this.net.entries(), this.feedQuery, opts);
-      emptyText = this.networkEnabled
-        ? "en attente des requêtes de la page (fetch / XHR)…"
-        : "interception réseau désactivée (network: false).";
+      const entries = this.net.entries();
+      items = pageItems(entries, this.feedQuery, opts, this.feedHideConsole);
+      const masked =
+        items.length === 0 && this.feedHideConsole
+          ? entries.filter(isToolingCall).length
+          : 0;
+      emptyText = !this.networkEnabled
+        ? "interception réseau désactivée (network: false)."
+        : masked > 0
+          ? `aucune requête de l'application — ${masked} de l'outillage masquée${masked > 1 ? "s" : ""} (console, Vite) : la puce « console et Vite masqués » les montre.`
+          : "en attente des requêtes de la page (fetch / XHR, WebSocket, SSE)…";
     } else {
       items = serverItems(this.serverRows ?? [], this.net.entries(), opts);
       emptyText =

@@ -9,7 +9,10 @@
  *  - {@link computeWaterfall} : layout proportionnel des phases serveur (le
  *    centre UX — une timeline type Chrome/Symfony).
  */
-import { accessStatusFamily } from "../../syslog/drivers/pduConsole";
+import {
+  accessStatusFamily,
+  isConsolePath,
+} from "../../syslog/drivers/pduConsole";
 import type { NetEntry } from "./network";
 
 /** Phase serveur projetée (miroir client de `@nodefony/http` `ProfilePhase`). */
@@ -110,10 +113,16 @@ export class NetworkModel {
   // était rendrait déjà son nouvel état, et l'erreur ne se compterait jamais.
   private readonly _errorIds = new Set<number>();
   private _total = 0;
+  // Appels de l'outillage (console, Vite) : comptés à part, une fois, pour que
+  // les compteurs disent ce que la liste montre quand l'outillage est masqué.
+  private _tooling = 0;
 
   /** Upsert d'une entrée (pending puis résolue partagent le même `id`). */
   ingest(entry: NetEntry): void {
-    if (!this._byId.has(entry.id)) this._total++;
+    if (!this._byId.has(entry.id)) {
+      this._total++;
+      if (isToolingCall(entry)) this._tooling++;
+    }
     // Recompte le statut d'erreur (peut basculer pending → erreur/4xx/5xx).
     if (isError(entry)) this._errorIds.add(entry.id);
     else this._errorIds.delete(entry.id);
@@ -149,6 +158,30 @@ export class NetworkModel {
     return n;
   }
 
+  /** Appels observés depuis l'ouverture de la page, l'outillage compris ou non. */
+  totalOf(tooling: boolean): number {
+    return tooling ? this._total : this._total - this._tooling;
+  }
+
+  /** Appels en échec gardés, l'outillage compris ou non. */
+  errorsOf(tooling: boolean): number {
+    if (tooling) return this._errorIds.size;
+    let n = 0;
+    for (const id of this._errorIds) {
+      const e = this._byId.get(id);
+      if (e !== undefined && !isToolingCall(e)) n++;
+    }
+    return n;
+  }
+
+  /** Appels en attente de réponse, l'outillage compris ou non. */
+  pendingOf(tooling: boolean): number {
+    let n = 0;
+    for (const e of this._byId.values())
+      if (e.pending && (tooling || !isToolingCall(e))) n++;
+    return n;
+  }
+
   // ── Cache de profils serveur ──────────────────────────────────────────
 
   profileState(requestId: string): ProfileState | undefined {
@@ -163,7 +196,17 @@ export class NetworkModel {
     this._profiles.clear();
     this._errorIds.clear();
     this._total = 0;
+    this._tooling = 0;
   }
+}
+
+/**
+ * Vrai si l'appel sert l'OUTILLAGE (la console, ses données, Vite, la socket
+ * de la barre) et non l'application : la règle du cœur, {@link isConsolePath}
+ * — la même que les Journaux et le profileur.
+ */
+export function isToolingCall(e: Pick<NetEntry, "path">): boolean {
+  return isConsolePath(e.path);
 }
 
 /**

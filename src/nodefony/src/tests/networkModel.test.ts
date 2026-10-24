@@ -60,3 +60,23 @@ describe("NetworkModel — compte des échecs", () => {
     expect(m.errors).toBe(1);
   });
 });
+
+describe("NetworkModel — l'outillage compté à part", () => {
+  it("🔴 total, échecs et attente se lisent l'outillage compris ou non", () => {
+    const m = new NetworkModel();
+    const app = { ...appel(1), path: "/api/items" };
+    const console = {
+      ...appel(2),
+      path: "/nodefony/kernel/api/info",
+      pending: false,
+      error: "Failed to fetch",
+    };
+    m.ingest(app);
+    m.ingest(console);
+    expect(m.totalOf(true)).toBe(2);
+    expect(m.totalOf(false)).toBe(1);
+    expect(m.errorsOf(true)).toBe(1);
+    expect(m.errorsOf(false)).toBe(0);
+    expect(m.pendingOf(false)).toBe(1);
+  });
+});

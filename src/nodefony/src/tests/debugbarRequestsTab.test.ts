@@ -83,12 +83,9 @@ function repondre(p: URLSearchParams): unknown {
           rec(1, `GET 200 https://h${location.pathname} 3ms`, "rid-doc", {
             msgid: "req",
           }),
-          rec(
-            2,
-            "WS   1000 wss://h/nodefony/studio/api/realtime  0.8ms 127.0.0.1 [x]",
-            "rid-ws",
-            { msgid: "req" },
-          ),
+          rec(2, "WS   1000 wss://h/chat  0.8ms 127.0.0.1 [x]", "rid-ws", {
+            msgid: "req",
+          }),
         ],
       },
     };
@@ -176,10 +173,22 @@ beforeEach(() => {
               ts: 1,
               kind: "ws",
               method: "GET",
-              url: "/nodefony/realtime/api/health",
+              url: "/api/articles",
               status: 200,
               durationMs: 1.2,
-              route: "admin.realtime.GET.health",
+              route: "articles.list",
+              error: null,
+            },
+            // La console qui lit ses données par la même socket : l'outillage.
+            {
+              requestId: "rid-ws.3",
+              ts: 3,
+              kind: "ws",
+              method: "GET",
+              url: "/nodefony/kernel/api/info",
+              status: 200,
+              durationMs: 0.2,
+              route: "admin.kernel.GET.info",
               error: null,
             },
             // Rendu APRÈS #1 : le profileur range par fin d'appel, pas par rang.
@@ -188,10 +197,10 @@ beforeEach(() => {
               ts: 2,
               kind: "ws",
               method: "GET",
-              url: "/nodefony/kernel/api/info",
+              url: "/api/users",
               status: 200,
               durationMs: 0.3,
-              route: "admin.kernel.GET.info",
+              route: "users.list",
               error: null,
             },
           ],
@@ -202,10 +211,10 @@ beforeEach(() => {
           ts: 1,
           kind: "ws",
           method: "GET",
-          url: "/nodefony/realtime/api/health",
+          url: "/api/articles",
           status: 200,
           durationMs: 1.2,
-          route: "admin.realtime.GET.health",
+          route: "articles.list",
           controller: "AdminApiController",
           action: "dispatch",
           user: "admin",
@@ -346,11 +355,23 @@ describe("vue Page — ce que la page est en train de faire", () => {
     expect(textes(".row.log.child")).toEqual(["ligne de rid-page"]);
   });
 
-  it("🔴 une requête de la page n'est JAMAIS masquée : pas de filtre console ici", async () => {
+  it("🔴 l'outillage de la page est masqué par défaut — compteurs compris — et la puce le montre", async () => {
+    // La console qui lit ses données : ce qui sert à regarder, pas l'application.
     await window.fetch("/nodefony/kernel/api/modules");
+    await window.fetch("/api/items");
+    await image();
+    expect(chemins()).not.toContain("/nodefony/kernel/api/modules");
+    expect(chemins()).toContain("/api/items");
+    // Les compteurs disent ce que la liste montre (document + /api/items).
+    expect(q("[data-el='cReq']").textContent).toBe("2");
+    const chip = q("[data-el='consoleChip']");
+    expect(chip.hidden).toBe(false);
+    // Jamais masqué en silence : la puce dit combien elle cache.
+    expect(chip.textContent).toContain("· 1");
+    chip.click();
     await image();
     expect(chemins()).toContain("/nodefony/kernel/api/modules");
-    expect(q("[data-el='consoleChip']").hidden).toBe(true);
+    expect(q("[data-el='cReq']").textContent).toBe("3");
   });
 });
 
@@ -379,12 +400,10 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
   });
 
   it("🔴 la socket partagée de la page s'y voit : WS, 101, ouvert, puis son code de fermeture", async () => {
-    const ws = new window.WebSocket(
-      "wss://h/nodefony/studio/api/realtime",
-    ) as unknown as FakeWs;
+    const ws = new window.WebSocket("wss://h/chat") as unknown as FakeWs;
     ws.dispatchEvent(new Event("open"));
     await image();
-    const row = (): HTMLElement => ligneReq("/nodefony/studio/api/realtime");
+    const row = (): HTMLElement => ligneReq("/chat");
     expect(row().querySelector(".method")?.textContent).toBe("WS");
     expect(row().querySelector(".status")?.textContent).toBe("101");
     expect(row().querySelector(".dur")?.textContent).toBe("ouvert");
@@ -398,12 +417,10 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
   });
 
   it("🔴 choisie, la socket retrouve son requestId par SA ligne d'accès — et liste ses appels, pas un profil qu'elle n'a pas", async () => {
-    const ws = new window.WebSocket(
-      "wss://h/nodefony/studio/api/realtime",
-    ) as unknown as FakeWs;
+    const ws = new window.WebSocket("wss://h/chat") as unknown as FakeWs;
     ws.dispatchEvent(new Event("open"));
     await image();
-    ligneReq("/nodefony/studio/api/realtime").click();
+    ligneReq("/chat").click();
     await image();
     // Ses appels, filtrés par le serveur ; jamais le profil de la connexion.
     expect(profils.some((u) => u.includes("/recent?connection=rid-ws"))).toBe(
@@ -411,7 +428,14 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     );
     expect(profils.some((u) => u.endsWith("/rid-ws"))).toBe(false);
     const appel = q("[data-el='logSide'] [data-frame='rid-ws.1']");
-    expect(appel.textContent).toContain("admin.realtime.GET.health");
+    expect(appel.textContent).toContain("articles.list");
+    // L'appel de l'outillage passé par la même socket est masqué, et compté.
+    expect(
+      shadow().querySelector("[data-el='logSide'] [data-frame='rid-ws.3']"),
+    ).toBeNull();
+    expect(q("[data-el='logSide']").textContent).toContain(
+      "1 appel de l'outillage masqué",
+    );
     expect(appel.textContent).toContain("#1");
     expect(
       [
@@ -420,25 +444,19 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
         ),
       ].map((b) => b.dataset.frame),
     ).toEqual(["rid-ws.2", "rid-ws.1"]);
-    expect(
-      ligneReq("/nodefony/studio/api/realtime").getAttribute("aria-expanded"),
-    ).toBe("false");
+    expect(ligneReq("/chat").getAttribute("aria-expanded")).toBe("false");
     // Les seules lignes d'accès de ce chemin, pas la fenêtre entière.
-    const cherche = recherches.find(
-      (p) => p.get("q") === "/nodefony/studio/api/realtime",
-    );
+    const cherche = recherches.find((p) => p.get("q") === "/chat");
     expect(cherche?.get("msgid")).toBe("req");
     expect(cherche?.has("groupByRequest")).toBe(false);
     expect(q("[data-el='logSide']").textContent).toContain("ouvert");
   });
 
   it("🔴 un appel de la socket choisi : SON profil — phases et SQL — sous la liste", async () => {
-    const ws = new window.WebSocket(
-      "wss://h/nodefony/studio/api/realtime",
-    ) as unknown as FakeWs;
+    const ws = new window.WebSocket("wss://h/chat") as unknown as FakeWs;
     ws.dispatchEvent(new Event("open"));
     await image();
-    ligneReq("/nodefony/studio/api/realtime").click();
+    ligneReq("/chat").click();
     await image();
     q("[data-el='logSide'] [data-frame='rid-ws.1']").click();
     await image();
