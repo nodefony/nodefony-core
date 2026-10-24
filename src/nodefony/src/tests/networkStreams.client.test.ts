@@ -92,18 +92,20 @@ describe("installNetworkInterceptor — WebSocket", () => {
   it("aucun écouteur ne survit à la fermeture", () => {
     const win: Record<string, unknown> = {};
     // La doublure compte AVANT que l'intercepteur n'écoute.
-    let probe: { live: () => number } | null = null;
+    // Un conteneur : une affectation faite dans le constructeur échappe à
+    // l'analyse de flux, qui réduirait une variable `null` à `never`.
+    const probe: { current: { live: () => number } | null } = { current: null };
     win.WebSocket = class extends FakeWs {
       constructor(url: string | URL) {
         super(url);
-        probe = countListeners(this);
+        probe.current = countListeners(this);
       }
     };
     install(win);
     const ws = new (win.WebSocket as typeof FakeWs)("wss://h/x");
-    expect(probe?.live()).toBe(2);
+    expect(probe.current?.live()).toBe(2);
     ws.dispatchEvent(closeEvent(1000));
-    expect(probe?.live()).toBe(0);
+    expect(probe.current?.live()).toBe(0);
   });
 
   it("fermée avant de s'ouvrir : un échec, avec son code", () => {
