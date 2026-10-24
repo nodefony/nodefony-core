@@ -84,6 +84,16 @@ describe("TemplateHelper — la barre de débogage connaît la requête qui rend
     expect(tags).to.include('"page":{"requestId":"rid-de-la-page"}');
   });
 
+  // Les modules s'exécutent dans l'ordre du document : montée après l'entrée,
+  // la barre ne voyait ni la socket ni les premiers `fetch` de l'application.
+  it("🔴 la barre s'exécute AVANT l'entrée de l'application, après le client Vite", () => {
+    const helper = new TemplateHelper(supervisorWith({}), "development");
+    const tags = helper.renderTags("studio");
+    const bar = tags.indexOf("mountDebugBar(");
+    expect(bar).to.be.greaterThan(tags.indexOf("/@vite/client"));
+    expect(bar).to.be.lessThan(tags.indexOf("src/main.tsx"));
+  });
+
   it("rendu hors de toute requête : aucune option page, rien d'inventé", () => {
     const helper = new TemplateHelper(supervisorWith({}), "development");
     const tags = helper.renderTags("studio");

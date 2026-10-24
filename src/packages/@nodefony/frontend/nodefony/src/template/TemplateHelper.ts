@@ -259,17 +259,20 @@ window.__vite_plugin_react_preamble_installed__ = true;
     tags.push(
       `<script type="module"${n} src="${baseUrl}/@vite/client"></script>`,
     );
+    // Debug bar Nodefony (dev only, auto) — vitrine realtime + HMR fusionnés au
+    // runtime. Le script est servi depuis le build navigateur du Core via Vite
+    // (`/@fs/<abs>`) ; on lui injecte le framework + l'origine. AVANT l'entrée :
+    // les modules s'exécutent dans l'ordre du document, et ce que l'application
+    // ouvre en démarrant (sa socket, ses premiers `fetch`) échapperait sinon à
+    // l'intercepteur. Le chargement, lui, reste parallèle.
+    const dbg = this.debugBarTag(baseUrl, entry.type, entryName, n);
+    if (dbg) tags.push(dbg);
     tags.push(`<script type="module"${n} src="${entryUrl}"></script>`);
     // Pont HMR : relaie les hot-updates Vite vers un CustomEvent `window` que la
     // debug bar observe. Branché sur `createHotContext` (réutilise le client
     // `@vite/client` DÉJÀ chargé) → AUCUNE connexion WebSocket supplémentaire
     // (≠ ancienne sonde qui ouvrait un 2ᵉ client `vite-hmr` en boucle).
     tags.push(this.hmrBridgeTag(baseUrl, n));
-    // Debug bar Nodefony (dev only, auto) — vitrine realtime + HMR fusionnés au
-    // runtime. Le script est servi depuis le build navigateur du Core via Vite
-    // (`/@fs/<abs>`) ; on lui injecte le framework + l'origine.
-    const dbg = this.debugBarTag(baseUrl, entry.type, entryName, n);
-    if (dbg) tags.push(dbg);
     return tags.join("\n");
   }
 
