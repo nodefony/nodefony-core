@@ -72,6 +72,28 @@ export function resolveQueryDriver(
 let registered = false;
 
 /**
+ * L'application envoie-t-elle ELLE-MÊME ses journaux à une destination distante
+ * (Loki, OpenSearch) ? Un choix explicite (`write`) gagne toujours. Sans choix :
+ * oui en développement, NON en production.
+ *
+ * En production, l'envoi revient au collecteur de l'hébergeur, qui lit la sortie
+ * standard (cloud-native : un process écrit sur stdout, l'infrastructure
+ * transporte). Un envoi direct depuis le process doublerait chaque ligne dès
+ * qu'un collecteur est en place, et ferait porter au pod le coût réseau et le
+ * tampon d'un transport que l'infrastructure assure déjà.
+ *
+ * @param write - le choix déclaré (`log.loki.write`, `log.opensearch.write`).
+ * @param environment - l'environnement du noyau.
+ * @returns `true` si le transport d'envoi doit être monté.
+ */
+export function resolveLogPush(
+  write: boolean | undefined,
+  environment: string,
+): boolean {
+  return write ?? environment !== "production";
+}
+
+/**
  * Enregistre les fabriques des drivers NATIFS du Log Backplane dans le
  * {@link registerLogDriverFactory registre de fabriques}. Idempotent (appelé à chaque
  * `initializeLog`, court-circuité après la 1ʳᵉ fois). C'est ICI — pas dans le Kernel —
@@ -127,12 +149,16 @@ export function registerBuiltinLogDrivers(): void {
     if (!lk?.url) return null;
     // Une seule source pour l'envoi ET le sélecteur de relecture : sans étiquettes
     // déclarées, le nom de l'application (deux apps d'un même Loki se distinguent).
+    // `write` RÉSOLU passe aussi au driver : en relecture seule, il cherche la
+    // sévérité dans la ligne, le collecteur ne posant pas d'étiquette `severity`.
+    const write = resolveLogPush(lk.write, ctx.environment);
     const opts = {
       ...lk,
+      write,
       labels: lk.labels ?? { app: ctx.appName ?? DEFAULT_LOKI_APP_LABEL },
     };
     const driver = createLokiLogDriver(opts);
-    if (lk.write === false) return { driver };
+    if (!write) return { driver };
     return {
       driver,
       transport: new LokiTransport(opts),
@@ -143,8 +169,9 @@ export function registerBuiltinLogDrivers(): void {
   registerLogDriverFactory("opensearch", (ctx) => {
     const os = ctx.logCfg?.opensearch;
     if (!os?.url) return null;
+    const write = resolveLogPush(os.write, ctx.environment);
     const driver = createOpenSearchLogDriver(os);
-    if (os.write === false) return { driver };
+    if (!write) return { driver };
     return {
       driver,
       transport: new OpenSearchTransport(os),

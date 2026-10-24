@@ -311,14 +311,46 @@ describe("Kernel — initializeLog (drivers montés selon la config)", () => {
     assert.ok(!mountedNames(k).includes("loki"), mountedNames(k).join(","));
   });
 
-  it("loki sans `write` → le transport d'envoi est monté, puis retiré en relecture seule", () => {
+  it("loki sans `write`, en production → relecture seule, et le démarrage le DIT", () => {
     const k = mkKernel("production", { loki: { url: LOKI } });
     k.initializeLog();
+    assert.strictEqual(getActiveLogDriver()?.name, "loki");
+    assert.ok(!mountedNames(k).includes("loki"), mountedNames(k).join(","));
+    const notice = (k.syslog?.ringStack ?? []).find(
+      (p) =>
+        p.severityName === "NOTICE" &&
+        String(p.payload).includes("loki en relecture seule"),
+    );
+    assert.ok(notice, "avis de relecture seule absent");
+  });
+
+  it("loki `write: true` en production → l'envoi est FORCÉ, sans avis", () => {
+    const k = mkKernel("production", { loki: { url: LOKI, write: true } });
+    k.initializeLog();
     assert.ok(mountedNames(k).includes("loki"));
-    assert.strictEqual(getActiveLogDriver()?.capabilities.write, true);
+    assert.ok(
+      !(k.syslog?.ringStack ?? []).some((p) =>
+        String(p.payload).includes("relecture seule"),
+      ),
+    );
+  });
+
+  it("loki sans `write`, en développement → l'envoi est monté, puis retiré en relecture seule", () => {
+    const k = mkKernel("development", { loki: { url: LOKI } });
+    k.initializeLog();
+    assert.ok(mountedNames(k).includes("loki"));
     k.options.log!.loki = { url: LOKI, write: false };
     k.initializeLog();
     assert.ok(!mountedNames(k).includes("loki"));
+  });
+
+  it("opensearch sans `write`, en production → relecture seule", () => {
+    const k = mkKernel("production", {
+      opensearch: { url: "http://127.0.0.1:9" },
+    });
+    k.initializeLog();
+    assert.strictEqual(getActiveLogDriver()?.name, "opensearch");
+    assert.ok(!mountedNames(k).includes("opensearch"));
   });
 
   it("opensearch `write: false` → relecture active, AUCUN transport d'envoi monté", () => {

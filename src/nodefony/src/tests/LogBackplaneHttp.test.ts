@@ -211,12 +211,25 @@ describe("Log Backplane — relecture seule (un collecteur pousse, l'app relit)"
       true,
       "Loki reste persistant",
     );
-    const written = factory({
+    // Sans choix : relecture seule en production, envoi en développement.
+    const prod = factory({
       ...ctx,
       logCfg: { loki: { url: "http://loki:3100" } },
     })!;
-    assert.ok(written.transport, "sans `write: false`, l'envoi est monté");
+    assert.strictEqual(prod.transport, undefined, "production : pas d'envoi");
+    const written = factory({
+      ...ctx,
+      environment: "development",
+      logCfg: { loki: { url: "http://loki:3100" } },
+    })!;
+    assert.ok(written.transport, "développement : l'envoi est monté");
     await written.transport!.close?.();
+    const forced = factory({
+      ...ctx,
+      logCfg: { loki: { url: "http://loki:3100", write: true } },
+    })!;
+    assert.ok(forced.transport, "production + `write: true` : envoi forcé");
+    await forced.transport!.close?.();
   });
 });
 

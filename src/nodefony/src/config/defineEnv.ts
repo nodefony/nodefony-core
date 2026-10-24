@@ -294,6 +294,11 @@ interface NumOpts extends BaseOpts {
 interface BoolOpts extends BaseOpts {
   /** Valeur par défaut si absente (défaut : `false`). */
   default?: boolean;
+  /**
+   * Autorise l'absence (résultat `undefined`, sans `default`) : « non posée »
+   * devient un troisième état, que le framework résout lui-même.
+   */
+  optional?: boolean;
 }
 interface EnumOpts<T extends string> extends BaseOpts {
   default?: T;
@@ -352,23 +357,38 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
 /**
  * Variable d'env BOOLEAN 12-factor : `1/true/yes/on` → true, `0/false/no/off` →
  * false (insensible à la casse). Absente → `default` (défaut `false`). Valeur hors
- * de ces ensembles → erreur au boot (typo détectée, ex. `tru`).
+ * de ces ensembles → erreur au boot (typo détectée, ex. `tru`). `optional:true`
+ * sans `default` → absente = `undefined`.
  */
-export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
-  const { default: def = false, ...doc } = opts;
-  const schema = z.preprocess((v) => {
+export function envBoolean(
+  opts: BoolOpts & { optional: true; default?: undefined },
+): z.ZodType<boolean | undefined>;
+export function envBoolean(opts?: BoolOpts): z.ZodType<boolean>;
+export function envBoolean(
+  opts: BoolOpts = {},
+): z.ZodType<boolean | undefined> {
+  const { optional, ...rest } = opts;
+  const tri = optional === true && rest.default === undefined;
+  const { default: def = tri ? undefined : false, ...doc } = rest;
+  const parse = (v: unknown): unknown => {
     if (isAbsent(v)) return def;
     const s = String(v).trim().toLowerCase();
     if (TRUTHY.has(s)) return true;
     if (FALSY.has(s)) return false;
     return v; // invalide → laissé brut → z.boolean rejette
-  }, z.boolean());
-  return tagMeta(withDoc(schema, doc.description), {
-    kind: "boolean",
-    optional: false, // toujours une valeur (absente → `def`)
+  };
+  const meta = {
+    kind: "boolean" as const,
+    optional: tri, // sinon toujours une valeur (absente → `def`)
     default: def,
     ...doc,
-  });
+  };
+  return tri
+    ? tagMeta(
+        withDoc(z.preprocess(parse, z.boolean().optional()), doc.description),
+        meta,
+      )
+    : tagMeta(withDoc(z.preprocess(parse, z.boolean()), doc.description), meta);
 }
 
 /**

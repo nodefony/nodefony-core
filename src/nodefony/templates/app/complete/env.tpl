@@ -149,14 +149,15 @@ NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 # COLLECTEUR de l'hébergeur (Alloy, Fluent Bit, Vector, agent Datadog…)
 # transporte les journaux. Il les a déjà pris si le process meurt, ne coûte
 # rien aux requêtes, et changer d'outil ne touche pas au code. La console les
-# relit alors là où le collecteur les a mis : NF_LOG_FORMAT=json,
-# NF_LOG_PUSH=false, et l'adresse ci-dessous.
+# relit alors là où le collecteur les a mis : NF_LOG_FORMAT=json et
+# l'adresse ci-dessous — c'est le défaut de la production.
 #
 # Envoi direct par l'application. Choix :
-#   true   (défaut) elle envoie elle-même à l'adresse posée ci-dessous —
-#          démo, poste de dev, serveur sans collecteur ;
-#   false  elle ne fait que relire : un collecteur envoie à sa place.
-# NF_LOG_PUSH=false
+#   (non posée) le framework décide : elle envoie en développement, et ne
+#          fait que relire en production ;
+#   true   elle envoie AUSSI en production — serveur sans collecteur ;
+#   false  elle ne fait que relire, même en développement.
+# NF_LOG_PUSH=true
 #
 # Loki du compose : `docker compose --profile loki up -d` (+ Grafana). Loki
 # éteint : rien ne plante, la relecture repasse en mémoire.

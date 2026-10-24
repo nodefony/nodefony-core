@@ -116,15 +116,25 @@ export default defineConfig<typeof env>((ctx) => ({
     // que si leur adresse est fournie ; injoignables, la relecture repasse en
     // mémoire, jamais de crash.
     queryDriver: ctx.env.NF_LOG_QUERY_DRIVER,
-    // `NF_LOG_PUSH=false` : relecture seule, un collecteur y envoie à sa place.
+    // `NF_LOG_PUSH` non posée : envoi en développement, relecture seule en
+    // production (un collecteur envoie) ; `true`/`false` forcent le choix.
     ...(ctx.env.NF_LOKI_URL
-      ? { loki: { url: ctx.env.NF_LOKI_URL, write: ctx.env.NF_LOG_PUSH } }
+      ? {
+          loki: {
+            url: ctx.env.NF_LOKI_URL,
+            ...(ctx.env.NF_LOG_PUSH === undefined
+              ? {}
+              : { write: ctx.env.NF_LOG_PUSH }),
+          },
+        }
       : {}),
     ...(ctx.env.NF_OPENSEARCH_URL
       ? {
           opensearch: {
             url: ctx.env.NF_OPENSEARCH_URL,
-            write: ctx.env.NF_LOG_PUSH,
+            ...(ctx.env.NF_LOG_PUSH === undefined
+              ? {}
+              : { write: ctx.env.NF_LOG_PUSH }),
           },
         }
       : {}),

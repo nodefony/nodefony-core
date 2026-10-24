@@ -346,25 +346,25 @@ les précédents (idempotence).
 Tout tient dans la clé `log` de `nodefony.config.ts`, typée par `LogConfig` (`types.ts#LogConfig.active`) et
 validée au boot par le schéma Zod de l'application (`schema.ts#portSchema`).
 
-| Option             | Type                                        | Défaut     | Effet                                                                 | Chaud ? |
-| ------------------ | ------------------------------------------- | ---------- | --------------------------------------------------------------------- | :-----: |
-| `active`           | `boolean`                                   | `true`     | Interrupteur général — `false` = silence total (bancs, tests).        |   oui   |
-| `debug`            | `string \| string[]`                        | `[]`       | `"*"` = tout ; `[]` = rien ; liste = modules ciblés.                  |   oui   |
-| `requestFormat`    | `"auto" \| "default" \| "pretty" \| "json"` | `"auto"`   | Format de la ligne de fin de requête HTTP (dev lisible / prod JSON).  |   oui   |
-| `buffered`         | `boolean \| "auto"`                         | `"auto"`   | Coalescing par tick. `"auto"` = actif **hors** terminal.              |  boot   |
-| `driver`           | `"stdout" \| "file" \| "null"`              | `"stdout"` | Sink d'écriture de la ligne de texte.                                 |  boot   |
-| `format`           | `"text" \| "json"`                          | `"text"`   | `"json"` = un enregistrement par ligne, pour un collecteur.           |  boot   |
-| `file.sync`        | `boolean`                                   | `false`    | Écriture directe au lieu du buffer asynchrone (fichier local rapide). |  boot   |
-| `queryDriver`      | `string`                                    | `"auto"`   | Destination **relisable**. `"auto"` s'adapte au mode de lancement.    |  boot   |
-| `loki.url`         | `string`                                    | —          | Base Loki. Déclarée seule, elle **impose** la relecture Loki.         |  boot   |
-| `opensearch.url`   | `string`                                    | —          | Base OpenSearch. Même logique de bouton unique.                       |  boot   |
-| `loki.write`       | `boolean`                                   | `true`     | `false` = relecture seule : un collecteur envoie, l'app relit.        |  boot   |
-| `loki.labels`      | `Record<string, string>`                    | `{ app }`  | Étiquettes d'envoi et sélecteur de relecture ; `app` = nom du paquet. |  boot   |
-| `opensearch.write` | `boolean`                                   | `true`     | `false` = relecture seule, comme pour Loki.                           |  boot   |
-| `dir`              | `string`                                    | `"logs"`   | Dossier des fichiers de log (texte + JSONL relisible), sous le cwd.   |  boot   |
-| `file.path`        | `string`                                    | —          | Chemin explicite du sink `file` ; sinon `<dir>/nodefony-<pid>.log`.   |  boot   |
-| `maxStack`         | `number`                                    | `100`      | Profondeur du ring de relecture (driver `memory`) — `2000` en dev.    |  boot   |
-| `queryFile`        | `{ path?, maxScanBytes? }`                  | —          | JSONL relu par le driver de relecture `file`, et son plafond de scan. |  boot   |
+| Option             | Type                                        | Défaut                   | Effet                                                                                | Chaud ? |
+| ------------------ | ------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ | :-----: |
+| `active`           | `boolean`                                   | `true`                   | Interrupteur général — `false` = silence total (bancs, tests).                       |   oui   |
+| `debug`            | `string \| string[]`                        | `[]`                     | `"*"` = tout ; `[]` = rien ; liste = modules ciblés.                                 |   oui   |
+| `requestFormat`    | `"auto" \| "default" \| "pretty" \| "json"` | `"auto"`                 | Format de la ligne de fin de requête HTTP (dev lisible / prod JSON).                 |   oui   |
+| `buffered`         | `boolean \| "auto"`                         | `"auto"`                 | Coalescing par tick. `"auto"` = actif **hors** terminal.                             |  boot   |
+| `driver`           | `"stdout" \| "file" \| "null"`              | `"stdout"`               | Sink d'écriture de la ligne de texte.                                                |  boot   |
+| `format`           | `"text" \| "json"`                          | `"text"`                 | `"json"` = un enregistrement par ligne, pour un collecteur.                          |  boot   |
+| `file.sync`        | `boolean`                                   | `false`                  | Écriture directe au lieu du buffer asynchrone (fichier local rapide).                |  boot   |
+| `queryDriver`      | `string`                                    | `"auto"`                 | Destination **relisable**. `"auto"` s'adapte au mode de lancement.                   |  boot   |
+| `loki.url`         | `string`                                    | —                        | Base Loki. Déclarée seule, elle **impose** la relecture Loki.                        |  boot   |
+| `opensearch.url`   | `string`                                    | —                        | Base OpenSearch. Même logique de bouton unique.                                      |  boot   |
+| `loki.write`       | `boolean`                                   | dev `true`, prod `false` | `false` = relecture seule : un collecteur envoie, l'app relit. `true` force l'envoi. |  boot   |
+| `loki.labels`      | `Record<string, string>`                    | `{ app }`                | Étiquettes d'envoi et sélecteur de relecture ; `app` = nom du paquet.                |  boot   |
+| `opensearch.write` | `boolean`                                   | dev `true`, prod `false` | `false` = relecture seule, comme pour Loki. `true` force l'envoi.                    |  boot   |
+| `dir`              | `string`                                    | `"logs"`                 | Dossier des fichiers de log (texte + JSONL relisible), sous le cwd.                  |  boot   |
+| `file.path`        | `string`                                    | —                        | Chemin explicite du sink `file` ; sinon `<dir>/nodefony-<pid>.log`.                  |  boot   |
+| `maxStack`         | `number`                                    | `100`                    | Profondeur du ring de relecture (driver `memory`) — `2000` en dev.                   |  boot   |
+| `queryFile`        | `{ path?, maxScanBytes? }`                  | —                        | JSONL relu par le driver de relecture `file`, et son plafond de scan.                |  boot   |
 
 ### Comment `queryDriver: "auto"` décide
 
@@ -508,7 +508,8 @@ requête.
 >   format: "json", // une ligne = un enregistrement complet (NF_LOG_FORMAT=json)
 >   loki: {
 >     url: "http://loki:3100",
->     write: false, // relecture seule (NF_LOG_PUSH=false)
+>     // write absent : relecture seule en production, envoi en développement.
+>     // `true` force l'envoi partout, `false` le coupe partout (NF_LOG_PUSH).
 >     labels: { app: "shop" }, // les étiquettes que pose TON collecteur
 >   },
 > }
@@ -519,8 +520,10 @@ requête.
 >   `Syslog.ts#Syslog.setLineFormat` écrit l'enregistrement par `ILogDriver.ts#stringifyLogRecord`, la
 >   même sérialisation que les transports `loki` et `opensearch` : la console relit pareil, quel
 >   que soit l'émetteur.
-> - **`write: false`** monte le pilote de relecture **sans** transport (`builtinLogDrivers.ts#registerBuiltinLogDrivers`) :
->   aucune requête `/push` ni `_bulk` ne part du process.
+> - **La relecture seule est le défaut de la production** (`builtinLogDrivers.ts#resolveLogPush`) :
+>   le pilote de relecture est monté **sans** transport, aucune requête `/push` ni `_bulk` ne part
+>   du process, et le démarrage le dit d'une ligne `NOTICE`. `write: true` force l'envoi, `false` le
+>   coupe même en développement. Loki et OpenSearch suivent la même règle.
 > - **`labels`** sert de sélecteur. Sans réglage, c'est `{ app: "<nom du paquet de l'application>" }`,
 >   à l'envoi comme à la relecture : deux applications d'un même Loki ne se confondent plus.
 >   Le collecteur ne pose pas d'étiquette `severity` : en relecture seule, la sévérité se cherche

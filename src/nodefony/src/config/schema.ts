@@ -146,7 +146,7 @@ const logSchema = z
           .boolean()
           .optional()
           .describe(
-            "`false` = relecture seule : un collecteur envoie, l'application relit. Défaut : true.",
+            "`false` = relecture seule : un collecteur envoie, l'application relit. Défaut : true en développement, false en production (cf `resolveLogPush`).",
           ),
         labels: z
           .record(z.string(), z.string())
@@ -164,7 +164,7 @@ const logSchema = z
           .boolean()
           .optional()
           .describe(
-            "`false` = relecture seule : un collecteur indexe, l'application relit. Défaut : true.",
+            "`false` = relecture seule : un collecteur indexe, l'application relit. Défaut : true en développement, false en production (cf `resolveLogPush`).",
           ),
       })
       .optional()

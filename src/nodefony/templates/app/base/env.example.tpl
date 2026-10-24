@@ -182,15 +182,16 @@
 
 # ─── Envoi direct des journaux à Loki ou OpenSearch ─────────────────────────
 #
-# true : l'application envoie elle-même ses journaux à NF_LOKI_URL ou
-# NF_OPENSEARCH_URL. false : elle ne fait que les y relire — un collecteur de
-# l'hébergeur les y a mis (avec NF_LOG_FORMAT=json). Sans adresse posée, sans
-# effet.
+# Non posée : l'application envoie elle-même ses journaux à NF_LOKI_URL ou
+# NF_OPENSEARCH_URL en développement, et ne fait que les y relire en
+# production — un collecteur de l'hébergeur les y met (avec
+# NF_LOG_FORMAT=json). true : elle les envoie aussi en production. false :
+# jamais, même en développement. Sans adresse posée, sans effet.
 #
 # @optional
 # @placement=platform
-# @default=true
-# NF_LOG_PUSH=true
+# @default=aucun
+# NF_LOG_PUSH=
 
 
 # ─── Relecture des journaux (console d'administration) ──────────────────────
@@ -209,9 +210,10 @@
 # ─── Loki (journaux centralisés) ────────────────────────────────────────────
 #
 # L'adresse d'un serveur Grafana Loki. Posée, la console d'administration y
-# relit les journaux, et l'application y envoie les siens — sauf
-# NF_LOG_PUSH=false, quand un collecteur s'en charge. Si Loki ne répond pas,
-# rien ne plante : la relecture repasse en mémoire.
+# relit les journaux. L'application y envoie aussi les siens en développement
+# ; en production elle ne fait que relire (un collecteur s'en charge), sauf
+# NF_LOG_PUSH=true. Si Loki ne répond pas, rien ne plante : la relecture
+# repasse en mémoire.
 #
 # Ne pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le
 # démarrage refuserait.
@@ -226,8 +228,9 @@
 # ─── OpenSearch (journaux centralisés) ──────────────────────────────────────
 #
 # L'adresse d'un serveur OpenSearch. Posée, la console d'administration y
-# relit les journaux, et l'application y envoie les siens — sauf
-# NF_LOG_PUSH=false, quand un collecteur s'en charge.
+# relit les journaux. L'application y envoie aussi les siens en développement
+# ; en production elle ne fait que relire (un collecteur s'en charge), sauf
+# NF_LOG_PUSH=true.
 #
 # Ne pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le
 # démarrage refuserait.

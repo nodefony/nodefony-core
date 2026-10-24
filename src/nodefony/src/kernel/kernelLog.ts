@@ -226,6 +226,20 @@ export class KernelLogSetup {
         }
       }
     }
+    // Relecture seule IMPLICITE (production sans `write` déclaré) : le dire au
+    // démarrage, sinon une URL posée qui n'envoie plus rien serait inexplicable.
+    if (host.environment === "production") {
+      for (const name of ["loki", "opensearch"] as const) {
+        const dest = logCfg?.[name];
+        if (dest?.url && dest.write === undefined) {
+          host.syslog?.log(
+            `${name} en relecture seule (défaut de production) : l'application n'y envoie pas ses journaux, un collecteur doit lire sa sortie standard (log.format "json"). Pour qu'elle les envoie elle-même : log.${name}.write = true (NF_LOG_PUSH=true dans une application générée).`,
+            "NOTICE",
+            "SYSLOG",
+          );
+        }
+      }
+    }
     try {
       setActiveLogDriver(queryDriver);
     } catch {

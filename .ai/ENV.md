@@ -160,7 +160,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 
 | Variable | Premier site |
 | --- | --- |
-| `NF__DEBUG` | `src/nodefony/src/kernel/kernelLog.ts:262` |
+| `NF__DEBUG` | `src/nodefony/src/kernel/kernelLog.ts:276` |
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:91` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
