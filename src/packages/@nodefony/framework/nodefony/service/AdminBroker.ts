@@ -120,7 +120,7 @@ class AdminBroker extends Service implements IAdminBroker {
         const role = resolveAdminRole(endpoint);
         const path = this.resolvePath(api.adminNamespace, endpoint.path);
         const name = `admin.${api.adminNamespace}.${method}.${endpoint.path}`;
-        // « API souveraine » : TOUTE action admin déclare AUSSI le transport
+        // Une action, deux transports : TOUTE action admin déclare AUSSI le transport
         // WEBSOCKET → invocable par le pont WS-RPC `api.request` (même action,
         // même réponse). Le pont n'atteint QUE ce qui déclare le transport
         // (zéro bypass). Les **mutations** (POST/PUT/PATCH/DELETE) sont désormais

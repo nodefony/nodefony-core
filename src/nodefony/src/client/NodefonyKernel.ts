@@ -325,7 +325,7 @@ export class NodefonyKernel implements INodefonyKernel {
    *
    * 1. **`disconnect()` uniquement sur un VRAI changement de compte** (une clé
    *    connue remplacée par une autre). La socket grave l'identité au handshake ;
-   *    le pont « API souveraine » rejouerait sinon des requêtes avec le jeton du
+   *    le pont socket (`api.request`) rejouerait sinon des requêtes avec le jeton du
    *    compte précédent. Couper impose un nouveau handshake, donc la relecture du
    *    cookie courant.
    * 2. **`connect()` HORS de cette garde.** Au tout premier chargement, la clé

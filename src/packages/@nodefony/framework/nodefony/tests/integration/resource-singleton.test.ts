@@ -1,6 +1,6 @@
 /// <reference types="node" />
 /**
- * Integration — POC API souveraine Phase 2 (V4.2 + V4.3 E2E).
+ * Integration — POC « une action, deux transports » Phase 2 (V4.2 + V4.3 E2E).
  * Requires: server running on 5151 (HTTP) + 5151 (WS).
  * Start: /start-nodefony-server
  *
@@ -9,7 +9,7 @@
  *  2. anti-data-race : requêtes CONCURRENTES (action async + délai) sur
  *     l'instance partagée → chaque body porte le requestId de SA requête
  *     (comparé au header `X-Request-Id` de la même réponse).
- *  3. souveraineté : la MÊME action (`detail`) répond en REST et via le pont
+ *  3. duplex : la MÊME action (`detail`) répond en REST et via le pont
  *     WS-RPC `invoke` (path porté par le message) sans être réécrite.
  *  4. read-only : helpers d'écriture absents du service → 501 (pas un crash).
  */
@@ -47,7 +47,7 @@ function get(path: string): Promise<Res> {
   });
 }
 
-describe("POC souverain — ResourceController singleton (V4.2/V4.3)", () => {
+describe("POC duplex — ResourceController singleton (V4.2/V4.3)", () => {
   it("REST list + filtrage explicite", async () => {
     const all = await get("/poc/r-books");
     expect(all.status).to.equal(200);
@@ -108,7 +108,7 @@ describe("POC souverain — ResourceController singleton (V4.2/V4.3)", () => {
     );
   });
 
-  it("WS invoke : la MÊME action detail répond via le pont (souveraineté)", async () => {
+  it("WS invoke : la MÊME action detail répond via le pont socket", async () => {
     const ws = new WebSocket("ws://127.0.0.1:5151/poc/invoke");
     const messages: unknown[] = [];
     const done = new Promise<void>((resolve, reject) => {

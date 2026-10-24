@@ -4,7 +4,7 @@
  * Centralise les appels REST vers le backend Nodefony.
  * Préfixe automatique `/nodefony/studio/api` (data plane admin du module Studio).
  *
- * **API souveraine (Ph.3)** : si une Socket Nodefony connectée est fournie
+ * **Une action, deux transports** : si une Socket Nodefony connectée est fournie
  * (`socket`), les GET passent par le pont JSON-RPC `api.request {path}` — la
  * MÊME action controller, le MÊME snapshot que le REST (prouvé backend,
  * `@nodefony/http` `ws-data-plane-auth.test.ts`). Transparent pour les pages : même URL, même
@@ -295,7 +295,7 @@ export class ApiClient {
     const isMutation = method !== "GET" && method !== "HEAD";
     const idemKey = isMutation ? makeIdempotencyKey() : undefined;
 
-    // ── Pont « API souveraine » : même action controller, transport socket.
+    // ── Pont socket (`api.request`) : même action controller, transport socket.
     // GET = lecture ; mutation = `mutate` + clé. Succès → servi tel quel ; TOUT
     // échec → on apprend (-32601/405) puis on retombe sur le fetch ci-dessous
     // (réponse de référence ; la clé garantit l'absence de double-effet).

@@ -22,7 +22,7 @@
  *     élever ses privilèges. La garde `@IsGranted` lit l'ALS, jamais le payload.
  *
  *  C. Pont `api.request` confiné à la zone data plane (`^/nodefony/[^/]+/api(/|$)`) :
- *     le pont souverain ne doit JAMAIS atteindre une route hors data plane (fuite
+ *     le pont socket ne doit JAMAIS atteindre une route hors data plane (fuite
  *     de surface), ni par chemin direct, ni par traversée `..`, et rejette un
  *     `path` malformé avant toute résolution.
  *

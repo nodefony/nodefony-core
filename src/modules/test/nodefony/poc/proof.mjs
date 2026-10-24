@@ -1,5 +1,5 @@
 /**
- * POC « API souveraine » — Phase 1 — PREUVE (JETABLE).
+ * POC « une action, deux transports » — Phase 1 — PREUVE (JETABLE).
  *
  * Prouve la thèse : la MÊME action `byAuthor`, écrite une fois, renvoie le MÊME
  * résultat qu'on l'atteigne par REST (GET) ou par WebSocket (pont invoke → resolveByPath).

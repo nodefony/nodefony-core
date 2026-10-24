@@ -99,7 +99,7 @@ class AdminApiController extends Controller {
 
   /**
    * Action générique appelée par le Resolver pour toute route admin — DUPLEX
-   * (« API souveraine ») : même exécution sur les deux transports, seul
+   * (une action, deux transports) : même exécution sur les deux transports, seul
    * l'emballage diffère.
    *
    *  - **HTTP** : rendu historique inchangé (`renderJson` + status + header

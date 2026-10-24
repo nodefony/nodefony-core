@@ -54,7 +54,7 @@ export interface ISystemChannelRule {
  * hot-path WS. Le firewall fournit l'implémentation (closure sur son container) ;
  * absent par défaut (verrou pur, testable sans audit).
  *
- * @param surface - cible refusée : pont API souverain (`api.request`) ou canal
+ * @param surface - cible refusée : pont socket (`api.request`) ou canal
  *   (subscribe/inbound).
  * @param target  - pathname (api.request) ou nom de canal refusé.
  * @param reason  - raison machine stable (`zone_protected` | `channel_policy`).
@@ -381,7 +381,7 @@ function authorizeChannel(
  * (api.request) ou la politique du canal (subscribe/inbound).
  *
  * Trois surfaces gardées :
- *  - `api.request {path}` (pont API souverain) : re-match de zone HTTP → zone
+ *  - `api.request {path}` (pont socket) : re-match de zone HTTP → zone
  *    protégée + anonyme = refus (autorisation de ZONE, identique à `GET {path}` ;
  *    la méthode/action est gardée en aval par le router + `@IsGranted`).
  *  - `subscribe {channel}` : politique de canal (système plancher + déclaration

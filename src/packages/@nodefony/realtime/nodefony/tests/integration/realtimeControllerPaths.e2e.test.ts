@@ -29,7 +29,7 @@ import {
 /**
  * E2E des CHEMINS du {@link RealtimeController} (pipeline WS complet, vrai client
  * ↔ vrai serveur loopback) : refus d'Origin, échec d'authentification au
- * handshake, pont `api.request` souverain (succès + toute la grille d'erreurs),
+ * handshake, pont socket `api.request` (succès + toute la grille d'erreurs),
  * fallback `createRealtimeChannel`, `requestClient` hors welcome, cleanup
  * `onFinish`. Complète la matrice d'autorisation (`realtimeChannelAuth.e2e`).
  */

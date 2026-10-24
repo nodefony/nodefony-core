@@ -1,5 +1,5 @@
 /**
- * POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE.
+ * POC « une action, deux transports » — Phase 1 — ÉCHAFAUDAGE JETABLE.
  *
  * La « logique métier » écrite **une seule fois** : un service trivial en mémoire.
  * Le but du POC n'est PAS le CRUD ici, mais de prouver qu'une action qui appelle

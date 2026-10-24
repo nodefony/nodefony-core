@@ -166,7 +166,7 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
   // Décision figée (lot RFC 2026-06-11) : la pseudo-méthode interne WEBSOCKET
   // apparaît dans l'agrégat Allow d'un path DUPLEX (REST+WS sur le même path).
   // Légal RFC 9110 (method = token, registre extensible) et informatif : le
-  // Allow révèle la surface duplex de la ressource (data plane souverain).
+  // Allow révèle la surface duplex de la ressource (data plane duplex).
   // `Allow` liste des MÉTHODES HTTP (RFC 9110 §10.2.1) : WEBSOCKET est la
   // pseudo-méthode interne du transport, un client HTTP ne peut pas l'employer.
   it("path duplex (GET + WEBSOCKET) → l'agrégat Allow n'expose PAS la pseudo-méthode WEBSOCKET", () => {

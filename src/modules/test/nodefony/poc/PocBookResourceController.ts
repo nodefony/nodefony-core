@@ -9,7 +9,7 @@ import { Context, HttpError } from "@nodefony/http";
 import { pocBookResourceService, PocBook } from "./pocBookService";
 
 /**
- * POC « API souveraine » — Phase 2 (V4.2) — le premier client RÉEL du modèle
+ * POC « une action, deux transports » — Phase 2 (V4.2) — le premier client RÉEL du modèle
  * stateless + singleton :
  *
  * - `ResourceController` → `static scope = "singleton"` HÉRITÉ (aucun

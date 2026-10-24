@@ -3,7 +3,7 @@ import { Context } from "@nodefony/http";
 import { pocBookService } from "./pocBookService";
 
 /**
- * POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE.
+ * POC « une action, deux transports » — Phase 1 — ÉCHAFAUDAGE JETABLE.
  *
  * L'action `byAuthor` est écrite **UNE fois**. Elle ne voit AUCUNE information de
  * transport : juste un `@Param` normalisé. Elle est joignable par :

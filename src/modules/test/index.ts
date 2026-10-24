@@ -40,11 +40,11 @@ import DbController from "./nodefony/controller/DbController";
 import McpGateController from "./nodefony/controller/McpGateController";
 // P6.13 — récepteur webhook LOCAL (test des livraisons sortantes, /nodefony/test/webhooks/*)
 import WebhookSinkController from "./nodefony/controller/WebhookSinkController";
-// POC « API souveraine » — Phase 1 (JETABLE — supprimer le dossier nodefony/poc/
+// POC « une action, deux transports » — Phase 1 (JETABLE — supprimer le dossier nodefony/poc/
 // + ces 2 imports + les 2 entrées @controllers après la revue Phase 6).
 import PocBookController from "./nodefony/poc/PocBookController";
 import PocInvokeController from "./nodefony/poc/PocInvokeController";
-// POC Phase 2 (V4.2) — ResourceController souverain stateless + singleton.
+// POC Phase 2 (V4.2) — ResourceController duplex stateless + singleton.
 import PocBookResourceController from "./nodefony/poc/PocBookResourceController";
 // P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
 import SecureController from "./nodefony/secure/SecureController";
@@ -195,7 +195,7 @@ function overlayProbe(context: unknown): void {
   ...(BENCH_WS_BACKPRESSURE ? [BackpressureRealtimeController] : []),
   // Décor du banc du cycle ORM (opt-in `NF_BENCH_ORM=1`)
   ...(BENCH_ORM ? [BenchOrmController, SecureBenchOrmController] : []),
-  // POC API souveraine (JETABLE)
+  // POC « une action, deux transports » (JETABLE)
   PocBookController,
   PocInvokeController,
   PocBookResourceController,

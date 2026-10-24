@@ -288,7 +288,7 @@ export const RealtimeHubContent = observer(
           <DocHint
             title="API par la socket"
             version={HUB_DOC}
-            summary="« API souveraine » : la même action serveur répond en REST et par la socket."
+            summary="Une action, deux transports : la même action serveur répond en REST et par la socket."
             sections={[
               {
                 label: "Principe",

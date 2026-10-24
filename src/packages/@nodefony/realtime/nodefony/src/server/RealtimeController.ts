@@ -308,7 +308,7 @@ export abstract class RealtimeController<
   }
 
   /**
-   * Opt-in du **pont API** (« API souveraine », POC Ph.3) : `true` → la
+   * Opt-in du **pont API** (une action, deux transports) : `true` → la
    * connexion expose la méthode RPC `api.request {path}` qui re-route le path
    * porté par le message vers l'action controller correspondante — la MÊME
    * action que le GET REST (`socket.request("/nodefony/kernel/api/modules")`
@@ -719,7 +719,7 @@ export abstract class RealtimeController<
         hub.registerChannelPolicy(name, DEFAULT_ACTION_POLICY);
       }
     }
-    // Pont API souverain (opt-in) — enregistré APRÈS les actions custom : la
+    // Pont socket `api.request` (opt-in) — enregistré APRÈS les actions custom : la
     // plateforme garde la main sur `api.request` quand le pont est activé.
     if (this.realtimeApiRequest()) {
       peer.register("api.request", (params) =>
@@ -1140,7 +1140,7 @@ export abstract class RealtimeController<
   }
 
   /**
-   * Handler de la méthode RPC `api.request {path}` — le **pont API souverain**
+   * Handler de la méthode RPC `api.request {path}` — le **pont socket**
    * (POC Ph.3) : résout le path porté par le message via le Router
    * (`cleanPathOverride` — l'URL de la connexion n'est jamais mutée) puis
    * exécute l'action SANS la rendre (`executeAction`) : la valeur nue est

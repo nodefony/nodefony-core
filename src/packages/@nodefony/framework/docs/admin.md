@@ -82,7 +82,7 @@ Trois idées à retenir :
 | RBAC                  | _Role-Based Access Control_ : l'accès dépend des rôles de l'appelant.                                      |
 | `ROLE_NODEFONY_*`     | Rôles de la **plateforme** (admin du framework), distincts des rôles applicatifs `ROLE_*` d'un tenant.     |
 | Pont / dispatch       | Le controller unique qui, à chaque requête, retrouve l'endpoint et exécute son handler.                    |
-| API souveraine        | Toute action admin déclare AUSSI le transport WebSocket → invocable par le pont WS-RPC `api.request`.      |
+| Deux transports       | Toute action admin déclare AUSSI le transport WebSocket → invocable par le pont WS-RPC `api.request`.      |
 | Duplex                | Une même action servie sur HTTP **et** WebSocket (le différenciateur Nodefony).                            |
 | Catalogue / discovery | La liste des producteurs + endpoints, exposée en JSON pour que Studio bâtisse sa navigation.               |
 | Playground            | La console dev qui joue n'importe quel controller depuis le navigateur (`/nodefony/playground`).           |
@@ -327,7 +327,7 @@ laissez-passer.
 > applicatifs `ROLE_*` d'un tenant. Un endpoint peut exiger un rôle plus fin (`role: "ROLE_…"`) ou
 > graduer l'information **dans** son handler en lisant `request.roles`.
 
-## 🔌 HTTP et WebSocket — la même action (API souveraine)
+## 🔌 HTTP et WebSocket — la même action
 
 Toute action admin déclare **aussi** le transport `WEBSOCKET` (`AdminBroker.ts#AdminBroker.mountAll`) : la route est
 montée avec `[method, "WEBSOCKET"]`. Elle devient donc invocable par le pont WS-RPC `api.request`

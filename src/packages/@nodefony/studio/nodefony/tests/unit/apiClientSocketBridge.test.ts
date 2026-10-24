@@ -1,6 +1,6 @@
 /// <reference types="node" />
 /**
- * Unit — pont « API souveraine » de l'ApiClient Studio (Ph.3 front).
+ * Unit — pont socket (`api.request`) de l'ApiClient Studio (Ph.3 front).
  *
  * L'ApiClient route les GET via la Socket Nodefony (`socket.request("/path")`)
  * ET les mutations (`socket.mutate`, P6.8) quand elle est connectée, fallback
@@ -104,7 +104,7 @@ function idemHeaderOf(
   return new Headers(init?.headers).get("Idempotency-Key");
 }
 
-describe("ApiClient — pont API souveraine (socket)", () => {
+describe("ApiClient — pont socket (api.request)", () => {
   const fetchMock = vi.fn<typeof fetch>();
 
   beforeEach(() => {

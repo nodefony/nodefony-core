@@ -1218,7 +1218,7 @@ export class NodefonySocket<
 
   /**
    * Requête API par **path** — la MÊME action controller que le GET REST, via
-   * la socket (« API souveraine » : 1 action = N transports). Sucre au-dessus
+   * la socket (une action, N transports). Sucre au-dessus
    * de la méthode RPC `api.request` (protocole caché — convention dans la lib,
    * comme `nodefony:kernel:ping`/`ping()`) :
    * ```ts

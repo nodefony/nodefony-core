@@ -35,7 +35,7 @@ interface IItem {
 /**
  * <%= it.nameClass %> — resource **DUPLEX** : les MÊMES actions répondent en
  * REST (curl/fetch) ET par la **socket Nodefony** via le pont `api.request`
- * (« API souveraine » : 1 action = N transports, même pipeline — firewall,
+ * (une action, N transports, même pipeline — firewall,
  * idempotence, audit). Deux ingrédients :
  *
  *  1. chaque route déclare ses transports — `methods: ["GET", "WEBSOCKET"]`

@@ -74,7 +74,7 @@ export class UiStore {
   /**
    * API PAR LA SOCKET — quand la Socket Nodefony est connectée, les GET du data
    * plane passent par le pont `api.request` (même action controller, même
-   * snapshot que le REST — « API souveraine »). OFF = tout repasse en fetch HTTP.
+   * snapshot que le REST — une action, deux transports). OFF = tout repasse en fetch HTTP.
    * Défaut ON (Studio dogfoode le duplex). Persisté.
    */
   apiViaSocket = true;

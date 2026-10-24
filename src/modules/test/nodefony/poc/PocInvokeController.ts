@@ -4,7 +4,7 @@ import { Context } from "@nodefony/http";
 import { RequestContext } from "nodefony";
 
 /**
- * POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE (mais valide la BRIQUE).
+ * POC « une action, deux transports » — Phase 1 — ÉCHAFAUDAGE JETABLE (mais valide la BRIQUE).
  *
  * Le **pont WS-RPC `invoke`** : une socket connectée ici reçoit des messages
  * `{ id, path }` et le serveur RE-ROUTE le path **porté par le message** (pas

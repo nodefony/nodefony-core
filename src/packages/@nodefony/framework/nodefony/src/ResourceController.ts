@@ -82,7 +82,7 @@ export interface IResourceService<T = unknown> {
 }
 
 /**
- * Controller de ressource **souverain** (V4.2 — POC API souveraine, Phase 2) :
+ * Controller de ressource **duplex** (V4.2 — une action, deux transports) :
  * la logique métier est écrite UNE fois dans le service de ressource, les
  * actions de la sous-classe ne sont que des portes (REST, WS-RPC `invoke`,
  * GraphQL à venir) qui retournent la **valeur brute** — `returnController`

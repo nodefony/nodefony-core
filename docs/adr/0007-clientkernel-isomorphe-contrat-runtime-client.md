@@ -126,7 +126,7 @@ Trois faits, vérifiés :
 1. **`ApiClient` et `AuthService` vivent dans Studio**
    (`studio/frontend/src/services/ApiClient.ts`), pas dans le core. La prochaine app front (ou le
    debug-client) devra les réécrire — le wrapper `fetch` (cookies BFF `same-origin`, gestion 401
-   non-destructive, pont « API souveraine » via la socket) n'est **pas réutilisable** aujourd'hui.
+   non-destructive, pont socket (`api.request`)) n'est **pas réutilisable** aujourd'hui.
 2. **Une règle de SÉCURITÉ vit dans la glue d'une seule app** : `RootStore.ts#RootStore.constructor` — au
    changement d'identité, la socket WebSocket doit être re-handshakée (`disconnect()` +
    `connect()`), sinon le pont `api.request` rejoue des requêtes avec le token de l'**ancienne**
@@ -379,7 +379,7 @@ Deux briques, dans cet ordre :
 1. **`ApiClient` remonte dans le core client** (généralisation de
    `studio/frontend/src/services/ApiClient.ts`) : wrapper `fetch` avec cookies BFF
    `same-origin`, gestion 401 **non-destructive** (ne jamais détruire une session
-   potentiellement valide sur un 401 transitoire — leçon Studio), pont « API souveraine » via la
+   potentiellement valide sur un 401 transitoire — leçon Studio), pont socket (`api.request`) via la
    socket (optionnel), et **corrélation native** : chaque requête émet
    `traceparent`/`x-request-id`, corrélés au `Pdu.requestId` back.
 2. **Le bus de debug isomorphe** (canal `syslog:front`) : les `Pdu` émis par le `Syslog` client
