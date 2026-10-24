@@ -37,6 +37,11 @@ C'est au lecteur de juger — la sonde fournit, elle ne condamne pas ce qu'elle 
 Un sélecteur par élément (`NF_BROWSER_PROBES=libellé=sélecteur,…`) ; pour chacun : texte, couleur,
 fond effectif, rapport de contraste, police, verdict WCAG, taille rendue.
 
+- **Un widget en Shadow DOM est invisible à un sélecteur nu** — la sonde rend `absent`, et l'on
+  conclut à tort que l'élément n'existe pas. `hôte >>> sélecteur` entre dans la racine fantôme
+  OUVERTE de l'hôte (`#ma-barre >>> .bouton`), segment après segment. Le fond effectif traverse la
+  frontière de la même façon : au-dessus de la racine fantôme, c'est l'hôte qui fait fond.
+
 - **Le fond effectif empile TOUTES les couches** jusqu'au premier ancêtre opaque, puis les compose.
   Deux erreurs à ne pas refaire : lire `backgroundColor` sur l'élément rend `rgba(0,0,0,0)` et un
   contraste faux ; s'arrêter à la première couche non transparente traite un voile à 13 % comme un

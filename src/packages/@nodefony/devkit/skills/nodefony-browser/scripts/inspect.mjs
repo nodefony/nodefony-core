@@ -27,7 +27,8 @@
  *                        saisir, choisir, touche, voir, defiler, attendre. Un écran qui se déplie
  *                        au clic n'existe pas tant qu'on ne l'a pas ouvert.
  * `@env` NF_BROWSER_FULLPAGE 1 = capture la page ENTIÈRE (défaut : la fenêtre)
- * `@env` NF_BROWSER_PROBES sélecteurs CSS à sonder, séparés par des virgules (`libellé=sélecteur`)
+ * `@env` NF_BROWSER_PROBES sélecteurs CSS à sonder, séparés par des virgules (`libellé=sélecteur`) ;
+ *                        `hôte >>> sélecteur` entre dans le Shadow DOM ouvert de l'hôte
  * `@env` NF_BROWSER_WIDTHS largeurs de la famille responsive (défaut 360,768,1280)
  * `@env` NF_BROWSER_VIEWPORT écran mesuré : mobile, mobile-court, tablette, bureau (défaut), large, tres-large, ou LARGEURxHAUTEUR — sous 600 px, émulé en téléphone (tactile, densité 2)
  * `@env` NF_BROWSER_PRIMARY sélecteur de l'action principale pour la famille pli (défaut : le plus grand bouton de validation visible)
@@ -384,7 +385,14 @@ function isVisible(el) {
 function effectiveBackground(el) {
   const layers = [];
   let opaqueLayer = null;
-  for (let n = el; n; n = n.parentElement) {
+  // Un élément posé à la racine d'un Shadow DOM n'a pas de parent : son fond
+  // est celui de l'HÔTE, et la remontée continue de l'autre côté.
+  const up = (n) => {
+    if (n.parentElement) return n.parentElement;
+    const root = n.getRootNode();
+    return root instanceof ShadowRoot ? root.host : null;
+  };
+  for (let n = el; n; n = up(n)) {
     const bg = getComputedStyle(n).backgroundColor;
     if (!bg || bg.includes("transparent")) continue;
     const { a } = parseColor(bg);
@@ -659,7 +667,16 @@ async function measurePage(args) {
       s.getAttribute("src"),
     ),
     probes: args.probes.map(({ label, sel }) => {
-      const el = document.querySelector(sel);
+      // `hôte >>> sélecteur` traverse un Shadow DOM ouvert (un widget isolé,
+      // une barre de débogage) : chaque segment se cherche dans la racine
+      // fantôme de l'élément trouvé par le précédent.
+      let el = null;
+      let scope = document;
+      for (const part of sel.split(">>>")) {
+        el = scope?.querySelector(part.trim()) ?? null;
+        scope = el?.shadowRoot ?? null;
+        if (el === null) break;
+      }
       if (!el) return { label, absent: true, selector: sel };
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
