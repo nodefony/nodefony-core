@@ -175,6 +175,9 @@ export interface IContext {
    * Arrête l'horloge de la requête (au premier appel) et rend sa durée en ms —
    * la SEULE durée de requête du framework, mesurée partout par défaut ; `null`
    * seulement si `timing.enabled` vaut `false`.
+   *
+   * Membre REQUIS : le journal d'accès et le profileur le lisent sans repli.
+   * Une implémentation maison d'`IContext` qui ne mesure rien rend `null`.
    */
   stopClock(): number | null;
 
