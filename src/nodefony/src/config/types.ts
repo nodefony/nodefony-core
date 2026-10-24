@@ -209,8 +209,9 @@ export interface LogDestinationConfig {
   /**
    * `false` = relecture SEULE : l'application n'y envoie rien, un collecteur de
    * l'hébergeur s'en charge (avec `log.format: "json"`), et la console
-   * d'administration relit ce qu'il a poussé.
-   * @default true
+   * d'administration relit ce qu'il a poussé. `true` force l'envoi, y compris
+   * en production.
+   * @default true en développement, false en production
    */
   write?: boolean;
 }

@@ -92,7 +92,7 @@ export interface ILogConfigLike {
   queryFile?: { path?: string; maxScanBytes?: number };
   loki?: {
     url: string;
-    /** `false` = relecture seule : aucun transport d'envoi monté. Défaut `true`. */
+    /** `false` = relecture seule : aucun transport d'envoi monté. Absent : envoi en développement, pas en production (`resolveLogPush`). */
     write?: boolean;
     labels?: Record<string, string>;
     tenantId?: string;
@@ -103,7 +103,7 @@ export interface ILogConfigLike {
   };
   opensearch?: {
     url: string;
-    /** `false` = relecture seule : aucun transport d'envoi monté. Défaut `true`. */
+    /** `false` = relecture seule : aucun transport d'envoi monté. Absent : envoi en développement, pas en production (`resolveLogPush`). */
     write?: boolean;
     index?: string;
     username?: string;
