@@ -13,6 +13,8 @@ import {
 } from "../syslog/drivers/logDriverRegistry";
 import { registerBuiltinLogDrivers } from "../syslog/drivers/builtinLogDrivers";
 import type { FetchLike } from "../syslog/httpFetch";
+import { OpenSearchTransport } from "../syslog/transports/OpenSearchTransport";
+import Pdu from "../syslog/Pdu";
 
 const basic = (u: string, p: string): string =>
   `Basic ${Buffer.from(`${u}:${p}`).toString("base64")}`;
@@ -117,5 +119,44 @@ describe("fabrique OpenSearch — l'index, inchangé par défaut et déclarable"
     expect(await readsFrom("shop-logs")).toBe(
       "http://os:9200/shop-logs/_search",
     );
+  });
+});
+
+describe("transport OpenSearch — le modèle ne désigne le pipeline que s'il est posé", () => {
+  async function templateAfter(pipelineStatus: number): Promise<unknown> {
+    const bodies: Record<string, string> = {};
+    const fetchImpl: FetchLike = async (url, init) => {
+      if (init?.body !== undefined) bodies[url] = init.body;
+      const ok = !url.includes("/_ingest/") || pipelineStatus < 300;
+      return {
+        ok,
+        status: url.includes("/_ingest/") ? pipelineStatus : 200,
+        text: async () => "",
+        json: async () => ({ items: [] }),
+      };
+    };
+    const transport = new OpenSearchTransport({
+      url: "http://os:9200",
+      fetchImpl,
+    });
+    await transport.send(new Pdu("x", "INFO", "T", "audit", ""));
+    await transport.close();
+    const raw = bodies["http://os:9200/_index_template/nodefony-logs"];
+    return raw === undefined ? undefined : JSON.parse(raw);
+  }
+
+  it("pipeline posé → l'index le prend par défaut", async () => {
+    expect(await templateAfter(200)).toMatchObject({
+      template: {
+        settings: { "index.default_pipeline": "nodefony-logs-audit" },
+      },
+    });
+  });
+
+  it("pipeline refusé → le modèle n'en désigne aucun : les documents passent", async () => {
+    const tpl = (await templateAfter(403)) as {
+      template: Record<string, unknown>;
+    };
+    expect(tpl.template.settings).toBeUndefined();
   });
 });

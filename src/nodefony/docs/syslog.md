@@ -534,6 +534,11 @@ requête.
 >   dans la ligne JSON (`LokiLogDriver.ts#createLokiLogDriver`).
 > - Côté OpenSearch, le collecteur doit indexer les champs de la ligne **à la racine** du document
 >   (analyse JSON de `log`), dans l'index que relit `log.opensearch.index`.
+> - La ligne d'accès de production (`msgid: "audit"`) porte un JSON dans sa charge. Le transport
+>   pose à côté de l'index un **pipeline d'ingestion** (`opensearchShared.ts#buildAuditPipeline`) qui
+>   le range sous `http.*` (`method`, `status`, `family`, `path`, `durationMs`…), agrégeable — pour le
+>   transport comme pour un collecteur, puisqu'il s'attache à l'index. Un pipeline refusé (ingestion
+>   coupée, droits) n'est jamais désigné : les journaux partent sans ces champs.
 
 Les quatre premiers sont directs : `ConsoleTransport` (`ConsoleTransport.ts#ConsoleTransport`) délègue l'impression
 à `Syslog.normalizeLog()` (`Syslog.ts#Syslog.normalizeLog`) ; `FileTransport` écrit **un

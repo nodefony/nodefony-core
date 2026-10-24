@@ -4,6 +4,8 @@ import { pduToRecord, stringifyLogRecord } from "../drivers/ILogDriver";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
 import {
+  auditPipelineName,
+  buildAuditPipeline,
   buildIndexTemplate,
   DEFAULT_OPENSEARCH_INDEX,
   toOpenSearchDocument,
@@ -94,6 +96,27 @@ export class OpenSearchTransport extends BatchingHttpTransport {
    */
   async #ensureIndexTemplate(): Promise<void> {
     this.#templatePosed ??= (async () => {
+      const headers = { ...this.#headers, "content-type": "application/json" };
+      // Le pipeline d'abord, et le modèle ne le désigne QUE s'il est posé : un
+      // index qui désigne un pipeline absent refuse chaque document.
+      const pipeline = auditPipelineName(this.#index);
+      let pipelinePosed = false;
+      try {
+        const res = await fetchWithTimeout(
+          this.#fetch,
+          `${this.#baseUrl}/_ingest/pipeline/${encodeURIComponent(pipeline)}`,
+          {
+            method: "PUT",
+            headers,
+            body: JSON.stringify(buildAuditPipeline()),
+          },
+          this.#timeoutMs,
+        );
+        pipelinePosed = res.ok;
+      } catch {
+        // Pipeline refusé (ingestion coupée, droits) : les champs HTTP ne
+        // seront pas rangés, les journaux partent quand même.
+      }
       try {
         // Le modèle porte le nom de SON index : deux applications d'un même
         // OpenSearch posent chacune le leur, sans écraser celui de l'autre.
@@ -102,11 +125,13 @@ export class OpenSearchTransport extends BatchingHttpTransport {
           `${this.#baseUrl}/_index_template/${encodeURIComponent(this.#index)}`,
           {
             method: "PUT",
-            headers: {
-              ...this.#headers,
-              "content-type": "application/json",
-            },
-            body: JSON.stringify(buildIndexTemplate(this.#index)),
+            headers,
+            body: JSON.stringify(
+              buildIndexTemplate(
+                this.#index,
+                pipelinePosed ? pipeline : undefined,
+              ),
+            ),
           },
           this.#timeoutMs,
         );

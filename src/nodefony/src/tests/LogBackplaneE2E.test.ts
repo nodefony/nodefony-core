@@ -229,6 +229,45 @@ describe.skipIf(!OS_URL)("Log Backplane E2E — OpenSearch réel", () => {
     });
   });
 
+  it("le pipeline range la ligne d'accès de production sous http.*", async () => {
+    const index = `audit-${randomUUID()}`;
+    const transport = new OpenSearchTransport({ url: OS_URL!, index });
+    const access = new Pdu(
+      JSON.stringify({
+        method: "GET",
+        url: "https://shop.example:5152/panier/42?promo=1",
+        status: 404,
+        durationMs: 3.5,
+      }),
+      "WARNING",
+      "E2E",
+      "audit",
+      "",
+      Date.now(),
+    );
+    await transport.send(access);
+    await transport.send(mk("ligne ordinaire", "INFO", reqId, Date.now()));
+    await transport.close();
+    await fetch(`${OS_URL!}/${index}/_refresh`, { method: "POST" });
+    const res = await fetch(`${OS_URL!}/${index}/_search?q=msgid:audit`);
+    const hit = (await res.json()) as {
+      hits: { hits: Array<{ _source: { http?: Record<string, unknown> } }> };
+    };
+    const http = hit.hits.hits[0]?._source.http;
+    assert.deepInclude(http, {
+      method: "GET",
+      status: 404,
+      family: "4xx",
+      path: "/panier/42",
+      durationMs: 3.5,
+    });
+    const plain = await fetch(`${OS_URL!}/${index}/_search?q=msgid:BACKPLANE`);
+    const plainHit = (await plain.json()) as {
+      hits: { hits: Array<{ _source: { http?: unknown } }> };
+    };
+    assert.strictEqual(plainHit.hits.hits[0]?._source.http, undefined);
+  });
+
   it("le modèle d'index porte le nom de son index — deux applications ne s'écrasent pas", async () => {
     const index = `app-${randomUUID()}`;
     const transport = new OpenSearchTransport({ url: OS_URL!, index });
