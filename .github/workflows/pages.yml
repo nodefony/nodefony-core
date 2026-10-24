@@ -137,15 +137,12 @@ jobs:
       # Le graphe symbolique n'est pas versionné : l'accueil en lit le compteur,
       # qui s'afficherait « — » sans un mot s'il manquait.
       #
-      # La référence d'API (`scripts/site/lib/api-reference.mjs`) lit les
-      # déclarations de types PUBLIÉES de chaque paquet — ce qu'une application
-      # reçoit. Elles n'existent qu'une fois les paquets bâtis : sans ce build, le
-      # générateur s'arrête en nommant les fichiers absents.
-      - name: Préparer le rendu (dépendances, paquets publiés, symboles)
-        run: |
-          npm ci --ignore-scripts
-          npx turbo run build --filter=nodefony --filter="./src/packages/@nodefony/*"
-          npm run generate-symbols
+      # Les paquets publiés (dont la référence d'API lit les déclarations de
+      # types) et le graphe symbolique sont bâtis par `build-site.mjs` lui-même :
+      # un prérequis écrit ici manquerait au flux de `main`, figé à la dernière
+      # release, quand il rend `/next/` avec l'outillage de `dev`.
+      - name: Préparer le rendu (dépendances)
+        run: npm ci --ignore-scripts
 
       # Le lecteur mermaid du moteur jette en silence une flèche qu'il ne
       # reconnaît pas : le schéma se rend quand même, amputé. Ses formes de
@@ -180,8 +177,6 @@ jobs:
         working-directory: next-src
         run: |
           npm ci --ignore-scripts
-          npx turbo run build --filter=nodefony --filter="./src/packages/@nodefony/*"
-          npm run generate-symbols
           node scripts/site/build-site.mjs --out "$GITHUB_WORKSPACE/dist-next" --channel next
 
       # Chaque release a archivé son site (`release.yml`, job `annonce`) :

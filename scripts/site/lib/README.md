@@ -19,7 +19,7 @@ Index de tout l'outillage : [`scripts/`](../../README.md).
 Référence d'API du site : ce que chaque paquet publié EXPOSE, rendu en pages Markdown que le générateur de documentation publie sous `api/`.
 
 - **Usage** : `import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs"`
-- **Appelé par** : `pages.yml` · `site/build-docs-site.mjs`
+- **Appelé par** : `site/build-docs-site.mjs`
 - **Testé par** : `site/api-reference.test.mjs`
 - **Utilise** : `lib/workspaces.mjs` · `release/api-diff-core.mjs`
 

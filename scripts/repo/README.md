@@ -62,7 +62,7 @@ Arborescence de `tmp/` — catégories créées, README régénéré, égarés s
 Lance turbo pour les scripts du dépôt — et, sous `CI`, lui reprend la main quand il a fini son travail mais ne se termine pas.
 
 - **Usage** : `node scripts/repo/turbo.mjs run build [options turbo…]`
-- **Appelé par** : `npm run build` · `npm run build:force` · `npm run build:packages` · `npm run clean` · `npm run test` · `npm run test:boot` · `npm run test:cluster` · `npm run test:integration` · `npm run test:load` · `npm run test:memory` · `npm run typecheck`
+- **Appelé par** : `npm run build` · `npm run build:force` · `npm run build:packages` · `npm run clean` · `npm run test` · `npm run test:boot` · `npm run test:cluster` · `npm run test:integration` · `npm run test:load` · `npm run test:memory` · `npm run typecheck` · `site/build-site.mjs`
 - **Testé par** : `repo/turbo.test.mjs`
 
 ## [`turbo.test.mjs`](turbo.test.mjs)

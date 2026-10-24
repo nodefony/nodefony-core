@@ -93,7 +93,7 @@ Rend UN site complet — accueil, documentation, mesures, qualité, plan — dan
 - **Variable** `NEXT_DIR`
 - **Appelé par** : `pages.yml` · `release.yml`
 - **Testé par** : `site/site-versions.test.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/readme-html.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `generate/generate-symbols.ts` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/readme-html.mjs` · `repo/turbo.mjs`
 
 ## [`check-site-links.mjs`](check-site-links.mjs)
 

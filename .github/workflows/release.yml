@@ -872,9 +872,7 @@ jobs:
           set -euo pipefail
           V="${VERSION#v}"
           npm ci --ignore-scripts
-          # Tous les paquets publiés : la référence d'API lit leurs types (pages.yml).
-          npx turbo run build --filter=nodefony --filter="./src/packages/@nodefony/*"
-          npm run generate-symbols
+          # Paquets publiés et graphe symbolique : bâtis par `build-site.mjs`.
           # 🔴 L'ARCHIVE PORTE L'ACCUEIL BASCULÉ, pas celui du tag. Le tag est
           # posé AVANT la publication : son README annonce encore la version
           # précédente, et le job `accueil` ne la bascule que sur `main`, en

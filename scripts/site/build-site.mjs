@@ -61,12 +61,36 @@ try {
   process.exit(1);
 }
 
-/** Une étape du rendu : un script du dossier, qui hérite de la sortie. */
-const run = (script, ...a) =>
-  execFileSync(process.execPath, [path.join("scripts", "site", script), ...a], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
+/**
+ * Un script du dépôt, lancé par `process.execPath` (ni shell ni `.cmd` sous
+ * Windows) depuis la racine, sortie héritée.
+ */
+const node = (...a) =>
+  execFileSync(process.execPath, a, { cwd: ROOT, stdio: "inherit" });
+
+/** Une étape du rendu : un script du dossier. */
+const run = (script, ...a) => node(path.join("scripts", "site", script), ...a);
+
+// Les PRÉREQUIS appartiennent à la séquence, pas au flux qui l'appelle. La
+// référence d'API lit les déclarations de types PUBLIÉES de chaque paquet, qui
+// n'existent qu'une fois les paquets bâtis ; l'accueil lit le compteur du graphe
+// symbolique, non versionné. Écrits dans les flux, ils manquaient là où un flux
+// ancien appelle ce script récent : `/next/` est rendu depuis `dev` par le
+// `pages.yml` de `main`, figé à la dernière release, et chaque prérequis neuf y
+// faisait défaut jusqu'à la release suivante. turbo rejoue ce qui est déjà bâti :
+// sur un poste à jour, le coût est celui d'une lecture de cache.
+node(
+  path.join("scripts", "repo", "turbo.mjs"),
+  "run",
+  "build",
+  "--filter=nodefony",
+  "--filter=./src/packages/@nodefony/*",
+);
+node(
+  "--import",
+  "tsx",
+  path.join("scripts", "generate", "generate-symbols.ts"),
+);
 
 // La RACINE est la page de présentation, tirée du README : c'est ce que voit
 // quelqu'un qui découvre le projet. La documentation vit sous `/docs/`, les

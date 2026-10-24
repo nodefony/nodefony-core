@@ -1100,7 +1100,8 @@
       "output": "",
       "calledBy": [
         "npm run generate-symbols",
-        "node.js.yml"
+        "node.js.yml",
+        "scripts/site/build-site.mjs"
       ],
       "testedBy": []
     },
@@ -1394,7 +1395,6 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "pages.yml",
         "scripts/site/build-docs-site.mjs"
       ],
       "testedBy": [
@@ -1724,7 +1724,8 @@
         "npm run test:integration",
         "npm run test:load",
         "npm run test:memory",
-        "npm run typecheck"
+        "npm run typecheck",
+        "scripts/site/build-site.mjs"
       ],
       "testedBy": [
         "scripts/repo/turbo.test.mjs"

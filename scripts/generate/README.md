@@ -92,7 +92,7 @@ generate-symbols.ts — Symbol graph extractor for AI agents.
 - **Option** `--verbose` — détail ligne par ligne des homonymes
 - **Option** `--check-staged` — code 1 si un fichier indexé touche la zone parsée
 - **Option** `--check-range` — <de> <à>  code 1 si la zone a bougé entre deux révisions, ou si le graphe manque
-- **Appelé par** : `npm run generate-symbols` · `node.js.yml`
+- **Appelé par** : `npm run generate-symbols` · `node.js.yml` · `site/build-site.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `lib/symbols-publish.mjs` · `generate/generate-symbols.config.ts`
 
 ## [`observability-dashboards.mjs`](observability-dashboards.mjs)
