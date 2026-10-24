@@ -3,7 +3,9 @@ import {
   Code,
   createTheme,
   darken,
+  getPrimaryShade,
   HoverCard,
+  isLightColor,
   isVirtualColor,
   luminance,
   Modal,
@@ -353,9 +355,52 @@ function readableLightColors(theme: MantineTheme): Record<string, string> {
   for (const [name, tuple] of Object.entries(theme.colors)) {
     if (isVirtualColor(tuple)) continue;
     const text = readableShade(name, tuple, "#ffffff", 6);
-    if (text) out[`--mantine-color-${name}-text`] = text;
+    if (text) {
+      out[`--mantine-color-${name}-text`] = text;
+      // Le variant `outline` écrit son libellé à la même teinte 6 : un badge
+      // `grape` (requestId des journaux) mesurait 4,02:1.
+      out[`--mantine-color-${name}-outline`] = text;
+    }
     const light = readableShade(name, tuple, tuple[1], 9);
     if (light) out[`--mantine-color-${name}-light-color`] = light;
+  }
+  return out;
+}
+
+/**
+ * Aplats `filled` lisibles sous leur libellé BLANC, dans le schéma `scheme`.
+ *
+ * Mantine peint un aplat à la teinte du `primaryShade` (6) et, avec
+ * `autoContrast`, n'y pose du noir que si le fond est CLAIR au sens de son
+ * seuil de luminance (0,3). Les teintes vives sous ce seuil gardent donc le
+ * blanc, et tombent sous AA : mesuré par axe-core sur la page des journaux,
+ * dans les DEUX schémas — puces de sévérité `blue` à **3,55:1**, `red` à
+ * **3,28:1**, `cyan` à 2,79:1. Puces, badges ERROR et plus graves, boutons
+ * rouges : toute la famille des aplats portait la même faute.
+ *
+ * L'aplat descend à la première teinte de SA famille où le blanc passe ;
+ * le survol suit d'un cran. Les couleurs déjà lisibles (`brand`, `#0067ba`)
+ * et celles qui reçoivent du noir (`yellow`) ne bougent pas.
+ */
+function readableFilledColors(
+  theme: MantineTheme,
+  scheme: "light" | "dark",
+): Record<string, string> {
+  const from = getPrimaryShade(theme, scheme);
+  const out: Record<string, string> = {};
+  for (const [name, tuple] of Object.entries(theme.colors)) {
+    if (isVirtualColor(tuple)) continue;
+    const base = tuple.at(from);
+    if (base === undefined || isLightColor(base, theme.luminanceThreshold)) {
+      continue;
+    }
+    const i = tuple.findIndex(
+      (shade, k) => k >= from && contrastRatio(shade, "#ffffff") >= AA_TEXT,
+    );
+    if (i <= from) continue;
+    out[`--mantine-color-${name}-filled`] = `var(--mantine-color-${name}-${i})`;
+    out[`--mantine-color-${name}-filled-hover`] =
+      `var(--mantine-color-${name}-${Math.min(i + 1, tuple.length - 1)})`;
   }
   return out;
 }
@@ -365,8 +410,10 @@ export const studioCssVariablesResolver = (theme: MantineTheme) => ({
   light: {
     "--mantine-color-dimmed": "var(--mantine-color-gray-7)",
     ...readableLightColors(theme),
+    ...readableFilledColors(theme, "light"),
   },
   dark: {
+    ...readableFilledColors(theme, "dark"),
     "--mantine-color-dimmed": "var(--mantine-color-dark-1)",
     // Liens : l'ACCENT de la barre de debug et de la page /login (`#3aa0ff`),
     // ~6:1 sur une carte et ~6,6:1 sur le fond. Un lien est du texte sur le
