@@ -724,15 +724,18 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
     return null; // pas de verrou = cas nominal
   }
   // Fichier lu sur disque : rien n'y est garanti tant que ce n'est pas vérifié.
-  let lock: Partial<SupervisorLock> | null;
+  let lock: unknown;
   try {
-    lock = JSON.parse(raw) as Partial<SupervisorLock> | null;
+    lock = JSON.parse(raw);
   } catch {
     resumeSupervisor(cwd); // illisible → on ne muselle rien sur la foi d'un déchet
     return null;
   }
-  if (!lock?.pid || Date.now() - (lock.ts ?? 0) > SUPERVISOR_LOCK_TTL_MS) {
-    resumeSupervisor(cwd);
+  if (
+    !isSupervisorLock(lock) ||
+    Date.now() - lock.ts > SUPERVISOR_LOCK_TTL_MS
+  ) {
+    resumeSupervisor(cwd); // mal formé ou périmé → traité comme un verrou mort
     return null;
   }
   try {
@@ -741,8 +744,30 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
     resumeSupervisor(cwd); // le poseur est mort → verrou orphelin
     return null;
   }
-  // `pid` et `ts` vérifiés ; le reste n'est écrit que par `suspendSupervisor`.
-  return lock as SupervisorLock;
+  return lock;
+}
+
+/**
+ * Le contenu d'un verrou lu sur disque a-t-il la forme qu'écrit {@link suspendSupervisor} ?
+ *
+ * La raison est affichée telle quelle par le superviseur : elle doit être un texte, pas
+ * seulement « présente ».
+ */
+function isSupervisorLock(value: unknown): value is SupervisorLock {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "pid" in value &&
+    typeof value.pid === "number" &&
+    value.pid > 0 &&
+    "ts" in value &&
+    typeof value.ts === "number" &&
+    "reason" in value &&
+    typeof value.reason === "string" &&
+    (!("detail" in value) ||
+      value.detail === undefined ||
+      typeof value.detail === "string")
+  );
 }
 
 /**

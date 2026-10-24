@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -110,5 +116,25 @@ describe("suspension du superviseur dev (verrou générique)", () => {
     writeFileSync(file, "{ceci n'est pas du json", "utf8");
 
     assert.equal(readSupervisorSuspension(cwd), null);
+  });
+
+  it("un verrou VIVANT mais mal formé ne muselle rien, et il est nettoyé", () => {
+    // JSON valide, process vivant, horodatage frais — mais une raison qui n'est pas un
+    // texte : le superviseur l'afficherait telle quelle. Rien de ce qui vient du disque
+    // n'est cru sans vérification.
+    const file = supervisorLockFile(cwd);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      JSON.stringify({ pid: process.pid, reason: 42, ts: Date.now() }),
+      "utf8",
+    );
+
+    assert.equal(readSupervisorSuspension(cwd), null);
+    assert.equal(
+      existsSync(file),
+      false,
+      "un verrou mal formé est supprimé comme un verrou mort",
+    );
   });
 });
