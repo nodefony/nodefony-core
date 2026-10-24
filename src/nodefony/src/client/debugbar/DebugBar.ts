@@ -28,6 +28,7 @@
  * W3C (RFC-propre) est aussi remonté.
  */
 import { NodefonySocket } from "../realtime/NodefonySocket";
+import { AUTH_ME_PATH } from "../../runtime/authRoutes";
 import {
   DebugBarModel,
   type DebugBarView,
@@ -1024,8 +1025,17 @@ export class DebugBar {
   private kevents: Array<{ t: number; name: string; detail: string }> = [];
   private kdirty = true;
   private koff: (() => void) | null = null;
-  /** Le serveur a refusé la socket faute de session administrateur (1008). */
+  /**
+   * Pas de session administrateur : constaté AVANT de tenter (lecture
+   * d'identité, `hasSession`), ou refus du serveur (401/403 au handshake,
+   * 1008 à l'ouverture).
+   */
   private refused = false;
+  /**
+   * La lecture d'identité de la page, mémorisée — `null` tant qu'elle n'a pas
+   * été demandée (jamais au montage : seulement quand la barre veut des données).
+   */
+  private sessionCheck: Promise<boolean> | null = null;
   /** Environnement transmis au montage — en attendant celui des mesures. */
   private readonly initialEnv: string;
   /** `requestId` de la requête qui a rendu la page (option `page`). */
@@ -1158,8 +1168,15 @@ export class DebugBar {
     this.text("toggleLbl", verb);
     this.el.btnBrand?.setAttribute("aria-expanded", open ? "true" : "false");
     // Le panneau ouvert est une DEMANDE de données : c'est là, et non au
-    // montage, que la connexion s'ouvre.
-    if (open) this.ensureConnected();
+    // montage, que la connexion s'ouvre. Une lecture d'identité qui disait
+    // « pas de session » se refait : on a pu se connecter depuis.
+    if (open) {
+      if (this.refused) {
+        this.sessionCheck = null;
+        this.refused = false;
+      }
+      this.ensureConnected();
+    }
     this.render();
   }
 
@@ -1422,7 +1439,7 @@ export class DebugBar {
         sockCls = "warn";
       } else if (this.refused) {
         sockText =
-          "refusée par le serveur (1008) — pas de session administrateur";
+          "pas de session administrateur — se connecter à la console (/nodefony/login)";
         sockCls = "crit";
       } else if (ident) {
         sockText = "fermée alors qu'un compte est déclaré — voir la console";
@@ -2081,8 +2098,14 @@ export class DebugBar {
     // Un refus d'accès (1008) ne doit pas se lire comme une panne : la barre lit
     // les données d'ADMINISTRATION, et sans session administrateur le serveur
     // ferme la socket. On le dit, avec le geste qui le lève.
+    // Le refus arrive en statut HTTP depuis que le handshake se juge AVANT le
+    // 101 (sonde : 401/403) ; 1008 reste celui d'une fermeture après coup.
     const offNotice = this.client.onNotice((notice) => {
-      if (notice.source !== "realtime" || notice.code !== 1008) return;
+      if (
+        notice.source !== "realtime" ||
+        (notice.code !== 401 && notice.code !== 403 && notice.code !== 1008)
+      )
+        return;
       this.refused = true;
       this.scheduleRender();
     });
@@ -2139,9 +2162,53 @@ export class DebugBar {
    * clé), et il est sans effet si l'hôte l'a déjà ouverte.
    */
   private ensureConnected(): void {
-    this.client.connect().catch(() => {
-      /* la reconnexion et l'état se lisent par `onState` / `onNotice` */
+    void this.hasSession().then((ok) => {
+      if (!ok) {
+        // Le serveur refuserait : ne pas tenter, c'est l'échec que le
+        // navigateur écrirait dans la console de la page.
+        this.refused = true;
+        this.scheduleRender();
+        return;
+      }
+      this.client.connect().catch(() => {
+        /* la reconnexion et l'état se lisent par `onState` / `onNotice` */
+      });
     });
+  }
+
+  /**
+   * La page a-t-elle une session pour lire les données d'administration ?
+   *
+   * Socket, journaux et profileur vivent dans la zone d'administration : sans
+   * session, chacun répond 401, et le navigateur écrit chaque échec dans la
+   * console de la PAGE — qu'aucun code ne peut taire. Une lecture d'identité
+   * (`AUTH_ME_PATH`, 200 dans tous les cas) le sait d'avance. `false` sur la
+   * seule réponse certaine `{ user: null }` ; toute autre (application sans
+   * module de sécurité : 404) laisse tenter, comme avant.
+   *
+   * Mémorisée, relue à chaque ouverture tant qu'elle disait non (une
+   * connexion faite entre-temps dans la console se voit).
+   */
+  private hasSession(): Promise<boolean> {
+    if (typeof fetch === "undefined") return Promise.resolve(true);
+    return (this.sessionCheck ??= fetch(AUTH_ME_PATH, {
+      credentials: "same-origin",
+      headers: {
+        accept: "application/json",
+        "x-request-id": `${this.ownId}${++this.ownSeq}`,
+      },
+    })
+      .then(async (res) => {
+        if (res.status !== 200) return true;
+        const body: unknown = await res.json();
+        return !(
+          typeof body === "object" &&
+          body !== null &&
+          "user" in body &&
+          body.user === null
+        );
+      })
+      .catch(() => true));
   }
 
   /** Arrête les abonnements realtime (relâche la réf de la barre). Idempotent. */
@@ -2771,13 +2838,20 @@ export class DebugBar {
    * — le serveur l'adopte, et ses lignes ne relancent ni ne s'affichent.
    */
   private ownFetch(url: string, init: RequestInit = {}): Promise<Response> {
-    return fetch(url, {
-      ...init,
-      headers: {
-        accept: "application/json",
-        "x-request-id": `${this.ownId}${++this.ownSeq}`,
-      },
-    });
+    // Sans session, le 401 se fabrique ICI : les appelants le lisent comme
+    // avant (« réservé à une session administrateur »), et la console de la
+    // page n'en voit rien.
+    return this.hasSession().then((ok) =>
+      ok
+        ? fetch(url, {
+            ...init,
+            headers: {
+              accept: "application/json",
+              "x-request-id": `${this.ownId}${++this.ownSeq}`,
+            },
+          })
+        : new Response(null, { status: 401 }),
+    );
   }
 
   /** Fetch `/{profilerBase}/{requestId}` (ignoré par l'intercepteur). */

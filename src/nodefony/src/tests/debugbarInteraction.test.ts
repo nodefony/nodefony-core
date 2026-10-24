@@ -250,15 +250,31 @@ describe("connexion — à la demande, jamais au montage", () => {
     expect(espion.connexions()).toBe(0);
   });
 
-  it("ouvrir le panneau, ou activer le direct, ouvre la socket", () => {
+  it("ouvrir le panneau, ou activer le direct, ouvre la socket", async () => {
+    // La connexion attend la lecture d'identité (une session est-elle là ?) :
+    // elle part au tour suivant, plus dans le même appel.
     const espion = socketEspion();
     monterAvec(espion.client, false);
     q("[data-el='btnToggle']").click();
+    await new Promise((r) => setTimeout(r, 50));
     expect(espion.connexions()).toBe(1);
     const autre = socketEspion();
     monterAvec(autre.client, false);
     q("[data-el='btnLive']").click();
+    await new Promise((r) => setTimeout(r, 50));
     expect(autre.connexions()).toBe(1);
+  });
+
+  it("🔴 un refus au handshake (401/403, rendu par la sonde) se dit comme un 1008", async () => {
+    for (const code of [401, 403]) {
+      const espion = socketEspion();
+      monterAvec(espion.client, true);
+      espion.notifier({ source: "realtime", code });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(q("[data-el='rtCtlState']").textContent, String(code)).toBe(
+        "accès refusé",
+      );
+    }
   });
 
   it("un refus d'accès (1008) se DIT, au lieu d'un point rouge muet", async () => {

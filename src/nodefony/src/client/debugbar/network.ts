@@ -26,6 +26,7 @@
  * Négligeable vs la latence réseau.
  */
 import { isEventStreamResponse } from "../sse/eventStream";
+import { isToolingRequestId } from "../../syslog/drivers/pduConsole";
 
 /**
  * En-têtes de corrélation posés par le framework sur chaque réponse :
@@ -34,6 +35,20 @@ import { isEventStreamResponse } from "../sse/eventStream";
  *    distribuée — pas la clé du profiler (qui est keyé par requestId).
  */
 const REQUEST_ID_HEADER = "x-request-id";
+
+/**
+ * Le requestId qu'un appel ENVOIE (`X-Request-Id` de ses en-têtes), sans rien
+ * allouer : lu tel quel dans un objet, par `get` dans un `Headers`.
+ *
+ * @param headers - les en-têtes passés à `fetch` (`init.headers`)
+ * @returns le requestId, ou `undefined`
+ */
+function sentRequestId(headers: HeadersInit | undefined): string | undefined {
+  if (headers === undefined || Array.isArray(headers)) return undefined;
+  if (headers instanceof Headers)
+    return headers.get(REQUEST_ID_HEADER) ?? undefined;
+  return headers[REQUEST_ID_HEADER];
+}
 const TRACEPARENT_HEADER = "traceparent";
 
 /** La nature d'un appel observé : `http` (fetch/XHR), `ws`, `sse`. */
@@ -148,8 +163,13 @@ export function installNetworkInterceptor(
           } catch {
             /* lecture défensive */
           }
-          // Appel non observé (ex. l'API profiler) → relai direct.
-          if (!url || ignore(url, "http")) {
+          // Appel non observé (ex. l'API profiler, ou un appel de l'outillage
+          // marqué par son requestId — la barre elle-même) → relai direct.
+          if (
+            !url ||
+            ignore(url, "http") ||
+            isToolingRequestId(sentRequestId(args[1]?.headers))
+          ) {
             return origFetch.apply(this, args);
           }
           const entry: NetEntry = {

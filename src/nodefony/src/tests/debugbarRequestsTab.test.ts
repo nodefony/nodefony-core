@@ -670,3 +670,67 @@ describe("onglet Requêtes — accès", () => {
     );
   });
 });
+
+// Sans session, socket, journaux et profileur répondent 401 — et le
+// navigateur écrit chaque échec dans la console de la PAGE, qu'aucun code ne
+// peut taire. Vécu sur la page d'accueil d'une application : trois 401 à
+// chaque ouverture de la barre. La barre lit l'identité d'abord.
+describe("sans session administrateur — la barre ne tente rien qu'on lui refuserait", () => {
+  let connexions = 0;
+  let fetchDuBanc: typeof window.fetch;
+  function monterAvec(user: unknown): void {
+    bar?.unmount?.();
+    document.getElementById("nodefony-debugbar")?.remove();
+    // La barre du `beforeEach` général (avec session) a déjà lu : on ne
+    // compte que ce que fait CELLE-CI.
+    recherches.length = 0;
+    profils.length = 0;
+    connexions = 0;
+    fetchDuBanc = window.fetch;
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url.includes("/auth/me")) return json({ user });
+      return fetchDuBanc(input, init);
+    };
+    bar = new DebugBar({
+      client: Object.assign(fakeClient(), {
+        connect: () => {
+          connexions++;
+          return Promise.resolve();
+        },
+      }),
+      network: true,
+      open: true,
+    });
+    bar.mount();
+    q(".tab[data-tab='requests']").click();
+  }
+  afterEach(() => {
+    window.fetch = fetchDuBanc;
+  });
+
+  it("🔴 anonyme : ni socket, ni journaux, ni profileur — et la vue Journaux dit pourquoi", async () => {
+    monterAvec(null);
+    await image();
+    q("[data-flow='server']").click();
+    await image();
+    expect(connexions, "socket").toBe(0);
+    expect(recherches, "journaux").toHaveLength(0);
+    expect(profils, "profileur").toHaveLength(0);
+    expect(shadow().textContent).toContain("session administrateur");
+  });
+
+  it("connecté : la socket s'ouvre et les journaux se lisent, comme avant", async () => {
+    monterAvec({ id: "u", identifier: "admin", roles: ["ROLE_ADMIN"] });
+    await image();
+    q("[data-flow='server']").click();
+    await image();
+    expect(connexions).toBe(1);
+    expect(recherches.length).toBeGreaterThan(0);
+  });
+});
