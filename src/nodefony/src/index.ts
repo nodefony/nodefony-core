@@ -158,6 +158,9 @@ export {
   getLogDriverFactory,
   listLogDriverFactories,
 } from "./syslog/drivers/logDriverRegistry";
+// La règle « envoyer ou seulement relire » des destinations natives — à
+// appeler aussi par une destination tierce (Datadog…), jamais à recopier.
+export { resolveLogPush } from "./syslog/drivers/builtinLogDrivers";
 export type {
   ILogDriverFactory,
   ILogDriverContext,

@@ -807,24 +807,34 @@ faits.
 
 ### Brancher sa propre destination relisable
 
-Une fabrique enregistrée suffit — le Kernel la découvrira sans rien connaître d'elle :
+Une fabrique enregistrée suffit — le Kernel la découvrira sans rien connaître d'elle. Exemple
+avec Datadog : la relecture interroge son API de recherche, l'envoi passe par un transport, et la
+règle « envoyer ou seulement relire » est **celle des destinations natives**, appelée et non recopiée :
 
 ```typescript
-import { registerLogDriverFactory, filterPdus } from "nodefony";
+import { registerLogDriverFactory, filterPdus, resolveLogPush } from "nodefony";
 
-registerLogDriverFactory("s3", (ctx) => {
-  if (!ctx.logCfg?.queryFile?.path) return null; // config absente → on s'écarte
+registerLogDriverFactory("datadog", (ctx) => {
+  const dd = readDatadogConfig(); // la config de TON module : clés, site, service
+  if (!dd) return null; // config absente → on s'écarte
+  const driver = {
+    name: "datadog",
+    capabilities: { write: true, query: true, stream: false },
+    query: async (criteria) =>
+      filterPdus(await searchDatadogLogs(dd, criteria), criteria),
+  };
+  // Comme Loki et OpenSearch : en production, sans choix déclaré, l'agent
+  // Datadog lit la sortie standard et l'application ne fait que relire.
+  if (!resolveLogPush(dd.write, ctx.environment)) return { driver };
   return {
-    driver: {
-      name: "s3",
-      capabilities: { write: true, query: true, stream: false },
-      query: async (criteria) => filterPdus(await fetchFromS3(), criteria),
-    },
-    transport: new S3Transport(),
-    writeKey: "s3", // déduplique le transport si deux drivers le partagent
+    driver,
+    transport: new DatadogTransport(dd), // étend BatchingHttpTransport
+    writeKey: "datadog", // déduplique le transport si deux drivers le partagent
   };
 });
 ```
+
+Puis `log.queryDriver: "datadog"` désigne ce pilote pour la relecture de la console.
 
 Réutiliser `filterPdus` n'est pas une commodité : c'est ce qui garantit que ton driver **filtre
 comme les autres**, avec les mêmes critères et le même ordre.
