@@ -31,6 +31,10 @@ describe("isConsolePath — les pages de la console", () => {
 
   it("une route d'application et une connexion d'utilisateur n'en sont pas", () => {
     expect(isConsolePath("/nodefony/test/index")).toBe(false);
+    // Vécu : le flux SSE de la vitrine Vue, masqué comme « données de la console ».
+    expect(isConsolePath("/nodefony/test/api/syslog")).toBe(false);
+    expect(isConsolePath("/nodefony/test/sse/stream")).toBe(false);
+    expect(isConsolePath("/nodefony/testeur/api/x")).toBe(true);
     expect(isConsolePath("/nodefony/security/api/auth/login")).toBe(false);
   });
 });

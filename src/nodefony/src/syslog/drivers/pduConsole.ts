@@ -12,28 +12,33 @@ import {
  * console (`/nodefony`, `/nodefony/<page>`, et ses pages profondes
  * `/nodefony/{modules,cluster,orm,users,playground,logs/trace}/<id>`) et data
  * plane (`/nodefony/<module>/api/…`, profileur, journaux et socket de la console
- * compris). Une route d'application à deux segments sous `/nodefony`
- * (`/nodefony/test/index`) n'en fait pas partie. Les pages profondes suivent
+ * compris). Les routes de l'application sous `/nodefony` en sont écartées
+ * (`APPLICATION_PREFIXES`). Les pages profondes suivent
  * les replis déclarés par `StudioController` — un test du Studio le vérifie.
  */
 const CONSOLE_PATH =
   /^\/(?:_vite\/|_assets\/studio\/|nodefony(?:\/(?:(?:modules|cluster|orm|users|playground|logs\/trace)\/)?[^/\s?]*)?(?:[?\s]|$)|nodefony\/[^/\s?]+\/api(?:[/?\s]|$))/;
 
 /**
- * Connexions des utilisateurs (mot de passe, passkeys, fournisseurs OAuth) :
- * elles passent par l'API de sécurité, sous `/nodefony/`, mais ce sont les
- * connexions à l'APPLICATION — l'exploitant les cherche, elles ne sont jamais
- * rangées dans le trafic de la console.
+ * Ce qui passe sous `/nodefony/` mais appartient à l'APPLICATION, jamais à la
+ * console :
+ * - les connexions des utilisateurs (mot de passe, passkeys, fournisseurs
+ *   OAuth) — elles passent par l'API de sécurité, l'exploitant les cherche ;
+ * - le module `test`, l'application de développement de CE dépôt (vitrines,
+ *   bancs d'intégration), monté sous `/nodefony/test` (#661) — son flux
+ *   `/nodefony/test/api/syslog` est celui d'une page, pas les données de la
+ *   console. Absent d'une application générée.
  */
-const AUTH_PREFIXES: readonly string[] = [
+const APPLICATION_PREFIXES: readonly string[] = [
   AUTH_API_BASE,
   WEBAUTHN_API_BASE,
   OAUTH2_API_BASE,
+  "/nodefony/test",
 ];
 
-/** Le chemin vise-t-il une route de connexion (préfixe suivi d'une frontière) ? */
-function isAuthPath(path: string): boolean {
-  for (const prefix of AUTH_PREFIXES) {
+/** Le chemin appartient-il à l'application (préfixe suivi d'une frontière) ? */
+function isApplicationPath(path: string): boolean {
+  for (const prefix of APPLICATION_PREFIXES) {
     if (!path.startsWith(prefix)) continue;
     const next = path.charAt(prefix.length);
     if (next === "" || next === "/" || next === "?" || next === " ")
@@ -55,7 +60,7 @@ function isAuthPath(path: string): boolean {
  * @returns `true` pour un chemin de la console
  */
 export function isConsolePath(path: string): boolean {
-  return CONSOLE_PATH.test(path) && !isAuthPath(path);
+  return CONSOLE_PATH.test(path) && !isApplicationPath(path);
 }
 
 /**
