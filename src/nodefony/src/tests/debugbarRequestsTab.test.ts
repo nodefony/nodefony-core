@@ -103,6 +103,15 @@ function repondre(p: URLSearchParams): unknown {
   };
 }
 
+/** Une réponse JSON du faux back. */
+const json = (body: unknown): Promise<Response> =>
+  Promise.resolve(
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+
 let bar: DebugBar | null = null;
 let fetchAvant: typeof window.fetch;
 
@@ -157,6 +166,53 @@ beforeEach(() => {
           : input.url;
     if (url.includes("/nodefony/profiler/api")) {
       profils.push(url);
+      // Le profileur : les appels d'une socket, puis le profil de l'un d'eux.
+      if (url.includes("/recent?connection=rid-ws"))
+        return json({
+          count: 1,
+          entries: [
+            {
+              requestId: "rid-ws.1",
+              ts: 1,
+              kind: "ws",
+              method: "GET",
+              url: "/nodefony/realtime/api/health",
+              status: 200,
+              durationMs: 1.2,
+              route: "admin.realtime.GET.health",
+              error: null,
+            },
+            // Rendu APRÈS #1 : le profileur range par fin d'appel, pas par rang.
+            {
+              requestId: "rid-ws.2",
+              ts: 2,
+              kind: "ws",
+              method: "GET",
+              url: "/nodefony/kernel/api/info",
+              status: 200,
+              durationMs: 0.3,
+              route: "admin.kernel.GET.info",
+              error: null,
+            },
+          ],
+        });
+      if (url.endsWith("/rid-ws.1"))
+        return json({
+          requestId: "rid-ws.1",
+          ts: 1,
+          kind: "ws",
+          method: "GET",
+          url: "/nodefony/realtime/api/health",
+          status: 200,
+          durationMs: 1.2,
+          route: "admin.realtime.GET.health",
+          controller: "AdminApiController",
+          action: "dispatch",
+          user: "admin",
+          error: null,
+          phases: [{ name: "action", startMs: 0, durationMs: 1 }],
+          queries: [{ sql: "select 1", startMs: 0, durationMs: 0.1 }],
+        });
       return Promise.resolve(new Response("", { status: 404 }));
     }
     if (url.includes("/flux")) {
@@ -341,7 +397,7 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     expect(row().className).toContain("err");
   });
 
-  it("🔴 choisie, la socket retrouve son requestId par SA ligne d'accès — sans demander un profil qu'une connexion n'a pas", async () => {
+  it("🔴 choisie, la socket retrouve son requestId par SA ligne d'accès — et liste ses appels, pas un profil qu'elle n'a pas", async () => {
     const ws = new window.WebSocket(
       "wss://h/nodefony/studio/api/realtime",
     ) as unknown as FakeWs;
@@ -349,8 +405,21 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     await image();
     ligneReq("/nodefony/studio/api/realtime").click();
     await image();
-    expect(profils).toEqual([]);
-    expect(q("[data-el='logSide']").textContent).toContain("rid-ws");
+    // Ses appels, filtrés par le serveur ; jamais le profil de la connexion.
+    expect(profils.some((u) => u.includes("/recent?connection=rid-ws"))).toBe(
+      true,
+    );
+    expect(profils.some((u) => u.endsWith("/rid-ws"))).toBe(false);
+    const appel = q("[data-el='logSide'] [data-frame='rid-ws.1']");
+    expect(appel.textContent).toContain("admin.realtime.GET.health");
+    expect(appel.textContent).toContain("#1");
+    expect(
+      [
+        ...q("[data-el='logSide']").querySelectorAll<HTMLElement>(
+          "[data-frame]",
+        ),
+      ].map((b) => b.dataset.frame),
+    ).toEqual(["rid-ws.2", "rid-ws.1"]);
     expect(
       ligneReq("/nodefony/studio/api/realtime").getAttribute("aria-expanded"),
     ).toBe("false");
@@ -361,6 +430,27 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     expect(cherche?.get("msgid")).toBe("req");
     expect(cherche?.has("groupByRequest")).toBe(false);
     expect(q("[data-el='logSide']").textContent).toContain("ouvert");
+  });
+
+  it("🔴 un appel de la socket choisi : SON profil — phases et SQL — sous la liste", async () => {
+    const ws = new window.WebSocket(
+      "wss://h/nodefony/studio/api/realtime",
+    ) as unknown as FakeWs;
+    ws.dispatchEvent(new Event("open"));
+    await image();
+    ligneReq("/nodefony/studio/api/realtime").click();
+    await image();
+    q("[data-el='logSide'] [data-frame='rid-ws.1']").click();
+    await image();
+    expect(profils.some((u) => u.endsWith("/rid-ws.1"))).toBe(true);
+    const side = q("[data-el='logSide']");
+    expect(side.querySelector(".wf-row")?.textContent).toContain("action");
+    expect(side.querySelector(".q-row:not(.frame) .q-sql")?.textContent).toBe(
+      "select 1",
+    );
+    expect(side.querySelector("[data-frame='rid-ws.1']")?.className).toContain(
+      "sel",
+    );
   });
 
   it("un flux SSE reçu par fetch : SSE, ouvert, puis sa durée de vie à l'abandon", async () => {

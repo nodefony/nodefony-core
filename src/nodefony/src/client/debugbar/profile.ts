@@ -27,6 +27,19 @@ export interface ProfileQuery {
   connector?: string;
 }
 
+/** Résumé d'un profil, liste `recent` (miroir client de `@nodefony/http` `ProfileSummary`). */
+export interface ProfileSummary {
+  requestId: string;
+  ts: number;
+  kind: "http" | "ws";
+  method: string | null;
+  url: string;
+  status: number | null;
+  durationMs: number | null;
+  route: string | null;
+  error: string | null;
+}
+
 /** Profil serveur complet (miroir client de `@nodefony/http` `ProfileEntry`). */
 export interface ProfileEntry {
   requestId: string;

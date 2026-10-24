@@ -81,7 +81,9 @@ import {
   computeWaterfall,
   isError as isNetError,
   type ProfileEntry,
+  type ProfileSummary,
 } from "./profile";
+import { frameIndexOf } from "../../runtime/frameRequestId";
 import {
   PLATFORM_CHANNELS,
   PLATFORM_EVENTS,
@@ -773,6 +775,8 @@ const STYLES =
 .det-callmeta { color:#a3aab4; }
 .q-list { display:flex; flex-direction:column; }
 .q-row { display:flex; align-items:center; gap:10px; min-height:24px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+.q-row.frame { width:100%; background:none; border-width:0 0 1px; font:inherit; color:inherit; text-align:left; cursor:pointer; }
+.q-row.frame:hover, .q-row.frame.sel { background:#323844; }
 .q-sql { flex:1; min-width:0; color:#e8eaed; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; }
 .q-conn { flex:none; color:#9ecbff; font-size:10px; }
 .q-meta { flex:none; color:#a3aab4; font-size:10.5px; font-variant-numeric:tabular-nums; text-align:right; min-width:52px; }
@@ -956,6 +960,14 @@ export class DebugBar {
   private selected: FlowItem | null = null;
   /** `requestId` de la requête choisie, quand elle en a un : clé de son profil serveur. */
   private selectedRid: string | null = null;
+  /**
+   * Les appels passés par une socket — les frames du pont, chacune profilée —
+   * par requestId de la connexion. Alloué au premier WebSocket choisi, borné.
+   */
+  private frames: Map<string, ProfileSummary[] | "loading" | "error"> | null =
+    null;
+  /** L'appel choisi dans le volet d'une socket : son profil s'y affiche. */
+  private selectedFrame: string | null = null;
   /** Clés des requêtes dépliées — alloué au premier dépliage. */
   private expanded: Set<string> | null = null;
   /** Vue de l'onglet Requêtes : Page (défaut), Direct ou Journaux. */
@@ -1671,6 +1683,7 @@ export class DebugBar {
       this.net.clear();
       this.streamLookups = null;
       this.lines.clear();
+      this.frames = null;
       this.expanded = null;
       this.serverFrom = Date.now();
       this.serverRows = null;
@@ -1705,6 +1718,8 @@ export class DebugBar {
       const onSide = (ev: Event): void => {
         if (closestFrom(ev.target, "[data-act='close']"))
           this.feedView?.select(null);
+        const frame = closestFrom(ev.target, "[data-frame]")?.dataset.frame;
+        if (frame) this.selectFrame(frame);
       };
       side.addEventListener("click", onSide);
       this.disposers.push(() => side.removeEventListener("click", onSide));
@@ -2316,6 +2331,7 @@ export class DebugBar {
    */
   private selectItem(item: FlowItem | null): void {
     this.selected = item;
+    this.selectedFrame = null;
     this.selectedRid = requestIdOf(item);
     this.detailVersion++;
     const rid = this.selectedRid;
@@ -2346,8 +2362,95 @@ export class DebugBar {
    * (`<requestId>.<n>`), la demander rendrait toujours 404.
    */
   private wantProfile(e: NetEntry | null | undefined, rid: string): void {
-    if (e?.stream?.kind === "ws" || this.net.profileState(rid)) return;
-    this.fetchProfile(rid);
+    if (e?.stream?.kind === "ws") this.fetchFrames(rid);
+    else if (!this.net.profileState(rid)) this.fetchProfile(rid);
+  }
+
+  /**
+   * Les appels passés par une socket : `recent?connection=` du profileur, qui ne
+   * rend QUE ses frames, cherchées sur tout l'anneau. Relu à chaque choix — la
+   * liste grandit tant que la socket vit ; l'ancienne reste affichée d'ici là.
+   */
+  private fetchFrames(rid: string): void {
+    const frames = (this.frames ??= new Map());
+    if (typeof fetch === "undefined" || frames.get(rid) === "loading") return;
+    if (!frames.has(rid)) {
+      if (frames.size >= 32) frames.clear();
+      frames.set(rid, "loading");
+    }
+    fetch(
+      `${this.profilerBase}/recent?connection=${encodeURIComponent(rid)}&limit=200`,
+      { headers: { accept: "application/json" } },
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
+      .then(
+        // Rangées par rang, une fois : le profileur les rend dans l'ordre où
+        // elles ont FINI, un appel lent après un rapide lancé plus tard.
+        (body: unknown) =>
+          frames.set(
+            rid,
+            summaryRows(body).sort(
+              (a, b) =>
+                (frameIndexOf(b.requestId, rid) ?? 0) -
+                (frameIndexOf(a.requestId, rid) ?? 0),
+            ),
+          ),
+        () => frames.set(rid, "error"),
+      )
+      .finally(() => {
+        if (rid === this.selectedRid) this.detailVersion++;
+        this.scheduleRender();
+      });
+  }
+
+  /** Choisit (ou relâche) un appel de la socket : son profil s'affiche sous la liste. */
+  private selectFrame(id: string): void {
+    this.selectedFrame = id === this.selectedFrame ? null : id;
+    if (this.selectedFrame !== null && !this.net.profileState(id))
+      this.fetchProfile(id);
+    this.detailVersion++;
+    this.scheduleRender();
+  }
+
+  /** Les appels d'une socket, puis le profil de celui choisi. */
+  private framesHtml(rid: string): string {
+    const st = this.frames?.get(rid);
+    const n = Array.isArray(st) ? ` (${st.length})` : "";
+    let out = `<div class="wf-title">appels passés par la socket${n} — chacun a son profil</div>`;
+    if (st === undefined || st === "loading")
+      return out + `<div class="det-loading">lecture du profileur…</div>`;
+    if (st === "error")
+      return out + `<div class="det-err">profileur injoignable.</div>`;
+    if (st.length === 0)
+      return (
+        out +
+        `<div class="empty">aucun appel du pont (api.request) par cette socket — dépliez la ligne pour ses journaux.</div>`
+      );
+    out += `<div class="q-list">`;
+    for (const f of st) {
+      out +=
+        `<button type="button" class="q-row frame${f.requestId === this.selectedFrame ? " sel" : ""}" data-frame="${escapeHtml(f.requestId)}">` +
+        `<span class="q-meta">#${frameIndexOf(f.requestId, rid) ?? "?"}</span>` +
+        `<span class="q-sql">${escapeHtml(`${f.method ?? ""} ${f.route ?? f.url}`)}</span>` +
+        `<span class="q-meta s${statusFamily(f.status)}">${f.status ?? "—"}</span>` +
+        `<span class="q-meta">${f.durationMs === null ? "—" : `${f.durationMs} ms`}</span>` +
+        `</button>`;
+    }
+    out += `</div>`;
+    const sel = this.selectedFrame;
+    if (sel === null) return out;
+    const ps = this.net.profileState(sel);
+    return (
+      out +
+      (!ps || ps.status === "loading"
+        ? `<div class="det-loading">profil de l'appel — chargement…</div>`
+        : ps.status === "ready"
+          ? this.profileHtml(ps.profile)
+          : `<div class="det-err">profil de l'appel introuvable (évincé du tampon ?).</div>`)
+    );
   }
 
   /**
@@ -2645,7 +2748,8 @@ export class DebugBar {
         });
       })
       .finally(() => {
-        if (requestId === this.selectedRid) this.detailVersion++;
+        if (requestId === this.selectedRid || requestId === this.selectedFrame)
+          this.detailVersion++;
         this.scheduleRender();
       });
   }
@@ -3040,10 +3144,7 @@ export class DebugBar {
       return s.kind === "ws"
         ? `<div class="det-err">refusée ou coupée avant l'ouverture — le navigateur en tait la cause (RFC 6455) ; si elle a atteint le serveur, sa ligne est dans les Journaux.</div>`
         : `<div class="det-err">flux refusé : statut ≠ 200 ou type ≠ text/event-stream.</div>`;
-    if (rid)
-      return s.kind === "ws"
-        ? `<div class="det-loading">une connexion n'a pas de profil : le profileur mesure chaque frame de son pont (<b>${escapeHtml(shortId(rid))}.n</b>) — dépliez la ligne pour ses journaux.</div>`
-        : null;
+    if (rid) return s.kind === "ws" ? this.framesHtml(rid) : null;
     if (s.kind === "sse" && s.state !== "closed")
       return `<div class="det-loading">le serveur écrit la ligne d'un flux à sa fermeture : son requestId se lira alors.</div>`;
     return this.streamLookups?.get(e.id) === "missing"
@@ -3267,6 +3368,30 @@ function requestIdOf(item: FlowItem | null): string | null {
   if (!("kind" in item)) return item.requestId ?? null;
   if (item.kind === "child") return item.log.requestId ?? null;
   return item.requestId ?? item.net?.requestId ?? null;
+}
+
+/** Une entrée de `recent` lisible : son requestId, au moins — le reste s'affiche tel quel. */
+function isSummary(x: unknown): x is ProfileSummary {
+  return (
+    x !== null &&
+    typeof x === "object" &&
+    "requestId" in x &&
+    typeof x.requestId === "string"
+  );
+}
+
+/** Les appels d'une socket dans la réponse de `recent` — même enveloppe `{ result }` que les Journaux. */
+function summaryRows(body: unknown): ProfileSummary[] {
+  const v =
+    body !== null && typeof body === "object" && "result" in body
+      ? body.result
+      : body;
+  return v !== null &&
+    typeof v === "object" &&
+    "entries" in v &&
+    Array.isArray(v.entries)
+    ? v.entries.filter(isSummary)
+    : [];
 }
 
 /**
