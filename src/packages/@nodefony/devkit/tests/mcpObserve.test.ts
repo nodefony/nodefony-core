@@ -60,6 +60,7 @@ function collect(
     url: over.url ?? "/orders",
     response: { statusCode: over.status ?? 200 },
     phases: [{ name: "action", startMs: 0, durationMs: 12 }],
+    stopClock: () => 12,
     resolver: {
       route: { name: over.route ?? "orders.list" },
       controller: { name: "OrdersController" },
@@ -608,6 +609,7 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
         url: "/orders",
         response: { statusCode: 500 },
         phases: [],
+        stopClock: () => null,
         resolver: { route: { name: "orders.list" } },
       });
     }, 50);
@@ -649,6 +651,7 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
         url: "/orders",
         response: { statusCode: 500 },
         phases: [],
+        stopClock: () => null,
         resolver: { route: { name: "orders.list" } },
       });
     }, 50);
@@ -676,6 +679,7 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
           url: "/orders",
           response: { statusCode: 500 },
           phases: [],
+          stopClock: () => null,
           resolver: { route: { name: "orders.list" } },
         });
       }
@@ -707,6 +711,7 @@ describe("nodefony_observe — producteur syslog absent", () => {
         url: "/orders",
         response: { statusCode: 500 },
         phases: [],
+        stopClock: () => null,
         resolver: { route: { name: "orders.list" } },
       });
     }, 50);

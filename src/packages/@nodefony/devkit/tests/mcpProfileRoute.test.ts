@@ -80,6 +80,7 @@ function fakeApp(
       url: `http://127.0.0.1:5151${req.path}`,
       response: { statusCode: status },
       phases: [{ name: "action", startMs: 0, durationMs: 12 }],
+      stopClock: () => 12,
       resolver: {
         route: { name: "orders.list" },
         controller: { name: "OrdersController" },

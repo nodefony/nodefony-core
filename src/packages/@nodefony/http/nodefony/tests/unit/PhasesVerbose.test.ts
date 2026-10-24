@@ -14,7 +14,12 @@ import type { PhaseTiming } from "../../interfaces/IContext";
 
 type LogCall = [unknown, unknown, unknown];
 
-function makeStub(opts: { verbose: boolean; phases: PhaseTiming[] }): {
+function makeStub(opts: {
+  verbose: boolean;
+  phases: PhaseTiming[];
+  /** Ce que rend l'horloge de la requête. */
+  durationMs?: number | null;
+}): {
   calls: LogCall[];
   ctx: Context;
 } {
@@ -24,6 +29,7 @@ function makeStub(opts: { verbose: boolean; phases: PhaseTiming[] }): {
     phases: opts.phases,
     type: "http",
     serverType: "http",
+    stopClock: () => opts.durationMs ?? null,
     log: (pci: unknown, severity?: unknown, msgid?: unknown) => {
       calls.push([pci, severity, msgid]);
     },
@@ -71,6 +77,18 @@ describe("P3.7 — Context.logPhasesVerbose()", () => {
     expect(str).to.contain("action=12.30ms");
     expect(str).to.contain("·"); // séparateur entre phases
     expect(str).to.contain("Σ 12.80ms"); // total = somme des durées fermées
+  });
+
+  it("🔴 nomme les DEUX grandeurs : la durée de la requête (horloge) et la somme des phases", () => {
+    const s = makeStub({
+      verbose: true,
+      durationMs: 15.25,
+      phases: [{ name: "action", startMs: 0, endMs: 12.8, durationMs: 12.8 }],
+    });
+    run(s);
+    const str = s.calls[0]![0] as string;
+    // 15,25 ms côté client, 12,8 ms de phases : les temps morts se voient.
+    expect(str).to.contain("[total 15.25ms · Σ 12.80ms]");
   });
 
   it("phase ouverte (endMs absent) → rendue '…' sans casser, total = somme des fermées", () => {

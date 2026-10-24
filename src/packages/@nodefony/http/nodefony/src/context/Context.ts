@@ -295,6 +295,12 @@ class Context extends Service implements IContextInterface {
   // constructeur, implique `_timingEnabled`. false par défaut → 0 stringify/alloc
   // au teardown hors debug explicite (perf-first : gratuit en prod).
   private readonly _timingVerbose: boolean = false;
+  // Horloge de la requête : UNE lecture au constructeur, UNE au premier
+  // `stopClock()`, partagées par le journal d'accès, le profiler et la trace
+  // verbose. Des nombres, jamais un objet : chronométrage coupé (production par
+  // défaut) → aucune lecture d'horloge, rien d'alloué.
+  private readonly _clockStartMs: number = 0;
+  private _durationMs: number | null = null;
   readonly phases: PhaseTiming[] = EMPTY_PHASES;
   private _phaseIndex: Map<string, number> | null = null;
   // Lazy alloc — most requests never register an after-response hook.
@@ -323,22 +329,20 @@ class Context extends Service implements IContextInterface {
         p.svcNs += Number(process.hrtime.bigint() - p.t0);
       }
     }
-    this.serverType = serverType;
-    this.type = protocolNameOf(serverType);
-    this.set("context", this);
-    this.httpKernel = this.get("HttpKernel");
-    this.sessionService = this.get<SessionsService>("sessions");
-    this.setMetaData();
-    // Resolve timing flag once per request. Explicit kernel option wins;
+    // Resolve timing flag once per request — FIRST, so that the request clock
+    // starts as early as the context exists. Explicit kernel option wins;
     // otherwise default = enabled in dev / development, disabled in prod.
     // `timing.enabled` vaut `null` par défaut (= PAS D'AVIS, cf `defaultAppConfig`) :
     // seul un booléen explicite court-circuite la règle d'environnement — ce qui
     // permet d'allumer la sonde EN PRODUCTION (`NF__APP__TIMING__ENABLED=true`)
     // pour un diagnostic, sans redéployer.
-    const explicit = (
-      this.kernel?.options as
-        { timing?: { enabled?: boolean | null } } | undefined
-    )?.timing?.enabled;
+    const timing: unknown = this.kernel?.options.timing;
+    const timingSection =
+      typeof timing === "object" && timing !== null ? timing : null;
+    const explicit =
+      timingSection !== null && "enabled" in timingSection
+        ? timingSection.enabled
+        : undefined;
     if (typeof explicit === "boolean") {
       this._timingEnabled = explicit;
     } else {
@@ -349,15 +353,22 @@ class Context extends Service implements IContextInterface {
       this._timingEnabled = this.kernel?.environment !== "production";
     }
     if (this._timingEnabled) {
+      this._clockStartMs = performance.now();
       // Replace shared frozen empty array with a per-context one only when needed.
       (this as { phases: PhaseTiming[] }).phases = [];
       // P3.7 — trace verbose : résolu 1× ici (n'a de sens que si le timing est
       // actif). Opt-in explicite → false en prod / par défaut.
-      const verbose = (
-        this.kernel?.options as { timing?: { verbose?: boolean } } | undefined
-      )?.timing?.verbose;
-      this._timingVerbose = verbose === true;
+      this._timingVerbose =
+        timingSection !== null &&
+        "verbose" in timingSection &&
+        timingSection.verbose === true;
     }
+    this.serverType = serverType;
+    this.type = protocolNameOf(serverType);
+    this.set("context", this);
+    this.httpKernel = this.get("HttpKernel");
+    this.sessionService = this.get<SessionsService>("sessions");
+    this.setMetaData();
     // Schéma du saut LOCAL (l'identité du serveur en est un) ; les contextes
     // HTTP et WS le remplacent par le schéma effectif du client (`setScheme`).
     this.scheme = serverType;
@@ -447,6 +458,22 @@ class Context extends Service implements IContextInterface {
     if (p === undefined || p.endMs !== undefined) return;
     p.endMs = performance.now();
     p.durationMs = p.endMs - p.startMs;
+  }
+
+  /**
+   * Arrête l'horloge de la requête et rend sa durée, en millisecondes.
+   *
+   * La durée court de la construction du contexte au PREMIER appel : le
+   * démontage HTTP (`close` de la réponse, dernier octet remis — la mesure
+   * d'OpenTelemetry et du `$request_time` de nginx), la ligne d'accès pour un
+   * handshake WebSocket. Les appels suivants rendent la même valeur : journal
+   * d'accès, profiler et trace verbose lisent UNE durée, jamais trois.
+   *
+   * @returns la durée, ou `null` si le chronométrage est coupé
+   */
+  stopClock(): number | null {
+    if (!this._timingEnabled) return null;
+    return (this._durationMs ??= performance.now() - this._clockStartMs);
   }
 
   onAfterResponse(fn: AfterResponseHandler): void {
@@ -691,8 +718,12 @@ class Context extends Service implements IContextInterface {
       }
       i++;
     }
+    // Deux grandeurs, nommées : la durée de la requête (l'horloge partagée avec
+    // le journal d'accès) et la somme des phases, qui ignore les temps morts.
+    const duration = this.stopClock();
+    const head = duration === null ? "" : `total ${duration.toFixed(2)}ms · `;
     this.log(
-      `TRACE phases [Σ ${total.toFixed(2)}ms] ${line}`,
+      `TRACE phases [${head}Σ ${total.toFixed(2)}ms] ${line}`,
       "DEBUG",
       `${this.serverType} TIMING`,
     );

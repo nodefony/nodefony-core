@@ -4,12 +4,8 @@ import type {
   IRequestLogger,
   IRequestLogEntry,
 } from "../interfaces/IRequestLogger";
-import type {
-  IHttpContext,
-  IWebsocketContext,
-  PhaseTiming,
-} from "../interfaces/IContext";
-import { computeDurationMs, severityFromStatus } from "./audit-logger";
+import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
+import { severityFromStatus, statusOf } from "./audit-logger";
 import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContext";
 
 /**
@@ -32,19 +28,11 @@ import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContex
  */
 class PrettyRequestLogger implements IRequestLogger {
   renderHttp(context: IHttpContext, error?: Error | null): IRequestLogEntry {
-    const ctx = context as unknown as {
-      url: string;
-      remoteAddress: string | null;
-      requestId: string;
-      method: string | null;
-      response: { statusCode?: number } | null;
-      phases: PhaseTiming[];
-      error?: Error | null;
-    };
+    const ctx = context;
     const err = error ?? ctx.error ?? null;
-    const status = ctx.response?.statusCode ?? (err ? 500 : null);
+    const status = statusOf(ctx) ?? (err ? 500 : null);
     const method = ctx.method ?? "?";
-    const duration = computeDurationMs(ctx.phases);
+    const duration = ctx.stopClock();
 
     const text =
       `${logColor.cyan(method.padEnd(4))} ` +
@@ -67,19 +55,12 @@ class PrettyRequestLogger implements IRequestLogger {
     error?: Error | null,
     acceptedProtocol?: string | null,
   ): IRequestLogEntry {
-    const ctx = context as unknown as {
-      url: string;
-      remoteAddress: string | null;
-      requestId: string;
-      method: string | null;
-      response: { statusCode?: number } | null;
-      phases: PhaseTiming[];
-    };
+    const ctx = context;
     // Handshake refusé : le statut HTTP que le client reçoit, pas le code de
     // fermeture par défaut. Une connexion saine ne paie que ce test.
     const refused = error ? handshakeRefusalStatus(context, error) : null;
-    const status = refused ?? ctx.response?.statusCode ?? (error ? 500 : null);
-    const duration = computeDurationMs(ctx.phases);
+    const status = refused ?? statusOf(ctx) ?? (error ? 500 : null);
+    const duration = ctx.stopClock();
     const proto = acceptedProtocol ? `[${acceptedProtocol}]` : "";
 
     const text =

@@ -9,6 +9,8 @@ function fakeHttpContext(
     url?: string;
     method?: string;
     error?: Error | null;
+    /** Ce que rend l'horloge du contexte (`null` = chronométrage coupé). */
+    durationMs?: number | null;
     phases?: {
       name: string;
       startMs: number;
@@ -25,6 +27,7 @@ function fakeHttpContext(
     response: { statusCode: opts.status ?? 200 },
     phases: opts.phases ?? [],
     error: opts.error ?? null,
+    stopClock: () => opts.durationMs ?? null,
   };
 }
 
@@ -75,21 +78,17 @@ describe("PrettyRequestLogger — unit tests (P3.2)", () => {
       expect(noColor(e.text)).to.include("boom-pretty");
     });
 
-    it("formats duration when phases recorded", () => {
-      // Use real performance.now-based start so duration > 0
-      const start = performance.now() - 12.5;
+    it("affiche la durée de l'horloge du contexte, pas la somme des phases", () => {
       const e = logger.renderHttp(
         fakeHttpContext({
-          phases: [
-            { name: "parse", startMs: start, endMs: start + 1, durationMs: 1 },
-          ],
+          durationMs: 12.5,
+          phases: [{ name: "parse", startMs: 0, endMs: 1, durationMs: 1 }],
         }) as never,
       );
-      const t = noColor(e.text);
-      expect(t).to.match(/\d+\.\d+ms/);
+      expect(noColor(e.text)).to.include(" 12.5ms ");
     });
 
-    it("shows '---' duration when no phases", () => {
+    it("affiche '---' quand le chronométrage est coupé", () => {
       const e = logger.renderHttp(fakeHttpContext({ phases: [] }) as never);
       expect(noColor(e.text)).to.include("---");
     });

@@ -1510,6 +1510,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): Promise<void> | undefined {
     if (context.finished) return undefined;
     try {
+      // Fin de la requête = ICI (`close` : dernier octet remis, ou client
+      // parti), quels que soient l'échantillonnage du journal et le profiler.
+      // Chronométrage coupé : un test de booléen, aucune horloge.
+      context.stopClock();
       // Client parti avant toute réponse : le timeout n'a pas eu lieu, c'est
       // ici que l'action muette se signale. Garde EN LIGNE : une requête
       // servie ne paie que cette lecture, comme avant (aucun appel).

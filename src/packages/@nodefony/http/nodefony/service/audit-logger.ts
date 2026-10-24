@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import type { Severity } from "nodefony";
-import { performance } from "node:perf_hooks";
 import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContext";
 import type {
   IRequestLogger,
@@ -10,7 +9,6 @@ import type {
   IContext,
   IHttpContext,
   IWebsocketContext,
-  PhaseTiming,
 } from "../interfaces/IContext";
 
 // Le contrat ne type `response` et `request` qu'en `object` : deux annotations
@@ -78,20 +76,6 @@ export interface AuditErrorEntry {
   stack?: string;
   /** Recursive — capped to depth 5 to avoid pathological cycles. */
   cause?: AuditErrorEntry;
-}
-
-/**
- * Durée totale de la requête, de la première phase (`startMs`) à maintenant.
- * `null` si le chronométrage est coupé (aucune phase enregistrée). Partagée
- * par le journal d'audit et le journal lisible — une seule définition.
- *
- * @param phases - phases chronométrées du contexte
- * @returns durée en millisecondes, ou `null`
- */
-function computeDurationMs(phases: PhaseTiming[]): number | null {
-  const first = phases.at(0);
-  if (first === undefined || typeof first.startMs !== "number") return null;
-  return performance.now() - first.startMs;
 }
 
 /**
@@ -217,7 +201,7 @@ class JsonAuditLogger implements IRequestLogger {
       method: ctx.method,
       url: ctx.url,
       status,
-      durationMs: computeDurationMs(ctx.phases),
+      durationMs: ctx.stopClock(),
       remoteAddress: ctx.remoteAddress ?? null,
       host: ctx.getHost() ?? null,
       userAgent: ctx.getUserAgent() ?? null,
@@ -257,7 +241,7 @@ class JsonAuditLogger implements IRequestLogger {
       method: ctx.method,
       url: ctx.url,
       status,
-      durationMs: computeDurationMs(ctx.phases),
+      durationMs: ctx.stopClock(),
       remoteAddress: ctx.remoteAddress ?? null,
       host: ctx.getHost() ?? null,
       userAgent: ctx.getUserAgent() ?? null,
@@ -313,4 +297,4 @@ class JsonAuditLogger implements IRequestLogger {
 }
 
 export default JsonAuditLogger;
-export { computeDurationMs, severityFromStatus };
+export { severityFromStatus, statusOf };

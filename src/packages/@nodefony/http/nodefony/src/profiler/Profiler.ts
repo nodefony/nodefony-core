@@ -61,6 +61,11 @@ interface ProfilableContext {
     | undefined;
   resolver?: ProfiledResolver | null | undefined;
   /**
+   * Arrête l'horloge de la requête et rend sa durée (ms) — la même que le
+   * journal d'accès (`IContext.stopClock`). `null` si le chronométrage est coupé.
+   */
+  stopClock(): number | null;
+  /**
    * Buffer de requêtes ORM rempli pendant la requête (dev-only). Même tableau
    * que la payload ALS — les adapters ORM y poussent via `RequestContext`.
    * `null`/absent hors profiling.
@@ -92,30 +97,9 @@ interface ProfilableContext {
     | undefined;
 }
 
-/**
- * Durée totale = (fin de la dernière phase) − (début de la 1ère).
- *
- * Une phase encore OUVERTE à la collecte (action interrompue par le départ du
- * client : flux SSE, outil MCP annulé) court jusqu'à la collecte — la compter
- * pour zéro publiait 0,3 ms pour un appel coupé à 3 s.
- */
-function totalDuration(
-  phases: ReadonlyArray<{ startMs: number; durationMs?: number | undefined }>,
-): number | null {
-  if (phases.length === 0) return null;
-  const first = phases.at(0);
-  if (first === undefined || typeof first.startMs !== "number") return null;
-  let end = first.startMs;
-  let now: number | null = null;
-  for (const p of phases) {
-    const e =
-      p.durationMs === undefined
-        ? (now ??= performance.now())
-        : p.startMs + p.durationMs;
-    if (e > end) end = e;
-  }
-  const d = end - first.startMs;
-  return d >= 0 ? Math.round(d * 1000) / 1000 : null;
+/** Arrondit une durée à la microseconde (affichage du Suivi). */
+function roundMicro(ms: number | null): number | null {
+  return ms === null ? null : Math.round(ms * 1000) / 1000;
 }
 
 /** Capacité par défaut du ring buffer (assez pour une session de debug). */
@@ -207,7 +191,7 @@ export class Profiler implements IProfilerReader {
       url: ctx.url ?? "",
       scheme: ctx.scheme ?? "",
       status: ctx.response?.statusCode ?? (ctx.error ? 500 : null),
-      durationMs: totalDuration(phases),
+      durationMs: roundMicro(ctx.stopClock()),
       route: ctx.resolver?.route?.name ?? null,
       controller: ctx.resolver?.controller?.name ?? null,
       action: ctx.resolver?.actionName ?? null,

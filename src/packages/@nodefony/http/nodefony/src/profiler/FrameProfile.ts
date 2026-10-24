@@ -111,6 +111,10 @@ export class FrameProfile {
   error: { message: string } | null = null;
 
   private readonly timing: boolean;
+  // Horloge de la frame — même règle que `Context.stopClock` : une lecture à la
+  // naissance, une à la fin (`finish`), aucune quand le timing est éteint.
+  private readonly clockStartMs: number;
+  private durationMs: number | null = null;
 
   constructor(init: FrameProfileInit) {
     this.requestId = init.requestId;
@@ -123,7 +127,19 @@ export class FrameProfile {
     this.security = init.security;
     this.securityTrace = init.securityTrace;
     this.timing = init.timing;
+    this.clockStartMs = init.timing ? performance.now() : 0;
     this.profilerQueries = init.queries ? [] : null;
+  }
+
+  /**
+   * Arrête l'horloge de la frame (au premier appel) et rend sa durée en ms ;
+   * `null` si le timing est éteint. Contrat de `IContext.stopClock`.
+   *
+   * @returns la durée de l'invocation, ou `null`
+   */
+  stopClock(): number | null {
+    if (!this.timing) return null;
+    return (this.durationMs ??= performance.now() - this.clockStartMs);
   }
 
   /**
@@ -157,6 +173,7 @@ export class FrameProfile {
    * @param error - l'erreur qui a interrompu la frame, le cas échéant.
    */
   finish(status: number, error?: unknown): void {
+    this.stopClock();
     this.response = { statusCode: status };
     if (error !== undefined && error !== null) {
       this.error = {

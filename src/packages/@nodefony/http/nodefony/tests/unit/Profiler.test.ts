@@ -2,8 +2,11 @@
 import { expect } from "vitest";
 import { Profiler } from "../../src/profiler/Profiler.js";
 
+/** Contexte que `collect` accepte — lu sur sa signature, jamais recopié. */
+type Collectable = Parameters<Profiler["collect"]>[0];
+
 /** Construit un Context-like minimal pour `collect`. */
-function ctx(over: Record<string, unknown> = {}): Record<string, unknown> {
+function ctx(over: Partial<Collectable> = {}): Collectable {
   return {
     requestId: "req-1",
     type: "http",
@@ -17,6 +20,7 @@ function ctx(over: Record<string, unknown> = {}): Record<string, unknown> {
       { name: "action", startMs: 1, durationMs: 4 },
       { name: "send", startMs: 5, durationMs: 0.5 },
     ],
+    stopClock: () => 5.5,
     resolver: {
       route: { name: "users.list" },
       controller: { name: "UsersController" },
@@ -42,11 +46,20 @@ describe("Profiler — unit", () => {
     expect(e!.phases).to.have.length(3);
   });
 
-  it("derives total duration from phases (end - start)", () => {
+  it("🔴 la durée est celle de l'horloge du contexte — la même que le journal d'accès", () => {
     const p = new Profiler();
-    p.collect(ctx());
-    // last phase ends at 5 + 0.5 = 5.5, first starts at 0
-    expect(p.get("req-1")!.durationMs).to.equal(5.5);
+    // Phases closes à 5,5 ms ; l'horloge (envoi compris) dit 9 ms : le
+    // profil suit l'horloge, sinon le Suivi et le journal divergent.
+    p.collect(ctx({ stopClock: () => 9 }));
+    expect(p.get("req-1")!.durationMs).to.equal(9);
+  });
+
+  it("arrondit la durée à la microseconde, null si le chronométrage est coupé", () => {
+    const p = new Profiler();
+    p.collect(ctx({ stopClock: () => 1.23456789 }));
+    expect(p.get("req-1")!.durationMs).to.equal(1.235);
+    p.collect(ctx({ requestId: "req-2", stopClock: () => null }));
+    expect(p.get("req-2")!.durationMs).to.equal(null);
   });
 
   it("flags ws kind for websocket contexts", () => {
@@ -194,6 +207,7 @@ describe("Profiler — unit", () => {
             authenticator: "session",
             outcome: "granted",
             reason: null,
+            user: "admin",
             roles: ["ROLE_NODEFONY_ADMIN"],
           },
         }),
@@ -220,6 +234,7 @@ describe("Profiler — unit", () => {
             authenticator: null,
             outcome: "denied",
             reason: "no_credentials",
+            user: null,
             roles: null,
           },
         }),

@@ -12,6 +12,8 @@ function fakeHttpContext(
     headers?: Record<string, string | string[] | undefined>;
     error?: Error | null;
     userIdentifier?: string | null;
+    /** Ce que rend l'horloge du contexte (`null` = chronométrage coupé). */
+    durationMs?: number | null;
     phases?: {
       name: string;
       startMs: number;
@@ -33,6 +35,7 @@ function fakeHttpContext(
     request: { headers: opts.headers ?? {} },
     error: opts.error ?? null,
     phases: opts.phases ?? [],
+    stopClock: () => opts.durationMs ?? null,
     getHost: () => "127.0.0.1:5152",
     getUserAgent: () => "Mozilla/5.0 (test)",
   };
@@ -144,6 +147,26 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
       const e = logger.renderHttp(fakeHttpContext({ phases: [] }) as never);
       const j = JSON.parse(e.text);
       expect(j.phases).to.equal(undefined);
+    });
+
+    it("🔴 la durée est celle de l'horloge du contexte, pas une relecture des phases", () => {
+      // Phases : 2 ms au total ; horloge : 42,5 ms (envoi de la réponse
+      // compris). Le journal d'accès écrit l'horloge — la durée du client.
+      const e = logger.renderHttp(
+        fakeHttpContext({
+          durationMs: 42.5,
+          phases: [
+            { name: "parse", startMs: 100, endMs: 101, durationMs: 1 },
+            { name: "resolve", startMs: 101, endMs: 102, durationMs: 1 },
+          ],
+        }) as never,
+      );
+      expect(JSON.parse(e.text).durationMs).to.equal(42.5);
+    });
+
+    it("durée null quand le chronométrage est coupé", () => {
+      const e = logger.renderHttp(fakeHttpContext() as never);
+      expect(JSON.parse(e.text).durationMs).to.equal(null);
     });
 
     it("includes error object on exception", () => {

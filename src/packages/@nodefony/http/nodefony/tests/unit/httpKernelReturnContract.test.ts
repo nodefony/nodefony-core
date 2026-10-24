@@ -248,6 +248,7 @@ describe("HttpKernel.teardownHttp — ne lève jamais, libère TOUJOURS le scope
       finished: false,
       waitAsync: false,
       sended: true,
+      stopClock: vi.fn(() => null),
       logRequest: vi.fn(),
       logPhasesVerbose: vi.fn(),
       _runAfterResponse: () => undefined,

@@ -171,6 +171,11 @@ export interface IContext {
   readonly phases: PhaseTiming[];
   phaseStart(name: PhaseName): void;
   phaseEnd(name: PhaseName): void;
+  /**
+   * Arrête l'horloge de la requête (au premier appel) et rend sa durée en ms —
+   * la SEULE durée de requête du framework ; `null` si le chronométrage est coupé.
+   */
+  stopClock(): number | null;
 
   // Radiographie dev-only. `profiling` = témoin « le Profiler est actif » posé
   // par le HttpKernel (false en prod) : les producteurs de trace (firewall) le

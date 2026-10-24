@@ -244,7 +244,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 ## Streaming backpressure + trace verbose
 
 - **Backpressure** `Response.send` : `ServerResponse.write()===false` (buffer > highWaterMark) → resolve sur `once("drain")`, pas avant (contrat Node `stream.Writable`). `flush()` chunké (RFC 9112 §7.1) → producteur freiné, RAM bornée si client lent ; `ok===true` → resolve immédiat. Listener `drain` attaché QUE sous pression (`once` + `removeListener` si erreur d'écriture). Content-Length ⊥ Transfer-Encoding (RFC 9112 §6.1) déjà géré par `setLength` (skip si chunked).
-- **Trace verbose** `Context.logPhasesVerbose()` (teardown, après `logRequest`) : log DEBUG `TRACE phases [Σ Xms] parse=… · action=…`. Opt-in `kernel.options.timing.verbose` → triple gate (`_timingVerbose` résolu 1× au ctor → `_timingEnabled` → `phases.length>0`) ; **0 stringify/alloc hors verbose** (perf-first, gratuit prod). Tests unit : `Backpressure.test.ts`, `PhasesVerbose.test.ts`.
+- **Trace verbose** `Context.logPhasesVerbose()` (teardown, après `logRequest`) : log DEBUG `TRACE phases [total Xms · Σ Yms] parse=… · action=…` (total = horloge de la requête, Σ = somme des phases, temps morts exclus). Opt-in `kernel.options.timing.verbose` → triple gate (`_timingVerbose` résolu 1× au ctor → `_timingEnabled` → `phases.length>0`) ; **0 stringify/alloc hors verbose** (perf-first, gratuit prod). Tests unit : `Backpressure.test.ts`, `PhasesVerbose.test.ts`.
 - **`@Body({ stream })` (P2.9)** : `route-match` HISSÉ avant le parse dans `handleHttp` (pur — method+URL). Si l'action déclare `@Body({stream:true})` (flag `route.bodyStream` memoïsé côté framework par `routeExpectsBodyStream`, lu par http via simple booléen — **pas** d'import framework, cycle interdit), le parse busboy/JSON est **sauté** → le param reçoit le `Readable` brut (`request.request`). `handleFrontController` réutilise `context.resolver` (0 double match). A/B même-machine : **0 régression RPS** (plages chevauchées) ; gain mémoire O(chunk) vs O(taille). Isolé HTTP (WS ne parse aucun body). Ordre hooks P6 inchangé. Tests : `BodyStream.test.ts` (framework) + `integration/bodyStream.test.ts` (HTTP/1+2, 1 Mo, vide, non-régression `@Body()`).
 
 ## Router-first — static en fallback (façon Express)
@@ -360,7 +360,7 @@ Extension de l'`AuditErrorEntry` :
 - **P3.3** : `severityFromStatus(s)` exporté — 200/301→INFO, 404/405→WARNING, 500/502→ERROR
 - **P3.4** : flags `hasAuthorization`/`hasCookie` (boolean) — **valeurs JAMAIS loggées**
 - `userIdentifier` lu sur `context.userIdentifier` (posé par le pare-feu pour tout jeton authentifié). JAMAIS l'ALS : l'audit s'écrit au teardown, hors bulle (`Context.logRequest`). Même source que `Profiler.readUser`.
-- `durationMs` = `performance.now() - phases[0].startMs` (utilise P1.1)
+- `durationMs` = `context.stopClock()` — la SEULE durée de requête (cf « Horloge de la requête »)
 - WS : ajoute `protocol`
 - Tests unit : `nodefony/tests/unit/AuditLogger.test.ts` (18 tests : shape JSON, redaction, severity, phases, error)
 - **Débloque** : P3.2 pretty formatter, P3.5 erreur enrichie, P10.9 Studio logs streaming SSE/WS
@@ -463,7 +463,8 @@ Extension de l'`AuditErrorEntry` :
 
 - Client parti avant la FIN de la réponse (`!responseEnded`, écouteur `close` de `createHttpContext`) : `_abortIfPending` + `response.statusCode = 499` (« client closed request ») — avant tout octet OU en plein flux (SSE abandonné, outil MCP annulé : la spec MCP Streamable HTTP fait de cette fermeture l'annulation). Statut d'erreur déjà posé (≥ 400) conservé.
 - **499 = observabilité PURE** : reflété dans request-log + profiler, **JAMAIS écrit sur le socket** (déjà mort). `statusCode` = champ du wrapper `HttpResponse`, jamais celui de Node.
-- Profil : une phase encore OUVERTE à la collecte (action interrompue) court jusqu'à la collecte (`Profiler.ts#totalDuration`) — sinon durée ≈ 0 pour un appel coupé.
+- Profil : `durationMs` = `ctx.stopClock()` (arrondi µs) — même valeur que le journal d'accès ; un appel coupé (499) dure jusqu'au `close`, plus jamais ≈ 0.
+- **Horloge de la requête** (`Context.ts#Context.stopClock`) : 1 `performance.now()` au ctor (tête, dès que `_timingEnabled` est résolu), 1 au PREMIER `stopClock()` — posé en tête de `HttpKernel.teardownHttp` (`close` = dernier octet remis, ou client parti ; mesure d'OTel `http.server.request.duration` et de nginx `$request_time`) ; WS : à la ligne d'accès du handshake. Journal d'accès (JSON + lisible), profiler, trace verbose LISENT, jamais ne relisent l'horloge. Timing coupé (prod défaut) → `null`, 0 horloge, 0 alloc (2 champs nombres). `FrameProfile` : même contrat (naissance → `finish`). Ne JAMAIS recalculer une durée depuis `phases`.
 - Test : `nodefony/tests/http/client-abort-499.test.ts` (journal `GET  499 …/abort/wait` + profileur : SSE abandonné → 499, durée ≥ délai de départ).
 
 ## Request timeout — 2 couches distinctes

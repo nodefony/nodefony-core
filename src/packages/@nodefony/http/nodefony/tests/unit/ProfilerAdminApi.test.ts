@@ -18,6 +18,7 @@ const collected = (p: Profiler, requestId: string): void =>
     remoteAddress: "127.0.0.1",
     response: { statusCode: 200 },
     phases: [],
+    stopClock: () => null,
   } as never);
 
 function recent(p: Profiler, query: Record<string, string>) {
