@@ -1,0 +1,10 @@
+# Tableaux de bord chargés au démarrage de Grafana (dev local) — le fichier est
+# monté par le compose depuis les gabarits d'application : un seul exemplaire.
+apiVersion: 1
+providers:
+  - name: nodefony
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

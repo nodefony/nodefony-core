@@ -1104,6 +1104,52 @@
       "testedBy": []
     },
     {
+      "path": "scripts/generate/observability-dashboards.mjs",
+      "test": false,
+      "purpose": "Tableaux de bord d'EXEMPLE des journaux Nodefony — Grafana (Loki) et OpenSearch Dashboards — rendus depuis UNE liste de panneaux.",
+      "usage": [
+        "node scripts/generate/observability-dashboards.mjs          # réécrit les deux exemples",
+        "node scripts/generate/observability-dashboards.mjs --check  # sortie 1 si un exemple est périmé"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "AUDIT",
+          "help": ""
+        },
+        {
+          "name": "HTTP",
+          "help": ""
+        },
+        {
+          "name": "LINES",
+          "help": ""
+        },
+        {
+          "name": "SEV_ERR",
+          "help": ""
+        }
+      ],
+      "output": "src/nodefony/templates/app/complete/docker/examples/dashboards/{grafana,opensearch}-nodefony-logs.*.tpl",
+      "calledBy": [],
+      "testedBy": [
+        "scripts/generate/observability-dashboards.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/generate/observability-dashboards.test.mjs",
+      "test": true,
+      "purpose": "Les tableaux de bord d'exemple livrés aux applications sont GÉNÉRÉS : un fichier retouché à la main, ou un générateur modifié sans régénérer, fait diverger ce que le dépôt montre de ce qu'il livre. /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/assemble-site.mjs",
       "test": false,
       "purpose": "Assemble le site en ligne à partir de rendus DÉJÀ faits : la version publiée à la racine, `dev` sous `/next/`, chaque release archivée sous `/<version>/`.",

@@ -295,6 +295,9 @@ services:
       - grafana-data:/var/lib/grafana
       # Provisioning en lecture seule (DNS interne : la datasource pointe http://loki:3100).
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      # Tableau de bord d'exemple des journaux — le MÊME fichier que celui livré aux
+      # applications générées (un seul exemplaire, scripts/generate/observability-dashboards.mjs).
+      - ../src/nodefony/templates/app/complete/docker/examples/dashboards/grafana-nodefony-logs.json.tpl:/var/lib/grafana/dashboards/nodefony-logs.json:ro
     depends_on:
       # service_started (pas service_healthy) : Loki est distroless = pas de healthcheck
       # (cf service loki). Grafana retente sa datasource seul jusqu'à ce que Loki réponde.
@@ -464,6 +467,29 @@ services:
     depends_on:
       opensearch:
         condition: service_healthy
+
+  # Import du tableau de bord d'exemple des journaux dans OpenSearch Dashboards, qui
+  # n'a pas de provisionnement par fichier : un passage unique attend l'API, importe
+  # (écrasement idempotent) puis s'arrête. MÊME fichier que celui livré aux
+  # applications générées (scripts/generate/observability-dashboards.mjs).
+  opensearch-dashboards-init:
+    image: curlimages/curl:8.10.1
+    container_name: nodefony-opensearch-dashboards-init
+    restart: "no"
+    profiles: ["opensearch"]
+    networks: [nodefony]
+    volumes:
+      - ../src/nodefony/templates/app/complete/docker/examples/dashboards/opensearch-nodefony-logs.ndjson.tpl:/import/nodefony-logs.ndjson:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        for i in $(seq 1 60); do
+        curl -fs -o /dev/null http://opensearch-dashboards:5601/api/status && break; sleep 3; done;
+        curl -fsS -X POST "http://opensearch-dashboards:5601/api/saved_objects/_import?overwrite=true"
+        -H "osd-xsrf: true" -F "file=@/import/nodefony-logs.ndjson"
+    depends_on:
+      opensearch-dashboards:
+        condition: service_started
 
   # --- nginx (profile proxy — banc reverse-proxy, X-Forwarded-* de-facto) ---
   # Valide la résolution forwarded + l'IP cliente FROM-RIGHT du serveur

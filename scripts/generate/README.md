@@ -94,3 +94,24 @@ generate-symbols.ts — Symbol graph extractor for AI agents.
 - **Option** `--check-range` — <de> <à>  code 1 si la zone a bougé entre deux révisions, ou si le graphe manque
 - **Appelé par** : `npm run generate-symbols` · `node.js.yml`
 - **Utilise** : `lib/repo-root.mjs` · `lib/symbols-publish.mjs` · `generate/generate-symbols.config.ts`
+
+## [`observability-dashboards.mjs`](observability-dashboards.mjs)
+
+Tableaux de bord d'EXEMPLE des journaux Nodefony — Grafana (Loki) et OpenSearch Dashboards — rendus depuis UNE liste de panneaux.
+
+- **Usage** : `node scripts/generate/observability-dashboards.mjs          # réécrit les deux exemples`
+- **Usage** : `node scripts/generate/observability-dashboards.mjs --check  # sortie 1 si un exemple est périmé`
+- **Variable** `AUDIT`
+- **Variable** `HTTP`
+- **Variable** `LINES`
+- **Variable** `SEV_ERR`
+- **Produit** : src/nodefony/templates/app/complete/docker/examples/dashboards/{grafana,opensearch}-nodefony-logs.*.tpl
+- **Appelé par** : aucun automate
+- **Testé par** : `generate/observability-dashboards.test.mjs`
+
+## [`observability-dashboards.test.mjs`](observability-dashboards.test.mjs)
+
+Les tableaux de bord d'exemple livrés aux applications sont GÉNÉRÉS : un fichier retouché à la main, ou un générateur modifié sans régénérer, fait diverger ce que le dépôt montre de ce qu'il livre. /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `generate/observability-dashboards.mjs`
