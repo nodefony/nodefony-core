@@ -305,6 +305,7 @@ export {
   N_PLUS_ONE_MIN_REPEATS,
   ACTION_SELF_PHASE,
   NO_ROUTE,
+  // oxlint-disable-next-line typescript/no-deprecated -- publié en 10.0.0-beta.4 : il reste exporté jusqu'à la majeure suivante (docs/guides/compatibilite.md)
   TOOLING_URL_PREFIX,
 } from "./nodefony/src/profiler/aggregate";
 export type {
