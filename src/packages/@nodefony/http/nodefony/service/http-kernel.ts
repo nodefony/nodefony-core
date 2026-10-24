@@ -42,6 +42,7 @@ import {
   type ITrustedHostsConfig,
 } from "../src/context/domainMatcher";
 import type { Profiler } from "../src/profiler/Profiler";
+import { isProfiledUrl } from "../src/profiler/aggregate";
 import cluster from "node:cluster";
 import http from "node:http";
 //import https from "node:https";
@@ -348,6 +349,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // Dev-only request profiler — null in prod (module ne l'enregistre qu'hors
   // prod). Résolu une fois à onReady → 1 simple null-check per-request.
   private profiler: Profiler | null = null;
+  /** `timing.tooling` : profiler aussi l'outillage (lu une fois, à onReady). */
+  private profileTooling = false;
   // Checker de confiance reverse-proxy, compilé une seule fois (lazy) depuis
   // options.trustProxy — pas de BlockList par requête.
   private _trustProxyChecker: TrustProxyChecker | null = null;
@@ -497,6 +500,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     return this.rateLimiter;
   }
 
+  /**
+   * Cette requête — ou cette frame du pont — se profile-t-elle ? Jamais sans
+   * profileur (production). L'outillage (console, profileur, journaux, Vite :
+   * `isProfiledUrl`, sur la règle `isConsolePath` du cœur) seulement sous
+   * `timing.tooling` — on ne
+   * mesure pas la façon dont on mesure : ni tampon SQL, ni instantané, ni place
+   * dans les anneaux du profileur.
+   *
+   * @param url - URL ou chemin de la requête
+   * @returns `true` quand le profil doit être pris
+   */
+  shouldProfile(url: string): boolean {
+    return this.profiler !== null && isProfiledUrl(url, this.profileTooling);
+  }
+
   private configureRateLimit(): void {
     // Désarme un éventuel scheduler précédent (reconfiguration / passage à off).
     this.rateLimitGc?.stop();
@@ -586,6 +604,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // Profiler dev-only — null si non enregistré (prod). Container.get
       // renvoie null pour un service absent (pas de throw).
       this.profiler = this.get<Profiler>("profiler");
+      const timing: unknown = this.kernel?.options.timing;
+      this.profileTooling =
+        typeof timing === "object" &&
+        timing !== null &&
+        "tooling" in timing &&
+        timing.tooling === true;
       // Rate-limit général par IP (P0.3) — armé si options.rateLimit.enabled.
       this.configureRateLimit();
       // F6c — backstop connexions WS concurrentes/IP (opt-in, désactivé par défaut).
@@ -1479,8 +1503,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       context.logRequest();
       // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
       context.logPhasesVerbose();
-      // Snapshot dev-only AVANT clean() (la donnée disparaît après).
-      this.profiler?.collect(context);
+      // Snapshot dev-only AVANT clean() (la donnée disparaît après) — jamais
+      // pour l'outillage, sauf `timing.tooling`.
+      if (this.shouldProfile(context.url)) this.profiler?.collect(context);
       const afterResponse = context._runAfterResponse();
       // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
       // listener que si un controller a posé un hook → 0 microtask sinon.
@@ -1656,7 +1681,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // (null in prod → 0 alloc). Threaded into the ALS payload so ORM
     // adapters push transparently, and onto the context so `collect()`
     // reads the same array at teardown (outside the ALS bubble).
-    const profilerQueries = this.profiler ? [] : null;
+    const profilerQueries = this.shouldProfile(context.url) ? [] : null;
     context.profilerQueries = profilerQueries;
     // Témoin de radiographie : le firewall le lit pour décider d'allouer (ou
     // non) sa trace de décision. Booléen → 0 alloc en prod.
@@ -2104,7 +2129,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // Radiographie du HANDSHAKE (le contexte WS vit pour toute la connexion :
         // la décision du firewall y est per-connexion, pas per-frame). Pas de
         // buffer ORM ici — il serait cumulatif sur N messages, donc mensonger.
-        context.profiling = this.profiler !== null;
+        context.profiling = this.shouldProfile(context.url);
       }
       // P1.4 — enter ALS scope for WS pipeline (handshake + messages).
       // context.requestId is always defined (set in WebsocketContext ctor).

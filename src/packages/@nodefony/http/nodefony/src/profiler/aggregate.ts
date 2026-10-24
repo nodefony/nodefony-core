@@ -1,3 +1,4 @@
+import { isConsolePath } from "nodefony";
 import type { ProfileEntry, ProfilePhase } from "./Profiler";
 import { MODULE_PROXY_PREFIXES } from "../proxy/rules";
 
@@ -28,7 +29,14 @@ export const SQL_SHAPE_CAP = 200;
 /** Exemples d'erreurs retenus (statut ≥ 500 ou exception). */
 export const ERROR_SAMPLE_CAP = 10;
 
-/** Préfixe des routes de l'outillage (console, API d'administration, porte MCP). */
+/**
+ * Préfixe de l'espace réservé au framework.
+ *
+ * @deprecated Ne dit pas ce qui est de l'outillage : une connexion
+ *   d'utilisateur (`/nodefony/security/api/auth/…`) ou une route d'application
+ *   (`/nodefony/test/index`) passent sous ce préfixe. La règle est
+ *   `isConsolePath` (`nodefony`), que `profileLane` appelle.
+ */
 export const TOOLING_URL_PREFIX = "/nodefony/";
 
 /**
@@ -39,19 +47,20 @@ export const TOOLING_URL_PREFIX = "/nodefony/";
 export type ProfileLane = "app" | "tooling" | "asset";
 
 /**
- * Range un profil par provenance, d'après son URL. Seule règle du partage —
- * les anneaux du profileur et le filtre de l'agrégation la lisent tous deux.
+ * Range un profil par provenance, d'après son URL. L'outillage est reconnu par
+ * la règle du cœur, `isConsolePath` — la même que les Journaux, la barre de
+ * débogage et le Studio : une connexion d'utilisateur reste de l'application.
+ * Les anneaux du profileur et le filtre de l'agrégation la lisent tous deux.
  *
  * @param url - URL du profil, absolue ou chemin.
  * @returns la provenance du profil.
  */
 export function profileLane(url: string): ProfileLane {
   const path = urlPath(url);
-  if (path.startsWith(TOOLING_URL_PREFIX)) return "tooling";
   for (const prefix of MODULE_PROXY_PREFIXES) {
     if (path.startsWith(prefix)) return "asset";
   }
-  return "app";
+  return isConsolePath(path) ? "tooling" : "app";
 }
 
 /**
@@ -62,6 +71,18 @@ export function profileLane(url: string): ProfileLane {
  */
 export function isToolingUrl(url: string): boolean {
   return profileLane(url) !== "app";
+}
+
+/**
+ * Une requête de cette URL se profile-t-elle ? L'application toujours ;
+ * l'outillage et les assets relayés seulement sur demande (`timing.tooling`)
+ * — on ne mesure pas la façon dont on mesure.
+ *
+ * @param url - URL ou chemin de la requête (ou de la frame du pont)
+ * @param tooling - profiler aussi l'outillage
+ */
+export function isProfiledUrl(url: string, tooling: boolean): boolean {
+  return tooling || profileLane(url) === "app";
 }
 
 /** Groupe des requêtes qu'aucune route n'a servies (404, statique, sondes). */

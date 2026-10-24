@@ -425,6 +425,8 @@ export interface AppConfigInput {
     enabled?: boolean | null;
     /** Trace DEBUG d'une ligne par requête détaillant chaque phase. Implique `enabled`. */
     verbose?: boolean;
+    /** Profiler aussi l'outillage (console, profileur, journaux, Vite). Défaut : non. */
+    tooling?: boolean;
   };
   /** Observabilité (Syslog + log backplane). */
   log?: LogConfig;

@@ -62,7 +62,7 @@ const GOLDEN_DEFAULTS = {
   // hors production, OFF en production). La clé doit exister pour être
   // surchargeable par `NF__APP__TIMING__ENABLED` (les overrides n'écrivent que
   // sur des chemins présents) — un `false` en dur éteindrait le waterfall en dev.
-  timing: { enabled: null, verbose: false },
+  timing: { enabled: null, verbose: false, tooling: false },
   log: {
     active: true,
     debug: [],

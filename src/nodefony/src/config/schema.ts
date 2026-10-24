@@ -439,6 +439,17 @@ export const appConfigSchema = z.object({
             "Implique `enabled`. Défaut : false — à n'allumer que le temps d'un " +
             "diagnostic (le volume nominal n'est pas un signal).",
         ),
+      tooling: z
+        .boolean()
+        .optional()
+        .describe(
+          "Profiler AUSSI l'outillage — la console d'administration, ses " +
+            "données, le profileur et les journaux eux-mêmes, Vite. Défaut : " +
+            "false — on ne mesure pas la façon dont on mesure : une requête " +
+            "d'outillage n'alloue ni tampon SQL ni profil, et les vues ne " +
+            "montrent que l'application. À allumer pour profiler la console " +
+            "(`NF__APP__TIMING__TOOLING=true`).",
+        ),
     })
     .optional()
     .describe(

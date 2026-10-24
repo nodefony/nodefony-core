@@ -561,7 +561,11 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
    *          zéro allocation dans ce cas.
    */
   beginFrame(method: string, framePath: string): FrameProfile | null {
-    if (!this.profiling && !this.timingEnabled) return null;
+    // Une frame se profile par SON chemin : la socket d'une application peut
+    // appeler l'outillage, et inversement (`HttpKernel.shouldProfile`).
+    const profiled =
+      this.profiling && this.httpKernel?.shouldProfile(framePath) === true;
+    if (!profiled && !this.timingEnabled) return null;
     this.#frameSeq += 1;
     return new FrameProfile({
       requestId: frameRequestId(this.requestId, this.#frameSeq),
@@ -576,7 +580,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
       security: (this as { security?: ProfiledArea | null }).security ?? null,
       securityTrace: this.securityTrace,
       timing: this.timingEnabled,
-      queries: this.profiling,
+      queries: profiled,
     });
   }
 
@@ -586,6 +590,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
    */
   collectFrame(frame: FrameProfile | null): void {
     if (frame === null || !this.profiling) return;
+    if (this.httpKernel?.shouldProfile(frame.url) !== true) return;
     this.get<Profiler>("profiler")?.collect(frame);
   }
 

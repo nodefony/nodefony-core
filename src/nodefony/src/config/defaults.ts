@@ -76,7 +76,7 @@ export const defaultAppConfig: ResolvedAppConfig = {
   // profiler perdraient leur matière. La clé doit néanmoins EXISTER : les overrides
   // `NF__APP__*` n'écrivent que sur des chemins déjà présents → sans elle, aucun moyen
   // d'allumer la sonde en production pour un diagnostic (`NF__APP__TIMING__ENABLED=true`).
-  timing: { enabled: null, verbose: false },
+  timing: { enabled: null, verbose: false, tooling: false },
 
   // ── Observabilité (valeurs statiques ; env-dépendances superposées par defineEnv) ──
   log: {
