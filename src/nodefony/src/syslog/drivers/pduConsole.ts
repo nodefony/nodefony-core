@@ -6,14 +6,18 @@ import {
 } from "../../runtime/authRoutes";
 
 /**
- * Chemins servis à la console d'administration elle-même : relais Vite
- * (`/_vite/`), interface pré-bâtie (`/_assets/studio/`), pages de la console
- * (`/nodefony`, `/nodefony/<page>`, `/nodefony/modules/<nom>`) et data plane
- * (`/nodefony/<module>/api/…`). Une route d'application à deux segments sous
- * `/nodefony` (`/nodefony/test/index`) n'en fait pas partie.
+ * Chemins servis à la console d'administration elle-même — l'OUTILLAGE, ce qui
+ * sert à observer l'application et qu'on ne montre donc pas comme elle : relais
+ * Vite (`/_vite/`), interface pré-bâtie (`/_assets/studio/`), pages de la
+ * console (`/nodefony`, `/nodefony/<page>`, et ses pages profondes
+ * `/nodefony/{modules,cluster,orm,users,playground,logs/trace}/<id>`) et data
+ * plane (`/nodefony/<module>/api/…`, profileur, journaux et socket de la console
+ * compris). Une route d'application à deux segments sous `/nodefony`
+ * (`/nodefony/test/index`) n'en fait pas partie. Les pages profondes suivent
+ * les replis déclarés par `StudioController` — un test du Studio le vérifie.
  */
 const CONSOLE_PATH =
-  /^\/(?:_vite\/|_assets\/studio\/|nodefony(?:\/(?:modules\/)?[^/\s?]*)?(?:[?\s]|$)|nodefony\/[^/\s?]+\/api(?:[/?\s]|$))/;
+  /^\/(?:_vite\/|_assets\/studio\/|nodefony(?:\/(?:(?:modules|cluster|orm|users|playground|logs\/trace)\/)?[^/\s?]*)?(?:[?\s]|$)|nodefony\/[^/\s?]+\/api(?:[/?\s]|$))/;
 
 /**
  * Connexions des utilisateurs (mot de passe, passkeys, fournisseurs OAuth) :

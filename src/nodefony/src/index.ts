@@ -135,6 +135,7 @@ export {
   accessStatusFamily,
   consoleRequestIds,
   findAccessLine,
+  isConsolePath,
   parseAccessLine,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
