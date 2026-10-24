@@ -106,6 +106,13 @@ export interface FeedLog {
    * reconnaît ce qui est neuf et retrouve une ligne.
    */
   seq: number;
+  /**
+   * Instant de RÉCEPTION dans cette page (`performance.now()`), la même horloge
+   * que `NetEntry.startedAt` : c'est elle qui ordonne requêtes et lignes dans un
+   * même flux. `ts` est l'horloge du serveur, et un ordre ne se prouve jamais
+   * avec deux horloges.
+   */
+  at: number;
 }
 
 /** Vue dénormalisée consommée par le rendu. */
@@ -248,6 +255,8 @@ export class DebugBarModel {
   ingestSyslog(payload: SyslogPayload): void {
     const logs = payload.logs;
     if (logs) {
+      // Une mesure par lot : ses lignes arrivent ensemble.
+      const at = performance.now();
       for (let i = 0; i < logs.length; i++) {
         const entry = logs.at(i);
         if (typeof entry?.severity !== "number") continue;
@@ -298,6 +307,7 @@ export class DebugBarModel {
             typeof entry.requestId === "string" ? entry.requestId : undefined,
           console: isConsole,
           seq: ++this._seq,
+          at,
         });
       }
       if (this._feed.length > FEED_MAX + FEED_SLACK)
