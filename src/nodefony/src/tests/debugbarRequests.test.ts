@@ -99,6 +99,31 @@ describe("vue Page — les requêtes de la page", () => {
     expect(items.map(flowKey)).toEqual(["r1"]);
   });
 
+  it("🔴 une requête SANS réponse (en attente, ou échec réseau) reste une ligne, et ne se rattache à rien", () => {
+    const enAttente = appel(1, null);
+    const echec = {
+      ...appel(2, null),
+      pending: false,
+      error: "Failed to fetch",
+    };
+    // Des lignes relues existent pour une autre requête : rien ne doit s'y
+    // accrocher faute de requestId.
+    const lines = new Map<string, LinesState>([
+      ["r9", [recordToLine(enregistrement(10, "autre requête", "r9"))]],
+    ]);
+    const items = pageItems([echec, enAttente], "", {
+      expanded: new Set(["r1", "r2"]),
+      lines,
+      keep: () => true,
+    });
+    expect(items.map(flowKey)).toEqual(["r2", "r1"]);
+    for (const item of items) {
+      if (!("kind" in item) || item.kind !== "request")
+        throw new Error("une requête était attendue");
+      expect(item.requestId).toBeNull();
+    }
+  });
+
   it("la recherche porte sur la méthode, le chemin, le statut et le requestId", () => {
     const net = [appel(1, "r1", "/api/articles"), appel(2, "r2", "/api/users")];
     expect(pageItems(net, "articles", sans).map(flowKey)).toEqual(["r1"]);
