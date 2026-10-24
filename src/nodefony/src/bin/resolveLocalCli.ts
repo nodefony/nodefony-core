@@ -194,12 +194,6 @@ export function resolveLocalCli(input: {
     };
   }
 
-  // Monorepo self-hosted, `npm link`, `create app --link` : le paquet du projet EST
-  // celui qui tourne (symlink). Déléguer serait un aller-retour sans objet.
-  if (realOrSelf(localPkgDir) === realOrSelf(input.selfDir)) {
-    return { delegate: null, reason: "same-package" };
-  }
-
   const rel = binEntry(localPkg);
   if (!rel) {
     return {
@@ -220,6 +214,20 @@ export function resolveLocalCli(input: {
     };
   }
 
+  // Monorepo self-hosted, `npm link`, `create app --link` : le paquet du projet EST
+  // celui qui tourne. L'identité se juge sur le BINAIRE, pas sur le dossier : bun
+  // relie un `file:` en dossier réel dont seuls les fichiers sont des liens. Le
+  // dossier diffère alors, mais `import()` résout le binaire sur le lanceur en
+  // cours d'évaluation — une attente circulaire jamais réglée (sortie 13).
+  const selfPkg = readPackageJson(input.selfDir);
+  const selfRel = selfPkg ? binEntry(selfPkg) : null;
+  if (
+    selfRel &&
+    realOrSelf(localBin) === realOrSelf(path.resolve(input.selfDir, selfRel))
+  ) {
+    return { delegate: null, reason: "same-package" };
+  }
+
   const version = (pkg: Record<string, unknown> | null): string | null =>
     typeof pkg?.version === "string" ? pkg.version : null;
 
@@ -227,7 +235,7 @@ export function resolveLocalCli(input: {
     delegate: localBin,
     reason: "local-cli",
     projectRoot,
-    selfVersion: version(readPackageJson(input.selfDir)),
+    selfVersion: version(selfPkg),
     localVersion: version(localPkg),
   };
 }

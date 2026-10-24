@@ -170,7 +170,7 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 | déjà délégué (le CLI de l'app tourne) | `already-delegated` | soi-même (anti-boucle) |
 | hors projet (`create app`) | `no-project` | soi-même (rôle du global) |
 | deps non installées | `no-local-cli` | soi-même (rend service) |
-| `realpath` local === self (monorepo, `--link`, `npm link`) | `same-package` | soi-même (0 aller-retour) |
+| `realpath` du BINAIRE local === celui qui tourne (monorepo, `--link`, `npm link`, bun `file:`) | `same-package` | soi-même (0 aller-retour) — jugé sur le binaire : bun relie un `file:` en dossier réel à fichiers liés ; déléguer = `import()` de soi-même, TLA jamais réglé, exit 13 |
 | paquet local DIFFÉRENT | `local-cli` | `await import(<app>/bin/nodefony)` — même process, argv intact |
 | bin déclaré mais absent (paquet non construit) | `local-cli-broken` | **stderr + exit 1** (jamais piloter l'app avec une autre version) |
 

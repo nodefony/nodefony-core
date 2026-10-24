@@ -113,6 +113,32 @@ describe("bin — resolveLocalCli (le CLI de l'app prime sur le global)", () => 
     assert.strictEqual(d.reason, "same-package");
   });
 
+  /*
+   *   bun relie un `file:` autrement que npm : `node_modules/nodefony` est un
+   *   dossier RÉEL dont chaque FICHIER est un lien vers le paquet. Le dossier ne
+   *   se résout donc pas sur le paquet qui tourne — mais le binaire, si. Déléguer
+   *   y faisait `await import()` du lanceur en cours d'évaluation : attente
+   *   circulaire jamais réglée, sortie 13 sur TOUTE commande (`bun run build`
+   *   d'une app générée avec `--link`).
+   */
+  it("même paquet relié fichier par fichier (bun `file:`) : aucun import de soi-même", () => {
+    const bunLinked = makeProject(path.join(root, "bun-linked"), "bun-linked");
+    const pkgDir = path.join(bunLinked, "node_modules", "nodefony");
+    fs.mkdirSync(path.join(pkgDir, "bin"), { recursive: true });
+    fs.symlinkSync(
+      path.join(globalPkg, "package.json"),
+      path.join(pkgDir, "package.json"),
+    );
+    fs.symlinkSync(
+      path.join(globalPkg, "bin", "nodefony"),
+      path.join(pkgDir, "bin", "nodefony"),
+    );
+
+    const d = resolveLocalCli({ cwd: bunLinked, selfDir: globalPkg });
+    assert.strictEqual(d.delegate, null);
+    assert.strictEqual(d.reason, "same-package");
+  });
+
   it("projet aux dépendances non installées : le global rend service", () => {
     const bare = makeProject(path.join(root, "bare"), "bare");
     const d = resolveLocalCli({ cwd: bare, selfDir: globalPkg });
