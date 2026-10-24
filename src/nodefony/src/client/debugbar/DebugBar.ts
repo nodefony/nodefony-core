@@ -40,6 +40,8 @@ import {
 } from "./format";
 import { observeViteHmr, type HmrEvent } from "./hmr";
 import { FeedView } from "./feedView";
+import { SEVERITY_NAMES } from "../../syslog/Pdu";
+import { pduIsModuleExcluded } from "../../syslog/drivers/pduConsole";
 import {
   exposedKernels,
   KERNEL_PROBE_EVENT,
@@ -859,7 +861,14 @@ export class DebugBar {
   private liveOff: (() => void) | null = null;
   private rafPending = false;
   /** Filtre de sévérité de l'onglet Logs — `all` par défaut. */
-  private feedSev: "all" | "err" | "warn" = "all";
+  /**
+   * Filtres du journal — les MÊMES que le Direct de la console : INFO et plus
+   * grave à l'ouverture (DEBUG à un clic), trafic de la console et de Vite
+   * masqué, lignes du framework visibles.
+   */
+  private readonly feedSevs = new Set<number>([0, 1, 2, 3, 4, 5, 6]);
+  private feedHideConsole = true;
+  private feedHideFramework = false;
   /** Recherche courante, déjà en minuscules (comparée telle quelle). */
   private feedQuery = "";
   /**
@@ -1492,29 +1501,31 @@ export class DebugBar {
       );
     }
     // ── Barre d'outils du journal ──────────────────────────────────────────
-    const counts = bar.querySelector(".counts");
-    if (counts) {
-      const onSev = (ev: Event): void => {
+    const filters = this.el.feedFilters;
+    if (filters) {
+      const onFilter = (ev: Event): void => {
         const t = closestFrom(ev.target, ".sevf");
-        const sev = t?.getAttribute("data-sev");
-        if (sev !== "all" && sev !== "err" && sev !== "warn") return;
-        // Recliquer le filtre actif le retire : un filtre qu'on ne sait pas
-        // enlever se transforme en écran vide qu'on croit cassé.
-        this.feedSev = this.feedSev === sev ? "all" : sev;
-        counts
-          .querySelectorAll(".sevf")
-          .forEach((n) =>
-            n.classList.toggle(
-              "on",
-              n.getAttribute("data-sev") === this.feedSev &&
-                this.feedSev !== "all",
-            ),
-          );
+        if (!t) return;
+        let on: boolean;
+        const sevAttr = t.getAttribute("data-sevn");
+        const view = t.getAttribute("data-view");
+        if (sevAttr !== null) {
+          const sev = Number(sevAttr);
+          on = !this.feedSevs.has(sev);
+          if (on) this.feedSevs.add(sev);
+          else this.feedSevs.delete(sev);
+        } else if (view === "console") {
+          on = this.feedHideConsole = !this.feedHideConsole;
+        } else if (view === "framework") {
+          on = this.feedHideFramework = !this.feedHideFramework;
+        } else return;
+        t.classList.toggle("on", on);
+        t.setAttribute("aria-pressed", String(on));
         this.feedDirty = true;
         this.render();
       };
-      counts.addEventListener("click", onSev);
-      this.disposers.push(() => counts.removeEventListener("click", onSev));
+      filters.addEventListener("click", onFilter);
+      this.disposers.push(() => filters.removeEventListener("click", onFilter));
     }
     const search = this.el.logSearch as HTMLInputElement | undefined;
     if (search) {
@@ -1768,9 +1779,9 @@ export class DebugBar {
   private logsPane(): string {
     return `<div class="pane logp" data-pane="logs">
       <div class="counts">
-        <button type="button" class="chip sevf" data-sev="all" data-tip="Tout afficher"><span class="k">total</span><span data-el="cTotal">0</span></button>
-        <button type="button" class="chip sevf" data-sev="err" data-tip="N'afficher que les erreurs (sévérité 0 à 3)"><span class="k">err</span><span class="crit" data-el="cErr">0</span></button>
-        <button type="button" class="chip sevf" data-sev="warn" data-tip="N'afficher que les alertes (sévérité 4)"><span class="k">warn</span><span class="warn" data-el="cWarn">0</span></button>
+        <span class="chip" data-tip="Entrées reçues depuis l'ouverture de la page"><span class="k">total</span><span data-el="cTotal">0</span></span>
+        <span class="chip" data-tip="Erreurs reçues (sévérité 0 à 3)"><span class="k">err</span><span class="crit" data-el="cErr">0</span></span>
+        <span class="chip" data-tip="Alertes reçues (sévérité 4)"><span class="k">warn</span><span class="warn" data-el="cWarn">0</span></span>
         <span class="chip" data-tip="Entrées écartées par le serveur faute de place dans le tampon — le flux était plus rapide que l'envoi"><span class="k">dropped</span><span class="muted" data-el="cDrop">0</span></span>
         <span class="spacer"></span>
         <input class="search" data-el="logSearch" type="search" placeholder="rechercher…"
@@ -1778,6 +1789,11 @@ export class DebugBar {
         <button type="button" class="toolbtn" data-el="btnPause" aria-pressed="false" data-tip="Suspendre l'affichage — les entrées continuent d'arriver et se rattrapent à la reprise">⏸</button>
         <button type="button" class="toolbtn" data-el="btnCopy" data-tip="Copier les entrées affichées (tout le jeu filtré, pas seulement l'écran) dans le presse-papiers">⧉</button>
         <button type="button" class="toolbtn" data-el="btnClearFeed" data-tip="Vider la liste affichée (n'efface rien côté serveur)">⌫</button>
+      </div>
+      <div class="counts feedfilters" data-el="feedFilters">
+        ${SEVERITY_NAMES.map((name, sev) => `<button type="button" class="chip sevf${this.feedSevs.has(sev) ? " on" : ""}" data-sevn="${sev}" aria-pressed="${this.feedSevs.has(sev)}" data-tip="Afficher ou masquer ${name}">${name.toLowerCase()}</button>`).join("")}
+        <button type="button" class="chip sevf${this.feedHideConsole ? " on" : ""}" data-view="console" aria-pressed="${this.feedHideConsole}" data-tip="Masquer les requêtes de la console d'administration et du relais Vite, avec toutes leurs lignes — la même règle que la console">console et Vite masqués</button>
+        <button type="button" class="chip sevf${this.feedHideFramework ? " on" : ""}" data-view="framework" aria-pressed="${this.feedHideFramework}" data-tip="Masquer ce que le framework écrit pour lui-même ; les lignes de requête restent">NODEFONY masqué</button>
       </div>
       <div class="logbody">
         <div class="feedbox" data-el="feedBox">
@@ -2533,10 +2549,30 @@ export class DebugBar {
     return "info";
   }
 
-  /** L'entrée passe-t-elle le filtre de sévérité et la recherche en cours ? */
-  private feedMatch(l: FeedLog): boolean {
-    if (this.feedSev === "err" && l.severity > 3) return false;
-    if (this.feedSev === "warn" && l.severity !== 4) return false;
+  /**
+   * L'entrée passe-t-elle les filtres et la recherche en cours ? Les règles
+   * « console » et « module exclu » sont celles du cœur, partagées avec la
+   * console d'administration — jamais recopiées.
+   */
+  private feedMatch(
+    l: FeedLog,
+    consoleIds: ReadonlySet<string> | null,
+  ): boolean {
+    if (!this.feedSevs.has(l.severity)) return false;
+    if (
+      this.feedHideConsole &&
+      (l.console ||
+        (l.requestId !== undefined && consoleIds?.has(l.requestId) === true))
+    )
+      return false;
+    if (
+      this.feedHideFramework &&
+      pduIsModuleExcluded(
+        { moduleName: l.module, msgid: l.msgid, payload: l.text },
+        "nodefony",
+      )
+    )
+      return false;
     const q = this.feedQuery;
     if (q === "") return true;
     return (
@@ -2591,10 +2627,17 @@ export class DebugBar {
     const since = this.feedSeen;
     this.feedSeen = last;
     this.feedDirty = false;
-    const filtering =
-      this.feedSev !== "all" || this.feedQuery !== "" || this.feedCleared > 0;
+    const narrowing =
+      this.feedSevs.size !== SEVERITY_NAMES.length ||
+      this.feedHideConsole ||
+      this.feedHideFramework ||
+      this.feedQuery !== "";
+    const filtering = narrowing || this.feedCleared > 0;
+    const consoleIds = this.model.consoleRequestIds;
     const list = filtering
-      ? feed.filter((l) => l.seq > this.feedCleared && this.feedMatch(l))
+      ? feed.filter(
+          (l) => l.seq > this.feedCleared && this.feedMatch(l, consoleIds),
+        )
       : feed;
     let appended = -1;
     if (!refilter) {
@@ -2607,7 +2650,7 @@ export class DebugBar {
     const emptyText =
       feed.length === 0
         ? "en attente de journaux…"
-        : this.feedCleared > 0 && !this.feedQuery && this.feedSev === "all"
+        : this.feedCleared > 0 && !narrowing
           ? "liste vidée — les nouvelles entrées s'afficheront ici."
           : "aucune entrée ne correspond au filtre.";
     view.setEntries(list, appended, emptyText);

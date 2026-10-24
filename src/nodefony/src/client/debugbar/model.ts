@@ -11,6 +11,7 @@
 import type { RealtimeState } from "../realtime/NodefonySocket";
 import Pdu, { type Severity } from "../../syslog/Pdu";
 import { stripAnsi } from "./format";
+import { pduIsConsoleTraffic } from "../../syslog/drivers/pduConsole";
 
 /** Métadonnées applicatives statiques (env, branche git, version) — bloc `app`. */
 export interface AppMeta {
@@ -95,6 +96,11 @@ export interface FeedLog {
   /** Requête corrélée, quand elle est connue. */
   requestId?: string | undefined;
   /**
+   * Ligne du trafic de la console d'administration (règle du cœur
+   * `pduIsConsoleTraffic`, évaluée UNE fois à l'arrivée, sur la charge brute).
+   */
+  console: boolean;
+  /**
    * Rang d'arrivée dans CETTE page — strictement croissant. `uid` ne l'est pas
    * (en cluster, chaque worker a sa séquence) : c'est sur `seq` qu'une vue
    * reconnaît ce qui est neuf et retrouve une ligne.
@@ -160,6 +166,12 @@ export const FEED_MAX = 2000;
  * `splice` en tête de tableau déplace tout le reste.
  */
 const FEED_SLACK = 200;
+/**
+ * Requêtes de la console retenues : leur ligne d'accès arrive APRÈS leurs
+ * autres lignes, l'identifiant doit donc survivre d'un lot à l'autre. Au-delà,
+ * l'ensemble repart à vide — même borne que le Direct de la console.
+ */
+const CONSOLE_IDS_MAX = 2000;
 
 function pushCapped(arr: number[], v: number, cap: number): void {
   arr.push(v);
@@ -195,6 +207,17 @@ export class DebugBarModel {
   private _dropped = 0;
   private readonly _feed: FeedLog[] = [];
   private _seq = 0;
+  /** Requêtes de la console vues — `null` tant qu'il n'y en a aucune. */
+  private _consoleIds: Set<string> | null = null;
+
+  /**
+   * Les requêtes de la console reconnues jusqu'ici, pour écarter AUSSI leurs
+   * lignes sans URL (même règle que `consoleRequestIds` du cœur, tenue au fil
+   * de l'eau).
+   */
+  get consoleRequestIds(): ReadonlySet<string> | null {
+    return this._consoleIds;
+  }
 
   setState(state: RealtimeState): void {
     this._state = state;
@@ -245,6 +268,17 @@ export class DebugBarModel {
         this._logTotal++;
         if (sev <= SEVERITY_ERROR_MAX) this._errorCount++;
         else if (sev === SEVERITY_WARNING) this._warnCount++;
+        const isConsole = pduIsConsoleTraffic({
+          msgid: pdu.msgid,
+          payload: entry.payload,
+          severity: sev,
+        });
+        if (isConsole && typeof entry.requestId === "string") {
+          if (this._consoleIds === null) this._consoleIds = new Set();
+          else if (this._consoleIds.size >= CONSOLE_IDS_MAX)
+            this._consoleIds.clear();
+          this._consoleIds.add(entry.requestId);
+        }
         this._feed.push({
           severity: sev,
           name: pdu.severityName,
@@ -262,6 +296,7 @@ export class DebugBarModel {
           pid: typeof entry.pid === "number" ? entry.pid : 0,
           requestId:
             typeof entry.requestId === "string" ? entry.requestId : undefined,
+          console: isConsole,
           seq: ++this._seq,
         });
       }

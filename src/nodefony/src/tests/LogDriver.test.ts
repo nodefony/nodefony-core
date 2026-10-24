@@ -384,6 +384,30 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     it("sans hideConsole, rien n'est écarté", () => {
       assert.strictEqual(filterPdus(traffic(), {}).total, traffic().length);
     });
+
+    it("les connexions des utilisateurs restent visibles (mot de passe, passkeys, OAuth)", () => {
+      const kept = filterPdus(
+        [
+          access("/nodefony/security/api/auth/login", 1),
+          access("/nodefony/security/api/auth", 2),
+          access("/nodefony/security/api/webauthn/login/verify", 3),
+          access("/nodefony/security/api/oauth2/github/authorize?from=/", 4),
+          // Frontière : un préfixe voisin n'est PAS une route de connexion.
+          access("/nodefony/security/api/authz/rules", 5),
+          access("/nodefony/security/api/users", 6),
+        ],
+        { hideConsole: true },
+      );
+      assert.deepStrictEqual(
+        kept.rows.map((r) => String(r.payload).split(" ")[3]),
+        [
+          `${H}/nodefony/security/api/oauth2/github/authorize?from=/`,
+          `${H}/nodefony/security/api/webauthn/login/verify`,
+          `${H}/nodefony/security/api/auth`,
+          `${H}/nodefony/security/api/auth/login`,
+        ],
+      );
+    });
   });
 
   describe("pduProtocol — classification pure", () => {

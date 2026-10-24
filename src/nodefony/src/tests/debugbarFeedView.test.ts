@@ -26,6 +26,7 @@ function entree(seq: number, severity = 6): FeedLog {
     uid: seq,
     msgid: "",
     pid: 1,
+    console: false,
   };
 }
 const serie = (from: number, to: number): FeedLog[] => {

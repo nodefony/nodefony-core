@@ -1,4 +1,9 @@
 import type { IPduLike } from "./ILogDriver";
+import {
+  AUTH_API_BASE,
+  OAUTH2_API_BASE,
+  WEBAUTHN_API_BASE,
+} from "../../runtime/authRoutes";
 
 /**
  * Chemins servis à la console d'administration elle-même : relais Vite
@@ -9,6 +14,29 @@ import type { IPduLike } from "./ILogDriver";
  */
 const CONSOLE_PATH =
   /^\/(?:_vite\/|_assets\/studio\/|nodefony(?:\/(?:modules\/)?[^/\s?]*)?(?:[?\s]|$)|nodefony\/[^/\s?]+\/api(?:[/?\s]|$))/;
+
+/**
+ * Connexions des utilisateurs (mot de passe, passkeys, fournisseurs OAuth) :
+ * elles passent par l'API de sécurité, sous `/nodefony/`, mais ce sont les
+ * connexions à l'APPLICATION — l'exploitant les cherche, elles ne sont jamais
+ * rangées dans le trafic de la console.
+ */
+const AUTH_PREFIXES: readonly string[] = [
+  AUTH_API_BASE,
+  WEBAUTHN_API_BASE,
+  OAUTH2_API_BASE,
+];
+
+/** Le chemin vise-t-il une route de connexion (préfixe suivi d'une frontière) ? */
+function isAuthPath(path: string): boolean {
+  for (const prefix of AUTH_PREFIXES) {
+    if (!path.startsWith(prefix)) continue;
+    const next = path.charAt(prefix.length);
+    if (next === "" || next === "/" || next === "?" || next === " ")
+      return true;
+  }
+  return false;
+}
 
 /**
  * Sévérité RFC 5424 de WARNING : au-dessus (NOTICE, INFO, DEBUG), ce que Vite
@@ -80,8 +108,10 @@ export function pduIsConsoleTraffic(
   const text = pdu.payload.replace(ANSI, "");
   const scheme = text.indexOf("://");
   if (scheme === -1) return false;
-  const path = text.indexOf("/", scheme + 3);
-  return path !== -1 && CONSOLE_PATH.test(text.slice(path));
+  const at = text.indexOf("/", scheme + 3);
+  if (at === -1) return false;
+  const path = text.slice(at);
+  return CONSOLE_PATH.test(path) && !isAuthPath(path);
 }
 
 /** Ce qu'il faut d'une ligne pour la rattacher à une requête de la console. */

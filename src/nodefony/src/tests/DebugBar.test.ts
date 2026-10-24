@@ -112,6 +112,36 @@ describe("DebugBar — DebugBarModel (pur)", () => {
     expect(v.feed[0]?.module).to.equal("auth");
   });
 
+  it("ingestSyslog : marque le trafic de la console et retient ses requêtes (règle du cœur)", () => {
+    const m = new DebugBarModel();
+    m.ingestSyslog({
+      logs: [
+        {
+          severity: 7,
+          payload: "EVENT onRequestScope",
+          msgid: "KERNEL",
+          requestId: "C",
+        },
+        {
+          severity: 6,
+          payload: "GET 200 https://h/nodefony/logs 2ms",
+          msgid: "req",
+          requestId: "C",
+        },
+        {
+          severity: 6,
+          payload: "GET 200 https://h/ 2ms",
+          msgid: "req",
+          requestId: "A",
+        },
+      ],
+    });
+    const feed = m.view.feed;
+    expect(feed.map((l) => l.console)).to.deep.equal([false, true, false]);
+    // La 1ʳᵉ ligne ne porte pas l'URL : c'est son requestId qui la rattache.
+    expect([...(m.consoleRequestIds ?? [])]).to.deep.equal(["C"]);
+  });
+
   it("ingestSyslog : sévérité hors RFC 5424 ignorée (Pdu throw)", () => {
     const m = new DebugBarModel();
     m.ingestSyslog({
