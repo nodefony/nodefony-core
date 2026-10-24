@@ -358,18 +358,25 @@ class Service implements IService {
    * @param severity - niveau syslog (`INFO`, `WARNING`, `ERROR`, `CRITIC`, `DEBUG`…).
    * @param msgid - identifiant logique ; défaut = `this.name`.
    * @param msg - message libre additionnel.
+   * @param moduleName - module qui signe la ligne ; défaut = celui du journal.
    * @returns le {@link Pdu} émis (utile pour chaîner des transports).
    * @remarks Si syslog est down, fabrique un Pdu directement et catch toute exception.
    */
-  log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
+  log(
+    pci: Pci,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message,
+    moduleName?: string,
+  ): Pdu {
     try {
       if (!msgid) {
         msgid = this.name;
       }
       if (this.syslog) {
-        return this.syslog.log(pci, severity, msgid, msg);
+        return this.syslog.log(pci, severity, msgid, msg, moduleName);
       }
-      return new Pdu(pci, severity, this.name, msgid, msg);
+      return new Pdu(pci, severity, moduleName ?? this.name, msgid, msg);
     } catch (e) {
       console.log(severity, msgid, msg, " : ", pci);
       console.warn(e);

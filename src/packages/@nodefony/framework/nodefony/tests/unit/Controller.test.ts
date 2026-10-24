@@ -577,3 +577,21 @@ describe("Controller — renderMediaStream()", () => {
     expect(calls.writeHead).to.have.lengthOf(1);
   });
 });
+
+describe("Controller.log — module signataire", () => {
+  it("le module du contrôleur signe par défaut, plus le noyau", () => {
+    const { c } = makeController();
+    c.module = { name: "app" } as never;
+    expect(c.log("ok", "INFO", "APP").moduleName).toBe("app");
+  });
+
+  it("context.logModule prime sur le module du contrôleur, l'argument explicite sur tout", () => {
+    const { c, ctx } = makeController();
+    c.module = { name: "app" } as never;
+    Object.assign(ctx, { logModule: "billing" });
+    expect(c.log("ok", "INFO", "APP").moduleName).toBe("billing");
+    expect(c.log("ok", "INFO", "APP", undefined, "audit").moduleName).toBe(
+      "audit",
+    );
+  });
+});

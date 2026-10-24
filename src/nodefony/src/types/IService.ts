@@ -57,7 +57,13 @@ export interface IService {
   clean(syslog?: boolean): void;
 
   // ─── Logging ───────────────────────────────────────────────────────────────
-  log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu;
+  log(
+    pci: Pci,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message,
+    moduleName?: string,
+  ): Pdu;
   logger(pci: Pci, ...args: unknown[]): void;
   trace(pci: Pci, ...args: unknown[]): void;
 

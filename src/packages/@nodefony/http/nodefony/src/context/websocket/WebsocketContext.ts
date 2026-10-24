@@ -299,9 +299,10 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     severity?: Severity,
     msgid?: Msgid,
     msg?: Message,
+    moduleName?: string,
   ) {
     if (!msgid) msgid = "WEBSOCKET CONTEXT";
-    return super.log(pci, severity, msgid, msg);
+    return super.log(pci, severity, msgid, msg, moduleName);
   }
 
   override logRequest(
@@ -316,7 +317,14 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
         httpError ?? null,
         acceptedProtocol ?? null,
       );
-      const pdu = this.log(entry.text, entry.severity, entry.msgid);
+      // Signée par le module de la route (cf Context.logRequest).
+      const pdu = this.log(
+        entry.text,
+        entry.severity,
+        entry.msgid,
+        undefined,
+        this.logModule ?? this.resolver?.route?.module?.name,
+      );
       // Idem HTTP (cf Context.logRequest) : log de fin émis hors bulle ALS →
       // on attache le requestId du contexte WS (stable handshake→messages→close)
       // pour corréler la ligne récapitulative avec les logs de la connexion.

@@ -227,6 +227,12 @@ class Context extends Service implements IContextInterface {
   router: IRequestRouter | null = this.get("router");
   resolver: IRouteResolver | null = null;
   /**
+   * Module qui signe les lignes de CETTE requête : la ligne d'accès et les
+   * lignes du contrôleur. `null` = le module de la route (sans route : le
+   * journal du noyau). Un contrôleur le change : `this.context.logModule = "billing"`.
+   */
+  logModule: string | null = null;
+  /**
    * Intent de session de la route courante (posé par le Resolver depuis
    * `@UseSession` / paramètre `@Session`). Pilote le point d'activation unique
    * (HTTP + WS). `null` = aucune session sauf cookie existant (reprise L1).
@@ -537,6 +543,7 @@ class Context extends Service implements IContextInterface {
     severity?: Severity,
     msgid?: Msgid,
     msg?: Message,
+    moduleName?: string,
   ): Pdu {
     if (!msgid) {
       msgid = this.serverType;
@@ -554,10 +561,10 @@ class Context extends Service implements IContextInterface {
     // `RequestContext.getScope()` y rend donc `undefined`.
     if (this.requestId && RequestContext.getRequestId() === undefined) {
       return RequestContext.run({ requestId: this.requestId }, () =>
-        super.log(pci, severity, msgid, msg),
+        super.log(pci, severity, msgid, msg, moduleName),
       );
     }
-    return super.log(pci, severity, msgid, msg);
+    return super.log(pci, severity, msgid, msg, moduleName);
   }
 
   /**
@@ -641,7 +648,15 @@ class Context extends Service implements IContextInterface {
       // Le bilan `req` (LE point d'entrée d'une trace) est émis au teardown, hors
       // bulle ALS → la corrélation requestId est assurée par l'override `log()`
       // ci-dessus (micro-bulle si l'ALS est vide), commun à tous les logs de fin.
-      return this.log(entry.text, entry.severity, entry.msgid);
+      // Signée par le module qui a répondu (`GET /` → l'application), pas par
+      // le noyau qui l'écrit ; sans route (statique, 404) → le journal du noyau.
+      return this.log(
+        entry.text,
+        entry.severity,
+        entry.msgid,
+        undefined,
+        this.logModule ?? this.resolver?.route?.module?.name,
+      );
     } catch {
       // Un échec de journalisation ne doit jamais faire tomber la requête.
       return undefined;

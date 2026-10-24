@@ -2448,3 +2448,18 @@ describe("Relecture JSON — Pdu.parseJson et Syslog.loadStack", () => {
     assert.strictEqual(inst.ringStack.at(-1)?.msgid, "OK");
   });
 });
+
+describe("Syslog.log — module signataire", () => {
+  it("le moduleName passé signe la ligne, sinon celui du journal", () => {
+    const inst = new Syslog({ moduleName: "NODEFONY" });
+    assert.strictEqual(
+      inst.log("GET 200 /", "INFO", "req", undefined, "app").moduleName,
+      "app",
+    );
+    assert.strictEqual(
+      inst.log("boot", "INFO", "KERNEL").moduleName,
+      "NODEFONY",
+    );
+    assert.strictEqual(inst.ringStack.at(-2)?.moduleName, "app");
+  });
+});

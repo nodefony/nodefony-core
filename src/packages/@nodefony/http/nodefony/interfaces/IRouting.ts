@@ -12,6 +12,8 @@ import type { ContextType } from "../service/http-kernel";
 export interface IResolvedRoute {
   /** Nom de la route (journalisation, diagnostic). */
   readonly name: string;
+  /** Module propriétaire — il signe la ligne d'accès de la requête. */
+  readonly module?: { readonly name: string } | undefined;
   /** Corps laissé en flux (`@Body({ stream: true })`) : le parse est sauté. */
   readonly bodyStream?: boolean | undefined;
 }

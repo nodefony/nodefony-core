@@ -1215,6 +1215,9 @@ class Syslog extends Event implements ISyslog {
    * @param severity - sévérité RFC 5424 (`"INFO"`, `"ERROR"`, ...) ou numérique (6, 3, ...).
    * @param msgid - catégorie de message (`"AUTH"`, `"ROUTER"`). Défaut = `settings.msgid`.
    * @param msg - détail libre optionnel.
+   * @param moduleName - module qui SIGNE la ligne, à la place de celui du
+   *   journal (ex. la ligne d'accès signée par le module qui a répondu).
+   *   Ignoré quand `payload` est déjà un `Pdu`.
    * @returns le `Pdu` créé (utile pour audit/tests).
    */
   log(
@@ -1222,6 +1225,7 @@ class Syslog extends Event implements ISyslog {
     severity?: Severity,
     msgid?: ModuleName,
     msg?: Message,
+    moduleName?: ModuleName,
   ): Pdu {
     // T2 — gate d'ENTRÉE par sévérité (résolu au boot, re-résoluble à chaud) :
     // sous le seuil → AUCUN Pdu créé, RIEN au ring/transports/listeners.
@@ -1286,7 +1290,7 @@ class Syslog extends Event implements ISyslog {
                   this,
                   payload,
                   severity,
-                  this.settings.moduleName,
+                  moduleName ?? this.settings.moduleName,
                   msgid || this.settings.msgid,
                   msg,
                 );
@@ -1320,7 +1324,7 @@ class Syslog extends Event implements ISyslog {
               this,
               payload,
               severity,
-              this.settings.moduleName,
+              moduleName ?? this.settings.moduleName,
               msgid || this.settings.msgid,
               msg,
             );

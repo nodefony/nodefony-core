@@ -3,6 +3,10 @@ import {
   Module,
   Container,
   RequestContext,
+  type Pci,
+  type Severity,
+  type Msgid,
+  type Message,
   //typeOf,
   //EnvironmentType,
   //DebugType,
@@ -243,6 +247,29 @@ class Controller extends Service implements IController {
   set context(context: ContextType | undefined) {
     this.#assertPerRequest("context");
     this.#context = context ?? null;
+  }
+
+  /**
+   * Journalise au nom du module du contrôleur, pas du noyau : `moduleName`
+   * explicite, sinon le module posé sur la requête (`context.logModule`),
+   * sinon le module propriétaire du contrôleur.
+   *
+   * @param moduleName - module qui signe CETTE ligne
+   */
+  override log(
+    pci: Pci,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message,
+    moduleName?: string,
+  ) {
+    return super.log(
+      pci,
+      severity,
+      msgid,
+      msg,
+      moduleName ?? this.context?.logModule ?? this.module?.name,
+    );
   }
 
   /**
