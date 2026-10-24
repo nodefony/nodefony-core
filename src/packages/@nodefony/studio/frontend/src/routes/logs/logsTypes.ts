@@ -10,8 +10,9 @@
  * de l'endpoint `backplane`. Toute évolution du contrat back → mettre à jour ici.
  */
 
-import { FLOW_STEPS, isPlainObject, SEVERITY_NAMES } from "nodefony";
-import type { FlowStepId, SeverityName } from "nodefony";
+import { isPlainObject, SEVERITY_NAMES } from "nodefony";
+import type { SeverityName } from "nodefony";
+import { FLOW_STEPS, type FlowStepId } from "nodefony/syslog";
 import { arrayOf, isOneOf, isString } from "../../utils/guards";
 
 /**

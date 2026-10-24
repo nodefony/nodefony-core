@@ -11,11 +11,11 @@
  * « Étape » + sélecteur), le drawer de détail, le rejeu de fichier et la légende
  * de l'onglet Backplane.
  */
-import { pduFlowStep, FLOW_STEPS, type FlowStepId } from "nodefony";
-import type { LogProtocol } from "nodefony";
+import { pduFlowStep, FLOW_STEPS, type FlowStepId } from "nodefony/syslog";
+import type { LogProtocol } from "nodefony/syslog";
 import type { LogRecord } from "./logsTypes";
 
-export type { FlowStepId } from "nodefony";
+export type { FlowStepId } from "nodefony/syslog";
 
 /** Une étape logique du cycle d'une requête (forme consommée par l'UI). */
 export interface FlowStep {

@@ -16,7 +16,7 @@ import {
   consoleRequestIds,
   pduIsConsoleRequest,
   pduIsModuleExcluded,
-} from "nodefony";
+} from "nodefony/syslog";
 import { SEVERITIES } from "./logsTypes";
 
 /** Version de la documentation embarquée (badges des fiches `DocHint`). */
@@ -159,8 +159,8 @@ const DRIVER_META: Record<string, DriverMeta> = {
 
 // La lecture d'une ligne d'accès est une règle du CŒUR, partagée avec la barre
 // de débogage : une seule implémentation.
-export { parseAccessLine } from "nodefony";
-export type { IAccessLine } from "nodefony";
+export { parseAccessLine } from "nodefony/syslog";
+export type { IAccessLine } from "nodefony/syslog";
 
 /** Couleur d'un verbe : lecture, écriture, effacement, WebSocket. */
 export function methodColor(method: string): MantineColor {

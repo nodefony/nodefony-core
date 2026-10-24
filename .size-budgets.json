@@ -5,7 +5,7 @@
     {
       "subpath": "nodefony/client",
       "file": "src/nodefony/dist/client/client/index.js",
-      "budgetKB": 31,
+      "budgetKB": 30,
       "referenceKB": 17.6
     },
     {
@@ -26,6 +26,12 @@
       "file": "src/nodefony/dist/client/client/roles/index.js",
       "budgetKB": 10,
       "referenceKB": 1
+    },
+    {
+      "subpath": "nodefony/syslog",
+      "file": "src/nodefony/dist/client/client/syslog/index.js",
+      "budgetKB": 4,
+      "referenceKB": 1.7
     },
     {
       "subpath": "nodefony/login.js",

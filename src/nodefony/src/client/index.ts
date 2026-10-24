@@ -25,16 +25,6 @@ import { TransportState } from "../realtime/IRealtimeTransport";
 import { BrowserWsTransport } from "./realtime/BrowserWsTransport";
 import { rateChannel, parseRate, isRateChannel } from "../realtime/channelRate";
 import { AdaptiveRate, bindAdaptiveChannel } from "./realtime/AdaptiveRate";
-import { pduProtocol } from "../syslog/drivers/pduProtocol";
-import {
-  accessStatusFamily,
-  consoleRequestIds,
-  parseAccessLine,
-  pduIsConsoleRequest,
-  pduIsConsoleTraffic,
-  pduIsModuleExcluded,
-} from "../syslog/drivers/pduConsole";
-import { pduFlowStep, FLOW_STEPS } from "../syslog/drivers/pduFlow";
 export type {
   RealtimeState,
   NodefonySocketOptions,
@@ -177,15 +167,6 @@ export {
   isRateChannel,
   AdaptiveRate,
   bindAdaptiveChannel,
-  pduProtocol,
-  pduFlowStep,
-  FLOW_STEPS,
-  accessStatusFamily,
-  consoleRequestIds,
-  parseAccessLine,
-  pduIsConsoleRequest,
-  pduIsConsoleTraffic,
-  pduIsModuleExcluded,
 };
 // Le contrat de pagination est ISOMORPHE : le serveur rend des `IPage`, le
 // navigateur les consomme. Types purs — zéro octet de runtime côté client, et
@@ -205,9 +186,9 @@ export type {
   IErrorSample,
   IProfileReport,
 } from "../types/IProfile";
-export type { LogProtocol } from "../syslog/drivers/pduProtocol";
-export type { IAccessLine } from "../syslog/drivers/pduConsole";
-export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
+// Les règles de LECTURE des journaux (protocole, étape, trafic de la console,
+// ligne d'accès, indice de frame) vivent dans `nodefony/syslog` : seuls les
+// visualiseurs s'en servent, une application ordinaire ne les paie pas ici.
 export type { RateBounds } from "../realtime/channelRate";
 // Voie MONTANTE des journaux du navigateur (#35) : le transport, la capture des
 // erreurs non rattrapées, et les identités de corrélation. Rien n'est installé par
@@ -346,7 +327,6 @@ export type {
   ILoginPageHero,
 } from "../runtime/authRoutes";
 export { safeRedirectPath } from "../runtime/safeRedirect";
-export { frameIndexOf } from "../runtime/frameRequestId";
 export {
   SESSION_AUTH_AT_KEY,
   SESSION_AMR_KEY,

@@ -117,9 +117,9 @@ Le build navigateur lui-même est isolé via `src/nodefony/tsconfigClient.json` 
 La règle d'or : **du code front n'importe jamais la face serveur**. Concrètement :
 
 - Importer depuis `"nodefony"` est OK **uniquement** sous condition `browser` (§3) — sinon on tire `dist/node/` (Kernel, http, security) dans le bundle navigateur.
-- Les subpaths `nodefony/client`, `nodefony/react`, `nodefony/roles`, `nodefony/debugbar` sont **toujours sûrs** (pas de face node).
+- Les subpaths `nodefony/client`, `nodefony/react`, `nodefony/roles`, `nodefony/syslog`, `nodefony/debugbar` sont **toujours sûrs** (pas de face node).
 - Le code protocole partagé (`src/nodefony/src/realtime/*` : `JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`) est **sans dépendance Node** (browser-safe par construction) — c'est ce qui rend l'isomorphisme possible.
-- Le barrel client (`src/client/index.ts`) ne réexporte QUE des briques browser-safe : `Service`, `Container`, `Syslog`, `Pdu`, helpers `Tools`, `NodefonySocket`, `JsonRpcPeer`, transports, AdaptiveRate, drivers Pdu. Il N'expose PAS `Kernel`/`Module`/http.
+- Le barrel client (`src/client/index.ts`) ne réexporte QUE des briques browser-safe : `Service`, `Container`, `Syslog`, `Pdu`, helpers `Tools`, `NodefonySocket`, `JsonRpcPeer`, transports, AdaptiveRate. Il N'expose PAS `Kernel`/`Module`/http.
 
 Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/`react-dom` sont **optionnels** (`peerDependenciesMeta`, lignes 98-104) — tirés seulement si on importe `nodefony/react` ; `zod` reste requis. Aucun JSX dans le build Core : le provider React est créé via `React.createElement` (cf `src/client/react/index.ts#NodefonyProviderProps.client`) → le build Core ne dépend d'aucun transform JSX.
 
@@ -131,16 +131,17 @@ Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/
 | Subpath | Source | Contient |
 | --- | --- | --- |
 | `nodefony` (browser) | `src/client/index.ts` | Barrel client = tout `nodefony/client` (alias) ; c'est l'import « par défaut » du front. |
-| `nodefony/client` | `src/client/index.ts` | `NodefonySocket`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `AdaptiveRate`, `bindAdaptiveChannel`, `closeCodeToNotice`, `rateChannel`/`parseRate`/`isRateChannel`, drivers `pduProtocol`/`pduFlowStep`/`FLOW_STEPS`, et `Service`/`Container`/`Syslog`/`Pdu` + helpers `Tools` (`extend`, `typeOf`, `isArray`…). Default export = singleton `Nodefony` (`generateId`, `generateV5Id`). |
+| `nodefony/client` | `src/client/index.ts` | `NodefonySocket`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `AdaptiveRate`, `bindAdaptiveChannel`, `closeCodeToNotice`, `rateChannel`/`parseRate`/`isRateChannel`, `NodefonyLogin`, `NodefonyKernel`, `generateId`, et `Service`/`Container`/`Syslog`/`Pdu` + helpers `Tools` (`extend`, `typeOf`, `isArray`…). Named exports seulement, aucun export par défaut. |
 | `nodefony/react` | `src/client/react/index.ts` | `NodefonyProvider` + hooks `useNodefony*` (état, canaux, identité, syslog, notifications). Réexporte `rateChannel`/`parseRate`/`isRateChannel`. Voir [`realtime-client.md`](./realtime-client.md). |
+| `nodefony/syslog` | `src/client/syslog/index.ts` | Règles de LECTURE des journaux, pures et isomorphes : `pduProtocol`, `pduFlowStep`/`FLOW_STEPS`, `pduIsConsoleRequest`/`pduIsConsoleTraffic`/`pduIsModuleExcluded`, `consoleRequestIds`, `parseAccessLine`, `accessStatusFamily`, `frameIndexOf`. Hors de `nodefony/client` : seuls les visualiseurs (Studio, barre) s'en servent ; le serveur les lit depuis `nodefony`. Garde : `src/tests/syslogSubpath.test.ts`. |
 | `nodefony/roles` | `src/client/roles/index.ts` | RBAC pur isomorphe : `hasRole`/`hasAnyRole`/`hasAllRoles`, `RoleSet`, `RoleRegistry`, `ROLE_MASK_CAPACITY`. Voir §6. |
 | `nodefony/debugbar` | `src/client/debugbar/index.ts` | Debug bar Nodefony (vanilla TS + Shadow DOM, dev-only — ≠ React/Mantine). Détails dans le skill `nodefony-studio-dev`. |
 | `nodefony/debugbar.js` | bundle `dist/client/debugbar.standalone.js` | Variante IIFE autonome de la debug bar, injectable par `<script>` sans bundler. |
 
 Barrel client — points d'ancrage (`src/client/index.ts`) :
 
-- Réexports nommés (`NodefonySocket`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `closeCodeToNotice`, `rateChannel`, `parseRate`, `isRateChannel`, `AdaptiveRate`, `bindAdaptiveChannel`, `pduProtocol`, `pduFlowStep`, `FLOW_STEPS`, `Service`, `Container`, `Pdu`, `Syslog`, helpers) → lignes 83-113.
-- Singleton `Nodefony` (default export) avec `generateId()`/`generateV5Id()` → lignes 58-82.
+- Réexports nommés (`NodefonySocket`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `closeCodeToNotice`, `rateChannel`, `parseRate`, `isRateChannel`, `AdaptiveRate`, `bindAdaptiveChannel`, `Service`, `Container`, `Pdu`, `Syslog`, helpers) → `client/index.ts`, bloc `export { … }` plat.
+- `generateId()` = fonction exportée (plus de singleton `Nodefony` au front, ADR-0007 D4).
 
 ---
 

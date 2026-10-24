@@ -13,7 +13,7 @@ import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Alert, Button, Code, Group, Stack, Text } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
-import { frameIndexOf } from "nodefony";
+import { frameIndexOf } from "nodefony/syslog";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import { DataGrid, type DataGridColumn } from "../../components/ui";

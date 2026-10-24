@@ -59,7 +59,8 @@ import {
   toRecord,
 } from "./logFormat";
 import { ClusterScopeNotice, SeverityBadge } from "./LogVisuals";
-import { PLATFORM_CHANNELS, consoleRequestIds } from "nodefony";
+import { PLATFORM_CHANNELS } from "nodefony";
+import { consoleRequestIds } from "nodefony/syslog";
 
 /** Plafond d'entrées conservées côté client (croissance bornée). */
 const MAX_ENTRIES = 500;

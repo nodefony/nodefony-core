@@ -17,9 +17,7 @@ import type {
 
 // Les types du profil et de son rapport viennent du cœur, par le point d'entrée
 // PRINCIPAL (`nodefony`) : UNE définition pour le serveur, la barre, l'outil de
-// l'agent et la console. Pas par un sous-chemin — ce fichier est un `.ts`, et
-// le greffon Vite d'Angular (même instance Vite) trébuche sur un import de
-// sous-chemin. Import de types : zéro octet à l'exécution.
+// l'agent et la console. Import de types : zéro octet à l'exécution.
 export type ProfilePhase = IProfilePhase;
 export type ProfileQuery = IProfileQuery;
 export type ProfileSecurity = IProfileSecurity;

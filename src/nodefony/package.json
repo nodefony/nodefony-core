@@ -60,6 +60,10 @@
       "types": "./dist/client/types/src/client/roles/index.d.ts",
       "default": "./dist/client/client/roles/index.js"
     },
+    "./syslog": {
+      "types": "./dist/client/types/src/client/syslog/index.d.ts",
+      "default": "./dist/client/client/syslog/index.js"
+    },
     "./debugbar.js": "./dist/client/debugbar.standalone.js",
     "./login.js": "./dist/login/login.js",
     "./assets/nodefony-logo.svg": "./assets/nodefony-logo.svg",

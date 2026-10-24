@@ -44,7 +44,7 @@ import {
   IconTimeline,
   IconWorld,
 } from "@tabler/icons-react";
-import { pduProtocol } from "nodefony";
+import { pduProtocol } from "nodefony/syslog";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
 import {

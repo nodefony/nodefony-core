@@ -115,7 +115,7 @@ const clientExternal = (id: string): boolean =>
 
 const clientConfig: RolldownOptions = defineConfig({
   // Multi-entry : `index` (barrel browser `nodefony`) + `debugbar` + `react` +
-  // `vue` + `angular` + `svelte` + `roles` (subpaths). preserveModules → NodefonySocket
+  // `vue` + `angular` + `svelte` + `roles` + `syslog` (subpaths). preserveModules → NodefonySocket
   // partagé émis 1×. Les subpaths ne sont JAMAIS réexportés depuis
   // client/index.ts.
   input: [
@@ -126,6 +126,7 @@ const clientConfig: RolldownOptions = defineConfig({
     "src/client/angular/index.ts",
     "src/client/svelte/index.ts",
     "src/client/roles/index.ts",
+    "src/client/syslog/index.ts",
   ],
   platform: "browser",
   tsconfig: "tsconfigClient.json",
