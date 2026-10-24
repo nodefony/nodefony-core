@@ -33,7 +33,7 @@ import {
   providerIconComponent,
   type ProviderIconComponent,
 } from "../components/ProviderIcon";
-import { useNavigate, useLocation } from "react-router";
+import { Navigate, useNavigate, useLocation } from "react-router";
 import { OAUTH2_CANCELLED_REASON, WEBAUTHN_STATUS_PATH } from "nodefony";
 import type {
   NodefonyLoginError,
@@ -375,17 +375,6 @@ export const Login = observer(() => {
   }, [auth]);
   const social = flow.providers ?? [];
 
-  // Session DÉJÀ ouverte (ici, ou sur la page de connexion par défaut : même
-  // cookie) → l'écran de connexion n'a rien à proposer, on file à la console.
-  // Pas pendant une soumission : `completeAndRedirect` conduit alors la suite
-  // (profil, temps réel) et redirige lui-même.
-  useEffect(() => {
-    if (auth.status !== "authenticated" || busy) return;
-    const from = stateFrom(loc.state);
-    const deepLink = from && from !== "/nodefony" && from !== "/nodefony/login";
-    void navigate(deepLink ? from : auth.homePath, { replace: true });
-  }, [auth.status, busy, auth.homePath, loc.state, navigate]);
-
   // Retour d'un échec social (`?reason=`, ou `?error=oauth`) → message dans la
   // zone d'erreur RÉSERVÉE (aucun saut de mise en page). SAUF une annulation :
   // `reason=access_denied` (posé par le callback sous un `state` valide) dit
@@ -611,6 +600,29 @@ export const Login = observer(() => {
   const socialLabel = isSocialReturn
     ? `Continuer avec ${returnChip.label.replace(/^via /, "")}`
     : "";
+
+  // Session encore INCONNUE (vérification en cours) : rien à proposer — et
+  // surtout pas le formulaire, qui s'afficherait une demi-seconde avant la
+  // redirection d'un utilisateur déjà connecté (vécu). La page reste au fond
+  // du thème le temps de la réponse.
+  if (auth.status === "idle" || auth.status === "loading")
+    return (
+      <Box
+        mih="100dvh"
+        aria-busy="true"
+        aria-label="Vérification de la session"
+      />
+    );
+  // Session DÉJÀ ouverte (ici, ou sur la page de connexion par défaut : même
+  // cookie) → l'écran de connexion n'a rien à proposer, on file à la console,
+  // AU RENDU : un effet laissait passer une image du formulaire. Pas pendant
+  // une soumission : `completeAndRedirect` conduit alors la suite (profil,
+  // temps réel) et redirige lui-même.
+  if (auth.status === "authenticated" && !busy) {
+    const from = stateFrom(loc.state);
+    const deepLink = from && from !== "/nodefony" && from !== "/nodefony/login";
+    return <Navigate to={deepLink ? from : auth.homePath} replace />;
+  }
 
   return (
     <AuthLayout>
