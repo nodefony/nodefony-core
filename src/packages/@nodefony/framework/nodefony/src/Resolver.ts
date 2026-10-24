@@ -137,6 +137,14 @@ class Resolver implements IResolver {
   resolve: boolean = false;
   variables: unknown[] = [];
   exception?: HttpError | Error | null | undefined;
+  /**
+   * Ce que l'action a rendu quand le Resolver n'a rien pu envoyer — absent
+   * sinon. Lu par l'avertissement de développement
+   * (`IRouteResolver.unrendered`). `declare` : AUCUN champ émis — un Resolver
+   * naît à chaque requête, et la propriété n'apparaît que sur la branche qui
+   * attend déjà son délai d'expiration (`micro-resolver-field.mjs`).
+   */
+  declare unrendered?: string;
   acceptedProtocol: string | null = null;
   bypassFirewall: boolean = false;
   /**
@@ -1206,6 +1214,11 @@ class Resolver implements IResolver {
         switch (this.context.type) {
           case "http":
             this.context.waitAsync = true;
+            this.unrendered = `une instance de ${
+              (typeof result === "object" && result !== null
+                ? result.constructor.name
+                : undefined) ?? "classe"
+            }`;
             break;
           case "websocket":
             // WS : pas de teardown qui surveille un hang → rien à poser.
@@ -1232,6 +1245,7 @@ class Resolver implements IResolver {
               return (this.context as HttpContext).send();
             }
             this.context.waitAsync = true;
+            this.unrendered = result === null ? "null" : typeof result;
             break;
           case "websocket":
             // WS : l'action répond par message, ou ne répond pas — pas de hang.

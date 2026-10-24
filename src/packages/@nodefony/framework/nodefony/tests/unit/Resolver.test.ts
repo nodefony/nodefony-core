@@ -290,6 +290,31 @@ describe("Resolver — returnController() — statut sans corps", () => {
     expect(ctx.waitAsync).to.be.true; // « je m'en occupe » — inchangé
   });
 
+  it("🔴 le Resolver NOTE ce que l'action a rendu sans rien envoyer — l'avertissement de développement le nomme", async () => {
+    const cases: Array<[unknown, string]> = [
+      [null, "null"],
+      [undefined, "undefined"],
+      [new (class Book {})(), "une instance de Book"],
+    ];
+    for (const [value, expected] of cases) {
+      const r = proxy();
+      const { ctx } = makeCtxWithStatus(200);
+      r.context = ctx as unknown as ContextType;
+      await r.returnController(value);
+      expect(r.unrendered, String(value)).to.equal(expected);
+    }
+  });
+
+  it("une valeur envoyée ne laisse aucune trace (rien sur le chemin servi)", async () => {
+    const r = proxy();
+    const { ctx } = makeCtxWithStatus(200);
+    r.context = ctx as unknown as ContextType;
+    await r.returnController({ ok: true });
+    // `proxy()` saute le constructeur : le champ n'est pas initialisé, il
+    // doit simplement rester sans valeur.
+    expect(r.unrendered ?? null).to.equal(null);
+  });
+
   it("réponse DÉJÀ envoyée sur un 204 → on ne renvoie rien par-dessus", async () => {
     const r = proxy();
     const { ctx, calls } = makeCtxWithStatus(204);

@@ -48,6 +48,7 @@ import http from "node:http";
 //import https from "node:https";
 import http2 from "node:http2";
 import { responseEnded } from "../src/context/responseEnded";
+import { unsentResponseWarning } from "../src/context/unsentResponse";
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import type { SseStream } from "../src/context/http/SseStream";
 import Ws from "ws";
@@ -513,6 +514,29 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   shouldProfile(url: string): boolean {
     return this.profiler !== null && isProfiledUrl(url, this.profileTooling);
+  }
+
+  /**
+   * En développement, signale une action qui a rendu une valeur que le
+   * Resolver ne sait pas envoyer (`null`, `undefined`, instance de classe)
+   * et n'a rien envoyé elle-même : la requête attend son délai d'expiration.
+   * Le message nomme l'action, ce qu'elle a rendu et le geste qui convient
+   * (`unsentResponseWarning`).
+   *
+   * Appelé au timeout, AVANT que le 504/408 parte — après, `sended` est vrai et
+   * plus rien ne se signalerait — et au démontage, pour un client parti avant.
+   * Gratuit en production : rien n'est lu au-delà de `waitAsync`.
+   *
+   * @param context - le contexte HTTP de la requête
+   */
+  warnUnsentResponse(context: HttpContext): void {
+    if (
+      context.waitAsync &&
+      !context.sended &&
+      this.kernel?.environment === "development"
+    ) {
+      this.log(unsentResponseWarning(context.resolver, context.url), "WARNING");
+    }
   }
 
   private configureRateLimit(): void {
@@ -1486,20 +1510,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): Promise<void> | undefined {
     if (context.finished) return undefined;
     try {
-      // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
-      // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
-      // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
-      // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
-      if (
-        context.waitAsync &&
-        !context.sended &&
-        this.kernel?.environment === "development"
-      ) {
-        this.log(
-          `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (void/null/class instance) and never sent a response. Use 'return <object|string|number|boolean|Buffer>' (auto-JSON) or send/stream manually.`,
-          "WARNING",
-        );
-      }
+      // Client parti avant toute réponse : le timeout n'a pas eu lieu, c'est
+      // ici que l'action muette se signale. Garde EN LIGNE : une requête
+      // servie ne paie que cette lecture, comme avant (aucun appel).
+      if (context.waitAsync) this.warnUnsentResponse(context);
       context.logRequest();
       // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
       context.logPhasesVerbose();

@@ -50,6 +50,7 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-state.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-request-scope.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-resolver-field.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scale.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scan.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-select-ops.mjs",

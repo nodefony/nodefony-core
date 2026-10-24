@@ -167,3 +167,28 @@ describe("HttpContext.setTimeout — socket timeout T3 (h1)", () => {
     expect(s.setTimeoutCalls).to.have.lengthOf(0, "socket h1 non touché en h2");
   });
 });
+
+// Une action qui rend `null` sans rien envoyer laisse la requête attendre son
+// délai d'expiration. L'avertissement de développement vivait au SEUL
+// démontage — où `sended` était déjà vrai, puisque le timeout venait d'envoyer
+// son 504 : il ne partait jamais dans le cas même qu'il devait signaler.
+describe("HttpContext._onTimeout — l'action muette se signale AVANT la réponse d'expiration", () => {
+  it("🔴 warnUnsentResponse est appelé avant onError", () => {
+    const order: string[] = [];
+    const ctx = Object.create(HttpContext.prototype) as HttpContext;
+    Object.assign(ctx, {
+      listenerCount: () => 0,
+      _abortIfPending: () => undefined,
+      response: { stream: {} },
+      httpKernel: {
+        warnUnsentResponse: () => order.push("warn"),
+        onError: () => {
+          order.push("onError");
+          return Promise.resolve();
+        },
+      },
+    });
+    ctx._onTimeout();
+    expect(order).to.deep.equal(["warn", "onError"]);
+  });
+});

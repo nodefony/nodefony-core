@@ -304,6 +304,10 @@ class HttpContext extends Context implements IHttpContextInterface {
     // controller stops producing a response the client will never receive.
     // No-op if nobody read `signal` (cold path, zero overhead otherwise).
     this._abortIfPending("Request timeout");
+    // L'action muette se signale ICI : une fois le 504/408 envoyé, `sended`
+    // est vrai et le démontage n'aurait plus rien à dire (vécu : un `null`
+    // rendu pour un id absent, 30 s de 504 sans un mot).
+    this.httpKernel?.warnUnsentResponse(this);
     let error;
     if ((this.response as Http2Response).stream) {
       // traff 408 reload page htpp2 loop

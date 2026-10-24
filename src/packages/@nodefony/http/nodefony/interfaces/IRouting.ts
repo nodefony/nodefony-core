@@ -37,6 +37,13 @@ export interface IRouteResolver {
   readonly controller?: { readonly name: string } | null | undefined;
   /** Nom de l'action résolue. */
   actionName?: string | undefined;
+  /**
+   * Ce que l'action a rendu sans que rien ne soit envoyé (`"null"`,
+   * `"undefined"`, `"une instance de Book"`…), `null` sinon. Posé seulement
+   * sur la branche « l'action répond elle-même » : lu au démontage pour dire,
+   * en développement, POURQUOI une requête a attendu son délai d'expiration.
+   */
+  readonly unrendered?: string | null | undefined;
 
   /**
    * Rejoue le match d'une route sur un contexte (WS : handshake puis frames).
