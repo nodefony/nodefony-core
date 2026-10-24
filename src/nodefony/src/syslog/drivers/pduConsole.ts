@@ -39,6 +39,22 @@ function isAuthPath(path: string): boolean {
 }
 
 /**
+ * Dit si un chemin est servi à la console d'administration elle-même — la
+ * seule règle de chemin du trafic de la console, que la ligne d'accès
+ * ({@link pduIsConsoleTraffic}) et la barre de débogage (qui voit le chemin
+ * des requêtes du navigateur) appliquent toutes deux. Une connexion à
+ * l'application n'en fait jamais partie.
+ *
+ * Pure et isomorphe.
+ *
+ * @param path - chemin de la requête, requête (`?…`) comprise ou non
+ * @returns `true` pour un chemin de la console
+ */
+export function isConsolePath(path: string): boolean {
+  return CONSOLE_PATH.test(path) && !isAuthPath(path);
+}
+
+/**
  * Sévérité RFC 5424 de WARNING : au-dessus (NOTICE, INFO, DEBUG), ce que Vite
  * écrit est du bavardage d'outillage (démarrage, rechargement à chaud) ; ses
  * avertissements et les erreurs qu'il relaie du navigateur restent visibles.
@@ -110,8 +126,7 @@ export function pduIsConsoleTraffic(
   if (scheme === -1) return false;
   const at = text.indexOf("/", scheme + 3);
   if (at === -1) return false;
-  const path = text.slice(at);
-  return CONSOLE_PATH.test(path) && !isAuthPath(path);
+  return isConsolePath(text.slice(at));
 }
 
 /** Ce qu'il faut d'une ligne pour la rattacher à une requête de la console. */

@@ -115,6 +115,11 @@ export class NetworkModel {
     }
   }
 
+  /** L'entrée d'id local `id`, si elle est encore gardée. */
+  get(id: number): NetEntry | undefined {
+    return this._byId.get(id);
+  }
+
   /** Entrées récentes (récent → ancien) pour le rendu. */
   entries(): NetEntry[] {
     return [...this._byId.values()].reverse();

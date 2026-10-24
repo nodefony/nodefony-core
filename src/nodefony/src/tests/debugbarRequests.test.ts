@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { FeedLog } from "../client/debugbar/model";
 import type { NetEntry } from "../client/debugbar/network";
-import { joinRequests } from "../client/debugbar/requests";
+import { flattenFlow, joinRequests } from "../client/debugbar/requests";
 
 function appel(
   id: number,
@@ -86,5 +86,51 @@ describe("joinRequests", () => {
       [ligne(1, 20, undefined, 9_999), ligne(2, 40, undefined, 1)],
     );
     expect(rows.map((r) => r.at)).toEqual([40, 30, 20, 10]);
+  });
+});
+
+describe("flattenFlow — la liste à plat", () => {
+  const sansRien = { expanded: null, query: "", isHidden: null };
+  const flux = () =>
+    joinRequests(
+      [appel(1, 10, "r1"), appel(2, 30, "r2")],
+      [ligne(1, 11, "r1"), ligne(2, 12, "r1"), ligne(3, 40)],
+    );
+
+  it("repliée, une requête est UNE ligne ; ses lignes serveur sont comptées, pas affichées", () => {
+    const items = flattenFlow(flux(), sansRien);
+    expect(items.map((i) => i.key)).toEqual(["l3", "r2", "r1"]);
+    const r1 = items.find((i) => i.key === "r1");
+    expect(r1?.kind === "request" && r1.logs.length).toBe(2);
+  });
+
+  it("🔴 dépliée, ses lignes serveur la SUIVENT, en retrait, dans leur ordre d'arrivée", () => {
+    const items = flattenFlow(flux(), { ...sansRien, expanded: new Set([1]) });
+    expect(items.map((i) => i.key)).toEqual(["l3", "r2", "r1", "l1", "l2"]);
+    const enfants = items.filter((i) => i.kind === "log" && i.child);
+    expect(enfants.map((i) => i.key)).toEqual(["l1", "l2"]);
+    const orpheline = items.find((i) => i.key === "l3");
+    expect(orpheline?.kind === "log" && orpheline.child).toBe(false);
+  });
+
+  it("une recherche qui touche une ligne serveur DÉPLIE sa requête sur cette seule ligne", () => {
+    const items = flattenFlow(flux(), { ...sansRien, query: "ligne 2" });
+    expect(items.map((i) => i.key)).toEqual(["r1", "l2"]);
+  });
+
+  it("une requête qui passe la recherche elle-même garde toutes ses lignes", () => {
+    const items = flattenFlow(flux(), { ...sansRien, query: "/api/1" });
+    expect(items.map((i) => i.key)).toEqual(["r1"]);
+    const r1 = items[0];
+    expect(r1?.kind === "request" && r1.logs.length).toBe(2);
+  });
+
+  it("une requête masquée (console) disparaît avec ses lignes", () => {
+    const items = flattenFlow(flux(), {
+      ...sansRien,
+      expanded: new Set([1]),
+      isHidden: (e) => e.requestId === "r1",
+    });
+    expect(items.map((i) => i.key)).toEqual(["l3", "r2"]);
   });
 });

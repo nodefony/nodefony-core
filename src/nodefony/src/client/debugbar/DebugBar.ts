@@ -8,21 +8,24 @@
  * {@link NodefonySocket}. Aucun rendu serveur splicé dans le body : le serveur
  * *collecte*, le client *rend*.
  *
- * UI : **onglets** (Realtime / Network / Perf / Logs / Runtime) — un seul pane
- * rendu/visible à la fois (≠ grid fourre-tout) + **poignée de resize** (hauteur
- * persistée). Vanilla TS + **Shadow DOM** + sparklines **SVG maison** — 0 dep UI.
+ * UI : **onglets** (Realtime / Requêtes / Perf / Nodefony client / Runtime) —
+ * un seul pane rendu/visible à la fois (≠ grid fourre-tout) + **poignée de
+ * resize** (hauteur persistée). Vanilla TS + **Shadow DOM** + sparklines **SVG
+ * maison** — 0 dep UI.
  *
  * Perf scroll (critique) : fond OPAQUE sur le panneau (le `backdrop-filter:blur`
  * sur le conteneur scrollable recompositait à chaque frame), `contain:content`
- * par pane, et la liste Network en **mise à jour incrémentale** (nœuds stables,
- * jamais de rebuild `innerHTML` global → le clic n'est plus perdu, le scroll ne
- * saute plus).
+ * par pane, et le flux des requêtes FENÊTRÉ (quelques dizaines de nœuds
+ * recyclés, jamais de rebuild `innerHTML` → le clic n'est plus perdu, le scroll
+ * ne saute plus).
  *
- * Panneau **Network** (dev-only) : intercepte `fetch`/`XHR` (header-only,
- * défensif, réversible) → liste des appels AJAX ; clic sur un appel → fetch du
- * profil serveur (`/nodefony/profiler/api/{requestId}`, corrélé via le header
- * `X-Request-Id`) → **waterfall des phases** du pipeline. SPA-first : on profile
- * les appels, pas la page. Le `traceparent` W3C (RFC-propre) est aussi remonté.
+ * Onglet **Requêtes** (dev-only) : intercepte `fetch`/`XHR` (header-only,
+ * défensif, réversible) → une ligne par appel, qui se déplie sur les lignes que
+ * le serveur a écrites pour lui (même `X-Request-Id`) ; les lignes serveur sans
+ * appel du navigateur restent dans le même flux. Clic sur un appel → profil
+ * serveur (`/nodefony/profiler/api/{requestId}`) → **waterfall des phases** du
+ * pipeline. SPA-first : on profile les appels, pas la page. Le `traceparent`
+ * W3C (RFC-propre) est aussi remonté.
  */
 import { NodefonySocket } from "../realtime/NodefonySocket";
 import {
@@ -40,8 +43,17 @@ import {
 } from "./format";
 import { observeViteHmr, type HmrEvent } from "./hmr";
 import { FeedView } from "./feedView";
+import {
+  flattenFlow,
+  joinRequests,
+  type FlowItem,
+  type IRequestItem,
+} from "./requests";
 import { SEVERITY_NAMES } from "../../syslog/Pdu";
-import { pduIsModuleExcluded } from "../../syslog/drivers/pduConsole";
+import {
+  isConsolePath,
+  pduIsModuleExcluded,
+} from "../../syslog/drivers/pduConsole";
 import {
   exposedKernels,
   KERNEL_PROBE_EVENT,
@@ -103,12 +115,11 @@ function detailPanelH(): number {
 }
 
 /** Onglets disponibles (ordre d'affichage). */
-type TabId = "realtime" | "network" | "perf" | "logs" | "kernel" | "runtime";
+type TabId = "realtime" | "requests" | "perf" | "kernel" | "runtime";
 const TAB_IDS: readonly string[] = [
   "realtime",
-  "network",
+  "requests",
   "perf",
-  "logs",
   "kernel",
   "runtime",
 ] satisfies TabId[];
@@ -406,65 +417,121 @@ const STYLES =
 
 .counts { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
 ` +
-  // ── Explorateur de journal ───────────────────────────────────────────────
+  // ── Barre d'outils de l'onglet Requêtes ──────────────────────────────────
+  // AUCUN style à elle : une puce y est le badge du bandeau (« développement »,
+  // « client · prêt ») — fond, filet, rayon, police capitale, point d'état de
+  // 6 px. Un filtre allumé a le point vert et le texte vert du badge
+  // « développement » ; éteint, le point et le texte gris. Les outils (pause,
+  // copie, vider) et la recherche sont le contrôle segmenté du bandeau.
+  // Le SURVOL doit se voir d'un coup d'œil : fond nettement éclairci ET filet
+  // clair, pas une nuance de gris sur du gris. Focus clavier : anneau vert.
+  // Cible de 24 px au moins (WCAG 2.5.8).
   `
 .counts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
 .counts .spacer { flex:1 1 auto; }
-.counts button { font: inherit; color: inherit; background:none; border:1px solid transparent; cursor:pointer; }
-.chip.sevf { border-color: var(--line); }
-.chip.sevf.on { border-color: var(--ok); color:#fff; }
-.search { font: inherit; font-size:11px; color:inherit; background:rgba(255,255,255,.04);
-  border:1px solid var(--line); border-radius:6px; padding:3px 8px; min-width:120px; max-width:220px; }
-.search::placeholder { color: var(--muted); }
-.toolbtn { font: inherit; font-size:12px; line-height:1; color:var(--muted); background:none;
-  border:1px solid var(--line); border-radius:6px; padding:3px 7px; cursor:pointer; }
-.toolbtn:hover { color:#fff; }
-.toolbtn.on { color:var(--ok); border-color:var(--ok); }
+.counts .chip { display:flex; align-items:center; gap:6px; min-height:24px; padding:.25em .7em; border-radius:11px;
+  font:700 10.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:.5px; text-transform:uppercase;
+  color:#c4c9d1; background:#22262e; border:1px solid var(--line); margin:0; }
+.counts .chip[hidden] { display:none; }
+.counts .chip .k { color:#a3aab4; font-size:inherit; text-transform:inherit; font-weight:600; }
+.chip.sevf { cursor:pointer; color:#a3aab4; transition: border-color .12s, background .12s, color .12s; }
+.chip.sevf::before { content:""; width:6px; height:6px; border-radius:50%; background:#5b6270; flex:none; }
+.chip.sevf:hover { background:#323844; border-color:#7a8291; color:#fff; }
+.chip.sevf:active { background:#3b4250; }
+.chip.sevf.on { color:#7fd3ac; }
+.chip.sevf.on::before { background:var(--ok); }
+.chip.sevf.on:hover { color:#a6e6c8; border-color:#5fbf93; }
+.chip.sevf:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
+.filterhint { color:#a3aab4; font:500 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.search { font:500 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#e8eaed; background:#1a1d23;
+  border:1px solid var(--line); border-radius:8px; padding:0 10px; height:28px; min-width:140px; max-width:240px;
+  transition: border-color .12s, background .12s; }
+.search:hover { border-color:#7a8291; background:#20242b; }
+.search:focus-visible { outline:2px solid var(--ok); outline-offset:1px; }
+.search::placeholder { color:#a3aab4; }
+.toolbtn { font:600 13px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#b8bec8; background:#1a1d23;
+  border:1px solid var(--line); border-radius:8px; min-width:28px; height:28px; padding:0 8px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition: border-color .12s, background .12s, color .12s; }
+.toolbtn:hover { color:#fff; background:#323844; border-color:#7a8291; }
+.toolbtn:active { background:#3b4250; }
+.toolbtn.on, .toolbtn[aria-pressed="true"] { color:#7fd3ac; border-color:#5fbf93; background:rgba(54,179,126,.14); }
+@media (prefers-reduced-motion: reduce) { .chip.sevf, .toolbtn, .search { transition:none; } }
 ` +
-  // ── Journal fenêtré (feedView.ts) ────────────────────────────────────────
-  // Colonnes ALIGNÉES (l'œil descend une colonne, il ne cherche pas l'heure ligne
-  // par ligne), chiffres à chasse fixe, zébrure discrète, filet coloré à gauche
-  // pour ce qui compte (erreur, alerte). Lignes de hauteur FIXE : c'est ce qui
-  // rend le fenêtrage exact. Positionnées par transform — aucune mise en page.
+  // ── Flux fenêtré (feedView.ts) ───────────────────────────────────────────
+  // Lignes de hauteur FIXE (24 px) : c'est ce qui rend le fenêtrage exact, et
+  // c'est la cible minimale d'un pointeur. Positionnées par transform — aucune
+  // mise en page. Une requête : chevron, méthode, chemin, statut, durée, nombre
+  // de lignes serveur ; dépliée, ses lignes suivent EN RETRAIT, sous un filet
+  // qui les rattache à elle. Une ligne orpheline garde le format du journal.
   `
 .pane.logp.active { display:flex; flex-direction:column; padding:10px 14px 12px; }
 .logbody { flex:1; min-height:0; display:flex; gap:10px; }
-.feedbox { --cols: 88px 62px 120px minmax(0,1fr) 70px; position:relative; flex:1; min-width:0;
+.feedbox { position:relative; flex:1; min-width:0;
   display:flex; flex-direction:column; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#111317; }
-.loghead { display:grid; grid-template-columns:var(--cols); gap:10px; flex:none; height:26px; align-items:center;
-  padding:0 10px 0 12px; border-bottom:1px solid var(--line); background:#171a20;
-  font:600 10px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); }
 .feedscroll { position:relative; flex:1; min-height:0; overflow-y:auto; overflow-x:hidden;
   contain:strict; overscroll-behavior:contain; outline:none; }
 .feedscroll:focus-visible { box-shadow: inset 0 0 0 2px var(--ok); }
 .feedspacer { width:1px; }
 .feedlayer { position:absolute; top:0; left:0; right:0; }
-.log { position:absolute; top:0; left:0; right:0; height:22px; display:grid; grid-template-columns:var(--cols);
+.row { position:absolute; top:0; left:0; right:0; height:24px; display:grid;
   gap:10px; align-items:center; padding:0 10px; border-left:2px solid transparent; cursor:pointer;
-  font-size:11.5px; line-height:22px; }
-.log[hidden] { display:none; }
-.log.odd { background:rgba(255,255,255,.022); }
-.log:hover { background:rgba(255,255,255,.06); }
-.log.sel { background:rgba(58,160,255,.16); }
+  font-size:11.5px; line-height:24px; }
+.row[hidden] { display:none; }
+.row.odd { background:rgba(255,255,255,.022); }
+.row:hover { background:rgba(255,255,255,.07); }
+.row.sel { background:rgba(58,160,255,.18); }
+.row:focus-visible { outline:2px solid var(--ok); outline-offset:-2px; }
+.req { grid-template-columns: 24px 52px minmax(0,1fr) 44px 64px 70px; padding-left:4px; font-weight:600; }
+.req.err .path { color:#ffb4a6; }
+.req .chev { width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:5px;
+  color:#c4c9d1; font-size:15px; transition: transform .12s ease; }
+.req .chev:hover { background:#2a2f38; color:#fff; }
+.req .chev.open { transform: rotate(90deg); }
+.req .chev.none { pointer-events:none; }
+.req .method { text-align:center; font-weight:800; font-size:9.5px; line-height:16px;
+  border-radius:5px; text-transform:uppercase; color:#0b0d10; background:var(--muted); }
+.req .method.get { background:var(--blue2); } .req .method.post { background:var(--ok); }
+.req .method.put, .req .method.patch { background:var(--orange); }
+.req .method.delete { background:#ff7452; }
+.req .method.ws { background:#b48cff; }
+.req .path { color:#e8eaed; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.req .status { text-align:center; font-weight:800; font-size:10.5px; }
+.req .status.s2 { color:var(--ok); } .req .status.s3 { color:var(--info); }
+.req .status.s4 { color:var(--warn); } .req .status.s5 { color:#ff7452; }
+.req .status.sp { color:#a3aab4; }
+.req .dur { text-align:right; color:#a3aab4; font-size:10.5px; font-variant-numeric:tabular-nums; }
+.req .count { text-align:right; color:#9ecbff; font-size:10.5px; font-weight:400; }
+.log { grid-template-columns: 88px 62px 120px minmax(0,1fr) 70px; }
+.log.child { padding-left:34px; background:rgba(58,160,255,.035);
+  background-image: linear-gradient(#3a404b,#3a404b); background-size:1px 100%; background-position:15px 0; background-repeat:no-repeat; }
+.log.child.sel { background-color:rgba(58,160,255,.18); }
 .log.t-crit { border-left-color:var(--crit); }
 .log.t-warn { border-left-color:var(--warn); }
-.log .ts { color:var(--muted); font-variant-numeric:tabular-nums; }
+.log .ts { color:#a3aab4; font-variant-numeric:tabular-nums; }
 .log .sev { font:700 9.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:.4px; text-transform:uppercase; }
-.log .mod { color:#9aa3ae; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.log .sev.muted { color:#a3aab4; }
+.log .sev.crit { color:#ff7452; }
+.log .mod { color:#a3aab4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .log .txt { color:#e8eaed; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.log .rid { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
-.feedjump { position:absolute; top:34px; left:50%; transform:translateX(-50%); z-index:2; height:28px; padding:0 12px; border-radius:999px;
+.log .rid { color:#a3aab4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
+.feedjump { position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:2; height:28px; padding:0 12px; border-radius:999px;
   font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#fff; cursor:pointer;
   background:#0067ba; border:1px solid #3aa0ff; box-shadow:0 4px 16px rgba(0,0,0,.45); }
 .feedjump:hover { background:#0a78d1; }
+.feedjump:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
 .feedjump[hidden], .feedempty[hidden], .logside[hidden] { display:none; }
-.feedempty { position:absolute; inset:26px 0 0 0; display:flex; align-items:center; justify-content:center;
-  color:var(--muted); pointer-events:none; }
-.logside { width:340px; flex:none; overflow:auto; padding:10px 12px; border:1px solid var(--line);
+.feedempty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:0 16px; text-align:center;
+  color:#a3aab4; pointer-events:none; }
+.logside { width:380px; flex:none; overflow:auto; padding:10px 12px; border:1px solid var(--line);
   border-radius:8px; background:#16191e; }
+.logside .logdetail { margin-bottom:10px; }
+.logside.wide { width:min(56%, 760px); }
+.logside .empty { color:#a3aab4; padding:6px 0; }
 .sidehead { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
-  font:600 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
-@media (max-width: 900px) { .logside { width:240px; } .feedbox { --cols: 78px 54px 90px minmax(0,1fr) 0; } }
+  font:600 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:uppercase; letter-spacing:.5px; color:#a3aab4; }
+@media (max-width: 900px) { .logside { width:260px; } .log { grid-template-columns: 78px 54px 90px minmax(0,1fr) 0; } .req { grid-template-columns: 24px 48px minmax(0,1fr) 40px 56px 0; } }
+@media (prefers-reduced-motion: reduce) { .req .chev { transition:none; } }
 ` +
   // ── Onglet Noyau ──
   `
@@ -664,35 +731,8 @@ const STYLES =
 .side-choice .toolbtn[aria-pressed="true"] { color:#fff; border-color:#3aa0ff; background:rgba(58,160,255,.15); }
 
 ` +
-  // ── Network ───────────────────────────────────────────────────────────────
+  // ── Profil serveur d'une requête (panneau latéral) ─────────────────────
   `
-.net-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
-.net-clear { margin-left:auto; color:var(--muted); cursor:pointer; font-size:10px;
-  text-transform:uppercase; letter-spacing:.5px; padding:2px 6px; border-radius:6px; }
-.net-clear:hover { color:#fff; background:rgba(255,255,255,.06); }
-.net-list { border-top:1px solid var(--line); }
-.net-list .empty { color:var(--muted); padding:8px 0; }
-.net-row { display:flex; align-items:center; gap:9px; padding:3px 4px; cursor:pointer;
-  border-bottom:1px solid rgba(255,255,255,.04); }
-.net-row:hover { background:rgba(255,255,255,.04); }
-.net-row.sel { background:rgba(58,160,255,.14); }
-.net-row.err .net-path { color:#ffb4a6; }
-.net-method { flex:none; width:46px; text-align:center; font-weight:800; font-size:9px;
-  padding:1px 0; border-radius:5px; text-transform:uppercase; color:#0b0d10; background:var(--muted); }
-.net-method.get { background:var(--blue2); } .net-method.post { background:var(--ok); }
-.net-method.put,.net-method.patch { background:var(--orange); }
-.net-method.delete { background:var(--crit); color:#fff; }
-.net-method.ws { background:#a06bff; color:#fff; }
-.net-path { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.net-status { flex:none; width:38px; text-align:center; font-weight:800; font-size:10px; }
-.net-status.s2 { color:var(--ok); } .net-status.s3 { color:var(--info); }
-.net-status.s4 { color:var(--warn); } .net-status.s5 { color:var(--crit); }
-.net-status.sp { color:var(--muted); }
-.net-dur { flex:none; width:58px; text-align:right; color:var(--muted); font-size:10px; }
-.net-rid { flex:none; color:var(--blue2); font-size:9px; opacity:.7; }
-
-.net-detail { margin-top:10px; border-top:1px solid var(--line); padding-top:10px; }
-.net-detail .empty { color:var(--muted); }
 .det-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:2px 14px; margin-bottom:10px; }
 .wf { display:flex; flex-direction:column; gap:3px; }
 .wf-title { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
@@ -708,25 +748,12 @@ const STYLES =
 .wf-bar.send { background:#00b8d9; } .wf-bar.other { background:#8a9099; }
 .wf-bar.identity { background:#ff5c8a; }
 .det-loading,.det-err { color:var(--muted); padding:6px 0; } .det-err { color:var(--crit); }
-
-` +
-  // Network pane = split DevTools : liste (scroll) + détail (scroll), détail
-  // TOUJOURS visible (≠ tout dans un seul scroll où le détail finit hors écran).
-  `
-.pane.np.active { display:flex; flex-direction:column; padding:0; }
-.np .net-head { padding:10px 14px 8px; flex:none; margin:0; }
-.np .net-list { flex:1 1 auto; min-height:56px; overflow:auto; padding:0 14px; border-top:1px solid var(--line); }
-` +
-  // Détail : placeholder = petit (flex:0). Sélection active (.np.sel) → le détail
-  // prend une vraie part (60%) avec son propre scroll → le waterfall est visible,
-  // la liste se réduit.
-  `
-.np .net-detail { flex:0 1 auto; max-height:50%; overflow:auto; padding:8px 14px 12px; margin-top:0; border-top:1px solid var(--line); }
-.np.sel .net-list { flex:1 1 40%; min-height:48px; }
-.np.sel .net-detail { flex:1 1 60%; max-height:none; }
-.det-bar { display:flex; justify-content:flex-end; margin-bottom:2px; }
-.det-close { cursor:pointer; color:var(--muted); font-weight:800; font-size:15px; line-height:1; padding:0 4px; }
-.det-close:hover { color:#fff; }
+.q-title { margin-top:12px; }
+.q-list { display:flex; flex-direction:column; }
+.q-row { display:flex; align-items:center; gap:10px; min-height:24px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+.q-sql { flex:1; min-width:0; color:#e8eaed; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; }
+.q-conn { flex:none; color:#9ecbff; font-size:10px; }
+.q-meta { flex:none; color:#a3aab4; font-size:10.5px; font-variant-numeric:tabular-nums; text-align:right; min-width:52px; }
 `;
 
 function pushCap(arr: number[], v: number, cap: number): void {
@@ -860,9 +887,8 @@ export class DebugBar {
   /** dispose des abonnements realtime (null quand OFF). */
   private liveOff: (() => void) | null = null;
   private rafPending = false;
-  /** Filtre de sévérité de l'onglet Logs — `all` par défaut. */
   /**
-   * Filtres du journal — les MÊMES que le Direct de la console : INFO et plus
+   * Filtres des lignes serveur — les MÊMES que le Direct de la console : INFO et plus
    * grave à l'ouverture (DEBUG à un clic), trafic de la console et de Vite
    * masqué, lignes du framework visibles.
    */
@@ -877,8 +903,10 @@ export class DebugBar {
    * perdre ce qui s'est passé pendant, ce qui serait le pire des deux mondes.
    */
   private feedPaused = false;
-  /** La liste affichée doit être refaite (changement de filtre ou de recherche). */
+  /** Le jeu affiché est REMPLACÉ (filtre, recherche, vider) : la vue revient au flux. */
   private feedDirty = false;
+  /** Le flux a changé sans être remplacé (requête mise à jour, ligne dépliée). */
+  private flowChanged = false;
   // Pouls realtime — débit msg/s dérivé du compteur de frames du client.
   private prevFrames = 0;
   private rtRate = 0;
@@ -900,14 +928,14 @@ export class DebugBar {
   private readonly net = new NetworkModel();
   /** Observe la barre → publie sa hauteur (var CSS) pour l'app hôte. */
   private ro: ResizeObserver | null = null;
-  // Nœuds de ligne PERSISTANTS (id → row) — mise à jour incrémentale, jamais de
-  // rebuild innerHTML global (sinon clic perdu + scroll qui saute).
-  private readonly netRows = new Map<number, HTMLElement>();
+  /** La ligne choisie dans l'onglet Requêtes — son détail occupe le panneau latéral. */
+  private selected: FlowItem | null = null;
+  /** `requestId` de la requête choisie, quand elle en a un : clé de son profil serveur. */
   private selectedRid: string | null = null;
-  private selRowId: number | null = null;
-  private selNoRid = false; // ligne cliquée sans requestId lisible
-  /** Le journal fenêtré (null tant que la barre n'est pas montée). */
-  private feedView: FeedView | null = null;
+  /** Ids locaux des requêtes dépliées — alloué au premier dépliage. */
+  private expanded: Set<number> | null = null;
+  /** Le flux fenêtré (null tant que la barre n'est pas montée). */
+  private feedView: FeedView<FlowItem> | null = null;
   /** Dernière séquence remise à la vue — ce qui la dépasse est neuf. */
   private feedSeen = 0;
   /** Séquence à laquelle « vider » a été demandé : rien d'antérieur ne s'affiche. */
@@ -952,7 +980,10 @@ export class DebugBar {
     this.visible = lsGet(LS.visible, "1") !== "0";
     this.minimized = lsGet(LS.min, "0") === "1";
     this.side = lsGet(LS.side, "right") === "left" ? "left" : "right";
-    const tab = lsGet(LS.tab, "realtime");
+    // Network et Logs ne font plus qu'un onglet : qui avait laissé l'un des deux
+    // ouvert retrouve celui qui les réunit.
+    const stored = lsGet(LS.tab, "realtime");
+    const tab = stored === "network" || stored === "logs" ? "requests" : stored;
     this.activeTab = isTabId(tab) ? tab : "realtime";
     this.panelH = clampH(
       parseInt(lsGet(LS.h, String(defaultPanelH())), 10) || defaultPanelH(),
@@ -1461,8 +1492,8 @@ export class DebugBar {
     // Chaque indicateur MÈNE à l'onglet qui le détaille (et déplie au passage).
     const onGoto = (ev: Event): void => {
       const t = closestFrom(ev.target, ".goto");
-      const id = t?.getAttribute("data-goto") as TabId | null;
-      if (!id) return;
+      const id = t?.getAttribute("data-goto") ?? "";
+      if (!isTabId(id)) return;
       this.setOpen(true);
       this.setTab(id);
     };
@@ -1485,8 +1516,8 @@ export class DebugBar {
     if (tabsBar) {
       const onTab = (ev: Event): void => {
         const t = closestFrom(ev.target, ".tab");
-        const id = t?.getAttribute("data-tab") as TabId | null;
-        if (id) this.setTab(id);
+        const id = t?.getAttribute("data-tab") ?? "";
+        if (isTabId(id)) this.setTab(id);
       };
       tabsBar.addEventListener("click", onTab);
       this.disposers.push(() => tabsBar.removeEventListener("click", onTab));
@@ -1527,8 +1558,8 @@ export class DebugBar {
       filters.addEventListener("click", onFilter);
       this.disposers.push(() => filters.removeEventListener("click", onFilter));
     }
-    const search = this.el.logSearch as HTMLInputElement | undefined;
-    if (search) {
+    const search = this.el.logSearch;
+    if (search instanceof HTMLInputElement) {
       const onSearch = (): void => {
         this.feedQuery = search.value.trim().toLowerCase();
         this.feedDirty = true;
@@ -1546,8 +1577,12 @@ export class DebugBar {
         b.textContent = this.feedPaused ? "▶" : "⏸";
         const tip = this.feedPaused
           ? "Reprendre l'affichage — la liste se recompose avec ce qui est arrivé pendant la pause"
-          : "Suspendre l'affichage — les entrées continuent d'arriver et se rattrapent à la reprise";
+          : "Suspendre l'affichage — les requêtes et les lignes continuent d'arriver et se rattrapent à la reprise";
         b.setAttribute("data-tip", tip);
+        b.setAttribute(
+          "aria-label",
+          this.feedPaused ? "Reprendre l'affichage" : "Suspendre l'affichage",
+        );
       }
       // À la reprise, on refait la liste : le tampon a bougé pendant la pause.
       if (!this.feedPaused) {
@@ -1556,14 +1591,9 @@ export class DebugBar {
       }
     });
     this.wireBtn("btnCopy", () => {
-      // Tout le jeu affiché, une ligne par entrée — l'écran ne porte qu'une
+      // Tout le jeu affiché, une ligne par ligne — l'écran ne porte qu'une
       // fenêtre, copier le DOM ne rendrait que quelques lignes.
-      const text = (this.feedView?.shown ?? [])
-        .map(
-          (l) =>
-            `${fmtClock(l.ts)} ${l.name} ${l.module} ${l.text}${l.requestId ? ` [${l.requestId}]` : ""}`,
-        )
-        .join("\n");
+      const text = (this.feedView?.shown ?? []).map(copyLine).join("\n");
       // Absent hors contexte sécurisé (HTTP autre que localhost) malgré lib.dom.
       void (navigator.clipboard as Clipboard | undefined)?.writeText(text).then(
         () => this.flashBtn("btnCopy", "✓"),
@@ -1573,24 +1603,32 @@ export class DebugBar {
       );
     });
     this.wireBtn("btnClearFeed", () => {
-      // On ne touche pas au modèle : la barre n'efface rien côté serveur. On
-      // retient seulement OÙ la liste a été vidée — tout ce qui arrive ensuite
-      // s'affiche.
+      // La barre n'efface rien côté serveur. On oublie les requêtes vues par
+      // le navigateur, et on retient seulement OÙ la liste a été vidée — tout
+      // ce qui arrive ensuite s'affiche.
       const feed = this.model.view.feed;
       this.feedCleared = feed.at(-1)?.seq ?? 0;
+      this.net.clear();
+      this.expanded = null;
+      this.feedView?.select(null);
       this.feedDirty = true;
       this.render();
     });
-    // Le journal : une vue FENÊTRÉE (quelques dizaines de nœuds recyclés, quel
+    // Le flux : une vue FENÊTRÉE (quelques dizaines de nœuds recyclés, quel
     // que soit le tampon). Le détail s'ouvre dans un volet À CÔTÉ — l'ouvrir
     // dans la liste poussait les lignes sous l'œil.
     const feedBox = this.el.feedBox;
     if (feedBox instanceof HTMLElement) {
-      const view = new FeedView(feedBox, {
-        onSelect: (entry) => this.showLogDetail(entry),
-        tierOf: (sev) => DebugBar.tierOf(sev),
-        formatTime: fmtClock,
-      });
+      const view = new FeedView<FlowItem>(
+        feedBox,
+        {
+          keyOf: (item) => item.key,
+          fill: (row, item) => fillFlowRow(row, item),
+          onSelect: (item) => this.selectItem(item),
+          onAction: (item, act) => this.toggleItem(item, act),
+        },
+        "Requêtes et lignes du serveur",
+      );
       this.feedView = view;
       this.disposers.push(() => {
         view.destroy();
@@ -1601,7 +1639,7 @@ export class DebugBar {
     if (side instanceof HTMLElement) {
       const onSide = (ev: Event): void => {
         if (closestFrom(ev.target, "[data-act='close']"))
-          this.feedView?.select(-1);
+          this.feedView?.select(null);
       };
       side.addEventListener("click", onSide);
       this.disposers.push(() => side.removeEventListener("click", onSide));
@@ -1691,11 +1729,11 @@ export class DebugBar {
         ${this.miniMetric("cpu", "cpu", "cpuMini", "0%", "perf", "Charge processeur du serveur — cliquer pour ouvrir l'onglet Perf")}
         ${this.miniMetric("mem", "mem", "memMini", "0%", "perf", "Mémoire utilisée par le serveur — cliquer pour ouvrir l'onglet Perf")}
         <span class="spacer"></span>
-        ${this.networkEnabled ? `<button type="button" class="chip goto" data-goto="network" data-tip="Requêtes réseau observées — cliquer pour ouvrir l'onglet Network"><span class="k">net</span><span class="blue" data-el="netChip">0</span></button>` : ""}
+        ${this.networkEnabled ? `<button type="button" class="chip goto" data-goto="requests" data-tip="Requêtes réseau observées — cliquer pour ouvrir l'onglet Requêtes"><span class="k">net</span><span class="blue" data-el="netChip">0</span></button>` : ""}
         <button type="button" class="chip goto kchip" data-goto="kernel" data-el="kChip" data-tip="Nodefony client de la page (NodefonyKernel) — cliquer pour ouvrir l'onglet" hidden><span class="word">client</span><span class="word kstate" data-el="kChipState"></span></button>
         ${this.frontend ? `<button type="button" class="chip goto" data-goto="realtime" data-tip="Mises à jour à chaud (HMR) appliquées depuis le chargement de la page — cliquer pour ouvrir le détail"><span class="k">hmr</span><span class="hmrv" data-el="hmrChip">0</span></button>` : ""}
-        <button type="button" class="chip goto" data-goto="logs" data-tip="Entrées de journal reçues — cliquer pour ouvrir l'onglet Logs"><span class="k">logs</span><span data-el="logs">0</span></button>
-        <button type="button" class="chip goto" data-goto="logs" data-tip="Erreurs et alertes — cliquer pour ouvrir l'onglet Logs"><span class="k">err</span><span class="crit" data-el="err">0</span></button>
+        <button type="button" class="chip goto" data-goto="requests" data-tip="Lignes de journal reçues du serveur — cliquer pour ouvrir l'onglet Requêtes"><span class="k">logs</span><span data-el="logs">0</span></button>
+        <button type="button" class="chip goto" data-goto="requests" data-tip="Lignes d'erreur reçues du serveur — cliquer pour ouvrir l'onglet Requêtes"><span class="k">err</span><span class="crit" data-el="err">0</span></button>
         <div class="seg ui">
           <button type="button" data-el="btnMin" aria-label="Réduire la barre en pastille" data-tip="Réduire la barre en une pastille, dans un coin de l'écran"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 11.5h9"/></svg><span class="lbl">Réduire</span></button>
           <button type="button" class="toggle" data-el="btnToggle" aria-expanded="${this.startOpen}" aria-controls="nf-db-panel" aria-label="${this.startOpen ? "Fermer" : "Ouvrir"} le panneau de débogage" data-tip="${this.startOpen ? "Fermer" : "Ouvrir"} le panneau : temps réel, réseau, performances, journaux"><span class="lbl" data-el="toggleLbl">${this.startOpen ? "Fermer" : "Ouvrir"}</span><svg class="ico chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></button>
@@ -1705,17 +1743,15 @@ export class DebugBar {
         <div class="resize" data-el="resize" title="Redimensionner"></div>
         <div class="tabs">
           <button class="tab" data-tab="realtime">Realtime</button>
-          ${this.networkEnabled ? `<button class="tab" data-tab="network">Network <span class="tcount" data-el="netTab">0</span></button>` : ""}
+          <button class="tab" data-tab="requests">Requêtes <span class="tcount" data-el="reqTab">0</span></button>
           <button class="tab" data-tab="perf">Perf</button>
-          <button class="tab" data-tab="logs">Logs <span class="tcount" data-el="logsTab">0</span></button>
           <button class="tab" data-tab="kernel">Nodefony client <span class="tdot" data-el="kTabDot" hidden></span></button>
           <button class="tab" data-tab="runtime">Runtime</button>
         </div>
         <div class="panes" data-el="panes">
           ${this.realtimePane()}
-          ${this.networkEnabled ? this.networkPane() : ""}
+          ${this.requestsPane()}
           ${this.perfPane()}
-          ${this.logsPane()}
           <div class="pane" data-pane="kernel"><div data-el="kBody"></div></div>
           ${this.runtimePane()}
         </div>
@@ -1742,19 +1778,6 @@ export class DebugBar {
     </div></div>`;
   }
 
-  private networkPane(): string {
-    return `<div class="pane np" data-pane="network">
-      <div class="net-head">
-        <span class="chip"><span class="k">total</span><span data-el="netTotal">0</span></span>
-        <span class="chip"><span class="k">err</span><span class="crit" data-el="netErr">0</span></span>
-        <span class="chip"><span class="k">pending</span><span class="muted" data-el="netPend">0</span></span>
-        <span class="net-clear" data-el="netClear" title="vider la liste">vider</span>
-      </div>
-      <div class="net-list" data-el="netList"><div class="empty">en attente d'appels AJAX (fetch / XHR)…</div></div>
-      <div class="net-detail" data-el="netDetail"><div class="empty">clique un appel → profil serveur (waterfall des phases, route, user).</div></div>
-    </div>`;
-  }
-
   private perfPane(): string {
     return `<div class="pane" data-pane="perf"><div class="cards">
       <div class="card">
@@ -1767,39 +1790,41 @@ export class DebugBar {
   }
 
   /**
-   * L'onglet Logs — une petite console de lecture, pas une liste qui défile.
+   * L'onglet Requêtes — une petite console de lecture, pas une liste qui défile.
    *
-   * Ce qu'elle porte, et pourquoi : un FILTRE par sévérité et une RECHERCHE
-   * (sans quoi on lit le bruit au lieu de son incident) ; une PAUSE (sans quoi
-   * la ligne qu'on essaie de lire s'en va) ; une COPIE (une trace se colle dans
-   * un ticket) ; et le DÉTAIL d'une entrée, où vit le `requestId` — le champ qui
-   * relie ce journal à sa requête, et que la barre recevait sans jamais le
-   * montrer.
+   * Une ligne par requête vue par le navigateur, qui se déplie sur les lignes
+   * que le serveur a écrites pour elle : les deux moitiés d'une même requête se
+   * lisent ensemble, sans comparer des identifiants à l'œil. Ce qu'il porte, et
+   * pourquoi : un FILTRE par sévérité et une RECHERCHE (sans quoi on lit le
+   * bruit au lieu de son incident) ; une PAUSE (sans quoi la ligne qu'on essaie
+   * de lire s'en va) ; une COPIE (une trace se colle dans un ticket) ; et un
+   * seul panneau de DÉTAIL — le profil serveur d'une requête, ou une ligne.
    */
-  private logsPane(): string {
-    return `<div class="pane logp" data-pane="logs">
+  private requestsPane(): string {
+    const net = this.networkEnabled ? "" : " hidden";
+    return `<div class="pane logp" data-pane="requests">
       <div class="counts">
-        <span class="chip" data-tip="Entrées reçues depuis l'ouverture de la page"><span class="k">total</span><span data-el="cTotal">0</span></span>
-        <span class="chip" data-tip="Erreurs reçues (sévérité 0 à 3)"><span class="k">err</span><span class="crit" data-el="cErr">0</span></span>
-        <span class="chip" data-tip="Alertes reçues (sévérité 4)"><span class="k">warn</span><span class="warn" data-el="cWarn">0</span></span>
-        <span class="chip" data-tip="Entrées écartées par le serveur faute de place dans le tampon — le flux était plus rapide que l'envoi"><span class="k">dropped</span><span class="muted" data-el="cDrop">0</span></span>
+        <span class="chip"${net} data-tip="Requêtes observées par le navigateur depuis l'ouverture de la page"><span class="k">requêtes</span><span data-el="cReq">0</span></span>
+        <span class="chip" data-el="cErrChip" data-tip="Requêtes en échec et lignes d'erreur du serveur"><span class="k">erreurs</span><span class="crit" data-el="cErr">0</span></span>
+        <span class="chip"${net} data-tip="Requêtes envoyées dont la réponse n'est pas encore arrivée"><span class="k">en attente</span><span data-el="cPend">0</span></span>
+        <span class="chip" data-tip="Lignes de journal reçues du serveur"><span class="k">lignes serveur</span><span data-el="cTotal">0</span></span>
+        <span class="chip" data-tip="Lignes écartées par le serveur faute de place dans le tampon — le flux était plus rapide que l'envoi"><span class="k">écartées</span><span data-el="cDrop">0</span></span>
         <span class="spacer"></span>
         <input class="search" data-el="logSearch" type="search" placeholder="rechercher…"
-               aria-label="Filtrer les journaux sur leur texte, leur module ou leur requête" />
-        <button type="button" class="toolbtn" data-el="btnPause" aria-pressed="false" data-tip="Suspendre l'affichage — les entrées continuent d'arriver et se rattrapent à la reprise">⏸</button>
-        <button type="button" class="toolbtn" data-el="btnCopy" data-tip="Copier les entrées affichées (tout le jeu filtré, pas seulement l'écran) dans le presse-papiers">⧉</button>
-        <button type="button" class="toolbtn" data-el="btnClearFeed" data-tip="Vider la liste affichée (n'efface rien côté serveur)">⌫</button>
+               aria-label="Filtrer sur la méthode, le chemin, le statut, le texte, le module ou la requête" />
+        <button type="button" class="toolbtn" data-el="btnPause" aria-pressed="false" aria-label="Suspendre l'affichage" data-tip="Suspendre l'affichage — les requêtes et les lignes continuent d'arriver et se rattrapent à la reprise">⏸</button>
+        <button type="button" class="toolbtn" data-el="btnCopy" aria-label="Copier la liste" data-tip="Copier la liste affichée (tout le jeu filtré, pas seulement l'écran) dans le presse-papiers">⧉</button>
+        <button type="button" class="toolbtn" data-el="btnClearFeed" aria-label="Vider la liste" data-tip="Vider la liste affichée (n'efface rien côté serveur)">⌫</button>
       </div>
       <div class="counts feedfilters" data-el="feedFilters">
-        ${SEVERITY_NAMES.map((name, sev) => `<button type="button" class="chip sevf${this.feedSevs.has(sev) ? " on" : ""}" data-sevn="${sev}" aria-pressed="${this.feedSevs.has(sev)}" data-tip="Afficher ou masquer ${name}">${name.toLowerCase()}</button>`).join("")}
+        ${SEVERITY_NAMES.map((name, sev) => `<button type="button" class="chip sevf${this.feedSevs.has(sev) ? " on" : ""}" data-sevn="${sev}" aria-pressed="${this.feedSevs.has(sev)}" data-tip="Afficher ou masquer les lignes serveur ${name}">${name.toLowerCase()}</button>`).join("")}
         <button type="button" class="chip sevf${this.feedHideConsole ? " on" : ""}" data-view="console" aria-pressed="${this.feedHideConsole}" data-tip="Masquer les requêtes de la console d'administration et du relais Vite, avec toutes leurs lignes — la même règle que la console">console et Vite masqués</button>
         <button type="button" class="chip sevf${this.feedHideFramework ? " on" : ""}" data-view="framework" aria-pressed="${this.feedHideFramework}" data-tip="Masquer ce que le framework écrit pour lui-même ; les lignes de requête restent">NODEFONY masqué</button>
+        <span class="filterhint">les niveaux filtrent les lignes serveur</span>
       </div>
       <div class="logbody">
-        <div class="feedbox" data-el="feedBox">
-          <div class="loghead" aria-hidden="true"><span>heure</span><span>niveau</span><span>module</span><span>message</span><span>requête</span></div>
-        </div>
-        <aside class="logside" data-el="logSide" aria-label="Détail de l'entrée" hidden></aside>
+        <div class="feedbox" data-el="feedBox"></div>
+        <aside class="logside" data-el="logSide" aria-label="Détail de la ligne choisie" hidden></aside>
       </div>
     </div>`;
   }
@@ -2147,151 +2172,75 @@ export class DebugBar {
         (viteOrigin !== "" && url.includes(viteOrigin)),
     });
     this.disposers.push(uninstall);
-    // Délégation sur le conteneur PERSISTANT (jamais reconstruit en innerHTML).
-    const list = this.el.netList as HTMLElement | undefined;
-    if (list) {
-      const onClick = (ev: Event): void => {
-        const row = closestFrom(ev.target, ".net-row");
-        if (!row) return;
-        const rid = row.dataset.rid;
-        this.selectRow(row, rid || null);
-      };
-      list.addEventListener("click", onClick);
-      this.disposers.push(() => list.removeEventListener("click", onClick));
-    }
-    // Bouton ✕ du détail (délégué : le détail est re-rendu en innerHTML).
-    const detail = this.el.netDetail as HTMLElement | undefined;
-    if (detail) {
-      const onDetail = (ev: Event): void => {
-        if (closestFrom(ev.target, '[data-act="close"]')) this.deselect();
-      };
-      detail.addEventListener("click", onDetail);
-      this.disposers.push(() => detail.removeEventListener("click", onDetail));
-    }
-    const clear = this.el.netClear as HTMLElement | undefined;
-    if (clear) {
-      const onClear = (e: Event): void => {
-        e.stopPropagation();
-        this.net.clear();
-        this.netRows.clear();
-        this.selectedRid = null;
-        this.selRowId = null;
-        const node = this.el.netList;
-        if (node)
-          node.innerHTML = `<div class="empty">en attente d'appels AJAX (fetch / XHR)…</div>`;
-        this.detailVersion++;
-        this.scheduleRender();
-      };
-      clear.addEventListener("click", onClear);
-      this.disposers.push(() => clear.removeEventListener("click", onClear));
-    }
   }
 
   private onNetEntry(e: NetEntry): void {
     this.net.ingest(e);
-    // MAJ incrémentale de la ligne (nœud stable) — pas de rebuild global.
-    this.upsertNetRow(e);
-    if (e.requestId && e.requestId === this.selectedRid) this.detailVersion++;
+    this.flowChanged = true;
+    // La requête choisie en attente vient de recevoir sa réponse : son
+    // `requestId` est enfin lisible, son profil peut se demander.
+    const sel = this.selected;
+    if (
+      sel?.kind === "request" &&
+      sel.row.net.id === e.id &&
+      e.requestId !== null &&
+      this.selectedRid === null
+    ) {
+      this.selectedRid = e.requestId;
+      if (!this.net.profileState(e.requestId)) this.fetchProfile(e.requestId);
+    }
+    if (sel?.kind === "request" && sel.row.net.id === e.id)
+      this.detailVersion++;
     this.scheduleRender();
   }
 
-  /** Crée ou met à jour le nœud de ligne d'un appel (jamais d'innerHTML global). */
-  private upsertNetRow(e: NetEntry): void {
-    const list = this.el.netList as HTMLElement | undefined;
-    if (!list) return;
-    let row = this.netRows.get(e.id);
-    if (!row) {
-      // Première ligne → retire le placeholder "empty".
-      if (this.netRows.size === 0) list.textContent = "";
-      row = document.createElement("div");
-      row.className = "net-row";
-      row.innerHTML =
-        `<span class="net-method"></span>` +
-        `<span class="net-path"></span>` +
-        `<span class="net-rid"></span>` +
-        `<span class="net-status"></span>` +
-        `<span class="net-dur"></span>`;
-      this.netRows.set(e.id, row);
-      list.insertBefore(row, list.firstChild); // newest en haut
-      // Cap DOM (aligné sur le cap du modèle).
-      while (this.netRows.size > 80 && list.lastElementChild) {
-        const last = list.lastElementChild as HTMLElement;
-        // Retrouve l'id de la dernière ligne pour purger la map.
-        for (const [id, n] of this.netRows) {
-          if (n === last) {
-            this.netRows.delete(id);
-            break;
-          }
-        }
-        last.remove();
-      }
-    }
-    this.fillNetRow(row, e);
-  }
-
-  /** Remplit/actualise les cellules d'une ligne (textContent → 0 échappement). */
-  private fillNetRow(row: HTMLElement, e: NetEntry): void {
-    row.dataset.rid = e.requestId ?? "";
-    const sel = e.requestId && e.requestId === this.selectedRid;
-    row.className = `net-row${sel ? " sel" : ""}${isNetError(e) ? " err" : ""}`;
-    const [m, path, rid, status, dur] = row.children as unknown as [
-      HTMLElement,
-      HTMLElement,
-      HTMLElement,
-      HTMLElement,
-      HTMLElement,
-    ];
-    m.className = `net-method ${methodClass(e.method)}`;
-    m.textContent = e.method;
-    path.textContent = e.path;
-    path.title = e.url;
-    rid.textContent = e.requestId ? shortId(e.requestId) : "";
-    if (e.pending) {
-      status.className = "net-status sp";
-      status.textContent = "···";
-    } else if (e.error) {
-      status.className = "net-status s5";
-      status.textContent = "ERR";
-    } else {
-      status.className = `net-status s${statusFamily(e.status)}`;
-      status.textContent = e.status === null ? "—" : String(e.status);
-    }
-    dur.textContent = e.durationMs === null ? "" : `${e.durationMs}ms`;
-  }
-
-  /** Sélectionne une ligne (highlight) + déclenche le fetch du profil. */
-  private selectRow(row: HTMLElement, rid: string | null): void {
-    // Highlight : retire l'ancien, pose le nouveau (pas de re-render de liste).
-    if (this.selRowId !== null) {
-      this.netRows.get(this.selRowId)?.classList.remove("sel");
-    }
-    row.classList.add("sel");
-    const idEntry = [...this.netRows.entries()].find(([, n]) => n === row);
-    this.selRowId = idEntry ? idEntry[0] : null;
-    this.selectedRid = rid;
-    this.selNoRid = !rid;
+  /**
+   * Une ligne a été choisie dans le flux (`null` : la sélection est levée).
+   * Une requête ouvre son profil serveur dans le panneau latéral ; une ligne
+   * serveur, son détail. Un seul panneau pour les deux.
+   */
+  private selectItem(item: FlowItem | null): void {
+    this.selected = item;
+    this.selectedRid =
+      item?.kind === "request" ? (item.row.net.requestId ?? null) : null;
     this.detailVersion++;
-    // Garantit une hauteur de panneau suffisante pour voir le waterfall (sinon
-    // le détail à 60% d'un petit panneau reste illisible). Transitoire (non
-    // persisté → ne piétine pas la hauteur choisie par l'utilisateur au resize).
-    const minDetail = detailPanelH();
-    if (rid && this.panelH < minDetail) this.setPanelH(minDetail);
-    if (rid && !this.net.profileState(rid)) this.fetchProfile(rid);
-    // Pont vers une app hôte (ex. Studio) : un clic sur une requête sélectionne
-    // le même requestId dans sa page Profiler. CustomEvent → 0 couplage (no-op
-    // si aucun listener). Le widget est vanilla/Shadow DOM, l'hôte est libre.
-    if (rid && typeof window !== "undefined") {
-      try {
-        window.dispatchEvent(
-          new CustomEvent(PLATFORM_EVENTS.debugbarSelect, {
-            detail: { requestId: rid },
-          }),
-        );
-      } catch {
-        /* CustomEvent indispo (très vieux env) → ignore */
+    const rid = this.selectedRid;
+    if (rid) {
+      // Garantit une hauteur de panneau suffisante pour voir le waterfall.
+      // Transitoire (non persisté → ne piétine pas la hauteur choisie par
+      // l'utilisateur au resize).
+      const minDetail = detailPanelH();
+      if (this.panelH < minDetail) this.setPanelH(minDetail);
+      if (!this.net.profileState(rid)) this.fetchProfile(rid);
+      // Pont vers une app hôte (ex. Studio) : un clic sur une requête
+      // sélectionne le même requestId dans sa page Profiler. CustomEvent → 0
+      // couplage (no-op si aucun listener).
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(
+            new CustomEvent(PLATFORM_EVENTS.debugbarSelect, {
+              detail: { requestId: rid },
+            }),
+          );
+        } catch {
+          /* CustomEvent indispo (très vieux env) → ignore */
+        }
       }
     }
     this.scheduleRender();
+  }
+
+  /** Déplie ou replie une requête — chevron, ou `→` / `←` au clavier. */
+  private toggleItem(item: FlowItem, act: string): void {
+    if (item.kind !== "request") return;
+    const id = item.row.net.id;
+    const open =
+      act === "expand" ? true : act === "collapse" ? false : !item.expanded;
+    if (open === item.expanded) return;
+    if (open) (this.expanded ??= new Set()).add(id);
+    else this.expanded?.delete(id);
+    this.flowChanged = true;
+    this.render();
   }
 
   /** Fetch `/{profilerBase}/{requestId}` (ignoré par l'intercepteur). */
@@ -2390,14 +2339,11 @@ export class DebugBar {
       case "realtime":
         this.renderRealtimePane(v);
         break;
-      case "network":
-        this.renderNetwork();
+      case "requests":
+        this.renderRequestsPane(v);
         break;
       case "perf":
         this.renderPerf(v);
-        break;
-      case "logs":
-        this.renderLogsPane(v);
         break;
       case "kernel":
         this.renderKernel();
@@ -2470,13 +2416,19 @@ export class DebugBar {
     if (this.networkEnabled) {
       this.text("netChip", String(this.net.total));
       this.cls("netChip", this.net.errors > 0 ? "crit" : "blue");
-      this.text("netTab", String(this.net.total));
-      this.cls("netTab", this.net.errors > 0 ? "tcount crit" : "tcount");
     }
     this.text("logs", String(v.logTotal));
     this.text("err", String(v.errorCount));
-    this.text("logsTab", String(v.logTotal));
-    this.cls("logsTab", v.errorCount > 0 ? "tcount crit" : "tcount");
+    // L'onglet compte ce qu'il liste en premier : les requêtes, ou à défaut
+    // (intercepteur coupé) les lignes du serveur.
+    this.text(
+      "reqTab",
+      String(this.networkEnabled ? this.net.total : v.logTotal),
+    );
+    this.cls(
+      "reqTab",
+      this.net.errors > 0 || v.errorCount > 0 ? "tcount crit" : "tcount",
+    );
   }
 
   private renderRealtimePane(v: DebugBarView): void {
@@ -2533,26 +2485,28 @@ export class DebugBar {
     this.text("external", formatBytes(v.external));
   }
 
-  private renderLogsPane(v: DebugBarView): void {
+  private renderRequestsPane(v: DebugBarView): void {
+    this.text("cReq", String(this.net.total));
+    this.text("cErr", String(this.net.errors + v.errorCount));
+    this.el.cErrChip?.setAttribute(
+      "data-tip",
+      `${this.net.errors} requête${this.net.errors > 1 ? "s" : ""} en échec (réseau ou statut ≥ 400), ${v.errorCount} ligne${v.errorCount > 1 ? "s" : ""} d'erreur du serveur`,
+    );
+    this.text("cPend", String(this.net.pending));
     this.text("cTotal", String(v.logTotal));
-    this.text("cErr", String(v.errorCount));
-    this.text("cWarn", String(v.warnCount));
     this.text("cDrop", String(v.dropped));
     this.renderFeed(v.feed);
-  }
-
-  /** Classe de couleur d'une entrée, dérivée de sa sévérité RFC 5424. */
-  private static tierOf(severity: number): string {
-    if (severity <= 3) return "crit";
-    if (severity === 4) return "warn";
-    if (severity === 7) return "muted";
-    return "info";
+    if (this.detailVersion !== this.detailRendered) {
+      this.detailRendered = this.detailVersion;
+      this.renderDetail();
+    }
   }
 
   /**
-   * L'entrée passe-t-elle les filtres et la recherche en cours ? Les règles
+   * La ligne serveur passe-t-elle les filtres en cours ? Les règles
    * « console » et « module exclu » sont celles du cœur, partagées avec la
-   * console d'administration — jamais recopiées.
+   * console d'administration — jamais recopiées. La recherche, elle, porte
+   * aussi sur les requêtes : elle s'applique au flux joint (`flattenFlow`).
    */
   private feedMatch(
     l: FeedLog,
@@ -2573,28 +2527,10 @@ export class DebugBar {
       )
     )
       return false;
-    const q = this.feedQuery;
-    if (q === "") return true;
-    return (
-      l.text.toLowerCase().includes(q) ||
-      l.module.toLowerCase().includes(q) ||
-      l.msgid.toLowerCase().includes(q) ||
-      (l.requestId ?? "").toLowerCase().includes(q)
-    );
+    return true;
   }
 
-  /** Ouvre (ou referme) le volet de détail d'une entrée. */
-  private showLogDetail(entry: FeedLog | null): void {
-    const side = this.el.logSide;
-    if (!(side instanceof HTMLElement)) return;
-    side.hidden = entry === null;
-    side.innerHTML =
-      entry === null
-        ? ""
-        : `<div class="sidehead"><span>Détail</span><button type="button" class="toolbtn" data-act="close" aria-label="Fermer le détail">✕</button></div>${this.feedDetail(entry)}`;
-  }
-
-  /** Le détail d'une entrée — ce qu'on colle dans un ticket. */
+  /** Le détail d'une ligne serveur — ce qu'on colle dans un ticket. */
   private feedDetail(l: FeedLog): string {
     const row = (k: string, v: string): string =>
       `<div class="drow"><span class="dk">${k}</span><span class="dv">${escapeHtml(v)}</span></div>`;
@@ -2611,106 +2547,139 @@ export class DebugBar {
   }
 
   /**
-   * Rendu du journal — la vue fenêtrée reçoit le jeu, elle ne peint que l'écran.
+   * Rendu du flux — la vue fenêtrée reçoit le jeu, elle ne peint que l'écran.
    *
-   * Sans filtre, le jeu EST le tampon du modèle (aucune copie). Avec un filtre,
-   * une recherche ou après « vider », il est recalculé — seulement quand quelque
-   * chose a changé, et seulement panneau ouvert sur cet onglet (`render`) :
-   * barre fermée, le flux ne fait qu'entrer dans le tampon.
+   * Le flux est recomposé (jointure par `requestId`, filtres, recherche,
+   * dépliage) seulement quand quelque chose a changé — ligne serveur reçue,
+   * requête mise à jour, filtre, dépliage — et seulement panneau ouvert sur
+   * cet onglet (`render`) : barre fermée, tout ne fait qu'entrer dans les
+   * modèles.
    */
   private renderFeed(feed: FeedLog[]): void {
     const view = this.feedView;
     if (!view || this.feedPaused) return;
     const last = feed.at(-1)?.seq ?? 0;
-    const refilter = this.feedDirty;
-    if (!refilter && last === this.feedSeen) return;
-    const since = this.feedSeen;
+    const reset = this.feedDirty;
+    if (!reset && !this.flowChanged && last === this.feedSeen) return;
     this.feedSeen = last;
     this.feedDirty = false;
+    this.flowChanged = false;
+    const net = this.net.entries();
+    // Une requête de la console se reconnaît à une ligne d'accès vers la
+    // console (règle du cœur, tenue par le modèle)… ou à son CHEMIN, que le
+    // navigateur voit : une requête réussie n'écrit plus de ligne d'accès.
+    // Dans les deux cas, elle part avec toutes ses lignes.
+    const seenIds = this.model.consoleRequestIds;
+    let consoleIds: Set<string> | null = null;
+    let hiddenRequests = 0;
+    const isConsole = (e: NetEntry): boolean =>
+      isConsolePath(e.path) ||
+      (e.requestId !== null && seenIds?.has(e.requestId) === true);
+    if (this.feedHideConsole) {
+      for (const e of net) {
+        if (!isConsole(e)) continue;
+        hiddenRequests++;
+        if (e.requestId !== null) (consoleIds ??= new Set()).add(e.requestId);
+      }
+      if (seenIds !== null)
+        for (const id of seenIds) (consoleIds ??= new Set()).add(id);
+    }
+    const logs = feed.filter(
+      (l) => l.seq > this.feedCleared && this.feedMatch(l, consoleIds),
+    );
+    const items = flattenFlow(joinRequests(net, logs), {
+      expanded: this.expanded,
+      query: this.feedQuery,
+      isHidden: this.feedHideConsole ? isConsole : null,
+    });
+    // La ligne choisie a pu changer (réponse arrivée, ligne serveur rattachée) :
+    // le détail se lit sur sa version courante.
+    const sel = this.selected;
+    if (sel !== null) {
+      const fresh = items.find((i) => i.key === sel.key);
+      if (fresh !== undefined) this.selected = fresh;
+    }
     const narrowing =
       this.feedSevs.size !== SEVERITY_NAMES.length ||
       this.feedHideConsole ||
       this.feedHideFramework ||
       this.feedQuery !== "";
-    const filtering = narrowing || this.feedCleared > 0;
-    const consoleIds = this.model.consoleRequestIds;
-    const list = filtering
-      ? feed.filter(
-          (l) => l.seq > this.feedCleared && this.feedMatch(l, consoleIds),
-        )
-      : feed;
-    let appended = -1;
-    if (!refilter) {
-      appended = 0;
-      for (let i = list.length - 1; i >= 0; i--) {
-        if ((list[i]?.seq ?? 0) <= since) break;
-        appended++;
-      }
-    }
     const emptyText =
-      feed.length === 0
-        ? "en attente de journaux…"
+      feed.length === 0 && this.net.total === 0
+        ? this.networkEnabled
+          ? "en attente de requêtes (fetch / XHR) et de lignes du serveur…"
+          : "en attente de lignes du serveur…"
         : this.feedCleared > 0 && !narrowing
-          ? "liste vidée — les nouvelles entrées s'afficheront ici."
-          : "aucune entrée ne correspond au filtre.";
-    view.setEntries(list, appended, emptyText);
+          ? "liste vidée — les nouvelles requêtes et lignes s'afficheront ici."
+          : hiddenRequests > 0
+            ? `aucune requête ni ligne ne correspond au filtre — ${hiddenRequests} requête${hiddenRequests > 1 ? "s" : ""} de la console masquée${hiddenRequests > 1 ? "s" : ""} (« console et Vite masqués »).`
+            : "aucune requête ni ligne ne correspond au filtre.";
+    view.setEntries(items, reset, emptyText);
   }
 
-  // ── Rendu Network ───────────────────────────────────────────────────────
-
-  private renderNetwork(): void {
-    this.text("netTotal", String(this.net.total));
-    this.text("netErr", String(this.net.errors));
-    this.text("netPend", String(this.net.pending));
-    if (this.detailVersion !== this.detailRendered) {
-      this.detailRendered = this.detailVersion;
-      this.renderDetail();
-    }
-  }
-
+  /**
+   * Le panneau latéral : le profil serveur de la requête choisie, ou le détail
+   * de la ligne serveur choisie. Rien de choisi : il se referme.
+   */
   private renderDetail(): void {
-    const node = this.el.netDetail;
-    if (!node) return;
-    const rid = this.selectedRid;
-    const hasSel = !!rid || this.selNoRid;
-    // Donne une vraie hauteur au détail quand un profil est ouvert (sinon le
-    // waterfall passe sous le pli, masqué par la liste).
-    node.parentElement?.classList.toggle("sel", hasSel);
-    // Aucune sélection → placeholder, pas de bouton fermer.
-    if (!hasSel) {
-      node.innerHTML = `<div class="empty">clique un appel → profil serveur (waterfall des phases, route, user).</div>`;
+    const side = this.el.logSide;
+    if (!(side instanceof HTMLElement)) return;
+    const sel = this.selected;
+    side.hidden = sel === null;
+    // Un profil (phases, requêtes SQL) se lit en largeur ; une ligne, non.
+    side.classList.toggle("wide", sel?.kind === "request");
+    if (sel === null) {
+      side.innerHTML = "";
       return;
     }
-    // Barre avec bouton fermer (✕) — délégué sur le conteneur netDetail.
-    const closeBar = `<div class="det-bar"><span class="det-close" data-act="close" title="Fermer le détail">✕</span></div>`;
+    const title = sel.kind === "request" ? "Requête" : "Ligne serveur";
+    const head = `<div class="sidehead"><span>${title}</span><button type="button" class="toolbtn" data-act="close" aria-label="Fermer le détail">✕</button></div>`;
+    side.innerHTML =
+      head +
+      (sel.kind === "request"
+        ? this.requestDetail(sel)
+        : this.feedDetail(sel.log));
+  }
+
+  /** Le détail d'une requête : ce que le navigateur a vu, puis son profil serveur. */
+  private requestDetail(item: IRequestItem): string {
+    const e = this.net.get(item.row.net.id) ?? item.row.net;
+    const status = e.pending
+      ? "en attente"
+      : e.error
+        ? `échec réseau : ${e.error}`
+        : e.status === null
+          ? "—"
+          : String(e.status);
+    const seen = `<div class="logdetail">
+      <div class="drow"><span class="dk">appel</span><span class="dv">${escapeHtml(e.method)} ${escapeHtml(e.url)}</span></div>
+      <div class="drow"><span class="dk">statut</span><span class="dv">${escapeHtml(status)}</span></div>
+      ${e.durationMs === null ? "" : `<div class="drow"><span class="dk">durée client</span><span class="dv">${e.durationMs} ms</span></div>`}
+      <div class="drow"><span class="dk">lignes serveur</span><span class="dv">${item.row.logs.length}</span></div>
+    </div>`;
+    const rid = e.requestId;
     let body: string;
-    if (!rid) {
-      body = `<div class="det-err">cet appel n'a pas de requestId lisible — réponse sans header <b>X-Request-Id</b> (cross-origin sans Access-Control-Expose-Headers, ou appel hors Nodefony).</div>`;
+    if (e.pending) {
+      body = `<div class="det-loading">réponse attendue — le profil serveur viendra avec elle.</div>`;
+    } else if (e.error) {
+      // Aucune réponse : pas d'en-tête à lire, et le serveur ne l'a peut-être
+      // jamais reçue. Parler d'un en-tête manquant égarerait la recherche.
+      body = `<div class="det-err">aucune réponse reçue — le navigateur a abandonné l'appel (serveur injoignable, connexion coupée, appel annulé ou refusé par le navigateur). Pas de profil serveur à lire.</div>`;
+    } else if (!rid) {
+      body = `<div class="det-err">cet appel n'a pas de requestId lisible — réponse sans en-tête <b>X-Request-Id</b> (autre origine sans Access-Control-Expose-Headers, ou appel hors Nodefony).</div>`;
     } else {
       const st = this.net.profileState(rid);
       if (!st || st.status === "loading") {
         body = `<div class="det-loading">profil <b>${escapeHtml(shortId(rid))}</b> — chargement…</div>`;
       } else if (st.status === "missing") {
-        body = `<div class="det-err">profil introuvable (évincé du ring buffer, ou requête sans timing).</div>`;
+        body = `<div class="det-err">profil introuvable (évincé du tampon, ou requête sans mesure de temps).</div>`;
       } else if (st.status === "error") {
-        body = `<div class="det-err">erreur profiler : ${escapeHtml(st.message)}</div>`;
+        body = `<div class="det-err">erreur du profileur : ${escapeHtml(st.message)}</div>`;
       } else {
         body = this.profileHtml(st.profile);
       }
     }
-    node.innerHTML = closeBar + body;
-  }
-
-  /** Désélectionne la requête → referme le détail (placeholder). */
-  private deselect(): void {
-    if (this.selRowId !== null) {
-      this.netRows.get(this.selRowId)?.classList.remove("sel");
-    }
-    this.selRowId = null;
-    this.selectedRid = null;
-    this.selNoRid = false;
-    this.detailVersion++;
-    this.scheduleRender();
+    return seen + body;
   }
 
   /** Rend le détail d'un profil serveur (méta + waterfall des phases). */
@@ -2754,21 +2723,21 @@ export class DebugBar {
     return meta + wf + this.queriesHtml(p.queries);
   }
 
-  /** Rend les requêtes ORM (SEAM futur) — vide tant qu'aucun adapter ne pushe. */
+  /** Rend les requêtes ORM de la requête — rien quand aucun adaptateur n'en a poussé. */
   private queriesHtml(queries: ProfileEntry["queries"]): string {
     if (!queries || queries.length === 0) return "";
-    let out = `<div class="wf-title" style="margin-top:10px">requêtes ORM (${queries.length})</div><div class="net-list" style="border:0">`;
+    let out = `<div class="wf-title q-title">requêtes ORM (${queries.length})</div><div class="q-list">`;
     for (const q of queries) {
       out +=
-        `<div class="net-row" style="cursor:default">` +
-        `<span class="net-path" title="${escapeHtml(q.sql)}">${escapeHtml(q.sql)}</span>` +
+        `<div class="q-row">` +
+        `<span class="q-sql" title="${escapeHtml(q.sql)}">${escapeHtml(q.sql)}</span>` +
         (q.connector
-          ? `<span class="net-rid">${escapeHtml(q.connector)}</span>`
+          ? `<span class="q-conn">${escapeHtml(q.connector)}</span>`
           : "") +
         (typeof q.rows === "number"
-          ? `<span class="net-dur">${q.rows} rows</span>`
+          ? `<span class="q-meta">${q.rows} lignes</span>`
           : "") +
-        `<span class="net-dur">${q.durationMs}ms</span>` +
+        `<span class="q-meta">${Math.round(q.durationMs * 100) / 100} ms</span>` +
         `</div>`;
     }
     out += `</div>`;
@@ -2799,6 +2768,103 @@ function methodClass(method: string): string {
 /** Raccourci d'un id (1er bloc UUID, ou 8 chars). */
 function shortId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id;
+}
+
+/** Classe de couleur d'une ligne serveur, dérivée de sa sévérité RFC 5424. */
+function severityTier(severity: number): string {
+  if (severity <= 3) return "crit";
+  if (severity === 4) return "warn";
+  if (severity === 7) return "muted";
+  return "info";
+}
+
+/** Le statut d'un appel tel qu'il s'affiche et se copie. */
+function statusText(e: NetEntry): string {
+  if (e.pending) return "···";
+  if (e.error) return "ERR";
+  return e.status === null ? "—" : String(e.status);
+}
+
+/** Cellules d'une ligne de requête, puis d'une ligne serveur — dans l'ordre. */
+const REQUEST_CELLS = ["chev", "method", "path", "status", "dur", "count"];
+const LOG_CELLS = ["ts", "sev", "mod", "txt", "rid"];
+
+/** Écrit une cellule de ligne : texte et classe, jamais de HTML. */
+function setCell(row: HTMLElement, i: number, text: string, cls: string): void {
+  const cell = row.children.item(i);
+  if (cell === null) return;
+  cell.textContent = text;
+  cell.className = cls;
+}
+
+/**
+ * Remplit une ligne recyclée du flux. Les cellules ne se recréent que quand la
+ * ligne change de nature (requête ↔ ligne serveur) ; sinon on change leur
+ * texte. Le chevron est un repère VISUEL (`aria-hidden`) : au clavier, `→` et
+ * `←` déplient, et l'état se lit sur `aria-expanded`.
+ */
+function fillFlowRow(row: HTMLDivElement, item: FlowItem): void {
+  if (row.dataset.kind !== item.kind) {
+    row.dataset.kind = item.kind;
+    const doc = row.ownerDocument;
+    row.replaceChildren(
+      ...(item.kind === "request" ? REQUEST_CELLS : LOG_CELLS).map(() =>
+        doc.createElement("span"),
+      ),
+    );
+    if (item.kind === "request") {
+      row.firstElementChild?.setAttribute("data-act", "toggle");
+      row.firstElementChild?.setAttribute("aria-hidden", "true");
+    }
+  }
+  if (item.kind === "request") {
+    const e = item.row.net;
+    const n = item.logs.length;
+    row.className = `req${isNetError(e) ? " err" : ""}`;
+    row.setAttribute("aria-level", "1");
+    if (n > 0) row.setAttribute("aria-expanded", String(item.expanded));
+    else row.removeAttribute("aria-expanded");
+    setCell(
+      row,
+      0,
+      n > 0 ? "›" : "",
+      `chev${item.expanded ? " open" : ""}${n > 0 ? "" : " none"}`,
+    );
+    setCell(row, 1, e.method, `method ${methodClass(e.method)}`);
+    setCell(row, 2, e.path, "path");
+    row.children.item(2)?.setAttribute("title", e.url);
+    setCell(
+      row,
+      3,
+      statusText(e),
+      `status ${e.pending ? "sp" : e.error ? "s5" : `s${statusFamily(e.status)}`}`,
+    );
+    setCell(row, 4, e.durationMs === null ? "" : `${e.durationMs} ms`, "dur");
+    setCell(row, 5, n > 0 ? `${n} ligne${n > 1 ? "s" : ""}` : "", "count");
+    return;
+  }
+  const l = item.log;
+  const tier = severityTier(l.severity);
+  row.className = `log t-${tier}${item.child ? " child" : ""}`;
+  row.setAttribute("aria-level", item.child ? "2" : "1");
+  row.removeAttribute("aria-expanded");
+  setCell(row, 0, fmtClock(l.ts), "ts");
+  setCell(row, 1, l.name, `sev ${tier}`);
+  setCell(row, 2, l.module, "mod");
+  setCell(row, 3, l.text, "txt");
+  row.children.item(3)?.setAttribute("title", l.text);
+  setCell(row, 4, l.requestId ? shortId(l.requestId) : "", "rid");
+}
+
+/** Une ligne du flux telle qu'elle se colle dans un ticket. */
+function copyLine(item: FlowItem): string {
+  if (item.kind === "request") {
+    const e = item.row.net;
+    const dur = e.durationMs === null ? "" : ` ${e.durationMs}ms`;
+    return `${e.method} ${e.path} ${statusText(e)}${dur}${e.requestId ? ` [${e.requestId}]` : ""}`;
+  }
+  const l = item.log;
+  return `${item.child ? "  " : ""}${fmtClock(l.ts)} ${l.name} ${l.module} ${l.text}${l.requestId ? ` [${l.requestId}]` : ""}`;
 }
 
 /** Extrait le trace-id (2ᵉ segment) d'un `traceparent` W3C, raccourci. */

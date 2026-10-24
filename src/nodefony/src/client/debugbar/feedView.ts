@@ -1,17 +1,22 @@
 /**
- * Vue FENÊTRÉE du journal de la barre de debug.
+ * Vue FENÊTRÉE du flux de la barre de debug.
  *
  * Deux exigences, et ce module existe pour les tenir ensemble :
  *
- * 1. **Ne pas peser sur l'application.** Le tampon garde des milliers
- *    d'entrées ; le DOM, lui, ne porte que les lignes visibles plus une marge
+ * 1. **Ne pas peser sur l'application.** Le flux garde des milliers de
+ *    lignes ; le DOM, lui, ne porte que les lignes visibles plus une marge
  *    — une quarantaine de nœuds, RÉUTILISÉS : on change leur texte, on ne
  *    reconstruit jamais de HTML. Le rendu est regroupé à une fois par image.
  * 2. **Ne rien déplacer sous l'œil.** La plus récente EN HAUT : on la voit sans
  *    défiler. La vue reste collée au haut tant qu'on y est ; si l'on descend
- *    lire, elle ne bouge plus d'un pixel — ni quand de nouvelles entrées
- *    arrivent au-dessus, ni quand le tampon perd ses plus anciennes en dessous
+ *    lire, elle ne bouge plus d'un pixel — ni quand de nouvelles lignes
+ *    arrivent au-dessus, ni quand le flux perd ses plus anciennes en dessous
  *    — et un bouton « ↑ N nouvelles » ramène au flux.
+ *
+ * La vue ne connaît pas ce qu'elle affiche : chaque ligne porte une CLÉ stable
+ * (l'ancre de lecture et la sélection la suivent, quel que soit l'ordre), et
+ * l'hôte remplit le contenu. L'ordre n'a pas à être monotone : une requête
+ * dépliée insère ses lignes serveur sous elle.
  *
  * La géométrie est faite de fonctions PURES ({@link visibleWindow},
  * {@link isAtTop}) : un environnement sans mise en page (jsdom) ne mesure
@@ -19,10 +24,12 @@
  *
  * @module nodefony/debugbar
  */
-import type { FeedLog } from "./model";
 
-/** Hauteur d'une ligne, en pixels — fixe, c'est ce qui rend le fenêtrage exact. */
-export const LOG_ROW_H = 22;
+/**
+ * Hauteur d'une ligne, en pixels — fixe, c'est ce qui rend le fenêtrage exact.
+ * 24 : la cible minimale d'un pointeur (WCAG 2.5.8), une ligne étant cliquable.
+ */
+export const ROW_H = 24;
 /** Lignes rendues au-delà de la zone visible, de chaque côté (défilement fluide). */
 const OVERSCAN = 8;
 /** Hauteur supposée quand l'élément n'est pas mesurable (masqué, ou sans mise en page). */
@@ -33,7 +40,7 @@ const FALLBACK_VIEWPORT_H = 320;
  *
  * @param scrollTop - défilement courant (px)
  * @param viewportH - hauteur visible (px)
- * @param total - nombre d'entrées
+ * @param total - nombre de lignes
  * @param rowH - hauteur d'une ligne (px)
  * @param overscan - lignes de marge de chaque côté
  * @returns la fenêtre, bornée à `[0, total]`
@@ -42,7 +49,7 @@ export function visibleWindow(
   scrollTop: number,
   viewportH: number,
   total: number,
-  rowH = LOG_ROW_H,
+  rowH = ROW_H,
   overscan = OVERSCAN,
 ): { start: number; end: number } {
   const first = Math.floor(Math.max(0, scrollTop) / rowH);
@@ -59,75 +66,77 @@ export function visibleWindow(
  * La tolérance d'une demi-ligne absorbe les arrondis de défilement : sans
  * elle, un défilement fractionnaire ferait croire qu'on a quitté le haut.
  */
-export function isAtTop(scrollTop: number, tolerance = LOG_ROW_H / 2): boolean {
+export function isAtTop(scrollTop: number, tolerance = ROW_H / 2): boolean {
   return scrollTop <= tolerance;
 }
 
-/** Une ligne recyclée et ses cellules — gardées pour ne jamais les rechercher. */
-interface IRowParts {
-  row: HTMLDivElement;
-  ts: HTMLSpanElement;
-  sev: HTMLSpanElement;
-  mod: HTMLSpanElement;
-  txt: HTMLSpanElement;
-  rid: HTMLSpanElement;
-}
-
 /** Ce que la vue demande à son hôte — elle ne connaît ni le modèle ni le rendu des détails. */
-export interface IFeedViewHost {
+export interface IFeedViewHost<T> {
+  /** Clé STABLE d'une ligne : l'ancre de lecture et la sélection la suivent. */
+  keyOf(item: T): string;
+  /**
+   * Remplit une ligne recyclée — son contenu et ses classes propres. La vue
+   * pose ensuite position, zébrure et sélection : l'hôte ne les touche pas.
+   */
+  fill(row: HTMLDivElement, item: T): void;
   /** Une ligne a été choisie (`null` : la sélection est levée). */
-  onSelect(entry: FeedLog | null): void;
-  /** Classe de couleur d'une sévérité (`crit`, `warn`, `info`, `muted`). */
-  tierOf(severity: number): string;
-  /** Horodatage affiché. */
-  formatTime(ts: number): string;
+  onSelect(item: T | null): void;
+  /**
+   * Une action portée par la ligne : un clic sur un élément `[data-act]` de
+   * la ligne, ou `→` / `←` au clavier (`expand` / `collapse`).
+   */
+  onAction?(item: T, action: string): void;
 }
 
 /**
- * Le journal fenêtré : un ascenseur, un intercalaire qui porte la hauteur
+ * Le flux fenêtré : un ascenseur, un intercalaire qui porte la hauteur
  * totale, et un réservoir de lignes positionnées par `transform` (le seul
  * changement qui ne relance pas la mise en page).
  */
-export class FeedView {
+export class FeedView<T> {
   private readonly scroller: HTMLElement;
   private readonly spacer: HTMLElement;
   private readonly layer: HTMLElement;
   private readonly jump: HTMLButtonElement;
   private readonly empty: HTMLElement;
   /** Réservoir de lignes — alloué au fil du besoin, jamais au-delà de la fenêtre. */
-  private readonly pool: IRowParts[] = [];
-  private entries: readonly FeedLog[] = [];
+  private readonly pool: HTMLDivElement[] = [];
+  private entries: readonly T[] = [];
   private follow = true;
   private unseen = 0;
-  private selectedSeq = -1;
+  private selectedKey: string | null = null;
   private frame = 0;
   /**
-   * La ligne en haut de l'écran, relevée AU MOMENT DU RENDU. Pas recalculée
-   * depuis la liste précédente : sans filtre, la liste EST le tampon du
-   * modèle, modifié sur place — relue après coup, elle contient déjà les
-   * nouvelles, et l'ancre désignerait la mauvaise ligne (vécu).
+   * La ligne en haut de l'écran, relevée AU MOMENT DU RENDU, par sa clé : la
+   * liste suivante peut être un autre tableau, ou le même modifié sur place —
+   * seule la clé survit aux deux.
    */
-  private topSeq = -1;
+  private topKey: string | null = null;
+  private topIndex = 0;
   private topOffset = 0;
   private readonly disposers: Array<() => void> = [];
 
+  /**
+   * @param root - conteneur de la vue (elle y ajoute ascenseur, saut et message vide)
+   * @param host - clé, rendu et réactions de l'hôte
+   * @param label - nom accessible de la liste
+   */
   constructor(
     root: HTMLElement,
-    private readonly host: IFeedViewHost,
+    private readonly host: IFeedViewHost<T>,
+    label: string,
   ) {
     const doc = root.ownerDocument;
     this.scroller = doc.createElement("div");
     this.scroller.className = "feedscroll";
-    this.scroller.setAttribute("role", "log");
-    // Pas d'annonce automatique : un lecteur d'écran qui lirait chaque ligne
-    // d'un flux à 50 entrées par seconde rendrait la page inutilisable.
-    this.scroller.setAttribute("aria-live", "off");
-    this.scroller.setAttribute("aria-label", "Journaux du serveur");
+    this.scroller.setAttribute("role", "tree");
+    this.scroller.setAttribute("aria-label", label);
     this.scroller.tabIndex = 0;
     this.spacer = doc.createElement("div");
     this.spacer.className = "feedspacer";
     this.layer = doc.createElement("div");
     this.layer.className = "feedlayer";
+    this.layer.setAttribute("role", "none");
     this.scroller.append(this.spacer, this.layer);
     this.jump = doc.createElement("button");
     this.jump.type = "button";
@@ -135,37 +144,57 @@ export class FeedView {
     this.jump.hidden = true;
     this.empty = doc.createElement("div");
     this.empty.className = "feedempty";
-    this.empty.textContent = "en attente de journaux…";
+    this.empty.textContent = "en attente…";
     root.append(this.scroller, this.jump, this.empty);
 
     const onScroll = (): void => {
       this.follow = isAtTop(this.scroller.scrollTop);
-      // Relevée tout de suite, pas à l'image suivante : des entrées peuvent
+      // Relevée tout de suite, pas à l'image suivante : des lignes peuvent
       // arriver entre les deux, et l'ancre serait celle d'avant le défilement.
       this.recordTop();
       if (this.follow) this.setUnseen(0);
       this.schedule();
     };
     const onClick = (ev: Event): void => {
-      const row =
-        ev.target instanceof Element ? ev.target.closest(".log") : null;
+      const row = this.rowOf(ev.target);
       if (!row) return;
-      const seq = Number(row.getAttribute("data-seq"));
-      this.select(seq === this.selectedSeq ? -1 : seq);
+      const key = row.getAttribute("data-key");
+      const item = key === null ? undefined : this.find(key);
+      if (item === undefined) return;
+      const act =
+        ev.target instanceof Element
+          ? ev.target.closest("[data-act]")?.getAttribute("data-act")
+          : null;
+      if (act && this.host.onAction) {
+        this.host.onAction(item, act);
+        return;
+      }
+      this.select(key === this.selectedKey ? null : key);
     };
     const onKey = (ev: KeyboardEvent): void => {
       if (ev.key === "Home") {
         ev.preventDefault();
         this.scrollToEnd();
-      } else if (ev.key === "Escape") {
-        this.select(-1);
-      } else if (
-        (ev.key === "Enter" || ev.key === " ") &&
-        ev.target instanceof HTMLElement &&
-        ev.target.closest(".log")
-      ) {
+        return;
+      }
+      if (ev.key === "Escape") {
+        this.select(null);
+        return;
+      }
+      const row = this.rowOf(ev.target);
+      if (!row) return;
+      if (ev.key === "Enter" || ev.key === " ") {
         ev.preventDefault();
-        ev.target.click();
+        row.click();
+      } else if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
+        const key = row.getAttribute("data-key");
+        const item = key === null ? undefined : this.find(key);
+        if (item === undefined || !this.host.onAction) return;
+        ev.preventDefault();
+        this.host.onAction(
+          item,
+          ev.key === "ArrowRight" ? "expand" : "collapse",
+        );
       }
     };
     const onJump = (): void => this.scrollToEnd();
@@ -191,43 +220,43 @@ export class FeedView {
     return this.follow;
   }
 
+  /** Les lignes affichées — pour la copie, qui prend TOUT le jeu, pas l'écran. */
+  get shown(): readonly T[] {
+    return this.entries;
+  }
+
   /**
    * Donne la liste à afficher.
    *
-   * @param list - les entrées, la plus ancienne en premier (la vue les
-   *   affiche dans l'ordre inverse : la plus récente en haut)
-   * @param appended - combien sont NOUVELLES depuis l'appel précédent ; `-1`
-   *   signale un jeu remplacé (filtre, recherche) : la vue revient au flux.
+   * @param list - les lignes dans l'ordre d'affichage : la plus récente en tête
+   * @param reset - le jeu est REMPLACÉ (filtre, recherche) : la vue revient au
+   *   flux. Sinon, hors du haut, la ligne lue reste à sa place et ce qui est
+   *   arrivé au-dessus est compté.
    * @param emptyText - message quand la liste est vide
    */
-  setEntries(
-    list: readonly FeedLog[],
-    appended: number,
-    emptyText = "en attente de journaux…",
-  ): void {
+  setEntries(list: readonly T[], reset: boolean, emptyText: string): void {
     // Ancre : la première ligne lue, et son décalage. Tant qu'on ne suit pas le
-    // flux, elle reste à la même place à l'écran, quoi que le tampon fasse —
+    // flux, elle reste à la même place à l'écran, quoi que la liste fasse —
     // des nouvelles au-dessus, des anciennes qui partent en dessous.
-    const anchorSeq = !this.follow && appended >= 0 ? this.topSeq : -1;
+    const anchorKey = !this.follow && !reset ? this.topKey : null;
+    const anchorIndex = this.topIndex;
     const anchorOffset = this.topOffset;
     this.entries = list;
-    this.spacer.style.height = `${list.length * LOG_ROW_H}px`;
+    this.spacer.style.height = `${list.length * ROW_H}px`;
     this.empty.hidden = list.length > 0;
     this.empty.textContent = emptyText;
-    if (appended < 0) {
+    if (reset) {
       this.follow = true;
       this.setUnseen(0);
     }
     if (this.follow) {
       this.scroller.scrollTop = 0;
-    } else {
-      if (anchorSeq >= 0) {
-        const j = indexOfSeq(list, anchorSeq);
-        if (j >= 0)
-          this.scroller.scrollTop =
-            (list.length - 1 - j) * LOG_ROW_H + anchorOffset;
+    } else if (anchorKey !== null) {
+      const j = this.indexOf(anchorKey);
+      if (j >= 0) {
+        this.scroller.scrollTop = j * ROW_H + anchorOffset;
+        if (j > anchorIndex) this.setUnseen(this.unseen + j - anchorIndex);
       }
-      if (appended > 0) this.setUnseen(this.unseen + appended);
     }
     this.paint();
   }
@@ -240,17 +269,12 @@ export class FeedView {
     this.paint();
   }
 
-  /** Sélectionne une entrée par sa séquence (`-1` : aucune). */
-  select(seq: number): void {
-    this.selectedSeq = seq;
-    const i = seq >= 0 ? indexOfSeq(this.entries, seq) : -1;
-    this.host.onSelect(i >= 0 ? (this.entries[i] ?? null) : null);
+  /** Sélectionne une ligne par sa clé (`null` : aucune). */
+  select(key: string | null): void {
+    this.selectedKey = key;
+    const item = key === null ? undefined : this.find(key);
+    this.host.onSelect(item ?? null);
     this.paint();
-  }
-
-  /** Les entrées affichées — pour la copie, qui prend TOUT le jeu, pas l'écran. */
-  get shown(): readonly FeedLog[] {
-    return this.entries;
   }
 
   /** Libère écouteurs et image en attente. Le DOM part avec sa racine. */
@@ -262,17 +286,29 @@ export class FeedView {
     this.frame = 0;
   }
 
+  /** La ligne de la liste qui contient `target`, s'il y en a une. */
+  private rowOf(target: EventTarget | null): HTMLElement | null {
+    const row = target instanceof Element ? target.closest(".row") : null;
+    return row instanceof HTMLElement && this.layer.contains(row) ? row : null;
+  }
+
+  private indexOf(key: string): number {
+    return this.entries.findIndex((item) => this.host.keyOf(item) === key);
+  }
+
+  private find(key: string): T | undefined {
+    const i = this.indexOf(key);
+    return i >= 0 ? this.entries[i] : undefined;
+  }
+
   /** Relève la ligne en haut de l'écran et son décalage — O(1). */
   private recordTop(): void {
     const top = this.scroller.scrollTop;
-    const row = Math.floor(top / LOG_ROW_H);
-    this.topSeq = this.at(row)?.seq ?? -1;
-    this.topOffset = top - row * LOG_ROW_H;
-  }
-
-  /** L'entrée affichée à la ligne `row` — la plus récente en ligne 0. */
-  private at(row: number): FeedLog | undefined {
-    return this.entries[this.entries.length - 1 - row];
+    const row = Math.floor(top / ROW_H);
+    const item = this.entries[row];
+    this.topKey = item === undefined ? null : this.host.keyOf(item);
+    this.topIndex = row;
+    this.topOffset = top - row * ROW_H;
   }
 
   private viewportH(): number {
@@ -308,74 +344,34 @@ export class FeedView {
     this.recordTop();
     while (this.pool.length < needed) this.pool.push(this.makeRow());
     for (let k = 0; k < this.pool.length; k++) {
-      const parts = this.pool[k];
-      if (parts === undefined) continue;
-      const entry = k < needed ? this.at(start + k) : undefined;
-      if (entry === undefined) {
-        parts.row.hidden = true;
+      const row = this.pool[k];
+      if (row === undefined) continue;
+      const index = start + k;
+      const item = k < needed ? this.entries[index] : undefined;
+      if (item === undefined) {
+        row.hidden = true;
         continue;
       }
-      parts.row.hidden = false;
-      this.fill(parts, entry, start + k);
+      row.hidden = false;
+      this.host.fill(row, item);
+      const key = this.host.keyOf(item);
+      const sel = key === this.selectedKey;
+      row.classList.add("row");
+      row.classList.toggle("odd", index % 2 === 1);
+      row.classList.toggle("sel", sel);
+      row.style.transform = `translateY(${index * ROW_H}px)`;
+      row.setAttribute("data-key", key);
+      row.setAttribute("aria-selected", sel ? "true" : "false");
+      row.tabIndex = sel ? 0 : -1;
     }
   }
 
-  private makeRow(): IRowParts {
-    const doc = this.layer.ownerDocument;
-    const row = doc.createElement("div");
-    row.className = "log";
+  private makeRow(): HTMLDivElement {
+    const row = this.layer.ownerDocument.createElement("div");
+    row.className = "row";
     row.tabIndex = -1;
-    row.setAttribute("role", "button");
-    const cell = (c: string): HTMLSpanElement => {
-      const span = doc.createElement("span");
-      span.className = c;
-      row.append(span);
-      return span;
-    };
-    const parts: IRowParts = {
-      row,
-      ts: cell("ts"),
-      sev: cell("sev"),
-      mod: cell("mod"),
-      txt: cell("txt"),
-      rid: cell("rid"),
-    };
+    row.setAttribute("role", "treeitem");
     this.layer.append(row);
-    return parts;
+    return row;
   }
-
-  /** Remplit une ligne recyclée — texte et classes, jamais de HTML. */
-  private fill(parts: IRowParts, l: FeedLog, index: number): void {
-    const tier = this.host.tierOf(l.severity);
-    const sel = l.seq === this.selectedSeq;
-    const { row } = parts;
-    row.className = `log t-${tier}${index % 2 ? " odd" : ""}${sel ? " sel" : ""}`;
-    row.style.transform = `translateY(${index * LOG_ROW_H}px)`;
-    row.setAttribute("data-seq", String(l.seq));
-    row.setAttribute("aria-pressed", sel ? "true" : "false");
-    row.tabIndex = sel ? 0 : -1;
-    parts.ts.textContent = this.host.formatTime(l.ts);
-    parts.sev.textContent = l.name;
-    parts.sev.className = `sev ${tier}`;
-    parts.mod.textContent = l.module;
-    parts.txt.textContent = l.text;
-    parts.txt.title = l.text;
-    parts.rid.textContent = l.requestId ? l.requestId.slice(0, 8) : "";
-  }
-}
-
-/** Index d'une séquence — les séquences croissent, d'où la dichotomie. */
-function indexOfSeq(list: readonly FeedLog[], seq: number): number {
-  let lo = 0;
-  let hi = list.length - 1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    const item = list[mid];
-    if (item === undefined) return -1;
-    const v = item.seq;
-    if (v === seq) return mid;
-    if (v < seq) lo = mid + 1;
-    else hi = mid - 1;
-  }
-  return -1;
 }

@@ -1,38 +1,31 @@
 // @vitest-environment jsdom
 /**
- * Le journal FENÊTRÉE de la barre de debug : un DOM borné quel que soit le
- * tampon, des nœuds recyclés, la plus récente EN HAUT, et une vue qui ne bouge
- * pas sous l'œil quand on descend lire. jsdom ne fait aucune mise en page : la géométrie de
- * l'ascenseur (hauteur visible, défilement) est posée par le test — c'est
- * exactement ce que la vue lit, et rien d'autre.
+ * Le flux FENÊTRÉ de la barre de debug : un DOM borné quel que soit le
+ * flux, des nœuds recyclés, la plus récente EN HAUT, et une vue qui ne bouge
+ * pas sous l'œil quand on descend lire. La vue suit des CLÉS, pas un ordre :
+ * une requête dépliée insère des lignes sous elle, et l'ancre de lecture comme
+ * la sélection doivent y survivre. jsdom ne fait aucune mise en page : la
+ * géométrie de l'ascenseur (hauteur visible, défilement) est posée par le
+ * test — c'est exactement ce que la vue lit, et rien d'autre.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   FeedView,
-  LOG_ROW_H,
+  ROW_H,
   isAtTop,
   visibleWindow,
 } from "../client/debugbar/feedView";
-import type { FeedLog } from "../client/debugbar/model";
 
-function entree(seq: number, severity = 6): FeedLog {
-  return {
-    seq,
-    severity,
-    name: severity <= 3 ? "ERROR" : "INFO",
-    text: `message ${seq}`,
-    module: "kernel",
-    ts: 1_700_000_000_000 + seq,
-    uid: seq,
-    msgid: "",
-    pid: 1,
-    console: false,
-    at: seq,
-  };
+/** Une ligne de test : la vue ne connaît que sa clé et ce que l'hôte y écrit. */
+interface ILigne {
+  seq: number;
 }
-const serie = (from: number, to: number): FeedLog[] => {
-  const out: FeedLog[] = [];
-  for (let s = from; s <= to; s++) out.push(entree(s));
+
+const entree = (seq: number): ILigne => ({ seq });
+/** Le flux tel que la vue le reçoit : la plus récente EN TÊTE. */
+const serie = (from: number, to: number): ILigne[] => {
+  const out: ILigne[] = [];
+  for (let s = to; s >= from; s--) out.push(entree(s));
   return out;
 };
 
@@ -65,8 +58,9 @@ function geometrie(scroller: HTMLElement, viewportH: number): void {
 }
 
 let root: HTMLElement;
-let choisies: Array<FeedLog | null>;
-let vue: FeedView;
+let choisies: Array<ILigne | null>;
+let actions: string[];
+let vue: FeedView<ILigne>;
 let ascenseur: HTMLElement;
 
 beforeEach(() => {
@@ -74,17 +68,31 @@ beforeEach(() => {
   root = document.createElement("div");
   document.body.append(root);
   choisies = [];
-  vue = new FeedView(root, {
-    onSelect: (e) => choisies.push(e),
-    tierOf: (s) => (s <= 3 ? "crit" : "info"),
-    formatTime: (ts) => String(ts),
-  });
+  actions = [];
+  vue = new FeedView<ILigne>(
+    root,
+    {
+      keyOf: (l) => `k${l.seq}`,
+      fill: (row, l) => {
+        row.className = "ligne";
+        row.innerHTML = `<span data-act="toggle">›</span><span>${l.seq}</span>`;
+      },
+      onSelect: (l) => choisies.push(l),
+      onAction: (l, act) => actions.push(`${act}:${l.seq}`),
+    },
+    "flux de test",
+  );
   ascenseur = attendu(root.querySelector(".feedscroll"), HTMLElement);
-  geometrie(ascenseur, 220); // 10 lignes visibles
+  geometrie(ascenseur, 240); // 10 lignes visibles
 });
 
 const lignes = (): HTMLElement[] =>
-  [...root.querySelectorAll<HTMLElement>(".log")].filter((n) => !n.hidden);
+  [...root.querySelectorAll<HTMLElement>(".row")].filter((n) => !n.hidden);
+const ligneDe = (seq: number): HTMLElement =>
+  attendu(
+    lignes().find((n) => n.dataset.key === `k${seq}`),
+    HTMLElement,
+  );
 const saut = (): HTMLButtonElement =>
   attendu(root.querySelector(".feedjump"), HTMLButtonElement);
 /** Une image d'animation — le rendu de la vue y est regroupé. */
@@ -93,6 +101,9 @@ const defiler = (top: number): void => {
   ascenseur.scrollTop = top;
   ascenseur.dispatchEvent(new Event("scroll"));
 };
+/** La séquence affichée en haut de l'écran — la ligne qu'on lit. */
+const enHautDeLecran = (list: readonly ILigne[]): number | undefined =>
+  list[Math.floor(ascenseur.scrollTop / ROW_H)]?.seq;
 
 describe("géométrie — fonctions pures", () => {
   it("la fenêtre couvre l'écran plus une marge, bornée au total", () => {
@@ -113,13 +124,17 @@ describe("géométrie — fonctions pures", () => {
     expect(isAtTop(10)).toBe(true);
     expect(isAtTop(40)).toBe(false);
   });
+
+  it("une ligne fait au moins 24 px — c'est une cible de pointeur", () => {
+    expect(ROW_H).toBeGreaterThanOrEqual(24);
+  });
 });
 
 describe("FeedView — le DOM reste borné, les nœuds sont recyclés", () => {
-  it("🔴 2 000 entrées : une trentaine de lignes dans le DOM, pas 2 000", async () => {
-    vue.setEntries(serie(1, 2000), -1);
+  it("🔴 2 000 lignes : une trentaine de nœuds dans le DOM, pas 2 000", async () => {
+    vue.setEntries(serie(1, 2000), true, "");
     expect(vue.rowNodes).toBeLessThan(40);
-    expect(root.querySelectorAll(".log").length).toBe(vue.rowNodes);
+    expect(root.querySelectorAll(".row").length).toBe(vue.rowNodes);
     // En HAUT aussi, et au milieu : en bas, la fin de la fenêtre coïncide avec
     // le total, et une fenêtre non bornée y passerait inaperçue.
     // Le défilement repeint à l'image SUIVANTE : compter avant, c'est mesurer
@@ -127,81 +142,98 @@ describe("FeedView — le DOM reste borné, les nœuds sont recyclés", () => {
     defiler(0);
     await image();
     expect(vue.rowNodes).toBeLessThan(40);
-    defiler(1000 * LOG_ROW_H);
+    defiler(1000 * ROW_H);
     await image();
     expect(vue.rowNodes).toBeLessThan(40);
   });
 
-  it("de nouvelles entrées réutilisent les MÊMES nœuds — aucun HTML reconstruit", () => {
-    vue.setEntries(serie(1, 500), -1);
-    const avant = [...root.querySelectorAll(".log")];
-    vue.setEntries(serie(1, 520), 20);
-    const apres = [...root.querySelectorAll(".log")];
+  it("de nouvelles lignes réutilisent les MÊMES nœuds", () => {
+    vue.setEntries(serie(1, 500), true, "");
+    const avant = [...root.querySelectorAll(".row")];
+    vue.setEntries(serie(1, 520), false, "");
+    const apres = [...root.querySelectorAll(".row")];
     expect(apres.length).toBe(avant.length);
     apres.forEach((n, i) => expect(n).toBe(avant[i]));
   });
 
   it("🔴 la plus récente est EN HAUT — visible sans défiler", () => {
-    vue.setEntries(serie(1, 300), -1);
+    vue.setEntries(serie(1, 300), true, "");
     const enTete = lignes().find((n) => n.style.transform.endsWith("(0px)"));
-    expect(enTete?.dataset.seq).toBe("300");
+    expect(enTete?.dataset.key).toBe("k300");
     expect(ascenseur.scrollTop).toBe(0);
+  });
+
+  it("la vue pose position, zébrure et sélection APRÈS le rendu de l'hôte", () => {
+    vue.setEntries(serie(1, 30), true, "");
+    const l = ligneDe(29); // deuxième ligne → zébrée
+    expect(l.classList.contains("ligne")).toBe(true);
+    expect(l.classList.contains("row")).toBe(true);
+    expect(l.classList.contains("odd")).toBe(true);
+    expect(l.getAttribute("role")).toBe("treeitem");
   });
 });
 
 describe("FeedView — rien ne bouge sous l'œil", () => {
-  /** La séquence affichée en haut de l'écran — la ligne qu'on lit. */
-  const enHautDeLecran = (list: FeedLog[]): number | undefined =>
-    list[list.length - 1 - Math.floor(ascenseur.scrollTop / LOG_ROW_H)]?.seq;
-
   it("en haut, la vue SUIT le flux : la nouvelle s'affiche en tête", () => {
-    vue.setEntries(serie(1, 100), -1);
+    vue.setEntries(serie(1, 100), true, "");
     expect(vue.following).toBe(true);
-    vue.setEntries(serie(1, 110), 10);
+    vue.setEntries(serie(1, 110), false, "");
     expect(ascenseur.scrollTop).toBe(0);
     expect(saut().hidden).toBe(true);
   });
 
   it("🔴 descendu pour lire : la ligne lue ne bouge plus, et ce qui arrive est compté", () => {
-    vue.setEntries(serie(1, 100), -1);
-    defiler(40 * LOG_ROW_H); // la ligne 60 est en haut de l'écran
+    vue.setEntries(serie(1, 100), true, "");
+    defiler(40 * ROW_H); // la ligne 60 est en haut de l'écran
     expect(vue.following).toBe(false);
     expect(enHautDeLecran(serie(1, 100))).toBe(60);
-    vue.setEntries(serie(1, 112), 12);
+    vue.setEntries(serie(1, 112), false, "");
     // Douze nouvelles AU-DESSUS : la vue descend d'autant, la ligne 60 reste.
     expect(enHautDeLecran(serie(1, 112))).toBe(60);
     expect(saut().hidden).toBe(false);
     expect(saut().textContent).toBe("↑ 12 nouvelles");
   });
 
-  it("🔴 le tampon perd ses plus anciennes : la ligne lue reste à sa place", () => {
-    vue.setEntries(serie(1, 2000), -1);
-    defiler(500 * LOG_ROW_H); // la ligne 1500 est en haut de l'écran
-    // Le tampon a avancé de 300 : 1..300 sont partis, 2001..2300 arrivés.
-    vue.setEntries(serie(301, 2300), 300);
+  it("🔴 le flux perd ses plus anciennes : la ligne lue reste à sa place", () => {
+    vue.setEntries(serie(1, 2000), true, "");
+    defiler(500 * ROW_H); // la ligne 1500 est en haut de l'écran
+    // Le flux a avancé de 300 : 1..300 sont partis, 2001..2300 arrivés.
+    vue.setEntries(serie(301, 2300), false, "");
     expect(enHautDeLecran(serie(301, 2300))).toBe(1500);
   });
 
   it("🔴 le MÊME tableau, modifié sur place : la ligne lue ne bouge pas", async () => {
-    // Le cas du produit : sans filtre, la barre passe le tampon du modèle
-    // lui-même, qui reçoit `push` et `splice` sur place. Une vue qui relirait
-    // « l'ancienne » liste y trouverait déjà les nouvelles. Les tests qui
-    // fabriquent un tableau neuf à chaque appel ne pouvaient pas le voir.
-    const tampon = serie(1, 2000);
-    vue.setEntries(tampon, -1);
-    defiler(500 * LOG_ROW_H);
+    // Une vue qui relirait « l'ancienne » liste y trouverait déjà les
+    // nouvelles : l'ancre est une CLÉ relevée au rendu, pas un index relu.
+    const flux = serie(1, 2000);
+    vue.setEntries(flux, true, "");
+    defiler(500 * ROW_H);
     await image();
-    const lue = enHautDeLecran(tampon);
-    for (let s = 2001; s <= 2025; s++) tampon.push(entree(s));
-    tampon.splice(0, 25);
-    vue.setEntries(tampon, 25);
-    expect(enHautDeLecran(tampon)).toBe(lue);
+    const lue = enHautDeLecran(flux);
+    for (let s = 2001; s <= 2025; s++) flux.unshift(entree(s));
+    flux.splice(-25, 25);
+    vue.setEntries(flux, false, "");
+    expect(enHautDeLecran(flux)).toBe(lue);
+  });
+
+  it("🔴 une ligne INSÉRÉE sous la lecture (requête dépliée) ne déplace pas la ligne lue", () => {
+    // L'ordre n'est plus monotone : la dichotomie sur une séquence croissante
+    // ne pouvait pas retrouver une ligne dans ce flux.
+    const flux = serie(1, 100);
+    vue.setEntries(flux, true, "");
+    defiler(40 * ROW_H);
+    const lue = enHautDeLecran(flux);
+    const deplie = [...flux];
+    deplie.splice(45, 0, entree(9001), entree(9002), entree(9003));
+    vue.setEntries(deplie, false, "");
+    expect(enHautDeLecran(deplie)).toBe(lue);
+    expect(saut().hidden).toBe(true);
   });
 
   it("« ↑ nouvelles » ramène au flux, et la vue suit de nouveau", () => {
-    vue.setEntries(serie(1, 100), -1);
-    defiler(30 * LOG_ROW_H);
-    vue.setEntries(serie(1, 105), 5);
+    vue.setEntries(serie(1, 100), true, "");
+    defiler(30 * ROW_H);
+    vue.setEntries(serie(1, 105), false, "");
     saut().click();
     expect(vue.following).toBe(true);
     expect(saut().hidden).toBe(true);
@@ -209,30 +241,55 @@ describe("FeedView — rien ne bouge sous l'œil", () => {
   });
 
   it("un filtre (jeu remplacé) ramène au flux", () => {
-    vue.setEntries(serie(1, 100), -1);
-    defiler(30 * LOG_ROW_H);
-    vue.setEntries(serie(50, 60), -1);
+    vue.setEntries(serie(1, 100), true, "");
+    defiler(30 * ROW_H);
+    vue.setEntries(serie(50, 60), true, "");
     expect(vue.following).toBe(true);
     expect(saut().hidden).toBe(true);
   });
 });
 
-describe("FeedView — sélection et état vide", () => {
-  it("un clic sélectionne l'entrée, un second la relâche", () => {
-    vue.setEntries(serie(1, 30), -1);
-    const l = attendu(
-      lignes().find((n) => n.dataset.seq === "25"),
-      HTMLElement,
-    );
+describe("FeedView — sélection, actions et état vide", () => {
+  it("un clic sélectionne la ligne, un second la relâche", () => {
+    vue.setEntries(serie(1, 30), true, "");
+    const l = ligneDe(25);
     l.click();
     expect(choisies.at(-1)?.seq).toBe(25);
     expect(l.classList.contains("sel")).toBe(true);
+    expect(l.getAttribute("aria-selected")).toBe("true");
     l.click();
     expect(choisies.at(-1)).toBeNull();
   });
 
+  it("🔴 la sélection SUIT sa clé quand des lignes arrivent au-dessus", () => {
+    vue.setEntries(serie(1, 30), true, "");
+    ligneDe(25).click();
+    vue.setEntries(serie(1, 32), false, "");
+    expect(ligneDe(25).classList.contains("sel")).toBe(true);
+    expect(lignes().filter((n) => n.classList.contains("sel"))).toHaveLength(1);
+  });
+
+  it("un clic sur un élément `[data-act]` est une ACTION, pas une sélection", () => {
+    vue.setEntries(serie(1, 30), true, "");
+    attendu(ligneDe(20).querySelector("[data-act]"), HTMLElement).click();
+    expect(actions).toEqual(["toggle:20"]);
+    expect(choisies).toEqual([]);
+  });
+
+  it("→ et ← au clavier déplient et replient la ligne qui a le focus", () => {
+    vue.setEntries(serie(1, 30), true, "");
+    const l = ligneDe(20);
+    l.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    l.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+    );
+    expect(actions).toEqual(["expand:20", "collapse:20"]);
+  });
+
   it("liste vide : un message, pas une zone muette", () => {
-    vue.setEntries([], -1, "aucune entrée ne correspond au filtre.");
+    vue.setEntries([], true, "aucune entrée ne correspond au filtre.");
     const vide = attendu(root.querySelector(".feedempty"), HTMLElement);
     expect(vide.hidden).toBe(false);
     expect(vide.textContent).toBe("aucune entrée ne correspond au filtre.");

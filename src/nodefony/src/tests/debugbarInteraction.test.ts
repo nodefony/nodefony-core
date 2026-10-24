@@ -94,8 +94,10 @@ describe("bandeau — le clic ne referme plus ce qu'on regarde", () => {
   });
 
   it("cliquer une métrique OUVRE son onglet au lieu de replier", () => {
-    q(".tab[data-tab='logs']").click();
-    expect(q(".tab[data-tab='logs']").classList.contains("active")).toBe(true);
+    q(".tab[data-tab='requests']").click();
+    expect(q(".tab[data-tab='requests']").classList.contains("active")).toBe(
+      true,
+    );
     // La métrique « rt » mène à l'onglet Realtime.
     q(".metric[data-goto='realtime']").click();
     expect(isOpen()).toBe(true);
@@ -105,15 +107,17 @@ describe("bandeau — le clic ne referme plus ce qu'on regarde", () => {
   });
 
   it("une puce de compteur mène à son onglet", () => {
-    q(".chip.goto[data-goto='logs']").click();
+    q(".chip.goto[data-goto='requests']").click();
     expect(isOpen()).toBe(true);
-    expect(q(".tab[data-tab='logs']").classList.contains("active")).toBe(true);
+    expect(q(".tab[data-tab='requests']").classList.contains("active")).toBe(
+      true,
+    );
   });
 
   it("un raccourci depuis le bandeau DÉPLIE si le panneau était replié", () => {
     q("[data-el='btnToggle']").click();
     expect(isOpen()).toBe(false);
-    q(".chip.goto[data-goto='logs']").click();
+    q(".chip.goto[data-goto='requests']").click();
     expect(isOpen()).toBe(true);
   });
 });
