@@ -2345,7 +2345,12 @@ export class DebugBar {
     ) {
       // La requête choisie en attente vient de recevoir sa réponse : son
       // `requestId` est enfin lisible, son profil peut se demander.
-      if (e.requestId !== null && this.selectedRid === null) {
+      // Un flux SSE choisi ouvert repasse ici à sa fermeture : c'est alors
+      // seulement que son profil existe (`wantProfile` ne demande qu'une fois).
+      if (
+        e.requestId !== null &&
+        (this.selectedRid === null || e.stream?.kind === "sse")
+      ) {
         this.selectedRid = e.requestId;
         this.wantProfile(e, e.requestId);
       } else if (e.requestId === null) this.resolveStream(e);
@@ -2390,10 +2395,14 @@ export class DebugBar {
   /**
    * Demande le profil serveur d'un appel, une fois. Jamais pour une connexion
    * WebSocket : le profileur ne mesure que chacune de ses frames du pont
-   * (`<requestId>.<n>`), la demander rendrait toujours 404.
+   * (`<requestId>.<n>`), la demander rendrait toujours 404. Ni pour un flux
+   * SSE encore ouvert : le serveur prend un profil à la FIN de la requête,
+   * la demande repart à sa fermeture (`onNetEntry`).
    */
   private wantProfile(e: NetEntry | null | undefined, rid: string): void {
-    if (e?.stream?.kind === "ws") this.fetchFrames(rid);
+    const s = e?.stream;
+    if (s?.kind === "ws") this.fetchFrames(rid);
+    else if (s?.kind === "sse" && s.state !== "closed") return;
     else if (!this.net.profileState(rid)) this.fetchProfile(rid);
   }
 
@@ -3222,6 +3231,8 @@ export class DebugBar {
       return s.kind === "ws"
         ? `<div class="det-err">refusée ou coupée avant l'ouverture — le navigateur en tait la cause (RFC 6455) ; si elle a atteint le serveur, sa ligne est dans les Journaux.</div>`
         : `<div class="det-err">flux refusé : statut ≠ 200 ou type ≠ text/event-stream.</div>`;
+    if (rid && s.kind === "sse" && s.state !== "closed")
+      return `<div class="det-loading">flux ouvert : le serveur prend son profil à la fermeture.</div>`;
     if (rid) return s.kind === "ws" ? this.framesHtml(rid) : null;
     if (s.kind === "sse" && s.state !== "closed")
       return `<div class="det-loading">le serveur écrit la ligne d'un flux à sa fermeture : son requestId se lira alors.</div>`;

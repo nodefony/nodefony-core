@@ -489,6 +489,23 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     await image();
     expect(row().querySelector(".dur")?.textContent).toMatch(/ms$|s$/);
   });
+
+  it("🔴 un flux SSE choisi ouvert ne réclame pas de profil — il le demande à sa fermeture (vécu : « profil introuvable, évincé du tampon »)", async () => {
+    const ctl = new AbortController();
+    await window.fetch("/flux", { signal: ctl.signal });
+    await image();
+    ligneReq("/flux").click();
+    await image();
+    // Le serveur prend un profil à la FIN de la requête : demandé ouvert, il
+    // rendrait 404, que la barre lisait comme un tampon épuisé.
+    expect(profils.some((u) => u.endsWith("/rid-sse"))).toBe(false);
+    const side = (): string => q("[data-el='logSide']").textContent ?? "";
+    expect(side()).toContain("flux ouvert");
+    expect(side()).not.toContain("introuvable");
+    ctl.abort();
+    await image();
+    expect(profils.some((u) => u.endsWith("/rid-sse"))).toBe(true);
+  });
 });
 
 describe("la pause — elle fige ce qui ARRIVE, jamais ce que l'on fait", () => {
