@@ -117,8 +117,12 @@ export interface IResourceService<T = unknown> {
  *     return this.listResource();
  *   }
  *   \@route("books-get", { path: "/{id}", requirements: { methods: ["GET", "WEBSOCKET"] } })
- *   detail(\@Param("id") id: string) {
- *     return this.getResource(id);
+ *   async detail(\@Param("id") id: string) {
+ *     // `null` rendu tel quel = « l'action répond elle-même » : la requête
+ *     // pendrait jusqu'au délai d'expiration. La porte décide du 404.
+ *     const found = await this.getResource(id);
+ *     if (!found) throw new HttpError(`Book ${id} not found`, 404);
+ *     return found;
  *   }
  * }
  * ```
@@ -222,6 +226,10 @@ class ResourceController<T = unknown> extends Controller {
 
   /**
    * Lit une entité par id — `null` si absente (la porte décide du 404).
+   *
+   * ⚠️ Ne pas rendre ce `null` tel quel depuis une action : pour le Resolver,
+   * `null` veut dire « l'action répond elle-même », et la requête attend
+   * alors son délai d'expiration. Lever un `HttpError` 404.
    *
    * `options.relations` charge les associations dans la foulée. La porte doit
    * n'y laisser passer que des relations qu'elle a DÉCLARÉES : un `include`

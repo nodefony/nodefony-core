@@ -5,7 +5,7 @@ import {
   Param,
   Query,
 } from "@nodefony/framework";
-import { Context } from "@nodefony/http";
+import { Context, HttpError } from "@nodefony/http";
 import { pocBookResourceService, PocBook } from "./pocBookService";
 
 /**
@@ -49,8 +49,12 @@ class PocBookResourceController extends ResourceController<PocBook> {
     path: "/{id}",
     requirements: { methods: ["GET", "WEBSOCKET"] },
   })
-  detail(@Param("id") id: string) {
-    return this.getResource(id);
+  async detail(@Param("id") id: string) {
+    // `null` rendu tel quel voudrait dire « l'action répond elle-même » : la
+    // requête pendrait jusqu'au délai d'expiration. La porte décide du 404.
+    const found = await this.getResource(id);
+    if (!found) throw new HttpError(`Livre ${id} introuvable`, 404);
+    return found;
   }
 
   /**

@@ -65,6 +65,16 @@ describe("POC souverain — ResourceController singleton (V4.2/V4.3)", () => {
     expect((res.body as { title: string }).title).to.equal("Neuromancer");
   });
 
+  it("🔴 REST detail d'un id absent : 404 tout de suite, jamais une requête pendue (vécu : 504 au bout de 30 s)", async () => {
+    // `getResource` rend `null` pour un id absent ; rendu tel quel par
+    // l'action, ce `null` veut dire « l'action répond elle-même » — et rien ne
+    // répondait avant le délai d'expiration.
+    const started = performance.now();
+    const res = await get("/poc/r-books/does-not-exist");
+    expect(res.status).to.equal(404);
+    expect(performance.now() - started).to.be.below(2_000);
+  });
+
   it("singleton : N requêtes → 1 seule instance construite", async () => {
     await get("/poc/r-books");
     await get("/poc/r-books/b1");
