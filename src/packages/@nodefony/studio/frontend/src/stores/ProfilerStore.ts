@@ -3,37 +3,43 @@ import { ApiError } from "../services/ApiClient";
 import type { ApiClient } from "../services/ApiClient";
 
 import type {
+  IErrorSample,
+  INPlusOne,
   IProfileEntry,
   IProfilePhase,
   IProfileQuery,
+  IProfileReport,
   IProfileSecurity,
   IProfileSummary,
+  IRouteStats,
+  ISqlShapeStats,
 } from "nodefony";
 
-// Les types du profil viennent du cœur, par le point d'entrée PRINCIPAL
-// (`nodefony`) : UNE définition pour le serveur, la barre et la console. Pas
-// par le sous-chemin `nodefony/debugbar` — ce fichier est un `.ts`, et le
-// greffon Vite d'Angular (même instance Vite) trébuche sur un import de
+// Les types du profil et de son rapport viennent du cœur, par le point d'entrée
+// PRINCIPAL (`nodefony`) : UNE définition pour le serveur, la barre, l'outil de
+// l'agent et la console. Pas par un sous-chemin — ce fichier est un `.ts`, et
+// le greffon Vite d'Angular (même instance Vite) trébuche sur un import de
 // sous-chemin. Import de types : zéro octet à l'exécution.
 export type ProfilePhase = IProfilePhase;
 export type ProfileQuery = IProfileQuery;
 export type ProfileSecurity = IProfileSecurity;
 export type ProfileEntry = IProfileEntry;
 export type ProfileSummary = IProfileSummary;
+export type ProfileReport = IProfileReport;
+export type RouteStats = IRouteStats;
+export type NPlusOne = INPlusOne;
+export type SqlShapeStats = ISqlShapeStats;
+export type ErrorSample = IErrorSample;
 
 const BASE = "/nodefony/profiler/api";
 
 /**
- * ProfilerStore — consomme le data plane profiler (`/nodefony/profiler/api/*`)
- * exposé par `@nodefony/http` (dev-only). Liste des dernières requêtes + détail
- * (waterfall des phases) à la sélection.
- *
- * Le rendu du waterfall réutilise `computeWaterfall` du Core isomorphe
- * (`nodefony/debugbar`) — même fonction pure que la debug bar par-page.
+ * ProfilerStore — le rapport du profileur PAR ROUTE (`/nodefony/profiler/api/summary`,
+ * dev-only) : où part le temps de l'application. Chaque requête, une par une,
+ * se lit dans les Journaux ; ici, les mêmes requêtes regroupées.
  */
 export class ProfilerStore {
-  recent: ProfileSummary[] = [];
-  count = 0;
+  summary: ProfileReport | null = null;
   loading = false;
   error: string | null = null;
   /**
@@ -44,12 +50,7 @@ export class ProfilerStore {
    */
   unavailable = false;
 
-  selectedId: string | null = null;
-  detail: ProfileEntry | null = null;
-  detailLoading = false;
-  detailError: string | null = null;
-
-  /** Auto-refresh de la liste (poll). */
+  /** Rafraîchissement automatique du rapport (poll). */
   autoRefresh = false;
   private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -57,19 +58,17 @@ export class ProfilerStore {
     makeAutoObservable(this, {}, { autoBind: true });
   }
 
-  /** Charge (ou recharge) la liste des profils récents. */
-  async loadRecent(): Promise<void> {
+  /** Charge (ou recharge) le rapport agrégé. */
+  async loadSummary(): Promise<void> {
     this.loading = true;
     this.error = null;
     this.unavailable = false;
     try {
-      const res = await this.api.getAbsolute<{
-        count?: number;
-        entries?: ProfileSummary[];
-      }>(`${BASE}/recent`);
+      const report = await this.api.getAbsolute<ProfileReport>(
+        `${BASE}/summary`,
+      );
       runInAction(() => {
-        this.recent = res.entries ?? [];
-        this.count = res.count ?? this.recent.length;
+        this.summary = report;
         this.loading = false;
       });
     } catch (e) {
@@ -86,49 +85,20 @@ export class ProfilerStore {
     }
   }
 
-  /** Sélectionne une requête et charge son profil complet (phases). */
-  async select(requestId: string): Promise<void> {
-    this.selectedId = requestId;
-    this.detail = null;
-    this.detailLoading = true;
-    this.detailError = null;
-    try {
-      const profile = await this.api.getAbsolute<ProfileEntry>(
-        `${BASE}/${encodeURIComponent(requestId)}`,
-      );
-      runInAction(() => {
-        // Ne pas écraser si l'utilisateur a re-sélectionné entretemps.
-        if (this.selectedId === requestId) {
-          this.detail = profile;
-          this.detailLoading = false;
-        }
-      });
-    } catch (e) {
-      runInAction(() => {
-        if (this.selectedId === requestId) {
-          this.detailError = e instanceof Error ? e.message : String(e);
-          this.detailLoading = false;
-        }
-      });
-    }
-  }
-
-  /** Vide le ring buffer côté serveur + l'état local. */
+  /**
+   * Vide l'anneau côté serveur puis relit : de quoi mesurer l'effet d'une
+   * modification sur les seules requêtes qui la suivent.
+   */
   async clear(): Promise<void> {
     try {
       await this.api.deleteAbsolute(`${BASE}/recent`);
     } catch {
       /* best-effort */
     }
-    runInAction(() => {
-      this.recent = [];
-      this.count = 0;
-      this.selectedId = null;
-      this.detail = null;
-    });
+    await this.loadSummary();
   }
 
-  /** Active/désactive le poll de la liste (3 s). */
+  /** Active/désactive le poll du rapport (3 s). */
   setAutoRefresh(on: boolean): void {
     this.autoRefresh = on;
     if (this.timer) {
@@ -136,7 +106,7 @@ export class ProfilerStore {
       this.timer = null;
     }
     if (on) {
-      this.timer = setInterval(() => void this.loadRecent(), 3000);
+      this.timer = setInterval(() => void this.loadSummary(), 3000);
     }
   }
 
