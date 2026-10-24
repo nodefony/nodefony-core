@@ -329,6 +329,7 @@ c'est le sous-chemin qui décide de ce qui atterrit dans ton bundle.
 | `nodefony/svelte` | `configureNodefony` et les sources réactives lues `.current` | navigateur (Svelte 5) |
 | `nodefony/angular` | `provideNodefony` et les fonctions `injectNodefony*` (signals) | navigateur (Angular) |
 | `nodefony/roles` | `hasRole`, `RoleSet`, `RoleRegistry` — la même évaluation de rôles des deux côtés | isomorphe |
+| `nodefony/syslog` | les règles de lecture des journaux, les mêmes que celles du serveur | isomorphe |
 | `nodefony/debugbar` | la barre de débogage embarquable dans une page | navigateur |
 | `nodefony/bundler` | le socle de configuration du bundler, partagé par tous les paquets et par les applications | outillage de build |
 | `nodefony/testing` | `createTestModule`, `runningAppPort`, `startSpareApp` — éprouver un module ou une application | tests (Node.js) |

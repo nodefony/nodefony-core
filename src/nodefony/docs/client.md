@@ -133,16 +133,17 @@ Le champ `exports` du paquet est le pivot de tout le dispositif. Il déclare **s
 navigateur — le socle (`client`, `roles`, `debugbar`) et une liaison par moteur front (`react`, `vue`,
 `svelte`, `angular`) —, plus une condition `browser` sur l'entrée principale.
 
-| Ce que tu importes    | Ce que tu obtiens                                                        | Quand l'utiliser                                    |
-| --------------------- | ------------------------------------------------------------------------ | --------------------------------------------------- |
-| `nodefony/client`     | Le client temps réel, les notices, la cadence adaptative, `Syslog`/`Pdu` | Toujours — c'est le point d'entrée de référence     |
-| `nodefony/react`      | Les hooks `useNodefony*` (peer optionnelle `react`)                      | App React qui consomme des canaux                   |
-| `nodefony/vue`        | Le plugin `nodefonyVue` et les composables `useNodefony*`                | App Vue 3 qui consomme des canaux                   |
-| `nodefony/svelte`     | `configureNodefony` et des sources réactives lues `.current`             | App Svelte 5 qui consomme des canaux                |
-| `nodefony/angular`    | `provideNodefony` et les fonctions `injectNodefony*` (signals)           | App Angular qui consomme des canaux                 |
-| `nodefony/roles`      | `hasRole` & co, `RoleSet`, `RoleRegistry`                                | Afficher/masquer selon les rôles                    |
-| `nodefony/debugbar`   | La barre de debug de développement + son modèle pur                      | Dev, ou réutiliser le calcul de cascade             |
-| `nodefony` (au front) | La **même chose** que `nodefony/client`, via la condition `browser`      | Code partagé front/back ; sinon préfère l'explicite |
+| Ce que tu importes    | Ce que tu obtiens                                                                          | Quand l'utiliser                                    |
+| --------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| `nodefony/client`     | Le client temps réel, les notices, la cadence adaptative, `Syslog`/`Pdu`                   | Toujours — c'est le point d'entrée de référence     |
+| `nodefony/react`      | Les hooks `useNodefony*` (peer optionnelle `react`)                                        | App React qui consomme des canaux                   |
+| `nodefony/vue`        | Le plugin `nodefonyVue` et les composables `useNodefony*`                                  | App Vue 3 qui consomme des canaux                   |
+| `nodefony/svelte`     | `configureNodefony` et des sources réactives lues `.current`                               | App Svelte 5 qui consomme des canaux                |
+| `nodefony/angular`    | `provideNodefony` et les fonctions `injectNodefony*` (signals)                             | App Angular qui consomme des canaux                 |
+| `nodefony/roles`      | `hasRole` & co, `RoleSet`, `RoleRegistry`                                                  | Afficher/masquer selon les rôles                    |
+| `nodefony/syslog`     | Les règles de lecture des journaux (protocole, étape, ligne d'accès, trafic de la console) | Écrire un visualiseur de journaux                   |
+| `nodefony/debugbar`   | La barre de debug de développement + son modèle pur                                        | Dev, ou réutiliser le calcul de cascade             |
+| `nodefony` (au front) | La **même chose** que `nodefony/client`, via la condition `browser`                        | Code partagé front/back ; sinon préfère l'explicite |
 
 Ces entrées navigateur sont produites par une compilation dédiée — `clientConfig`
 (`rolldown.config.ts#clientConfig`) déclare exactement ces sept fichiers d'entrée, en conservant la structure
