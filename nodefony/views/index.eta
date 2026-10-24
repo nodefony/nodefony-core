@@ -119,7 +119,15 @@
         border: 1px solid var(--border); background: var(--card);
         border-radius: 999px; padding: 4px 12px;
       }
-      .badge.agentic { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
+      /* Texte teinté d'une couleur de marque : mélangée à moitié avec la couleur
+         de texte du thème — vers le foncé en clair, vers le clair en sombre.
+         50 % tient 4,5:1 (WCAG AA) pour les cinq couleurs de marque dans les
+         deux thèmes, au pire 4,87 (React en clair) ; la couleur pure reste aux
+         icônes, bordures et survols. */
+      .badge.agentic {
+        color: color-mix(in srgb, var(--green) 50%, var(--fg));
+        border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+      }
       .install {
         display: inline-flex; align-items: center; gap: 12px; margin: 26px auto 0;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -145,7 +153,8 @@
       .sec-head { max-width: 720px; margin: 0 0 28px; }
       .kicker {
         text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.72rem;
-        font-weight: 700; color: var(--accent, var(--blue)); margin: 0 0 8px;
+        font-weight: 700; margin: 0 0 8px;
+        color: color-mix(in srgb, var(--accent, var(--blue)) 50%, var(--fg));
       }
       .sec-head h2 { margin: 0 0 8px; font-size: clamp(1.4rem, 2.8vw, 1.9rem); letter-spacing: -0.02em; }
       .sec-head p { margin: 0; color: var(--muted); }
@@ -202,7 +211,10 @@
       .card .ic img { height: 30px; width: auto; }
       .card h3 { margin: 10px 0 4px; font-size: 1.08rem; }
       .card p { margin: 0; color: var(--muted); font-size: 0.88rem; }
-      .card .go { margin-top: 12px; font-size: 0.82rem; color: var(--accent, var(--blue)); font-weight: 600; }
+      .card .go {
+        margin-top: 12px; font-size: 0.82rem; font-weight: 600;
+        color: color-mix(in srgb, var(--accent, var(--blue)) 50%, var(--fg));
+      }
       .card.wide { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
       .card.wide .body { flex: 1 1 320px; }
       .card.wide h3 { margin-top: 0; }
