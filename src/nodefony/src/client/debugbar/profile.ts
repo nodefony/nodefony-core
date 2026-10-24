@@ -9,6 +9,7 @@
  *  - {@link computeWaterfall} : layout proportionnel des phases serveur (le
  *    centre UX — une timeline type Chrome/Symfony).
  */
+import { accessStatusFamily } from "../../syslog/drivers/pduConsole";
 import type { NetEntry } from "./network";
 
 /** Phase serveur projetée (miroir client de `@nodefony/http` `ProfilePhase`). */
@@ -91,25 +92,23 @@ const NET_MAX = 80;
 export class NetworkModel {
   private readonly _byId = new Map<number, NetEntry>();
   private readonly _profiles = new Map<string, ProfileState>();
+  // Les entrées COMPTÉES en erreur, par id : l'intercepteur réémet le MÊME
+  // objet une fois modifié — relire l'entrée gardée pour savoir ce qu'elle
+  // était rendrait déjà son nouvel état, et l'erreur ne se compterait jamais.
+  private readonly _errorIds = new Set<number>();
   private _total = 0;
-  private _errors = 0;
 
   /** Upsert d'une entrée (pending puis résolue partagent le même `id`). */
   ingest(entry: NetEntry): void {
-    const known = this._byId.has(entry.id);
-    if (!known) this._total++;
+    if (!this._byId.has(entry.id)) this._total++;
     // Recompte le statut d'erreur (peut basculer pending → erreur/4xx/5xx).
-    const prev = this._byId.get(entry.id);
-    const wasErr = prev ? isError(prev) : false;
-    const isErr = isError(entry);
-    if (isErr && !wasErr) this._errors++;
-    else if (!isErr && wasErr) this._errors--;
+    if (isError(entry)) this._errorIds.add(entry.id);
+    else this._errorIds.delete(entry.id);
     this._byId.set(entry.id, entry);
     if (this._byId.size > NET_MAX) {
       const oldest = this._byId.keys().next().value;
       if (oldest !== undefined) {
-        const ev = this._byId.get(oldest);
-        if (ev && isError(ev)) this._errors--;
+        this._errorIds.delete(oldest);
         this._byId.delete(oldest);
       }
     }
@@ -129,7 +128,7 @@ export class NetworkModel {
     return this._total;
   }
   get errors(): number {
-    return this._errors;
+    return this._errorIds.size;
   }
   get pending(): number {
     let n = 0;
@@ -149,15 +148,21 @@ export class NetworkModel {
   clear(): void {
     this._byId.clear();
     this._profiles.clear();
+    this._errorIds.clear();
     this._total = 0;
-    this._errors = 0;
   }
 }
 
-/** Vrai si une entrée est en erreur réseau ou status ≥ 400. */
+/**
+ * Vrai si une entrée est en erreur : échec réseau, statut ≥ 400, ou WebSocket
+ * fermé sur un code anormal (`1006`, `1011`… — règle du cœur,
+ * {@link accessStatusFamily}).
+ */
 export function isError(e: NetEntry): boolean {
   if (e.error) return true;
-  return e.status !== null && e.status >= 400;
+  if (e.status !== null && e.status >= 400) return true;
+  const code = e.stream?.code ?? null;
+  return code !== null && (accessStatusFamily(code) ?? 0) >= 4;
 }
 
 /**

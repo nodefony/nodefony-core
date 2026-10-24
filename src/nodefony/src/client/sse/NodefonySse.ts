@@ -18,6 +18,7 @@
  *
  * @module nodefony/client
  */
+import { EVENT_STREAM, isEventStreamResponse } from "./eventStream";
 import { SseLimitError, SseParser } from "./SseParser";
 
 /** Options de {@link NodefonySse}. */
@@ -55,8 +56,6 @@ export interface NodefonySseOptions {
   fetch?: typeof fetch | undefined;
 }
 
-/** Type MIME d'un flux d'événements (§9.2.5). */
-const EVENT_STREAM = "text/event-stream";
 /** Délai de reconnexion par défaut, « de l'ordre de quelques secondes » (§9.2.2). */
 const DEFAULT_RETRY_MS = 3000;
 /**
@@ -236,9 +235,7 @@ export class NodefonySse extends EventTarget {
   async #read(response: Response, controller: AbortController): Promise<void> {
     if (controller !== this.#controller) return;
     this.#clearOpenTimer();
-    const type = response.headers.get("Content-Type") ?? "";
-    const essence = type.split(";")[0]?.trim().toLowerCase();
-    if (response.status !== 200 || essence !== EVENT_STREAM) {
+    if (!isEventStreamResponse(response)) {
       // 204 compris : « cesse de te reconnecter » (§9.2.1).
       await response.body?.cancel().catch(() => undefined);
       this.#fail();
@@ -289,6 +286,10 @@ export class NodefonySse extends EventTarget {
       }
       // Coupure en cours de lecture — même suite qu'une fin de flux.
     }
+    // La tentative est finie : son signal le dit à qui observe l'appel (la
+    // barre de débogage voit le même `fetch`, jamais le corps). Sans effet
+    // sur une réponse déjà lue.
+    controller.abort();
     parser.end();
     // Un bloc sans `id` garde l'identifiant ; celui du parseur fait foi.
     this.#lastEventId = parser.lastEventId;

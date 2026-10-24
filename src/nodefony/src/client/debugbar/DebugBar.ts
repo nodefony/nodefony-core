@@ -57,7 +57,8 @@ import {
 import type { ILogRecord } from "../../syslog/drivers/ILogDriver";
 import { SEVERITY_NAMES } from "../../syslog/Pdu";
 import {
-  parseAccessLine,
+  accessStatusFamily,
+  findAccessLine,
   pduIsModuleExcluded,
 } from "../../syslog/drivers/pduConsole";
 import {
@@ -69,7 +70,12 @@ import type {
   NodefonyKernelEvent,
   NodefonyKernelIdentity,
 } from "../INodefonyKernel";
-import { installNetworkInterceptor, toPath, type NetEntry } from "./network";
+import {
+  installNetworkInterceptor,
+  toPath,
+  type INetStream,
+  type NetEntry,
+} from "./network";
 import {
   NetworkModel,
   computeWaterfall,
@@ -966,6 +972,11 @@ export class DebugBar {
   private serverFrom = 0;
   /** Le requestId du document a-t-il déjà été cherché dans les Journaux ? */
   private documentTried = false;
+  /**
+   * Recherche du requestId d'un flux (WebSocket, `EventSource`), par id local :
+   * le navigateur ne lit pas ses en-têtes. Alloué au premier flux choisi.
+   */
+  private streamLookups: Map<number, "loading" | "missing"> | null = null;
   /** Le flux fenêtré (null tant que la barre n'est pas montée). */
   private feedView: FeedView<FlowItem> | null = null;
   /** Dernière séquence remise à la vue — ce qui la dépasse est neuf. */
@@ -1658,6 +1669,7 @@ export class DebugBar {
       const feed = this.model.view.feed;
       this.feedCleared = feed.at(-1)?.seq ?? 0;
       this.net.clear();
+      this.streamLookups = null;
       this.lines.clear();
       this.expanded = null;
       this.serverFrom = Date.now();
@@ -2223,13 +2235,13 @@ export class DebugBar {
     const viteOrigin = this.frontend?.viteOrigin ?? "";
     const uninstall = installNetworkInterceptor({
       onChange: (e) => this.onNetEntry(e),
-      ignore: (url) =>
+      ignore: (url, kind) =>
         url.includes(this.profilerBase) ||
         url.includes(SYSLOG_SEARCH) ||
         // Le diagnostic de la socket de la barre (un GET sur son adresse quand
         // la connexion échoue) : la plomberie de la barre, pas une requête de
-        // la page.
-        toPath(url) === this.socketPath ||
+        // la page. La socket elle-même, partagée avec la page, reste visible.
+        (kind === "http" && toPath(url) === this.socketPath) ||
         url.includes("/@vite/") ||
         url.includes("/@fs/") ||
         url.includes("/node_modules/.vite/") ||
@@ -2289,8 +2301,8 @@ export class DebugBar {
       // `requestId` est enfin lisible, son profil peut se demander.
       if (e.requestId !== null && this.selectedRid === null) {
         this.selectedRid = e.requestId;
-        if (!this.net.profileState(e.requestId)) this.fetchProfile(e.requestId);
-      }
+        this.wantProfile(e, e.requestId);
+      } else if (e.requestId === null) this.resolveStream(e);
       this.detailVersion++;
     }
     if (!e.pending) this.scheduleServer(1500);
@@ -2307,29 +2319,53 @@ export class DebugBar {
     this.selectedRid = requestIdOf(item);
     this.detailVersion++;
     const rid = this.selectedRid;
+    if (
+      rid === null &&
+      item !== null &&
+      "kind" in item &&
+      item.kind === "request" &&
+      item.net
+    ) {
+      this.resolveStream(item.net);
+    }
     if (rid && item !== null && "kind" in item && item.kind === "request") {
       // Garantit une hauteur de panneau suffisante pour voir le waterfall.
       // Transitoire (non persisté → ne piétine pas la hauteur choisie par
       // l'utilisateur au resize).
       const minDetail = detailPanelH();
       if (this.panelH < minDetail) this.setPanelH(minDetail);
-      if (!this.net.profileState(rid)) this.fetchProfile(rid);
-      // Pont vers une app hôte (ex. Studio) : un clic sur une requête
-      // sélectionne le même requestId dans sa page Profiler. CustomEvent → 0
-      // couplage (no-op si aucun listener).
-      if (typeof window !== "undefined") {
-        try {
-          window.dispatchEvent(
-            new CustomEvent(PLATFORM_EVENTS.debugbarSelect, {
-              detail: { requestId: rid },
-            }),
-          );
-        } catch {
-          /* CustomEvent indispo (très vieux env) → ignore */
-        }
-      }
+      this.wantProfile(item.net, rid);
+      this.announceSelection(rid);
     }
     this.scheduleRender();
+  }
+
+  /**
+   * Demande le profil serveur d'un appel, une fois. Jamais pour une connexion
+   * WebSocket : le profileur ne mesure que chacune de ses frames du pont
+   * (`<requestId>.<n>`), la demander rendrait toujours 404.
+   */
+  private wantProfile(e: NetEntry | null | undefined, rid: string): void {
+    if (e?.stream?.kind === "ws" || this.net.profileState(rid)) return;
+    this.fetchProfile(rid);
+  }
+
+  /**
+   * Pont vers une app hôte (ex. Studio) : un clic sur une requête ouvre le même
+   * requestId dans son Suivi de requête — qui reconstitue aussi le cycle d'un
+   * WebSocket. CustomEvent → 0 couplage (no-op si aucun listener).
+   */
+  private announceSelection(rid: string): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.dispatchEvent(
+        new CustomEvent(PLATFORM_EVENTS.debugbarSelect, {
+          detail: { requestId: rid },
+        }),
+      );
+    } catch {
+      /* CustomEvent indispo (très vieux env) → ignore */
+    }
   }
 
   /**
@@ -2480,28 +2516,98 @@ export class DebugBar {
     )
       return;
     this.documentTried = true;
-    const t0 = Math.round(performance.timeOrigin);
+    void this.resolveAccess(
+      doc,
+      "GET",
+      location.pathname + location.search,
+      Math.round(performance.timeOrigin),
+    );
+  }
+
+  /**
+   * Cherche le requestId d'un flux choisi : un WebSocket par sa ligne d'accès,
+   * écrite à l'ouverture ; un flux SSE quand il est fermé, le serveur
+   * n'écrivant la sienne qu'à la fin. Une seule recherche par flux.
+   */
+  private resolveStream(e: NetEntry): void {
+    const s = e.stream;
+    if (
+      s === undefined ||
+      e.requestId !== null ||
+      e.pending ||
+      e.error !== null ||
+      (s.kind === "sse" && s.state !== "closed") ||
+      this.streamLookups?.has(e.id) === true ||
+      typeof performance === "undefined"
+    )
+      return;
+    (this.streamLookups ??= new Map()).set(e.id, "loading");
+    const at = s.kind === "ws" ? e.startedAt : (s.closedAt ?? e.startedAt);
+    void this.resolveAccess(
+      e,
+      s.kind === "ws" ? "WS" : "GET",
+      pathAndQuery(e.url),
+      Math.round(performance.timeOrigin + at),
+    ).then((found) => {
+      if (found) this.streamLookups?.delete(e.id);
+      else this.streamLookups?.set(e.id, "missing");
+      this.detailVersion++;
+      this.scheduleRender();
+    });
+  }
+
+  /**
+   * Donne à un appel le requestId que le navigateur n'a pas pu lire (document,
+   * WebSocket, `EventSource`) : sa ligne d'accès dans les Journaux, par la
+   * règle du cœur {@link findAccessLine}. Si l'appel est choisi, son profil
+   * se demande et l'hôte est prévenu.
+   *
+   * @returns `true` quand la ligne a été trouvée
+   */
+  private resolveAccess(
+    e: NetEntry,
+    method: string,
+    path: string,
+    at: number,
+  ): Promise<boolean> {
+    // Les SEULES lignes d'accès de ce chemin : une recherche groupée sur la
+    // fenêtre rendait toutes les lignes du démarrage de la page, et la limite
+    // tombait avant la bonne (vécu : la socket du Studio « introuvable »).
+    const q = path.split("?")[0] ?? path;
     const p = new URLSearchParams({
-      groupByRequest: "true",
+      msgid: "req",
+      q,
       order: "timeStamp:ASC",
       limit: "50",
-      from: String(t0 - 2000),
-      to: String(t0 + 60000),
+      from: String(at - 2000),
+      to: String(at + 60000),
     });
-    const path = location.pathname + location.search;
-    this.searchLogs(p).then(
+    return this.searchLogs(p).then(
       (rows) => {
-        for (const rec of rows) {
-          const a = parseAccessLine(rec);
-          if (a?.method !== "GET" || a.path !== path || !rec.requestId)
-            continue;
-          this.net.ingest({ ...doc, requestId: rec.requestId });
-          this.flowChanged = true;
-          this.scheduleRender();
-          return;
+        const rid = findAccessLine(rows, method, path, at)?.requestId;
+        const live = this.net.get(e.id);
+        if (!rid || live === undefined) return false;
+        // L'intercepteur ne lit jamais cet identifiant pour ces appels : le
+        // poser sur l'entrée vivante survit à ses mises à jour suivantes.
+        live.requestId = rid;
+        this.net.ingest(live);
+        this.flowChanged = true;
+        const sel = this.selected;
+        if (
+          sel !== null &&
+          "kind" in sel &&
+          sel.kind === "request" &&
+          sel.net?.id === e.id
+        ) {
+          this.selectedRid = rid;
+          this.detailVersion++;
+          this.wantProfile(live, rid);
+          this.announceSelection(rid);
         }
+        this.scheduleRender();
+        return true;
       },
-      () => {},
+      () => false,
     );
   }
 
@@ -2920,20 +3026,50 @@ export class DebugBar {
         : this.feedDetail(sel));
   }
 
+  /**
+   * Le volet d'un flux tant que son profil ne peut pas se lire — connexion en
+   * cours, refus, requestId encore inconnu — sinon `null` (profil ordinaire).
+   */
+  private streamBody(
+    e: NetEntry,
+    s: INetStream,
+    rid: string | null,
+  ): string | null {
+    if (e.pending) return `<div class="det-loading">connexion en cours…</div>`;
+    if (e.error)
+      return s.kind === "ws"
+        ? `<div class="det-err">refusée ou coupée avant l'ouverture — le navigateur en tait la cause (RFC 6455) ; si elle a atteint le serveur, sa ligne est dans les Journaux.</div>`
+        : `<div class="det-err">flux refusé : statut ≠ 200 ou type ≠ text/event-stream.</div>`;
+    if (rid)
+      return s.kind === "ws"
+        ? `<div class="det-loading">une connexion n'a pas de profil : le profileur mesure chaque frame de son pont (<b>${escapeHtml(shortId(rid))}.n</b>) — dépliez la ligne pour ses journaux.</div>`
+        : null;
+    if (s.kind === "sse" && s.state !== "closed")
+      return `<div class="det-loading">le serveur écrit la ligne d'un flux à sa fermeture : son requestId se lira alors.</div>`;
+    return this.streamLookups?.get(e.id) === "missing"
+      ? `<div class="det-err">ligne d'accès introuvable dans les journaux (évincée du tampon ?).</div>`
+      : `<div class="det-loading">recherche de sa ligne d'accès…</div>`;
+  }
+
   /** Le détail d'une requête : ce que le navigateur ou le serveur en a vu, puis son profil. */
   private requestDetail(item: IRequestItem): string {
     const e =
       item.net === null ? null : (this.net.get(item.net.id) ?? item.net);
     const a = item.access;
-    const method = e?.method ?? a?.method ?? "—";
+    const method = methodOf(e) ?? a?.method ?? "—";
     const url = e?.url ?? a?.path ?? "";
-    const status = e?.pending
-      ? "en attente"
-      : e?.error
-        ? `échec réseau : ${e.error}`
-        : String(e?.status ?? a?.status ?? "—");
-    const dur =
-      e && e.durationMs !== null
+    const s = e?.stream;
+    const status =
+      e && s
+        ? streamMeta(e, s)
+        : e?.pending
+          ? "en attente"
+          : e?.error
+            ? `échec réseau : ${e.error}`
+            : String(e?.status ?? a?.status ?? "—");
+    const dur = s
+      ? ""
+      : e && e.durationMs !== null
         ? ` · ${e.durationMs} ms côté navigateur`
         : a?.duration
           ? ` · ${a.duration} côté serveur`
@@ -2943,7 +3079,10 @@ export class DebugBar {
     const seen = `<div class="det-call" title="${escapeHtml(url)}"><b>${escapeHtml(method)}</b> ${escapeHtml(url)}<span class="det-callmeta"> · ${escapeHtml(status)}${dur}</span></div>`;
     const rid = item.requestId ?? e?.requestId ?? null;
     let body: string;
-    if (e?.pending) {
+    const waiting = e && s ? this.streamBody(e, s, rid) : null;
+    if (waiting !== null) {
+      body = waiting;
+    } else if (e?.pending) {
       body = `<div class="det-loading">réponse attendue — le profil serveur viendra avec elle.</div>`;
     } else if (e?.error) {
       // Aucune réponse : pas d'en-tête à lire, et le serveur ne l'a peut-être
@@ -3029,10 +3168,12 @@ export class DebugBar {
   }
 }
 
-/** Famille de status (2/3/4/5) → classe de couleur. `null` → 5 (inconnu). */
+/**
+ * Famille de statut (2/3/4/5) → classe de couleur, code de fermeture WS compris
+ * (règle du cœur, {@link accessStatusFamily}). `null` → 5 (inconnu).
+ */
 function statusFamily(status: number | null): number {
-  if (status === null) return 5;
-  return Math.floor(status / 100);
+  return accessStatusFamily(status) ?? 5;
 }
 
 /** Méthode HTTP → classe de couleur du chip. */
@@ -3062,11 +3203,62 @@ function severityTier(severity: number): string {
   return "info";
 }
 
-/** Le statut d'un appel tel qu'il s'affiche et se copie. */
+/** Le statut d'un appel tel qu'il s'affiche et se copie — code de fermeture d'un WebSocket fermé. */
 function statusText(e: NetEntry): string {
   if (e.pending) return "···";
   if (e.error) return "ERR";
-  return e.status === null ? "—" : String(e.status);
+  const code = e.stream?.code ?? e.status;
+  return code === null ? "—" : String(code);
+}
+
+/** Le verbe affiché : `WS` / `SSE` pour un flux, sinon la méthode HTTP. */
+function methodOf(e: NetEntry | null): string | null {
+  if (e === null) return null;
+  if (e.stream?.kind === "sse") return "SSE";
+  return e.method;
+}
+
+/** Une durée de vie lisible d'un coup d'œil : `850 ms`, `4.2 s`, `12 min`. */
+function fmtLife(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${Math.round(ms / 60000)} min`;
+}
+
+/** La colonne durée d'un flux : ouvert, en reconnexion, ou sa durée de vie. */
+function streamLife(e: NetEntry, s: INetStream): string {
+  if (s.state === "open") return "ouvert";
+  if (s.state === "connecting") return s.reconnects > 0 ? "reconnexion" : "";
+  return s.closedAt === null ? "" : fmtLife(s.closedAt - e.startedAt);
+}
+
+/** L'état d'un flux dans son volet : ouverture, fermeture (code, motif), reconnexions. */
+function streamMeta(e: NetEntry, s: INetStream): string {
+  const parts: string[] = [];
+  if (s.state === "connecting")
+    parts.push(s.reconnects > 0 ? "reconnexion…" : "connexion…");
+  else if (s.state === "open") parts.push("ouvert");
+  else
+    parts.push(
+      `fermé${s.code === null ? "" : ` ${s.code}`}${s.reason ? ` « ${s.reason} »` : ""}`,
+    );
+  if (e.error) parts.push(e.error);
+  else if (e.durationMs !== null) parts.push(`ouverture ${e.durationMs} ms`);
+  if (s.state === "closed" && s.closedAt !== null && !e.error)
+    parts.push(`ouvert ${fmtLife(s.closedAt - e.startedAt)}`);
+  if (s.reconnects > 0)
+    parts.push(`${s.reconnects} reconnexion${s.reconnects > 1 ? "s" : ""}`);
+  return parts.join(" · ");
+}
+
+/** Chemin et requête d'une URL, comme une ligne d'accès les écrit. */
+function pathAndQuery(url: string): string {
+  try {
+    const u = new URL(url, location.href);
+    return u.pathname + u.search;
+  } catch {
+    return url;
+  }
 }
 
 /** Le `requestId` d'une ligne du flux : celui de la requête, ou de la ligne serveur. */
@@ -3143,7 +3335,7 @@ function fillFlowRow(row: HTMLDivElement, item: FlowItem): void {
       open ? "›" : "",
       `chev${item.expanded ? " open" : ""}${open ? "" : " none"}`,
     );
-    const method = e?.method ?? a?.method ?? "—";
+    const method = methodOf(e) ?? a?.method ?? "—";
     setCell(row, 1, method, `method ${methodClass(method)}`);
     setCell(
       row,
@@ -3154,7 +3346,7 @@ function fillFlowRow(row: HTMLDivElement, item: FlowItem): void {
       "path",
     );
     row.children.item(2)?.setAttribute("title", e?.url ?? a?.path ?? "");
-    const status = e?.status ?? a?.status ?? null;
+    const status = e?.stream?.code ?? e?.status ?? a?.status ?? null;
     setCell(
       row,
       3,
@@ -3164,9 +3356,11 @@ function fillFlowRow(row: HTMLDivElement, item: FlowItem): void {
     setCell(
       row,
       4,
-      e !== null && e.durationMs !== null
-        ? `${e.durationMs} ms`
-        : (a?.duration ?? ""),
+      e?.stream
+        ? streamLife(e, e.stream)
+        : e !== null && e.durationMs !== null
+          ? `${e.durationMs} ms`
+          : (a?.duration ?? ""),
       "dur",
     );
     const n = item.count;

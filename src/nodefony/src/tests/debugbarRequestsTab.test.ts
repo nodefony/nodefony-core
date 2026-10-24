@@ -83,6 +83,12 @@ function repondre(p: URLSearchParams): unknown {
           rec(1, `GET 200 https://h${location.pathname} 3ms`, "rid-doc", {
             msgid: "req",
           }),
+          rec(
+            2,
+            "WS   1000 wss://h/nodefony/studio/api/realtime  0.8ms 127.0.0.1 [x]",
+            "rid-ws",
+            { msgid: "req" },
+          ),
         ],
       },
     };
@@ -152,6 +158,17 @@ beforeEach(() => {
     if (url.includes("/nodefony/profiler/api")) {
       profils.push(url);
       return Promise.resolve(new Response("", { status: 404 }));
+    }
+    if (url.includes("/flux")) {
+      return Promise.resolve(
+        new Response("", {
+          status: 200,
+          headers: {
+            "content-type": "text/event-stream",
+            "x-request-id": "rid-sse",
+          },
+        }),
+      );
     }
     if (url.includes("/nodefony/syslog/api/logs/search")) {
       const p = new URL(url, "https://h").searchParams;
@@ -278,6 +295,84 @@ describe("vue Page — ce que la page est en train de faire", () => {
     await image();
     expect(chemins()).toContain("/nodefony/kernel/api/modules");
     expect(q("[data-el='consoleChip']").hidden).toBe(true);
+  });
+});
+
+/** WebSocket double : seul son contrat d'événements compte. */
+class FakeWs extends EventTarget {
+  readonly url: string;
+  constructor(url: string | URL) {
+    super();
+    this.url = String(url);
+  }
+}
+
+describe("vue Page — les WebSocket et les flux SSE de la page", () => {
+  let wsAvant: typeof window.WebSocket;
+  beforeEach(() => {
+    // L'intercepteur prend la classe présente au montage : remonter sur la doublure.
+    bar?.unmount?.();
+    document.getElementById("nodefony-debugbar")?.remove();
+    wsAvant = window.WebSocket;
+    window.WebSocket = FakeWs as unknown as typeof window.WebSocket;
+    monter();
+  });
+  afterEach(() => {
+    bar?.unmount?.();
+    window.WebSocket = wsAvant;
+  });
+
+  it("🔴 la socket partagée de la page s'y voit : WS, 101, ouvert, puis son code de fermeture", async () => {
+    const ws = new window.WebSocket(
+      "wss://h/nodefony/studio/api/realtime",
+    ) as unknown as FakeWs;
+    ws.dispatchEvent(new Event("open"));
+    await image();
+    const row = (): HTMLElement => ligneReq("/nodefony/studio/api/realtime");
+    expect(row().querySelector(".method")?.textContent).toBe("WS");
+    expect(row().querySelector(".status")?.textContent).toBe("101");
+    expect(row().querySelector(".dur")?.textContent).toBe("ouvert");
+    ws.dispatchEvent(
+      Object.assign(new Event("close"), { code: 1006, reason: "" }),
+    );
+    await image();
+    expect(row().querySelector(".status")?.textContent).toBe("1006");
+    expect(row().querySelector(".status")?.className).toContain("s5");
+    expect(row().className).toContain("err");
+  });
+
+  it("🔴 choisie, la socket retrouve son requestId par SA ligne d'accès — sans demander un profil qu'une connexion n'a pas", async () => {
+    const ws = new window.WebSocket(
+      "wss://h/nodefony/studio/api/realtime",
+    ) as unknown as FakeWs;
+    ws.dispatchEvent(new Event("open"));
+    await image();
+    ligneReq("/nodefony/studio/api/realtime").click();
+    await image();
+    expect(profils).toEqual([]);
+    expect(q("[data-el='logSide']").textContent).toContain("rid-ws");
+    expect(
+      ligneReq("/nodefony/studio/api/realtime").getAttribute("aria-expanded"),
+    ).toBe("false");
+    // Les seules lignes d'accès de ce chemin, pas la fenêtre entière.
+    const cherche = recherches.find(
+      (p) => p.get("q") === "/nodefony/studio/api/realtime",
+    );
+    expect(cherche?.get("msgid")).toBe("req");
+    expect(cherche?.has("groupByRequest")).toBe(false);
+    expect(q("[data-el='logSide']").textContent).toContain("ouvert");
+  });
+
+  it("un flux SSE reçu par fetch : SSE, ouvert, puis sa durée de vie à l'abandon", async () => {
+    const ctl = new AbortController();
+    await window.fetch("/flux", { signal: ctl.signal });
+    await image();
+    const row = (): HTMLElement => ligneReq("/flux");
+    expect(row().querySelector(".method")?.textContent).toBe("SSE");
+    expect(row().querySelector(".dur")?.textContent).toBe("ouvert");
+    ctl.abort();
+    await image();
+    expect(row().querySelector(".dur")?.textContent).toMatch(/ms$|s$/);
   });
 });
 

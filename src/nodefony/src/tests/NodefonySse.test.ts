@@ -148,6 +148,28 @@ describe("NodefonySse — client EventSource sur fetch", () => {
     expect(decor.requests[1]?.headers["last-event-id"]).to.equal("7");
   });
 
+  it("🔴 une tentative finie libère son signal — qui observe le fetch y voit la fin du flux", async () => {
+    decor = await serve((_req, res, _body, n) => {
+      stream(res);
+      if (n === 1) res.end("retry: 20\ndata: avant\n\n");
+      else res.write("data: après\n\n");
+    });
+    const signals: Array<AbortSignal | null | undefined> = [];
+    const sse = track(
+      new NodefonySse(decor.url, {
+        fetch: (input, init) => {
+          signals.push(init?.signal);
+          return fetch(input, init);
+        },
+      }),
+    );
+    const got: string[] = [];
+    sse.onmessage = (e) => got.push(e.data);
+    await until(() => got.length === 2);
+    expect(signals[0]?.aborted).to.equal(true);
+    expect(signals[1]?.aborted).to.equal(false);
+  });
+
   it("close() arrête toute reconnexion", async () => {
     decor = await serve((_req, res) => {
       stream(res);
