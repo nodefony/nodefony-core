@@ -187,4 +187,54 @@ describe.skipIf(!OS_URL)("Log Backplane E2E — OpenSearch réel", () => {
     assert.strictEqual(r.total, 1);
     assert.strictEqual(r.rows[0]!.payload, "os-bravo");
   });
+
+  describe("relecture seule — un collecteur indexe la sortie JSON dans l'index de l'application", () => {
+    // Index propre à l'application, unique par run (un index est en minuscules).
+    const index = `shop-${randomUUID()}`;
+    const t1 = Date.now();
+
+    beforeAll(async () => {
+      // Les lignes EXACTES de la sortie `log.format: "json"`, analysées en champs
+      // à la racine du document comme un collecteur le fait (Fluent Bit, Vector).
+      const lines = captureJsonLines([
+        mk("ro-alpha", "INFO", reqId, t1),
+        mk("ro-bravo", "ERROR", reqId, t1 + 1),
+      ]);
+      const body = lines
+        .map((l) => `{"index":{"_index":"${index}"}}\n${l.trimEnd()}\n`)
+        .join("");
+      const res = await fetch(`${OS_URL!}/_bulk?refresh=true`, {
+        method: "POST",
+        headers: { "content-type": "application/x-ndjson" },
+        body,
+      });
+      assert.ok(res.ok, `indexation collecteur refusée : HTTP ${res.status}`);
+    });
+
+    it("le driver relit l'index déclaré, sévérité comprise", async () => {
+      const driver = createOpenSearchLogDriver({ url: OS_URL!, index });
+      const all = await poll(
+        () => driver.query!({ from: t1 - 5_000, to: t1 + 60_000 }),
+        (r) => r.total >= 2,
+      );
+      assert.strictEqual(all.total, 2);
+      assert.strictEqual(all.rows[0]!.requestId, reqId);
+      const errors = await driver.query!({
+        from: t1 - 5_000,
+        to: t1 + 60_000,
+        severity: "ERROR",
+      });
+      assert.strictEqual(errors.total, 1);
+      assert.strictEqual(errors.rows[0]!.payload, "ro-bravo");
+    });
+  });
+
+  it("le modèle d'index porte le nom de son index — deux applications ne s'écrasent pas", async () => {
+    const index = `app-${randomUUID()}`;
+    const transport = new OpenSearchTransport({ url: OS_URL!, index });
+    await transport.send(mk("tpl", "INFO", reqId, Date.now()));
+    await transport.close();
+    const res = await fetch(`${OS_URL!}/_index_template/${index}`);
+    assert.strictEqual(res.status, 200, "modèle d'index absent sous son nom");
+  });
 });
