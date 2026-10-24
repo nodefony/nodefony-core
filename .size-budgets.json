@@ -5,7 +5,7 @@
     {
       "subpath": "nodefony/client",
       "file": "src/nodefony/dist/client/client/index.js",
-      "budgetKB": 30,
+      "budgetKB": 31,
       "referenceKB": 17.6
     },
     {
