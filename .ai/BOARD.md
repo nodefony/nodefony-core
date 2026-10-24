@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-24 19:06** (UTC).
+> Empreinte prise le **2026-10-24 20:44** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -137,7 +137,7 @@ Ordre 5.206 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 6.12 | P2 — décision | 1 | 2026-11-16 → 12-15 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 6.2 | P1 — figé à la création | 3 | — | #659 | docs(performance): remesurer les pages de performance avant la release |
 
-## Backlog — aucune date promise · 22 ouverts
+## Backlog — aucune date promise · 21 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -162,7 +162,6 @@ Ordre 5.206 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 919 | P2 — décision | 3 | — | #616 | feat(cli): exprimer une énumération partagée entre tables dans create entity |
 | 921 | P3 — fin de cycle | 2 | — | #651 | feat(ai): relayer ai:stdio vers le serveur de dev quand il tourne |
 | 922 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
-| 923 | P2 — décision | 1 | — | #666 | feat(http): journaliser la durée des requêtes en production sur demande |
 
 ## Jalon 10.2.0 — 31 ouverts
 

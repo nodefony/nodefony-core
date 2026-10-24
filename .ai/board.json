@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T19:06:29.905Z",
+  "generatedAt": "2026-10-24T20:44:38.404Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -9575,8 +9575,8 @@
       "number": 666,
       "title": "feat(http): journaliser la durée des requêtes en production sur demande",
       "url": "https://github.com/nodefony/nodefony-core/issues/666",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
