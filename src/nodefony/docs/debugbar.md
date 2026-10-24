@@ -155,6 +155,34 @@ Trois vues, au choix en haut de l'onglet :
 - **Journaux** — la recherche des Journaux de la console, une ligne par
   requête, tous clients confondus, avec les mêmes filtres.
 
+### WebSocket et flux d'événements
+
+La vue Page montre aussi les **connexions longues** que la page ouvre : une
+`WebSocket` (`WS`), un `EventSource` ou un `fetch` qui reçoit
+`text/event-stream` (`SSE`, ce que fait le client `NodefonySse`). La socket
+que la page partage avec la barre y figure comme les autres.
+
+Ce que la ligne montre, c'est ce que **seul le navigateur sait** : la
+connexion en cours, l'ouverture (`101`, `200`), la fermeture et son code
+(`1000` normale, `1006` coupée, en rouge), un refus avant l'ouverture, les
+reconnexions d'un `EventSource`. La colonne durée dit « ouvert » tant que la
+connexion vit, puis sa durée de vie. Aucune trame n'est lue ni comptée,
+binaire compris : ce que la socket transporte reste à l'application.
+
+Choisie, une socket retrouve son `requestId` par sa ligne d'accès dans les
+journaux, car le navigateur ne lit pas ses en-têtes. Elle se déplie alors
+sur ses lignes serveur. Le volet liste les **appels passés par la socket**,
+c'est-à-dire chaque `api.request`. Une connexion n'a pas de profil à elle,
+puisqu'elle ne se termine qu'à sa fermeture, mais chacun de ses appels en a
+un. Un clic sur un appel affiche ses phases et ses requêtes SQL, comme pour
+une requête HTTP. Sur une page de la console, choisir la socket ouvre aussi
+son Suivi de requête, qui reconstitue tout son cycle.
+
+Un flux SSE n'écrit sa ligne d'accès qu'à sa fermeture : son `requestId` ne
+se lit qu'alors, sauf s'il passe par `fetch`, qui lit ses en-têtes dès
+l'ouverture. Un flux reçu par `fetch` se sait fermé par son **signal
+d'abandon** : sans signal, la ligne reste « ouvert ».
+
 Un clic ouvre le détail dans **un seul volet, à côté** : pour une requête,
 ce qui en a été vu, puis son **profil serveur** (route, contrôleur,
 utilisateur, chronologie des phases, requêtes SQL) ; pour une ligne, son
