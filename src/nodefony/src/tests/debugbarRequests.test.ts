@@ -121,7 +121,9 @@ describe("vue Journaux — la recherche groupée du serveur", () => {
       method: "GET",
       status: 200,
       path: "/logo.png",
+      url: "https://h/logo.png",
       duration: "2.2ms",
+      ip: null,
     });
     expect(item.count).toBe(3);
     expect(item.net).toBeNull();

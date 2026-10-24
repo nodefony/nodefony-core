@@ -45,7 +45,9 @@ describe("parseAccessLine", () => {
       method: "GET",
       status: 200,
       path: "/api/users?page=2",
+      url: "https://localhost:5152/api/users?page=2",
       duration: "3.21ms",
+      ip: "127.0.0.1",
     });
   });
 
@@ -58,7 +60,9 @@ describe("parseAccessLine", () => {
       method: "WS",
       status: null,
       path: "/nodefony/studio/api/realtime",
+      url: "wss://h/nodefony/studio/api/realtime",
       duration: null,
+      ip: null,
     });
   });
 
@@ -73,11 +77,21 @@ describe("parseAccessLine", () => {
       method: "WS",
       status: 1000,
       path: "/nodefony/studio/api/realtime",
+      url: "wss://localhost:5152/nodefony/studio/api/realtime",
       duration: "0.87ms",
+      ip: "127.0.0.1",
     });
     expect(statusColor(a?.status ?? null)).toBe("teal");
     expect(statusColor(1006)).toBe("red");
     expect(statusColor(1008)).toBe("orange");
+  });
+
+  it("le sous-protocole négocié d'une socket ne masque ni la durée ni l'adresse", () => {
+    const a = parseAccessLine(
+      rec("WS   1000 wss://h/chat [chat.v2] 1.2ms 10.0.0.7 [cbba72b5]", "req"),
+    );
+    expect(a?.duration).toBe("1.2ms");
+    expect(a?.ip).toBe("10.0.0.7");
   });
 
   it("une ligne qui n'est pas une ligne d'accès : null", () => {

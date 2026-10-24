@@ -184,12 +184,23 @@ export interface IAccessLine {
   status: number | null;
   /** Chemin et requête (`/api/users?page=2`), sans schéma ni hôte. */
   path: string;
+  /** L'URL telle qu'écrite (`wss://h/socket`), schéma et hôte compris. */
+  url: string;
   /** Durée telle qu'écrite (`3.21ms`), `null` si absente. */
   duration: string | null;
+  /** Adresse du client, `null` si absente. */
+  ip: string | null;
 }
 
-/** Ligne d'accès : `MÉTHODE STATUT URL DURÉE …` — le statut d'une ligne `WS` a quatre chiffres. */
-const ACCESS_LINE = /^([A-Z]+)\s+(\d{3,4}|---)\s+(\S+)(?:\s+(\S+))?/;
+/**
+ * Ligne d'accès : `MÉTHODE STATUT URL [PROTOCOLE] DURÉE IP …` — le statut d'une
+ * ligne `WS` a quatre chiffres, et le sous-protocole négocié se glisse entre
+ * l'URL et la durée.
+ */
+const ACCESS_LINE =
+  /^([A-Z]+)\s+(\d{3,4}|---)\s+(\S+)(?:\s+\[[^\]\s]*\])?(?:\s+(\S+))?(?:\s+(\S+))?/;
+/** Une adresse IPv4 ou IPv6, assez pour ne pas prendre le `[id]` qui suit. */
+const IP = /^[\d.:a-f]+$/i;
 
 /**
  * La famille d'un statut d'accès, de 1 à 5 comme un statut HTTP — y compris
@@ -271,7 +282,7 @@ export function parseAccessLine(
   if (pdu.msgid !== "req" || typeof pdu.payload !== "string") return null;
   const m = ACCESS_LINE.exec(pdu.payload.replace(ANSI, ""));
   if (m === null) return null;
-  const [, method = "", rawStatus = "", url = "", duration] = m;
+  const [, method = "", rawStatus = "", url = "", duration, ip] = m;
   let path = url;
   const scheme = url.indexOf("://");
   if (scheme !== -1) {
@@ -282,6 +293,8 @@ export function parseAccessLine(
     method,
     status: rawStatus === "---" ? null : Number(rawStatus),
     path,
+    url,
     duration: duration !== undefined && /\d/.test(duration) ? duration : null,
+    ip: ip !== undefined && IP.test(ip) ? ip : null,
   };
 }
