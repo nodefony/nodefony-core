@@ -62,7 +62,7 @@ interface ProfilableContext {
   resolver?: ProfiledResolver | null | undefined;
   /**
    * Arrête l'horloge de la requête et rend sa durée (ms) — la même que le
-   * journal d'accès (`IContext.stopClock`). `null` si le chronométrage est coupé.
+   * journal d'accès (`IContext.stopClock`). `null` si `timing.enabled` vaut `false`.
    */
   stopClock(): number | null;
   /**

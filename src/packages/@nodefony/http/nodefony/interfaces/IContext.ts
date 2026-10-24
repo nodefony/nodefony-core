@@ -173,7 +173,8 @@ export interface IContext {
   phaseEnd(name: PhaseName): void;
   /**
    * Arrête l'horloge de la requête (au premier appel) et rend sa durée en ms —
-   * la SEULE durée de requête du framework ; `null` si le chronométrage est coupé.
+   * la SEULE durée de requête du framework, mesurée partout par défaut ; `null`
+   * seulement si `timing.enabled` vaut `false`.
    */
   stopClock(): number | null;
 

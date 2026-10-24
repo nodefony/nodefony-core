@@ -53,12 +53,12 @@ const GUIDE = [
   "",
   'Les panneaux HTTP lisent la ligne d\'accès de **production** (`msgid: audit`), écrite avec `log.format: "json"` : en développement, elle sort dans un autre format et ces panneaux restent vides.',
   "",
-  "**Latence en production** : le chronométrage y est coupé par défaut (performance), la ligne d'accès sort sans durée et les panneaux de latence restent vides. `NF__APP__TIMING__ENABLED=true` l'allume.",
+  "**Latence** : chaque ligne d'accès porte la durée de sa requête (`durationMs`), de l'arrivée à la fin de la réponse — production comprise. Seul `timing.enabled: false` la retire.",
   "",
   "Une ligne mène à toute sa requête : copier son `requestId` dans le filtre du même nom.",
 ].join("\n");
 const LATENCY_HELP =
-  "Vide en production tant que le chronométrage est coupé : NF__APP__TIMING__ENABLED=true l'allume.";
+  "Durée de chaque requête (durationMs), de l'arrivée à la fin de la réponse. Vide seulement si l'application a coupé le chronométrage (timing.enabled: false).";
 
 /** Couleurs FIXES, identiques dans les deux outils : une sévérité se reconnaît d'un coup d'œil. */
 const SEVERITY_COLORS = {

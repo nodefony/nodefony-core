@@ -58,10 +58,10 @@ const GOLDEN_DEFAULTS = {
     ws: {},
     wss: {},
   },
-  // Sonde de phases : `null` = PAS D'AVIS (la règle d'environnement décide : ON
-  // hors production, OFF en production). La clé doit exister pour être
+  // Chronométrage : `null` = PAS D'AVIS (la règle d'environnement décide : durée
+  // partout, phases hors production). La clé doit exister pour être
   // surchargeable par `NF__APP__TIMING__ENABLED` (les overrides n'écrivent que
-  // sur des chemins présents) — un `false` en dur éteindrait le waterfall en dev.
+  // sur des chemins présents) — un `false` en dur couperait tout, dev compris.
   timing: { enabled: null, verbose: false, tooling: false },
   log: {
     active: true,

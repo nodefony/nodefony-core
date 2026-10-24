@@ -417,18 +417,19 @@ export const appConfigSchema = z.object({
         "`resolveTopology` ; lue standalone par le master AVANT le boot.",
     ),
   timing: z
-    .object({
+    .strictObject({
       enabled: z
         .boolean()
         .nullable()
         .optional()
         .describe(
-          "Sonde de phases du pipeline (parse/resolve/firewall/initialize/action/" +
-            "render/send) : la matière du waterfall (Studio, debug bar, profiler). " +
-            "`null` (défaut) = PAS D'AVIS → active hors production, éteinte en " +
-            "production. Un booléen EXPLICITE gagne : `true` allume la sonde en " +
-            "production (diagnostic à chaud — coût mesuré, cf docs) ; `false` " +
-            "l'éteint partout. Surchargeable sans redéployer : " +
+          "Chronométrage des requêtes. `null` (défaut) = PAS D'AVIS : la DURÉE " +
+            "de chaque requête partout (deux lectures d'horloge, la `durationMs` " +
+            "du journal d'accès), le détail par PHASE (parse/resolve/firewall/" +
+            "initialize/action/render/send — le waterfall du Studio, de la debug " +
+            "bar, du profileur) hors production seulement. `true` : durée et " +
+            "phases partout, production comprise (diagnostic à chaud). `false` : " +
+            "rien, durée comprise. Surchargeable sans redéployer : " +
             "`NF__APP__TIMING__ENABLED=true`.",
         ),
       verbose: z
@@ -436,7 +437,7 @@ export const appConfigSchema = z.object({
         .optional()
         .describe(
           "Trace DEBUG détaillant chaque phase au teardown (1 log par requête). " +
-            "Implique `enabled`. Défaut : false — à n'allumer que le temps d'un " +
+            "N'agit que là où les phases sont mesurées. Défaut : false — à n'allumer que le temps d'un " +
             "diagnostic (le volume nominal n'est pas un signal).",
         ),
       tooling: z
@@ -453,9 +454,10 @@ export const appConfigSchema = z.object({
     })
     .optional()
     .describe(
-      "Instrumentation du pipeline (timing des phases). Éteinte en production " +
-        "par défaut : allumée, elle alloue le tableau des phases + une Map par " +
-        "requête et appelle `performance.now()` à chaque borne.",
+      "Chronométrage des requêtes. La durée (une lecture d'horloge à l'entrée, " +
+        "une à la fin) est mesurée partout ; les phases (un tableau, un index et " +
+        "une lecture d'horloge par borne, par requête) restent coupées en " +
+        "production par défaut.",
     ),
   shutdownDeadline: z
     .number()

@@ -411,19 +411,26 @@ export interface AppConfigInput {
    */
   shutdownDeadline?: number;
   /**
-   * Instrumentation du pipeline — la sonde de phases qui alimente le waterfall
-   * (Studio/Playground, debug bar, profiler).
+   * Chronométrage des requêtes : leur durée, et le détail par phase qui
+   * alimente le waterfall (Studio/Playground, debug bar, profiler).
    *
-   * `enabled: null` (défaut) = pas d'avis → la règle d'environnement s'applique
-   * (active hors production, éteinte en production). Un booléen explicite gagne :
-   * `true` allume la sonde EN PRODUCTION (diagnostic à chaud, coût assumé),
-   * `false` l'éteint partout. Override sans redéploiement :
+   * | `enabled`        | Durée (`durationMs` du journal d'accès) | Phases               |
+   * | ---------------- | --------------------------------------- | -------------------- |
+   * | `null` (défaut)  | partout, production comprise            | hors production      |
+   * | `true`           | partout                                 | partout              |
+   * | `false`          | nulle part                              | nulle part           |
+   *
+   * La durée coûte deux lectures d'horloge par requête, de la construction du
+   * contexte à la fin de la réponse — la mesure d'OpenTelemetry et du
+   * `$request_time` de nginx. Les phases coûtent une lecture par borne, un
+   * tableau et un index par requête : en production, ne les allumer (`true`)
+   * que le temps d'un diagnostic. Override sans redéploiement :
    * `NF__APP__TIMING__ENABLED=true`.
    * @reactivity boot
    */
   timing?: {
     enabled?: boolean | null;
-    /** Trace DEBUG d'une ligne par requête détaillant chaque phase. Implique `enabled`. */
+    /** Trace DEBUG d'une ligne par requête détaillant chaque phase. N'agit que là où les phases sont mesurées. */
     verbose?: boolean;
     /** Profiler aussi l'outillage (console, profileur, journaux, Vite). Défaut : non. */
     tooling?: boolean;

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import { defineConfig, isConfigDescriptor } from "../config/index";
 import { defaultAppConfig } from "../config/defaults";
+import { validateAppConfig } from "../config/schema";
 import {
   applyAppEnvOverrides,
   readAppEnvOverrideReport,
@@ -462,9 +463,10 @@ describe("config — NF__APP__* (override env de la config app)", () => {
     });
   });
 
-  // ─── Sonde de phases (timing) — allumable EN PRODUCTION sans redéployer ──────
+  // ─── Chronométrage (timing) — phases allumables EN PRODUCTION sans redéployer ─
   // Le Context lit `options.timing.enabled` : `null` = pas d'avis (règle par
-  // environnement : ON hors prod, OFF en prod), un booléen EXPLICITE gagne. Le
+  // environnement, `resolveTimingMode` : durée partout, phases hors prod), un
+  // booléen EXPLICITE gagne. Le
   // piège fermé ici : les overrides `NF__APP__*` n'écrivent que sur des chemins
   // DÉJÀ PRÉSENTS dans la config — sans défaut matérialisé, `NF__APP__TIMING__
   // ENABLED=true` était silencieusement ignoré et la sonde restait inatteignable
@@ -492,6 +494,17 @@ describe("config — NF__APP__* (override env de la config app)", () => {
         "l'override doit être RAPPORTÉ (traçable), pas appliqué en douce",
       );
       assert.deepStrictEqual(report?.warnings, []);
+    });
+
+    it("🔴 une clé mal orthographiée sous `timing` arrête la résolution EN LA NOMMANT", () => {
+      // `enable` au lieu de `enabled` : retirée en silence, elle laissait
+      // l'horloge allumée chez qui croyait l'avoir coupée.
+      assert.throws(
+        () =>
+          validateAppConfig({ ...defaultAppConfig, timing: { enable: false } }),
+        /Configuration d'application invalide.*enable/s,
+      );
+      assert.doesNotThrow(() => validateAppConfig(defaultAppConfig));
     });
 
     it("une app peut l'éteindre partout (`timing: { enabled: false }`)", () => {

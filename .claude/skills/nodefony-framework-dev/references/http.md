@@ -414,10 +414,13 @@ Barrel `index.ts`. Interfaces : `IContext`/`IHttpContext`/`IWebsocketContext`, `
 7. **phase `firewall`** : `firewall.handleSecurity` (via `onRequestEnd`).
 8. **phase `action`** : `context.handle()` → controller (reste ouverte pendant l'action).
 9. `Response.writeHead()` (injecte `x-request-id`) → `send()`.
-10. Teardown via event `finish` : `logRequest` → `onAfterResponse` → `fireAsync("onFinish")` → `profiler.collect` → `clean()` → `leaveScope()`.
+10. Teardown via l'event `close` de la réponse (UN écouteur, `HttpKernel.createHttpContext`) : `stopClock` → `logRequest` → `profiler.collect` → `onAfterResponse` → `fireAsync("onFinish")` → `clean()` → `leaveScope()`.
 
 Phases canoniques : `parse` / `resolve` / `firewall` / `action`. Désactivées en prod (opt-in
-`kernel.options.timing.enabled`) → `phases` = `EMPTY_PHASES` frozen, `phaseStart/End` noop, 0 Map allouée.
+`kernel.options.timing.enabled: true`) → `phases` = `EMPTY_PHASES` frozen, `phaseStart/End` noop, 0 Map allouée.
+**La DURÉE, elle, est mesurée partout** (`Context.stopClock`, 2 `performance.now()` : ctor + `close`) —
+seule `timing.enabled: false` la coupe. Règle UNIQUE : `resolveTimingMode` (`context/timingMode.ts`) → `off`/`clock`/`phases`.
+Une durée de requête se LIT par `ctx.stopClock()`, jamais recalculée depuis `phases`.
 **Pipeline = `async function` plates** (`throw`/`return` directs) : JAMAIS `new Promise(async executor)`
 (2ᵉ Promise + microtasks ; les throws hors resolve/reject sont avalés → pending à jamais).
 

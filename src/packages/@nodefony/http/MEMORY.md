@@ -464,7 +464,7 @@ Extension de l'`AuditErrorEntry` :
 - Client parti avant la FIN de la réponse (`!responseEnded`, écouteur `close` de `createHttpContext`) : `_abortIfPending` + `response.statusCode = 499` (« client closed request ») — avant tout octet OU en plein flux (SSE abandonné, outil MCP annulé : la spec MCP Streamable HTTP fait de cette fermeture l'annulation). Statut d'erreur déjà posé (≥ 400) conservé.
 - **499 = observabilité PURE** : reflété dans request-log + profiler, **JAMAIS écrit sur le socket** (déjà mort). `statusCode` = champ du wrapper `HttpResponse`, jamais celui de Node.
 - Profil : `durationMs` = `ctx.stopClock()` (arrondi µs) — même valeur que le journal d'accès ; un appel coupé (499) dure jusqu'au `close`, plus jamais ≈ 0.
-- **Horloge de la requête** (`Context.ts#Context.stopClock`) : 1 `performance.now()` au ctor (tête, dès que `_timingEnabled` est résolu), 1 au PREMIER `stopClock()` — posé en tête de `HttpKernel.teardownHttp` (`close` = dernier octet remis, ou client parti ; mesure d'OTel `http.server.request.duration` et de nginx `$request_time`) ; WS : à la ligne d'accès du handshake. Journal d'accès (JSON + lisible), profiler, trace verbose LISENT, jamais ne relisent l'horloge. Timing coupé (prod défaut) → `null`, 0 horloge, 0 alloc (2 champs nombres). `FrameProfile` : même contrat (naissance → `finish`). Ne JAMAIS recalculer une durée depuis `phases`.
+- **Horloge de la requête** (`Context.ts#Context.stopClock`) : 1 `performance.now()` au ctor (tête, dès que `_timingEnabled` est résolu), 1 au PREMIER `stopClock()` — posé en tête de `HttpKernel.teardownHttp` (`close` = dernier octet remis, ou client parti ; mesure d'OTel `http.server.request.duration` et de nginx `$request_time`) ; WS : à la ligne d'accès du handshake. Journal d'accès (JSON + lisible), profiler, trace verbose LISENT, jamais ne relisent l'horloge. Mesurée PARTOUT par défaut (production comprise, mode `"clock"`) ; `timing.enabled: false` → `null`, 0 horloge. Coût : 2 lectures d'horloge (~63 ns chacune), 2 nombres sur le contexte. `FrameProfile` : même contrat (naissance → `finish`). Ne JAMAIS recalculer une durée depuis `phases`.
 - Test : `nodefony/tests/http/client-abort-499.test.ts` (journal `GET  499 …/abort/wait` + profileur : SSE abandonné → 499, durée ≥ délai de départ).
 
 ## Request timeout — 2 couches distinctes
@@ -495,7 +495,8 @@ Extension de l'`AuditErrorEntry` :
 
 - `Context.phases: PhaseTiming[]` — instrumentation pipeline, rempli par HttpKernel
 - API : `context.phaseStart(name)` / `context.phaseEnd(name)` — `performance.now()` (perf_hooks)
-- **Désactivé par défaut en `environment === "prod"`** — opt-in via `kernel.options.timing.enabled: true`
+- Mode résolu par `resolveTimingMode(enabled, environment)` (`context/timingMode.ts`) : `null` → `"clock"` en production (durée seule), `"phases"` ailleurs ; `true` → `"phases"` partout ; `false` → `"off"` (ni durée ni phases)
+- Phases **désactivées par défaut en `environment === "production"`** — opt-in via `timing.enabled: true` (la durée, elle, reste mesurée)
 - Quand désactivé : `phases` = shared `EMPTY_PHASES` frozen singleton, `phaseStart/End` noop, aucune `Map` allouée
 - `_phaseIndex: Map<string,number>` lazy alloc au premier `phaseStart` (pas dans le constructor)
 - `phaseEnd` idempotent (re-call = noop)

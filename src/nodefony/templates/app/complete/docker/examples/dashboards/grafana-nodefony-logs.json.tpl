@@ -89,7 +89,7 @@
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 5 },
       "options": {
         "mode": "markdown",
-        "content": "**Journaux d'une application Nodefony.** Vue d'ensemble, activité, trafic HTTP, et les lignes elles-mêmes.\n\nLes panneaux HTTP lisent la ligne d'accès de **production** (`msgid: audit`), écrite avec `log.format: \"json\"` : en développement, elle sort dans un autre format et ces panneaux restent vides.\n\n**Latence en production** : le chronométrage y est coupé par défaut (performance), la ligne d'accès sort sans durée et les panneaux de latence restent vides. `NF__APP__TIMING__ENABLED=true` l'allume.\n\nUne ligne mène à toute sa requête : copier son `requestId` dans le filtre du même nom."
+        "content": "**Journaux d'une application Nodefony.** Vue d'ensemble, activité, trafic HTTP, et les lignes elles-mêmes.\n\nLes panneaux HTTP lisent la ligne d'accès de **production** (`msgid: audit`), écrite avec `log.format: \"json\"` : en développement, elle sort dans un autre format et ces panneaux restent vides.\n\n**Latence** : chaque ligne d'accès porte la durée de sa requête (`durationMs`), de l'arrivée à la fin de la réponse — production comprise. Seul `timing.enabled: false` la retire.\n\nUne ligne mène à toute sa requête : copier son `requestId` dans le filtre du même nom."
       }
     },
     {
@@ -320,7 +320,7 @@
       "id": 8,
       "datasource": { "type": "loki", "uid": "${datasource}" },
       "gridPos": { "x": 20, "y": 6, "w": 4, "h": 4 },
-      "description": "Vide en production tant que le chronométrage est coupé : NF__APP__TIMING__ENABLED=true l'allume.",
+      "description": "Durée de chaque requête (durationMs), de l'arrivée à la fin de la réponse. Vide seulement si l'application a coupé le chronométrage (timing.enabled: false).",
       "targets": [
         {
           "refId": "A",
@@ -568,7 +568,7 @@
     {
       "type": "timeseries",
       "title": "Latence des requêtes",
-      "description": "Vide en production tant que le chronométrage est coupé : NF__APP__TIMING__ENABLED=true l'allume.",
+      "description": "Durée de chaque requête (durationMs), de l'arrivée à la fin de la réponse. Vide seulement si l'application a coupé le chronométrage (timing.enabled: false).",
       "maxDataPoints": 60,
       "id": 13,
       "datasource": { "type": "loki", "uid": "${datasource}" },

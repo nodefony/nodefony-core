@@ -33,6 +33,7 @@ import HttpKernel, {
 } from "../../service/http-kernel";
 import type { AlpnProtocol, ProtocolName } from "../../interfaces/IContext";
 import { protocolNameOf } from "./transport";
+import { resolveTimingMode } from "./timingMode";
 import HttpResponse from "./http/Response";
 import Http2Response from "./http2/Response";
 import WebsocketResponse from "./websocket/Response";
@@ -287,9 +288,9 @@ class Context extends Service implements IContextInterface {
   // issue, motif d'un refus) — remplie par @nodefony/security, lue par
   // `Profiler.collect()`. `null` hors profiling ET hors zone → 0 alloc.
   securityTrace: ISecurityTrace | null = null;
-  // Timing: opt-out in prod (default), opt-in elsewhere. Overridable via
-  // kernel.options.timing.enabled. When disabled: `phases` is a shared frozen
-  // empty array, `phaseStart`/`phaseEnd` are noops, no Map is allocated.
+  // Phase timing (`resolveTimingMode` → "phases"): off in production by
+  // default, on elsewhere. When off: `phases` is a shared frozen empty array,
+  // `phaseStart`/`phaseEnd` are noops, no Map is allocated.
   private readonly _timingEnabled: boolean = false;
   // P3.7 — trace verbose opt-in (kernel.options.timing.verbose). Résolu 1× au
   // constructeur, implique `_timingEnabled`. false par défaut → 0 stringify/alloc
@@ -297,8 +298,9 @@ class Context extends Service implements IContextInterface {
   private readonly _timingVerbose: boolean = false;
   // Horloge de la requête : UNE lecture au constructeur, UNE au premier
   // `stopClock()`, partagées par le journal d'accès, le profiler et la trace
-  // verbose. Des nombres, jamais un objet : chronométrage coupé (production par
-  // défaut) → aucune lecture d'horloge, rien d'alloué.
+  // verbose. Active partout par défaut (production comprise) ; seul
+  // `timing.enabled: false` la coupe — aucune lecture d'horloge alors.
+  private readonly _clockEnabled: boolean = false;
   private readonly _clockStartMs: number = 0;
   private _durationMs: number | null = null;
   readonly phases: PhaseTiming[] = EMPTY_PHASES;
@@ -329,31 +331,24 @@ class Context extends Service implements IContextInterface {
         p.svcNs += Number(process.hrtime.bigint() - p.t0);
       }
     }
-    // Resolve timing flag once per request — FIRST, so that the request clock
-    // starts as early as the context exists. Explicit kernel option wins;
-    // otherwise default = enabled in dev / development, disabled in prod.
-    // `timing.enabled` vaut `null` par défaut (= PAS D'AVIS, cf `defaultAppConfig`) :
-    // seul un booléen explicite court-circuite la règle d'environnement — ce qui
-    // permet d'allumer la sonde EN PRODUCTION (`NF__APP__TIMING__ENABLED=true`)
-    // pour un diagnostic, sans redéployer.
+    // Resolve the timing mode once per request — FIRST, so that the request
+    // clock starts as early as the context exists. The rule (defaults, explicit
+    // `timing.enabled`, environment) lives in `resolveTimingMode`, nowhere else.
     const timing: unknown = this.kernel?.options.timing;
     const timingSection =
       typeof timing === "object" && timing !== null ? timing : null;
-    const explicit =
+    const mode = resolveTimingMode(
       timingSection !== null && "enabled" in timingSection
         ? timingSection.enabled
-        : undefined;
-    if (typeof explicit === "boolean") {
-      this._timingEnabled = explicit;
-    } else {
-      // `environment` est normalisé "development"/"production"/"test" — JAMAIS
-      // "prod". Comparer à "prod" laissait le timing (alloc `phases`/req +
-      // performance.now() par phase) ACTIF en production. Doit rester actif en
-      // dev ET test → comparer à "production".
-      this._timingEnabled = this.kernel?.environment !== "production";
-    }
-    if (this._timingEnabled) {
+        : undefined,
+      this.kernel?.environment,
+    );
+    if (mode !== "off") {
+      this._clockEnabled = true;
       this._clockStartMs = performance.now();
+    }
+    if (mode === "phases") {
+      this._timingEnabled = true;
       // Replace shared frozen empty array with a per-context one only when needed.
       (this as { phases: PhaseTiming[] }).phases = [];
       // P3.7 — trace verbose : résolu 1× ici (n'a de sens que si le timing est
@@ -469,10 +464,13 @@ class Context extends Service implements IContextInterface {
    * handshake WebSocket. Les appels suivants rendent la même valeur : journal
    * d'accès, profiler et trace verbose lisent UNE durée, jamais trois.
    *
-   * @returns la durée, ou `null` si le chronométrage est coupé
+   * Active par défaut dans tous les environnements, production comprise :
+   * seul `timing.enabled: false` la coupe (cf `resolveTimingMode`).
+   *
+   * @returns la durée, ou `null` si `timing.enabled` vaut `false`
    */
   stopClock(): number | null {
-    if (!this._timingEnabled) return null;
+    if (!this._clockEnabled) return null;
     return (this._durationMs ??= performance.now() - this._clockStartMs);
   }
 

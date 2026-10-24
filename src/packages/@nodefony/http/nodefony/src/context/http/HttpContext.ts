@@ -557,7 +557,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     // du store : SQLite/Redis — de loin le premier poste d'une requête authentifiée),
     // le hook `onSend`, le `writeHead` et le `write`. Sans elle, le waterfall
     // s'arrêtait à la fin de l'action et ce temps-là n'était imputé à personne.
-    // Timing éteint (production) → chemin nominal STRICTEMENT inchangé.
+    // Phases coupées (production par défaut) → chemin nominal STRICTEMENT inchangé.
     if (!this.timingEnabled) return this.doSend(chunk, encoding);
     this.phaseStart("send");
     return finallyMaybe(
