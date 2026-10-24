@@ -324,7 +324,7 @@ function gaps(report: IProfileReport, ctx: IObservationContext): string[] {
   }
   if (report.untimed > 0) {
     out.push(
-      `${report.untimed} requête(s) sans durée (mesure des phases désactivée, ou requête interrompue)`,
+      `${report.untimed} requête(s) sans durée (chronométrage coupé par timing.enabled: false)`,
     );
   }
   if (ctx.interrupted) {

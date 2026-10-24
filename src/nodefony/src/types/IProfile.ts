@@ -75,7 +75,7 @@ export interface IProfileEntry {
   url: string;
   scheme: string;
   status: number | null;
-  /** Durée totale serveur (ms), dérivée des phases. */
+  /** Durée de la requête (ms), de son arrivée au dernier octet de la réponse — la même que la ligne d'accès ; `null` si le chronométrage est coupé. */
   durationMs: number | null;
   route: string | null;
   controller: string | null;
@@ -134,7 +134,7 @@ export interface IRouteStats {
   controller: string | null;
   action: string | null;
   count: number;
-  /** Requêtes sans durée mesurée (mesure des phases désactivée, erreur précoce). */
+  /** Requêtes sans durée mesurée (chronométrage coupé : `timing.enabled: false`). */
   untimed: number;
   /**
    * Requêtes SERVIES et chronométrées (statut < 400, sans exception) : la

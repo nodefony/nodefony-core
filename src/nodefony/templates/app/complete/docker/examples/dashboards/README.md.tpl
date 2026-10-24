@@ -18,8 +18,9 @@ qui vous servent.
 - `NF_LOG_FORMAT=json` : une ligne de journal = un enregistrement complet.
 - Les panneaux HTTP lisent la ligne d'accès de **production** (`msgid: "audit"`). En
   développement, elle sort dans un autre format et ces panneaux restent vides.
-- **Latence** : en production, le chronométrage est coupé par défaut (performance) et la ligne
-  d'accès sort sans durée. `NF__APP__TIMING__ENABLED=true` l'allume.
+- **Latence** : chaque ligne d'accès porte la durée de sa requête (`durationMs`), de son arrivée
+  au dernier octet de la réponse, production comprise. Les panneaux de latence ne restent vides
+  que si l'application a coupé le chronométrage (`timing.enabled: false`).
 - **OpenSearch** : les champs HTTP (`http.status`, `http.path`, `http.durationMs`…) sont rangés par
   le pipeline d'ingestion que l'application pose à côté de son index au premier envoi. Un index
   créé AVANT ce pipeline garde ses anciens types : il se recrée.
