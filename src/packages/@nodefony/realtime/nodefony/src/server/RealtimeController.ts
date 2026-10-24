@@ -1401,8 +1401,10 @@ export abstract class RealtimeController<
       frame?.finish(200);
       // Le client repart avec l'identifiant du profil de SA frame (dev) — le
       // `result` reste la valeur nue (snapshot ≡ GET REST). Hors profiling :
-      // valeur nue, aucune enveloppe, aucun octet de plus sur le fil.
-      return frame
+      // valeur nue, aucune enveloppe, aucun octet de plus sur le fil. Une frame
+      // ouverte par le seul timing (outillage non profilé) n'a pas de profil à
+      // lire : annoncer son id ferait chercher un 404.
+      return frame?.profiled
         ? new RpcEnvelope(result, { requestId: frame.requestId })
         : result;
     } catch (e) {
@@ -1413,7 +1415,11 @@ export abstract class RealtimeController<
       // pas ré-emballée, seul le profil serveur la garde.
       const status = httpStatusOfFrameError(e);
       frame?.finish(status ?? 500, e);
-      throw toFrameRpcError(e, status, frame?.requestId);
+      throw toFrameRpcError(
+        e,
+        status,
+        frame?.profiled ? frame.requestId : undefined,
+      );
     } finally {
       // L'appel est fini : son magasin porte encore le jeton, l'identité et
       // le corps — un travail détaché de l'action les garderait (#571).

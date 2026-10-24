@@ -2129,7 +2129,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // Radiographie du HANDSHAKE (le contexte WS vit pour toute la connexion :
         // la décision du firewall y est per-connexion, pas per-frame). Pas de
         // buffer ORM ici — il serait cumulatif sur N messages, donc mensonger.
-        context.profiling = this.shouldProfile(context.url);
+        // Le témoin dit « un profileur est là », pas « cette URL se profile » :
+        // chaque frame du pont se décide sur SON chemin (`beginFrame`) — le hub
+        // de la console (outillage) appelle aussi des routes d'application, et
+        // leur profil rejoue la trace du pare-feu prise ici. La collecte du
+        // handshake, elle, reste gardée par `shouldProfile(context.url)`.
+        context.profiling = this.profiler !== null;
       }
       // P1.4 — enter ALS scope for WS pipeline (handshake + messages).
       // context.requestId is always defined (set in WebsocketContext ctor).

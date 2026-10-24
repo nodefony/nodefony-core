@@ -589,8 +589,9 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
    * Profiler (no-op hors dev, ou si aucun profil n'a été ouvert).
    */
   collectFrame(frame: FrameProfile | null): void {
-    if (frame === null || !this.profiling) return;
-    if (this.httpKernel?.shouldProfile(frame.url) !== true) return;
+    // La décision a été prise à l'ouverture (`beginFrame`) : la relire ici
+    // pourrait seulement la contredire.
+    if (frame === null || !frame.profiled) return;
     this.get<Profiler>("profiler")?.collect(frame);
   }
 

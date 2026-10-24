@@ -95,6 +95,15 @@ export class FrameProfile {
    */
   readonly profilerQueries: IProfilerQuery[] | null;
 
+  /**
+   * Ce profil sera-t-il gardé par le Profiler ? Faux quand seul le timing
+   * l'a ouvert (chemin d'outillage) : son id ne désigne alors aucun profil
+   * lisible, et ne doit pas être annoncé au client.
+   */
+  get profiled(): boolean {
+    return this.profilerQueries !== null;
+  }
+
   /** Resolver de la frame — porte route / controller / action. */
   resolver: ProfiledResolver | null = null;
   /** Statut HTTP-équivalent de l'invocation (200, 403, 404…). */

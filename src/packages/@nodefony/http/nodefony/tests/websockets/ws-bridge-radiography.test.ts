@@ -25,8 +25,11 @@ import { IS_PROD_TARGET } from "../helpers/targetEnv";
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const AUTH = "/nodefony/security/api/auth";
 const HUB_URL = "wss://127.0.0.1:5152/nodefony/studio/api/realtime";
-const MODULES_PATH = "/nodefony/kernel/api/modules";
-const GHOST_PATH = "/nodefony/kernel/api/ghost-route-that-never-existed";
+// Une route d'APPLICATION : l'outillage (`/nodefony/kernel/api/*`…) n'est pas
+// profilé par défaut (`timing.tooling`), on ne mesure pas la façon dont on mesure.
+const BOOKS_PATH = "/poc/r-books";
+const GHOST_PATH = "/poc/ghost-route-that-never-existed";
+const TOOLING_PATH = "/nodefony/kernel/api/modules";
 const TIMEOUT = 10_000;
 
 type Res = { status: number; headers: Record<string, unknown>; body: unknown };
@@ -212,10 +215,10 @@ describe.skipIf(IS_PROD_TARGET)(
       const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
-        const reply = await hub.request(MODULES_PATH);
+        const reply = await hub.request(BOOKS_PATH);
         expect(reply.error, "pas d'erreur RPC").to.equal(undefined);
         // Le contrat « result nu » est INTACT : la méta voyage à côté (cette route
-        // rend un TABLEAU de modules — la méta ne l'a donc pas emballé).
+        // rend un TABLEAU de livres — la méta ne l'a donc pas emballé).
         expect(reply.result, "result").to.be.an("array");
         const requestId = reply.meta?.requestId;
         expect(requestId, "meta.requestId").to.be.a("string");
@@ -227,7 +230,7 @@ describe.skipIf(IS_PROD_TARGET)(
         expect(profile.status, "status").to.equal(200);
         expect(profile.method, "méthode logique").to.equal("GET");
         expect(profile.url, "url de la FRAME (pas de la connexion)").to.equal(
-          MODULES_PATH,
+          BOOKS_PATH,
         );
         expect(profile.controller, "controller").to.be.a("string");
         expect(profile.action, "action").to.be.a("string");
@@ -245,8 +248,8 @@ describe.skipIf(IS_PROD_TARGET)(
       const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
-        const first = await hub.request(MODULES_PATH);
-        const second = await hub.request(MODULES_PATH);
+        const first = await hub.request(BOOKS_PATH);
+        const second = await hub.request(BOOKS_PATH);
         const id1 = first.meta?.requestId as string;
         const id2 = second.meta?.requestId as string;
         expect(id1, "id frame 1").to.be.a("string");
@@ -289,6 +292,22 @@ describe.skipIf(IS_PROD_TARGET)(
         hub.close();
       }
     });
+
+    it("une frame d'outillage n'est pas profilée, et n'annonce aucun id", async () => {
+      const cookie = await loginCookie("admin", "secret-de-dev-42");
+      const hub = await hubConnect(cookie);
+      try {
+        const reply = await hub.request(TOOLING_PATH);
+        expect(reply.error, "pas d'erreur RPC").to.equal(undefined);
+        expect(reply.result, "result").to.be.an("array");
+        // Un id annoncé désignerait un profil jamais gardé (404 à la lecture).
+        expect(reply.meta?.requestId, "aucun id sans profil").to.equal(
+          undefined,
+        );
+      } finally {
+        hub.close();
+      }
+    });
   },
 );
 
@@ -303,7 +322,7 @@ describe.runIf(IS_PROD_TARGET)(
       const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
-        const reply = await hub.request(MODULES_PATH);
+        const reply = await hub.request(TOOLING_PATH);
         expect(reply.error, "pas d'erreur RPC").to.equal(undefined);
         expect(reply.result, "result").to.be.an("array");
         expect(

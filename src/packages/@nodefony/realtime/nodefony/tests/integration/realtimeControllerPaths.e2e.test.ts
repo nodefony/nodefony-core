@@ -288,6 +288,11 @@ function makeServer(
     url?: unknown;
     /** Simule un serveur avec le profiler dev actif (défaut : prod, aucun profil). */
     profiling?: boolean;
+    /**
+     * Timing allumé, profiler muet sur ce chemin (outillage non profilé) : la
+     * frame s'ouvre pour ses phases, mais aucun profil ne sera gardé.
+     */
+    timingOnly?: boolean;
     /** Conteneur de la connexion (`ctx.container`) ; absent par défaut. */
     container?: unknown;
   } = {},
@@ -317,7 +322,7 @@ function makeServer(
       if (event === "onFinish") lastFinish = fn;
     },
     beginFrame: (method: string, url: string): FrameProfile | null => {
-      if (!opts.profiling) return null;
+      if (!opts.profiling && !opts.timingOnly) return null;
       frameSeq += 1;
       return new FrameProfile({
         requestId: `rid-test.${frameSeq}`,
@@ -330,11 +335,11 @@ function makeServer(
         security: null,
         securityTrace: null,
         timing: true,
-        queries: true,
+        queries: opts.profiling === true,
       });
     },
     collectFrame: (frame: FrameProfile | null) => {
-      if (frame) collected.push(frame);
+      if (frame?.profiled) collected.push(frame);
     },
     request: {
       headers: opts.headers ?? { host: "localhost" },
@@ -406,7 +411,7 @@ const mkToken = (auth: boolean): IRealtimeToken => ({
 });
 
 async function connect(
-  opts: { profiling?: boolean; container?: unknown } = {},
+  opts: { profiling?: boolean; timingOnly?: boolean; container?: unknown } = {},
 ): Promise<{
   client: NodefonySocket;
   rt: ApiRt;
@@ -641,6 +646,27 @@ describe("RealtimeController E2E — radiographie de la porte (profil par frame)
     expect(collected).to.have.length(1);
     expect(collected[0]!.response?.statusCode).to.equal(403);
     expect(collected[0]!.error?.message).to.be.a("string");
+    client.disconnect();
+  });
+
+  it("frame ouverte par le seul timing (outillage) → aucun id annoncé, ni en réponse ni en refus", async () => {
+    const { client } = await connect({ timingOnly: true });
+    const { result, requestId } = await client.call<{ ok: boolean }>(
+      "/nodefony/kernel/api/x",
+    );
+    expect(result.ok).to.equal(true);
+    // Un id annoncé ici désignerait un profil jamais gardé : le client le
+    // chercherait et recevrait un 404.
+    expect(requestId).to.equal(null);
+    routerMode = "action403";
+    let data: unknown;
+    try {
+      await client.call("/secure");
+    } catch (e) {
+      data = (e as RpcError).data;
+    }
+    expect(data).to.deep.equal({ status: 403 });
+    expect(collected).to.have.length(0);
     client.disconnect();
   });
 
