@@ -201,6 +201,13 @@ la sonde doit savoir à qui elle parle.
 - **La suite tourne en `production`**, où aucun compte n'est semé sans mot de passe explicite. Les
   routes protégées ont donc besoin de l'identité que le harnais pose lui-même — sans elle, elles
   échouent en accusant la garde plutôt que le décor.
+- **Un microbench à seuil ne mesure rien au milieu d'une suite.** Un `expect(durée).toBeLessThan(500)`
+  passe seul et tombe en suite. La machine y est chaude, le ramasse-miettes travaille pour les tests
+  précédents, et le chronomètre mesure la suite plutôt que le code : un test chronométré à 162 ms
+  seul dépassait 500 ms au milieu des autres. Sors-le de la suite, derrière une variable
+  d'environnement qui l'active à la demande (`it.skipIf(...)`). Quand il rougit, ne desserre pas le
+  seuil : un seuil qui suit le bruit ne détecte plus rien. Une régression de performance se mesure
+  sous charge, par la latence au 99ᵉ centile et le retard de la boucle d'événements.
 
 ## 🧪 Tests & couverture
 

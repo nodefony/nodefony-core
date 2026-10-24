@@ -893,6 +893,15 @@ runtime, zéro cycle. Pour valider ton implémentation, importe le banc de contr
 (`tests/support/webhookPaginationContract.ts`) et branche-le sur ton store : les invariants d'ordre,
 de filtres et de bornes sont alors prouvés, pas supposés.
 
+**Ta fabrique lève quand son backend n'est pas joignable — jamais un registre qui se tait.** Un
+`IWebhookStore` qui, faute de connexion, rend une liste d'abonnements vide ne lève rien et ne
+livre plus rien : les abonnés cessent d'être notifiés, sans une ligne au journal, pendant que la
+configuration affiche ton backend. Le registre livré pour SQL fait l'inverse : sa fabrique passe
+par `resolveConnectedOrm()` (`drizzle/nodefony/registerStores.ts#resolveConnectedOrm`), qui lève
+en nommant la cause — module absent, ordre de démarrage, dialecte — si la connexion n'existe pas.
+Fais de même : vérifie la connexion dans la fabrique, et laisse remonter l'erreur. Ne la rattrape
+pas dans chaque méthode par un `if (!connected) return []`.
+
 ## 📜 Normes appliquées
 
 | Domaine                 | Norme / référence                     | Ancrage                                                                            |

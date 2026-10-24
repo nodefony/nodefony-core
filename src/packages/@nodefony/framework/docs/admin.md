@@ -362,6 +362,55 @@ Trois pas, du point de vue d'un module :
 **Handlers lazy** : résous tes services **dans** le handler (à la requête), jamais au montage — un
 service désactivable renvoie alors `503` proprement au lieu de casser le boot.
 
+### Ce que publie un endpoint — l'état réel, aucun secret, ses capacités déclarées
+
+Tout ce que renvoie un handler part tel quel vers la console, le pont socket et les agents. Trois
+règles en découlent.
+
+**1. Un DTO ne porte aucun secret : il en dit la présence.** Un mot de passe, une clé ou un jeton
+se décrivent par un booléen. Le résumé d'un utilisateur expose `hasPassword`, jamais le hash
+(`UserAdminApi.ts#IUserSummary`). La description du pare-feu expose `synchronizerToken: boolean`
+(`IFirewallDescription.ts#IFirewallDescription`). La redaction se fait **en construisant** le DTO,
+champ par champ. Copier l'objet puis retirer les clés sensibles laisserait passer la prochaine qui
+sera ajoutée. Un test le prouve : `JSON.stringify(dto)` ne contient pas la valeur sentinelle posée
+dans la configuration.
+
+**2. Une description montre ce qui TOURNE, pas la configuration relue.** Une méthode `describe()`
+lit les structures que le service a bâties au démarrage
+(`IFirewall.ts#IFirewall.describe`, `IBackplane.ts#IBackplane.describe`). Un authenticator mal
+orthographié dans la configuration n'y figure pas, puisqu'il n'est pas monté. Relire la
+configuration montrerait l'intention, et la console afficherait comme active une défense qui ne
+tourne pas.
+
+**3. Une capacité de liste non déclarée est refusée en `400`, jamais ignorée.** Tri, filtres,
+recherche et facettes se déclarent dans `page` (`IAdminApi.ts#IAdminPageCapabilities`), et le
+handler lit **la même donnée** : il passe ses champs triables à `parsePageQuery()`
+(`pageQuery.ts#parsePageQuery`) et son vocabulaire de filtres à `parseFilters()`
+(`pageFilters.ts#parseFilters`). Ces deux lecteurs refusent en `400` un tri hors liste, un `?q=`
+sur un endpoint qui ne cherche pas, une valeur mal formée et un paramètre que personne ne
+reconnaît. Lire `request.query.order` à la main renvoie une page non triée que le client prend pour
+triée. Avec un filtre mal orthographié, c'est la collection entière qui revient.
+
+```typescript ignore
+import { parseFilters, parsePageQuery, type IAdminEndpoint } from "nodefony";
+
+// Une constante, deux lectures : le catalogue et le handler ne peuvent pas diverger.
+const SORTABLE = ["createdAt", "total"] as const;
+const FILTERS = { status: ["paid", "pending", "refunded"] } as const;
+
+const listOrders: IAdminEndpoint = {
+  path: "orders",
+  method: "GET",
+  summary: "Commandes, paginées.",
+  page: { sortable: () => SORTABLE, filters: FILTERS },
+  handler: async (request) => {
+    const query = parsePageQuery(request.query, { sortable: SORTABLE }); // ?order=x → 400
+    const filters = parseFilters(request.query, FILTERS); // ?status=zzz, ?stauts= → 400
+    return orders.listPage({ ...query, ...filters });
+  },
+};
+```
+
 ### Les producteurs réels (à imiter, sans les redocumenter)
 
 Le broker lui-même est déclaré comme service du framework (`index.ts`). Les producteurs internes

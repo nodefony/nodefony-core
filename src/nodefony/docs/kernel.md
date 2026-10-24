@@ -449,6 +449,46 @@ const dbFile = path.resolve(kernel.varDir!.path, "app.db"); // persiste
 const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 ```
 
+### Écrire dans ses propres sources en développement — suspendre le superviseur
+
+En développement, `nodefony development` fait tourner l'application sous un **superviseur** qui
+surveille ses sources (`src/`, `nodefony/`, `config/`, les modules locaux, `nodefony.config.ts`,
+`env.ts` — `DevSupervisor.ts#DEV_WATCH_PATHS`) et la relance à chaque modification. C'est ce qu'on
+veut quand on édite à la main. Mais si c'est le serveur lui-même qui écrit dans ces sources (un
+générateur de code, une migration à chaud, l'installation d'un module), le superviseur voit
+l'écriture et relance l'application au milieu de l'opération. Le travail en cours meurt avec elle,
+y compris un `npm install` lancé par le serveur, qui laisse alors un `node_modules` à moitié écrit.
+
+Encadre donc l'opération :
+
+```typescript ignore
+import { Nodefony, resumeSupervisor, suspendSupervisor } from "nodefony";
+
+const root = Nodefony.getKernel()!.path;
+suspendSupervisor(root, "génération de code", jobId); // raison affichée dans le terminal
+try {
+  await writeGeneratedFiles();
+} finally {
+  resumeSupervisor(root); // quelle que soit l'issue
+}
+```
+
+Ce qui se passe pendant la suspension :
+
+- **Le rechargement est différé, pas perdu.** Le superviseur affiche `⏸ <raison> — rechargement
+différé` et garde la liste des fichiers touchés. Il recharge dès la levée, avec le code écrit
+  (`DevSupervisor.ts#DevSupervisor.#restart`).
+- **Un verrou oublié ne fige rien.** La suspension est un fichier déposé sous
+  `node_modules/.cache/nodefony/` (`devProcess.ts#supervisorLockFile`). Il n'est respecté que tant que le processus qui l'a posé
+  vit, et pendant quinze minutes au plus : au-delà, ou après un crash, il est supprimé à la lecture
+  suivante (`devProcess.ts#readSupervisorSuspension`). Le `finally` reste nécessaire, sinon le
+  rechargement attend jusqu'à cette échéance.
+- **Aucun échec n'est propagé.** Une écriture du verrou ratée ne fait pas échouer l'opération : au
+  pire, le superviseur relance comme avant (`devProcess.ts#suspendSupervisor`). Hors
+  développement, aucun superviseur ne lit le verrou : l'appel est sans conséquence.
+
+Le Studio s'en sert pour la génération de code (`ScaffoldService.ts#ScaffoldService.#run`).
+
 ### Configuration, environnement, container
 
 | Membre                      | Ancre                            | Note                                                                   |

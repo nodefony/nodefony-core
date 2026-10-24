@@ -619,14 +619,32 @@ registerIdempotencyStore("mon-backend", (ctx) => {
 });
 ```
 
-Trois règles héritées du code existant, à respecter sous peine de double-effet :
+Quatre règles héritées du code existant, à respecter sous peine de double-effet :
 
 1. **`begin` doit être atomique côté backend.** Un `GET` puis `SET` séparés laissent deux retries
    concurrents obtenir `fresh` — précisément ce que l'idempotence doit empêcher.
 2. **Ne jamais rendre `fresh` hors réservation gagnée.** En cas de doute (course, état illisible),
-   rendre `in-flight` : le client réessaiera, c'est sans danger.
+   rendre `in-flight` : le client réessaiera, c'est sans danger. La seule exception est la coupure
+   du backend, et elle se décide (règle 4).
 3. **`complete` doit préserver l'empreinte** de l'entrée in-flight, sinon un rejeu avec un autre
    payload après complétion ne produit plus de 422.
+4. **Une fabrique qui ne peut pas construire son store LÈVE — elle ne rend jamais un store qui se
+   tait.** Module manquant, client du mauvais type, configuration incohérente : tout ce qui est
+   certain dès le démarrage se refuse dans la fabrique. Le framework en fait un arrêt de boot en
+   production, et un `WARNING` suivi d'un repli sur la mémoire en développement
+   ([contrat de dégradation](#le-contrat-de-dégradation--fail-loud-jamais-silencieux)). Un store
+   construit malgré tout, qui garde chaque appel par `if (!connected) return`, échappe à ce
+   contrat : le registre affiche ton backend pendant que plus rien n'est dédoublonné. C'est un
+   échec **ouvert** — la garde a disparu, et rien ne le dit.
+
+   La connexion, elle, ne peut pas être exigée là : la fabrique est appelée à `onKernelBoot`
+   (`index.ts#Framework.onKernelBoot`), avant que l'ORM ne soit connecté. Elle se résout donc à
+   chaque appel, comme le fait `DrizzleIdempotencyStore.from()`
+   (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore.from`), et la conduite pendant une coupure
+   est un **choix à écrire**. Les stores livrés rendent `fresh` — exécuter sans dédoublonnage
+   plutôt que bloquer — et l'annoncent comme un compromis
+   ([`redis`](#redis--le-choix-cluster)). Si ton domaine ne tolère aucun double effet, rends
+   `in-flight` (le client réessaiera) ou lève : la requête échoue, rien n'est exécuté deux fois.
 
 Fonctions du registre : `registerIdempotencyStore()` (`idempotencyStoreRegistry.ts#registerIdempotencyStore`),
 `getIdempotencyStoreFactory()` (`idempotencyStoreRegistry.ts#getIdempotencyStoreFactory`), `listIdempotencyStores()`
