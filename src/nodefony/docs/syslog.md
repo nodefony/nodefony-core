@@ -280,8 +280,8 @@ Points de vigilance, tous vérifiables au code :
 - **Le nom canonique est `CRITIC`.** `translateSeverity()` (`Pdu.ts#translateSeverity`) **lève une exception** sur
   un nom inconnu — `"CRITICAL"` compris.
 - **Deux champs, deux usages** : `pdu.severity` est le **nombre** (comparaisons rapides),
-  `pdu.severityName` la **chaîne** (affichage). La correspondance passe par une map inverse
-  précalculée `severityNameMap` (`Pdu.ts#severityNameMap`), O(1) par Pdu.
+  `pdu.severityName` la **chaîne** (affichage). La correspondance est un accès indexé à
+  `SEVERITY_NAMES` (`Pdu.ts#SEVERITY_NAMES`), dont l'index est le rang : O(1) par Pdu.
 - **La classe d'erreur est « ≤ 3 »** : c'est ce seuil qui décide stderr, écriture durable, et
   incrémentation des compteurs de santé (`Syslog.pushStack()`, `Syslog.ts#Syslog.pushStack`).
 - **Le seuil ne se devine pas côté entrée** : `Syslog.severityFromInput()` (`Syslog.ts#Syslog.severityFromInput`) valide
@@ -843,6 +843,47 @@ Puis `log.queryDriver: "datadog"` désigne ce pilote pour la relecture de la con
 
 Réutiliser `filterPdus` n'est pas une commodité : c'est ce qui garantit que ton driver **filtre
 comme les autres**, avec les mêmes critères et le même ordre.
+
+### Observer le journal depuis un outil tiers
+
+Un transport suppose de connaître Nodefony. Un outil d'observation générique (agent d'APM,
+collecteur OpenTelemetry) cherche plutôt les canaux `node:diagnostics_channel`, le bus de
+publication intégré à Node. Chaque ligne **acceptée** du journal y est publiée sur le canal
+`nodefony.syslog.log` (`Syslog.ts#SYSLOG_LOG_CHANNEL`). Le message est le `Pdu` lui-même :
+sévérité, module, `msgid`, `requestId` quand la ligne naît dans une requête.
+
+```typescript
+import diagnosticsChannel from "node:diagnostics_channel";
+import { Pdu, SYSLOG_LOG_CHANNEL } from "nodefony";
+
+diagnosticsChannel.subscribe(SYSLOG_LOG_CHANNEL, (message) => {
+  if (!(message instanceof Pdu) || message.severity > 3) return;
+  console.error(`[${message.requestId ?? "-"}] ${message.severityName}`);
+});
+```
+
+Ce qui est publié, et ce qui ne l'est pas :
+
+- une ligne sous le seuil de sévérité, ou perdue par la limite de débit, n'est **pas** publiée ;
+- un abonné arrivé en cours de route reçoit les lignes suivantes ; il n'y a pas de rejeu (le rejeu,
+  c'est l'anneau et le driver de relecture) ;
+- toutes les instances de `Syslog` d'un process publient sur le même canal.
+
+Trois choses à savoir avant de s'abonner :
+
+- **Sans abonné, le coût est nul** : une lecture de booléen par ligne, aucune allocation. Le
+  canal est branché par le point d'entrée serveur de `nodefony` (`setLogChannel`,
+  `Syslog.ts#setLogChannel`). Le bundle navigateur ne l'importe jamais : le journal y garde
+  un canal muet.
+- **L'abonné tourne de façon synchrone, sur le chemin de la ligne** : une ligne d'accès par
+  requête au moins. Il reste bref, et diffère tout travail lourd (lot, `setImmediate`).
+- **Le `Pdu` est partagé** avec l'anneau, les transports et les autres abonnés : le lire, jamais le
+  modifier. Une exception levée par l'abonné n'interrompt pas la ligne ; Node la relance au tick
+  suivant, en exception non capturée.
+
+À ne pas confondre avec le canal WebSocket `nodefony:syslog`, qui porte le journal jusqu'à la
+console d'administration. Le canal du cycle des requêtes, `nodefony.http.request`, suit la même
+convention : voir [Canal de diagnostic](../../packages/@nodefony/http/docs/diagnostics-channel.md).
 
 ## 📜 Normes appliquées
 

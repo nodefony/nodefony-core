@@ -300,3 +300,4 @@ Suites : `npm run test:integration` (serveur requis), `npm run test:memory`. Ski
 - La durée d'une requête et sa définition → [Observabilité HTTP](observabilite.md)
 - Le trajet complet d'une requête → [pipeline-requete](../../../../../docs/architecture/pipeline-requete.md)
 - Le proxy inverse (statut de l'amont) → [Proxy inverse](reverse-proxy.md)
+- Les lignes du journal, sur le canal `nodefony.syslog.log` → [Journalisation](../../../../nodefony/docs/syslog.md#observer-le-journal-depuis-un-outil-tiers)
