@@ -119,6 +119,49 @@ export function listRuntimeExports(file) {
 }
 
 /**
+ * Options du programme TypeScript qui LIT des déclarations publiées — la façon
+ * dont un consommateur les résout (`Bundler`), sans vérifier les bibliothèques.
+ */
+export const TYPES_PROGRAM_OPTIONS = {
+  module: ts.ModuleKind.ESNext,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  target: ts.ScriptTarget.ES2022,
+  skipLibCheck: true,
+  noEmit: true,
+  types: [],
+};
+
+/**
+ * Dit si un membre de classe ou d'interface est hors de la surface publique.
+ *
+ * `private` se lit sur le modificateur ; un champ `#x` s'émet en `#private;`
+ * dans un `.d.ts`. `protected` reste PUBLIC : une classe qu'on étend l'expose.
+ *
+ * @param member - nœud membre d'une déclaration de classe ou d'interface.
+ * @param sf - fichier source du nœud.
+ * @returns `true` si le membre n'appartient pas à la surface publique.
+ */
+export function isPrivateMember(member, sf) {
+  return Boolean(
+    member.modifiers?.some((m) => m.kind === ts.SyntaxKind.PrivateKeyword) ||
+    (member.name && ts.isPrivateIdentifier(member.name)) ||
+    member.getText(sf).startsWith("#private"),
+  );
+}
+
+/**
+ * Nom d'un membre, tel qu'on le cite : `constructor` et `[index]` pour ceux qui n'en ont pas.
+ *
+ * @param member - nœud membre d'une déclaration de classe ou d'interface.
+ * @param sf - fichier source du nœud.
+ * @returns le nom affichable.
+ */
+export function memberName(member, sf) {
+  if (member.name) return member.name.getText(sf);
+  return ts.isConstructorDeclaration(member) ? "constructor" : "[index]";
+}
+
+/**
  * Lit les exports de types d'un fichier de déclarations, avec le texte de chaque déclaration.
  *
  * Les alias (`export { X } from`) sont suivis jusqu'à leur déclaration réelle.
@@ -127,14 +170,7 @@ export function listRuntimeExports(file) {
  * @returns `{ [nom]: texte }` — plusieurs déclarations (fusion) jointes par ` || `.
  */
 export function readTypeDeclarations(file) {
-  const program = ts.createProgram([file], {
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    target: ts.ScriptTarget.ES2022,
-    skipLibCheck: true,
-    noEmit: true,
-    types: [],
-  });
+  const program = ts.createProgram([file], TYPES_PROGRAM_OPTIONS);
   const checker = program.getTypeChecker();
   const moduleSymbol = checker.getSymbolAtLocation(program.getSourceFile(file));
   const declarations = {};
@@ -203,18 +239,8 @@ function parseMembers(text) {
       kind = ts.isClassDeclaration(node) ? "class" : "interface";
       header = normalizeDeclaration(node.getText(sf).split("{")[0]);
       for (const member of node.members) {
-        const isPrivate =
-          member.modifiers?.some(
-            (m) => m.kind === ts.SyntaxKind.PrivateKeyword,
-          ) ||
-          (member.name && ts.isPrivateIdentifier(member.name)) ||
-          member.getText(sf).startsWith("#private");
-        if (isPrivate) continue;
-        const name = member.name
-          ? member.name.getText(sf)
-          : ts.isConstructorDeclaration(member)
-            ? "constructor"
-            : "[index]";
+        if (isPrivateMember(member, sf)) continue;
+        const name = memberName(member, sf);
         const isStatic = member.modifiers?.some(
           (m) => m.kind === ts.SyntaxKind.StaticKeyword,
         );

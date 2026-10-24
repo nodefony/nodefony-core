@@ -16,6 +16,11 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 
 - [`lib/`](lib/README.md) — Helpers propres au rendu du site de documentation.
 
+## [`api-reference.test.mjs`](api-reference.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/api-reference.mjs`
+
 ## [`assemble-site.mjs`](assemble-site.mjs)
 
 Assemble le site en ligne à partir de rendus DÉJÀ faits : la version publiée à la racine, `dev` sous `/next/`, chaque release archivée sous `/<version>/`.
@@ -42,12 +47,11 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Variable** `OUT`
 - **Variable** `PUBLISHED`
 - **Variable** `REPO_URL`
-- **Variable** `ROOT`
 - **Variable** `SITE_URL`
 - **Variable** `STYLE_CODE`
 - **Variable** `VERSION`
 - **Appelé par** : `node.js.yml` · `.githooks/pre-push` · `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs` · `.claude/skills/nodefony-documentation/scripts/doc-lint.mjs` · `.claude/skills/nodefony-documentation/scripts/render-figures.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-perf-site.mjs`](build-perf-site.mjs)
 

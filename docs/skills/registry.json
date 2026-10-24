@@ -178,6 +178,7 @@
         "scripts/release/readme-gate.mjs",
         "scripts/release/release.mjs",
         "scripts/release/types-rigor.mjs",
+        "scripts/site/lib/api-reference.mjs",
         "scripts/test/coverage-all.ts"
       ],
       "testedBy": [
@@ -1150,6 +1151,19 @@
       "testedBy": []
     },
     {
+      "path": "scripts/site/api-reference.test.mjs",
+      "test": true,
+      "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/assemble-site.mjs",
       "test": false,
       "purpose": "Assemble le site en ligne à partir de rendus DÉJÀ faits : la version publiée à la racine, `dev` sous `/next/`, chaque release archivée sous `/<version>/`.",
@@ -1219,10 +1233,6 @@
         },
         {
           "name": "REPO_URL",
-          "help": ""
-        },
-        {
-          "name": "ROOT",
           "help": ""
         },
         {
@@ -1371,6 +1381,24 @@
       "testedBy": [
         "scripts/site/site-versions.test.mjs",
         ".claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/api-reference.mjs",
+      "test": false,
+      "purpose": "Référence d'API du site : ce que chaque paquet publié EXPOSE, rendu en pages Markdown que le générateur de documentation publie sous `api/`.",
+      "usage": [
+        "import { extractApiModel, renderApiPages } from \"./lib/api-reference.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "pages.yml",
+        "scripts/site/build-docs-site.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/api-reference.test.mjs"
       ]
     },
     {
@@ -1941,11 +1969,13 @@
       "env": [],
       "output": "",
       "calledBy": [
+        "pages.yml",
         ".claude/skills/nodefony-release/scripts/compare-dts-exports.mjs",
         ".claude/skills/nodefony-release/scripts/compare-exports.mjs",
         "scripts/release/api-diff.mjs",
         "scripts/release/release.mjs",
-        "scripts/release/types-rigor.mjs"
+        "scripts/release/types-rigor.mjs",
+        "scripts/site/lib/api-reference.mjs"
       ],
       "testedBy": [
         "scripts/release/api-diff-core.test.mjs"
@@ -4921,8 +4951,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 483,
-        "approxTokens": 8917
+        "bodyLines": 485,
+        "approxTokens": 8965
       },
       "requires": [
         "base de données"
@@ -5351,7 +5381,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "483",
+            "detail": "485",
             "advisory": true
           }
         ]

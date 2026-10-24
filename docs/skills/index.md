@@ -199,7 +199,7 @@ source: "docs/skills/index.md"
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 256 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 422 | 9 | 15 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
-| [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 483 | 2 | 19 | ✅ |
+| [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 485 | 2 | 19 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.1.0 | 410 | 11 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 116 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |

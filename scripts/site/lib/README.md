@@ -14,6 +14,15 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../../README.md).
 
+## [`api-reference.mjs`](api-reference.mjs)
+
+Référence d'API du site : ce que chaque paquet publié EXPOSE, rendu en pages Markdown que le générateur de documentation publie sous `api/`.
+
+- **Usage** : `import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs"`
+- **Appelé par** : `pages.yml` · `site/build-docs-site.mjs`
+- **Testé par** : `site/api-reference.test.mjs`
+- **Utilise** : `lib/workspaces.mjs` · `release/api-diff-core.mjs`
+
 ## [`app-template-deps.mjs`](app-template-deps.mjs)
 
 Les dépendances de production d'une application MINIMALE, lues dans le gabarit que `nodefony create app` rend.

@@ -872,7 +872,8 @@ jobs:
           set -euo pipefail
           V="${VERSION#v}"
           npm ci --ignore-scripts
-          npx turbo run build --filter=@nodefony/documentation
+          # Tous les paquets publiés : la référence d'API lit leurs types (pages.yml).
+          npx turbo run build --filter=nodefony --filter="./src/packages/@nodefony/*"
           npm run generate-symbols
           # 🔴 L'ARCHIVE PORTE L'ACCUEIL BASCULÉ, pas celui du tag. Le tag est
           # posé AVANT la publication : son README annonce encore la version

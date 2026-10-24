@@ -46,7 +46,7 @@ Le README du dépôt envoie vers la documentation PUBLIÉE, jamais vers un `.md`
 Noyau de la mesure de surface publique : ce qu'un paquet expose, et ce qui a changé entre deux versions — sous-chemins d'`exports`, exports à l'exécution, exports de types, et membre par membre pour les classes et interfaces.
 
 - **Usage** : `import { listRuntimeExports, exportEntries } from "./api-diff-core.mjs"`
-- **Appelé par** : `.claude/skills/nodefony-release/scripts/compare-dts-exports.mjs` · `.claude/skills/nodefony-release/scripts/compare-exports.mjs` · `release/api-diff.mjs` · `release/release.mjs` · `release/types-rigor.mjs`
+- **Appelé par** : `pages.yml` · `.claude/skills/nodefony-release/scripts/compare-dts-exports.mjs` · `.claude/skills/nodefony-release/scripts/compare-exports.mjs` · `release/api-diff.mjs` · `release/release.mjs` · `release/types-rigor.mjs` · `site/lib/api-reference.mjs`
 - **Testé par** : `release/api-diff-core.test.mjs`
 
 ## [`api-diff-core.test.mjs`](api-diff-core.test.mjs)

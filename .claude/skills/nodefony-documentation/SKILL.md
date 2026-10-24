@@ -71,6 +71,8 @@ sur la résolution des liens, exactement le défaut que ces briques existent pou
   par dossier, lu par le sélecteur de l'en-tête (`scripts/site/lib/site-versions.mjs`). Le contrôle de liens
   porte sur le site ASSEMBLÉ : le bandeau de `/next/` remonte vers la racine, et un lien qui sort
   du dossier contrôlé est refusé.
+- **Référence d'API née au RENDU** des `.d.ts` publiés (`scripts/site/lib/api-reference.mjs`) :
+  paquets BÂTIS, aucun `docs/api/*.md`, `--list` l'omet ; corriger une page = corriger le TSDoc.
 - **Un générateur repart d'un dossier NEUF** : il vide sa sortie si elle porte un rendu précédent
   (signature), la refuse sinon (`scripts/site/lib/out-dir.mjs`) — jamais de pages périmées mêlées aux neuves.
 - **Qui est public** se décide par dossier, par statut, puis par la clé `publish` de la page :

@@ -93,6 +93,7 @@ try {
 }
 const {
   scanDocsDir,
+  pathToSlug,
   rewriteInternalLinks,
   metaString,
   parseFrontmatter,
@@ -112,6 +113,7 @@ import { sansBalises } from "./lib/html-text.mjs";
 import { sansCommentaires } from "./lib/markdown-source.mjs";
 import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
+import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -236,6 +238,13 @@ const PUBLIC_DIRS = ROOT_GROUPS.map(({ group, label }) => ({
   icon: DIR_ICONS[group] ?? "📄",
 }));
 
+/**
+ * La référence d'API — section propre au SITE, hors `ROOT_GROUPS` : ses pages
+ * naissent au rendu (`lib/api-reference.mjs`), aucun `docs/api/` ne les porte.
+ * Le portail d'administration a son propre onglet API, lu dans le graphe symbolique.
+ */
+const API_SECTION = { label: "Référence d'API", icon: "🔎" };
+
 /** Pages de la racine de `docs/` publiées — même source que le portail. */
 const PUBLIC_ROOT_PAGES = new Set(ROOT_PAGES.map((p) => `${p}.md`));
 
@@ -275,8 +284,10 @@ const PRIVATE = [
     why: "outillage de développement du cœur (interne)",
   },
   {
+    // Les adresses `api/` appartiennent à la référence GÉNÉRÉE : une page écrite
+    // à la main y entrerait en concurrence avec elle.
     match: (p) => p.startsWith("api/"),
-    why: "brouillon d'API souveraine (interne)",
+    why: "réservé à la référence d'API générée",
   },
   {
     // La couche IA est une VISION : rien n'est développé. Publier la promesse
@@ -309,6 +320,7 @@ function decide(d) {
   if (scope === "core" || scope === "none")
     return { ok: false, why: `publish: ${scope} (décision de la page)` };
   const forced = scope === "user";
+  if (d.generated) return { ok: true, why: "référence d'API générée" };
 
   const status = metaString(d.meta, "status");
   if (!forced && status && !PUBLIC_STATUS.has(status))
@@ -410,7 +422,8 @@ function rel(fromUrl, toUrl) {
 const repoRelOf = (d) =>
   d.source.kind === "root"
     ? `docs/${d.relPath}`
-    : `${d.moduleDir.replace(`${ROOT}/`, "")}/${d.relPath}`;
+    : // La clé VOYAGE (liens, URL GitHub) : en `/`, quel que soit le séparateur du disque.
+      `${path.relative(ROOT, d.moduleDir).split(path.sep).join("/")}/${d.relPath}`;
 
 /**
  * URL publique d'une page.
@@ -455,6 +468,7 @@ async function collect() {
       });
     }
   }
+  docs.push(...apiReferenceDocs());
   for (const d of docs) {
     d.repoRel = repoRelOf(d);
     d.verdict = decide(d);
@@ -462,6 +476,46 @@ async function collect() {
   }
   return docs;
 }
+
+/**
+ * Les pages de la référence d'API, nées ICI du code du moment — aucune n'existe
+ * dans le dépôt (`lib/api-reference.mjs`). Elles entrent dans le corpus comme
+ * des pages de `docs/api/`, donc avec ses liens, sa recherche et son plan.
+ *
+ * Un aperçu d'une page écrite à la main s'en passe : il ne doit pas exiger que
+ * tous les paquets soient bâtis.
+ */
+function apiReferenceDocs() {
+  if (ONLY && !ONLY.replace(/\\/g, "/").startsWith("docs/api/")) return [];
+  let pages;
+  try {
+    pages = renderApiPages(extractApiModel(ROOT));
+  } catch (err) {
+    console.error(
+      `✗ référence d'API : ${err instanceof Error ? err.message : String(err)}`,
+    );
+    process.exit(1);
+  }
+  const source = { kind: "root" };
+  return pages.map((p) => ({
+    slug: pathToSlug(source, p.relPath),
+    relPath: p.relPath,
+    absPath: null,
+    raw: p.markdown,
+    generated: true,
+    source,
+    group: path.posix.dirname(p.relPath),
+    meta: parseFrontmatter(p.markdown).meta,
+    title: p.title,
+    navTitle: p.navTitle,
+    moduleKey: null,
+    moduleLabel: null,
+    moduleDir: null,
+  }));
+}
+
+/** Le Markdown d'une page : son fichier, ou le texte généré pour la référence d'API. */
+const sourceOf = (d) => d.raw ?? readFileSync(d.absPath, "utf8");
 
 /* ════════════════════════════════════════════════════════════════════════════
    3. RENDU D'UNE PAGE
@@ -811,12 +865,12 @@ function buildNav(pages, current) {
     return [...items].sort((a, b) => (estHub(b) ? 1 : 0) - (estHub(a) ? 1 : 0));
   };
 
-  const group = (label, icon, items, open, cls = "") =>
+  const group = (label, icon, items, open, cls = "", ordered = false) =>
     items.length
       ? `<details${open ? " open" : ""}${cls ? ` class="${cls}"` : ""}>` +
         `<summary><span aria-hidden="true">${icon}</span> ${esc4(label)} ` +
         `<span class="n">${items.length}</span></summary>` +
-        `<ul>${hubDevant(items).map(li).join("")}</ul></details>`
+        `<ul>${(ordered ? items : hubDevant(items)).map(li).join("")}</ul></details>`
       : "";
 
   const parts = [];
@@ -854,6 +908,32 @@ function buildNav(pages, current) {
       current.relPath.startsWith(`${sec.dir}/`);
     parts.push(group(sec.label, sec.icon, items, open));
   }
+  // La référence d'API : l'index et une entrée par paquet. Les parts d'un paquet
+  // découpé se rejoignent par son sommaire — cent entrées n'enseigneraient rien.
+  // Ordre ÉCRIT ici : le sommaire d'un paquet découpé est un `index.md`, que la
+  // règle du hub ferait passer devant les paquets d'une seule page.
+  const apiRank = (p) =>
+    p.relPath === "api/index.md"
+      ? "0"
+      : p.navTitle === "nodefony"
+        ? "1"
+        : `2${p.navTitle}`;
+  const api = pages
+    .filter(
+      (p) =>
+        p.generated && /^api\/([^/]+\.md|[^/]+\/index\.md)$/.test(p.relPath),
+    )
+    .sort((a, b) => (apiRank(a) < apiRank(b) ? -1 : 1));
+  parts.push(
+    group(
+      API_SECTION.label,
+      API_SECTION.icon,
+      api,
+      Boolean(current.generated),
+      "",
+      true,
+    ),
+  );
 
   // Les modules, par famille. Chaque module reste un sous-groupe : ses pages
   // sont nombreuses, et les mêler noierait le module dans sa famille.
@@ -1306,10 +1386,15 @@ ${STYLE_CODE}`;
  * endroit, et le lecteur cherche dans le menu une section qui n'y figure pas.
  */
 function sectionLabelOf(d) {
+  if (d.generated) return API_SECTION.label;
   if (d.source.kind === "module") return d.moduleLabel ?? d.moduleKey ?? "";
   const dir = PUBLIC_DIRS.find((s) => d.relPath.startsWith(`${s.dir}/`));
   return dir ? dir.label : "Pour commencer";
 }
+
+/** Le texte cherchable d'une page d'API : les noms de ses symboles. */
+const apiSearchText = (body) =>
+  [...body.matchAll(/^#### `+([^`]+)`+/gm)].map((m) => m[1]).join(" ");
 
 /**
  * Index de recherche du site — écrit UNE fois, chargé à la demande.
@@ -1324,7 +1409,7 @@ function sectionLabelOf(d) {
  */
 function writeSearchIndex(published) {
   const docs = published.map((d) => {
-    const raw = readFileSync(d.absPath, "utf8");
+    const raw = sourceOf(d);
     const { body } = parseFrontmatter(raw);
     return {
       slug: d.slug,
@@ -1338,7 +1423,10 @@ function writeSearchIndex(published) {
       title: d.title,
       navTitle: d.navTitle ?? d.title,
       sectionLabel: sectionLabelOf(d),
-      body: extractSearchText(body),
+      // Une page d'API se cherche par le NOM de ses symboles : sa prose, déjà
+      // portée par le TSDoc, aurait gonflé l'index de 40 % pour un résultat
+      // qu'on obtient en tapant le nom.
+      body: d.generated ? apiSearchText(body) : extractSearchText(body),
     };
   });
   const json = JSON.stringify({ generatedAt: new Date().toISOString(), docs });
@@ -1353,7 +1441,7 @@ function writeSearchIndex(published) {
 }
 
 function renderPage(d, published, index, publishedPaths) {
-  const raw = readFileSync(d.absPath, "utf8");
+  const raw = sourceOf(d);
   const bodyRaw = raw.replace(/^---\n[\s\S]*?\n---\n/, "");
   // Le titre vient du chrome : on retire le `# …` de tête pour ne pas le doubler.
   const body = bodyRaw.replace(/^\s*#\s+.*\r?\n/, "");
@@ -1446,7 +1534,11 @@ function renderPage(d, published, index, publishedPaths) {
     style: SITE_CSS,
     footer:
       `Documentation de <strong>Nodefony ${esc(VERSION)}</strong> — page générée depuis ` +
-      `<a href="${REPO_URL}/blob/${BRANCH}/${esc(d.repoRel)}"><code>${esc(d.repoRel)}</code></a> ` +
+      // Une page de la référence d'API n'a pas de fichier : la lier vers GitHub
+      // serait un lien mort. Elle dit d'où elle vient.
+      (d.generated
+        ? "les déclarations de types publiées "
+        : `<a href="${REPO_URL}/blob/${BRANCH}/${esc(d.repoRel)}"><code>${esc(d.repoRel)}</code></a> `) +
       `(<code>${esc(COMMIT)}</code>, ${BUILT_AT}).`,
   });
 
@@ -1495,7 +1587,9 @@ const published = docs.filter((d) => d.verdict.ok);
 // sur une liste écrite à la main, ils dérivent. Cette option évite la troisième
 // copie du périmètre en le faisant DIRE par celui qui l'applique.
 if (process.argv.includes("--list")) {
-  for (const d of published) console.log(d.repoRel);
+  // Une page générée n'a pas de source à relire : les gates la chercheraient
+  // sur le disque, où elle n'existe pas.
+  for (const d of published) if (!d.generated) console.log(d.repoRel);
   process.exit(0);
 }
 const rejected = docs.filter((d) => !d.verdict.ok);
