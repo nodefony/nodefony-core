@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T11:45:46.105Z",
+  "generatedAt": "2026-10-24T16:15:56.673Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 185,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 27,
+      "open": 28,
       "title": "10.0.0-beta"
     },
     {
@@ -4837,6 +4837,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 5.208,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 667,
+      "title": "refactor(client): sortir les règles de lecture des journaux vers nodefony/syslog",
+      "url": "https://github.com/nodefony/nodefony-core/issues/667",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.209,
       "debut": null,
       "cible": null,
       "labels": [
