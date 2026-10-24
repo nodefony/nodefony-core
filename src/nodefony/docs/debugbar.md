@@ -4,11 +4,11 @@ lang: fr
 module: "@nodefony/core"
 topic: debugbar
 source: "src/nodefony/docs/debugbar.md"
-updated: 2026-09-01
+updated: 2026-10-24
 navTitle: Barre de débogage
 coverageModule: nodefony-core
 coveragePackage: "nodefony (cœur)"
-coverageFiles: "client/debugbar/DebugBar.ts,client/debugbar/model.ts,client/debugbar/index.ts"
+coverageFiles: "client/debugbar/DebugBar.ts,client/debugbar/model.ts,client/debugbar/requests.ts,client/debugbar/feedView.ts,client/debugbar/index.ts"
 section: "Cœur runtime"
 audience: [developer]
 tags:
@@ -24,7 +24,6 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-08-31
 ---
 
 # Barre de débogage
@@ -100,18 +99,16 @@ refus se lit, il ne se confond pas avec une panne.
 > l'application un travail que personne ne regarde. C'est un choix d'adhésion,
 > pas une option cachée.
 
-## Les six onglets
+## Les cinq onglets
 
 **Realtime** — débit, transport, protocole, état de la socket, frames reçues,
 pic. C'est la vue de la socket elle-même.
 
-**Network** — les requêtes de la page (`fetch` et `XHR`), leur durée décomposée
-et leur statut. Désactivable (`network: false`) : c'est le seul onglet qui
-instrumente des fonctions globales du navigateur.
+**Requêtes** — les requêtes de la page (`fetch` et `XHR`), chacune avec les
+lignes que le serveur a écrites pour elle, et les autres journaux du serveur en
+direct. Voir la section suivante.
 
 **Perf** — processeur, mémoire, boucle d'événements du serveur.
-
-**Logs** — les journaux du serveur, en direct. Voir la section suivante.
 
 **Nodefony client** — ce que Nodefony fait dans le navigateur, quand la page
 compose un noyau client (`NodefonyKernel`). Quatre cartes, chacune répond à une
@@ -141,37 +138,60 @@ rien n'est posé sur la page.
 **Runtime** — l'identité du processus servi (version, environnement, `pid`,
 disponibilité, cœurs, mémoire), et **ce que la barre garde sur ce navigateur**.
 
-## L'onglet Logs
+## L'onglet Requêtes
 
-Un tableau à colonnes alignées — heure, niveau, module, message et, quand elle est
-connue, la **requête** (`requestId`). C'est ce dernier champ qui fait la
-différence : la même valeur relie ce journal à sa route, à ses requêtes de base de
-données et à sa réponse. Les erreurs et alertes portent un filet coloré à gauche.
-Une entrée s'ouvre au clic (ou à `Entrée` au clavier) dans un **volet à côté** :
-horodatage complet, catégorie, worker, requête — de quoi coller une trace dans un
-ticket. Le volet s'ouvre à côté plutôt que dans la liste, qui ne bouge donc pas.
+Trois vues, au choix en haut de l'onglet :
+
+- **Page** (par défaut) — ce que _cette page_ est en train de faire : le
+  document lui-même, puis chaque `fetch` et `XHR`, le plus récent en haut.
+  Une ligne par requête (méthode, chemin, statut, durée vue par le
+  navigateur) qui se **déplie** (chevron, ou `→` / `←` au clavier) sur les
+  lignes que le serveur a écrites pour elle. Ces lignes sont relues au
+  serveur au moment du dépliage, par la même lecture que le Suivi de requête
+  de la console : rien n'est recalculé en tâche de fond. Le `requestId` du
+  document vient du serveur qui a rendu la page, ou à défaut de sa ligne
+  d'accès dans les journaux.
+- **Direct** — les lignes du serveur en temps réel (temps réel démarré).
+- **Journaux** — la recherche des Journaux de la console, une ligne par
+  requête, tous clients confondus, avec les mêmes filtres.
+
+Un clic ouvre le détail dans **un seul volet, à côté** : pour une requête,
+ce qui en a été vu, puis son **profil serveur** (route, contrôleur,
+utilisateur, chronologie des phases, requêtes SQL) ; pour une ligne, son
+horodatage complet, sa catégorie, son worker et sa requête — de quoi coller
+une trace dans un ticket. Le volet s'ouvre à côté plutôt que dans la liste,
+qui ne bouge donc pas.
 
 **La plus récente est en haut**, visible sans défiler. Tant que la liste est
 tout en haut, elle suit le flux. Dès qu'on descend lire, elle **se fige** :
-ni les nouvelles qui arrivent au-dessus, ni les anciennes qui partent en dessous
-ne déplacent la ligne qu'on lit, et un bouton « ↑ N nouvelles » ramène au flux
-(`Début` au clavier fait de même).
+ni les nouvelles qui arrivent au-dessus, ni les anciennes qui partent en
+dessous, ni une requête qu'on déplie ne déplacent la ligne qu'on lit, et un
+bouton « ↑ N nouvelles » ramène au flux (`Début` au clavier fait de même).
 
 La barre d'outils permet de :
 
-- **filtrer par sévérité** — les puces `err` et `warn` sont des bascules ;
-  recliquer celle qui est active la retire ;
-- **chercher** dans le texte, le module, la catégorie ou la requête ;
-- **suspendre** l'affichage. Les entrées continuent d'arriver : à la reprise, la
-  liste se recompose complète — une pause ne fait rien perdre ;
+- **filtrer les lignes serveur par sévérité** — chaque niveau est une bascule ;
+- **masquer la console et Vite** (Direct et Journaux) — le trafic de la
+  console d'administration et le bavardage de Vite disparaissent. Les
+  requêtes de la page, elles, ne sont **jamais** masquées ;
+- **masquer le framework** — ce que Nodefony écrit pour lui-même ;
+- **chercher** dans la méthode, le chemin, le statut, le texte, le module, la
+  catégorie ou la requête. Une ligne serveur trouvée déplie la requête qui la
+  porte ;
+- **suspendre** l'affichage. Requêtes et lignes continuent d'arriver : à la
+  reprise, la liste se recompose complète — une pause ne fait rien perdre ;
 - **copier** tout le jeu affiché (filtré), pas seulement l'écran ; **vider** la
   liste (sans rien effacer côté serveur).
 
-### Ce que le journal coûte à l'application
+Sans interception réseau (`network: false`), l'onglet ne montre que les lignes
+du serveur : c'est la seule partie de la barre qui instrumente des fonctions
+globales du navigateur.
+
+### Ce que l'onglet coûte à l'application
 
 - **Mémoire** : 2 000 entrées au plus (`FEED_MAX`), taillées par lots — quelques
   centaines de Ko. Au-delà, les plus anciennes partent.
-- **DOM** : une trentaine de lignes **quel que soit le nombre d'entrées**. Seules
+- **DOM** : une trentaine de lignes **quel que soit le nombre de requêtes et d'entrées**. Seules
   les lignes visibles et une petite marge existent, et elles sont recyclées : à
   l'arrivée d'une entrée on change leur texte, on ne reconstruit aucun HTML.
   Mesuré sur la console d'administration en direct : 25 lignes dans le DOM.
@@ -208,8 +228,9 @@ mountDebugBar({
   client: maSocket, // socket déjà ouverte à partager
   position: "bottom", // ou "top"
   open: false, // panneau déplié au montage
-  network: true, // onglet Network (instrumente fetch/XHR)
+  network: true, // requêtes de la page dans l'onglet Requêtes (instrumente fetch/XHR)
   env: "development", // environnement affiché avant toute mesure (posé par le serveur)
+  page: { requestId }, // la requête qui a rendu la page (posé par le serveur)
 });
 ```
 
@@ -264,8 +285,9 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 <!-- prettier-ignore -->
 | Type | Où | Ce qui est prouvé |
 | --- | --- | --- |
-| Unitaires | `nodefony` `DebugBar.test.ts` | le montage, les options, ce que la poignée rend, le rendu des cinq onglets |
+| Unitaires | `nodefony` `DebugBar.test.ts` | le montage, les options, ce que la poignée rend, le rendu des onglets |
 | Unitaires (interaction) | `nodefony` `debugbarInteraction.test.ts` | l'ouverture et la fermeture, le filtrage des journaux, ce qui est gardé d'une visite à l'autre |
+| Unitaires (onglet Requêtes) | `nodefony` `debugbarRequestsTab.test.ts`, `debugbarRequests.test.ts`, `debugbarFeedView.test.ts` | les trois vues sur le back des Journaux, le dépliage relu à la demande, le volet unique, les requêtes de la page jamais masquées, une liste fenêtrée qui ne bouge pas sous l'œil |
 
 ## 🔗 Pour aller plus loin
 
