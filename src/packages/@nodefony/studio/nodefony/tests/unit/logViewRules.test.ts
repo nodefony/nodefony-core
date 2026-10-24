@@ -110,9 +110,18 @@ describe("applyViewFilters", () => {
     ).toEqual(["autre"]);
   });
 
-  it("framework : toutes les lignes du module NODEFONY", () => {
+  it("framework : les lignes du module NODEFONY, sauf celles qui portent la requête", () => {
     expect(keep({ hideConsole: false, hideFramework: true })).toEqual([
+      "GET  200 https://h/nodefony/logs 2ms",
       "route console",
+      "GET  200 https://h/api/users 2ms",
+      "métier",
+    ]);
+  });
+
+  it("console + framework : il reste les requêtes de l'application", () => {
+    expect(keep({ hideConsole: true, hideFramework: true })).toEqual([
+      "GET  200 https://h/api/users 2ms",
       "métier",
     ]);
   });

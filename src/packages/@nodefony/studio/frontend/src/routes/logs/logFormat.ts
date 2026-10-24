@@ -11,7 +11,11 @@ import type {
   LogRecord,
   Severity,
 } from "./logsTypes";
-import { consoleRequestIds, pduIsConsoleRequest } from "nodefony";
+import {
+  consoleRequestIds,
+  pduIsConsoleRequest,
+  pduIsModuleExcluded,
+} from "nodefony";
 import { SEVERITIES } from "./logsTypes";
 
 /** Version de la documentation embarquée (badges des fiches `DocHint`). */
@@ -774,14 +778,12 @@ export function applyViewFilters<T>(
 ): T[] {
   if (!filters.hideConsole && !filters.hideFramework) return items;
   const ids = filters.hideConsole ? consoleRequestIds(items.map(pick)) : null;
+  const excluded = filters.hideFramework
+    ? FRAMEWORK_MODULE.toLowerCase()
+    : null;
   return items.filter((item) => {
     const rec = pick(item);
-    if (
-      filters.hideFramework &&
-      rec.moduleName.toUpperCase() === FRAMEWORK_MODULE
-    ) {
-      return false;
-    }
+    if (pduIsModuleExcluded(rec, excluded)) return false;
     if (!filters.hideConsole) return true;
     if (pduIsConsoleRequest(rec, ids)) return false;
     return !(rec.requestId !== undefined && known?.has(rec.requestId) === true);

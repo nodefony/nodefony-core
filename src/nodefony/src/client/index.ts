@@ -30,6 +30,7 @@ import {
   consoleRequestIds,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
+  pduIsModuleExcluded,
 } from "../syslog/drivers/pduConsole";
 import { pduFlowStep, FLOW_STEPS } from "../syslog/drivers/pduFlow";
 export type {
@@ -180,6 +181,7 @@ export {
   consoleRequestIds,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
+  pduIsModuleExcluded,
 };
 // Le contrat de pagination est ISOMORPHE : le serveur rend des `IPage`, le
 // navigateur les consomme. Types purs — zéro octet de runtime côté client, et

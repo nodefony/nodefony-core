@@ -35,6 +35,7 @@ export function ViewFilterSwitches({
       >
         Masquer NODEFONY
       </Chip>
+      <InfoHint text="Retire ce que le framework écrit pour lui-même (routage, noyau, sessions). Les lignes de requête restent visibles : le framework les signe NODEFONY, mais elles décrivent le trafic de l'application. Réglage commun aux onglets Journaux et Direct." />
     </>
   );
 }

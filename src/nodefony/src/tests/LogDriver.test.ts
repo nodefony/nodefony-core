@@ -225,6 +225,21 @@ describe("Log Backplane (LB.0/LB.1)", () => {
         ["NODEFONY-EXT", "app"],
       );
     });
+
+    it("garde la ligne qui porte la requête, même signée du module exclu", () => {
+      const r = filterPdus(
+        [
+          mk("route trouvée", "INFO", "NODEFONY", "router", 1, "A"),
+          mk("GET  200 https://h/ 2ms", "INFO", "NODEFONY", "req", 2, "A"),
+          mk("URL : wss://h/ws FROM : 1.2.3.4", "INFO", "NODEFONY", "WS", 3),
+        ],
+        { excludeModule: "NODEFONY" },
+      );
+      assert.deepStrictEqual(
+        r.rows.map((x) => x.msgid),
+        ["WS", "req"],
+      );
+    });
   });
 
   describe("filterPdus — groupByRequest", () => {

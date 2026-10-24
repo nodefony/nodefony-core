@@ -21,6 +21,42 @@ const WARNING = 4;
 const ANSI = /\u001b\[[0-9;]*m/g;
 
 /**
+ * Ligne qui porte l'URL de la requête : ligne d'accès `msgid "req"`
+ * (`METHODE STATUT schéma://hôte/chemin …`) ou journal de requête
+ * `URL : schéma://hôte/chemin FROM : …` (ouverture et fermeture WebSocket).
+ */
+function carriesRequestUrl(pdu: Pick<IPduLike, "msgid" | "payload">): boolean {
+  return (
+    pdu.msgid === "req" ||
+    (typeof pdu.payload === "string" && pdu.payload.startsWith("URL : "))
+  );
+}
+
+/**
+ * Dit si une ligne tombe sous l'exclusion d'un module (`excludeModule`) :
+ * même nom, sans tenir compte de la casse — sauf la ligne qui porte l'URL de la
+ * requête. Celle-ci appartient à l'application même quand le framework l'écrit
+ * (le journal d'accès est signé `NODEFONY`) : masquer le framework ne doit
+ * jamais masquer les requêtes, sans quoi la vue se vide entièrement.
+ *
+ * Pure et isomorphe : `filterPdus` (Journaux) et le Direct l'appellent tous les deux.
+ *
+ * @param pdu - la ligne
+ * @param excludedLc - le module exclu, en minuscules ; `null` = aucune exclusion
+ * @returns `true` si la ligne doit être écartée
+ */
+export function pduIsModuleExcluded(
+  pdu: Pick<IPduLike, "moduleName" | "msgid" | "payload">,
+  excludedLc: string | null,
+): boolean {
+  return (
+    excludedLc !== null &&
+    pdu.moduleName.toLowerCase() === excludedLc &&
+    !carriesRequestUrl(pdu)
+  );
+}
+
+/**
  * Dit si un Pdu est du trafic de la console d'administration — ce que
  * l'exploitant ne cherche pas en lisant les journaux de son application : une
  * ligne qui porte l'URL de la requête (ligne d'accès `msgid "req"`, ou ligne
@@ -40,10 +76,7 @@ export function pduIsConsoleTraffic(
 ): boolean {
   // Vite (msgid `frontend`) : tout son bavardage, quel que soit le texte.
   if (pdu.msgid === "frontend") return pdu.severity > WARNING;
-  if (typeof pdu.payload !== "string") return false;
-  // Ligne d'accès `METHODE STATUT schéma://hôte/chemin …`, ou journal de
-  // requête `URL : schéma://hôte/chemin FROM : …`.
-  if (pdu.msgid !== "req" && !pdu.payload.startsWith("URL : ")) return false;
+  if (typeof pdu.payload !== "string" || !carriesRequestUrl(pdu)) return false;
   const text = pdu.payload.replace(ANSI, "");
   const scheme = text.indexOf("://");
   if (scheme === -1) return false;

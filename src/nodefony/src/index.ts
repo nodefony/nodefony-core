@@ -135,6 +135,7 @@ export {
   consoleRequestIds,
   pduIsConsoleRequest,
   pduIsConsoleTraffic,
+  pduIsModuleExcluded,
 } from "./syslog/drivers/pduConsole";
 export type { LogProtocol } from "./syslog/drivers/pduProtocol";
 export { pduFlowStep, FLOW_STEPS } from "./syslog/drivers/pduFlow";
