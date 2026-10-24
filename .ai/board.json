@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T22:35:38.875Z",
+  "generatedAt": "2026-10-24T23:12:02.931Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 189,
+      "closed": 190,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 24,
+      "open": 23,
       "title": "10.0.0-beta"
     },
     {
@@ -4863,8 +4863,8 @@
       "number": 159,
       "title": "docs(api): publier une référence d'API générée par paquet",
       "url": "https://github.com/nodefony/nodefony-core/issues/159",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
