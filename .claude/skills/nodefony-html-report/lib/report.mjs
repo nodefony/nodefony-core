@@ -207,7 +207,10 @@ export const table = (cols, rows, { sortable = false, id } = {}) => {
           .join("")}</tr>`,
     )
     .join("");
-  return `<div class="scroll"><table id="${tid}"${sortable ? ' class="sortable"' : ""}><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  // Un tableau large défile : sans `tabindex`, sa zone est inatteignable au
+  // clavier (axe : scrollable-region-focusable) — vu sur téléphone, où chaque
+  // tableau déborde. Sans effet visuel quand rien ne défile.
+  return `<div class="scroll" tabindex="0"><table id="${tid}"${sortable ? ' class="sortable"' : ""}><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 };
 
 function hash(s) {

@@ -69,7 +69,7 @@ const ALIAS = {
 const JAMAIS = new Set(["mermaid"]);
 
 const highlighter = await createHighlighter({
-  themes: ["github-light", "github-dark"],
+  themes: ["github-light-high-contrast", "github-dark-high-contrast"],
   langs: LANGS,
 });
 
@@ -87,7 +87,10 @@ export function highlight(code, lang) {
   try {
     return highlighter.codeToHtml(code, {
       lang: nom,
-      themes: { light: "github-light", dark: "github-dark" },
+      themes: {
+        light: "github-light-high-contrast",
+        dark: "github-dark-high-contrast",
+      },
       // Pas de couleur « par défaut » : chaque fragment porte les DEUX, et la
       // feuille de style tranche. Sans ça, une page en sombre afficherait les
       // couleurs du thème clair jusqu'au premier repaint.
