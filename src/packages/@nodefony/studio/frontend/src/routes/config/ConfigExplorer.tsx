@@ -52,6 +52,10 @@ export interface ConfigExplorerProps {
   editable?: boolean;
   /** Applique une édition live (PATCH config + toast + refetch côté page). */
   onEdit?: (field: ConfigField, value: unknown) => Promise<EditResult>;
+  /** Réglage à mettre en évidence à l'arrivée (relayé à `ConfigLayout`). */
+  focusKey?: string | undefined;
+  /** Aide rendue à côté de chaque clé (relayée à `ConfigLayout`). */
+  renderHelp?: ((field: ConfigField) => ReactNode) | undefined;
 }
 
 /** Méta d'affichage d'une provenance surchargée. */
@@ -206,6 +210,8 @@ export function ConfigExplorer({
   sections,
   editable = false,
   onEdit,
+  focusKey,
+  renderHelp,
 }: ConfigExplorerProps) {
   const overrides = useMemo(
     () => collectFieldOverrides(sections, seg),
@@ -286,6 +292,8 @@ export function ConfigExplorer({
         sections={sections}
         editable={editable}
         onEdit={onEdit}
+        focusKey={focusKey}
+        renderHelp={renderHelp}
       />
     </Stack>
   );

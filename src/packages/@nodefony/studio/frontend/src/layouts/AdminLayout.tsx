@@ -348,6 +348,7 @@ export const AdminLayout = observer(() => {
             <Burger
               opened={mobileOpened}
               onClick={toggleMobile}
+              aria-label={mobileOpened ? "Fermer le menu" : "Ouvrir le menu"}
               size="sm"
               hiddenFrom="sm"
             />

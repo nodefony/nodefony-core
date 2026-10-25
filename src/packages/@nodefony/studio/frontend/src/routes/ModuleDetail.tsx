@@ -4,7 +4,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { jsonSchemaToSections } from "./config/jsonSchemaToSections";
 import { withOverrideKeys } from "./config/configModel";
 import { ConfigExplorer } from "./config/ConfigExplorer";
-import { ApiError } from "../services/ApiClient";
+import { FieldHelp } from "./config/FieldHelp";
+import { configErrorMessage } from "./config/configEdit";
 import dayjs from "dayjs";
 import {
   Alert,
@@ -351,17 +352,6 @@ const coverageColumns: DataGridColumn<CoverageFileRow>[] = [
     ),
   },
 ];
-
-/** Message lisible d'un refus d'édition config (priorité au détail serveur + recette). */
-function configErrorMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    const b = e.body as
-      { message?: string; error?: string; recipe?: string } | undefined;
-    const base = b?.message ?? b?.error ?? e.message;
-    return b?.recipe ? `${base} — recette : ${b.recipe}` : base;
-  }
-  return e instanceof Error ? e.message : String(e);
-}
 
 /**
  * ModuleDetail — page d'un module (route `/nodefony/modules/:name`).
@@ -883,6 +873,15 @@ export const ModuleDetail = observer(() => {
                   sections={richCfg}
                   editable={import.meta.env.DEV}
                   onEdit={handleConfigEdit}
+                  // `?key=` : arrivée depuis la recherche globale de la config.
+                  focusKey={searchParams.get("key") ?? undefined}
+                  renderHelp={(f) => (
+                    <FieldHelp
+                      field={f}
+                      moduleName={data.name}
+                      isApp={data.isApp}
+                    />
+                  )}
                 />
               ) : (
                 <ScrollArea h={520} type="auto" offsetScrollbars>

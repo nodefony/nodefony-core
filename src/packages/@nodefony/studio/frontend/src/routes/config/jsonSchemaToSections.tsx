@@ -47,6 +47,8 @@ interface JsonSchemaNode {
   runtimeMutable?: boolean;
   kernelDerived?: boolean;
   secret?: boolean;
+  /** Variable d'environnement courte déclarée par le schéma (`.meta({ env })`). */
+  env?: string;
 }
 
 const MASK = "•••••";
@@ -235,6 +237,7 @@ function buildField(
     kernelDerived: node?.kernelDerived === true,
     secret,
     source,
+    env: typeof node?.env === "string" ? node.env : undefined,
     editControl,
     editValue: editControl ? value : undefined,
     effective: secret ? (

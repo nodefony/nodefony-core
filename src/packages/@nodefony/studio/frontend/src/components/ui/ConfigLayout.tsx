@@ -19,7 +19,7 @@
  * `z.toJSONSchema()`) vers `sections`. La structure ne change pas quand on passe
  * du mode schéma au mode effectif.
  */
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActionIcon,
   Badge,
@@ -53,6 +53,7 @@ import {
 } from "@tabler/icons-react";
 import { DocHint, TipHint, WarnHint } from "./DocHint";
 import { valueText } from "./json/jsonFormat";
+import { normalizeText } from "./searchText";
 
 /** D'où vient la valeur effective gagnante dans la cascade de surcharge. */
 export type ConfigSource = "default" | "module" | "app" | "env" | "runtime";
@@ -159,7 +160,26 @@ export interface ConfigLayoutProps {
    */
   onEdit?:
     ((field: ConfigField, value: unknown) => Promise<EditResult>) | undefined;
+  /**
+   * Réglage à mettre en évidence à l'arrivée (chemin pointé) : la ligne défile au
+   * centre, reçoit le focus et se surligne un instant. Sert la recherche globale,
+   * qui mène directement au réglage trouvé.
+   */
+  focusKey?: string | undefined;
+  /** Aide rendue à côté de la clé de chaque réglage (« comment le changer »). */
+  renderHelp?: ((field: ConfigField) => ReactNode) | undefined;
 }
+
+/** Identifiant DOM de la ligne d'un réglage (cible de `focusKey`). */
+export function configRowId(key: string): string {
+  return `cfg-row-${key}`;
+}
+
+/** Durée du surlignage d'une ligne ciblée (ms). */
+const FLASH_MS = 2500;
+
+/** Délai du second recentrage, une fois la page peuplée (ms). */
+const SETTLE_MS = 600;
 
 const SOURCE_META: Record<
   ConfigSource,
@@ -380,17 +400,11 @@ function CascadeHint() {
   );
 }
 
-/** Normalise pour une recherche tolérante (sans accents, minuscules). */
-function normalizeText(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
-}
-
 /** Concatène le texte recherchable d'un réglage (champs string uniquement). */
 function fieldSearchText(f: ConfigField): string {
   const parts = [f.key];
+  if (f.env) parts.push(f.env);
+  if (f.recipe) parts.push(f.recipe);
   if (typeof f.type === "string") parts.push(f.type);
   if (typeof f.description === "string") parts.push(f.description);
   if (typeof f.constraint === "string") parts.push(f.constraint);
@@ -644,9 +658,43 @@ export function ConfigLayout({
   notice,
   editable = false,
   onEdit,
+  focusKey,
+  renderHelp,
 }: ConfigLayoutProps) {
   const sm = SCHEMA_META[schema];
   const [query, setQuery] = useState("");
+  const [flashKey, setFlashKey] = useState<string | null>(null);
+  // Une arrivée par réglage : un refetch (édition à chaud) ne doit pas refaire
+  // défiler la page sous les yeux de l'utilisateur.
+  const focusedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!focusKey || focusedRef.current === focusKey) return;
+    const el = document.getElementById(configRowId(focusKey));
+    if (!el) return;
+    focusedRef.current = focusKey;
+    // Préférence lue AU MOMENT du geste : elle peut changer pendant la session.
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const center = (behavior: ScrollBehavior) =>
+      el.scrollIntoView({ block: "center", behavior });
+    center(reduce ? "auto" : "smooth");
+    el.focus({ preventScroll: true });
+    setFlashKey(focusKey);
+    // La page continue de se peupler au-dessus (résumés, autres onglets) et
+    // pousse la ligne hors de vue : un second recentrage, sans animation,
+    // une fois la mise en page posée.
+    const settle = window.setTimeout(() => center("auto"), SETTLE_MS);
+    return () => window.clearTimeout(settle);
+  }, [focusKey, sections]);
+
+  // Le surlignage s'éteint seul, même si les sections changent entre-temps.
+  useEffect(() => {
+    if (flashKey === null) return;
+    const t = window.setTimeout(() => setFlashKey(null), FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [flashKey]);
 
   // Filtre tolérant (accents-insensible, multi-termes : tous les mots présents)
   // sur clé + titre de section + type + description + contrainte. Les sections
@@ -799,12 +847,27 @@ export function ConfigLayout({
               </Table.Thead>
               <Table.Tbody>
                 {section.fields.map((f) => (
-                  <Table.Tr key={f.key}>
+                  <Table.Tr
+                    key={f.key}
+                    id={configRowId(f.key)}
+                    // Cible du focus programmé seulement (hors ordre de tabulation).
+                    tabIndex={f.key === focusKey ? -1 : undefined}
+                    style={
+                      flashKey === f.key
+                        ? {
+                            background: "var(--mantine-color-yellow-light)",
+                            outline: "2px solid var(--mantine-color-yellow-6)",
+                            outlineOffset: -2,
+                          }
+                        : undefined
+                    }
+                  >
                     {/* Réglage = clé + rôle (lisible d'un coup). */}
                     <Table.Td>
                       <Stack gap={2}>
                         <Group gap={4} wrap="wrap">
                           <Code style={{ fontSize: 12 }}>{f.key}</Code>
+                          {renderHelp?.(f)}
                           {f.env && (
                             <DocHint
                               title="Variable d'environnement"
@@ -817,7 +880,9 @@ export function ConfigLayout({
                             </DocHint>
                           )}
                         </Group>
-                        {f.description && (
+                        {/* La description vit dans la bulle d'aide quand la page en
+                            fournit une : en ligne, elle écrasait les colonnes. */}
+                        {f.description && !renderHelp && (
                           <Text size="xs" c="dimmed">
                             {f.description}
                           </Text>
