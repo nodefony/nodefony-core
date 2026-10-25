@@ -27,3 +27,12 @@ Remise à zéro de la base d'un banc MongoDB — le décor repart VIERGE.
 
 - **Usage** : `import { resetMongoDatabase } from "./lib/mongoReset.ts"`
 - **Appelé par** : `test/test-all.ts`
+
+## [`testbed.ts`](testbed.ts)
+
+Producteur PUR de l'onglet Décors de la console (`/nodefony/config?tab=testbed`).
+
+- **Usage** : `import { buildTestbedReport } from "./lib/testbed.ts"`
+- **Appelé par** : `test/testbed-report.ts`
+- **Testé par** : `src/modules/test/nodefony/tests/testbed.test.ts`
+- **Utilise** : `test/vitest/gates.ts`

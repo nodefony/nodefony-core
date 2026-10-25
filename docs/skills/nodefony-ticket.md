@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-18
+updated: 2026-10-25
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -83,7 +83,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/lexique.md` | Lexique des tickets — source unique | 137 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 270 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 279 |
 
 
 ## Scripts embarqués
@@ -93,7 +93,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--json` `--milestone` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
+| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--json` `--milestone` | `JOURS_EN_COURS` `OWNER` `POST_PUBLICATION_LABEL` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
 | `scripts/board-lint.test.mjs` | — | `--add-label` `--apply` `--grep` `--milestone` `--remove-label` `--type` | — |
 | `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un script, ni dans un bloc de commande qu'un skill donne à exécuter. | `--limit` | — |
 | `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |
@@ -128,7 +128,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-reorder.mjs 630=4.01 472=4.02
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
 ```
 
-**Toutes les variables lues par ce skill** : `APPLY` · `JOURS_EN_COURS` · `OWNER` · `PROJECT` · `QUERY` · `QUERY_ITEMS` · `REPO` · `VITRINE_REPO`
+**Toutes les variables lues par ce skill** : `APPLY` · `JOURS_EN_COURS` · `OWNER` · `POST_PUBLICATION_LABEL` · `PROJECT` · `QUERY` · `QUERY_ITEMS` · `REPO` · `VITRINE_REPO`
 
 ### Détail des scripts auto-documentés
 

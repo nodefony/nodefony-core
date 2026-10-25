@@ -215,6 +215,24 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(codes(findings)).toContain("LOT-PUBLIE");
   });
 
+  it("ATTEND-SA-PUBLICATION : un ticket post-publication dans le lot qui publie ce qu'il attend", () => {
+    const meme = lintBoard({
+      items: [sain(1, { ordre: 5.26 })],
+      issues: [issueSaine(1, { labels: ["beta-5", "post-publication"] })],
+      publies: [4],
+      now: MAINTENANT,
+    });
+    expect(codes(meme)).toContain("ATTEND-SA-PUBLICATION");
+    // Rangé dans le lot SUIVANT : rien à redire.
+    const suivant = lintBoard({
+      items: [sain(1, { ordre: 6.01 })],
+      issues: [issueSaine(1, { labels: ["beta-6", "post-publication"] })],
+      publies: [4],
+      now: MAINTENANT,
+    });
+    expect(codes(suivant)).not.toContain("ATTEND-SA-PUBLICATION");
+  });
+
   it("DEPENDANCE-INVERSEE : le socle est rangé après ce qui s'y branche", () => {
     const findings = lintBoard({
       items: [sain(10, { ordre: 1 }), sain(20, { ordre: 5 })],

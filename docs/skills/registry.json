@@ -86,7 +86,8 @@
         "scripts/site/build-site-plan.mjs",
         "scripts/site/build-site.mjs",
         "scripts/site/readme-html.mjs",
-        "scripts/test/test-all.ts"
+        "scripts/test/test-all.ts",
+        "scripts/test/testbed-report.ts"
       ],
       "testedBy": [
         "scripts/gates/dev-credentials.test.mjs",
@@ -671,6 +672,23 @@
       "testedBy": []
     },
     {
+      "path": "scripts/test/lib/testbed.ts",
+      "test": false,
+      "purpose": "Producteur PUR de l'onglet Décors de la console (`/nodefony/config?tab=testbed`).",
+      "usage": [
+        "import { buildTestbedReport } from \"./lib/testbed.ts\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/test/testbed-report.ts"
+      ],
+      "testedBy": [
+        "src/modules/test/nodefony/tests/testbed.test.ts"
+      ]
+    },
+    {
       "path": "scripts/test/realtime-coverage-map.mjs",
       "test": false,
       "purpose": "Carte de couverture du temps réel — quel étage de test EXERCE quel fichier source.",
@@ -706,6 +724,10 @@
           "help": "rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration"
         },
         {
+          "flag": "--proxy",
+          "help": "joue le serveur derrière de VRAIS nginx et haproxy (suite proxy de http)"
+        },
+        {
           "flag": "--unit",
           "help": "la suite unitaire SEULE (avec --integration : les deux)"
         },
@@ -732,6 +754,10 @@
       ],
       "env": [
         {
+          "name": "NF_BIND_ALL",
+          "help": ""
+        },
+        {
           "name": "NF_DATABASE_URL",
           "help": ""
         },
@@ -748,6 +774,19 @@
       "calledBy": [
         "npm run test:all"
       ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/testbed-report.ts",
+      "test": false,
+      "purpose": "Constat des décors de développement du cœur, en JSON sur la sortie standard.",
+      "usage": [
+        "npx tsx scripts/test/testbed-report.ts"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
       "testedBy": []
     },
     {
@@ -796,9 +835,12 @@
         "src/packages/@nodefony/realtime/vitest.config.ts",
         "src/packages/@nodefony/redis/vitest.config.ts",
         "scripts/generate/env-snapshot.ts",
-        "scripts/test/coverage-all.ts"
+        "scripts/test/coverage-all.ts",
+        "scripts/test/lib/testbed.ts",
+        "scripts/test/testbed-report.ts"
       ],
       "testedBy": [
+        "src/modules/test/nodefony/tests/testbed.test.ts",
         "src/nodefony/src/tests/ciGateVars.test.ts",
         "src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts",
         "src/packages/@nodefony/realtime/nodefony/tests/integration/redisCluster.e2e.test.ts"
@@ -10970,6 +11012,10 @@
               },
               {
                 "name": "OWNER",
+                "help": ""
+              },
+              {
+                "name": "POST_PUBLICATION_LABEL",
                 "help": ""
               },
               {

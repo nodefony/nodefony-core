@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-25 10:34** (UTC).
+> Empreinte prise le **2026-10-25 11:38** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -33,7 +33,7 @@
 
 **#677 — feat(studio): montrer les décors de développement du cœur dans la configuration**
 
-Ordre 5.25 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
+Ordre 5.25 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-26 → 10-26
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 21 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -110,8 +110,8 @@ Ordre 5.25 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 5.25 | P2 — décision | 1 | — | #677 | feat(studio): montrer les décors de développement du cœur dans la configuration |
-| 5.26 | P1 — figé à la création | 0.5 | 2026-10-27 → 10-27 | #655 | docs(orm): présenter le générateur avant l'écriture à la main |
+| 5.25 | P2 — décision | 1 | 2026-10-26 → 10-26 | #677 | feat(studio): montrer les décors de développement du cœur dans la configuration |
+| 6.01 | P1 — figé à la création | 0.5 | 2026-10-27 → 10-27 | #655 | docs(orm): présenter le générateur avant l'écriture à la main |
 | 6.03 | P2 — décision | 27 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 6.031 | P2 — décision | 2 | 2026-10-29 → 10-29 | #627 | docs(adr): figer l'architecture de la socket temps réel |
 | 6.032 | P2 — décision | 2 | 2026-10-30 → 10-30 | #628 | feat(realtime): tenir le serveur au même contrat que le client |

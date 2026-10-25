@@ -61,6 +61,7 @@ arbitrage sans bonne réponse mécanique :
 | `LOT-ORDRE`                    | ordre `N.xx` sous un label `beta-M` (M ≠ N) — proposé à un rang, publié avec un autre lot                                                                                                                                                                                                               |
 | `SANS-LOT`                     | rangé dans un jalon découpé en lots, sans label `beta-N` — ne part avec aucune publication                                                                                                                                                                                                              |
 | `LOT-PUBLIE`                   | label `beta-N` alors que `…-beta.N` est déjà étiquetée — un lot publié ne livre plus rien                                                                                                                                                                                                               |
+| `ATTEND-SA-PUBLICATION`        | label `post-publication` dans le lot de la PROCHAINE beta — il attend la version que ce lot empêche de partir (interblocage) ; le geste le passe au lot suivant                                                                                                                                         |
 | `PARENT-LOT-SOLDE`             | parent `beta-N` dont aucun enfant ouvert n'est dans ce lot — il retient la beta sans rien lui livrer ; le geste rendu le déplace vers le jalon/lot de ses enfants                                                                                                                                       |
 | `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle                                                                                                                                                                                                                        |
 | `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire                                                                                                                                                                                                              |
@@ -167,6 +168,14 @@ remplacer : l'ordre dit ce qui passe avant quoi, le label dit ce qui sort ensemb
 ticket, c'est changer les DEUX — l'ordre seul le fait proposer en tête et publier avec son ancien
 lot. Une beta publiée ferme son lot : ce qui y reste ouvert passe au lot suivant. `ticket:lint`
 le refuse (`LOT-ORDRE`, `SANS-LOT`, `LOT-PUBLIE`).
+
+🔴 **Un ticket qui se vérifie sur la version PUBLIÉE porte `post-publication`, et se range un lot
+plus loin.** Un banc qui installe depuis npm, une application générée, une page du site en ligne :
+leur critère ne peut être constaté qu'APRÈS la publication de la beta. Laissé dans le lot qui la
+publie, le ticket bloque ce lot, qui bloque la beta, qui bloque le ticket — et la reprise le
+propose session après session sans qu'il soit faisable. Vécu plusieurs fois, dont #655. Le geste,
+dès que le critère restant est de cette nature : `--add-label post-publication`, lot `beta-<N+1>`,
+ordre `<N+1>.0x` en tête du lot. `ticket:lint` le refuse sinon (`ATTEND-SA-PUBLICATION`).
 
 ### L'ordre VISUEL de la grille se pose, le GROUPEMENT non
 

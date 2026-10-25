@@ -122,6 +122,12 @@ export function parseLineAnchors(body) {
  * @param labels - noms des labels du ticket
  * @returns N si exactement un label `beta-N`, `null` sinon (aucun, ou plusieurs)
  */
+/**
+ * Label d'un ticket qui ne se vérifie que sur la version PUBLIÉE : il se range
+ * toujours dans le lot SUIVANT celui qui la publie (`ATTEND-SA-PUBLICATION`).
+ */
+export const POST_PUBLICATION_LABEL = "post-publication";
+
 export function lotOf(labels) {
   const lots = (labels ?? [])
     .map((l) => /^beta-(\d+)$/.exec(l)?.[1])
@@ -313,6 +319,8 @@ export function lintBoard({
   // `beta-1` après la publication de la beta.1.
   const lotDe = (issue) => lotOf(issue.labels);
   const publiesSet = new Set(publies);
+  // La beta qui part ensuite : celle qui suit la dernière publiée.
+  const prochaineBeta = publies.length ? Math.max(...publies) + 1 : 1;
   const jalonsEnLots = new Set(
     issues.filter((i) => lotDe(i) !== null).map((i) => i.milestone),
   );
@@ -326,6 +334,24 @@ export function lintBoard({
         issue.n,
         `label « beta-${lot} » alors que la beta.${lot} est déjà publiée — le lot ne peut plus rien livrer`,
         `gh issue edit ${issue.n} --remove-label beta-${lot} --add-label beta-<N suivant>  (et l'ordre N.xx qui va avec)`,
+      );
+    }
+    // Un ticket qui ne se VÉRIFIE que sur la version publiée (banc qui installe
+    // depuis npm, application générée) attend la PROCHAINE beta : il ne peut pas
+    // appartenir au lot qui la publie — la beta.N attend que son lot se vide, le
+    // ticket attend la beta.N. Interblocage, qui se rejoue à chaque reprise.
+    // Vécu plusieurs fois (#655). Rangé un lot plus loin, il est pris juste après.
+    if (
+      lot !== null &&
+      lot === prochaineBeta &&
+      (issue.labels ?? []).includes(POST_PUBLICATION_LABEL)
+    ) {
+      add(
+        "erreur",
+        "ATTEND-SA-PUBLICATION",
+        issue.n,
+        `label « ${POST_PUBLICATION_LABEL} » dans le lot beta-${lot} — il attend la beta.${lot} publiée, que ce même lot empêche de partir`,
+        `gh issue edit ${issue.n} --remove-label beta-${lot} --add-label beta-${lot + 1}  (et l'ordre ${lot + 1}.xx qui va avec)`,
       );
     }
     if (!moi || typeof moi.ordre !== "number") continue;

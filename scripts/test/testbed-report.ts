@@ -9,7 +9,9 @@
  * Il collecte (configs vitest, sources de test, compose, `docker inspect`,
  * environnement hérité du serveur) ; la décision vit dans `lib/testbed.ts`.
  *
- * Usage : `tsx scripts/test/testbed-report.ts` → `{ supported: true, … }`.
+ * Rend `{ supported: true, … }` sur la sortie standard.
+ *
+ * @usage npx tsx scripts/test/testbed-report.ts
  */
 import { spawnSync } from "node:child_process";
 import { globSync, readFileSync } from "node:fs";

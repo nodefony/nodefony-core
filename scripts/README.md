@@ -15,8 +15,8 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 3 |
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 3 |
 | [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 1 |
-| [`test/`](test/README.md) | Orchestration des suites de test et de la couverture. | 3 |
-| [`test/lib/`](test/lib/README.md) | Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB. | 2 |
+| [`test/`](test/README.md) | Orchestration des suites de test et de la couverture. | 4 |
+| [`test/lib/`](test/lib/README.md) | Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB. | 3 |
 | [`test/vitest/`](test/vitest/README.md) | Socles partagés par TOUTES les configs vitest du dépôt — garde des dossiers temporaires, gates d'infrastructure, décorateurs oxc, cache de transformation — et la config des suites lancées depuis la racine. Importés par les configs, jamais lancés à la main. | 5 |
 | [`generate/`](generate/README.md) | Génération d'artefacts : graphe symbolique, page de manuel, catalogue d'environnement, logo. | 11 |
 | [`site/`](site/README.md) | Rendu du site de documentation publié et de ses pages annexes. | 16 |

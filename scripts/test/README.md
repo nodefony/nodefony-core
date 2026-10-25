@@ -46,14 +46,24 @@ Carte de couverture du temps réel — quel étage de test EXERCE quel fichier s
 - **Option** `--load` — ajoute la charge, le gate mémoire et le cluster e2e
 - **Option** `--dialects` — rejoue les suites ORM sur MySQL Community
 - **Option** `--mongo` — rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration
+- **Option** `--proxy` — joue le serveur derrière de VRAIS nginx et haproxy (suite proxy de http)
 - **Option** `--unit` — la suite unitaire SEULE (avec --integration : les deux)
 - **Option** `--integration` — la suite d'intégration SEULE (avec --unit : les deux)
 - **Option** `--fresh` — EXÉCUTE les suites unitaires au lieu de rejouer leur journal en cache
 - **Option** `--no-infra` — n'utilise que l'infra qui tourne déjà, n'en démarre aucune
 - **Option** `--infra` — rend l'état de l'infra, ne lance AUCUN test
 - **Option** `--json` — sortie machine (CI)
+- **Variable** `NF_BIND_ALL`
 - **Variable** `NF_DATABASE_URL`
 - **Variable** `NF_MYSQL_URL`
 - **Variable** `NF_RUN_CLUSTER_E2E`
 - **Appelé par** : `npm run test:all`
 - **Utilise** : `lib/redis-session-purge.mjs` · `lib/repo-root.mjs` · `lib/turbo-replay.mjs` · `test/lib/docker.ts` · `test/lib/mongoReset.ts` · `repo/long-run-lock.mjs`
+
+## [`testbed-report.ts`](testbed-report.ts)
+
+Constat des décors de développement du cœur, en JSON sur la sortie standard.
+
+- **Usage** : `npx tsx scripts/test/testbed-report.ts`
+- **Appelé par** : aucun automate
+- **Utilise** : `lib/repo-root.mjs` · `test/lib/testbed.ts` · `test/vitest/gates.ts`

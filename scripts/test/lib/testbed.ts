@@ -10,6 +10,8 @@
  *
  * Aucune entrée/sortie ici : le script `scripts/test/testbed-report.ts` collecte,
  * cette fonction décide. C'est ce qui la rend testable sans docker.
+ *
+ * @usage import { buildTestbedReport } from "./lib/testbed.ts"
  */
 import {
   asExpectation,
