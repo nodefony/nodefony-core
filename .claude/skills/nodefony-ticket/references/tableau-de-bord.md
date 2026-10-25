@@ -176,6 +176,9 @@ publie, le ticket bloque ce lot, qui bloque la beta, qui bloque le ticket — et
 propose session après session sans qu'il soit faisable. Vécu plusieurs fois, dont #655. Le geste,
 dès que le critère restant est de cette nature : `--add-label post-publication`, lot `beta-<N+1>`,
 ordre `<N+1>.0x` en tête du lot. `ticket:lint` le refuse sinon (`ATTEND-SA-PUBLICATION`).
+**Le label se RETIRE dès que la beta attendue est publiée** : il dit une attente, pas une nature.
+Gardé, le lot `beta-<N+1>` devient à son tour celui de la prochaine beta et la même règle le
+repousse encore — vécu sur #655 lui-même, le jour de la beta.5.
 
 ### L'ordre VISUEL de la grille se pose, le GROUPEMENT non
 

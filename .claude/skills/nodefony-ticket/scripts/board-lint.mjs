@@ -341,6 +341,9 @@ export function lintBoard({
     // appartenir au lot qui la publie — la beta.N attend que son lot se vide, le
     // ticket attend la beta.N. Interblocage, qui se rejoue à chaque reprise.
     // Vécu plusieurs fois (#655). Rangé un lot plus loin, il est pris juste après.
+    // Le label dit une ATTENTE, pas une nature : la beta attendue publiée, il se
+    // RETIRE. Sinon, ce lot-là devient à son tour celui de la prochaine beta et
+    // la règle le repousserait encore — vécu à la beta.5 sur #655 lui-même.
     if (
       lot !== null &&
       lot === prochaineBeta &&
@@ -351,7 +354,7 @@ export function lintBoard({
         "ATTEND-SA-PUBLICATION",
         issue.n,
         `label « ${POST_PUBLICATION_LABEL} » dans le lot beta-${lot} — il attend la beta.${lot} publiée, que ce même lot empêche de partir`,
-        `gh issue edit ${issue.n} --remove-label beta-${lot} --add-label beta-${lot + 1}  (et l'ordre ${lot + 1}.xx qui va avec)`,
+        `la version attendue est DÉJÀ publiée → gh issue edit ${issue.n} --remove-label ${POST_PUBLICATION_LABEL} ; sinon → gh issue edit ${issue.n} --remove-label beta-${lot} --add-label beta-${lot + 1}  (et l'ordre ${lot + 1}.xx qui va avec)`,
       );
     }
     if (!moi || typeof moi.ordre !== "number") continue;

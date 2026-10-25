@@ -83,7 +83,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/lexique.md` | Lexique des tickets — source unique | 137 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 279 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 282 |
 
 
 ## Scripts embarqués
