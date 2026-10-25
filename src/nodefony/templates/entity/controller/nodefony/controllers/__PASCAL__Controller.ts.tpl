@@ -9,6 +9,7 @@ import {
   HttpCode,
   Idempotent,
 <% if (it.hasSecurity) { %>  IsGranted,
+  CsrfProtect,
 <% } %>} from "@nodefony/framework";
 import type { RouteInput } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
@@ -282,9 +283,15 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    *
    * La ressource créée n'est diffusée à personne : pour la pousser aux clients de la
    * socket, voir la publication décrite en tête de cette classe.
-   */
+<% if (it.hasSecurity) { %>   *
+   * `@CsrfProtect()` — comme TOUTE écriture : la provenance d'une requête n'est pas
+   * une preuve d'intention. Le jeton est semé par `GET /nodefony/security/api/auth/me`
+   * (cookie lisible `csrf-token`) et rejoué dans l'en-tête `x-csrf-token`, sinon
+   * `403` ; les tests générés le portent déjà (`csrfHeaders` de `nodefony/testing`).
+<% } %>   */
   @Post("", { schema: { body: create<%= it.pascal %>Schema } })
-  @HttpCode(201)
+<% if (it.hasSecurity) { %>  @CsrfProtect()
+<% } %>  @HttpCode(201)
   @Idempotent({ required: false })
   async create(
     input: RouteInput<{ body: typeof create<%= it.pascal %>Schema }>,
@@ -311,7 +318,8 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
   @Put("/{id}", {
     schema: { params: idParams, body: create<%= it.pascal %>Schema },
   })
-  async replace(
+<% if (it.hasSecurity) { %>  @CsrfProtect()
+<% } %>  async replace(
     input: RouteInput<{
       params: typeof idParams;
       body: typeof create<%= it.pascal %>Schema;
@@ -336,7 +344,8 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
   @Patch("/{id}", {
     schema: { params: idParams, body: update<%= it.pascal %>Schema },
   })
-  async patch(
+<% if (it.hasSecurity) { %>  @CsrfProtect()
+<% } %>  async patch(
     input: RouteInput<{
       params: typeof idParams;
       body: typeof update<%= it.pascal %>Schema;
@@ -372,6 +381,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
 <% } %>   */
   @Delete("/{id}", { schema: { params: idParams } })
 <% if (it.hasSecurity) { %>  @IsGranted("ROLE_ADMIN")
+  @CsrfProtect()
 <% } %>  @HttpCode(204)
   async destroy(input: RouteInput<{ params: typeof idParams }>) {
     const { id } = input.params;

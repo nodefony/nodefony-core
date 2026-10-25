@@ -85,9 +85,8 @@ function valueAt(source: object, key: string): unknown {
  * ouvert ou fermé. La seule requête volontairement anonyme est celle qui PROUVE
  * le refus — elle est commentée comme telle.
 <% if (it.hasSecurity) { %> *
- * Elle porte AUSSI le jeton anti-CSRF (`csrfHeaders`), pour la même raison :
- * ajouter `@CsrfProtect()` aux écritures est un durcissement, et un cycle sans
- * jeton le punirait d'un 403 sur chaque mutation.
+ * Elle porte AUSSI le jeton anti-CSRF (`csrfHeaders`) : chaque écriture du
+ * controller généré porte `@CsrfProtect()`, et une mutation sans jeton est un 403.
 <% } %> */
 let AUTH: Record<string, string> = {};
 <% if (it.hasSecurity) { %>

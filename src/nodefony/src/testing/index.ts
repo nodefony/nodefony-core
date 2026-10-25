@@ -158,8 +158,9 @@ export async function userLogin(
  *
  * ## Pourquoi tout test l'utilise, protection posée ou non
  *
- * Ajouter `@CsrfProtect()` à une écriture est un DURCISSEMENT. Un test qui
- * n'apporte pas de jeton le punit : la mutation rend 403, et le réflexe le moins
+ * Toute écriture porte `@CsrfProtect()` (le générateur d'entité la pose) ; une
+ * route écrite à la main peut l'oublier puis la recevoir. Un test qui
+ * n'apporte pas de jeton punit cette garde : la mutation rend 403, et le réflexe le moins
  * coûteux devient de retirer la protection. Rejouer le jeton sans condition
  * rend la suite indifférente à cette décision — et une suite indifférente ne
  * pousse jamais à désarmer une garde.

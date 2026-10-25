@@ -7516,6 +7516,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
       });
 
+      it("🔴 chaque ÉCRITURE naît sous `@CsrfProtect()` — une seule doctrine avec le skill", () => {
+        // Le skill `nodefony-protect-route` exige `@CsrfProtect` sur toute
+        // action qui écrit ; le générateur ne le posait pas (« un durcissement »).
+        // Relevé par Codex au banc (tâche 0, 10.0.0-beta.5), qui l'a ajouté à la
+        // main sur les quatre mutations — e2e généré resté vert.
+        const dest = app("audit-csrf");
+        entity(dest, { name: "Post", fields: "title:string" });
+        const src = read(dest, "nodefony", "controllers", "PostController.ts");
+        assert.include(src, "  CsrfProtect,\n");
+        assert.lengthOf(
+          src.match(/^ {2}@CsrfProtect\(\)$/gmu) ?? [],
+          4,
+          "POST, PUT, PATCH et DELETE",
+        );
+        // Les lectures n'en portent pas : le jeton protège une INTENTION.
+        assert.notMatch(src, /@CsrfProtect\(\)\n\s*async (list|detail)\(/u);
+      });
+
       it("🔴 dans un MODULE, le DELETE naît GARDÉ — la sécurité est lue dans l'APP", () => {
         // Un module ne déclare jamais @nodefony/security en peer : ne lire que
         // lui faisait naître une suppression ouverte à l'anonyme.
