@@ -640,11 +640,13 @@ function decorate(html) {
     (_, t) =>
       `<blockquote class="adm adm-${ADM[t][0]}"><p class="adm-title">${ADM[t][1]}</p><p>`,
   );
-  // Cards de catalogue : `### \`nom\` — titre` devient une brique visuelle.
+  // Cards de catalogue : `### \`nom\` — titre` devient une brique visuelle. L'`id`
+  // du titre passe à la brique : le jeter rendait mortes toutes les ancres qui
+  // visaient ces sections — sommaire de la page compris.
   out = out.replace(
     /<h3([^>]*)><code>([^<]+)<\/code>\s*(?:—|–|-)?\s*([^<]*)(<a class="h-anchor"[^>]*>#<\/a>)?<\/h3>([\s\S]*?)(?=<h3|<h2|$)/g,
     (_, attrs, name, title, anchor, body) =>
-      `<section class="brick"><header class="brick-h"><code class="brick-name">${name}</code><span class="brick-t">${title}</span>${anchor ?? ""}</header><div class="brick-b">${body}</div></section>`,
+      `<section class="brick"${attrs}><header class="brick-h"><code class="brick-name">${name}</code><span class="brick-t">${title}</span>${anchor ?? ""}</header><div class="brick-b">${body}</div></section>`,
   );
   // Marque visuelle des liens qui QUITTENT le site (une flèche, via `.ext`).
   out = out.replace(
@@ -1249,6 +1251,7 @@ a.nf-card:hover .card-t { color:var(--accent); }
 .nf-card .card-m { color:var(--dim); font-size:11px; font-style:italic; }
 .brick { border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:9px;
   margin:16px 0; background:var(--card); }
+.brick[id] { scroll-margin-top:76px; }
 .brick-h { display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; padding:10px 15px;
   border-bottom:1px solid var(--line); }
 .brick-name { font:650 13px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--accent); }

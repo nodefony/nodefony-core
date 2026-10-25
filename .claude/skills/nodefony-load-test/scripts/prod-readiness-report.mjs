@@ -1012,6 +1012,8 @@ const limites = section(
            se comble pas en codant : il se comble en étant déployé.</li>
      </ul>`,
   ),
+  // Le verdict y renvoie (« il est nommé plus bas ») : sans `id`, le lien était mort.
+  { id: "limites" },
 );
 
 const decor = section(

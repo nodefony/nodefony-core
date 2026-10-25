@@ -203,6 +203,22 @@ describe("assemblage", () => {
     expect(check()).toContain("0 cassé");
   });
 
+  it("le contrôle des liens refuse une ancre de la page même qui ne vise rien", () => {
+    // L'accueil renvoie à ses propres sections (« Ce qui manque ») : une section
+    // sans `id` y faisait un lien mort que le contrôle ignorait.
+    const site = path.join(tmp, "ancres");
+    page(site, "", '<a href="#manques">voir</a><h2 id="autre">x</h2>');
+    const check = () =>
+      execFileSync(
+        process.execPath,
+        [path.join(REPO_ROOT, "scripts", "site", "check-site-links.mjs"), site],
+        { encoding: "utf8", stdio: "pipe" },
+      );
+    expect(check).toThrow(/1 lien/);
+    page(site, "", '<a href="#manques">voir</a><h2 id="manques">x</h2>');
+    expect(check()).toContain("0 cassé");
+  });
+
   it("refuse une archive dont le nom n'est pas une version", () => {
     const pub = path.join(tmp, "pub2");
     const arch = path.join(tmp, "archives2");

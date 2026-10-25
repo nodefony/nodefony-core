@@ -117,8 +117,24 @@ for (const file of found) {
   const frozen = isVersionDir(path.relative(ROOT, file).split(path.sep)[0]);
   for (const m of html.matchAll(HREF)) {
     const href = m[1];
-    // Hors périmètre : ressources externes, ancres, données embarquées.
-    if (/^(https?:|mailto:|#|data:|\/\/)/.test(href)) continue;
+    // Une ancre de la page même se vérifie contre SES identifiants : l'accueil
+    // renvoie à ses propres sections, et une section sans `id` y faisait un lien
+    // mort que rien ne signalait.
+    if (href.startsWith("#")) {
+      const fragment = fragmentOf(href);
+      if (fragment === "" || frozen) continue;
+      checked++;
+      if (!idsOf(file).has(fragment))
+        broken.push({
+          page: path.relative(ROOT, file),
+          href,
+          absolu: false,
+          ancre: true,
+        });
+      continue;
+    }
+    // Hors périmètre : ressources externes, données embarquées.
+    if (/^(https?:|mailto:|data:|\/\/)/.test(href)) continue;
     checked++;
     const target = href.split("#")[0].split("?")[0];
     if (target === "") continue; // lien d'ancre pure

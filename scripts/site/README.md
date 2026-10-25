@@ -130,7 +130,9 @@ readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
 - **Variable** `BLOB`
 - **Variable** `CHANNEL`
 - **Variable** `OUT`
+- **Variable** `PRERELEASE`
 - **Variable** `RAW`
+- **Variable** `REPO`
 - **Variable** `STYLE_CODE`
 - **Appelé par** : `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`

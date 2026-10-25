@@ -1560,7 +1560,15 @@
           "help": ""
         },
         {
+          "name": "PRERELEASE",
+          "help": ""
+        },
+        {
           "name": "RAW",
+          "help": ""
+        },
+        {
+          "name": "REPO",
           "help": ""
         },
         {
