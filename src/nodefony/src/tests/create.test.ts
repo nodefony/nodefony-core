@@ -3289,6 +3289,40 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(avertissement ?? "", "^/api/compte");
     });
 
+    it("realtime --role : le canal « libre » se dit DERRIÈRE la garde de la classe", () => {
+      // Vécu au banc (tâche 0, Codex ET Copilot, 10.0.0-beta.5) : « Sans
+      // `policy`, un CANAL reste LIBRE » s'est lu « public » sur un controller
+      // gardé, et les deux agents ont refermé le canal à la main. Constaté sur
+      // une app réelle : la poignée de main anonyme y rend 403.
+      const dest = path.join(tmp, "rtrole");
+      scaffold(dest, { name: "rtrole", preset: "complete", frontend: "none" });
+      const gen = (name: string, role?: string) => {
+        runScaffold(
+          {
+            type: "controller",
+            answers: { name, kind: "realtime", ...(role ? { role } : {}) },
+            dir: dest,
+            force: false,
+          },
+          version,
+        );
+        return readFileSync(
+          path.join(
+            dest,
+            "nodefony",
+            "controllers",
+            `${name[0]?.toUpperCase()}${name.slice(1)}Controller.ts`,
+          ),
+          "utf8",
+        );
+      };
+      assert.include(
+        gen("pulse", "ROLE_USER"),
+        "DERRIÈRE la garde de la classe",
+      );
+      assert.notInclude(gen("ticker"), "DERRIÈRE la garde");
+    });
+
     it("create controller --role : reste MUET quand le controller est seul", () => {
       const dest = path.join(tmp, "rsolo");
       scaffold(dest, { name: "rsolo", preset: "complete", frontend: "none" });

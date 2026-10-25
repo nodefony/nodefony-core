@@ -137,7 +137,11 @@ let publishToChannel: RealtimePublish | null = null;
    *
    * Sans `policy`, un CANAL reste LIBRE (contrairement à une action) : un flux
    * se lit, une action agit. Pour le fermer : `@RealtimeChannel(name, { roles })`.
-   */
+<% if (it.roleGuard) { %>   *
+   * « Libre » s'entend ici DERRIÈRE la garde de la classe : `@IsGranted("<%= it.role %>")`
+   * refuse la poignée de main elle-même (403 à l'anonyme), donc seul un porteur
+   * du rôle atteint ce canal. Rien à ajouter pour le fermer davantage.
+<% } %>   */
   @RealtimeChannel("<%= it.channel %>:events")
   events(_channel: string, publish: RealtimePublish): () => void {
     publishToChannel = publish;
