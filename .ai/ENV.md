@@ -15,7 +15,7 @@
 | Infrastructure | 13 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 38 |
-| Runtime produit | 85 |
+| Runtime produit | 86 |
 
 ## Décor de banc
 
@@ -152,7 +152,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (85)
+## Runtime produit (86)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -166,6 +166,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:875` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:116` |
+| `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3017` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3029` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
@@ -212,8 +213,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
-| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:874` |
-| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:893` |
+| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:876` |
+| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:895` |
 | `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
 | `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:62` |
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |

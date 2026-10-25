@@ -687,6 +687,8 @@ export const TESTBED_CATALOG: readonly ITestbedEntry[] = [
     family: "network",
     purpose:
       "Ce qu'un vrai proxy pose correspond-il à ce que le serveur attend ? Un mot de configuration renverse l'adresse du client.",
+    // Passe à part : elle relance le serveur sur 0.0.0.0 (NF_BIND_ALL=1).
+    phase: "--proxy",
   },
 ];
 

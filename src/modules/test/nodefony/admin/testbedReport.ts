@@ -83,34 +83,32 @@ async function run(root: string | null): Promise<unknown> {
         join(root, "node_modules", "tsx", "dist", "cli.mjs"),
         join(root, "scripts", "test", "testbed-report.ts"),
       ],
-      { cwd: root, env: process.env, stdio: ["ignore", "pipe", "pipe"] },
+      // stderr IGNORÉ : il porte des piles et des chemins absolus du poste, qui
+      // n'ont rien à faire dans une réponse du plan d'administration. Le
+      // diagnostic se rejoue à la main, même commande.
+      { cwd: root, env: process.env, stdio: ["ignore", "pipe", "ignore"] },
     );
     let stdout = "";
-    let stderr = "";
+    const failure = new Error(
+      "constat des décors en échec — le rejouer : npx tsx scripts/test/testbed-report.ts",
+    );
     const timer = setTimeout(() => {
       child.kill();
-      reject(new Error(`constat des décors interrompu après ${TIMEOUT_MS} ms`));
+      reject(failure);
     }, TIMEOUT_MS);
     child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
       stdout += chunk;
       if (stdout.length > MAX_OUTPUT) child.kill();
     });
-    child.stderr.on("data", (chunk: string) => {
-      stderr = (stderr + chunk).slice(-2000);
-    });
-    child.once("error", (err) => {
+    child.once("error", () => {
       clearTimeout(timer);
-      reject(err);
+      reject(failure);
     });
     child.once("close", (code) => {
       clearTimeout(timer);
       if (code === 0 && stdout.length <= MAX_OUTPUT) resolve(stdout);
-      else {
-        const last = stderr.trim().split("\n").at(-1) ?? "";
-        reject(new Error(`constat des décors en échec (code ${code}) ${last}`));
-      }
+      else reject(failure);
     });
   });
   return JSON.parse(output);

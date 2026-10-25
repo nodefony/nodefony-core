@@ -37,6 +37,7 @@
  * npm run test:all -- --infra      # état de l'infra seul, ne lance aucun test
  * npm run test:all -- --dialects   # + rejoue les suites ORM sur MySQL Community
  * npm run test:all -- --mongo      # + rejoue le DÉMARRAGE de l'app sur MongoDB
+ * npm run test:all -- --proxy      # + joue le serveur derrière de vrais nginx et haproxy
  * npm run test:all -- --help       # l'aide, rendue depuis les @option ci-dessous
  * ```
  *
@@ -53,6 +54,7 @@
  * @option --load         ajoute la charge, le gate mémoire et le cluster e2e
  * @option --dialects     rejoue les suites ORM sur MySQL Community
  * @option --mongo        rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration
+ * @option --proxy        joue le serveur derrière de VRAIS nginx et haproxy (suite proxy de http)
  * @option --unit         la suite unitaire SEULE (avec --integration : les deux)
  * @option --integration  la suite d'intégration SEULE (avec --unit : les deux)
  * @option --fresh        EXÉCUTE les suites unitaires au lieu de rejouer leur journal en cache
@@ -61,6 +63,7 @@
  * @option --json         sortie machine (CI)
  */
 import { spawn, spawnSync } from "node:child_process";
+import { lookup } from "node:dns/promises";
 import { needsShell } from "nodefony";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -72,6 +75,7 @@ import {
   REDIS_GATE,
   MYSQL_COMMUNITY_GATE,
   MONGO_BOOT_GATE,
+  PROXY_GATE,
   TEST_ALL_GATES,
   gateEnv,
   gateUpCommand,
@@ -107,6 +111,8 @@ interface Options {
   dialects: boolean;
   /** Rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration. */
   mongo: boolean;
+  /** Joue le serveur derrière de vrais reverse-proxy (nginx + haproxy). */
+  proxy: boolean;
   /** Ne prépare que l'infra et rend son état — aucune suite lancée. */
   infraOnly: boolean;
   unit: boolean;
@@ -129,6 +135,7 @@ function parseArgs(argv: string[]): Options {
     infraOnly: has("--infra"),
     dialects: has("--dialects"),
     mongo: has("--mongo"),
+    proxy: has("--proxy"),
     unit: picked ? has("--unit") : true,
     integration: picked ? has("--integration") : true,
     load: has("--load"),
@@ -213,7 +220,12 @@ async function prepare(
     return { gate, ready: false, reason: "docker indisponible" };
   }
 
-  if (!containerHealthy(gate.service.name)) {
+  // TOUS les services du décor, compagnons compris : un nginx sain devant un
+  // haproxy éteint n'est pas un décor prêt — deux portes sur trois n'auraient
+  // pas de serveur, et le banc échouerait sur un refus loin de sa cause.
+  const services = [gate.service.name, ...(gate.service.companions ?? [])];
+  const allHealthy = (): boolean => services.every((s) => containerHealthy(s));
+  if (!allHealthy()) {
     const up = gateUpCommand(gate)!;
     process.stdout.write(`  ${C.dim("→")} démarrage ${gate.label}… `);
     const res = spawnSync(up, { shell: true, cwd: ROOT, stdio: "ignore" });
@@ -226,10 +238,10 @@ async function prepare(
     // démarrage — sinon les premiers tests échouent sur une connexion refusée.
     const deadline = Date.now() + 90_000;
     while (Date.now() < deadline) {
-      if (containerHealthy(gate.service.name)) break;
+      if (allHealthy()) break;
       await new Promise((r) => setTimeout(r, 1000));
     }
-    if (!containerHealthy(gate.service.name)) {
+    if (!allHealthy()) {
       process.stdout.write(`${C.red("pas sain")}\n`);
       return { gate, ready: false, reason: "conteneur jamais devenu sain" };
     }
@@ -552,6 +564,36 @@ function report(
 
 // ── Programme ───────────────────────────────────────────────────────────────
 
+/**
+ * Les phases optionnelles que cette passe n'a PAS demandées.
+ *
+ * Ce qu'on n'a pas lancé se dit aussi : une batterie « complète » qui tait ses
+ * absences est exactement le genre de demi-vérité que ce script combat. Une
+ * seule liste pour `--infra` et pour la passe complète — deux copies avaient
+ * déjà divergé (le cluster e2e n'était annoncé que dans l'une).
+ */
+function notRequested(options: Options): PhaseResult[] {
+  const skipped = (name: string, flag: string): PhaseResult => ({
+    name,
+    ok: true,
+    skipped: `non lancée — \`npm run test:all -- ${flag}\``,
+    durationMs: 0,
+  });
+  const out: PhaseResult[] = [];
+  if (!options.load) {
+    out.push(skipped("Suite de charge + mémoire", "--load"));
+    out.push(skipped("Socket distribuée (cluster e2e)", "--load"));
+  }
+  if (!options.dialects) {
+    out.push(skipped("Suites ORM — MySQL Community", "--dialects"));
+  }
+  if (!options.proxy) {
+    out.push(skipped("Derrière de vrais proxys (nginx + haproxy)", "--proxy"));
+  }
+  if (!options.mongo) out.push(skipped("Démarrage sur MongoDB", "--mongo"));
+  return out;
+}
+
 async function main(): Promise<void> {
   // Aide et refus d'une option inconnue : la règle des scripts de pilotage,
   // lue sur l'en-tête de ce fichier — une seule implémentation.
@@ -587,31 +629,7 @@ async function main(): Promise<void> {
   if (options.infraOnly) {
     // Ce qu'on n'a pas lancé se dit aussi : une batterie « complète » qui tait ses
     // absences est exactement le genre de demi-vérité que ce script combat.
-    if (!options.load) {
-      phases.push({
-        name: "Suite de charge + mémoire",
-        ok: true,
-        skipped: "non lancée — `npm run test:all -- --load`",
-        durationMs: 0,
-      });
-    }
-    if (!options.dialects) {
-      phases.push({
-        name: "Suites ORM — MySQL Community",
-        ok: true,
-        skipped: "non lancée — `npm run test:all -- --dialects`",
-        durationMs: 0,
-      });
-    }
-    if (!options.mongo) {
-      phases.push({
-        name: "Démarrage sur MongoDB",
-        ok: true,
-        skipped: "non lancée — `npm run test:all -- --mongo`",
-        durationMs: 0,
-      });
-    }
-
+    phases.push(...notRequested(options));
     report(infra, phases, options);
     process.exit(infra.every((i) => i.ready) ? 0 : 1);
   }
@@ -760,6 +778,88 @@ async function main(): Promise<void> {
     else process.env.NF_RUN_CLUSTER_E2E = previous;
   }
 
+  // ── Le serveur derrière de VRAIS reverse-proxy ────────────────────────────
+  // Ce qu'un vrai proxy pose doit correspondre à ce que le serveur ATTEND — un
+  // mot de configuration nginx renverse l'adresse du client sans qu'aucun test
+  // unitaire ne bouge. Jusqu'ici seul un job de CI le jouait : en local, la
+  // suite ne tournait qu'à la main. Même ordre que ce job, imposé par le décor :
+  //  1. serveur relancé avec `NF_BIND_ALL=1` (joignable depuis un conteneur,
+  //     `trustProxy`, `nodefony.com` dans le certificat) ;
+  //  2. PEM de haproxy dérivé de CE certificat (il le lit au démarrage) ;
+  //  3. nginx ET haproxy, puis les deux relais doivent répondre ;
+  //  4. la suite ; le serveur est ARRÊTÉ en sortant — laissé ouvert sur
+  //     0.0.0.0, il servirait le prochain test à la main sur toutes les
+  //     interfaces sans que personne l'ait demandé.
+  if (options.proxy) {
+    const failProxy = (reason: string): void => {
+      phases.push({
+        name: "Derrière de vrais proxys (nginx + haproxy)",
+        ok: false,
+        skipped: reason,
+        durationMs: 0,
+      });
+    };
+    // Le client doit joindre `nodefony.com` sur cette machine (porte TLS de
+    // haproxy). Constaté, jamais supposé : `/etc/hosts` n'est pas à nous.
+    const resolved = await lookup("nodefony.com").catch(() => null);
+    const savedBindAll = process.env.NF_BIND_ALL;
+    if (resolved?.address !== "127.0.0.1" && resolved?.address !== "::1") {
+      failProxy(
+        "nodefony.com ne résout pas vers cette machine — ajouter « 127.0.0.1 nodefony.com » à /etc/hosts",
+      );
+    } else {
+      process.env.NF_BIND_ALL = "1";
+      if (serverRunning()) await run("npx nodefony stop");
+      console.log(
+        `\n${C.cyan("▸")} ${C.bold("Serveur de développement — NF_BIND_ALL=1")}`,
+      );
+      const started = await run(
+        "bash .claude/skills/nodefony-start-server/start.sh",
+      );
+      const pem =
+        started.code === 0 && serverRunning()
+          ? await run("bash docker/certs/build-haproxy-pem.sh")
+          : null;
+      const decor =
+        pem?.code === 0 ? await prepare(PROXY_GATE, options.infra, true) : null;
+      if (decor) infra.push(decor);
+      if (!pem) {
+        failProxy("le serveur n'a pas démarré avec NF_BIND_ALL=1");
+      } else if (pem.code !== 0) {
+        failProxy(
+          "PEM de haproxy non construit (docker/certs/build-haproxy-pem.sh)",
+        );
+      } else if (!decor?.ready) {
+        failProxy(decor?.reason ?? "décor proxy indisponible");
+      } else {
+        // Les DEUX relais, pas le premier : n'attendre que nginx laissait partir
+        // les cas sur un haproxy mort, et l'échec tombait en refus de connexion.
+        const relays = [
+          `${PROXY_GATE.values().NF_PROXY_NGINX_URL}/nodefony/test/context`,
+          `${PROXY_GATE.values().NF_PROXY_HAPROXY_URL}/nodefony/test/context`,
+        ];
+        const deadline = Date.now() + 60_000;
+        let relayed = false;
+        while (!relayed && Date.now() < deadline) {
+          relayed = (await Promise.all(relays.map(respond))).every(Boolean);
+          if (!relayed) await new Promise((r) => setTimeout(r, 2000));
+        }
+        if (!relayed) {
+          failProxy("un relais ne joint pas l'application (nginx ou haproxy)");
+        } else {
+          await phase(
+            "Derrière de vrais proxys (nginx + haproxy)",
+            "npm --workspace=@nodefony/http exec -- vitest run -c vitest.proxy.config.ts",
+            phases,
+          );
+        }
+      }
+      if (serverRunning()) await run("npx nodefony stop");
+      if (savedBindAll === undefined) delete process.env.NF_BIND_ALL;
+      else process.env.NF_BIND_ALL = savedBindAll;
+    }
+  }
+
   // ── Démarrage de l'application sur MongoDB ────────────────────────────────
   // La cible que personne n'exerçait. Les bancs de magasin montent l'ORM à la
   // main, sans noyau : ils ne peuvent voir ni un ORM chargé après
@@ -835,38 +935,7 @@ async function main(): Promise<void> {
     }
   }
 
-  // Ce qu'on n'a pas lancé se dit aussi : une batterie « complète » qui tait ses
-  // absences est exactement le genre de demi-vérité que ce script combat.
-  if (!options.load) {
-    phases.push({
-      name: "Suite de charge + mémoire",
-      ok: true,
-      skipped: "non lancée — `npm run test:all -- --load`",
-      durationMs: 0,
-    });
-    phases.push({
-      name: "Socket distribuée (cluster e2e)",
-      ok: true,
-      skipped: "non lancée — `npm run test:all -- --load`",
-      durationMs: 0,
-    });
-  }
-  if (!options.dialects) {
-    phases.push({
-      name: "Suites ORM — MySQL Community",
-      ok: true,
-      skipped: "non lancée — `npm run test:all -- --dialects`",
-      durationMs: 0,
-    });
-  }
-  if (!options.mongo) {
-    phases.push({
-      name: "Démarrage sur MongoDB",
-      ok: true,
-      skipped: "non lancée — `npm run test:all -- --mongo`",
-      durationMs: 0,
-    });
-  }
+  phases.push(...notRequested(options));
 
   if (startedHere && serverRunning()) {
     console.log(
