@@ -9,6 +9,21 @@ Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
 > changer le client et le constructeur de table (`pgTable`/`mysqlTable`) — le
 > contrat `IRepository` reste identique.
 
+## ⚡ Le geste — une entité ne s'écrit pas à la main
+
+Dans une application, `create entity` pose la table Drizzle (`nodefony/entity/Post.ts`), ses
+schémas de validation, un service CRUD, un contrôleur REST, un test unitaire et un test e2e, et
+les inscrit dans `index.ts`. Si l'application versionne ses migrations, il écrit puis applique
+celle de la table à la base de développement :
+
+```bash
+npx nodefony create entity Post title:string content:text views:int --route /api/posts
+```
+
+Le pas-à-pas qui construit la même entité à la main, pour comprendre ce que la commande écrit :
+[Créer une entité](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/orm-core/docs/tutorial-entity.md).
+La suite de ce README décrit l'adaptateur lui-même.
+
 ## Installation
 
 ```bash

@@ -8,6 +8,21 @@ sert **HTTP et WebSocket dans le même contexte**, nativement.
 > (internals concis) · [`docs/`](./docs) (concepts). `@nodefony/http` ne peut PAS importer
 > ce module (dépendance circulaire) — l'accès se fait via `context.resolver`, typé par le contrat `IRouteResolver` (défini par http, implémenté par framework).
 
+## ⚡ Le geste — un contrôleur ne s'écrit pas à la main
+
+Dans une application, les générateurs posent le contrôleur, l'inscrivent dans `index.ts` et
+écrivent son test. Depuis la racine de l'application :
+
+```bash
+# une ressource REST adossée à une table : entité, service CRUD, contrôleur, tests, migration
+npx nodefony create entity Post title:string content:text --route /api/posts
+# un contrôleur seul : hello (GET + écho WebSocket, défaut), rest (CRUD) ou realtime (canal)
+npx nodefony create controller Facture --kind rest --route /api/factures
+```
+
+`--module <nom>` cible un module de l'application au lieu de sa racine. La suite de ce README
+décrit ce que ces fichiers contiennent — de quoi les lire et les retoucher.
+
 ## Rôle
 
 - **Router** : matching de routes (path + méthode + domaine), `Route.match()`.
