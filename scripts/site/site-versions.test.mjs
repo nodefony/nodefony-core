@@ -236,8 +236,12 @@ describe("archive de release", () => {
     expect(debut).toBeGreaterThan(-1);
     const fin = yml.indexOf("- name:", debut + 1);
     const pas = yml.slice(debut, fin === -1 ? undefined : fin);
-    const bascule = pas.indexOf("accueil-gate.mjs --basculer");
-    const rendu = pas.indexOf("build-site.mjs");
+    // La COMMANDE, pas le nom du script : un commentaire qui le cite avant la
+    // bascule faisait conclure à un ordre inversé.
+    const bascule = pas.indexOf(
+      "node scripts/release/accueil-gate.mjs --basculer",
+    );
+    const rendu = pas.indexOf("node scripts/site/build-site.mjs");
     expect(bascule).toBeGreaterThan(-1);
     expect(rendu).toBeGreaterThan(bascule);
   });
