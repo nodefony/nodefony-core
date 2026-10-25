@@ -675,7 +675,9 @@ jamais de skipped-vert).
 `nodefony create front <name> [--frontend <react|vue|angular>] [--route </page>]
 [--module <nom>]` — ajoute un frontend Vite à une cible SANS front (app `none` ou
 module) : coquille HTML (brique PARTAGÉE `templates/shared/front-shell/` — la même
-que `create app`, zéro dérive), entry minimale du framework, controller de page
+que `create app`, zéro dérive), la page du moteur — la MÊME vitrine que `create app
+--frontend` (`runFrontScaffold` : un squelette à part, tenu en double, faisait recomposer
+à la main la liaison temps réel), controller de page
 (`renderDocument(name, cspNonce)` — TSDoc = tout le flux dev HMR/prod/CSP/proxy),
 registrar `register<Name>Entry` (fichier dédié documenté) ; wiring AUTO
 `@controllers` + hook `onKernelBoot` (inséré si absent — un hook EXISTANT n'est
@@ -868,8 +870,9 @@ compte SANS rôle, `userLogin`, semé par `security:user:add` après le démarra
 d'entité éprouve les TROIS faces — l'admin supprime, l'anonyme est refusé, le compte sans
 `ROLE_ADMIN` reçoit 403 et la donnée survit. Seule la troisième mord quand on RETIRE
 `@IsGranted` : l'anonyme est refusé avec ou sans elle. Toutes les requêtes du cycle portent le
-jeton anti-CSRF (`csrfHeaders`, semé par `GET …/auth/me`) : ajouter `@CsrfProtect()` aux écritures
-ne casse aucun test généré. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
+jeton anti-CSRF (`csrfHeaders`, semé par `GET …/auth/me`), puisque les QUATRE écritures naissent
+sous `@CsrfProtect()` quand `@nodefony/security` est là — la doctrine du skill `nodefony-protect-route`
+(« toute action qui écrit »), une seule pour le générateur et le skill. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
 DELETE anonyme** (banc de découvrabilité, tâche 20). **Dit la vérité** : la
 table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`) — SAUF si le connecteur versionne
 déjà une migration (cas de toute app `complete`) : le démarrage est alors en `migrate`, et c'est
@@ -1041,7 +1044,11 @@ rend pas le même PNG octet pour octet d'une version à l'autre.
 Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
 `gitignore.tpl` → `.gitignore`, `dockerignore.tpl` → `.dockerignore` (npm strip les
 dotfiles publiés). Exit codes :
-`OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (parse + spec +
+`OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. **`CANTCREAT` (73) = la sortie ne peut pas être créée sans écraser** —
+dossier non vide, ou nom déjà câblé dans `index.ts` (`ScaffoldConflictError`, classée par `instanceof`,
+jamais par le texte) ; sur un nom pris, `freeNameFor` propose un voisin JUGÉ par une simulation du même
+scaffold. « Nom requis » rend la ligne à TAPER : `npm create nodefony@<version> -- <nom>` quand le shim
+`create-nodefony` l'a marqué (`NF_CREATE_LAUNCHER`), et `.` d'abord dans un dossier vide. Tests `create.test.ts` (parse + spec +
 moteur 2 presets × 4 fronts + interactif sur streams + e2e bin gate
 `NF_RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→
 unit→e2e + page HMR nonce servie), minimal, vue, angular.
