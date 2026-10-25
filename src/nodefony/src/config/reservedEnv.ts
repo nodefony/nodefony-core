@@ -74,6 +74,10 @@ export const RESERVED_ENV = Object.freeze({
     name: "NF_CLI_DELEGATED",
     role: "posée par le lanceur du CLI quand il passe la main au `nodefony` du projet (garde anti-boucle)",
   },
+  NF_CREATE_LAUNCHER: {
+    name: "NF_CREATE_LAUNCHER",
+    role: "posée par `create-nodefony` (`npm create nodefony`) : `create app` rend ses lignes à relancer sous cette forme",
+  },
   NF_CLI_DEBUG: {
     name: "NF_CLI_DEBUG",
     role: "trace la décision du lanceur du CLI sur la sortie d'erreur",

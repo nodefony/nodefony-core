@@ -15,6 +15,7 @@ import {
 import type { PackageManagerName } from "../Cli";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
+import { RESERVED_ENV } from "../config/reservedEnv";
 import { startFreshnessCheck } from "./cliFreshness";
 // Les sept listes de choix ont disparu d'ici AVEC la section qui les recopiait :
 // l'aide les DÉRIVE désormais de la spec (`scaffold/help.ts`).
@@ -1570,7 +1571,9 @@ export type TCreateLauncher = "nodefony" | "npm-create";
 export function createLauncherOf(
   env: Readonly<Record<string, string | undefined>>,
 ): TCreateLauncher {
-  return env["NF_CREATE_LAUNCHER"] === "npm-create" ? "npm-create" : "nodefony";
+  return env[RESERVED_ENV.NF_CREATE_LAUNCHER.name] === "npm-create"
+    ? "npm-create"
+    : "nodefony";
 }
 
 /** Le dossier est-il vide (ou absent) — la seule cible où `.` est permis ? */
