@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T11:38:52.659Z",
+  "generatedAt": "2026-10-25T11:46:35.244Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 193,
+      "closed": 194,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 21,
+      "open": 20,
       "title": "10.0.0-beta"
     },
     {
@@ -4930,8 +4930,8 @@
       "number": 677,
       "title": "feat(studio): montrer les décors de développement du cœur dans la configuration",
       "url": "https://github.com/nodefony/nodefony-core/issues/677",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
