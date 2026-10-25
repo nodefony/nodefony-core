@@ -171,6 +171,52 @@ export {
 } from "./nodefony/entity/sessionEntity";
 export type { SessionRow } from "./nodefony/entity/sessionEntity";
 
+// ─── Kit de colonnes portable (colKit) ───────────────────────────────────────
+// Une entité décrit ses colonnes UNE fois, en types logiques ; `defineTable`
+// fabrique la table Drizzle du dialecte du connecteur, exactement typée. La
+// description (`ITableSpec`, `RowOf`, `InsertOf`) ne dépend d'aucun ORM.
+export {
+  assertTableSpec,
+  defineTable,
+  isPortableTable,
+  jsonType,
+} from "./nodefony/entity/colKit";
+export type {
+  ColumnKind,
+  ColumnSpec,
+  DataOf,
+  IBoolColumn,
+  ICharColumn,
+  IColumnMods,
+  IDateColumn,
+  IDatetimeColumn,
+  IDecimalColumn,
+  IEnumColumn,
+  IFloatColumn,
+  IIndexSpec,
+  IInt64Column,
+  IIntColumn,
+  IJsonColumn,
+  IJsonType,
+  IKeyColumnMods,
+  IPortableTable,
+  IPortableTableBase,
+  IRefColumn,
+  ISerialColumn,
+  IStringColumn,
+  ITableDescription,
+  ITableFactory,
+  ITableFactoryBase,
+  ITableSpec,
+  ITextColumn,
+  IUuidColumn,
+  IValueColumnMods,
+  IVectorColumn,
+  InsertOf,
+  OnDeleteAction,
+  RowOf,
+} from "./nodefony/entity/colKit";
+
 // ─── Applicateur de migrations (consommé par les commandes `orm:migrate*`) ──
 // La surface est PUBLIÉE : sans elle, la ligne de commande, le plan
 // d'administration et la sonde de disponibilité ne pourraient pas l'atteindre
