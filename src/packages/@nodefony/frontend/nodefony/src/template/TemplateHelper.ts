@@ -6,6 +6,7 @@ import {
   PLATFORM_EVENTS,
   RequestContext,
   escapeRegExp,
+  isPlainObject,
 } from "nodefony";
 import type {
   IViteSupervisor,
@@ -39,6 +40,34 @@ interface ViteManifestChunk {
 }
 // Indexé par un chemin de source : une entrée peut manquer du manifeste.
 type ViteManifest = Partial<Record<string, ViteManifestChunk>>;
+
+const isStringArray = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === "string");
+
+/**
+ * Lit la forme d'un `manifest.json` de Vite relu sur disque : un objet dont chaque
+ * valeur porte au moins `file`.
+ *
+ * Une entrée mal formée est écartée — elle rendrait une balise sans fichier ; un
+ * document qui n'est pas un objet rend `null`, traité comme un manifeste ABSENT
+ * (jamais caché, donc relu au rendu suivant).
+ *
+ * @param value - le JSON parsé, de forme inconnue.
+ * @returns le manifeste réduit aux champs lus par le rendu, ou `null`.
+ */
+function toViteManifest(value: unknown): ViteManifest | null {
+  if (!isPlainObject(value)) return null;
+  const manifest: ViteManifest = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (!isPlainObject(raw) || typeof raw.file !== "string") continue;
+    const chunk: ViteManifestChunk = { file: raw.file };
+    if (typeof raw.isEntry === "boolean") chunk.isEntry = raw.isEntry;
+    if (isStringArray(raw.css)) chunk.css = raw.css;
+    if (isStringArray(raw.imports)) chunk.imports = raw.imports;
+    manifest[key] = chunk;
+  }
+  return manifest;
+}
 
 /** Marqueur optionnel dans l'`index.html` du module où injecter les tags. */
 const FRONTEND_MARKER = "<!--nodefony:frontend-->";
@@ -407,8 +436,8 @@ mountDebugBar(${opts});
     for (const rel of [".vite/manifest.json", "manifest.json"]) {
       try {
         const raw = fs.readFileSync(path.join(outDir, rel), "utf8");
-        parsed = JSON.parse(raw) as ViteManifest;
-        break;
+        parsed = toViteManifest(JSON.parse(raw));
+        if (parsed !== null) break;
       } catch {
         /* essaie le layout suivant */
       }

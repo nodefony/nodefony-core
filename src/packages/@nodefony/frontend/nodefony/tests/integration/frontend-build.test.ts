@@ -177,6 +177,44 @@ describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
     );
   });
 
+  it("un manifest relu de forme inattendue ne fabrique aucune balise fausse", () => {
+    // La forme est relue sur disque, jamais crue : un `css` en chaîne était
+    // parcouru caractère par caractère (une balise <link> par lettre), et un
+    // morceau sans `file` rendait un `href=".../undefined"`.
+    const dir = path.join(OUT_DIR, "malformed");
+    fs.mkdirSync(path.join(dir, ".vite"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, ".vite", "manifest.json"),
+      JSON.stringify({
+        "src/main.ts": {
+          file: "assets/main-abc.js",
+          isEntry: true,
+          css: "assets/main.css",
+          imports: ["_broken.js"],
+        },
+        "_broken.js": { nope: true },
+      }),
+    );
+    const tags = new TemplateHelper(null, "production", [
+      makeEntry({ outDir: dir }),
+    ]).renderTags("fixture");
+    expect(tags).to.include(
+      '<script type="module" crossorigin src="/_assets/fixture/assets/main-abc.js"></script>',
+    );
+    expect(tags).to.not.include("stylesheet");
+    expect(tags).to.not.include("undefined");
+
+    // Un document qui n'est pas un objet vaut un manifest ABSENT.
+    const notObject = path.join(OUT_DIR, "not-object");
+    fs.mkdirSync(path.join(notObject, ".vite"), { recursive: true });
+    fs.writeFileSync(path.join(notObject, ".vite", "manifest.json"), "[]");
+    expect(
+      new TemplateHelper(null, "production", [
+        makeEntry({ outDir: notObject }),
+      ]).renderTags("fixture"),
+    ).to.include("manifest missing");
+  });
+
   it("renderProdTags signale une entrée inconnue", () => {
     const helper = new TemplateHelper(null, "production", [makeEntry()]);
     expect(helper.renderTags("nope")).to.include('unknown entry "nope"');
