@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { readRuntimeState } from "nodefony";
+import { csrfHeaders } from "nodefony/testing";
 import { inspect, routesParChemin, type RouteInspectee } from "./harness";
 
 /**
@@ -24,6 +25,17 @@ let routes: RouteInspectee[] = [];
 
 /** L'en-tête `Cookie` d'une session d'administration, ou `null` si l'app n'a pas de firewall. */
 let cookieAdmin: string | null = null;
+/**
+ * Les en-têtes à rejouer : session d'administration + jeton anti-CSRF.
+ *
+ * Toute écriture d'une ressource générée porte `@CsrfProtect()` : une mutation
+ * qui n'apporte que le cookie rend 403, et toute la famille CRUD tombait en
+ * accusant le contrat de la ressource (« impossible de déduire un corps
+ * valide »). Le jeton est rejoué sans condition — cf `csrfHeaders`.
+ */
+let enTetesAdmin: Record<string, string> = {};
+/** Un anonyme qui porte SON jeton : refusé pour son identité, pas pour le CSRF. */
+let enTetesAnonyme: Record<string, string> = {};
 /** Pourquoi aucune identité — un repli muet fait accuser l'application. */
 let raisonSansAdmin: string | null = null;
 /**
@@ -92,6 +104,8 @@ beforeAll(async () => {
       raisonSansAdmin = `tests/e2e.setup n'exporte pas \`adminLogin\` — exports vus : ${Object.keys(setup).join(", ") || "aucun"}`;
     } else {
       cookieAdmin = await setup.adminLogin();
+      enTetesAdmin = await csrfHeaders(BASE, cookieAdmin);
+      enTetesAnonyme = await csrfHeaders(BASE, "");
     }
   } catch (e) {
     // Pas de firewall dans cette application : les cas qui exigent une identité
@@ -158,10 +172,7 @@ describe("e2e — le serveur répond, et c'est bien LUI", () => {
     if (collection === null) return;
     const res = await fetch(`${BASE}${collection}`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(cookieAdmin !== null ? { cookie: cookieAdmin } : {}),
-      },
+      headers: { "content-type": "application/json", ...enTetesAdmin },
       body: "{ ceci n'est pas du JSON",
     });
     // 400 (syntaxe), 401/403 (identité exigée d'abord), 422 (contrat) : toutes
@@ -181,7 +192,7 @@ describe("e2e — le CRUD promis par une ressource générée", () => {
 
   const entetes = (): Record<string, string> => ({
     "content-type": "application/json",
-    ...(cookieAdmin !== null ? { cookie: cookieAdmin } : {}),
+    ...enTetesAdmin,
   });
 
   /**
@@ -343,8 +354,11 @@ describe("e2e — le CRUD promis par une ressource générée", () => {
 
   it("la SUPPRESSION exige une identité — sans elle, la donnée survit", async () => {
     if (collection === null || idCree === null || cookieAdmin === null) return;
+    // L'anonyme porte son jeton : sans lui, le 403 viendrait du CSRF, et ce cas
+    // resterait vert même si la garde d'identité disparaissait.
     const anonyme = await fetch(`${BASE}${collection}/${idCree}`, {
       method: "DELETE",
+      headers: enTetesAnonyme,
     });
     expect([401, 403]).toContain(anonyme.status);
     // Le refus ne suffit pas : ce qui compte est que la donnée soit TOUJOURS là.
