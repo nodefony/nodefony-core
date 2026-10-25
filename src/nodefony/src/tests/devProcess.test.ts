@@ -22,6 +22,7 @@ import net from "node:net";
 import {
   clearRuntimeState,
   defaultDevPorts,
+  launchPorts,
   isPortListening,
   probePort,
   formatForeignRuntimes,
@@ -635,6 +636,21 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
   it("defaultDevPorts LIT le state file — c'est tout l'intérêt du canal", () => {
     writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
     assert.deepStrictEqual(defaultDevPorts(cwd), [5153, 5154]);
+  });
+
+  it("launchPorts : un lancement juge SES ports déclarés, pas ceux du runtime voisin", () => {
+    // Vécu : `production --detach` sur 6151/6152 refusé parce qu'un serveur de
+    // développement tenait 5151/5152 — le fichier d'état passait avant NF_PORT.
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
+    assert.deepStrictEqual(
+      launchPorts(cwd, { NF_PORT: "6151", NF_PORT_HTTPS: "6152" }),
+      [6151, 6152],
+    );
+  });
+
+  it("launchPorts sans déclaration : la même source que status et stop", () => {
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
+    assert.deepStrictEqual(launchPorts(cwd, {}), defaultDevPorts(cwd, {}));
   });
 
   it("NF_DEV_PORTS reste PRIORITAIRE (l'opérateur a toujours le dernier mot)", () => {

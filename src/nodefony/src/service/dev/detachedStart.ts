@@ -14,7 +14,7 @@ import { DELEGATED_ENV } from "../../bin/resolveLocalCli";
 import {
   clearRuntimeState,
   detachedLogFile,
-  defaultDevPorts,
+  launchPorts,
   discoverDevProcesses,
   discoverDevProcessesDetailed,
   processSubtree,
@@ -57,7 +57,7 @@ export interface DetachedStartOptions {
   logFile: string;
   /** Plafond d'attente de readiness en secondes (défaut 120). */
   waitSec?: number | undefined;
-  /** Ports dont l'écoute signe la readiness (défaut `defaultDevPorts()`). */
+  /** Ports dont l'écoute signe la readiness (défaut `launchPorts()`). */
   ports?: number[] | undefined;
   /** Path d'un GET de santé post-listen (best-effort, jamais bloquant). */
   healthPath?: string | undefined;
@@ -371,7 +371,11 @@ function probeHealth(ports: number[], healthPath: string): Promise<string> {
 export async function launchDetached(
   opts: DetachedStartOptions,
 ): Promise<DetachedStartResult> {
-  const ports = opts.ports ?? defaultDevPorts();
+  // Les ports de CE lancement (`launchPorts`), dans le projet du child et avec
+  // l'environnement qu'il recevra — pas ceux d'un runtime voisin déjà en marche.
+  const ports =
+    opts.ports ??
+    launchPorts(opts.cwd ?? process.cwd(), { ...process.env, ...opts.env });
   const waitSec = opts.waitSec ?? 120;
   const logFile = path.resolve(opts.cwd ?? process.cwd(), opts.logFile);
   const progress = opts.onProgress ?? (() => {});

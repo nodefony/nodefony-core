@@ -831,6 +831,30 @@ export function declaredPorts(
     .filter((n) => Number.isInteger(n) && n > 0);
 }
 
+/**
+ * Ports qu'un NOUVEAU lancement va écouter, donc ceux à vérifier libres avant de le
+ * démarrer : ce qu'il DÉCLARE (`NF_PORT`, `NF_PORT_HTTPS`), sinon la même source que
+ * `status` et `stop` ({@link defaultDevPorts}).
+ *
+ * L'ordre diffère de `defaultDevPorts` sur un point, et c'est voulu : là, le fichier
+ * d'état d'un runtime DÉJÀ en marche passe avant la déclaration, parce qu'on sonde
+ * ce qui tourne. Ici, on prépare ce qui va tourner. Lire d'abord l'état faisait
+ * refuser `production --detach` sur 6151/6152 au motif qu'un serveur de
+ * développement tenait 5151/5152 — alors que le démarrage au premier plan, qui
+ * juge sur les ports déclarés, constatait « aucune collision ».
+ *
+ * @param cwd - racine du projet (le fichier d'état est par projet).
+ * @param env - l'environnement du lancement (défaut `process.env`).
+ * @returns les ports déclarés, ou à défaut ceux de {@link defaultDevPorts}.
+ */
+export function launchPorts(
+  cwd: string = process.cwd(),
+  env: Record<string, string | undefined> = process.env,
+): number[] {
+  const declares = declaredPorts(env);
+  return declares.length > 0 ? declares : defaultDevPorts(cwd, env);
+}
+
 /** Lit le PID du superviseur depuis le pidfile, ou `null` si absent / illisible. */
 export function readSupervisorPid(cwd: string): number | null {
   const file = devSupervisorPidFile(cwd);

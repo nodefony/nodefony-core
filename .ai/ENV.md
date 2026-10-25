@@ -164,8 +164,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:91` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:869` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:115` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:875` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:116` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3017` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3029` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
@@ -208,7 +208,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:80` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:78` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:130` |
-| `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:376` |
+| `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:377` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
@@ -228,10 +228,10 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:170` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:176` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
-| `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:440` |
-| `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:441` |
+| `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:441` |
+| `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:442` |
 | `NF_README_ROOT` | `scripts/release/readme-gate.mjs:100` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:162` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:163` |
@@ -241,7 +241,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:564` |
-| `NF_TEST_ENV` | `src/packages/@nodefony/devkit/tests/integration/mcp-http.test.ts:68` |
+| `NF_TEST_ENV` | `src/packages/@nodefony/devkit/tests/integration/mcp-http.test.ts:67` |
 | `NF_TLS_CA_FILE` | `src/packages/@nodefony/http/nodefony/tests/unit/httpRegisterTrust.test.ts:62` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
 | `NF_X` | `src/nodefony/src/tests/reservedEnv.test.ts:174` |
