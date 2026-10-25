@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T21:11:12.208Z",
+  "generatedAt": "2026-10-25T21:28:34.632Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 196,
+      "closed": 197,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 20,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -282,7 +282,7 @@
       "title": "feat(security): authentifier par certificat client sur carte à puce",
       "url": "https://github.com/nodefony/nodefony-core/issues/583",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "13.0.0",
       "priorite": "P2 — décision",
       "jours": 3,
@@ -5228,14 +5228,94 @@
       "number": 679,
       "title": "fix(create): ne pas échouer sur une entité d'un autre dialecte",
       "url": "https://github.com/nodefony/nodefony-core/issues/679",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.015,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-10-25",
+      "cible": "2026-10-25",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 680,
+      "title": "feat(orm): rendre portables entre bases les entités générées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/680",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 7,
+      "ordre": 6.016,
+      "debut": "2026-10-26",
+      "cible": "2026-10-29",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 681,
+      "title": "feat(drizzle): exposer un kit de colonnes portable et typé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/681",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 6.0161,
+      "debut": "2026-10-26",
+      "cible": "2026-10-26",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 682,
+      "title": "feat(create): écrire les entités générées sous forme portable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/682",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 6.0162,
+      "debut": "2026-10-27",
+      "cible": "2026-10-27",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 683,
+      "title": "test(devkit): prouver une app née en SQLite sur trois autres bases",
+      "url": "https://github.com/nodefony/nodefony-core/issues/683",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0163,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 684,
+      "title": "test(devkit): porter le schéma Dolibarr sur quatre moteurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/684",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 6.0164,
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
       "labels": [
         "beta-6"
       ]
@@ -5250,8 +5330,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.02,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
       "labels": [
         "beta-6"
       ]
@@ -5266,8 +5346,8 @@
       "priorite": "P2 — décision",
       "jours": 27,
       "ordre": 6.03,
-      "debut": "2026-10-29",
-      "cible": "2026-11-16",
+      "debut": "2026-11-02",
+      "cible": "2026-11-18",
       "labels": [
         "beta-6"
       ]
@@ -5282,8 +5362,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.031,
-      "debut": "2026-10-29",
-      "cible": "2026-10-29",
+      "debut": "2026-11-02",
+      "cible": "2026-11-02",
       "labels": [
         "beta-6"
       ]
@@ -5298,8 +5378,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.032,
-      "debut": "2026-10-30",
-      "cible": "2026-10-30",
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
       "labels": [
         "beta-6"
       ]
@@ -5314,8 +5394,8 @@
       "priorite": "P2 — décision",
       "jours": 3,
       "ordre": 6.033,
-      "debut": "2026-11-02",
-      "cible": "2026-11-02",
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
       "labels": [
         "beta-6"
       ]
@@ -5330,8 +5410,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.034,
-      "debut": "2026-11-03",
-      "cible": "2026-11-03",
+      "debut": "2026-11-05",
+      "cible": "2026-11-05",
       "labels": [
         "beta-6"
       ]
@@ -5346,8 +5426,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.035,
-      "debut": "2026-11-04",
-      "cible": "2026-11-04",
+      "debut": "2026-11-06",
+      "cible": "2026-11-06",
       "labels": [
         "beta-6"
       ]
@@ -5362,8 +5442,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.0355,
-      "debut": "2026-11-05",
-      "cible": "2026-11-05",
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
       "labels": [
         "beta-6"
       ]
@@ -5378,8 +5458,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.036,
-      "debut": "2026-11-06",
-      "cible": "2026-11-06",
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
       "labels": [
         "beta-6"
       ]
@@ -5394,8 +5474,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.037,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
       "labels": [
         "beta-6",
         "reportable"
@@ -5411,8 +5491,8 @@
       "priorite": "P2 — décision",
       "jours": 7,
       "ordre": 6.04,
-      "debut": "2026-11-10",
-      "cible": "2026-11-16",
+      "debut": "2026-11-12",
+      "cible": "2026-11-18",
       "labels": [
         "beta-6",
         "reportable"
@@ -5428,8 +5508,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.041,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
       "labels": [
         "beta-6",
         "reportable"
@@ -5445,8 +5525,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.042,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
+      "debut": "2026-11-13",
+      "cible": "2026-11-13",
       "labels": [
         "beta-6",
         "reportable"
@@ -5462,8 +5542,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.043,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
       "labels": [
         "beta-6",
         "reportable"
@@ -5479,8 +5559,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.044,
-      "debut": "2026-11-13",
-      "cible": "2026-11-13",
+      "debut": "2026-11-17",
+      "cible": "2026-11-17",
       "labels": [
         "beta-6",
         "reportable"
@@ -5496,8 +5576,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 6.045,
-      "debut": "2026-11-16",
-      "cible": "2026-11-16",
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
       "labels": [
         "beta-6",
         "reportable"
@@ -5585,8 +5665,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.1,
-      "debut": "2026-11-17",
-      "cible": "2026-11-17",
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
       "labels": [
         "beta-6"
       ]
@@ -5633,8 +5713,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.12,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
       "labels": [
         "arbitrage",
         "beta-6"
@@ -5706,8 +5786,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 6.2,
-      "debut": "2026-11-20",
-      "cible": "2026-11-20",
+      "debut": "2026-11-24",
+      "cible": "2026-11-24",
       "labels": [
         "beta-6"
       ]
@@ -9773,86 +9853,6 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 924.8,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 680,
-      "title": "feat(orm): rendre portables entre bases les entités générées",
-      "url": "https://github.com/nodefony/nodefony-core/issues/680",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 7,
-      "ordre": 925,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 681,
-      "title": "feat(drizzle): exposer un kit de colonnes portable et typé",
-      "url": "https://github.com/nodefony/nodefony-core/issues/681",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 925.1,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 682,
-      "title": "feat(create): écrire les entités générées sous forme portable",
-      "url": "https://github.com/nodefony/nodefony-core/issues/682",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 925.2,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 683,
-      "title": "test(devkit): prouver une app née en SQLite sur trois autres bases",
-      "url": "https://github.com/nodefony/nodefony-core/issues/683",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 925.3,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 684,
-      "title": "test(devkit): porter le schéma Dolibarr sur quatre moteurs",
-      "url": "https://github.com/nodefony/nodefony-core/issues/684",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 925.4,
       "debut": null,
       "cible": null,
       "labels": [
