@@ -172,7 +172,7 @@ class CatalogController extends Controller {
     path: "/files/*",
     requirements: { methods: ["GET"] },
   })
-  async files(rest: string) {
+  async download(rest: string) {
     return this.renderJson({ rest });
   }
 
