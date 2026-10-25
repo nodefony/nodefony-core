@@ -594,15 +594,15 @@ export const KEYCLOAK_GATE: EnvGate = {
 };
 
 /** Famille d'un décor, pour le ranger dans l'onglet Décors de la console. */
-export type DecorFamily =
+export type TestbedFamily =
   "database" | "cache" | "observability" | "identity" | "network";
 
 /** Un décor du catalogue : sa gate et ce qu'il faut pour le PRÉSENTER. */
-export interface IDecorEntry {
+export interface ITestbedEntry {
   /** Identifiant stable (clé JSON, ancre d'URL). */
   id: string;
   gate: EnvGate;
-  family: DecorFamily;
+  family: TestbedFamily;
   /** À quoi il sert, en une phrase. */
   purpose: string;
   /**
@@ -619,7 +619,7 @@ export interface IDecorEntry {
  * Distinct de {@link TEST_ALL_GATES} : un décor peut exister sans que la passe
  * par défaut le lève, et c'est précisément ce que l'onglet doit faire voir.
  */
-export const DECOR_CATALOG: readonly IDecorEntry[] = [
+export const TESTBED_CATALOG: readonly ITestbedEntry[] = [
   {
     id: "postgres",
     gate: PG_GATE,

@@ -15,7 +15,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 /**
  * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
- * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ * (`scripts/test/lib/testbed.ts`), pour dire quelle suite chaque décor débloque.
  */
 export const expectations: GateExpectations = () => [
   { gate: LOKI_GATE, proof: "Loki réel" },

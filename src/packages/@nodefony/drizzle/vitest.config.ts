@@ -11,7 +11,7 @@ import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 /**
  * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
- * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ * (`scripts/test/lib/testbed.ts`), pour dire quelle suite chaque décor débloque.
  */
 export const expectations: GateExpectations = [
   { gate: PG_GATE, proof: "(postgres)" },

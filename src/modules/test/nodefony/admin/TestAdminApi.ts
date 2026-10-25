@@ -1,4 +1,5 @@
 import type { IAdminApi, IAdminRequest } from "nodefony";
+import { createTestbedReader, probeTestbedCapability } from "./testbedReport";
 
 /**
  * Banc d'idempotence (P6.8 — mutations par la socket) : un `IAdminApi` de TEST
@@ -17,12 +18,30 @@ import type { IAdminApi, IAdminRequest } from "nodefony";
  *
  * DEV only (le module `test` n'est pas chargé en production).
  */
-export function createTestAdminApi(): IAdminApi {
+export function createTestAdminApi(
+  getRoot: () => string | null = () => null,
+): IAdminApi {
   let counter = 0;
+  const testbed = createTestbedReader();
   return {
     adminNamespace: "test",
     adminDescriptor: () => ({ label: "Test (banc idempotence)", order: 999 }),
     adminEndpoints: () => [
+      // Onglet Décors de la console : rôle administrateur par défaut du broker.
+      {
+        path: "testbed-capability",
+        method: "GET",
+        summary:
+          "Décors : l'onglet existe-t-il ici ? Constat rapide, sans lancer le rapport.",
+        handler: () => probeTestbedCapability(getRoot()),
+      },
+      {
+        path: "testbed",
+        method: "GET",
+        summary:
+          "Décors de développement du cœur : conteneurs, variables, suites débloquées, angles morts.",
+        handler: () => testbed.read(getRoot()),
+      },
       {
         path: "idem-probe",
         method: "POST",

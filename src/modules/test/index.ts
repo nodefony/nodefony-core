@@ -233,7 +233,7 @@ class Test extends Module {
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminRegistry | undefined;
     if (broker && !broker.has("test")) {
-      broker.register(createTestAdminApi());
+      broker.register(createTestAdminApi(() => this.kernel?.path ?? null));
     }
     // Jamais sous un banc : un écouteur `onRequestScope` y ferait payer à
     // CHAQUE requête mesurée un `fireAsync` que le camp témoin ne paie pas —
