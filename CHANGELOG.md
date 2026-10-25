@@ -8,6 +8,75 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.5 - 2026-10-25
+
+_Une bêta tournée vers l'observation : une requête n'a plus qu'une durée, mesurée en production comprise, et les journaux suivent chaque requête et chaque socket jusqu'au Studio et à la barre de débogage. Cinq ruptures, chacune avec son geste de migration._
+
+### Changed
+
+- **syslog (breaking):** En production, ne plus envoyer les journaux à Loki ou OpenSearch sans le demander — l'envoi revient au collecteur qui lit la sortie standard : une application qui envoyait en direct pose `NF_LOG_PUSH=true` (ou `write: true` sous `log.loki` / `log.opensearch`) ; une application générée avant cette version garde son `env.ts`, où `NF_LOG_PUSH` vaut `true` (dcc3f681f)
+- **client (breaking):** Retirer de `nodefony/client` les règles de lecture des journaux, qui ne servent qu'aux visualiseurs : importer `FLOW_STEPS`, `pduFlowStep`, `pduProtocol` et les types `LogProtocol`, `FlowStepId`, `FlowStepMeta` depuis `nodefony/syslog` ; le serveur les lit toujours depuis `nodefony`, et le paquet que charge toute page repasse sous son budget de 30 Ko gzip (88ff1adda)
+- **http (breaking):** Exiger `stopClock(): number | null` sur `IContext` — donc `IHttpContext` et `IWebsocketContext` — et sur tout objet remis à `Profiler.collect()` : une implémentation maison rend la durée de la requête en millisecondes, ou `null` si elle ne mesure rien (2a191142e, d24b80b35)
+- **http (breaking):** Refuser au démarrage une clé inconnue sous `timing`, en la nommant, au lieu de la retirer en silence — `timing: { enable: false }` laissait l'horloge allumée : corriger la clé nommée (f05ba3520)
+- **core (breaking):** Typer `Syslog.trace` et `ISyslog.trace` en `(data, msgid?, msg?)` au lieu d'arguments libres : les arguments suivants étaient déjà ignorés, un appel qui en passe ne compile plus — les retirer (4d65e61a4)
+- **http:** Mesurer la durée de chaque requête en production aussi, par deux lectures d'horloge : `durationMs` de la ligne d'accès JSON n'est plus `null` ; `timing.enabled: true` ajoute les phases, `false` coupe tout (f05ba3520)
+- **http:** Donner à une requête une seule durée, partagée par le journal d'accès, le profileur et la trace — de la construction du contexte au dernier octet remis, comme `http.server.request.duration` d'OpenTelemetry (2a191142e)
+- **http:** Ne plus profiler les appels de l'outillage (console, barre de débogage, relais Vite) ; `timing.tooling: true` les remet (147f9b8ac)
+- **core:** Définir une seule fois les types du profil pour le serveur, la barre de débogage et la console : `ProfileEntry`, `ProfilePhase`, `ProfileQuery`, `ProfileSummary` et `ProfileSecurity` deviennent des alias de type, à contenu identique (e1c7b6b73)
+
+### Added
+
+- **http:** Publier le cycle de chaque requête HTTP et de chaque handshake WebSocket sur le `TracingChannel` `nodefony.http.request` — route, gabarit, module, statut réel et durée — pour les outils de traçage qui écoutent `diagnostics_channel` (e552a3290)
+- **core:** Publier chaque ligne acceptée du journal sur le canal `nodefony.syslog.log` de `diagnostics_channel` (4d62d5fd0)
+- **core:** Relire les journaux dans Loki ou OpenSearch sans y écrire (`log.loki.write: false`, `NF_LOG_PUSH`), et écrire une ligne de sortie JSON complète par `log.format: "json"` (`NF_LOG_FORMAT`) (#585) (7869923fd)
+- **syslog:** Régler Loki et OpenSearch de la même façon, identifiants compris, et exposer `resolveLogPush` pour qu'une destination tierce suive la même règle d'envoi (60f290d3c, 606c773f9)
+- **syslog:** Ranger la ligne d'accès de production dans OpenSearch en champs agrégeables, avec son URL, son IP et le sous-protocole d'un WebSocket (4615c0a9d, bd476cde6)
+- **syslog:** Signer la ligne d'accès et les lignes du contrôleur par leur module, regrouper les journaux par requête, et en écarter un module ou le trafic de la console d'administration (#661) (265fa9f9b, 6e54e2248, e7aaf2d36, 4b83b9ca7, cb24a4248)
+- **syslog:** Lire une ligne d'accès par `parseAccessLine` (`nodefony/syslog`), une seule règle pour le Studio et la barre de débogage (80d4134e9)
+- **http:** Taire les réussites d'un montage du proxy inverse par l'option `accessLog: "errors"` (défaut `all`) (#661) (d4a1cd643)
+- **http:** Rendre le profil de l'application route par route sur `/nodefony/profiler/api/summary`, et retrouver les appels d'une socket par `recent?connection=` (5736deae4, 1cef2697b)
+- **studio:** Refondre la page Configuration — coup d'œil, recherche, aide par réglage — avec un onglet Décors qui dit quelles infrastructures de test répondent ; le Noyau devient la première boîte de Modules (#677) (76fc718d9, 491dbc250)
+- **studio:** Dire dans l'onglet Profiling où part le temps de l'application, route par route (29b559db4)
+- **studio:** Suivre une connexion WebSocket : sa ligne d'accès lue, ses appels listés (11ff8cfbf)
+- **studio:** Refondre la page des journaux et le Direct — une ligne par requête, dépliable sur toutes ses lignes, verbe et chemin en tête, mêmes sévérités et mêmes filtres d'affichage, lignes récentes en haut, source et période nommées (#661) (642f4b5f0, 364d3561f, 6652e4533, b23c319b7, f7561da06, 1e7070f87, 71d8fc8d1, 8c9493ad7, 20f7b3ebf)
+- **debugbar:** Fusionner Network et Logs en un onglet Requêtes qui joint chaque requête du navigateur à ses lignes serveur, en trois vues, WebSocket et flux SSE compris, avec les appels d'une socket et leur profil (#665) (c8926a389, 794523214, 09a43ffc1, be87befc5, bf61ea4a5)
+- **debugbar:** Masquer l'outillage par défaut, compteurs compris — la puce dit combien de lignes sont masquées (#665) (77391bb56)
+- **cli:** Créer l'application dans le dossier courant par `create app .` (#653) (e36794a42)
+- **cli:** Faire écrire et appliquer par `create entity` la migration de sa table neuve (#657) (a2b238bb3)
+- **security:** Fournir l'identité d'essai et le vrai verrou pour tester un canal protégé (#654) (315403248)
+- **scaffold:** Livrer des tableaux de bord d'exemple des journaux pour Grafana et OpenSearch (334b48b40)
+- **devkit:** Faire voir aux sondes de style et de rendu les barres de défilement internes et un Shadow DOM ouvert (302a78e4a, f08e90c94)
+
+### Fixed
+
+- **http:** Libérer le scope d'une requête HEAD en HTTP/2 et écrire sa ligne d'accès (4d3e9ea57)
+- **http:** Signaler au délai d'attente une action qui rend `null` sans rien envoyer (d3ad26262)
+- **http:** Écrire dans la ligne d'accès d'une requête relayée le statut rendu par l'amont, au lieu du 200 du contexte (#661) (d4a1cd643)
+- **http:** Profiler une frame du pont par son chemin, et n'annoncer un identifiant de profil que s'il existe (9001b2fda)
+- **cli:** Laisser démarrer `production --detach` sur des ports déclarés libres (03813ec6b)
+- **cli:** Ne plus bloquer toute commande en sortie 13 dans une application bun reliée au dépôt du framework (c2fa479b9)
+- **cli:** Ne plus écrire le mot de passe de développement en dur dans la notice `.env.example` générée (#227) (31a01be7d)
+- **cli:** Annoncer le canal que `create controller --kind realtime` pose vraiment (5f1f5f3f5)
+- **cli:** Garder l'application vérifiable après `create front` (#652) (ee3f5bfc5)
+- **cli:** Nommer l'erreur au lieu d'afficher « undefined » quand `create` échoue sur autre chose qu'une `Error` (#657) (584429065)
+- **create:** Annoncer une seule fois un fichier réécrit par un layer (2d0647688)
+- **core:** Vérifier la forme du verrou du superviseur lu sur disque (8f48030d0)
+- **core:** Afficher Loki « persistant » dans la console en relecture seule (#585) (68c192b8e)
+- **frontend:** Relire la forme du manifeste de Vite au lieu de la supposer, et monter la barre de débogage avant l'entrée de l'application (f43de1d7f, 2c5db72d9)
+- **framework:** Lever un 404 dans l'exemple de `ResourceController` au lieu de rendre `null` (0b0b039db)
+- **debugbar:** Ne plus tenter sans session ce qui serait refusé, ni réclamer le profil d'un flux SSE encore ouvert, ni se relire elle-même en boucle (#665) (2bcc861cb, eac285030, 42c3e6545)
+- **debugbar:** Figer à la pause ce qui arrive, jamais ce que l'on fait ; garder sur une page de la console ses propres requêtes ; afficher la page et ses requêtes sans défilement horizontal (#665) (cf749eeb1, daa9266e2, f190dc8bc)
+- **syslog:** Reconnaître toutes les pages de la console par une seule règle, rechargement à chaud de Vite compris, sans masquer les lignes de requête d'un module masqué ni le flux SSE des pages de l'application (#661) (24044a5c2, a6abf547d, 313cb94d4, 2dc3384a8)
+- **syslog:** Lire la ligne d'accès d'un WebSocket, par une règle de statut isomorphe (a5748ad14)
+- **studio:** Ne plus afficher une demi-seconde la page de connexion quand on est déjà connecté (7df95d50c)
+- **studio:** Rendre lisibles aplats et contours dans les deux thèmes, et nommer le badge de connexion par son contenu visible (#661) (e9f1c8b1c, 81fb0832e, caec80c12)
+- **documentation:** Rendre le code inline des descriptions de cartes, et suivre l'ancre d'un lien de carte vers une section (55d09cc21, de644d6d8)
+- **redis:** Rendre lisible le schéma d'architecture dans la console (427bcf987)
+- **scaffold:** Dire la durée mesurée dans le guide des tableaux de bord et dans le rapport de profil (7fb2772fc)
+- **site:** Ancrer tous les titres de la documentation et refuser une ancre morte entre pages (73abb24f9)
+
+<!-- Surface publique mesurée depuis 10.0.0-beta.4 (npm) : 2 rupture(s) écrite(s) ci-dessus, 28 déclaration(s) de types relues sur 2460 — `Syslog.trace` resserré (rupture écrite), le reste élargi par un paramètre facultatif ou à contenu identique. Détail : npm run release:api-diff -- --from 10.0.0-beta.4 --details -->
+
 ## 10.0.0-beta.4 - 2026-10-22
 
 _La ligne bêta casse encore : chaque rupture ouvre sa catégorie et porte son geste de migration — et toutes les sessions sont à rouvrir après la mise à jour._
