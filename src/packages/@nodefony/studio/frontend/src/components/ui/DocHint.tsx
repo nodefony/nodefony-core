@@ -9,6 +9,7 @@ import {
   Text,
   ThemeIcon,
   UnstyledButton,
+  VisuallyHidden,
 } from "@mantine/core";
 import type { MantineColor } from "@mantine/core";
 import {
@@ -169,8 +170,11 @@ export function Hint({
           il ferait un second arrêt de tabulation sur la même chose.
         */}
         {children ? (
+          // Pas d'`aria-label` ici : il REMPLACERAIT le texte visible de
+          // l'enfant (« validé Zod ») par celui de la fiche — WCAG 2.5.3, axe
+          // `label-content-name-mismatch`. Le nom = le visible, puis la fiche
+          // en texte masqué à l'écran.
           <UnstyledButton
-            aria-label={`${cfg.badge} : ${title}`}
             style={{
               display: block ? "block" : "inline-flex",
               width: block ? "100%" : undefined,
@@ -180,6 +184,7 @@ export function Hint({
             }}
           >
             {children}
+            <VisuallyHidden>{` — ${cfg.badge} : ${title}`}</VisuallyHidden>
           </UnstyledButton>
         ) : (
           <ActionIcon

@@ -74,6 +74,23 @@ src/modules/test/
 - Le flux syslog tombe dans la zone `nodefony-admin` du framework (`/nodefony/<ns>/api/`) :
   anonyme 401, `user` 403, `admin` 200. Banc : `framework/tests/integration/live-syslog.test.ts`.
 
+### Data plane `test` — onglet Décors de la console (`nodefony/admin/`)
+
+| Route                                   | Méthode | Description                                                                                                   |
+| --------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `/nodefony/test/api/testbed-capability` | GET     | `{ supported }` — constat rapide : le script de constat, le compose et `tsx` sont-ils sous la racine ?        |
+| `/nodefony/test/api/testbed`            | GET     | rapport complet des décors (conteneurs, variables masquées, versant serveur, suites débloquées, angles morts) |
+
+- Rôle administrateur (défaut du broker). Le rapport tourne dans un **process séparé**
+  (`scripts/test/testbed-report.ts` par `tsx`), à un seul vol, borné 30 s / 4 Mo : le serveur
+  n'embarque ni les configs vitest ni l'outillage du dépôt (`testbedReport.ts#createTestbedReader`).
+- **La capacité se constate** (`testbedReport.ts#probeTestbedCapability`) : hors du dépôt,
+  `supported: false` et la console n'affiche pas l'onglet ; en production le module est absent (404).
+- Décision = `scripts/test/lib/testbed.ts#buildTestbedReport` (pur) ; source des décors =
+  `scripts/test/vitest/gates.ts#TESTBED_CATALOG` ; chaque `vitest*.config.ts` qui appelle
+  `gateReporter` **exporte** `expectations` — sinon l'angle mort `suite-unreadable` le signale.
+- Banc : `nodefony/tests/testbed.test.ts` (règles, angles morts, garde de capacité, contrat des configs).
+
 ### AlsController (`/nodefony/test/als-test`)
 
 Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterResponse`). État partagé `alsTestState` exporté, relu via `/state`.

@@ -5,13 +5,16 @@
  * En tête, toujours visibles : une intro en clair et la **recherche globale**
  * (tous les modules ET le noyau, tolérante aux accents, fautes et synonymes —
  * `configSearchEngine.ts`). Un résultat mène directement à la ligne du réglage.
- * Puis quatre onglets (`?tab=`, lien partageable), du plus regardé au moins :
+ * Puis les onglets (`?tab=`, lien partageable), du plus regardé au moins :
  *  - **Coup d'œil** (défaut) : mode, adresses d'écoute, verrous de sécurité avec
  *    leur verdict, ce que l'environnement a changé ;
  *  - **Écarts** : ce qui diffère du défaut — qui surcharge, où, comment ;
- *  - **Noyau** : la config racine de l'application (domaine, ports, journaux,
- *    modules chargés), éditable à chaud en développement ;
- *  - **Modules** : une boîte par module, un clic ouvre sa config.
+ *  - **Modules** : une boîte par brique. L'APPLICATION est la première : sa
+ *    config racine (domaine, ports, journaux, modules chargés) s'ouvre sous la
+ *    grille (`&app=1`), éditable à chaud en développement — un seul geste pour
+ *    toute config, là où un onglet « Noyau » à part en faisait deux ;
+ *  - **Décors** : les environnements de test du cœur — présent seulement si le
+ *    serveur constate qu'il tourne dans le dépôt du framework.
  *
  * Source : data plane agrégé `/nodefony/kernel/api/config` (1 requête, secrets
  * redactés côté serveur).
@@ -38,12 +41,13 @@ import {
   IconArrowRight,
   IconCheck,
   IconCopy,
-  IconCpu,
   IconArrowsDiff,
   IconEye,
   IconPackages,
   IconRefresh,
+  IconServer2,
   IconStack2,
+  IconX,
 } from "@tabler/icons-react";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
@@ -74,10 +78,12 @@ import {
   type ConfigSearchDoc,
 } from "./configSearchEngine";
 import { configErrorMessage } from "./configEdit";
+import { ConfigTestbed } from "./ConfigTestbed";
+import type { TestbedCapability } from "./testbedModel";
 import { PAGE_INTRO, PAGE_LEAD, TAB_INTRO } from "./configTexts";
 
 /** Onglets de la page (valeur d'URL `?tab=`). */
-const TABS = ["glance", "overrides", "core", "modules"] as const;
+const TABS = ["glance", "overrides", "modules", "testbed"] as const;
 type ConfigTab = (typeof TABS)[number];
 
 function isTab(v: string | null): v is ConfigTab {
@@ -208,6 +214,17 @@ export const ConfigPage = observer(() => {
     [store],
   );
   const { data: runtime } = useResource(infoFetcher);
+  // L'onglet Décors n'existe que sur le dépôt du framework : constat SERVEUR
+  // (module `test`, absent d'une application générée → 404 → pas d'onglet).
+  const testbedFetcher = useCallback(
+    () =>
+      store.api.getAbsolute<TestbedCapability>(
+        "/nodefony/test/api/testbed-capability",
+      ),
+    [store],
+  );
+  const { data: testbedCapability } = useResource(testbedFetcher);
+  const hasTestbed = testbedCapability?.supported === true;
 
   const model = useMemo(() => buildConfigModel(data?.modules ?? []), [data]);
   const { modules, overrides, stats } = model;
@@ -221,9 +238,17 @@ export const ConfigPage = observer(() => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const tab: ConfigTab = isTab(tabParam) ? tabParam : "glance";
-  const focusKey =
-    tab === "core" ? (searchParams.get("key") ?? undefined) : undefined;
+  // `?tab=core` : ancien lien vers l'onglet Noyau, désormais la boîte
+  // Application de l'onglet Modules — un lien partagé ne casse pas.
+  const legacyCore = tabParam === "core";
+  const tab: ConfigTab = legacyCore
+    ? "modules"
+    : isTab(tabParam)
+      ? tabParam
+      : "glance";
+  const appOpen =
+    tab === "modules" && (legacyCore || searchParams.get("app") === "1");
+  const focusKey = appOpen ? (searchParams.get("key") ?? undefined) : undefined;
 
   const changeTab = useCallback(
     (v: string) => {
@@ -232,12 +257,12 @@ export const ConfigPage = observer(() => {
     [setSearchParams],
   );
 
-  // Un résultat de recherche mène À la ligne : dans le noyau (cet écran) ou
-  // dans l'onglet Config du module.
+  // Un résultat de recherche mène À la ligne : dans la boîte Application (cet
+  // écran) ou dans l'onglet Config du module.
   const openHit = useCallback(
     (doc: ConfigSearchDoc) => {
       if (doc.isApp) {
-        setSearchParams({ tab: "core", key: doc.field.key });
+        setSearchParams({ tab: "modules", app: "1", key: doc.field.key });
         return;
       }
       const q = new URLSearchParams({ tab: "config", key: doc.field.key });
@@ -368,10 +393,57 @@ export const ConfigPage = observer(() => {
     );
   }
 
+  const toggleApp = () =>
+    setSearchParams(
+      appOpen ? { tab: "modules" } : { tab: "modules", app: "1" },
+    );
+
+  const appPanel =
+    app && appOpen ? (
+      <Paper withBorder radius="md" p="md" id="config-app">
+        <Stack gap="md">
+          <Group justify="space-between" wrap="nowrap">
+            <Group gap={8} wrap="nowrap">
+              <Badge size="sm" variant="light" color="grape" tt="none">
+                app
+              </Badge>
+              <Text fw={600}>Application — nodefony.config.ts</Text>
+            </Group>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label="Replier la configuration de l'application"
+              onClick={toggleApp}
+            >
+              <IconX size={16} />
+            </ActionIcon>
+          </Group>
+          <TabIntro>{TAB_INTRO.core}</TabIntro>
+          <ConfigExplorer
+            module={app.entry.name}
+            seg={app.entry.seg}
+            schema={app.schemaStatus}
+            sections={app.sections}
+            editable={import.meta.env.DEV}
+            onEdit={handleCoreEdit}
+            focusKey={focusKey}
+            renderHelp={(f) => (
+              <FieldHelp field={f} moduleName={app.entry.name} isApp />
+            )}
+          />
+        </Stack>
+      </Paper>
+    ) : null;
+
   const modulesPanel = (
     <Stack gap="md">
       <TabIntro>{TAB_INTRO.modules}</TabIntro>
       <Grid>
+        {app && (
+          <Grid.Col span={{ base: 12, sm: 6, lg: 4 }}>
+            <ConfigModuleCard m={app} onOpen={toggleApp} />
+          </Grid.Col>
+        )}
         {moduleCards.map((m) => (
           <Grid.Col key={m.entry.key} span={{ base: 12, sm: 6, lg: 4 }}>
             <ConfigModuleCard
@@ -385,26 +457,9 @@ export const ConfigPage = observer(() => {
           </Grid.Col>
         ))}
       </Grid>
+      {appPanel}
     </Stack>
   );
-
-  const corePanel = app ? (
-    <Stack gap="md">
-      <TabIntro>{TAB_INTRO.core}</TabIntro>
-      <ConfigExplorer
-        module={app.entry.name}
-        seg={app.entry.seg}
-        schema={app.schemaStatus}
-        sections={app.sections}
-        editable={import.meta.env.DEV}
-        onEdit={handleCoreEdit}
-        focusKey={focusKey}
-        renderHelp={(f) => (
-          <FieldHelp field={f} moduleName={app.entry.name} isApp />
-        )}
-      />
-    </Stack>
-  ) : null;
 
   const overridesPanel = (
     <Stack gap="md">
@@ -534,24 +589,31 @@ export const ConfigPage = observer(() => {
           panel: overridesPanel,
         },
         {
-          value: "core",
-          label: "Noyau",
-          icon: <IconCpu size={16} />,
-          panel: corePanel,
-          disabled: !app,
-          disabledReason: "L'application n'expose pas sa configuration racine.",
-        },
-        {
           value: "modules",
           label: "Modules",
           icon: <IconPackages size={16} />,
           badge: (
             <Badge size="xs" variant="light" color="gray">
-              {moduleCards.length}
+              {moduleCards.length + (app ? 1 : 0)}
             </Badge>
           ),
           panel: modulesPanel,
         },
+        ...(hasTestbed
+          ? [
+              {
+                value: "testbed",
+                label: "Décors",
+                icon: <IconServer2 size={16} />,
+                badge: (
+                  <Badge size="xs" variant="light" color="gray" tt="none">
+                    dépôt seul
+                  </Badge>
+                ),
+                panel: tab === "testbed" ? <ConfigTestbed /> : null,
+              },
+            ]
+          : []),
       ]}
     />
   );

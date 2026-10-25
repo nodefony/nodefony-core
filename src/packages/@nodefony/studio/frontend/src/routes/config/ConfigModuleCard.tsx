@@ -43,7 +43,8 @@ export function ConfigModuleCard({ m, onOpen }: ConfigModuleCardProps) {
       h="100%"
       role="button"
       tabIndex={0}
-      aria-label={`Configuration de ${m.entry.name} — ${overrides.length} surcharge(s)`}
+      // Pas d'`aria-label` : le nom accessible vient du contenu visible (nom du
+      // module, surcharges…). Un libellé à part le contredisait (WCAG 2.5.3).
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

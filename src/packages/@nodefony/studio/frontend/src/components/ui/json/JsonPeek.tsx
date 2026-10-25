@@ -36,6 +36,7 @@ export function JsonPeek({
   width = 380,
   maxHeight = 320,
 }: JsonPeekProps) {
+  const shown = label ?? jsonPreview(value, previewLength);
   return (
     <HoverCard
       width={width}
@@ -48,12 +49,20 @@ export function JsonPeek({
       withinPortal
     >
       <HoverCard.Target>
+        {/* `role="button"` : la cible d'un HoverCard reçoit `aria-haspopup`,
+            interdit sur un `<code>` sans rôle (axe `aria-allowed-attr`). Le nom
+            accessible COMMENCE par le texte visible (WCAG 2.5.3, nom = étiquette). */}
         <Code
+          role="button"
           tabIndex={0}
           style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-          aria-label="Aperçu JSON — survoler pour le détail"
+          aria-label={
+            typeof shown === "string"
+              ? `${shown} — aperçu JSON, survoler pour le détail`
+              : undefined
+          }
         >
-          {label ?? jsonPreview(value, previewLength)}
+          {shown}
         </Code>
       </HoverCard.Target>
       <HoverCard.Dropdown p="xs">

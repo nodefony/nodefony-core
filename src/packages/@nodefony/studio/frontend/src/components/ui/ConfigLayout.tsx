@@ -748,7 +748,9 @@ export function ConfigLayout({
             Configuration
           </Text>
           <Group gap={6} wrap="nowrap">
-            <Title order={4}>{module}</Title>
+            <Title order={2} size="h4">
+              {module}
+            </Title>
             <DocHint title="Statut du schéma" summary={sm.help} width={300}>
               <Badge
                 variant="light"
@@ -809,7 +811,9 @@ export function ConfigLayout({
 
       {visibleSections.map((section) => (
         <Stack key={section.title} gap="xs">
-          <Title order={5}>{section.title}</Title>
+          <Title order={3} size="h5">
+            {section.title}
+          </Title>
           {section.description && (
             <Text size="sm" c="dimmed">
               {section.description}
