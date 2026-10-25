@@ -51,6 +51,7 @@ import {
 } from "../../.claude/skills/nodefony-html-report/lib/report.mjs";
 import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
+import { anchorHeadings } from "./lib/html-text.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 
 const arg = (n, d) => {
@@ -206,8 +207,9 @@ function rendreMarkdown(fichier) {
     "analyses.md": "../analyses/",
     "README.md": "../",
   };
-  return md
-    .render(brut)
+  // Titres ancrés par la règle commune : `analyses.md` vise des sections de
+  // `methode.md`, mortes tant que ses titres n’avaient pas d’`id`.
+  return anchorHeadings(md.render(brut))
     .replace(/href="(?!https?:|#|mailto:)([^"]+)"/g, (_, href) => {
       const [chemin, ancre] = href.split("#");
       const connu = CIBLES[chemin];

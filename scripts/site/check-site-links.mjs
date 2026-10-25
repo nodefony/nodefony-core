@@ -14,9 +14,18 @@
  * ne demande aucun serveur — un chemin relatif se résout par un `path.resolve`,
  * exactement comme le fera le serveur de Pages.
  *
+ * Il vérifie aussi l'ANCRE d'un lien vers une autre page : la section visée
+ * doit exister dans la page rendue. `anchor-inpage.mjs` ne contrôle que les
+ * ancres internes à une page source ; d'une page à l'autre, seul le RÉSULTAT
+ * le dit — un générateur qui n'ancre pas un niveau de titre publie mortes des
+ * ancres justes dans la source. Sauf dans une ARCHIVE (`/<version>/` du site
+ * assemblé) : remise telle quelle, jamais rebâtie, elle ne se corrige plus — y
+ * exiger les ancres rougirait la publication sans remède. Ses fichiers, eux,
+ * restent contrôlés.
+ *
  * Ce qu'il NE vérifie pas : les cibles externes (aucune requête réseau depuis un
- * exécuteur d'intégration continue) et les ancres de section, que
- * `anchor-inpage.mjs` couvre déjà sur la source Markdown.
+ * exécuteur d'intégration continue) et les ancres pures (`#section`), que
+ * `anchor-inpage.mjs` couvre sur la source Markdown.
  *
  * Usage :
  *   node scripts/site/check-site-links.mjs <dossier-du-site>
@@ -27,6 +36,7 @@
  */
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
+import { isVersionDir } from "./lib/site-versions.mjs";
 
 const ROOT = path.resolve(process.argv[2] ?? "tmp/sites/docs");
 if (!existsSync(ROOT)) {
@@ -46,6 +56,31 @@ function pages(dir) {
 }
 
 const HREF = /(?:href|src)="([^"]+)"/g;
+
+/** `id` de chaque page, lus une fois. */
+const idsByPage = new Map();
+function idsOf(file) {
+  let ids = idsByPage.get(file);
+  if (ids === undefined) {
+    ids = new Set(
+      [...readFileSync(file, "utf8").matchAll(/\bid="([^"]+)"/g)].map(
+        (m) => m[1],
+      ),
+    );
+    idsByPage.set(file, ids);
+  }
+  return ids;
+}
+
+/** Fragment d'un `href` tel que le navigateur le compare à un `id`. */
+function fragmentOf(href) {
+  const raw = href.split("#")[1]?.replaceAll("&amp;", "&") ?? "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
 
 const found = pages(ROOT);
 if (found.length === 0) {
@@ -79,6 +114,7 @@ for (const file of found) {
     "",
   );
   const fromDir = path.dirname(file);
+  const frozen = isVersionDir(path.relative(ROOT, file).split(path.sep)[0]);
   for (const m of html.matchAll(HREF)) {
     const href = m[1];
     // Hors périmètre : ressources externes, ancres, données embarquées.
@@ -106,8 +142,24 @@ for (const file of found) {
       continue;
     }
     const candidates = [resolved, path.join(resolved, "index.html")];
-    if (!candidates.some((c) => existsSync(c) && statSync(c).isFile()))
+    const hit = candidates.find((c) => existsSync(c) && statSync(c).isFile());
+    if (hit === undefined) {
       broken.push({ page: path.relative(ROOT, file), href, absolu: false });
+      continue;
+    }
+    const fragment = fragmentOf(href);
+    if (
+      !frozen &&
+      fragment !== "" &&
+      hit.endsWith(".html") &&
+      !idsOf(hit).has(fragment)
+    )
+      broken.push({
+        page: path.relative(ROOT, file),
+        href,
+        absolu: false,
+        ancre: true,
+      });
   }
 }
 
@@ -122,7 +174,7 @@ if (broken.length) {
   );
   for (const b of broken.slice(0, 30))
     console.error(
-      `   ${b.page}\n     → ${b.href}${b.absolu ? "   ⚠️ lien ABSOLU : il sortira du sous-chemin publié" : ""}`,
+      `   ${b.page}\n     → ${b.href}${b.absolu ? "   ⚠️ lien ABSOLU : il sortira du sous-chemin publié" : ""}${b.ancre ? "   ⚠️ la page existe, pas cette section" : ""}`,
     );
   if (broken.length > 30)
     console.error(`   … et ${broken.length - 30} autre(s)`);

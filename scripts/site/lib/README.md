@@ -35,8 +35,9 @@ Les dépendances de production d'une application MINIMALE, lues dans le gabarit 
 
 Retrait des balises HTML — **une seule implémentation pour tout le dépôt**.
 
-- **Usage** : `import { sansBalises } from "./lib/html-text.mjs"`
-- **Appelé par** : `site/build-docs-site.mjs` · `site/readme-html.mjs`
+- **Usage** : `import { sansBalises, anchorHeadings } from "./lib/html-text.mjs"`
+- **Appelé par** : `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/readme-html.mjs`
+- **Testé par** : `site/html-text.test.mjs`
 
 ## [`markdown-source.mjs`](markdown-source.mjs)
 
@@ -59,5 +60,5 @@ Dossier de sortie d'un générateur du site : neuf à chaque rendu, ou refusé.
 Versions du site publié — qui vit où, et comment passer de l'une à l'autre.
 
 - **Usage** : `import { planVersions, manifestFor } from "./lib/site-versions.mjs"`
-- **Appelé par** : `pages.yml` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-site.mjs` · `site/readme-html.mjs`
+- **Appelé par** : `pages.yml` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-site.mjs` · `site/check-site-links.mjs` · `site/readme-html.mjs`
 - **Testé par** : `site/site-versions.test.mjs`

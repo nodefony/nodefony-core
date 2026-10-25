@@ -108,8 +108,7 @@ import {
 } from "../../.claude/skills/nodefony-html-report/lib/report.mjs";
 import { schema } from "../../.claude/skills/nodefony-html-report/lib/schemas.mjs";
 import { NODEFONY_BRAND } from "../../.claude/skills/nodefony-html-report/lib/brand.mjs";
-import { slugifyHeading } from "../../.claude/skills/nodefony-documentation/lib/slug-heading.mjs";
-import { sansBalises } from "./lib/html-text.mjs";
+import { anchorHeadings } from "./lib/html-text.mjs";
 import { sansCommentaires } from "./lib/markdown-source.mjs";
 import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
@@ -624,44 +623,6 @@ md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
     return renderLiveGraph(tokens[idx].content);
   return baseFence(tokens, idx, opts, env, self);
 };
-
-/**
- * Rend son texte à un fragment de HTML : balises retirées, entités décodées.
- *
- * Les deux sont nécessaires, et l'oubli du second coûtait double. Un titre
- * `mode: "first"` arrive ici en `mode: &quot;first&quot;` : le slug en tirait
- * `mode-quotfirstquot` — une ancre que le sommaire suivait, mais qu'aucun autre
- * outil ne produit — et le sommaire réaffichait `&amp;quot;` en clair, ayant
- * échappé une seconde fois ce qui l'était déjà. 123 titres du corpus étaient
- * dans ce cas.
- */
-const ENTITIES = {
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-  "&nbsp;": " ",
-};
-// ⚠️ Ce qui protège VRAIMENT n'est pas `sansBalises`, et il faut le savoir avant
-// d'y toucher : `textOf` DÉCODE les entités APRÈS avoir retiré les balises, si
-// bien qu'un titre contenant `&lt;img onerror=…&gt;` ressort en HTML actif. C'est
-// `esc(t.text)` au rendu du sommaire qui le rend inoffensif. Retirer cet
-// échappement ouvrirait une injection, et le retrait des balises n'y changerait rien.
-const textOf = (html) =>
-  sansBalises(html)
-    .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => ENTITIES[e])
-    .trim();
-
-/** Titres : `id` posé par la règle de slug commune, et collecté pour le sommaire. */
-function withHeadings(html, toc) {
-  return html.replace(/<h([23])>([\s\S]*?)<\/h\1>/g, (_, lvl, inner) => {
-    const text = textOf(inner);
-    const id = slugifyHeading(text);
-    toc.push({ lvl: Number(lvl), id, text });
-    return `<h${lvl} id="${id}">${inner}<a class="h-anchor" href="#${id}" aria-label="Lien vers cette section">#</a></h${lvl}>`;
-  });
-}
 
 const ADM = {
   NOTE: ["note", "ℹ️ Note"],
@@ -1223,9 +1184,8 @@ const SITE_CSS = `
   border-left:2px solid transparent; }
 .site-toc a:hover { color:var(--accent); border-left-color:var(--accent); }
 .site-toc .l3 a { padding-left:20px; font-size:12px; }
-h2, h3 { scroll-margin-top:72px; }
 .h-anchor { opacity:0; margin-left:8px; color:var(--dim); text-decoration:none; font-weight:400; }
-h2:hover .h-anchor, h3:hover .h-anchor { opacity:.6; }
+:is(h2,h3,h4,h5,h6):hover .h-anchor { opacity:.6; }
 .h-anchor:focus { opacity:1; }
 /* Une page de documentation n'est pas un rapport : elle se PARCOURT. Sans
    repères colorés, 300 lignes de gris se ressemblent toutes et le lecteur perd
@@ -1462,7 +1422,9 @@ function renderPage(d, published, index, publishedPaths) {
   });
 
   const toc = [];
-  const html = decorate(withHeadings(md.render(linked), toc));
+  const html = decorate(
+    anchorHeadings(md.render(linked), { toc, selfLink: true }),
+  );
 
   const meta = d.meta ?? {};
   const badges = [

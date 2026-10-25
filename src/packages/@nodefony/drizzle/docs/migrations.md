@@ -768,7 +768,7 @@ NF_MYSQL_URL=mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony npm test
 ## 🔗 Pour aller plus loin
 
 - ⬆️ **Retour au hub** : [@nodefony/drizzle](index.md)
-- [Configuration du module](index.md#configuration) — la clé `ddl` et le bloc `migrations`
+- [Configuration du module](index.md#-configuration) — la clé `ddl` et le bloc `migrations`
 - [Dialectes](index.md#dialectes--une-base-par-déploiement-un-seul-code) — porter ses entités sur
   PostgreSQL et MySQL
 - [Les huit stores du framework](index.md#les-huit-stores-du-framework--la-persistance-clé-en-main) —

@@ -62,7 +62,7 @@ Construit le site « Performance » publié — une page par version, plus `late
 - **Variable** `DATA_DIR`
 - **Variable** `OUT`
 - **Appelé par** : `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-qualite-site.mjs`](build-qualite-site.mjs)
 
@@ -103,6 +103,12 @@ Refuse un site dont un lien interne ne mène nulle part.
 - **Variable** `ROOT`
 - **Appelé par** : `pages.yml`
 - **Testé par** : `site/site-versions.test.mjs` · `.claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs`
+- **Utilise** : `site/lib/site-versions.mjs`
+
+## [`html-text.test.mjs`](html-text.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/html-text.mjs`
 
 ## [`markdown-highlight.mjs`](markdown-highlight.mjs)
 

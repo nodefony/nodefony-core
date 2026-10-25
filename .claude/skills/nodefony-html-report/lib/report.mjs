@@ -754,6 +754,9 @@ button.ghost { background:none; border:1px solid var(--line); color:var(--dim); 
 .rep-head { position:sticky; top:0; z-index:20; background:var(--bg);
   display:flex; justify-content:space-between; align-items:flex-start;
   gap:16px; padding:14px 0 12px; margin-bottom:22px; border-bottom:1px solid var(--line); }
+/* Un titre ciblé par une ancre s'arrête SOUS l'en-tête collant, pas dessous —
+   tous niveaux : une ancre vers un h4 finissait masquée. */
+:is(h2,h3,h4,h5,h6)[id] { scroll-margin-top:76px; }
 .brand { display:flex; align-items:center; gap:11px; }
 .brand-logo { height:34px; width:auto; display:block; }
 .brand-name { font-weight:650; font-size:15px; letter-spacing:-.01em; }

@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-24",
+  "generatedAt": "2026-10-25",
   "count": 40,
   "repoScripts": [
     {
@@ -1385,6 +1385,19 @@
       ]
     },
     {
+      "path": "scripts/site/html-text.test.mjs",
+      "test": true,
+      "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/lib/api-reference.mjs",
       "test": false,
       "purpose": "Référence d'API du site : ce que chaque paquet publié EXPOSE, rendu en pages Markdown que le générateur de documentation publie sous `api/`.",
@@ -1423,16 +1436,19 @@
       "test": false,
       "purpose": "Retrait des balises HTML — **une seule implémentation pour tout le dépôt**.",
       "usage": [
-        "import { sansBalises } from \"./lib/html-text.mjs\""
+        "import { sansBalises, anchorHeadings } from \"./lib/html-text.mjs\""
       ],
       "options": [],
       "env": [],
       "output": "",
       "calledBy": [
         "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-perf-site.mjs",
         "scripts/site/readme-html.mjs"
       ],
-      "testedBy": []
+      "testedBy": [
+        "scripts/site/html-text.test.mjs"
+      ]
     },
     {
       "path": "scripts/site/lib/markdown-source.mjs",
@@ -1485,6 +1501,7 @@
         "scripts/site/assemble-site.mjs",
         "scripts/site/build-docs-site.mjs",
         "scripts/site/build-site.mjs",
+        "scripts/site/check-site-links.mjs",
         "scripts/site/readme-html.mjs"
       ],
       "testedBy": [
