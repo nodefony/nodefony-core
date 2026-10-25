@@ -12,7 +12,12 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
-import { assertPageQuery, pickOrder, renameOrderFields } from "nodefony";
+import {
+  assertPageQuery,
+  isPlainObject,
+  pickOrder,
+  renameOrderFields,
+} from "nodefony";
 import { ormRegistry, paginate } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
@@ -102,9 +107,9 @@ class SessionStorage implements ISessionStorage {
       return {} as ISerializedSession;
     }
     return {
-      Attributes: (row.Attributes ?? {}) as Record<string, unknown>,
-      metaBag: (row.metaBag ?? {}) as Record<string, unknown>,
-      flashBag: (row.flashBag ?? {}) as Record<string, unknown>,
+      Attributes: isPlainObject(row.Attributes) ? row.Attributes : {},
+      metaBag: isPlainObject(row.metaBag) ? row.metaBag : {},
+      flashBag: isPlainObject(row.flashBag) ? row.flashBag : {},
       user: row.user ?? "",
       createdAt: new Date(row.createdAt),
       updatedAt: new Date(row.updatedAt),
@@ -256,7 +261,7 @@ class SessionStorage implements ISessionStorage {
       data: {
         Attributes: {},
         flashBag: {},
-        metaBag: (row.metaBag ?? {}) as Record<string, unknown>,
+        metaBag: isPlainObject(row.metaBag) ? row.metaBag : {},
         user: row.user ?? "",
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),

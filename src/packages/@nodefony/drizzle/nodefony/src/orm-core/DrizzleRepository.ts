@@ -78,6 +78,27 @@ export function execTable(table: DrizzleTable): SQLiteTable {
   return table as SQLiteTable;
 }
 
+/**
+ * Colonne d'une table multi-dialecte, lue par NOM sur la vue d'exécution — sans
+ * conversion, et refusée en la nommant si la table ne la porte pas (une vue
+ * `as unknown as` rendait `undefined` au premier `eq()`).
+ *
+ * @param table - table du dialecte du connecteur.
+ * @param name - nom de la colonne.
+ * @returns la colonne, utilisable par `eq()`, `asc()`, `lt()`…
+ * @throws Quand la table n'a pas de colonne de ce nom.
+ */
+export function tableColumn(table: DrizzleTable, name: string): SQLiteColumn {
+  const columns = getTableColumns(execTable(table));
+  const column = Object.hasOwn(columns, name) ? columns[name] : undefined;
+  if (column === undefined) {
+    throw new Error(
+      `[@nodefony/drizzle] table "${getTableName(table)}" has no column "${name}".`,
+    );
+  }
+  return column;
+}
+
 /** Builder Drizzle exécutable ET introspectable (`toSQL()`) — cible du tap profiler. */
 type ProfiledQuery<R> = PromiseLike<R> & { toSQL: () => { sql: string } };
 

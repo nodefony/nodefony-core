@@ -16,6 +16,7 @@ import type {
 import { assertPageQuery } from "nodefony";
 import {
   execTable,
+  tableColumn,
   type DrizzleDb,
   type DrizzleTable,
 } from "./orm-core/DrizzleRepository";
@@ -151,7 +152,11 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     this.#connector = connector;
     this.#resolveDb = resolveDb;
     this.#table = table;
-    this.#c = execTable(table) as unknown as IdempotencyColumns;
+    this.#c = {
+      key: tableColumn(table, "key"),
+      state: tableColumn(table, "state"),
+      expiresAt: tableColumn(table, "expiresAt"),
+    };
     this.#mysql = is(table, MySqlTable);
     this.#now = now;
     this.#leaseMs = leaseMs;

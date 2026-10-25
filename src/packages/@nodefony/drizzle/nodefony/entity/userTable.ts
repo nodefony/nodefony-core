@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { getTableConfig } from "drizzle-orm/sqlite-core";
-import type { AnySQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
-import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
-import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
-import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
-import type { AnyMySqlColumn, MySqlTable } from "drizzle-orm/mysql-core";
+import { is } from "drizzle-orm";
+import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
+import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import {
+  getTableConfig as getPgTableConfig,
+  PgTable,
+} from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import {
+  getTableConfig as getMysqlTableConfig,
+  MySqlTable,
+} from "drizzle-orm/mysql-core";
+import type { AnyMySqlColumn } from "drizzle-orm/mysql-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import { USER_COLUMNS, USER_TABLE_NAME } from "@nodefony/user";
@@ -298,12 +305,22 @@ export function userTableColumns(
   table: unknown,
   dialect: SqlDialect,
 ): Map<string, IUserColumnView> {
+  // La CLASSE de la table décide de la grammaire, et le dialecte annoncé doit
+  // lui correspondre : une table d'un autre dialecte est refusée en le disant,
+  // au lieu du `TypeError` opaque de la mauvaise `getTableConfig`.
   const columns =
-    dialect === "postgres"
-      ? getPgTableConfig(table as PgTable).columns
-      : dialect === "mysql"
-        ? getMysqlTableConfig(table as MySqlTable).columns
-        : getTableConfig(table as SQLiteTable).columns;
+    dialect === "postgres" && is(table, PgTable)
+      ? getPgTableConfig(table).columns
+      : dialect === "mysql" && is(table, MySqlTable)
+        ? getMysqlTableConfig(table).columns
+        : dialect === "sqlite" && is(table, SQLiteTable)
+          ? getTableConfig(table).columns
+          : null;
+  if (columns === null) {
+    throw new TypeError(
+      `[@nodefony/drizzle] userTableColumns: the table is not a ${dialect} table.`,
+    );
+  }
   return new Map(
     columns.map((column) => [
       column.name,

@@ -13,6 +13,7 @@ import type {
 } from "@nodefony/security";
 import {
   execTable,
+  tableColumn,
   type DrizzleDb,
   type DrizzleTable,
 } from "./orm-core/DrizzleRepository";
@@ -96,7 +97,15 @@ export class DrizzleAuditStore implements IAuditStore {
     this.#resolveDb = resolveDb;
     this.#table = table;
     // Accès colonne par nom logique (gotcha module : vue Record de la table).
-    this.#c = execTable(table) as unknown as AuditColumns;
+    this.#c = {
+      ts: tableColumn(table, "ts"),
+      id: tableColumn(table, "id"),
+      category: tableColumn(table, "category"),
+      outcome: tableColumn(table, "outcome"),
+      actor: tableColumn(table, "actor"),
+      action: tableColumn(table, "action"),
+      requestId: tableColumn(table, "requestId"),
+    };
     this.#now = now;
     this.#retentionMs = retentionMs;
     this.#location = location;
