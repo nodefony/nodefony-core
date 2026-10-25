@@ -405,6 +405,12 @@ s'attache d'abord) — la garantie porte sur ce qui suit, pas sur « rien n'arri
 > s'abonner donne un canal silencieux ; s'abonner sans écouter fait transiter des trames que personne
 > ne lit.
 
+**Un abonnement conditionnel se monte et se démonte — il ne se met pas en pause.** Aucune liaison de
+vue n'accepte un canal « vide » ni un interrupteur : un interrupteur « temps réel » à l'écran rend
+ou retire le composant abonné, et c'est son démontage qui libère le canal côté serveur. L'option
+`enabled` de la cadence adaptative n'en est pas un : à `false`, elle garde l'abonnement à cadence
+fixe (`client/realtime/AdaptiveRate.ts#bindAdaptiveChannel`).
+
 ### Les quatre façons de parler au serveur
 
 | Appel                                 | Ancre                                                      | Ce que ça fait                                                   |
@@ -448,6 +454,13 @@ client transforme en deux signaux — une notice générique pour le centre de n
 (`client/realtime/NodefonySocket.ts#NodefonySocket.onDenied`) pour une réaction précise (griser le contrôle concerné). Le
 motif reste volontairement générique : le serveur ne dit jamais **quel** rôle manquait, ce qui en
 ferait un oracle.
+
+**L'identité se lit à chaque accueil, pas une fois au login.** Quand les rôles d'un compte changent,
+le serveur ferme ses sockets avec le code 4005 (`realtime/closeCodes.ts#IDENTITY_REFRESH_CLOSE_CODE`) ;
+le client se reconnecte seul, et le nouvel accueil apporte les rôles à jour — `onIdentity()` est
+rappelé. Une interface qui a mémorisé les rôles de la réponse de connexion continue d'afficher les
+anciens ; une interface branchée sur `onIdentity()` (ou sur le hook d'identité de son moteur) suit
+sans rien faire.
 
 ### Le transport, et pourquoi il est aussi bête
 
@@ -557,7 +570,7 @@ binding.dispose(); // coupe le chien de garde, l'écouteur ET l'abonnement
 > Réservé aux canaux d'**état** (latest-wins : supervision, statistiques), où sauter une valeur
 > intermédiaire est sans conséquence. Sur un canal d'**événements** (journal, messages de chat), chaque
 > élément compte : décimer perdrait des données. Ces flux-là se **regroupent**, ils ne se décime pas.
-> Le réglage `enabled: false` (`client/realtime/AdaptiveRate.ts#defaultClock`) bascule en abonnement fixe sans
+> Le réglage `enabled: false` (`client/realtime/AdaptiveRate.ts#bindAdaptiveChannel`) bascule en abonnement fixe sans
 > changer le code appelant.
 
 ## 📡 `NodefonySse` — un flux serveur, et ses quatre liaisons de vue
@@ -818,6 +831,63 @@ Les vitrines de démonstration restent **sans** noyau, par décision (ADR-0007 D
 démontrerait rien. La console d'administration est son premier consommateur réel — elle passe
 `kernel={rootStore.kernel}` à son fournisseur.
 
+## 📤 Les journaux de l'onglet, remontés au pod
+
+Une erreur JavaScript chez un utilisateur est invisible depuis le serveur : elle vit et meurt dans
+son onglet. Le client peut la faire remonter **dans le journal du pod**, à côté de la ligne de la
+requête qui l'a provoquée — trois appels, posés une fois au démarrage de la page.
+
+```ts
+import {
+  NodefonySocket,
+  Syslog,
+  installErrorCapture,
+  installRequestIdProvider,
+  installSyslogUplink,
+  withRequestId,
+} from "nodefony/client";
+
+const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const journal = new Syslog({ moduleName: "shop-front" });
+
+installRequestIdProvider(); // sans lui, withRequestId ne pose rien
+installErrorCapture({ syslog: journal }); // erreurs et rejets non rattrapés
+installSyslogUplink({ syslog: journal, publisher: socket });
+
+// Le requestId n'est SU que dans le traitement d'une réponse :
+const res = await fetch("/api/orders");
+withRequestId(res.headers.get("x-request-id") ?? undefined, () => {
+  journal.log("commande refusée", "ERROR", "checkout");
+});
+```
+
+Chaque `install…` rend sa fonction de retrait — à appeler au démontage. Le transport
+(`client/syslog/uplink.ts#installSyslogUplink`) met les entrées en tampon et les pousse par lots,
+toutes les deux secondes ou par cinquante ; rien n'est alloué tant qu'aucune entrée n'est retenue.
+
+Ce qu'il faut savoir avant de chercher une ligne qui n'arrive pas :
+
+- **Le serveur doit l'ouvrir.** `clientLogs.enabled` du module `@nodefony/realtime` vaut `false`
+  par défaut ; fermé, le pod n'a aucun récepteur pour le canal, et une notification sans récepteur
+  est **ignorée sans un mot** (`RealtimeController.ts#RealtimeController.onRealtimeNotification`).
+  Voir [la configuration du temps réel](../../../src/packages/@nodefony/realtime/docs/configuration.md).
+- **Il faut une connexion authentifiée.** Avec `@nodefony/security`, le canal montant exige une
+  identité, sans rôle particulier (`frameAuthorizer.ts#UPLINK_CHANNEL_POLICY`) : les erreurs d'un
+  visiteur anonyme ne remontent pas — celles de la page de connexion, notamment.
+- **Seul le grave part, par défaut.** Le client ne retient que jusqu'à WARNING (option
+  `maxSeverity`) ; le pod, de son côté, ramène à ERROR tout ce qui se prétend plus grave : un onglet
+  ne déclenche pas une alerte d'exploitation.
+- **Le pod ne croit pas l'onglet.** Le `moduleName` envoyé est remplacé par l'origine
+  « navigateur », le débit et la taille sont bornés par connexion
+  (`syslogUplink.ts#createSyslogUplinkHandler`). Le `requestId`, lui, est **déclaré** par le client
+  — validé en forme, jamais en fond : une piste de diagnostic, pas une preuve.
+- **`withRequestId` ne vaut que le tick synchrone.** Après un `await`, la portée est refermée
+  (`client/syslog/context.ts#withRequestId`) — le navigateur n'a pas de stockage de contexte comme le
+  serveur. Hors de la portée, l'entrée porte l'identifiant de la page (`getPageId()`), qui relie les
+  lignes d'un même onglet.
+- **Un lot perdu reste perdu.** Socket fermée ou en reconnexion : le lot en cours est abandonné,
+  jamais remis en file. Un journal n'est pas une file de messages garantie.
+
 ## 🔐 Les rôles isomorphes — de l'ergonomie, jamais une garantie
 
 Le subpath `nodefony/roles` fournit des fonctions **pures**, sans état ni dépendance, utilisables
@@ -918,6 +988,11 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts#hasAnyRole`)                                                                  | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                                               |
 | `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts#RoleRegistry`)                                                                   | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                                           |
 | Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                                                            | Protéger la route côté serveur — c'est lui l'autorité                                                            |
+| `request("/x", { id: 3 })` ignore ses paramètres                | En forme chemin, le 2ᵉ argument est le **délai d'attente** (`client/realtime/NodefonySocket.ts#NodefonySocket.request`)                       | Paramètres dans le chemin ou la requête ; un corps passe par `mutate()`                                          |
+| Une donnée mal formée traverse l'écran sans erreur              | `request<T>()` **convertit** le type, il ne valide rien                                                                                       | Valider au bord (Zod, déjà dépendance du framework) toute donnée sensible ou non maîtrisée                       |
+| Les erreurs de la page n'arrivent pas au journal du pod         | `clientLogs.enabled` fermé, visiteur anonyme, ou sévérité au-delà de `maxSeverity`                                                            | Voir [Les journaux de l'onglet](#-les-journaux-de-longlet-remontés-au-pod)                                       |
+| Le canal reste ouvert alors que l'écran a « coupé » le direct   | Le composant abonné est resté monté ; aucune liaison n'a d'interrupteur                                                                       | Démonter le composant abonné                                                                                     |
+| L'interface affiche des rôles périmés après un changement       | Rôles mémorisés à la connexion ; la socket s'est reconnectée (4005) avec les nouveaux                                                         | Lire l'identité par `onIdentity()` ou le hook du moteur                                                          |
 | Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                                                        | Déjà traité au build (`rolldown.config.ts#browserShim`) ; vérifier ses propres alias                             |
 
 ## 🧪 Tests & couverture

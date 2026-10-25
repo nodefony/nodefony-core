@@ -363,6 +363,20 @@ le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 > ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts#controller`). Ça ne
 > vaut **que** pour `"*"` seul : `/files/*` reste ordonné comme les autres.
 
+Pour un repli qui doit céder **entre modules** — la page d'une application monopage, servie sur
+`/app/{page}` ou `/app/*` —, l'option `fallback: true` range la route après toutes les autres, dans
+leur ordre relatif, au moment de construire l'index (`Route.ts#RouteOptions.fallback`) : une route
+littérale ou dynamique de même forme, déclarée par un module chargé après, garde la main. Aucun coût
+par requête. Sans ce drapeau, un repli déclaré tôt capture en silence les routes des modules
+suivants.
+
+```ts ignore
+@Get("/app/{page}", { fallback: true })
+renderSpa(): unknown {
+  return this.renderApp();
+}
+```
+
 ### Situation 2 — le même chemin, deux méthodes
 
 Deux routes peuvent partager un chemin et se distinguer par la méthode. La passe 1 essaie la première,

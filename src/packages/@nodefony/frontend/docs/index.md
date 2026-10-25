@@ -690,6 +690,33 @@ Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `Templa
 Quand Vite n'est pas prêt, le rendu ne lève **jamais** : il renvoie un commentaire HTML disant
 l'état. Une page dégradée reste une page.
 
+### Une route profonde, et la touche F5
+
+Ton application monopage navigue côté navigateur : `/commandes/42` n'est qu'un état de l'écran. Mais
+au premier chargement — un lien partagé, un F5 —, c'est le **serveur** qui reçoit ce chemin, et sans
+route qui rende la page il répond 404. Le contrôleur de la page doit donc servir aussi les chemins
+profonds, par une route de **repli** :
+
+```ts ignore
+// Dans le contrôleur qui rend la page (AppController d'une application générée)
+@route("route-app-commandes", {
+  path: "/commandes/*",
+  method: "GET",
+  fallback: true,
+})
+renderDeep(): unknown {
+  return this.renderApp();
+}
+```
+
+`fallback: true` range la route **après toutes les autres** (`Route.ts#RouteOptions.fallback`) : une
+route d'API de même forme, déclarée par n'importe quel module, garde la priorité — voir
+[l'ordre de résolution](../../framework/docs/routing.md#️-ordre-de-résolution--trois-situations).
+Deux détails : `/commandes/*` n'attrape pas `/commandes` lui-même (la barre oblique est requise),
+qui demande sa propre route ; et un repli à la **racine** (`/*`) transformerait toute faute de
+frappe — une URL d'API, un fichier absent — en page HTML servie en 200. Borne le repli aux
+préfixes de ton application.
+
 ### Les helpers de vue
 
 Si tu rends une vue Eta plutôt qu'une chaîne, trois helpers sont déjà dans tes variables locales
@@ -903,6 +930,10 @@ apparaisse avant le « prêt ».
 | `Refused to load the script` (politique de sécurité) | page rendue avant que Vite soit prêt : le fragment de développement n'est pas encore déclaré | recharger une fois Vite prêt ; vérifier que le nonce est bien propagé |
 | Commentaire `prod manifest missing` dans la page | les bundles n'ont pas été construits, et Vite n'était pas là pour le faire au démarrage | `npm run build` (ou `npx nodefony frontend:build`) puis **recharge la page** — l'absence de manifeste n'est jamais mise en cache (`loadManifest()`, `TemplateHelper.ts#TemplateHelper.loadManifest`), le serveur voit le build sans redémarrer |
 | Les assets répondent 404 en production | le serveur statique est absent ou le préfixe ne correspond pas | vérifier le montage journalisé au démarrage, et `publicPath` |
+| Après un `frontend:build` lancé serveur démarré, la page demande des fichiers en 404 | un manifeste TROUVÉ est gardé pour toute la vie du processus (`loadManifest()`, `TemplateHelper.ts#TemplateHelper.loadManifest`), et le build vide le dossier de sortie : la page désigne des fichiers effacés | redémarrer après tout build en production ; en déploiement réel, le build se fait à l'image, avant le démarrage |
+| Après un redéploiement, un onglet resté ouvert casse au changement d'écran (`Failed to fetch dynamically imported module`) | il demande les morceaux de la génération précédente, dont les noms hachés n'existent plus | écouter l'événement `vite:preloadError` et recharger la page **une** fois, avec une garde anti-boucle — ce que fait la console d'administration (`staleChunk.ts#lazyRoute`) |
+| Un import hors du dossier front est refusé par Vite (403) | le serveur de développement n'ouvre que le dossier de l'application, la racine de chaque entrée et la barre de débogage (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`) | placer la ressource sous l'une de ces racines |
+| F5 sur une page profonde de l'application rend 404 | aucune route serveur ne rend la page pour ce chemin | une route de repli — voir [Une route profonde, et la touche F5](#une-route-profonde-et-la-touche-f5) |
 | Un module à interface est invisible de `listEntries()` | il est en mode `static` — il n'appelle jamais `registerEntry` | attendu ; regarder la molette `ui` et le mode journalisé au démarrage |
 | Modifications du front sans effet | `vite.config.generated.mjs` édité à la main | ne jamais l'éditer : il est réécrit à chaque démarrage |
 | Angular recharge la page entière au lieu du composant | son greffon ne fait pas de remplacement à chaud | attendu — c'est le comportement du greffon Angular |
