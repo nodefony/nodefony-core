@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-25 12:01** (UTC).
+> Empreinte prise le **2026-10-25 13:52** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 91% | 194 | 20 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 91% | 195 | 19 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 37 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
@@ -35,7 +35,7 @@
 
 Ordre 6.01 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · frise 2026-10-27 → 10-27
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 20 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -106,7 +106,7 @@ Ordre 6.01 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fris
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 20 ouverts
+## Jalon 10.0.0-beta — 19 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -127,7 +127,6 @@ Ordre 6.01 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fris
 | 6.044 | P1 — figé à la création | 1 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
 | 6.045 | P1 — figé à la création | 3 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 6.1 | P1 — figé à la création | 0.5 | 2026-11-17 → 11-17 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
-| 6.11 | P2 — décision | 0.5 | 2026-11-18 → 11-18 | #605 | feat(site): versionner le site de documentation par release |
 | 6.12 | P2 — décision | 1 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 6.2 | P1 — figé à la création | 3 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
