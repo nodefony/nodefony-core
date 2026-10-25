@@ -78,7 +78,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   oxlint: "^1.89.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
-  "oxlint-tsgolint": "^7.0.2004",
+  "oxlint-tsgolint": "^7.0.2005",
   prettier: "^3.9.10",
   rolldown: "^1.2.15",
   typescript: "^6.0.3",

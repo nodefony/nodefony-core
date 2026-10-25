@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 /**
  * La mécanique de `@nodefony/ai` sur un SERVEUR RÉEL, par une porte
@@ -166,12 +165,7 @@ describe.skipIf(reason !== null)(
   () => {
     async function open(): Promise<Client> {
       const client = new Client({ name: "banc-sdk", version: "0.0.0" });
-      // Conversion assumée : le SDK type `sessionId` en `string | undefined` sur
-      // son transport et en `sessionId?: string` sur son interface —
-      // incompatibles sous `exactOptionalPropertyTypes`, défaut du SDK.
-      const transport = new StreamableHTTPClientTransport(
-        new URL(URL_GATE),
-      ) as Transport;
+      const transport = new StreamableHTTPClientTransport(new URL(URL_GATE));
       await client.connect(transport);
       return client;
     }

@@ -9,7 +9,6 @@ import { MCP_ENDPOINT_PATH, protectedResourceMetadataPath } from "nodefony";
 import { MCP_PROTOCOL_VERSION } from "@nodefony/ai";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 /** Où la RFC 9728 fait chercher les métadonnées de CETTE porte. */
 const MCP_METADATA_PATH = protectedResourceMetadataPath(MCP_ENDPOINT_PATH);
@@ -1153,9 +1152,6 @@ describe.skipIf(raison !== null)(
   () => {
     async function ouvrir(chemin: string): Promise<Client> {
       const client = new Client({ name: "banc-sdk", version: "0.0.0" });
-      // Conversion assumée : le SDK type `sessionId` en `string | undefined` sur son
-      // transport et en `sessionId?: string` sur son interface — incompatibles
-      // sous `exactOptionalPropertyTypes`, défaut du SDK, pas de ce banc.
       // Le jeton du banc, comme un client configuré : sans lui, la porte de
       // production refuse l'anonyme (et c'est voulu).
       const transport = new StreamableHTTPClientTransport(
@@ -1163,7 +1159,7 @@ describe.skipIf(raison !== null)(
         JETON === null
           ? {}
           : { requestInit: { headers: { authorization: `Bearer ${JETON}` } } },
-      ) as Transport;
+      );
       await client.connect(transport);
       return client;
     }
