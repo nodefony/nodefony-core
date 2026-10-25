@@ -4,6 +4,7 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import { DrizzleOrm, seedEntityRow } from "../../nodefony/src/orm-core/index";
+import { defineTable } from "../../nodefony/entity/colKit";
 
 // `seedEntityRow` existe pour UNE raison : depuis que les relations posent une
 // contrainte d'intégrité, un test qui invente une clé étrangère est refusé par la
@@ -49,6 +50,22 @@ const childEntity: IEntity = {
   schema: childTable,
 };
 
+// La même ligne parente, déclarée en description PORTABLE : le semis lit la
+// table que l'ORM en décline pour son dialecte.
+const portableEntity: IEntity = {
+  name: "SeedPortable",
+  connector: ORM,
+  schema: defineTable({
+    name: "SeedPortable",
+    columns: {
+      id: { kind: "uuid", primaryKey: true, defaultFn: () => randomUUID() },
+      email: { kind: "string", length: 120, notNull: true, unique: true },
+      hits: { kind: "int", notNull: true },
+      rank: { kind: "int", notNull: true, default: 3 },
+    },
+  }),
+};
+
 interface ParentRow {
   id: string;
   email: string;
@@ -69,6 +86,7 @@ describe("seedEntityRow — semer la ligne parente d'une relation", () => {
   beforeAll(async () => {
     entityRegistry.register(parentEntity);
     entityRegistry.register(childEntity);
+    entityRegistry.register(portableEntity);
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
   });
@@ -77,6 +95,7 @@ describe("seedEntityRow — semer la ligne parente d'une relation", () => {
     await orm.disconnect();
     entityRegistry.unregister("SeedParent", ORM);
     entityRegistry.unregister("SeedChild", ORM);
+    entityRegistry.unregister("SeedPortable", ORM);
     ormRegistry.unregister(ORM);
   });
 
@@ -105,6 +124,16 @@ describe("seedEntityRow — semer la ligne parente d'une relation", () => {
     assert.equal(found.active, true);
     // Laissée au schéma : le helper ne remplit pas ce qui a un défaut.
     assert.ok(found.createdAt instanceof Date);
+  });
+
+  it("sème une entité PORTABLE — défaut littéral laissé au schéma", async () => {
+    const id = await seedEntityRow(orm, portableEntity);
+    const found = await orm
+      .getRepository<{ id: string; hits: number; rank: number }>("SeedPortable")
+      .findOne({ id: String(id) });
+    assert.ok(found, "la ligne semée doit être relisible");
+    assert.equal(typeof found.hits, "number");
+    assert.equal(found.rank, 3);
   });
 
   it("deux semis ne se marchent pas dessus malgré une colonne unique", async () => {

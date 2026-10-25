@@ -17,6 +17,7 @@ import {
   writeSchemaModule,
   registeredTables,
   tablesOfConnector,
+  type IDiscoveredTable,
   type IUnreadableEntityFile,
 } from "../src/migrator/appSchema";
 import {
@@ -370,9 +371,12 @@ class OrmGenerate extends OrmMigrateCommand {
     // Et une table d'un AUTRE connecteur non plus : elle vit dans une autre
     // base, dont les migrations sont écrites à part.
     const ofConnector = tablesOfConnector(mine, connector);
-    const tables = ofConnector.filter((t) => t.dialect === dialect);
+    // Une table PORTABLE sert tous les moteurs : elle entre toujours.
+    const servesDialect = (t: IDiscoveredTable): boolean =>
+      t.portable || t.dialect === dialect;
+    const tables = ofConnector.filter(servesDialect);
     const otherDialect = ofConnector
-      .filter((t) => t.dialect !== dialect)
+      .filter((t) => !servesDialect(t))
       .map((t) => ({
         table: t.tableName,
         dialect: t.dialect ?? "inconnu",
@@ -513,7 +517,7 @@ class OrmGenerate extends OrmMigrateCommand {
     }
 
     try {
-      await writeSchemaModule(schemaFile, tables);
+      await writeSchemaModule(schemaFile, tables, dialect);
       await writeKitConfig({
         file: configFile,
         projectRoot: root,

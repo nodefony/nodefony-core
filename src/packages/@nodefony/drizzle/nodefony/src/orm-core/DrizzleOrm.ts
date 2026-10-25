@@ -8,7 +8,6 @@ import { createRequire } from "node:module";
 // qui ne l'ouvrira jamais.
 import type BetterSqlite3 from "better-sqlite3";
 import type { Container } from "nodefony";
-import { is } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import {
   getTableConfig,
@@ -72,6 +71,7 @@ import {
 } from "./DrizzleRepository";
 import { describeTargetSafely } from "../safeTarget";
 import { DrizzleTransaction } from "./DrizzleTransaction";
+import { dialectTableOf } from "./entityTable";
 import { planTableCreation, explainOmittedForeignKeys } from "./ddlPlan";
 import type { IResolvedForeignKey } from "./ddlPlan";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
@@ -956,8 +956,7 @@ export class DrizzleOrm extends Orm {
       });
     };
     for (const entity of entities) {
-      this.#assertDialectTable(entity, SQLiteTable, "sqlite");
-      const table = entity.schema as SQLiteTable;
+      const table = this.#dialectTable(entity, "sqlite");
       tables[entity.name] = table;
       entity.model = table;
     }
@@ -968,7 +967,7 @@ export class DrizzleOrm extends Orm {
     // pour TOUTES les entités (même sans DDL dérivé), la création suit l'ordre
     // des dépendances — qu'on ne connaît qu'après les avoir toutes lues.
     const plan = this.#planCreation(entities, (entity) => {
-      const config = getTableConfig(entity.schema as SQLiteTable);
+      const config = getTableConfig(this.#dialectTable(entity, "sqlite"));
       return {
         name: config.name,
         references: config.foreignKeys.map(
@@ -977,7 +976,7 @@ export class DrizzleOrm extends Orm {
       };
     });
     for (const entity of plan.ordered) {
-      const table = entity.schema as SQLiteTable;
+      const table = this.#dialectTable(entity, "sqlite");
       const name = getTableConfig(table).name;
       client.exec(this.#createTableSQL(table, plan.skip.get(name)));
     }
@@ -1191,24 +1190,33 @@ export class DrizzleOrm extends Orm {
   }
 
   /**
-   * Garde fail-loud : une entité dont la table n'est pas du dialecte du
-   * connecteur (ex. variante sqlite enregistrée sur un connecteur postgres)
-   * doit échouer avec un message ACTIONNABLE — pas le `TypeError: Cannot
-   * convert undefined or null to object` cryptique de `getTableConfig`.
+   * La table de l'entité pour le dialecte du connecteur — une table PORTABLE
+   * (`defineTable`) y est déclinée, une table native doit en être.
+   *
+   * Garde fail-loud : une table native d'un AUTRE dialecte (variante sqlite
+   * posée sur un connecteur postgres) échoue avec un message ACTIONNABLE — pas
+   * le `TypeError: Cannot convert undefined or null to object` cryptique de
+   * `getTableConfig`. Rappelée à chaque étape du démarrage plutôt que retenue :
+   * une table portable est mémoïsée par sa fabrique, une native n'est qu'un
+   * test de classe.
    */
-  #assertDialectTable(
+  #dialectTable(entity: IEntity, dialect: "sqlite"): SQLiteTable;
+  #dialectTable(entity: IEntity, dialect: "postgres"): PgTable;
+  #dialectTable(entity: IEntity, dialect: "mysql"): MySqlTable;
+  #dialectTable(
     entity: IEntity,
-    tableCtor: typeof SQLiteTable | typeof PgTable | typeof MySqlTable,
-    dialect: string,
-  ): void {
-    if (!is(entity.schema as Record<string, unknown>, tableCtor)) {
+    dialect: SqlDialect,
+  ): SQLiteTable | PgTable | MySqlTable {
+    const table = dialectTableOf(entity.schema, dialect);
+    if (table === null) {
       throw new Error(
         `DrizzleOrm "${this.name}" (${dialect}): entity "${entity.name}" is not ` +
-          `ported to this dialect (its schema is not a ${dialect} table). Port it ` +
-          `via a createXTable("${dialect}") factory, or keep this connector on a ` +
-          `dialect the entity supports (multi-dialect worksite).`,
+          `ported to this dialect (its schema is not a ${dialect} table). Declare ` +
+          `it with defineTable() — one description, a table per dialect — or keep ` +
+          `this connector on the dialect the entity was written for.`,
       );
     }
+    return table;
   }
 
   /**
@@ -1371,8 +1379,7 @@ export class DrizzleOrm extends Orm {
       });
     };
     for (const entity of entities) {
-      this.#assertDialectTable(entity, PgTable, "postgres");
-      const table = entity.schema as PgTable;
+      const table = this.#dialectTable(entity, "postgres");
       tables[entity.name] = table;
       entity.model = table;
     }
@@ -1380,7 +1387,7 @@ export class DrizzleOrm extends Orm {
       return;
     }
     const plan = this.#planCreation(entities, (entity) => {
-      const config = getPgTableConfig(entity.schema as PgTable);
+      const config = getPgTableConfig(this.#dialectTable(entity, "postgres"));
       return {
         name: config.name,
         references: config.foreignKeys.map(
@@ -1389,7 +1396,7 @@ export class DrizzleOrm extends Orm {
       };
     });
     for (const entity of plan.ordered) {
-      const table = entity.schema as PgTable;
+      const table = this.#dialectTable(entity, "postgres");
       const name = getPgTableConfig(table).name;
       await pool.query(this.#createTablePgSQL(table, plan.skip.get(name)));
     }
@@ -1643,8 +1650,7 @@ export class DrizzleOrm extends Orm {
       });
     };
     for (const entity of entities) {
-      this.#assertDialectTable(entity, MySqlTable, "mysql");
-      const table = entity.schema as MySqlTable;
+      const table = this.#dialectTable(entity, "mysql");
       tables[entity.name] = table;
       entity.model = table;
     }
@@ -1652,7 +1658,7 @@ export class DrizzleOrm extends Orm {
       return;
     }
     const plan = this.#planCreation(entities, (entity) => {
-      const config = getMysqlTableConfig(entity.schema as MySqlTable);
+      const config = getMysqlTableConfig(this.#dialectTable(entity, "mysql"));
       return {
         name: config.name,
         references: config.foreignKeys.map(
@@ -1661,7 +1667,7 @@ export class DrizzleOrm extends Orm {
       };
     });
     for (const entity of plan.ordered) {
-      const table = entity.schema as MySqlTable;
+      const table = this.#dialectTable(entity, "mysql");
       const name = getMysqlTableConfig(table).name;
       await pool.query(this.#createTableMysqlSQL(table, plan.skip.get(name)));
     }

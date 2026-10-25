@@ -161,15 +161,19 @@ function runRoundtripSuite(opts: IRoundtripRunOptions): void {
   beforeAll(async () => {
     const migration =
       opts.schema === "migration" ? await generateMigration(dialect) : [];
+    // Les DEUX façons de déclarer une entité : la description PORTABLE, que
+    // l'ORM décline pour son dialecte (DDL dérivé), et la table native déjà
+    // déclinée (migration) — le même banc les juge l'une et l'autre.
+    const portable = opts.schema === "derived";
     entityRegistry.register({
       connector,
       name: PARENT_ENTITY,
-      schema: PARENT.table(dialect),
+      schema: portable ? PARENT : PARENT.table(dialect),
     });
     entityRegistry.register({
       connector,
       name: VALUE_ENTITY,
-      schema: VALUE.table(dialect),
+      schema: portable ? VALUE : VALUE.table(dialect),
     });
     orm = new DrizzleOrm(connector, { dialect, ...opts.connection });
     await orm.connect();

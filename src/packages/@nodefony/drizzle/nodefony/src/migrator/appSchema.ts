@@ -38,6 +38,8 @@ import { entityRegistry } from "@nodefony/orm-core";
 import { MySqlTable } from "drizzle-orm/mysql-core";
 import { PgTable } from "drizzle-orm/pg-core";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
+import { isPortableSchema } from "../../entity/colKit.shared";
+import { schemaTableName } from "../orm-core/entityTable";
 import { FORMAT_MARKER } from "./kit";
 import { APP_SOURCE } from "./paths";
 import { readJournal } from "./sources";
@@ -54,6 +56,12 @@ export interface IDiscoveredTable {
   tableName: string;
   /** Moteur pour lequel elle est écrite — `null` si aucun des trois. */
   dialect: SqlDialect | null;
+  /**
+   * Table PORTABLE (`defineTable`) : elle n'est écrite pour aucun moteur et
+   * les sert tous — `dialect` vaut alors `null`, et le module de schéma la
+   * décline pour celui du connecteur.
+   */
+  portable: boolean;
 }
 
 /** Ce qu'un fichier d'entité a refusé de livrer. */
@@ -188,6 +196,16 @@ export async function collectTables(
         continue;
       }
       for (const [exportName, value] of Object.entries(mod)) {
+        if (isPortableSchema(value)) {
+          tables.push({
+            file,
+            exportName,
+            tableName: value.spec.name,
+            dialect: null,
+            portable: true,
+          });
+          continue;
+        }
         if (!is(value, Table)) {
           continue;
         }
@@ -196,6 +214,7 @@ export async function collectTables(
           exportName,
           tableName: getTableName(value),
           dialect: dialectOf(value),
+          portable: false,
         });
       }
     }
@@ -294,13 +313,19 @@ export function importSpecifier(fromFile: string, toFile: string): string {
  * une absence silencieuse. Le nom de la table en base, lui, n'est pas touché :
  * il vit dans l'appel `…Table("nom")`, pas dans l'identifiant.
  *
+ * Une table PORTABLE n'est pas une table Drizzle : le module l'importe, puis
+ * exporte sa déclinaison pour le dialecte du connecteur — à plat, comme les
+ * autres. `drizzle-kit` ne voit ainsi que des tables natives.
+ *
  * @param file - chemin du module à écrire.
  * @param tables - tables à ré-exporter, dans l'ordre de découverte.
+ * @param dialect - dialecte du connecteur, pour décliner les tables portables.
  * @returns le contenu écrit (rendu pour les bancs).
  */
 export async function writeSchemaModule(
   file: string,
   tables: readonly IDiscoveredTable[],
+  dialect: SqlDialect,
 ): Promise<string> {
   const lines = [
     "// Fichier ENGENDRÉ par `nodefony orm:generate` — il est réécrit à chaque",
@@ -311,9 +336,16 @@ export async function writeSchemaModule(
     "",
   ];
   tables.forEach((t, i) => {
-    lines.push(
-      `export { ${t.exportName} as nf_${i}_${t.tableName.replace(/[^A-Za-z0-9_]/g, "_")} } from "${importSpecifier(file, t.file)}";`,
-    );
+    const alias = `nf_${i}_${t.tableName.replace(/[^A-Za-z0-9_]/g, "_")}`;
+    const from = importSpecifier(file, t.file);
+    if (t.portable) {
+      lines.push(
+        `import { ${t.exportName} as ${alias}_portable } from "${from}";`,
+        `export const ${alias} = ${alias}_portable.table("${dialect}");`,
+      );
+      return;
+    }
+    lines.push(`export { ${t.exportName} as ${alias} } from "${from}";`);
   });
   const body = `${lines.join("\n")}\n`;
   await fs.mkdir(path.dirname(file), { recursive: true });
@@ -606,9 +638,9 @@ export function registeredTables(connector: string): IExpectedEntity[] {
     if (entity.connector !== connector) {
       continue;
     }
-    const schema = entity.schema;
-    if (is(schema, Table)) {
-      out.push({ entity: entity.name, table: getTableName(schema) });
+    const table = schemaTableName(entity.schema);
+    if (table !== null) {
+      out.push({ entity: entity.name, table });
     }
   }
   return out;
@@ -651,11 +683,10 @@ export function tablesOfConnector<T extends { tableName: string }>(
 export function registeredOwners(): Map<string, Set<string>> {
   const owners = new Map<string, Set<string>>();
   for (const entity of entityRegistry.list()) {
-    const schema = entity.schema;
-    if (!is(schema, Table)) {
+    const table = schemaTableName(entity.schema);
+    if (table === null) {
       continue;
     }
-    const table = getTableName(schema);
     let set = owners.get(table);
     if (set === undefined) {
       set = new Set();

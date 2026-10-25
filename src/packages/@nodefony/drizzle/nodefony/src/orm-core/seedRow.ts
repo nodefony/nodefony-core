@@ -1,6 +1,7 @@
-import { getTableColumns, type Column, type Table } from "drizzle-orm";
+import { getTableColumns, type Column } from "drizzle-orm";
 import type { IEntity } from "@nodefony/orm-core";
 import type { DrizzleOrm } from "./DrizzleOrm";
+import { dialectTableOf } from "./entityTable";
 
 /**
  * Compteur de semis — il rend chaque ligne semée DISTINCTE.
@@ -77,7 +78,13 @@ export async function seedEntityRow(
   entity: IEntity,
 ): Promise<string | number> {
   const n = ++seedCounter;
-  const columns = getTableColumns(entity.schema as Table);
+  const table = dialectTableOf(entity.schema, orm.dialect);
+  if (table === null) {
+    throw new Error(
+      `seedEntityRow: entity "${entity.name}" has no ${orm.dialect} table to seed.`,
+    );
+  }
+  const columns = getTableColumns(table);
   const row: Record<string, unknown> = {};
   for (const [name, column] of Object.entries(columns)) {
     if (!column.notNull || column.hasDefault || column.primary) continue;

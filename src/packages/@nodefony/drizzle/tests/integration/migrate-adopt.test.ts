@@ -560,7 +560,7 @@ for (const cible of CIBLES) {
         "work",
         `drizzle.${cible.dialect}.config.ts`,
       );
-      await writeSchemaModule(schemaFile, tables);
+      await writeSchemaModule(schemaFile, tables, cible.dialect);
       await writeKitConfig({
         file: configFile,
         projectRoot: app,

@@ -107,3 +107,31 @@ export function literalDefaultFn<T>(value: T): () => T {
     ? () => structuredClone(value)
     : () => value;
 }
+
+/**
+ * Une valeur quelconque est-elle une table PORTABLE (rendue par `defineTable`) ?
+ *
+ * Le pendant de `is(value, Table)` pour la description neutre : c'est ainsi
+ * qu'un `entity.schema`, un export de fichier d'entité ou une cible se
+ * reconnaissent, sans rien deviner d'un nom.
+ *
+ * @param value - valeur à examiner.
+ * @returns `true` si elle porte une spec nommée et sa fabrique par dialecte.
+ */
+export function isPortableSchema(value: unknown): value is IPortableTableBase {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  if (!("spec" in value) || !("table" in value)) {
+    return false;
+  }
+  const { spec, table } = value;
+  return (
+    typeof table === "function" &&
+    typeof spec === "object" &&
+    spec !== null &&
+    "name" in spec &&
+    typeof spec.name === "string" &&
+    "columns" in spec
+  );
+}

@@ -19,6 +19,7 @@ import type { IUserColumn, UserColumnType } from "@nodefony/user";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import { defineTable } from "./colKit";
 import type { ColumnSpec } from "./colKit";
+import { isPortableSchema } from "./colKit.shared";
 
 /** Genres du colKit qu'emploie le contrat utilisateur. */
 type UserColumnKind = "text" | "json" | "int" | "bool" | "datetime";
@@ -308,13 +309,17 @@ export function userTableColumns(
   // La CLASSE de la table décide de la grammaire, et le dialecte annoncé doit
   // lui correspondre : une table d'un autre dialecte est refusée en le disant,
   // au lieu du `TypeError` opaque de la mauvaise `getTableConfig`.
+  // Une table PORTABLE (`defineTable`) est d'abord déclinée pour ce dialecte.
+  const resolved: unknown = isPortableSchema(table)
+    ? table.table(dialect)
+    : table;
   const columns =
-    dialect === "postgres" && is(table, PgTable)
-      ? getPgTableConfig(table).columns
-      : dialect === "mysql" && is(table, MySqlTable)
-        ? getMysqlTableConfig(table).columns
-        : dialect === "sqlite" && is(table, SQLiteTable)
-          ? getTableConfig(table).columns
+    dialect === "postgres" && is(resolved, PgTable)
+      ? getPgTableConfig(resolved).columns
+      : dialect === "mysql" && is(resolved, MySqlTable)
+        ? getMysqlTableConfig(resolved).columns
+        : dialect === "sqlite" && is(resolved, SQLiteTable)
+          ? getTableConfig(resolved).columns
           : null;
   if (columns === null) {
     throw new TypeError(

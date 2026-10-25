@@ -23,6 +23,7 @@ import {
   unreadableRefusal,
 } from "../../nodefony/src/migrator/explain";
 import { importsDrizzle } from "../../nodefony/src/migrator/appSchema";
+import { schemaTableName } from "../../nodefony/src/orm-core/entityTable";
 
 /**
  * Ce que `nodefony orm:generate` fait AVANT et APRÈS l'outil tiers — la partie
@@ -44,9 +45,14 @@ const MODULE_ROOT = path.resolve(
 const REPO_ROOT = path.resolve(MODULE_ROOT, "..", "..", "..", "..");
 // Le suffixe de processus rend le décor réentrant : deux exécutions du même
 // banc ne partagent plus le dossier, donc ne se nettoient plus l'une l'autre.
-// Il reste sous `tmp/` du dépôt pour la raison dite plus haut — la résolution
+// Il reste sous `tmp/scratch/` du dépôt pour la raison dite plus haut — la résolution
 // de `drizzle-kit` remonte jusqu'aux `node_modules` du dépôt.
-const APP = path.join(REPO_ROOT, "tmp", `orm-generate-banc-${process.pid}`);
+const APP = path.join(
+  REPO_ROOT,
+  "tmp",
+  "scratch",
+  `orm-generate-banc-${process.pid}`,
+);
 const ENTITIES = path.join(APP, "nodefony", "entity");
 const OUT = path.join(APP, "migrations", "sqlite");
 
@@ -179,10 +185,26 @@ export const postTable = sqliteTable("post", { id: id() });
     const a = path.join(ENTITIES, "A.ts");
     const b = path.join(ENTITIES, "B.ts");
     const schema = path.join(APP, "work", "schema.ts");
-    const body = await writeSchemaModule(schema, [
-      { file: a, exportName: "table", tableName: "alpha", dialect: "sqlite" },
-      { file: b, exportName: "table", tableName: "beta", dialect: "sqlite" },
-    ]);
+    const body = await writeSchemaModule(
+      schema,
+      [
+        {
+          file: a,
+          exportName: "table",
+          tableName: "alpha",
+          dialect: "sqlite",
+          portable: false,
+        },
+        {
+          file: b,
+          exportName: "table",
+          tableName: "beta",
+          dialect: "sqlite",
+          portable: false,
+        },
+      ],
+      "sqlite",
+    );
     // Deux fichiers exportent `table` : en étoile, ESM rendrait le nom AMBIGU,
     // et un ré-export ambigu n'est pas une erreur — c'est une absence.
     const alias = [...body.matchAll(/ as (\w+) \}/g)].map((m) => m[1]);
@@ -295,12 +317,14 @@ export const postTable = sqliteTable("post", { id: id() });
             exportName: "postTable",
             tableName: "post",
             dialect: "sqlite",
+            portable: false,
           },
           {
             file: "/app/nodefony/entity/Moi.ts",
             exportName: "userTable",
             tableName: "User",
             dialect: "sqlite",
+            portable: false,
           },
         ],
         framework,
@@ -437,7 +461,7 @@ export const userTable = sqliteTable("User", { id: text("id").primaryKey() });
       const { tables } = await collectTables([path.join(ENTITIES, "Post.ts")]);
       const schemaFile = path.join(APP, "work", "schema.ts");
       const configFile = path.join(APP, "work", "drizzle.config.ts");
-      await writeSchemaModule(schemaFile, tables);
+      await writeSchemaModule(schemaFile, tables, "sqlite");
       await writeKitConfig({
         file: configFile,
         projectRoot: APP,
@@ -477,6 +501,84 @@ export const userTable = sqliteTable("User", { id: text("id").primaryKey() });
         /FOREIGN KEY \(`author`\) REFERENCES `User`\(`id`\)/,
         "la relation est déclarée, la migration ne porte aucune contrainte",
       );
+    });
+
+    it("une table PORTABLE entre dans la migration de CHAQUE moteur, déclinée pour lui", async () => {
+      const kit = path
+        .relative(
+          ENTITIES,
+          path.join(MODULE_ROOT, "nodefony", "entity", "colKit"),
+        )
+        .split(path.sep)
+        .join("/");
+      await put(
+        path.join(ENTITIES, "Article.ts"),
+        `import { defineTable } from "${kit}";
+export const article = defineTable({
+  name: "article",
+  columns: {
+    id: { kind: "serial", primaryKey: true },
+    title: { kind: "string", length: 80, notNull: true },
+    createdAt: { kind: "datetime", notNull: true, column: "created_at" },
+  },
+});
+`,
+      );
+      const { tables } = await collectTables([
+        path.join(ENTITIES, "Article.ts"),
+      ]);
+      assert.deepEqual(
+        tables.map((t) => [t.tableName, t.portable, t.dialect]),
+        [["article", true, null]],
+        "reconnue comme portable : écrite pour aucun moteur, elle les sert tous",
+      );
+      const expected: Record<"postgres" | "mysql", RegExp> = {
+        postgres:
+          /CREATE TABLE "article"[\s\S]*"created_at" timestamp ?\(3\) with time zone NOT NULL/,
+        mysql:
+          /CREATE TABLE `article`[\s\S]*`created_at` datetime ?\(3\) NOT NULL/,
+      };
+      for (const dialect of ["postgres", "mysql"] as const) {
+        const out = path.join(APP, "migrations", dialect);
+        const schemaFile = path.join(APP, "work", `schema.${dialect}.ts`);
+        const configFile = path.join(
+          APP,
+          "work",
+          `drizzle.${dialect}.config.ts`,
+        );
+        const body = await writeSchemaModule(schemaFile, tables, dialect);
+        assert.match(body, new RegExp(`\\.table\\("${dialect}"\\);`));
+        await writeKitConfig({
+          file: configFile,
+          projectRoot: APP,
+          schemaFile,
+          outDir: out,
+          dialect,
+          excludedTables: [],
+        });
+        runGenerate({
+          cwd: APP,
+          configRel: path.relative(APP, configFile).split(path.sep).join("/"),
+          name: "portable",
+          label: "le banc",
+        });
+        const sql = await fs.readFile(
+          path.join(out, "0000_portable.sql"),
+          "utf8",
+        );
+        assert.match(sql, expected[dialect], dialect);
+      }
+    });
+
+    it("le registre lit le nom d'une table portable, sans dialecte", () => {
+      assert.equal(
+        schemaTableName({
+          spec: { name: "article", columns: {} },
+          table: () => null,
+        }),
+        "article",
+      );
+      assert.equal(schemaTableName({ name: "pas une table" }), null);
     });
   });
 });
