@@ -65,7 +65,7 @@ import type {
   IsWideSpec,
   ITableSpec,
   RefTargetKey,
-} from "./colKit";
+} from "./colKit.spec";
 
 /**
  * Types de TABLE du colKit par dialecte, dérivés de la spec logique.

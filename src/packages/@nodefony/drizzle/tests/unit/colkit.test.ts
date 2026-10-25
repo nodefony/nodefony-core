@@ -498,6 +498,18 @@ describe("colKit — tables portables", () => {
       });
     }
 
+    it("clé primaire entière non auto-incrémentée → refus nommé (refusée aussi au type)", () => {
+      const declare = (): void =>
+        assertTableSpec({
+          name: "t",
+          columns: {
+            // @ts-expect-error une clé est une chaîne, un uuid ou un serial
+            id: { kind: "int", primaryKey: true },
+          },
+        });
+      assert.throws(declare, /"id" is a int primary key/);
+    });
+
     it("référence vers une table sans clé primaire → refus à la fabrication", () => {
       const keyless = defineTable({
         name: "keyless",

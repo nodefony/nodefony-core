@@ -1,60 +1,13 @@
-import type { ColumnSpec, IEnumColumn, IRefColumn, ITableSpec } from "./colKit";
+import type { IPortableTableBase } from "./colKit";
+import { refTargetSpec } from "./colKit.spec";
+import type {
+  IEnumColumn,
+  IRefColumn,
+  ITableDescription,
+  ITableSpec,
+} from "./colKit.spec";
 
 /** Aides des trois fabriques du colKit — aucune ne dépend d'un dialecte. */
-
-/** Largeur fixe de la colonne d'un `enum` en MySQL, donc plus longue valeur admise. */
-export const ENUM_MAX_LENGTH = 64;
-
-/** Genres qu'une clé primaire peut porter, donc qu'une référence peut viser. */
-export type KeyColumnSpec = Extract<
-  ColumnSpec,
-  { kind: "string" | "char" | "text" | "uuid" | "serial" }
->;
-
-/** Nom de la colonne clé primaire d'une spec. */
-export function primaryKeyName(spec: ITableSpec): string {
-  for (const [name, column] of Object.entries(spec.columns)) {
-    if ("primaryKey" in column) {
-      return name;
-    }
-  }
-  throw new Error(
-    `[@nodefony/drizzle] colKit "${spec.name}": no primary key column.`,
-  );
-}
-
-/** Spec de la table visée par une référence (la table elle-même pour `"self"`). */
-export function refTargetSpec(ref: IRefColumn, owner: ITableSpec): ITableSpec {
-  return ref.target === "self" ? owner : ref.target().spec;
-}
-
-/**
- * Spec de la clé primaire visée par une référence — la colonne de référence en
- * prend le TYPE, sinon PostgreSQL et MySQL refusent la contrainte.
- *
- * @throws Quand la table visée n'a pas de clé primaire de genre référençable.
- */
-export function refTargetKey(
-  ref: IRefColumn,
-  owner: ITableSpec,
-  column: string,
-): KeyColumnSpec {
-  const target = refTargetSpec(ref, owner);
-  const key = target.columns[primaryKeyName(target)];
-  if (
-    key?.kind === "string" ||
-    key?.kind === "char" ||
-    key?.kind === "text" ||
-    key?.kind === "uuid" ||
-    key?.kind === "serial"
-  ) {
-    return key;
-  }
-  throw new Error(
-    `[@nodefony/drizzle] colKit "${owner.name}": column "${column}" references ` +
-      `"${target.name}", whose primary key is not a string, char, text, uuid or serial.`,
-  );
-}
 
 /** La colonne est-elle visée par un index de la spec ? */
 export function isIndexed(spec: ITableSpec, name: string): boolean {
@@ -107,4 +60,36 @@ export function indexedColumn<C>(
     );
   }
   return column;
+}
+
+/**
+ * La description visée par une référence sait-elle fabriquer sa table Drizzle ?
+ * Une `ref` vise une description NEUTRE ({@link ITableDescription}) ;
+ * l'adaptateur exige une table déclarée par {@link defineTable}.
+ */
+export function isPortableTable(
+  target: ITableDescription,
+): target is IPortableTableBase {
+  return "table" in target && typeof target.table === "function";
+}
+
+/**
+ * Table portable visée par une référence (la table elle-même pour `"self"` est
+ * résolue par l'appelant).
+ *
+ * @throws Quand la cible est une description qu'aucune table Drizzle ne porte.
+ */
+export function refTargetTable(
+  ref: IRefColumn,
+  owner: ITableSpec,
+  column: string,
+): IPortableTableBase {
+  const target = ref.target === "self" ? null : ref.target();
+  if (target === null || !isPortableTable(target)) {
+    throw new Error(
+      `[@nodefony/drizzle] colKit "${owner.name}": column "${column}" references ` +
+        `"${refTargetSpec(ref, owner).name}", which is not a table declared by defineTable().`,
+    );
+  }
+  return target;
 }

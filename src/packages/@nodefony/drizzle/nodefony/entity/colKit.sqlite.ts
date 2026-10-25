@@ -31,18 +31,17 @@ import type {
   IRefColumn,
   ITableSpec,
   OnDeleteAction,
-} from "./colKit";
+} from "./colKit.spec";
 import { canonicalDay, canonicalDecimal, canonicalUuid } from "./colKit.codecs";
 import {
   checkName,
   enumPredicate,
   firstAndRest,
   indexedColumn,
-  primaryKeyName,
-  refTargetKey,
-  refTargetSpec,
+  refTargetTable,
 } from "./colKit.shared";
-import type { KeyColumnSpec } from "./colKit.shared";
+import { primaryKeyName, refTargetKey, refTargetSpec } from "./colKit.spec";
+import type { KeyColumnSpec } from "./colKit.spec";
 import type { StringCodecValues } from "./colKit.types";
 
 /**
@@ -213,7 +212,10 @@ function colRef(
   const target = (): SQLiteColumn =>
     c.target === "self"
       ? primaryKeyColumn(self(), owner)
-      : primaryKeyColumn(c.target().table("sqlite"), refTargetSpec(c, owner));
+      : primaryKeyColumn(
+          refTargetTable(c, owner, k).table("sqlite"),
+          refTargetSpec(c, owner),
+        );
   return base.references(target, c.onDelete ? { onDelete: c.onDelete } : {});
 }
 

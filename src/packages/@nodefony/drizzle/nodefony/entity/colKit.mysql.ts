@@ -42,20 +42,23 @@ import type {
   IRefColumn,
   ITableSpec,
   OnDeleteAction,
-} from "./colKit";
+} from "./colKit.spec";
 import { canonicalUuid } from "./colKit.codecs";
 import {
-  ENUM_MAX_LENGTH,
   checkName,
   enumPredicate,
   firstAndRest,
   indexedColumn,
   isIndexed,
+  refTargetTable,
+} from "./colKit.shared";
+import {
+  ENUM_MAX_LENGTH,
   primaryKeyName,
   refTargetKey,
   refTargetSpec,
-} from "./colKit.shared";
-import type { KeyColumnSpec } from "./colKit.shared";
+} from "./colKit.spec";
+import type { KeyColumnSpec } from "./colKit.spec";
 import type { JsonCompatValues, StringCodecValues } from "./colKit.types";
 
 /**
@@ -253,7 +256,10 @@ function colRef(
   const target = (): MySqlColumn =>
     c.target === "self"
       ? primaryKeyColumn(self(), owner)
-      : primaryKeyColumn(c.target().table("mysql"), refTargetSpec(c, owner));
+      : primaryKeyColumn(
+          refTargetTable(c, owner, k).table("mysql"),
+          refTargetSpec(c, owner),
+        );
   return base.references(target, c.onDelete ? { onDelete: c.onDelete } : {});
 }
 

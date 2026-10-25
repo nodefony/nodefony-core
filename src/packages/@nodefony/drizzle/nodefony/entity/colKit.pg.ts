@@ -46,17 +46,16 @@ import type {
   IRefColumn,
   ITableSpec,
   OnDeleteAction,
-} from "./colKit";
+} from "./colKit.spec";
 import {
   checkName,
   enumPredicate,
   firstAndRest,
   indexedColumn,
-  primaryKeyName,
-  refTargetKey,
-  refTargetSpec,
+  refTargetTable,
 } from "./colKit.shared";
-import type { KeyColumnSpec } from "./colKit.shared";
+import { primaryKeyName, refTargetKey, refTargetSpec } from "./colKit.spec";
+import type { KeyColumnSpec } from "./colKit.spec";
 
 /**
  * Fabrique PostgreSQL du colKit — même structure que `colKit.sqlite.ts`.
@@ -204,7 +203,10 @@ function colRef(
   const target = (): PgColumn =>
     c.target === "self"
       ? primaryKeyColumn(self(), owner)
-      : primaryKeyColumn(c.target().table("postgres"), refTargetSpec(c, owner));
+      : primaryKeyColumn(
+          refTargetTable(c, owner, k).table("postgres"),
+          refTargetSpec(c, owner),
+        );
   return base.references(target, c.onDelete ? { onDelete: c.onDelete } : {});
 }
 
