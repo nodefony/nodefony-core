@@ -527,6 +527,15 @@ const md = new MarkdownIt({
   highlight,
 });
 
+/**
+ * Code inline d'une description de card : le JSON d'un bloc n'est pas du
+ * markdown, et les accents graves s'affichaient bruts. Appliqué APRÈS `esc` —
+ * le contenu reste échappé. Même règle que `withInlineCode` de la console
+ * (`MarkdownDoc.tsx`).
+ */
+const inlineCode = (escaped) =>
+  escaped.replace(/`([^`]+)`/g, "<code>$1</code>");
+
 /** Rendu des cards déclaratives (`nodefony-cards`) — le catalogue d'un hub. */
 function renderCards(json) {
   let items;
@@ -539,7 +548,7 @@ function renderCards(json) {
   const card = (c) => {
     const inner = `${c.icon ? `<span class="card-i" aria-hidden="true">${esc(c.icon)}</span>` : ""}
       <span class="card-t">${esc(c.title ?? "")}</span>
-      ${c.desc ? `<span class="card-d">${esc(c.desc)}</span>` : ""}
+      ${c.desc ? `<span class="card-d">${inlineCode(esc(c.desc))}</span>` : ""}
       ${c.meta ? `<span class="card-m">${esc(c.meta)}</span>` : ""}`;
     const cls = `nf-card${c.featured ? " featured" : ""}`;
     return c.href

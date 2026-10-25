@@ -620,6 +620,26 @@ interface DocCardItem {
 }
 
 /**
+ * Rend les segments `entre accents graves` d'une description de card en code
+ * inline — le JSON d'un bloc n'est pas du markdown, et sans ce pas les accents
+ * s'affichaient bruts. Rendu en NŒUDS React (texte), jamais en HTML injecté.
+ * Même règle que `renderCards` du site publié (`build-docs-site.mjs`).
+ */
+function withInlineCode(text: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  // La clé est la POSITION du segment dans le texte : stable tant que le texte
+  // l'est, contrairement au rang dans un tableau recalculé.
+  for (const m of text.matchAll(/`([^`]+)`/g)) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(<code key={m.index}>{m[1]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/**
  * Rend un catalogue en **grille de cards** — ce qu'un enchaînement de titres
  * markdown ne peut pas produire : react-markdown rend à plat, donc le corps
  * d'une card n'est pas englobable. D'où le bloc déclaratif.
@@ -692,7 +712,9 @@ function DocCards({
           ) : null}
           <span className="nf-card-body">
             <span className="nf-card-title">{it.title}</span>
-            {it.desc ? <span className="nf-card-desc">{it.desc}</span> : null}
+            {it.desc ? (
+              <span className="nf-card-desc">{withInlineCode(it.desc)}</span>
+            ) : null}
             {it.meta ? <span className="nf-card-meta">{it.meta}</span> : null}
           </span>
           {/* Chevron : dit que la card MÈNE quelque part (affordance), et
