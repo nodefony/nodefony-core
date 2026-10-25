@@ -10,12 +10,11 @@ import type { IEntity } from "@nodefony/orm-core";
 import { USER_COLUMNS, USER_TABLE_NAME } from "@nodefony/user";
 import type { IUserColumn, UserColumnType } from "@nodefony/user";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import {
-  createFrameworkTableFactory,
-  type FrameworkColKind,
-  type IFrameworkColSpec,
-  type IFrameworkTableSpec,
-} from "./colKit";
+import { defineTable } from "./colKit";
+import type { ColumnSpec } from "./colKit";
+
+/** Genres du colKit qu'emploie le contrat utilisateur. */
+type UserColumnKind = "text" | "json" | "int" | "bool" | "datetime";
 
 /**
  * Traduction d'un type LOGIQUE du contrat utilisateur vers le type du colKit.
@@ -23,10 +22,7 @@ import {
  * C'est le seul endroit du module SQL qui connaisse ce vocabulaire : le contrat
  * dit ce que la donnée EST, le colKit dit comment chaque dialecte la range.
  */
-const KIND_BY_TYPE: Record<
-  UserColumnType,
-  Exclude<FrameworkColKind, "enum">
-> = {
+const KIND_BY_TYPE: Record<UserColumnType, UserColumnKind> = {
   uuid: "text",
   string: "text",
   "string[]": "json",
@@ -34,8 +30,35 @@ const KIND_BY_TYPE: Record<
   boolean: "bool",
   object: "json",
   "object[]": "json",
-  date: "dateMs",
+  date: "datetime",
 };
+
+/**
+ * Défaut du contrat, vérifié au type de la colonne : le contrat le déclare
+ * `() => unknown`, la colonne exige sa valeur — une dérive lève au premier
+ * INSERT en nommant la colonne, au lieu d'écrire une valeur du mauvais type.
+ */
+function checkedDefault<T>(
+  make: () => unknown,
+  accepts: (value: unknown) => value is T,
+  column: string,
+): () => T {
+  return () => {
+    const value = make();
+    if (!accepts(value)) {
+      throw new TypeError(
+        `[@nodefony/drizzle] User.${column}: contract default has the wrong type.`,
+      );
+    }
+    return value;
+  };
+}
+
+const isString = (value: unknown): value is string => typeof value === "string";
+const isNumber = (value: unknown): value is number => typeof value === "number";
+const isBoolean = (value: unknown): value is boolean =>
+  typeof value === "boolean";
+const isDate = (value: unknown): value is Date => value instanceof Date;
 
 /**
  * Construit la spec colKit d'une colonne du contrat utilisateur.
@@ -48,25 +71,82 @@ const KIND_BY_TYPE: Record<
  * de `DEFAULT` SQL (règle du colKit). Une valeur absente à l'insertion est donc
  * comblée par le pilote, pas par le serveur.
  */
-function toColSpec(column: IUserColumn): IFrameworkColSpec {
+function toColSpec(column: IUserColumn): ColumnSpec {
   const kind = KIND_BY_TYPE[column.type];
+  const fail = (expected: UserColumnKind): never => {
+    throw new TypeError(
+      `[@nodefony/drizzle] User.${column.name}: a "${column.origin}" column must be ` +
+        `of kind "${expected}", the contract maps it to "${kind}".`,
+    );
+  };
   switch (column.origin) {
     case "identity":
-      return { kind, primaryKey: true, defaultFn: () => randomUUID() };
+      return kind === "text"
+        ? { kind, primaryKey: true, defaultFn: () => randomUUID() }
+        : fail("text");
     case "audit":
-      return {
-        kind,
-        notNull: true,
-        defaultFn: () => new Date(),
-        ...(column.refreshedOnWrite ? { onUpdateFn: () => new Date() } : {}),
-      };
-    case "column":
-      return {
-        kind,
-        ...(column.nullable ? {} : { notNull: true }),
-        ...(column.unique ? { unique: true } : {}),
-        ...(column.makeDefault ? { defaultFn: column.makeDefault } : {}),
-      };
+      return kind === "datetime"
+        ? {
+            kind,
+            notNull: true,
+            defaultFn: () => new Date(),
+            ...(column.refreshedOnWrite
+              ? { onUpdateFn: () => new Date() }
+              : {}),
+          }
+        : fail("datetime");
+    case "column": {
+      const notNull: { notNull?: true } = column.nullable
+        ? {}
+        : { notNull: true };
+      const unique: { unique?: true } = column.unique ? { unique: true } : {};
+      const make = column.makeDefault;
+      switch (kind) {
+        case "json":
+          return {
+            kind,
+            ...notNull,
+            ...unique,
+            ...(make ? { defaultFn: make } : {}),
+          };
+        case "text":
+          return {
+            kind,
+            ...notNull,
+            ...unique,
+            ...(make
+              ? { defaultFn: checkedDefault(make, isString, column.name) }
+              : {}),
+          };
+        case "int":
+          return {
+            kind,
+            ...notNull,
+            ...unique,
+            ...(make
+              ? { defaultFn: checkedDefault(make, isNumber, column.name) }
+              : {}),
+          };
+        case "bool":
+          return {
+            kind,
+            ...notNull,
+            ...unique,
+            ...(make
+              ? { defaultFn: checkedDefault(make, isBoolean, column.name) }
+              : {}),
+          };
+        case "datetime":
+          return {
+            kind,
+            ...notNull,
+            ...unique,
+            ...(make
+              ? { defaultFn: checkedDefault(make, isDate, column.name) }
+              : {}),
+          };
+      }
+    }
   }
 }
 
@@ -82,7 +162,7 @@ function toColSpec(column: IUserColumn): IFrameworkColSpec {
  * plus. Une colonne ajoutée au contrat apparaît donc ici sans qu'on y touche,
  * et `tests/unit/userContractParity.test.ts` refuse le contraire.
  *
- * Les horodatages sont des colonnes EXPLICITES (kind `dateMs`, exposé `Date`) —
+ * Les horodatages sont des colonnes EXPLICITES (kind `datetime`, exposé `Date`) —
  * à la différence de Mongoose, qui les gère au niveau du schéma.
  */
 const USER_TABLE_SPEC = {
@@ -93,10 +173,10 @@ const USER_TABLE_SPEC = {
   columns: Object.fromEntries(
     USER_COLUMNS.map((column) => [column.name, toColSpec(column)]),
   ),
-} satisfies IFrameworkTableSpec;
+};
 
 /**
- * Factory de la table `User` — comme {@link FrameworkTableFactory}, mais sa clé
+ * Factory de la table `User` — comme `IPortableTable.table`, mais sa clé
  * primaire reste ATTEIGNABLE au type.
  *
  * 🔴 Sans cela, une application ne peut pas RÉFÉRENCER l'utilisateur, et c'est
@@ -129,9 +209,8 @@ export interface UserTableFactory {
  * Factory de la table `User` pour un dialecte donné (mémoïsée — une instance
  * par dialecte). Les trois dialectes sont portés (`sqlite` par défaut).
  */
-export const createUserTable = createFrameworkTableFactory(
-  USER_TABLE_SPEC,
-) as UserTableFactory;
+export const createUserTable = defineTable(USER_TABLE_SPEC)
+  .table as UserTableFactory;
 
 /**
  * Variante SQLite de la table `User` (dialecte par défaut) — export conservé

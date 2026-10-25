@@ -2,10 +2,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import {
-  createFrameworkTableFactory,
-  type IFrameworkTableSpec,
-} from "./colKit";
+import { defineTable } from "./colKit";
 
 /**
  * Algorithme HMAC du code TOTP (RFC 6238) — union littérale (miroir du
@@ -28,12 +25,12 @@ type TotpAlgorithm = "SHA1" | "SHA256" | "SHA512";
  * la clé) : le store ne voit que des octets opaques, jamais le secret `K` en clair.
  *
  * ⚠️ **`lastUsedStep` = tranche `T` RFC 6238 (kind `int64`)**, pas un horodatage —
- * les vrais horodatages (`confirmedAt`/`createdAt`/`lastUsedAt`) sont en `epochMs`.
+ * les vrais horodatages (`confirmedAt`/`createdAt`/`lastUsedAt`) sont en `int64`.
  *
  * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le store fournit TOUJOURS toutes
  * les colonnes `notNull` au `save` ; `recoveryCodes` garde un `defaultFn` JS en filet.
  */
-const TOTP_SECRET_TABLE_SPEC = {
+const TOTP_SECRET_TABLE = defineTable({
   name: "totp_secret",
   columns: {
     /** Propriétaire du secret (clé naturelle — un seul secret par utilisateur). */
@@ -49,7 +46,7 @@ const TOTP_SECRET_TABLE_SPEC = {
     /** Condensats `sha256` des codes de récupération non encore consommés. */
     recoveryCodes: { kind: "json", notNull: true, defaultFn: () => [] },
     /** Confirmation de l'enrôlement (epoch ms) ou `null` (anti-lock-out). */
-    confirmedAt: { kind: "epochMs" },
+    confirmedAt: { kind: "int64" },
     /**
      * Dernière tranche `T` validée (RFC 6238 §5.2, anti-rejeu) ou `null`.
      *
@@ -60,20 +57,18 @@ const TOTP_SECRET_TABLE_SPEC = {
      */
     lastUsedStep: { kind: "int64" },
     /** Création (epoch ms). */
-    createdAt: { kind: "epochMs", notNull: true },
+    createdAt: { kind: "int64", notNull: true },
     /** Dernier usage réussi (epoch ms) ou `null`. */
-    lastUsedAt: { kind: "epochMs" },
+    lastUsedAt: { kind: "int64" },
   },
-} satisfies IFrameworkTableSpec;
+});
 
 /**
  * Factory de la table de secrets TOTP pour un dialecte donné (mémoïsée — une
  * instance par dialecte). **Les trois dialectes sont portés** (`TOTP_PORTED =
  * ALL_DIALECTS`, `registerStores.ts:92`) : sqlite, postgres et mysql.
  */
-export const createTotpSecretTable = createFrameworkTableFactory(
-  TOTP_SECRET_TABLE_SPEC,
-);
+export const createTotpSecretTable = TOTP_SECRET_TABLE.table;
 
 /**
  * Variante SQLite de la table de secrets TOTP (dialecte par défaut) — export

@@ -2,8 +2,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import { createFrameworkTableFactory } from "./colKit";
-import type { FrameworkTableFactory } from "./colKit";
+import { defineTable } from "./colKit";
 // `import type` UNIQUEMENT → effacé à la compilation (approche B : 0 dépendance
 // runtime de `@nodefony/drizzle` vers `@nodefony/framework`). Le contrat
 // d'idempotence vit au CORE (`nodefony`), donc l'import de son DTO ne crée AUCUN
@@ -45,7 +44,7 @@ import type { IdempotentResponse } from "nodefony";
  */
 /**
  * Spec colKit de la table (une spec logique → la variante du dialecte demandé ;
- * types par dialecte assumés DANS le kit : `expiresAt` epochMs = `integer`
+ * types par dialecte assumés DANS le kit : `expiresAt` int64 = `integer`
  * SQLite 64-bit / `bigint` PG+MySQL ; `response` json = `text mode:"json"` /
  * `jsonb` / `json` ; `key` = `varchar(512)` en MySQL — PK non indexable en
  * TEXT, 512 couvre `JSON.stringify([identity, clientKey ≤ 255])`) :
@@ -64,18 +63,17 @@ import type { IdempotentResponse } from "nodefony";
  *   purgeable (`gc`). NOT NULL → comparaison toujours définie. Indexé des deux
  *   côtés (migration et DDL dérivé) — accélère le `gc`.
  */
-const createIdempotencyTableFactory: FrameworkTableFactory =
-  createFrameworkTableFactory({
-    name: "idempotency_key",
-    columns: {
-      key: { kind: "text", primaryKey: true },
-      fingerprint: { kind: "text", notNull: true },
-      state: { kind: "enum", values: ["if", "done"], notNull: true },
-      response: { kind: "json" },
-      expiresAt: { kind: "epochMs", notNull: true },
-    },
-    indexes: [{ name: "idempotency_key_expiresAt_idx", on: ["expiresAt"] }],
-  });
+const IDEMPOTENCY_KEY_TABLE = defineTable({
+  name: "idempotency_key",
+  columns: {
+    key: { kind: "text", primaryKey: true },
+    fingerprint: { kind: "text", notNull: true },
+    state: { kind: "enum", values: ["if", "done"], notNull: true },
+    response: { kind: "json" },
+    expiresAt: { kind: "int64", notNull: true },
+  },
+  indexes: [{ name: "idempotency_key_expiresAt_idx", on: ["expiresAt"] }],
+});
 
 /**
  * Factory de la table d'idempotence pour un dialecte donné — **premier maillon du
@@ -83,7 +81,7 @@ const createIdempotencyTableFactory: FrameworkTableFactory =
  * bon dialecte), migrée du switch manuel 2 tables vers le colKit (S4 : la
  * variante mysql sort du kit). Le `DrizzleOrm` l'appelle selon `connector.dialect`.
  */
-export const createIdempotencyTable = createIdempotencyTableFactory;
+export const createIdempotencyTable = IDEMPOTENCY_KEY_TABLE.table;
 
 /**
  * Variante SQLite mémoïsée (dialecte par défaut) — export statique de compat

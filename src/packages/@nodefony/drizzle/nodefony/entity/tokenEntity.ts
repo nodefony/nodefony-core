@@ -2,10 +2,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import {
-  createFrameworkTableFactory,
-  type IFrameworkTableSpec,
-} from "./colKit";
+import { defineTable } from "./colKit";
 
 /**
  * Entités du **store de jetons** `@nodefony/security` (schema-as-code) —
@@ -13,7 +10,7 @@ import {
  * révocation en masse), déclinées via le `colKit` (S2 multi-dialecte) : une
  * spec logique par table, la variante du dialecte du connecteur.
  *
- * ⚠️ **Horodatages en epoch ms (kind `epochMs`, exposés `number`)** :
+ * ⚠️ **Horodatages en epoch ms (kind `int64`, exposés `number`)** :
  * `IAccessTokenRecord` porte des `number` (`Date.now()`), pas des `Date` →
  * `AccessTokenRow` (forme repository) est **identique** à `IAccessTokenRecord`
  * → zéro mapping store ↔ entité.
@@ -30,7 +27,7 @@ import {
  * (frontière typée), plus sur les colonnes — décision S1 : les types publics
  * des entités framework sont leurs interfaces `Row`, pas l'inférence Drizzle.
  */
-const ACCESS_TOKEN_TABLE_SPEC = {
+const ACCESS_TOKEN_TABLE = defineTable({
   name: "access_token",
   columns: {
     // ── Identité du record ──────────────────────────────────────────────────
@@ -62,12 +59,12 @@ const ACCESS_TOKEN_TABLE_SPEC = {
     replacedBy: { kind: "text" },
 
     // ── Cycle de vie (epoch ms) ─────────────────────────────────────────────
-    createdAt: { kind: "epochMs", notNull: true },
-    expiresAt: { kind: "epochMs" },
-    lastUsedAt: { kind: "epochMs" },
+    createdAt: { kind: "int64", notNull: true },
+    expiresAt: { kind: "int64" },
+    lastUsedAt: { kind: "int64" },
     lastUsedIp: { kind: "text" },
     lastUsedUserAgent: { kind: "text" },
-    revokedAt: { kind: "epochMs" },
+    revokedAt: { kind: "int64" },
     revokedReason: { kind: "text" },
 
     // ── Extensibilité ───────────────────────────────────────────────────────
@@ -77,46 +74,40 @@ const ACCESS_TOKEN_TABLE_SPEC = {
     { name: "access_token_subjectId_idx", on: ["subjectId"] },
     { name: "access_token_family_idx", on: ["family"] },
   ],
-} satisfies IFrameworkTableSpec;
+});
 
 /**
  * Denylist des access tokens (`jti`) révoqués avant leur `exp` — révocation
  * immédiate ciblée. Purgée par `gc` une fois `expiresAt` (epoch ms) dépassé.
  */
-const DENIED_JTI_TABLE_SPEC = {
+const DENIED_JTI_TABLE = defineTable({
   name: "denied_jti",
   columns: {
     jti: { kind: "text", primaryKey: true },
-    expiresAt: { kind: "epochMs", notNull: true },
+    expiresAt: { kind: "int64", notNull: true },
   },
-} satisfies IFrameworkTableSpec;
+});
 
 /**
  * Seuil de révocation **en masse** par porteur : tout access auto-porté émis
  * avant `invalidBefore` (epoch ms) est rejeté (logout global / ban).
  */
-const SUBJECT_REVOCATION_TABLE_SPEC = {
+const SUBJECT_REVOCATION_TABLE = defineTable({
   name: "subject_revocation",
   columns: {
     subjectId: { kind: "text", primaryKey: true },
-    invalidBefore: { kind: "epochMs", notNull: true },
+    invalidBefore: { kind: "int64", notNull: true },
   },
-} satisfies IFrameworkTableSpec;
+});
 
 /** Factory de la table des records (mémoïsée — une instance par dialecte). */
-export const createAccessTokenTable = createFrameworkTableFactory(
-  ACCESS_TOKEN_TABLE_SPEC,
-);
+export const createAccessTokenTable = ACCESS_TOKEN_TABLE.table;
 
 /** Factory de la denylist `jti` (mémoïsée — une instance par dialecte). */
-export const createDeniedJtiTable = createFrameworkTableFactory(
-  DENIED_JTI_TABLE_SPEC,
-);
+export const createDeniedJtiTable = DENIED_JTI_TABLE.table;
 
 /** Factory des seuils de révocation (mémoïsée — une instance par dialecte). */
-export const createSubjectRevocationTable = createFrameworkTableFactory(
-  SUBJECT_REVOCATION_TABLE_SPEC,
-);
+export const createSubjectRevocationTable = SUBJECT_REVOCATION_TABLE.table;
 
 /**
  * Variantes SQLite des trois tables (dialecte par défaut) — exports conservés

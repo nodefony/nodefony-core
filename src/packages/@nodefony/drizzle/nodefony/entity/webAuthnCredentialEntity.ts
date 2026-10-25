@@ -2,17 +2,14 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import {
-  createFrameworkTableFactory,
-  type IFrameworkTableSpec,
-} from "./colKit";
+import { defineTable } from "./colKit";
 
 /**
  * Entité du **store de credentials WebAuthn** `@nodefony/security` (passkeys) —
  * implémentation SQL d'`IWebAuthnCredentialStore`, déclinée via le `colKit`
  * (S2 multi-dialecte) : une spec logique, la table du dialecte du connecteur.
  *
- * ⚠️ **Horodatages en epoch ms (kind `epochMs`, exposés `number`)** :
+ * ⚠️ **Horodatages en epoch ms (kind `int64`, exposés `number`)** :
  * `IWebAuthnCredential` porte des `number` (`Date.now()`), pas des `Date`.
  *
  * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet pas de
@@ -25,7 +22,7 @@ import {
  * contrat porte un `nickname?` optionnel et des champs `readonly`, que la
  * frontière de persistance normalise (≠ `tokenEntity`, tout `| null`).
  */
-const WEBAUTHN_CREDENTIAL_TABLE_SPEC = {
+const WEBAUTHN_CREDENTIAL_TABLE = defineTable({
   name: "webauthn_credential",
   columns: {
     /** Identifiant du credential (base64url) — clé fournie par l'authenticator. */
@@ -54,21 +51,19 @@ const WEBAUTHN_CREDENTIAL_TABLE_SPEC = {
     /** Surnom choisi par l'utilisateur ; `null` = aucun. */
     nickname: { kind: "text" },
     /** Création (epoch ms). */
-    createdAt: { kind: "epochMs", notNull: true },
+    createdAt: { kind: "int64", notNull: true },
     /** Dernière authentification réussie (epoch ms) ou `null`. */
-    lastUsedAt: { kind: "epochMs" },
+    lastUsedAt: { kind: "int64" },
   },
   indexes: [{ name: "webauthn_credential_userId_idx", on: ["userId"] }],
-} satisfies IFrameworkTableSpec;
+});
 
 /**
  * Factory de la table de credentials pour un dialecte donné (mémoïsée — une
  * instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ;
  * `mysql` jette (S4).
  */
-export const createWebAuthnCredentialTable = createFrameworkTableFactory(
-  WEBAUTHN_CREDENTIAL_TABLE_SPEC,
-);
+export const createWebAuthnCredentialTable = WEBAUTHN_CREDENTIAL_TABLE.table;
 
 /**
  * Variante SQLite de la table de credentials (dialecte par défaut) — export

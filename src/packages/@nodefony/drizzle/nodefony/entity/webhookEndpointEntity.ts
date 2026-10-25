@@ -2,10 +2,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import {
-  createFrameworkTableFactory,
-  type IFrameworkTableSpec,
-} from "./colKit";
+import { defineTable } from "./colKit";
 
 /**
  * Entité du **store d'endpoints webhook** `@nodefony/security` (P6.13,
@@ -13,7 +10,7 @@ import {
  * destinations notifiées), déclinée via le `colKit` (S3 multi-dialecte) : une
  * spec logique, la variante de table du dialecte du connecteur.
  *
- * ⚠️ **Horodatages en epoch ms (kind `epochMs`, exposés `number`)** :
+ * ⚠️ **Horodatages en epoch ms (kind `int64`, exposés `number`)** :
  * `IWebhookEndpoint` porte des `number` (`Date.now()`), pas des `Date`.
  *
  * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé
@@ -25,7 +22,7 @@ import {
  * `IAccessTokenRecord`) → le store n'a qu'un mapping minimal Row ↔ contrat (copie
  * défensive des champs JSON `events`/`metadata`, `readonly` → mutable).
  */
-const WEBHOOK_ENDPOINT_TABLE_SPEC = {
+const WEBHOOK_ENDPOINT_TABLE = defineTable({
   name: "webhook_endpoint",
   columns: {
     // ── Identité + destination ──────────────────────────────────────────────
@@ -51,10 +48,10 @@ const WEBHOOK_ENDPOINT_TABLE_SPEC = {
     createdBy: { kind: "text" },
 
     // ── Cycle de vie + télémétrie de livraison (epoch ms) ───────────────────
-    createdAt: { kind: "epochMs", notNull: true },
-    updatedAt: { kind: "epochMs", notNull: true },
+    createdAt: { kind: "int64", notNull: true },
+    updatedAt: { kind: "int64", notNull: true },
     /** Dernière tentative de livraison (epoch ms) ou `null`. */
-    lastDeliveryAt: { kind: "epochMs" },
+    lastDeliveryAt: { kind: "int64" },
     /** Code HTTP de la dernière livraison, ou `null`. */
     lastDeliveryStatus: { kind: "int" },
     /** Message d'erreur de la dernière livraison, ou `null`. */
@@ -66,12 +63,10 @@ const WEBHOOK_ENDPOINT_TABLE_SPEC = {
     /** Métadonnées extensibles (jamais de secret). */
     metadata: { kind: "json", notNull: true, defaultFn: () => ({}) },
   },
-} satisfies IFrameworkTableSpec;
+});
 
 /** Factory de la table des endpoints (mémoïsée — une instance par dialecte). */
-export const createWebhookEndpointTable = createFrameworkTableFactory(
-  WEBHOOK_ENDPOINT_TABLE_SPEC,
-);
+export const createWebhookEndpointTable = WEBHOOK_ENDPOINT_TABLE.table;
 
 /**
  * Variante SQLite de la table (dialecte par défaut) — export conservé pour

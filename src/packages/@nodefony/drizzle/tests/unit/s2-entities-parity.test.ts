@@ -22,7 +22,7 @@ import {
   createTotpSecretTable,
   totpSecretTable,
 } from "../../nodefony/entity/totpSecretEntity";
-import type { FrameworkTableFactory } from "../../nodefony/entity/colKit";
+import type { ITableFactoryBase } from "../../nodefony/entity/colKit";
 
 /**
  * Parité multi-dialecte des entités S2 (user / token×3 / webauthn / totp) —
@@ -91,7 +91,7 @@ function mysqlView(table: MySqlTable): Map<string, ColView> {
 }
 
 /** Parité structurelle générique : noms + PK + NOT NULL + UNIQUE — 3 dialectes. */
-function assertParity(factory: FrameworkTableFactory, label: string): void {
+function assertParity(factory: ITableFactoryBase, label: string): void {
   const sqlite = sqliteView(factory("sqlite"));
   const pg = pgView(factory("postgres"));
   const mysql = mysqlView(factory("mysql"));
@@ -140,11 +140,11 @@ describe("S2 multi-dialecte — parité des entités (colKit)", () => {
     assert.match(
       pg.get("createdAt")?.sqlType ?? "",
       /^timestamp.*with time zone$/,
-      "dateMs = timestamptz (exposé Date, comme mode timestamp_ms sqlite)",
+      "datetime = timestamptz (exposé Date, comme mode timestamp_ms sqlite)",
     );
   });
 
-  it("access_token : parité + secretHash UNIQUE + epochMs en bigint PG", () => {
+  it("access_token : parité + secretHash UNIQUE + int64 en bigint PG", () => {
     assertParity(createAccessTokenTable, "access_token");
     const pg = pgView(createAccessTokenTable("postgres"));
     assert.equal(pg.get("id")?.primary, true);
@@ -251,7 +251,7 @@ describe("S2 multi-dialecte — parité des entités (colKit)", () => {
     const user = mysqlView(createUserTable("mysql"));
     assert.equal(user.get("socialProviders")?.sqlType, "json");
     assert.equal(user.get("enabled")?.sqlType, "boolean");
-    // dateMs (createdAt/updatedAt exposés `Date`) = datetime(3), pas timestamp
+    // datetime (createdAt/updatedAt exposés `Date`) = datetime(3), pas timestamp
     // (borné 2038, sensible à la timezone de session).
     assert.equal(user.get("createdAt")?.sqlType, "datetime(3)");
     // identifier UNIQUE → varchar(512) (TEXT non indexable InnoDB).

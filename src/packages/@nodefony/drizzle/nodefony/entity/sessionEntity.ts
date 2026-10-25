@@ -2,10 +2,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import {
-  createFrameworkTableFactory,
-  type IFrameworkTableSpec,
-} from "./colKit";
+import { defineTable } from "./colKit";
 
 /** ORM cible du stockage de session (connecteur par défaut du module). */
 export const SESSION_CONNECTOR = "default";
@@ -22,7 +19,7 @@ export const SESSION_ENTITY_NAME = "session";
  * `integer` SQLite / `bigint` PG) en garantissant les MÊMES noms de colonnes —
  * le `SessionStorage` reste dialect-agnostique.
  */
-const SESSION_TABLE_SPEC = {
+const SESSION_TABLE = defineTable({
   name: "session",
   columns: {
     session_id: { kind: "text", primaryKey: true },
@@ -30,8 +27,8 @@ const SESSION_TABLE_SPEC = {
     flashBag: { kind: "json" },
     metaBag: { kind: "json" },
     user: { kind: "text" },
-    createdAt: { kind: "epochMs", notNull: true },
-    updatedAt: { kind: "epochMs", notNull: true },
+    createdAt: { kind: "int64", notNull: true },
+    updatedAt: { kind: "int64", notNull: true },
   },
   // `user` est la SEULE colonne sur laquelle on filtre (`listSessions` /
   // `countSessions` du data plane, et la révocation des sessions d'un compte).
@@ -39,15 +36,14 @@ const SESSION_TABLE_SPEC = {
   // tenait pas : chaque appel balayait la table entière des sessions, c'est-à-dire
   // la table la plus volumineuse d'une application vivante.
   indexes: [{ name: "session_user_idx", on: ["user"] }],
-} satisfies IFrameworkTableSpec;
+});
 
 /**
  * Factory de la table de session pour un dialecte donné (mémoïsée — une
  * instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ;
  * `mysql` jette (S4).
  */
-export const createSessionTable =
-  createFrameworkTableFactory(SESSION_TABLE_SPEC);
+export const createSessionTable = SESSION_TABLE.table;
 
 /**
  * Variante SQLite de la table de session (dialecte par défaut) — export

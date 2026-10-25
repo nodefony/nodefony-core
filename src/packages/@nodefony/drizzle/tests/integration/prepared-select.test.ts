@@ -5,7 +5,7 @@ import Database from "better-sqlite3";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
-import { createFrameworkTableFactory } from "../../nodefony/entity/colKit";
+import { defineTable } from "../../nodefony/entity/colKit";
 
 /**
  * SELECT préparés mémoïsés par FORME (`DrizzleRepository.#preparedSelect`) —
@@ -21,7 +21,7 @@ import { createFrameworkTableFactory } from "../../nodefony/entity/colKit";
  * banc de parité 3 dialectes (`repository-contract-*`) reste le filet global.
  */
 
-const probeFactory = createFrameworkTableFactory({
+const probeFactory = defineTable({
   name: "prepared_select_probe",
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
@@ -31,10 +31,10 @@ const probeFactory = createFrameworkTableFactory({
     tags: { kind: "json" },
     note: { kind: "text" },
   },
-});
+}).table;
 
 /** Jumelle de la sonde (mêmes colonnes) — prouve l'isolation des caches par entité. */
-const twinFactory = createFrameworkTableFactory({
+const twinFactory = defineTable({
   name: "prepared_select_twin",
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
@@ -44,7 +44,7 @@ const twinFactory = createFrameworkTableFactory({
     tags: { kind: "json" },
     note: { kind: "text" },
   },
-});
+}).table;
 
 interface ProbeRow {
   id: string;

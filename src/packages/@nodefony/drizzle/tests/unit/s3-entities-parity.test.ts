@@ -13,7 +13,7 @@ import {
   createWebhookEndpointTable,
   webhookEndpointTable,
 } from "../../nodefony/entity/webhookEndpointEntity";
-import type { FrameworkTableFactory } from "../../nodefony/entity/colKit";
+import type { ITableFactoryBase } from "../../nodefony/entity/colKit";
 
 /**
  * Parité multi-dialecte des entités S3 (audit_event / webhook_endpoint) —
@@ -82,7 +82,7 @@ function mysqlView(table: MySqlTable): Map<string, ColView> {
 }
 
 /** Parité structurelle générique : noms + PK + NOT NULL + UNIQUE — 3 dialectes. */
-function assertParity(factory: FrameworkTableFactory, label: string): void {
+function assertParity(factory: ITableFactoryBase, label: string): void {
   const sqlite = sqliteView(factory("sqlite"));
   const pg = pgView(factory("postgres"));
   const mysql = mysqlView(factory("mysql"));
@@ -149,7 +149,7 @@ describe("S3 multi-dialecte — parité des entités (colKit)", () => {
     assert.deepEqual(pgIx, expected);
   });
 
-  it("webhook_endpoint : parité + jsonb events/metadata + boolean enabled + epochMs bigint", () => {
+  it("webhook_endpoint : parité + jsonb events/metadata + boolean enabled + int64 bigint", () => {
     assertParity(createWebhookEndpointTable, "webhook_endpoint");
     const pg = pgView(createWebhookEndpointTable("postgres"));
     assert.equal(pg.get("id")?.primary, true);

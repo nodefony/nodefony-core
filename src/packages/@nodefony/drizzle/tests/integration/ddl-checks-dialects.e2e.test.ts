@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { defineEntity, entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import { sql } from "drizzle-orm";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
-import {
-  createFrameworkTableFactory,
-  type IFrameworkTableSpec,
-} from "../../nodefony/entity/colKit";
+import { defineTable } from "../../nodefony/entity/colKit";
 
 /**
  * Une colonne énumérée est-elle bornée **sur un vrai serveur**, et pas
@@ -35,15 +32,13 @@ const MYSQL_URL = process.env.NF_MYSQL_URL;
 const PROBE_TABLE = "ddl_check_probe";
 const PROBE_ENTITY = "DdlCheckProbe";
 
-const PROBE_SPEC = {
+const createProbeTable = defineTable({
   name: PROBE_TABLE,
   columns: {
     id: { kind: "text", primaryKey: true },
     phase: { kind: "enum", values: ["draft", "live"], notNull: true },
   },
-} satisfies IFrameworkTableSpec;
-
-const createProbeTable = createFrameworkTableFactory(PROBE_SPEC);
+}).table;
 
 /** Surface native commune à `pg` et `mysql2` pour du SQL brut. */
 interface Executor {

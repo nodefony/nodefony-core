@@ -9,10 +9,7 @@ import {
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
-import {
-  buildFrameworkTable,
-  type IFrameworkTableSpec,
-} from "../../nodefony/entity/colKit";
+import { defineTable } from "../../nodefony/entity/colKit";
 
 /**
  * `#pickOne` — borne « au plus une ligne » des verbes updateOne / increment /
@@ -29,7 +26,7 @@ import {
 const ORM = "pickone_test";
 
 /** Table de référence (via colKit — double usage : le kit en situation réelle). */
-const PROBE_SPEC = {
+const PROBE_TABLE = defineTable({
   name: "pickone_probe",
   columns: {
     id: { kind: "text", primaryKey: true },
@@ -37,7 +34,7 @@ const PROBE_SPEC = {
     counter: { kind: "int", notNull: true },
     note: { kind: "text" },
   },
-} satisfies IFrameworkTableSpec;
+});
 
 interface ProbeRow {
   id: string;
@@ -88,7 +85,7 @@ describe("DrizzleRepository #pickOne — forme PK portable (S1 multi-dialecte)",
     entityRegistry.register({
       connector: ORM,
       name: "pickone_probe",
-      schema: buildFrameworkTable("sqlite", PROBE_SPEC),
+      schema: PROBE_TABLE.table("sqlite"),
     });
     entityRegistry.register({
       connector: ORM,

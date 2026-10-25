@@ -2,10 +2,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
-import {
-  createFrameworkTableFactory,
-  type FrameworkTableFactory,
-} from "../../nodefony/entity/colKit";
+import { defineTable } from "../../nodefony/entity/colKit";
+import type { ITableFactoryBase } from "../../nodefony/entity/colKit";
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
 import {
   PROBE_ENTITY,
@@ -24,7 +22,7 @@ import {
  */
 
 /** Table sonde couvrant tous les kinds + defaults JS + index. */
-const probeFactory: FrameworkTableFactory = createFrameworkTableFactory({
+const probeFactory: ITableFactoryBase = defineTable({
   name: PROBE_ENTITY,
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
@@ -33,11 +31,11 @@ const probeFactory: FrameworkTableFactory = createFrameworkTableFactory({
     score: { kind: "int", notNull: true },
     tags: { kind: "json" },
     active: { kind: "bool", notNull: true, defaultFn: () => true },
-    createdAt: { kind: "epochMs", notNull: true, defaultFn: () => Date.now() },
+    createdAt: { kind: "int64", notNull: true, defaultFn: () => Date.now() },
     note: { kind: "text" },
   },
   indexes: [{ name: "repo_contract_probe_age_idx", on: ["age"] }],
-});
+}).table;
 
 /** Options d'un run du banc (un dialecte = un fichier consommateur). */
 export interface IContractRunOptions {

@@ -9,10 +9,7 @@ import type {
   IAuditEventFlags,
 } from "@nodefony/security";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import {
-  createFrameworkTableFactory,
-  type IFrameworkTableSpec,
-} from "./colKit";
+import { defineTable } from "./colKit";
 
 /**
  * Entité du **journal d'audit** `@nodefony/security` (schema-as-code) —
@@ -20,7 +17,7 @@ import {
  * via le `colKit` (S3 multi-dialecte) : une spec logique, la variante de table
  * du dialecte du connecteur.
  *
- * ⚠️ **Horodatage en epoch ms (kind `epochMs`, exposé `number`)** :
+ * ⚠️ **Horodatage en epoch ms (kind `int64`, exposé `number`)** :
  * `IAuditEvent.ts` porte un `number` (`Date.now()`), pas une `Date`.
  * `AuditEventRow` (forme repository) est **identique** à `IAuditEvent` (champs
  * optionnels ⇒ colonnes NULLABLE) → zéro mapping surprise store ↔ entité. Les
@@ -35,12 +32,12 @@ import {
  * pagination chronologique, `category`/`actor`/`requestId` pour les filtres).
  * Perf de filtrage seule, jamais de sémantique.
  */
-const AUDIT_EVENT_TABLE_SPEC = {
+const AUDIT_EVENT_TABLE = defineTable({
   name: "audit_event",
   columns: {
     // ── Identité + horodatage (posés par l'AuditService) ────────────────────
     id: { kind: "text", primaryKey: true },
-    ts: { kind: "epochMs", notNull: true },
+    ts: { kind: "int64", notNull: true },
 
     // ── Classification ──────────────────────────────────────────────────────
     category: { kind: "text", notNull: true },
@@ -65,12 +62,10 @@ const AUDIT_EVENT_TABLE_SPEC = {
     { name: "audit_event_actor_idx", on: ["actor"] },
     { name: "audit_event_requestId_idx", on: ["requestId"] },
   ],
-} satisfies IFrameworkTableSpec;
+});
 
 /** Factory de la table du journal (mémoïsée — une instance par dialecte). */
-export const createAuditEventTable = createFrameworkTableFactory(
-  AUDIT_EVENT_TABLE_SPEC,
-);
+export const createAuditEventTable = AUDIT_EVENT_TABLE.table;
 
 /**
  * Variante SQLite de la table (dialecte par défaut) — export conservé pour
