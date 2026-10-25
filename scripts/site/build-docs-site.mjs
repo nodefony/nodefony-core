@@ -728,9 +728,11 @@ function externalizeLinks(markdown, fromRepoDir, publishedPaths) {
       },
     )
     .replace(
-      /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s]+?)"/g,
-      (whole, target) => {
-        const r = rewrite(whole, target, "");
+      // L'ancre se sépare de la cible, comme pour un lien markdown : collée,
+      // `index.md#section` n'était reconnue ni publiée ni présente sur le disque.
+      /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s#]+?)(#[^"\s]*)?"/g,
+      (whole, target, hash = "") => {
+        const r = rewrite(whole, target, hash);
         return typeof r === "string" ? r : `"href": "${r.url}"`;
       },
     )

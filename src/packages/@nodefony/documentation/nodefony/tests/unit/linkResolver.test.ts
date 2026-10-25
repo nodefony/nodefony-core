@@ -99,6 +99,14 @@ describe("blocs déclaratifs (fences typées)", () => {
     expect(out).toContain('"href": "root~index.md"');
   });
 
+  it("traduit un `href` qui vise une SECTION, et garde l'ancre", () => {
+    // Une carte de parcours pointe souvent une section précise : sans l'ancre
+    // reconnue, la cible `cors.md#preflight` n'était pas un `.md` et restait
+    // telle quelle — un lien vers un fichier que ni le portail ni le site ne servent.
+    const md = '[{ "title": "CORS", "href": "cors.md#preflight" }]';
+    expect(rewrite(md)).toContain('"href": "mod~security~cors.md#preflight"');
+  });
+
   it("laisse intact un `href` externe ou non indexé", () => {
     const md =
       '{ "href": "https://example.org/x.md" }\n{ "href": "fantome.md" }';

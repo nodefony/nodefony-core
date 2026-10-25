@@ -38,7 +38,10 @@ const MD_LINK =
  */
 // Même borne que `MD_LINK`, pour la même raison : l'analyseur n'a signalé que
 // le frère du dessus, mais le motif est identique.
-const JSON_HREF = /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s]{1,512}?\.md)"/gi;
+// L'ancre se capture À PART, comme dans `MD_LINK` : collée à la cible, elle
+// faisait échouer le `.md` final et la carte restait sans traduction.
+const JSON_HREF =
+  /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s#]{1,512}?\.md)(#[^"\s]{0,512})?"/gi;
 
 /** Résout un chemin relatif POSIX contre le dossier d'une page. */
 function resolveRelative(fromDir: string, href: string): string {
@@ -104,8 +107,8 @@ export function rewriteInternalLinks(
   // Les blocs déclaratifs (`nodefony-cards`…) portent leurs cibles dans du JSON,
   // hors de la syntaxe markdown : leurs `href` doivent être traduits AUSSI,
   // sinon un catalogue de hub renvoie dans le vide.
-  return out.replace(JSON_HREF, (whole, href: string) => {
+  return out.replace(JSON_HREF, (whole, href: string, hash = "") => {
     const t = translate(href);
-    return t ? `"href": "${t}"` : whole;
+    return t ? `"href": "${t}${hash}"` : whole;
   });
 }
