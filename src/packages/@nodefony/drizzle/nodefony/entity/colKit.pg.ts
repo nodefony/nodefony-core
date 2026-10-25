@@ -53,6 +53,7 @@ import {
   firstAndRest,
   indexedColumn,
   refTargetTable,
+  literalDefaultFn,
 } from "./colKit.shared";
 import {
   columnName,
@@ -76,6 +77,7 @@ interface Chain extends PgColumnBuilderBase {
   primaryKey(): Chain;
   notNull(): Chain;
   unique(): Chain;
+  default(value: unknown): Chain;
   $defaultFn(fn: () => unknown): Chain;
   $onUpdateFn(fn: () => unknown): Chain;
   references(
@@ -272,6 +274,9 @@ function applyMods(b: Chain, c: ColumnSpec): Chain {
   }
   if (c.unique) {
     out = out.unique();
+  }
+  if ("default" in c && c.default !== undefined) {
+    out = out.default(c.default).$defaultFn(literalDefaultFn(c.default));
   }
   if ("defaultFn" in c) {
     out = out.$defaultFn(c.defaultFn);

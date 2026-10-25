@@ -267,3 +267,44 @@ describe("colKit — typage des tables portables (compile-only)", () => {
     expect(typeof _typeOnly).toBe("function");
   });
 });
+
+// ── Défaut LITTÉRAL (`default`) : facultatif à l'insertion, comme `defaultFn` ──
+const Defaulted = defineTable({
+  name: "typing_defaulted",
+  columns: {
+    id: { kind: "serial", primaryKey: true },
+    rank: { kind: "int", notNull: true, default: 7, column: "row_rank" },
+    tier: {
+      kind: "enum",
+      values: ["free", "pro"],
+      notNull: true,
+      default: "free",
+    },
+  },
+});
+type DefaultedSpec = typeof Defaulted.spec;
+const defaultedSqlite = Defaulted.table("sqlite");
+const defaultedPg = Defaulted.table("postgres");
+const defaultedMysql = Defaulted.table("mysql");
+
+export type LiteralDefaultOptionalOnInsert = Expect<
+  Equal<RequiredKeys<InsertOf<DefaultedSpec>>, never>
+>;
+export type LiteralDefaultSqlite = Expect<
+  Equal<typeof defaultedSqlite.$inferInsert, InsertOf<DefaultedSpec>>
+>;
+export type LiteralDefaultPg = Expect<
+  Equal<typeof defaultedPg.$inferInsert, InsertOf<DefaultedSpec>>
+>;
+export type LiteralDefaultMysql = Expect<
+  Equal<typeof defaultedMysql.$inferInsert, InsertOf<DefaultedSpec>>
+>;
+
+defineTable({
+  name: "typing_bad_default",
+  columns: {
+    id: { kind: "serial", primaryKey: true },
+    // @ts-expect-error — le défaut d'un entier est un nombre
+    rank: { kind: "int", default: "sept" },
+  },
+});

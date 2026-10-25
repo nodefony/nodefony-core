@@ -102,9 +102,8 @@ type WithType<C, B extends ColumnBuilderBase> = C extends {
   ? $Type<B, T>
   : B;
 
-type WithDefault<C, B extends ColumnBuilderBase> = C extends {
-  defaultFn: () => unknown;
-}
+type WithDefault<C, B extends ColumnBuilderBase> = C extends
+  { defaultFn: () => unknown } | { default: unknown }
   ? HasRuntimeDefault<HasDefault<B>>
   : C extends { onUpdateFn: () => unknown }
     ? HasDefault<B>

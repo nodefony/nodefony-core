@@ -49,6 +49,14 @@ export interface IColumnMods<TData> extends IStoredName {
   readonly unique?: true;
   /** Défaut calculé en JavaScript à l'insertion (jamais de `DEFAULT` SQL). */
   readonly defaultFn?: () => TData;
+  /**
+   * Valeur par défaut LITTÉRALE — posée deux fois, et chaque pose couvre ce que
+   * l'autre ne peut pas : un `DEFAULT` SQL dans la migration (seul à remplir les
+   * lignes existantes quand la colonne est AJOUTÉE à une table peuplée), et le
+   * même défaut côté JavaScript (le DDL dérivé du développement n'émet pas de
+   * `DEFAULT`). Exclusif de `defaultFn`.
+   */
+  readonly default?: TData;
   /** Valeur recalculée à chaque `UPDATE` (pendant SQL d'`updatedAt`). */
   readonly onUpdateFn?: () => TData;
 }
@@ -303,7 +311,7 @@ export type IsNullable<C> = C extends { notNull: true } | { primaryKey: true }
 
 type HasInsertDefault<C> = C extends { kind: "serial" }
   ? true
-  : C extends { defaultFn: () => unknown }
+  : C extends { defaultFn: () => unknown } | { default: unknown }
     ? true
     : C extends { onUpdateFn: () => unknown }
       ? true
@@ -426,6 +434,11 @@ export function assertTableSpec(spec: ITableSpec): void {
       );
     }
     stored.set(storedName, name);
+    if ("default" in column && "defaultFn" in column) {
+      fail(
+        `column "${name}" declares both default and defaultFn — a literal default or a computed one, not both.`,
+      );
+    }
     if ("primaryKey" in column) {
       primaryKeys += 1;
       if (!KEY_KINDS.has(column.kind)) {

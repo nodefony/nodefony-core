@@ -299,6 +299,36 @@ function runRoundtripSuite(opts: IRoundtripRunOptions): void {
       assert.equal((await roundtrip({ status: "live" })).status, "live");
     });
 
+    it("défaut littéral : posé côté JS quand la colonne est omise", async () => {
+      const row = await roundtrip({});
+      assert.equal(row.rank, 7);
+      assert.equal(row.active, true);
+      assert.equal(row.tier, "free");
+      assert.equal(row.motto, "l'été 🚀");
+      // Un objet par ligne : modifier l'un ne touche pas le défaut suivant.
+      row.tags.push("x");
+      assert.deepEqual(row.tags, ["x"]);
+      assert.deepEqual((await roundtrip({})).tags, []);
+    });
+
+    if (opts.schema === "migration") {
+      it("défaut littéral : DEFAULT SQL dans la migration — une ligne écrite SANS l'ORM le reçoit", async () => {
+        const id = "0b9e5b8e-6c8f-4b4e-9f3a-2d7c1a4e5f60";
+        await execRaw(
+          orm,
+          dialect,
+          `INSERT INTO ${VALUE_ENTITY} (id) VALUES ('${id}')`,
+        );
+        const row = await values.findOne({ id });
+        assert.ok(row, "ligne relue");
+        assert.equal(row.rank, 7);
+        assert.equal(row.active, true);
+        assert.equal(row.tier, "free");
+        assert.equal(row.motto, "l'été 🚀");
+        assert.deepEqual(row.tags, []);
+      });
+    }
+
     it("NULL : toute colonne nullable relue null", async () => {
       const row = await roundtrip({});
       const nullable: Array<keyof IValueRow> = [

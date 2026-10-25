@@ -460,6 +460,17 @@ describe("colKit — tables portables", () => {
         /declares 2 primary keys/,
       ],
       [
+        "défaut littéral ET calculé sur la même colonne",
+        {
+          name: "t",
+          columns: {
+            id: { kind: "text", primaryKey: true },
+            rank: { kind: "int", default: 1, defaultFn: () => 2 },
+          },
+        },
+        /column "rank" declares both default and defaultFn/,
+      ],
+      [
         "valeur d'enum plus longue que la colonne MySQL",
         {
           name: "t",
@@ -564,7 +575,9 @@ describe("colKit — tables portables", () => {
           STORED_NAMES,
         );
         assert.deepEqual(
-          config.indexes.map((ix) => ix.config.columns.map((c) => c.name)),
+          config.indexes.map((ix) =>
+            ix.config.columns.map((c) => ("name" in c ? c.name : "")),
+          ),
           [["full_name"]],
         );
         assert.deepEqual(

@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { defineTable, jsonType } from "../../nodefony/entity/colKit";
 
 /**
- * Tables du banc colKit — TOUTE la grammaire, références comprises. Partagées
- * par le banc d'aller-retour et par la génération de sa migration drizzle-kit
+ * Tables du banc colKit â TOUTE la grammaire, rÃ©fÃ©rences comprises. PartagÃ©es
+ * par le banc d'aller-retour et par la gÃ©nÃ©ration de sa migration drizzle-kit
  * (qui relit CE fichier : aucun `await` de premier niveau, aucun effet de bord).
  */
 
@@ -42,6 +42,23 @@ export const VALUE = defineTable({
       column: "parent_id",
     },
     previous: { kind: "ref", target: "self", onDelete: "set null" },
+    // DÃ©fauts LITTÃRAUX : DEFAULT SQL dans la migration ET dÃ©faut cÃ´tÃ© JS.
+    rank: { kind: "int", notNull: true, default: 7, column: "row_rank" },
+    active: { kind: "bool", notNull: true, default: true },
+    tier: {
+      kind: "enum",
+      values: ["free", "pro"],
+      notNull: true,
+      default: "free",
+    },
+    // Apostrophe ET accents : le DEFAULT SQL doit être échappé, et encodé.
+    motto: { kind: "string", length: 40, notNull: true, default: "l'été 🚀" },
+    tags: {
+      kind: "json",
+      type: jsonType<string[]>(),
+      notNull: true,
+      default: [],
+    },
   },
 });
 
@@ -51,8 +68,8 @@ export interface IParentRow {
 }
 
 /**
- * Ligne vue par le DÉPÔT, volontairement LARGE (`status: string`) : le banc doit
- * pouvoir écrire une valeur que le type de la table refuse, pour mesurer que le
+ * Ligne vue par le DÃPÃT, volontairement LARGE (`status: string`) : le banc doit
+ * pouvoir Ã©crire une valeur que le type de la table refuse, pour mesurer que le
  * SERVEUR la refuse aussi.
  */
 export interface IValueRow {
@@ -72,4 +89,9 @@ export interface IValueRow {
   status: string | null;
   parentId: number | null;
   previous: string | null;
+  rank: number;
+  active: boolean;
+  tier: string;
+  motto: string;
+  tags: string[];
 }

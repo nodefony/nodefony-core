@@ -93,3 +93,17 @@ export function refTargetTable(
   }
   return target;
 }
+
+/**
+ * Pendant JavaScript d'un défaut LITTÉRAL (`default`) : la même valeur à chaque
+ * insertion, recopiée quand c'est un objet — un tableau partagé entre deux
+ * lignes serait modifié pour les deux par qui en modifie une.
+ *
+ * @param value - défaut littéral de la spec.
+ * @returns la fonction posée en `$defaultFn`.
+ */
+export function literalDefaultFn<T>(value: T): () => T {
+  return typeof value === "object" && value !== null
+    ? () => structuredClone(value)
+    : () => value;
+}

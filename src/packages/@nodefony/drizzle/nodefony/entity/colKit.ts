@@ -34,8 +34,10 @@ export { isPortableTable } from "./colKit.shared";
  *   `YYYY-MM-DD` validé) — la valeur relue est celle que PostgreSQL rendrait ;
  * - un type sans équivalent fidèle n'est JAMAIS approximé : `vector` est refusé
  *   hors PostgreSQL, au type (`never`) ET à la fabrication, en le nommant ;
- * - défauts en `defaultFn`/`onUpdateFn` (JavaScript) uniquement : le DDL dérivé
- *   n'émet pas de `DEFAULT` SQL.
+ * - défaut calculé en `defaultFn`/`onUpdateFn` (JavaScript) : le DDL dérivé
+ *   n'émet pas de `DEFAULT` SQL ; un défaut LITTÉRAL (`default`) est posé aux
+ *   deux endroits — `DEFAULT` SQL dans la migration, même valeur côté JS ;
+ * - nom en base distinct de la propriété par `column` (`created_at`).
  *
  * Correspondance type logique → colonne de chaque moteur : `docs/index.md`
  * du module, section « Des entités qui suivent la base ».
