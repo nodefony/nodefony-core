@@ -30,7 +30,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > générateurs pilotables, catalogue, `AGENTS.md` dérivé du projet. Deux frameworks, deux accents :
 > le bon choix dépend de ce que votre projet met en avant.
 
-**État** — version `10.0.0` · **préversion `10.0.0-beta.4` en ligne**, sous le canal `beta`
+**État** — version `10.0.0` · **préversion `10.0.0-beta.5` en ligne**, sous le canal `beta`
 uniquement : `npm install nodefony` sert toujours la `7.0.2` (JavaScript), et le fera jusqu'à la
 sortie stable · branche par défaut `main` (dernière publication), développement sur `dev` · ~7 700 tests quand toute
 l'infrastructure répond (`npm run test:all`).
@@ -269,7 +269,7 @@ rejouable, et ses échecs sont publics. C'est cette place-là que le framework o
 
 ## Démarrage
 
-Une préversion `10.0.0-beta.4` est en ligne sous le canal `beta`. Une bêta n'est pas une version
+Une préversion `10.0.0-beta.5` est en ligne sous le canal `beta`. Une bêta n'est pas une version
 stable : une rupture reste possible d'une bêta à la suivante — chacune est alors annoncée en tête
 du [CHANGELOG](CHANGELOG.md) — et elle n'est pas destinée à la production. Elle s'installe en
 nommant ce canal :
