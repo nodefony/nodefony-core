@@ -23,6 +23,7 @@ import path from "node:path";
 import { isInsideRoot } from "../../cli/scaffold/destination";
 import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 import { ROUTE_PATH_RE } from "../../cli/scaffold/routePaths";
+import { isDeclaredDialectDivergence } from "./surface";
 import { collectSources } from "./walk";
 import {
   extractManifestModuleOrder,
@@ -86,6 +87,13 @@ export interface IWiringCheckOptions {
    * l'application. Absente, le contrôle des briques est simplement sauté.
    */
   projectRoot?: string;
+  /**
+   * Entités déclarées « d'un autre dialecte, à dessein »
+   * (`nodefony.doctor.entityDialect`). Décâblées volontairement — un
+   * connecteur d'un autre moteur refuserait de les charger —, elles ne sont
+   * pas orphelines.
+   */
+  dialectExceptions?: readonly string[];
 }
 
 /**
@@ -936,8 +944,12 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       }
 
       if (inEntities) {
+        const assumedForeign = isDeclaredDialectDivergence(
+          path.relative(projectRoot ?? cwd, file),
+          options.dialectExceptions ?? [],
+        );
         for (const [, symbol = ""] of content.matchAll(ENTITY_RE)) {
-          if (!referencedElsewhere(symbol, file, sources)) {
+          if (!assumedForeign && !referencedElsewhere(symbol, file, sources)) {
             findings.push({
               kind: "orphan-entity",
               file: rel(file),

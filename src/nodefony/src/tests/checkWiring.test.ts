@@ -169,6 +169,32 @@ class App extends Module {}`,
     );
   });
 
+  it("🔴 #679 — décâblée mais DÉCLARÉE d'un autre dialecte → pas orpheline", () => {
+    // Le geste que `create entity` conseille quand il sort en 78 : décâbler
+    // l'entité d'un autre moteur et déclarer l'écart. Sans ce filtre, doctor
+    // accusait ensuite précisément ce que la commande venait de prescrire.
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITY,
+      "index.ts": `class App extends Module {}`,
+    });
+    const assumed = checkWiring({
+      roots: [dir],
+      cwd: dir,
+      projectRoot: dir,
+      dialectExceptions: ["entity/Post.ts"],
+    });
+    assert.deepStrictEqual(
+      assumed.findings.filter((f) => f.kind === "orphan-entity"),
+      [],
+    );
+    // Témoin : la MÊME entité, sans déclaration, reste accusée.
+    const plain = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    assert.strictEqual(
+      plain.findings.filter((f) => f.kind === "orphan-entity").length,
+      1,
+    );
+  });
+
   it("référencée par son SEUL test → toujours un manquement", () => {
     // Le piège que ce contrôle doit éviter : `create entity` génère un test qui
     // importe l'entité pour l'enregistrer en mémoire. Le compter comme un

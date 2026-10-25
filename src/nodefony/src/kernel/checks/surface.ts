@@ -391,6 +391,26 @@ export function toPortablePath(
   return rawPath.split(sep).join("/").split("\\").join("/");
 }
 
+/**
+ * Une entité est-elle déclarée « d'un autre dialecte, à dessein » par le projet ?
+ *
+ * Règle UNIQUE, lue par deux contrôles : la divergence de dialecte (qui ne
+ * l'accuse pas) et l'entité orpheline (qui ne lui reproche pas d'être
+ * décâblée — c'est précisément ce que `create entity` conseille quand il sort
+ * en 78 sur une entité d'un autre moteur).
+ *
+ * @param relative - chemin du fichier d'entité, relatif à la racine du projet.
+ * @param exceptions - `nodefony.doctor.entityDialect` du `package.json`.
+ * @returns `true` si l'un des motifs déclarés désigne ce fichier.
+ */
+export function isDeclaredDialectDivergence(
+  relative: string,
+  exceptions: readonly string[],
+): boolean {
+  const file = toPortablePath(relative);
+  return exceptions.some((e) => file.includes(toPortablePath(e)));
+}
+
 /** Une entité écrite pour d'autres moteurs que celui du connecteur. */
 export interface IEntityDialectMismatch {
   /** Le fichier de l'entité, relatif à la racine analysée. */
@@ -465,8 +485,7 @@ export function entityDialectMismatches(options: {
       const relative = path.relative(cwd, file);
       // Le projet a DÉCLARÉ que cette divergence est voulue : un dépôt qui
       // porte un banc multi-moteurs ne doit pas être condamné pour cela.
-      if (exceptions.some((e) => toPortablePath(relative).includes(e)))
-        continue;
+      if (isDeclaredDialectDivergence(relative, exceptions)) continue;
       mismatches.push({ file: relative, wrote: [...imported] });
     }
   }

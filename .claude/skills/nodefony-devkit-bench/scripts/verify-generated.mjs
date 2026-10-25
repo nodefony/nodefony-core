@@ -46,7 +46,6 @@ import {
   statSync,
   utimesSync,
 } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -57,6 +56,7 @@ import {
   packTarballs,
   peerOverrides,
 } from "./lib/isolation.mjs";
+import { decorRoot } from "./lib/decor-root.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec, lignesLisibles } from "./lib/extrait-echec.mjs";
@@ -215,11 +215,7 @@ if (!MOTEURS.includes(DATABASE)) {
  * ignoré hérite en silence de règles écrites pour autre chose**. Deux dossiers
  * distincts, pour qu'un run lié n'écrase pas un décor isolé conservé.
  */
-const ROOT = path.join(
-  os.tmpdir(),
-  (LINKED ? "nodefony-devkit-verify-link" : "nodefony-devkit-verify") +
-    (DATABASE === "sqlite" ? "" : `-${DATABASE}`),
-);
+const ROOT = decorRoot({ linked: LINKED, database: DATABASE });
 const APP = path.join(ROOT, "app");
 
 /**

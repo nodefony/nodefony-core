@@ -80,6 +80,7 @@ const LOT_ATTENDU = new Set([
   "lib/argv.selftest.mjs",
   "lib/transcript-dialectes.selftest.mjs",
   "lib/journal-source.selftest.mjs",
+  "lib/decor-root.selftest.mjs",
   "lib/decor-source.selftest.mjs",
   "lib/artefacts-forge.selftest.mjs",
   "lib/env-decor.selftest.mjs",

@@ -944,6 +944,7 @@ export async function collectDoctorReport(
     // La racine du projet porte le manifeste : c'est lui qui dit quelles
     // briques seront CHARGÉES, information qu'aucune cible ne détient seule.
     projectRoot: cwd,
+    ...(entityDialect ? { dialectExceptions: entityDialect } : {}),
   });
 
   // L'état d'installation ne se contrôle QUE dans une application : hors projet

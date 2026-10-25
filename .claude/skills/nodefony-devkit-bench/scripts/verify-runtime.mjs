@@ -49,9 +49,9 @@
 import { spawnSync } from "node:child_process";
 import { garderDrapeaux } from "./lib/argv.mjs";
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { decorRoot } from "./lib/decor-root.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
 
 /** Racine du dépôt, trouvée en REMONTANT — un skill se déplace, un `..` compté se périme. */
@@ -92,15 +92,11 @@ const iEtage = process.argv.indexOf("--etage");
 const ETAGE_DEMANDE = iEtage === -1 ? null : process.argv[iEtage + 1];
 
 /**
- * Le décor, aux MÊMES emplacements que `verify-generated.mjs`.
- *
- * Ces deux chemins sont la seule chose que les deux bancs partagent en dur ; les
- * changer d'un côté sans l'autre ferait chercher l'application là où elle n'est
- * pas, avec un message qui parlerait de décor absent plutôt que de désaccord.
+ * Le décor, au MÊME emplacement que `verify-generated.mjs` — par la même
+ * fonction (`lib/decor-root.mjs`). Écrit en dur ici, il avait divergé : le
+ * mode `--link` cherchait un dossier que l'autre banc n'écrivait plus.
  */
-const ROOT = LINKED
-  ? path.join(REPO, "tmp", "devkit-verify")
-  : path.join(os.tmpdir(), "nodefony-devkit-verify");
+const ROOT = decorRoot({ linked: LINKED });
 const APP = path.join(ROOT, "app");
 
 /**
