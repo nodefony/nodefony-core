@@ -6,7 +6,6 @@
     ".claude/skills/nodefony-devkit-bench/scripts/build-devkit-report.mjs",
     ".claude/skills/nodefony-devkit-bench/scripts/suivre-run.mjs",
     ".claude/skills/nodefony-devkit-bench/suites/harness.ts",
-    ".claude/skills/nodefony-documentation/scripts/code-check.mjs",
     ".claude/skills/nodefony-documentation/scripts/render-figures.mjs",
     ".claude/skills/nodefony-framework-dev/scripts/typing/exact-optional.mjs",
     ".claude/skills/nodefony-framework-dev/scripts/typing/non-null-index.mjs",
