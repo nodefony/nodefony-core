@@ -91,7 +91,7 @@ Le test qui tranche en une question : **cette donnée doit-elle être en mémoir
 
 Quand une donnée réglementée doit vivre en base, le framework a son précédent : le secret d'un
 second facteur est stocké **chiffré**, en blob opaque, jamais en clair — `totpSecretEntity`
-(`src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts#TOTP_SECRET_TABLE_SPEC`). Reprends ce patron :
+(`src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts#TOTP_SECRET_TABLE`). Reprends ce patron :
 une entité dédiée, un blob chiffré, et une lecture qui n'a lieu qu'au moment où la donnée sert.
 
 ## Démarrage rapide (exemple minimal qui compile)

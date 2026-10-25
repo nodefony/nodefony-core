@@ -504,8 +504,8 @@ clé privée n'existe que dans l'authenticator.
 | `backupState`    | BS flag — la passkey **est** sauvegardée             | `bool` notNull      | `Boolean` requis | `"1"`/`"0"`             |
 | `uvInitialized`  | Une vérification humaine a déjà eu lieu              | `bool` notNull      | `Boolean` requis | `"1"`/`"0"`             |
 | `nickname`       | Surnom d'appareil, optionnel                         | `text` nullable     | `String` (null)  | champ absent si vide    |
-| `createdAt`      | Enrôlement (epoch ms)                                | `epochMs` notNull   | `Number` requis  | champ                   |
-| `lastUsedAt`     | Dernière authentification réussie, ou `null`         | `epochMs` nullable  | `Number` (null)  | champ absent si null    |
+| `createdAt`      | Enrôlement (epoch ms)                                | `int64` notNull     | `Number` requis  | champ                   |
+| `lastUsedAt`     | Dernière authentification réussie, ou `null`         | `int64` nullable    | `Number` (null)  | champ absent si null    |
 
 Spécification SQL : `webAuthnCredentialEntity.ts#webAuthnCredentialSchema`, index sur `userId`
 (`drizzle/nodefony/entity/webAuthnCredentialEntity.ts#WebAuthnCredentialRow.userId`). Schéma documentaire :

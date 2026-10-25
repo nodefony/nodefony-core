@@ -581,7 +581,7 @@ TOTP et les passkeys (`cascadeUserRevocation`, `userRevocationCascade.ts#cascade
 recréé sous le même identifiant hériterait du second facteur de l'ancien titulaire. Un compte
 seulement désactivé ou verrouillé garde ses facteurs.
 
-Spécification logique de la table (`TOTP_SECRET_TABLE_SPEC`, `totpSecretEntity.ts#TOTP_SECRET_TABLE_SPEC`), déclinée par
+Spécification logique de la table (`TOTP_SECRET_TABLE`, `totpSecretEntity.ts#TOTP_SECRET_TABLE`), déclinée par
 dialecte via le colKit :
 
 | Colonne         | Rôle                                            | SQLite             | PostgreSQL | MySQL / MariaDB |
@@ -600,7 +600,7 @@ dialecte via le colKit :
 Deux pièges de lecture, signalés dans l'entité elle-même :
 
 - `lastUsedStep` est un **numéro de tranche RFC 6238**, pas un horodatage — d'où le type `int`
-  partout, quand les vraies dates sont en `epochMs` (`totpSecretEntity.ts#TotpSecretRow.algorithm`).
+  partout, quand les vraies dates sont en `int64` (`totpSecretEntity.ts#TotpSecretRow.algorithm`).
 - Un epoch en millisecondes **déborde** un `integer` 32 bits → `bigint` en PostgreSQL et MySQL
   (SQLite, lui, a des INTEGER 64 bits).
 

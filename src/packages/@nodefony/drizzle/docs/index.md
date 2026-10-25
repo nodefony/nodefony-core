@@ -122,7 +122,7 @@ n'écrit de `registerXStore(...)`.
 **dialect-spécifique** : `sqliteTable` n'est pas `pgTable`, les types de colonnes diffèrent. On ne peut
 donc pas « juste changer le dialecte ». Le module rétablit cette abstraction au niveau du framework —
 une spécification logique par entité, traduite dans le bon dialecte par le `colKit`
-(`buildFrameworkTable()`, `colKit.ts#buildFrameworkTable`). Le coût est assumé (une fabrique par entité framework),
+(`defineTable()`, `colKit.ts#defineTable`). Le coût est assumé (une fabrique par entité framework),
 la contrepartie est la type-safety intégrale.
 
 > [!IMPORTANT]
@@ -458,25 +458,90 @@ le pilote de son dialecte.
 - **ton code applicatif qui passe par le repository** — services, controllers, requêtes par
   critères.
 
-### Ce qui change : le schéma de tes entités
+### Des entités qui suivent la base : `defineTable`
 
-Drizzle déclare une table **par dialecte** (`sqliteTable`, `pgTable`, `mysqlTable`), avec les
-colonnes du moteur. `nodefony create entity` écrit donc la table du dialecte de son connecteur, et
-cette table ne se charge que sur lui : pointée vers une autre base, l'application refuse de démarrer
-en nommant l'entité (« is not ported to this dialect »). Les entités du **framework** (session,
-utilisateurs, jetons…) suivent l'URL ; les tiennes, non.
+Drizzle déclare une table **par dialecte** (`sqliteTable`, `pgTable`, `mysqlTable`), et une table ne
+se charge que sur le moteur pour lequel elle est écrite. Le kit de colonnes du module renverse le
+rapport : une entité décrit ses colonnes **une fois**, en types logiques, et `defineTable` fabrique
+la table du dialecte demandé — exactement typée sur chacun.
 
-Passer de SQLite à PostgreSQL, c'est donc aujourd'hui :
+```ts
+import { randomUUID } from "node:crypto";
+import { defineTable, jsonType } from "@nodefony/drizzle";
+import type { RowOf } from "@nodefony/drizzle";
 
-1. réécrire chaque table pour le dialecte visé (`create entity <Nom> … --dialect postgres --force`
-   la régénère, ou la main) ;
+export const article = defineTable({
+  name: "article",
+  columns: {
+    id: { kind: "uuid", primaryKey: true, defaultFn: () => randomUUID() },
+    title: { kind: "string", length: 120, notNull: true },
+    price: { kind: "decimal", precision: 12, scale: 2, notNull: true },
+    status: { kind: "enum", values: ["draft", "live"], notNull: true },
+    tags: { kind: "json", type: jsonType<string[]>() },
+    publishedAt: { kind: "datetime" },
+  },
+});
+
+// La table d'un dialecte — celle qu'on enregistre comme `schema` de l'entité.
+const table = article.table("postgres");
+
+// La ligne, dérivée de la description : la même sur les trois moteurs.
+type ArticleRow = RowOf<typeof article.spec>;
+```
+
+Les types logiques, et ce que chaque moteur en reçoit :
+
+<!-- prettier-ignore -->
+| Type logique | SQLite | PostgreSQL | MySQL / MariaDB | Relu en JS |
+| --- | --- | --- | --- | --- |
+| `string` (`length`, 255 par défaut) | `text(n)` + `CHECK` de longueur | `varchar(n)` | `varchar(n)` | `string` |
+| `char` (`length`) | `text` + `CHECK` | `char(n)` + `CHECK` | `char(n)` + `CHECK` | `string` |
+| `text` | `text` | `text` | `text` (`varchar(512)` s'il est indexé) | `string` |
+| `int` / `int64` | `integer` | `integer` / `bigint` | `int` / `bigint` | `number` |
+| `serial` (clé) | `integer` auto-incrémenté | `serial` | `int` auto-incrémenté | `number` |
+| `float` | `real` | `double precision` | `double` | `number` |
+| `decimal` (`precision`, `scale`) | `text` | `numeric(p, s)` | `decimal(p,s)` | `string` (`"12.50"`) |
+| `bool` | `integer` | `boolean` | `boolean` | `boolean` |
+| `json` (`type: jsonType<T>()`) | `text` (mode json) | `jsonb` | JSON compatible MariaDB | `T` ou `unknown` |
+| `date` (jour) | `text` | `date` | `date` | `string` (`"2024-02-29"`) |
+| `datetime` (instant) | `integer` (ms) | `timestamptz(3)` | `datetime(3)` | `Date` |
+| `uuid` | `text` | `uuid` | `varchar(36)` | `string` (minuscules) |
+| `enum` (`values`) | `text` + `CHECK` | `text` + `CHECK` | `varchar(64)` + `CHECK` | l'union des valeurs |
+| `ref` (`target`, `onDelete`) | type de la clé visée + clé étrangère | idem | idem | type de la clé visée |
+| `vector` (`dimensions`) | **refusé** | `vector(n)` (pgvector) | **refusé** | `number[]` |
+
+Ce que le kit garantit, sur les trois moteurs :
+
+- **la même valeur relue.** Là où un moteur range sans normaliser, le kit écrit la forme que
+  PostgreSQL rendrait : un décimal à l'échelle (`"12.5"` relu `"12.50"`), un uuid en minuscules, un
+  jour vérifié ;
+- **le même refus.** Ce qu'un moteur ne vérifie pas, une contrainte le fait refuser par le serveur
+  comme ailleurs : longueur d'un `string` en SQLite, longueur exacte d'un `char`, valeurs d'un
+  `enum`, clé étrangère ;
+- **jamais d'approximation.** Un type sans équivalent fidèle est refusé en le nommant, au type
+  (`never`) comme au démarrage : un `vector` hors PostgreSQL, une clé primaire entière qui n'est pas
+  un `serial`.
+
+La relation vers soi s'écrit `target: "self"`. Les défauts restent en JavaScript (`defaultFn`,
+`onUpdateFn`) : le DDL dérivé n'émet pas de `DEFAULT` SQL.
+
+La **description** (`ITableSpec`, `RowOf`, `InsertOf`) ne dépend d'aucun ORM : Drizzle n'en est
+qu'un adaptateur, qui fabrique ses tables à partir d'elle.
+
+### Changer de base
+
+Avec une entité décrite par `defineTable`, passer de SQLite à PostgreSQL revient à :
+
+1. changer l'URL de la base (`NF_DATABASE_URL`) ;
 2. repartir d'une migration initiale de ce dialecte (`nodefony orm:generate`) — les migrations se
    rangent par dialecte, celles de SQLite ne s'appliquent pas ailleurs ;
 3. transférer les données — aucune commande ne le fait.
 
-`create entity --dialect <autre>` sur un connecteur d'un autre moteur écrit le fichier, mais sort en
-**78** sans tenter la migration : aucune base de l'application ne peut porter cette table tant
-qu'elle y est câblée.
+`nodefony create entity` écrit encore une table **native** du dialecte de son connecteur. Celle-ci
+ne se charge que sur lui : pointée vers une autre base, l'application refuse de démarrer en nommant
+l'entité (« is not ported to this dialect »), et il faut la réécrire pour le dialecte visé
+(`create entity <Nom> … --dialect postgres --force` la régénère). `create entity --dialect <autre>`
+sur un connecteur d'un autre moteur écrit le fichier, mais sort en **78** sans tenter la migration.
 
 ### Ce qui diverge, et pourquoi
 
@@ -494,9 +559,9 @@ regarder si un comportement te surprend.
 | Retour d'une ligne écrite | `RETURNING` | `RETURNING` | **absent** → relecture par PK | MySQL n'a pas de `RETURNING`. |
 | `OFFSET` sans `LIMIT` | fragment `-1` | rien (valide seul) | `LIMIT` sentinelle | Chaque moteur refuse une forme différente. |
 
-Toute cette traduction vit à **un seul endroit**, le `colKit` (`buildFrameworkTable()`,
-`colKit.ts#buildFrameworkTable` ; variante MySQL : `mysqlColumn()`, `colKit.ts#mysqlColumn`). Ajouter un dialecte, c'est
-étendre le kit — jamais retoucher les entités.
+Toute cette traduction vit à **un seul endroit**, le `colKit` (`defineTable()`,
+`colKit.ts#defineTable` ; variante MySQL : `buildMySqlTable()`, `colKit.mysql.ts#buildMySqlTable`). Ajouter un
+dialecte, c'est étendre le kit — jamais retoucher les entités.
 
 En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, `upsert`,
 `findOneAndDelete`) se décomposent en sélection de la cible → mutation bornée par la clé primaire **avec
@@ -546,7 +611,7 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts#DrizzleOrm`                                                              |
 | `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts#COMPARISONS`                                                      |
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts#DrizzleTransaction.rollback`                                     |
-| `buildFrameworkTable`  | une spécification logique → la table du dialecte demandé               | `colKit.ts#buildFrameworkTable`                                                         |
+| `defineTable`          | une spécification logique → la table du dialecte demandé, typée        | `colKit.ts#defineTable`                                                                 |
 | `queryKit` (interne)   | le SQL brut des entités framework, émis **et exécuté** par dialecte    | `findUserIdBySocialProvider()` (`queryKit.ts#findUserIdBySocialProvider`)               |
 | `registerStores`       | l'auto-enregistrement des huit briques                                 | `registerDrizzleFrameworkStores()` (`registerStores.ts#registerDrizzleFrameworkStores`) |
 
@@ -691,7 +756,7 @@ briques durables disponibles**, sans aucun câblage.
 | Idempotence | `idempotency_key` | `IIdempotencyStore` (core) | la dédup des mutations, **partagée** |
 
 Les huit sont portées sur les **trois** dialectes. Chaque table est déclarée par une spécification
-logique traduite par le colKit — par exemple la session (`SESSION_TABLE_SPEC`, `sessionEntity.ts#SESSION_TABLE_SPEC`)
+logique traduite par le colKit — par exemple la session (`SESSION_TABLE`, `sessionEntity.ts#SESSION_TABLE`)
 ou l'idempotence (`createIdempotencyTable`, `idempotencyEntity.ts#createIdempotencyTable`).
 
 ### Comment ça s'active — la réponse est : tout seul
@@ -728,7 +793,7 @@ export const securityConfig = () =>
 > [!IMPORTANT]
 > **Les TSDoc de deux fichiers du module décrivent une « approche B » où l'application câblerait
 > elle-même la fabrique et l'entité d'idempotence** (`DrizzleIdempotencyStore.ts#DrizzleIdempotencyStore` ·
-> `idempotencyEntity.ts#createIdempotencyTableFactory`). Ce n'est plus le comportement : le module inscrit lui-même la fabrique
+> `idempotencyEntity.ts#createIdempotencyTable`). Ce n'est plus le comportement : le module inscrit lui-même la fabrique
 > via `registerIdempotencyStore()` (`registerStores.ts#registerDrizzleFrameworkStores`). **Le code exécuté fait autorité** —
 > ces commentaires sont périmés.
 

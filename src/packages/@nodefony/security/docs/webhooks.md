@@ -757,7 +757,7 @@ partage entre pods. Les colonnes suivent `IWebhookEndpoint` (`IWebhookEndpoint.t
 | `metadata` | extras applicatifs (jamais de secret) | `text mode:json` · `jsonb` · `json` | `Object` |
 
 Côté SQL, la table est décrite **une seule fois** en spec logique
-(`WEBHOOK_ENDPOINT_TABLE_SPEC`, `drizzle/nodefony/entity/webhookEndpointEntity.ts#WEBHOOK_ENDPOINT_TABLE_SPEC`) puis déclinée
+(`WEBHOOK_ENDPOINT_TABLE`, `drizzle/nodefony/entity/webhookEndpointEntity.ts#WEBHOOK_ENDPOINT_TABLE`) puis déclinée
 par dialecte via le `colKit`. Côté documentaire, le schéma force `_id: String` — l'identifiant
 `wh_…` **est** la clé primaire, pas un `ObjectId` généré
 (`webhookEndpointSchema`, `mongoose/nodefony/entity/webhookEndpointEntity.ts#webhookEndpointSchema`).

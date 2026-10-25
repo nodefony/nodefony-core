@@ -469,8 +469,8 @@ timer (`gcIntervalS: 0`).
 
 ## Entités de persistance
 
-**Drizzle (SQL).** La table est décrite une seule fois en spec logique (`SESSION_TABLE_SPEC`,
-`sessionEntity.ts#SESSION_TABLE_SPEC`) et déclinée par dialecte par `buildFrameworkTable()` (`colKit.ts#buildFrameworkTable`) — mêmes **noms** de
+**Drizzle (SQL).** La table est décrite une seule fois en spec logique (`SESSION_TABLE`,
+`sessionEntity.ts#SESSION_TABLE`) et déclinée par dialecte par `defineTable()` (`colKit.ts#defineTable`) — mêmes **noms** de
 colonnes partout, donc un store dialect-agnostique.
 
 | Colonne      | Type logique | SQLite              | PostgreSQL | MySQL / MariaDB | Rôle                             |
@@ -485,7 +485,7 @@ colonnes partout, donc un store dialect-agnostique.
 
 En MySQL/MariaDB, une colonne texte indexée devient `varchar` (un `TEXT` InnoDB n'est pas indexable
 sans préfixe) et le type JSON passe par un type compatible qui tolère MariaDB, laquelle stocke le JSON
-en `LONGTEXT` (`colKit.ts#mysqlColumn`).
+en `LONGTEXT` (`colKit.mysql.ts#buildMySqlTable`).
 
 **Mongoose (MongoDB).** Schéma équivalent (`@nodefony/mongoose/nodefony/entity/sessionEntity.ts#schema`) :
 `session_id` (String, index **unique**), `Attributes`/`flashBag`/`metaBag` (Object, défaut `{}`), `user`
