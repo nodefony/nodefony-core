@@ -43,12 +43,13 @@ et l'unicité s'écrit `:unique`).
 
 Deux gardes à connaître :
 
-- **Une colonne `ref:` naît INDEXÉE** (sauf `!`, qui pose déjà un index). C'est par elle que
-  passent le `?include=` et toute jointure écrite ensuite ; sans index chacune balaie la table.
+- **Une colonne `ref:` naît INDEXÉE** (sauf `:unique`, qui pose déjà un index). C'est par elle
+  que passent le `?include=` et toute jointure écrite ensuite ; sans index chacune balaie la table.
   À ne pas confondre avec la contrainte d'intégrité : un `JOIN` n'exige **aucune** clé étrangère,
-  il compare deux colonnes. Les **FOREIGN KEY ne sont pas émises** par le DDL de développement
-  (elles se déclarent dans le `CREATE TABLE`, donc n'atteindraient jamais une base déjà créée) —
-  c'est le domaine des migrations.
+  il compare deux colonnes. La **FOREIGN KEY est émise EN PLUS**, dans le `CREATE TABLE` du DDL
+  de développement (`DrizzleOrm.ts#DrizzleOrm.#buildCreateTable`) — donc sur une table NEUVE
+  seulement : une base déjà créée ne la reçoit jamais (aucun `ALTER`), c'est le domaine des
+  migrations.
 - **Les noms d'entités du framework sont refusés** (`session`, `access_token`,
   `audit_event`…, casse et séparateurs ignorés) : le registre ORM est plat, une entité homonyme
   déposséderait celle d'un module et l'application ne démarrerait plus — sur un message parlant
