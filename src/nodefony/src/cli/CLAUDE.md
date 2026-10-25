@@ -884,7 +884,10 @@ du résultat — absent pour une entité RÉGÉNÉRÉE (sa migration peut retire
 humaine), pour `User` et MongoDB. Garde : le SQL écrit ne doit toucher QUE la table neuve
 (`tablesTouchedBySql` — `ON` lu derrière un index seulement, `REFERENCES` ignoré) ; sinon des
 entités modifiées attendaient, la migration est écrite et NON appliquée, et les tables en trop
-sont nommées. Une migration tentée et ratée sort en 70 (`createExitCode`). Le versionnement est
+sont nommées. Une migration tentée et ratée sort en 70 (`createExitCode`) ; empêchée par la
+CONFIGURATION — base injoignable, `orm:generate` qui sort en 78, ou entité `--dialect` d'un autre
+moteur que son connecteur (`foreignDialect` du résultat : migration NON tentée, écart nommé) — elle
+sort en 78 (étape `blocked`). Le versionnement est
 jugé par `connectorVersionsMigrations`, la règle du cœur que Drizzle lit aussi ; un champ ajouté **qui accepte le
 vide** est posé au boot suivant, un champ **obligatoire** ne l'est jamais (`orm:reset`, ou une
 migration), et la production s'applique par `orm:migrate`. Design + alternatives rejetées :

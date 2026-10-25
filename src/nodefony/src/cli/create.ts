@@ -14,6 +14,7 @@ import {
 } from "./packageManager";
 import type { PackageManagerName } from "../Cli";
 import { SysExit } from "./sysexits";
+import { BOOT_CONFIG_ERROR_LABEL } from "../kernel/bootErrorLabels";
 import { version } from "../../package.json";
 import { RESERVED_ENV } from "../config/reservedEnv";
 import { startFreshnessCheck } from "./cliFreshness";
@@ -721,27 +722,36 @@ function runFormat(dest: string, files: string[]): void {
  * `dist/` ni de `migrations/` : le manifeste pointait encore vers un registre
  * où aucun paquet `@nodefony/*` n'est publié.
  *
+ * Une étape BLOQUÉE par la configuration (`blocked`) sort en `CONFIG` (78) :
+ * il reste aussi quelque chose à faire, mais c'est un réglage, pas un bug — et
+ * un échec franc l'emporte sur elle.
+ *
  * @param install - l'installation des dépendances : sautée, réussie, échouée.
  * @param build - l'étape qui suit l'installation — `npm run build` (app,
  *   module) ou la migration de la table neuve (entity) : sautée, réussie,
- *   échouée.
- * @returns `OK`, ou `SOFTWARE` dès qu'une étape TENTÉE a échoué.
+ *   échouée, bloquée.
+ * @returns `OK` ; `SOFTWARE` dès qu'une étape TENTÉE a échoué ; sinon `CONFIG`
+ *   dès qu'une étape est bloquée par la configuration.
  */
 export function createExitCode(
   install: CreateStepOutcome,
   build: CreateStepOutcome,
 ): SysExit {
-  return install === "failed" || build === "failed"
-    ? SysExit.SOFTWARE
-    : SysExit.OK;
+  if (install === "failed" || build === "failed") return SysExit.SOFTWARE;
+  if (install === "blocked" || build === "blocked") return SysExit.CONFIG;
+  return SysExit.OK;
 }
 
 /**
- * Ce qu'une étape de post-génération a fait : rien, ou réussi, ou échoué.
+ * Ce qu'une étape de post-génération a fait : rien, réussi, échoué, ou rien
+ * pu faire à cause de la CONFIGURATION.
  *
- * Trois états parce que deux ne suffisent pas — cf {@link createExitCode}.
+ * `blocked` n'est pas un `failed` : rien ne s'est cassé dans la commande — la
+ * base visée ne répond pas, ou l'entité vise un autre moteur que son
+ * connecteur. Le dire en 70 (erreur interne) envoyait chercher un bug ; c'est
+ * un réglage à corriger, d'où le 78. Cf {@link createExitCode}.
  */
-export type CreateStepOutcome = "skipped" | "succeeded" | "failed";
+export type CreateStepOutcome = "skipped" | "succeeded" | "failed" | "blocked";
 
 /**
  * `npm run build` dans l'app générée — le runtime charge `dist/index.js`
@@ -1021,10 +1031,16 @@ export function runEntityMigration(
   const { stdout, stderr } = spawnedOutput(generated);
   if (generated.status !== 0) {
     const cause = migrationFailureCause(`${stdout}${stderr}`, generated.status);
+    // Base injoignable, ou `orm:generate` qui sort lui-même en 78 : la
+    // configuration empêche l'étape, la commande n'a rien cassé.
+    const blocked =
+      cause.databaseUnreachable || generated.status === SysExit.CONFIG;
     return {
-      outcome: "failed",
+      outcome: blocked ? "blocked" : "failed",
       reached: "nothing",
-      note: `NON écrite (${cause.pattern}) — lance « ${again} » quand ta base répond`,
+      note: cause.databaseUnreachable
+        ? `NON écrite (${cause.pattern}) — lance « ${again} » quand ta base répond`
+        : `NON écrite (${cause.pattern}) — corrige ce qu'« orm:generate » refuse, puis « ${again} »`,
     };
   }
   let report: unknown = null;
@@ -1149,6 +1165,19 @@ export function migrationFailureCause(
     const explanation = rest.slice(0, cut).trim();
     if (explanation.length > 0) {
       return { databaseUnreachable: true, pattern: explanation };
+    }
+  }
+  // Le démarrage de la commande enfant refusé pour sa CONFIGURATION : le
+  // noyau a écrit la cause (`… de "<module>" — <message>`). On garde la
+  // première phrase du message — sans elle, il ne restait que « code 78 ».
+  const configAt = output.indexOf(BOOT_CONFIG_ERROR_LABEL);
+  if (configAt >= 0) {
+    const line = output.slice(configAt).split("\n")[0] ?? "";
+    const dash = line.indexOf(" — ");
+    const message = dash >= 0 ? line.slice(dash + 3).trim() : "";
+    const firstSentence = message.split(". ")[0] ?? message;
+    if (firstSentence.length > 0) {
+      return { databaseUnreachable: false, pattern: firstSentence };
     }
   }
   return { databaseUnreachable: false, pattern: `code ${String(status)}` };
@@ -2019,7 +2048,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     let migrationLine = "";
     let silenced: readonly string[] = [];
     const migration = result.migration;
-    if (
+    const foreign = result.foreignDialect;
+    if (foreign !== undefined) {
+      // Pas tentée : l'issue est connue d'avance, et la tenter ne produirait
+      // qu'un refus du connecteur. Le code de sortie dit l'écart (78).
+      migrationStep = "blocked";
+      migrationLine =
+        `\n🗄️ migration : NON tentée — l'entité vise ${foreign.dialect}, ` +
+        `le connecteur « ${foreign.connector} » est ${foreign.connectorDialect}\n`;
+    } else if (
       migration !== undefined &&
       parsed.install &&
       parsed.migrate &&
@@ -2056,7 +2093,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         `\n\nServeur dev lancé → rebuild automatique ; sinon : ${packageManagerCommandLines(resolvePackageManager({ dir: findProjectRoot(process.cwd()) ?? undefined }).name).run("build")}\n`,
     );
     // Une migration TENTÉE et ratée laisse la ressource en 500 : le code de
-    // sortie le dit, comme pour une installation ratée.
+    // sortie le dit, comme pour une installation ratée ; bloquée par la
+    // configuration, il le dit en 78.
     return createExitCode(depsInstall, migrationStep);
   }
   // Le CLI qui engendre l'application fixe sa version (`^<version>`). Un global

@@ -511,6 +511,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // l'application témoin n'a JAMAIS eu de `dist/`.
       assert.equal(createExitCode("failed", "skipped"), SysExit.SOFTWARE);
     });
+
+    it("🔴 #679 — étape BLOQUÉE par la configuration → CONFIG (78), pas SOFTWARE", () => {
+      // Une entité d'un autre dialecte, une base qui ne répond pas : la commande
+      // n'a rien cassé. 70 envoyait chercher un bug dans le générateur.
+      assert.equal(createExitCode("succeeded", "blocked"), SysExit.CONFIG);
+      assert.equal(createExitCode("skipped", "blocked"), SysExit.CONFIG);
+    });
+
+    it("un échec franc l'emporte sur une étape bloquée", () => {
+      assert.equal(createExitCode("failed", "blocked"), SysExit.SOFTWARE);
+    });
   });
 
   describe("spec déclarative (contrat des 3 fronts)", () => {
@@ -9367,6 +9378,40 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, 'jsonb("meta")');
     });
 
+    it("🔴 #679 — --dialect ≠ moteur du connecteur : écart DIT, aucune migration réclamée", () => {
+      // Le connecteur versionne ses migrations : sans la garde, le moteur
+      // réclamait la migration d'une table PostgreSQL sur une base SQLite, et
+      // `create` sortait en 70 sur un refus connu d'avance.
+      const dest = app("eapp8b");
+      mkdirSync(path.join(dest, "migrations"), { recursive: true });
+      writeFileSync(
+        path.join(dest, "migrations", "0000_init.sql"),
+        "-- init\n",
+      );
+
+      const pg = entity(dest, {
+        name: "PgAuthor",
+        fields: "email:string",
+        dialect: "postgres",
+      });
+      assert.isUndefined(pg.migration);
+      assert.deepEqual(pg.foreignDialect, {
+        dialect: "postgres",
+        connector: "default",
+        connectorDialect: "sqlite",
+      });
+      const notes = (pg.notes ?? []).join("\n");
+      assert.include(notes, "le connecteur « default » est sqlite");
+      assert.include(notes, "nodefony.doctor.entityDialect");
+      assert.notInclude(notes, "orm:generate --name pg_authors --apply");
+
+      // Témoin : le MÊME décor, sans --dialect, réclame bien la migration —
+      // sinon l'assertion ci-dessus passerait pour une autre raison.
+      const native = entity(dest, { name: "Author", fields: "email:string" });
+      assert.isUndefined(native.foreignDialect);
+      assert.equal(native.migration?.table, "authors");
+    });
+
     it("--no-controller : ni controller ni wiring de controller", () => {
       const dest = app("eapp9");
       entity(dest, { name: "Post", fields: "title:string", controller: false });
@@ -11290,6 +11335,27 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
     assert.notInclude(v.pattern, "code 70");
     assert.notInclude(v.pattern, "\n");
     assert.notInclude(v.pattern, "    at ");
+  });
+
+  it("🔴 #679 — démarrage refusé pour sa CONFIGURATION : la cause du noyau, pas « code 78 »", () => {
+    // Sortie RÉELLE d'`orm:generate` dans une app SQLite où des entités
+    // PostgreSQL sont câblées — relevée au banc `verify-generated`.
+    const sortie =
+      `20:19:21.027 ERROR   KERNEL             : boot lifecycle: erreur de CONFIGURATION (boot interrompu) ` +
+      `de "drizzle" — Drizzle : le connecteur "default" se replierait sur sqlite — aucune base n'est ` +
+      `déclarée (NF_DATABASE_URL absente, aucun \`dialect\` écrit) — alors que l'application est écrite ` +
+      `pour postgres (nodefony/entity/PgAuthor.ts, nodefony/entity/PgInvoice.ts). Une table Drizzle ne ` +
+      `change pas de dialecte : poser NF_DATABASE_URL vers la base postgres (fichier .env), ou réécrire ` +
+      `ces entités pour sqlite.\n`;
+    const v = migrationFailureCause(sortie, 78);
+    assert.isFalse(v.databaseUnreachable);
+    assert.include(
+      v.pattern,
+      'le connecteur "default" se replierait sur sqlite',
+    );
+    assert.include(v.pattern, "nodefony/entity/PgAuthor.ts");
+    assert.notInclude(v.pattern, "Une table Drizzle");
+    assert.notInclude(v.pattern, "code 78");
   });
 
   it("ECONNREFUSED → base injoignable ; autre échec → le code, et rien n'est affirmé sur la base", () => {

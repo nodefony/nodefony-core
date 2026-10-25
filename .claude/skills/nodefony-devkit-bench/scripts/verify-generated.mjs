@@ -589,7 +589,7 @@ function bilanDe(out) {
     .slice(0, 6);
 }
 
-function run(cmd, args, cwd = APP, env = {}) {
+function run(cmd, args, cwd = APP, env = {}, expected = 0) {
   const res = spawnSync(cmd, args, {
     cwd,
     encoding: "utf8",
@@ -627,7 +627,7 @@ function run(cmd, args, cwd = APP, env = {}) {
     `   · $ ${shown.length > 90 ? `${shown.slice(0, 87)}…` : shown} → code ${res.status}\n` +
       bilan.map((l) => `       ${l}\n`).join(""),
   );
-  if (res.status !== 0) {
+  if (res.status !== expected) {
     const out = sortie;
     // La sortie ENTIÈRE sur disque avant tout filtrage — l'affichage, lui, ne
     // peut pas tout porter. Vécu : le lanceur du framework refusait la readiness
@@ -643,6 +643,7 @@ function run(cmd, args, cwd = APP, env = {}) {
     }
     throw new Error(
       `${cmd} ${args.join(" ")} → code ${res.status}` +
+        (expected !== 0 ? ` (attendu : ${expected})` : "") +
         ` (sortie entière : ${journal})\n${extraitEchec(out)}`,
     );
   }
@@ -966,16 +967,86 @@ step(
   "génération : deux entités qui exercent toute la grammaire",
   "unique, énumération, défauts, index et relation — les cas qui ont déjà cassé.",
   () => {
+    // Le dialecte SQL de l'application témoin : `mariadb` est servi par le
+    // moteur `mysql`.
+    const appDialect = DATABASE === "mariadb" ? "mysql" : DATABASE;
     for (const [name, ...fields] of MONGO ? MONGO_ENTITIES : ENTITIES) {
-      run(process.execPath, [
-        BIN,
-        "create",
-        "entity",
-        name,
-        ...fields,
-        "--yes",
-      ]);
+      // Une entité écrite pour un AUTRE moteur que celui du connecteur sort en
+      // 78 (#679) : ses fichiers sont écrits, aucune base de l'app ne porte sa
+      // table. Un 0 ici serait le défaut — un succès sur une app qui ne démarre
+      // plus tant que l'entité est câblée.
+      const at = fields.indexOf("--dialect");
+      const foreign = at >= 0 && fields[at + 1] !== appDialect;
+      run(
+        process.execPath,
+        [BIN, "create", "entity", name, ...fields, "--yes"],
+        APP,
+        {},
+        foreign ? 78 : 0,
+      );
     }
+  },
+);
+
+sqlOnly(
+  "les entités d'un AUTRE dialecte quittent le câblage",
+  "Un schéma PostgreSQL enregistré sur un connecteur SQLite fait échouer le boot.",
+  // Elles restent sur le disque — c'est leur COMPILATION et leurs TYPES qu'on
+  // veut, pas leur exécution (`nodefony/**/*.ts` est dans le tsconfig : les
+  // fichiers se compilent sans être importés). Les laisser déclarées fait
+  // refuser le démarrage, donc AUSSI chaque `orm:generate` — y compris celui
+  // que `create entity` lance pour l'entité du module, à l'étape suivante.
+  // D'où la place de cette étape : JUSTE après leur génération, comme le geste
+  // que `create entity` conseille quand il sort en 78 (#679).
+  () => {
+    const index = path.join(APP, "index.ts");
+    const before = readFileSync(index, "utf8");
+    // Les imports partent avec le câblage : laissés seuls, ils seraient
+    // inutilisés, et le lint de l'application tomberait sur le banc.
+    const after = before
+      .replace(/^import \{ PgAuthorEntity \} from "[^"]+";\r?\n/mu, "")
+      .replace(/^import PgAuthorController from "[^"]+";\r?\n/mu, "")
+      .replace(/^import \{ PgInvoiceEntity \} from "[^"]+";\r?\n/mu, "")
+      .replace(/,\s*PgAuthorEntity/u, "")
+      .replace(/,\s*PgInvoiceEntity/u, "")
+      .replace(/,\s*PgAuthorController/u, "");
+    if (after === before || /PgAuthor|PgInvoice/u.test(after)) {
+      throw new Error(
+        "câblage des entités PostgreSQL introuvable dans index.ts — le scaffold a changé de forme",
+      );
+    }
+    writeFileSync(index, after, "utf8");
+
+    // 🔴 Décâblées ne suffit pas : `doctor` scanne les FICHIERS, pas le
+    // câblage. Il voyait donc deux entités PostgreSQL dans une application
+    // SQLite et les accusait — « la table ne sera jamais créée » —, ce qui
+    // faisait échouer l'étape unitaire qui appelle `nodefony doctor`. La forge
+    // est restée rouge une journée là-dessus.
+    //
+    // Le produit offre le mécanisme exact pour ce cas, et son message le dit :
+    // « le projet a DÉCLARÉ que cette divergence est voulue — un dépôt qui
+    // porte un banc multi-moteurs ne doit pas être condamné pour cela ». Le
+    // banc EST ce dépôt : il déclare, plutôt que d'être excusé en silence.
+    //
+    // 🔴 La clé est `nodefony.doctor`, celle que `readExceptions` LIT
+    // (`runDoctor.ts:141`). Elle s'appelait `nodefony.check` ; le retrait de
+    // l'alias de la commande l'a renommée dans le produit et dans le manifeste
+    // du dépôt, mais pas ici — et une exception posée sous un nom que personne
+    // ne lit ne se signale JAMAIS : elle laisse simplement le contrôle accuser.
+    const manifestePath = path.join(APP, "package.json");
+    const manifeste = JSON.parse(readFileSync(manifestePath, "utf8"));
+    manifeste.nodefony ??= {};
+    manifeste.nodefony.doctor ??= {};
+    // Écrits en `/` : c'est une clé qui VOYAGE, lue sur les trois systèmes.
+    manifeste.nodefony.doctor.entityDialect = [
+      "entity/PgAuthor.ts",
+      "entity/PgInvoice.ts",
+    ];
+    writeFileSync(
+      manifestePath,
+      `${JSON.stringify(manifeste, null, 2)}\n`,
+      "utf8",
+    );
   },
 );
 
@@ -1333,60 +1404,6 @@ step(
 );
 
 sqlOnly(
-  "les entités d'un AUTRE dialecte quittent le câblage",
-  "Un schéma PostgreSQL enregistré sur un connecteur SQLite fait échouer le boot.",
-  // Elles restent sur le disque — c'est leur COMPILATION et leurs TYPES qu'on
-  // veut, pas leur exécution. Les laisser déclarées demanderait à l'ORM de créer
-  // une table `uuid`/`numeric` dans SQLite, et l'application ne démarrerait plus :
-  // un échec qui ne dirait rien du générateur.
-  () => {
-    const index = path.join(APP, "index.ts");
-    const before = readFileSync(index, "utf8");
-    const after = before
-      .replace(/,\s*PgAuthorEntity/u, "")
-      .replace(/,\s*PgInvoiceEntity/u, "")
-      .replace(/,\s*PgAuthorController/u, "");
-    if (after === before) {
-      throw new Error(
-        "câblage des entités PostgreSQL introuvable dans index.ts — le scaffold a changé de forme",
-      );
-    }
-    writeFileSync(index, after, "utf8");
-
-    // 🔴 Décâblées ne suffit pas : `doctor` scanne les FICHIERS, pas le
-    // câblage. Il voyait donc deux entités PostgreSQL dans une application
-    // SQLite et les accusait — « la table ne sera jamais créée » —, ce qui
-    // faisait échouer l'étape unitaire qui appelle `nodefony doctor`. La forge
-    // est restée rouge une journée là-dessus.
-    //
-    // Le produit offre le mécanisme exact pour ce cas, et son message le dit :
-    // « le projet a DÉCLARÉ que cette divergence est voulue — un dépôt qui
-    // porte un banc multi-moteurs ne doit pas être condamné pour cela ». Le
-    // banc EST ce dépôt : il déclare, plutôt que d'être excusé en silence.
-    //
-    // 🔴 La clé est `nodefony.doctor`, celle que `readExceptions` LIT
-    // (`runDoctor.ts:141`). Elle s'appelait `nodefony.check` ; le retrait de
-    // l'alias de la commande l'a renommée dans le produit et dans le manifeste
-    // du dépôt, mais pas ici — et une exception posée sous un nom que personne
-    // ne lit ne se signale JAMAIS : elle laisse simplement le contrôle accuser.
-    const manifestePath = path.join(APP, "package.json");
-    const manifeste = JSON.parse(readFileSync(manifestePath, "utf8"));
-    manifeste.nodefony ??= {};
-    manifeste.nodefony.doctor ??= {};
-    // Écrits en `/` : c'est une clé qui VOYAGE, lue sur les trois systèmes.
-    manifeste.nodefony.doctor.entityDialect = [
-      "entity/PgAuthor.ts",
-      "entity/PgInvoice.ts",
-    ];
-    writeFileSync(
-      manifestePath,
-      `${JSON.stringify(manifeste, null, 2)}\n`,
-      "utf8",
-    );
-  },
-);
-
-sqlOnly(
   "une RÉFÉRENCE a le type de la clé qu'elle vise",
   "Sinon la jointure est refusée par le moteur — invisible en SQLite, fatale ailleurs.",
   // Ce que ce banc protège, mesuré : avec une colonne texte face à une clé
@@ -1670,11 +1687,35 @@ sqlOnly(
       }
       return;
     }
-    if (!/Migration \S+ écrite/u.test(premier)) {
+    if (/Migration \S+ écrite/u.test(premier)) return;
+    // Troisième réponse, et c'est désormais la nominale : `create entity` a
+    // ÉCRIT la migration de chaque table neuve (#657). `orm:generate` n'a donc
+    // plus rien à écrire — mais ce « rien » ne vaut quitus que si ces fichiers
+    // existent : un schéma à jour sur une base sans migration applicative
+    // serait le défaut que cette étape existe pour attraper.
+    if (/rien à écrire/u.test(premier)) {
+      const dir = path.join(
+        APP,
+        "migrations",
+        DATABASE === "mariadb" ? "mysql" : DATABASE,
+      );
+      const applicatives = existsSync(dir)
+        ? readdirSync(dir).filter(
+            (f) =>
+              f.endsWith(".sql") &&
+              /CREATE TABLE\s+[`"]?posts[`"]?/u.test(
+                readFileSync(path.join(dir, f), "utf8"),
+              ),
+          )
+        : [];
+      if (applicatives.length > 0) return;
       throw new Error(
-        `orm:generate n'a écrit aucune migration — sortie :\n${premier}`,
+        `orm:generate n'a rien à écrire, et aucune migration ne crée \`posts\` sous ${dir} — sortie :\n${premier}`,
       );
     }
+    throw new Error(
+      `orm:generate n'a écrit aucune migration — sortie :\n${premier}`,
+    );
   },
 );
 

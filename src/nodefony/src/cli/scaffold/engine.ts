@@ -213,6 +213,21 @@ export interface IScaffoldResult {
     advice: { command: string; pending: string };
   };
   /**
+   * L'entité est écrite pour un AUTRE dialecte que celui de son connecteur
+   * (`--dialect` ≠ moteur du connecteur visé).
+   *
+   * Le fichier est valide, mais aucune base de l'application ne peut porter sa
+   * table : ses commandes ORM et son démarrage la refusent tant qu'elle est
+   * câblée. Aucune `migration` n'est réclamée — son échec serait connu d'avance.
+   * L'appelant le rend comme une étape BLOQUÉE par la configuration, pas comme
+   * une erreur interne.
+   */
+  foreignDialect?: {
+    dialect: string;
+    connector: string;
+    connectorDialect: string;
+  };
+  /**
    * Écritures PRÉVUES, avec l'ancien contenu quand il y en a un — présent
    * uniquement en dry-run (rien n'a touché le disque).
    */
@@ -5329,6 +5344,15 @@ function runEntityScaffold(
     );
   }
   const dialect = requestedDialect as TEntityDialect;
+  // Le dialecte du CONNECTEUR, jugé à part : `--dialect` peut écrire une table
+  // que ce connecteur ne sait pas charger. Le fichier reste utile (préparer un
+  // passage de moteur, faire lire ses types), mais rien ne doit le traiter comme
+  // une table de CETTE base — ni la migration, ni la note qui l'annonce.
+  const connectorDialect =
+    mongo || !answers.dialect
+      ? dialect
+      : detectDialect(projectRoot, writer, connector);
+  const foreignDialect = dialect !== connectorDialect;
   const id = String(answers.id) as TEntityIdKind;
   if (!(ENTITY_ID_KINDS as readonly string[]).includes(id)) {
     throw new Error(
@@ -5999,36 +6023,42 @@ function runEntityScaffold(
         `collection du modèle « ${pascal} » sur le connecteur « ${connector} » (mongodb) — elle naît à la première écriture, sans migration`,
         `⚠ les index déclarés (:index, :unique, références) sont posés à la connexion ; un index MANQUANT est journalisé en CRITIC au démarrage`,
       ]
-    : [
-        ...ormRuntimeNote,
-        // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
-        // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
-        // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
-        schemaBuiltAtBoot
-          ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
-          : versioned
-            ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — le démarrage ne la crée PAS : l'application versionne ses migrations, elles font foi même en développement`
-            : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${writtenMode}) — le démarrage ne la crée PAS`,
-        ...(schemaBuiltAtBoot
-          ? [
-              `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
-              `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
-            ]
-          : versioned
+    : foreignDialect
+      ? [
+          ...ormRuntimeNote,
+          `⚠ table ${table} écrite pour ${dialect}, mais le connecteur « ${connector} » est ${connectorDialect} : il ne la chargera pas, et l'application refuse de démarrer tant que l'entité y est câblée`,
+          `→ la poser sur un connecteur ${dialect} (« --connector <nom> »), ou la décâbler et déclarer l'écart dans « nodefony.doctor.entityDialect » du package.json`,
+        ]
+      : [
+          ...ormRuntimeNote,
+          // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
+          // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
+          // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
+          schemaBuiltAtBoot
+            ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
+            : versioned
+              ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — le démarrage ne la crée PAS : l'application versionne ses migrations, elles font foi même en développement`
+              : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${writtenMode}) — le démarrage ne la crée PAS`,
+          ...(schemaBuiltAtBoot
             ? [
-                devAdvice,
-                `→ en production : nodefony orm:migrate${connectorFlag}, AVANT le déploiement`,
-                pendingWarning,
+                `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
+                `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
               ]
-            : [
-                // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
-                // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
-                // il efface, et ce mode est celui d'une base qui porte des données.
-                `→ écrire la migration : nodefony orm:generate --name <nom>`,
-                `→ l'appliquer : nodefony orm:migrate${connectorFlag}`,
-                `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
-              ]),
-      ];
+            : versioned
+              ? [
+                  devAdvice,
+                  `→ en production : nodefony orm:migrate${connectorFlag}, AVANT le déploiement`,
+                  pendingWarning,
+                ]
+              : [
+                  // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
+                  // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
+                  // il efface, et ce mode est celui d'une base qui porte des données.
+                  `→ écrire la migration : nodefony orm:generate --name <nom>`,
+                  `→ l'appliquer : nodefony orm:migrate${connectorFlag}`,
+                  `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
+                ]),
+        ];
   if (controller) {
     notes.push(
       `REST ${route} (GET liste paginée/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE) — les lectures répondent AUSSI par la socket`,
@@ -6046,15 +6076,17 @@ function runEntityScaffold(
     linked: [],
     notes,
     depsAdded,
-    ...(versioned && !entityExisted && !isUserEntity
-      ? {
-          migration: {
-            table,
-            connector,
-            advice: { command: devAdvice, pending: pendingWarning },
-          },
-        }
-      : {}),
+    ...(foreignDialect
+      ? { foreignDialect: { dialect, connector, connectorDialect } }
+      : versioned && !entityExisted && !isUserEntity
+        ? {
+            migration: {
+              table,
+              connector,
+              advice: { command: devAdvice, pending: pendingWarning },
+            },
+          }
+        : {}),
   };
 }
 

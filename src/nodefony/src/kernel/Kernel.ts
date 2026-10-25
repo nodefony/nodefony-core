@@ -29,6 +29,7 @@ import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import type { PackageManagerName } from "../Cli";
 import Module from "./Module";
+import { BOOT_CONFIG_ERROR_LABEL } from "./bootErrorLabels";
 import { resolveModuleEntry, toImportSpecifier } from "./resolveModuleEntry";
 import { devModulesLoaded, gateModuleManifest } from "./moduleGating";
 import {
@@ -3153,7 +3154,7 @@ class Kernel extends Service implements IKernel {
       `boot lifecycle: ${
         fatal
           ? configError
-            ? "erreur de CONFIGURATION (boot interrompu)"
+            ? BOOT_CONFIG_ERROR_LABEL
             : "échec critique"
           : "échec non bloquant (fail-soft)"
       } de "${who}"${tag} — ${msg}`,
