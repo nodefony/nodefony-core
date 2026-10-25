@@ -904,37 +904,46 @@ approuver sans être lu. Ce que vous lisez est produit par ce principe.`)}`,
 
 /* ── 10 · Ce qui manque ───────────────────────────────────────────────────── */
 
+// Le canal de préversion se CALCULE depuis la version du dépôt : écrit en dur, il
+// mentirait le jour de la version stable — comme la ligne « pas de migration de
+// schéma » l'a fait des mois après la livraison de `orm:migrate`.
+const REPO = "https://github.com/nodefony/nodefony-core";
+const PRERELEASE = /^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgRoot.version ?? "")?.[1];
+
 const manques = section(
   "Ce qui manque — dit avant qu'on le demande",
   `
-${warn(`<strong>Pas de système de migration de schéma.</strong> La base est dérivée au démarrage :
-confortable en développement, insuffisant en production. C'est le manque le plus structurant, et il
-est connu.`)}
+${
+  PRERELEASE
+    ? warn(`<strong>Une préversion, pas une version stable.</strong> La ${pkgRoot.version.split(".")[0]}
+est publiée sur npm sous le canal <code>${PRERELEASE}</code> seulement : sans canal,
+<code>npm install nodefony</code> sert encore l'ancienne génération. La
+<a href="./docs/guides/compatibilite/">politique de compatibilité</a> s'applique à partir de la
+version stable.`)
+    : ""
+}
 
 ${table(
   [{ label: "Manque" }, { label: "Portée réelle" }],
   [
     [
-      "Paquets non publiés sur npm",
-      "le framework s'installe depuis le dépôt ; la publication est la prochaine étape",
-    ],
-    [
       "Couche d'agents IA",
-      "chantier ouvert, hors périmètre de cette présentation — rien n'en dépend aujourd'hui",
+      "seule la porte MCP est livrée (<code>@nodefony/ai</code> : exposer les outils de l'application à un agent) ; modèle, mémoire, recherche augmentée et boucle d'agent restent une vision — rien dans la version courante n'en dépend",
     ],
     [
       "Console d'administration sans tests de composants",
-      "ses écrans ne sont couverts que par le typage",
+      "ses écrans sont couverts par le typage, des tests unitaires de leur logique et une sonde navigateur sur deux pages en intégration continue — aucun composant n'est éprouvé en rendu",
     ],
     [
       "Projet à un seul contributeur",
-      "bénévole ; les délais de réponse s'en ressentent, c'est écrit noir sur blanc dans la politique de sécurité",
+      `bénévole ; les délais sont dits, pas promis (<a href="${REPO}/blob/main/SECURITY.md">politique de sécurité</a>), et seule la dernière version majeure reçoit des correctifs (<a href="./docs/guides/compatibilite/#combien-de-temps-une-version-est-maintenue">compatibilité</a>)`,
     ],
   ],
 )}
 
 <p>Dire les manques n'est pas une précaution rhétorique : c'est ce qui rend le reste vérifiable.
 Un dossier sans zone d'ombre décrit rarement un vrai logiciel.</p>`,
+  { id: "ce-qui-manque" },
 );
 
 /* ── 11 · Direction ───────────────────────────────────────────────────────── */
@@ -950,6 +959,125 @@ le terrain sur lequel elle se posera : un plan de données auto-décrit, un grap
 un générateur pilotable par fichier, et un transport duplex qui fait du flux un cas ordinaire plutôt
 qu'un montage.</p>`,
   { break: "avoid" },
+);
+
+/* ── 0 · Vous êtes… ───────────────────────────────────────────────────────── */
+
+// Cinq lecteurs arrivent avec cinq questions ; la page entière ne répond à aucun
+// en particulier. Ce bloc vient donc AVANT tout le reste, et chaque carte mène
+// au parcours du même profil dans `docs/demarrer.md` — qui porte le détail. Deux
+// listes de liens qui divergent, c'est le défaut qu'on corrige : la carte n'en
+// garde que trois ou quatre, la page de parcours fait foi pour le reste.
+const PROFILS = [
+  {
+    titre: "Directeur technique",
+    question: "Mon équipe pourra-t-elle reprendre le code seule ?",
+    contexte:
+      "Libre, une seule personne, bénévole : seule la dernière majeure reçoit des correctifs.",
+    liens: [
+      { label: "Licence Apache 2.0", href: `${REPO}/blob/main/LICENSE.txt` },
+      {
+        label: "Versions et support",
+        href: "./docs/guides/compatibilite/#combien-de-temps-une-version-est-maintenue",
+      },
+      { label: "Ce que les tests éprouvent", href: "./qualite/" },
+      { label: "Ce qui manque", href: "#ce-qui-manque" },
+    ],
+    parcours: "./docs/demarrer/#-directeur-technique",
+  },
+  {
+    titre: "Exploitation",
+    question: "Comment ça se déploie en conteneur et s'orchestre ?",
+    liens: [
+      {
+        label: "Docker et cloud-native",
+        href: "./docs/guides/docker-cloud-native/",
+      },
+      { label: "Kubernetes", href: "./docs/guides/kubernetes/" },
+      {
+        label: "Variables d'environnement",
+        href: "./docs/guides/variables-environnement/",
+      },
+      { label: "Dimensionner un pod", href: "./performance/" },
+    ],
+    parcours: "./docs/demarrer/#-exploitation",
+  },
+  {
+    titre: "Développeur front",
+    question: "Comment l'interface se bâtit et se recharge à chaud ?",
+    liens: [
+      { label: "Le module frontend", href: "./docs/modules/frontend/" },
+      { label: "Une interface React", href: "./docs/guides/frontend-react/" },
+      {
+        label: "Le superviseur Vite",
+        href: "./docs/modules/frontend/#résilience--ce-qui-se-passe-quand-vite-tombe",
+      },
+      {
+        label: "Livrer en production",
+        href: "./docs/modules/frontend/#-les-deux-modes-de-livraison-de-linterface",
+      },
+    ],
+    parcours: "./docs/demarrer/#-développeur-front",
+  },
+  {
+    titre: "Développeur back",
+    question: "Comment je persiste mes données, sur quelle base ?",
+    liens: [
+      { label: "Choisir sa base", href: "./docs/guides/persistence/" },
+      { label: "Drizzle, l'ORM par défaut", href: "./docs/modules/drizzle/" },
+      {
+        label: "Migrations de schéma",
+        href: "./docs/modules/drizzle/migrations/",
+      },
+      { label: "MongoDB avec Mongoose", href: "./docs/modules/mongoose/" },
+    ],
+    parcours: "./docs/demarrer/#-développeur-back",
+  },
+  {
+    titre: "Architecte",
+    question: "Quels choix ont été faits, et pourquoi ?",
+    liens: [
+      { label: "Vue d'ensemble", href: "./docs/architecture/vue-ensemble/" },
+      {
+        label: "Pipeline de requête",
+        href: "./docs/architecture/pipeline-requete/",
+      },
+      {
+        label: "Injection et portées",
+        href: "./docs/architecture/injection-portees/",
+      },
+      { label: "Décisions d'architecture", href: `${REPO}/tree/main/docs/adr` },
+    ],
+    parcours: "./docs/demarrer/#-architecte",
+  },
+];
+
+// Chaque carte est un <details> : sur téléphone, les cinq tiennent fermées dans
+// le premier écran — titre et question suffisent à se reconnaître ; sur un écran
+// large, le script qui suit les ouvre toutes. Sans script, elles restent fermées
+// et lisibles : rien n'est perdu, il faut un toucher de plus.
+const profils = section(
+  "Vous êtes…",
+  `
+<div class="profils">
+${PROFILS.map(
+  (p) => `<details class="profil">
+  <summary><span class="profil-t">${p.titre}</span><span class="profil-q">${p.question.replace(/ \?$/, "\u202f?")}</span></summary>
+  <div class="profil-b">
+    ${p.contexte ? `<p class="profil-c">${p.contexte}</p>` : ""}
+    <ul>${p.liens.map((l) => `<li><a href="${l.href}">${l.label}</a></li>`).join("")}</ul>
+    <a class="profil-p" href="${p.parcours}">Le parcours complet →</a>
+  </div>
+</details>`,
+).join("\n")}
+</div>
+<p class="profils-plus">Ou directement : <a href="./docs/">la documentation</a> ·
+<a href="./performance/">les mesures</a> · <a href="${REPO}">le dépôt</a>, sous licence Apache 2.0.</p>
+<script>
+if (matchMedia("(min-width:761px)").matches)
+  for (const d of document.querySelectorAll("details.profil")) d.open = true;
+</script>`,
+  { id: "vous-etes" },
 );
 
 /* ── Assemblage ───────────────────────────────────────────────────────────── */
@@ -1006,6 +1134,33 @@ const html = doc({
 .wrap > section > h2 { margin-block:0 .9rem; }
 .wrap > section > p { line-height:1.68; }
 @media (min-width:1500px) { .wrap { max-width:1320px; } }
+/* « Vous êtes… » — cinq colonnes au large, une liste de cinq lignes fermées sur
+   téléphone : le critère est que les cinq profils se voient SANS DÉFILER. */
+.profils { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin:12px 0 10px; }
+.profil { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+.profil summary { list-style:none; display:flex; flex-direction:column; gap:3px; }
+.profil summary::-webkit-details-marker { display:none; }
+.profil-t { font-weight:650; }
+.profil-q { color:var(--dim); font-size:13.5px; line-height:1.4; }
+.wrap .profil p.profil-c { color:var(--dim); font-size:13px; line-height:1.45; margin:.6rem 0 0; max-width:none; }
+.profil ul { margin:.55rem 0 .6rem; padding-left:1.05rem; font-size:14px; line-height:1.45; }
+.wrap .profil li { margin:.2rem 0; max-width:none; }
+.profil-p { font-size:13.5px; font-weight:600; }
+.wrap p.profils-plus { color:var(--dim); font-size:14px; margin:0; }
+@media (min-width:761px) { .profil summary { pointer-events:none; } }
+@media (max-width:1100px) and (min-width:761px) { .profils { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:760px) {
+  /* Le mode présentation n'a pas de sens sur un téléphone, et ses deux boutons
+     coûtaient la dernière carte du premier écran. */
+  .page-actions { display:none !important; }
+  .wrap > section#vous-etes { margin-top:1.4rem; }
+  .profils { grid-template-columns:1fr; gap:6px; margin-top:8px; }
+  .profil { padding:8px 12px; }
+  .profil summary { cursor:pointer; position:relative; padding-right:1.4rem; }
+  .profil summary::after { content:"▸"; position:absolute; right:0; top:.1rem; color:var(--dim); }
+  .profil[open] summary::after { content:"▾"; }
+  .profil-q { font-size:13px; line-height:1.3; }
+}
 ${STYLE_CODE}
 /* Verdicts du tableau de couverture. Une teinte qui tient 4,5:1 sur blanc est
    trop sombre sur fond noir — d'où deux jeux, jamais une couleur unique. */
@@ -1026,32 +1181,12 @@ ${STYLE_CODE}
             `<code>dev</code>. <a href="../">Lire le site de la version publiée</a>.`,
         )
       : "",
-    `<div class="noprint" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
-    // Cette page est la PORTE D'ENTRÉE du site publié : sans ces deux liens, un
-    // lecteur y arrive et n'a nulle part où aller. Les cibles sont relatives —
-    // le site vit dans un sous-chemin (`/nodefony-core/`) — et restent justes
-    // quand la page est aussi ouverte depuis le disque, la doc étant alors
-    // simplement absente à côté.
-    section(
-      "Où aller ensuite",
-      cards([
-        {
-          k: "Documentation",
-          v: '<a href="./docs/">Lire la documentation</a>',
-          sub: "86 pages : le cœur, les modules, l'architecture, les guides",
-        },
-        {
-          k: "Performance",
-          v: '<a href="./performance/">Voir les mesures</a>',
-          sub: "une page par version, la méthode et ce qu'elle interdit de conclure",
-        },
-        {
-          k: "Code",
-          v: '<a href="https://github.com/nodefony/nodefony-core">Le dépôt</a>',
-          sub: "sources, suivi, licence Apache 2.0",
-        },
-      ]),
-    ),
+    `<div class="noprint page-actions" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
+    // Cette page est la PORTE D'ENTRÉE du site publié : le lecteur doit y trouver
+    // SA question avant la nôtre. Les cibles sont relatives — le site vit dans un
+    // sous-chemin (`/nodefony-core/`) — et restent justes quand la page est aussi
+    // ouverte depuis le disque, la doc étant alors simplement absente à côté.
+    profils,
     // Le reste du README (démarrage, inventaire, état) vient APRÈS l'accroche :
     // un lecteur qui arrive veut d'abord savoir de quoi il s'agit, pas comment
     // l'installer. L'ordre inverse le faisait tomber sur les restes d'un fichier

@@ -23,7 +23,7 @@ tests: none
 ```nodefony-cards
 [
   { "icon": "🧭", "title": "Par où commencer", "href": "demarrer.md", "featured": true,
-    "desc": "Cinq parcours ordonnés selon ce que tu viens faire : construire, découvrir, sécuriser, auditer, exploiter. Chaque étape dit pourquoi elle vient là.",
+    "desc": "Cinq parcours ordonnés selon qui tu es : directeur technique, exploitation, développeur front, développeur back, architecte. Chaque étape dit pourquoi elle vient là.",
     "meta": "commence ici si tu débutes" },
   { "icon": "🎓", "title": "Tutoriel : ta première application", "href": "tutoriels/premiere-application.md", "featured": true,
     "desc": "De zéro à une app qui répond en HTTP, en WebSocket, et persiste des données — pas à pas.",
