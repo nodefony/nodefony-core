@@ -18,7 +18,7 @@ import { USER_COLUMNS, USER_TABLE_NAME } from "@nodefony/user";
 import type { IUserColumn, UserColumnType } from "@nodefony/user";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import { defineTable } from "./colKit";
-import type { ColumnSpec } from "./colKit";
+import type { ColumnSpec, IPortableTableBase, ITableSpec } from "./colKit";
 import { isPortableSchema } from "./colKit.shared";
 
 /** Genres du colKit qu'emploie le contrat utilisateur. */
@@ -217,8 +217,55 @@ export interface UserTableFactory {
  * Factory de la table `User` pour un dialecte donné (mémoïsée — une instance
  * par dialecte). Les trois dialectes sont portés (`sqlite` par défaut).
  */
-export const createUserTable = defineTable(USER_TABLE_SPEC)
-  .table as UserTableFactory;
+const USER_TABLE = defineTable(USER_TABLE_SPEC);
+export const createUserTable = USER_TABLE.table as UserTableFactory;
+
+/**
+ * Spec de `User` telle qu'une RÉFÉRENCE la voit : sa clé, un `text`.
+ *
+ * Les colonnes réelles sont toutes là à l'exécution ; le type n'en garde que la
+ * clé, la seule qu'une `ref` lise — la spec étant CALCULÉE depuis le contrat,
+ * sa vue large (`IsWideSpec`) ne dirait pas le type de la colonne qui la vise.
+ */
+export interface IUserKeySpec extends ITableSpec {
+  readonly columns: {
+    readonly id: { readonly kind: "text"; readonly primaryKey: true };
+  };
+}
+
+/** Description portable de `User` : la spec vue par sa clé, la fabrique par dialecte. */
+export interface IPortableUserTable extends IPortableTableBase {
+  readonly spec: IUserKeySpec;
+  readonly table: UserTableFactory;
+}
+
+/** La clé du contrat est-elle bien le `text` que les références attendent ? */
+function isUserKeySpec(spec: ITableSpec): spec is IUserKeySpec {
+  const id = spec.columns["id"];
+  return id?.kind === "text" && "primaryKey" in id;
+}
+
+function userKeySpec(spec: ITableSpec): IUserKeySpec {
+  if (!isUserKeySpec(spec)) {
+    throw new Error(
+      `[@nodefony/drizzle] User: the contract's primary key is no longer a text "id" — references to User would be mistyped.`,
+    );
+  }
+  return spec;
+}
+
+/**
+ * Description PORTABLE de la table `User` — le `schema` de l'entité `User` d'une
+ * application, et la cible de ses références (`{ kind: "ref", target: () => userTable }`).
+ *
+ * C'est la MÊME table que {@link createUserTable} déclinée pour un dialecte (même
+ * fabrique, mêmes instances mémoïsées) : une application qui change de base ne
+ * réécrit rien.
+ */
+export const portableUserTable: IPortableUserTable = {
+  spec: userKeySpec(USER_TABLE.spec),
+  table: createUserTable,
+};
 
 /**
  * Variante SQLite de la table `User` (dialecte par défaut) — export conservé

@@ -326,9 +326,14 @@ export {
   userTable,
   createUserTable,
   createUserEntity,
+  portableUserTable,
   registerUserEntity,
 } from "./nodefony/entity/userTable";
-export type { UserRow } from "./nodefony/entity/userTable";
+export type {
+  IPortableUserTable,
+  IUserKeySpec,
+  UserRow,
+} from "./nodefony/entity/userTable";
 export { DrizzleUserRepository } from "./nodefony/src/DrizzleUserRepository";
 
 // ─── Store de jetons Drizzle (contrat ITokenStore de @nodefony/security, J4b) ─

@@ -16,7 +16,37 @@
 import { describe, it, expect } from "vitest";
 import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { getTableColumns } from "drizzle-orm";
-import { createUserTable, userTable } from "../../nodefony/entity/userTable";
+import type { Equal } from "drizzle-orm";
+import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
+import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import { getTableConfig } from "drizzle-orm/sqlite-core";
+import { defineTable } from "../../nodefony/entity/colKit";
+import type { RowOf } from "../../nodefony/entity/colKit";
+import {
+  createUserTable,
+  portableUserTable,
+  userTable,
+} from "../../nodefony/entity/userTable";
+
+// Une entité PORTABLE qui vise l'utilisateur — ce que le générateur écrit.
+const postProbe = defineTable({
+  name: "posts_probe",
+  columns: {
+    id: { kind: "serial", primaryKey: true },
+    author: {
+      kind: "ref",
+      target: () => portableUserTable,
+      notNull: true,
+      onDelete: "restrict",
+    },
+  },
+});
+// La colonne qui vise `User` est TYPÉE par sa clé (`text`) : une chaîne.
+export type PortableRefIsString =
+  Equal<RowOf<typeof postProbe.spec>["author"], string> extends true
+    ? true
+    : never;
+const portableRefIsString: PortableRefIsString = true;
 
 describe("table User — référençable par une entité voisine", () => {
   it("expose sa clé primaire au TYPE, donc `.references()` compile", () => {
@@ -34,5 +64,23 @@ describe("table User — référençable par une entité voisine", () => {
     const table = createUserTable("sqlite");
     expect(table.id).toBeDefined();
     expect(Object.keys(getTableColumns(table))).toContain("id");
+  });
+  it("description portable : une `ref` vers User pose la contrainte sur les trois dialectes", () => {
+    expect(portableRefIsString).toBe(true);
+    expect(portableUserTable.table("sqlite")).toBe(createUserTable("sqlite"));
+    for (const fks of [
+      getTableConfig(postProbe.table("sqlite")).foreignKeys,
+      getPgTableConfig(postProbe.table("postgres")).foreignKeys,
+      getMysqlTableConfig(postProbe.table("mysql")).foreignKeys,
+    ]) {
+      expect(fks.map((fk) => fk.reference().foreignColumns[0]?.name)).toEqual([
+        "id",
+      ]);
+    }
+    expect(
+      getPgTableConfig(postProbe.table("postgres"))
+        .columns.find((c) => c.name === "author")
+        ?.getSQLType(),
+    ).toBe("text");
   });
 });
