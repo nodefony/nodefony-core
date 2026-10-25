@@ -54,6 +54,7 @@ import {
 } from "./colKit.shared";
 import {
   ENUM_MAX_LENGTH,
+  columnName,
   primaryKeyName,
   refTargetKey,
   refTargetSpec,
@@ -249,7 +250,7 @@ function colRef(
   self: () => MySqlTable,
 ): Chain {
   const base = keyValueColumn(
-    k,
+    columnName(k, c),
     refTargetKey(c, owner, k),
     `${owner.name}.${k}`,
   );
@@ -269,38 +270,39 @@ function baseColumn(
   owner: ITableSpec,
   self: () => MySqlTable,
 ): Chain {
+  const n = columnName(k, c);
   const label = `${owner.name}.${k}`;
   switch (c.kind) {
     case "string":
-      return colString(k, c.length ?? DEFAULT_STRING_LENGTH);
+      return colString(n, c.length ?? DEFAULT_STRING_LENGTH);
     case "char":
-      return colChar(k, c.length);
+      return colChar(n, c.length);
     case "text":
       return "primaryKey" in c || c.unique || isIndexed(owner, k)
-        ? colString(k, INDEXED_TEXT_LENGTH)
-        : colText(k);
+        ? colString(n, INDEXED_TEXT_LENGTH)
+        : colText(n);
     case "enum":
-      return colEnum(k, c);
+      return colEnum(n, c);
     case "json":
-      return colJson(k);
+      return colJson(n);
     case "int":
-      return colInt(k);
+      return colInt(n);
     case "int64":
-      return colInt64(k);
+      return colInt64(n);
     case "serial":
-      return colSerial(k);
+      return colSerial(n);
     case "float":
-      return colFloat(k);
+      return colFloat(n);
     case "decimal":
-      return colDecimal(k, c);
+      return colDecimal(n, c);
     case "bool":
-      return colBool(k);
+      return colBool(n);
     case "date":
-      return colDate(k);
+      return colDate(n);
     case "datetime":
-      return colDatetime(k);
+      return colDatetime(n);
     case "uuid":
-      return colUuid(k, label);
+      return colUuid(n, label);
     case "ref":
       return colRef(k, c, owner, self);
     case "vector":
@@ -362,8 +364,8 @@ export function buildMySqlTable(
       if (c.kind === "enum") {
         extras.push(
           check(
-            checkName(spec.name, k, "check"),
-            sql.raw(enumPredicate(k, c, "`")),
+            checkName(spec.name, columnName(k, c), "check"),
+            sql.raw(enumPredicate(columnName(k, c), c, "`")),
           ),
         );
       } else if (c.kind === "char") {
@@ -371,8 +373,8 @@ export function buildMySqlTable(
         // espaces finaux d'un CHAR, comme PostgreSQL les ignore.
         extras.push(
           check(
-            checkName(spec.name, k, "len"),
-            sql.raw(`char_length(\`${k}\`) = ${c.length}`),
+            checkName(spec.name, columnName(k, c), "len"),
+            sql.raw(`char_length(\`${columnName(k, c)}\`) = ${c.length}`),
           ),
         );
       }

@@ -28,8 +28,21 @@ export interface ITableDescription {
 /** Action d'une clé étrangère à la suppression de la ligne visée. */
 export type OnDeleteAction = "restrict" | "cascade" | "set null" | "no action";
 
+/**
+ * Nom STOCKÉ d'une colonne, quand il diffère de la propriété.
+ *
+ * La propriété (la clé de `columns`) est ce que le code lit et écrit — la ligne
+ * rendue, les critères, le tri ; le nom stocké est ce que la base porte. Les
+ * deux divergent dès qu'une base suit sa propre convention (`created_at` face à
+ * `createdAt`) ou qu'on adopte une table existante.
+ */
+export interface IStoredName {
+  /** Nom en base (identifiant SQL simple) ; défaut : la propriété. */
+  readonly column?: string;
+}
+
 /** Modificateurs communs ; `TData` borne un défaut au type de la colonne. */
-export interface IColumnMods<TData> {
+export interface IColumnMods<TData> extends IStoredName {
   /** La colonne refuse `NULL`. */
   readonly notNull?: true;
   /** Contrainte d'unicité de colonne. */
@@ -84,7 +97,7 @@ export interface IInt64Column extends IValueColumnMods<number> {
 }
 
 /** Clé primaire entière auto-incrémentée — `serial` PostgreSQL. */
-export interface ISerialColumn {
+export interface ISerialColumn extends IStoredName {
   readonly kind: "serial";
   readonly primaryKey: true;
 }
@@ -179,7 +192,7 @@ export interface IVectorColumn extends IValueColumnMods<number[]> {
  * vers la constante en cours d'initialisation rendrait son type implicite
  * (`TS7022`).
  */
-export interface IRefColumn {
+export interface IRefColumn extends IStoredName {
   readonly kind: "ref";
   readonly primaryKey?: never;
   readonly target: "self" | (() => ITableDescription);
@@ -366,6 +379,24 @@ function isPositiveInteger(value: number, max: number): boolean {
   return Number.isInteger(value) && value >= 1 && value <= max;
 }
 
+/** Identifiant SQL simple — le seul qu'un nom stocké accepte, sans guillemet à échapper. */
+const STORED_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/u;
+
+/**
+ * Nom en base d'une colonne : son nom stocké s'il est déclaré, sinon sa propriété.
+ *
+ * La seule règle qui décide du nom SQL — les trois adaptateurs l'appellent pour
+ * la colonne ET pour les contraintes qui la nomment (`CHECK`), sans quoi un
+ * `CHECK` viserait une colonne qui n'existe pas.
+ *
+ * @param key - propriété de la spec (clé de `columns`).
+ * @param column - spec de la colonne.
+ * @returns le nom de la colonne en base.
+ */
+export function columnName(key: string, column: ColumnSpec): string {
+  return column.column ?? key;
+}
+
 /**
  * Refuse une spec que le kit fabriquerait mal — à la DÉCLARATION, donc au
  * chargement du module, plutôt qu'au premier DDL.
@@ -379,7 +410,22 @@ export function assertTableSpec(spec: ITableSpec): void {
     throw new Error(`[@nodefony/drizzle] colKit "${spec.name}": ${message}`);
   };
   let primaryKeys = 0;
+  /** Nom stocké → propriété qui le porte : deux propriétés, une seule colonne. */
+  const stored = new Map<string, string>();
   for (const [name, column] of Object.entries(spec.columns)) {
+    if (column.column !== undefined && !STORED_NAME_RE.test(column.column)) {
+      fail(
+        `column "${name}" has an invalid stored name "${column.column}" (a plain SQL identifier: letters, digits, _).`,
+      );
+    }
+    const storedName = columnName(name, column);
+    const owner = stored.get(storedName);
+    if (owner !== undefined) {
+      fail(
+        `columns "${owner}" and "${name}" are both stored as "${storedName}".`,
+      );
+    }
+    stored.set(storedName, name);
     if ("primaryKey" in column) {
       primaryKeys += 1;
       if (!KEY_KINDS.has(column.kind)) {

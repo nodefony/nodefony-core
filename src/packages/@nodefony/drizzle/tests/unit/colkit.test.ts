@@ -526,6 +526,139 @@ describe("colKit — tables portables", () => {
     });
   });
 
+  describe("nom stocké (`column`) — la propriété reste, la base suit sa convention", () => {
+    const STORED = defineTable({
+      name: "colkit_stored",
+      columns: {
+        id: { kind: "uuid", primaryKey: true, column: "row_id" },
+        fullName: {
+          kind: "string",
+          length: 20,
+          notNull: true,
+          column: "full_name",
+        },
+        isoCode: { kind: "char", length: 2, column: "iso_code" },
+        state: { kind: "enum", values: ["a", "b"], column: "row_state" },
+        createdAt: { kind: "datetime", notNull: true, column: "created_at" },
+        parentId: { kind: "ref", target: "self", column: "parent_id" },
+      },
+      indexes: [{ name: "colkit_stored_full_name_idx", on: ["fullName"] }],
+    });
+    const STORED_NAMES = [
+      "row_id",
+      "full_name",
+      "iso_code",
+      "row_state",
+      "created_at",
+      "parent_id",
+    ];
+
+    it("les trois dialectes nomment la colonne en base par son nom stocké", () => {
+      for (const config of [
+        getTableConfig(STORED.table("sqlite")),
+        getPgTableConfig(STORED.table("postgres")),
+        getMysqlTableConfig(STORED.table("mysql")),
+      ]) {
+        assert.deepEqual(
+          config.columns.map((c) => c.name),
+          STORED_NAMES,
+        );
+        assert.deepEqual(
+          config.indexes.map((ix) => ix.config.columns.map((c) => c.name)),
+          [["full_name"]],
+        );
+        assert.deepEqual(
+          config.foreignKeys.map((fk) =>
+            fk.reference().columns.map((c) => c.name),
+          ),
+          [["parent_id"]],
+        );
+      }
+    });
+
+    it("la table garde les PROPRIÉTÉS — c'est elles que le code lit", () => {
+      assert.deepEqual(
+        Object.keys(STORED.table("postgres")).filter((k) =>
+          Object.hasOwn(STORED.spec.columns, k),
+        ),
+        Object.keys(STORED.spec.columns),
+      );
+    });
+
+    it("les CHECK visent le nom stocké, jamais la propriété", () => {
+      assert.deepEqual(
+        checksOf(getTableConfig(STORED.table("sqlite")).checks, (v) =>
+          new SQLiteSyncDialect().sqlToQuery(v),
+        ),
+        {
+          colkit_stored_row_state_check: `"row_state" IN ('a', 'b')`,
+          colkit_stored_full_name_len: `length("full_name") <= 20`,
+          colkit_stored_iso_code_len: `length(rtrim("iso_code", ' ')) = 2`,
+        },
+      );
+      assert.deepEqual(
+        Object.keys(
+          checksOf(getPgTableConfig(STORED.table("postgres")).checks, (v) =>
+            new PgDialect().sqlToQuery(v),
+          ),
+        ),
+        ["colkit_stored_iso_code_len", "colkit_stored_row_state_check"],
+      );
+    });
+
+    it("une ligne écrite par propriété se relit par propriété (SQLite réel)", () => {
+      const client = new BetterSqlite3(":memory:");
+      client.exec(
+        `CREATE TABLE colkit_stored (row_id text PRIMARY KEY, full_name text NOT NULL, ` +
+          `iso_code text, row_state text, created_at integer NOT NULL, parent_id text)`,
+      );
+      const db = drizzle(client);
+      const table = STORED.table("sqlite");
+      const at = new Date("2026-01-02T03:04:05.006Z");
+      db.insert(table)
+        .values({
+          id: "00000000-0000-4000-8000-000000000001",
+          fullName: "Ada",
+          isoCode: "FR",
+          state: "a",
+          createdAt: at,
+        })
+        .run();
+      const [row] = db.select().from(table).all();
+      assert.equal(row?.fullName, "Ada");
+      assert.equal(row?.createdAt.getTime(), at.getTime());
+      client.close();
+    });
+
+    it("refuse un nom stocké qui n'est pas un identifiant SQL simple", () => {
+      assert.throws(
+        () =>
+          assertTableSpec({
+            name: "t",
+            columns: {
+              id: { kind: "text", primaryKey: true, column: 'x"; DROP' },
+            },
+          }),
+        /column "id" has an invalid stored name/,
+      );
+    });
+
+    it("refuse deux propriétés stockées sous le même nom", () => {
+      assert.throws(
+        () =>
+          assertTableSpec({
+            name: "t",
+            columns: {
+              id: { kind: "text", primaryKey: true },
+              createdAt: { kind: "datetime", column: "created_at" },
+              created_at: { kind: "datetime" },
+            },
+          }),
+        /columns "createdAt" and "created_at" are both stored as "created_at"/,
+      );
+    });
+  });
+
   describe("mémoïsation", () => {
     it("une seule instance de table par dialecte", () => {
       assert.equal(FRAMEWORK.table("sqlite"), FRAMEWORK.table("sqlite"));

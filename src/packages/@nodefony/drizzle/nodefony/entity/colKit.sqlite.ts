@@ -40,7 +40,12 @@ import {
   indexedColumn,
   refTargetTable,
 } from "./colKit.shared";
-import { primaryKeyName, refTargetKey, refTargetSpec } from "./colKit.spec";
+import {
+  columnName,
+  primaryKeyName,
+  refTargetKey,
+  refTargetSpec,
+} from "./colKit.spec";
 import type { KeyColumnSpec } from "./colKit.spec";
 import type { StringCodecValues } from "./colKit.types";
 
@@ -205,7 +210,7 @@ function colRef(
   self: () => SQLiteTable,
 ): Chain {
   const base = keyValueColumn(
-    k,
+    columnName(k, c),
     refTargetKey(c, owner, k),
     `${owner.name}.${k}`,
   );
@@ -226,34 +231,35 @@ function baseColumn(
   owner: ITableSpec,
   self: () => SQLiteTable,
 ): Chain {
+  const n = columnName(k, c);
   const label = `${owner.name}.${k}`;
   switch (c.kind) {
     case "string":
-      return colString(k, c.length ?? DEFAULT_STRING_LENGTH);
+      return colString(n, c.length ?? DEFAULT_STRING_LENGTH);
     case "char":
     case "text":
-      return colText(k);
+      return colText(n);
     case "decimal":
-      return colDecimal(k, c, label);
+      return colDecimal(n, c, label);
     case "uuid":
-      return colUuid(k, label);
+      return colUuid(n, label);
     case "date":
-      return colDate(k, label);
+      return colDate(n, label);
     case "enum":
-      return colEnum(k, c);
+      return colEnum(n, c);
     case "json":
-      return colJson(k);
+      return colJson(n);
     case "int":
     case "int64":
-      return colInteger(k);
+      return colInteger(n);
     case "serial":
-      return colSerial(k);
+      return colSerial(n);
     case "float":
-      return colReal(k);
+      return colReal(n);
     case "bool":
-      return colBool(k);
+      return colBool(n);
     case "datetime":
-      return colDatetime(k);
+      return colDatetime(n);
     case "ref":
       return colRef(k, c, owner, self);
     case "vector":
@@ -315,8 +321,8 @@ export function buildSqliteTable(
       if (c.kind === "enum") {
         extras.push(
           check(
-            checkName(spec.name, k, "check"),
-            sql.raw(enumPredicate(k, c, '"')),
+            checkName(spec.name, columnName(k, c), "check"),
+            sql.raw(enumPredicate(columnName(k, c), c, '"')),
           ),
         );
       } else if (c.kind === "string") {
@@ -324,8 +330,10 @@ export function buildSqliteTable(
         // refuser par le SERVEUR, comme PostgreSQL et MySQL d'eux-mêmes.
         extras.push(
           check(
-            checkName(spec.name, k, "len"),
-            sql.raw(`length("${k}") <= ${c.length ?? DEFAULT_STRING_LENGTH}`),
+            checkName(spec.name, columnName(k, c), "len"),
+            sql.raw(
+              `length("${columnName(k, c)}") <= ${c.length ?? DEFAULT_STRING_LENGTH}`,
+            ),
           ),
         );
       } else if (c.kind === "char") {
@@ -333,8 +341,8 @@ export function buildSqliteTable(
         // mesurent sur un `char(n)` (qu'ils complètent ou tronquent).
         extras.push(
           check(
-            checkName(spec.name, k, "len"),
-            sql.raw(`length(rtrim("${k}", ' ')) = ${c.length}`),
+            checkName(spec.name, columnName(k, c), "len"),
+            sql.raw(`length(rtrim("${columnName(k, c)}", ' ')) = ${c.length}`),
           ),
         );
       }

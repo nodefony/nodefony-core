@@ -54,7 +54,12 @@ import {
   indexedColumn,
   refTargetTable,
 } from "./colKit.shared";
-import { primaryKeyName, refTargetKey, refTargetSpec } from "./colKit.spec";
+import {
+  columnName,
+  primaryKeyName,
+  refTargetKey,
+  refTargetSpec,
+} from "./colKit.spec";
 import type { KeyColumnSpec } from "./colKit.spec";
 
 /**
@@ -199,7 +204,7 @@ function colRef(
   owner: ITableSpec,
   self: () => PgTable,
 ): Chain {
-  const base = keyValueColumn(k, refTargetKey(c, owner, k));
+  const base = keyValueColumn(columnName(k, c), refTargetKey(c, owner, k));
   const target = (): PgColumn =>
     c.target === "self"
       ? primaryKeyColumn(self(), owner)
@@ -216,37 +221,38 @@ function baseColumn(
   owner: ITableSpec,
   self: () => PgTable,
 ): Chain {
+  const n = columnName(k, c);
   switch (c.kind) {
     case "string":
-      return colString(k, c.length ?? DEFAULT_STRING_LENGTH);
+      return colString(n, c.length ?? DEFAULT_STRING_LENGTH);
     case "char":
-      return colChar(k, c.length);
+      return colChar(n, c.length);
     case "text":
-      return colText(k);
+      return colText(n);
     case "enum":
-      return colEnum(k, c);
+      return colEnum(n, c);
     case "json":
-      return colJson(k);
+      return colJson(n);
     case "int":
-      return colInt(k);
+      return colInt(n);
     case "int64":
-      return colInt64(k);
+      return colInt64(n);
     case "serial":
-      return colSerial(k);
+      return colSerial(n);
     case "float":
-      return colFloat(k);
+      return colFloat(n);
     case "decimal":
-      return colDecimal(k, c);
+      return colDecimal(n, c);
     case "bool":
-      return colBool(k);
+      return colBool(n);
     case "date":
-      return colDate(k);
+      return colDate(n);
     case "datetime":
-      return colDatetime(k);
+      return colDatetime(n);
     case "uuid":
-      return colUuid(k);
+      return colUuid(n);
     case "vector":
-      return colVector(k, c.dimensions);
+      return colVector(n, c.dimensions);
     case "ref":
       return colRef(k, c, owner, self);
   }
@@ -300,8 +306,8 @@ export function buildPgTable(spec: ITableSpec, self: () => PgTable): PgTable {
       if (c.kind === "enum") {
         extras.push(
           check(
-            checkName(spec.name, k, "check"),
-            sql.raw(enumPredicate(k, c, '"')),
+            checkName(spec.name, columnName(k, c), "check"),
+            sql.raw(enumPredicate(columnName(k, c), c, '"')),
           ),
         );
       } else if (c.kind === "char") {
@@ -309,8 +315,8 @@ export function buildPgTable(spec: ITableSpec, self: () => PgTable): PgTable {
         // valeur plus courte est refusée au lieu d'être relue rembourrée.
         extras.push(
           check(
-            checkName(spec.name, k, "len"),
-            sql.raw(`char_length("${k}") = ${c.length}`),
+            checkName(spec.name, columnName(k, c), "len"),
+            sql.raw(`char_length("${columnName(k, c)}") = ${c.length}`),
           ),
         );
       }

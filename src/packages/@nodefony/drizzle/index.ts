@@ -177,6 +177,7 @@ export type { SessionRow } from "./nodefony/entity/sessionEntity";
 // description (`ITableSpec`, `RowOf`, `InsertOf`) ne dépend d'aucun ORM.
 export {
   assertTableSpec,
+  columnName,
   defineTable,
   isPortableTable,
   jsonType,
@@ -203,6 +204,7 @@ export type {
   IPortableTableBase,
   IRefColumn,
   ISerialColumn,
+  IStoredName,
   IStringColumn,
   ITableDescription,
   ITableFactory,
