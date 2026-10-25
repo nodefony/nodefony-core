@@ -286,20 +286,23 @@ main ; opt-out `frameworkEntities: false`.
   `foreign_keys=OFF`/`ON`.
   `disconnect`/`ping`/`describeConnection`/`describeEntity` routés.
   `getNativeConnection<DrizzleDb>()` inchangé.
-- **`colKit`** (`entity/colKit.ts`, garde-fou G1 de l'audit comparatif ORM) : **spec logique →
-  table du dialecte**. `IFrameworkTableSpec` (kinds `text`/`json`/`bool`/`epochMs`/`int`/`int64`/`dateMs`/`enum` +
-  pk/notNull/unique/`defaultFn`/`onUpdateFn` + index) → `buildFrameworkTable(dialect, spec)` ;
-  `createFrameworkTableFactory(spec)` = factory `createXTable(dialect)` **mémoïsée** (1 instance
-  par dialecte). **RÈGLE : toute entité à porter passe par le colKit** (ajouter un dialecte =
-  étendre colKit, PAS les entités). Divergences de type assumées DANS le kit : epoch ms = `integer`
-  SQLite → `bigint mode:number` PG+MySQL (exposé `number`) ; date JS (`dateMs`, exposée `Date` —
-  `userTable`) = `integer mode:timestamp_ms` → `timestamptz(3) mode:date` PG / `datetime(3)
-mode:date` MySQL (pas `timestamp` : borné 2038, timezone de session — le pool mysql2 est ouvert
-  en `timezone:"Z"`) ; JSON = `text mode:json` → `jsonb` / `json` ; bool = `integer mode:boolean` →
-  `boolean` ; texte = `text` partout SAUF MySQL où PK/UNIQUE/indexé devient `varchar(512)` (TEXT
-  non indexable InnoDB sans préfixe ; 512×4 utf8mb4 = 2048 < 3072 la limite DYNAMIC, couvre la clé
-  d'idempotence ~330 max). **Mêmes NOMS de colonnes** partout → stores/repo agnostiques. INTERNE
-  (pas d'export `index.ts` — décision audit : pas de sur-promesse d'API).
+- **`colKit`** (PUBLIC, `entity/colKit*.ts`) : une entité décrit ses colonnes UNE fois →
+  `defineTable(spec).table(dialect)` rend la table du dialecte, EXACTEMENT typée (surcharge par
+  dialecte ; `$inferSelect`/`$inferInsert` ≡ `RowOf`/`InsertOf`), mémoïsée. Deux couches :
+  **`colKit.spec.ts` = description NEUTRE** (grammaire, `RowOf`/`InsertOf`, `assertTableSpec`,
+  clés visées — **aucun import d'ORM**, gardé par `tests/unit/colkit-neutral.test.ts`) + codecs
+  `colKit.codecs.ts` (décimal à l'échelle, uuid minuscule, jour validé — la valeur que PostgreSQL
+  rendrait) ; **adaptateur Drizzle** = `colKit.ts` (`defineTable`) + `colKit.types.ts` (types de table,
+  aucun code) + `colKit.{sqlite,pg,mysql}.ts` (un genre = une fonction annotée de son alias). Genres :
+  `string(n)` `char(n)` `text` `int` `int64` `serial` `float` `decimal(p,s)` `bool` `json` (`jsonType<T>()`)
+  `date` (jour) `datetime` (instant) `uuid` `enum` `ref` (type de la clé VISÉE, `"self"`, `onDelete`)
+  `vector` (PG seul, `never` + refus ailleurs). Clé primaire = `string|char|text|uuid|serial` seulement
+  (`primaryKey?: never` sur les colonnes de valeur). **RÈGLE : toute entité à porter passe par le
+  colKit** ; ajouter un dialecte = un fichier d'adaptateur, PAS les entités. Correspondance par moteur
+  et garanties : `docs/index.md` § « Des entités qui suivent la base ». DDL des entités framework
+  FIGÉ par leurs migrations publiées : `enum` = `text` PG / `varchar(64)` MySQL, `text`
+  clé/unique/indexé = `varchar(512)` MySQL (InnoDB ; 512×4 = 2048 < 3072) — une modif qui le change
+  fait rougir `npm run check:migrations`.
 - **`queryKit`** (`src/queryKit.ts`, INTERNE — miroir du colKit pour le SQL natif) : les requêtes
   brutes des entités framework, émises **et exécutées** par dialecte (l'API native diverge :
   `db.all()` better-sqlite3 / `db.execute().rows` node-postgres / tuple `[rows|header, fields]`
@@ -389,7 +392,7 @@ Tous auto-enregistrés, tous portés sur les **3 dialectes** (cf `*_PORTED` dans
 - Plus session, token, webauthn, webhook.
 
 **Portabilité multi-dialecte** : `connector.dialect` + chargement paresseux de pg/mysql + **colKit**
-(`dateMs`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans
+(`defineTable`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans
 RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé. Les 8
 briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. Les fichiers de
 migration sont générés, versionnés, publiés et prouvés équivalents au DDL dérivé sur les 3
