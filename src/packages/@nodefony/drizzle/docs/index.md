@@ -33,8 +33,9 @@ coverageModule: drizzle
 > Le module que rencontre **toute application Nodefony** : il ouvre les connexions SQL, sert les
 > repositories de tes entités, et fournit au framework les **huit briques durables** (session,
 > utilisateurs, jetons, passkeys, 2FA, audit, webhooks, idempotence) sans que tu écrives une ligne de
-> câblage. Un seul code applicatif, **trois dialectes** — SQLite en développement, PostgreSQL ou
-> MySQL/MariaDB en production. C'est le **driver SQL** des contrats de
+> câblage. **Trois dialectes** — SQLite, PostgreSQL, MySQL/MariaDB — derrière un même contrat de
+> repository ; le schéma de **tes** entités, lui, s'écrit pour un dialecte (cf
+> [Dialectes](#dialectes--une-base-par-déploiement-un-seul-code)). C'est le **driver SQL** des contrats de
 > [`@nodefony/orm-core`](../../orm-core/docs/index.md).
 
 📍 [Documentation](../../../../../docs/index.md) › **Drizzle — ORM SQL**
@@ -43,7 +44,8 @@ coverageModule: drizzle
 
 Drizzle occupe l'étage du **driver**. Au-dessus, `@nodefony/orm-core` définit les contrats portables
 (`IOrm`, `IRepository`, `ITransaction`) que ton code métier consomme ; en dessous, un driver natif par
-dialecte. Changer de base = changer une URL, pas ton code.
+dialecte. Changer de base change l'URL et le schéma de tes entités ; le code qui passe par le
+repository ne bouge pas.
 
 ```mermaid
 flowchart TD
@@ -453,7 +455,28 @@ le pilote de son dialecte.
   repositories agnostiques ;
 - **le contrat `IRepository`** en entier, prouvé par un banc de parité qui rejoue la **même** suite sur
   les trois moteurs — un écart de comportement y est un bug du framework, par construction ;
-- **ton code applicatif**. C'est tout l'objet de l'exercice.
+- **ton code applicatif qui passe par le repository** — services, controllers, requêtes par
+  critères.
+
+### Ce qui change : le schéma de tes entités
+
+Drizzle déclare une table **par dialecte** (`sqliteTable`, `pgTable`, `mysqlTable`), avec les
+colonnes du moteur. `nodefony create entity` écrit donc la table du dialecte de son connecteur, et
+cette table ne se charge que sur lui : pointée vers une autre base, l'application refuse de démarrer
+en nommant l'entité (« is not ported to this dialect »). Les entités du **framework** (session,
+utilisateurs, jetons…) suivent l'URL ; les tiennes, non.
+
+Passer de SQLite à PostgreSQL, c'est donc aujourd'hui :
+
+1. réécrire chaque table pour le dialecte visé (`create entity <Nom> … --dialect postgres --force`
+   la régénère, ou la main) ;
+2. repartir d'une migration initiale de ce dialecte (`nodefony orm:generate`) — les migrations se
+   rangent par dialecte, celles de SQLite ne s'appliquent pas ailleurs ;
+3. transférer les données — aucune commande ne le fait.
+
+`create entity --dialect <autre>` sur un connecteur d'un autre moteur écrit le fichier, mais sort en
+**78** sans tenter la migration : aucune base de l'application ne peut porter cette table tant
+qu'elle y est câblée.
 
 ### Ce qui diverge, et pourquoi
 
