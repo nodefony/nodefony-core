@@ -26,8 +26,10 @@ import {
   getScaffoldContext,
   MONGOOSE_CONNECTOR,
   runScaffold,
+  ScaffoldConflictError,
   scaffoldCaps,
   toKebabCase,
+  type IScaffoldRequest,
   type TScaffoldAnswers,
 } from "./scaffold/engine";
 import { formatFilesOnDisk } from "./scaffold/format";
@@ -1506,29 +1508,76 @@ const EXAMPLE_NAMES: Readonly<Record<TCreateType, string>> = {
  * ligne à la main, options comprises : un agent l'a demandé tel quel. Les
  * options déjà tapées sont gardées, le nom se glisse juste après le type.
  *
+ * Un nom déjà tapé (le mot qui suit le type, s'il n'est pas une option) est
+ * REMPLACÉ : c'est la forme que prend la proposition d'un nom libre.
+ *
  * @param argv - la ligne de commande complète.
  * @param type - le type de génération demandé.
- * @returns la ligne `nodefony create <type> <exemple> …` à relancer.
+ * @param name - le nom à placer (défaut : l'exemple du type).
+ * @returns la ligne `nodefony create <type> <nom> …` à relancer.
  */
 export function commandWithName(
   argv: readonly string[],
   type: TCreateType,
+  name: string = EXAMPLE_NAMES[type],
 ): string {
   const at = argv.indexOf("create");
   const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   const typeAt = rest.indexOf(type);
+  const typed = typeAt === -1 ? undefined : rest[typeAt + 1];
+  const skip = typed !== undefined && !typed.startsWith("-") ? 1 : 0;
   const words =
     typeAt === -1
-      ? [type, EXAMPLE_NAMES[type], ...rest]
-      : [
-          ...rest.slice(0, typeAt + 1),
-          EXAMPLE_NAMES[type],
-          ...rest.slice(typeAt + 1),
-        ];
+      ? [type, name, ...rest]
+      : [...rest.slice(0, typeAt + 1), name, ...rest.slice(typeAt + 1 + skip)];
   const quoted = words.map((w) =>
     /[\s"'$`]/u.test(w) ? JSON.stringify(w) : w,
   );
   return ["nodefony", "create", ...quoted].join(" ");
+}
+
+/**
+ * Le suffixe proposé quand le nom heurte une classe déjà câblée. La collision
+ * attendue est celle de deux générateurs qui produisent tous deux un
+ * `<Nom>Controller` : `create controller chat --kind realtime` puis
+ * `create front chat` — la combinaison la plus naturelle d'un service de chat.
+ */
+const FREE_NAME_SUFFIXES: Readonly<Partial<Record<TCreateType, string>>> = {
+  front: "ui",
+  controller: "api",
+};
+
+/**
+ * Un nom voisin que le générateur ACCEPTE, pour une demande refusée sur un nom
+ * déjà câblé.
+ *
+ * Chaque candidat est jugé par une simulation (`dryRun`) du même scaffold : ce
+ * sont donc les gardes du moteur qui tranchent, et non une seconde règle de
+ * « nom pris » recopiée ici. Une simulation n'écrit rien.
+ *
+ * @param request - la demande refusée.
+ * @returns le premier nom libre, ou `undefined` si aucun candidat ne passe.
+ */
+export function freeNameFor(request: IScaffoldRequest): string | undefined {
+  const name = String(request.answers.name ?? "");
+  if (name === "") return undefined;
+  const suffix = isCreateType(request.type)
+    ? FREE_NAME_SUFFIXES[request.type]
+    : undefined;
+  const candidates = suffix === undefined ? [] : [`${name}-${suffix}`];
+  candidates.push(`${name}2`);
+  return candidates.find((candidate) => {
+    try {
+      runScaffold(
+        { ...request, answers: { ...request.answers, name: candidate } },
+        version,
+        { dryRun: true },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 /**
@@ -1748,13 +1797,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     hereDir ??
     parsed.dir ??
     (type === "app" ? String(answers.name) : process.cwd());
+  const request: IScaffoldRequest = {
+    type: type,
+    answers,
+    dir,
+    force: parsed.force,
+  };
   let result;
   try {
-    result = runScaffold(
-      { type: type, answers, dir, force: parsed.force },
-      version,
-      { dryRun: parsed.dryRun },
-    );
+    result = runScaffold(request, version, { dryRun: parsed.dryRun });
   } catch (e) {
     const message = errorText(e);
     // Une réponse invalide est une faute d'USAGE : la page la dit, une fois.
@@ -1763,7 +1814,13 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return printUsageError(pageFor(type), message);
     }
     process.stderr.write(`create: ${message}\n`);
-    if (message.includes("n'est pas vide")) {
+    if (e instanceof ScaffoldConflictError) {
+      const free = e.className === undefined ? undefined : freeNameFor(request);
+      if (free !== undefined) {
+        process.stderr.write(
+          `  nom libre : ${commandWithName(argv, type, free)}\n`,
+        );
+      }
       return SysExit.CANTCREAT;
     }
     return SysExit.SOFTWARE;

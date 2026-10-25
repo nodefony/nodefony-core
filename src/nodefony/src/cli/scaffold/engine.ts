@@ -1767,6 +1767,31 @@ export function importsName(
 }
 
 /**
+ * La sortie demandée ne peut pas être créée sans écraser l'existant — un nom
+ * déjà câblé dans `index.ts`, ou un dossier cible non vide.
+ *
+ * Typée pour que la commande la classe par `instanceof` en `EX_CANTCREAT`
+ * (73), et non sur une sous-chaîne de son message : une `Error` nue sortait en
+ * `EX_SOFTWARE` (70), qui annonce un défaut du générateur là où l'appelant n'a
+ * qu'à choisir un autre nom.
+ */
+export class ScaffoldConflictError extends Error {
+  /**
+   * @param message - le refus, lisible tel quel.
+   * @param className - la classe déjà référencée, quand c'est un nom qui est
+   *   pris (absente pour un dossier non vide) : c'est elle qui permet à la
+   *   commande de chercher un nom libre.
+   */
+  constructor(
+    message: string,
+    readonly className?: string,
+  ) {
+    super(message);
+    this.name = "ScaffoldConflictError";
+  }
+}
+
+/**
  * Paquet qui exporte chaque décorateur de liste d'un module — l'import qu'on
  * pose quand le décorateur est CRÉÉ. Chacun vit là où vit son concept :
  * `@controllers` avec le routeur, `@entities` avec l'ORM, `@services` au cœur.
@@ -1797,8 +1822,9 @@ export function wireDecoratorList(
       // seconde ferait échouer le boot sur un doublon.
       return;
     }
-    throw new Error(
+    throw new ScaffoldConflictError(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom`,
+      className,
     );
   }
   const importLine = `import ${className} from "${importPath}";`;
@@ -1944,7 +1970,7 @@ function dispatchScaffold(
   }
   const dest = path.resolve(request.dir);
   if (existsSync(dest) && readdirSync(dest).length > 0 && !request.force) {
-    throw new Error(
+    throw new ScaffoldConflictError(
       `le dossier ${dest} existe et n'est pas vide (--force pour écraser)`,
     );
   }
@@ -4350,8 +4376,9 @@ export function wireCommandCall(
   const importLine = `import ${className} from "${importPath}";`;
   const callLine = `this.addCommand(${className});`;
   if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
-    throw new Error(
+    throw new ScaffoldConflictError(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom`,
+      className,
     );
   }
   const importAt = lastImportEnd(source);
@@ -6150,8 +6177,9 @@ export function wireEntitiesDecorator(
       // de registre.
       return;
     }
-    throw new Error(
+    throw new ScaffoldConflictError(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom d'entité`,
+      className,
     );
   }
   // Import NOMMÉ : un descripteur d'entité est une const exportée, pas un default

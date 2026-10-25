@@ -20,6 +20,7 @@ import {
   argvMcpWiring,
   commandWithName,
   createExitCode,
+  freeNameFor,
   migrationFailureCause,
   shouldAskForType,
   parseCreateArgv,
@@ -43,6 +44,7 @@ import {
   resolveAnswers,
   linkLocalDeps,
   runScaffold,
+  ScaffoldConflictError,
   type TScaffoldAnswers,
   getScaffoldContext,
   hydrateQuestion,
@@ -6933,6 +6935,98 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    describe("nom déjà câblé — conflit en 73, et un nom LIBRE proposé", () => {
+      // Vécu au banc (tâche 0, Copilot, 10.0.0-beta.5) : `create controller
+      // chat --kind realtime` puis `create front chat` — les deux veulent un
+      // `ChatController`. Le refus sortait en 70 (EX_SOFTWARE, « défaut du
+      // générateur ») et disait seulement « choisis un autre nom ».
+      let n = 0;
+      const app = () => {
+        n += 1;
+        const dest = path.join(tmp, `chatapp${n}`);
+        scaffold(dest, {
+          name: `chatapp${n}`,
+          preset: "complete",
+          frontend: "none",
+        });
+        controller(dest, { name: "chat", kind: "realtime" });
+        return dest;
+      };
+      const controller = (from: string, answers: Record<string, string>) =>
+        runScaffold(
+          { type: "controller", answers, dir: from, force: false },
+          version,
+        );
+
+      it("le moteur lève une ScaffoldConflictError qui nomme la classe", () => {
+        const dest = app();
+        const error = (() => {
+          try {
+            front(dest, { name: "chat", frontend: "react" });
+          } catch (e) {
+            return e;
+          }
+          return undefined;
+        })();
+        assert.instanceOf(error, ScaffoldConflictError);
+        assert.equal(
+          error instanceof ScaffoldConflictError ? error.className : "",
+          "ChatController",
+        );
+      });
+
+      it("le nom libre est jugé par le moteur, sans rien écrire", () => {
+        const dest = app();
+        const before = readFileSync(path.join(dest, "index.ts"), "utf8");
+        const request = {
+          type: "front",
+          answers: { name: "chat", frontend: "react" },
+          dir: dest,
+          force: false,
+        };
+        assert.equal(freeNameFor(request), "chat-ui");
+        assert.equal(readFileSync(path.join(dest, "index.ts"), "utf8"), before);
+        assert.isFalse(existsSync(path.join(dest, "frontend", "index.html")));
+        // Le premier candidat pris à son tour : c'est la simulation qui le
+        // voit, aucune liste de noms n'est tenue ici.
+        controller(dest, { name: "chat-ui", kind: "hello" });
+        assert.equal(freeNameFor(request), "chat2");
+      });
+
+      it("🔴 la commande sort en 73 (EX_CANTCREAT) et donne la ligne à relancer", async () => {
+        const dest = app();
+        const chunks: string[] = [];
+        const stderr = process.stderr.write.bind(process.stderr);
+        process.stderr.write = (chunk: string | Uint8Array) => {
+          chunks.push(String(chunk));
+          return true;
+        };
+        let code;
+        try {
+          code = await runCreateCommand(
+            argv(
+              "create",
+              "front",
+              "chat",
+              "--frontend",
+              "react",
+              "--dir",
+              dest,
+            ),
+          );
+        } finally {
+          process.stderr.write = stderr;
+        }
+        assert.equal(code, SysExit.CANTCREAT);
+        const out = chunks.join("");
+        assert.include(out, "ChatController est déjà référencé");
+        assert.include(
+          out,
+          `nom libre : nodefony create front chat-ui --frontend react --dir ${dest}`,
+        );
+      });
+    });
+
     // Le tsconfig d'une app née SANS front ne couvrait pas `frontend/` : après
     // `create front`, `npm run typecheck` ne vérifiait pas une ligne du front, et
     // le lint typé le lisait sans `lib` — `toSorted()`, que ce même lint exige,
@@ -11565,6 +11659,17 @@ describe("create — « nom requis » rend la commande corrigée, prête à coll
         "service",
       ),
       'nodefony create service Mailer --description "envoi des courriels"',
+    );
+  });
+
+  it("un nom DÉJÀ tapé est remplacé, pas doublé — la forme du « nom libre »", () => {
+    assert.strictEqual(
+      commandWithName(
+        ["node", "nodefony", "create", "front", "chat", "--route", "/chat"],
+        "front",
+        "chat-ui",
+      ),
+      "nodefony create front chat-ui --route /chat",
     );
   });
 });

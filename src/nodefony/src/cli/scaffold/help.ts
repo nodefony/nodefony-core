@@ -475,7 +475,10 @@ const EXIT_CODES: readonly IUsageEntry[] = [
     term: "70",
     text: "l'installation ou la construction a échoué (EX_SOFTWARE)",
   },
-  { term: "73", text: "le dossier cible ne peut pas être créé (EX_CANTCREAT)" },
+  {
+    term: "73",
+    text: "dossier cible non vide, ou nom déjà câblé — un nom libre est proposé (EX_CANTCREAT)",
+  },
 ];
 
 /**
