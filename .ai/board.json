@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T18:57:28.709Z",
+  "generatedAt": "2026-10-25T21:11:12.208Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -282,7 +282,7 @@
       "title": "feat(security): authentifier par certificat client sur carte à puce",
       "url": "https://github.com/nodefony/nodefony-core/issues/583",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "13.0.0",
       "priorite": "P2 — décision",
       "jours": 3,
@@ -9773,6 +9773,86 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 924.8,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 680,
+      "title": "feat(orm): rendre portables entre bases les entités générées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/680",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 7,
+      "ordre": 925,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 681,
+      "title": "feat(drizzle): exposer un kit de colonnes portable et typé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/681",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 925.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 682,
+      "title": "feat(create): écrire les entités générées sous forme portable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/682",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 925.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 683,
+      "title": "test(devkit): prouver une app née en SQLite sur trois autres bases",
+      "url": "https://github.com/nodefony/nodefony-core/issues/683",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 925.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 684,
+      "title": "test(devkit): porter le schéma Dolibarr sur quatre moteurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/684",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 925.4,
       "debut": null,
       "cible": null,
       "labels": [

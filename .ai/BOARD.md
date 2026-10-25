@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-25 18:57** (UTC).
+> Empreinte prise le **2026-10-25 21:11** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -131,7 +131,7 @@ Ordre 6.015 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fri
 | 6.12 | P2 — décision | 1 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 6.2 | P1 — figé à la création | 3 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
-## Backlog — aucune date promise · 30 ouverts
+## Backlog — aucune date promise · 35 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -165,6 +165,11 @@ Ordre 6.015 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fri
 | 924.6 | P3 — fin de cycle | 1 | — | #674 | refactor(drizzle): vérifier les lignes lues en base au lieu de forcer leur type |
 | 924.7 | P3 — fin de cycle | 1 | — | #675 | refactor(studio): vérifier les réponses du serveur au lieu de forcer leur type |
 | 924.8 | P3 — fin de cycle | 1 | — | #676 | refactor(types): vérifier les données reçues dans les petits paquets |
+| 925 | P2 — décision | 7 | — | #680 | feat(orm): rendre portables entre bases les entités générées |
+| 925.1 | P2 — décision | 2 | — | #681 | feat(drizzle): exposer un kit de colonnes portable et typé |
+| 925.2 | P2 — décision | 2 | — | #682 | feat(create): écrire les entités générées sous forme portable |
+| 925.3 | P2 — décision | 1 | — | #683 | test(devkit): prouver une app née en SQLite sur trois autres bases |
+| 925.4 | P2 — décision | 2 | — | #684 | test(devkit): porter le schéma Dolibarr sur quatre moteurs |
 
 ## Jalon 10.2.0 — 31 ouverts
 
