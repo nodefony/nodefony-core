@@ -62,15 +62,22 @@ try {
 // `process.execPath` évite le sujet entièrement : aucun shell n'est ouvert,
 // donc aucun argument n'est réinterprété par lui.
 const args = process.argv.slice(2);
+// `NF_CREATE_LAUNCHER` : le cœur rend ses lignes « à relancer » sous la forme
+// que l'on vient de taper (`npm create nodefony@<version> -- <nom>`), et non
+// `nodefony create app …`, qu'un découvreur sans binaire global ne peut pas
+// lancer. Il n'a aucun moyen sûr de le deviner : c'est ce shim qui le SAIT.
 const r = spawnSync(process.execPath, [lanceur, "create", "app", ...args], {
   stdio: "inherit",
+  env: { ...process.env, NF_CREATE_LAUNCHER: "npm-create" },
 });
 
 // Un process tué par un signal n'a pas de code de sortie : sans cette branche,
 // `r.status` vaut `null` et `process.exit(null)` rendrait 0 — un échec qui se
 // présente comme un succès, à celui-là même qui découvre le framework.
 if (r.error) {
-  console.error(`\n✗ impossible de lancer le générateur : ${r.error.message}\n`);
+  console.error(
+    `\n✗ impossible de lancer le générateur : ${r.error.message}\n`,
+  );
   process.exit(1);
 }
 process.exit(r.status === null ? 1 : r.status);

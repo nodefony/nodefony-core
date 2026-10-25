@@ -1,7 +1,7 @@
 import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { usageCatalog, usagePageFor } from "./scaffold/help";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { portableSpawn } from "./execPortable";
 import { envForOtherProject } from "../runtime/loadEnv";
@@ -1511,15 +1511,22 @@ const EXAMPLE_NAMES: Readonly<Record<TCreateType, string>> = {
  * Un nom déjà tapé (le mot qui suit le type, s'il n'est pas une option) est
  * REMPLACÉ : c'est la forme que prend la proposition d'un nom libre.
  *
+ * Lancée par `npm create nodefony`, la ligne rendue est CELLE-LÀ : celui qui
+ * découvre le framework n'a pas de binaire `nodefony`, et un exemple qu'il ne
+ * peut pas taper lui coûte un tour (mesuré : deux agents sur deux).
+ *
  * @param argv - la ligne de commande complète.
  * @param type - le type de génération demandé.
  * @param name - le nom à placer (défaut : l'exemple du type).
- * @returns la ligne `nodefony create <type> <nom> …` à relancer.
+ * @param via - le lanceur qui a reçu la commande.
+ * @returns la ligne `nodefony create <type> <nom> …` (ou
+ *   `npm create nodefony@<version> -- <nom> …`) à relancer.
  */
 export function commandWithName(
   argv: readonly string[],
   type: TCreateType,
   name: string = EXAMPLE_NAMES[type],
+  via: TCreateLauncher = "nodefony",
 ): string {
   const at = argv.indexOf("create");
   const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
@@ -1533,7 +1540,74 @@ export function commandWithName(
   const quoted = words.map((w) =>
     /[\s"'$`]/u.test(w) ? JSON.stringify(w) : w,
   );
+  if (via === "npm-create" && quoted[0] === "app") {
+    // `--` : sans lui, npm garde pour lui les options (`--yes`, `--preset`).
+    // La version est celle qui tourne, jamais `latest` — même règle que le
+    // synopsis de l'aide.
+    return [
+      "npm",
+      "create",
+      `nodefony@${version}`,
+      "--",
+      ...quoted.slice(1),
+    ].join(" ");
+  }
   return ["nodefony", "create", ...quoted].join(" ");
+}
+
+/** Le lanceur qui a reçu la commande — la forme de la ligne à relancer. */
+export type TCreateLauncher = "nodefony" | "npm-create";
+
+/**
+ * Le lanceur, tel que `create-nodefony` le DÉCLARE (`NF_CREATE_LAUNCHER`).
+ *
+ * Constaté, jamais déduit des variables que npm pose : ce shim est le seul à
+ * savoir qu'il a été appelé par `npm create`, et il le dit à son enfant.
+ *
+ * @param env - l'environnement du process.
+ * @returns `npm-create` si le shim l'a marqué, sinon `nodefony`.
+ */
+export function createLauncherOf(
+  env: Readonly<Record<string, string | undefined>>,
+): TCreateLauncher {
+  return env["NF_CREATE_LAUNCHER"] === "npm-create" ? "npm-create" : "nodefony";
+}
+
+/** Le dossier est-il vide (ou absent) — la seule cible où `.` est permis ? */
+function isEmptyDirectory(dir: string): boolean {
+  try {
+    return readdirSync(dir).length === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Le refus « nom requis », avec la ligne à relancer.
+ *
+ * Dans un dossier VIDE, `create app` peut y générer (`.`) : c'est la forme
+ * proposée d'abord, puisque c'est presque toujours ce qu'on y voulait — un
+ * agent à qui l'on donne « ce dossier est vide » ne demande pas un
+ * sous-dossier.
+ *
+ * @param argv - la ligne de commande complète.
+ * @param type - le type de génération demandé.
+ * @param via - le lanceur qui a reçu la commande.
+ * @param cwd - le dossier courant.
+ * @returns le message, prêt à passer à `printUsageError`.
+ */
+export function nameRequiredMessage(
+  argv: readonly string[],
+  type: TCreateType,
+  via: TCreateLauncher,
+  cwd: string,
+): string {
+  const example = commandWithName(argv, type, EXAMPLE_NAMES[type], via);
+  if (type === "app" && isEmptyDirectory(cwd)) {
+    const here = commandWithName(argv, type, ".", via);
+    return `nom requis — ici (dossier vide) : ${here} — ou dans un sous-dossier : ${example}`;
+  }
+  return `nom requis — par exemple : ${example}`;
 }
 
 /**
@@ -1789,7 +1863,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (answers.name === undefined || answers.name === "") {
     return printUsageError(
       pageFor(type),
-      `nom requis — par exemple : ${commandWithName(argv, type)}`,
+      nameRequiredMessage(
+        argv,
+        type,
+        createLauncherOf(process.env),
+        process.cwd(),
+      ),
     );
   }
   // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.

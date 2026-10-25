@@ -20,7 +20,9 @@ import {
   argvMcpWiring,
   commandWithName,
   createExitCode,
+  createLauncherOf,
   freeNameFor,
+  nameRequiredMessage,
   migrationFailureCause,
   shouldAskForType,
   parseCreateArgv,
@@ -11671,6 +11673,80 @@ describe("create — « nom requis » rend la commande corrigée, prête à coll
       ),
       "nodefony create front chat-ui --route /chat",
     );
+  });
+
+  describe("lancée par `npm create nodefony` — la ligne qu'on peut TAPER", () => {
+    // Vécu au banc (tâche 0, Copilot ET Codex, 10.0.0-beta.5) : `npm create
+    // nodefony@beta` sans nom répondait « par exemple : nodefony create app
+    // mon-app » — un binaire que le découvreur n'a pas. Les deux agents ont
+    // perdu un tour à retrouver `npm create nodefony@beta -- . --yes`.
+    const appArgv = ["node", "nodefony", "create", "app", "--yes"];
+
+    it("la forme `npm create nodefony@<version> -- <nom> …`, options gardées", () => {
+      assert.strictEqual(
+        commandWithName(appArgv, "app", "mon-app", "npm-create"),
+        `npm create nodefony@${version} -- mon-app --yes`,
+      );
+    });
+
+    it("dossier VIDE → `.` proposé d'abord, le sous-dossier ensuite", () => {
+      const empty = mkdtempSync(path.join(os.tmpdir(), "nf-create-here-"));
+      try {
+        const message = nameRequiredMessage(
+          appArgv,
+          "app",
+          "npm-create",
+          empty,
+        );
+        assert.include(
+          message,
+          `ici (dossier vide) : npm create nodefony@${version} -- . --yes`,
+        );
+        assert.include(
+          message,
+          `npm create nodefony@${version} -- mon-app --yes`,
+        );
+      } finally {
+        rmSync(empty, { recursive: true, force: true });
+      }
+    });
+
+    it("dossier non vide → pas de `.`, qui y serait refusé", () => {
+      const message = nameRequiredMessage(
+        appArgv,
+        "app",
+        "nodefony",
+        findPackageRoot(),
+      );
+      assert.strictEqual(
+        message,
+        "nom requis — par exemple : nodefony create app mon-app --yes",
+      );
+    });
+
+    it("🔴 le marqueur posé par le shim `create-nodefony` est celui que le cœur lit", () => {
+      // Deux paquets, une valeur : le shim la POSE, le cœur la LIT. Écrite des
+      // deux côtés, elle diverge en silence — et le cœur retombe sur la forme
+      // `nodefony create …` sans un mot.
+      const shim = readFileSync(
+        path.resolve(
+          findPackageRoot(),
+          "..",
+          "packages",
+          "create-nodefony",
+          "bin",
+          "create-nodefony.mjs",
+        ),
+        "utf8",
+      );
+      const posed = /NF_CREATE_LAUNCHER:\s*"([^"]+)"/u.exec(shim)?.[1];
+      assert.isDefined(posed, "le shim ne pose plus NF_CREATE_LAUNCHER");
+      assert.strictEqual(
+        createLauncherOf({ NF_CREATE_LAUNCHER: posed }),
+        "npm-create",
+      );
+      assert.strictEqual(createLauncherOf({}), "nodefony");
+    });
   });
 });
 
