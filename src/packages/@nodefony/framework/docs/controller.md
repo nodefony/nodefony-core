@@ -306,7 +306,7 @@ class ChatController extends Controller {
 | Nombre d'appels d'action | 1 | 1 au handshake (`WebsocketContext.handle()`, `WebsocketContext.ts#WebsocketContext.handle`) + 1 par frame (`handleMessage()`, `WebsocketContext.ts#WebsocketContext.handleMessage`) |
 | Argument de l'action | Variables de route (ou paramètres décorés) | Idem + **le message** en dernier argument (`WebsocketContext.ts#WebsocketContext.handleMessage`) |
 | Rendu d'un `return` | Corps de la réponse | Frame envoyée sur la socket |
-| Échec | Statut HTTP + corps d'erreur | **Code de fermeture** RFC 6455 (401/403 → 1008, 5xx → 1011, autre → 4004) ; chemin sans route WebSocket → **404 HTTP avant l'ouverture** |
+| Échec | Statut HTTP + corps d'erreur | **Au handshake** : une garde refusée répond par un **statut HTTP** (401/403) **avant l'ouverture** (`Resolver.authorizeAction()`, `Resolver.ts#Resolver.authorizeAction`), chemin sans route WebSocket → **404** ; **après l'ouverture** : un **code de fermeture** RFC 6455 (401/403 → 1008, 5xx → 1011, autre → 4004) |
 | `initialize()` | Singleton : **une fois**, à la création · `@Scope("request")` : à chaque requête | Singleton : une fois, à la création · `@Scope("request")` : **une fois par connexion**, au handshake |
 
 La réutilisation de l'instance vient du cache posé sur le container du contexte

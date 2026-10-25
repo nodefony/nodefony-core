@@ -638,7 +638,28 @@ describe("ChatController — actions", () => {
 C'est l'attribut `user` du jeton que `@CurrentUser()` rend. Pour éprouver un **refus** (`@IsGranted`,
 `policy` de canal), il faut en plus le verrou de frame de `@nodefony/security`, passé en
 `frameAuthorizer` : `@nodefony/realtime` ne connaît pas la sécurité, et sans ce verrou une règle
-déclarée n'est appliquée par personne — en test comme en production. La table des membres du
+déclarée n'est appliquée par personne — en test comme en production.
+
+`@nodefony/security/testing` fournit les deux pièces, et c'est la forme à préférer au jeton écrit à
+la main ci-dessus : `createTestIdentity({ identifier, roles })`
+(`security/nodefony/testing/index.ts#createTestIdentity`) rend l'identité authentifiée, et
+`createTestFrameAuthorizer(getRealtimeHub())` (`security/nodefony/testing/index.ts#createTestFrameAuthorizer`) le **vrai**
+verrou du pare-feu — même fabrique, même hiérarchie de rôles, mêmes canaux système qu'au runtime.
+Un verrou factice qui ne regarde que `isAuthenticated()` laisse passer au vert un canal mal protégé.
+
+````ts ignore
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import {
+  createTestFrameAuthorizer,
+  createTestIdentity,
+} from "@nodefony/security/testing";
+
+const h = createRealtimeHarness((ctx) => new ChatController(ctx), {
+  identity: createTestIdentity({ identifier: "bob", roles: ["ROLE_USER"] }),
+  frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
+});
+``` La table des membres du
 harnais et l'exemple de refus sont dans le `README.md` du paquet, section « Tester un controller ».
 `nodefony create controller --kind realtime` génère ce test, identité comprise, quand l'application
 porte la sécurité.
@@ -656,3 +677,4 @@ Couverture : `npm run coverage` dans `@nodefony/realtime`.
 - La garde qui décide, côté HTTP comme WebSocket → [firewall](../../security/docs/firewall.md)
 - Les signatures exactes ne sont pas recopiées ici : elles vivent dans le graphe symbolique
   `.ai/symbols.json`, régénéré depuis les TSDoc du code.
+````

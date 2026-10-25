@@ -402,6 +402,12 @@ apportent, jamais sur leur nom.
 > **nombre** de lignes touchées. Un verbe unique masquerait cette différence de garantie, qui est
 > précisément ce qu'on veut choisir en connaissance de cause.
 
+**Une clé qui vaut `undefined` vaut une clé absente.** Les écritures du service CRUD acceptent
+`PartialInput<T>` (`types/PartialInput.ts#PartialInput`) et retirent ces clés avant la persistance
+(`AbstractCrudService.updateOne()`, `AbstractCrudService.ts#AbstractCrudService.updateOne`) : un champ
+facultatif d'un schéma Zod (`.optional()`, `.partial()`) qui arrive `undefined` ne touche pas la
+colonne. Pour la **vider**, écrire `null`.
+
 Quelques usages, un par garantie :
 
 ```ts ignore

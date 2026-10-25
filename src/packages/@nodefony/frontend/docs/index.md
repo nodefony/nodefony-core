@@ -711,7 +711,7 @@ renderDeep(): unknown {
 
 `fallback: true` range la route **après toutes les autres** (`Route.ts#RouteOptions.fallback`) : une
 route d'API de même forme, déclarée par n'importe quel module, garde la priorité — voir
-[l'ordre de résolution](../../framework/docs/routing.md#️-ordre-de-résolution--trois-situations).
+[l'ordre de résolution](../../framework/docs/routing.md#-ordre-de-résolution--trois-situations).
 Deux détails : `/commandes/*` n'attrape pas `/commandes` lui-même (la barre oblique est requise),
 qui demande sa propre route ; et un repli à la **racine** (`/*`) transformerait toute faute de
 frappe — une URL d'API, un fichier absent — en page HTML servie en 200. Borne le repli aux

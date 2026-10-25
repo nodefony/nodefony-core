@@ -644,11 +644,20 @@ La source de vérité côté security est `buildSessionRevalidator()`
 et vérifie qu'elle est toujours vivante **et toujours celle du même utilisateur** — ce second point
 attrape le changement de compte sur un navigateur partagé.
 
+**Un changement de rôles coupe sur-le-champ, sans attendre le tick.** Quand une mise à jour du compte
+touche ses rôles, le hub ferme toutes les sockets de cette identité avec le code **4005**
+(`realtime/closeCodes.ts#IDENTITY_REFRESH_CLOSE_CODE`, `RealtimeHub.ts#RealtimeHub.#revocation`). À la
+différence de 4001 (identité morte, définitif), 4005 est **reconnectable** : le client se reconnecte
+seul et reçoit ses nouveaux rôles dans l'accueil. Les flux SSE du même compte suivent la même règle.
+Aucune lecture de base par tick ni par frame : le coût n'existe qu'à la mise à jour qui touche
+`roles`.
+
 > [!CAUTION]
 > **Trois limites à connaître.**
 >
 > 1. **Fenêtre de 30 s.** Entre le logout et le tick suivant, les flux continuent. Pour une coupure
->    immédiate, fermer la socket explicitement côté serveur.
+>    immédiate, fermer la socket explicitement côté serveur. (Un changement de **rôles**, lui, coupe
+>    immédiatement — ci-dessus.)
 > 2. **Best-effort si la session est illisible au handshake.** Si l'id ou le store ne sont pas
 >    accessibles, `buildSessionRevalidator()` renvoie `null` ; `UserRealtimeToken.isValid()`
 >    (`UserRealtimeToken.ts#UserRealtimeToken.isValid`) répond alors toujours `true`. La connexion **est** inscrite au

@@ -334,13 +334,19 @@ Deux points qu'un dev découvre sinon à ses dépens :
   méthodes, ne serait-ce que pour l'en-tête `Allow`.
 
 Le second argument accepte les options de route non redondantes — `Omit<RouteOptions, "path" | "method">`
-(`routerDecorators.ts#route`), soit `defaults`, `requirements`, `host`, `bypassFirewall`
+(`routerDecorators.ts#route`), notamment `defaults`, `requirements`, `host`, `bypassFirewall` et `fallback`
 (`RouteOptions`, `Route.ts#RouteOptions`) :
 
 ```typescript
 @Get("/{page}", { defaults: { page: "1" }, requirements: { scheme: "https" } })
 async index(@Param("page") page: string) { /* … */ }
 ```
+
+`requirements.scheme` se compare au scheme **effectif** de la requête — celui qu'annonce un proxy de
+confiance compris : hors exigence, la route répond **403**, jamais une redirection
+(`Route.ts#Route.matchRequirements`). Rediriger `http` vers `https` relève de la bordure (HSTS, proxy
+inverse), pas du routage. `fallback: true` fait de la route un **repli**, servi seulement si aucune
+autre ne correspond — voir [le routage](routing.md#-ordre-de-résolution--trois-situations).
 
 ### Paramètres — ce que l'action reçoit
 

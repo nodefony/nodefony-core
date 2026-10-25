@@ -313,8 +313,11 @@ class Billing extends Module<IBillingConfig> {}
 this.config.currency; // string — 0 cast, 0 `as`
 ```
 
-`Module.config` (`Module.ts#Module.config`) est un getter qui renvoie `this.options` : la config **validée et
-gelée** par le module à sa phase `onKernelRegister`. Coût nul — une référence, aucune allocation.
+`Module.config` (`Module.ts#Module.config`) est un getter qui renvoie `this.options` : la config **validée** par
+le module à sa phase `onKernelRegister`, puis **gelée en profondeur** par le kernel à la fin de `onReady`,
+avant que le premier serveur n'écoute (`moduleConfig.ts#freezeConfigTree`). Une écriture après coup lève
+une `TypeError` au lieu de changer en silence la configuration des requêtes concurrentes. Coût nul —
+une référence, aucune allocation.
 
 > [!CAUTION]
 > Déclare ce type avec `type`, **jamais** avec `interface`. Le décorateur `@services()` contraint son
