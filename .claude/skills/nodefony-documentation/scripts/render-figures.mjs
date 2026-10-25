@@ -9,7 +9,7 @@
  * étaient verts, parce qu'aucun ne regardait le rendu.
  *
  * Les deux moteurs ne dessinent pas pareil, d'où deux rendus :
- * - **console** (Studio) : mermaid 11 dans Chrome sans interface, colonne de
+ * - **console** (Studio) : le mermaid de Studio dans Chrome sans interface, colonne de
  *   860 px, et la même règle d'échelle que `MarkdownDoc.tsx` (`.nf-mermaid >
  *   svg` : largeur de la colonne, hauteur plafonnée à 60 % de l'écran) ;
  * - **site** : la page rendue par `scripts/site/build-docs-site.mjs --only`,

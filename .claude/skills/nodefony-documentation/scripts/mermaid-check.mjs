@@ -3,9 +3,9 @@
  * mermaid-check.mjs — chaque schéma du corpus passe-t-il le mermaid de la CONSOLE ?
  *
  * Le site publié rend ses schémas avec son propre moteur (`lib/schemas.mjs`),
- * sans mermaid : une syntaxe que mermaid 11 refuse y passe, et ne casse que
+ * sans mermaid : une syntaxe que le mermaid de Studio refuse y passe, et ne casse que
  * dans Studio. Vécu : `-->|@services|` — un `@` en tête d'étiquette est lu par
- * mermaid 11 comme un identifiant d'arête, « Parse error » dans la console
+ * mermaid comme un identifiant d'arête, « Parse error » dans la console
  * pendant que le site affichait le schéma. Ce script parse les blocs de toutes
  * les pages suivies par git (archives et retex exclus) avec le mermaid du
  * dépôt, dans Chrome sans interface — le même moteur que `render-figures.mjs`.

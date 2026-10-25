@@ -2,7 +2,7 @@
  * Lisibilité des figures mermaid d'une page — ce qu'on ne voit qu'en REGARDANT
  * le rendu, ramené à des règles qu'une machine relit.
  *
- * La console d'administration rend les schémas avec mermaid 11 et les met à
+ * La console d'administration rend les schémas avec mermaid (la version que résout Studio) et les met à
  * l'échelle de la colonne, plafonnés à 60 % de la hauteur d'écran
  * (`MarkdownDoc.tsx`, règle `.nf-mermaid > svg`) ; le site les rend avec
  * `nodefony-html-report/lib/schemas.mjs`. Trois défauts ont été constatés à

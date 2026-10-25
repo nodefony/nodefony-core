@@ -604,6 +604,16 @@ jobs:
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/code-check.mjs
 
+      # Le site rend ses schémas SANS mermaid : une syntaxe que le mermaid de
+      # Studio refuse y passe, et casse seulement dans la console (vécu :
+      # `-->|@services|`). Ce contrôle parse tout le corpus avec le mermaid
+      # que résout le dépôt, dans le Chrome déjà posé sur l'exécuteur Ubuntu —
+      # rien à installer, `playwright` vient de `npm ci`.
+      - name: Gate — les schémas mermaid passent le moteur de la console
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: node .claude/skills/nodefony-documentation/scripts/mermaid-check.mjs
+
       # Les fichiers d'INSTRUCTIONS (`CLAUDE.md`, `MEMORY.md`) décrivent le code à
       # un agent, et rien ne les relisait quand le code bougeait. L'étage
       # ci-dessus ne peut pas les couvrir : il reçoit les pages PUBLIÉES, dont

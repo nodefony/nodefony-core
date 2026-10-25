@@ -130,7 +130,7 @@ Admonitions supportées (remark-gfm + override) : `> [!NOTE|TIP|IMPORTANT|WARNIN
 > console, les organigrammes réduits à un texte illisible et les échelles fausses. Aucun contrôle ne
 > regardait le rendu. La source d'une figure ne dit RIEN de ce que voit le lecteur.
 
-**Deux moteurs, deux rendus.** La console (Studio, `MarkdownDoc.tsx`) dessine avec mermaid 11 et
+**Deux moteurs, deux rendus.** La console (Studio, `MarkdownDoc.tsx`) dessine avec mermaid (la version que résout Studio) et
 met chaque schéma à l'échelle de la colonne, **plafonné à 60 % de la hauteur d'écran** ; le site
 dessine avec `nodefony-html-report/lib/schemas.mjs`. Une figure se regarde dans les deux, par
 `scripts/render-figures.mjs <page.md>`, avant de dire « fait ».
