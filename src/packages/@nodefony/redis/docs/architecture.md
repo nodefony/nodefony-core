@@ -57,7 +57,7 @@ flowchart TD
   CSUB["Connection subscribe"]
   LIB["clients lib redis v6"]
 
-  MOD -->|@services| SVC
+  MOD -->|"@services"| SVC
   SVC --> CMAIN
   SVC --> CPUB
   SVC --> CSUB

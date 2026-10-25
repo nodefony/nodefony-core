@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-24
+updated: 2026-10-25
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | --- | --- |
 | Version | `3.1.0` |
 | Famille | Développer le framework |
-| Corps | 485 lignes |
-| Coût d'activation | ~8 965 tokens (le corps est chargé à l'invocation) |
+| Corps | 486 lignes |
+| Coût d'activation | ~9 061 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 19 |
+| Scripts | 20 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -101,6 +101,7 @@ script, donc toujours à jour après régénération.
 | `scripts/figures.mjs` | Lisibilité des figures mermaid d'une page — ce qu'on ne voit qu'en REGARDANT le rendu, ramené à des règles qu'une machine relit. | — | `DIRECTIVE_COURBE` |
 | `scripts/figures.selftest.mjs` | Auto-contrôle des règles de lisibilité des figures (`figures.mjs`). | — | — |
 | `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT les cas réels (`it(`/`test(`) dans les fichiers de `test-map.json`. | `--show-toplevel` | — |
+| `scripts/mermaid-check.mjs` | mermaid-check.mjs — chaque schéma du corpus passe-t-il le mermaid de la CONSOLE ? | — | — |
 | `scripts/render-figures.mjs` | Rend les figures mermaid d'une page COMME LE LECTEUR LES VOIT, dans les deux moteurs, et les dépose en images — pour les REGARDER avant de dire « fait ». | `--console-seulement` `--only` `--show-toplevel` | — |
 | `scripts/symboles.mjs` | Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`, `MEMORY.md`) après un renommage du français vers l'anglais. | — | — |
 | `scripts/symboles.selftest.mjs` | Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que le code ne porte plus, et ne PAS crier sur ce qui est vivant, externe ou hors grammaire. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | — | — |
@@ -119,11 +120,21 @@ Usage : node doc-lint.mjs /tmp/corpus/*.md
 node .claude/skills/nodefony-documentation/scripts/examples.selftest.mjs
 node .claude/skills/nodefony-documentation/scripts/figures.selftest.mjs
 Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
+node .claude/skills/nodefony-documentation/scripts/mermaid-check.mjs
 Usage : node render-figures.mjs <page.md> [--console-seulement]
 `@usage` node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs
 ```
 
 **Toutes les variables lues par ce skill** : `COVERAGE` · `DIRECTIVE_COURBE` · `NAV_MAX` · `NF_AUTRE` · `NF_HOOK` · `NF_JWT_KEYSET` · `NF_X` · `PG_URL`
+
+### Détail des scripts auto-documentés
+
+#### `scripts/mermaid-check.mjs`
+
+
+```bash
+node .claude/skills/nodefony-documentation/scripts/mermaid-check.mjs
+```
 
 ## Conformité au standard Agent Skills
 
@@ -144,7 +155,7 @@ Usage : node render-figures.mjs <page.md> [--console-seulement]
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 485 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 486 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

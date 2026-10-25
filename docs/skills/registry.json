@@ -64,6 +64,7 @@
       ],
       "output": "",
       "calledBy": [
+        ".claude/skills/nodefony-documentation/scripts/mermaid-check.mjs",
         "scripts/deps/check-deps-latest.mjs",
         "scripts/gates/check-licenses.mjs",
         "scripts/gates/check-package-deps.mjs",
@@ -4977,8 +4978,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 485,
-        "approxTokens": 8965
+        "bodyLines": 486,
+        "approxTokens": 9061
       },
       "requires": [
         "base de données"
@@ -5273,6 +5274,17 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/mermaid-check.mjs",
+            "purpose": "mermaid-check.mjs — chaque schéma du corpus passe-t-il le mermaid de la CONSOLE ?",
+            "usage": [
+              "node .claude/skills/nodefony-documentation/scripts/mermaid-check.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
             "path": "scripts/render-figures.mjs",
             "purpose": "Rend les figures mermaid d'une page COMME LE LECTEUR LES VOIT, dans les deux moteurs, et les dépose en images — pour les REGARDER avant de dire « fait ».",
             "usage": [
@@ -5407,7 +5419,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "485",
+            "detail": "486",
             "advisory": true
           }
         ]
