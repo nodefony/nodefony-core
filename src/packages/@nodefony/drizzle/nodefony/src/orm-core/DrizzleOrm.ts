@@ -170,6 +170,8 @@ interface DDLColumn {
   primary: boolean;
   notNull: boolean;
   isUnique?: boolean;
+  /** Clé auto-incrémentée (`integer` SQLite, `int` MySQL) — `serial` PG la porte dans son type. */
+  autoIncrement?: boolean;
   getSQLType(): string;
 }
 
@@ -517,8 +519,20 @@ export class DrizzleOrm extends Orm {
   ): string {
     const defs = columns.map((col) => {
       const parts = [`${quote}${col.name}${quote}`, col.getSQLType()];
+      // Sans `AUTO_INCREMENT`, MySQL refuse l'insertion d'une clé `serial`
+      // (« Field 'id' doesn't have a default value ») ; en SQLite,
+      // `AUTOINCREMENT` interdit le réemploi d'une clé supprimée — ce que la
+      // migration de drizzle-kit émet, le développement l'émet aussi.
+      const autoIncrement = col.autoIncrement === true;
       if (col.primary) {
-        parts.push("PRIMARY KEY");
+        parts.push(
+          autoIncrement && dialect === "sqlite"
+            ? "PRIMARY KEY AUTOINCREMENT"
+            : "PRIMARY KEY",
+        );
+      }
+      if (autoIncrement && dialect === "mysql") {
+        parts.push("AUTO_INCREMENT");
       }
       if (col.notNull) {
         parts.push("NOT NULL");
