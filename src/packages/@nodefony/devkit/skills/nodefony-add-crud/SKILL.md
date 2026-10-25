@@ -63,7 +63,7 @@ est refusé avec la forme juste proposée.
 | `text`         | texte long                    | `text`          | `text`           | `text`          | `String`               |
 | `int`          | entier                        | `integer`       | `integer`        | `int`           | `Number`               |
 | `float`        | nombre à virgule              | `real`          | `double`         | `double`        | `Number`               |
-| `decimal(p,s)` | décimal EXACT (voyage chaîne) | `numeric`       | `numeric(p,s)`   | `decimal(p,s)`  | `String`               |
+| `decimal(p,s)` | décimal EXACT (voyage chaîne) | `text`          | `numeric(p,s)`   | `decimal(p,s)`  | `String`               |
 | `bool`         | booléen                       | `integer` (0/1) | `boolean`        | `boolean`       | `Boolean`              |
 | `json`         | document libre                | `text` (JSON)   | `jsonb`          | `json`          | `Mixed`                |
 | `date`         | horodatage (ms)               | `integer` (ms)  | `timestamptz(3)` | `datetime(3)`   | `Date`                 |

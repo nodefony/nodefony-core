@@ -694,9 +694,12 @@ const COLUMN: Record<
     // un `text` comme les autres. La borne reste tenue par le schéma Zod, donc
     // sur tous les transports — c'est la seule à mordre ici.
     char: (c) => `text("${c}")`,
-    // `numeric` en mode chaîne : la précision décimale ne survit pas à un
-    // flottant, et c'est précisément ce qu'on venait chercher.
-    decimal: (c) => `numeric("${c}")`,
+    // `text`, pas `numeric` : l'affinité NUMERIC de SQLite convertit la valeur
+    // en flottant à l'écriture — mesuré, `"12.50"` se relit `"12.5"` et un
+    // montant de 24 chiffres `"1.2345678901234568e+21"`. Le type annoncé est
+    // `string` (comme `numeric` PostgreSQL et `decimal` MySQL) : seul `text`
+    // rend la chaîne écrite, chiffre pour chiffre.
+    decimal: (c) => `text("${c}")`,
     text: (c) => `text("${c}")`,
     int: (c) => `integer("${c}")`,
     float: (c) => `real("${c}")`,

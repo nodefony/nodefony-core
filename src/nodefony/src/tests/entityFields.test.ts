@@ -756,6 +756,15 @@ describe("scaffold — tailles de colonne", () => {
     );
   });
 
+  it("🔴 sqlite : decimal en TEXT — numeric relit un flottant arrondi", () => {
+    // Mesuré sur better-sqlite3 : une colonne `numeric` relit `"12.50"` en
+    // `"12.5"` et un montant de 24 chiffres en `"1.2345678901234568e+21"`.
+    // Le type annoncé est `string` : seul `text` rend la chaîne écrite.
+    const c = buildEntityCodegen(fields, { ...base, dialect: "sqlite" });
+    assert.match(c.columns, /price: text\("price"\)/u);
+    assert.doesNotMatch(c.drizzleImport, /\bnumeric\b/u);
+  });
+
   it("mysql : decimal, car le moteur n'expose pas numeric", () => {
     const c = buildEntityCodegen(fields, { ...base, dialect: "mysql" });
     assert.match(
