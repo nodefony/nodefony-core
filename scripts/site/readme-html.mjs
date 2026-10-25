@@ -9,7 +9,7 @@
  * de la génération (paquets, docs, tests, symboles) ou cité avec sa source datée.
  * Les manques sont dits AVANT qu'on les demande — c'est ce qui rend le reste crédible.
  *
- *   node scripts/site/readme-html.mjs           # → readme.html
+ *   node scripts/site/readme-html.mjs           # → tmp/reports/readme.html
  *   node scripts/site/readme-html.mjs out.html
  *   node scripts/site/readme-html.mjs out.html --channel next   # accueil de /next/, avec bandeau
  *
@@ -49,9 +49,13 @@ if (CHANNEL !== "published" && CHANNEL !== "next") {
   console.error(`✗ --channel ${CHANNEL} : attendu « published » ou « next ».`);
   process.exit(1);
 }
+// La valeur de `--channel` n'est pas une sortie — mais SEULEMENT quand l'option
+// est là : sans elle, `channelAt + 1` vaut 0 et écartait le premier argument,
+// donc le fichier demandé, au profit du défaut.
 const OUT =
-  ARGS.find((a, i) => !a.startsWith("--") && i !== channelAt + 1) ??
-  join(ROOT, "readme.html");
+  ARGS.find(
+    (a, i) => !a.startsWith("--") && (channelAt === -1 || i !== channelAt + 1),
+  ) ?? join(ROOT, "tmp", "reports", "readme.html");
 
 /* ── Collecte : le dépôt se décrit lui-même ───────────────────────────────── */
 
