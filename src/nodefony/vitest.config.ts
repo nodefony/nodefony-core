@@ -7,10 +7,29 @@ import {
   gateReporter,
   LOKI_GATE,
   OPENSEARCH_GATE,
+  type GateExpectations,
 } from "../../scripts/test/vitest/gates.ts";
 import { tmpGuard } from "../../scripts/test/vitest/tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = () => [
+  { gate: LOKI_GATE, proof: "Loki réel" },
+  { gate: OPENSEARCH_GATE, proof: "OpenSearch réel" },
+  ...(process.env.NF_RUN_CLI_BOOT === "1"
+    ? [
+        {
+          label: "Écran de développement sous pseudo-terminal",
+          capability: "pty",
+          proof: "sous pseudo-terminal",
+        },
+      ]
+    : []),
+];
 
 /**
  * Vitest du workspace core `nodefony` — remplace mocha (`.mocharc.cjs` +
@@ -65,22 +84,7 @@ export default defineConfig({
     // fournit le terminal sous Linux et macOS), constatée par le banc : une
     // plateforme qui ne l'a pas l'énonce (`NF_GATES_ALLOW=pty`). Fonction, pas
     // liste : lue en FIN de passe.
-    reporters: [
-      "default",
-      gateReporter(() => [
-        { gate: LOKI_GATE, proof: "Loki réel" },
-        { gate: OPENSEARCH_GATE, proof: "OpenSearch réel" },
-        ...(process.env.NF_RUN_CLI_BOOT === "1"
-          ? [
-              {
-                label: "Écran de développement sous pseudo-terminal",
-                capability: "pty",
-                proof: "sous pseudo-terminal",
-              },
-            ]
-          : []),
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     include: ["src/tests/**/*.test.ts"],
     setupFiles: [r("./src/tests/vitest.setup.ts")],
     // ⏱️ Plafond d'ATTENTE, pas seuil de mesure — la distinction décide si

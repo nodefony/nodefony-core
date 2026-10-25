@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   gateReporter,
   KEYCLOAK_GATE,
+  type GateExpectations,
 } from "../../../../scripts/test/vitest/gates.ts";
 import type { GateExpectation } from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
@@ -93,7 +94,13 @@ function modeExpectations(): GateExpectation[] {
  *
  * Tests serveur LIVE (127.0.0.1:5151/5152) : HTTP/HTTPS/HTTP2, routing, WS, décorateurs.
  * Prérequis : serveur dev UP (skill nodefony-start-server). Exclut la suite lourde
- * (`load/**` + `memory.test.ts`) → c'est la non-régression rapide.
+ * (`load/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = modeExpectations;
+
+/**` + `memory.test.ts`) → c'est la non-régression rapide.
  *
  * Séquentiel forcé (`fileParallelism:false` + `singleFork`) : tous les fichiers tapent
  * LE MÊME serveur — la parallélisation introduirait du bruit (sessions, ports, ordering).
@@ -111,7 +118,7 @@ export default defineConfig({
     // PASSE (et non le paquet) exige qu'un cas précis ait tourné : c'est le
     // besoin d'une étape qui sélectionne par `-t`, où un motif qui ne mord plus
     // laisse vitest sortir 0 avec zéro cas exécuté.
-    reporters: ["default", gateReporter(modeExpectations)],
+    reporters: ["default", gateReporter(expectations)],
     include: [
       "nodefony/tests/http/**/*.test.ts",
       "nodefony/tests/integration/**/*.test.ts",

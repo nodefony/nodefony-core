@@ -3,9 +3,41 @@ import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
 import {
   gateReporter,
   MONGO_GATE,
+  type GateExpectations,
 } from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [
+  {
+    gate: MONGO_GATE,
+    // UNE preuve PAR STORE durable, pas une seule pour le module. Une
+    // preuve unique ne dit que « quelque chose a tourné » : un banc
+    // renommé, un fichier qui ne collecte pas, une suite entière absente
+    // passaient dessous sans un mot. Ces motifs sont TOUS exigés — c'est
+    // ce qui rend la couverture 8/8 opposable, et pas seulement affichée.
+    proof: [
+      "MongooseTokenStore — ITokenStore portable",
+      "MongooseWebhookStore — IWebhookStore portable",
+      "MongooseAuditStore — IAuditStore portable",
+      "MongooseTotpSecretStore — ITotpSecretStore portable",
+      "MongooseIdempotencyStore — IIdempotencyStore portable",
+      // La preuve la PLUS forte : ce cas ne peut pas passer sans un vrai
+      // serveur, puisque c'est lui qui arbitre la contrainte d'unicité.
+      // Un double mémoire le rendrait vert à tort.
+      "atomicité sous CONCURRENCE",
+      // La raison d'être du store d'idempotence : deux connexions
+      // distinctes, une base. Sans elle, « cross-pod » n'est qu'un mot.
+      "idempotence CROSS-POD",
+      // La promesse affichée par la console d'administration.
+      "manifeste ↔ registres",
+    ],
+  },
+];
 
 /**
  * vitest pour @nodefony/mongoose (convention-frère @nodefony/orm-core).
@@ -56,35 +88,7 @@ export default defineConfig({
     // d'intégration sautent (`describe.skipIf(!URI)`) et la suite reste verte en
     // n'ayant prouvé qu'un schéma Zod. Exiger qu'un banc de store ait
     // réellement PASSÉ est la seule affirmation que ce silence ne satisfait pas.
-    reporters: [
-      "default",
-      gateReporter([
-        {
-          gate: MONGO_GATE,
-          // UNE preuve PAR STORE durable, pas une seule pour le module. Une
-          // preuve unique ne dit que « quelque chose a tourné » : un banc
-          // renommé, un fichier qui ne collecte pas, une suite entière absente
-          // passaient dessous sans un mot. Ces motifs sont TOUS exigés — c'est
-          // ce qui rend la couverture 8/8 opposable, et pas seulement affichée.
-          proof: [
-            "MongooseTokenStore — ITokenStore portable",
-            "MongooseWebhookStore — IWebhookStore portable",
-            "MongooseAuditStore — IAuditStore portable",
-            "MongooseTotpSecretStore — ITotpSecretStore portable",
-            "MongooseIdempotencyStore — IIdempotencyStore portable",
-            // La preuve la PLUS forte : ce cas ne peut pas passer sans un vrai
-            // serveur, puisque c'est lui qui arbitre la contrainte d'unicité.
-            // Un double mémoire le rendrait vert à tort.
-            "atomicité sous CONCURRENCE",
-            // La raison d'être du store d'idempotence : deux connexions
-            // distinctes, une base. Sans elle, « cross-pod » n'est qu'un mot.
-            "idempotence CROSS-POD",
-            // La promesse affichée par la console d'administration.
-            "manifeste ↔ registres",
-          ],
-        },
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     coverage: {
       provider: "v8",
       // `all` = compter aussi les fichiers non importés (garde-fou honnête).

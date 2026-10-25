@@ -69,18 +69,13 @@ import { resetMongoDatabase } from "./lib/mongoReset.ts";
 import { acquire, holder, refusal, release } from "../repo/long-run-lock.mjs";
 import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
 import {
-  PG_GATE,
-  MYSQL_GATE,
   REDIS_GATE,
-  MONGO_GATE,
-  LOKI_GATE,
-  OPENSEARCH_GATE,
-  KEYCLOAK_GATE,
   MYSQL_COMMUNITY_GATE,
   MONGO_BOOT_GATE,
+  TEST_ALL_GATES,
   gateEnv,
   gateUpCommand,
-  redactUrl,
+  redactValue,
   OPT_IN_SWITCHES,
   type EnvGate,
 } from "./vitest/gates";
@@ -91,22 +86,10 @@ import {
   redisDatabase,
 } from "../lib/redis-session-purge.mjs";
 
-// Loki et OpenSearch sont ici pour la même raison que les bases : le cœur
-// DÉCLARE désormais les attendre (`src/nodefony/vitest.config.ts`), donc une
-// passe qui ne les lève pas laisse quatre cas muets et le dit. Les omettre
-// ferait de cette commande — celle qu'on tape sans réfléchir — la seule qui ne
-// sache pas satisfaire une exigence du dépôt.
-const GATES: readonly EnvGate[] = [
-  PG_GATE,
-  MYSQL_GATE,
-  REDIS_GATE,
-  MONGO_GATE,
-  LOKI_GATE,
-  OPENSEARCH_GATE,
-  // Le serveur de banc hérite de ces variables (posées avant son démarrage) :
-  // c'est par elles qu'il déclare son fournisseur `keycloak`.
-  KEYCLOAK_GATE,
-];
+// La composition de la passe par défaut vit dans `gates.ts` (TEST_ALL_GATES) :
+// l'onglet Décors de la console la lit aussi, pour dire quel décor aucune passe
+// ne lève.
+const GATES = TEST_ALL_GATES;
 
 // ── Présentation ────────────────────────────────────────────────────────────
 const C = {
@@ -483,7 +466,7 @@ function report(
     // distingue MariaDB de MySQL Community, ou une base locale d'une distante.
     console.log(`  ${mark} ${state.gate.label}`);
     for (const [key, value] of Object.entries(state.used ?? {})) {
-      console.log(`      ${C.dim(`${key} = ${redactUrl(value)}`)}`);
+      console.log(`      ${C.dim(`${key} = ${redactValue(key, value)}`)}`);
     }
   }
 

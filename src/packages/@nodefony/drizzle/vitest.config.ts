@@ -4,9 +4,19 @@ import {
   gateReporter,
   MYSQL_GATE,
   PG_GATE,
+  type GateExpectations,
 } from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [
+  { gate: PG_GATE, proof: "(postgres)" },
+  { gate: MYSQL_GATE, proof: "(mysql)" },
+];
 
 /**
  * vitest pour @nodefony/drizzle — suite d'intégration (convention-frère orm-core).
@@ -38,13 +48,7 @@ export default defineConfig({
     // l'appel. Le motif est parenthésé (`(postgres)`, pas `postgres`) parce que
     // c'est la forme des `describe` gatés ; `auto-register-postgres`, lui, tourne
     // sans serveur et ne prouverait donc rien.
-    reporters: [
-      "default",
-      gateReporter([
-        { gate: PG_GATE, proof: "(postgres)" },
-        { gate: MYSQL_GATE, proof: "(mysql)" },
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     testTimeout: 20000,
     hookTimeout: 20000,

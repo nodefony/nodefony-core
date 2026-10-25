@@ -2,9 +2,24 @@ import { defineConfig } from "vitest/config";
 import {
   gateReporter,
   PROXY_GATE,
+  type GateExpectations,
 } from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [
+  {
+    gate: PROXY_GATE,
+    proof: [
+      "l'IP forgée par le client est JETÉE",
+      "une WebSocket franchit le proxy",
+    ],
+  },
+];
 
 /**
  * Le serveur derrière de VRAIS reverse-proxy (nginx + haproxy) — un décor à
@@ -20,18 +35,7 @@ export default defineConfig({
     globalSetup: tmpGuard(),
     ...transformCache,
     globals: true,
-    reporters: [
-      "default",
-      gateReporter([
-        {
-          gate: PROXY_GATE,
-          proof: [
-            "l'IP forgée par le client est JETÉE",
-            "une WebSocket franchit le proxy",
-          ],
-        },
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     include: ["nodefony/tests/integration/reverse-proxy.test.ts"],
     fileParallelism: false,
     testTimeout: 60_000,

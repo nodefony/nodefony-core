@@ -1,6 +1,9 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { gateReporter } from "../../../../scripts/test/vitest/gates.ts";
+import {
+  gateReporter,
+  type GateExpectations,
+} from "../../../../scripts/test/vitest/gates.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
@@ -8,7 +11,13 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 /**
  * Suite LOURDE @nodefony/http (ex-`.mocharc.load.json`) — charge + heap + leak + scopes DI.
  *
- * Contenu : `tests/load/**` (RPS, débit WS, connexions WS) + `tests/http/memory.test.ts`
+ * Contenu : `tests/load/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [];
+
+/**` (RPS, débit WS, connexions WS) + `tests/http/memory.test.ts`
  * (le GATE mémoire : 1000 GET, 100 crashs, 100 WS, uploads — seuils heap = BLOCKERS).
  * Prérequis : serveur dev UP. À lancer AVANT tout commit touchant Kernel / pipeline /
  * cycle de vie / mémoire (cf CLAUDE.md « RÈGLE ABSOLUE PERF & MÉMOIRE »), pas à chaque
@@ -41,9 +50,9 @@ export default defineConfig({
       ? [
           "default",
           ["json", { outputFile: "memory-report.json" }],
-          gateReporter([]),
+          gateReporter(expectations),
         ]
-      : ["default", gateReporter([])],
+      : ["default", gateReporter(expectations)],
     include: [
       "nodefony/tests/load/**/*.test.ts",
       "nodefony/tests/http/memory.test.ts",

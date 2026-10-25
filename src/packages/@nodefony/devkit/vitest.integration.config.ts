@@ -1,8 +1,25 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { gateReporter } from "../../../../scripts/test/vitest/gates.ts";
+import {
+  gateReporter,
+  type GateExpectations,
+} from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [
+  {
+    label: "porte MCP de développement sur serveur réel",
+    proof: [
+      "publie les outils INTÉGRÉS à l'URL du contrat public",
+      "la progression traverse le flux SSE jusqu'au client",
+    ],
+  },
+];
 
 /**
  * Intégration — la porte MCP de développement sur un SERVEUR RÉEL (`npm run test:integration`,
@@ -25,18 +42,7 @@ export default defineConfig({
       ),
     ),
     ...transformCache,
-    reporters: [
-      "default",
-      gateReporter([
-        {
-          label: "porte MCP de développement sur serveur réel",
-          proof: [
-            "publie les outils INTÉGRÉS à l'URL du contrat public",
-            "la progression traverse le flux SSE jusqu'au client",
-          ],
-        },
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     include: ["tests/integration/**/*.test.ts"],
     fileParallelism: false,
     testTimeout: 30_000,

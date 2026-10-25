@@ -3,9 +3,30 @@ import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
 import {
   gateReporter,
   REDIS_GATE,
+  type GateExpectations,
 } from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [
+  {
+    gate: REDIS_GATE,
+    // Quatre bancs distincts parlent à un vrai Redis, et il faut les
+    // compter tous les quatre : ne prouver que le premier avait fait
+    // conclure « une seule preuve cross-pod » alors que six autres cas
+    // tournaient déjà.
+    proof: [
+      "RedisBackplane — intégration",
+      "F83 — injection tierce",
+      "RedisBackplane — contre-pression",
+      "RedisBackplane — reconnexion",
+    ],
+  },
+];
 
 /**
  * vitest + coverage-v8 pour @nodefony/realtime.
@@ -36,24 +57,7 @@ export default defineConfig({
     globalSetup: tmpGuard(),
     ...transformCache,
     globals: true,
-    reporters: [
-      "default",
-      gateReporter([
-        {
-          gate: REDIS_GATE,
-          // Quatre bancs distincts parlent à un vrai Redis, et il faut les
-          // compter tous les quatre : ne prouver que le premier avait fait
-          // conclure « une seule preuve cross-pod » alors que six autres cas
-          // tournaient déjà.
-          proof: [
-            "RedisBackplane — intégration",
-            "F83 — injection tierce",
-            "RedisBackplane — contre-pression",
-            "RedisBackplane — reconnexion",
-          ],
-        },
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     include: [
       "nodefony/tests/unit/**/*.test.ts",
       "nodefony/tests/integration/**/*.test.ts",

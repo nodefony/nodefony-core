@@ -2,9 +2,16 @@ import { defineConfig } from "vitest/config";
 import {
   gateReporter,
   REDIS_GATE,
+  type GateExpectations,
 } from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [REDIS_GATE];
 
 /**
  * vitest + coverage-v8 pour @nodefony/redis.
@@ -25,7 +32,7 @@ export default defineConfig({
     // Deux variables gouvernent l'accès au serveur réel (`REDIS_URL` pour les
     // bancs de pagination, `NF_REDIS_TEST_URL` pour le banc comportemental) : en
     // fournir une seule laissait 14 tests skippés — suite VERTE, sans un mot.
-    reporters: ["default", gateReporter([REDIS_GATE])],
+    reporters: ["default", gateReporter(expectations)],
     include: [
       "nodefony/tests/unit/**/*.test.ts",
       "nodefony/tests/integration/**/*.test.ts",

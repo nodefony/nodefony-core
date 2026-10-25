@@ -1,8 +1,28 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
-import { gateReporter } from "../../../../scripts/test/vitest/gates.ts";
+import {
+  gateReporter,
+  type GateExpectations,
+} from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [
+  {
+    switch: "NF_RUN_CLUSTER_E2E",
+    label: "Cluster e2e (IPC + Redis)",
+    // Les deux topologies de la promesse centrale du framework : le
+    // fan-out entre PROCESS (fork, sans infra) et entre PODS (Redis).
+    proof: ["e2e cluster IPC", "e2e cluster Redis"],
+    // `npm test` ne joue plus ces bancs : le mode d'emploi doit nommer le
+    // lot, sinon il envoie chercher là où il n'y a rien.
+    command: "npm run test:cluster",
+  },
+];
 
 /**
  * Lot SÉPARÉ pour les deux bancs qui forkent de VRAIS process.
@@ -40,21 +60,7 @@ export default defineConfig({
     globalSetup: tmpGuard(),
     ...transformCache,
     globals: true,
-    reporters: [
-      "default",
-      gateReporter([
-        {
-          switch: "NF_RUN_CLUSTER_E2E",
-          label: "Cluster e2e (IPC + Redis)",
-          // Les deux topologies de la promesse centrale du framework : le
-          // fan-out entre PROCESS (fork, sans infra) et entre PODS (Redis).
-          proof: ["e2e cluster IPC", "e2e cluster Redis"],
-          // `npm test` ne joue plus ces bancs : le mode d'emploi doit nommer le
-          // lot, sinon il envoie chercher là où il n'y a rien.
-          command: "npm run test:cluster",
-        },
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     include: [
       "nodefony/tests/integration/clusterIpc.e2e.test.ts",
       "nodefony/tests/integration/redisCluster.e2e.test.ts",

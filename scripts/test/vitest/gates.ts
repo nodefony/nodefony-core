@@ -112,7 +112,24 @@ export interface EnvGate {
    * Service docker qui fournit cette cible, et son profil compose éventuel.
    * Absent = cible sans conteneur dédié.
    */
-  service?: { name: string; profile?: string };
+  service?: {
+    name: string;
+    profile?: string;
+    /**
+     * Services du compose démarrés AVEC le principal, quand le décor en exige
+     * plusieurs sans dépendance déclarée entre eux (`depends_on`) : sans eux,
+     * `up -d <name>` laisse une partie du décor éteinte, et les cas qui la
+     * visent sautent ou échouent sur un refus de connexion.
+     */
+    companions?: readonly string[];
+  };
+  /**
+   * Variables que le SERVEUR doit porter lui aussi, pas seulement le process de
+   * test — le décor a deux versants. `test:all` pose les variables du test ;
+   * celles-ci vivent dans le `.env` du poste, et leur absence ne se voit qu'à un
+   * 404 ou un refus de connexion sans explication.
+   */
+  serverEnv?: readonly string[];
   /**
    * Variables à poser pour exercer la cible, avec leurs valeurs de dev.
    *
@@ -173,6 +190,25 @@ export function redactUrl(url: string): string {
   return url.replace(/(:\/\/[^:/@]*:)[^@]*@/, "$1***@");
 }
 
+/** Noms de variables dont la valeur entière est un secret. */
+const SECRET_NAME = /(SECRET|PASSWORD|TOKEN|_KEY)$/;
+
+/**
+ * Masque une valeur d'environnement pour l'affichage, d'après son NOM.
+ *
+ * {@link redactUrl} ne voit que le mot de passe d'une URL : un secret posé seul
+ * (`NF_KEYCLOAK_CLIENT_SECRET`) passait en clair dans le rapport de `test:all`.
+ * Seule règle de masquage du dépôt pour ces variables — rapport de passe et
+ * onglet Décors de la console l'appellent tous deux.
+ *
+ * @param name - nom de la variable
+ * @param value - sa valeur
+ * @returns `***` pour un secret nommé comme tel, sinon l'URL masquée
+ */
+export function redactValue(name: string, value: string): string {
+  return SECRET_NAME.test(name) ? "***" : redactUrl(value);
+}
+
 /** Les variables requises par une gate — dérivées de {@link EnvGate.values}. */
 export function gateEnv(gate: EnvGate): string[] {
   return Object.keys(gate.values());
@@ -214,7 +250,8 @@ export function gateUpCommand(gate: EnvGate): string | null {
   const profile = gate.service.profile
     ? ` --profile ${gate.service.profile}`
     : "";
-  return `${COMPOSE}${profile} up -d ${gate.service.name}`;
+  const names = [gate.service.name, ...(gate.service.companions ?? [])];
+  return `${COMPOSE}${profile} up -d ${names.join(" ")}`;
 }
 
 /** Mode d'emploi copiable — dérivé du service et des valeurs, jamais retapé. */
@@ -468,7 +505,8 @@ export const OPENSEARCH_GATE: EnvGate = {
  */
 export const PROXY_GATE: EnvGate = {
   label: "Reverse-proxy réels (nginx + haproxy)",
-  service: { name: "nginx", profile: "proxy" },
+  service: { name: "nginx", profile: "proxy", companions: ["haproxy"] },
+  serverEnv: ["NF_BIND_ALL"],
   values: () => ({
     NF_PROXY_NGINX_URL: `http://localhost:${fromCompose("NGINX_PORT", "8080")}`,
     NF_PROXY_HAPROXY_URL: `http://localhost:${fromCompose("HAPROXY_PORT", "8081")}`,
@@ -537,6 +575,11 @@ function realmClientSecret(clientId: string, fallback: string): string {
 export const KEYCLOAK_GATE: EnvGate = {
   label: "Keycloak (connexion OpenID Connect réelle)",
   service: { name: "keycloak", profile: "keycloak" },
+  serverEnv: [
+    "NF_KEYCLOAK_ISSUER",
+    "NF_KEYCLOAK_CLIENT_ID",
+    "NF_KEYCLOAK_CLIENT_SECRET",
+  ],
   values: () => ({
     NF_KEYCLOAK_ISSUER: `https://localhost:${fromCompose("KEYCLOAK_PORT", "8444")}/realms/nodefony`,
     NF_KEYCLOAK_CLIENT_ID: "nodefony-dev",
@@ -549,6 +592,192 @@ export const KEYCLOAK_GATE: EnvGate = {
     "Le SERVEUR doit être démarré avec les mêmes variables (`.env`) — " +
     "sans elles il ne déclare pas le fournisseur `keycloak` et le banc rend 404.",
 };
+
+/** Famille d'un décor, pour le ranger dans l'onglet Décors de la console. */
+export type DecorFamily =
+  "database" | "cache" | "observability" | "identity" | "network";
+
+/** Un décor du catalogue : sa gate et ce qu'il faut pour le PRÉSENTER. */
+export interface IDecorEntry {
+  /** Identifiant stable (clé JSON, ancre d'URL). */
+  id: string;
+  gate: EnvGate;
+  family: DecorFamily;
+  /** À quoi il sert, en une phrase. */
+  purpose: string;
+  /**
+   * Option de `test:all` qui joue ce décor dans une passe à part, quand aucune
+   * suite ne le déclare (le décor partage une variable avec un autre, ou change
+   * le démarrage de l'application entière).
+   */
+  phase?: string;
+}
+
+/**
+ * Tous les décors du dépôt — le catalogue que l'onglet Décors présente.
+ *
+ * Distinct de {@link TEST_ALL_GATES} : un décor peut exister sans que la passe
+ * par défaut le lève, et c'est précisément ce que l'onglet doit faire voir.
+ */
+export const DECOR_CATALOG: readonly IDecorEntry[] = [
+  {
+    id: "postgres",
+    gate: PG_GATE,
+    family: "database",
+    purpose: "Exerce l'ORM drizzle contre un vrai PostgreSQL.",
+  },
+  {
+    id: "mariadb",
+    gate: MYSQL_GATE,
+    family: "database",
+    purpose: "Exerce drizzle contre MariaDB, dialecte MySQL.",
+  },
+  {
+    id: "mysql",
+    gate: MYSQL_COMMUNITY_GATE,
+    family: "database",
+    purpose:
+      "Même variable que MariaDB, autre serveur : collation, bornes numériques et upsert ont déjà divergé.",
+    phase: "--dialects",
+  },
+  {
+    id: "mongo",
+    gate: MONGO_GATE,
+    family: "database",
+    purpose:
+      "Rejoue chaque store durable de mongoose contre un replica set réel.",
+  },
+  {
+    id: "mongo-boot",
+    gate: MONGO_BOOT_GATE,
+    family: "database",
+    purpose:
+      "Démarre l'application entière sur MongoDB au lieu de la base par défaut.",
+    phase: "--mongo",
+  },
+  {
+    id: "redis",
+    gate: REDIS_GATE,
+    family: "cache",
+    purpose:
+      "Bus et stores partagés entre exemplaires : la promesse multi-pod du temps réel.",
+  },
+  {
+    id: "loki",
+    gate: LOKI_GATE,
+    family: "observability",
+    purpose: "Transport des journaux vers un Loki réel.",
+  },
+  {
+    id: "opensearch",
+    gate: OPENSEARCH_GATE,
+    family: "observability",
+    purpose: "Transport des journaux vers un OpenSearch réel.",
+  },
+  {
+    id: "keycloak",
+    gate: KEYCLOAK_GATE,
+    family: "identity",
+    purpose:
+      "Le client OAuth rencontre un vrai point de jeton : authentification cliente, claims, refus PKCE.",
+  },
+  {
+    id: "proxy",
+    gate: PROXY_GATE,
+    family: "network",
+    purpose:
+      "Ce qu'un vrai proxy pose correspond-il à ce que le serveur attend ? Un mot de configuration renverse l'adresse du client.",
+  },
+];
+
+/**
+ * Décors que `npm run test:all` lève dans sa passe par défaut.
+ *
+ * Loki et OpenSearch y sont pour la même raison que les bases : le cœur DÉCLARE
+ * les attendre (`src/nodefony/vitest.config.ts`), donc une passe qui ne les lève
+ * pas laisse quatre cas muets. Keycloak : le serveur de banc hérite de ses
+ * variables, posées avant son démarrage — c'est par elles qu'il déclare son
+ * fournisseur `keycloak`.
+ */
+export const TEST_ALL_GATES: readonly EnvGate[] = [
+  PG_GATE,
+  MYSQL_GATE,
+  REDIS_GATE,
+  MONGO_GATE,
+  LOKI_GATE,
+  OPENSEARCH_GATE,
+  KEYCLOAK_GATE,
+];
+
+/** Un outil du compose : aucun test ne l'exige, il sert l'humain. */
+export interface IDevTool {
+  service: string;
+  label: string;
+  what: string;
+  /** Tâche unique, qui s'arrête d'elle-même : arrêtée n'est pas une panne. */
+  oneShot?: boolean;
+}
+
+/** Services du compose qui ne sont pas des décors. */
+export const DEV_TOOLS: readonly IDevTool[] = [
+  { service: "grafana", label: "Grafana", what: "tableaux de Loki" },
+  {
+    service: "opensearch-dashboards",
+    label: "OpenSearch Dashboards",
+    what: "exploration des journaux",
+  },
+  {
+    service: "opensearch-dashboards-init",
+    label: "Import des tableaux OpenSearch",
+    what: "passage unique au démarrage",
+    oneShot: true,
+  },
+  { service: "mailpit", label: "Mailpit", what: "boîte aux lettres de dev" },
+  {
+    service: "browser",
+    label: "Navigateur piloté",
+    what: "mesure d'écran, intégration continue",
+  },
+  { service: "kafka", label: "Kafka", what: "bus d'événements" },
+  { service: "redisinsight", label: "RedisInsight", what: "inspecter Redis" },
+];
+
+/**
+ * Noms des services déclarés dans `docker/docker-compose.yml`.
+ *
+ * Lecture par motif, pas par un analyseur YAML : le fichier est le nôtre, et
+ * ses services sont les clés indentées de deux espaces sous `services:`.
+ *
+ * @returns `[]` quand le compose est absent — le constat est alors vide, jamais une exception
+ */
+export function composeServices(): string[] {
+  let yaml: string;
+  try {
+    yaml = readFileSync(join(REPO_ROOT, COMPOSE_FILE), "utf8");
+  } catch {
+    return [];
+  }
+  const names: string[] = [];
+  let inServices = false;
+  for (const line of yaml.split("\n")) {
+    if (/^services:\s*$/.test(line)) {
+      inServices = true;
+      continue;
+    }
+    if (inServices && /^\S/.test(line) && !line.startsWith("#")) break;
+    const m = inServices ? /^ {2}([A-Za-z0-9_.-]+):\s*$/.exec(line) : null;
+    if (m?.[1]) names.push(m[1]);
+  }
+  return names;
+}
+
+/**
+ * Ce qu'une config vitest déclare exiger : la liste de ses attentes, ou une
+ * fonction appelée en fin de passe.
+ */
+export type GateExpectations =
+  | ReadonlyArray<EnvGate | GateExpectation>
+  | (() => ReadonlyArray<EnvGate | GateExpectation>);
 
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
 function missingVars(gate: EnvGate): string[] {
@@ -625,7 +854,9 @@ interface Unmet {
 }
 
 /** Accepte la forme courte (`EnvGate` nue) comme la forme complète. */
-function asExpectation(entry: EnvGate | GateExpectation): GateExpectation {
+export function asExpectation(
+  entry: EnvGate | GateExpectation,
+): GateExpectation {
   return "values" in entry ? { gate: entry } : entry;
 }
 
@@ -693,11 +924,7 @@ function envExpectations(): Array<{ pattern: string; min: number }> {
  *   `globalSetup`, n'est pas connu quand vitest lit le fichier de configuration).
  * @returns un reporter à placer dans `test.reporters`.
  */
-export function gateReporter(
-  entries:
-    | ReadonlyArray<EnvGate | GateExpectation>
-    | (() => ReadonlyArray<EnvGate | GateExpectation>),
-) {
+export function gateReporter(entries: GateExpectations) {
   /**
    * Vrai quand la passe a sélectionné ses cas par NOM (`-t`).
    *

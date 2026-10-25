@@ -1,7 +1,24 @@
 import { defineConfig } from "vitest/config";
-import { gateReporter } from "../../../../scripts/test/vitest/gates.ts";
+import {
+  gateReporter,
+  type GateExpectations,
+} from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/decor.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [
+  {
+    label: "navigateur réel (conteneur nodefony-browser)",
+    proof: [
+      "toutes les familles sur la page protégée",
+      "le scénario complet : accueil, canal, latence, api, reconnexion",
+    ],
+  },
+];
 
 /**
  * Les sondes navigateur sur un VRAI navigateur — le conteneur `nodefony-browser`
@@ -16,18 +33,7 @@ export default defineConfig({
   test: {
     globalSetup: tmpGuard(),
     ...transformCache,
-    reporters: [
-      "default",
-      gateReporter([
-        {
-          label: "navigateur réel (conteneur nodefony-browser)",
-          proof: [
-            "toutes les familles sur la page protégée",
-            "le scénario complet : accueil, canal, latence, api, reconnexion",
-          ],
-        },
-      ]),
-    ],
+    reporters: ["default", gateReporter(expectations)],
     include: ["tests/browser-fonctionnel.test.ts"],
     fileParallelism: false,
     testTimeout: 180_000,
