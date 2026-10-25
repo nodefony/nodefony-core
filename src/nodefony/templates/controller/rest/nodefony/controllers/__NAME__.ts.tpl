@@ -10,6 +10,7 @@ import {
   HttpCode,
   Idempotent,
 <% if (it.hasSecurity) { %>  IsGranted,
+  CsrfProtect,
 <% } %>} from "@nodefony/framework";
 import type { RouteInput } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
@@ -46,7 +47,24 @@ const itemPatch = itemBody.partial();
  * Pour la démo de TOUS les décorateurs → `--kind example` ; pour consommer la
  * même ressource par la socket Nodefony → `--kind duplex`.
  *
- * Essais rapides (zone `^/api` du manifeste : identité résolue, jamais bloquante) :
+<% if (it.hasSecurity) { %> * Essais rapides (zone `^/api` du manifeste : identité résolue, jamais bloquante).
+ * Chaque ÉCRITURE porte `@CsrfProtect()` : sans le jeton anti-CSRF, elle rend
+ * `403`. Il est semé par `GET /nodefony/security/api/auth/me` (cookie
+ * `csrf-token`) et se rejoue dans l'en-tête `x-csrf-token` :
+ * ```bash
+ * curl -k "https://127.0.0.1:5152<%= it.route %>?limit=10"
+ * curl -k -c /tmp/nf.jar https://127.0.0.1:5152/nodefony/security/api/auth/me
+ * TOKEN=$(awk '$6 == "csrf-token" { print $7 }' /tmp/nf.jar)
+ * curl -k -b /tmp/nf.jar -H "x-csrf-token: $TOKEN" -X POST \
+ *   -H "content-type: application/json" -H "idempotency-key: demo-1" \
+ *   -d '{"name":"premier"}' https://127.0.0.1:5152<%= it.route %>
+ * # rejoue la MÊME clé → réponse mémorisée (aucun doublon créé)
+ * curl -k https://127.0.0.1:5152<%= it.route %>/{id}
+ * curl -k -b /tmp/nf.jar -H "x-csrf-token: $TOKEN" -X PATCH \
+ *   -H "content-type: application/json" \
+ *   -d '{"name":"renommé"}' https://127.0.0.1:5152<%= it.route %>/{id}
+ * ```
+<% } else { %> * Essais rapides (zone `^/api` du manifeste : identité résolue, jamais bloquante) :
  * ```bash
  * curl -k "https://127.0.0.1:5152<%= it.route %>?limit=10"
  * curl -k -X POST -H "content-type: application/json" \
@@ -56,6 +74,7 @@ const itemPatch = itemBody.partial();
  * curl -k -X PATCH -H "content-type: application/json" \
  *   -d '{"name":"renommé"}' https://127.0.0.1:5152<%= it.route %>/{id}
  * ```
+<% } %>
  */
 @controller("<%= it.route %>")
 <% if (it.roleGuard) { %>// Habilitation exigée pour TOUT ce controller.
@@ -104,7 +123,8 @@ const itemPatch = itemBody.partial();
    * par le pare-feu (`null` hors zone ou pour un anonyme), sans appel de plus.
    */
   @Post("", { schema: { body: itemBody } })
-  @HttpCode(201)
+<% if (it.hasSecurity) { %>  @CsrfProtect()
+<% } %>  @HttpCode(201)
   @Idempotent()
   create(input: RouteInput<{ body: typeof itemBody }>) {
     const item: IItem = {
@@ -119,7 +139,8 @@ const itemPatch = itemBody.partial();
 
   /** `PUT <%= it.route %>/{id}` — remplacement COMPLET de la ressource. */
   @Put("/{id}", { schema: { params: idParams, body: itemBody } })
-  replace(
+<% if (it.hasSecurity) { %>  @CsrfProtect()
+<% } %>  replace(
     input: RouteInput<{ params: typeof idParams; body: typeof itemBody }>,
   ) {
     const { id } = input.params;
@@ -134,7 +155,8 @@ const itemPatch = itemBody.partial();
 
   /** `PATCH <%= it.route %>/{id}` — mise à jour PARTIELLE (merge). */
   @Patch("/{id}", { schema: { params: idParams, body: itemPatch } })
-  update(
+<% if (it.hasSecurity) { %>  @CsrfProtect()
+<% } %>  update(
     input: RouteInput<{ params: typeof idParams; body: typeof itemPatch }>,
   ) {
     const { id } = input.params;
@@ -155,6 +177,7 @@ const itemPatch = itemBody.partial();
    */
   @Delete("/{id}", { schema: { params: idParams } })
   @IsGranted("ROLE_ADMIN")
+  @CsrfProtect()
   destroy(input: RouteInput<{ params: typeof idParams }>) {
     const { id } = input.params;
     if (!<%= it.nameClass %>.items.delete(id)) {

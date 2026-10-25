@@ -5657,6 +5657,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(src, "@UseSession");
       assert.notInclude(src, "@UploadedFile");
       assert.notInclude(codeOnly(src), "RequestContext");
+      // complete → security : les QUATRE écritures sous `@CsrfProtect()` (doctrine
+      // du skill `nodefony-protect-route`), et les essais curl portent le jeton —
+      // sans lui, l'exemple collé tel quel rendait 403 (constaté sur app réelle).
+      assert.lengthOf(src.match(/^ {2}@CsrfProtect\(\)$/gmu) ?? [], 4);
+      assert.include(src, '-H "x-csrf-token: $TOKEN"');
       // minimal (sans security) : delete dégradée SANS @IsGranted, zéro import mort.
       const mini = path.join(tmp, "restpurmin");
       scaffold(mini, { name: "restpurmin", preset: "minimal" });
@@ -5666,6 +5671,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.notInclude(srcMin, "@IsGranted");
+      assert.notInclude(srcMin, "CsrfProtect");
+      assert.notInclude(srcMin, "x-csrf-token");
       assert.notInclude(srcMin, "@nodefony/user");
       assert.include(
         srcMin,

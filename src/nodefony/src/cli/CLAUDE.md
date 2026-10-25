@@ -742,7 +742,8 @@ fois. Saveurs : `hello` = GET + WS echo MÊME classe (défaut — le
 différenciateur) ; `realtime` = sous-classe `RealtimeController` (@nodefony/realtime :
 canal `<nom>:events` décoré `@RealtimeChannel` + action `<nom>:ping`, TSDoc = snippet
 client `NodefonySocket`) — garde actionnable si la dep manque (preset minimal) ;
-`rest` = CRUD `@Get/@Post/@Put/@Delete` + `@Param/@Body` + echo WS. Wiring AUTO de
+`rest` = CRUD HTTP pur (`@Get/@Post/@Put/@Patch/@Delete`, entrée par `schema`, aucun WS),
+écritures sous `@CsrfProtect()` et exemples curl qui portent le jeton quand `@nodefony/security` est là. Wiring AUTO de
 l'`index.ts` cible (`wireDecoratorList` : import + insertion `@controllers([...])`,
 édition textuelle gardée — toute ambiguïté = throw actionnable, jamais de fichier
 corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé) ; route
