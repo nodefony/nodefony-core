@@ -591,6 +591,19 @@ jobs:
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs
 
+      # Le « Démarrage rapide » d'une page est un LIVRABLE : il compile, vu depuis
+      # une application générée (strict, décorateurs). Le contrôle existait et ne
+      # tournait nulle part — trois pages de moteur (Vue, Svelte, Angular) y
+      # portaient 17 erreurs, invisibles. Les paquets sont bâtis plus haut dans ce
+      # job : les types publiés résolvent.
+      - name: Gate — les démarrages rapides des pages publiées compilent
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: |
+          node scripts/site/build-docs-site.mjs --list > /tmp/pages-publiees.txt
+          tr '\n' '\0' < /tmp/pages-publiees.txt \
+            | xargs -0 node .claude/skills/nodefony-documentation/scripts/code-check.mjs
+
       # Les fichiers d'INSTRUCTIONS (`CLAUDE.md`, `MEMORY.md`) décrivent le code à
       # un agent, et rien ne les relisait quand le code bougeait. L'étage
       # ci-dessus ne peut pas les couvrir : il reçoit les pages PUBLIÉES, dont

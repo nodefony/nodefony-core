@@ -102,7 +102,7 @@ c'est la même garantie, dite dans la langue du framework.**
 
 ### 1. Le plugin, sur l'application
 
-```ts
+```ts ignore
 // frontend/src/main.ts
 import { createApp } from "vue";
 import { nodefonyVue } from "nodefony/vue";
@@ -153,6 +153,13 @@ libération et n'en oublier aucune.
 ### 3. Quand l'application possède son cycle de connexion
 
 ```ts
+import type { App } from "vue";
+import type { NodefonySocket } from "nodefony/client";
+import { nodefonyVue } from "nodefony/vue";
+
+declare const app: App;
+declare const maSocket: NodefonySocket;
+
 // La socket fournie l'emporte sur `url`, et son cycle n'est pas touché :
 // ni `connect`, ni `disconnect`.
 app.use(nodefonyVue, { client: maSocket });
@@ -163,12 +170,26 @@ qu'il a composée sans toucher à son cycle, et le rend lisible par `useNodefony
 l'emporte sur `client` et `url` ; le noyau est décrit dans [le client isomorphe](./client.md#-nodefonykernel--le-noyau-client-et-ses-quatre-liaisons).
 
 ```ts
+import type { App } from "vue";
+import type { INodefonyKernel } from "nodefony/client";
+import { nodefonyVue } from "nodefony/vue";
+
+declare const app: App;
+declare const kernel: INodefonyKernel;
+
 app.use(nodefonyVue, { kernel });
 ```
 
 ### 4. Un canal qui change
 
 ```ts
+import { ref } from "vue";
+import { useNodefonyChannelData } from "nodefony/vue";
+
+interface Message {
+  text: string;
+}
+
 const salle = ref("salon:general");
 // L'abonnement SUIT la valeur : l'ancien canal est rendu avant que le
 // nouveau soit pris. Aucun tableau de dépendances à tenir.

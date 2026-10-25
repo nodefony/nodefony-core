@@ -109,7 +109,7 @@ abonnement avant de rendre l'ancien (`+b` puis `-a`), là où Vue et Angular lib
 
 ### 1. La configuration, au démarrage
 
-```ts
+```ts ignore
 // frontend/src/main.ts
 import { mount } from "svelte";
 import { configureNodefony } from "nodefony/svelte";
@@ -198,6 +198,11 @@ liste de fonctions de libération et n'en oublier aucune.
 ### 5. Quand l'application possède son cycle de connexion
 
 ```ts
+import type { NodefonySocket } from "nodefony/client";
+import { configureNodefony } from "nodefony/svelte";
+
+declare const maSocket: NodefonySocket;
+
 // La socket fournie l'emporte sur `url`, et son cycle n'est pas touché :
 // ni `connect`, ni `disconnect`.
 configureNodefony({ client: maSocket });
@@ -208,6 +213,11 @@ socket qu'il a composée sans toucher à son cycle, et le rend lisible par `node
 `kernel` l'emporte sur `client` et `url` ; le noyau est décrit dans [le client isomorphe](./client.md#-nodefonykernel--le-noyau-client-et-ses-quatre-liaisons).
 
 ```ts
+import type { INodefonyKernel } from "nodefony/client";
+import { configureNodefony } from "nodefony/svelte";
+
+declare const kernel: INodefonyKernel;
+
 configureNodefony({ kernel });
 ```
 

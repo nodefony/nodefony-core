@@ -126,7 +126,7 @@ qui notifient leurs lecteurs sans zone : justes dans les deux mondes, `zone.js` 
 
 ### 1. Le fournisseur, sur l'application
 
-```ts
+```ts ignore
 // frontend/src/main.ts
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideZonelessChangeDetection } from "@angular/core";
@@ -206,6 +206,11 @@ socket qu'il a composée sans toucher à son cycle, et le rend lisible par `inje
 `kernel` l'emporte sur `client` et `url` ; le noyau est décrit dans [le client isomorphe](./client.md#-nodefonykernel--le-noyau-client-et-ses-quatre-liaisons).
 
 ```ts
+import type { INodefonyKernel } from "nodefony/client";
+import { provideNodefony } from "nodefony/angular";
+
+declare const kernel: INodefonyKernel;
+
 provideNodefony({ kernel });
 ```
 
