@@ -466,6 +466,33 @@ const SAMPLES = {
   "0 :: a lu AGENTS.md": {
     pass: { transcript: `{"file_path":"/vide/chat/AGENTS.md"}` },
     fail: { transcript: `{"file_path":"/vide/chat/README.md"}` },
+    extra: [
+      {
+        // Le faux vert mesuré (tâche 0, beta.5) : la sortie de `create app`
+        // liste `AGENTS.md` et le présente « à lire AVANT » ; l'agent ne l'a
+        // jamais ouvert. Le motif est dans le texte REÇU, pas dans un geste —
+        // et c'est la grammaire réelle du CLI de Claude qui le porte, sans
+        // laquelle `paroleDeLAgent` replierait sur le transcript entier.
+        label: "AGENTS.md cité par la sortie de create app, jamais ouvert",
+        matter: {
+          transcript: [
+            `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"npm create nodefony@beta -- chat -y"}}]}}`,
+            `{"type":"user","message":{"content":[{"type":"tool_result","content":"Pour ton agent :\\n  AGENTS.md  à lire AVANT d'écrire"}]}}`,
+          ].join("\n"),
+        },
+        expect: false,
+      },
+      {
+        label: "AGENTS.md ouvert par l'agent (grammaire claude)",
+        matter: {
+          transcript: [
+            `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/vide/chat/AGENTS.md"}}]}}`,
+            `{"type":"user","message":{"content":[{"type":"tool_result","content":"# chat"}]}}`,
+          ].join("\n"),
+        },
+        expect: true,
+      },
+    ],
   },
   "0 :: a lancé les générateurs plutôt que d'écrire à la main": {
     pass: { transcript: `{"command":"npx nodefony create entity Message"}` },
@@ -868,6 +895,21 @@ const SAMPLES = {
       transcript: `{"text":"Prends-le quand tes documents sont hétérogènes"}`,
     },
     fail: { transcript: `{"text":"j'ai regardé le catalogue des modules"}` },
+    extra: [
+      {
+        // La seule sonde qui cherche une phrase DU CONTENU (`matiere: "recu"`) :
+        // la preuve est dans la sortie de l'outil, jamais dans un geste.
+        label:
+          "catalogue lu — la phrase n'est que dans le résultat (grammaire claude)",
+        matter: {
+          transcript: [
+            `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/app/node_modules/nodefony/docs/modules.md"}}]}}`,
+            `{"type":"user","message":{"content":[{"type":"tool_result","content":"Prends-le quand tes documents sont hétérogènes"}]}}`,
+          ].join("\n"),
+        },
+        expect: true,
+      },
+    ],
   },
   "7 :: a nommé la bonne brique (@nodefony/mongoose)": {
     pass: { content: `npm install @nodefony/mongoose` },

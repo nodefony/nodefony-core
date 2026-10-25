@@ -2267,6 +2267,7 @@ export const TASKS = [
         // qui juge est la sonde suivante : a-t-il RAPPORTÉ la limite ?
         observe: true,
         kind: "transcript",
+        matiere: "recu",
         name: "a ouvert le catalogue des modules (contenu vu, pas seulement cité)",
         pattern: /Ne le prends pas si|Prends-le quand/u,
       },
@@ -5328,10 +5329,16 @@ export function evaluateProbe(probe, matter) {
       ? [probe.file].flat().map((f) => contentByFile?.[f] ?? "")
       : null;
   if (probe.kind === "transcript") {
-    // La MATIÈRE dépend de ce qu'on juge : un interdit se lit dans la parole de
-    // l'agent, une observation (« a-t-il lu ceci ? ») dans le transcript
-    // entier — c'est bien dans le texte REÇU qu'elle cherche sa preuve.
-    const matiere = probe.invert ? paroleDeLAgent(transcript) : transcript;
+    // La MATIÈRE est la parole de l'agent — ce qu'il EXÉCUTE et ce qu'il REND —,
+    // interdit ou preuve positive. « A lancé create entity », « a lu AGENTS.md »
+    // se jugent sur ses gestes, jamais sur le texte qu'il a REÇU : la sortie de
+    // `create app` liste `AGENTS.md`, la description d'un skill livré et la
+    // TSDoc de `User.ts` citent `create entity`. Mesuré (tâche 0, beta.5) : les
+    // deux sondes rendaient vert un agent qui n'avait ni ouvert l'un ni lancé
+    // l'autre depuis ces textes. Seule une sonde qui cherche une phrase DU
+    // CONTENU (« le fichier a transité ») déclare `matiere: "recu"`.
+    const matiere =
+      probe.matiere === "recu" ? transcript : paroleDeLAgent(transcript);
     // `invert` vaut ici aussi : certains INTERDITS ne laissent pas de trace
     // dans le dépôt (un `kill -9` n'écrit aucun fichier) — le transcript est
     // la seule pièce qui les montre.
