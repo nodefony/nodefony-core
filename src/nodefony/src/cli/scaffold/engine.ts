@@ -86,6 +86,7 @@ import {
   parseRowFieldNames,
   extractRowBlock,
   describeColumnTypes,
+  toCodeLiteral,
   toSnakeCase,
   COLUMN_CASES,
   ENTITY_DIALECTS,
@@ -4607,9 +4608,9 @@ export function filterProbe(fields: readonly IEntityField[]): {
       return {
         name: f.name,
         match: a,
-        matchJson: JSON.stringify(a),
+        matchJson: toCodeLiteral(a),
         other: b,
-        otherJson: JSON.stringify(b),
+        otherJson: toCodeLiteral(b),
       };
     }
   }
@@ -4675,7 +4676,7 @@ export function invalidBodyOf(fields: readonly IEntityField[]): string | null {
           : f.type === "date"
             ? "pas-une-date"
             : 12345;
-    return JSON.stringify({ [f.name]: wrong });
+    return toCodeLiteral({ [f.name]: wrong });
   }
   return null;
 }
@@ -4695,7 +4696,7 @@ export function sampleValue(
     // Une énumération n'accepte que ses propres valeurs. Le défaut déclaré
     // d'abord, sinon la première — jamais une valeur inventée.
     const value = field.defaultValue ?? field.values?.[0] ?? "";
-    return { fixed: value, expr: JSON.stringify(value) };
+    return { fixed: value, expr: toCodeLiteral(value) };
   }
   // Un identifiant bien formé — jamais `nom-1`. Deux raisons distinctes le
   // réclament, et la seconde ne se voit QUE sur un moteur qui distingue les
@@ -5566,7 +5567,7 @@ function runEntityScaffold(
   const filterDef = (f: (typeof fields)[number]): string | null => {
     if (f.type === "bool") return '"boolean"';
     if (f.type === "enum" && f.values?.length)
-      return JSON.stringify(f.values).replace(/","/g, '", "');
+      return toCodeLiteral(f.values).replace(/","/g, '", "');
     // La nature d'une clé étrangère suit la clé VISÉE : un nombre, un ObjectId
     // sous MongoDB, un UUID sinon. Une `"string"` laissait passer une forme
     // fausse jusqu'à la base — 200 vide ici, 500 là (#466).
@@ -5768,7 +5769,7 @@ function runEntityScaffold(
     serviceClass: `${pascal}Service`,
     serviceKey: `${camel}Service`,
     moduleName: target.kind === "app" ? "app" : target.name,
-    curlBody: JSON.stringify(sample),
+    curlBody: toCodeLiteral(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
     sampleCounter: sampleReadsCounter ? "n" : "_n",
     // La fabrique déclare `refs` dès qu'elle le LIT — toute référence, y compris

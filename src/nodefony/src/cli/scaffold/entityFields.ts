@@ -653,7 +653,7 @@ export function parseEntityIndexes(
 
 /** Liste de valeurs d'énumération, écrite comme option Drizzle (`{ enum: [...] }`). */
 const enumOption = (values: readonly string[] = []): string =>
-  `enum: [${values.map((value) => JSON.stringify(value)).join(", ")}] as const`;
+  `enum: [${values.map((value) => toCodeLiteral(value)).join(", ")}] as const`;
 
 /** Taille déclarée d'une colonne, telle que l'analyse l'a lue. */
 interface IColumnSize {
@@ -1001,7 +1001,7 @@ function defaultLiteral(field: IEntityField): string {
 /** Type TS d'un champ — union littérale pour une énumération. */
 function tsTypeOf(field: IEntityField): string {
   if (field.type === "enum" && field.values) {
-    return field.values.map((value) => JSON.stringify(value)).join(" | ");
+    return field.values.map((value) => toCodeLiteral(value)).join(" | ");
   }
   return TS_TYPE[field.type];
 }
@@ -1028,7 +1028,7 @@ function rowTypeOf(tsType: string, nullable: boolean | undefined): string {
  */
 function zodTypeOf(field: IEntityField): string {
   if (field.type === "enum" && field.values) {
-    return `z.enum([${field.values.map((value) => JSON.stringify(value)).join(", ")}])`;
+    return `z.enum([${field.values.map((value) => toCodeLiteral(value)).join(", ")}])`;
   }
   if (field.type === "string") {
     return `z.string().min(1).max(${field.length ?? 255})`;
@@ -1049,7 +1049,7 @@ function zodTypeOf(field: IEntityField): string {
       field.precision === undefined
         ? "d\u00e9cimal attendu"
         : `d\u00e9cimal attendu (${field.precision} chiffres dont ${field.scale ?? 0} apr\u00e8s la virgule)`;
-    return `z.string().regex(/^-?\\d+(\\.\\d+)?$/, ${JSON.stringify(hint)})`;
+    return `z.string().regex(/^-?\\d+(\\.\\d+)?$/, ${toCodeLiteral(hint)})`;
   }
   return ZOD_TYPE[field.type];
 }
@@ -1534,7 +1534,7 @@ export function buildPortableEntityCodegen(
   const sql = (property: string): string => sqlColumn(property, columnCase);
   /** `, column: "x"` quand le nom en base diffère de la propriété. */
   const stored = (property: string, column: string): string =>
-    column === property ? "" : `, column: ${JSON.stringify(column)}`;
+    column === property ? "" : `, column: ${toCodeLiteral(column)}`;
   const columns: string[] = [];
   const rowProps: string[] = [];
   const zodProps: string[] = [];
@@ -1602,7 +1602,7 @@ export function buildPortableEntityCodegen(
         }
         parts.push(
           `kind: "enum"`,
-          `values: [${values.map((value) => JSON.stringify(value)).join(", ")}]`,
+          `values: [${values.map((value) => toCodeLiteral(value)).join(", ")}]`,
         );
         break;
       }
@@ -1642,7 +1642,7 @@ export function buildPortableEntityCodegen(
           : `default: ${defaultLiteral(field)}`,
       );
     }
-    if (column !== field.name) parts.push(`column: ${JSON.stringify(column)}`);
+    if (column !== field.name) parts.push(`column: ${toCodeLiteral(column)}`);
     columns.push(
       `${field.name}: { ${parts.join(", ")} },${field.type === "ref" ? ` // → ${field.target}.id` : ""}`,
     );
@@ -1684,9 +1684,9 @@ export function buildPortableEntityCodegen(
     const name = `${table}_${entry.columns.map(sql).join("_")}_${entry.unique ? "key" : "idx"}`;
     if (seen.has(name)) continue;
     seen.add(name);
-    const on = entry.columns.map((c) => JSON.stringify(c)).join(", ");
+    const on = entry.columns.map((c) => toCodeLiteral(c)).join(", ");
     indexLines.push(
-      `    { name: ${JSON.stringify(name)}, on: [${on}]${entry.unique ? ", unique: true" : ""} },`,
+      `    { name: ${toCodeLiteral(name)}, on: [${on}]${entry.unique ? ", unique: true" : ""} },`,
     );
   }
 
@@ -1798,11 +1798,11 @@ export function buildMongooseEntityCodegen(
   for (const field of fields) {
     const parts = [`type: ${MONGOOSE_TYPE[field.type]}`];
     if (field.type === "ref" && field.target) {
-      parts.push(`ref: ${JSON.stringify(field.target)}`);
+      parts.push(`ref: ${toCodeLiteral(field.target)}`);
     }
     if (field.type === "enum" && field.values) {
       parts.push(
-        `enum: ${JSON.stringify(field.values).replace(/","/g, '", "')}`,
+        `enum: ${toCodeLiteral(field.values).replace(/","/g, '", "')}`,
       );
     }
     if (field.type === "string") {

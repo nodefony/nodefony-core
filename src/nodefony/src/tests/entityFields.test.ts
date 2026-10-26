@@ -1166,6 +1166,12 @@ describe("scaffold — description PORTABLE (kit de colonnes)", () => {
   const code = (fields: string, more: Partial<TOptions> = {}) =>
     buildPortableEntityCodegen(parseEntityFields(fields), { ...base, ...more });
 
+  it("une valeur saisie devient un littéral SÛR — `<` et `>` échappés", () => {
+    const { columns } = code("status:enum(a<b,c)", { idName: "pk<x>" });
+    assert.ok(columns.includes('column: "pk\\u003Cx\\u003E"'), columns);
+    assert.ok(columns.includes('values: ["a\\u003Cb", "c"]'), columns);
+  });
+
   it("chaque type tapé devient un GENRE du kit, sans aucun moteur", () => {
     const { columns } = code(
       "title:string(120) code:char(2) body:text? views:int=0 ratio:float live:bool " +
