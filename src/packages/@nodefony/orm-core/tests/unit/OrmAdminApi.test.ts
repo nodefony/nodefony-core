@@ -131,6 +131,55 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     assert.equal(author.module, "blog"); // module propriétaire propagé
   });
 
+  it("graphe : une clé étrangère SANS relation déclarée devient une arête « plusieurs vers un »", () => {
+    // `authorId` est couverte par la relation déclarée (clé conventionnelle) ;
+    // `reviewer_ref`, qu'aucune déclaration ne nomme, vise une colonne non `id`.
+    const saved = cols.Article;
+    cols.Article = [
+      ...(saved ?? []).map((c): IColumnInfo => {
+        if (c.name !== "authorId") return c;
+        const withRef: IColumnInfo = Object.assign({}, c);
+        withRef.references = { entity: "Author", column: "id" };
+        return withRef;
+      }),
+      {
+        name: "reviewer_ref",
+        type: "integer",
+        primaryKey: false,
+        nullable: true,
+        unique: false,
+        references: { entity: "Author", column: "rowid" },
+      },
+    ];
+    try {
+      const g = buildOrmGraph(ORM);
+      const node = g.entities.find((e) => e.name === "Article");
+      assert.deepEqual(node?.relations, [
+        {
+          type: "many-to-one",
+          target: "Author",
+          field: "author",
+          foreignKey: undefined,
+        },
+        {
+          type: "many-to-one",
+          target: "Author",
+          field: "reviewer_ref",
+          foreignKey: "reviewer_ref",
+          targetKey: "rowid",
+        },
+      ]);
+      const dbml = toDbml(g);
+      assert.match(dbml, /Ref: Article\.reviewer_ref > Author\.rowid/u);
+      assert.equal(
+        dbml.match(/Ref: Article\.authorId > Author\.id/gu)?.length,
+        1,
+      );
+    } finally {
+      cols.Article = saved ?? [];
+    }
+  });
+
   it('graphe : module propagé par entité (regroupement ERD) ; défaut ""', () => {
     // Une entité sans module → groupe « — » (chaîne vide), jamais undefined.
     entityRegistry.register({ name: "Orphan", connector: ORM, schema: {} });

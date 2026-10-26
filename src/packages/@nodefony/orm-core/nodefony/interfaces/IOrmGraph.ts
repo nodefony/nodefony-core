@@ -28,6 +28,21 @@ export interface IColumnInfo {
   nullable: boolean;
   /** `true` si contrainte d'unicité. */
   unique: boolean;
+  /**
+   * Cible de la clé étrangère que la BASE porte sur cette colonne — absente si
+   * la colonne n'en porte pas, ou si l'adapter ne sait pas la lire. Le graphe
+   * en dérive une relation « plusieurs vers un » quand aucune relation déclarée
+   * ne couvre déjà la colonne.
+   */
+  references?: IColumnReference | undefined;
+}
+
+/** Cible d'une clé étrangère : l'entité visée et la colonne qu'elle y désigne. */
+export interface IColumnReference {
+  /** Nom logique de l'entité visée (nom de table si aucune entité ne la porte). */
+  entity: string;
+  /** Colonne visée (en général la clé primaire). */
+  column: string;
 }
 
 /** Relation projetée pour le graphe (sous-ensemble sérialisable de `IEntityRelation`). */
@@ -40,6 +55,8 @@ export interface IRelationInfo {
   field: string;
   /** Clé étrangère (explicite ou dérivée déterministe). */
   foreignKey?: string | undefined;
+  /** Colonne visée sur la cible — `id` par convention quand elle est absente. */
+  targetKey?: string | undefined;
 }
 
 /** Nœud du graphe : une entité avec ses colonnes et ses relations. */
@@ -59,7 +76,10 @@ export interface IEntityGraphNode {
   domain: string;
   /** Colonnes normalisées (vide si l'adapter n'implémente pas `describeEntity`). */
   columns: IColumnInfo[];
-  /** Relations déclarées. */
+  /**
+   * Relations : celles que l'entité DÉCLARE, puis celles que ses clés
+   * étrangères imposent et qu'aucune déclaration ne couvre.
+   */
   relations: IRelationInfo[];
 }
 

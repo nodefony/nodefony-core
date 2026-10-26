@@ -14,6 +14,7 @@ export type { ITransaction } from "./ITransaction";
 export type { IPage, IPageQuery, PageQuery } from "./IPage";
 export type {
   IColumnInfo,
+  IColumnReference,
   IConnectionInfo,
   IRelationInfo,
   IEntityGraphNode,

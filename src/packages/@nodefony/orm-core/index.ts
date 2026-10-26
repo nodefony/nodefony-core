@@ -126,6 +126,7 @@ export type {
 } from "./nodefony/interfaces/IOrmFlow";
 export type {
   IColumnInfo,
+  IColumnReference,
   IConnectionInfo,
   IRelationInfo,
   IEntityGraphNode,

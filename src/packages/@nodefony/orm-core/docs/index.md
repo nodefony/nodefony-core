@@ -478,7 +478,11 @@ atomique sur les quatre backends.
 d'un moteur), un `schema` natif du driver, et des `relations` déclaratives (`IEntityRelation`,
 `IEntity.ts#IEntityRelation`). Deux champs facultatifs servent la lisibilité d'un gros modèle : `module` (qui
 apporte l'entité) et `domain` (`IEntity.ts#IEntity.domain`, la classification métier — l'axe qui rend navigable
-une base de plusieurs centaines de tables). Un troisième, `indexes` (`IEntityIndex`), déclare les
+une base de plusieurs centaines de tables ; `create entity --domain` le pose). Le graphe d'entités ne
+se limite pas aux `relations` déclarées : une colonne qui porte une clé étrangère en base en rend la
+cible (`IOrmGraph.ts#IColumnReference`, lue par `describeEntity`), et le graphe en tire une
+relation « plusieurs vers un » quand aucune déclaration ne couvre déjà la colonne
+(`OrmAdminApi.ts#conventionalForeignKey` dit quelle colonne une déclaration couvre). Un troisième, `indexes` (`IEntityIndex`), déclare les
 index COMPOSITES qu'un adaptateur ne sait pas exprimer dans son schéma : Mongoose les applique
 (`schema.index()`), Drizzle les ignore, puisqu'il les déclare dans sa table.
 

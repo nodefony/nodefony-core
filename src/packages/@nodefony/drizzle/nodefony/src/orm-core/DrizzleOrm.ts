@@ -8,7 +8,12 @@ import { createRequire } from "node:module";
 // qui ne l'ouvrira jamais.
 import type BetterSqlite3 from "better-sqlite3";
 import type { Container } from "nodefony";
-import { getTableColumns, type SQL } from "drizzle-orm";
+import {
+  getTableColumns,
+  getTableName,
+  type SQL,
+  type Table,
+} from "drizzle-orm";
 import {
   getTableConfig,
   SQLiteSyncDialect,
@@ -58,6 +63,7 @@ import {
 } from "../migrator/schemaDiff";
 import type {
   IColumnInfo,
+  IColumnReference,
   IConnectionInfo,
   IEntity,
   IEntityRelation,
@@ -202,6 +208,18 @@ export interface DrizzleOrmOptions {
  * (dev/test) — satisfait par `SQLiteColumn` ET `PgColumn` → générateur de
  * `CREATE TABLE` partagé entre dialectes ({@link DrizzleOrm.buildCreateTable}).
  */
+/**
+ * Ce que le graphe lit d'une clé étrangère Drizzle, commun aux trois dialectes
+ * (`SQLiteForeignKey`, `PgForeignKey`, `MySqlForeignKey`).
+ */
+interface IForeignKeyShape {
+  reference(): {
+    columns: readonly { name: string }[];
+    foreignColumns: readonly { name: string }[];
+    foreignTable: Table;
+  };
+}
+
 interface DDLColumn {
   name: string;
   primary: boolean;
@@ -404,6 +422,11 @@ export class DrizzleOrm extends Orm {
    * connecteur), consommée telle quelle par le `DrizzleRepository` porté.
    */
   #tables: Record<string, DrizzleTable> | null = null;
+  /**
+   * Index inverse table → nom d'entité, bâti au premier `describeEntity` qui
+   * suit une clé étrangère ; remis à `null` partout où `#tables` change.
+   */
+  #entityNames: Map<object, string> | null = null;
   /** Relations résolues : entité → champ → relation eager-load (lazy). */
   #relations: Record<string, Record<string, DrizzleResolvedRelation>> | null =
     null;
@@ -893,6 +916,7 @@ export class DrizzleOrm extends Orm {
     await this.#releasePrevious();
     const tables = Object.create(null) as Record<string, DrizzleTable>;
     this.#tables = tables;
+    this.#entityNames = null;
     this.#relations = Object.create(null) as Record<
       string,
       Record<string, DrizzleResolvedRelation>
@@ -1781,6 +1805,7 @@ export class DrizzleOrm extends Orm {
     this.#beginTx = null; // la closure capture le pool fermé → `not connected`
     this.#sqliteTxGate = null;
     this.#tables = null;
+    this.#entityNames = null;
     this.#relations = null;
     this.#repositories = null;
   }
@@ -2071,6 +2096,11 @@ export class DrizzleOrm extends Orm {
    * Colonnes normalisées d'une entité, dérivées du DDL Drizzle
    * (`getTableConfig`) — alimente le graphe canonique / ERD / contexte IA.
    *
+   * Une colonne qui porte une clé étrangère d'UNE colonne en rend la cible
+   * (`references`) : c'est la contrainte que la base reçoit, donc la vérité,
+   * que l'entité répète ou non le lien dans `relations`. Une clé composite
+   * n'est pas un lien de colonne et n'en rend aucune.
+   *
    * @param name - nom logique de l'entité.
    * @returns colonnes (`[]` si l'entité n'est pas connue de cet ORM).
    */
@@ -2079,19 +2109,53 @@ export class DrizzleOrm extends Orm {
     if (!table) {
       return [];
     }
-    const columns: DDLColumn[] =
+    const config: { columns: DDLColumn[]; foreignKeys: IForeignKeyShape[] } =
       this.#dialect === "postgres"
-        ? getPgTableConfig(table as PgTable).columns
+        ? getPgTableConfig(table as PgTable)
         : this.#dialect === "mysql"
-          ? getMysqlTableConfig(table as MySqlTable).columns
-          : getTableConfig(table as SQLiteTable).columns;
-    return columns.map((col) => ({
-      name: col.name,
-      type: col.getSQLType(),
-      primaryKey: col.primary,
-      nullable: !col.notNull,
-      unique: col.isUnique ?? false,
-    }));
+          ? getMysqlTableConfig(table as MySqlTable)
+          : getTableConfig(table as SQLiteTable);
+    let references: Map<string, IColumnReference> | null = null;
+    for (const fk of config.foreignKeys) {
+      const { columns, foreignColumns, foreignTable } = fk.reference();
+      const [from] = columns;
+      const [to] = foreignColumns;
+      if (columns.length !== 1 || from === undefined || to === undefined) {
+        continue;
+      }
+      references ??= new Map();
+      references.set(from.name, {
+        entity: this.#entityNameOf(foreignTable),
+        column: to.name,
+      });
+    }
+    return config.columns.map((col) => {
+      const info: IColumnInfo = {
+        name: col.name,
+        type: col.getSQLType(),
+        primaryKey: col.primary,
+        nullable: !col.notNull,
+        unique: col.isUnique ?? false,
+      };
+      const target = references?.get(col.name);
+      if (target) info.references = target;
+      return info;
+    });
+  }
+
+  /**
+   * Nom d'entité d'une table de cet ORM — retrouvée par IDENTITÉ, pas par nom :
+   * deux entités peuvent nommer leur table pareil sur deux connecteurs. Une
+   * table qu'aucune entité ne porte garde son nom de table.
+   */
+  #entityNameOf(table: Table): string {
+    if (this.#entityNames === null) {
+      this.#entityNames = new Map();
+      for (const [entity, t] of Object.entries(this.#tables ?? {})) {
+        this.#entityNames.set(t, entity);
+      }
+    }
+    return this.#entityNames.get(table) ?? getTableName(table);
   }
 
   /**

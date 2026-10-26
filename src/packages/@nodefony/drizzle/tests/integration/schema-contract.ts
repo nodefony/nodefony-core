@@ -305,6 +305,26 @@ function runSchemaSuite(
     assert.deepEqual(failures, [], `${failures.length} table(s) en écart`);
   });
 
+  it("chaque référence du schéma ressort de describeEntity avec sa cible (graphe d'entités)", async () => {
+    const failures = await eachTable(async (spec) => {
+      const described = new Map(
+        orm.describeEntity(spec.name).map((c) => [c.name, c]),
+      );
+      for (const [key, c] of Object.entries(spec.columns)) {
+        if (c.kind !== "ref") continue;
+        const target =
+          c.target === "self" ? spec : order.find((s) => s.name === c.target);
+        assert.ok(target, `${key} : cible ${c.target} dans le corpus`);
+        assert.deepEqual(
+          described.get(key)?.references,
+          { entity: target.name, column: primaryKeyOf(target) },
+          key,
+        );
+      }
+    });
+    assert.deepEqual(failures, [], `${failures.length} table(s) en écart`);
+  });
+
   specific?.({
     dialect,
     orm: () => orm,

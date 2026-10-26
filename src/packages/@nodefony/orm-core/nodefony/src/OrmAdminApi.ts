@@ -10,11 +10,14 @@ import type {
 import { Nodefony } from "nodefony";
 import { performance } from "node:perf_hooks";
 import type {
+  IColumnInfo,
   IConnectionHealth,
   IEntityGraphNode,
   IOrmGraph,
   IOrmSummary,
+  IRelationInfo,
 } from "../interfaces/IOrmGraph";
+import type { IEntityRelation } from "../interfaces/IEntity";
 import type { IOrmFlowReport } from "../interfaces/IOrmFlow";
 import type {
   IOrmMigrationApplyReply,
@@ -197,8 +200,60 @@ function buildOrmSummaries(): IOrmSummary[] {
 }
 
 /**
- * Construit un nœud de graphe pour une entité : relations (toujours) + colonnes
- * (via `orm.describeEntity` si l'adapter l'implémente et si l'ORM est connecté).
+ * Clé étrangère d'une relation qui n'en nomme aucune : `<entité>Id`, l'entité
+ * en minuscule initiale — la convention des adapters.
+ *
+ * @param entity - nom logique de l'entité qui donne son nom à la clé.
+ * @returns le nom de colonne conventionnel.
+ */
+export function conventionalForeignKey(entity: string): string {
+  return `${entity.charAt(0).toLowerCase()}${entity.slice(1)}Id`;
+}
+
+/**
+ * Relations d'un nœud : celles que l'entité DÉCLARE, puis une « plusieurs vers
+ * un » par clé étrangère que la base porte et qu'aucune déclaration ne couvre.
+ *
+ * Sans la seconde moitié, une entité qui référence par ses colonnes (`ref` du
+ * kit, table écrite à la main) sans répéter le lien dans `relations` n'avait
+ * AUCUNE arête dans le graphe, alors que la contrainte existe en base.
+ * Une déclaration couvre une colonne quand sa clé — explicite, ou
+ * conventionnelle — est cette colonne.
+ */
+function nodeRelations(
+  declared: readonly IEntityRelation[],
+  columns: readonly IColumnInfo[],
+): IRelationInfo[] {
+  const relations: IRelationInfo[] = declared.map((r) => ({
+    type: r.type,
+    target: r.target,
+    field: r.field,
+    foreignKey: r.foreignKey,
+  }));
+  let covered: Set<string> | null = null;
+  for (const col of columns) {
+    if (col.references === undefined) continue;
+    covered ??= new Set(
+      declared
+        .filter((r) => r.type === "many-to-one" || r.type === "one-to-one")
+        .map((r) => r.foreignKey ?? conventionalForeignKey(r.target)),
+    );
+    if (covered.has(col.name)) continue;
+    relations.push({
+      type: "many-to-one",
+      target: col.references.entity,
+      field: col.name,
+      foreignKey: col.name,
+      targetKey: col.references.column,
+    });
+  }
+  return relations;
+}
+
+/**
+ * Construit un nœud de graphe pour une entité : colonnes (via
+ * `orm.describeEntity` si l'adapter l'implémente et si l'ORM est connecté) et
+ * relations, déclarées puis imposées par les clés étrangères.
  */
 function buildEntityNode(connector: string, name: string): IEntityGraphNode {
   const entity = entityRegistry.get(name, connector);
@@ -215,12 +270,7 @@ function buildEntityNode(connector: string, name: string): IEntityGraphNode {
     module: entity.module ?? "",
     domain: entity.domain ?? "",
     columns,
-    relations: (entity.relations ?? []).map((r) => ({
-      type: r.type,
-      target: r.target,
-      field: r.field,
-      foreignKey: r.foreignKey,
-    })),
+    relations: nodeRelations(entity.relations ?? [], columns),
   };
 }
 
@@ -424,17 +474,16 @@ export function toDbml(graph: IOrmGraph): string {
       }
       // 1-N : FK sur la cible (nommée d'après la source) → target.fk > source.id
       // N-1 / 1-1 : FK sur la source (nommée d'après la cible) → source.fk > target.id
-      const camel = (n: string) =>
-        `${n.charAt(0).toLowerCase()}${n.slice(1)}Id`;
+      const key = dbmlId(rel.targetKey ?? "id");
       if (rel.type === "one-to-many") {
-        const fk = rel.foreignKey ?? camel(node.name);
+        const fk = rel.foreignKey ?? conventionalForeignKey(node.name);
         refs.add(
-          `Ref: ${dbmlId(rel.target)}.${dbmlId(fk)} > ${dbmlId(node.name)}.id`,
+          `Ref: ${dbmlId(rel.target)}.${dbmlId(fk)} > ${dbmlId(node.name)}.${key}`,
         );
       } else {
-        const fk = rel.foreignKey ?? camel(rel.target);
+        const fk = rel.foreignKey ?? conventionalForeignKey(rel.target);
         refs.add(
-          `Ref: ${dbmlId(node.name)}.${dbmlId(fk)} > ${dbmlId(rel.target)}.id`,
+          `Ref: ${dbmlId(node.name)}.${dbmlId(fk)} > ${dbmlId(rel.target)}.${key}`,
         );
       }
     }
