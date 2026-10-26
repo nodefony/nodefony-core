@@ -512,9 +512,10 @@ export function readRuntimeState(
     // Pas d'`existsSync` avant la lecture : le fichier peut disparaître entre
     // les deux (TOCTOU), et `readFileSync` lève ENOENT — que le `catch` rend
     // déjà en `null`.
-    const raw = JSON.parse(readFileSync(file, "utf8")) as Partial<RuntimeState>;
-    const pid = typeof raw.pid === "number" ? raw.pid : 0;
-    const ports = sanitizePorts(raw.ports);
+    const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (typeof raw !== "object" || raw === null) return null;
+    const pid = "pid" in raw && typeof raw.pid === "number" ? raw.pid : 0;
+    const ports = sanitizePorts("ports" in raw ? raw.ports : undefined);
     if (ports.length === 0) return null;
     if (pid > 0 && !isPidAlive(pid)) {
       // reliquat d'un run mort — ne jamais s'y fier
@@ -528,11 +529,15 @@ export function readRuntimeState(
       // fichier, donc la même confiance. Les valider d'un côté seulement était
       // un écart silencieux — une seule des deux listes servait de source à une
       // sonde réseau.
-      desiredPorts: Array.isArray(raw.desiredPorts)
-        ? sanitizePorts(raw.desiredPorts)
-        : undefined,
-      urls: Array.isArray(raw.urls) ? sanitizeUrls(raw.urls, ports) : undefined,
-      ts: typeof raw.ts === "number" ? raw.ts : 0,
+      desiredPorts:
+        "desiredPorts" in raw && Array.isArray(raw.desiredPorts)
+          ? sanitizePorts(raw.desiredPorts)
+          : undefined,
+      urls:
+        "urls" in raw && Array.isArray(raw.urls)
+          ? sanitizeUrls(raw.urls, ports)
+          : undefined,
+      ts: "ts" in raw && typeof raw.ts === "number" ? raw.ts : 0,
     };
   } catch {
     return null;
