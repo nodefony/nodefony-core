@@ -93,7 +93,10 @@ describe("boundedUniqueName — l'unicité d'une colonne, nommée par le kit qua
 
   it("borne à 63 un nom qui déborderait", () => {
     const name = boundedUniqueName(LONG_TABLE, "registration_ref");
-    assert.ok(name !== undefined && name.length <= MAX_IDENTIFIER_LENGTH, name);
+    assert.ok(
+      name !== undefined && name.length <= MAX_IDENTIFIER_LENGTH,
+      String(name),
+    );
   });
 
   const table = defineTable({
@@ -115,7 +118,7 @@ describe("boundedUniqueName — l'unicité d'une colonne, nommée par le kit qua
       // `<table>_code_unique` = 72 caractères : borné aussi.
       assert.ok(
         (cols.code?.uniqueName ?? "").length <= MAX_IDENTIFIER_LENGTH,
-        cols.code?.uniqueName,
+        String(cols.code?.uniqueName),
       );
     });
   }
