@@ -45,3 +45,62 @@ référence n'emprunte pas une ligne au banc. S'il n'y a pas de base, le contrô
 n'est pas silencieusement sauté : il est **annoncé non exécuté** et la sortie
 vaut **2**, parce qu'un vert incomplet lu comme un vert complet est le piège
 maison n°1.
+
+## Banc de schéma RÉEL — ce que 421 tables écrites par d'autres ont trouvé
+
+> Détail du `SKILL.md` § « Banc de schéma réel ». Chaque cas ci-dessous était INVISIBLE au corpus
+> synthétique et aux bancs écrits pour le kit : seul un schéma qu'on n'a pas dessiné les montre.
+
+### Un nom d'index peut porter le nom de sa propre table
+
+MySQL range les noms d'index **par table** ; SQLite et PostgreSQL les rangent avec les **tables**.
+Le corpus déclare `ADD INDEX <table> (fk_object)` sur la table du même nom : légal à l'origine,
+refusé ailleurs (`there is already a table named …`) sur une base NEUVE. Le convertisseur gérait
+les collisions entre index, pas avec les tables : son espace de noms part désormais des noms de
+tables, **sans casse** (SQLite n'en fait pas). Règle : toute collision de nom se juge dans
+l'espace de noms du moteur le PLUS strict, jamais dans celui de la source.
+
+### Un nom que le kit FABRIQUE dépasse 63 caractères
+
+`<table>_<colonne>_<cible>_<clé>_fk` sur une table au nom long : MySQL et MariaDB refusent au-delà
+de 64, PostgreSQL TRONQUE en silence à 63 (deux contraintes peuvent alors porter le même nom). 58
+clés étrangères et 54 CHECK du corpus étaient concernées. Tout nom généré passe par
+`boundedIdentifier` (`drizzle/nodefony/entity/colKit.shared.ts`) — inchangé jusqu'à 63, ce qui
+laisse intactes les migrations déjà écrites.
+
+### Un montant `decimal` se trie en ALPHABET sous SQLite
+
+Le kit range un `decimal` en TEXT (exact, chiffre pour chiffre) ; comparé tel quel, `"9.5"` passe
+après `"100"`. Le dépôt lit les comparaisons d'ordre par `CAST … AS REAL` sur les colonnes que
+`isTextDecimal` reconnaît — exact jusqu'à 15 chiffres significatifs. Le SQL natif (SUM flottant,
+tri alphabétique) est une divergence DÉCLARÉE (`drizzle/docs/index.md` § « Le décimal en SQLite »)
+que le banc affirme au lieu de la sauter. Les requêtes métier lourdes (jointure de 6 tables, SUM
+groupé, RANK, `$gt`/`$lte` par les chemins direct ET préparé) vivent dans
+`drizzle/tests/integration/erp-lite-contract.ts`. Piège payé : un premier jeu de données où
+l'ordre texte et l'ordre numérique COÏNCIDAIENT rendait le test vert sans correctif — choisir des
+montants de longueurs différentes, un négatif, et une borne qui sépare les deux ordres.
+
+### `orm:generate` lit les exports UN PAR UN
+
+Une application qui range ses tables dans un tableau (`export const ENTITIES = [...]`) obtient un
+refus : la génération examine chaque export (`drizzle/nodefony/src/migrator/appSchema.ts`) et ne
+voit pas une table dans un tableau. Le banc exporte donc chaque table à plat, comme `create entity`
+— et c'est aussi ce qu'un utilisateur doit faire.
+
+### Le graphe de la console ne voyait que les liens DÉCLARÉS
+
+421 tables, 241 clés étrangères en base, et l'ERD affichait « 0 relation » : les arêtes ne venaient
+que de `relations` dans `defineEntity`. `describeEntity` rend désormais la cible de chaque clé
+étrangère d'une colonne (`IColumnInfo.references`) et le graphe en dérive les arêtes manquantes.
+Le cas « chaque référence ressort de `describeEntity` » du contrat de schéma le tient sur les quatre
+moteurs et sur le corpus réel. Le **domaine** (axe de regroupement) n'est pas dans le DDL : c'est
+une donnée du catalogue (`CORPORA.<corpus>.domains`), portée par l'ENTITÉ, jamais par la table.
+
+### Mesurer l'écran : l'instrument d'abord
+
+Deux faux verdicts évités en suspectant la sonde : `nodefony inspect graph` rend **zéro colonne**
+en mode console (l'ORM n'y est pas connecté) — la vraie mesure se fait sur le serveur démarré ; et
+une capture prise PENDANT l'animation de recadrage montre un canevas vide. Le décor gardé
+(`--keep`) se démarre (`nodefony development --detach --wait`, ports 5395/5396) et se mesure par le
+skill `nodefony-browser` ; l'interface de la console qu'il sert est celle de SON archive : une
+modification de Studio se rebâtit (`npm run build:ui`) puis se pose dans le décor avant d'être vue.

@@ -700,26 +700,34 @@ export const Database = observer(() => {
     }
   }, [selected, loadGraph]);
 
+  // Une mise en page de plus = un cadrage à refaire. Un compteur plutôt que
+  // `nodes` : déplacer un nœud à la main change `nodes`, et ne doit pas recadrer.
+  const [layoutRun, setLayoutRun] = useState(0);
+
   // (Re)calcule nœuds + arêtes dès que le périmètre visible change.
   useEffect(() => {
     setEntityCount(visible.length);
     const laid = layoutGraph(visible, focus ?? undefined);
     setNodes(laid.nodes);
     setEdges(laid.edges);
+    setLayoutRun((n) => n + 1);
   }, [visible, focus, setNodes, setEdges]);
 
-  // En mode focus, cadrer (zoom) le sous-graphe une fois les nœuds committés.
+  // Cadrer le périmètre une fois les nœuds committés — à CHAQUE changement
+  // (focus, filtre de domaine, « afficher tout »). La prop `fitView` de React
+  // Flow ne joue qu'au montage : filtrer laissait le cadrage du graphe
+  // précédent, et un domaine de 30 tables s'affichait sur un canevas vide.
   useEffect(() => {
-    if (!focus || nodes.length === 0) return;
+    if (layoutRun === 0 || visible.length === 0) return;
     const id = requestAnimationFrame(() => {
-      void rfRef.current?.fitView({
-        padding: 0.25,
-        duration: 400,
-        maxZoom: 1.3,
-      });
+      void rfRef.current?.fitView(
+        focus
+          ? { padding: 0.25, duration: 400, maxZoom: 1.3 }
+          : { padding: 0.1, maxZoom: 1 },
+      );
     });
     return () => cancelAnimationFrame(id);
-  }, [focus, nodes]);
+  }, [layoutRun, visible.length, focus]);
 
   // Export du modèle (formats pivot IA) → presse-papier. Un même endpoint
   // `/export/{format}` sert DBML (diagramme) et JSON Schema (validation/IA).

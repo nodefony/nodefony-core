@@ -471,3 +471,12 @@ couleur de base (`color="teal"`) ; la lisibilité du texte coloré et des varian
 est réglée pour toutes les couleurs par `readableLightColors` (`theme.ts`), qui choisit la
 première teinte de la même famille passant 4,5:1. Un `<Code>` en ligne se coupe (thème) au lieu
 de défiler ; une `Progress` porte un `aria-label` ; un titre de page est un `<h1>`.
+
+### React Flow : la prop `fitView` ne joue qu'au MONTAGE
+
+Changer le périmètre d'un graphe (filtre, « tout afficher ») change les nœuds, pas le cadrage : un
+domaine de 30 tables s'affichait sur un canevas vide, ses nœuds hors champ. Recadrer par
+`rfRef.current.fitView()` dans un effet déclenché par un COMPTEUR de mises en page (`layoutRun`),
+jamais par `nodes` — déplacer un nœud à la main change `nodes` et recadrerait l'écran. Une capture
+prise pendant une animation de recadrage montre, elle aussi, un canevas vide : mesurer sans durée
+ou après elle (`routes/Database.tsx`).

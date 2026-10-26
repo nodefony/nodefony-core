@@ -5112,6 +5112,7 @@
         ]
       },
       "related": [
+        "nodefony-browser",
         "nodefony-framework-dev",
         "nodefony-load-test",
         "nodefony-release",

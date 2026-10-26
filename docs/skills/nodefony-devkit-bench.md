@@ -48,7 +48,7 @@ Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serv
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`framework-dev`](nodefony-framework-dev.md) · [`load-test`](nodefony-load-test.md) · [`release`](nodefony-release.md) · [`skill`](nodefony-skill.md)
+[`browser`](nodefony-browser.md) · [`framework-dev`](nodefony-framework-dev.md) · [`load-test`](nodefony-load-test.md) · [`release`](nodefony-release.md) · [`skill`](nodefony-skill.md)
 
 ## Ce que contient le corps
 
@@ -75,7 +75,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/banc-decouvrabilite-lecons.md` | Banc de découvrabilité — leçons et études de cas | 662 |
 | `references/banc-decouvrabilite.md` | Banc de découvrabilité — l'agent trouve-t-il ? | 253 |
 | `references/banc-premiere-impression.md` | Banc de première impression — ce qu'un agent conclut du dépôt sans y entrer | 100 |
-| `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 48 |
+| `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 107 |
 | `references/banc-verite.md` | Banc de vérité — le code généré tient-il debout ? | 230 |
 | `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
 | `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 226 |
