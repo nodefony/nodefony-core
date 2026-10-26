@@ -205,6 +205,86 @@ function erpLiteCases(ctx: ISchemaSuiteContext): void {
       );
     });
 
+    // Le delta d'un `increment` est un `number` : il est d'abord ramené à
+    // l'échelle de la colonne (arrondi au plus proche, moitié loin de zéro),
+    // puis ajouté EXACTEMENT — même règle, donc même résultat, sur les trois
+    // moteurs. Ni flottant (SQLite, MySQL qui lie un DOUBLE), ni texte rendu
+    // hors de sa forme canonique (`"12.6"` pour `decimal(_, 2)`).
+    //
+    // Les factures de ces cas se retirent après chacun : les requêtes natives
+    // qui suivent lisent toutes les factures du premier tiers.
+    const scratch = ["q-inc", "q-max"];
+    afterEach(async () => {
+      await repo("erp_invoice").delete({ ref: { $in: scratch } });
+    });
+
+    it("increment d'un montant : exact à l'échelle, sur les 24 chiffres", async () => {
+      const invoice = await repo("erp_invoice").create({
+        ref: "q-inc",
+        fk_soc: thirdparties[0],
+        total_ht: "9.5",
+      });
+      const step = async (delta: number): Promise<unknown> =>
+        (
+          await repo("erp_invoice").increment(
+            { rowid: invoice.rowid },
+            { total_ht: delta },
+          )
+        )?.total_ht;
+      assert.equal(await step(0.1), "9.60000000");
+      assert.equal(await step(0.1 + 0.2), "9.90000000");
+      assert.equal(await step(-10), "-0.10000000");
+      assert.equal(await step(0.1), "0.00000000", "zéro sans signe");
+      await repo("erp_invoice").updateOne(
+        { rowid: invoice.rowid },
+        { total_ht: "1234567890123456.12345678" },
+      );
+      assert.equal(await step(0.00000001), "1234567890123456.12345679");
+      assert.equal(await step(-1234567890123457), "-0.87654321");
+      // 5e-9 ramené à l'échelle 8 vaut 1e-8 : le delta s'arrondit AVANT la somme.
+      assert.equal(await step(0.000000005), "-0.87654320");
+      // Une somme qui dépasse la précision est REFUSÉE, et la ligne reste intacte.
+      await repo("erp_invoice").updateOne(
+        { rowid: invoice.rowid },
+        { total_ht: "9999999999999999.99999999" },
+      );
+      await assert.rejects(step(0.00000001));
+      const kept = await repo("erp_invoice").findOne({ rowid: invoice.rowid });
+      assert.equal(kept?.total_ht, "9999999999999999.99999999");
+      // NULL + delta reste NULL, comme en SQL serveur.
+      await repo("erp_invoice").updateOne(
+        { rowid: invoice.rowid },
+        { total_tva: null },
+      );
+      const untouched = await repo("erp_invoice").increment(
+        { rowid: invoice.rowid },
+        { total_tva: 1 },
+      );
+      assert.equal(untouched?.total_tva, null);
+    });
+
+    it("$max / $min d'un montant comparent des nombres, pas des chaînes", async () => {
+      const invoice = await repo("erp_invoice").create({
+        ref: "q-max",
+        fk_soc: thirdparties[0],
+        total_ht: "9.5",
+      });
+      const keep = async (
+        bound: { $max: string } | { $min: string },
+      ): Promise<unknown> =>
+        (
+          await repo("erp_invoice").upsert(
+            { rowid: invoice.rowid },
+            { ref: "q-max", fk_soc: thirdparties[0], total_ht: bound },
+          )
+        ).total_ht;
+      // En alphabet, "9.5" > "10" et "-3.25" < "-4".
+      assert.equal(await keep({ $max: "10" }), "10.00000000");
+      assert.equal(await keep({ $max: "9.75" }), "10.00000000");
+      assert.equal(await keep({ $min: "-3.25" }), "-3.25000000");
+      assert.equal(await keep({ $min: "-4" }), "-4.00000000");
+    });
+
     // Le SQL NATIF suit la sémantique du moteur. SQLite n'a pas de type
     // décimal (`decimal` y est rangé en TEXT) : c'est une divergence DÉCLARÉE
     // (docs/index.md, « Le décimal en SQLite »), et ces cas prouvent que la page

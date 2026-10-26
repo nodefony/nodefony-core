@@ -4,7 +4,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import { buildMySqlTable } from "./colKit.mysql";
 import { buildPgTable } from "./colKit.pg";
-import { guardIntegerKeys } from "./colKit.shared";
+import { guardIntegerKeys, markDecimalColumns } from "./colKit.shared";
 import { assertTableSpec } from "./colKit.spec";
 import type { ITableSpec } from "./colKit.spec";
 import { buildSqliteTable } from "./colKit.sqlite";
@@ -138,6 +138,7 @@ export function defineTable<const S extends ITableSpec>(
             return sqlite;
           });
           guardIntegerKeys(sqlite, spec);
+          markDecimalColumns(sqlite, spec);
         }
         return sqlite;
       case "postgres":
@@ -151,6 +152,7 @@ export function defineTable<const S extends ITableSpec>(
             return postgres;
           });
           guardIntegerKeys(postgres, spec);
+          markDecimalColumns(postgres, spec);
         }
         return postgres;
       case "mysql":
@@ -164,6 +166,7 @@ export function defineTable<const S extends ITableSpec>(
             return mysql;
           });
           guardIntegerKeys(mysql, spec);
+          markDecimalColumns(mysql, spec);
         }
         return mysql;
     }

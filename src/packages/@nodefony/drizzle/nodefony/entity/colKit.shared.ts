@@ -1,7 +1,7 @@
 import { getTableColumns } from "drizzle-orm";
 import type { Table } from "drizzle-orm";
 import type { IPortableTableBase } from "./colKit";
-import { canonicalIntegerKey } from "./colKit.codecs";
+import { canonicalDecimal, canonicalIntegerKey } from "./colKit.codecs";
 import {
   columnName,
   primaryKeyName,
@@ -9,6 +9,7 @@ import {
   refTargetSpec,
 } from "./colKit.spec";
 import type {
+  IDecimalColumn,
   IEnumColumn,
   IRefColumn,
   ITableDescription,
@@ -252,4 +253,74 @@ export function guardIntegerKeys(table: Table, spec: ITableSpec): void {
     built.mapToDriverValue = (value: unknown): unknown =>
       encode(canonicalIntegerKey(value, label));
   }
+}
+
+/** Ce qu'un décimal du kit dit de lui-même, quel que soit le dialecte. */
+export interface IDecimalShape extends Pick<
+  IDecimalColumn,
+  "precision" | "scale"
+> {
+  /** `table.colonne`, pour les messages d'erreur. */
+  readonly label: string;
+}
+
+/** Colonnes décimales construites par le kit — marquées à la construction. */
+const decimalShapes = new WeakMap<object, IDecimalShape>();
+
+/**
+ * Marque chaque colonne décimale d'une table que la fabrique d'un dialecte
+ * vient de construire, avec sa précision et son échelle.
+ *
+ * Seule source de « cette colonne est un décimal du kit » : jamais déduite du
+ * type SQL (`text` porte aussi les jours et les uuid en SQLite) ni d'un interne
+ * de Drizzle.
+ *
+ * @param table - table Drizzle construite.
+ * @param spec - sa spec.
+ */
+export function markDecimalColumns(table: Table, spec: ITableSpec): void {
+  const columns = getTableColumns(table);
+  for (const [key, column] of Object.entries(spec.columns)) {
+    if (column.kind !== "decimal" || !Object.hasOwn(columns, key)) continue;
+    const built = columns[key];
+    if (built === undefined) continue;
+    decimalShapes.set(built, {
+      precision: column.precision,
+      scale: column.scale,
+      label: `${spec.name}.${key}`,
+    });
+  }
+}
+
+/**
+ * Rend la forme d'un décimal du kit, ou `null` pour toute autre colonne.
+ *
+ * @param column - colonne construite.
+ * @returns précision, échelle et nom, ou `null`.
+ */
+export function decimalShapeOf(column: object): IDecimalShape | null {
+  return decimalShapes.get(column) ?? null;
+}
+
+/**
+ * Ramène le delta d'un `increment` à l'échelle d'un décimal, sous sa forme
+ * canonique — arrondi au plus proche, moitié loin de zéro.
+ *
+ * Le delta est arrondi AVANT la somme, et la somme est ensuite exacte : une
+ * seule règle, donc un seul résultat sur les trois moteurs. PostgreSQL, laissé
+ * à lui-même, arrondirait la somme ; les deux ne diffèrent que sur une moitié
+ * exacte dont le signe s'oppose à celui du résultat.
+ *
+ * @param shape - le décimal visé.
+ * @param delta - le delta reçu.
+ * @returns le delta canonique (`"0.10"`).
+ * @throws {ColumnValueError} Quand le delta n'est pas fini, ou dépasse la précision.
+ */
+export function decimalDelta(shape: IDecimalShape, delta: number): string {
+  return canonicalDecimal(
+    String(delta),
+    shape.precision,
+    shape.scale,
+    shape.label,
+  );
 }

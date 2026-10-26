@@ -37,7 +37,14 @@ import {
 } from "@nodefony/orm-core";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 import { likeCond } from "../likeSql";
-import { isTextDecimal, numericOperand } from "../../entity/colKit.sqlite";
+import { decimalDelta, decimalShapeOf } from "../../entity/colKit.shared";
+import type { IDecimalShape } from "../../entity/colKit.shared";
+import {
+  isTextDecimal,
+  numericOperand,
+  textDecimalExtreme,
+  textDecimalIncrement,
+} from "../../entity/colKit.sqlite";
 import type {
   Criteria,
   FieldOperators,
@@ -149,6 +156,11 @@ function sqliteLimit(value: unknown): number {
  */
 const PREPARED_IN_MAX_VALUES = 32;
 const PREPARED_IN_SHAPES_MAX = 32;
+
+/** Type MySQL d'un décimal du kit — constantes de la SPEC, jamais une entrée appelante. */
+function mysqlDecimalType(shape: IDecimalShape): SQL {
+  return sql.raw(`DECIMAL(${shape.precision}, ${shape.scale})`);
+}
 
 /** Séquence des noms de prepared statements (PG les exige uniques par process). */
 let preparedNameSeq = 0;
@@ -1122,7 +1134,10 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    *
    * `$max`/`$min` → `MAX(col, ?)` en sqlite, `GREATEST/LEAST(col, ?)` en
    * postgres/mysql : `col` y désigne la valeur EXISTANTE, et la valeur proposée
-   * est bindée. À l'insertion il n'y a rien à comparer → valeur brute.
+   * est bindée — PAR LA COLONNE, comme une comparaison : elle prend la forme
+   * que la colonne écrit (décimal canonique, instant encodé). Un décimal SQLite
+   * est du TEXT : il se compare en nombre (`textDecimalExtreme`), jamais en
+   * alphabet. À l'insertion il n'y a rien à comparer → valeur brute.
    */
   #writeSet(update: UpdateData<T>): {
     set: Record<string, unknown>;
@@ -1139,16 +1154,32 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       const col = this.#requireCol(field);
       // `sql.raw` sur une constante INTERNE (jamais une entrée appelante) : le
       // nom de fonction n'est pas paramétrable en SQL. La valeur, elle, est bindée.
-      const apply = (fn: string, v: unknown): void => {
-        set[field] = sql`${sql.raw(fn)}(${col}, ${v})`;
+      const apply = (keep: "max" | "min", v: unknown): void => {
+        // MySQL compare `GREATEST(décimal, chaîne)` en CHAÎNES (MariaDB en
+        // nombres) : la valeur liée y reprend le type de la colonne.
+        const shape = this.#dialect === "mysql" ? decimalShapeOf(col) : null;
+        const proposed =
+          shape === null
+            ? sql.param(v, col)
+            : sql`CAST(${sql.param(v, col)} AS ${mysqlDecimalType(shape)})`;
+        if (this.#textDecimal(col)) {
+          set[field] = textDecimalExtreme(col, proposed, keep);
+        } else {
+          const sqlite = this.#dialect === "sqlite";
+          const fn =
+            keep === "max"
+              ? sqlite
+                ? "MAX"
+                : "GREATEST"
+              : sqlite
+                ? "MIN"
+                : "LEAST";
+          set[field] = sql`${sql.raw(fn)}(${col}, ${proposed})`;
+        }
         values[field] = v;
       };
-      if (value.$max !== undefined) {
-        apply(this.#dialect === "sqlite" ? "MAX" : "GREATEST", value.$max);
-      }
-      if (value.$min !== undefined) {
-        apply(this.#dialect === "sqlite" ? "MIN" : "LEAST", value.$min);
-      }
+      if (value.$max !== undefined) apply("max", value.$max);
+      if (value.$min !== undefined) apply("min", value.$min);
     }
     return { set, values };
   }
@@ -1220,6 +1251,27 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return this.#affected(result);
   }
 
+  /**
+   * Terme `SET` d'un `increment` : `col + ?`, sauf pour un décimal du kit,
+   * dont le delta est ramené à l'échelle (`decimalDelta`) puis ajouté
+   * EXACTEMENT — en SQLite par `textDecimalIncrement` (le décimal y est du
+   * TEXT), ailleurs par un `CAST` qui empêche le `number` lié de faire de la
+   * somme un flottant (MySQL lie un DOUBLE).
+   */
+  #incrementTerm(col: DrizzleColumn, delta: number): SQL {
+    const shape = decimalShapeOf(col);
+    if (shape === null) return sql`${col} + ${delta}`;
+    const exact = decimalDelta(shape, delta);
+    switch (this.#dialect) {
+      case "sqlite":
+        return textDecimalIncrement(col, shape, exact);
+      case "postgres":
+        return sql`${col} + CAST(${exact} AS numeric)`;
+      case "mysql":
+        return sql`${col} + CAST(${exact} AS ${mysqlDecimalType(shape)})`;
+    }
+  }
+
   async increment(
     criteria: Criteria<T>,
     changes: Partial<Record<keyof T, number>>,
@@ -1229,8 +1281,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     // sur le compteur. Même garantie « au plus une + 0 relecture » qu'updateOne.
     const setObj: Record<string, SQL> = {};
     for (const [field, delta] of Object.entries(changes)) {
-      const col = this.#requireCol(field);
-      setObj[field] = sql`${col} + ${delta}`;
+      // Un champ posé à `undefined` n'est pas un delta (le type n'admet que `number`).
+      if (typeof delta !== "number") continue;
+      setObj[field] = this.#incrementTerm(this.#requireCol(field), delta);
     }
     if (this.#dialect === "mysql") {
       return this.#mysqlUpdateOneReturning(setObj, criteria);

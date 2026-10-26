@@ -128,8 +128,16 @@ Deux usages :
   `"100"`, `$gt "50"` rate `100`). Le dépôt lit les comparaisons d'ORDRE (`$gt/$gte/$lt/$lte`, via
   `COMPARISONS` + `#compare`, chemins direct ET préparé) et l'`ORDER BY` (`#orderTerm`) par
   `numericOperand` (`CAST … AS REAL`, exact ≤ 15 chiffres) sur les colonnes que `isTextDecimal`
-  reconnaît — marque posée par `buildSqliteTable`, jamais déduite du type SQL (`text` porte aussi
-  jour et uuid) ni d'un interne Drizzle. `$eq`/`$in` restent en texte (exact, indexé). Le SQL NATIF
+  reconnaît — marque posée pour les TROIS dialectes par `markDecimalColumns` (`colKit.shared.ts`,
+  précision + échelle), jamais déduite du type SQL (`text` porte aussi jour et uuid) ni d'un
+  interne Drizzle. `$eq`/`$in` restent en texte (exact, indexé). Les écritures qui calculent :
+  `increment` arrondit le delta à l'échelle (`decimalDelta`) puis ajoute EXACTEMENT —
+  `textDecimalIncrement` en SQLite (deux entiers 64 bits, ≤ 18 chiffres de chaque côté, débordement
+  = instruction refusée), `CAST` vers le type de la colonne ailleurs (MySQL lie un `number` en
+  DOUBLE) ; `$max`/`$min` par `textDecimalExtreme` en SQLite, valeur `CAST` en `DECIMAL(p,s)` en
+  MySQL (`GREATEST(décimal, chaîne)` y compare en CHAÎNES, MariaDB en nombres — seul MySQL 8.4 le
+  montre). ⚠️ `increment` n'est pas préparé : l'expression SQLite se COMPILE à chaque appel —
+  garder ses sous-requêtes à deux niveaux (cinq coûtaient ~0,85 ms). Le SQL NATIF
   (SUM flottant, RANK alphabétique) = divergence DÉCLARÉE (`docs/index.md` § « Le décimal en
   SQLite »), tenue par `erp-lite-contract.ts`. SQL pur ⇒ survit au pilote `node:sqlite` de Drizzle v1.
 - 🔴 **`grep` sans `-a` rend un faux « rien trouvé »** sur nos fichiers accentués (il les prend

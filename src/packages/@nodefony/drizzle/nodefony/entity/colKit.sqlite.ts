@@ -39,11 +39,17 @@ import type {
   ITableSpec,
   OnDeleteAction,
 } from "./colKit.spec";
-import { canonicalDay, canonicalDecimal, canonicalUuid } from "./colKit.codecs";
+import {
+  canonicalDay,
+  canonicalDecimal,
+  canonicalUuid,
+  ColumnValueError,
+} from "./colKit.codecs";
 import {
   boundedForeignKeyName,
   boundedUniqueName,
   checkName,
+  decimalShapeOf,
   enumPredicate,
   firstAndRest,
   indexedColumn,
@@ -56,6 +62,7 @@ import {
   refTargetKey,
   refTargetSpec,
 } from "./colKit.spec";
+import type { IDecimalShape } from "./colKit.shared";
 import type { KeyColumnSpec } from "./colKit.spec";
 import type { StringCodecValues } from "./colKit.types";
 
@@ -319,21 +326,19 @@ function applyMods(
   return out;
 }
 
-/** Colonnes décimales que ce kit range en TEXT — marquées à la construction. */
-const textDecimals = new WeakSet<object>();
-
 /**
  * Dit si une colonne est un décimal que SQLite range en TEXT, donc qu'une
  * comparaison d'ordre doit lire par {@link numericOperand}.
  *
- * La marque est posée par {@link buildSqliteTable}, jamais déduite du type SQL
- * (`text` porte aussi les jours et les uuid) ni d'un interne de Drizzle.
+ * La marque est posée à la construction par `markDecimalColumns`
+ * (`colKit.shared.ts`), jamais déduite du type SQL (`text` porte aussi les
+ * jours et les uuid) ni d'un interne de Drizzle.
  *
  * @param column - colonne d'une table SQLite.
  * @returns `true` pour un décimal du kit.
  */
 export function isTextDecimal(column: object): boolean {
-  return textDecimals.has(column);
+  return decimalShapeOf(column) !== null;
 }
 
 /**
@@ -353,6 +358,116 @@ export function numericOperand(operand: SQLWrapper): SQL {
 }
 
 /**
+ * Garde, d'un décimal rangé en TEXT et d'une valeur proposée, le plus grand
+ * (`$max`) ou le plus petit (`$min`), comparés en NOMBRES par
+ * {@link numericOperand}.
+ *
+ * Le texte gardé est celui de la colonne ou de la valeur, jamais un `REAL`
+ * réécrit : la forme canonique survit. Une colonne `NULL` cède à la valeur,
+ * comme `GREATEST` en PostgreSQL.
+ *
+ * @param column - la colonne.
+ * @param proposed - la valeur proposée, liée par la colonne (forme canonique).
+ * @param keep - l'extrême à garder.
+ * @returns l'expression du `SET`.
+ */
+export function textDecimalExtreme(
+  column: SQLWrapper,
+  proposed: SQLWrapper,
+  keep: "max" | "min",
+): SQL {
+  const current = numericOperand(column);
+  const offered = numericOperand(proposed);
+  const kept =
+    keep === "max"
+      ? sql`${current} >= ${offered}`
+      : sql`${current} <= ${offered}`;
+  return sql`CASE WHEN ${kept} THEN ${column} ELSE ${proposed} END`;
+}
+
+/** Chiffres qu'un entier SQLite (64 bits) porte exactement, de chaque côté de la virgule. */
+const EXACT_DIGITS = 18;
+
+/**
+ * Expression qui fait échouer l'instruction (« integer overflow ») : `abs()`
+ * du plus petit entier 64 bits. SQLite n'a pas de `RAISE` hors des
+ * déclencheurs ; une branche de `CASE` n'est évaluée que si elle est prise.
+ */
+const OVERFLOW = sql.raw("abs(-9223372036854775807 - 1)");
+
+/**
+ * Ajoute un delta à un décimal rangé en TEXT, EXACTEMENT, et rend sa forme
+ * canonique (`"12.60"`, jamais `"12.6"` ni un flottant).
+ *
+ * Le calcul se fait sur deux entiers 64 bits — partie entière et chiffres après
+ * la virgule —, avec retenue et signe recomposés. Atomique comme tout
+ * `UPDATE … SET col = <expr>` : aucune relecture côté JavaScript. Un résultat
+ * qui dépasse la précision fait échouer l'instruction, comme PostgreSQL et
+ * MySQL (mode strict) le refusent ; la ligne reste intacte. Une colonne `NULL`
+ * reste `NULL`. Une valeur écrite hors du kit sans sa forme canonique (`"12.6"`,
+ * `"100"`) est lue juste : les décimales manquantes valent zéro.
+ *
+ * Coût : `increment` n'est pas préparé, donc chaque appel COMPILE l'expression
+ * (~0,1 ms mesurée, contre ~0,85 ms sous cinq sous-requêtes imbriquées — d'où
+ * deux niveaux seulement, et le découpage écrit à plat). L'exécution, elle,
+ * ajoute ~10 µs.
+ *
+ * @param column - la colonne.
+ * @param shape - sa précision, son échelle, son nom.
+ * @param delta - le delta CANONIQUE à l'échelle (`decimalDelta`).
+ * @returns l'expression du `SET`.
+ * @throws {ColumnValueError} Quand la colonne a plus de 18 chiffres d'un côté
+ *   de la virgule : SQLite ne sait plus l'additionner exactement.
+ */
+export function textDecimalIncrement(
+  column: SQLWrapper,
+  shape: IDecimalShape,
+  delta: string,
+): SQL {
+  const { precision, scale, label } = shape;
+  const integerDigits = precision - scale;
+  if (integerDigits > EXACT_DIGITS || scale > EXACT_DIGITS) {
+    throw new ColumnValueError(
+      "decimal",
+      delta,
+      label,
+      `cannot be incremented exactly by SQLite: more than ${EXACT_DIGITS} digits on one side of the point.`,
+    );
+  }
+  const negative = delta.startsWith("-");
+  const [whole = "0", fraction = "0"] = (
+    negative ? delta.slice(1) : delta
+  ).split(".");
+  const sign = negative ? "-" : "";
+  // Liés en TEXTE puis convertis par SQLite : exacts au-delà de 2^53.
+  const high = `${sign}${whole}`;
+  const low = `${sign}${fraction}`;
+  // Constantes INTERNES (tirées de la spec), jamais une entrée appelante.
+  const limit = sql.raw(`1${"0".repeat(integerDigits)}`);
+  if (scale === 0) {
+    const sum = sql`(CAST(${column} AS INTEGER) + CAST(${high} AS INTEGER))`;
+    return sql`CASE WHEN ABS(${sum}) >= ${limit} THEN ${OVERFLOW} ELSE ${sum} END`;
+  }
+  const unit = sql.raw(`1${"0".repeat(scale)}`);
+  const zeros = sql.raw(`'${"0".repeat(scale)}'`);
+  const format = sql.raw(`'%s%d.%0${scale}d'`);
+  const digits = sql.raw(String(scale));
+  // Valeur absolue de la colonne, et position de son point (ou de sa fin).
+  const magnitude = sql`ltrim(${column}, '-')`;
+  const point = sql`instr(${magnitude} || '.', '.')`;
+  const signOf = sql`(1 - 2 * (substr(${column}, 1, 1) = '-'))`;
+  const hi = sql`${signOf} * CAST(substr(${magnitude}, 1, ${point} - 1) AS INTEGER) + CAST(${high} AS INTEGER)`;
+  const lo = sql`${signOf} * CAST(substr(substr(${magnitude}, ${point} + 1) || ${zeros}, 1, ${digits}) AS INTEGER) + CAST(${low} AS INTEGER)`;
+  // h1/l1 : retenue des décimales ; h/l : signes accordés (booléens = 0/1).
+  return sql`(SELECT CASE WHEN ABS(h) >= ${limit} THEN ${OVERFLOW}
+      WHEN h IS NOT NULL THEN printf(${format}, CASE WHEN h < 0 OR l < 0 THEN '-' ELSE '' END, ABS(h), ABS(l)) END
+    FROM (SELECT h1 - (h1 > 0 AND l1 < 0) + (h1 < 0 AND l1 > 0) AS h,
+        l1 + ${unit} * ((h1 > 0 AND l1 < 0) - (h1 < 0 AND l1 > 0)) AS l
+      FROM (SELECT hi + lo / ${unit} AS h1, lo % ${unit} AS l1
+        FROM (SELECT ${hi} AS hi, ${lo} AS lo))))`;
+}
+
+/**
  * Construit la table SQLite d'une spec.
  *
  * @param spec - spec logique (déjà validée par `assertTableSpec`).
@@ -363,13 +478,7 @@ export function buildSqliteTable(
   spec: ITableSpec,
   self: () => SQLiteTable,
 ): SQLiteTable {
-  const table = buildTable(spec, self);
-  const built = getTableColumns(table);
-  for (const [k, c] of Object.entries(spec.columns)) {
-    const column = built[k];
-    if (c.kind === "decimal" && column) textDecimals.add(column);
-  }
-  return table;
+  return buildTable(spec, self);
 }
 
 function buildTable(spec: ITableSpec, self: () => SQLiteTable): SQLiteTable {

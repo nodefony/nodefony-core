@@ -603,6 +603,18 @@ le montant comme un nombre (`CAST(… AS REAL)`) pour le trier et pour `$gt`, `$
 15 chiffres significatifs : un prix en `decimal(12, 2)` l'est toujours ; deux montants de 24
 chiffres qui ne diffèrent qu'au-delà peuvent être pris pour égaux.
 
+Les écritures qui calculent suivent une seule règle, identique sur les quatre moteurs. `increment`
+ramène d'abord son delta (un `number`) à l'échelle de la colonne, arrondi au plus proche, moitié
+loin de zéro, puis l'ajoute **exactement** : `"9.50"` plus `0.1` rend `"9.60"`, jamais `"9.6"` ni
+un flottant (`textDecimalIncrement()`, `colKit.sqlite.ts#textDecimalIncrement` ; sur les autres
+moteurs, un `CAST` vers le type de la colonne empêche le `number` lié de faire de la somme un
+flottant). En SQLite, cette addition exacte tient jusqu'à 18 chiffres de chaque côté de la
+virgule ; au-delà, `increment` refuse au lieu d'arrondir. Une somme qui dépasse la précision de la
+colonne est refusée partout, et la ligne reste intacte. Dans un `upsert`, `$max` et `$min`
+comparent des nombres et gardent le texte canonique (`textDecimalExtreme()`,
+`colKit.sqlite.ts#textDecimalExtreme`) ; en MySQL, la valeur proposée reprend le type de la
+colonne, sans quoi `GREATEST` comparerait deux chaînes.
+
 Le **SQL natif**, en revanche, suit les règles du moteur, et ce n'est pas au framework de le
 réécrire :
 
