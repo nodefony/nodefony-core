@@ -596,12 +596,12 @@ jobs:
           # signaux, et l'arrêt gracieux disparaît SANS la moindre erreur.
           grep -q '^CMD \[' demo/Dockerfile || { echo "::error::CMD n'est pas en forme exec"; exit 1; }
 
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.NF_DOCKERHUB_USER }}
           password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
 
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
