@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import type { IPortableTable } from "../../nodefony/entity/colKit";
+import {
+  boundedForeignKeyName,
+  boundedUniqueName,
+} from "../../nodefony/entity/colKit.shared";
+import { columnName } from "../../nodefony/entity/colKit.spec";
 import type { ITableSpec } from "../../nodefony/entity/colKit.spec";
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/DrizzleOrm";
@@ -210,6 +215,8 @@ function runSchemaSuite(
   const written = new Map<string, Row>();
   /** Lignes minimales écrites, par table — les parents des lignes minimales. */
   const minimal = new Map<string, Row>();
+  /** Instructions de la migration drizzle-kit (étage « migration » seulement). */
+  let migration: readonly string[] = [];
   const repo = (name: string): IRepository<Row> => orm.getRepository<Row>(name);
 
   /** Écrit une ligne, rend la ligne créée. */
@@ -238,7 +245,7 @@ function runSchemaSuite(
   }
 
   beforeAll(async () => {
-    const migration =
+    migration =
       opts.schema === "migration"
         ? await generateMigration(corpus, dialect)
         : [];
@@ -362,6 +369,38 @@ function runSchemaSuite(
     });
     assert.deepEqual(failures, [], `${failures.length} table(s) en écart`);
   });
+
+  // Le nom que le kit CALCULE doit être celui que drizzle-kit ÉCRIT : un nom
+  // donné ne dépend plus de la convention de l'outil, que Drizzle 1 change pour
+  // les noms qu'on ne lui donne pas. SQLite n'écrit pas le nom d'une clé étrangère.
+  it.skipIf(opts.schema !== "migration")(
+    "chaque unicité et chaque clé étrangère porte, dans la migration, le nom que le kit lui DONNE",
+    () => {
+      const text = migration.join("\n");
+      const quote = dialect === "postgres" ? '"' : "`";
+      const missing: string[] = [];
+      let checked = 0;
+      for (const { spec } of corpus.tables.values()) {
+        for (const [key, column] of Object.entries(spec.columns)) {
+          const names: string[] = [];
+          if (column.kind !== "serial" && column.unique) {
+            names.push(boundedUniqueName(spec.name, columnName(key, column)));
+          }
+          if (column.kind === "ref" && dialect !== "sqlite") {
+            names.push(boundedForeignKeyName(spec, key, column));
+          }
+          for (const name of names) {
+            checked++;
+            if (!text.includes(`${quote}${name}${quote}`)) {
+              missing.push(`${spec.name}.${key} : ${name}`);
+            }
+          }
+        }
+      }
+      assert.ok(checked > 0, "le corpus ne nomme aucune contrainte");
+      assert.deepEqual(missing, [], `${missing.length} nom(s) absent(s)`);
+    },
+  );
 
   specific?.({
     dialect,

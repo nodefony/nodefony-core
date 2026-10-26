@@ -46,7 +46,6 @@ import type {
   IEnumColumn,
   IRefColumn,
   ITableSpec,
-  OnDeleteAction,
 } from "./colKit.spec";
 import {
   boundedForeignKeyName,
@@ -83,10 +82,6 @@ interface Chain extends PgColumnBuilderBase {
   default(value: unknown): Chain;
   $defaultFn(fn: () => unknown): Chain;
   $onUpdateFn(fn: () => unknown): Chain;
-  references(
-    ref: () => PgColumn,
-    actions?: { onDelete?: OnDeleteAction },
-  ): Chain;
 }
 
 /** Longueur par défaut d'un `string`, ÉLARGIE en `number` (un littéral figerait `TLength`). */
@@ -203,32 +198,14 @@ function keyValueColumn(k: string, key: KeyColumnSpec): Chain {
   }
 }
 
-function colRef(
-  k: string,
-  c: IRefColumn,
-  owner: ITableSpec,
-  self: () => PgTable,
-): Chain {
+function colRef(k: string, c: IRefColumn, owner: ITableSpec): Chain {
   const base = keyValueColumn(columnName(k, c), refTargetKey(c, owner, k));
-  const target = (): PgColumn =>
-    c.target === "self"
-      ? primaryKeyColumn(self(), owner)
-      : primaryKeyColumn(
-          refTargetTable(c, owner, k).table("postgres"),
-          refTargetSpec(c, owner),
-        );
-  // Nom par défaut trop long : la contrainte est posée au niveau de la TABLE,
-  // nommée (`buildPgTable`) — une colonne ne sait pas nommer la sienne.
-  if (boundedForeignKeyName(owner, k, c) !== null) return base;
-  return base.references(target, c.onDelete ? { onDelete: c.onDelete } : {});
+  // La clé étrangère est posée au niveau de la TABLE, toujours NOMMÉE par le
+  // kit (`buildTable`) : une colonne ne sait pas nommer la sienne.
+  return base;
 }
 
-function baseColumn(
-  k: string,
-  c: ColumnSpec,
-  owner: ITableSpec,
-  self: () => PgTable,
-): Chain {
+function baseColumn(k: string, c: ColumnSpec, owner: ITableSpec): Chain {
   const n = columnName(k, c);
   switch (c.kind) {
     case "string":
@@ -262,16 +239,12 @@ function baseColumn(
     case "vector":
       return colVector(n, c.dimensions);
     case "ref":
-      return colRef(k, c, owner, self);
+      return colRef(k, c, owner);
   }
 }
 
 /** Modificateurs communs — même ordre que `ApplyMods` (colKit.types.ts). */
-function applyMods(
-  b: Chain,
-  c: ColumnSpec,
-  uniqueName: string | undefined,
-): Chain {
+function applyMods(b: Chain, c: ColumnSpec, uniqueName: string): Chain {
   let out = b;
   if ("primaryKey" in c) {
     out = out.primaryKey();
@@ -301,14 +274,13 @@ function applyMods(
  * Construit la table PostgreSQL d'une spec.
  *
  * @param spec - spec logique (déjà validée par `assertTableSpec`).
- * @param self - la table en cours de construction, pour une relation vers soi.
  * @returns la table Drizzle PostgreSQL.
  */
-export function buildPgTable(spec: ITableSpec, self: () => PgTable): PgTable {
+export function buildPgTable(spec: ITableSpec): PgTable {
   const columns: Record<string, PgColumnBuilderBase> = {};
   for (const [k, c] of Object.entries(spec.columns)) {
     columns[k] = applyMods(
-      baseColumn(k, c, spec, self),
+      baseColumn(k, c, spec),
       c,
       boundedUniqueName(spec.name, columnName(k, c)),
     );
@@ -324,7 +296,6 @@ export function buildPgTable(spec: ITableSpec, self: () => PgTable): PgTable {
     for (const [k, c] of Object.entries(spec.columns)) {
       if (c.kind !== "ref") continue;
       const name = boundedForeignKeyName(spec, k, c);
-      if (name === null) continue;
       const target =
         c.target === "self"
           ? indexedColumn(t, primaryKeyName(spec))

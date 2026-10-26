@@ -4,8 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { getTableColumns } from "drizzle-orm";
 import { defineTable } from "../../nodefony/entity/colKit";
+import { getTableConfig as mysqlTableConfig } from "drizzle-orm/mysql-core";
+import { getTableConfig as pgTableConfig } from "drizzle-orm/pg-core";
+import { getTableConfig as sqliteTableConfig } from "drizzle-orm/sqlite-core";
 import {
   MAX_IDENTIFIER_LENGTH,
+  boundedForeignKeyName,
   boundedUniqueName,
 } from "../../nodefony/entity/colKit.shared";
 import {
@@ -86,17 +90,21 @@ describe("sealGeneratedSql — le passage obligé de toute migration générée"
   });
 });
 
-describe("boundedUniqueName — l'unicité d'une colonne, nommée par le kit quand le défaut déborde", () => {
-  it("rend undefined quand le nom de Drizzle tient : la contrainte garde son nom", () => {
-    assert.equal(boundedUniqueName("erp_user", "login"), undefined);
+// Le kit NOMME lui-même chaque unicité et chaque clé étrangère, à toute
+// longueur, du texte que drizzle-kit 0.31 aurait écrit : une migration déjà
+// écrite ne bouge pas, et le nom ne dépend plus de la convention de l'outil
+// (Drizzle 1 distingue un nom DONNÉ d'un nom DÉDUIT, et recalcule le second).
+describe("boundedUniqueName — l'unicité d'une colonne, toujours nommée par le kit", () => {
+  it("rend le nom de drizzle-kit 0.31 quand il tient : la contrainte garde son nom", () => {
+    assert.equal(
+      boundedUniqueName("erp_user", "login"),
+      "erp_user_login_unique",
+    );
   });
 
   it("borne à 63 un nom qui déborderait", () => {
     const name = boundedUniqueName(LONG_TABLE, "registration_ref");
-    assert.ok(
-      name !== undefined && name.length <= MAX_IDENTIFIER_LENGTH,
-      String(name),
-    );
+    assert.ok(name.length <= MAX_IDENTIFIER_LENGTH, name);
   });
 
   const table = defineTable({
@@ -108,7 +116,7 @@ describe("boundedUniqueName — l'unicité d'une colonne, nommée par le kit qua
     },
   });
   for (const dialect of ["sqlite", "postgres", "mysql"] as const) {
-    it(`la table ${dialect} porte le nom borné, et le défaut quand il tient`, () => {
+    it(`la table ${dialect} porte le nom borné`, () => {
       const cols: Record<string, { uniqueName?: string | undefined }> =
         getTableColumns(table.table(dialect));
       assert.equal(
@@ -119,6 +127,69 @@ describe("boundedUniqueName — l'unicité d'une colonne, nommée par le kit qua
       assert.ok(
         (cols.code?.uniqueName ?? "").length <= MAX_IDENTIFIER_LENGTH,
         String(cols.code?.uniqueName),
+      );
+    });
+  }
+});
+
+describe("boundedForeignKeyName — chaque clé étrangère, toujours nommée par le kit", () => {
+  const country = defineTable({
+    name: "nf_bound_country",
+    columns: { code: { kind: "char", length: 2, primaryKey: true } },
+  });
+  const spec = {
+    name: "nf_bound_city",
+    columns: {
+      id: { kind: "serial", primaryKey: true },
+      country: { kind: "ref", target: () => country, notNull: true },
+      parent: { kind: "ref", target: "self", onDelete: "cascade" },
+    },
+  } as const;
+  const city = defineTable(spec);
+
+  it("rend le nom de drizzle-kit 0.31 quand il tient", () => {
+    assert.equal(
+      boundedForeignKeyName(city.spec, "country", spec.columns.country),
+      "nf_bound_city_country_nf_bound_country_code_fk",
+    );
+    assert.equal(
+      boundedForeignKeyName(city.spec, "parent", spec.columns.parent),
+      "nf_bound_city_parent_nf_bound_city_id_fk",
+    );
+  });
+
+  const configs = {
+    sqlite: () => sqliteTableConfig(city.table("sqlite")).foreignKeys,
+    postgres: () => pgTableConfig(city.table("postgres")).foreignKeys,
+    mysql: () => mysqlTableConfig(city.table("mysql")).foreignKeys,
+  };
+  for (const [dialect, foreignKeys] of Object.entries(configs)) {
+    it(`la table ${dialect} DONNE son nom à chaque clé étrangère, cible et action comprises`, () => {
+      const keys = foreignKeys().map((fk) => {
+        const ref = fk.reference();
+        return {
+          name: ref.name,
+          columns: ref.columns.map((c) => c.name),
+          target: ref.foreignColumns.map((c) => c.name),
+          onDelete: fk.onDelete,
+        };
+      });
+      assert.deepEqual(
+        keys.sort((a, b) => String(a.name).localeCompare(String(b.name))),
+        [
+          {
+            name: "nf_bound_city_country_nf_bound_country_code_fk",
+            columns: ["country"],
+            target: ["code"],
+            onDelete: "no action",
+          },
+          {
+            name: "nf_bound_city_parent_nf_bound_city_id_fk",
+            columns: ["parent"],
+            target: ["id"],
+            onDelete: "cascade",
+          },
+        ],
       );
     });
   }

@@ -114,9 +114,14 @@ Deux usages :
 - 🔴 **Un identifiant GÉNÉRÉ dépasse vite 63 caractères** (`<table>_<colonne>_<cible>_<clé>_fk`
   sur une table au nom long) : MySQL/MariaDB REFUSENT au-delà de 64, PostgreSQL TRONQUE en silence
   à 63. Tout nom que le kit fabrique passe par `boundedIdentifier` (`colKit.shared.ts`) — inchangé
-  jusqu'à 63 (migrations déjà écrites intactes), sinon tronqué + empreinte FNV-1a ; une FK au nom
-  long est alors posée au niveau TABLE, nommée (`boundedForeignKeyName`) ; une unicité de colonne
-  au nom long est nommée par le kit (`boundedUniqueName`). La clé primaire, elle, est nommée par
+  jusqu'à 63 (migrations déjà écrites intactes), sinon tronqué + empreinte FNV-1a. Toute FK et toute
+  unicité de colonne est nommée PAR LE KIT, à toute longueur (`boundedForeignKeyName`,
+  `boundedUniqueName` — texte du défaut 0.31) : Drizzle 1 recalcule à SA convention les noms qu'on
+  ne lui donne pas, un premier `generate` renommerait sinon les contraintes de toute application.
+  Les FK sont donc toutes posées au niveau TABLE (une colonne ne sait pas nommer la sienne).
+  ⚠️ `check:migrations` ne garde que les unicités (les entités du framework n'ont aucune FK) : le
+  nom des FK est tenu par le banc de schéma (`schema-contract.ts`, « le nom que le kit lui DONNE »,
+  corpus `erp-lite`). La clé primaire, elle, est nommée par
   `drizzle-kit` en MySQL (`<table>_<colonne>`, sans borne) et le kit n'y a pas prise : la déplacer
   au niveau table casserait `$returningId()`, qui ne lit que la clé posée sur la colonne. Le nom
   trop long est donc RETIRÉ du `.sql` au scellement (`sealGeneratedSql` →

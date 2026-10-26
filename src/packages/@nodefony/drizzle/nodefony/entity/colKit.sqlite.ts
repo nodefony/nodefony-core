@@ -37,7 +37,6 @@ import type {
   IEnumColumn,
   IRefColumn,
   ITableSpec,
-  OnDeleteAction,
 } from "./colKit.spec";
 import {
   canonicalDay,
@@ -94,10 +93,6 @@ interface Chain extends SQLiteColumnBuilderBase {
   default(value: unknown): Chain;
   $defaultFn(fn: () => unknown): Chain;
   $onUpdateFn(fn: () => unknown): Chain;
-  references(
-    ref: () => SQLiteColumn,
-    actions?: { onDelete?: OnDeleteAction },
-  ): Chain;
 }
 
 /** Longueur par défaut d'un `string`, ÉLARGIE en `number` (un littéral figerait `TLength`). */
@@ -225,37 +220,19 @@ function keyValueColumn(k: string, key: KeyColumnSpec, label: string): Chain {
   }
 }
 
-function colRef(
-  k: string,
-  c: IRefColumn,
-  owner: ITableSpec,
-  self: () => SQLiteTable,
-): Chain {
+function colRef(k: string, c: IRefColumn, owner: ITableSpec): Chain {
   const base = keyValueColumn(
     columnName(k, c),
     refTargetKey(c, owner, k),
     `${owner.name}.${k}`,
   );
-  const target = (): SQLiteColumn =>
-    c.target === "self"
-      ? primaryKeyColumn(self(), owner)
-      : primaryKeyColumn(
-          refTargetTable(c, owner, k).table("sqlite"),
-          refTargetSpec(c, owner),
-        );
-  // Nom par défaut trop long : la contrainte est posée au niveau de la TABLE,
-  // nommée (`buildSqliteTable`) — une colonne ne sait pas nommer la sienne.
-  if (boundedForeignKeyName(owner, k, c) !== null) return base;
-  return base.references(target, c.onDelete ? { onDelete: c.onDelete } : {});
+  // La clé étrangère est posée au niveau de la TABLE, toujours NOMMÉE par le
+  // kit (`buildTable`) : une colonne ne sait pas nommer la sienne.
+  return base;
 }
 
 /** Colonne de base (sans modificateur) d'une spec. */
-function baseColumn(
-  k: string,
-  c: ColumnSpec,
-  owner: ITableSpec,
-  self: () => SQLiteTable,
-): Chain {
+function baseColumn(k: string, c: ColumnSpec, owner: ITableSpec): Chain {
   const n = columnName(k, c);
   const label = `${owner.name}.${k}`;
   switch (c.kind) {
@@ -286,7 +263,7 @@ function baseColumn(
     case "datetime":
       return colDatetime(n);
     case "ref":
-      return colRef(k, c, owner, self);
+      return colRef(k, c, owner);
     case "vector":
       throw new Error(
         `[@nodefony/drizzle] colKit "${owner.name}": column "${k}" is a vector(${c.dimensions}), ` +
@@ -296,11 +273,7 @@ function baseColumn(
 }
 
 /** Modificateurs communs — même ordre que `ApplyMods` (colKit.types.ts). */
-function applyMods(
-  b: Chain,
-  c: ColumnSpec,
-  uniqueName: string | undefined,
-): Chain {
+function applyMods(b: Chain, c: ColumnSpec, uniqueName: string): Chain {
   if (c.kind === "serial") {
     return b; // clé primaire déjà posée par `colSerial`.
   }
@@ -471,21 +444,13 @@ export function textDecimalIncrement(
  * Construit la table SQLite d'une spec.
  *
  * @param spec - spec logique (déjà validée par `assertTableSpec`).
- * @param self - la table en cours de construction, pour une relation vers soi.
  * @returns la table Drizzle SQLite.
  */
-export function buildSqliteTable(
-  spec: ITableSpec,
-  self: () => SQLiteTable,
-): SQLiteTable {
-  return buildTable(spec, self);
-}
-
-function buildTable(spec: ITableSpec, self: () => SQLiteTable): SQLiteTable {
+export function buildSqliteTable(spec: ITableSpec): SQLiteTable {
   const columns: Record<string, SQLiteColumnBuilderBase> = {};
   for (const [k, c] of Object.entries(spec.columns)) {
     columns[k] = applyMods(
-      baseColumn(k, c, spec, self),
+      baseColumn(k, c, spec),
       c,
       boundedUniqueName(spec.name, columnName(k, c)),
     );
@@ -501,7 +466,6 @@ function buildTable(spec: ITableSpec, self: () => SQLiteTable): SQLiteTable {
     for (const [k, c] of Object.entries(spec.columns)) {
       if (c.kind !== "ref") continue;
       const name = boundedForeignKeyName(spec, k, c);
-      if (name === null) continue;
       const target =
         c.target === "self"
           ? indexedColumn(t, primaryKeyName(spec))

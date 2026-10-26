@@ -82,24 +82,25 @@ export function checkName(
 }
 
 /**
- * Nom BORNÉ de la contrainte d'unicité d'une colonne, ou `undefined` quand le
- * nom par défaut de Drizzle (`<table>_<colonne>_unique`) tient déjà : la
- * contrainte garde alors ce nom, et les migrations écrites avant la borne ne
- * changent pas. `undefined` passé à `.unique()` laisse Drizzle nommer.
+ * Nom de la contrainte d'unicité d'une colonne, toujours DONNÉ par le kit :
+ * `<table>_<colonne>_unique`, le texte que drizzle-kit 0.31 écrivait, borné
+ * par {@link boundedIdentifier} au-delà de 63 caractères.
+ *
+ * Donné et non déduit : une migration déjà écrite garde son nom, et ce nom ne
+ * dépend plus de la convention de l'outil — Drizzle 1 distingue un nom donné
+ * d'un nom déduit, et recalcule le second à SA convention (`<colonne>_unique`).
+ *
+ * @param table - nom de la table.
+ * @param column - nom de la colonne en base.
+ * @returns le nom de la contrainte, 63 caractères au plus.
  */
-export function boundedUniqueName(
-  table: string,
-  column: string,
-): string | undefined {
-  const name = `${table}_${column}_unique`;
-  return name.length <= MAX_IDENTIFIER_LENGTH
-    ? undefined
-    : boundedIdentifier(name);
+export function boundedUniqueName(table: string, column: string): string {
+  return boundedIdentifier(`${table}_${column}_unique`);
 }
 
 /**
- * Nom que Drizzle donnerait à la clé étrangère d'une colonne de référence
- * (`<table>_<colonne>_<cible>_<clé>_fk`), avant toute borne.
+ * Nom que drizzle-kit 0.31 donnait à la clé étrangère d'une colonne de
+ * référence (`<table>_<colonne>_<cible>_<clé>_fk`), avant toute borne.
  */
 export function defaultForeignKeyName(
   owner: ITableSpec,
@@ -114,17 +115,23 @@ export function defaultForeignKeyName(
 }
 
 /**
- * Nom BORNÉ de la clé étrangère d'une colonne, ou `null` quand le nom par
- * défaut de Drizzle tient déjà : la contrainte reste alors déclarée sur la
- * colonne, et les migrations écrites avant la borne ne changent pas.
+ * Nom de la clé étrangère d'une colonne, toujours DONNÉ par le kit : le texte
+ * de {@link defaultForeignKeyName}, borné par {@link boundedIdentifier}.
+ * Même raison que {@link boundedUniqueName} : une migration écrite ne bouge
+ * pas, et le nom ne suit plus la convention de l'outil. La contrainte est
+ * posée au niveau de la TABLE, seule à savoir la nommer.
+ *
+ * @param owner - spec de la table qui porte la référence.
+ * @param key - clé de la colonne dans la spec.
+ * @param ref - la colonne de référence.
+ * @returns le nom de la contrainte, 63 caractères au plus.
  */
 export function boundedForeignKeyName(
   owner: ITableSpec,
   key: string,
   ref: IRefColumn,
-): string | null {
-  const name = defaultForeignKeyName(owner, key, ref);
-  return name.length <= MAX_IDENTIFIER_LENGTH ? null : boundedIdentifier(name);
+): string {
+  return boundedIdentifier(defaultForeignKeyName(owner, key, ref));
 }
 
 /** `[premier, ...reste]` — la forme qu'exige `index().on()`. */

@@ -129,42 +129,21 @@ export function defineTable<const S extends ITableSpec>(
     switch (dialect) {
       case "sqlite":
         if (sqlite === null) {
-          sqlite = buildSqliteTable(spec, () => {
-            if (sqlite === null) {
-              throw new Error(
-                `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
-              );
-            }
-            return sqlite;
-          });
+          sqlite = buildSqliteTable(spec);
           guardIntegerKeys(sqlite, spec);
           markDecimalColumns(sqlite, spec);
         }
         return sqlite;
       case "postgres":
         if (postgres === null) {
-          postgres = buildPgTable(spec, () => {
-            if (postgres === null) {
-              throw new Error(
-                `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
-              );
-            }
-            return postgres;
-          });
+          postgres = buildPgTable(spec);
           guardIntegerKeys(postgres, spec);
           markDecimalColumns(postgres, spec);
         }
         return postgres;
       case "mysql":
         if (mysql === null) {
-          mysql = buildMySqlTable(spec, () => {
-            if (mysql === null) {
-              throw new Error(
-                `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
-              );
-            }
-            return mysql;
-          });
+          mysql = buildMySqlTable(spec);
           guardIntegerKeys(mysql, spec);
           markDecimalColumns(mysql, spec);
         }
