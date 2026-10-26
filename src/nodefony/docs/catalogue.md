@@ -100,8 +100,9 @@ Un contrat commun, plusieurs implémentations : écris contre le contrat, choisi
 | `@nodefony/redis` | cache, sessions partagées entre pods, backplane du temps réel en cluster | un seul processus : les sessions en mémoire et le backplane local suffisent |
 
 **L'arbitrage qui revient le plus souvent** : `drizzle` ou `mongoose` ? Le générateur d'entités
-(`nodefony create entity`) produit du Drizzle natif du dialecte, ou un schéma Mongoose sur une
-application MongoDB — mais seul le SQL tient des clés étrangères et des migrations versionnées.
+(`nodefony create entity`) produit une description portable, déclinée au démarrage pour le dialecte
+du connecteur, ou un schéma Mongoose sur une application MongoDB — mais seul le SQL tient des clés
+étrangères et des migrations versionnées.
 Prends `mongoose` parce que tes données SONT des documents, pas pour éviter de choisir un dialecte
 SQL.
 

@@ -126,9 +126,10 @@ une spécification logique par entité, traduite dans le bon dialecte par le `co
 la contrepartie est la type-safety intégrale.
 
 > [!IMPORTANT]
-> Le `colKit` est **interne** : il n'est pas exporté. Tes entités d'application écrivent du **Drizzle
-> natif** du dialecte que tu vises — c'est ce que produit `nodefony create entity`. Exposer le kit
-> serait promettre une API à maintenir pour un besoin que le scaffold couvre déjà.
+> Le `colKit` est **public** (`defineTable`, `jsonType`, `RowOf`) : c'est lui que
+> `nodefony create entity` écrit pour tes entités d'application, qui suivent donc l'URL de la
+> base comme celles du framework. Le Drizzle **natif** d'un dialecte reste possible
+> (`--dialect`), mais une table native ne se charge que sur lui.
 
 ## 🧭 Par où commencer
 
@@ -537,10 +538,12 @@ Avec une entité décrite par `defineTable`, passer de SQLite à PostgreSQL revi
    rangent par dialecte, celles de SQLite ne s'appliquent pas ailleurs ;
 3. transférer les données — aucune commande ne le fait.
 
-`nodefony create entity` écrit encore une table **native** du dialecte de son connecteur. Celle-ci
-ne se charge que sur lui : pointée vers une autre base, l'application refuse de démarrer en nommant
-l'entité (« is not ported to this dialect »), et il faut la réécrire pour le dialecte visé
-(`create entity <Nom> … --dialect postgres --force` la régénère). `create entity --dialect <autre>`
+`nodefony create entity` écrit justement cette description : l'entité générée change de base sans
+être réécrite. Il n'écrit une table **native** que sur demande (`--dialect <sqlite|postgres|mysql>`),
+ou quand une `ref:` vise une entité encore native — il le dit alors, et nomme l'entité à régénérer
+(`create entity <Nom> … --force`) pour rendre les deux portables. Une table native ne se charge que
+sur son dialecte : pointée vers une autre base, l'application refuse de démarrer en nommant l'entité
+(« is not ported to this dialect »). `create entity --dialect <autre>`
 sur un connecteur d'un autre moteur écrit le fichier, mais sort en **78** sans tenter la migration.
 
 ### Ce qui diverge, et pourquoi
