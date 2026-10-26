@@ -88,6 +88,15 @@ présents même sans changer de base :
   les entités ne changent pas.
 - Ajouter un dialecte = un fichier d'adaptateur (`colKit.<dialecte>.ts`), pas une retouche des
   entités.
+- Monter l'ORM de référence vers sa majeure suivante se fait dans les seuls fichiers
+  d'adaptateur ; la description neutre et les entités des applications ne bougent pas. Le jour
+  où ce n'est plus vrai, c'est un défaut de l'adaptateur, pas un coût de la montée (#685).
+- Aucun second adaptateur SQL n'est prévu. Son coût ne se résume pas au dépôt, que la suite de
+  contrat partagée éprouve déjà : il faut aussi les huit briques du framework, les migrations,
+  la matrice d'intégration continue multipliée par chaque moteur, et une maintenance sans fin.
+  La porte reste ouverte sans dette : une application n'aurait aucune entité à réécrire. Une
+  application peut, d'ici là, employer l'outil de son choix pour ses propres tables, à côté de
+  celles du framework.
 - Performance mesurée avant l'epic contre après, sur le chemin qu'une requête authentifiée paie
   (session, rechargement de l'utilisateur) : aucun écart séparable du bruit, en SQLite comme en
   PostgreSQL (`.claude/skills/nodefony-load-test/scripts/micro/micro-orm-hot-path-ab.mjs`).
