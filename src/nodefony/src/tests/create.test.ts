@@ -5046,14 +5046,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /if \(EXTERNAL_BASE_URL \|\| !started\) return;/u,
         "le teardown ne doit rien arrêter quand le setup n'a rien démarré",
       );
+      // …mais il arrête ce qu'il a lancé, MÊME quand le lancement a échoué
+      // après coup. Vu au banc de portabilité : poste mis en veille pendant
+      // `--wait`, délai dépassé, serveur UP et détaché — orphelin, il tenait le
+      // port et faisait tomber l'étape suivante. Le verdict se constate donc
+      // AVANT le lancement : rien de ce projet ne tournait → l'arrêt est à nous.
       const spawnAt = e2eSetup.indexOf('"production", "--detach", "--wait"');
-      const startedAt = e2eSetup.indexOf("started = true;");
+      const startedAt = e2eSetup.indexOf(
+        "started = readRuntimeState(process.cwd()) === null;",
+      );
       assert.isAbove(spawnAt, -1);
       assert.isAbove(
         startedAt,
-        spawnAt,
-        "`started` ne se pose qu'APRÈS un lancement réussi",
+        -1,
+        "`started` se constate sur l'état d'exécution",
       );
+      assert.isBelow(
+        startedAt,
+        spawnAt,
+        "`started` se pose AVANT le lancement, sinon un lancement en échec laisse un orphelin",
+      );
+      assert.notInclude(e2eSetup, "started = true;");
       // Et le descripteur doit le LAISSER PASSER : `0` est falsy, un test de
       // vérité le jetterait et retomberait sur 5151 — le port qu'on fuyait.
       const configPorts = readFileSync(

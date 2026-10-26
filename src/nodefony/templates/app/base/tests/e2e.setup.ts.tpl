@@ -1,7 +1,8 @@
 import { execFileSync, type ExecFileSyncOptions } from "node:child_process";
 import { randomBytes } from "node:crypto";
 <% if (!it.mongo) { %>import { rmSync } from "node:fs";
-<% } %>import {
+<% } %>import { readRuntimeState } from "nodefony";
+import {
 <% if (it.hasSecurity) { %>  adminLogin as loginAdmin,
   E2E_ADMIN_PASSWORD,
   E2E_USER_IDENTIFIER,
@@ -221,12 +222,22 @@ export const isTlsTarget =
   isExternalTarget && appBaseUrl().startsWith("https:");
 
 /**
- * Vrai seulement quand CETTE suite a lancé son exemplaire de production.
+ * Vrai dès que CETTE suite a tenté de lancer son exemplaire de production — et
+ * que rien de ce projet ne tournait avant.
  *
- * Vitest appelle `teardown` même quand `setup` a échoué. Or le lanceur refuse de
- * démarrer quand un runtime de ce projet tourne déjà — typiquement
- * `npm run dev` — et un `stop` aveugle tuerait alors ce serveur de
- * développement, que la suite n'a pas lancé.
+ * Vitest appelle `teardown` même quand `setup` a échoué. Deux échecs, deux
+ * gestes opposés :
+ *   - le lanceur REFUSE de démarrer parce qu'un runtime de ce projet tourne
+ *     déjà — typiquement `npm run dev` : un `stop` tuerait ce serveur de
+ *     développement, que la suite n'a pas lancé ;
+ *   - le lanceur a DÉMARRÉ le serveur, puis son appel a échoué (délai dépassé,
+ *     poste mis en veille pendant l'attente) : le serveur tourne, détaché, et
+ *     personne d'autre que cette suite ne l'arrêtera. Orphelin, il tient les
+ *     ports et fait échouer le run suivant sur « port déjà en écoute ».
+ *
+ * Ce qui les sépare se constate AVANT le lancement, pas après : un état
+ * d'exécution vivant de ce projet. `nodefony stop` sans rien à arrêter ne fait
+ * rien, l'arrêt est donc sûr dans tous les autres cas.
  */
 let started = false;
 
@@ -296,7 +307,8 @@ export async function setup(): Promise<void> {
       NF_DATABASE_URL: E2E_BASE_URL,
     },
   });
-<% } %>  runNodefony(["production", "--detach", "--wait"], {
+<% } %>  started = readRuntimeState(process.cwd()) === null;
+  runNodefony(["production", "--detach", "--wait"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {
@@ -335,7 +347,6 @@ export async function setup(): Promise<void> {
       NF__SECURITY__ALLOWINSECURECREDENTIALS: "true",
 <% } %>    },
   });
-  started = true;
 <% if (it.hasSecurity) { %>
   // Le second compte, SANS privilège (`ROLE_USER` seul) : c'est lui qui prouve
   // qu'une garde de RÔLE mord — l'anonyme est refusé avec ou sans elle. Semé
