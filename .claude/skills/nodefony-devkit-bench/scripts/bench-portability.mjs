@@ -724,6 +724,17 @@ process.stdout.write(`${USAGE.split("\n")[0]}\n   décor : ${APP}\n`);
 if (REUSE && existsSync(appBin())) {
   process.stdout.write("   --reuse : décor existant repris tel quel\n");
   setDatabaseUrl(null);
+  // La base de développement SQLite garde les lignes du run précédent : la
+  // sonde du serveur de développement, qui crée une ligne FIXE, y recevrait
+  // 409. Remise à zéro par les commandes du produit, comme un utilisateur.
+  const okReset = await step(
+    "décor repris — base de développement SQLite remise à zéro",
+    () => {
+      nodefony(["orm:reset", "--yes"]);
+      migrateAndAssertAligned();
+    },
+  );
+  if (!okReset) process.exit(1);
 } else if (!(await mountDecor())) {
   process.exit(1);
 }
