@@ -140,7 +140,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
       const cree = await fetch(`${BASE}<%= p.route %>`, {
         method: "POST",
         headers: entetes(),
-        body: JSON.stringify(<%= p.camel %>Sample(Date.now() % 1_000_000)),
+        body: JSON.stringify(<%= p.camel %>Sample(Date.now() % 1_000_000<% if (p.hasRefs) { %>, parents<% } %>)),
       });
       if (cree.status !== 201) {
         throw new Error(

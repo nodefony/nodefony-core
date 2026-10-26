@@ -37,15 +37,85 @@ export const IDENTITY_ENTITY = "User";
  * échantillon et filtre l'appellent tous, sans quoi l'un finirait par
  * contredire l'autre.
  *
- * @param target - entité visée par la référence.
+ * Elle suit la clé de la CIBLE, lue sur son fichier par le moteur
+ * (`targetSerial`, {@link entityKeyIsSerial}). Supposer que la cible partage
+ * la stratégie de l'entité générée était faux dès qu'une application en
+ * mélange deux : un `Book` en `serial` visant un `Author` en uuid recevait un
+ * schéma `z.number()` pour une clé uuid — toute création refusée en 422.
+ * La stratégie de l'entité générée ne sert plus que de repli, quand la cible
+ * n'existe pas encore sur le disque.
+ *
+ * @param field - la référence ; `targetSerial` dit la clé de sa cible.
  * @param id - stratégie de clé de l'entité en cours de génération.
  * @returns `true` si la clé visée est un entier auto-incrémenté.
  */
 export function refTargetsSerial(
-  target: string | undefined,
+  field: Pick<IEntityField, "target" | "targetSerial">,
   id: TEntityIdKind,
 ): boolean {
-  return id === "serial" && target !== IDENTITY_ENTITY;
+  if (field.target === IDENTITY_ENTITY) return false;
+  return field.targetSerial ?? id === "serial";
+}
+
+/**
+ * La clé primaire d'une entité, lue sur la SOURCE de son fichier, est-elle un
+ * entier auto-incrémenté ?
+ *
+ * Reconnaît les quatre formes que ce générateur écrit — description portable
+ * (`id: { kind: "serial"`) et tables natives SQLite, PostgreSQL, MySQL —, et
+ * rien d'autre : une forme inconnue rend `null`, et l'appelant retombe sur sa
+ * règle de repli plutôt que de deviner.
+ *
+ * @param source - contenu du fichier d'entité.
+ * @returns `true` (serial), `false` (clé textuelle), `null` (illisible).
+ */
+export function entityKeyIsSerial(source: string): boolean | null {
+  if (/\bid:\s*\{\s*kind:\s*"serial"/u.test(source)) return true;
+  if (/\bid:\s*\{\s*kind:\s*"(?:uuid|text|string|char)"/u.test(source)) {
+    return false;
+  }
+  if (
+    /\bid:\s*(?:integer|int)\("[^"]*"\)\s*\.(?:primaryKey\(\{\s*autoIncrement:\s*true|autoincrement\(\))/u.test(
+      source,
+    ) ||
+    /\bid:\s*serial\("[^"]*"\)/u.test(source)
+  ) {
+    return true;
+  }
+  if (/\bid:\s*(?:uuid|varchar|text)\(/u.test(source)) return false;
+  return null;
+}
+
+/**
+ * Les entités qu'un fichier d'entité RÉFÉRENCE, lues sur sa source.
+ *
+ * Une référence vers une autre entité importe sa table depuis le fichier
+ * voisin (`import { authorTable } from "./Author"`) — c'est la seule forme
+ * que ce générateur écrit, en portable comme en natif. Le nom du fichier EST
+ * le nom de l'entité. Une référence vers soi n'importe rien et n'y figure pas.
+ *
+ * @param source - contenu du fichier d'entité ; vide si absent.
+ * @returns les entités visées, dans l'ordre des imports, sans doublon.
+ */
+export function entityRefTargetsOf(source: string): string[] {
+  const targets = new Set<string>();
+  for (const m of source.matchAll(
+    /^import\s*\{[^}]*\b\w+Table\b[^}]*\}\s*from\s*"\.\/(\w+)";/gmu,
+  )) {
+    if (m[1] !== undefined) targets.add(m[1]);
+  }
+  return [...targets];
+}
+
+/**
+ * L'échantillon d'un fichier d'entité attend-il les identifiants de ses parents
+ * (`refs`) ? Lu sur la signature que le gabarit écrit.
+ *
+ * @param source - contenu du fichier d'entité ; vide si absent.
+ * @returns `true` si `<nom>Sample(n, refs)`.
+ */
+export function entitySampleTakesRefs(source: string): boolean {
+  return /export const \w+Sample = \(\s*\w+: number,\s*refs\b/u.test(source);
 }
 
 /** Types de champ du vocabulaire Nodefony (jamais le vocabulaire Drizzle). */
@@ -72,6 +142,13 @@ export interface IEntityField {
   type: TEntityFieldType | "ref";
   /** Entité cible quand `type === "ref"`. */
   target?: string;
+  /**
+   * La clé de la cible est-elle un `serial` ? Résolue par le moteur en lisant
+   * le fichier de la cible ({@link entityKeyIsSerial}) — jamais par l'analyse,
+   * qui ne voit que la ligne de commande. Absente : la cible n'est pas encore
+   * sur le disque, et la référence suit la clé de l'entité générée.
+   */
+  targetSerial?: boolean;
   /** Valeurs admises quand `type === "enum"` (`status:enum(draft,published)`). */
   values?: string[];
   /**
@@ -1114,11 +1191,8 @@ function primaryKeyColumn(
  * `?include=` avec elle. En SQLite, moteur du développement, la même comparaison
  * passe sans broncher : la panne n'attendait que le premier vrai serveur.
  *
- * La stratégie retenue est celle de l'entité qu'on crée. C'est le seul indice
- * dont dispose le générateur — il ne lit pas l'entité visée —, et il est juste
- * tant qu'une application ne mélange pas ses styles d'identifiant, ce qui est le
- * cas ordinaire. Une cible d'un autre style se corrige dans la table générée :
- * c'est du Drizzle natif.
+ * Le type suit la clé de la CIBLE ({@link refTargetsSerial}), lue sur son
+ * fichier par le moteur.
  *
  * La contrainte `REFERENCES`, elle, est posée par l'appelant
  * ({@link buildEntityCodegen}) : elle dépend de la CIBLE, que cette fonction ne
@@ -1127,20 +1201,21 @@ function primaryKeyColumn(
  * @param dialect - moteur visé.
  * @param id - stratégie de clé primaire de l'entité en cours.
  * @param col - nom de la colonne.
+ * @param field - la référence.
  * @returns l'expression Drizzle, son type TypeScript et l'import nécessaire.
  */
 function foreignKeyColumn(
   dialect: TEntityDialect,
   id: TEntityIdKind,
   col: string,
-  target: string | undefined,
+  field: IEntityField,
 ): { expr: string; tsType: string; imports: string[] } {
-  if (target === IDENTITY_ENTITY && dialect === "postgres") {
+  if (field.target === IDENTITY_ENTITY && dialect === "postgres") {
     // La clé de l'identité est un `text` PostgreSQL, pas un `uuid` : la
     // contrainte exige le MÊME type des deux côtés ({@link IDENTITY_ENTITY}).
     return { expr: `text("${col}")`, tsType: "string", imports: ["text"] };
   }
-  if (refTargetsSerial(target, id)) {
+  if (refTargetsSerial(field, id)) {
     // Un entier ORDINAIRE : la table cible auto-incrémente sa clé, celle qui la
     // désigne se contente de la recopier.
     const expr = dialect === "mysql" ? `int("${col}")` : `integer("${col}")`;
@@ -1281,7 +1356,7 @@ export function buildEntityCodegen(
     const column = sql(field.name);
     const fk =
       field.type === "ref"
-        ? foreignKeyColumn(dialect, id, column, field.target)
+        ? foreignKeyColumn(dialect, id, column, field)
         : undefined;
     if (fk) {
       fk.imports.forEach((i) => imports.add(i));
@@ -1613,7 +1688,7 @@ export function buildPortableEntityCodegen(
           `kind: "ref"`,
           `target: ${self || !field.target ? `"self"` : `() => ${entityTableSymbol(field.target)}`}`,
         );
-        tsType = refTargetsSerial(field.target, id) ? "number" : "string";
+        tsType = refTargetsSerial(field, id) ? "number" : "string";
         break;
       }
       case "int":

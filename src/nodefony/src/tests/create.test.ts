@@ -9828,6 +9828,68 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(e2e, 'parents["Category"]');
     });
 
+    it("une référence suit la clé de sa CIBLE, et les tests sèment TOUTE la chaîne", () => {
+      // Vécu au banc de portabilité : `Book` en serial visant un `Author` en
+      // uuid recevait `author: z.number()` (toute création en 422), et les tests
+      // de `Review` → `Book` → `Author` ne connaissaient pas `Author`.
+      const dest = app("eapp-chain");
+      entity(dest, { name: "Author", fields: "email:string:unique" });
+      entity(dest, {
+        name: "Book",
+        fields: "title:string author:ref:Author",
+        id: "serial",
+      });
+      entity(dest, { name: "Review", fields: "stars:int book:ref:Book" });
+      const read = (rel: string): string =>
+        readFileSync(path.join(dest, rel), "utf8");
+      assert.match(
+        read("nodefony/entity/Book.schema.ts"),
+        /author: z\.string\(\)/u,
+      );
+      assert.match(
+        read("nodefony/entity/Book.ts"),
+        /author: String\(refs\.Author/u,
+      );
+      // Et la clé serial de `Book` est bien vue par `Review`.
+      assert.match(
+        read("nodefony/entity/Review.schema.ts"),
+        /book: z\.number\(\)/u,
+      );
+
+      const unit = read("tests/review.test.ts");
+      assert.include(
+        unit,
+        'import { AuthorEntity } from "../nodefony/entity/Author"',
+      );
+      assert.include(
+        unit,
+        'import { BookEntity, bookSample } from "../nodefony/entity/Book"',
+      );
+      assert.include(
+        unit,
+        "entityRegistry.register({ ...AuthorEntity, connector: ORM });",
+      );
+      const seedAuthor = unit.indexOf("parents.Author = await seedEntityRow");
+      const seedBook = unit.indexOf("parents.Book = await seedEntityRow");
+      assert.ok(
+        seedAuthor !== -1 && seedAuthor < seedBook,
+        "Author semé AVANT Book",
+      );
+      assert.match(
+        unit,
+        /parents\.Book = await seedEntityRow\([^;]*bookSample\(\d+, parents\)\)/u,
+      );
+
+      const e2e = read("tests/review.e2e.test.ts");
+      const createAuthor = e2e.indexOf('parents["Author"] =');
+      const createBook = e2e.indexOf('parents["Book"] =');
+      assert.ok(
+        createAuthor !== -1 && createAuthor < createBook,
+        "Author créé AVANT Book",
+      );
+      assert.include(e2e, "bookSample(Date.now() % 1_000_000, parents)");
+    });
+
     it("relation vers SOI OBLIGATOIRE — refusée, la première ligne n'aurait pas de parent", () => {
       const dest = app("eapp-self-required");
       assert.throws(

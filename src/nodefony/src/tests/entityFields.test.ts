@@ -9,6 +9,7 @@
 import assert from "node:assert";
 import {
   buildPortableEntityCodegen,
+  entityKeyIsSerial,
   extractSpecColumnNames,
   isPortableEntitySource,
   PORTABLE_ENUM_MAX_LENGTH,
@@ -933,8 +934,80 @@ describe("scaffold — la référence vers User suit la clé de l'identité", ()
   it("l'échantillon et le filtre suivent la même règle", () => {
     const f = fields[0];
     assert.strictEqual(typeof sampleValue(f!, "serial").fixed, "string");
-    assert.strictEqual(refTargetsSerial("User", "serial"), false);
-    assert.strictEqual(refTargetsSerial("Author", "serial"), true);
+    assert.strictEqual(refTargetsSerial({ target: "User" }, "serial"), false);
+    assert.strictEqual(refTargetsSerial({ target: "Author" }, "serial"), true);
+  });
+
+  it("une référence suit la clé de sa CIBLE, pas celle de l'entité générée", () => {
+    // `Book` en serial vise un `Author` en uuid : la colonne, le type, le schéma
+    // et l'échantillon portent une chaîne. Vécu : `z.number()` pour une clé
+    // uuid, toute création refusée en 422.
+    const [author] = parseEntityFields("author:ref:Author");
+    const toUuid = { ...author!, targetSerial: false };
+    assert.strictEqual(refTargetsSerial(toUuid, "serial"), false);
+    assert.strictEqual(typeof sampleValue(toUuid, "serial").fixed, "string");
+    const portable = buildPortableEntityCodegen([toUuid], {
+      dialect: "sqlite",
+      id: "serial",
+      timestamps: false,
+      softDelete: false,
+      table: "books",
+    });
+    assert.match(portable.rowProps, /author: string;/u);
+    assert.doesNotMatch(portable.zodProps, /author: z\.number\(\)/u);
+    for (const dialect of ["sqlite", "postgres", "mysql"] as const) {
+      const native = buildEntityCodegen([toUuid], {
+        dialect,
+        id: "serial",
+        timestamps: false,
+        softDelete: false,
+        table: "books",
+      });
+      assert.doesNotMatch(native.columns, /author: (integer|int)\(/u, dialect);
+    }
+    // Et l'inverse : un uuid qui vise une clé serial reçoit un entier.
+    const toSerial = { ...author!, targetSerial: true };
+    assert.strictEqual(refTargetsSerial(toSerial, "uuid7"), true);
+    assert.strictEqual(typeof sampleValue(toSerial, "uuid7").fixed, "number");
+  });
+
+  it("la clé d'une cible se lit sur les quatre formes que le générateur écrit", () => {
+    const write = (
+      fields: string,
+      options: {
+        dialect: "sqlite" | "postgres" | "mysql";
+        id: "serial" | "uuid7";
+      },
+    ) =>
+      buildEntityCodegen(parseEntityFields(fields), {
+        ...options,
+        timestamps: false,
+        softDelete: false,
+        table: "t",
+      }).columns;
+    for (const dialect of ["sqlite", "postgres", "mysql"] as const) {
+      assert.strictEqual(
+        entityKeyIsSerial(write("a:string", { dialect, id: "serial" })),
+        true,
+        dialect,
+      );
+      assert.strictEqual(
+        entityKeyIsSerial(write("a:string", { dialect, id: "uuid7" })),
+        false,
+        dialect,
+      );
+    }
+    const portable = (id: "serial" | "uuid7") =>
+      buildPortableEntityCodegen(parseEntityFields("a:string"), {
+        dialect: "sqlite",
+        id,
+        timestamps: false,
+        softDelete: false,
+        table: "t",
+      }).columns;
+    assert.strictEqual(entityKeyIsSerial(portable("serial")), true);
+    assert.strictEqual(entityKeyIsSerial(portable("uuid7")), false);
+    assert.strictEqual(entityKeyIsSerial("export const x = 1;"), null);
   });
 });
 

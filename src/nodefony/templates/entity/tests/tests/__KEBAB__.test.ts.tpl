@@ -5,7 +5,7 @@ import { <%= it.pascal %>Entity } from "../nodefony/entity/<%= it.pascal %>";
 <% } %>import { <%= it.camel %>Sample } from "../nodefony/entity/<%= it.pascal %>";
 import type { <%= it.pascal %>Row } from "../nodefony/entity/<%= it.pascal %>";
 import { create<%= it.pascal %>Schema } from "../nodefony/entity/<%= it.pascal %>.schema";
-<% if (it.dialect === "sqlite") { it.relationTargets.forEach(function (target) { %>import { <%= target %>Entity } from "../nodefony/entity/<%= target %>";
+<% if (it.dialect === "sqlite") { it.relationParents.forEach(function (p) { %>import { <%= p.pascal %>Entity<% if (p.hasRefs) { %>, <%= p.camel %>Sample<% } %> } from "../nodefony/entity/<%= p.pascal %>";
 <% }) } %>
 <% if (it.dialect === "sqlite") { %>/**
  * L'entité, sur une vraie base — en mémoire, donc sans rien installer.
@@ -67,7 +67,9 @@ describe("<%= it.pascal %> — entité", () => {
     // colonnes obligatoires de la table visée et y pose une ligne valide, quels
     // que soient ses champs. Sans elle, toute création échouerait sur un
     // « FOREIGN KEY constraint failed » — la contrainte fait son travail.
-<% it.relationTargets.forEach(function (target) { %>    parents.<%= target %> = await seedEntityRow(orm, { ...<%= target %>Entity, connector: ORM });
+    // Dans l'ordre des dépendances : un parent qui a lui-même une cible la
+    // reçoit par son échantillon, qui lit ce qui vient d'être semé.
+<% it.relationParents.forEach(function (p, i) { %>    parents.<%= p.pascal %> = await seedEntityRow(orm, { ...<%= p.pascal %>Entity, connector: ORM }<% if (p.hasRefs) { %>, <%= p.camel %>Sample(<%= 900000 + i %>, parents)<% } %>);
 <% }) %><% } %>  });
 
   afterAll(async () => {

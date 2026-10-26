@@ -92,6 +92,9 @@ import {
   ENTITY_DIALECTS,
   ENTITY_ID_KINDS,
   IDENTITY_ENTITY,
+  entityKeyIsSerial,
+  entityRefTargetsOf,
+  entitySampleTakesRefs,
   refTargetsSerial,
   type TColumnCase,
   type TEntityDialect,
@@ -4712,7 +4715,7 @@ export function sampleValue(
     // Une référence vers une clé auto-incrémentée est un NOMBRE : le schéma la
     // valide comme tel, une chaîne y serait refusée. Sinon la colonne porte le
     // type de la clé visée — un `uuid` ({@link foreignKeyColumn}).
-    return refTargetsSerial(field.target, id)
+    return refTargetsSerial(field, id)
       ? { fixed: 1, expr: "n" }
       : echantillonUuid();
   }
@@ -5375,9 +5378,48 @@ function runEntityScaffold(
   if (isUserEntity) {
     assertUserFieldsAreFillable(requested);
   }
+  // Chaque référence apprend la clé de sa CIBLE, lue sur son fichier : la
+  // colonne, le schéma, l'échantillon et le filtre en dépendent tous. Une cible
+  // absente du disque garde le repli (la clé de l'entité générée).
+  // Les champs viennent d'être produits par l'analyse : les compléter en place.
   const fields = contract
     ? [...userContractFields(contract), ...requested]
     : requested;
+  for (const f of fields) {
+    if (f.type !== "ref" || !f.target || f.target === pascal) continue;
+    const targetFile = path.join(
+      target.dir,
+      "nodefony",
+      "entity",
+      `${f.target}.ts`,
+    );
+    if (!writer.exists(targetFile)) continue;
+    const serial = entityKeyIsSerial(writer.read(targetFile));
+    if (serial !== null) f.targetSerial = serial;
+  }
+  // La chaîne des parents dont l'entité dépend pour exister — ses cibles, puis
+  // les leurs, lues sur leurs fichiers — dans l'ordre où les créer (les
+  // dépendances d'abord). Un cycle est coupé là où il se referme : une
+  // référence qui revient en arrière est forcément facultative, sans quoi
+  // aucune des deux lignes ne pourrait naître.
+  const relationChain: { pascal: string; hasRefs: boolean }[] = [];
+  {
+    const seen = new Set<string>([pascal]);
+    const visit = (name: string): void => {
+      if (seen.has(name)) return;
+      seen.add(name);
+      const file = path.join(target.dir, "nodefony", "entity", `${name}.ts`);
+      const source = writer.exists(file) ? writer.read(file) : "";
+      for (const dep of entityRefTargetsOf(source)) visit(dep);
+      relationChain.push({
+        pascal: name,
+        hasRefs: entitySampleTakesRefs(source),
+      });
+    };
+    for (const f of fields) {
+      if (f.type === "ref" && f.target) visit(f.target);
+    }
+  }
   // Une entité sans champ produit un CRUD qui « marche » et ne sert à rien : une
   // table réduite à sa clé primaire, un schéma Zod vide qui accepte tout, des
   // routes qui ne transportent rien. C'est un oubli dans presque tous les cas, et
@@ -5572,7 +5614,7 @@ function runEntityScaffold(
     // sous MongoDB, un UUID sinon. Une `"string"` laissait passer une forme
     // fausse jusqu'à la base — 200 vide ici, 500 là (#466).
     if (f.type === "ref") {
-      if (refTargetsSerial(f.target, id)) return '"int"';
+      if (refTargetsSerial(f, id)) return '"int"';
       return mongo ? '"objectId"' : '"uuid"';
     }
     return null;
@@ -5700,7 +5742,7 @@ function runEntityScaffold(
       // quand toutes les références d'une entité sont facultatives).
       if (f.type === "ref" && f.target) {
         factory.push(
-          `...(refs.${f.target} === undefined ? {} : { ${f.name}: ${refTargetsSerial(f.target, id) ? "Number" : "String"}(refs.${f.target}) })`,
+          `...(refs.${f.target} === undefined ? {} : { ${f.name}: ${refTargetsSerial(f, id) ? "Number" : "String"}(refs.${f.target}) })`,
         );
       }
       continue;
@@ -5717,7 +5759,7 @@ function runEntityScaffold(
         ? // `String(…)` / `Number(…)` et non une conversion de type : `refs`
           // porte `string | number`, la colonne attend l'un des deux, et la
           // conversion de valeur est une vérification que `as` ne fait pas.
-          `${f.name}: ${refTargetsSerial(f.target, id) ? "Number" : "String"}(refs.${f.target} ?? ${expr})`
+          `${f.name}: ${refTargetsSerial(f, id) ? "Number" : "String"}(refs.${f.target} ?? ${expr})`
         : `${f.name}: ${expr}`,
     );
   }
@@ -5855,13 +5897,10 @@ function runEntityScaffold(
       : null,
     // Entités visées par les relations — le test généré doit les enregistrer,
     // sinon l'ORM lève en résolvant les relations au moment de se connecter.
-    relationTargets: [
-      ...new Set(
-        fields
-          .filter((f) => f.type === "ref" && f.target && f.target !== pascal)
-          .map((f) => f.target as string),
-      ),
-    ],
+    // TOUTE la chaîne, pas les seules cibles directes : un `Review` qui vise un
+    // `Book` qui vise un `Author` doit enregistrer et semer `Author` d'abord
+    // (vécu : « relation target "Author" (from "Book.author") not registered »).
+    relationTargets: relationChain.map((c) => c.pascal),
     // Les mêmes cibles, mais avec ce qu'il faut pour les créer PAR LEUR API —
     // ce dont le test de bout en bout a besoin, lui qui parle à un serveur dans
     // un autre processus et n'a donc ni ORM ni base sous la main.
@@ -5873,34 +5912,35 @@ function runEntityScaffold(
     // L'entité elle-même n'y figure JAMAIS (`parent:ref:Category?`) : elle est
     // déjà importée et enregistrée, et sa relation, facultative par force, reste
     // vide dans l'échantillon — la racine d'un arbre n'a pas de parent.
+    //
+    // Dans l'ordre de la chaîne (dépendances d'abord), et `hasRefs` dit si
+    // l'échantillon du parent attend les identifiants des siens.
     relationParents: [
       ...new Map(
-        fields
-          .filter((f) => f.type === "ref" && f.target && f.target !== pascal)
-          .map((f) => {
-            const relationTarget = f.target as string;
-            const targetKebab = toKebabCase(relationTarget);
-            return [
-              relationTarget,
-              {
-                pascal: relationTarget,
-                camel:
-                  relationTarget.charAt(0).toLowerCase() +
-                  relationTarget.slice(1),
-                route: `/api/${pluralize(targetKebab)}`,
-                // `User` est l'IDENTITÉ du framework : `create app` pose sa
-                // table, jamais de CRUD — `POST /api/users` rendrait 404. La
-                // ligne parente existe déjà, c'est le compte avec lequel le
-                // test se connecte ; son id se relit sur `me`. Sans security,
-                // ni compte ni `me` : on retombe sur la voie commune, dont
-                // l'erreur nomme la route absente.
-                identity:
-                  relationTarget === IDENTITY_ENTITY &&
-                  (targetDeps.has("@nodefony/security") ||
-                    projectDeps.has("@nodefony/security")),
-              },
-            ] as const;
-          }),
+        relationChain.map(({ pascal: relationTarget, hasRefs }) => {
+          const targetKebab = toKebabCase(relationTarget);
+          return [
+            relationTarget,
+            {
+              pascal: relationTarget,
+              camel:
+                relationTarget.charAt(0).toLowerCase() +
+                relationTarget.slice(1),
+              route: `/api/${pluralize(targetKebab)}`,
+              hasRefs,
+              // `User` est l'IDENTITÉ du framework : `create app` pose sa
+              // table, jamais de CRUD — `POST /api/users` rendrait 404. La
+              // ligne parente existe déjà, c'est le compte avec lequel le
+              // test se connecte ; son id se relit sur `me`. Sans security,
+              // ni compte ni `me` : on retombe sur la voie commune, dont
+              // l'erreur nomme la route absente.
+              identity:
+                relationTarget === IDENTITY_ENTITY &&
+                (targetDeps.has("@nodefony/security") ||
+                  projectDeps.has("@nodefony/security")),
+            },
+          ] as const;
+        }),
       ).values(),
     ],
     timestamps,
