@@ -38,6 +38,12 @@ interface EntityFieldTypesProps {
 const engineLabel = (key: string | null): string =>
   ENGINES.find((e) => e.key === key)?.label ?? key ?? "inconnu";
 
+/**
+ * Le type et sa syntaxe ne se coupent pas : ce sont les colonnes moteur, aux
+ * valeurs longues (`text(255) + CHECK longueur`), qui se replient.
+ */
+const NO_WRAP = { whiteSpace: "nowrap" } as const;
+
 export function EntityFieldTypes({
   context,
   engine,
@@ -110,15 +116,15 @@ export function EntityFieldTypes({
             <Table.Tbody>
               {context.columnTypes.map((t) => (
                 <Table.Tr key={t.type}>
-                  <Table.Td>
+                  <Table.Td style={NO_WRAP}>
                     <Code>{t.type}</Code>
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={NO_WRAP}>
                     <Code>{fieldSyntax(t.type)}</Code>
                   </Table.Td>
                   {shown.map((e) => (
                     <Table.Td key={e.key}>
-                      {/* Rendu en TEXTE : c'est du code généré, jamais du HTML. */}
+                      {/* Rendu en TEXTE : une valeur du serveur, jamais du HTML. */}
                       <Text
                         size="xs"
                         ff="monospace"
