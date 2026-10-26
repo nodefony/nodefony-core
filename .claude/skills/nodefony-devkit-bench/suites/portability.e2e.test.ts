@@ -89,7 +89,30 @@ function normalize(value: unknown, key?: string): unknown {
   ) {
     return tokenOf(value);
   }
-  return value;
+  return typeof value === "string" ? tokenizeWithin(value) : value;
+}
+
+/**
+ * Un identifiant ALÉATOIRE (uuid) cité dans un texte — « Author 0190…
+ * introuvable » — change d'un run à l'autre : il se remplace par son jeton.
+ *
+ * Les clés `serial` en sont exclues, et c'est voulu : elles valent `1`, `2`…
+ * sur chaque moteur, donc elles se comparent telles quelles ; et remplacer un
+ * `1` au milieu d'un message en toucherait d'autres qui ne sont pas des clés.
+ */
+function tokenizeWithin(text: string): string {
+  let out = text;
+  for (const [id, token] of tokens) {
+    if (id.length < 32) continue;
+    for (
+      let at = out.toLowerCase().indexOf(id);
+      at !== -1;
+      at = out.toLowerCase().indexOf(id, at + token.length)
+    ) {
+      out = `${out.slice(0, at)}${token}${out.slice(at + id.length)}`;
+    }
+  }
+  return out;
 }
 
 let BASE = "";
@@ -318,30 +341,6 @@ describe("sonde de portabilité", () => {
     });
 
     // ── Comparaisons de chaînes : là où les collations divergent ─────────
-    await call("chaine.email-doublon-casse", "POST", "/api/authors", {
-      email: "ALICE@example.org",
-      name: "A3",
-      country: "FR",
-      balance: "1",
-    });
-    await call("chaine.email-doublon-espace-final", "POST", "/api/authors", {
-      email: "bob@example.org ",
-      name: "B2",
-      country: "FR",
-      balance: "1",
-    });
-    await call("chaine.email-doublon-accent", "POST", "/api/authors", {
-      email: "zoé@example.org",
-      name: "Z1",
-      country: "FR",
-      balance: "1",
-    });
-    await call("chaine.email-doublon-sans-accent", "POST", "/api/authors", {
-      email: "zoe@example.org",
-      name: "Z2",
-      country: "FR",
-      balance: "1",
-    });
     await call(
       "chaine.id-en-majuscules",
       "GET",
@@ -509,7 +508,44 @@ describe("sonde de portabilité", () => {
     await call("delete.carol-relue", "GET", `/api/authors/${carol}`);
     await call("refus.id-mal-forme", "GET", "/api/authors/pas-un-uuid");
     await call("refus.book-id-mal-forme", "GET", "/api/books/abc");
+    // MySQL convertit `1abc` en 1 pour comparer : sans garde, il rendait le livre 1.
+    await call("refus.book-id-suffixe", "GET", `/api/books/${book1}abc`);
+    await call("refus.book-id-hors-int32", "GET", "/api/books/2147483648");
+    await call(
+      "refus.books-filtre-sequel-mal-forme",
+      "GET",
+      `/api/books?sequel=${book1}abc`,
+    );
 
+    // ── Unicité sous collation — EN DERNIER ──────────────────────────────
+    // MySQL et MariaDB comparent sans casse ni accent (MariaDB ignore aussi
+    // l'espace final) : ces créations y rendent 409. Jouées plus tôt, elles
+    // changeaient les lignes de TOUTES les listes suivantes, et un seul écart
+    // déclaré en faisait dix.
+    await call("chaine.email-doublon-casse", "POST", "/api/authors", {
+      email: "ALICE@example.org",
+      name: "A3",
+      country: "FR",
+      balance: "1",
+    });
+    await call("chaine.email-doublon-espace-final", "POST", "/api/authors", {
+      email: "bob@example.org ",
+      name: "B2",
+      country: "FR",
+      balance: "1",
+    });
+    await call("chaine.email-doublon-accent", "POST", "/api/authors", {
+      email: "zoé@example.org",
+      name: "Z1",
+      country: "FR",
+      balance: "1",
+    });
+    await call("chaine.email-doublon-sans-accent", "POST", "/api/authors", {
+      email: "zoe@example.org",
+      name: "Z2",
+      country: "FR",
+      balance: "1",
+    });
     const out = process.env.NF_PORTABILITY_SNAPSHOT;
     if (!out)
       throw new Error(

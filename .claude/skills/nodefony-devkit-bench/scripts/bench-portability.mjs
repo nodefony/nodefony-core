@@ -598,6 +598,66 @@ function canonical(value) {
   return value;
 }
 
+/**
+ * Écarts de SÉMANTIQUE entre moteurs — liste FERMÉE, chacun avec sa raison.
+ *
+ * Ce ne sont pas des défauts du framework : c'est la base qui compare et
+ * ordonne ainsi, et les gommer coûterait l'usage des index (un `col IS NULL`
+ * ajouté au tri, une collation forcée sur chaque comparaison). Ils se
+ * DÉCLARENT ici et dans la documentation (« Ce qui diverge d'une base à
+ * l'autre »), et nulle part ailleurs ne se tolèrent.
+ *
+ * Fermée dans les deux sens : un écart hors liste fait échouer le moteur, et
+ * une entrée qui ne se produit plus aussi — sinon la liste finirait par
+ * couvrir un défaut qui n'a plus rien à voir avec sa raison.
+ */
+const DECLARED_DIVERGENCES = [
+  {
+    label: "liste.tri-born-asc",
+    engines: ["postgres"],
+    why: "PostgreSQL range les NULL APRÈS les valeurs en ordre croissant ; SQLite, MySQL et MariaDB AVANT",
+  },
+  {
+    label: "chaine.tri-name-asc",
+    engines: ["mysql", "mariadb"],
+    why: "collation par défaut insensible à la casse et aux accents : « alice » précède « Bob » au lieu de le suivre",
+  },
+  {
+    label: "chaine.email-doublon-casse",
+    engines: ["mysql", "mariadb"],
+    why: "unicité insensible à la casse : ALICE@ heurte alice@ (409)",
+  },
+  {
+    label: "chaine.email-doublon-sans-accent",
+    engines: ["mysql", "mariadb"],
+    why: "unicité insensible aux accents : zoe@ heurte zoé@ (409)",
+  },
+  {
+    label: "chaine.email-doublon-espace-final",
+    engines: ["mariadb"],
+    why: "collation PAD SPACE : l'espace final est ignoré à la comparaison (409) — MySQL 8.4 est NO PAD",
+  },
+];
+
+/**
+ * Sépare les écarts d'un moteur en DÉCLARÉS et INATTENDUS, et rend les
+ * déclarations qui ne se sont pas produites.
+ */
+function classifyDiffs(engineKey, diffs) {
+  const mine = DECLARED_DIVERGENCES.filter((d) =>
+    d.engines.includes(engineKey),
+  );
+  const declared = [];
+  const unexpected = [];
+  for (const diff of diffs) {
+    const decl = mine.find((d) => d.label === diff.label);
+    if (decl) declared.push({ ...diff, why: decl.why });
+    else unexpected.push(diff);
+  }
+  const stale = mine.filter((d) => !diffs.some((x) => x.label === d.label));
+  return { declared, unexpected, stale };
+}
+
 /** Les cas qui diffèrent entre la référence et un moteur. */
 function diffSnapshots(reference, other) {
   const byLabel = new Map(other.map((c) => [c.label, c]));
@@ -792,14 +852,28 @@ for (const engine of SELECTED) {
     `${engine.key} — la sonde rend le MÊME instantané que SQLite`,
     () => {
       snapshot = probeSnapshot(engine.key);
-      const diffs = diffSnapshots(reference, snapshot);
-      verdict.diffs = diffs;
-      if (diffs.length > 0) {
-        throw new Error(
-          `${diffs.length} cas divergent(s) sur ${reference.length} :\n${diffs.map(showDiff).join("\n")}`,
+      const { declared, unexpected, stale } = classifyDiffs(
+        engine.key,
+        diffSnapshots(reference, snapshot),
+      );
+      verdict.diffs = unexpected;
+      verdict.declared = declared.map((d) => ({ label: d.label, why: d.why }));
+      const problems = [];
+      if (unexpected.length > 0) {
+        problems.push(
+          `${unexpected.length} cas divergent(s) NON déclaré(s) sur ${reference.length} :\n${unexpected.map(showDiff).join("\n")}`,
         );
       }
-      return { cas: snapshot.length };
+      if (stale.length > 0) {
+        problems.push(
+          `${stale.length} écart(s) déclaré(s) qui n'ont PLUS lieu — retirer de DECLARED_DIVERGENCES : ${stale.map((d) => d.label).join(", ")}`,
+        );
+      }
+      if (problems.length > 0) throw new Error(problems.join("\n"));
+      return {
+        cas: snapshot.length,
+        "écarts déclarés": declared.map((d) => d.label).join(", ") || "aucun",
+      };
     },
   );
   verdict.ok = okDev && okE2e && okProbe;
