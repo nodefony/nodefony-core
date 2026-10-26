@@ -434,11 +434,11 @@ describe("scaffold — code des colonnes", () => {
     // Le NUL est refusé dans toute chaîne : PostgreSQL ne le stocke pas.
     assert.match(
       c.zodProps,
-      /title: z\.string\(\)\.min\(1\)\.max\(255\)\.regex\(\/\^\[\^\\u0000\]\*\$\/u, "caractère NUL refusé"\),/u,
+      /title: z\.string\(\)\.min\(1\)\.max\(255\)\.refine\(\(value\) => !value\.includes\("\\u0000"\), "caractère NUL refusé"\),/u,
     );
     assert.match(
       c.zodProps,
-      /body: z\.string\(\)\.regex\([^)]*\)\.nullable\(\)\.optional\(\),/u,
+      /body: z\.string\(\)\.refine\(.*\)\.nullable\(\)\.optional\(\),/u,
     );
     // Ni id ni horodatages dans le contrat d'entrée : ils sont posés par le serveur.
     assert.doesNotMatch(c.zodProps, /\bid\b/u);
@@ -583,10 +583,7 @@ describe("scaffold — code des colonnes", () => {
     // défaut SQL est justement le SEUL qui compte quand la colonne est AJOUTÉE à
     // une table peuplée.
     // Borné à 32 bits : au-delà, PostgreSQL et MySQL lèvent quand SQLite range.
-    assert.match(
-      c.zodProps,
-      /views: z\.number\(\)\.int\(\)\.min\(-2147483648\)\.max\(2147483647\)\.default\(0\),/u,
-    );
+    assert.match(c.zodProps, /views: z\.int32\(\)\.default\(0\),/u);
   });
 
   // `:index` était parsé mais jamais émis — la promesse de la grammaire était vide.
@@ -893,7 +890,7 @@ describe("scaffold — la référence suit la clé primaire", () => {
       dialect: "postgres",
       id: "serial",
     });
-    assert.match(numeric.zodProps, /author: z\.number\(\)\.int\(\)/u);
+    assert.match(numeric.zodProps, /author: z\.int32\(\)/u);
     const uuid = buildEntityCodegen(fields, {
       ...base,
       dialect: "postgres",

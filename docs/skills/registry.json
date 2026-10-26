@@ -3248,8 +3248,8 @@
       "triggers": [],
       "description": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\", \"un agent recommanderait-il ce framework ?\", \"que conclut un agent en lisant le dépôt ?\", \"notre accueil dit-il vrai ?\".",
       "cost": {
-        "bodyLines": 422,
-        "approxTokens": 7686
+        "bodyLines": 444,
+        "approxTokens": 8021
       },
       "requires": [
         "serveur UP",
@@ -4094,6 +4094,121 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/bench-portability.mjs",
+            "purpose": "Banc de PORTABILITÉ — une application NÉE en SQLite tient-elle sur les autres moteurs, dans le MÊME décor, en ne faisant que les gestes documentés ?",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--admin-",
+                "help": ""
+              },
+              {
+                "flag": "--admin-mysql",
+                "help": ""
+              },
+              {
+                "flag": "--column-case",
+                "help": ""
+              },
+              {
+                "flag": "--config",
+                "help": ""
+              },
+              {
+                "flag": "--database",
+                "help": ""
+              },
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--id",
+                "help": ""
+              },
+              {
+                "flag": "--index",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--keep",
+                "help": ""
+              },
+              {
+                "flag": "--name",
+                "help": ""
+              },
+              {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--no-timestamps",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--repack",
+                "help": ""
+              },
+              {
+                "flag": "--reuse",
+                "help": ""
+              },
+              {
+                "flag": "--soft-delete",
+                "help": ""
+              },
+              {
+                "flag": "--table",
+                "help": ""
+              },
+              {
+                "flag": "--unique",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "APP",
+                "help": ""
+              },
+              {
+                "name": "DB_DEV",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/bench-schema.mjs",
             "purpose": "Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer.",
             "usage": [],
@@ -4872,7 +4987,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "422",
+            "detail": "444",
             "advisory": true
           }
         ]
@@ -6524,8 +6639,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code. Profil d'une route → outil MCP `nodefony_profile_route`.",
       "cost": {
-        "bodyLines": 545,
-        "approxTokens": 10630
+        "bodyLines": 546,
+        "approxTokens": 11163
       },
       "requires": [
         "serveur UP",
@@ -8841,7 +8956,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "545",
+            "detail": "546",
             "advisory": true
           }
         ]

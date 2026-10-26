@@ -9888,7 +9888,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Et la clé serial de `Book` est bien vue par `Review`.
       assert.match(
         read("nodefony/entity/Review.schema.ts"),
-        /book: z\.number\(\)/u,
+        /book: z\.int32\(\)/u,
       );
 
       const unit = read("tests/review.test.ts");
