@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T10:23:09.423Z",
+  "generatedAt": "2026-10-26T12:13:50.267Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 199,
+      "closed": 200,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 22,
+      "open": 21,
       "title": "10.0.0-beta"
     },
     {
@@ -5306,8 +5306,8 @@
       "number": 683,
       "title": "test(devkit): prouver une app née en SQLite sur trois autres bases",
       "url": "https://github.com/nodefony/nodefony-core/issues/683",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
