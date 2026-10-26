@@ -1,5 +1,5 @@
 <% if (it.hasMigrations) { %>import assert from "node:assert/strict";
-import { execFile<% if (it.db) { %>, execFileSync<% } %> } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import {
   appendFileSync,
   cpSync,
@@ -12,7 +12,12 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { nodefonyBin, runningAppPort, startSpareApp } from "nodefony/testing";
+import {
+  e2eDatabases,
+  nodefonyBin,
+  runningAppPort,
+  startSpareApp,
+} from "nodefony/testing";
 // Une application générée importe ses primitives de test EXPLICITEMENT : sa
 // configuration Vitest ne pose pas `globals`, contrairement à celle du dépôt du
 // framework. Un fichier écrit avec la convention du dépôt échoue ici sur un
@@ -181,46 +186,65 @@ function json(stdout: string): z.output<typeof Verdict> {
   return Verdict.parse(JSON.parse(stdout.trim()));
 }
 
-<% if (it.db) { %>/**
- * La base JETABLE de cette suite — celle qu'on a le droit de salir.
+/**
+ * La base JETABLE de cette suite, sur un moteur serveur — celle qu'on a le
+ * droit de salir. `null` en SQLite : chaque cas se pose un fichier neuf.
  *
- * Elle est FOURNIE par le décor (`<%= it.db.databaseScratch %>`), jamais
- * fabriquée ici : sur un moteur serveur, `CREATE DATABASE` est un privilège
- * d'administration que l'utilisateur applicatif n'a pas. Le compose généré la
- * crée ; votre recette doit faire de même.
+ * Elle suit la base que l'application CONFIGURE (`e2eDatabases`, lue à
+ * l'exécution) : une application passée sur un autre moteur éprouve ses
+ * migrations sur CE moteur. Elle est FOURNIE par le décor
+ * (`<base>_e2e_scratch`), jamais fabriquée ici : sur un moteur serveur,
+ * `CREATE DATABASE` est un privilège d'administration que l'utilisateur
+ * applicatif n'a pas.
  */
 const SPARE_URL =
-  process.env.NF_E2E_SCRATCH_DATABASE_URL ?? "<%= it.db.urlScratch %>";
+<% if (it.db) { %>  process.env.NF_E2E_SCRATCH_DATABASE_URL ??
+  e2eDatabases("<%= it.db.url %>").scratch;<% } else { %>  process.env.NF_E2E_SCRATCH_DATABASE_URL ?? e2eDatabases().scratch;<% } %>
 
-<% } %>/**
+/**
  * Une base jetable VIERGE, prête à recevoir des migrations.
  *
-<% if (it.db) { %> * Une base de serveur ne s'efface pas comme un fichier : on retire ses TABLES,
- * par le geste que le framework prévoit pour ça et qui n'existe qu'en
- * développement. Elle est partagée par tous les cas de cette suite, qui
+ * Sur un moteur serveur, une base ne s'efface pas comme un fichier : on retire
+ * ses TABLES, par le geste que le framework prévoit pour ça et qui n'existe
+ * qu'en développement. Elle est partagée par tous les cas de cette suite, qui
  * s'exécutent l'un après l'autre — d'où la remise à zéro AVANT chaque usage,
- * et jamais après : un cas qui échoue laisse alors sa base à inspecter.
-<% } else { %> * Un fichier neuf par appel : rien à nettoyer, rien à partager.
-<% } %> *
+ * et jamais après : un cas qui échoue laisse alors sa base à inspecter. En
+ * SQLite, un fichier neuf par appel : rien à nettoyer, rien à partager.
+ *
  * @param dir - dossier de travail du cas appelant.
  * @returns l'URL de la base.
  */
 function freshDatabase(dir: string): string {
-<% if (it.db) { %>  void dir; // aucun fichier à poser : la base vit sur le serveur.
+  if (SPARE_URL === null) return `sqlite:${path.join(dir, "base.db")}`;
   // `--drop-accounts` : cf le décor de `e2e.setup` — la garde qui protège les
   // comptes n'a pas à être contournée en silence, elle se lève explicitement.
-  execFileSync(process.execPath, [bin, "orm:reset", "--yes", "--drop-accounts"], {
-    stdio: "ignore",
-    timeout: 120_000,
-    env: {
-      ...process.env,
-      NODE_ENV: "development",
-      NF_DATABASE_URL: SPARE_URL,
-    },
-  });
+  try {
+    execFileSync(
+      process.execPath,
+      [bin, "orm:reset", "--yes", "--drop-accounts"],
+      {
+        stdio: "pipe",
+        timeout: 120_000,
+        env: {
+          ...process.env,
+          NODE_ENV: "development",
+          NF_DATABASE_URL: SPARE_URL,
+        },
+      },
+    );
+  } catch (cause) {
+    // La cause la plus fréquente est une base que personne n'a créée : la dire,
+    // avec le geste, plutôt qu'une pile qui accuse le premier cas venu.
+    const base = new URL(SPARE_URL).pathname.slice(1);
+    throw new Error(
+      `base jetable « ${base} » inutilisable — elle doit exister sur le serveur ` +
+        `(CREATE DATABASE ${base}, accordée au compte de l'application), ou ` +
+        `NF_E2E_SCRATCH_DATABASE_URL doit en désigner une autre.`,
+      { cause },
+    );
+  }
   return SPARE_URL;
-<% } else { %>  return `sqlite:${path.join(dir, "base.db")}`;
-<% } %>}
+}
 
 /** Base jetable, pour éprouver le cas « en retard » sans toucher à celle des tests. */
 let spareDatabase: { dir: string; url: string };

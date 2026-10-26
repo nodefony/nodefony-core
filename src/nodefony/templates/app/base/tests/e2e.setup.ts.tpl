@@ -1,12 +1,12 @@
 import { execFileSync, type ExecFileSyncOptions } from "node:child_process";
 import { randomBytes } from "node:crypto";
-<% if (!it.db) { %>import { rmSync } from "node:fs";
-import path from "node:path";
+<% if (!it.mongo) { %>import { rmSync } from "node:fs";
 <% } %>import {
 <% if (it.hasSecurity) { %>  adminLogin as loginAdmin,
   E2E_ADMIN_PASSWORD,
   E2E_USER_IDENTIFIER,
   E2E_USER_PASSWORD,
+<% } %><% if (!it.mongo) { %>  e2eDatabases,
 <% } %>  nodefonyBin,
   runningAppPort,
 } from "nodefony/testing";
@@ -110,12 +110,14 @@ export const PRODUCTION_SECRETS: Readonly<Record<string, string>> = {
  * Surcharge : `NF_E2E_DATABASE_URL` — pour éprouver la suite sur un AUTRE
  * serveur que celui du développement (une instance PostgreSQL de recette, par
  * exemple).
- *
- * ⚠️ **Elle ne suffit pas à changer de MOTEUR.** Les entités que `create entity`
- * écrit décrivent leurs colonnes pour toutes les bases, mais les migrations
- * versionnées sont celles d'UN moteur ; et une entité écrite avec `--dialect`
- * reste liée au sien — l'ORM refuse de démarrer sur un autre en la nommant.
-<% if (it.mongo) { %> *
+<% if (!it.mongo) { %> *
+ * **Elle suit la base que l'application CONFIGURE** (`e2eDatabases`, lue à
+ * l'exécution — `.env` compris) : une application passée de SQLite à
+ * PostgreSQL par `NF_DATABASE_URL` voit sa suite porter sur PostgreSQL, dans
+ * la base `<base>_e2e` du même serveur, que votre décor FOURNIT. Une entité
+ * écrite avec `--dialect` reste liée à son moteur — l'ORM refuse de démarrer
+ * sur un autre en la nommant.
+<% } %><% if (it.mongo) { %> *
  * Sur <%= it.db.label %>, c'est une base À PART sur le même serveur —
  * `<%= it.db.databaseE2e %>`. Rien à fournir : MongoDB la crée à la première
  * écriture, et la suite la supprime avant de démarrer.
@@ -127,8 +129,7 @@ export const PRODUCTION_SECRETS: Readonly<Record<string, string>> = {
  * l'utilisateur applicatif n'a pas.
 <% } %> */
 export const E2E_BASE_URL =
-<% if (it.db) { %>  process.env.NF_E2E_DATABASE_URL ?? "<%= it.db.urlE2e %>";<% } else { %>  process.env.NF_E2E_DATABASE_URL ??
-  `sqlite:${path.resolve("var/databases/e2e.db")}`;<% } %>
+<% if (it.mongo) { %>  process.env.NF_E2E_DATABASE_URL ?? "<%= it.db.urlE2e %>";<% } else { %>  process.env.NF_E2E_DATABASE_URL ?? e2eDatabases(<% if (it.db) { %>"<%= it.db.url %>"<% } %>).e2e;<% } %>
 <% if (it.hasSecurity) { %>
 /**
  * Mot de passe du compte d'administration, POUR LA SUITE DE TESTS UNIQUEMENT.
@@ -249,30 +250,33 @@ export async function setup(): Promise<void> {
   } finally {
     await client.close();
   }
-<% } else if (it.db) { %>  //
-  // Sur un moteur serveur, une base ne s'EFFACE pas — on retire ses tables.
-  // `orm:reset` est le geste que le framework prévoit pour ça, et il n'existe
-  // qu'en développement : cette base-ci n'a pas d'autre usage que la suite.
-  //
-  // `--drop-accounts` est délibéré : la commande refuse d'effacer des comptes,
-  // des passkeys ou des seconds facteurs sur un simple `--yes`. Ici ils
-  // appartiennent à la suite et à personne d'autre — le drapeau dit qu'on l'a vu.
-  runNodefony(["orm:reset", "--yes", "--drop-accounts"], {
-    stdio: "inherit",
-    timeout: 120_000,
-    env: {
-      ...process.env,
-      NODE_ENV: "development",
-      NF_DATABASE_URL: E2E_BASE_URL,
-    },
-  });
-<% } else { %>  // Les compagnons `-wal` et `-shm` partent avec le fichier, sinon SQLite
-  // ressuscite l'état d'avant.
+<% } else { %>  //
+  // Le geste dépend du moteur que vise la suite, lu à l'EXÉCUTION : une
+  // application change de base au cours de sa vie (`NF_DATABASE_URL`).
   if (E2E_BASE_URL.startsWith("sqlite:")) {
+    // Les compagnons `-wal` et `-shm` partent avec le fichier, sinon SQLite
+    // ressuscite l'état d'avant.
     const file = E2E_BASE_URL.slice("sqlite:".length);
     for (const suffix of ["", "-wal", "-shm"]) {
       rmSync(`${file}${suffix}`, { force: true });
     }
+  } else {
+    // Sur un moteur serveur, une base ne s'EFFACE pas — on retire ses tables.
+    // `orm:reset` est le geste que le framework prévoit pour ça, et il n'existe
+    // qu'en développement : cette base-ci n'a pas d'autre usage que la suite.
+    //
+    // `--drop-accounts` est délibéré : la commande refuse d'effacer des comptes,
+    // des passkeys ou des seconds facteurs sur un simple `--yes`. Ici ils
+    // appartiennent à la suite et à personne d'autre — le drapeau dit qu'on l'a vu.
+    runNodefony(["orm:reset", "--yes", "--drop-accounts"], {
+      stdio: "inherit",
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        NODE_ENV: "development",
+        NF_DATABASE_URL: E2E_BASE_URL,
+      },
+    });
   }
 <% } %>
 <% if (it.hasMigrations) { %>  // Le schéma AVANT le trafic — le patron de production, appliqué ici tel quel.

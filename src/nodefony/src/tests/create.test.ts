@@ -9828,6 +9828,41 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(e2e, 'parents["Category"]');
     });
 
+    it("le décor e2e choisit son moteur à l'EXÉCUTION, même né en SQLite", () => {
+      // Vécu au banc de portabilité : né SQLite, le décor ne savait vider qu'un
+      // fichier — pointé vers PostgreSQL, il ne remettait jamais la base à zéro.
+      for (const database of ["sqlite", "postgres"] as const) {
+        const dest = path.join(tmp, `eapp-runtime-db-${database}`);
+        scaffold(dest, {
+          name: "shop",
+          preset: "complete",
+          frontend: "none",
+          database,
+        });
+        const setup = readFileSync(
+          path.join(dest, "tests", "e2e.setup.ts"),
+          "utf8",
+        );
+        const migr = readFileSync(
+          path.join(dest, "tests", "migrations.e2e.test.ts"),
+          "utf8",
+        );
+        assert.include(setup, 'E2E_BASE_URL.startsWith("sqlite:")', database);
+        assert.include(
+          setup,
+          '"orm:reset", "--yes", "--drop-accounts"',
+          database,
+        );
+        assert.include(migr, "if (SPARE_URL === null)", database);
+        const fallback =
+          database === "postgres"
+            ? `"postgres://shop:shop-dev@127.0.0.1:5432/shop"`
+            : "";
+        assert.include(setup, `e2eDatabases(${fallback}).e2e`, database);
+        assert.include(migr, `e2eDatabases(${fallback}).scratch`, database);
+      }
+    });
+
     it("une référence suit la clé de sa CIBLE, et les tests sèment TOUTE la chaîne", () => {
       // Vécu au banc de portabilité : `Book` en serial visant un `Author` en
       // uuid recevait `author: z.number()` (toute création en 422), et les tests

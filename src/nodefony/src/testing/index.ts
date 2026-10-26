@@ -16,6 +16,8 @@ import {
   signalProcessGroup,
 } from "../service/dev/devProcess";
 import { AUTH_LOGIN_PATH, AUTH_ME_PATH } from "../runtime/authRoutes";
+import { isSqliteUrl, testDatabaseUrl } from "../runtime/e2eDatabase";
+import { appEnvironment } from "../kernel/checks/projectScope";
 
 /**
  * Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL.
@@ -65,6 +67,63 @@ import { AUTH_LOGIN_PATH, AUTH_ME_PATH } from "../runtime/authRoutes";
 // sous-chemin « testing », elle était inatteignable pour son usage principal.
 // Ré-exportée ici : les suites qui l'importent de `nodefony/testing` ne bougent pas.
 export { nodefonyBin } from "../cli/nodefonyBin";
+
+/** Les bases du décor e2e d'une application — cf {@link e2eDatabases}. */
+export interface IE2eDatabases {
+  /** La base que l'application CONFIGURE (`NF_DATABASE_URL`), ou `null` : SQLite local. */
+  configured: string | null;
+  /** La base de la suite e2e — jamais celle du développement. */
+  e2e: string;
+  /**
+   * La base VIERGE de la suite de migrations, sur un moteur serveur ; `null`
+   * en SQLite, où chaque cas se pose un fichier neuf.
+   */
+  scratch: string | null;
+}
+
+/**
+ * Les bases du décor e2e, dérivées de la base que l'application CONFIGURE —
+ * décidées à l'exécution, jamais figées à la création de l'application.
+ *
+ * Une application née en SQLite qui passe sur PostgreSQL (`NF_DATABASE_URL`
+ * dans son `.env`) doit voir sa suite porter sur PostgreSQL : figée à la
+ * naissance, elle restait verte sur SQLite — elle n'éprouvait plus le moteur
+ * servi —, et la suite de migrations comparait un moteur à l'autre.
+ *
+ * - base serveur configurée : `<base>_e2e` et `<base>_e2e_scratch` sur le même
+ *   serveur, que le décor FOURNIT (`CREATE DATABASE` est un privilège
+ *   d'administration) ;
+ * - SQLite, ou rien de configuré : `var/databases/e2e.db`, sans base vierge.
+ *
+ * La configuration se lit comme l'application la lit (`.env` compris, le shell
+ * gagnant), sans toucher à `process.env`. Les surcharges
+ * `NF_E2E_DATABASE_URL` / `NF_E2E_SCRATCH_DATABASE_URL` restent à l'appelant.
+ *
+ * @param fallback - la base de la CRÉATION, quand rien n'est configuré (un clone
+ *   sans `.env`, la forge).
+ * @param root - racine de l'application (défaut : le dossier courant).
+ * @returns les trois URL.
+ */
+export function e2eDatabases(
+  fallback?: string,
+  root: string = process.cwd(),
+): IE2eDatabases {
+  const env = appEnvironment(root);
+  const configured =
+    env.NF_DATABASE_URL ?? env.DATABASE_URL ?? fallback ?? null;
+  if (configured === null || isSqliteUrl(configured)) {
+    return {
+      configured,
+      e2e: `sqlite:${path.resolve(root, "var/databases/e2e.db")}`,
+      scratch: null,
+    };
+  }
+  return {
+    configured,
+    e2e: testDatabaseUrl(configured, "e2e"),
+    scratch: testDatabaseUrl(configured, "scratch"),
+  };
+}
 
 /**
  * Mot de passe du compte administrateur JETABLE que le décor e2e d'une

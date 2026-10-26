@@ -72,6 +72,7 @@ import type { PackageManagerName } from "../../Cli";
 // seconde lecture divergerait au premier alias ou au premier fichier ajouté.
 import { resolveInfra } from "../../config/infra";
 import { envFileOrder } from "../../runtime/loadEnv";
+import { testDatabaseName, testDatabaseUrl } from "../../runtime/e2eDatabase";
 import { isPlainObject } from "../../runtime/isPlainObject";
 import { resolveModuleLayout, type IRootManifest } from "./moduleLayout";
 import {
@@ -549,11 +550,13 @@ export function resolveDatabase(
     //  - `<app>_e2e_scratch` : la base VIERGE dont la suite de migrations a
     //    besoin pour éprouver « en retard », « divergent » et la rétention de
     //    mise en service — elle est salie puis remise à zéro à chaque cas.
-    databaseE2e: `${appName}_e2e`,
-    databaseScratch: `${appName}_e2e_scratch`,
+    databaseE2e: testDatabaseName(appName, "e2e"),
+    databaseScratch: testDatabaseName(appName, "scratch"),
     url: dsn(appName),
-    urlE2e: dsn(`${appName}_e2e`),
-    urlScratch: dsn(`${appName}_e2e_scratch`),
+    // Dérivées par la règle que le décor des tests relit à l'exécution
+    // (`nodefony/testing#e2eDatabases`) — jamais recomposées ici.
+    urlE2e: testDatabaseUrl(dsn(appName), "e2e"),
+    urlScratch: testDatabaseUrl(dsn(appName), "scratch"),
   };
 }
 
