@@ -247,6 +247,15 @@ résout par chemin de fichier ; ce chemin-là n'est jamais pris.
 Un numéro de préversion ne coûte rien (`beta.2`, `beta.3`) ; `10.0.0` ne se reprend pas. Et
 `npm install nodefony` continue de servir 7.0.2 : personne ne reçoit la beta sans la nommer.
 
+**Pas de release candidate pour la 10.0 : la dernière beta est la candidate de fait.** Une RC
+promet une API figée à des intégrateurs qui testent leurs applications avant la stable ; elle ne
+vaut que si quelqu'un l'exerce, et les betas éprouvent déjà ce qu'aucun banc ne touche — la
+résolution des paquets depuis le registre. La règle : `10.0.0` ne part que si AUCUN code n'a
+changé depuis la dernière beta publiée, hors numéro de version. Un correctif tombé entre-temps
+fait publier une beta de plus, jamais la finale. Les RC (`-rc.N`, dist-tag `rc`, déjà portés par
+l'outil) reviennent pour une majeure qui casse des applications existantes — la 11.0.0 et la
+montée de l'ORM de référence (#685).
+
 **Rien à écrire pour cela** : `release.mjs` porte déjà `--npm-tag`, REFUSE une préversion sans
 dist-tag comme une version stable sous un autre tag que `latest`, publie avec
 `--access public` explicite, et calcule l'ordre de publication depuis les dépendances
