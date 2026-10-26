@@ -68,6 +68,7 @@ export {
   USER_COLUMNS,
   USER_PRIVATE_FIELDS,
   entityPrivateFields,
+  isIdentityEntity,
   USER_TABLE_NAME,
   attachExtraColumns,
   missingUserColumns,

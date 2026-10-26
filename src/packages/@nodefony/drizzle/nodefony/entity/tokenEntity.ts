@@ -160,6 +160,8 @@ export function createTokenEntities(
       connector,
       name: TOKEN_ENTITY_NAMES.records,
       module: "security",
+      // L'empreinte du jeton ne sort jamais par une relation (`entityPrivateFields`).
+      privateFields: ["secretHash"],
       schema: createAccessTokenTable(dialect),
     },
     {

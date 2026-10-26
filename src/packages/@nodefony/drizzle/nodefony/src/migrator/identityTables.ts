@@ -47,6 +47,8 @@
  * le framework lit partout, donc celui qu'on retrouve en base.
  */
 
+import { USER_TABLE_NAME } from "@nodefony/user";
+
 /** Une table d'identité : son nom en base, ce qu'elle porte, et son seuil. */
 export interface IIdentityTable {
   /** Nom tel qu'il apparaît dans le catalogue de la base. */
@@ -64,7 +66,7 @@ export interface IIdentityTable {
 
 export const IDENTITY_TABLES: readonly IIdentityTable[] = [
   {
-    name: "User",
+    name: USER_TABLE_NAME,
     holds: "des comptes que rien ne repose — un semis ne recrée que l'admin",
     // Le compte d'administration que sème l'application ; au-delà, c'est du
     // travail humain.

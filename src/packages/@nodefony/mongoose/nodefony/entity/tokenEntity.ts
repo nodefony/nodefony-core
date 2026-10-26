@@ -94,6 +94,8 @@ export function createTokenEntities(connector: string): IEntity[] {
       connector,
       name: TOKEN_ENTITY_NAMES.records,
       module: "security",
+      // L'empreinte du jeton ne sort jamais par une relation (`entityPrivateFields`).
+      privateFields: ["secretHash"],
       schema: accessTokenSchema,
     },
     {

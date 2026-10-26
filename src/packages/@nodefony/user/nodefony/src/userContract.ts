@@ -85,6 +85,46 @@ export interface IUserColumn {
 }
 
 /**
+ * Le nom de la TABLE (ou collection) qui porte les utilisateurs — et celui de
+ * l'entité d'identité au registre des entités, qui porte le nom de sa table.
+ *
+ * Il fait partie du contrat au même titre que les noms de colonnes, et pour la
+ * même raison : le SQL natif du framework l'écrit en dur — recherche par compte
+ * externe, listing. Une divergence ne LÈVE PAS, elle rend des résultats vides,
+ * si bien qu'une connexion par fournisseur externe crée un compte de plus à
+ * chaque passage.
+ *
+ * Il vit ici plutôt que dans un adaptateur parce que plusieurs lieux le lisent —
+ * la spec de table, les requêtes natives, les recherches au registre des
+ * adaptateurs, et le générateur d'entité, qui écrit l'entité DANS l'application.
+ * Des copies divergent en silence ; le générateur en portait déjà une, et elle
+ * disait `users`. Pour DÉCIDER si une entité est celle d'identité, on ne
+ * compare pas à ce nom : on appelle {@link isIdentityEntity}.
+ *
+ * ⚠️ **Figé en v1**, comme les noms de colonnes : le changer romprait toute
+ * application qui possède déjà sa table.
+ */
+export const USER_TABLE_NAME = "User";
+
+/**
+ * Dit si une entité est l'entité d'identité — celle qui porte les comptes.
+ *
+ * Seule désignation de cette entité : le défaut fermé des champs privés
+ * ({@link entityPrivateFields}) s'y accroche. Aujourd'hui elle se reconnaît à
+ * son nom, figé en v1 ; le jour où ce nom deviendra réglable par l'application,
+ * cette fonction seule changera — une comparaison recopiée ailleurs viserait
+ * alors une entité absente, et l'empreinte du mot de passe sortirait sans un
+ * mot. Jamais d'heuristique sur les noms de champs (`password`, `roles`…) :
+ * elle raterait `pwd_hash` et masquerait à tort.
+ *
+ * @param entity - le descripteur à examiner.
+ * @returns `true` pour l'entité d'identité.
+ */
+export function isIdentityEntity(entity: Pick<IEntity, "name">): boolean {
+  return entity.name === USER_TABLE_NAME;
+}
+
+/**
  * **Le contrat de colonnes de l'utilisateur** — la seule description de ce que
  * le framework LIT sur un utilisateur persisté.
  *
@@ -102,25 +142,6 @@ export interface IUserColumn {
  * surtout : desserrer un nom est additif, le resserrer est une rupture. Ajouter
  * une colonne ici engage donc toute application qui possède déjà sa table.
  */
-/**
- * Le nom de la TABLE (ou collection) qui porte les utilisateurs.
- *
- * Il fait partie du contrat au même titre que les noms de colonnes, et pour la
- * même raison : le SQL natif du framework l'écrit en dur — recherche par compte
- * externe, listing. Une divergence ne LÈVE PAS, elle rend des résultats vides,
- * si bien qu'une connexion par fournisseur externe crée un compte de plus à
- * chaque passage.
- *
- * Il vit ici plutôt que dans un adaptateur parce que trois lieux le lisent — la
- * spec de table SQL, les requêtes natives, et le générateur d'entité, qui écrit
- * l'entité DANS l'application. Trois copies divergent en silence ; le générateur
- * en portait déjà une, et elle disait `users`.
- *
- * ⚠️ **Figé en v1**, comme les noms de colonnes : le changer romprait toute
- * application qui possède déjà sa table.
- */
-export const USER_TABLE_NAME = "User";
-
 export const USER_COLUMNS: readonly IUserColumn[] = [
   {
     name: "id",
@@ -297,7 +318,8 @@ export const USER_PRIVATE_FIELDS: readonly string[] = USER_COLUMNS.filter(
 
 /**
  * Les champs qu'une entité ne laisse pas sortir par une relation : ceux qu'elle
- * déclare en `privateFields`, plus — pour l'entité `User` — ceux du contrat
+ * déclare en `privateFields`, plus — pour l'entité d'identité
+ * ({@link isIdentityEntity}) — ceux du contrat
  * ({@link USER_PRIVATE_FIELDS}), qu'elle les déclare ou non.
  *
  * Le défaut est FERMÉ parce que l'oubli est silencieux : une application qui
@@ -324,12 +346,9 @@ export function entityPrivateFields(
       );
     }
   }
-  // L'entité d'identité porte le nom de sa table : c'est sous ce nom que le
-  // framework la cherche au registre.
-  const fields =
-    entity.name === USER_TABLE_NAME
-      ? [...new Set([...USER_PRIVATE_FIELDS.filter(has), ...declared])]
-      : declared;
+  const fields = isIdentityEntity(entity)
+    ? [...new Set([...USER_PRIVATE_FIELDS.filter(has), ...declared])]
+    : declared;
   return fields.length > 0 ? fields : null;
 }
 

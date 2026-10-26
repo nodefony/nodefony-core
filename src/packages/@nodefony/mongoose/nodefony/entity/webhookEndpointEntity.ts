@@ -78,6 +78,8 @@ export function createWebhookEndpointEntity(connector: string): IEntity {
     connector,
     name: WEBHOOK_ENDPOINT_ENTITY,
     module: "security",
+    // Le secret chiffré ne sort jamais par une relation (`entityPrivateFields`).
+    privateFields: ["secretEnc"],
     schema: webhookEndpointSchema,
   };
 }

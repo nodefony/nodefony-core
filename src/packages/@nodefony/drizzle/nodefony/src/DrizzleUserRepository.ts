@@ -8,6 +8,7 @@ import {
   BaseUser,
   USER_SORTABLE_FIELDS,
   USER_DEFAULT_ORDER,
+  USER_TABLE_NAME,
   attachExtraColumns,
 } from "@nodefony/user";
 import type {
@@ -62,7 +63,10 @@ import type { UserRow } from "../entity/userTable";
  * @throws Error si la table `User` ne sera créée par personne.
  */
 function assertUserTableIsOwned(orm: DrizzleOrm): void {
-  if (orm.derivesSchema || !isFrameworkFallbackEntity("User", orm.name)) {
+  if (
+    orm.derivesSchema ||
+    !isFrameworkFallbackEntity(USER_TABLE_NAME, orm.name)
+  ) {
     return;
   }
   throw new Error(
@@ -113,7 +117,7 @@ export class DrizzleUserRepository implements IUserRepository {
   static from(orm: DrizzleOrm): DrizzleUserRepository {
     assertUserTableIsOwned(orm);
     return new DrizzleUserRepository(
-      orm.getRepository<UserRow>("User"),
+      orm.getRepository<UserRow>(USER_TABLE_NAME),
       orm.getNativeConnection<DrizzleDb>(),
       orm.dialect,
     );

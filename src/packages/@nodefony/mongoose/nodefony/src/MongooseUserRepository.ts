@@ -3,6 +3,7 @@ import {
   BaseUser,
   USER_SORTABLE_FIELDS,
   USER_DEFAULT_ORDER,
+  USER_TABLE_NAME,
   assertUserContract,
   attachExtraColumns,
 } from "@nodefony/user";
@@ -86,14 +87,14 @@ export class MongooseUserRepository implements IUserRepository {
    */
   static from(orm: MongooseOrm): MongooseUserRepository {
     const connection = orm.getNativeConnection<Connection>();
-    const model = connection.model<Record<string, unknown>>("User");
+    const model = connection.model<Record<string, unknown>>(USER_TABLE_NAME);
     assertUserContract(
       Object.keys(model.schema.paths),
       `L'entité « User » de cette application (connecteur « ${orm.name} », mongoose)`,
       DOCUMENT_USER_COLUMNS,
     );
     return new MongooseUserRepository(
-      orm.getRepository<UserRow>("User"),
+      orm.getRepository<UserRow>(USER_TABLE_NAME),
       model,
     );
   }

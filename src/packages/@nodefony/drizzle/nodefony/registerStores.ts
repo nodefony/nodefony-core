@@ -50,7 +50,7 @@ import {
   SESSION_CONNECTOR,
 } from "./entity/sessionEntity";
 import { registerUserEntity, userTableColumns } from "./entity/userTable";
-import { assertUserContract } from "@nodefony/user";
+import { USER_TABLE_NAME, assertUserContract } from "@nodefony/user";
 import { DrizzleTokenStore } from "./src/DrizzleTokenStore";
 import { DrizzleAuditStore } from "./src/DrizzleAuditStore";
 import { DrizzleWebAuthnCredentialStore } from "./src/DrizzleWebAuthnCredentialStore";
@@ -240,7 +240,7 @@ export function registerDrizzleFrameworkStores(
   // du dialecte. Historiquement enregistrée par l'app au top-level (variante
   // sqlite figée) — S2 multi-dialecte l'a rendue dynamique, comme la session.
   wire(
-    "User",
+    USER_TABLE_NAME,
     USER_PORTED,
     () => registerUserEntity(FRAMEWORK_CONNECTOR, dialect),
     () => {
@@ -396,7 +396,7 @@ export function registerDrizzleFrameworkStores(
   // Le contrôle ne vaut QUE pour l'entité possédée par l'application : celle du
   // framework est dérivée du contrat, un banc de parité la couvre déjà, et la
   // contrôler ici ne dirait que ce que ce banc dit mieux.
-  if (report.appOwned.includes("User")) {
+  if (report.appOwned.includes(USER_TABLE_NAME)) {
     assertAppUserEntityHonoursContract(dialect);
   }
 
@@ -425,7 +425,7 @@ export function registerDrizzleFrameworkStores(
 function assertAppUserEntityHonoursContract(dialect: SqlDialect): void {
   let present: Iterable<string>;
   try {
-    const entity = entityRegistry.get("User", FRAMEWORK_CONNECTOR);
+    const entity = entityRegistry.get(USER_TABLE_NAME, FRAMEWORK_CONNECTOR);
     const columns = userTableColumns(entity.schema, dialect);
     if (columns.size === 0) {
       return;

@@ -116,6 +116,8 @@ export function createTotpSecretEntity(
     connector,
     name: TOTP_SECRET_ENTITY,
     module: "security",
+    // Le secret chiffré ne sort jamais par une relation (`entityPrivateFields`).
+    privateFields: ["secretEnc"],
     schema: createTotpSecretTable(dialect),
   };
 }

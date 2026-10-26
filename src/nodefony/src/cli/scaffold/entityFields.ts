@@ -19,8 +19,11 @@ export const ENTITY_ID_KINDS = ["uuid7", "uuid4", "serial"] as const;
 export type TEntityIdKind = (typeof ENTITY_ID_KINDS)[number];
 
 /**
- * Nom de l'entité d'IDENTITÉ — la table `user` que `create app` pose et que le
+ * Nom de l'entité d'IDENTITÉ — la table `User` que `create app` pose et que le
  * framework (sessions, jetons, audit) référence.
+ *
+ * Copie de `USER_TABLE_NAME` (`@nodefony/user`), que le cœur ne peut pas
+ * importer : `identityEntity.test.ts` (`@nodefony/drizzle`) compare les deux.
  *
  * Sa clé n'obéit pas à la stratégie de l'entité qu'on génère : c'est un UUID
  * applicatif rangé en TEXTE dans les trois moteurs (`KIND_BY_TYPE.uuid` de

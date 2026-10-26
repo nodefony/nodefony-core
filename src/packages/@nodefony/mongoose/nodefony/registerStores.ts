@@ -41,6 +41,7 @@ import {
   registerIdempotencyEntities,
   IDEMPOTENCY_ENTITY_NAME,
 } from "./entity/idempotencyEntity";
+import { USER_TABLE_NAME } from "@nodefony/user";
 import { registerUserEntity } from "./entity/userEntity";
 import { MongooseTokenStore } from "./src/MongooseTokenStore";
 import { MongooseWebAuthnCredentialStore } from "./src/MongooseWebAuthnCredentialStore";
@@ -151,7 +152,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
   // réellement sur Mongo l'a révélé — « Schema hasn't been registered for model
   // "User" », au premier seed d'utilisateurs, en fail-soft.
   wire(
-    "User",
+    USER_TABLE_NAME,
     () => registerUserEntity(FRAMEWORK_CONNECTOR),
     () => {
       /* backend déclaré via registerUserStore (userStoreRegistry) — pas de

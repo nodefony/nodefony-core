@@ -1,7 +1,7 @@
 import type { SchemaDefinition, SchemaDefinitionProperty } from "mongoose";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
-import { USER_COLUMNS } from "@nodefony/user";
+import { USER_COLUMNS, USER_TABLE_NAME } from "@nodefony/user";
 import type { IUserColumn, UserColumnType } from "@nodefony/user";
 
 /**
@@ -107,7 +107,7 @@ export function createUserEntity(connector: string): IEntity {
   // `timestamps` → createdAt/updatedAt gérés par Mongoose (option Schema).
   return {
     connector,
-    name: "User",
+    name: USER_TABLE_NAME,
     module: "user",
     schema: userSchema,
     timestamps: true,

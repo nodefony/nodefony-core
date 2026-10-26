@@ -539,8 +539,8 @@ export class MongooseOrm extends Orm {
       if (schema === undefined) continue;
       const hidden = entityPrivateFields(
         entity,
-        // `path()` rend `undefined` pour un chemin absent, malgré son type.
-        (field) => (schema.path(field) as unknown) !== undefined,
+        // Chemin déclaré ⇔ « real » : un nœud imbriqué ou un virtuel n'est pas un champ.
+        (field) => schema.pathType(field) === "real",
       );
       if (hidden !== null) {
         selectOf.set(entity.name, hidden.map((field) => `-${field}`).join(" "));

@@ -303,7 +303,7 @@ export function createUserEntity(
   // concerne que les ORM qui les gèrent au niveau schéma, ex. Mongoose.)
   return {
     connector,
-    name: "User",
+    name: USER_TABLE_NAME,
     module: "user",
     schema: createUserTable(dialect),
   };
