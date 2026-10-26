@@ -12,8 +12,15 @@
  *
  * @module
  */
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { convertCorpus, splitStatements } from "./mysql-ddl-to-specs.mjs";
+import { findRepoRoot } from "./corpus-fetch.mjs";
+import {
+  convertCorpus,
+  readCorpusDir,
+  splitStatements,
+} from "./mysql-ddl-to-specs.mjs";
 
 let green = 0;
 const red = [];
@@ -255,6 +262,30 @@ same(
   "type inconnu, modificateur inconnu, instruction inconnue : NOMMÉS",
   bad.errors.map((e) => e.split(":")[0]).sort(),
   ["app_bad.key.sql", "app_bad.x", "app_worse.sql"],
+);
+
+// ── fixture versionnée erp-lite : le module généré dit-il encore la conversion ? ──
+// Le test d'intégration de @nodefony/drizzle lit `specs.ts` sans pouvoir importer
+// ce convertisseur (frontière du paquet) : la seule garde contre une dérive
+// entre les deux est ICI.
+const FIXTURE = path.join(
+  findRepoRoot(),
+  "src/packages/@nodefony/drizzle/tests/fixtures/erp-lite",
+);
+const fresh = convertCorpus(readCorpusDir(path.join(FIXTURE, "ddl")), {
+  tablePrefix: "erp_",
+});
+const stored = await import(pathToFileURL(path.join(FIXTURE, "specs.ts")).href);
+same("fixture erp-lite : DDL entièrement compris", fresh.errors, []);
+same(
+  "fixture erp-lite : specs.ts égale la conversion du DDL (sinon régénérer)",
+  JSON.parse(JSON.stringify(stored.SPECS)),
+  fresh.specs,
+);
+same(
+  "fixture erp-lite : les écarts tranchés aussi",
+  JSON.parse(JSON.stringify(stored.NOTES)),
+  fresh.notes,
 );
 
 if (red.length > 0) {

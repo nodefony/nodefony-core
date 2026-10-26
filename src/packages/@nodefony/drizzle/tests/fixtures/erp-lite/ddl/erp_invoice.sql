@@ -1,0 +1,27 @@
+create table erp_invoice
+(
+  rowid                integer AUTO_INCREMENT PRIMARY KEY,
+  ref                  varchar(30) NOT NULL,
+  entity               integer DEFAULT 1 NOT NULL,
+  type                 smallint DEFAULT 0 NOT NULL,
+  fk_soc               integer NOT NULL,
+  datec                datetime,
+  datef                date,
+  date_valid           date,
+  tms                  timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  paye                 smallint DEFAULT 0 NOT NULL,
+  close_code           varchar(16),
+  total_tva            double(24,8) DEFAULT 0,
+  total_ht             double(24,8) DEFAULT 0,
+  total_ttc            double(24,8) DEFAULT 0,
+  multicurrency_tx     double(24,8) DEFAULT 1,
+  fk_statut            smallint DEFAULT 0 NOT NULL,
+  fk_user_author       integer DEFAULT 0,
+  fk_facture_source    integer,
+  fk_currency          varchar(3),
+  note_private         text,
+  model_pdf            varchar(255),
+  last_main_doc        varchar(255),
+  extraparams          varchar(255),
+  pos_print_counter    integer DEFAULT 0
+) ENGINE=innodb;

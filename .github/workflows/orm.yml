@@ -217,6 +217,27 @@ jobs:
           --health-timeout 3s
           --health-retries 12
 
+      # MySQL Community : le dialecte `mysql` couvre DEUX serveurs, et un écart
+      # entre eux ne se voit que sur le second (vécu : un nom de contrainte de
+      # 71 caractères, refusé par les deux — mais seul l'un des deux tournait ici).
+      mysql:
+        image: mysql:8.4
+        credentials:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+        env:
+          MYSQL_ROOT_PASSWORD: nodefony-dev
+          MYSQL_USER: nodefony
+          MYSQL_PASSWORD: nodefony-dev
+          MYSQL_DATABASE: nodefony
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pnodefony-dev --silent"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
       # Redis n'est PAS ici : il lui faut `redis-server --requirepass …`, et
       # `services:` ne sait pas passer d'arguments au conteneur — `options` est
       # inséré dans `docker create` AVANT l'image, donc `--requirepass` y est lu
@@ -277,6 +298,18 @@ jobs:
       - name: Drizzle — sqlite + PostgreSQL + MySQL
         working-directory: src/packages/@nodefony/drizzle
         run: npm test
+
+      # Le kit de colonnes rejoué sur MySQL Community 8.4 : l'aller-retour de
+      # chaque genre, et le corpus erp-lite (schéma réel en miniature). Le reste
+      # de la suite tourne sur MariaDB à l'étape précédente.
+      - name: Drizzle — kit de colonnes sur MySQL Community 8.4
+        working-directory: src/packages/@nodefony/drizzle
+        env:
+          NF_MYSQL_URL: mysql://nodefony:nodefony-dev@127.0.0.1:3307/nodefony
+        run: >-
+          npx vitest run
+          tests/integration/erp-lite-mysql.e2e.test.ts
+          tests/integration/colkit-roundtrip-mysql.e2e.test.ts
 
       # 🔴 Les bancs les plus critiques du chantier des migrations — migrer une
       # base vierge en production, le refus destructif, la liste blanche de
@@ -601,7 +634,7 @@ jobs:
             -e POSTGRES_PASSWORD=nodefony-dev \
             -e POSTGRES_DB=nodefony \
             -p 5432:5432 postgres:16-alpine
-          for i in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if docker exec nf-outage-pg pg_isready -U nodefony -d nodefony >/dev/null 2>&1; then
               echo "PostgreSQL prêt"; exit 0
             fi
@@ -618,7 +651,7 @@ jobs:
             -e MARIADB_PASSWORD=nodefony-dev \
             -e MARIADB_DATABASE=nodefony \
             -p 3306:3306 mariadb:11.4
-          for i in $(seq 1 40); do
+          for _ in $(seq 1 40); do
             if docker exec nf-outage-mysql healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1; then
               echo "MariaDB prête"; exit 0
             fi

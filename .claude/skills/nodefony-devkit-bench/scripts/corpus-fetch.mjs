@@ -40,7 +40,7 @@ import { garderDrapeaux } from "./lib/argv.mjs";
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 
 /** Racine du dépôt, trouvée en REMONTANT — un skill se déplace, un `..` compté se périme. */
-function findRepoRoot(from) {
+export function findRepoRoot(from = ICI) {
   let dir = from;
   for (let up = 0; up < 8; up += 1) {
     if (existsSync(path.join(dir, "src/nodefony/bin/nodefony"))) return dir;

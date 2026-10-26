@@ -1,18 +1,11 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sql } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/DrizzleOrm";
-import {
-  importSpecifier,
-  writeKitConfig,
-} from "../../nodefony/src/migrator/appSchema";
-import { runGenerate } from "../../nodefony/src/migrator/kit";
+import { execRaw, generateKitMigration } from "./kit-migration";
 import {
   PARENT,
   PARENT_ENTITY,
@@ -56,99 +49,21 @@ export interface IRoundtripRunOptions {
   schema: "derived" | "migration";
 }
 
-/** SQL brut sur la connexion native (`run` better-sqlite3, `execute` pg/mysql2). */
-interface ISqliteExecutor {
-  run(query: SQL): unknown;
-}
-interface IServerExecutor {
-  execute(query: SQL): Promise<unknown>;
-}
-
-async function execRaw(
-  orm: DrizzleOrm,
-  dialect: SqlDialect,
-  statement: string,
-): Promise<void> {
-  if (dialect === "sqlite") {
-    orm.getNativeConnection<ISqliteExecutor>().run(sql.raw(statement));
-  } else {
-    await orm
-      .getNativeConnection<IServerExecutor>()
-      .execute(sql.raw(statement));
-  }
-}
-
-const REPO_ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-  "..",
-  "..",
-);
-
-/**
- * Génère la migration initiale des tables du banc avec `drizzle-kit`, comme
- * `orm:generate` le fait pour une application, et rend ses instructions.
- *
- * Le décor vit sous `tmp/scratch/` du DÉPÔT : la résolution de `drizzle-kit`
- * et de `drizzle-orm` remonte jusqu'à ses `node_modules`. Il est supprimé
- * après lecture.
- */
-async function generateMigration(dialect: SqlDialect): Promise<string[]> {
-  const decor = path.join(
-    REPO_ROOT,
-    "tmp",
-    "scratch",
-    `colkit-migration-${dialect}-${process.pid}`,
-  );
-  try {
-    const schemaFile = path.join(decor, "schema.ts");
-    const configFile = path.join(decor, "drizzle.config.ts");
-    const outDir = path.join(decor, "migrations");
-    const fixture = importSpecifier(
-      schemaFile,
-      path.join(
-        path.dirname(fileURLToPath(import.meta.url)),
-        "colkit-grammar.ts",
-      ),
-    );
-    await fs.mkdir(decor, { recursive: true });
-    await fs.writeFile(
-      schemaFile,
-      [
-        `import { PARENT, VALUE } from "${fixture}";`,
-        `export const nf_parent = PARENT.table("${dialect}");`,
-        `export const nf_value = VALUE.table("${dialect}");`,
-        "",
-      ].join("\n"),
-      "utf8",
-    );
-    await writeKitConfig({
-      file: configFile,
-      projectRoot: decor,
-      schemaFile,
-      outDir,
-      dialect,
-      excludedTables: [],
-    });
-    runGenerate({
-      cwd: decor,
-      configRel: path.relative(decor, configFile).split(path.sep).join("/"),
-      name: "colkit",
-      label: "le banc colKit",
-    });
-    const body = await fs.readFile(
-      path.join(outDir, "0000_colkit.sql"),
-      "utf8",
-    );
-    return body
-      .split("--> statement-breakpoint")
-      .map((chunk) => chunk.trim())
-      .filter((chunk) => chunk.length > 0);
-  } finally {
-    await fs.rm(decor, { recursive: true, force: true });
-  }
+/** Migration drizzle-kit des deux tables du banc. */
+function generateMigration(dialect: SqlDialect): Promise<string[]> {
+  return generateKitMigration({
+    dialect,
+    name: "colkit",
+    fixtureFile: path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "colkit-grammar.ts",
+    ),
+    schemaLines: (fixture, d) => [
+      `import { PARENT, VALUE } from "${fixture}";`,
+      `export const nf_parent = PARENT.table("${d}");`,
+      `export const nf_value = VALUE.table("${d}");`,
+    ],
+  });
 }
 
 function runRoundtripSuite(opts: IRoundtripRunOptions): void {

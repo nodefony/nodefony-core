@@ -861,6 +861,28 @@ export function summarizeNotes(notes) {
   return Object.fromEntries(Object.entries(byCode).sort((a, b) => b[1] - a[1]));
 }
 
+/**
+ * Rend la conversion sous forme de module TypeScript de DONNÉES SEULES — aucun
+ * import : un test le lit sans chaîne de build, et Node l'importe nativement
+ * (le selftest le compare à une conversion fraîche, garde de dérive).
+ *
+ * @returns {string} le source du module.
+ */
+export function specsModule({ specs, notes }) {
+  return [
+    "/**",
+    " * Descriptions d'entités NEUTRES du corpus synthétique — GÉNÉRÉ par",
+    " * `.claude/skills/nodefony-devkit-bench/scripts/mysql-ddl-to-specs.mjs`",
+    " * depuis `ddl/`, ne pas éditer : modifier le DDL, puis régénérer.",
+    " */",
+    `export const SPECS = ${JSON.stringify(specs, null, 2)} as const;`,
+    "",
+    "/** Écarts que la conversion a tranchés — chacun est une décision. */",
+    `export const NOTES = ${JSON.stringify(notes, null, 2)} as const;`,
+    "",
+  ].join("\n");
+}
+
 function main() {
   const args = process.argv.slice(2);
   garderDrapeaux({
@@ -907,7 +929,12 @@ function main() {
     tablePrefix,
   });
   mkdirSync(path.dirname(out), { recursive: true });
-  writeFileSync(out, `${JSON.stringify({ source, specs, notes }, null, 2)}\n`);
+  writeFileSync(
+    out,
+    out.endsWith(".ts")
+      ? specsModule({ specs, notes })
+      : `${JSON.stringify({ source, specs, notes }, null, 2)}\n`,
+  );
   const columns = specs.reduce((n, s) => n + Object.keys(s.columns).length, 0);
   const refs = specs.reduce(
     (n, s) =>
