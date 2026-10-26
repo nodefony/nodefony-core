@@ -562,6 +562,32 @@ regarder si un comportement te surprend.
 | Retour d'une ligne écrite | `RETURNING` | `RETURNING` | **absent** → relecture par PK | MySQL n'a pas de `RETURNING`. |
 | `OFFSET` sans `LIMIT` | fragment `-1` | rien (valide seul) | `LIMIT` sentinelle | Chaque moteur refuse une forme différente. |
 
+#### Ce que la base décide, et que le framework ne gomme pas
+
+Trois comportements appartiennent au moteur, pas au framework. Les rendre identiques coûterait
+l'usage des index — un `col IS NULL` ajouté à chaque tri, une collation forcée sur chaque
+comparaison. Ils sont donc **déclarés** ici, et le banc de portabilité les tient dans une liste
+fermée : un écart qui n'y figure pas est un défaut, et une entrée qui ne se produit plus en sort.
+
+<!-- prettier-ignore -->
+| Comportement | SQLite | PostgreSQL | MySQL | MariaDB | Pour obtenir le même résultat partout |
+| --- | --- | --- | --- | --- | --- |
+| Place des `NULL` dans un tri croissant | en tête | **en fin** | en tête | en tête | rendre la colonne obligatoire, ou trier sur une colonne qui n'est jamais `NULL` |
+| Ordre des chaînes (`?order=name:ASC`) | binaire | collation de la base | sans casse ni accent | sans casse ni accent | fixer la collation de la base, ou trier sur une forme normalisée |
+| Unicité d'une chaîne (`alice@` / `ALICE@`, `zoe` / `zoé`) | exacte | exacte | **sans casse ni accent** | **sans casse ni accent**, espace final ignoré | normaliser la valeur à l'écriture (minuscules, `trim`) dans le schéma de l'entité |
+
+Deux comportements, en revanche, sont rendus identiques par le framework, parce que les laisser au
+moteur faisait mentir l'application :
+
+- **l'ordre des ex æquo** : quand le client trie (`?order=name:ASC`), l'identifiant est ajouté en
+  dernière clé (`tieBreaker` de `parsePageQuery()`, `pageQuery.ts#parsePageQuery`). Sans lui, chaque
+  moteur rend les lignes égales dans son propre ordre, et la page 2 peut remontrer une ligne de la
+  page 1. Le coût est nul sur MySQL et MariaDB ; ailleurs, il ne se voit qu'en pagination profonde,
+  et un index composite `(colonne, id)` l'efface ;
+- **l'identifiant mal formé** : `/api/books/1abc` rend 404 sur les quatre moteurs. MySQL convertissait
+  `1abc` en `1` pour comparer, et rendait le livre 1 ; la clé entière est maintenant refusée avant la
+  base (`canonicalIntegerKey()`, `colKit.codecs.ts#canonicalIntegerKey`), comme l'uuid mal formé.
+
 Toute cette traduction vit à **un seul endroit**, le `colKit` (`defineTable()`,
 `colKit.ts#defineTable` ; variante MySQL : `buildMySqlTable()`, `colKit.mysql.ts#buildMySqlTable`). Ajouter un
 dialecte, c'est étendre le kit — jamais retoucher les entités.
