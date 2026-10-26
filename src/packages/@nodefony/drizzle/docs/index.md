@@ -501,7 +501,7 @@ Les types logiques, et ce que chaque moteur en reçoit :
 | `int` / `int64` | `integer` | `integer` / `bigint` | `int` / `bigint` | `number` |
 | `serial` (clé) | `integer` auto-incrémenté | `serial` | `int` auto-incrémenté | `number` |
 | `float` | `real` | `double precision` | `double` | `number` |
-| `decimal` (`precision`, `scale`) | `text` | `numeric(p, s)` | `decimal(p,s)` | `string` (`"12.50"`) |
+| `decimal` (`precision`, `scale`) | `text` (comparé en nombre, cf [plus bas](#le-décimal-en-sqlite)) | `numeric(p, s)` | `decimal(p,s)` | `string` (`"12.50"`) |
 | `bool` | `integer` | `boolean` | `boolean` | `boolean` |
 | `json` (`type: jsonType<T>()`) | `text` (mode json) | `jsonb` | JSON compatible MariaDB | `T` ou `unknown` |
 | `date` (jour) | `text` | `date` | `date` | `string` (`"2024-02-29"`) |
@@ -586,7 +586,36 @@ moteur faisait mentir l'application :
   et un index composite `(colonne, id)` l'efface ;
 - **l'identifiant mal formé** : `/api/books/1abc` rend 404 sur les quatre moteurs. MySQL convertissait
   `1abc` en `1` pour comparer, et rendait le livre 1 ; la clé entière est maintenant refusée avant la
-  base (`canonicalIntegerKey()`, `colKit.codecs.ts#canonicalIntegerKey`), comme l'uuid mal formé.
+  base (`canonicalIntegerKey()`, `colKit.codecs.ts#canonicalIntegerKey`), comme l'uuid mal formé ;
+- **l'ordre d'un montant** : en SQLite, un `decimal` trié ou comparé par le repository (`order`,
+  `$gt`, `$gte`, `$lt`, `$lte`) suit l'ordre des nombres, comme ailleurs. Détail juste dessous.
+
+#### Le décimal en SQLite
+
+SQLite n'a pas de type décimal exact. Le kit range donc un `decimal` en **texte**, à l'échelle de la
+colonne (`"12.50"`) : la valeur relue est exacte, chiffre pour chiffre, même sur 24 chiffres. Un
+type numérique l'aurait arrondie au-delà de 15 chiffres.
+
+Le texte, lui, se compare en alphabet : `"9.50"` passerait après `"100.00"`. Le repository lit donc
+le montant comme un nombre (`CAST(… AS REAL)`) pour le trier et pour `$gt`, `$gte`, `$lt` et
+`$lte` ; l'égalité et `$in` restent en texte, exacts et servis par l'index
+(`numericOperand()`, `colKit.sqlite.ts#numericOperand`). Cette lecture est exacte jusqu'à
+15 chiffres significatifs : un prix en `decimal(12, 2)` l'est toujours ; deux montants de 24
+chiffres qui ne diffèrent qu'au-delà peuvent être pris pour égaux.
+
+Le **SQL natif**, en revanche, suit les règles du moteur, et ce n'est pas au framework de le
+réécrire :
+
+<!-- prettier-ignore -->
+| Requête native sur un `decimal` | SQLite | PostgreSQL, MySQL, MariaDB |
+| --- | --- | --- |
+| `ORDER BY montant`, `RANK() OVER (ORDER BY montant)` | ordre alphabétique — écrire `CAST(montant AS REAL)` | ordre des nombres |
+| `SUM(montant)` | un flottant (`0.1 + 0.2` rend `0.30000000000000004`) | exact, à l'échelle de la colonne |
+
+Une somme d'argent exacte ne se demande donc pas à SQLite. C'est le pilote du développement et des
+démonstrations ; la production d'une application de gestion vit sur PostgreSQL, MySQL ou MariaDB.
+Le banc `erp-lite` (`tests/integration/erp-lite-contract.ts`) tient ces deux lignes sur les quatre
+moteurs : si l'une cesse d'être vraie, il rougit.
 
 Toute cette traduction vit à **un seul endroit**, le `colKit` (`defineTable()`,
 `colKit.ts#defineTable` ; variante MySQL : `buildMySqlTable()`, `colKit.mysql.ts#buildMySqlTable`). Ajouter un
