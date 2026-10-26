@@ -321,7 +321,7 @@ const ENTITIES = [
     "active:bool=true",
     "rating:float?",
     "born:date?",
-    "token:uuid?",
+    "badge:uuid?",
     "profile:json?",
     "level:enum(junior,senior)=junior",
     "country:char(2)",

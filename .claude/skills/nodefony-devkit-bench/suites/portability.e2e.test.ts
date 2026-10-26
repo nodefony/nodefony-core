@@ -204,7 +204,7 @@ describe("sonde de portabilité", () => {
           active: false,
           rating: 1234.567890123456,
           born: "2024-02-29T23:59:59.999Z",
-          token: "0B5E2C1A-9F3D-4E5B-8A7C-1D2E3F4A5B6C",
+          badge: "0B5E2C1A-9F3D-4E5B-8A7C-1D2E3F4A5B6C",
           profile: {
             zeta: 1,
             alpha: { list: [1, 2.5, null, "x", true], empty: {} },
@@ -399,7 +399,7 @@ describe("sonde de portabilité", () => {
       active: false,
       rating: 1e308,
       born: "2038-01-19T03:14:08.000Z",
-      token: "ffffffff-ffff-4fff-bfff-ffffffffffff",
+      badge: "ffffffff-ffff-4fff-bfff-ffffffffffff",
       profile: { replaced: true },
       level: "senior",
       balance: "9999999999.99",
@@ -413,7 +413,7 @@ describe("sonde de portabilité", () => {
       {
         rating: null,
         born: null,
-        token: null,
+        badge: null,
         profile: null,
         bio: null,
       },
