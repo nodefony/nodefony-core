@@ -7,6 +7,8 @@
  */
 
 import assert from "node:assert";
+import vm from "node:vm";
+import { z } from "zod";
 import {
   buildPortableEntityCodegen,
   entityKeyIsSerial,
@@ -429,10 +431,14 @@ describe("scaffold — code des colonnes", () => {
       softDelete: false,
       table: "posts",
     });
-    assert.match(c.zodProps, /title: z\.string\(\)\.min\(1\)\.max\(255\),/u);
+    // Le NUL est refusé dans toute chaîne : PostgreSQL ne le stocke pas.
     assert.match(
       c.zodProps,
-      /body: z\.string\(\)\.nullable\(\)\.optional\(\),/u,
+      /title: z\.string\(\)\.min\(1\)\.max\(255\)\.regex\(\/\^\[\^\\u0000\]\*\$\/u, "caractère NUL refusé"\),/u,
+    );
+    assert.match(
+      c.zodProps,
+      /body: z\.string\(\)\.regex\([^)]*\)\.nullable\(\)\.optional\(\),/u,
     );
     // Ni id ni horodatages dans le contrat d'entrée : ils sont posés par le serveur.
     assert.doesNotMatch(c.zodProps, /\bid\b/u);
@@ -576,7 +582,11 @@ describe("scaffold — code des colonnes", () => {
     // dérivé du développement ne l'émet pas. C'était vrai, et incomplet : le
     // défaut SQL est justement le SEUL qui compte quand la colonne est AJOUTÉE à
     // une table peuplée.
-    assert.match(c.zodProps, /views: z\.number\(\)\.int\(\)\.default\(0\),/u);
+    // Borné à 32 bits : au-delà, PostgreSQL et MySQL lèvent quand SQLite range.
+    assert.match(
+      c.zodProps,
+      /views: z\.number\(\)\.int\(\)\.min\(-2147483648\)\.max\(2147483647\)\.default\(0\),/u,
+    );
   });
 
   // `:index` était parsé mais jamais émis — la promesse de la grammaire était vide.
@@ -1023,6 +1033,79 @@ describe("scaffold — la référence vers User suit la clé de l'identité", ()
  *   Ce banc ferme la récidive : tout type qui restreint ses valeurs est confronté
  *   ici à la contrainte réelle. Un type ajouté sans sa valeur d'exemple tombera.
  */
+/*
+ *   Le schéma rendu refuse PAREIL sur tous les moteurs — ÉXECUTÉ, pas lu.
+ *
+ *   Vécu au banc de portabilité : un `int` à 2³¹ rendait 201 en SQLite et 500
+ *   en PostgreSQL et MySQL ; un NUL dans un texte, 500 en PostgreSQL seul. La
+ *   frontière doit refuser en 422 ce qu'un moteur refuserait en plantant.
+ */
+describe("scaffold — le schéma rendu refuse ce qu'un moteur ne range pas", () => {
+  const schemaOf = (fields: string): z.ZodType => {
+    const c = buildPortableEntityCodegen(parseEntityFields(fields), {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "t",
+    });
+    // Le code rendu, évalué tel quel contre le vrai zod — dans un contexte
+    // isolé, qui ne voit que `z`.
+    const schema: unknown = vm.runInNewContext(`z.object({ ${c.zodProps} })`, {
+      z,
+    });
+    if (!(schema instanceof z.ZodType)) throw new Error("schéma non évaluable");
+    return schema;
+  };
+  const accepts = (
+    schema: z.ZodType,
+    value: Record<string, unknown>,
+  ): boolean => schema.safeParse(value).success;
+
+  it("un int tient en 32 bits signés", () => {
+    const s = schemaOf("credits:int");
+    assert.ok(accepts(s, { credits: 2147483647 }));
+    assert.ok(accepts(s, { credits: -2147483648 }));
+    assert.ok(!accepts(s, { credits: 2147483648 }));
+    assert.ok(!accepts(s, { credits: -2147483649 }));
+  });
+
+  it("le caractère NUL est refusé dans toute chaîne, l'unicode accepté", () => {
+    const s = schemaOf("bio:text name:string(10) code:char(2)");
+    const ok = { bio: "é 😀 中文", name: "Zoé", code: "FR" };
+    assert.ok(accepts(s, ok));
+    for (const key of ["bio", "name"] as const) {
+      assert.ok(!accepts(s, { ...ok, [key]: "a\u0000b" }), key);
+    }
+    assert.ok(!accepts(s, { ...ok, code: "F\u0000" }), "code");
+  });
+
+  it("un décimal tient dans sa précision et son échelle — refusé, jamais arrondi", () => {
+    const s = schemaOf("price:decimal(4,2) count:decimal(5,0)");
+    assert.ok(accepts(s, { price: "12.34", count: "12345" }));
+    assert.ok(accepts(s, { price: "-99.9", count: "-1" }));
+    assert.ok(
+      !accepts(s, { price: "123.4", count: "1" }),
+      "trop de chiffres entiers",
+    );
+    assert.ok(!accepts(s, { price: "1.234", count: "1" }), "trop de décimales");
+    assert.ok(
+      !accepts(s, { price: "1", count: "1.5" }),
+      "décimale sur une échelle nulle",
+    );
+  });
+
+  it("l'échantillon d'un décimal étroit tient pour tout n", () => {
+    const s = schemaOf("price:decimal(4,2)");
+    const [price] = parseEntityFields("price:decimal(4,2)");
+    const expr = sampleValue(price!, "uuid7").expr;
+    const sample = (n: number): unknown => vm.runInNewContext(expr, { n });
+    for (const n of [1, 42, 999_999, 900_000]) {
+      assert.ok(accepts(s, { price: sample(n) }), `n = ${n}`);
+    }
+  });
+});
+
 describe("scaffold — l'échantillon respecte le schéma", () => {
   const field = (spec: string): IEntityField => parseEntityFields(spec)[0]!;
 

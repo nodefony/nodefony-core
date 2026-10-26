@@ -4726,8 +4726,20 @@ export function sampleValue(
     return echantillonUuid();
   }
   if (type === "decimal") {
-    // Le schéma impose une écriture décimale : `nom-1` la viole.
-    return { fixed: "12.34", expr: "`${n}.50`" };
+    // Le schéma impose une écriture décimale : `nom-1` la viole. Et il la borne
+    // à la précision déclarée : la partie entière tourne donc dans ce qu'elle
+    // permet — les tests tirent `n` jusqu'à six chiffres, qu'un `decimal(4,2)`
+    // refuserait.
+    if (field.precision === undefined) {
+      return { fixed: "12.34", expr: "`${n}.50`" };
+    }
+    const scale = field.scale ?? 0;
+    const whole = Math.max(1, field.precision - scale);
+    const fraction = scale > 0 ? `.${"5".padEnd(scale, "0")}` : "";
+    return {
+      fixed: whole >= 2 && scale >= 2 ? "12.34" : `1${fraction}`,
+      expr: `\`\${n % ${10 ** whole}}${fraction}\``,
+    };
   }
   if (type === "char") {
     // Longueur EXACTE : ni plus, ni moins. On répète un caractère, et la

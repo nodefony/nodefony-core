@@ -1005,11 +1005,25 @@ const TS_TYPE: Record<TEntityFieldType | "ref", string> = {
   decimal: "string",
 };
 
+/**
+ * Un entier que TOUS les moteurs rangent : 32 bits signés. Au-delà, SQLite
+ * accepte (ses entiers font 64 bits) quand PostgreSQL et MySQL lèvent — un 500
+ * sur les uns, un 201 sur l'autre. Le schéma refuse donc partout, en 422.
+ */
+const ZOD_INT32 = "z.number().int().min(-2147483648).max(2147483647)";
+
+/**
+ * Le caractère NUL, refusé dans toute chaîne : PostgreSQL ne le stocke pas
+ * (« invalid byte sequence ») quand SQLite et MySQL l'acceptent. Refusé à la
+ * frontière, il l'est pareil sur tous les moteurs et tous les transports.
+ */
+const ZOD_NO_NUL = '.regex(/^[^\\u0000]*$/u, "caractère NUL refusé")';
+
 /** Schéma Zod correspondant (validation à la frontière). */
 const ZOD_TYPE: Record<TEntityFieldType | "ref", string> = {
-  string: "z.string().min(1).max(255)",
-  text: "z.string()",
-  int: "z.number().int()",
+  string: `z.string().min(1).max(255)${ZOD_NO_NUL}`,
+  text: `z.string()${ZOD_NO_NUL}`,
+  int: ZOD_INT32,
   float: "z.number()",
   bool: "z.boolean()",
   json: "z.unknown()",
@@ -1108,15 +1122,15 @@ function zodTypeOf(field: IEntityField): string {
     return `z.enum([${field.values.map((value) => toCodeLiteral(value)).join(", ")}])`;
   }
   if (field.type === "string") {
-    return `z.string().min(1).max(${field.length ?? 255})`;
+    return `z.string().min(1).max(${field.length ?? 255})${ZOD_NO_NUL}`;
   }
   if (field.type === "char") {
     // Longueur EXACTE : un `char(2)` qui recevrait une seule lettre serait
     // complété par des espaces côté moteur, et la comparaison suivante
     // échouerait sans raison visible.
     return field.length === undefined
-      ? "z.string()"
-      : `z.string().length(${field.length})`;
+      ? `z.string()${ZOD_NO_NUL}`
+      : `z.string().length(${field.length})${ZOD_NO_NUL}`;
   }
   if (field.type === "decimal") {
     // Le message porte la précision : c'est la seule trace qu'en verra l'appelant
@@ -1126,7 +1140,16 @@ function zodTypeOf(field: IEntityField): string {
       field.precision === undefined
         ? "d\u00e9cimal attendu"
         : `d\u00e9cimal attendu (${field.precision} chiffres dont ${field.scale ?? 0} apr\u00e8s la virgule)`;
-    return `z.string().regex(/^-?\\d+(\\.\\d+)?$/, ${toCodeLiteral(hint)})`;
+    // Bornée à la précision et à l'échelle quand elles sont déclarées : un
+    // chiffre de trop est REFUSÉ, jamais arrondi — chaque moteur arrondit (ou
+    // déborde) à sa façon, et la valeur relue ne serait plus la même partout.
+    if (field.precision === undefined) {
+      return `z.string().regex(/^-?\\d+(\\.\\d+)?$/, ${toCodeLiteral(hint)})`;
+    }
+    const scale = field.scale ?? 0;
+    const whole = Math.max(1, field.precision - scale);
+    const fraction = scale > 0 ? `(\\.\\d{1,${scale}})?` : "";
+    return `z.string().regex(/^-?\\d{1,${whole}}${fraction}$/, ${toCodeLiteral(hint)})`;
   }
   return ZOD_TYPE[field.type];
 }
@@ -1435,7 +1458,7 @@ export function buildEntityCodegen(
 
     // Le schéma suit le même type : une clé auto-incrémentée est un NOMBRE, et
     // le valider comme une chaîne rejetterait la valeur que la base rend.
-    let zod = fk?.tsType === "number" ? "z.number().int()" : zodTypeOf(field);
+    let zod = fk?.tsType === "number" ? ZOD_INT32 : zodTypeOf(field);
     if (field.nullable) zod += ".nullable().optional()";
     if (field.defaultValue !== undefined) {
       zod += `.default(${defaultLiteral(field)})`;
@@ -1725,7 +1748,7 @@ export function buildPortableEntityCodegen(
 
     let zod =
       tsType === "number" && field.type === "ref"
-        ? "z.number().int()"
+        ? ZOD_INT32
         : zodTypeOf(field);
     if (field.nullable) zod += ".nullable().optional()";
     if (field.defaultValue !== undefined) {
