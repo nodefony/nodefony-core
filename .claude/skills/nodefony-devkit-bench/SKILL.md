@@ -368,6 +368,28 @@ Détail : [`references/banc-schema-etudes-de-cas.md`](references/banc-schema-etu
 pourquoi le décor doit sortir du dépôt (isolation constatée, pas supposée), et pourquoi le juge
 PostgreSQL doit lui-même s'éprouver avant de rendre un verdict.
 
+## Banc de portabilité — une app née en SQLite tient-elle ailleurs ?
+
+`verify-generated --database postgres` crée l'application DIRECTEMENT sur PostgreSQL : il ne
+dit rien du parcours réel, où l'application naît en SQLite et change de base plus tard.
+`bench-portability.mjs` joue ce parcours dans UN décor, par les seuls gestes documentés.
+
+```bash
+node .claude/skills/nodefony-devkit-bench/scripts/bench-portability.mjs                 # postgres → mysql → mariadb → retour sqlite
+node .claude/skills/nodefony-devkit-bench/scripts/bench-portability.mjs --database postgres --keep
+```
+
+À chaque moteur : `NF_DATABASE_URL` posé dans `.env`, pilote absent NOMMÉ puis installé,
+`orm:generate` + `orm:migrate`, alignement constaté (`orm:migrate:status --json`), serveur de
+développement qui écrit, redémarre et relit, suite e2e générée, et une sonde HTTP
+(`suites/portability.e2e.test.ts`) dont la réponse normalisée doit égaler celle de SQLite.
+
+- **La sonde ne lit que du HTTP** : un type de l'adaptateur dans le banc prouverait l'adaptateur,
+  pas la portabilité.
+- **Un écart de moteur se DÉCLARE, il ne se gomme pas** : collation MySQL (casse, accents, espaces
+  finaux), place des `NULL` dans un tri. Les émuler coûterait l'usage des index.
+- Bases `nf_portability*` recréées vides à chaque passe : un décor sale fabrique un faux verdict.
+
 ## Interpréter un échec — commencer par le décor
 
 Trois causes ont déjà envoyé chercher très loin du vrai problème. Les écarter

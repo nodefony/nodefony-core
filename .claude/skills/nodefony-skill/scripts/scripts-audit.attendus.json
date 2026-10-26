@@ -3,6 +3,7 @@
   "_geste": "Un script qu'on cable (npm, forge, autre script) doit SORTIR de cette liste. Un script neuf documente sans etre lance doit y ENTRER, sciemment.",
   "documentes-jamais-lances": [
     ".claude/skills/nodefony-devkit-bench/scripts/analyse-transcript.mjs",
+    ".claude/skills/nodefony-devkit-bench/scripts/bench-portability.mjs",
     ".claude/skills/nodefony-devkit-bench/scripts/build-devkit-report.mjs",
     ".claude/skills/nodefony-devkit-bench/scripts/suivre-run.mjs",
     ".claude/skills/nodefony-devkit-bench/suites/harness.ts",
@@ -45,6 +46,7 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-extend.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-header-values.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-host.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-orm-hot-path-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-profiler-collect.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-state.mjs",
