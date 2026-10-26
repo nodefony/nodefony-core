@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.5.0` |
 | Famille | Autres |
-| Corps | 472 lignes |
-| Coût d'activation | ~8 478 tokens (le corps est chargé à l'invocation) |
+| Corps | 498 lignes |
+| Coût d'activation | ~8 916 tokens (le corps est chargé à l'invocation) |
 | Description | 1014 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 9 page(s) |
-| Scripts | 19 |
+| Scripts | 20 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -93,6 +93,7 @@ script, donc toujours à jour après régénération.
 | `scripts/bench-discoverability.selftest.mjs` | Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict. | `--analyze-only` `--answers-json` `--describe-json` `--detach` `--dry-run` `--frontend` `--help` `--json` `--kind` `--limit` `--name` `--nf-login-` `--nf-login-brand` `--no` `--no-check` `--no-install` `--prove` `--yes` | `NF_CLE` |
 | `scripts/bench-first-impression.mjs` | Banc de PREMIÈRE IMPRESSION — ce qu'un agent conclut du dépôt, sans y entrer. | `--answer` `--dangerously-skip-permissi` `--decor-only` `--keep` `--model` `--mount` `--out` `--prove` | `AGENT` `MODEL` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ENV` `NF_DEVKIT_BENCH_MODEL` |
 | `scripts/bench-portability.mjs` | Banc de PORTABILITÉ — une application NÉE en SQLite tient-elle sur les autres moteurs, dans le MÊME décor, en ne faisant que les gestes documentés ? | `--admin-` `--admin-mysql` `--column-case` `--config` `--database` `--detach` `--dialect` `--frontend` `--id` `--index` `--json` `--keep` `--name` `--no-audit` `--no-fund` `--no-install` `--no-timestamps` `--preset` `--repack` `--reuse` `--soft-delete` `--table` `--unique` `--wait` `--yes` | `APP` `DB_DEV` |
+| `scripts/bench-real-schema.mjs` | Banc de schéma RÉEL — le kit de colonnes tient-il un logiciel écrit par d'autres, de bout en bout, sur chaque moteur ? | `--admin-` `--admin-postgres` `--database` `--frontend` `--json` `--keep` `--name` `--no-audit` `--no-fund` `--no-install` `--only` `--preset` `--profile` `--repack` `--yes` | `DB_APP` `DB_CONTRACT` `MATERIALIZER` `ONLY` `ROOT` `SPECS_FILE` |
 | `scripts/bench-schema.mjs` | Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer. | `--allow-empty` `--analyze-only` `--dangerously-skip-permissi` `--database` `--detach` `--dialect` `--dir` `--dump-only` `--frontend` `--jq` `--json` `--link` `--model` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--schema` `--schema-only` `--setting-sources` `--setup-only` `--verbose` `--wait` `--yes` | `AGENT` `BENCH_DB` `DIALECT` `LINKED` `MODEL` `MOI` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_AGENT_ENV` `NF_DEVKIT_BENCH_MODEL` `NF_MYSQL_URL` `NF_PG_URL` |
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--database` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
 | `scripts/build-devkit-report.mjs` | Construit la page « Un agent sait-il développer avec Nodefony ? ». | `--analyze-only` `--data` `--out` `--runs` | `DATA` `OUT` |
@@ -114,6 +115,7 @@ script, donc toujours à jour après régénération.
 node analyse-transcript.mjs <fichier> [--timeline] [--echecs] [--outils]
 node bench-discoverability.selftest.mjs
 node bench-first-impression.mjs                 # un run, décor sain
+node bench-real-schema.mjs                          # sqlite, postgres, mysql, mariadb
 node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
 node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
 node corpus-fetch.mjs                     # corpus `erp`, cache réutilisé
@@ -125,7 +127,7 @@ node suivre-run.mjs                    # le run le plus récent
 node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes
 ```
 
-**Toutes les variables lues par ce skill** : `ADDED_KEY` · `AGENT` · `AGE_MAX_CONNEXION_S` · `APP` · `BENCH_DB` · `CANAL_OPS_ALERTES` · `CHAMP_DEMANDE` · `COMMAND_ACTION` · `COMMAND_CLASS` · `CONTROLLER_EN_PANNE` · `CONTROLLER_GARDE_CLASS` · `CONTROLLER_RELU` · `COULEUR_CONNEXION` · `DATA` · `DATABASE` · `DB_DEV` · `DIALECT` · `ENTITE_MIGREE` · `FICHIER_RELECTURE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_LOGIN_BRANDING` · `JUGE_LOGIN_FRONT` · `JUGE_LOGIN_RETURN` · `JUGE_M2M` · `JUGE_MCP_PORTE` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_ROUTE_RETABLIE` · `JUGE_SCRIPT_API` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_STEP_UP` · `JUGE_TACHE_ZERO` · `JUGE_THROTTLE` · `JUGE_UPLOAD` · `JUGE_USER_FIELD` · `JUGE_ZONE` · `KEYCLOAK_PORT` · `LINKED` · `LOGO_CONNEXION` · `LOTS_REINDEX` · `MARQUE_CONNEXION` · `MCP_LOCAL` · `MCP_MIXTE` · `MCP_OAUTH` · `MCP_REGIME` · `MODEL` · `MODULE` · `MODULE_PKG` · `MOI` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_AGENT_ENV` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_DEVKIT_REQUIRE_DOCKER` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ORIGINE_PARTENAIRE` · `OUT` · `OUTIL_REINDEX` · `OUTIL_STOCK` · `PAGE_COMPTE` · `PAGE_ESPACE` · `PAGE_WIDGET` · `PASCAL_MODULE` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_RELECTURE` · `PREPARE_ROLE_HIERARCHY` · `PREPARE_UTILISATEUR` · `RACINE_RUNS` · `ROLE_FACTURATION` · `ROLE_GARDE` · `ROUTE_ARTICLES` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_DEPOT` · `ROUTE_EN_PANNE` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_MCP_APP` · `ROUTE_RAPPORT_MACHINE` · `ROUTE_RELUE` · `ROUTE_SYNTHESE` · `ROUTE_VIREMENT` · `RUN_ROOT` · `SCRIPT_RAPPORT` · `SERVICE` · `SERVICE_METHOD` · `TEXTE_SESSION_OUVERTE` · `TITRE_SEME` · `USAGE` · `VAR_CLE_RAPPORT` · `VAR_URL_RAPPORT`
+**Toutes les variables lues par ce skill** : `ADDED_KEY` · `AGENT` · `AGE_MAX_CONNEXION_S` · `APP` · `BENCH_DB` · `CANAL_OPS_ALERTES` · `CHAMP_DEMANDE` · `COMMAND_ACTION` · `COMMAND_CLASS` · `CONTROLLER_EN_PANNE` · `CONTROLLER_GARDE_CLASS` · `CONTROLLER_RELU` · `COULEUR_CONNEXION` · `DATA` · `DATABASE` · `DB_APP` · `DB_CONTRACT` · `DB_DEV` · `DIALECT` · `ENTITE_MIGREE` · `FICHIER_RELECTURE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_LOGIN_BRANDING` · `JUGE_LOGIN_FRONT` · `JUGE_LOGIN_RETURN` · `JUGE_M2M` · `JUGE_MCP_PORTE` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_ROUTE_RETABLIE` · `JUGE_SCRIPT_API` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_STEP_UP` · `JUGE_TACHE_ZERO` · `JUGE_THROTTLE` · `JUGE_UPLOAD` · `JUGE_USER_FIELD` · `JUGE_ZONE` · `KEYCLOAK_PORT` · `LINKED` · `LOGO_CONNEXION` · `LOTS_REINDEX` · `MARQUE_CONNEXION` · `MATERIALIZER` · `MCP_LOCAL` · `MCP_MIXTE` · `MCP_OAUTH` · `MCP_REGIME` · `MODEL` · `MODULE` · `MODULE_PKG` · `MOI` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_AGENT_ENV` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_DEVKIT_REQUIRE_DOCKER` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ONLY` · `ORIGINE_PARTENAIRE` · `OUT` · `OUTIL_REINDEX` · `OUTIL_STOCK` · `PAGE_COMPTE` · `PAGE_ESPACE` · `PAGE_WIDGET` · `PASCAL_MODULE` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_RELECTURE` · `PREPARE_ROLE_HIERARCHY` · `PREPARE_UTILISATEUR` · `RACINE_RUNS` · `ROLE_FACTURATION` · `ROLE_GARDE` · `ROOT` · `ROUTE_ARTICLES` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_DEPOT` · `ROUTE_EN_PANNE` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_MCP_APP` · `ROUTE_RAPPORT_MACHINE` · `ROUTE_RELUE` · `ROUTE_SYNTHESE` · `ROUTE_VIREMENT` · `RUN_ROOT` · `SCRIPT_RAPPORT` · `SERVICE` · `SERVICE_METHOD` · `SPECS_FILE` · `TEXTE_SESSION_OUVERTE` · `TITRE_SEME` · `USAGE` · `VAR_CLE_RAPPORT` · `VAR_URL_RAPPORT`
 
 ### Détail des scripts auto-documentés
 
@@ -162,7 +164,7 @@ node keycloak-login-probe.mjs --app <origine https> --username <u> --password <p
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 472 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 498 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

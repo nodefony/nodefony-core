@@ -3248,8 +3248,8 @@
       "triggers": [],
       "description": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\", \"un agent recommanderait-il ce framework ?\", \"que conclut un agent en lisant le dépôt ?\", \"notre accueil dit-il vrai ?\".",
       "cost": {
-        "bodyLines": 472,
-        "approxTokens": 8478
+        "bodyLines": 498,
+        "approxTokens": 8916
       },
       "requires": [
         "serveur UP",
@@ -4213,6 +4213,103 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/bench-real-schema.mjs",
+            "purpose": "Banc de schéma RÉEL — le kit de colonnes tient-il un logiciel écrit par d'autres, de bout en bout, sur chaque moteur ?",
+            "usage": [
+              "node bench-real-schema.mjs                          # sqlite, postgres, mysql, mariadb"
+            ],
+            "options": [
+              {
+                "flag": "--admin-",
+                "help": ""
+              },
+              {
+                "flag": "--admin-postgres",
+                "help": ""
+              },
+              {
+                "flag": "--database",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--keep",
+                "help": ""
+              },
+              {
+                "flag": "--name",
+                "help": ""
+              },
+              {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--only",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--profile",
+                "help": ""
+              },
+              {
+                "flag": "--repack",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "DB_APP",
+                "help": ""
+              },
+              {
+                "name": "DB_CONTRACT",
+                "help": ""
+              },
+              {
+                "name": "MATERIALIZER",
+                "help": ""
+              },
+              {
+                "name": "ONLY",
+                "help": ""
+              },
+              {
+                "name": "ROOT",
+                "help": ""
+              },
+              {
+                "name": "SPECS_FILE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/bench-schema.mjs",
             "purpose": "Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer.",
             "usage": [],
@@ -5080,7 +5177,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "472",
+            "detail": "498",
             "advisory": true
           }
         ]

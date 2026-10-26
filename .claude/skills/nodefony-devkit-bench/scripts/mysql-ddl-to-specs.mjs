@@ -816,13 +816,19 @@ export function convertCorpus({ tables, keys }, { tablePrefix = "" } = {}) {
   specs.sort((a, b) => a.name.localeCompare(b.name));
 
   // Un nom d'index est GLOBAL au schéma en PostgreSQL et en SQLite, local à la
-  // table en MySQL — un schéma né sur MySQL en réutilise sans le savoir. Le premier
-  // porteur (ordre alphabétique) garde le nom, les suivants sont renommés.
-  const owners = new Map();
+  // table en MySQL — un schéma né sur MySQL en réutilise sans le savoir. Et cet
+  // espace est celui des TABLES : un index nommé comme une table (souvent la
+  // sienne) y est refusé. SQLite compare sans casse : la clé est en minuscules.
+  // Le premier porteur (ordre alphabétique) garde le nom, les suivants sont
+  // renommés.
+  const owners = new Map(
+    specs.map((s) => [s.name.toLowerCase(), `la table ${s.name}`]),
+  );
   for (const spec of specs) {
     for (const ix of spec.indexes ?? []) {
-      if (!owners.has(ix.name)) {
-        owners.set(ix.name, spec.name);
+      const key = ix.name.toLowerCase();
+      if (!owners.has(key)) {
+        owners.set(key, spec.name);
         continue;
       }
       const renamed = boundedName(`${ix.name}_${short(spec.name)}`);
@@ -830,10 +836,10 @@ export function convertCorpus({ tables, keys }, { tablePrefix = "" } = {}) {
         "index-renamed",
         spec.name,
         null,
-        `index ${ix.name} déjà porté par ${owners.get(ix.name)} : renommé ${renamed}`,
+        `index ${ix.name} déjà porté par ${owners.get(key)} : renommé ${renamed}`,
       );
       ix.name = renamed;
-      owners.set(renamed, spec.name);
+      owners.set(renamed.toLowerCase(), spec.name);
     }
   }
   return { specs, notes, errors };

@@ -178,6 +178,12 @@ export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
       "coupures RÉELLES de base (arrête et relance un conteneur ; exige aussi " +
       "NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER)",
   },
+  {
+    env: "NF_REAL_SCHEMA_SPECS",
+    what:
+      "banc de schéma réel : chemin du specs.json d'un corpus tiers converti " +
+      "(jamais versionné) — posé par bench-real-schema.mjs",
+  },
 ];
 
 /**

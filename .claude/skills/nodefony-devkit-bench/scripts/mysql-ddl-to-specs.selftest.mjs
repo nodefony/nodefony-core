@@ -102,7 +102,7 @@ ALTER TABLE app_shop_user ADD CONSTRAINT fk_su_shop FOREIGN KEY (fk_shop) REFERE
   },
   {
     file: "app_zone.key.sql",
-    sql: "ALTER TABLE app_zone ADD UNIQUE INDEX uk_code (code);",
+    sql: "ALTER TABLE app_zone ADD UNIQUE INDEX uk_code (code);\nALTER TABLE app_zone ADD INDEX APP_ZONE (code);",
   },
 ];
 
@@ -240,9 +240,22 @@ rule("…préfixe signalé", noted("index-prefix", "app_shop", "label"));
 same(
   "nom d'index déjà porté par une autre table → renommé",
   byName.app_zone?.indexes,
-  [{ name: "uk_code_zone", on: ["code"], unique: true }],
+  [
+    { name: "uk_code_zone", on: ["code"], unique: true },
+    { name: "APP_ZONE_zone", on: ["code"] },
+  ],
 );
 rule("…et signalé", noted("index-renamed", "app_zone"));
+// Un index porte le nom d'une TABLE (le sien, à la casse près) : MySQL le
+// permet, SQLite et PostgreSQL non — index et tables y partagent un espace de noms.
+rule(
+  "index homonyme d'une table → signalé comme collision",
+  notes.some(
+    (n) =>
+      n.code === "index-renamed" &&
+      /APP_ZONE déjà porté par la table app_zone/u.test(n.detail),
+  ),
+);
 
 // ── refus ────────────────────────────────────────────────────────────────
 const bad = convertCorpus({

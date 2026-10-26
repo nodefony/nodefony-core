@@ -418,6 +418,32 @@ node .claude/skills/nodefony-devkit-bench/scripts/mysql-ddl-to-specs.selftest.mj
 - **Noms génériques** : aucun nom de logiciel tiers dans un fichier, un dossier ou un identifiant —
   l'origine n'est qu'une donnée du catalogue `CORPORA` (`corpus-fetch.mjs`).
 
+Puis le banc, en deux étages — le décor des bases serveur est celui du banc de portabilité
+(`scripts/lib/engines-decor.mjs`, une seule implémentation) :
+
+```bash
+node .claude/skills/nodefony-devkit-bench/scripts/bench-real-schema.mjs                     # sqlite, postgres, mysql, mariadb
+node .claude/skills/nodefony-devkit-bench/scripts/bench-real-schema.mjs --database postgres --only app --keep
+```
+
+1. **Le contrat du kit** — `real-schema.e2e.test.ts` de `@nodefony/drizzle`, le MÊME contrat que
+   le corpus synthétique de la CI (`schema-contract.ts`) : création par le DDL dérivé puis par une
+   migration `drizzle-kit`, ligne témoin à chaque borne relue à l'identique, défauts. Chaque table
+   en écart est NOMMÉE — sur 421, la première seule masquerait les autres.
+2. **L'application** — isolée (tarballs), elle déclare les entités comme `create entity` les
+   écrirait : `orm:generate`, `orm:migrate`, statut aligné, tables COMPTÉES en base, et un second
+   `orm:generate` qui ne doit rien écrire.
+
+- **Le matérialiseur n'existe qu'une fois** (`drizzle/tests/integration/serialized-specs.ts`) :
+  l'application en reçoit une copie dont les imports sont relus vers `@nodefony/drizzle` — la
+  réécriture est CONSTATÉE, et un import relatif restant arrête le banc.
+- **`orm:generate` lit les exports UN PAR UN** (`migrator/appSchema.ts`) : une table rangée dans un
+  tableau lui est invisible, et il refuse d'écrire en le disant. Le fichier généré exporte donc
+  chaque table à plat.
+- **Un échec garde son décor** (dossier et bases `nf_real_schema_*`) ; un succès ne laisse rien,
+  sauf `--keep`. Le décor gardé se démarre (`nodefony development --detach --wait`, ports 5395/5396)
+  pour regarder le schéma dans la console d'administration.
+
 ## Interpréter un échec — commencer par le décor
 
 Trois causes ont déjà envoyé chercher très loin du vrai problème. Les écarter

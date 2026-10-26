@@ -69,6 +69,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { garderDrapeaux } from "./lib/argv.mjs";
 import { decorRoot } from "./lib/decor-root.mjs";
+import {
+  ENGINES,
+  recreateDatabases as recreateServerDatabases,
+  setDatabaseUrl as writeDatabaseUrl,
+} from "./lib/engines-decor.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec } from "./lib/extrait-echec.mjs";
@@ -93,38 +98,6 @@ function findRepoRoot(from) {
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const REPO = findRepoRoot(ICI);
 const BIN = path.join(REPO, "src/nodefony/bin/nodefony");
-
-/**
- * Les moteurs SERVEUR, dans l'ordre où le banc les visite.
- *
- * MySQL et MariaDB partagent le dialecte `mysql` — donc le pilote ET le
- * dossier de migrations. C'est voulu, et c'est une preuve de plus : MariaDB
- * doit appliquer la migration écrite pendant la passe MySQL sans en
- * réclamer une autre (`orm:generate` n'y trouve rien à écrire).
- *
- * Les administrateurs par défaut sont ceux du compose du dépôt
- * (`docker/docker-compose.yml`) ; la forge passe les siens.
- */
-const ENGINES = [
-  {
-    key: "postgres",
-    dialect: "postgres",
-    driver: "pg",
-    admin: "postgres://nodefony:nodefony-dev@127.0.0.1:5432/postgres",
-  },
-  {
-    key: "mysql",
-    dialect: "mysql",
-    driver: "mysql2",
-    admin: "mysql://root:nodefony-dev@127.0.0.1:3307/",
-  },
-  {
-    key: "mariadb",
-    dialect: "mysql",
-    driver: "mysql2",
-    admin: "mysql://root:nodefony-dev@127.0.0.1:3306/",
-  },
-];
 
 const USAGE = [
   "Banc de portabilité — une app née en SQLite change-t-elle de base sans problème ?",
@@ -173,12 +146,17 @@ for (const w of WANTED) {
     process.exit(64);
   }
 }
-for (const e of ENGINES) {
-  const [admin] = values(`--admin-${e.key}`);
-  if (admin) e.admin = admin;
-}
+// Une COPIE : le catalogue partagé est figé, l'adresse passée ne le touche pas.
+const ENGINE_LIST = ENGINES.map(({ key, dialect, driver, admin }) => ({
+  key,
+  dialect,
+  driver,
+  admin: values(`--admin-${key}`)[0] ?? admin,
+}));
 const SELECTED =
-  WANTED.length === 0 ? ENGINES : ENGINES.filter((e) => WANTED.includes(e.key));
+  WANTED.length === 0
+    ? ENGINE_LIST
+    : ENGINE_LIST.filter((e) => WANTED.includes(e.key));
 const KEEP = ARGS.includes("--keep");
 const REUSE = ARGS.includes("--reuse");
 
@@ -421,51 +399,12 @@ async function mountDecor() {
  * @returns {Promise<{ dev: string, e2e: string, scratch: string }>}
  */
 async function recreateDatabases(engine) {
-  const admin = new URL(engine.admin);
-  if (engine.dialect === "postgres") {
-    const { default: pg } = await import("pg");
-    const client = new pg.Client({ connectionString: admin.toString() });
-    await client.connect();
-    try {
-      for (const db of [DB_DEV, DB_E2E, DB_SCRATCH]) {
-        await client.query(`DROP DATABASE IF EXISTS "${db}" WITH (FORCE)`);
-        await client.query(`CREATE DATABASE "${db}"`);
-      }
-    } finally {
-      await client.end();
-    }
-    const url = (db) => {
-      const u = new URL(admin);
-      u.pathname = `/${db}`;
-      return u.toString();
-    };
-    return { dev: url(DB_DEV), e2e: url(DB_E2E), scratch: url(DB_SCRATCH) };
-  }
-  const mysql = await import("mysql2/promise");
-  const conn = await mysql.createConnection({
-    host: admin.hostname,
-    port: Number(admin.port || 3306),
-    user: decodeURIComponent(admin.username),
-    password: decodeURIComponent(admin.password),
-  });
-  try {
-    await conn.query(
-      `CREATE USER IF NOT EXISTS '${APP_USER.name}'@'%' IDENTIFIED BY '${APP_USER.password}'`,
-    );
-    for (const db of [DB_DEV, DB_E2E, DB_SCRATCH]) {
-      await conn.query(`DROP DATABASE IF EXISTS \`${db}\``);
-      await conn.query(`CREATE DATABASE \`${db}\``);
-      await conn.query(
-        `GRANT ALL PRIVILEGES ON \`${db}\`.* TO '${APP_USER.name}'@'%'`,
-      );
-    }
-    await conn.query("FLUSH PRIVILEGES");
-  } finally {
-    await conn.end();
-  }
-  const url = (db) =>
-    `mysql://${APP_USER.name}:${APP_USER.password}@${admin.hostname}:${admin.port || 3306}/${db}`;
-  return { dev: url(DB_DEV), e2e: url(DB_E2E), scratch: url(DB_SCRATCH) };
+  const urls = await recreateServerDatabases(
+    engine,
+    [DB_DEV, DB_E2E, DB_SCRATCH],
+    APP_USER,
+  );
+  return { dev: urls[DB_DEV], e2e: urls[DB_E2E], scratch: urls[DB_SCRATCH] };
 }
 
 /** Masque le mot de passe d'une URL — un journal se partage. */
@@ -485,11 +424,7 @@ const ENV_FILE = () => path.join(APP, ".env");
  * sont celles du gabarit.
  */
 function setDatabaseUrl(url) {
-  const lines = readFileSync(ENV_FILE(), "utf8")
-    .split("\n")
-    .filter((l) => !/^\s*NF_DATABASE_URL\s*=/u.test(l));
-  if (url !== null) lines.push(`NF_DATABASE_URL=${url}`);
-  writeFileSync(ENV_FILE(), `${lines.join("\n").replace(/\n+$/u, "")}\n`);
+  writeDatabaseUrl(ENV_FILE(), url);
 }
 
 // ─── les sondes ─────────────────────────────────────────────────────────────
