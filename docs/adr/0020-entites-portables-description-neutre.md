@@ -64,6 +64,12 @@ présents même sans changer de base :
    framework lit pour authentifier ou autoriser (`@nodefony/user#USER_PRIVATE_FIELDS`), qu'elle le
    déclare ou non. Règle unique : `userContract.ts#entityPrivateFields`, appelée par les deux
    adaptateurs. Le champ n'est pas retiré après coup : il n'est jamais LU.
+   L'entité d'identité est **désignée, jamais devinée** : une seule fonction de `userContract.ts`
+   dit laquelle elle est, et tous les lecteurs l'appellent — la règle des champs privés comme ceux
+   qui écrivent du SQL sur la table. Son nom est figé à `User` aujourd'hui ; le jour où il deviendra
+   libre, seule cette fonction changera, et le défaut fermé suivra l'entité quel que soit son nom.
+   Les entités du framework qui portent un secret (`totp_secret.secretEnc`) le déclarent elles-mêmes
+   en `privateFields`.
 6. **Le générateur écrit cette forme.** `nodefony create entity` produit une description portable ;
    la suite e2e générée choisit son moteur à l'exécution (`runtime/e2eDatabase.ts#testDatabaseUrl`).
 
@@ -81,6 +87,14 @@ présents même sans changer de base :
   un écart que la documentation suffit à rendre prévisible.
 - **Champs privés déclarés au cas par cas, sans défaut** : une application qui écrit sa propre
   entité `User` sans la déclaration exposerait l'empreinte, et rien ne le dirait.
+- **Reconnaître un champ secret à son nom** (`password`, `roles`…) : une empreinte nommée
+  `pwd_hash` passerait, un champ légitime serait tu à tort. Une règle qui devine n'est pas un
+  contrat.
+- **Comparer le décimal SQLite par une fonction SQL exacte enregistrée, ou par un encodage
+  ordonnable du texte** : la fonction perd l'index elle aussi, paie un appel JavaScript par
+  comparaison et lie la base à un pilote ; l'encodage rend la base illisible dans un outil SQLite
+  et fait rendre `0` à un `SUM` sans un mot. La conversion `CAST … AS REAL`, exacte jusqu'à quinze
+  chiffres significatifs, couvre tout montant d'argent sur tout pilote.
 
 ## Conséquences
 
