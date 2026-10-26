@@ -16,9 +16,13 @@
  * ressource. Sinon elle prouverait l'adaptateur, pas la portabilité.
  */
 import { writeFileSync } from "node:fs";
-import { csrfHeaders, runningAppPort } from "nodefony/testing";
+import {
+  E2E_ADMIN_PASSWORD,
+  adminLogin,
+  csrfHeaders,
+  runningAppPort,
+} from "nodefony/testing";
 import { describe, it } from "vitest";
-import { adminLogin } from "../tests/e2e.setup";
 
 /** Un cas joué : ce que le moteur a rendu, normalisé. */
 interface IProbeCase {
@@ -174,7 +178,7 @@ const LONG_TEXT = `${"é — 中文 😀 'simple' \"double\" \\ antislash\n\ttab
 describe("sonde de portabilité", () => {
   it("joue les mêmes requêtes et écrit l'instantané", async () => {
     BASE = `http://127.0.0.1:${runningAppPort()}`;
-    AUTH = await csrfHeaders(BASE, await adminLogin());
+    AUTH = await csrfHeaders(BASE, await adminLogin(BASE, E2E_ADMIN_PASSWORD));
 
     const me = await fetch(`${BASE}/nodefony/user/api/me`, { headers: AUTH });
     const meBody: unknown = await me.json();
