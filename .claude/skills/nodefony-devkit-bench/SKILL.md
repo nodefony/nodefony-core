@@ -398,6 +398,26 @@ perdrait le voyage.
   finaux), place des `NULL` dans un tri. Les émuler coûterait l'usage des index.
 - Bases `nf_portability*` recréées vides à chaque passe : un décor sale fabrique un faux verdict.
 
+## Banc de schéma réel — le kit tient-il un vrai logiciel ?
+
+Une matrice synthétique prouve la couverture des TYPES, pas que le kit de colonnes tient un
+schéma écrit par d'autres. Le corpus `erp` (421 tables nées sur MySQL, licence tierce : jamais
+versionné) est récupéré puis converti en descriptions NEUTRES — aucun import d'ORM :
+
+```bash
+node .claude/skills/nodefony-devkit-bench/scripts/corpus-fetch.mjs            # cache tmp/bench/corpus/erp/
+node .claude/skills/nodefony-devkit-bench/scripts/mysql-ddl-to-specs.mjs      # → specs.json + écarts tranchés
+node .claude/skills/nodefony-devkit-bench/scripts/mysql-ddl-to-specs.selftest.mjs
+```
+
+- **Une ligne non comprise est NOMMÉE** (sortie 1), jamais ignorée : sur 421 tables, une règle
+  qui glisse ne se voit dans aucun compte global.
+- **Ce que le kit ne sait pas dire est converti ET signalé** (`notes`, par code) : clé composite →
+  `rowid` + index unique, FK vers une colonne non clé laissée en valeur, géométrie retirée, noms
+  d'index en collision renommés (globaux en PostgreSQL et SQLite, locaux en MySQL).
+- **Noms génériques** : aucun nom de logiciel tiers dans un fichier, un dossier ou un identifiant —
+  l'origine n'est qu'une donnée du catalogue `CORPORA` (`corpus-fetch.mjs`).
+
 ## Interpréter un échec — commencer par le décor
 
 Trois causes ont déjà envoyé chercher très loin du vrai problème. Les écarter

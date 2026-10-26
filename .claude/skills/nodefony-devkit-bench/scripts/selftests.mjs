@@ -36,11 +36,6 @@ import { garderDrapeaux } from "./lib/argv.mjs";
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Ce qui ne peut PAS être lancé sans décor, et le motif — nommé plutôt que
- * filtré en silence : un contrôle sauté sans un mot se lit comme un contrôle
- * vert, et c'est exactement le piège que ce script existe pour fermer.
- */
-/**
  * Les contrôles qu'un lot ne peut pas lancer — et il n'y en a plus.
  *
  * 🔴 Cette table a longtemps porté deux entrées, et NOMMER un trou n'est pas le
@@ -75,6 +70,7 @@ const LOT_ATTENDU = new Set([
   "bench-schema.selftest.mjs",
   "jeton-mcp.selftest.mjs",
   "memoires-agent.selftest.mjs",
+  "mysql-ddl-to-specs.selftest.mjs",
   "reinit-decor.selftest.mjs",
   "lib/agents-formats.selftest.mjs",
   "lib/argv.selftest.mjs",

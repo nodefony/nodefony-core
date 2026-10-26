@@ -187,7 +187,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.2.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un…",
-    "meta": "🟢 conforme v1.5.0 · ⚙️ 16 scripts · 📎 9 réf" },
+    "meta": "🟢 conforme v1.5.0 · ⚙️ 19 scripts · 📎 9 réf" },
   { "icon": "🔧", "title": "devops", "href": "skills/nodefony-devops.md",
     "desc": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
     "meta": "🟢 conforme v1.1.0" },
