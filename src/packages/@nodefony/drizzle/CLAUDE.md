@@ -135,7 +135,10 @@ Deux usages :
   `numericOperand` (`CAST … AS REAL`, exact ≤ 15 chiffres) sur les colonnes que `isTextDecimal`
   reconnaît — marque posée pour les TROIS dialectes par `markDecimalColumns` (`colKit.shared.ts`,
   précision + échelle), jamais déduite du type SQL (`text` porte aussi jour et uuid) ni d'un
-  interne Drizzle. `$eq`/`$in` restent en texte (exact, indexé). Les écritures qui calculent :
+  interne Drizzle. `$eq`/`$in` restent en texte (exact, indexé). Prix assumé : le `CAST` prive
+  l'ordre et les plages de l'index déclaré (texte) → `SCAN`, 14-16 ms sur 200 k lignes ; un index
+  sur l'EXPRESSION le servirait (1 ms) mais `IIndexSpec.on` n'en déclare pas — pas d'index
+  compagnon émis, SQLite n'étant pas une cible perf (divergence déclarée et chiffrée, même §). Les écritures qui calculent :
   `increment` arrondit le delta à l'échelle (`decimalDelta`) puis ajoute EXACTEMENT —
   `textDecimalIncrement` en SQLite (deux entiers 64 bits, ≤ 18 chiffres de chaque côté, débordement
   = instruction refusée), `CAST` vers le type de la colonne ailleurs (MySQL lie un `number` en

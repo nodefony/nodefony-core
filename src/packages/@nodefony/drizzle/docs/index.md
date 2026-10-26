@@ -604,6 +604,24 @@ le montant comme un nombre (`CAST(… AS REAL)`) pour le trier et pour `$gt`, `$
 15 chiffres significatifs : un prix en `decimal(12, 2)` l'est toujours ; deux montants de 24
 chiffres qui ne diffèrent qu'au-delà peuvent être pris pour égaux.
 
+Cette lecture a un prix : SQLite ne se sert pas d'un index pour une colonne passée dans une
+fonction. Un index déclaré sur un `decimal` (`indexes` dans la spec, ou `:index` au générateur)
+porte sur le texte. Il sert l'égalité et `$in`, mais pas le tri ni `$gt`, `$gte`, `$lt`, `$lte` :
+ces requêtes lisent alors toute la table. Sur 200 000 lignes (SQLite 3.53, base en mémoire,
+médiane de 15 passes) :
+
+<!-- prettier-ignore -->
+| Requête du repository sur un `decimal` indexé | Plan de SQLite | Durée |
+| --- | --- | --- |
+| `$gt` et `$lt` qui retiennent 1 % des lignes | lecture de toute la table | 14 ms |
+| `order` sur le montant, `limit: 20` | lecture de toute la table, puis tri | 16 ms |
+| égalité | index | moins de 0,01 ms |
+
+Un index qui porterait sur l'expression `CAST(montant AS REAL)` ramènerait les deux premières à
+1 ms et 0,01 ms ; la spec d'une entité ne sait pas le déclarer. Ce coût ne pèse qu'en SQLite, le
+pilote du développement, où ces durées ne gênent pas. En PostgreSQL, MySQL et MariaDB, la colonne
+est numérique et l'index sert toutes ces requêtes.
+
 Les écritures qui calculent suivent une seule règle, identique sur les quatre moteurs. `increment`
 ramène d'abord son delta (un `number`) à l'échelle de la colonne, arrondi au plus proche, moitié
 loin de zéro, puis l'ajoute **exactement** : `"9.50"` plus `0.1` rend `"9.60"`, jamais `"9.6"` ni
