@@ -249,6 +249,9 @@ export function dialectOf(table: unknown): SqlDialect | null {
   return null;
 }
 
+/** Extensions qu'un spécificateur porte quand il nomme déjà son fichier. */
+const MODULE_EXTENSION = /\.(?:[cm]?[jt]sx?|json|node)$/u;
+
 /**
  * Fait résoudre `./voisin` comme le ferait un bundler — le temps de la lecture.
  *
@@ -275,10 +278,12 @@ function registerExtensionlessResolution(): { deregister: () => void } {
       try {
         return nextResolve(specifier, context);
       } catch (e) {
-        // On ne réessaie QUE ce cas : un chemin relatif sans extension. Tout
-        // le reste — paquet absent, export inexistant — doit remonter tel
-        // quel, sinon l'utilisateur reçoit une erreur sur le mauvais fichier.
-        if (specifier.startsWith(".") && path.extname(specifier) === "") {
+        // On ne réessaie QUE ce cas : un chemin relatif sans extension DE
+        // MODULE. Tout le reste — paquet absent, export inexistant — doit
+        // remonter tel quel, sinon l'utilisateur reçoit une erreur sur le
+        // mauvais fichier. Pas `path.extname` : il lit « .mysql » dans
+        // `./colKit.mysql`, et le kit lui-même importe ainsi ses voisins.
+        if (specifier.startsWith(".") && !MODULE_EXTENSION.test(specifier)) {
           return nextResolve(`${specifier}.ts`, context);
         }
         throw e;

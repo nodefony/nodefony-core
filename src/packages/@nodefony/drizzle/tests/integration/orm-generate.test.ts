@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   collectTables,
   entityFilesOf,
@@ -23,6 +24,10 @@ import {
   unreadableRefusal,
 } from "../../nodefony/src/migrator/explain";
 import { importsDrizzle } from "../../nodefony/src/migrator/appSchema";
+import {
+  readJournal,
+  type IJournal,
+} from "../../nodefony/src/migrator/sources";
 import { schemaTableName } from "../../nodefony/src/orm-core/entityTable";
 
 /**
@@ -55,6 +60,13 @@ const APP = path.join(
 );
 const ENTITIES = path.join(APP, "nodefony", "entity");
 const OUT = path.join(APP, "migrations", "sqlite");
+
+/** Le journal écrit, lu par le lecteur UNIQUE du paquet : validé, typé. */
+async function journalOf(): Promise<IJournal> {
+  const journal = await readJournal(OUT, "app");
+  assert.ok(journal !== null, "aucun journal écrit");
+  return journal;
+}
 
 /** Écrit un fichier du décor, dossiers compris. */
 async function put(file: string, body: string): Promise<string> {
@@ -165,6 +177,77 @@ export const postTable = sqliteTable("post", { id: id() });
       "un import de voisin sans extension doit se résoudre comme chez un bundler",
     );
     assert.ok(tables.some((t) => t.tableName === "post"));
+  });
+
+  it("lit un VOISIN dont le nom porte un point (`./colonnes.shared`)", async () => {
+    // `path.extname` y voit une extension « .shared » : le kit lui-même importe
+    // ainsi ses voisins (`./colKit.mysql`), et toutes les entités du framework
+    // devenaient illisibles à la génération.
+    await put(
+      path.join(ENTITIES, "colonnes.shared.ts"),
+      `import { text } from "drizzle-orm/sqlite-core";
+export const id = () => text("id").primaryKey();
+`,
+    );
+    await put(
+      path.join(ENTITIES, "Note.ts"),
+      `import { sqliteTable } from "drizzle-orm/sqlite-core";
+import { id } from "./colonnes.shared";
+export const noteTable = sqliteTable("note", { id: id() });
+`,
+    );
+    // Dans un VRAI processus Node, sur le `dist` que le CLI exécute : sous
+    // vitest, l'`import()` passe par le résolveur de Vite, qui complète
+    // l'extension lui-même — le test y serait vert sans la correction.
+    const dist = path.join(
+      MODULE_ROOT,
+      "dist",
+      "nodefony",
+      "src",
+      "migrator",
+      "appSchema.js",
+    );
+    const script =
+      `const { collectTables, entityFilesOf } = await import(${JSON.stringify(pathToFileURL(dist).href)});` +
+      `const r = await collectTables(await entityFilesOf(${JSON.stringify(APP)}));` +
+      `console.log(JSON.stringify({ tables: r.tables.map((t) => t.tableName), unreadable: r.unreadable.map((u) => u.cause) }));`;
+    const child = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", script],
+      {
+        cwd: APP,
+        encoding: "utf8",
+      },
+    );
+    assert.equal(child.status, 0, child.stderr);
+    const seen: unknown = JSON.parse(child.stdout);
+    assert.deepEqual(seen, { tables: ["note"], unreadable: [] });
+  });
+
+  it("les entités du FRAMEWORK se lisent en source, dans un vrai Node", () => {
+    // C'est ainsi que `orm:generate` les lit dans ce dépôt : retrait de types
+    // de Node, sans bundler. Une syntaxe non effaçable (propriété de paramètre,
+    // `enum`) ou un voisin à nom pointé les rendait toutes invisibles.
+    const dist = path.join(
+      MODULE_ROOT,
+      "dist",
+      "nodefony",
+      "src",
+      "migrator",
+      "appSchema.js",
+    );
+    const script =
+      `const { collectTables, entityFilesOf } = await import(${JSON.stringify(pathToFileURL(dist).href)});` +
+      `const r = await collectTables(await entityFilesOf(${JSON.stringify(MODULE_ROOT)}));` +
+      `console.log(JSON.stringify({ hasTables: r.tables.length > 0, unreadable: r.unreadable.map((u) => path.basename(u.file) + " — " + u.cause) }));`;
+    const child = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", `import path from "node:path";` + script],
+      { cwd: MODULE_ROOT, encoding: "utf8" },
+    );
+    assert.equal(child.status, 0, child.stderr);
+    const seen: unknown = JSON.parse(child.stdout);
+    assert.deepEqual(seen, { hasTables: true, unreadable: [] });
   });
 
   it("rend le fichier qu'il n'a PAS su lire, avec sa cause", async () => {
@@ -355,11 +438,12 @@ export const postTable = sqliteTable("post", { id: id() });
         !/CREATE|ALTER|DROP|INSERT/i.test(sql),
         "un squelette qui PROPOSE du SQL est un squelette qu'on applique sans le lire",
       );
-      const journal = JSON.parse(
-        await fs.readFile(path.join(OUT, "meta", "_journal.json"), "utf8"),
-      ) as { version: string; dialect: string; entries: { tag: string }[] };
+      const journal = await journalOf();
       assert.equal(journal.version, "7");
-      assert.equal(journal.dialect, "sqlite");
+      assert.match(
+        await fs.readFile(path.join(OUT, "meta", "_journal.json"), "utf8"),
+        /"dialect":\s*"sqlite"/u,
+      );
       assert.deepEqual(
         journal.entries.map((e) => e.tag),
         ["0000_vue_des_ventes"],
@@ -380,9 +464,7 @@ export const postTable = sqliteTable("post", { id: id() });
         now: 2,
       });
       assert.equal(tag, "0001_deux");
-      const journal = JSON.parse(
-        await fs.readFile(path.join(OUT, "meta", "_journal.json"), "utf8"),
-      ) as { entries: { idx: number; tag: string }[] };
+      const journal = await journalOf();
       assert.deepEqual(
         journal.entries.map((e) => `${e.idx}:${e.tag}`),
         ["0:0000_une", "1:0001_deux"],
@@ -478,9 +560,7 @@ export const userTable = sqliteTable("User", { id: text("id").primaryKey() });
       });
       stampFormatMarker(OUT);
 
-      const journal = JSON.parse(
-        await fs.readFile(path.join(OUT, "meta", "_journal.json"), "utf8"),
-      ) as { entries: { tag: string }[] };
+      const journal = await journalOf();
       assert.deepEqual(
         journal.entries.map((e) => e.tag),
         ["0000_premier"],

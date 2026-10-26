@@ -139,7 +139,7 @@ export async function readJournal(
   try {
     raw = await fs.readFile(file, "utf8");
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+    if (e instanceof Error && "code" in e && e.code === "ENOENT") {
       return null;
     }
     throw e;

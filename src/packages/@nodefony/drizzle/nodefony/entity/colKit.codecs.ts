@@ -23,20 +23,33 @@ export type ColumnValueKind = "decimal" | "uuid" | "date";
  */
 export class ColumnValueError extends Error {
   override readonly name = "ColumnValueError";
+  /** Genre de la colonne. */
+  readonly kind: ColumnValueKind;
+  /** Valeur refusée, telle que reçue. */
+  override readonly value: string;
+  /** `table.colonne`. */
+  readonly column: string;
 
   /**
+   * Champs écrits en clair, jamais en propriétés de paramètre : `orm:generate`
+   * lit les entités du kit en SOURCE, par le retrait de types de Node, qui
+   * refuse toute syntaxe TypeScript non effaçable.
+   *
    * @param kind - genre de la colonne.
    * @param value - valeur refusée, telle que reçue.
    * @param column - `table.colonne`.
    * @param message - phrase qui dit le refus.
    */
   constructor(
-    readonly kind: ColumnValueKind,
-    override readonly value: string,
-    readonly column: string,
+    kind: ColumnValueKind,
+    value: string,
+    column: string,
     message: string,
   ) {
     super(`[@nodefony/drizzle] colKit "${column}": "${value}" ${message}`);
+    this.kind = kind;
+    this.value = value;
+    this.column = column;
   }
 }
 
