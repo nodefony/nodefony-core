@@ -1166,7 +1166,7 @@ const REFUSAL_MEANING: Record<IMigrationVerdict["code"], string> = {
   NF_MIGRATE_BASELINE_REQUIRED:
     "La base contient déjà des tables alors qu'aucune migration n'y est enregistrée. Appliquer les migrations maintenant exécuterait des créations de tables qui existent — souvent parce qu'on s'est trompé de base. Déclarer la base à niveau enregistre les migrations comme appliquées sans les exécuter ; à ne faire qu'après avoir vérifié que c'est la bonne base.",
   NF_MIGRATE_FAILED_MARKER:
-    "Une migration précédente s'est arrêtée en cours de route. Reprendre à l'aveugle par-dessus un état partiel est le meilleur moyen d'aggraver la situation. Regarde l'état réel de la base, corrige-le si besoin, puis lève le marqueur.",
+    "Une migration n'est pas allée au bout — celle que ce passage vient de lancer, ou une précédente dont l'échec est resté inscrit. Reprendre à l'aveugle par-dessus un état partiel est le meilleur moyen d'aggraver la situation. Regarde l'état réel de la base, corrige-le si besoin, puis lève le marqueur.",
   NF_MIGRATE_HASH_MISMATCH:
     "Un fichier déjà appliqué a été modifié depuis. Les autres bases ont reçu l'ancienne version et ne recevront jamais la nouvelle : le fichier et la réalité ont divergé. Le geste normal est de restaurer le fichier et d'écrire une nouvelle migration.",
   NF_MIGRATE_OUT_OF_ORDER:

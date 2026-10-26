@@ -301,6 +301,24 @@ describe("migrations — aucune situation ne sort sans un geste", () => {
       );
     }
   });
+
+  it("le marqueur d'échec ne date pas l'échec : il vaut pour la migration que ce passage VIENT de lancer", () => {
+    // Le même code sort quand une migration échoue PENDANT le passage et quand
+    // un passage précédent a laissé son marqueur : une explication qui ne parle
+    // que de « migration précédente » ment à qui vient de lancer la sienne.
+    const rendu = renderRefusal(
+      {
+        code: "NF_MIGRATE_FAILED_MARKER",
+        connector: "default",
+        facts: {},
+        nextActions: [],
+      },
+      "La migration « 0001_x » a échoué.",
+      styleFor(false),
+    );
+    assert.match(rendu, /ce passage vient de lancer/u);
+    assert.match(rendu, /une précédente/u);
+  });
 });
 
 describe("migrations — le rendu humain ne pollue jamais un flux", () => {
