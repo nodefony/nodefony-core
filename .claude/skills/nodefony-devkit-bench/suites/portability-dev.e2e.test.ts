@@ -8,7 +8,11 @@
  *
  *  - `write` : crée une ligne, et en garde le corps relu ;
  *  - `read`  : après un redémarrage (ou un aller-retour vers un autre moteur),
- *    la relit et exige le MÊME corps, à l'octet.
+ *    la relit et exige le MÊME corps, à l'octet ;
+ *  - `evolved` : après l'ajout de champs et leur migration, la relit et exige
+ *    le même corps AUGMENTÉ des défauts de ces champs, puis les écrit et les
+ *    relit. Les champs viennent du banc (`NF_PORTABILITY_DEV_ADDED`) : la sonde
+ *    ne connaît aucun nom de colonne qu'elle n'a pas reçu.
  *
  * Aucun import d'ORM : HTTP seulement.
  */
@@ -38,7 +42,11 @@ async function reread(
 
 describe(`base de développement (${ENGINE}) — ${MODE}`, () => {
   it("écrit puis relit sur la base que NF_DATABASE_URL désigne", async () => {
-    if (!FILE || !PASSWORD || (MODE !== "write" && MODE !== "read")) {
+    if (
+      !FILE ||
+      !PASSWORD ||
+      (MODE !== "write" && MODE !== "read" && MODE !== "evolved")
+    ) {
       throw new Error(
         "sonde lancée hors du banc : NF_PORTABILITY_DEV_* ou NF_ADMIN_PASSWORD absent",
       );
@@ -73,6 +81,27 @@ describe(`base de développement (${ENGINE}) — ${MODE}`, () => {
     const saved = z
       .object({ id: z.string(), body: z.unknown() })
       .parse(JSON.parse(readFileSync(FILE, "utf8")));
-    expect(await reread(base, auth, saved.id)).toEqual(saved.body);
+    if (MODE === "read") {
+      expect(await reread(base, auth, saved.id)).toEqual(saved.body);
+      return;
+    }
+    const added = z
+      .object({
+        defaults: z.record(z.string(), z.unknown()),
+        update: z.record(z.string(), z.unknown()),
+      })
+      .parse(JSON.parse(process.env.NF_PORTABILITY_DEV_ADDED ?? "null"));
+    const body = z.record(z.string(), z.unknown()).parse(saved.body);
+    expect(
+      await reread(base, auth, saved.id),
+      "ligne écrite AVANT la migration : mêmes valeurs, champs ajoutés à leur défaut",
+    ).toEqual({ ...body, ...added.defaults });
+    const res = await fetch(`${base}/api/authors/${saved.id}`, {
+      method: "PATCH",
+      headers: auth,
+      body: JSON.stringify(added.update),
+    });
+    expect(res.status, await res.clone().text()).toBe(200);
+    expect(await reread(base, auth, saved.id)).toMatchObject(added.update);
   });
 });

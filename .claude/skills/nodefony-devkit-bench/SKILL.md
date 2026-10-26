@@ -384,6 +384,14 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-portability.mjs --databa
 développement qui écrit, redémarre et relit, suite e2e générée, et une sonde HTTP
 (`suites/portability.e2e.test.ts`) dont la réponse normalisée doit égaler celle de SQLite.
 
+Puis, revenue sur SQLite, l'application ÉVOLUE : `create entity Author` relancé avec ses champs
+rappelés plus deux nouveaux (un facultatif, un obligatoire à défaut — la colonne NOT NULL posée
+sur une table qui a déjà des lignes). Sur chaque moteur visité : UNE migration de plus par
+dialecte (aucune pour MariaDB après MySQL), appliquée, alignée ; la ligne écrite avant porte les
+champs à leur défaut ; la suite générée régénérée passe. En CI : job `portabilite` de
+`scaffold.yml`, UN job pour les trois moteurs — une matrice ferait trois applications et
+perdrait le voyage.
+
 - **La sonde ne lit que du HTTP** : un type de l'adaptateur dans le banc prouverait l'adaptateur,
   pas la portabilité.
 - **Un écart de moteur se DÉCLARE, il ne se gomme pas** : collation MySQL (casse, accents, espaces

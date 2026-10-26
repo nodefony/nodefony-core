@@ -22,10 +22,14 @@
  *  5. la SONDE du banc — mêmes requêtes, mêmes valeurs, aux bords de chaque
  *     type — rend un instantané IDENTIQUE à celui de SQLite.
  *
- * Puis trois preuves qui ne tiennent qu'à plusieurs moteurs : le retour sur
- * SQLite retrouve ses données, une entité NATIVE fait tomber le démarrage sur
- * un autre moteur en la nommant (le banc vu mordre), et un champ ajouté après
- * coup migre sur les quatre dialectes.
+ * Puis deux preuves qui ne tiennent qu'à plusieurs moteurs : le retour sur
+ * SQLite retrouve ses données, et deux champs ajoutés après coup (par
+ * `create entity`, champs rappelés) migrent sur chaque moteur visité — la
+ * ligne écrite avant la migration les porte à leur défaut, la suite générée
+ * régénérée passe.
+ *
+ * Le banc s'éprouve en remettant une entité NATIVE (`--dialect sqlite`) : le
+ * démarrage sur un autre moteur doit tomber en la nommant.
  *
  * ## Le juge ne lit pas Drizzle
  *
@@ -564,7 +568,7 @@ function withDevServer(fn) {
 }
 
 /** La sonde de la base de développement, serveur démarré. */
-function devProbe(mode, engineKey, file) {
+function devProbe(mode, engineKey, file, extra = {}) {
   run(
     "npx",
     ["vitest", "run", "--config", "vitest.portabilite-dev.config.ts"],
@@ -573,6 +577,7 @@ function devProbe(mode, engineKey, file) {
         NF_PORTABILITY_DEV_MODE: mode,
         NF_PORTABILITY_DEV_FILE: file,
         NF_PORTABILITY_DEV_ENGINE: engineKey,
+        ...extra,
       },
     },
   );
@@ -765,6 +770,8 @@ if (!sqliteOk || reference === null) {
 }
 
 const verdicts = [];
+/** Les moteurs dont la base de développement porte une ligne durable — ceux que l'évolution rejoue. */
+const migrated = [];
 for (const engine of SELECTED) {
   const verdict = { engine: engine.key, ok: false, diffs: [] };
   verdicts.push(verdict);
@@ -892,11 +899,12 @@ for (const engine of SELECTED) {
     },
   );
   verdict.ok = okDev && okE2e && okProbe;
+  if (okDev) migrated.push({ engine, urls, durable });
 }
 
 // ─── retour sur SQLite ──────────────────────────────────────────────────────
 
-await step(
+const okBack = await step(
   "retour sur SQLITE — la base d'origine, ses données intactes",
   () => {
     setDatabaseUrl(null);
@@ -904,6 +912,86 @@ await step(
     withDevServer(() => devProbe("read", "sqlite", DURABLE_SQLITE));
   },
 );
+
+// ─── évolution après bascule ────────────────────────────────────────────────
+
+/**
+ * Les champs AJOUTÉS à `Author` une fois l'application passée par tous les
+ * moteurs — un facultatif, et un obligatoire à défaut. Le second est le cas qui
+ * casse : une colonne NOT NULL posée sur une table qui a déjà des lignes.
+ * `defaults` est ce que la ligne écrite avant la migration doit porter après,
+ * `update` ce que la sonde écrit ensuite.
+ */
+const ADDED = {
+  fields: ["nickname:string(40)?", "score:int=0"],
+  probe: {
+    defaults: { nickname: null, score: 0 },
+    update: { nickname: "Évolué é 😀", score: 7 },
+  },
+};
+
+// Le geste documenté : `create entity` ré-décrit l'entité EN ENTIER — on
+// rappelle ses champs, plus les nouveaux (la commande refuse d'en perdre un).
+// L'application est revenue sur SQLite : c'est là qu'on la fait évoluer.
+const okEvolved =
+  okBack &&
+  (await step(
+    `évolution — ${ADDED.fields.join(", ")} ajoutés à Author par le générateur`,
+    () => {
+      setDatabaseUrl(null);
+      const [name, ...fields] = ENTITIES[0];
+      nodefony(["create", "entity", name, ...fields, ...ADDED.fields, "--yes"]);
+      run("npm", ["run", "build"]);
+      run("npm", ["run", "typecheck"]);
+    },
+  ));
+
+if (okEvolved) {
+  // Un dialecte reçoit UNE migration de plus, une seule fois : MariaDB après
+  // MySQL applique celle de la passe MySQL sans en réclamer une autre.
+  const evolvedDialects = new Set();
+  const targets = [
+    {
+      engine: { key: "sqlite", dialect: "sqlite" },
+      urls: null,
+      durable: DURABLE_SQLITE,
+    },
+    ...migrated,
+  ];
+  for (const { engine, urls, durable } of targets) {
+    await step(
+      `${engine.key} — le champ ajouté migre, la ligne d'avant le porte à son défaut`,
+      () => {
+        setDatabaseUrl(urls === null ? null : urls.dev);
+        const before = migrationFiles(engine.dialect);
+        nodefony(["orm:generate", "--name", "author_evolution"], {
+          expected: null,
+        });
+        const written = migrationFiles(engine.dialect).filter(
+          (f) => !before.includes(f),
+        );
+        const expected = evolvedDialects.has(engine.dialect) ? 0 : 1;
+        if (written.length !== expected) {
+          throw new Error(
+            `orm:generate a écrit ${written.length} migration(s) sous migrations/${engine.dialect}/ ` +
+              `(attendu ${expected})${written.length > 0 ? ` : ${written.join(", ")}` : ""}`,
+          );
+        }
+        evolvedDialects.add(engine.dialect);
+        migrateAndAssertAligned();
+        withDevServer(() =>
+          devProbe("evolved", engine.key, durable, {
+            NF_PORTABILITY_DEV_ADDED: JSON.stringify(ADDED.probe),
+          }),
+        );
+        generatedE2e();
+        return {
+          migration: written.join(", ") || "aucune (dialecte déjà migré)",
+        };
+      },
+    );
+  }
+}
 
 // ─── verdict ────────────────────────────────────────────────────────────────
 
