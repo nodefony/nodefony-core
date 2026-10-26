@@ -4,8 +4,9 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Entités D'APPLICATION — `nodefony create entity`, pas le colKit
 
-- **La voie utilisateur = la commande** : `nodefony create entity Post title:string views:int` pose table
-  Drizzle **native du dialecte** + `XRow` + schémas Zod + service CRUD + controller REST/WS + tests, et câble
+- **La voie utilisateur = la commande** : `nodefony create entity Post title:string views:int` pose une
+  **description PORTABLE** (`defineTable` du colKit, `XRow = RowOf<typeof xTable.spec>`) — table NATIVE du
+  dialecte seulement avec `--dialect` ou une `ref:` vers une entité encore native — + schémas Zod + service CRUD + controller REST/WS + tests, et câble
   `@entities([...])` (orm-core). Champs `nom:type[?][:index|:unique]` · `ref:<Entité>` · **non-null par défaut** ; `!` est REFUSÉ.
   Traduction type→colonne : `nodefony/src/cli/scaffold/entityFields.ts` (core, module PUR, 3 dialectes).
 - **`ref:` ⇒ colonne INDEXÉE d'office** (sauf `!`, déjà indexé) : c'est la colonne de jointure
@@ -17,10 +18,11 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
   l'entité du module, l'app ne démarre plus sur un message de « colonne inconnue ».
 - **`drizzle-orm` = dep de l'APP** (le code généré l'importe en direct) : gabarit `complete` + rattrapage
   par `create entity`. Sans elle, seul le hissage npm sauvait la résolution — absent en `--link`.
-- 🔴 **Le `colKit` reste INTERNE** (jamais dans `index.ts`) : il sert aux **entités FRAMEWORK** (portées sur
-  3 dialectes, table fabriquée à partir du dialecte lu au runtime). Une entité d'app écrit du **Drizzle natif**
-  — décision d'audit : exposer le kit serait une sur-promesse d'API. Le scaffold écrit le code que
-  l'utilisateur aurait écrit.
+- **Le `colKit` est PUBLIC** (`index.ts`) : entités framework ET entités d'app générées. `entity.schema`
+  accepte une table native OU une description `defineTable` — `dialectTableOf` (`orm-core/entityTable.ts`)
+  est la SEULE règle « ce schéma sert-il ce dialecte ? » (DrizzleOrm, `seedEntityRow`, `userTableColumns`) ;
+  `schemaTableName` lit son nom sans dialecte (registre d'`orm:generate`). Une `ref` portable vise une
+  DESCRIPTION, jamais une table native ; `User` d'app = `portableUserTable` (spec vue par sa clé `text`).
 - Entités framework (User/Session/Token/Audit/Idempotency…) : `registerX(orm, dialect)` impératif via `wire()`
   (filtre les dialectes portés) — **pas** `@entities`, qui suppose un schéma statique.
 - DDL dev = `CREATE TABLE IF NOT EXISTS` dérivé → **modifier une entité n'altère RIEN** (aucun `ALTER`).
@@ -233,8 +235,10 @@ fichier ⇒ « matérialiser depuis le registre » est impossible, voie écarté
 - `--custom --name <n>` : fichier VIDE + entrée de journal, sans drizzle-kit. `version` d'entrée par
   dialecte (sqlite `6`, postgres `7`, mysql `5`) — RELEVÉE sur ce que l'outil écrit. Journal
   illisible ⇒ refus (le réécrire ferait rejouer tout l'historique).
-- **Un seul dialecte** : celui du connecteur. Les entités d'app sont du Drizzle NATIF
-  (`sqliteTable` ≠ `pgTable`) ; seul le framework, qui passe par le colKit, rend les trois.
+- **Un seul dialecte par migration** : celui du connecteur. Une table PORTABLE découverte
+  (`collectTables` → `portable: true`) entre dans la migration de TOUT moteur ; le module de schéma
+  l'exporte À PLAT déclinée (`export const nf_i = x_portable.table("<dialecte>")`) — drizzle-kit ne
+  voit que des tables natives. Une table native d'un autre moteur est écartée (`otherDialect`).
 - **`drizzle-kit`** = devDep de l'APP, posée par `create entity` (`scaffold/versions.ts`), pilotée
   par la commande. Résolue en remontant les `node_modules` (jamais `npx` : `.cmd` sous Windows).
 - Socle partagé avec le script du framework : `nodefony/src/migrator/kit.ts` (PUBLIÉ — `scripts/`

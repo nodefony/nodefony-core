@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-25",
+  "generatedAt": "2026-10-26",
   "count": 40,
   "repoScripts": [
     {
@@ -4513,6 +4513,10 @@
               },
               {
                 "flag": "--dialect",
+                "help": ""
+              },
+              {
+                "flag": "--drop-accounts",
                 "help": ""
               },
               {

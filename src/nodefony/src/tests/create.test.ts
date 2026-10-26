@@ -7685,7 +7685,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         entity(dest, { name: "Row", fields: "title:string" });
         assert.include(
           read(dest, "nodefony", "entity", "Row.ts"),
-          "sqliteTable(",
+          "defineTable(",
         );
       });
 
@@ -7892,10 +7892,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // restait verte pendant que la table s'appelait `users`. Une ancre
         // vraie peut porter une affirmation fausse — c'est la table qu'on
         // nomme ici, donc c'est l'appel de table qu'il faut viser.
-        assert.include(src, 'sqliteTable("User"');
+        assert.include(src, 'name: "User",\n  columns:');
         // `updatedAt` se régénère à chaque écriture — sinon la date de
         // modification ment, et personne ne le voit.
-        assert.include(src, "$onUpdateFn");
+        assert.include(src, "onUpdateFn: () => new Date()");
       });
 
       it("ne génère NI service NI controller génériques", () => {
@@ -7945,7 +7945,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           path.join(d2, "nodefony", "entity", "User.ts"),
           "utf8",
         );
-        assert.include(src, ".default(0)");
+        assert.include(
+          src,
+          'salary: { kind: "int", notNull: true, default: 0 }',
+        );
       });
 
       it("REFUSE de renommer la table ou de changer la casse des colonnes", () => {
@@ -8073,7 +8076,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       it("REFUSE d'écraser une entité dont il ne sait plus lire les champs", () => {
         const dest = app("ecumul4");
-        entity(dest, { name: "Article", fields: "title:string" });
+        // Table NATIVE (dialecte demandé) : la ligne est une interface écrite.
+        entity(dest, {
+          name: "Article",
+          fields: "title:string",
+          dialect: "sqlite",
+        });
         const file = path.join(dest, "nodefony", "entity", "Article.ts");
         // Une main humaine a posé un type imbriqué — forme légitime, que la
         // grammaire de la garde ne lit pas. Refuser vaut mieux que conclure
@@ -8083,6 +8091,42 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           readFileSync(file, "utf8").replace(
             "title: string;",
             "title: { raw: string };",
+          ),
+        );
+        assert.throws(
+          () =>
+            entity(dest, {
+              name: "Article",
+              fields: "views:int=0",
+              dialect: "sqlite",
+            }),
+          /sa forme n'est plus celle du générateur/u,
+        );
+      });
+
+      it("entité PORTABLE : la garde lit les champs dans la description, même dépliée", () => {
+        const dest = app("ecumul5");
+        entity(dest, { name: "Article", fields: "title:string views:int=0" });
+        const file = path.join(dest, "nodefony", "entity", "Article.ts");
+        // Le formateur de l'application déplie les colonnes sur plusieurs
+        // lignes : la garde doit encore les lire.
+        writeFileSync(
+          file,
+          readFileSync(file, "utf8").replace(
+            'title: { kind: "string", notNull: true },',
+            'title: {\n      kind: "string",\n      notNull: true,\n    },',
+          ),
+        );
+        assert.throws(
+          () => entity(dest, { name: "Article", fields: "views:int=0" }),
+          /RETIRERAIT un champ — title/u,
+        );
+        // Une description que la garde ne sait plus lire est refusée.
+        writeFileSync(
+          file,
+          readFileSync(file, "utf8").replace(
+            "columns: {",
+            "columns: COLUMNS, x: {",
           ),
         );
         assert.throws(
@@ -8124,7 +8168,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           path.join(dest, "nodefony", "entity", "User.ts"),
           "utf8",
         );
-        assert.include(livree, "createUserTable(");
+        assert.include(livree, "portableUserTable");
         entity(dest, { name: "User", fields: "department:string?" });
         const src = readFileSync(
           path.join(dest, "nodefony", "entity", "User.ts"),
@@ -8178,10 +8222,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony/entity/Ticket.ts"),
         "utf8",
       );
-      assert.include(src, "drizzle-orm/pg-core");
-      // Les deux traductions que le mauvais dialecte faisait disparaître.
-      assert.include(src, 'varchar("code", { length: 2 })');
-      assert.include(src, 'uuid("ref")');
+      // La description ne fige AUCUN moteur : la longueur et l'uuid que le
+      // mauvais dialecte faisait disparaître sont des GENRES, déclinés au
+      // démarrage pour la base réelle.
+      assert.notInclude(src, "drizzle-orm/");
+      assert.include(src, 'code: { kind: "string", length: 2, notNull: true }');
+      assert.include(src, 'ref: { kind: "uuid", notNull: true }');
     });
 
     /*
@@ -8204,7 +8250,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony/entity/Website.ts"),
         "utf8",
       );
-      assert.include(src, 'sqliteTable("website"');
+      assert.include(src, 'name: "website",');
       assert.notInclude(src, '"websites"');
       assert.include((r.notes ?? []).join("\n"), "table website");
       // La route REST est une URL publique : elle suit la ressource, pas la table.
@@ -8228,10 +8274,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony/entity/Website.ts"),
         "utf8",
       );
-      assert.include(src, 'text("website_id")');
-      assert.include(src, 'siteName: text("site_name")');
-      assert.include(src, 'createdBy: text("created_by")');
-      assert.include(src, 'index("website_created_by_idx")');
+      assert.include(src, 'column: "website_id"');
+      assert.include(
+        src,
+        'siteName: { kind: "string", notNull: true, column: "site_name" }',
+      );
+      assert.include(
+        src,
+        'createdBy: { kind: "uuid", notNull: true, column: "created_by" }',
+      );
+      assert.include(
+        src,
+        '{ name: "website_created_by_idx", on: ["createdBy"] }',
+      );
       // L'invariant : le reste de la chaîne ne connaît que les propriétés.
       const service = readFileSync(
         path.join(dest, "nodefony/service/WebsiteService.ts"),
@@ -8535,17 +8590,25 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(
         src,
-        'sqliteTable("User"',
+        'name: "User",\n  columns:',
         "la table des utilisateurs s'appelle « User » — le SQL du framework l'écrit en dur",
       );
-      assert.notMatch(
+      assert.notInclude(
         src,
-        /sqliteTable\("users"/u,
+        'name: "users"',
         "« users » est la table que le pluriel produisait, et le SQL ne l'interroge jamais",
       );
       // Le champ demandé est bien là — sans lui, le test passerait sur une
       // entité qui n'a rien reçu.
-      assert.include(src, 'department: text("department")');
+      assert.include(src, 'department: { kind: "string" }');
+      // La clé est le `text` du contrat, pas la stratégie `--id` : un `uuid`
+      // PostgreSQL ferait recréer la table par la migration suivante.
+      assert.include(src, 'id: { kind: "text", primaryKey: true');
+      // Une chaîne du CONTRAT est un `text`, comme dans la fabrique du framework.
+      assert.include(
+        src,
+        'identifier: { kind: "text", notNull: true, unique: true }',
+      );
     });
 
     it("create entity User : REMPLACE l'entité du gabarit, sans casser son câblage", () => {
@@ -8612,9 +8675,47 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
-    it("l'entité est du Drizzle natif, avec la clé uuid7 générée côté JS", () => {
-      const dest = app("eapp2");
+    it("l'entité est une description PORTABLE, avec la clé uuid7 générée côté JS", () => {
+      const dest = app("eapp2p");
       entity(dest, { name: "Post", fields: "title:string:unique views:int" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      assert.notInclude(src, "drizzle-orm/", "aucun moteur figé");
+      assert.include(src, 'import { defineTable } from "@nodefony/drizzle";');
+      assert.include(src, "export const postTable = defineTable({");
+      assert.include(src, 'name: "posts",');
+      assert.include(
+        src,
+        'id: { kind: "uuid", primaryKey: true, defaultFn: () => Nodefony.generateSortableId() }',
+      );
+      assert.include(
+        src,
+        'title: { kind: "string", notNull: true, unique: true }',
+      );
+      // La ligne se DÉRIVE de la description — jamais une interface recopiée.
+      assert.include(
+        src,
+        "export type PostRow = RowOf<typeof postTable.spec>;",
+      );
+      assert.notInclude(src, "interface PostRow");
+      // `date` (un instant pour le générateur) est un `datetime` du kit.
+      assert.include(
+        src,
+        'kind: "datetime", notNull: true, defaultFn: () => new Date(), column: "created_at"',
+      );
+      assert.include(src, "export const PostEntity = defineEntity({");
+      assert.notMatch(src, /connector:\s*["']/u);
+    });
+
+    it("--dialect demandé : la table reste du Drizzle NATIF du moteur", () => {
+      const dest = app("eapp2");
+      entity(dest, {
+        name: "Post",
+        fields: "title:string:unique views:int",
+        dialect: "sqlite",
+      });
       const src = readFileSync(
         path.join(dest, "nodefony", "entity", "Post.ts"),
         "utf8",
@@ -8868,8 +8969,34 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(ent, 'import { authorTable } from "./Author";');
       assert.include(
         ent,
+        'author: { kind: "ref", target: () => authorTable, notNull: true, onDelete: "restrict" }',
+      );
+    });
+
+    it("ref vers une entité encore NATIVE : l'entité suit sa cible, et la note dit comment porter", () => {
+      const dest = app("eapp4fkn");
+      entity(dest, {
+        name: "Author",
+        fields: "email:string",
+        dialect: "sqlite",
+      });
+      const r = entity(dest, {
+        name: "Post",
+        fields: "title:string author:ref:Author",
+      });
+      const ent = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      // Une référence portable vise une DESCRIPTION : vers une table native,
+      // seule une table native compile.
+      assert.include(
+        ent,
         '.references(() => authorTable.id, { onDelete: "restrict" })',
       );
+      const notes = (r.notes ?? []).join("\n");
+      assert.include(notes, "écrite NATIVE sqlite : elle vise Author");
+      assert.include(notes, "régénérer Author");
     });
 
     // Une entité sans champ produit un CRUD qui « marche » et ne transporte rien.
@@ -8932,8 +9059,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         { name: "analytics", dialect: "postgres" },
       ]);
 
-      // Et le scaffold suit : l'entité posée sur `analytics` naît en PostgreSQL.
-      entity(dest, {
+      // Et le scaffold suit : l'entité posée sur `analytics` vit en PostgreSQL.
+      const visit = entity(dest, {
         name: "Visit",
         fields: "path:string meta:json",
         connector: "analytics",
@@ -8942,9 +9069,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "entity", "Visit.ts"),
         "utf8",
       );
-      assert.include(src, "pgTable");
-      assert.include(src, 'jsonb("meta")');
+      // Le moteur n'est plus figé dans le fichier : il est lu au démarrage. Il
+      // reste NOMMÉ dans le compte rendu — c'est lui qui dit sur quelle base
+      // la table atterrit.
+      assert.notInclude(src, "drizzle-orm/");
+      assert.include(src, 'meta: { kind: "json", notNull: true }');
       assert.include(src, 'connector: "analytics"');
+      assert.include(
+        (visit.notes ?? []).join("\n"),
+        "sur le connecteur « analytics » (postgres)",
+      );
     });
 
     // Vu sur l'app de CE dépôt bootée sur MongoDB : la page ORM de Studio
@@ -9062,16 +9196,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "entity", "Post.schema.ts"),
         "utf8",
       );
-      // La colonne porte l'énumération au typage…
-      assert.include(ent, 'enum: ["draft", "published"] as const');
-      // …et le défaut est posé côté JS (le DDL dev n'émet pas les DEFAULT SQL).
-      assert.include(ent, '$defaultFn(() => "draft")');
-      assert.include(ent, "$defaultFn(() => 0)");
+      // La colonne porte l'énumération — un CHECK en base, l'union au type…
+      // …et le défaut LITTÉRAL : DEFAULT SQL dans la migration ET côté JS.
+      assert.include(
+        ent,
+        'status: { kind: "enum", values: ["draft", "published"], notNull: true, default: "draft" }',
+      );
+      assert.include(ent, 'views: { kind: "int", notNull: true, default: 0 }');
       // …tandis que Zod le fait respecter à l'entrée, sur tous les transports.
       assert.include(schema, 'z.enum(["draft", "published"])');
       // `:index` produit un index RÉEL, préfixé par la table (unicité globale).
-      assert.include(ent, 'index("posts_title_idx").on(t.title)');
-      assert.match(ent, /import \{[^}]*\bindex\b[^}]*\} from "drizzle-orm/u);
+      assert.include(ent, '{ name: "posts_title_idx", on: ["title"] }');
     });
 
     // Le test data ne prouve pas que la ressource est SERVIE : routage,
@@ -9628,13 +9763,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le commentaire de la relation est bien SUIVI d'un saut de ligne avant la
       // fermeture de l'objet de colonnes — laquelle porte maintenant le 3ᵉ
       // argument (l'index automatique de la colonne de jointure).
-      assert.match(src, /\/\/ → Author\.id[^\n]*\n\}/u);
+      assert.match(src, /\/\/ → Author\.id[^\n]*\n\s*\},/u);
       assert.notMatch(src, /\}\);.*\/\//u);
       // L'index EST là, et il porte bien sur la colonne de relation.
-      assert.match(src, /index\("comments_author_idx"\)\.on\(t\.author\)/u);
-      assert.include(src, "import { index, sqliteTable");
-      // Idem pour l'interface de ligne et le schéma Zod (mêmes interpolations).
-      assert.match(src, /author: string;\n\}/u);
+      assert.include(src, '{ name: "comments_author_idx", on: ["author"] }');
+      // La ligne se dérive de la description : aucune interface à refermer.
+      assert.include(src, "export type CommentRow = RowOf<");
     });
 
     it("relation vers SOI dès la création — le fichier visé est celui qu'on écrit", () => {
@@ -9649,7 +9783,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "entity", "Category.ts"),
         "utf8",
       );
-      assert.include(src, "(): AnySQLiteColumn => categoryTable.id");
+      // Vers soi : `"self"`, pas un thunk vers la constante en cours de
+      // définition — son type serait implicite (TS7022).
+      assert.include(
+        src,
+        'parent: { kind: "ref", target: "self", onDelete: "set null" }',
+      );
       assert.notInclude(src, 'from "./Category"');
       // L'échantillon LIT `refs` pour le lien vers soi : il doit donc le
       // déclarer, même quand aucun autre parent n'existe (`TS2304` sinon).
@@ -9720,7 +9859,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "entity", "Story.ts"),
         "utf8",
       );
-      assert.include(src, 'sqliteTable("stories"');
+      assert.include(src, 'name: "stories",');
     });
 
     describe("gardes — aucun fichier écrit si elles tombent", () => {

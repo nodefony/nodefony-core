@@ -111,11 +111,10 @@ export const PRODUCTION_SECRETS: Readonly<Record<string, string>> = {
  * serveur que celui du développement (une instance PostgreSQL de recette, par
  * exemple).
  *
- * ⚠️ **Elle ne change pas le DIALECTE de vos entités.** Elles sont écrites pour
- * celui que vous avez choisi à la création de l'application, et l'ORM refuse de
- * démarrer sur un autre en nommant l'entité fautive. Viser un moteur différent
- * suppose de porter chaque entité (`createXTable("postgres")`) — un chantier,
- * pas une variable.
+ * ⚠️ **Elle ne suffit pas à changer de MOTEUR.** Les entités que `create entity`
+ * écrit décrivent leurs colonnes pour toutes les bases, mais les migrations
+ * versionnées sont celles d'UN moteur ; et une entité écrite avec `--dialect`
+ * reste liée au sien — l'ORM refuse de démarrer sur un autre en la nommant.
 <% if (it.mongo) { %> *
  * Sur <%= it.db.label %>, c'est une base À PART sur le même serveur —
  * `<%= it.db.databaseE2e %>`. Rien à fournir : MongoDB la crée à la première

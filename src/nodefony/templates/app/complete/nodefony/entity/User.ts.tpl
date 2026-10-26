@@ -36,8 +36,7 @@ export const UserEntity = defineEntity({
 });
 
 <% } else { %>import { defineEntity } from "@nodefony/orm-core";
-import { createUserTable, FRAMEWORK_CONNECTOR } from "@nodefony/drizzle";
-import type { SqlDialect } from "@nodefony/drizzle";
+import { portableUserTable, FRAMEWORK_CONNECTOR } from "@nodefony/drizzle";
 
 /**
  * L'entité `User` de cette application.
@@ -76,33 +75,18 @@ import type { SqlDialect } from "@nodefony/drizzle";
  * ```
  */
 /**
- * Le moteur choisi à la création de cette application.
+ * La table, décrite pour TOUTES les bases, et EXPORTÉE.
  *
- * Il est FIGÉ ici, comme dans toute entité générée : une table Drizzle est
- * écrite pour un dialecte : `sqliteTable` et `pgTable` n'ont ni les mêmes types
- * ni les mêmes options. Changer de moteur demande donc de changer cette ligne —
- * et d'écrire la migration correspondante, ce que `orm:generate` fait pour toi.
+ * Aucun moteur n'est figé ici : au démarrage, la table est déclinée pour le
+ * dialecte du connecteur, et `orm:generate` écrit la migration de cette base.
+ * Changer de base ne touche pas ce fichier — seulement la configuration.
  *
- * (Il n'est PAS déduit de l'environnement : dans une application Nodefony,
- * `env.ts` en est le SEUL lecteur. Une seconde lecture ailleurs fait diverger la
- * configuration effective de ce que le catalogue déclare.)
- *
- * 🔴 Le `as const` n'est pas une coquetterie : annoté `: SqlDialect`, ce nom
- * vaut les TROIS dialectes pour TypeScript, `createUserTable` rend alors une
- * union, et la clé primaire de la table cesse d'être atteignable — une entité
- * voisine qui écrit `.references(() => userTable.id)` ne compile plus. Le
- * `satisfies` garde la valeur contrôlée sans l'élargir.
+ * Exportée, et pas seulement passée au descripteur, pour deux lecteurs : l'outil
+ * qui écrit les migrations (un process séparé, qui cherche les tables exportées
+ * dans `nodefony/entity/`), et toute entité qui te RÉFÉRENCE
+ * (`{ kind: "ref", target: () => userTable }`).
  */
-const DIALECT = "<%= it.dialect %>" as const satisfies SqlDialect;
-
-/**
- * La table, EXPORTÉE — et pas seulement passée au descripteur.
- *
- * L'outil qui écrit les migrations est un process séparé : il lit les fichiers de
- * `nodefony/entity/` et y cherche les tables exportées. Une table seulement
- * passée en argument y serait invisible, et la migration s'écrirait SANS elle.
- */
-export const userTable = createUserTable(DIALECT);
+export const userTable = portableUserTable;
 
 export const UserEntity = defineEntity({
   name: "User",

@@ -128,6 +128,13 @@ export interface IEntityField {
    * raisonnement que `defaultNow`, dont la parité était déjà tenue.
    */
   defaultJsOnly?: boolean;
+  /**
+   * Colonne REPRISE d'un contrat du framework (`User`) — sa description portable
+   * doit reproduire le genre que la fabrique du framework lui donne, sans quoi
+   * la migration suivante recrée la table : une chaîne du contrat y est un
+   * `text`, jamais un `string(255)`.
+   */
+  fromContract?: boolean;
 }
 
 /**
@@ -1409,6 +1416,247 @@ export function buildEntityCodegen(
 }
 
 /**
+ * Plus longue valeur d'énumération qu'admet la description portable — la
+ * largeur `varchar(64)` de MySQL, figée par les migrations du framework
+ * (`ENUM_MAX_LENGTH` de `@nodefony/drizzle`, confronté par test).
+ */
+export const PORTABLE_ENUM_MAX_LENGTH = 64;
+
+/** Tout ce dont le gabarit a besoin pour rendre une entité PORTABLE. */
+export interface IPortableEntityCodegen {
+  /** Corps de `columns` de la description (lignes `nom: { kind: … },`). */
+  columns: string;
+  /** Liste `indexes` de la description — chaîne vide quand aucun index. */
+  indexes: string;
+  /**
+   * Imports des descriptions VISÉES par les relations
+   * (`import { userTable } from "./User";`) — hors relation vers soi.
+   */
+  entityImports: string;
+  /** Propriétés de la ligne, sous la forme `nom: type;` — lues par la garde anti-écrasement. */
+  rowProps: string;
+  /** Corps du schéma Zod de création. */
+  zodProps: string;
+  /** `true` si la clé primaire est générée côté JS (le gabarit importe `Nodefony`). */
+  needsNodefony: boolean;
+  /** Type TS de la clé primaire. */
+  idType: string;
+}
+
+/**
+ * Produit la DESCRIPTION portable d'une entité — une spec du kit de colonnes,
+ * qu'aucun moteur ne fige : le démarrage en décline la table du dialecte du
+ * connecteur qui la charge, et la migration celle de sa base.
+ *
+ * Même grammaire de champs, mêmes règles que {@link buildEntityCodegen} — seule
+ * la sortie change. Ce que la description NOMME autrement :
+ * - `date` (un instant pour le générateur) devient `kind: "datetime"` : dans le
+ *   kit, `date` est un jour calendaire ;
+ * - une valeur par défaut tapée devient `default` — `DEFAULT` SQL dans la
+ *   migration ET défaut côté JS —, sauf colonne d'un contrat du framework
+ *   (`defaultJsOnly`), qui garde le seul `defaultFn` de la fabrique qu'elle
+ *   reproduit ;
+ * - une référence vise la DESCRIPTION de sa cible ; sa colonne prend le type de
+ *   la clé visée, sans que le générateur ait à le deviner.
+ *
+ * @param fields - champs analysés par {@link parseEntityFields}.
+ * @param options - mêmes options que {@link buildEntityCodegen} ; le dialecte
+ *   n'y sert plus.
+ * @returns le code de la description, de la ligne et du schéma Zod.
+ * @throws EntityFieldError Quand une valeur d'énumération dépasse
+ *   {@link PORTABLE_ENUM_MAX_LENGTH} caractères.
+ */
+export function buildPortableEntityCodegen(
+  fields: IEntityField[],
+  options: Parameters<typeof buildEntityCodegen>[1] & {
+    /**
+     * Entité d'IDENTITÉ (`User`) : sa clé est le `text` du contrat, pas la
+     * stratégie `--id` — les sessions, jetons et audit du framework la visent.
+     */
+    identity?: boolean;
+  },
+): IPortableEntityCodegen {
+  const { id, timestamps, softDelete, table } = options;
+  const columnCase: TColumnCase = options.columnCase ?? "camel";
+  const idName = options.idName ?? "id";
+  const sql = (property: string): string => sqlColumn(property, columnCase);
+  /** `, column: "x"` quand le nom en base diffère de la propriété. */
+  const stored = (property: string, column: string): string =>
+    column === property ? "" : `, column: ${JSON.stringify(column)}`;
+  const columns: string[] = [];
+  const rowProps: string[] = [];
+  const zodProps: string[] = [];
+  const referenced = new Set<string>();
+
+  if (options.identity) {
+    columns.push(
+      `id: { kind: "text", primaryKey: true, defaultFn: () => Nodefony.generateId()${stored("id", idName)} },`,
+    );
+  } else if (id === "serial") {
+    columns.push(
+      `id: { kind: "serial", primaryKey: true${stored("id", idName)} },`,
+    );
+  } else {
+    const generator =
+      id === "uuid7"
+        ? "Nodefony.generateSortableId()"
+        : "Nodefony.generateId()";
+    columns.push(
+      `id: { kind: "uuid", primaryKey: true, defaultFn: () => ${generator}${stored("id", idName)} },`,
+    );
+  }
+  const idType = id === "serial" && !options.identity ? "number" : "string";
+  rowProps.push(`id: ${idType};`);
+
+  for (const field of fields) {
+    const column = sql(field.name);
+    const parts: string[] = [];
+    let tsType = tsTypeOf(field);
+    switch (
+      field.fromContract && (field.type === "string" || field.type === "uuid")
+        ? "text"
+        : field.type
+    ) {
+      case "text":
+        parts.push(`kind: "text"`);
+        break;
+      case "string":
+        parts.push(`kind: "string"`);
+        if (field.length !== undefined) parts.push(`length: ${field.length}`);
+        break;
+      case "char":
+        parts.push(`kind: "char"`, `length: ${field.length ?? 1}`);
+        break;
+      case "decimal":
+        parts.push(
+          `kind: "decimal"`,
+          `precision: ${field.precision ?? 0}`,
+          `scale: ${field.scale ?? 0}`,
+        );
+        break;
+      case "date":
+        parts.push(`kind: "datetime"`);
+        break;
+      case "enum": {
+        const values = field.values ?? [];
+        const tooLong = values.find(
+          (value) => value.length > PORTABLE_ENUM_MAX_LENGTH,
+        );
+        if (tooLong !== undefined) {
+          throw new EntityFieldError(
+            `champ « ${field.name} » — la valeur « ${tooLong} » dépasse ` +
+              `${PORTABLE_ENUM_MAX_LENGTH} caractères, la largeur d'une énumération en base`,
+          );
+        }
+        parts.push(
+          `kind: "enum"`,
+          `values: [${values.map((value) => JSON.stringify(value)).join(", ")}]`,
+        );
+        break;
+      }
+      case "ref": {
+        const self = field.target === options.entity;
+        if (!self && field.target) referenced.add(field.target);
+        parts.push(
+          `kind: "ref"`,
+          `target: ${self || !field.target ? `"self"` : `() => ${entityTableSymbol(field.target)}`}`,
+        );
+        tsType = refTargetsSerial(field.target, id) ? "number" : "string";
+        break;
+      }
+      case "int":
+      case "float":
+      case "bool":
+      case "json":
+      case "uuid":
+        parts.push(`kind: "${field.type}"`);
+        break;
+    }
+    if (!field.nullable) parts.push("notNull: true");
+    if (field.unique) parts.push("unique: true");
+    if (field.type === "ref") {
+      // Même règle que la table native : la politique se DÉDUIT de la
+      // nullabilité (cf {@link buildEntityCodegen}).
+      parts.push(`onDelete: "${field.nullable ? "set null" : "restrict"}"`);
+    }
+    if (field.defaultNow) {
+      parts.push("defaultFn: () => new Date()");
+      if (field.refreshedOnWrite) parts.push("onUpdateFn: () => new Date()");
+    }
+    if (field.defaultValue !== undefined) {
+      parts.push(
+        field.defaultJsOnly
+          ? `defaultFn: () => ${defaultLiteral(field)}`
+          : `default: ${defaultLiteral(field)}`,
+      );
+    }
+    if (column !== field.name) parts.push(`column: ${JSON.stringify(column)}`);
+    columns.push(
+      `${field.name}: { ${parts.join(", ")} },${field.type === "ref" ? ` // → ${field.target}.id` : ""}`,
+    );
+    rowProps.push(`${field.name}: ${rowTypeOf(tsType, field.nullable)};`);
+
+    let zod =
+      tsType === "number" && field.type === "ref"
+        ? "z.number().int()"
+        : zodTypeOf(field);
+    if (field.nullable) zod += ".nullable().optional()";
+    if (field.defaultValue !== undefined) {
+      zod += `.default(${defaultLiteral(field)})`;
+    }
+    zodProps.push(`${field.name}: ${zod},`);
+  }
+
+  if (timestamps) {
+    columns.push(
+      `createdAt: { kind: "datetime", notNull: true, defaultFn: () => new Date(), column: "created_at" },`,
+      `updatedAt: { kind: "datetime", notNull: true, defaultFn: () => new Date(), onUpdateFn: () => new Date(), column: "updated_at" },`,
+    );
+    rowProps.push("createdAt: Date;", "updatedAt: Date;");
+  }
+  if (softDelete) {
+    columns.push(`deletedAt: { kind: "datetime", column: "deleted_at" },`);
+    rowProps.push("deletedAt: Date | null;");
+  }
+
+  // Index : mêmes deux sources et même fusion par NOM que la table native.
+  const declared: IEntityIndex[] = [
+    ...fields
+      .filter((field) => field.indexed)
+      .map((field) => ({ columns: [field.name], unique: false })),
+    ...(options.indexes ?? []),
+  ];
+  const seen = new Set<string>();
+  const indexLines: string[] = [];
+  for (const entry of declared) {
+    const name = `${table}_${entry.columns.map(sql).join("_")}_${entry.unique ? "key" : "idx"}`;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const on = entry.columns.map((c) => JSON.stringify(c)).join(", ");
+    indexLines.push(
+      `    { name: ${JSON.stringify(name)}, on: [${on}]${entry.unique ? ", unique: true" : ""} },`,
+    );
+  }
+
+  const block = (lines: string[]): string => lines.join("\n    ");
+  return {
+    columns: block(columns),
+    indexes: indexLines.length === 0 ? "" : `[\n${indexLines.join("\n")}\n  ]`,
+    entityImports: [...referenced]
+      .sort()
+      .map(
+        (target) =>
+          `import { ${entityTableSymbol(target)} } from "./${target}";`,
+      )
+      .join("\n"),
+    rowProps: rowProps.join("\n  "),
+    zodProps: zodProps.join("\n  "),
+    needsNodefony: id !== "serial" || options.identity === true,
+    idType,
+  };
+}
+
+/**
  * Forme d'un identifiant MongoDB (`ObjectId`) — 24 chiffres hexadécimaux.
  *
  * Source unique pour le schéma Zod d'une référence et pour l'échantillon qui
@@ -1641,4 +1889,75 @@ export function extractRowBlock(source: string, pascal: string): string | null {
   const end = body.indexOf("\n}");
   if (end === -1) return null;
   return body.slice(0, end);
+}
+
+/**
+ * Un fichier d'entité est-il écrit en description PORTABLE ?
+ *
+ * Lu sur la SOURCE, parce que deux lecteurs en dépendent sans pouvoir importer
+ * le fichier : la référence d'une entité neuve (une `ref` portable vise une
+ * description, jamais une table native) et la garde anti-écrasement.
+ *
+ * @param source - contenu du fichier d'entité.
+ * @returns `true` si l'entité est déclarée par `defineTable` ou par la
+ *   description portable de `User`.
+ */
+export function isPortableEntitySource(source: string): boolean {
+  return /\bdefineTable\(|\bportableUserTable\b/u.test(source);
+}
+
+/**
+ * Propriétés déclarées dans le bloc `columns` d'une description portable — le
+ * pendant de {@link extractRowBlock} quand la ligne se DÉRIVE de la spec.
+ *
+ * Lit les clés du premier niveau de l'objet, quelle que soit sa mise en forme
+ * (une colonne sur une ligne, ou dépliée par le formateur) : les accolades des
+ * colonnes et les chaînes sont sautées, seules comptent les clés.
+ *
+ * @param source - contenu du fichier d'entité.
+ * @returns les propriétés, ou `null` si le bloc est introuvable.
+ */
+export function extractSpecColumnNames(source: string): string[] | null {
+  const start = /\bcolumns:\s*\{/u.exec(source);
+  if (!start) return null;
+  const names: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let expectKey = true;
+  for (let i = start.index + start[0].length; i < source.length; i++) {
+    const c = source[i];
+    if (quote !== null) {
+      if (c === "\\") i++;
+      else if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      quote = c;
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "/") {
+      const eol = source.indexOf("\n", i);
+      i = eol === -1 ? source.length : eol;
+      continue;
+    }
+    if (c === "{" || c === "[" || c === "(") depth++;
+    else if (c === "}" || c === "]" || c === ")") {
+      if (depth === 0) return names;
+      depth--;
+    } else if (depth === 0 && c === ",") expectKey = true;
+    else if (
+      depth === 0 &&
+      expectKey &&
+      c !== undefined &&
+      /[A-Za-z_$]/u.test(c)
+    ) {
+      const key = /^[A-Za-z_$][\w$]*/u.exec(source.slice(i));
+      if (key) {
+        names.push(key[0]);
+        i += key[0].length - 1;
+        expectKey = false;
+      }
+    }
+  }
+  return null;
 }

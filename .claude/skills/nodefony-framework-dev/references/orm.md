@@ -34,7 +34,8 @@ Contrats (core) : `IOrm` · `IEntity<S,M>` (+`IEntityRelation`) · `IRepository<
 nodefony create entity Article title:string tags:json published:bool author:ref:User
 ```
 
-Elle pose la chaîne entière (table Drizzle native du dialecte, interface de ligne, schémas Zod
+Elle pose la chaîne entière (description PORTABLE de la table — `defineTable`, déclinée au
+démarrage pour le dialecte du connecteur ; native seulement avec `--dialect` —, ligne dérivée `RowOf`, schémas Zod
 d'entrée, service CRUD, controller REST **et** WebSocket, tests) et câble l'`index.ts`
 (`@entities([...])` créé s'il n'existe pas, `@controllers([...])` complété). Champs :
 `nom:type[?][:index|:unique]` · `ref:<Entité>` · **non-null par défaut** — `!` est REFUSÉ
@@ -222,11 +223,12 @@ sur les **134 renommages** qu'exige le schéma d'Umami, **115 sont le passage m�
 - **PK composite** (`term_relationships (object_id, term_taxonomy_id)`) : non exprimable → le scaffold pose
   un `id` en plus. Si la PK composite est structurante, écris la table à la main
   (`primaryKey({ columns: [...] })` de Drizzle).
-- **Index préfixés** (`meta_key(191)`, spécifique MySQL) : à ajouter à la main dans la table générée
-  (c'est du Drizzle natif, rien ne bloque). Les index **composites** et les **UNIQUE composites**, eux,
+- **Index préfixés** (`meta_key(191)`, spécifique MySQL) : le kit portable ne les exprime pas — générer
+  l'entité avec `--dialect mysql` (table Drizzle native) et l'ajouter à la main. Les index **composites** et les **UNIQUE composites**, eux,
   se déclarent : `--index "termId,taxonomy"` et `--unique "a,b"`, répétables — un par index.
 - **Nom de colonne arbitraire** (celui que ni la casse ni la clé primaire n'expliquent — 1 sur 134 chez
-  Umami) : il s'édite dans la table générée. C'est du Drizzle natif, le reste du code n'en dépend pas.
+  Umami) : `column: "<nom>"` sur la colonne de la description générée — la propriété ne change pas, le
+  reste du code n'en dépend pas.
 - **Validation Zod plus stricte que le legacy** : un `string` non-null exige `min(1)` — or ces bases mettent
   des chaînes vides partout (défaut `''`). Soit tu marques le champ `?` (nullable), soit tu assouplis le
   schéma généré. **Le 422 qui te le dit est un service, pas une panne.**

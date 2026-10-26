@@ -30,6 +30,7 @@ import {
   type IInfraVariable,
   readInfraVariable,
 } from "../../config/infra";
+import { isPortableEntitySource } from "../../cli/scaffold/entityFields";
 import { collectSources } from "./walk";
 import {
   balancedBlock,
@@ -460,6 +461,12 @@ export function entityDialectMismatches(options: {
       try {
         clean = withoutComments(readFileSync(file, "utf8"));
       } catch {
+        continue;
+      }
+      // Une description PORTABLE n'est écrite pour aucun moteur : elle les sert
+      // tous, donc elle est relevée et ne diverge jamais.
+      if (isPortableEntitySource(clean)) {
+        entitiesScanned++;
         continue;
       }
       // Deux façons d'écrire pour quel moteur on écrit, et les deux comptent :

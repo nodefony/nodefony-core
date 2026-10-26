@@ -54,6 +54,80 @@ export const <%= it.pascal %>Entity = defineEntity({
 <% }) %>  ],
 <% } %>});
 
+<% } else if (it.portable) { %>import { defineEntity } from "@nodefony/orm-core";
+import { defineTable } from "@nodefony/drizzle";
+import type { RowOf } from "@nodefony/drizzle";
+<% if (it.needsNodefony) { %>import { Nodefony } from "nodefony";
+<% } %><% if (it.entityImports) { %><%= it.entityImports %>
+<% } %>
+/**
+ * Table `<%= it.table %>` — décrite UNE fois, en types logiques, pour toutes les bases.
+ *
+ * Aucun moteur n'est figé ici : au démarrage, la table est déclinée pour le
+ * dialecte du connecteur qui la charge (SQLite, PostgreSQL, MySQL/MariaDB), et
+ * `nodefony orm:generate` écrit la migration de cette base-là. Changer de base
+ * ne touche pas ce fichier — seulement la configuration du connecteur.
+ *
+ * Chaque colonne dit ce que la donnée EST (`kind`) ; le kit choisit la colonne
+ * de chaque moteur et rend la même valeur partout. Les genres, leurs options et
+ * leur traduction par moteur : documentation de `@nodefony/drizzle`, section
+ * « Des entités qui suivent la base ». Une colonne garde le nom de sa propriété,
+ * sauf `column` (son nom en base). `default` pose une valeur par défaut en base
+ * ET côté JS ; `defaultFn` la calcule côté JS seulement.
+ *
+ * ⚠️ En développement, la table est créée au boot par un `CREATE TABLE IF NOT EXISTS`
+ * dérivé de cette description : la **modifier** n'altère PAS une table déjà
+ * créée (aucun `ALTER`) — supprimer la base de développement, ou passer par une
+ * migration (`nodefony orm:generate --apply`).
+<% if (it.relations.length) { %> *
+ * Une référence (`kind: "ref"`) prend le type de la clé de sa cible et pose la
+ * contrainte d'intégrité dans le `CREATE TABLE` — une base de développement
+ * déjà créée ne la recevra pas, seule une migration l'ajoute. La politique
+ * d'effacement suit la colonne : obligatoire → `restrict`, facultative →
+ * `set null`. Un effacement en cascade s'écrit ici, à la main.
+<% } %> */
+export const <%= it.tableSymbol %> = defineTable({
+  name: "<%= it.table %>",
+  columns: {
+    <%= it.columns %>
+  },
+<% if (it.indexes) { %>  indexes: <%= it.indexes %>,
+<% } %>});
+
+/** Une ligne de `<%= it.table %>`, telle que la rend le repository — dérivée de la description. */
+export type <%= it.pascal %>Row = RowOf<typeof <%= it.tableSymbol %>.spec>;
+
+/**
+ * Descripteur de l'entité — déclaré au module via `@entities([<%= it.pascal %>Entity])`.
+<% if (it.connector === "default") { %> *
+ * Le `connector` n'est **pas** figé ici : c'est une donnée de configuration,
+ * résolue au démarrage par le décorateur (défaut : `default`).
+<% } else { %> *
+ * `connector` est fixé sur **`<%= it.connector %>`** : cette entité vit sur sa
+ * propre base, distincte de celle de l'application. Sans cette ligne, le décorateur la
+ * poserait sur `default` — et sa table serait créée dans la mauvaise base pendant que
+ * le service la chercherait dans la bonne.
+<% } %><% if (it.relations.length) { %> *
+ * `relations` n'est pas de la documentation : le graphe d'entités de Studio (ERD)
+ * s'en sert pour dessiner les liens, et le repository pour charger une association
+ * en une requête (`findById(id, { relations: ["<%= it.relations[0].field %>"] })`,
+ * exposé par le controller en `?include=<%= it.relations[0].field %>`).
+<% } %> */
+export const <%= it.pascal %>Entity = defineEntity({
+  name: "<%= it.pascal %>",
+  module: "<%= it.moduleName %>",
+<% if (it.connector !== "default") { %>  connector: "<%= it.connector %>",
+<% } %>  schema: <%= it.tableSymbol %>,
+<% if (it.relations.length) { %>  relations: [
+<% it.relations.forEach(function (rel) { %>    {
+      type: "<%= rel.type %>",
+      target: "<%= rel.target %>",
+      field: "<%= rel.field %>",
+      foreignKey: "<%= rel.foreignKey %>",
+    },
+<% }) %>  ],
+<% } %>});
+
 <% } else { %>import { defineEntity } from "@nodefony/orm-core";
 <% if (it.needsNodefony) { %>import { Nodefony } from "nodefony";
 <% } %><%= it.drizzleImport %>

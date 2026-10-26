@@ -302,7 +302,7 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
    *   `as const satisfies SqlDialect`, et la garde redevenait morte sur toute
    *   application fraîche.
    */
-  it("🔴 l'entité User que le GABARIT écrit est reconnue, pour chaque moteur", () => {
+  it("🔴 l'entité User que le GABARIT écrit est PORTABLE : relevée, jamais divergente", () => {
     const gabarit = readFileSync(
       path.resolve(
         import.meta.dirname,
@@ -310,25 +310,40 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
       ),
       "utf8",
     );
-    assert.include(
-      gabarit,
-      "<%= it.dialect %>",
-      "le gabarit a changé de forme",
-    );
-    for (const moteur of ["postgres", "mysql"]) {
-      poser(
-        "nodefony/entity/User.ts",
-        gabarit.replaceAll("<%= it.dialect %>", moteur),
-      );
-      const r = controler();
+    // Le gabarit ne fige plus de moteur : la description est déclinée au
+    // démarrage pour le dialecte du connecteur.
+    assert.notInclude(gabarit, "it.dialect", "le gabarit a changé de forme");
+    assert.include(gabarit, "portableUserTable");
+    poser("nodefony/entity/User.ts", gabarit);
+    for (const url of [
+      "postgres://app@base/app",
+      "mysql://app@base/app",
+      undefined,
+    ]) {
+      const moteur = url ?? "sqlite";
+      const r = controler({ NF_DATABASE_URL: url });
       assert.equal(
         r.entitiesScanned,
         1,
         `${moteur} : l'entité doit être COMPTÉE`,
       );
-      assert.lengthOf(r.findings, 1, moteur);
-      assert.include(r.findings[0]?.message ?? "", moteur);
+      assert.lengthOf(
+        r.findings,
+        0,
+        `${moteur} : une description portable ne diverge pas`,
+      );
     }
+  });
+
+  it("une entité générée PORTABLE est relevée et ne diverge sur aucun moteur", () => {
+    poser(
+      "nodefony/entity/Post.ts",
+      `import { defineTable } from "@nodefony/drizzle";
+       export const postTable = defineTable({ name: "posts", columns: {} });`,
+    );
+    const r = controler();
+    assert.equal(r.entitiesScanned, 1);
+    assert.lengthOf(r.findings, 0);
   });
 
   it("le même dialecte en valeur, accordé à la base, reste muet", () => {

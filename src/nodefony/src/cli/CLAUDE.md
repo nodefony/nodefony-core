@@ -815,8 +815,15 @@ l'ACTION (`HelloCommand`), pas le module — un module peut avoir N commandes.
 [--no-timestamps] [--no-controller] [--no-service] [--no-tests] [--route </api/x>]
 [--module <nom>] [--connector <nom>] [--dialect <sqlite|postgres|mysql>]
 [--table <nom_sql>] [--column-case <camel|snake>] [--id-name <colonne>]` — scaffold
-**IN-PROJECT** de la chaîne complète : table Drizzle **native** du dialecte
-(`nodefony/entity/<Nom>.ts` + interface `<Nom>Row` + descripteur `defineEntity`),
+**IN-PROJECT** de la chaîne complète : description **PORTABLE** de la table
+(`nodefony/entity/<Nom>.ts` : `defineTable` de `@nodefony/drizzle`, `<Nom>Row = RowOf<…>`,
+descripteur `defineEntity` — `buildPortableEntityCodegen`), déclinée au démarrage pour le
+dialecte du connecteur. Table Drizzle **native** (`buildEntityCodegen`) seulement avec
+`--dialect` EXPLICITE, ou quand une `ref:` vise une entité encore native (note qui dit comment
+porter). `date` tapé = `kind: "datetime"` ; `=valeur` = `default` (DEFAULT SQL + JS), sauf colonne
+du contrat `User` (`defaultJsOnly` → `defaultFn`) ; `User` régénéré = clé `text`, chaînes du
+contrat en `text` (`fromContract`) ; garde anti-écrasement lit le bloc `columns`
+(`extractSpecColumnNames`) ; `doctor` relève une entité portable sans jamais la dire divergente,
 schémas Zod d'entrée (`<Nom>.schema.ts` : `create…Schema` + `update… = create.partial()`),
 service CRUD (`extends AbstractCrudService`, validation dans `beforeCreate`/`beforeUpdate` →
 **tous les transports** en profitent ; repository résolu au **premier usage** car l'ORM ne

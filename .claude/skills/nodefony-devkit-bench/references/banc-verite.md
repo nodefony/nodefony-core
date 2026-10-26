@@ -16,10 +16,12 @@ node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --databas
 ### Les moteurs — une application PAR moteur, jamais une variable
 
 `--database <sqlite|postgres|mysql|mariadb|mongodb>` change le moteur de l'application
-témoin, et il faut bien qu'il la RECRÉE : le dialecte est une décision prise à
-la création, les entités sont écrites pour lui (`createXTable("postgres")`), et
-l'ORM refuse de démarrer sur un autre en nommant l'entité fautive. Pointer une
-application SQLite vers un serveur PostgreSQL n'éprouve donc rien — c'est
+témoin, et il faut bien qu'il la RECRÉE : le moteur est une décision prise à la
+création — son compose, son `.env`, ses migrations versionnées. Les entités
+générées, elles, sont PORTABLES (l'étape « les entités générées sont PORTABLES »
+le prouve sans serveur) ; seules celles écrites avec `--dialect` (`PgAuthor`,
+`PgInvoice`) restent liées à leur moteur. Pointer une application SQLite vers un
+serveur PostgreSQL n'éprouve donc rien — c'est
 pourquoi `NF_E2E_DATABASE_URL` ne suffit pas, et pourquoi la forge lance trois
 passes plutôt qu'une matrice de variables.
 

@@ -297,7 +297,7 @@ main ; opt-out `frameworkEntities: false`.
   `string(n)` `char(n)` `text` `int` `int64` `serial` `float` `decimal(p,s)` `bool` `json` (`jsonType<T>()`)
   `date` (jour) `datetime` (instant) `uuid` `enum` `ref` (type de la clé VISÉE, `"self"`, `onDelete`)
   `vector` (PG seul, `never` + refus ailleurs). Clé primaire = `string|char|text|uuid|serial` seulement
-  (`primaryKey?: never` sur les colonnes de valeur). **RÈGLE : toute entité à porter passe par le
+  (`primaryKey?: never` sur les colonnes de valeur). Modificateurs : `notNull` `unique` `defaultFn` `onUpdateFn` · `default` (LITTÉRAL : `DEFAULT` SQL dans la migration + même valeur côté JS, exclusif de `defaultFn`) · `column` (nom en base ≠ propriété ; `columnName()` = seule règle, CHECK et FK compris). `entity.schema` = table native OU description `defineTable` — résolue par `dialectTableOf` (`orm-core/entityTable.ts`), découverte par `orm:generate` (`portable: true`) ; `portableUserTable` = `User` portable, référençable. **RÈGLE : toute entité à porter passe par le
   colKit** ; ajouter un dialecte = un fichier d'adaptateur, PAS les entités. Correspondance par moteur
   et garanties : `docs/index.md` § « Des entités qui suivent la base ». DDL des entités framework
   FIGÉ par leurs migrations publiées : `enum` = `text` PG / `varchar(64)` MySQL, `text`

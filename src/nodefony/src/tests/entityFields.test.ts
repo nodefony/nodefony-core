@@ -8,6 +8,10 @@
 
 import assert from "node:assert";
 import {
+  buildPortableEntityCodegen,
+  extractSpecColumnNames,
+  isPortableEntitySource,
+  PORTABLE_ENUM_MAX_LENGTH,
   parseEntityFields,
   parseEntityIndexes,
   buildEntityCodegen,
@@ -1146,5 +1150,169 @@ describe("toCodeLiteral — littéral de code sûr", () => {
   it("rend la MÊME valeur une fois relue", () => {
     assert.deepStrictEqual(JSON.parse(toCodeLiteral(risque)), risque);
     assert.strictEqual(JSON.parse(toCodeLiteral("simple")), "simple");
+  });
+});
+
+describe("scaffold — description PORTABLE (kit de colonnes)", () => {
+  type TOptions = Parameters<typeof buildPortableEntityCodegen>[1];
+  const base: TOptions = {
+    dialect: "sqlite",
+    id: "uuid7",
+    timestamps: true,
+    softDelete: false,
+    table: "posts",
+    entity: "Post",
+  };
+  const code = (fields: string, more: Partial<TOptions> = {}) =>
+    buildPortableEntityCodegen(parseEntityFields(fields), { ...base, ...more });
+
+  it("chaque type tapé devient un GENRE du kit, sans aucun moteur", () => {
+    const { columns } = code(
+      "title:string(120) code:char(2) body:text? views:int=0 ratio:float live:bool " +
+        "meta:json? at:date price:decimal(12,2) ref:uuid status:enum(draft,live)=draft",
+    );
+    for (const line of [
+      'title: { kind: "string", length: 120, notNull: true },',
+      'code: { kind: "char", length: 2, notNull: true },',
+      'body: { kind: "text" },',
+      'views: { kind: "int", notNull: true, default: 0 },',
+      'ratio: { kind: "float", notNull: true },',
+      'live: { kind: "bool", notNull: true },',
+      'meta: { kind: "json" },',
+      // `date` du générateur = un INSTANT ; `date` du kit = un jour calendaire.
+      'at: { kind: "datetime", notNull: true },',
+      'price: { kind: "decimal", precision: 12, scale: 2, notNull: true },',
+      'ref: { kind: "uuid", notNull: true },',
+      'status: { kind: "enum", values: ["draft", "live"], notNull: true, default: "draft" },',
+    ]) {
+      assert.ok(columns.includes(line), `manque : ${line}\n${columns}`);
+    }
+    assert.ok(!/drizzle|sqliteTable|pgTable|mysqlTable/u.test(columns));
+  });
+
+  it("clé : uuid7 générée côté JS, serial auto-incrémentée, nom SQL par `column`", () => {
+    assert.ok(
+      code("a:int").columns.includes(
+        'id: { kind: "uuid", primaryKey: true, defaultFn: () => Nodefony.generateSortableId() },',
+      ),
+    );
+    const serial = code("a:int", { id: "serial", idName: "website_id" });
+    assert.ok(
+      serial.columns.includes(
+        'id: { kind: "serial", primaryKey: true, column: "website_id" },',
+      ),
+    );
+    assert.strictEqual(serial.idType, "number");
+    assert.strictEqual(serial.needsNodefony, false);
+  });
+
+  it("identité (User) : clé `text` du contrat, chaînes du contrat en `text`", () => {
+    const fields = parseEntityFields("nickname:string?");
+    const contract = {
+      ...fields[0]!,
+      name: "identifier",
+      nullable: false,
+      unique: true,
+      fromContract: true,
+    };
+    const out = buildPortableEntityCodegen([contract, ...fields], {
+      ...base,
+      entity: "User",
+      table: "User",
+      timestamps: false,
+      identity: true,
+    });
+    assert.ok(
+      out.columns.includes(
+        'id: { kind: "text", primaryKey: true, defaultFn: () => Nodefony.generateId() },',
+      ),
+    );
+    assert.ok(
+      out.columns.includes(
+        'identifier: { kind: "text", notNull: true, unique: true },',
+      ),
+    );
+    // Un champ DEMANDÉ reste une chaîne bornée.
+    assert.ok(out.columns.includes('nickname: { kind: "string" },'));
+  });
+
+  it('référence : vise la DESCRIPTION de la cible, vers soi par "self"', () => {
+    const out = code("author:ref:User parent:ref:Post?");
+    assert.ok(
+      out.columns.includes(
+        'author: { kind: "ref", target: () => userTable, notNull: true, onDelete: "restrict" }, // → User.id',
+      ),
+    );
+    assert.ok(
+      out.columns.includes(
+        'parent: { kind: "ref", target: "self", onDelete: "set null" }, // → Post.id',
+      ),
+    );
+    assert.strictEqual(
+      out.entityImports,
+      'import { userTable } from "./User";',
+    );
+  });
+
+  it("horodatages et suppression douce : `created_at`… par nom stocké", () => {
+    const out = code("a:int", { softDelete: true });
+    assert.ok(out.columns.includes('column: "created_at" },'));
+    assert.ok(
+      out.columns.includes(
+        'onUpdateFn: () => new Date(), column: "updated_at" },',
+      ),
+    );
+    assert.ok(
+      out.columns.includes(
+        'deletedAt: { kind: "datetime", column: "deleted_at" },',
+      ),
+    );
+  });
+
+  it("index : nommés par la table et les colonnes SQL, fusionnés", () => {
+    const out = code("siteId:uuid:index", {
+      columnCase: "snake",
+      indexes: [{ columns: ["siteId"], unique: false }],
+    });
+    assert.strictEqual(
+      out.indexes,
+      '[\n    { name: "posts_site_id_idx", on: ["siteId"] },\n  ]',
+    );
+    assert.ok(
+      out.columns.includes(
+        'siteId: { kind: "uuid", notNull: true, column: "site_id" },',
+      ),
+    );
+  });
+
+  it(`refuse une valeur d'énumération de plus de ${PORTABLE_ENUM_MAX_LENGTH} caractères`, () => {
+    const long = "x".repeat(PORTABLE_ENUM_MAX_LENGTH + 1);
+    assert.throws(() => code(`s:enum(a,${long})`), /dépasse 64 caractères/u);
+  });
+
+  it("garde anti-écrasement : lit les propriétés d'une description, même dépliée", () => {
+    const source = [
+      "export const postTable = defineTable({",
+      '  name: "posts",',
+      "  columns: {",
+      '    id: { kind: "uuid", primaryKey: true, defaultFn: () => Nodefony.generateId() },',
+      "    title: {",
+      '      kind: "string", // un commentaire { qui trompe }',
+      "      notNull: true,",
+      "    },",
+      '    status: { kind: "enum", values: ["a, b", "c"] },',
+      "  },",
+      "});",
+    ].join("\n");
+    assert.ok(isPortableEntitySource(source));
+    assert.ok(
+      !isPortableEntitySource('export const t = sqliteTable("t", {});'),
+    );
+    assert.deepStrictEqual(extractSpecColumnNames(source), [
+      "id",
+      "title",
+      "status",
+    ]);
+    assert.strictEqual(extractSpecColumnNames("columns: COLUMNS"), null);
   });
 });

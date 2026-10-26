@@ -160,6 +160,7 @@ export function userContractFields(
       nullable: column.nullable,
       unique: column.unique === true,
       indexed: false,
+      fromContract: true,
     };
     if (column.origin === "audit") {
       field.defaultNow = true;

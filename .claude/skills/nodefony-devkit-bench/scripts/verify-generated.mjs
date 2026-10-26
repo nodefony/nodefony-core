@@ -163,11 +163,11 @@ function option(nom, defaut) {
  * Le MOTEUR de base de données de l'application témoin.
  *
  * Il ne se surcharge PAS par une variable d'environnement, et c'est le coeur du
- * sujet : le dialecte n'est pas un reglage d'execution, c'est une decision prise
- * a la CREATION de l'application. Les entites sont ecrites pour lui
- * (`createXTable("postgres")`), et l'ORM refuse de demarrer sur un autre en
- * nommant l'entite fautive. Pointer une application SQLite vers un serveur
- * PostgreSQL ne l'eprouve donc pas : il faut une AUTRE application.
+ * sujet : le moteur n'est pas un réglage d'exécution, c'est une décision prise
+ * à la CRÉATION de l'application — son compose, son `.env`, ses migrations
+ * versionnées. Les entités générées sont portables ; celles écrites avec
+ * `--dialect` restent liées à leur moteur. Pointer une application SQLite vers
+ * un serveur PostgreSQL ne l'éprouve donc pas : il faut une AUTRE application.
  *
  * C'est aussi pourquoi le decor porte le moteur dans son chemin : deux passes
  * de moteurs differents ne doivent jamais se marcher dessus, ni l'une conserver
@@ -438,6 +438,54 @@ describe("une référence porte le type de la clé qu'elle vise", () => {
     expect(columnType(pgInvoiceTable, "reference")).toBe("varchar(40)");
     expect(columnType(pgInvoiceTable, "amount")).toBe("numeric(12, 2)");
   });
+});
+`;
+
+/**
+ * Sonde de PORTABILITÉ, écrite dans l'application témoin par le banc.
+ *
+ * Une entité générée sans `--dialect` est une DESCRIPTION : aucun moteur n'y est
+ * figé, et chaque connecteur en décline sa table au démarrage. Ce que la sonde
+ * exige, sans aucune base : pas un import de `drizzle-orm/<moteur>-core` dans le
+ * fichier, et les TROIS tables déclinées, sous les mêmes colonnes. Une table
+ * native (le gabarit revenu en arrière) n'a pas de `.table()` : la sonde tombe.
+ * `User` en est : c'est l'entité que `create app` pose, et la cible de la
+ * première relation qu'une application écrit.
+ */
+const PORTABLE_ENTITIES = [
+  "User",
+  "Author",
+  "Post",
+  "Invoice",
+  "Note",
+  "Category",
+];
+const PORTABILITY_PROBE = `import { readFileSync } from "node:fs";
+import { describe, it, expect } from "vitest";
+import { getTableConfig as mysqlConfig } from "drizzle-orm/mysql-core";
+import { getTableConfig as pgConfig } from "drizzle-orm/pg-core";
+import { getTableConfig as sqliteConfig } from "drizzle-orm/sqlite-core";
+${PORTABLE_ENTITIES.map((n) => `import { ${n.charAt(0).toLowerCase()}${n.slice(1)}Table } from "../nodefony/entity/${n}";`).join("\n")}
+
+const ENTITIES = {
+${PORTABLE_ENTITIES.map((n) => `  ${n}: ${n.charAt(0).toLowerCase()}${n.slice(1)}Table,`).join("\n")}
+};
+
+/** Noms des colonnes en base, triés — ce qui doit être le MÊME sur chaque moteur. */
+const names = (config: { columns: { name: string }[] }): string[] =>
+  config.columns.map((c) => c.name).sort();
+
+describe("les entités générées sont PORTABLES", () => {
+  for (const [name, entity] of Object.entries(ENTITIES)) {
+    it(\`\${name} : aucun moteur figé, trois tables sous les mêmes colonnes\`, () => {
+      const source = readFileSync(\`nodefony/entity/\${name}.ts\`, "utf8");
+      expect(source).not.toMatch(/drizzle-orm\\/(sqlite|pg|mysql)-core/u);
+      const sqlite = names(sqliteConfig(entity.table("sqlite")));
+      expect(sqlite.length).toBeGreaterThan(1);
+      expect(names(pgConfig(entity.table("postgres")))).toEqual(sqlite);
+      expect(names(mysqlConfig(entity.table("mysql")))).toEqual(sqlite);
+    });
+  }
 });
 `;
 
@@ -798,6 +846,36 @@ step(
     }
   },
 );
+
+if (DATABASE === "postgres" || DATABASE === "mysql" || DATABASE === "mariadb") {
+  step(
+    "la base de DÉVELOPPEMENT part VIDE (moteur serveur)",
+    "Une base serveur survit au décor : son historique d'un run passé fausse l'adoption et les migrations.",
+    // Le dossier de l'application est neuf à chaque run ; la base `app` du
+    // serveur, elle, PERSISTE. Constaté : un historique `nodefony_migrations`
+    // vieux d'un mois y faisait refuser `orm:migrate:baseline` (« modifiée après
+    // coup ») — un verdict sur le décor, lu comme un défaut du générateur. À la
+    // forge les conteneurs sont neufs et l'étape ne change rien ; en local, elle
+    // est ce qui rend le run rejouable. Les gestes sont ceux du PRODUIT : vider,
+    // puis rejouer ce que `create app` fait sur une base neuve — écrire la
+    // migration initiale (qu'une base sale lui a fait REFUSER : constaté en
+    // MySQL, aucun `0000_init`) et l'appliquer. L'état de la forge.
+    () => {
+      run(process.execPath, [BIN, "orm:reset", "--yes", "--drop-accounts"]);
+      const dir = path.join(
+        APP,
+        "migrations",
+        DATABASE === "mariadb" ? "mysql" : DATABASE,
+      );
+      const versioned =
+        existsSync(dir) && readdirSync(dir).some((f) => f.endsWith(".sql"));
+      if (!versioned) {
+        run(process.execPath, [BIN, "orm:generate", "--name", "init"]);
+      }
+      run(process.execPath, [BIN, "orm:migrate"]);
+    },
+  );
+}
 
 step(
   "un SERVICE, puis la COMMANDE qui l'appelle — exemple REMPLACÉ",
@@ -1415,6 +1493,23 @@ sqlOnly(
       "utf8",
     );
     run("npx", ["vitest", "run", "tests/fk-type.probe.test.ts"]);
+  },
+);
+
+sqlOnly(
+  "les entités générées sont PORTABLES — chaque moteur en décline sa table",
+  "Une entité figée sur un moteur lie l'application à sa première base, sans un mot.",
+  // Ce que rien d'autre ne voit : une table native compile, se migre et répond
+  // en HTTP sur le moteur de CETTE passe — et refuse de démarrer le jour où
+  // l'application change de base. Seule la déclinaison sur les TROIS moteurs,
+  // sans aucun serveur, dit que l'entité n'en a figé aucun.
+  () => {
+    writeFileSync(
+      path.join(APP, "tests", "portability.probe.test.ts"),
+      PORTABILITY_PROBE,
+      "utf8",
+    );
+    run("npx", ["vitest", "run", "tests/portability.probe.test.ts"]);
   },
 );
 

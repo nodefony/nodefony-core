@@ -79,6 +79,9 @@ import {
   parseEntityIndexes,
   buildEntityCodegen,
   buildMongooseEntityCodegen,
+  buildPortableEntityCodegen,
+  extractSpecColumnNames,
+  isPortableEntitySource,
   entityTableSymbol,
   parseRowFieldNames,
   extractRowBlock,
@@ -5411,19 +5414,49 @@ function runEntityScaffold(
       true,
     ),
   ];
+  // PORTABLE par défaut : une description qu'aucun moteur ne fige, déclinée au
+  // démarrage pour le dialecte du connecteur. Deux cas gardent la table NATIVE :
+  //  - `--dialect` demandé EXPLICITEMENT — c'est le geste qui fige un moteur
+  //    (préparer un passage, écrire du Drizzle propre à une base) ;
+  //  - une relation vers une entité encore NATIVE : une référence portable vise
+  //    une description, et une table native n'en est pas une. L'entité suit
+  //    alors ses cibles, et la note dit comment les porter.
+  const nativeTargets = mongo
+    ? []
+    : [
+        ...new Set(
+          fields.flatMap((f) =>
+            f.type === "ref" && f.target && f.target !== pascal
+              ? [f.target]
+              : [],
+          ),
+        ),
+      ].filter((t) => {
+        const file = path.join(target.dir, "nodefony", "entity", `${t}.ts`);
+        return (
+          writer.exists(file) && !isPortableEntitySource(writer.read(file))
+        );
+      });
+  const portable = !mongo && !answers.dialect && nativeTargets.length === 0;
+  const sqlOptions = {
+    dialect,
+    id,
+    timestamps,
+    softDelete,
+    table,
+    indexes,
+    columnCase,
+    idName,
+    entity: pascal,
+  };
   const codegen = mongo
     ? buildMongooseEntityCodegen(fields, { timestamps, softDelete })
-    : buildEntityCodegen(fields, {
-        dialect,
-        id,
-        timestamps,
-        softDelete,
-        table,
-        indexes,
-        columnCase,
-        idName,
-        entity: pascal,
-      });
+    : portable
+      ? buildPortableEntityCodegen(fields, {
+          ...sqlOptions,
+          identity: isUserEntity,
+        })
+      : buildEntityCodegen(fields, sqlOptions);
 
   // 🔴 `create entity` RÉ-DÉCRIT l'entité en entier — il ne CUMULE pas avec ce
   // qui existe déjà. Sur une entité présente, un second appel qui ne rappelle
@@ -5460,7 +5493,7 @@ function runEntityScaffold(
   const replacesFrameworkFactory =
     isUserEntity &&
     entityExisted &&
-    writer.read(entityFile).includes("createUserTable(");
+    /createUserTable\(|\bportableUserTable\b/u.test(writer.read(entityFile));
   if (!request.force && entityExisted && !replacesFrameworkFactory) {
     const shown = path.relative(projectRoot, entityFile);
     const rendered = parseRowFieldNames(codegen.rowProps);
@@ -5474,8 +5507,16 @@ function runEntityScaffold(
           `Corrige parseRowFieldNames avant de continuer.`,
       );
     }
-    const block = extractRowBlock(writer.read(entityFile), pascal);
-    const existing = block === null ? null : parseRowFieldNames(block);
+    const existingSource = writer.read(entityFile);
+    const block = extractRowBlock(existingSource, pascal);
+    // Une entité PORTABLE dérive sa ligne de la description : ses champs se
+    // lisent alors dans le bloc `columns`, pas dans une interface.
+    const existing =
+      block !== null
+        ? parseRowFieldNames(block)
+        : isPortableEntitySource(existingSource)
+          ? extractSpecColumnNames(existingSource)
+          : null;
     if (existing === null) {
       throw new Error(
         `create entity ${pascal} : ${shown} existe déjà, et sa forme n'est plus celle ` +
@@ -5496,7 +5537,7 @@ function runEntityScaffold(
               `  → ajoute le champ à la main dans ${shown} (c'est un schéma Mongoose ordinaire)\n`
             : `, et la prochaine migration y verrait une suppression ` +
               `de colonnes, donc une perte de données.\n` +
-              `  → ajoute le champ à la main dans ${shown} (c'est du Drizzle ordinaire), ` +
+              `  → ajoute le champ à la main dans ${shown} (le fichier est fait pour être édité), ` +
               `puis « nodefony orm:generate »\n`) +
           `  → ou relance en redonnant TOUS les champs de l'entité, celui-ci compris\n` +
           `  → ou assume le remplacement avec « --force »`,
@@ -5879,6 +5920,7 @@ function runEntityScaffold(
     hasSecurity:
       targetDeps.has("@nodefony/security") ||
       projectDeps.has("@nodefony/security"),
+    portable,
     ...codegen,
   };
 
@@ -6031,6 +6073,20 @@ function runEntityScaffold(
         ]
       : [
           ...ormRuntimeNote,
+          ...(portable
+            ? [
+                `entité ${pascal} décrite pour toutes les bases (kit portable) — la table du dialecte du connecteur est déclinée au démarrage`,
+              ]
+            : nativeTargets.length > 0
+              ? [
+                  `⚠ entité ${pascal} écrite NATIVE ${dialect} : elle vise ${nativeTargets.join(", ")}, encore écrite pour un seul moteur — une référence portable vise une description, pas une table`,
+                  `→ pour la rendre portable : régénérer ${nativeTargets.join(", ")} (« nodefony create entity <Nom> … --force »)` +
+                    (nativeTargets.includes(IDENTITY_ENTITY)
+                      ? ` ; pour ${IDENTITY_ENTITY}, remplacer « createUserTable(DIALECT) » par « portableUserTable » dans son fichier`
+                      : "") +
+                    `, puis régénérer ${pascal}`,
+                ]
+              : []),
           // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
           // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
           // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
