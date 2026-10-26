@@ -306,6 +306,11 @@ jobs:
         working-directory: src/packages/@nodefony/drizzle
         env:
           NF_MYSQL_URL: mysql://nodefony:nodefony-dev@127.0.0.1:3307/nodefony
+          # Passe FILTRÉE : ces deux fichiers ne visent que MySQL, et le job
+          # pose `NF_PG_URL` — sans le dire ici, le `gateReporter` du paquet
+          # réclame un cas « (postgres) » et rougit la passe. PostgreSQL est
+          # exercé à l'étape précédente, sur la suite entière.
+          NF_GATES_ALLOW: NF_PG_URL
         run: >-
           npx vitest run
           tests/integration/erp-lite-mysql.e2e.test.ts
