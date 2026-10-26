@@ -2,7 +2,12 @@ import { getTableColumns } from "drizzle-orm";
 import type { Table } from "drizzle-orm";
 import type { IPortableTableBase } from "./colKit";
 import { canonicalIntegerKey } from "./colKit.codecs";
-import { refTargetKey, refTargetSpec } from "./colKit.spec";
+import {
+  columnName,
+  primaryKeyName,
+  refTargetKey,
+  refTargetSpec,
+} from "./colKit.spec";
 import type {
   IEnumColumn,
   IRefColumn,
@@ -33,13 +38,76 @@ export function enumPredicate(
   return `${quote}${name}${quote} IN (${list})`;
 }
 
+/**
+ * Plus long identifiant que PostgreSQL garde INTACT (63 octets — au-delà il le
+ * tronque en silence) ; MySQL et MariaDB refusent au-delà de 64.
+ */
+export const MAX_IDENTIFIER_LENGTH = 63;
+
+/** Empreinte FNV-1a 32 bits, en 8 caractères hexadécimaux — pure, sans dépendance. */
+function fnv1a(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+/**
+ * Borne un identifiant GÉNÉRÉ par le kit (contrainte, clé étrangère) à 63
+ * caractères, de façon déterministe.
+ *
+ * Inchangé jusqu'à 63 : un nom déjà gravé dans une migration ne bouge pas.
+ * Au-delà, tronqué puis suffixé d'une empreinte du nom ENTIER — deux noms qui
+ * partagent leurs 54 premiers caractères restent distincts, et le même nom rend
+ * le même identifiant sur les trois dialectes.
+ *
+ * @param name - identifiant que le kit aurait écrit.
+ * @returns l'identifiant, 63 caractères au plus.
+ */
+export function boundedIdentifier(name: string): string {
+  if (name.length <= MAX_IDENTIFIER_LENGTH) return name;
+  return `${name.slice(0, MAX_IDENTIFIER_LENGTH - 9)}_${fnv1a(name)}`;
+}
+
 /** Nom d'une contrainte `CHECK` du kit — gravé dans les migrations, ne pas changer. */
 export function checkName(
   table: string,
   column: string,
   suffix: "check" | "len",
 ): string {
-  return `${table}_${column}_${suffix}`;
+  return boundedIdentifier(`${table}_${column}_${suffix}`);
+}
+
+/**
+ * Nom que Drizzle donnerait à la clé étrangère d'une colonne de référence
+ * (`<table>_<colonne>_<cible>_<clé>_fk`), avant toute borne.
+ */
+export function defaultForeignKeyName(
+  owner: ITableSpec,
+  key: string,
+  ref: IRefColumn,
+): string {
+  const target = refTargetSpec(ref, owner);
+  const pk = primaryKeyName(target);
+  const pkColumn = target.columns[pk];
+  const pkStored = pkColumn ? columnName(pk, pkColumn) : pk;
+  return `${owner.name}_${columnName(key, ref)}_${target.name}_${pkStored}_fk`;
+}
+
+/**
+ * Nom BORNÉ de la clé étrangère d'une colonne, ou `null` quand le nom par
+ * défaut de Drizzle tient déjà : la contrainte reste alors déclarée sur la
+ * colonne, et les migrations écrites avant la borne ne changent pas.
+ */
+export function boundedForeignKeyName(
+  owner: ITableSpec,
+  key: string,
+  ref: IRefColumn,
+): string | null {
+  const name = defaultForeignKeyName(owner, key, ref);
+  return name.length <= MAX_IDENTIFIER_LENGTH ? null : boundedIdentifier(name);
 }
 
 /** `[premier, ...reste]` — la forme qu'exige `index().on()`. */

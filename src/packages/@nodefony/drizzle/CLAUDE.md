@@ -111,6 +111,13 @@ Deux usages :
   jamais en résolvant un identifiant — c'est aussi ce que fait `columnsOf`, et **les deux moitiés
   d'un même lecteur doivent voir la même base**. Les bancs ne le voyaient pas : leurs tables
   s'écrivent toutes en minuscules (`catalog.ts#ISchemaReader.tableExists`, garde `schema-reconcile-dialects.e2e.test.ts`).
+- 🔴 **Un identifiant GÉNÉRÉ dépasse vite 63 caractères** (`<table>_<colonne>_<cible>_<clé>_fk`
+  sur une table au nom long) : MySQL/MariaDB REFUSENT au-delà de 64, PostgreSQL TRONQUE en silence
+  à 63. Tout nom que le kit fabrique passe par `boundedIdentifier` (`colKit.shared.ts`) — inchangé
+  jusqu'à 63 (migrations déjà écrites intactes), sinon tronqué + empreinte FNV-1a ; une FK au nom
+  long est alors posée au niveau TABLE, nommée (`boundedForeignKeyName`). Un nom DONNÉ (table,
+  index) au-delà de 63 est refusé par `assertTableSpec`. Banc : corpus `erp-lite`
+  (`tests/integration/erp-lite-*.test.ts`), qui l'a trouvé.
 - 🔴 **`grep` sans `-a` rend un faux « rien trouvé »** sur nos fichiers accentués (il les prend
   pour du binaire et se tait). Un contrôle qui en conclut « le symbole n'existe plus » est faux.
 - 🔴 **Passer en WAL une base SQLite NEUVE ouverte par plusieurs processus = `SQLITE_BUSY`

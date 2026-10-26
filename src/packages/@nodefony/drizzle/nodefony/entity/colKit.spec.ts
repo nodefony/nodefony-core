@@ -417,6 +417,20 @@ export function assertTableSpec(spec: ITableSpec): void {
   const fail = (message: string): never => {
     throw new Error(`[@nodefony/drizzle] colKit "${spec.name}": ${message}`);
   };
+  // Un nom de plus de 63 caractères serait TRONQUÉ en silence par PostgreSQL
+  // et refusé par MySQL : refusé ici, nommé, avant le premier DDL.
+  if (!STORED_NAME_RE.test(spec.name)) {
+    fail(
+      `invalid table name (a plain SQL identifier of 63 characters at most: letters, digits, _).`,
+    );
+  }
+  for (const ix of spec.indexes ?? []) {
+    if (!STORED_NAME_RE.test(ix.name)) {
+      fail(
+        `index "${ix.name}" has an invalid name (a plain SQL identifier of 63 characters at most: letters, digits, _).`,
+      );
+    }
+  }
   let primaryKeys = 0;
   /** Nom stocké → propriété qui le porte : deux propriétés, une seule colonne. */
   const stored = new Map<string, string>();

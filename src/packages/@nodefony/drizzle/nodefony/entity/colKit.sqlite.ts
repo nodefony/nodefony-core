@@ -3,6 +3,7 @@ import type { HasDefault, IsPrimaryKey, NotNull } from "drizzle-orm";
 import {
   check,
   customType,
+  foreignKey,
   index,
   integer,
   real,
@@ -34,6 +35,7 @@ import type {
 } from "./colKit.spec";
 import { canonicalDay, canonicalDecimal, canonicalUuid } from "./colKit.codecs";
 import {
+  boundedForeignKeyName,
   checkName,
   enumPredicate,
   firstAndRest,
@@ -223,6 +225,9 @@ function colRef(
           refTargetTable(c, owner, k).table("sqlite"),
           refTargetSpec(c, owner),
         );
+  // Nom par défaut trop long : la contrainte est posée au niveau de la TABLE,
+  // nommée (`buildSqliteTable`) — une colonne ne sait pas nommer la sienne.
+  if (boundedForeignKeyName(owner, k, c) !== null) return base;
   return base.references(target, c.onDelete ? { onDelete: c.onDelete } : {});
 }
 
@@ -320,6 +325,25 @@ export function buildSqliteTable(
       const cols = firstAndRest(ix.on.map((name) => indexedColumn(t, name)));
       extras.push(
         (ix.unique ? uniqueIndex(ix.name) : index(ix.name)).on(...cols),
+      );
+    }
+    for (const [k, c] of Object.entries(spec.columns)) {
+      if (c.kind !== "ref") continue;
+      const name = boundedForeignKeyName(spec, k, c);
+      if (name === null) continue;
+      const target =
+        c.target === "self"
+          ? indexedColumn(t, primaryKeyName(spec))
+          : primaryKeyColumn(
+              refTargetTable(c, spec, k).table("sqlite"),
+              refTargetSpec(c, spec),
+            );
+      extras.push(
+        foreignKey({
+          name,
+          columns: [indexedColumn(t, k)],
+          foreignColumns: [target],
+        }).onDelete(c.onDelete ?? "no action"),
       );
     }
     for (const [k, c] of Object.entries(spec.columns)) {

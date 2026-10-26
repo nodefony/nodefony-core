@@ -752,4 +752,126 @@ describe("colKit — tables portables", () => {
       assert.equal(sessionTable, createSessionTable("sqlite"));
     });
   });
+
+  // MySQL refuse un identifiant de plus de 64 caractères ; PostgreSQL le
+  // TRONQUE en silence à 63. Un schéma réel (tables à nom long, colonnes
+  // `fk_*`) y arrive vite : sans borne, l'application ne démarre pas sur MySQL.
+  describe("noms générés bornés à 63 caractères", () => {
+    const LONG = "erp_thirdparty_extrafields_long_named";
+    const TARGET = defineTable({
+      name: "erp_thirdparty",
+      columns: { rowid: { kind: "serial", primaryKey: true } },
+    });
+    const OWNER = defineTable({
+      name: LONG,
+      columns: {
+        rowid: { kind: "serial", primaryKey: true },
+        fk_object: { kind: "ref", target: () => TARGET, onDelete: "cascade" },
+        fk_object_secondary: { kind: "ref", target: () => TARGET },
+        parent: { kind: "ref", target: "self" },
+        ref_external_system_code: { kind: "string", length: 64 },
+        status_of_the_external_record: {
+          kind: "enum",
+          values: ["new", "done"],
+        },
+      },
+    });
+    const SHORT = defineTable({
+      name: "erp_note",
+      columns: {
+        rowid: { kind: "serial", primaryKey: true },
+        fk_object: { kind: "ref", target: () => TARGET },
+      },
+    });
+    const fkNames = {
+      sqlite: () =>
+        getTableConfig(OWNER.table("sqlite")).foreignKeys.map((f) =>
+          f.getName(),
+        ),
+      postgres: () =>
+        getPgTableConfig(OWNER.table("postgres")).foreignKeys.map((f) =>
+          f.getName(),
+        ),
+      mysql: () =>
+        getMysqlTableConfig(OWNER.table("mysql")).foreignKeys.map((f) =>
+          f.getName(),
+        ),
+    };
+
+    it("un nom de clé étrangère court garde le nom par défaut (migrations déjà écrites inchangées)", () => {
+      for (const names of [
+        getTableConfig(SHORT.table("sqlite")).foreignKeys,
+        getPgTableConfig(SHORT.table("postgres")).foreignKeys,
+        getMysqlTableConfig(SHORT.table("mysql")).foreignKeys,
+      ].map((fks) => fks.map((f) => f.getName()))) {
+        assert.deepEqual(names, ["erp_note_fk_object_erp_thirdparty_rowid_fk"]);
+      }
+    });
+
+    it("un nom de clé étrangère long est borné, distinct, et le même sur les trois dialectes", () => {
+      const sqlite = fkNames.sqlite().sort();
+      assert.equal(
+        sqlite.length,
+        3,
+        "les trois références ont leur contrainte",
+      );
+      for (const name of sqlite) {
+        assert.ok(name.length <= 63, `${name} (${name.length})`);
+      }
+      assert.equal(new Set(sqlite).size, 3, "deux colonnes, deux noms");
+      assert.deepEqual(fkNames.postgres().sort(), sqlite);
+      assert.deepEqual(fkNames.mysql().sort(), sqlite);
+    });
+
+    it("la contrainte bornée vise toujours la clé, avec son action", () => {
+      const fk = getPgTableConfig(OWNER.table("postgres")).foreignKeys.find(
+        (f) => f.reference().columns[0]?.name === "fk_object",
+      );
+      assert.ok(fk);
+      assert.equal(fk.onDelete, "cascade");
+      const ref = fk.reference();
+      assert.equal(ref.foreignColumns[0]?.name, "rowid");
+      assert.equal(getPgTableConfig(ref.foreignTable).name, "erp_thirdparty");
+      const self = getPgTableConfig(OWNER.table("postgres")).foreignKeys.find(
+        (f) => f.reference().columns[0]?.name === "parent",
+      );
+      assert.equal(
+        self && getPgTableConfig(self.reference().foreignTable).name,
+        LONG,
+      );
+    });
+
+    it("les CHECK du kit sont bornés aussi", () => {
+      const all = [
+        ...getTableConfig(OWNER.table("sqlite")).checks,
+        ...getPgTableConfig(OWNER.table("postgres")).checks,
+        ...getMysqlTableConfig(OWNER.table("mysql")).checks,
+      ].map((c) => c.name);
+      assert.ok(all.length >= 4);
+      for (const name of all) {
+        assert.ok(name.length <= 63, `${name} (${name.length})`);
+      }
+    });
+
+    it("un nom de table ou d'index au-delà de 63 caractères est refusé à la déclaration", () => {
+      const tooLong = "t".repeat(64);
+      assert.throws(
+        () =>
+          assertTableSpec({
+            name: tooLong,
+            columns: { id: { kind: "serial", primaryKey: true } },
+          }),
+        /invalid table name/u,
+      );
+      assert.throws(
+        () =>
+          assertTableSpec({
+            name: "t",
+            columns: { id: { kind: "serial", primaryKey: true } },
+            indexes: [{ name: tooLong, on: ["id"] }],
+          }),
+        /invalid name/u,
+      );
+    });
+  });
 });
