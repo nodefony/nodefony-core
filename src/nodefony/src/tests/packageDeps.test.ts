@@ -266,7 +266,11 @@ describe("nodefonyImports — temps linéaire", () => {
     const source = `import ${" ".repeat(200_000)}`;
     const start = performance.now();
     assert.deepEqual(nodefonyImports(source), []);
-    assert.isBelow(performance.now() - start, 100);
+    // Une garde de COMPLEXITÉ, pas une mesure de vitesse : en quadratique, ces
+    // 200 000 espaces coûtent ~14 s (extrapolé des 22 ms pour 8 000). Le
+    // plafond reste à ×14 du défaut ; à 100 ms, il tombait sous la charge de
+    // la suite (130 ms mesurés) sur un code linéaire.
+    assert.isBelow(performance.now() - start, 1000);
   });
 
   it("reconnaît toujours les formes réelles d'import", () => {
