@@ -8,7 +8,7 @@ import {
 } from "./serialized-specs";
 
 /**
- * Le corpus synthétique `erp-lite` — 14 tables écrites dans le style d'un
+ * Le corpus synthétique `erp-lite` — 15 tables écrites dans le style d'un
  * progiciel de gestion né sur MySQL, converties en descriptions NEUTRES par
  * `mysql-ddl-to-specs.mjs` (`../fixtures/erp-lite/specs.ts`, généré), puis
  * déclarées par le matérialiseur partagé (`serialized-specs.ts`).

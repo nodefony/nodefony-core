@@ -42,6 +42,7 @@ import type {
 import { canonicalDay, canonicalDecimal, canonicalUuid } from "./colKit.codecs";
 import {
   boundedForeignKeyName,
+  boundedUniqueName,
   checkName,
   enumPredicate,
   firstAndRest,
@@ -82,7 +83,7 @@ type AnyLength = number | undefined;
 interface Chain extends SQLiteColumnBuilderBase {
   primaryKey(): Chain;
   notNull(): Chain;
-  unique(): Chain;
+  unique(name?: string): Chain;
   default(value: unknown): Chain;
   $defaultFn(fn: () => unknown): Chain;
   $onUpdateFn(fn: () => unknown): Chain;
@@ -288,7 +289,11 @@ function baseColumn(
 }
 
 /** Modificateurs communs — même ordre que `ApplyMods` (colKit.types.ts). */
-function applyMods(b: Chain, c: ColumnSpec): Chain {
+function applyMods(
+  b: Chain,
+  c: ColumnSpec,
+  uniqueName: string | undefined,
+): Chain {
   if (c.kind === "serial") {
     return b; // clé primaire déjà posée par `colSerial`.
   }
@@ -300,7 +305,7 @@ function applyMods(b: Chain, c: ColumnSpec): Chain {
     out = out.notNull();
   }
   if (c.unique) {
-    out = out.unique();
+    out = out.unique(uniqueName);
   }
   if ("default" in c && c.default !== undefined) {
     out = out.default(c.default).$defaultFn(literalDefaultFn(c.default));
@@ -370,7 +375,11 @@ export function buildSqliteTable(
 function buildTable(spec: ITableSpec, self: () => SQLiteTable): SQLiteTable {
   const columns: Record<string, SQLiteColumnBuilderBase> = {};
   for (const [k, c] of Object.entries(spec.columns)) {
-    columns[k] = applyMods(baseColumn(k, c, spec, self), c);
+    columns[k] = applyMods(
+      baseColumn(k, c, spec, self),
+      c,
+      boundedUniqueName(spec.name, columnName(k, c)),
+    );
   }
   return sqliteTable(spec.name, columns, (t) => {
     const extras: SQLiteTableExtraConfigValue[] = [];

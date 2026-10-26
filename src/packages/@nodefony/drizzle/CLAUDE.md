@@ -115,7 +115,13 @@ Deux usages :
   sur une table au nom long) : MySQL/MariaDB REFUSENT au-delà de 64, PostgreSQL TRONQUE en silence
   à 63. Tout nom que le kit fabrique passe par `boundedIdentifier` (`colKit.shared.ts`) — inchangé
   jusqu'à 63 (migrations déjà écrites intactes), sinon tronqué + empreinte FNV-1a ; une FK au nom
-  long est alors posée au niveau TABLE, nommée (`boundedForeignKeyName`). Un nom DONNÉ (table,
+  long est alors posée au niveau TABLE, nommée (`boundedForeignKeyName`) ; une unicité de colonne
+  au nom long est nommée par le kit (`boundedUniqueName`). La clé primaire, elle, est nommée par
+  `drizzle-kit` en MySQL (`<table>_<colonne>`, sans borne) et le kit n'y a pas prise : la déplacer
+  au niveau table casserait `$returningId()`, qui ne lit que la clé posée sur la colonne. Le nom
+  trop long est donc RETIRÉ du `.sql` au scellement (`sealGeneratedSql` →
+  `dropOverlongPrimaryKeyNames`, `migrator/kit.ts`) — sans effet, MySQL nomme toujours sa clé
+  `PRIMARY`. Un nom DONNÉ (table,
   index) au-delà de 63 est refusé par `assertTableSpec`. Banc : corpus `erp-lite`
   (`tests/integration/erp-lite-*.test.ts`), qui l'a trouvé.
 - 🔴 **Un `decimal` SQLite est du TEXT : comparé tel quel, il s'ordonne en ALPHABET** (`"9.5"` >

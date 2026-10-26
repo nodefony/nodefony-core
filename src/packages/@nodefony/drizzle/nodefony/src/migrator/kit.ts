@@ -20,6 +20,7 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { MAX_IDENTIFIER_LENGTH } from "../../entity/colKit.shared";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 import {
   MigrationToolError,
@@ -491,21 +492,50 @@ export function topLevelAwaitFailure(
   return file === undefined ? null : { file, line: Number(line) };
 }
 
+/** `CONSTRAINT \`<nom>\` PRIMARY KEY(` tel que `drizzle-kit` l'écrit en MySQL. */
+const MYSQL_NAMED_PRIMARY_KEY = /CONSTRAINT `([^`]+)` PRIMARY KEY\(/g;
+
 /**
- * Pose le marqueur de format en tête des `.sql` d'un dossier qui ne l'ont pas.
+ * Retire d'un SQL MySQL le nom d'une clé primaire trop long pour le moteur.
  *
- * Écrit en fins de ligne `\n` quel que soit le système : le dépôt et le gabarit
- * d'application déclarent `* text=auto eol=lf`, sans quoi une copie de travail
- * Windows produirait une fausse dérive à chaque lecture.
+ * `drizzle-kit` nomme toute clé primaire MySQL `<table>_<colonne>`, sans borne :
+ * passé 64 caractères, MySQL et MariaDB refusent la table entière
+ * (`ER_TOO_LONG_IDENT`). Ce nom ne sert pourtant à rien — une clé primaire
+ * MySQL s'appelle toujours `PRIMARY` —, si bien que le retirer ne change pas le
+ * schéma créé. Seuls les noms au-delà de {@link MAX_IDENTIFIER_LENGTH} sont
+ * touchés : une migration qui passait déjà ne change pas d'un octet.
  *
- * @param dir - dossier `<sortie>/<dialecte>` dont on marque les fichiers.
- * @returns le nombre de fichiers marqués.
+ * Le nom reste dans l'instantané de `drizzle-kit` : la génération suivante le
+ * retrouve à l'identique et n'écrit rien. Sans effet hors MySQL — PostgreSQL et
+ * SQLite reçoivent une clé primaire anonyme, et des guillemets doubles.
+ *
+ * @param sql - texte d'une migration générée.
+ * @returns le texte, clés primaires trop longues rendues anonymes.
  */
-export function stampFormatMarker(dir: string): number {
+export function dropOverlongPrimaryKeyNames(sql: string): string {
+  return sql.replace(MYSQL_NAMED_PRIMARY_KEY, (whole, name: string) =>
+    name.length > MAX_IDENTIFIER_LENGTH ? "PRIMARY KEY(" : whole,
+  );
+}
+
+/**
+ * Scelle les `.sql` neufs d'un dossier : marqueur de format en tête, et ce que
+ * `drizzle-kit` écrit d'inapplicable corrigé ({@link dropOverlongPrimaryKeyNames}).
+ *
+ * Un fichier déjà marqué n'est pas relu : il a peut-être été appliqué, et son
+ * empreinte ne doit pas bouger. Écrit en fins de ligne `\n` quel que soit le
+ * système : le dépôt et le gabarit d'application déclarent `* text=auto eol=lf`,
+ * sans quoi une copie de travail Windows produirait une fausse dérive à chaque
+ * lecture.
+ *
+ * @param dir - dossier `<sortie>/<dialecte>` dont on scelle les fichiers.
+ * @returns le nombre de fichiers scellés.
+ */
+export function sealGeneratedSql(dir: string): number {
   if (!fs.existsSync(dir)) {
     return 0;
   }
-  let stamped = 0;
+  let sealed = 0;
   for (const name of fs.readdirSync(dir)) {
     if (!name.endsWith(".sql")) {
       continue;
@@ -515,10 +545,11 @@ export function stampFormatMarker(dir: string): number {
     if (body.startsWith(FORMAT_MARKER)) {
       continue;
     }
-    fs.writeFileSync(file, `${FORMAT_MARKER}\n${body.replace(/\r\n/g, "\n")}`);
-    stamped++;
+    const fixed = dropOverlongPrimaryKeyNames(body.replace(/\r\n/g, "\n"));
+    fs.writeFileSync(file, `${FORMAT_MARKER}\n${fixed}`);
+    sealed++;
   }
-  return stamped;
+  return sealed;
 }
 
 /**

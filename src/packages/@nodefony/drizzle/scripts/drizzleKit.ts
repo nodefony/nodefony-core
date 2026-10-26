@@ -24,7 +24,7 @@ export {
   auditMigrationSql,
   isInteractivePromptFailure,
   resolveDrizzleKitBin,
-  stampFormatMarker,
+  sealGeneratedSql,
 } from "../nodefony/src/migrator/kit";
 export type { IAuditRule, IMigrationAudit } from "../nodefony/src/migrator/kit";
 

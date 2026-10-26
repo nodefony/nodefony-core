@@ -19,10 +19,7 @@ import {
   type IMigrationTarget,
 } from "../../nodefony/src/migrator/drivers/index";
 import { splitStatements } from "../../nodefony/src/migrator/sources";
-import {
-  runGenerate,
-  stampFormatMarker,
-} from "../../nodefony/src/migrator/kit";
+import { runGenerate, sealGeneratedSql } from "../../nodefony/src/migrator/kit";
 
 /**
  * Adopter une base qui EXISTAIT avant les migrations.
@@ -575,7 +572,7 @@ for (const cible of CIBLES) {
         name: "add_article_slug",
         label: `le banc d'adoption ${cible.label}`,
       });
-      stampFormatMarker(out);
+      sealGeneratedSql(out);
 
       const suivant = await fs.readFile(
         path.join(out, "0001_add_article_slug.sql"),

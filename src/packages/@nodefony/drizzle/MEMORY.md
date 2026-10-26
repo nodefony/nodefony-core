@@ -317,7 +317,7 @@ Exporté par `index.ts` (surface publiée : CLI, data plane, sonde, porte d'agen
   Le geste derrière : `orm:migrate:baseline --from-database` (`adopt.ts`) — `drizzle-kit
 introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) → **décommente** le
   corps (une baseline commentée ne recrée RIEN sur une base neuve) → retire `schema.ts`/
-  `relations.ts` → `stampFormatMarker`. La garde `BASELINE_AMBIGUOUS` ne s'applique pas à ce
+  `relations.ts` → `sealGeneratedSql`. La garde `BASELINE_AMBIGUOUS` ne s'applique pas à ce
   chemin : la référence DÉCRIT la base.
 - 🔴 **`tablesFilter` ne restreint PAS la lecture** : `introspect` lit la base ENTIÈRE puis filtre.
   Deux conséquences. (1) Les tables non déclarées entrent dans la référence ⇒ constatées par

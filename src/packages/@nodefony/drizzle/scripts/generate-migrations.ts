@@ -24,7 +24,7 @@ import {
   auditMigrationSql,
   readTags,
   runGenerate,
-  stampFormatMarker,
+  sealGeneratedSql,
 } from "./drizzleKit";
 
 /**
@@ -85,7 +85,7 @@ function main(argv: string[]): void {
   const after = assertJournalsAligned("après génération");
   let stamped = 0;
   for (const dialect of DIALECTS) {
-    stamped += stampFormatMarker(path.join(MODULE_ROOT, "migrations", dialect));
+    stamped += sealGeneratedSql(path.join(MODULE_ROOT, "migrations", dialect));
   }
 
   // Ce que la génération vient d'écrire est RELU : un générateur de diff ne

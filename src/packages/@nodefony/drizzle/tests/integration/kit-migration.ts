@@ -9,7 +9,7 @@ import {
   importSpecifier,
   writeKitConfig,
 } from "../../nodefony/src/migrator/appSchema";
-import { runGenerate } from "../../nodefony/src/migrator/kit";
+import { runGenerate, sealGeneratedSql } from "../../nodefony/src/migrator/kit";
 
 /**
  * Outils partagés des bancs qui créent des tables du kit de colonnes par la
@@ -107,6 +107,9 @@ export async function generateKitMigration(
       name,
       label: `le banc ${name}`,
     });
+    // Le banc applique ce que l'application appliquerait : le fichier SCELLÉ
+    // par la génération, pas la sortie brute de l'outil.
+    sealGeneratedSql(outDir);
     const body = await fs.readFile(
       path.join(outDir, `0000_${name}.sql`),
       "utf8",

@@ -23,7 +23,7 @@ import {
 import {
   auditMigrationSql,
   runGenerate,
-  stampFormatMarker,
+  sealGeneratedSql,
   type IAuditRule,
 } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
@@ -628,7 +628,7 @@ class OrmGenerate extends OrmMigrateCommand {
         "Le schéma n'a pas bougé : il n'y avait rien à écrire.",
       );
     }
-    stampFormatMarker(outDir);
+    sealGeneratedSql(outDir);
 
     // 6. Relire ce qui vient d'être écrit — un générateur de diff ne distingue
     //    pas une intention d'une différence.

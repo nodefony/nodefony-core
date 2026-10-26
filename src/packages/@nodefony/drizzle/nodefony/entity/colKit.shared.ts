@@ -81,6 +81,22 @@ export function checkName(
 }
 
 /**
+ * Nom BORNÉ de la contrainte d'unicité d'une colonne, ou `undefined` quand le
+ * nom par défaut de Drizzle (`<table>_<colonne>_unique`) tient déjà : la
+ * contrainte garde alors ce nom, et les migrations écrites avant la borne ne
+ * changent pas. `undefined` passé à `.unique()` laisse Drizzle nommer.
+ */
+export function boundedUniqueName(
+  table: string,
+  column: string,
+): string | undefined {
+  const name = `${table}_${column}_unique`;
+  return name.length <= MAX_IDENTIFIER_LENGTH
+    ? undefined
+    : boundedIdentifier(name);
+}
+
+/**
  * Nom que Drizzle donnerait à la clé étrangère d'une colonne de référence
  * (`<table>_<colonne>_<cible>_<clé>_fk`), avant toute borne.
  */

@@ -92,6 +92,30 @@ export const SPECS = [
     ],
   },
   {
+    name: "erp_conference_booth_attendee_registration_extrafields_named",
+    columns: {
+      rowid: {
+        kind: "serial",
+        primaryKey: true,
+      },
+      tms: {
+        kind: "datetime",
+        defaultFn: "now",
+        onUpdateFn: "now",
+      },
+      registration_ref: {
+        kind: "string",
+        length: 32,
+        notNull: true,
+        unique: true,
+      },
+      import_key: {
+        kind: "string",
+        length: 14,
+      },
+    },
+  },
+  {
     name: "erp_const",
     columns: {
       rowid: {

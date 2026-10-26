@@ -19,7 +19,7 @@ import { frameworkTables } from "../src/migrator/sources";
 import { connectorMigrationsDir } from "../src/migrator/paths";
 import { ownsSharedMigrations } from "../src/frameworkConnector";
 import { HISTORY_TABLE } from "../src/migrator/types";
-import { stampFormatMarker } from "../src/migrator/kit";
+import { sealGeneratedSql } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
 import type { IConnectorResolution } from "../src/migrator/resolve";
 import type { IDrizzleConfig } from "../interfaces/IDrizzleConfig";
@@ -258,7 +258,7 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
         "orm-adopt",
       ),
     });
-    stampFormatMarker(outDir);
+    sealGeneratedSql(outDir);
     return adopted;
   }
 

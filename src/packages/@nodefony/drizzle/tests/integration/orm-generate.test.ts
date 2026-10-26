@@ -16,7 +16,7 @@ import {
 import {
   generationHappened,
   runGenerate,
-  stampFormatMarker,
+  sealGeneratedSql,
 } from "../../nodefony/src/migrator/kit";
 import {
   describeDiscovery,
@@ -558,7 +558,7 @@ export const userTable = sqliteTable("User", { id: text("id").primaryKey() });
         name: "premier",
         label: "le banc",
       });
-      stampFormatMarker(OUT);
+      sealGeneratedSql(OUT);
 
       const journal = await journalOf();
       assert.deepEqual(
