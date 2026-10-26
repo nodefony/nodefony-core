@@ -4,7 +4,7 @@
  * adapter du banc multi-ORM ; valide le contrat
  * sur un ORM type-safe-first et la forme finale des opérateurs riches (ADR-0003).
  */
-export { DrizzleOrm } from "./DrizzleOrm";
+export { DrizzleOrm, EntityNotPortedError } from "./DrizzleOrm";
 export type { DrizzleOrmOptions } from "./DrizzleOrm";
 export { DrizzleRepository } from "./DrizzleRepository";
 export type {

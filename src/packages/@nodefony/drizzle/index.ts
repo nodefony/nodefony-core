@@ -316,6 +316,7 @@ export {
 export {
   DrizzleOrm,
   DrizzleRepository,
+  EntityNotPortedError,
   DrizzleTransaction,
   seedEntityRow,
 } from "./nodefony/src/orm-core/index";

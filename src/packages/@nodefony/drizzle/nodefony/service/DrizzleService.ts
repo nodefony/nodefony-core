@@ -17,7 +17,7 @@ import {
   parseConnectionTarget,
   reportOrphanEntities,
 } from "@nodefony/orm-core";
-import { DrizzleOrm } from "../src/orm-core/index";
+import { DrizzleOrm, EntityNotPortedError } from "../src/orm-core/index";
 import { defaultConnectorFilename } from "../src/connectorTarget";
 import { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
 import { defaultMigrationSources } from "../src/migrator/paths";
@@ -429,6 +429,18 @@ class DrizzleService extends Service {
       // durables mortes — session/users/tokens dépendent de cet ORM ; vécu :
       // login impossible avec la cause noyée dans un WARNING fail-soft).
       const cause = e instanceof Error ? e.message : String(e);
+      // Une entité non portée n'est pas une connexion manquée : la cause passe
+      // EN TÊTE, sans un mot sur l'adresse ni l'état d'une base qui répond.
+      if (e instanceof EntityNotPortedError) {
+        throw new BootConfigurationError(
+          `Drizzle : le connecteur "${name}" (${dialect}: ${target}) refuse ` +
+            `l'entité « ${e.entity} », écrite pour un autre moteur — régénère-la ` +
+            `portable (« nodefony create entity ${e.entity} … --force », sans ` +
+            `--dialect), ou garde ce connecteur sur son moteur d'origine. ` +
+            `Cause : ${cause}`,
+          { cause: e },
+        );
+      }
       // 🔴 DIRE CE QU'ON A CONSTATÉ, PAS CE QU'ON EN DÉDUIT.
       //
       // L'ancien message énumérait trois causes — infra déclarée, base démarrée,

@@ -82,6 +82,40 @@ import { MEMORY_DATABASE } from "../memoryDatabase";
 import { enableWriteAheadLog } from "../sqliteJournal";
 
 /**
+ * Une entité n'est pas portée sur le dialecte du connecteur : son schéma est une
+ * table NATIVE d'un autre moteur, ni une description `defineTable`.
+ *
+ * Classe à part parce que ce refus est une faute de CONFIGURATION de l'entité,
+ * pas un échec de connexion : rangé avec les erreurs du pilote, il ouvrait le
+ * message de démarrage par « n'a pas pu se connecter — vérifier qu'elle est
+ * démarrée » devant une base qui répondait, et la vraie cause arrivait en fin
+ * de ligne (banc de portabilité, #683).
+ */
+export class EntityNotPortedError extends Error {
+  override readonly name = "EntityNotPortedError";
+  /** Nom de l'entité refusée. */
+  readonly entity: string;
+  /** Dialecte du connecteur. */
+  readonly dialect: SqlDialect;
+
+  /**
+   * @param connector - nom du connecteur.
+   * @param entity - nom de l'entité refusée.
+   * @param dialect - dialecte du connecteur.
+   */
+  constructor(connector: string, entity: string, dialect: SqlDialect) {
+    super(
+      `DrizzleOrm "${connector}" (${dialect}): entity "${entity}" is not ` +
+        `ported to this dialect (its schema is not a ${dialect} table). Declare ` +
+        `it with defineTable() — one description, a table per dialect — or keep ` +
+        `this connector on the dialect the entity was written for.`,
+    );
+    this.entity = entity;
+    this.dialect = dialect;
+  }
+}
+
+/**
  * État interne du pool `mysql2` (INTERNE, best-effort) — ce que le driver ne
  * publie pas mais que la sonde du data plane a besoin de lire.
  *
@@ -1255,12 +1289,7 @@ export class DrizzleOrm extends Orm {
   ): SQLiteTable | PgTable | MySqlTable {
     const table = dialectTableOf(entity.schema, dialect);
     if (table === null) {
-      throw new Error(
-        `DrizzleOrm "${this.name}" (${dialect}): entity "${entity.name}" is not ` +
-          `ported to this dialect (its schema is not a ${dialect} table). Declare ` +
-          `it with defineTable() — one description, a table per dialect — or keep ` +
-          `this connector on the dialect the entity was written for.`,
-      );
+      throw new EntityNotPortedError(this.name, entity.name, dialect);
     }
     return table;
   }
