@@ -285,6 +285,48 @@ function erpLiteCases(ctx: ISchemaSuiteContext): void {
       assert.equal(await keep({ $min: "-4" }), "-4.00000000");
     });
 
+    // Deux montants qui ne diffèrent qu'au 24ᵉ chiffre : un flottant les
+    // confond. Les serveurs comparent en décimal exact ; SQLite lit l'ORDRE en
+    // `REAL` — divergence DÉCLARÉE (docs/index.md, « Le décimal en SQLite ») —
+    // et l'égalité en texte, exacte.
+    it("égalité, $in et ordre sur 24 chiffres : exacts au-delà de 15, par les deux chemins", async () => {
+      const big = "1234567890123456.12345678";
+      const near = "1234567890123456.12345679";
+      const below = "1234567890123456.12345677";
+      const totals = async (criteria: Row): Promise<unknown[]> =>
+        (
+          await repo("erp_invoice").find({
+            fk_soc: { $in: thirdparties },
+            ...criteria,
+          })
+        ).map((r) => r.total_ht);
+      const sqliteOrder = dialect === "sqlite";
+      const ordered = sqliteOrder ? [] : [big];
+      const confused = sqliteOrder ? [big] : [];
+      // Chemin préparé (forme simple).
+      assert.deepEqual(await totals({ total_ht: big }), [big]);
+      assert.deepEqual(await totals({ total_ht: near }), []);
+      assert.deepEqual(await totals({ total_ht: { $in: [near] } }), []);
+      assert.deepEqual(
+        await totals({ total_ht: { $ne: big } }).then((t) => t.includes(big)),
+        false,
+      );
+      assert.deepEqual(await totals({ total_ht: { $gt: below } }), ordered);
+      assert.deepEqual(await totals({ total_ht: { $gte: near } }), confused);
+      // Chemin direct : `$or` n'a pas de forme préparée.
+      assert.deepEqual(await totals({ $or: [{ total_ht: near }] }), []);
+      assert.deepEqual(
+        await totals({ $or: [{ total_ht: { $nin: [big] } }] }).then((t) =>
+          t.includes(big),
+        ),
+        false,
+      );
+      assert.deepEqual(
+        await totals({ $or: [{ total_ht: { $gt: below } }] }),
+        ordered,
+      );
+    });
+
     // Le SQL NATIF suit la sémantique du moteur. SQLite n'a pas de type
     // décimal (`decimal` y est rangé en TEXT) : c'est une divergence DÉCLARÉE
     // (docs/index.md, « Le décimal en SQLite »), et ces cas prouvent que la page
