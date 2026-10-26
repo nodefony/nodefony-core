@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T12:18:05.571Z",
+  "generatedAt": "2026-10-26T13:21:11.507Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 200,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 21,
+      "open": 22,
       "title": "10.0.0-beta"
     },
     {
@@ -5330,6 +5330,22 @@
       "ordre": 6.0164,
       "debut": "2026-10-29",
       "cible": "2026-10-29",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 686,
+      "title": "test(devkit): migrer un schéma réel d'une version à la suivante sans perte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/686",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 6.0165,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-6"
       ]
