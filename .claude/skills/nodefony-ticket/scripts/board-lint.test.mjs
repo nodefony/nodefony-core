@@ -313,6 +313,38 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(codes(findings)).not.toContain("CONTRAINTE-INVERSEE");
   });
 
+  it("dépendance dans un jalon livré AVANT : l'ordre plus grand du socle ne dit rien", () => {
+    const findings = lintBoard({
+      items: [
+        sain(685, {
+          milestone: "11.0.0",
+          echeance: "2027-03-01T00:00:00Z",
+          ordre: 2,
+        }),
+        sain(683, { milestone: "10.0.0-beta", echeance: BETA, ordre: 6.0163 }),
+      ],
+      issues: [issueSaine(685, { dependsOn: [683] }), issueSaine(683)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("DEPENDANCE-INVERSEE");
+  });
+
+  it("dépendance dans un jalon livré APRÈS : le contrôle MORD, ordre favorable ou non", () => {
+    const findings = lintBoard({
+      items: [
+        sain(685, { milestone: "10.0.0-beta", echeance: BETA, ordre: 9 }),
+        sain(683, {
+          milestone: "11.0.0",
+          echeance: "2027-03-01T00:00:00Z",
+          ordre: 1,
+        }),
+      ],
+      issues: [issueSaine(685, { dependsOn: [683] }), issueSaine(683)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).toContain("DEPENDANCE-INVERSEE");
+  });
+
   it("STATUT-MENTEUR : « en cours » sans aucun commit de travail", () => {
     const findings = lintBoard({
       items: [sain(172, { status: "In Progress" })],

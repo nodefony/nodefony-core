@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T08:37:43.879Z",
+  "generatedAt": "2026-10-26T08:57:40.187Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -14,7 +14,7 @@
       "closed": 0,
       "dueOn": null,
       "number": 4,
-      "open": 6,
+      "open": 7,
       "title": "11.0.0"
     },
     {
@@ -890,6 +890,20 @@
       "ordre": 2,
       "debut": "2026-11-26",
       "cible": "2026-11-26",
+      "labels": []
+    },
+    {
+      "number": 685,
+      "title": "chore(drizzle): monter Drizzle vers sa version 1",
+      "url": "https://github.com/nodefony/nodefony-core/issues/685",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "11.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 2,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {

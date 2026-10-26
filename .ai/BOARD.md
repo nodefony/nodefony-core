@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-26 08:37** (UTC).
+> Empreinte prise le **2026-10-26 08:57** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -24,7 +24,7 @@
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 37 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
-| **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 6 | — |
+| **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
 | **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `███████░░░` 71% | 5 | 2 | — |
@@ -88,11 +88,12 @@ Ordre 6.016 · P2 — décision · 7 j · jalon 10.0.0-beta · frise 2026-10-26 
 | --- | --- | ---: | --- | --- | --- |
 | 1 | P2 — décision | 3 | — | #583 | feat(security): authentifier par certificat client sur carte à puce |
 
-## Jalon 11.0.0 — 6 ouverts
+## Jalon 11.0.0 — 7 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 1 | P2 — décision | 1 | — | #584 | feat(client): proposer les passkeys dans le champ identifiant |
+| 2 | P1 — figé à la création | 2 | — | #685 | chore(drizzle): monter Drizzle vers sa version 1 |
 | 162 | P3 — fin de cycle | 1 | — | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
 | 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
 | 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |

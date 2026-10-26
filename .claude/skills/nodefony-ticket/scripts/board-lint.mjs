@@ -167,6 +167,34 @@ export function lotAction({ ordre, labels, milestoneEnLots }) {
 }
 
 /**
+ * Dit si l'item `first`, qui doit passer avant `second`, est rangé après lui —
+ * règle unique des dépendances (`DEPENDANCE-INVERSEE`) et des contraintes
+ * « à faire AVANT » (`CONTRAINTE-INVERSEE`).
+ *
+ * 🔴 DEUX ORDRES DE JALONS DIFFÉRENTS NE SE COMPARENT PAS. Le tri réel choisit
+ * d'abord le JALON (cf `board-next.mjs`), l'ordre ne départage qu'à l'intérieur
+ * de l'un d'eux — et E4 scope déjà ses doublons par `milestone@ordre`. Comparer
+ * les nombres bruts a fait crier ce contrôle à tort dès qu'un ticket a changé de
+ * jalon : #255, monté de la beta à l'alpha, y gagnait un ordre plus grand que sa
+ * cible restée en beta ; #685, rangé au 11.0.0 à l'ordre 2, « précédait » son
+ * socle #683 de la beta. Un contrôle qui crie faux s'apprend à être ignoré.
+ *
+ * @param first - item `{ milestone, echeance, ordre }` qui doit passer d'abord
+ * @param second - item qui doit passer ensuite
+ * @returns `"jalon"` si le jalon de `first` est livré après celui de `second`,
+ *   `"ordre"` si, dans le même jalon, `first` est rangé après, sinon `null` —
+ *   y compris entre jalons dont une échéance manque : se TAIRE plutôt que deviner
+ */
+export function precedenceBroken(first, second) {
+  if ((first.milestone ?? null) !== (second.milestone ?? null)) {
+    const a = first.echeance ? Date.parse(first.echeance) : null;
+    const b = second.echeance ? Date.parse(second.echeance) : null;
+    return a === null || b === null || a <= b ? null : "jalon";
+  }
+  return first.ordre <= second.ordre ? null : "ordre";
+}
+
+/**
  * Confronte l'état du tableau de bord aux règles de pilotage du dépôt.
  *
  * Chaque contrôle a un verdict binaire et une preuve : aucun n'exige de jugement,
@@ -385,14 +413,24 @@ export function lintBoard({
     for (const dep of issue.dependsOn ?? []) {
       const amont = parItem.get(dep);
       if (!amont || typeof amont.ordre !== "number") continue;
-      if (amont.ordre <= moi.ordre) continue;
-      add(
-        "erreur",
-        "DEPENDANCE-INVERSEE",
-        issue.n,
-        `dépend de #${dep}, placé APRÈS lui (ordre ${moi.ordre} < ${amont.ordre}) — le tri proposera le travail avant son socle`,
-        `remonter #${dep} avant l'ordre ${moi.ordre}`,
-      );
+      const inversion = precedenceBroken(amont, moi);
+      if (inversion === "jalon") {
+        add(
+          "erreur",
+          "DEPENDANCE-INVERSEE",
+          issue.n,
+          `dépend de #${dep}, dont le jalon « ${amont.milestone} » est livré APRÈS « ${moi.milestone} » — le travail partirait sans son socle`,
+          `déplacer #${dep} dans « ${moi.milestone} » ou plus tôt`,
+        );
+      } else if (inversion === "ordre") {
+        add(
+          "erreur",
+          "DEPENDANCE-INVERSEE",
+          issue.n,
+          `dépend de #${dep}, placé APRÈS lui (ordre ${moi.ordre} < ${amont.ordre}) — le tri proposera le travail avant son socle`,
+          `remonter #${dep} avant l'ordre ${moi.ordre}`,
+        );
+      }
     }
   }
 
@@ -403,20 +441,8 @@ export function lintBoard({
     for (const cible of issue.before ?? []) {
       const aval = parItem.get(cible);
       if (!aval || typeof aval.ordre !== "number") continue;
-      // 🔴 DEUX ORDRES DE JALONS DIFFÉRENTS NE SE COMPARENT PAS.
-      // Le tri réel choisit d'abord le JALON (cf `board-next.mjs`), l'ordre ne
-      // départage qu'à l'intérieur de l'un d'eux — et E4, juste au-dessus, scope
-      // déjà ses doublons par `milestone@ordre`. Comparer les nombres bruts a fait
-      // crier ce contrôle à tort dès qu'un ticket a MONTÉ de jalon : #255, passé de
-      // la beta à l'alpha, y gagnait un ordre plus grand que sa cible restée en
-      // beta — donc « inversé » selon le nombre, alors qu'il passe des semaines
-      // avant selon la livraison. Un contrôle qui crie faux s'apprend à être ignoré.
-      if ((moi.milestone ?? null) !== (aval.milestone ?? null)) {
-        const a = moi.echeance ? Date.parse(moi.echeance) : null;
-        const b = aval.echeance ? Date.parse(aval.echeance) : null;
-        // Sans les deux échéances, on ne peut pas trancher : se TAIRE plutôt que
-        // deviner — ce contrôle ne juge jamais d'une priorisation.
-        if (a === null || b === null || a <= b) continue;
+      const inversion = precedenceBroken(moi, aval);
+      if (inversion === "jalon") {
         add(
           "erreur",
           "CONTRAINTE-INVERSEE",
@@ -424,16 +450,15 @@ export function lintBoard({
           `doit passer AVANT #${cible}, mais son jalon « ${moi.milestone} » est livré APRÈS « ${aval.milestone} »`,
           `déplacer #${issue.n} dans « ${aval.milestone} » ou plus tôt`,
         );
-        continue;
+      } else if (inversion === "ordre") {
+        add(
+          "erreur",
+          "CONTRAINTE-INVERSEE",
+          issue.n,
+          `doit passer AVANT #${cible}, mais est rangé après dans le même jalon (ordre ${moi.ordre} > ${aval.ordre})`,
+          `remonter #${issue.n} avant l'ordre ${aval.ordre}`,
+        );
       }
-      if (moi.ordre < aval.ordre) continue;
-      add(
-        "erreur",
-        "CONTRAINTE-INVERSEE",
-        issue.n,
-        `doit passer AVANT #${cible}, mais est rangé après dans le même jalon (ordre ${moi.ordre} > ${aval.ordre})`,
-        `remonter #${issue.n} avant l'ordre ${aval.ordre}`,
-      );
     }
   }
 
