@@ -735,6 +735,10 @@ let reference = null;
 const sqliteOk = await step(
   "SQLITE (naissance) — suites générées, sonde, base de développement",
   () => {
+    // Le code GÉNÉRÉ doit compiler : les suites passent par vitest, qui
+    // n'éprouve aucun type — un service à clé serial qui ne compilait pas a
+    // traversé tous les runs verts de ce banc.
+    run("npm", ["run", "typecheck"]);
     run("npm", ["test"]);
     generatedE2e();
     reference = probeSnapshot("sqlite");
