@@ -66,6 +66,41 @@ const portableEntity: IEntity = {
   }),
 };
 
+// Une cible aux types BORNÉS — ceux que `seed-1` violait : un décimal (codec),
+// une longueur exacte et une longueur courte (CHECK), un uuid, un jour, une
+// énumération. Vécu : le test généré d'un `Book` ne semait pas son `Author`
+// (« "seed-1" is not a decimal number »).
+const boundedTable = defineTable({
+  name: "SeedBounded",
+  columns: {
+    id: { kind: "serial", primaryKey: true },
+    balance: { kind: "decimal", precision: 12, scale: 2, notNull: true },
+    country: { kind: "char", length: 3, notNull: true },
+    code: { kind: "string", length: 4, notNull: true },
+    token: { kind: "uuid", notNull: true },
+    day: { kind: "date", notNull: true },
+    level: { kind: "enum", values: ["junior", "senior"], notNull: true },
+  },
+});
+const boundedEntity: IEntity = {
+  name: "SeedBounded",
+  connector: ORM,
+  schema: boundedTable,
+};
+// Une cible qui porte ELLE-MÊME une référence obligatoire : semée en deux temps.
+const nestedEntity: IEntity = {
+  name: "SeedNested",
+  connector: ORM,
+  schema: defineTable({
+    name: "SeedNested",
+    columns: {
+      id: { kind: "uuid", primaryKey: true, defaultFn: () => randomUUID() },
+      label: { kind: "string", notNull: true },
+      bounded: { kind: "ref", target: () => boundedTable, notNull: true },
+    },
+  }),
+};
+
 interface ParentRow {
   id: string;
   email: string;
@@ -87,6 +122,8 @@ describe("seedEntityRow — semer la ligne parente d'une relation", () => {
     entityRegistry.register(parentEntity);
     entityRegistry.register(childEntity);
     entityRegistry.register(portableEntity);
+    entityRegistry.register(boundedEntity);
+    entityRegistry.register(nestedEntity);
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
   });
@@ -96,6 +133,8 @@ describe("seedEntityRow — semer la ligne parente d'une relation", () => {
     entityRegistry.unregister("SeedParent", ORM);
     entityRegistry.unregister("SeedChild", ORM);
     entityRegistry.unregister("SeedPortable", ORM);
+    entityRegistry.unregister("SeedBounded", ORM);
+    entityRegistry.unregister("SeedNested", ORM);
     ormRegistry.unregister(ORM);
   });
 
@@ -134,6 +173,35 @@ describe("seedEntityRow — semer la ligne parente d'une relation", () => {
     assert.ok(found, "la ligne semée doit être relisible");
     assert.equal(typeof found.hits, "number");
     assert.equal(found.rank, 3);
+  });
+
+  it("sème une cible PORTABLE aux types bornés — décimal, char(n), uuid, jour", async () => {
+    const id = await seedEntityRow(orm, boundedEntity);
+    const found = await orm
+      .getRepository<{
+        id: number;
+        balance: string;
+        country: string;
+        code: string;
+        token: string;
+      }>("SeedBounded")
+      .findOne({ id: Number(id) });
+    assert.ok(found, "la ligne semée doit être relisible");
+    assert.equal(found.country.length, 3);
+    assert.ok(found.code.length <= 4);
+    assert.match(found.token, /^[0-9a-f-]{36}$/u);
+    assert.match(found.balance, /^\d+\.00$/u);
+  });
+
+  it("une cible à référence obligatoire se sème en deux temps (values)", async () => {
+    await assert.rejects(
+      () => seedEntityRow(orm, nestedEntity),
+      /sème d'abord sa cible/u,
+      "sans sa cible, le refus doit dire le geste",
+    );
+    const bounded = await seedEntityRow(orm, boundedEntity);
+    const id = await seedEntityRow(orm, nestedEntity, { bounded });
+    assert.equal(typeof id, "string");
   });
 
   it("deux semis ne se marchent pas dessus malgré une colonne unique", async () => {
