@@ -131,7 +131,7 @@ n'a jamais les deux — c'est le discriminant à tester.
 | `NF_GENERATE_UNREADABLE_ENTITY`  | rien d'écrit, et un fichier d'entités ne s'importe pas : sa table n'est vue par personne               | corriger la cause nommée (souvent un paquet absent des dépendances), ou sortir le fichier de `nodefony/entity/` |
 | `NF_GENERATE_FRAMEWORK_TABLE`    | une entité de l'application usurpe une table du framework                                              | la renommer, ou écrire une migration libre (`--custom`)                                                         |
 | `NF_GENERATE_DESTRUCTIVE`        | la migration ÉCRITE supprime des données                                                               | relire le fichier, puis annuler (`git checkout`) ou appliquer — la mise en service a sa propre garde            |
-| `NF_GENERATE_DATABASE_BEHIND`    | rien à écrire, et pourtant la base ne porte pas le schéma                                              | `repair --forget <source>/<tag>` : l'historique affirme une migration jamais exécutée                           |
+| `NF_GENERATE_DATABASE_BEHIND`    | rien à écrire, RIEN n'attend, et pourtant la base ne porte pas le schéma                               | `repair --forget <source>/<tag>` : l'historique affirme une migration jamais exécutée                           |
 | `NF_GENERATE_TOOL_MISSING`       | l'outil de génération n'est pas installé                                                               | l'installer en dépendance de développement                                                                      |
 
 ## Un contrat qui ne bougera pas

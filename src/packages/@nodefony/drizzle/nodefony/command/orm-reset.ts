@@ -1,4 +1,4 @@
-import type { CliKernel, Kernel, OptionsCommandInterface } from "nodefony";
+import type { CliKernel, OptionsCommandInterface } from "nodefony";
 import { redactUrlCredentials } from "nodefony";
 import type { SqlDialect } from "../config/config";
 import { openMigrationDriver } from "../src/migrator/drivers/index";
@@ -133,7 +133,7 @@ class OrmReset extends OrmMigrateCommand {
     const { resolution } = resolved;
     const style = this.style;
 
-    const env = readMigrationEnv(this.kernel as Kernel | null);
+    const env = readMigrationEnv(this.appKernel);
     if (!resetAllowed(env)) {
       const observed =
         env.nodeEnv ??

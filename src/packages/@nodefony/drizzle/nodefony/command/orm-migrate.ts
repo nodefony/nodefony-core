@@ -153,8 +153,7 @@ class OrmMigrate extends OrmMigrateCommand {
       const before = await migrator.status();
       const findings = scanDestructive(before.pending);
       const losses = dataLoss(findings);
-      const enDev =
-        readMigrationEnv(this.kernel as never).runtime === "development";
+      const enDev = readMigrationEnv(this.appKernel).runtime === "development";
       if (
         losses.length > 0 &&
         opts.dryRun !== true &&

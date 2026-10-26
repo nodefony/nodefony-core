@@ -3,7 +3,6 @@ import path from "node:path";
 import {
   listTargets,
   type CliKernel,
-  type Kernel,
   type OptionsCommandInterface,
 } from "nodefony";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
@@ -29,6 +28,7 @@ import {
 import { checkMigrationName } from "../src/migrator/name";
 import type { IDiscoveryFacts } from "../src/migrator/refusals";
 import { gapAgainstDeclared } from "../src/migrator/divergence";
+import { migrationPlanFor } from "../src/migrator/status";
 import { repairRebuildCopy } from "../src/migrator/rebuildCopy";
 import {
   readJournal,
@@ -104,6 +104,12 @@ interface IGenerateReport {
    * de tables supérieur à ce qui est réellement écrit.
    */
   otherDialect: Array<{ table: string; dialect: string; file: string }>;
+  /**
+   * Migrations déjà ÉCRITES qui attendent d'être appliquées à cette base
+   * (`<source>/<tag>`) — renseigné quand rien n'est écrit et que la base est
+   * en retard sur les fichiers ; vide sinon. Le geste est alors `orm:migrate`.
+   */
+  pendingInDatabase: string[];
   driver: {
     kind: "sql";
     dialect: SqlDialect;
@@ -209,7 +215,7 @@ class OrmGenerate extends OrmMigrateCommand {
    * @returns le chemin absolu de la racine.
    */
   #projectRoot(): string {
-    return (this.kernel as Kernel).path;
+    return this.requiredKernel.path;
   }
 
   /**
@@ -258,7 +264,7 @@ class OrmGenerate extends OrmMigrateCommand {
     }
     const root = this.#projectRoot();
     const migrationsDir = appMigrationsDir(
-      this.kernel as Kernel,
+      this.requiredKernel,
       config.migrations.dir,
     );
     if (migrationsDir === undefined) {
@@ -300,6 +306,7 @@ class OrmGenerate extends OrmMigrateCommand {
             warnings: [],
             unreadable: [],
             otherDialect: [],
+            pendingInDatabase: [],
             driver: {
               kind: "sql",
               dialect: resolution.dialect,
@@ -564,7 +571,14 @@ class OrmGenerate extends OrmMigrateCommand {
       // Le produit SAIT pourtant voir cet écart : la même brique que le verdict
       // `divergent`, qui NOMME les tables et colonnes manquantes.
       const gap = await gapAgainstDeclared(connector);
-      if (gap !== null) {
+      // L'écart n'accuse l'historique que si RIEN n'attend : des migrations
+      // écrites et pas encore appliquées (base neuve, autre moteur servi par les
+      // mêmes fichiers) l'expliquent entièrement, et le geste est `orm:migrate`.
+      // Conseiller alors de désinscrire des migrations jamais inscrites
+      // enverrait réparer une base qui n'a rien de cassé.
+      const pending =
+        gap === null ? [] : await this.#pendingInDatabase(connector);
+      if (gap !== null && pending.length === 0) {
         this.fail(
           connector,
           "NF_GENERATE_DATABASE_BEHIND",
@@ -622,10 +636,14 @@ class OrmGenerate extends OrmMigrateCommand {
           warnings: [],
           unreadable,
           otherDialect,
+          pendingInDatabase: pending,
           driver: { kind: "sql", dialect, dir: relative(outDir) },
         },
         opts,
-        "Le schéma n'a pas bougé : il n'y avait rien à écrire.",
+        pending.length === 0
+          ? "Le schéma n'a pas bougé : il n'y avait rien à écrire."
+          : `Le schéma n'a pas bougé : il n'y avait rien à écrire — mais ${pending.length} ` +
+              `migration(s) déjà écrite(s) attendent d'être appliquées à cette base.`,
       );
     }
     sealGeneratedSql(outDir);
@@ -702,6 +720,7 @@ class OrmGenerate extends OrmMigrateCommand {
         warnings,
         unreadable,
         otherDialect,
+        pendingInDatabase: [],
         driver: { kind: "sql", dialect, dir: relative(outDir) },
       },
       opts,
@@ -888,11 +907,6 @@ class OrmGenerate extends OrmMigrateCommand {
   }
 
   /**
-   * Écrit le rapport, en machine ou pour un humain.
-   *
-   * @returns `this`.
-   */
-  /**
    * Écrit le compte rendu de génération, puis enchaîne l'application si
    * `--apply` est posé.
    *
@@ -942,14 +956,26 @@ class OrmGenerate extends OrmMigrateCommand {
           .join("\n") +
         "\n";
     }
+    const awaiting = report.pendingInDatabase.length > 0;
+    if (awaiting) {
+      human +=
+        `\n${style.dim("En attente sur cette base :")}\n` +
+        report.pendingInDatabase.map((t) => `  • ${t}`).join("\n") +
+        "\n";
+    }
     if (report.generated && opts.apply !== true) {
       human +=
         `\n${style.bold("À faire :")}\n` +
         `  ${style.dim("relire le fichier, puis")} ${style.green("nodefony orm:migrate")}\n` +
         `  ${style.dim("ou, en développement, les deux d'un geste :")} ` +
         `${style.green("nodefony orm:generate --apply")}\n`;
+    } else if (awaiting && opts.apply !== true) {
+      human += `\n${style.bold("À faire :")}\n  ${style.green("nodefony orm:migrate")}\n`;
     }
-    if (report.generated && opts.apply === true) {
+    // `--apply` enchaîne aussi quand rien n'est écrit mais que des migrations
+    // attendent : c'est exactement ce que la personne a demandé — que la base
+    // porte le schéma déclaré.
+    if ((report.generated || awaiting) && opts.apply === true) {
       if (opts.json === true) {
         process.stderr.write(human.endsWith("\n") ? human : `${human}\n`);
       } else {
@@ -960,6 +986,27 @@ class OrmGenerate extends OrmMigrateCommand {
     }
     this.respond(report, human, EXIT.ok, opts.json);
     return this;
+  }
+
+  /**
+   * Migrations déjà écrites qui attendent d'être appliquées à la base du
+   * connecteur, en `<source>/<tag>` — lecture seule, par le même plan que
+   * `orm:migrate`.
+   *
+   * Une base qu'on ne sait pas lire rend une liste VIDE : l'appelant retombe
+   * alors sur son verdict d'avant, qui nomme déjà l'écart ; la panne a sa
+   * propre voie de signalement.
+   *
+   * @param connector - connecteur résolu.
+   * @returns les migrations en attente, dans l'ordre d'application.
+   */
+  async #pendingInDatabase(connector: string): Promise<string[]> {
+    const plan = await migrationPlanFor(
+      connector,
+      this.drizzleConfig(),
+      this.appKernel,
+    );
+    return plan.ok ? plan.plan.pending.map((p) => `${p.source}/${p.tag}`) : [];
   }
 
   /**
@@ -981,7 +1028,7 @@ class OrmGenerate extends OrmMigrateCommand {
    * @returns `true` si la main a été passée (la sortie est déjà écrite).
    */
   async #applyNow(opts: IGenerateOptions, connector: string): Promise<boolean> {
-    if (!generateApplyAllowed(readMigrationEnv(this.kernel as Kernel | null))) {
+    if (!generateApplyAllowed(readMigrationEnv(this.appKernel))) {
       this.fail(
         connector,
         "NF_MIGRATE_NOT_DEVELOPMENT",
@@ -999,7 +1046,7 @@ class OrmGenerate extends OrmMigrateCommand {
     // toujours `null`, et seule l'exécution RÉELLE l'a montré : ni le typecheck
     // ni les tests unitaires ne voient ce registre. On passe par le module qui
     // nous porte — celui-là même qui a déclaré les deux verbes ensemble.
-    const kernel = this.kernel as Kernel | null;
+    const kernel = this.appKernel;
     const owner = kernel?.getModule("drizzle") as
       { commands?: Record<string, unknown> } | undefined;
     const migrate = owner?.commands?.["orm:migrate"];

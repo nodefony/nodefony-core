@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { CliKernel, Kernel, OptionsCommandInterface } from "nodefony";
+import type { CliKernel, OptionsCommandInterface } from "nodefony";
 import {
   MIGRATION_FORMAT_VERSION,
   action,
@@ -169,8 +169,8 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
     if (this.refuseReservedConnector(resolution.connector, opts.json)) {
       return null;
     }
-    const root = (this.kernel as Kernel).path;
-    const dir = appMigrationsDir(this.kernel as Kernel, config.migrations.dir);
+    const root = this.requiredKernel.path;
+    const dir = appMigrationsDir(this.requiredKernel, config.migrations.dir);
     if (dir === undefined) {
       this.fail(
         resolution.connector,

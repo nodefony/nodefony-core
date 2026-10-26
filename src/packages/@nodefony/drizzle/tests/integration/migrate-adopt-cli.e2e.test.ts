@@ -754,6 +754,98 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         });
       }, 600_000);
 
+      it("🔴 rien à écrire sur une base NEUVE : les migrations en attente se nomment, l'historique n'est pas accusé", async (ctx) => {
+        if (cible.dialect === "sqlite") {
+          // Décor pollué, pas le produit : sous NODE_ENV=production, la
+          // découverte balaie dans `default` les tables SQLite du module
+          // `mediasoup` (policy dev, connecteur propre) — défaut suivi à part.
+          ctx.skip();
+          return;
+        }
+        // Le parcours du banc de schéma réel : les fichiers existent (écrits
+        // pour un autre moteur du même dialecte, ou sur un autre poste), la
+        // base est vide. L'écart est entièrement expliqué par ce qui attend ;
+        // conseiller de désinscrire des migrations jamais inscrites enverrait
+        // réparer une base qui n'a rien de cassé.
+        await surBase(async (_base, env) => {
+          const gen = await cli(
+            ["orm:generate", "--json", "--name", "neuve"],
+            env,
+          );
+          assert.equal(gen.code, 0, diagnostic(gen));
+          const rapport = parse(gen.stdout) as {
+            generated?: boolean;
+            pendingInDatabase?: string[];
+          };
+          assert.equal(rapport.generated, false, diagnostic(gen));
+          assert.ok(
+            (rapport.pendingInDatabase ?? []).some((t) =>
+              t.startsWith(`${APP_SOURCE}/`),
+            ),
+            `les migrations de l'application doivent être nommées : ${diagnostic(gen)}`,
+          );
+          assert.deepEqual(
+            await migrationsPresentes(),
+            auDepart,
+            "rien ne devait être écrit",
+          );
+
+          // Le geste nommé suffit, et l'attente disparaît.
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
+          const apres = await cli(
+            ["orm:generate", "--json", "--name", "neuve"],
+            env,
+          );
+          assert.equal(apres.code, 0, diagnostic(apres));
+          assert.deepEqual(parse(apres.stdout).pendingInDatabase, []);
+        });
+      }, 600_000);
+
+      it("🔴 un historique qui MENT reste refusé : rien n'attend, et la table manque", async (ctx) => {
+        if (cible.dialect === "sqlite") {
+          ctx.skip(); // même décor pollué que le cas précédent.
+          return;
+        }
+        await surBase(async (base, env) => {
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
+          // L'historique affirme la migration de `User` ; la table n'est plus là.
+          const user = citer(cible.dialect, "User");
+          await base.sql(
+            cible.dialect === "mysql"
+              ? [
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  `DROP TABLE ${user}`,
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ]
+              : cible.dialect === "postgres"
+                ? [`DROP TABLE ${user} CASCADE`]
+                : [`DROP TABLE ${user}`],
+          );
+          const refus = await cli(
+            ["orm:generate", "--json", "--name", "ment"],
+            env,
+          );
+          const erreur = (parse(refus.stdout).error ?? {}) as {
+            code?: string;
+            nextActions?: { command: string }[];
+          };
+          assert.equal(
+            erreur.code,
+            "NF_GENERATE_DATABASE_BEHIND",
+            diagnostic(refus),
+          );
+          assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+          assert.ok(
+            (erreur.nextActions ?? []).some((a) =>
+              a.command.includes("--forget"),
+            ),
+            `le geste doit désinscrire : ${JSON.stringify(erreur.nextActions)}`,
+          );
+        });
+      }, 600_000);
+
       it("🔴 un refus destructif DIT ce que la découverte a vu", async (ctx) => {
         if (mariadb) {
           ctx.skip();

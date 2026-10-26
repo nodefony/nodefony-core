@@ -141,7 +141,7 @@ export abstract class OrmMigrateCommand extends Command {
    * @returns la configuration, ou `null` si le module n'est pas chargé.
    */
   protected drizzleConfig(): IDrizzleConfig | null {
-    const modules = (this.kernel as Kernel | null)?.modules;
+    const modules = this.appKernel?.modules;
     const mod = modules?.[MODULE_NAME];
     return mod ? (mod.config as unknown as IDrizzleConfig) : null;
   }
@@ -270,8 +270,8 @@ export abstract class OrmMigrateCommand extends Command {
     const resolution = resolveConnector(
       wanted,
       config,
-      readMigrationEnv(this.kernel as Kernel | null),
-      this.kernel as Kernel | null,
+      readMigrationEnv(this.appKernel),
+      this.appKernel,
       { allowMigrateUrl },
     );
     if (resolution.kind !== "ready") {
@@ -339,7 +339,7 @@ export abstract class OrmMigrateCommand extends Command {
     resolution: Extract<IConnectorResolution, { kind: "ready" }>,
     config: IDrizzleConfig,
   ): Promise<DrizzleMigrator> {
-    return buildMigrator(resolution, config, this.kernel as Kernel | null);
+    return buildMigrator(resolution, config, this.appKernel);
   }
 
   /**
@@ -362,13 +362,7 @@ export abstract class OrmMigrateCommand extends Command {
     config: IDrizzleConfig,
     migrator: DrizzleMigrator,
   ): Promise<IMigrationReport> {
-    return composeReport(
-      plan,
-      resolution,
-      config,
-      this.kernel as Kernel | null,
-      migrator,
-    );
+    return composeReport(plan, resolution, config, this.appKernel, migrator);
   }
 
   protected failFrom(
@@ -490,5 +484,32 @@ export abstract class OrmMigrateCommand extends Command {
   /** Le CLI courant, typé — utilisé pour les réglages de boot silencieux. */
   protected get cliKernel(): CliKernel {
     return this.cli as CliKernel;
+  }
+
+  /**
+   * Le kernel de l'application, typé — la SEULE conversion des commandes `orm:*`.
+   *
+   * `Service.kernel` est déclaré `IKernel` ; une commande de ce module tourne
+   * toujours dans un `Kernel` complet (racine, modules, environnement). Le dire
+   * une fois ici plutôt qu'à chaque appel, où la conversion se recopiait.
+   */
+  protected get appKernel(): Kernel | null {
+    return this.kernel as Kernel | null;
+  }
+
+  /**
+   * Le kernel de l'application, exigé.
+   *
+   * @throws Error hors kernel — inatteignable pour une commande de module, mais
+   *   dit en clair plutôt qu'en `Cannot read properties of null`.
+   */
+  protected get requiredKernel(): Kernel {
+    const kernel = this.appKernel;
+    if (kernel === null) {
+      throw new Error(
+        `[@nodefony/drizzle] « ${this.name} » s'exécute hors d'un kernel : la racine de l'application est inconnue.`,
+      );
+    }
+    return kernel;
   }
 }
