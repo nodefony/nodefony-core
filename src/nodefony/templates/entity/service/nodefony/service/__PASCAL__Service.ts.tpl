@@ -1,5 +1,8 @@
 import { AbstractCrudService, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
+<% if (it.serialKey) { %>
+import { canonicalIntegerKey } from "@nodefony/drizzle";
+<% } %>
 import type { PartialInput } from "nodefony";
 import type { <%= it.pascal %>Row } from "../entity/<%= it.pascal %>";
 import {
@@ -102,7 +105,16 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
     data: PartialInput<<%= it.pascal %>Row>,
   ): Promise<<%= it.pascal %>Row | null> {
     const complete = create<%= it.pascal %>Schema.parse(data);
+<% if (it.serialKey) { %>
+    // Clé serial : le chemin porte un texte, la ligne un entier — converti par
+    // la règle de la colonne, qui refuse « 1abc » (404) au lieu de l'arrondir.
+    return this.updateOne(
+      { id: canonicalIntegerKey(id, "<%= it.table %>.id") },
+      complete,
+    );
+<% } else { %>
     return this.updateOne({ id }, complete);
+<% } %>
   }
 }
 

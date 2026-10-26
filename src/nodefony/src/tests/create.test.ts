@@ -8885,6 +8885,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(hit, "counter: Number(refs.Counter ??");
       assert.include(hit, "Number(refs.Counter) })");
+      // `replace` passe un critère TYPÉ par la ligne : pour une clé serial,
+      // `{ id }` (texte du chemin) ne compilait pas — et aucun banc ne
+      // compilait l'application générée pour le voir (#683).
+      const counterService = readFileSync(
+        path.join(dest, "nodefony", "service", "CounterService.ts"),
+        "utf8",
+      );
+      assert.include(
+        counterService,
+        'import { canonicalIntegerKey } from "@nodefony/drizzle";',
+      );
+      assert.include(
+        counterService,
+        '{ id: canonicalIntegerKey(id, "counters.id") }',
+      );
+      const authorService = readFileSync(
+        path.join(dest, "nodefony", "service", "AuthorService.ts"),
+        "utf8",
+      );
+      assert.notInclude(authorService, "canonicalIntegerKey");
+      assert.include(authorService, "this.updateOne({ id }, complete);");
     });
 
     it("sans horodatage, l'ordre par défaut retombe sur l'id (jamais rien)", () => {
@@ -9001,6 +9022,29 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const notes = (r.notes ?? []).join("\n");
       assert.include(notes, "écrite NATIVE sqlite : elle vise Author");
       assert.include(notes, "régénérer Author");
+    });
+
+    // Le sens inverse : une table native (`--dialect`) qui vise une entité
+    // PORTABLE. `authorTable.id` y valait `undefined` — la description ne porte
+    // pas de colonnes —, et le démarrage tombait dans la construction de la clé
+    // étrangère (banc de portabilité, #683).
+    it("table NATIVE vers une entité PORTABLE : la colonne se lit sur la table du dialecte", () => {
+      const dest = app("eapp4fkp");
+      entity(dest, { name: "Author", fields: "email:string" });
+      entity(dest, {
+        name: "Post",
+        fields: "title:string author:ref:Author",
+        dialect: "sqlite",
+      });
+      const ent = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      assert.include(
+        ent,
+        '.references(() => authorTable.table("sqlite").id, { onDelete: "restrict" })',
+      );
+      assert.notInclude(ent, "() => authorTable.id");
     });
 
     // Une entité sans champ produit un CRUD qui « marche » et ne transporte rien.

@@ -1363,6 +1363,13 @@ export function buildEntityCodegen(
      * annotation de type, faute de quoi le fichier généré ne compile pas.
      */
     entity?: string;
+    /**
+     * Entités visées dont le fichier est une description PORTABLE (`defineTable`).
+     *
+     * Leur colonne se lit sur la table du dialecte (`bookTable.table("sqlite").id`) :
+     * la description n'en porte aucune, et `bookTable.id` vaudrait `undefined`.
+     */
+    portableTargets?: ReadonlySet<string>;
   },
 ): IEntityCodegen {
   const { dialect, id, timestamps, softDelete, table } = options;
@@ -1418,7 +1425,9 @@ export function buildEntityCodegen(
       }
       const arrow = self
         ? `(): ${ANY_COLUMN[dialect]} => ${targetTable}.id`
-        : `() => ${targetTable}.id`;
+        : options.portableTargets?.has(field.target)
+          ? `() => ${targetTable}.table("${dialect}").id`
+          : `() => ${targetTable}.id`;
       references = `.references(${arrow}, { onDelete: "${onDelete}" })`;
     }
     let col =

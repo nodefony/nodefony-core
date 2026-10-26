@@ -5496,9 +5496,28 @@ function runEntityScaffold(
         );
       });
   const portable = !mongo && !answers.dialect && nativeTargets.length === 0;
+  // Une table NATIVE peut viser une entité PORTABLE (`--dialect` explicite) :
+  // la cible est alors une description, et sa colonne se lit sur la table du
+  // dialecte — `bookTable.id` y vaudrait `undefined`, et le démarrage tomberait
+  // dans la construction de la clé étrangère.
+  const portableTargets = new Set(
+    fields.flatMap((f) => {
+      if (f.type !== "ref" || !f.target || f.target === pascal) return [];
+      const file = path.join(
+        target.dir,
+        "nodefony",
+        "entity",
+        `${f.target}.ts`,
+      );
+      return writer.exists(file) && isPortableEntitySource(writer.read(file))
+        ? [f.target]
+        : [];
+    }),
+  );
   const sqlOptions = {
     dialect,
     id,
+    portableTargets,
     timestamps,
     softDelete,
     table,
@@ -5819,6 +5838,10 @@ function runEntityScaffold(
     // lisent pour choisir leur branche (le test unitaire n'ouvre aucune base).
     dialect: mongo ? "mongodb" : dialect,
     mongo,
+    // Clé ENTIÈRE : l'identifiant du chemin est un texte, la ligne porte un
+    // nombre. Le service le convertit par la règle de la colonne
+    // (`canonicalIntegerKey`) — jamais `Number()`, qui accepte « 1.0 » et « 1 ».
+    serialKey: !mongo && id === "serial",
     ormModule: ORM_MODULE[orm],
     // Le gabarit de service sépare le nom de la CLASSE de celui de l'ENTITÉ :
     // `create service <Nom> --entity <Entité>` rend le même fichier sous un

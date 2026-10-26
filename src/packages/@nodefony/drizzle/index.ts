@@ -182,7 +182,10 @@ export {
   isPortableTable,
   jsonType,
 } from "./nodefony/entity/colKit";
-export { ColumnValueError } from "./nodefony/entity/colKit.codecs";
+export {
+  ColumnValueError,
+  canonicalIntegerKey,
+} from "./nodefony/entity/colKit.codecs";
 export type { ColumnValueKind } from "./nodefony/entity/colKit.codecs";
 export type {
   ColumnKind,
