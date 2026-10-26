@@ -136,6 +136,40 @@ describe("parsePageQuery — tri", () => {
     expect(parsePageQuery({}).order).to.equal(undefined);
   });
 
+  // Sans départage, l'ordre des ex æquo appartient au moteur : SQLite,
+  // PostgreSQL et MySQL en rendent chacun un, et la page 2 d'un moteur peut
+  // remontrer une ligne de la page 1.
+  it("tieBreaker : ajouté en dernière clé, dans le SENS de la dernière clé demandée", () => {
+    const opts = { sortable: [...sortable, "id"], tieBreaker: "id" };
+    expect(parsePageQuery({ order: "name:ASC" }, opts).order).to.deep.equal([
+      ["name", "ASC"],
+      ["id", "ASC"],
+    ]);
+    expect(
+      parsePageQuery({ order: "createdAt:ASC,name:DESC" }, opts).order,
+    ).to.deep.equal([
+      ["createdAt", "ASC"],
+      ["name", "DESC"],
+      ["id", "DESC"],
+    ]);
+  });
+
+  it("tieBreaker : jamais dupliqué quand le client trie déjà sur lui", () => {
+    const opts = { sortable: [...sortable, "id"], tieBreaker: "id" };
+    expect(
+      parsePageQuery({ order: "id:DESC,name:ASC" }, opts).order,
+    ).to.deep.equal([
+      ["id", "DESC"],
+      ["name", "ASC"],
+    ]);
+  });
+
+  it("tieBreaker : aucun tri demandé → rien d'inventé (l'ordre par défaut reste à l'appelant)", () => {
+    expect(parsePageQuery({}, { sortable, tieBreaker: "id" }).order).to.equal(
+      undefined,
+    );
+  });
+
   it("order vide → absent (pas un tableau vide)", () => {
     expect(parsePageQuery({ order: "" }, { sortable }).order).to.equal(
       undefined,

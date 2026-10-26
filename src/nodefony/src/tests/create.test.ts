@@ -8788,6 +8788,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         'import { parsePageQuery, parseFilters } from "nodefony"',
       );
       assert.include(src, "sortable: SORTABLE");
+      // Le tri du CLIENT se départage aussi par la clé : `?order=name:ASC` sur
+      // des noms égaux rendait un ordre différent par moteur (banc de
+      // portabilité, #683).
+      assert.include(src, 'tieBreaker: "id"');
       assert.notInclude(
         src,
         "function parseSort",

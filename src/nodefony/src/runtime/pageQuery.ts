@@ -59,6 +59,28 @@ export interface IParsePageQueryOptions {
    *   jamais elle ne se suppose.
    */
   searchable?: boolean;
+
+  /**
+   * Champ UNIQUE ajouté en dernière clé d'un tri demandé par le client, quand
+   * celui-ci ne le porte pas déjà — en général la clé primaire (`"id"`).
+   *
+   * @remarks Sans lui, `?order=name:ASC` laisse l'ordre des ex æquo au moteur :
+   *   chacun rend le sien (SQLite, PostgreSQL et MySQL divergent sur la même
+   *   table), et il peut changer d'une requête à l'autre — la page 2 remontre
+   *   une ligne déjà vue, ou en saute une, sans que rien ne le signale.
+   *   La clé ajoutée prend le SENS de la dernière clé demandée : un index sur
+   *   la colonne triée se lit alors d'un seul balayage, dans un sens comme dans
+   *   l'autre — un sens mêlé (`name ASC, id DESC`) forcerait MySQL à retrier.
+   *   Coût mesuré (200 000 lignes, index sur la colonne triée) : nul sur MySQL
+   *   et MariaDB, dont l'index secondaire porte déjà la clé primaire ; nul sur
+   *   SQLite pour une clé `serial` ; un tri partiel des seuls ex æquo sur
+   *   PostgreSQL et SQLite à clé uuid, qui ne se voit qu'en pagination profonde
+   *   (offset 10 000 : 2,8 → 6,3 ms) et qu'un index composite `(colonne, id)`
+   *   efface. Le champ doit être triable par le store : le déclarer aussi dans
+   *   {@link IParsePageQueryOptions.sortable} quand le store filtre le tri sur
+   *   cette liste (`pickOrder`).
+   */
+  tieBreaker?: string;
 }
 
 /**
@@ -215,7 +237,7 @@ const parseOrder = (
  * | `limit`      | `?limit=20`                 | borné à `[1, maxLimit]`, défaut `defaultLimit` |
  * | `offset`     | `?offset=40`                | `≥ 0` (négatif ou invalide → absent)        |
  * | `cursor`     | `?cursor=abc`               | posé si non vide                            |
- * | `order`      | `?order=name:ASC,age:DESC`  | validé contre `sortable`                    |
+ * | `order`      | `?order=name:ASC,age:DESC`  | validé contre `sortable`, départagé par `tieBreaker` |
  * | `withTotal`  | `?withTotal=false`          | posé **seulement** si `false` (défaut `true`) |
  * | `q`          | `?q=jean`                   | trimé, posé si non vide — **refusé** sans `searchable` |
  *
@@ -265,7 +287,13 @@ export function parsePageQuery(
   const rawOrder = one(source, "order");
   if (rawOrder) {
     const order = parseOrder(rawOrder, options.sortable);
-    if (order) query.order = order;
+    if (order) {
+      const tie = options.tieBreaker;
+      if (tie !== undefined && !order.some(([field]) => field === tie)) {
+        order.push([tie, order[order.length - 1]?.[1] ?? "ASC"]);
+      }
+      query.order = order;
+    }
   }
 
   // Seul `false` explicite désactive le total : toute autre valeur laisse le

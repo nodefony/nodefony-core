@@ -213,6 +213,9 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
       defaultLimit: PAGE_SIZE,
       maxLimit: PAGE_MAX,
       sortable: SORTABLE,
+      // Un tri demandé se départage par la clé : sans elle, l'ordre des ex æquo
+      // appartient à la base, et la page 2 peut remontrer une ligne de la page 1.
+      tieBreaker: "id",
     });
     // Les filtres DÉCLARÉS, et eux seuls. Ce que `FILTERS` ne nomme pas est refusé
     // en 400 plutôt que rendu non filtré : un critère accepté puis jeté produit une
