@@ -546,6 +546,149 @@ jobs:
           if-no-files-found: ignore
 
   # ───────────────────────────────────────────────────────────────────────────
+  # LA BASCULE — une application NÉE en SQLite change-t-elle de base ?
+  #
+  # Le job du dessus crée une application PAR moteur : il ne joue pas la
+  # promesse « SQLite pour commencer, une vraie base ensuite ». Celui-ci la joue
+  # (`bench-portability.mjs`) : la MÊME application passe de SQLite à
+  # PostgreSQL, MySQL 8.4, MariaDB 11.4 et revient, puis reçoit deux champs et
+  # les migre sur chaque moteur.
+  #
+  # UN job et pas une matrice, et c'est le fond de la preuve : trois passes
+  # feraient trois applications, et l'on perdrait ce que seul le voyage montre —
+  # MariaDB doit appliquer la migration écrite pendant la passe MySQL sans en
+  # réclamer une autre, et le retour sur SQLite doit retrouver ses lignes.
+  #
+  # Aucun moteur ne peut être SAUTÉ en silence : le banc n'a pas de chemin de
+  # saut — un serveur injoignable fait échouer l'étape qui recrée ses bases, donc
+  # le run. Les trois sont nommés en clair pour qu'un défaut du banc ne puisse
+  # pas en retirer un.
+  #
+  # Identifiants : ceux du compose du dépôt (`docker/docker-compose.yml`), qui
+  # sont les administrateurs PAR DÉFAUT du banc — aucun `--admin-<moteur>` à
+  # passer, donc aucune seconde copie à tenir. Les images viennent du catalogue
+  # du générateur (`src/tests/ciGateVars.test.ts`).
+  portabilite:
+    name: Bascule d'une app née en SQLite (3 moteurs serveur)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        credentials:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+        ports:
+          - "127.0.0.1:5432:5432"
+        env:
+          POSTGRES_USER: nodefony
+          POSTGRES_PASSWORD: nodefony-dev
+          POSTGRES_DB: nodefony
+        options: >-
+          --health-cmd "pg_isready -U nodefony -d nodefony"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4
+        credentials:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+        ports:
+          - "127.0.0.1:3307:3306"
+        env:
+          MYSQL_ROOT_PASSWORD: nodefony-dev
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pnodefony-dev --silent"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mariadb:
+        image: mariadb:11.4
+        credentials:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+        ports:
+          - "127.0.0.1:3306:3306"
+        env:
+          MARIADB_ROOT_PASSWORD: nodefony-dev
+        # `healthcheck.sh` est l'outil officiel de l'image ; `--innodb_initialized`
+        # attend l'initialisation du moteur, pas seulement l'ouverture du port.
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Connexion Docker Hub (quota du compte, pas celui de l'IP partagée)
+        uses: ./.github/actions/dockerhub-login
+        with:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          token: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces (turbo)
+        run: npm run build
+
+      - name: Générer le graphe symbolique (absent d'un checkout frais)
+        run: npm run generate-symbols
+
+      - name: Banc de portabilité — SQLite → PostgreSQL → MySQL → MariaDB → SQLite
+        shell: bash
+        run: |
+          set -eo pipefail
+          node .claude/skills/nodefony-devkit-bench/scripts/bench-portability.mjs \
+            --database postgres --database mysql --database mariadb --keep 2>&1 \
+            | tee bench-portability.log
+
+      - name: Récupérer le rapport et les journaux du banc (si échec)
+        if: failure()
+        shell: bash
+        run: |
+          node -e "
+          const os = require('node:os');
+          const path = require('node:path');
+          const fs = require('node:fs');
+          const base = path.join(os.tmpdir(), 'nodefony-devkit-verify-portability');
+          const out = 'portabilite';
+          fs.mkdirSync(out, { recursive: true });
+          for (const nom of ['report.json', 'journaux', 'instantanes']) {
+            const src = path.join(base, nom);
+            if (fs.existsSync(src)) fs.cpSync(src, path.join(out, nom), { recursive: true });
+            else console.log('aucun ' + nom + ' a ' + base);
+          }
+          "
+          for id in $(docker ps -aq); do
+            nom=$(docker inspect --format '{{.Name}}' "$id" | tr -d '/')
+            echo "===== $nom ($id) =====" >> portabilite/services-db.log
+            docker logs --tail 400 "$id" >> portabilite/services-db.log 2>&1 || true
+          done
+
+      - name: Journal et rapport (si échec)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portabilite
+          path: |
+            bench-portability.log
+            portabilite/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ───────────────────────────────────────────────────────────────────────────
   # LE VERDICT — un moteur non lancé ne compte pas comme vert.
   #
   # Sans ce job, une matrice qui ne DÉMARRE pas (annulation, service qui ne
@@ -556,7 +699,7 @@ jobs:
   verdict:
     name: Trois moteurs exercés
     runs-on: ubuntu-latest
-    needs: [generated, dialectes]
+    needs: [generated, dialectes, portabilite]
     if: always()
     steps:
       - name: Chaque moteur a rendu un verdict
@@ -564,7 +707,8 @@ jobs:
         run: |
           echo "sqlite (3 systèmes) : ${{ needs.generated.result }}"
           echo "postgres + mysql    : ${{ needs.dialectes.result }}"
-          for r in "${{ needs.generated.result }}" "${{ needs.dialectes.result }}"; do
+          echo "bascule 3 moteurs   : ${{ needs.portabilite.result }}"
+          for r in "${{ needs.generated.result }}" "${{ needs.dialectes.result }}" "${{ needs.portabilite.result }}"; do
             if [ "$r" != "success" ]; then
               echo "::error::un moteur n'a pas été exercé avec succès ($r)"
               exit 1

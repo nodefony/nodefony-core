@@ -107,7 +107,7 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 | `orm.yml` | Coupures réelles de base | le produit survit à une base qui tombe en cours de route | PostgreSQL, MySQL, MongoDB, `NF_RUN_DB_OUTAGE` |
 | `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
-| `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **autres moteurs** (une application par moteur, ubuntu) — MongoDB compris, où les étapes propres aux entités SQL sont annoncées sautées | PostgreSQL, MySQL, MongoDB en jeu de réplicas (job `dialectes`) |
+| `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **autres moteurs** (une application par moteur, ubuntu) — MongoDB compris, où les étapes propres aux entités SQL sont annoncées sautées ; enfin la **bascule** : UNE application née en SQLite passe à PostgreSQL, MySQL, MariaDB et revient, puis migre deux champs ajoutés sur chacun | PostgreSQL, MySQL, MongoDB en jeu de réplicas (job `dialectes`) ; PostgreSQL, MySQL 8.4, MariaDB 11.4 (job `portabilite`) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
 | `soak.yml` | Charge continue et RSS | la mémoire RÉSIDENTE sous trente minutes de charge — ce que le gate mémoire, qui mesure le tas sur mille requêtes, ne voit pas ; publie le coût par million de requêtes servies, pas encore un gate (aucun seuil étalonné par plateforme) — hebdomadaire + manuel | serveur `--expose-gc` + `wrk`, ubuntu |
 | `secrets.yml` | Aucun secret dans l'arbre | `gitleaks` sur l'arbre ET l'historique — le scanner se prouve d'abord sur un témoin planté | — |
@@ -344,6 +344,10 @@ node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
 npm run build
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --link  # boucle courte, verdict AMPUTÉ
+
+# Job « Bascule » (portabilite) de scaffold.yml — les trois serveurs du compose
+docker compose -f docker/docker-compose.yml --profile postgres --profile mysql --profile mariadb up -d postgres mysql mariadb
+node .claude/skills/nodefony-devkit-bench/scripts/bench-portability.mjs
 ```
 
 > ⚠️ `--link` n'est **pas** ce que joue la forge, et la différence n'est pas de
