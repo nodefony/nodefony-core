@@ -734,6 +734,48 @@ export class DrizzleOrm extends Orm {
     return { ordered, skip };
   }
 
+  /**
+   * Crée TOUTES les tables du plan, et nomme chaque table refusée.
+   *
+   * S'arrêter à la première table refusée cachait les suivantes : sur un schéma
+   * de centaines d'entités, chaque démarrage n'en révélait qu'une. L'erreur
+   * levée reste celle du PILOTE — classe et code intacts, que lit le diagnostic
+   * de connexion — et seul son message est complété de la liste entière. Une
+   * table qui désigne une table refusée échoue à son tour : elle est nommée
+   * aussi, c'est un fait.
+   *
+   * @param steps - pour chaque table, dans l'ordre de création, son nom et sa création.
+   * @throws La première erreur du pilote, son message portant tous les échecs.
+   */
+  async #createAll(
+    steps: readonly { name: string; run: () => unknown }[],
+  ): Promise<void> {
+    let first: unknown = null;
+    let failures: string[] | null = null;
+    for (const step of steps) {
+      try {
+        await step.run();
+      } catch (error) {
+        if (failures === null) {
+          first = error;
+          failures = [];
+        }
+        failures.push(
+          `${step.name} : ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    if (failures === null) {
+      return;
+    }
+    if (first instanceof Error) {
+      first.message =
+        `${failures.length} table(s) refusée(s) par la base à la création du ` +
+        `schéma dérivé :\n- ${failures.join("\n- ")}`;
+    }
+    throw first;
+  }
+
   /** Dérive le `CREATE TABLE` SQLite depuis la table Drizzle (dev/test). */
   #createTableSQL(table: SQLiteTable, skip?: ReadonlySet<string>): string {
     const { name, columns, checks, foreignKeys } = getTableConfig(table);
@@ -1079,11 +1121,17 @@ export class DrizzleOrm extends Orm {
         ),
       };
     });
-    for (const entity of plan.ordered) {
-      const table = this.#dialectTable(entity, "sqlite");
-      const name = getTableConfig(table).name;
-      client.exec(this.#createTableSQL(table, plan.skip.get(name)));
-    }
+    await this.#createAll(
+      plan.ordered.map((entity) => {
+        const table = this.#dialectTable(entity, "sqlite");
+        const name = getTableConfig(table).name;
+        return {
+          name,
+          run: () =>
+            client.exec(this.#createTableSQL(table, plan.skip.get(name))),
+        };
+      }),
+    );
   }
 
   /**
@@ -1494,11 +1542,17 @@ export class DrizzleOrm extends Orm {
         ),
       };
     });
-    for (const entity of plan.ordered) {
-      const table = this.#dialectTable(entity, "postgres");
-      const name = getPgTableConfig(table).name;
-      await pool.query(this.#createTablePgSQL(table, plan.skip.get(name)));
-    }
+    await this.#createAll(
+      plan.ordered.map((entity) => {
+        const table = this.#dialectTable(entity, "postgres");
+        const name = getPgTableConfig(table).name;
+        return {
+          name,
+          run: () =>
+            pool.query(this.#createTablePgSQL(table, plan.skip.get(name))),
+        };
+      }),
+    );
   }
 
   /**
@@ -1765,11 +1819,17 @@ export class DrizzleOrm extends Orm {
         ),
       };
     });
-    for (const entity of plan.ordered) {
-      const table = this.#dialectTable(entity, "mysql");
-      const name = getMysqlTableConfig(table).name;
-      await pool.query(this.#createTableMysqlSQL(table, plan.skip.get(name)));
-    }
+    await this.#createAll(
+      plan.ordered.map((entity) => {
+        const table = this.#dialectTable(entity, "mysql");
+        const name = getMysqlTableConfig(table).name;
+        return {
+          name,
+          run: () =>
+            pool.query(this.#createTableMysqlSQL(table, plan.skip.get(name))),
+        };
+      }),
+    );
   }
 
   async disconnect(): Promise<void> {

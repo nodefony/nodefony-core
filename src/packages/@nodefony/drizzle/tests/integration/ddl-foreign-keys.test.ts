@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { DrizzleOrm } from "../../index";
 import { entityRegistry, ormRegistry, defineEntity } from "@nodefony/orm-core";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
@@ -264,5 +265,52 @@ describe("DDL de développement — un cycle est posé, et DIT", () => {
         throw new Error(`« ${attendu} » absent de : ${message}`);
       }
     }
+  });
+});
+
+describe("DDL de développement — chaque table refusée est NOMMÉE, pas la première seule", () => {
+  const ORM = "test-ddl-refused";
+  // Deux propriétés sur la MÊME colonne : la base refuse le `CREATE TABLE`.
+  const brokenA = sqliteTable("ddl_broken_a", {
+    id: text("id").primaryKey(),
+    one: text("twice"),
+    two: text("twice"),
+  });
+  const healthy = sqliteTable("ddl_healthy", { id: text("id").primaryKey() });
+  const brokenB = sqliteTable("ddl_broken_b", {
+    id: text("id").primaryKey(),
+    one: text("twice"),
+    two: text("twice"),
+  });
+  const entities = [
+    ["DdlBrokenA", brokenA],
+    ["DdlHealthy", healthy],
+    ["DdlBrokenB", brokenB],
+  ] as const;
+
+  afterAll(() => {
+    for (const [name] of entities) entityRegistry.unregister(name, ORM);
+    ormRegistry.unregister(ORM);
+  });
+
+  it("la connexion lève l'erreur du PILOTE, son message porte toutes les tables refusées", async () => {
+    for (const [name, schema] of entities) {
+      entityRegistry.register({
+        ...defineEntity({ name, module: "test", schema }),
+        connector: ORM,
+      });
+    }
+    const orm = new DrizzleOrm(ORM, { filename: ":memory:" });
+    const error: unknown = await orm.connect().then(
+      () => null,
+      (e: unknown) => e,
+    );
+    assert.ok(error instanceof Error, "la connexion devait échouer");
+    // Le diagnostic de connexion lit le code du pilote : il doit survivre.
+    assert.equal("code" in error ? error.code : undefined, "SQLITE_ERROR");
+    assert.match(error.message, /2 table\(s\) refusée\(s\)/u);
+    assert.match(error.message, /ddl_broken_a : /u);
+    assert.match(error.message, /ddl_broken_b : /u);
+    assert.doesNotMatch(error.message, /ddl_healthy/u);
   });
 });

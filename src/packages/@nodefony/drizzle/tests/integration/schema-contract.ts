@@ -86,6 +86,39 @@ function generateMigration(
   });
 }
 
+/**
+ * La table que vise une instruction de migration (`CREATE TABLE x`,
+ * `ALTER TABLE x`, `CREATE INDEX … ON x`), pour nommer un refus.
+ */
+export function statementTarget(statement: string): string {
+  const match =
+    /\b(?:TABLE|ON)\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([\w$]+)[`"]?/iu.exec(
+      statement,
+    );
+  return match?.[1] ?? statement.slice(0, 60);
+}
+
+/**
+ * Exécute TOUTES les instructions d'une migration et rend chaque refus, nommé
+ * par sa table : s'arrêter au premier cachait les suivants — une table par
+ * passe du banc de schéma réel.
+ */
+export async function runAllStatements(
+  statements: readonly string[],
+  exec: (statement: string) => Promise<unknown>,
+): Promise<string[]> {
+  const refused: string[] = [];
+  for (const statement of statements) {
+    try {
+      await exec(statement);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      refused.push(`${statementTarget(statement)} : ${message}`);
+    }
+  }
+  return refused;
+}
+
 /** Chaîne de `n` points de code : accent et emoji d'abord, puis `fill`. */
 function codePoints(n: number, fill: string): string {
   return [fill, "é", "🚀", ...Array.from({ length: n }, () => fill)]
@@ -229,9 +262,14 @@ function runSchemaSuite(
       );
     }
     if (opts.schema === "migration") {
-      for (const statement of migration) {
-        await execRaw(orm, dialect, statement);
-      }
+      const refused = await runAllStatements(migration, (statement) =>
+        execRaw(orm, dialect, statement),
+      );
+      assert.deepEqual(
+        refused,
+        [],
+        `${refused.length} instruction(s) de la migration refusée(s) :\n- ${refused.join("\n- ")}`,
+      );
     } else {
       await orm.disconnect();
       await orm.connect();
