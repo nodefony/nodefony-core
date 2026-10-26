@@ -250,7 +250,7 @@ export interface IScaffoldConnectorInfo {
 /** Un type de champ, et ce qu'il devient sur chaque moteur (miroir de `columnTypes`). */
 export interface IScaffoldColumnType {
   type: string;
-  /** Moteur → ce que le générateur écrit (colonne Drizzle, ou définition Mongoose). */
+  /** Moteur → ce que la base reçoit (type SQL et contrainte, ou définition Mongoose). */
   byDialect: Record<string, string>;
 }
 
@@ -339,11 +339,11 @@ export function fieldSyntax(type: string): string {
  */
 export const ENGINE_NOTES: Readonly<Record<string, string>> = {
   sqlite:
-    "Le moteur n'applique aucune longueur : string(120) devient un text. C'est le schéma d'entrée qui borne les valeurs, sur tous les transports.",
+    "Le type ne porte aucune longueur : string(120) devient un text(120) qu'une contrainte CHECK borne en base, et le schéma d'entrée avant elle, sur tous les transports.",
   postgres:
     "Types stricts : une référence prend le type exact de la clé visée (uuid, entier, texte pour User). Le schéma de production s'applique par orm:generate puis orm:migrate.",
   mysql:
-    "Les dates sont en datetime(3) (timestamp s'arrête en 2038). Le schéma de production s'applique par orm:generate puis orm:migrate.",
+    "Les dates sont en datetime(3) (timestamp s'arrête en 2038), une valeur d'énumération tient en 64 caractères. Le schéma de production s'applique par orm:generate puis orm:migrate.",
   mongodb:
     "Ni clé étrangère ni migration : une relation est un ObjectId chargé par ?include=, et supprimer un parent n'est jamais refusé. Les options SQL (table, casse des colonnes, index composites) sont refusées.",
 };

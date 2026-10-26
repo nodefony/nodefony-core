@@ -9029,7 +9029,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const json = ctx.columnTypes.find((t) => t.type === "json");
       assert.isDefined(json);
       assert.include(json.byDialect.postgres, "jsonb");
-      assert.include(json.byDialect.sqlite, 'mode: "json"');
+      assert.equal(json.byDialect.sqlite, "text");
     });
 
     it("hors projet, le contexte est nul plutôt qu'inventé", () => {

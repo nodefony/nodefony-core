@@ -508,24 +508,12 @@ describe("create entity — les EXEMPLES écrits se parsent", () => {
   });
 });
 
-/** Nom SQL de chaque constructeur Drizzle — ce qu'une table de doc doit écrire. */
-const DRIZZLE_SQL: Readonly<Record<string, string>> = {
-  text: "text",
-  integer: "integer",
-  int: "int",
-  real: "real",
-  doublePrecision: "double",
-  double: "double",
-  numeric: "numeric",
-  decimal: "decimal",
-  varchar: "varchar",
-  char: "char",
-  boolean: "boolean",
-  jsonb: "jsonb",
-  json: "json",
-  timestamp: "timestamptz",
-  datetime: "datetime",
-  uuid: "uuid",
+/**
+ * Abréviation qu'une table de doc peut écrire pour un type SQL que le moteur
+ * nomme en long — `timestamptz(3)` pour `timestamp (3) with time zone`.
+ */
+const SQL_ALIAS: Readonly<Record<string, string>> = {
+  "timestamptz(3)": "timestamp (3) with time zone",
 };
 
 // Deux copies de la table, pour deux lecteurs : le skill (livré par npm, lu par
@@ -552,17 +540,29 @@ for (const [label, file] of [
       );
     });
 
-    it("chaque cellule SQL nomme le type que le générateur émet, moteur par moteur", () => {
+    it("chaque cellule SQL nomme le type que la base reçoit, moteur par moteur", () => {
       const columns = ["sqlite", "postgres", "mysql"] as const;
       const drift: string[] = [];
       for (const { type, byDialect } of describeColumnTypes()) {
         if (type === "ref") continue; // dépend de la clé VISÉE : la note ³ le dit
         columns.forEach((dialect, i) => {
-          const fn = /^(\w+)\(/u.exec(byDialect[dialect] ?? "")?.[1] ?? "";
-          const written = firstTick(rows.get(type)?.[i] ?? "");
-          if (DRIZZLE_SQL[fn] !== written) {
+          const announced = byDialect[dialect] ?? "";
+          const cell = rows.get(type)?.[i] ?? "";
+          // Une largeur LITTÉRALE (`varchar(64)`) se compare entière ; une
+          // largeur nommée (`varchar(n)`) ne dit que le type.
+          const tick = /`([^`]+)`/u.exec(cell)?.[1] ?? "";
+          const [written, sql] = /\(\d+(, ?\d+)?\)/u.test(tick)
+            ? [SQL_ALIAS[tick] ?? tick, announced.split(" + ")[0]]
+            : [firstTick(cell), /^[a-z]+/u.exec(announced)?.[0] ?? ""];
+          if (written !== sql) {
             drift.push(
-              `${type} × ${dialect} : doc « ${written} », générateur ${fn} → ${DRIZZLE_SQL[fn]}`,
+              `${type} × ${dialect} : doc « ${tick} », générateur « ${announced} »`,
+            );
+          }
+          // Une contrainte posée en base se dit dans la table, ou pas du tout.
+          if (announced.includes("CHECK") !== cell.includes("CHECK")) {
+            drift.push(
+              `${type} × ${dialect} : CHECK — doc « ${cell} », générateur « ${announced} »`,
             );
           }
         });

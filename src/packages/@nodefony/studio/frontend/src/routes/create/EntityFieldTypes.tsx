@@ -2,8 +2,8 @@
  * Panneau « Types de champ » de l'écran « Créer » — type `entity` seulement.
  *
  * Il montre ce que le générateur ÉCRIRA pour chaque type, sur le moteur de
- * l'application : la table vient du serveur (`context.columnTypes`, dérivée du
- * générateur lui-même), rien n'est recopié ici. Seules la syntaxe à taper et les
+ * l'application : la table vient du serveur (`context.columnTypes`, confrontée au
+ * DDL du kit de colonnes), rien n'est recopié ici. Seules la syntaxe à taper et les
  * limites de chaque moteur sont rédigées — elles décrivent la grammaire, pas un état.
  */
 import { useState } from "react";

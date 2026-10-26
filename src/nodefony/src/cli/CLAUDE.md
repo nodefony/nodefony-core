@@ -977,7 +977,10 @@ jamais refusé.
 
 **Les copies du générateur sont GARDÉES** (`entityMongoose.test.ts`) : tout exemple `create entity …`
 écrit dans les gabarits, l'aide, les skills et la doc passe le VRAI parseur, et la table des types du
-skill `nodefony-add-crud` est confrontée à `describeColumnTypes()` sur les quatre moteurs. Un exemple
+skill `nodefony-add-crud` est confrontée à `describeColumnTypes()` sur les quatre moteurs. Ce catalogue dit le type SQL que la base REÇOIT pour la description portable :
+`PORTABLE_COLUMN_SQL` (cœur), une COPIE — le cœur ne dépend pas du kit — que
+`drizzle/tests/unit/colkit-generator-parity.test.ts` confronte au DDL du kit, sur une sonde
+elle-même confrontée à la sortie du générateur. Un exemple
 faux enseigne la forme refusée — vécu : `!` dans `AGENTS.md` après #431.
 
 **Un moteur SERVEUR réclame TROIS bases, et le décor les FOURNIT.** `<app>` (le

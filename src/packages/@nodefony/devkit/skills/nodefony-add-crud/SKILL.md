@@ -57,24 +57,25 @@ fixe un défaut LITTÉRAL, `:unique` pose une contrainte d'unicité, `:index` un
 camelCase (`publishedAt`). Une faute de casse ou un type d'un autre outil (`boolean`, `integer`)
 est refusé avec la forme juste proposée.
 
-| Type           | Ce que ça produit             | SQLite          | PostgreSQL       | MySQL / MariaDB | MongoDB                |
-| -------------- | ----------------------------- | --------------- | ---------------- | --------------- | ---------------------- |
-| `string(n)`    | texte court, borné (255)      | `text` ¹        | `varchar(n)`     | `varchar(n)`    | `String` + `maxlength` |
-| `text`         | texte long                    | `text`          | `text`           | `text`          | `String`               |
-| `int`          | entier                        | `integer`       | `integer`        | `int`           | `Number`               |
-| `float`        | nombre à virgule              | `real`          | `double`         | `double`        | `Number`               |
-| `decimal(p,s)` | décimal EXACT (voyage chaîne) | `text`          | `numeric(p,s)`   | `decimal(p,s)`  | `String`               |
-| `bool`         | booléen                       | `integer` (0/1) | `boolean`        | `boolean`       | `Boolean`              |
-| `json`         | document libre                | `text` (JSON)   | `jsonb`          | `json`          | `Mixed`                |
-| `date`         | horodatage (ms)               | `integer` (ms)  | `timestamptz(3)` | `datetime(3)`   | `Date`                 |
-| `uuid`         | identifiant                   | `text`          | `uuid`           | `varchar(36)`   | `String`               |
-| `char(n)`      | longueur EXACTE               | `text` ¹        | `char(n)`        | `char(n)`       | `String`, `n` exact    |
-| `enum(a,b)`    | valeurs admises ²             | `text`          | `varchar(255)`   | `varchar(255)`  | `String` + `enum`      |
-| `ref:<Entité>` | relation ³                    | clé étrangère   | clé étrangère    | clé étrangère   | `ObjectId` + `ref`     |
+| Type           | Ce que ça produit             | SQLite              | PostgreSQL         | MySQL / MariaDB       | MongoDB                |
+| -------------- | ----------------------------- | ------------------- | ------------------ | --------------------- | ---------------------- |
+| `string(n)`    | texte court, borné (255)      | `text(n)` + CHECK ¹ | `varchar(n)`       | `varchar(n)`          | `String` + `maxlength` |
+| `text`         | texte long                    | `text`              | `text`             | `text`                | `String`               |
+| `int`          | entier                        | `integer`           | `integer`          | `int`                 | `Number`               |
+| `float`        | nombre à virgule              | `real`              | `double precision` | `double`              | `Number`               |
+| `decimal(p,s)` | décimal EXACT (voyage chaîne) | `text`              | `numeric(p,s)`     | `decimal(p,s)`        | `String`               |
+| `bool`         | booléen                       | `integer` (0/1)     | `boolean`          | `boolean`             | `Boolean`              |
+| `json`         | document libre                | `text` (JSON)       | `jsonb`            | `json`                | `Mixed`                |
+| `date`         | horodatage (ms)               | `integer` (ms)      | `timestamptz(3)`   | `datetime(3)`         | `Date`                 |
+| `uuid`         | identifiant                   | `text`              | `uuid`             | `varchar(36)`         | `String`               |
+| `char(n)`      | longueur EXACTE               | `text` + CHECK ¹    | `char(n)` + CHECK  | `char(n)` + CHECK     | `String`, `n` exact    |
+| `enum(a,b)`    | valeurs admises ²             | `text` + CHECK      | `text` + CHECK     | `varchar(64)` + CHECK | `String` + `enum`      |
+| `ref:<Entité>` | relation ³                    | clé étrangère       | clé étrangère      | clé étrangère         | `ObjectId` + `ref`     |
 
-¹ SQLite n'applique aucune longueur : c'est le schéma d'entrée (Zod) qui borne, sur TOUS les
-transports. ² Même colonne partout, sans type SQL nommé (qui exigerait une migration) : le type
-TypeScript et le schéma Zod bornent les valeurs. ³ En SQL, la colonne prend le type de la clé
+¹ SQLite ne borne pas un `text` : une contrainte `CHECK` sur la longueur le fait en base, et le
+schéma d'entrée (Zod) avant elle, sur TOUS les transports. ² Aucun type `ENUM` SQL : une colonne
+texte et une contrainte `CHECK` qui liste les valeurs, chacune de 64 caractères au plus ; le type
+TypeScript et le schéma Zod bornent avant la base. ³ En SQL, la colonne prend le type de la clé
 visée (`uuid`, entier pour `--id serial`, texte pour `User`) ; en MongoDB, aucune clé étrangère.
 
 La table exacte, par moteur, telle que CETTE version l'écrit :

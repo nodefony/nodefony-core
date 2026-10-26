@@ -761,17 +761,75 @@ const COLUMN: Record<
 };
 
 /**
+ * Type SQL que la base reçoit pour chaque type de champ d'une entité générée,
+ * moteur par moteur — ce que le kit de colonnes de `@nodefony/drizzle` pose en
+ * migration pour la description portable qu'écrit
+ * {@link buildPortableEntityCodegen}.
+ *
+ * Colonne d'exemple : `string` sans longueur (255), `char(2)`,
+ * `decimal(12,2)`, `enum(a,b)`. « + CHECK » nomme la contrainte que le kit
+ * ajoute là où le type seul ne borne rien.
+ *
+ * RECOPIÉE : le cœur ne peut pas dépendre du kit. Le test
+ * `colkit-generator-parity.test.ts` de `@nodefony/drizzle` la confronte au DDL
+ * que le kit produit réellement à partir de la sortie de ce générateur.
+ */
+export const PORTABLE_COLUMN_SQL: Readonly<
+  Record<TEntityFieldType | "ref", Readonly<Record<TEntityDialect, string>>>
+> = {
+  string: {
+    sqlite: "text(255) + CHECK longueur",
+    postgres: "varchar(255)",
+    mysql: "varchar(255)",
+  },
+  text: { sqlite: "text", postgres: "text", mysql: "text" },
+  int: { sqlite: "integer", postgres: "integer", mysql: "int" },
+  float: { sqlite: "real", postgres: "double precision", mysql: "double" },
+  bool: { sqlite: "integer", postgres: "boolean", mysql: "boolean" },
+  json: { sqlite: "text", postgres: "jsonb", mysql: "json" },
+  date: {
+    sqlite: "integer",
+    postgres: "timestamp (3) with time zone",
+    mysql: "datetime(3)",
+  },
+  uuid: { sqlite: "text", postgres: "uuid", mysql: "varchar(36)" },
+  enum: {
+    sqlite: "text + CHECK valeurs",
+    postgres: "text + CHECK valeurs",
+    mysql: "varchar(64) + CHECK valeurs",
+  },
+  char: {
+    sqlite: "text + CHECK longueur",
+    postgres: "char(2) + CHECK longueur",
+    mysql: "char(2) + CHECK longueur",
+  },
+  decimal: {
+    sqlite: "text",
+    postgres: "numeric(12, 2)",
+    mysql: "decimal(12,2)",
+  },
+  ref: {
+    sqlite: "type de la clé visée",
+    postgres: "type de la clé visée",
+    mysql: "type de la clé visée",
+  },
+};
+
+/**
  * Ce que chaque type de champ devient, dans chaque moteur.
  *
  * Montrer la traduction plutôt que la promettre : `json` devient `jsonb` en
  * PostgreSQL et une colonne texte en SQLite, `string` un `varchar(255)` ici et un
- * `text` là. C'est une information dont dépend le choix de celui qui modélise, et
- * elle n'est déductible d'aucune documentation générique.
+ * `text` borné par CHECK là. C'est une information dont dépend le choix de celui
+ * qui modélise, et elle n'est déductible d'aucune documentation générique.
  *
- * Dérivé de la table de traduction elle-même : impossible que ce catalogue
- * dérive de ce que le générateur produit réellement.
+ * Décrit la sortie PAR DÉFAUT du générateur — la description portable — telle
+ * que la base la reçoit : {@link PORTABLE_COLUMN_SQL}, confrontée au kit. Une
+ * entité forcée en natif (`--dialect`) écrit le Drizzle du moteur, hors de ce
+ * catalogue.
  *
- * @returns un descripteur par type, avec sa colonne Drizzle par dialecte.
+ * @returns un descripteur par type, avec son type SQL par dialecte et sa
+ *   définition Mongoose.
  */
 export function describeColumnTypes(): Array<{
   type: string;
@@ -783,13 +841,7 @@ export function describeColumnTypes(): Array<{
     byDialect: Object.fromEntries([
       ...ENTITY_DIALECTS.map((dialect): [string, string] => [
         dialect,
-        // Colonne d'exemple : le nom importe peu, la FORME est ce qu'on montre.
-        // Les tailles sont fournies pour que `char` et `decimal` se montrent tels
-        // qu'on les écrit vraiment — un `char` sans longueur n'existe pas.
-        COLUMN[dialect][type]("exemple", ["a", "b"], {
-          ...(type === "char" ? { length: 2 } : {}),
-          ...(type === "decimal" ? { precision: 12, scale: 2 } : {}),
-        }),
+        PORTABLE_COLUMN_SQL[type][dialect],
       ]),
       // MongoDB : la définition que {@link buildMongooseEntityCodegen} écrit
       // réellement, relue sur sa sortie — pas une seconde table à tenir.
