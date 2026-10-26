@@ -19,7 +19,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import type { Column, SQL } from "drizzle-orm";
+import type { Column, SQL, SQLWrapper } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -37,6 +37,7 @@ import {
 } from "@nodefony/orm-core";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 import { likeCond } from "../likeSql";
+import { isTextDecimal, numericOperand } from "../../entity/colKit.sqlite";
 import type {
   Criteria,
   FieldOperators,
@@ -152,10 +153,15 @@ const PREPARED_IN_SHAPES_MAX = 32;
 /** Séquence des noms de prepared statements (PG les exige uniques par process). */
 let preparedNameSeq = 0;
 
-/** Comparaison scalaire d'un critère : opérateur portable → prédicat Drizzle. */
+/**
+ * Comparaison scalaire d'un critère : opérateur portable → prédicat Drizzle,
+ * et s'il compare un ORDRE (lu en nombre sur un décimal SQLite, cf
+ * `DrizzleRepository.#compare`).
+ */
 type Comparison = readonly [
   "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte",
-  (left: DrizzleColumn, right: unknown) => SQL,
+  (left: DrizzleColumn | SQL, right: unknown) => SQL,
+  boolean,
 ];
 
 /**
@@ -168,12 +174,12 @@ type Comparison = readonly [
  * qui les rend préparables (≠ `$in`/`$nin`, dont le SQL suit la cardinalité).
  */
 const COMPARISONS: readonly Comparison[] = [
-  ["$eq", eq],
-  ["$ne", ne],
-  ["$gt", gt],
-  ["$gte", gte],
-  ["$lt", lt],
-  ["$lte", lte],
+  ["$eq", eq, false],
+  ["$ne", ne, false],
+  ["$gt", gt, true],
+  ["$gte", gte, true],
+  ["$lt", lt, true],
+  ["$lte", lte, true],
 ];
 
 /**
@@ -576,15 +582,44 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return result;
   }
 
+  /** Vrai pour un décimal que SQLite range en TEXT (ordre à lire en nombre). */
+  #textDecimal(col: DrizzleColumn): boolean {
+    return this.#dialect === "sqlite" && isTextDecimal(col);
+  }
+
+  /**
+   * Prédicat d'une comparaison — UNE traduction pour le chemin direct et le
+   * chemin préparé. Une comparaison d'ORDRE sur un décimal SQLite compare des
+   * nombres : en texte, `"9.5" > "50"` et `"100" < "50"`.
+   */
+  #compare(
+    [, compare, ordering]: Comparison,
+    col: DrizzleColumn,
+    right: SQLWrapper,
+  ): SQL {
+    return ordering && this.#textDecimal(col)
+      ? compare(numericOperand(col), numericOperand(right))
+      : compare(col, right);
+  }
+
+  /** Terme d'`ORDER BY` — numérique sur un décimal SQLite, comme `#compare`. */
+  #orderTerm([field, dir]: [string, "ASC" | "DESC"]): SQL {
+    const col = this.#requireCol(field);
+    const term = this.#textDecimal(col) ? numericOperand(col) : col;
+    return dir === "DESC" ? desc(term) : asc(term);
+  }
+
   /** Empile les conditions d'un objet d'opérateurs riches sur une colonne. */
   #pushOperators(
     conds: SQL[],
     col: DrizzleColumn,
     ops: FieldOperators<unknown>,
   ): void {
-    for (const [op, compare] of COMPARISONS) {
-      const value = ops[op];
-      if (value !== undefined) conds.push(compare(col, value));
+    for (const comparison of COMPARISONS) {
+      const value = ops[comparison[0]];
+      if (value !== undefined) {
+        conds.push(this.#compare(comparison, col, sql.param(value, col)));
+      }
     }
     if (ops.$in !== undefined) conds.push(inArray(col, [...ops.$in]));
     if (ops.$nin !== undefined) conds.push(notInArray(col, [...ops.$nin]));
@@ -776,10 +811,15 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         if (isFieldOperators(value)) {
           // Même table et même ordre que `#pushOperators` — la forme a déjà
           // écarté tout opérateur hors de `PREPARABLE_OPERATORS`.
-          for (const [op, compare] of COMPARISONS) {
+          for (const comparison of COMPARISONS) {
+            const op = comparison[0];
             if (value[op] !== undefined) {
               conds.push(
-                compare(col, sql.param(sql.placeholder(`p${i}${op}`), col)),
+                this.#compare(
+                  comparison,
+                  col,
+                  sql.param(sql.placeholder(`p${i}${op}`), col),
+                ),
               );
             }
           }
@@ -822,11 +862,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     }
     if (options?.order?.length) {
       query = query.orderBy(
-        ...options.order.map(([field, dir]) =>
-          dir === "DESC"
-            ? desc(this.#requireCol(field))
-            : asc(this.#requireCol(field)),
-        ),
+        ...options.order.map((entry) => this.#orderTerm(entry)),
       );
     }
     if (options?.limit !== undefined) {
@@ -914,11 +950,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     }
     if (options?.order?.length) {
       query = query.orderBy(
-        ...options.order.map(([field, dir]) =>
-          dir === "DESC"
-            ? desc(this.#requireCol(field))
-            : asc(this.#requireCol(field)),
-        ),
+        ...options.order.map((entry) => this.#orderTerm(entry)),
       );
     }
     if (options?.limit !== undefined) {

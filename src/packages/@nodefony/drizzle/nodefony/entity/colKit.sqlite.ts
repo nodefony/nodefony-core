@@ -1,5 +1,11 @@
 import { getTableColumns, sql } from "drizzle-orm";
-import type { HasDefault, IsPrimaryKey, NotNull } from "drizzle-orm";
+import type {
+  HasDefault,
+  IsPrimaryKey,
+  NotNull,
+  SQL,
+  SQLWrapper,
+} from "drizzle-orm";
 import {
   check,
   customType,
@@ -154,6 +160,10 @@ function colCodec<K extends string>(
  * Décimal en TEXT — PAS `numeric` : son affinité NUMERIC relit `"12.50"` en
  * `12.5` et 28 chiffres en un flottant arrondi (mesuré). Le codec écrit la
  * forme que PostgreSQL rendrait (`"12.50"`) et refuse ce qui déborde.
+ *
+ * Le prix : comparé tel quel, le texte s'ordonne en ALPHABET (`"9.5"` >
+ * `"100"`). Toute comparaison d'ordre passe donc par {@link numericOperand},
+ * sur les colonnes que {@link isTextDecimal} reconnaît.
  */
 function colDecimal<K extends string>(
   k: K,
@@ -304,6 +314,39 @@ function applyMods(b: Chain, c: ColumnSpec): Chain {
   return out;
 }
 
+/** Colonnes décimales que ce kit range en TEXT — marquées à la construction. */
+const textDecimals = new WeakSet<object>();
+
+/**
+ * Dit si une colonne est un décimal que SQLite range en TEXT, donc qu'une
+ * comparaison d'ordre doit lire par {@link numericOperand}.
+ *
+ * La marque est posée par {@link buildSqliteTable}, jamais déduite du type SQL
+ * (`text` porte aussi les jours et les uuid) ni d'un interne de Drizzle.
+ *
+ * @param column - colonne d'une table SQLite.
+ * @returns `true` pour un décimal du kit.
+ */
+export function isTextDecimal(column: object): boolean {
+  return textDecimals.has(column);
+}
+
+/**
+ * Lit un décimal rangé en TEXT comme un NOMBRE, pour `<`, `>` et `ORDER BY`.
+ *
+ * SEUL point qui porte cette règle (colonne et valeur comparée). Le `REAL` est
+ * exact jusqu'à 15 chiffres significatifs : au-delà, deux montants voisins
+ * peuvent se confondre. SQL pur, donc valable sur tout moteur SQLite (pilote
+ * natif, `node:sqlite`, base distante) ; l'égalité et `IN` restent en texte,
+ * exacts sur la forme canonique.
+ *
+ * @param operand - la colonne, ou la valeur liée qu'on lui compare.
+ * @returns l'expression numérique.
+ */
+export function numericOperand(operand: SQLWrapper): SQL {
+  return sql`CAST(${operand} AS REAL)`;
+}
+
 /**
  * Construit la table SQLite d'une spec.
  *
@@ -315,6 +358,16 @@ export function buildSqliteTable(
   spec: ITableSpec,
   self: () => SQLiteTable,
 ): SQLiteTable {
+  const table = buildTable(spec, self);
+  const built = getTableColumns(table);
+  for (const [k, c] of Object.entries(spec.columns)) {
+    const column = built[k];
+    if (c.kind === "decimal" && column) textDecimals.add(column);
+  }
+  return table;
+}
+
+function buildTable(spec: ITableSpec, self: () => SQLiteTable): SQLiteTable {
   const columns: Record<string, SQLiteColumnBuilderBase> = {};
   for (const [k, c] of Object.entries(spec.columns)) {
     columns[k] = applyMods(baseColumn(k, c, spec, self), c);

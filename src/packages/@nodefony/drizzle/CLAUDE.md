@@ -118,6 +118,14 @@ Deux usages :
   long est alors posée au niveau TABLE, nommée (`boundedForeignKeyName`). Un nom DONNÉ (table,
   index) au-delà de 63 est refusé par `assertTableSpec`. Banc : corpus `erp-lite`
   (`tests/integration/erp-lite-*.test.ts`), qui l'a trouvé.
+- 🔴 **Un `decimal` SQLite est du TEXT : comparé tel quel, il s'ordonne en ALPHABET** (`"9.5"` >
+  `"100"`, `$gt "50"` rate `100`). Le dépôt lit les comparaisons d'ORDRE (`$gt/$gte/$lt/$lte`, via
+  `COMPARISONS` + `#compare`, chemins direct ET préparé) et l'`ORDER BY` (`#orderTerm`) par
+  `numericOperand` (`CAST … AS REAL`, exact ≤ 15 chiffres) sur les colonnes que `isTextDecimal`
+  reconnaît — marque posée par `buildSqliteTable`, jamais déduite du type SQL (`text` porte aussi
+  jour et uuid) ni d'un interne Drizzle. `$eq`/`$in` restent en texte (exact, indexé). Le SQL NATIF
+  (SUM flottant, RANK alphabétique) = divergence DÉCLARÉE (`docs/index.md` § « Le décimal en
+  SQLite »), tenue par `erp-lite-contract.ts`. SQL pur ⇒ survit au pilote `node:sqlite` de Drizzle v1.
 - 🔴 **`grep` sans `-a` rend un faux « rien trouvé »** sur nos fichiers accentués (il les prend
   pour du binaire et se tait). Un contrôle qui en conclut « le symbole n'existe plus » est faux.
 - 🔴 **Passer en WAL une base SQLite NEUVE ouverte par plusieurs processus = `SQLITE_BUSY`
