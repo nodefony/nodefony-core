@@ -13,7 +13,9 @@ import {
   MySqlDialect,
 } from "drizzle-orm/mysql-core";
 import type { MySqlTable } from "drizzle-orm/mysql-core";
+import { eq, getTableColumns } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { ColumnValueError } from "../../nodefony/entity/colKit.codecs";
 import {
   assertTableSpec,
   defineTable,
@@ -669,6 +671,73 @@ describe("colKit — tables portables", () => {
           }),
         /columns "createdAt" and "created_at" are both stored as "created_at"/,
       );
+    });
+  });
+
+  // Sans le codec, MySQL convertit `1abc` en 1 et rend la ligne 1, SQLite ne
+  // trouve rien, PostgreSQL lève `22P02` : trois réponses à `/books/1abc`.
+  describe("clé entière — refusée AVANT la base, sur les trois dialectes", () => {
+    const CHAIN = defineTable({
+      name: "colkit_chain",
+      columns: {
+        id: { kind: "serial", primaryKey: true },
+        parent: { kind: "ref", target: () => PARENT },
+        next: { kind: "ref", target: "self" },
+        label: { kind: "text" },
+      },
+    });
+
+    it("clé serial et références vers une clé serial : écriture décimale stricte, int32", () => {
+      for (const dialect of ["sqlite", "postgres", "mysql"] as const) {
+        const cols = getTableColumns(CHAIN.table(dialect));
+        for (const key of ["id", "parent", "next"] as const) {
+          const col = cols[key];
+          assert.equal(col.mapToDriverValue("42"), 42, `${dialect}.${key}`);
+          assert.equal(col.mapToDriverValue(7), 7);
+          for (const bad of [
+            "1abc",
+            "abc",
+            "1.5",
+            " 1",
+            "",
+            "2147483648",
+            1.5,
+          ]) {
+            assert.throws(
+              () => col.mapToDriverValue(bad),
+              (e: unknown) =>
+                e instanceof ColumnValueError && e.kind === "integer",
+              `${dialect}.${key} doit refuser ${JSON.stringify(bad)}`,
+            );
+          }
+        }
+        // Une colonne qui n'est pas une clé n'est pas touchée.
+        assert.equal(cols.label.mapToDriverValue("1abc"), "1abc");
+      }
+    });
+
+    it("la requête réelle ne part pas — sqlite", async () => {
+      const client = new BetterSqlite3(":memory:");
+      try {
+        const db = drizzle(client);
+        client.exec(
+          `CREATE TABLE "colkit_chain" ("id" integer PRIMARY KEY AUTOINCREMENT, "parent" integer, "next" integer, "label" text)`,
+        );
+        const table = CHAIN.table("sqlite");
+        await db.insert(table).values({ label: "a" });
+        const found = await db.select().from(table).where(eq(table.id, 1));
+        assert.equal(found.length, 1);
+        await assert.rejects(
+          async () =>
+            db
+              .select()
+              .from(table)
+              .where(eq(table.id, "1abc" as unknown as number)),
+          (e: unknown) => e instanceof ColumnValueError,
+        );
+      } finally {
+        client.close();
+      }
     });
   });
 

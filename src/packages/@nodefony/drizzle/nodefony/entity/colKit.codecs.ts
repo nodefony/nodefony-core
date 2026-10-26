@@ -10,7 +10,7 @@
  */
 
 /** Genre de colonne dont un codec refuse la valeur. */
-export type ColumnValueKind = "decimal" | "uuid" | "date";
+export type ColumnValueKind = "decimal" | "uuid" | "date" | "integer";
 
 /**
  * Valeur qu'une colonne du kit REFUSE avant la base — là où PostgreSQL la
@@ -123,6 +123,46 @@ export function canonicalDecimal(
   const fraction = padded.slice(padded.length - scale);
   const sign = match[1] === "-" && scaled !== 0n ? "-" : "";
   return scale === 0 ? `${sign}${integer}` : `${sign}${integer}.${fraction}`;
+}
+
+/** Borne d'une clé `serial` : l'`integer` 32 bits de PostgreSQL et de MySQL. */
+const INT32_MIN = -2147483648;
+const INT32_MAX = 2147483647;
+
+/** Écriture décimale stricte d'un entier — au plus 10 chiffres, la taille d'un int32. */
+const INTEGER_KEY_RE = /^-?\d{1,10}$/;
+
+/**
+ * Rend la valeur d'une clé ENTIÈRE (`serial`, ou référence vers une clé
+ * `serial`) sous la forme d'un nombre, ou la refuse comme PostgreSQL le ferait.
+ *
+ * Sans lui, `/api/books/1abc` rendait le livre 1 sous MySQL, qui convertit le
+ * texte en `1` pour le comparer, un 404 sous SQLite et une erreur `22P02` sous
+ * PostgreSQL — trois réponses pour une seule question. Un entier hors de l'int32
+ * suit la même règle : PostgreSQL le refuse (`22003`), les deux autres le
+ * cherchent en vain.
+ *
+ * @param value - valeur reçue : entier JavaScript, ou son écriture décimale.
+ * @param label - `table.colonne`, pour le message d'erreur.
+ * @returns l'entier.
+ * @throws Quand la valeur n'est pas un entier int32.
+ */
+export function canonicalIntegerKey(value: unknown, label: string): number {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && INTEGER_KEY_RE.test(value)
+        ? Number(value)
+        : Number.NaN;
+  if (!Number.isInteger(n) || n < INT32_MIN || n > INT32_MAX) {
+    throw new ColumnValueError(
+      "integer",
+      String(value),
+      label,
+      "is not an integer key.",
+    );
+  }
+  return n;
 }
 
 const UUID_RE =

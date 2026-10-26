@@ -287,8 +287,8 @@ const PG_INVALID_INPUT = /^invalid input syntax for type (\w+): "(.*)"$/su;
  *
  * Trois sources le disent : MongoDB par une `CastError` de Mongoose (la clé est
  * un ObjectId), PostgreSQL par `22P02` (la clé est un `uuid` ou un entier), et
- * le kit de colonnes portable par une `ColumnValueError` de genre `uuid` — il
- * refuse en SQLite et MySQL l'uuid que PostgreSQL refuserait. Une clé rangée en
+ * le kit de colonnes portable par une `ColumnValueError` de genre `uuid` ou
+ * `integer` — il refuse sur les trois moteurs la clé que PostgreSQL refuserait. Une clé rangée en
  * texte NATIF ne lève rien, la lecture rend « rien » : le même 404.
  *
  * Même descente dans `cause` que {@link isUniqueViolation} (Drizzle enveloppe).
@@ -314,11 +314,12 @@ export function malformedIdentifierOf(error: unknown): string | null {
     ) {
       return String(candidate.value);
     }
-    // Le kit de colonnes portable refuse lui-même, en SQLite et MySQL, l'uuid
-    // que PostgreSQL refuserait (`22P02`) : même verdict, quel que soit le moteur.
+    // Le kit de colonnes portable refuse lui-même, sur les trois moteurs, la
+    // clé uuid ou entière que PostgreSQL refuserait (`22P02`) — et que MySQL,
+    // lui, convertirait (`1abc` → 1) : même verdict, quel que soit le moteur.
     if (
       candidate.name === "ColumnValueError" &&
-      candidate.kind === "uuid" &&
+      (candidate.kind === "uuid" || candidate.kind === "integer") &&
       typeof candidate.value === "string"
     ) {
       return candidate.value;

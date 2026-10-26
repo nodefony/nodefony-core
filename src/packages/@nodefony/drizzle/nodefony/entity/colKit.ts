@@ -4,6 +4,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import { buildMySqlTable } from "./colKit.mysql";
 import { buildPgTable } from "./colKit.pg";
+import { guardIntegerKeys } from "./colKit.shared";
 import { assertTableSpec } from "./colKit.spec";
 import type { ITableSpec } from "./colKit.spec";
 import { buildSqliteTable } from "./colKit.sqlite";
@@ -127,34 +128,43 @@ export function defineTable<const S extends ITableSpec>(
   function table(dialect: SqlDialect): AnyTable {
     switch (dialect) {
       case "sqlite":
-        sqlite ??= buildSqliteTable(spec, () => {
-          if (sqlite === null) {
-            throw new Error(
-              `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
-            );
-          }
-          return sqlite;
-        });
+        if (sqlite === null) {
+          sqlite = buildSqliteTable(spec, () => {
+            if (sqlite === null) {
+              throw new Error(
+                `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
+              );
+            }
+            return sqlite;
+          });
+          guardIntegerKeys(sqlite, spec);
+        }
         return sqlite;
       case "postgres":
-        postgres ??= buildPgTable(spec, () => {
-          if (postgres === null) {
-            throw new Error(
-              `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
-            );
-          }
-          return postgres;
-        });
+        if (postgres === null) {
+          postgres = buildPgTable(spec, () => {
+            if (postgres === null) {
+              throw new Error(
+                `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
+              );
+            }
+            return postgres;
+          });
+          guardIntegerKeys(postgres, spec);
+        }
         return postgres;
       case "mysql":
-        mysql ??= buildMySqlTable(spec, () => {
-          if (mysql === null) {
-            throw new Error(
-              `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
-            );
-          }
-          return mysql;
-        });
+        if (mysql === null) {
+          mysql = buildMySqlTable(spec, () => {
+            if (mysql === null) {
+              throw new Error(
+                `[@nodefony/drizzle] colKit "${spec.name}": self-reference resolved too early.`,
+              );
+            }
+            return mysql;
+          });
+          guardIntegerKeys(mysql, spec);
+        }
         return mysql;
     }
   }

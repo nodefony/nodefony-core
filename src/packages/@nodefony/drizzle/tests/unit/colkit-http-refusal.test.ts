@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  canonicalIntegerKey,
   canonicalUuid,
   ColumnValueError,
 } from "../../nodefony/entity/colKit.codecs";
@@ -22,6 +23,20 @@ describe("colKit ↔ rendu HTTP — l'uuid refusé est lu comme un identifiant m
     assert.equal(
       malformedIdentifierOf(new Error("Failed query", { cause: thrown })),
       "pas-un-uuid",
+    );
+  });
+
+  it("la clé entière refusée l'est aussi — `/books/1abc` rend 404 sur les quatre moteurs", () => {
+    let thrown: unknown = null;
+    try {
+      canonicalIntegerKey("1abc", "books.id");
+    } catch (e) {
+      thrown = e;
+    }
+    assert.ok(thrown instanceof ColumnValueError);
+    assert.equal(
+      malformedIdentifierOf(new Error("Failed query", { cause: thrown })),
+      "1abc",
     );
   });
 

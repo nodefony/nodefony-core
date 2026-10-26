@@ -1,5 +1,8 @@
+import { getTableColumns } from "drizzle-orm";
+import type { Table } from "drizzle-orm";
 import type { IPortableTableBase } from "./colKit";
-import { refTargetSpec } from "./colKit.spec";
+import { canonicalIntegerKey } from "./colKit.codecs";
+import { refTargetKey, refTargetSpec } from "./colKit.spec";
 import type {
   IEnumColumn,
   IRefColumn,
@@ -134,4 +137,35 @@ export function isPortableSchema(value: unknown): value is IPortableTableBase {
     typeof spec.name === "string" &&
     "columns" in spec
   );
+}
+
+/**
+ * Pose le codec {@link canonicalIntegerKey} sur chaque colonne qui porte une
+ * clé ENTIÈRE — la clé `serial` et toute référence vers une clé `serial`.
+ *
+ * Posé sur la colonne CONSTRUITE plutôt qu'en `customType` : la colonne garde
+ * son type natif, donc son DDL (`serial`, `integer … autoincrement`), et seule
+ * la valeur liée change de chemin. Drizzle encode par la colonne toute valeur
+ * qu'elle reçoit — `eq(col, v)`, `inArray`, insertion, paramètre préparé —, si
+ * bien qu'une lecture par le chemin (`/books/1abc`) et un filtre (`?sequel=x`)
+ * passent par la même règle sur les trois moteurs.
+ *
+ * @param table - table Drizzle que la fabrique du dialecte vient de construire.
+ * @param spec - sa spec.
+ */
+export function guardIntegerKeys(table: Table, spec: ITableSpec): void {
+  const columns = getTableColumns(table);
+  for (const [key, column] of Object.entries(spec.columns)) {
+    const integerKey =
+      column.kind === "serial" ||
+      (column.kind === "ref" &&
+        refTargetKey(column, spec, key).kind === "serial");
+    if (!integerKey || !Object.hasOwn(columns, key)) continue;
+    const built = columns[key];
+    if (built === undefined) continue;
+    const label = `${spec.name}.${key}`;
+    const encode = built.mapToDriverValue.bind(built);
+    built.mapToDriverValue = (value: unknown): unknown =>
+      encode(canonicalIntegerKey(value, label));
+  }
 }
