@@ -8,11 +8,12 @@ import { createRequire } from "node:module";
 // qui ne l'ouvrira jamais.
 import type BetterSqlite3 from "better-sqlite3";
 import type { Container } from "nodefony";
-import type { SQL } from "drizzle-orm";
+import { getTableColumns, type SQL } from "drizzle-orm";
 import {
   getTableConfig,
   SQLiteSyncDialect,
   SQLiteTable,
+  type SQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 import {
   getTableConfig as getPgTableConfig,
@@ -45,6 +46,7 @@ import type {
   IOrmMigrationPlanReply,
   IOrmMigrationReply,
 } from "@nodefony/orm-core";
+import { entityPrivateFields } from "@nodefony/user";
 import { notConfigured } from "../migrator/refusals";
 import { failureFrom } from "../migrator/status";
 import { schemaReader, toDollarParams } from "../migrator/catalog";
@@ -65,6 +67,7 @@ import type {
 } from "@nodefony/orm-core";
 import {
   DrizzleRepository,
+  execTable,
   type DrizzleDb,
   type DrizzleTable,
   type DrizzleResolvedRelation,
@@ -757,6 +760,7 @@ export class DrizzleOrm extends Orm {
   #resolveRelations(
     entity: IEntity,
     tables: Partial<Record<string, DrizzleTable>>,
+    entities: readonly IEntity[],
   ): Record<string, DrizzleResolvedRelation> {
     const resolved: Record<string, DrizzleResolvedRelation> = {};
     for (const relation of entity.relations ?? []) {
@@ -767,9 +771,47 @@ export class DrizzleOrm extends Orm {
             `(from "${entity.name}.${relation.field}") not registered for this ORM.`,
         );
       }
-      resolved[relation.field] = this.#resolveOne(entity, relation, target);
+      resolved[relation.field] = this.#resolveOne(
+        entity,
+        relation,
+        target,
+        this.#selectionOf(
+          entities.find((candidate) => candidate.name === relation.target),
+          target,
+        ),
+      );
     }
     return resolved;
+  }
+
+  /**
+   * Colonnes qu'un eager-load lit sur une cible : toutes sauf ses champs privés
+   * (règle unique : `entityPrivateFields`, @nodefony/user).
+   *
+   * @returns la sélection, ou `null` quand la cible n'a rien à taire.
+   * @throws BootConfigurationError si la cible déclare un champ privé absent.
+   */
+  #selectionOf(
+    target: IEntity | undefined,
+    table: DrizzleTable,
+  ): Record<string, SQLiteColumn> | null {
+    if (target === undefined) {
+      return null;
+    }
+    const columns = getTableColumns(execTable(table));
+    const hidden = entityPrivateFields(target, (field) =>
+      Object.hasOwn(columns, field),
+    );
+    if (hidden === null) {
+      return null;
+    }
+    const selection: Record<string, SQLiteColumn> = {};
+    for (const [field, column] of Object.entries(columns)) {
+      if (!hidden.includes(field)) {
+        selection[field] = column;
+      }
+    }
+    return selection;
   }
 
   /** Construit une relation résolue (FK déterministe selon la cardinalité). */
@@ -777,6 +819,7 @@ export class DrizzleOrm extends Orm {
     entity: IEntity,
     relation: IEntityRelation,
     target: DrizzleTable,
+    selection: Record<string, SQLiteColumn> | null,
   ): DrizzleResolvedRelation {
     switch (relation.type) {
       case "one-to-many":
@@ -787,6 +830,7 @@ export class DrizzleOrm extends Orm {
           foreignKey: relation.foreignKey ?? this.#foreignKey(entity.name),
           localKey: "id",
           targetKey: "id",
+          selection,
         };
       case "many-to-one":
       case "one-to-one":
@@ -797,6 +841,7 @@ export class DrizzleOrm extends Orm {
           foreignKey: relation.foreignKey ?? this.#foreignKey(relation.target),
           localKey: "id",
           targetKey: "id",
+          selection,
         };
       case "many-to-many":
         throw new Error(
@@ -846,6 +891,7 @@ export class DrizzleOrm extends Orm {
       this.#relations[entity.name] = this.#resolveRelations(
         entity,
         this.#tables,
+        entities,
       );
     }
   }

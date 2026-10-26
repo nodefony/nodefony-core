@@ -66,6 +66,8 @@ export {
 // contrôle de démarrage nomme la colonne absente ET son lecteur.
 export {
   USER_COLUMNS,
+  USER_PRIVATE_FIELDS,
+  entityPrivateFields,
   USER_TABLE_NAME,
   attachExtraColumns,
   missingUserColumns,

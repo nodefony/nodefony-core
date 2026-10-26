@@ -221,6 +221,12 @@ export interface DrizzleResolvedRelation {
   localKey: string;
   /** Clé primaire de la cible (côté lookup du N-1). */
   targetKey: string;
+  /**
+   * Colonnes LUES sur la cible : toutes, sauf ses champs privés
+   * (`IEntity.privateFields`) — calculées une fois à la connexion. `null` quand
+   * la cible n'en déclare aucun : la lecture reste `select()` nu.
+   */
+  selection: Record<string, SQLiteColumn> | null;
 }
 
 /**
@@ -939,6 +945,22 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return this.#prof(query);
   }
 
+  /**
+   * Lit les lignes d'une table CIBLE d'eager-load, sans ses champs privés.
+   *
+   * La colonne privée n'est pas retirée après coup : elle n'est jamais LUE, si
+   * bien qu'aucun chemin (sérialisation, journal, profiler) ne peut la porter.
+   */
+  #targetRows(
+    rel: DrizzleResolvedRelation,
+    where: SQL,
+  ): Promise<Record<string, unknown>[]> {
+    const target = execTable(rel.targetTable);
+    return rel.selection === null
+      ? this.#prof(this.#db.select().from(target).where(where))
+      : this.#prof(this.#db.select(rel.selection).from(target).where(where));
+  }
+
   /** Eager-load manuel des relations déclarées (1 requête `IN (...)` par relation). */
   async #populate(
     rows: Record<string, unknown>[],
@@ -957,12 +979,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       if (rel.type === "one-to-many") {
         const parentIds = rows.map((row) => row[rel.localKey]);
         const fkCol = this.#requireCol(rel.foreignKey, rel.targetTable);
-        const children = await this.#prof(
-          this.#db
-            .select()
-            .from(execTable(rel.targetTable))
-            .where(inArray(fkCol, parentIds)),
-        );
+        const children = await this.#targetRows(rel, inArray(fkCol, parentIds));
         const byParent = new Map<unknown, Record<string, unknown>[]>();
         for (const child of children) {
           // Ligne d'une table résolue au runtime : la valeur n'a pas de type
@@ -986,12 +1003,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         const idCol = this.#requireCol(rel.targetKey, rel.targetTable);
         const parents =
           fkValues.length > 0
-            ? await this.#prof(
-                this.#db
-                  .select()
-                  .from(execTable(rel.targetTable))
-                  .where(inArray(idCol, fkValues)),
-              )
+            ? await this.#targetRows(rel, inArray(idCol, fkValues))
             : [];
         const byId = new Map(parents.map((p) => [p[rel.targetKey], p]));
         for (const row of rows) {

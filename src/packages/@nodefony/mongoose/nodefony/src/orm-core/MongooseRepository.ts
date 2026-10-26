@@ -1,4 +1,9 @@
-import type { ClientSession, QueryFilter, Model } from "mongoose";
+import type {
+  ClientSession,
+  PopulateOptions,
+  QueryFilter,
+  Model,
+} from "mongoose";
 import { RequestContext, isPlainObject, redactSecrets } from "nodefony";
 import { writeCount } from "../writeCount";
 import {
@@ -68,6 +73,8 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   readonly #connector: string;
   /** Champs qui référencent cette entité — `null` si personne ne la vise (cas courant, coût nul). */
   readonly #referrers: readonly IMongooseReferrer[] | null;
+  /** Projection de `populate` par chemin — cf `#population`. */
+  readonly #populateSelects: Readonly<Record<string, string>> | null;
 
   /**
    * @param model - modèle Mongoose compilé.
@@ -75,17 +82,36 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
    * @param session - session transactionnelle à laquelle lier les ops (ou `null`).
    * @param referrers - champs d'autres entités qui référencent celle-ci (index
    *   inverse de {@link MongooseOrm}) ; `null` quand aucune ne la vise.
+   * @param populateSelects - par chemin peuplé, les champs privés de sa cible à
+   *   exclure (`"-password -roles"`) ; `null` quand aucune cible n'en a.
    */
   constructor(
     model: LooseModel,
     connector = "nodefony",
     session: ClientSession | null = null,
     referrers: readonly IMongooseReferrer[] | null = null,
+    populateSelects: Readonly<Record<string, string>> | null = null,
   ) {
     this.#model = model;
     this.#connector = connector;
     this.#session = session;
     this.#referrers = referrers;
+    this.#populateSelects = populateSelects;
+  }
+
+  /**
+   * Les chemins à peupler, chacun privé des champs que sa cible tait : la
+   * projection part dans la requête, le champ n'est jamais lu.
+   */
+  #population(paths: string[]): (string | PopulateOptions)[] {
+    const selects = this.#populateSelects;
+    if (selects === null) {
+      return paths;
+    }
+    return paths.map((path) => {
+      const select = Object.hasOwn(selects, path) ? selects[path] : undefined;
+      return select === undefined ? path : { path, select };
+    });
   }
 
   /**
@@ -316,7 +342,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           query = query.session(this.#session);
         }
         if (options?.relations?.length) {
-          query = query.populate(options.relations);
+          query = query.populate(this.#population(options.relations));
         }
         if (options?.offset !== undefined) {
           query = query.skip(options.offset);
@@ -355,7 +381,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           query = query.session(this.#session);
         }
         if (options?.relations?.length) {
-          query = query.populate(options.relations);
+          query = query.populate(this.#population(options.relations));
         }
         if (options?.order?.length) {
           // Le tri décide LAQUELLE des lignes est renvoyée : l'ignorer ici rendait
@@ -749,6 +775,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       this.#connector,
       tx.getNative<ClientSession>(),
       this.#referrers,
+      this.#populateSelects,
     );
   }
 }

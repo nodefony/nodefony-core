@@ -1,5 +1,6 @@
 import type { ISocialProvider } from "../contracts/IUser";
 import { BootConfigurationError } from "nodefony";
+import type { IEntity } from "@nodefony/orm-core";
 
 /**
  * Type **logique** d'une colonne de l'utilisateur — ce que la donnée EST, jamais
@@ -70,6 +71,13 @@ export interface IUserColumn {
    * fausse le jour où une seconde colonne se comporte pareil.
    */
   readonly refreshedOnWrite?: boolean;
+  /**
+   * `true` si la colonne ne sort JAMAIS par une relation (cf
+   * {@link USER_PRIVATE_FIELDS}) : ce que le framework lit pour AUTHENTIFIER ou
+   * AUTORISER — empreinte, version des identifiants, rôles, état du compte,
+   * comptes liés. L'identifiant, le profil et les horodatages restent lisibles.
+   */
+  readonly private?: boolean;
   /** Les lecteurs qui cassent si la colonne manque — nommés dans les refus. */
   readonly readers: readonly string[];
   /** Rôle de la colonne, en une phrase. */
@@ -141,6 +149,7 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
     name: "password",
     type: "string",
     nullable: true,
+    private: true,
     origin: "column",
     readers: ["UserService.authenticate"],
     description:
@@ -150,6 +159,7 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
     name: "roles",
     type: "string[]",
     nullable: false,
+    private: true,
     makeDefault: () => [],
     origin: "column",
     readers: [
@@ -162,6 +172,7 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
     name: "enabled",
     type: "boolean",
     nullable: false,
+    private: true,
     makeDefault: () => true,
     origin: "column",
     readers: [
@@ -176,6 +187,7 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
     name: "locked",
     type: "boolean",
     nullable: false,
+    private: true,
     makeDefault: () => false,
     origin: "column",
     readers: ["UserService.authenticate", "listUserIdsPage (filtre ?locked=)"],
@@ -185,6 +197,7 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
     name: "currentRole",
     type: "string",
     nullable: true,
+    private: true,
     origin: "column",
     readers: ["BaseUser.currentRole"],
     description:
@@ -194,6 +207,7 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
     name: "socialProviders",
     type: "object[]",
     nullable: false,
+    private: true,
     makeDefault: () => [],
     origin: "column",
     readers: [
@@ -217,6 +231,7 @@ export const USER_COLUMNS: readonly IUserColumn[] = [
     name: "credentialsVersion",
     type: "integer",
     nullable: true,
+    private: true,
     origin: "column",
     readers: [
       "UserService.changePassword",
@@ -266,6 +281,56 @@ export interface IUserRow {
   credentialsVersion: number | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Les colonnes du contrat qui ne sortent jamais par une relation — à déclarer
+ * en `privateFields` sur l'entité `User` (`IEntity.privateFields`).
+ *
+ * Sans elle, `GET /api/reviews/:id?include=owner` rendait la ligne `User`
+ * entière, empreinte argon2 comprise, à quiconque pouvait lire l'avis. Une
+ * application qui ajoute ses propres champs sensibles étend cette liste.
+ */
+export const USER_PRIVATE_FIELDS: readonly string[] = USER_COLUMNS.filter(
+  (column) => column.private === true,
+).map((column) => column.name);
+
+/**
+ * Les champs qu'une entité ne laisse pas sortir par une relation : ceux qu'elle
+ * déclare en `privateFields`, plus — pour l'entité `User` — ceux du contrat
+ * ({@link USER_PRIVATE_FIELDS}), qu'elle les déclare ou non.
+ *
+ * Le défaut est FERMÉ parce que l'oubli est silencieux : une application qui
+ * écrit sa propre entité `User` sans cette déclaration exposerait l'empreinte
+ * du mot de passe à toute ressource qui la référence, et rien ne le dirait.
+ * Seule source de la règle : les adaptateurs (SQL, document) l'APPELLENT.
+ *
+ * @param entity - l'entité CIBLE d'une relation.
+ * @param has - dit si l'entité porte ce champ (colonne, chemin de schéma).
+ * @returns les champs à taire, ou `null` s'il n'y en a aucun.
+ * @throws BootConfigurationError si un champ déclaré n'existe pas : une faute
+ *   de frappe rouvrirait la fuite sans un mot.
+ */
+export function entityPrivateFields(
+  entity: Pick<IEntity, "name" | "privateFields">,
+  has: (field: string) => boolean,
+): readonly string[] | null {
+  const declared = entity.privateFields ?? [];
+  for (const field of declared) {
+    if (!has(field)) {
+      throw new BootConfigurationError(
+        `L'entité « ${entity.name} » déclare le champ privé « ${field} », ` +
+          `qu'elle ne porte pas — corriger le nom dans privateFields.`,
+      );
+    }
+  }
+  // L'entité d'identité porte le nom de sa table : c'est sous ce nom que le
+  // framework la cherche au registre.
+  const fields =
+    entity.name === USER_TABLE_NAME
+      ? [...new Set([...USER_PRIVATE_FIELDS.filter(has), ...declared])]
+      : declared;
+  return fields.length > 0 ? fields : null;
 }
 
 /**

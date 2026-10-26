@@ -13,6 +13,7 @@ import type {
   SchemaType,
 } from "mongoose";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
+import { entityPrivateFields } from "@nodefony/user";
 import type {
   IColumnInfo,
   IConnectionInfo,
@@ -265,6 +266,7 @@ export class MongooseOrm extends Orm {
       entity.model = model;
     }
     this.#referrers = this.#indexReferrers(this.#models);
+    this.#populateSelects = this.#indexPopulateSelects(entities, schemas);
 
     // 4) Constat des index — LANCÉ, pas attendu (cf verifyIndexes).
     const audit = this.verifyIndexes();
@@ -498,6 +500,7 @@ export class MongooseOrm extends Orm {
     this.#models = null;
     this.#repositories = null;
     this.#referrers = null;
+    this.#populateSelects = null;
     this.#indexAudit = null;
   }
 
@@ -506,6 +509,74 @@ export class MongooseOrm extends Orm {
    * autres entités qui la désignent. `null` quand aucune référence n'existe.
    */
   #referrers: Record<string, IMongooseReferrer[]> | null = null;
+
+  /**
+   * Projection de `populate` par entité puis par chemin (`"-password -roles"`) :
+   * ce qu'un chargement de relation ne lit pas sur sa cible. `null` quand
+   * aucune cible de cette connexion n'a de champ privé.
+   */
+  #populateSelects: Record<string, Record<string, string>> | null = null;
+
+  /**
+   * Calcule, pour chaque chemin qui se peuple, les champs privés de sa cible à
+   * exclure (règle unique : `entityPrivateFields`, @nodefony/user).
+   *
+   * Chemins couverts : référence `ObjectId` (`ref`), tableau de références, et
+   * virtuel `one-to-many` posé par l'étape des relations.
+   *
+   * @param entities - entités de cette connexion.
+   * @param schemas - leurs schémas, par nom d'entité.
+   * @returns l'index, ou `null` s'il n'y a rien à taire.
+   * @throws BootConfigurationError si une entité déclare un champ privé absent.
+   */
+  #indexPopulateSelects(
+    entities: readonly IEntity[],
+    schemas: ReadonlyMap<string, Schema>,
+  ): Record<string, Record<string, string>> | null {
+    const selectOf = new Map<string, string>();
+    for (const entity of entities) {
+      const schema = schemas.get(entity.name);
+      if (schema === undefined) continue;
+      const hidden = entityPrivateFields(
+        entity,
+        // `path()` rend `undefined` pour un chemin absent, malgré son type.
+        (field) => (schema.path(field) as unknown) !== undefined,
+      );
+      if (hidden !== null) {
+        selectOf.set(entity.name, hidden.map((field) => `-${field}`).join(" "));
+      }
+    }
+    if (selectOf.size === 0) {
+      return null;
+    }
+    const index: Record<string, Record<string, string>> = {};
+    const hide = (source: string, fieldPath: string, target: unknown): void => {
+      const select =
+        typeof target === "string" ? selectOf.get(target) : undefined;
+      if (select !== undefined) {
+        (index[source] ??= {})[fieldPath] = select;
+      }
+    };
+    for (const entity of entities) {
+      const schema = schemas.get(entity.name);
+      if (schema === undefined) continue;
+      schema.eachPath((fieldPath, type) => {
+        // Référence simple, ou tableau dont l'élément est une référence.
+        const element =
+          type instanceof mongoose.Schema.Types.Array
+            ? type.embeddedSchemaType
+            : type;
+        const options = element.options as { ref?: unknown } | undefined;
+        hide(entity.name, fieldPath, options?.ref);
+      });
+      for (const relation of entity.relations ?? []) {
+        if (relation.type === "one-to-many") {
+          hide(entity.name, relation.field, relation.target);
+        }
+      }
+    }
+    return index;
+  }
 
   /**
    * Bâtit l'index inverse des références à partir des schémas COMPILÉS.
@@ -580,6 +651,7 @@ export class MongooseOrm extends Orm {
         this.name,
         null,
         this.#referrers?.[name] ?? null,
+        this.#populateSelects?.[name] ?? null,
       );
       this.#repositories[name] = repository;
     }

@@ -94,4 +94,17 @@ export interface IEntity<S = unknown, M = unknown> {
    * dans leur table → ce champ y est sans effet. **Optionnel**.
    */
   readonly indexes?: ReadonlyArray<IEntityIndex> | undefined;
+
+  /**
+   * Champs qui ne sortent JAMAIS par une relation : quand une autre entité
+   * charge celle-ci (`relations: ["owner"]`, `?include=owner`), l'adapter ne les
+   * lit pas. Le dépôt de l'entité elle-même les rend toujours — c'est la porte
+   * de qui en a besoin (l'authentification lit `password` par là).
+   *
+   * Sans cette déclaration, référencer un `User` exposait son empreinte de mot
+   * de passe à quiconque lisait la ressource qui le référence. Un nom qui ne
+   * désigne aucun champ fait échouer la connexion en le nommant : une faute de
+   * frappe ici rouvrirait la fuite sans un mot. **Optionnel**.
+   */
+  readonly privateFields?: ReadonlyArray<string> | undefined;
 }
