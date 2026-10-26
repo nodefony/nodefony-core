@@ -96,6 +96,9 @@ rien renommer à la main : `--table <nom_sql>` (au lieu du pluriel),
 `--column-case snake` (colonne `site_id`, propriété toujours `siteId`) et
 `--id-name <colonne>` (clé primaire `website_id`, propriété toujours `id`). Le
 code TypeScript ne change dans aucun des trois cas — seul le SQL suit.
+
+`--domain <nom>` range l'entité dans un domaine fonctionnel : le graphe d'entités de la
+console groupe et colore par domaine (sinon par module), et tire ses liens des `ref:`.
 <% if (it.hasOrm && !it.hasMigrations) { %>
 **Sur CETTE application (MongoDB), la même commande écrit une entité DOCUMENT** :
 schéma Mongoose, service CRUD, controller REST + socket et tests — sans table ni

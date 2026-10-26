@@ -70,6 +70,10 @@ class Create extends Command {
       "entity: ORM connector (default: default)",
     );
     this.addOption(
+      "--domain <name>",
+      "entity: functional domain (groups tables in the console graph)",
+    );
+    this.addOption(
       "--dialect <d>",
       "entity: sqlite | postgres | mysql (default: from config)",
     );

@@ -463,12 +463,17 @@ function kindOf(col) {
  * Convertit le corpus entier.
  *
  * @param {{ tables: { file: string, sql: string }[], keys: { file: string, sql: string }[] }} corpus
- * @param {{ tablePrefix?: string }} [options] - préfixe commun des tables
- *   (`app_`), retiré des noms d'index que la conversion fabrique.
+ * @param {{ tablePrefix?: string, domains?: { fallback: string, rules: [string, string][] } }} [options]
+ *   `tablePrefix` — préfixe commun des tables (`app_`), retiré des noms
+ *   d'index que la conversion fabrique ; `domains` — domaine fonctionnel de
+ *   chaque table (cf {@link domainOf}), posé en `domain` sur sa description.
  * @returns {{ specs: object[], notes: { code: string, table: string, column?: string, detail: string }[], errors: string[] }}
  *   `errors` non vide = DDL non compris : la conversion n'est pas fiable.
  */
-export function convertCorpus({ tables, keys }, { tablePrefix = "" } = {}) {
+export function convertCorpus(
+  { tables, keys },
+  { tablePrefix = "", domains } = {},
+) {
   const short = (table) =>
     tablePrefix && table.startsWith(tablePrefix)
       ? table.slice(tablePrefix.length)
@@ -842,7 +847,27 @@ export function convertCorpus({ tables, keys }, { tablePrefix = "" } = {}) {
       owners.set(renamed.toLowerCase(), spec.name);
     }
   }
+  if (domains) {
+    for (const spec of specs) spec.domain = domainOf(short(spec.name), domains);
+  }
   return { specs, notes, errors };
+}
+
+/**
+ * Domaine fonctionnel d'une table : la première règle dont le préfixe ouvre
+ * son nom (préfixe commun du corpus déjà retiré), sinon le domaine de repli.
+ * Le DDL ne le porte pas ; c'est une donnée du catalogue du corpus, et
+ * l'axe de regroupement du graphe d'entités de la console.
+ *
+ * @param {string} table - nom de table, sans le préfixe commun.
+ * @param {{ fallback: string, rules: [string, string][] }} domains
+ * @returns {string}
+ */
+export function domainOf(table, { fallback, rules }) {
+  for (const [prefix, domain] of rules) {
+    if (table.startsWith(prefix)) return domain;
+  }
+  return fallback;
 }
 
 /** Lit un dossier de DDL MySQL (`*.sql` / `*.key.sql`). */
@@ -933,6 +958,10 @@ function main() {
   const out = valueOf("--out") ?? path.join(corpusCache(name), "specs.json");
   const { specs, notes, errors } = convertCorpus(readCorpusDir(dir), {
     tablePrefix,
+    // Un dossier quelconque (`--dir`) n'a pas de catalogue, donc pas de domaines.
+    ...(source !== null && CORPORA[name].domains
+      ? { domains: CORPORA[name].domains }
+      : {}),
   });
   mkdirSync(path.dirname(out), { recursive: true });
   writeFileSync(

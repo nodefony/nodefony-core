@@ -44,6 +44,12 @@ export interface ISerializedColumn {
 /** Une table telle que la conversion l'écrit. */
 export interface ISerializedSpec {
   readonly name: string;
+  /**
+   * Domaine fonctionnel (catalogue du corpus) — porté par l'ENTITÉ
+   * (`defineEntity({ domain })`), jamais par la table : le matérialiseur
+   * l'ignore.
+   */
+  readonly domain?: string;
   readonly columns: Readonly<Record<string, ISerializedColumn>>;
   readonly indexes?: readonly {
     readonly name: string;

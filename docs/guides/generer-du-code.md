@@ -205,6 +205,11 @@ en `id`, et aucune migration n'existe. Les options propres au SQL (`--table`, `-
 est confrontée au générateur par un test : elle dit ce que CETTE version écrit, et
 `--describe-json` (champ `context.columnTypes`) le rend pour une machine.
 
+Dans la console d'administration, le graphe d'entités tire ses liens des clés étrangères
+elles-mêmes (`ref:`) et regroupe les tables par **domaine** : `--domain facturation` le pose
+sur l'entité générée. Sans lui, le regroupement se fait par module — une grosse base qui tient
+dans un seul module y devient un seul bloc.
+
 ## Voir avant d'écrire
 
 Créer une brique dans un projet existant ne fait pas qu'ajouter des fichiers :

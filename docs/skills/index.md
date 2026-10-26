@@ -219,7 +219,7 @@ source: "docs/skills/index.md"
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.9.0 | 476 | 7 | 19 | ✅ |
-| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 243 | 0 | 0 | ✅ |
+| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 254 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |

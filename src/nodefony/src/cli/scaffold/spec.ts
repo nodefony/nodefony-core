@@ -1104,6 +1104,17 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
       advanced: true,
     },
     {
+      // Porté par l'ENTITÉ, pas par la table : le graphe d'entités de la
+      // console groupe et colore par domaine, sinon par module — et une grosse
+      // base tient souvent dans UN module.
+      key: "domain",
+      label:
+        "Domaine fonctionnel (ex : facturation) — regroupe les tables dans le graphe de la console",
+      type: "string",
+      default: "",
+      advanced: true,
+    },
+    {
       key: "dialect",
       // Réglage SQL : refusé sur une application MongoDB (`assertNoSqlOnlyOptions`).
       askIf: "hasSqlOrm",

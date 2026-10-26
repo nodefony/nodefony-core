@@ -8688,6 +8688,26 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("`--domain` pose le domaine sur le descripteur — littéral sûr, absent sans l'option", () => {
+      const dest = app("eappdom");
+      // Guillemet et accent : un texte libre ne doit jamais casser la chaîne.
+      entity(dest, {
+        name: "Invoice",
+        fields: "label:string",
+        domain: 'factu"ration',
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Invoice.ts"),
+        "utf8",
+      );
+      assert.include(src, 'domain: "factu\\"ration",');
+      entity(dest, { name: "Note", fields: "label:string" });
+      assert.notInclude(
+        readFileSync(path.join(dest, "nodefony", "entity", "Note.ts"), "utf8"),
+        "domain:",
+      );
+    });
+
     it("l'entité est une description PORTABLE, avec la clé uuid7 générée côté JS", () => {
       const dest = app("eapp2p");
       entity(dest, { name: "Post", fields: "title:string:unique views:int" });

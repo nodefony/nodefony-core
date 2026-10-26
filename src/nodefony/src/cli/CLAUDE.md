@@ -813,7 +813,7 @@ l'ACTION (`HelloCommand`), pas le module — un module peut avoir N commandes.
 
 `nodefony create entity <Nom> [champs…] [--id <uuid7|uuid4|serial>] [--soft-delete]
 [--no-timestamps] [--no-controller] [--no-service] [--no-tests] [--route </api/x>]
-[--module <nom>] [--connector <nom>] [--dialect <sqlite|postgres|mysql>]
+[--module <nom>] [--connector <nom>] [--domain <nom>] [--dialect <sqlite|postgres|mysql>]
 [--table <nom_sql>] [--column-case <camel|snake>] [--id-name <colonne>]` — scaffold
 **IN-PROJECT** de la chaîne complète : description **PORTABLE** de la table
 (`nodefony/entity/<Nom>.ts` : `defineTable` de `@nodefony/drizzle`, `<Nom>Row = RowOf<…>`,

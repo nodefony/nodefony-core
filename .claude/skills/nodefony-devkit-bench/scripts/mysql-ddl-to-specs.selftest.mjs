@@ -18,6 +18,7 @@ import { isDeepStrictEqual } from "node:util";
 import { findRepoRoot } from "./corpus-fetch.mjs";
 import {
   convertCorpus,
+  domainOf,
   readCorpusDir,
   splitStatements,
 } from "./mysql-ddl-to-specs.mjs";
@@ -256,6 +257,38 @@ rule(
       /APP_ZONE déjà porté par la table app_zone/u.test(n.detail),
   ),
 );
+
+// ── domaines ─────────────────────────────────────────────────────────────
+const DOMAINS = {
+  fallback: "système",
+  rules: [
+    ["shop_user", "clients"],
+    ["shop", "boutique"],
+  ],
+};
+same(
+  "domaine : la PREMIÈRE règle qui correspond gagne",
+  domainOf("shop_user", DOMAINS),
+  "clients",
+);
+same("domaine : préfixe plus court", domainOf("shop", DOMAINS), "boutique");
+same("domaine : aucune règle → repli", domainOf("zone", DOMAINS), "système");
+{
+  const withDomains = convertCorpus(
+    { tables: TABLES, keys: KEYS },
+    { tablePrefix: "app_", domains: DOMAINS },
+  );
+  const of = (n) => withDomains.specs.find((x) => x.name === n)?.domain;
+  same(
+    "domaine posé sur la description, préfixe commun retiré avant la règle",
+    [of("app_shop_user"), of("app_shop"), of("app_zone")],
+    ["clients", "boutique", "système"],
+  );
+  rule(
+    "sans domaines, aucune description n'en porte",
+    specs.every((x) => x.domain === undefined),
+  );
+}
 
 // ── refus ────────────────────────────────────────────────────────────────
 const bad = convertCorpus({

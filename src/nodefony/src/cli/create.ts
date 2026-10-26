@@ -280,6 +280,10 @@ export function parseCreateArgv(
       answers.id = rest[++i];
     } else if (word === "--connector") {
       answers.connector = rest[++i];
+      // Domaine fonctionnel de l'entité : ce que le graphe de la console groupe
+      // et colore — une base de centaines de tables tient souvent dans UN module.
+    } else if (word === "--domain") {
+      answers.domain = rest[++i];
     } else if (word === "--dialect") {
       answers.dialect = rest[++i];
       // Épouser une table qui existe : son nom, la casse de ses colonnes, le nom

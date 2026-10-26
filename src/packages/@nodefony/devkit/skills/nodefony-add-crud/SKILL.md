@@ -122,6 +122,17 @@ npx nodefony create entity Post title:string(120) body:text? views:int=0 status:
   `--id`, `--index`, `--unique`. Un index composite s'écrit à la main dans le schéma.
 - `User` ne se régénère pas : il s'étend dans `nodefony/entity/User.ts` (son TSDoc donne le geste).
 
+## Le graphe d'entités de la console
+
+Les liens du graphe viennent des `ref:` eux-mêmes : la clé étrangère que la base porte devient
+une arête, sans rien répéter ailleurs. Le regroupement et la couleur suivent le **domaine** de
+l'entité, sinon son module — et une application de centaines de tables tient souvent dans UN
+module :
+
+```bash
+npx nodefony create entity Invoice number:string(30):unique total:decimal(24,8) customer:ref:Customer --domain facturation --dry-run
+```
+
 ## Épouser une table qui existe déjà
 
 Trois réglages, et ils ne touchent **que** le SQL — la propriété TypeScript reste `id`, `siteId` :

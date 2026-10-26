@@ -5738,6 +5738,10 @@ function runEntityScaffold(
     }));
 
   const route = String(answers.route) || `/api/${pluralize(kebab)}`;
+  // Domaine fonctionnel : porté par le DESCRIPTEUR d'entité, lu par le graphe
+  // de la console (regroupement, couleur). Rendu en littéral JSON — c'est un
+  // texte libre, il ne doit jamais casser la chaîne du gabarit.
+  const domain = String(answers.domain ?? "").trim();
 
   // Exemple de charge utile — un exemple faux serait pire que pas d'exemple.
   // Deux formes, pour deux usages :
@@ -5849,6 +5853,7 @@ function runEntityScaffold(
     serviceClass: `${pascal}Service`,
     serviceKey: `${camel}Service`,
     moduleName: target.kind === "app" ? "app" : target.name,
+    domainLiteral: domain ? JSON.stringify(domain) : "",
     curlBody: toCodeLiteral(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
     sampleCounter: sampleReadsCounter ? "n" : "_n",

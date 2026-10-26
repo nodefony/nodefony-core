@@ -41,7 +41,8 @@ export interface <%= it.pascal %>Row {
 export const <%= it.pascal %>Entity = defineEntity({
   name: "<%= it.pascal %>",
   module: "<%= it.moduleName %>",
-  connector: "<%= it.connector %>",
+<% if (it.domainLiteral) { %>  domain: <%= it.domainLiteral %>,
+<% } %>  connector: "<%= it.connector %>",
   schema: <%= it.camel %>Schema,
 <% if (it.timestamps) { %>  timestamps: true,
 <% } %><% if (it.relations.length) { %>  relations: [
@@ -116,7 +117,8 @@ export type <%= it.pascal %>Row = RowOf<typeof <%= it.tableSymbol %>.spec>;
 export const <%= it.pascal %>Entity = defineEntity({
   name: "<%= it.pascal %>",
   module: "<%= it.moduleName %>",
-<% if (it.connector !== "default") { %>  connector: "<%= it.connector %>",
+<% if (it.domainLiteral) { %>  domain: <%= it.domainLiteral %>,
+<% } %><% if (it.connector !== "default") { %>  connector: "<%= it.connector %>",
 <% } %>  schema: <%= it.tableSymbol %>,
 <% if (it.relations.length) { %>  relations: [
 <% it.relations.forEach(function (rel) { %>    {
@@ -188,7 +190,8 @@ export interface <%= it.pascal %>Row {
 export const <%= it.pascal %>Entity = defineEntity({
   name: "<%= it.pascal %>",
   module: "<%= it.moduleName %>",
-<% if (it.connector !== "default") { %>  connector: "<%= it.connector %>",
+<% if (it.domainLiteral) { %>  domain: <%= it.domainLiteral %>,
+<% } %><% if (it.connector !== "default") { %>  connector: "<%= it.connector %>",
 <% } %>  schema: <%= it.tableSymbol %>,
 <% if (it.relations.length) { %>  relations: [
 <% it.relations.forEach(function (rel) { %>    {
