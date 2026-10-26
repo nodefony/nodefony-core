@@ -137,7 +137,10 @@
   "nodefony": {
     "doctor": {
       "entityDialect": [
-        "entity/dolibarr/bench-pg.ts"
+        "entity/dolibarr/bench-pg.ts",
+        "drizzle/nodefony/entity/colKit.sqlite.ts",
+        "drizzle/nodefony/entity/colKit.pg.ts",
+        "drizzle/nodefony/entity/colKit.mysql.ts"
       ]
     },
     "scripts": {
