@@ -23,17 +23,10 @@
  * en recopie la source, ses imports relus vers `@nodefony/drizzle` — la
  * réécriture est CONSTATÉE, jamais supposée.
  *
- * Usage :
- *   node bench-real-schema.mjs                          # sqlite, postgres, mysql, mariadb
- *   node bench-real-schema.mjs --database postgres      # un moteur (répétable)
- *   node bench-real-schema.mjs --only contract|app      # un seul étage
- *   node bench-real-schema.mjs --keep                   # garde décor et bases
- *   node bench-real-schema.mjs --admin-postgres <url>   # administrateur d'un moteur
+ * Usage : `node bench-real-schema.mjs --help` (texte unique : `USAGE`).
  *
  * Décor : `docker compose -f docker/docker-compose.yml --profile postgres
  * --profile mysql --profile mariadb up -d` (ports du compose du dépôt).
- *
- * Sorties : 0 tout vert · 1 au moins une étape rouge · 64 usage.
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -46,6 +39,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { garderDrapeaux } from "./lib/argv.mjs";
 import { decorRoot } from "./lib/decor-root.mjs";
 import {
   ENGINES,
@@ -75,6 +69,32 @@ const MATERIALIZER = path.join(
 const SQLITE = { key: "sqlite", dialect: "sqlite", driver: null, admin: null };
 
 const ARGS = process.argv.slice(2);
+const USAGE = `Banc de schéma réel — contrat du kit puis application, par moteur.
+
+  node bench-real-schema.mjs                          # sqlite, ${ENGINES.map((e) => e.key).join(", ")}
+  node bench-real-schema.mjs --database postgres      # un moteur (répétable)
+  node bench-real-schema.mjs --only contract|app      # un seul étage
+  node bench-real-schema.mjs --keep                   # garde décor et bases
+  node bench-real-schema.mjs --repack                 # rebâtit les tarballs de l'application
+  node bench-real-schema.mjs --admin-<moteur> <url>   # administrateur d'un moteur
+
+Sorties : 0 tout vert · 1 au moins une étape rouge · 64 usage.`;
+// AVANT tout geste : le banc vide son décor et recrée des bases. Un drapeau
+// qu'il ne comprend pas (vécu : « --help ») le lançait, et vidait le décor d'un
+// serveur témoin qui le partageait.
+garderDrapeaux({
+  args: ARGS,
+  connus: [
+    "--database",
+    "--only",
+    "--keep",
+    "--repack",
+    ...ENGINES.map((e) => `--admin-${e.key}`),
+  ],
+  aValeur: ["--database", "--only", ...ENGINES.map((e) => `--admin-${e.key}`)],
+  usage: USAGE,
+  avertissement: "Rien n'a été lancé : ni décor vidé, ni base recréée.",
+});
 function values(flag) {
   const out = [];
   for (let i = 0; i < ARGS.length; i++) {
@@ -110,6 +130,12 @@ const KEEP = ARGS.includes("--keep");
 const ROOT = decorRoot({ linked: false, database: "real-schema" });
 const APP_NAME = "erpbench";
 const APP = path.join(ROOT, APP_NAME);
+/**
+ * Les sorties entières des commandes, À CÔTÉ de l'application : le montage de
+ * l'étage 2 recrée l'application, et effaçait avec elle les journaux du contrat
+ * que les messages d'échec désignaient.
+ */
+const JOURNALS = path.join(ROOT, "journaux");
 const SPECS_FILE = path.join(REPO, "tmp/bench/corpus/erp/specs.json");
 /** Ports dédiés : un autre serveur Nodefony ne doit pas répondre à sa place. */
 const PORTS = { NF_PORT: "5395", NF_PORT_HTTPS: "5396" };
@@ -161,8 +187,7 @@ function run(cmd, args, { cwd = APP, env, expected = 0 } = {}) {
     .join(" ");
   seq += 1;
   const log = path.join(
-    ROOT,
-    "journaux",
+    JOURNALS,
     `${String(seq).padStart(3, "0")}-${shown.replace(/[^\w.-]+/gu, "_").slice(0, 70)}.log`,
   );
   mkdirSync(path.dirname(log), { recursive: true });
@@ -355,7 +380,8 @@ async function mountApp() {
   return step(
     "application : NÉE en SQLite, isolée (tarballs), 421 entités déclarées",
     () => {
-      rmSync(ROOT, { recursive: true, force: true });
+      // L'application SEULE : les journaux du contrat restent lisibles.
+      rmSync(APP, { recursive: true, force: true });
       mkdirSync(ROOT, { recursive: true });
       run(
         process.execPath,
@@ -498,6 +524,9 @@ async function runApp(engine) {
 }
 
 // ─── Déroulé ────────────────────────────────────────────────────────────────
+
+// Les journaux d'un run précédent mentiraient sur celui-ci.
+rmSync(JOURNALS, { recursive: true, force: true });
 
 if (!(await prepareCorpus())) process.exit(1);
 

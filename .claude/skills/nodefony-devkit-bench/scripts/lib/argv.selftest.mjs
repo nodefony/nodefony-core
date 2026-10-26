@@ -138,10 +138,13 @@ const LECTURES = [
   /\barg\("(--[a-z0-9-]+)"\)/g,
   /\boption\("(--[a-z0-9-]+)"/g,
   /\bvaleurDe\("(--[a-z0-9-]+)"\)/g,
+  /\bARGS\.includes\("(--[a-z0-9-]+)"\)/g,
+  /\bvalues\("(--[a-z0-9-]+)"\)/g,
 ];
 
 for (const banc of [
   "bench-discoverability.mjs",
+  "bench-real-schema.mjs",
   "bench-schema.mjs",
   "verify-generated.mjs",
   "verify-runtime.mjs",

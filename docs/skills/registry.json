@@ -4215,16 +4215,10 @@
           {
             "path": "scripts/bench-real-schema.mjs",
             "purpose": "Banc de schéma RÉEL — le kit de colonnes tient-il un logiciel écrit par d'autres, de bout en bout, sur chaque moteur ?",
-            "usage": [
-              "node bench-real-schema.mjs                          # sqlite, postgres, mysql, mariadb"
-            ],
+            "usage": [],
             "options": [
               {
                 "flag": "--admin-",
-                "help": ""
-              },
-              {
-                "flag": "--admin-postgres",
                 "help": ""
               },
               {
@@ -4233,6 +4227,10 @@
               },
               {
                 "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--help",
                 "help": ""
               },
               {
