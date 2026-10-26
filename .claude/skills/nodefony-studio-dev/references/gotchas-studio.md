@@ -279,9 +279,18 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
   `setInterval` + une animation qui tournent onglet caché font ramer la machine. **Jamais de `backdrop-filter: blur`
   plein écran animé** (paint GPU permanent, recomposé même caché). Respecter `useReducedMotion`, hisser les styles.
 - **Grand graphe React Flow** (>~quelques dizaines de nœuds = illisible/laggy) : `Select searchable` → focus ;
-  **sous-graphe `neighborhood(root, depth)`** (BFS 1-2 sauts) → ne layouter QUE le voisinage ; garde `LARGE_GRAPH`
-  (>60 sans focus → invite à chercher + bouton « Afficher tout ») ; cadrage auto via `onInit`→`useRef(instance)` puis
-  `requestAnimationFrame(() => rf.fitView(...))` dans un effet `[focus, nodes]` (laisser React Flow committer avant de cadrer).
+  **sous-graphe `neighborhood(root, depth)`** (BFS 1-2 sauts) → ne layouter QUE le voisinage ; cadrage auto via
+  `onInit`→`useRef(instance)` puis `requestAnimationFrame(() => rf.fitView(...))` dans un effet sur un compteur de
+  mises en page (laisser React Flow committer avant de cadrer). Au-delà de `LARGE_GRAPH` (`routes/orm/erdModel.ts`),
+  l'ERD change de NATURE, pas de taille : **carte des domaines** à l'ouverture (`domainMap`, un nœud par domaine,
+  arête pondérée), **domaine ouvert** = membres + voisines d'autres domaines en fantômes (`domainScope`), boîtes
+  **compactes** (clés seules, `keyColumns`) placées sur leur hauteur COMPACTE (`nodeHeight` et le rendu lisent la
+  même règle `shownColumns`), tables **sans aucun lien en pastilles** hors du dessin. dagre empile chaque composante
+  connexe l'une sous l'autre : sur un schéma réel (431 tables, boîtes pleines), c'était un ruban de 150 000 px.
+  **Le compteur d'en-tête compte le SCHÉMA** (`canonicalLinks`, seule règle de comptage), jamais les nœuds rendus.
+- **Une bande de pastilles au-dessus d'un canevas reste sur UNE ligne** (`wrap="nowrap"` + `overflowX: auto`, pastilles
+  `flexShrink: 0`) : `PAGE_CONTENT_HEIGHT_WITH_BAND` ne réserve qu'UNE bande de 48 px — 38 domaines repliés sur trois
+  lignes poussaient le canevas et ses contrôles sous le bas de la fenêtre.
 - **Les règles React d'oxlint mordent, sans liste de fichiers** : `exhaustive-deps`, `no-array-index-key`,
   `no-unstable-nested-components`, `no-object-type-as-default-prop`. Les patrons qui les tiennent existent — les APPELER :
   - remonter une valeur au parent quand elle change → **`useReportOnChange(value, onX)`** (`hooks/`), jamais un
