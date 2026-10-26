@@ -10,6 +10,7 @@ import {
   gt,
   gte,
   inArray,
+  is,
   isNotNull,
   isNull,
   lt,
@@ -23,7 +24,10 @@ import type { Column, SQL, SQLWrapper } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
-import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
+import {
+  PgSelectBase,
+  getTableConfig as getPgTableConfig,
+} from "drizzle-orm/pg-core";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
 import type { MySqlTable } from "drizzle-orm/mysql-core";
@@ -210,12 +214,13 @@ const PREPARABLE_OPERATORS: ReadonlySet<string> = new Set([
  * `execute(placeholderValues)` résout les `sql.placeholder()` via
  * `fillPlaceholders`, qui applique le `mapToDriverValue` de la colonne aux
  * valeurs bindées (le mapping json/bool/date du chemin non préparé est donc
- * conservé à l'identique).
+ * conservé à l'identique). Une `Promise` en PostgreSQL et MySQL, un thenable
+ * en SQLite (`ExecuteResultSync`, exécuté à l'`await`).
  */
 interface IPreparedSelect {
   execute(
     placeholderValues: Record<string, unknown>,
-  ): Promise<Record<string, unknown>[]>;
+  ): PromiseLike<Record<string, unknown>[]>;
 }
 
 /** Entrée du cache de formes : requête préparée + SQL paramétré déjà redacté. */
@@ -893,9 +898,16 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       query = query.offset(sql.placeholder("off"));
     }
     const sqlSafe = this.#safeSql(query);
-    const prepared = (
-      query as unknown as { prepare(name: string): IPreparedSelect }
-    ).prepare(`nf_ps_${++preparedNameSeq}`);
+    // `prepare()` diverge selon le moteur : PostgreSQL NOMME la requête (préparée
+    // une fois par connexion, côté serveur), SQLite et MySQL ne prennent rien.
+    // Le builder se reconnaît à sa classe — un fait constaté, pas une
+    // conversion : `tsc` vérifie chaque branche contre la signature réelle.
+    // Vue élargie à `object` : le type SQLite et le type PG ne se croisent pas.
+    const name = `nf_ps_${++preparedNameSeq}`;
+    const builder: object = query;
+    const prepared: IPreparedSelect = is(builder, PgSelectBase)
+      ? builder.prepare(name)
+      : query.prepare();
     return { prepared, sqlSafe };
   }
 
