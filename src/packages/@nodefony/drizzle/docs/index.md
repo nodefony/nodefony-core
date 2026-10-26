@@ -567,13 +567,14 @@ regarder si un comportement te surprend.
 Trois comportements appartiennent au moteur, pas au framework. Les rendre identiques coûterait
 l'usage des index — un `col IS NULL` ajouté à chaque tri, une collation forcée sur chaque
 comparaison. Ils sont donc **déclarés** ici, et le banc de portabilité les tient dans une liste
-fermée : un écart qui n'y figure pas est un défaut, et une entrée qui ne se produit plus en sort.
+fermée, attendue d'après la collation qu'il CONSTATE sur la base — jamais d'après le nom du
+moteur : un écart qui n'y figure pas est un défaut, et un écart annoncé qui ne se produit pas aussi.
 
 <!-- prettier-ignore -->
 | Comportement | SQLite | PostgreSQL | MySQL | MariaDB | Pour obtenir le même résultat partout |
 | --- | --- | --- | --- | --- | --- |
 | Place des `NULL` dans un tri croissant | en tête | **en fin** | en tête | en tête | rendre la colonne obligatoire, ou trier sur une colonne qui n'est jamais `NULL` |
-| Ordre des chaînes (`?order=name:ASC`) | binaire | collation de la base | sans casse ni accent | sans casse ni accent | fixer la collation de la base, ou trier sur une forme normalisée |
+| Ordre des chaînes (`?order=name:ASC`) | binaire | **dépend du système** : binaire sous Alpine (musl), linguistique sous Debian (glibc), pour le même `en_US.utf8` | sans casse ni accent | sans casse ni accent | fixer la collation de la base, ou trier sur une forme normalisée |
 | Unicité d'une chaîne (`alice@` / `ALICE@`, `zoe` / `zoé`) | exacte | exacte | **sans casse ni accent** | **sans casse ni accent**, espace final ignoré | normaliser la valeur à l'écriture (minuscules, `trim`) dans le schéma de l'entité |
 
 Deux comportements, en revanche, sont rendus identiques par le framework, parce que les laisser au
