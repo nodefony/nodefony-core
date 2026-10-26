@@ -71,6 +71,7 @@ import { garderDrapeaux } from "./lib/argv.mjs";
 import { decorRoot } from "./lib/decor-root.mjs";
 import {
   ENGINES,
+  probeCollation,
   recreateDatabases as recreateServerDatabases,
   setDatabaseUrl as writeDatabaseUrl,
 } from "./lib/engines-decor.mjs";
@@ -547,52 +548,63 @@ function canonical(value) {
  * DÉCLARENT ici et dans la documentation (« Ce qui diverge d'une base à
  * l'autre »), et nulle part ailleurs ne se tolèrent.
  *
+ * Chaque écart est attendu d'après un FAIT de la base (`probeCollation`),
+ * constaté sur celle que l'application reçoit — jamais d'après le nom du
+ * moteur : le même PostgreSQL trie « alice » avant « Bob » sous Debian (glibc)
+ * et après sous Alpine (musl), pour un nom de collation identique. L'écart est
+ * attendu quand le fait diffère de celui de SQLite, la référence.
+ *
  * Fermée dans les deux sens : un écart hors liste fait échouer le moteur, et
- * une entrée qui ne se produit plus aussi — sinon la liste finirait par
- * couvrir un défaut qui n'a plus rien à voir avec sa raison.
+ * une entrée attendue qui ne se produit pas aussi — sinon la liste finirait
+ * par couvrir un défaut qui n'a plus rien à voir avec sa raison.
  */
 const DECLARED_DIVERGENCES = [
   {
     label: "liste.tri-born-asc",
-    engines: ["postgres"],
-    why: "PostgreSQL range les NULL APRÈS les valeurs en ordre croissant ; SQLite, MySQL et MariaDB AVANT",
+    fact: "nullsFirstAsc",
+    why: "place des NULL dans un tri croissant (PostgreSQL les range APRÈS les valeurs)",
   },
   {
     label: "chaine.tri-name-asc",
-    engines: ["mysql", "mariadb"],
-    why: "collation par défaut insensible à la casse et aux accents : « alice » précède « Bob » au lieu de le suivre",
+    fact: "linguisticOrder",
+    why: "ordre linguistique : « alice » précède « Bob » au lieu de le suivre",
   },
   {
     label: "chaine.email-doublon-casse",
-    engines: ["mysql", "mariadb"],
+    fact: "equalIgnoresCase",
     why: "unicité insensible à la casse : ALICE@ heurte alice@ (409)",
   },
   {
     label: "chaine.email-doublon-sans-accent",
-    engines: ["mysql", "mariadb"],
+    fact: "equalIgnoresAccents",
     why: "unicité insensible aux accents : zoe@ heurte zoé@ (409)",
   },
   {
     label: "chaine.email-doublon-espace-final",
-    engines: ["mariadb"],
-    why: "collation PAD SPACE : l'espace final est ignoré à la comparaison (409) — MySQL 8.4 est NO PAD",
+    fact: "equalIgnoresTrailingSpace",
+    why: "collation PAD SPACE : l'espace final est ignoré à la comparaison (409)",
   },
 ];
 
 /**
  * Sépare les écarts d'un moteur en DÉCLARÉS et INATTENDUS, et rend les
- * déclarations qui ne se sont pas produites.
+ * déclarations attendues qui ne se sont pas produites.
+ *
+ * @param facts - faits constatés sur la base du moteur (`probeCollation`).
+ * @param referenceFacts - les mêmes, sur SQLite.
+ * @param diffs - les cas dont l'instantané diffère de celui de SQLite.
  */
-function classifyDiffs(engineKey, diffs) {
-  const mine = DECLARED_DIVERGENCES.filter((d) =>
-    d.engines.includes(engineKey),
+function classifyDiffs(facts, referenceFacts, diffs) {
+  const mine = DECLARED_DIVERGENCES.filter(
+    (d) => facts[d.fact] !== referenceFacts[d.fact],
   );
   const declared = [];
   const unexpected = [];
   for (const diff of diffs) {
     const decl = mine.find((d) => d.label === diff.label);
-    if (decl) declared.push({ ...diff, why: decl.why });
-    else unexpected.push(diff);
+    if (decl) {
+      declared.push({ ...diff, why: `${decl.why} — ${facts.collation}` });
+    } else unexpected.push(diff);
   }
   const stale = mine.filter((d) => !diffs.some((x) => x.label === d.label));
   return { declared, unexpected, stale };
@@ -682,10 +694,12 @@ injectProbes();
 
 const DURABLE_SQLITE = path.join(ROOT, "durable-sqlite.json");
 let reference = null;
+/** Les faits de collation de la référence — ce à quoi chaque moteur se compare. */
+let referenceFacts = null;
 
 const sqliteOk = await step(
   "SQLITE (naissance) — suites générées, sonde, base de développement",
-  () => {
+  async () => {
     // Le code GÉNÉRÉ doit compiler : les suites passent par vitest, qui
     // n'éprouve aucun type — un service à clé serial qui ne compilait pas a
     // traversé tous les runs verts de ce banc.
@@ -693,6 +707,7 @@ const sqliteOk = await step(
     run("npm", ["test"]);
     generatedE2e();
     reference = probeSnapshot("sqlite");
+    referenceFacts = await probeCollation(null);
     withDevServer(() => devProbe("write", "sqlite", DURABLE_SQLITE));
     return { cas: reference.length };
   },
@@ -711,12 +726,17 @@ for (const engine of SELECTED) {
   const verdict = { engine: engine.key, ok: false, diffs: [] };
   verdicts.push(verdict);
   let urls = null;
+  let facts = null;
   const okDb = await step(
     `${engine.key} — bases dédiées recréées VIDES`,
     async () => {
       urls = await recreateDatabases(engine);
       setDatabaseUrl(urls.dev);
+      // Constatée sur la base que l'application recevra : c'est elle, et
+      // non le nom du moteur, qui dit quels écarts sont attendus.
+      facts = await probeCollation(engine, urls.dev);
       return {
+        collation: facts.collation,
         dev: redact(urls.dev),
         e2e: redact(urls.e2e),
         scratch: redact(urls.scratch),
@@ -810,7 +830,8 @@ for (const engine of SELECTED) {
     () => {
       snapshot = probeSnapshot(engine.key);
       const { declared, unexpected, stale } = classifyDiffs(
-        engine.key,
+        facts,
+        referenceFacts,
         diffSnapshots(reference, snapshot),
       );
       verdict.diffs = unexpected;
@@ -823,7 +844,7 @@ for (const engine of SELECTED) {
       }
       if (stale.length > 0) {
         problems.push(
-          `${stale.length} écart(s) déclaré(s) qui n'ont PLUS lieu — retirer de DECLARED_DIVERGENCES : ${stale.map((d) => d.label).join(", ")}`,
+          `${stale.length} écart(s) que la collation constatée (${facts.collation}) annonce et qui n'ont PAS lieu : ${stale.map((d) => d.label).join(", ")} — la sonde de collation ou DECLARED_DIVERGENCES se trompe`,
         );
       }
       if (problems.length > 0) throw new Error(problems.join("\n"));

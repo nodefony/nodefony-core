@@ -157,3 +157,118 @@ export function setDatabaseUrl(envFile, url) {
   if (url !== null) lines.push(`NF_DATABASE_URL=${url}`);
   writeFileSync(envFile, `${lines.join("\n").replace(/\n+$/u, "")}\n`);
 }
+
+/**
+ * Les faits de comparaison qu'un banc confronte — un par écart possible entre
+ * moteurs, chacun avec la requête qui le CONSTATE sur une table témoin.
+ *
+ * Constater plutôt que déduire : le nom d'une collation ment. `en_US.utf8`
+ * ordonne par octets sous Alpine (musl n'implémente pas la collation) et en
+ * linguistique sous Debian (glibc) — même nom, deux tris.
+ */
+const COLLATION_FACTS = Object.freeze({
+  /** « alice » précède « Bob » : l'ordre ignore la casse. */
+  linguisticOrder: [
+    "SELECT s FROM nf_collation_probe WHERE s IN ('Bob', 'alice') ORDER BY s",
+    (rows) => rows[0]?.s === "alice",
+  ],
+  /** « ALICE » égale « alice » : une unicité la refuserait. */
+  equalIgnoresCase: [
+    "SELECT COUNT(*) AS n FROM nf_collation_probe WHERE s = 'ALICE'",
+    (rows) => Number(rows[0]?.n) > 1,
+  ],
+  /** « zoe » égale « zoé ». */
+  equalIgnoresAccents: [
+    "SELECT COUNT(*) AS n FROM nf_collation_probe WHERE s = 'zoe'",
+    (rows) => Number(rows[0]?.n) > 1,
+  ],
+  /** « a » égale « a␠ » (collation PAD SPACE). */
+  equalIgnoresTrailingSpace: [
+    "SELECT COUNT(*) AS n FROM nf_collation_probe WHERE s = 'a'",
+    (rows) => Number(rows[0]?.n) > 1,
+  ],
+  /** Le NULL vient en tête d'un tri croissant. */
+  nullsFirstAsc: [
+    "SELECT s FROM nf_collation_probe ORDER BY s LIMIT 1",
+    (rows) => rows[0]?.s === null,
+  ],
+});
+
+const PROBE_TABLE = "CREATE TEMPORARY TABLE nf_collation_probe (s VARCHAR(64))";
+const PROBE_ROWS =
+  "INSERT INTO nf_collation_probe (s) VALUES " +
+  "('Bob'), ('alice'), ('ALICE'), ('zoe'), ('zoé'), ('a'), ('a '), (NULL)";
+
+/**
+ * Joue les requêtes de {@link COLLATION_FACTS} par un exécuteur, sur une table
+ * TEMPORAIRE — elle hérite de la collation par défaut de la base, comme toute
+ * colonne qu'une migration crée sans en nommer, et disparaît avec la session.
+ *
+ * @param {(sql: string) => Promise<Array<Record<string, unknown>>>} query
+ * @returns {Promise<Record<keyof typeof COLLATION_FACTS, boolean>>}
+ */
+async function readCollationFacts(query) {
+  await query(PROBE_TABLE);
+  await query(PROBE_ROWS);
+  const facts = {};
+  for (const [name, [sql, read]] of Object.entries(COLLATION_FACTS)) {
+    facts[name] = read(await query(sql));
+  }
+  return facts;
+}
+
+/**
+ * CONSTATE comment une base compare et ordonne les chaînes, et le nom de sa
+ * collation par défaut (pour le message — jamais pour décider).
+ *
+ * @param {{ dialect: string } | null} engine - un moteur de `ENGINES`, ou
+ *   `null` pour SQLite (la référence des bancs, collation `BINARY`).
+ * @param {string} [url] - la base à sonder (moteur serveur).
+ * @returns {Promise<{ collation: string } & Record<keyof typeof COLLATION_FACTS, boolean>>}
+ */
+export async function probeCollation(engine, url) {
+  if (engine === null) {
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(":memory:");
+    try {
+      const facts = await readCollationFacts(async (sql) => {
+        const statement = db.prepare(sql);
+        return /^\s*SELECT/iu.test(sql)
+          ? statement.all()
+          : (statement.run(), []);
+      });
+      return { collation: "BINARY", ...facts };
+    } finally {
+      db.close();
+    }
+  }
+  if (engine.dialect === "postgres") {
+    const { default: pg } = await import("pg");
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    try {
+      const query = async (sql) => (await client.query(sql)).rows;
+      const facts = await readCollationFacts(query);
+      const [db] = await query(
+        "SELECT datcollate AS c, datlocprovider AS p FROM pg_database WHERE datname = current_database()",
+      );
+      const provider = { c: "libc", i: "icu", b: "builtin" }[db.p] ?? db.p;
+      return { collation: `${db.c} (${provider})`, ...facts };
+    } finally {
+      await client.end();
+    }
+  }
+  const mysql = await import("mysql2/promise");
+  const conn = await mysql.createConnection(url);
+  try {
+    const query = async (sql) => {
+      const [rows] = await conn.query(sql);
+      return Array.isArray(rows) ? rows : [];
+    };
+    const facts = await readCollationFacts(query);
+    const [db] = await query("SELECT @@collation_database AS c");
+    return { collation: String(db.c), ...facts };
+  } finally {
+    await conn.end();
+  }
+}

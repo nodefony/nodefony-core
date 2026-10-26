@@ -394,8 +394,9 @@ perdrait le voyage.
 
 - **La sonde ne lit que du HTTP** : un type de l'adaptateur dans le banc prouverait l'adaptateur,
   pas la portabilité.
-- **Un écart de moteur se DÉCLARE, il ne se gomme pas** : collation MySQL (casse, accents, espaces
-  finaux), place des `NULL` dans un tri. Les émuler coûterait l'usage des index.
+- **Un écart de moteur se DÉCLARE** (collation, place des `NULL`) — l'émuler coûterait les index. Il est
+  attendu d'après un fait CONSTATÉ sur la base (`probeCollation`), jamais d'après le moteur : le même
+  PostgreSQL `en_US.utf8` trie par octets sous Alpine, en linguistique sous Debian.
 - Bases `nf_portability*` recréées vides à chaque passe : un décor sale fabrique un faux verdict.
 
 ## Banc de schéma réel — le kit tient-il un vrai logiciel ?
