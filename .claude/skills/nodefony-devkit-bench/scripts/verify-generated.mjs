@@ -860,7 +860,10 @@ if (DATABASE === "postgres" || DATABASE === "mysql" || DATABASE === "mariadb") {
     // puis rejouer ce que `create app` fait sur une base neuve — écrire la
     // migration initiale (qu'une base sale lui a fait REFUSER : constaté en
     // MySQL, aucun `0000_init`) et l'appliquer. L'état de la forge.
+    // Le décor installe sans CONSTRUIRE ; or `orm:*` boote l'application et
+    // refuse un projet non bâti (« NON CONSTRUIT ») — d'où le build d'abord.
     () => {
+      run("npm", ["run", "build"]);
       run(process.execPath, [BIN, "orm:reset", "--yes", "--drop-accounts"]);
       const dir = path.join(
         APP,
