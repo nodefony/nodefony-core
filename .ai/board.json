@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:21:11.507Z",
+  "generatedAt": "2026-10-26T16:33:31.993Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 200,
+      "closed": 201,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 22,
+      "open": 21,
       "title": "10.0.0-beta"
     },
     {
@@ -883,7 +883,7 @@
       "title": "feat(core): rendre traduisibles les textes du framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/378",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2584,7 +2584,7 @@
       "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
       "url": "https://github.com/nodefony/nodefony-core/issues/268",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 5,
@@ -5322,8 +5322,8 @@
       "number": 684,
       "title": "test(devkit): porter le schéma Dolibarr sur quatre moteurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/684",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -5339,7 +5339,7 @@
       "title": "test(devkit): migrer un schéma réel d'une version à la suivante sans perte",
       "url": "https://github.com/nodefony/nodefony-core/issues/686",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -9883,6 +9883,22 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 924.8,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 687,
+      "title": "fix(orm): ne plus générer en production les tables d'un module de dev",
+      "url": "https://github.com/nodefony/nodefony-core/issues/687",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 924.9,
       "debut": null,
       "cible": null,
       "labels": [
