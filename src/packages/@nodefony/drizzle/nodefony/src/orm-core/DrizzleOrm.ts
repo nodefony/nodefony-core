@@ -2165,7 +2165,7 @@ export class DrizzleOrm extends Orm {
    * @returns colonnes (`[]` si l'entité n'est pas connue de cet ORM).
    */
   override describeEntity(name: string): IColumnInfo[] {
-    const table = this.#tables?.[name];
+    const table = this.#describedTable(name);
     if (!table) {
       return [];
     }
@@ -2211,11 +2211,37 @@ export class DrizzleOrm extends Orm {
   #entityNameOf(table: Table): string {
     if (this.#entityNames === null) {
       this.#entityNames = new Map();
-      for (const [entity, t] of Object.entries(this.#tables ?? {})) {
-        this.#entityNames.set(t, entity);
+      if (this.#tables) {
+        for (const [entity, t] of Object.entries(this.#tables)) {
+          this.#entityNames.set(t, entity);
+        }
+      } else {
+        for (const entity of this.#ownEntities()) {
+          const t = dialectTableOf(entity.schema, this.#dialect);
+          if (t) this.#entityNames.set(t, entity.name);
+        }
       }
     }
     return this.#entityNames.get(table) ?? getTableName(table);
+  }
+
+  /**
+   * Table d'une entité pour la DÉCRIRE : celle résolue à la connexion, sinon
+   * celle que sa description donne pour le dialecte du connecteur — sans base.
+   *
+   * Une commande en ligne (`nodefony inspect graph`) démarre sans connecter
+   * l'ORM : lue sur les seules tables de la connexion, chaque entité y sortait
+   * sans une colonne ni une clé étrangère, et le graphe sans aucune arête.
+   *
+   * @param name - nom logique de l'entité.
+   * @returns la table, ou `null` si aucune entité de cet ORM ne porte ce nom.
+   */
+  #describedTable(name: string): DrizzleTable | null {
+    const resolved = this.#tables?.[name];
+    if (resolved) return resolved;
+    if (this.#tables) return null;
+    const entity = this.#ownEntities().find((e) => e.name === name);
+    return entity ? dialectTableOf(entity.schema, this.#dialect) : null;
   }
 
   /**
