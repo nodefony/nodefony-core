@@ -346,6 +346,45 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
       expect(r.status).to.equal(500);
     });
 
+    /** Refus du kit de colonnes portable (`ColumnValueError` de `@nodefony/drizzle`), reconnu à sa FORME. */
+    function kitRefusal(kind: string, value: string): Error {
+      const e = new Error(
+        `colKit "posts.id": "${value}" is not a UUID.`,
+      ) as Error & {
+        kind: string;
+        value: string;
+      };
+      e.name = "ColumnValueError";
+      e.kind = kind;
+      e.value = value;
+      return e;
+    }
+
+    it("kit portable (SQLite, MySQL) — uuid refusé dans le chemin → 404, comme PostgreSQL", () => {
+      const r = renderer.renderHttp(
+        kitRefusal("uuid", "pas-un-uuid"),
+        withUrl("https://h/api/posts/pas-un-uuid") as never,
+      );
+      expect(r.status).to.equal(404);
+      expect(r.message).to.not.contain("colKit");
+    });
+
+    it("kit portable — uuid refusé dans un FILTRE → 400", () => {
+      const r = renderer.renderHttp(
+        kitRefusal("uuid", "abc"),
+        withUrl("https://h/api/posts?author=abc") as never,
+      );
+      expect(r.status).to.equal(400);
+    });
+
+    it("kit portable — un décimal refusé n'est pas un identifiant : 500", () => {
+      const r = renderer.renderHttp(
+        kitRefusal("decimal", "abc"),
+        withUrl("https://h/api/posts/abc") as never,
+      );
+      expect(r.status).to.equal(500);
+    });
+
     it("CastError sur un autre type qu'un identifiant reste 500", () => {
       const e = castError("abc") as Error & { kind: string };
       e.kind = "Number";

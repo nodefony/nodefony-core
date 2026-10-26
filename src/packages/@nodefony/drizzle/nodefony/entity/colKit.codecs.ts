@@ -9,6 +9,37 @@
  * écriture ET toute comparaison liée à la colonne (`eq(col, valeur)`).
  */
 
+/** Genre de colonne dont un codec refuse la valeur. */
+export type ColumnValueKind = "decimal" | "uuid" | "date";
+
+/**
+ * Valeur qu'une colonne du kit REFUSE avant la base — là où PostgreSQL la
+ * refuserait lui-même (`22P02`).
+ *
+ * Structurée, et reconnue par sa FORME (`name` + `kind`) : le rendu d'erreur
+ * HTTP, qui ne dépend d'aucun ORM, y lit un identifiant mal formé (`kind:
+ * "uuid"`) et répond 404 comme pour PostgreSQL ou Mongoose — sans quoi le même
+ * chemin rendrait 404 sur un moteur et 500 sur un autre.
+ */
+export class ColumnValueError extends Error {
+  override readonly name = "ColumnValueError";
+
+  /**
+   * @param kind - genre de la colonne.
+   * @param value - valeur refusée, telle que reçue.
+   * @param column - `table.colonne`.
+   * @param message - phrase qui dit le refus.
+   */
+  constructor(
+    readonly kind: ColumnValueKind,
+    override readonly value: string,
+    readonly column: string,
+    message: string,
+  ) {
+    super(`[@nodefony/drizzle] colKit "${column}": "${value}" ${message}`);
+  }
+}
+
 /** Exposant au-delà duquel une écriture décimale est refusée (borne le calcul). */
 const DECIMAL_MAX_EXPONENT = 1000;
 
@@ -36,14 +67,20 @@ export function canonicalDecimal(
   const intPart = match?.[2] ?? "";
   const fracPart = match?.[3] ?? "";
   if (match === null || intPart.length + fracPart.length === 0) {
-    throw new Error(
-      `[@nodefony/drizzle] colKit "${label}": "${value}" is not a decimal number.`,
+    throw new ColumnValueError(
+      "decimal",
+      value,
+      label,
+      "is not a decimal number.",
     );
   }
   const exponent = Number(match[4] ?? "0");
   if (Math.abs(exponent) > DECIMAL_MAX_EXPONENT) {
-    throw new Error(
-      `[@nodefony/drizzle] colKit "${label}": "${value}" does not fit decimal(${precision}, ${scale}).`,
+    throw new ColumnValueError(
+      "decimal",
+      value,
+      label,
+      `does not fit decimal(${precision}, ${scale}).`,
     );
   }
   // valeur = digits × 10^(exponent − fracPart.length)
@@ -61,8 +98,11 @@ export function canonicalDecimal(
   }
   const text = scaled.toString();
   if (text.length > precision && scaled !== 0n) {
-    throw new Error(
-      `[@nodefony/drizzle] colKit "${label}": "${value}" does not fit decimal(${precision}, ${scale}).`,
+    throw new ColumnValueError(
+      "decimal",
+      value,
+      label,
+      `does not fit decimal(${precision}, ${scale}).`,
     );
   }
   const padded = text.padStart(scale + 1, "0");
@@ -88,9 +128,7 @@ export function canonicalUuid(value: string, label: string): string {
   const braced = value.startsWith("{") && value.endsWith("}");
   const match = UUID_RE.exec(braced ? value.slice(1, -1) : value);
   if (match === null) {
-    throw new Error(
-      `[@nodefony/drizzle] colKit "${label}": "${value}" is not a UUID.`,
-    );
+    throw new ColumnValueError("uuid", value, label, "is not a UUID.");
   }
   return `${match[1]}-${match[2]}-${match[3]}-${match[4]}-${match[5]}`.toLowerCase();
 }
@@ -122,8 +160,11 @@ export function canonicalDay(value: string, label: string): string {
     day < 1 ||
     day > lastDay
   ) {
-    throw new Error(
-      `[@nodefony/drizzle] colKit "${label}": "${value}" is not a calendar day (YYYY-MM-DD).`,
+    throw new ColumnValueError(
+      "date",
+      value,
+      label,
+      "is not a calendar day (YYYY-MM-DD).",
     );
   }
   return value;
