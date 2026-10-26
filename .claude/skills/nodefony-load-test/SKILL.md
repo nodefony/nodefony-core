@@ -77,76 +77,11 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > charge du hub realtime, stress combiné supervision, démo AIMD, cluster sans PM2, override de
 > config par env.
 >
-> **Mesures hors requête** — deux bancs mesurent autre chose que le trafic, avec le même protocole
-> (plusieurs runs, médiane, décor maîtrisé) :
->
-> | Script                                                                                          | Ce qu'il mesure                                                                                                                                                        |
-> | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | `scripts/boot-bench.mjs`                                                                        | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()`                                                                             |
-> | `scripts/console-boot-bench.mjs` (+ `heap-at-exit.mjs`)                                         | boot d'une commande CONSOLE, N runs : durée vue DANS le process (`process.uptime()`) et tas RETENU à la sortie après deux `gc()` — avant/après un refactor du noyau    |
-> | `scripts/server-boot-bench.mjs`                                                                 | boot du serveur de DÉVELOPPEMENT, N cycles `start.sh`/`stop` : durée du bilan `var/last-boot.json` (horloge du noyau), tas retenu par la sonde `/nodefony/test/memory` |
-> | `scripts/poc-hmr-perf.mjs`                                                                      | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite                                                                                  |
-> | `scripts/route-scan-cost.mjs`                                                                   | ce que la résolution de route coûte à une app, et sa sensibilité au NOMBRE de routes                                                                                   |
-> | `scripts/db-backend-cost.mjs`                                                                   | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, plafond réel                                                                                 |
-> | `scripts/profile-compare.sh` (+ `profile-cpu.sh`, `profile-analyze.mjs`, `profile-compare.mjs`) | OÙ part le CPU d'une requête, COMPARÉ au témoin équitable (`nest-fair`) : écart poste par poste en µs/req — la RÈGLE N°0 ci-dessous                                    |
-> | `scripts/soak.mjs`                                                                              | la tenue DANS LA DURÉE : pente du heap et dérive du débit sous trafic continu                                                                                          |
-> | `scripts/prod-readiness-report.mjs`                                                             | agrège comparatif + soak + capacité en UN rapport HTML « peut-on partir en production ? », calculateur de pods compris — et NOMME ce que les chiffres ne prouvent pas  |
->
-> **Micro-bancs isolés — `scripts/micro/`** : ils mesurent UN mécanisme hors du serveur, pour
-> convertir en nanosecondes un poste qu'un profil désigne en pourcentage. C'est le geste qui a
-> évité trois chantiers ouverts pour rien (écart ×25-30 entre l'attribution d'un profil et le
-> coût réel) — **tout % de profil se convertit en ns AVANT d'ouvrir un lot**. Ils mentent dans
-> l'autre sens (tas froid, sites d'appel monomorphes) : l'arbitre reste la sonde in-situ.
->
-> | Micro-banc                          | Ce qu'il isole                                                                                                                                                                                                                                                                                                                                                                           |
-> | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | `micro/micro-enterscope.mjs`        | entrée/sortie d'une portée DI sur un conteneur peuplé (dist du cœur)                                                                                                                                                                                                                                                                                                                     |
-> | `micro/micro-request-scope.mjs`     | l'injection par requête : un contrôleur construit par l'injecteur, et le surcoût d'un service de portée `request`                                                                                                                                                                                                                                                                        |
-> | `micro/micro-extend.mjs`            | le coût de `Tools.extend` face au spread et à une version mémoïsée                                                                                                                                                                                                                                                                                                                       |
-> | `micro/micro-route-scan.mjs`        | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)                                                                                                                                                                                                                                                                                                                       |
-> | `micro/micro-route-scale.mjs`       | la même chose à N croissant : la COURBE, de 136 à 2 400 routes                                                                                                                                                                                                                                                                                                                           |
-> | `micro/micro-host.mjs`              | le traitement de l'en-tête `Host` (port, forme canonique, domaines) — `split` 197 ns contre `indexOf`+`slice` 25                                                                                                                                                                                                                                                                         |
-> | `micro/micro-header-values.mjs`     | la fabrication des valeurs d'en-têtes : Content-Type, traceparent, CSP à nonce, hostname — avant/après                                                                                                                                                                                                                                                                                   |
-> | `micro/micro-service-bus.mjs`       | un `Service` construit dans un scope de requête (chaque `Context`) + son bus interrogé sans abonné — avant/après                                                                                                                                                                                                                                                                         |
-> | `micro/micro-write-head.mjs`        | N `setHeader` + `writeHead` contre un objet remis à `writeHead` — ~210 ns/en-tête payés par Node dans les DEUX formes                                                                                                                                                                                                                                                                    |
-> | `micro/micro-zone-match.mjs`        | les 7 zones du pare-feu (`isSecure`), Nodefony contre témoin, avec et sans le drapeau `u` des motifs                                                                                                                                                                                                                                                                                     |
-> | `micro/micro-update-pick.mjs`       | l'UPDATE borné par sous-requête (`#pickOne`) contre le `WHERE` nu du témoin, et leur seule compilation SQLite                                                                                                                                                                                                                                                                            |
-> | `micro/micro-select-ops.mjs`        | un SELECT à comparaison (`jti = ? AND expiresAt > ?`) reconstruit à chaque appel contre préparé une fois                                                                                                                                                                                                                                                                                 |
-> | `micro/micro-store-release.mjs`     | le vidage du magasin `RequestContext` en fin de requête (`release()`) et la réaction posée sur une action décorée                                                                                                                                                                                                                                                                        |
-> | `micro/micro-profiler-collect.mjs`  | le coût par requête du profileur de DÉVELOPPEMENT (`Profiler.collect()`, anneau plein qui évince) — ~2 µs, ≈ 0,2 % d'une requête de dev ; absent en production                                                                                                                                                                                                                           |
-> | `micro/micro-resolver-field.mjs`    | UN champ de plus sur le `Resolver` (construit à chaque requête) : A/B sur le `dist` bâti, le même fichier sans la déclaration (`NF_FIELD`) — refuse de mesurer si le champ n'est pas émis. Un champ initialisé : ~0,9 ns, dans le bruit ; un `declare` : rien                                                                                                                            |
-> | `micro/micro-realtime-state.mjs`    | la lecture par frame de l'état d'une connexion temps réel : propriété du contexte contre `WeakMap` typée (+11 à 13 ns)                                                                                                                                                                                                                                                                   |
-> | `micro/micro-realtime-frame-ab.mjs` | A/B du `RealtimeController` BÂTI entre deux `dist` (`--a`/`--b`) : frame entrante, `notifyClient`, binaire — un process par mesure, variantes alternées. Référence `HEAD` bâtie hors de l'arbre par `git archive`, jamais le `dist` courant (un serveur de dev le rebâtit à chaque sauvegarde)                                                                                           |
-> | `micro/micro-orm-hot-path-ab.mjs`   | A/B entre deux `dist` BÂTIS du chemin ORM payé par chaque requête authentifiée : rechargement de `User` par id, recherche par identifiant, lecture et écriture de session — SQLite en mémoire, ou PostgreSQL (`NF_BENCH_PG_URL`). Un process par mesure, alterné, verdict SÉPARÉ / DANS LE BRUIT. Derrière Docker Desktop, ~1 ms/op : seul un écart de plusieurs dizaines de µs s’y voit |
->
-> **Rapport du dossier de performance** : `scripts/perf-dossier-report.mjs` rend en une page HTML
-> autonome ce que `docs/performance/` établit en Markdown (graphes, schémas, calculateur de pods).
-> Les données sont déclarées dans le script et embarquées dans la page.
->
-> 🔴 **Un instrument ne vit jamais dans `tmp/`.** Le rapport est une photo — il s'écrit dans `tmp/`
-> et se refabrique ; le script qui le produit est du CODE, et un ménage de `tmp/` emporterait la
-> seule façon de le reproduire. Même règle pour les micro-bancs : ils ont été rapatriés ici après
-> avoir failli disparaître avec le dossier qui les hébergeait.
->
-> **`route-scan-cost.mjs` répond à une question qu'aucun banc de charge ne pose** : l'index de
-> routes livré en juin (+15,3 % RPS) porte sur les routes **littérales** (Map par chemin exact) —
-> la résolution est donc `O(dynamiques)`, pas `O(1)`. Les routes à variable ou wildcard restent
-> scannées une à une à chaque requête. Ce banc chiffre ce résidu : invisible sur le dépôt
-> (136 routes, 47 dynamiques → ~1 µs, 1,3 % d'un budget de requête), franchement cher sur une app
-> qui déclare mille routes (~26 µs, 30 %). C'est la mesure qui dit si l'étape suivante
-> (bucketisation des dynamiques) se justifie pour une application donnée. Trois sorties indépendantes : `--diagnostic` (le
-> compte de `Route.match` par requête, exact et sans mesure), `--measure` (le coût en ns, médiane
-> de N runs, avec refus sous variance), `--scale` (la courbe à 136 → 2400 routes).
->
-> ```bash
-> node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs             # app courante
-> node …/route-scan-cost.mjs --measure --target /nodefony/security/api/auth/me
-> node …/route-scan-cost.mjs --scale                                            # la courbe
-> ```
->
-> ⚠️ Il recompile les motifs depuis `nodefony inspect routes --json` : ce n'est pas le motif de
-> production, et il ne mesure que le scan (pas hostname/requirements, payés une fois sur la route
-> qui matche). Le chiffre est une **borne basse**, le compte de `--diagnostic` est exact.
+> **Mesures hors requête, micro-bancs isolés (`scripts/micro/`), rapport du dossier de performance**
+> → [`references/catalogue.md`](references/catalogue.md) § « Mesures hors requête et micro-bancs ».
+> Deux règles à garder en tête sans l’ouvrir : **tout % de profil se convertit en ns par un
+> micro-banc AVANT d’ouvrir un lot** (écart ×25-30 déjà mesuré entre attribution et coût réel), et
+> 🔴 **un instrument ne vit jamais dans `tmp/`** — le rapport y va, le script qui le produit reste ici.
 
 ## Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
 

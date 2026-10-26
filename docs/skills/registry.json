@@ -6639,8 +6639,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code. Profil d'une route → outil MCP `nodefony_profile_route`.",
       "cost": {
-        "bodyLines": 546,
-        "approxTokens": 11163
+        "bodyLines": 481,
+        "approxTokens": 7764
       },
       "requires": [
         "serveur UP",
@@ -8955,8 +8955,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "546",
+            "ok": true,
+            "detail": "481",
             "advisory": true
           }
         ]
