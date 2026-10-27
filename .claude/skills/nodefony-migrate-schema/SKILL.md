@@ -10,7 +10,8 @@ description: >
   Déclencheurs : "j'ai ajouté un champ à une entité", "la colonne n'existe pas en base",
   "migrer le schéma", "orm:migrate", "orm:generate", "appliquer les migrations",
   "déployer un changement de schéma", "adopter une base existante",
-  "réparer une migration en échec", "no such column".
+  "réparer une migration en échec", "no such column", "renommer une colonne",
+  "renommer un champ d'une entité", "changer le type ou la longueur d'une colonne".
 metadata:
   nodefony-source-package: "@nodefony/devkit"
 ---

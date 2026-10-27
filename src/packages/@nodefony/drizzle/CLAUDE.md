@@ -74,6 +74,17 @@ Deux usages :
   préfixe par `./` ; question de renommage sans terminal). Tout appel passe par `runGenerate`
   (`scripts/drizzleKit.ts`), qui exige une PREUVE POSITIVE. Un contrôle qui conclut de « code 0 +
   aucun fichier » déclare ALIGNÉ un schéma qui a dérivé : la panne innocente le produit.
+- 🔴 **`drizzle-kit` n'a JAMAIS de terminal** (`runGenerate` capture sa sortie) : sa question
+  « renommage ? » est inatteignable, humain compris. Un renommage se DÉCLARE —
+  `orm:generate --rename t.a=b` (`migrator/renames.ts`, `renameGeneration.ts`) — et tout chemin
+  qui fait générer une migration d'évolution (banc, outil) passe par CES fonctions, jamais par une
+  copie. Ne pas « réparer » en passant le terminal à l'outil : la preuve positive
+  (`generationHappened`) lit la sortie capturée, et `node-pty` ne s'installe pas sous Windows.
+- 🔴 **L'applicateur SQLite coupe `foreign_keys` à l'ouverture et contrôle par
+  `foreign_key_check` avant chaque COMMIT** (`sqliteDriver.ts`). Ne pas retirer le `pragma` : le
+  `PRAGMA foreign_keys=OFF` écrit par drizzle-kit est sans effet dans une transaction, et
+  `better-sqlite3` ouvre à 1 — toute recréation d'une table référencée et peuplée échouait. Seul un
+  banc sur base PEUPLÉE le voit (`erp-lite-evolution-*`) : une table vide ne déclenche rien.
 - 🔴 **`drizzle-kit` relit les fichiers d'entité en COMMONJS** (son esbuild, hors de la chaîne ESM
   de l'application) : un `await` de premier niveau y est refusé. `runGenerate` reconnaît cette
   ligne d'esbuild (`topLevelAwaitFailure`, `kit.ts`) et lève `NF_GENERATE_TOP_LEVEL_AWAIT` en

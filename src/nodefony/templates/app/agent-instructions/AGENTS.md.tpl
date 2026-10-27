@@ -368,7 +368,7 @@ Celles qu'on n'invente pas, faute de savoir qu'elles existent :
 <% } %><% if (it.hasOrm && !it.hasMigrations) { %>- **Cette application persiste sur MongoDB** — aucune migration : une collection
   naît à la première écriture, et `npx nodefony create entity` y écrit une entité
   document (schéma Mongoose) — la grammaire de champs est la même qu'en SQL.
-<% } %><% if (it.hasMigrations) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate`
+<% } %><% if (it.hasMigrations) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate [--rename t.a=b]`
 - **En développement, écrire ET appliquer d'un geste** — `npx nodefony orm:generate --apply`
 - **Appliquer les migrations** (verrou + historique) — `npx nodefony orm:migrate [-n]`
 - **La base est-elle à jour ?** — `npx nodefony orm:migrate:status` — **0** = à jour,

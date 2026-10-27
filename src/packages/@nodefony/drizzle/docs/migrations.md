@@ -71,6 +71,13 @@ D'où **trois modes**, un par connecteur, réglés par la clé `ddl` :
 | `migrate` | les migrations, appliquées au démarrage sous verrou          | nulle part — jamais un défaut      |
 | `none`    | personne ici : un travail extérieur s'en charge              | tout le reste, production comprise |
 
+> [!NOTE]
+> **Une application créée par `nodefony create app` avec un ORM SQL est en `migrate` dès son
+> installation**, développement compris : le générateur écrit ET applique sa migration initiale, et
+> une application qui versionne au moins une migration quitte `auto` (voir plus bas). Votre geste
+> quotidien est donc : modifier l'entité, puis `nodefony orm:generate --name … --apply`. `auto` ne
+> concerne qu'une application qui n'a encore aucune migration.
+
 > [!IMPORTANT]
 > `migrate` n'est le défaut d'aucun environnement, et c'est délibéré. Faire migrer le schéma par le
 > processus qui sert le trafic, c'est accepter que N exemplaires démarrant ensemble se disputent la
@@ -185,9 +192,9 @@ migration dans `migrations/<dialecte>/`, et vous dit ce qu'elle a écrit. L'outi
 différence est piloté à l'intérieur ; vous n'avez ni sa configuration à tenir, ni son dossier de
 sortie à connaître, ni son journal à comprendre.
 
-Le dialecte est celui de votre connecteur : vos entités sont du Drizzle **natif**, donc écrites pour
-un moteur. C'est ce qui vous laisse toute la puissance du moteur dans une entité — et ce qui fait
-qu'une migration vaut pour lui seul.
+La migration est écrite pour le moteur de votre connecteur, sous `migrations/<dialecte>/` : une
+entité générée est **portable** et sert les quatre moteurs, mais un fichier SQL ne vaut que pour
+le sien. Changer de base, c'est écrire la migration initiale du nouveau dialecte.
 
 ### En développement : écrire et appliquer d'un seul geste — `--apply`
 
@@ -217,6 +224,49 @@ UNIQUE`), le générateur de migrations raisonne sur un **index nommé** (`messa
 > Un `ddl` écrit dans votre configuration gagne toujours ; et sous `NODE_ENV=test`, rien ne change
 > (une suite lance un exemplaire par worker, et ses bases partent vides).
 
+### Renommer une colonne ou une table — `--rename`
+
+Un générateur de diff compare deux schémas ; il ne voit pas une intention. Quand `titre` disparaît
+et que `title` apparaît, il ne peut pas savoir si c'est **la même colonne qui change de nom** — les
+données suivent — ou **une colonne supprimée et une autre créée** — les données sont perdues. La
+réponse se donne dans la commande :
+
+```bash
+# une colonne : la table sous le nom que porte son entité
+nodefony orm:generate --name titre_en_anglais --rename article.titre=title
+
+# une table, puis une colonne DANS la table renommée — désignée par son NOUVEAU nom
+nodefony orm:generate --name lignes_de_facture \
+  --rename invoice_line=invoice_det \
+  --rename invoice_det.fk_parent_line=fk_parent
+```
+
+La migration porte alors un `RENAME`, en tête, et les données suivent. Un renommage **accompagné
+d'un changement de type** (`varchar(8)` devenu `colour varchar(16)`) s'écrit en entier : le
+renommage, puis l'élargissement. La sortie `--json` le confirme (`renamed`), et le fichier se relit
+comme les autres.
+
+Sans `--rename`, la commande s'arrête (`NF_GENERATE_NEEDS_ANSWER`) et **n'écrit rien**. Il n'y a
+pas de question à laquelle répondre au clavier : la réponse est une déclaration, la même dans un
+terminal, dans l'intégration continue ou dans la consigne d'un agent — et sur les trois systèmes.
+
+Ce qui est refusé (`NF_GENERATE_RENAME`, rien n'est écrit) :
+
+- une déclaration mal formée, ou qui renomme deux fois la même colonne ;
+- un ancien nom que la **dernière migration** ne décrit pas — on ne renomme que ce que les bases ont
+  reçu ; la toute première migration crée les tables sous leur nom ;
+- un nouveau nom qu'aucune entité ne déclare : la migration renommerait la colonne, puis la
+  supprimerait faute de la trouver.
+
+> [!IMPORTANT]
+> **Supprimer une colonne ET en ajouter une autre sans rapport, dans la même table**, pose la même
+> question. Ne déclarez pas un faux renommage pour la faire taire : générez en **deux fois** —
+> d'abord l'entité sans la colonne retirée (le garde destructif nomme la perte), puis avec l'ajout.
+
+**Allonger une colonne n'est pas une perte.** `varchar(16)` → `varchar(32)`, `integer` →
+`bigint` : le générateur le constate sur l'état de départ et n'exige rien. Raccourcir, changer de
+genre, ou rendre une colonne obligatoire reste refusé sans `--allow-destructive`.
+
 ### Ce que la commande refuse, et pourquoi c'est une bonne nouvelle
 
 **Une migration est immuable dès qu'une base l'a reçue.** Une migration à laquelle il manque une
@@ -234,8 +284,8 @@ Le troisième cas mérite deux précisions.
 
 D'abord, quand une colonne disparaît et qu'une autre apparaît, aucun outil ne peut deviner s'il
 s'agit d'un **renommage** — les données suivent — ou d'une suppression suivie d'un ajout — les
-données sont perdues. C'est une intention, pas une différence de schéma. Rejouez alors la commande
-dans un terminal, et répondez à la question posée.
+données sont perdues. C'est une intention, pas une différence de schéma : elle se **déclare**, voir
+[Renommer une colonne ou une table](#renommer-une-colonne-ou-une-table----rename) ci-dessus.
 
 Ensuite, **il n'y a rien à regénérer pour « assumer »** : au moment où ce refus paraît, les
 fichiers sont déjà écrits et inscrits au journal. Relancer la génération ne produirait plus rien —

@@ -1,21 +1,20 @@
 ---
 name: nodefony-migrate-schema
 description: >
-  Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes
-  `orm:generate` et `orm:migrate` du framework — jamais par un `ALTER` écrit à la main ni par la
-  suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan
-  avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui
-  cassent un historique, et le patron de déploiement où les migrations passent AVANT les
-  exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma
-  changé.
+  Fait évoluer le schéma d'une base Nodefony et le porte en production, par `orm:generate` et
+  `orm:migrate` — jamais par un `ALTER` à la main ni en supprimant la base. Porte la lecture de
+  l'état, le plan avant le geste, chaque code de refus et son geste, le renommage déclaré, les trois
+  interdits qui cassent un historique, et le déploiement où les migrations passent AVANT les
+  exemplaires. À charger AVANT de modifier une entité déjà en base, ou de déployer un schéma changé.
   Déclencheurs : "j'ai ajouté un champ à une entité", "la colonne n'existe pas en base",
   "modifier une table existante", "migrer le schéma", "orm:migrate", "orm:generate",
   "appliquer les migrations", "déployer un changement de schéma", "no such column",
   "column does not exist", "ma base ne correspond plus au code", "adopter une base existante",
   "réparer une migration en échec", "éprouver une migration sans casser ma base",
-  "rejouer les migrations depuis zéro".
+  "rejouer les migrations depuis zéro", "renommer une colonne ou une table",
+  "changer le type ou la longueur d'une colonne".
 metadata:
-  version: 2
+  version: 3
 ---
 
 # Faire évoluer un schéma, et le porter en production
@@ -29,18 +28,27 @@ metadata:
 > la ligne exacte :
 > `node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>`.
 
-## 1. La seule chose à savoir avant tout le reste
+## 1. La seule chose à savoir avant tout le reste — QUI fabrique le schéma ici ?
 
-**En développement, il n'y a rien à faire.** La base suit le code : la table naît au démarrage, et
-un champ ajouté **qui accepte le vide** est posé au démarrage suivant.
+La clé `ddl` d'un connecteur répond à une seule question : qui fabrique les tables. Le mode n'est
+presque jamais écrit, il se DÉDUIT — et c'est lui qui décide du geste.
 
-**Deux cas seulement sortent de là**, et ce sont eux qui amènent ici :
+| Situation                                                | Mode      | Qui fabrique les tables                                     |
+| -------------------------------------------------------- | --------- | ----------------------------------------------------------- |
+| `ddl` écrit dans la configuration                        | lui       | ce que dit la configuration — il gagne toujours             |
+| développement, l'application versionne **≥ 1** migration | `migrate` | les migrations, appliquées au démarrage                     |
+| développement, **aucune** migration ; ou `NODE_ENV=test` | `auto`    | le démarrage, d'après les entités (création + ajouts vides) |
+| **tout le reste**, production comprise                   | `none`    | personne au démarrage : un job lance `orm:migrate` AVANT    |
 
-- un champ **obligatoire** ajouté à une table qui existe déjà — il n'est jamais rattrapé ;
-- **la production**, où le démarrage ne fabrique JAMAIS le schéma.
+🔴 **Une application créée par `nodefony create app` avec un ORM SQL est en `migrate` dès
+l'installation** : le générateur écrit ET applique sa migration initiale. Le cas courant, en
+développement, est donc : **une entité change → une migration s'écrit** (§ 3). Ne crois pas
+qu'« en développement la base suit le code » sans avoir vérifié qu'aucune migration n'existe
+(`npx nodefony orm:migrate:status --json`).
 
-Si l'application est en développement et que le champ ajouté accepte le vide, il suffit de
-redémarrer. Ne produis pas une migration pour ça.
+En `auto` seulement, un champ ajouté **qui accepte le vide** est posé au démarrage suivant — rien à
+taper. Tout le reste (renommage, type, longueur, suppression, champ obligatoire) n'y est JAMAIS
+rattrapé : l'ancienne colonne reste en base, la nouvelle naît vide.
 
 ## 2. Lire l'état — deux voies, selon que l'application tourne
 
@@ -114,6 +122,34 @@ relue et versionnée en amont, et c'est `orm:migrate` seul qui l'applique.
 > le générateur de migrations raisonne sur un index nommé, et la migration qui tente de retirer le
 > second échoue sur un objet qui n'a jamais existé. Un `ddl` écrit dans la configuration gagne
 > toujours ; sous `NODE_ENV=test`, rien ne change.
+
+### 🔴 Un RENOMMAGE — le DÉCLARER, jamais le laisser deviner
+
+Une colonne qui disparaît pendant qu'une autre apparaît, c'est un renommage (les données suivent)
+OU une suppression puis un ajout (les données sont perdues). Aucun diff ne voit une intention. Ne
+lance donc JAMAIS `orm:generate` nu après avoir renommé un champ : il s'arrête
+(`NF_GENERATE_NEEDS_ANSWER`), et **il n'y a pas de question à laquelle répondre** — l'outil tourne
+sans terminal, humain devant l'écran compris. La réponse se DÉCLARE :
+
+```bash
+# une colonne : la table sous le nom que porte son entité
+npx nodefony orm:generate --name titre_en_anglais --rename article.titre=title
+# une table, puis une colonne DANS la table renommée (son NOUVEAU nom)
+npx nodefony orm:generate --name lignes --rename invoice_line=invoice_det --rename invoice_det.fk_parent_line=fk_parent
+```
+
+- La migration porte un `RENAME`, **changement de type compris** (`varchar(8)` → `varchar(16)`
+  renommé ET élargi s'écrit en entier).
+- Le rapport `--json` le confirme : `renamed: ["article.titre → title"]`. Relis le fichier quand même.
+- Un nom mal écrit, une ancienne colonne absente du dernier instantané, un nouveau nom qu'aucune
+  entité ne déclare : refus `NF_GENERATE_RENAME`, **rien n'est écrit**.
+- Une VRAIE suppression ET un ajout sans rapport dans la même table : **deux générations** — d'abord
+  l'entité sans la colonne retirée (la perte est nommée par le garde destructif), puis avec
+  l'ajout. Ne déclare pas `--rename` pour faire taire l'outil : ce serait mentir sur les données.
+
+Allonger une colonne (`varchar(16)` → `varchar(32)`) ou monter un entier de rang (`integer` →
+`bigint`) n'est PAS destructif : le générateur le constate sur l'état de départ et n'exige rien. Le
+raccourcir, ou rendre la colonne obligatoire, reste refusé sans `--allow-destructive`.
 
 ### 🔴 Un champ OBLIGATOIRE sur une table PEUPLÉE — ton moteur ne fait pas ce que tu crois
 
@@ -323,6 +359,8 @@ Le `code` est stable — **lis-le, il désigne le geste**.
 | `NF_GENERATE_DATABASE_BEHIND`      | rien à écrire, RIEN n'attend, et pourtant la base ne porte pas le schéma                               | l'historique affirme une migration jamais exécutée : `orm:migrate:repair --forget <source>/<tag>` puis `orm:migrate` |
 | `NF_MIGRATE_LOCK_TIMEOUT`          | un autre travail de migration tient le verrou                                                          | ATTENDRE puis rejouer — ce n'est pas une panne, et le verbe est idempotent                                           |
 | `NF_MIGRATE_DESTRUCTIVE`           | les migrations en attente SUPPRIMENT des données                                                       | lire le SQL (`--dry-run`), puis assumer avec `--allow-destructive`                                                   |
+| `NF_GENERATE_NEEDS_ANSWER`         | une colonne disparaît et une autre apparaît : renommage ou perte ?                                     | renommage → `--rename table.ancienne=nouvelle` ; vraie suppression + ajout → deux générations                        |
+| `NF_GENERATE_RENAME`               | un `--rename` mal écrit, ou que le dernier instantané ne permet pas                                    | corriger la déclaration — la table sous le nom de son entité ; rien n'a été écrit                                    |
 
 Les codes exhaustifs, avec un exemple de charge utile pour chacun :
 [`references/verdicts.md`](references/verdicts.md).
