@@ -427,14 +427,25 @@ frontend se remplace à chaud**.
 flowchart LR
   W["Un fichier change"] --> Q{"Dans frontend/ ?"}
   Q -->|oui| HMR["Vite — HMR<br/>0 rebuild, 0 redémarrage"]
-  Q -->|non| RB["DevSupervisor : rebuild CIBLÉ<br/>turbo --filter=pkg... puis rolldown -c"]
+  Q -->|non| RB["DevSupervisor : rebuild CIBLÉ<br/>script du paquet, ou turbo --filter=pkg..."]
   RB --> K["group-kill + redémarrage du serveur"]
 ```
 
 - **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts#DevSupervisor.#build`) reconstruit
-  les seuls workspaces touchés et leurs dépendants (`turbo --filter=pkg...`), puis l'app racine
-  (`rolldown -c`) si un fichier de la racine a bougé. Un `npm run build` complet coûtait plus de
-  quatre-vingts secondes pour un fichier.
+  les seuls workspaces touchés, puis l'app racine (`rolldown -c`) si un fichier de la racine a
+  bougé. Un `npm run build` complet coûtait plus de quatre-vingts secondes pour un fichier.
+- **Un paquet au script `build` standard se rebâtit sans turbo.** Quand ce script est EXACTEMENT
+  `rolldown -c rolldown.config.ts`, suivi ou non de `tsgo -p tsconfig.declarations.json`
+  (`DevSupervisor.ts#directBuildPlan`), le superviseur rejoue ses étapes dans son dossier, en
+  lançant chaque outil par son fichier plutôt que par `npm exec` (`DevSupervisor.ts#resolveLocalBin`).
+  Même sortie, même verdict : une erreur de types garde l'ancien serveur. Une sauvegarde coûte
+  ~1,6 s de build au lieu de ~3,6 s par turbo, qui doit lancer son lanceur et calculer les
+  empreintes de la clôture `^build`. Tout autre script (étape d'interface, types par un script npm)
+  passe par `turbo --filter=pkg...`, qui rebâtit le paquet et ses DÉPENDANCES.
+- **Un seul cycle à la fois** (`restartCycle.ts#RestartCycle`) : du build jusqu'à ce que le
+  serveur relancé écoute. Une sauvegarde reçue entre-temps est rejouée ensuite, même après un
+  build en échec — jamais un second build pendant que le serveur importe `dist/`, que rolldown
+  vide avant d'écrire.
 - **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts#APP_DEV_BUILD_ARGS`) : une modification
   front ne doit surtout pas redémarrer le serveur, sinon on perd le HMR de Vite.
 - **Hors monorepo**, jamais turbo, qui n'a rien à ordonner. Mais un module LOCAL (`modules/<nom>`,
