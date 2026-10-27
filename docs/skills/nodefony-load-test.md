@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 75 |
+| Scripts | 76 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 401 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 402 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 65 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -117,6 +117,7 @@ script, donc toujours à jour après régénération.
 | `scripts/db-backend-cost.mjs` | db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non ce qu'il coûte en lui-même. | `--ceiling` `--prove` | `CONC` `JSON_OUT` `LIMIT` `NF_DATABASE_URL` `NF_PG_URL` `PG_CONTAINER` `REPS` `ROWS` `SEC` `SERIES` |
 | `scripts/debug-runtime-e2e.mjs` | Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur. | — | — |
 | `scripts/decor-probe.mjs` | Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`) dans le serveur mesuré. À la PREMIÈRE requête, elle refuse (code 3) si un hook du chemin de requête a un écouteur : un seul suffit à faire passer chaque requête par `fireAsync` (une Promise, une microtâche), coût qu'une application sans ce hook ne paie pas — et que le banc imputerait au framework. Vécu deux fois sur #508, les deux fois posé par le module test (`onRequestScope`, puis `beforeResolve`) ; la seconde n'a été vue qu'au chronométrage in situ, parce que rien ne la cherchait. | — | — |
+| `scripts/dev-restart-cycle.mjs` | dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5] | — | `NF_DEV_CYCLE_PORT` `RUNS` |
 | `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `HTTP_SLOW_URL` `PORT` `WS_URL` |
 | `scripts/h2c-vs-h1-bare.mjs` | Témoin du banc h2c-vs-h1.sh : Node NU, sans framework — le coût de HTTP/2 lui-même. HTTP/1.1 et h2c sur deux ports, même réponse triviale. | — | — |
 | `scripts/h2c-vs-h1.sh` | HTTP/1.1 contre HTTP/2 en clair (h2c) — « h2c est-il plus rapide derrière mon proxy ? », et surtout : le surcoût de h2c est-il celui de HTTP/2, ou le nôtre ? | `--h1` `--http2-prior-knowledge` | `BARE` `DUR` `PAIRS` `PROBE` `ROUTE` |
@@ -189,6 +190,7 @@ node .claude/skills/nodefony-load-test/scripts/config-env-override-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot-before.json
 Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]
 node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
+Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]
 node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
 Usage : node h2c-vs-h1-bare.mjs [port HTTP/1.1=5161] [port h2c=5163] [plain|headers=plain]
 node .claude/skills/load-test/scripts/http-load.mjs
@@ -228,7 +230,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ADMIN_USER` · `ATTENDRE_CHARGE` · `BARE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_PROTO` · `BENCH_ROLE` · `BENCH_STREAMS` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DUR` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `LOG` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_ELU_SAMPLES` · `MIN_MINUTES` · `MIN_R2` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_HEAP_FILE` · `NF_BENCH_OUT` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAIRS` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `ADMIN_USER` · `ATTENDRE_CHARGE` · `BARE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_PROTO` · `BENCH_ROLE` · `BENCH_STREAMS` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DUR` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `LOG` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_ELU_SAMPLES` · `MIN_MINUTES` · `MIN_R2` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_HEAP_FILE` · `NF_BENCH_OUT` · `NF_DATABASE_URL` · `NF_DEV_CYCLE_PORT` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAIRS` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ### Détail des scripts auto-documentés
 

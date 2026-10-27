@@ -7536,6 +7536,26 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/dev-restart-cycle.mjs",
+            "purpose": "dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]",
+            "usage": [
+              "Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_DEV_CYCLE_PORT",
+                "help": ""
+              },
+              {
+                "name": "RUNS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/graceful-shutdown-e2e.mjs",
             "purpose": "Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur.",
             "usage": [

@@ -83,7 +83,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster).",
-    "meta": "🟢 conforme · ⚙️ 75 scripts · 📎 5 réf" },
+    "meta": "🟢 conforme · ⚙️ 76 scripts · 📎 5 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 12 scripts · 📎 2 réf" },
@@ -205,7 +205,7 @@ source: "docs/skills/index.md"
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.1.0 | 314 | 0 | 2 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 481 | 5 | 75 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 481 | 5 | 76 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.4.0 | 423 | 0 | 2 | ✅ |

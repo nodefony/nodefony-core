@@ -36,6 +36,7 @@
     ".claude/skills/nodefony-load-test/scripts/cluster-orm-rich-e2e.mjs",
     ".claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs",
     ".claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs",
+    ".claude/skills/nodefony-load-test/scripts/dev-restart-cycle.mjs",
     ".claude/skills/nodefony-load-test/scripts/h2c-vs-h1.sh",
     ".claude/skills/nodefony-load-test/scripts/ic-sites.mjs",
     ".claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs",
