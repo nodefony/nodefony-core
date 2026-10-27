@@ -8,6 +8,8 @@
 .ai/**
 *.generated.*
 **/*.generated.*
+# Code protobuf généré par protoc-gen-es (nom imposé `*_pb.ts`, sans option de suffixe)
+**/*_pb.ts
 
 # Fiches de skills GÉNÉRÉES (skills-doc.mjs est le seul formateur — sinon prettier
 # réaligne les tables et chaque régénération rediffère). Idem la page qui reçoit les cards.

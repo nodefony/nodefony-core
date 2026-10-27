@@ -251,6 +251,26 @@ se faire sur le MÊME canal (http/https) que le banc.
 | `/status`                              | comptes (preuve « cible valide » avant mesure)                         |
 | `/nodefony/test/secure/bench-orm/read` | même lecture DERRIÈRE le firewall (zone `test-secure`) = cycle complet |
 
+### GrpcPocController (`/nodefony.poc.v1.EchoService`) — POC gRPC dans le pipeline (#690)
+
+Service gRPC servi par le pipeline HTTP/2, sans second serveur : l'adaptateur
+`@connectrpc/connect-node` reçoit la requête et la réponse BRUTES de Node depuis une route
+`bodyStream` (sinon l'analyseur consomme le corps : `grpc-status: 12`, flux bloqué). Adaptateur,
+runtime protobuf et code généré sont importés au PREMIER appel (externes dans `rolldown.config.ts`) :
+une application qui n'appelle pas gRPC ne les charge pas. Contrat : `nodefony/poc/grpc/proto/`,
+TypeScript généré par `npx buf generate` (`buf.gen.yaml`) dans `nodefony/poc/grpc/gen/`.
+
+| Méthode    | Ce qu'elle prouve                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| `Say`      | unaire, h2c (5153), TLS (5152), gRPC-Web et Connect JSON en HTTP/1.1 (5151) ; `requestId` du contexte |
+| `Converse` | flux bidirectionnel ENTRELACÉ — `nodefony/poc/grpc/proof-converse.mjs` (ping-pong, exige `grpcurl`)   |
+| `Fail`     | HTTP 200 + `grpc-status: 9` dans les trailers, jamais un 500                                          |
+
+```bash
+grpcurl -plaintext -import-path nodefony/poc/grpc/proto -proto nodefony/poc/v1/echo.proto \
+  -d '{"sentence":"bonjour"}' localhost:5153 nodefony.poc.v1.EchoService/Say
+```
+
 ### RestController (`/nodefony/test/rest`)
 
 | Route                          | Méthode | Description                               |

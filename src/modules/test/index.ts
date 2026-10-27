@@ -46,6 +46,8 @@ import PocBookController from "./nodefony/poc/PocBookController";
 import PocInvokeController from "./nodefony/poc/PocInvokeController";
 // POC Phase 2 (V4.2) — ResourceController duplex stateless + singleton.
 import PocBookResourceController from "./nodefony/poc/PocBookResourceController";
+// POC #690 — service gRPC servi par le pipeline HTTP/2 (nodefony/poc/grpc/).
+import GrpcPocController from "./nodefony/poc/grpc/GrpcPocController";
 // P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
 import SecureController from "./nodefony/secure/SecureController";
 import PipelineOrderController from "./nodefony/controller/PipelineOrderController";
@@ -197,6 +199,8 @@ function overlayProbe(context: unknown): void {
   PocBookController,
   PocInvokeController,
   PocBookResourceController,
+  // POC #690 — gRPC dans le pipeline
+  GrpcPocController,
 ])
 class Test extends Module {
   constructor(kernel: Kernel) {

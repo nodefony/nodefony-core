@@ -1,0 +1,8 @@
+# POC #690 — génère le TypeScript du contrat gRPC : `npx buf generate`.
+version: v2
+inputs:
+  - directory: nodefony/poc/grpc/proto
+plugins:
+  - local: protoc-gen-es
+    out: nodefony/poc/grpc/gen
+    opt: target=ts

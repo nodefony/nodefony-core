@@ -37,6 +37,9 @@
     "**/bin/**",
     ".ai/**",
     "**/*.generated.*",
+    // Code protobuf généré par protoc-gen-es : nom imposé `*_pb.ts`, sans
+    // option de suffixe ; il porte son propre `eslint-disable`.
+    "**/*_pb.ts",
     "src/**/frontend/dist/**",
     "src/nodefony/src/tests/finder/data/**",
     "tmp/**",

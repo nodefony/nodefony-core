@@ -15,5 +15,9 @@ export default defineNodefonyRolldownConfig({
     "@nodefony/user",
     "tslib",
     "zod",
+    // POC #690 — chargés par `import()` au premier appel gRPC, jamais embarqués.
+    "@connectrpc/connect",
+    "@connectrpc/connect-node",
+    "@bufbuild/protobuf",
   ],
 });

@@ -1,0 +1,38 @@
+// POC #690 — contrat gRPC servi par le pipeline HTTP/2 de Nodefony.
+// Trois appels, un par question du ticket : l'unaire, le flux dans les deux
+// sens (le corps est-il lu au fil de l'eau ?), et l'erreur (le statut part-il
+// dans les trailers, pas en HTTP 500 ?).
+syntax = "proto3";
+
+package nodefony.poc.v1;
+
+message SayRequest {
+  string sentence = 1;
+}
+
+message SayResponse {
+  string sentence = 1;
+  // `requestId` du contexte Nodefony : prouve que l'appel a traversé le pipeline.
+  string request_id = 2;
+}
+
+message ConverseRequest {
+  string sentence = 1;
+}
+
+message ConverseResponse {
+  string sentence = 1;
+  // Rang du message reçu côté serveur au moment de répondre : un entrelacement
+  // réel rend 1, 2, 3… au fil des envois, pas tout d'un coup à la fin.
+  uint32 received = 2;
+}
+
+message FailRequest {}
+
+message FailResponse {}
+
+service EchoService {
+  rpc Say(SayRequest) returns (SayResponse);
+  rpc Converse(stream ConverseRequest) returns (stream ConverseResponse);
+  rpc Fail(FailRequest) returns (FailResponse);
+}
