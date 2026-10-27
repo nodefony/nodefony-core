@@ -286,23 +286,44 @@ export function runSchemaEvolution(
   }
 
   /**
-   * Supprime toutes les tables des deux versions, enfants d'abord, et
+   * Ordre de suppression sur l'UNION des versions : la base partagée peut être
+   * dans N'IMPORTE lequel des états (un autre banc du corpus y laisse la v1),
+   * et une table de la seule v1 — renommée, supprimée — référence souvent une
+   * table commune. Supprimer d'abord les tables de l'arrivée butait alors sur
+   * `erp_invoice_line → erp_invoice` (MySQL ; PostgreSQL passait par
+   * `CASCADE`). Une table commune porte les références de TOUTES ses versions.
+   */
+  function dropOrder(): string[] {
+    const merged = new Map<string, ISerializedSpec>();
+    for (const [version, specs] of [
+      evolution.from,
+      evolution.between ?? [],
+      evolution.to,
+    ].entries()) {
+      for (const s of specs) {
+        const seen = merged.get(s.name);
+        const columns = Object.fromEntries(
+          Object.entries(s.columns).map(([k, c]) => [`${version}:${k}`, c]),
+        );
+        merged.set(s.name, {
+          ...s,
+          columns: seen ? { ...seen.columns, ...columns } : columns,
+        });
+      }
+    }
+    return creationOrder([...merged.values()])
+      .reverse()
+      .map((s) => s.name);
+  }
+
+  /**
+   * Supprime toutes les tables des versions, enfants d'abord (`dropOrder`), et
    * l'historique. Pas de `FOREIGN_KEY_CHECKS = 0` : c'est un réglage de
    * SESSION MySQL, et un réservoir ne garantit pas la même connexion d'une
    * instruction à l'autre.
    */
   async function dropAll(opened: DrizzleOrm): Promise<void> {
-    const toNames = new Set(evolution.to.map((s) => s.name));
-    for (const name of [
-      ...creationOrder(evolution.to)
-        .reverse()
-        .map((s) => s.name),
-      ...creationOrder(evolution.from)
-        .reverse()
-        .map((s) => s.name)
-        .filter((n) => !toNames.has(n)),
-      HISTORY_TABLE,
-    ]) {
+    for (const name of [...dropOrder(), HISTORY_TABLE]) {
       await execRaw(
         opened,
         dialect,
