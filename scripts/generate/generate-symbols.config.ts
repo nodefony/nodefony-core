@@ -49,7 +49,7 @@ const config: GenerateSymbolsConfig = {
     // doit décrire que des fichiers présents dans un clone : sinon il diverge
     // d'une machine à l'autre au moindre `generate-symbols`, et publie ici le
     // schéma dérivé qu'on avait justement tenu hors du dépôt.
-    "src/modules/test/nodefony/entity/dolibarr/**",
+    "src/modules/test/nodefony/entity/benchCorpus/**",
   ],
   output: {
     stable: ".ai/symbols.json",

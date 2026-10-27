@@ -162,7 +162,7 @@ mesure). Chaque camp a **sa** base, copie du même seed : ils écrivent tous les
 
 ```bash
 # décor : seeder une fois (NF_BENCH_ORM=1), puis copier la base pour le camp témoin
-mkdir -p tmp/bench && cp var/databases/nodefony-drizzle.db tmp/bench/express.db
+mkdir -p tmp/bench && cp var/databases/nodefony-bench-orm.db tmp/bench/express.db
 BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus \
   NF_BENCH_SQLITE_DB=tmp/bench/express.db BENCH_CONN=25 BENCH_DUR=30 BENCH_WARMUP=20 \
   bash $S/bench-pairs.sh express-fair-sqlite nodefony-orm 5167

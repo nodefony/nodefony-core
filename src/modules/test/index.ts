@@ -65,6 +65,7 @@ import BenchOrmController, {
   SecureBenchOrmController,
 } from "./nodefony/controller/BenchOrmController";
 import {
+  BENCH_ORM,
   registerBenchOrmEntities,
   seedBenchOrm,
 } from "./nodefony/entity/benchOrm";
@@ -103,11 +104,8 @@ import DaemonTestCommand from "./nodefony/command/DaemonTestCommand";
  */
 const BENCH_WS_BACKPRESSURE = process.env.NF_BENCH_WS_BACKPRESSURE === "1";
 
-/**
- * Décor du banc du cycle ORM (routes + entités Dolibarr + seed) — opt-in
- * `NF_BENCH_ORM=1` : il n'existe que le temps d'une mesure, jamais par défaut.
- */
-const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
+// Décor du banc du cycle ORM : drapeau lu UNE fois (`benchOrm.ts#BENCH_ORM`),
+// partagé avec la config du module qui déclare son connecteur.
 
 /**
  * Drapeau posé par TOUS les bancs de débit (`wait-compare.sh`,

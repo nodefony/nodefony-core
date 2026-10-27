@@ -436,8 +436,8 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-real-schema.mjs --databa
    `orm:generate` qui ne doit rien écrire.
 
 - **Le matérialiseur n'existe qu'une fois** (`drizzle/tests/integration/serialized-specs.ts`) :
-  l'application en reçoit une copie dont les imports sont relus vers `@nodefony/drizzle` — la
-  réécriture est CONSTATÉE, et un import relatif restant arrête le banc.
+  copie aux imports relus vers `@nodefony/drizzle` (`scripts/lib/materializer-copy.mjs`, réécriture
+  CONSTATÉE) pour l'application et pour le banc ORM du module `test` (`bench-orm-corpus.mjs`).
 - **`orm:generate` lit les exports UN PAR UN** (`migrator/appSchema.ts`) : une table rangée dans un
   tableau lui est invisible, et il refuse d'écrire en le disant. Le fichier généré exporte donc
   chaque table à plat.

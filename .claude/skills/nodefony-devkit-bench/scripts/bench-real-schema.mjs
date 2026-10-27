@@ -20,7 +20,7 @@
  *
  * Le matérialiseur (description sérialisée → table du kit) n'existe qu'UNE
  * fois : `tests/integration/serialized-specs.ts` du paquet drizzle. L'étage 2
- * en recopie la source, ses imports relus vers `@nodefony/drizzle` — la
+ * en recopie la source (`lib/materializer-copy.mjs`), ses imports relus vers `@nodefony/drizzle` — la
  * réécriture est CONSTATÉE, jamais supposée.
  *
  * Usage : `node bench-real-schema.mjs --help` (texte unique : `USAGE`).
@@ -50,6 +50,7 @@ import {
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec } from "./lib/extrait-echec.mjs";
+import { copyMaterializer } from "./lib/materializer-copy.mjs";
 import {
   assertIsolated,
   installFromTarballs,
@@ -60,10 +61,6 @@ const ICI = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(ICI, "..", "..", "..", "..");
 const BIN = path.join(REPO, "src/nodefony/bin/nodefony");
 const DRIZZLE = path.join(REPO, "src/packages/@nodefony/drizzle");
-const MATERIALIZER = path.join(
-  DRIZZLE,
-  "tests/integration/serialized-specs.ts",
-);
 
 /** Les moteurs du banc : SQLite (fichier), puis les serveurs du catalogue partagé. */
 const SQLITE = { key: "sqlite", dialect: "sqlite", driver: null, admin: null };
@@ -294,27 +291,10 @@ async function runContract(engine) {
  * écrirait.
  */
 function writeCorpusEntities(moduleName) {
-  const source = readFileSync(MATERIALIZER, "utf8");
-  const rewrites = [
-    [`from "../../nodefony/entity/colKit";`, `from "@nodefony/drizzle";`],
-    [`from "../../nodefony/entity/colKit.spec";`, `from "@nodefony/drizzle";`],
-  ];
-  let copied = source;
-  for (const [from, to] of rewrites) {
-    if (!copied.includes(from)) {
-      throw new Error(
-        `matérialiseur : import « ${from} » introuvable — ${MATERIALIZER} a changé, relire la réécriture`,
-      );
-    }
-    copied = copied.split(from).join(to);
-  }
-  if (/from "\.\.?\//u.test(copied)) {
-    throw new Error("matérialiseur : un import relatif reste après réécriture");
-  }
   const dir = path.join(APP, "nodefony", "entity");
   writeFileSync(
     path.join(dir, "serializedSpecs.ts"),
-    `// RECOPIÉ par bench-real-schema.mjs depuis ${path.relative(REPO, MATERIALIZER)} — ne pas éditer.\n${copied}`,
+    copyMaterializer(REPO, "bench-real-schema.mjs"),
   );
   const { specs } = JSON.parse(readFileSync(SPECS_FILE, "utf8"));
   writeFileSync(

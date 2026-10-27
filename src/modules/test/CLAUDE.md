@@ -218,14 +218,23 @@ unitaire ne peut faire, puisqu'ils simulent `bufferedAmount`.
 ### BenchOrmController (`/nodefony/test/bench-orm`) — décor de banc, OPT-IN
 
 Monté **uniquement** si `NF_BENCH_ORM=1` (voir `index.ts`) : profil du cycle ORM sur le corpus
-Dolibarr (entités `llx_user`/`llx_societe`/`llx_facture` enregistrées sur le connector `default`,
-seed idempotent 50/200/10 000 au boot — `entity/benchOrm.ts` (corpus dolibarr gitignoré chargé dynamiquement)). Tout traverse la couche
-repository framework (orm-core → Drizzle), jamais le driver nu. Routes en GET (wrk sans script Lua).
+`erp` (`llx_user`/`llx_societe`/`llx_facture` et les deux tables qu'elles référencent, enregistrées
+sur le connecteur DÉDIÉ `bench-orm`, seed idempotent 50/200/10 000 au boot — `entity/benchOrm.ts`). Tout
+traverse la couche repository framework (orm-core → Drizzle), jamais le driver nu. Routes en GET
+(wrk sans script Lua).
 
-**Multi-dialecte** : le décor suit le connector `default` — `NF_DATABASE_URL=postgres://…` charge
-la variante pg-core du corpus (`dolibarr/bench-pg.js`, générée localement par
-`dolibarr/gen-bench-pg.mjs` avec son DDL PG complet `bench-pg.sql` à poser AVANT le boot : le DDL
-dérivé dev n'émet ni `DEFAULT` ni identity). `mysql` → fail-loud (variante non générée). En prod,
+**Corpus** : `entity/benchCorpus/`, GITIGNORÉ (licence tierce), écrit par
+`.claude/skills/nodefony-devkit-bench/scripts/bench-orm-corpus.mjs` depuis les descriptions neutres
+du corpus, puis compilé par le build du module et chargé par URL. Les camps témoins du banc
+(`nodefony-load-test/bench-frameworks/bench-corpus.mjs`) lisent la MÊME table dans le `dist`.
+⚠️ `total_ht`/`total_ttc` sont des `decimal(24,8)` : écrits en CHAÎNE (`benchAmount`).
+
+**Connecteur `bench-orm`** : déclaré par `nodefony/config/config.ts` (`module-drizzle`, seulement
+sous `NF_BENCH_ORM=1`), SQLite `var/databases/nodefony-bench-orm.db`, `ddl: "auto"`. Le banc crée
+donc lui-même ses tables, quel que soit le régime de l'application (`migrate` dès qu'elle versionne
+ses migrations, `none` en production) — le connecteur `default` ne les créait jamais. Les camps
+copient CE fichier (`perf-campaign.sh#SEED`). Le corpus est portable (kit de colonnes) mais le
+connecteur reste SQLite : un banc PostgreSQL/MySQL exigerait de lui donner une `url`. En prod,
 `NF_ADMIN_PASSWORD` est requis pour la route secure (aucun compte seedé sinon), et le login doit
 se faire sur le MÊME canal (http/https) que le banc.
 

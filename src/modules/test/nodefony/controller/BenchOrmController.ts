@@ -2,7 +2,11 @@ import { Body, Controller, controller, Get, Post } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
-import { BENCH_ORM_CONNECTOR, BENCH_READ_USER } from "../entity/benchOrm";
+import {
+  BENCH_ORM_CONNECTOR,
+  BENCH_READ_USER,
+  benchAmount,
+} from "../entity/benchOrm";
 
 /** Séquence process-local des écritures du banc (mono prod — pas de cluster). */
 let writeSeq = 0;
@@ -60,7 +64,7 @@ function validateInvoice(body: unknown): string[] {
 /**
  * Banc du cycle ORM (opt-in `NF_BENCH_ORM=1`, monté par l'index du module) —
  * traverse la couche framework complète (repository orm-core → Drizzle →
- * better-sqlite3) sur le corpus Dolibarr seedé, JAMAIS le driver nu : c'est le
+ * pilote du connecteur) sur le corpus `erp` seedé, JAMAIS le driver nu : c'est le
  * chemin framework qu'on profile.
  *
  * Routes en GET (`wrk` sans script Lua — moins de pièces dans le harnais),
@@ -104,8 +108,8 @@ class BenchOrmController extends Controller {
       ref: `BENCH-${seq}`,
       fk_soc: (seq % 200) + 1,
       fk_user_author: (seq % 50) + 1,
-      total_ht: 100,
-      total_ttc: 120,
+      total_ht: benchAmount(100),
+      total_ttc: benchAmount(120),
     });
     return this.renderJson({
       seq,
@@ -147,7 +151,10 @@ class BenchOrmController extends Controller {
     const maj = target?.rowid
       ? await repo("llx_facture").updateOne(
           { rowid: target.rowid },
-          { total_ht: 100 + (seq % 100), total_ttc: 120 + (seq % 100) },
+          {
+            total_ht: benchAmount(100 + (seq % 100)),
+            total_ttc: benchAmount(120 + (seq % 100)),
+          },
         )
       : null;
     return this.renderJson({
@@ -182,8 +189,8 @@ class BenchOrmController extends Controller {
       ? await repo("llx_facture").updateOne(
           { rowid: target.rowid },
           {
-            total_ht: (body?.total_ht ?? 100) + (seq % 100),
-            total_ttc: (body?.total_ttc ?? 120) + (seq % 100),
+            total_ht: benchAmount((body?.total_ht ?? 100) + (seq % 100)),
+            total_ttc: benchAmount((body?.total_ttc ?? 120) + (seq % 100)),
           },
         )
       : null;
@@ -232,8 +239,8 @@ class BenchOrmController extends Controller {
       ? await repo("llx_facture").updateOne(
           { rowid: target.rowid },
           {
-            total_ht: valid.total_ht + (seq % 100),
-            total_ttc: valid.total_ttc + (seq % 100),
+            total_ht: benchAmount(valid.total_ht + (seq % 100)),
+            total_ttc: benchAmount(valid.total_ttc + (seq % 100)),
           },
         )
       : null;

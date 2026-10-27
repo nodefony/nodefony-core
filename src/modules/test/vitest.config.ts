@@ -11,13 +11,13 @@ import { tmpGuard } from "../../../scripts/test/vitest/tmp-guard.ts";
  * les suites présentes sur le poste ne l'avaient jamais été une seule fois.
  *
  * ⚠️ `--passWithNoTests` (côté script npm) n'est PAS une commodité, c'est une
- * contrainte de LICENCE. Les bancs du gros schéma Dolibarr vivent sous
- * `nodefony/entity/dolibarr/`, que `.gitignore` exclut sciemment : ce schéma est
+ * contrainte de LICENCE. Le corpus du banc ORM vit sous
+ * `nodefony/entity/benchCorpus/`, que `.gitignore` exclut sciemment : ce schéma est
  * dérivé GPLv3 et le dépôt est publié sous Apache 2.0. Ce dossier est donc ABSENT
- * de tout clone — sans ce drapeau, `vitest` y sort en code 1 (« No test files
- * found ») et rendrait `npm test` rouge partout sauf sur la machine qui possède
- * la fixture. C'est très exactement le rouge que ce `.gitignore` raconte avoir
- * déjà coûté deux mois.
+ * de tout clone — un test qui y vivrait ne tournerait que sur la machine qui
+ * possède le corpus, et une suite réduite à lui sortirait en code 1 (« No test
+ * files found ») partout ailleurs. C'est très exactement le rouge que ce
+ * `.gitignore` raconte avoir déjà coûté deux mois.
  *
  * Pour la même raison, aucun `gateReporter` ici : il ne peut pas réclamer la
  * preuve de cas qui, par construction, ne sont pas dans le dépôt.

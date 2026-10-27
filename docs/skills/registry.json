@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-26",
+  "generatedAt": "2026-10-27",
   "count": 40,
   "repoScripts": [
     {
@@ -3249,7 +3249,7 @@
       "description": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\", \"un agent recommanderait-il ce framework ?\", \"que conclut un agent en lisant le dépôt ?\", \"notre accueil dit-il vrai ?\".",
       "cost": {
         "bodyLines": 499,
-        "approxTokens": 8943
+        "approxTokens": 8950
       },
       "requires": [
         "serveur UP",
@@ -4094,6 +4094,25 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/bench-orm-corpus.mjs",
+            "purpose": "Corpus du banc ORM — les tables `llx_user`, `llx_societe`, `llx_facture` du corpus `erp` (et celles qu'elles référencent), écrites dans le module `test` pour son décor opt-in `NF_BENCH_ORM=1` (`entity/benchOrm.ts`).",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--specs",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "SPECS_FILE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/bench-portability.mjs",
             "purpose": "Banc de PORTABILITÉ — une application NÉE en SQLite tient-elle sur les autres moteurs, dans le MÊME décor, en ne faisant que les gestes documentés ?",
             "usage": [],
@@ -4285,10 +4304,6 @@
               },
               {
                 "name": "DB_CONTRACT",
-                "help": ""
-              },
-              {
-                "name": "MATERIALIZER",
                 "help": ""
               },
               {
@@ -6829,7 +6844,7 @@
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code. Profil d'une route → outil MCP `nodefony_profile_route`.",
       "cost": {
         "bodyLines": 481,
-        "approxTokens": 7764
+        "approxTokens": 7765
       },
       "requires": [
         "serveur UP",

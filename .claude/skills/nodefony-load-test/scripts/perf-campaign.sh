@@ -98,7 +98,8 @@ pair() { # nom campA campB [port] — rejoue jusqu'à TRIES fois une paire incon
 
 # ── équité : les quatre témoins rendent-ils le même travail que Nodefony ? ──
 BF="$ROOT/.claude/skills/nodefony-load-test/bench-frameworks"
-SEED="$ROOT/var/databases/nodefony-drizzle.db"
+# Base du connecteur DÉDIÉ du banc ORM (`benchOrm.ts#BENCH_ORM_CONNECTOR`).
+SEED="$ROOT/var/databases/nodefony-bench-orm.db"
 parite() {
   . "$ROOT/.claude/skills/nodefony-load-test/scripts/kill-guard.sh"
   node src/nodefony/bin/nodefony stop >/dev/null 2>&1; kill_listeners 5151; kill_listeners 5170

@@ -54,6 +54,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 import { dummyRoutes } from "./payload.mjs";
+import { benchTable } from "./bench-corpus.mjs";
 
 const MODE = process.env.DRIZZLE_MODE ?? "prepared";
 if (!["naive", "prepared"].includes(MODE)) {
@@ -63,12 +64,7 @@ const url =
   process.env.NF_DATABASE_URL ??
   "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony";
 
-const { llx_facture } = await import(
-  new URL(
-    "../../../../src/modules/test/dist/nodefony/entity/dolibarr/bench-pg.js",
-    import.meta.url,
-  ).href
-);
+const llx_facture = await benchTable("llx_facture", "postgres");
 
 const pool = new Pool({ connectionString: url });
 const db = drizzle(pool);

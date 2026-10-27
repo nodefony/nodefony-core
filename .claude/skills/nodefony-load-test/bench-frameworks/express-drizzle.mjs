@@ -25,6 +25,7 @@ import {
   getTableColumns,
 } from "../repo-drizzle-pg.mjs";
 import { dummyRoutes } from "./payload.mjs";
+import { benchTable } from "./bench-corpus.mjs";
 
 const MODE = process.env.DRIZZLE_MODE ?? "naive";
 if (!["naive", "prepared"].includes(MODE)) {
@@ -38,12 +39,7 @@ const url =
 // module test — son import "drizzle-orm/pg-core" remonte au node_modules
 // RACINE ; c'est pourquoi ce camp doit lui aussi passer par la passerelle,
 // sans quoi il exécuterait une AUTRE instance que celle du schéma).
-const { llx_facture } = await import(
-  new URL(
-    "../../../../src/modules/test/dist/nodefony/entity/dolibarr/bench-pg.js",
-    import.meta.url,
-  ).href
-);
+const llx_facture = await benchTable("llx_facture", "postgres");
 
 // ⚖️ GARDE D'ÉQUITÉ — UNE SEULE instance de drizzle dans ce process.
 // Elle contrôle une IDENTITÉ, pas une version : les colonnes du schéma sont-elles

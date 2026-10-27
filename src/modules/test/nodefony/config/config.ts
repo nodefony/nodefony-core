@@ -1,4 +1,21 @@
+import { BENCH_ORM, BENCH_ORM_CONNECTOR } from "../entity/benchOrm";
+
 export default {
+  // Banc du cycle ORM (opt-in `NF_BENCH_ORM=1`) : son connecteur DÉDIÉ, déclaré
+  // par le module qui le consomme. `ddl: "auto"` — ses tables (corpus `erp`)
+  // ne figurent dans aucune migration, et le régime de l'application
+  // (`migrate`, `none` en production) ne les créerait jamais. Sans
+  // `filename` : `var/databases/`, règle partagée avec les commandes de migration.
+  ...(BENCH_ORM
+    ? {
+        "module-drizzle": {
+          connectors: {
+            [BENCH_ORM_CONNECTOR]: { dialect: "sqlite", ddl: "auto" },
+          },
+        },
+      }
+    : {}),
+
   "module-http": {
     // Plus de racine statique `test` : le `public/` du module est auto-monté
     // sous le préfixe natif `/test/` par server-static (`mountModulePublics`).

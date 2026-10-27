@@ -12,10 +12,11 @@
 // base : jamais la base de l'application.
 //
 // Usage (racine du dépôt, module test bâti, base seedée par NF_BENCH_ORM=1) :
-//   cp var/databases/nodefony-drizzle.db /tmp/micro-update.db
+//   cp var/databases/nodefony-bench-orm.db /tmp/micro-update.db
 //   NF_BENCH_SQLITE_DB=/tmp/micro-update.db \
 //     node .claude/skills/nodefony-load-test/scripts/micro/micro-update-pick.mjs
 import { drizzle, eq, sql, Database } from "../../repo-drizzle-sqlite.mjs";
+import { benchTable } from "../../bench-frameworks/bench-corpus.mjs";
 
 const DB_FILE = process.env.NF_BENCH_SQLITE_DB;
 if (!DB_FILE) {
@@ -24,12 +25,7 @@ if (!DB_FILE) {
   );
   process.exit(2);
 }
-const { llx_facture } = await import(
-  new URL(
-    "../../../../../src/modules/test/dist/nodefony/entity/dolibarr/llx_facture.js",
-    import.meta.url,
-  ).href
-);
+const llx_facture = await benchTable("llx_facture", "sqlite");
 
 const sqlite = new Database(DB_FILE);
 sqlite.pragma("journal_mode = WAL");
@@ -50,8 +46,8 @@ if (!target?.rowid) {
 const id = target.rowid;
 let seq = 0;
 const set = () => ({
-  total_ht: 100 + (++seq % 100),
-  total_ttc: 120 + (seq % 100),
+  total_ht: String(100 + (++seq % 100)),
+  total_ttc: String(120 + (seq % 100)),
 });
 
 // Forme du TÉMOIN (`orm-sqlite-common.mjs`).

@@ -18,6 +18,7 @@ import {
   Column,
   getTableColumns,
 } from "../repo-drizzle-sqlite.mjs";
+import { benchTable } from "./bench-corpus.mjs";
 
 const DB_FILE = process.env.NF_BENCH_SQLITE_DB;
 if (!DB_FILE) {
@@ -31,14 +32,9 @@ if (!DB_FILE) {
 export { DB_FILE };
 
 // Le schéma vient du module test COMPILÉ — même définition que celle que
-// Nodefony exécute. Le recopier ici ferait diverger les camps au premier
-// changement de colonne, sans que rien ne le signale.
-const { llx_facture } = await import(
-  new URL(
-    "../../../../src/modules/test/dist/nodefony/entity/dolibarr/llx_facture.js",
-    import.meta.url,
-  ).href
-);
+// Nodefony exécute (`bench-corpus.mjs`). Le recopier ici ferait diverger les
+// camps au premier changement de colonne, sans que rien ne le signale.
+const llx_facture = await benchTable("llx_facture", "sqlite");
 
 // ⚖️ GARDE D'ÉQUITÉ — UNE SEULE instance de drizzle dans ce process.
 //
@@ -131,7 +127,10 @@ export function readWrite(ht, ttc) {
   const maj = target?.rowid
     ? db
         .update(llx_facture)
-        .set({ total_ht: ht + (seq % 100), total_ttc: ttc + (seq % 100) })
+        .set({
+          total_ht: String(ht + (seq % 100)),
+          total_ttc: String(ttc + (seq % 100)),
+        })
         .where(eq(llx_facture.rowid, target.rowid))
         .returning()
         .get()

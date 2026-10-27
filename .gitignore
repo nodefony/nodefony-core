@@ -99,12 +99,13 @@ ehthumbs.db
 example/
 temp/
 
-# Fixture Dolibarr — schéma GPLv3 dérivé (local only, ne pas committer dans un repo CeCILL-B).
+# Corpus du banc ORM — schéma tiers sous GPLv3 (local only, jamais dans ce dépôt Apache 2.0),
+# écrit par `bench-orm-corpus.mjs` (skill nodefony-devkit-bench).
 # ⚠️ Un dossier ignoré est ABSENT de tout clone : aucun fichier versionné ne doit
 # l'importer, sous peine de rendre le dépôt public inconstruisible (vécu — la CI a
 # passé deux mois rouge sur un `import` de ce chemin). Idem pour tout artefact
 # généré puis commité, qui doit l'exclure de son scan (cf generate-symbols.config).
-src/modules/test/nodefony/entity/dolibarr/
+src/modules/test/nodefony/entity/benchCorpus/
 
 # Un seul gestionnaire fait foi (packageManager: npm) — un lock étranger commité
 # divergerait en silence du package-lock.json testé. bun.lock = format texte bun ≥ 1.2.

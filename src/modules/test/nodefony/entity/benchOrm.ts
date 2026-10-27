@@ -1,15 +1,35 @@
-// Décor du banc ORM (opt-in `NF_BENCH_ORM=1`) — entités du corpus Dolibarr sur le
-// connector `default` + seed déterministe. Chaîne FK exercée :
+// Décor du banc ORM (opt-in `NF_BENCH_ORM=1`) — tables du corpus `erp` sur un
+// connecteur DÉDIÉ + seed déterministe. Chaîne FK exercée :
 // llx_facture.fk_user_author → llx_user, fk_soc → llx_societe.
 //
-// ⚠️ Le corpus `entity/dolibarr/` est GITIGNORÉ (généré localement — schéma issu
-// de Dolibarr GPLv3, jamais versionné ici). Ce fichier est versionné, lui : il
-// charge le corpus DYNAMIQUEMENT au runtime (URL construite → hors du graphe
-// statique rolldown/tsgo). Sur un clone sans corpus : build et boot normaux ;
-// seul `NF_BENCH_ORM=1` échoue, fail-loud, avec la marche à suivre.
+// ⚠️ Le corpus `entity/benchCorpus/` est GITIGNORÉ (licence tierce, jamais
+// versionné) : il est écrit par `bench-orm-corpus.mjs` (skill
+// `nodefony-devkit-bench`) depuis les descriptions NEUTRES du corpus, puis
+// compilé par le build du module. Ce fichier est versionné, lui : il charge le
+// corpus DYNAMIQUEMENT au runtime (URL construite → hors du graphe statique
+// rolldown/tsgo). Sur un clone sans corpus : build et boot normaux ; seul
+// `NF_BENCH_ORM=1` échoue, fail-loud, avec la marche à suivre.
+//
+// Les tables sont des descriptions du kit de colonnes : le connecteur en tire
+// la table de SON dialecte.
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 
-export const BENCH_ORM_CONNECTOR = "default";
+/**
+ * Drapeau du décor, lu UNE fois : l'index du module (routes, entités, seed)
+ * et sa config (connecteur) le partagent.
+ */
+export const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
+
+/**
+ * Connecteur du banc, DÉDIÉ, déclaré par la config du module
+ * (`config.ts`, `module-drizzle`) en `ddl: "auto"` : le banc crée lui-même
+ * ses tables, quel que soit le régime de schéma de l'application (`migrate`
+ * dès qu'elle versionne ses migrations, `none` en production), et le corpus
+ * ne se mêle pas à la base applicative. Fichier SQLite sous
+ * `var/databases/` (règle `defaultConnectorFilename`), que les camps
+ * témoins copient.
+ */
+export const BENCH_ORM_CONNECTOR = "bench-orm";
 export const BENCH_ORM_USERS = 50;
 export const BENCH_ORM_SOCIETES = 200;
 export const BENCH_ORM_FACTURES = 10_000;
@@ -21,164 +41,117 @@ export const BENCH_ORM_FACTURES = 10_000;
  */
 export const BENCH_READ_USER = 7;
 
-/** Les trois tables Drizzle du banc (schémas opaques ici — portés par le corpus). */
-interface IBenchCorpus {
-  llx_user: unknown;
-  llx_societe: unknown;
-  llx_facture: unknown;
-}
+/** Les tables que le banc lit et écrit — le corpus porte aussi leurs cibles. */
+const BENCH_TABLES = ["llx_user", "llx_societe", "llx_facture"] as const;
 
 /**
- * Sous-ensemble structurel du db Drizzle natif (`getNativeConnection`) utilisé
- * par le seed — évite toute dépendance de type sur `drizzle-orm` (qui n'est pas
- * une dépendance déclarée de ce module, le corpus vit hors du repo). Même
- * surface en sqlite et en postgres (insert/values/onConflictDoNothing).
+ * Montant d'une facture sous la forme qu'attend la colonne : `total_ht` et
+ * `total_ttc` sont des `decimal(24,8)`, que le kit lit et écrit en CHAÎNE
+ * (exacte) — un `number` y serait refusé.
+ *
+ * @param value - montant.
+ * @returns son écriture décimale.
  */
-interface INativeInsertDb {
-  insert(table: unknown): {
-    values(rows: Record<string, unknown>[]): PromiseLike<unknown> & {
-      onConflictDoNothing(): PromiseLike<unknown>;
-    };
-  };
+export function benchAmount(value: number): string {
+  return String(value);
 }
 
-/**
- * Espace de noms d'un fichier du corpus, chargé par URL (donc sans type) : ses
- * exports restent opaques, comme les champs d'{@link IBenchCorpus}.
- */
-type CorpusModule = Record<string, unknown>;
+let corpus: ReadonlyMap<string, unknown> | null = null;
 
-let corpus: IBenchCorpus | null = null;
-
-/**
- * Dialecte du connecteur `default`, déduit du scheme de l'infra database —
- * même règle que `defineDrizzleConfig` (le décor du banc suit le connecteur
- * primaire, il ne décide pas à sa place).
- */
-function benchDialect(): "sqlite" | "postgres" | "mysql" {
-  const url = process.env.NF_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
-  if (url.startsWith("postgres")) {
-    return "postgres";
-  }
-  if (url.startsWith("mysql")) {
-    return "mysql";
-  }
-  return "sqlite";
-}
-
-/** Charge le corpus Dolibarr local (dist voisin) — fail-loud s'il n'existe pas. */
-async function loadCorpus(): Promise<IBenchCorpus> {
+/** Charge le corpus local (dist voisin) — fail-loud s'il n'existe pas. */
+async function loadCorpus(): Promise<ReadonlyMap<string, unknown>> {
   if (corpus) {
     return corpus;
   }
-  const dialect = benchDialect();
-  if (dialect === "mysql") {
-    throw new Error(
-      "bench-orm : variante mysql du corpus non générée (gen-bench-pg.mjs ne " +
-        "couvre que postgres) — banc à jouer en sqlite ou postgres.",
-    );
-  }
-  const base = new URL("./dolibarr/", import.meta.url).href;
+  const url = new URL("./benchCorpus/corpus.js", import.meta.url).href;
+  let loaded: unknown;
   try {
-    if (dialect === "postgres") {
-      // Variante pg-core des 3 tables (fichier unique, généré par
-      // `dolibarr/gen-bench-pg.mjs` — même dossier gitignoré que le corpus).
-      const pg = (await import(
-        /* @vite-ignore */ `${base}bench-pg.js`
-      )) as CorpusModule;
-      corpus = {
-        llx_user: pg.llx_user,
-        llx_societe: pg.llx_societe,
-        llx_facture: pg.llx_facture,
-      };
-      return corpus;
-    }
-    const [u, s, f] = await Promise.all([
-      import(/* @vite-ignore */ `${base}llx_user.js`) as Promise<CorpusModule>,
-      import(
-        /* @vite-ignore */ `${base}llx_societe.js`
-      ) as Promise<CorpusModule>,
-      import(
-        /* @vite-ignore */ `${base}llx_facture.js`
-      ) as Promise<CorpusModule>,
-    ]);
-    corpus = {
-      llx_user: u.llx_user,
-      llx_societe: s.llx_societe,
-      llx_facture: f.llx_facture,
-    };
-    return corpus;
+    const mod: unknown = await import(/* @vite-ignore */ url);
+    loaded =
+      typeof mod === "object" && mod !== null && "BENCH_CORPUS" in mod
+        ? mod.BENCH_CORPUS
+        : undefined;
   } catch (e) {
     throw new Error(
-      "bench-orm : corpus dolibarr introuvable (dossier gitignoré, généré " +
-        "localement — jamais dans un clone frais). NF_BENCH_ORM=1 exige une " +
-        "machine qui porte le corpus + un build local du module test" +
-        (dialect === "postgres"
-          ? " (variante postgres : node nodefony/entity/dolibarr/gen-bench-pg.mjs)"
-          : "") +
-        ".",
+      "bench-orm : corpus introuvable (dossier gitignoré, écrit localement — " +
+        "jamais dans un clone frais). NF_BENCH_ORM=1 exige : node " +
+        ".claude/skills/nodefony-devkit-bench/scripts/bench-orm-corpus.mjs, " +
+        "puis un build du module test.",
       { cause: e },
     );
   }
+  if (!(loaded instanceof Map)) {
+    throw new Error(`bench-orm : ${url} n'exporte pas BENCH_CORPUS (Map)`);
+  }
+  const tables: ReadonlyMap<string, unknown> = loaded;
+  for (const name of BENCH_TABLES) {
+    if (!tables.has(name)) {
+      throw new Error(`bench-orm : table ${name} absente du corpus`);
+    }
+  }
+  corpus = tables;
+  return tables;
 }
 
 /**
- * Enregistre les entités du banc dans le `entityRegistry` (connector `default`).
- * À appeler à `onKernelRegister` — AVANT le `connect()` du DrizzleService
- * (hook `onBoot`), qui matérialise les tables des entités enregistrées.
+ * Enregistre les tables du corpus dans le `entityRegistry` (connecteur
+ * {@link BENCH_ORM_CONNECTOR}). À appeler à `onKernelRegister` — AVANT le `connect()` du
+ * DrizzleService (hook `onBoot`), qui matérialise les tables enregistrées.
  */
 export async function registerBenchOrmEntities(): Promise<void> {
   const tables = await loadCorpus();
-  for (const name of ["llx_user", "llx_societe", "llx_facture"] as const) {
+  for (const [name, schema] of tables) {
     entityRegistry.register({
       connector: BENCH_ORM_CONNECTOR,
       module: "test",
       name,
-      schema: tables[name],
+      schema,
     });
   }
 }
 
 /**
  * Seed déterministe du décor (idempotent : ne fait rien si le volume est déjà
- * présent). Insertion par batchs via le db Drizzle natif — 10 000 `create()`
- * unitaires hors transaction paieraient un fsync chacun.
+ * présent). Insertion par lots via le repository (`createMany`) — même chemin
+ * sur les trois dialectes ; 10 000 `create()` unitaires hors transaction
+ * paieraient un fsync chacun.
  *
  * @param log - relais vers le logger du module appelant.
  */
 export async function seedBenchOrm(log: (msg: string) => void): Promise<void> {
-  const tables = await loadCorpus();
   // `get()` lève lui-même, en nommant le connecteur absent.
   const orm = ormRegistry.get(BENCH_ORM_CONNECTOR);
-  const factures = orm.getRepository<Record<string, unknown>>("llx_facture");
+  const repo = (name: string) =>
+    orm.getRepository<Record<string, unknown>>(name);
+  const factures = repo("llx_facture");
   const present = await factures.count();
   if (present >= BENCH_ORM_FACTURES) {
     log(`bench-orm : seed déjà en place (${present} factures)`);
     return;
   }
-  const db = orm.getNativeConnection<INativeInsertDb>();
-
-  const users = Array.from({ length: BENCH_ORM_USERS }, (_, i) => ({
-    rowid: i + 1,
-    login: `bench-user-${i + 1}`,
-  }));
-  const societes = Array.from({ length: BENCH_ORM_SOCIETES }, (_, i) => ({
-    rowid: i + 1,
-  }));
+  if ((await repo("llx_user").count()) === 0) {
+    await repo("llx_user").createMany(
+      Array.from({ length: BENCH_ORM_USERS }, (_, i) => ({
+        rowid: i + 1,
+        login: `bench-user-${i + 1}`,
+      })),
+    );
+  }
+  if ((await repo("llx_societe").count()) === 0) {
+    await repo("llx_societe").createMany(
+      Array.from({ length: BENCH_ORM_SOCIETES }, (_, i) => ({ rowid: i + 1 })),
+    );
+  }
   const rows = Array.from({ length: BENCH_ORM_FACTURES - present }, (_, i) => ({
     ref: `SEED-${present + i + 1}`,
     fk_soc: ((present + i) % BENCH_ORM_SOCIETES) + 1,
     fk_user_author: ((present + i) % BENCH_ORM_USERS) + 1,
-    total_ht: 100,
-    total_ttc: 120,
+    total_ht: benchAmount(100),
+    total_ttc: benchAmount(120),
   }));
-  if (present === 0) {
-    await db.insert(tables.llx_user).values(users).onConflictDoNothing();
-    await db.insert(tables.llx_societe).values(societes).onConflictDoNothing();
-  }
   const BATCH = 500;
   for (let i = 0; i < rows.length; i += BATCH) {
-    await db.insert(tables.llx_facture).values(rows.slice(i, i + BATCH));
+    await factures.createMany(rows.slice(i, i + BATCH));
   }
   log(
     `bench-orm : seed écrit — ${BENCH_ORM_USERS} users, ${BENCH_ORM_SOCIETES} societes, ${BENCH_ORM_FACTURES} factures`,
