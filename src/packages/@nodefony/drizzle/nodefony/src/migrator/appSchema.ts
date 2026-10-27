@@ -507,7 +507,14 @@ interface IJournalEntry {
  * Le fichier est vide de toute instruction : un squelette qui « propose » du
  * SQL est un squelette qu'on applique sans le lire.
  *
- * @param options - dossier de sortie, dialecte, nom de la migration.
+ * Avec `body`, le fichier porte ces instructions au lieu du gabarit vide, et
+ * `snapshot` devient l'instantané de la migration : c'est le renommage SEUL
+ * (`orm:generate --rename`), que l'outil de diff ne voit plus — rien d'autre
+ * n'a changé, il n'écrirait rien, et la génération suivante reproposerait le
+ * renommage faute d'un instantané qui le décrive.
+ *
+ * @param options - dossier de sortie, dialecte, nom de la migration, et
+ *   éventuellement le corps et l'instantané à écrire.
  * @returns le tag attribué et le chemin du fichier écrit.
  * @throws MigrationVerdictError si le journal existant est illisible — on n'en
  *   réécrit JAMAIS un par-dessus : il porte l'historique déjà appliqué en
@@ -518,11 +525,15 @@ export async function writeCustomMigration({
   dialect,
   name,
   now = Date.now(),
+  body,
+  snapshot,
 }: {
   outDir: string;
   dialect: SqlDialect;
   name: string;
   now?: number;
+  body?: string;
+  snapshot?: Record<string, unknown>;
 }): Promise<{ tag: string; file: string }> {
   const journalFile = path.join(outDir, "meta", "_journal.json");
   // Le lecteur PARTAGÉ distingue l'absence (première migration de
@@ -541,16 +552,29 @@ export async function writeCustomMigration({
   const tag = `${String(idx).padStart(4, "0")}_${name}`;
   const file = path.join(outDir, `${tag}.sql`);
   await fs.mkdir(path.join(outDir, "meta"), { recursive: true });
+  if (snapshot !== undefined) {
+    await fs.writeFile(
+      path.join(
+        outDir,
+        "meta",
+        `${String(idx).padStart(4, "0")}_snapshot.json`,
+      ),
+      `${JSON.stringify(snapshot, null, 2)}\n`,
+      "utf8",
+    );
+  }
   await fs.writeFile(
     file,
-    `${FORMAT_MARKER}\n` +
-      `-- Migration LIBRE « ${name} » — à écrire à la main.\n` +
-      `--\n` +
-      `-- Elle est déjà inscrite au journal : elle sera appliquée telle quelle,\n` +
-      `-- une seule fois, dans l'ordre, et son empreinte sera gravée. La modifier\n` +
-      `-- après application sera REFUSÉ — écrire une migration de plus, alors.\n` +
-      `--\n` +
-      `-- Séparer les instructions par « --> statement-breakpoint ».\n`,
+    body !== undefined
+      ? `${FORMAT_MARKER}\n${body}`
+      : `${FORMAT_MARKER}\n` +
+          `-- Migration LIBRE « ${name} » — à écrire à la main.\n` +
+          `--\n` +
+          `-- Elle est déjà inscrite au journal : elle sera appliquée telle quelle,\n` +
+          `-- une seule fois, dans l'ordre, et son empreinte sera gravée. La modifier\n` +
+          `-- après application sera REFUSÉ — écrire une migration de plus, alors.\n` +
+          `--\n` +
+          `-- Séparer les instructions par « --> statement-breakpoint ».\n`,
     "utf8",
   );
   const entry: IJournalEntry = {

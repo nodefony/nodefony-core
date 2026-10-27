@@ -87,13 +87,17 @@ export class SqliteMigrationDriver implements IMigrationDriver {
         throw e;
       }
     }
-    // 🔴 `foreign_keys` reste à OFF ICI, contrairement à l'adapter — ce n'est pas
-    // un oubli. SQLite ne sait pas modifier une colonne : drizzle-kit recrée la
-    // table (`__new_x` + copie + `DROP` + `RENAME`), et encadre lui-même ce
-    // travail d'un `PRAGMA foreign_keys=OFF` / `=ON`. Poser le réglage à
-    // l'ouverture ferait échouer toute migration de ce genre sur les contraintes
-    // des tables voisines, le temps du rebuild. L'intégrité est une garantie de
-    // l'EXÉCUTION de l'application, pas de l'outil qui refait son schéma.
+    // 🔴 `foreign_keys` est COUPÉ ICI, explicitement, hors de toute transaction.
+    // SQLite ne sait pas modifier une colonne : drizzle-kit recrée la table
+    // (`__new_x` + copie + `DROP` + `RENAME`), et le `DROP` d'une table
+    // RÉFÉRENCÉE et peuplée échoue si les clés étrangères sont actives. Les
+    // `PRAGMA foreign_keys=OFF` que drizzle-kit écrit dans le fichier n'y
+    // peuvent rien : l'applicateur joue chaque migration dans une transaction,
+    // où ce réglage est SANS EFFET — et `better-sqlite3` ouvre avec les clés
+    // actives (constaté : `foreign_keys = 1`). Ne compter ni sur le défaut du
+    // pilote, ni sur le fichier. L'intégrité n'est pas abandonnée pour autant :
+    // `commit` la CONTRÔLE avant de valider (`#assertReferences`).
+    db.pragma("foreign_keys = OFF");
     this.#database = db;
   }
 
@@ -146,9 +150,37 @@ export class SqliteMigrationDriver implements IMigrationDriver {
     return this.exec("BEGIN IMMEDIATE");
   }
 
-  /** @inheritdoc */
+  /**
+   * Valide la migration — après avoir CONTRÔLÉ qu'elle ne laisse aucune
+   * référence orpheline.
+   *
+   * Les clés étrangères sont coupées pendant la migration (cf `connect`) : une
+   * migration qui pose une référence sur des lignes qui ne la respectent pas
+   * passerait donc en silence, là où PostgreSQL et MySQL refusent l'`ADD
+   * CONSTRAINT`. `PRAGMA foreign_key_check` rend ce refus au même moment : la
+   * transaction n'est pas validée, et l'échec nomme les lignes.
+   *
+   * @throws Error si la migration laisse une référence orpheline.
+   */
   commit(): Promise<void> {
+    this.#assertReferences();
     return this.exec("COMMIT");
+  }
+
+  /** Lève si une référence de la base ne trouve pas sa ligne. */
+  #assertReferences(): void {
+    const orphans = this.#db.prepare("PRAGMA foreign_key_check").all();
+    if (orphans.length === 0) {
+      return;
+    }
+    const shown = orphans.slice(0, 5).map((row) => {
+      const r = row as Record<string, unknown>;
+      return `${String(r.table)} (ligne ${String(r.rowid)}) → ${String(r.parent)}`;
+    });
+    throw new Error(
+      `la migration laisse ${orphans.length} référence(s) orpheline(s) : ` +
+        `${shown.join(" ; ")}${orphans.length > 5 ? " ; …" : ""}`,
+    );
   }
 
   /** @inheritdoc */

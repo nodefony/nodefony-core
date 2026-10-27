@@ -388,3 +388,74 @@ describe("les deux portes du SQL destructeur — aucune divergence SILENCIEUSE",
     );
   });
 });
+
+describe("auditMigrationSql — un ÉLARGISSEMENT prouvé n'est pas une perte", () => {
+  // Allonger une colonne est le geste le plus banal d'un schéma qui vit. Le
+  // refuser obligeait à poser `--allow-destructive` — c'est-à-dire à apprendre
+  // à forcer le garde, qui ne protège plus rien le jour où il le faudrait.
+  const ids = (list: Array<{ id: string }>): string[] => list.map((r) => r.id);
+  const before =
+    (type: string, notNull = false) =>
+    (t: string, c: string) =>
+      t === "article" && c === "titre" ? { type, notNull } : null;
+  const pg = (type: string): string =>
+    `ALTER TABLE "article" ALTER COLUMN "titre" SET DATA TYPE ${type};`;
+  const my = (definition: string): string =>
+    `ALTER TABLE \`article\` MODIFY COLUMN \`titre\` ${definition};`;
+
+  it.each([
+    ["postgres", pg("varchar(32)"), "varchar(16)"],
+    ["postgres", pg("bigint"), "integer"],
+    ["mysql", my("varchar(32)"), "varchar(16)"],
+    ["mysql", my("varchar(32)"), "char(2)"],
+    ["mysql", my("bigint"), "int"],
+  ] as const)("%s : %s depuis %s → accepté", (dialect, sql, from) => {
+    assert.deepEqual(
+      ids(auditMigrationSql(sql, dialect, before(from)).destructive),
+      [],
+    );
+  });
+
+  it.each([
+    ["rétrécit", pg("varchar(8)"), "varchar(16)", false],
+    [
+      "change de genre",
+      pg("integer USING titre::integer"),
+      "varchar(16)",
+      false,
+    ],
+    ["descend de rang", my("int"), "bigint", false],
+    ["DEVIENT obligatoire", my("varchar(32) NOT NULL"), "varchar(16)", false],
+  ] as const)("%s → refusé", (_why, sql, from, notNull) => {
+    const dialect = sql.includes("MODIFY") ? "mysql" : "postgres";
+    assert.equal(
+      ids(auditMigrationSql(sql, dialect, before(from, notNull)).destructive)
+        .length,
+      1,
+    );
+  });
+
+  it("sans état de départ, ou sur une colonne inconnue, le doute refuse", () => {
+    assert.equal(
+      auditMigrationSql(pg("varchar(32)"), "postgres").destructive.length,
+      1,
+    );
+    assert.equal(
+      auditMigrationSql(
+        `ALTER TABLE "autre" ALTER COLUMN "x" SET DATA TYPE varchar(32);`,
+        "postgres",
+        before("varchar(16)"),
+      ).destructive.length,
+      1,
+    );
+  });
+
+  it("un élargissement ne couvre pas un AUTRE changement de type du même fichier", () => {
+    const sql = `${pg("varchar(32)")}\nALTER TABLE "article" ALTER COLUMN "corps" TYPE integer;`;
+    assert.equal(
+      auditMigrationSql(sql, "postgres", before("varchar(16)")).destructive
+        .length,
+      1,
+    );
+  });
+});

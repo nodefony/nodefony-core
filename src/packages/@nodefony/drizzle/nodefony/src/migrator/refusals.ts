@@ -63,6 +63,8 @@ export type CommandFailureCode =
   | "NF_GENERATE_TOOL_MISSING"
   /** L'outil de génération pose une question, et il n'y a pas de terminal. */
   | "NF_GENERATE_NEEDS_ANSWER"
+  /** Un `--rename` mal écrit, ou que le dernier instantané ne permet pas. */
+  | "NF_GENERATE_RENAME"
   /** Un fichier d'entité porte un `await` de premier niveau, que l'outil ne sait pas lire. */
   | "NF_GENERATE_TOP_LEVEL_AWAIT"
   /** L'outil de génération s'est arrêté ; ce qu'il a dit est remonté tel quel. */
@@ -202,14 +204,19 @@ export function formatToolOutput(output: string, maxLines = 40): string {
 }
 
 /**
- * L'outil de génération pose une QUESTION, et aucun terminal n'y répond.
+ * L'outil de génération pose une QUESTION, et personne ne peut y répondre.
  *
  * C'est le cas d'une colonne qui disparaît pendant qu'une autre apparaît :
  * renommage (les données suivent) ou suppression puis ajout (les données sont
  * perdues) — l'outil ne peut pas le deviner, et il a raison de demander.
  *
+ * 🔴 Personne, y compris un humain devant un terminal : `runGenerate` CAPTURE
+ * la sortie de l'outil, qui n'a donc jamais de terminal. Le geste n'est pas de
+ * « répondre », il est de DÉCLARER (`--rename`) — ou de séparer la suppression
+ * de l'ajout en deux générations, chacune sans ambiguïté.
+ *
  * @param label - ce qui était généré, tel qu'on le cite à l'utilisateur.
- * @param replay - la commande à rejouer dans un terminal interactif.
+ * @param replay - la commande de génération, à compléter.
  * @returns le refus, prêt pour la ligne de commande comme pour l'écran.
  */
 export function generationNeedsAnswer(
@@ -222,12 +229,14 @@ export function generationNeedsAnswer(
     meaning:
       "Une colonne disparaît et une autre apparaît : c'est soit un renommage — les données SUIVENT —, " +
       "soit une suppression puis un ajout — les données sont PERDUES. L'outil ne peut pas deviner " +
-      "l'intention, il pose donc la question, et il n'y a pas de terminal ici pour y répondre. " +
-      "La base n'est pas en cause : elle n'a même pas été interrogée. " +
-      "⚠️ Après avoir répondu « renamed », RELIRE le fichier produit : quand une colonne est renommée " +
-      "ET que son type change, l'outil n'écrit que le renommage et oublie le changement de type " +
-      "(drizzle-orm#3826).",
-    nextActions: [action(replay)],
+      "l'intention, il pose donc la question — et la commande ne lui laisse aucun terminal pour la " +
+      "recevoir. La base n'est pas en cause : elle n'a même pas été interrogée. " +
+      "C'est un RENOMMAGE → le DÉCLARER : « --rename table.ancienne=nouvelle » par colonne " +
+      "(« --rename ancienne=nouvelle » pour une table, et ses colonnes sous le NOUVEAU nom) — la " +
+      "migration porte alors un RENAME, changement de type compris. " +
+      "C'est une SUPPRESSION et un ajout sans rapport → deux générations : d'abord l'entité sans la " +
+      "colonne retirée (la perte sera nommée par le garde destructif), puis avec la colonne ajoutée.",
+    nextActions: [action(`${replay} --rename <table>.<ancienne>=<nouvelle>`)],
     exitCode: 2,
   };
 }

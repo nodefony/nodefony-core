@@ -151,7 +151,7 @@ function decimalAtScale(value: string, scale: number): string {
  * Valeur témoin d'une colonne : chaque genre à sa borne. Deux jeux (`a`, `b`)
  * pour que deux lignes ne se heurtent à aucune unicité.
  */
-function witness(c: ISerializedColumn, seed: "a" | "b"): unknown {
+export function witness(c: ISerializedColumn, seed: "a" | "b"): unknown {
   const a = seed === "a";
   switch (c.kind) {
     case "string":
@@ -183,7 +183,7 @@ function witness(c: ISerializedColumn, seed: "a" | "b"): unknown {
 }
 
 /** Valeur que la base doit rendre pour une colonne laissée vide à l'insertion. */
-function expectedDefault(c: ISerializedColumn): unknown {
+export function expectedDefault(c: ISerializedColumn): unknown {
   if (c.default === undefined) return null;
   if (c.kind === "decimal" && typeof c.default === "string") {
     return decimalAtScale(c.default, c.scale ?? 0);

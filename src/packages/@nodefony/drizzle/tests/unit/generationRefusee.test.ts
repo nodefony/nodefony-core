@@ -108,15 +108,19 @@ describe("la génération refuse en nommant sa cause", () => {
     );
   });
 
-  it("distingue la QUESTION de l'outil d'un échec, et donne la commande à rejouer", () => {
+  it("distingue la QUESTION de l'outil d'un échec, et donne la réponse à DÉCLARER", () => {
     const e = refus("Interactive prompts require a TTY\n");
     assert.equal(e.refusal.code, "NF_GENERATE_NEEDS_ANSWER");
-    assert.equal(
-      e.refusal.nextActions[0]?.command,
-      "nodefony orm:generate --name add_team",
+    // L'outil n'a JAMAIS de terminal (sortie capturée) : rejouer nu reposerait
+    // la même question au même vide. Le seul geste est de DÉCLARER.
+    assert.deepEqual(
+      e.refusal.nextActions.map((a) => a.command),
+      [
+        "nodefony orm:generate --name add_team --rename <table>.<ancienne>=<nouvelle>",
+      ],
     );
-    // Le piège qui suit la réponse « renamed » — un type changé disparaît.
-    assert.match(e.refusal.meaning, /3826/u);
+    assert.match(e.refusal.meaning, /--rename/u);
+    assert.match(e.refusal.meaning, /deux générations/u);
   });
 
   // Vécu (CI) : un `await` de premier niveau dans `nodefony/entity/User.ts` a

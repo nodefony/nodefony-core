@@ -40,7 +40,7 @@ export async function execRaw(
   }
 }
 
-const REPO_ROOT = path.resolve(
+export const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",

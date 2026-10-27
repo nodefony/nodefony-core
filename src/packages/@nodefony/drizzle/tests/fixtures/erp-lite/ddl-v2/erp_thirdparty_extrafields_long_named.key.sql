@@ -1,0 +1,2 @@
+ALTER TABLE erp_thirdparty_extrafields_long_named ADD UNIQUE INDEX uk_thirdparty_extrafields_long_named_fk_object (fk_object);
+ALTER TABLE erp_thirdparty_extrafields_long_named ADD CONSTRAINT fk_thirdparty_extrafields_long_named_fk_object FOREIGN KEY (fk_object) REFERENCES erp_thirdparty (rowid);

@@ -22,6 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { MAX_IDENTIFIER_LENGTH } from "../../entity/colKit.shared";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
+import type { ISnapshotColumnFacts } from "./snapshotColumns";
 import {
   MigrationToolError,
   generationFailed,
@@ -58,8 +59,14 @@ interface IAuditPattern extends IAuditRule {
    * instructions, par exemple. Appelée seulement si `pattern` a mordu, ce qui
    * garde le cas courant à une seule expression régulière.
    */
-  detect?: (code: string) => boolean;
+  detect?: (code: string, before?: ColumnsBefore) => boolean;
 }
+
+/** Ce que la base portait avant la migration, colonne par colonne. */
+type ColumnsBefore = (
+  table: string,
+  column: string,
+) => ISnapshotColumnFacts | null;
 
 /**
  * Marqueur de format, RÉ-EXPORTÉ depuis sa seule définition.
@@ -295,13 +302,16 @@ const DESTRUCTIVE_PATTERNS: readonly IAuditPattern[] = [
     pattern: /\bDROP\s+COLUMN\b/i,
     what: "supprime une colonne ET son contenu, sans retour possible",
     todo:
-      "s'il s'agissait d'un RENOMMAGE, regénérer dans un terminal interactif " +
-      "et répondre « renamed » : l'outil produit alors un RENAME, qui conserve " +
-      "les données",
+      "s'il s'agissait d'un RENOMMAGE, annuler ces fichiers et regénérer en le " +
+      "déclarant (« --rename table.ancienne=nouvelle ») : la migration porte " +
+      "alors un RENAME, qui conserve les données",
   },
   {
     id: "alter-column-type",
     pattern: /\bALTER\s+(?:COLUMN\s+)?[`"\w]+\s+(?:SET\s+DATA\s+)?TYPE\b/i,
+    // Un ÉLARGISSEMENT prouvé (`varchar(16)` → `varchar(32)`) ne perd rien :
+    // le refuser apprendrait à forcer le garde pour allonger une colonne.
+    detect: (code, before) => !onlyWidenings(code, before),
     what:
       "convertit une colonne : les valeurs qui n'entrent pas dans le nouveau " +
       "type sont perdues ou font échouer la migration à mi-parcours",
@@ -312,6 +322,7 @@ const DESTRUCTIVE_PATTERNS: readonly IAuditPattern[] = [
   {
     id: "modify-column",
     pattern: /\bMODIFY\s+COLUMN\b/i,
+    detect: (code, before) => !onlyWidenings(code, before),
     what: "réécrit une colonne MySQL (type, nullabilité) — mêmes risques",
     todo: "vérifier la conversion sur une copie des données avant d'appliquer",
   },
@@ -417,6 +428,74 @@ const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
   },
 ];
 
+/** Un changement de type écrit par l'outil : PostgreSQL ou MySQL. */
+const TYPE_CHANGES = [
+  /\bALTER\s+TABLE\s+(?:"[^"]+"\.)?"([^"]+)"\s+ALTER\s+COLUMN\s+"([^"]+)"\s+SET\s+DATA\s+TYPE\s+([^;]+?)\s*;/giu,
+  /\bALTER\s+TABLE\s+`([^`]+)`\s+MODIFY\s+COLUMN\s+`([^`]+)`\s+(\w+(?:\(\d+(?:,\s*\d+)?\))?)([^;]*);/giu,
+];
+
+/** Rang des entiers : passer à un rang supérieur ne perd aucune valeur. */
+const INTEGER_RANK: Readonly<Record<string, number>> = {
+  smallint: 1,
+  int: 2,
+  integer: 2,
+  bigint: 3,
+};
+
+/**
+ * Le passage de `from` à `to` est-il un ÉLARGISSEMENT, qui garde toute
+ * valeur ? Seuls deux cas sont reconnus — chaîne qui s'allonge, entier qui
+ * monte de rang —, et une colonne qui DEVIENT obligatoire n'en est jamais un :
+ * elle échoue sur les lignes vides.
+ */
+export function isWidening(
+  from: ISnapshotColumnFacts,
+  to: string,
+  toNotNull: boolean,
+): boolean {
+  if (toNotNull && !from.notNull) return false;
+  const oldLength = /^(?:var)?char\((\d+)\)$/iu.exec(from.type.trim());
+  const newLength = /^varchar\((\d+)\)$/iu.exec(to.trim());
+  if (oldLength !== null && newLength !== null) {
+    return Number(newLength[1]) >= Number(oldLength[1]);
+  }
+  const oldRank = INTEGER_RANK[from.type.trim().toLowerCase()];
+  const newRank = INTEGER_RANK[to.trim().toLowerCase()];
+  return oldRank !== undefined && newRank !== undefined && newRank >= oldRank;
+}
+
+/**
+ * Les changements de type du SQL sont-ils TOUS des élargissements prouvés ?
+ *
+ * Penche du côté du signalement : sans état de départ, avec une instruction
+ * que le motif ne sait pas lire, ou une colonne inconnue, la réponse est non.
+ */
+function onlyWidenings(code: string, before?: ColumnsBefore): boolean {
+  if (before === undefined) return false;
+  const statements = code
+    .split(/;\s*/u)
+    .filter((s) =>
+      /\b(?:SET\s+DATA\s+TYPE|MODIFY\s+COLUMN|ALTER\s+COLUMN\s+[`"\w]+\s+TYPE)\b/iu.test(
+        s,
+      ),
+    );
+  let proven = 0;
+  for (const re of TYPE_CHANGES) {
+    for (const m of code.matchAll(re)) {
+      const [, table = "", column = "", type = "", rest = ""] = m;
+      const facts = before(table, column);
+      if (
+        facts === null ||
+        !isWidening(facts, type, /\bNOT\s+NULL\b/iu.test(rest))
+      ) {
+        return false;
+      }
+      proven++;
+    }
+  }
+  return proven === statements.length;
+}
+
 /**
  * Analyse le SQL d'une migration et rend ce qui mérite un refus ou un regard.
  *
@@ -426,11 +505,15 @@ const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
  *
  * @param sql - contenu d'un fichier de migration.
  * @param dialect - dialecte concerné (certains risques lui sont propres).
+ * @param before - les colonnes de l'état de DÉPART (instantané précédent) : un
+ *   changement de type qui n'est qu'un élargissement prouvé n'est pas une perte.
+ *   Absent, tout changement de type reste signalé.
  * @returns `{ destructive, blocking }`, chacun décrivant ce qui a été reconnu.
  */
 export function auditMigrationSql(
   sql: string,
   dialect: SqlDialect,
+  before?: ColumnsBefore,
 ): IMigrationAudit {
   // Les commentaires portent des mots-clés (« DROP COLUMN » dans une phrase) et
   // produiraient des refus fantômes.
@@ -442,7 +525,7 @@ export function auditMigrationSql(
     list
       .filter((rule) => !rule.dialects || rule.dialects.includes(dialect))
       .filter((rule) => rule.pattern.test(code))
-      .filter((rule) => rule.detect === undefined || rule.detect(code))
+      .filter((rule) => rule.detect === undefined || rule.detect(code, before))
       .map(({ id, what, todo }) => ({ id, what, todo }));
   return {
     destructive: match(DESTRUCTIVE_PATTERNS),

@@ -26,6 +26,22 @@ import {
   type IAuditRule,
 } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
+import {
+  describeRenames,
+  isEmptyPlan,
+  parseRenames,
+  type IRenamePlan,
+} from "../src/migrator/renames";
+import {
+  columnFactsByTable,
+  columnsByTable,
+} from "../src/migrator/snapshotColumns";
+import {
+  completeRenames,
+  prepareRenames,
+  withRewrittenSnapshot,
+  type IPreparedRenames,
+} from "../src/migrator/renameGeneration";
 import type { IDiscoveryFacts } from "../src/migrator/refusals";
 import { gapAgainstDeclared } from "../src/migrator/divergence";
 import { migrationPlanFor } from "../src/migrator/status";
@@ -110,6 +126,11 @@ interface IGenerateReport {
    * en retard sur les fichiers ; vide sinon. Le geste est alors `orm:migrate`.
    */
   pendingInDatabase: string[];
+  /**
+   * Renommages DÉCLARÉS par `--rename` et écrits en tête de la migration
+   * (`table.ancienne → nouvelle`, `ancienne → nouvelle` pour une table).
+   */
+  renamed: string[];
   driver: {
     kind: "sql";
     dialect: SqlDialect;
@@ -124,6 +145,7 @@ interface IGenerateOptions extends IMigrateSharedOptions {
   custom?: boolean;
   allowDestructive?: boolean;
   apply?: boolean;
+  rename?: string[];
 }
 
 /**
@@ -170,6 +192,16 @@ interface IGenerateOptions extends IMigrateSharedOptions {
  * déploiement n'écrit pas ses migrations au moment de les appliquer, il
  * applique celles que la revue de code a validées.
  *
+ * @example Un renommage, sans terminal — la réponse donnée d'avance
+ * ```bash
+ * nodefony orm:generate --name titre_en_anglais --rename article.titre=title
+ * nodefony orm:generate --name tables_renommees --rename brouillon=draft
+ * ```
+ * Un diff ne voit pas une intention : une colonne qui disparaît pendant
+ * qu'une autre apparaît est un renommage OU une perte. `--rename` le dit, et
+ * la migration porte un `RENAME` — les données suivent. Une colonne de table
+ * se désigne par le nom ACTUEL de la table, celui de l'entité.
+ *
  * @example Ce que le modèle déclaratif ne peut pas déduire
  * ```bash
  * nodefony orm:generate --custom --name vue_des_ventes
@@ -187,6 +219,7 @@ class OrmGenerate extends OrmMigrateCommand {
         examples: [
           "nodefony orm:generate --name ajout_du_titre",
           "nodefony orm:generate --name ajout_du_titre --apply",
+          "nodefony orm:generate --name titre_en_anglais --rename article.titre=title",
         ],
       },
     );
@@ -207,6 +240,46 @@ class OrmGenerate extends OrmMigrateCommand {
       "--apply",
       "applique la migration dans la foulée (développement seulement) — écrire puis appliquer en un seul geste",
     );
+    this.addOption(
+      "--rename <ancien=nouveau...>",
+      "déclare un RENOMMAGE (« table.colonne=nouvelle », « table=nouvelle ») : les données suivent, sans terminal pour répondre à l'outil",
+    );
+  }
+
+  /**
+   * Lit les renommages demandés, ou arrête la commande en disant pourquoi.
+   *
+   * @param opts - options reçues.
+   * @param connector - connecteur visé, pour le refus.
+   * @returns le plan (vide sans `--rename`), ou `null` si la commande est arrêtée.
+   */
+  #renamesOrFail(
+    opts: IGenerateOptions,
+    connector: string,
+  ): IRenamePlan | null {
+    const parsed = parseRenames(opts.rename ?? []);
+    const why = parsed.ok
+      ? opts.custom === true && !isEmptyPlan(parsed.plan)
+        ? "« --rename » et « --custom » ne vont pas ensemble : une migration libre est écrite à la main, renommages compris."
+        : null
+      : `Renommage « ${parsed.spec} » refusé : ${parsed.reason}.`;
+    if (parsed.ok && why === null) {
+      return parsed.plan;
+    }
+    this.fail(
+      connector,
+      "NF_GENERATE_RENAME",
+      why ?? "Renommage refusé.",
+      "Rien n'a été écrit. Un renommage se déclare « table.colonne=nouvelle » pour une colonne — la table sous le nom que porte son entité —, et « table=nouvelle » pour une table. Chaque nom est un identifiant simple : lettres, chiffres, « _ ».",
+      [
+        action(
+          "nodefony orm:generate --name <nom> --rename <table>.<ancienne>=<nouvelle>",
+        ),
+      ],
+      opts.json,
+      EXIT.actionRequired,
+    );
+    return null;
   }
 
   /**
@@ -262,6 +335,10 @@ class OrmGenerate extends OrmMigrateCommand {
     if (name === null) {
       return this;
     }
+    const renames = this.#renamesOrFail(opts, connector);
+    if (renames === null) {
+      return this;
+    }
     const root = this.#projectRoot();
     const migrationsDir = appMigrationsDir(
       this.requiredKernel,
@@ -307,6 +384,7 @@ class OrmGenerate extends OrmMigrateCommand {
             unreadable: [],
             otherDialect: [],
             pendingInDatabase: [],
+            renamed: [],
             driver: {
               kind: "sql",
               dialect: resolution.dialect,
@@ -325,6 +403,7 @@ class OrmGenerate extends OrmMigrateCommand {
         outDir,
         name,
         relative,
+        renames,
       );
     } catch (e) {
       this.failFrom(e, connector, opts.json, resolution.ddl);
@@ -347,6 +426,7 @@ class OrmGenerate extends OrmMigrateCommand {
     outDir: string,
     name: string,
     relative: (p: string) => string,
+    renames: IRenamePlan,
   ): Promise<this> {
     const dialect = database.dialect;
     // 1. Les FICHIERS fournissent — ceux de l'APPLICATION, pas ceux du paquet
@@ -523,7 +603,31 @@ class OrmGenerate extends OrmMigrateCommand {
       }
     }
 
-    try {
+    // Les renommages déclarés : l'outil lira un instantané où ils sont DÉJÀ
+    // faits, et ne posera donc pas sa question (cf `migrator/renames.ts`).
+    let prepared: IPreparedRenames | null = null;
+    if (!isEmptyPlan(renames)) {
+      const outcome = await prepareRenames(outDir, renames, dialect);
+      if (Array.isArray(outcome)) {
+        this.fail(
+          connector,
+          "NF_GENERATE_RENAME",
+          `Renommage impossible — l'état précédent ne le permet pas :\n${outcome.map((p) => `  • ${p}`).join("\n")}`,
+          "Rien n'a été écrit. Un renommage part du DERNIER instantané de migration : l'ancien nom doit y figurer, le nouveau ne doit pas y figurer encore. Une colonne se désigne par le nom actuel de sa table, celui de l'entité.",
+          [
+            action(
+              `nodefony orm:migrate:status --connector ${connector} --json`,
+            ),
+          ],
+          opts.json,
+          EXIT.actionRequired,
+        );
+        return this;
+      }
+      prepared = outcome;
+    }
+
+    const generate = async (): Promise<void> => {
       await writeSchemaModule(schemaFile, tables, dialect);
       await writeKitConfig({
         file: configFile,
@@ -546,6 +650,13 @@ class OrmGenerate extends OrmMigrateCommand {
           ? `nodefony orm:generate --name ${name}`
           : `nodefony orm:generate --connector ${connector} --name ${name}`,
       });
+    };
+    try {
+      // Avec `--rename`, l'outil lit l'instantané réécrit, restitué ensuite
+      // octet pour octet quoi qu'il arrive (`withRewrittenSnapshot`).
+      await (prepared === null
+        ? generate()
+        : withRewrittenSnapshot(prepared, generate));
     } finally {
       // Le dossier de travail ne survit à RIEN : ni au succès, ni à l'échec.
       // Un module temporaire laissé derrière serait relu par le prochain outil
@@ -555,7 +666,29 @@ class OrmGenerate extends OrmMigrateCommand {
 
     // 5. La PREUVE est dans le journal, jamais dans un message de l'outil.
     const after = await this.#tags(outDir);
-    const added = after.filter((t) => !before.includes(t));
+    let added = after.filter((t) => !before.includes(t));
+    if (prepared !== null) {
+      const outcome = await completeRenames(
+        outDir,
+        dialect,
+        name,
+        added,
+        prepared,
+      );
+      if (outcome.missing.length > 0) {
+        this.fail(
+          connector,
+          "NF_GENERATE_RENAME",
+          `Renommage sans cible — rien n'a été écrit :\n${outcome.missing.map((m) => `  • ${m}`).join("\n")}`,
+          "Le nouveau nom doit être celui que DÉCLARENT les entités. Sinon la migration renommerait la colonne, puis la supprimerait faute de la trouver dans le schéma : une perte sous l'apparence d'une réponse donnée. Corriger l'entité ou le renommage, puis regénérer.",
+          [action("nodefony inspect entities --json")],
+          opts.json,
+          EXIT.actionRequired,
+        );
+        return this;
+      }
+      added = outcome.tags;
+    }
     if (added.length === 0) {
       // 🔴 « Rien à écrire » n'est pas « rien à faire ».
       //
@@ -637,6 +770,7 @@ class OrmGenerate extends OrmMigrateCommand {
           unreadable,
           otherDialect,
           pendingInDatabase: pending,
+          renamed: [],
           driver: { kind: "sql", dialect, dir: relative(outDir) },
         },
         opts,
@@ -662,10 +796,12 @@ class OrmGenerate extends OrmMigrateCommand {
       // l'application, pose un marqueur, et bloque tous les passages suivants.
       // L'audit doit voir le SQL qui sera VRAIMENT joué, pas celui que l'outil
       // a écrit.
-      const repair = repairRebuildCopy(
-        sql,
-        await this.#columnsBeforeMigration(outDir, tag),
-      );
+      // Après un renommage, l'état de départ est l'instantané RÉÉCRIT — celui
+      // que l'outil a lu. L'original porte les anciens noms : la recopie y
+      // perdrait la colonne renommée, l'audit n'y trouverait pas son type.
+      const startState =
+        prepared?.applied.doc ?? (await this.#snapshotBefore(outDir, tag));
+      const repair = repairRebuildCopy(sql, columnsByTable(startState));
       if (repair.dropped.length > 0) {
         await fs.writeFile(file, repair.sql, "utf8");
         sql = repair.sql;
@@ -680,7 +816,11 @@ class OrmGenerate extends OrmMigrateCommand {
           );
         }
       }
-      const audit = auditMigrationSql(sql, dialect);
+      const audit = auditMigrationSql(
+        sql,
+        dialect,
+        columnFactsByTable(startState),
+      );
       destructive.push(...audit.destructive);
       warnings.push(...audit.blocking);
     }
@@ -692,7 +832,7 @@ class OrmGenerate extends OrmMigrateCommand {
         connector,
         "NF_GENERATE_DESTRUCTIVE",
         `Cette migration DÉTRUIT des données :\n${list}\n\nLes fichiers ont été écrits — les RELIRE avant toute décision :\n${written.map((f) => `  ${f}`).join("\n")}`,
-        "Ils ne sont pas effacés : ce sont eux qu'il faut lire pour décider, et les supprimer priverait de la seule chose à regarder. C'est leur mise en service qui est refusée. S'il s'agit d'un renommage mal interprété, annuler ces fichiers avec l'outil de gestion de versions puis regénérer dans un terminal interactif, et répondre « renamed » : l'outil produit alors un RENAME, et les données suivent. Si la perte est ASSUMÉE, il n'y a rien à regénérer — les fichiers sont là : c'est l'application qui décide, et elle a sa propre garde.",
+        "Ils ne sont pas effacés : ce sont eux qu'il faut lire pour décider, et les supprimer priverait de la seule chose à regarder. C'est leur mise en service qui est refusée. S'il s'agit d'un renommage mal interprété, annuler ces fichiers avec l'outil de gestion de versions puis regénérer en le DÉCLARANT (« --rename table.ancienne=nouvelle ») : la migration porte alors un RENAME, et les données suivent. Si la perte est ASSUMÉE, il n'y a rien à regénérer — les fichiers sont là : c'est l'application qui décide, et elle a sa propre garde.",
         // 🔴 Les gestes décrivent les DEUX issues réelles, et aucune ne
         // consiste à rejouer cette commande : les fichiers sont déjà écrits ET
         // inscrits au journal, donc une relance — même avec l'aveu — ne diffe
@@ -710,6 +850,7 @@ class OrmGenerate extends OrmMigrateCommand {
       );
       return this;
     }
+    const renamed = prepared === null ? [] : describeRenames(prepared.plan);
     return this.#emit(
       {
         formatVersion: MIGRATION_FORMAT_VERSION,
@@ -721,10 +862,12 @@ class OrmGenerate extends OrmMigrateCommand {
         unreadable,
         otherDialect,
         pendingInDatabase: [],
+        renamed,
         driver: { kind: "sql", dialect, dir: relative(outDir) },
       },
       opts,
-      `Migration ${added.join(", ")} écrite depuis ${tables.length} table(s).`,
+      `Migration ${added.join(", ")} écrite depuis ${tables.length} table(s).` +
+        (renamed.length > 0 ? ` Renommé : ${renamed.join(", ")}.` : ""),
     );
   }
 
@@ -861,28 +1004,26 @@ class OrmGenerate extends OrmMigrateCommand {
   }
 
   /**
-   * Les colonnes que chaque table portait AVANT la migration qu'on vient
-   * d'écrire — lues dans le cliché qui la précède.
+   * L'instantané qui précède la migration qu'on vient d'écrire — l'état de
+   * DÉPART de celle-ci.
    *
    * C'est la même référence que celle sur laquelle l'outil de génération a
    * calculé son écart : le cliché d'indice `N-1` décrit l'état d'arrivée de la
-   * migration précédente, donc l'état de DÉPART de celle-ci.
+   * migration précédente.
    *
-   * Rend une fonction qui répond `null` pour toute table inconnue — absence de
-   * cliché, première migration, format inattendu. C'est ce `null` qui garantit
-   * qu'on ne réécrit jamais un SQL sur une supposition.
+   * Rend `null` en l'absence de cliché, pour une première migration ou un
+   * format inattendu : les lecteurs répondent alors `null` à toute question,
+   * et c'est ce qui garantit qu'on ne réécrit ni n'excuse jamais un SQL sur une
+   * supposition.
    *
    * @param outDir - dossier des migrations du dialecte.
    * @param tag - étiquette de la migration écrite (`0004_ajout_du_titre`).
-   * @returns un lecteur de colonnes par nom de table.
+   * @returns l'instantané, ou `null`.
    */
-  async #columnsBeforeMigration(
-    outDir: string,
-    tag: string,
-  ): Promise<(table: string) => readonly string[] | null> {
+  async #snapshotBefore(outDir: string, tag: string): Promise<unknown> {
     const index = Number.parseInt(tag.slice(0, 4), 10);
     if (!Number.isFinite(index) || index <= 0) {
-      return () => null;
+      return null;
     }
     const file = path.join(
       outDir,
@@ -890,20 +1031,7 @@ class OrmGenerate extends OrmMigrateCommand {
       `${String(index - 1).padStart(4, "0")}_snapshot.json`,
     );
     // Cliché absent ou illisible : on ne sait pas, donc on ne touche à rien.
-    const snapshot = await readSnapshot(file).catch(() => null);
-    const tables = snapshot?.tables;
-    if (tables === undefined) {
-      return () => null;
-    }
-    // Le nom peut être qualifié par son schéma (`public.User` en PostgreSQL) :
-    // on indexe sur le dernier segment, seul nom que le SQL emploie.
-    const byName = new Map<string, readonly string[]>();
-    for (const [key, table] of Object.entries(tables)) {
-      const columns = table.columns;
-      if (columns === undefined) continue;
-      byName.set(key.split(".").pop() as string, Object.keys(columns));
-    }
-    return (name: string) => byName.get(name) ?? null;
+    return readSnapshot(file).catch(() => null);
   }
 
   /**

@@ -897,14 +897,16 @@ export function summarizeNotes(notes) {
  * import : un test le lit sans chaîne de build, et Node l'importe nativement
  * (le selftest le compare à une conversion fraîche, garde de dérive).
  *
+ * @param {{ specs: unknown[], notes: unknown[], from?: string }} conversion -
+ *   `from` : le dossier de DDL d'origine, cité dans l'en-tête (`ddl`, `ddl-v2`).
  * @returns {string} le source du module.
  */
-export function specsModule({ specs, notes }) {
+export function specsModule({ specs, notes, from = "ddl" }) {
   return [
     "/**",
     " * Descriptions d'entités NEUTRES du corpus synthétique — GÉNÉRÉ par",
     " * `.claude/skills/nodefony-devkit-bench/scripts/mysql-ddl-to-specs.mjs`",
-    " * depuis `ddl/`, ne pas éditer : modifier le DDL, puis régénérer.",
+    ` * depuis \`${from}/\`, ne pas éditer : modifier le DDL, puis régénérer.`,
     " */",
     `export const SPECS = ${JSON.stringify(specs, null, 2)} as const;`,
     "",
@@ -967,7 +969,7 @@ function main() {
   writeFileSync(
     out,
     out.endsWith(".ts")
-      ? specsModule({ specs, notes })
+      ? specsModule({ specs, notes, from: path.basename(dir) })
       : `${JSON.stringify({ source, specs, notes }, null, 2)}\n`,
   );
   const columns = specs.reduce((n, s) => n + Object.keys(s.columns).length, 0);

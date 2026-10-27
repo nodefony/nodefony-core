@@ -14,6 +14,7 @@ import {
   assertDialecte,
   parse,
   surBaseNeuve,
+  type IRun,
 } from "./migrate-cli-harness";
 
 /**
@@ -375,6 +376,65 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
       const appliquee = await cli(["orm:migrate", "--json"], env);
       assert.equal(appliquee.code, 0, appliquee.stderr.slice(-1200));
       assert.equal(parse(appliquee.stdout).verdict, "up-to-date");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 300_000);
+
+  it("🔴 `orm:generate --rename` : la réponse déclarée est LUE, et un renommage impossible s’arrête sur 1 (action requise) sans rien écrire", async () => {
+    // La mécanique (instantané réécrit, données conservées sur quatre
+    // moteurs) est prouvée par `erp-lite-evolution-*` ; ce cas prouve le
+    // CÂBLAGE de la commande — l'option lue, le refus typé, le dossier intact.
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-rename-"));
+    const migrations = path.join(dir, "migrations");
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: "development",
+      NF_DATABASE_URL: `sqlite:${path.join(dir, "rename.db")}`,
+      NF__DRIZZLE__MIGRATIONS__DIR: migrations,
+    };
+    const refusal = (r: IRun): Record<string, unknown> =>
+      parse(r.stdout).error as Record<string, unknown>;
+    try {
+      // Avant toute migration : rien à renommer, et la commande le DIT.
+      const first = await cli(
+        ["orm:generate", "--name", "init", "--rename", "x.a=b", "--json"],
+        env,
+      );
+      // 1 = une action humaine est requise (`EXIT.actionRequired`), comme
+      // tout refus d'usage de la génération.
+      assert.equal(first.code, 1, first.stdout.slice(-800));
+      assert.equal(refusal(first).code, "NF_GENERATE_RENAME");
+      assert.match(String(refusal(first).summary), /aucune migration/u);
+
+      const init = await cli(["orm:generate", "--name", "init", "--json"], env);
+      assert.equal(init.code, 0, init.stderr.slice(-800));
+      const files = async (): Promise<string[]> =>
+        (await fs.readdir(dossierMigrations("sqlite", migrations))).sort();
+      const written = await files();
+
+      // Une déclaration mal écrite : refusée AVANT tout travail.
+      const malformed = await cli(
+        ["orm:generate", "--name", "suite", "--rename", "sans_egal", "--json"],
+        env,
+      );
+      assert.equal(malformed.code, 1);
+      assert.equal(refusal(malformed).code, "NF_GENERATE_RENAME");
+
+      // Une table que le dernier instantané ne porte pas : NOMMÉE.
+      const unknown = await cli(
+        [
+          "orm:generate",
+          "--name",
+          "suite",
+          "--rename",
+          "fantome.a=b",
+          "--json",
+        ],
+        env,
+      );
+      assert.equal(unknown.code, 1);
+      assert.match(String(refusal(unknown).summary), /fantome/u);
+      assert.deepEqual(await files(), written, "rien n'a été écrit");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

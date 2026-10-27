@@ -1,6 +1,6 @@
 {
   "_note": "cliquet — plafonds abaissés par --update, jamais montés (#572)",
-  "total": 1616,
+  "total": 1606,
   "ceilings": {
     "modules/mediasoup": 2,
     "modules/test": 51,
