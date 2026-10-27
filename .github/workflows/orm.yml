@@ -300,13 +300,14 @@ jobs:
         run: npm test
 
       # Le kit de colonnes rejoué sur MySQL Community 8.4 : l'aller-retour de
-      # chaque genre, et le corpus erp-lite (schéma réel en miniature). Le reste
-      # de la suite tourne sur MariaDB à l'étape précédente.
+      # chaque genre, et le corpus erp-lite (schéma réel en miniature), créé puis
+      # migré de v1 à v2 sur une base peuplée. Le reste de la suite tourne sur
+      # MariaDB à l'étape précédente.
       - name: Drizzle — kit de colonnes sur MySQL Community 8.4
         working-directory: src/packages/@nodefony/drizzle
         env:
           NF_MYSQL_URL: mysql://nodefony:nodefony-dev@127.0.0.1:3307/nodefony
-          # Passe FILTRÉE : ces deux fichiers ne visent que MySQL, et le job
+          # Passe FILTRÉE : ces trois fichiers ne visent que MySQL, et le job
           # pose `NF_PG_URL` — sans le dire ici, le `gateReporter` du paquet
           # réclame un cas « (postgres) » et rougit la passe. PostgreSQL est
           # exercé à l'étape précédente, sur la suite entière.
@@ -314,6 +315,7 @@ jobs:
         run: >-
           npx vitest run
           tests/integration/erp-lite-mysql.e2e.test.ts
+          tests/integration/erp-lite-evolution-mysql.e2e.test.ts
           tests/integration/colkit-roundtrip-mysql.e2e.test.ts
 
       # 🔴 Les bancs les plus critiques du chantier des migrations — migrer une
