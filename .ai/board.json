@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T15:29:19.753Z",
+  "generatedAt": "2026-10-27T18:16:49.758Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 203,
+      "closed": 204,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 20,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -5370,8 +5370,8 @@
       "number": 678,
       "title": "feat(create): publier les écritures d'une entité sur un canal",
       "url": "https://github.com/nodefony/nodefony-core/issues/678",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -5379,6 +5379,7 @@
       "debut": "2026-10-30",
       "cible": "2026-10-30",
       "labels": [
+        "invalid",
         "beta-6"
       ]
     },
