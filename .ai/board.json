@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T10:18:07.935Z",
+  "generatedAt": "2026-10-27T13:43:55.523Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5722,7 +5722,7 @@
       "title": "feat(scaffold): mettre les apps générées en quarantaine de 3 jours",
       "url": "https://github.com/nodefony/nodefony-core/issues/513",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P1 — figé à la création",
       "jours": 1,
