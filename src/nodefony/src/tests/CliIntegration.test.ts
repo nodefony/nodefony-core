@@ -2287,20 +2287,50 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           stderr: string;
         } | null;
         // En mode brut, Ctrl+C est une TOUCHE : aucun SIGINT n'atteint le
-        // groupe du terminal. Seul le superviseur peut tuer turbo — laissé
+        // groupe du terminal. Seul le superviseur peut tuer le build — laissé
         // vivant, il écrirait `dist/` pendant que le développeur relance.
-        const build = (): number[] => {
-          const r = spawnSync("pgrep", ["-f", "turbo.* run build"], {
+        //
+        // L'arbre du build se lit sur la table des process, depuis la session :
+        // un outil de build (turbo, ou rolldown et tsgo quand le superviseur
+        // rejoue lui-même le script standard d'un paquet) qui DESCEND d'elle,
+        // et tous ses descendants. Jamais un `pgrep` global, qui attribuerait
+        // au cas le build d'un fichier voisin lancé en parallèle.
+        const BUILD_TOOL =
+          /turbo.* run build|rolldown[\\/]bin[\\/]cli\.mjs|\btsgo\b/;
+        const buildTree = (
+          root: number,
+        ): Array<{ pid: number; command: string }> => {
+          const rows = spawnSync("ps", ["-A", "-o", "pid=,ppid=,command="], {
             encoding: "utf8",
-          });
-          return r.stdout
-            .split("\n")
-            .filter(Boolean)
-            .map(Number)
-            .filter((pid) => pid !== process.pid);
+          })
+            .stdout.split("\n")
+            .map((line) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line))
+            .filter((m): m is RegExpExecArray => m !== null)
+            .map((m) => ({
+              pid: Number(m[1]),
+              ppid: Number(m[2]),
+              command: m[3] ?? "",
+            }));
+          const found: Array<{ pid: number; command: string }> = [];
+          const walk = (parent: number, inBuild: boolean): void => {
+            for (const row of rows) {
+              if (row.ppid !== parent) continue;
+              const isBuild = inBuild || BUILD_TOOL.test(row.command);
+              if (isBuild) found.push({ pid: row.pid, command: row.command });
+              walk(row.pid, isBuild);
+            }
+          };
+          walk(root, false);
+          return found;
         };
-        const before = new Set(build());
-        const ours = (): number[] => build().filter((pid) => !before.has(pid));
+        const isAlive = (pid: number): boolean => {
+          try {
+            process.kill(pid, 0);
+            return true;
+          } catch {
+            return false;
+          }
+        };
         // Les autres fichiers de la suite lancent le binaire EN PARALLÈLE de
         // ce cas : si le `dist/` du cœur disparaît un instant (rolldown le
         // vide avant d'écrire), l'un d'eux échoue sur un module introuvable
@@ -2333,36 +2363,32 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           fs.writeFileSync(probe, "export {};\n");
           await waitFor(s, /construction…/);
           // Sans build vivant au moment du Ctrl+C, le cas ne prouverait rien.
-          // Le binaire turbo LUI-MÊME, pas seulement l'enveloppe `npm exec` :
-          // orpheline, l'enveloppe meurt seule à la fermeture de ses tubes,
-          // et le cas passerait sans prouver l'arrêt de l'arbre.
-          const turbo = (): number[] =>
-            ours().filter((pid) => {
-              const command = spawnSync(
-                "ps",
-                ["-o", "command=", "-p", String(pid)],
-                {
-                  encoding: "utf8",
-                },
-              ).stdout.trim();
-              return command !== "" && !/^(npm|npx|node)\b/.test(command);
-            });
-          let alive: number[] = [];
+          // Un BINAIRE natif (turbo, ou le tsgo natif qu'ouvre son lanceur
+          // Node), pas seulement une enveloppe `node`/`npm` : orpheline,
+          // l'enveloppe meurt seule à la fermeture de ses tubes, et le cas
+          // passerait sans prouver l'arrêt de l'arbre — petits-enfants compris.
+          const root = s.child.pid ?? -1;
+          const isNative = (command: string): boolean =>
+            !/^(npm|npx|node)$/.test(
+              path.basename(command.split(" ")[0] ?? ""),
+            );
+          let tree: Array<{ pid: number; command: string }> = [];
           const end = Date.now() + 15_000;
-          while (alive.length === 0 && Date.now() < end) {
-            alive = turbo();
-            if (alive.length === 0) await new Promise((r) => setTimeout(r, 50));
+          while (Date.now() < end) {
+            tree = buildTree(root);
+            if (tree.some((p) => isNative(p.command))) break;
+            await new Promise((r) => setTimeout(r, 50));
           }
           assert.ok(
-            alive.length > 0,
-            `précondition : un build turbo tourne au moment du Ctrl+C\n${screenText(await snap(s))}`,
+            tree.some((p) => isNative(p.command)),
+            `précondition : un binaire de build tourne au moment du Ctrl+C\n${tree.map((p) => p.command).join("\n")}\n${screenText(await snap(s))}`,
           );
           const code = await ctrlC(s);
           // AU RETOUR du Ctrl+C, sans délai de grâce : orphelin, l'arbre du
           // build vit encore ~2 s (jusqu'à l'EPIPE de sa prochaine écriture),
           // et c'est assez pour écrire `dist/` pendant que le développeur
           // relance. Constaté : 3 processus vivants si l'arrêt l'oublie.
-          const left = ours();
+          const left = tree.map((p) => p.pid).filter(isAlive);
           assert.strictEqual(
             code,
             0,

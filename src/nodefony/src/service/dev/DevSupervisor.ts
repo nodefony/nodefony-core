@@ -11,6 +11,7 @@ import {
   type WatchEventType,
 } from "node:fs";
 import { EventEmitter } from "node:events";
+import { createRequire } from "node:module";
 import { Nodefony } from "../../Nodefony";
 import path from "node:path";
 import { SysExit } from "../../cli/sysexits";
@@ -199,6 +200,140 @@ export function planStandaloneRebuild(dirty: readonly string[]): {
   // inchangé.
   if (modules.size === 0) app = true;
   return { modules: [...modules].sort(), app };
+}
+
+/** Workspace du dépôt qui contient un fichier modifié. */
+export interface IWorkspaceInfo {
+  /** Nom npm du workspace (`@nodefony/test`). */
+  name: string;
+  /** Dossier absolu du workspace. */
+  dir: string;
+  /** Son script `build`, tel qu'écrit dans son `package.json`. */
+  buildScript: string | undefined;
+}
+
+/** Build d'un paquet au gabarit standard : rolldown seul. */
+const ROLLDOWN_BUILD = "rolldown -c rolldown.config.ts";
+/** Build d'un paquet au gabarit standard : rolldown, puis ses déclarations. */
+const ROLLDOWN_DECLARATIONS_BUILD = `${ROLLDOWN_BUILD} && tsgo -p tsconfig.declarations.json`;
+
+/**
+ * Binaires que le superviseur lance par leur FICHIER (sans le lanceur du
+ * gestionnaire de paquets) → paquet qui les déclare. Ce sont des scripts Node :
+ * `node <fichier>` les exécute sur les trois systèmes, sans shell.
+ */
+export const DIRECT_BINS: Readonly<Record<string, string>> = Object.freeze({
+  rolldown: "rolldown",
+  tsgo: "@typescript/native-preview",
+});
+
+/** Arguments rolldown du gabarit standard, identiques au script `build`. */
+export const PACKAGE_DEV_BUILD_ARGS: readonly string[] = Object.freeze([
+  "-c",
+  "rolldown.config.ts",
+]);
+
+/** Arguments tsgo qui régénèrent les déclarations d'un paquet. */
+export const PACKAGE_DECLARATIONS_ARGS: readonly string[] = Object.freeze([
+  "-p",
+  "tsconfig.declarations.json",
+]);
+
+/**
+ * Dit si un workspace peut être rebâti SANS turbo, en mode développement.
+ *
+ * Turbo coûte, pour une seule sauvegarde, son lanceur et le calcul des
+ * empreintes de la clôture `^build` (~3,5 s mesurées, contre ~1,6 s pour les
+ * deux étapes lancées directement). Un paquet dont le script `build` est
+ * EXACTEMENT le gabarit standard rejoue ce script étape par étape — rolldown,
+ * puis tsgo s'il y en a —, aux mêmes arguments : même sortie, même verdict.
+ * Tout autre script (étape d'interface, types par un script npm…) garde
+ * turbo : on ne devine pas ce qu'un build fait de plus.
+ *
+ * @param buildScript - le script `build` du `package.json` du workspace.
+ * @returns `null` si le paquet garde turbo ; sinon si son script régénère
+ *   aussi ses déclarations (`tsgo`).
+ */
+export function directBuildPlan(
+  buildScript: string | undefined,
+): { declarations: boolean } | null {
+  if (buildScript === ROLLDOWN_BUILD) return { declarations: false };
+  if (buildScript === ROLLDOWN_DECLARATIONS_BUILD) {
+    return { declarations: true };
+  }
+  return null;
+}
+
+/**
+ * Lit le workspace décrit par un `package.json` : son nom et son script
+ * `build`.
+ *
+ * @param manifestPath - chemin du `package.json`.
+ * @param dir - dossier du workspace.
+ * @returns le workspace, ou `null` si le fichier est illisible ou sans nom.
+ */
+export function readWorkspaceInfo(
+  manifestPath: string,
+  dir: string,
+): IWorkspaceInfo | null {
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch {
+    return null;
+  }
+  if (typeof manifest !== "object" || manifest === null) return null;
+  if (!("name" in manifest) || typeof manifest.name !== "string") return null;
+  let buildScript: string | undefined;
+  if (
+    "scripts" in manifest &&
+    typeof manifest.scripts === "object" &&
+    manifest.scripts !== null &&
+    "build" in manifest.scripts &&
+    typeof manifest.scripts.build === "string"
+  ) {
+    buildScript = manifest.scripts.build;
+  }
+  return { name: manifest.name, dir, buildScript };
+}
+
+/**
+ * Chemin du fichier qu'exécute le binaire `bin` du paquet `pkg`, tel que
+ * Node le résout depuis `fromDir` — ou `null` s'il est introuvable.
+ *
+ * Lancer ce fichier par `node` évite le lanceur du gestionnaire de paquets
+ * (`npm exec` coûte ~0,9 s par appel). Le chemin est celui que le gestionnaire
+ * aurait exécuté : même résolution, même version.
+ *
+ * @param fromDir - dossier depuis lequel résoudre (celui du build).
+ * @param pkg - paquet qui déclare le binaire (`rolldown`).
+ * @param bin - nom du binaire dans son champ `bin`.
+ * @returns le chemin absolu du fichier, ou `null`.
+ */
+export function resolveLocalBin(
+  fromDir: string,
+  pkg: string,
+  bin: string = pkg,
+): string | null {
+  try {
+    const require = createRequire(path.join(fromDir, "package.json"));
+    const manifestPath = require.resolve(`${pkg}/package.json`);
+    const manifest: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+    if (typeof manifest !== "object" || manifest === null) return null;
+    if (!("bin" in manifest)) return null;
+    const field: unknown = manifest.bin;
+    let relative: unknown = typeof field === "string" ? field : undefined;
+    if (typeof field === "object" && field !== null) {
+      for (const [name, value] of Object.entries(field)) {
+        if (name === bin) relative = value;
+      }
+    }
+    if (typeof relative !== "string") return null;
+    const file = path.resolve(path.dirname(manifestPath), relative);
+    return existsSync(file) ? file : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Frames braille du spinner de build (mêmes que le BootReporter enfant). */
@@ -449,6 +584,13 @@ const PORTS_FREE_TIMEOUT_MS = 5000;
 const READY_TIMEOUT_MS = 30000;
 /** Cadence de sonde « le serveur écoute-t-il ? » après un (re)spawn. */
 const READY_POLL_MS = 200;
+/**
+ * Borne de l'attente « le serveur relancé écoute » à la fin d'un cycle de
+ * rechargement (cf `DevSupervisor.#waitChildSettled`). Au-delà, un boot qui
+ * pend ne retient plus la correction que le développeur vient de sauver : le
+ * rejeu le remplace. Le boot d'un enfant en développement en prend ~3,5.
+ */
+const SWAP_SETTLE_MAX_MS = 10000;
 /**
  * Fenêtre de stabilisation du verdict de santé après que les ports écoutent. Les ports
  * TCP acceptent (bind OS) AVANT que le Kernel finalise `bootServers` / la fin du boot →
@@ -980,8 +1122,10 @@ export class DevSupervisor {
    * répété à l'infini cesse d'être lu.
    */
   #orphanRiskWarned = false;
-  /** Cache dir → nom de workspace (`null` = app racine). */
-  readonly #pkgCache = new Map<string, string | null>();
+  /** Cache dossier → workspace qui le contient (`null` = app racine). */
+  readonly #pkgCache = new Map<string, IWorkspaceInfo | null>();
+  /** Binaires locaux résolus, par dossier d'exécution (`null` = introuvable). */
+  #localBins: Map<string, string | null> | null = null;
 
   constructor(options: DevSupervisorOptions) {
     this.#cwd = options.cwd;
@@ -1339,6 +1483,18 @@ export class DevSupervisor {
     ];
   }
 
+  /** {@link resolveLocalBin}, résolu une fois par dossier d'exécution. */
+  #localBin(dir: string, pkg: string, bin: string): string | null {
+    this.#localBins ??= new Map();
+    const key = `${dir}\0${bin}`;
+    let cli = this.#localBins.get(key);
+    if (cli === undefined) {
+      cli = resolveLocalBin(dir, pkg, bin);
+      this.#localBins.set(key, cli);
+    }
+    return cli;
+  }
+
   /**
    * {@link #runCaptured} sur un binaire du projet (cf {@link #binCommand}).
    *
@@ -1357,6 +1513,20 @@ export class DevSupervisor {
     const binArgs = turbo
       ? [...turboVerbosityArgs(process.env.CI), ...args]
       : args;
+    // Par son fichier, sans le lanceur du gestionnaire (~0,9 s par appel) :
+    // même résolution, même version. Introuvable → le lanceur.
+    const owner = DIRECT_BINS[bin];
+    if (owner !== undefined) {
+      const cli = this.#localBin(cwd ?? this.#cwd, owner, bin);
+      if (cli !== null) {
+        return this.#runCaptured(
+          process.execPath,
+          [cli, ...binArgs],
+          idleMs,
+          cwd,
+        );
+      }
+    }
     return this.#runCaptured(
       ...this.#binCommand(bin, binArgs),
       idleMs,
@@ -2229,6 +2399,29 @@ export class DevSupervisor {
     await this.#waitPortsFree();
     this.#spawnRetries = 0;
     this.#spawnChild(true);
+    await this.#waitChildSettled();
+  }
+
+  /**
+   * Attend que le serveur tout juste relancé ÉCOUTE, meure, ou soit remplacé —
+   * borné par {@link SWAP_SETTLE_MAX_MS}.
+   *
+   * Le cycle reste occupé jusque-là : une sauvegarde reçue pendant le boot ne
+   * relance son build qu'APRÈS. Sinon rolldown, qui vide `dist/` avant d'écrire
+   * (`cleanDir`), le viderait sous un serveur en train de l'importer — boot
+   * tombé (code 78), réparé au cycle suivant, mais un faux diagnostic affiché.
+   * Les ports n'écoutent qu'une fois les modules chargés : c'est le signal.
+   */
+  async #waitChildSettled(): Promise<void> {
+    const child = this.#child;
+    if (child === null) return;
+    const deadline = Date.now() + SWAP_SETTLE_MAX_MS;
+    while (Date.now() < deadline) {
+      if (this.#isStopping() || this.#child !== child) return;
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      if (await this.#anyPortListening()) return;
+      await delay(READY_POLL_MS);
+    }
   }
 
   /**
@@ -2246,37 +2439,71 @@ export class DevSupervisor {
     // (`modules/<x>`) est un workspace que l'app charge par son `dist/` et
     // laisse HORS de son bundle : il se bâtit avec SA config, dans SON dossier
     // — rebâtir l'app seule relançait le serveur sur l'ancien module.
-    const moduleSteps: Array<[label: string, cwd: string]> = [];
+    const moduleSteps: Array<
+      [label: string, cwd: string, bin: string, args: readonly string[]]
+    > = [];
     if (this.#standalone) {
       const plan = planStandaloneRebuild(dirty);
       for (const dir of plan.modules) {
-        moduleSteps.push([`rebuild ${dir} (rolldown)`, dir]);
+        moduleSteps.push([
+          `rebuild ${dir} (rolldown)`,
+          dir,
+          "rolldown",
+          APP_DEV_BUILD_ARGS,
+        ]);
       }
       if (plan.app) {
         steps.push(["rebuild app (rolldown)", "rolldown", APP_DEV_BUILD_ARGS]);
       }
     } else {
-      const pkgs = new Set<string>();
+      const touched = new Map<string, IWorkspaceInfo>();
       let rootTouched = false;
       for (const f of dirty) {
-        const name = this.#resolvePackage(f);
-        if (name === null) rootTouched = true;
-        else pkgs.add(name);
+        const workspace = this.#resolvePackage(f);
+        if (workspace === null) rootTouched = true;
+        else touched.set(workspace.name, workspace);
       }
-      // 1. Workspaces (turbo, avec dépendants). Cache turbo → no-op si inchangé.
-      if (pkgs.size > 0) {
+      // 1. Workspaces hors gabarit standard : turbo (avec leurs dépendances).
+      //    Cache turbo → no-op si inchangé.
+      const viaTurbo = [...touched.values()].filter(
+        (w) => directBuildPlan(w.buildScript) === null,
+      );
+      if (viaTurbo.length > 0) {
         steps.push([
-          `rebuild ${[...pkgs].join(", ")}`,
+          `rebuild ${viaTurbo.map((w) => w.name).join(", ")}`,
           "turbo",
           [
             "run",
             "build",
-            ...[...pkgs].flatMap((p) => ["--filter", `${p}...`]),
+            ...viaTurbo.flatMap((w) => ["--filter", `${w.name}...`]),
           ],
         ]);
       }
-      // 2. App racine (l'app dépend des workspaces → après turbo).
-      if (rootTouched || pkgs.size === 0) {
+      // 2. Workspaces au gabarit standard : leur script, étape par étape, sans
+      //    turbo ni lanceur — rolldown PUIS tsgo, dans leur dossier, aux mêmes
+      //    arguments. Même sortie, même verdict : une erreur de types garde
+      //    l'ancien serveur, comme sous turbo. Ils laissent `@nodefony/*` hors
+      //    de leur bundle : l'ordre entre eux est indifférent.
+      for (const w of touched.values()) {
+        const plan = directBuildPlan(w.buildScript);
+        if (plan === null) continue;
+        moduleSteps.push([
+          `rebuild ${w.name} (rolldown)`,
+          w.dir,
+          "rolldown",
+          PACKAGE_DEV_BUILD_ARGS,
+        ]);
+        if (plan.declarations) {
+          moduleSteps.push([
+            `rebuild ${w.name} (types)`,
+            w.dir,
+            "tsgo",
+            PACKAGE_DECLARATIONS_ARGS,
+          ]);
+        }
+      }
+      // 3. App racine (l'app dépend des workspaces → après eux).
+      if (rootTouched || touched.size === 0) {
         steps.push([
           "rebuild app racine (rolldown)",
           "rolldown",
@@ -2293,11 +2520,17 @@ export class DevSupervisor {
       [label: string, bin: string, args: readonly string[], cwd?: string]
     > = [
       ...moduleSteps.map(
-        ([label, dir]): [string, string, readonly string[], string] => [
+        ([label, dir, bin, args]): [
+          string,
+          string,
+          readonly string[],
+          string,
+        ] => [
           label,
-          "rolldown",
-          APP_DEV_BUILD_ARGS,
-          path.join(this.#cwd, dir),
+          bin,
+          args,
+          // `resolve`, pas `join` : un workspace du dépôt arrive en ABSOLU.
+          path.resolve(this.#cwd, dir),
         ],
       ),
       ...steps,
@@ -2318,10 +2551,11 @@ export class DevSupervisor {
 
   /**
    * Remonte de `file` jusqu'au `package.json` le plus proche et renvoie son
-   * `name` (workspace turbo), ou `null` si c'est le `package.json` racine
-   * (= app, buildée par `rolldown -c`). Résultat caché par dossier.
+   * workspace (nom, dossier, script `build`), ou `null` si c'est le
+   * `package.json` racine (= app, buildée par `rolldown -c`). Résultat caché
+   * par dossier.
    */
-  #resolvePackage(file: string): string | null {
+  #resolvePackage(file: string): IWorkspaceInfo | null {
     const root = path.resolve(this.#cwd);
     let dir = path.dirname(path.resolve(this.#cwd, file));
     for (;;) {
@@ -2329,18 +2563,9 @@ export class DevSupervisor {
       if (cached !== undefined) return cached;
       const pj = path.join(dir, "package.json");
       if (existsSync(pj)) {
-        let name: string | null = null;
-        if (dir !== root) {
-          try {
-            name =
-              (JSON.parse(readFileSync(pj, "utf8")) as { name?: string })
-                .name ?? null;
-          } catch {
-            name = null;
-          }
-        }
-        this.#pkgCache.set(dir, name);
-        return name;
+        const workspace = dir === root ? null : readWorkspaceInfo(pj, dir);
+        this.#pkgCache.set(dir, workspace);
+        return workspace;
       }
       if (dir === root) return null;
       const parent = path.dirname(dir);
