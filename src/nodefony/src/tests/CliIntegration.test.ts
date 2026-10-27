@@ -2161,6 +2161,40 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           }
           assert.strictEqual(fs.readFileSync(clip, "utf8"), expected);
 
+          // Après un RECHARGEMENT, la souris reste captée et la molette fait
+          // défiler le journal de l'écran — pas l'historique du terminal.
+          // Rien ne l'éprouvait : un enfant qui écrirait sur le terminal, ou
+          // un rechargement qui redessinerait l'écran, la rendrait au terminal
+          // sans qu'un seul test ne tombe.
+          s.child.stdin?.write("\x1b[F");
+          const watched = path.join(
+            REPO_ROOT,
+            "src",
+            "modules",
+            "test",
+            "index.ts",
+          );
+          const now = new Date();
+          fs.utimesSync(watched, now, now);
+          await waitFor(s, /↻ 1/);
+          await waitFor(s, /build OK|rechargé/, 60_000);
+          await new Promise((r) => setTimeout(r, 4000));
+          assert.strictEqual(
+            s.term.modes.mouseTrackingMode,
+            "drag",
+            `souris toujours captée après le rechargement\n${screenText(await snap(s))}`,
+          );
+          s.child.stdin?.write("\x1b[F");
+          await new Promise((r) => setTimeout(r, 300));
+          // Molette vers le haut, trois crans (SGR, bouton 64).
+          s.child.stdin?.write("\x1b[<64;5;5M\x1b[<64;5;5M\x1b[<64;5;5M");
+          await new Promise((r) => setTimeout(r, 500));
+          const wheeled = await snap(s);
+          assert.ok(
+            wheeled.screen.some((l) => /nouvelles? lignes?/.test(l)),
+            `la molette remonte le journal de l'écran après le rechargement\n${screenText(wheeled)}`,
+          );
+
           const code = await ctrlC(s);
           const final = await snap(s);
           assert.strictEqual(code, 0, `arrêt propre\n${screenText(final)}`);
