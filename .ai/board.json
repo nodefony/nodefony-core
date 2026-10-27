@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T13:43:55.523Z",
+  "generatedAt": "2026-10-27T15:29:19.753Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 202,
+      "closed": 203,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 21,
+      "open": 20,
       "title": "10.0.0-beta"
     },
     {
@@ -5354,8 +5354,8 @@
       "number": 686,
       "title": "test(devkit): migrer un schéma réel d'une version à la suivante sans perte",
       "url": "https://github.com/nodefony/nodefony-core/issues/686",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -9915,6 +9915,22 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 924.9,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 690,
+      "title": "feat(http): éprouver un service gRPC sur le serveur HTTP/2",
+      "url": "https://github.com/nodefony/nodefony-core/issues/690",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 925,
       "debut": null,
       "cible": null,
       "labels": [
