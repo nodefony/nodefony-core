@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T19:43:55.619Z",
+  "generatedAt": "2026-10-27T22:09:13.008Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 205,
+      "closed": 206,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 19,
@@ -5387,14 +5387,30 @@
       "number": 691,
       "title": "perf(cli): raccourcir le redémarrage de dev après une sauvegarde",
       "url": "https://github.com/nodefony/nodefony-core/issues/691",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.02,
       "debut": "2026-10-28",
       "cible": "2026-10-29",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 693,
+      "title": "fix(cli): copier d'un clic l'adresse affichée dans la barre d'état",
+      "url": "https://github.com/nodefony/nodefony-core/issues/693",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.025,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
       "labels": [
         "beta-6"
       ]
@@ -5409,8 +5425,8 @@
       "priorite": "P2 — décision",
       "jours": 27,
       "ordre": 6.03,
-      "debut": "2026-11-02",
-      "cible": "2026-11-18",
+      "debut": "2026-10-29",
+      "cible": "2026-11-16",
       "labels": [
         "beta-6"
       ]
@@ -5425,8 +5441,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.031,
-      "debut": "2026-11-02",
-      "cible": "2026-11-02",
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
       "labels": [
         "beta-6"
       ]
@@ -5441,8 +5457,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.032,
-      "debut": "2026-11-03",
-      "cible": "2026-11-03",
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
       "labels": [
         "beta-6"
       ]
@@ -5457,8 +5473,8 @@
       "priorite": "P2 — décision",
       "jours": 3,
       "ordre": 6.033,
-      "debut": "2026-11-04",
-      "cible": "2026-11-04",
+      "debut": "2026-11-02",
+      "cible": "2026-11-02",
       "labels": [
         "beta-6"
       ]
@@ -5473,8 +5489,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.034,
-      "debut": "2026-11-05",
-      "cible": "2026-11-05",
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
       "labels": [
         "beta-6"
       ]
@@ -5489,8 +5505,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.035,
-      "debut": "2026-11-06",
-      "cible": "2026-11-06",
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
       "labels": [
         "beta-6"
       ]
@@ -5505,8 +5521,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.0355,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
+      "debut": "2026-11-05",
+      "cible": "2026-11-05",
       "labels": [
         "beta-6"
       ]
@@ -5521,8 +5537,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.036,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
+      "debut": "2026-11-06",
+      "cible": "2026-11-06",
       "labels": [
         "beta-6"
       ]
@@ -5537,8 +5553,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.037,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
       "labels": [
         "beta-6",
         "reportable"
@@ -5554,8 +5570,8 @@
       "priorite": "P2 — décision",
       "jours": 7,
       "ordre": 6.04,
-      "debut": "2026-11-12",
-      "cible": "2026-11-18",
+      "debut": "2026-11-10",
+      "cible": "2026-11-16",
       "labels": [
         "beta-6",
         "reportable"
@@ -5571,8 +5587,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.041,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
       "labels": [
         "beta-6",
         "reportable"
@@ -5588,8 +5604,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.042,
-      "debut": "2026-11-13",
-      "cible": "2026-11-13",
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
       "labels": [
         "beta-6",
         "reportable"
@@ -5605,8 +5621,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.043,
-      "debut": "2026-11-16",
-      "cible": "2026-11-16",
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
       "labels": [
         "beta-6",
         "reportable"
@@ -5622,8 +5638,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.044,
-      "debut": "2026-11-17",
-      "cible": "2026-11-17",
+      "debut": "2026-11-13",
+      "cible": "2026-11-13",
       "labels": [
         "beta-6",
         "reportable"
@@ -5639,8 +5655,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 6.045,
-      "debut": "2026-11-18",
-      "cible": "2026-11-18",
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
       "labels": [
         "beta-6",
         "reportable"
@@ -5728,8 +5744,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.1,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
+      "debut": "2026-11-17",
+      "cible": "2026-11-17",
       "labels": [
         "beta-6"
       ]
@@ -5776,8 +5792,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.12,
-      "debut": "2026-11-23",
-      "cible": "2026-11-23",
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
       "labels": [
         "arbitrage",
         "beta-6"
@@ -5849,8 +5865,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 6.2,
-      "debut": "2026-11-24",
-      "cible": "2026-11-24",
+      "debut": "2026-11-20",
+      "cible": "2026-11-20",
       "labels": [
         "beta-6"
       ]
@@ -9611,6 +9627,22 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 913.5,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 692,
+      "title": "perf(cli): faire porter Vite par le superviseur de développement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/692",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 5,
+      "ordre": 913.6,
       "debut": null,
       "cible": null,
       "labels": [

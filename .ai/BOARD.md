@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-27 19:43** (UTC).
+> Empreinte prise le **2026-10-27 22:09** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 205 | 19 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 206 | 19 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 37 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
@@ -31,9 +31,9 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#691 — perf(cli): raccourcir le redémarrage de dev après une sauvegarde**
+**#693 — fix(cli): copier d'un clic l'adresse affichée dans la barre d'état**
 
-Ordre 6.02 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-28 → 10-29
+Ordre 6.025 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-10-28 → 10-28
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -111,27 +111,27 @@ Ordre 6.02 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-28 �
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 6.02 | P2 — décision | 1 | 2026-10-28 → 10-29 | #691 | perf(cli): raccourcir le redémarrage de dev après une sauvegarde |
-| 6.03 | P2 — décision | 27 | 2026-11-02 → 11-18 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.031 | P2 — décision | 2 | 2026-11-02 → 11-02 | #627 | docs(adr): figer l'architecture de la socket temps réel |
-| 6.032 | P2 — décision | 2 | 2026-11-03 → 11-03 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
-| 6.033 | P2 — décision | 3 | 2026-11-04 → 11-04 | #618 | feat(realtime): router les trames binaires vers leur canal |
-| 6.034 | P2 — décision | 1 | 2026-11-05 → 11-05 | #622 | feat(realtime): admettre un abonné de canal par son identité |
-| 6.035 | P2 — décision | 2 | 2026-11-06 → 11-06 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
-| 6.0355 | P2 — décision | 1 | 2026-11-09 → 11-09 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
-| 6.036 | P2 — décision | 2 | 2026-11-10 → 11-10 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
-| 6.037 | P2 — décision | 1 | 2026-11-11 → 11-11 | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
-| 6.04 | P2 — décision | 7 | 2026-11-12 → 11-18 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 6.041 | P2 — décision | 1 | 2026-11-12 → 11-12 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 6.042 | P2 — décision | 1 | 2026-11-13 → 11-13 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 6.043 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 6.044 | P1 — figé à la création | 1 | 2026-11-17 → 11-17 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 6.045 | P1 — figé à la création | 3 | 2026-11-18 → 11-18 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
-| 6.1 | P1 — figé à la création | 0.5 | 2026-11-19 → 11-19 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
-| 6.12 | P2 — décision | 1 | 2026-11-23 → 11-23 | #89 | docs(notification): faire la veille des canaux de communication attendus |
-| 6.2 | P1 — figé à la création | 3 | 2026-11-24 → 11-24 | #659 | docs(performance): remesurer les pages de performance avant la release |
+| 6.025 | P2 — décision | 0.5 | 2026-10-28 → 10-28 | #693 | fix(cli): copier d'un clic l'adresse affichée dans la barre d'état |
+| 6.03 | P2 — décision | 27 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 6.031 | P2 — décision | 2 | 2026-10-29 → 10-29 | #627 | docs(adr): figer l'architecture de la socket temps réel |
+| 6.032 | P2 — décision | 2 | 2026-10-30 → 10-30 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
+| 6.033 | P2 — décision | 3 | 2026-11-02 → 11-02 | #618 | feat(realtime): router les trames binaires vers leur canal |
+| 6.034 | P2 — décision | 1 | 2026-11-03 → 11-03 | #622 | feat(realtime): admettre un abonné de canal par son identité |
+| 6.035 | P2 — décision | 2 | 2026-11-04 → 11-04 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
+| 6.0355 | P2 — décision | 1 | 2026-11-05 → 11-05 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
+| 6.036 | P2 — décision | 2 | 2026-11-06 → 11-06 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
+| 6.037 | P2 — décision | 1 | 2026-11-09 → 11-09 | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
+| 6.04 | P2 — décision | 7 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 6.041 | P2 — décision | 1 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 6.042 | P2 — décision | 1 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 6.043 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 6.044 | P1 — figé à la création | 1 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 6.045 | P1 — figé à la création | 3 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
+| 6.1 | P1 — figé à la création | 0.5 | 2026-11-17 → 11-17 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
+| 6.12 | P2 — décision | 1 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
+| 6.2 | P1 — figé à la création | 3 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
-## Backlog — aucune date promise · 32 ouverts
+## Backlog — aucune date promise · 33 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -148,6 +148,7 @@ Ordre 6.02 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-28 �
 | 913 | P3 — fin de cycle | 11 | — | #534 | feat(cli): ajouter barre figée et invite au serveur de développement |
 | 913.4 | P2 — décision | 2 | — | #538 | feat(cli): ajouter une invite de commandes sous la barre d'état |
 | 913.5 | P3 — fin de cycle | 3 | — | #539 | feat(cli): brancher un assistant à modèle local sur l'invite |
+| 913.6 | P2 — décision | 5 | — | #692 | perf(cli): faire porter Vite par le superviseur de développement |
 | 914 | P2 — décision | 2 | — | #558 | docs: rendre lisibles les schémas verticaux trop hauts de la doc |
 | 915 | P3 — fin de cycle | 2 | — | #567 | feat(realtime): ajouter WebTransport comme second transport temps réel |
 | 916 | P3 — fin de cycle | 1 | — | #603 | feat(http): ouvrir le défi ACME dans la config proxy générée |
