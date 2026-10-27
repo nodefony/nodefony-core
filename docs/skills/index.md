@@ -197,7 +197,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 256 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 536 | 9 | 21 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 486 | 2 | 20 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.1.0 | 410 | 11 | 0 | ✅ |
@@ -219,7 +219,7 @@ source: "docs/skills/index.md"
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.9.0 | 476 | 7 | 19 | ✅ |
-| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 254 | 0 | 0 | ✅ |
+| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 257 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 148 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |

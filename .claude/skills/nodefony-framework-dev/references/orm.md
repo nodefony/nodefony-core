@@ -70,7 +70,9 @@ Options utiles : `--id uuid7|uuid4|serial` · `--soft-delete` · `--no-controlle
 déjà : `--table` · `--column-case snake` · `--id-name` (§ B — elles ne touchent que le SQL).
 Design + alternatives rejetées : mémoire IA `core-dev/audits/create-entity-design-2026-07.md`.
 
-**À la main** (module du framework, ou entité qu'on veut écrire soi-même) — la forme canonique :
+**À la main** (module du framework, ou entité qu'on veut écrire soi-même). ⚠️ Le bloc ci-dessous
+est une table NATIVE, liée à SQLite : pour une entité qui suit la base, écrire une description
+`defineTable` (ce que produit `create entity`, cf §2.8). La forme native :
 
 ```typescript
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
@@ -328,9 +330,9 @@ await orm.transaction(async (tx) => {
 
 - **profiler par-requête** (`RequestContext.queries`, debug bar) : SQL de CHAQUE requête tracée, dev-only, **coût nul hors requête tracée** (buffer ALS absent).
 - **santé** (`connection/health` + canal `nodefony:orm:health`) : état/ping/latence-fenêtre/erreurs/reconnexions + sonde profonde `IOrm.probe()` (storage PRAGMA / pool). Générique (`buildConnectionHealth` itère `ormRegistry`, ping+probe), **émet une requête** (ping).
-- **flux** (`flow` + canal `nodefony:orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NF_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `connector` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
-- **lean cluster** (`buildOrmLeanHealth()` orm-core, 2026-05-25) : agrégat **per-instance** de TOUS les connecteurs (registre + `queryFlowMonitor` + `connectionMonitor`) → `IOrmLeanHealth` (`connectors/connected/queryTotal/slowTotal/errorTotal/reconnectTotal/maxEwmaMs`). **0 ping / 0 toSQL**, O(N connecteurs). Branché dans le report de sonde cluster via le **seam core** `setOrmHealthProvider(buildOrmLeanHealth)` (driver Drizzle au boot) → **`framework` n'importe PAS `orm-core`**. Lu par `buildOwnHealth` (`IRealtimeHealth.orm`), agrégé pod dans `mergeClusterHealth.totals.orm`. Cf RETEX §11 + [[project_cluster_drilldown_kit]].
-- **rich @pid (drill cluster, 2026-05-25)** : diagnostic ORM COMPLET d'UN worker EXACT (`{ health: buildConnectionHealth(), flow: buildOrmFlow() }`) pour la page `/nodefony/orm/<pid>` en cluster. **Calqué `nodefony:supervision@<pid>`** (voie B1 : enrichir le colis broadcast, pas un 2ᵉ flux). Pièces : (1) **facette d'enrich** `ClusterProbeFacet` (`"process"|"orm"`, défaut process) sur `IClusterProbeCtl`/`IClusterProbeEnrich` (core) → 2 drills indépendants, « on paie ce qu'on regarde » par sonde ; (2) **seam core** `setOrmRichProvider(async ()=>blob)`/`readOrmRich()` (driver Drizzle, **async** car `connection/health` ping) — opaque côté core/framework ; (3) `ClusterProbeClient` : facette `"orm"` → **ticker de cache async** `#startOrmRich` (le report sync joint `payload.ormRich`, absent hors drill) ; (4) studio `nodefony:orm:rich@<pid>` = **canal combiné** (1 canal = 1 enrich = **pas de ref-count**, le hub dédoublonne par nom) → local broker ticker si `pid===process.pid`, sinon `createClusterOrmTicker` (`requestEnrich(pid,true,"orm")` au sub, `false` au dispose). Prouvé e2e cross-process (`cluster-orm-rich-e2e.mjs`). Cf RETEX §11 + [[project_cluster_drilldown_kit]].
+- **flux** (`flow` + canal `nodefony:orm:flow`, `queryFlowMonitor`) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NF_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `connector` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
+- **lean cluster** (`buildOrmLeanHealth()` orm-core) : agrégat **per-instance** de TOUS les connecteurs (registre + `queryFlowMonitor` + `connectionMonitor`) → `IOrmLeanHealth` (`connectors/connected/queryTotal/slowTotal/errorTotal/reconnectTotal/maxEwmaMs`). **0 ping / 0 toSQL**, O(N connecteurs). Branché dans le report de sonde cluster via le **seam core** `setOrmHealthProvider(buildOrmLeanHealth)` (driver Drizzle au boot) → **`framework` n'importe PAS `orm-core`**. Lu par `buildOwnHealth` (`IRealtimeHealth.orm`), agrégé pod dans `mergeClusterHealth.totals.orm`. Cf RETEX §11 + [[project_cluster_drilldown_kit]].
+- **rich @pid (drill cluster)** : diagnostic ORM COMPLET d'UN worker EXACT (`{ health: buildConnectionHealth(), flow: buildOrmFlow() }`) pour la page `/nodefony/orm/<pid>` en cluster. **Calqué `nodefony:supervision@<pid>`** (voie B1 : enrichir le colis broadcast, pas un 2ᵉ flux). Pièces : (1) **facette d'enrich** `ClusterProbeFacet` (`"process"|"orm"`, défaut process) sur `IClusterProbeCtl`/`IClusterProbeEnrich` (core) → 2 drills indépendants, « on paie ce qu'on regarde » par sonde ; (2) **seam core** `setOrmRichProvider(async ()=>blob)`/`readOrmRich()` (driver Drizzle, **async** car `connection/health` ping) — opaque côté core/framework ; (3) `ClusterProbeClient` : facette `"orm"` → **ticker de cache async** `#startOrmRich` (le report sync joint `payload.ormRich`, absent hors drill) ; (4) studio `nodefony:orm:rich@<pid>` = **canal combiné** (1 canal = 1 enrich = **pas de ref-count**, le hub dédoublonne par nom) → local broker ticker si `pid===process.pid`, sinon `createClusterOrmTicker` (`requestEnrich(pid,true,"orm")` au sub, `false` au dispose). Prouvé e2e cross-process (`cluster-orm-rich-e2e.mjs`). Cf RETEX §11 + [[project_cluster_drilldown_kit]].
 
 ### Gotchas ORM
 
@@ -527,8 +529,8 @@ service = **source de vérité métier**, REST/WS/GraphQL/CLI = adaptateurs minc
 Exports : `DrizzleOrm`, `DrizzleRepository`, `DrizzleTransaction` (+ types `DrizzleOrmOptions`,
 `DrizzleDb`, `DrizzleResolvedRelation`).
 
-**`DrizzleOrm extends Orm`** — `drizzle/nodefony/src/orm-core/DrizzleOrm.ts#MysqlPoolInternals`. Schema-as-code
-(`entity.schema` EST une table Drizzle `sqliteTable(...)`). DDL dérivé via `getTableConfig()`
+**`DrizzleOrm extends Orm`** — `drizzle/nodefony/src/orm-core/DrizzleOrm.ts#DrizzleOrm`. Schema-as-code
+(`entity.schema` = description portable `defineTable` OU table native d'un dialecte, cf §2.8). DDL dérivé via `getTableConfig()`
 (`DrizzleOrm.ts#DrizzleOrm.#createTableSQL`, dev/test ; **prod = `drizzle-kit`**). `getRepository(name)` (`DrizzleOrm.ts#DrizzleOrm.getRepository`) →
 `new DrizzleRepository(db, table, relations, connector)` (`DrizzleOrm.ts#DrizzleOrm.getRepository`). `transaction` (`DrizzleOrm.ts#DrizzleOrm.transaction`) →
 `new DrizzleTransaction(db, client)`. `getNativeConnection<DrizzleDb>()`.
@@ -593,22 +595,21 @@ orm-core étant une **lib pure**, le montage est déclenché par un **module dri
 
 ### 2.8 Multi-dialecte (`connector.dialect`)
 
-État factuel (bloqueur release SQL prod). `connector.dialect` ∈ `"sqlite" | "postgres" | "mysql"`
-(défaut `sqlite`) + `url` (pg/mysql, porte le secret → jamais loggée). `drizzle/nodefony/config/schema.ts`:
-`SQL_DIALECTS`, `SqlDialect`, `dialect`, `url`.
+`connector.dialect` ∈ `"sqlite" | "postgres" | "mysql"` (défaut `sqlite`) + `url` (pg/mysql, porte
+le secret → jamais loggée), schéma `drizzle/nodefony/config/config.ts` (`SqlDialect`). En pratique
+l'app ne l'écrit pas : `NF_DATABASE_URL` → `defineDrizzleConfig` déduit dialecte + url.
 
-`DrizzleOrm` est **dialect-aware** : `onConnect` route `#connectSqlite` (better-sqlite3, sync) /
-`#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rolldown ;
-échec → message `npm i pg`). DDL partagé `#buildCreateTable` (le bon `getTableConfig` selon dialecte ;
-`col.getSQLType()` rend les types natifs). `disconnect`/`ping`/`describeConnection`/`describeEntity` routés.
+`DrizzleOrm` est **dialect-aware** : `onConnect` route `#connectSqlite` / `#connectPostgres` /
+`#connectMysql` (pilotes = peers OPTIONNELS, import paresseux, externalisés rolldown ; absent → NOMMÉ).
+DDL partagé `#buildCreateTable` (le bon `getTableConfig` selon dialecte). `disconnect`/`ping`/
+`describeConnection`/`describeEntity` routés.
 
-**Patron portage** : une **factory par entité** `createXTable(dialect)` = l'équivalent du `dialect`
-Sequelize, porté par le framework (Drizzle est schema-as-code **dialect-spécifique** : `sqliteTable` ≠
-`pgTable` → on NE peut PAS « juste changer le dialect »). Divergences typiques : `expiresAt` `integer`
-(SQLite 64-bit) → `bigint mode:number` (PG ; `integer` PG 32-bit déborde sur epoch ms) ; `text mode:json`
-→ `jsonb`. **Mêmes NOMS de colonnes** → store/repo reste agnostique. État : **idempotency porté + prouvé
-PG** ; **reste** `user` (⚠️ `findBySocialProvider` `json_each` SQLite → `jsonb` PG) / `token` / `session`
-/ `webauthn` (1 entité/session) puis **mysql** (`mysql2`) + DDL prod drizzle-kit.
+**Portabilité = le kit de colonnes PUBLIC `defineTable`** (`drizzle/nodefony/entity/colKit*.ts`, ADR-0020) :
+l'entité se décrit UNE fois en genres neutres (`string(n)`, `decimal(p,s)`, `uuid`, `enum`, `ref`…,
+`colKit.spec.ts` sans import d'ORM) ; `.table(dialect)` rend la table du connecteur, résolue à la
+connexion par `orm-core/entityTable.ts#dialectTableOf`. Les 8 entités du framework et toute entité
+écrite par `create entity` suivent l'URL ; changer de base = `NF_DATABASE_URL` + `orm:generate` +
+`orm:migrate` (les DONNÉES ne suivent pas : aucune commande ne les transfère). Montée Drizzle 1 : #685.
 
 ---
 
@@ -688,9 +689,8 @@ les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne pass
 - **GC orphelin (stores à TTL applicatif)** : pas de TTL natif SQL → `gc(now)` = `DELETE expiresAt<=now`
   **applicatif**, à brancher sur le scheduler GC mutualisé. Un store dont le `gc()` n'est jamais appelé
   laisse grossir la table (dette mémoire/disque silencieuse) — vérifier le câblage du GC.
-- **`sqliteTable` dur = dette multi-dialecte** : une entité écrite directement en `sqliteTable` (sans
-  factory `createXTable(dialect)`) n'est **pas portable** pg/mysql. Pour toute nouvelle entité destinée à
-  la prod SQL → factory par dialecte dès le départ (cf §2.8). C'est le **bloqueur release** côté `user`/
-  `token`/`session`/`webauthn`.
+- **`sqliteTable` dur = entité liée à SQLite** : une entité écrite directement en `sqliteTable` n'est
+  **pas portable** pg/mysql. Toute entité à porter se décrit par `defineTable` (ce qu'écrit
+  `create entity`), cf §2.8.
 - **orm-core = décorateurs SANS reflect-metadata** (WeakMap maison) → 0 dep runtime ; ne pas y réintroduire
   `reflect-metadata`. Aucun type émis n'est lu nulle part (ADR-0018, `emitDecoratorMetadata: false`).

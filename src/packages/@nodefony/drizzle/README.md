@@ -5,9 +5,10 @@ Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
 `@nodefony/mongoose`), **type-safe-first**.
 
 > Driver SQLite : `better-sqlite3` (dépendance de pair optionnelle, à installer avec le dialecte
-> `sqlite`). Pour Postgres/MySQL,
-> changer le client et le constructeur de table (`pgTable`/`mysqlTable`) — le
-> contrat `IRepository` reste identique.
+> `sqlite`). Pour PostgreSQL/MySQL, changer `NF_DATABASE_URL` (et installer `pg` ou
+> `mysql2`) : une entité décrite par `defineTable` — ce qu'écrit `create entity` — suit la
+> base, et `orm:generate` écrit la migration du nouveau dialecte. Le contrat `IRepository`
+> reste identique ; les données, elles, ne suivent pas.
 
 ## ⚡ Le geste — une entité ne s'écrit pas à la main
 
@@ -65,6 +66,9 @@ const users = orm.getRepository("User");
 ```
 
 ## Démarrage (usage direct / banc-test)
+
+Exemple NATIF, lié à SQLite. Pour une entité qui suit la base, écrire une description
+`defineTable` : [`docs/index.md`](docs/index.md) § « Des entités qui suivent la base ».
 
 ```typescript
 import { randomUUID } from "node:crypto";

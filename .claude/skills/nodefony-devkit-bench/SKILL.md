@@ -327,8 +327,6 @@ lance **un à la fois** : les garder tous dans le corps ferait payer les trois �
   proposer un, lire la mémoire `project_devkit_bench_night_runs` — le recalage de référence ne se
   propose JAMAIS sur « le dépôt a bougé ».
 
-retire.
-
 ## Banc de schéma — un vrai modèle de données est-il exprimable ?
 
 ```bash

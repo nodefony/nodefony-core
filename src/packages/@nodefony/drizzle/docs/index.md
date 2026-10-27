@@ -554,7 +554,7 @@ regarder si un comportement te surprend.
 <!-- prettier-ignore -->
 | Sujet | SQLite | PostgreSQL | MySQL / MariaDB | Raison |
 | --- | --- | --- | --- | --- |
-| Horodatage epoch (ms) | `integer` | `bigint` | `bigint` | `integer` est 32 bits en PG/MySQL : un epoch ms déborde. |
+| Entier 64 bits (`int64`, ex. horodatage epoch ms) | `integer` | `bigint` | `bigint` | `integer` est 32 bits en PG/MySQL : un epoch ms déborde. |
 | Date JS | `integer` (timestamp ms) | `timestamptz(3)` | `datetime(3)` | `timestamp` MySQL est borné à 2038 et dépend de la timezone. |
 | JSON | `text` (mode json) | `jsonb` | type JSON compatible MariaDB | MariaDB rend une chaîne (LONGTEXT), MySQL un objet. |
 | Booléen | `integer` | `boolean` | `boolean` (alias `tinyint(1)`) | SQLite n'a pas de type booléen. |

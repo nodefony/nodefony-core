@@ -349,10 +349,17 @@ Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 
 Le détail de chaque scaffold (options, gabarits, presets) vit dans les skills dédiés : `create app`
 (preset `complete`/`minimal`, front React/Vue/Angular/Svelte), `create module`, `create entity`. En résumé —
-`create app` et `create entity` **exécutent** ce qu'ils génèrent au boot suivant (la table naît en
-`CREATE TABLE IF NOT EXISTS`). Ajouter ensuite un champ **qui accepte le vide** le pose au boot
-suivant ; un champ **obligatoire** ne l'est jamais — il faudrait inventer la valeur des lignes déjà
-présentes. La production, elle, se migre : `nodefony orm:migrate`.
+`create entity` déclare la table ; qui la CRÉE dépend du schéma du connecteur, et la commande le
+dit en sortie. Sans migrations versionnées (développement, schéma `auto`), le boot suivant la crée
+(`CREATE TABLE IF NOT EXISTS`) : un champ ajouté ensuite **qui accepte le vide** y est posé, un champ
+**obligatoire** ne l'est jamais — il faudrait inventer la valeur des lignes déjà présentes. Dès que
+l'application versionne ses migrations (toute application `complete`), elles font foi, même en
+développement : `create entity` écrit ET applique la migration de la table neuve (`--no-migrate`
+s'en dispense ; si d'autres entités modifiées attendaient, la migration est écrite mais pas
+appliquée, et la sortie le dit). Un champ ajouté ensuite passe par
+`nodefony orm:generate --name <nom> --apply` — un champ obligatoire s'y pose s'il porte une valeur
+par défaut (`score:int=0`). La production, elle, se migre : `nodefony orm:migrate`, avant le
+déploiement.
 
 Trois comportements de `create entity` qui surprennent si on ne les connaît pas :
 

@@ -7,14 +7,15 @@ description: >
   interdits qui cassent un historique, et le déploiement où les migrations passent AVANT les
   exemplaires. À charger AVANT de modifier une entité déjà en base, ou de déployer un schéma changé.
   Déclencheurs : "j'ai ajouté un champ à une entité", "la colonne n'existe pas en base",
-  "modifier une table existante", "migrer le schéma", "orm:migrate", "orm:generate",
-  "appliquer les migrations", "déployer un changement de schéma", "no such column",
+  "migrer le schéma", "orm:migrate", "orm:generate", "déployer un changement de schéma",
+  "no such column",
   "column does not exist", "ma base ne correspond plus au code", "adopter une base existante",
   "réparer une migration en échec", "éprouver une migration sans casser ma base",
   "rejouer les migrations depuis zéro", "renommer une colonne ou une table",
-  "changer le type ou la longueur d'une colonne".
+  "changer le type ou la longueur d'une colonne", "changer de base", "passer à PostgreSQL ou
+  MySQL".
 metadata:
-  version: 3
+  version: 4
 ---
 
 # Faire évoluer un schéma, et le porter en production
@@ -281,6 +282,29 @@ Deux choses qu'il rapporte et qu'il faut lire :
 > `orm:generate --custom --name base_existante`, puis `orm:migrate:baseline`.
 > Cela ne concerne QUE cette commande de reprise : la création des tables, leur migration et le
 > fonctionnement de l'application sont inchangés sur MariaDB.
+
+### Changer de BASE — de SQLite à PostgreSQL, MySQL ou MariaDB
+
+Une entité écrite par `create entity` est une description PORTABLE (`defineTable`) : elle suit la
+base du connecteur, **sans être réécrite**. Changer de moteur tient en quatre gestes :
+
+```bash
+npm install pg                     # ou mysql2 — le pilote de la NOUVELLE base (absent : le démarrage le nomme)
+# .env : NF_DATABASE_URL=postgres://user:secret@hote:5432/app   (le dialecte se déduit de l'URL)
+npx nodefony orm:generate --name initiale   # migration INITIALE de ce dialecte
+npx nodefony orm:migrate
+```
+
+- **Les migrations se rangent par dialecte** (`migrations/<dialecte>/`) : celles de SQLite ne
+  s'appliquent jamais ailleurs, d'où la migration initiale du nouveau moteur.
+- 🔴 **Les DONNÉES ne suivent pas.** Le schéma change de base, les lignes restent dans l'ancienne :
+  aucune commande ne les transfère — export puis import, à ta charge.
+- **Une table NATIVE ne suit pas** (`sqliteTable`, ou `create entity --dialect <moteur>`) : pointée
+  vers un autre moteur, l'application refuse de démarrer en nommant l'entité
+  (`EntityNotPortedError`). Régénère-la sans `--dialect` (`create entity <Nom> … --force`).
+- **Certains écarts appartiennent au moteur**, pas au framework : l'ordre de tri des chaînes et
+  l'égalité sans casse suivent la collation de la base, la place des `NULL` dans un tri diffère, le
+  type `vector` n'existe qu'en PostgreSQL. Le SQL natif que tu écris reste propre à ton dialecte.
 
 ## 4. Éprouver une migration — sur une base d'ESSAI, jamais sur la tienne
 

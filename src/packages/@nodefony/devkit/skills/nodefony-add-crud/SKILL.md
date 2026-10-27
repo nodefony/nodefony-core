@@ -212,8 +212,11 @@ refus tombe tout seul.
    `--no-migrate` s'en dispense ; si des entités modifiées attendaient, la migration est écrite mais
    PAS appliquée, et la sortie nomme les tables en trop. Sinon, la table naît au prochain démarrage
    en développement (`CREATE TABLE IF NOT EXISTS`).
-2. **La modifier n'altère rien** — aucun `ALTER` n'est émis. Une colonne ajoutée à une entité déjà
-   créée n'apparaîtra pas dans une base existante.
+2. **La modifier passe par une migration** dès que l'application versionne ses migrations :
+   `npx nodefony orm:generate --name <nom> --apply` (skill **`nodefony-migrate-schema`**). Sans
+   migrations versionnées, le démarrage en développement rattrape seul une colonne ajoutée qui
+   **accepte le vide** (`ADD COLUMN`, annoncé) ; une colonne **obligatoire** ne l'est jamais — le
+   démarrage nomme l'écart au lieu d'inventer la valeur des lignes existantes.
 3. **La production ne fabrique JAMAIS le schéma.** Elle l'applique par des migrations, écrites par
    `npx nodefony orm:generate` et posées par `npx nodefony orm:migrate` — c'est un geste à part,
    avec ses refus et ses interdits : skill **`nodefony-migrate-schema`**.

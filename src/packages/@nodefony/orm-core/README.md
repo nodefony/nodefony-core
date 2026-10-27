@@ -99,20 +99,35 @@ du module**, sur la classe et non sur une instance : il connaît donc son nom et
 instancier, et enregistre l'entité directement.
 
 ```typescript
+import { randomUUID } from "node:crypto";
 import { entity, repository } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
+import { defineTable } from "@nodefony/drizzle";
 
-// `name` vaut par défaut le nom de la classe ; ici forcé à "User".
+// Le `schema` est la forme de l'ADAPTATEUR : ici la description portable du kit
+// Drizzle, qui suit le dialecte du connecteur.
+const memberTable = defineTable({
+  name: "Member",
+  columns: {
+    id: { kind: "uuid", primaryKey: true, defaultFn: () => randomUUID() },
+    email: { kind: "string", length: 255, notNull: true },
+  },
+});
+
+// `name` vaut par défaut le nom de la classe ; ici forcé à "Member".
 @entity({
   connector: "db_principale",
-  name: "User",
-  schema: { id: { type: "uuid", primaryKey: true }, email: { type: "string" } },
+  name: "Member",
+  schema: memberTable,
   relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],
 })
-class UserEntity {}
+class MemberEntity {}
 
-@repository("repository.user", { entity: "User", connector: "db_principale" })
-class UserRepository implements IRepository<UserEntity> {
+@repository("repository.member", {
+  entity: "Member",
+  connector: "db_principale",
+})
+class MemberRepository implements IRepository<MemberEntity> {
   /* find, findOne, create… sont fournis par l'adaptateur ORM */
 }
 ```

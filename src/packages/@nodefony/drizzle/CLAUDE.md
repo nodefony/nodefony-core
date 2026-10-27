@@ -22,15 +22,18 @@ Deux usages :
    exportées (named) pour un usage direct / banc-test (`new DrizzleOrm(name, {filename})`,
    auto-register dans `ormRegistry`).
 
-> `better-sqlite3` est en **`dependencies`** (driver runtime du module bootable),
-> pas en devDeps. Service pattern calqué sur `FrontendService` :
+> Les trois pilotes (`better-sqlite3`, `pg`, `mysql2`) sont des **peerDependencies
+> OPTIONNELLES** (`peerDependenciesMeta`) : l'application déclare celui de sa base, un
+> pilote absent est NOMMÉ au démarrage. Service pattern calqué sur `FrontendService` :
 > `super(name, module.container, module.notificationsCenter, module.options)` +
 > hooks `kernel.once("onBoot"|"onTerminate")` dans le constructeur.
 
 ## Décisions figées (P7.4)
 
-- **Schema-as-code** : `entity.schema` EST une table Drizzle (`sqliteTable(...)`).
-  Pas de `define()`. L'adapter dérive le **DDL** via `getTableConfig()` (dev/test) ;
+- **Schema-as-code** : `entity.schema` = description PORTABLE (`defineTable`, colKit — voie
+  par défaut, celle qu'écrit `create entity`) OU table native d'un dialecte (`sqliteTable(...)`,
+  liée à ce moteur). `orm-core/entityTable.ts#dialectTableOf` choisit la table du dialecte du
+  connecteur, à la connexion. L'adapter dérive le **DDL** via `getTableConfig()` (dev/test) ;
   la **prod = `drizzle-kit`** (migrations sous `migrations/<dialecte>/`, générées par
   `npm run generate:migrations`, contrôle de dérive `npm run check:migrations`).
 - **Opérateurs riches** (ADR-0003 risque #3 — tranché ici) : objet `$`-préfixé
@@ -218,7 +221,9 @@ Deux usages :
 
 Convention structure : **`nodefony/entity/` = schéma, `nodefony/src/` = repository** (idem `@nodefony/mongoose`). Implémente le contrat `@nodefony/user` (peerDep) :
 
-- **`userTable`** (`entity/userTable.ts`) : `sqliteTable("User")` schema-as-code. Colonnes JSON
+- **`userTable`** (`entity/userTable.ts`) : description colKit (`USER_TABLE`, dérivée de
+  `USER_COLUMNS`) — `createUserTable(dialect)` la décline, `portableUserTable` est la forme
+  référençable (gabarit `User.ts.tpl`), `userTable` = sa variante SQLite. Colonnes JSON
   (`roles`/`socialProviders`/`metadata`, `mode:"json"`) + booléens (`enabled`/`locked`,
   `integer mode:"boolean"`). ⚠️ **Défauts en `$defaultFn` (JS-level), PAS `.default()`** :
   le DDL dérivé (`getTableConfig`) n'émet pas les `DEFAULT` SQL → une colonne `NOT NULL`
@@ -400,9 +405,8 @@ expiresAt < now` (change toujours `expiresAt` → 1 ⇔ vol ; deux voleurs se s�
   (parse si string, passthrough sinon, `dataType: "json"`). Docker : service `mariadb` (11.4,
   port 3306, quotidien) + service `mysql` (8.4, port 3307, preuve de compat) — les MÊMES e2e
   passent sur les deux (`NF_MYSQL_URL` pointe l'un ou l'autre).
-- **Drivers** : `pg` + `mysql2` en `optionalDependencies` (lazy import, externalisés rolldown ;
-  `@types/pg` dev, mysql2 embarque ses types). `better-sqlite3` reste `dependencies` (défaut
-  bootable).
+- **Drivers** : `better-sqlite3`, `pg`, `mysql2` en peerDependencies OPTIONNELLES (import
+  paresseux, externalisés rolldown ; `@types/pg` dev, mysql2 embarque ses types).
 
 **Typage cross-dialecte (modèle)** : les **frontières disent la vérité** —
 `DrizzleTable = SQLiteTable | PgTable | MySqlTable` (union : `DrizzleOrm.#tables`, ctor du repo,

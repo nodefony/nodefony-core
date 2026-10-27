@@ -831,7 +831,7 @@ se connecte qu'à `onBoot`), controller (`extends ResourceController` — lectur
 `methods: ["GET","WEBSOCKET"]` = REST **et** socket dans la même méthode ; 201+`Location`,
 204, 404, 422, `@Idempotent({required:false})` = mode souple), tests vitest (sqlite mémoire).
 Champs : `nom:type[?][:index|:unique]` · `ref:<Entité>` · **non-null par défaut**, `!` REFUSÉ (types :
-`string text int float bool json date uuid`) — analyse + traduction Drizzle dans
+`string text int float bool json date uuid enum char decimal`) — analyse + traduction dans
 `scaffold/entityFields.ts` (module PUR, 3 dialectes). **Index de TABLE** :
 `--index "colA,colB"` / `--unique "colA,colB"`, **répétables** (un par index) — les seuls à
 porter PLUSIEURS colonnes, donc les seuls qui expriment comment une table réelle est

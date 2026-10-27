@@ -35,4 +35,4 @@ status: stable
 | [0017](0017-ai-mecanique-mcp-hors-du-coeur.md)                | @nodefony/ai — la mécanique MCP hors du cœur, une porte se déclare                            | accepted | 2026-10-16 |
 | [0018](0018-decorateurs-sans-metadonnees-de-type.md)          | Décorateurs — plus aucune métadonnée de type, routes typées par schéma                        | accepted | 2026-10-19 |
 | [0019](0019-studio-sur-un-deploiement-dedie.md)               | Studio — la console d'administration sur un déploiement dédié                                 | accepted | 2026-10-23 |
-| [0020](0020-entites-portables-description-neutre.md)          | Entités portables — la description appartient au framework, l'ORM n'en est qu'un adaptateur   | proposed | 2026-10-26 |
+| [0020](0020-entites-portables-description-neutre.md)          | Entités portables — la description appartient au framework, l'ORM n'en est qu'un adaptateur   | accepted | 2026-10-26 |

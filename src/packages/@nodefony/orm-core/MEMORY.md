@@ -46,7 +46,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
   pas l'inscription ; collision réelle (2 schémas, même nom+orm) = throw du registre. 8 tests.
 - **`entityRegistry.register()`** (impératif) = **plomberie de module ORM** — entités dont le schéma ou
   l'existence dépend du RUNTIME : entités framework drizzle (`createUserTable(dialect)` + `wire()` filtre
-  les dialectes portés), 410 tables Dolibarr (import massif, connecteur dédié). Aucune liste constante
+  les dialectes portés), corpus de banc `benchCorpus/` (tables neutres générées, connecteur dédié `bench-orm`). Aucune liste constante
   possible → `@entities` ne s'y applique pas, et ne les remplacera pas.
 - 🔴 **PHASE `onRegister`, JAMAIS `onBoot`** : les connecteurs se branchent à `onBoot` et créent les
   tables (`CREATE TABLE IF NOT EXISTS`). Inscrire à `onBoot` = COURSE avec le `connect()` (table absente

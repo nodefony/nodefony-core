@@ -4,7 +4,7 @@ title: Entités portables — la description appartient au framework, l'ORM n'en
 lang: fr
 navTitle: Entités portables entre bases
 date: 2026-10-26
-status: proposed
+status: accepted
 deciders: [Christophe CAMENSULI]
 tags: [orm, drizzle, portabilite, generateur, securite]
 ---
@@ -15,8 +15,11 @@ tags: [orm, drizzle, portabilite, generateur, securite]
 
 ## Statut
 
-Proposé (2026-10-26), epic #680 (tickets #681 à #684). Passe à « accepté » quand le banc de
-portabilité tourne en CI sur PostgreSQL, MySQL et MariaDB et que le schéma Dolibarr y tient (#684).
+Accepté (2026-10-27), epic #680 (tickets #681 à #684, #686). Proposé le 2026-10-26, sous
+condition que le banc de portabilité tourne en CI sur PostgreSQL, MySQL et MariaDB et qu'un schéma
+réel y tienne : le banc de portabilité est vert en CI (job `portabilite`), et le schéma réel de
+421 tables tient sur les quatre moteurs, création et évolution d'une version à la suivante
+(`bench-real-schema`, joué hors CI — son corpus est sous licence tierce).
 
 Complète l'[ADR-0003](0003-orm-core-abstraction-repository-multi-orm.md) (dépôt multi-ORM) et
 l'[ADR-0008](0008-orm-drizzle-reference-sequelize-retire.md) (Drizzle référence SQL) sans les

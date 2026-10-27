@@ -115,7 +115,7 @@ raconte-t-elle ?_ La première mérite d'être écrite. La seconde se coupe.
 > Ajouter un type énuméré au kit de colonnes pour pouvoir poser des contraintes. Vérifier que ça
 > marche sur les trois dialectes.
 
-**Après** — 12 lignes, et le travail commence tout de suite :
+**Après** — 12 lignes, et le travail commence tout de suite (exemple d'ÉCRITURE : le kit qu'il décrit a été refondu depuis, #680 — ne pas le lire comme l'état du code) :
 
 > Le kit de colonnes (`src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts`) ne connaît aucun
 > type énuméré : `FrameworkColKind` liste `text | json | bool | epochMs | int | dateMs`. Ajouter le

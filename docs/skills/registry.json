@@ -3248,8 +3248,8 @@
       "triggers": [],
       "description": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\", \"un agent recommanderait-il ce framework ?\", \"que conclut un agent en lisant le dépôt ?\", \"notre accueil dit-il vrai ?\".",
       "cost": {
-        "bodyLines": 536,
-        "approxTokens": 9587
+        "bodyLines": 534,
+        "approxTokens": 9585
       },
       "requires": [
         "serveur UP",
@@ -5215,7 +5215,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "536",
+            "detail": "534",
             "advisory": true
           }
         ]
@@ -11895,8 +11895,8 @@
       ],
       "description": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB. Porte la grammaire de champs, la table des types moteur par moteur, les relations et clés étrangères, les réglages pour épouser une table SQL existante, et ce qu'on découvre autrement en production : la table naît au démarrage, un champ ajouté n'est rattrapé que s'il accepte le vide, et la production s'applique par des migrations (skill `nodefony-migrate-schema`). À charger AVANT d'écrire une entité, un repository ou un controller de ressource. Déclencheurs : \"ajoute une entité\", \"crée un CRUD\", \"nouvelle table\", \"modèle de données\", \"ressource REST\", \"je veux stocker des articles/commandes\", \"comment définir un champ\", \"quels types de champ ?\", \"une relation entre deux entités\", \"clé étrangère\", \"index composite\", \"épouser une table existante\", \"entité MongoDB\", \"schéma Mongoose\".",
       "cost": {
-        "bodyLines": 254,
-        "approxTokens": 4001
+        "bodyLines": 257,
+        "approxTokens": 4079
       },
       "requires": [],
       "resources": {
@@ -11967,7 +11967,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "254",
+            "detail": "257",
             "advisory": true
           }
         ]
@@ -12886,7 +12886,7 @@
       "name": "nodefony-migrate-schema",
       "summary": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par `orm:generate` et `orm:migrate` — jamais par un `ALTER` à la main ni en supprimant la base.",
       "family": "Développer le back",
-      "version": "3",
+      "version": "4",
       "keywords": [
         "orm:generate",
         "orm:migrate",
@@ -12895,11 +12895,9 @@
       "triggers": [
         "j'ai ajouté un champ à une entité",
         "la colonne n'existe pas en base",
-        "modifier une table existante",
         "migrer le schéma",
         "orm:migrate",
         "orm:generate",
-        "appliquer les migrations",
         "déployer un changement de schéma",
         "no such column",
         "column does not exist",
@@ -12909,12 +12907,14 @@
         "éprouver une migration sans casser ma base",
         "rejouer les migrations depuis zéro",
         "renommer une colonne ou une table",
-        "changer le type ou la longueur d'une colonne"
+        "changer le type ou la longueur d'une colonne",
+        "changer de base",
+        "passer à PostgreSQL ou MySQL"
       ],
-      "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par `orm:generate` et `orm:migrate` — jamais par un `ALTER` à la main ni en supprimant la base. Porte la lecture de l'état, le plan avant le geste, chaque code de refus et son geste, le renommage déclaré, les trois interdits qui cassent un historique, et le déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"modifier une table existante\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\", \"renommer une colonne ou une table\", \"changer le type ou la longueur d'une colonne\".",
+      "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par `orm:generate` et `orm:migrate` — jamais par un `ALTER` à la main ni en supprimant la base. Porte la lecture de l'état, le plan avant le geste, chaque code de refus et son geste, le renommage déclaré, les trois interdits qui cassent un historique, et le déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\", \"renommer une colonne ou une table\", \"changer le type ou la longueur d'une colonne\", \"changer de base\", \"passer à PostgreSQL ou MySQL\".",
       "cost": {
-        "bodyLines": 445,
-        "approxTokens": 7735
+        "bodyLines": 468,
+        "approxTokens": 8104
       },
       "requires": [],
       "resources": {
@@ -12943,7 +12943,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1022",
+            "detail": "1013",
             "advisory": false
           },
           {
@@ -12985,7 +12985,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "445",
+            "detail": "468",
             "advisory": true
           }
         ]

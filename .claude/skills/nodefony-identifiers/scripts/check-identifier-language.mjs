@@ -1333,7 +1333,7 @@ export function readExceptionsFile(file) {
  *
  * Le verdict ne doit pas dépendre du poste : un dossier ignoré (`.gitignore`)
  * présent ici et absent en CI faisait appliquer une exception localement et la
- * déclarer « sans effet » en CI. Vécu : `entity/dolibarr/`, banc local ignoré.
+ * déclarer « sans effet » en CI. Vécu : un corpus de banc gitignoré.
  *
  * @param root - racine balayée
  * @returns l'ensemble des chemins visibles, ou `null`

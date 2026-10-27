@@ -1689,7 +1689,7 @@ export class DrizzleOrm extends Orm {
    * Connexion **MySQL** : le driver `mysql2` (optionalDependency) et l'adapter
    * `drizzle-orm/mysql2` sont chargés en LAZY (`await import`) — même patron que
    * `#connectPostgres`. Pool promise ouvert en `timezone: "Z"` : les colonnes
-   * `datetime(3)` (kind `dateMs` du colKit) sont écrites/relues en UTC — mêmes
+   * `datetime(3)` (genre `datetime` du colKit) sont écrites/relues en UTC — mêmes
    * instants que `timestamptz` PG, sans dépendre de la timezone du serveur.
    */
   async #connectMysql(
