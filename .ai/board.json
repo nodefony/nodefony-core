@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T19:39:08.717Z",
+  "generatedAt": "2026-10-27T19:43:55.619Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5388,7 +5388,7 @@
       "title": "perf(cli): raccourcir le redémarrage de dev après une sauvegarde",
       "url": "https://github.com/nodefony/nodefony-core/issues/691",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
