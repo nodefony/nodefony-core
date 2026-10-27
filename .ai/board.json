@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T20:56:01.510Z",
+  "generatedAt": "2026-10-27T07:16:41.937Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 201,
+      "closed": 202,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 21,
@@ -5298,6 +5298,22 @@
       "ordre": 6.0162,
       "debut": "2026-10-27",
       "cible": "2026-10-27",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 689,
+      "title": "feat(studio): rendre lisible le schéma d'une base de plusieurs centaines de tables",
+      "url": "https://github.com/nodefony/nodefony-core/issues/689",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0162,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-6"
       ]
