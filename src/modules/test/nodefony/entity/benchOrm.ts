@@ -13,6 +13,7 @@
 // Les tables sont des descriptions du kit de colonnes : le connecteur en tire
 // la table de SON dialecte.
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import { resolveInfra } from "nodefony";
 
 /**
  * Drapeau du décor, lu UNE fois : l'index du module (routes, entités, seed)
@@ -24,12 +25,35 @@ export const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
  * Connecteur du banc, DÉDIÉ, déclaré par la config du module
  * (`config.ts`, `module-drizzle`) en `ddl: "auto"` : le banc crée lui-même
  * ses tables, quel que soit le régime de schéma de l'application (`migrate`
- * dès qu'elle versionne ses migrations, `none` en production), et le corpus
- * ne se mêle pas à la base applicative. Fichier SQLite sous
- * `var/databases/` (règle `defaultConnectorFilename`), que les camps
- * témoins copient.
+ * dès qu'elle versionne ses migrations, `none` en production). Sa cible :
+ * {@link benchOrmConnector}.
  */
 export const BENCH_ORM_CONNECTOR = "bench-orm";
+
+/** Ce que la config du module déclare pour {@link BENCH_ORM_CONNECTOR}. */
+export interface IBenchOrmConnector {
+  readonly dialect: "sqlite" | "postgres" | "mysql";
+  readonly url?: string;
+  readonly ddl: "auto";
+}
+
+/**
+ * Cible du connecteur du banc : la base SERVEUR de l'application quand elle en
+ * déclare une (`NF_DATABASE_URL` en `postgres://` ou `mysql://`, lue par
+ * `resolveInfra`, la règle même de Drizzle) — les camps témoins s'y connectent
+ * par la même URL ; sinon un fichier SQLite à part sous `var/databases/`
+ * (`defaultConnectorFilename`), que les camps copient, pour que le corpus ne
+ * se mêle pas à la base applicative.
+ *
+ * @returns la déclaration du connecteur.
+ */
+export function benchOrmConnector(): IBenchOrmConnector {
+  const db = resolveInfra().database;
+  if (db?.family === "sql" && db.dialect !== null && db.dialect !== "sqlite") {
+    return { dialect: db.dialect, url: db.url, ddl: "auto" };
+  }
+  return { dialect: "sqlite", ddl: "auto" };
+}
 export const BENCH_ORM_USERS = 50;
 export const BENCH_ORM_SOCIETES = 200;
 export const BENCH_ORM_FACTURES = 10_000;

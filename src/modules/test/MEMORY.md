@@ -60,7 +60,7 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 
 **BenchOrmController** (`/nodefony/test/bench-orm`, OPT-IN `NF_BENCH_ORM=1`) :
 
-- `/read` · `/read-lean` · `/write` · `/reset` · `/status` — cycle ORM sur corpus `erp` (connecteur dédié `bench-orm`, SQLite `ddl: auto`, déclaré par `config.ts` sous `NF_BENCH_ORM=1`, seed 50/200/10 k, `entity/benchOrm.ts`, corpus gitignoré `entity/benchCorpus/` écrit par `bench-orm-corpus.mjs`, montants décimaux en chaîne)
+- `/read` · `/read-lean` · `/write` · `/reset` · `/status` — cycle ORM sur corpus `erp` (connecteur dédié `bench-orm`, `ddl: auto`, déclaré par `config.ts` sous `NF_BENCH_ORM=1` — base serveur de l'app si `NF_DATABASE_URL`, sinon SQLite `nodefony-bench-orm.db`, seed 50/200/10 k, `entity/benchOrm.ts`, corpus gitignoré `entity/benchCorpus/` écrit par `bench-orm-corpus.mjs`, montants décimaux en chaîne)
 - `/nodefony/test/secure/bench-orm/read` — même lecture en zone `test-secure` (cycle session+entité)
 
 ## Statics — préfixe natif `/test/`

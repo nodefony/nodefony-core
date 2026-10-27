@@ -230,11 +230,12 @@ du corpus, puis compilé par le build du module et chargé par URL. Les camps t�
 ⚠️ `total_ht`/`total_ttc` sont des `decimal(24,8)` : écrits en CHAÎNE (`benchAmount`).
 
 **Connecteur `bench-orm`** : déclaré par `nodefony/config/config.ts` (`module-drizzle`, seulement
-sous `NF_BENCH_ORM=1`), SQLite `var/databases/nodefony-bench-orm.db`, `ddl: "auto"`. Le banc crée
-donc lui-même ses tables, quel que soit le régime de l'application (`migrate` dès qu'elle versionne
-ses migrations, `none` en production) — le connecteur `default` ne les créait jamais. Les camps
-copient CE fichier (`perf-campaign.sh#SEED`). Le corpus est portable (kit de colonnes) mais le
-connecteur reste SQLite : un banc PostgreSQL/MySQL exigerait de lui donner une `url`. En prod,
+sous `NF_BENCH_ORM=1`), en `ddl: "auto"` : le banc crée donc lui-même ses tables, quel que soit le
+régime de l'application (`migrate` dès qu'elle versionne ses migrations, `none` en production) — le
+connecteur `default` ne les créait jamais. Cible (`benchOrm.ts#benchOrmConnector`, par
+`resolveInfra`) : la base SERVEUR de l'application si `NF_DATABASE_URL` en déclare une (les camps
+PostgreSQL s'y connectent par la même URL), sinon SQLite à part `var/databases/nodefony-bench-orm.db`,
+que les camps SQLite copient (`perf-campaign.sh#SEED`). En prod,
 `NF_ADMIN_PASSWORD` est requis pour la route secure (aucun compte seedé sinon), et le login doit
 se faire sur le MÊME canal (http/https) que le banc.
 

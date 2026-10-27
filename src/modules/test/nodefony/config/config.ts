@@ -1,17 +1,19 @@
-import { BENCH_ORM, BENCH_ORM_CONNECTOR } from "../entity/benchOrm";
+import {
+  BENCH_ORM,
+  BENCH_ORM_CONNECTOR,
+  benchOrmConnector,
+} from "../entity/benchOrm";
 
 export default {
   // Banc du cycle ORM (opt-in `NF_BENCH_ORM=1`) : son connecteur DÉDIÉ, déclaré
   // par le module qui le consomme. `ddl: "auto"` — ses tables (corpus `erp`)
   // ne figurent dans aucune migration, et le régime de l'application
-  // (`migrate`, `none` en production) ne les créerait jamais. Sans
-  // `filename` : `var/databases/`, règle partagée avec les commandes de migration.
+  // (`migrate`, `none` en production) ne les créerait jamais. Cible (base
+  // serveur de l'application, sinon SQLite à part) : `benchOrmConnector`.
   ...(BENCH_ORM
     ? {
         "module-drizzle": {
-          connectors: {
-            [BENCH_ORM_CONNECTOR]: { dialect: "sqlite", ddl: "auto" },
-          },
+          connectors: { [BENCH_ORM_CONNECTOR]: benchOrmConnector() },
         },
       }
     : {}),
