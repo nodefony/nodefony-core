@@ -40,6 +40,10 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 - **QUIC** (detect: QUIC) — le transport sur UDP qui porte HTTP/3 : plusieurs flux indépendants sur une connexion, sans qu'un paquet perdu bloque les autres.
 - **WebTransport** (detect: WebTransport) — l'API navigateur (W3C) d'échange bidirectionnel bâtie sur HTTP/3 : plusieurs flux d'octets et des datagrammes non fiables, là où un WebSocket n'offre qu'un seul canal de messages.
 - **h2c** (detect: h2c) — HTTP/2 « en clair », sans TLS : la forme que parlent les proxys et maillages de services (Envoy, Istio, HAProxy) vers les serveurs derrière eux.
+- **gRPC** (detect: gRPC|grpc) — protocole d'appel de procédure à distance qui n'existe qu'en HTTP/2 : chaque appel est une requête `POST /paquet.Service/Méthode`, les messages sont encodés en protobuf, et le statut de l'appel arrive à la FIN de la réponse, dans les trailers.
+- **gRPC-Web** (detect: gRPC-Web|grpc-web) — la variante de gRPC qu'un navigateur peut parler : il n'a pas accès aux trailers HTTP/2, alors le statut voyage dans le corps de la réponse, et HTTP/1.1 suffit.
+- **protobuf** (detect: protobuf|Protocol Buffers) — _Protocol Buffers_ : le format binaire décrit par un fichier `.proto`, d'où l'on génère les types et l'encodeur de chaque message.
+- **trailers** (detect: trailers|trailer) — en-têtes envoyés APRÈS le corps d'une réponse HTTP, quand toutes les données sont parties ; gRPC y place son statut (`grpc-status`, `grpc-message`).
 - **ACME** (detect: ACME) — _Automatic Certificate Management Environment_ (RFC 8555) : le protocole par lequel une autorité comme Let's Encrypt délivre et renouvelle un certificat, après un défi qui prouve que le demandeur contrôle le domaine.
 - **ingress** (detect: [Ii]ngress) — sous Kubernetes, le point d'entrée HTTP du cluster (souvent nginx) qui termine le TLS et relaie vers les pods.
 - **DDL** (detect: DDL) — _Data Definition Language_ : la partie du SQL qui crée et modifie la structure des tables (`CREATE TABLE`, `ALTER TABLE`), par opposition à celle qui manipule les données.
