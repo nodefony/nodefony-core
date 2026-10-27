@@ -128,3 +128,98 @@ export function repairRebuildCopy(
   });
   return { sql: repaired, dropped };
 }
+
+/**
+ * Une recopie `INSERT INTO <étape>(…) SELECT … FROM <source>` — sans présumer du
+ * nom de l'étape : c'est la RONDE entière (`destructive.ts#rebuiltTables`) qui
+ * dit qu'il s'agit d'une recréation, et l'appelant la fournit.
+ */
+const ANY_COPY =
+  /\bINSERT\s+INTO\s+[`"']?[A-Za-z0-9_]+[`"']?\s*\([^)]*\)\s*SELECT\s+(?<select>[\s\S]*?)\s+FROM\s+[`"']?(?<source>[A-Za-z0-9_]+)[`"']?/giu;
+
+const IDENT_RE = "[`\"']?([A-Za-z0-9_]+)[`\"']?";
+
+/** `ALTER TABLE t RENAME COLUMN a TO b` — le renommage déclaré d'une colonne. */
+const RENAME_COLUMN = new RegExp(
+  `\\bALTER\\s+TABLE\\s+${IDENT_RE}\\s+RENAME\\s+COLUMN\\s+${IDENT_RE}\\s+TO\\s+${IDENT_RE}`,
+  "iu",
+);
+
+/** `ALTER TABLE a RENAME TO b` — le renommage d'une table. */
+const RENAME_TABLE = new RegExp(
+  `\\bALTER\\s+TABLE\\s+${IDENT_RE}\\s+RENAME\\s+TO\\s+${IDENT_RE}`,
+  "iu",
+);
+
+/** Une colonne de départ figure-t-elle, nom entier, dans la liste lue ? */
+function isRead(select: string, column: string): boolean {
+  const escaped = column.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  // Les noms de colonne ne distinguent pas la casse en SQLite.
+  return new RegExp(`(?<![\\w$])${escaped}(?![\\w$])`, "iu").test(select);
+}
+
+/**
+ * Les colonnes de départ qu'une recréation de table ne RECOPIE pas — perdues,
+ * avec leurs valeurs, sans qu'aucun `DROP COLUMN` ne l'écrive.
+ *
+ * Les instructions se lisent DANS L'ORDRE : un renommage de colonne ou de
+ * table écrit avant la recopie change ce que la table porte au moment où elle
+ * est lue (vu sur le corpus `erp-lite` : `RENAME COLUMN lastname TO
+ * last_name` puis une recopie qui lit `last_name`).
+ *
+ * Une colonne est tenue pour lue dès que son nom, entier, figure dans la liste
+ * du `SELECT` : une expression (`coalesce("vu", 0)`) la lit aussi. Ce qui n'y
+ * figure pas du tout ne peut pas avoir été recopié.
+ *
+ * @param statements - les instructions de la migration, dans l'ordre.
+ * @param rebuilt - les tables que la migration RECONSTRUIT, en minuscules : une
+ *   recopie hors de cette ronde est une migration de données, pas une perte.
+ * @param columnsOf - les colonnes d'une table AVANT la migration ; `null` quand
+ *   on ne les connaît pas — rien n'est alors affirmé.
+ * @returns, par instruction de recopie fautive (son rang), les colonnes perdues
+ *   en `table.colonne`.
+ */
+export function rebuildLosses(
+  statements: readonly string[],
+  rebuilt: ReadonlySet<string>,
+  columnsOf: (table: string) => readonly string[] | null,
+): Map<number, string[]> {
+  /** L'état COURANT des tables touchées par un renommage du fichier. */
+  const current = new Map<string, readonly string[] | null>();
+  const columnsNow = (table: string): readonly string[] | null =>
+    current.has(table) ? (current.get(table) ?? null) : columnsOf(table);
+  const out = new Map<number, string[]>();
+  for (const [index, statement] of statements.entries()) {
+    const column = RENAME_COLUMN.exec(statement);
+    if (column) {
+      const [, table = "", from = "", to = ""] = column;
+      const known = columnsNow(table);
+      current.set(
+        table,
+        known === null
+          ? null
+          : known.map((c) => (c.toLowerCase() === from.toLowerCase() ? to : c)),
+      );
+      continue;
+    }
+    const renamed = RENAME_TABLE.exec(statement);
+    if (renamed) {
+      const [, from = "", to = ""] = renamed;
+      current.set(to, columnsNow(from));
+      continue;
+    }
+    for (const match of statement.matchAll(ANY_COPY)) {
+      const source = match.groups?.source;
+      const select = match.groups?.select;
+      if (source === undefined || select === undefined) continue;
+      if (!rebuilt.has(source.toLowerCase())) continue;
+      const known = columnsNow(source);
+      if (known === null) continue;
+      const lost = known
+        .filter((c) => !isRead(select, c))
+        .map((c) => `${source}.${c}`);
+      if (lost.length > 0) out.set(index, [...(out.get(index) ?? []), ...lost]);
+    }
+  }
+  return out;
+}

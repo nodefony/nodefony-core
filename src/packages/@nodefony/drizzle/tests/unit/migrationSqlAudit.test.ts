@@ -409,6 +409,12 @@ describe("auditMigrationSql — un ÉLARGISSEMENT prouvé n'est pas une perte", 
     ["mysql", my("varchar(32)"), "varchar(16)"],
     ["mysql", my("varchar(32)"), "char(2)"],
     ["mysql", my("bigint"), "int"],
+    // Une chaîne bornée qui devient un texte : vu sur un schéma réel (une
+    // adresse `varchar(255)` passée en `text`), refusé à tort.
+    ["postgres", pg("text"), "varchar(255)"],
+    ["mysql", my("text"), "varchar(255)"],
+    ["mysql", my("mediumtext"), "char(2)"],
+    ["mysql", my("longtext"), "varchar(16)"],
   ] as const)("%s : %s depuis %s → accepté", (dialect, sql, from) => {
     assert.deepEqual(
       ids(auditMigrationSql(sql, dialect, before(from)).destructive),
@@ -426,6 +432,10 @@ describe("auditMigrationSql — un ÉLARGISSEMENT prouvé n'est pas une perte", 
     ],
     ["descend de rang", my("int"), "bigint", false],
     ["DEVIENT obligatoire", my("varchar(32) NOT NULL"), "varchar(16)", false],
+    ["texte DEVENU obligatoire", my("text NOT NULL"), "varchar(255)", false],
+    // 255 OCTETS : un `varchar(255)` en utf8mb4 en porte jusqu'à 1 020.
+    ["vers un tinytext", my("tinytext"), "varchar(255)", false],
+    ["texte vers chaîne bornée", pg("varchar(255)"), "text", false],
   ] as const)("%s → refusé", (_why, sql, from, notNull) => {
     const dialect = sql.includes("MODIFY") ? "mysql" : "postgres";
     assert.equal(
@@ -456,6 +466,34 @@ describe("auditMigrationSql — un ÉLARGISSEMENT prouvé n'est pas une perte", 
       auditMigrationSql(sql, "postgres", before("varchar(16)")).destructive
         .length,
       1,
+    );
+  });
+});
+
+describe("auditMigrationSql — une recréation SQLite qui ne recopie pas une colonne", () => {
+  const recreation = [
+    "CREATE TABLE `__new_post` (`id` text PRIMARY KEY, `titre` text);",
+    "INSERT INTO `__new_post`(`id`, `titre`) SELECT `id`, `titre` FROM `post`;",
+    "DROP TABLE `post`;",
+    "ALTER TABLE `__new_post` RENAME TO `post`;",
+  ].join("\n--> statement-breakpoint\n");
+
+  it("🔴 est refusée à la GÉNÉRATION, en nommant la colonne perdue", () => {
+    const audit = auditMigrationSql(recreation, "sqlite", undefined, (t) =>
+      t === "post" ? ["id", "titre", "iban"] : null,
+    );
+    assert.deepEqual(
+      audit.destructive.map((r) => r.id),
+      ["rebuild-drops-column"],
+    );
+    assert.match(audit.destructive[0]?.what ?? "", /post\.iban/u);
+  });
+
+  it("toutes les colonnes recopiées : rien à refuser", () => {
+    assert.deepEqual(
+      auditMigrationSql(recreation, "sqlite", undefined, () => ["id", "titre"])
+        .destructive,
+      [],
     );
   });
 });

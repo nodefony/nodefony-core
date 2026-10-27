@@ -15,6 +15,7 @@ import {
   touchesExistingRows,
   checkDataAdvice,
 } from "../src/migrator/destructive";
+import { columnsBeforeFiles } from "../src/migrator/review";
 import { readMigrationEnv } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
@@ -151,7 +152,10 @@ class OrmMigrate extends OrmMigrateCommand {
       // faire donnerait une assurance qui n'existe pas) : il empêche
       // d'appliquer sans savoir.
       const before = await migrator.status();
-      const findings = scanDestructive(before.pending);
+      const findings = scanDestructive(
+        before.pending,
+        await columnsBeforeFiles(before.pending),
+      );
       const losses = dataLoss(findings);
       const enDev = readMigrationEnv(this.appKernel).runtime === "development";
       if (

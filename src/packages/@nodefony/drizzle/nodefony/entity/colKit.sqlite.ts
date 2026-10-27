@@ -272,8 +272,41 @@ function baseColumn(k: string, c: ColumnSpec, owner: ITableSpec): Chain {
   }
 }
 
+/**
+ * Le défaut littéral tel que la BASE doit le stocker.
+ *
+ * SQLite range décimal, uuid et jour en TEXTE, sans les normaliser : un
+ * `DEFAULT '0'` sur une colonne `decimal(7,4)` donnerait `'0'` aux lignes qui
+ * existaient avant son AJOUT, là où l'application écrit `'0.0000'` — et
+ * `$eq "0.0000"` ne les retrouverait pas. Le défaut passe donc par le MÊME codec
+ * que les écritures. PostgreSQL et MySQL normalisent eux-mêmes : leur DDL ne
+ * change pas.
+ */
+function canonicalDefault(c: ColumnSpec, label: string): unknown {
+  if (!("default" in c) || c.default === undefined) {
+    return undefined;
+  }
+  // Les autres genres sont stockés tels quels (nombres, booléens) ou n'ont pas
+  // d'écriture canonique à imposer (texte libre, json) : leur défaut passe tel quel.
+  if (c.kind === "decimal") {
+    return canonicalDecimal(c.default, c.precision, c.scale, label);
+  }
+  if (c.kind === "uuid") {
+    return canonicalUuid(c.default, label);
+  }
+  if (c.kind === "date") {
+    return canonicalDay(c.default, label);
+  }
+  return c.default;
+}
+
 /** Modificateurs communs — même ordre que `ApplyMods` (colKit.types.ts). */
-function applyMods(b: Chain, c: ColumnSpec, uniqueName: string): Chain {
+function applyMods(
+  b: Chain,
+  c: ColumnSpec,
+  uniqueName: string,
+  label: string,
+): Chain {
   if (c.kind === "serial") {
     return b; // clé primaire déjà posée par `colSerial`.
   }
@@ -287,8 +320,9 @@ function applyMods(b: Chain, c: ColumnSpec, uniqueName: string): Chain {
   if (c.unique) {
     out = out.unique(uniqueName);
   }
-  if ("default" in c && c.default !== undefined) {
-    out = out.default(c.default).$defaultFn(literalDefaultFn(c.default));
+  const literal = canonicalDefault(c, label);
+  if (literal !== undefined) {
+    out = out.default(literal).$defaultFn(literalDefaultFn(literal));
   }
   if ("defaultFn" in c) {
     out = out.$defaultFn(c.defaultFn);
@@ -453,6 +487,7 @@ export function buildSqliteTable(spec: ITableSpec): SQLiteTable {
       baseColumn(k, c, spec),
       c,
       boundedUniqueName(spec.name, columnName(k, c)),
+      `${spec.name}.${k}`,
     );
   }
   return sqliteTable(spec.name, columns, (t) => {

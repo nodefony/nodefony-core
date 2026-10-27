@@ -393,6 +393,39 @@ describe("colKit — tables portables", () => {
         client.close();
       }
     });
+
+    it("🔴 SQLite : le DEFAULT d'un décimal, d'un uuid, d'un jour passe par le codec des écritures", () => {
+      // Vu au banc de schéma réel : une colonne `decimal(7,4)` à défaut `0`,
+      // AJOUTÉE à une table peuplée, donnait `'0'` aux lignes d'avant — là où
+      // l'application écrit `'0.0000'`. SQLite stocke ces genres en TEXTE sans
+      // les normaliser : `$eq "0.0000"` ne retrouvait pas ces lignes.
+      const T = defineTable({
+        name: "colkit_canonical_defaults",
+        columns: {
+          id: { kind: "text", primaryKey: true },
+          rate: { kind: "decimal", precision: 7, scale: 4, default: "0" },
+          ref: {
+            kind: "uuid",
+            default: "0B6A3F9E-2D41-4C8E-9F1A-7E5D3C2B1A00",
+          },
+          day: { kind: "date", default: "2024-02-29" },
+        },
+      });
+      const defaults = Object.fromEntries(
+        getTableConfig(T.table("sqlite")).columns.map((c) => [
+          c.name,
+          c.default,
+        ]),
+      );
+      assert.deepEqual(
+        { rate: defaults.rate, ref: defaults.ref, day: defaults.day },
+        {
+          rate: "0.0000",
+          ref: "0b6a3f9e-2d41-4c8e-9f1a-7e5d3c2b1a00",
+          day: "2024-02-29",
+        },
+      );
+    });
   });
 
   describe("colonnes énumérées — la contrainte CHECK est DÉCLARÉE", () => {

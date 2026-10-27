@@ -20,7 +20,6 @@ import {
   type IUnreadableEntityFile,
 } from "../src/migrator/appSchema";
 import {
-  auditMigrationSql,
   runGenerate,
   sealGeneratedSql,
   type IAuditRule,
@@ -33,10 +32,6 @@ import {
   type IRenamePlan,
 } from "../src/migrator/renames";
 import {
-  columnFactsByTable,
-  columnsByTable,
-} from "../src/migrator/snapshotColumns";
-import {
   completeRenames,
   prepareRenames,
   withRewrittenSnapshot,
@@ -45,12 +40,8 @@ import {
 import type { IDiscoveryFacts } from "../src/migrator/refusals";
 import { gapAgainstDeclared } from "../src/migrator/divergence";
 import { migrationPlanFor } from "../src/migrator/status";
-import { repairRebuildCopy } from "../src/migrator/rebuildCopy";
-import {
-  readJournal,
-  readSnapshot,
-  tablesPresentIn,
-} from "../src/migrator/adopt";
+import { reviewGenerated } from "../src/migrator/review";
+import { readJournal, tablesPresentIn } from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
 import {
   appMigrationsDir,
@@ -784,45 +775,29 @@ class OrmGenerate extends OrmMigrateCommand {
 
     // 6. Relire ce qui vient d'être écrit — un générateur de diff ne distingue
     //    pas une intention d'une différence.
-    const destructive: IAuditRule[] = [];
-    const warnings: IAuditRule[] = [];
+    // Après un renommage, l'état de départ est l'instantané RÉÉCRIT — celui que
+    // l'outil a lu (`reviewGenerated` dit pourquoi).
+    const review = await reviewGenerated({
+      outDir,
+      tags: added,
+      dialect,
+      startState: prepared?.applied.doc,
+    });
+    const destructive = review.destructive;
+    const warnings = review.warnings;
     const written: string[] = [];
-    for (const tag of added) {
-      const file = path.join(outDir, `${tag}.sql`);
-      written.push(relative(file));
-      let sql = await fs.readFile(file, "utf8");
-      // 🔴 Réparer AVANT d'auditer : une recréation de table dont la recopie lit
-      // une colonne encore absente de la table de départ échoue à
-      // l'application, pose un marqueur, et bloque tous les passages suivants.
-      // L'audit doit voir le SQL qui sera VRAIMENT joué, pas celui que l'outil
-      // a écrit.
-      // Après un renommage, l'état de départ est l'instantané RÉÉCRIT — celui
-      // que l'outil a lu. L'original porte les anciens noms : la recopie y
-      // perdrait la colonne renommée, l'audit n'y trouverait pas son type.
-      const startState =
-        prepared?.applied.doc ?? (await this.#snapshotBefore(outDir, tag));
-      const repair = repairRebuildCopy(sql, columnsByTable(startState));
-      if (repair.dropped.length > 0) {
-        await fs.writeFile(file, repair.sql, "utf8");
-        sql = repair.sql;
-        if (opts.json !== true) {
-          this.log(
-            `Recopie corrigée dans ${relative(file)} — ${repair.dropped.join(", ")} ` +
-              `ne peu${repair.dropped.length > 1 ? "vent" : "t"} pas être lue${repair.dropped.length > 1 ? "s" : ""} ` +
-              `dans la table de départ, qui ne la${repair.dropped.length > 1 ? "s" : ""} porte pas encore. ` +
-              `Ces colonnes recevront ce que leur « CREATE TABLE » leur donne (un défaut, ou vide) — ` +
-              `c'est ce qu'aurait fait un « ADD COLUMN ». Le reste du fichier est intact.`,
-            "WARNING",
-          );
-        }
+    for (const reviewed of review.files) {
+      written.push(relative(reviewed.file));
+      if (reviewed.repaired.length > 0 && opts.json !== true) {
+        this.log(
+          `Recopie corrigée dans ${relative(reviewed.file)} — ${reviewed.repaired.join(", ")} ` +
+            `ne peu${reviewed.repaired.length > 1 ? "vent" : "t"} pas être lue${reviewed.repaired.length > 1 ? "s" : ""} ` +
+            `dans la table de départ, qui ne la${reviewed.repaired.length > 1 ? "s" : ""} porte pas encore. ` +
+            `Ces colonnes recevront ce que leur « CREATE TABLE » leur donne (un défaut, ou vide) — ` +
+            `c'est ce qu'aurait fait un « ADD COLUMN ». Le reste du fichier est intact.`,
+          "WARNING",
+        );
       }
-      const audit = auditMigrationSql(
-        sql,
-        dialect,
-        columnFactsByTable(startState),
-      );
-      destructive.push(...audit.destructive);
-      warnings.push(...audit.blocking);
     }
     if (destructive.length > 0 && opts.allowDestructive !== true) {
       const list = destructive
@@ -1001,37 +976,6 @@ class OrmGenerate extends OrmMigrateCommand {
   async #tags(outDir: string): Promise<string[]> {
     const journal = await readJournal(outDir);
     return (journal?.entries ?? []).map((e) => e.tag);
-  }
-
-  /**
-   * L'instantané qui précède la migration qu'on vient d'écrire — l'état de
-   * DÉPART de celle-ci.
-   *
-   * C'est la même référence que celle sur laquelle l'outil de génération a
-   * calculé son écart : le cliché d'indice `N-1` décrit l'état d'arrivée de la
-   * migration précédente.
-   *
-   * Rend `null` en l'absence de cliché, pour une première migration ou un
-   * format inattendu : les lecteurs répondent alors `null` à toute question,
-   * et c'est ce qui garantit qu'on ne réécrit ni n'excuse jamais un SQL sur une
-   * supposition.
-   *
-   * @param outDir - dossier des migrations du dialecte.
-   * @param tag - étiquette de la migration écrite (`0004_ajout_du_titre`).
-   * @returns l'instantané, ou `null`.
-   */
-  async #snapshotBefore(outDir: string, tag: string): Promise<unknown> {
-    const index = Number.parseInt(tag.slice(0, 4), 10);
-    if (!Number.isFinite(index) || index <= 0) {
-      return null;
-    }
-    const file = path.join(
-      outDir,
-      "meta",
-      `${String(index - 1).padStart(4, "0")}_snapshot.json`,
-    );
-    // Cliché absent ou illisible : on ne sait pas, donc on ne touche à rien.
-    return readSnapshot(file).catch(() => null);
   }
 
   /**

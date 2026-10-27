@@ -1,6 +1,9 @@
 import { describe, it } from "vitest";
 import assert from "node:assert";
-import { repairRebuildCopy } from "../../nodefony/src/migrator/rebuildCopy";
+import {
+  rebuildLosses,
+  repairRebuildCopy,
+} from "../../nodefony/src/migrator/rebuildCopy";
 
 /*
  *   SPEC — « une recopie ne peut pas lire une colonne qui n'existe pas encore ».
@@ -75,5 +78,106 @@ describe("repairRebuildCopy — la recopie ne lit que ce que la table de départ
   it("ne touche pas à un ALTER ordinaire — il n'y a pas de recopie", () => {
     const alter = "ALTER TABLE `User` ADD `site` text;";
     assert.strictEqual(repairRebuildCopy(alter, avant).sql, alter);
+  });
+});
+
+/*
+ *   SPEC — « une recréation qui ne recopie pas une colonne la PERD ».
+ *
+ *   Vu sur un schéma réel (une table de prélèvements qui perd sept colonnes
+ *   d'une version à l'autre) : SQLite recrée la table, la recopie ne lit que
+ *   les colonnes d'arrivée, et les sept autres disparaissent avec leurs valeurs
+ *   — sans un `DROP COLUMN`, donc sans un refus.
+ */
+describe("rebuildLosses — ce que la recopie d'une recréation ne lit pas", () => {
+  const recreation = [
+    "CREATE TABLE `__new_User` (`id` text PRIMARY KEY NOT NULL, `zone` integer);",
+    'INSERT INTO `__new_User`("id", "zone") SELECT "id", "zone" FROM `User`;',
+    "DROP TABLE `User`;",
+    "ALTER TABLE `__new_User` RENAME TO `User`;",
+  ].join("\n--> statement-breakpoint\n");
+  const recreee = new Set(["user"]);
+  const pertes = (
+    sql: string,
+    rebuilt: ReadonlySet<string>,
+    columnsOf: (t: string) => readonly string[] | null,
+  ): string[] =>
+    [
+      ...rebuildLosses(
+        sql.split("\n--> statement-breakpoint\n"),
+        rebuilt,
+        columnsOf,
+      ).values(),
+    ].flat();
+
+  it("nomme chaque colonne de départ que la recopie ne lit pas", () => {
+    assert.deepStrictEqual(
+      pertes(recreation, recreee, () => ["id", "zone", "iban", "bic"]),
+      ["User.iban", "User.bic"],
+    );
+  });
+
+  it("rien quand toutes les colonnes de départ sont lues — même dans une expression", () => {
+    const expression = recreation.replace(
+      'SELECT "id", "zone"',
+      'SELECT "id", coalesce("zone", 0)',
+    );
+    assert.deepStrictEqual(
+      pertes(expression, recreee, () => ["id", "zone"]),
+      [],
+    );
+  });
+
+  it("rien quand la table de départ est INCONNUE — on ne conclut pas sur une supposition", () => {
+    assert.deepStrictEqual(
+      pertes(recreation, recreee, () => null),
+      [],
+    );
+  });
+
+  it("une recopie qui n'appartient à AUCUNE recréation est une migration de données", () => {
+    assert.deepStrictEqual(
+      pertes(
+        'INSERT INTO `archive`("id") SELECT "id" FROM `User`;',
+        new Set(),
+        () => ["id", "zone"],
+      ),
+      [],
+    );
+  });
+
+  it("🔴 un renommage ÉCRIT AVANT la recopie change ce que la table porte", () => {
+    // Vu sur le corpus erp-lite : `RENAME COLUMN lastname TO last_name`, puis
+    // une recréation qui lit `last_name` — l'instantané de départ, lui, porte
+    // encore `lastname`. Sans suivre l'ordre, c'est un faux refus.
+    const renomme = [
+      "ALTER TABLE `User` RENAME COLUMN `zone` TO `region`;",
+      recreation.replace(/"zone"/gu, '"region"'),
+    ].join("\n--> statement-breakpoint\n");
+    assert.deepStrictEqual(
+      pertes(renomme, recreee, () => ["id", "zone"]),
+      [],
+    );
+    const tableRenommee = [
+      "ALTER TABLE `Person` RENAME TO `User`;",
+      recreation,
+    ].join("\n--> statement-breakpoint\n");
+    assert.deepStrictEqual(
+      pertes(tableRenommee, recreee, (t) =>
+        t === "Person" ? ["id", "zone", "iban"] : null,
+      ),
+      ["User.iban"],
+    );
+  });
+
+  it("`status` ne se croit pas lu dans `fk_status`", () => {
+    const voisine = recreation.replace(
+      'SELECT "id", "zone"',
+      'SELECT "id", "fk_status"',
+    );
+    assert.deepStrictEqual(
+      pertes(voisine, recreee, () => ["id", "fk_status", "status"]),
+      ["User.status"],
+    );
   });
 });

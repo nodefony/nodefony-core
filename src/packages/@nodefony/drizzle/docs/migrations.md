@@ -263,8 +263,8 @@ Ce qui est refusé (`NF_GENERATE_RENAME`, rien n'est écrit) :
 > question. Ne déclarez pas un faux renommage pour la faire taire : générez en **deux fois** —
 > d'abord l'entité sans la colonne retirée (le garde destructif nomme la perte), puis avec l'ajout.
 
-**Allonger une colonne n'est pas une perte.** `varchar(16)` → `varchar(32)`, `integer` →
-`bigint` : le générateur le constate sur l'état de départ et n'exige rien. Raccourcir, changer de
+**Allonger une colonne n'est pas une perte.** `varchar(16)` → `varchar(32)`, `varchar(255)` →
+`text`, `integer` → `bigint` : le générateur le constate sur l'état de départ et n'exige rien. Raccourcir, changer de
 genre, ou rendre une colonne obligatoire reste refusé sans `--allow-destructive`.
 
 ### Ce que la commande refuse, et pourquoi c'est une bonne nouvelle
@@ -540,7 +540,9 @@ Ce que l'outil fait à la place, et qui vaut mieux :
 
 - **il refuse d'appliquer sans que vous sachiez.** Le SQL en attente est examiné avant la moindre
   écriture (`scanDestructive()`, `destructive.ts#scanDestructive`) : une suppression de données est refusée hors
-  développement, en nommant l'instruction et ce qui disparaît. Il faut `--allow-destructive` pour
+  développement, en nommant l'instruction et ce qui disparaît — y compris, en SQLite, la colonne
+  qu'une recréation de table ne recopie pas, sans qu'aucun `DROP COLUMN` ne l'écrive (lue dans
+  l'instantané qui précède le fichier). Il faut `--allow-destructive` pour
   passer outre, et **au démarrage il n'y a aucun drapeau pour lever le refus** — un exemplaire qui
   redémarre ne supprime jamais de colonne de lui-même, parce que personne ne regarde à ce
   moment-là ;

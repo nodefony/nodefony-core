@@ -597,6 +597,11 @@ SQLite n'a pas de type décimal exact. Le kit range donc un `decimal` en **texte
 colonne (`"12.50"`) : la valeur relue est exacte, chiffre pour chiffre, même sur 24 chiffres. Un
 type numérique l'aurait arrondie au-delà de 15 chiffres.
 
+Le défaut littéral d'une colonne (`default: "0"`) est écrit à la même échelle dans la base
+(`DEFAULT '0.0000'`) : une colonne ajoutée à une table déjà remplie donne aux lignes existantes
+la même écriture que celle des lignes neuves, et l'égalité les retrouve toutes. Même règle pour un
+`uuid` (minuscules) et un `date` (`colKit.sqlite.ts#canonicalDefault`).
+
 Le texte, lui, se compare en alphabet : `"9.50"` passerait après `"100.00"`. Le repository lit donc
 le montant comme un nombre (`CAST(… AS REAL)`) pour le trier et pour `$gt`, `$gte`, `$lt` et
 `$lte` ; l'égalité et `$in` restent en texte, exacts et servis par l'index

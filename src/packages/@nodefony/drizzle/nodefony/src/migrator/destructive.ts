@@ -1,3 +1,4 @@
+import { rebuildLosses } from "./rebuildCopy";
 import type { IMigrationFile } from "./types";
 
 /**
@@ -273,16 +274,44 @@ function truncate(statement: string): string {
 /**
  * Cherche, dans les migrations en attente, ce qui détruit ou casse.
  *
+ * 🔴 Une recréation SQLite qui ne RECOPIE pas une colonne la perd sans écrire
+ * un `DROP COLUMN` : seul l'état de DÉPART le montre. Avec `columnsBefore`
+ * (l'instantané qui précède chaque fichier — `review.ts#columnsBeforeFiles`),
+ * la recopie est relue et chaque colonne omise est une perte NOMMÉE ; sans lui,
+ * la recréation reste un avertissement.
+ *
  * @param files - migrations qui vont être appliquées.
+ * @param columnsBefore - les colonnes de départ, par fichier ; `null` si inconnues.
  * @returns une trouvaille par instruction reconnue, dans l'ordre d'application.
  */
 export function scanDestructive(
   files: readonly IMigrationFile[],
+  columnsBefore?: (
+    file: IMigrationFile,
+  ) => ((table: string) => readonly string[] | null) | null,
 ): IDestructiveFinding[] {
   const out: IDestructiveFinding[] = [];
   for (const file of files) {
     const rebuilt = rebuiltTables(file.statements);
-    for (const statement of file.statements) {
+    const columnsOf = columnsBefore?.(file) ?? null;
+    const lostAt =
+      columnsOf === null
+        ? new Map<number, string[]>()
+        : rebuildLosses(file.statements, rebuilt, columnsOf);
+    for (const [index, statement] of file.statements.entries()) {
+      const lost = lostAt.get(index) ?? [];
+      if (lost.length > 0) {
+        out.push({
+          source: file.source,
+          tag: file.tag,
+          path: file.path,
+          severity: "data-loss",
+          kind: "rebuild-drops-column",
+          what: `recrée la table SANS recopier ${lost.join(", ")} — ces colonnes et TOUTES leurs valeurs disparaissent`,
+          statement: truncate(statement),
+        });
+        continue;
+      }
       for (const p of PATTERNS) {
         if (!p.re.test(statement)) {
           continue;

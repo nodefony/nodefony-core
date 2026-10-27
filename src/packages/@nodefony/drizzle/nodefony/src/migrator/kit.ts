@@ -78,6 +78,7 @@ type ColumnsBefore = (
  */
 export { FORMAT_MARKER } from "./types";
 import { droppedTables, rebuiltTables } from "./destructive";
+import { rebuildLosses } from "./rebuildCopy";
 import { FORMAT_MARKER } from "./types";
 
 /**
@@ -444,9 +445,14 @@ const INTEGER_RANK: Readonly<Record<string, number>> = {
 
 /**
  * Le passage de `from` à `to` est-il un ÉLARGISSEMENT, qui garde toute
- * valeur ? Seuls deux cas sont reconnus — chaîne qui s'allonge, entier qui
- * monte de rang —, et une colonne qui DEVIENT obligatoire n'en est jamais un :
- * elle échoue sur les lignes vides.
+ * valeur ? Trois cas sont reconnus — chaîne qui s'allonge, chaîne bornée qui
+ * devient un texte, entier qui monte de rang —, et une colonne qui DEVIENT
+ * obligatoire n'en est jamais un : elle échoue sur les lignes vides.
+ *
+ * Le texte : PostgreSQL et SQLite n'y mettent aucune borne ; en MySQL, un
+ * `VARCHAR` plafonne à 65 535 octets, la capacité exacte d'un `TEXT`.
+ * `TINYTEXT` (255 octets) n'en est pas un : un `varchar(255)` en utf8mb4
+ * en porte jusqu'à 1 020.
  */
 export function isWidening(
   from: ISnapshotColumnFacts,
@@ -458,6 +464,12 @@ export function isWidening(
   const newLength = /^varchar\((\d+)\)$/iu.exec(to.trim());
   if (oldLength !== null && newLength !== null) {
     return Number(newLength[1]) >= Number(oldLength[1]);
+  }
+  if (
+    oldLength !== null &&
+    /^(?:text|mediumtext|longtext)$/iu.test(to.trim())
+  ) {
+    return true;
   }
   const oldRank = INTEGER_RANK[from.type.trim().toLowerCase()];
   const newRank = INTEGER_RANK[to.trim().toLowerCase()];
@@ -508,12 +520,17 @@ function onlyWidenings(code: string, before?: ColumnsBefore): boolean {
  * @param before - les colonnes de l'état de DÉPART (instantané précédent) : un
  *   changement de type qui n'est qu'un élargissement prouvé n'est pas une perte.
  *   Absent, tout changement de type reste signalé.
+ * @param columnsOf - les colonnes de chaque table dans l'état de DÉPART : une
+ *   recréation SQLite qui en omet une dans sa recopie la PERD sans écrire de
+ *   `DROP COLUMN` — c'est le seul moyen de la voir. Absent, la recréation
+ *   n'est pas jugée.
  * @returns `{ destructive, blocking }`, chacun décrivant ce qui a été reconnu.
  */
 export function auditMigrationSql(
   sql: string,
   dialect: SqlDialect,
   before?: ColumnsBefore,
+  columnsOf?: (table: string) => readonly string[] | null,
 ): IMigrationAudit {
   // Les commentaires portent des mots-clés (« DROP COLUMN » dans une phrase) et
   // produiraient des refus fantômes.
@@ -527,10 +544,28 @@ export function auditMigrationSql(
       .filter((rule) => rule.pattern.test(code))
       .filter((rule) => rule.detect === undefined || rule.detect(code, before))
       .map(({ id, what, todo }) => ({ id, what, todo }));
-  return {
-    destructive: match(DESTRUCTIVE_PATTERNS),
-    blocking: match(BLOCKING_PATTERNS),
-  };
+  const destructive = match(DESTRUCTIVE_PATTERNS);
+  const lost =
+    columnsOf === undefined
+      ? []
+      : [
+          ...rebuildLosses(
+            code.split(";"),
+            rebuiltTables(code),
+            columnsOf,
+          ).values(),
+        ].flat();
+  if (lost.length > 0) {
+    destructive.push({
+      id: "rebuild-drops-column",
+      what: `recrée la table SANS recopier ${lost.join(", ")} — ces colonnes et TOUTES leurs valeurs disparaissent`,
+      todo:
+        "s'il s'agissait d'un RENOMMAGE, annuler ces fichiers et regénérer en le " +
+        "déclarant (« --rename table.ancienne=nouvelle ») : la recopie suit alors " +
+        "le nouveau nom",
+    });
+  }
+  return { destructive, blocking: match(BLOCKING_PATTERNS) };
 }
 
 /**

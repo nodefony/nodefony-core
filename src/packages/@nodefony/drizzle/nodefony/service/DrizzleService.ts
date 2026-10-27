@@ -43,6 +43,7 @@ import {
   scanDestructive,
   summarizeDestructive,
 } from "../src/migrator/destructive";
+import { columnsBeforeFiles } from "../src/migrator/review";
 import type { DdlMode } from "../config/config";
 import { isDialectFallback } from "../config/defineModuleConfig";
 import { sqliteFallbackNotice } from "../src/sqliteFallbackNotice";
@@ -596,7 +597,12 @@ class DrizzleService extends Service {
         // elle se prend en tapant la commande — jamais en relançant un
         // processus.
         const prevu = await migrator.status();
-        const losses = dataLoss(scanDestructive(prevu.pending));
+        const losses = dataLoss(
+          scanDestructive(
+            prevu.pending,
+            await columnsBeforeFiles(prevu.pending),
+          ),
+        );
         if (losses.length > 0) {
           this.log(
             `${summarizeDestructive(losses, name)}\n` +

@@ -142,6 +142,28 @@ describe("garde destructif — ce qui ne DOIT PAS crier au loup", () => {
     );
   });
 
+  it("🔴 une recréation qui ne RECOPIE PAS une colonne est une perte — nommée", () => {
+    // Vu sur un schéma réel : sept colonnes d'une table disparaissaient par
+    // une recréation, sans un `DROP COLUMN` — donc sans un refus, ni à la
+    // génération ni à l'application. Le garde lit les colonnes de DÉPART dans
+    // l'instantané qui précède le fichier.
+    const recreation = fichier([
+      "CREATE TABLE `__new_post` (`id` text PRIMARY KEY, `titre` text)",
+      "INSERT INTO `__new_post`(`id`, `titre`) SELECT `id`, `titre` FROM `post`",
+      "DROP TABLE `post`",
+      "ALTER TABLE `__new_post` RENAME TO `post`",
+    ]);
+    const f = scanDestructive(
+      [recreation],
+      () => (table) => (table === "post" ? ["id", "titre", "iban"] : null),
+    );
+    const pertes = dataLoss(f);
+    assert.deepEqual(kinds(pertes), ["rebuild-drops-column"]);
+    assert.match(pertes[0]?.what ?? "", /post\.iban/u);
+    // Sans l'état de départ, rien de neuf n'est affirmé.
+    assert.equal(dataLoss(scanDestructive([recreation])).length, 0);
+  });
+
   it("changer un type ou rendre obligatoire avertit sans bloquer", () => {
     for (const sql of [
       'ALTER TABLE "post" ALTER COLUMN "vues" TYPE bigint',
