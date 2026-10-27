@@ -184,6 +184,12 @@ export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
       "banc de schéma réel : chemin du specs.json d'un corpus tiers converti " +
       "(jamais versionné) — posé par bench-real-schema.mjs",
   },
+  {
+    env: "NF_REAL_SCHEMA_EVOLUTION",
+    what:
+      "banc d'évolution d'un schéma réel : fichier { from, to, renames, drops } " +
+      "d'une version à la suivante — posé par bench-real-schema.mjs --evolve",
+  },
 ];
 
 /**

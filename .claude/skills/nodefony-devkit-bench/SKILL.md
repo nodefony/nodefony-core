@@ -445,6 +445,43 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-real-schema.mjs --databa
   sauf `--keep`. Le décor gardé se démarre (`nodefony development --detach --wait`, ports 5395/5396)
   pour regarder le schéma dans la console d'administration.
 
+### `--evolve <A>..<B>` — le schéma ÉVOLUE-t-il sans perte ?
+
+```bash
+node .claude/skills/nodefony-devkit-bench/scripts/bench-real-schema.mjs --evolve 19.0.4..20.0.4
+node .claude/skills/nodefony-devkit-bench/scripts/lib/schema-evolution-plan.selftest.mjs
+```
+
+Deux étiquettes du corpus (`corpus-fetch.mjs --ref`, un cache PAR étiquette sous
+`tmp/bench/corpus/erp-refs/`), et entre elles l'**ORACLE** : le script de passage que l'auteur
+publie (`migration/<A>-<B>.sql`). `scripts/lib/schema-evolution-plan.mjs` le lit — `CHANGE COLUMN a b`
+et `RENAME TO` deviennent des `--rename`, `DROP COLUMN`/`DROP TABLE` des suppressions VOULUES —
+puis le confronte aux deux formes d'installation. Le rapport du premier étage nomme tout :
+
+- **abandonné** = disparu de la forme d'installation SANS que le script le supprime. L'amont le
+  laisse en base ; un schéma déclaratif le supprime. Déclaré comme suppression, et distingué ;
+- **non applicable** = un renommage de l'oracle dont l'ancien ou le nouveau nom manque d'un côté ;
+- **hors périmètre** = les instructions de DONNÉES du script (logique de l'application).
+
+Les suppressions passent par une génération À PART, avant celle des renommages : une suppression
+et un ajout dans la même table se lisent comme un renommage probable, et le produit prescrit
+alors deux générations. L'état intermédiaire est calculé UNE fois, par la lib.
+
+1. **Contrat** — `real-schema-evolution.e2e.test.ts` (`NF_REAL_SCHEMA_EVOLUTION`), même déroulé
+   que le corpus versionné `erp-lite` (`schema-evolution-contract.ts`) : base peuplée en `A` par
+   l'applicateur réel, une ligne témoin par table — une colonne qui DEVIENT référence vise une
+   ligne existante, comme après la purge des orphelins que fait l'oracle —, garde de
+   `orm:migrate` relu sur son plan (chaque suppression voulue nommée, rien d'autre), chaque
+   valeur relue en `B`. Un renommage retiré doit faire s'arrêter l'outil.
+2. **Application** — par les seules commandes : `orm:generate` REFUSE les suppressions
+   (`NF_GENERATE_DESTRUCTIVE`), `orm:migrate --dry-run` les NOMME, puis `B` par
+   `orm:generate --rename …`, statut aligné, tables comptées, second `orm:generate` vide.
+
+- **En développement, `orm:migrate` applique une suppression en la signalant** (stderr) ; il ne
+  la REFUSE qu'hors développement (`NF_MIGRATE_DESTRUCTIVE`). Le banc lit donc le `--dry-run`.
+- **La plage se choisit sur l'oracle, pas sur la date** : 23.x → 24.x ne porte aucun renommage
+  (`MODIFY` seuls) ; 19.x → 20.x en porte six, dont des colonnes d'une table renommée.
+
 ## Interpréter un échec — commencer par le décor
 
 Trois causes ont déjà envoyé chercher très loin du vrai problème. Les écarter

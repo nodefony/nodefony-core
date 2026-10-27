@@ -14,7 +14,11 @@
  *
  * Le commit lu est ÉPINGLÉ dans `source.json` à côté du cache : un verdict du
  * banc vaut pour un schéma précis, et une branche de développement bouge chaque
- * jour.
+ * jour. Une étiquette autre que la référence du catalogue a SON cache
+ * (`tmp/bench/corpus/<nom>-refs/<étiquette>/`) : le banc d'évolution en lit
+ * deux à la fois, et un cache unique rendait l'une pour l'autre sans le dire.
+ * Le dossier des scripts de passage (`migrationPath`) est récupéré avec les
+ * tables — c'est l'ORACLE des renommages.
  *
  * Usage :
  *   node corpus-fetch.mjs                     # corpus `erp`, cache réutilisé
@@ -59,13 +63,16 @@ export function findRepoRoot(from = ICI) {
  *   volume, 44 longueurs de `varchar`, des montants `double(24,8)`, des
  *   horodatages `ON UPDATE`, des tables de liaison à clé composite.
  *
- * @type {Record<string, { upstream: string, ref: string, sparsePath: string, tablePrefix: string, license: string, domains?: { fallback: string, rules: [string, string][] } }>}
+ * @type {Record<string, { upstream: string, ref: string, sparsePath: string, migrationPath: string, tablePrefix: string, license: string, domains?: { fallback: string, rules: [string, string][] } }>}
  */
 export const CORPORA = {
   erp: {
     upstream: "https://github.com/Dolibarr/dolibarr.git",
     ref: "develop",
     sparsePath: "htdocs/install/mysql/tables",
+    // `<A>-<B>.sql` par version majeure : ce que l'auteur du schéma VOULAIT
+    // (un `CHANGE COLUMN a b` est un renommage, pas une suppression).
+    migrationPath: "htdocs/install/mysql/migration",
     tablePrefix: "llx_",
     license: "GPL-3.0",
     // Domaine fonctionnel d'une table, par préfixe APRÈS `tablePrefix` (le
@@ -161,22 +168,35 @@ export const CORPORA = {
   },
 };
 
-/** Le cache d'un corpus — sous `tmp/bench/`, catégorie déclarée de `tmp/`. */
-export function corpusCache(name) {
-  return path.join(findRepoRoot(ICI), "tmp", "bench", "corpus", name);
+/**
+ * Le cache d'un corpus — sous `tmp/bench/`, catégorie déclarée de `tmp/`.
+ * Une étiquette autre que la référence du catalogue a son propre dossier.
+ */
+export function corpusCache(name, ref) {
+  const root = path.join(findRepoRoot(ICI), "tmp", "bench", "corpus");
+  return ref === undefined || ref === CORPORA[name].ref
+    ? path.join(root, name)
+    : path.join(root, `${name}-refs`, ref);
 }
 
 /**
- * Dossier des fichiers DDL d'un corpus en cache, et le commit épinglé.
+ * Dossier des fichiers DDL d'un corpus en cache, celui de ses scripts de
+ * passage, et le commit épinglé. `null` quand le cache manque, ou qu'il a été
+ * tiré d'une AUTRE référence, ou d'avant la récupération des scripts de passage.
  *
- * @returns {{ dir: string, source: { corpus: string, ref: string, commit: string, fetchedAt: string } } | null}
+ * @returns {{ dir: string, migrations: string, source: { corpus: string, ref: string, commit: string, fetchedAt: string } } | null}
  */
-export function cachedCorpus(name = "erp") {
-  const cache = corpusCache(name);
+export function cachedCorpus(name = "erp", ref = CORPORA[name].ref) {
+  const cache = corpusCache(name, ref);
   const sourceFile = path.join(cache, "source.json");
-  const dir = path.join(cache, "repo", ...CORPORA[name].sparsePath.split("/"));
-  if (!existsSync(sourceFile) || !existsSync(dir)) return null;
-  return { dir, source: JSON.parse(readFileSync(sourceFile, "utf8")) };
+  const repo = path.join(cache, "repo");
+  const dir = path.join(repo, ...CORPORA[name].sparsePath.split("/"));
+  const migrations = path.join(repo, ...CORPORA[name].migrationPath.split("/"));
+  if (!existsSync(sourceFile) || !existsSync(dir) || !existsSync(migrations)) {
+    return null;
+  }
+  const source = JSON.parse(readFileSync(sourceFile, "utf8"));
+  return source.ref === ref ? { dir, migrations, source } : null;
 }
 
 function git(args, cwd) {
@@ -192,13 +212,13 @@ function git(args, cwd) {
 /**
  * Télécharge un corpus (clone sparse sans blobs) et épingle le commit lu.
  *
- * @returns {{ dir: string, source: { corpus: string, ref: string, commit: string, fetchedAt: string } }}
+ * @returns {{ dir: string, migrations: string, source: { corpus: string, ref: string, commit: string, fetchedAt: string } }}
  */
 export function fetchCorpus({ name = "erp", ref } = {}) {
   const entry = CORPORA[name];
-  const cache = corpusCache(name);
-  const repo = path.join(cache, "repo");
   const wanted = ref ?? entry.ref;
+  const cache = corpusCache(name, wanted);
+  const repo = path.join(cache, "repo");
   rmSync(repo, { recursive: true, force: true });
   mkdirSync(cache, { recursive: true });
   git(
@@ -215,7 +235,16 @@ export function fetchCorpus({ name = "erp", ref } = {}) {
     ],
     cache,
   );
-  git(["sparse-checkout", "set", "--no-cone", `/${entry.sparsePath}`], repo);
+  git(
+    [
+      "sparse-checkout",
+      "set",
+      "--no-cone",
+      `/${entry.sparsePath}`,
+      `/${entry.migrationPath}`,
+    ],
+    repo,
+  );
   const source = {
     corpus: name,
     ref: wanted,
@@ -226,10 +255,10 @@ export function fetchCorpus({ name = "erp", ref } = {}) {
     path.join(cache, "source.json"),
     `${JSON.stringify(source, null, 2)}\n`,
   );
-  const corpus = cachedCorpus(name);
+  const corpus = cachedCorpus(name, wanted);
   if (corpus === null) {
     throw new Error(
-      `clone fait, mais ${entry.sparsePath} absent — l'amont a-t-il bougé ?`,
+      `clone fait, mais ${entry.sparsePath} ou ${entry.migrationPath} absent — l'amont a-t-il bougé ?`,
     );
   }
   return corpus;
@@ -260,10 +289,11 @@ function main() {
     );
     process.exit(64);
   }
-  let corpus = args.includes("--refresh") ? null : cachedCorpus(name);
+  const ref = valueOf("--ref") ?? CORPORA[name].ref;
+  let corpus = args.includes("--refresh") ? null : cachedCorpus(name, ref);
   if (corpus === null) {
     try {
-      corpus = fetchCorpus({ name, ref: valueOf("--ref") });
+      corpus = fetchCorpus({ name, ref });
     } catch (error) {
       process.stderr.write(
         `${error instanceof Error ? error.message : String(error)}\n`,

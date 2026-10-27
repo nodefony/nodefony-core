@@ -18,6 +18,16 @@
  *    `orm:migrate`, `orm:migrate:status` aligné, un second `orm:generate` qui
  *    ne trouve RIEN à écrire, et les tables comptées dans la base elle-même.
  *
+ * `--evolve <A>..<B>` éprouve l'ÉVOLUTION au lieu de la création : deux
+ * étiquettes du corpus, et le script de passage que l'auteur publie entre elles
+ * comme ORACLE (`lib/schema-evolution-plan.mjs`) — ses `CHANGE COLUMN a b` et
+ * `RENAME TO` deviennent des `--rename`, ses `DROP` des suppressions voulues,
+ * et ce que la forme d'installation abandonne sans le supprimer est NOMMÉ.
+ * Étage 1 : `real-schema-evolution.e2e.test.ts` (base peuplée à `A`, une ligne
+ * témoin par table, relue à `B`). Étage 2 : l'application, par les seules
+ * commandes — `orm:generate` refuse les suppressions, `orm:migrate --dry-run`
+ * les nomme, les renommages passent par `--rename`.
+ *
  * Le matérialiseur (description sérialisée → table du kit) n'existe qu'UNE
  * fois : `tests/integration/serialized-specs.ts` du paquet drizzle. L'étage 2
  * en recopie la source (`lib/materializer-copy.mjs`), ses imports relus vers `@nodefony/drizzle` — la
@@ -35,6 +45,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -51,6 +62,12 @@ import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec } from "./lib/extrait-echec.mjs";
 import { copyMaterializer } from "./lib/materializer-copy.mjs";
+import {
+  namesDrop,
+  parseOracleMigration,
+  planEvolution,
+} from "./lib/schema-evolution-plan.mjs";
+import { cachedCorpus, corpusCache } from "./corpus-fetch.mjs";
 import {
   assertIsolated,
   installFromTarballs,
@@ -74,6 +91,7 @@ const USAGE = `Banc de schéma réel — contrat du kit puis application, par mo
   node bench-real-schema.mjs --keep                   # garde décor et bases
   node bench-real-schema.mjs --repack                 # rebâtit les tarballs de l'application
   node bench-real-schema.mjs --admin-<moteur> <url>   # administrateur d'un moteur
+  node bench-real-schema.mjs --evolve 19.0.4..20.0.4  # évolution d'une étiquette à l'autre
 
 Sorties : 0 tout vert · 1 au moins une étape rouge · 64 usage.`;
 // AVANT tout geste : le banc vide son décor et recrée des bases. Un drapeau
@@ -86,9 +104,15 @@ garderDrapeaux({
     "--only",
     "--keep",
     "--repack",
+    "--evolve",
     ...ENGINES.map((e) => `--admin-${e.key}`),
   ],
-  aValeur: ["--database", "--only", ...ENGINES.map((e) => `--admin-${e.key}`)],
+  aValeur: [
+    "--database",
+    "--only",
+    "--evolve",
+    ...ENGINES.map((e) => `--admin-${e.key}`),
+  ],
   usage: USAGE,
   avertissement: "Rien n'a été lancé : ni décor vidé, ni base recréée.",
 });
@@ -123,6 +147,17 @@ if (ONLY !== undefined && ONLY !== "contract" && ONLY !== "app") {
   process.exit(64);
 }
 const KEEP = ARGS.includes("--keep");
+const [EVOLVE] = values("--evolve");
+/** Les deux étiquettes de `--evolve <A>..<B>`, ou `null`. */
+const REFS = (() => {
+  if (EVOLVE === undefined) return null;
+  const [from, to, ...rest] = EVOLVE.split("..");
+  if (!from || !to || rest.length > 0) {
+    process.stderr.write(`--evolve ${EVOLVE} : attendu <A>..<B>\n`);
+    process.exit(64);
+  }
+  return { from, to };
+})();
 
 const ROOT = decorRoot({ linked: false, database: "real-schema" });
 const APP_NAME = "erpbench";
@@ -134,6 +169,11 @@ const APP = path.join(ROOT, APP_NAME);
  */
 const JOURNALS = path.join(ROOT, "journaux");
 const SPECS_FILE = path.join(REPO, "tmp/bench/corpus/erp/specs.json");
+/** Le fichier que lit `real-schema-evolution.e2e.test.ts`. */
+const EVOLUTION_FILE = path.join(ROOT, "evolution.json");
+const BETWEEN_FILE = path.join(ROOT, "specs-intermediaire.json");
+/** Le plan d'évolution, posé par `prepareEvolution`. */
+let EVOLUTION = null;
 /** Ports dédiés : un autre serveur Nodefony ne doit pas répondre à sa place. */
 const PORTS = { NF_PORT: "5395", NF_PORT_HTTPS: "5396" };
 const DB_CONTRACT = "nf_real_schema_contract";
@@ -209,10 +249,14 @@ function nodefony(args, options) {
   );
 }
 
+/** Les descriptions d'un fichier converti. */
+function readSpecs(file) {
+  return JSON.parse(readFileSync(file, "utf8")).specs;
+}
+
 /** Les tables du corpus, lues dans le fichier converti. */
 function corpusTables() {
-  const { specs } = JSON.parse(readFileSync(SPECS_FILE, "utf8"));
-  return specs.map((s) => s.name);
+  return readSpecs(SPECS_FILE).map((s) => s.name);
 }
 
 // ─── Étage 0 : le corpus ────────────────────────────────────────────────────
@@ -229,6 +273,102 @@ async function prepareCorpus() {
   });
 }
 
+/** Le specs.json d'une étiquette (cache de `corpus-fetch.mjs --ref`). */
+const specsOfRef = (ref) => path.join(corpusCache("erp", ref), "specs.json");
+
+/**
+ * Récupère et convertit les deux étiquettes, lit l'oracle entre elles, et
+ * écrit le plan que liront le contrat et l'application.
+ */
+async function prepareEvolution() {
+  return step(
+    `évolution ${REFS.from} → ${REFS.to} : étiquettes converties, oracle lu`,
+    () => {
+      for (const ref of [REFS.from, REFS.to]) {
+        run(
+          process.execPath,
+          [path.join(ICI, "corpus-fetch.mjs"), "--ref", ref],
+          {
+            cwd: REPO,
+          },
+        );
+        const before = Date.now();
+        // Sortie 1 = une ligne NON comprise, nommée — le fichier est écrit
+        // quand même ; on la montre, on ne la tait pas.
+        const res = run(
+          process.execPath,
+          [path.join(ICI, "mysql-ddl-to-specs.mjs"), "--ref", ref],
+          { cwd: REPO, expected: null },
+        );
+        const fresh =
+          existsSync(specsOfRef(ref)) &&
+          statSync(specsOfRef(ref)).mtimeMs >= before - 1000;
+        if (res.status > 1 || !fresh) {
+          throw new Error(`conversion de ${ref} impossible — ${res.log}`);
+        }
+        const unread = /DDL non compris :\n([\s\S]*)/u.exec(res.out)?.[1];
+        if (unread) {
+          process.stdout.write(
+            `   ⚠️ ${ref} — non compris, NOMMÉ (le reste est converti) :\n${unread.trimEnd().replace(/^/gmu, "      ")}\n`,
+          );
+        }
+      }
+      const oracleDir = cachedCorpus("erp", REFS.to)?.migrations;
+      if (!oracleDir)
+        throw new Error(`scripts de passage de ${REFS.to} absents`);
+      const [majorFrom, majorTo] = [REFS.from, REFS.to].map((r) =>
+        Number.parseInt(r, 10),
+      );
+      const scripts = [];
+      for (let m = majorFrom; m < majorTo; m++) {
+        const file = path.join(oracleDir, `${m}.0.0-${m + 1}.0.0.sql`);
+        if (!existsSync(file)) throw new Error(`oracle absent : ${file}`);
+        scripts.push(file);
+      }
+      const oracle = parseOracleMigration(
+        scripts.map((f) => readFileSync(f, "utf8")).join("\n"),
+      );
+      const plan = planEvolution({
+        from: readSpecs(specsOfRef(REFS.from)),
+        to: readSpecs(specsOfRef(REFS.to)),
+        oracle,
+      });
+      mkdirSync(ROOT, { recursive: true });
+      writeFileSync(BETWEEN_FILE, JSON.stringify({ specs: plan.between }));
+      writeFileSync(
+        EVOLUTION_FILE,
+        `${JSON.stringify(
+          {
+            from: specsOfRef(REFS.from),
+            between: BETWEEN_FILE,
+            to: specsOfRef(REFS.to),
+            renames: plan.renames,
+            drops: plan.drops,
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      EVOLUTION = { ...plan, oracle, scripts };
+      const list = (items) =>
+        items.length === 0
+          ? " aucun"
+          : `\n${items.map((i) => `      · ${i}`).join("\n")}`;
+      process.stdout.write(
+        [
+          `   oracle : ${scripts.map((s) => path.basename(s)).join(", ")}`,
+          `   renommages déclarés (--rename) :${list(plan.renames)}`,
+          `   suppressions VOULUES par l'oracle :${list(plan.declaredDrops)}`,
+          `   ABANDONNÉES par la forme d'installation (l'amont les garde en base, un schéma déclaratif les supprime) :${list(plan.abandoned)}`,
+          `   renommages de l'oracle NON applicables :${list(plan.notApplied.map((n) => `${n.what} — ${n.why}`))}`,
+          `   hors périmètre : ${oracle.dataStatements} instruction(s) de DONNÉES du script (logique de l'application, non rejouées)`,
+          "",
+        ].join("\n"),
+      );
+    },
+  );
+}
+
 // ─── Étage 1 : le contrat du kit ─────────────────────────────────────────────
 
 /** L'environnement d'une passe du contrat : SEULE l'adresse du moteur visé. */
@@ -237,7 +377,8 @@ function contractEnv(engine, url) {
   for (const k of ["NF_PG_URL", "NF_MYSQL_URL", "NF_DATABASE_URL"]) {
     delete env[k];
   }
-  env.NF_REAL_SCHEMA_SPECS = SPECS_FILE;
+  if (REFS === null) env.NF_REAL_SCHEMA_SPECS = SPECS_FILE;
+  else env.NF_REAL_SCHEMA_EVOLUTION = EVOLUTION_FILE;
   // Une passe FILTRÉE : ce qu'elle ne vise pas est ÉNONCÉ, pas oublié.
   env.NF_GATES_ALLOW = "NF_PG_URL,NF_MYSQL_URL";
   if (engine.dialect === "postgres") env.NF_PG_URL = url;
@@ -246,8 +387,19 @@ function contractEnv(engine, url) {
 }
 
 async function runContract(engine) {
+  const evolving = REFS !== null;
+  // Évolution : 3 cas, plus le renommage retenu s'il y a des renommages, plus
+  // la génération des suppressions s'il y en a — un cas non déclaré n'est
+  // pas un saut, il ne doit pas être attendu.
+  const cases = evolving
+    ? 3 +
+      (EVOLUTION.renames.length > 0 ? 1 : 0) +
+      (EVOLUTION.drops.length > 0 ? 1 : 0)
+    : 4;
   return step(
-    `${engine.key} — contrat du kit : tables créées (DDL dérivé + migration), témoins relus, défauts`,
+    evolving
+      ? `${engine.key} — contrat d'évolution : base peuplée à ${REFS.from}, ${cases} cas, chaque témoin relu à ${REFS.to}`
+      : `${engine.key} — contrat du kit : tables créées (DDL dérivé + migration), témoins relus, défauts`,
     async () => {
       let url;
       if (engine.admin !== null) {
@@ -261,20 +413,21 @@ async function runContract(engine) {
         [
           "vitest",
           "run",
-          "tests/integration/real-schema.e2e.test.ts",
+          evolving
+            ? "tests/integration/real-schema-evolution.e2e.test.ts"
+            : "tests/integration/real-schema.e2e.test.ts",
           "-t",
           `(${label})`,
         ],
         { cwd: DRIZZLE, env: contractEnv(engine, url) },
       );
-      // Quatre cas par moteur (deux chemins × témoins + défauts) : un `-t`
-      // qui ne mord sur rien rendrait 0 passé et un code 0.
+      // Un `-t` qui ne mord sur rien rendrait 0 passé et un code 0.
       const passed = /Tests\s+(\d+) passed/u.exec(
         res.out.replace(/\x1b\[[\d;]*m/gu, ""),
       );
-      if (!passed || Number(passed[1]) < 4) {
+      if (!passed || Number(passed[1]) < cases) {
         throw new Error(
-          `le contrat n'a pas exercé ses 4 cas sur ${engine.key} — ${res.log}`,
+          `le contrat n'a pas exercé ses ${cases} cas sur ${engine.key} — ${res.log}`,
         );
       }
     },
@@ -290,13 +443,12 @@ async function runContract(engine) {
  * `import.meta`), et un `defineEntity` par table — la forme que `create entity`
  * écrirait.
  */
-function writeCorpusEntities(moduleName) {
+function writeCorpusEntities(moduleName, specs) {
   const dir = path.join(APP, "nodefony", "entity");
   writeFileSync(
     path.join(dir, "serializedSpecs.ts"),
     copyMaterializer(REPO, "bench-real-schema.mjs"),
   );
-  const { specs } = JSON.parse(readFileSync(SPECS_FILE, "utf8"));
   writeFileSync(
     path.join(dir, "corpus.ts"),
     [
@@ -356,9 +508,18 @@ function wireCorpusEntities() {
   writeFileSync(file, text);
 }
 
-async function mountApp() {
+/** Le module de l'application, où vivent les entités du corpus. */
+let MODULE_NAME = null;
+
+/** Déclare une version du corpus dans l'application, puis la rebâtit. */
+function declareCorpus(specs) {
+  writeCorpusEntities(MODULE_NAME, specs);
+  run("npm", ["run", "build"]);
+}
+
+async function mountApp(specs) {
   return step(
-    "application : NÉE en SQLite, isolée (tarballs), 421 entités déclarées",
+    `application : NÉE en SQLite, isolée (tarballs), ${specs.length} entités déclarées`,
     () => {
       // L'application SEULE : les journaux du contrat restent lisibles.
       rmSync(APP, { recursive: true, force: true });
@@ -391,11 +552,10 @@ async function mountApp() {
         path.join(APP, "nodefony", "entity", "User.ts"),
         "utf8",
       );
-      const moduleName = /module:\s*"([^"]+)"/u.exec(user)?.[1];
-      if (!moduleName) throw new Error("module de l'entité User illisible");
-      writeCorpusEntities(moduleName);
+      MODULE_NAME = /module:\s*"([^"]+)"/u.exec(user)?.[1] ?? null;
+      if (!MODULE_NAME) throw new Error("module de l'entité User illisible");
       wireCorpusEntities();
-      run("npm", ["run", "build"]);
+      declareCorpus(specs);
     },
   );
 }
@@ -410,8 +570,8 @@ function migrationFiles(dialect) {
 }
 
 /** Compte les tables du corpus présentes dans la base de l'application. */
-async function countCorpusTables(engine, url) {
-  const wanted = new Set(corpusTables().map((n) => n.toLowerCase()));
+async function countCorpusTables(engine, url, tables = corpusTables()) {
+  const wanted = new Set(tables.map((n) => n.toLowerCase()));
   let names = [];
   if (engine.dialect === "sqlite") {
     const dir = path.join(APP, "var", "databases");
@@ -454,30 +614,40 @@ async function countCorpusTables(engine, url) {
   return names.filter((n) => wanted.has(String(n).toLowerCase())).length;
 }
 
+/**
+ * Recrée la base du moteur et installe son pilote dans l'application.
+ *
+ * @returns l'adresse de la base, `null` pour SQLite.
+ */
+async function prepareEngine(engine) {
+  let url = null;
+  if (engine.admin !== null) {
+    url = (await recreateDatabases(engine, [DB_APP], APP_USER))[DB_APP];
+    const driverDir = path.join(APP, "node_modules", engine.driver);
+    if (!existsSync(driverDir)) {
+      const version = JSON.parse(
+        readFileSync(
+          path.join(REPO, "node_modules", engine.driver, "package.json"),
+          "utf8",
+        ),
+      ).version;
+      run("npm", [
+        "install",
+        `${engine.driver}@${version}`,
+        "--no-audit",
+        "--no-fund",
+      ]);
+    }
+  }
+  return url;
+}
+
 async function runApp(engine) {
   const tables = corpusTables().length;
   return step(
     `${engine.key} — application : orm:generate, orm:migrate, statut aligné, ${tables} tables en base, second orm:generate vide`,
     async () => {
-      let url = null;
-      if (engine.admin !== null) {
-        url = (await recreateDatabases(engine, [DB_APP], APP_USER))[DB_APP];
-        const driverDir = path.join(APP, "node_modules", engine.driver);
-        if (!existsSync(driverDir)) {
-          const version = JSON.parse(
-            readFileSync(
-              path.join(REPO, "node_modules", engine.driver, "package.json"),
-              "utf8",
-            ),
-          ).version;
-          run("npm", [
-            "install",
-            `${engine.driver}@${version}`,
-            "--no-audit",
-            "--no-fund",
-          ]);
-        }
-      }
+      const url = await prepareEngine(engine);
       setDatabaseUrl(path.join(APP, ".env"), url);
       const before = migrationFiles(engine.dialect).length;
       nodefony(["orm:generate", "--name", "realschema"]);
@@ -503,19 +673,105 @@ async function runApp(engine) {
   );
 }
 
+/**
+ * L'évolution par les SEULES commandes, sur une application qui a vécu en
+ * `A` : les suppressions d'abord (refusées par `orm:generate`, nommées par
+ * `orm:migrate --dry-run`), puis `B` avec ses `--rename`.
+ */
+async function runAppEvolution(engine) {
+  const from = readSpecs(specsOfRef(REFS.from));
+  const to = readSpecs(specsOfRef(REFS.to));
+  const { drops, renames } = EVOLUTION;
+  return step(
+    `${engine.key} — application : ${REFS.from} migrée, ${drops.length} suppression(s) refusée(s) puis nommée(s), ${REFS.to} par ${renames.length} --rename, statut aligné, ${to.length} tables, second orm:generate vide`,
+    async () => {
+      const url = await prepareEngine(engine);
+      setDatabaseUrl(path.join(APP, ".env"), url);
+      // Chaque moteur repart de SA version de départ : l'historique écrit
+      // pour un autre moteur du même dialecte ne doit pas répondre à sa place.
+      rmSync(path.join(APP, "migrations", engine.dialect), {
+        recursive: true,
+        force: true,
+      });
+      declareCorpus(from);
+      nodefony(["orm:generate", "--name", "v1"]);
+      nodefony(["orm:migrate"]);
+      if (drops.length > 0) {
+        declareCorpus(EVOLUTION.between);
+        const refused = nodefony(["orm:generate", "--name", "drops"], {
+          expected: null,
+        });
+        if (
+          refused.status === 0 ||
+          !refused.out.includes("NF_GENERATE_DESTRUCTIVE")
+        ) {
+          throw new Error(
+            `orm:generate n'a PAS refusé ${drops.length} suppression(s) — ${refused.log}`,
+          );
+        }
+        // Le garde d'`orm:migrate` lit le plan : chaque suppression NOMMÉE,
+        // et l'essai sort en 1 — « action requise ».
+        const dry = nodefony(["orm:migrate", "--dry-run"], { expected: 1 });
+        const unnamed = drops.filter((d) => !namesDrop(dry.out, d));
+        if (unnamed.length > 0) {
+          throw new Error(
+            `orm:migrate --dry-run ne nomme pas : ${unnamed.join(", ")} — ${dry.log}`,
+          );
+        }
+        nodefony(["orm:migrate"]);
+      }
+      declareCorpus(to);
+      // Un renommage oublié = suppression + ajout : `orm:generate` refuse
+      // (renommage probable, ou destruction) — le code de sortie le dit.
+      nodefony([
+        "orm:generate",
+        "--name",
+        "evolve",
+        ...renames.flatMap((r) => ["--rename", r]),
+      ]);
+      nodefony(["orm:migrate"]);
+      nodefony(["orm:migrate:status", "--json"]);
+      const present = await countCorpusTables(
+        engine,
+        url,
+        to.map((s) => s.name),
+      );
+      if (present !== to.length) {
+        throw new Error(`${present} table(s) en base, ${to.length} attendues`);
+      }
+      const again = migrationFiles(engine.dialect).length;
+      nodefony(["orm:generate", "--name", "drift"]);
+      if (migrationFiles(engine.dialect).length !== again) {
+        throw new Error(
+          "un second orm:generate a écrit une migration : l'état d'arrivée ne se relit pas à l'identique",
+        );
+      }
+    },
+  );
+}
+
 // ─── Déroulé ────────────────────────────────────────────────────────────────
 
 // Les journaux d'un run précédent mentiraient sur celui-ci.
 rmSync(JOURNALS, { recursive: true, force: true });
 
-if (!(await prepareCorpus())) process.exit(1);
+if (!(await (REFS === null ? prepareCorpus() : prepareEvolution()))) {
+  process.exit(1);
+}
 
 if (ONLY !== "app") {
   for (const engine of SELECTED) await runContract(engine);
 }
 
-if (ONLY !== "contract" && (await mountApp())) {
-  for (const engine of SELECTED) await runApp(engine);
+if (
+  ONLY !== "contract" &&
+  (await mountApp(
+    readSpecs(REFS === null ? SPECS_FILE : specsOfRef(REFS.from)),
+  ))
+) {
+  for (const engine of SELECTED) {
+    await (REFS === null ? runApp(engine) : runAppEvolution(engine));
+  }
 }
 
 const failed = steps.filter((s) => !s.ok);

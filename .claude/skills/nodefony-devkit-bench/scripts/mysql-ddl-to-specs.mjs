@@ -51,6 +51,7 @@
  * Usage :
  *   node mysql-ddl-to-specs.mjs                   # corpus `erp` (cache de corpus-fetch.mjs)
  *   node mysql-ddl-to-specs.mjs --corpus <nom>    # un autre corpus du catalogue
+ *   node mysql-ddl-to-specs.mjs --ref <étiquette> # une étiquette récupérée par corpus-fetch.mjs --ref
  *   node mysql-ddl-to-specs.mjs --dir <d> --table-prefix <p>   # un dossier de DDL quelconque
  *   node mysql-ddl-to-specs.mjs --out <f.json>    # défaut tmp/bench/corpus/<nom>/specs.json
  *
@@ -920,15 +921,16 @@ function main() {
   const args = process.argv.slice(2);
   garderDrapeaux({
     args,
-    connus: ["--corpus", "--dir", "--table-prefix", "--out"],
-    aValeur: ["--corpus", "--dir", "--table-prefix", "--out"],
+    connus: ["--corpus", "--ref", "--dir", "--table-prefix", "--out"],
+    aValeur: ["--corpus", "--ref", "--dir", "--table-prefix", "--out"],
     usage: [
       "Convertit un DDL MySQL réel en descriptions d'entités neutres (JSON).",
       "",
       `  node mysql-ddl-to-specs.mjs --corpus <nom>      ${Object.keys(CORPORA).join(", ")} (défaut erp, cache de corpus-fetch.mjs)`,
+      "  node mysql-ddl-to-specs.mjs --ref <r>          une étiquette (cache de corpus-fetch.mjs --ref)",
       "  node mysql-ddl-to-specs.mjs --dir <d>          un dossier de DDL quelconque",
       "  node mysql-ddl-to-specs.mjs --table-prefix <p> préfixe commun des tables",
-      "  node mysql-ddl-to-specs.mjs --out <f.json>     défaut tmp/bench/corpus/<nom>/specs.json",
+      "  node mysql-ddl-to-specs.mjs --out <f.json>     défaut specs.json du cache lu",
     ].join("\n"),
   });
   const valueOf = (flag) => {
@@ -942,14 +944,15 @@ function main() {
     );
     process.exit(64);
   }
+  const ref = valueOf("--ref") ?? CORPORA[name].ref;
   let dir = valueOf("--dir");
   let tablePrefix = valueOf("--table-prefix") ?? "";
   let source = null;
   if (dir === undefined) {
-    const corpus = cachedCorpus(name);
+    const corpus = cachedCorpus(name, ref);
     if (corpus === null) {
       process.stderr.write(
-        `Corpus ${name} absent — lancer d'abord corpus-fetch.mjs --corpus ${name}\n`,
+        `Corpus ${name}@${ref} absent — lancer d'abord corpus-fetch.mjs --corpus ${name} --ref ${ref}\n`,
       );
       process.exit(1);
     }
@@ -957,7 +960,8 @@ function main() {
     source = corpus.source;
     tablePrefix = valueOf("--table-prefix") ?? CORPORA[name].tablePrefix;
   }
-  const out = valueOf("--out") ?? path.join(corpusCache(name), "specs.json");
+  const out =
+    valueOf("--out") ?? path.join(corpusCache(name, ref), "specs.json");
   const { specs, notes, errors } = convertCorpus(readCorpusDir(dir), {
     tablePrefix,
     // Un dossier quelconque (`--dir`) n'a pas de catalogue, donc pas de domaines.

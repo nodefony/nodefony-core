@@ -77,9 +77,18 @@ Deux usages :
 - 🔴 **`drizzle-kit` n'a JAMAIS de terminal** (`runGenerate` capture sa sortie) : sa question
   « renommage ? » est inatteignable, humain compris. Un renommage se DÉCLARE —
   `orm:generate --rename t.a=b` (`migrator/renames.ts`, `renameGeneration.ts`) — et tout chemin
-  qui fait générer une migration d'évolution (banc, outil) passe par CES fonctions, jamais par une
-  copie. Ne pas « réparer » en passant le terminal à l'outil : la preuve positive
-  (`generationHappened`) lit la sortie capturée, et `node-pty` ne s'installe pas sous Windows.
+  qui fait générer une migration d'évolution (banc, outil) passe par CES fonctions, et par la
+  relecture de la commande (`review.ts#reviewGenerated` : recopie réparée PUIS audit), jamais par
+  une copie. Banc générique : `tests/integration/schema-evolution-contract.ts`. Ne pas
+  « réparer » en passant le terminal à l'outil : la preuve positive (`generationHappened`) lit la
+  sortie capturée, et `node-pty` ne s'installe pas sous Windows.
+- 🔴 **Une recréation SQLite qui ne RECOPIE pas une colonne la perd sans `DROP COLUMN`** (la
+  règle `drop-table` exempte la ronde, à raison). Seul l'état de DÉPART le montre :
+  `rebuildCopy.ts#rebuildLosses` (instructions lues DANS L'ORDRE — un `RENAME COLUMN` écrit avant
+  la recopie change ce que la table porte), appelé par l'audit de génération (colonnes de
+  l'instantané de départ) et par `scanDestructive` (`review.ts#columnsBeforeFiles` : l'instantané
+  qui précède chaque fichier en attente) — `orm:migrate` ET le démarrage. Sans instantané lisible,
+  rien n'est affirmé. Vu au banc de schéma réel (7 colonnes perdues en silence, 23 → 24).
 - 🔴 **L'applicateur SQLite coupe `foreign_keys` à l'ouverture et contrôle par
   `foreign_key_check` avant chaque COMMIT** (`sqliteDriver.ts`). Ne pas retirer le `pragma` : le
   `PRAGMA foreign_keys=OFF` écrit par drizzle-kit est sans effet dans une transaction, et

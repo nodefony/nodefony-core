@@ -13,7 +13,7 @@
 | Famille | Variables |
 | --- | ---: |
 | Infrastructure | 13 |
-| Interrupteur de coût | 6 |
+| Interrupteur de coût | 7 |
 | Décor de banc | 38 |
 | Runtime produit | 86 |
 
@@ -146,6 +146,7 @@ déclarée n'a pas été exercée.
 
 | Variable | Ce qu'il ouvre |
 | --- | --- |
+| `NF_REAL_SCHEMA_EVOLUTION` | banc d'évolution d'un schéma réel : fichier { from, to, renames, drops } d'une version à la suivante — posé par bench-real-schema.mjs --evolve |
 | `NF_REAL_SCHEMA_SPECS` | banc de schéma réel : chemin du specs.json d'un corpus tiers converti (jamais versionné) — posé par bench-real-schema.mjs |
 | `NF_RUN_CLI_BOOT` | boots CLI réels (lents : un kernel par cas) |
 | `NF_RUN_CLUSTER_E2E` | scénarios cluster multi-process |
@@ -214,8 +215,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
-| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:882` |
-| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:901` |
+| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:888` |
+| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:907` |
 | `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
 | `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:62` |
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |

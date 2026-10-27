@@ -26,9 +26,12 @@ function isSpec(value: unknown): value is ISerializedSpec {
   );
 }
 
-function readSpecs(): readonly ISerializedSpec[] {
-  const file = process.env.NF_REAL_SCHEMA_SPECS;
-  if (!file) return [];
+/**
+ * Lit un specs.json écrit par `mysql-ddl-to-specs.mjs`.
+ *
+ * @throws Quand le fichier n'a pas la forme `{ specs: [...] }`.
+ */
+export function readSpecsFile(file: string): readonly ISerializedSpec[] {
   const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
   const specs =
     typeof parsed === "object" && parsed !== null && "specs" in parsed
@@ -40,6 +43,11 @@ function readSpecs(): readonly ISerializedSpec[] {
     );
   }
   return specs;
+}
+
+function readSpecs(): readonly ISerializedSpec[] {
+  const file = process.env.NF_REAL_SCHEMA_SPECS;
+  return file ? readSpecsFile(file) : [];
 }
 
 /** Les descriptions sérialisées du corpus réel (vide sans la variable). */
