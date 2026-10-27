@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T22:41:55.396Z",
+  "generatedAt": "2026-10-27T23:32:45.537Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 207,
+      "closed": 208,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 19,
+      "open": 18,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 37,
+      "open": 41,
       "title": "10.1.0"
     }
   ],
@@ -5423,7 +5423,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 28,
+      "jours": 27,
       "ordre": 6.03,
       "debut": "2026-10-29",
       "cible": "2026-11-16",
@@ -5435,8 +5435,8 @@
       "number": 690,
       "title": "feat(http): éprouver un service gRPC sur le serveur HTTP/2",
       "url": "https://github.com/nodefony/nodefony-core/issues/690",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -9293,6 +9293,62 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 170,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 694,
+      "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
+      "url": "https://github.com/nodefony/nodefony-core/issues/694",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 4.5,
+      "ordre": 170,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 695,
+      "title": "feat(http): déclarer et servir un service gRPC depuis un module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/695",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 170.1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 696,
+      "title": "fix(cli): router gRPC vers h2c dans la config nginx générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/696",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 170.2,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 697,
+      "title": "feat(http): exposer la réflexion et la santé gRPC standard",
+      "url": "https://github.com/nodefony/nodefony-core/issues/697",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 170.3,
       "debut": null,
       "cible": null,
       "labels": []

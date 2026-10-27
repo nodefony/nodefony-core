@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-27 22:41** (UTC).
+> Empreinte prise le **2026-10-27 23:32** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,9 +20,9 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 207 | 19 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 208 | 18 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 5 | 37 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 41 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -33,14 +33,14 @@
 
 **#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
 
-Ordre 6.03 · P2 — décision · 28 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
+Ordre 6.03 · P2 — décision · 27 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 18 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 37 ouverts
+## Jalon 10.1.0 — 41 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -81,6 +81,10 @@ Ordre 6.03 · P2 — décision · 28 j · jalon 10.0.0-beta · frise 2026-10-29 
 | 157 | P2 — décision | 0.5 | 2026-11-27 → 11-27 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
 | 158 | P1 — figé à la création | 1 | 2026-11-30 → 11-30 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
 | 164 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
+| 170 | P2 — décision | 4.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
+| 170.1 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
+| 170.2 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
+| 170.3 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
 
 ## Jalon 13.0.0 — 1 ouverts
 
@@ -107,12 +111,11 @@ Ordre 6.03 · P2 — décision · 28 j · jalon 10.0.0-beta · frise 2026-10-29 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 19 ouverts
+## Jalon 10.0.0-beta — 18 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 6.03 | P2 — décision | 28 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.0305 | P2 — décision | 1 | 2026-10-28 → 10-28 | #690 | feat(http): éprouver un service gRPC sur le serveur HTTP/2 |
+| 6.03 | P2 — décision | 27 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 6.031 | P2 — décision | 2 | 2026-10-29 → 10-29 | #627 | docs(adr): figer l'architecture de la socket temps réel |
 | 6.032 | P2 — décision | 2 | 2026-10-30 → 10-30 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
 | 6.033 | P2 — décision | 3 | 2026-11-02 → 11-02 | #618 | feat(realtime): router les trames binaires vers leur canal |
