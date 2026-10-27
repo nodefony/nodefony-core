@@ -1,0 +1,302 @@
+{
+  "note": "POC gRPC (#690) et codec protobuf de la socket (#627) : gRPC sur HTTP/2, gRPC-Web, protocole Connect, encodage protobuf, adaptateur Node, proxys. Les RFC (9110, 9112, 9113, 7301) vivent dans le corpus unique de nodefony-framework-dev.",
+  "sources": [
+    {
+      "repo": "grpc/grpc",
+      "ref": "master",
+      "site": "https://grpc.io",
+      "copies": {
+        "grpc-PROTOCOL-HTTP2.md": {
+          "path": "doc/PROTOCOL-HTTP2.md",
+          "commit": "cf61c7d62a1a7f43b9d2ea6488186bc14fc41a8c",
+          "date": "2025-04-17T19:40:39Z",
+          "blob": "835c044f0ab766b43f14be91195d8b94fe9a42c1",
+          "sha256": "b51ea1b8cee67ad3477e73152bb60ac3ebf6e164962b46ba79434e980739256f"
+        },
+        "grpc-PROTOCOL-WEB.md": {
+          "path": "doc/PROTOCOL-WEB.md",
+          "commit": "58ea2e00fcc2502c06115f5d57c864c828826243",
+          "date": "2023-03-17T22:37:40Z",
+          "blob": "9ab7630b8c01724b5cb4b3c4deeda1fcfe12a000",
+          "sha256": "4363dbeeafc2f47a116710f35706ac89e53a0d69c10c80d5fd4a9c8b5cc7add6"
+        },
+        "grpc-statuscodes.md": {
+          "path": "doc/statuscodes.md",
+          "commit": "39d7a4eaeb6d2a09feedfbc69f9b29a172938eae",
+          "date": "2023-10-06T18:04:15Z",
+          "blob": "e45f825176ecd1d6a7e786eac1c0f9a2a103248d",
+          "sha256": "98d827f87849c1ab80b3f5f94e0e8f95278c0ff36a51493323f9ca2382bfaa73"
+        },
+        "grpc-http-grpc-status-mapping.md": {
+          "path": "doc/http-grpc-status-mapping.md",
+          "commit": "9c3f79deb70460750421f3dd75c2ed6a9af91ca3",
+          "date": "2016-03-31T19:30:08Z",
+          "blob": "928fe54420016d340685d1c416264e56ced8456d",
+          "sha256": "97e3539aceb55fe509006b50117b2fb462b9a0f656d5968e58b086b302dfbaf8"
+        },
+        "grpc-compression.md": {
+          "path": "doc/compression.md",
+          "commit": "bd335033e29c321669c14a128526a3f727300c59",
+          "date": "2024-03-20T22:06:44Z",
+          "blob": "9df67777e3789ca92370f96a0993d1b881c97daa",
+          "sha256": "4a27f8cf9d397e4b5d9869c0677df039cc6183ac0b03cf8a54eda031aeffe55c"
+        },
+        "grpc-keepalive.md": {
+          "path": "doc/keepalive.md",
+          "commit": "4f445219ef0df391f2cc3293283ec6a473dff58a",
+          "date": "2023-05-19T18:15:25Z",
+          "blob": "ce724d6cd128b1da8ad5c09085638ddc27f91392",
+          "sha256": "69c820af1dc443e1d36ceb32336032096aff36510247babc2f85fce1199eb862"
+        },
+        "grpc-health-checking.md": {
+          "path": "doc/health-checking.md",
+          "commit": "b1bdf03d406ce256401564674c5b240f280af9ff",
+          "date": "2023-04-11T16:04:47Z",
+          "blob": "17f2a5c332ac0e13e8c9d26e57c3dfa2acc06fb6",
+          "sha256": "d10cf4b423bbb0292862a5286a9d897054c981aef9f2cae09752c12f5ac80b41"
+        },
+        "grpc-server-reflection.md": {
+          "path": "doc/server-reflection.md",
+          "commit": "c126600b88c6467f6e350b49f3f299b670cb0520",
+          "date": "2025-03-18T20:19:11Z",
+          "blob": "0d5214dbd15b62f8c46198754f0c0e4977eda85a",
+          "sha256": "cb1d61d1c048b6f2852faa96ee803611ed493d8618d70111d51d681d8c0cb45e"
+        },
+        "grpc-wait-for-ready.md": {
+          "path": "doc/wait-for-ready.md",
+          "commit": "69fab8eacb83eef5307cf89519db7b640f04d3a8",
+          "date": "2019-02-14T04:14:16Z",
+          "blob": "c08f20c14ae0f2a5934e93391e4189bbb4009faf",
+          "sha256": "2189264bae94ec74eb12ff4eaf5a727352b46cef727c4c86cdd3b3d2541b35bb"
+        }
+      }
+    },
+    {
+      "repo": "grpc/grpc-proto",
+      "ref": "master",
+      "site": "https://github.com/grpc/grpc-proto",
+      "copies": {
+        "grpc-health-v1.proto": {
+          "path": "grpc/health/v1/health.proto",
+          "commit": "2eb777aba6593c31e21f7f69a163486bdc793501",
+          "date": "2025-03-26T18:34:01Z",
+          "blob": "288ce7c9ec4bef7eb99d169b3ec01573946cfe98",
+          "sha256": "164b670058855c6277a0511a14e2a302dd5a8ff899853ca6851b6b201a413d28"
+        },
+        "grpc-reflection-v1.proto": {
+          "path": "grpc/reflection/v1/reflection.proto",
+          "commit": "bc61fd62f74f7608c176ad48d88678e5f82b6a69",
+          "date": "2018-06-13T21:25:05Z",
+          "blob": "1a2ceedc3d2810d317cf8c7f1bada0852b2d603c",
+          "sha256": "92fe8aab9378b0b9807b081de1fc743f847262c1fb6d1ca16501f9e91d450b19"
+        }
+      }
+    },
+    {
+      "repo": "googleapis/googleapis",
+      "ref": "master",
+      "site": "https://github.com/googleapis/googleapis",
+      "copies": {
+        "google-rpc-status.proto": {
+          "path": "google/rpc/status.proto",
+          "commit": "ebd1d23ac613b177828dad42ad8dfb13ba498279",
+          "date": "2026-03-31T22:15:00Z",
+          "blob": "97f50b9d89056be743f226a0866175e04276fd5a",
+          "sha256": "f5bfd262e6705c7ae73f32e0ad8ee20ce8c0a2578df8c4f76ebf76b572f295ed"
+        },
+        "google-rpc-code.proto": {
+          "path": "google/rpc/code.proto",
+          "commit": "ebd1d23ac613b177828dad42ad8dfb13ba498279",
+          "date": "2026-03-31T22:15:00Z",
+          "blob": "46b5d75a78aa182e3353744d4fac76aed4d609cb",
+          "sha256": "83a63185b83cf7332196fc5ead0ec91b93ac207fbe91b3d5bc3d72f461b0bb31"
+        }
+      }
+    },
+    {
+      "repo": "connectrpc/connectrpc.com",
+      "ref": "main",
+      "site": "https://connectrpc.com",
+      "copies": {
+        "connect-protocol.md": {
+          "path": "src/content/docs/docs/protocol.md",
+          "commit": "3498606e26a3d66f0f82914dfcc517805c1617d0",
+          "date": "2026-05-19T14:12:44Z",
+          "blob": "f3fc9df9308af0656e8c7d47b119e89918c93e7f",
+          "sha256": "36165b8ec0a21ad70f72cdb96a8f80a5ae9a75cf8c1863230867a8396484d59a"
+        },
+        "connect-multi-protocol.md": {
+          "path": "src/content/docs/docs/multi-protocol.md",
+          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
+          "date": "2026-05-15T08:03:30Z",
+          "blob": "5d69c0f8647f8e47f20e5b45fa4b0e4bd88024d8",
+          "sha256": "e7b8b2ec6274ea2ee7ff195cf33c1b220f586fd099a93d760e4a8a3d2f976fd1"
+        },
+        "connect-cors.md": {
+          "path": "src/content/docs/docs/cors.md",
+          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
+          "date": "2026-05-15T08:03:30Z",
+          "blob": "c0665efe621f784e0870e95d44c813dbcafc422a",
+          "sha256": "0db963d927b434ae614a0b6860f7dc211b90755901d1134ee4a3ffbd8efaa2d3"
+        },
+        "connect-node-getting-started.md": {
+          "path": "src/content/docs/docs/node/getting-started.md",
+          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
+          "date": "2026-05-15T08:03:30Z",
+          "blob": "12fea233c1cc12e98955b64582adc837bcdf3677",
+          "sha256": "889168adc5527cc6567c0c9079126f771023f56ffd19032a4a5204014c5be584"
+        },
+        "connect-node-implementing-services.md": {
+          "path": "src/content/docs/docs/node/implementing-services.md",
+          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
+          "date": "2026-05-15T08:03:30Z",
+          "blob": "d49999b65345125d6ca3697e34958ce853caab29",
+          "sha256": "17cdee58df8bf734bb75a6fc6be74c008d9b2d8e9f965027908a2d28f3261c20"
+        },
+        "connect-node-server-plugins.md": {
+          "path": "src/content/docs/docs/node/server-plugins.md",
+          "commit": "2def75975a217f43bc20a071dd2ae169fe5149d0",
+          "date": "2026-09-04T14:28:19Z",
+          "blob": "b1922bcdfb87ffc4b3167508d19248657b5111fd",
+          "sha256": "ef774cad346470352c3285ad8ed67c7be407418a1e40cc85094dc2848c3db612"
+        },
+        "connect-node-timeouts.md": {
+          "path": "src/content/docs/docs/node/timeouts.md",
+          "commit": "2def75975a217f43bc20a071dd2ae169fe5149d0",
+          "date": "2026-09-04T14:28:19Z",
+          "blob": "8c5ddded99bcdf5572e62d7e12a665eedb2eb700",
+          "sha256": "ff8f4f6a38b5828b9e4da812e3d91c301cef6af59bbe590410bc76963fff42fb"
+        },
+        "connect-node-full-streaming-example.md": {
+          "path": "src/content/docs/docs/node/_full-streaming-example.md",
+          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
+          "date": "2026-05-15T08:03:30Z",
+          "blob": "bd45ca6bfbcaa18ef469b03d71dd88bf39ae4d9d",
+          "sha256": "099cabcff43bcf9005a7ee0ac25326fb646a5935d7ec8f51b4d0df649a2b2832"
+        }
+      }
+    },
+    {
+      "repo": "connectrpc/connect-es",
+      "ref": "main",
+      "site": "https://github.com/connectrpc/connect-es",
+      "copies": {
+        "connect-node-README.md": {
+          "path": "packages/connect-node/README.md",
+          "commit": "26ba898928d115bd5313269c17a8fc18043f49b1",
+          "date": "2026-10-21T08:33:57Z",
+          "blob": "45309c552bb8bdecf8dba6bcb9e91f71876bfc56",
+          "sha256": "44b0ba1657b21484e82dcf64d74fdf33c38e3fd22370c7e95b6d2256c973f461"
+        }
+      }
+    },
+    {
+      "repo": "protocolbuffers/protocolbuffers.github.io",
+      "ref": "main",
+      "site": "https://protobuf.dev",
+      "copies": {
+        "protobuf-encoding.md": {
+          "path": "content/programming-guides/encoding.md",
+          "commit": "d75b49a09168103d132dcccf7dc9d6e126ba1f98",
+          "date": "2026-10-08T13:35:26Z",
+          "blob": "24276729328e6049b67b078159f4c86608e1e5e7",
+          "sha256": "f085e1d5a23afa2c1d3a292269c8cce8b57fe60e6d3935e7ee528896b768a44a"
+        },
+        "protobuf-proto3.md": {
+          "path": "content/programming-guides/proto3.md",
+          "commit": "d75b49a09168103d132dcccf7dc9d6e126ba1f98",
+          "date": "2026-10-08T13:35:26Z",
+          "blob": "113eb1b3935580e815f57137085f62a8df554524",
+          "sha256": "0a1f7931e1ab346c3002eb10a3fa313e89adbf6483298c17b4a747ac1481e5b9"
+        },
+        "protobuf-json.md": {
+          "path": "content/programming-guides/json.md",
+          "commit": "d75b49a09168103d132dcccf7dc9d6e126ba1f98",
+          "date": "2026-10-08T13:35:26Z",
+          "blob": "f24ca699df0162b472be55cdcfae0426b66e8644",
+          "sha256": "2b2afde43c340de21ebe41fff76a1a67e2d2984314616b24afef65c56003530f"
+        }
+      }
+    },
+    {
+      "repo": "bufbuild/protobuf-es",
+      "ref": "main",
+      "site": "https://github.com/bufbuild/protobuf-es",
+      "copies": {
+        "protobuf-es-getting-started.md": {
+          "path": "docs/src/content/docs/getting-started.md",
+          "commit": "c3a71a8679b06b07a4ebb3bd6f5b02d68759a179",
+          "date": "2026-10-02T13:46:31Z",
+          "blob": "1c2162f47ffc0faa1c6134dd97bbe4f988910ab3",
+          "sha256": "110f27ef289b764783ae789f2578c2a1f454afb7467bdfa83722e0e99fa17109"
+        },
+        "protobuf-es-serialization.md": {
+          "path": "docs/src/content/docs/guides/serialization.md",
+          "commit": "a24d6132925794820dce1048715f9cec7d820884",
+          "date": "2026-08-31T17:51:02Z",
+          "blob": "0f682f341e426af389983d5432bb02b58d8b6266",
+          "sha256": "bbc284cd90447aef5ee56df3592f53a9e5438dfb6474e2bcdbdb6c36fd5877e4"
+        },
+        "protobuf-es-environments.md": {
+          "path": "docs/src/content/docs/reference/environments.md",
+          "commit": "c3a71a8679b06b07a4ebb3bd6f5b02d68759a179",
+          "date": "2026-10-02T13:46:31Z",
+          "blob": "900e800a2292a6a0e75f81b76dc0028e3baf1fed",
+          "sha256": "4f638a3376ba20640c82921f0b167d164e0ab0100042b278d553079cdbaff872"
+        },
+        "protobuf-es-using-with-grpc-node.md": {
+          "path": "docs/src/content/docs/reference/using-with-grpc-node.md",
+          "commit": "aad2bfa185813e2093cebc378b3eec9d2e7fc9ba",
+          "date": "2026-10-16T11:39:41Z",
+          "blob": "552c01a76af64200de491e260719097c6e6dafff",
+          "sha256": "7641eeea6d6008db3b9578020d17d0433933889537369b895209b17931d38d15"
+        }
+      }
+    },
+    {
+      "repo": "nginx/nginx.org",
+      "ref": "main",
+      "site": "https://nginx.org",
+      "copies": {
+        "nginx-ngx_http_grpc_module.xml": {
+          "path": "xml/en/docs/http/ngx_http_grpc_module.xml",
+          "commit": "8ea92c3516d38e4d3fe5f690c830e89e39de0762",
+          "date": "2026-09-15T14:55:01Z",
+          "blob": "3f7964fc325ddf01460c65db1b0f8c0c925de944",
+          "sha256": "a465ebd0eb56e4e94c05b6e569cbbb994bf9346058390755420d2ff48c134d43"
+        }
+      }
+    },
+    {
+      "repo": "envoyproxy/envoy",
+      "ref": "main",
+      "site": "https://www.envoyproxy.io",
+      "copies": {
+        "envoy-grpc_web_filter.rst": {
+          "path": "docs/root/configuration/http/http_filters/grpc_web_filter.rst",
+          "commit": "9b6bbf28f1db9519be1f85461f5d14030c5a3864",
+          "date": "2022-07-14T21:08:37Z",
+          "blob": "ac975f03f3df256010989214a3d0c15076afb97a",
+          "sha256": "6c89fd60a3cfd6a9fdaca77de55661ab2fd43e57ce67e651cf79aaae37b712fb"
+        }
+      }
+    },
+    {
+      "repo": "fullstorydev/grpcurl",
+      "ref": "master",
+      "site": "https://github.com/fullstorydev/grpcurl",
+      "copies": {
+        "grpcurl-README.md": {
+          "path": "README.md",
+          "commit": "cf21d4aca5e9b69c06ecfa42d78e9fb942b980e8",
+          "date": "2026-08-31T19:10:15Z",
+          "blob": "4165145f3835cab26f9a7cbcb2b4d55e65d4a19a",
+          "sha256": "e296d0eb646439dcb58ecc3ec3faffbc1346c1dff3e198e0d76e7316ed276086"
+        }
+      }
+    }
+  ],
+  "untracked": {
+    "README.md": "index local de ce dossier, écrit ici — sans amont"
+  }
+}

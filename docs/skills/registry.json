@@ -5867,7 +5867,7 @@
           "security.md",
           "typage-strict.md"
         ],
-        "referenceFilesTotal": 91,
+        "referenceFilesTotal": 92,
         "scripts": []
       },
       "related": [
@@ -9891,15 +9891,15 @@
       ],
       "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"importer un realm\", \"audience Keycloak\", \"hostname Keycloak\", \"thème Keycloak\", \"courriel Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\".",
       "cost": {
-        "bodyLines": 320,
-        "approxTokens": 6009
+        "bodyLines": 330,
+        "approxTokens": 6179
       },
       "requires": [
         "docker"
       ],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 215,
+        "referenceFilesTotal": 249,
         "scripts": [
           {
             "path": "scripts/amont-lib.mjs",
@@ -10028,7 +10028,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "320",
+            "detail": "330",
             "advisory": true
           }
         ]

@@ -209,7 +209,7 @@ source: "docs/skills/index.md"
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.4.0 | 423 | 0 | 2 | ✅ |
-| [`nodefony-rfc`](nodefony-rfc.md) | 1.9.0 | 320 | 0 | 5 | ✅ |
+| [`nodefony-rfc`](nodefony-rfc.md) | 1.9.0 | 330 | 0 | 5 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 399 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 12 | ✅ |

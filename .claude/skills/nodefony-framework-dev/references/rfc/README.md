@@ -13,7 +13,7 @@
 
 ## 0. Fichiers PRÉSENTS offline (~5,6 Mo — `grep`/`awk` sans réseau)
 
-- **`ietf/rfc<N>.txt`** — 40 RFC full-text : 1918 4226 4648 5280 5424 5737 5789 5842 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7239 7519 7617 7636 7638 7692 8259 8414 8707 8725 9106 9110 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
+- **`ietf/rfc<N>.txt`** — 41 RFC full-text : 1918 4226 4648 5280 5424 5737 5789 5842 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7239 7301 7519 7617 7636 7638 7692 8259 8414 8707 8725 9106 9110 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
   - 🔴 **Obsolètes RETIRÉES du corpus** (le dépôt cite la REMPLAÇANTE, jamais l'ancienne) : 2818 → **9110 §4.2.2** · 6125 → **9525** · 7230 → **9110/9112** · 7235 → **9110 §11** · 7807 → **9457** · 8941 → **9651**. RFC **9931** (2026) met à jour 9112 : sécurité des transitions de protocole optimistes (`Upgrade`, donc WebSocket et proxy inverse).
   - **Fraîcheur** : `npm run refs:check` (volet `nodefony-rfc/scripts/check-rfc-status.mjs`) — obsolescence et mises à jour d'après l'éditeur des RFC, révision courante d'un brouillon d'après le datatracker (0 à jour · 3 dépassé · 78 réseau).
 - **`specs/` (non-RFC)** :
@@ -41,6 +41,7 @@
 - **RFC 9110 (HTTP Semantics)** — §15.4 redirections (whitelist `{301,302,303,307,308}`, défaut 302) · §15.5.21 (422) · §6.4.1 (204/304 sans corps) · §15.5.6 (405 + en-tête `Allow`) · §9.3.2 (HEAD sans corps) · §9.2.1 (méthodes sûres GET/HEAD/OPTIONS/TRACE → jamais 403 CSRF) · §8.3 Content-Type · §8.6 Content-Length exact. → `http-kernel.ts`, `Response.ts`, `ErrorRenderer.ts`.
 - **RFC 9112 (HTTP/1.1)** — §7.1 chunked Transfer-Encoding (backpressure `highWaterMark`, resolve sur drain, pas de Content-Length avec chunked). → `src/context/http/Response.ts`.
 - **RFC 9113 (HTTP/2)** — frames + pseudo-headers, serveur natif `node:http2`.
+- **RFC 7301 (ALPN)** — négociation `h2` dans la poignée de main TLS (port 5152) ; le h2c (5153) s’en passe par connaissance préalable (RFC 9113 §3.3). Pour gRPC : un client TLS exige `h2` en ALPN, faute de quoi il refuse la connexion.
 - **RFC 9112 §4** — reason-phrase US-ASCII imprimable · **RFC 9110 §5.6.4** quoted-string. → `forwarded.ts`, `tests/integration/http-rfc-errors.test.ts`.
 - **RFC 6585** — 429 Too Many Requests + `Retry-After` (posé par le throttler). **RFC 6797** — HSTS (TLS-only, `max-age`+`includeSubDomains`). **RFC 9457** — Problem Details = OPTION (Nodefony diverge : champ `code`, pas `status`).
 

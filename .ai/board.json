@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T22:26:03.218Z",
+  "generatedAt": "2026-10-27T22:41:55.396Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 207,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 18,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -5432,6 +5432,22 @@
       ]
     },
     {
+      "number": 690,
+      "title": "feat(http): éprouver un service gRPC sur le serveur HTTP/2",
+      "url": "https://github.com/nodefony/nodefony-core/issues/690",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0305,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 627,
       "title": "docs(adr): figer l'architecture de la socket temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/627",
@@ -9964,22 +9980,6 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 924.9,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 690,
-      "title": "feat(http): éprouver un service gRPC sur le serveur HTTP/2",
-      "url": "https://github.com/nodefony/nodefony-core/issues/690",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": null,
-      "priorite": "P3 — fin de cycle",
-      "jours": 1,
-      "ordre": 925,
       "debut": null,
       "cible": null,
       "labels": [

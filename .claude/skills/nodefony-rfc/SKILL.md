@@ -322,6 +322,16 @@ en-tête). Le transport relève de RFC 9112 §7.1 (chunked, HTTP/1.1) et RFC 911
 (`Transfer-Encoding` interdit en HTTP/2). Ce que chaque section tranche : §22 du README du corpus.
 Node : `EventSource` reste expérimental (`--experimental-eventsource`, `specs/nodejs/globals.md`).
 
+### 13. gRPC, gRPC-Web, Connect, protobuf — **HORS LIGNE**
+
+gRPC n'a pas de RFC : la norme est le dépôt `grpc/grpc` (`doc/PROTOCOL-*.md`). Avec Connect,
+protobuf, `@bufbuild/protobuf`, les proxys et `grpcurl`, 32 pages sont figées dans
+`references/grpc/` (`AMONT.json` par page). **L'index et les faits qui décident vivent dans
+`references/grpc/README.md`** : le statut toujours en trailers, `415` hors `application/grpc`,
+gRPC-Web avec ses trailers dans le corps, Connect unaire en HTTP/1.1. Le transport (RFC 9110,
+9113, 7301 ALPN) se lit dans le corpus unique (§7). Consommateurs : un service gRPC servi par le
+pipeline HTTP/2, et le codec protobuf de la socket temps réel.
+
 ## Pattern d'usage
 
 1. Identifier la zone fonctionnelle : status code → 9110, frame WS → 6455, etc.
