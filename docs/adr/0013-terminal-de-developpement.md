@@ -118,7 +118,12 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
     colonne) de l'historique, jamais en coordonnées d'écran — un défilement pendant le glisser,
     une ligne qui arrive, un repli différent ne la perdent pas ; double clic = mot (un chemin
     suivi de sa ligne et de sa colonne, une URL), triple = ligne logique ; glisser au bord fait défiler ; copie au
-    relâchement. La sélection native reste possible avec la touche du terminal, que l'aide de
+    relâchement. Hors du journal, un CLIC sur une adresse (la barre d'état) la copie : les zones se
+    lisent sur la ligne affichée (`devSelection.ts#lineZones`) — la cible d'un lien OSC 8 fait foi, sinon
+    l'adresse écrite en clair ; une adresse raccourcie à l'écran (`…`) est DITE, jamais copiée fausse.
+    Le type de zone est une union ouverte : les zones que le serveur publiera (actions de l'invite
+    #538, services portés par le superviseur #692) s'y brancheront sans changer le geste.
+    La sélection native reste possible avec la touche du terminal, que l'aide de
     l'invite (#538) nommera (`fn` sous Terminal.app, `⌥` sous iTerm2, `maj` ailleurs) — la barre ne
     porte pas d'aide permanente.
   - `1007` est posé dans les deux régimes : là où la capture est refusée par un réglage du

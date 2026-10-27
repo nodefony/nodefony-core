@@ -43,6 +43,7 @@ import {
 } from "./devFrame";
 import {
   extractSelection,
+  zoneAt,
   selectionRange,
   type ISelection,
   type ISelectionPoint,
@@ -878,7 +879,9 @@ export class DevTerminal {
    * Foyer de la souris captée : enfoncer le bouton gauche dans le journal
    * pose l'ancre, glisser étend, relâcher copie. Double clic = mot, triple
    * = ligne. Un simple clic efface la sélection sans rien copier ; Échap
-   * l'efface aussi. Les autres boutons sont avalés : la souris est à nous.
+   * l'efface aussi. Hors du journal, un clic sur une zone (une adresse de la
+   * barre) la copie — cf {@link #clickZone}. Les autres boutons sont avalés :
+   * la souris est à nous.
    */
   #mouseFocus(full: IFullscreenState): IInputFocus {
     return {
@@ -911,6 +914,9 @@ export class DevTerminal {
           full.selecting = point !== null;
           full.dragged = false;
           full.dragRow = event.row;
+          if (point === null && clicks === 1) {
+            this.#clickZone(full, event.row, event.column);
+          }
           this.#setSelection(
             full,
             point === null
@@ -955,10 +961,43 @@ export class DevTerminal {
       return;
     }
     const range = this.#range(full);
-    const copy = full.copy;
-    if (range === null || copy === null) return;
+    if (range === null) return;
     const text = extractSelection(this.#transcript, range);
     if (text.length === 0) return;
+    this.#copyText(full, text);
+  }
+
+  /**
+   * Clic hors du journal (barre d'état, indicateur) : une zone sous le
+   * pointeur — une adresse — part au presse-papiers, comme une sélection. La
+   * souris reste captée : la molette et le glisser du journal sont intacts.
+   *
+   * @param full - l'état du plein écran.
+   * @param row - ligne du clic, depuis 1.
+   * @param column - colonne du clic, depuis 1.
+   */
+  #clickZone(full: IFullscreenState, row: number, column: number): void {
+    const frame = full.frame;
+    const text = frame?.lines[row - 1];
+    if (frame === null || text === undefined) return;
+    // Une ligne du journal se sélectionne, elle ne se clique pas.
+    if ((frame.origins?.[row - 1] ?? null) !== null) return;
+    const zone = zoneAt(text, column - 1);
+    if (zone === null) return;
+    if (zone.truncated) {
+      this.#notify(full, "adresse raccourcie à l'écran — élargis le terminal");
+      return;
+    }
+    this.#copyText(full, zone.value);
+  }
+
+  /**
+   * Envoie un texte au presse-papiers, les copies l'une après l'autre, et
+   * dit le résultat dans la barre.
+   */
+  #copyText(full: IFullscreenState, text: string): void {
+    const copy = full.copy;
+    if (copy === null) return;
     // Dans la chaîne, un `copy` qui lèverait SYNCHRONEMENT est rattrapé aussi.
     full.copying = full.copying
       .then(() => copy(text))

@@ -57,26 +57,137 @@ interface ICell {
   readonly text: string;
   readonly start: number;
   readonly end: number;
+  /** La cible du lien OSC 8 qui l'entoure, `null` hors lien. */
+  readonly link: string | null;
 }
+
+/** Ouverture (cible non vide) ou fermeture (cible vide) d'un lien OSC 8. */
+const OSC8 = /^\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)/;
 
 /**
  * Les graphèmes visibles d'une ligne, avec leurs colonnes — séquences de
- * contrôle retirées, graphèmes sans largeur rattachés au précédent.
+ * contrôle retirées, graphèmes sans largeur rattachés au précédent. Chacun
+ * garde la cible du lien OSC 8 qui l'entoure.
  */
 function cells(text: string): ICell[] {
   const out: ICell[] = [];
   let column = 0;
+  let link: string | null = null;
   for (const unit of textUnits(text)) {
-    if (unit.control) continue;
+    if (unit.control) {
+      const osc8 = OSC8.exec(unit.text);
+      if (osc8 !== null) link = osc8[1] === "" ? null : (osc8[1] ?? null);
+      continue;
+    }
     if (unit.width === 0) {
       const last = out.at(-1);
       if (last) out[out.length - 1] = { ...last, text: last.text + unit.text };
       continue;
     }
-    out.push({ text: unit.text, start: column, end: column + unit.width });
+    out.push({
+      text: unit.text,
+      start: column,
+      end: column + unit.width,
+      link,
+    });
     column += unit.width;
   }
   return out;
+}
+
+/**
+ * Ce qu'un clic peut viser sur une ligne de l'écran hors du journal (la
+ * barre d'état) : aujourd'hui une adresse. Le type est une union ouverte —
+ * les zones que le serveur publiera un jour (une action, une commande) s'y
+ * ajoutent sans changer le geste qui les consomme.
+ */
+export interface ILineZone {
+  readonly kind: "url";
+  /** L'adresse complète à copier. */
+  readonly value: string;
+  /** Colonnes occupées à l'écran, depuis 0 ; `end` exclu. */
+  readonly start: number;
+  readonly end: number;
+  /**
+   * L'écran n'en montre qu'une partie (`…`) et aucun lien ne donne la cible
+   * complète : la copier donnerait une adresse fausse.
+   */
+  readonly truncated: boolean;
+}
+
+/** Une adresse écrite en clair, hors lien. */
+const PLAIN_URL = /\b(?:https?|wss?):\/\/[^\s<>"'`]+/gu;
+/** Ponctuation qui termine une phrase plutôt qu'une adresse. */
+const URL_TRAILING = /[.,;:!?)\]}»]+$/u;
+
+/**
+ * Les zones cliquables d'une ligne rendue : chaque lien OSC 8 (sa cible fait
+ * foi, même quand le texte affiché est raccourci), puis chaque adresse écrite
+ * en clair hors lien.
+ *
+ * @param text - la ligne telle qu'affichée, séquences de contrôle comprises.
+ * @returns les zones, de gauche à droite.
+ */
+export function lineZones(text: string): ILineZone[] {
+  const line = cells(text);
+  const zones: ILineZone[] = [];
+  let i = 0;
+  while (i < line.length) {
+    const cell = line[i];
+    const link = cell?.link ?? null;
+    if (cell === undefined || link === null) {
+      i++;
+      continue;
+    }
+    let last = cell;
+    while (i + 1 < line.length && line[i + 1]?.link === link) {
+      i++;
+      last = line[i] ?? last;
+    }
+    zones.push({
+      kind: "url",
+      value: link,
+      start: cell.start,
+      end: last.end,
+      truncated: false,
+    });
+    i++;
+  }
+  // Hors lien : le texte visible, et la cellule de chaque caractère.
+  let visible = "";
+  const owner: number[] = [];
+  line.forEach((c, index) => {
+    const shown = c.link === null ? c.text : " ".repeat(c.text.length);
+    visible += shown;
+    for (let k = 0; k < shown.length; k++) owner.push(index);
+  });
+  for (const match of visible.matchAll(PLAIN_URL)) {
+    const value = match[0].replace(URL_TRAILING, "");
+    const first = line[owner[match.index] ?? -1];
+    const end = line[owner[match.index + value.length - 1] ?? -1];
+    if (first === undefined || end === undefined) continue;
+    zones.push({
+      kind: "url",
+      value,
+      start: first.start,
+      end: end.end,
+      truncated: value.includes("…"),
+    });
+  }
+  return zones.sort((a, b) => a.start - b.start);
+}
+
+/**
+ * La zone sous une colonne de la ligne, ou `null`.
+ *
+ * @param text - la ligne telle qu'affichée.
+ * @param column - colonne visible, depuis 0.
+ * @returns la zone visée.
+ */
+export function zoneAt(text: string, column: number): ILineZone | null {
+  return (
+    lineZones(text).find((z) => column >= z.start && column < z.end) ?? null
+  );
 }
 
 /**

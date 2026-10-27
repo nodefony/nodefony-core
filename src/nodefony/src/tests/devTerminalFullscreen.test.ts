@@ -533,6 +533,53 @@ describe("plein écran — sélection sous le bloc d'état du serveur prêt", ()
     expect(bar).to.include("copié (pbcopy)");
     terminal.close();
   });
+
+  it("un clic sur l'adresse de la barre la copie — et la molette défile toujours le journal", async () => {
+    const app = "http://127.0.0.1:5151";
+    const copy = vi.fn(async (_text: string) => "copié (pbcopy)");
+    const { stdout, input, terminal } = fullscreen({
+      mouse: true,
+      copy,
+      columns: 120,
+      rows: 40,
+    });
+    terminal.setStatus(
+      {
+        ...readyView,
+        open: [{ id: "app", label: "Application", url: app }],
+      },
+      ctx,
+      "ready",
+    );
+    terminal.ingest("server", "out", lines(100));
+    await nextFrame();
+    const shown = await screen(stdout.written, 120, 40);
+    const row = shown.findIndex((l) => l.includes(app));
+    expect(row, shown.join("\n")).to.not.equal(-1);
+    const column = (shown[row] ?? "").indexOf(app) + 1;
+
+    // À côté de l'adresse : rien n'est copié.
+    if (column > 2) {
+      input.type(press(column - 2, row + 1) + release(column - 2, row + 1));
+      await settle();
+      expect(copy).not.toHaveBeenCalled();
+    }
+    // Sur l'adresse, au milieu : l'adresse entière part.
+    input.type(press(column + 5, row + 1) + release(column + 5, row + 1));
+    await settle();
+    expect(copy).toHaveBeenCalledWith(app);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextFrame();
+    expect((await screen(stdout.written, 120, 40)).join("\n")).to.include(
+      "copié (pbcopy)",
+    );
+
+    // La souris reste au plein écran : la molette remonte le journal.
+    input.type("\x1b[<64;5;5M\x1b[<64;5;5M\x1b[<64;5;5M");
+    await nextFrame();
+    expect(terminal.anchor).to.not.equal(null);
+    terminal.close();
+  });
 });
 
 describe("plein écran — sélection : cas limites relevés en contre-revue", () => {

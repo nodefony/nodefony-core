@@ -6,9 +6,11 @@
 import { describe, expect, it } from "vitest";
 import {
   extractSelection,
+  lineZones,
   selectionRange,
   sliceColumns,
   wordBounds,
+  zoneAt,
   type ISelection,
   type ISelectionReader,
 } from "../service/dev/devSelection";
@@ -108,5 +110,58 @@ describe("sélection — mot (double clic) et ligne (triple clic)", () => {
     expect(
       copied(["avant", long, "après"], sel([2, 0], [2, 0], "line")),
     ).to.equal(long);
+  });
+});
+
+describe("lineZones / zoneAt — ce qu'un clic vise dans la barre", () => {
+  it("une adresse en clair, couleurs comprises : ses colonnes VISIBLES", () => {
+    const text =
+      "\x1b[32m➜\x1b[0m \x1b[36mhttp://127.0.0.1:5151\x1b[0m · Studio https://127.0.0.1:5152/nodefony";
+    const zones = lineZones(text);
+    expect(zones.map((z) => [z.value, z.start, z.end, z.truncated])).toEqual([
+      ["http://127.0.0.1:5151", 2, 23, false],
+      ["https://127.0.0.1:5152/nodefony", 33, 64, false],
+    ]);
+    expect(zoneAt(text, 2)?.value).toBe("http://127.0.0.1:5151");
+    expect(zoneAt(text, 22)?.value).toBe("http://127.0.0.1:5151");
+    expect(zoneAt(text, 23)).toBeNull();
+    expect(zoneAt(text, 0)).toBeNull();
+  });
+
+  it("un caractère LARGE avant l'adresse décale ses colonnes de deux", () => {
+    const zones = lineZones("界 http://a.dev");
+    expect(zones[0]).toMatchObject({
+      value: "http://a.dev",
+      start: 3,
+      end: 15,
+    });
+  });
+
+  it("la ponctuation de phrase ne fait pas partie de l'adresse", () => {
+    expect(lineZones("voir (http://a.dev/x).")[0]?.value).toBe(
+      "http://a.dev/x",
+    );
+  });
+
+  it("une adresse RACCOURCIE à l'écran est signalée — jamais copiée fausse", () => {
+    const zone = lineZones("➜ http://127.0.0.1:51…")[0];
+    expect(zone?.truncated).toBe(true);
+  });
+
+  it("un lien OSC 8 : sa CIBLE fait foi, même quand le texte affiché est raccourci", () => {
+    const text =
+      "Studio \x1b]8;;https://exemple.dev/un/long/chemin\x1b\\https://exemple.dev/u…\x1b]8;;\x1b\\ fin";
+    const zones = lineZones(text);
+    expect(zones).toHaveLength(1);
+    expect(zones[0]).toMatchObject({
+      value: "https://exemple.dev/un/long/chemin",
+      start: 7,
+      end: 29,
+      truncated: false,
+    });
+  });
+
+  it("sans adresse, rien n'est cliquable", () => {
+    expect(lineZones("nodefony · prêt · ctrl+c arrêter")).toEqual([]);
   });
 });
