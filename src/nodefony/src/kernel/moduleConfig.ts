@@ -194,7 +194,7 @@ export function parseConfigOverlay<T>(
  * qui se référence lui-même. Coût payé une fois, rien par requête.
  *
  * @param node - la racine à geler (une valeur non objet est ignorée)
- * @param seen - @internal nœuds déjà parcourus pendant cet appel
+ * @param seen - réservé à la récursion : nœuds déjà parcourus pendant cet appel
  */
 export function freezeConfigTree(
   node: unknown,

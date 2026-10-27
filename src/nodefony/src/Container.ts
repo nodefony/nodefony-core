@@ -69,7 +69,7 @@ class Container implements IContainer {
    * but isolate per-request state.
    *
    * @param input - parent container to inherit services from
-   * @param adoptedProtoService - @internal canal {@link Scope} : adopte le
+   * @param adoptedProtoService - canal réservé à {@link Scope} : adopte le
    * proto-services du PARENT au lieu d'allouer une closure locale morte
    */
   constructor(input?: Container, adoptedProtoService?: ProtoService) {
@@ -359,7 +359,7 @@ class Scope extends Container implements IScope {
     parent: Container,
     parentProtoService: ProtoService,
   ) {
-    // Adoption du proto PARENT (canal @internal du constructeur) : `services`
+    // Adoption du proto PARENT (canal interne du constructeur) : `services`
     // hérite directement de son prototype — pas de closure ni d'Object.create
     // jetés par requête.
     super(undefined, parentProtoService);
