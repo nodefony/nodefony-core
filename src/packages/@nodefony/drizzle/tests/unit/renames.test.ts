@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { getTableConfig as mysqlTableConfig } from "drizzle-orm/mysql-core";
+import { getTableConfig as pgTableConfig } from "drizzle-orm/pg-core";
+import { getTableConfig as sqliteTableConfig } from "drizzle-orm/sqlite-core";
+import { defineTable } from "../../nodefony/entity/colKit";
 import {
   applyRenames,
   describeRenames,
@@ -307,5 +311,41 @@ describe("--rename : contrôles d'après génération", () => {
     assert.deepEqual(read("auteur"), ["ident"]);
     assert.equal(read("absente"), null);
     assert.equal(columnsByTable(null)("auteur"), null);
+  });
+});
+
+describe("renommer la PROPRIÉTÉ seule — `column` garde le nom en base, aucune migration", () => {
+  // Le piège le moins cher à éviter : quand seul le nom vu par le code change,
+  // `column` laisse la table intacte — le générateur n'a rien à écrire.
+  const v1 = defineTable({
+    name: "article",
+    columns: {
+      id: { kind: "serial", primaryKey: true },
+      titre: { kind: "string", length: 180 },
+    },
+  });
+  const v2 = defineTable({
+    name: "article",
+    columns: {
+      id: { kind: "serial", primaryKey: true },
+      title: { kind: "string", length: 180, column: "titre" },
+    },
+  });
+  const stored = (columns: { name: string; getSQLType(): string }[]) =>
+    columns.map((c) => `${c.name}:${c.getSQLType()}`);
+
+  it("le schéma en base est IDENTIQUE sur les trois dialectes", () => {
+    assert.deepEqual(
+      stored(sqliteTableConfig(v2.table("sqlite")).columns),
+      stored(sqliteTableConfig(v1.table("sqlite")).columns),
+    );
+    assert.deepEqual(
+      stored(pgTableConfig(v2.table("postgres")).columns),
+      stored(pgTableConfig(v1.table("postgres")).columns),
+    );
+    assert.deepEqual(
+      stored(mysqlTableConfig(v2.table("mysql")).columns),
+      stored(mysqlTableConfig(v1.table("mysql")).columns),
+    );
   });
 });

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-10-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-migrate-schema/SKILL.md"
 ---
@@ -29,9 +29,9 @@ source: ".claude/skills/nodefony-migrate-schema/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Développer le back |
 | Corps | 15 lignes |
-| Coût d'activation | ~426 tokens (le corps est chargé à l'invocation) |
-| Description | 830 / 1024 caractères |
-| Déclencheurs | 10 |
+| Coût d'activation | ~453 tokens (le corps est chargé à l'invocation) |
+| Description | 936 / 1024 caractères |
+| Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
@@ -44,7 +44,7 @@ Fait évoluer le schéma d'une base Nodefony et le porte en production, par les 
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`j'ai ajouté un champ à une entité` · `la colonne n'existe pas en base` · `migrer le schéma` · `orm:migrate` · `orm:generate` · `appliquer les migrations` · `déployer un changement de schéma` · `adopter une base existante` · `réparer une migration en échec` · `no such column`
+`j'ai ajouté un champ à une entité` · `la colonne n'existe pas en base` · `migrer le schéma` · `orm:migrate` · `orm:generate` · `appliquer les migrations` · `déployer un changement de schéma` · `adopter une base existante` · `réparer une migration en échec` · `no such column` · `renommer une colonne` · `renommer un champ d'une entité` · `changer le type ou la longueur d'une colonne`
 
 ## Conformité au standard Agent Skills
 
@@ -58,7 +58,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 830 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 936 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |

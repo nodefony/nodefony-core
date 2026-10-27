@@ -110,6 +110,93 @@ describe("Applicateur de migrations (sqlite)", () => {
     await removeSource(root);
   });
 
+  describe("clés étrangères — coupées pendant la migration, CONTRÔLÉES avant validation", () => {
+    const parentEtEnfant = [
+      "CREATE TABLE parent (id INTEGER PRIMARY KEY, label TEXT)",
+      "CREATE TABLE enfant (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))",
+    ];
+    const app = async (
+      migrations: { tag: string; statements: string[] }[],
+    ): Promise<IMigrationSource[]> => [
+      {
+        name: "app",
+        dir: await writeSource("sqlite", migrations, path.join(root, "app")),
+        rank: 1,
+      },
+    ];
+
+    it("🔴 recrée une table RÉFÉRENCÉE et PEUPLÉE — la ronde de drizzle-kit passe, la ligne enfant garde son parent", async () => {
+      // `better-sqlite3` ouvre avec les clés ACTIVES, et le `PRAGMA OFF` que
+      // drizzle-kit écrit est sans effet dans la transaction : sans la coupure
+      // à l'ouverture, ce `DROP TABLE parent` échouait (vécu, banc erp-lite).
+      const sources = await app([
+        {
+          tag: "0000_v1",
+          statements: [
+            ...parentEtEnfant,
+            "INSERT INTO parent (id, label) VALUES (1, 'a')",
+            "INSERT INTO enfant (id, parent_id) VALUES (1, 1)",
+          ],
+        },
+        {
+          tag: "0001_v2",
+          statements: [
+            "PRAGMA foreign_keys=OFF",
+            "CREATE TABLE __new_parent (id INTEGER PRIMARY KEY, label TEXT NOT NULL DEFAULT '')",
+            "INSERT INTO __new_parent (id, label) SELECT id, label FROM parent",
+            "DROP TABLE parent",
+            "ALTER TABLE __new_parent RENAME TO parent",
+            "PRAGMA foreign_keys=ON",
+          ],
+        },
+      ]);
+      const run = await migrator(sources).migrate();
+      assert.deepEqual(
+        run.applied.map((m) => m.tag),
+        ["0000_v1", "0001_v2"],
+      );
+      const driver = await open();
+      try {
+        const rows = await driver.query(
+          "SELECT enfant.id FROM enfant JOIN parent ON parent.id = enfant.parent_id",
+        );
+        assert.equal(rows.length, 1, "la ligne enfant retrouve son parent");
+      } finally {
+        await driver.close();
+      }
+    });
+
+    it("🔴 une migration qui laisse une référence ORPHELINE est refusée, et rien n'est validé", async () => {
+      // Parité avec PostgreSQL et MySQL, qui refusent l'`ADD CONSTRAINT` sur
+      // des lignes qui ne le respectent pas.
+      const sources = await app([
+        {
+          tag: "0000_orpheline",
+          statements: [
+            ...parentEtEnfant,
+            "INSERT INTO enfant (id, parent_id) VALUES (7, 99)",
+          ],
+        },
+      ]);
+      await assert.rejects(migrator(sources).migrate(), (e: unknown) => {
+        assert.ok(e instanceof MigrationVerdictError);
+        assert.match(e.message, /orpheline/u);
+        assert.match(e.message, /enfant \(ligne 7\) → parent/u);
+        return true;
+      });
+      const driver = await open();
+      try {
+        assert.equal(
+          await driver.tableExists("enfant"),
+          false,
+          "la transaction a été annulée",
+        );
+      } finally {
+        await driver.close();
+      }
+    });
+  });
+
   it("applique ce qui manque, et rien de plus au second passage", async () => {
     const first = await migrator().migrate();
     assert.equal(first.applied.length, 1);

@@ -151,6 +151,34 @@ Allonger une colonne (`varchar(16)` → `varchar(32)`) ou monter un entier de ra
 `bigint`) n'est PAS destructif : le générateur le constate sur l'état de départ et n'exige rien. Le
 raccourcir, ou rendre la colonne obligatoire, reste refusé sans `--allow-destructive`.
 
+### Les pièges d'un schéma qui ÉVOLUE — constatés en faisant migrer un vrai progiciel
+
+Chacun a été rencontré en portant un schéma réel d'une version à la suivante, sur SQLite,
+PostgreSQL, MariaDB et MySQL. Le geste est le seul qui ait tenu sur les quatre.
+
+1. **Renommer la PROPRIÉTÉ sans renommer la colonne ne demande AUCUNE migration.** Le modificateur
+   `column` garde le nom en base : `title: { kind: "string", length: 180, column: "titre" }`. Le
+   code lit `title`, la base garde `titre`, `orm:generate` répond « rien à écrire ». Choisis-le
+   quand seul le nom vu par le code doit changer — c'est le renommage qui ne coûte rien.
+2. **Une table renommée fait apparaître des `DROP CONSTRAINT` / `DROP INDEX` puis leurs `ADD`** :
+   les noms de contraintes que le kit dérive du nom de table changent, la base garde les anciens.
+   En SQLite, la table est même RECRÉÉE (`__new_<table>`, recopie, `DROP TABLE`, `RENAME`). C'est
+   la mécanique, pas une perte, et le garde ne la signale pas. Ce qui se vérifie : la ligne
+   `renamed` du rapport, et **aucun `DROP COLUMN`** dans le fichier.
+3. **Une référence posée sur des lignes DÉJÀ remplies échoue si une ligne pointe vers rien** —
+   sur les quatre moteurs : PostgreSQL et MySQL refusent l'`ADD CONSTRAINT`, SQLite refuse la
+   validation (« référence(s) orpheline(s) », table et ligne nommées). La migration est annulée et
+   un marqueur d'échec posé. Geste : corriger d'ABORD les lignes dans une migration libre
+   (`--custom` : `UPDATE … SET fk = NULL WHERE …`), PUIS déclarer la référence ; après un échec,
+   `orm:migrate:repair` lève le marqueur une fois la cause traitée.
+4. **Retirer un champ de l'entité, c'est `DROP COLUMN`** : refusé sans `--allow-destructive`.
+   Un progiciel qui abandonne une colonne la laisse souvent en base sur les installations
+   existantes (le script de passage réel ne la supprime pas). Si ses données comptent encore,
+   garde le champ, facultatif, plutôt que de le retirer.
+5. **Une évolution se prouve sur une base PEUPLÉE, jamais vide** (§ 4 b). Une table vide ne
+   déclenche ni la recréation SQLite d'une table référencée, ni une référence orpheline : un défaut
+   de l'applicateur SQLite n'apparaissait QUE sur des lignes réelles. Une ligne par table suffit.
+
 ### 🔴 Un champ OBLIGATOIRE sur une table PEUPLÉE — ton moteur ne fait pas ce que tu crois
 
 Ajouter une colonne `NOT NULL` **sans valeur par défaut** à une table qui porte déjà des lignes n'a

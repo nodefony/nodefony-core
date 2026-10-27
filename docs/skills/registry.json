@@ -9190,12 +9190,15 @@
         "déployer un changement de schéma",
         "adopter une base existante",
         "réparer une migration en échec",
-        "no such column"
+        "no such column",
+        "renommer une colonne",
+        "renommer un champ d'une entité",
+        "changer le type ou la longueur d'une colonne"
       ],
-      "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"adopter une base existante\", \"réparer une migration en échec\", \"no such column\".",
+      "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"adopter une base existante\", \"réparer une migration en échec\", \"no such column\", \"renommer une colonne\", \"renommer un champ d'une entité\", \"changer le type ou la longueur d'une colonne\".",
       "cost": {
         "bodyLines": 15,
-        "approxTokens": 426
+        "approxTokens": 453
       },
       "requires": [],
       "resources": {
@@ -9222,7 +9225,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "830",
+            "detail": "936",
             "advisory": false
           },
           {
@@ -12857,9 +12860,9 @@
     },
     {
       "name": "nodefony-migrate-schema",
-      "summary": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` du framework — jamais par un `ALTER` écrit à la main ni par la suppression d'une base.",
+      "summary": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par `orm:generate` et `orm:migrate` — jamais par un `ALTER` à la main ni en supprimant la base.",
       "family": "Développer le back",
-      "version": "2",
+      "version": "3",
       "keywords": [
         "orm:generate",
         "orm:migrate",
@@ -12880,12 +12883,14 @@
         "adopter une base existante",
         "réparer une migration en échec",
         "éprouver une migration sans casser ma base",
-        "rejouer les migrations depuis zéro"
+        "rejouer les migrations depuis zéro",
+        "renommer une colonne ou une table",
+        "changer le type ou la longueur d'une colonne"
       ],
-      "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` du framework — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"modifier une table existante\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\".",
+      "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par `orm:generate` et `orm:migrate` — jamais par un `ALTER` à la main ni en supprimant la base. Porte la lecture de l'état, le plan avant le geste, chaque code de refus et son geste, le renommage déclaré, les trois interdits qui cassent un historique, et le déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"modifier une table existante\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\", \"renommer une colonne ou une table\", \"changer le type ou la longueur d'une colonne\".",
       "cost": {
-        "bodyLines": 378,
-        "approxTokens": 6295
+        "bodyLines": 445,
+        "approxTokens": 7735
       },
       "requires": [],
       "resources": {
@@ -12956,7 +12961,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "378",
+            "detail": "445",
             "advisory": true
           }
         ]
