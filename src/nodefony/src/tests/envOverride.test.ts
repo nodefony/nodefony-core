@@ -827,6 +827,108 @@ describe("envOverride — le SCHÉMA dit ce que la valeur ignore (#111)", () => 
   });
 });
 
+/**
+ * Un DICTIONNAIRE (`z.record`) se traduit en `additionalProperties` : chaque
+ * entrée a un nom libre et une forme déclarée. Vécu : `ddl` d'un connecteur
+ * Drizzle, déclaré et documenté, était refusé comme « inconnu »
+ * (`NF__DRIZZLE__CONNECTORS__DEFAULT__DDL=auto`).
+ */
+describe("envOverride — l'entrée d'un dictionnaire (additionalProperties)", () => {
+  /** Forme réelle rendue par `z.toJSONSchema` pour `z.record(z.string(), z.strictObject(…))`. */
+  const schema = {
+    type: "object",
+    properties: {
+      connectors: {
+        type: "object",
+        propertyNames: { type: "string" },
+        additionalProperties: {
+          type: "object",
+          properties: {
+            dialect: { type: "string", enum: ["sqlite", "postgres"] },
+            ddl: { type: "string", enum: ["auto", "migrate", "none"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  };
+
+  it("lit le type d'une clé déclarée sous une entrée de dictionnaire", () => {
+    assert.strictEqual(
+      declaredTypeAtPath(schema, ["connectors", "default", "ddl"]),
+      "string",
+    );
+    assert.deepStrictEqual(
+      declaredKeysAtPath(schema, ["connectors", "default"]),
+      ["dialect", "ddl"],
+    );
+  });
+
+  it("pose la clé absente d'une entrée EXISTANTE", () => {
+    const cfg: Record<string, unknown> = {
+      connectors: { default: { dialect: "sqlite" } },
+    };
+    assert.strictEqual(
+      applyResolvedPath(
+        cfg,
+        ["connectors", "default", "ddl"],
+        "auto",
+        "auto",
+        schema,
+      ),
+      true,
+    );
+    assert.deepStrictEqual(cfg.connectors, {
+      default: { dialect: "sqlite", ddl: "auto" },
+    });
+  });
+
+  it("une ENTRÉE absente n'est pas créée — pas de connecteur fantôme", () => {
+    const cfg: Record<string, unknown> = {
+      connectors: { default: { dialect: "sqlite" } },
+    };
+    assert.strictEqual(
+      applyResolvedPath(
+        cfg,
+        ["connectors", "defaut", "ddl"],
+        "auto",
+        "auto",
+        schema,
+      ),
+      false,
+    );
+    assert.deepStrictEqual(cfg.connectors, {
+      default: { dialect: "sqlite" },
+    });
+  });
+
+  it("une clé non déclarée de l'entrée reste refusée", () => {
+    assert.strictEqual(
+      declaredTypeAtPath(schema, ["connectors", "default", "ddll"]),
+      null,
+    );
+  });
+
+  it("🔴 `__proto__` comme nom d'entrée est refusé, même par le dictionnaire", () => {
+    assert.strictEqual(
+      declaredTypeAtPath(schema, ["connectors", "__proto__", "ddl"]),
+      null,
+    );
+    const cfg: Record<string, unknown> = { connectors: {} };
+    assert.strictEqual(
+      applyResolvedPath(
+        cfg,
+        ["connectors", "__proto__", "ddl"],
+        "auto",
+        "auto",
+        schema,
+      ),
+      false,
+    );
+    assert.strictEqual(Object.getPrototypeOf(cfg.connectors), Object.prototype);
+  });
+});
+
 // ─── Copie sur écriture d'une config figée (#491) ─────────────────────────────
 describe("withResolvedPath", () => {
   it("rend une config neuve et gelée, l'original intact, les voisins partagés", async () => {

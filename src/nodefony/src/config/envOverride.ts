@@ -182,16 +182,57 @@ function resolveKey(node: Record<string, unknown>, seg: string): string | null {
   // le prototype de l'objet de configuration était alors DÉTOURNÉ, et
   // `constructor` remplacé par un objet. (`Object.prototype` restait intact :
   // l'alerte js/prototype-polluting-assignment surestime la portée, elle ne
-  // l'invente pas.) Cette garde est le point de passage UNIQUE de
-  // `applyResolvedPath` et de `declaredTypeAtPath` — elle ferme les deux voies.
-  if (seg === "__proto__" || seg === "constructor" || seg === "prototype") {
-    return null;
-  }
+  // l'invente pas.) Cette garde (`isUnsafeSegment`) est le point de passage
+  // UNIQUE de `applyResolvedPath` et de la lecture du schéma — elle ferme les
+  // deux voies, entrée d'un dictionnaire comprise.
+  if (isUnsafeSegment(seg)) return null;
   if (Object.prototype.hasOwnProperty.call(node, seg)) return seg;
   for (const k of Object.keys(node)) {
     if (k.toLowerCase() === seg) return k;
   }
   return null;
+}
+
+/** Segment qui toucherait la chaîne de prototypes — refusé partout. */
+function isUnsafeSegment(seg: string): boolean {
+  return seg === "__proto__" || seg === "constructor" || seg === "prototype";
+}
+
+/** Objet JSON (ni `null`, ni tableau) — garde de navigation, sans conversion. */
+function isObjectNode(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Nœud d'un JSON Schema au bout d'un chemin — `null` si le chemin n'y est pas
+ * déclaré.
+ *
+ * Un segment se résout par `properties`, sinon par `additionalProperties` quand
+ * c'est un schéma : la forme d'un DICTIONNAIRE (`z.record` — les connecteurs
+ * d'un ORM, les familles d'un front), dont chaque entrée porte un nom libre et
+ * une forme déclarée. Sans cette seconde voie, `ddl` d'un connecteur, déclaré
+ * et documenté, était refusé comme « inconnu ». SEULE navigation du schéma :
+ * le type d'une feuille et les clés d'un niveau la partagent.
+ */
+function schemaNodeAtPath(
+  schema: unknown,
+  path: readonly string[],
+): Record<string, unknown> | null {
+  if (!isObjectNode(schema)) return null;
+  let node = schema;
+  for (const segment of path) {
+    const props = node.properties;
+    const key = isObjectNode(props) ? resolveKey(props, segment) : null;
+    let next: unknown;
+    if (key !== null && isObjectNode(props)) {
+      next = props[key];
+    } else if (!isUnsafeSegment(segment)) {
+      next = node.additionalProperties;
+    }
+    if (!isObjectNode(next)) return null;
+    node = next;
+  }
+  return node;
 }
 
 /**
@@ -207,8 +248,8 @@ function resolveKey(node: Record<string, unknown>, seg: string): string | null {
  * plus besoin de poser sur une image déjà construite.
  *
  * Le core n'importe PAS zod : chaque module publie son schéma en JSON pur
- * (`Module.configSchema()`), et cette fonction n'y navigue que par `properties`.
- * Toute autre forme — `anyOf`, `$ref`, union — rend `null` : on n'assouplit que
+ * (`Module.configSchema()`), et cette fonction n'y navigue que par `properties`
+ * et par l'entrée d'un dictionnaire (`additionalProperties`). Toute autre forme — `anyOf`, `$ref`, union — rend `null` : on n'assouplit que
  * ce qu'on COMPREND, et le refus d'aujourd'hui reste le comportement par défaut.
  *
  * @param schema - JSON Schema du module, tel que `Module.configSchema()` le rend.
@@ -219,26 +260,9 @@ export function declaredTypeAtPath(
   schema: unknown,
   path: string[],
 ): string | null {
-  if (path.length === 0 || schema === null || typeof schema !== "object") {
-    return null;
-  }
-  let node = schema as Record<string, unknown>;
-  for (const segment of path) {
-    const props = node.properties;
-    if (props === null || typeof props !== "object") {
-      return null;
-    }
-    const bag = props as Record<string, unknown>;
-    const key = resolveKey(bag, segment);
-    if (key === null) {
-      return null;
-    }
-    const next = bag[key];
-    if (next === null || typeof next !== "object") {
-      return null;
-    }
-    node = next as Record<string, unknown>;
-  }
+  if (path.length === 0) return null;
+  const node = schemaNodeAtPath(schema, path);
+  if (node === null) return null;
   const t = node.type;
   return typeof t === "string" ? t : "unknown";
 }
@@ -310,13 +334,19 @@ export function applyResolvedPath(
   const declaredType =
     schema === undefined ? null : declaredTypeAtPath(schema, path);
   let node: Record<string, unknown> = target;
-  for (const segment of path.slice(0, -1)) {
+  for (const [index, segment] of path.slice(0, -1).entries()) {
     const key = resolveKey(node, segment);
     if (key === null) {
       // Le conteneur manque. On ne le crée QUE si le schéma déclare la feuille :
       // sans cette condition on fabriquerait l'arborescence d'une faute de
       // frappe, et la surcharge paraîtrait appliquée jusqu'à disparaître au parse.
+      // Et seulement si CE segment est une propriété nommée du schéma : l'entrée
+      // d'un dictionnaire porte un nom libre, que le schéma ne peut pas valider —
+      // `…__CONNECTORS__DEFAUT__DDL` ouvrirait sinon un connecteur fantôme.
       if (declaredType === null) return false;
+      const declared = declaredKeysAtPath(schema, path.slice(0, index));
+      const wanted = segment.toLowerCase();
+      if (!declared.some((k) => k.toLowerCase() === wanted)) return false;
       const neuf: Record<string, unknown> = {};
       node[segment] = neuf;
       node = neuf;
@@ -540,20 +570,8 @@ export function declaredKeysAtPath(
   schema: unknown,
   prefix: string[],
 ): string[] {
-  if (schema === null || typeof schema !== "object") return [];
-  let node = schema as Record<string, unknown>;
-  for (const seg of prefix) {
-    const props = node.properties;
-    if (props === null || typeof props !== "object") return [];
-    const bag = props as Record<string, unknown>;
-    const key = resolveKey(bag, seg);
-    if (key === null) return [];
-    const next = bag[key];
-    if (next === null || typeof next !== "object") return [];
-    node = next as Record<string, unknown>;
-  }
-  const props = node.properties;
-  return props !== null && typeof props === "object" ? Object.keys(props) : [];
+  const props = schemaNodeAtPath(schema, prefix)?.properties;
+  return isObjectNode(props) ? Object.keys(props) : [];
 }
 
 /**
