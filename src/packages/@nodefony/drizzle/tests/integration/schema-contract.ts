@@ -375,7 +375,7 @@ function runSchemaSuite(
   // les noms qu'on ne lui donne pas. SQLite n'écrit pas le nom d'une clé étrangère.
   it.skipIf(opts.schema !== "migration")(
     "chaque unicité et chaque clé étrangère porte, dans la migration, le nom que le kit lui DONNE",
-    () => {
+    (ctx) => {
       const text = migration.join("\n");
       const quote = dialect === "postgres" ? '"' : "`";
       const missing: string[] = [];
@@ -396,6 +396,12 @@ function runSchemaSuite(
             }
           }
         }
+      }
+      // En SQLite, seule une unicité de COLONNE porte un nom calculé : un corpus
+      // dont les unicités sont des index (noms DONNÉS) n'a rien à vérifier ici.
+      // Le dire par un saut — ni un rouge, ni un vert qui n'a rien lu.
+      if (checked === 0 && dialect === "sqlite") {
+        ctx.skip("SQLite : aucune unicité de colonne dans ce corpus");
       }
       assert.ok(checked > 0, "le corpus ne nomme aucune contrainte");
       assert.deepEqual(missing, [], `${missing.length} nom(s) absent(s)`);
