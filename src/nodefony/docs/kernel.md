@@ -480,7 +480,7 @@ Ce qui se passe pendant la suspension :
 
 - **Le rechargement est différé, pas perdu.** Le superviseur affiche `⏸ <raison> — rechargement
 différé` et garde la liste des fichiers touchés. Il recharge dès la levée, avec le code écrit
-  (`DevSupervisor.ts#DevSupervisor.#restart`).
+  (`restartCycle.ts#RestartCycle.run`, `DevSupervisor.ts#DevSupervisor.#isSuspended`).
 - **Un verrou oublié ne fige rien.** La suspension est un fichier déposé sous
   `node_modules/.cache/nodefony/` (`devProcess.ts#supervisorLockFile`). Il n'est respecté que tant que le processus qui l'a posé
   vit, et pendant quinze minutes au plus : au-delà, ou après un crash, il est supprimé à la lecture
