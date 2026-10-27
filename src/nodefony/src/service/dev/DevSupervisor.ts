@@ -79,6 +79,7 @@ import {
   terminateDevProcesses,
 } from "./devProcess";
 import { installShutdownSignals } from "./shutdownSignals";
+import { RestartCycle } from "./restartCycle";
 import {
   describeTurboFreeze,
   TurboFreezeWatch,
@@ -859,7 +860,6 @@ export class DevSupervisor {
   /** Gestionnaire de paquets du projet, résolu au premier build. */
   #packageManager: PackageManagerName | null = null;
   readonly #paths: readonly string[];
-  readonly #debounceMs: number;
   readonly #childEnvKey: string;
   /**
    * Où parlent les lignes `[dev]` : la sortie standard, sauf en rendu `json`
@@ -942,9 +942,8 @@ export class DevSupervisor {
   #childSpawnedAt = 0;
   #spawnRetries = 0;
   #watcher: ISourceWatcher | null = null;
-  #timer: ReturnType<typeof setTimeout> | null = null;
-  #building = false;
-  #pending = false;
+  /** Anti-rebond, puis build → remplacement du serveur, un cycle à la fois. */
+  readonly #cycle: RestartCycle;
   /**
    * Raison de la suspension en cours du rechargement (verrou posé par le serveur), ou
    * `null`. Sert aussi à ne l.annoncer QU.UNE fois, et à dire quand elle se lève.
@@ -981,14 +980,27 @@ export class DevSupervisor {
    * répété à l'infini cesse d'être lu.
    */
   #orphanRiskWarned = false;
-  /** Fichiers modifiés depuis le dernier build (pour cibler le rebuild). */
-  readonly #dirty = new Set<string>();
   /** Cache dir → nom de workspace (`null` = app racine). */
   readonly #pkgCache = new Map<string, string | null>();
 
   constructor(options: DevSupervisorOptions) {
     this.#cwd = options.cwd;
-    this.#debounceMs = options.debounceMs ?? 250;
+    this.#cycle = new RestartCycle(
+      {
+        isStopping: () => this.#isStopping(),
+        isSuspended: () => this.#isSuspended(),
+        build: (files) => this.#buildStep(files),
+        swap: () => this.#swapChild(),
+        onReplay: (count) =>
+          this.#log(
+            `↻ ${count} modification(s) reçue(s) pendant le rechargement — nouveau cycle`,
+          ),
+      },
+      {
+        debounceMs: options.debounceMs ?? 250,
+        recheckMs: SUSPENSION_RECHECK_MS,
+      },
+    );
     this.#childEnvKey = options.childEnvKey ?? DEV_CHILD_ENV;
     this.#mode = devSupervisorMode(process.argv, process.env);
     // En `json`, le flux standard appartient au bilan JSON du serveur.
@@ -1194,16 +1206,16 @@ export class DevSupervisor {
     else this.#out.write(text);
   }
 
-  /** Écrit une ligne préfixée sur stdout (pas de `console.log` — code core). */
   /**
    * Régénère le graphe symbolique du code de l'application, sans l'attendre :
    * l'onglet « API » des modules de l'application, dans la console
    * d'administration, se remplit sans que personne n'ait à y penser.
    *
    * Ici, dans le superviseur, et pas dans le serveur : l'analyse est du calcul
-   * synchrone, qui ne doit jamais retarder une requête. Appelée au démarrage
-   * puis après chaque reconstruction RÉUSSIE — c'est-à-dire chaque fois que le
-   * code a changé. Silencieuse quand tout va bien ; un échec est dit UNE fois.
+   * synchrone, qui ne doit jamais retarder une requête. Lancée quand le serveur
+   * (re)lancé ÉCOUTE — jamais pendant son boot : ce calcul bloque la boucle du
+   * superviseur, qui relaie la sortie de l'enfant et sonde ses ports. Silencieuse
+   * quand tout va bien ; un échec est dit UNE fois.
    */
   #refreshSymbols(): void {
     refreshProjectSymbols(this.#cwd).then(
@@ -1405,7 +1417,6 @@ export class DevSupervisor {
     // Un ancien enfant peut encore tenir les ports le temps de mourir.
     await this.#waitPortsFree();
     this.#spawnChild();
-    this.#refreshSymbols();
     this.#startWatch();
     this.#log(
       `superviseur actif (pid ${process.pid}) — recharge le backend à chaque ` +
@@ -1997,6 +2008,7 @@ export class DevSupervisor {
         // Verdict de build rejoué APRÈS le boot : le splash + les logs de
         // l'enfant ont défilé — sans rappel, l'erreur se perdait dans le scroll.
         this.#replayBuildIssues();
+        this.#refreshSymbols();
         return;
       }
       if (Date.now() >= deadline) {
@@ -2007,6 +2019,7 @@ export class DevSupervisor {
             "yellow",
           );
           this.#replayBuildIssues();
+          this.#refreshSymbols();
         }
         return;
       }
@@ -2140,36 +2153,25 @@ export class DevSupervisor {
    */
   #startWatch(): void {
     this.#watcher = watchSources(this.#cwd, this.#paths, (file) => {
-      this.#dirty.add(file);
-      this.#scheduleRestart(file);
+      this.#log(
+        `↻ changement : ${path.relative(this.#cwd, path.resolve(this.#cwd, file))}`,
+      );
+      this.#cycle.mark(file);
     });
     attachWatcherErrorGuard(this.#watcher, (message) =>
       this.#log(message, "yellow"),
     );
   }
 
-  /** Anti-rebond : regroupe plusieurs sauvegardes rapprochées en un restart. */
-  #scheduleRestart(file: string): void {
-    this.#log(
-      `↻ changement : ${path.relative(this.#cwd, path.resolve(this.#cwd, file))}`,
-    );
-    if (this.#timer) clearTimeout(this.#timer);
-    this.#timer = setTimeout(() => void this.#restart(), this.#debounceMs);
-  }
-
-  /** Rebuild (CIBLÉ sur les workspaces touchés) puis tue le groupe et relance. */
-  async #restart(): Promise<void> {
-    if (this.#stopping) return;
-    if (this.#building) {
-      this.#pending = true; // une autre modif est arrivée pendant le build
-      return;
-    }
-    // Le serveur écrit EN CE MOMENT dans les sources (génération de code depuis Studio,
-    // migration, installation d'un module…). Redémarrer maintenant tuerait le `npm
-    // install` en cours — le process npm est un enfant du serveur — et laisserait un
-    // `node_modules` à moitié écrit. On DIFFÈRE : les fichiers touchés restent dans
-    // `#dirty`, donc rien n'est perdu, et le rechargement part dès la levée du verrou
-    // (le code généré est alors chargé).
+  /**
+   * Le serveur écrit EN CE MOMENT dans les sources (génération de code depuis
+   * Studio, migration, installation d'un module…) : redémarrer maintenant
+   * tuerait le `npm install` en cours — le process npm est un enfant du
+   * serveur — et laisserait un `node_modules` à moitié écrit. Le cycle DIFFÈRE :
+   * les fichiers touchés restent notés, rien n'est perdu, et le rechargement
+   * part dès la levée du verrou (le code généré est alors chargé).
+   */
+  #isSuspended(): boolean {
     const suspension = readSupervisorSuspension(this.#cwd);
     if (suspension) {
       if (!this.#suspendedBy) {
@@ -2177,26 +2179,28 @@ export class DevSupervisor {
         // On DIT pourquoi : un rechargement muet qui ne part pas est un mystère.
         this.#log(`⏸ ${suspension.reason} — rechargement différé`, "yellow");
       }
-      if (this.#timer) clearTimeout(this.#timer);
-      this.#timer = setTimeout(
-        () => void this.#restart(),
-        SUSPENSION_RECHECK_MS,
-      );
-      return;
+      return true;
     }
     if (this.#suspendedBy) {
       this.#log(`▶ ${this.#suspendedBy} — terminé, rechargement`, "green");
       this.#suspendedBy = null;
     }
-    const dirty = [...this.#dirty];
-    this.#dirty.clear();
-    this.#building = true;
+    return false;
+  }
+
+  /**
+   * Étape « build » du cycle : rebuild CIBLÉ sur les workspaces touchés.
+   *
+   * @param files - fichiers modifiés depuis le cycle précédent.
+   * @returns `false` si le build échoue (serveur courant conservé) ou si un
+   *   arrêt a été demandé pendant le build.
+   */
+  async #buildStep(files: readonly string[]): Promise<boolean> {
     const t0 = Date.now();
     const before = this.#terminal?.phase ?? null;
     this.#terminal?.setPhase("building");
-    const ok = await this.#build(dirty);
-    this.#building = false;
-    if (this.#isStopping()) return;
+    const ok = await this.#build(files);
+    if (this.#isStopping()) return false;
     if (!ok) {
       // Le serveur courant est conservé : sa barre revient, et dit pourquoi
       // elle n'a pas bougé tant que le build ne repasse pas.
@@ -2206,7 +2210,7 @@ export class DevSupervisor {
         "build en échec — serveur courant conservé, corrige puis sauvegarde",
         "red",
       );
-      return;
+      return false;
     }
     this.#log(
       `✓ build OK (${Date.now() - t0}ms) — rechargement backend…`,
@@ -2214,23 +2218,25 @@ export class DevSupervisor {
     );
     this.#terminal?.setIssue(null);
     this.#terminal?.setPhase("restarting");
+    return true;
+  }
+
+  /** Étape « remplacement » du cycle : tue le groupe de l'enfant, attend les ports, relance. */
+  async #swapChild(): Promise<void> {
     this.#terminal?.setActivity("arrêt du serveur");
     await this.#killChild();
     this.#terminal?.setActivity("libération des ports");
     await this.#waitPortsFree();
     this.#spawnRetries = 0;
     this.#spawnChild(true);
-    this.#refreshSymbols();
-    if (this.#pending) {
-      this.#pending = false;
-      this.#scheduleRestart("(modifs en attente)");
-    }
   }
 
   /**
-   * Rebuild **ciblé** : ne reconstruit que les workspaces touchés (+ leurs
-   * dépendants via `turbo --filter=pkg...`) et l'app racine (`rolldown -c`) si un
-   * fichier racine a changé. Évite de rebuilder les 17 workspaces pour un seul
+   * Rebuild **ciblé** : ne reconstruit que les workspaces touchés (turbo
+   * `--filter=pkg...` = le paquet ET ses DÉPENDANCES, jamais ses dépendants —
+   * ceux-ci laissent `@nodefony/*` hors de leur bundle et lisent le nouveau
+   * `dist/` au redémarrage) et l'app racine (`rolldown -c`) si un fichier
+   * racine a changé. Évite de rebuilder les 17 workspaces pour un seul
    * fichier (le `npm run build` complet coûtait > 80 s).
    */
   async #build(dirty: readonly string[]): Promise<boolean> {
@@ -2457,7 +2463,7 @@ export class DevSupervisor {
     // Le terminal d'abord : la séquence d'arrêt du serveur s'affiche dans
     // l'écran normal, pas dans un écran alternatif qui va disparaître.
     this.#terminal?.leaveFullscreen();
-    if (this.#timer) clearTimeout(this.#timer);
+    this.#cycle.cancel();
     this.#watcher?.close();
     this.#terminal?.setPhase("restarting");
     await this.#killBuild();
