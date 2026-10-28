@@ -58,7 +58,7 @@ codec, aucune notification `realtime:closed`, aucun curseur d'abonnement.
 
 ### 1. Le canal, pas la room
 
-**Décision proposée :** l'unité de la socket est le **canal** : un flux nommé dont le producteur
+**Décision (validée par l’auteur le 2026-10-28) :** l'unité de la socket est le **canal** : un flux nommé dont le producteur
 est **partagé**, démarré au premier abonné et libéré au dernier
 (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.subscribe`).
 Une _room_ — une liste de diffusion tenue par le serveur, qui ne sait rien de ce qui produit —
