@@ -18,7 +18,7 @@ tags:
     secrets,
   ]
 version: "doc"
-status: stable
+status: experimental
 updated: 2026-07-19
 source: "src/packages/@nodefony/mongoose/docs/configuration.md"
 coverageModule: mongoose

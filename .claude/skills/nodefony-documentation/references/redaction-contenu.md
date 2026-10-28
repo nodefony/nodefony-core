@@ -50,9 +50,13 @@ général au plus précis — **et le dernier gagne toujours** :
    `<module>/docs/` sont publics. Le journal de sessions, les archives, les décisions
    d'architecture, l'outillage d'agent, le plan de version et le tableau de bord de migration ne le
    sont pas. Une page NEUVE dans un dossier public est publiée d'office : la liste ne se périme pas ;
-2. **le STATUT** — seuls `stable` et `accepted` sont publiables. `draft`, `vision`, `superseded`,
-   `experimental`, `deprecated` restent dedans : un texte de travail ENGAGE dès qu'il est en ligne,
-   et un lecteur ne distingue pas un brouillon d'une promesse. Une page **sans** `status` reste
+2. **le STATUT** — seuls `stable`, `accepted` et `experimental` sont publiables. `draft`,
+   `vision`, `superseded`, `deprecated` restent dedans : un texte de travail ENGAGE dès qu'il est en
+   ligne, et un lecteur ne distingue pas un brouillon d'une promesse. `experimental` ne qualifie PAS
+   le texte mais le PAQUET : c'est la page d'un paquet livré dont l'API peut changer en mineure
+   (clé `nodefony.stability`, politique de compatibilité § « Surfaces expérimentales ») — elle est
+   publiée, badge `warn`, et `src/nodefony/src/tests/stability.test.ts` refuse qu'un paquet stable
+   en porte une. Une page **sans** `status` reste
    publiée — retirer un guide utile pour un frontmatter incomplet serait une punition, pas une
    règle — mais elle est signalée au rendu ;
 3. **la PAGE elle-même**, par cette clé — qui dit à QUI la page s'adresse :

@@ -61,6 +61,41 @@ npm view @nodefony/http exports        # ce que le paquet PUBLIÉ déclare
 casse un usage raisonnable — un code d'erreur qui change, un défaut de configuration inversé, un
 en-tête qui disparaît — est traité comme une rupture, pas comme un correctif.
 
+## Surfaces expérimentales
+
+Un paquet peut être déclaré **expérimental**. Il est livré, publié et installable comme les
+autres, et il fonctionne de la même façon : rien n'est retiré, rien n'est désactivé, aucun
+avertissement ne s'affiche à l'exécution. Seule la promesse change : **son API peut changer dans
+une version mineure** de la série. Chaque changement est annoncé au changelog — rien ne bouge
+sans un mot.
+
+<!-- Liste tenue par la clé `nodefony.stability` du package.json de chaque paquet : un test
+     (src/nodefony/src/tests/stability.test.ts) refuse tout écart entre les deux. -->
+
+| Paquet               | Pourquoi il est expérimental                                         |
+| -------------------- | -------------------------------------------------------------------- |
+| `@nodefony/ai`       | il suit la spécification MCP, qui change de forme à chaque révision  |
+| `@nodefony/mongoose` | c'est le second ORM du framework, derrière Drizzle, l'ORM par défaut |
+
+Vous le reconnaissez à trois endroits :
+
+- **dans votre éditeur** : le point d'entrée du paquet porte l'étiquette `@experimental`, livrée
+  dans ses fichiers de types (`.d.ts`) ;
+- **sur sa page de documentation** : le badge `experimental` ;
+- **dans le paquet lui-même** :
+
+  ```bash
+  npm view @nodefony/ai nodefony.stability    # experimental
+  ```
+
+Deux règles encadrent le statut :
+
+- **Un paquet sort de l'expérimental en version mineure** : il devient stable, et la garantie
+  ordinaire s'applique dès cette version.
+- **Un paquet stable ne redevient jamais expérimental au cours d'une série** : ce serait retirer
+  une garantie déjà donnée. Une partie NOUVELLE peut en revanche naître expérimentale, dans
+  n'importe quelle version mineure.
+
 ## Les versions vont par quinze
 
 Tous les paquets publiés partagent **la même version**, publiée d'un seul lot. Il n'existe pas de

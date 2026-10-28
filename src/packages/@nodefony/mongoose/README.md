@@ -7,6 +7,11 @@ session portable et sondes d'introspection pour Studio.
 > Module **opt-in** : Nodefony recommande **Drizzle** comme ORM SQL par défaut. Activez Mongoose
 > quand vous avez besoin d'un store documentaire (MongoDB).
 
+> 🧪 **Paquet expérimental.** Second ORM du framework, derrière Drizzle : son API peut changer
+> dans une version **mineure** de la série 10, toujours annoncé au changelog. Il est livré,
+> publié et utilisable comme les autres — seule la promesse est plus légère. Voir la
+> [politique de compatibilité](https://github.com/nodefony/nodefony-core/blob/main/docs/guides/compatibilite.md#surfaces-expérimentales).
+
 ## Installation / activation
 
 Le module fait partie du monorepo. Pour l'activer dans une application, ajoutez-le au manifeste

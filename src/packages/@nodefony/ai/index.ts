@@ -26,6 +26,15 @@ declare module "nodefony" {
 
 // Les controllers du module se déclarent ici — `nodefony create controller <nom>
 // --module ai` les ajoute à cette liste (et à ce dossier) tout seul.
+/**
+ * Module `@nodefony/ai` : le serveur MCP du framework et les services de la couche agentique.
+ *
+ * @experimental Paquet EXPÉRIMENTAL : il suit la spécification MCP, qui change
+ * de forme à chaque révision. Son API peut donc changer dans une version
+ * mineure de la série 10, toujours annoncé au changelog — politique de
+ * compatibilité, § « Surfaces expérimentales ». Livré, publié et utilisable
+ * comme les autres : seule la promesse est plus légère.
+ */
 @controllers([])
 class AiModule extends Module {
   constructor(kernel: Kernel) {

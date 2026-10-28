@@ -10,7 +10,7 @@ section: "Intelligence artificielle"
 audience: [developer]
 tags: [mcp, agent, ia, json-rpc, sse, outils, progression, annulation, oauth]
 version: "doc"
-status: stable
+status: experimental
 updated: 2026-10-22
 source: "src/packages/@nodefony/ai/docs/mcp.md"
 ---

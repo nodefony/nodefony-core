@@ -4,6 +4,11 @@
 > agent (serveur MCP), consommer des serveurs MCP, puis bâtir les services d'une couche
 > agentique — accès modèle, index vectoriel, mémoire, orchestration d'agents, gouvernance.
 
+> 🧪 **Paquet expérimental.** Il suit la spécification MCP, qui change de forme à chaque
+> révision : son API peut changer dans une version **mineure** de la série 10, toujours annoncé
+> au changelog. Il est livré, publié et utilisable comme les autres — seule la promesse est plus
+> légère. Voir la [politique de compatibilité](https://github.com/nodefony/nodefony-core/blob/main/docs/guides/compatibilite.md#surfaces-expérimentales).
+
 ## Pourquoi ce paquet
 
 Un agent d'intelligence artificielle qui n'a ni terminal ni accès à votre code — Claude.ai,

@@ -38,7 +38,8 @@
     "esm"
   ],
   "nodefony": {
-    "configSchema": "./dist/nodefony/config/configSchema.js"
+    "configSchema": "./dist/nodefony/config/configSchema.js",
+    "stability": "experimental"
   },
   "peerDependencies": {
     "@nodefony/framework": "^10.0.0-beta.5",

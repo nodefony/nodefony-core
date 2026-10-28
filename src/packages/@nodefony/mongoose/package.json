@@ -14,7 +14,8 @@
       "webhooks",
       "idempotency"
     ],
-    "configSchema": "./dist/nodefony/config/configSchema.js"
+    "configSchema": "./dist/nodefony/config/configSchema.js",
+    "stability": "experimental"
   },
   "contributors": [],
   "main": "./dist/index.js",

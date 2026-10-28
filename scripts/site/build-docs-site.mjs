@@ -298,20 +298,24 @@ const PRIVATE = [
 ];
 
 /**
- * Tranche le sort d'une page.
- *
- * @param {{source: string, relPath: string, meta: Record<string, unknown>}} d
- * @returns {{ok: boolean, why: string}}
- */
-/**
  * Statuts qu'une page doit porter pour être publiée. Un brouillon ou une vision
  * ENGAGE le projet dès qu'il est en ligne : un lecteur ne distingue pas un texte
  * de travail d'une promesse, et le badge ne suffit pas à l'en avertir. Une page
  * SANS statut reste publiée — retirer cinq guides utiles pour un frontmatter
  * incomplet serait une punition, pas une règle — mais elle est signalée.
+ * `experimental` est publiée : c'est la page d'un paquet LIVRÉ dont l'API peut
+ * encore changer en mineure (politique de compatibilité, § « Surfaces
+ * expérimentales ») — la retirer cacherait un paquet installable, et son badge
+ * (`warn`) porte l'avertissement.
  */
-const PUBLIC_STATUS = new Set(["stable", "accepted"]);
+const PUBLIC_STATUS = new Set(["stable", "accepted", "experimental"]);
 
+/**
+ * Tranche le sort d'une page.
+ *
+ * @param {{source: string, relPath: string, meta: Record<string, unknown>}} d
+ * @returns {{ok: boolean, why: string}}
+ */
 function decide(d) {
   // Le frontmatter a le dernier mot, dans les deux sens — lu par la règle du
   // cœur, la MÊME que le portail de Studio et l'onglet Docs d'un module.

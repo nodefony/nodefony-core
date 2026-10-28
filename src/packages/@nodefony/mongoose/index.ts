@@ -38,6 +38,15 @@ declare module "nodefony" {
   }
 }
 
+/**
+ * Module `@nodefony/mongoose` : le pilote NoSQL de l'ORM, sur `@nodefony/orm-core`.
+ *
+ * @experimental Paquet EXPÉRIMENTAL : second ORM du framework, derrière
+ * Drizzle. Son API peut changer dans une version mineure de la série 10,
+ * toujours annoncé au changelog — politique de compatibilité, § « Surfaces
+ * expérimentales ». Livré, publié et utilisable comme les autres : seule la
+ * promesse est plus légère.
+ */
 @services([MongooseService])
 class Mongoose extends Module<IMongooseConfig> {
   /**
