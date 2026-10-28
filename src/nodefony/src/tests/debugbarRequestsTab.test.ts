@@ -9,7 +9,7 @@
  *
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { DebugBar } from "../client/debugbar/DebugBar";
 import type { NodefonySocket } from "../client/realtime/NodefonySocket";
 import { PLATFORM_CHANNELS } from "../realtime/platformChannels";
@@ -329,11 +329,19 @@ describe("vue Page — ce que la page est en train de faire", () => {
     ligneReq("/api/items").dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
     );
-    await image();
-    visibles(".row.log.child")[0]?.click();
-    await image();
-    expect(side.querySelector(".sidehead")?.textContent).toContain(
-      "Ligne serveur",
+    // Attendre la CONDITION, pas une durée : sous Windows, 60 ms ne suffisaient
+    // pas toujours à rendre la ligne dépliée — et un `?.click()` sur une ligne
+    // absente ne cliquait rien, sans un mot, l'échec tombant une assertion plus loin.
+    const enfant = await vi.waitFor(() => {
+      const row = visibles(".row.log.child")[0];
+      if (!row) throw new Error("ligne enfant pas encore rendue");
+      return row;
+    });
+    enfant.click();
+    await vi.waitFor(() =>
+      expect(side.querySelector(".sidehead")?.textContent).toContain(
+        "Ligne serveur",
+      ),
     );
     q("[data-el='logSide'] [data-act='close']").click();
     await image();
