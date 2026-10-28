@@ -75,7 +75,10 @@ export interface IWebhookRegisterInput {
   readonly enabled?: boolean;
   /** Identité de l'admin créateur (traçabilité). */
   readonly createdBy?: string | null;
-  /** Slot multi-tenant (réservé). */
+  /**
+   * Périmètre d'un locataire — réservé, **refusé s'il est rempli** tant que le
+   * multi-tenant n'existe pas (ADR-0023 W2). Absent ou `null` : abonnement sans périmètre.
+   */
   readonly tenantId?: string | null;
   /** Métadonnées extensibles. */
   readonly metadata?: Record<string, unknown>;
@@ -437,8 +440,15 @@ class WebhookService extends Service {
    * (la seule occasion de le lire pour le copier).
    *
    * @throws SsrfError si l'URL est invalide / cible non publique.
+   * @throws Error si `tenantId` est rempli : le périmètre d'un locataire n'est pas
+   * encore appliqué à la livraison (ADR-0023 W2) — l'accepter le rendrait trompeur.
    */
   async register(input: IWebhookRegisterInput): Promise<IWebhookSecretReveal> {
+    if (input.tenantId != null) {
+      throw new Error(
+        "webhooks: tenantId n'est pas encore pris en charge — le multi-tenant n'existe pas, et un abonnement rattaché à un locataire recevrait tout. Laisser tenantId absent ou null.",
+      );
+    }
     const { store, key, config } = this.#assertReady();
     await this.#assertSafeUrl(config, input.url);
     const secret = generateSecret();

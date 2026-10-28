@@ -446,6 +446,18 @@ Le champ `events` d'un endpoint accepte trois formes, résolues par `matchesSubs
 | `"login.success"` | l'action exacte, et elle seule                        | une alerte ciblée               |
 | `"login.*"`       | toute action **préfixée** `login.` (`login.failure`…) | suivre une famille d'événements |
 
+> [!IMPORTANT]
+> **`"*"` veut dire tout, y compris ce qui viendra.** Aujourd'hui, seuls les événements d'audit
+> sont livrés ; le jour où une application pourra émettre les siens, un abonnement `"*"` les
+> recevra aussi. Qui ne veut que la sécurité liste ses familles (`login.*`, `token.*`…). Cette
+> grammaire (`*`, nom exact, `préfixe.*`) ne changera pas de sens dans la série 10.
+>
+> **Mais seulement dans son périmètre.** Un abonnement ne reçoit jamais un événement hors de son
+> périmètre, et un abonnement sans périmètre — le cas de tous aujourd'hui — ne reçoit que les
+> événements sans périmètre. Le multi-tenant n'existant pas encore, `WebhookService.register`
+> **refuse** un `tenantId` rempli (`webhooks.ts#WebhookService.register`) : l'accepter le ferait
+> passer pour un cloisonnement qu'il n'est pas.
+
 > [!CAUTION]
 > Les événements de catégorie `webhook` **ne déclenchent jamais de livraison**
 > (`WebhookDispatcher.ts#WebhookDispatcher.onAuditEvent`), même avec un abonnement `"*"`. C'est une garde anti-amplification :
@@ -747,7 +759,7 @@ partage entre pods. Les colonnes suivent `IWebhookEndpoint` (`IWebhookEndpoint.t
 | `events` | actions souscrites | `text mode:json` · `jsonb` · `json` | `[String]` |
 | `enabled` | actif ? | `integer mode:bool` · `boolean` · `boolean` | `Boolean` |
 | `description` | libellé console | `text` | `String` |
-| `tenantId` | slot multi-tenant (réservé) | `text` | `String` |
+| `tenantId` | périmètre d’un locataire (réservé, toujours `null`) | `text` | `String` |
 | `createdBy` | admin créateur (traçabilité) | `text` | `String` |
 | `createdAt` / `updatedAt` | epoch **ms** | `integer` · `bigint` · `bigint` | `Number` |
 | `lastDeliveryAt` | dernière tentative (epoch ms) | `integer` · `bigint` · `bigint` | `Number` |

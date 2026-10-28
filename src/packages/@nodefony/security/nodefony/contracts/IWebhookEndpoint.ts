@@ -23,7 +23,11 @@ export interface IWebhookEndpoint {
   readonly enabled: boolean;
   /** Libellé humain optionnel (console admin). */
   readonly description: string | null;
-  /** Slot multi-tenant (réservé P17) — `null` = global. */
+  /**
+   * Périmètre d'un locataire — réservé, toujours `null` tant que le multi-tenant
+   * n'existe pas (`register` refuse une valeur). Un abonnement sans périmètre ne
+   * reçoit que les événements sans périmètre (ADR-0023 W2).
+   */
   readonly tenantId: string | null;
   /** Identité de l'admin créateur (soft ref, traçabilité). */
   readonly createdBy: string | null;
