@@ -217,14 +217,21 @@ qui ne regarde que la connexion, les rôles et les scopes : la règle évaluée 
 
 ### S8. Des octets sont des `Uint8Array`, et chaque transport dit comment il les porte
 
-**Décision proposée :** une charge est compatible avec JSON, ou ce sont des octets, et des octets
-sont un `Uint8Array` des deux côtés (`src/nodefony/src/realtime/IRealtimeTransport.ts#RealtimeFrameData`).
-Chaque transport déclare sa manière : trame binaire ou codec natif sur la socket, base64 en SSE,
-encodage **explicite** sur le backplane, jamais un `JSON.stringify` qui rendrait un objet.
+**Décision (validée par l’auteur le 2026-10-28) :** une charge est compatible avec JSON, ou ce
+sont des octets, et des octets sont un `Uint8Array` des deux côtés
+(`src/nodefony/src/realtime/IRealtimeTransport.ts#RealtimeFrameData`). Chaque transport déclare sa
+manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devient
+`{"0":1,"1":2,"2":255}`, sans erreur).
+
+| Transport | Ce que le code tient                                                                                                                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Socket    | trame binaire, octets intacts                                                                                                                                                                                                           |
+| Backplane | **refusés** plutôt que déformés : livrés aux seuls abonnés locaux, l'exploitant prévenu une fois (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) ; voie brute sur un second sujet (S6, #618) |
+| Flux SSE  | **déformés aujourd'hui** : `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize` passe des octets par `JSON.stringify` — à trancher (S8 bis)                                                                   |
 
 - Usages : de la voix, un document partagé, de la télémétrie binaire.
-- **Rupture si différé : NON.** À prouver : le pilote Redis transporte-t-il un `Uint8Array` intact ?
-  On le suppose corrompu aujourd'hui (#618).
+- **Rupture si différé : NON.** Mais une application qui décoderait la forme déformée casserait au
+  correctif : la règle est écrite avant 10.0 pour que cette forme ne soit jamais une promesse.
 
 ### S9. Un seul vocabulaire pour compter ce qui part et ce qui se perd
 
