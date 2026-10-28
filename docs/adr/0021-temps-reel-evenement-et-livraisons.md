@@ -4,7 +4,7 @@ title: Temps réel — un événement générique, plusieurs livraisons
 lang: fr
 navTitle: Temps réel, le socle
 date: 2026-10-28
-status: proposed
+status: accepted
 deciders: [Christophe CAMENSULI]
 tags: [realtime, websocket, sse, webhooks, backplane, design, compatibility]
 ---
@@ -13,7 +13,7 @@ tags: [realtime, websocket, sse, webhooks, backplane, design, compatibility]
 
 ## Statut
 
-Proposé (2026-10-28), brouillon soumis à l'auteur. Socle commun des décisions temps réel :
+Accepté (2026-10-28), décision par décision (S1 à S9) avec l’auteur. Socle commun des décisions temps réel :
 [ADR-0022](0022-socket-temps-reel.md) (la socket, #627) et
 [ADR-0023](0023-webhooks-evenements-et-abonnements.md) (les webhooks) en dépendent ; l'ADR de
 gRPC naîtra avec l'Epic #694. Instruit par un relevé des quatre briques existantes et par le
