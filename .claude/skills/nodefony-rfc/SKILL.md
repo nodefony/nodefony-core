@@ -4,17 +4,17 @@ metadata:
   version: 1.10.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
-  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC et protobuf, AGENTS.md,
+  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, AGENTS.md,
   Keycloak 26.8 et un relevé des terminaux, avec un
   script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
   "SameSite cookies", "norme SSE", "EventSource", "spec MCP", "Model Context Protocol", "autorisation MCP",
-  "resource server OAuth", "RFC 9728", "AGENTS.md", "AAIF",
+  "resource server OAuth", "RFC 9728", "AGENTS.md", "spec AGENTS.md", "AAIF",
   "quelle taille pour AGENTS.md", "dossier .agents",
   "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
   "audience Keycloak", "hostname Keycloak", "thème Keycloak", "courriel Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
   "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52",
-  "gRPC", "protobuf", "A2A", "Agent2Agent", "agent à agent".
+  "gRPC", "protobuf", "A2A", "Agent2Agent".
 ---
 
 # nodefony-rfc

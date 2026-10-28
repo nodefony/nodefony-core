@@ -29,8 +29,8 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 | Version | `1.10.0` |
 | Famille | Références et livrables |
 | Corps | 341 lignes |
-| Coût d'activation | ~6 376 tokens (le corps est chargé à l'invocation) |
-| Description | 1024 / 1024 caractères |
+| Coût d'activation | ~6 373 tokens (le corps est chargé à l'invocation) |
+| Description | 1013 / 1024 caractères |
 | Déclencheurs | 39 |
 | Ressources `references/` | 0 page(s), 259 fichiers au total |
 | Scripts | 5 |
@@ -38,7 +38,7 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 ## Ce qu'il fait
 
-Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC et protobuf, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
+Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
 
 ## Prérequis
 
@@ -54,7 +54,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`RFC` · `conformité HTTP` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `Model Context Protocol` · `autorisation MCP` · `resource server OAuth` · `RFC 9728` · `AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `importer un realm` · `audience Keycloak` · `hostname Keycloak` · `thème Keycloak` · `courriel Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52` · `gRPC` · `protobuf` · `A2A` · `Agent2Agent` · `agent à agent`
+`RFC` · `conformité HTTP` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `Model Context Protocol` · `autorisation MCP` · `resource server OAuth` · `RFC 9728` · `AGENTS.md` · `spec AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `importer un realm` · `audience Keycloak` · `hostname Keycloak` · `thème Keycloak` · `courriel Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52` · `gRPC` · `protobuf` · `A2A` · `Agent2Agent`
 
 ## Ce que contient le corps
 
@@ -96,7 +96,7 @@ node check-amont.mjs                      # le contrôle
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1024 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1013 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
