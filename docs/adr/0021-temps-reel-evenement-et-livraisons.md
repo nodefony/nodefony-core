@@ -121,14 +121,25 @@ tampon que syslog tient déjà (`src/modules/test/nodefony/controller/LiveSyslog
 
 ### S4. La fin d'un flux est un signal à motif fermé
 
-**Décision proposée :** quand un canal se termine côté serveur, l'abonné le **sait**, par un
-signal dont le motif appartient à une liste fermée. Sur la socket, c'est une notification
-`realtime:closed { channel, reason }`. Un client ne rejoue pas un canal fermé. En SSE, la fin est
-la fermeture du flux, et le code 204 dit de ne pas se reconnecter.
+**Décision (validée par l’auteur le 2026-10-28) :** quand un canal se termine côté serveur,
+l'abonné le **sait**, par un signal dont le motif appartient à une liste fermée. Sur la socket,
+c'est une notification `realtime:closed { channel, reason }`, ajoutée en 10.x, avec deux motifs :
+`ended` (le canal est terminé pour tous) et `evicted` (cette connexion en est retirée). Un client
+qui la reçoit retire l'abonnement et ne le rejoue pas. En SSE, la fin est la fermeture du flux, et
+le code 204 dit de ne pas se reconnecter.
+
+**Règle pour les clients qui ignorent `closed`** : un client 10.0 garde l'abonnement et le
+**rejoue à sa reconnexion** (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`).
+C'est donc à la **fabrique** d'un canal à durée de vie de refuser un canal terminé : elle rend
+`null`, et le client reçoit `realtime:denied { reason: "unknown" }`, qu'il sait lire. Sans cette
+règle, un vieil onglet relancerait un import achevé. Aucun code dans le socle : une consigne
+d'écriture des canaux.
 
 - Usages : un appel qui se termine, une partie finie, un import de fichier achevé.
-- Écarté : réutiliser le refus `realtime:denied` avec un motif neuf. Ses motifs sont gelés (#630).
-- **Rupture si différé : NON.** Une notification inconnue est ignorée par un client 10.0
+- Écarté : réutiliser le refus `realtime:denied` avec un motif neuf. Ses motifs sont gelés (#630),
+  et une fin normale n'est pas un refus : l'écran doit pouvoir dire « terminé », pas « refusé ».
+- **Rupture si différé : NON.** Une notification inconnue est passée aux seuls gestionnaires
+  inscrits par un client 10.0, sans autre effet
   (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.dispatchNotification`).
 
 ### S5. Les garanties d'ordre et de livraison sont écrites
