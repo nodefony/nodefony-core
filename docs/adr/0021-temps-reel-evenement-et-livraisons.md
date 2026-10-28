@@ -227,7 +227,7 @@ manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devien
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Socket    | trame binaire, octets intacts                                                                                                                                                                                                           |
 | Backplane | **refusés** plutôt que déformés : livrés aux seuls abonnés locaux, l'exploitant prévenu une fois (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) ; voie brute sur un second sujet (S6, #618) |
-| Flux SSE  | **déformés aujourd'hui** : `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize` passe des octets par `JSON.stringify` — à trancher (S8 bis)                                                                   |
+| Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)             |
 
 - Usages : de la voix, un document partagé, de la télémétrie binaire.
 - **Rupture si différé : NON.** Mais une application qui décoderait la forme déformée casserait au

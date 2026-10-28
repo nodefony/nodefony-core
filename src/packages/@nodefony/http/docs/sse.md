@@ -153,16 +153,16 @@ data: {"step":"écriture"}
 
 ### Côté serveur — `this.renderSse()` et l'objet `SseStream`
 
-| Membre                          | Rôle                                                                                                              |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `this.renderSse(options?)`      | ouvre le flux (`Controller.renderSse()`, `Controller.ts#Controller.renderSse`) ; lève sur WebSocket               |
-| `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts#Controller.acceptsSse`) |
-| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts#SseStream.send`)                  |
-| `sse.comment(text)`             | un commentaire, ignoré par le client                                                                              |
-| `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                                          |
-| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts#SseStream.onClose`)  |
-| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts#SseStream.close`)                              |
-| `sse.closed`                    | le flux est-il fermé — à tester dans une boucle longue                                                            |
+| Membre                          | Rôle                                                                                                                                                                                         |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `this.renderSse(options?)`      | ouvre le flux (`Controller.renderSse()`, `Controller.ts#Controller.renderSse`) ; lève sur WebSocket                                                                                          |
+| `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts#Controller.acceptsSse`)                                                                            |
+| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON ; des octets (`Uint8Array`, `Buffer`) lèvent un `TypeError` : les encoder soi-même (base64) (`SseStream.send()`, `SseStream.ts#SseStream.send`) |
+| `sse.comment(text)`             | un commentaire, ignoré par le client                                                                                                                                                         |
+| `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                                                                                                                     |
+| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts#SseStream.onClose`)                                                                             |
+| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts#SseStream.close`)                                                                                                         |
+| `sse.closed`                    | le flux est-il fermé — à tester dans une boucle longue                                                                                                                                       |
 
 Options de `renderSse()` :
 

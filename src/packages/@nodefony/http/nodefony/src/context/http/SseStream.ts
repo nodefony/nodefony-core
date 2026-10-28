@@ -116,9 +116,22 @@ function singleLine(name: string, value: string): string {
  *
  * `JSON.stringify` rend `undefined` pour `undefined`, une fonction ou un
  * symbole, et son type `string` le tait : on l'élargit avant de le lire.
+ *
+ * Des octets sont refusés : un flux SSE est du texte UTF-8 (WHATWG HTML
+ * §9.2), et `JSON.stringify` les rendrait en objet (`[1,2,255]` →
+ * `{"0":1,"1":2,"2":255}`) sans erreur (ADR-0021 S8).
+ *
+ * @throws TypeError quand `data` est un `ArrayBuffer` ou une vue sur octets.
  */
 function serialize(data: unknown): string {
   if (typeof data === "string") return data;
+  if (ArrayBuffer.isView(data) || data instanceof ArrayBuffer) {
+    throw new TypeError(
+      "SSE : un flux SSE ne porte que du texte UTF-8, des octets n'y passent pas — " +
+        "les encoder en base64 dans la charge, avec leur type MIME " +
+        '(ex. { mimeType: "image/png", data: "<base64>" }).',
+    );
+  }
   const json: unknown = JSON.stringify(data);
   return typeof json === "string" ? json : "";
 }
@@ -259,7 +272,9 @@ export class SseStream {
    * @returns rien quand l'écriture est acceptée ; une promesse réglée au
    *   `drain` quand le client lit moins vite qu'on écrit — l'attendre borne la
    *   mémoire du serveur. Sans effet une fois le flux fermé.
-   * @throws TypeError quand `event` ou `id` contient une fin de ligne.
+   * @throws TypeError quand `event` ou `id` contient une fin de ligne, ou
+   *   quand `data` est fait d'octets (`Uint8Array`, `Buffer`, `ArrayBuffer`) :
+   *   un flux SSE ne porte que du texte, les encoder soi-même (base64).
    * @throws RangeError quand l'événement dépasse `maxEventBytes`.
    */
   send(data: unknown, options?: ISseSendOptions): Promise<void> | undefined {
