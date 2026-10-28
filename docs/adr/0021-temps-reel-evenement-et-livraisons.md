@@ -114,9 +114,10 @@ tampon que syslog tient déjà (`src/modules/test/nodefony/controller/LiveSyslog
 - Écarté : un tampon d'événements tenu par le socle. Il coûterait de la mémoire à chaque canal,
   servi ou non, pour une reprise que la source du canal sait déjà faire.
 - **Rupture si différé : NON**, à une condition : qu'un serveur 10.0 ignore un champ inconnu dans
-  un abonnement. C'est le cas à la lecture : seul `params.channel` est lu
-  (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#channelParam`) ; un
-  test le figera (#629). Mécanique de la socket : [ADR-0022](0022-socket-temps-reel.md).
+  un abonnement. C'est le cas : seul `params.channel` est lu
+  (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#channelParam`), et
+  `realtimeSubscribedAck.test.ts` le fige (« un champ inconnu est ignoré », vu rouge sous une
+  lecture stricte). Mécanique de la socket : [ADR-0022](0022-socket-temps-reel.md).
 
 ### S4. La fin d'un flux est un signal à motif fermé
 

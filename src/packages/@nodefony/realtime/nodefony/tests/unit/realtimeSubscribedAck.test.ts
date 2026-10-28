@@ -246,3 +246,48 @@ describe("realtime:subscribed — les bords du contrat", () => {
     expect(acksFor(sent)).to.have.length(0);
   });
 });
+
+/**
+ * Un champ INCONNU dans `subscribe`/`unsubscribe` est ignoré — ADR-0021 S3.
+ *
+ * C'est la condition qui rend le curseur de reprise AJOUTABLE en 10.x sans
+ * rupture : un client plus récent enverra `{ channel, since }` à un serveur
+ * 10.0, qui doit le servir comme aujourd'hui. Une validation stricte des
+ * `params` (refus, ou canal non servi) casserait cette promesse sans bruit.
+ */
+describe("subscribe — un champ inconnu est ignoré (ADR-0021 S3)", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    getRealtimeHub().setMaxChannelsPerConnection(256);
+  });
+
+  const withExtra = (method: string, channel: string): string =>
+    JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params: { channel, since: "msg-1041", futur: { a: 1 } },
+    });
+
+  it("subscribe { channel, since, … } → acquitté et servi comme { channel }", () => {
+    const { ctx, sent } = makeCtx();
+    const rt = new TestRt(ctx);
+    rt.feed(null);
+    rt.feed(withExtra("subscribe", "connu:a"));
+    expect(acksFor(sent)).to.deep.equal([{ channel: "connu:a" }]);
+    expect(deniedFor(sent)).to.have.length(0);
+    getRealtimeHub().publish("connu:a", { n: 1 });
+    expect(sent.filter((f) => f.method === "connu:a")).toEqual([
+      { jsonrpc: "2.0", method: "connu:a", params: { n: 1 } },
+    ]);
+  });
+
+  it("unsubscribe { channel, … } → désabonné comme { channel }", () => {
+    const { ctx, sent } = makeCtx();
+    const rt = new TestRt(ctx);
+    rt.feed(null);
+    rt.feed(frame("connu:a"));
+    rt.feed(withExtra("unsubscribe", "connu:a"));
+    getRealtimeHub().publish("connu:a", { n: 1 });
+    expect(sent.filter((f) => f.method === "connu:a")).to.have.length(0);
+  });
+});
