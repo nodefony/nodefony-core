@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T00:14:31.323Z",
+  "generatedAt": "2026-10-28T20:23:19.284Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -9048,7 +9048,7 @@
       "title": "chore(frontend): trancher si frontend:create doit exister",
       "url": "https://github.com/nodefony/nodefony-core/issues/240",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 1,

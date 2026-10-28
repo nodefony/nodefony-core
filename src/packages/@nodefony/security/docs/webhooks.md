@@ -450,7 +450,8 @@ Le champ `events` d'un endpoint accepte trois formes, résolues par `matchesSubs
 > **`"*"` veut dire tout, y compris ce qui viendra.** Aujourd'hui, seuls les événements d'audit
 > sont livrés ; le jour où une application pourra émettre les siens, un abonnement `"*"` les
 > recevra aussi. Qui ne veut que la sécurité liste ses familles (`login.*`, `token.*`…). Cette
-> grammaire (`*`, nom exact, `préfixe.*`) ne changera pas de sens dans la série 10.
+> grammaire (`*`, nom exact, `préfixe.*`) ne changera pas de sens dans la série 10
+> ([ADR-0023](../../../../../docs/adr/0023-webhooks-evenements-et-abonnements.md), W2).
 >
 > **Mais seulement dans son périmètre.** Un abonnement ne reçoit jamais un événement hors de son
 > périmètre, et un abonnement sans périmètre — le cas de tous aujourd'hui — ne reçoit que les
