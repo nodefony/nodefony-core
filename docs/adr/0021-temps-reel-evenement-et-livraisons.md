@@ -235,11 +235,36 @@ manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devien
 
 ### S9. Un seul vocabulaire pour compter ce qui part et ce qui se perd
 
-**Décision proposée :** les livraisons exposent les mêmes compteurs, avec des membres optionnels :
-envoyés, jetés, octets en attente. Socket, SSE, webhooks et backplane y viennent ; la console
-d'administration les lit d'une seule manière. Ces compteurs restent hors du chemin de chaque frame.
+**Décision (validée par l’auteur le 2026-10-28) :** les livraisons exposent les mêmes compteurs,
+tous facultatifs : chacune ne remplit que ceux qui la concernent. Socket, SSE, webhooks et backplane
+y viennent ; la console d'administration les lit d'une seule manière. Ces compteurs restent hors du
+chemin de chaque frame : on les lit à la demande, on ne les calcule pas à chaque envoi.
 
-- **Rupture si différé : NON.**
+| Nom            | Ce qu'il compte                                                       | Nature                      | Ce qu'il appelle                                      |
+| -------------- | --------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------- |
+| `sentTotal`    | messages partis                                                       | monotone                    | rien : le flux passe                                  |
+| `droppedTotal` | messages **jetés par nous**, faute de place dans la file              | monotone                    | un destinataire trop lent : limite ou volume à revoir |
+| `failedTotal`  | messages **refusés par la destination** (bus coupé, réessais épuisés) | monotone                    | une destination en panne : aller voir de ce côté      |
+| `pendingBytes` | octets en attente de départ                                           | instantané (monte, descend) | la pression du moment                                 |
+
+- Usages : la console qui compare les quatre livraisons, une alerte sur la croissance de
+  `droppedTotal`, un export vers un outil de supervision.
+- **Rupture si différé : NON** pour le code, qui s'ajoute après 10.0. Les **noms**, eux, sont figés
+  dès maintenant : une fois publiés, ils le sont pour toute la série.
+
+**Pourquoi ces noms.** Le suffixe `Total` distingue ce qui ne fait que croître de ce qui est une
+photo de l'instant (`pendingBytes`, sans suffixe, l'unité dans le nom) ; c'est aussi la convention
+des exports de métriques, qui les reprendront tels quels. `droppedTotal` et `failedTotal` sont déjà
+les noms du backplane
+(`src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplaneQueueInfo`) : un
+renommage de moins. « Jeté » et « échoué » restent deux compteurs parce que le remède diffère.
+
+**Les noms existants ne sont pas renommés.** La sonde de la socket est publique
+(`src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts#IRealtimeProbe` :
+`messagesSent`, `dropped`, `bufferedAmount`) : le vocabulaire commun s'ajoute À CÔTÉ en 10.x, et
+l'ancien nom se déprécie selon la politique de compatibilité, avec retrait à la majeure suivante.
+`failedTotal` n'a que deux usages connus (backplane, webhooks), le SSE serait le troisième (un
+envoi vers un client parti) ; facultatif, il ne coûte rien à qui ne s'en sert pas.
 
 ### Ce qui reste hors du socle
 
