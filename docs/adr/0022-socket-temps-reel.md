@@ -75,7 +75,7 @@ propriétaire (S7).
 
 ### 2. L'enveloppe JSON-RPC 2.0 et ses codecs
 
-**Décision (principe validé par l’auteur le 2026-10-29 — une enveloppe, un codec choisi à l’ouverture et annoncé dans l’accueil, refus plutôt que déformation, débogage par décodage ; le choix des codecs reste proposé) :** une seule enveloppe, JSON-RPC 2.0, et des **codecs** qui n'en sont que la
+**Décision (validée par l’auteur le 2026-10-29, en deux temps : le principe, puis le calendrier des codecs) :** une seule enveloppe, JSON-RPC 2.0, et des **codecs** qui n'en sont que la
 sérialisation, choisie une fois par connexion. Repris de #630 : sans sous-protocole, le format est
 celui d'aujourd'hui — JSON-RPC texte, nommé **`v1`** — pour toute la série 10 (décision 1) ; le
 codec effectif se lit dans `realtime:welcome` par un champ optionnel (absent = texte), **jamais**
@@ -98,8 +98,15 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
 - **Protobuf** : une enveloppe `.proto` **fixe** fournie par Nodefony (`id`, `method`, `error`,
   `params: bytes`, `result: bytes`) ; la charge est encodée par le message que le contrat
   déclare pour **cette** méthode ; sans schéma, la charge passe en CBOR dans les `bytes`.
-  Bibliothèque : `@bufbuild/protobuf`, déjà dans l'arbre (2.16.0), la seule que le framework
-  aurait si l'Epic gRPC #694 aboutit.
+  Bibliothèque : `@bufbuild/protobuf`, la seule que le framework aurait si l'Epic gRPC #694
+  aboutit. Elle n'est aujourd'hui dans l'arbre que par le module de test et l'outillage de build
+  (`npm ls @bufbuild/protobuf`) : aucun paquet publié ne l'installe, l'ajouter serait une
+  dépendance neuve pour chaque application.
+- **Calendrier.** Les trois noms sont réservés dès 10.0. Aucun codec autre que JSON n'est dans le
+  paquet de base : chacun est optionnel, chargé par la seule application qui l'active. **CBOR**
+  est le premier livré, après 10.0, derrière un banc. **Protobuf** n'arrive qu'avec l'Epic gRPC
+  #694 : un seul usage connu d'ici là (règle de #621), et une dépendance que gRPC rendra de toute
+  façon nécessaire ; son enveloppe ci-dessus est une intention, pas un engagement.
 - **Réversibilité** : le modèle de valeurs est JSON ∩ CBOR, plus les octets. Une valeur hors
   modèle (`bigint`, `undefined` dans un tableau, `NaN`) est **refusée à l'encodage**, jamais
   dégradée en silence : `f ≡ decode(encode(f))` pour chaque codec, et une connexion se rejoue en
@@ -116,8 +123,15 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   jeu à état figé (protobuf, un schéma par message).
 - Écarté : MessagePack au socle (pas une norme IETF ; enfichable si un écosystème le réclame) ;
   BSON (stockage) ; un schéma obligatoire pour l'enveloppe ; un décodeur CBOR maison avant le
-  banc — `@levischuck/tiny-cbor` est déjà dans l'arbre en transitif, et le choix sort d'un banc
-  `JSON.parse` natif contre candidats (octets, µs par frame, poids dans `.size-budgets.json`).
+  banc. La bibliothèque CBOR sort d'un banc contre `JSON.parse` natif — octets, µs par frame,
+  poids dans `.size-budgets.json` — sur des critères écrits d'avance : objets ordinaires sans
+  conversion par frame, aucun `Buffer` (le client est un navigateur), aucun module natif
+  obligatoire (Windows), CBOR standard sans extension propriétaire (un pair d'un autre langage
+  doit pouvoir lire), refus des valeurs hors modèle. Candidats : `cbor-x`, `cborg`, et
+  `@levischuck/tiny-cbor` en référence seulement — installé par `@nodefony/security`
+  (`@simplewebauthn/server`), mais il ne rend que des `Map`, jamais un objet ordinaire, ce qui
+  coûterait une conversion par frame. Une richesse de types (`Date`, `Set`, `bigint`) n'est pas
+  un critère : la réversibilité ci-dessus la refuse.
 - **Rupture si différé après 10.0 : NON**, parce que les décisions 1 et 2 de #630 rendent tout
   codec additif. Ce qui serait une rupture, et qui est écrit : le nom `v1` et la lecture du codec
   dans l'accueil — un format renommé ou un codec déduit de l'écho changerait le fil d'un client
