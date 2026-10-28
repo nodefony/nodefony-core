@@ -341,6 +341,7 @@ backchannel-logout` (`bypassFirewall`, 0 session, 0 CSRF — la signature authen
   resserré à `a.b.c` (JWS compact, 3ᵉ `*` → `alg=none` reste routé jose) → les deux cohabitent dans une zone.
   `ApiKeyService` (`apiKeys`) : `createForSubject`/`listForSubject`/`revokeForSubject`/**`listPagePat`** sur le **même `ITokenStore`**
   que JWT (record `kind:"pat"`, secret affiché **1×**) ; cap `maxPerSubject`→409, scopes ⊆ `allowedScopes`→400, scope non obtenable→403 (4ᵉ arg `roles`, omis = aucun rôle),
+  `tenantId` rempli→400 (multi-tenant inexistant, personne ne cloisonne dessus ; même règle que `WebhookService.register`),
   expiry `defaultExpiryDays`, IDOR→`false`. **TokenService possède le store+gc** : boot étendu `jwt.enabled ‖
 apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (keystore). Endpoints =
   `ApiKeyController` (@nodefony/framework, couplé par nom `apiKeys`+`authFlow`) `/nodefony/security/api/keys`

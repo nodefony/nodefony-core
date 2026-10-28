@@ -279,7 +279,9 @@ jamais par le préfixe.
 
 ### Émission — `ApiKeyService.createForSubject()`
 
-`ApiKeyService.createForSubject()` (`apiKeys.ts#ApiKeyService.createForSubject`) est le seul chemin d'émission. Dans l'ordre :
+`ApiKeyService.createForSubject()` (`apiKeys.ts#ApiKeyService.createForSubject`) est le seul chemin d'émission. Un `tenantId` rempli est refusé d'entrée (`ApiKeyError` 400) : le
+multi-tenant n'existe pas, aucun lecteur ne cloisonne sur ce champ, et une clé « rattachée à un
+locataire » verrait tout. Il sera accepté le jour où il sera appliqué. Ensuite, dans l'ordre :
 
 1. **Validation du nom** — non vide, ≤ 100 caractères ; sinon `ApiKeyError` 400 (`#normalizeName()`,
    `apiKeys.ts#ApiKeyService.#normalizeName`).

@@ -134,6 +134,9 @@ class ApiKeyService extends Service {
    * @param roles - rôles du porteur tels que son compte les porte ; omis =
    *   aucun rôle, donc tout scope réservé est refusé (fail-closed).
    * @throws ApiKeyError 400 — nom vide/trop long, scope hors catalogue, expiry invalide.
+   * @throws ApiKeyError 400 — `tenantId` rempli : le périmètre d'un locataire n'est
+   *   pas encore appliqué (aucun lecteur ne cloisonne sur lui) — l'accepter rendrait
+   *   la clé trompeuse, et l'appliquer un jour lui retirerait des accès (rupture).
    * @throws ApiKeyError 403 — scope réservé à des rôles que le porteur n'a pas.
    * @throws ApiKeyError 409 — plafond `maxPerSubject` atteint.
    * @throws ApiKeyError 403 — aucun compte sous cet identifiant (la clé est liée
@@ -146,6 +149,12 @@ class ApiKeyService extends Service {
     opts: ICreateApiKeyOptions,
     roles: readonly string[] = [],
   ): Promise<IApiKeyCreated> {
+    if (opts.tenantId != null) {
+      throw new ApiKeyError(
+        "apiKeys: tenantId n'est pas encore pris en charge — le multi-tenant n'existe pas, et une clé rattachée à un locataire verrait tout. Laisser tenantId absent ou null.",
+        400,
+      );
+    }
     const store = this.#resolveStore();
     const name = this.#normalizeName(opts.name);
     const scopes = this.#normalizeScopes(opts.scopes);

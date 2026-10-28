@@ -16,7 +16,10 @@ export interface IApiKeyView {
   subjectId: string;
   /** Discriminant du porteur. */
   subjectType: "user" | "service";
-  /** Organisation/tenant (`null` = global). */
+  /**
+   * Périmètre d'un locataire — réservé, toujours `null` tant que le multi-tenant
+   * n'existe pas (`createForSubject` refuse une valeur).
+   */
   tenantId: string | null;
   /** Création (epoch ms). */
   createdAt: number;
@@ -73,6 +76,9 @@ export interface ICreateApiKeyOptions {
   scopes?: string[];
   /** Durée de vie en jours ; `null` = sans expiration ; omis = défaut config. */
   expiresInDays?: number | null;
-  /** Tenant/organisation (multi-tenant) ; `null` = global. */
+  /**
+   * Périmètre d'un locataire — réservé, **refusé s'il est rempli** (`ApiKeyError` 400)
+   * tant que le multi-tenant n'existe pas. Absent ou `null` : clé sans périmètre.
+   */
   tenantId?: string | null;
 }
