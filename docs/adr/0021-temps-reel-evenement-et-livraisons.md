@@ -199,12 +199,21 @@ ce garde-fou, `JSON.stringify` les rendait en objet ordinaire (`{"0":1,"1":2}`),
 
 ### S7. Pas de propriétaire dans l'événement
 
-**Décision proposée :** l'événement ne porte ni propriétaire, ni ressource. La ressource **est** le
-canal ; l'appartenance est un **prédicat d'admission** évalué sur le nom du canal (#622).
+**Décision (validée par l’auteur le 2026-10-28) :** l'événement ne porte ni propriétaire, ni
+ressource. La ressource **est** le canal ; l'appartenance est un **prédicat d'admission** évalué sur
+le nom du canal (#622).
 
 - Usages : une diffusion publique (sans propriétaire), un canal `user:42` (un prédicat), un appel
   (la liste des participants est un prédicat).
 - **Rupture si différé : NON.**
+
+**Pourquoi à l'abonnement et pas à chaque envoi.** Un contrôle par `subscribe`, zéro par frame :
+filtrer chaque événement sur un `owner` coûterait un test par abonné et par message, et
+l'enveloppe de backplane, figée (S6), n'a pas de place pour lui. Un `owner` glissé dans la charge
+ne protège rien : le socle ne le lit pas. L'admission passe aujourd'hui par
+`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.resolveChannelPolicy`,
+qui ne regarde que la connexion, les rôles et les scopes : la règle évaluée sur le nom du canal
+(`user:42` réservé à l'utilisateur 42) est l'objet de #622.
 
 ### S8. Des octets sont des `Uint8Array`, et chaque transport dit comment il les porte
 
