@@ -236,6 +236,31 @@ describe("dispatcher — retry & auto-marquage", () => {
     assert.equal(h.marks.length, 1);
     assert.equal(h.marks[0]!.ok, true);
   });
+  it("les réessais gardent le MÊME webhook-id (le destinataire déduplique), un message neuf en change", async () => {
+    let n = 0;
+    const h = harness(
+      [endpoint()],
+      [retryable, retryable, ok],
+      {},
+      {
+        newMessageId: () => `msg_${++n}`,
+      },
+    );
+    const d = new WebhookDispatcher(h.deps);
+    d.onAuditEvent(auditEvent("login.success"));
+    await flush();
+    assert.equal(h.deliverCalls.length, 3);
+    const ids = h.deliverCalls.map((c) => c.headers["webhook-id"]);
+    assert.deepEqual(ids, ["msg_1", "msg_1", "msg_1"]);
+    assert.deepEqual(
+      h.deliverCalls.map((c) => JSON.parse(c.body).id),
+      ["msg_1", "msg_1", "msg_1"],
+    );
+    assert.equal(h.records[0]!.messageId, "msg_1");
+    d.onAuditEvent(auditEvent("login.success"));
+    await flush();
+    assert.equal(h.deliverCalls.at(-1)!.headers["webhook-id"], "msg_2");
+  });
   it("erreur 4xx → échec définitif sans retry", async () => {
     const h = harness([endpoint()], fatal);
     new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));

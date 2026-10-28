@@ -106,6 +106,11 @@ interface Job {
   readonly ep: IWebhookEndpoint;
   readonly event: IAuditEvent;
   readonly attempt: number;
+  /**
+   * `webhook-id` du message, `null` avant la première tentative. Créé une fois,
+   * repris à chaque réessai : c'est ce qui permet au destinataire de dédupliquer.
+   */
+  readonly messageId: string | null;
 }
 
 export class WebhookDispatcher {
@@ -138,7 +143,7 @@ export class WebhookDispatcher {
     for (const ep of this.#deps.getSnapshot()) {
       if (!ep.enabled) continue;
       if (!matchesSubscription(ep.events, event.action)) continue;
-      this.#enqueue({ ep, event, attempt: 0 });
+      this.#enqueue({ ep, event, attempt: 0, messageId: null });
     }
   }
 
@@ -190,7 +195,7 @@ export class WebhookDispatcher {
   async #process(job: Job): Promise<void> {
     const { ep, event, attempt } = job;
     try {
-      const id = this.#deps.newMessageId();
+      const id = job.messageId ?? this.#deps.newMessageId();
       const nowMs = this.#deps.now();
       const tsS = Math.floor(nowMs / 1000);
       const body = JSON.stringify({
@@ -210,7 +215,7 @@ export class WebhookDispatcher {
         addresses = await this.#deps.resolveTarget(ep.url); // re-SSRF + pin
       } catch (e) {
         // URL devenue interne (rebinding) ou injoignable → abandon, pas de retry.
-        const error = `ssrf: ${(e as Error).message}`;
+        const error = `ssrf: ${e instanceof Error ? e.message : String(e)}`;
         await this.#deps.markDelivery(ep.id, {
           ok: false,
           status: null,
@@ -240,7 +245,7 @@ export class WebhookDispatcher {
         classifyDelivery(result) === "retry" &&
         attempt < this.#deps.policy.maxRetries
       ) {
-        this.#scheduleRetry(job);
+        this.#scheduleRetry(job, id);
         return;
       }
       await this.#deps.markDelivery(ep.id, result); // succès OU échec définitif
@@ -257,17 +262,27 @@ export class WebhookDispatcher {
         responseBody: result.responseBody ?? null,
       });
     } catch (e) {
-      this.#deps.log(`webhook dispatch ${ep.id}: ${(e as Error).message}`);
+      this.#deps.log(
+        `webhook dispatch ${ep.id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   }
 
-  /** Replanifie la livraison après backoff (repasse par la file bornée). */
-  #scheduleRetry(job: Job): void {
+  /**
+   * Replanifie la livraison après backoff (repasse par la file bornée), sous le
+   * MÊME `webhook-id` que la tentative échouée.
+   */
+  #scheduleRetry(job: Job, messageId: string): void {
     if (this.#stopped) return;
     this.#timers ??= new Set();
     const cancel = this.#deps.schedule(() => {
       this.#timers?.delete(cancel);
-      this.#enqueue({ ep: job.ep, event: job.event, attempt: job.attempt + 1 });
+      this.#enqueue({
+        ep: job.ep,
+        event: job.event,
+        attempt: job.attempt + 1,
+        messageId,
+      });
     }, backoffMs(job.attempt));
     this.#timers.add(cancel);
   }
