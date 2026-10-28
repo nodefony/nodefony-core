@@ -647,6 +647,24 @@ sa recette mérite qu'on s'y arrête :
 > celle qui ne lève aucune erreur. L'`originId` est résolu à la construction : coût nul par
 > message.
 
+### Des octets ne traversent pas (encore) le bus
+
+Les drivers `redis` et `cluster` sérialisent le message en JSON, et JSON ne sait pas porter des
+octets : un `Uint8Array` y deviendrait un objet ordinaire (`{"0":1,"1":2}`), sans erreur. Le
+hub refuse donc de les envoyer sur le bus (`RealtimeHub.ts#RealtimeHub.publish`) : des octets
+publiés sur un canal diffusé sont livrés **intacts aux abonnés du serveur qui les publie**,
+et un avertissement de plateforme, émis une seule fois, nomme le canal.
+
+| Charge publiée sur un canal diffusé    | Abonnés de ce serveur | Abonnés des autres serveurs    |
+| -------------------------------------- | --------------------- | ------------------------------ |
+| valeur JSON (`{ text: "bonjour" }`)    | reçue                 | reçue                          |
+| `Uint8Array`, vue typée, `ArrayBuffer` | reçue, intacte        | **non envoyée**, avertissement |
+| objet qui **contient** des octets      | reçue                 | ⚠️ déformée : à éviter         |
+
+La dernière ligne est la limite de ce garde-fou : il ne fouille pas l'intérieur d'un objet, ce
+qui coûterait sur chaque publication. La voie binaire du bus (octets bruts sur un sujet séparé,
+que les serveurs plus anciens n'écoutent pas) est l'objet de #618.
+
 ### Le cloisonnement du canal Redis
 
 Le canal pub/sub de base est `nodefony:realtime` (`RedisBackplane.ts#REDIS_RT_CHANNEL`). Problème : le

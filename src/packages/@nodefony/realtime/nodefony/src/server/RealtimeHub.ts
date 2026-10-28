@@ -613,7 +613,18 @@ export class RealtimeHub {
     // Forward opt-in : flag caché si le canal a un état local, sinon politique à la volée
     // (publish serveur vers un canal sans abonné ici mais avec des abonnés ailleurs).
     const forward = st !== undefined ? st.forward : this.#isBroadcast(channel);
-    if (forward) this.#backplane.publish(channel, payload);
+    if (!forward) return;
+    // Des octets ne traversent pas encore le bus : Redis et l'IPC du cluster
+    // sérialisent en JSON, qui rend un `Uint8Array` en objet ordinaire. Refusés
+    // plutôt que déformés (ADR-0021 S6/S8) ; la voie binaire du bus = #618.
+    if (ArrayBuffer.isView(payload) || payload instanceof ArrayBuffer) {
+      this.#notifyOnce(
+        "backplane:binary",
+        `realtime: le canal « ${channel} » publie des octets — ils ne traversent pas encore le bus entre serveurs (ils y seraient déformés) : seuls les abonnés de ce serveur les reçoivent (#618)`,
+      );
+      return;
+    }
+    this.#backplane.publish(channel, payload);
   }
 
   /**
