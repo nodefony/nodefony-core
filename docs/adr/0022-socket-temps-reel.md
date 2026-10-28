@@ -75,7 +75,7 @@ propriétaire (S7).
 
 ### 2. L'enveloppe JSON-RPC 2.0 et ses codecs
 
-**Décision proposée :** une seule enveloppe, JSON-RPC 2.0, et des **codecs** qui n'en sont que la
+**Décision (principe validé par l’auteur le 2026-10-29 — une enveloppe, un codec choisi à l’ouverture et annoncé dans l’accueil, refus plutôt que déformation, débogage par décodage ; le choix des codecs reste proposé) :** une seule enveloppe, JSON-RPC 2.0, et des **codecs** qui n'en sont que la
 sérialisation, choisie une fois par connexion. Repris de #630 : sans sous-protocole, le format est
 celui d'aujourd'hui — JSON-RPC texte, nommé **`v1`** — pour toute la série 10 (décision 1) ; le
 codec effectif se lit dans `realtime:welcome` par un champ optionnel (absent = texte), **jamais**
