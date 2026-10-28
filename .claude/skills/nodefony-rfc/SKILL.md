@@ -1,19 +1,20 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.9.0
+  version: 1.10.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
-  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md,
-  Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec
-  un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
+  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC et protobuf, AGENTS.md,
+  Keycloak 26.8 et un relevé des terminaux, avec un
+  script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
   "SameSite cookies", "norme SSE", "EventSource", "spec MCP", "Model Context Protocol", "autorisation MCP",
-  "resource server OAuth", "RFC 9728", "AGENTS.md", "spec AGENTS.md", "AAIF",
+  "resource server OAuth", "RFC 9728", "AGENTS.md", "AAIF",
   "quelle taille pour AGENTS.md", "dossier .agents",
   "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
   "audience Keycloak", "hostname Keycloak", "thème Keycloak", "courriel Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
-  "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52".
+  "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52",
+  "gRPC", "protobuf", "A2A", "Agent2Agent", "agent à agent".
 ---
 
 # nodefony-rfc
@@ -331,6 +332,17 @@ protobuf, `@bufbuild/protobuf`, les proxys et `grpcurl`, 32 pages sont figées d
 gRPC-Web avec ses trailers dans le corps, Connect unaire en HTTP/1.1. Le transport (RFC 9110,
 9113, 7301 ALPN) se lit dans le corpus unique (§7). Consommateurs : un service gRPC servi par le
 pipeline HTTP/2, et le codec protobuf de la socket temps réel.
+
+### 14. A2A (Agent2Agent) 1.0.1 — **HORS LIGNE**
+
+Le protocole agent à agent : opérations sur des tâches, livrées par interrogation, par flux (SSE,
+gRPC, ou liaison personnalisée comme la WebSocket) et par notification poussée (webhook). Huit
+pages figées au tag `v1.0.1` dans `references/a2a/` (`AMONT.json` par page), source normative
+`a2a.proto`. **L'index et les faits qui décident vivent dans `references/a2a/README.md`** : le
+webhook porte le même objet que le flux, son authentification est fournie par le client, la reprise
+est un instantané puis la suite, une liaison WebSocket est personnalisée et versionnée par URI.
+Consommateurs : le socle temps réel (modèle d'événement et livraisons), les webhooks de
+`@nodefony/security`, gRPC (#694), la couche IA.
 
 ## Pattern d'usage
 

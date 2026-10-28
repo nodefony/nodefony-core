@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-27
+updated: 2026-10-28
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-rfc/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.9.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.10.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,19 +26,19 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.9.0` |
+| Version | `1.10.0` |
 | Famille | Références et livrables |
-| Corps | 330 lignes |
-| Coût d'activation | ~6 179 tokens (le corps est chargé à l'invocation) |
-| Description | 1005 / 1024 caractères |
-| Déclencheurs | 35 |
-| Ressources `references/` | 0 page(s), 249 fichiers au total |
+| Corps | 341 lignes |
+| Coût d'activation | ~6 376 tokens (le corps est chargé à l'invocation) |
+| Description | 1024 / 1024 caractères |
+| Déclencheurs | 39 |
+| Ressources `references/` | 0 page(s), 259 fichiers au total |
 | Scripts | 5 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
+Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC et protobuf, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
 
 ## Prérequis
 
@@ -54,7 +54,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`RFC` · `conformité HTTP` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `Model Context Protocol` · `autorisation MCP` · `resource server OAuth` · `RFC 9728` · `AGENTS.md` · `spec AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `importer un realm` · `audience Keycloak` · `hostname Keycloak` · `thème Keycloak` · `courriel Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52`
+`RFC` · `conformité HTTP` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `Model Context Protocol` · `autorisation MCP` · `resource server OAuth` · `RFC 9728` · `AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `importer un realm` · `audience Keycloak` · `hostname Keycloak` · `thème Keycloak` · `courriel Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52` · `gRPC` · `protobuf` · `A2A` · `Agent2Agent` · `agent à agent`
 
 ## Ce que contient le corps
 
@@ -96,14 +96,14 @@ node check-amont.mjs                      # le contrôle
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1005 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1024 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 330 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 341 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

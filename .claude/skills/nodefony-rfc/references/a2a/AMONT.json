@@ -1,0 +1,68 @@
+{
+  "note": "Protocole Agent2Agent (A2A) 1.0.1 : modèle d’événement et livraisons (flux SSE, gRPC, liaison WebSocket personnalisée, notifications poussées par webhook). Consommateurs : ADR du socle temps réel, webhooks, gRPC (#694), couche IA (12.0). Source normative = a2a.proto.",
+  "sources": [
+    {
+      "repo": "a2aproject/A2A",
+      "ref": "v1.0.1",
+      "site": "https://a2a-protocol.org",
+      "copies": {
+        "a2a-specification.md": {
+          "path": "docs/specification.md",
+          "commit": "cd87b9341bc0e4982d46550aaab2319b903271e4",
+          "date": "2026-05-26T13:37:45Z",
+          "blob": "382185a53b312cd6a60f5ac536ec5a356437ce77",
+          "sha256": "627ccfe6ffb1be2c56811c3dcc18780deb419f41cdc98248095c939b2d9dc9cb"
+        },
+        "a2a.proto": {
+          "path": "specification/a2a.proto",
+          "commit": "cd87b9341bc0e4982d46550aaab2319b903271e4",
+          "date": "2026-05-26T13:37:45Z",
+          "blob": "400cdbad934654e27d7abbae1e145923eb40ac52",
+          "sha256": "e195bf96ab630c69797851970203e1b2b6b19528f2e9803b7d904b91a5104016"
+        },
+        "a2a-streaming-and-async.md": {
+          "path": "docs/topics/streaming-and-async.md",
+          "commit": "c24b1151d1201d2a29ce4840a0d7797cee8b5d33",
+          "date": "2026-02-10T17:45:49Z",
+          "blob": "a0f8d72a46d9ab9981aa42c6deef33ee00c50eb7",
+          "sha256": "176645eb16386ce6b41a3a229aad2b38f72e7b30ae14eba5fb65e7c05fb7a7ff"
+        },
+        "a2a-life-of-a-task.md": {
+          "path": "docs/topics/life-of-a-task.md",
+          "commit": "629190aea9fe5838bb712008e6d24156680af197",
+          "date": "2026-02-18T16:13:47Z",
+          "blob": "ba7c747464de55961b4a4572a0b6725089f01a0a",
+          "sha256": "8d6fd94d6e656177a47081ea3459a55f1554358e427ccbd71ff53b5f8ec9d6c6"
+        },
+        "a2a-custom-protocol-bindings.md": {
+          "path": "docs/topics/custom-protocol-bindings.md",
+          "commit": "66df070988a0b4a24200709d8c402738044ebeec",
+          "date": "2026-04-07T11:31:18Z",
+          "blob": "ce48029e0ce6116f0228f7ac0b7baf827bca8f18",
+          "sha256": "e5bf577e8d4682b832652dda157b9f1acdcf774fbfcec4245dca35ec6ca1bcba"
+        },
+        "a2a-and-mcp.md": {
+          "path": "docs/topics/a2a-and-mcp.md",
+          "commit": "d38f19b35d792bf576ba03465f1171d07a2c7bfc",
+          "date": "2025-09-10T18:30:45Z",
+          "blob": "8e1ec0ddd280fe64a61e29693000f7e14b0d7fc6",
+          "sha256": "0933e7d30af768314a99a7eaeae520d8b6577b1ae0678fe0144f8e4b177c3fc0"
+        },
+        "a2a-multi-tenancy.md": {
+          "path": "docs/topics/multi-tenancy.md",
+          "commit": "cd87b9341bc0e4982d46550aaab2319b903271e4",
+          "date": "2026-05-26T13:37:45Z",
+          "blob": "cfb635a4201cfb310b81cdb3e0392a8338813e1d",
+          "sha256": "9589e91974f55aaf27d8ca0db2aa25b045e08ea74dd5c577fae06fc46b38fbe6"
+        },
+        "a2a-key-concepts.md": {
+          "path": "docs/topics/key-concepts.md",
+          "commit": "72455122503fe8ace5c6b0991e3727a147eaf707",
+          "date": "2026-02-18T16:11:37Z",
+          "blob": "fc2460bd5e93d858d343cc5973a1aa30de35a5d1",
+          "sha256": "dd83d08b6bdfe86fb39cdec085091de5aa25b89917f7c267c0f50fc59c60586f"
+        }
+      }
+    }
+  ]
+}
