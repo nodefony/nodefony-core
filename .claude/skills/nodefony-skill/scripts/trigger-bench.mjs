@@ -257,6 +257,11 @@ const CASES = [
     "comment prouver que ce renommage n'a cassé aucun symbole",
     "nodefony-identifiers",
   ],
+  [
+    "il y a trop de choses, on avance petit pas par petit pas",
+    "nodefony-step-by-step",
+  ],
+  ["aide-moi à décider une décision à la fois", "nodefony-step-by-step"],
   ["ouvre un ticket pour ça", "nodefony-ticket"],
   ["ce titre de ticket est incompréhensible", "nodefony-ticket"],
   ["mets un lexique dans les tickets", "nodefony-ticket"],

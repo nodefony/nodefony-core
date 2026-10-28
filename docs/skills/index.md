@@ -20,7 +20,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**36 skills** · **36/36 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**37 skills** · **37/37 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -154,6 +154,9 @@ source: "docs/skills/index.md"
   { "icon": "🔧", "title": "identifiers", "href": "nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
+  { "icon": "🔧", "title": "step-by-step", "href": "nodefony-step-by-step.md",
+    "desc": "Conduit un chantier de conception avec l'auteur UNE décision à la fois : la situation sur un exemple concret, le piège, une recommandation motivée, puis une question fermée (oui / non / explique).",
+    "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "test-campaign", "href": "nodefony-test-campaign.md",
     "desc": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
@@ -215,6 +218,7 @@ source: "docs/skills/index.md"
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 12 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
+| [`nodefony-step-by-step`](nodefony-step-by-step.md) | 1.0.0 | 109 | 1 | 0 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |
