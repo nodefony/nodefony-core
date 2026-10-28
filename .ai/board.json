@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T21:33:15.079Z",
+  "generatedAt": "2026-10-28T22:14:09.575Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5500,7 +5500,7 @@
       "title": "feat(realtime): admettre un abonné de canal par son identité",
       "url": "https://github.com/nodefony/nodefony-core/issues/622",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
