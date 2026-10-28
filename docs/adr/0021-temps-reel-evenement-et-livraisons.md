@@ -93,18 +93,30 @@ en base. C'est déjà ce que font l'audit et le flux de journaux en SSE.
 
 ### S3. Aucune politique de reprise imposée
 
-**Décision proposée :** après une coupure, le socle n'impose ni relecture, ni instantané. Il rend
-les deux **possibles** : un abonnement pourra porter un **curseur optionnel**, transmis à la
-fabrique du canal, qui décide quoi renvoyer (la suite depuis le curseur, l'état courant, ou rien).
-Le patron existe déjà côté SSE, où l'action relit `Last-Event-ID` et rejoue depuis son propre
-tampon (`src/modules/test/nodefony/controller/LiveSyslogController.ts#LiveSyslogController.stream`).
+**Décision (validée par l’auteur le 2026-10-28) :** après une coupure, le socle n'impose ni
+relecture, ni instantané, et **ne conserve aucun événement** : pas de tampon, pas de journal. Il
+rend la reprise **possible** : un abonnement pourra porter un **curseur optionnel**, remis à un
+**rattrapage propre à l'abonné**, qui relit la **source du canal** (la base d'une discussion, le
+tampon qu'un service tient déjà) et décide quoi renvoyer à cet abonné seul (la suite depuis le
+curseur, l'état courant, ou rien), avant de le brancher sur le flux partagé. Un canal sans source
+ne rejoue rien ; un canal sans rattrapage déclaré ne coûte rien.
+
+Le curseur ne va **pas** à la fabrique du canal : elle n'est appelée qu'au premier abonné, puis
+partagée par tous (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.startChannel`) ;
+elle ne verrait jamais le curseur d'un abonné arrivé après, et un rejeu de sa part partirait chez
+tous. Le patron existe déjà côté SSE, où chaque requête relit `Last-Event-ID` et rejoue depuis le
+tampon que syslog tient déjà (`src/modules/test/nodefony/controller/LiveSyslogController.ts#LiveSyslogController.stream`).
 
 - Usages : reprendre une discussion au dernier message vu, une courbe au dernier point, des
   notifications manquées.
 - Écarté : « l'instantané, puis la suite » comme règle du socle. C'est le choix d'un protocole
   (A2A le fait), que sa liaison peut faire au-dessus du curseur.
-- **Rupture si différé : NON**, à une condition à prouver : qu'un serveur 10.0 ignore un champ
-  inconnu dans un abonnement. Mécanique de la socket : [ADR-0022](0022-socket-temps-reel.md).
+- Écarté : un tampon d'événements tenu par le socle. Il coûterait de la mémoire à chaque canal,
+  servi ou non, pour une reprise que la source du canal sait déjà faire.
+- **Rupture si différé : NON**, à une condition : qu'un serveur 10.0 ignore un champ inconnu dans
+  un abonnement. C'est le cas à la lecture : seul `params.channel` est lu
+  (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#channelParam`) ; un
+  test le figera (#629). Mécanique de la socket : [ADR-0022](0022-socket-temps-reel.md).
 
 ### S4. La fin d'un flux est un signal à motif fermé
 
