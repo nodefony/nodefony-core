@@ -144,14 +144,28 @@ d'écriture des canaux.
 
 ### S5. Les garanties d'ordre et de livraison sont écrites
 
-**Décision proposée :** le framework promet ceci, et rien de plus.
+**Décision (validée par l’auteur le 2026-10-28) :** le framework promet ceci, et rien de plus.
 
-| Livraison | Ordre                                                                  | Livraison                         | En cas de perte                                                                                         |
-| --------- | ---------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Socket    | par flux et par émetteur ; jamais entre émetteurs ni entre exemplaires | au plus une fois                  | un trou, jamais un réordonnancement ; un consommateur trop lent est fermé (`1013`)                      |
-| Flux SSE  | par flux                                                               | au plus une fois                  | un trou ; la reprise appartient à l'action (S3)                                                         |
-| Webhook   | **aucun** : des réessais en parallèle peuvent inverser deux événements | au moins une fois                 | le destinataire déduplique par `webhook-id`, et ordonne par l'identifiant de la charge s'il en a besoin |
-| Backplane | par émetteur                                                           | au plus une fois, sans anti-rejeu | un trou                                                                                                 |
+| Livraison | Ordre                                                                  | Livraison                               | En cas de perte                                                                                                                                                   |
+| --------- | ---------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Socket    | par flux et par émetteur ; jamais entre émetteurs ni entre exemplaires | au plus une fois                        | un trou, jamais un réordonnancement : une frame que la file d'envoi ne peut plus prendre est jetée ; un client qui ne draine plus rien est fermé (`1013`)         |
+| Flux SSE  | par flux                                                               | au plus une fois                        | un trou ; la reprise appartient à l'action (S3)                                                                                                                   |
+| Webhook   | **aucun** : des réessais en parallèle peuvent inverser deux événements | plusieurs tentatives, **sans garantie** | doublon possible : le destinataire déduplique par `webhook-id` ; perte possible (file pleine, réessais épuisés, redémarrage) : le destinataire rapproche lui-même |
+| Backplane | par émetteur                                                           | au plus une fois, sans anti-rejeu       | un trou                                                                                                                                                           |
+
+**Pourquoi « sans garantie » et pas « au moins une fois » pour le webhook.** La file des
+livraisons vit en mémoire (`src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts#WebhookDispatcher`) :
+une livraison est abandonnée quand la file est pleine, après le dernier réessai, ou au
+redémarrage du process, et le compteur `dropped` la rend visible. Promettre « au moins une fois »
+exigerait une file durable, donc de stocker des événements — ce que S3 écarte du socle. Un
+réessai garde le même `webhook-id` que la tentative échouée, ce qui rend le doublon
+dédupliquable. Passer plus tard à une livraison garantie est un ajout ; l'inverse serait une
+rupture.
+
+**Socket : jeter avant de fermer.** Par défaut (`backpressurePolicy: "drop"`), une frame qui
+dépasse le seuil d'envoi est jetée et le client reste connecté ; il n'est fermé (`1013`) qu'au-delà
+d'un solde de frames refusées (`backpressureCloseAfterDrops`, 1 000 par défaut). Règle unique :
+`src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts#decideSend`.
 
 - **Rupture si différé : NON**, mais l'écrire avant 10.0 protège. Non écrite, une garantie que le
   framework ne tient pas (un ordre global entre exemplaires) peut être supposée par une
