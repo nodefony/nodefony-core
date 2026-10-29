@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-29 11:57** (UTC).
+> Empreinte prise le **2026-10-29 15:46** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 209 | 19 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 209 | 23 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 41 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
@@ -33,9 +33,9 @@
 
 **#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
 
-Ordre 6.03 · P2 — décision · 27 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
+Ordre 6.03 · P2 — décision · 30 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -111,20 +111,24 @@ Ordre 6.03 · P2 — décision · 27 j · jalon 10.0.0-beta · frise 2026-10-29 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 19 ouverts
+## Jalon 10.0.0-beta — 23 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 6.03 | P2 — décision | 27 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.031 | P2 — décision | 2 | 2026-10-29 → 10-29 | #627 | docs(adr): figer l'architecture de la socket temps réel |
-| 6.032 | P2 — décision | 2 | 2026-10-30 → 10-30 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
-| 6.033 | P2 — décision | 3 | 2026-11-02 → 11-02 | #618 | feat(realtime): router les trames binaires vers leur canal |
-| 6.034 | P2 — décision | 1 | 2026-11-03 → 11-03 | #622 | feat(realtime): admettre un abonné de canal par son identité |
-| 6.035 | P2 — décision | 2 | 2026-11-04 → 11-04 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
-| 6.0355 | P2 — décision | 1 | 2026-11-05 → 11-05 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
-| 6.036 | P2 — décision | 2 | 2026-11-06 → 11-06 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
+| 6.03 | P2 — décision | 30 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 6.031 | P2 — décision | 2 | 2026-10-29 → 10-30 | #627 | docs(adr): figer l'architecture de la socket temps réel |
+| 6.0311 | P1 — figé à la création | 1 | 2026-11-02 → 11-02 | #702 | docs(adr): valider les webhooks et les règles communes aux livraisons |
+| 6.0315 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #703 | feat(realtime): borner la socket, envois en trop jetés et trames comptées |
+| 6.032 | P2 — décision | 2 | 2026-11-04 → 11-04 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
+| 6.034 | P2 — décision | 1 | 2026-11-05 → 11-05 | #622 | feat(realtime): admettre un abonné de canal par son identité |
+| 6.035 | P2 — décision | 2 | 2026-11-06 → 11-06 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
+| 6.0355 | P2 — décision | 1 | 2026-11-09 → 11-09 | #701 | test(realtime): exporter une suite de conformité des drivers du bus |
+| 6.0356 | P2 — décision | 1 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
+| 6.036 | P2 — décision | 3 | 2026-11-11 → 11-11 | #618 | feat(realtime): router les trames binaires vers leur canal |
+| 6.0362 | P2 — décision | 2 | 2026-11-12 → 11-12 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
 | 6.0365 | P1 — figé à la création | 2 | 2026-11-09 → 11-09 | #699 | feat(security): durcir la CSP par défaut sans bloquer le temps réel |
-| 6.037 | P2 — décision | 1 | 2026-11-09 → 11-09 | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
+| 6.0367 | P2 — décision | 1 | 2026-11-13 → 11-13 | #700 | docs(realtime): montrer par l'exemple les grands cas d'usage du temps réel |
+| 6.037 | P2 — décision | 1 | 2026-11-16 → 11-16 | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
 | 6.04 | P2 — décision | 7 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
 | 6.041 | P2 — décision | 1 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
 | 6.042 | P2 — décision | 1 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |

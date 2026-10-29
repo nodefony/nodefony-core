@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T11:57:07.334Z",
+  "generatedAt": "2026-10-29T15:46:13.715Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 209,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 19,
+      "open": 23,
       "title": "10.0.0-beta"
     },
     {
@@ -5423,7 +5423,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 27,
+      "jours": 30,
       "ordre": 6.03,
       "debut": "2026-10-29",
       "cible": "2026-11-16",
@@ -5458,7 +5458,39 @@
       "jours": 2,
       "ordre": 6.031,
       "debut": "2026-10-29",
-      "cible": "2026-10-29",
+      "cible": "2026-10-30",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 702,
+      "title": "docs(adr): valider les webhooks et les règles communes aux livraisons",
+      "url": "https://github.com/nodefony/nodefony-core/issues/702",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.0311,
+      "debut": "2026-11-02",
+      "cible": "2026-11-02",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 703,
+      "title": "feat(realtime): borner la socket, envois en trop jetés et trames comptées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/703",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.0315,
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
       "labels": [
         "beta-6"
       ]
@@ -5473,24 +5505,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.032,
-      "debut": "2026-10-30",
-      "cible": "2026-10-30",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 618,
-      "title": "feat(realtime): router les trames binaires vers leur canal",
-      "url": "https://github.com/nodefony/nodefony-core/issues/618",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 3,
-      "ordre": 6.033,
-      "debut": "2026-11-02",
-      "cible": "2026-11-02",
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
       "labels": [
         "beta-6"
       ]
@@ -5505,8 +5521,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.034,
-      "debut": "2026-11-03",
-      "cible": "2026-11-03",
+      "debut": "2026-11-05",
+      "cible": "2026-11-05",
       "labels": [
         "beta-6"
       ]
@@ -5521,8 +5537,24 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 6.035,
-      "debut": "2026-11-04",
-      "cible": "2026-11-04",
+      "debut": "2026-11-06",
+      "cible": "2026-11-06",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 701,
+      "title": "test(realtime): exporter une suite de conformité des drivers du bus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/701",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0355,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
       "labels": [
         "beta-6"
       ]
@@ -5536,9 +5568,25 @@
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
-      "ordre": 6.0355,
-      "debut": "2026-11-05",
-      "cible": "2026-11-05",
+      "ordre": 6.0356,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 618,
+      "title": "feat(realtime): router les trames binaires vers leur canal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/618",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 6.036,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
       "labels": [
         "beta-6"
       ]
@@ -5552,9 +5600,9 @@
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
-      "ordre": 6.036,
-      "debut": "2026-11-06",
-      "cible": "2026-11-06",
+      "ordre": 6.0362,
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
       "labels": [
         "beta-6"
       ]
@@ -5576,6 +5624,22 @@
       ]
     },
     {
+      "number": 700,
+      "title": "docs(realtime): montrer par l'exemple les grands cas d'usage du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/700",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0367,
+      "debut": "2026-11-13",
+      "cible": "2026-11-13",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 555,
       "title": "feat(studio): montrer en direct la contre-pression du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/555",
@@ -5585,8 +5649,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.037,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
       "labels": [
         "beta-6",
         "reportable"
