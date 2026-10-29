@@ -546,10 +546,35 @@ Promise<boolean>`, membre optionnel de
   alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur,
   **locale au pod** : lister, éjecter, abonner d'office, fermer. Il porte aussi la marque
   « admise » de la décision 1 : abonner d'office la **pose**, éjecter et fermer la **retirent**.
-- **Abonnement imposé** : par la **même sonde** que l'accueil (`#RealtimeHub.probeChannel`) — la
-  politique reste le plancher, le serveur décide qui. Depuis la décision 1, la sonde (synchrone)
-  n'appelle pas `allow` : un abonnement imposé passe la politique FIXE seule, le serveur étant
-  l'autorité qui désigne le membre — **à valider par l'auteur** à cette décision.
+- **Décision 2 (validée par l'auteur le 2026-10-29) : abonnement imposé — `allow` reste la seule
+  source de vérité.** Exemple : la recherche de partie place quatre joueurs dans `room:42`.
+  - La politique fixe passe par la **même sonde** que l'accueil
+    (`#RealtimeHub.probeChannel`, synchrone) ; sur un canal à `allow`, l'abonnement imposé
+    **appelle `allow`** ensuite. L'API serveur est donc async — chemin rare, une requête par
+    membre imposé, rien sur le chemin des trames. Refus de `allow` = pas d'abonnement, rendu à
+    l'appelant (jamais un abonnement qui contourne `allow`).
+  - **Pourquoi pas de contournement** : le client rejoue ses abonnements à chaque reconnexion
+    (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`), et
+    ce rejeu passe par `allow`. Un membre imposé que `allow` ne connaît pas serait éjecté à la
+    première coupure réseau — un défaut qu'on ne voit qu'en production, sur mobile. Conséquence
+    pour l'application : elle écrit l'appartenance là où `allow` la lit.
+  - **Le client est notifié** : `realtime:subscribed { channel, imposed: true }` — champ
+    optionnel ajouté à `src/nodefony/src/realtime/RealtimeEventMap.ts#IRealtimeSubscribed`, pas
+    de notification neuve. Le marqueur est nécessaire : aujourd'hui
+    `#NodefonySocket.ingestSubscribed` IGNORE un acquittement pour un canal qu'il ne suit pas (le
+    cas d'un `unsubscribe` croisé avec l'acquittement), et doit continuer. Avec `imposed`, le
+    client inscrit le canal dans ses abonnements (un consommateur) : il le rejoue donc à la
+    reconnexion, et ses `on(channel, …)` reçoivent les messages comme pour tout canal. Le client
+    peut s'en désabonner : quitter reste son droit.
+  - Sans `allow`, rien ne change : la politique fixe décide seule, à l'imposition comme au rejeu.
+  - Connexion fermée pendant l'`await allow` : réponse jetée, aucune marque (même règle que le
+    `subscribe`, #622).
+  - **Locale au pod en 10.x** : on n'impose qu'à une connexion servie par ce pod ; l'ordre ne
+    traverse pas le backplane (S6). Un client ancien qui ignore `imposed` reçoit les messages
+    mais ne rejoue pas : dégradé, pas cassé — d'où l'ajout sans rupture.
+  - Usages hétérogènes : la recherche de partie d'un jeu, l'appelé d'un appel (#619), le flux
+    d'une tâche d'agent auquel le serveur abonne le demandeur, l'attribution d'une conversation
+    de support à un conseiller.
 - **Fermeture** : `realtime:closed { channel, reason }` (S4), motif **fermé** — `ended` (le canal
   est terminé) ou `evicted` (cette connexion en est retirée) — déclarée à côté de
   `src/nodefony/src/realtime/RealtimeEventMap.ts#IRealtimeDenied`. Le client retire l'abonnement
