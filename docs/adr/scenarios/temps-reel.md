@@ -106,6 +106,26 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : W1, W5, W6
 - **A fait changer** : aucune
 
+### S-rt-38 — Les sondes vibratoires d'un atelier industriel
+
+- **Situation** : 300 machines, une sonde vibratoire à 1 kHz chacune, échantillons regroupés par
+  paquets binaires de 100 ms ; un écran de supervision et un service d'analyse s'abonnent.
+- **Catégorie** : usages hétérogènes (industrie, sans agent, sans média)
+- **Tient si** : les octets passent sans copie ni conversion, l'ordre par machine (émetteur) tient
+  entre pods, et le débit tient sur un pod mesuré, chiffres à l'appui.
+- **Décisions jugées** : S1, S5, S6, S8, ADR-0022 §3, §5
+- **A fait changer** : aucune
+
+### S-rt-39 — Un serveur de jeu qui fait autorité, 30 ticks/s
+
+- **Situation** : 64 joueurs par partie ; le serveur calcule l'état et envoie un delta binaire à
+  chaque tick ; latence perçue visée sous 50 ms au p99.
+- **Catégorie** : usages hétérogènes (jeu)
+- **Tient si** : aucune allocation par joueur et par tick sur le chemin d'envoi ; un joueur lent
+  est borné (contre-pression), il ne ralentit pas les 63 autres.
+- **Décisions jugées** : S1, S8, ADR-0022 §3, §5
+- **A fait changer** : aucune
+
 ## Charge
 
 ### S-rt-9 — 60 coups/s × 1 000 joueurs sur un canal à rôles
@@ -131,6 +151,15 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Catégorie** : charge
 - **Tient si** : la rafale d'appels `allow` est bornée ou documentée avec sa parade.
 - **Décisions jugées** : ADR-0022 §6 d1, §7
+- **A fait changer** : aucune
+
+### S-rt-40 — 10 000 spectateurs sur une même partie
+
+- **Situation** : une finale diffusée ; un producteur, 10 000 abonnés répartis sur 4 pods.
+- **Catégorie** : charge
+- **Tient si** : un seul message par pod sur le bus, la diffusion locale sans encodage répété par
+  abonné, et les spectateurs lents jetés et comptés (`droppedTotal`) sans gêner les joueurs.
+- **Décisions jugées** : S6, S9-noms, ADR-0022 §5
 - **A fait changer** : aucune
 
 ## Panne et réseau
@@ -159,6 +188,27 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Tient si** : réessais sous le même `webhook-id`, désactivation après 20 échecs, la perte au
   redémarrage écrite et comptée.
 - **Décisions jugées** : W4, W7, S9-noms
+- **A fait changer** : aucune
+
+### S-rt-41 — Un atelier qui perd le réseau dix minutes
+
+- **Situation** : la liaison de l'usine tombe ; au retour, 300 passerelles se reconnectent dans la
+  même seconde et rejouent leurs abonnements.
+- **Catégorie** : panne et réseau
+- **Tient si** : la tempête de reconnexion est absorbée (rafale d'`allow` bornée ou documentée),
+  et ce qui est perdu pendant la coupure est dit, jamais rejoué en silence.
+- **Décisions jugées** : S3, S5, ADR-0022 §6 d1, §7
+- **A fait changer** : aucune
+
+### S-rt-42 — Une alarme machine critique qui ne doit pas se perdre
+
+- **Situation** : une surchauffe déclenche une alarme ; l'industriel exige qu'elle arrive, même si
+  un pod redémarre au même instant.
+- **Catégorie** : panne et réseau (industrie)
+- **Tient si** : la documentation dit clairement que le socle ne garantit pas la livraison, et
+  l'application bâtit l'« au moins une fois » au-dessus (son identifiant dans la charge,
+  acquittement, réémission) sans rien changer au socle ni au fil.
+- **Décisions jugées** : S2, S5, W4
 - **A fait changer** : aucune
 
 ## Plusieurs instances
