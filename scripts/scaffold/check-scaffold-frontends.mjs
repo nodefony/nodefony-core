@@ -107,6 +107,13 @@ for (const fw of selected) {
     ...lockstepSiblings(ROOT, dest, PEER_VERSIONS),
     ...PEER_VERSIONS,
   });
+  // 🔴 L'arbre de la génération part AVANT de réinstaller : posé sur le
+  // dernier patch du registre, il ne redescend pas vers l'épinglage — npm rend
+  // `ERESOLVE` (ou plante sur `edgesOut` sans le verrou) le jour où l'amont
+  // publie avant que le dépôt suive (vécu : Angular 22.2.4). La génération,
+  // elle, garde son installation : c'est elle qui formate le rendu.
+  rmSync(path.join(dest, "node_modules"), { recursive: true, force: true });
+  rmSync(path.join(dest, "package-lock.json"), { force: true });
   const reinstall = spawnSync(NPM, ["install", "--no-audit", "--no-fund"], {
     cwd: dest,
     encoding: "utf8",
@@ -119,7 +126,7 @@ for (const fw of selected) {
     console.error(
       `✗ ${fw} — décor lié défaillant : ` +
         (peers === null
-          ? `réinstallation après épinglage en échec (code ${reinstall.status})`
+          ? `installation après épinglage en échec (code ${reinstall.status})`
           : `pair(s) en deux exemplaires : ${peers.doublons.map((d) => `${d.nom} (app ${d.app}, dépôt ${d.repo})`).join(", ")}`),
     );
     if (peers === null) {
