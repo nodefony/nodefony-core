@@ -110,19 +110,20 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Page                                                          | Ce qu'elle résout                                     | Tu en as besoin quand…                         |
-| ------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
-| [Service](service.md)                                         | la classe de base : injection, événements, journal    | tu écris n'importe quel composant              |
-| [Journalisation](syslog.md)                                   | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
-| [Kernel & Module](kernel.md)                                  | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
-| [CLI](cli.md)                                                 | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
-| [Tests](testing.md)                                           | éprouver ce que tu écris — unitaire, bout en bout     | tu lances `npm test` pour la première fois     |
-| [RequestContext](request-context.md)                          | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
-| [Boîte à outils MCP](../../packages/@nodefony/ai/docs/mcp.md) | exposer les outils de ton application à un agent      | un agent doit interroger ou piloter ton app    |
-| [Client isomorphe](client.md)                                 | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
-| [Hooks React](react-hooks.md)                                 | la socket en idiomes React                            | ton front est en React                         |
-| [Composables Vue](vue-composables.md)                         | la socket en idiomes Vue                              | ton front est en Vue 3                         |
-| [Injection Angular](angular-services.md)                      | la socket en idiomes Angular                          | ton front est en Angular                       |
+| Page                                                          | Ce qu'elle résout                                     | Tu en as besoin quand…                                       |
+| ------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
+| [Service](service.md)                                         | la classe de base : injection, événements, journal    | tu écris n'importe quel composant                            |
+| [Journalisation](syslog.md)                                   | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                              |
+| [Kernel & Module](kernel.md)                                  | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande                           |
+| [CLI](cli.md)                                                 | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends                  |
+| [Tests](testing.md)                                           | éprouver ce que tu écris — unitaire, bout en bout     | tu lances `npm test` pour la première fois                   |
+| [RequestContext](request-context.md)                          | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité               |
+| [Boîte à outils MCP](../../packages/@nodefony/ai/docs/mcp.md) | exposer les outils de ton application à un agent      | un agent doit interroger ou piloter ton app                  |
+| [Client isomorphe](client.md)                                 | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur                       |
+| [Codec CBOR](cbor.md)                                         | un JSON binaire, isomorphe, aligné sur JSON           | tes messages portent des octets, ou la bande passante compte |
+| [Hooks React](react-hooks.md)                                 | la socket en idiomes React                            | ton front est en React                                       |
+| [Composables Vue](vue-composables.md)                         | la socket en idiomes Vue                              | ton front est en Vue 3                                       |
+| [Injection Angular](angular-services.md)                      | la socket en idiomes Angular                          | ton front est en Angular                                     |
 
 ```nodefony-cards
 [
@@ -150,6 +151,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
   { "icon": "🌐", "title": "client", "href": "client.md",
     "desc": "Le cœur est isomorphe : un sous-ensemble compile pour le navigateur, ce qui donne la socket temps réel côté client sans importer un second paquet. La connexion et sa reprise, les canaux, la cadence auto-ajustée, l'évaluation des rôles côté interface.",
     "meta": "le même paquet, dans le navigateur" },
+  { "icon": "📦", "title": "cbor", "href": "cbor.md",
+    "desc": "Un JSON binaire normalisé (RFC 8949), dans le navigateur comme sur le serveur : les messages pèsent 30 à 45 % de moins, et des octets voyagent sans base64. Il rend exactement ce que JSON rendrait — une Date devient sa chaîne — et refuse un message hostile avant d'allouer quoi que ce soit.",
+    "meta": "tes messages portent des octets, ou la bande passante compte" },
   { "icon": "⚛️", "title": "react-hooks", "href": "react-hooks.md",
     "desc": "Le fournisseur de contexte et les hooks : état de connexion, abonnement à un canal, données du dernier message, flux du journal, notifications. Dix composants qui écoutent dix canaux ouvrent une connexion, pas dix.",
     "meta": "tout le désabonnement au démontage est géré" },
