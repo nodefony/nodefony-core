@@ -408,14 +408,36 @@ re-paramètre pas.
 **Décision proposée :** **une règle, trois endroits.** Sortante serveur :
 `src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts#decideSend` reste
 l'unique arbitre — jeter au-delà du seuil, fermer `1013` sur un solde de refus — texte et binaire.
-**C1**, sortante client : la **même** fonction sur `WebSocket.bufferedAmount` du navigateur ;
-pure, elle **descend dans le code partagé** du cœur (`src/nodefony/src/realtime/`), et
-`@nodefony/http` l'importe de là. **C2**, débit entrant par connexion : le patron du canal des
+**C1**, sortante client : la **même** règle sur `WebSocket.bufferedAmount` du navigateur (voir
+la décision C1 ci-dessous). **C2**, débit entrant par connexion : le patron du canal des
 journaux (`src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts#SyslogUplinkHandlerOptions`
 — fenêtre par connexion, compteur alloué paresseusement) généralisé au transport, dans
 `@nodefony/http` à côté de `maxPayload` ; au-delà, trame **écartée et comptée**, puis fermeture
 `1008` sur un solde, calqué sur `backpressureCloseAfterDrops`. Les deux naissent **désactivées**
 en 10.x (décision 7 de #630).
+
+**Décision C1 (validée par l'auteur le 2026-10-29) : décider au cœur, agir de chaque côté.**
+`#decideSend` n'est PAS pure : elle tient ses compteurs sur la socket (`_nfDrops`,
+`_nfDropStreak`, par un `ws as unknown as IBackpressureSocket`) et ferme elle-même en `1013`. Or
+un navigateur refuse ce code : `WebSocket.close(code)` n'admet que `1000` et `3000`-`4999`, sinon
+il lève `InvalidAccessError` (WHATWG WebSockets) — déplacée telle quelle, la fonction planterait
+au moment de fermer. Donc :
+
+- le code partagé (`src/nodefony/src/realtime/`) ne porte que la **décision pure** : file
+  d'envoi, seuil, politique et solde de refus en entrée → `send` / `drop` / `close` et le solde
+  suivant en sortie ; aucun effet de bord, aucune écriture sur la socket ;
+- chaque côté **agit** : le serveur garde ses compteurs et ferme en `1013`, comportement
+  inchangé ; `NodefonySocket` tient son solde dans son propre état et ferme par un code privé neuf
+  rangé dans `src/nodefony/src/realtime/closeCodes.ts`, puis sa reconnexion prend le relais ;
+- le `as unknown as` disparaît avec la sortie des compteurs ;
+- désactivée côté client en 10.x ; la règle reste UNE, puisqu'elle est écrite une fois.
+
+```ts
+// navigateur, 30 emit("move") par seconde, le réseau cale dans un tunnel :
+// sans C1 → 300 coups périmés en file au bout de 10 s, partis en rafale à la sortie ;
+// avec C1 → au-delà du seuil, les coups sont jetés et comptés, puis la socket se ferme
+//          et se reconnecte si le solde de refus ne redescend pas.
+```
 
 - Usages : un tableau de bord diffusé à N lecteurs dont un lent, un jeu sur réseau mobile qui
   pousse ses coups (C1), un capteur qui émet trop vite (C2).
