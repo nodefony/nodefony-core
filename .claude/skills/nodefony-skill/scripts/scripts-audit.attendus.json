@@ -49,6 +49,7 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-host.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-orm-hot-path-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-profiler-collect.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-state.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-request-scope.mjs",
