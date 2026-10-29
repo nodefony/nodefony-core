@@ -40,7 +40,7 @@
     "nodefony": "^10.0.0-beta.5"
   },
   "devDependencies": {
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "nodefony": "^10.0.0-beta.5",
     "vitest": "5.0.5"
   },

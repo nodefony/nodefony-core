@@ -30,7 +30,7 @@
     "@nodefony/ai": "^10.0.0-beta.5",
     "@nodefony/framework": "^10.0.0-beta.5",
     "@nodefony/http": "^10.0.0-beta.5",
-    "lighthouse": "^13.0.0",
+    "lighthouse": "^13.6.0",
     "nodefony": "^10.0.0-beta.5",
     "playwright": "^1.50.0",
     "zod": "^4.6.7"
