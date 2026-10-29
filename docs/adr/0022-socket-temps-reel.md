@@ -214,7 +214,8 @@ il sert un protocole binaire écrit par l'application, sans canal.
 
 ### 4. L'isomorphisme — le transport l'est, le contrat doit l'être
 
-**Décision proposée :** fermer les cinq trous de #627 §4, dont deux le sont déjà.
+**Décision (validée par l'auteur le 2026-10-29) :** fermer les cinq trous de #627 §4, dont deux
+le sont déjà.
 
 | Trou                                 | État constaté                                                                                                                                                                                                                                                 | Geste                                                                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -378,7 +379,10 @@ m.start.getTime())` compile aujourd'hui et plante au navigateur ; avec la règle
 - Le codec ne change pas le type reçu : déjà acquis par « JSON est la référence de tous les
   codecs » (§2) — un client CBOR et un client JSON reçoivent le même `Jsonify<T>`.
 
-**Recommandation : l'option B, bâtie sur les génériques de l'option A.** `Listen` s'ajoute en
+**Décision (validée par l'auteur le 2026-10-29) : l'option B, bâtie sur les génériques de
+l'option A, une porte par côté.** Le `chat.Socket` de l'exemple de l'option B n'existe pas : la
+décision « un contrat fait de types » le remplace par la porte du client, et la fabrique du
+serveur ne rend que `Controller` et `RealtimeAction`. `Listen` s'ajoute en
 troisième position de `RealtimeController` avec défaut (nécessaire aux deux options) ; les types
 utilitaires existent déjà en partie (`src/nodefony/src/realtime/RealtimeEventMap.ts#ContractParams`,
 `#TypedRpcActionHandler`) ; la fabrique est la surface opt-in que #630 réserve à la vérification
@@ -393,6 +397,11 @@ re-paramètre pas.
   (canaux serveur seuls — `clientToServer` peut rester vide).
 - **Rupture si différé après 10.0 : NON**, parce que tout est générique en fin avec défaut, ou
   fabrique opt-in. (ii) était la rupture, et elle est faite.
+- **Reste au code (#628), sans décision à reprendre** : les noms des deux portes ; la preuve des
+  canaux à motif comme clés ; la signature vérifiée par `@chat.RealtimeAction`, que le mode des
+  décorateurs publiés (`MethodDecorator`, `experimentalDecorators`) permet par un
+  `TypedPropertyDescriptor` contraint — si un test de types la montre impossible, (iv) se ferme
+  par `realtimeActions()` typé, sans toucher au moule.
 
 ### 5. Contre-pression et bornes
 
