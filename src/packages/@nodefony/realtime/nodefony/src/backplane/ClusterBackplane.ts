@@ -9,8 +9,11 @@ import { resolveBackplaneOriginId } from "./originId.js";
 
 /**
  * Enveloppe IPC d'une publication realtime = {@link IBackplaneMessage} + discriminant.
- * Sérialisée une fois par `process.send`/`worker.send` (`structuredClone` IPC) → le
- * `payload` doit rester structurellement clonable (cf contrat IBackplane).
+ * Sérialisée une fois par `process.send`/`worker.send`, en **JSON** : les workers
+ * naissent par `cluster.fork()` sans `serialization: "advanced"`
+ * (`src/nodefony/src/service/cluster/ClusterManager.ts#IClusterRuntime.fork`) → le
+ * `payload` suit les règles de `JSON.stringify` (une `Date` devient une chaîne, une
+ * clé `undefined` disparaît), comme sur le bus Redis.
  */
 export interface ClusterBackplaneEnvelope extends IBackplaneMessage {
   readonly kind: typeof CLUSTER_RT_KIND;

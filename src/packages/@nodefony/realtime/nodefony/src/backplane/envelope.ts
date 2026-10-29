@@ -26,10 +26,16 @@ import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
  * canal (`chat:` → `nodefony:audit`), ni substitution de charge.
  *
  * Hors portée (assumé, cf sémantique at-most-once du port) : le **rejeu**. Un
- * tiers qui lit le bus peut re-publier un message scellé intact ; l'effet se
- * limite à re-diffuser une charge déjà diffusée sur un canal déjà broadcast, que
- * le client realtime re-synchronise. Un anti-rejeu (horodatage + fenêtre) exigerait
- * des horloges alignées entre pods pour un gain nul face à ce modèle de menace.
+ * tiers qui lit le bus peut re-publier un message scellé intact. Pour une
+ * publication, l'effet se limite à re-diffuser une charge déjà diffusée sur un
+ * canal déjà broadcast. Pour un **ordre** (fermer, éjecter), le rejeu recouperait :
+ * la parade n'est pas ici mais dans l'ordre lui-même, qui désigne une INSTANCE
+ * (l'admission révoquée, la partie close) et jamais un nom seul — rejoué, il ne
+ * désigne plus rien de vivant (ADR-0021 S6, ADR-0022 §6). Un anti-rejeu par
+ * horodatage exigerait des horloges alignées entre pods.
+ *
+ * La forme signée est la re-sérialisation de la charge par le récepteur ; elle
+ * n'est PAS promise comme contrat à un producteur écrit dans un autre langage.
  */
 
 /** Nom du champ portant le sceau dans l'enveloppe sérialisée. */
@@ -80,9 +86,10 @@ export function sealBackplaneEnvelope(
   if (!secret) return JSON.stringify(msg);
   const channelJson = JSON.stringify(msg.channel);
   const originIdJson = JSON.stringify(msg.originId);
-  // `undefined` n'est pas du JSON — une charge absente devient `null`, la même
-  // valeur que produirait `JSON.stringify` sur l'objet complet.
-  // `undefined` pour une charge `undefined` — le type standard ne le dit pas.
+  // `undefined` n'est pas du JSON : une charge absente est SIGNÉE comme `null`.
+  // `JSON.stringify` rend `undefined` pour une charge `undefined` — le type
+  // standard ne le dit pas. Attention : l'enveloppe NUE (sans secret) omet la
+  // clé, et le récepteur relit `undefined` ; scellée, il relit `null`.
   const payloadText = JSON.stringify(msg.payload) as string | undefined;
   const payloadJson = payloadText ?? "null";
   const sig = seal(originIdJson, channelJson, payloadJson, secret);
