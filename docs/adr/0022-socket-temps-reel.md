@@ -108,11 +108,27 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   de #618, après #622, #623, #628 et #629 — ceux-là fermeraient une porte, lui non. **Protobuf** n'arrive qu'avec l'Epic gRPC
   #694 : un seul usage connu d'ici là (règle de #621), et une dépendance que gRPC rendra de toute
   façon nécessaire ; son enveloppe ci-dessus est une intention, pas un engagement.
-- **Réversibilité** : le modèle de valeurs est JSON ∩ CBOR, plus les octets. Une valeur hors
-  modèle (`bigint`, `undefined` dans un tableau, `NaN`) est **refusée à l'encodage**, jamais
-  dégradée en silence : `f ≡ decode(encode(f))` pour chaque codec, et une connexion se rejoue en
-  texte sans qu'une ligne métier bouge. Protobuf tient la règle par sa correspondance JSON
-  canonique (octets en base64, entiers 64 bits en chaîne).
+- **JSON est la référence de tous les codecs** (remplace la règle « refus à l'encodage »,
+  décision de l'auteur du 2026-10-29, après le banc) : quel que soit le codec, on reçoit **ce que
+  `JSON.stringify` puis `JSON.parse` rendraient** — une `Date` devient sa chaîne ISO, `NaN` devient
+  `null`, `Map`/`Set` deviennent `{}`. Seule exception, les octets : un `Uint8Array` reste un
+  `Uint8Array` (S8 ; base64 sous convention dans le codec JSON). Ainsi une connexion se rejoue en
+  texte sans qu'une ligne métier bouge, et un client CBOR et un client JSON abonnés au même canal
+  reçoivent la même chose — le relais entre exemplaires, en JSON (S6), l'imposait déjà.
+  - **Le type le montre** : le contrat type la valeur REÇUE par un `Jsonify<T>` (à écrire, absent
+    du dépôt) — `debut: Date` à l'émission devient `debut: string` à la réception, visible dans
+    l'éditeur, sans coût d'exécution. Précédents : tRPC (sans transformateur), Hono
+    (`JSONParsed<T>`).
+  - **Chaque codec est aligné et le prouve** : un test par codec rend, pour chaque valeur du banc
+    (`NaN`, `Infinity`, `undefined` en tableau, `Date`, `Map`, `Set`, `-0`, `bigint`), exactement ce
+    que rend JSON — `bigint` compris, que JSON refuse. Protobuf suit sa correspondance JSON
+    canonique.
+  - **Le développement prévient** : une valeur que JSON transforme (`Date`, `NaN`, `Map`…) donne un
+    avertissement UNE fois par méthode ou canal — presque toujours un oubli. Rien en production.
+  - Écarté : **tout refuser** (un parcours par message, et une rupture pour les applications qui
+    publient une `Date` aujourd'hui) ; **tout transporter** à la superjson (format maison que ni
+    un client d'un autre langage ni le relais ne lisent). Précédent du modèle commun : WAMP, dont
+    le routeur traduit entre clients JSON, CBOR et MessagePack.
 - **Débogage par décodage à l'observation**, jamais en changeant le fil : le traceur WS
   (`src/packages/@nodefony/http/nodefony/src/context/websocket/wsLogContent.ts#formatWsLogContent`),
   Studio et la barre de debug affichent une trame binaire décodée ; coût nul en production, où
@@ -128,11 +144,11 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   poids dans `.size-budgets.json` — sur des critères écrits d'avance : objets ordinaires sans
   conversion par frame, aucun `Buffer` (le client est un navigateur), aucun module natif
   obligatoire (Windows), CBOR standard sans extension propriétaire (un pair d'un autre langage
-  doit pouvoir lire), refus des valeurs hors modèle. Candidats : `cbor-x`, `cborg`, et
+  doit pouvoir lire), alignement sur la référence JSON. Candidats : `cbor-x`, `cborg`, et
   `@levischuck/tiny-cbor` en référence seulement — installé par `@nodefony/security`
   (`@simplewebauthn/server`), mais il ne rend que des `Map`, jamais un objet ordinaire, ce qui
   coûterait une conversion par frame. Une richesse de types (`Date`, `Set`, `bigint`) n'est pas
-  un critère : la réversibilité ci-dessus la refuse.
+  un critère : la référence JSON ci-dessus la ramène à ce que JSON rend.
 - **Banc fait (2026-10-29)** — Node 26.13, macOS x64, médiane de 5 ; 14 types (entiers, flottants,
   booléens, textes ASCII/unicode/8 Ko, tableaux, imbrications, binaire de 64 o à 1 Mo) et 9
   valeurs hors modèle. **Retenu : `cbor-x` en JavaScript pur**, réglé en CBOR standard
@@ -144,11 +160,12 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   Sur le binaire, CBOR décode une vue sans copie : 64 Ko en 1,2 µs contre 91 µs en JSON base64,
   1 Mo en 1,2 µs contre 1,97 ms. À régler avant livraison : `cbor-x` écrit les flottants sur
   8 octets (500 nombres : 3 646 octets contre 2 613 en JSON). Non mesuré : le navigateur.
-- **Trou révélé par le banc, à trancher** : le codec JSON d'aujourd'hui **déforme** en silence
-  (`NaN` → `null`, `[1, undefined]` → `[1, null]`, `Date` → chaîne, `Map`/`Set` → `{}`), et
-  `cbor-x` **accepte tout** (`Date`, `Set`, `bigint`). Ni l'un ni l'autre ne refuse seul : tenir
-  la réversibilité exige un contrôle des valeurs, qui coûterait un parcours par frame.
-  Proposition : contrôle en développement seulement, un test par codec.
+- **Ce que le banc a révélé, et qui a fait choisir la référence JSON** : le codec JSON
+  transforme (`NaN` → `null`, `[1, undefined]` → `[1, null]`, `Date` → chaîne, `Map`/`Set` → `{}`)
+  quand `cbor-x` garde tout (`Date`, `Set`, `bigint`) — deux clients d'un même canal auraient reçu
+  deux choses. **À prouver avant d'écrire le codec CBOR** : que `cbor-x` s'aligne sur JSON sans
+  parcourir chaque message (une extension par classe pour `Date` ; `NaN`, `Map` et `Set` plus
+  délicats).
 - **Rupture si différé après 10.0 : NON**, parce que les décisions 1 et 2 de #630 rendent tout
   codec additif. Ce qui serait une rupture, et qui est écrit : le nom `v1` et la lecture du codec
   dans l'accueil — un format renommé ou un codec déduit de l'écho changerait le fil d'un client
