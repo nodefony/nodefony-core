@@ -352,6 +352,32 @@ const chat = defineRealtimeContract<ChatContract>(); // { Controller, RealtimeAc
   code, signatures sous les yeux. Un nom dit ce qu'on obtient ; « contrat » désigne la déclaration
   de l'application, pas une technique.
 
+**Décision (tranchée par l'agent sur délégation de l'auteur, le 2026-10-29) : ce que j'envoie =
+ce que j'ai déclaré, ce que je reçois = ce que JSON en fait.** `Jsonify<T>` (§2) s'applique aux
+QUATRE points de réception, des deux côtés ; le type déclaré, tel quel, à chaque point d'émission.
+
+| Qui reçoit                                           | Quoi             | Type reçu    |
+| ---------------------------------------------------- | ---------------- | ------------ |
+| le client, `on(…)`                                   | `serverToClient` | `Jsonify<T>` |
+| le serveur, entrée d'un canal                        | `clientToServer` | `Jsonify<T>` |
+| qui IMPLÉMENTE une méthode (serveur ou client)       | ses `in`         | `Jsonify<T>` |
+| qui APPELLE une méthode (`request`, `requestClient`) | son `out`        | `Jsonify<T>` |
+
+- Exemple : `serverToClient: { meeting: { start: Date } }` — `socket.on("meeting", (m) =>
+m.start.getTime())` compile aujourd'hui et plante au navigateur ; avec la règle, `m.start` est
+  `string` et l'éditeur le souligne. Même mensonge, côté serveur, pour `send(p: { start: Date })`.
+- Exception (§2, S8) : `Uint8Array` reste `Uint8Array`.
+- **Pourquoi les quatre d'un coup** : ne poser `Jsonify` qu'au `on()` du client obligerait à
+  l'ajouter après 10.0 aux trois autres — le type des paramètres d'une méthode décorée
+  changerait, nouvelles erreurs de compilation chez les applications. La règle survit à tout
+  codec futur : protobuf suit sa correspondance JSON canonique (§2).
+- Coût d'exécution nul (types effacés). `Jsonify<T>` s'écrit dans
+  `src/nodefony/src/realtime/RealtimeEventMap.ts`, à côté de `#ContractParams`, avec un test de
+  types par ligne du tableau, et une profondeur bornée (un type récursif sans borne ralentit le
+  compilateur sur les charges profondes).
+- Le codec ne change pas le type reçu : déjà acquis par « JSON est la référence de tous les
+  codecs » (§2) — un client CBOR et un client JSON reçoivent le même `Jsonify<T>`.
+
 **Recommandation : l'option B, bâtie sur les génériques de l'option A.** `Listen` s'ajoute en
 troisième position de `RealtimeController` avec défaut (nécessaire aux deux options) ; les types
 utilitaires existent déjà en partie (`src/nodefony/src/realtime/RealtimeEventMap.ts#ContractParams`,
