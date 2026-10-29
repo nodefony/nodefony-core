@@ -147,7 +147,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.2.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "decision-making", "href": "nodefony-decision-making.md",
     "desc": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public.",
-    "meta": "🟢 conforme v3.0.0 · 📎 7 réf" },
+    "meta": "🟢 conforme v3.1.0 · 📎 7 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un…",
     "meta": "🟢 conforme v1.5.0 · ⚙️ 21 scripts · 📎 9 réf" },
@@ -200,7 +200,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 256 | 0 | 0 | ✅ |
-| [`nodefony-decision-making`](nodefony-decision-making.md) | 3.0.0 | 121 | 7 | 0 | ✅ |
+| [`nodefony-decision-making`](nodefony-decision-making.md) | 3.1.0 | 121 | 7 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 486 | 2 | 20 | ✅ |

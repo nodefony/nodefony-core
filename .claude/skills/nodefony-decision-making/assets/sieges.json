@@ -8,30 +8,33 @@
   "sieges": {
     "contradicteur": {
       "modele": "fable",
-      "raison": "point de départ : trouver ce que personne n'a posé",
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
-      "constatsFaux": 0,
-      "essais": []
+      "raison": "prouvé (1 table) : la 1re passe « cas manquants » a rendu 5 scénarios, tous tenus au code, dont 4 ont changé une décision figée ; la passe matrice (~3,5 $) n’a rien ajouté — un constat faux : une absence de test affirmée à tort",
+      "tables": 1,
+      "constatsRendus": 9,
+      "constatsRetenus": 8,
+      "constatsFaux": 1,
+      "essais": [],
+      "coutUsd": 6.54
     },
     "attaquant": {
       "modele": "fable",
-      "raison": "point de départ : raisonnement adverse qui combine des failles",
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
+      "raison": "point de départ maintenu (1 table) : un constat propre et décisif (l’émission applicative pouvait usurper l’audit), mais sa recommandation principale contredisait un motif déjà écrit et a été écartée",
+      "tables": 1,
+      "constatsRendus": 7,
+      "constatsRetenus": 4,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 4.85
     },
     "gardien-compatibilite": {
       "modele": "sonnet",
       "raison": "point de départ : appliquer une politique écrite à un cas",
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
+      "tables": 1,
+      "constatsRendus": 7,
+      "constatsRetenus": 4,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0.46
     },
     "specialiste-perf": {
       "modele": "sonnet",
@@ -40,25 +43,28 @@
       "constatsRendus": 0,
       "constatsRetenus": 0,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0
     },
     "exploitant": {
       "modele": "sonnet",
       "raison": "point de départ : repérer ce qui casse en silence en production",
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
+      "tables": 1,
+      "constatsRendus": 5,
+      "constatsRetenus": 4,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0.36
     },
     "developpeur-application": {
       "modele": "sonnet",
       "raison": "point de départ : écrire le code imposé par la décision",
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
+      "tables": 1,
+      "constatsRendus": 5,
+      "constatsRetenus": 2,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0.34
     },
     "auteur-extension": {
       "modele": "sonnet",
@@ -67,7 +73,8 @@
       "constatsRendus": 0,
       "constatsRetenus": 0,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0
     },
     "mainteneur-solo": {
       "modele": "sonnet",
@@ -76,7 +83,8 @@
       "constatsRendus": 0,
       "constatsRetenus": 0,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0
     },
     "responsable-version": {
       "modele": "haiku",
@@ -85,17 +93,19 @@
       "constatsRendus": 0,
       "constatsRetenus": 0,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0
     },
     "agent-ia-consommateur": {
       "modele": "haiku",
       "raison": "FIXE par construction : mesure ce qu'un agent faible trouve",
       "fixe": true,
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
+      "tables": 1,
+      "constatsRendus": 2,
+      "constatsRetenus": 1,
       "constatsFaux": 0,
-      "essais": []
+      "essais": [],
+      "coutUsd": 0.25
     }
   }
 }

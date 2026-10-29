@@ -60,7 +60,7 @@ l'agent **nodefony-check-claims** (`haiku`, `@agent-` devant son nom garantit le
 
 ## 4. Le dossier remis à chaque siège
 
-Le MÊME pour tous, écrit une fois dans un fichier du dossier temporaire de la session :
+Un **dossier commun**, écrit une fois dans un fichier sous `tmp/scratch/` :
 
 1. la question (socle du skill, point 1) et ce qu'elle ne couvre pas ;
 2. le catalogue de scénarios (`methode-scenarios.md`) ;
@@ -69,6 +69,27 @@ Le MÊME pour tous, écrit une fois dans un fichier du dossier temporaire de la 
    `<fichier>.ts#<Symbole>`.
 
 Montrer la préférence du principal, c'est obtenir sa confirmation : le dossier ne la contient pas.
+
+**Puis des VUES CLOISONNÉES** : un siège ne lit pas ce qui fausserait son regard. Chaque vue est
+un fichier à part, et la consigne lui interdit en toutes lettres d'ouvrir le reste.
+
+| Siège                              | Ce qu'on lui RETIRE                                                                              | Pourquoi                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Attaquant                          | la section « Attaquant » du catalogue                                                            | il cocherait les attaques déjà parées au lieu d'en chercher (menace d'abord)                  |
+| Développeur d'application          | ADR, catalogue, code interne — il garde §1, §2 du dossier, la doc PUBLIQUE et les types exportés | il juge l'API telle qu'il la vivrait, pas notre raisonnement                                  |
+| Agent IA consommateur              | tout sauf l'ÉNONCÉ des tâches, le skill livré et la doc publique                                 | il mesure ce qu'un agent trouve avec ce qui est LIVRÉ ; le dossier lui soufflerait la réponse |
+| Contradicteur, gardien, exploitant | rien                                                                                             | aucune préférence n'est écrite dans le dossier commun                                         |
+
+```bash
+# la vue de l'attaquant : le catalogue sans sa section « Attaquant »
+awk '/^## Attaquant/{s=1;next} s&&/^## /{s=0} !s' docs/adr/scenarios/<domaine>.md \
+  > tmp/scratch/table-<sujet>-catalogue-attaquant.md
+```
+
+⚠️ **Chaque chemin d'un dossier se vérifie (`ls`) avant le lancement** : un kit rédigé la veille
+donnait la doc publique des webhooks sous `docs/guides/`, elle vit dans le module. Un chemin faux
+envoie un siège payant chercher dans le vide. Et toute vue se **régénère** après une modification
+du catalogue (un cas ajouté par le contradicteur doit atteindre l'attaquant).
 
 ## 5. La consigne type
 
@@ -88,6 +109,13 @@ Réponds en au plus 40 lignes, dans cette forme :
 4. Ce que tu n'as pas pu vérifier.
 ```
 
+**Le siège « agent IA consommateur » a sa propre forme** : il ne juge pas des options, il
+EXÉCUTE des tâches. Sa consigne lui donne l'énoncé (« Notifie l'utilisateur 42… ») et lui demande
+
+1. son plan et le code esquissé par tâche, 2. pour chaque choix le fichier et le passage qui l'y a
+   conduit — ou « deviné, rien trouvé », 3. ce qu'il a cherché sans le trouver. Les « deviné » sont
+   le résultat : chacun est un trou de la doc livrée.
+
 Type d'agent : **`Plan`** (lecture du code, sans écriture de fichier, et dispensé de recharger la
 hiérarchie `CLAUDE.md` — un plancher plus bas, ce qui compte sur six sièges). Il ne reçoit donc
 PAS les règles du projet : la consigne les lui apporte par les skills qu'elle nomme. Le modèle
@@ -97,14 +125,28 @@ contradicteur"`), parce qu'un agent intégré peut ne pas l'afficher.
 ## 6. Lancer, puis faire la synthèse
 
 1. **Annoncer** à l'auteur : sièges, modèle de chacun, coût estimé (§7) ; attendre le go.
-2. **Lancer tous les sièges dans le même message** (appels indépendants, en parallèle) : aucun ne
+2. **Le contradicteur SEUL d'abord**, sur une seule question : « quels scénarios MANQUENT au
+   catalogue ? » (au plus 5), plus les cas mal posés. Chaque cas proposé se vérifie au code, puis
+   entre au catalogue ; les vues cloisonnées se régénèrent. Mesuré : c'est la passe au meilleur
+   rendement de toute la table — ses 5 cas ont tous tenu au code, et 4 d'entre eux ont changé une
+   décision que 10.0 allait figer.
+3. **Puis les autres sièges dans le même message** (appels indépendants, en parallèle) : aucun ne
    voit les autres.
-3. **Synthèse par le principal** :
+4. **PAS de seconde passe « matrice » du contradicteur.** Le relancer pour qu'il repasse toutes
+   les options sur tout le catalogue relit son contexte entier au tarif `fable` : mesuré ~3,5 $, et
+   aucun constat qu'il n'ait déjà rendu en première passe. La matrice, c'est la synthèse du
+   principal qui la fait, sur les réponses déjà reçues.
+5. **Synthèse par le principal** :
    - **points d'accord** : rangés, non montrés un par un ;
    - **points contestés** : deux sièges en désaccord, ou un siège qui casse un scénario — chacun
-     VÉRIFIÉ au code avant d'être retenu ;
-   - **scénarios nouveaux** : ajoutés au catalogue, la matrice repassée.
-4. Les points contestés retenus deviennent les tours de la méthode « pas à pas », un à la fois.
+     VÉRIFIÉ au code avant d'être retenu. Un siège se trompe aussi en affirmant une ABSENCE
+     (vécu : « aucun test ne garde ce comportement » — il y en avait un, trouvé par `rg`) ;
+   - **scénarios nouveaux** : ajoutés au catalogue, avec la décision qu'ils ont fait changer ;
+   - **une recommandation d'un siège qui contredit une décision déjà écartée dans un ADR** se
+     confronte au motif écrit avant d'être retenue (vécu : l'anti-rejeu par horloge, écarté par
+     ADR-0022, re-proposé par l'attaquant sous une autre forme).
+6. Les points contestés retenus deviennent les tours de la méthode « pas à pas », un à la fois —
+   ou le principal tranche, quand l'auteur le lui a délégué.
 
 Une orchestration par l'outil `Workflow` (des dizaines d'agents, vérification adverse de chaque
 constat) ne se lance que si l'auteur le demande en ces termes (« utilise un workflow ») ; la
@@ -120,14 +162,14 @@ structurantes, annoncée avant, jamais relancée pour un détail. Le contexte pr
 reçoit que les synthèses — c'est ce qui rend la table moins chère que la même exploration faite
 au fil de la conversation, où chaque sortie se relit à chaque tour.
 
-## 8. La revue finale d'un ensemble
+**Mesuré sur une table réelle** (6 sièges, `session-cost --session`) : un siège `fable` coûte
+**4,85 à 6,54 $**, un siège `sonnet` **0,34 à 0,46 $**, le siège `haiku` **0,25 $** ; le principal
+~4 $ ; total ~17 $. Les deux sièges `fable` font donc les deux tiers de la dépense. Les compteurs
+par siège vivent dans `assets/sieges.json` (§9).
 
-Quand un ensemble de décisions structurantes est complet (un ADR entier, plusieurs ADR d'un même
-domaine), un siège unique `fable` relit les documents **côte à côte** et le code qu'ils ancrent.
-Grille : (1) contradictions entre documents ; (2) document contre code ; (3) une règle portée deux
-fois ; (4) généricité — chaque décision tient ≥ 3 usages hétérogènes ; (5) typage — contrat partagé,
-zéro conversion ; (6) isomorphisme — même règle pure des deux côtés. Rendu : « constat → fichier →
-texte exact → preuve → correction proposée », chaque constat repassé devant l'auteur.
+**Le mode ÉCONOME est le défaut** : contradicteur `fable` en UNE passe (§6), attaquant `fable`
+seulement si le catalogue porte une section « Attaquant » qui juge les décisions de la table,
+tous les autres sur leur modèle de `assets/sieges.json`. Une table sans attaquant tombe sous 10 $.
 
 **Ce qui économise sans rien changer au résultat** — chaque geste retire du coût que la synthèse ne
 verrait pas :
@@ -141,9 +183,19 @@ verrait pas :
 - **Les seuls sièges que la matrice désigne** (§3) : un siège dont aucun scénario ne relève de son
   métier ne rendra rien que les autres n'aient dit.
 - **Une relance va au MÊME siège** (`SendMessage` à l'agent qui a répondu, son contexte intact),
-  jamais à un agent neuf qui relirait tout.
+  jamais à un agent neuf qui relirait tout — mais elle relit ce contexte entier : sur un siège
+  `fable`, ne relancer que pour une question que personne d'autre ne peut trancher.
 - **La vérification des ancres en lot**, par un agent `haiku` (§2), jamais siège par siège.
 - **Le catalogue de scénarios réutilisé** d'une décision à l'autre du même domaine.
+
+## 8. La revue finale d'un ensemble
+
+Quand un ensemble de décisions structurantes est complet (un ADR entier, plusieurs ADR d'un même
+domaine), un siège unique `fable` relit les documents **côte à côte** et le code qu'ils ancrent.
+Grille : (1) contradictions entre documents ; (2) document contre code ; (3) une règle portée deux
+fois ; (4) généricité — chaque décision tient ≥ 3 usages hétérogènes ; (5) typage — contrat partagé,
+zéro conversion ; (6) isomorphisme — même règle pure des deux côtés. Rendu : « constat → fichier →
+texte exact → preuve → correction proposée », chaque constat repassé devant l'auteur.
 
 ## 9. Apprendre : le bon modèle par siège, prouvé par l'usage
 
@@ -155,8 +207,9 @@ option écartée, une condition posée, un point montré à l'auteur).
 
 **Après chaque table**, le principal met à jour `assets/sieges.json`, siège par siège : tables
 jouées, constats rendus, constats retenus, constats faux (affirmés, démentis au code), et le coût
-du run, lu par `node .claude/skills/nodefony-session/scripts/session-cost.mjs --session <id>`
-(une ligne par siège). C'est de la DONNÉE, pas un journal : des compteurs qui s'incrémentent
+cumulé `coutUsd`, lu par `node .claude/skills/nodefony-session/scripts/session-cost.mjs --session <id>`
+(une ligne par siège). Le rapport `constatsRetenus / coutUsd` est ce qui désigne le siège à
+déclasser en premier. C'est de la DONNÉE, pas un journal : des compteurs qui s'incrémentent
 en place.
 
 **Essai de déclassement — pour économiser.** Quand un siège a joué au moins trois tables, la
