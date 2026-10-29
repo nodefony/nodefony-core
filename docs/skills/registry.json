@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-28",
+  "generatedAt": "2026-10-29",
   "count": 41,
   "repoScripts": [
     {
@@ -3237,6 +3237,128 @@
       "links": {
         "source": ".claude/skills/nodefony-debug/SKILL.md",
         "doc": "docs/skills/nodefony-debug.md"
+      }
+    },
+    {
+      "name": "nodefony-decision-making",
+      "summary": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public.",
+      "family": "Autres",
+      "version": "3.0.0",
+      "keywords": [],
+      "triggers": [
+        "aide-moi à décider",
+        "comment trancher ça ?",
+        "une décision à la fois",
+        "on revient souvent en arrière",
+        "plusieurs experts autour d'une table",
+        "contradicteur",
+        "décision par décision",
+        "petit pas par petit pas",
+        "il y a trop de choses",
+        "j'ai du mal à suivre",
+        "à quel agent déléguer ?",
+        "quel modèle pour cet agent ?"
+      ],
+      "description": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public. Pose le socle commun (cadrer, relire ce qui fait foi, question fermée à l'auteur, chaque oui inscrit dans l'ADR et le ticket puis gardé par un test) et aiguille vers la méthode que le sujet demande : pas à pas, scénarios avant les options, table d'experts (agents indépendants aux métiers distincts), pré-mortem, mesure, essai jetable. Expert de la délégation : quand déléguer, à quel agent, sur quel modèle, en apprenant de l'usage à dépenser moins pour un résultat identique. Une méthode s'ajoute par un fichier. Déclencheurs : \"aide-moi à décider\", \"comment trancher ça ?\", \"une décision à la fois\", \"on revient souvent en arrière\", \"plusieurs experts autour d'une table\", \"contradicteur\", \"décision par décision\", \"petit pas par petit pas\", \"il y a trop de choses\", \"j'ai du mal à suivre\", \"à quel agent déléguer ?\", \"quel modèle pour cet agent ?\".",
+      "cost": {
+        "bodyLines": 121,
+        "approxTokens": 2315
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "delegation.md",
+          "methode-mesure.md",
+          "methode-pas-a-pas.md",
+          "methode-poc.md",
+          "methode-pre-mortem.md",
+          "methode-scenarios.md",
+          "methode-table-d-experts.md"
+        ],
+        "referenceFilesTotal": 7,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-devops",
+        "nodefony-documentation",
+        "nodefony-framework-dev",
+        "nodefony-inspect",
+        "nodefony-load-test",
+        "nodefony-release",
+        "nodefony-rfc",
+        "nodefony-security-review",
+        "nodefony-session",
+        "nodefony-skill",
+        "nodefony-ticket"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "1019",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "121",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-decision-making/SKILL.md",
+        "doc": "docs/skills/nodefony-decision-making.md"
       }
     },
     {
@@ -10985,112 +11107,6 @@
       "links": {
         "source": ".claude/skills/nodefony-start-server/SKILL.md",
         "doc": "docs/skills/nodefony-start-server.md"
-      }
-    },
-    {
-      "name": "nodefony-step-by-step",
-      "summary": "Conduit un chantier de conception avec l'auteur UNE décision à la fois : la situation sur un exemple concret, le piège, une recommandation motivée, puis une question fermée (oui / non / explique).",
-      "family": "Autres",
-      "version": "1.0.0",
-      "keywords": [],
-      "triggers": [
-        "une décision à la fois",
-        "décision par décision",
-        "aide-moi à décider",
-        "il y a trop de choses",
-        "j'ai du mal à suivre",
-        "on avance doucement",
-        "petit pas par petit pas",
-        "on fait l'Epic comme ça"
-      ],
-      "description": "Conduit un chantier de conception avec l'auteur UNE décision à la fois : la situation sur un exemple concret, le piège, une recommandation motivée, puis une question fermée (oui / non / explique). Chaque oui est aussitôt inscrit dans l'ADR et le ticket, et un petit correctif part dans son propre commit. Évite le rapport de quatorze décisions que personne ne peut trancher d'un bloc. Le contenu technique reste aux skills du domaine. Se désactive sur demande. Déclencheurs : \"une décision à la fois\", \"décision par décision\", \"aide-moi à décider\", \"il y a trop de choses\", \"j'ai du mal à suivre\", \"on avance doucement\", \"petit pas par petit pas\", \"on fait l'Epic comme ça\".",
-      "cost": {
-        "bodyLines": 109,
-        "approxTokens": 1746
-      },
-      "requires": [],
-      "resources": {
-        "references": [
-          "exemples.md"
-        ],
-        "referenceFilesTotal": 1,
-        "scripts": []
-      },
-      "related": [
-        "nodefony-documentation",
-        "nodefony-framework-dev",
-        "nodefony-inspect",
-        "nodefony-session",
-        "nodefony-ticket"
-      ],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "en-tête analysable par un vrai parseur YAML",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "674",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "compatibility ≤ 500 caractères (si présent)",
-            "ok": true,
-            "detail": "absent",
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "aucun renvoi vers un skill inexistant",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "aucun renvoi vers une ressource inexistante",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "aucun numéro de ticket dans la prose",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "109",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-step-by-step/SKILL.md",
-        "doc": "docs/skills/nodefony-step-by-step.md"
       }
     },
     {

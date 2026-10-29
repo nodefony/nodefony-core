@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-10-28
+updated: 2026-10-29
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -145,6 +145,9 @@ source: "docs/skills/index.md"
   { "icon": "🔧", "title": "browser", "href": "nodefony-browser.md",
     "desc": "Ouvre une page réelle dans un navigateur piloté pour la VOIR et la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements, proportions sur l'écran choisi (téléphone émulé, bureau, grand écran) ; pilote aussi un socket depuis la page.",
     "meta": "🟢 conforme v1.2.0 · 📎 1 réf" },
+  { "icon": "🔧", "title": "decision-making", "href": "nodefony-decision-making.md",
+    "desc": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public.",
+    "meta": "🟢 conforme v3.0.0 · 📎 7 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un…",
     "meta": "🟢 conforme v1.5.0 · ⚙️ 21 scripts · 📎 9 réf" },
@@ -154,9 +157,6 @@ source: "docs/skills/index.md"
   { "icon": "🔧", "title": "identifiers", "href": "nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
-  { "icon": "🔧", "title": "step-by-step", "href": "nodefony-step-by-step.md",
-    "desc": "Conduit un chantier de conception avec l'auteur UNE décision à la fois : la situation sur un exemple concret, le piège, une recommandation motivée, puis une question fermée (oui / non / explique).",
-    "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "test-campaign", "href": "nodefony-test-campaign.md",
     "desc": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
@@ -200,6 +200,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 256 | 0 | 0 | ✅ |
+| [`nodefony-decision-making`](nodefony-decision-making.md) | 3.0.0 | 121 | 7 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 486 | 2 | 20 | ✅ |
@@ -218,7 +219,6 @@ source: "docs/skills/index.md"
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 12 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
-| [`nodefony-step-by-step`](nodefony-step-by-step.md) | 1.0.0 | 109 | 1 | 0 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |

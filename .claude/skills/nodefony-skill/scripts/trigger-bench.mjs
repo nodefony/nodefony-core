@@ -259,9 +259,25 @@ const CASES = [
   ],
   [
     "il y a trop de choses, on avance petit pas par petit pas",
-    "nodefony-step-by-step",
+    "nodefony-decision-making",
   ],
-  ["aide-moi à décider une décision à la fois", "nodefony-step-by-step"],
+  ["aide-moi à décider une décision à la fois", "nodefony-decision-making"],
+  [
+    "on revient souvent en arrière, je veux décider sans ambiguïté",
+    "nodefony-decision-making",
+  ],
+  [
+    "mets plusieurs experts autour d'une table avec un contradicteur",
+    "nodefony-decision-making",
+  ],
+  [
+    "à quel agent je délègue ça, et sur quel modèle ?",
+    "nodefony-decision-making",
+  ],
+  [
+    "comment trancher ce nom public sans revenir en arrière",
+    "nodefony-decision-making",
+  ],
   ["ouvre un ticket pour ça", "nodefony-ticket"],
   ["ce titre de ticket est incompréhensible", "nodefony-ticket"],
   ["mets un lexique dans les tickets", "nodefony-ticket"],

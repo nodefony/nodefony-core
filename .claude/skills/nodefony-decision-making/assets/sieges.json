@@ -1,0 +1,101 @@
+{
+  "$comment": "Modèle COURANT de chaque siège de la table d'experts, et ce que l'usage en a prouvé. Seule source : references/methode-table-d-experts.md §2 donne le point de départ, §9 la règle qui fait évoluer ces valeurs. Mis à jour par le principal après chaque table.",
+  "regle": {
+    "essaiDeclassementApres": 3,
+    "essaisConcordantsPourDescendre": 2,
+    "ordreDesModeles": ["haiku", "sonnet", "fable"]
+  },
+  "sieges": {
+    "contradicteur": {
+      "modele": "fable",
+      "raison": "point de départ : trouver ce que personne n'a posé",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "attaquant": {
+      "modele": "fable",
+      "raison": "point de départ : raisonnement adverse qui combine des failles",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "gardien-compatibilite": {
+      "modele": "sonnet",
+      "raison": "point de départ : appliquer une politique écrite à un cas",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "specialiste-perf": {
+      "modele": "sonnet",
+      "raison": "point de départ : confronter aux règles du chemin chaud et aux mesures",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "exploitant": {
+      "modele": "sonnet",
+      "raison": "point de départ : repérer ce qui casse en silence en production",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "developpeur-application": {
+      "modele": "sonnet",
+      "raison": "point de départ : écrire le code imposé par la décision",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "auteur-extension": {
+      "modele": "sonnet",
+      "raison": "point de départ : tenter l'extension sur les contrats publics",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "mainteneur-solo": {
+      "modele": "sonnet",
+      "raison": "point de départ : compter le coût de maintenance, repérer les doublons",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "responsable-version": {
+      "modele": "haiku",
+      "raison": "point de départ : verdict vérifiable sur le tableau et la colonne rupture",
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    },
+    "agent-ia-consommateur": {
+      "modele": "haiku",
+      "raison": "FIXE par construction : mesure ce qu'un agent faible trouve",
+      "fixe": true,
+      "tables": 0,
+      "constatsRendus": 0,
+      "constatsRetenus": 0,
+      "constatsFaux": 0,
+      "essais": []
+    }
+  }
+}

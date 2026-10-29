@@ -1,12 +1,37 @@
-# Exemples — des tours qui ont permis à l'auteur de trancher
+# Méthode — pas à pas : des tours qui ont permis à l’auteur de trancher
 
-> Référence du skill `nodefony-step-by-step`, à relire AVANT d'écrire un tour. Ce sont des tours
+> Référence du skill `nodefony-decision-making` (méthode « pas à pas » : l’auteur tranche une décision à la fois), à relire AVANT d'écrire un tour. Ce sont des tours
 > réels, sur la conception du temps réel (socle, socket, webhooks), condensés. Ce qui les rend
 > efficaces : un exemple qu'on peut lire en dix secondes, un piège raconté comme une histoire,
 > une recommandation dont le coût est dit, une seule question.
 >
 > **Maintenance** : vérité courante, jamais un journal. Remplacer un exemple par un meilleur,
 > éditer en place ; historique = `git log`.
+
+## La procédure
+
+**Quand** : plusieurs décisions que l'auteur doit pouvoir suivre ; et, à la fin de toute autre
+méthode, pour lui faire trancher ce qui reste contesté. Vient d'un constat : quatorze décisions
+rendues d'un bloc se font refuser en bloc, alors que chacune, seule, se tranche en une minute.
+
+1. **Annoncer le plan** en un tableau de 3 à 5 lignes (« pour la 10, il ne faut que 3
+   décisions ») : l'auteur voit que la charge est bornée. Ordre : ce qui casserait si on le
+   tranchait après la version d'abord.
+2. **Un tour = une décision**, au plus ~30 lignes hors code :
+   1. **La situation**, sur un exemple concret et court (la vraie trame, le vrai appel) ;
+   2. **Le piège**, raconté sur un scénario (« un client installe la 10.0, … en 10.1 il reçoit… ») ;
+   3. **La recommandation** et son pourquoi en 2 ou 3 puces (coût, compatibilité, code à écrire),
+      avec ce que les autres méthodes en ont dit (matrice, table d'experts) ;
+   4. **Une seule question fermée**, la question du socle.
+3. **Sur « explique »** : réexpliquer autrement en partant de sa question, vérifier au code,
+   reposer la même question, éventuellement corrigée. Une décision nouvelle qui surgit devient un
+   **pas à part** (« pas 2 bis »), jamais glissée dans le pas courant.
+4. **Après chaque oui** : le socle (inscrire, rendre vérifiable), puis un **tableau d'avancement**
+   court (pas / décision / état) et le pas suivant.
+5. **Une session = quelques pas.** Proposer la clôture dès qu'elle s'allonge : le `_state` porte
+   les pas restants.
+
+Les tours réels ci-dessous montrent le format en action — les relire AVANT d'écrire le premier.
 
 ## Sommaire
 
