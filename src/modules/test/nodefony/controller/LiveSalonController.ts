@@ -108,10 +108,16 @@ class LiveSalonController extends RealtimeController {
    */
   @RealtimeInbound("live:say")
   say(params: unknown): void {
-    const p = params as { text?: unknown; front?: unknown } | null;
-    const text = typeof p?.text === "string" ? p.text.trim().slice(0, 140) : "";
+    if (typeof params !== "object" || params === null) return;
+    const text =
+      "text" in params && typeof params.text === "string"
+        ? params.text.trim().slice(0, 140)
+        : "";
     if (!text) return;
-    const front = typeof p?.front === "string" ? p.front.slice(0, 16) : "?";
+    const front =
+      "front" in params && typeof params.front === "string"
+        ? params.front.slice(0, 16)
+        : "?";
     publishToChannel?.("live:salon", {
       text: text,
       front,

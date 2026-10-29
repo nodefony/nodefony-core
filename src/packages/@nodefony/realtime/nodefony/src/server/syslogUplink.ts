@@ -133,12 +133,11 @@ export function createSyslogUplinkHandler(
   let windowCount = 0;
 
   return function onSyslogUplink(params: unknown): void {
-    if (params === null || typeof params !== "object") return;
-    const batch = params as { pageId?: unknown; entries?: unknown };
-    const entries = batch.entries;
+    if (!isRecord(params)) return;
+    const entries = params.entries;
     if (!Array.isArray(entries) || entries.length === 0) return;
 
-    const pageId = safeRequestId(batch.pageId, maxRequestIdLength);
+    const pageId = safeRequestId(params.pageId, maxRequestIdLength);
     if (pageId === undefined) return; // un lot sans page identifiable n'est pas exploitable
 
     const now = Date.now();
