@@ -471,17 +471,43 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 
 **Décision proposée :**
 
-- **Admission par prédicat** (#622) : `admit?: (channel, token) => boolean`, membre optionnel de
+- **Décision 1 (validée par l'auteur le 2026-10-29, À REVALIDER avec lui au code de #622) :
+  admission demandée une fois, réponse retenue.** `allow?: (channel, token) => boolean |
+Promise<boolean>`, membre optionnel de
   `src/packages/@nodefony/realtime/nodefony/interfaces/IChannelPolicy.ts#IChannelPolicy`, évalué
-  dans `src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts#satisfies` après
-  `authenticated` / `roles` / `scopes`, donc sur les trois chemins existants (abonnement, entrée
-  client, annonce de l'accueil). Synchrone ; un prédicat qui lève = refus `forbidden`, détail hors
-  production. Une liste de membres est **une** façon d'écrire un prédicat, pas une primitive (S7).
+  APRÈS `authenticated` / `roles` / `scopes`.
+  - Appelé **une seule fois, au `subscribe`** : un salon privé ou une invitation par courriel
+    vivent en base, et l'abonnement est un chemin rare — une requête y est normale.
+  - La réponse est **retenue sur la connexion** (registre sink ↔ connexion de #623, alloué au
+    `subscribe`). Une trame entrante sur un canal à `allow` ne rappelle JAMAIS `allow` : elle
+    exige que CETTE connexion y soit admise, en une lecture. Écrire sur un canal à `allow` suppose
+    donc de s'y être abonné — sans rupture, `allow` étant neuf. (Constaté : aujourd'hui la branche
+    « inbound » de `src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts#buildFrameAuthorizer`
+    réévalue la politique à CHAQUE trame, sans exiger l'abonnement.)
+  - L'accueil **n'appelle pas** `allow` : il annonce sur la politique fixe — autant de requêtes
+    que de canaux par connexion, sinon, et un motif ne s'énumère pas ;
+    `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.probeChannel`
+    le pose déjà : le verrou protège, pas l'annonce.
+  - `allow` qui lève, ou qui dépasse un **délai borné** = refus `forbidden`, détail hors production.
+  - **Prix assumé** : une réponse retenue ne se périme pas seule — un membre retiré reste abonné
+    jusqu'à son éjection explicite (#623, `realtime:closed { reason: "evicted" }`).
+  - Le nom : `allow` (pas `admit`, qui ne se devine pas). Une liste de membres est **une** façon
+    d'écrire `allow`, pas une primitive (S7).
+  - **À revalider au code, avec l'auteur, signatures sous les yeux** : (a) comment `allow` atteint
+    les services de l'application (une flèche dans les arguments d'un décorateur n'a ni `this` ni
+    injection) ; (b) le miroir structurel de `IChannelPolicy` dans
+    `src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts` — un test compare
+    les deux formes ; (c) la garde `isChannelPolicy` des décorateurs, qui doit accepter une
+    fonction ; (d) la valeur du délai ; (e) ce que montre une introspection des politiques (une
+    fonction ne se sérialise pas).
 - **Abonnés identifiables** (#623) : le registre d'un canal associe chaque sink à sa connexion,
   alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur,
-  **locale au pod** : lister, éjecter, abonner d'office, fermer.
+  **locale au pod** : lister, éjecter, abonner d'office, fermer. Il porte aussi la marque
+  « admise » de la décision 1 : abonner d'office la **pose**, éjecter et fermer la **retirent**.
 - **Abonnement imposé** : par la **même sonde** que l'accueil (`#RealtimeHub.probeChannel`) — la
-  politique reste le plancher, le serveur décide qui.
+  politique reste le plancher, le serveur décide qui. Depuis la décision 1, la sonde (synchrone)
+  n'appelle pas `allow` : un abonnement imposé passe la politique FIXE seule, le serveur étant
+  l'autorité qui désigne le membre — **à valider par l'auteur** à cette décision.
 - **Fermeture** : `realtime:closed { channel, reason }` (S4), motif **fermé** — `ended` (le canal
   est terminé) ou `evicted` (cette connexion en est retirée) — déclarée à côté de
   `src/nodefony/src/realtime/RealtimeEventMap.ts#IRealtimeDenied`. Le client retire l'abonnement
@@ -491,7 +517,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   politiques, ni acquittements, ni fermeture. Un message venu du bus n'atteint que des abonnés
   **déjà admis** sur leur pod (constaté : l'ingress ne vérifie que le préfixe, puis sert local).
 - **Cas `transcript:<id>` (#626) en multi-pod** : l'audio arrive sur un pod, l'abonné au texte
-  peut être ailleurs. Décision : préfixe `transcript:` déclaré diffusable **et** prédicat `admit`
+  peut être ailleurs. Décision : préfixe `transcript:` déclaré diffusable **et** prédicat `allow`
   sur le motif `transcript:*` — la charge traverse, l'admission se rejoue sur chaque pod.
   L'affinité de pod est une option de déploiement, pas une règle. La fermeture reste locale en
   10.x : qui doit clore sur tous les pods publie son signal de fin **dans** sa charge (S6). À
@@ -525,6 +551,10 @@ décide : la suite depuis le curseur, l'état courant, ou rien. Sans curseur, ri
   compatibilité entre versions (section 10, #629).
 - À écrire dans `src/packages/@nodefony/realtime/docs/protocole.md`, qui ne le dit pas : la
   reconnexion (rejeu au `welcome`, acquittement, curseur) et la fin de flux (`realtime:closed`).
+- Conséquence de §6 décision 1 : le rejeu rappelle `allow` pour chaque canal qui le déclare — un
+  exemplaire qui redémarre provoque N clients × M canaux appels en rafale. Prix normal d'« une
+  fois par abonnement », écrit dans le TSDoc d'`allow` avec sa parade (cache court côté
+  application) ; prouvé dans #622.
 - Usages : une discussion reprise au dernier message vu, une courbe au dernier point, des
   notifications manquées.
 - Écarté : « l'instantané puis la suite » comme règle (un choix de protocole, S3) ; un curseur
