@@ -405,7 +405,7 @@ re-paramètre pas.
 
 ### 5. Contre-pression et bornes
 
-**Décision proposée :** **une règle, trois endroits.** Sortante serveur :
+**Décision (validée par l'auteur le 2026-10-29) :** **une règle, trois endroits.** Sortante serveur :
 `src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts#decideSend` reste
 l'unique arbitre — jeter au-delà du seuil, fermer `1013` sur un solde de refus — texte et binaire.
 **C1**, sortante client : la **même** règle sur `WebSocket.bufferedAmount` du navigateur (voir
@@ -439,13 +439,33 @@ au moment de fermer. Donc :
 //          et se reconnecte si le solde de refus ne redescend pas.
 ```
 
+**Décision C2 (validée par l'auteur le 2026-10-29) : compter les trames avant de les décoder.**
+Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ; chacune passe
+`maxPayload`, qui borne la TAILLE et pas le NOMBRE, et chacune est décodée, routée, autorisée.
+
+- On compte des **trames**, pas des octets — une addition ; les octets restent bornés par
+  `maxPayload` × trames.
+- Le compte se fait à l'arrivée de la trame BRUTE, à côté de `maxPayload`, **avant** tout codec :
+  une trame jetée ne coûte ni `JSON.parse` ni décodage CBOR.
+- Fenêtre et compteur par connexion, **créés au premier usage** ; borne à `0` (désactivée) =
+  un seul test, aucune lecture d'horloge, aucune allocation.
+- Au-delà du seuil : trame **écartée et comptée** (compteur exposé par la sonde, donc par #555) ;
+  fermeture `1008` sur un **solde** de refus, jamais au premier dépassement — une reconnexion qui
+  rejoue ses abonnements est une rafale légitime.
+- Texte et binaire, même règle.
+- **Désactivée pendant toute la série 10** (opt-in, config `@nodefony/http`). Une activation par
+  défaut est un changement de comportement, donc une majeure : elle ne peut venir qu'en 11.0,
+  avec un seuil documenté qui laisse passer un flux audio de 50 trames/s avec marge.
+
 - Usages : un tableau de bord diffusé à N lecteurs dont un lent, un jeu sur réseau mobile qui
   pousse ses coups (C1), un capteur qui émet trop vite (C2).
-- Écarté : une copie de `decideSend` côté client gardée par un test de comparaison (le
-  déplacement suffit) ; une fermeture immédiate pour C2 (un pic passager n'est pas une attaque).
+- Écarté : une copie de `decideSend` côté client gardée par un test de comparaison (la décision
+  pure partagée suffit) ; un déplacement de `decideSend` telle quelle (effets de bord, `1013`
+  refusé par le navigateur) ; une fermeture immédiate pour C2 (un pic passager n'est pas une
+  attaque) ; un compte en octets pour C2 (`maxPayload` les borne déjà).
 - **Rupture si différé après 10.0 : NON**, parce que les bornes neuves naissent désactivées et
-  que le déplacement est interne. Activer plus tard un défaut casserait un flux audio à
-  50 trames/s : le défaut est écrit maintenant pour cette raison.
+  que la décision partagée est interne. Activer un défaut est en revanche une rupture (un flux
+  audio de 50 trames/s couperait) : réservé à 11.0.
 
 ### 6. Les canaux privés
 
