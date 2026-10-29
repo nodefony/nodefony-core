@@ -150,9 +150,10 @@ Ce qu'il faut savoir en entrant dans le module, et qui ne périme pas :
   passive** : un service reçoit ce qui passe sans ouvrir le canal). Un canal tenu par de seuls
   écouteurs est **passif** ; la première connexion cliente qui le demande fait rejouer la fabrique,
   qui seule tranche. Écouter n'a donc jamais fait exister un canal pour les autres.
-- La dette qui **reste vraiment** : le registre des **politiques** de canal est indexé par nom
-  EXACT, donc un canal dynamique (`call:<uuid>`, forage, suffixes de cadence) n'en porte aucune, et
-  `IChannelPolicy` ne sait exprimer qu'une classe d'identité (rôles/scopes), jamais une liste de
-  membres. Ce que ça bloque, et les cinq autres briques manquantes d'un canal privé (sink anonyme,
+- Le registre des **politiques** de canal lit le nom EXACT, puis les **motifs** déclarés, du plus
+  spécifique au plus général (`RealtimeHub.ts#RealtimeHub.resolveChannelPolicy`) : un canal
+  dynamique (`call:<uuid>`) porte donc une politique. La dette qui **reste vraiment** :
+  `IChannelPolicy` ne sait exprimer qu'une classe d'identité (rôles/scopes), jamais « CETTE
+  connexion a-t-elle droit à CE canal » — c'est l'admission par prédicat de l'ADR-0022 §6. Ce que ça bloque, et les cinq autres briques manquantes d'un canal privé (sink anonyme,
   pas de fermeture administrative, admission qui ne traverse pas le backplane) : mémoire IA
   `project_realtime_private_channels_kit`. Elle n'a jamais porté le nom `#channelAllowed` qu'on lui prête.
