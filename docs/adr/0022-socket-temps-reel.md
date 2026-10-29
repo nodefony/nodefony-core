@@ -500,6 +500,48 @@ Promise<boolean>`, membre optionnel de
     les deux formes ; (c) la garde `isChannelPolicy` des décorateurs, qui doit accepter une
     fonction ; (d) la valeur du délai ; (e) ce que montre une introspection des politiques (une
     fonction ne se sérialise pas).
+- **Décision 1 bis (validée par l'auteur le 2026-10-29) : autoriser une fois à l'entrée, pour
+  TOUS les canaux.** Une trame entrante sur un canal où CETTE connexion a déjà été acceptée ne
+  refait aucun contrôle de politique : une lecture, « admise ? ». La décision 1 en est le cas
+  particulier où l'entrée est le `subscribe`.
+  - Constaté : `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.runAuthorizer`
+    appelle le verrou à CHAQUE trame, qui réévalue la politique entière (et `getRoles()` des
+    jetons recopie le tableau des rôles à chaque appel). Mesuré
+    (`.claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs`, médiane de 7,
+    côté contrôleur, hors décodage réseau) : le verrou ajoute **+24 %** à la trame sur un canal
+    libre et **+35 %** sur un canal à rôles ; un verdict retenu (prototype) ramène l'écart à
+    **+9 %**.
+  - **Où** : la mémoire vit dans realtime, au point d'appel du verrou (`#runAuthorizer`) ;
+    `@nodefony/security` reste le seul juge et son contrat ne change pas. Elle est attachée à la
+    connexion, `null` jusqu'à sa première trame entrante, libérée à la fermeture.
+  - **Portée** : les trames entrantes sur un canal déclaré (`@RealtimeInbound`, nom exact ou
+    motif). Les autres trames — `subscribe`, méthodes, `api.request` — passent par le verrou
+    comme aujourd'hui : elles sont rares, rien à gagner.
+  - **Garde-fou 1 — seuls les noms connus se retiennent.** Un nom sans gestionnaire n'entre
+    jamais en mémoire. Un motif (`room:*`) admet une infinité de noms : la mémoire d'une
+    connexion est **bornée** (plafond fixé au code) ; au-delà, la trame est contrôlée sans être
+    retenue — le comportement d'aujourd'hui, jamais pire. Sans cette borne, un client qui écrit
+    sur `room:1` … `room:1000000` remplit la mémoire du pod.
+  - **Garde-fou 2 — seul le « oui » se retient.** Un refus est réévalué et audité à chaque trame,
+    comme aujourd'hui ; c'est le décompte des trames de C2 (§5) qui borne un client qui insiste.
+  - **Garde-fou 3 — un compteur de version des politiques.** Toute (ré)inscription d'une
+    politique au hub l'incrémente ; un verdict retenu porte la version de son calcul, et une
+    version périmée le fait recalculer. Coût : une comparaison d'entiers.
+  - **L'identité** : un verdict retenu suppose une identité fixe pour la vie de la connexion.
+    C'est le cas aujourd'hui — un changement d'identité ferme la connexion
+    (`src/nodefony/src/realtime/closeCodes.ts#IDENTITY_REFRESH_CLOSE_CODE`, 4005), et la mémoire
+    meurt avec elle. **À prouver au code** : aucun chemin ne change le jeton d'une connexion
+    ouverte sans la fermer.
+  - **Usage qui la motive** : un flux à haute fréquence — les déplacements d'un jeu, 60 coups par
+    seconde et par joueur — où l'autorisation se paie une fois par canal et par connexion, plus
+    à chaque coup. Le reste du coût d'un tel flux tient au décodage (binaire routé, §3) et aux
+    coups périmés (C1, §5), pas à l'autorisation.
+  - **Rupture : NON.** Politiques et identité étant fixes pour la vie d'une connexion, les
+    verdicts sont identiques ; un test le prouve sur une matrice (canal libre, rôles, scopes,
+    motif, refus, politique réinscrite).
+  - **Critère de validation** : un banc de bout en bout (vrai serveur, vrais clients WebSocket,
+    flux de déplacements sur un canal à rôles), verrou par trame contre verdict retenu, en paires
+    alternées. Protocole sur #622.
 - **Abonnés identifiables** (#623) : le registre d'un canal associe chaque sink à sa connexion,
   alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur,
   **locale au pod** : lister, éjecter, abonner d'office, fermer. Il porte aussi la marque
