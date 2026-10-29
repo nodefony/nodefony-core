@@ -645,9 +645,13 @@ Promise<boolean>`, membre optionnel de
     diffusée (`envelope.ts#SEAL_FIELD`). Un ordre rejoué, lui, **recoupe** : un « fermer
     `room:42` » capté puis republié plus tard couperait une partie rouverte. L'effet reste
     soustractif (jamais d'admission) ; un anti-rejeu par horloge reste écarté (horloges des pods
-    non alignées, comme au sceau). La parade de l'application est celle de S4 : un canal à durée
-    de vie porte un identifiant d'instance dans son nom (`room:42:<partie>`), qu'un vieil ordre ne
-    désigne plus.
+    non alignées, comme au sceau). La parade est celle de S4, étendue à tout ordre (ADR-0021 S6,
+    amendé le 2026-10-29) : **un ordre désigne une instance, jamais un nom seul**. Une fin vise
+    un canal qui porte son identifiant d'instance (`room:42:<partie>`) ; une éjection vise
+    l'**admission** qu'elle révoque — son identifiant voyage dans la charge scellée —, de sorte
+    qu'un « éjecter user:42 » capté puis rejoué après sa réadmission ne désigne plus rien. Sans
+    cela, rejouer l'ordre à chaque reconnexion couperait l'utilisateur sans fin, sans le secret
+    (siège attaquant, S-rt-48). Sans horloge et sans mémoire des ordres déjà vus.
   - **Ce que le contrat suffit à porter** : « au plus une fois, ordre par émetteur, aucun entre
     pairs » (ADR-0021 S5, et l'en-tête de `IBackplane.ts`). Un ordre qui enlève le supporte : reçu
     deux fois = appliqué une fois ; perdu ou en retard = une coupure tardive ; venu d'un autre

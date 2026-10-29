@@ -89,6 +89,7 @@ part (les autres événements ne sont pas souscrits) :
 ```json
 {
   "id": "msg_7Yb1kQ2pR8sT",
+  "timestamp": "2026-10-29T09:14:03.000Z",
   "type": "login.failure",
   "data": {
     "actor": "alice",

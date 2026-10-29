@@ -211,6 +211,27 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : S2, S5, W4
 - **A fait changer** : aucune
 
+### S-rt-47 — Un destinataire date l'événement par `timestamp`, après deux heures de réessais
+
+- **Situation** : le destinataire répond 503 pendant 2 h (S-rt-14) ; à la livraison réussie, il
+  range l'événement à l'heure lue dans `timestamp`.
+- **Catégorie** : panne et réseau
+- **Tient si** : la forme figée dit ce que date `timestamp` (la tentative ou l'événement), et
+  l'heure de l'événement a une place pour toute charge, pas seulement l'audit.
+- **Décisions jugées** : W1, W4
+- **A fait changer** : W1 (2026-10-29 — `timestamp` = la tentative, l'événement daté dans `data`)
+
+### S-rt-52 — Un abonné se plaint d'un message manquant, sur un parc de six exemplaires
+
+- **Situation** : l'exploitant doit dire où il s'est perdu : sceau refusé, bus en échec, file
+  pleine, destinataire en panne.
+- **Catégorie** : panne et réseau
+- **Tient si** : chaque cause a son compteur, par exemplaire (`sealRejectedTotal`, `failedTotal`,
+  `droppedTotal`), et le journal porte l'exemplaire et l'origine ; côté webhook, le même `id` se
+  retrouve dans le corps, l'en-tête et les journaux d'émission et de livraison.
+- **Décisions jugées** : S6, S9-noms, W1
+- **A fait changer** : S6 (2026-10-29 — sceau refusé compté)
+
 ## Plusieurs instances
 
 ### S-rt-15 — Deux serveurs reliés par Redis, un modérateur éjecte sur l'autre
@@ -234,7 +255,9 @@ dès 10.0) — celles que ce catalogue juge en premier :
 
 - **Situation** : quatre processus, bus de cluster, aucun Redis.
 - **Catégorie** : plusieurs instances
-- **Tient si** : même enveloppe, même sceau, même suite de conformité que Redis.
+- **Tient si** : même enveloppe et même suite de conformité que Redis — le sceau est sans objet
+  sur l'IPC, authentifié par construction — et une charge traverse à l'identique les deux bus
+  (`undefined`, `Date`, nombres).
 - **Décisions jugées** : S6
 - **A fait changer** : aucune
 
@@ -293,6 +316,26 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : S9-noms
 - **A fait changer** : aucune
 
+### S-rt-45 — Un centre de sécurité abonné `*` en 10.0, puis les locataires arrivent
+
+- **Situation** : un SIEM reçoit tout l'audit par `*` ; une 10.x rattache `login.success` d'un
+  utilisateur à son locataire.
+- **Catégorie** : versions qui cohabitent
+- **Tient si** : un événement reçu en 10.0 ne cesse pas d'être reçu à une mineure parce qu'il
+  acquiert un périmètre — ou la mise à jour exige une migration explicite, annoncée.
+- **Décisions jugées** : W2
+- **A fait changer** : W2 (2026-10-29 — sans périmètre = périmètre de la plateforme)
+
+### S-rt-51 — Retour arrière de 10.3 vers 10.0
+
+- **Situation** : une 10.3 a écrit des abonnements et publié sur le bus ; l'exploitant revient à
+  10.0 sans vider ni la base ni le bus.
+- **Catégorie** : versions qui cohabitent
+- **Tient si** : la 10.0 ignore, ou refuse en le comptant, ce que la 10.3 a écrit — jamais une
+  erreur au démarrage ni une perte muette.
+- **Décisions jugées** : W2, S3-cond, S6
+- **A fait changer** : aucune
+
 ## Attaquant
 
 ### S-rt-24 — Un vieil ordre « fermer » capté puis republié
@@ -329,6 +372,25 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : W2
 - **A fait changer** : aucune
 
+### S-rt-48 — Un lecteur du bus rejoue un ordre scellé
+
+- **Situation** : Redis mutualisé ; un tiers sans le secret capte « éjecter user:42 de
+  `chat:general` » et le republie à chaque reconnexion de 42.
+- **Catégorie** : attaquant
+- **Tient si** : l'ordre rejoué ne désigne plus rien de vivant — sans horloge ni mémoire des
+  ordres déjà vus.
+- **Décisions jugées** : S6, ADR-0022 §6 d4
+- **A fait changer** : S6 et ADR-0022 §6 (2026-10-29 — un ordre désigne une instance)
+
+### S-rt-49 — Un agent muni de l'émission écrit `login.success` pour `admin`
+
+- **Situation** : un outil applicatif appelle l'émission d'événements (W3) ; un centre de
+  sécurité est abonné à `login.*`.
+- **Catégorie** : attaquant
+- **Tient si** : l'émission refuse les noms de l'audit, et ce refus est écrit dans le contrat.
+- **Décisions jugées** : W1, W2, W3
+- **A fait changer** : W3 (2026-10-29 — noms de l'audit réservés)
+
 ## Plateformes
 
 ### S-rt-28 — Développer et tester sous Windows
@@ -359,6 +421,37 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Tient si** : il se branche sans toucher au cœur, et la charge qu'il reçoit est la même que
   celle des livraisons du framework.
 - **Décisions jugées** : S1, S8, ADR-0022 §2
+- **A fait changer** : aucune
+
+### S-rt-43 — Un client d'un autre langage lit un canal dont la charge est un scalaire
+
+- **Situation** : `publish("ticker", 42)` (ou une chaîne, ou `null`) ; un client Go, Rust ou
+  Python conforme à JSON-RPC 2.0 §4.2 (« params MUST be structured ») refuse la frame.
+- **Catégorie** : extension tierce
+- **Tient si** : la série 10 écrit ce qu'est une charge valide (objet ou tableau, ou scalaire admis
+  en dérogation écrite) et le tient des deux côtés ; une charge `undefined` arrive identique quel
+  que soit le bus.
+- **Décisions jugées** : S1
+- **A fait changer** : S1 (2026-10-29 — la charge est un objet ou un tableau)
+
+### S-rt-44 — Un producteur hors Node publie sur le bus partagé
+
+- **Situation** : un service Python de transcription détient le secret et écrit lui-même
+  l'enveloppe scellée sur `transcript:<id>`.
+- **Catégorie** : extension tierce
+- **Tient si** : la forme sur laquelle porte le sceau est spécifiée hors du moteur JavaScript (sceau
+  sur les octets reçus, ou JSON canonique), et un sceau refusé est compté.
+- **Décisions jugées** : S6, S9-noms
+- **A fait changer** : S6 (2026-10-29 — forme signée non promise, sceau refusé compté)
+
+### S-rt-50 — Un destinataire de webhook veut typer le corps qu'il reçoit
+
+- **Situation** : il écrit son récepteur en TypeScript et cherche le type du corps dans ce que
+  le paquet exporte.
+- **Catégorie** : extension tierce
+- **Tient si** : un type du corps est exporté, ou la page des webhooks en donne la forme exacte
+  et ses exemples la respectent tous.
+- **Décisions jugées** : W1
 - **A fait changer** : aucune
 
 ## Agent IA consommateur
@@ -395,17 +488,19 @@ dès 10.0) — celles que ce catalogue juge en premier :
 
 - **Situation** : le secret du sceau change ; des pods ont l'ancien, d'autres le nouveau.
 - **Catégorie** : exploitation
-- **Tient si** : la procédure existe et ne perd pas de messages en silence.
+- **Tient si** : la procédure existe et ne perd pas de messages en silence — un sceau refusé se
+  compte, il ne disparaît pas sans trace.
 - **Décisions jugées** : S6
-- **A fait changer** : aucune
+- **A fait changer** : S6 (2026-10-29 — `sealRejectedTotal`, fenêtre de rotation écrite)
 
 ### S-rt-35 — Comparer les quatre livraisons dans la console
 
 - **Situation** : un exploitant veut savoir où les messages se perdent : socket, SSE, webhooks ou bus.
 - **Catégorie** : exploitation
-- **Tient si** : un seul vocabulaire, lu sans calcul par trame.
+- **Tient si** : un seul vocabulaire, lu sans calcul par trame, et une seule UNITÉ derrière chaque
+  nom : une livraison à une destination, réessais non comptés.
 - **Décisions jugées** : S9-noms
-- **A fait changer** : aucune
+- **A fait changer** : S9 (2026-10-29 — l'unité figée avec le nom)
 
 ## Mainteneur solo
 
@@ -424,4 +519,23 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Tient si** : un seul prédicat codé une fois ; un test compare les livraisons s'il existe une
   frontière de paquets.
 - **Décisions jugées** : S7, W2, W6
+- **A fait changer** : aucune
+
+### S-rt-46 — `emit("commande:42")` en webhook, et un abonné qui écrit `commande:*`
+
+- **Situation** : le `type` d'un webhook est le canal du socle ; l'abonné veut toutes les commandes.
+- **Catégorie** : mainteneur solo
+- **Tient si** : une seule grammaire de motifs, une seule implémentation, pour un canal de la
+  socket et pour un abonnement webhook.
+- **Décisions jugées** : W2, W1
+- **A fait changer** : W2 (2026-10-29 — une seule grammaire, celle des canaux)
+
+### S-rt-53 — Un tiers veut sceller lui-même, ou éprouver son driver de bus
+
+- **Situation** : il lit S-rt-29, cherche la fonction qui scelle et la suite de conformité dans ce
+  que le paquet exporte, et ne les trouve pas.
+- **Catégorie** : mainteneur solo
+- **Tient si** : le sceau et la suite de conformité sont atteignables par les `exports` du paquet,
+  ou la page des drivers dit qu'ils ne le sont pas encore.
+- **Décisions jugées** : S6
 - **A fait changer** : aucune

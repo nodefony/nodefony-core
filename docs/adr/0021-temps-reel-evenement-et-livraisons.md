@@ -13,7 +13,10 @@ tags: [realtime, websocket, sse, webhooks, backplane, design, compatibility]
 
 ## Statut
 
-Accepté (2026-10-28), décision par décision (S1 à S9) avec l’auteur. Socle commun des décisions temps réel :
+Accepté (2026-10-28), décision par décision (S1 à S9) avec l’auteur. Rouvert par l'auteur le
+2026-10-29, après une table d'experts (catalogue `scenarios/temps-reel.md`), pour trois
+amendements : la charge est structurée (S1), un sceau refusé se compte et le rejeu d'un ordre
+se pare par sa cible (S6), l'unité des compteurs (S9). Socle commun des décisions temps réel :
 [ADR-0022](0022-socket-temps-reel.md) (la socket, #627) et
 [ADR-0023](0023-webhooks-evenements-et-abonnements.md) (les webhooks) en dépendent ; l'ADR de
 gRPC naîtra avec l'Epic #694. Instruit par un relevé des quatre briques existantes et par le
@@ -79,6 +82,25 @@ dans un champ optionnel de l'accueil `realtime:welcome`, jamais dans chaque fram
   fil comme le type reçu par chaque gestionnaire.
 - **Rupture si différé : OUI.** Ajouter une enveloppe après 10.0 change ce que reçoit chaque
   application. Écrire maintenant que la charge reste nue ferme cette porte pour la série.
+
+**Amendement (validé par l'auteur le 2026-10-29) : la charge est un objet ou un tableau.**
+JSON-RPC 2.0 (§4.2) exige que `params` soit structuré ; un pair écrit dans un autre langage
+refuse la frame d'un scalaire (S-rt-43). `RealtimeHub.publish` refuse donc une charge qui n'est
+ni un objet ni un tableau — nombre, chaîne, booléen, `null` —, en le nommant. Un scalaire se
+publie dans un objet (`{ value: 42 }`) ; des octets restent admis (S8). Le contrôle est un
+`typeof` par publication, hors du chemin de chaque connexion.
+
+**Une charge ABSENTE reste admise** : JSON-RPC autorise une notification sans `params`, et
+`publish(canal)` sans charge est un signal légitime (une fin de compilation, un « rafraîchis »).
+Elle part sans `params` et arrive `undefined` chez l'abonné, **quel que soit le bus**. Aujourd'hui
+ce n'est pas le cas : sous le sceau elle voyage en `null` et arrive `null`, sans sceau elle arrive
+`undefined` (`envelope.ts#sealBackplaneEnvelope`). Ce que signe le sceau ne change pas — `null`
+y reste le texte signé d'une charge absente ; c'est le récepteur qui rend `undefined`, sans
+ambiguïté puisque `null` n'est plus une charge valide.
+
+- Écarté : tolérer le scalaire comme dérogation écrite à JSON-RPC. La socket se dit lisible par un
+  pair d'un autre langage (ADR-0022) ; une dérogation le démentirait pour un gain nul.
+- **Rupture si différé : OUI.** Refuser un scalaire après 10.0 casse qui en publie déjà.
 
 ### S2. Pas d'identifiant ni de séquence imposés par le socle
 
@@ -197,6 +219,28 @@ ce garde-fou, `JSON.stringify` les rendait en objet ordinaire (`{"0":1,"1":2}`),
 - **Rupture si différé : OUI.** Pendant un déploiement progressif, un exemplaire 10.x et un
   exemplaire 10.y cohabitent : changer ce que signe le sceau ferait refuser leurs messages.
 
+**Précisions (validées par l'auteur le 2026-10-29)**, aucune ne touche à ce que signe le sceau :
+
+- **Un sceau refusé se compte et se journalise.** Aujourd'hui il disparaît sans trace
+  (`src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts#RedisBackplane.#ingress`) :
+  une rotation de secret ou un producteur mal configuré perd des messages en silence (S-rt-34).
+  Un compteur `sealRejectedTotal` et une ligne de journal (la première, puis une sur cent).
+- **La forme signée n'est pas promise comme « la sérialisation du moteur JavaScript ».**
+  Le récepteur recalcule le sceau sur sa propre re-sérialisation de la charge
+  (`envelope.ts#openBackplaneEnvelope`) ; un producteur écrit dans un autre langage n'est donc pas
+  garanti en 10.0 (S-rt-44). Vérifier aussi le sceau sur les octets reçus reste un élargissement
+  possible en 10.x : il accepte strictement plus, aucun exemplaire ne refuse ce qu'il acceptait.
+- **La rotation du secret.** Un seul secret est lu : pendant la fenêtre où les exemplaires n'ont
+  pas le même, leurs messages se refusent — comptés par `sealRejectedTotal`, écrit dans la page
+  d'exploitation. Accepter un second secret en lecture est un ajout de 10.x.
+- **Le rejeu reste hors du sceau ; un ordre se pare par sa cible.** Un message rejoué ne fait que
+  rediffuser une charge, sauf s'il porte un ordre (ADR-0022 §6) : un ordre désigne alors une
+  **instance** — l'admission qu'il révoque, la partie qu'il ferme —, jamais un nom seul, de sorte
+  qu'un ordre rejoué ne désigne plus rien de vivant. Écarté : un numéro d'ordre par émetteur dans
+  l'enveloppe, demandé par le siège attaquant. Il ne protège pas un exemplaire démarré après
+  l'émetteur, et un second sceau qui le couvre pourra s'ajouter en 10.x sans rupture : lu s'il est
+  présent, exigé par une option une fois tout le parc à jour.
+
 ### S7. Pas de propriétaire dans l'événement
 
 **Décision (validée par l’auteur le 2026-10-28) :** l'événement ne porte ni propriétaire, ni
@@ -258,6 +302,12 @@ des exports de métriques, qui les reprendront tels quels. `droppedTotal` et `fa
 les noms du backplane
 (`src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplaneQueueInfo`) : un
 renommage de moins. « Jeté » et « échoué » restent deux compteurs parce que le remède diffère.
+
+**L'unité est figée avec le nom (validée par l'auteur le 2026-10-29) : une livraison à UNE
+destination** — une connexion, un abonné webhook, un exemplaire du bus. Un message diffusé à
+trois abonnés compte trois ; ses réessais ne comptent pas. C'est la seule unité où `droppedTotal`
+désigne la destination trop lente : perdre un message pour un seul abonné sur mille se voit.
+Sans unité écrite, la console comparerait sous un même nom des grandeurs différentes (S-rt-35).
 
 **Les noms existants ne sont pas renommés.** La sonde de la socket est publique
 (`src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts#IRealtimeProbe` :

@@ -58,6 +58,20 @@ Un quatrième défaut a été corrigé pendant l'instruction : chaque réessai c
 la charge du producteur, telle qu'il l'a émise. Pour l'audit, `data` est l'événement d'audit
 entier, comme aujourd'hui.
 
+**Précisions (table d'experts, 2026-10-29) :**
+
+- **`timestamp` est l'heure de la tentative**, recalculée à chaque essai
+  (`src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts#WebhookDispatcher.#process`),
+  comme l'en-tête `webhook-timestamp` de Standard Webhooks qu'il double. L'heure de l'**événement**
+  vit dans `data` : l'audit la porte déjà (`ts`), et W3 l'impose à toute émission applicative.
+  Après deux heures de réessais, dater l'événement par `timestamp` le décale de deux heures
+  (S-rt-47) : c'est écrit dans la page des webhooks.
+- **`id` est l'identifiant `webhook-id`**, stable d'un réessai à l'autre (W4) : la même valeur
+  dans le corps, l'en-tête et les journaux d'émission et de livraison.
+- Écarté : CloudEvents, ou un corps versionné. La table n'a trouvé aucun scénario qui le réclame,
+  et la forme actuelle est déjà sur le fil ; changer de corps changerait aussi ce que vérifie la
+  signature du destinataire.
+
 - Usages : une commande créée, une alerte de capteur, la fin d'une compilation en intégration
   continue.
 - **Rupture si différé : NON** tant que la forme ne bouge pas. C'est elle qui rend l'émission
@@ -76,11 +90,21 @@ distinctes, réglées séparément.
 - `*` désigne **tous** les événements, audit compris, **y compris ceux qui viendront après 10.0**
   — mais seulement ceux que le périmètre de l'abonnement admet. Un abonnement ne reçoit **jamais**
   un événement hors de son périmètre.
-- Un abonnement **sans périmètre** (le cas de tous aujourd'hui) ne reçoit que les événements
-  **sans périmètre**. Le jour où des événements rattachés à un locataire existent, il ne les reçoit
-  pas d'un coup. Recevoir ceux de tous les locataires sera une option **explicite**, plus tard.
-- Qui ne veut que l'audit liste ses motifs (`login.*`, `token.*`…). La grammaire des motifs
-  (`*`, nom exact, `préfixe.*`) est figée pour la série.
+- Un abonnement **sans périmètre** (le cas de tous aujourd'hui) a le périmètre de la
+  **plateforme** : il reçoit tout, y compris les événements qu'une version ultérieure rattachera à
+  un locataire. Seul un abonnement rattaché à un locataire (W6) est borné à ce locataire.
+  _Amendé le 2026-10-29_ : la version précédente disait qu'un abonnement sans périmètre ne
+  recevrait pas les événements rattachés plus tard à un locataire. Un centre de sécurité abonné à
+  `*` aurait alors perdu `login.success` des utilisateurs d'un locataire à une mineure, sans
+  erreur (S-rt-45) — la rupture même que W2 veut éviter, dans l'autre sens. Un locataire qui
+  écrit `*` ne lit toujours que les siens (S-rt-27).
+- Qui ne veut que l'audit liste ses motifs (`login.*`, `token.*`…).
+- **La grammaire des motifs est celle des canaux de la socket**, codée une fois au cœur et appelée
+  par les deux livraisons : `*` remplace toute suite de caractères, à toute position, trois au
+  plus. _Amendé le 2026-10-29_ : la grammaire propre aux webhooks (`*`, nom exact, `préfixe.*`)
+  laissait `commande:*` lu comme un nom littéral, sans erreur, quand les canaux l'acceptent
+  (S-rt-46). La grammaire des canaux accepte tout ce que l'ancienne acceptait, avec le même sens :
+  aucun abonnement existant n'en change. Elle est figée pour la série.
 - **Une seule règle pour les deux livraisons** : « chez qui » se décide par le prédicat de #622,
   codé une fois, appliqué au canal de la socket comme à l'événement d'un webhook.
 
@@ -99,6 +123,13 @@ webhooks aux événements de l'application, en 10.1. Elle passe par le **même**
 signature, mêmes réessais, mêmes bornes, même garde contre les adresses internes. Les événements
 `webhook.*` restent exclus, comme aujourd'hui, pour éviter qu'une livraison en échec n'en déclenche
 une autre.
+
+**Les noms de l'audit sont réservés dès 10.0 (table d'experts, 2026-10-29).** L'émission refuse
+tout type qui appartient à l'audit (`login.*`, `token.*` et les familles de l'audit, liste tenue au
+même endroit que l'audit lui-même). Sans cette réserve, un code applicatif — ou l'outil d'un agent
+qui appelle l'émission — fabriquerait un `login.success` signé par le serveur, que le centre de
+sécurité abonné ne distinguerait pas d'un vrai (S-rt-49). Écrite en 10.0, la réserve n'enlève rien
+à personne ; posée après l'ouverture de l'émission, elle casserait qui s'en sert déjà.
 
 - **Rupture si différé : NON**, grâce à W1 et W2.
 
