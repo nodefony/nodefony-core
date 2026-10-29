@@ -237,7 +237,7 @@ interface ChatContract extends IRealtimeContract {
   // déclaré une fois, code partagé
   serverToClient: { "chat:room": { from: string; text: string } };
   clientToServer: { "chat:typing": { on: boolean } };
-  actions: { "chat:send": { in: { text: string }; out: { id: string } } };
+  serverMethods: { "chat:send": { in: { text: string }; out: { id: string } } };
 }
 // navigateur
 const socket = new NodefonySocket<
@@ -291,6 +291,44 @@ Deux autres formes d'un générique de contrat sont écartées : un quatrième g
 (il obligerait à écrire les trois défauts devant lui) et une surcharge du **premier** générique
 par un type conditionnel (elle réécrit toutes les signatures publiées, et un contrat passé sans
 marque serait lu comme une carte de trois canaux).
+
+**Décision (validée par l'auteur le 2026-10-29) : le moule du contrat.** Le framework livre un
+moule générique, `IRealtimeContract`, et ne déclare aucun contrat métier : chaque application
+écrit le sien (`ChatContract` ci-dessus n'est qu'un exemple d'application), une fois, dans un
+fichier partagé par ses deux côtés. Le moule a quatre clés, toutes facultatives (un tableau de
+bord ne déclare que `serverToClient`) :
+
+```ts
+interface IRealtimeContract {
+  serverToClient?: EventsMap; // événements poussés par le serveur
+  clientToServer?: EventsMap; // événements envoyés par le client
+  serverMethods?: ActionsMap; // méthodes du serveur : le client appelle, le serveur répond
+  clientMethods?: ActionsMap; // méthodes du client : le serveur appelle, le client répond
+}
+```
+
+- **Deux clés de méthodes, pas une.** Les appels circulent dans les deux sens :
+  `src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.request` (le serveur répond)
+  et `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.requestClient`
+  (le client répond, par `#NodefonySocket.register`). Aujourd'hui le client range les deux sous le
+  MÊME générique `Actions` ; une clé unique `actions` aurait reconduit ce mélange.
+- **« Méthode », pas « action ».** Une méthode appartient à qui l'implémente — une seule lecture
+  possible, quand `serverActions` se lit « ce que le serveur demande » OU « ce qu'il offre ». C'est
+  le vocabulaire déjà publié : `src/nodefony/src/realtime/RealtimeEventMap.ts#IRealtimeWelcome`
+  (`methods`), `#NodefonySocket.serverMethods`, et la norme JSON-RPC 2.0 (`method`). Le mot
+  « action » reste dans l'API publiée (`@RealtimeAction`, `ActionsMap`, `realtimeActions()`), non
+  renommée : la doc pose « une action est une méthode JSON-RPC exposée par le serveur ».
+- **« Client », pas « navigateur »** : `NodefonySocket` tourne aussi dans un script ou un serveur.
+- **Hors du contrat** : ce que le framework possède déjà — l'identité et le welcome, le message
+  entre serveurs (§2).
+- **À éprouver au code** : les canaux à motif (`` `user:${string}` ``) comme clés ; la lecture de
+  `#RemoveIndexSignature` dit qu'ils passent, aucun test ne le prouve encore.
+- Formes voisines constatées ailleurs : deux cartes d'événements nommées par direction (forme
+  courante des sockets typées), canaux à opérations `send` / `receive` (AsyncAPI). Ce qui
+  distingue ce moule : la direction est **calculée** d'une déclaration unique, jamais réécrite.
+
+Reste à décider : où vit la fabrique (l'exemple ci-dessus sort `chat.Socket` et `chat.Controller`
+d'un même objet, ce qui tirerait le code serveur dans le paquet navigateur).
 
 **Recommandation : l'option B, bâtie sur les génériques de l'option A.** `Listen` s'ajoute en
 troisième position de `RealtimeController` avec défaut (nécessaire aux deux options) ; les types
