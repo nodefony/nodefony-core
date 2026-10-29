@@ -129,7 +129,7 @@ deux séries d'un camp encadrent celles de l'autre, sinon « DANS LE BRUIT » et
 `package.json` annonce (mesuré : `fastify` 5.8.5 servi contre `^5.12.4` déclaré, **29 % d'écart**
 entre ces deux versions, imputé à tort à la machine).
 
-**Camps NestJS (NestJS 12)** — `nest-express.mjs` et `nest-fastify.mjs` (nus, comme `express.mjs`),
+**Camps NestJS (NestJS 12)** — `nest-express.mjs`, `nest-fastify.mjs` et `nest-node.mjs` (nus, comme `express.mjs` ; `nest-node` = adaptateur `node:http` natif de Nest 12.3, le plus proche de Nodefony),
 `nest-fair.mjs` (Fastify, MÊME travail par requête que Nodefony en production : nonce CSP, `traceparent`
 émis, `X-Request-Id`, ALS, CORS par liste blanche, CSRF, zones du pare-feu, pas d'ETag — relevé aux
 en-têtes d'un serveur `production`, écrit selon la doc Nest pour aller le plus vite) et

@@ -1,4 +1,4 @@
-// Socle commun des camps NestJS (#489) — `nest-express`, `nest-fastify`,
+// Socle commun des camps NestJS (#489) — `nest-express`, `nest-fastify`, `nest-node`,
 // `nest-request-scope`. Même charge utile que les autres camps : `payload.mjs`,
 // 185 routes paramétrées, route de banc en position 31.
 //

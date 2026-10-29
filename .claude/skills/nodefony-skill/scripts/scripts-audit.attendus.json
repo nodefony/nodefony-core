@@ -29,6 +29,7 @@
     ".claude/skills/nodefony-load-test/bench-frameworks/nest-fair-sqlite.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/nest-fair.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/nest-fastify.mjs",
+    ".claude/skills/nodefony-load-test/bench-frameworks/nest-node.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/nest-request-scope.mjs",
     ".claude/skills/nodefony-load-test/scripts/app-download-probe.mjs",
     ".claude/skills/nodefony-load-test/scripts/boot-bench.mjs",
