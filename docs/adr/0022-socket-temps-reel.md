@@ -575,10 +575,39 @@ Promise<boolean>`, membre optionnel de
   - Usages hétérogènes : la recherche de partie d'un jeu, l'appelé d'un appel (#619), le flux
     d'une tâche d'agent auquel le serveur abonne le demandeur, l'attribution d'une conversation
     de support à un conseiller.
-- **Fermeture** : `realtime:closed { channel, reason }` (S4), motif **fermé** — `ended` (le canal
-  est terminé) ou `evicted` (cette connexion en est retirée) — déclarée à côté de
+- **Décision 3 (validée par l'auteur le 2026-10-29) : fermeture — éjecter coupe, seul `allow`
+  exclut.** `realtime:closed { channel, reason }` (S4), motif **fermé** — `ended` (le canal est
+  terminé) ou `evicted` (cette connexion en est retirée) — déclarée à côté de
   `src/nodefony/src/realtime/RealtimeEventMap.ts#IRealtimeDenied`. Le client retire l'abonnement
   et **ne le rejoue pas** ; `RealtimeDeniedReason` ne bouge pas (décision 5 de #630).
+  - **Ne pas rejouer est une politesse du client, pas une protection** : une page rechargée ou
+    un client hostile refait `subscribe`. Sur un canal à `allow`, l'éjecté revient si
+    l'application n'a pas retiré l'appartenance là où `allow` la lit ; sur un canal **sans**
+    `allow`, la politique fixe le laisse rentrer — éjecter n'y exclut personne.
+  - D'où la règle, écrite dans le TSDoc de l'action « éjecter » et dans la page publique :
+    **éjecter coupe la connexion du canal, seul `allow` exclut.** Exclure d'un canal sans
+    `allow`, c'est lui en donner un.
+  - Éjecter retire la marque « admise » et le verdict retenu de la connexion pour ce canal
+    (décision 1 bis) ; `ended` les retire de toutes les connexions du canal.
+  - **Contraintes relevées au code (revue du 2026-10-29)** :
+    - Serveur : une connexion tient ses canaux dans `ctx.__nfRealtime.channels`, et
+      `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.startChannel`
+      répond « déjà suivi » sans rouvrir quand le nom y est. Éjecter en retirant le seul sink du
+      hub laisserait l'entrée : le `subscribe` suivant serait acquitté sans rien rouvrir —
+      **abonné fantôme**, qui ne reçoit plus rien — et le plafond par connexion compterait un
+      canal mort. L'éjection passe donc par le MÊME chemin que
+      `#RealtimeController.stopChannel` (hub ET état de connexion), jamais un second.
+    - Client : `src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.ingestDenied`
+      **garde** le canal refusé dans ses abonnements (il est rejoué à la reconnexion — utile
+      quand l'identité change). `realtime:closed` fait l'inverse, et ne doit donc pas le
+      recopier : retirer l'entrée **quel que soit le nombre de consommateurs locaux** (un hook
+      et un magasin partagent un seul abonnement), rejeter les attentes d'acquittement, et
+      émettre un événement local (comme `__denied__`) pour que l'écran cesse de se croire
+      abonné.
+    - Un composant qui se remonte rappelle `subscribe` : c'est attendu, et c'est `allow` qui
+      tranche — conforme à la règle ci-dessus.
+  - **Écarté** : une liste noire dans le framework — seconde source de vérité, locale au pod,
+    perdue au redémarrage, divergente de `allow` en silence.
 - **Ce qui traverse le backplane** : la publication `{ channel, payload, originId }` des seuls
   canaux déclarés diffusables (S6, `#RealtimeHub.markBroadcastChannel`) — ni membres, ni
   politiques, ni acquittements, ni fermeture. Un message venu du bus n'atteint que des abonnés
