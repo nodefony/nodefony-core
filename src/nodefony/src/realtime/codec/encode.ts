@@ -41,7 +41,9 @@ const MAX_SAFE_INTEGER = 9007199254740991;
 
 const utf8 = new TextEncoder();
 
-let scratch = new Uint8Array(ARENA_BYTES);
+// Vide au chargement : la première écriture passe par `grow`, qui pose une arène entière.
+// Un process qui n'encode jamais de CBOR ne paie donc rien.
+let scratch = new Uint8Array(0);
 let view = new DataView(scratch.buffer);
 /** Début du message en cours dans l'arène ; ce qui précède appartient à des résultats déjà rendus. */
 let base = 0;
@@ -141,9 +143,9 @@ function encodeReentrant(value: unknown): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * Assemble le résultat. Petit : copie exacte du tampon de travail. S'il en remplit au
- * moins la moitié : le tampon LUI-MÊME est rendu (aucune copie) et un neuf est pris
- * pour la suite — moins cher qu'allouer-puis-copier. Avec de grands `Uint8Array`
+ * Assemble le résultat. Jusqu'à la moitié de l'arène : une VUE sur l'arène, qui avance
+ * ensuite (ces octets ne seront jamais réécrits). Au-delà : une copie exacte — une vue
+ * retiendrait toute l'arène pour un seul message. Avec de grands `Uint8Array`
  * différés : un tampon à la taille exacte, chaque octet copié une seule fois.
  */
 function finish(): Uint8Array<ArrayBuffer> {

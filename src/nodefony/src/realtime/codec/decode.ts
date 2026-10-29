@@ -59,16 +59,22 @@ let maxDepth = DEFAULT_MAX_DEPTH;
  * Cache des clés courtes (< 24 octets, ASCII) : une clé déjà vue revient comme la
  * MÊME chaîne, sans allocation ni ré-internement — c'est ce qui rend l'écriture des
  * propriétés rapide. Indexé par un hachage (longueur, deux premiers octets).
+ * Alloué au PREMIER décodage ({@link allocateKeyCache}) : un process qui ne décode
+ * jamais de CBOR ne paie rien.
  */
-const keyCache: (string | undefined)[] = new Array<string | undefined>(
-  KEY_CACHE_SIZE,
-);
+let keyCache: (string | undefined)[] = [];
 /**
  * Estampille par case du cache : « cette case a déjà servi dans l'objet n° X ». Une
  * clé en double repasse forcément par sa case → vérification `Object.hasOwn`, sinon
  * rien. Les collisions ne font que déclencher une vérification de trop.
  */
-const keySeen = new Int32Array(KEY_CACHE_SIZE);
+let keySeen = new Int32Array(0);
+
+/** Pose le cache de clés et ses estampilles, une fois par process, au premier décodage. */
+function allocateKeyCache(): void {
+  keyCache = new Array<string | undefined>(KEY_CACHE_SIZE);
+  keySeen = new Int32Array(KEY_CACHE_SIZE);
+}
 let objectSerial = 0;
 /** Case du cache par laquelle est passée la dernière clé lue (`-1` : clé hors cache). */
 let lastKeySlot = -1;
@@ -105,6 +111,7 @@ export function decodeCbor(
   end = bytes.byteLength;
   budget = end;
   maxDepth = depthLimit;
+  if (keySeen.length === 0) allocateKeyCache();
   try {
     const v = readItem(0);
     if (p !== end)
