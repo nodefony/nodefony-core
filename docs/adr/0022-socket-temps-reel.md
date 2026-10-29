@@ -4,7 +4,7 @@ title: Socket temps réel — un canal, une enveloppe, un contrat pour les deux 
 lang: fr
 navTitle: Socket temps réel
 date: 2026-10-28
-status: proposed
+status: accepted
 deciders: [Christophe CAMENSULI]
 tags:
   [
@@ -24,7 +24,10 @@ tags:
 
 ## Statut
 
-Proposé (2026-10-28), brouillon soumis à l'auteur. Il recentre #627 sur la **socket**. Le socle
+Accepté (2026-10-29). Les §1 à §5 ont été validés par l'auteur décision par décision ; les §6 à
+§10, tous « rupture si différé : NON », sont acceptés par délégation de l'auteur, après une table
+d'experts qui a jugé les trois ADR sans les contester (catalogue `scenarios/temps-reel.md`). Ce
+qui viendrait les contredire s'ajoute en 10.x, sans rupture. Il recentre #627 sur la **socket**. Le socle
 commun aux livraisons est [ADR-0021](0021-temps-reel-evenement-et-livraisons.md), dont les
 décisions S1 à S9 font foi ici ; les webhooks sont [ADR-0023](0023-webhooks-evenements-et-abonnements.md).
 Les huit décisions de gel de #630 sont **déjà prises** (commit `1df6614c1`) : reprises, jamais
@@ -469,7 +472,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 
 ### 6. Les canaux privés
 
-**Décision proposée :**
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :**
 
 - **Décision 1 (validée par l'auteur le 2026-10-29, À REVALIDER avec lui au code de #622) :
   admission demandée une fois, réponse retenue.** `allow?: (channel, token) => boolean |
@@ -693,7 +696,7 @@ Promise<boolean>`, membre optionnel de
 
 ### 7. La reprise côté socket
 
-**Décision proposée :** aujourd'hui, la reconnexion **rejoue** chaque abonnement au `welcome`
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** aujourd'hui, la reconnexion **rejoue** chaque abonnement au `welcome`
 (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`), sans
 curseur ; la fabrique est rejouée au premier abonné. Demain (10.2, S3) : `subscribe
 { channel, since? }`. Le curseur est **par abonné** alors que la fabrique est partagée et
@@ -722,7 +725,7 @@ décide : la suite depuis le curseur, l'état courant, ou rien. Sans curseur, ri
 
 ### 8. La voix, au niveau transport seulement
 
-**Décision proposée :** un flux binaire **à sens unique** va sur un canal binaire de la socket
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** un flux binaire **à sens unique** va sur un canal binaire de la socket
 (section 3) : la transcription (#626) y suffit, la latence y compte moins. Une conversation **dans
 les deux sens** (#619) choisit entre WebSocket et WebRTC **par la mesure**, selon un critère nommé
 une fois ici : latence de bout en bout mesurée, comportement sur réseau mobile, annulation d'écho
@@ -737,7 +740,7 @@ parole appartiennent à l'ADR média (#624).
 
 ### 9. La règle d'admission perf d'une évolution
 
-**Décision proposée :** rien n'entre sur le chemin d'une frame sans trois preuves, dans l'ordre :
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** rien n'entre sur le chemin d'une frame sans trois preuves, dans l'ordre :
 (1) le **JS bâti** du chemin chaud comparé à la référence `HEAD`, bâtie hors de l'arbre par
 `git archive` — jamais en copiant le `dist` courant ; (2) le banc A/B
 `.claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs`, chemins `inbound`,
@@ -751,7 +754,7 @@ copie, une allocation à l'abonnement, un codec remplaçant `JSON.parse` se mesu
 
 ### 10. Les garde-fous — condition d'admission de toute évolution
 
-**Décision proposée :** les cinq contrôles de #627 §10, chacun vu **rouge** une fois.
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** les cinq contrôles de #627 §10, chacun vu **rouge** une fois.
 
 | #   | Contrôle                                                                                                                                                                                                                                                       | État                                                                                                                                                                         | Qui le lance                                          |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |

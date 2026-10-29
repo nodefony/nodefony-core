@@ -37,5 +37,5 @@ status: stable
 | [0019](0019-studio-sur-un-deploiement-dedie.md)               | Studio — la console d'administration sur un déploiement dédié                                 | accepted | 2026-10-23 |
 | [0020](0020-entites-portables-description-neutre.md)          | Entités portables — la description appartient au framework, l'ORM n'en est qu'un adaptateur   | accepted | 2026-10-26 |
 | [0021](0021-temps-reel-evenement-et-livraisons.md)            | Temps réel — un événement générique, plusieurs livraisons                                     | accepted | 2026-10-28 |
-| [0022](0022-socket-temps-reel.md)                             | Socket temps réel — un canal, une enveloppe, un contrat pour les deux bouts                   | proposed | 2026-10-28 |
-| [0023](0023-webhooks-evenements-et-abonnements.md)            | Webhooks — la livraison hors connexion d'un événement générique                               | proposed | 2026-10-28 |
+| [0022](0022-socket-temps-reel.md)                             | Socket temps réel — un canal, une enveloppe, un contrat pour les deux bouts                   | accepted | 2026-10-29 |
+| [0023](0023-webhooks-evenements-et-abonnements.md)            | Webhooks — la livraison hors connexion d'un événement générique                               | accepted | 2026-10-29 |

@@ -4,7 +4,7 @@ title: Webhooks — la livraison hors connexion d'un événement générique
 lang: fr
 navTitle: Webhooks
 date: 2026-10-28
-status: proposed
+status: accepted
 deciders: [Christophe CAMENSULI]
 tags: [security, webhooks, realtime, design, compatibility]
 ---
@@ -13,7 +13,9 @@ tags: [security, webhooks, realtime, design, compatibility]
 
 ## Statut
 
-Proposé (2026-10-28), brouillon soumis à l'auteur. Applique le socle
+Accepté (2026-10-29). W2 a été validée par l'auteur ; W1 et W3 ont été amendées après une table
+d'experts (#627) ; W1 et W3 à W7 sont acceptées par délégation de l'auteur. Les quatre règles
+communes aux livraisons (admission, flux SSE, octets, typage) restent à écrire : #702. Applique le socle
 [ADR-0021](0021-temps-reel-evenement-et-livraisons.md) à la livraison qui ne tient aucune
 connexion ouverte. Instruit par un relevé de la brique de `@nodefony/security`, et contrôlé face
 aux notifications poussées d'A2A 1.0.1 (§4.3.3, §13.2).
@@ -53,7 +55,7 @@ Un quatrième défaut a été corrigé pendant l'instruction : chaque réessai c
 
 ### W1. La charge d'un webhook est l'événement du socle, et sa forme est figée
 
-**Décision proposée :** le corps reste `{ id, timestamp, type, data }`, en
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** le corps reste `{ id, timestamp, type, data }`, en
 `content-type: application/json`. `type` est le nom de l'événement (le canal du socle), et `data`
 la charge du producteur, telle qu'il l'a émise. Pour l'audit, `data` est l'événement d'audit
 entier, comme aujourd'hui.
@@ -118,7 +120,7 @@ distinctes, réglées séparément.
 
 ### W3. Une application pourra émettre ses propres événements
 
-**Décision proposée :** une API d'émission (`emit(type, data)`, nom à fixer par le ticket) ouvre les
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** une API d'émission (`emit(type, data)`, nom à fixer par le ticket) ouvre les
 webhooks aux événements de l'application, en 10.1. Elle passe par le **même** dispatcher : même
 signature, mêmes réessais, mêmes bornes, même garde contre les adresses internes. Les événements
 `webhook.*` restent exclus, comme aujourd'hui, pour éviter qu'une livraison en échec n'en déclenche
@@ -135,7 +137,7 @@ sécurité abonné ne distinguerait pas d'un vrai (S-rt-49). Écrite en 10.0, la
 
 ### W4. Plusieurs tentatives, sans garantie, sous un identifiant stable, sans ordre
 
-**Décision proposée :** la garantie écrite est celle de S5 : **plusieurs tentatives, sans
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** la garantie écrite est celle de S5 : **plusieurs tentatives, sans
 garantie de livraison** — pas « au moins une fois », que S5 écarte faute de file durable (une
 livraison se perd quand la file est pleine, après le dernier réessai ou au redémarrage, et
 `dropped` la compte). Tous les réessais d'un message portent le **même** `webhook-id` ; seul l'horodatage change, pour la
@@ -147,7 +149,7 @@ déduplique par `webhook-id`, et ordonne par l'identifiant de la charge s'il en 
 
 ### W5. Un second mode d'authentification, fourni par l'abonné
 
-**Décision proposée :** en plus de la signature HMAC, un abonnement pourra porter un identifiant
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** en plus de la signature HMAC, un abonnement pourra porter un identifiant
 **fourni par l'abonné** et envoyé tel quel (`Authorization: <schéma> <identifiant>`). Il est stocké
 chiffré, comme le secret. La signature reste le mode par défaut.
 
@@ -157,7 +159,7 @@ chiffré, comme le secret. La signature reste le mode par défaut.
 
 ### W6. Des abonnements créés par API, rattachés à une ressource
 
-**Décision proposée :** plus tard, un tiers authentifié pourra créer son abonnement par API, pour
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** plus tard, un tiers authentifié pourra créer son abonnement par API, pour
 une **ressource** (`commande:42`, `capteur:7`), et ne verra que les siens. L'admission ne se
 réinvente pas : c'est le **même prédicat** que pour s'abonner à un canal de la socket (#622). Une
 seule règle décide qui peut suivre quoi, quelle que soit la livraison.
@@ -168,7 +170,7 @@ seule règle décide qui peut suivre quoi, quelle que soit la livraison.
 
 ### W7. Plusieurs exemplaires de l'application
 
-**Décision proposée :** les abonnements vivent dans un store partagé ; chaque exemplaire livre les
+**Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** les abonnements vivent dans un store partagé ; chaque exemplaire livre les
 événements qu'il produit, une seule fois. La file des livraisons reste propre à l'exemplaire et
 n'est pas persistée : un arrêt brutal perd ce qui était en attente, ce qui reste conforme à S5
 (« sans garantie ») tant que la perte est écrite et comptée.
