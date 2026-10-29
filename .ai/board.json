@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T08:38:40.236Z",
+  "generatedAt": "2026-10-29T11:15:09.069Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 209,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 18,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -5560,6 +5560,22 @@
       ]
     },
     {
+      "number": 699,
+      "title": "feat(security): durcir la CSP par défaut sans bloquer le temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/699",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 6.0365,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 555,
       "title": "feat(studio): montrer en direct la contre-pression du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/555",
@@ -8956,7 +8972,7 @@
       "title": "perf(orm): préparer une fois les écritures du repository Drizzle",
       "url": "https://github.com/nodefony/nodefony-core/issues/511",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
