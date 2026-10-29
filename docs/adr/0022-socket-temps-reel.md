@@ -151,21 +151,34 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   un critère : la référence JSON ci-dessus la ramène à ce que JSON rend.
 - **Banc fait (2026-10-29)** — Node 26.13, macOS x64, médiane de 5 ; 14 types (entiers, flottants,
   booléens, textes ASCII/unicode/8 Ko, tableaux, imbrications, binaire de 64 o à 1 Mo) et 9
-  valeurs hors modèle. **Retenu : `cbor-x` en JavaScript pur**, réglé en CBOR standard
-  (`useRecords: false`, `tagUint8Array: false`, `pack: false`). L'accélérateur C++
-  `cbor-extract` (vérifié actif) n'apporte rien, parfois moins (texte 8 Ko décodé 4,0 µs contre
-  2,6 µs), et ajoute un script d'installation et un binaire par plateforme : on ne s'appuie pas
-  dessus. `cborg` encode 3 à 4 fois plus lentement. Sur un message ordinaire, JSON encode 2 à 4
-  fois plus vite que CBOR, qui gagne 30 à 45 % d'octets : **CBOR ne devient jamais le défaut**.
-  Sur le binaire, CBOR décode une vue sans copie : 64 Ko en 1,2 µs contre 91 µs en JSON base64,
-  1 Mo en 1,2 µs contre 1,97 ms. À régler avant livraison : `cbor-x` écrit les flottants sur
-  8 octets (500 nombres : 3 646 octets contre 2 613 en JSON). Non mesuré : le navigateur.
-- **Ce que le banc a révélé, et qui a fait choisir la référence JSON** : le codec JSON
-  transforme (`NaN` → `null`, `[1, undefined]` → `[1, null]`, `Date` → chaîne, `Map`/`Set` → `{}`)
-  quand `cbor-x` garde tout (`Date`, `Set`, `bigint`) — deux clients d'un même canal auraient reçu
-  deux choses. **À prouver avant d'écrire le codec CBOR** : que `cbor-x` s'aligne sur JSON sans
-  parcourir chaque message (une extension par classe pour `Date` ; `NaN`, `Map` et `Set` plus
-  délicats).
+  valeurs hors modèle. L'accélérateur C++ `cbor-extract` de `cbor-x` (vérifié actif) n'apporte
+  rien, parfois moins (texte 8 Ko décodé 4,0 µs contre 2,6 µs). Sur un message ordinaire, JSON
+  encode 2 à 4 fois plus vite que CBOR, qui gagne 30 à 45 % d'octets : **CBOR ne devient jamais
+  le défaut**. Sur le binaire, CBOR décode une vue sans copie : 64 Ko en 1,2 µs contre 91 µs en
+  JSON base64, 1 Mo en 1,2 µs contre 1,97 ms. Le banc a aussi révélé que le codec JSON transforme
+  (`NaN` → `null`, `Date` → chaîne, `Map`/`Set` → `{}`) quand `cbor-x` garde tout : d'où la
+  référence JSON ci-dessus.
+- **Retenu : un codec CBOR propre à Nodefony** (décision de l'auteur, 2026-10-29), dans le code
+  partagé `src/nodefony/src/realtime/codec/` — isomorphe, sans dépendance, sans `eval`. Aucune
+  bibliothèque ne tenait les deux exigences à la fois :
+  - `cbor-x` (la plus rapide) ne peut pas s'aligner sur JSON sans parcourir chaque message (aucun
+    crochet sur les nombres ; une extension pour `Date` vaut pour tout le process), appelle
+    `new Function('')` au chargement (violation sous notre CSP), et tire un module natif
+    optionnel à script d'installation ;
+  - `cborg` (stricte, alignable par ses `typeEncoders`) encode 4 à 5 fois plus lentement et copie
+    chaque chaîne d'octets (1 Mo décodé en 545 µs contre 1,6 µs).
+
+  Le prototype mesuré : **encodeur** qui suit l'algorithme de `JSON.stringify` (ECMA-262
+  `SerializeJSONProperty`), donc aligné par construction (13/13 valeurs piégées), au niveau de
+  `cbor-x` à l'encodage (50 objets : 51 µs contre 53 µs ; `cborg` 225 µs) ; **décodeur restreint au
+  modèle** (JSON + octets ; étiquettes refusées), 10/10 messages hostiles refusés proprement,
+  binaire en vue sans copie, à 1,2-1,5 fois de `cbor-x` sur les objets, 2 à 340 fois plus rapide
+  que `cborg`. Exigences du codec livré : conformité RFC 8949 (sérialisation préférée §4.1,
+  flottants au plus court, longueurs indéfinies acceptées au décodage, clés en double et UTF-8
+  invalide refusés, bornes §10), vecteurs des appendices A et F en tests, chaque garde vue rouge.
+  `cbor-x` et `cborg` ne sont que des références de banc (`micro-cbor-codec.mjs`), jamais des
+  dépendances.
+
 - **Rupture si différé après 10.0 : NON**, parce que les décisions 1 et 2 de #630 rendent tout
   codec additif. Ce qui serait une rupture, et qui est écrit : le nom `v1` et la lecture du codec
   dans l'accueil — un format renommé ou un codec déduit de l'écho changerait le fil d'un client
