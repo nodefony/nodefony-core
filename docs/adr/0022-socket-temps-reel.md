@@ -327,8 +327,30 @@ interface IRealtimeContract {
   courante des sockets typées), canaux à opérations `send` / `receive` (AsyncAPI). Ce qui
   distingue ce moule : la direction est **calculée** d'une déclaration unique, jamais réécrite.
 
-Reste à décider : où vit la fabrique (l'exemple ci-dessus sort `chat.Socket` et `chat.Controller`
-d'un même objet, ce qui tirerait le code serveur dans le paquet navigateur).
+**Décision (validée par l'auteur le 2026-10-29) : un contrat fait de types, une porte par côté.**
+L'exemple de l'option B ci-dessous sort `chat.Socket` et `chat.Controller` d'un MÊME objet : le
+fichier partagé importerait alors `@nodefony/realtime`, et le navigateur qui l'importe tirerait le
+code serveur dans son paquet (budget de `nodefony/client` dépassé, ou build cassé sur un `node:`)
+— défaut invisible à un test de types, révélé au premier build d'une application. Donc :
+
+```ts
+// shared/chat.ts — UNIQUEMENT des types : 0 octet compilé, aucun import de code possible
+export interface ChatContract extends IRealtimeContract {
+  /* … */
+}
+// navigateur — porte du client (nodefony/client)
+const socket = NodefonySocket.fromContract<ChatContract>({ url });
+// serveur — porte du serveur (@nodefony/realtime)
+const chat = defineRealtimeContract<ChatContract>(); // { Controller, RealtimeAction }
+```
+
+- **Pourquoi une porte côté client** : `NodefonySocket` prend trois génériques (envoi, écoute,
+  méthodes), l'application déclare UN contrat. Écrire la conversion à chaque `new` rouvrirait
+  l'inversion à la main ; réutiliser le premier générique est écarté ci-dessous. La porte est un
+  `new` typé, sans allocation de plus.
+- **Les noms** (`fromContract`, `defineRealtimeContract`) ne sont PAS décidés : ils se fixent au
+  code, signatures sous les yeux. Un nom dit ce qu'on obtient ; « contrat » désigne la déclaration
+  de l'application, pas une technique.
 
 **Recommandation : l'option B, bâtie sur les génériques de l'option A.** `Listen` s'ajoute en
 troisième position de `RealtimeController` avec défaut (nécessaire aux deux options) ; les types
