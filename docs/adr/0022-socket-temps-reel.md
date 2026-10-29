@@ -139,7 +139,7 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
 
 ### 3. Le binaire, routé par canal, par les mêmes portes que le texte
 
-**Décision proposée :** une trame binaire routée **n'est pas une seconde grammaire** : c'est une
+**Décision (validée par l’auteur le 2026-10-29) :** une trame binaire routée **n'est pas une seconde grammaire** : c'est une
 notification JSON-RPC dont la charge est, ou contient, un `Uint8Array` (S8), et le codec dit
 comment il la porte — chaîne d'octets native en CBOR (type majeur 2), `bytes` en protobuf, base64
 sous une convention déclarée pour le codec JSON. Elle passe donc par **les mêmes portes** que le
