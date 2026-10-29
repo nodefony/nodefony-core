@@ -589,6 +589,9 @@ Promise<boolean>`, membre optionnel de
   - D'où la règle, écrite dans le TSDoc de l'action « éjecter » et dans la page publique :
     **éjecter coupe la connexion du canal, seul `allow` exclut.** Exclure d'un canal sans
     `allow`, c'est lui en donner un.
+  - Le pendant pour `ended` est déjà écrit par ADR-0021 S4 : **la fabrique d'un canal terminé
+    rend `null`**, et qui refait `subscribe` reçoit `realtime:denied { reason: "unknown" }`. Seul
+    `allow` exclut une personne ; seule la fabrique clôt un canal.
   - Éjecter retire la marque « admise » et le verdict retenu de la connexion pour ce canal
     (décision 1 bis) ; `ended` les retire de toutes les connexions du canal.
   - **Contraintes relevées au code (revue du 2026-10-29)** :
@@ -631,21 +634,38 @@ Promise<boolean>`, membre optionnel de
     (`#RealtimeHub.#admitFromBackplane`), qui n'accepte qu'une **liste fermée** d'ordres de forme
     vérifiée ; tout autre contenu est rejeté et compté (`ingressRejectedTotal`). Aucun client ne
     peut s'y abonner.
-  - **Pourquoi c'est sûr** : un ordre ne fait qu'**enlever** — seul `allow` fait entrer. Qui
-    écrit sur le bus peut couper des abonnés, jamais en admettre. La documentation exige un bus
-    privé ; une signature des ordres reste ajoutable sans rupture.
-  - **Ce que le contrat suffit à porter** : il promet « au plus une fois, aucun ordre entre pairs »
-    (`IBackplane.ts`, en-tête). Un ordre qui enlève le supporte : reçu deux fois = appliqué une
-    fois ; perdu ou en retard = une coupure tardive, l'exclusion durable vivant dans `allow` ;
-    doublé par une publication = un message de trop à l'éjecté. Un pod démarré après l'ordre ne
-    le connaît pas : c'est encore `allow`, qui lit l'état partagé, qui le rattrape.
+  - **Pourquoi c'est sûr** : un ordre ne fait qu'**enlever** — seul `allow` fait entrer. Il est
+    **scellé comme toute publication** : sur un bus partagé, le secret du bus
+    (`NF_REALTIME_BACKPLANE_SECRET`) pose un HMAC sur origine, canal et charge
+    (`src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts#sealBackplaneEnvelope`,
+    ADR-0021 S6) ; un ordre forgé sans le secret est rejeté. Sans secret, qui écrit sur le bus
+    peut couper des abonnés, jamais en admettre.
+  - **Le rejeu change de portée — à écrire dans le TSDoc du sceau.** Le sceau assume aujourd'hui
+    le rejeu hors portée, parce qu'un message rejoué ne fait que rediffuser une charge déjà
+    diffusée (`envelope.ts#SEAL_FIELD`). Un ordre rejoué, lui, **recoupe** : un « fermer
+    `room:42` » capté puis republié plus tard couperait une partie rouverte. L'effet reste
+    soustractif (jamais d'admission) ; un anti-rejeu par horloge reste écarté (horloges des pods
+    non alignées, comme au sceau). La parade de l'application est celle de S4 : un canal à durée
+    de vie porte un identifiant d'instance dans son nom (`room:42:<partie>`), qu'un vieil ordre ne
+    désigne plus.
+  - **Ce que le contrat suffit à porter** : « au plus une fois, ordre par émetteur, aucun entre
+    pairs » (ADR-0021 S5, et l'en-tête de `IBackplane.ts`). Un ordre qui enlève le supporte : reçu
+    deux fois = appliqué une fois ; perdu ou en retard = une coupure tardive ; venu d'un autre
+    pair qu'une publication = au pire un message de trop à l'éjecté. Un pod démarré après l'ordre
+    ne le connaît pas : pour une **éjection**, c'est `allow`, qui lit l'état partagé, qui le
+    rattrape ; pour une **fin** (`ended`), c'est la fabrique du canal qui rend `null` à un canal
+    terminé (ADR-0021 S4) — la même règle que pour un client ancien qui rejoue.
   - **Exigences d'un driver**, à écrire dans le TSDoc de `IBackplane` : chaque pod reçoit TOUT
     (un groupe de lecteurs par pod pour un journal partitionné — un groupe partagé répartirait
-    les messages en silence) ; aucun rejeu au démarrage (lire à partir du dernier message) ;
-    aucune attente de regroupement à l'émission ; sa dépendance npm vit dans le driver, jamais au
-    cœur.
+    les messages en silence) ; l'**ordre par émetteur** de S5 tenu (journal partitionné : une
+    clé par émetteur, `originId`, jamais par canal) ; aucun rejeu au démarrage (lire à partir du
+    dernier message) ; aucune attente de regroupement à l'émission ; le sceau appliqué
+    (`sealBackplaneEnvelope`, mutualisé pour les drivers tiers) ; sa dépendance npm vit dans le
+    driver, jamais au cœur.
   - **Suite de conformité exportée** (`@nodefony/realtime/testing`) : diffusion à tous les pairs,
-    pas de rejeu, ordres de contrôle transportés, espace réservé injecté refusé. Les drivers
+    ordre par émetteur, pas de rejeu au démarrage, sceau vérifié (message non scellé ou mal
+    scellé refusé quand un secret est posé), ordres de contrôle transportés, espace réservé
+    injecté refusé. Les drivers
     livrés (cluster, Redis, boucle locale) la passent ; un driver tiers s'y prouve. Une
     définition du contrat, pas une par driver.
   - **Preuve** : fermeture et éjection par utilisateur à DEUX pods, bus de cluster ET Redis — le

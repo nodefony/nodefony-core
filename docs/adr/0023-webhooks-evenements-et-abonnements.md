@@ -102,10 +102,12 @@ une autre.
 
 - **Rupture si différé : NON**, grâce à W1 et W2.
 
-### W4. Au moins une fois, sous un identifiant stable, sans ordre
+### W4. Plusieurs tentatives, sans garantie, sous un identifiant stable, sans ordre
 
-**Décision proposée :** la garantie écrite est celle de S5. Chaque message est livré **au moins
-une fois** ; tous ses réessais portent le **même** `webhook-id` ; seul l'horodatage change, pour la
+**Décision proposée :** la garantie écrite est celle de S5 : **plusieurs tentatives, sans
+garantie de livraison** — pas « au moins une fois », que S5 écarte faute de file durable (une
+livraison se perd quand la file est pleine, après le dernier réessai ou au redémarrage, et
+`dropped` la compte). Tous les réessais d'un message portent le **même** `webhook-id` ; seul l'horodatage change, pour la
 protection contre le rejeu. **Aucun ordre** n'est garanti entre deux messages. Le destinataire
 déduplique par `webhook-id`, et ordonne par l'identifiant de la charge s'il en a besoin.
 
@@ -137,8 +139,8 @@ seule règle décide qui peut suivre quoi, quelle que soit la livraison.
 
 **Décision proposée :** les abonnements vivent dans un store partagé ; chaque exemplaire livre les
 événements qu'il produit, une seule fois. La file des livraisons reste propre à l'exemplaire et
-n'est pas persistée : un arrêt brutal perd ce qui était en attente, ce qui reste conforme à « au
-moins une fois » tant que la perte est écrite.
+n'est pas persistée : un arrêt brutal perd ce qui était en attente, ce qui reste conforme à S5
+(« sans garantie ») tant que la perte est écrite et comptée.
 
 - À prouver : un abonnement créé sur un exemplaire est-il vu par les autres sans redémarrage ? On
   suppose aujourd'hui que non.
