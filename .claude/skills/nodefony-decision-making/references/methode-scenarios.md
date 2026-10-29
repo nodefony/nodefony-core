@@ -55,7 +55,7 @@ après.
 ## 3. La matrice
 
 Une fois le catalogue écrit : deux ou trois options, jamais une seule, et un tableau **scénario ×
-option** — tient / casse / sans objet, avec la raison et la preuve (`fichier.ts#Symbole`, passage
+option** — tient / casse / sans objet, avec la raison et la preuve (`<fichier>.ts#<Symbole>`, passage
 d'ADR). Deux lignes s'ajoutent toujours : **contredit-elle une décision acceptée ?** et **qui porte
 déjà cette règle ?** (1 règle = 1 implémentation). La recommandation est l'option qui ne casse aucun
 scénario ; s'il n'y en a pas, le scénario sacrifié devient la question posée à l'auteur.

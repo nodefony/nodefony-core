@@ -47,7 +47,7 @@ colonne « Modèle » ci-dessous est le **point de départ** ; le modèle à emp
 | **Agent IA consommateur**       | « Avec la doc et l'exemple seuls, quelle solution j'écris ? »                              | `haiku`  | **volontairement le plus léger** : si `haiku` trouve la bonne solution par l'exemple, tout agent la trouvera           | le skill LIVRÉ aux applications du domaine (`src/packages/@nodefony/devkit/skills/…`) |
 
 Le **principal ne siège pas** : il prépare, vérifie, synthétise. Les affirmations d'ancrage d'un
-siège (`fichier.ts#Symbole` existe ? dit-il ça ?) se vérifient en lot par
+siège (`<fichier>.ts#<Symbole>` existe ? dit-il ça ?) se vérifient en lot par
 l'agent **nodefony-check-claims** (`haiku`, `@agent-` devant son nom garantit le run), jamais à la main une par une au-delà de ~6.
 
 ## 3. Composer la table d'une décision
@@ -66,7 +66,7 @@ Le MÊME pour tous, écrit une fois dans un fichier du dossier temporaire de la 
 2. le catalogue de scénarios (`methode-scenarios.md`) ;
 3. les options et leur matrice (même page) — **sans la recommandation du principal** ;
 4. les décisions qui font déjà foi, en chemins (`docs/adr/…`), et le code concerné en ancres
-   `fichier.ts#Symbole`.
+   `<fichier>.ts#<Symbole>`.
 
 Montrer la préférence du principal, c'est obtenir sa confirmation : le dossier ne la contient pas.
 
@@ -82,7 +82,7 @@ INTERDIT : toucher à l'index git (ni checkout, stash, restore, reset, commit, p
 modifier un fichier du dépôt, lancer un serveur. Tu proposes ; tu n'appliques rien.
 Réponds en au plus 40 lignes, dans cette forme :
 1. Par scénario du catalogue : tient / casse / sans objet — pour chaque option, avec la preuve
-   (`fichier.ts#Symbole` ou passage d'ADR) ou « supposé, non vérifié ».
+   (`<fichier>.ts#<Symbole>` ou passage d'ADR) ou « supposé, non vérifié ».
 2. Scénarios absents du catalogue que ton métier impose (0 à 3).
 3. L'option que tu choisirais et la seule raison qui compte pour ton métier.
 4. Ce que tu n'as pas pu vérifier.
@@ -134,7 +134,7 @@ verrait pas :
 
 - **Le dossier dans UN fichier**, chemin donné à chaque siège — jamais recopié dans six consignes.
 - **`Plan` plutôt qu'un agent maison** : pas de hiérarchie `CLAUDE.md` rechargée par siège.
-- **Les ancres déjà dans le dossier** (`fichier.ts#Symbole`) : un siège lit ce qu'on lui montre,
+- **Les ancres déjà dans le dossier** (`<fichier>.ts#<Symbole>`) : un siège lit ce qu'on lui montre,
   il ne refait pas l'exploration du principal.
 - **Une réponse bornée** (40 lignes, forme fixe) : la synthèse lit six réponses courtes au lieu de
   six essais.

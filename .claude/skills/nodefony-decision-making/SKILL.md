@@ -40,7 +40,7 @@ apparaître **avant** de trancher, et le socle garde ce qui a été tranché.
 | Coder la décision (règles perf, typage, tests)           | `nodefony-framework-dev`   |
 | Attaquer une décision de sécurité                        | `nodefony-security-review` |
 | Produire la mesure qui tranche                           | `nodefony-load-test`       |
-| Lire le code pour une preuve (`fichier.ts#Symbole`)      | `nodefony-inspect`         |
+| Lire le code pour une preuve (`<fichier>.ts#<Symbole>`)  | `nodefony-inspect`         |
 | Reprendre ou clore la session                            | `nodefony-session`         |
 
 **Désactivation** : « mode normal », « décide seul », « fais tout d'un coup » — l'agent tranche et
