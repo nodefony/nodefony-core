@@ -543,8 +543,10 @@ Promise<boolean>`, membre optionnel de
     flux de déplacements sur un canal à rôles), verrou par trame contre verdict retenu, en paires
     alternées. Protocole sur #622.
 - **Abonnés identifiables** (#623) : le registre d'un canal associe chaque sink à sa connexion,
-  alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur,
-  **locale au pod** : lister, éjecter, abonner d'office, fermer. Il porte aussi la marque
+  alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur :
+  ce qui désigne une **connexion** (lister, abonner d'office, éjecter une connexion) est **local
+  au pod** ; ce qui désigne un **nom** (fermer un canal, éjecter un utilisateur) traverse les pods
+  (décision 4). Il porte aussi la marque
   « admise » de la décision 1 : abonner d'office la **pose**, éjecter et fermer la **retirent**.
 - **Décision 2 (validée par l'auteur le 2026-10-29) : abonnement imposé — `allow` reste la seule
   source de vérité.** Exemple : la recherche de partie place quatre joueurs dans `room:42`.
@@ -608,15 +610,51 @@ Promise<boolean>`, membre optionnel de
       tranche — conforme à la règle ci-dessus.
   - **Écarté** : une liste noire dans le framework — seconde source de vérité, locale au pod,
     perdue au redémarrage, divergente de `allow` en silence.
-- **Ce qui traverse le backplane** : la publication `{ channel, payload, originId }` des seuls
-  canaux déclarés diffusables (S6, `#RealtimeHub.markBroadcastChannel`) — ni membres, ni
-  politiques, ni acquittements, ni fermeture. Un message venu du bus n'atteint que des abonnés
-  **déjà admis** sur leur pod (constaté : l'ingress ne vérifie que le préfixe, puis sert local).
+- **Décision 4 (validée par l'auteur le 2026-10-29) : ce qui traverse le backplane — les
+  publications, et des ordres qui ne font qu'ENLEVER.**
+  - **Publications** : `{ channel, payload, originId }` des seuls canaux déclarés diffusables
+    (S6, `#RealtimeHub.markBroadcastChannel`). Un message venu du bus n'atteint que des abonnés
+    **déjà admis** sur leur pod. Ni membres, ni politiques, ni acquittements ne traversent.
+  - **Ordres par NOM — traversent** : fermer un canal (`ended`) et éjecter un utilisateur par son
+    identifiant. Sans eux, une fin de partie ou une modération décidée sur le pod B laisse ouverts
+    les abonnés du pod A — un défaut qui marche en développement et une fois sur N en production.
+    Chaque pod applique l'ordre à SES connexions, par le chemin unique de la décision 3.
+  - **Ordres par CONNEXION — restent locaux** : abonner d'office, éjecter une connexion. Une
+    connexion n'existe que dans le pod qui l'a acceptée ; une connexion inconnue de ce pod rend
+    `false`, jamais un no-op muet.
+  - **Transport** : un **message ordinaire** du backplane (`IBackplane.publish`), sur un canal de
+    contrôle INTERNE au hub, l'ordre dans `payload` — l'enveloppe ne gagne aucun champ (S6) et
+    `src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplane` aucune méthode :
+    tout driver, y compris écrit par un tiers (Kafka, NATS), le transporte sans le savoir. Ce canal
+    ne passe PAS par `#RealtimeHub.markBroadcastChannel`, qui refuse à raison l'espace réservé
+    (injection dans tous les pods) : il a sa branche dédiée à l'entrée
+    (`#RealtimeHub.#admitFromBackplane`), qui n'accepte qu'une **liste fermée** d'ordres de forme
+    vérifiée ; tout autre contenu est rejeté et compté (`ingressRejectedTotal`). Aucun client ne
+    peut s'y abonner.
+  - **Pourquoi c'est sûr** : un ordre ne fait qu'**enlever** — seul `allow` fait entrer. Qui
+    écrit sur le bus peut couper des abonnés, jamais en admettre. La documentation exige un bus
+    privé ; une signature des ordres reste ajoutable sans rupture.
+  - **Ce que le contrat suffit à porter** : il promet « au plus une fois, aucun ordre entre pairs »
+    (`IBackplane.ts`, en-tête). Un ordre qui enlève le supporte : reçu deux fois = appliqué une
+    fois ; perdu ou en retard = une coupure tardive, l'exclusion durable vivant dans `allow` ;
+    doublé par une publication = un message de trop à l'éjecté. Un pod démarré après l'ordre ne
+    le connaît pas : c'est encore `allow`, qui lit l'état partagé, qui le rattrape.
+  - **Exigences d'un driver**, à écrire dans le TSDoc de `IBackplane` : chaque pod reçoit TOUT
+    (un groupe de lecteurs par pod pour un journal partitionné — un groupe partagé répartirait
+    les messages en silence) ; aucun rejeu au démarrage (lire à partir du dernier message) ;
+    aucune attente de regroupement à l'émission ; sa dépendance npm vit dans le driver, jamais au
+    cœur.
+  - **Suite de conformité exportée** (`@nodefony/realtime/testing`) : diffusion à tous les pairs,
+    pas de rejeu, ordres de contrôle transportés, espace réservé injecté refusé. Les drivers
+    livrés (cluster, Redis, boucle locale) la passent ; un driver tiers s'y prouve. Une
+    définition du contrat, pas une par driver.
+  - **Preuve** : fermeture et éjection par utilisateur à DEUX pods, bus de cluster ET Redis — le
+    banc Redis saute sans `NF_REDIS_TEST_URL`, et la CI doit l'exercer (un saut compte vert).
 - **Cas `transcript:<id>` (#626) en multi-pod** : l'audio arrive sur un pod, l'abonné au texte
   peut être ailleurs. Décision : préfixe `transcript:` déclaré diffusable **et** prédicat `allow`
   sur le motif `transcript:*` — la charge traverse, l'admission se rejoue sur chaque pod.
-  L'affinité de pod est une option de déploiement, pas une règle. La fermeture reste locale en
-  10.x : qui doit clore sur tous les pods publie son signal de fin **dans** sa charge (S6). À
+  L'affinité de pod est une option de déploiement, pas une règle. La fermeture traverse les pods
+  par l'ordre de contrôle de la décision 4. À
   prouver dans #623 : un éjecté sur le pod A, abonné sur le pod B, n'est pas servi par B.
 
 - Usages : une notification `user:42` (sans média, sans agent), un salon fermé de jeu ou de
@@ -626,8 +664,8 @@ Promise<boolean>`, membre optionnel de
   `@nodefony/security`, rien n'est refusé et un avertissement le dit
   (`src/packages/@nodefony/realtime/nodefony/tests/unit/realtimeUnenforcedPolicy.attack.test.ts`).
 - **Rupture si différé après 10.0 : NON**, parce que membre optionnel, notification neuve et API
-  neuve sont additifs. Écrire maintenant « appartenance et fermeture locales » évite qu'une
-  application s'appuie sur une portée cluster qu'on ne tient pas (S5).
+  neuve sont additifs. Écrire maintenant « appartenance locale, ordres par nom diffusés » évite
+  qu'une application s'appuie sur une portée cluster qu'on ne tient pas (S5).
 
 ### 7. La reprise côté socket
 
@@ -747,7 +785,8 @@ fin de flux (section 7). Aucun vocabulaire d'A2A n'entre dans la socket.
 
 - Engagements de la série 10, au même titre que les décisions de gel de #630 : le nom `v1`, la
   lecture du codec dans l'accueil, l'accueil toujours en texte, le crochet brut hors verrou, les
-  bornes neuves désactivées, l'appartenance et la fermeture locales au pod.
+  bornes neuves désactivées, l'appartenance locale au pod, les ordres par nom (fermer, éjecter un
+  utilisateur) diffusés par un message ordinaire du backplane, sans méthode neuve sur `IBackplane`.
 - #628 livre `Listen` en troisième générique de `RealtimeController` avec défaut, les types
   utilitaires et `defineRealtimeContract` ; #618 livre `IFrameCodec`, CBOR, les trois noms de
   sous-protocole et le binaire routé ; #622 et #623 les canaux privés ; #629 les contrôles 2 à 5.
