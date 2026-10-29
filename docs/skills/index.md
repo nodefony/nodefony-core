@@ -39,7 +39,7 @@ source: "docs/skills/index.md"
 [
   { "icon": "🧭", "title": "session", "href": "nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire…",
-    "meta": "🟢 conforme v1.1.0 · ⚙️ 12 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 13 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 4 scripts" }
@@ -216,7 +216,7 @@ source: "docs/skills/index.md"
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.10.0 | 341 | 0 | 5 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 399 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 12 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 13 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |

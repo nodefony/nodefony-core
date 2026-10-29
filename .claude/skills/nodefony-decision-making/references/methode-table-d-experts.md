@@ -155,7 +155,8 @@ option écartée, une condition posée, un point montré à l'auteur).
 
 **Après chaque table**, le principal met à jour `assets/sieges.json`, siège par siège : tables
 jouées, constats rendus, constats retenus, constats faux (affirmés, démentis au code), et le coût
-du run quand l'outil le rend. C'est de la DONNÉE, pas un journal : des compteurs qui s'incrémentent
+du run, lu par `node .claude/skills/nodefony-session/scripts/session-cost.mjs --session <id>`
+(une ligne par siège). C'est de la DONNÉE, pas un journal : des compteurs qui s'incrémentent
 en place.
 
 **Essai de déclassement — pour économiser.** Quand un siège a joué au moins trois tables, la

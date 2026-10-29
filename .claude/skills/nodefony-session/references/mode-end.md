@@ -125,7 +125,10 @@ rouvrir le `_state` pour l'y écrire, ce qui relancerait commit et push.
 
 `node .claude/skills/nodefony-session/scripts/session-cost.mjs` agrège la consommation réelle de
 tous les transcripts du projet. À lancer quand la question « où partent les tokens ? » se pose —
-jamais à chaque clôture.
+jamais à chaque clôture. `--session <id|préfixe|latest>` détaille UNE session : une ligne pour
+le principal et une par sous-agent (modèle, réponses, contexte relu, pic de contexte, coût) — de
+quoi voir un agent qui dérive pendant qu’il tourne, ou chiffrer une table d’experts après coup.
+Auto-contrôle : `session-cost.selftest.mjs`.
 
 ## Anti-patterns
 

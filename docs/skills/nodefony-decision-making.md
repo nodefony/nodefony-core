@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/methode-poc.md` | Méthode — l'essai jetable | 45 |
 | `references/methode-pre-mortem.md` | Méthode — pré-mortem | 45 |
 | `references/methode-scenarios.md` | Méthode — scénarios : écrire les cas AVANT les options, puis la matrice | 96 |
-| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 179 |
+| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 180 |
 
 
 ## Conformité au standard Agent Skills

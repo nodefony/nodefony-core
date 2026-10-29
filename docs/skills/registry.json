@@ -10517,9 +10517,36 @@
           },
           {
             "path": "scripts/session-cost.mjs",
-            "purpose": "Agrège la consommation réelle de tous les transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes).",
-            "usage": [],
-            "options": [],
+            "purpose": "Agrège la consommation réelle des transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes).",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-session/scripts/session-cost.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--root",
+                "help": ""
+              },
+              {
+                "flag": "--session",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/session-cost.selftest.mjs",
+            "purpose": "Éprouve `session-cost.mjs --session` sur des transcripts FORGÉS : le principal et chaque sous-agent sur leur ligne, nommés par leur méta, une réponse répétée comptée une seule fois, le pic de contexte pris sur la plus grosse réponse, `fable` au tarif connu, et un préfixe ambigu refusé plutôt que deviné.",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-session/scripts/session-cost.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--session",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false

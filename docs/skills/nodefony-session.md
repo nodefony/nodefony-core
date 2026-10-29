@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-18
+updated: 2026-10-29
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Description | 581 / 1024 caractères |
 | Déclencheurs | 9 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 12 |
+| Scripts | 13 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -78,7 +78,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/mode-end.md` | MODE END — clôture de session | 136 |
+| `references/mode-end.md` | MODE END — clôture de session | 139 |
 
 
 ## Scripts embarqués
@@ -93,7 +93,8 @@ script, donc toujours à jour après régénération.
 | `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` `--readme` `--issue` `--dry-run` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` `REPO_NAME` `REPO_OWNER` |
 | `scripts/board-snapshot.test.mjs` | Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS ERREUR : la projection des nœuds GraphQL en items d'empreinte. | — | — |
 | `scripts/cli-guard.mjs` | Garde de ligne de commande des scripts de pilotage — lit l'en-tête du script appelant et applique {@link cliGate} : aide sur `--help`, refus (code 64) d'une option que l'en-tête ne déclare pas. | `--help` | — |
-| `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes). | — | — |
+| `scripts/session-cost.mjs` | Agrège la consommation réelle des transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes). | `--root` `--session` | — |
+| `scripts/session-cost.selftest.mjs` | Éprouve `session-cost.mjs --session` sur des transcripts FORGÉS : le principal et chaque sous-agent sur leur ligne, nommés par leur méta, une réponse répétée comptée une seule fois, le pic de contexte pris sur la plus grosse réponse, `fable` au tarif connu, et un préfixe ambigu refusé plutôt que deviné. | `--session` | — |
 | `scripts/session-end.mjs` | session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, jugement de l'autre. | `--since` `--no-publish` | `MEM` `PUBLISH` |
 | `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans disque : `session-resume.mjs` et `session-end.mjs` les appellent, leurs tests les éprouvent. | `--chek` `--format` `--help` `--json` `--since` | — |
 | `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. / | `--check` `--chek` `--help` `--since` `--verify` | — |
@@ -106,6 +107,8 @@ script, donc toujours à jour après régénération.
 ```bash
 npm run board:snapshot
 import { guardCli } from "./cli-guard.mjs"; guardCli(import.meta.url);
+`@usage` node .claude/skills/nodefony-session/scripts/session-cost.mjs
+`@usage` node .claude/skills/nodefony-session/scripts/session-cost.selftest.mjs
 npm run session:end                 # préparation
 npm run session:resume
 node tool-usage.mjs            # lecture de code de la session COURANTE
