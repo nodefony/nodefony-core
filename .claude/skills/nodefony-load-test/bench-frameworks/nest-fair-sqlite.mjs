@@ -29,6 +29,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  HttpStatus,
   Module,
   Param,
   Post,
@@ -146,7 +147,13 @@ method(
   proto,
   "readWriteValid",
   [Post(ORM_PATHS.readWriteValid), HttpCode(200)],
-  [Body(new ValidationPipe({ errorHttpStatusCode: 422 }))],
+  [
+    Body(
+      new ValidationPipe({
+        errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+      }),
+    ),
+  ],
 );
 
 for (const p of after) addDummy(p);

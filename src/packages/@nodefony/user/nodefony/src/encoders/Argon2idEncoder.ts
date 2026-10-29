@@ -13,6 +13,9 @@ type Argon2Binding = typeof import("@node-rs/argon2");
  * du bundler) ne peut pas l'inliner. Valeur fixée par l'ABI du binding ;
  * `Argon2idEncoder.test.ts` exige un hash `$argon2id$`, donc une dérive tombe.
  */
+// Le littéral est le seul chemin vers ce membre (cf ci-dessus) : la règle ne
+// peut pas savoir que 2 EST `Algorithm.Argon2id`, le test le prouve à sa place.
+// oxlint-disable-next-line typescript/no-unsafe-enum-assignment
 const ARGON2ID = 2 as import("@node-rs/argon2").Algorithm;
 let argon2: Argon2Binding | null = null;
 const loadArgon2 = async (): Promise<Argon2Binding> =>

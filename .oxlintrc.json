@@ -280,6 +280,9 @@
     "typescript/no-unsafe-argument": "warn",
     "typescript/no-unsafe-return": "warn",
     "typescript/no-unsafe-call": "warn",
+    // oxlint 1.90 : un `any` affecté à un enum (ou une valeur hors de ses
+    // membres) échappait à la famille `no-unsafe-*`.
+    "typescript/no-unsafe-enum-assignment": "warn",
     "typescript/no-unnecessary-type-assertion": "warn",
     "typescript/no-non-null-assertion": "warn",
     // Une garde que le type déclare inutile (#498). Chaque site se JUGE : une
