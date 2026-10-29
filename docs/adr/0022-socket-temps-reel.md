@@ -104,7 +104,8 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   dépendance neuve pour chaque application.
 - **Calendrier.** Les trois noms sont réservés dès 10.0. Aucun codec autre que JSON n'est dans le
   paquet de base : chacun est optionnel, chargé par la seule application qui l'active. **CBOR**
-  est le premier livré, après 10.0, derrière un banc. **Protobuf** n'arrive qu'avec l'Epic gRPC
+  est le premier livré, **dans la série 10.0** (décision de l'auteur, 2026-10-29), en sous-ticket
+  de #618, après #622, #623, #628 et #629 — ceux-là fermeraient une porte, lui non. **Protobuf** n'arrive qu'avec l'Epic gRPC
   #694 : un seul usage connu d'ici là (règle de #621), et une dépendance que gRPC rendra de toute
   façon nécessaire ; son enveloppe ci-dessus est une intention, pas un engagement.
 - **Réversibilité** : le modèle de valeurs est JSON ∩ CBOR, plus les octets. Une valeur hors
@@ -132,6 +133,22 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   (`@simplewebauthn/server`), mais il ne rend que des `Map`, jamais un objet ordinaire, ce qui
   coûterait une conversion par frame. Une richesse de types (`Date`, `Set`, `bigint`) n'est pas
   un critère : la réversibilité ci-dessus la refuse.
+- **Banc fait (2026-10-29)** — Node 26.13, macOS x64, médiane de 5 ; 14 types (entiers, flottants,
+  booléens, textes ASCII/unicode/8 Ko, tableaux, imbrications, binaire de 64 o à 1 Mo) et 9
+  valeurs hors modèle. **Retenu : `cbor-x` en JavaScript pur**, réglé en CBOR standard
+  (`useRecords: false`, `tagUint8Array: false`, `pack: false`). L'accélérateur C++
+  `cbor-extract` (vérifié actif) n'apporte rien, parfois moins (texte 8 Ko décodé 4,0 µs contre
+  2,6 µs), et ajoute un script d'installation et un binaire par plateforme : on ne s'appuie pas
+  dessus. `cborg` encode 3 à 4 fois plus lentement. Sur un message ordinaire, JSON encode 2 à 4
+  fois plus vite que CBOR, qui gagne 30 à 45 % d'octets : **CBOR ne devient jamais le défaut**.
+  Sur le binaire, CBOR décode une vue sans copie : 64 Ko en 1,2 µs contre 91 µs en JSON base64,
+  1 Mo en 1,2 µs contre 1,97 ms. À régler avant livraison : `cbor-x` écrit les flottants sur
+  8 octets (500 nombres : 3 646 octets contre 2 613 en JSON). Non mesuré : le navigateur.
+- **Trou révélé par le banc, à trancher** : le codec JSON d'aujourd'hui **déforme** en silence
+  (`NaN` → `null`, `[1, undefined]` → `[1, null]`, `Date` → chaîne, `Map`/`Set` → `{}`), et
+  `cbor-x` **accepte tout** (`Date`, `Set`, `bigint`). Ni l'un ni l'autre ne refuse seul : tenir
+  la réversibilité exige un contrôle des valeurs, qui coûterait un parcours par frame.
+  Proposition : contrôle en développement seulement, un test par codec.
 - **Rupture si différé après 10.0 : NON**, parce que les décisions 1 et 2 de #630 rendent tout
   codec additif. Ce qui serait une rupture, et qui est écrit : le nom `v1` et la lecture du codec
   dans l'accueil — un format renommé ou un codec déduit de l'écho changerait le fil d'un client
