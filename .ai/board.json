@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T16:58:19.172Z",
+  "generatedAt": "2026-10-29T18:22:49.507Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 209,
+      "closed": 210,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 23,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -5423,7 +5423,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 30,
+      "jours": 32,
       "ordre": 6.03,
       "debut": "2026-10-29",
       "cible": "2026-11-16",
@@ -5451,8 +5451,8 @@
       "number": 627,
       "title": "docs(adr): figer l'architecture de la socket temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/627",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -5468,13 +5468,45 @@
       "title": "docs(adr): valider les webhooks et les règles communes aux livraisons",
       "url": "https://github.com/nodefony/nodefony-core/issues/702",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.0311,
       "debut": "2026-11-02",
       "cible": "2026-11-02",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 704,
+      "title": "feat(realtime)!: exiger une charge structurée, compter les sceaux refusés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/704",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.0312,
+      "debut": "2026-11-02",
+      "cible": "2026-11-02",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 705,
+      "title": "fix(security): aligner les abonnements webhook sur les motifs des canaux",
+      "url": "https://github.com/nodefony/nodefony-core/issues/705",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.0313,
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
       "labels": [
         "beta-6"
       ]

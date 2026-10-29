@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-29 16:58** (UTC).
+> Empreinte prise le **2026-10-29 18:22** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 209 | 23 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 210 | 24 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 41 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
@@ -33,9 +33,9 @@
 
 **#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
 
-Ordre 6.03 · P2 — décision · 30 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
+Ordre 6.03 · P2 — décision · 32 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 24 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -111,13 +111,14 @@ Ordre 6.03 · P2 — décision · 30 j · jalon 10.0.0-beta · frise 2026-10-29 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 23 ouverts
+## Jalon 10.0.0-beta — 24 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 6.03 | P2 — décision | 30 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.031 | P2 — décision | 2 | 2026-10-29 → 10-30 | #627 | docs(adr): figer l'architecture de la socket temps réel |
+| 6.03 | P2 — décision | 32 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 6.0311 | P1 — figé à la création | 1 | 2026-11-02 → 11-02 | #702 | docs(adr): valider les webhooks et les règles communes aux livraisons |
+| 6.0312 | P1 — figé à la création | 1 | 2026-11-02 → 11-02 | #704 | feat(realtime)!: exiger une charge structurée, compter les sceaux refusés |
+| 6.0313 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #705 | fix(security): aligner les abonnements webhook sur les motifs des canaux |
 | 6.0315 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #703 | feat(realtime): borner la socket, envois en trop jetés et trames comptées |
 | 6.032 | P2 — décision | 2 | 2026-11-04 → 11-04 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
 | 6.034 | P2 — décision | 1 | 2026-11-05 → 11-05 | #622 | feat(realtime): admettre un abonné de canal par son identité |
