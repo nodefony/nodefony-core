@@ -37,6 +37,7 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 ## Entrées
 
 - **SSE** (detect: SSE|Server-Sent Events) — _Server-Sent Events_ : un flux HTTP que le serveur garde ouvert pour pousser des événements au navigateur au fil de l'eau, dans un seul sens (l'aller-retour, lui, est le rôle du WebSocket).
+- **CSP** (detect: CSP|Content-Security-Policy) — _Content Security Policy_ : un en-tête HTTP par lequel le serveur dit au navigateur quelles sources de scripts, de styles, d’images et de connexions la page a le droit d’utiliser ; tout le reste est bloqué, ce qui désarme une injection de script.
 - **HMR** (detect: HMR|Hot Module Replacement) — _Hot Module Replacement_ : l'outil de build front (Vite) remplace dans la page ouverte le module modifié, sans recharger la page ni perdre son état.
 - **QUIC** (detect: QUIC) — le transport sur UDP qui porte HTTP/3 : plusieurs flux indépendants sur une connexion, sans qu'un paquet perdu bloque les autres.
 - **WebTransport** (detect: WebTransport) — l'API navigateur (W3C) d'échange bidirectionnel bâtie sur HTTP/3 : plusieurs flux d'octets et des datagrammes non fiables, là où un WebSocket n'offre qu'un seul canal de messages.
