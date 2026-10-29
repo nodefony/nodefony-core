@@ -1,8 +1,8 @@
 /**
  * Codec CBOR de Nodefony (RFC 8949), aligné sur JSON — ADR-0022 §2.
  *
- * Barrel local au dossier : l'exposition dans la surface publique du paquet est une
- * décision séparée (`src/index.ts`, `src/client/index.ts`).
+ * Barrel local au dossier. Surface publique : le sous-chemin `nodefony/cbor`
+ * (`src/client/cbor/index.ts`), jamais réexporté par `nodefony` ni `nodefony/client`.
  */
 export { encodeCbor } from "./encode";
 export { decodeCbor, type ICborDecodeOptions } from "./decode";

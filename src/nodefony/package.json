@@ -64,6 +64,10 @@
       "types": "./dist/client/types/src/client/syslog/index.d.ts",
       "default": "./dist/client/client/syslog/index.js"
     },
+    "./cbor": {
+      "types": "./dist/client/types/src/client/cbor/index.d.ts",
+      "default": "./dist/client/client/cbor/index.js"
+    },
     "./debugbar.js": "./dist/client/debugbar.standalone.js",
     "./login.js": "./dist/login/login.js",
     "./assets/nodefony-logo.svg": "./assets/nodefony-logo.svg",

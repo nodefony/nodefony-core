@@ -34,6 +34,12 @@
       "referenceKB": 1.7
     },
     {
+      "subpath": "nodefony/cbor",
+      "file": "src/nodefony/dist/client/client/cbor/index.js",
+      "budgetKB": 6,
+      "referenceKB": 4.6
+    },
+    {
       "subpath": "nodefony/login.js",
       "file": "src/nodefony/dist/login/login.js",
       "budgetKB": 6,
