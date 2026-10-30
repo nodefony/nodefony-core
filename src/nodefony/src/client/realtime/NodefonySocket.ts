@@ -62,6 +62,10 @@ import type {
   TypedRpcActionHandler,
   ContractParams,
   ContractResult,
+  IRealtimeContract,
+  ContractClientEmit,
+  ContractClientListen,
+  ContractClientActions,
 } from "../../realtime/RealtimeEventMap";
 import { unrefTimer } from "../../runtime/unrefTimer";
 import { BrowserWsTransport } from "./BrowserWsTransport";
@@ -92,6 +96,11 @@ export type {
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeSubscribed,
+  IRealtimeContract,
+  Jsonify,
+  ContractClientEmit,
+  ContractClientListen,
+  ContractClientActions,
 } from "../../realtime/RealtimeEventMap";
 import { PLATFORM_METHODS } from "../../realtime/platformChannels";
 import { isJsonRpcId } from "../../jsonrpc/index";
@@ -647,6 +656,43 @@ export class NodefonySocket<
       map.set(key, client);
     }
     return client;
+  }
+
+  /**
+   * Socket typée par le contrat de l'application — la porte du client.
+   *
+   * L'application déclare UN contrat ({@link IRealtimeContract}) ; cette porte en
+   * dérive les trois génériques dans la direction du client : il émet
+   * `clientToServer`, reçoit `serverToClient` lu par `Jsonify`, appelle
+   * `serverMethods` et implémente `clientMethods`. L'inversion émission/écoute
+   * n'est jamais écrite à la main. Rien de plus qu'un `new` typé : aucune
+   * allocation supplémentaire, et le fichier du contrat, fait de types seuls,
+   * n'ajoute aucun octet au paquet du navigateur.
+   *
+   * @typeParam C - le contrat de l'application.
+   * @param opts - options de connexion, comme pour le constructeur.
+   * @param transportFactory - fabrique de transport (tests), comme pour le constructeur.
+   * @returns une socket neuve, typée par le contrat.
+   *
+   * @example
+   * ```ts
+   * const socket = NodefonySocket.fromContract<ChatContract>({ url: "/chat" });
+   * socket.on("chat:room", (m) => m.text);
+   * ```
+   */
+  static fromContract<C extends IRealtimeContract>(
+    opts: NodefonySocketOptions = {},
+    transportFactory?: RealtimeTransportFactory,
+  ): NodefonySocket<
+    ContractClientEmit<C>,
+    ContractClientListen<C>,
+    ContractClientActions<C>
+  > {
+    return new NodefonySocket<
+      ContractClientEmit<C>,
+      ContractClientListen<C>,
+      ContractClientActions<C>
+    >(opts, transportFactory);
   }
 
   /**

@@ -57,6 +57,8 @@ import type {
   IRealtimeController,
   RealtimePublish,
   RealtimeInboundHandler,
+  RealtimeInboundHandlers,
+  RealtimeActionHandler,
 } from "../../interfaces/IRealtimeController";
 import type { IRealtimeHandshake } from "../../interfaces/IRealtimeHandshake";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
@@ -191,6 +193,7 @@ let warnedUnenforcedPolicies = false;
 export abstract class RealtimeController<
   Emit extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
+  Listen extends EventsMap = DefaultEventsMap,
 >
   extends Controller
   implements IRealtimeController
@@ -279,7 +282,7 @@ export abstract class RealtimeController<
   }
 
   /** Actions RPC exposées (requête→réponse). À surcharger ; défaut : aucune. */
-  protected realtimeActions(): Record<string, RpcActionHandler> {
+  protected realtimeActions(): Record<string, RealtimeActionHandler> {
     return {};
   }
 
@@ -304,8 +307,11 @@ export abstract class RealtimeController<
    * surcharger ; défaut : **aucun** (sûr — un client ne peut rien pousser au serveur
    * tant qu'un canal n'est pas explicitement déclaré ici). Seam des backings entrants
    * (SIP, bridge). Cf {@link RealtimeInboundHandler} (params NON FIABLES).
+   *
+   * Typée par `Listen` (ce que le client émet, 3ᵉ générique) : un canal hors de
+   * la carte ne compile pas, et chaque handler reçoit la forme de SON canal.
    */
-  protected realtimeInbound(): Record<string, RealtimeInboundHandler> {
+  protected realtimeInbound(): RealtimeInboundHandlers<Listen, Emit> {
     return {};
   }
 

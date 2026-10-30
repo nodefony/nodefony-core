@@ -1,3 +1,5 @@
+import type { EventNames, EventPayload, EventsMap } from "nodefony";
+
 /** Publie une charge sur un canal (notification serveur→client). */
 export type RealtimePublish = (channel: string, payload?: object) => void;
 
@@ -17,6 +19,45 @@ export type RealtimeInboundHandler = (
   params: unknown,
   reply: (payload: unknown) => void,
 ) => void;
+
+/**
+ * Handler d'entrée TYPÉ par le contrat : `params` est ce que le client a émis sur
+ * ce canal, lu par `Jsonify` ; `reply` pousse la charge que le serveur émet sur le
+ * même canal. Les paramètres restent NON FIABLES : le type n'est pas une validation.
+ *
+ * Écrit en signature de MÉTHODE pour que ses paramètres se comparent de façon
+ * bivariante : c'est ce qui permet à une table typée de remplacer la table
+ * permissive de la base, que le contrôleur lit en `unknown` à l'exécution.
+ */
+export type TypedRealtimeInboundHandler<P, R> = {
+  handle(params: P, reply: (payload: R) => void): void;
+}["handle"];
+
+/**
+ * Table des entrées client d'un contrôleur : un handler par canal de `Listen`,
+ * chacun facultatif — accepter une entrée reste un choix explicite, canal par
+ * canal (par défaut, un client ne peut rien pousser). `Listen` non déclaré :
+ * n'importe quel nom, `params: unknown`.
+ */
+export type RealtimeInboundHandlers<
+  Listen extends EventsMap,
+  Emit extends EventsMap,
+> = {
+  [K in EventNames<Listen>]?: TypedRealtimeInboundHandler<
+    EventPayload<Listen, K>,
+    K extends keyof Emit ? Emit[K] : unknown
+  >;
+};
+
+/**
+ * Handler d'action RPC tel que la table de `realtimeActions()` le range. Signature
+ * de MÉTHODE (paramètre comparé de façon bivariante) : une table typée par le
+ * contrat, dont chaque handler attend sa forme, remplace ainsi la table
+ * permissive de la base.
+ */
+export type RealtimeActionHandler = {
+  handle(params: unknown): unknown;
+}["handle"];
 
 /**
  * IRealtimeController — contrat d'un contrôleur temps réel SERVEUR (endpoint WS

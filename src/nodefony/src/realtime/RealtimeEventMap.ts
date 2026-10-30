@@ -183,6 +183,191 @@ export type TypedRpcActionHandler<
   params: ActionParams<M, K>,
 ) => ActionResult<M, K> | Promise<ActionResult<M, K>>;
 
+/** Valeurs que JSON transporte telles quelles. */
+type JsonPrimitive = string | number | boolean | null;
+
+/** Ce que `JSON.stringify` retire d'un objet, ou rend `null` dans un tableau. */
+type JsonDropped = undefined | symbol | ((...args: never[]) => unknown);
+
+/** Décrément de profondeur de {@link Jsonify} — `Prev[0]` vaut `never`, fin de la descente. */
+type JsonifyDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+/** Élément de tableau : ce que JSON retire d'un objet devient `null` dans un tableau. */
+type JsonifyItem<T, D extends number> = T extends JsonDropped
+  ? null
+  : Jsonify<T, D>;
+
+/** Objet : les membres que JSON retire disparaissent, les autres sont convertis. */
+type JsonifyObject<T, D extends number> = {
+  [
+    K in keyof T as K extends symbol
+      ? never
+      : [Exclude<T[K], JsonDropped>] extends [never]
+        ? never
+        : K
+  ]: Jsonify<T[K], D>;
+};
+
+/**
+ * Le type qu'un pair REÇOIT quand l'autre a envoyé un `T` : ce que JSON en fait.
+ *
+ * Ce que j'envoie est ce que j'ai déclaré ; ce que je reçois est ce que JSON en
+ * rend, quel que soit le codec (JSON est la référence de tous les codecs,
+ * ADR-0022 §2). `serverToClient: { meeting: { start: Date } }` se lit donc
+ * `{ start: string }` au `on()` du client — l'éditeur souligne `m.start.getTime()`
+ * au lieu de le laisser planter au navigateur.
+ *
+ * - `toJSON()` est suivi (`Date` → `string`) ;
+ * - un membre fonction, symbole ou toujours `undefined` disparaît d'un objet, et
+ *   devient `null` dans un tableau ;
+ * - `bigint` n'a pas de forme JSON (`JSON.stringify` lève) : `never` ;
+ * - `Uint8Array` reste `Uint8Array` : les octets voyagent dans une trame binaire,
+ *   jamais dans le JSON (ADR-0022 §2, S8) ;
+ * - `unknown` reste `unknown` : le défaut permissif d'une carte non déclarée.
+ *
+ * Profondeur bornée à dix niveaux : au-delà, `unknown`, que l'appelant doit
+ * réduire lui-même. Un type récursif sans borne ralentit le compilateur sur les
+ * charges profondes. **Le type n'est pas une validation** : une entrée reste NON
+ * FIABLE à l'exécution. Coût d'exécution nul (type effacé).
+ *
+ * @typeParam T - le type déclaré par l'émetteur.
+ * @typeParam D - profondeur restante (interne).
+ */
+export type Jsonify<T, D extends number = 10> = unknown extends T
+  ? T
+  : [D] extends [never]
+    ? unknown
+    : T extends Uint8Array
+      ? T
+      : T extends { toJSON(...args: never[]): infer R }
+        ? Jsonify<R, JsonifyDepth[D]>
+        : T extends JsonPrimitive | undefined | void
+          ? T
+          : T extends bigint | symbol | ((...args: never[]) => unknown)
+            ? never
+            : T extends readonly unknown[]
+              ? { [I in keyof T]: JsonifyItem<T[I], JsonifyDepth[D]> }
+              : T extends object
+                ? JsonifyObject<T, JsonifyDepth[D]>
+                : never;
+
+/**
+ * Le moule du contrat temps réel d'une application — déclaré UNE fois, dans un
+ * fichier partagé par ses deux côtés, et lu par chacun dans SA direction.
+ *
+ * Le framework ne déclare aucun contrat métier : il livre ce moule. Les quatre
+ * clés sont facultatives (un tableau de bord ne déclare que `serverToClient`) ; une
+ * direction absente reste permissive, comme un pair non paramétré.
+ *
+ * - `serverToClient` : événements poussés par le serveur. Type aussi le flux SSE
+ *   d'un canal et l'émission d'un webhook (`type` = le canal) : une application
+ *   écrit un contrat, ses trois livraisons le lisent.
+ * - `clientToServer` : événements envoyés par le client (entrées d'un canal).
+ * - `serverMethods` : méthodes du serveur — le client appelle, le serveur répond.
+ * - `clientMethods` : méthodes du client — le serveur appelle, le client répond.
+ *
+ * Le fichier du contrat ne contient QUE des types : 0 octet compilé, et le
+ * navigateur qui l'importe ne tire aucun code serveur. Chaque côté entre par sa
+ * porte : `NodefonySocket.fromContract<C>()` (client) et
+ * `implementRealtimeContract<C>()` (`@nodefony/realtime`). Le type n'est pas une
+ * validation : la garde de canal s'applique à toutes les livraisons.
+ *
+ * @example
+ * ```ts
+ * // shared/chat.ts
+ * export interface ChatContract extends IRealtimeContract {
+ *   serverToClient: { "chat:room": { from: string; text: string } };
+ *   clientToServer: { "chat:typing": { on: boolean } };
+ *   serverMethods: { "chat:send": { in: { text: string }; out: { id: string } } };
+ * }
+ * ```
+ */
+export interface IRealtimeContract {
+  /** Événements poussés par le serveur (socket, flux SSE, webhook). */
+  serverToClient?: EventsMap;
+  /** Événements envoyés par le client. */
+  clientToServer?: EventsMap;
+  /** Méthodes du serveur : le client appelle, le serveur répond. */
+  serverMethods?: ActionsMap;
+  /** Méthodes du client : le serveur appelle, le client répond. */
+  clientMethods?: ActionsMap;
+}
+
+/** Carte d'une direction du contrat ; direction absente → `M` déclaré par le moule (permissif). */
+type ContractSide<C, K extends keyof IRealtimeContract, M> = K extends keyof C
+  ? NonNullable<C[K]> extends M
+    ? NonNullable<C[K]>
+    : M
+  : M;
+
+/** Carte d'événements telle que le pair qui la REÇOIT la lit. */
+type ReceivedEvents<M> = { [K in keyof M]: Jsonify<M[K]> };
+
+/**
+ * Carte de méthodes vue d'un côté : `Jsonify` sur le membre REÇU (`in` pour qui
+ * implémente, `out` pour qui appelle), le type déclaré sur le membre envoyé.
+ */
+type MethodsSeenBy<M, Received extends "in" | "out"> = {
+  [K in keyof M]: {
+    [P in keyof M[K]]: P extends Received ? Jsonify<M[K][P]> : M[K][P];
+  };
+};
+
+/** Ce que le serveur ÉMET : `serverToClient`, tel que déclaré. */
+export type ContractServerEmit<C extends IRealtimeContract> = ContractSide<
+  C,
+  "serverToClient",
+  EventsMap
+>;
+
+/** Ce que le serveur REÇOIT : `clientToServer`, lu par {@link Jsonify}. */
+export type ContractServerListen<C extends IRealtimeContract> = ReceivedEvents<
+  ContractSide<C, "clientToServer", EventsMap>
+>;
+
+/**
+ * Les méthodes que le serveur APPELLE (`requestClient`) : `clientMethods`, le
+ * résultat lu par {@link Jsonify}.
+ */
+export type ContractServerActions<C extends IRealtimeContract> = MethodsSeenBy<
+  ContractSide<C, "clientMethods", ActionsMap>,
+  "out"
+>;
+
+/**
+ * Les méthodes que le serveur IMPLÉMENTE : `serverMethods`, les paramètres lus par
+ * {@link Jsonify}, le résultat tel que déclaré.
+ */
+export type ContractServerMethods<C extends IRealtimeContract> = MethodsSeenBy<
+  ContractSide<C, "serverMethods", ActionsMap>,
+  "in"
+>;
+
+/** Ce que le client ÉMET : `clientToServer`, tel que déclaré. */
+export type ContractClientEmit<C extends IRealtimeContract> = ContractSide<
+  C,
+  "clientToServer",
+  EventsMap
+>;
+
+/** Ce que le client REÇOIT : `serverToClient`, lu par {@link Jsonify}. */
+export type ContractClientListen<C extends IRealtimeContract> = ReceivedEvents<
+  ContractSide<C, "serverToClient", EventsMap>
+>;
+
+/**
+ * Les méthodes du client vues par `NodefonySocket` : `serverMethods` qu'il appelle
+ * (`request`, résultat lu par {@link Jsonify}) et `clientMethods` qu'il implémente
+ * (`register`, paramètres lus par {@link Jsonify}). La socket range les deux sous
+ * un seul générique `Actions` : une méthode déclarée des deux côtés sous le même
+ * nom n'a pas de sens, le contrat ne la sépare pas.
+ */
+export type ContractClientActions<C extends IRealtimeContract> = MethodsSeenBy<
+  ContractSide<C, "serverMethods", ActionsMap>,
+  "out"
+> &
+  MethodsSeenBy<ContractSide<C, "clientMethods", ActionsMap>, "in">;
+
 /**
  * Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation
  * si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide).

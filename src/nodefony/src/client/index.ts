@@ -44,6 +44,13 @@ export type {
   // Charge utile de `onReconnect` / `observeReconnect` : l'écran qui rend un
   // compte à rebours doit pouvoir NOMMER ce qu'il reçoit.
   RealtimeReconnectInfo,
+  // Le moule du contrat et ce que le client en lit : le fichier partagé d'une
+  // application l'importe d'ici sans tirer le barrel node.
+  IRealtimeContract,
+  Jsonify,
+  ContractClientEmit,
+  ContractClientListen,
+  ContractClientActions,
 } from "./realtime/NodefonySocket";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 // Flux d'événements serveur (SSE) — client et analyseur UNIQUE du format.
