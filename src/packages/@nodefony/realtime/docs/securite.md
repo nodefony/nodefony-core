@@ -623,7 +623,10 @@ ou changée → `-32000` avec `status: 401`, et le client bascule sur un `fetch`
 courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
-`isValid` (`RealtimeController.ts#RealtimeController.onHandshake`) — anonymes et JWT n'y entrent jamais, coût nul.
+`isValid` (`RealtimeController.ts#RealtimeController.onHandshake`). Une connexion anonyme n'y entre jamais,
+coût nul. Toute connexion authentifiée par le pare-feu y entre : sa session est relue, ou, pour un
+jeton porteur (`jwt`, `external-jwt`, `apikey`), son expiration (`exp`), la révocation de son `jti` et
+la révocation en masse de son identité (`invalidBefore`).
 `RealtimeHub.registerRevocable()` (`RealtimeHub.ts#RealtimeHub.registerRevocable`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts#channelFamily`), 30 s, alignée sur le heartbeat WS.
@@ -658,13 +661,17 @@ Aucune lecture de base par tick ni par frame : le coût n'existe qu'à la mise �
 > 1. **Fenêtre de 30 s.** Entre le logout et le tick suivant, les flux continuent. Pour une coupure
 >    immédiate, fermer la socket explicitement côté serveur. (Un changement de **rôles**, lui, coupe
 >    immédiatement — ci-dessus.)
-> 2. **Best-effort si la session est illisible au handshake.** Si l'id ou le store ne sont pas
->    accessibles, `buildSessionRevalidator()` renvoie `null` ; `UserRealtimeToken.isValid()`
->    (`UserRealtimeToken.ts#UserRealtimeToken.isValid`) répond alors toujours `true`. La connexion **est** inscrite au
->    registre (le token expose bien `isValid`) mais ne sera **jamais** révoquée. Choix assumé pour
->    éviter les faux refus — à connaître, car cela ne se voit pas.
-> 3. **Les identités sans `isValid` ne sont pas révocables du tout** : anonyme, JWT, clé API. Pour
->    un JWT, la révocation reste portée par son `exp` et par la reconnexion.
+> 2. **Une identité qu'on ne pourra pas re-valider ferme la socket.** Si la session est illisible au
+>    handshake (ni id ni store exploitable), `buildSessionRevalidator()`
+>    (`FirewallRealtimeAuthenticator.ts#buildSessionRevalidator`) rend un revalidateur qui répond
+>    toujours `false` : la socket est fermée en 4001 au premier tick, et un `WARNING` le dit. Même
+>    règle pour un jeton porteur qui n'a ni `exp`, ni de quoi interroger le store de révocation
+>    (`jti`, `iat`). Un refus visible plutôt qu'une connexion que rien ne pourrait plus couper.
+> 3. **Un jeton porteur n'est jugé sur sa signature qu'à l'ouverture.** Le tick relit `exp`, `jti` et
+>    `invalidBefore`, jamais la clé ni l'émetteur : une clé retirée du jeu publié par l'émetteur laisse
+>    la socket vivre jusqu'à `exp`, et un émetteur retiré de `resourceServer.issuers` ne compte qu'à
+>    la connexion suivante — la liste ne change qu'au redémarrage, qui ferme les sockets. Une
+>    connexion anonyme, elle, n'est pas révocable du tout.
 
 ## 🚧 Plafonds anti-abus — borner une connexion
 
