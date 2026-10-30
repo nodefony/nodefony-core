@@ -1,7 +1,7 @@
 ---
 name: nodefony-decision-making
 metadata:
-  version: 3.3.0
+  version: 3.4.0
 description: >
   Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique,
   sécurité, performance, version, documentation, tickets, nom public. Pose le socle commun (cadrer,

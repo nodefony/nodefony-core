@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-decision-making/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.3.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.4.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,7 +26,7 @@ source: ".claude/skills/nodefony-decision-making/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `3.3.0` |
+| Version | `3.4.0` |
 | Famille | Autres |
 | Corps | 130 lignes |
 | Coût d'activation | ~2 528 tokens (le corps est chargé à l'invocation) |
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/methode-poc.md` | Méthode — l'essai jetable | 45 |
 | `references/methode-pre-mortem.md` | Méthode — pré-mortem | 45 |
 | `references/methode-scenarios.md` | Méthode — scénarios : écrire les cas AVANT les options, puis la matrice | 96 |
-| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 336 |
+| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 358 |
 
 
 ## Conformité au standard Agent Skills
