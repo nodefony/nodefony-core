@@ -477,7 +477,7 @@ agent invente : faute d'une marche à suivre, il écrit un CRUD à la main, un
 service à méthodes `static` que le conteneur ne voit pas, un contrôle de droits
 dans le corps de l'action.
 
-Le paquet livre donc onze **skills** au format [Agent Skills](https://agentskills.io) :
+Le paquet livre donc douze **skills** au format [Agent Skills](https://agentskills.io) :
 un qui porte la conduite commune de toute tâche, un qui part du symptôme d'une panne,
 et un par geste où l'invention coûte cher :
 
