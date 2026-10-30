@@ -619,3 +619,42 @@ describe("RemoteJwtVerifier — adresse de découverte déclarée (`discoveryUrl
     );
   });
 });
+
+// ADR-0021, « l'émetteur retiré est jugé à l'ouverture » : la décision ne tient
+// que parce que la liste ne change JAMAIS dans un process vivant — la retirer
+// exige un nouveau vérificateur, donc un redémarrage, qui ferme les sockets.
+// Une API qui ajouterait ou retirerait un émetteur à chaud rouvrirait la
+// question : une socket ouverte par jeton n'est pas revalidée sur l'émetteur.
+describe("RemoteJwtVerifier — la liste des émetteurs est figée à la construction", () => {
+  it("modifier la liste fournie après coup ne change aucun verdict", async () => {
+    const issuer = await fakeIssuer();
+    const net = fakeNet({
+      [OAUTH_METADATA_URL]: metadata,
+      [JWKS_URL]: issuer.jwks,
+    });
+    const issuers = [{ issuer: ISSUER, algorithms: ["ES256"] }];
+    const verifier = new RemoteJwtVerifier({ issuers, fetch: net.fetch });
+    const token = await issuer.sign({ sub: "agent-7" });
+
+    issuers.length = 0;
+
+    assert.equal(verifier.size, 1);
+    assert.ok(await verifier.verify(token, RESOURCE));
+    // Seul un NOUVEAU vérificateur — un redémarrage — retire l'émetteur.
+    const restarted = new RemoteJwtVerifier({ issuers, fetch: net.fetch });
+    assert.equal(await restarted.verify(token, RESOURCE), null);
+  });
+
+  it("n'expose aucune méthode qui modifierait la liste à chaud", () => {
+    const surface = Object.getOwnPropertyNames(RemoteJwtVerifier.prototype)
+      .filter((name) => name !== "constructor")
+      .sort();
+    assert.deepEqual(
+      surface,
+      ["size", "verify", "verifyClaims"],
+      "une méthode neuve sur RemoteJwtVerifier : si elle change la liste des " +
+        "émetteurs à chaud, elle doit fermer les sockets de l'émetteur retiré " +
+        "(ADR-0021, « l'émetteur retiré est jugé à l'ouverture »)",
+    );
+  });
+});

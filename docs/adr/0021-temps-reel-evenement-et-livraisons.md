@@ -439,8 +439,29 @@ verdict retenu par `(abonnement, canal)` ne borne pas le coût de S-rt-59 quand 
 son canal — à mesurer avant de choisir ; le stockage des scopes avec l'abonnement ; un quota par
 abonnement dans la file des livraisons.
 
-**Reste à trancher** : l'émetteur retiré de la liste acceptée (une socket ouverte par jeton n'y
-est pas revalidée) ; le changement d'identité entre exemplaires (S-rt-61) ; le nom du compteur des
+**Décision (tranchée par l'agent sur délégation de l'auteur le 2026-10-30) :** un émetteur retiré
+de la liste acceptée (`resourceServer.issuers`) est **jugé à l'ouverture**. La liste se fige à la
+construction du vérificateur (`src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts#RemoteJwtVerifier`)
+et aucune voie ne la change dans un process vivant : la retirer, c'est changer la configuration et
+redémarrer — et le redémarrage ferme les sockets, dont la reconnexion présente le jeton à la
+nouvelle liste. Le revalidateur d'une socket ouverte par jeton
+(`src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts#FirewallRealtimeAuthenticator`)
+ne relit donc pas l'émetteur, et « fermer au tick » est écarté : il comparerait à une liste qui ne
+bouge jamais. La fenêtre d'un déploiement progressif (un ancien exemplaire accepte encore
+l'émetteur) n'est pas propre à la socket : HTTP la partage.
+
+- **Rupture si différé : non**, et c'est ce qui permet de l'écrire maintenant. Un rechargement à
+  chaud de la liste, s'il arrive, est une capacité neuve : il devra fermer lui-même les sockets de
+  l'émetteur retiré, sans rien changer à ce qui est écrit ici.
+- **Gardé par** `src/packages/@nodefony/security/tests/unit/remoteJwtVerifier.test.ts` : modifier
+  la liste fournie après la construction ne change aucun verdict, et la surface du vérificateur
+  n'offre aucune méthode qui la modifierait — une méthode neuve fait tomber le test, qui renvoie
+  ici.
+
+**Reste à trancher** : une clé de signature retirée du jeu publié par l'émetteur (`jwks_uri`)
+pendant qu'une socket ouverte avec elle vit — la requête HTTP est refusée au rafraîchissement du
+jeu, la socket vit jusqu'à `exp`, car sa signature n'est pas revérifiée ; le changement d'identité
+entre exemplaires (S-rt-61) ; le nom du compteur des
 refus — ni `droppedTotal` (« jeté faute de place », S9) ni `failedTotal` (« refusé par la
 destination ») : un refus n'est pas une perte.
 
