@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T16:48:39.284Z",
+  "generatedAt": "2026-10-30T17:15:20.902Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 210,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 24,
+      "open": 25,
       "title": "10.0.0-beta"
     },
     {
@@ -5512,11 +5512,27 @@
       ]
     },
     {
+      "number": 706,
+      "title": "feat(realtime)!: fermer en 4006 la socket dont le jeton porteur expire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/706",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.0314,
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 703,
       "title": "feat(realtime): borner la socket, envois en trop jetés et trames comptées",
       "url": "https://github.com/nodefony/nodefony-core/issues/703",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -5551,7 +5567,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 1,
+      "jours": 3,
       "ordre": 6.034,
       "debut": "2026-11-05",
       "cible": "2026-11-05",
