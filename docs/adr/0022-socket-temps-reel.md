@@ -548,6 +548,39 @@ boolean | Promise<boolean>` — l'identité d'admission commune aux trois livrai
   - **Critère de validation** : un banc de bout en bout (vrai serveur, vrais clients WebSocket,
     flux de déplacements sur un canal à rôles), verrou par trame contre verdict retenu, en paires
     alternées. Protocole sur #622.
+- **Décision 1 ter (validée par l'auteur le 2026-10-30) : tout se calcule à l'ouverture, jamais
+  sur la route de la trame.** Généralise la décision 1 bis : le verdict retenu n'est plus une
+  optimisation, c'est la règle. Trois moments, et trois seulement :
+  1. **À l'ouverture (poignée de main), une fois** — tout ce qui dépend de l'identité : identité
+     gelée, rôles DÉPLIÉS par la hiérarchie en un ensemble figé, scopes, émetteur. À la
+     reconnexion, les canaux à reprendre sont connus dès l'accueil : leur admission se fait là,
+     en lot, avant toute trame de données.
+  2. **À l'entrée sur un canal, une fois par canal et par connexion** — le nom d'un canal n'arrive
+     qu'avec son `subscribe` (trame de contrôle, rare) : politique complète puis `allow`
+     (asynchrone), évalués **HORS du verrou des trames**, sans bloquer le pipeline de la connexion ;
+     le verdict est posé sur la connexion.
+  3. **Sur la trame de données, aucun calcul** — un canal sans politique ne coûte rien, un canal à
+     politique coûte une lecture (« cette connexion est-elle admise ? ») : ni boucle sur des
+     règles, ni balayage de chaîne, ni copie de tableau, ni parcours de hiérarchie.
+  - **Constaté, contraire à la règle** (à corriger dans #622) : toute trame dont `method` est une
+    chaîne — `ping`, `unsubscribe`, une action — entre dans
+    `src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts#authorizeChannel`,
+    qui boucle sur les règles système et balaye deux fois le nom (`:health`, `:stats`) ; sur un
+    canal à rôles, `satisfies` recopie les rôles
+    (`src/packages/@nodefony/security/nodefony/src/realtime/UserRealtimeToken.ts#UserRealtimeToken.getRoles`)
+    et parcourt la hiérarchie à CHAQUE trame. Mesuré (décision 1 bis) : +24 % à +35 % par trame.
+  - **Verrou de procédure — le verrou des trames est la pièce la plus sensible du temps réel.**
+    Toute modification de `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#FrameAuthorizer`,
+    de `frameAuthorizer.ts#buildFrameAuthorizer`, de `RealtimeHub.ts#RealtimeHub.runAuthorizer`
+    ou du branchement `beforeDispatch` exige, AVANT le commit : (1) la validation explicite de
+    l'auteur sur le diff montré avant de coder ; (2) une campagne red-team sur le verrou (skill
+    `nodefony-security-review`, menace d'abord) ; (3) le micro-banc
+    `.claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs` avant et après,
+    médiane de 7 ; (4) le gate mémoire. Jamais d'`await` dans le verrou ; `allow` ne s'y insère
+    jamais.
+  - **Gardé par** (#622) : un test prouve qu'une trame `ping` ne consulte ni les règles système ni
+    le résolveur de politiques ; un test prouve qu'une trame sur un canal admis ne lit ni
+    `getRoles()` ni la hiérarchie ; la matrice de la décision 1 bis rend les mêmes verdicts.
 - **Abonnés identifiables** (#623) : le registre d'un canal associe chaque sink à sa connexion,
   alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur :
   ce qui désigne une **connexion** (lister, abonner d'office, éjecter une connexion) est **local
