@@ -68,6 +68,8 @@ export class RevocationWatch<T> {
   readonly #policy: IRevocationPolicy<T>;
   #entries: Set<T> | null = null;
   #timer: ReturnType<typeof setInterval> | null = null;
+  /** Passe en cours — `null` entre deux passes. Empêche deux passes de se chevaucher. */
+  #pass: Promise<void> | null = null;
 
   constructor(policy: IRevocationPolicy<T>) {
     this.#policy = policy;
@@ -109,9 +111,28 @@ export class RevocationWatch<T> {
    * AVANT les attentes — la fermeture d'une connexion la désinscrit — et une
    * entrée révoquée est retirée AVANT sa fermeture, pour qu'un tick suivant ne
    * la referme pas. Publique pour qu'un test la déclenche sans faux minuteur.
+   *
+   * **Jamais deux passes à la fois.** Les entrées sont relues une par une : à
+   * 100 000 connexions par session et 0,5 ms la relecture, une passe dure 50 s,
+   * plus que la période. Un tick qui tombe pendant une passe la REJOINT au lieu
+   * d'en lancer une seconde — sans quoi les passes s'empileraient et chaque
+   * identité serait relue plusieurs fois, au moment précis où le stockage est
+   * déjà lent. Le prix assumé : la fenêtre de révocation s'allonge avec le parc,
+   * au lieu que la charge sur le stockage s'y multiplie.
    */
-  async revalidate(): Promise<void> {
-    if (this.#entries === null || this.#entries.size === 0) return;
+  revalidate(): Promise<void> {
+    if (this.#pass !== null) return this.#pass;
+    if (this.#entries === null || this.#entries.size === 0)
+      return Promise.resolve();
+    const pass = this.#runPass().finally(() => {
+      this.#pass = null;
+    });
+    this.#pass = pass;
+    return pass;
+  }
+
+  async #runPass(): Promise<void> {
+    if (this.#entries === null) return;
     // Instantané : fermer une connexion la désinscrit pendant la passe.
     for (const entry of Array.from(this.#entries)) {
       let valid: boolean | undefined;

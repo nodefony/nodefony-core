@@ -89,6 +89,34 @@ describe("RevocationWatch", () => {
     expect(vi.getTimerCount(), "registre vide → minuteur arrêté").to.equal(0);
   });
 
+  it("🔴 une passe plus longue que la période ne se chevauche jamais avec la suivante", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    let release: (valid: boolean) => void = () => {};
+    const w = new RevocationWatch<string>({
+      isValid: () => {
+        calls++;
+        return new Promise<boolean>((resolve) => {
+          release = resolve;
+        });
+      },
+      revoke: () => {},
+    });
+    w.register("lente");
+    // Trois périodes s'écoulent pendant que la relecture de la première passe attend.
+    await vi.advanceTimersByTimeAsync(REVOCATION_REVALIDATE_MS * 3);
+    expect(calls, "une seule relecture en vol").to.equal(1);
+    const manual = w.revalidate();
+    expect(calls, "un appel direct rejoint la passe en cours").to.equal(1);
+    release(true);
+    await manual;
+    await vi.advanceTimersByTimeAsync(REVOCATION_REVALIDATE_MS);
+    expect(calls, "la passe finie, le tick suivant relit").to.equal(2);
+    release(true);
+    await vi.advanceTimersByTimeAsync(0);
+    w.unregister("lente");
+  });
+
   it("une revoke qui lève n'interrompt pas la passe", async () => {
     const closed: string[] = [];
     const w = new RevocationWatch<string>({
