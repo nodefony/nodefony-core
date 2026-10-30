@@ -126,6 +126,41 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : S1, S8, ADR-0022 §3, §5
 - **A fait changer** : aucune
 
+### S-rt-54 — Un abonné webhook qui quitte son organisation, six mois après
+
+- **Situation** : l'utilisateur 42 crée par API un abonnement `commande:*` de son organisation
+  (W6), puis la quitte ; les événements continuent de partir. Une socket meurt avec son jeton,
+  un abonnement webhook ne garde que `createdBy`, une chaîne.
+- **Catégorie** : usages hétérogènes (droit qui survit à la personne)
+- **Tient si** : la règle d'admission dit QUAND elle est évaluée pour chaque livraison (au
+  `subscribe`, à la requête, à la création, à l'émission), et l'identité qu'elle reçoit peut se
+  STOCKER et se reconstruire — une donnée, pas un objet à méthodes.
+- **Décisions jugées** : W6, ADR-0022 §6
+- **A fait changer** : aucune
+
+### S-rt-55 — Un onglet SSE éjecté d'un canal, qui se reconnecte toutes les 3 s
+
+- **Situation** : un modérateur éjecte l'utilisateur 42 de `chat:general` ; 42 lit ce canal par
+  un `EventSource`. Le client socket reçoit `realtime:closed` et ne rejoue pas ; un
+  `EventSource` se reconnecte après toute fermeture, seul un statut autre que 200 l'arrête.
+- **Catégorie** : usages hétérogènes (livraison navigateur sans socket)
+- **Tient si** : l'éjection atteint un flux SSE de canal (le hub le connaît), et un refus
+  d'admission en SSE est un statut HTTP rendu AVANT le flux, jamais un message dans le flux.
+- **Décisions jugées** : ADR-0022 §6, S4
+- **A fait changer** : aucune
+
+### S-rt-56 — Une mesure dont UN champ est binaire
+
+- **Situation** : une sonde publie `{ machineId, sample: Uint8Array }`. Les gardes de la socket,
+  du bus et du SSE ne testent que le premier niveau de la charge ; `JSON.stringify` rend le
+  champ imbriqué `{"0":1,…}` sans erreur, sur toutes les livraisons.
+- **Catégorie** : usages hétérogènes (industrie)
+- **Tient si** : la règle des octets dit « la charge ENTIÈRE est des octets, ou il n'y en a
+  pas », et nomme le sort d'un champ imbriqué — déformé et documenté, ou refusé par un parcours
+  dont le coût est mesuré.
+- **Décisions jugées** : S8
+- **A fait changer** : aucune
+
 ## Charge
 
 ### S-rt-9 — 60 coups/s × 1 000 joueurs sur un canal à rôles
@@ -336,6 +371,17 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : W2, S3-cond, S6
 - **A fait changer** : aucune
 
+### S-rt-57 — Un événement SANS charge part en webhook, vers un schéma strict
+
+- **Situation** : `emit("build:done")` sans charge (S-rt-7). `JSON.stringify({ data: undefined })`
+  RETIRE la clé : le corps devient `{ id, timestamp, type }`, et un récepteur qui exige `data`
+  (S-rt-22) le refuse. `data: null` serait le scalaire que S1 refuse.
+- **Catégorie** : versions qui cohabitent
+- **Tient si** : la règle des charges qui ne sont pas un objet (octets, absente, scalaire) est
+  écrite pour CHAQUE livraison, et le type du corps le dit.
+- **Décisions jugées** : W1, S1, S8
+- **A fait changer** : aucune
+
 ## Attaquant
 
 ### S-rt-24 — Un vieil ordre « fermer » capté puis republié
@@ -452,6 +498,17 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Tient si** : un type du corps est exporté, ou la page des webhooks en donne la forme exacte
   et ses exemples la respectent tous.
 - **Décisions jugées** : W1
+- **A fait changer** : aucune
+
+### S-rt-58 — Un centre de sécurité abonné `*` type le corps par le contrat de l'application
+
+- **Situation** : le contrat typé de l'application décrit ses canaux ; l'abonné `*` reçoit aussi
+  `login.success` et les autres noms de l'audit, qui n'appartiennent pas à ce contrat. Et un
+  `Uint8Array` du contrat n'arrive jamais tel quel dans un corps JSON.
+- **Catégorie** : extension tierce
+- **Tient si** : le type du corps reçu couvre le contrat de l'application ET les événements du
+  framework, et dit ce que devient un champ octets sur CETTE livraison.
+- **Décisions jugées** : W1, W3, ADR-0022 §4
 - **A fait changer** : aucune
 
 ## Agent IA consommateur

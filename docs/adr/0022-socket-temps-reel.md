@@ -475,8 +475,9 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :**
 
 - **Décision 1 (validée par l'auteur le 2026-10-29, À REVALIDER avec lui au code de #622) :
-  admission demandée une fois, réponse retenue.** `allow?: (channel, token) => boolean |
-Promise<boolean>`, membre optionnel de
+  admission demandée une fois, réponse retenue.** `allow?: (channel, who: ISubscriberIdentity) =>
+boolean | Promise<boolean>` — l'identité d'admission commune aux trois livraisons, une donnée
+  plate et non le jeton (ADR-0021 §S10) —, membre optionnel de
   `src/packages/@nodefony/realtime/nodefony/interfaces/IChannelPolicy.ts#IChannelPolicy`, évalué
   APRÈS `authenticated` / `roles` / `scopes`.
   - Appelé **une seule fois, au `subscribe`** : un salon privé ou une invitation par courriel

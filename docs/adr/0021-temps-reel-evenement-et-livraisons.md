@@ -16,7 +16,8 @@ tags: [realtime, websocket, sse, webhooks, backplane, design, compatibility]
 Accepté (2026-10-28), décision par décision (S1 à S9) avec l’auteur. Rouvert par l'auteur le
 2026-10-29, après une table d'experts (catalogue `scenarios/temps-reel.md`), pour trois
 amendements : la charge est structurée (S1), un sceau refusé se compte et le rejeu d'un ordre
-se pare par sa cible (S6), l'unité des compteurs (S9). Socle commun des décisions temps réel :
+se pare par sa cible (S6), l'unité des compteurs (S9). Complété le 2026-10-30 par les règles
+communes aux trois livraisons (#702) : l'identité d'admission (S10). Socle commun des décisions temps réel :
 [ADR-0022](0022-socket-temps-reel.md) (la socket, #627) et
 [ADR-0023](0023-webhooks-evenements-et-abonnements.md) (les webhooks) en dépendent ; l'ADR de
 gRPC naîtra avec l'Epic #694. Instruit par un relevé des quatre briques existantes et par le
@@ -315,6 +316,83 @@ Sans unité écrite, la console comparerait sous un même nom des grandeurs diff
 l'ancien nom se déprécie selon la politique de compatibilité, avec retrait à la majeure suivante.
 `failedTotal` n'a que deux usages connus (backplane, webhooks), le SSE serait le troisième (un
 envoi vers un client parti) ; facultatif, il ne coûte rien à qui ne s'en sert pas.
+
+### S10. Une seule identité d'admission, une donnée plate produite par le framework
+
+**Décision (validée par l'auteur le 2026-10-30, après trois tours de la table d'experts de
+#702) :** le prédicat d'admission `allow` (#622) reçoit la MÊME identité quelle que soit la
+livraison — socket, flux SSE, abonnement webhook. C'est une **donnée plate** définie au cœur,
+jamais l'objet jeton `IRealtimeToken`, et elle se présente en deux types :
+
+```ts
+// Vue PUBLIQUE — envoyée au client dans `realtime:welcome`, identique des deux côtés
+export interface RealtimeIdentity {
+  type: string;
+  authenticated: boolean;
+  id: string | null; // stable et OPAQUE : la clé des canaux (`user:${id}`) ; null si anonyme
+  userIdentifier: string; // login : affichage et audit, jamais une clé de canal
+  roles: readonly string[];
+  scopes: readonly string[];
+}
+
+// Ce que reçoit `allow` — SERVEUR seulement, jamais réémis au client
+export interface ISubscriberIdentity extends RealtimeIdentity {
+  readonly issuer: string | null; // `iss` du jeton vérifié ; null = aucun jeton (session, anonyme)
+  readonly account: boolean; // `id` désigne un compte local que l'on peut relire
+}
+
+allow?: (channel: string, who: ISubscriberIdentity) => boolean | Promise<boolean>;
+```
+
+1. **Deux types.** `id` part au client (il connaît ainsi son canal sans taper une route) ;
+   `issuer` et `account` restent au serveur.
+2. **Pas de revendications de jeton dans l'identité.** Seuls les JWT en portent ; une session ou
+   une clé API n'en a aucune, et une règle qui les lirait rendrait trois verdicts pour la même
+   personne selon son mode de connexion. Tout champ de l'identité est soit enregistré avec
+   l'abonnement, soit relu par `id` — l'appartenance à une organisation se résout par `id`,
+   auprès des services de l'application (`allow` peut être asynchrone).
+3. **`id` n'est jamais le login.** Un e-mail change, un login libéré se réattribue : le nouveau
+   compte hériterait des canaux et des abonnements de l'ancien. `id` est l'identifiant du compte
+   local, ou `<émetteur>#<sujet>` pour un appelant `ephemeral` sans compte (`account: false`).
+4. **Produite par le framework, jamais construite par l'application** (TSDoc `@remarks` sur les
+   deux types) : `IRealtimeToken` gagne une méthode facultative `getIdentity?()`, remplie par
+   l'authentificateur à la poignée de main ; le flux SSE la tire de l'utilisateur de la requête ;
+   le webhook la reconstruit par `id` à l'émission.
+5. **Protections que le framework applique seul**, chacune gardée par un test :
+   - **invariant** : anonyme ⇔ `authenticated=false ∧ id=null ∧ issuer=null` — l'anonyme du pare-feu
+     (`id = "anonymous"`) est traduit en `null` ;
+   - un canal qui déclare `allow` **refuse l'anonyme d'office** ; il ne l'admet que sur option
+     explicite (`anonymous: true`) — `user:${who.id}` ne peut donc pas valoir `"user:null"` ;
+   - un authentificateur sans `getIdentity` n'entre sur **aucun** canal à `allow` : refus
+     `forbidden` et une ligne de journal — jamais un `id` déduit de `getUserIdentifier()` ;
+   - seul `=== true` admet ; une exception, une promesse rejetée ou un délai dépassé valent refus ;
+   - l'identité est gelée une fois, à la poignée de main : un `allow` ne peut pas s'ajouter un rôle ;
+   - la copie structurelle du contrat dans `@nodefony/security`
+     (`src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts#IRealtimeToken`)
+     est comparée à l'original par un test, ou disparaît au profit d'une déclaration unique au cœur.
+6. **Webhook** : l'abonnement enregistre `{ id, issuer, type, account }` ; `createdBy` ne sert plus
+   qu'à l'affichage. Une identité sans compte (`account: false`) ne peut pas créer d'abonnement :
+   rien ne pourrait la relire à l'émission. La lecture tolère un champ inconnu (retour arrière,
+   S-rt-51).
+
+- Usages : un canal par utilisateur, un canal réservé aux personnes prouvées par le fournisseur
+  d'entreprise (`who.issuer === "https://sso.corp"` ET un rôle), un canal par organisation résolu
+  par `id`, un abonnement webhook qui survit six mois (S-rt-4, S-rt-37, S-rt-54, S-rt-55).
+- **Rupture si différé : OUI.** `allow` est un rappel que l'application écrit : passer d'un objet à
+  une donnée après publication casserait chaque `token.getRoles()` ; et `id` entre dans
+  `RealtimeIdentity` comme champ REQUIS, ce qui n'est possible qu'avant 10.0. Après, l'identité ne
+  s'enrichit que par des champs facultatifs.
+
+**Écarté.** L'objet `IRealtimeToken` (le SSE et le webhook devraient simuler six méthodes depuis
+une chaîne) ; un seul type pour le welcome et `allow` (il enverrait au client l'émetteur et les
+revendications) ; `issuer: "local"` au lieu de `null` (un JWT local porte déjà son propre `iss`,
+la sentinelle mentirait) ; les revendications du jeton dans l'identité (point 2). **Reporté, sans
+rupture** : une règle déclarative `{ owner: true }` où le framework compare lui-même la fin du nom
+de canal à `id` — un ajout d'API, à peser dans #622.
+
+**Reste à trancher** : QUAND `allow` est évalué pour chaque livraison — compte introuvable à
+l'émission d'un webhook, scopes d'un abonnement, émetteur retiré de la liste d'autorisation,
+journal et compteur des refus.
 
 ### Ce qui reste hors du socle
 
