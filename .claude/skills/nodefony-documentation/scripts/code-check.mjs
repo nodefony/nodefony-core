@@ -8,7 +8,9 @@
  *
  * Principe : extraire les blocs → les écrire dans tmp/scratch/doc-work/qs/ → tsgo -p (strict,
  * décorateurs, moduleResolution Bundler). La résolution passe par le node_modules de la
- * racine (workspaces npm) — exactement ce que verra l'app générée.
+ * racine (workspaces npm) — exactement ce que verra l'app générée — complété des paquets
+ * qu'npm a posés sous un SEUL workspace (`nestedOnlyPaths`) : une app Angular installe
+ * `@angular/core` elle-même, où que npm l'ait rangé dans ce dépôt.
  *
  * Les blocs marqués ```ts ignore (ou ```ts no-check) sont sautés : réservé aux fragments
  * volontairement partiels. Tout le reste DOIT compiler.
@@ -71,6 +73,45 @@ for (const stale of readdirSync(QS)) {
   if (stale.endsWith(".ts")) rmSync(path.join(QS, stale));
 }
 
+/**
+ * Paquets que l'installation n'a posés que sous un workspace, jamais à la racine.
+ *
+ * npm ne remonte pas toujours un paquet à la racine : la montée de dépendances qui a
+ * laissé `@angular/core` en DEUX exemplaires identiques (sous `src/nodefony` et sous
+ * `src/modules/test-frontend-angular`) l'en a retiré, et le gate, qui compile depuis
+ * `tmp/`, ne le voyait plus — rouge sur une page juste. Une app générée, elle,
+ * installe ce paquet elle-même : le harnais doit le trouver là où il est vraiment.
+ * Lu dans `package-lock.json` (ce que npm a installé), jamais deviné par un parcours
+ * du disque. Les chemins sont écrits en `/` : ils VOYAGENT dans un tsconfig.
+ *
+ * @returns la table `paths` du tsconfig : nom de paquet → dossiers candidats
+ */
+const nestedOnlyPaths = () => {
+  const lock = JSON.parse(
+    readFileSync(path.join(REPO, "package-lock.json"), "utf8"),
+  );
+  const keys = Object.keys(lock.packages ?? {});
+  const atRoot = new Set(
+    keys
+      .filter((k) => k.startsWith("node_modules/"))
+      .map((k) => k.slice("node_modules/".length)),
+  );
+  const NESTED =
+    /^((?:(?!node_modules\/).)+)\/node_modules\/((?:@[^/]+\/)?[^/]+)$/;
+  const paths = Object.create(null);
+  for (const key of keys) {
+    const m = NESTED.exec(key);
+    if (m === null || atRoot.has(m[2])) continue;
+    const dir = path
+      .relative(QS, path.join(REPO, key))
+      .split(path.sep)
+      .join("/");
+    (paths[m[2]] ??= []).push(dir);
+    (paths[`${m[2]}/*`] ??= []).push(`${dir}/*`);
+  }
+  return paths;
+};
+
 // tsconfig du harnais — recréé à chaque run (artefact régénérable, pas une source).
 //
 // ⚠️ `target`/`lib` DOIVENT rester alignés sur le tsconfig qu'engendre `nodefony
@@ -95,6 +136,7 @@ writeFileSync(
         emitDecoratorMetadata: false,
         esModuleInterop: true,
         types: ["node"],
+        paths: nestedOnlyPaths(),
       },
       include: ["*.ts"],
     },
