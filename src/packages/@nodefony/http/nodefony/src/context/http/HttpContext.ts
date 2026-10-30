@@ -26,7 +26,7 @@ import {
   //KernelEventsType,
   nodefonyError,
 } from "nodefony";
-import type { MaybePromise } from "nodefony";
+import type { DefaultEventsMap, EventsMap, MaybePromise } from "nodefony";
 import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
@@ -704,12 +704,15 @@ class HttpContext extends Context implements IHttpContextInterface {
    *
    * La requête ne se termine qu'à `close()` du flux, ou au départ du client.
    *
+   * @typeParam Events - carte des événements du flux (cf `SseStream`).
    * @param options - battement de cœur, délai `retry:` initial.
    * @returns le flux, ou sa promesse quand une session est à sauver d'abord.
    * @throws HttpError 500 quand la réponse est déjà partie.
    */
-  openSse(options?: ISseStreamOptions): SseStream | Promise<SseStream> {
-    return openSseStream(this, options);
+  openSse<Events extends EventsMap = DefaultEventsMap>(
+    options?: ISseStreamOptions,
+  ): SseStream<Events> | Promise<SseStream<Events>> {
+    return openSseStream<Events>(this, options);
   }
 
   flush(chunk: unknown, encoding: BufferEncoding) {

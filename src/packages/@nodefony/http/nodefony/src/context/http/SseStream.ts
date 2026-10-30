@@ -5,6 +5,7 @@ import type HttpContext from "./HttpContext";
 import Http2Response from "../http2/Response";
 import HttpError from "../../errors/httpError";
 import { RequestContext } from "nodefony";
+import type { DefaultEventsMap, EventNames, EventsMap } from "nodefony";
 
 /**
  * Le flux d'événements serveur (SSE) d'une réponse HTTP — `text/event-stream`.
@@ -65,10 +66,14 @@ export interface ISseStreamOptions {
   maxDuration?: number | false | undefined;
 }
 
-/** Ce qu'un événement porte en plus de ses données. */
-export interface ISseSendOptions {
+/**
+ * Ce qu'un événement porte en plus de ses données.
+ *
+ * @typeParam K - nom de l'événement : un canal du contrat quand le flux en a un.
+ */
+export interface ISseSendOptions<K extends string = string> {
   /** Type de l'événement (champ `event:`) — absent : `message`. */
-  event?: string | undefined;
+  event?: K | undefined;
   /** Identifiant (champ `id:`) que le client renverra en `Last-Event-ID`. */
   id?: string | undefined;
 }
@@ -170,13 +175,34 @@ function lines(prefix: string, text: string): string {
 }
 
 /**
+ * Charge d'un événement SSE : celle du canal nommé par `event`, ou — sans
+ * `event` (« un flux = un canal ») — l'une de celles de la carte. Carte non
+ * déclarée : `unknown`.
+ */
+export type SseEventData<Events extends EventsMap, K extends string> = [
+  K,
+] extends [never]
+  ? Events[EventNames<Events>]
+  : Events[K];
+
+/**
  * Un flux `text/event-stream` ouvert sur une réponse.
  *
  * Il s'obtient par {@link openSseStream} (ou `this.renderSse()` dans un
  * contrôleur), jamais par `new` : l'ouverture écrit les en-têtes, et un flux
  * sans en-têtes ne se rattrape pas.
+ *
+ * Typé par une carte d'événements (`ContractServerEmit<C>` : le MÊME contrat
+ * que la socket temps réel) : `event:` est un canal de la carte et la charge est
+ * celle du canal. Deux formes se lisent sur la même carte — **multiplexé**
+ * (`send(data, { event: canal })`, plusieurs canaux sur une connexion) ou **un
+ * flux = un canal** (carte d'un seul canal, `send(data)` sans `event`). Sans
+ * carte, le flux reste libre (porte MCP, flux hors contrat). Le type n'est pas
+ * une validation, et ne coûte rien à l'exécution.
+ *
+ * @typeParam Events - carte des événements du flux.
  */
-export class SseStream {
+export class SseStream<Events extends EventsMap = DefaultEventsMap> {
   readonly #context: HttpContext;
   readonly #target: SseTarget;
   /** La réponse dont on écoute la fermeture — en HTTP/2, l'objet de compatibilité. */
@@ -277,7 +303,10 @@ export class SseStream {
    *   un flux SSE ne porte que du texte, les encoder soi-même (base64).
    * @throws RangeError quand l'événement dépasse `maxEventBytes`.
    */
-  send(data: unknown, options?: ISseSendOptions): Promise<void> | undefined {
+  send<K extends EventNames<Events> = never>(
+    data: SseEventData<Events, K>,
+    options?: ISseSendOptions<K>,
+  ): Promise<void> | undefined {
     let frame = "";
     if (options?.event !== undefined) {
       frame += `event: ${singleLine("event", options.event)}\n`;
@@ -445,10 +474,10 @@ export function acceptsEventStream(
  * @throws RangeError quand un délai n'est ni `false` ni un entier entre 1 et
  *   2^31-1, ou que `maxEventBytes` n'est pas un entier positif.
  */
-export function openSseStream(
+export function openSseStream<Events extends EventsMap = DefaultEventsMap>(
   context: HttpContext,
   options: ISseStreamOptions = {},
-): SseStream | Promise<SseStream> {
+): SseStream<Events> | Promise<SseStream<Events>> {
   checkTimer("heartbeat", options.heartbeat);
   checkTimer("stallTimeout", options.stallTimeout);
   checkTimer("maxDuration", options.maxDuration);
@@ -497,17 +526,17 @@ export function openSseStream(
         context.log(e, "ERROR", "SESSION-STORE");
         return null;
       })
-      .then(() => startSseStream(context, options, settings));
+      .then(() => startSseStream<Events>(context, options, settings));
   }
-  return startSseStream(context, options, settings);
+  return startSseStream<Events>(context, options, settings);
 }
 
 /** En-têtes, désarmement du délai, puis le flux. */
-function startSseStream(
+function startSseStream<Events extends EventsMap>(
   context: HttpContext,
   options: ISseStreamOptions,
   settings: ISseSettings,
-): SseStream {
+): SseStream<Events> {
   const response = context.response;
   const nodeResponse = response.response;
   if (nodeResponse === null) {
@@ -536,7 +565,7 @@ function startSseStream(
     h1.flushHeaders();
     h1.socket?.setTimeout(0);
   }
-  const sse = new SseStream(context, target, nodeResponse, settings);
+  const sse = new SseStream<Events>(context, target, nodeResponse, settings);
   // Seule une identité révocable entre au registre : un anonyme n'a rien à
   // perdre, et ne coûte rien.
   if (settings.revalidate !== null) context.httpKernel?.watchStream(sse);

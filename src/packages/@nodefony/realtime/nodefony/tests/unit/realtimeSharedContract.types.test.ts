@@ -9,6 +9,7 @@ import {
   type IRealtimeContract,
   type ContractClientEmit,
   type ContractClientListen,
+  type ContractServerEmit,
 } from "nodefony";
 import { ContractRealtimeController } from "../../src/server/ContractRealtimeController.js";
 import { RealtimePolicy } from "../../decorators/realtimeDecorators.js";
@@ -188,6 +189,35 @@ function _contractOnly(): void {
     }
     protected override realtimeChannels() {
       return ["chat:room" as const, "user:7" as const];
+    }
+    // SSE : le MÊME contrat type le flux d'événements serveur.
+    async sseMultiplexed(): Promise<void> {
+      const sse = await this.renderSse<ContractServerEmit<ChatContract>>();
+      void sse.send(
+        { from: "s", text: "t", at: new Date() },
+        { event: "chat:room" },
+      );
+      void sse.send({ unread: 3 }, { event: "user:42" }); // canal à motif
+      // @ts-expect-error SSE : charge fausse pour le canal nommé
+      void sse.send({ unread: "3" }, { event: "user:42" });
+      // @ts-expect-error SSE : `chat:typing` n'est pas émis par le serveur
+      void sse.send({ on: true, at: new Date() }, { event: "chat:typing" });
+    }
+    async sseSingleChannel(): Promise<void> {
+      // « un flux = un canal » : carte d'un seul canal, pas de champ `event:`.
+      const sse =
+        await this.renderSse<
+          Pick<ContractServerEmit<ChatContract>, "chat:room">
+        >();
+      void sse.send({ from: "s", text: "t", at: new Date() });
+      // @ts-expect-error SSE : charge fausse pour l'unique canal du flux
+      void sse.send({ from: "s" });
+    }
+    async sseFree(): Promise<void> {
+      // Flux HORS contrat (porte MCP) : sans paramètre de type, tout passe.
+      const sse = await this.renderSse();
+      void sse.send({ jsonrpc: "2.0" });
+      void sse.send("texte", { event: "n'importe" });
     }
     demo(): void {
       this.notifyClient("chat:room", { from: "s", text: "t", at: new Date() });

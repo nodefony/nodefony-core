@@ -13,7 +13,12 @@ import {
   //Inject,
   FileClass,
 } from "nodefony";
-import type { IRequestUser, MaybePromise } from "nodefony";
+import type {
+  DefaultEventsMap,
+  EventsMap,
+  IRequestUser,
+  MaybePromise,
+} from "nodefony";
 import type { IController } from "../interfaces/index.js";
 import Route from "./Route";
 import Router from "../service/router";
@@ -669,11 +674,19 @@ class Controller extends Service implements IController {
    * }
    * ```
    *
+   * Typé par le contrat temps réel de l'application, le flux lit la MÊME carte
+   * que la socket : `this.renderSse<ContractServerEmit<ChatContract>>()`, puis
+   * `sse.send(m, { event: "chat:room" })`. Sans paramètre de type, il reste
+   * libre — un flux hors contrat est valide.
+   *
+   * @typeParam Events - carte des événements du flux (défaut : libre).
    * @param options - battement de cœur, délai `retry:` initial.
    * @returns le flux, ou sa promesse quand une session est à sauver d'abord.
    * @throws HttpError 500 hors HTTP (WebSocket) ou quand la réponse est partie.
    */
-  renderSse(options?: ISseStreamOptions): SseStream | Promise<SseStream> {
+  renderSse<Events extends EventsMap = DefaultEventsMap>(
+    options?: ISseStreamOptions,
+  ): SseStream<Events> | Promise<SseStream<Events>> {
     if (!(this.context instanceof HttpContext)) {
       throw new HttpError(
         "SSE : un flux d'événements exige une requête HTTP",
@@ -681,7 +694,7 @@ class Controller extends Service implements IController {
         this.context,
       );
     }
-    return this.context.openSse(options);
+    return this.context.openSse<Events>(options);
   }
 
   /**
