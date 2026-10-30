@@ -27,7 +27,9 @@ tags:
 Accepté (2026-10-29). Les §1 à §5 ont été validés par l'auteur décision par décision ; les §6 à
 §10, tous « rupture si différé : NON », sont acceptés par délégation de l'auteur, après une table
 d'experts qui a jugé les trois ADR sans les contester (catalogue `scenarios/temps-reel.md`). Ce
-qui viendrait les contredire s'ajoute en 10.x, sans rupture. Il recentre #627 sur la **socket**. Le socle
+qui viendrait les contredire s'ajoute en 10.x, sans rupture. Amendé le 2026-10-30 par la table
+du gel : le même moule type socket, SSE et webhook (§4), et la décision 1 du §6 est tranchée sur
+la forme d'`allow` et son délai. Il recentre #627 sur la **socket**. Le socle
 commun aux livraisons est [ADR-0021](0021-temps-reel-evenement-et-livraisons.md), dont les
 décisions S1 à S9 font foi ici ; les webhooks sont [ADR-0023](0023-webhooks-evenements-et-abonnements.md).
 Les huit décisions de gel de #630 sont **déjà prises** (commit `1df6614c1`) : reprises, jamais
@@ -331,6 +333,30 @@ interface IRealtimeContract {
   courante des sockets typées), canaux à opérations `send` / `receive` (AsyncAPI). Ce qui
   distingue ce moule : la direction est **calculée** d'une déclaration unique, jamais réécrite.
 
+**Décision (validée par l'auteur le 2026-10-30, table du gel) : le MÊME moule type les trois
+livraisons.** `serverToClient` type aussi le flux SSE d'un canal et l'émission d'un webhook : une
+application écrit un contrat, et ses trois livraisons le lisent. Aucune carte par livraison
+(`sse?`, `webhooks?`) : elle réécrirait ce que S1 d'ADR-0021 pose déjà, un événement
+`(canal, charge)` pour toutes.
+
+- **Webhook** : `type` = le canal. Aucun champ n'est ajouté au corps figé `{ id, timestamp, type,
+data }` (ADR-0023 W1, S-rt-22).
+- **Flux SSE** : un flux d'un contrat dit lequel il est — **multiplexé** (`event:` = le canal,
+  plusieurs canaux sur une connexion) ou **un flux = un canal** (`event:` absent). Les deux
+  formes se lisent sur la même carte.
+- **Flux hors contrat** : `renderSse()` sans paramètre de type reste valide et le reste toute la
+  série. La porte MCP écrit du JSON-RPC brut en `data:`, sans canal
+  (`src/packages/@nodefony/ai/nodefony/mcp/gate.ts`, S-rt-66) : ce n'est pas un canal, et rien ne
+  l'oblige à le devenir.
+- **Le type n'est pas une validation.** La garde de canal (politique, `allow`) s'applique aux
+  trois livraisons ; un type ne protège rien à l'exécution.
+- Le code suit en 10.x par génériques à défaut
+  (`src/packages/@nodefony/framework/nodefony/src/Controller.ts#Controller.renderSse`,
+  `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts`) : ajouter un générique AVEC
+  défaut ne casse rien. Seule la forme se fige ici.
+- **Rupture si différé : OUI pour la forme** : une carte par livraison ajoutée après 10.0
+  changerait le moule que les applications ont écrit.
+
 **Décision (validée par l'auteur le 2026-10-29) : un contrat fait de types, une porte par côté.**
 L'exemple de l'option B ci-dessous sort `chat.Socket` et `chat.Controller` d'un MÊME objet : le
 fichier partagé importerait alors `@nodefony/realtime`, et le navigateur qui l'importe tirerait le
@@ -492,20 +518,23 @@ boolean | Promise<boolean>` — l'identité d'admission commune aux trois livrai
     que de canaux par connexion, sinon, et un motif ne s'énumère pas ;
     `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.probeChannel`
     le pose déjà : le verrou protège, pas l'annonce.
-  - `allow` qui lève, ou qui dépasse un **délai borné** = refus `forbidden`, détail hors production.
+  - `allow` qui lève = refus `forbidden`, détail hors production. Un **délai dépassé** ou une
+    saturation = motif `unavailable`, que le client réessaie (ADR-0021 §S10 bis point 3 ; tranché
+    le 2026-10-30 par la table du gel).
   - **Prix assumé** : une réponse retenue ne se périme pas seule — un membre retiré reste abonné
     jusqu'à son éjection explicite (#623, `realtime:closed { reason: "evicted" }`).
   - Le nom : `allow` (pas `admit`, qui ne se devine pas). Une liste de membres est **une** façon
     d'écrire `allow`, pas une primitive (S7).
-  - **À revalider au code, avec l'auteur, signatures sous les yeux** : (a) la FORME de l'accès
-    aux services — le principe est tranché par ADR-0021 §S10 bis : un troisième argument
-    `services`, résolu sur le conteneur du noyau (une flèche dans les arguments d'un décorateur n'a
-    ni `this` ni injection, et aucune instance de contrôleur n'existe à l'émission d'un webhook) ;
-    (b) le miroir structurel de `IChannelPolicy` dans
+  - **Tranché le 2026-10-30 par la table du gel** : (a) l'accès aux services — PAS de troisième
+    argument : `allow` est une flèche `(channel, who)` OU une classe `@injectable` qui implémente
+    `IChannelAdmission`, résolue au démarrage du noyau (ADR-0021 §S10 bis point 1) ; (d) le délai
+    — la clé `realtime.allowTimeoutMs`, son défaut fixé au code de #622, et le motif
+    `unavailable` au dépassement. **Reste au code de #622, sans rupture** : (b) le miroir
+    structurel de `IChannelPolicy` dans
     `src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts` — un test compare
-    les deux formes ; (c) la garde `isChannelPolicy` des décorateurs, qui doit accepter une
-    fonction ; (d) la valeur du délai ; (e) ce que montre une introspection des politiques (une
-    fonction ne se sérialise pas).
+    les deux formes ; (c) la garde `isChannelPolicy` des décorateurs accepte une fonction ET une
+    classe, distinguées par la métadonnée `@injectable` ; (e) ce que montre une introspection des
+    politiques (une fonction ne se sérialise pas ; une classe se montre par son nom).
 - **Décision 1 bis (validée par l'auteur le 2026-10-29) : autoriser une fois à l'entrée, pour
   TOUS les canaux.** Une trame entrante sur un canal où CETTE connexion a déjà été acceptée ne
   refait aucun contrôle de politique : une lecture, « admise ? ». La décision 1 en est le cas

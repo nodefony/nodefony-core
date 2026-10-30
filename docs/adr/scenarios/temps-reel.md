@@ -20,14 +20,18 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 **Décisions figées par la publication de 10.0** (« rupture si différé : OUI », ou forme publiée
 dès 10.0) — celles que ce catalogue juge en premier :
 
-| Code    | Décision                                                                    |
-| ------- | --------------------------------------------------------------------------- |
-| S1      | la charge reste nue (`params` = ce que le producteur a publié), série 10    |
-| S3-cond | un serveur 10.0 ignore un champ inconnu dans `params` d'un `subscribe`      |
-| S6      | enveloppe du bus `{ channel, payload, originId }`, scellée sur ces 3 champs |
-| S9-noms | `sentTotal`, `droppedTotal`, `failedTotal`, `pendingBytes`                  |
-| W1      | corps d'un webhook `{ id, timestamp, type, data }`                          |
-| W2      | `*` = tout, dans son périmètre ; grammaire des motifs figée pour la série   |
+| Code     | Décision                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------- |
+| S1       | la charge reste nue (`params` = ce que le producteur a publié), série 10                    |
+| S3-cond  | un serveur 10.0 ignore un champ inconnu dans `params` d'un `subscribe`                      |
+| S6       | enveloppe du bus `{ channel, payload, originId }`, scellée sur ces 3 champs                 |
+| S9-noms  | `sentTotal`, `droppedTotal`, `failedTotal`, `pendingBytes`                                  |
+| W1       | corps d'un webhook `{ id, timestamp, type, data }`                                          |
+| W2       | `*` = tout, dans son périmètre ; grammaire des motifs figée pour la série                   |
+| S9-refus | un compteur par cause (`ingressRejectedTotal`, `systemFloorDeniedTotal`…), pas de générique |
+| S10 bis  | `allow` = flèche `(channel, who)` ou classe `@injectable` ; motif `unavailable`             |
+| S11      | `4006` jeton porteur expiré (définitif), `1013` authentification trop lente                 |
+| 0022 §4  | le même moule `IRealtimeContract` type socket, SSE et webhook                               |
 
 ## Usages hétérogènes
 
@@ -174,6 +178,18 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : S10, ADR-0022 §6, W6
 - **A fait changer** : aucune
 
+### S-rt-73 — Un pont gRPC ou A2A traduit la fin d'une socket
+
+- **Situation** : un service gRPC server-streaming relaie un canal (S-rt-6) ; la socket amont se
+  ferme, et le pont doit rendre un statut gRPC (`UNAUTHENTICATED`, `UNAVAILABLE`) ou un état de
+  tâche A2A, sans deviner.
+- **Catégorie** : usage hétérogène
+- **Tient si** : chaque code de fermeture dit SA cause et ce que le client doit en faire — une
+  identité expirée (`4006`) ne se confond ni avec une identité morte (`4001`) ni avec une
+  indisponibilité passagère (`1013`).
+- **Décisions jugées** : S11
+- **A fait changer** : S11 (2026-10-30 — un code par cause, un seul registre)
+
 ## Charge
 
 ### S-rt-9 — 60 coups/s × 1 000 joueurs sur un canal à rôles
@@ -222,6 +238,29 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   retenu, clé et durée nommées) ou mesuré et documenté avec sa parade.
 - **Décisions jugées** : S10, W6
 - **A fait changer** : aucune
+
+### S-rt-64 — Dix mille jetons qui expirent dans le même tick
+
+- **Situation** : 10 000 capteurs provisionnés le même jour, jeton porteur à `exp` de 24 h
+  identique. Au tick suivant l'échéance, une seule passe de revalidation ferme tout le parc. Le
+  client n'a aucun moyen de rafraîchir son jeton en 10.0, et sa gigue de reconnexion est d'environ
+  une seconde.
+- **Catégorie** : charge (industrie, passerelle sans interface, agent A2A à jeton statique)
+- **Tient si** : le parc ne se reconnecte PAS en rafale avec le même jeton périmé — le code de
+  fermeture est connu du client 10.0 comme définitif ; un client 10.x muni d'un fournisseur de
+  jeton peut revenir avec un jeton frais.
+- **Décisions jugées** : S11
+- **A fait changer** : S11 (2026-10-30 — `4006` réservé dès 10.0, définitif pour le client 10.0)
+
+### S-rt-72 — Une passe de revalidation plus longue que son intervalle
+
+- **Situation** : 100 000 sockets ouvertes par session, relues une par une toutes les 30 s ; à
+  0,5 ms la relecture, la passe dure 50 s. Le tick suivant démarre avant la fin du précédent.
+- **Catégorie** : charge
+- **Tient si** : deux passes ne se chevauchent jamais (un tick saute si la passe est en cours) ; la
+  durée d'une passe se mesure et se voit.
+- **Décisions jugées** : S10, S11
+- **A fait changer** : aucune (défaut de code, `src/nodefony/src/runtime/RevocationWatch.ts#RevocationWatch.register`)
 
 ## Panne et réseau
 
@@ -305,6 +344,18 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   distinctes ; seule la première touche l'état de l'abonnement, la seconde se compte et suit S5.
 - **Décisions jugées** : S10, S5, S9
 - **A fait changer** : aucune
+
+### S-rt-65 — Un `allow` trop lent, et l'abonné légitime ne réessaie pas
+
+- **Situation** : 300 passerelles × 5 canaux en une seconde, pool de base saturé : 40 % des appels
+  d'`allow` dépassent le délai. Refusés `forbidden`, les abonnés légitimes restent muets jusqu'à
+  une reconnexion fortuite — le client ne réessaie aucun motif.
+- **Catégorie** : panne (industrie ; jeu au retour d'un tunnel, S-rt-12)
+- **Tient si** : un délai dépassé ne se confond pas avec un refus de droit ; le client sait
+  réessayer, avec gigue et un plafond de tentatives ; le nombre d'appels d'`allow` reste borné
+  quand la base est bloquée.
+- **Décisions jugées** : S10 bis
+- **A fait changer** : S10 bis (2026-10-30 — motif `unavailable`, plafonds en vol, réessai client ≤ 3)
 
 ## Plusieurs instances
 
@@ -447,6 +498,17 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : W1, S1, S8
 - **A fait changer** : aucune
 
+### S-rt-71 — Un client 10.0 face à un serveur 10.x, et l'inverse
+
+- **Situation** : un serveur 10.x émet un code de fermeture ou un motif de refus que le client
+  10.0 ne connaît pas ; ou un client 10.x parle à un serveur 10.0 qui ignore ses ajouts.
+- **Catégorie** : versions qui cohabitent
+- **Tient si** : tout code et tout motif dont le client doit tirer une conduite (revenir ou non,
+  réessayer ou non) est connu de lui DÈS 10.0 — un code inconnu le fait se reconnecter, un motif
+  inconnu est replié sur `forbidden`.
+- **Décisions jugées** : S10 bis, S11
+- **A fait changer** : S10 bis, S11 (2026-10-30 — `unavailable` et `4006` ajoutés avant 10.0)
+
 ## Attaquant
 
 ### S-rt-24 — Un vieil ordre « fermer » capté puis republié
@@ -501,6 +563,27 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Tient si** : l'émission refuse les noms de l'audit, et ce refus est écrit dans le contrat.
 - **Décisions jugées** : W1, W2, W3
 - **A fait changer** : W3 (2026-10-29 — noms de l'audit réservés)
+
+### S-rt-69 — Un jeton volé, et un code qui dirait qu'il a été valide
+
+- **Situation** : un attaquant présente à la poignée de main des jetons volés ou forgés et
+  observe le code de fermeture. Un code « expiré » distinct du refus lui dirait lesquels ont été
+  émis par l'application.
+- **Catégorie** : attaquant
+- **Tient si** : tout refus à la poignée de main est uniforme (401, donc `1008`) ; le code
+  « expiré » n'est émis que sur une socket DÉJÀ authentifiée.
+- **Décisions jugées** : S11
+- **A fait changer** : S11 (2026-10-30 — jamais de `4006` avant authentification)
+
+### S-rt-70 — Un seul compte sature le pool par des `subscribe`
+
+- **Situation** : un compte légitime ouvre une socket et envoie des centaines de `subscribe` sur
+  `room:1` … `room:500`, chacun déclenchant une requête en base par `allow`.
+- **Catégorie** : attaquant
+- **Tient si** : les appels d'`allow` en vol sont plafonnés par connexion (au-delà : `limit`) ET
+  par exemplaire ; une connexion ne peut pas priver les autres de la base.
+- **Décisions jugées** : S10 bis
+- **A fait changer** : S10 bis (2026-10-30 — `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal`)
 
 ## Plateformes
 
@@ -576,6 +659,17 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : W1, W3, ADR-0022 §4
 - **A fait changer** : aucune
 
+### S-rt-68 — Un module tiers résout un service par son nom
+
+- **Situation** : la politique d'admission livrée par un module npm demande `"userService"` ;
+  l'application l'a enregistré sous `users`. Le conteneur rend `null`, `allow` lève : 100 % de
+  refus `forbidden`, sans un mot.
+- **Catégorie** : extension tierce
+- **Tient si** : une dépendance absente fait échouer le DÉMARRAGE en nommant la classe et le
+  canal ; aucune clé chaîne non vérifiée n'est la voie vers un service.
+- **Décisions jugées** : S10 bis
+- **A fait changer** : S10 bis (2026-10-30 — troisième argument `services` retiré, classe `@injectable`)
+
 ## Agent IA consommateur
 
 ### S-rt-31 — « Notifie l'utilisateur 42 quand sa commande part »
@@ -594,6 +688,17 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Tient si** : il numérote dans la charge du producteur, jamais dans une enveloppe autour.
 - **Décisions jugées** : S1, S2
 - **A fait changer** : aucune
+
+### S-rt-66 — Un flux SSE qui n'est PAS un canal
+
+- **Situation** : la porte MCP (Streamable HTTP) écrit des messages JSON-RPC bruts en `data:`,
+  sans `event:` ni canal (`src/packages/@nodefony/ai/nodefony/mcp/gate.ts`). Une forme typée de
+  `renderSse` qui exigerait un contrat la casserait.
+- **Catégorie** : agent IA consommateur
+- **Tient si** : un flux hors contrat reste valide, et la forme typée dit ce qu'est un flux de
+  contrat (multiplexé `event:` = canal, ou un flux = un canal).
+- **Décisions jugées** : ADR-0022 §4
+- **A fait changer** : ADR-0022 §4 (2026-10-30 — même moule pour les trois livraisons, `renderSse()` sans type reste valide)
 
 ## Exploitation
 
@@ -623,6 +728,16 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   nom : une livraison à une destination, réessais non comptés.
 - **Décisions jugées** : S9-noms
 - **A fait changer** : S9 (2026-10-29 — l'unité figée avec le nom)
+
+### S-rt-67 — Un `allow` qui FILTRE n'est pas un refus
+
+- **Situation** : 2 000 abonnés `commande:*`, 200 commandes par seconde (S-rt-59) : environ
+  400 000 verdicts `false` par seconde à l'émission webhook, du filtrage normal (« pas la
+  tienne »). Un compteur générique de refus noierait les refus de sécurité dedans.
+- **Catégorie** : exploitation
+- **Tient si** : chaque refus a son compteur, à unité écrite ; le filtrage n'en est pas un.
+- **Décisions jugées** : S9
+- **A fait changer** : S9 (2026-10-30 — un compteur par cause, pas de générique)
 
 ## Mainteneur solo
 

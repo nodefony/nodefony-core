@@ -17,7 +17,11 @@ Accepté (2026-10-28), décision par décision (S1 à S9) avec l’auteur. Rouve
 2026-10-29, après une table d'experts (catalogue `scenarios/temps-reel.md`), pour trois
 amendements : la charge est structurée (S1), un sceau refusé se compte et le rejeu d'un ordre
 se pare par sa cible (S6), l'unité des compteurs (S9). Complété le 2026-10-30 par les règles
-communes aux trois livraisons (#702) : l'identité d'admission (S10). Socle commun des décisions temps réel :
+communes aux trois livraisons (#702) : l'identité d'admission (S10). Amendé le 2026-10-30 par la
+table d'experts du gel (7 sièges, deux tours, aucun vote contre) : les refus se comptent par cause
+(S9), `allow` perd son troisième argument au profit d'une classe injectable, son délai et sa
+saturation ont un motif `unavailable` (S10 bis), une socket dont le jeton porteur expire se ferme
+en `4006` et une authentification trop lente en `1013` (S11). Socle commun des décisions temps réel :
 [ADR-0022](0022-socket-temps-reel.md) (la socket, #627) et
 [ADR-0023](0023-webhooks-evenements-et-abonnements.md) (les webhooks) en dépendent ; l'ADR de
 gRPC naîtra avec l'Epic #694. Instruit par un relevé des quatre briques existantes et par le
@@ -317,6 +321,32 @@ l'ancien nom se déprécie selon la politique de compatibilité, avec retrait à
 `failedTotal` n'a que deux usages connus (backplane, webhooks), le SSE serait le troisième (un
 envoi vers un client parti) ; facultatif, il ne coûte rien à qui ne s'en sert pas.
 
+**Un refus n'est pas une perte : il se compte à part, un compteur par cause (validé par l'auteur
+le 2026-10-30, table du gel).** Ni `droppedTotal` (« jeté faute de place ») ni `failedTotal`
+(« refusé par la destination ») : un refus est un verdict de NOTRE garde, et ce qu'il appelle
+dépend de la garde. Il n'y a donc pas de compteur générique des refus : chaque cause a le sien,
+dans un ensemble fermé, et son unité s'écrit avec son nom — comme pour les quatre compteurs
+ci-dessus.
+
+| Nom                      | Ce qu'il compte                                                      | Unité                           | Où                     |
+| ------------------------ | -------------------------------------------------------------------- | ------------------------------- | ---------------------- |
+| `ingressRejectedTotal`   | message du bus refusé à l'entrée (canal non déclaré diffusé)         | un message reçu d'un exemplaire | sonde du hub, existant |
+| `systemFloorDeniedTotal` | abonnement refusé par le plancher des canaux de plateforme           | une demande d'abonnement        | sonde du hub, existant |
+| `sealRejectedTotal`      | message du bus dont le sceau ne se vérifie pas (S6)                  | un message reçu d'un exemplaire | #704                   |
+| `allowTimedOutTotal`     | `allow` qui n'a pas répondu dans `realtime.allowTimeoutMs` (S10 bis) | un appel d'`allow`              | #622                   |
+| `allowSaturatedTotal`    | demande refusée avant tout appel d'`allow`, plafond d'appels en vol  | une demande d'abonnement        | #622                   |
+
+- **Le FILTRAGE n'est pas un refus** (S-rt-67). Un `allow` qui rend `false` à l'émission d'un
+  webhook dit « ce message n'est pas pour toi » — 400 000 fois par seconde dans un usage normal
+  (S-rt-59). Il n'entre dans aucun compteur de refus : il noierait les refus de sécurité (verrou,
+  sceau, plancher) qu'un exploitant doit voir monter.
+- **Rupture si différé : OUI pour les noms** déjà publiés (`ingressRejectedTotal`,
+  `systemFloorDeniedTotal`) et pour les deux de #622, qui naissent avec 10.0. Un total générique
+  calculé À LA LECTURE (somme des causes) reste un ajout possible en 10.x.
+- **Écarté** : `deniedTotal` ou `rejectedTotal` générique (option A/B de la table) — il additionne
+  des grandeurs d'unités différentes ; un générique plus une ventilation `{ cause: n }` (option D) —
+  le générique n'apporte rien que la somme ne donne.
+
 ### S10. Une seule identité d'admission, une donnée plate produite par le framework
 
 **Décision (validée par l'auteur le 2026-10-30, après trois tours de la table d'experts de
@@ -397,26 +427,94 @@ de canal à `id` — un ajout d'API, à peser dans #622.
 dès 10.0 :
 
 ```ts
-allow?: (
-  channel: string,
-  who: ISubscriberIdentity,
-  services: IAllowServices, // accès aux services de l'application ; type exact fixé au code de #622
-) => boolean | Promise<boolean>;
+// Au cœur (`nodefony`), à côté d'`ISubscriberIdentity` : realtime et security le lisent sans
+// dépendre l'un de l'autre.
+export interface IChannelAdmission {
+  allow(channel: string, who: ISubscriberIdentity): boolean | Promise<boolean>;
+}
+
+// Dans la politique d'un canal, DEUX formes :
+allow?:
+  | ((channel: string, who: ISubscriberIdentity) => boolean | Promise<boolean>) // règle sans service
+  | (new (...args: never[]) => IChannelAdmission); // classe `@injectable`, résolue au boot
+
+@RealtimeChannel("room:*", { authenticated: true, allow: RoomAdmission })
 ```
 
 1. **Ses arguments, et rien d'autre.** Ni contexte de requête, ni session : à l'émission d'un
    webhook il n'y en a pas, et un `allow` qui les lirait passerait tous ses tests sur la socket
-   puis refuserait 100 % des webhooks, sans un mot (S-rt-63). `services` est la voie vers les
-   données de l'application (une appartenance en base) : il est résolu sur le conteneur du noyau,
-   présent dans les trois livraisons. Sans lui, la règle pousserait vers le contexte de requête,
-   ou vers un accesseur global hors injection.
+   puis refuserait 100 % des webhooks, sans un mot (S-rt-63). Une règle qui lit les données de
+   l'application (une appartenance en base) s'écrit en **classe** : ses services lui arrivent par
+   le constructeur, comme à tout service injectable.
+
+   **Le troisième argument `services` est retiré** (amendement du 2026-10-30, table du gel).
+   Deux motifs. Une clé chaîne ne se vérifie pas : une politique livrée par un module qui fait
+   `services.get("userService")` quand l'application l'a nommé `users` reçoit `null`
+   (`src/nodefony/src/types/IContainer.ts#IContainer`), lève, et refuse 100 % des abonnés sans un
+   mot (S-rt-68) — l'injection par constructeur, elle, échoue au démarrage en nommant la
+   dépendance (`src/nodefony/src/kernel/injector/injector.ts`). Et le conteneur expose
+   `set`/`remove`/`clean`/`reset` à du code de politique, parfois tiers. La flèche reste pour les
+   règles qui ne lisent rien (`channel === \`user:${who.id}\``).
+
+   **La classe d'admission**, règles que le framework applique seul, chacune gardée par un test :
+   - elle **étend `Service`**, comme tout `@injectable` : le décorateur n'accepte que cette forme
+     (`src/nodefony/src/kernel/decorators/kernelDecorator.ts#injectable`), et un second moule
+     d'injection pour la seule admission serait une deuxième implémentation d'une même règle ;
+   - elle est **enregistrée et résolue au démarrage du noyau, une fois**, jamais par appel ni à la
+     première poignée de main : un exemplaire qui n'émet que des webhooks doit avoir ses
+     politiques. Aujourd'hui `RealtimeHub.registerChannelPolicy` n'est appelé que depuis
+     `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.onHandshake` :
+     #622 déplace l'enregistrement au démarrage ;
+   - une dépendance absente fait **échouer le démarrage en nommant la classe ET le canal** ; une
+     portée `request` est refusée au démarrage (un singleton seulement : une instance sert tous
+     les abonnés) ; une classe sans méthode `allow` est refusée au démarrage en la nommant ;
+   - flèche et classe se distinguent par la **métadonnée `@injectable`**, jamais par le texte de la
+     fonction (`class …`) : la garde `isChannelPolicy`
+     (`src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#isChannelPolicy`),
+     qui refuse aujourd'hui toute fonction, accepte les deux formes ;
+   - une instance sert tous les abonnés en même temps : elle ne garde **aucun état par abonné**
+     (TSDoc, page publique ; un test joue deux `allow` concurrents d'une classe qui mémorise `who`
+     et exige qu'ils ne se croisent pas) ;
+   - une ligne de journal au démarrage par canal : « canal X, admission Y, résolue ».
+   - Un module npm qui livre une politique enregistre sa classe comme tout service de module ;
+     la page publique le montre par un exemple complet.
+
 2. **Il peut être appelé plus d'une fois pour un même abonné** — rejeu à la reconnexion
    (ADR-0022 §6), réabonnement après un changement d'identité, livraison d'un webhook : il doit
    être idempotent et sans effet de bord. Le nombre d'appels n'est pas une garantie du contrat.
-3. **Son délai est borné** ; une exception, une promesse rejetée ou un délai dépassé valent refus
-   à l'admission (S10 point 5). Le sort d'une panne à l'émission d'un webhook est réglé avec les
-   abonnements par API (W6) : une panne n'y sera jamais traitée comme un verdict `false`
-   (S-rt-60).
+3. **Son délai est borné, et un `allow` trop lent n'est pas un `forbidden`** (amendement du
+   2026-10-30, table du gel). Une exception ou une promesse rejetée valent refus `forbidden`
+   (fail-closed ; le détail ne part au client que hors production). Un délai dépassé ou une
+   saturation, eux, ne disent rien du droit de l'abonné : ils rendent un **quatrième motif fermé,
+   `unavailable`** (« indécidable pour l'instant »), ajouté à
+   `src/nodefony/src/realtime/RealtimeEventMap.ts#RealtimeDeniedReason` AVANT 10.0 — l'union est
+   fermée, l'ajouter après casserait les `switch` exhaustifs des applications, et un client
+   ancien le replierait sur `forbidden`
+   (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.ingestDenied`). Sans ce
+   motif, un abonné légitime refusé pendant 30 s de base saturée resterait muet jusqu'à une
+   reconnexion fortuite : le client ne réessaie AUCUN motif aujourd'hui (S-rt-65).
+   - `realtime.allowTimeoutMs` : le délai (nommage aligné sur `deliveryTimeoutMs`), défaut fixé
+     par #622 avant 10.0. Le minuteur n'est armé que si `allow` rend une promesse, et
+     `clearTimeout` à la résolution ; un verdict arrivé après le délai est **ignoré**, jamais une
+     admission.
+   - `realtime.maxPendingAllowsPerConnection` : appels d'`allow` en vol par connexion, défaut
+     PETIT fixé par #622 contre le rejeu au `welcome`, qui renvoie tous les `subscribe` d'un coup
+     (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`).
+     Au-delà : `limit` (une ressource de CETTE connexion), jamais `unavailable`.
+   - `realtime.maxPendingAllowsTotal` : plafond global par exemplaire ; au-delà, `unavailable`.
+     Un coupe-circuit par exemplaire (N dépassements dans une fenêtre) rend `unavailable` sans
+     rappeler `allow` pendant la fenêtre. `realtime:denied` gagne un champ facultatif
+     `retryAfterMs`.
+   - Client 10.0 : sur `unavailable`, il réessaie le seul `subscribe` concerné, recul exponentiel
+     à gigue COMPLÈTE, trois tentatives au plus ; valeurs écrites dans la page publique.
+   - Compteurs `allowTimedOutTotal` et `allowSaturatedTotal` (S9) ; un `warn` limité en fréquence
+     (canal, `NF_POD_NAME`, durée).
+   - **Reporté en 10.x, sans rupture** : un `AbortSignal` en argument facultatif (un paramètre de
+     plus dans un rappel ne casse pas une fonction qui en prend moins), un délai par canal.
+
+   Le sort d'une panne à l'émission d'un webhook est réglé avec les abonnements par API (W6) :
+   une panne n'y sera jamais traitée comme un verdict `false` (S-rt-60).
+
 4. **Il s'ajoute aux exigences de SA politique** (`authenticated`, `roles`, `scopes`, puis
    `allow`). Un canal ne résout qu'une politique — le nom exact, sinon le motif le plus
    spécifique (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.resolveChannelPolicy`) :
@@ -426,11 +524,13 @@ allow?: (
 
 - **Rupture si différé : OUI** (gardien de la compatibilité, table #702) : déclarer « ses
   arguments seuls » après 10.0 rendrait faux un `allow` qui lit le contexte, sans qu'il ait
-  changé. Le troisième argument, lui, est un ajout : la forme de `IAllowServices` se fixe au code
-  de #622, avec l'auteur.
+  changé. Le motif `unavailable` et les clés de délai le sont aussi : un défaut publié ne change
+  plus (politique de compatibilité).
 - **Gardé par** (#622) : un test joue le MÊME `allow` à l'admission d'une socket et à l'émission
   d'un webhook et exige le même verdict ; un `allow` qui lit le contexte de requête est refusé
-  par ce test ; un test prouve qu'une politique plus spécifique sans `allow` ouvre le canal.
+  par ce test ; un test prouve qu'une politique plus spécifique sans `allow` ouvre le canal ; un
+  verdict tardif est ignoré ; un `allow` qui rend `1` ou `"yes"` refuse ; 300 passerelles et
+  10 000 clients contre une base bloquée ne déclenchent qu'un nombre BORNÉ d'appels d'`allow`.
 
 **Reporté aux abonnements par API (W6, 10.1), sans rupture** : quand un webhook évalue `allow`
 (à chaque tentative, verdict retenu ou non — W-a, à la création seulement, est écarté : un
@@ -483,14 +583,84 @@ seuil passé — jose ne le contrôle que sous `maxTokenAge`.
   jeton, une durée de vie maximale de la connexion (avec étalement des échéances), la révocation
   par clé ou par émetteur, et une option client `token: () => Promise<string>`.
 
-**Reste à trancher** : le code de fermeture d'une socket dont le jeton expire — 4001 aujourd'hui,
-définitif pour le client, alors qu'un client qui renouvelle son jeton devrait se reconnecter (le
-changer après 10.0 serait une rupture) ; une clé retirée du jeu de l'APPLICATION n'est suivie qu'au
-redémarrage (`src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts#JwtAuthenticator`
+### S11. Fermer une socket : le code dit la cause, et ce que le client doit en faire
+
+**Décision (validée par l'auteur le 2026-10-30, table du gel) :** deux causes de fermeture
+gagnent leur code avant 10.0. Les codes vivent dans un seul registre,
+`src/nodefony/src/realtime/closeCodes.ts`, exportés par `nodefony` : le serveur qui ferme et le
+client qui décide de revenir lisent la même constante.
+
+| Code   | Constante                     | Cause                                                                 | Client 10.0              |
+| ------ | ----------------------------- | --------------------------------------------------------------------- | ------------------------ |
+| `4001` | —                             | identité morte : `authenticate` lève, session détruite, jeton RÉVOQUÉ | s'arrête                 |
+| `4005` | `IDENTITY_REFRESH_CLOSE_CODE` | droits changés, identité vivante                                      | revient aussitôt         |
+| `4006` | `TOKEN_EXPIRED_CLOSE_CODE`    | le jeton PORTEUR d'une socket ouverte a atteint son `exp`             | s'arrête (définitif)     |
+| `1013` | `TRY_AGAIN_LATER_CLOSE_CODE`  | `authenticate` n'a pas répondu dans le délai                          | revient (recul existant) |
+
+**`4006` — le jeton porteur expire.** Depuis la règle `exp`/`iat` obligatoires (ci-dessus),
+l'expiration est un événement CERTAIN pour toute socket ouverte par jeton : 10 000 capteurs
+provisionnés le même jour expirent dans le même tick (S-rt-64).
+
+- Le client 10.0 range `4006` dans ses codes définitifs
+  (`src/nodefony/src/client/realtime/notice.ts#FATAL_CLOSE_CODES`) et
+  `src/nodefony/src/client/realtime/notice.ts#closeCodeToNotice` lui donne son message. Sans cela
+  le code lui serait inconnu, donc reconnectable (`#isReconnectableCloseCode`) : 10 000
+  reconnexions dans la seconde avec le MÊME jeton périmé, une rafale fabriquée par le framework.
+- Un client 10.x muni d'un fournisseur de jeton (`token: () => Promise<string>`, opt-in) pourra,
+  lui, revenir sur `4006` avec un jeton frais — sans rien changer côté serveur. C'est la raison
+  de réserver le code dès 10.0 plutôt que de garder `4001` : la cause doit déjà voyager.
+- **Porteur seul.** Une session garde `4001` : le stockage rend `null` pour une session expirée
+  comme pour une session détruite, la cause n'est pas connaissable.
+- **Révoqué l'emporte sur expiré** : un jeton révoqué ET expiré ferme en `4001`. C'est la règle
+  existante de `src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts#tokenStatusOf`.
+  Le revalidateur d'une socket
+  (`src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts#FirewallRealtimeAuthenticator`)
+  teste `exp` avant la liste de refus : il est réordonné.
+- La cause remonte au hub par un membre facultatif neuf d'`IRealtimeToken`, à côté du booléen
+  d'`isValid` qu'elle remplace pour qui la donne ; son vocabulaire est celui de `TokenStatus`
+  (`"active" | "expired" | "revoked"`), DÉPLACÉ au cœur — realtime n'importe pas security —, et
+  `@nodefony/security` garde un alias. Le miroir
+  `src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts` suit.
+- **La poignée de main ne change pas** : un jeton refusé par le pare-feu reçoit le 401 uniforme,
+  donc `1008`. Jamais de `4006` AVANT authentification : ce serait un oracle qui dit à qui tient
+  un jeton volé qu'il a été valide.
+- **SSE : rien.** `EventSource` reçoit 401 à sa reconnexion et s'arrête (WHATWG §9.2).
+- Le code `4007` est pris par la contre-pression (#703), qui prévoyait un code neuf.
+
+**`1013` — `authenticate` trop lent à la poignée de main.** Aujourd'hui
+`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.onHandshake`
+attend `authenticate()` sans borne : une base bloquée retient chaque connexion entrante, sans
+limite. La règle est celle d'`allow` (S10 bis point 3) :
+
+- clé `realtime.authenticateTimeoutMs`, défaut fixé par #622 avant 10.0 ; le minuteur n'est armé
+  que si `authenticate` rend une promesse, `clearTimeout` à la résolution ; une identité arrivée
+  après le délai est **ignorée**, jamais admise ;
+- au dépassement, fermeture `1013` « Try Again Later » (RFC 6455 §7.4.1, registre IANA) : un
+  code STANDARD, que le client 10.0 traite déjà comme reconnectable, avec son recul. Jamais
+  `4001` : définitif, il arrêterait un client légitime à chaque panne de base ;
+- un compteur `authenticateTimedOutTotal` (unité : une poignée de main) et un `warn` limité en
+  fréquence, comme pour `allow`.
+
+- Usages : un parc de capteurs à jeton statique (S-rt-64), une passerelle sans interface, un
+  agent A2A à jeton de service, un tableau de bord derrière une session (qui garde `4001`).
+- **Rupture si différé : OUI.** Un client 10.0 qui recevrait plus tard un code inconnu se
+  reconnecterait : `4006` doit être connu de lui dès 10.0. Et borner après 10.0 une
+  authentification qui ne l'était pas ferait échouer une poignée de main qui réussissait.
+- **Gardé par** : un jeton expiré sur une socket ouverte ferme en `4006`, révoqué et expiré en
+  `4001`, une session expirée en `4001` ; aucun `4006` avant authentification ; le client ne se
+  reconnecte pas sur `4006` ; `authenticate` bloqué ferme en `1013` et le client revient ; une
+  identité tardive est ignorée.
+- Documenté dans `src/packages/@nodefony/realtime/docs/securite.md` (tableau des codes), avec la
+  recette 10.0 « un jeton d'une heure sur une socket de sept jours » : l'application renouvelle
+  sa socket avant `exp`.
+- **Reporté en 10.x, sans rupture** : le fournisseur de jeton client, un compteur des fermetures
+  par code.
+
+**Reste à trancher** (sans rupture si différé) : une clé retirée du jeu de l'APPLICATION n'est
+suivie qu'au redémarrage
+(`src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts#JwtAuthenticator`
 garde le jeu de clés local) ; à la requête HTTP, un jeton tiers n'est jamais confronté au store de
-révocation ; le changement d'identité entre exemplaires (S-rt-61) ; le nom du compteur des
-refus — ni `droppedTotal` (« jeté faute de place », S9) ni `failedTotal` (« refusé par la
-destination ») : un refus n'est pas une perte.
+révocation ; le changement d'identité entre exemplaires (S-rt-61).
 
 ### Ce qui reste hors du socle
 
@@ -499,8 +669,9 @@ destination ») : un refus n'est pas une perte.
   d'admission suffisent.
 - **gRPC** : un service de `@nodefony/http`, expérimental en 10.1. Un service qui diffuse appelle
   le hub (`RealtimeService.publish`) ; le socle n'a rien à lui ajouter.
-- **Un contrat typé commun** au-delà de la socket : `SseStream.send` pourra accepter plus tard le
-  même générique de carte d'événements, ajouté en fin avec un défaut.
+- **Le contrat typé commun** : le MÊME moule `IRealtimeContract` type la socket, le flux SSE et le
+  webhook ([ADR-0022](0022-socket-temps-reel.md) §4) ; le code suit en 10.x par génériques à
+  défaut, la forme est figée.
 
 ## Alternatives écartées
 
