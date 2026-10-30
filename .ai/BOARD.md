@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-30 21:56** (UTC).
+> Empreinte prise le **2026-10-30 23:52** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,10 +20,10 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 91% | 214 | 21 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 216 | 19 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 41 | 2026-12-15 |
-| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 31 | — |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 42 | 2026-12-15 |
+| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 30 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
@@ -35,12 +35,12 @@
 
 Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 21 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 41 ouverts
+## Jalon 10.1.0 — 42 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -65,6 +65,7 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 116.5 | P2 — décision | 1 | 2026-11-16 → 12-15 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 120 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
 | 121 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
+| 130 | P3 — fin de cycle | 1 | — | #70 | feat(webhooks): séparer les événements métier du journal d'audit |
 | 134 | P2 — décision | 1 | 2026-11-16 → 12-15 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
 | 135 | P2 — décision | 1 | 2026-11-16 → 12-15 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
 | 139 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
@@ -111,13 +112,11 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 21 ouverts
+## Jalon 10.0.0-beta — 19 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 6.03 | P2 — décision | 16.5 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.0315 | P1 — figé à la création | 0.5 | 2026-11-03 → 11-03 | #703 | feat(realtime): borner la socket, envois en trop jetés et trames comptées |
-| 6.032 | P2 — décision | 0.5 | 2026-11-04 → 11-04 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
 | 6.033 | P2 — décision | 1 | 2026-11-11 → 11-11 | #618 | feat(realtime): router les trames binaires vers leur canal |
 | 6.034 | P2 — décision | 1 | 2026-11-05 → 11-05 | #622 | feat(realtime)!: admettre un abonné de canal par son identité |
 | 6.0345 | P1 — figé à la création | 1 | 2026-11-09 → 11-09 | #699 | feat(security)!: durcir la CSP par défaut sans bloquer le temps réel |
@@ -174,7 +173,7 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 924.8 | P3 — fin de cycle | 1 | — | #676 | refactor(types): vérifier les données reçues dans les petits paquets |
 | 924.9 | P2 — décision | 0.5 | — | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
 
-## Jalon 10.2.0 — 31 ouverts
+## Jalon 10.2.0 — 30 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -189,7 +188,6 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 122 | P2 — décision | 1 | — | #75 | chore(core): trancher l'héritage des dépendances déclarées |
 | 123 | P2 — décision | 1 | — | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
 | 124 | P2 — décision | 1 | — | #161 | feat(devkit): mesurer si un agent clôt un ticket sans humain |
-| 130 | P3 — fin de cycle | 1 | — | #70 | feat(webhooks): séparer les événements métier du journal d'audit |
 | 131 | P3 — fin de cycle | 1 | — | #68 | feat(studio): garder les préférences d'affichage côté serveur |
 | 132 | P3 — fin de cycle | 1 | — | #74 | feat(studio): éditer la configuration d'un module à chaud |
 | 133 | P3 — fin de cycle | 1 | — | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T21:56:53.169Z",
+  "generatedAt": "2026-10-30T23:52:34.188Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7,7 +7,7 @@
       "closed": 1,
       "dueOn": null,
       "number": 3,
-      "open": 31,
+      "open": 30,
       "title": "10.2.0"
     },
     {
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 214,
+      "closed": 216,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 21,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 41,
+      "open": 42,
       "title": "10.1.0"
     }
   ],
@@ -5531,8 +5531,8 @@
       "number": 703,
       "title": "feat(realtime): borner la socket, envois en trop jetés et trames comptées",
       "url": "https://github.com/nodefony/nodefony-core/issues/703",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -5547,8 +5547,8 @@
       "number": 628,
       "title": "feat(realtime): tenir le serveur au même contrat que le client",
       "url": "https://github.com/nodefony/nodefony-core/issues/628",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -8679,7 +8679,7 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/70",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2.0",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 130,
@@ -9902,7 +9902,7 @@
       "title": "feat(http): ouvrir le défi ACME dans la config proxy générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/603",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 1,
