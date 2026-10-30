@@ -129,6 +129,9 @@
     "typescript/no-unsafe-argument": "warn",
     "typescript/no-unsafe-return": "warn",
     "typescript/no-unsafe-call": "warn",
+    // Un `any` affecté à un enum (ou une valeur hors de ses membres) échappe
+    // à la famille `no-unsafe-*`.
+    "typescript/no-unsafe-enum-assignment": "warn",
     // Le type `Function` accepte tout appel sans rien vérifier : on nomme la
     // signature (`(x: T) => U`), ou `ParameterDecorator` pour un décorateur.
     "typescript/no-unsafe-function-type": "error",
