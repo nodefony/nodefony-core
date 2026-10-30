@@ -239,6 +239,16 @@ seul et pense en jours.
 > Le constaté est une **borne basse** — la fenêtre de commits ignore l'exploration, les décisions et
 > les essais abandonnés. À lire comme un ordre de grandeur qui recale, jamais comme une durée.
 
+**La règle d'estimation : le CYCLE COMPLET, × 2, arrondi vers le haut** sur `0,25 · 0,5 · 1 · 2`.
+Le cycle va de la reprise à la CI verte : expliquer le ticket, coder, lancer les suites et les
+gates, fermer — puis le retour de la CI. Le `× 2` paie UNE boucle de correction si la CI rougit :
+elle repaie presque toute la vérification, quelle que soit la taille du diff. Sévère, mais pas
+d'un ordre de grandeur : un ticket au corps précis (chemins, patron, pièges, « Fini quand »
+vérifiable) tient en une heure de cycle, donc en 0,25 j — mesuré sur un ticket estimé 1 j.
+Montent d'un cran : un écran neuf (maquette puis validation de l'auteur), une page publique (sa
+relecture), un banc en médiane de N passes, une plateforme qu'on n'a pas en local (boucle CI
+seule). Un parent porte la somme de ses enfants ouverts.
+
 ## 3. Le ticket est un instrument d'ÉCONOMIE — il achète du temps, ou il en coûte
 
 **Mesuré sur ce dépôt : ~72 % du coût d'une session est de la RELECTURE de contexte, ~10 % la
