@@ -726,3 +726,9 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 - **`IWebhookListQuery.failing`** (`failureCount > 0`) au contrat : la question d'exploitation la
   plus fréquente, et la carte qui l'affiche doit pouvoir filtrer le tableau sur la même population.
   Les facettes webhook se **RECOUPENT** (actif ET en échec) ⇒ aucune n'est déduite par soustraction.
+
+## Webhooks — motifs d'abonnement et corps livré
+
+- **Grammaire = celle des canaux** (ADR-0023 W2) : `matchesSubscription` appelle `compileChannelPattern` du CŒUR (security et realtime ne se connaissent pas). `*` = toute suite, reste littéral, ancré, 3 `*` max. Compilé UNE fois par tableau `events` (`WeakMap` clé = le tableau ; `update` pose un tableau neuf → recompilé). Au-delà de 3 `*` : `assertSubscriptionPatterns` lève dans `register` ET `update` ; un motif ancien resté en base ne désigne rien.
+- **Corps** = `IWebhookPayload<T>` (`contracts/IWebhookPayload.ts`, exporté `export type`) : `id` = `webhook-id` (stable entre réessais), `timestamp` = heure de la TENTATIVE (l'heure de l'événement est dans `data.ts`), `type` = action d'audit. `#process` le construit sous ce type.
+- **Sans `tenantId`** = périmètre PLATEFORME : reçoit tout, y compris ce qu'une version ultérieure rattachera à un locataire (W2). Noms de l'audit RÉSERVÉS pour l'émission applicative à venir (W3).

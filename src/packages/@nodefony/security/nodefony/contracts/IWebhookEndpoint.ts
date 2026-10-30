@@ -15,8 +15,14 @@ export interface IWebhookEndpoint {
   /** Secret de signature **chiffré** au repos (blob `gcm1.…`). Jamais en clair. */
   readonly secretEnc: string;
   /**
-   * Actions d'audit souscrites (ex. `"login.success"`, `"user.created"`).
-   * `"*"` = toutes. La livraison ne part que si l'action de l'événement matche.
+   * Motifs des actions d'audit souscrites, dans la grammaire commune aux canaux et
+   * aux webhooks (ADR-0023 W1) : `*` vaut n'importe quelle suite de caractères —
+   * `"*"` désigne tout, `"login.*"` les actions qui commencent par `login.`,
+   * `"commande:*"` comme `"*:créée"` ; le reste est littéral, trois `*` au plus
+   * (refusé à l'enregistrement au-delà). La livraison ne part que si un motif désigne
+   * l'action. Sans `tenantId`, l'abonnement a le périmètre de la PLATEFORME : il reçoit
+   * aussi les événements qu'une version ultérieure rattachera à un locataire
+   * (ADR-0023 W2).
    */
   readonly events: readonly string[];
   /** Endpoint actif ? (désactivé = aucune livraison). */

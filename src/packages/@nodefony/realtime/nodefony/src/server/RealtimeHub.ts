@@ -6,6 +6,9 @@ import {
   isPlatformChannel,
   isRealtimePayload,
   realtimePayloadError,
+  compileChannelPattern,
+  countWildcards,
+  MAX_CHANNEL_PATTERN_WILDCARDS,
 } from "nodefony";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
 import type { IClientLogsLimits } from "../../interfaces/IClientLogsLimits";
@@ -1184,7 +1187,7 @@ export class RealtimeHub {
    * de déclaration, et on le DIT plutôt que d'exposer un chemin coûteux à ce
    * qu'un client peut nommer.
    */
-  static readonly MAX_PATTERN_WILDCARDS = 3;
+  static readonly MAX_PATTERN_WILDCARDS = MAX_CHANNEL_PATTERN_WILDCARDS;
 
   /**
    * Compile un motif et l'insère à son rang de spécificité.
@@ -1195,19 +1198,17 @@ export class RealtimeHub {
    * anodine deviendrait une expression, avec ce que cela ouvre.
    */
   #registerChannelPolicyPattern(source: string, policy: IChannelPolicy): void {
-    const etoiles = source.split("*").length - 1;
-    if (etoiles > RealtimeHub.MAX_PATTERN_WILDCARDS) {
+    const re = compileChannelPattern(source);
+    if (re === null) {
       this.#notifyOnce(
         `pattern-too-broad:${source}`,
-        `le motif de politique "${source}" porte ${etoiles} caractères « * » ` +
+        `le motif de politique "${source}" porte ${countWildcards(source)} caractères « * » ` +
           `(maximum ${RealtimeHub.MAX_PATTERN_WILDCARDS}) : il est IGNORÉ. Un ` +
           `motif de canal en demande un, deux au pire — au-delà, la mise en ` +
           `correspondance coûte cher sur des noms que le client choisit.`,
       );
       return;
     }
-    const echappe = source.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    const re = new RegExp(`^${echappe.split("\\*").join(".*")}$`, "u");
     // Poids = longueur du LITTÉRAL, `*` retirés. Entre `chat:*` (5) et
     // `chat:room:*` (10), le second gagne : il en dit plus.
     const weight = source.split("*").join("").length;
@@ -1220,9 +1221,9 @@ export class RealtimeHub {
       policies[existing] = policyEntry;
       return;
     }
-    const rang = policies.findIndex((p) => p.weight < weight);
-    if (rang < 0) policies.push(policyEntry);
-    else policies.splice(rang, 0, policyEntry);
+    const rank = policies.findIndex((p) => p.weight < weight);
+    if (rank < 0) policies.push(policyEntry);
+    else policies.splice(rank, 0, policyEntry);
   }
 
   /**

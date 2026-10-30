@@ -477,6 +477,7 @@ export type {
   WebhookEndpointUpdate,
   WebhookEndpointSummary,
 } from "./nodefony/contracts/IWebhookEndpoint";
+export type { IWebhookPayload } from "./nodefony/contracts/IWebhookPayload";
 export type {
   IWebhookListQuery,
   IWebhookStore,

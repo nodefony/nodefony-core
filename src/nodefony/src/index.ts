@@ -260,6 +260,11 @@ export { rateChannel, parseRate, isRateChannel } from "./realtime/channelRate";
 export type { RateBounds } from "./realtime/channelRate";
 export { isRealtimePayload, realtimePayloadError } from "./realtime/payload";
 export {
+  MAX_CHANNEL_PATTERN_WILDCARDS,
+  compileChannelPattern,
+  countWildcards,
+} from "./realtime/channelPattern";
+export {
   NODEFONY_CHANNEL_NAMESPACE,
   PLATFORM_CHANNELS,
   PLATFORM_INBOUND,

@@ -1,5 +1,11 @@
+import {
+  MAX_CHANNEL_PATTERN_WILDCARDS,
+  compileChannelPattern,
+  countWildcards,
+} from "nodefony";
 import type { IAuditEvent } from "../../contracts/IAuditEvent";
 import type { IWebhookEndpoint } from "../../contracts/IWebhookEndpoint";
+import type { IWebhookPayload } from "../../contracts/IWebhookPayload";
 import type { IWebhookDeliveryPolicy } from "../../service/webhooks";
 import { webhookSignatureHeaders } from "./webhookSignature";
 import type { IDeliveryResult } from "./webhookDelivery";
@@ -26,16 +32,67 @@ import type { IDeliveryResult } from "./webhookDelivery";
 const MAX_BACKOFF_MS = 300_000; // 5 min
 const BASE_BACKOFF_MS = 5_000;
 
-/** Une souscription matche-t-elle une action d'audit ? `*` = toutes, `x.*` = préfixe. */
+/**
+ * Motifs compilés par liste d'abonnement — une fois par tableau `events`, jamais par
+ * événement. La clé est le tableau lui-même : un abonnement modifié porte un tableau
+ * neuf, donc se recompile, et l'ancien part avec lui au ramasse-miettes.
+ */
+const compiledSubscriptions = new WeakMap<
+  readonly string[],
+  readonly RegExp[]
+>();
+
+function compiledPatterns(patterns: readonly string[]): readonly RegExp[] {
+  let compiled = compiledSubscriptions.get(patterns);
+  if (compiled === undefined) {
+    const list: RegExp[] = [];
+    for (const p of patterns) {
+      // Un motif trop large est refusé à l'enregistrement ; un ancien resté en
+      // base ne désigne simplement rien.
+      const re = compileChannelPattern(p);
+      if (re !== null) list.push(re);
+    }
+    compiled = list;
+    compiledSubscriptions.set(patterns, compiled);
+  }
+  return compiled;
+}
+
+/**
+ * Dit si un abonnement webhook désigne une action d'audit, selon la grammaire commune aux canaux et aux webhooks (ADR-0023 W1).
+ *
+ * `*` vaut n'importe quelle suite de caractères : `*` désigne tout, `login.*` les
+ * actions qui commencent par `login.`, `commande:*` aussi bien que `*:créée`
+ * (`compileChannelPattern`, cœur). Chaque liste n'est compilée qu'une fois.
+ *
+ * @param patterns - les motifs de l'abonnement (`IWebhookEndpoint.events`).
+ * @param action - le nom de l'action d'audit.
+ * @returns `true` si un motif au moins désigne l'action.
+ */
 export function matchesSubscription(
   patterns: readonly string[],
   action: string,
 ): boolean {
-  for (const p of patterns) {
-    if (p === "*" || p === action) return true;
-    if (p.endsWith(".*") && action.startsWith(p.slice(0, -1))) return true;
+  for (const re of compiledPatterns(patterns)) {
+    if (re.test(action)) return true;
   }
   return false;
+}
+
+/**
+ * Refuse une liste d'abonnement dont un motif porte trop de `*`, en le nommant.
+ *
+ * @param patterns - les motifs proposés à l'enregistrement ou à la mise à jour.
+ * @throws Error si un motif dépasse `MAX_CHANNEL_PATTERN_WILDCARDS` étoiles.
+ */
+export function assertSubscriptionPatterns(patterns: readonly string[]): void {
+  for (const p of patterns) {
+    if (countWildcards(p) > MAX_CHANNEL_PATTERN_WILDCARDS) {
+      throw new Error(
+        `webhooks: le motif « ${p} » porte ${countWildcards(p)} caractères « * » (maximum ${MAX_CHANNEL_PATTERN_WILDCARDS}) — un motif en demande un, deux au pire.`,
+      );
+    }
+  }
 }
 
 /**
@@ -216,12 +273,13 @@ export class WebhookDispatcher {
       const id = job.messageId ?? this.#deps.newMessageId();
       const nowMs = this.#deps.now();
       const tsS = Math.floor(nowMs / 1000);
-      const body = JSON.stringify({
+      const payload: IWebhookPayload<IAuditEvent> = {
         id,
         timestamp: new Date(nowMs).toISOString(),
         type: event.action,
         data: event,
-      });
+      };
+      const body = JSON.stringify(payload);
       const headers: Record<string, string> = {
         "content-type": "application/json",
         "user-agent": "Nodefony-Webhooks/1.0",

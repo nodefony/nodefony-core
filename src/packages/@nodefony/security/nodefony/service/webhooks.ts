@@ -48,6 +48,7 @@ import { assertPublicUrl } from "../src/net/ssrfGuard";
 import { schemaMismatchOf } from "@nodefony/http";
 import {
   WebhookDispatcher,
+  assertSubscriptionPatterns,
   type IWebhookDeliveryRecord,
 } from "../src/webhook/WebhookDispatcher";
 import {
@@ -441,6 +442,7 @@ class WebhookService extends Service {
    * (la seule occasion de le lire pour le copier).
    *
    * @throws SsrfError si l'URL est invalide / cible non publique.
+   * @throws Error si un motif de `events` porte plus de trois `*` (ADR-0023 W1).
    * @throws Error si `tenantId` est rempli : le périmètre d'un locataire n'est pas
    * encore appliqué à la livraison (ADR-0023 W2) — l'accepter le rendrait trompeur.
    */
@@ -450,6 +452,7 @@ class WebhookService extends Service {
         "webhooks: tenantId n'est pas encore pris en charge — le multi-tenant n'existe pas, et un abonnement rattaché à un locataire recevrait tout. Laisser tenantId absent ou null.",
       );
     }
+    assertSubscriptionPatterns(input.events);
     const { store, key, config } = this.#assertReady();
     await this.#assertSafeUrl(config, input.url);
     const secret = generateSecret();
@@ -540,6 +543,7 @@ class WebhookService extends Service {
       "url" | "events" | "enabled" | "description" | "metadata"
     >,
   ): Promise<WebhookEndpointSummary | null> {
+    if (patch.events !== undefined) assertSubscriptionPatterns(patch.events);
     const { store, config } = this.#assertReady();
     const current = await store.findById(id);
     if (!current) return null;

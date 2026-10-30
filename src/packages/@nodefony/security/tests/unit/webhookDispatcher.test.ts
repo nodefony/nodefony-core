@@ -143,6 +143,19 @@ describe("dispatcher — fonctions pures", () => {
     assert.equal(matchesSubscription(["login.*"], "logout.success"), false);
     assert.equal(matchesSubscription(["user.created"], "login.success"), false);
   });
+  it("matchesSubscription: la grammaire des canaux (ADR-0023 W2)", () => {
+    assert.equal(matchesSubscription(["commande:*"], "commande:42"), true);
+    assert.equal(matchesSubscription(["*:créée"], "commande:créée"), true);
+    assert.equal(matchesSubscription(["*:créée"], "commande:annulée"), false);
+    // Le reste est LITTÉRAL : le point n'est pas « n'importe quel caractère ».
+    assert.equal(
+      matchesSubscription(["login.success"], "loginXsuccess"),
+      false,
+    );
+    assert.equal(matchesSubscription(["login.*"], "loginXsuccess"), false);
+    // Ancré aux deux bouts : un motif sans étoile ne désigne pas un préfixe.
+    assert.equal(matchesSubscription(["login"], "login.success"), false);
+  });
   it("classifyDelivery: succès / retry / fail", () => {
     assert.equal(classifyDelivery(ok), "success");
     assert.equal(
