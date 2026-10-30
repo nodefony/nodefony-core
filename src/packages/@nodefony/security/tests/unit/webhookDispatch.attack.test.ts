@@ -59,6 +59,7 @@ function deps(
   return {
     endpointCount: () => endpoints.length,
     getSnapshot: () => endpoints,
+    currentEndpoint: (id) => endpoints.find((e) => e.id === id) ?? null,
     secretOf: () => SECRET,
     policy: {
       timestampToleranceS: 300,

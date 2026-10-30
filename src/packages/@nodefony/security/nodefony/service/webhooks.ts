@@ -210,6 +210,7 @@ class WebhookService extends Service {
     const dispatcher = new WebhookDispatcher({
       endpointCount: () => this.endpointCount(),
       getSnapshot: () => this.getSnapshot(),
+      currentEndpoint: (id) => this.#endpoints?.get(id) ?? null,
       secretOf: (ep) => this.decryptEndpointSecret(ep).toString("utf8"),
       policy: this.getDeliveryPolicy(),
       resolveTarget: (url) => this.#resolveTarget(url),

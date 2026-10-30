@@ -75,6 +75,13 @@ export interface IWebhookDispatcherDeps {
   endpointCount(): number;
   /** Snapshot des endpoints (n'est lu que si `endpointCount() > 0`). */
   getSnapshot(): IWebhookEndpoint[];
+  /**
+   * L'abonnement tel qu'il est MAINTENANT, ou `null` s'il a été supprimé — relu à
+   * chaque tentative. Un réessai part jusqu'à plusieurs minutes après le premier
+   * envoi : sans cette relecture, il partirait vers une URL retirée, signé d'un
+   * secret révoqué, pour un abonnement supprimé ou désactivé.
+   */
+  currentEndpoint(id: string): IWebhookEndpoint | null;
   /** Secret de signature en clair (`whsec_…`) d'un endpoint. */
   secretOf(endpoint: IWebhookEndpoint): string;
   /** Politique de livraison (tolérance/retries/timeout/concurrence/file). */
@@ -193,7 +200,18 @@ export class WebhookDispatcher {
 
   /** Signe + livre une tentative ; gère succès / retry / échec définitif. */
   async #process(job: Job): Promise<void> {
-    const { ep, event, attempt } = job;
+    const { event, attempt } = job;
+    // L'abonnement d'AUJOURD'HUI, pas la copie prise à l'empilement : supprimé,
+    // désactivé ou désabonné de cet événement depuis, la tentative s'arrête ; et
+    // elle part vers l'URL et sous le secret du moment.
+    const ep = this.#deps.currentEndpoint(job.ep.id);
+    if (
+      ep === null ||
+      !ep.enabled ||
+      !matchesSubscription(ep.events, event.action)
+    ) {
+      return;
+    }
     try {
       const id = job.messageId ?? this.#deps.newMessageId();
       const nowMs = this.#deps.now();

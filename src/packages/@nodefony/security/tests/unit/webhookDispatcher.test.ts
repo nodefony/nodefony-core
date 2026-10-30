@@ -82,6 +82,7 @@ function harness(
   h.deps = {
     endpointCount: () => endpoints.length,
     getSnapshot: () => endpoints,
+    currentEndpoint: (id) => endpoints.find((e) => e.id === id) ?? null,
     secretOf: () => "whsec_dGVzdHNlY3JldA==",
     policy: {
       timestampToleranceS: 300,
@@ -268,6 +269,89 @@ describe("dispatcher — retry & auto-marquage", () => {
     assert.equal(h.deliverCalls.length, 1);
     assert.equal(h.scheduled, 0);
     assert.equal(h.marks[0]!.ok, false);
+  });
+});
+
+describe("dispatcher — chaque tentative relit l'abonnement du moment", () => {
+  // Un réessai part plusieurs minutes après le premier envoi : entre-temps
+  // l'administrateur a pu supprimer, désactiver, rediriger ou restreindre
+  // l'abonnement. La tentative obéit à l'abonnement d'AUJOURD'HUI, jamais à la
+  // copie prise au premier envoi.
+  it("abonnement supprimé entre deux tentatives → le réessai ne part pas", async () => {
+    const eps = [endpoint()];
+    let calls = 0;
+    const h = harness(
+      eps,
+      retryable,
+      {},
+      {
+        deliver: () => {
+          calls++;
+          eps.length = 0; // supprimé pendant la première tentative
+          return Promise.resolve(retryable);
+        },
+      },
+    );
+    new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
+    await flush();
+    assert.equal(calls, 1);
+  });
+
+  it("abonnement désactivé, ou qui ne s'abonne plus à l'événement → le réessai ne part pas", async () => {
+    for (const changed of [
+      endpoint({ enabled: false }),
+      endpoint({ events: ["token.*"] }),
+    ]) {
+      const eps = [endpoint()];
+      let calls = 0;
+      const h = harness(
+        eps,
+        retryable,
+        {},
+        {
+          deliver: () => {
+            calls++;
+            eps[0] = changed;
+            return Promise.resolve(retryable);
+          },
+        },
+      );
+      new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
+      await flush();
+      assert.equal(calls, 1);
+    }
+  });
+
+  it("URL et secret changés entre deux tentatives → le réessai part vers la NOUVELLE URL, signé du nouveau secret", async () => {
+    const eps = [endpoint()];
+    const urls: string[] = [];
+    const secrets: string[] = [];
+    const h = harness(
+      eps,
+      retryable,
+      {},
+      {
+        secretOf: (ep) => {
+          secrets.push(ep.secretEnc);
+          return "whsec_dGVzdHNlY3JldA==";
+        },
+        deliver: (url) => {
+          urls.push(url);
+          eps[0] = endpoint({
+            url: "https://hooks.example/new",
+            secretEnc: "gcm1.rotated",
+          });
+          return Promise.resolve(urls.length === 1 ? retryable : ok);
+        },
+      },
+    );
+    new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
+    await flush();
+    assert.deepEqual(urls, [
+      "https://hooks.example/x",
+      "https://hooks.example/new",
+    ]);
+    assert.deepEqual(secrets, ["gcm1.x", "gcm1.rotated"]);
   });
 });
 
