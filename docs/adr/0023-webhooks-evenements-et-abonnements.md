@@ -15,7 +15,8 @@ tags: [security, webhooks, realtime, design, compatibility]
 
 Accepté (2026-10-29). W2 a été validée par l'auteur ; W1 et W3 ont été amendées après une table
 d'experts (#627) ; W1 et W3 à W7 sont acceptées par délégation de l'auteur. Les quatre règles
-communes aux livraisons (admission, flux SSE, octets, typage) restent à écrire : #702. Applique le socle
+communes aux livraisons sont écrites (admission : ADR-0021 §S10 et §S10 bis ; flux SSE : §S10 ter ;
+octets : §S8 ; typage : ADR-0022 §4). Applique le socle
 [ADR-0021](0021-temps-reel-evenement-et-livraisons.md) à la livraison qui ne tient aucune
 connexion ouverte. Instruit par un relevé de la brique de `@nodefony/security`, et contrôlé face
 aux notifications poussées d'A2A 1.0.1 (§4.3.3, §13.2).
@@ -106,7 +107,11 @@ distinctes, réglées séparément.
   plus. _Amendé le 2026-10-29_ : la grammaire propre aux webhooks (`*`, nom exact, `préfixe.*`)
   laissait `commande:*` lu comme un nom littéral, sans erreur, quand les canaux l'acceptent
   (S-rt-46). La grammaire des canaux accepte tout ce que l'ancienne acceptait, avec le même sens :
-  aucun abonnement existant n'en change. Elle est figée pour la série.
+  aucun abonnement existant n'en change. Elle est figée pour la série. La politique de canal
+  côté sécurité (`pattern:` en préfixe,
+  `src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts`) est la troisième
+  forme : #622 l'unifie sur la même grammaire ou documente l'équivalence — aucune quatrième
+  grammaire n'entre.
 - **Une seule règle pour les deux livraisons** : « chez qui » se décide par le prédicat de #622,
   codé une fois, appliqué au canal de la socket comme à l'événement d'un webhook.
 
@@ -139,8 +144,8 @@ sécurité abonné ne distinguerait pas d'un vrai (S-rt-49). Écrite en 10.0, la
 
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** la garantie écrite est celle de S5 : **plusieurs tentatives, sans
 garantie de livraison** — pas « au moins une fois », que S5 écarte faute de file durable (une
-livraison se perd quand la file est pleine, après le dernier réessai ou au redémarrage, et
-`dropped` la compte). Tous les réessais d'un message portent le **même** `webhook-id` ; seul l'horodatage change, pour la
+livraison se perd quand la file est pleine, après le dernier réessai ou au redémarrage ; une
+ligne de journal — la première, puis une sur cent — et `droppedCount()` la rendent visible). Tous les réessais d'un message portent le **même** `webhook-id` ; seul l'horodatage change, pour la
 protection contre le rejeu. **Aucun ordre** n'est garanti entre deux messages. Le destinataire
 déduplique par `webhook-id`, et ordonne par l'identifiant de la charge s'il en a besoin.
 
@@ -175,8 +180,11 @@ seule règle décide qui peut suivre quoi, quelle que soit la livraison.
 n'est pas persistée : un arrêt brutal perd ce qui était en attente, ce qui reste conforme à S5
 (« sans garantie ») tant que la perte est écrite et comptée.
 
-- À prouver : un abonnement créé sur un exemplaire est-il vu par les autres sans redémarrage ? On
-  suppose aujourd'hui que non.
+- Un abonnement créé sur un exemplaire est vu par les autres au plus tard après
+  `webhooks.snapshotTtlS` (30 s par défaut,
+  `src/packages/@nodefony/security/nodefony/service/webhooks.ts#WebhookService`), sans
+  redémarrage. À prouver à deux exemplaires ; la fenêtre s'écrit dans la page des webhooks
+  (S-rt-62).
 
 ## Alternatives écartées
 

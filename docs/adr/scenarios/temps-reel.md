@@ -20,18 +20,20 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 **Décisions figées par la publication de 10.0** (« rupture si différé : OUI », ou forme publiée
 dès 10.0) — celles que ce catalogue juge en premier :
 
-| Code     | Décision                                                                                    |
-| -------- | ------------------------------------------------------------------------------------------- |
-| S1       | la charge reste nue (`params` = ce que le producteur a publié), série 10                    |
-| S3-cond  | un serveur 10.0 ignore un champ inconnu dans `params` d'un `subscribe`                      |
-| S6       | enveloppe du bus `{ channel, payload, originId }`, scellée sur ces 3 champs                 |
-| S9-noms  | `sentTotal`, `droppedTotal`, `failedTotal`, `pendingBytes`                                  |
-| W1       | corps d'un webhook `{ id, timestamp, type, data }`                                          |
-| W2       | `*` = tout, dans son périmètre ; grammaire des motifs figée pour la série                   |
-| S9-refus | un compteur par cause (`ingressRejectedTotal`, `systemFloorDeniedTotal`…), pas de générique |
-| S10 bis  | `allow` = flèche `(channel, who)` ou classe `@injectable` ; motif `unavailable`             |
-| S11      | `4006` jeton porteur expiré (définitif), `1013` authentification trop lente                 |
-| 0022 §4  | le même moule `IRealtimeContract` type socket, SSE et webhook                               |
+| Code      | Décision                                                                                                  |
+| --------- | --------------------------------------------------------------------------------------------------------- |
+| S1        | la charge reste nue (`params` = ce que le producteur a publié), série 10                                  |
+| S3-cond   | un serveur 10.0 ignore un champ inconnu dans `params` d'un `subscribe`                                    |
+| S6        | enveloppe du bus `{ channel, payload, originId }`, scellée sur ces 3 champs                               |
+| S9-noms   | `sentTotal`, `droppedTotal`, `failedTotal`, `pendingBytes`                                                |
+| W1        | corps d'un webhook `{ id, timestamp, type, data }`                                                        |
+| W2        | `*` = tout, dans son périmètre ; grammaire des motifs figée pour la série                                 |
+| S9-refus  | un compteur par cause (`ingressRejectedTotal`, `systemFloorDeniedTotal`…), pas de générique               |
+| S10       | identité d'admission plate (`ISubscriberIdentity`), jamais le jeton ; `id` requis dans `RealtimeIdentity` |
+| S10-jeton | `exp` et `iat` obligatoires, `iat` futur > 5 s refusé, HTTP comme socket                                  |
+| S10 bis   | `allow` = flèche `(channel, who)` ou classe `@injectable` ; motif `unavailable`                           |
+| S11       | `4006` jeton porteur expiré (définitif), `1013` authentification trop lente                               |
+| 0022 §4   | le même moule `IRealtimeContract` type socket, SSE et webhook                                             |
 
 ## Usages hétérogènes
 
@@ -150,8 +152,10 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Catégorie** : usages hétérogènes (livraison navigateur sans socket)
 - **Tient si** : l'éjection atteint un flux SSE de canal (le hub le connaît), et un refus
   d'admission en SSE est un statut HTTP rendu AVANT le flux, jamais un message dans le flux.
-- **Décisions jugées** : ADR-0022 §6, S4
-- **A fait changer** : aucune
+- **Décisions jugées** : ADR-0022 §6, S4, S10 ter
+- **A fait changer** : S10 ter (revue du gel) — la règle du flux SSE d'un canal s'écrit au socle :
+  refus par statut HTTP avant le flux, éjection et fin qui ferment le flux, flux enregistré auprès
+  du hub (#623).
 
 ### S-rt-56 — Une mesure dont UN champ est binaire
 
@@ -163,7 +167,8 @@ dès 10.0) — celles que ce catalogue juge en premier :
   pas », et nomme le sort d'un champ imbriqué — déformé et documenté, ou refusé par un parcours
   dont le coût est mesuré.
 - **Décisions jugées** : S8
-- **A fait changer** : aucune
+- **A fait changer** : S8 (revue du gel) — un `Uint8Array` imbriqué suit la convention du codec
+  (ADR-0022 §3, #618) ; jusque-là il est déformé, et cette forme n'est pas une promesse.
 
 ### S-rt-63 — Un `allow` qui lit le contexte de requête
 
@@ -335,7 +340,8 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 ### S-rt-60 — Une base indisponible 30 s pendant l'émission
 
 - **Situation** : la base tombe 30 s ; ou le compte de 42 est verrouillé 15 min par l'anti-bourrage,
-  puis déverrouillé. S10 point 5 : une exception, un rejet, un délai dépassé valent refus. Si un
+  puis déverrouillé. S10 bis point 3 : une exception ou un rejet valent refus `forbidden`, un délai dépassé rend
+  `unavailable`. Si un
   refus à l'émission suspend l'abonnement, TOUS les abonnements sont suspendus par la panne ; et
   rien ne lève une suspension, la cascade de révocation n'ayant pas d'événement inverse
   (`src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts#registerUserRevocationCascade`).
@@ -580,10 +586,12 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Situation** : un compte légitime ouvre une socket et envoie des centaines de `subscribe` sur
   `room:1` … `room:500`, chacun déclenchant une requête en base par `allow`.
 - **Catégorie** : attaquant
-- **Tient si** : les appels d'`allow` en vol sont plafonnés par connexion (au-delà : `limit`) ET
-  par exemplaire ; une connexion ne peut pas priver les autres de la base.
+- **Tient si** : les appels d'`allow` en vol sont plafonnés par connexion (au-delà : la demande
+  attend son tour, file bornée par le plafond de canaux) ET par exemplaire ; une connexion ne peut
+  pas priver les autres de la base, et le rejeu légitime au `welcome` ne perd aucun canal.
 - **Décisions jugées** : S10 bis
-- **A fait changer** : S10 bis (2026-10-30 — `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal`)
+- **A fait changer** : S10 bis (2026-10-30 — `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal` ;
+  revue du gel : file d'attente au-delà du plafond par connexion, jamais `limit`)
 
 ## Plateformes
 

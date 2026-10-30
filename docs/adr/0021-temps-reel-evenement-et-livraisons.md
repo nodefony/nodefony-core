@@ -21,7 +21,9 @@ communes aux trois livraisons (#702) : l'identité d'admission (S10). Amendé le
 table d'experts du gel (7 sièges, deux tours, aucun vote contre) : les refus se comptent par cause
 (S9), `allow` perd son troisième argument au profit d'une classe injectable, son délai et sa
 saturation ont un motif `unavailable` (S10 bis), une socket dont le jeton porteur expire se ferme
-en `4006` et une authentification trop lente en `1013` (S11). Socle commun des décisions temps réel :
+en `4006` et une authentification trop lente en `1013` (S11). Revu avant le gel (revue finale,
+24 constats, #702) : au-delà du plafond d'appels d'`allow` en vol, une demande attend son tour au
+lieu d'être refusée (S10 bis), et la règle du flux SSE d'un canal est écrite (S10 ter). Socle commun des décisions temps réel :
 [ADR-0022](0022-socket-temps-reel.md) (la socket, #627) et
 [ADR-0023](0023-webhooks-evenements-et-abonnements.md) (les webhooks) en dépendent ; l'ADR de
 gRPC naîtra avec l'Epic #694. Instruit par un relevé des quatre briques existantes et par le
@@ -90,10 +92,11 @@ dans un champ optionnel de l'accueil `realtime:welcome`, jamais dans chaque fram
 
 **Amendement (validé par l'auteur le 2026-10-29) : la charge est un objet ou un tableau.**
 JSON-RPC 2.0 (§4.2) exige que `params` soit structuré ; un pair écrit dans un autre langage
-refuse la frame d'un scalaire (S-rt-43). `RealtimeHub.publish` refuse donc une charge qui n'est
-ni un objet ni un tableau — nombre, chaîne, booléen, `null` —, en le nommant. Un scalaire se
-publie dans un objet (`{ value: 42 }`) ; des octets restent admis (S8). Le contrôle est un
-`typeof` par publication, hors du chemin de chaque connexion.
+refuse la frame d'un scalaire (S-rt-43). `RealtimeHub.publish` refusera donc (#704, 10.0) une
+charge qui n'est ni un objet ni un tableau — nombre, chaîne, booléen, `null` —, en le nommant. Un
+scalaire se publie dans un objet (`{ value: 42 }`) ; des octets restent admis (S8). Le contrôle
+est une règle pure au cœur (`isRealtimePayload`), un `typeof` par publication, hors du chemin de
+chaque connexion.
 
 **Une charge ABSENTE reste admise** : JSON-RPC autorise une notification sans `params`, et
 `publish(canal)` sans charge est un signal légitime (une fin de compilation, un « rafraîchis »).
@@ -106,6 +109,10 @@ ambiguïté puisque `null` n'est plus une charge valide.
 - Écarté : tolérer le scalaire comme dérogation écrite à JSON-RPC. La socket se dit lisible par un
   pair d'un autre langage (ADR-0022) ; une dérogation le démentirait pour un gain nul.
 - **Rupture si différé : OUI.** Refuser un scalaire après 10.0 casse qui en publie déjà.
+
+**Le moule typé des trois livraisons est figé par [ADR-0022](0022-socket-temps-reel.md) §4** : le
+MÊME `IRealtimeContract` type la socket, le flux SSE et le webhook ; le code suit (#628), la forme
+est figée avec 10.0.
 
 ### S2. Pas d'identifiant ni de séquence imposés par le socle
 
@@ -183,7 +190,9 @@ d'écriture des canaux.
 **Pourquoi « sans garantie » et pas « au moins une fois » pour le webhook.** La file des
 livraisons vit en mémoire (`src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts#WebhookDispatcher`) :
 une livraison est abandonnée quand la file est pleine, après le dernier réessai, ou au
-redémarrage du process, et le compteur `dropped` la rend visible. Promettre « au moins une fois »
+redémarrage du process ; une ligne de journal (la première perte, puis une sur cent) et
+`droppedCount()` la rendent visible, et l'exposition en console vient avec le vocabulaire S9
+(10.x). Promettre « au moins une fois »
 exigerait une file durable, donc de stocker des événements — ce que S3 écarte du socle. Un
 réessai garde le même `webhook-id` que la tentative échouée, ce qui rend le doublon
 dédupliquable. Passer plus tard à une livraison garantie est un ajout ; l'inverse serait une
@@ -279,6 +288,11 @@ manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devien
 | Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)                |
 | Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3, 10.1), sous la contrainte « jamais des octets déformés » (S-rt-3) — table du gel, 2026-10-30 |
 
+Un `Uint8Array` IMBRIQUÉ dans une charge JSON suit la convention du codec
+([ADR-0022](0022-socket-temps-reel.md) §3, #618 : chaîne d'octets en CBOR, base64 déclaré en
+JSON) ; jusque-là il est déformé en objet, sur toute livraison — la garde ne regarde que le
+premier niveau —, et cette forme n'est pas une promesse (S-rt-56).
+
 - Usages : de la voix, un document partagé, de la télémétrie binaire.
 - **Rupture si différé : NON.** Mais une application qui décoderait la forme déformée casserait au
   correctif : la règle est écrite avant 10.0 pour que cette forme ne soit jamais une promesse.
@@ -329,20 +343,22 @@ dépend de la garde. Il n'y a donc pas de compteur générique des refus : chaqu
 dans un ensemble fermé, et son unité s'écrit avec son nom — comme pour les quatre compteurs
 ci-dessus.
 
-| Nom                      | Ce qu'il compte                                                      | Unité                           | Où                     |
-| ------------------------ | -------------------------------------------------------------------- | ------------------------------- | ---------------------- |
-| `ingressRejectedTotal`   | message du bus refusé à l'entrée (canal non déclaré diffusé)         | un message reçu d'un exemplaire | sonde du hub, existant |
-| `systemFloorDeniedTotal` | abonnement refusé par le plancher des canaux de plateforme           | une demande d'abonnement        | sonde du hub, existant |
-| `sealRejectedTotal`      | message du bus dont le sceau ne se vérifie pas (S6)                  | un message reçu d'un exemplaire | #704                   |
-| `allowTimedOutTotal`     | `allow` qui n'a pas répondu dans `realtime.allowTimeoutMs` (S10 bis) | un appel d'`allow`              | #622                   |
-| `allowSaturatedTotal`    | demande refusée avant tout appel d'`allow`, plafond d'appels en vol  | une demande d'abonnement        | #622                   |
+| Nom                         | Ce qu'il compte                                                                   | Unité                           | Où                     |
+| --------------------------- | --------------------------------------------------------------------------------- | ------------------------------- | ---------------------- |
+| `ingressRejectedTotal`      | message du bus refusé à l'entrée (canal non déclaré diffusé)                      | un message reçu d'un exemplaire | sonde du hub, existant |
+| `systemFloorDeniedTotal`    | abonnement refusé par le plancher des canaux de plateforme                        | une demande d'abonnement        | sonde du hub, existant |
+| `sealRejectedTotal`         | message du bus dont le sceau ne se vérifie pas (S6)                               | un message reçu d'un exemplaire | #704                   |
+| `allowTimedOutTotal`        | `allow` qui n'a pas répondu dans `realtime.allowTimeoutMs` (S10 bis)              | un appel d'`allow`              | #622                   |
+| `allowSaturatedTotal`       | demande rendue `unavailable` sans appel d'`allow` (plafond global, coupe-circuit) | une demande d'abonnement        | #622                   |
+| `authenticateTimedOutTotal` | `authenticate()` sans réponse dans `realtime.authenticateTimeoutMs` (S11)         | une poignée de main             | #622                   |
 
 - **Le FILTRAGE n'est pas un refus** (S-rt-67). Un `allow` qui rend `false` à l'émission d'un
   webhook dit « ce message n'est pas pour toi » — 400 000 fois par seconde dans un usage normal
   (S-rt-59). Il n'entre dans aucun compteur de refus : il noierait les refus de sécurité (verrou,
   sceau, plancher) qu'un exploitant doit voir monter.
-- **Rupture si différé : OUI pour les noms** déjà publiés (`ingressRejectedTotal`,
-  `systemFloorDeniedTotal`) et pour les deux de #622, qui naissent avec 10.0. Un total générique
+- **Rupture si différé : OUI pour les noms** : les deux déjà publiés (`ingressRejectedTotal`,
+  `systemFloorDeniedTotal`), `sealRejectedTotal` (#704), `allowTimedOutTotal`,
+  `allowSaturatedTotal` et `authenticateTimedOutTotal` (#622) — tous naissent avec 10.0. Un total générique
   calculé À LA LECTURE (somme des causes) reste un ajout possible en 10.x.
 - **Écarté** : `deniedTotal` ou `rejectedTotal` générique (option A/B de la table) — il additionne
   des grandeurs d'unités différentes ; un générique plus une ventilation `{ cause: n }` (option D) —
@@ -371,9 +387,14 @@ export interface ISubscriberIdentity extends RealtimeIdentity {
   readonly issuer: string | null; // `iss` du jeton vérifié ; null = aucun jeton (session, anonyme)
   readonly account: boolean; // `id` désigne un compte local que l'on peut relire
 }
-
-allow?: (channel: string, who: ISubscriberIdentity) => boolean | Promise<boolean>;
 ```
+
+Forme actuelle de `RealtimeIdentity`
+(`src/nodefony/src/realtime/RealtimeEventMap.ts#RealtimeIdentity`) :
+`{ type, authenticated, userIdentifier, roles: string[], scopes: string[] }`. `id` (requis) et le
+`readonly` de `roles` et `scopes` s'ajoutent dans #622, avant 10.0 : passer un tableau en
+`readonly` après publication casse le type de qui l'écrit. La forme d'`allow` (flèche OU classe
+`@injectable`) est fixée en S10 bis.
 
 1. **Deux types.** `id` part au client (il connaît ainsi son canal sans taper une route) ;
    `issuer` et `account` restent au serveur.
@@ -396,7 +417,8 @@ allow?: (channel: string, who: ISubscriberIdentity) => boolean | Promise<boolean
      explicite (`anonymous: true`) — `user:${who.id}` ne peut donc pas valoir `"user:null"` ;
    - un authentificateur sans `getIdentity` n'entre sur **aucun** canal à `allow` : refus
      `forbidden` et une ligne de journal — jamais un `id` déduit de `getUserIdentifier()` ;
-   - seul `=== true` admet ; une exception, une promesse rejetée ou un délai dépassé valent refus ;
+   - seul `=== true` admet ; une exception ou une promesse rejetée valent refus `forbidden` ; un
+     délai dépassé ou une saturation rendent `unavailable` (S10 bis point 3), jamais une admission ;
    - l'identité est gelée une fois, à la poignée de main : un `allow` ne peut pas s'ajouter un rôle ;
    - la copie structurelle du contrat dans `@nodefony/security`
      (`src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts#IRealtimeToken`)
@@ -472,7 +494,10 @@ allow?:
    - flèche et classe se distinguent par la **métadonnée `@injectable`**, jamais par le texte de la
      fonction (`class …`) : la garde `isChannelPolicy`
      (`src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#isChannelPolicy`),
-     qui refuse aujourd'hui toute fonction, accepte les deux formes ;
+     qui aujourd'hui ne lit que `authenticated`/`roles`/`scopes` et laisse passer toute clé
+     inconnue sans la lire — un `allow` posé avant #622 est accepté et ignoré —, accepte les deux
+     formes d'`allow` et **refuse toute clé inconnue** (règle de sévérité des schémas du dépôt :
+     une faute de frappe dans une politique de sécurité ne s'ignore pas) ;
    - une instance sert tous les abonnés en même temps : elle ne garde **aucun état par abonné**
      (TSDoc, page publique ; un test joue deux `allow` concurrents d'une classe qui mémorise `who`
      et exige qu'ils ne se croisent pas) ;
@@ -499,9 +524,18 @@ allow?:
      `clearTimeout` à la résolution ; un verdict arrivé après le délai est **ignoré**, jamais une
      admission.
    - `realtime.maxPendingAllowsPerConnection` : appels d'`allow` en vol par connexion, défaut
-     PETIT fixé par #622 contre le rejeu au `welcome`, qui renvoie tous les `subscribe` d'un coup
-     (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`).
-     Au-delà : `limit` (une ressource de CETTE connexion), jamais `unavailable`.
+     PETIT fixé par #622. Au-delà, une demande d'abonnement **attend son tour** dans une file par
+     connexion ; elle n'est pas refusée (amendement du 2026-10-30, revue du gel). Le rejeu au
+     `welcome`
+     (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`)
+     renvoie tous les `subscribe` d'un coup, et le client ne réessaie pas `limit` : un refus
+     ferait perdre ses canaux à un abonné légitime à chaque reconnexion. La file est paresseuse
+     (`null` tant que N appels au plus sont en vol), bornée par le plafond de canaux
+     (`limits.maxChannelsPerConnection`, contrôlé AVANT `allow`), et libérée à la fermeture ;
+     `realtime.allowTimeoutMs` court depuis la RÉCEPTION du `subscribe`, file comprise —
+     dépassé, `unavailable`. `limit` garde son seul sens : plafond de canaux atteint. Un plafond
+     par connexion porté à 256 aurait évité la file, mais il ne bornerait plus rien contre une
+     base bloquée (S-rt-70).
    - `realtime.maxPendingAllowsTotal` : plafond global par exemplaire ; au-delà, `unavailable`.
      Un coupe-circuit par exemplaire (N dépassements dans une fenêtre) rend `unavailable` sans
      rappeler `allow` pendant la fenêtre. `realtime:denied` gagne un champ facultatif
@@ -523,6 +557,8 @@ allow?:
 5. **`who.scopes` porte les scopes du jeton qui a ouvert CETTE livraison** ; il est vide pour une
    session et pour un webhook (rien n'est stocké avec l'abonnement, S10 point 6).
 
+- Usages : une sonde industrielle admise par sa flotte (classe, lecture en base), un joueur admis
+  par `channel === \`room:${partie}\``(flèche), un agent admis par`who.issuer` et un rôle.
 - **Rupture si différé : OUI** (gardien de la compatibilité, table #702) : déclarer « ses
   arguments seuls » après 10.0 rendrait faux un `allow` qui lit le contexte, sans qu'il ait
   changé. Le motif `unavailable` et les clés de délai le sont aussi : un défaut publié ne change
@@ -530,7 +566,9 @@ allow?:
 - **Gardé par** (#622) : un test joue le MÊME `allow` à l'admission d'une socket et à l'émission
   d'un webhook et exige le même verdict ; un `allow` qui lit le contexte de requête est refusé
   par ce test ; un test prouve qu'une politique plus spécifique sans `allow` ouvre le canal ; un
-  verdict tardif est ignoré ; un `allow` qui rend `1` ou `"yes"` refuse ; 300 passerelles et
+  verdict tardif est ignoré ; un `allow` qui rend `1` ou `"yes"` refuse ; une politique portant
+  une clé inconnue est refusée ; un rejeu de 256 `subscribe` au `welcome` contre un `allow` lent
+  admet les 256, sans aucun `limit` ; 300 passerelles et
   10 000 clients contre une base bloquée ne déclenchent qu'un nombre BORNÉ d'appels d'`allow`.
 
 **Reporté aux abonnements par API (W6, 10.1), sans rupture** : quand un webhook évalue `allow`
@@ -584,6 +622,22 @@ seuil passé — jose ne le contrôle que sous `maxTokenAge`.
   jeton, une durée de vie maximale de la connexion (avec étalement des échéances), la révocation
   par clé ou par émetteur, et une option client `token: () => Promise<string>`.
 
+#### S10 ter. Le flux SSE d'un canal
+
+**Décision (tranchée par l'agent sur délégation de l'auteur le 2026-10-30, revue du gel) :** un
+flux SSE ouvert sur un canal s'admet par la politique du canal et `allow`, avec l'identité de la
+requête (S10 point 4). Un refus est un **statut HTTP** (401 ou 403) rendu AVANT le flux, jamais
+un message dedans : `EventSource` ne lit pas de corps d'erreur, et un flux ouvert puis refusé
+serait rouvert sans fin. L'éjection et la fin (`ended`, `evicted`, S4) ferment le flux ;
+`EventSource` reçoit le statut à sa reconnexion et s'arrête (WHATWG HTML §9.2). Le flux est
+enregistré auprès du hub comme un abonné (#623) : aujourd'hui le hub ne connaît aucun flux SSE,
+et une éjection ne l'atteindrait pas (S-rt-55). Un flux hors canal (porte MCP, `renderSse()` sans
+paramètre) n'est pas concerné.
+
+- Usages : l'écran d'atelier qui suit les mesures d'une ligne, le tableau des scores d'une partie
+  diffusé à des spectateurs, l'avancement d'une tâche d'agent suivi par un navigateur.
+- **Rupture si différé : NON.** Rien n'existe encore : la règle s'écrit avant le code.
+
 ### S11. Fermer une socket : le code dit la cause, et ce que le client doit en faire
 
 **Décision (validée par l'auteur le 2026-10-30, table du gel) :** deux causes de fermeture
@@ -591,12 +645,17 @@ gagnent leur code avant 10.0. Les codes vivent dans un seul registre,
 `src/nodefony/src/realtime/closeCodes.ts`, exportés par `nodefony` : le serveur qui ferme et le
 client qui décide de revenir lisent la même constante.
 
-| Code   | Constante                     | Cause                                                                 | Client 10.0              |
-| ------ | ----------------------------- | --------------------------------------------------------------------- | ------------------------ |
-| `4001` | —                             | identité morte : `authenticate` lève, session détruite, jeton RÉVOQUÉ | s'arrête                 |
-| `4005` | `IDENTITY_REFRESH_CLOSE_CODE` | droits changés, identité vivante                                      | revient aussitôt         |
-| `4006` | `TOKEN_EXPIRED_CLOSE_CODE`    | le jeton PORTEUR d'une socket ouverte a atteint son `exp`             | s'arrête (définitif)     |
-| `1013` | `TRY_AGAIN_LATER_CLOSE_CODE`  | `authenticate` n'a pas répondu dans le délai                          | revient (recul existant) |
+| Code   | Constante                     | Cause                                                                                                                     | Client 10.0              |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `4001` | `IDENTITY_DEAD_CLOSE_CODE`    | identité morte : `authenticate` lève, session détruite, jeton RÉVOQUÉ                                                     | s'arrête                 |
+| `4005` | `IDENTITY_REFRESH_CLOSE_CODE` | droits changés, identité vivante                                                                                          | revient aussitôt         |
+| `4006` | `TOKEN_EXPIRED_CLOSE_CODE`    | le jeton PORTEUR d'une socket ouverte a atteint son `exp`                                                                 | s'arrête (définitif)     |
+| `4007` | `BACKPRESSURE_CLOSE_CODE`     | émis par le CLIENT : sa file d'envoi ne se vide plus (ADR-0022 §5 C1, #703)                                               | se reconnecte            |
+| `1013` | `TRY_AGAIN_LATER_CLOSE_CODE`  | indisponibilité passagère : `authenticate` sans réponse dans le délai, ou client qui ne draine plus (contre-pression, S5) | revient (recul existant) |
+
+Aujourd'hui `4001` est un littéral, écrit cinq fois (serveur et client) ; #706 pose
+`IDENTITY_DEAD_CLOSE_CODE` dans le registre et remplace les cinq occurrences — le registre unique
+n'est vrai qu'à ce prix.
 
 **`4006` — le jeton porteur expire.** Depuis la règle `exp`/`iat` obligatoires (ci-dessus),
 l'expiration est un événement CERTAIN pour toute socket ouverte par jeton : 10 000 capteurs
@@ -670,9 +729,6 @@ révocation ; le changement d'identité entre exemplaires (S-rt-61).
   d'admission suffisent.
 - **gRPC** : un service de `@nodefony/http`, expérimental en 10.1. Un service qui diffuse appelle
   le hub (`RealtimeService.publish`) ; le socle n'a rien à lui ajouter.
-- **Le contrat typé commun** : le MÊME moule `IRealtimeContract` type la socket, le flux SSE et le
-  webhook ([ADR-0022](0022-socket-temps-reel.md) §4) ; le code suit en 10.x par génériques à
-  défaut, la forme est figée.
 
 ## Alternatives écartées
 

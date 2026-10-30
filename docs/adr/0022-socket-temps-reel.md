@@ -57,7 +57,7 @@ une porte s'il était décidé plus tard, et laisse additif tout le reste.
 commun (`src/nodefony/src/realtime/IRealtimeSocket.ts#IRealtimeSocket`), code partagé compilé sans
 Node ni DOM (`src/nodefony/tsconfig.shared.json`). Aucun sous-protocole annoncé
 (`src/nodefony/src/client/realtime/BrowserWsTransport.ts#BrowserWsTransport.connect`), aucun
-codec, aucune notification `realtime:closed`, aucun curseur d'abonnement.
+codec branché sur le pair, aucune notification `realtime:closed`, aucun curseur d'abonnement.
 
 ## Décision
 
@@ -98,8 +98,8 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
 - **L'accueil est toujours une trame texte `v1`**, qui porte le codec choisi ; les frames
   suivantes l'emploient. Un serveur 10.0 n'émet pas ce champ, un client 10.2 reste donc en
   texte : le déploiement progressif tient malgré l'écho de `ws`, qui renvoie le premier
-  sous-protocole offert (constaté dans #627 sur `ws` 8.22, la version qu'installent `nodefony`
-  et `@nodefony/http`).
+  sous-protocole offert (constaté dans #627 sur `ws` 8.22, la version qu'installe `@nodefony/http` — le
+  cœur ne l'a qu'en dépendance de développement).
 - **Protobuf** : une enveloppe `.proto` **fixe** fournie par Nodefony (`id`, `method`, `error`,
   `params: bytes`, `result: bytes`) ; la charge est encodée par le message que le contrat
   déclare pour **cette** méthode ; sans schéma, la charge passe en CBOR dans les `bytes`.
@@ -108,9 +108,12 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   (`npm ls @bufbuild/protobuf`) : aucun paquet publié ne l'installe, l'ajouter serait une
   dépendance neuve pour chaque application.
 - **Calendrier.** Les trois noms sont réservés dès 10.0. Aucun codec autre que JSON n'est dans le
-  paquet de base : chacun est optionnel, chargé par la seule application qui l'active. **CBOR**
-  est le premier livré, **dans la série 10.0** (décision de l'auteur, 2026-10-29), en sous-ticket
-  de #618, après #622, #623, #628 et #629 — ceux-là fermeraient une porte, lui non. **Protobuf** n'arrive qu'avec l'Epic gRPC
+  paquet de base : chacun est optionnel, chargé par la seule application qui l'active. Le codec
+  **CBOR** est écrit, au cœur (`src/nodefony/src/realtime/codec/`, sous-chemin `nodefony/cbor`,
+  hors de `nodefony` et de `nodefony/client`) ; son branchement — `IFrameCodec`, offre du
+  sous-protocole par le client, choix annoncé dans l'accueil — reste à #618, en 10.x, après #622,
+  #623, #628 et #629 — ceux-là fermeraient une porte, lui non. Un serveur 10.0 n'émet pas le
+  champ de codec. **Protobuf** n'arrive qu'avec l'Epic gRPC
   #694 : un seul usage connu d'ici là (règle de #621), et une dépendance que gRPC rendra de toute
   façon nécessaire ; son enveloppe ci-dessus est une intention, pas un engagement.
 - **JSON est la référence de tous les codecs** (remplace la règle « refus à l'encodage »,
@@ -354,8 +357,13 @@ data }` (ADR-0023 W1, S-rt-22).
   (`src/packages/@nodefony/framework/nodefony/src/Controller.ts#Controller.renderSse`,
   `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts`) : ajouter un générique AVEC
   défaut ne casse rien. Seule la forme se fige ici.
-- **Rupture si différé : OUI pour la forme** : une carte par livraison ajoutée après 10.0
-  changerait le moule que les applications ont écrit.
+- Usages : une mesure de capteur typée une fois, lue par la socket du tableau de bord, le flux
+  SSE d'un écran et le webhook d'alerte vers le SI ; une commande typée une fois, poussée à
+  l'écran et au SI ; une tâche d'agent typée une fois, suivie sur la socket et notifiée en
+  webhook A2A.
+- **Rupture si différé : OUI pour la forme du moule** (#628) : une carte par livraison ajoutée
+  après 10.0 changerait le moule que les applications ont écrit. **NON pour le reste** :
+  générique en fin, avec défaut.
 
 **Décision (validée par l'auteur le 2026-10-29) : un contrat fait de types, une porte par côté.**
 L'exemple de l'option B ci-dessous sort `chat.Socket` et `chat.Controller` d'un MÊME objet : le
@@ -500,10 +508,11 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :**
 
-- **Décision 1 (validée par l'auteur le 2026-10-29, À REVALIDER avec lui au code de #622) :
-  admission demandée une fois, réponse retenue.** `allow?: (channel, who: ISubscriberIdentity) =>
-boolean | Promise<boolean>` — l'identité d'admission commune aux trois livraisons, une donnée
-  plate et non le jeton (ADR-0021 §S10) —, membre optionnel de
+- **Décision 1 (validée par l'auteur le 2026-10-29 ; (a) et (d) tranchés le 2026-10-30 par la
+  table du gel ; (b), (c), (e) au code de #622) : admission demandée une fois, réponse
+  retenue.** `allow` — flèche `(channel, who: ISubscriberIdentity)` ou classe `@injectable`
+  implémentant `IChannelAdmission` (ADR-0021 §S10 bis) ; `who` est l'identité d'admission commune
+  aux trois livraisons, une donnée plate et non le jeton (ADR-0021 §S10) —, membre optionnel de
   `src/packages/@nodefony/realtime/nodefony/interfaces/IChannelPolicy.ts#IChannelPolicy`, évalué
   APRÈS `authenticated` / `roles` / `scopes`.
   - Appelé **une seule fois, au `subscribe`** : un salon privé ou une invitation par courriel
@@ -582,8 +591,11 @@ boolean | Promise<boolean>` — l'identité d'admission commune aux trois livrai
   optimisation, c'est la règle. Trois moments, et trois seulement :
   1. **À l'ouverture (poignée de main), une fois** — tout ce qui dépend de l'identité : identité
      gelée, rôles DÉPLIÉS par la hiérarchie en un ensemble figé, scopes, émetteur. À la
-     reconnexion, les canaux à reprendre sont connus dès l'accueil : leur admission se fait là,
-     en lot, avant toute trame de données.
+     reconnexion, les canaux reviennent par le rejeu des `subscribe` (une trame de contrôle par
+     canal,
+     `src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`) :
+     chacun suit le moment 2 ; rien n'est admis à l'accueil, et le rejeu attend son tour au-delà
+     du plafond d'appels d'`allow` en vol (ADR-0021 §S10 bis point 3).
   2. **À l'entrée sur un canal, une fois par canal et par connexion** — le nom d'un canal n'arrive
      qu'avec son `subscribe` (trame de contrôle, rare) : politique complète puis `allow`
      (asynchrone), évalués **HORS du verrou des trames**, sans bloquer le pipeline de la connexion ;
@@ -698,9 +710,10 @@ boolean | Promise<boolean>` — l'identité d'admission commune aux trois livrai
     `src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplane` aucune méthode :
     tout driver, y compris écrit par un tiers (Kafka, NATS), le transporte sans le savoir. Ce canal
     ne passe PAS par `#RealtimeHub.markBroadcastChannel`, qui refuse à raison l'espace réservé
-    (injection dans tous les pods) : il a sa branche dédiée à l'entrée
-    (`#RealtimeHub.#admitFromBackplane`), qui n'accepte qu'une **liste fermée** d'ordres de forme
-    vérifiée ; tout autre contenu est rejeté et compté (`ingressRejectedTotal`). Aucun client ne
+    (injection dans tous les pods) : il aura (#623) sa branche dédiée à l'entrée — aujourd'hui
+    `#RealtimeHub.#admitFromBackplane` ne fait que refuser un canal non diffusable —, qui
+    n'acceptera qu'une **liste fermée** d'ordres de forme vérifiée ; tout autre contenu sera
+    rejeté et compté (`ingressRejectedTotal`). Aucun client ne
     peut s'y abonner.
   - **Pourquoi c'est sûr** : un ordre ne fait qu'**enlever** — seul `allow` fait entrer. Il est
     **scellé comme toute publication** : sur un bus partagé, le secret du bus
@@ -879,8 +892,9 @@ fin de flux (section 7). Aucun vocabulaire d'A2A n'entre dans la socket.
   lecture du codec dans l'accueil, l'accueil toujours en texte, le crochet brut hors verrou, les
   bornes neuves désactivées, l'appartenance locale au pod, les ordres par nom (fermer, éjecter un
   utilisateur) diffusés par un message ordinaire du backplane, sans méthode neuve sur `IBackplane`.
-- #628 livre `Listen` en troisième générique de `RealtimeController` avec défaut, les types
-  utilitaires et `defineRealtimeContract` ; #618 livre `IFrameCodec`, CBOR, les trois noms de
+- #628 livre la forme figée d'`IRealtimeContract` au cœur (§4 : quatre clés, `Jsonify<T>` aux
+  quatre points de réception, socket + SSE + webhook), `Listen` en troisième générique de
+  `RealtimeController` avec défaut, les types utilitaires et `defineRealtimeContract` ; #618 livre `IFrameCodec`, CBOR, les trois noms de
   sous-protocole et le binaire routé ; #622 et #623 les canaux privés ; #629 les contrôles 2 à 5.
 - **Preuves à apporter** : B1 à B4 vus rouges en débranchant (#618) ; un `Uint8Array` intact par
   le pilote Redis (#618, S8) ; un champ inconnu dans `subscribe` ignoré par un serveur publié
