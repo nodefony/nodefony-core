@@ -4,6 +4,7 @@ import {
   RealtimeAction,
   RealtimeChannel,
   RealtimeInbound,
+  RealtimePolicy,
   getRealtimeActions,
   getRealtimeChannels,
   getRealtimeInbound,
@@ -406,5 +407,51 @@ describe("héritage — une sous-classe décorée ne modifie pas son parent", ()
       "child:in",
     ]);
     expect(getRealtimeChannelPolicies(child)).to.have.property("child:act");
+  });
+});
+
+// ── POLITIQUES DE CLASSE ───────────────────────────────────────────────────
+// La voie des actions servies par la TABLE de `realtimeActions()` (contrôleur de
+// contrat) : la politique s'écrit une fois, sur la classe, sans fabriquer de
+// handler. Elle rejoint le registre des décorateurs de méthode.
+describe("@RealtimePolicy — politiques posées sur la classe", () => {
+  it("pose chaque politique sous son nom, motifs compris, sans déclarer d'action", () => {
+    @RealtimePolicy({
+      "orders:quote": { roles: ["ROLE_SALES"] },
+      "user:*": { authenticated: true },
+    })
+    class Ctrl {}
+    const ctrl = new Ctrl();
+    expect(getRealtimeChannelPolicies(ctrl)).to.deep.equal({
+      "orders:quote": { roles: ["ROLE_SALES"] },
+      "user:*": { authenticated: true },
+    });
+    expect(getRealtimeActions(ctrl)).to.equal(null);
+  });
+
+  it("une politique vide ou absente ne s'écrit pas (le défaut fermé reste)", () => {
+    @RealtimePolicy({ "orders:quote": {}, "orders:list": undefined })
+    class Ctrl {}
+    expect(getRealtimeChannelPolicies(new Ctrl())).to.equal(null);
+  });
+
+  it("se fond avec les politiques des décorateurs de méthode, et prime sur leur défaut", () => {
+    // Un décorateur de classe s'applique APRÈS ceux des méthodes : la politique
+    // écrite sur la classe remplace le défaut fermé posé par `@RealtimeAction`.
+    @RealtimePolicy({ "orders:quote": { roles: ["ROLE_SALES"] } })
+    class Ctrl {
+      @RealtimeAction("orders:quote")
+      quote(): number {
+        return 1;
+      }
+      @RealtimeAction("orders:list", { authenticated: false })
+      list(): number[] {
+        return [];
+      }
+    }
+    expect(getRealtimeChannelPolicies(new Ctrl())).to.deep.equal({
+      "orders:quote": { roles: ["ROLE_SALES"] },
+      "orders:list": { authenticated: false },
+    });
   });
 });

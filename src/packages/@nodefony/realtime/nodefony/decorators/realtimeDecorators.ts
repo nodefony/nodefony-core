@@ -25,6 +25,10 @@ import type {
   RealtimeInboundHandler,
 } from "../interfaces/IRealtimeController";
 import type { IChannelPolicy } from "../interfaces/IChannelPolicy";
+import type {
+  ContractPolicyNames,
+  RealtimeContractOf,
+} from "../src/server/ContractRealtimeController";
 import { isCallable, isRecord } from "../src/guards";
 
 /** Clés de métadonnées posées sur le constructor de la classe controller. */
@@ -206,6 +210,65 @@ export function RealtimeAction(
       definePolicy(ctor, method, policy);
     } else if (!hasPolicy(ctor, method)) {
       definePolicy(ctor, method, DEFAULT_ACTION_POLICY);
+    }
+  };
+}
+
+/**
+ * Noms d'une table de politiques absents du contrat de la classe décorée —
+ * `never` quand tous y sont, ou que la classe n'a pas de contrat.
+ */
+type NamesNotInContract<P, T> = [RealtimeContractOf<T>] extends [never]
+  ? never
+  : Exclude<keyof P, ContractPolicyNames<RealtimeContractOf<T>>>;
+
+/**
+ * Contrainte posée sur la classe décorée : aucune si les noms sont tous dans le
+ * contrat ; sinon un membre `notInContract` exigé, que l'erreur affiche avec les
+ * noms fautifs.
+ */
+type PolicyNamesCheck<P, T> = [NamesNotInContract<P, T>] extends [never]
+  ? unknown
+  : { readonly notInContract: NamesNotInContract<P, T> };
+
+/**
+ * Décorateur de **classe** — pose les politiques d'accès d'actions ou de canaux
+ * par leur NOM, sans déclarer de handler.
+ *
+ * C'est la voie des actions servies par la table de `realtimeActions()` : cette
+ * table ne sait pas porter de politique, et un `@RealtimeAction` ajouté pour la
+ * seule politique ferait fabriquer, à chaque connexion, un handler aussitôt
+ * écrasé par la table (et contournerait l'injection de ses paramètres décorés).
+ * Ici, rien par connexion : les politiques sont écrites UNE fois, à la
+ * définition de la classe, dans le même registre que celles des décorateurs de
+ * méthode. Une action de la table sans politique garde le défaut FERMÉ
+ * (connexion authentifiée).
+ *
+ * Un nom qui porte `*` est un motif (famille de canaux), comme partout ailleurs.
+ *
+ * **Sur un contrôleur de contrat** (`extends ContractRealtimeController<C>`), le
+ * décorateur lit le contrat sur la classe qu'il décore : chaque nom doit être
+ * une méthode ou un canal de `C`, sinon la classe ne compile pas, et l'erreur
+ * nomme le fautif (`notInContract`). Le contrat ne se répète pas. Sur un
+ * contrôleur sans contrat, tout nom est accepté. Vérification à la compilation
+ * seulement : coût d'exécution nul.
+ *
+ * @param policies - nom d'action ou de canal → politique.
+ *
+ * @example
+ *   @RealtimePolicy({ "orders:quote": { roles: ["ROLE_SALES"] } })
+ *   class OrdersRt extends ContractRealtimeController<OrdersContract> { … }
+ */
+export function RealtimePolicy<
+  P extends { readonly [name: string]: IChannelPolicy | undefined },
+>(
+  policies: P,
+): <T extends abstract new (...args: never[]) => object>(
+  target: T & PolicyNamesCheck<P, T>,
+) => void {
+  return function (target) {
+    for (const [name, policy] of Object.entries(policies)) {
+      definePolicy(target, name, policy);
     }
   };
 }

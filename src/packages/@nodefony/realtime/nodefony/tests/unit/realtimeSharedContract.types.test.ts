@@ -10,7 +10,8 @@ import {
   type ContractClientEmit,
   type ContractClientListen,
 } from "nodefony";
-import { implementRealtimeContract } from "../../src/server/implementRealtimeContract.js";
+import { ContractRealtimeController } from "../../src/server/ContractRealtimeController.js";
+import { RealtimePolicy } from "../../decorators/realtimeDecorators.js";
 import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 // Par la SOURCE, comme `NodefonySocket` : via `"nodefony"`, le contrat serait lu
 // dans `dist/types`, et la garde `@ts-expect-error` ci-dessous jugerait un build.
@@ -135,8 +136,6 @@ declare const chatClient: ReturnType<
 >;
 declare const clientListen: ContractClientListen<ChatContract>;
 
-const chat = implementRealtimeContract<ChatContract>();
-
 function _contractOnly(): void {
   // ── CLIENT : la porte dérive les trois génériques, aucune inversion à la main.
   chatClient.on("chat:room", (m) => {
@@ -160,20 +159,21 @@ function _contractOnly(): void {
     .request("chat:history")
     .then((r) => expectType<string>(r.last)); // appelant : `out` lu par Jsonify
 
-  // ── SERVEUR : la fabrique impose la table COMPLÈTE de `serverMethods`.
-  class ChatRt extends chat.Controller {
+  // ── SERVEUR : la fabrique impose la table COMPLÈTE de `serverMethods` ; la
+  //    politique d'une méthode se pose sur la CLASSE (rien par connexion).
+  @RealtimePolicy({
+    "chat:send": { roles: ["ROLE_USER"] },
+    "user:*": { authenticated: true },
+  })
+  class ChatRt extends ContractRealtimeController<ChatContract> {
     constructor(ctx: ContextType) {
       super("chat-rt", ctx);
     }
     protected realtimeActions() {
       return {
-        "chat:send": (p: { text: string; at: string }) => this.send(p),
+        "chat:send": (p: { text: string; at: string }) => ({ id: p.at }),
         "chat:history": () => ({ last: new Date() }),
       };
-    }
-    @chat.RealtimeAction("chat:send", { roles: ["ROLE_USER"] })
-    send(p: { text: string; at: string }): { id: string } {
-      return { id: p.text };
     }
     protected override realtimeInbound() {
       return {
@@ -200,7 +200,7 @@ function _contractOnly(): void {
   }
   void ChatRt;
 
-  class MissingRt extends chat.Controller {
+  class MissingRt extends ContractRealtimeController<ChatContract> {
     // @ts-expect-error ACTION MANQUANTE : `chat:history` n'est pas servie
     protected realtimeActions() {
       return { "chat:send": () => ({ id: "1" }) };
@@ -208,7 +208,7 @@ function _contractOnly(): void {
   }
   void MissingRt;
 
-  class WrongShapeRt extends chat.Controller {
+  class WrongShapeRt extends ContractRealtimeController<ChatContract> {
     // @ts-expect-error FORME FAUSSE : le résultat déclaré de `chat:send` est `{ id: string }`
     protected realtimeActions() {
       return {
@@ -216,18 +216,33 @@ function _contractOnly(): void {
         "chat:history": () => ({ last: new Date() }),
       };
     }
-    // @ts-expect-error FORME FAUSSE au décorateur : `at` arrive en `string`, pas en `Date`
-    @chat.RealtimeAction("chat:send")
-    send(p: { text: string; at: Date }): { id: string } {
-      return { id: p.text };
-    }
-    // @ts-expect-error NOM HORS CONTRAT au décorateur
-    @chat.RealtimeAction("chat:unknown")
-    other(): void {}
   }
   void WrongShapeRt;
 
-  class WrongInboundRt extends chat.Controller {
+  class WrongParamsRt extends ContractRealtimeController<ChatContract> {
+    // @ts-expect-error FORME FAUSSE : `at` arrive en `string`, pas en `Date`
+    protected realtimeActions() {
+      return {
+        "chat:send": (p: { text: string; at: Date }) => ({ id: p.text }),
+        "chat:history": () => ({ last: new Date() }),
+      };
+    }
+  }
+  void WrongParamsRt;
+
+  // @ts-expect-error NOM HORS CONTRAT : la politique garderait un canal fantôme
+  @RealtimePolicy({ "chat:sned": { roles: ["ROLE_USER"] } })
+  class TypoPolicyRt extends ContractRealtimeController<ChatContract> {
+    protected realtimeActions() {
+      return {
+        "chat:send": () => ({ id: "1" }),
+        "chat:history": () => ({ last: new Date() }),
+      };
+    }
+  }
+  void TypoPolicyRt;
+
+  class WrongInboundRt extends ContractRealtimeController<ChatContract> {
     protected realtimeActions() {
       return {
         "chat:send": () => ({ id: "1" }),
@@ -245,7 +260,7 @@ function _contractOnly(): void {
   }
   void WrongInboundRt;
 
-  class InvertedInboundRt extends chat.Controller {
+  class InvertedInboundRt extends ContractRealtimeController<ChatContract> {
     protected realtimeActions() {
       return {
         "chat:send": () => ({ id: "1" }),
@@ -263,8 +278,7 @@ function _contractOnly(): void {
   interface DashContract extends IRealtimeContract {
     serverToClient: { "dash:cpu": { load: number } };
   }
-  const dash = implementRealtimeContract<DashContract>();
-  class DashRt extends dash.Controller {
+  class DashRt extends ContractRealtimeController<DashContract> {
     protected realtimeActions() {
       return {};
     }
