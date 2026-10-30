@@ -29,6 +29,7 @@ function health(over: Partial<IRealtimeHealth> = {}): IRealtimeHealth {
     inboundTotal: 0,
     ingressRejectedTotal: 0,
     sealRejectedTotal: 0,
+    frameRateRejectedTotal: 0,
     systemFloorDeniedTotal: 0,
     connectionCount: 0,
     bytesSentTotal: 0,

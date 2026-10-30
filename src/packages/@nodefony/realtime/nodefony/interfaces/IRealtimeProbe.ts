@@ -93,6 +93,13 @@ export interface IRealtimeProbe {
    * secret en cours, producteur mal configuré, ou écriture tierce dans le bus.
    */
   sealRejectedTotal: number;
+  /**
+   * Trames entrantes ÉCARTÉES par la borne de débit, avant tout décodage — monotone,
+   * unité : une trame reçue. Cumul du PROCESSUS relayé de `@nodefony/http`
+   * (`frameRateRejectedTotal()`) : une trame écartée n'atteint aucun hub. `0` tant que
+   * `maxFramesPerSecond` vaut 0 (défaut de la série 10).
+   */
+  frameRateRejectedTotal: number;
   /** Connexions realtime vivantes. */
   connectionCount: number;
   /** Somme cumulée des octets envoyés, toutes connexions (monotone). */

@@ -696,6 +696,31 @@ const websocketSchema = z
           "'close' = fermer le client (RFC 6455 close 1013 « Try Again Later »). La fusion " +
           "(coalesce) relève de la couche canal realtime, pas du transport.",
       ),
+    // ── Borne de débit ENTRANTE (politique Nodefony, PAS une option ws) ──
+    maxFramesPerSecond: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(0)
+      .describe(
+        "Trames REÇUES admises par seconde et par connexion (unité : une trame, texte ou " +
+          "binaire — la taille est bornée à part par `maxPayload`). Au-delà, la trame est " +
+          "écartée AVANT tout décodage et comptée (`frameRateRejectedTotal` sur la sonde du hub " +
+          "temps réel) ; la connexion reste ouverte. 0 = désactivée (défaut de toute la série 10). " +
+          "Repère : 50 trames/s d'audio passent avec marge sous une borne de 200.",
+      ),
+    frameRateCloseAfterRejects: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(1000)
+      .describe(
+        "SOLDE de trames écartées au-delà duquel la connexion est FERMÉE (1008, violation de " +
+          "politique) : +1 par trame écartée, −1 par trame admise — même règle que " +
+          "`backpressureCloseAfterDrops`. Un pic passager ne ferme pas ; seul un flux soutenu " +
+          "au-delà du DOUBLE de `maxFramesPerSecond` fait monter le solde. Sans effet tant que " +
+          "`maxFramesPerSecond` vaut 0. 0 = ne jamais fermer. Défaut 1000.",
+      ),
   })
   .describe(
     "Serveur WebSocket (`ws@8`). Les options ci-dessus (+ loose : `verifyClient`, " +

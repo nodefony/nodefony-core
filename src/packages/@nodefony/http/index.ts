@@ -208,6 +208,18 @@ export {
   type IBackpressureTarget,
 } from "./nodefony/src/context/websocket/wsBackpressure";
 
+// Borne de débit WS ENTRANTE — comptée avant tout décodage ; le hub temps réel
+// relaie le cumul sous `frameRateRejectedTotal`.
+export {
+  admitFrame,
+  frameRateRejectedTotal,
+  readFrameRateBound,
+  readFrameRateCloseAfter,
+  FRAME_RATE_WINDOW_MS,
+  type IFrameRateWindow,
+  type IWsFrameRateOptions,
+} from "./nodefony/src/context/websocket/wsFrameRate";
+
 // Rétrécit `ContextType` à `WebsocketContext` sans conversion ni `instanceof`.
 export { isWebsocketContext } from "./nodefony/src/context/websocket/isWebsocketContext";
 

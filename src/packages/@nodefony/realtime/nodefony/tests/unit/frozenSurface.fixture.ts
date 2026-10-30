@@ -16,7 +16,7 @@ export const FROZEN_CLOSE_CODES = [
   { code: 4004, name: "NOT_FOUND_CLOSE_CODE" },
   { code: 4005, name: "IDENTITY_REFRESH_CLOSE_CODE" },
   { code: 4006, name: "TOKEN_EXPIRED_CLOSE_CODE" },
-  { code: 4007, name: "BACKPRESSURE_CLOSE_CODE", ticket: 703 },
+  { code: 4007, name: "BACKPRESSURE_CLOSE_CODE" },
   { code: 1013, name: "TRY_AGAIN_LATER_CLOSE_CODE", ticket: 622 },
 ] as const;
 
@@ -33,7 +33,7 @@ export const FROZEN_REFUSAL_COUNTERS = [
   { name: "ingressRejectedTotal" },
   { name: "systemFloorDeniedTotal" },
   { name: "sealRejectedTotal" },
-  { name: "frameRateRejectedTotal", ticket: 703 },
+  { name: "frameRateRejectedTotal" },
   { name: "allowTimedOutTotal", ticket: 622 },
   { name: "allowSaturatedTotal", ticket: 622 },
   { name: "authenticateTimedOutTotal", ticket: 622 },

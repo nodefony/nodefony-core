@@ -14,6 +14,7 @@ import {
   NOT_FOUND_CLOSE_CODE,
   ORIGIN_REFUSED_CLOSE_CODE,
   TOKEN_EXPIRED_CLOSE_CODE,
+  BACKPRESSURE_CLOSE_CODE,
 } from "../../realtime/closeCodes";
 import { JsonRpcError } from "../../jsonrpc/index";
 
@@ -149,6 +150,12 @@ export function closeCodeToNotice(
       // suffirait, mais le client 10.0 ne sait pas en obtenir un — définitif.
       level = "error";
       message = "Votre jeton a expiré — reconnectez-vous avec un jeton neuf";
+      break;
+    case BACKPRESSURE_CLOSE_CODE:
+      // Fermée par le client lui-même : sa file d'envoi ne se vidait plus.
+      // RECONNECTABLE — la connexion repart à vide.
+      level = "warning";
+      message = "File d'envoi saturée — reconnexion temps réel";
       break;
     case IDENTITY_REFRESH_CLOSE_CODE:
       // Droits de l'identité changés (rôles) : fermeture pour reconnexion,

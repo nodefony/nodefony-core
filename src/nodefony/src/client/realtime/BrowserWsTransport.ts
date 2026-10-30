@@ -63,6 +63,11 @@ export class BrowserWsTransport implements IRealtimeTransport {
     return this.ws?.readyState ?? TransportState.CLOSED;
   }
 
+  /** Octets que le navigateur n'a pas encore écoulés sur le réseau. */
+  get bufferedAmount(): number {
+    return this.ws?.bufferedAmount ?? 0;
+  }
+
   onOpen(cb: () => void): void {
     this._onOpen = cb;
   }

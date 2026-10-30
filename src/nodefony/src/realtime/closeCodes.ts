@@ -42,3 +42,13 @@ export const IDENTITY_REFRESH_CLOSE_CODE = 4005;
  * serveur change.
  */
 export const TOKEN_EXPIRED_CLOSE_CODE = 4006;
+
+/**
+ * Code de fermeture émis par le CLIENT quand sa file d'envoi ne se vide plus (contre-pression, ADR-0022 §5 C1) : il se reconnecte.
+ *
+ * Le navigateur refuse `1013`, que ferme le serveur pour la même cause
+ * (`WebSocket.close` n'admet que `1000` et `3000`-`4999`, WHATWG) : le client
+ * prend donc ce code privé. Émis seulement quand `NodefonySocket` porte une
+ * borne (`maxBufferedAmount`) — désactivée par défaut en 10.x.
+ */
+export const BACKPRESSURE_CLOSE_CODE = 4007;

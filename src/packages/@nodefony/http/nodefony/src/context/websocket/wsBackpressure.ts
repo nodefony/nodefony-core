@@ -1,7 +1,13 @@
 import Ws, { WebSocketServer, ServerOptions } from "ws";
+import {
+  decideBackpressure,
+  nextDropBalance,
+  type BackpressurePolicy,
+  type BackpressureVerdict,
+} from "nodefony";
 
 /** Politique appliquée quand le buffer d'envoi d'un client dépasse le seuil. */
-export type WsBackpressurePolicy = "drop" | "close";
+export type WsBackpressurePolicy = BackpressurePolicy;
 
 /**
  * Options de backpressure SORTANTE (serveur → client).
@@ -27,6 +33,10 @@ export interface IWsBackpressureOptions {
 export interface IBackpressureTarget {
   readonly bufferedAmount?: number;
   close(code?: number, reason?: string): void;
+  /** Cumul des frames refusées pour contre-pression (lazy — lu par la sonde socket). */
+  _nfDrops?: number;
+  /** Solde de refus courant (cf {@link nextDropBalance}) ; absent = 0. */
+  _nfDropStreak?: number;
 }
 
 /** Socket augmentée d'un compteur de drops (number lazy — lu par la sonde socket). */
@@ -42,7 +52,7 @@ export interface IBackpressureSocket extends Ws {
 }
 
 /** Décision pour une frame : l'émettre, la sauter, ou (socket fermée) ne rien faire. */
-export type WsSendDecision = "send" | "drop" | "close";
+export type WsSendDecision = BackpressureVerdict;
 
 /**
  * Relit le seuil + la politique depuis les options du `WebSocketServer`.
@@ -81,9 +91,14 @@ export const readBackpressureOptions = (
  * « Try Again Later » → le client peut back-off + reconnecter). NE FAIT PAS le `send()`
  * — le caller émet uniquement si le retour vaut `"send"`.
  *
+ * La DÉCISION est celle du cœur (`decideBackpressure` / `nextDropBalance`, partagée
+ * avec `NodefonySocket`) ; cette fonction n'en porte que l'état (compteurs sur la
+ * socket) et le geste serveur (fermeture `1013`).
+ *
  * @param ws - la socket destinataire
  * @param max - seuil d'octets (`<= 0` → désactivé)
  * @param policy - action au dépassement
+ * @param closeAfterDrops - solde de refus qui ferme (`0` = jamais)
  * @returns `"send"` (émettre) · `"drop"` (sauter cette frame) · `"close"` (socket fermée)
  */
 export const decideSend = (
@@ -92,34 +107,23 @@ export const decideSend = (
   policy: WsBackpressurePolicy,
   closeAfterDrops = 0,
 ): WsSendDecision => {
-  const sock = ws as unknown as IBackpressureSocket;
   // Connexion mockée sans `bufferedAmount` → 0 : jamais de refus (0 régression).
-  if (max <= 0 || (ws.bufferedAmount ?? 0) <= max) {
-    // Chemin nominal. Le compteur DÉCROÎT au lieu d'être remis à zéro : mesuré
-    // sur socket réelle, la file d'un client bloqué OSCILLE autour du seuil
-    // (refus, drainage partiel, envoi, refus…), si bien qu'une remise à zéro
-    // empêchait toute fermeture — un client qui accepte une frame de temps en
-    // temps serait resté connecté pour toujours. En décroissant, un client sain
-    // revient vite à 0 tandis qu'un client qui refuse plus qu'il n'accepte monte
-    // jusqu'au seuil. Aucune écriture quand le compteur est déjà à zéro.
-    if (sock._nfDropStreak) sock._nfDropStreak -= 1;
-    return "send";
+  const balance = ws._nfDropStreak ?? 0;
+  const verdict = decideBackpressure(
+    ws.bufferedAmount ?? 0,
+    max,
+    policy,
+    closeAfterDrops,
+    balance,
+  );
+  if (verdict === "send") {
+    // Aucune écriture quand le solde est déjà nul : chemin nominal sans effet.
+    if (balance > 0) ws._nfDropStreak = balance - 1;
+    return verdict;
   }
-  sock._nfDrops = (sock._nfDrops ?? 0) + 1;
-  const streak = (sock._nfDropStreak = (sock._nfDropStreak ?? 0) + 1);
-  if (policy === "close") {
-    ws.close(1013, "backpressure");
-    return "close";
-  }
-  // Palier 2 — la file NE PEUT PAS croître au-delà du seuil une fois qu'on
-  // jette : un second seuil d'octets serait donc INATTEIGNABLE (mesuré : 4000
-  // frames poussées à un client qui ne lit pas → 3 servies, aucune fermeture).
-  // La condition retenue est un SOLDE de refus (+1 par refus, −1 par envoi) :
-  // il distingue le pic passager, qui redescend, du client qui n'absorbe plus
-  // ce qu'on lui pousse. `0` = ne jamais fermer (comportement d'avant).
-  if (closeAfterDrops > 0 && streak >= closeAfterDrops) {
-    ws.close(1013, "backpressure");
-    return "close";
-  }
-  return "drop";
+  ws._nfDrops = (ws._nfDrops ?? 0) + 1;
+  ws._nfDropStreak = nextDropBalance(verdict, balance);
+  // RFC 6455 §7.4.1 1013 « Try Again Later » : le client peut reculer puis revenir.
+  if (verdict === "close") ws.close(1013, "backpressure");
+  return verdict;
 };

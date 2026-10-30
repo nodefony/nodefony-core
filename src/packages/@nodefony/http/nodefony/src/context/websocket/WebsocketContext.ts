@@ -30,6 +30,12 @@ import type {
 } from "../../../interfaces/IContext.js";
 import { ProxyType } from "../http/HttpContext.js";
 import { formatWsLogContent } from "./wsLogContent.js";
+import {
+  admitFrame,
+  readFrameRateBound,
+  readFrameRateCloseAfter,
+  type IFrameRateWindow,
+} from "./wsFrameRate.js";
 import { closeRequestTrace } from "../requestTrace.js";
 import {
   resolveForwarded,
@@ -193,6 +199,11 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
   // the DI scope, so HttpKernel must clean up explicitly.
   teardownWired: boolean = false;
   connection: Ws | null = null;
+  /**
+   * Fenêtre de la borne de débit entrante — `null` tant que la borne est
+   * désactivée ou qu'aucune trame n'est arrivée (créée au premier usage).
+   */
+  frameRate: IFrameRateWindow | null = null;
   /**
    * Le verdict du handshake encore à rendre : posé par le noyau tant que le
    * pipeline décide (pare-feu, garde de l'action), `null` dès que la socket
@@ -639,7 +650,34 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     super.phaseEnd(name);
   }
 
+  /**
+   * Applique la borne de débit entrante à une trame : `true` = l'admettre.
+   *
+   * Écartée → comptée (`frameRateRejectedTotal`) ; solde de refus atteint →
+   * connexion fermée en `1008` (RFC 6455 §7.4.1, violation de politique).
+   *
+   * @param bound - trames admises par seconde (`> 0`)
+   * @returns `true` si la trame poursuit son chemin
+   */
+  private admitInboundFrame(bound: number): boolean {
+    const now = Date.now();
+    this.frameRate ??= { start: now, count: 0, balance: 0 };
+    const verdict = admitFrame(
+      this.frameRate,
+      now,
+      bound,
+      readFrameRateCloseAfter(this.server),
+    );
+    if (verdict === "send") return true;
+    if (verdict === "close") this.connection?.close(1008, "frame rate");
+    return false;
+  }
+
   async handleMessage(data: Buffer | string, isBinary: boolean) {
+    // Borne de débit entrante, AVANT tout décodage (`toString`, journal,
+    // routage, codec) : une trame écartée ne coûte qu'un compte.
+    const bound = readFrameRateBound(this.server);
+    if (bound > 0 && !this.admitInboundFrame(bound)) return undefined;
     this.webSocketState = "message";
     const message = isBinary ? data : data.toString();
     this.logMessageContent("RECEIVE", message);

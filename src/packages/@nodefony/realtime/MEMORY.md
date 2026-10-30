@@ -73,6 +73,9 @@ implémentation pour `send`/`broadcast` HTTP et pour le transport realtime. Chem
 −1/envoi), PAS un 2ᵉ seuil d'octets : jeter empêche la file de croître, donc un seuil supérieur est
 inatteignable (mesuré : 4000 frames → 3 servies, 0 fermeture). **Jamais annoncé au client** : il a le
 close `1013` (transitoire → reconnexion) + son AIMD. Banc réel : `ws-backpressure-e2e.mjs`.
+Règle pure au CŒUR (`decideBackpressure`) ; le client `NodefonySocket` l'applique en sortie
+(`maxBufferedAmount`, off par défaut, close `4007`). Sonde : `frameRateRejectedTotal` = relais de
+`@nodefony/http` `frameRateRejectedTotal()` (borne de débit entrante, comptée avant routage).
 
 **Piège Zod 4** : `.default({})` plat NE déclenche PAS les sous-défauts internes
 → pattern obligatoire `.default(() => subSchema.parse({}))` partout dans `config.ts`.

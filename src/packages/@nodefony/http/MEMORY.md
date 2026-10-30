@@ -20,7 +20,12 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 ## Contre-pression WS SORTANTE (serveur → client) — RÈGLE UNIQUE du dépôt
 
-`src/context/websocket/wsBackpressure.ts` → `decideSend(ws, max, policy, closeAfterDrops)`.
+Décision PURE au cœur : `nodefony` `realtime/backpressure.ts` → `decideBackpressure(level, bound,
+policy, closeAfter, balance)` + `nextDropBalance(verdict, balance)` (0 alloc). Appelée par
+`decideSend` ici (ferme `1013`), par `NodefonySocket` côté navigateur (ferme `4007`,
+`BACKPRESSURE_CLOSE_CODE` — le navigateur refuse `1013`) et par la borne entrante ci-dessous.
+`src/context/websocket/wsBackpressure.ts` → `decideSend(ws, max, policy, closeAfterDrops)` :
+porte l'état (`_nfDrops`/`_nfDropStreak` sur `IBackpressureTarget`, sans conversion) et le geste.
 **Exportée par l'index** : `@nodefony/realtime` l'applique sur le transport de chaque
 connexion realtime au lieu d'en tenir une copie (les deux avaient divergé : 4 Mio ici,
 1 Mio là-bas). Cible typée structurellement (`IBackpressureTarget`) → realtime n'importe
@@ -44,6 +49,17 @@ fermeture.
 Compteurs sur la socket : `_nfDrops` (cumul, sonde) · `_nfDropStreak` (solde courant).
 Tests : `unit/wsBackpressure.test.ts` (16) · realtime `unit/backpressureConfig.test.ts` (7)
 · banc réel `ws-backpressure-e2e.mjs` (skill `nodefony-load-test`).
+
+## Borne de débit WS ENTRANTE (client → serveur)
+
+`src/context/websocket/wsFrameRate.ts` → `admitFrame(win, now, bound, closeAfter)` = même règle
+sur le NOMBRE de trames de la fenêtre (1 s). Appelée en TÊTE de `WebsocketContext.handleMessage`,
+AVANT `toString`/journal/routage/codec. Config `websocket*` : `maxFramesPerSecond` (0 = coupé,
+défaut de toute la série 10 — l'activer par défaut = rupture → 11.0) et
+`frameRateCloseAfterRejects` (1000) → close `1008`. Borne 0 = un test, ni horloge ni alloc ;
+fenêtre `context.frameRate` créée à la 1ʳᵉ trame borne activée. Cumul du PROCESSUS
+`frameRateRejectedTotal()` (module-level : aucun hub ne voit une trame écartée) → relayé par
+`RealtimeHub.probe()` (nom figé ADR-0021 §S9). Tests : `unit/wsFrameRate.test.ts`.
 
 ## Store de session en PANNE — la requête répond, jamais elle ne pend
 

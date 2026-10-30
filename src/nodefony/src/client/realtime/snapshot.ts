@@ -26,6 +26,7 @@ export type SnapshotSource = Pick<
   | "subscribedChannels"
   | "framesReceived"
   | "framesUnsent"
+  | "framesDropped"
   | "lastFrameMethod"
   | "lastFrameAt"
   | "reconnectAttempts"
@@ -59,6 +60,8 @@ export interface SocketSnapshot {
   frames: number;
   /** Trames perdues faute de transport ouvert — un silence qui se compte. */
   unsent: number;
+  /** Trames jetées par la contre-pression du client (`maxBufferedAmount`) — `0` sans borne. */
+  dropped: number;
   /** Méthode et horodatage de la dernière trame reçue (`null` si aucune). */
   lastFrame: { method: string | null; at: number | null };
   /** Tentatives de reconnexion depuis la dernière connexion réussie. */
@@ -84,6 +87,7 @@ export function socketSnapshot(client: SnapshotSource): SocketSnapshot {
     channels: client.subscribedChannels,
     frames: client.framesReceived,
     unsent: client.framesUnsent,
+    dropped: client.framesDropped,
     lastFrame: { method: client.lastFrameMethod, at: client.lastFrameAt },
     reconnectAttempts: client.reconnectAttempts,
     nextRetryAt: client.nextRetryAt,

@@ -247,7 +247,13 @@ export {
   NOT_FOUND_CLOSE_CODE,
   IDENTITY_REFRESH_CLOSE_CODE,
   TOKEN_EXPIRED_CLOSE_CODE,
+  BACKPRESSURE_CLOSE_CODE,
 } from "./realtime/closeCodes";
+export { decideBackpressure, nextDropBalance } from "./realtime/backpressure";
+export type {
+  BackpressurePolicy,
+  BackpressureVerdict,
+} from "./realtime/backpressure";
 export type { TokenStatus } from "./realtime/tokenStatus";
 export { TransportState } from "./realtime/IRealtimeTransport";
 export type {

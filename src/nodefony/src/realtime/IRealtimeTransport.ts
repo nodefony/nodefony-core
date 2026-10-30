@@ -63,6 +63,11 @@ export interface IRealtimeTransport {
   close(code?: number, reason?: string): void;
   /** État courant (0..3, cf {@link TransportState}). */
   readonly readyState: number;
+  /**
+   * Octets en attente d'envoi (`WebSocket.bufferedAmount`) ; absent = inconnu,
+   * lu comme `0` — la contre-pression du client ne refuse alors jamais.
+   */
+  readonly bufferedAmount?: number;
   /** Branche le handler d'ouverture (le owner relance subscribe/heartbeat). */
   onOpen(cb: () => void): void;
   /**

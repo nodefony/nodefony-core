@@ -99,6 +99,11 @@ import {
   isRealtimePayload,
   realtimePayloadError,
 } from "../../realtime/payload";
+import {
+  decideBackpressure,
+  nextDropBalance,
+} from "../../realtime/backpressure";
+import { BACKPRESSURE_CLOSE_CODE } from "../../realtime/closeCodes";
 
 export type RealtimeState =
   "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
@@ -145,7 +150,28 @@ export interface NodefonySocketOptions {
    * ne veut rien dans la console de ses utilisateurs.
    */
   banner?: boolean | undefined;
+  /**
+   * Seuil (octets) de la file d'envoi du navigateur (`WebSocket.bufferedAmount`)
+   * au-delà duquel une frame sortante est JETÉE au lieu d'être mise en file —
+   * `emit`, `request` et `sendBinary` rendent alors `false` et la frame est
+   * comptée dans {@link NodefonySocket.framesDropped}. Pour un émetteur qui
+   * produit plus vite que le réseau n'écoule (positions d'un jeu, mesures d'un
+   * capteur) : une donnée périmée jetée vaut mieux qu'une file qui grossit.
+   * `0`/absent = désactivé (défaut de la série 10).
+   */
+  maxBufferedAmount?: number | undefined;
+  /**
+   * Solde de frames jetées (+1 par frame jetée, −1 par frame partie) au-delà
+   * duquel le client FERME sa socket en `4007` (`BACKPRESSURE_CLOSE_CODE`) puis
+   * se reconnecte comme après toute coupure : une file qui ne se vide plus est
+   * une connexion morte. Sans effet sans {@link maxBufferedAmount}. `0` = ne
+   * jamais fermer. Défaut `1000`, comme `backpressureCloseAfterDrops` du serveur.
+   */
+  backpressureCloseAfterDrops?: number | undefined;
 }
+
+/** Solde de frames jetées qui ferme la socket, faute de `backpressureCloseAfterDrops`. */
+const BACKPRESSURE_CLOSE_AFTER_DEFAULT = 1000;
 
 /**
  * Sonde d'un échec d'ouverture : rend le statut HTTP de l'adresse de la socket
@@ -549,6 +575,10 @@ export class NodefonySocket<
   // Frames qui n'ont pas pu partir (transport fermé) — pendant sortant de
   // `_framesReceived`, lu par la debug bar et les bancs.
   private _framesUnsent = 0;
+  /** Frames jetées par la contre-pression (`maxBufferedAmount`), cumul. */
+  private _framesDropped = 0;
+  /** Solde de refus de la connexion courante — remis à zéro à chaque transport. */
+  private _dropBalance = 0;
   // Trames entrantes ÉCARTÉES (#451) — jamais en silence : la première de chaque
   // nature émet une notice, les suivantes se comptent.
   private _binaryFramesDiscarded = 0;
@@ -937,7 +967,12 @@ export class NodefonySocket<
     method: K,
     params?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
   ): void {
-    if (!this._emitRaw(method, params)) this.noticeUnsent();
+    if (
+      !this._emitRaw(method, params) &&
+      this.transport?.readyState !== TransportState.OPEN
+    ) {
+      this.noticeUnsent();
+    }
   }
 
   /**
@@ -1148,8 +1183,39 @@ export class NodefonySocket<
       this._framesUnsent++;
       return false;
     }
+    if (!this.admitOutbound(this.transport)) return false;
     this.transport.send(data);
     return true;
+  }
+
+  /**
+   * Contre-pression SORTANTE du navigateur : la frame part-elle, ou la jette-t-on ?
+   *
+   * Même règle que le serveur (`decideBackpressure`, au cœur), lue sur
+   * `bufferedAmount` AVANT la sérialisation. Jetée → comptée dans
+   * {@link framesDropped} ; solde atteint → fermeture en `4007`, puis la
+   * reconnexion habituelle (le navigateur refuse le `1013` du serveur).
+   *
+   * @param transport - le transport ouvert
+   * @returns `true` si la frame peut partir
+   */
+  private admitOutbound(transport: IRealtimeTransport): boolean {
+    const max = this.opts.maxBufferedAmount ?? 0;
+    if (max <= 0) return true;
+    const verdict = decideBackpressure(
+      transport.bufferedAmount ?? 0,
+      max,
+      "drop",
+      this.opts.backpressureCloseAfterDrops ?? BACKPRESSURE_CLOSE_AFTER_DEFAULT,
+      this._dropBalance,
+    );
+    this._dropBalance = nextDropBalance(verdict, this._dropBalance);
+    if (verdict === "send") return true;
+    this._framesDropped++;
+    if (verdict === "close") {
+      transport.close(BACKPRESSURE_CLOSE_CODE, "backpressure");
+    }
+    return false;
   }
 
   /**
@@ -1485,6 +1551,14 @@ export class NodefonySocket<
   }
 
   /**
+   * Total de frames JETÉES par la contre-pression depuis la création du client
+   * (file d'envoi au-delà de `maxBufferedAmount`). Reste à `0` sans borne.
+   */
+  get framesDropped(): number {
+    return this._framesDropped;
+  }
+
+  /**
    * Total de trames BINAIRES reçues puis écartées, faute de lecteur
    * ({@link onBinary}). Reste à `0` tant que le pair ne parle que JSON-RPC ;
    * la première écartée émet une notice (`-32700`), les suivantes se comptent ici.
@@ -1787,6 +1861,7 @@ export class NodefonySocket<
         // ne sait QUE ouvrir/envoyer/fermer ; l'orchestration reste ici.
         transport = this.transportFactory(url.toString());
         this.transport = transport;
+        this._dropBalance = 0;
       } catch (e) {
         this.setState("error");
         reject(e instanceof Error ? e : new Error(String(e), { cause: e }));
@@ -2075,6 +2150,7 @@ export class NodefonySocket<
       this._framesUnsent++;
       return false;
     }
+    if (!this.admitOutbound(this.transport)) return false;
     const raw = JSON.stringify(msg);
     this.transport.send(raw);
     this.recordFrame("out", msg, raw.length);

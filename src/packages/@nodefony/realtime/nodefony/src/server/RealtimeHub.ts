@@ -12,6 +12,7 @@ import {
   countWildcards,
   MAX_CHANNEL_PATTERN_WILDCARDS,
 } from "nodefony";
+import { frameRateRejectedTotal } from "@nodefony/http";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
 import type { IClientLogsLimits } from "../../interfaces/IClientLogsLimits";
 import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
@@ -925,6 +926,8 @@ export class RealtimeHub {
       // Compté par le driver (seul à ouvrir l'enveloppe), relayé ici à côté des
       // autres refus de la sonde : 0 sans bus scellé.
       sealRejectedTotal: backplane.sealRejectedTotal ?? 0,
+      // Compté par `@nodefony/http` avant le routage : aucun hub ne voit la trame.
+      frameRateRejectedTotal: frameRateRejectedTotal(),
       connectionCount,
       bytesSentTotal,
       messagesSentTotal,

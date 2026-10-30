@@ -200,8 +200,15 @@ rupture.
 
 **Socket : jeter avant de fermer.** Par défaut (`backpressurePolicy: "drop"`), une frame qui
 dépasse le seuil d'envoi est jetée et le client reste connecté ; il n'est fermé (`1013`) qu'au-delà
-d'un solde de frames refusées (`backpressureCloseAfterDrops`, 1 000 par défaut). Règle unique :
-`src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts#decideSend`.
+d'un solde de frames refusées (`backpressureCloseAfterDrops`, 1 000 par défaut). Règle unique,
+au cœur : `src/nodefony/src/realtime/backpressure.ts#decideBackpressure` (solde :
+`src/nodefony/src/realtime/backpressure.ts#nextDropBalance`). Chaque côté l'applique avec son
+propre état et son propre geste : le serveur
+(`src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts#decideSend`) ferme en
+`1013` ; le navigateur (`NodefonySocket`, option `maxBufferedAmount`, désactivée par défaut en 10.x)
+ferme en `4007`, car `WebSocket.close` refuse `1013`. La borne de débit entrante (ADR-0022 §5 C2)
+réutilise la même règle sur le nombre de trames reçues par seconde, avant tout décodage
+(`src/packages/@nodefony/http/nodefony/src/context/websocket/wsFrameRate.ts#admitFrame`).
 
 - **Rupture si différé : NON**, mais l'écrire avant 10.0 protège. Non écrite, une garantie que le
   framework ne tient pas (un ordre global entre exemplaires) peut être supposée par une
