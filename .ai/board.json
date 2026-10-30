@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T20:38:33.724Z",
+  "generatedAt": "2026-10-30T21:19:29.627Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 212,
+      "closed": 214,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 23,
+      "open": 21,
       "title": "10.0.0-beta"
     },
     {
@@ -5499,8 +5499,8 @@
       "number": 705,
       "title": "fix(security): aligner les abonnements webhook sur les motifs des canaux",
       "url": "https://github.com/nodefony/nodefony-core/issues/705",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.25,
@@ -5515,8 +5515,8 @@
       "number": 706,
       "title": "feat(realtime)!: fermer en 4006 la socket dont le jeton porteur expire",
       "url": "https://github.com/nodefony/nodefony-core/issues/706",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
