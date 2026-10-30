@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T17:59:36.608Z",
+  "generatedAt": "2026-10-30T18:33:01.908Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 210,
+      "closed": 211,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 25,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -5467,8 +5467,8 @@
       "number": 702,
       "title": "docs(adr): valider les webhooks et les règles communes aux livraisons",
       "url": "https://github.com/nodefony/nodefony-core/issues/702",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -5576,6 +5576,22 @@
       ]
     },
     {
+      "number": 699,
+      "title": "feat(security): durcir la CSP par défaut sans bloquer le temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/699",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 6.0345,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 623,
       "title": "feat(realtime): identifier les abonnés d'un canal côté serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/623",
@@ -5651,22 +5667,6 @@
       "ordre": 6.0362,
       "debut": "2026-11-12",
       "cible": "2026-11-12",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 699,
-      "title": "feat(security): durcir la CSP par défaut sans bloquer le temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/699",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 2,
-      "ordre": 6.0365,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
       "labels": [
         "beta-6"
       ]
