@@ -28,8 +28,15 @@
  *   node ticket-verify.mjs --touched-by main..HEAD
  *   node ticket-verify.mjs --dependents 466      # tickets ouverts qui dépendent de #466
  *
+ * Le mode par défaut relance AUSSI les preuves écrites en commande dans les
+ * corps (« `rg -c X src` rend 0 ») : `proof-commands.mjs`, `rg` seul, sans
+ * shell. Une ancre vérifie qu'un symbole EXISTE ; seule la commande relancée
+ * dit qu'une ABSENCE affirmée tient encore.
+ *
  * Sort 1 si une ancre est introuvable ou hors fichier (mêmes verdicts que le
- * gate doc) ; les `SUSPECT` sont rapportés sans faire échouer — une ancre qui a
+ * gate doc), ou si une preuve est DÉMENTIE ou CASSÉE ; un ÉCART de compte, une
+ * commande REFUSÉE ou un verdict qualitatif (NON JUGÉE) sont rapportés sans
+ * faire échouer. Les `SUSPECT` d'ancre sont rapportés sans faire échouer — une ancre qui a
  * glissé de quelques lignes est le régime normal d'un dépôt vivant. Le mode
  * `--touched-by` ne sort jamais 1 : il n'accuse pas, il donne à relire.
  * `--dependents` non plus : il dit quels voisins relire AVANT de fermer.
@@ -42,6 +49,7 @@
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { dependentsOf } from "./dependents.mjs";
+import { extractProofs, runProof } from "./proof-commands.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
@@ -239,4 +247,59 @@ const run = spawnSync(process.execPath, [CHECK, ...pages], {
   cwd: REPO,
   stdio: "inherit",
 });
-process.exit(run.status ?? 1);
+process.exit(Math.max(run.status ?? 1, checkProofs(tickets)));
+
+/**
+ * Relance les preuves écrites en commande dans les corps (`rg … → 0`) : une
+ * ancre qui résout ne dit pas qu'une ABSENCE affirmée tient encore.
+ *
+ * @returns 1 si une preuve est démentie ou cassée, 2 si `rg` manque, 0 sinon
+ */
+function checkProofs(list) {
+  // Une capacité se constate : sans `rg`, chaque preuve sortirait « cassée ».
+  // Le `rg` d'une session Claude Code est une FONCTION du shell, invisible d'un
+  // processus lancé sans shell : seul un binaire sur le PATH compte.
+  if (spawnSync("rg", ["--version"]).error) {
+    console.error(
+      "\n⚠️  rg introuvable sur le PATH — aucune preuve relancée.\n" +
+        "   Installer ripgrep : brew install ripgrep · winget install BurntSushi.ripgrep.MSVC · apt install ripgrep",
+    );
+    return 2;
+  }
+  const exec = (args, cwd) =>
+    spawnSync("rg", args, {
+      cwd,
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+    });
+  const tally = Object.create(null);
+  let total = 0;
+  console.log("\nPreuves écrites en commande, relancées :");
+  for (const t of list) {
+    if (!t.body) continue;
+    for (const proof of extractProofs(t.body)) {
+      total++;
+      const r = runProof(proof, { repo: REPO, exec });
+      tally[r.verdict] = (tally[r.verdict] ?? 0) + 1;
+      if (r.verdict === "OK") continue;
+      const detail =
+        "actual" in r
+          ? ` — annoncé ${proof.expected}, constaté ${r.actual}`
+          : r.reason
+            ? ` — ${r.reason}`
+            : "";
+      console.log(
+        `  #${t.number} l.${proof.line}  ${r.verdict}  \`${proof.command}\`${detail}`,
+      );
+    }
+  }
+  const summary = Object.entries(tally)
+    .map(([v, n]) => `${n} ${v}`)
+    .join(" · ");
+  console.log(
+    total
+      ? `  ${total} preuve(s) : ${summary}`
+      : "  aucune preuve chiffrée dans ces corps.",
+  );
+  return tally["DÉMENTIE"] || tally["CASSÉE"] ? 1 : 0;
+}

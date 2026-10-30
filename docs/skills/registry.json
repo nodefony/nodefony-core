@@ -4847,12 +4847,7 @@
             "path": "scripts/mysql-ddl-to-specs.selftest.mjs",
             "purpose": "Auto-contrôle du convertisseur DDL MySQL → descriptions neutres.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--coll",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -6335,12 +6330,7 @@
             "path": "lib/echarts.mjs",
             "purpose": "Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--muted",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -6358,48 +6348,7 @@
             "path": "lib/report.mjs",
             "purpose": "report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--accent",
-                "help": ""
-              },
-              {
-                "flag": "--bg",
-                "help": ""
-              },
-              {
-                "flag": "--card",
-                "help": ""
-              },
-              {
-                "flag": "--dim",
-                "help": ""
-              },
-              {
-                "flag": "--fg",
-                "help": ""
-              },
-              {
-                "flag": "--line",
-                "help": ""
-              },
-              {
-                "flag": "--note-bg",
-                "help": ""
-              },
-              {
-                "flag": "--note-fg",
-                "help": ""
-              },
-              {
-                "flag": "--warn-bg",
-                "help": ""
-              },
-              {
-                "flag": "--warn-fg",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [
               {
                 "name": "CSS",
@@ -6725,20 +6674,7 @@
             "path": "scripts/rename-identifiers.test.mjs",
             "purpose": "Auto-contrôle de `rename-identifiers.mjs`.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--plan",
-                "help": ""
-              },
-              {
-                "flag": "--project",
-                "help": ""
-              },
-              {
-                "flag": "--test",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -7236,20 +7172,7 @@
             "path": "scripts/capacity-html.mjs",
             "purpose": "capacity-html.mjs — rendu du rapport de capacité.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--accent",
-                "help": ""
-              },
-              {
-                "flag": "--dim",
-                "help": ""
-              },
-              {
-                "flag": "--rupture",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [
               {
                 "name": "PAYLOAD",
@@ -8076,16 +7999,7 @@
             "path": "scripts/native-sample.test.mjs",
             "purpose": "Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture miniature écrite à la main : temps propre, nommage par perf.map, imputation au premier ancêtre JS, moyenne par camp. Un changement du format de `sample` ou de la table perf doit faire tomber ce test, pas fausser un banc en silence. npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs",
             "usage": [],
-            "options": [
-              {
-                "flag": "--accept-noise",
-                "help": ""
-              },
-              {
-                "flag": "--dir",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -10621,28 +10535,7 @@
             "path": "scripts/session-lib.test.mjs",
             "purpose": "Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. /",
             "usage": [],
-            "options": [
-              {
-                "flag": "--check",
-                "help": ""
-              },
-              {
-                "flag": "--chek",
-                "help": ""
-              },
-              {
-                "flag": "--help",
-                "help": ""
-              },
-              {
-                "flag": "--since",
-                "help": ""
-              },
-              {
-                "flag": "--verify",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -10888,18 +10781,47 @@
             "path": "lib/script-doc.mjs",
             "purpose": "Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le lance — en une seule implémentation.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--out",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [
               {
                 "name": "VAR",
                 "help": ""
               }
             ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "lib/script-doc.test.mjs",
+            "purpose": "`analyzeScript` — ce que la fiche publique d'un skill dit de chacun de ses scripts.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--color",
+                "help": ""
+              },
+              {
+                "flag": "--count",
+                "help": ""
+              },
+              {
+                "flag": "--fast",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--no-config",
+                "help": ""
+              },
+              {
+                "flag": "--port",
+                "help": ""
+              }
+            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           }
@@ -11473,7 +11395,7 @@
       "name": "nodefony-ticket",
       "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus.",
       "family": "Autres",
-      "version": "1.9.0",
+      "version": "1.10.0",
       "keywords": [
         "<fichier>.ts#<Symbole>"
       ],
@@ -11500,8 +11422,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
       "cost": {
-        "bodyLines": 476,
-        "approxTokens": 9406
+        "bodyLines": 487,
+        "approxTokens": 9672
       },
       "requires": [
         "redis"
@@ -11571,32 +11493,7 @@
             "path": "scripts/board-lint.test.mjs",
             "purpose": "",
             "usage": [],
-            "options": [
-              {
-                "flag": "--add-label",
-                "help": ""
-              },
-              {
-                "flag": "--apply",
-                "help": ""
-              },
-              {
-                "flag": "--grep",
-                "help": ""
-              },
-              {
-                "flag": "--milestone",
-                "help": ""
-              },
-              {
-                "flag": "--remove-label",
-                "help": ""
-              },
-              {
-                "flag": "--type",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -11605,12 +11502,7 @@
             "path": "scripts/board-source.test.mjs",
             "purpose": "Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un script, ni dans un bloc de commande qu'un skill donne à exécuter.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--limit",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -11684,6 +11576,24 @@
             "selfDocumented": true
           },
           {
+            "path": "scripts/proof-commands.mjs",
+            "purpose": "proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/proof-commands.test.mjs",
+            "purpose": "`proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/ticket-anchor-migrate.mjs",
             "purpose": "ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`).",
             "usage": [
@@ -11729,24 +11639,7 @@
             "path": "scripts/ticket-close.test.mjs",
             "purpose": "Suite du compte rendu de fermeture.",
             "usage": [],
-            "options": [
-              {
-                "flag": "--format",
-                "help": ""
-              },
-              {
-                "flag": "--grep",
-                "help": ""
-              },
-              {
-                "flag": "--no-verify",
-                "help": ""
-              },
-              {
-                "flag": "--reverse",
-                "help": ""
-              }
-            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -12038,7 +11931,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "476",
+            "detail": "487",
             "advisory": true
           }
         ]

@@ -191,10 +191,30 @@ export function analyzeScript(path) {
     ? usageLine.replace(/^\s*(?:#|\/\/|\*)\s*/, "").trim()
     : "";
 
-  // Options : les drapeaux réellement testés par le script.
-  const flags = [
-    ...new Set([...src.matchAll(/--[a-z][a-z0-9-]{1,24}/g)].map((m) => m[0])),
-  ]
+  // Options : les drapeaux réellement testés par le script. Un MODULE — ni ligne
+  // de commande lue, ni usage déclaré dans l'en-tête — n'en a AUCUNE : ses `--x`
+  // sont des données (les options de `rg` que relance `proof-commands.mjs`), et
+  // les publier comme ses options décrirait une interface qui n'existe pas. Une
+  // commande peut lire ses arguments par un utilitaire importé (`arg("port")`) :
+  // sa ligne d'usage suffit à la reconnaître.
+  // `$1` n'est un argument qu'en shell : en JavaScript, c'est le premier groupe
+  // d'un remplacement (`replace(re, "$1")`).
+  const readsShellArgs =
+    /\.(?:sh|bash)$/.test(path) && /\$@|\$\{?1\b|\bgetopts\b/.test(src);
+  const isCommand =
+    /process\.argv|\bparseArgs\s*\(/.test(src) ||
+    readsShellArgs ||
+    usage !== "" ||
+    docs.usage.length > 0;
+  const flags = (
+    isCommand
+      ? [
+          ...new Set(
+            [...src.matchAll(/--[a-z][a-z0-9-]{1,24}/g)].map((m) => m[0]),
+          ),
+        ]
+      : []
+  )
     .filter(
       (f) =>
         !/^--(?:experimental|max-old|expose|enable|no-warnings|loader|import)/.test(

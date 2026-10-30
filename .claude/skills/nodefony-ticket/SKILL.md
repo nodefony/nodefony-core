@@ -1,7 +1,7 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.9.0
+  version: 1.10.0
 description: >
   Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et
   compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une
@@ -164,6 +164,16 @@ Une preuve d'**ABSENCE** — « aucun `X` nulle part » — se met sur sa PROPRE
 comme une **commande** (`rg -c 'X' src` rend `0`). Collée à une ancre, elle se fait lire comme
 son contexte : le contrôle cherche alors `X` autour de la ligne pointée, ne l'y trouve pas —
 forcément, c'est ce que le ticket affirme — et signale une ancre pourtant juste. Vécu sur #17.
+
+Écrite ainsi, elle est **relancée** : `ticket-verify.mjs` rejoue chaque commande `rg` suivie
+d'un verdict chiffré (« rend 0 », « → 0 », « rend **3** ») et sort 1 quand une absence ne tient
+plus. Une ancre vérifie qu'un symbole EXISTE ; seule la commande relancée dit qu'une absence
+affirmée est encore vraie — vécu : « aucun Keycloak dans le décor » survivait sur #268 alors
+que le décor était monté. Trois règles d'écriture en découlent : un `rg` simple (pas de `{a,b}`,
+pas d'autre tube que `| wc -l`, chemins dans le dépôt) ; un verdict chiffré, sinon il est
+rapporté non jugé ; et un critère du **« Fini quand »** n'est jamais relancé — il décrit l'état
+visé, pas l'état présent. Prérequis : `rg` sur le PATH, pas la seule fonction du shell de
+Claude Code, invisible d'un processus lancé sans shell.
 
 **Fini quand**
 Un critère OBSERVABLE : un test qui passe, une commande qui rend tel résultat, un écran qui
@@ -453,6 +463,7 @@ d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot
 | [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)                 | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai                                | à la main, au END de session                            |
 | [`scripts/board-lint.mjs`](scripts/board-lint.mjs)                       | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit                          | `npm run ticket:lint`, au RESUME et au END              |
 | [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)                 | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                                                 | à la main, au END de session                            |
+| [`scripts/proof-commands.mjs`](scripts/proof-commands.mjs)               | relance les preuves `rg … rend 0` des corps (hors « Fini quand »), `rg` seul, sans shell — démentie ou cassée = sortie 1   | `ticket-verify.mjs`, mode par défaut                    |
 | [`scripts/ticket-anchor-migrate.mjs`](scripts/ticket-anchor-migrate.mjs) | convertit les ancres `fichier:ligne` des tickets ouverts en symboles, chacune lue dans le code de SA date ; liste le reste | à la main, quand `ANCRE-LIGNE` sonne ; `--apply` envoie |
 | [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)                   | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur)                     | à la main, avant `gh issue close`                       |
 | [`scripts/francise.mjs`](scripts/francise.mjs)                           | repère les tournures à franciser dans un corps de ticket                                                                   | à la main                                               |

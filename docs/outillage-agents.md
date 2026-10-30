@@ -79,7 +79,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · ⚙️ 13 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
-    "meta": "🟢 conforme v1.2.0 · ⚙️ 4 scripts" }
+    "meta": "🟢 conforme v1.2.0 · ⚙️ 5 scripts" }
 ]
 ```
 
@@ -202,7 +202,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du…",
-    "meta": "🟢 conforme v1.9.0 · ⚙️ 19 scripts · 📎 7 réf" },
+    "meta": "🟢 conforme v1.10.0 · ⚙️ 21 scripts · 📎 7 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "skills/nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },

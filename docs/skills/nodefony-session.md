@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-29
+updated: 2026-10-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -97,7 +97,7 @@ script, donc toujours à jour après régénération.
 | `scripts/session-cost.selftest.mjs` | Éprouve `session-cost.mjs --session` sur des transcripts FORGÉS : le principal et chaque sous-agent sur leur ligne, nommés par leur méta, une réponse répétée comptée une seule fois, le pic de contexte pris sur la plus grosse réponse, `fable` au tarif connu, et un préfixe ambigu refusé plutôt que deviné. | `--session` | — |
 | `scripts/session-end.mjs` | session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, jugement de l'autre. | `--since` `--no-publish` | `MEM` `PUBLISH` |
 | `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans disque : `session-resume.mjs` et `session-end.mjs` les appellent, leurs tests les éprouvent. | `--chek` `--format` `--help` `--json` `--since` | — |
-| `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. / | `--check` `--chek` `--help` `--since` `--verify` | — |
+| `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. / | — | — |
 | `scripts/session-resume.mjs` | session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l). | `--offline` | — |
 | `scripts/tool-usage.mjs` | tool-usage.mjs — ce que les sorties d'outils coûtent, et comment on lit le code. | `--all` `--outline` `--show-toplevel` | — |
 | `scripts/tool-usage.selftest.mjs` | Éprouve `tool-usage.mjs` sur un transcript FORGÉ : chaque forme de lecture de code doit être comptée dans sa case, la relecture d'une sortie doit valoir sa taille × les tours qui la suivent, et l'alerte ne doit crier que sur ce que la règle 6 du hook refuserait — une tranche courte est permise. | — | — |

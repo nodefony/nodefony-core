@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-29
+updated: 2026-10-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.9.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.10.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,14 +26,14 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.9.0` |
+| Version | `1.10.0` |
 | Famille | Autres |
-| Corps | 476 lignes |
-| Coût d'activation | ~9 406 tokens (le corps est chargé à l'invocation) |
+| Corps | 487 lignes |
+| Coût d'activation | ~9 672 tokens (le corps est chargé à l'invocation) |
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 19 |
 | Ressources `references/` | 7 page(s) |
-| Scripts | 19 |
+| Scripts | 21 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -94,17 +94,19 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--json` `--milestone` | `JOURS_EN_COURS` `OWNER` `POST_PUBLICATION_LABEL` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
-| `scripts/board-lint.test.mjs` | — | `--add-label` `--apply` `--grep` `--milestone` `--remove-label` `--type` | — |
-| `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un script, ni dans un bloc de commande qu'un skill donne à exécuter. | `--limit` | — |
+| `scripts/board-lint.test.mjs` | — | — | — |
+| `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un script, ni dans un bloc de commande qu'un skill donne à exécuter. | — | — |
 | `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |
 | `scripts/dependents.mjs` | Les tickets OUVERTS qui dépendent d'un ticket — la règle, pure et éprouvable. | — | — |
 | `scripts/dependents.test.mjs` | `dependentsOf` — qui relire avant de fermer un ticket. / | — | — |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--write` | — |
 | `scripts/github-templates.test.mjs` | Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est désormais rendu DEUX fois : dans cette page, et dans les formulaires que GitHub sert à qui ouvre une issue depuis l'interface. | — | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--write` | — |
+| `scripts/proof-commands.mjs` | proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket. | — | — |
+| `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
 | `scripts/ticket-anchor-migrate.mjs` | ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`). | `--apply` | `APPLY` `QUERY` |
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` | — |
-| `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | `--format` `--grep` `--no-verify` `--reverse` | — |
+| `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | — | — |
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | `OWNER` `REPO` |
 | `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` | `OWNER` `REPO` |
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
@@ -256,7 +258,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <num�
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 476 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 487 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

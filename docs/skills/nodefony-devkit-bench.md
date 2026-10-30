@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-27
+updated: 2026-10-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -103,7 +103,7 @@ script, donc toujours à jour après régénération.
 | `scripts/keycloak-login-probe.mjs` | Sonde — la connexion par Keycloak ouvre-t-elle une session dans CETTE application ? | `--app` `--username` `--password` `--ca` | — |
 | `scripts/memoires-agent.selftest.mjs` | Auto-contrôle de la purge du cahier de mémoire que l'agent tient HORS du décor. | `--prove` | — |
 | `scripts/mysql-ddl-to-specs.mjs` | Convertit un DDL MySQL réel (`*.sql` + `*.key.sql`) en descriptions d'entités NEUTRES — la grammaire du kit de colonnes (`colKit.spec.ts` de `@nodefony/drizzle`), sans un import d'ORM. | `--corpus` `--dir` `--out` `--ref` `--table-prefix` | `ADDED_KEY` |
-| `scripts/mysql-ddl-to-specs.selftest.mjs` | Auto-contrôle du convertisseur DDL MySQL → descriptions neutres. | `--coll` | — |
+| `scripts/mysql-ddl-to-specs.selftest.mjs` | Auto-contrôle du convertisseur DDL MySQL → descriptions neutres. | — | — |
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir. | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
 | `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--depuis` `--session` `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` `RACINE_RUNS` |

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-17
+updated: 2026-10-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-html-report/SKILL.md"
 ---
@@ -95,9 +95,9 @@ script, donc toujours à jour après régénération.
 | `scripts/formats.selftest.mjs` | Auto-contrôle des FORMATS d'un rapport et du tri de ses tableaux. | — | — |
 | `scripts/schemas.selftest.mjs` | Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS perdre en silence. | — | — |
 | `lib/brand.mjs` | brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs). | — | — |
-| `lib/echarts.mjs` | Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique. | `--muted` | — |
+| `lib/echarts.mjs` | Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique. | — | — |
 | `lib/report-echarts.mjs` | **Adaptateurs** — les fonctions de `report.mjs`, rendues par ECharts. | — | — |
-| `lib/report.mjs` | report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes. | `--accent` `--bg` `--card` `--dim` `--fg` `--line` `--note-bg` `--note-fg` `--warn-bg` `--warn-fg` | `CSS` `PRINT_JS` `SORT_JS` `THEME_JS` |
+| `lib/report.mjs` | report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes. | — | `CSS` `PRINT_JS` `SORT_JS` `THEME_JS` |
 | `lib/schemas.mjs` | Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`. | — | `HAUT` `INTERLIGNE` `MARGE` `POLICE` |
 
 **Invocation telle que documentée dans chaque script :**

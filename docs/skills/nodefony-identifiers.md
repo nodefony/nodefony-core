@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-04
+updated: 2026-10-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-identifiers/SKILL.md"
 ---
@@ -81,7 +81,7 @@ script, donc toujours à jour après régénération.
 | `scripts/check-literals-unchanged.mjs` | Vérifie qu'un renommage n'a touché AUCUNE chaîne de caractères. | `--base` `--except` `--name-only` | — |
 | `scripts/check-rename-drift.mjs` | Confronte un renommage à son plan — la seule preuve qu'aucun symbole n'a dérivé. | `--base` `--fix` `--plan` | — |
 | `scripts/rename-identifiers.mjs` | Renomme des identifiants par le LanguageService TypeScript — jamais par regex. | `--dry` `--plan` `--project` | — |
-| `scripts/rename-identifiers.test.mjs` | Auto-contrôle de `rename-identifiers.mjs`. | `--plan` `--project` `--test` | — |
+| `scripts/rename-identifiers.test.mjs` | Auto-contrôle de `rename-identifiers.mjs`. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
