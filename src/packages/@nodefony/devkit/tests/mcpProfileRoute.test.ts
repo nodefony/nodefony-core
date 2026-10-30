@@ -557,16 +557,79 @@ describe("nodefony_profile_route — arrêt", () => {
   it("🔴 l'agent abandonne : rapport partiel, session détruite, client fermé", async () => {
     const app = fakeApp({ slowMs: 10 });
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), 35);
+    // L'abandon suit le tir, pas une horloge : une minuterie tombait parfois
+    // pendant l'ouverture de la session sur une machine lente.
+    const result = await call(
+      app.deps(),
+      { path: "/orders", count: 100, concurrency: 1, warmup: 0 },
+      WRITER,
+      {
+        signal: controller.signal,
+        progress: (done) => {
+          if (done >= 2) controller.abort();
+        },
+      },
+    );
+    expect(text(result)).toMatch(/tir abandonné après/u);
+    expect(app.closedSessions).toEqual(["sess_test"]);
+    expect(app.state.closed).toBe(true);
+  });
+
+  it("🔴 l'agent abandonne avant que la session soit ouverte : un rapport, jamais une exception", async () => {
+    const app = fakeApp({ slowMs: 10 });
+    const controller = new AbortController();
+    controller.abort();
     const result = await call(
       app.deps(),
       { path: "/orders", count: 100, concurrency: 1, warmup: 0 },
       WRITER,
       { signal: controller.signal, progress: () => undefined },
     );
-    expect(text(result)).toMatch(/tir abandonné après/u);
-    expect(app.closedSessions).toEqual(["sess_test"]);
+    expect(text(result)).toMatch(/tir abandonné avant le premier envoi/u);
+    expect(app.shots()).toHaveLength(0);
+    expect(app.closedSessions).toEqual([]);
     expect(app.state.closed).toBe(true);
+  });
+
+  it("🔴 le serveur s'arrête pendant l'ouverture de la session : il le dit", async () => {
+    const app = fakeApp({ slowMs: 10 });
+    const result = await call(
+      app.deps({
+        onShutdown: (listener) => {
+          // Avant la fin de la connexion (10 ms) : une microtâche suffit.
+          queueMicrotask(() => void listener());
+          return () => undefined;
+        },
+      }),
+      { path: "/orders", count: 100, concurrency: 1, warmup: 0 },
+      WRITER,
+    );
+    expect(text(result)).toMatch(/tir interrompu avant le premier envoi/u);
+    expect(result.isError).not.toBe(true);
+    expect(app.shots()).toHaveLength(0);
+  });
+
+  it("🔴 la connexion du profilage échoue sur le réseau : le motif, jamais une exception", async () => {
+    const app = fakeApp();
+    let closed = false;
+    const result = await call(
+      app.deps({
+        createClient: () => ({
+          send: async () => {
+            throw new Error("connect ECONNREFUSED 127.0.0.1:5151");
+          },
+          close: () => {
+            closed = true;
+          },
+        }),
+      }),
+      { path: "/orders", count: 3, warmup: 0 },
+      WRITER,
+    );
+    expect(result.isError).toBe(true);
+    expect(text(result)).toMatch(/session de profilage non ouverte/u);
+    expect(text(result)).toMatch(/ECONNREFUSED/u);
+    expect(closed).toBe(true);
   });
 
   it("le serveur s'arrête : rapport partiel qui le dit, l'écouteur retiré", async () => {

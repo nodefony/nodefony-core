@@ -40,6 +40,7 @@ import {
   createShotClient,
   SHOT_REQUEST_TIMEOUT_MS,
   type IShotClient,
+  type IShotResponse,
   type IShotTarget,
 } from "./shotClient";
 import { watchToolStop, type OnShutdown } from "./shutdown";
@@ -324,7 +325,9 @@ async function openShotSession(
   account: string,
   signal: AbortSignal,
 ): Promise<
-  { ok: true; session: IShotSession } | { ok: false; message: string }
+  | { ok: true; session: IShotSession }
+  | { ok: false; aborted: false; message: string }
+  | { ok: false; aborted: true }
 > {
   let ticket: string;
   try {
@@ -332,23 +335,41 @@ async function openShotSession(
   } catch (error) {
     return {
       ok: false,
+      aborted: false,
       message: error instanceof Error ? error.message : String(error),
     };
   }
-  const res = await client.send(
-    {
-      method: "POST",
-      path: PROFILE_SESSION_PATH,
-      headers: { [SESSION_TICKET_HEADER]: ticket },
-      readBody: true,
-    },
-    signal,
-  );
+  let res: IShotResponse;
+  try {
+    res = await client.send(
+      {
+        method: "POST",
+        path: PROFILE_SESSION_PATH,
+        headers: { [SESSION_TICKET_HEADER]: ticket },
+        readBody: true,
+      },
+      signal,
+    );
+  } catch (error) {
+    // L'agent part ou le serveur s'arrête pendant la connexion : l'appelant
+    // le dit avec ses mots ; une panne réseau, elle, est un motif de refus.
+    if (error instanceof Error && error.name === "AbortError")
+      return { ok: false, aborted: true };
+    return {
+      ok: false,
+      aborted: false,
+      message:
+        `session de profilage non ouverte pour \`${account}\` (` +
+        `${error instanceof Error ? error.message : String(error)}). ` +
+        "L'application écoute-t-elle sur son adresse ?",
+    };
+  }
   const read = readTicketSessionVerdict(res.body);
   if (res.status !== 200 || "message" in read) {
     const why = "message" in read ? read.message : `statut ${res.status}`;
     return {
       ok: false,
+      aborted: false,
       message:
         `session de profilage non ouverte pour \`${account}\` (${res.status} — ${why}). ` +
         (res.status === 403
@@ -365,6 +386,7 @@ async function openShotSession(
   if (cookie.length === 0) {
     return {
       ok: false,
+      aborted: false,
       message: `session ouverte pour \`${account}\`, mais aucun cookie reçu`,
     };
   }
@@ -703,7 +725,14 @@ async function profileRoute(
         opts.account,
         stop.signal,
       );
-      if (!opened.ok) return mcpText(opened.message, true);
+      if (!opened.ok) {
+        if (!opened.aborted) return mcpText(opened.message, true);
+        return mcpText(
+          stop.interrupted
+            ? "tir interrompu avant le premier envoi : le serveur s'arrête pendant l'ouverture de la session de profilage."
+            : "tir abandonné avant le premier envoi : la session de profilage n'était pas encore ouverte.",
+        );
+      }
       session = opened.session;
       headers.cookie = session.cookie;
       identity = {
