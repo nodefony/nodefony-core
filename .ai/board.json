@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T18:33:01.908Z",
+  "generatedAt": "2026-10-30T18:42:08.124Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5560,6 +5560,22 @@
       ]
     },
     {
+      "number": 618,
+      "title": "feat(realtime): router les trames binaires vers leur canal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/618",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 6.033,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 622,
       "title": "feat(realtime): admettre un abonné de canal par son identité",
       "url": "https://github.com/nodefony/nodefony-core/issues/622",
@@ -5592,6 +5608,38 @@
       ]
     },
     {
+      "number": 631,
+      "title": "test(media): lancer les tests audio dans un vrai navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/631",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0346,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 629,
+      "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/629",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 6.0347,
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 623,
       "title": "feat(realtime): identifier les abonnés d'un canal côté serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/623",
@@ -5619,54 +5667,6 @@
       "ordre": 6.0355,
       "debut": "2026-11-09",
       "cible": "2026-11-09",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 631,
-      "title": "test(media): lancer les tests audio dans un vrai navigateur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/631",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 6.0356,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 618,
-      "title": "feat(realtime): router les trames binaires vers leur canal",
-      "url": "https://github.com/nodefony/nodefony-core/issues/618",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 3,
-      "ordre": 6.036,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 629,
-      "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/629",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 6.0362,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
       "labels": [
         "beta-6"
       ]

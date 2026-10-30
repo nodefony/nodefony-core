@@ -96,8 +96,8 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   au handshake (`src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeHandshake.ts#IRealtimeHandshake`)
   et annonce son choix dans l'accueil. Une enveloppe qui change = `v2` ajouté, `v1` gardé.
 - **L'accueil est toujours une trame texte `v1`**, qui porte le codec choisi ; les frames
-  suivantes l'emploient. Un serveur 10.0 n'émet pas ce champ, un client 10.2 reste donc en
-  texte : le déploiement progressif tient malgré l'écho de `ws`, qui renvoie le premier
+  suivantes l'emploient. Un serveur sans le branchement du codec n'émet pas ce champ, un client
+  qui l'a reste donc en texte : le déploiement progressif tient malgré l'écho de `ws`, qui renvoie le premier
   sous-protocole offert (constaté dans #627 sur `ws` 8.22, la version qu'installe `@nodefony/http` — le
   cœur ne l'a qu'en dépendance de développement).
 - **Protobuf** : une enveloppe `.proto` **fixe** fournie par Nodefony (`id`, `method`, `error`,
@@ -111,9 +111,12 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   paquet de base : chacun est optionnel, chargé par la seule application qui l'active. Le codec
   **CBOR** est écrit, au cœur (`src/nodefony/src/realtime/codec/`, sous-chemin `nodefony/cbor`,
   hors de `nodefony` et de `nodefony/client`) ; son branchement — `IFrameCodec`, offre du
-  sous-protocole par le client, choix annoncé dans l'accueil — reste à #618, en 10.x, après #622,
-  #623, #628 et #629 — ceux-là fermeraient une porte, lui non. Un serveur 10.0 n'émet pas le
-  champ de codec. **Protobuf** n'arrive qu'avec l'Epic gRPC
+  sous-protocole par le client, choix annoncé dans l'accueil — revient à #618,
+  **visé pour la publication de 10.0** : le binaire temps réel est la capacité stratégique du
+  framework (décision de l'auteur, 2026-10-30), et #618 ne se reporte pas pour tenir le
+  calendrier. Il passe après #628, qui le type, et les tickets qui fermeraient une porte gardent
+  la priorité d'ordre ; s'il glissait malgré tout, rien ne casse — un serveur sans branchement
+  n'émet pas le champ de codec. **Protobuf** n'arrive qu'avec l'Epic gRPC
   #694 : un seul usage connu d'ici là (règle de #621), et une dépendance que gRPC rendra de toute
   façon nécessaire ; son enveloppe ci-dessus est une intention, pas un engagement.
 - **JSON est la référence de tous les codecs** (remplace la règle « refus à l'encodage »,
@@ -218,7 +221,7 @@ il sert un protocole binaire écrit par l'application, sans canal.
   contournés parce que le binaire va droit au crochet (`#RealtimeController.receiveBinary`). À
   prouver dans #618 : chaque porte vue rouge en la débranchant ; un `Uint8Array` intact par le
   pilote Redis, supposé corrompu (S8).
-- **Rupture si différé après 10.0 : NON**, parce que le chemin routé n'existe pas en 10.0 et que
+- **Rupture si différé après 10.0 : NON**, parce que le chemin routé n'existe pas encore (#618) et que
   le crochet brut est gelé par la décision 3.
 
 ### 4. L'isomorphisme — le transport l'est, le contrat doit l'être
