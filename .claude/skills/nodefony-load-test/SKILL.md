@@ -132,14 +132,17 @@ entre ces deux versions, imputé à tort à la machine).
 **Camps NestJS (NestJS 12)** — `nest-express.mjs`, `nest-fastify.mjs` et `nest-node.mjs` (nus, comme `express.mjs` ; `nest-node` = adaptateur `node:http` natif de Nest 12.3, le plus proche de Nodefony),
 `nest-fair.mjs` (Fastify, MÊME travail par requête que Nodefony en production : nonce CSP, `traceparent`
 émis, `X-Request-Id`, ALS, CORS par liste blanche, CSRF, zones du pare-feu, pas d'ETag — relevé aux
-en-têtes d'un serveur `production`, écrit selon la doc Nest pour aller le plus vite) et
+en-têtes d'un serveur `production`, écrit selon la doc Nest pour aller le plus vite),
+`nest-fair-node.mjs` (le même travail sur l'adaptateur `node:http` natif : Nest et Nodefony sur le
+même serveur HTTP — c'est LE camp de comparaison face à Nodefony) et
 `nest-request-scope.mjs` (un service `Scope.REQUEST` : contrôleur ET service recréés à chaque requête).
 Socle commun `nest-app.mjs` : décorateurs appliqués par appel — ce que `tsc` émet, sans chargeur ni
 build à oublier.
 
 🔴 **Le travail « équitable » a UNE implémentation** : `fair-common.mjs` (nonce, `traceparent`,
 les 7 zones RÉELLES du pare-feu, CSRF), posée sur Express par `fair-express.mjs` (tous les
-`express-fair*`) et sur Fastify par `fair-nest.mjs` (`nest-fair`, `nest-fair-sqlite`). Vécu : `express-fair` avait dérivé — CSP sans
+`express-fair*`) sur Fastify par `fair-nest.mjs` (`nest-fair`, `nest-fair-sqlite`) et sur `node:http` par
+`fair-nest-node.mjs` (`nest-fair-node`, un seul hook natif helmet → CORS → travail, ordre des hooks Fastify). Vécu : `express-fair` avait dérivé — CSP sans
 nonce, aucun `traceparent`, CORS `*`, HSTS, et un **ETag** qui hachait le corps — donc un écart publié
 qui ne comparait pas le même travail. **Avant de publier un chiffre face à un camp équitable,
 rejouer `fair-parity.mjs`** (serveur `production` au décor du banc + le camp) : il compare statut et

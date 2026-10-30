@@ -1,5 +1,5 @@
 /**
- * Socle des camps « équitables » (`express-fair`, `nest-fair`) — le travail que
+ * Socle des camps « équitables » (`express-fair`, `nest-fair`, `nest-fair-node`) — le travail que
  * Nodefony fait à chaque requête en production, en UNE implémentation : deux
  * copies divergeraient, et l'écart publié mesurerait leur divergence (#489).
  *
