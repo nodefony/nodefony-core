@@ -100,6 +100,13 @@ part (les autres événements ne sont pas souscrits) :
 ```
 
 > [!NOTE]
+> **`timestamp` date la TENTATIVE, pas l'événement** : un réessai deux heures plus tard porte une
+> heure plus tardive. L'heure de l'événement vit dans `data` (`ts` pour l'audit). Et `id` est
+> exactement l'en-tête `webhook-id`, stable d'un réessai à l'autre : c'est la clé de déduplication.
+> Le corps se type par `IWebhookPayload` (exporté par `@nodefony/security`,
+> `IWebhookPayload.ts#IWebhookPayload`).
+
+> [!NOTE]
 > Ce qui peut partir est **ce que le journal d'audit de sécurité enregistre** : connexions, refus
 > d'accès, jetons, sessions, passkeys. Tes propres événements applicatifs — « commande payée »,
 > « stock épuisé » — ne passent pas par là : il n'existe pas encore de bus d'événements métier dans
@@ -251,6 +258,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { Buffer } from "node:buffer";
 // prettier-ignore
 import { Controller, controller, Post, Body, Headers, BypassFirewall } from "@nodefony/framework";
+import type { IWebhookPayload } from "@nodefony/security";
 // NF_HOOK_SECRET se déclare dans env.ts (`envString`) : seul lecteur de l'environnement.
 import { env } from "../../env";
 
@@ -277,7 +285,7 @@ class HookMiniController extends Controller {
     if (got.length !== want.length || !timingSafeEqual(got, want)) {
       return this.renderJson({ error: "bad signature" }, 401);
     }
-    this.log(`reçu : ${(JSON.parse(raw) as { type: string }).type}`, "INFO");
+    this.log(`reçu : ${(JSON.parse(raw) as IWebhookPayload).type}`, "INFO");
     return this.renderJson({ ok: true });
   }
 }
@@ -309,6 +317,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { Buffer } from "node:buffer";
 // prettier-ignore
 import { Controller, controller, Post, Body, Headers, BypassFirewall } from "@nodefony/framework";
+import type { IWebhookPayload } from "@nodefony/security";
 import { env } from "../../env";
 
 /** Secret `whsec_…` donné par l'émetteur — déclaré dans env.ts, jamais en dur. */
@@ -370,7 +379,7 @@ class HookController extends Controller {
 
     // 4. Dédupliquer par `webhook-id` AVANT d'agir (un retry rejoue le MÊME id),
     //    puis répondre 2xx vite : le travail long part en tâche de fond.
-    const event = JSON.parse(raw) as { id: string; type: string };
+    const event = JSON.parse(raw) as IWebhookPayload;
     this.log(`webhook ${event.id} — ${event.type}`, "INFO");
     return this.renderJson({ ok: true });
   }
@@ -432,31 +441,45 @@ Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts#AuditCateg
 | `webhook`  | Vie des webhooks eux-mêmes (`webhook.created`, `webhook.disabled`)         |
 | `config`   | Mutation de config runtime depuis Studio                                   |
 
+> [!IMPORTANT]
+> **Les noms de l'audit sont RÉSERVÉS.** Une émission applicative d'événements, quand elle viendra,
+> refusera tout type qui appartient à l'audit (`login.*`, `token.*` et les autres familles
+> ci-dessus) : sans cette réserve, un code applicatif pourrait fabriquer un `login.success` signé
+> par le serveur, qu'un centre de sécurité abonné ne distinguerait pas d'un vrai
+> ([ADR-0023](../../../../../docs/adr/0023-webhooks-evenements-et-abonnements.md), W3). Ne nommez
+> pas vos futurs événements comme ceux de l'audit.
+
 > [!NOTE]
 > Trois catégories sont **réservées** au contrat sans émetteur à ce jour : `oauth`, `csrf`, `cors`
 > (`IAuditEvent.ts#AuditCategory`). S'y abonner est accepté, mais ne livre jamais rien.
 
 ### La syntaxe d'abonnement
 
-Le champ `events` d'un endpoint accepte trois formes, résolues par `matchesSubscription()`
-(`WebhookDispatcher.ts#matchesSubscription`) :
+Le champ `events` d'un endpoint prend des **motifs**, dans la même grammaire que les canaux de la
+socket : `*` vaut n'importe quelle suite de caractères, tout le reste est littéral, trois `*` au
+plus. Un motif plus large est **refusé** à l'enregistrement, avec une erreur qui le nomme. La règle
+vit une seule fois, au cœur (`channelPattern.ts#compileChannelPattern`), et
+`matchesSubscription()` (`WebhookDispatcher.ts#matchesSubscription`) l'appelle :
 
-| Motif             | Matche                                                | Usage typique                   |
-| ----------------- | ----------------------------------------------------- | ------------------------------- |
-| `"*"`             | **toutes** les actions                                | un SIEM qui veut tout           |
-| `"login.success"` | l'action exacte, et elle seule                        | une alerte ciblée               |
-| `"login.*"`       | toute action **préfixée** `login.` (`login.failure`…) | suivre une famille d'événements |
+| Motif             | Désigne                                               | Usage typique                     |
+| ----------------- | ----------------------------------------------------- | --------------------------------- |
+| `"*"`             | **toutes** les actions                                | un SIEM qui veut tout             |
+| `"login.success"` | l'action exacte, et elle seule                        | une alerte ciblée                 |
+| `"login.*"`       | toute action **préfixée** `login.` (`login.failure`…) | suivre une famille d'événements   |
+| `"commande:*"`    | `commande:42`, `commande:créée`…                      | un espace de noms applicatif      |
+| `"*:créée"`       | toute action qui finit par `:créée`                   | un même geste sur tous les objets |
 
 > [!IMPORTANT]
 > **`"*"` veut dire tout, y compris ce qui viendra.** Aujourd'hui, seuls les événements d'audit
 > sont livrés ; le jour où une application pourra émettre les siens, un abonnement `"*"` les
 > recevra aussi. Qui ne veut que la sécurité liste ses familles (`login.*`, `token.*`…). Cette
-> grammaire (`*`, nom exact, `préfixe.*`) ne changera pas de sens dans la série 10
+> grammaire ne changera pas de sens dans la série 10
 > ([ADR-0023](../../../../../docs/adr/0023-webhooks-evenements-et-abonnements.md), W2).
 >
-> **Mais seulement dans son périmètre.** Un abonnement ne reçoit jamais un événement hors de son
-> périmètre, et un abonnement sans périmètre — le cas de tous aujourd'hui — ne reçoit que les
-> événements sans périmètre. Le multi-tenant n'existant pas encore, `WebhookService.register`
+> **Le périmètre.** Le périmètre d'un événement est le locataire — l'organisation cliente — auquel
+> il est rattaché. Un abonnement sans périmètre — le cas de tous aujourd'hui — a le périmètre de
+> la **plateforme** : il reçoit tout, y compris les événements qu'une version ultérieure rattachera
+> à un locataire (ADR-0023, W2). Le multi-tenant n'existant pas encore, `WebhookService.register`
 > **refuse** un `tenantId` rempli (`webhooks.ts#WebhookService.register`) : l'accepter le ferait
 > passer pour un cloisonnement qu'il n'est pas.
 
