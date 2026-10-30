@@ -439,7 +439,7 @@ verdict retenu par `(abonnement, canal)` ne borne pas le coût de S-rt-59 quand 
 son canal — à mesurer avant de choisir ; le stockage des scopes avec l'abonnement ; un quota par
 abonnement dans la file des livraisons.
 
-**Décision (tranchée par l'agent sur délégation de l'auteur le 2026-10-30) :** un émetteur retiré
+**Décision (validée par l’auteur le 2026-10-30, pour 10.0) :** un émetteur retiré
 de la liste acceptée (`resourceServer.issuers`) est **jugé à l'ouverture**. La liste se fige à la
 construction du vérificateur (`src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts#RemoteJwtVerifier`)
 et aucune voie ne la change dans un process vivant : la retirer, c'est changer la configuration et
@@ -452,7 +452,9 @@ l'émetteur) n'est pas propre à la socket : HTTP la partage.
 
 - **Rupture si différé : non**, et c'est ce qui permet de l'écrire maintenant. Un rechargement à
   chaud de la liste, s'il arrive, est une capacité neuve : il devra fermer lui-même les sockets de
-  l'émetteur retiré, sans rien changer à ce qui est écrit ici.
+  l'émetteur retiré, sans rien changer à ce qui est écrit ici. Le cas attendu est le
+  multi-locataire (#492) : des émetteurs en base, un par organisation, modifiables à l’exécution —
+  c’est là que la fermeture des sockets de l’émetteur retiré devient une exigence.
 - **Gardé par** `src/packages/@nodefony/security/tests/unit/remoteJwtVerifier.test.ts` : modifier
   la liste fournie après la construction ne change aucun verdict, et la surface du vérificateur
   n'offre aucune méthode qui la modifierait — une méthode neuve fait tomber le test, qui renvoie
