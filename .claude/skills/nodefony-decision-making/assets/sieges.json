@@ -8,18 +8,18 @@
   "sieges": {
     "contradicteur": {
       "modele": "fable",
-      "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes)",
-      "tables": 3,
-      "constatsRendus": 40,
-      "constatsRetenus": 38,
+      "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes) ; table du gel (2026-10-30) : 10 constats au tour 1, tous vérifiés au code, dont l’option E de R1 et la prémisse fausse « limit réessayé » ; environ 6 retenus au tour 2",
+      "tables": 4,
+      "constatsRendus": 56,
+      "constatsRetenus": 54,
       "constatsFaux": 2,
       "essais": [],
       "coutUsd": 22.45
     },
     "attaquant": {
-      "modele": "fable",
-      "raison": "point de départ fable ; essai sonnet 1/2 en #702 (non contrôlé) : constats propres (user:null, === true strict, identité gelée, revendications inter-locataires), aucun faux. Un second essai concordant, contrôlé, le fera descendre",
-      "tables": 3,
+      "modele": "sonnet",
+      "raison": "descendu à sonnet après la table du gel (2026-10-30) : essai sonnet concordant — oracle 4006 à la poignée de main, saturation du pool par les subscribe d’un seul compte, plafond d’allow en vol par connexion, tous retenus dans les ADR, aucun faux. Remonte à fable au premier constat faux, ou à la première attaque manquée qu’un autre siège trouve",
+      "tables": 4,
       "constatsRendus": 30,
       "constatsRetenus": 23,
       "constatsFaux": 0,
@@ -37,6 +37,13 @@
           "vers": "sonnet",
           "controle": false,
           "verdict": "concordant — 3 attaques neuves retenues (réessai qui réutilise l’abonnement capturé, file partagée sans quota, précédence des motifs), dont un défaut du code vérifié ; aucun faux ; NON contrôlé. 3 tables jouées : la prochaine fait l’essai CONTRÔLÉ (fable et sonnet en parallèle, §9)"
+        },
+        {
+          "table": "gel temps réel",
+          "de": "fable",
+          "vers": "sonnet",
+          "controle": false,
+          "verdict": "concordant — constats retenus (S-rt-69, S-rt-70, plafond par connexion), aucun faux ; comptes exacts non relevés à cette table. Le siège descend, décision de l’auteur au kit du gel"
         }
       ],
       "coutUsd": 6.59

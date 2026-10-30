@@ -272,11 +272,12 @@ sont des octets, et des octets sont un `Uint8Array` des deux côtés
 manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devient
 `{"0":1,"1":2,"2":255}`, sans erreur).
 
-| Transport | Ce que le code tient                                                                                                                                                                                                                    |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Socket    | trame binaire, octets intacts                                                                                                                                                                                                           |
-| Backplane | **refusés** plutôt que déformés : livrés aux seuls abonnés locaux, l'exploitant prévenu une fois (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) ; voie brute sur un second sujet (S6, #618) |
-| Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)             |
+| Transport | Ce que le code tient                                                                                                                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Socket    | trame binaire, octets intacts                                                                                                                                                                                                              |
+| Backplane | **refusés** plutôt que déformés : livrés aux seuls abonnés locaux, l'exploitant prévenu une fois (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) ; voie brute sur un second sujet (S6, #618)    |
+| Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)                |
+| Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3, 10.1), sous la contrainte « jamais des octets déformés » (S-rt-3) — table du gel, 2026-10-30 |
 
 - Usages : de la voix, un document partagé, de la télémétrie binaire.
 - **Rupture si différé : NON.** Mais une application qui décoderait la forme déformée casserait au
@@ -717,4 +718,4 @@ Les protocoles bâtis au-dessus vérifient le socle ; ils ne le définissent pas
 - Standard Webhooks — <https://www.standardwebhooks.com/>
 - A2A 1.0.1 — <https://a2a-protocol.org/v1.0.0/specification> (§3.5, §4.3.3, §5.8, §12)
 - [Politique de compatibilité](../guides/compatibilite.md)
-- Tickets : #621 (Epic, règle de généricité), #627, #630 (décisions de gel), #618, #622, #623, #629
+- Tickets : #621 (Epic, règle de généricité), #627, #630 (décisions de gel), #618, #622, #623, #629, #702, #703, #706
