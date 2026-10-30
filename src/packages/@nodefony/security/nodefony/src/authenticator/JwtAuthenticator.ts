@@ -10,6 +10,11 @@ import type { ITokenStore } from "../../contracts/ITokenStore";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UserToken } from "../token/UserToken";
 import type { IJwtRuntime } from "../token/jwtRuntime";
+import {
+  CLOCK_TOLERANCE_S,
+  REQUIRED_TIME_CLAIMS,
+  isIssuedInFuture,
+} from "../token/tokenTimeClaims";
 import { bearerToken } from "./bearer";
 import { peekIssuer } from "./peekIssuer";
 import {
@@ -187,10 +192,22 @@ export class JwtAuthenticator implements IAuthenticator {
         issuer: this.#runtime.issuer, // §3.8
         audience, // §3.9 (MUST)
         typ: "at+jwt", // §3.11 — un refresh présenté comme access est rejeté
+        requiredClaims: [...REQUIRED_TIME_CLAIMS], // RFC 9068 §2.2
       });
       payload = result.payload;
     } catch {
       // Signature, alg, exp, nbf, aud/iss, typ, kid inconnu → 401 uniforme.
+      throw new AuthenticationError(INVALID_TOKEN);
+    }
+    // Un `iat` futur échapperait à `invalidBefore`. La tolérance couvre l'écart
+    // d'horloge entre l'exemplaire qui a signé et celui qui vérifie.
+    if (
+      isIssuedInFuture(
+        payload,
+        Math.floor(Date.now() / 1000),
+        CLOCK_TOLERANCE_S,
+      )
+    ) {
       throw new AuthenticationError(INVALID_TOKEN);
     }
 

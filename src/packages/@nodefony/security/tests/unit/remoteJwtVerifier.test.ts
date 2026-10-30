@@ -37,7 +37,10 @@ interface IFakeIssuer {
 interface ISignOverrides {
   audience?: string | string[];
   issuer?: string;
-  expiresIn?: string;
+  /** `null` = jeton SANS `exp`. */
+  expiresIn?: string | null;
+  /** epoch secondes ; `null` = jeton SANS `iat`. */
+  issuedAt?: number | null;
   kid?: string;
   typ?: string;
   notBefore?: string;
@@ -63,9 +66,10 @@ async function fakeIssuer(kid = "k1", alg = "ES256"): Promise<IFakeIssuer> {
           ...(overrides.typ ? { typ: overrides.typ } : {}),
         })
         .setIssuer(overrides.issuer ?? ISSUER)
-        .setAudience(overrides.audience ?? RESOURCE)
-        .setIssuedAt()
-        .setExpirationTime(overrides.expiresIn ?? "5m");
+        .setAudience(overrides.audience ?? RESOURCE);
+      if (overrides.issuedAt !== null) jwt.setIssuedAt(overrides.issuedAt);
+      if (overrides.expiresIn !== null)
+        jwt.setExpirationTime(overrides.expiresIn ?? "5m");
       if (overrides.notBefore) jwt.setNotBefore(overrides.notBefore);
       return jwt.sign(privateKey);
     },
@@ -237,6 +241,71 @@ describe("RemoteJwtVerifier — vérification d'un jeton", () => {
     const token = await issuer.sign({ sub: "x" }, { expiresIn: "-1m" });
 
     assert.equal(await verifier.verify(token, RESOURCE), null);
+  });
+
+  // RFC 9068 §2.2 : `exp` et `iat` sont REQUIRED. Sans `exp`, une socket
+  // ouverte avec le jeton n'a plus de borne ; un `iat` futur échappe à la
+  // révocation en masse (`invalidBefore`), qui compare `iat` à un seuil passé.
+  describe("bornes temporelles exigées (RFC 9068 §2.2)", () => {
+    const verifierFor = async (): Promise<{
+      issuer: IFakeIssuer;
+      verifier: RemoteJwtVerifier;
+    }> => {
+      const issuer = await fakeIssuer();
+      const net = fakeNet({
+        [OAUTH_METADATA_URL]: metadata,
+        [JWKS_URL]: issuer.jwks,
+      });
+      const verifier = new RemoteJwtVerifier({
+        issuers: [{ issuer: ISSUER, algorithms: ["ES256"] }],
+        fetch: net.fetch,
+      });
+      return { issuer, verifier };
+    };
+    const nowS = (): number => Math.floor(Date.now() / 1000);
+
+    it("refuse un jeton SANS exp", async () => {
+      const { issuer, verifier } = await verifierFor();
+      const token = await issuer.sign({ sub: "x" }, { expiresIn: null });
+      assert.equal(await verifier.verify(token, RESOURCE), null);
+    });
+
+    it("refuse un jeton SANS iat", async () => {
+      const { issuer, verifier } = await verifierFor();
+      const token = await issuer.sign({ sub: "x" }, { issuedAt: null });
+      assert.equal(await verifier.verify(token, RESOURCE), null);
+    });
+
+    it("🔴 refuse un jeton émis dans le FUTUR, même valide par ailleurs", async () => {
+      const { issuer, verifier } = await verifierFor();
+      const token = await issuer.sign(
+        { sub: "x" },
+        { issuedAt: nowS() + 10 * 365 * 86_400, expiresIn: "20y" },
+      );
+      assert.equal(await verifier.verify(token, RESOURCE), null);
+    });
+
+    it("accepte un iat en avance de 2 s (écart d'horloge toléré)", async () => {
+      const { issuer, verifier } = await verifierFor();
+      const token = await issuer.sign({ sub: "x" }, { issuedAt: nowS() + 2 });
+      assert.ok(await verifier.verify(token, RESOURCE));
+    });
+
+    it("les claims déclarés par l'émetteur s'AJOUTENT à exp et iat", async () => {
+      const issuer = await fakeIssuer();
+      const net = fakeNet({
+        [OAUTH_METADATA_URL]: metadata,
+        [JWKS_URL]: issuer.jwks,
+      });
+      const verifier = new RemoteJwtVerifier({
+        issuers: [
+          { issuer: ISSUER, algorithms: ["ES256"], requiredClaims: ["sub"] },
+        ],
+        fetch: net.fetch,
+      });
+      const token = await issuer.sign({ sub: "x" }, { expiresIn: null });
+      assert.equal(await verifier.verify(token, RESOURCE), null);
+    });
   });
 
   it("refuse une signature faite par une clé inconnue du jeu publié", async () => {

@@ -79,7 +79,7 @@ normalisés (RFC 8414 / OpenID), et le pare-feu accepte désormais un `Authoriza
 | `issuers[].jwksUri`        | découvert                 | Déclaré, aucune découverte n'a lieu — utile pour un émetteur sans métadonnées, ou un démarrage à froid sans requête sortante.                         |
 | `issuers[].algorithms`     | `RS256`, `ES256`, `EdDSA` | Allowlist **serveur** : l'algorithme n'est jamais déduit de l'en-tête du jeton (RFC 8725 §3.1). À restreindre à ce que l'émetteur utilise réellement. |
 | `issuers[].typ`            | non exigé                 | `at+jwt` pour un émetteur conforme RFC 9068.                                                                                                          |
-| `issuers[].requiredClaims` | `[]`                      | Claims dont la présence est exigée, en plus d'`iss` et `aud`.                                                                                         |
+| `issuers[].requiredClaims` | `[]`                      | Claims dont la présence est exigée, en plus d'`iss`, `aud`, `exp` et `iat` (toujours exigés, RFC 9068 §2.2 ; un `iat` daté du futur est refusé).      |
 | `issuers[].subjectMapping` | `prefixed`                | Comment le `sub` devient un identifiant local — **voir l'encadré ci-dessous**.                                                                        |
 | `subjectPolicy`            | `require`                 | `require` : un compte local est exigé. `ephemeral` : l'appelant vit le temps de la requête.                                                           |
 | `ephemeralRoles`           | `[]`                      | Rôles accordés en mode `ephemeral`. Vide à dessein.                                                                                                   |

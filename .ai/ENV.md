@@ -167,7 +167,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:875` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:114` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:116` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3018` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3030` |
@@ -207,7 +207,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:1014` |
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:51` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
-| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2559` |
+| `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2619` |
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:80` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:78` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:130` |

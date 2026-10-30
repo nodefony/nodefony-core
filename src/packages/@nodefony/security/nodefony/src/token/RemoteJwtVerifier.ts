@@ -11,6 +11,11 @@ import {
   describeTransportFailure,
   untrustedAuthorityHint,
 } from "../net/transportFailure";
+import {
+  CLOCK_TOLERANCE_S,
+  REQUIRED_TIME_CLAIMS,
+  isIssuedInFuture,
+} from "./tokenTimeClaims";
 
 /**
  * Un émetteur en qui l'application accepte de faire confiance.
@@ -294,6 +299,7 @@ export class RemoteJwtVerifier {
 
     const { getKey } = await this.#resolve(trusted, jose);
 
+    const clockTolerance = this.#options.clockToleranceS ?? CLOCK_TOLERANCE_S;
     try {
       const { payload } = await jose.jwtVerify(token, getKey, {
         algorithms: [...trusted.algorithms],
@@ -301,15 +307,22 @@ export class RemoteJwtVerifier {
         // Rend `aud` OBLIGATOIRE côté jose — omettre cette option accepterait
         // un jeton sans audience du tout.
         audience,
-        clockTolerance: this.#options.clockToleranceS ?? 5,
+        clockTolerance,
         ...(trusted.typ ? { typ: trusted.typ } : {}),
-        // Testé sur la LONGUEUR, pas sur la présence : passer un tableau vide
-        // remplacerait les claims que jose exige d'office (`iss`, `aud`) par
-        // rien du tout — la garde s'annulerait elle-même.
-        ...(trusted.requiredClaims?.length
-          ? { requiredClaims: [...trusted.requiredClaims] }
-          : {}),
+        // `exp` et `iat` toujours (RFC 9068 §2.2), plus ceux que l'émetteur
+        // déclare : la liste n'est jamais vide, donc jamais un tableau vide qui
+        // remplacerait les claims que jose exige d'office (`iss`, `aud`).
+        requiredClaims: [
+          ...REQUIRED_TIME_CLAIMS,
+          ...(trusted.requiredClaims ?? []),
+        ],
       });
+      if (
+        isIssuedInFuture(payload, Math.floor(Date.now() / 1000), clockTolerance)
+      ) {
+        this.#audit(`jeton refusé (${trusted.issuer}) : iat dans le futur`);
+        return null;
+      }
       // 🔴 `claimedIssuer` — la forme CANONIQUE, celle qui a servi de clé à
       // l'allowlist ci-dessus. Pas `payload.iss`, dont la forme serait
       // décidée par le porteur ; et pas `trusted.issuer` non plus, qui est la

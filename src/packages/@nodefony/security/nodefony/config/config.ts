@@ -739,7 +739,7 @@ const trustedIssuerSchema = z.strictObject({
     .array(z.string())
     .default([])
     .describe(
-      'Claims dont la PRÉSENCE est exigée, en plus de `iss`/`aud` (toujours obligatoires). Ex. `["sub"]` pour refuser un jeton sans sujet identifiable.',
+      'Claims dont la PRÉSENCE est exigée, en plus de `iss`, `aud`, `exp` et `iat` (toujours obligatoires, RFC 9068 §2.2 ; un `iat` daté du futur est refusé). Ex. `["sub"]` pour refuser un jeton sans sujet identifiable.',
     ),
   subjectMapping: z
     .enum(["prefixed", "subject"])

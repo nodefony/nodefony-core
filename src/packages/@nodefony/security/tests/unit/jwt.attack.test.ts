@@ -221,6 +221,23 @@ describe("JwtAuthenticator — matrice d'attaques (RFC 8725)", () => {
     reject(await mint({ claims: { exp: nowS() - 10 } })));
   it("nbf futur", async () =>
     reject(await mint({ claims: { nbf: nowS() + 600 } })));
+  // RFC 9068 §2.2 : `exp` et `iat` REQUIRED. Sans `exp`, une socket ouverte
+  // avec le jeton n'a plus de borne ; un `iat` futur échappe à `invalidBefore`.
+  it("exp absent (RFC 9068 §2.2)", async () =>
+    reject(await mint({ claims: { exp: undefined } })));
+  it("iat absent (RFC 9068 §2.2)", async () =>
+    reject(await mint({ claims: { iat: undefined } })));
+  it("🔴 iat dans le futur — échapperait au logout global", async () => {
+    const raw = await mint({ claims: { iat: nowS() + 10 * 365 * 86_400 } });
+    await store.revokeAllForSubject("alice", Date.now());
+    await reject(raw);
+  });
+  it("iat en avance de 2 s (écart d'horloge entre exemplaires) → accepté", async () => {
+    const token = await auth.authenticate(
+      new UserToken("jwt", await mint({ claims: { iat: nowS() + 2 } })),
+    );
+    assert.ok(token.isAuthenticated());
+  });
   it("typ faux — refresh présenté comme access (§3.11)", async () =>
     reject(await mint({ header: { typ: "rt+jwt" } })));
 

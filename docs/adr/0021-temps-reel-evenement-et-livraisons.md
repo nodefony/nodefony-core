@@ -460,10 +460,35 @@ l'émetteur) n'est pas propre à la socket : HTTP la partage.
   n'offre aucune méthode qui la modifierait — une méthode neuve fait tomber le test, qui renvoie
   ici.
 
-**Reste à trancher** : une clé de signature retirée du jeu publié par l'émetteur (`jwks_uri`)
-pendant qu'une socket ouverte avec elle vit — la requête HTTP est refusée au rafraîchissement du
-jeu, la socket vit jusqu'à `exp`, car sa signature n'est pas revérifiée ; le changement d'identité
-entre exemplaires (S-rt-61) ; le nom du compteur des
+**Décision (tranchée par l'agent sur délégation de l'auteur le 2026-10-30, après la table d'experts
+de #702 sur la clé retirée) :** un jeton porteur sans `exp`, sans `iat`, ou dont l'`iat` dépasse
+l'instant présent de plus de 5 s, est refusé partout — requête HTTP comme ouverture d'une socket,
+jeton de l'application comme jeton tiers. Une seule règle
+(`src/packages/@nodefony/security/nodefony/src/token/tokenTimeClaims.ts#isIssuedInFuture`), appelée
+par `src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts#JwtAuthenticator`
+et `src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts#RemoteJwtVerifier.verifyClaims`.
+La RFC 9068 §2.2 rend `exp` et `iat` obligatoires : un émetteur conforme n'est pas touché. Sans
+`exp`, une socket ouverte avec une clé volée n'avait aucune borne (le revalidateur l'admettait dès
+qu'il portait `jti` et `iat`) ; un `iat` futur échappait à `invalidBefore`, qui compare `iat` à un
+seuil passé — jose ne le contrôle que sous `maxTokenAge`.
+
+- **Rupture si différé : oui** — refuser après 10.0 un jeton accepté avant changerait un verdict.
+- **Gardé par** `src/packages/@nodefony/security/tests/unit/remoteJwtVerifier.test.ts` et
+  `src/packages/@nodefony/security/tests/unit/jwt.attack.test.ts` (7 refus vus rouges sans le
+  correctif ; une avance de 2 s reste acceptée).
+- **Écarté par la table** : revérifier la signature au tick (D) — jeton brut gardé par connexion
+  (40 à 75 Mo à 50 000 sockets), des secondes de calcul par passe, et une panne de l'émetteur de
+  plus de 10 min qui fermerait tout le parc (jose ne garde aucun jeu de clés périmé).
+- **Opt-in de 10.x, sans rupture tant que le défaut ne change pas** : une durée de vie maximale du
+  jeton, une durée de vie maximale de la connexion (avec étalement des échéances), la révocation
+  par clé ou par émetteur, et une option client `token: () => Promise<string>`.
+
+**Reste à trancher** : le code de fermeture d'une socket dont le jeton expire — 4001 aujourd'hui,
+définitif pour le client, alors qu'un client qui renouvelle son jeton devrait se reconnecter (le
+changer après 10.0 serait une rupture) ; une clé retirée du jeu de l'APPLICATION n'est suivie qu'au
+redémarrage (`src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts#JwtAuthenticator`
+garde le jeu de clés local) ; à la requête HTTP, un jeton tiers n'est jamais confronté au store de
+révocation ; le changement d'identité entre exemplaires (S-rt-61) ; le nom du compteur des
 refus — ni `droppedTotal` (« jeté faute de place », S9) ni `failedTotal` (« refusé par la
 destination ») : un refus n'est pas une perte.
 
