@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-decision-making/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.4.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.5.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,7 +26,7 @@ source: ".claude/skills/nodefony-decision-making/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `3.4.0` |
+| Version | `3.5.0` |
 | Famille | Autres |
 | Corps | 130 lignes |
 | Coût d'activation | ~2 528 tokens (le corps est chargé à l'invocation) |
@@ -44,7 +44,7 @@ Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — arch
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-memory-health`](nodefony-check-memory-health.md) · [`devkit-bench`](nodefony-devkit-bench.md) · [`devops`](nodefony-devops.md) · [`documentation`](nodefony-documentation.md) · [`framework-dev`](nodefony-framework-dev.md) · [`inspect`](nodefony-inspect.md) · [`load-test`](nodefony-load-test.md) · [`multipod-bench`](nodefony-multipod-bench.md) · [`release`](nodefony-release.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`session`](nodefony-session.md) · [`skill`](nodefony-skill.md) · [`test-campaign`](nodefony-test-campaign.md) · [`ticket`](nodefony-ticket.md)
+[`browser`](nodefony-browser.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`devkit-bench`](nodefony-devkit-bench.md) · [`devops`](nodefony-devops.md) · [`documentation`](nodefony-documentation.md) · [`framework-dev`](nodefony-framework-dev.md) · [`inspect`](nodefony-inspect.md) · [`load-test`](nodefony-load-test.md) · [`migrate-schema`](nodefony-migrate-schema.md) · [`multipod-bench`](nodefony-multipod-bench.md) · [`release`](nodefony-release.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`session`](nodefony-session.md) · [`skill`](nodefony-skill.md) · [`test-campaign`](nodefony-test-campaign.md) · [`ticket`](nodefony-ticket.md)
 
 ## Quand il se déclenche
 
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/methode-poc.md` | Méthode — l'essai jetable | 45 |
 | `references/methode-pre-mortem.md` | Méthode — pré-mortem | 45 |
 | `references/methode-scenarios.md` | Méthode — scénarios : écrire les cas AVANT les options, puis la matrice | 96 |
-| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 358 |
+| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 372 |
 
 
 ## Conformité au standard Agent Skills

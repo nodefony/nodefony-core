@@ -3243,7 +3243,7 @@
       "name": "nodefony-decision-making",
       "summary": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public.",
       "family": "Autres",
-      "version": "3.4.0",
+      "version": "3.5.0",
       "keywords": [],
       "triggers": [
         "aide-moi à décider",
@@ -3279,6 +3279,7 @@
         "scripts": []
       },
       "related": [
+        "nodefony-browser",
         "nodefony-check-memory-health",
         "nodefony-devkit-bench",
         "nodefony-devops",
@@ -3286,6 +3287,7 @@
         "nodefony-framework-dev",
         "nodefony-inspect",
         "nodefony-load-test",
+        "nodefony-migrate-schema",
         "nodefony-multipod-bench",
         "nodefony-release",
         "nodefony-rfc",

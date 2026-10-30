@@ -75,6 +75,20 @@ décrits par le skill `nodefony-devkit-bench`). Ce qu'il cherche sans le trouver
 résultat : un trou de ce qui est LIVRÉ, à combler dans le skill livré ou la doc publique — jamais
 dans un skill du dépôt.
 
+**Son premier geste est celui d'un vrai agent : `nodefony-dev`.** Dans une application générée,
+le skill livré `nodefony-dev` se charge AVANT toute modification et désigne le skill spécialisé
+de la tâche (`nodefony-add-realtime-channel`, `nodefony-protect-route`…). La consigne du siège
+reproduit cette entrée : « lis d'abord
+`src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md`, puis le skill qu'il te désigne »
+— on ne lui choisit pas le skill spécialisé, c'est précisément ce qu'on mesure.
+
+🔴 **Par CHEMIN, jamais par l'outil `Skill`** — à écrire dans la consigne, en toutes lettres.
+Quatre skills livrés ont un HOMONYME au dépôt, au contenu différent : `nodefony-browser`,
+`nodefony-devops`, `nodefony-migrate-schema`, `nodefony-security-review`. Dans ce dépôt, l'outil
+`Skill` charge la version du dépôt — un savoir de mainteneur, pas celui de l'application. Le
+siège consommateur lit donc les fichiers sous `src/packages/@nodefony/devkit/skills/`, et rien
+sous `.claude/skills/`. (Contrôle avant chaque table : `diff -q` des homonymes, la liste bouge.)
+
 **L'agent IA consommateur et le banc devkit** (`nodefony-devkit-bench`, banc de découvrabilité).
 Le banc est la source des tâches, mais c'est le PRINCIPAL qui le lit, jamais le siège : il y
 porte les portes de contrôle attendues, qui souffleraient la réponse.

@@ -187,7 +187,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.2.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "decision-making", "href": "skills/nodefony-decision-making.md",
     "desc": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public.",
-    "meta": "🟢 conforme v3.4.0 · 📎 7 réf" },
+    "meta": "🟢 conforme v3.5.0 · 📎 7 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un…",
     "meta": "🟢 conforme v1.5.0 · ⚙️ 21 scripts · 📎 9 réf" },
