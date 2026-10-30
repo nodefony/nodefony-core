@@ -4,7 +4,7 @@ title: Page de connexion — servie par le framework, un balisage, un moteur par
 lang: fr
 navTitle: Page de connexion
 date: 2026-10-10
-status: proposed
+status: accepted
 deciders: [Christophe CAMENSULI]
 tags: [security, login, session, oauth, design, frontend]
 ---
@@ -15,8 +15,8 @@ tags: [security, login, session, oauth, design, frontend]
 
 ## Statut
 
-Proposé (2026-10-10), issu d'une revue d'architecture de tout le système de connexion menée
-avant [#547](https://github.com/nodefony/nodefony-core/issues/547). Encadre #547 (page
+Accepté (2026-10-30) : livré par #547, #548 et #549, fermés. Proposé le 2026-10-10, issu d'une
+revue d'architecture de tout le système de connexion menée avant [#547](https://github.com/nodefony/nodefony-core/issues/547). Encadre #547 (page
 `/login`), #548 (anonyme conduit à la page puis ramené), #549 (Studio sur le déroulé partagé).
 S'appuie sur le déroulé navigateur `NodefonyLogin` livré par #546.
 

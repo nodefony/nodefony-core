@@ -30,7 +30,7 @@ status: stable
 | [0012](0012-calque-configuration-par-requete.md)              | Configuration — figée au démarrage, surchargée par requête sur liste blanche                  | accepted | 2026-09-26 |
 | [0013](0013-terminal-de-developpement.md)                     | Terminal de développement — un seul propriétaire, un modèle d'écran pur, une invite à actions | proposed | 2026-10-04 |
 | [0014](0014-fichiers-environnement.md)                        | Fichiers d'environnement — un seul fichier, `.env`, jamais commité                            | accepted | 2026-10-05 |
-| [0015](0015-page-de-connexion-servie-par-le-framework.md)     | Page de connexion — servie par le framework, un balisage, un moteur partagé                   | proposed | 2026-10-10 |
+| [0015](0015-page-de-connexion-servie-par-le-framework.md)     | Page de connexion — servie par le framework, un balisage, un moteur partagé                   | accepted | 2026-10-10 |
 | [0016](0016-noms-courts-variables-modules.md)                 | Variables d'environnement des modules — le nom court se déclare sur son champ                 | accepted | 2026-10-12 |
 | [0017](0017-ai-mecanique-mcp-hors-du-coeur.md)                | @nodefony/ai — la mécanique MCP hors du cœur, une porte se déclare                            | accepted | 2026-10-16 |
 | [0018](0018-decorateurs-sans-metadonnees-de-type.md)          | Décorateurs — plus aucune métadonnée de type, routes typées par schéma                        | accepted | 2026-10-19 |

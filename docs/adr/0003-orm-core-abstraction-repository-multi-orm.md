@@ -89,6 +89,11 @@ de sorte qu'un driver type-safe (Drizzle) puisse exposer ses types sans casser
 le contrat des drivers non typés (Sequelize/Mongoose). À trancher quand le
 driver Drizzle sera branché, sur un type d'entité concret.
 
+> **Tranché** — voir plus bas, § « Risque #3 RÉSOLU » :
+> `Criteria<T>`, typé champ par champ par `FieldOperators<V>`
+> (`src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts#Criteria`). Sequelize a
+> été retiré depuis ([ADR-0008](0008-orm-drizzle-reference-sequelize-retire.md)).
+
 ## Alternatives écartées
 
 - **Active Record** (entité = donnée + persistance, `user.save()`) : plus simple,
@@ -140,8 +145,9 @@ ADR-0002 (User _one-to-many_ Room, UUID-first). **6 tests d'intégration verts.*
 3. **Nommage FK** : Sequelize génère une FK PascalCase (`UserId`) par défaut ;
    l'adapter force le camelCase (`userId`) pour que le critère portable
    `{ userId }` matche. Toute abstraction de relation devra fixer cette convention.
-4. Le **risque #3** (`OrmCriteria` non typé vs Drizzle) reste ouvert — non
-   exercé ici (Sequelize n'est pas type-safe-first), à trancher au branchement Drizzle (P7.4).
+4. Le **risque #3** (`OrmCriteria` non typé vs Drizzle) restait ouvert à ce stade — non
+   exercé ici (Sequelize n'est pas type-safe-first), tranché au branchement Drizzle (P7.4,
+   § Risque #3 RÉSOLU ci-dessous).
 
 **Décision de sortie :** le contrat suffit pour le CRUD + lookups simples.
 **Avant de multiplier les drivers** (P7.x), trancher : (a) critère typé/opérateurs,
@@ -192,7 +198,7 @@ logiques** que le banc Sequelize. **6 tests verts.** Le contrat enrichi est
 
 **Conclusion P5.4 :** l'abstraction est validée sur 2 ORM hétérogènes. Feu vert
 pour multiplier les drivers (P7.x). Le **risque #3** (opérateurs riches typés)
-reste le seul à trancher, au branchement **Drizzle (P7.4)**.
+restait le seul à trancher, au branchement **Drizzle (P7.4)** — tranché, § Risque #3 RÉSOLU.
 
 ### Risque #3 RÉSOLU — 3ᵉ adapter type-safe-first Drizzle (P7.4, 2026-05-21)
 

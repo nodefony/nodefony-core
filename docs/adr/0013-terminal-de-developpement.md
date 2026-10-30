@@ -15,7 +15,11 @@ tags: [cli, dev, terminal, supervisor, ia]
 
 ## Statut
 
-Proposé (2026-10-04), contre-revu avant toute ligne de code. Epic
+Proposé (2026-10-04), contre-revu avant toute ligne de code. **Livré en partie** : les §1 à 6
+(propriétaire unique, modèle d'écran pur, foyers, `DevTerminal`, canal IPC) et l'annotation des
+outils MCP le sont — #535, #536, #537 et #540 fermés. Restent proposés le §7 (l'invite, #538) et
+le §8 (l'assistant local, #539), ouverts sans jalon : l'ADR passera à « accepté » quand ils seront
+tranchés ou retirés. Epic
 [#534](https://github.com/nodefony/nodefony-core/issues/534) ; sous-tickets
 [#535](https://github.com/nodefony/nodefony-core/issues/535) (modèle d'écran),
 [#536](https://github.com/nodefony/nodefony-core/issues/536) (propriétaire unique),
