@@ -1,7 +1,7 @@
 ---
 name: nodefony-decision-making
 metadata:
-  version: 3.1.0
+  version: 3.2.0
 description: >
   Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique,
   sécurité, performance, version, documentation, tickets, nom public. Pose le socle commun (cadrer,
@@ -64,6 +64,15 @@ justifie, règle par défaut du `CLAUDE.md` racine.
    ou une question de côté : **vérifier au code avant de répondre**, ne pas défendre la
    recommandation ; un cas que la question révèle et que la méthode n'avait pas posé est un
    **scénario oublié** — l'ajouter, repasser l'analyse, reposer la question.
+   **« explique » est un OUTIL de l'auteur, pas un signe de confusion** : il le dit exprès pour
+   obtenir une passe plus précise. Y répondre en reformulant plus simplement gaspille le geste.
+   Chaque « explique » est une **nouvelle passe au code** : relire ce que la réponse précédente
+   SUPPOSAIT, vérifier les champs, les valeurs, les chemins qu'elle citait, et montrer ce qui en
+   sort de neuf — puis reposer la question, corrigée. Vécu (#702, trois « explique » sur T1) :
+   chaque passe a trouvé un fait que la précédente avait supposé — trois formes d'identité qui ne
+   s'accordent pas, `userIdentifier` qui est un login réattribuable, un jeton externe déjà
+   traduit en compte local. La table a ensuite trouvé d'autres faits, que ces passes n'avaient
+   pas vus : la passe d'auteur et la table se complètent, elles ne se remplacent pas.
 6. **Après un oui — inscrire et rendre vérifiable** : la ligne
    `**Décision (validée par l'auteur le <date>) :**` dans l'ADR, le cahier des charges précis dans
    le ticket (chemins, tests exigés, pièges — ce qu'il porte n'est plus à repayer), et le **test ou

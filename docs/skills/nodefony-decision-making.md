@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-29
+updated: 2026-10-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-decision-making/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-decision-making/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.1.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.2.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,10 +26,10 @@ source: ".claude/skills/nodefony-decision-making/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `3.1.0` |
+| Version | `3.2.0` |
 | Famille | Autres |
-| Corps | 121 lignes |
-| Coût d'activation | ~2 315 tokens (le corps est chargé à l'invocation) |
+| Corps | 130 lignes |
+| Coût d'activation | ~2 528 tokens (le corps est chargé à l'invocation) |
 | Description | 1019 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 7 page(s) |
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/methode-poc.md` | Méthode — l'essai jetable | 45 |
 | `references/methode-pre-mortem.md` | Méthode — pré-mortem | 45 |
 | `references/methode-scenarios.md` | Méthode — scénarios : écrire les cas AVANT les options, puis la matrice | 96 |
-| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 233 |
+| `references/methode-table-d-experts.md` | Méthode — la table d'experts : des regards indépendants, chacun sur le bon modèle | 315 |
 
 
 ## Conformité au standard Agent Skills
@@ -94,7 +94,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 121 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 130 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -12,6 +12,7 @@
 4. Le dossier remis à chaque siège
 5. La consigne type
 6. Lancer, puis faire la synthèse
+   6bis. Tours de convergence : soumettre la FORME, puis s'arrêter
 7. Le budget, et comment l'économiser à résultat identique
 8. La revue finale d'un ensemble
 9. Apprendre : le bon modèle par siège, prouvé par l'usage
@@ -57,6 +58,14 @@ l'agent **nodefony-check-claims** (`haiku`, `@agent-` devant son nom garantit le
   l'attaquant ; « plusieurs instances » appelle l'exploitant ; « rupture si différé : oui »
   appelle le gardien de la compatibilité.
 - **Quatre à six sièges.** Au-delà, le coût croît et les avis se répètent.
+- **L'agent IA consommateur ne siège que s'il a quelque chose à EXÉCUTER.** Il mesure ce qu'un
+  agent trouve avec ce qui est livré : si l'API jugée n'est pas encore codée ni documentée, il
+  rend « bloqué, rien trouvé » sur chaque tâche, et c'est prévisible — un run payé pour rien.
+  Dans ce cas, sa vue reçoit la **surface proposée** (types, signature, un exemple d'usage),
+  présentée comme livrée, et rien d'autre : il mesure alors si cette forme se DEVINE — quel champ
+  il prend, quelle garde il oublie. Vécu (#702) : bloqué sur ses quatre tâches au premier tour ;
+  au troisième, l'API proposée en main, il a écrit seul les gardes contre `null` que l'exemple
+  de la proposition omettait — la preuve que la doc devait les porter.
 
 ## 4. Le dossier remis à chaque siège
 
@@ -90,6 +99,16 @@ awk '/^## Attaquant/{s=1;next} s&&/^## /{s=0} !s' docs/adr/scenarios/<domaine>.m
 donnait la doc publique des webhooks sous `docs/guides/`, elle vit dans le module. Un chemin faux
 envoie un siège payant chercher dans le vide. Et toute vue se **régénère** après une modification
 du catalogue (un cas ajouté par le contradicteur doit atteindre l'attaquant).
+
+⚠️ **Chaque PRÉMISSE d'une option se vérifie aussi, pas seulement les chemins.** Une option qui
+dit « le contrat reste dans le module X » est fausse si une copie du contrat vit déjà ailleurs —
+et un siège qui la juge sur parole raisonne sur un état qui n'existe pas. Avant le lancement :
+un `rg` de chaque type, contrat ou nom public que les options citent, à la recherche de ses
+COPIES et de ses lecteurs, et les résultats écrits dans le dossier (« faits relevés au code »).
+Vécu (#702) : l'option A disait « l'identité reste dans `@nodefony/realtime` » ; une copie
+structurelle vivait dans `@nodefony/security`, sans test de parité — trouvée par le
+contradicteur, pas par le dossier. Chaque composant que le dossier NOMME porte aussi son ancre :
+un siège à qui l'on parle du « hub » sans chemin le cherche, ne le trouve pas, et le dit.
 
 ## 5. La consigne type
 
@@ -151,6 +170,69 @@ contradicteur"`), parce qu'un agent intégré peut ne pas l'afficher.
 Une orchestration par l'outil `Workflow` (des dizaines d'agents, vérification adverse de chaque
 constat) ne se lance que si l'auteur le demande en ces termes (« utilise un workflow ») ; la
 table ordinaire tient en appels `Agent` parallèles.
+
+## 6bis. Tours de convergence : soumettre la FORME, puis s'arrêter
+
+Le premier tour tranche un CHOIX (A, B ou C). Souvent, la synthèse en sort une **forme** que
+personne n'a vue : une signature, un type, un ensemble de gardes. Cette forme se resoumet à la
+table — un tour de convergence. Vécu (#702, l'identité d'admission) : trois tours, et chacun a
+changé la forme — tour 1 le choix (une donnée plutôt qu'un objet), tour 2 la structure (deux
+types au lieu d'un), tour 3 des retraits et des ajouts (un champ retiré, un champ ajouté, cinq
+protections) et un défaut de sécurité dans le code EXISTANT. Le tour 2 n'aurait pas suffi.
+
+**La proposition dans UN fichier** (`tmp/scratch/table-<sujet>-<point>-v<N>.md`), jamais dans
+les messages : la forme exacte ; « ce qui a changé depuis v<N-1> », chaque changement avec sa
+preuve au code ; « écarté », avec le motif ; « hors de ce tour ».
+
+**La préférence est visible par nature : on retourne donc la question.** Pas « es-tu d'accord ? »
+— on obtiendrait une confirmation — mais « quel cas fait tomber CETTE forme, ou quelle forme
+STRICTEMENT meilleure existe ? ». C'est cette question, posée au tour 3 seulement, qui a fait
+sortir le retrait d'un champ que deux tours avaient laissé passer.
+
+**La consigne de relance** (au MÊME siège, par `SendMessage` — son contexte est intact) :
+
+```text
+Relance de la table sur <point> : <ce que l'auteur attend>. Lis <chemin absolu de la proposition>.
+Mêmes interdits qu'avant (index git, écriture, serveur).
+Ta question (<siège>) : quel cas fait tomber cette forme — ou quelle forme strictement meilleure ?
+Toute affirmation NEUVE se prouve au code : relis le fichier, ne cite pas de mémoire.
+NE RÉPÈTE PAS ton rapport précédent. Au plus 15 lignes : D'ACCORD / RÉSERVE / CONTRE,
+la preuve (`<fichier>.ts#<Symbole>`), le changement exigé.
+```
+
+Les deux phrases en capitales ne sont pas décoratives. Sans elles (#702) : un siège a recopié
+tout son rapport T1-T4 à chaque relance, et trois sièges `sonnet` sur quatre ont jugé « sur le
+texte seul, code non rouvert » — des réserves moins prouvées qu'au premier tour.
+
+**Les cloisons tiennent aussi en relance** : l'attaquant ne lit toujours pas la section
+« Attaquant » ; le développeur lit la proposition (c'est l'API qu'il vivrait) ; l'agent IA n'en
+lit que la forme et l'exemple (§3).
+
+**Qui relancer.** Les sièges qui avaient une réserve, plus le contradicteur quand la STRUCTURE a
+changé — c'est lui qui, à chaque tour de #702, a trouvé ce qui faisait tomber la forme, et aussi le
+plus cher (11,60 $ pour trois passes, contre ~1 $ par siège `sonnet`). Un changement de
+formulation ne justifie pas sa relance.
+
+**Le critère d'arrêt**, écrit, pour ne pas le réinventer devant l'auteur :
+
+1. aucun siège CONTRE ;
+2. aucun siège ne propose une autre architecture ;
+3. les réserves restantes sont des AJOUTS (un champ, une garde, un test), vérifiés au code et
+   intégrés à la forme.
+
+Ce qui reste incertain alors ne se tranche plus en relisant : ça se prouve par les tests du ticket
+qui code la décision (vus rouges une fois), et par la revue finale (§8). Ne pas payer un tour de
+plus pour un détail.
+
+**Ce qu'un tour coûte vraiment : le contexte du PRINCIPAL.** Mesuré sur #702 : sièges 16,20 $ pour
+trois tours ; principal 26,66 $ — chaque tour relit tout l'historique de la session, et la synthèse
+s'allonge à chaque passe. Dès le deuxième tour, écrire la proposition ET la synthèse sur le disque,
+et proposer à l'auteur de continuer en session neuve. Après un `/clear`, ne pas supposer les
+sièges encore joignables : la relance repart du fichier de proposition.
+
+**Montrer un tour à l'auteur** : un tableau D'ACCORD / RÉSERVE / CONTRE par siège, les constats
+vérifiés au code (et ceux qui étaient faux), la forme v<N+1>. Une question fermée par message —
+et au second « explique », le socle du skill, point 5.
 
 ## 7. Le budget, et comment l'économiser à résultat identique
 

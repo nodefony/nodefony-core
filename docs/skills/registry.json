@@ -3243,7 +3243,7 @@
       "name": "nodefony-decision-making",
       "summary": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public.",
       "family": "Autres",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "keywords": [],
       "triggers": [
         "aide-moi à décider",
@@ -3261,8 +3261,8 @@
       ],
       "description": "Référence de Nodefony pour TRANCHER un sujet sans revenir en arrière — architecture, API publique, sécurité, performance, version, documentation, tickets, nom public. Pose le socle commun (cadrer, relire ce qui fait foi, question fermée à l'auteur, chaque oui inscrit dans l'ADR et le ticket puis gardé par un test) et aiguille vers la méthode que le sujet demande : pas à pas, scénarios avant les options, table d'experts (agents indépendants aux métiers distincts), pré-mortem, mesure, essai jetable. Expert de la délégation : quand déléguer, à quel agent, sur quel modèle, en apprenant de l'usage à dépenser moins pour un résultat identique. Une méthode s'ajoute par un fichier. Déclencheurs : \"aide-moi à décider\", \"comment trancher ça ?\", \"une décision à la fois\", \"on revient souvent en arrière\", \"plusieurs experts autour d'une table\", \"contradicteur\", \"décision par décision\", \"petit pas par petit pas\", \"il y a trop de choses\", \"j'ai du mal à suivre\", \"à quel agent déléguer ?\", \"quel modèle pour cet agent ?\".",
       "cost": {
-        "bodyLines": 121,
-        "approxTokens": 2315
+        "bodyLines": 130,
+        "approxTokens": 2528
       },
       "requires": [],
       "resources": {
@@ -3351,7 +3351,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "121",
+            "detail": "130",
             "advisory": true
           }
         ]
