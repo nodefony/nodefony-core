@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T09:14:20.173Z",
+  "generatedAt": "2026-10-30T12:39:54.209Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -8816,7 +8816,7 @@
       "title": "fix(bench): poser la base que trois bancs multi-pods exigent",
       "url": "https://github.com/nodefony/nodefony-core/issues/216",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -9982,7 +9982,7 @@
       "title": "feat(studio): suivre en direct le transcript d'un agent de code",
       "url": "https://github.com/nodefony/nodefony-core/issues/556",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
