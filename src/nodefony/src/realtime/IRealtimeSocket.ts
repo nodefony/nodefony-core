@@ -107,8 +107,8 @@ export interface IRealtimeChannel {
   readonly kind?: string;
   /** Branche un handler de réception sur ce canal. Renvoie un `dispose`. */
   on(handler: RealtimeHandler): () => void;
-  /** Émet sur ce canal (duplex, one-way). */
-  send(payload?: unknown): void;
+  /** Émet sur ce canal (duplex, one-way) — même charge admise que {@link IRealtimeSocket.publish}. */
+  send(payload?: object): void;
   /** Ouvre le flux : `subscribe` ref-compté (demande au pair de pousser). */
   open(): void;
   /** Ferme : `unsubscribe` ref-compté + retire les handlers branchés via ce handle. */
@@ -174,7 +174,7 @@ export interface IRealtimeSocket<
    */
   publish<K extends string>(
     channel: K,
-    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
+    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : object,
   ): void;
 
   /**

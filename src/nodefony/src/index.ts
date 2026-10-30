@@ -258,6 +258,7 @@ export type {
 } from "./realtime/IRealtimeSocket";
 export { rateChannel, parseRate, isRateChannel } from "./realtime/channelRate";
 export type { RateBounds } from "./realtime/channelRate";
+export { isRealtimePayload, realtimePayloadError } from "./realtime/payload";
 export {
   NODEFONY_CHANNEL_NAMESPACE,
   PLATFORM_CHANNELS,

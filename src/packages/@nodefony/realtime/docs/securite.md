@@ -828,7 +828,7 @@ n'est pas appliquée.
 | Le client se croit abonné, ne reçoit rien                                | Refus d'autorisation, plafond atteint, **ou nom de canal sans producteur** (pas de réponse RPC)        | Écouter `realtime:denied` : `forbidden` (droits), `limit` (borne), `unknown` (le nom ne désigne rien) |
 | `slowConsumer.bytes` augmenté, les frames sont toujours jetées à 4 MiB   | Cette clé pilote le **comptage** de la sonde, pas les seuils de drop/close du transport                | Régler `websocket.maxBackpressure` / `.backpressureCloseAfterDrops` dans `@nodefony/http`             |
 | Deux déploiements se parlent en cross-talk                               | Pas de `backplane.namespace` sur un Redis mutualisé (la base Redis ne cloisonne pas le pub/sub)        | Poser un `namespace` explicite par déploiement                                                        |
-| Le fan-out cross-pod s'arrête après avoir posé un secret                 | `backplane.secret` différent d'un pod à l'autre : les messages sont scellés, aucun ne se vérifie       | Le **même** secret sur tous les pods (`NF_REALTIME_BACKPLANE_SECRET`) ; suivre `ingressRejectedTotal` |
+| Le fan-out cross-pod s'arrête après avoir posé un secret                 | `backplane.secret` différent d'un pod à l'autre : les messages sont scellés, aucun ne se vérifie       | Le **même** secret sur tous les pods (`NF_REALTIME_BACKPLANE_SECRET`) ; suivre `sealRejectedTotal`    |
 | Un canal broadcast ne reçoit rien des autres pods                        | Le préfixe n'est pas déclaré côté receveur → l'entrée refuse le canal (compté)                         | Déclarer le préfixe (`broadcast` du controller) sur **tous** les pods, pas seulement l'émetteur       |
 
 ## 🧪 Tests & couverture

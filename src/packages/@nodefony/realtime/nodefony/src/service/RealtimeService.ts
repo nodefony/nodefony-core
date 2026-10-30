@@ -162,8 +162,10 @@ class RealtimeService extends Service {
   /**
    * Publie une charge sur un canal — fan-out local + propagation backplane si
    * canal broadcast. Délégué à `RealtimeHub.publish`.
+   *
+   * @throws TypeError si la charge est un scalaire ou `null` (cf `isRealtimePayload`).
    */
-  publish(channel: string, payload: unknown): void {
+  publish(channel: string, payload?: object): void {
     this.getHub().publish(channel, payload);
   }
 

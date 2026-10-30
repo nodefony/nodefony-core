@@ -11,6 +11,8 @@ import {
   type EventPayload,
   type ContractParams,
   type ContractResult,
+  isRealtimePayload,
+  realtimePayloadError,
 } from "nodefony";
 import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
 
@@ -56,8 +58,12 @@ export class ServerRealtimeSocket<
   /** Émet sur un canal — fan-out aux abonnés via le hub (+ backplane si broadcast). */
   publish<K extends string>(
     channel: K,
-    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
+    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : object,
   ): void {
+    // Garde ICI aussi : la branche typée d'un contrat peut déclarer un scalaire,
+    // que seul le test d'exécution écarte (même règle que le hub, pas une copie).
+    if (!isRealtimePayload(payload))
+      throw realtimePayloadError(channel, payload);
     this.hub.publish(channel, payload);
   }
 
@@ -181,7 +187,7 @@ export class ServerRealtimeSocket<
           disposers.delete(dispose);
         };
       },
-      send(payload?: unknown): void {
+      send(payload?: object): void {
         hub.hub.publish(name, payload);
       },
       open(): void {

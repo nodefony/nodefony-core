@@ -18,7 +18,11 @@
  * Démarré via `child_process.fork(path, [], { execArgv: ['--import', 'tsx'] })`
  * — `tsx` permet de charger le source TS directement, sans rebuild.
  */
-import { CLUSTER_RT_KIND } from "nodefony";
+import {
+  CLUSTER_RT_KIND,
+  isRealtimePayload,
+  realtimePayloadError,
+} from "nodefony";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import {
   ClusterBackplane,
@@ -115,7 +119,11 @@ process.on("message", (raw: unknown) => {
       break;
     }
     case "publish": {
-      hub.publish(msg.channel as string, msg.payload);
+      const channel = msg.channel as string;
+      // L'IPC rend `unknown` : même garde que le hub, pour typer la charge.
+      if (!isRealtimePayload(msg.payload))
+        throw realtimePayloadError(channel, msg.payload);
+      hub.publish(channel, msg.payload);
       sendToMaster({
         cmd: "ack",
         op: "publish",

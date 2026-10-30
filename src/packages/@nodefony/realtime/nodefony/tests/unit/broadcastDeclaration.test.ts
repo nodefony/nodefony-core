@@ -121,7 +121,7 @@ describe("déclaration statique des canaux broadcast", () => {
     applyDeclaredBroadcastPrefixes(hub);
     applyDeclaredBroadcastPrefixes(hub);
 
-    hub.publish("chat:room1", 1);
+    hub.publish("chat:room1", { n: 1 });
 
     expect(bp.published).to.have.lengthOf(1); // 1 publication = 1 forward
   });

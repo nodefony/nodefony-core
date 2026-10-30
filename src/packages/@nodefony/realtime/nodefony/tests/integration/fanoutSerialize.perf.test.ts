@@ -38,7 +38,7 @@ const serializer =
  */
 function mesure(
   mutualise: boolean,
-  charge: unknown,
+  charge: object,
 ): { ms: number; octets: number } {
   const hub = new RealtimeHub();
   const serialize = serializer("chat:room1");

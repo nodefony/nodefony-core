@@ -267,6 +267,7 @@ Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts#IRealtimeProbe`). Quatre fam
 | `fanoutTotal`          | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                                           |
 | `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts#RealtimeHub.recordInbound`). |
 | `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                                              |
+| `sealRejectedTotal`    | Messages venus du **backplane** et jetés parce que leur sceau ne se vérifie pas. `0` sans bus scellé.                                    |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille
 moyenne d'un salon**. S'il vaut 1, chaque publication ne touche qu'une personne — un canal par client,
@@ -296,9 +297,11 @@ lectures possibles quand il grimpe :
 Le canal visé n'est délibérément pas exposé : un compteur d'observabilité ne doit pas devenir un
 moyen de sonder ce que le système accepte.
 
-⚠️ Ce compteur ne voit pas tout : un message **mal scellé** est écarté par le transport, avant
-d'atteindre le hub, donc sans être compté ici. Un bus scellé peut ainsi rester à zéro alors qu'il est
-attaqué — le signe est alors l'absence de trafic légitime, pas ce compteur.
+Un message **mal scellé** n'entre pas dans ce compteur : le transport l'écarte avant le hub, et le
+compte à part dans `sealRejectedTotal` (relayé au même niveau de la sonde, et dans
+`backplane.sealRejectedTotal`). Quand celui-là grimpe, trois lectures : une rotation du secret en
+cours (des exemplaires n'ont pas encore le même), un producteur mal configuré, ou quelqu'un qui
+écrit sur votre bus sans connaître le secret.
 
 ### Connexions et volume
 

@@ -167,3 +167,39 @@ describe("NodefonySocket — conformité IRealtimeSocket (la socket Nodefony)", 
     client.disconnect();
   });
 });
+
+/**
+ * Forme de la charge (ADR-0021 S1, #704). `Reflect.apply` contourne le type
+ * (qui refuse déjà un scalaire) pour éprouver la garde d'exécution — celle d'un
+ * appelant JavaScript non typé.
+ */
+describe("NodefonySocket.publish — charge structurée (ADR-0021 S1)", () => {
+  it('publish("c", 42) lève une TypeError qui nomme le canal, rien ne part', async () => {
+    const { client, transport } = await openClient();
+    const before = transport.sent.length;
+    expect(() => Reflect.apply(client.publish, client, ["c", 42])).to.throw(
+      TypeError,
+      /« c ».*number/,
+    );
+    expect(transport.sent.length).to.equal(before);
+    client.disconnect();
+  });
+
+  it("channel(c).send(null) passe par la même garde", async () => {
+    const { client } = await openClient();
+    const ch = client.channel("c");
+    expect(() => Reflect.apply(ch.send, ch, [null])).to.throw(
+      TypeError,
+      /« c ».*null/,
+    );
+    client.disconnect();
+  });
+
+  it("une charge absente part SANS `params` (notification JSON-RPC conforme)", async () => {
+    const { client, transport } = await openClient();
+    client.publish("c");
+    const f = transport.frames().find((x) => x.method === "c");
+    expect(f).to.deep.equal({ jsonrpc: "2.0", method: "c" });
+    client.disconnect();
+  });
+});

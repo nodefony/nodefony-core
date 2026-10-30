@@ -139,3 +139,21 @@ describe("ClusterBackplane (worker-side IPC)", () => {
     expect(fired).to.equal(0);
   });
 });
+
+describe("ClusterBackplane — charge absente (ADR-0021 S1)", () => {
+  it("une charge absente arrive `undefined` chez l'autre worker (IPC sérialisé en JSON)", () => {
+    const tA = new FakeTransport();
+    const tB = new FakeTransport();
+    const a = new ClusterBackplane(tA, "pid-A");
+    const b = new ClusterBackplane(tB, "pid-B");
+    const got: IBackplaneMessage[] = [];
+    b.onMessage((m) => got.push(m));
+    b.start();
+    a.publish("chat:room1", undefined);
+    // Relais du master : `nodefony cluster` lance ses workers sans
+    // `serialization: "advanced"`, l'IPC passe donc par JSON.
+    tB.deliver(JSON.parse(JSON.stringify(tA.sent[0])));
+    expect(got).to.have.lengthOf(1);
+    expect(got[0]!.payload).to.equal(undefined);
+  });
+});

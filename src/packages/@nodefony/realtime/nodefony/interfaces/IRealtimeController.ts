@@ -1,5 +1,5 @@
 /** Publie une charge sur un canal (notification serveur→client). */
-export type RealtimePublish = (channel: string, payload: unknown) => void;
+export type RealtimePublish = (channel: string, payload?: object) => void;
 
 /**
  * Handler d'un message ENTRANT sur un canal full-duplex (client → serveur). C'est le

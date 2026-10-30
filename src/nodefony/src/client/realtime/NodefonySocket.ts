@@ -95,6 +95,10 @@ export type {
 } from "../../realtime/RealtimeEventMap";
 import { PLATFORM_METHODS } from "../../realtime/platformChannels";
 import { isJsonRpcId } from "../../jsonrpc/index";
+import {
+  isRealtimePayload,
+  realtimePayloadError,
+} from "../../realtime/payload";
 
 export type RealtimeState =
   "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
@@ -958,12 +962,22 @@ export class NodefonySocket<
   /**
    * Émet sur un canal — verbe socket de {@link IRealtimeSocket.publish}. Côté client =
    * notification au serveur (alias clair de {@link emit}).
+   *
+   * @throws TypeError si la charge n'est ni un objet, ni un tableau, ni absente
+   *   ({@link isRealtimePayload}) — un scalaire se publie dans un objet (`{ value }`).
    */
   publish<K extends string>(
     channel: K,
-    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
+    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : object,
   ): void {
-    this.emit(channel, payload);
+    this.#publish(channel, payload);
+  }
+
+  /** Porte non générique de {@link publish} : garde de la charge, puis émission. */
+  #publish(channel: string, payload: unknown): void {
+    if (!isRealtimePayload(payload))
+      throw realtimePayloadError(channel, payload);
+    if (!this._emitRaw(channel, payload)) this.noticeUnsent();
   }
 
   /**
@@ -1174,8 +1188,8 @@ export class NodefonySocket<
           disposers.delete(dispose);
         };
       },
-      send(payload?: unknown): void {
-        hub.publish(name, payload as never);
+      send(payload?: object): void {
+        hub.#publish(name, payload);
       },
       open(): void {
         hub.subscribe(name);

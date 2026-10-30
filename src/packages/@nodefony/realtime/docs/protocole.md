@@ -282,7 +282,7 @@ en développement. Émis par le contrôleur au handshake (`peer.notify("realtime
 {
   "jsonrpc": "2.0", // signature de protocole — OBLIGATOIRE, sinon la frame est `invalid`
   "method": "subscribe", // ce qu'on demande — sa PRÉSENCE fait de la frame un appel
-  "params": { "channel": "nodefony:orm:health" }, // la charge ; forme libre, jamais fiable côté serveur
+  "params": { "channel": "nodefony:orm:health" }, // la charge : objet ou tableau, jamais fiable côté serveur
   "id": 42, // PRÉSENT = requête (réponse due) · ABSENT = notification
 }
 ```
@@ -291,8 +291,24 @@ en développement. Émis par le contrôleur au handshake (`peer.notify("realtime
 | --------- | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
 | `jsonrpc` | oui, toujours             | `"2.0"` littéral     | Sans lui, `JsonRpcPeer.receive()` classe `invalid` (`JsonRpcPeer.ts#JsonRpcPeer.receive`) |
 | `method`  | sur un appel              | chaîne               | Décide de la nature ET de l'aiguillage (canal, action, verbe pub/sub)                     |
-| `params`  | non                       | tout JSON            | Charge applicative. Vient du réseau : **jamais** digne de confiance                       |
+| `params`  | non                       | objet ou tableau     | Charge applicative. Vient du réseau : **jamais** digne de confiance                       |
 | `id`      | sur une requête / réponse | nombre **ou** chaîne | Corrèle l'aller et le retour                                                              |
+
+> [!IMPORTANT]
+> **La charge d'un canal est un objet ou un tableau, ou absente.** JSON-RPC 2.0 (§4.2) exige un
+> `params` structuré : une bibliothèque JSON-RPC stricte, dans un autre langage, refuserait la trame
+> d'un scalaire. `publish` lève donc une `TypeError` qui nomme le canal et le type reçu, à la ligne
+> fautive, des deux côtés de la socket (`payload.ts#isRealtimePayload`) :
+>
+> ```ts
+> const temperature = 42;
+> hub.publish("capteur:temp", temperature); // TypeError — un scalaire
+> hub.publish("capteur:temp", { value: temperature }); // conforme
+> hub.publish("build:done"); // conforme : part sans `params`, arrive `undefined`
+> ```
+>
+> Des octets restent admis. Une charge absente arrive `undefined` chez l'abonné, quel que soit le bus
+> entre les serveurs, scellé ou non.
 
 > [!IMPORTANT]
 > Le pair accepte un `id` **chaîne** en entrée (conforme à la norme), mais il n'attribue jamais que

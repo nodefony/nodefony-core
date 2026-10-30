@@ -86,6 +86,13 @@ export interface IRealtimeProbe {
    * tentative d'accès — dans les deux cas, quelque chose est à regarder.
    */
   systemFloorDeniedTotal: number;
+  /**
+   * Messages du bus REFUSÉS parce que leur sceau ne se vérifie pas — monotone, unité :
+   * un message reçu d'un exemplaire. Relaie `backplane.sealRejectedTotal` (compté par
+   * le driver, seul à ouvrir l'enveloppe) ; `0` sans bus scellé. `> 0` = rotation du
+   * secret en cours, producteur mal configuré, ou écriture tierce dans le bus.
+   */
+  sealRejectedTotal: number;
   /** Connexions realtime vivantes. */
   connectionCount: number;
   /** Somme cumulée des octets envoyés, toutes connexions (monotone). */

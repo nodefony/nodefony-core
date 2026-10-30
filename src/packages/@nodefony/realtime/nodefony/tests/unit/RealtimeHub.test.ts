@@ -219,8 +219,8 @@ describe("RealtimeHub.probe — auto-observabilité (fan-out + backpressure)", (
       (_c, p) => ((pub = p), () => {}),
     );
     hub.subscribe("ch", () => {}, factory); // 2 abonnés
-    pub!("ch", 1);
-    pub!("ch", 2); // 2 publishes × 2 abonnés = 4 livraisons
+    pub!("ch", { n: 1 });
+    pub!("ch", { n: 2 }); // 2 publishes × 2 abonnés = 4 livraisons
     const p = hub.probe();
     expect(p.publishTotal).to.equal(2);
     expect(p.fanoutTotal).to.equal(4);
@@ -276,7 +276,7 @@ describe("RealtimeHub.probe — auto-observabilité (fan-out + backpressure)", (
       () => {},
       (_c, p) => ((pub = p), () => {}),
     );
-    pub!("ch", 1);
+    pub!("ch", { n: 1 });
     hub.registerConnection(fakeConn({ bufferedAmount: 50 }));
     hub.recordInbound();
     hub.clear();
@@ -580,5 +580,78 @@ describe("RealtimeHub — registre de canal système (registerSystemChannel)", (
     );
     expect(ok).to.equal(true);
     expect(sysCalled).to.equal(false);
+  });
+});
+
+/**
+ * Forme de la charge (ADR-0021 S1, #704) : un objet, un tableau, des octets, ou
+ * rien. Le type refuse déjà un scalaire ; `Reflect.apply` contourne le type pour
+ * éprouver la garde d'exécution, seule protection d'un appelant non typé.
+ */
+describe("RealtimeHub.publish — charge structurée (ADR-0021 S1)", () => {
+  const publishUntyped = (
+    hub: RealtimeHub,
+    channel: string,
+    payload: unknown,
+  ): void => Reflect.apply(hub.publish, hub, [channel, payload]);
+
+  for (const [label, payload, kind] of [
+    ["un nombre", 42, "number"],
+    ["une chaîne", "hello", "string"],
+    ["un booléen", true, "boolean"],
+    ["null", null, "null"],
+  ] as const) {
+    it(`refuse ${label} : TypeError qui nomme le canal et le type, rien n'est diffusé`, () => {
+      const hub = new RealtimeHub();
+      const bp = new FakeBackplane();
+      hub.setBackplane(bp);
+      hub.markBroadcastChannel("c");
+      const got: unknown[] = [];
+      hub.subscribe(
+        "c",
+        (p) => got.push(p),
+        () => () => {},
+      );
+      expect(() => publishUntyped(hub, "c", payload)).to.throw(
+        TypeError,
+        new RegExp(`« c ».*${kind}`),
+      );
+      expect(got).to.have.lengthOf(0);
+      expect(bp.published).to.have.lengthOf(0);
+    });
+  }
+
+  it("admet un objet, un tableau, des octets et une charge absente (livrée `undefined`)", () => {
+    const hub = new RealtimeHub();
+    const got: unknown[] = [];
+    hub.subscribe(
+      "c",
+      (p) => got.push(p),
+      () => () => {},
+    );
+    hub.publish("c", { v: 1 });
+    hub.publish("c", [1, 2]);
+    hub.publish("c", new Uint8Array([1]));
+    hub.publish("c");
+    expect(got).to.have.lengthOf(4);
+    expect(got[3]).to.equal(undefined);
+  });
+});
+
+describe("RealtimeHub.probe — sealRejectedTotal relayé du bus (ADR-0021 S9)", () => {
+  it("0 sans bus, la valeur du driver sinon", () => {
+    const hub = new RealtimeHub();
+    expect(hub.probe().sealRejectedTotal).to.equal(0);
+    const bp = new FakeBackplane();
+    bp.describe = (): IBackplaneInfo => ({
+      driver: "fake",
+      kind: "fake",
+      originId: bp.originId,
+      crossPod: true,
+      sealed: true,
+      sealRejectedTotal: 3,
+    });
+    hub.setBackplane(bp);
+    expect(hub.probe().sealRejectedTotal).to.equal(3);
   });
 });

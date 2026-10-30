@@ -18,6 +18,7 @@
  * Démarré via `fork(path, [], { execArgv: ['--import', 'tsx'] })`.
  */
 import { createClient, type RedisClientType } from "redis";
+import { isRealtimePayload, realtimePayloadError } from "nodefony";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import {
   RedisBackplane,
@@ -131,7 +132,11 @@ async function boot(): Promise<void> {
         break;
       }
       case "publish": {
-        hub.publish(msg.channel as string, msg.payload);
+        const channel = msg.channel as string;
+        // L'IPC rend `unknown` : même garde que le hub, pour typer la charge.
+        if (!isRealtimePayload(msg.payload))
+          throw realtimePayloadError(channel, msg.payload);
+        hub.publish(channel, msg.payload);
         sendToMaster({
           cmd: "ack",
           op: "publish",

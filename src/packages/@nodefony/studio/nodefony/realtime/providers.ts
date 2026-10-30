@@ -24,8 +24,10 @@ import {
   readEventLoopDelay,
   EVENT_LOOP_RESOLUTION_MS,
 } from "nodefony";
+import type { RealtimePublish } from "@nodefony/realtime";
 
-export type Publish = (channel: string, payload: unknown) => void;
+/** Publication remise aux providers — LE type du hub, jamais une copie qui dériverait. */
+export type Publish = RealtimePublish;
 
 /** Métadonnées applicatives statiques poussées avec `nodefony:supervision`. */
 export interface AppMeta {

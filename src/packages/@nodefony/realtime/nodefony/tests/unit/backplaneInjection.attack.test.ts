@@ -337,14 +337,16 @@ describe("0.6 F83 (b) — Redis : enveloppe scellée (transport partagé)", () =
     });
   });
 
-  it("une charge `undefined` est transportée comme `null` (JSON n'a pas d'undefined)", () => {
+  it("une charge absente est SIGNÉE `null` et rendue `undefined` (ADR-0021 S1, S6)", () => {
     const raw = sealBackplaneEnvelope(
       { channel: "chat:room1", payload: undefined, originId: "pod-1" },
       SECRET,
     );
+    // Le texte signé ne change pas entre deux versions qui cohabitent (S6).
+    expect(raw).to.contain('"payload":null');
     expect(openBackplaneEnvelope(raw, SECRET)).to.deep.equal({
       channel: "chat:room1",
-      payload: null,
+      payload: undefined,
       originId: "pod-1",
     });
   });

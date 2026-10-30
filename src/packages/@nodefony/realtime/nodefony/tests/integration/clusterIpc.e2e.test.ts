@@ -57,6 +57,13 @@ interface ForkedWorker {
   ) => Promise<AnyMsg>;
 }
 
+/** Texte d'une charge `{ text }` (une charge est un objet : ADR-0021 S1). */
+function textOf(payload: unknown): unknown {
+  return typeof payload === "object" && payload !== null && "text" in payload
+    ? payload.text
+    : undefined;
+}
+
 function spawnWorker(): Promise<ForkedWorker> {
   return new Promise((resolve, reject) => {
     const child = fork(WORKER_PATH, [], {
@@ -210,13 +217,13 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       a!.child.send({
         cmd: "publish",
         channel: "chat:room-1",
-        payload: "hello-from-A",
+        payload: { text: "hello-from-A" },
       });
 
       const got = await b!.awaitEvent(
         (e) => e.cmd === "got" && e.channel === "chat:room-1",
       );
-      expect(got.payload).toBe("hello-from-A");
+      expect(got.payload).toEqual({ text: "hello-from-A" });
       expect(got.pid).toBe(b!.pid);
       expect(b!.pid).not.toBe(a!.pid); // vraiment 2 process distincts
       expect(relay.relayedTotal).toBe(1);
@@ -252,7 +259,7 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       a!.child.send({
         cmd: "publish",
         channel: "chat:room-1",
-        payload: "echo-test",
+        payload: { text: "echo-test" },
       });
       // attend que B reçoive — preuve que le rebroadcast a eu lieu
       await b!.awaitEvent(
@@ -274,25 +281,25 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       a!.child.send({
         cmd: "publish",
         channel: "chat:duplex",
-        payload: "ping",
+        payload: { text: "ping" },
       });
       await b!.awaitEvent(
         (e) =>
           e.cmd === "got" &&
           e.channel === "chat:duplex" &&
-          e.payload === "ping",
+          textOf(e.payload) === "ping",
       );
 
       b!.child.send({
         cmd: "publish",
         channel: "chat:duplex",
-        payload: "pong",
+        payload: { text: "pong" },
       });
       await a!.awaitEvent(
         (e) =>
           e.cmd === "got" &&
           e.channel === "chat:duplex" &&
-          e.payload === "pong",
+          textOf(e.payload) === "pong",
       );
       await new Promise((r) => setTimeout(r, 100));
 

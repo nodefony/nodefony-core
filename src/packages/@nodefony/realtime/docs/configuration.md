@@ -382,8 +382,15 @@ déploiement, passe-le par `NF_REALTIME_BACKPLANE_SECRET` (secret k8s, variable 
 a la précédence sur la configuration, et un secret n'a rien à faire dans un fichier versionné.
 
 Sans secret, rien ne casse : le transport reste ouvert et le démarrage l'annonce en avertissement.
-La bonne façon de vérifier que le scellement fonctionne est le compteur `ingressRejectedTotal` de la
-sonde de santé — il reste à zéro en régime normal.
+La bonne façon de vérifier que le scellement fonctionne est le compteur `sealRejectedTotal` de la
+sonde de santé : il compte les messages reçus dont le sceau ne se vérifie pas, et reste à zéro en
+régime normal. Chaque refus est aussi journalisé — le premier, puis un sur cent.
+
+> [!WARNING]
+> **Changer le secret, c'est couper le fan-out entre les deux générations.** Pendant une rotation, les
+> exemplaires qui n'ont pas encore le même secret se refusent leurs messages : `sealRejectedTotal`
+> monte sur chacun d'eux jusqu'à ce que tous portent le nouveau. Un second secret accepté en
+> lecture, pour une rotation sans coupure, viendra dans une version 10.x.
 
 > [!NOTE]
 > Le driver `cluster` (IPC entre les workers d'un même pod) n'a pas besoin de secret : ce canal ne

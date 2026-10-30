@@ -177,8 +177,8 @@ export interface IRedisBackplaneOptions {
    */
   maxQueueBytes?: number;
   /**
-   * Annonce des transitions de la file (saturation / retour à la normale) — le
-   * wiring y branche le syslog du module. Omis = silencieux : acceptable en test,
+   * Annonce des transitions de la file (saturation / retour à la normale) et des
+   * sceaux refusés à l'entrée — le wiring y branche le syslog du module. Omis = silencieux : acceptable en test,
    * jamais en production (une dégradation doit être annoncée).
    */
   onNotice?: BackplaneNotice;
@@ -227,6 +227,9 @@ export class RedisBackplane implements IBackplane {
   readonly #secret: string | null;
   /** Borne mémoire des publications en vol (cf {@link BackplanePublishQueue}). */
   readonly #queue: BackplanePublishQueue;
+  readonly #notice: BackplaneNotice | null;
+  /** Messages reçus dont le sceau est refusé alors qu'un secret est posé (monotone). */
+  #sealRejectedTotal = 0;
   #handler: BackplaneHandler | null = null;
   #started = false;
 
@@ -241,9 +244,10 @@ export class RedisBackplane implements IBackplane {
     this.originId = originId;
     this.#redisChannel = redisChannel;
     this.#secret = secret;
+    this.#notice = options.onNotice ?? null;
     this.#queue = new BackplanePublishQueue(
       options.maxQueueBytes ?? DEFAULT_MAX_QUEUE_BYTES,
-      options.onNotice ?? null,
+      this.#notice,
     );
   }
 
@@ -291,12 +295,32 @@ export class RedisBackplane implements IBackplane {
    * Ouverture d'enveloppe (parse + vérification du sceau) + anti-echo + délégation.
    * Robuste par construction : un message malformé, non scellé alors qu'un secret
    * est exigé, ou au sceau invalide, est **ignoré** — jamais réinjecté, jamais fatal.
+   * Sous un secret, chaque rejet est compté (`sealRejectedTotal`) et journalisé la
+   * première fois puis une fois sur cent (ADR-0021 S6) : une rotation du secret ou
+   * un producteur mal configuré ne perd plus de messages en silence.
    */
   #ingress(raw: string): void {
     const msg = openBackplaneEnvelope(raw, this.#secret);
-    if (msg === null) return; // malformé / sceau absent ou invalide → jeté
+    if (msg === null) {
+      // Sans secret, seul un JSON malformé est jeté : rien à voir avec un sceau.
+      if (this.#secret !== null) this.#sealRejected();
+      return;
+    }
     if (msg.originId === this.originId) return; // anti-echo (Redis renvoie à l'émetteur)
     this.#handler?.(msg);
+  }
+
+  /** Compte un sceau refusé ; annonce le premier, puis un sur cent (pas d'inondation du journal). */
+  #sealRejected(): void {
+    this.#sealRejectedTotal += 1;
+    const n = this.#sealRejectedTotal;
+    if (n !== 1 && n % 100 !== 0) return;
+    this.#notice?.(
+      `backplane : ${n} message(s) reçu(s) au sceau refusé, JETÉS. Causes : rotation ` +
+        `du secret en cours (des exemplaires n'ont pas le même NF_REALTIME_BACKPLANE_SECRET), ` +
+        `producteur mal configuré, ou écriture tierce dans le bus. Compteur : sealRejectedTotal.`,
+      "WARNING",
+    );
   }
 
   /** Désabonne du canal Redis et détache le handler. Idempotent. */
@@ -315,6 +339,9 @@ export class RedisBackplane implements IBackplane {
       crossPod: true,
       channel: this.#redisChannel,
       sealed: this.#secret !== null,
+      ...(this.#secret !== null && {
+        sealRejectedTotal: this.#sealRejectedTotal,
+      }),
       queue: this.#queue.describe(),
     };
   }

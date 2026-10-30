@@ -254,3 +254,88 @@ describe("createRedisServiceTransport (adaptateur clients redis)", () => {
     });
   });
 });
+
+describe("RedisBackplane — charge absente (ADR-0021 S1)", () => {
+  for (const secret of [null, "s3cr3t"]) {
+    it(`une charge absente arrive \`undefined\` (${secret === null ? "bus nu" : "bus scellé"})`, async () => {
+      const bus = new FakeRedisBus();
+      const a = new RedisBackplane(
+        bus.transport(),
+        "pod-A",
+        REDIS_RT_CHANNEL,
+        secret,
+      );
+      const b = new RedisBackplane(
+        bus.transport(),
+        "pod-B",
+        REDIS_RT_CHANNEL,
+        secret,
+      );
+      const got: IBackplaneMessage[] = [];
+      b.onMessage((m) => got.push(m));
+      await b.start();
+      a.publish("chat:room1", undefined);
+      expect(got).to.have.lengthOf(1);
+      expect(got[0]!.payload).to.equal(undefined);
+    });
+  }
+});
+
+describe("RedisBackplane — sceaux refusés (ADR-0021 S6, S9)", () => {
+  it("un message au sceau faux fait monter `sealRejectedTotal` de 1, sans atteindre le hub", async () => {
+    const bus = new FakeRedisBus();
+    const a = new RedisBackplane(
+      bus.transport(),
+      "pod-A",
+      REDIS_RT_CHANNEL,
+      "ancien",
+    );
+    const b = new RedisBackplane(
+      bus.transport(),
+      "pod-B",
+      REDIS_RT_CHANNEL,
+      "nouveau",
+    );
+    let fired = 0;
+    b.onMessage(() => (fired += 1));
+    await b.start();
+    expect(b.describe().sealRejectedTotal).to.equal(0);
+    a.publish("chat:room1", { n: 1 });
+    expect(b.describe().sealRejectedTotal).to.equal(1);
+    expect(fired).to.equal(0);
+  });
+
+  it("journal : le premier refus, puis un sur cent", async () => {
+    const bus = new FakeRedisBus();
+    const a = new RedisBackplane(
+      bus.transport(),
+      "pod-A",
+      REDIS_RT_CHANNEL,
+      "ancien",
+    );
+    const notices: string[] = [];
+    const b = new RedisBackplane(
+      bus.transport(),
+      "pod-B",
+      REDIS_RT_CHANNEL,
+      "nouveau",
+      {
+        onNotice: (message) => notices.push(message),
+      },
+    );
+    await b.start();
+    for (let i = 0; i < 200; i += 1) a.publish("chat:room1", { n: i });
+    expect(b.describe().sealRejectedTotal).to.equal(200);
+    expect(notices).to.have.lengthOf(3); // 1ᵉʳ, 100ᵉ, 200ᵉ
+    expect(notices[0]).to.contain("sealRejectedTotal");
+  });
+
+  it("bus nu : aucun compteur de sceau (la question n'a pas de sens), le JSON malformé n'y entre pas", async () => {
+    const bus = new FakeRedisBus();
+    const t = bus.transport();
+    const bp = new RedisBackplane(t, "pod-A");
+    await bp.start();
+    void t.publish(REDIS_RT_CHANNEL, "}{ pas du json");
+    expect(bp.describe()).to.not.have.property("sealRejectedTotal");
+  });
+});

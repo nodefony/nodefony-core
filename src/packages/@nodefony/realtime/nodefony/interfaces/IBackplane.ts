@@ -90,6 +90,14 @@ export interface IBackplaneInfo {
    */
   sealed?: boolean;
   /**
+   * Messages reçus du bus dont le sceau est refusé — unité : un message reçu d'un
+   * exemplaire, jeté parce que son sceau ne se vérifie pas (ADR-0021 S6, S9). Monotone.
+   * Pendant une rotation du secret, les exemplaires qui n'ont pas le même se refusent
+   * leurs messages : ce compteur le montre. Présent seulement quand le bus est scellé
+   * (`sealed: true`) ; relayé au premier niveau de la sonde du hub.
+   */
+  sealRejectedTotal?: number;
+  /**
    * État de la **file d'envoi** vers le bus (octets en vol, seuil, jetés). Renseigné
    * par les drivers à transport RÉSEAU, dont les publications sont acquittées de
    * façon asynchrone : c'est là qu'un bus lent fait grossir la mémoire du pod.

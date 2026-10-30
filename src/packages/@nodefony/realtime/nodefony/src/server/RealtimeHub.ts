@@ -4,6 +4,8 @@ import {
   NODEFONY_CHANNEL_NAMESPACE,
   RevocationWatch,
   isPlatformChannel,
+  isRealtimePayload,
+  realtimePayloadError,
 } from "nodefony";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
 import type { IClientLogsLimits } from "../../interfaces/IClientLogsLimits";
@@ -14,6 +16,7 @@ import type {
 } from "../../interfaces/IRealtimeProbe";
 import type {
   IBackplane,
+  IBackplaneInfo,
   IBackplaneMessage,
 } from "../../interfaces/IBackplane";
 import LoopbackBackplane from "../backplane/LoopbackBackplane";
@@ -561,7 +564,7 @@ export class RealtimeHub {
     channel: string,
     factory: ChannelFactory,
   ): (() => void) | null {
-    const publishFn = (ch: string, payload: unknown): void =>
+    const publishFn = (ch: string, payload?: object): void =>
       this.publish(ch, payload);
     const dispose = factory(channel, publishFn);
     if (dispose !== null) return dispose;
@@ -603,8 +606,14 @@ export class RealtimeHub {
    *
    * Anti-boucle : un message **reçu** du backplane ne repasse PAS par ici (il appelle
    * `publishLocal` directement) → aucune ré-émission cross-process, pas de tempête.
+   *
+   * @param payload - objet, tableau ou octets ; omise = signal sans charge.
+   * @throws TypeError si la charge est un scalaire ou `null` ({@link isRealtimePayload},
+   *   ADR-0021 S1) — un scalaire se publie dans un objet (`{ value }`).
    */
-  publish(channel: string, payload: unknown): void {
+  publish(channel: string, payload?: object): void {
+    if (!isRealtimePayload(payload))
+      throw realtimePayloadError(channel, payload);
     const st = this.#channels?.get(channel);
     if (st !== undefined) this.#fanout(st, payload);
     // Mono-process : aucun backplane → seul ce test est payé, la politique de forward
@@ -885,6 +894,14 @@ export class RealtimeHub {
         if (buf >= this.#slowConsumerBytes) slowConsumers += 1;
       }
     }
+    // Carte d'identité du backplane effectif. `null` (mono-process / fallback)
+    // → descripteur `local` (driver loopback), sinon celui du driver branché.
+    const backplane: IBackplaneInfo = this.#backplane?.describe() ?? {
+      driver: LoopbackBackplane.driver,
+      kind: "local",
+      originId: String(process.pid),
+      crossPod: false,
+    };
     return {
       ts: Date.now(),
       channels,
@@ -894,6 +911,9 @@ export class RealtimeHub {
       inboundTotal: this.#inboundTotal,
       ingressRejectedTotal: this.#ingressRejectedTotal,
       systemFloorDeniedTotal: this.#systemFloorDeniedTotal,
+      // Compté par le driver (seul à ouvrir l'enveloppe), relayé ici à côté des
+      // autres refus de la sonde : 0 sans bus scellé.
+      sealRejectedTotal: backplane.sealRejectedTotal ?? 0,
       connectionCount,
       bytesSentTotal,
       messagesSentTotal,
@@ -903,14 +923,7 @@ export class RealtimeHub {
         slowConsumers,
         drops,
       },
-      // Carte d'identité du backplane effectif. `null` (mono-process / fallback)
-      // → descripteur `local` (driver loopback), sinon celui du driver branché.
-      backplane: this.#backplane?.describe() ?? {
-        driver: LoopbackBackplane.driver,
-        kind: "local",
-        originId: String(process.pid),
-        crossPod: false,
-      },
+      backplane,
     };
   }
 

@@ -88,8 +88,8 @@ export function sealBackplaneEnvelope(
   const originIdJson = JSON.stringify(msg.originId);
   // `undefined` n'est pas du JSON : une charge absente est SIGNÉE comme `null`.
   // `JSON.stringify` rend `undefined` pour une charge `undefined` — le type
-  // standard ne le dit pas. Attention : l'enveloppe NUE (sans secret) omet la
-  // clé, et le récepteur relit `undefined` ; scellée, il relit `null`.
+  // standard ne le dit pas. L'enveloppe NUE (sans secret) omet la clé ; le
+  // récepteur rend `undefined` dans les deux cas (`openBackplaneEnvelope`).
   const payloadText = JSON.stringify(msg.payload) as string | undefined;
   const payloadJson = payloadText ?? "null";
   const sig = seal(originIdJson, channelJson, payloadJson, secret);
@@ -129,7 +129,10 @@ export function openBackplaneEnvelope(
   if (!isEnvelope(parsed)) return null;
   const msg: IBackplaneMessage = {
     channel: parsed.channel,
-    payload: parsed.payload,
+    // `null` n'est plus une charge admise (ADR-0021 S1) : c'est le texte signé d'une
+    // charge ABSENTE, rendue `undefined` comme sur les autres bus. Le sceau ci-dessous
+    // se recalcule à l'identique (`undefined` se signe `null`).
+    payload: parsed.payload === null ? undefined : parsed.payload,
     originId: parsed.originId,
   };
   if (!secret) return msg;
