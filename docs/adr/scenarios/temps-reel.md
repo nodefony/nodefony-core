@@ -161,6 +161,19 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : S8
 - **A fait changer** : aucune
 
+### S-rt-63 — Un `allow` qui lit le contexte de requête
+
+- **Situation** : l'application écrit `allow = (c) => c === \`user:${RequestContext.getAuthenticatedUser()?.id}\``.
+Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la connexion
+(`src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts`,
+`AsyncResource.bind`) : tous ses tests passent. À l'émission d'un webhook, il n'y a ni requête
+  ni contexte : 100 % de refus, muets.
+- **Catégorie** : usages hétérogènes (même règle, livraison sans requête)
+- **Tient si** : le contrat d'`allow` dit « ses arguments seuls », et un test joue le MÊME
+  `allow` sur la socket et sur le webhook en exigeant le même verdict.
+- **Décisions jugées** : S10, ADR-0022 §6, W6
+- **A fait changer** : aucune
+
 ## Charge
 
 ### S-rt-9 — 60 coups/s × 1 000 joueurs sur un canal à rôles
@@ -195,6 +208,19 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Tient si** : un seul message par pod sur le bus, la diffusion locale sans encodage répété par
   abonné, et les spectateurs lents jetés et comptés (`droppedTotal`) sans gêner les joueurs.
 - **Décisions jugées** : S6, S9-noms, ADR-0022 §5
+- **A fait changer** : aucune
+
+### S-rt-59 — 2 000 abonnés `commande:*`, 200 commandes par seconde
+
+- **Situation** : 2 000 clients abonnés par API (W6) à `commande:*`, chacun ne voyant que les
+  siennes par `allow` ; 200 commandes/s. Le dispatcher boucle sur tous les abonnements dont le
+  motif correspond
+  (`src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts#WebhookDispatcher.onAuditEvent`) :
+  400 000 `allow`/s s'il est évalué à chaque émission, chacun relisant l'identité par `id`.
+- **Catégorie** : charge (régime établi, pas la rafale)
+- **Tient si** : le coût d'`allow` hors `subscribe` est borné par construction (verdict
+  retenu, clé et durée nommées) ou mesuré et documenté avec sa parade.
+- **Décisions jugées** : S10, W6
 - **A fait changer** : aucune
 
 ## Panne et réseau
@@ -267,6 +293,19 @@ dès 10.0) — celles que ce catalogue juge en premier :
 - **Décisions jugées** : S6, S9-noms, W1
 - **A fait changer** : S6 (2026-10-29 — sceau refusé compté)
 
+### S-rt-60 — Une base indisponible 30 s pendant l'émission
+
+- **Situation** : la base tombe 30 s ; ou le compte de 42 est verrouillé 15 min par l'anti-bourrage,
+  puis déverrouillé. S10 point 5 : une exception, un rejet, un délai dépassé valent refus. Si un
+  refus à l'émission suspend l'abonnement, TOUS les abonnements sont suspendus par la panne ; et
+  rien ne lève une suspension, la cascade de révocation n'ayant pas d'événement inverse
+  (`src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts#registerUserRevocationCascade`).
+- **Catégorie** : panne et réseau
+- **Tient si** : à l'émission, « verdict `false` » et « indécidable » sont deux issues
+  distinctes ; seule la première touche l'état de l'abonnement, la seconde se compte et suit S5.
+- **Décisions jugées** : S10, S5, S9
+- **A fait changer** : aucune
+
 ## Plusieurs instances
 
 ### S-rt-15 — Deux serveurs reliés par Redis, un modérateur éjecte sur l'autre
@@ -294,6 +333,32 @@ dès 10.0) — celles que ce catalogue juge en premier :
   sur l'IPC, authentifié par construction — et une charge traverse à l'identique les deux bus
   (`undefined`, `Date`, nombres).
 - **Décisions jugées** : S6
+- **A fait changer** : aucune
+
+### S-rt-61 — Un rôle retiré sur le pod A, la socket ouverte sur le pod B
+
+- **Situation** : un administrateur retire `ROLE_MODERATOR` à 42 depuis A ; 42 a une session de
+  7 jours et une socket sur B. L'événement « identité changée » est local au noyau qui l'émet
+  (`src/packages/@nodefony/user/nodefony/service/UserService.ts#UserService`, écouté par
+  `kernel.on`) et ne traverse pas le bus ; le tick de révocation
+  (`src/nodefony/src/runtime/RevocationWatch.ts#RevocationWatch`) ne relit que la validité de
+  la session. Sur B, la fermeture 4005 n'arrive jamais : la socket garde ses rôles.
+- **Catégorie** : plusieurs instances
+- **Tient si** : le changement d'identité traverse le bus comme l'éjection (ADR-0022 §6), ou la
+  décision écrit qu'il est local et ce qui le rattrape — prouvé à deux pods.
+- **Décisions jugées** : ADR-0022 §6 (décision 1 bis, « identité fixe »), S10
+- **A fait changer** : aucune
+
+### S-rt-62 — Un compte supprimé sur A, un webhook émis par B trois secondes plus tard
+
+- **Situation** : la cascade de révocation tourne sur A ; B garde sa copie des abonnements,
+  relue au plus toutes les `webhooks.snapshotTtlS` (30 s par défaut,
+  `src/packages/@nodefony/security/nodefony/service/webhooks.ts#WebhookService`). B livre donc
+  encore jusqu'à 30 s après la suppression — plus si un verdict retenu survit à sa propre durée.
+- **Catégorie** : plusieurs instances
+- **Tient si** : la décision nomme la fenêtre (copie des abonnements + verdict retenu),
+  l'écrit dans la page des webhooks, et un test à deux pods la borne.
+- **Décisions jugées** : W7, S10
 - **A fait changer** : aucune
 
 ## Versions qui cohabitent
