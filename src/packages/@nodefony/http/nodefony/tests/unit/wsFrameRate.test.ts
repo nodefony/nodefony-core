@@ -35,13 +35,17 @@ describe("admitFrame — compter les trames dans la fenêtre", () => {
   });
 });
 
-type Loose = Record<string, unknown>;
-
-/** Contexte WS minimal : seules les pièces que `handleMessage` touche. */
-function makeWs(options: Loose): WebsocketContext & Loose {
-  return Object.assign(Object.create(WebsocketContext.prototype) as object, {
+/** Contexte WS minimal : seules les pièces que `handleMessage` touche, espions à part. */
+function makeWs(options: Record<string, number>) {
+  const spies = {
+    decode: vi.fn(),
+    route: vi.fn(() => undefined),
+    close: vi.fn(),
+  };
+  const context: WebsocketContext = Object.create(WebsocketContext.prototype);
+  Object.assign(context, {
     server: { options },
-    connection: { close: vi.fn() },
+    connection: { close: spies.close },
     frameRate: null,
     rejected: false,
     response: null,
@@ -49,47 +53,44 @@ function makeWs(options: Loose): WebsocketContext & Loose {
       resolve: true,
       route: {},
       match: () => undefined,
-      callController: vi.fn(() => undefined),
+      callController: spies.route,
     },
     fireAsync: vi.fn(() => Promise.resolve([])),
     setMetaData: vi.fn(),
-    logMessageContent: vi.fn(),
+    logMessageContent: spies.decode,
     reject: vi.fn(),
-  }) as WebsocketContext & Loose;
+  });
+  return { context, spies };
 }
-
-type Spy = ReturnType<typeof vi.fn>;
-const decoded = (c: Loose): number =>
-  (c.logMessageContent as Spy).mock.calls.length;
-const closeOf = (c: Loose): Spy => (c.connection as { close: Spy }).close;
 
 describe("WebsocketContext.handleMessage — borne de débit entrante", () => {
   it("borne 0 (défaut) : aucune fenêtre créée, toutes les trames décodées", async () => {
-    const c = makeWs({});
-    for (let i = 0; i < 50; i++) await c.handleMessage("x", false);
-    expect(c.frameRate).to.equal(null);
-    expect(decoded(c)).to.equal(50);
+    const { context, spies } = makeWs({});
+    for (let i = 0; i < 50; i++) await context.handleMessage("x", false);
+    expect(context.frameRate).to.equal(null);
+    expect(spies.decode).toHaveBeenCalledTimes(50);
   });
 
   it("rafale sous le solde : trames écartées SANS décodage, connexion vivante", async () => {
-    const c = makeWs({
+    const { context, spies } = makeWs({
       maxFramesPerSecond: 5,
       frameRateCloseAfterRejects: 100,
     });
     const before = frameRateRejectedTotal();
-    for (let i = 0; i < 20; i++) await c.handleMessage("x", false);
+    for (let i = 0; i < 20; i++) await context.handleMessage("x", false);
     // Seules les 5 premières atteignent le décodage, le routage, le codec.
-    expect(decoded(c)).to.equal(5);
-    expect(
-      ((c.resolver as Loose).callController as Spy).mock.calls.length,
-    ).to.equal(5);
+    expect(spies.decode).toHaveBeenCalledTimes(5);
+    expect(spies.route).toHaveBeenCalledTimes(5);
     expect(frameRateRejectedTotal() - before).to.equal(15);
-    expect(closeOf(c)).not.toHaveBeenCalled();
+    expect(spies.close).not.toHaveBeenCalled();
   });
 
   it("flux soutenu : le solde atteint ferme en 1008", async () => {
-    const c = makeWs({ maxFramesPerSecond: 5, frameRateCloseAfterRejects: 10 });
-    for (let i = 0; i < 15; i++) await c.handleMessage("x", false);
-    expect(closeOf(c)).toHaveBeenCalledWith(1008, "frame rate");
+    const { context, spies } = makeWs({
+      maxFramesPerSecond: 5,
+      frameRateCloseAfterRejects: 10,
+    });
+    for (let i = 0; i < 15; i++) await context.handleMessage("x", false);
+    expect(spies.close).toHaveBeenCalledWith(1008, "frame rate");
   });
 });
