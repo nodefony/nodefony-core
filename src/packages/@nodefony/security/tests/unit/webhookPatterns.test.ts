@@ -1,20 +1,17 @@
 import assert from "node:assert/strict";
-import { vi } from "vitest";
 import { Container } from "nodefony";
 import type { Module } from "nodefony";
-import * as core from "nodefony";
 import { WebhookService } from "../../nodefony/service/webhooks";
-import { matchesSubscription } from "../../nodefony/src/webhook/WebhookDispatcher";
+import {
+  compiledPatterns,
+  matchesSubscription,
+} from "../../nodefony/src/webhook/WebhookDispatcher";
 
 /**
  * Motifs d'abonnement webhook — grammaire commune aux canaux (ADR-0023 W2) :
  * compilés UNE fois par liste, jamais par événement, et refusés à l'enregistrement
  * au-delà de trois `*`.
  */
-vi.mock("nodefony", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("nodefony")>();
-  return { ...mod, compileChannelPattern: vi.fn(mod.compileChannelPattern) };
-});
 
 function buildService(): WebhookService {
   const container = new Container();
@@ -40,13 +37,18 @@ function buildService(): WebhookService {
 }
 
 describe("webhooks — motifs d'abonnement", () => {
+  // Prouvé par l'IDENTITÉ de la liste compilée, pas par un espion de module :
+  // sous `isolate: false`, un `vi.mock("nodefony")` n'atteint pas un module déjà
+  // chargé par un autre fichier — le compte dépendait de l'ordre des fichiers.
   it("un motif n'est compilé qu'UNE fois pour 1 000 événements", () => {
-    const compile = vi.mocked(core.compileChannelPattern);
-    compile.mockClear();
     const events: readonly string[] = ["commande:*", "login.*"];
+    const first = compiledPatterns(events);
     for (let i = 0; i < 1000; i += 1)
       matchesSubscription(events, `commande:${i}`);
-    assert.equal(compile.mock.calls.length, 2); // un appel par motif, pas par événement
+    assert.equal(first.length, 2); // un motif, une expression
+    assert.equal(compiledPatterns(events), first); // jamais recompilée par événement
+    // Un abonnement modifié porte un tableau neuf : il se recompile.
+    assert.notEqual(compiledPatterns([...events]), first);
   });
 
   it("refuse à l'enregistrement un motif à 4 étoiles, en le nommant, sans rien enregistrer", async () => {

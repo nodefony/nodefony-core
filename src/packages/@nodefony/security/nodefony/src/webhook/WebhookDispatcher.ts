@@ -42,7 +42,19 @@ const compiledSubscriptions = new WeakMap<
   readonly RegExp[]
 >();
 
-function compiledPatterns(patterns: readonly string[]): readonly RegExp[] {
+/**
+ * Rend les motifs compilés d'une liste d'abonnement, compilés à sa première lecture puis relus du cache.
+ *
+ * Deux appels sur le MÊME tableau rendent la même liste : c'est ce qui garantit
+ * qu'un abonnement n'est jamais recompilé par événement. Un motif trop large
+ * (refusé par `compileChannelPattern`) n'y figure pas.
+ *
+ * @param patterns - les motifs de l'abonnement (`IWebhookEndpoint.events`).
+ * @returns les expressions compilées, une par motif valide.
+ */
+export function compiledPatterns(
+  patterns: readonly string[],
+): readonly RegExp[] {
   let compiled = compiledSubscriptions.get(patterns);
   if (compiled === undefined) {
     const list: RegExp[] = [];
