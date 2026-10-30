@@ -438,11 +438,67 @@ re-paramètre pas.
   (canaux serveur seuls — `clientToServer` peut rester vide).
 - **Rupture si différé après 10.0 : NON**, parce que tout est générique en fin avec défaut, ou
   fabrique opt-in. (ii) était la rupture, et elle est faite.
-- **Reste au code (#628), sans décision à reprendre** : les noms des deux portes ; la preuve des
-  canaux à motif comme clés ; la signature vérifiée par `@chat.RealtimeAction`, que le mode des
-  décorateurs publiés (`MethodDecorator`, `experimentalDecorators`) permet par un
-  `TypedPropertyDescriptor` contraint — si un test de types la montre impossible, (iv) se ferme
-  par `realtimeActions()` typé, sans toucher au moule.
+- **Reste au code (#628)** : soldé par la décision suivante.
+
+**Décision (tranchée par l'agent sur délégation de l'auteur, après explication, le 2026-10-31) :
+deux portes à NOMS FIGÉS, sans fabrique.** Elle remplace l'emballage « fabrique » des décisions
+ci-dessus (`defineRealtimeContract<C>()` → `{ Controller, RealtimeAction }`) ; le fond — un
+contrat fait de types, une porte par côté, la direction CALCULÉE et jamais réécrite — ne bouge pas.
+
+```ts
+// shared/chat.ts — types seuls
+export interface ChatContract extends IRealtimeContract {
+  /* … */
+}
+// navigateur — porte du client (nodefony/client)
+const socket = NodefonySocket.fromContract<ChatContract>({ url });
+// serveur — porte du serveur (@nodefony/realtime)
+@RealtimePolicy({ "chat:send": { roles: ["ROLE_USER"] } })
+class ChatRt extends ContractRealtimeController<ChatContract> {
+  protected realtimeActions() {
+    return { "chat:send": (p: { text: string }) => ({ id: store(p.text) }) };
+  }
+}
+```
+
+- **Pourquoi des noms figés.** Un décorateur se reconnaît à son nom. `@chat.RealtimePolicy` en
+  donnait un par application (`@chat.`, `@orders.`…) : un `grep` ne le trouve plus, la doc ne
+  peut plus montrer une forme unique, et un agent ne le recopie pas.
+- **Le contrat s'écrit UNE fois côté serveur**, sur `extends`.
+  `src/packages/@nodefony/realtime/nodefony/src/server/ContractRealtimeController.ts#ContractRealtimeController`
+  porte une étiquette de TYPE (`declare readonly [contractType]?: C`, aucun octet émis) que
+  `src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#RealtimePolicy`
+  LIT sur la classe décorée : un nom hors contrat ne compile pas, et l'erreur le nomme
+  (`notInContract`). Sur un contrôleur sans contrat, le même décorateur accepte tout nom.
+- **(iv) se ferme par `realtimeActions()` abstraite et COMPLÈTE**, typée par `serverMethods`. Un
+  décorateur ne voit jamais la classe entière : c'est la seule construction qui fait d'une
+  méthode OUBLIÉE une erreur de compilation (§10, garde-fou 2). Un contrat sans `serverMethods`
+  la satisfait par `return {}`. Les entrées client (`realtimeInbound()`) restent facultatives
+  canal par canal : accepter une entrée est une permission, pas une promesse.
+- **La table sert SEULE les méthodes d'un contrat — règle de perf.** Lui ajouter
+  `@RealtimeAction` pour porter une politique fabriquait, à chaque connexion, un handler aussitôt
+  écrasé par la table (`RealtimeController.ts#RealtimeController.onHandshake` fusionne
+  `{ ...décorés, ...table }`), ajoutait un appel par requête, et court-circuitait l'injection des
+  paramètres décorés (`@Body`). La politique se pose donc sur la classe, par `@RealtimePolicy`,
+  écrite une fois à la définition de la classe : rien par connexion.
+- **Canaux à motif** prouvés comme clés (`` `user:${string}` ``), et admis comme motif de
+  politique (`user:*`).
+- **Côté client, les noms de canaux restent ouverts** (canaux dynamiques, de plateforme) :
+  `publish`/`on` acceptent tout nom, la charge d'un nom déclaré est typée. L'inversion se garde
+  sur les cartes que la porte dérive (`ContractClientEmit` ≠ `ContractClientListen`) et côté
+  serveur.
+- **SSE** : `Controller.ts#Controller.renderSse` prend la carte en générique EN FIN avec défaut
+  (`renderSse<ContractServerEmit<C>>()`) ; flux multiplexé (`send(data, { event })`) ou un flux
+  = un canal (carte d'un canal, `send(data)`). Sans paramètre, le flux reste libre (porte MCP).
+- **Limites constatées, renvoyées à la table ronde de #622** (le chat de référence, messages
+  privés compris) : pas de diffusion typée depuis le contrôleur (`getRealtimeHub().publish` reste
+  libre), `publish` d'une fabrique `@RealtimeChannel` non typé, routes du pont `api.request` hors
+  contrat. Elles se règlent ensemble, parce que le message privé pèse sur les trois.
+- **Webhook** : l'émission applicative n'existe pas encore (ADR-0023 W3, en 10.1, #70). Elle se
+  typera par la même carte `ContractServerEmit<C>` — exigence inscrite sur #70.
+- Preuves : `src/packages/@nodefony/realtime/nodefony/tests/unit/realtimeSharedContract.types.test.ts`
+  (chaque `@ts-expect-error` vu mordre), un consommateur compilé contre les tarballs, et le JS
+  bâti de `RealtimeController` identique avant/après (types effacés).
 
 ### 5. Contre-pression et bornes
 
@@ -838,13 +894,13 @@ copie, une allocation à l'abonnement, un codec remplaçant `JSON.parse` se mesu
 
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** les cinq contrôles de #627 §10, chacun vu **rouge** une fois.
 
-| #   | Contrôle                                                                                                                                                                                                                                                       | État                                                                                                                                                                         | Qui le lance                                          |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 1   | compilation **neutre** du code partagé (`lib: ["ES2022"]`, `types: []`)                                                                                                                                                                                        | **livré** (#630) : `src/nodefony/tsconfig.shared.json`, vu rouge sur `Blob` puis `Buffer`                                                                                    | `npm run typecheck` du cœur                           |
-| 2   | contrat vérifié **dans les deux sens**                                                                                                                                                                                                                         | #628 : `realtimeSharedContract.types.test.ts` étendu — action manquante, forme fausse, entrée mal lue, canal hors `Emit`, inversion — chacune un `@ts-expect-error` qui mord | `npm run typecheck` du paquet (`tsconfig.tests.json`) |
-| 3   | suite de conformité **unique** d'`IRealtimeSocket`, contre les deux implémentations                                                                                                                                                                            | #629, sur le banc en boucle `src/packages/@nodefony/realtime/nodefony/tests/integration/realtimeLoopback.e2e.test.ts`                                                        | `npm test` des paquets                                |
-| 4   | fixtures d'octets **dorées** : accueil, requête, réponse, erreur, notification, trame à octets, par codec — **et l'enveloppe backplane**, trois champs plus sceau (`src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts#sealBackplaneEnvelope`) | #629 ; relues dans Node **et** dans un vrai navigateur (#631) ; un octet changé = rupture de fil **déclarée**, fixtures régénérées dans le même commit                       | `npm test` ; navigateur par #631                      |
-| 5   | compatibilité **entre versions** : client de la dernière version publiée ↔ serveur courant, et l'inverse                                                                                                                                                       | #629, à côté de `scripts/release/api-diff.mjs` (`npm run release:api-diff`) ; le serveur garde `v1` tant qu'il est annoncé                                                   | chaîne de release                                     |
+| #   | Contrôle                                                                                                                                                                                                                                                       | État                                                                                                                                                                                                                   | Qui le lance                                          |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | compilation **neutre** du code partagé (`lib: ["ES2022"]`, `types: []`)                                                                                                                                                                                        | **livré** (#630) : `src/nodefony/tsconfig.shared.json`, vu rouge sur `Blob` puis `Buffer`                                                                                                                              | `npm run typecheck` du cœur                           |
+| 2   | contrat vérifié **dans les deux sens**                                                                                                                                                                                                                         | **livré** (#628) : `realtimeSharedContract.types.test.ts` — action manquante, forme fausse, entrée mal lue, canal hors `Emit`, inversion, nom de politique hors contrat, SSE — chacune un `@ts-expect-error` vu mordre | `npm run typecheck` du paquet (`tsconfig.tests.json`) |
+| 3   | suite de conformité **unique** d'`IRealtimeSocket`, contre les deux implémentations                                                                                                                                                                            | #629, sur le banc en boucle `src/packages/@nodefony/realtime/nodefony/tests/integration/realtimeLoopback.e2e.test.ts`                                                                                                  | `npm test` des paquets                                |
+| 4   | fixtures d'octets **dorées** : accueil, requête, réponse, erreur, notification, trame à octets, par codec — **et l'enveloppe backplane**, trois champs plus sceau (`src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts#sealBackplaneEnvelope`) | #629 ; relues dans Node **et** dans un vrai navigateur (#631) ; un octet changé = rupture de fil **déclarée**, fixtures régénérées dans le même commit                                                                 | `npm test` ; navigateur par #631                      |
+| 5   | compatibilité **entre versions** : client de la dernière version publiée ↔ serveur courant, et l'inverse                                                                                                                                                       | #629, à côté de `scripts/release/api-diff.mjs` (`npm run release:api-diff`) ; le serveur garde `v1` tant qu'il est annoncé                                                                                             | chaîne de release                                     |
 
 Constaté et non gardé : `src/packages/@nodefony/realtime/tsconfig.json` compile le **serveur**
 avec le DOM. Proposé, à l'accord de l'auteur (c'est un tsconfig) : un second projet neutre pour

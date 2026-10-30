@@ -96,6 +96,22 @@ Les pages `publish: core|none` restent-elles hors du tarball ?
 - **Lancé par** : `npm run test:release`
 - **Utilise** : `release/doc-pages.mjs`
 
+## [`dts-deps.mjs`](dts-deps.mjs)
+
+Les types publiés d'un paquet n'importent-ils que ce que l'installeur RECEVRA ?
+
+- **Usage** : `node scripts/release/dts-deps.mjs`
+- **Appelé par** : aucun automate
+- **Testé par** : `release/dts-deps.test.mjs`
+- **Utilise** : `lib/workspaces.mjs`
+
+## [`dts-deps.test.mjs`](dts-deps.test.mjs)
+
+Les types publiés n'importent-ils que ce que l'installeur reçoit ? Branches pures d'abord (disque injecté), puis le contrôle RÉEL des `dist` du dépôt — c'est lui qui a rendu les 14 `TS7016` de `@nodefony/http` et du cœur visibles sans réseau (cf `dts-deps.mjs`).
+
+- **Lancé par** : `npm run test:release`
+- **Utilise** : `release/dts-deps.mjs`
+
 ## [`env-docs.test.mjs`](env-docs.test.mjs)
 
 Les pages qui disent à un DÉPLOYEUR quelles variables poser — la page de l'image sur Docker Hub, le guide Docker, le guide Kubernetes — confrontées aux catalogues qui font foi.

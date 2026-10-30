@@ -176,6 +176,7 @@
       "calledBy": [
         "scripts/lib/symbols-publish.mjs",
         "scripts/release/api-diff.mjs",
+        "scripts/release/dts-deps.mjs",
         "scripts/release/pack-all.mjs",
         "scripts/release/readme-gate.mjs",
         "scripts/release/release.mjs",
@@ -2148,6 +2149,34 @@
       "path": "scripts/release/doc-pages.test.mjs",
       "test": true,
       "purpose": "Les pages `publish: core|none` restent-elles hors du tarball ?",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:release"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/dts-deps.mjs",
+      "test": false,
+      "purpose": "Les types publiés d'un paquet n'importent-ils que ce que l'installeur RECEVRA ?",
+      "usage": [
+        "node scripts/release/dts-deps.mjs"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": [
+        "scripts/release/dts-deps.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/dts-deps.test.mjs",
+      "test": true,
+      "purpose": "Les types publiés n'importent-ils que ce que l'installeur reçoit ? Branches pures d'abord (disque injecté), puis le contrôle RÉEL des `dist` du dépôt — c'est lui qui a rendu les 14 `TS7016` de `@nodefony/http` et du cœur visibles sans réseau (cf `dts-deps.mjs`).",
       "usage": [],
       "options": [],
       "env": [],
@@ -12075,12 +12104,15 @@
         "server-sent events",
         "EventSource",
         "barre de progression",
-        "réponse en streaming"
+        "réponse en streaming",
+        "typer les canaux",
+        "contrat temps réel",
+        "action introuvable -32601"
       ],
-      "description": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main. Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger AVANT d'écrire du code WebSocket, un canal, ou un abonnement client. Dit aussi quand un flux SSE suffit, et sa façade. Déclencheurs : \"flux temps réel\", \"websocket\", \"canal\", \"push\", \"notifications en direct\", \"abonnement\", \"RealtimeController\", \"@RealtimeChannel\", \"socket client\", \"temps réel privé\", \"réserver un canal à un rôle\", \"mon canal est public\", \"diffuser à plusieurs onglets\", \"SSE\", \"server-sent events\", \"EventSource\", \"barre de progression\", \"réponse en streaming\".",
+      "description": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main. Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger AVANT d'écrire du code WebSocket, un canal, ou un abonnement client. Dit aussi quand un flux SSE suffit, et sa façade, et comment typer les deux bouts par un contrat déclaré une fois. Déclencheurs : \"flux temps réel\", \"websocket\", \"canal\", \"push\", \"notifications en direct\", \"abonnement\", \"RealtimeController\", \"@RealtimeChannel\", \"socket client\", \"temps réel privé\", \"réserver un canal à un rôle\", \"mon canal est public\", \"diffuser à plusieurs onglets\", \"SSE\", \"server-sent events\", \"EventSource\", \"barre de progression\", \"réponse en streaming\", \"typer les canaux\", \"contrat temps réel\", \"action introuvable -32601\".",
       "cost": {
-        "bodyLines": 148,
-        "approxTokens": 1795
+        "bodyLines": 195,
+        "approxTokens": 2333
       },
       "requires": [],
       "resources": {
@@ -12107,7 +12139,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "844",
+            "detail": "980",
             "advisory": false
           },
           {
@@ -12149,7 +12181,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "148",
+            "detail": "195",
             "advisory": true
           }
         ]

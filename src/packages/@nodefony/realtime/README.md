@@ -95,6 +95,39 @@ Les trois décorateurs prennent `(nom, policy?)` — la politique déclare qui a
 
 Recette complète (salon, présence, historique, upload) : [`docs/cookbook-chat.md`](./docs/cookbook-chat.md).
 
+### Typer les deux bouts — un contrat
+
+Un **contrat** déclare UNE fois ce qui circule, dans un fichier de types seuls partagé par le
+navigateur et le serveur ; le compilateur vérifie alors les deux bouts — une action oubliée, une
+charge de forme fausse ou un nom de politique mal orthographié ne compilent plus.
+
+```typescript
+// shared/chat.ts
+import type { IRealtimeContract } from "nodefony/client";
+export interface ChatContract extends IRealtimeContract {
+  serverToClient: { "chat:room": { from: string; text: string } };
+  serverMethods: { "chat:send": { in: { text: string }; out: { id: string } } };
+}
+
+// navigateur
+const socket = NodefonySocket.fromContract<ChatContract>({
+  url: "/chat/realtime",
+});
+
+// serveur
+@RealtimePolicy({ "chat:send": { roles: ["ROLE_USER"] } })
+class ChatRt extends ContractRealtimeController<ChatContract> {
+  protected realtimeActions() {
+    return {
+      "chat:send": (p: { text: string }) => ({ id: String(p.text.length) }),
+    };
+  }
+}
+```
+
+Ce que chaque bout reçoit (`Jsonify`), ce que le compilateur refuse, et le flux SSE typé par la
+même carte : [`docs/actions.md`](./docs/actions.md#-un-contrat-pour-les-deux-bouts).
+
 ## Backplane
 
 Le backplane est le fond de panier qui relie les pods entre eux. Trois drivers sont livrés avec le
@@ -129,6 +162,8 @@ Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 | `LoopbackBackplane` / `ClusterBackplane` / `RedisBackplane` | classes | Les 3 drivers natifs |
 | `registerBackplaneDriver` / `getBackplaneDriver` / `listBackplaneDrivers` | functions | Registre ouvert de drivers |
 | `IBackplane` | interface | Contrat d'un fond de panier |
+| `ContractRealtimeController<C>` | classe | Base d'un contrôleur qui implémente un contrat (`realtimeActions()` complète) |
+| `RealtimePolicy` | décorateur | Politiques d'accès par nom, posées sur la classe ; noms vérifiés contre le contrat |
 | `IRealtimeAuthenticator` / `IRealtimeToken` / `IRealtimeHandshake` | interfaces | Seams sécurité du handshake |
 | `ANONYMOUS_REALTIME_TOKEN` | const | Jeton anonyme gelé — fallback Zero Trust |
 

@@ -6,11 +6,13 @@ description: >
   Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui
   du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger
   AVANT d'écrire du code WebSocket, un canal, ou un abonnement client.
-  Dit aussi quand un flux SSE suffit, et sa façade.
+  Dit aussi quand un flux SSE suffit, et sa façade, et comment typer les deux bouts par un
+  contrat déclaré une fois.
   Déclencheurs : "flux temps réel", "websocket", "canal", "push", "notifications en direct",
   "abonnement", "RealtimeController", "@RealtimeChannel", "socket client", "temps réel privé",
   "réserver un canal à un rôle", "mon canal est public", "diffuser à plusieurs onglets",
-  "SSE", "server-sent events", "EventSource", "barre de progression", "réponse en streaming".
+  "SSE", "server-sent events", "EventSource", "barre de progression", "réponse en streaming",
+  "typer les canaux", "contrat temps réel", "action introuvable -32601".
 ---
 
 # add-realtime-channel — le temps réel par sa couche
@@ -134,6 +136,53 @@ l'application. Une application générée monte `/api/live/realtime`.
 En React, les hooks du paquet client font la même chose avec le cycle de vie du composant.
 **Importe depuis `nodefony/client`**, jamais depuis la racine `nodefony` : côté navigateur, elle
 n'expose pas ces symboles et le compilateur refuse.
+
+## Typer les deux bouts — un contrat, déclaré UNE fois
+
+Dès que le navigateur et le serveur échangent plus qu'un canal, déclare un **contrat** : sans lui,
+chaque côté type ce qu'il envoie, jamais ce que l'autre implémente — une action oubliée ou de
+forme fausse compile, puis rend `-32601` en production.
+
+```ts
+// shared/ops.ts — types SEULS : 0 octet compilé, le navigateur n'importe aucun code serveur
+import type { IRealtimeContract } from "nodefony/client";
+
+export interface OpsContract extends IRealtimeContract {
+  serverToClient: { "ops:alerts": { level: string; at: Date } }; // poussé par le serveur
+  clientToServer: { "ops:ack": { id: string } }; // envoyé par le client
+  serverMethods: {
+    "ops:mute": { in: { id: string }; out: { muted: boolean } };
+  };
+}
+```
+
+```ts
+// navigateur — la porte du client
+const ops = NodefonySocket.fromContract<OpsContract>({
+  url: "/api/live/realtime",
+});
+ops.on("ops:alerts", (a) => a.at); // `string` : ce que JSON fait d'une Date
+```
+
+```ts
+// serveur — la porte du serveur ; le contrat s'écrit UNE fois, sur `extends`
+@RealtimePolicy({ "ops:mute": { roles: ["ROLE_OPS"] } })
+class OpsRealtime extends ContractRealtimeController<OpsContract> {
+  protected realtimeActions() {
+    // TOUTES les méthodes du contrat : une oubliée ne compile pas
+    return { "ops:mute": (p: { id: string }) => ({ muted: p.id.length > 0 }) };
+  }
+}
+```
+
+- **La table de `realtimeActions()` sert SEULE les méthodes** : n'ajoute pas `@RealtimeAction` à
+  une méthode qu'elle sert déjà (un handler fabriqué puis écrasé à chaque connexion, et
+  `@Body` ignoré). La politique se pose sur la classe, par `@RealtimePolicy` ; un nom hors
+  contrat y est refusé à la compilation.
+- **Un contrat sans `serverMethods`** (tableau de bord) : `realtimeActions() { return {}; }`.
+- **Le flux SSE lit la même carte** : `this.renderSse<ContractServerEmit<OpsContract>>()`.
+- **Le type n'est pas une validation** : les entrées restent non fiables, la politique de canal
+  reste la seule garde.
 
 ## Ne pas ouvrir plus que le canal demandé
 

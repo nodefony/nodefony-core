@@ -453,6 +453,8 @@ plateforme :
   `Nodefony.getKernel()?.syslog` : même objet dans une application, mais un contrôleur monté sans
   kernel doit rester observable — sans quoi aucun banc bout-en-bout n'est possible.
 
+**Contrôleur de CONTRAT (ADR-0022 §4, noms figés)** — `extends ContractRealtimeController<C>` (contrat `IRealtimeContract` au cœur, déclaré une fois, types seuls) : `realtimeActions()` ABSTRAITE et COMPLÈTE (une méthode de `serverMethods` oubliée ne compile pas), `realtimeInbound()` typée par `clientToServer` (facultative canal par canal), `realtimeChannels()` contrainte à `serverToClient`, `notifyClient`/`requestClient` typés. Politiques → `@RealtimePolicy({ nom: policy })` sur la CLASSE (lit le contrat par l'étiquette de type `declare [contractType]?: C` ; nom hors contrat → `notInContract`). 🔴 Perf : la table sert SEULE les méthodes — jamais `@RealtimeAction` en plus (handler fabriqué puis écrasé à chaque connexion, `@Body` contourné). SSE : `renderSse<ContractServerEmit<C>>()`. Ce que chaque pair REÇOIT = `Jsonify<T>`. Limites connues (table ronde #622) : pas de diffusion typée (`getRealtimeHub().publish` non typé), `publish` des fabriques `@RealtimeChannel` non typé, routes du pont `api.request` hors contrat. Preuve : `realtime/…/tests/unit/realtimeSharedContract.types.test.ts`. Doc : `realtime/docs/actions.md` § « Un contrat pour les deux bouts ».
+
 <a id="24-serverrealtimesocket"></a>
 
 ### 2.4 `ServerRealtimeSocket` — handle serveur

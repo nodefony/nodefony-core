@@ -82,6 +82,17 @@ client.disconnect();          // logout : ferme (1000), annule les requêtes en 
 
 ---
 
+### Socket typée par le CONTRAT de l'application — `NodefonySocket.fromContract<C>()`
+
+L'application déclare UN contrat (`IRealtimeContract`, importé de `nodefony/client`, fichier de types seuls partagé avec le serveur). La porte dérive les trois génériques dans la direction du client : émet `clientToServer`, reçoit `serverToClient` lu par `Jsonify` (une `Date` arrive en `string`), appelle `serverMethods`, implémente `clientMethods` (`register`). Rien de plus qu'un `new` typé (0 allocation en plus, 0 octet de contrat au paquet). Les noms de canaux restent OUVERTS côté client (`publish`/`on` acceptent tout nom, typent la charge d'un nom déclaré). Pendant serveur : `ContractRealtimeController<C>` (skill `nodefony-framework-dev`, `references/realtime.md`).
+
+```ts
+const socket = NodefonySocket.fromContract<ChatContract>({
+  url: "/chat/realtime",
+});
+socket.on("chat:room", (m) => m.text);
+```
+
 ## 3. État de connexion & reconnexion
 
 ```ts

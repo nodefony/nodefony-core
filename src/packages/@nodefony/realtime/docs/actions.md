@@ -274,10 +274,11 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 
 ### Deux voies, un même registre
 
-| Voie                                                                             | Quand la choisir                                            |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `@RealtimeAction("nom")` (`realtimeDecorators.ts#RealtimeAction`)                | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts#RealtimeController.realtimeActions`) | la table est **calculée** (noms dynamiques, boucle, config) |
+| Voie                                                                             | Quand la choisir                                                                                                       |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `@RealtimeAction("nom")` (`realtimeDecorators.ts#RealtimeAction`)                | le cas courant — un nom fixe, une méthode, déclaratif                                                                  |
+| `realtimeActions()` (`RealtimeController.ts#RealtimeController.realtimeActions`) | la table est **calculée** (noms dynamiques, boucle, config)                                                            |
+| `realtimeActions()` **complète** d'un `ContractRealtimeController<C>`            | le contrôleur implémente un **contrat** : une méthode oubliée ne compile pas (voir « Un contrat pour les deux bouts ») |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
@@ -303,6 +304,294 @@ Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts#Js
 > JSON-RPC et son `data` traverse le fil. Toute autre exception donne un `-32603` opaque. Ne pas
 > chercher d'erreur maison dans `@nodefony/realtime` : il n'y en a pas, et
 > `tests/unit/errorSurface.test.ts` refuse d'en exporter une que personne ne lève.
+
+## 🤝 Un contrat pour les deux bouts
+
+Sans contrat, chaque côté type ce qu'il **envoie**, jamais ce que l'autre **reçoit** ou
+**implémente**. Le navigateur appelle `request("orders:quote", …)` ; le serveur peut n'avoir
+aucune action de ce nom, ou lui donner une autre forme — tout compile, et l'erreur sort en
+production (`-32601`, ou une réponse de forme fausse). Un **contrat** se déclare UNE fois, et le
+compilateur vérifie les deux bouts.
+
+### Le contrat, les deux portes, le flux SSE
+
+Le contrat est une interface de **types seuls** : son fichier, partagé par les deux côtés,
+compile en zéro octet, et le navigateur qui l'importe ne tire aucun code serveur. Chaque côté
+entre ensuite par **sa** porte, et la direction (ce que j'envoie, ce que je reçois) est
+**calculée** — jamais réécrite à la main.
+
+```ts
+// ── shared/orders.ts — le contrat, déclaré UNE fois (types seuls) ──────────
+import type { IRealtimeContract } from "nodefony/client";
+
+export interface OrdersContract extends IRealtimeContract {
+  // ce que le serveur pousse (socket, flux SSE, webhook)
+  serverToClient: {
+    "orders:status": { orderId: string; at: Date };
+    [channel: `orders:user:${string}`]: { unread: number };
+  };
+  // ce que le client envoie sur un canal
+  clientToServer: { "orders:typing": { on: boolean } };
+  // les méthodes du serveur : le client appelle, le serveur répond
+  serverMethods: {
+    "orders:quote": { in: { orderId: string }; out: { total: number } };
+  };
+  // les méthodes du client : le serveur appelle, le client répond
+  clientMethods: {
+    "ui:confirm": { in: { text: string }; out: { ok: boolean } };
+  };
+}
+
+// ── frontend/src/orders.ts — la porte du CLIENT ─────────────────────────────
+import { NodefonySocket } from "nodefony/client";
+
+const socket = NodefonySocket.fromContract<OrdersContract>({
+  url: "/orders/realtime",
+});
+socket.on("orders:status", (m) => console.log(m.orderId, m.at)); // m.at : string (JSON)
+const quote = await socket.request("orders:quote", { orderId: "A-1" }); // { total: number }
+socket.register("ui:confirm", (p) => ({ ok: p.text.length > 0 }));
+void quote;
+
+// ── nodefony/controllers/OrdersRealtime.ts — la porte du SERVEUR ────────────
+import type { ContextType } from "@nodefony/http";
+import type { ContractServerEmit } from "nodefony";
+import { ContractRealtimeController, RealtimePolicy } from "@nodefony/realtime";
+
+@RealtimePolicy({ "orders:quote": { roles: ["ROLE_USER"] } })
+export class OrdersRealtime extends ContractRealtimeController<OrdersContract> {
+  constructor(context: ContextType) {
+    super("orders", context);
+  }
+
+  // TOUTES les méthodes du contrat, et cette table SEULE les sert.
+  protected realtimeActions() {
+    return {
+      "orders:quote": (p: { orderId: string }) => ({
+        total: p.orderId.length * 100,
+      }),
+    };
+  }
+
+  // Facultatif, canal par canal : accepter une entrée est une permission.
+  protected override realtimeInbound() {
+    return {
+      "orders:typing": (p: { on: boolean }) => {
+        void p.on; // NON FIABLE : le type n'est pas une validation
+      },
+    };
+  }
+
+  // Le flux SSE lit la MÊME carte que la socket.
+  async statusStream(): Promise<void> {
+    const sse = await this.renderSse<ContractServerEmit<OrdersContract>>();
+    await sse.send(
+      { orderId: "A-1", at: new Date() },
+      { event: "orders:status" },
+    );
+    sse.close();
+  }
+}
+```
+
+| Porte                                             | Ce qu'elle dérive du contrat                                                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `NodefonySocket.fromContract<C>()` (client)       | émet `clientToServer` · reçoit `serverToClient` · appelle `serverMethods` · implémente `clientMethods`                   |
+| `extends ContractRealtimeController<C>` (serveur) | émet `serverToClient` · reçoit `clientToServer` · implémente `serverMethods` · appelle `clientMethods` (`requestClient`) |
+| `renderSse<ContractServerEmit<C>>()` (serveur)    | `event:` = un canal de `serverToClient`, la charge est celle du canal                                                    |
+| `@RealtimePolicy({ … })` (serveur)                | chaque nom doit être une méthode ou un canal du contrat                                                                  |
+
+Les quatre clés sont **facultatives** : un tableau de bord ne déclare que `serverToClient`, et son
+contrôleur écrit `realtimeActions() { return {}; }`. Une direction non déclarée reste libre.
+
+### Deux cas réels — l'atelier et la partie
+
+**L'atelier : une mesure typée une fois, trois lecteurs.** Chaque machine pousse sa télémétrie
+sur son propre canal (`machine:<id>`). Le tableau de bord la lit par la socket, l'écran d'atelier
+— un simple navigateur, sans socket — par un flux SSE, et l'opérateur peut arrêter une machine.
+Un seul contrat, et la charge est la MÊME aux trois endroits.
+
+```ts
+// ── shared/plant.ts ─────────────────────────────────────────────────────────
+import type { IRealtimeContract } from "nodefony/client";
+
+export interface PlantContract extends IRealtimeContract {
+  serverToClient: {
+    [machine: `machine:${string}`]: {
+      temperature: number;
+      rpm: number;
+      at: Date;
+    };
+  };
+  serverMethods: {
+    "machine:stop": {
+      in: { machineId: string; reason: string };
+      out: { stopped: boolean };
+    };
+  };
+}
+
+// ── frontend/src/dashboard.ts — le tableau de bord ──────────────────────────
+import { NodefonySocket } from "nodefony/client";
+
+const plant = NodefonySocket.fromContract<PlantContract>({
+  url: "/plant/realtime",
+});
+plant.on("machine:press-07", (m) => {
+  if (m.temperature > 90) {
+    void plant.request("machine:stop", {
+      machineId: "press-07",
+      reason: "surchauffe",
+    });
+  }
+});
+
+// ── nodefony/controllers/PlantRealtime.ts — le serveur ──────────────────────
+import type { ContextType } from "@nodefony/http";
+import type { ContractServerEmit } from "nodefony";
+import { ContractRealtimeController, RealtimePolicy } from "@nodefony/realtime";
+
+@RealtimePolicy({
+  "machine:stop": { roles: ["ROLE_OPERATOR"] }, // arrêter une machine : un rôle
+  "machine:*": { authenticated: true }, // lire la télémétrie : être connecté
+})
+export class PlantRealtime extends ContractRealtimeController<PlantContract> {
+  constructor(context: ContextType) {
+    super("plant", context);
+  }
+
+  protected realtimeActions() {
+    return {
+      "machine:stop": (p: { machineId: string; reason: string }) => ({
+        stopped: p.machineId.length > 0 && p.reason.length > 0,
+      }),
+    };
+  }
+
+  // L'écran d'atelier : UN flux = UN canal, sans champ `event:`.
+  async machineStream(machineId: string): Promise<void> {
+    const sse =
+      await this.renderSse<
+        Pick<ContractServerEmit<PlantContract>, `machine:${string}`>
+      >();
+    await sse.send({ temperature: 71, rpm: 1450, at: new Date() });
+    void machineId;
+    sse.close();
+  }
+}
+```
+
+**La partie : les entrées du joueur, typées jusque dans le serveur.** Le client envoie ses
+déplacements soixante fois par seconde ; le serveur les reçoit typés, sans jamais les croire, et
+pousse l'état de la partie. Aucune méthode n'est demandée au serveur : la table est vide.
+
+```ts
+// ── shared/arena.ts ─────────────────────────────────────────────────────────
+import type { IRealtimeContract } from "nodefony/client";
+
+export interface ArenaContract extends IRealtimeContract {
+  clientToServer: { "arena:input": { dx: number; dy: number; seq: number } };
+  serverToClient: {
+    "arena:state": {
+      tick: number;
+      players: Array<{ id: string; x: number; y: number }>;
+    };
+  };
+}
+
+// ── frontend/src/arena.ts — le joueur ───────────────────────────────────────
+import { NodefonySocket } from "nodefony/client";
+
+const arena = NodefonySocket.fromContract<ArenaContract>({
+  url: "/arena/realtime",
+});
+let seq = 0;
+arena.publish("arena:input", { dx: 1, dy: 0, seq: ++seq });
+arena.on("arena:state", (s) => console.log(s.tick, s.players.length));
+
+// ── nodefony/controllers/ArenaRealtime.ts — le serveur ──────────────────────
+import type { ContextType } from "@nodefony/http";
+import { ContractRealtimeController } from "@nodefony/realtime";
+
+const MAX_STEP = 1;
+
+export class ArenaRealtime extends ContractRealtimeController<ArenaContract> {
+  constructor(context: ContextType) {
+    super("arena", context);
+  }
+
+  // Aucune méthode serveur dans ce contrat : la table complète est vide.
+  protected realtimeActions() {
+    return {};
+  }
+
+  // L'entrée est TYPÉE, mais vient du réseau : bornée avant d'être appliquée.
+  protected override realtimeInbound() {
+    return {
+      "arena:input": (input: { dx: number; dy: number; seq: number }) => {
+        const dx = Math.max(-MAX_STEP, Math.min(MAX_STEP, input.dx));
+        const dy = Math.max(-MAX_STEP, Math.min(MAX_STEP, input.dy));
+        this.notifyClient("arena:state", {
+          tick: input.seq,
+          players: [{ id: "p1", x: dx, y: dy }],
+        });
+      },
+    };
+  }
+}
+```
+
+Le serveur d'une vraie partie ne pousse évidemment pas l'état à chaque entrée : il les accumule et
+diffuse l'état à cadence fixe, par un canal partagé — voir
+[`cadence-et-contre-pression.md`](./cadence-et-contre-pression.md).
+
+### Ce que chaque bout reçoit — ce que JSON en fait
+
+Ce que j'**envoie** est le type déclaré ; ce que je **reçois** est `Jsonify<T>` : ce que JSON rend
+de ce type, quel que soit le codec. Une `Date` arrive en `string`, un membre fonction ou
+`undefined` disparaît, `bigint` n'a pas de forme JSON. Seul `Uint8Array` reste `Uint8Array` — les
+octets voyagent dans une trame binaire, jamais dans le JSON.
+
+| Qui reçoit                                               | Quoi             | Type reçu    |
+| -------------------------------------------------------- | ---------------- | ------------ |
+| le client, `on(…)`                                       | `serverToClient` | `Jsonify<T>` |
+| le serveur, entrée d'un canal                            | `clientToServer` | `Jsonify<T>` |
+| qui **implémente** une méthode                           | son `in`         | `Jsonify<T>` |
+| qui **appelle** une méthode (`request`, `requestClient`) | son `out`        | `Jsonify<T>` |
+
+`serverToClient: { meeting: { start: Date } }` : sans cette règle, `m.start.getTime()` compilait
+et plantait au navigateur ; avec elle, `m.start` est une `string` et l'éditeur le souligne.
+
+### Ce que le compilateur refuse
+
+| Faute                                                                | Où elle est refusée                                                  |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| une méthode de `serverMethods` **oubliée**                           | `realtimeActions()` du contrôleur                                    |
+| un handler de **forme fausse** (paramètres ou résultat)              | `realtimeActions()` / `realtimeInbound()`                            |
+| un nom de **politique** hors contrat (`"orders:qoute"`)              | `@RealtimePolicy` — l'erreur affiche `notInContract: "orders:qoute"` |
+| un canal émis **hors** `serverToClient`                              | `notifyClient`, `realtimeChannels()`, `renderSse`                    |
+| une entrée acceptée sur un canal que le **serveur** émet (inversion) | `realtimeInbound()`                                                  |
+| une charge fausse sur un canal ou une méthode connus                 | client et serveur                                                    |
+
+> [!IMPORTANT]
+> **La table sert SEULE les méthodes d'un contrat — c'est une règle de performance.** N'ajoute pas
+> `@RealtimeAction` à une méthode déjà servie par la table : au handshake, le décorateur fabrique
+> un handler que la table écrase aussitôt, à **chaque connexion**, avec un appel de plus par
+> requête, et l'injection des paramètres décorés (`@Body`…) saute sans un mot. La politique d'une
+> méthode se pose sur la classe, par `@RealtimePolicy`, écrite une seule fois. Des handlers qui
+> n'ont pas besoin de `this` se rangent dans une table **constante** du module, rendue telle
+> quelle : aucune allocation par connexion.
+
+À savoir encore :
+
+- **Le type n'est pas une validation.** Les paramètres reçus restent NON FIABLES ; la garde de
+  canal (politique, `allow`) s'applique à toutes les livraisons.
+- **Côté client, les noms de canaux restent ouverts** (canaux dynamiques, de plateforme) :
+  `publish` et `on` acceptent tout nom, et typent la charge d'un nom déclaré.
+- **`realtimeChannels()` surchargée** : TypeScript ne donne pas son type de retour à une méthode
+  qui surcharge ; écrire `["orders:status" as const]` ou annoter le retour.
+- **Un `renderSse()` sans paramètre** reste un flux libre (la porte MCP en est un).
+- **Le webhook** lira la même carte quand l'émission applicative existera (en 10.1, #70).
 
 ## 🔐 Autorisation — qui peut appeler quoi
 
@@ -339,7 +628,24 @@ browse() { … }
 ```
 
 Ouvrir une action reste donc possible — mais c'est désormais un acte **délibéré et lisible à la
-déclaration**, au lieu d'un silence. Si une politique est déjà déclarée sous le même nom (canal
+déclaration**, au lieu d'un silence.
+
+Une action servie par la **table** de `realtimeActions()` n'a pas de décorateur où écrire sa
+politique : elle prend le même défaut fermé, et sa politique se pose **sur la classe**, par
+`@RealtimePolicy` (`realtimeDecorators.ts#RealtimePolicy`) — écrite une fois, à la définition de
+la classe, dans le même registre :
+
+```ts ignore
+@RealtimePolicy({
+  "orders:quote": { roles: ["ROLE_SALES"] },
+  "orders:user:*": { authenticated: true }, // un motif garde une famille de canaux
+})
+class OrdersRealtime extends ContractRealtimeController<OrdersContract> { … }
+```
+
+Sur un contrôleur de contrat, `@RealtimePolicy` lit le contrat sur la classe : un nom mal
+orthographié ne compile pas, au lieu de garder un canal fantôme pendant que le vrai reste au
+défaut. Si une politique est déjà déclarée sous le même nom (canal
 homonyme), elle est conservée : le défaut ne rétrograde jamais une règle plus stricte.
 
 ### Situation 2 — les namespaces réservés portent un plancher
